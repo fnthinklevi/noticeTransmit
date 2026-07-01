@@ -500,18 +500,20 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const MainPage(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-          ),
-        );
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 666), () {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => const MainPage(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+            ),
+          );
+        }
+      });
     });
   }
 
@@ -615,10 +617,7 @@ class _MainPageState extends State<MainPage> {
   static const int _maxRecords = 500;
 
   bool _batteryNotifyEnabled = true;
-  bool _batteryChargeNotify = true;
-  bool _batteryFullNotify = true;
-  bool _batteryLow30Notify = true;
-  bool _batteryLow20Notify = true;
+  List<Map<String, dynamic>> _batteryRules = [];
   int _currentBatteryLevel = -1;
   bool _currentIsCharging = false;
   Timer? _batteryRefreshTimer;
@@ -645,17 +644,14 @@ class _MainPageState extends State<MainPage> {
       ),
       BatteryPage(
         notifyEnabled: _batteryNotifyEnabled,
-        chargeNotify: _batteryChargeNotify,
-        fullNotify: _batteryFullNotify,
-        low30Notify: _batteryLow30Notify,
-        low20Notify: _batteryLow20Notify,
+        rules: _batteryRules,
         currentLevel: _currentBatteryLevel,
         isCharging: _currentIsCharging,
-        onToggleNotify: (v) => _saveBatterySetting('battery_notify_enabled', v),
-        onToggleCharge: (v) => _saveBatterySetting('battery_charge_notify', v),
-        onToggleFull: (v) => _saveBatterySetting('battery_full_notify', v),
-        onToggleLow30: (v) => _saveBatterySetting('battery_low_30_notify', v),
-        onToggleLow20: (v) => _saveBatterySetting('battery_low_20_notify', v),
+        onToggleNotify: (v) => _saveBatteryNotifyEnabled(v),
+        onAddRule: _addBatteryRule,
+        onDeleteRule: _deleteBatteryRule,
+        onUpdateRule: _updateBatteryRule,
+        onToggleRule: _toggleBatteryRule,
         onRefresh: _refreshBatteryStatus,
       ),
       MorePage(
@@ -686,10 +682,12 @@ class _MainPageState extends State<MainPage> {
     _setupMethodChannel();
     _initForegroundTask();
     _loadAllSettings();
-    _checkPermissions();
-    _getDeviceInfo();
-    _refreshBatteryStatus();
-    _startBatteryRefreshTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPermissions();
+      _getDeviceInfo();
+      _refreshBatteryStatus();
+      _startBatteryRefreshTimer();
+    });
   }
 
   @override
@@ -811,10 +809,7 @@ class _MainPageState extends State<MainPage> {
       _deviceName = deviceName;
       _serviceManuallyStopped = prefs.getBool('service_manually_stopped') ?? false;
       _batteryNotifyEnabled = prefs.getBool('battery_notify_enabled') ?? true;
-      _batteryChargeNotify = prefs.getBool('battery_charge_notify') ?? true;
-      _batteryFullNotify = prefs.getBool('battery_full_notify') ?? true;
-      _batteryLow30Notify = prefs.getBool('battery_low_30_notify') ?? true;
-      _batteryLow20Notify = prefs.getBool('battery_low_20_notify') ?? true;
+      _batteryRules = _loadBatteryRules(prefs);
     });
     final enabledUrls = _webhookChannels
         .where((c) => c['enabled'] == true)
@@ -923,36 +918,89 @@ class _MainPageState extends State<MainPage> {
     } catch (_) {}
   }
 
-  Future<void> _saveBatterySetting(String key, bool value) async {
+  List<Map<String, dynamic>> _loadBatteryRules(SharedPreferences prefs) {
+    final jsonStr = prefs.getString('battery_rules');
+    if (jsonStr != null) {
+      try {
+        final List<dynamic> list = jsonDecode(jsonStr);
+        return list.map((e) => Map<String, dynamic>.from(e)).toList();
+      } catch (_) {}
+    }
+    return _defaultBatteryRules();
+  }
+
+  List<Map<String, dynamic>> _defaultBatteryRules() {
+    return [
+      {'id': 'charging', 'type': 'charging', 'value': 0, 'enabled': true, 'title': '开始充电', 'content': ''},
+      {'id': 'full', 'type': 'level_above', 'value': 100, 'enabled': true, 'title': '电量充满', 'content': ''},
+      {'id': 'low30', 'type': 'level_below', 'value': 30, 'enabled': true, 'title': '电量低于30%', 'content': ''},
+      {'id': 'low20', 'type': 'level_below', 'value': 20, 'enabled': true, 'title': '电量低于20%', 'content': ''},
+      {'id': 'discharging', 'type': 'discharging', 'value': 0, 'enabled': false, 'title': '断开充电', 'content': ''},
+    ];
+  }
+
+  Future<void> _saveBatteryNotifyEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
+    await prefs.setBool('battery_notify_enabled', value);
     setState(() {
-      switch (key) {
-        case 'battery_notify_enabled':
-          _batteryNotifyEnabled = value;
-          break;
-        case 'battery_charge_notify':
-          _batteryChargeNotify = value;
-          break;
-        case 'battery_full_notify':
-          _batteryFullNotify = value;
-          break;
-        case 'battery_low_30_notify':
-          _batteryLow30Notify = value;
-          break;
-        case 'battery_low_20_notify':
-          _batteryLow20Notify = value;
-          break;
-      }
+      _batteryNotifyEnabled = value;
     });
     try {
       await platform.invokeMethod('setBatterySetting', {
-        'key': key,
+        'key': 'battery_notify_enabled',
         'value': value,
       });
     } catch (e) {
       debugPrint('同步电量设置失败: $e');
     }
+  }
+
+  Future<void> _syncBatteryRules() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('battery_rules', jsonEncode(_batteryRules));
+    try {
+      await platform.invokeMethod('setBatteryRules', {
+        'rules': _batteryRules,
+      });
+    } catch (e) {
+      debugPrint('同步电量规则失败: $e');
+    }
+  }
+
+  Future<void> _addBatteryRule(Map<String, dynamic> rule) async {
+    setState(() {
+      _batteryRules = [..._batteryRules, rule];
+    });
+    await _syncBatteryRules();
+  }
+
+  Future<void> _deleteBatteryRule(String id) async {
+    setState(() {
+      _batteryRules = _batteryRules.where((r) => r['id'] != id).toList();
+    });
+    await _syncBatteryRules();
+  }
+
+  Future<void> _updateBatteryRule(String id, Map<String, dynamic> newRule) async {
+    setState(() {
+      _batteryRules = _batteryRules.map((r) {
+        if (r['id'] == id) return newRule;
+        return r;
+      }).toList();
+    });
+    await _syncBatteryRules();
+  }
+
+  Future<void> _toggleBatteryRule(String id, bool enabled) async {
+    setState(() {
+      _batteryRules = _batteryRules.map((r) {
+        if (r['id'] == id) {
+          return {...r, 'enabled': enabled};
+        }
+        return r;
+      }).toList();
+    });
+    await _syncBatteryRules();
   }
 
   Future<void> _loadNotificationRecords() async {
@@ -2257,33 +2305,27 @@ class NotificationPage extends StatelessWidget {
 
 class BatteryPage extends StatefulWidget {
   final bool notifyEnabled;
-  final bool chargeNotify;
-  final bool fullNotify;
-  final bool low30Notify;
-  final bool low20Notify;
+  final List<Map<String, dynamic>> rules;
   final int currentLevel;
   final bool isCharging;
   final ValueChanged<bool> onToggleNotify;
-  final ValueChanged<bool> onToggleCharge;
-  final ValueChanged<bool> onToggleFull;
-  final ValueChanged<bool> onToggleLow30;
-  final ValueChanged<bool> onToggleLow20;
+  final void Function(Map<String, dynamic>) onAddRule;
+  final void Function(String) onDeleteRule;
+  final void Function(String, Map<String, dynamic>) onUpdateRule;
+  final void Function(String, bool) onToggleRule;
   final Future<void> Function() onRefresh;
 
   const BatteryPage({
     super.key,
     required this.notifyEnabled,
-    required this.chargeNotify,
-    required this.fullNotify,
-    required this.low30Notify,
-    required this.low20Notify,
+    required this.rules,
     required this.currentLevel,
     required this.isCharging,
     required this.onToggleNotify,
-    required this.onToggleCharge,
-    required this.onToggleFull,
-    required this.onToggleLow30,
-    required this.onToggleLow20,
+    required this.onAddRule,
+    required this.onDeleteRule,
+    required this.onUpdateRule,
+    required this.onToggleRule,
     required this.onRefresh,
   });
 
@@ -2303,6 +2345,13 @@ class _BatteryPageState extends State<BatteryPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('电量'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: '添加规则',
+            onPressed: widget.notifyEnabled ? _showAddRuleDialog : null,
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: widget.onRefresh,
@@ -2354,48 +2403,20 @@ class _BatteryPageState extends State<BatteryPage> {
               ),
             ], context),
             const SizedBox(height: 24),
-            _buildSectionHeader('通知类型', context),
-            _buildGroup([
-              _buildSwitchRow(
-                icon: Icons.battery_charging_full,
-                iconColor: const Color(0xFF34C759),
-                title: '开始充电提醒',
-                subtitle: '手机接入充电器时推送',
-                value: widget.chargeNotify,
-                onChanged: widget.notifyEnabled ? widget.onToggleCharge : null,
-                context: context,
-              ),
-              _buildDivider(context),
-              _buildSwitchRow(
-                icon: Icons.battery_full,
-                iconColor: const Color(0xFF007AFF),
-                title: '电量充满提醒',
-                subtitle: '电量充到100%时推送',
-                value: widget.fullNotify,
-                onChanged: widget.notifyEnabled ? widget.onToggleFull : null,
-                context: context,
-              ),
-              _buildDivider(context),
-              _buildSwitchRow(
-                icon: Icons.battery_3_bar,
-                iconColor: const Color(0xFFFF9500),
-                title: '电量低于30%提醒',
-                subtitle: '从30%以上跌破30%时推送',
-                value: widget.low30Notify,
-                onChanged: widget.notifyEnabled ? widget.onToggleLow30 : null,
-                context: context,
-              ),
-              _buildDivider(context),
-              _buildSwitchRow(
-                icon: Icons.battery_alert,
-                iconColor: const Color(0xFFFF3B30),
-                title: '电量低于20%提醒',
-                subtitle: '从20%以上跌破20%时推送',
-                value: widget.low20Notify,
-                onChanged: widget.notifyEnabled ? widget.onToggleLow20 : null,
-                context: context,
-              ),
-            ], context),
+            _buildSectionHeader('通知规则', context),
+            _buildGroup(
+              widget.rules.asMap().entries.map((entry) {
+                final index = entry.key;
+                final rule = entry.value;
+                return Column(
+                  children: [
+                    if (index > 0) _buildDivider(context),
+                    _buildRuleTile(rule, context),
+                  ],
+                );
+              }).toList(),
+              context,
+            ),
             const SizedBox(height: 24),
             _buildSectionHeader('说明', context),
             _buildGroup([
@@ -2409,6 +2430,8 @@ class _BatteryPageState extends State<BatteryPage> {
                     _DescRow(text: '电量回升到阈值以上才会重置提醒状态', context: context),
                     const SizedBox(height: 8),
                     _DescRow(text: '电量通知随通知监听服务一起运行', context: context),
+                    const SizedBox(height: 8),
+                    _DescRow(text: '点击规则可编辑，左滑或长按可删除', context: context),
                   ],
                 ),
               ),
@@ -2416,6 +2439,253 @@ class _BatteryPageState extends State<BatteryPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRuleTile(Map<String, dynamic> rule, BuildContext context) {
+    final type = rule['type'] as String;
+    final value = rule['value'] as int;
+    final enabled = rule['enabled'] as bool;
+    final title = rule['title'] as String;
+
+    IconData icon;
+    Color iconColor;
+    String subtitle;
+
+    switch (type) {
+      case 'charging':
+        icon = Icons.battery_charging_full;
+        iconColor = const Color(0xFF34C759);
+        subtitle = '手机接入充电器时推送';
+        break;
+      case 'discharging':
+        icon = Icons.battery_0_bar;
+        iconColor = const Color(0xFFFF9500);
+        subtitle = '手机断开充电器时推送';
+        break;
+      case 'level_above':
+        icon = Icons.battery_full;
+        iconColor = const Color(0xFF007AFF);
+        subtitle = '电量达到 $value% 时推送';
+        break;
+      case 'level_below':
+        icon = Icons.battery_alert;
+        iconColor = const Color(0xFFFF3B30);
+        subtitle = '电量低于 $value% 时推送';
+        break;
+      case 'level_equals':
+        icon = Icons.equalizer;
+        iconColor = const Color(0xFFAF52DE);
+        subtitle = '电量等于 $value% 时推送';
+        break;
+      default:
+        icon = Icons.help_outline;
+        iconColor = Colors.grey;
+        subtitle = '未知规则类型';
+    }
+
+    return InkWell(
+      onTap: widget.notifyEnabled && enabled ? () => _showEditRuleDialog(rule) : null,
+      child: _buildSwitchRow(
+        icon: icon,
+        iconColor: iconColor,
+        title: title,
+        subtitle: subtitle,
+        value: enabled,
+        onChanged: widget.notifyEnabled ? (v) => widget.onToggleRule(rule['id'] as String, v) : null,
+        context: context,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20),
+              color: AppColors.secondaryLabel(context),
+              onPressed: widget.notifyEnabled
+                  ? () => _showDeleteConfirmDialog(rule['id'] as String)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddRuleDialog() {
+    _showRuleDialog(null);
+  }
+
+  void _showEditRuleDialog(Map<String, dynamic> rule) {
+    _showRuleDialog(rule);
+  }
+
+  void _showRuleDialog(Map<String, dynamic>? existingRule) {
+    final isEdit = existingRule != null;
+    final typeController = TextEditingController(text: existingRule?['type'] ?? 'level_below');
+    final valueController = TextEditingController(text: (existingRule?['value'] ?? 20).toString());
+    final titleController = TextEditingController(text: existingRule?['title'] ?? '');
+    String selectedType = existingRule?['type'] ?? 'level_below';
+    int selectedValue = existingRule?['value'] ?? 20;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(isEdit ? '编辑规则' : '添加规则'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('规则类型', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildTypeChip('charging', '开始充电', selectedType, setDialogState, typeController),
+                        _buildTypeChip('discharging', '断开充电', selectedType, setDialogState, typeController),
+                        _buildTypeChip('level_below', '低于某值', selectedType, setDialogState, typeController),
+                        _buildTypeChip('level_above', '高于某值', selectedType, setDialogState, typeController),
+                        _buildTypeChip('level_equals', '等于某值', selectedType, setDialogState, typeController),
+                      ],
+                    ),
+                    if (['level_below', 'level_above', 'level_equals'].contains(selectedType)) ...[
+                      const SizedBox(height: 16),
+                      const Text('电量阈值（%）', style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Slider(
+                              value: selectedValue.toDouble(),
+                              min: 1,
+                              max: 100,
+                              divisions: 99,
+                              label: '$selectedValue%',
+                              onChanged: (v) {
+                                setDialogState(() {
+                                  selectedValue = v.round();
+                                  valueController.text = selectedValue.toString();
+                                });
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: 50,
+                            child: Text('$selectedValue%', textAlign: TextAlign.end),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    const Text('自定义标题（可选）', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        hintText: '留空则使用默认标题',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final id = isEdit
+                        ? existingRule['id'] as String
+                        : 'rule_${DateTime.now().millisecondsSinceEpoch}';
+                    final newRule = {
+                      'id': id,
+                      'type': selectedType,
+                      'value': selectedValue,
+                      'enabled': existingRule?['enabled'] ?? true,
+                      'title': titleController.text.trim().isNotEmpty
+                          ? titleController.text.trim()
+                          : _defaultTitleForType(selectedType, selectedValue),
+                      'content': '',
+                    };
+                    if (isEdit) {
+                      widget.onUpdateRule(id, newRule);
+                    } else {
+                      widget.onAddRule(newRule);
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: Text(isEdit ? '保存' : '添加'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTypeChip(String type, String label, String selectedType,
+      StateSetter setDialogState, TextEditingController controller) {
+    final isSelected = selectedType == type;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setDialogState(() {
+            controller.text = type;
+          });
+        }
+      },
+    );
+  }
+
+  String _defaultTitleForType(String type, int value) {
+    switch (type) {
+      case 'charging':
+        return '开始充电';
+      case 'discharging':
+        return '断开充电';
+      case 'level_above':
+        return '电量达到$value%';
+      case 'level_below':
+        return '电量低于$value%';
+      case 'level_equals':
+        return '电量等于$value%';
+      default:
+        return '电量提醒';
+    }
+  }
+
+  void _showDeleteConfirmDialog(String id) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('删除规则'),
+          content: const Text('确定要删除这条通知规则吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF3B30)),
+              onPressed: () {
+                widget.onDeleteRule(id);
+                Navigator.pop(context);
+              },
+              child: const Text('删除'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2461,6 +2731,7 @@ class _BatteryPageState extends State<BatteryPage> {
     required bool value,
     required ValueChanged<bool>? onChanged,
     required BuildContext context,
+    Widget? trailing,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -2492,6 +2763,7 @@ class _BatteryPageState extends State<BatteryPage> {
               ],
             ),
           ),
+          if (trailing != null) trailing,
           Switch(
             value: value,
             onChanged: onChanged,

@@ -96,9 +96,7 @@ class NotificationMonitorService : NotificationListenerService() {
 
     private var lastBatteryLevel = -1
     private var lastIsCharging = false
-    private var lastFullReported = false
-    private var lastLow30Reported = false
-    private var lastLow20Reported = false
+    private val triggeredLevelRules = mutableSetOf<String>()
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -874,10 +872,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     status == BatteryManager.BATTERY_STATUS_FULL
 
             val batteryNotifyEnabled = prefs.getBoolean("flutter.battery_notify_enabled", true)
-            val chargeNotify = prefs.getBoolean("flutter.battery_charge_notify", true)
-            val fullNotify = prefs.getBoolean("flutter.battery_full_notify", true)
-            val low30Notify = prefs.getBoolean("flutter.battery_low_30_notify", true)
-            val low20Notify = prefs.getBoolean("flutter.battery_low_20_notify", true)
+            val rules = loadBatteryRules()
 
             if (!batteryNotifyEnabled) {
                 lastBatteryLevel = batteryPct
@@ -888,58 +883,92 @@ class NotificationMonitorService : NotificationListenerService() {
             if (lastBatteryLevel == -1) {
                 lastBatteryLevel = batteryPct
                 lastIsCharging = isCharging
-                lastFullReported = batteryPct >= 100
-                lastLow30Reported = batteryPct < 30
-                lastLow20Reported = batteryPct < 20
+                for (rule in rules) {
+                    val id = rule.id
+                    when (rule.type) {
+                        "level_above" -> {
+                            if (batteryPct >= rule.value) triggeredLevelRules.add(id)
+                        }
+                        "level_below" -> {
+                            if (batteryPct < rule.value) triggeredLevelRules.add(id)
+                        }
+                        "level_equals" -> {
+                            if (batteryPct == rule.value) triggeredLevelRules.add(id)
+                        }
+                    }
+                }
                 return
             }
 
-            if (chargeNotify && isCharging && !lastIsCharging) {
-                sendBatteryNotification(
-                    type = "battery_charging",
-                    title = "充电中",
-                    content = "当前电量：${batteryPct}%",
-                    appName = "电池监控"
-                )
-            }
-
-            if (fullNotify && batteryPct >= 100 && isCharging && !lastFullReported) {
-                sendBatteryNotification(
-                    type = "battery_full",
-                    title = "电量已充满",
-                    content = "电量已充满，请拔掉充电器",
-                    appName = "电池监控"
-                )
-                lastFullReported = true
-            }
-            if (batteryPct < 100) {
-                lastFullReported = false
-            }
-
-            if (low30Notify && lastBatteryLevel >= 30 && batteryPct < 30 && !isCharging) {
-                sendBatteryNotification(
-                    type = "battery_low_30",
-                    title = "电量低于30%",
-                    content = "当前电量：${batteryPct}%，请及时充电",
-                    appName = "电池监控"
-                )
-                lastLow30Reported = true
-            }
-            if (batteryPct >= 35) {
-                lastLow30Reported = false
-            }
-
-            if (low20Notify && lastBatteryLevel >= 20 && batteryPct < 20 && !isCharging) {
-                sendBatteryNotification(
-                    type = "battery_low_20",
-                    title = "电量低于20%",
-                    content = "当前电量：${batteryPct}%，请尽快充电",
-                    appName = "电池监控"
-                )
-                lastLow20Reported = true
-            }
-            if (batteryPct >= 25) {
-                lastLow20Reported = false
+            for (rule in rules) {
+                if (!rule.enabled) continue
+                when (rule.type) {
+                    "charging" -> {
+                        if (isCharging && !lastIsCharging) {
+                            sendBatteryNotification(
+                                type = "battery_charging",
+                                title = rule.title.ifEmpty { "充电中" },
+                                content = "当前电量：${batteryPct}%",
+                                appName = "电池监控"
+                            )
+                        }
+                    }
+                    "discharging" -> {
+                        if (!isCharging && lastIsCharging) {
+                            sendBatteryNotification(
+                                type = "battery_discharging",
+                                title = rule.title.ifEmpty { "断开充电" },
+                                content = "当前电量：${batteryPct}%",
+                                appName = "电池监控"
+                            )
+                        }
+                    }
+                    "level_above" -> {
+                        val wasAbove = triggeredLevelRules.contains(rule.id)
+                        val isNowAbove = batteryPct >= rule.value
+                        if (isNowAbove && !wasAbove) {
+                            sendBatteryNotification(
+                                type = "battery_level_above_${rule.value}",
+                                title = rule.title.ifEmpty { "电量达到${rule.value}%" },
+                                content = "当前电量：${batteryPct}%",
+                                appName = "电池监控"
+                            )
+                            triggeredLevelRules.add(rule.id)
+                        } else if (!isNowAbove && wasAbove) {
+                            triggeredLevelRules.remove(rule.id)
+                        }
+                    }
+                    "level_below" -> {
+                        val wasBelow = triggeredLevelRules.contains(rule.id)
+                        val isNowBelow = batteryPct < rule.value
+                        if (isNowBelow && !wasBelow && !isCharging) {
+                            sendBatteryNotification(
+                                type = "battery_level_below_${rule.value}",
+                                title = rule.title.ifEmpty { "电量低于${rule.value}%" },
+                                content = "当前电量：${batteryPct}%，请及时充电",
+                                appName = "电池监控"
+                            )
+                            triggeredLevelRules.add(rule.id)
+                        } else if (!isNowBelow && wasBelow) {
+                            triggeredLevelRules.remove(rule.id)
+                        }
+                    }
+                    "level_equals" -> {
+                        val wasEqual = triggeredLevelRules.contains(rule.id)
+                        val isNowEqual = batteryPct == rule.value
+                        if (isNowEqual && !wasEqual) {
+                            sendBatteryNotification(
+                                type = "battery_level_equals_${rule.value}",
+                                title = rule.title.ifEmpty { "电量等于${rule.value}%" },
+                                content = "当前电量：${batteryPct}%",
+                                appName = "电池监控"
+                            )
+                            triggeredLevelRules.add(rule.id)
+                        } else if (!isNowEqual && wasEqual) {
+                            triggeredLevelRules.remove(rule.id)
+                        }
+                    }
+                }
             }
 
             lastBatteryLevel = batteryPct
@@ -954,6 +983,52 @@ class NotificationMonitorService : NotificationListenerService() {
         } catch (e: Exception) {
             Log.e(TAG, "处理电量变化失败", e)
         }
+    }
+
+    data class BatteryRule(
+        val id: String,
+        val type: String,
+        val value: Int,
+        val enabled: Boolean,
+        val title: String,
+        val content: String
+    )
+
+    private fun loadBatteryRules(): List<BatteryRule> {
+        val jsonStr = prefs.getString("flutter.battery_rules", null)
+        if (jsonStr.isNullOrEmpty()) {
+            return defaultBatteryRules()
+        }
+        return try {
+            val list = org.json.JSONArray(jsonStr)
+            val rules = mutableListOf<BatteryRule>()
+            for (i in 0 until list.length()) {
+                val obj = list.getJSONObject(i)
+                rules.add(
+                    BatteryRule(
+                        id = obj.getString("id"),
+                        type = obj.getString("type"),
+                        value = obj.getInt("value"),
+                        enabled = obj.getBoolean("enabled"),
+                        title = obj.optString("title", ""),
+                        content = obj.optString("content", "")
+                    )
+                )
+            }
+            rules
+        } catch (e: Exception) {
+            defaultBatteryRules()
+        }
+    }
+
+    private fun defaultBatteryRules(): List<BatteryRule> {
+        return listOf(
+            BatteryRule("charging", "charging", 0, true, "开始充电", ""),
+            BatteryRule("full", "level_above", 100, true, "电量充满", ""),
+            BatteryRule("low30", "level_below", 30, true, "电量低于30%", ""),
+            BatteryRule("low20", "level_below", 20, true, "电量低于20%", ""),
+            BatteryRule("discharging", "discharging", 0, false, "断开充电", "")
+        )
     }
 
     private fun sendBatteryNotification(

@@ -269,6 +269,11 @@ class MainActivity : FlutterActivity() {
                     setBatterySetting(key, value)
                     result.success(true)
                 }
+                "setBatteryRules" -> {
+                    val rules = call.argument<List<Map<String, Any>>>("rules") ?: emptyList()
+                    setBatteryRules(rules)
+                    result.success(true)
+                }
                 "getInstalledApps" -> {
                     val apps = getInstalledApps()
                     saveInstalledAppsCache(apps)
@@ -653,6 +658,25 @@ class MainActivity : FlutterActivity() {
     private fun setBatterySetting(key: String, value: Boolean) {
         val prefsKey = "flutter.$key"
         prefs.edit().putBoolean(prefsKey, value).apply()
+    }
+
+    private fun setBatteryRules(rules: List<Map<String, Any>>) {
+        try {
+            val jsonArray = org.json.JSONArray()
+            for (rule in rules) {
+                val obj = org.json.JSONObject()
+                obj.put("id", rule["id"] as? String ?: "")
+                obj.put("type", rule["type"] as? String ?: "")
+                obj.put("value", (rule["value"] as? Int) ?: 0)
+                obj.put("enabled", (rule["enabled"] as? Boolean) ?: false)
+                obj.put("title", rule["title"] as? String ?: "")
+                obj.put("content", rule["content"] as? String ?: "")
+                jsonArray.put(obj)
+            }
+            prefs.edit().putString("flutter.battery_rules", jsonArray.toString()).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun isNotificationPermissionGranted(): Boolean {
