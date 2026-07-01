@@ -1,12 +1,12 @@
 {
-  "appName": "notice1.5.10",
-  "latestVersion": "1.5.10",
-  "latestBuild": 44,
-  "forceUpdate": true,
+  "appName": "notice1.5.11",
+  "latestVersion": "1.5.11",
+  "latestBuild": 45,
+  "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【SnackBar深色模式适配与主题系统完善】\n• 新增snackBarTheme全局主题配置\n• 浅色模式：白色卡片背景+黑色文字\n• 深色模式：深灰卡片背景+白色文字\n• 浮动式设计，圆角12px，带阴影\n• 所有SnackBar自动适配深色模式\n• 已是最新版本、通知权限提示等全部适配\n• 主题系统进一步完善，组件级覆盖更全面\n• 本版本为强制更新版本",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.10.apk",
+  "changelog": "【应用筛选功能全面优化】\n• 新增应用列表权限检测与引导\n• 无权限时展示友好的引导页面\n• 新增应用列表缓存机制\n• 下次进入先展示缓存，大幅提速\n• 后台静默刷新，新应用动态加载\n• Android端新增QUERY_ALL_PACKAGES权限声明",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.11.apk",
   "fileSize": 22700000,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"

@@ -13,6 +13,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -235,7 +236,19 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "getInstalledApps" -> {
-                    result.success(getInstalledApps())
+                    val apps = getInstalledApps()
+                    saveInstalledAppsCache(apps)
+                    result.success(apps)
+                }
+                "getCachedInstalledApps" -> {
+                    result.success(getCachedInstalledApps())
+                }
+                "canQueryAllPackages" -> {
+                    result.success(canQueryAllPackages())
+                }
+                "requestQueryAllPackagesPermission" -> {
+                    requestQueryAllPackagesPermission()
+                    result.success(true)
                 }
                 "setEnabledPackages" -> {
                     val packages = call.argument<List<String>>("packages") ?: emptyList()
@@ -378,6 +391,78 @@ class MainActivity : FlutterActivity() {
         }
         result.sortBy { it["appName"].toString().lowercase() }
         return result
+    }
+
+    private fun saveInstalledAppsCache(apps: List<Map<String, Any?>>) {
+        try {
+            val jsonArray = org.json.JSONArray()
+            for (app in apps) {
+                val obj = JSONObject(app)
+                jsonArray.put(obj)
+            }
+            prefs.edit()
+                .putString("flutter.installed_apps_cache", jsonArray.toString())
+                .putLong("flutter.installed_apps_cache_time", System.currentTimeMillis())
+                .apply()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "保存应用列表缓存失败", e)
+        }
+    }
+
+    private fun getCachedInstalledApps(): List<Map<String, Any?>> {
+        val json = prefs.getString("flutter.installed_apps_cache", null) ?: return emptyList()
+        val list = mutableListOf<Map<String, Any?>>()
+        try {
+            val jsonArray = org.json.JSONArray(json)
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val map = mutableMapOf<String, Any?>()
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    map[key] = obj.get(key)
+                }
+                list.add(map)
+            }
+        } catch (_: Exception) {
+        }
+        return list
+    }
+
+    private fun canQueryAllPackages(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val pm = packageManager
+                val apps = pm.getInstalledApplications(0)
+                val launcherIntent = Intent(Intent.ACTION_MAIN, null)
+                    .addCategory(Intent.CATEGORY_LAUNCHER)
+                val launchableApps = pm.queryIntentActivities(launcherIntent, 0)
+                apps.size > launchableApps.size * 2
+            } catch (e: Exception) {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
+    private fun requestQueryAllPackagesPermission() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            }
+        } catch (e: Exception) {
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = Uri.fromParts("package", packageName, null)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (e2: Exception) {
+                e2.printStackTrace()
+            }
+        }
     }
 
     private fun setEnabledPackages(packages: List<String>) {
