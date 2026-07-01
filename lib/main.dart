@@ -226,7 +226,7 @@ class MyAppState extends State<MyApp> {
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
       themeMode: _themeMode,
-      home: const MainPage(),
+      home: const SplashPage(),
     );
   }
 
@@ -489,6 +489,105 @@ class MyAppState extends State<MyApp> {
   }
 }
 
+class SplashPage extends StatefulWidget {
+  const SplashPage({super.key});
+
+  @override
+  State<SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<SplashPage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const MainPage(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = MyApp.of(context)?.themeMode == ThemeMode.dark ||
+        (MyApp.of(context)?.themeMode == ThemeMode.system &&
+            MediaQuery.of(context).platformBrightness == Brightness.dark);
+    final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF);
+    final textColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF1C1C1E);
+    final secondaryColor = isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93);
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      body: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Spacer(),
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF007AFF).withValues(alpha: 0.2),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Image.asset(
+                        'assets/app_icon.png',
+                        width: 96,
+                        height: 96,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '通知推送助手',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 32),
+              child: Text(
+                '幻念团队',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: secondaryColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
@@ -504,6 +603,9 @@ class _MainPageState extends State<MainPage> {
   bool _notificationPermissionGranted = false;
   bool _batteryOptimizationIgnored = false;
   bool _foregroundServiceRunning = false;
+  bool _smsPermissionGranted = false;
+  bool _phonePermissionGranted = false;
+  bool _appListPermissionGranted = false;
   bool _serviceManuallyStopped = false;
   List<Map<String, dynamic>> _webhookChannels = [];
   String _deviceName = '';
@@ -530,29 +632,16 @@ class _MainPageState extends State<MainPage> {
   final List<Map<String, dynamic>> _installedApps = [];
 
   List<Widget> _buildPages() {
-    final isXiaomi = _manufacturer.toLowerCase().contains('xiaomi') ||
-        _manufacturer.toLowerCase().contains('redmi') ||
-        _manufacturer.toLowerCase().contains('mi ');
-    final isMeizu = _manufacturer.toLowerCase().contains('meizu');
-
     return [
       NotificationPage(
         notificationPermissionGranted: _notificationPermissionGranted,
-        batteryOptimizationIgnored: _batteryOptimizationIgnored,
         foregroundServiceRunning: _foregroundServiceRunning,
-        deviceModel: _deviceModel,
-        manufacturer: _manufacturer,
-        isXiaomi: isXiaomi,
-        isMeizu: isMeizu,
         notificationCount: _notificationRecords.length,
-        onRequestNotificationPermission: _requestNotificationPermission,
-        onRequestBatteryOptimization: _requestBatteryOptimization,
-        onRequestXiaomiAutoStart: _requestXiaomiAutoStart,
-        onRequestMeizuBackground: _requestMeizuBackground,
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
         onRefresh: _checkPermissions,
         onOpenHistory: _openHistoryPage,
+        onOpenPermissionSettings: _openPermissionSettingsPage,
       ),
       BatteryPage(
         notifyEnabled: _batteryNotifyEnabled,
@@ -965,11 +1054,17 @@ class _MainPageState extends State<MainPage> {
       final granted = await platform.invokeMethod('isNotificationPermissionGranted') as bool?;
       final batteryOk = await platform.invokeMethod('isIgnoringBatteryOptimizations') as bool?;
       final running = await FlutterForegroundTask.isRunningService;
+      final smsGranted = await platform.invokeMethod('isSmsPermissionGranted') as bool?;
+      final phoneGranted = await platform.invokeMethod('isPhonePermissionGranted') as bool?;
+      final appListGranted = await platform.invokeMethod('isAppListPermissionGranted') as bool?;
 
       setState(() {
         _notificationPermissionGranted = granted ?? false;
         _batteryOptimizationIgnored = batteryOk ?? false;
         _foregroundServiceRunning = running;
+        _smsPermissionGranted = smsGranted ?? false;
+        _phonePermissionGranted = phoneGranted ?? false;
+        _appListPermissionGranted = appListGranted ?? false;
       });
     } catch (e) {
       debugPrint('检查权限失败: $e');
@@ -1022,6 +1117,54 @@ class _MainPageState extends State<MainPage> {
       await platform.invokeMethod('requestMeizuBackground');
     } catch (e) {
       debugPrint('打开魅族后台失败: $e');
+    }
+  }
+
+  Future<void> _requestHuaweiLaunch() async {
+    try {
+      await platform.invokeMethod('requestHuaweiLaunch');
+    } catch (e) {
+      debugPrint('打开华为自启动失败: $e');
+    }
+  }
+
+  Future<void> _requestOppoBackground() async {
+    try {
+      await platform.invokeMethod('requestOppoBackground');
+    } catch (e) {
+      debugPrint('打开OPPO后台失败: $e');
+    }
+  }
+
+  Future<void> _requestVivoBackground() async {
+    try {
+      await platform.invokeMethod('requestVivoBackground');
+    } catch (e) {
+      debugPrint('打开vivo后台失败: $e');
+    }
+  }
+
+  Future<void> _requestSmsPermission() async {
+    try {
+      await platform.invokeMethod('requestSmsPermission');
+    } catch (e) {
+      debugPrint('请求短信权限失败: $e');
+    }
+  }
+
+  Future<void> _requestPhonePermission() async {
+    try {
+      await platform.invokeMethod('requestPhonePermission');
+    } catch (e) {
+      debugPrint('请求电话权限失败: $e');
+    }
+  }
+
+  Future<void> _requestAppListPermission() async {
+    try {
+      await platform.invokeMethod('requestAppListPermission');
+    } catch (e) {
+      debugPrint('请求应用列表权限失败: $e');
     }
   }
 
@@ -1440,6 +1583,33 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  void _openPermissionSettingsPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PermissionSettingsPage(
+          notificationPermissionGranted: _notificationPermissionGranted,
+          batteryOptimizationIgnored: _batteryOptimizationIgnored,
+          smsPermissionGranted: _smsPermissionGranted,
+          phonePermissionGranted: _phonePermissionGranted,
+          appListPermissionGranted: _appListPermissionGranted,
+          manufacturer: _manufacturer,
+          onRefresh: _checkPermissions,
+          onRequestNotificationPermission: _requestNotificationPermission,
+          onRequestBatteryOptimization: _requestBatteryOptimization,
+          onRequestXiaomiAutoStart: _requestXiaomiAutoStart,
+          onRequestMeizuBackground: _requestMeizuBackground,
+          onRequestHuaweiLaunch: _requestHuaweiLaunch,
+          onRequestOppoBackground: _requestOppoBackground,
+          onRequestVivoBackground: _requestVivoBackground,
+          onRequestSmsPermission: _requestSmsPermission,
+          onRequestPhonePermission: _requestPhonePermission,
+          onRequestAppListPermission: _requestAppListPermission,
+        ),
+      ),
+    );
+  }
+
   void _openAppFilterPage() async {
     final result = await Navigator.push<List<String>>(
       context,
@@ -1584,176 +1754,223 @@ class _MainPageState extends State<MainPage> {
   }
 }
 
-class NotificationPage extends StatelessWidget {
+class PermissionSettingsPage extends StatefulWidget {
   final bool notificationPermissionGranted;
   final bool batteryOptimizationIgnored;
-  final bool foregroundServiceRunning;
-  final String deviceModel;
+  final bool smsPermissionGranted;
+  final bool phonePermissionGranted;
+  final bool appListPermissionGranted;
   final String manufacturer;
-  final bool isXiaomi;
-  final bool isMeizu;
-  final int notificationCount;
+  final Future<void> Function() onRefresh;
   final VoidCallback onRequestNotificationPermission;
   final VoidCallback onRequestBatteryOptimization;
   final VoidCallback onRequestXiaomiAutoStart;
   final VoidCallback onRequestMeizuBackground;
-  final VoidCallback onStartService;
-  final VoidCallback onStopService;
-  final Future<void> Function() onRefresh;
-  final VoidCallback onOpenHistory;
+  final VoidCallback onRequestHuaweiLaunch;
+  final VoidCallback onRequestOppoBackground;
+  final VoidCallback onRequestVivoBackground;
+  final VoidCallback onRequestSmsPermission;
+  final VoidCallback onRequestPhonePermission;
+  final VoidCallback onRequestAppListPermission;
 
-  const NotificationPage({
+  const PermissionSettingsPage({
     super.key,
     required this.notificationPermissionGranted,
     required this.batteryOptimizationIgnored,
-    required this.foregroundServiceRunning,
-    required this.deviceModel,
+    required this.smsPermissionGranted,
+    required this.phonePermissionGranted,
+    required this.appListPermissionGranted,
     required this.manufacturer,
-    required this.isXiaomi,
-    required this.isMeizu,
-    required this.notificationCount,
+    required this.onRefresh,
     required this.onRequestNotificationPermission,
     required this.onRequestBatteryOptimization,
     required this.onRequestXiaomiAutoStart,
     required this.onRequestMeizuBackground,
-    required this.onStartService,
-    required this.onStopService,
-    required this.onRefresh,
-    required this.onOpenHistory,
+    required this.onRequestHuaweiLaunch,
+    required this.onRequestOppoBackground,
+    required this.onRequestVivoBackground,
+    required this.onRequestSmsPermission,
+    required this.onRequestPhonePermission,
+    required this.onRequestAppListPermission,
   });
+
+  @override
+  State<PermissionSettingsPage> createState() => _PermissionSettingsPageState();
+}
+
+class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
+  bool get _isXiaomi =>
+      widget.manufacturer.toLowerCase().contains('xiaomi') ||
+      widget.manufacturer.toLowerCase().contains('redmi') ||
+      widget.manufacturer.toLowerCase().contains('mi ');
+
+  bool get _isMeizu => widget.manufacturer.toLowerCase().contains('meizu');
+
+  bool get _isHuawei =>
+      widget.manufacturer.toLowerCase().contains('huawei') ||
+      widget.manufacturer.toLowerCase().contains('honor');
+
+  bool get _isOppo =>
+      widget.manufacturer.toLowerCase().contains('oppo') ||
+      widget.manufacturer.toLowerCase().contains('realme') ||
+      widget.manufacturer.toLowerCase().contains('oneplus');
+
+  bool get _isVivo =>
+      widget.manufacturer.toLowerCase().contains('vivo') ||
+      widget.manufacturer.toLowerCase().contains('iqoo');
+
+  bool get _isSamsung => widget.manufacturer.toLowerCase().contains('samsung');
+
+  bool get _isStockAndroid =>
+      widget.manufacturer.toLowerCase().contains('google') ||
+      widget.manufacturer.toLowerCase().contains('android') ||
+      !_isXiaomi && !_isMeizu && !_isHuawei && !_isOppo && !_isVivo && !_isSamsung;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('通知'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: '历史记录',
-            onPressed: onOpenHistory,
-          ),
-        ],
+        title: const Text('权限设置'),
       ),
       body: RefreshIndicator(
-        onRefresh: onRefresh,
+        onRefresh: widget.onRefresh,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            _buildSectionHeader('运行状态', context),
-            _buildGroup([
-              _buildStatusRow('通知访问权限', notificationPermissionGranted, context),
-              _buildDivider(context),
-              _buildStatusRow('电池优化忽略', batteryOptimizationIgnored, context),
-              _buildDivider(context),
-              _buildStatusRow('前台服务运行', foregroundServiceRunning, context),
-            ], context),
-            const SizedBox(height: 24),
-            _buildSectionHeader('权限设置', context),
+            _buildSectionHeader('必要权限', context),
             _buildGroup([
               _buildPermissionTile(
                 icon: Icons.notifications_active,
                 title: '通知访问权限',
-                subtitle: notificationPermissionGranted ? '已开启' : '未开启',
-                isOn: notificationPermissionGranted,
-                onTap: notificationPermissionGranted ? null : onRequestNotificationPermission,
+                subtitle: widget.notificationPermissionGranted ? '已开启' : '未开启',
+                isOn: widget.notificationPermissionGranted,
+                onTap: widget.notificationPermissionGranted ? null : widget.onRequestNotificationPermission,
                 context: context,
               ),
               _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.battery_full,
                 title: '忽略电池优化',
-                subtitle: batteryOptimizationIgnored ? '已开启' : '未开启',
-                isOn: batteryOptimizationIgnored,
-                onTap: batteryOptimizationIgnored ? null : onRequestBatteryOptimization,
+                subtitle: widget.batteryOptimizationIgnored ? '已开启' : '未开启',
+                isOn: widget.batteryOptimizationIgnored,
+                onTap: widget.batteryOptimizationIgnored ? null : widget.onRequestBatteryOptimization,
                 context: context,
               ),
-              if (isXiaomi) ...[
-                _buildDivider(context),
-                _buildPermissionTile(
-                  icon: Icons.rocket_launch,
-                  title: '小米自启动',
-                  subtitle: '点击前往设置',
-                  isOn: false,
-                  onTap: onRequestXiaomiAutoStart,
-                  isWarning: true,
-                  context: context,
-                ),
-              ],
-              if (isMeizu) ...[
-                _buildDivider(context),
-                _buildPermissionTile(
-                  icon: Icons.rocket_launch,
-                  title: '魅族后台运行',
-                  subtitle: '点击前往设置',
-                  isOn: false,
-                  onTap: onRequestMeizuBackground,
-                  isWarning: true,
-                  context: context,
-                ),
-              ],
             ], context),
             const SizedBox(height: 24),
-            _buildSectionHeader('服务控制', context),
+            if (_isXiaomi || _isMeizu || _isHuawei || _isOppo || _isVivo || _isSamsung || _isStockAndroid) ...[
+              _buildSectionHeader('厂商后台设置', context),
+              _buildGroup([
+                if (_isXiaomi)
+                  _buildPermissionTile(
+                    icon: Icons.rocket_launch,
+                    title: '小米自启动',
+                    subtitle: '点击前往设置',
+                    isOn: false,
+                    onTap: widget.onRequestXiaomiAutoStart,
+                    isWarning: true,
+                    context: context,
+                  ),
+                if (_isMeizu)
+                  _buildPermissionTile(
+                    icon: Icons.rocket_launch,
+                    title: '魅族后台运行',
+                    subtitle: '点击前往设置',
+                    isOn: false,
+                    onTap: widget.onRequestMeizuBackground,
+                    isWarning: true,
+                    context: context,
+                  ),
+                if (_isHuawei)
+                  _buildPermissionTile(
+                    icon: Icons.rocket_launch,
+                    title: '华为自启动/受保护应用',
+                    subtitle: '点击前往设置',
+                    isOn: false,
+                    onTap: widget.onRequestHuaweiLaunch,
+                    isWarning: true,
+                    context: context,
+                  ),
+                if (_isOppo)
+                  _buildPermissionTile(
+                    icon: Icons.rocket_launch,
+                    title: 'OPPO自启动管理',
+                    subtitle: '点击前往设置',
+                    isOn: false,
+                    onTap: widget.onRequestOppoBackground,
+                    isWarning: true,
+                    context: context,
+                  ),
+                if (_isVivo)
+                  _buildPermissionTile(
+                    icon: Icons.rocket_launch,
+                    title: 'vivo后台启动管理',
+                    subtitle: '点击前往设置',
+                    isOn: false,
+                    onTap: widget.onRequestVivoBackground,
+                    isWarning: true,
+                    context: context,
+                  ),
+                if (_isSamsung)
+                  _buildPermissionTile(
+                    icon: Icons.info_outline,
+                    title: '三星设备设置',
+                    subtitle: '请在智能管理器中将本应用加入自启动白名单',
+                    isOn: false,
+                    onTap: null,
+                    isWarning: true,
+                    context: context,
+                  ),
+                if (_isStockAndroid)
+                  _buildPermissionTile(
+                    icon: Icons.info_outline,
+                    title: '原生Android设置',
+                    subtitle: '请在系统设置中确认电池优化已关闭',
+                    isOn: false,
+                    onTap: null,
+                    isWarning: true,
+                    context: context,
+                  ),
+              ], context),
+              const SizedBox(height: 24),
+            ],
+            _buildSectionHeader('非必要权限', context),
             _buildGroup([
-              _buildActionButton(
-                icon: foregroundServiceRunning ? Icons.stop : Icons.play_arrow,
-                title: foregroundServiceRunning ? '停止服务' : '启动服务',
-                isDestructive: foregroundServiceRunning,
-                onTap: foregroundServiceRunning ? onStopService : onStartService,
+              _buildPermissionTile(
+                icon: Icons.message,
+                title: '短信权限',
+                subtitle: widget.smsPermissionGranted ? '已开启' : '未开启',
+                isOn: widget.smsPermissionGranted,
+                onTap: widget.smsPermissionGranted ? null : widget.onRequestSmsPermission,
+                context: context,
+              ),
+              _buildDivider(context),
+              _buildPermissionTile(
+                icon: Icons.call,
+                title: '电话权限',
+                subtitle: widget.phonePermissionGranted ? '已开启' : '未开启',
+                isOn: widget.phonePermissionGranted,
+                onTap: widget.phonePermissionGranted ? null : widget.onRequestPhonePermission,
+                context: context,
+              ),
+              _buildDivider(context),
+              _buildPermissionTile(
+                icon: Icons.apps,
+                title: '应用列表权限',
+                subtitle: widget.appListPermissionGranted ? '已开启' : '未开启',
+                isOn: widget.appListPermissionGranted,
+                onTap: widget.appListPermissionGranted ? null : widget.onRequestAppListPermission,
+                context: context,
               ),
             ], context),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                '启动前台服务可以大幅提升应用在后台的存活率，确保锁屏时也能正常推送',
+                '非必要权限用于提升特定功能的准确性，不开启不影响核心功能使用',
                 style: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 12),
               ),
             ),
-            const SizedBox(height: 24),
-            _buildSectionHeader('支持的通知类型', context),
-            _buildGroup([
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildTypeChip(Icons.chat, '微信', const Color(0xFF07C160)),
-                    _buildTypeChip(Icons.chat_bubble, 'QQ', const Color(0xFF12B7F5)),
-                    _buildTypeChip(Icons.message, '短信', const Color(0xFFFF9500)),
-                    _buildTypeChip(Icons.call, '来电', const Color(0xFF34C759)),
-                    _buildTypeChip(Icons.battery_charging_full, '电量', const Color(0xFF007AFF)),
-                    _buildTypeChip(Icons.payment, '支付宝', const Color(0xFF1677FF)),
-                    _buildTypeChip(Icons.shop, '购物', const Color(0xFFFF3B30)),
-                    _buildTypeChip(Icons.music_note, '音乐', const Color(0xFFAF52DE)),
-                    _buildTypeChip(Icons.cloud, '网盘', const Color(0xFF5AC8FA)),
-                    _buildTypeChip(Icons.apps, '全部', const Color(0xFF8E8E93)),
-                  ],
-                ),
-              ),
-            ], context),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                '可监听通知栏所有应用的通知，短信和来电采用双重监听机制确保不遗漏',
-                style: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 12),
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionHeader('历史记录', context),
-            _buildGroup([
-              _buildNavTile(
-                icon: Icons.history,
-                iconColor: const Color(0xFF007AFF),
-                title: '推送历史记录',
-                subtitle: '共 $notificationCount 条记录',
-                onTap: onOpenHistory,
-                context: context,
-              ),
-            ], context),
           ],
         ),
       ),
@@ -1791,29 +2008,6 @@ class NotificationPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 52),
       child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
-    );
-  }
-
-  Widget _buildStatusRow(String label, bool value, BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 16, color: AppColors.primaryLabel(context)),
-          ),
-          const Spacer(),
-          Text(
-            value ? '已开启' : '未开启',
-            style: TextStyle(
-              fontSize: 15,
-              color: value ? const Color(0xFF34C759) : AppColors.secondaryLabel(context),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1869,33 +2063,117 @@ class NotificationPage extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+class NotificationPage extends StatelessWidget {
+  final bool notificationPermissionGranted;
+  final bool foregroundServiceRunning;
+  final int notificationCount;
+  final VoidCallback onStartService;
+  final VoidCallback onStopService;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onOpenHistory;
+  final VoidCallback onOpenPermissionSettings;
+
+  const NotificationPage({
+    super.key,
+    required this.notificationPermissionGranted,
+    required this.foregroundServiceRunning,
+    required this.notificationCount,
+    required this.onStartService,
+    required this.onStopService,
+    required this.onRefresh,
+    required this.onOpenHistory,
+    required this.onOpenPermissionSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('通知推送助手'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
           children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isDestructive ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: isDestructive ? const Color(0xFFFF3B30) : const Color(0xFF007AFF),
+            const SizedBox(height: 40),
+            Center(
+              child: GestureDetector(
+                onTap: foregroundServiceRunning ? onStopService : onStartService,
+                child: Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: foregroundServiceRunning
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFFFF3B30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (foregroundServiceRunning
+                                ? const Color(0xFF34C759)
+                                : const Color(0xFFFF3B30))
+                            .withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        foregroundServiceRunning
+                            ? Icons.notifications_active
+                            : Icons.notifications_off,
+                        size: 48,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        foregroundServiceRunning ? '运行中' : '已停止',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: Text(
+                foregroundServiceRunning
+                    ? '通知监听服务正在运行，点击可停止'
+                    : '通知监听服务未启动，点击可启动',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+            _buildQuickAction(
+              icon: Icons.settings,
+              iconColor: const Color(0xFF007AFF),
+              title: '权限设置',
+              subtitle: '配置通知、电池、后台运行等权限',
+              onTap: onOpenPermissionSettings,
+              context: context,
+            ),
+            const SizedBox(height: 12),
+            _buildQuickAction(
+              icon: Icons.history,
+              iconColor: const Color(0xFF34C759),
+              title: '推送历史',
+              subtitle: '共 $notificationCount 条记录',
+              onTap: onOpenHistory,
+              context: context,
             ),
           ],
         ),
@@ -1903,25 +2181,7 @@ class NotificationPage extends StatelessWidget {
     );
   }
 
-  Widget _buildTypeChip(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavTile({
+  Widget _buildQuickAction({
     required IconData icon,
     required Color iconColor,
     required String title,
@@ -1931,34 +2191,53 @@ class NotificationPage extends StatelessWidget {
   }) {
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg(context),
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Row(
           children: [
             Container(
-              width: 30,
-              height: 30,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: iconColor,
-                borderRadius: BorderRadius.circular(8),
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 18, color: Colors.white),
+              child: Icon(icon, size: 22, color: iconColor),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 16, color: AppColors.primaryLabel(context))),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, size: 20, color: AppColors.tertiaryLabel(context)),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppColors.tertiaryLabel(context),
+            ),
           ],
         ),
       ),

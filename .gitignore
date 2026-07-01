@@ -12,6 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 update.md
+base.md
 
 # IntelliJ related
 *.iml

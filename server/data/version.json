@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.11",
-  "latestVersion": "1.5.11",
-  "latestBuild": 45,
+  "appName": "notice1.5.15",
+  "latestVersion": "1.5.15",
+  "latestBuild": 49,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【应用筛选功能全面优化】\n• 新增应用列表权限检测与引导\n• 无权限时展示友好的引导页面\n• 新增应用列表缓存机制\n• 下次进入先展示缓存，大幅提速\n• 后台静默刷新，新应用动态加载\n• Android端新增QUERY_ALL_PACKAGES权限声明",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.11.apk",
-  "fileSize": 22700000,
+  "changelog": "【稳定性优化与细节调整】\n• 开屏页面时间优化为1秒\n• 权限跳转兜底逻辑完善\n• 品牌适配细节优化",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.15.apk",
+  "fileSize": 22432059,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.BatteryManager
@@ -14,6 +15,8 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -139,6 +142,35 @@ class MainActivity : FlutterActivity() {
                 }
                 "requestNotificationPermission" -> {
                     requestNotificationPermission()
+                    result.success(true)
+                }
+                "isSmsPermissionGranted" -> {
+                    result.success(isSmsPermissionGranted())
+                }
+                "isPhonePermissionGranted" -> {
+                    result.success(isPhonePermissionGranted())
+                }
+                "isAppListPermissionGranted" -> {
+                    result.success(isAppListPermissionGranted())
+                }
+                "requestXiaomiAutoStart" -> {
+                    requestXiaomiAutoStart()
+                    result.success(true)
+                }
+                "requestMeizuBackground" -> {
+                    requestMeizuBackground()
+                    result.success(true)
+                }
+                "requestHuaweiLaunch" -> {
+                    requestHuaweiLaunch()
+                    result.success(true)
+                }
+                "requestOppoBackground" -> {
+                    requestOppoBackground()
+                    result.success(true)
+                }
+                "requestVivoBackground" -> {
+                    requestVivoBackground()
                     result.success(true)
                 }
                 "setWebhookUrls" -> {
@@ -273,6 +305,18 @@ class MainActivity : FlutterActivity() {
                 }
                 "getWhitelistKeywords" -> {
                     result.success(getWhitelistKeywords())
+                }
+                "openAppDetailsSettings" -> {
+                    openAppDetailsSettings()
+                    result.success(true)
+                }
+                "requestSmsPermission" -> {
+                    openAppDetailsSettings()
+                    result.success(true)
+                }
+                "requestPhonePermission" -> {
+                    openAppDetailsSettings()
+                    result.success(true)
                 }
                 else -> {
                     result.notImplemented()
@@ -614,6 +658,42 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun isSmsPermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.RECEIVE_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun isPhonePermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.READ_PHONE_STATE
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun isAppListPermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val packageManager = packageManager
+                val packages = packageManager.getInstalledApplications(0)
+                packages.size > 0
+            } catch (e: Exception) {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
     private fun requestBatteryOptimization() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
@@ -657,9 +737,7 @@ class MainActivity : FlutterActivity() {
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)
                 } catch (e3: Exception) {
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    intent.data = Uri.fromParts("package", packageName, null)
-                    startActivity(intent)
+                    openAppDetailsSettings()
                 }
             }
         }
@@ -682,10 +760,91 @@ class MainActivity : FlutterActivity() {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
             } catch (e2: Exception) {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                intent.data = Uri.fromParts("package", packageName, null)
-                startActivity(intent)
+                openAppDetailsSettings()
             }
+        }
+    }
+
+    private fun requestHuaweiLaunch() {
+        try {
+            val intent = Intent()
+            intent.component = ComponentName(
+                "com.huawei.systemmanager",
+                "com.huawei.systemmanager.optimize.process.ProtectActivity"
+            )
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val intent = Intent()
+                intent.component = ComponentName(
+                    "com.huawei.systemmanager",
+                    "com.huawei.permissionmanager.ui.MainActivity"
+                )
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (e2: Exception) {
+                openAppDetailsSettings()
+            }
+        }
+    }
+
+    private fun requestOppoBackground() {
+        try {
+            val intent = Intent()
+            intent.component = ComponentName(
+                "com.coloros.safecenter",
+                "com.coloros.safecenter.permission.startup.StartupAppListActivity"
+            )
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val intent = Intent()
+                intent.component = ComponentName(
+                    "com.oppo.safe",
+                    "com.oppo.safe.permission.startup.StartupAppListActivity"
+                )
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (e2: Exception) {
+                openAppDetailsSettings()
+            }
+        }
+    }
+
+    private fun requestVivoBackground() {
+        try {
+            val intent = Intent()
+            intent.component = ComponentName(
+                "com.vivo.permissionmanager",
+                "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"
+            )
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val intent = Intent()
+                intent.component = ComponentName(
+                    "com.iqoo.secure",
+                    "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"
+                )
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (e2: Exception) {
+                openAppDetailsSettings()
+            }
+        }
+    }
+
+    private fun openAppDetailsSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.fromParts("package", packageName, null)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
