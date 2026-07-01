@@ -539,7 +539,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun requestQueryAllPackagesPermission() {
-        openAppDetailsSettings()
+        try {
+            openAppDetailsSettings()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun setEnabledPackages(packages: List<String>) {
