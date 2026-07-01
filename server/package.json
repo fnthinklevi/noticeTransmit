@@ -1,0 +1,14 @@
+{
+  "name": "notification-update-server",
+  "version": "1.0.0",
+  "description": "通知推送助手 - 版本更新与热更新服务端",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}

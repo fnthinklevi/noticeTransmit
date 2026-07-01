@@ -1,0 +1,11 @@
+{
+  "latestContentVersion": 3,
+  "version": "1.5.1",
+  "forceUpdate": true,
+  "forceContentVersion": 3,
+  "changelog": "【热更新内容v3】\n• app_names.json 按应用类别重新组织，去除重复项，结构清晰\n• notification_types.json 按分类维度重新组织，去除重复规则\n• 应用名称映射覆盖400+款主流应用，按厂商/类别分组\n• 通知类型分类规则覆盖200+关键词，按功能维度分组\n• 支持腾讯系、阿里系、百度系、字节系、美团系等大厂应用识别\n• 支持小米、华为、OPPO、vivo、魅族、荣耀等厂商系统应用识别\n• 覆盖社交通讯、视频音乐、购物支付、出行旅游、教育学习、健康医疗等全品类",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/hot/notice1.5.1.zip",
+  "fileSize": 11918,
+  "platform": "android",
+  "minAppVersion": "1.5.0"
+}
