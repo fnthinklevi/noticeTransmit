@@ -717,6 +717,16 @@ class _MainPageState extends State<MainPage> {
           _currentBatteryLevel = data['level'] ?? -1;
           _currentIsCharging = data['isCharging'] ?? false;
         });
+      } else if (call.method == 'onSmsPermissionResult') {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(call.arguments);
+        setState(() {
+          _smsPermissionGranted = data['granted'] ?? false;
+        });
+      } else if (call.method == 'onPhonePermissionResult') {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(call.arguments);
+        setState(() {
+          _phonePermissionGranted = data['granted'] ?? false;
+        });
       }
     });
   }

@@ -35,6 +35,8 @@ class MainActivity : FlutterActivity() {
     companion object {
         const val ACTION_NOTIFICATION_RECEIVED = "com.fnthink.notice.NOTIFICATION_RECEIVED"
         const val EXTRA_NOTIFICATION_DATA = "notification_data"
+        private const val REQUEST_SMS_PERMISSION = 1001
+        private const val REQUEST_PHONE_PERMISSION = 1002
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -311,16 +313,42 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "requestSmsPermission" -> {
-                    openAppDetailsSettings()
+                    requestSmsPermission()
                     result.success(true)
                 }
                 "requestPhonePermission" -> {
-                    openAppDetailsSettings()
+                    requestPhonePermission()
                     result.success(true)
                 }
                 else -> {
                     result.notImplemented()
                 }
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            REQUEST_SMS_PERMISSION -> {
+                val granted = grantResults.isNotEmpty() &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED
+                methodChannel?.invokeMethod(
+                    "onSmsPermissionResult",
+                    mapOf("granted" to granted)
+                )
+            }
+            REQUEST_PHONE_PERMISSION -> {
+                val granted = grantResults.isNotEmpty() &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED
+                methodChannel?.invokeMethod(
+                    "onPhonePermissionResult",
+                    mapOf("granted" to granted)
+                )
             }
         }
     }
@@ -490,23 +518,28 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestQueryAllPackagesPermission() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            }
-        } catch (e: Exception) {
-            try {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                intent.data = Uri.fromParts("package", packageName, null)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-            } catch (e2: Exception) {
-                e2.printStackTrace()
-            }
+    private fun requestSmsPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.RECEIVE_SMS),
+                REQUEST_SMS_PERMISSION
+            )
         }
+    }
+
+    private fun requestPhonePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.READ_PHONE_STATE),
+                REQUEST_PHONE_PERMISSION
+            )
+        }
+    }
+
+    private fun requestQueryAllPackagesPermission() {
+        openAppDetailsSettings()
     }
 
     private fun setEnabledPackages(packages: List<String>) {

@@ -1,12 +1,12 @@
 {
-  "appName": "notice1.5.15",
-  "latestVersion": "1.5.15",
-  "latestBuild": 49,
+  "appName": "notice1.5.16",
+  "latestVersion": "1.5.16",
+  "latestBuild": 50,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【稳定性优化与细节调整】\n• 开屏页面时间优化为1秒\n• 权限跳转兜底逻辑完善\n• 品牌适配细节优化",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.15.apk",
+  "changelog": "【权限请求体验优化与Bug修复】\n• 短信/电话权限改为系统弹窗一键授权\n• 新增权限请求结果实时回调\n• 修复应用列表权限跳转错误页面问题",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.16.apk",
   "fileSize": 22432059,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
