@@ -1,15 +1,15 @@
 <div align="center">
 
-![App Icon](assets/app_icon.png)
+<img src="assets/app_icon.png" width="128" alt="通知推送助手">
 
 # 通知推送助手
 
-> 监听 Android 通知栏消息，通过 Webhook 推送到指定渠道
+为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、电量提醒、深色模式等丰富功能。
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.x-7F52FF?style=flat-square&logo=kotlin)](https://kotlinlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 
 </div>
 
