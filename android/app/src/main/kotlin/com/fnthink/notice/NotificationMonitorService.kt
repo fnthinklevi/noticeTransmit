@@ -12,6 +12,8 @@ import android.content.SharedPreferences
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -98,6 +100,19 @@ class NotificationMonitorService : NotificationListenerService() {
     private var lastIsCharging = false
     private val triggeredLevelRules = mutableSetOf<String>()
 
+    private val batteryPollHandler = Handler(Looper.getMainLooper())
+    private val batteryPollInterval = 60_000L
+    private val batteryPollRunnable = object : Runnable {
+        override fun run() {
+            try {
+                pollBatteryStatus()
+            } catch (e: Exception) {
+                Log.e(TAG, "Battery poll error", e)
+            }
+            batteryPollHandler.postDelayed(this, batteryPollInterval)
+        }
+    }
+
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             intent ?: return
@@ -126,6 +141,7 @@ class NotificationMonitorService : NotificationListenerService() {
         acquireWakeLocks()
         registerBatteryReceiver()
         registerHotfixReceiver()
+        startBatteryPolling()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -291,6 +307,7 @@ class NotificationMonitorService : NotificationListenerService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopBatteryPolling()
         releaseWakeLocks()
         unregisterBatteryReceiver()
         hotfixReceiver?.let {
@@ -857,6 +874,70 @@ class NotificationMonitorService : NotificationListenerService() {
             Log.d(TAG, "Battery receiver unregistered")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to unregister battery receiver", e)
+        }
+    }
+
+    private fun startBatteryPolling() {
+        try {
+            batteryPollHandler.removeCallbacks(batteryPollRunnable)
+            batteryPollHandler.postDelayed(batteryPollRunnable, batteryPollInterval)
+            Log.d(TAG, "Battery polling started (interval: ${batteryPollInterval}ms)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start battery polling", e)
+        }
+    }
+
+    private fun stopBatteryPolling() {
+        try {
+            batteryPollHandler.removeCallbacks(batteryPollRunnable)
+            Log.d(TAG, "Battery polling stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop battery polling", e)
+        }
+    }
+
+    private fun pollBatteryStatus() {
+        try {
+            val batteryManager = getSystemService(BATTERY_SERVICE) as BatteryManager
+            val batteryPct = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == BatteryManager.BATTERY_STATUS_FULL
+
+            if (batteryPct < 0) return
+
+            if (lastBatteryLevel == -1 || lastBatteryLevel == batteryPct && lastIsCharging == isCharging) {
+                lastBatteryLevel = batteryPct
+                lastIsCharging = isCharging
+                if (lastBatteryLevel == -1) {
+                    val rules = loadBatteryRules()
+                    for (rule in rules) {
+                        val id = rule.id
+                        when (rule.type) {
+                            "level_above" -> {
+                                if (batteryPct >= rule.value) triggeredLevelRules.add(id)
+                            }
+                            "level_below" -> {
+                                if (batteryPct < rule.value) triggeredLevelRules.add(id)
+                            }
+                            "level_equals" -> {
+                                if (batteryPct == rule.value) triggeredLevelRules.add(id)
+                            }
+                        }
+                    }
+                }
+                return
+            }
+
+            val fakeIntent = Intent(Intent.ACTION_BATTERY_CHANGED).apply {
+                putExtra(BatteryManager.EXTRA_LEVEL, batteryPct)
+                putExtra(BatteryManager.EXTRA_SCALE, 100)
+                putExtra(BatteryManager.EXTRA_STATUS, status)
+            }
+            handleBatteryChanged(fakeIntent)
+            Log.d(TAG, "Battery poll: level=$batteryPct, charging=$isCharging")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to poll battery status", e)
         }
     }
 
