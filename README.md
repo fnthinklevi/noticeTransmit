@@ -6,8 +6,9 @@
 
 为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、电量提醒、深色模式等丰富功能。
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.x-7F52FF?style=flat-square&logo=kotlin)](https://kotlinlang.org/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
+[![AGP](https://img.shields.io/badge/AGP-9.0.1-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
+[![Gradle](https://img.shields.io/badge/Gradle-9.1.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 
@@ -94,9 +95,23 @@ noticeTransmit/
 
 ### 环境要求
 
-- Flutter SDK 3.x
-- Android SDK 21+
-- Node.js 14+（服务端）
+> **重要提示**：本项目使用 **AGP 9.0.1** + **Gradle 9.1.0**，对 Flutter / Dart / Android Studio 版本有最低要求。
+
+| 工具 | 最低版本 | 推荐版本 | 说明 |
+|------|----------|----------|------|
+| **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x 支持从 Flutter 3.44 开始 |
+| **Dart SDK** | 3.12.0 | 3.12.x | 随 Flutter 3.44 自带 |
+| **Android Gradle Plugin (AGP)** | 9.0.0 | 9.0.1 | 项目已配置 |
+| **Gradle** | 9.1.0 | 9.1.0 | 项目已配置（gradle-wrapper.properties） |
+| **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
+| **JDK** | 17 | 17+ | AGP 9.x 要求 JDK 17 及以上 |
+| **Android SDK** | 21 (minSdk) | 35 (compileSdk) | minSdk 21，目标 Android 15 |
+
+#### 版本兼容性说明
+
+- **Flutter 3.44 以下版本**：不支持 AGP 9.x，构建会失败。请先执行 `flutter upgrade` 升级到 3.44+。
+- **AGP 8.x 及以下**：本项目已迁移到 AGP 9.x，无法降级使用。
+- **Kotlin**：AGP 9.x 使用 Built-in Kotlin，无需单独配置 Kotlin 版本。
 
 ### 构建 APK
 

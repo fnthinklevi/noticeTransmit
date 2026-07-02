@@ -2982,6 +2982,16 @@ class MorePage extends StatelessWidget {
       ThemeMode.light: '浅色模式',
       ThemeMode.dark: '深色模式',
     };
+    final themeIcons = {
+      ThemeMode.system: Icons.brightness_auto,
+      ThemeMode.light: Icons.light_mode,
+      ThemeMode.dark: Icons.dark_mode,
+    };
+    final themeIconColors = {
+      ThemeMode.system: const Color(0xFF8E8E93),
+      ThemeMode.light: const Color(0xFFFF9500),
+      ThemeMode.dark: const Color(0xFF5856D6),
+    };
     return InkWell(
       onTap: () {
         showDialog(
@@ -2998,11 +3008,24 @@ class MorePage extends StatelessWidget {
                     onThemeModeChanged(mode);
                     Navigator.pop(context);
                   },
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: (themeIconColors[mode] ?? Colors.grey).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      themeIcons[mode] ?? Icons.brightness_auto,
+                      color: themeIconColors[mode] ?? Colors.grey,
+                      size: 20,
+                    ),
+                  ),
                   title: Text(themeNames[mode] ?? '', style: TextStyle(color: AppColors.primaryLabel(context))),
                   trailing: themeMode == mode
                       ? const Icon(Icons.check, color: Color(0xFF007AFF))
                       : null,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                 )),
               ],
             ),
