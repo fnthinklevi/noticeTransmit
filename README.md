@@ -6,7 +6,7 @@
 
 **[English](README-en.md) / 中文**
 
-为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、电量提醒、深色模式等丰富功能。
+为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、自定义电量提醒、深色模式等丰富功能。
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
 [![AGP](https://img.shields.io/badge/AGP-9.0.1-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
@@ -18,7 +18,7 @@
 
 ## 简介
 
-通知推送助手是一款基于 Flutter 开发的 Android 应用，能够监听系统通知栏消息，通过 Webhook 推送到企业微信、钉钉、飞书等平台。支持多通道推送、应用筛选、关键词过滤、电量提醒等功能，采用 iOS 风格设计，支持深色模式，界面简洁优雅。
+通知推送助手是一款基于 Flutter 开发的 Android 应用，能够监听系统通知栏消息，通过 Webhook 推送到企业微信、钉钉、飞书等平台。支持多通道推送、应用筛选、关键词过滤、自定义电量提醒等功能，采用 iOS 风格设计，支持深色模式，界面简洁优雅。
 
 ## 功能特性
 
@@ -31,7 +31,7 @@
 
 ### 进阶功能
 
-- 🔋 **电量提醒** - 充电开始、电量充满、低电量（30%/20%）提醒
+- 🔋 **自定义电量提醒** - 支持完全自定义电量通知规则（充电/断开/指定电量阈值等），支持添加、编辑、删除规则
 - 📋 **历史记录** - 本地保存通知推送历史，支持搜索、详情查看和导出
 - 📱 **应用筛选** - 自定义选择需要推送通知的应用
 - 🏷️ **关键词过滤** - 支持白名单和黑名单关键词过滤，精准控制推送内容
@@ -48,10 +48,12 @@
 | 模块 | 技术 |
 |------|------|
 | 前端 | Flutter (Dart) |
+| 状态管理 | Provider |
 | 原生服务 | Kotlin (Android) |
 | 通知监听 | NotificationListenerService |
 | 后台保活 | Foreground Service + WakeLock + WifiLock |
 | 跨端通信 | MethodChannel |
+| 崩溃统计 | 腾讯 Bugly |
 | 服务端 | Node.js + Express |
 | 数据存储 | SharedPreferences + 文件存储 |
 
@@ -71,7 +73,21 @@
 noticeTransmit/
 ├── lib/                          # Flutter 端代码
 │   ├── main.dart                 # 主入口
-│   └── update_manager.dart       # 更新管理
+│   ├── update_manager.dart       # 更新管理
+│   ├── models/                   # 数据模型
+│   │   ├── notification_record.dart  # 通知记录模型
+│   │   ├── battery_rule.dart     # 电池规则模型
+│   │   └── webhook_channel.dart  # Webhook 渠道模型
+│   ├── theme/                    # 主题配置
+│   │   ├── app_colors.dart       # 颜色主题
+│   │   └── app_theme.dart        # 主题配置
+│   ├── pages/                    # 页面组件
+│   │   ├── splash_page.dart      # 开屏页
+│   │   └── privacy_policy_page.dart  # 隐私政策页
+│   ├── services/                 # 服务层（预留）
+│   ├── state/                    # 状态管理（预留）
+│   └── widgets/                  # 组件层（预留）
+│       └── common/               # 通用组件
 ├── android/                      # Android 原生代码
 │   └── app/src/main/kotlin/com/fnthink/notice/
 │       ├── MainActivity.kt       # 主 Activity

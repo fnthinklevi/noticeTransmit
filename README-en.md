@@ -6,7 +6,7 @@
 
 **English / [中文](README.md)**
 
-A **notification listener and Webhook push tool** for Android devices, supporting WeChat Work, DingTalk, Feishu and other platforms. Features include app filtering, keyword filtering, battery reminders, dark mode and more.
+A **notification listener and Webhook push tool** for Android devices, supporting WeChat Work, DingTalk, Feishu and other platforms. Features include app filtering, keyword filtering, custom battery reminders, dark mode and more.
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
 [![AGP](https://img.shields.io/badge/AGP-9.0.1-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
@@ -18,7 +18,7 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 
 ## Introduction
 
-Notification Push Helper is an Android application developed with Flutter that listens to system notification messages and pushes them to WeChat Work, DingTalk, Feishu and other platforms via Webhook. It supports multi-channel push, app filtering, keyword filtering, battery reminders and other features. The app adopts iOS-style design, supports dark mode, and has a clean and elegant interface.
+Notification Push Helper is an Android application developed with Flutter that listens to system notification messages and pushes them to WeChat Work, DingTalk, Feishu and other platforms via Webhook. It supports multi-channel push, app filtering, keyword filtering, custom battery reminders and other features. The app adopts iOS-style design, supports dark mode, and has a clean and elegant interface.
 
 ## Features
 
@@ -31,7 +31,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 
 ### Advanced Features
 
-- 🔋 **Battery Reminders** - Charging start, full charge, low battery (30%/20%) reminders
+- 🔋 **Custom Battery Reminders** - Fully customizable battery notification rules (charging/discharging/specific battery level thresholds), support add/edit/delete rules
 - 📋 **History Records** - Locally save notification push history, support search, detail view and export
 - 📱 **App Filtering** - Customize which apps need notification push
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
@@ -48,10 +48,12 @@ Notification Push Helper is an Android application developed with Flutter that l
 | Module | Technology |
 |--------|------------|
 | Frontend | Flutter (Dart) |
+| State Management | Provider |
 | Native Service | Kotlin (Android) |
 | Notification Listening | NotificationListenerService |
 | Background Survival | Foreground Service + WakeLock + WifiLock |
 | Cross-platform Communication | MethodChannel |
+| Crash Statistics | Tencent Bugly |
 | Server | Node.js + Express |
 | Data Storage | SharedPreferences + File Storage |
 
@@ -71,7 +73,21 @@ Notification Push Helper is an Android application developed with Flutter that l
 noticeTransmit/
 ├── lib/                          # Flutter code
 │   ├── main.dart                 # Main entry
-│   └── update_manager.dart       # Update manager
+│   ├── update_manager.dart       # Update manager
+│   ├── models/                   # Data models
+│   │   ├── notification_record.dart  # Notification record model
+│   │   ├── battery_rule.dart     # Battery rule model
+│   │   └── webhook_channel.dart  # Webhook channel model
+│   ├── theme/                    # Theme configuration
+│   │   ├── app_colors.dart       # Color themes
+│   │   └── app_theme.dart        # Theme configuration
+│   ├── pages/                    # Page components
+│   │   ├── splash_page.dart      # Splash page
+│   │   └── privacy_policy_page.dart  # Privacy policy page
+│   ├── services/                 # Service layer (reserved)
+│   ├── state/                    # State management (reserved)
+│   └── widgets/                  # Widget layer (reserved)
+│       └── common/               # Common widgets
 ├── android/                      # Android native code
 │   └── app/src/main/kotlin/com/fnthink/notice/
 │       ├── MainActivity.kt       # Main Activity
