@@ -56,7 +56,10 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | python3 -c "import sys, base64; sys.stdout.buffer.write(base64.b64decode(sys.stdin.read().strip()))" > android/app/key.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" > /tmp/keystore_base64.txt
+          python3 -c "import base64; open('android/app/key.jks', 'wb').write(base64.b64decode(open('/tmp/keystore_base64.txt').read().strip()))"
+          ls -la android/app/key.jks
+          sha256sum android/app/key.jks
 
       - name: Build APK (arm64)
         run: flutter build apk --release --target-platform android-arm64
