@@ -4,6 +4,8 @@
 
 # 通知推送助手
 
+**[English](README-en.md) / 中文**
+
 为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、电量提醒、深色模式等丰富功能。
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
