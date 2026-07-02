@@ -50,7 +50,9 @@ jobs:
       - name: Modify gradle repositories to official source
         run: |
           sed -i '/maven.*aliyun/d' android/build.gradle.kts
+          sed -i '/maven.*aliyun/d' android/settings.gradle.kts
           sed -i 's/repositories {/repositories {\n        google()\n        mavenCentral()/' android/build.gradle.kts
+          sed -i 's/repositories {/repositories {\n        google()\n        mavenCentral()/' android/settings.gradle.kts
 
       - name: Decode keystore
         run: |
