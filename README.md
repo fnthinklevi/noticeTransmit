@@ -104,7 +104,7 @@ noticeTransmit/
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.0.1 | 项目已配置 |
 | **Gradle** | 9.1.0 | 9.1.0 | 项目已配置（gradle-wrapper.properties） |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
-| **JDK** | 17 | 17+ | AGP 9.x 要求 JDK 17 及以上 |
+| **JDK** | 21 | 21+ | AGP 9.x 要求 JDK 21 及以上 |
 | **Android SDK** | 21 (minSdk) | 35 (compileSdk) | minSdk 21，目标 Android 15 |
 
 #### 版本兼容性说明

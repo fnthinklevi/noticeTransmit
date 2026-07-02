@@ -14,22 +14,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'zulu'
           cache: 'gradle'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.0'
+          flutter-version: '3.44.4'
           channel: 'stable'
           cache: true
 
       - name: Flutter pub get
         run: flutter pub get
+
+      - name: Dart format check
+        run: dart format --set-exit-if-changed lib/
+
+      - name: Flutter analyze
+        run: |
+          set +e
+          flutter analyze --no-pub > analyze_output.log 2>&1
+          EXIT_CODE=$?
+          set -e
+          cat analyze_output.log
+          if grep -E "^ +error •" analyze_output.log; then
+            echo "❌ 存在代码错误，CI失败"
+            exit 1
+          fi
+          echo "✅ 无致命代码错误，仅风格提示已忽略"
 
       - name: Build APK (arm64)
         run: flutter build apk --release --target-platform android-arm64
