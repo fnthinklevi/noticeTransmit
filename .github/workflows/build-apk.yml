@@ -52,13 +52,17 @@ jobs:
           sed -i '/maven.*aliyun/d' android/build.gradle.kts
           sed -i 's/repositories {/repositories {\n        google()\n        mavenCentral()/' android/build.gradle.kts
 
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/key.jks
+
       - name: Build APK (arm64)
         run: flutter build apk --release --target-platform android-arm64
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+          KEYSTORE_FILE: android/key.jks
 
       - name: Get version
         id: version

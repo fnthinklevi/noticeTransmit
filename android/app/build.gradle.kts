@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -11,10 +10,22 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("D:\\fnthinklevi\\key.jks")
-            storePassword = "fnthinklevi"
-            keyAlias = "key"
-            keyPassword = "fnthinklevi"
+            val keystoreFile = System.getenv("KEYSTORE_FILE")
+            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("KEY_ALIAS")
+            val keyPassword = System.getenv("KEY_PASSWORD")
+            
+            if (keystoreFile != null && keystorePassword != null && keyAlias != null && keyPassword != null) {
+                storeFile = file(keystoreFile)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            } else {
+                storeFile = file("D:\\fnthinklevi\\key.jks")
+                storePassword = "fnthinklevi"
+                this.keyAlias = "key"
+                this.keyPassword = "fnthinklevi"
+            }
         }
     }
 
@@ -24,10 +35,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.fnthink.notice"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = 37
         versionCode = flutter.versionCode
