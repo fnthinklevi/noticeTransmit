@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.19",
-  "latestVersion": "1.5.19",
-  "latestBuild": 53,
+  "appName": "notice1.5.20",
+  "latestVersion": "1.5.20",
+  "latestBuild": 54,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【冷启动闪退修复】\n• 修复冷启动时前台服务启动超时导致的闪退\n• 优化服务启动时序\n• 延迟自启服务启动时机",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.19.apk",
-  "fileSize": 22628775,
+  "changelog": "【体验优化】\n• 去除原生启动页logo，启动过渡更自然\n• 深色模式选项增加对应图标\n• 优化启动服务时机\n• README补充版本要求说明",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.20.apk",
+  "fileSize": 22628895,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }
