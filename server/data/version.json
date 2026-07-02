@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.22",
-  "latestVersion": "1.5.22",
-  "latestBuild": 56,
+  "appName": "notice1.5.23",
+  "latestVersion": "1.5.23",
+  "latestBuild": 57,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【电池监控优化 & 架构精简】\n• 修复电池状态监控通知不稳定的问题：增加60秒主动轮询，确保后台/锁屏时也能检测到状态变化\n• 原生库仅保留arm64-v8a架构，减小APK体积\n• 接入腾讯Bugly崩溃统计，便于快速定位线上问题\n• 新增GitHub Actions CI/CD工作流（代码检查 + 自动构建）\n• 完善base.md技术文档，增加详细的路线图规划",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.22.apk",
-  "fileSize": 23366743,
+  "changelog": "【隐私政策 & 代码架构优化】\n• 新增隐私政策页面，详细说明数据采集与隐私保护\n• README 增加隐私说明章节，明确 Bugly 仅收集崩溃数据\n• 代码拆分第一阶段：建立模块化目录结构（models/theme/pages）\n• 引入 provider 状态管理库，为后续状态管理做准备",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.23.apk",
+  "fileSize": 23366879,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }
