@@ -1,12 +1,12 @@
 {
-  "appName": "notice1.5.18",
-  "latestVersion": "1.5.18",
-  "latestBuild": 52,
+  "appName": "notice1.5.19",
+  "latestVersion": "1.5.19",
+  "latestBuild": 53,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【电量通知自定义 & 冷启动修复】\n• 电量通知条件支持完全自定义\n• 支持添加、编辑、删除通知规则\n• 开屏时长优化为666ms\n• 修复冷启动闪退问题",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.18.apk",
+  "changelog": "【冷启动闪退修复】\n• 修复冷启动时前台服务启动超时导致的闪退\n• 优化服务启动时序\n• 延迟自启服务启动时机",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.19.apk",
   "fileSize": 22628775,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"

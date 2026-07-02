@@ -120,9 +120,10 @@ class NotificationMonitorService : NotificationListenerService() {
         super.onCreate()
         Log.i(TAG, "NotificationMonitorService onCreate")
 
+        startForegroundCompat()
+        
         prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         acquireWakeLocks()
-        startForegroundCompat()
         registerBatteryReceiver()
         registerHotfixReceiver()
 

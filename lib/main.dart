@@ -819,8 +819,10 @@ class _MainPageState extends State<MainPage> {
       await _setNativeWebhookUrls(enabledUrls);
     }
     if (!_serviceManuallyStopped) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _startForegroundService();
+      Future.delayed(const Duration(milliseconds: 2000), () {
+        if (mounted) {
+          _startForegroundService();
+        }
       });
     }
     _loadNotificationRecords();
