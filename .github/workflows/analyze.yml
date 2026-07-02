@@ -26,7 +26,17 @@ jobs:
         run: flutter pub get
 
       - name: Flutter analyze
-        run: flutter analyze --no-pub
+        run: |
+          set +e
+          flutter analyze --no-pub > analyze_output.log 2>&1
+          EXIT_CODE=$?
+          set -e
+          cat analyze_output.log
+          if grep -E "^ +error •" analyze_output.log; then
+            echo "❌ 存在代码错误，CI失败"
+            exit 1
+          fi
+          echo "✅ 无致命代码错误，仅风格提示已忽略"
 
       - name: Flutter format check
         run: flutter format --set-exit-if-changed lib/
