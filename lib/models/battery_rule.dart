@@ -87,7 +87,9 @@ class BatteryRule {
   factory BatteryRule.fromMap(Map<String, dynamic> map) {
     return BatteryRule(
       id: map['id'] as String? ?? '',
-      type: BatteryRuleTypeExtension.fromValue(map['type'] as String? ?? 'charging'),
+      type: BatteryRuleTypeExtension.fromValue(
+        map['type'] as String? ?? 'charging',
+      ),
       value: map['value'] as int? ?? 0,
       enabled: map['enabled'] as bool? ?? true,
       title: map['title'] as String? ?? '',

@@ -68,7 +68,10 @@ class AppUpdateManager {
 
   Future<void> _markChecked() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_prefsKeyLastCheckTime, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+      _prefsKeyLastCheckTime,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   Future<VersionCheckResult?> checkUpdate({bool force = false}) async {
@@ -76,11 +79,13 @@ class AppUpdateManager {
     if (!force && !(await shouldCheckNow())) return null;
 
     try {
-      final uri = Uri.parse('$_updateServerUrl/api/version/check').replace(queryParameters: {
-        'version': currentVersion,
-        'build': currentBuild.toString(),
-        'platform': 'android',
-      });
+      final uri = Uri.parse('$_updateServerUrl/api/version/check').replace(
+        queryParameters: {
+          'version': currentVersion,
+          'build': currentBuild.toString(),
+          'platform': 'android',
+        },
+      );
       debugPrint('检查更新：请求地址 $uri');
 
       final response = await http.get(uri).timeout(const Duration(seconds: 15));
@@ -98,7 +103,9 @@ class AppUpdateManager {
       }
 
       final result = VersionCheckResult.fromJson(data['data']);
-      debugPrint('检查更新：最新版本 ${result.latestVersion}，hasUpdate=${result.hasUpdate}');
+      debugPrint(
+        '检查更新：最新版本 ${result.latestVersion}，hasUpdate=${result.hasUpdate}',
+      );
       await _markChecked();
       return result;
     } catch (e) {
@@ -110,10 +117,12 @@ class AppUpdateManager {
 
   Future<HotfixCheckResult?> checkHotfix({bool force = false}) async {
     try {
-      final uri = Uri.parse('$_updateServerUrl/api/hotfix/check').replace(queryParameters: {
-        'contentVersion': _contentVersion.toString(),
-        'platform': 'android',
-      });
+      final uri = Uri.parse('$_updateServerUrl/api/hotfix/check').replace(
+        queryParameters: {
+          'contentVersion': _contentVersion.toString(),
+          'platform': 'android',
+        },
+      );
 
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
@@ -155,19 +164,21 @@ class AppUpdateManager {
 
     var received = 0;
 
-    await response.stream.listen(
-      (List<int> bytes) {
-        received += bytes.length;
-        file.writeAsBytesSync(bytes, mode: FileMode.append);
-        if (fileTotalSize > 0 && onProgress != null) {
-          onProgress(received / fileTotalSize);
-        }
-      },
-      onDone: () {},
-      onError: (e) {
-        throw e;
-      },
-    ).asFuture();
+    await response.stream
+        .listen(
+          (List<int> bytes) {
+            received += bytes.length;
+            file.writeAsBytesSync(bytes, mode: FileMode.append);
+            if (fileTotalSize > 0 && onProgress != null) {
+              onProgress(received / fileTotalSize);
+            }
+          },
+          onDone: () {},
+          onError: (e) {
+            throw e;
+          },
+        )
+        .asFuture();
 
     return savePath;
   }
@@ -181,7 +192,10 @@ class AppUpdateManager {
           return false;
         }
       }
-      final result = await OpenFilex.open(filePath, type: 'application/vnd.android.package-archive');
+      final result = await OpenFilex.open(
+        filePath,
+        type: 'application/vnd.android.package-archive',
+      );
       return result.type == ResultType.done;
     } catch (e) {
       return false;
@@ -215,19 +229,21 @@ class AppUpdateManager {
 
     var received = 0;
 
-    await response.stream.listen(
-      (List<int> bytes) {
-        received += bytes.length;
-        file.writeAsBytesSync(bytes, mode: FileMode.append);
-        if (fileTotalSize > 0 && onProgress != null) {
-          onProgress(received / fileTotalSize);
-        }
-      },
-      onDone: () {},
-      onError: (e) {
-        throw e;
-      },
-    ).asFuture();
+    await response.stream
+        .listen(
+          (List<int> bytes) {
+            received += bytes.length;
+            file.writeAsBytesSync(bytes, mode: FileMode.append);
+            if (fileTotalSize > 0 && onProgress != null) {
+              onProgress(received / fileTotalSize);
+            }
+          },
+          onDone: () {},
+          onError: (e) {
+            throw e;
+          },
+        )
+        .asFuture();
 
     return savePath;
   }
@@ -333,7 +349,8 @@ class VersionCheckResult {
   String get fileSizeStr {
     if (fileSize <= 0) return '未知';
     if (fileSize < 1024) return '$fileSize B';
-    if (fileSize < 1024 * 1024) return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    if (fileSize < 1024 * 1024)
+      return '${(fileSize / 1024).toStringAsFixed(1)} KB';
     if (fileSize < 1024 * 1024 * 1024) {
       return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
     }
@@ -381,7 +398,8 @@ class HotfixCheckResult {
   String get fileSizeStr {
     if (fileSize <= 0) return '未知';
     if (fileSize < 1024) return '$fileSize B';
-    if (fileSize < 1024 * 1024) return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    if (fileSize < 1024 * 1024)
+      return '${(fileSize / 1024).toStringAsFixed(1)} KB';
     if (fileSize < 1024 * 1024 * 1024) {
       return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
     }

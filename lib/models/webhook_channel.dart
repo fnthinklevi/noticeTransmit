@@ -1,9 +1,4 @@
-enum WebhookChannelType {
-  generic,
-  wechatWork,
-  dingtalk,
-  feishu,
-}
+enum WebhookChannelType { generic, wechatWork, dingtalk, feishu }
 
 extension WebhookChannelTypeExtension on WebhookChannelType {
   String get value {
@@ -72,7 +67,9 @@ class WebhookChannel {
       type = detectTypeFromUrl(url);
     }
     return WebhookChannel(
-      id: map['id'] as String? ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          map['id'] as String? ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       name: map['name'] as String? ?? '',
       url: url,
       type: type,

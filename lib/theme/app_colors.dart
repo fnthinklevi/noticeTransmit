@@ -107,7 +107,10 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   }
 
   @override
-  ThemeExtension<AppThemeColors> lerp(ThemeExtension<AppThemeColors>? other, double t) {
+  ThemeExtension<AppThemeColors> lerp(
+    ThemeExtension<AppThemeColors>? other,
+    double t,
+  ) {
     if (other is! AppThemeColors) return this;
     return AppThemeColors(
       bgColor: Color.lerp(bgColor, other.bgColor, t)!,
@@ -130,7 +133,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
 
 class AppColors {
   static AppThemeColors of(BuildContext context) {
-    return Theme.of(context).extension<AppThemeColors>() ?? AppThemeColors.light();
+    return Theme.of(context).extension<AppThemeColors>() ??
+        AppThemeColors.light();
   }
 
   static bool isDark(BuildContext context) {
@@ -141,7 +145,8 @@ class AppColors {
   static Color cardBg(BuildContext context) => of(context).cardBg;
   static Color separator(BuildContext context) => of(context).separator;
   static Color primaryLabel(BuildContext context) => of(context).primaryLabel;
-  static Color secondaryLabel(BuildContext context) => of(context).secondaryLabel;
+  static Color secondaryLabel(BuildContext context) =>
+      of(context).secondaryLabel;
   static Color tertiaryLabel(BuildContext context) => of(context).tertiaryLabel;
   static Color inputBg(BuildContext context) => of(context).inputBg;
   static Color systemBlue(BuildContext context) => of(context).systemBlue;

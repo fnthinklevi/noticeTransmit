@@ -118,7 +118,10 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   }
 
   @override
-  ThemeExtension<AppThemeColors> lerp(ThemeExtension<AppThemeColors>? other, double t) {
+  ThemeExtension<AppThemeColors> lerp(
+    ThemeExtension<AppThemeColors>? other,
+    double t,
+  ) {
     if (other is! AppThemeColors) return this;
     return AppThemeColors(
       bgColor: Color.lerp(bgColor, other.bgColor, t)!,
@@ -141,7 +144,8 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
 
 class AppColors {
   static AppThemeColors of(BuildContext context) {
-    return Theme.of(context).extension<AppThemeColors>() ?? AppThemeColors.light();
+    return Theme.of(context).extension<AppThemeColors>() ??
+        AppThemeColors.light();
   }
 
   static bool isDark(BuildContext context) {
@@ -152,7 +156,8 @@ class AppColors {
   static Color cardBg(BuildContext context) => of(context).cardBg;
   static Color separator(BuildContext context) => of(context).separator;
   static Color primaryLabel(BuildContext context) => of(context).primaryLabel;
-  static Color secondaryLabel(BuildContext context) => of(context).secondaryLabel;
+  static Color secondaryLabel(BuildContext context) =>
+      of(context).secondaryLabel;
   static Color tertiaryLabel(BuildContext context) => of(context).tertiaryLabel;
   static Color inputBg(BuildContext context) => of(context).inputBg;
   static Color systemBlue(BuildContext context) => of(context).systemBlue;
@@ -181,7 +186,9 @@ class MyApp extends StatefulWidget {
 
 class MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
-  final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
+  final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
+    ThemeMode.system,
+  );
 
   ThemeMode get themeMode => _themeMode;
 
@@ -256,9 +263,7 @@ class MyAppState extends State<MyApp> {
       cardTheme: CardThemeData(
         elevation: 0,
         color: colors.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         clipBehavior: Clip.antiAlias,
       ),
       listTileTheme: ListTileThemeData(
@@ -292,10 +297,7 @@ class MyAppState extends State<MyApp> {
             borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.symmetric(vertical: 14),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -343,16 +345,12 @@ class MyAppState extends State<MyApp> {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: colors.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.cardBg,
         contentTextStyle: TextStyle(color: colors.primaryLabel),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
         elevation: 4,
       ),
@@ -385,9 +383,7 @@ class MyAppState extends State<MyApp> {
       cardTheme: CardThemeData(
         elevation: 0,
         color: colors.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         clipBehavior: Clip.antiAlias,
       ),
       listTileTheme: ListTileThemeData(
@@ -421,10 +417,7 @@ class MyAppState extends State<MyApp> {
             borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.symmetric(vertical: 14),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -472,16 +465,12 @@ class MyAppState extends State<MyApp> {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: colors.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.cardBg,
         contentTextStyle: TextStyle(color: colors.primaryLabel),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
         elevation: 4,
       ),
@@ -505,10 +494,12 @@ class _SplashPageState extends State<SplashPage> {
         if (mounted) {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const MainPage(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                return FadeTransition(opacity: animation, child: child);
-              },
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const MainPage(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
               transitionDuration: const Duration(milliseconds: 300),
             ),
           );
@@ -519,12 +510,17 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = MyApp.of(context)?.themeMode == ThemeMode.dark ||
+    final isDark =
+        MyApp.of(context)?.themeMode == ThemeMode.dark ||
         (MyApp.of(context)?.themeMode == ThemeMode.system &&
             MediaQuery.of(context).platformBrightness == Brightness.dark);
     final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF);
-    final textColor = isDark ? const Color(0xFFFFFFFF) : const Color(0xFF1C1C1E);
-    final secondaryColor = isDark ? const Color(0xFF8E8E93) : const Color(0xFF8E8E93);
+    final textColor = isDark
+        ? const Color(0xFFFFFFFF)
+        : const Color(0xFF1C1C1E);
+    final secondaryColor = isDark
+        ? const Color(0xFF8E8E93)
+        : const Color(0xFF8E8E93);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -708,21 +704,29 @@ class _MainPageState extends State<MainPage> {
   void _setupMethodChannel() {
     platform.setMethodCallHandler((call) async {
       if (call.method == 'onNotificationReceived') {
-        final Map<String, dynamic> record = Map<String, dynamic>.from(call.arguments);
+        final Map<String, dynamic> record = Map<String, dynamic>.from(
+          call.arguments,
+        );
         _addNotificationRecord(record);
       } else if (call.method == 'onBatteryChanged') {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(call.arguments);
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+          call.arguments,
+        );
         setState(() {
           _currentBatteryLevel = data['level'] ?? -1;
           _currentIsCharging = data['isCharging'] ?? false;
         });
       } else if (call.method == 'onSmsPermissionResult') {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(call.arguments);
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+          call.arguments,
+        );
         setState(() {
           _smsPermissionGranted = data['granted'] ?? false;
         });
       } else if (call.method == 'onPhonePermissionResult') {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(call.arguments);
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+          call.arguments,
+        );
         setState(() {
           _phonePermissionGranted = data['granted'] ?? false;
         });
@@ -757,7 +761,9 @@ class _MainPageState extends State<MainPage> {
     List<Map<String, dynamic>> channels = [];
     bool loadedFromNative = false;
     try {
-      final List<dynamic> result = await platform.invokeMethod('getWebhookChannels');
+      final List<dynamic> result = await platform.invokeMethod(
+        'getWebhookChannels',
+      );
       channels = result.map((e) => Map<String, dynamic>.from(e)).toList();
       loadedFromNative = true;
     } catch (e) {
@@ -775,14 +781,18 @@ class _MainPageState extends State<MainPage> {
         if (oldUrlsJson != null) {
           try {
             final List<dynamic> list = jsonDecode(oldUrlsJson);
-            channels = list.map((e) => {'url': e.toString(), 'enabled': true}).toList();
+            channels = list
+                .map((e) => {'url': e.toString(), 'enabled': true})
+                .toList();
           } catch (_) {
             channels = [];
           }
         } else {
           final singleUrl = prefs.getString('webhook_url');
           if (singleUrl != null && singleUrl.isNotEmpty) {
-            channels = [{'url': singleUrl, 'enabled': true}];
+            channels = [
+              {'url': singleUrl, 'enabled': true},
+            ];
           }
         }
       }
@@ -793,7 +803,8 @@ class _MainPageState extends State<MainPage> {
 
     String deviceName = '';
     try {
-      final nativeDeviceName = await platform.invokeMethod('getDeviceName') as String?;
+      final nativeDeviceName =
+          await platform.invokeMethod('getDeviceName') as String?;
       if (nativeDeviceName != null && nativeDeviceName.isNotEmpty) {
         deviceName = nativeDeviceName;
         await prefs.setString('device_name', nativeDeviceName);
@@ -808,7 +819,8 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _webhookChannels = channels;
       _deviceName = deviceName;
-      _serviceManuallyStopped = prefs.getBool('service_manually_stopped') ?? false;
+      _serviceManuallyStopped =
+          prefs.getBool('service_manually_stopped') ?? false;
       _batteryNotifyEnabled = prefs.getBool('battery_notify_enabled') ?? true;
       _batteryRules = _loadBatteryRules(prefs);
     });
@@ -842,7 +854,9 @@ class _MainPageState extends State<MainPage> {
     if (!mounted) return;
 
     try {
-      final hotfixResult = await AppUpdateManager.instance.checkHotfix(force: isManual);
+      final hotfixResult = await AppUpdateManager.instance.checkHotfix(
+        force: isManual,
+      );
       if (hotfixResult != null && hotfixResult.hasUpdate && mounted) {
         await _downloadAndApplyHotfix(hotfixResult);
       }
@@ -864,31 +878,36 @@ class _MainPageState extends State<MainPage> {
         }
         _showUpdateDialog(result);
       } else if (isManual) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前已是最新版本')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
       }
     } else if (isManual) {
       final error = AppUpdateManager.instance.lastError;
       final errorMsg = error != null && error.isNotEmpty
           ? '检查更新失败：$error'
           : '检查更新失败，请检查网络连接';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(errorMsg)));
     }
   }
 
   Future<void> _loadFilterSettings() async {
     try {
-      final List<dynamic> enabledPkgs =
-          await platform.invokeMethod('getEnabledPackages');
-      final List<dynamic> blacklist =
-          await platform.invokeMethod('getBlacklistKeywords');
-      final List<dynamic> whitelist =
-          await platform.invokeMethod('getWhitelistKeywords');
+      final List<dynamic> enabledPkgs = await platform.invokeMethod(
+        'getEnabledPackages',
+      );
+      final List<dynamic> blacklist = await platform.invokeMethod(
+        'getBlacklistKeywords',
+      );
+      final List<dynamic> whitelist = await platform.invokeMethod(
+        'getWhitelistKeywords',
+      );
       setState(() {
-        _enabledPackages = Set<String>.from(enabledPkgs.map((e) => e.toString()));
+        _enabledPackages = Set<String>.from(
+          enabledPkgs.map((e) => e.toString()),
+        );
         _blacklistKeywords = blacklist.map((e) => e.toString()).toList();
         _whitelistKeywords = whitelist.map((e) => e.toString()).toList();
       });
@@ -934,11 +953,46 @@ class _MainPageState extends State<MainPage> {
 
   List<Map<String, dynamic>> _defaultBatteryRules() {
     return [
-      {'id': 'charging', 'type': 'charging', 'value': 0, 'enabled': true, 'title': '开始充电', 'content': ''},
-      {'id': 'full', 'type': 'level_above', 'value': 100, 'enabled': true, 'title': '电量充满', 'content': ''},
-      {'id': 'low30', 'type': 'level_below', 'value': 30, 'enabled': true, 'title': '电量低于30%', 'content': ''},
-      {'id': 'low20', 'type': 'level_below', 'value': 20, 'enabled': true, 'title': '电量低于20%', 'content': ''},
-      {'id': 'discharging', 'type': 'discharging', 'value': 0, 'enabled': false, 'title': '断开充电', 'content': ''},
+      {
+        'id': 'charging',
+        'type': 'charging',
+        'value': 0,
+        'enabled': true,
+        'title': '开始充电',
+        'content': '',
+      },
+      {
+        'id': 'full',
+        'type': 'level_above',
+        'value': 100,
+        'enabled': true,
+        'title': '电量充满',
+        'content': '',
+      },
+      {
+        'id': 'low30',
+        'type': 'level_below',
+        'value': 30,
+        'enabled': true,
+        'title': '电量低于30%',
+        'content': '',
+      },
+      {
+        'id': 'low20',
+        'type': 'level_below',
+        'value': 20,
+        'enabled': true,
+        'title': '电量低于20%',
+        'content': '',
+      },
+      {
+        'id': 'discharging',
+        'type': 'discharging',
+        'value': 0,
+        'enabled': false,
+        'title': '断开充电',
+        'content': '',
+      },
     ];
   }
 
@@ -962,9 +1016,7 @@ class _MainPageState extends State<MainPage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('battery_rules', jsonEncode(_batteryRules));
     try {
-      await platform.invokeMethod('setBatteryRules', {
-        'rules': _batteryRules,
-      });
+      await platform.invokeMethod('setBatteryRules', {'rules': _batteryRules});
     } catch (e) {
       debugPrint('同步电量规则失败: $e');
     }
@@ -984,7 +1036,10 @@ class _MainPageState extends State<MainPage> {
     await _syncBatteryRules();
   }
 
-  Future<void> _updateBatteryRule(String id, Map<String, dynamic> newRule) async {
+  Future<void> _updateBatteryRule(
+    String id,
+    Map<String, dynamic> newRule,
+  ) async {
     setState(() {
       _batteryRules = _batteryRules.map((r) {
         if (r['id'] == id) return newRule;
@@ -1008,7 +1063,9 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _loadNotificationRecords() async {
     try {
-      final List<dynamic> result = await platform.invokeMethod('getNotificationRecords');
+      final List<dynamic> result = await platform.invokeMethod(
+        'getNotificationRecords',
+      );
       setState(() {
         _notificationRecords.clear();
         _notificationRecords.addAll(
@@ -1037,7 +1094,9 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _saveNotificationRecords() async {
     final prefs = await SharedPreferences.getInstance();
-    final recordsJson = jsonEncode(_notificationRecords.take(_maxRecords).toList());
+    final recordsJson = jsonEncode(
+      _notificationRecords.take(_maxRecords).toList(),
+    );
     await prefs.setString('notification_records', recordsJson);
   }
 
@@ -1045,7 +1104,10 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _notificationRecords.insert(0, record);
       if (_notificationRecords.length > _maxRecords) {
-        _notificationRecords.removeRange(_maxRecords, _notificationRecords.length);
+        _notificationRecords.removeRange(
+          _maxRecords,
+          _notificationRecords.length,
+        );
       }
     });
     _saveNotificationRecords();
@@ -1067,7 +1129,9 @@ class _MainPageState extends State<MainPage> {
   Future<String> _exportNotificationRecords() async {
     final directory = await getExternalStorageDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final file = File('${directory?.path}/notification_records_$timestamp.json');
+    final file = File(
+      '${directory?.path}/notification_records_$timestamp.json',
+    );
     final exportData = {
       'exportTime': DateTime.now().toIso8601String(),
       'deviceName': _deviceName,
@@ -1112,12 +1176,19 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _checkPermissions() async {
     try {
-      final granted = await platform.invokeMethod('isNotificationPermissionGranted') as bool?;
-      final batteryOk = await platform.invokeMethod('isIgnoringBatteryOptimizations') as bool?;
+      final granted =
+          await platform.invokeMethod('isNotificationPermissionGranted')
+              as bool?;
+      final batteryOk =
+          await platform.invokeMethod('isIgnoringBatteryOptimizations')
+              as bool?;
       final running = await FlutterForegroundTask.isRunningService;
-      final smsGranted = await platform.invokeMethod('isSmsPermissionGranted') as bool?;
-      final phoneGranted = await platform.invokeMethod('isPhonePermissionGranted') as bool?;
-      final appListGranted = await platform.invokeMethod('isAppListPermissionGranted') as bool?;
+      final smsGranted =
+          await platform.invokeMethod('isSmsPermissionGranted') as bool?;
+      final phoneGranted =
+          await platform.invokeMethod('isPhonePermissionGranted') as bool?;
+      final appListGranted =
+          await platform.invokeMethod('isAppListPermissionGranted') as bool?;
 
       setState(() {
         _notificationPermissionGranted = granted ?? false;
@@ -1148,9 +1219,9 @@ class _MainPageState extends State<MainPage> {
     try {
       await platform.invokeMethod('requestNotificationPermission');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请在设置中开启通知访问权限')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请在设置中开启通知访问权限')));
       }
     } catch (e) {
       debugPrint('请求通知权限失败: $e');
@@ -1278,7 +1349,14 @@ class _MainPageState extends State<MainPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
-        title: Text('设置设备名称', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primaryLabel(context))),
+        title: Text(
+          '设置设备名称',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
         content: TextField(
           controller: controller,
           style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -1297,7 +1375,10 @@ class _MainPageState extends State<MainPage> {
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: Color(0xFF007AFF)),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
             isDense: true,
             filled: true,
             fillColor: AppColors.inputBg(context),
@@ -1317,7 +1398,13 @@ class _MainPageState extends State<MainPage> {
                 Navigator.pop(context);
               }
             },
-            child: const Text('保存', style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w600)),
+            child: const Text(
+              '保存',
+              style: TextStyle(
+                color: Color(0xFF007AFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1339,14 +1426,28 @@ class _MainPageState extends State<MainPage> {
                 color: const Color(0xFF007AFF),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(Icons.notifications_active, size: 32, color: Colors.white),
+              child: const Icon(
+                Icons.notifications_active,
+                size: 32,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 12),
-            Text('通知推送助手', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primaryLabel(context))),
+            Text(
+              '通知推送助手',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
             const SizedBox(height: 2),
             Text(
               'v${AppUpdateManager.instance.currentVersion} (build ${AppUpdateManager.instance.currentBuild})',
-              style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.secondaryLabel(context),
+              ),
             ),
           ],
         ),
@@ -1354,17 +1455,41 @@ class _MainPageState extends State<MainPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            Text('作者：幻念团队 fnthinklevi', style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(context))),
+            Text(
+              '作者：幻念团队 fnthinklevi',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
             const SizedBox(height: 6),
-            Text('监听通知栏所有通知并推送到 Webhook', style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context))),
+            Text(
+              '监听通知栏所有通知并推送到 Webhook',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
             const SizedBox(height: 6),
-            Text('支持：微信 / QQ / 短信 / 来电 / 电量提醒', style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context))),
+            Text(
+              '支持：微信 / QQ / 短信 / 来电 / 电量提醒',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('好的', style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w600)),
+            child: const Text(
+              '好的',
+              style: TextStyle(
+                color: Color(0xFF007AFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1373,9 +1498,9 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openPrivacyPolicyPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const PrivacyPolicyPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const PrivacyPolicyPage()));
   }
 
   void _showUpdateDialog(VersionCheckResult result) {
@@ -1388,21 +1513,32 @@ class _MainPageState extends State<MainPage> {
           children: [
             if (result.forceUpdate) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFF3B30),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
                   '重要更新',
-                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
             ],
             Text(
               result.forceUpdate ? '必须更新才能继续使用' : '发现新版本',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primaryLabel(context)),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
             ),
           ],
         ),
@@ -1413,26 +1549,70 @@ class _MainPageState extends State<MainPage> {
             const SizedBox(height: 4),
             Row(
               children: [
-                Text('最新版本：', style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context))),
-                Text('v${result.latestVersion} (build ${result.latestBuild})', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primaryLabel(context))),
+                Text(
+                  '最新版本：',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+                Text(
+                  'v${result.latestVersion} (build ${result.latestBuild})',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
             Row(
               children: [
-                Text('当前版本：', style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context))),
-                Text('v${AppUpdateManager.instance.currentVersion} (build ${AppUpdateManager.instance.currentBuild})', style: TextStyle(fontSize: 13, color: AppColors.primaryLabel(context))),
+                Text(
+                  '当前版本：',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+                Text(
+                  'v${AppUpdateManager.instance.currentVersion} (build ${AppUpdateManager.instance.currentBuild})',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
             Row(
               children: [
-                Text('文件大小：', style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context))),
-                Text(result.fileSizeStr, style: TextStyle(fontSize: 13, color: AppColors.primaryLabel(context))),
+                Text(
+                  '文件大小：',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+                Text(
+                  result.fileSizeStr,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
-            Text('更新内容', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primaryLabel(context))),
+            Text(
+              '更新内容',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
             const SizedBox(height: 8),
             Flexible(
               child: Container(
@@ -1444,7 +1624,11 @@ class _MainPageState extends State<MainPage> {
                 child: SingleChildScrollView(
                   child: Text(
                     result.changelog.replaceAll('\\n', '\n'),
-                    style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.primaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: AppColors.primaryLabel(context),
+                    ),
                   ),
                 ),
               ),
@@ -1461,9 +1645,14 @@ class _MainPageState extends State<MainPage> {
                       backgroundColor: const Color(0xFF007AFF),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                    child: const Text('立即更新', style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: const Text(
+                      '立即更新',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ]
@@ -1474,21 +1663,37 @@ class _MainPageState extends State<MainPage> {
                       child: TextButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          AppUpdateManager.instance.setIgnoredVersion(result.latestVersion);
+                          AppUpdateManager.instance.setIgnoredVersion(
+                            result.latestVersion,
+                          );
                         },
-                        child: Text('忽略', style: TextStyle(color: AppColors.secondaryLabel(context))),
+                        child: Text(
+                          '忽略',
+                          style: TextStyle(
+                            color: AppColors.secondaryLabel(context),
+                          ),
+                        ),
                       ),
                     ),
                     Expanded(
                       child: TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('稍后', style: TextStyle(color: Color(0xFF007AFF))),
+                        child: const Text(
+                          '稍后',
+                          style: TextStyle(color: Color(0xFF007AFF)),
+                        ),
                       ),
                     ),
                     Expanded(
                       child: TextButton(
                         onPressed: () => _startDownloadUpdate(result),
-                        child: const Text('更新', style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          '更新',
+                          style: TextStyle(
+                            color: Color(0xFF007AFF),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1512,7 +1717,14 @@ class _MainPageState extends State<MainPage> {
       barrierDismissible: !result.forceUpdate,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
-        title: Text('正在下载更新', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primaryLabel(context))),
+        title: Text(
+          '正在下载更新',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
         content: ValueListenableBuilder<double>(
           valueListenable: progressNotifier,
           builder: (context, progress, child) {
@@ -1526,13 +1738,19 @@ class _MainPageState extends State<MainPage> {
                     value: progress > 0 ? progress : null,
                     minHeight: 6,
                     backgroundColor: AppColors.separator(context),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF007AFF),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   '${(progress * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.primaryLabel(context)),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(context),
+                  ),
                 ),
               ],
             );
@@ -1546,42 +1764,48 @@ class _MainPageState extends State<MainPage> {
                     Navigator.pop(context);
                     setState(() => _isDownloading = false);
                   },
-                  child: const Text('取消', style: TextStyle(color: Color(0xFFFF3B30))),
+                  child: const Text(
+                    '取消',
+                    style: TextStyle(color: Color(0xFFFF3B30)),
+                  ),
                 ),
               ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
 
-    AppUpdateManager.instance.downloadApk(
-      result.downloadUrl,
-      totalSize: result.fileSize,
-      onProgress: (progress) {
-        progressNotifier.value = progress;
-        if (mounted) {
-          setState(() {});
-        }
-      },
-    ).then((filePath) {
-      setState(() => _isDownloading = false);
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      AppUpdateManager.instance.installApk(filePath);
-    }).catchError((e) {
-      setState(() => _isDownloading = false);
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('下载失败：${e.toString()}')),
-      );
-    });
+    AppUpdateManager.instance
+        .downloadApk(
+          result.downloadUrl,
+          totalSize: result.fileSize,
+          onProgress: (progress) {
+            progressNotifier.value = progress;
+            if (mounted) {
+              setState(() {});
+            }
+          },
+        )
+        .then((filePath) {
+          setState(() => _isDownloading = false);
+          if (!mounted) return;
+          Navigator.of(context, rootNavigator: true).pop();
+          AppUpdateManager.instance.installApk(filePath);
+        })
+        .catchError((e) {
+          setState(() => _isDownloading = false);
+          if (!mounted) return;
+          Navigator.of(context, rootNavigator: true).pop();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('下载失败：${e.toString()}')));
+        });
   }
 
   Future<void> _downloadAndApplyHotfix(HotfixCheckResult result) async {
     try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('正在下载热更新包...')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('正在下载热更新包...')));
 
       final zipPath = await AppUpdateManager.instance.downloadHotfix(
         result.downloadUrl,
@@ -1602,19 +1826,19 @@ class _MainPageState extends State<MainPage> {
           debugPrint('通知服务重载热更新失败: $e');
         }
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('热更新完成，已生效')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('热更新完成，已生效')));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('热更新失败')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('热更新失败')));
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('热更新失败：${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('热更新失败：${e.toString()}')));
     }
   }
 
@@ -1625,9 +1849,9 @@ class _MainPageState extends State<MainPage> {
       await _performUpdateCheck(isManual: true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('检查更新失败：${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('检查更新失败：${e.toString()}')));
       }
     } finally {
       await minWait;
@@ -1717,8 +1941,12 @@ class _MainPageState extends State<MainPage> {
         _whitelistKeywords = whitelist;
       });
       try {
-        await platform.invokeMethod('setBlacklistKeywords', {'keywords': blacklist});
-        await platform.invokeMethod('setWhitelistKeywords', {'keywords': whitelist});
+        await platform.invokeMethod('setBlacklistKeywords', {
+          'keywords': blacklist,
+        });
+        await platform.invokeMethod('setWhitelistKeywords', {
+          'keywords': whitelist,
+        });
       } catch (e) {
         debugPrint('保存关键词失败: $e');
       }
@@ -1737,9 +1965,9 @@ class _MainPageState extends State<MainPage> {
     if (result != null) {
       await _saveWebhookChannels(result);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Webhook 配置已保存')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Webhook 配置已保存')));
       }
     }
   }
@@ -1750,10 +1978,7 @@ class _MainPageState extends State<MainPage> {
     if (themeNotifier == null) {
       final pages = _buildPages();
       return Scaffold(
-        body: IndexedStack(
-          index: _currentIndex,
-          children: pages,
-        ),
+        body: IndexedStack(index: _currentIndex, children: pages),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentIndex,
           onDestinationSelected: (index) {
@@ -1786,10 +2011,7 @@ class _MainPageState extends State<MainPage> {
       builder: (context, mode, child) {
         final pages = _buildPages();
         return Scaffold(
-          body: IndexedStack(
-            index: _currentIndex,
-            children: pages,
-          ),
+          body: IndexedStack(index: _currentIndex, children: pages),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _currentIndex,
             onDestinationSelected: (index) {
@@ -1891,14 +2113,17 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
   bool get _isStockAndroid =>
       widget.manufacturer.toLowerCase().contains('google') ||
       widget.manufacturer.toLowerCase().contains('android') ||
-      !_isXiaomi && !_isMeizu && !_isHuawei && !_isOppo && !_isVivo && !_isSamsung;
+      !_isXiaomi &&
+          !_isMeizu &&
+          !_isHuawei &&
+          !_isOppo &&
+          !_isVivo &&
+          !_isSamsung;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('权限设置'),
-      ),
+      appBar: AppBar(title: const Text('权限设置')),
       body: RefreshIndicator(
         onRefresh: widget.onRefresh,
         child: ListView(
@@ -1911,7 +2136,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                 title: '通知访问权限',
                 subtitle: widget.notificationPermissionGranted ? '已开启' : '未开启',
                 isOn: widget.notificationPermissionGranted,
-                onTap: widget.notificationPermissionGranted ? null : widget.onRequestNotificationPermission,
+                onTap: widget.notificationPermissionGranted
+                    ? null
+                    : widget.onRequestNotificationPermission,
                 context: context,
               ),
               _buildDivider(context),
@@ -1920,12 +2147,20 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                 title: '忽略电池优化',
                 subtitle: widget.batteryOptimizationIgnored ? '已开启' : '未开启',
                 isOn: widget.batteryOptimizationIgnored,
-                onTap: widget.batteryOptimizationIgnored ? null : widget.onRequestBatteryOptimization,
+                onTap: widget.batteryOptimizationIgnored
+                    ? null
+                    : widget.onRequestBatteryOptimization,
                 context: context,
               ),
             ], context),
             const SizedBox(height: 24),
-            if (_isXiaomi || _isMeizu || _isHuawei || _isOppo || _isVivo || _isSamsung || _isStockAndroid) ...[
+            if (_isXiaomi ||
+                _isMeizu ||
+                _isHuawei ||
+                _isOppo ||
+                _isVivo ||
+                _isSamsung ||
+                _isStockAndroid) ...[
               _buildSectionHeader('厂商后台设置', context),
               _buildGroup([
                 if (_isXiaomi)
@@ -2008,7 +2243,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                 title: '短信权限',
                 subtitle: widget.smsPermissionGranted ? '已开启' : '未开启',
                 isOn: widget.smsPermissionGranted,
-                onTap: widget.smsPermissionGranted ? null : widget.onRequestSmsPermission,
+                onTap: widget.smsPermissionGranted
+                    ? null
+                    : widget.onRequestSmsPermission,
                 context: context,
               ),
               _buildDivider(context),
@@ -2017,7 +2254,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                 title: '电话权限',
                 subtitle: widget.phonePermissionGranted ? '已开启' : '未开启',
                 isOn: widget.phonePermissionGranted,
-                onTap: widget.phonePermissionGranted ? null : widget.onRequestPhonePermission,
+                onTap: widget.phonePermissionGranted
+                    ? null
+                    : widget.onRequestPhonePermission,
                 context: context,
               ),
               _buildDivider(context),
@@ -2026,7 +2265,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                 title: '应用列表权限',
                 subtitle: widget.appListPermissionGranted ? '已开启' : '未开启',
                 isOn: widget.appListPermissionGranted,
-                onTap: widget.appListPermissionGranted ? null : widget.onRequestAppListPermission,
+                onTap: widget.appListPermissionGranted
+                    ? null
+                    : widget.onRequestAppListPermission,
                 context: context,
               ),
             ], context),
@@ -2035,7 +2276,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 '非必要权限用于提升特定功能的准确性，不开启不影响核心功能使用',
-                style: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 12),
+                style: TextStyle(
+                  color: AppColors.secondaryLabel(context),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -2074,7 +2318,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
   Widget _buildDivider(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 52),
-      child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
+      child: Divider(
+        height: 0.5,
+        thickness: 0.5,
+        color: AppColors.separator(context),
+      ),
     );
   }
 
@@ -2100,8 +2348,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                 color: isOn
                     ? const Color(0xFF34C759)
                     : isWarning
-                        ? const Color(0xFFFF9500)
-                        : const Color(0xFF007AFF),
+                    ? const Color(0xFFFF9500)
+                    : const Color(0xFF007AFF),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 18, color: Colors.white),
@@ -2113,18 +2361,28 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(fontSize: 16, color: AppColors.primaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.primaryLabel(context),
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
                   ),
                 ],
               ),
             ),
             if (onTap != null)
-              Icon(Icons.chevron_right, size: 20, color: AppColors.tertiaryLabel(context)),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.tertiaryLabel(context),
+              ),
           ],
         ),
       ),
@@ -2157,9 +2415,7 @@ class NotificationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('通知推送助手'),
-      ),
+      appBar: AppBar(title: const Text('通知推送助手')),
       body: RefreshIndicator(
         onRefresh: onRefresh,
         child: ListView(
@@ -2168,7 +2424,9 @@ class NotificationPage extends StatelessWidget {
             const SizedBox(height: 40),
             Center(
               child: GestureDetector(
-                onTap: foregroundServiceRunning ? onStopService : onStartService,
+                onTap: foregroundServiceRunning
+                    ? onStopService
+                    : onStartService,
                 child: Container(
                   width: 180,
                   height: 180,
@@ -2179,10 +2437,11 @@ class NotificationPage extends StatelessWidget {
                         : const Color(0xFFFF3B30),
                     boxShadow: [
                       BoxShadow(
-                        color: (foregroundServiceRunning
-                                ? const Color(0xFF34C759)
-                                : const Color(0xFFFF3B30))
-                            .withValues(alpha: 0.3),
+                        color:
+                            (foregroundServiceRunning
+                                    ? const Color(0xFF34C759)
+                                    : const Color(0xFFFF3B30))
+                                .withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
@@ -2348,8 +2607,8 @@ class _BatteryPageState extends State<BatteryPage> {
     final batteryColor = widget.currentLevel >= 50
         ? const Color(0xFF34C759)
         : widget.currentLevel >= 20
-            ? const Color(0xFFFF9500)
-            : const Color(0xFFFF3B30);
+        ? const Color(0xFFFF9500)
+        : const Color(0xFFFF3B30);
 
     return Scaffold(
       appBar: AppBar(
@@ -2494,14 +2753,18 @@ class _BatteryPageState extends State<BatteryPage> {
     }
 
     return InkWell(
-      onTap: widget.notifyEnabled && enabled ? () => _showEditRuleDialog(rule) : null,
+      onTap: widget.notifyEnabled && enabled
+          ? () => _showEditRuleDialog(rule)
+          : null,
       child: _buildSwitchRow(
         icon: icon,
         iconColor: iconColor,
         title: title,
         subtitle: subtitle,
         value: enabled,
-        onChanged: widget.notifyEnabled ? (v) => widget.onToggleRule(rule['id'] as String, v) : null,
+        onChanged: widget.notifyEnabled
+            ? (v) => widget.onToggleRule(rule['id'] as String, v)
+            : null,
         context: context,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2529,9 +2792,15 @@ class _BatteryPageState extends State<BatteryPage> {
 
   void _showRuleDialog(Map<String, dynamic>? existingRule) {
     final isEdit = existingRule != null;
-    final typeController = TextEditingController(text: existingRule?['type'] ?? 'level_below');
-    final valueController = TextEditingController(text: (existingRule?['value'] ?? 20).toString());
-    final titleController = TextEditingController(text: existingRule?['title'] ?? '');
+    final typeController = TextEditingController(
+      text: existingRule?['type'] ?? 'level_below',
+    );
+    final valueController = TextEditingController(
+      text: (existingRule?['value'] ?? 20).toString(),
+    );
+    final titleController = TextEditingController(
+      text: existingRule?['title'] ?? '',
+    );
     String selectedType = existingRule?['type'] ?? 'level_below';
     int selectedValue = existingRule?['value'] ?? 20;
 
@@ -2547,22 +2816,62 @@ class _BatteryPageState extends State<BatteryPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('规则类型', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      '规则类型',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _buildTypeChip('charging', '开始充电', selectedType, setDialogState, typeController),
-                        _buildTypeChip('discharging', '断开充电', selectedType, setDialogState, typeController),
-                        _buildTypeChip('level_below', '低于某值', selectedType, setDialogState, typeController),
-                        _buildTypeChip('level_above', '高于某值', selectedType, setDialogState, typeController),
-                        _buildTypeChip('level_equals', '等于某值', selectedType, setDialogState, typeController),
+                        _buildTypeChip(
+                          'charging',
+                          '开始充电',
+                          selectedType,
+                          setDialogState,
+                          typeController,
+                        ),
+                        _buildTypeChip(
+                          'discharging',
+                          '断开充电',
+                          selectedType,
+                          setDialogState,
+                          typeController,
+                        ),
+                        _buildTypeChip(
+                          'level_below',
+                          '低于某值',
+                          selectedType,
+                          setDialogState,
+                          typeController,
+                        ),
+                        _buildTypeChip(
+                          'level_above',
+                          '高于某值',
+                          selectedType,
+                          setDialogState,
+                          typeController,
+                        ),
+                        _buildTypeChip(
+                          'level_equals',
+                          '等于某值',
+                          selectedType,
+                          setDialogState,
+                          typeController,
+                        ),
                       ],
                     ),
-                    if (['level_below', 'level_above', 'level_equals'].contains(selectedType)) ...[
+                    if ([
+                      'level_below',
+                      'level_above',
+                      'level_equals',
+                    ].contains(selectedType)) ...[
                       const SizedBox(height: 16),
-                      const Text('电量阈值（%）', style: TextStyle(fontWeight: FontWeight.w600)),
+                      const Text(
+                        '电量阈值（%）',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -2576,20 +2885,27 @@ class _BatteryPageState extends State<BatteryPage> {
                               onChanged: (v) {
                                 setDialogState(() {
                                   selectedValue = v.round();
-                                  valueController.text = selectedValue.toString();
+                                  valueController.text = selectedValue
+                                      .toString();
                                 });
                               },
                             ),
                           ),
                           SizedBox(
                             width: 50,
-                            child: Text('$selectedValue%', textAlign: TextAlign.end),
+                            child: Text(
+                              '$selectedValue%',
+                              textAlign: TextAlign.end,
+                            ),
                           ),
                         ],
                       ),
                     ],
                     const SizedBox(height: 16),
-                    const Text('自定义标题（可选）', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      '自定义标题（可选）',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: titleController,
@@ -2639,8 +2955,13 @@ class _BatteryPageState extends State<BatteryPage> {
     );
   }
 
-  Widget _buildTypeChip(String type, String label, String selectedType,
-      StateSetter setDialogState, TextEditingController controller) {
+  Widget _buildTypeChip(
+    String type,
+    String label,
+    String selectedType,
+    StateSetter setDialogState,
+    TextEditingController controller,
+  ) {
     final isSelected = selectedType == type;
     return ChoiceChip(
       label: Text(label),
@@ -2685,7 +3006,9 @@ class _BatteryPageState extends State<BatteryPage> {
               child: const Text('取消'),
             ),
             TextButton(
-              style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF3B30)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFFF3B30),
+              ),
               onPressed: () {
                 widget.onDeleteRule(id);
                 Navigator.pop(context);
@@ -2728,7 +3051,11 @@ class _BatteryPageState extends State<BatteryPage> {
   Widget _buildDivider(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 52),
-      child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
+      child: Divider(
+        height: 0.5,
+        thickness: 0.5,
+        color: AppColors.separator(context),
+      ),
     );
   }
 
@@ -2762,21 +3089,24 @@ class _BatteryPageState extends State<BatteryPage> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(fontSize: 16, color: AppColors.primaryLabel(context)),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.primaryLabel(context),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 12, color: AppColors.secondaryLabel(context)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
                 ),
               ],
             ),
           ),
           if (trailing != null) trailing,
-          Switch(
-            value: value,
-            onChanged: onChanged,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
@@ -2790,21 +3120,21 @@ class PrivacyPolicyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
-      appBar: AppBar(
-        title: const Text('隐私政策'),
-      ),
+      appBar: AppBar(title: const Text('隐私政策')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _buildSection(
             title: '隐私政策概述',
-            content: '通知推送助手（以下简称"本应用"）非常重视用户的隐私保护。本隐私政策将帮助您了解我们如何收集、使用和保护您的信息。',
+            content:
+                '通知推送助手（以下简称"本应用"）非常重视用户的隐私保护。本隐私政策将帮助您了解我们如何收集、使用和保护您的信息。',
             context: context,
           ),
           const SizedBox(height: 16),
           _buildSection(
             title: '信息收集与使用',
-            content: '本应用仅收集以下类型的信息：\n\n'
+            content:
+                '本应用仅收集以下类型的信息：\n\n'
                 '1. 崩溃统计信息\n'
                 '   - 通过腾讯 Bugly SDK 收集应用崩溃时的堆栈信息\n'
                 '   - 收集设备型号、系统版本、应用版本号、CPU 架构等基础信息\n'
@@ -2818,7 +3148,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '我们不收集的信息',
-            content: '本应用不会收集以下个人隐私信息：\n\n'
+            content:
+                '本应用不会收集以下个人隐私信息：\n\n'
                 '• 通讯录、短信内容\n'
                 '• 位置信息\n'
                 '• 通话记录\n'
@@ -2830,7 +3161,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '数据存储与安全',
-            content: '• 所有通知历史记录仅保存在设备本地\n'
+            content:
+                '• 所有通知历史记录仅保存在设备本地\n'
                 '• 配置数据仅保存在设备本地的 SharedPreferences 中\n'
                 '• 不会将您的任何个人数据上传到开发者服务器\n'
                 '• Webhook 推送通过您自行配置的地址发送，请确保您信任该地址',
@@ -2839,7 +3171,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '第三方服务',
-            content: '本应用使用以下第三方服务：\n\n'
+            content:
+                '本应用使用以下第三方服务：\n\n'
                 '腾讯 Bugly（崩溃统计）\n'
                 '• 服务商：深圳市腾讯计算机系统有限公司\n'
                 '• 用途：收集应用崩溃信息，帮助定位和修复问题\n'
@@ -2850,7 +3183,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '权限说明',
-            content: '本应用申请的权限及其用途：\n\n'
+            content:
+                '本应用申请的权限及其用途：\n\n'
                 '• 通知访问权限：用于监听系统通知，实现推送功能\n'
                 '• 网络权限：用于 Webhook 推送和版本更新检查\n'
                 '• 前台服务：保活通知监听服务，确保消息及时推送\n'
@@ -2868,7 +3202,10 @@ class PrivacyPolicyPage extends StatelessWidget {
           Center(
             child: Text(
               '最后更新：2026年7月2日',
-              style: TextStyle(fontSize: 12, color: AppColors.secondaryLabel(context)),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2938,7 +3275,10 @@ class _DescRow extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(color: AppColors.secondaryLabel(this.context), fontSize: 13),
+            style: TextStyle(
+              color: AppColors.secondaryLabel(this.context),
+              fontSize: 13,
+            ),
           ),
         ),
       ],
@@ -2984,18 +3324,16 @@ class MorePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabledCount = webhookChannels.where((c) => c['enabled'] == true).length;
+    final enabledCount = webhookChannels
+        .where((c) => c['enabled'] == true)
+        .length;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('更多'),
-      ),
+      appBar: AppBar(title: const Text('更多')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _buildSectionHeader('外观设置', context),
-          _buildGroup([
-            _buildThemeTile(context),
-          ], context),
+          _buildGroup([_buildThemeTile(context)], context),
           const SizedBox(height: 24),
           _buildSectionHeader('推送设置', context),
           _buildGroup([
@@ -3083,7 +3421,10 @@ class MorePage extends StatelessWidget {
           Center(
             child: Text(
               'v${AppUpdateManager.instance.currentVersion} (build ${AppUpdateManager.instance.currentBuild})',
-              style: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 12),
+              style: TextStyle(
+                color: AppColors.secondaryLabel(context),
+                fontSize: 12,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -3122,7 +3463,11 @@ class MorePage extends StatelessWidget {
   Widget _buildDivider(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 52),
-      child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
+      child: Divider(
+        height: 0.5,
+        thickness: 0.5,
+        color: AppColors.separator(context),
+      ),
     );
   }
 
@@ -3148,38 +3493,53 @@ class MorePage extends StatelessWidget {
           context: context,
           builder: (context) => AlertDialog(
             backgroundColor: AppColors.cardBg(context),
-            title: Text('深色模式', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primaryLabel(context))),
+            title: Text(
+              '深色模式',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 4),
-                ...ThemeMode.values.map((mode) => ListTile(
-                  onTap: () {
-                    onThemeModeChanged(mode);
-                    Navigator.pop(context);
-                  },
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: (themeIconColors[mode] ?? Colors.grey).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                ...ThemeMode.values.map(
+                  (mode) => ListTile(
+                    onTap: () {
+                      onThemeModeChanged(mode);
+                      Navigator.pop(context);
+                    },
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: (themeIconColors[mode] ?? Colors.grey)
+                            .withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        themeIcons[mode] ?? Icons.brightness_auto,
+                        color: themeIconColors[mode] ?? Colors.grey,
+                        size: 20,
+                      ),
                     ),
-                    child: Icon(
-                      themeIcons[mode] ?? Icons.brightness_auto,
-                      color: themeIconColors[mode] ?? Colors.grey,
-                      size: 20,
+                    title: Text(
+                      themeNames[mode] ?? '',
+                      style: TextStyle(color: AppColors.primaryLabel(context)),
                     ),
+                    trailing: themeMode == mode
+                        ? const Icon(Icons.check, color: Color(0xFF007AFF))
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
-                  title: Text(themeNames[mode] ?? '', style: TextStyle(color: AppColors.primaryLabel(context))),
-                  trailing: themeMode == mode
-                      ? const Icon(Icons.check, color: Color(0xFF007AFF))
-                      : null,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                )),
+                ),
               ],
             ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
         );
       },
@@ -3203,17 +3563,28 @@ class MorePage extends StatelessWidget {
                 children: [
                   Text(
                     '深色模式',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.primaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryLabel(context),
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     themeNames[themeMode] ?? '跟随系统',
-                    style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.tertiaryLabel(context), size: 20),
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.tertiaryLabel(context),
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -3249,11 +3620,20 @@ class MorePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 16, color: AppColors.primaryLabel(context))),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
                   ),
                 ],
               ),
@@ -3261,7 +3641,11 @@ class MorePage extends StatelessWidget {
             if (trailing != null)
               trailing
             else if (onTap != null)
-              Icon(Icons.chevron_right, size: 20, color: AppColors.tertiaryLabel(context)),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.tertiaryLabel(context),
+              ),
           ],
         ),
       ),
@@ -3272,10 +3656,7 @@ class MorePage extends StatelessWidget {
 class WebhookSettingsPage extends StatefulWidget {
   final List<Map<String, dynamic>> webhookChannels;
 
-  const WebhookSettingsPage({
-    super.key,
-    required this.webhookChannels,
-  });
+  const WebhookSettingsPage({super.key, required this.webhookChannels});
 
   @override
   State<WebhookSettingsPage> createState() => _WebhookSettingsPageState();
@@ -3340,10 +3721,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     for (int i = 0; i < _webhookControllers.length; i++) {
       final url = _webhookControllers[i].text.trim();
       if (url.isNotEmpty) {
-        channels.add({
-          'url': url,
-          'enabled': _webhookEnabled[i],
-        });
+        channels.add({'url': url, 'enabled': _webhookEnabled[i]});
       }
     }
     if (!mounted) return;
@@ -3421,7 +3799,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   if (index > 0)
                     Padding(
                       padding: const EdgeInsets.only(left: 16),
-                      child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
+                      child: Divider(
+                        height: 0.5,
+                        thickness: 0.5,
+                        color: AppColors.separator(context),
+                      ),
                     ),
                   _buildChannelItem(index, context),
                 ],
@@ -3438,15 +3820,26 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               borderRadius: BorderRadius.circular(12),
               onTap: _addWebhookField,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF007AFF)),
+                    Icon(
+                      Icons.add_circle_outline,
+                      size: 20,
+                      color: Color(0xFF007AFF),
+                    ),
                     SizedBox(width: 6),
                     Text(
                       '添加通道',
-                      style: TextStyle(fontSize: 16, color: Color(0xFF007AFF), fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFF007AFF),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -3461,7 +3854,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _DescRow(text: '支持同时配置多个 Webhook 通道，每个通道可独立开关', context: context),
+                  _DescRow(
+                    text: '支持同时配置多个 Webhook 通道，每个通道可独立开关',
+                    context: context,
+                  ),
                   const SizedBox(height: 8),
                   _DescRow(text: '自动识别企业微信、钉钉、飞书等平台格式', context: context),
                   const SizedBox(height: 8),
@@ -3505,10 +3901,17 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               ),
               if (_webhookControllers.length > 1)
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFFF3B30)),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: Color(0xFFFF3B30),
+                  ),
                   onPressed: () => _removeWebhookField(index),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
             ],
           ),
@@ -3530,12 +3933,18 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFF007AFF)),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
               isDense: true,
               filled: true,
               fillColor: AppColors.inputBg(context),
             ),
-            style: TextStyle(fontSize: 15, color: AppColors.primaryLabel(context)),
+            style: TextStyle(
+              fontSize: 15,
+              color: AppColors.primaryLabel(context),
+            ),
             maxLines: 1,
             onChanged: (_) {
               setState(() {});
@@ -3546,7 +3955,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildWebhookTypeHint(_webhookControllers[index].text, context),
+                child: _buildWebhookTypeHint(
+                  _webhookControllers[index].text,
+                  context,
+                ),
               ),
               const SizedBox(width: 8),
               SizedBox(
@@ -3564,7 +3976,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                       : const Icon(Icons.send, size: 16),
                   label: Text(
                     (_isTesting && _testIndex == index) ? '测试中' : '测试',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF007AFF),
@@ -3591,10 +4006,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    _testSuccess == true
-                        ? Icons.check_circle
-                        : Icons.error,
-                    color: _testSuccess == true ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                    _testSuccess == true ? Icons.check_circle : Icons.error,
+                    color: _testSuccess == true
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFFFF3B30),
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -3603,7 +4018,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                       _testResult!,
                       style: TextStyle(
                         fontSize: 12,
-                        color: _testSuccess == true ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                        color: _testSuccess == true
+                            ? const Color(0xFF34C759)
+                            : const Color(0xFFFF3B30),
                       ),
                     ),
                   ),
@@ -3702,7 +4119,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                 const SizedBox(height: 1),
                 Text(
                   desc,
-                  style: TextStyle(fontSize: 11, color: AppColors.secondaryLabel(context)),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.secondaryLabel(context),
+                  ),
                 ),
               ],
             ),
@@ -3781,7 +4201,8 @@ class _AppFilterPageState extends State<AppFilterPage> {
 
   Future<bool> _checkPermission() async {
     try {
-      final result = await platform.invokeMethod('canQueryAllPackages') as bool?;
+      final result =
+          await platform.invokeMethod('canQueryAllPackages') as bool?;
       return result ?? true;
     } catch (e) {
       debugPrint('检查应用列表权限失败: $e');
@@ -3811,8 +4232,9 @@ class _AppFilterPageState extends State<AppFilterPage> {
 
   Future<void> _loadCachedApps() async {
     try {
-      final List<dynamic> result =
-          await platform.invokeMethod('getCachedInstalledApps');
+      final List<dynamic> result = await platform.invokeMethod(
+        'getCachedInstalledApps',
+      );
       if (result.isNotEmpty) {
         setState(() {
           _allApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
@@ -3829,15 +4251,21 @@ class _AppFilterPageState extends State<AppFilterPage> {
     _refreshing = true;
 
     try {
-      final List<dynamic> result =
-          await platform.invokeMethod('getInstalledApps');
+      final List<dynamic> result = await platform.invokeMethod(
+        'getInstalledApps',
+      );
       final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
 
       if (!mounted) return;
 
-      final existingPackages = _allApps.map((e) => e['packageName'] as String).toSet();
-      final newPackages = newApps.map((e) => e['packageName'] as String).toSet();
-      final hasChanges = !existingPackages.containsAll(newPackages) ||
+      final existingPackages = _allApps
+          .map((e) => e['packageName'] as String)
+          .toSet();
+      final newPackages = newApps
+          .map((e) => e['packageName'] as String)
+          .toSet();
+      final hasChanges =
+          !existingPackages.containsAll(newPackages) ||
           existingPackages.length != newPackages.length;
 
       if (hasChanges) {
@@ -3907,13 +4335,20 @@ class _AppFilterPageState extends State<AppFilterPage> {
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: const Text('应用筛选', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: const Text(
+          '应用筛选',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
         actions: [
           TextButton(
             onPressed: _saveAndBack,
             child: const Text(
               '完成',
-              style: TextStyle(fontSize: 16, color: Color(0xFF007AFF), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 16,
+                color: Color(0xFF007AFF),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -3938,7 +4373,11 @@ class _AppFilterPageState extends State<AppFilterPage> {
                 color: const Color(0xFFFF9500).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(Icons.security, size: 36, color: Color(0xFFFF9500)),
+              child: const Icon(
+                Icons.security,
+                size: 36,
+                color: Color(0xFFFF9500),
+              ),
             ),
             const SizedBox(height: 20),
             Text(
@@ -3972,7 +4411,10 @@ class _AppFilterPageState extends State<AppFilterPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('前往开启权限', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                child: const Text(
+                  '前往开启权限',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -4006,19 +4448,29 @@ class _AppFilterPageState extends State<AppFilterPage> {
             ),
             child: Row(
               children: [
-                Icon(Icons.search, color: AppColors.secondaryLabel(context), size: 20),
+                Icon(
+                  Icons.search,
+                  color: AppColors.secondaryLabel(context),
+                  size: 20,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: '搜索应用名称或包名',
-                      hintStyle: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 15),
+                      hintStyle: TextStyle(
+                        color: AppColors.secondaryLabel(context),
+                        fontSize: 15,
+                      ),
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
-                    style: TextStyle(color: AppColors.primaryLabel(context), fontSize: 15),
+                    style: TextStyle(
+                      color: AppColors.primaryLabel(context),
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ],
@@ -4036,10 +4488,19 @@ class _AppFilterPageState extends State<AppFilterPage> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
-                      Text('显示系统应用', style: TextStyle(fontSize: 15, color: AppColors.primaryLabel(context))),
+                      Text(
+                        '显示系统应用',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: AppColors.primaryLabel(context),
+                        ),
+                      ),
                       const Spacer(),
                       Switch(
                         value: _showSystemApps,
@@ -4055,39 +4516,73 @@ class _AppFilterPageState extends State<AppFilterPage> {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 16),
-                  child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
+                  child: Divider(
+                    height: 0.5,
+                    thickness: 0.5,
+                    color: AppColors.separator(context),
+                  ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       GestureDetector(
                         onTap: () => _selectAll(true),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFF007AFF,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text('全选', style: TextStyle(color: Color(0xFF007AFF), fontSize: 14, fontWeight: FontWeight.w500)),
+                          child: const Text(
+                            '全选',
+                            style: TextStyle(
+                              color: Color(0xFF007AFF),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: _clearAll,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: AppColors.secondaryLabel(context).withValues(alpha: 0.1),
+                            color: AppColors.secondaryLabel(
+                              context,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text('清空', style: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 14, fontWeight: FontWeight.w500)),
+                          child: Text(
+                            '清空',
+                            style: TextStyle(
+                              color: AppColors.secondaryLabel(context),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                       ),
                       const Spacer(),
                       Text(
                         '已选 ${_selectedPackages.length}',
-                        style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.secondaryLabel(context),
+                        ),
                       ),
                     ],
                   ),
@@ -4109,7 +4604,11 @@ class _AppFilterPageState extends State<AppFilterPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, color: Color(0xFF007AFF), size: 18),
+                const Icon(
+                  Icons.info_outline,
+                  color: Color(0xFF007AFF),
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -4130,64 +4629,94 @@ class _AppFilterPageState extends State<AppFilterPage> {
         const SizedBox(height: 16),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF007AFF)))
+              ? const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF007AFF)),
+                )
               : _filteredApps.isEmpty
-                  ? Center(
-                      child: Text(
-                        '没有找到应用',
-                        style: TextStyle(color: AppColors.secondaryLabel(context)),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _filteredApps.length,
-                      separatorBuilder: (_, _) => Padding(
-                        padding: const EdgeInsets.only(left: 60),
-                        child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
-                      ),
-                      itemBuilder: (context, index) {
-                        final app = _filteredApps[index];
-                        final packageName = app['packageName'] as String;
-                        final appName = app['appName'] as String;
-                        final isSelected = _selectedPackages.contains(packageName);
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.cardBg(context),
-                            borderRadius: BorderRadius.only(
-                              topLeft: index == 0 ? const Radius.circular(12) : Radius.zero,
-                              topRight: index == 0 ? const Radius.circular(12) : Radius.zero,
-                              bottomLeft: index == _filteredApps.length - 1 ? const Radius.circular(12) : Radius.zero,
-                              bottomRight: index == _filteredApps.length - 1 ? const Radius.circular(12) : Radius.zero,
-                            ),
-                          ),
-                          child: ListTile(
-                            leading: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF007AFF).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.android, color: Color(0xFF007AFF), size: 22),
-                            ),
-                            title: Text(appName, style: TextStyle(fontSize: 15, color: AppColors.primaryLabel(context))),
-                            subtitle: Text(
-                              packageName,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.secondaryLabel(context),
-                              ),
-                            ),
-                            trailing: Icon(
-                              isSelected ? Icons.check_circle : Icons.circle_outlined,
-                              color: isSelected ? const Color(0xFF34C759) : AppColors.tertiaryLabel(context),
-                              size: 24,
-                            ),
-                            onTap: () => _togglePackage(packageName, !isSelected),
-                          ),
-                        );
-                      },
+              ? Center(
+                  child: Text(
+                    '没有找到应用',
+                    style: TextStyle(color: AppColors.secondaryLabel(context)),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _filteredApps.length,
+                  separatorBuilder: (_, _) => Padding(
+                    padding: const EdgeInsets.only(left: 60),
+                    child: Divider(
+                      height: 0.5,
+                      thickness: 0.5,
+                      color: AppColors.separator(context),
                     ),
+                  ),
+                  itemBuilder: (context, index) {
+                    final app = _filteredApps[index];
+                    final packageName = app['packageName'] as String;
+                    final appName = app['appName'] as String;
+                    final isSelected = _selectedPackages.contains(packageName);
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBg(context),
+                        borderRadius: BorderRadius.only(
+                          topLeft: index == 0
+                              ? const Radius.circular(12)
+                              : Radius.zero,
+                          topRight: index == 0
+                              ? const Radius.circular(12)
+                              : Radius.zero,
+                          bottomLeft: index == _filteredApps.length - 1
+                              ? const Radius.circular(12)
+                              : Radius.zero,
+                          bottomRight: index == _filteredApps.length - 1
+                              ? const Radius.circular(12)
+                              : Radius.zero,
+                        ),
+                      ),
+                      child: ListTile(
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF007AFF,
+                            ).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.android,
+                            color: Color(0xFF007AFF),
+                            size: 22,
+                          ),
+                        ),
+                        title: Text(
+                          appName,
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.primaryLabel(context),
+                          ),
+                        ),
+                        subtitle: Text(
+                          packageName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.secondaryLabel(context),
+                          ),
+                        ),
+                        trailing: Icon(
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color: isSelected
+                              ? const Color(0xFF34C759)
+                              : AppColors.tertiaryLabel(context),
+                          size: 24,
+                        ),
+                        onTap: () => _togglePackage(packageName, !isSelected),
+                      ),
+                    );
+                  },
+                ),
         ),
         const SizedBox(height: 8),
       ],
@@ -4259,10 +4788,7 @@ class _KeywordsPageState extends State<KeywordsPage>
   }
 
   void _saveAndBack() {
-    Navigator.pop(context, {
-      'whitelist': _whitelist,
-      'blacklist': _blacklist,
-    });
+    Navigator.pop(context, {'whitelist': _whitelist, 'blacklist': _blacklist});
   }
 
   @override
@@ -4273,14 +4799,20 @@ class _KeywordsPageState extends State<KeywordsPage>
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: const Text('关键词过滤', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        title: const Text(
+          '关键词过滤',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
         bottom: TabBar(
           controller: _tabController,
           onTap: (_) => setState(() {}),
           labelColor: const Color(0xFF007AFF),
           unselectedLabelColor: AppColors.secondaryLabel(context),
           indicatorColor: const Color(0xFF007AFF),
-          labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
           tabs: const [
             Tab(text: '白名单'),
             Tab(text: '黑名单'),
@@ -4291,7 +4823,11 @@ class _KeywordsPageState extends State<KeywordsPage>
             onPressed: _saveAndBack,
             child: const Text(
               '保存',
-              style: TextStyle(fontSize: 16, color: Color(0xFF007AFF), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 16,
+                color: Color(0xFF007AFF),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -4305,7 +4841,10 @@ class _KeywordsPageState extends State<KeywordsPage>
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.cardBg(context),
                       borderRadius: BorderRadius.circular(10),
@@ -4314,15 +4853,19 @@ class _KeywordsPageState extends State<KeywordsPage>
                     child: TextField(
                       controller: _textController,
                       decoration: InputDecoration(
-                        hintText: isWhitelist
-                            ? '输入白名单关键词'
-                            : '输入黑名单关键词',
-                        hintStyle: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 15),
+                        hintText: isWhitelist ? '输入白名单关键词' : '输入黑名单关键词',
+                        hintStyle: TextStyle(
+                          color: AppColors.secondaryLabel(context),
+                          fontSize: 15,
+                        ),
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
                       ),
-                      style: TextStyle(color: AppColors.primaryLabel(context), fontSize: 15),
+                      style: TextStyle(
+                        color: AppColors.primaryLabel(context),
+                        fontSize: 15,
+                      ),
                       onSubmitted: (_) => _addKeyword(),
                     ),
                   ),
@@ -4333,11 +4876,19 @@ class _KeywordsPageState extends State<KeywordsPage>
                   child: ElevatedButton.icon(
                     onPressed: _addKeyword,
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('添加', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    label: const Text(
+                      '添加',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF007AFF),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
@@ -4361,7 +4912,9 @@ class _KeywordsPageState extends State<KeywordsPage>
                 children: [
                   Icon(
                     isWhitelist ? Icons.check_circle : Icons.info_outline,
-                    color: isWhitelist ? const Color(0xFF34C759) : const Color(0xFFFF9500),
+                    color: isWhitelist
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFFFF9500),
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -4389,7 +4942,10 @@ class _KeywordsPageState extends State<KeywordsPage>
                 ? Center(
                     child: Text(
                       isWhitelist ? '暂无白名单关键词' : '暂无黑名单关键词',
-                      style: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 15),
+                      style: TextStyle(
+                        color: AppColors.secondaryLabel(context),
+                        fontSize: 15,
+                      ),
                     ),
                   )
                 : ListView.separated(
@@ -4397,17 +4953,29 @@ class _KeywordsPageState extends State<KeywordsPage>
                     itemCount: currentList.length,
                     separatorBuilder: (_, _) => Padding(
                       padding: const EdgeInsets.only(left: 56),
-                      child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
+                      child: Divider(
+                        height: 0.5,
+                        thickness: 0.5,
+                        color: AppColors.separator(context),
+                      ),
                     ),
                     itemBuilder: (context, index) {
                       return Container(
                         decoration: BoxDecoration(
                           color: AppColors.cardBg(context),
                           borderRadius: BorderRadius.only(
-                            topLeft: index == 0 ? const Radius.circular(12) : Radius.zero,
-                            topRight: index == 0 ? const Radius.circular(12) : Radius.zero,
-                            bottomLeft: index == currentList.length - 1 ? const Radius.circular(12) : Radius.zero,
-                            bottomRight: index == currentList.length - 1 ? const Radius.circular(12) : Radius.zero,
+                            topLeft: index == 0
+                                ? const Radius.circular(12)
+                                : Radius.zero,
+                            topRight: index == 0
+                                ? const Radius.circular(12)
+                                : Radius.zero,
+                            bottomLeft: index == currentList.length - 1
+                                ? const Radius.circular(12)
+                                : Radius.zero,
+                            bottomRight: index == currentList.length - 1
+                                ? const Radius.circular(12)
+                                : Radius.zero,
                           ),
                         ),
                         child: ListTile(
@@ -4416,27 +4984,45 @@ class _KeywordsPageState extends State<KeywordsPage>
                             height: 32,
                             decoration: BoxDecoration(
                               color: isWhitelist
-                                  ? const Color(0xFF34C759).withValues(alpha: 0.12)
-                                  : const Color(0xFFFF9500).withValues(alpha: 0.12),
+                                  ? const Color(
+                                      0xFF34C759,
+                                    ).withValues(alpha: 0.12)
+                                  : const Color(
+                                      0xFFFF9500,
+                                    ).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
                               isWhitelist ? Icons.check : Icons.block,
-                              color: isWhitelist ? const Color(0xFF34C759) : const Color(0xFFFF9500),
+                              color: isWhitelist
+                                  ? const Color(0xFF34C759)
+                                  : const Color(0xFFFF9500),
                               size: 18,
                             ),
                           ),
-                          title: Text(currentList[index], style: TextStyle(fontSize: 15, color: AppColors.primaryLabel(context))),
+                          title: Text(
+                            currentList[index],
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: AppColors.primaryLabel(context),
+                            ),
+                          ),
                           trailing: GestureDetector(
                             onTap: () => _removeKeyword(index),
                             child: Container(
                               width: 28,
                               height: 28,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFF3B30).withValues(alpha: 0.1),
+                                color: const Color(
+                                  0xFFFF3B30,
+                                ).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(7),
                               ),
-                              child: const Icon(Icons.close, color: Color(0xFFFF3B30), size: 16),
+                              child: const Icon(
+                                Icons.close,
+                                color: Color(0xFFFF3B30),
+                                size: 16,
+                              ),
                             ),
                           ),
                         ),
@@ -4479,13 +5065,18 @@ class _HistoryPageState extends State<HistoryPage> {
       final content = (r['content'] ?? '').toString().toLowerCase();
       final app = (r['appName'] ?? '').toString().toLowerCase();
       final pkg = (r['packageName'] ?? '').toString().toLowerCase();
-      return title.contains(q) || content.contains(q) || app.contains(q) || pkg.contains(q);
+      return title.contains(q) ||
+          content.contains(q) ||
+          app.contains(q) ||
+          pkg.contains(q);
     }).toList();
   }
 
   String _formatTime(dynamic timestamp) {
     if (timestamp == null) return '';
-    final ms = timestamp is int ? timestamp : int.tryParse(timestamp.toString()) ?? 0;
+    final ms = timestamp is int
+        ? timestamp
+        : int.tryParse(timestamp.toString()) ?? 0;
     if (ms == 0) return '';
     final dt = DateTime.fromMillisecondsSinceEpoch(ms);
     return '${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
@@ -4519,9 +5110,19 @@ class _HistoryPageState extends State<HistoryPage> {
 
   bool _isKnownType(String? type) {
     const knownTypes = {
-      'sms', 'call_incoming', 'call_answered', 'call_ended',
-      'wechat', 'qq', 'alipay', 'system', 'battery_charging',
-      'battery_full', 'battery_low_30', 'battery_low_20', 'test'
+      'sms',
+      'call_incoming',
+      'call_answered',
+      'call_ended',
+      'wechat',
+      'qq',
+      'alipay',
+      'system',
+      'battery_charging',
+      'battery_full',
+      'battery_low_30',
+      'battery_low_20',
+      'test',
     };
     return knownTypes.contains(type);
   }
@@ -4581,8 +5182,14 @@ class _HistoryPageState extends State<HistoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
-        title: Text('确认清空', style: TextStyle(color: AppColors.primaryLabel(context))),
-        content: Text('确定要清空全部 ${widget.records.length} 条记录吗？', style: TextStyle(color: AppColors.primaryLabel(context))),
+        title: Text(
+          '确认清空',
+          style: TextStyle(color: AppColors.primaryLabel(context)),
+        ),
+        content: Text(
+          '确定要清空全部 ${widget.records.length} 条记录吗？',
+          style: TextStyle(color: AppColors.primaryLabel(context)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -4590,7 +5197,9 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF3B30)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFFF3B30),
+            ),
             child: const Text('清空'),
           ),
         ],
@@ -4632,7 +5241,14 @@ class _HistoryPageState extends State<HistoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
-        title: Text(appName, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.primaryLabel(context))),
+        title: Text(
+          appName,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -4642,7 +5258,11 @@ class _HistoryPageState extends State<HistoryPage> {
               children: [
                 Text(
                   '详细信息',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.secondaryLabel(context)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -4653,7 +5273,11 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                   child: SelectableText(
                     const JsonEncoder.withIndent('  ').convert(record),
-                    style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: AppColors.primaryLabel(context)),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      color: AppColors.primaryLabel(context),
+                    ),
                   ),
                 ),
               ],
@@ -4663,7 +5287,13 @@ class _HistoryPageState extends State<HistoryPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('关闭', style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.w600)),
+            child: const Text(
+              '关闭',
+              style: TextStyle(
+                color: Color(0xFF007AFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -4704,11 +5334,22 @@ class _HistoryPageState extends State<HistoryPage> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: '搜索标题/内容/应用',
-                  hintStyle: TextStyle(fontSize: 14, color: AppColors.secondaryLabel(context)),
-                  prefixIcon: Icon(Icons.search, size: 18, color: AppColors.secondaryLabel(context)),
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: AppColors.secondaryLabel(context),
+                  ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.cancel, size: 18, color: AppColors.secondaryLabel(context)),
+                          icon: Icon(
+                            Icons.cancel,
+                            size: 18,
+                            color: AppColors.secondaryLabel(context),
+                          ),
                           onPressed: () {
                             _searchController.clear();
                             setState(() {
@@ -4718,10 +5359,16 @@ class _HistoryPageState extends State<HistoryPage> {
                         )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   isDense: true,
                 ),
-                style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(context)),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primaryLabel(context),
+                ),
                 onChanged: (v) => setState(() => _searchQuery = v),
               ),
             ),
@@ -4732,11 +5379,18 @@ class _HistoryPageState extends State<HistoryPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.inbox_outlined, size: 56, color: AppColors.tertiaryLabel(context)),
+                        Icon(
+                          Icons.inbox_outlined,
+                          size: 56,
+                          color: AppColors.tertiaryLabel(context),
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           widget.records.isEmpty ? '暂无推送记录' : '没有匹配的记录',
-                          style: TextStyle(color: AppColors.secondaryLabel(context), fontSize: 15),
+                          style: TextStyle(
+                            color: AppColors.secondaryLabel(context),
+                            fontSize: 15,
+                          ),
                         ),
                       ],
                     ),
@@ -4746,7 +5400,11 @@ class _HistoryPageState extends State<HistoryPage> {
                     itemCount: _filteredRecords.length,
                     separatorBuilder: (_, _) => Padding(
                       padding: const EdgeInsets.only(left: 56),
-                      child: Divider(height: 0.5, thickness: 0.5, color: AppColors.separator(context)),
+                      child: Divider(
+                        height: 0.5,
+                        thickness: 0.5,
+                        color: AppColors.separator(context),
+                      ),
                     ),
                     itemBuilder: (context, index) {
                       final record = _filteredRecords[index];
@@ -4754,9 +5412,13 @@ class _HistoryPageState extends State<HistoryPage> {
                       final title = (record['title'] ?? '（无标题）').toString();
                       final content = (record['content'] ?? '').toString();
                       final appName = (record['appName'] ?? '').toString();
-                      final time = _formatTime(record['postTime'] ?? record['timestamp']);
+                      final time = _formatTime(
+                        record['postTime'] ?? record['timestamp'],
+                      );
                       final isKnownType = _isKnownType(type);
-                      final color = isKnownType ? _getTypeColor(type) : _getAppColor(appName);
+                      final color = isKnownType
+                          ? _getTypeColor(type)
+                          : _getAppColor(appName);
                       final label = isKnownType ? _getTypeLabel(type) : appName;
 
                       return InkWell(
@@ -4767,11 +5429,18 @@ class _HistoryPageState extends State<HistoryPage> {
                             borderRadius: BorderRadius.only(
                               topLeft: Radius.circular(index == 0 ? 12 : 0),
                               topRight: Radius.circular(index == 0 ? 12 : 0),
-                              bottomLeft: Radius.circular(index == _filteredRecords.length - 1 ? 12 : 0),
-                              bottomRight: Radius.circular(index == _filteredRecords.length - 1 ? 12 : 0),
+                              bottomLeft: Radius.circular(
+                                index == _filteredRecords.length - 1 ? 12 : 0,
+                              ),
+                              bottomRight: Radius.circular(
+                                index == _filteredRecords.length - 1 ? 12 : 0,
+                              ),
                             ),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           child: Row(
                             children: [
                               Container(
@@ -4783,7 +5452,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                 ),
                                 child: Center(
                                   child: Text(
-                                    label.isNotEmpty ? label.substring(0, 1) : '通',
+                                    label.isNotEmpty
+                                        ? label.substring(0, 1)
+                                        : '通',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -4805,7 +5476,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                             style: TextStyle(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w500,
-                                              color: AppColors.primaryLabel(context),
+                                              color: AppColors.primaryLabel(
+                                                context,
+                                              ),
                                             ),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
@@ -4815,7 +5488,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                           time,
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: AppColors.secondaryLabel(context),
+                                            color: AppColors.secondaryLabel(
+                                              context,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -4826,7 +5501,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                         content,
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: AppColors.secondaryLabel(context),
+                                          color: AppColors.secondaryLabel(
+                                            context,
+                                          ),
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -4837,7 +5514,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                         appName,
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: AppColors.secondaryLabel(context),
+                                          color: AppColors.secondaryLabel(
+                                            context,
+                                          ),
                                         ),
                                       ),
                                     ],

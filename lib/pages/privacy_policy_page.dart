@@ -8,21 +8,21 @@ class PrivacyPolicyPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
-      appBar: AppBar(
-        title: const Text('隐私政策'),
-      ),
+      appBar: AppBar(title: const Text('隐私政策')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _buildSection(
             title: '隐私政策概述',
-            content: '通知推送助手（以下简称"本应用"）非常重视用户的隐私保护。本隐私政策将帮助您了解我们如何收集、使用和保护您的信息。',
+            content:
+                '通知推送助手（以下简称"本应用"）非常重视用户的隐私保护。本隐私政策将帮助您了解我们如何收集、使用和保护您的信息。',
             context: context,
           ),
           const SizedBox(height: 16),
           _buildSection(
             title: '信息收集与使用',
-            content: '本应用仅收集以下类型的信息：\n\n'
+            content:
+                '本应用仅收集以下类型的信息：\n\n'
                 '1. 崩溃统计信息\n'
                 '   - 通过腾讯 Bugly SDK 收集应用崩溃时的堆栈信息\n'
                 '   - 收集设备型号、系统版本、应用版本号、CPU 架构等基础信息\n'
@@ -36,7 +36,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '我们不收集的信息',
-            content: '本应用不会收集以下个人隐私信息：\n\n'
+            content:
+                '本应用不会收集以下个人隐私信息：\n\n'
                 '• 通讯录、短信内容\n'
                 '• 位置信息\n'
                 '• 通话记录\n'
@@ -48,7 +49,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '数据存储与安全',
-            content: '• 所有通知历史记录仅保存在设备本地\n'
+            content:
+                '• 所有通知历史记录仅保存在设备本地\n'
                 '• 配置数据仅保存在设备本地的 SharedPreferences 中\n'
                 '• 不会将您的任何个人数据上传到开发者服务器\n'
                 '• Webhook 推送通过您自行配置的地址发送，请确保您信任该地址',
@@ -57,7 +59,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '第三方服务',
-            content: '本应用使用以下第三方服务：\n\n'
+            content:
+                '本应用使用以下第三方服务：\n\n'
                 '腾讯 Bugly（崩溃统计）\n'
                 '• 服务商：深圳市腾讯计算机系统有限公司\n'
                 '• 用途：收集应用崩溃信息，帮助定位和修复问题\n'
@@ -68,7 +71,8 @@ class PrivacyPolicyPage extends StatelessWidget {
           const SizedBox(height: 16),
           _buildSection(
             title: '权限说明',
-            content: '本应用申请的权限及其用途：\n\n'
+            content:
+                '本应用申请的权限及其用途：\n\n'
                 '• 通知访问权限：用于监听系统通知，实现推送功能\n'
                 '• 网络权限：用于 Webhook 推送和版本更新检查\n'
                 '• 前台服务：保活通知监听服务，确保消息及时推送\n'
@@ -86,7 +90,10 @@ class PrivacyPolicyPage extends StatelessWidget {
           Center(
             child: Text(
               '最后更新：2026年7月2日',
-              style: TextStyle(fontSize: 12, color: AppColors.secondaryLabel(context)),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+              ),
             ),
           ),
           const SizedBox(height: 16),
