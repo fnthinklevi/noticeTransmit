@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.20",
-  "latestVersion": "1.5.20",
-  "latestBuild": 54,
+  "appName": "notice1.5.21",
+  "latestVersion": "1.5.21",
+  "latestBuild": 55,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【体验优化】\n• 去除原生启动页logo，启动过渡更自然\n• 深色模式选项增加对应图标\n• 优化启动服务时机\n• README补充版本要求说明",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.20.apk",
-  "fileSize": 22628895,
+  "changelog": "【接入Bugly崩溃统计】\n• 接入腾讯Bugly SDK，自动收集应用崩溃信息\n• 支持崩溃信息自动上报，便于快速定位和修复问题",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.21.apk",
+  "fileSize": 23366743,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

@@ -51,6 +51,7 @@ kotlin {
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.tencent.bugly:crashreport:4.1.9.3")
 }
 
 flutter {

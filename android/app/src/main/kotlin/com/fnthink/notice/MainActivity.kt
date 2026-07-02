@@ -12,11 +12,13 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.tencent.bugly.crashreport.CrashReport
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -131,6 +133,11 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        CrashReport.initCrashReport(applicationContext)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

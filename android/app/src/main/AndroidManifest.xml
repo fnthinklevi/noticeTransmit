@@ -105,6 +105,16 @@
             android:value="2" />
 
         <meta-data
+            android:name="BUGLY_APPID"
+            android:value="94d7a5cfc3" />
+        <meta-data
+            android:name="BUGLY_APP_CHANNEL"
+            android:value="official" />
+        <meta-data
+            android:name="BUGLY_ENABLE_DEBUG"
+            android:value="false" />
+
+        <meta-data
             android:name="com.pravera.flutter_foreground_task.notification_permission"
             android:value="true" />
     </application>
