@@ -39,4 +39,4 @@ jobs:
           echo "✅ 无致命代码错误，仅风格提示已忽略"
 
       - name: Flutter format check
-        run: flutter format --set-exit-if-changed lib/
+        run: dart format --set-exit-if-changed lib/
