@@ -47,6 +47,11 @@ jobs:
           fi
           echo "✅ 无致命代码错误，仅风格提示已忽略"
 
+      - name: Modify gradle repositories to official source
+        run: |
+          sed -i '/maven.*aliyun/d' android/build.gradle.kts
+          sed -i 's/repositories {/repositories {\n        google()\n        mavenCentral()/' android/build.gradle.kts
+
       - name: Build APK (arm64)
         run: flutter build apk --release --target-platform android-arm64
         env:
