@@ -45,7 +45,7 @@ jobs:
             echo "❌ 存在代码错误，CI失败"
             exit 1
           fi
-          echo "✅ 无致命代码错误，仅风格提示已忽略"
+          echo "✅ 无致命代码错误，仅风格提示已忽略 "
 
       - name: Modify gradle repositories to official source
         run: |
