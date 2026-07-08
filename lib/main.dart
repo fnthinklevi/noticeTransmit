@@ -1437,13 +1437,23 @@ class _MainPageState extends State<MainPage> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: const Color(0xFF007AFF),
                 borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: const Icon(
-                Icons.notifications_active,
-                size: 32,
-                color: Colors.white,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  'assets/app_icon.png',
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -2827,9 +2837,6 @@ class _BatteryPageState extends State<BatteryPage> {
 
   void _showRuleDialog(Map<String, dynamic>? existingRule) {
     final isEdit = existingRule != null;
-    final typeController = TextEditingController(
-      text: existingRule?['type'] ?? 'level_below',
-    );
     final valueController = TextEditingController(
       text: (existingRule?['value'] ?? 20).toString(),
     );
@@ -2845,17 +2852,31 @@ class _BatteryPageState extends State<BatteryPage> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text(isEdit ? '编辑规则' : '添加规则'),
+              backgroundColor: AppColors.cardBg(context),
+              title: Text(
+                isEdit ? '编辑规则' : '添加规则',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(context),
+                ),
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '规则类型',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '规则类型',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondaryLabel(context),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -2865,35 +2886,35 @@ class _BatteryPageState extends State<BatteryPage> {
                           '开始充电',
                           selectedType,
                           setDialogState,
-                          typeController,
+                          (v) => selectedType = v,
                         ),
                         _buildTypeChip(
                           'discharging',
                           '断开充电',
                           selectedType,
                           setDialogState,
-                          typeController,
+                          (v) => selectedType = v,
                         ),
                         _buildTypeChip(
                           'level_below',
                           '低于某值',
                           selectedType,
                           setDialogState,
-                          typeController,
+                          (v) => selectedType = v,
                         ),
                         _buildTypeChip(
                           'level_above',
                           '高于某值',
                           selectedType,
                           setDialogState,
-                          typeController,
+                          (v) => selectedType = v,
                         ),
                         _buildTypeChip(
                           'level_equals',
                           '等于某值',
                           selectedType,
                           setDialogState,
-                          typeController,
+                          (v) => selectedType = v,
                         ),
                       ],
                     ),
@@ -2903,52 +2924,96 @@ class _BatteryPageState extends State<BatteryPage> {
                       'level_equals',
                     ].contains(selectedType)) ...[
                       const SizedBox(height: 16),
-                      const Text(
-                        '电量阈值（%）',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          '电量阈值（%）',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.secondaryLabel(context),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Slider(
-                              value: selectedValue.toDouble(),
-                              min: 1,
-                              max: 100,
-                              divisions: 99,
-                              label: '$selectedValue%',
-                              onChanged: (v) {
-                                setDialogState(() {
-                                  selectedValue = v.round();
-                                  valueController.text = selectedValue
-                                      .toString();
-                                });
-                              },
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.inputBg(context),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Slider(
+                                value: selectedValue.toDouble(),
+                                min: 1,
+                                max: 100,
+                                divisions: 99,
+                                label: '$selectedValue%',
+                                activeColor: const Color(0xFF007AFF),
+                                onChanged: (v) {
+                                  setDialogState(() {
+                                    selectedValue = v.round();
+                                    valueController.text = selectedValue
+                                        .toString();
+                                  });
+                                },
+                              ),
                             ),
-                          ),
-                          SizedBox(
-                            width: 50,
-                            child: Text(
-                              '$selectedValue%',
-                              textAlign: TextAlign.end,
+                            SizedBox(
+                              width: 50,
+                              child: Text(
+                                '$selectedValue%',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryLabel(context),
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                     const SizedBox(height: 16),
-                    const Text(
-                      '自定义标题（可选）',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        '自定义标题（可选）',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondaryLabel(context),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
                     TextField(
                       controller: titleController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: '留空则使用默认标题',
-                        border: OutlineInputBorder(),
+                        hintStyle: TextStyle(
+                          color: AppColors.secondaryLabel(context),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: AppColors.separator(context),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF007AFF),
+                          ),
+                        ),
                         isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
+                      style: TextStyle(color: AppColors.primaryLabel(context)),
                     ),
                   ],
                 ),
@@ -2956,7 +3021,14 @@ class _BatteryPageState extends State<BatteryPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
+                  child: Text(
+                    '取消',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
                 ),
                 TextButton(
                   onPressed: () {
@@ -2980,7 +3052,14 @@ class _BatteryPageState extends State<BatteryPage> {
                     }
                     Navigator.pop(context);
                   },
-                  child: Text(isEdit ? '保存' : '添加'),
+                  child: Text(
+                    isEdit ? '保存' : '添加',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF007AFF),
+                    ),
+                  ),
                 ),
               ],
             );
@@ -2995,7 +3074,7 @@ class _BatteryPageState extends State<BatteryPage> {
     String label,
     String selectedType,
     StateSetter setDialogState,
-    TextEditingController controller,
+    void Function(String) onTypeChanged,
   ) {
     final isSelected = selectedType == type;
     return ChoiceChip(
@@ -3004,7 +3083,7 @@ class _BatteryPageState extends State<BatteryPage> {
       onSelected: (selected) {
         if (selected) {
           setDialogState(() {
-            controller.text = type;
+            onTypeChanged(type);
           });
         }
       },
@@ -5349,12 +5428,128 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
+  Widget _buildRecordItem(
+    BuildContext context,
+    NotificationRecord record,
+    int index,
+    int total,
+  ) {
+    final type = record.type;
+    final title = record.title.isNotEmpty ? record.title : '（无标题）';
+    final content = record.content;
+    final appName = record.appName;
+    final time = _formatTime(record.postTime);
+    final isKnownType = _isKnownType(type);
+    final color = isKnownType ? _getTypeColor(type) : _getAppColor(appName);
+    final label = isKnownType ? _getTypeLabel(type) : appName;
+
+    final List<Widget> columnChildren = [
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryLabel(context),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            time,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ],
+      ),
+    ];
+
+    if (content.isNotEmpty) {
+      columnChildren.add(const SizedBox(height: 3));
+      columnChildren.add(
+        Text(
+          content,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.secondaryLabel(context),
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
+    }
+
+    if (appName.isNotEmpty) {
+      columnChildren.add(const SizedBox(height: 3));
+      columnChildren.add(
+        Text(
+          appName,
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () => _showRecordDetail(record),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardBg(context),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(index == 0 ? 12 : 0),
+            topRight: Radius.circular(index == 0 ? 12 : 0),
+            bottomLeft: Radius.circular(index == total - 1 ? 12 : 0),
+            bottomRight: Radius.circular(index == total - 1 ? 12 : 0),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  label.isNotEmpty ? label.substring(0, 1) : '通',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: columnChildren,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final records = _filteredRecords;
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: Text('历史记录 (${_filteredRecords.length})'),
+        title: Text('历史记录 (${records.length})'),
         actions: [
           IconButton(
             icon: const Icon(Icons.ios_share),
@@ -5422,7 +5617,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ),
           Expanded(
-            child: _filteredRecords.isEmpty
+            child: records.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -5445,7 +5640,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredRecords.length,
+                    itemCount: records.length,
                     separatorBuilder: (_, _) => Padding(
                       padding: const EdgeInsets.only(left: 56),
                       child: Divider(
@@ -5454,128 +5649,12 @@ class _HistoryPageState extends State<HistoryPage> {
                         color: AppColors.separator(context),
                       ),
                     ),
-                    itemBuilder: (context, index) {
-                      final record = _filteredRecords[index];
-                      final type = record.type;
-                      final title = record.title.isNotEmpty
-                          ? record.title
-                          : '（无标题）';
-                      final content = record.content;
-                      final appName = record.appName;
-                      final time = _formatTime(record.postTime);
-                      final isKnownType = _isKnownType(type);
-                      final color = isKnownType
-                          ? _getTypeColor(type)
-                          : _getAppColor(appName);
-                      final label = isKnownType ? _getTypeLabel(type) : appName;
-
-                      return InkWell(
-                        onTap: () => _showRecordDetail(record),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.cardBg(context),
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(index == 0 ? 12 : 0),
-                              topRight: Radius.circular(index == 0 ? 12 : 0),
-                              bottomLeft: Radius.circular(
-                                index == _filteredRecords.length - 1 ? 12 : 0,
-                              ),
-                              bottomRight: Radius.circular(
-                                index == _filteredRecords.length - 1 ? 12 : 0,
-                              ),
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    label.isNotEmpty
-                                        ? label.substring(0, 1)
-                                        : '通',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: color,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            title,
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.primaryLabel(
-                                                context,
-                                              ),
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Text(
-                                          time,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.secondaryLabel(
-                                              context,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 3),
-                                    if (content.isNotEmpty)
-                                      Text(
-                                        content,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: AppColors.secondaryLabel(
-                                            context,
-                                          ),
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    if (appName.isNotEmpty) ...[
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        appName,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.secondaryLabel(
-                                            context,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                    itemBuilder: (context, index) => _buildRecordItem(
+                      context,
+                      records[index],
+                      index,
+                      records.length,
+                    ),
                   ),
           ),
         ],

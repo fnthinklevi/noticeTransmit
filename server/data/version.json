@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.25",
-  "latestVersion": "1.5.25",
-  "latestBuild": 59,
+  "appName": "notice1.5.26",
+  "latestVersion": "1.5.26",
+  "latestBuild": 60,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【规则引擎可视化】\n• 新增规则引擎可视化配置功能\n• 创建规则模型类：NotificationRule、Condition、RuleAction\n• 规则列表页：支持添加、编辑、删除规则\n• 规则编辑页：可视化条件配置（IF）、可视化动作配置（THEN）\n• 条件类型：应用包名、标题包含/不包含、内容包含/不包含、通知优先级、时间范围、正则表达式\n• 动作类型：推送通知、静默忽略、延迟推送、合并推送、仅记录\n• 默认规则：验证码短信优先推送、营销广告拦截、夜间免打扰\n• 修复 NotificationRecord 模型使用问题\n• 修复 DropdownButtonFormField 中 value 属性已弃用问题",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.25.apk",
-  "fileSize": 23722061,
+  "changelog": "【图标美化与性能优化】\n• 图标主体缩小至24%，视觉效果更协调\n• 新增深色模式图标适配，系统深色模式下自动切换\n• 关于页图标替换为软件图标\n• 仅保留arm64位库，减小APK体积\n• 电量通知规则页、白黑名单页样式适配iOS风格\n• 电池通知规则支持低于/等于/高于某值三种条件\n• 优化通知列表渲染性能，解决卡顿问题\n• 代码格式化与分析优化",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.26.apk",
+  "fileSize": 23089726,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }
