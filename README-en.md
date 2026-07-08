@@ -35,6 +35,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 - 📋 **History Records** - Locally save notification push history, support search, detail view and export
 - 📱 **App Filtering** - Customize which apps need notification push
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
+- 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
 
 ### Experience Optimization
 
@@ -77,7 +78,11 @@ noticeTransmit/
 │   ├── models/                   # Data models
 │   │   ├── notification_record.dart  # Notification record model
 │   │   ├── battery_rule.dart     # Battery rule model
-│   │   └── webhook_channel.dart  # Webhook channel model
+│   │   ├── webhook_channel.dart  # Webhook channel model
+│   │   └── notification_rule.dart # Rule engine model
+│   ├── pages/                    # Page components
+│   │   ├── rule_list_page.dart   # Rule list page
+│   │   └── rule_edit_page.dart   # Rule edit page
 │   ├── theme/                    # Theme configuration
 │   │   ├── app_colors.dart       # Color themes
 │   │   └── app_theme.dart        # Theme configuration

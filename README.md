@@ -35,6 +35,7 @@
 - 📋 **历史记录** - 本地保存通知推送历史，支持搜索、详情查看和导出
 - 📱 **应用筛选** - 自定义选择需要推送通知的应用
 - 🏷️ **关键词过滤** - 支持白名单和黑名单关键词过滤，精准控制推送内容
+- 🧠 **规则引擎** - 可视化配置通知规则，支持条件组合（IF）和动作配置（THEN），内置验证码优先推送、营销广告拦截、夜间免打扰等默认规则
 
 ### 体验优化
 
@@ -77,7 +78,11 @@ noticeTransmit/
 │   ├── models/                   # 数据模型
 │   │   ├── notification_record.dart  # 通知记录模型
 │   │   ├── battery_rule.dart     # 电池规则模型
-│   │   └── webhook_channel.dart  # Webhook 渠道模型
+│   │   ├── webhook_channel.dart  # Webhook 渠道模型
+│   │   └── notification_rule.dart # 规则引擎模型
+│   ├── pages/                    # 页面组件
+│   │   ├── rule_list_page.dart   # 规则列表页
+│   │   └── rule_edit_page.dart   # 规则编辑页
 │   ├── theme/                    # 主题配置
 │   │   ├── app_colors.dart       # 颜色主题
 │   │   └── app_theme.dart        # 主题配置

@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.24",
-  "latestVersion": "1.5.24",
-  "latestBuild": 58,
+  "appName": "notice1.5.25",
+  "latestVersion": "1.5.25",
+  "latestBuild": 59,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【标准化更新流程 & 插件升级】\n• 将「五更新」「七更新」更名为「标准化更新」，统一更新流程\n• 标准化更新流程新增 dart format lib/ 步骤，确保代码格式一致\n• 更新 device_info_plus 到 v13.2.0，支持 Built-in Kotlin\n• 更新 package_info_plus 到 v10.2.0，支持 Built-in Kotlin\n• 修复 flutter_foreground_task 9.2.2 的 onDestroy 方法签名问题\n• 更新 README 常见问题与排错章节\n• 更新 base.md 技术文档\n• 更新 README-en.md 英文文档",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.24.apk",
-  "fileSize": 23525045,
+  "changelog": "【规则引擎可视化】\n• 新增规则引擎可视化配置功能\n• 创建规则模型类：NotificationRule、Condition、RuleAction\n• 规则列表页：支持添加、编辑、删除规则\n• 规则编辑页：可视化条件配置（IF）、可视化动作配置（THEN）\n• 条件类型：应用包名、标题包含/不包含、内容包含/不包含、通知优先级、时间范围、正则表达式\n• 动作类型：推送通知、静默忽略、延迟推送、合并推送、仅记录\n• 默认规则：验证码短信优先推送、营销广告拦截、夜间免打扰\n• 修复 NotificationRecord 模型使用问题\n• 修复 DropdownButtonFormField 中 value 属性已弃用问题",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.25.apk",
+  "fileSize": 23722061,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

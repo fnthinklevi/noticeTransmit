@@ -8,8 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'update_manager.dart';
-
-typedef NotificationRecord = Map<String, dynamic>;
+import 'pages/rule_list_page.dart';
+import 'models/notification_rule.dart';
+import 'models/notification_record.dart';
 
 class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color bgColor;
@@ -624,6 +625,7 @@ class _MainPageState extends State<MainPage> {
   Set<String> _enabledPackages = {};
   List<String> _blacklistKeywords = [];
   List<String> _whitelistKeywords = [];
+  List<NotificationRule> _notificationRules = [];
   final List<Map<String, dynamic>> _installedApps = [];
 
   List<Widget> _buildPages() {
@@ -657,6 +659,7 @@ class _MainPageState extends State<MainPage> {
         enabledPackagesCount: _enabledPackages.length,
         blacklistCount: _blacklistKeywords.length,
         whitelistCount: _whitelistKeywords.length,
+        ruleCount: _notificationRules.length,
         isCheckingUpdate: _isCheckingUpdate,
         themeMode: MyApp.of(context)?.themeMode ?? ThemeMode.system,
         onThemeModeChanged: (mode) {
@@ -667,6 +670,7 @@ class _MainPageState extends State<MainPage> {
         onShowAboutDialog: _showAboutDialog,
         onOpenAppFilter: _openAppFilterPage,
         onOpenKeywords: _openKeywordsPage,
+        onOpenRules: _openRuleListPage,
         onCheckUpdate: _manualCheckUpdate,
         onOpenPrivacyPolicy: _openPrivacyPolicyPage,
       ),
@@ -1069,7 +1073,7 @@ class _MainPageState extends State<MainPage> {
       setState(() {
         _notificationRecords.clear();
         _notificationRecords.addAll(
-          result.map((e) => Map<String, dynamic>.from(e)).toList(),
+          result.map((e) => NotificationRecord.fromMap(Map<String, dynamic>.from(e))).toList(),
         );
       });
     } catch (e) {
@@ -1080,11 +1084,11 @@ class _MainPageState extends State<MainPage> {
         try {
           final List<dynamic> list = jsonDecode(recordsJson);
           setState(() {
-            _notificationRecords.clear();
-            _notificationRecords.addAll(
-              list.map((e) => Map<String, dynamic>.from(e)).toList(),
-            );
-          });
+              _notificationRecords.clear();
+              _notificationRecords.addAll(
+                list.map((e) => NotificationRecord.fromMap(Map<String, dynamic>.from(e))).toList(),
+              );
+            });
         } catch (e2) {
           debugPrint('加载本地历史记录失败: $e2');
         }
@@ -1095,14 +1099,14 @@ class _MainPageState extends State<MainPage> {
   Future<void> _saveNotificationRecords() async {
     final prefs = await SharedPreferences.getInstance();
     final recordsJson = jsonEncode(
-      _notificationRecords.take(_maxRecords).toList(),
+      _notificationRecords.take(_maxRecords).map((r) => r.toMap()).toList(),
     );
     await prefs.setString('notification_records', recordsJson);
   }
 
   void _addNotificationRecord(Map<String, dynamic> record) {
     setState(() {
-      _notificationRecords.insert(0, record);
+      _notificationRecords.insert(0, NotificationRecord.fromMap(record));
       if (_notificationRecords.length > _maxRecords) {
         _notificationRecords.removeRange(
           _maxRecords,
@@ -1138,7 +1142,7 @@ class _MainPageState extends State<MainPage> {
       'deviceModel': _deviceModel,
       'manufacturer': _manufacturer,
       'totalCount': _notificationRecords.length,
-      'records': _notificationRecords,
+      'records': _notificationRecords.map((r) => r.toMap()).toList(),
     };
     await file.writeAsString(jsonEncode(exportData), mode: FileMode.write);
     return file.path;
@@ -1495,6 +1499,27 @@ class _MainPageState extends State<MainPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
+  }
+
+  void _openRuleListPage() async {
+    final result = await Navigator.push<List<NotificationRule>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RuleListPage(
+          rules: _notificationRules,
+          onSave: (rules) {
+            setState(() {
+              _notificationRules = rules;
+            });
+          },
+        ),
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        _notificationRules = result;
+      });
+    }
   }
 
   void _openPrivacyPolicyPage() {
@@ -3292,6 +3317,7 @@ class MorePage extends StatelessWidget {
   final int enabledPackagesCount;
   final int blacklistCount;
   final int whitelistCount;
+  final int ruleCount;
   final bool isCheckingUpdate;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -3300,6 +3326,7 @@ class MorePage extends StatelessWidget {
   final VoidCallback onShowAboutDialog;
   final VoidCallback onOpenAppFilter;
   final VoidCallback onOpenKeywords;
+  final VoidCallback onOpenRules;
   final VoidCallback onCheckUpdate;
   final VoidCallback onOpenPrivacyPolicy;
 
@@ -3310,6 +3337,7 @@ class MorePage extends StatelessWidget {
     required this.enabledPackagesCount,
     required this.blacklistCount,
     required this.whitelistCount,
+    required this.ruleCount,
     required this.isCheckingUpdate,
     required this.themeMode,
     required this.onThemeModeChanged,
@@ -3318,6 +3346,7 @@ class MorePage extends StatelessWidget {
     required this.onShowAboutDialog,
     required this.onOpenAppFilter,
     required this.onOpenKeywords,
+    required this.onOpenRules,
     required this.onCheckUpdate,
     required this.onOpenPrivacyPolicy,
   });
@@ -3365,6 +3394,15 @@ class MorePage extends StatelessWidget {
               title: '关键词过滤',
               subtitle: '白名单 $whitelistCount 条 · 黑名单 $blacklistCount 条',
               onTap: onOpenKeywords,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildNavTile(
+              icon: Icons.rule,
+              iconColor: const Color(0xFFAF52DE),
+              title: '规则引擎',
+              subtitle: ruleCount > 0 ? '$ruleCount 条规则' : '点击添加规则',
+              onTap: onOpenRules,
               context: context,
             ),
           ], context),
@@ -5061,10 +5099,10 @@ class _HistoryPageState extends State<HistoryPage> {
     if (_searchQuery.isEmpty) return widget.records;
     final q = _searchQuery.toLowerCase();
     return widget.records.where((r) {
-      final title = (r['title'] ?? '').toString().toLowerCase();
-      final content = (r['content'] ?? '').toString().toLowerCase();
-      final app = (r['appName'] ?? '').toString().toLowerCase();
-      final pkg = (r['packageName'] ?? '').toString().toLowerCase();
+      final title = r.title.toLowerCase();
+      final content = r.content.toLowerCase();
+      final app = r.appName.toLowerCase();
+      final pkg = r.packageName.toLowerCase();
       return title.contains(q) ||
           content.contains(q) ||
           app.contains(q) ||
@@ -5236,7 +5274,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _showRecordDetail(NotificationRecord record) {
-    final appName = (record['appName'] ?? '通知详情').toString();
+    final appName = record.appName.isNotEmpty ? record.appName : '通知详情';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -5272,7 +5310,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: SelectableText(
-                    const JsonEncoder.withIndent('  ').convert(record),
+                    const JsonEncoder.withIndent('  ').convert(record.toMap()),
                     style: TextStyle(
                       fontSize: 12,
                       fontFamily: 'monospace',
@@ -5408,13 +5446,11 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                     itemBuilder: (context, index) {
                       final record = _filteredRecords[index];
-                      final type = record['type'] as String?;
-                      final title = (record['title'] ?? '（无标题）').toString();
-                      final content = (record['content'] ?? '').toString();
-                      final appName = (record['appName'] ?? '').toString();
-                      final time = _formatTime(
-                        record['postTime'] ?? record['timestamp'],
-                      );
+                      final type = record.type;
+                      final title = record.title.isNotEmpty ? record.title : '（无标题）';
+                      final content = record.content;
+                      final appName = record.appName;
+                      final time = _formatTime(record.postTime);
                       final isKnownType = _isKnownType(type);
                       final color = isKnownType
                           ? _getTypeColor(type)
