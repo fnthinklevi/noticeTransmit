@@ -5547,7 +5547,9 @@ class NotificationTaskHandler extends TaskHandler {
 
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    debugPrint('Foreground task destroyed at $timestamp, isTimeout: $isTimeout');
+    debugPrint(
+      'Foreground task destroyed at $timestamp, isTimeout: $isTimeout',
+    );
   }
 
   @override
