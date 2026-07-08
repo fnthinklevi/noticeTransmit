@@ -1073,7 +1073,11 @@ class _MainPageState extends State<MainPage> {
       setState(() {
         _notificationRecords.clear();
         _notificationRecords.addAll(
-          result.map((e) => NotificationRecord.fromMap(Map<String, dynamic>.from(e))).toList(),
+          result
+              .map(
+                (e) => NotificationRecord.fromMap(Map<String, dynamic>.from(e)),
+              )
+              .toList(),
         );
       });
     } catch (e) {
@@ -1084,11 +1088,17 @@ class _MainPageState extends State<MainPage> {
         try {
           final List<dynamic> list = jsonDecode(recordsJson);
           setState(() {
-              _notificationRecords.clear();
-              _notificationRecords.addAll(
-                list.map((e) => NotificationRecord.fromMap(Map<String, dynamic>.from(e))).toList(),
-              );
-            });
+            _notificationRecords.clear();
+            _notificationRecords.addAll(
+              list
+                  .map(
+                    (e) => NotificationRecord.fromMap(
+                      Map<String, dynamic>.from(e),
+                    ),
+                  )
+                  .toList(),
+            );
+          });
         } catch (e2) {
           debugPrint('加载本地历史记录失败: $e2');
         }
@@ -5447,7 +5457,9 @@ class _HistoryPageState extends State<HistoryPage> {
                     itemBuilder: (context, index) {
                       final record = _filteredRecords[index];
                       final type = record.type;
-                      final title = record.title.isNotEmpty ? record.title : '（无标题）';
+                      final title = record.title.isNotEmpty
+                          ? record.title
+                          : '（无标题）';
                       final content = record.content;
                       final appName = record.appName;
                       final time = _formatTime(record.postTime);
