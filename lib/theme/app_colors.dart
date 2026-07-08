@@ -15,6 +15,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color systemPurple;
   final Color systemCyan;
   final Color systemYellow;
+  final Color systemGray;
 
   const AppThemeColors({
     required this.bgColor,
@@ -31,6 +32,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     required this.systemPurple,
     required this.systemCyan,
     required this.systemYellow,
+    required this.systemGray,
   });
 
   factory AppThemeColors.light() {
@@ -49,6 +51,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemPurple: Color(0xFFAF52DE),
       systemCyan: Color(0xFF5AC8FA),
       systemYellow: Color(0xFFFFCC00),
+      systemGray: Color(0xFFF2F2F7),
     );
   }
 
@@ -68,6 +71,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemPurple: Color(0xFFBF5AF2),
       systemCyan: Color(0xFF64D2FF),
       systemYellow: Color(0xFFFFD60A),
+      systemGray: Color(0xFF2C2C2E),
     );
   }
 
@@ -87,6 +91,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
     Color? systemPurple,
     Color? systemCyan,
     Color? systemYellow,
+    Color? systemGray,
   }) {
     return AppThemeColors(
       bgColor: bgColor ?? this.bgColor,
@@ -103,6 +108,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemPurple: systemPurple ?? this.systemPurple,
       systemCyan: systemCyan ?? this.systemCyan,
       systemYellow: systemYellow ?? this.systemYellow,
+      systemGray: systemGray ?? this.systemGray,
     );
   }
 
@@ -127,6 +133,7 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       systemPurple: Color.lerp(systemPurple, other.systemPurple, t)!,
       systemCyan: Color.lerp(systemCyan, other.systemCyan, t)!,
       systemYellow: Color.lerp(systemYellow, other.systemYellow, t)!,
+      systemGray: Color.lerp(systemGray, other.systemGray, t)!,
     );
   }
 }
@@ -156,4 +163,6 @@ class AppColors {
   static Color systemPurple(BuildContext context) => of(context).systemPurple;
   static Color systemCyan(BuildContext context) => of(context).systemCyan;
   static Color systemYellow(BuildContext context) => of(context).systemYellow;
+  static Color systemGray(BuildContext context) => of(context).systemGray;
+  static Color pageBg(BuildContext context) => of(context).bgColor;
 }

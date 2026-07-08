@@ -1,12 +1,12 @@
 {
-  "appName": "notice1.5.27",
-  "latestVersion": "1.5.27",
-  "latestBuild": 61,
+  "appName": "notice1.5.28",
+  "latestVersion": "1.5.28",
+  "latestBuild": 62,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【更新优化与体验增强】\n• 更新检测逻辑优化：未上传APK时自动从GitHub下载（加速域名 xget.fnthink.top）\n• 电量规则增加左滑删除和长按删除功能\n• 规则引擎页增加第一次进入引导说明\n• UI风格统一为iOS风格（卡片、圆角、主题色）\n• base.md文档重新整理，已完成内容归档到对应章节\n• 五更新流程规范优化",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.27.apk",
+  "changelog": "【代码架构优化】\n• main.dart代码拆分：将5866行代码拆分为9个独立页面文件\n• 创建 pages/main_page.dart、notification_page.dart、battery_page.dart、more_page.dart、webhook_settings_page.dart、app_filter_page.dart、keywords_page.dart、history_page.dart、permission_settings_page.dart\n• 删除main.dart中的重复代码，保持入口文件简洁\n• base.md添加iOS风格UI强制规范",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.28.apk",
   "fileSize": 23090034,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"

@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../models/notification_rule.dart';
+import '../theme/app_colors.dart';
 
 class RuleEditPage extends StatefulWidget {
   final NotificationRule rule;
@@ -123,138 +125,246 @@ class _RuleEditPageState extends State<RuleEditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.pageBg(context),
       appBar: AppBar(
         title: const Text('编辑规则'),
-        actions: [TextButton(onPressed: _save, child: const Text('保存'))],
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: Text(
+              '保存',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF007AFF),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: '规则名称',
-                        hintText: '输入规则名称',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: '规则描述',
-                        hintText: '描述规则的作用',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('启用规则'),
-                        Switch(
-                          value: _rule.enabled,
-                          onChanged: (value) {
-                            setState(() {
-                              _rule = _rule.copyWith(enabled: value);
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+            _buildSectionCard(context, '基本信息', [
+              _buildTextField(context, '规则名称', _nameController, hint: '输入规则名称'),
+              const SizedBox(height: 12),
+              _buildTextField(
+                context,
+                '规则描述',
+                _descriptionController,
+                hint: '描述规则的作用',
+                maxLines: 3,
               ),
-            ),
-            Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '触发条件 (IF)',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        TextButton(
-                          onPressed: _addCondition,
-                          child: const Text('添加条件'),
-                        ),
-                      ],
+              const SizedBox(height: 12),
+              _buildSwitchRow(context, '启用规则', _rule.enabled, (value) {
+                setState(() {
+                  _rule = _rule.copyWith(enabled: value);
+                });
+              }),
+            ]),
+            const SizedBox(height: 12),
+            _buildSectionCard(context, '触发条件 (IF)', [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '触发条件',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLabel(context),
                     ),
-                    const SizedBox(height: 12),
-                    if (_rule.conditions.isEmpty)
-                      const Center(child: Text('暂无条件，点击添加'))
-                    else
-                      Column(
-                        children: _rule.conditions.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final condition = entry.value;
-                          return _ConditionItem(
-                            condition: condition,
-                            index: index,
-                            onEdit: () => _editCondition(condition),
-                            onRemove: () => _removeCondition(condition),
-                          );
-                        }).toList(),
+                  ),
+                  TextButton(
+                    onPressed: _addCondition,
+                    child: Text(
+                      '添加条件',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.systemBlue(context),
+                        fontWeight: FontWeight.w500,
                       ),
-                  ],
-                ),
-              ),
-            ),
-            Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '执行动作 (THEN)',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        TextButton(
-                          onPressed: _addAction,
-                          child: const Text('添加动作'),
-                        ),
-                      ],
                     ),
-                    const SizedBox(height: 12),
-                    if (_rule.actions.isEmpty)
-                      const Center(child: Text('暂无动作，点击添加'))
-                    else
-                      Column(
-                        children: _rule.actions.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final action = entry.value;
-                          return _ActionItem(
-                            action: action,
-                            index: index,
-                            onEdit: () => _editAction(action),
-                            onRemove: () => _removeAction(action),
-                          );
-                        }).toList(),
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 12),
+              if (_rule.conditions.isEmpty)
+                Center(
+                  child: Text(
+                    '暂无条件，点击添加',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                )
+              else
+                Column(
+                  children: _rule.conditions.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final condition = entry.value;
+                    return _ConditionItem(
+                      condition: condition,
+                      index: index,
+                      onEdit: () => _editCondition(condition),
+                      onRemove: () => _removeCondition(condition),
+                    );
+                  }).toList(),
+                ),
+            ]),
+            const SizedBox(height: 12),
+            _buildSectionCard(context, '执行动作 (THEN)', [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '执行动作',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _addAction,
+                    child: Text(
+                      '添加动作',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.systemBlue(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_rule.actions.isEmpty)
+                Center(
+                  child: Text(
+                    '暂无动作，点击添加',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                )
+              else
+                Column(
+                  children: _rule.actions.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final action = entry.value;
+                    return _ActionItem(
+                      action: action,
+                      index: index,
+                      onEdit: () => _editAction(action),
+                      onRemove: () => _removeAction(action),
+                    );
+                  }).toList(),
+                ),
+            ]),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSectionCard(
+    BuildContext context,
+    String title,
+    List<Widget> children,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg(context),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    BuildContext context,
+    String label,
+    TextEditingController controller, {
+    String? hint,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          style: TextStyle(color: AppColors.primaryLabel(context)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+            fillColor: AppColors.inputBg(context),
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.separator(context)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF007AFF)),
+            ),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSwitchRow(
+    BuildContext context,
+    String label,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 16,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        CupertinoSwitch(value: value, onChanged: onChanged),
+      ],
     );
   }
 }
@@ -278,8 +388,8 @@ class _ConditionItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.systemBlue(context).withAlpha(15),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
@@ -296,21 +406,31 @@ class _ConditionItem extends StatelessWidget {
                           condition.logic.label,
                           style: TextStyle(
                             color: condition.logic == LogicOperator.and
-                                ? Colors.blue
-                                : Colors.orange,
-                            fontWeight: FontWeight.bold,
+                                ? AppColors.systemBlue(context)
+                                : AppColors.systemOrange(context),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
                         ),
                       ),
                     Text(
                       condition.type.label,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryLabel(context),
+                      ),
                     ),
                   ],
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(condition.value),
+                  child: Text(
+                    condition.value,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -319,11 +439,19 @@ class _ConditionItem extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.edit, size: 20),
+                icon: Icon(
+                  Icons.edit,
+                  size: 20,
+                  color: AppColors.systemBlue(context),
+                ),
                 onPressed: onEdit,
               ),
               IconButton(
-                icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                icon: Icon(
+                  Icons.delete,
+                  size: 20,
+                  color: AppColors.systemRed(context),
+                ),
                 onPressed: onRemove,
               ),
             ],
@@ -353,8 +481,8 @@ class _ActionItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.green.shade300),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.systemGreen(context).withAlpha(15),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
@@ -364,11 +492,20 @@ class _ActionItem extends StatelessWidget {
               children: [
                 Text(
                   action.type.label,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryLabel(context),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(action.type.description),
+                  child: Text(
+                    action.type.description,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -377,11 +514,19 @@ class _ActionItem extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.edit, size: 20),
+                icon: Icon(
+                  Icons.edit,
+                  size: 20,
+                  color: AppColors.systemBlue(context),
+                ),
                 onPressed: onEdit,
               ),
               IconButton(
-                icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                icon: Icon(
+                  Icons.delete,
+                  size: 20,
+                  color: AppColors.systemRed(context),
+                ),
                 onPressed: onRemove,
               ),
             ],
@@ -423,48 +568,53 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加条件'),
+      backgroundColor: AppColors.cardBg(context),
+      title: Text(
+        '添加条件',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primaryLabel(context),
+        ),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<ConditionType>(
-              initialValue: _selectedType,
-              hint: const Text('选择条件类型'),
-              items: ConditionType.values.map((type) {
-                return DropdownMenuItem(value: type, child: Text(type.label));
-              }).toList(),
-              onChanged: (value) {
+            _buildDropdownSection(
+              context,
+              '条件类型',
+              _selectedType,
+              ConditionType.values,
+              (type) => type.label,
+              (value) {
                 setState(() {
                   _selectedType = value;
                 });
               },
-              decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              onChanged: (value) => _value = value,
-              decoration: InputDecoration(
-                labelText: '条件值',
-                hintText: _selectedType?.hint ?? '',
-                border: const OutlineInputBorder(),
-              ),
+            const SizedBox(height: 16),
+            _buildTextFieldSection(
+              context,
+              '条件值',
+              _selectedType?.hint ?? '',
+              (value) => _value = value,
+              _value,
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<LogicOperator>(
-              initialValue: _logic,
-              items: LogicOperator.values.map((logic) {
-                return DropdownMenuItem(value: logic, child: Text(logic.label));
-              }).toList(),
-              onChanged: (value) {
+            const SizedBox(height: 16),
+            _buildDropdownSection(
+              context,
+              '逻辑运算符',
+              _logic,
+              LogicOperator.values,
+              (logic) => logic.label,
+              (value) {
                 setState(() {
                   _logic = value!;
                 });
               },
-              decoration: const InputDecoration(
-                labelText: '逻辑运算符',
-                border: OutlineInputBorder(),
-              ),
             ),
           ],
         ),
@@ -472,9 +622,129 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(
+            '取消',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
         ),
-        TextButton(onPressed: _submit, child: const Text('添加')),
+        TextButton(
+          onPressed: _submit,
+          child: Text(
+            '添加',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF007AFF),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownSection<T>(
+    BuildContext context,
+    String label,
+    T? value,
+    List<T> items,
+    String Function(T) labelBuilder,
+    ValueChanged<T?> onChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.inputBg(context),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.separator(context)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<T>(
+              value: value,
+              hint: Text(
+                '请选择',
+                style: TextStyle(color: AppColors.secondaryLabel(context)),
+              ),
+              items: items.map((item) {
+                return DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    labelBuilder(item),
+                    style: TextStyle(color: AppColors.primaryLabel(context)),
+                  ),
+                );
+              }).toList(),
+              onChanged: onChanged,
+              isExpanded: true,
+              underline: const SizedBox(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextFieldSection(
+    BuildContext context,
+    String label,
+    String hint,
+    ValueChanged<String> onChanged,
+    String initialValue,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
+        TextField(
+          onChanged: onChanged,
+          controller: TextEditingController(text: initialValue),
+          style: TextStyle(color: AppColors.primaryLabel(context)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+            fillColor: AppColors.inputBg(context),
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.separator(context)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF007AFF)),
+            ),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -513,48 +783,53 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('编辑条件'),
+      backgroundColor: AppColors.cardBg(context),
+      title: Text(
+        '编辑条件',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primaryLabel(context),
+        ),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<ConditionType>(
-              initialValue: _type,
-              items: ConditionType.values.map((type) {
-                return DropdownMenuItem(value: type, child: Text(type.label));
-              }).toList(),
-              onChanged: (value) {
+            _buildDropdownSection(
+              context,
+              '条件类型',
+              _type,
+              ConditionType.values,
+              (type) => type.label,
+              (value) {
                 setState(() {
                   _type = value!;
                 });
               },
-              decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              onChanged: (value) => _value = value,
-              controller: TextEditingController(text: _value),
-              decoration: InputDecoration(
-                labelText: '条件值',
-                hintText: _type.hint,
-                border: const OutlineInputBorder(),
-              ),
+            const SizedBox(height: 16),
+            _buildTextFieldSection(
+              context,
+              '条件值',
+              _type.hint,
+              (value) => _value = value,
+              _value,
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<LogicOperator>(
-              initialValue: _logic,
-              items: LogicOperator.values.map((logic) {
-                return DropdownMenuItem(value: logic, child: Text(logic.label));
-              }).toList(),
-              onChanged: (value) {
+            const SizedBox(height: 16),
+            _buildDropdownSection(
+              context,
+              '逻辑运算符',
+              _logic,
+              LogicOperator.values,
+              (logic) => logic.label,
+              (value) {
                 setState(() {
                   _logic = value!;
                 });
               },
-              decoration: const InputDecoration(
-                labelText: '逻辑运算符',
-                border: OutlineInputBorder(),
-              ),
             ),
           ],
         ),
@@ -562,9 +837,125 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(
+            '取消',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
         ),
-        TextButton(onPressed: _submit, child: const Text('保存')),
+        TextButton(
+          onPressed: _submit,
+          child: Text(
+            '保存',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF007AFF),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownSection<T>(
+    BuildContext context,
+    String label,
+    T? value,
+    List<T> items,
+    String Function(T) labelBuilder,
+    ValueChanged<T?> onChanged,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.inputBg(context),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.separator(context)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<T>(
+              value: value,
+              items: items.map((item) {
+                return DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    labelBuilder(item),
+                    style: TextStyle(color: AppColors.primaryLabel(context)),
+                  ),
+                );
+              }).toList(),
+              onChanged: onChanged,
+              isExpanded: true,
+              underline: const SizedBox(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextFieldSection(
+    BuildContext context,
+    String label,
+    String hint,
+    ValueChanged<String> onChanged,
+    String initialValue,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
+        TextField(
+          onChanged: onChanged,
+          controller: TextEditingController(text: initialValue),
+          style: TextStyle(color: AppColors.primaryLabel(context)),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+            fillColor: AppColors.inputBg(context),
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.separator(context)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF007AFF)),
+            ),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -597,38 +988,104 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加动作'),
-      content: DropdownButtonFormField<ActionType>(
-        initialValue: _selectedType,
-        hint: const Text('选择动作类型'),
-        items: ActionType.values.map((type) {
-          return DropdownMenuItem(
-            value: type,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(type.label),
-                Text(
-                  type.description,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+      backgroundColor: AppColors.cardBg(context),
+      title: Text(
+        '添加动作',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primaryLabel(context),
+        ),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                '动作类型',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondaryLabel(context),
                 ),
-              ],
+              ),
             ),
-          );
-        }).toList(),
-        onChanged: (value) {
-          setState(() {
-            _selectedType = value;
-          });
-        },
-        decoration: const InputDecoration(border: OutlineInputBorder()),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.inputBg(context),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.separator(context)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<ActionType>(
+                  value: _selectedType,
+                  hint: Text(
+                    '请选择',
+                    style: TextStyle(color: AppColors.secondaryLabel(context)),
+                  ),
+                  items: ActionType.values.map((type) {
+                    return DropdownMenuItem(
+                      value: type,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            type.label,
+                            style: TextStyle(
+                              color: AppColors.primaryLabel(context),
+                            ),
+                          ),
+                          Text(
+                            type.description,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.secondaryLabel(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedType = value;
+                    });
+                  },
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(
+            '取消',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
         ),
-        TextButton(onPressed: _submit, child: const Text('添加')),
+        TextButton(
+          onPressed: _submit,
+          child: Text(
+            '添加',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF007AFF),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -661,37 +1118,100 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('编辑动作'),
-      content: DropdownButtonFormField<ActionType>(
-        initialValue: _type,
-        items: ActionType.values.map((type) {
-          return DropdownMenuItem(
-            value: type,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(type.label),
-                Text(
-                  type.description,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+      backgroundColor: AppColors.cardBg(context),
+      title: Text(
+        '编辑动作',
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primaryLabel(context),
+        ),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                '动作类型',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondaryLabel(context),
                 ),
-              ],
+              ),
             ),
-          );
-        }).toList(),
-        onChanged: (value) {
-          setState(() {
-            _type = value!;
-          });
-        },
-        decoration: const InputDecoration(border: OutlineInputBorder()),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.inputBg(context),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.separator(context)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<ActionType>(
+                  value: _type,
+                  items: ActionType.values.map((type) {
+                    return DropdownMenuItem(
+                      value: type,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            type.label,
+                            style: TextStyle(
+                              color: AppColors.primaryLabel(context),
+                            ),
+                          ),
+                          Text(
+                            type.description,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.secondaryLabel(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _type = value!;
+                    });
+                  },
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(
+            '取消',
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
         ),
-        TextButton(onPressed: _submit, child: const Text('保存')),
+        TextButton(
+          onPressed: _submit,
+          child: Text(
+            '保存',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF007AFF),
+            ),
+          ),
+        ),
       ],
     );
   }

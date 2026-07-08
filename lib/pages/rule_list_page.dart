@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notification_rule.dart';
@@ -135,88 +136,226 @@ class _RuleListPageState extends State<RuleListPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.filter_list_off, size: 64, color: Colors.grey),
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.systemGray(context),
+                    borderRadius: BorderRadius.circular(40),
+                  ),
+                  child: Icon(
+                    Icons.filter_list_off,
+                    size: 40,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
                 const SizedBox(height: 16),
-                const Text('暂无规则'),
+                Text(
+                  '暂无规则',
+                  style: TextStyle(
+                    fontSize: 17,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
                 const SizedBox(height: 8),
-                TextButton(onPressed: _addRule, child: const Text('添加第一条规则')),
+                TextButton(
+                  onPressed: _addRule,
+                  child: Text(
+                    '添加第一条规则',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF007AFF),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ],
             ),
           )
         : ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             itemCount: _rules.length,
             itemBuilder: (context, index) {
               final rule = _rules[index];
-              return Card(
+              return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: Switch(
-                    value: rule.enabled,
-                    onChanged: (_) => _toggleRule(rule),
-                  ),
-                  title: Text(
-                    rule.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: rule.enabled ? null : Colors.grey,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg(context),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(5),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
                     children: [
-                      if (rule.description.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(rule.description),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
                         ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            CupertinoSwitch(
+                              value: rule.enabled,
+                              onChanged: (_) => _toggleRule(rule),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    rule.name,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: rule.enabled
+                                          ? AppColors.primaryLabel(context)
+                                          : AppColors.secondaryLabel(context),
+                                    ),
+                                  ),
+                                  if (rule.description.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        rule.description,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.secondaryLabel(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
-                                vertical: 2,
+                                vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade100,
-                                borderRadius: BorderRadius.circular(4),
+                                color: AppColors.systemBlue(
+                                  context,
+                                ).withAlpha(20),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Text(_getConditionSummary(rule)),
+                              child: Text(
+                                _getConditionSummary(rule),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.systemBlue(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
-                                vertical: 2,
+                                vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: BorderRadius.circular(4),
+                                color: AppColors.systemGreen(
+                                  context,
+                                ).withAlpha(20),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Text(_getActionSummary(rule)),
+                              child: Text(
+                                _getActionSummary(rule),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.systemGreen(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.systemGray(context),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '优先级 ${rule.priority + 1}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.secondaryLabel(context),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      Container(
+                        color: AppColors.separator(context),
+                        height: 0.5,
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => _editRule(rule),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: Text(
+                                '编辑',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: AppColors.systemBlue(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            color: AppColors.separator(context),
+                            width: 0.5,
+                            height: 24,
+                          ),
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => _deleteRule(rule),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: Text(
+                                '删除',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: AppColors.systemRed(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _editRule(rule),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => _deleteRule(rule),
-                        color: Colors.red,
-                      ),
-                    ],
-                  ),
-                  onTap: () => _editRule(rule),
                 ),
               );
             },
@@ -358,6 +497,11 @@ class _RuleListPageState extends State<RuleListPage> {
         title: const Text('规则管理'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed: _showGuideDialog,
+            tooltip: '使用帮助',
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
             onPressed: _addRule,
             tooltip: '添加规则',
@@ -367,7 +511,8 @@ class _RuleListPageState extends State<RuleListPage> {
       body: _buildRuleList(),
       floatingActionButton: FloatingActionButton(
         onPressed: _addRule,
-        child: const Icon(Icons.add),
+        backgroundColor: const Color(0xFF007AFF),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
