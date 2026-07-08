@@ -157,6 +157,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
                 maxLines: 3,
               ),
               const SizedBox(height: 12),
+              _buildPriorityRow(context),
+              const SizedBox(height: 12),
               _buildSwitchRow(context, '启用规则', _rule.enabled, (value) {
                 setState(() {
                   _rule = _rule.copyWith(enabled: value);
@@ -364,6 +366,68 @@ class _RuleEditPageState extends State<RuleEditPage> {
           ),
         ),
         CupertinoSwitch(value: value, onChanged: onChanged),
+      ],
+    );
+  }
+
+  Widget _buildPriorityRow(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            '规则优先级',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.inputBg(context),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.separator(context)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: _rule.priority,
+              items: [
+                const DropdownMenuItem(value: 0, child: Text('默认 (0)')),
+                const DropdownMenuItem(value: 50, child: Text('低 (50)')),
+                const DropdownMenuItem(value: 100, child: Text('中 (100)')),
+                const DropdownMenuItem(value: 200, child: Text('高 (200)')),
+                const DropdownMenuItem(value: 500, child: Text('最高 (500)')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _rule = _rule.copyWith(priority: value);
+                  });
+                }
+              },
+              isExpanded: true,
+              underline: const SizedBox(),
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            '优先级越高，规则越先执行。相同优先级按添加顺序执行。',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
       ],
     );
   }

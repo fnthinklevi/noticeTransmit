@@ -113,6 +113,7 @@ class _RuleListPageState extends State<RuleListPage> {
   }
 
   void _saveRules() {
+    _rules.sort((a, b) => b.priority.compareTo(a.priority));
     widget.onSave(_rules);
   }
 

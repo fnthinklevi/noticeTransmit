@@ -305,24 +305,27 @@ class _BatteryPageState extends State<BatteryPage> {
           ruleId: rule['id'] as String,
           enabled: widget.notifyEnabled,
           onDelete: () => _showDeleteConfirmDialog(rule['id'] as String),
-          child: InkWell(
-            onTap: widget.notifyEnabled && enabled
-                ? () => _showEditRuleDialog(rule)
-                : null,
-            onLongPress: widget.notifyEnabled
-                ? () => _showDeleteConfirmDialog(rule['id'] as String)
-                : null,
-            child: _buildSwitchRow(
-              icon: icon,
-              iconColor: iconColor,
-              title: title,
-              subtitle: subtitle,
-              value: enabled,
-              onChanged: widget.notifyEnabled
-                  ? (v) => widget.onToggleRule(rule['id'] as String, v)
+          child: Container(
+            color: AppColors.cardBg(context),
+            child: InkWell(
+              onTap: widget.notifyEnabled && enabled
+                  ? () => _showEditRuleDialog(rule)
                   : null,
-              context: context,
-              trailing: null,
+              onLongPress: widget.notifyEnabled
+                  ? () => _showDeleteConfirmDialog(rule['id'] as String)
+                  : null,
+              child: _buildSwitchRow(
+                icon: icon,
+                iconColor: iconColor,
+                title: title,
+                subtitle: subtitle,
+                value: enabled,
+                onChanged: widget.notifyEnabled
+                    ? (v) => widget.onToggleRule(rule['id'] as String, v)
+                    : null,
+                context: context,
+                trailing: null,
+              ),
             ),
           ),
         ),

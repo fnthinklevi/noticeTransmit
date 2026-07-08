@@ -1,12 +1,12 @@
 {
-  "appName": "notice1.5.28",
-  "latestVersion": "1.5.28",
-  "latestBuild": 62,
+  "appName": "notice1.5.29",
+  "latestVersion": "1.5.29",
+  "latestBuild": 63,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【代码架构优化】\n• main.dart代码拆分：将5866行代码拆分为9个独立页面文件\n• 创建 pages/main_page.dart、notification_page.dart、battery_page.dart、more_page.dart、webhook_settings_page.dart、app_filter_page.dart、keywords_page.dart、history_page.dart、permission_settings_page.dart\n• 删除main.dart中的重复代码，保持入口文件简洁\n• base.md添加iOS风格UI强制规范",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.28.apk",
+  "changelog": "【功能修复与优化】\n• 修复电量规则删除按钮显示问题：仅左滑时显示删除按钮，正常状态下完全隐藏\n• 实现规则引擎优先级功能：规则编辑页面支持设置优先级（默认/低/中/高/最高），规则按优先级排序执行\n• 代码格式优化",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.29.apk",
   "fileSize": 23090034,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
