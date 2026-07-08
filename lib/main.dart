@@ -3105,7 +3105,7 @@ class _BatteryPageState extends State<BatteryPage> {
               ],
             ),
           ),
-          if (trailing != null) trailing,
+          trailing ?? const SizedBox.shrink(),
           Switch(value: value, onChanged: onChanged),
         ],
       ),
@@ -5546,8 +5546,8 @@ class NotificationTaskHandler extends TaskHandler {
   void onRepeatEvent(DateTime timestamp) {}
 
   @override
-  Future<void> onDestroy(DateTime timestamp) async {
-    debugPrint('Foreground task destroyed at $timestamp');
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
+    debugPrint('Foreground task destroyed at $timestamp, isTimeout: $isTimeout');
   }
 
   @override

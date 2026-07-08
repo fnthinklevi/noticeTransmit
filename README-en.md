@@ -176,6 +176,27 @@ This application values user privacy. The following is a statement about data co
 
 All notification pushes are sent through user-configured Webhook URLs. Developers do not store any push content.
 
+## FAQ & Troubleshooting
+
+### Not receiving notifications?
+1. Is Notification Access permission enabled
+2. Is battery optimization disabled
+3. Is foreground service running
+4. Is auto-start/background permission enabled for OEM devices
+5. Is Webhook URL correct (testable in settings page)
+6. Is the notification filtered by app filter / keyword filter
+
+### Hotfix not working?
+1. Check if `flutter_contentVersion` is updated
+2. Check if files exist in `app_flutter/hotfix/` directory
+3. Check logcat for `RELOAD_HOTFIX` broadcast
+4. Verify JSON format is correct
+
+### KGP build warnings?
+- **Issue**: Flutter 3.44+ introduces Built-in Kotlin, Kotlin Gradle Plugin (KGP) used by some plugins will be deprecated
+- **Impact**: Does not affect build and runtime, only a warning
+- **Status**: `device_info_plus` and `package_info_plus` updated, `flutter_foreground_task` waiting for author update
+
 ## License
 
 This project is for learning and communication purposes only.

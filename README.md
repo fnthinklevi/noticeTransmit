@@ -176,6 +176,27 @@ flutter build apk --release --target-platform android-arm64
 
 所有通知推送均通过用户自行配置的 Webhook URL 发送，开发者不存储任何推送内容。
 
+## 常见问题与排错
+
+### 通知收不到？
+1. 通知访问权限是否开启
+2. 电池优化是否忽略
+3. 前台服务是否运行
+4. 厂商自启动/后台权限是否开启
+5. Webhook URL 是否正确（可在设置页测试）
+6. 应用筛选 / 关键词过滤是否把通知过滤了
+
+### 热更新不生效？
+1. 检查 `flutter_contentVersion` 是否更新
+2. 检查 `app_flutter/hotfix/` 目录下文件是否存在
+3. 查看 logcat 中是否有 `RELOAD_HOTFIX` 广播
+4. 确认 JSON 格式是否正确
+
+### KGP 构建警告？
+- **问题**：Flutter 3.44+ 引入 Built-in Kotlin，部分插件使用的 Kotlin Gradle Plugin (KGP) 将被弃用
+- **影响**：不影响构建和运行，仅为警告提示
+- **当前状态**：`device_info_plus` 和 `package_info_plus` 已更新适配，`flutter_foreground_task` 等待作者更新
+
 ## 许可证
 
 本项目仅供学习交流使用。
