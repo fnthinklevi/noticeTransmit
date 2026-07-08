@@ -13,6 +13,8 @@ import 'package:permission_handler/permission_handler.dart';
 
 class AppUpdateManager {
   static const String _updateServerUrl = 'https://notice.fnthink.top';
+  static const String _githubMirrorUrl =
+      'https://xget.fnthink.top/gh/fnthinklevi/noticeTransmit/releases/download';
   static const String _prefsKeyAutoCheck = 'auto_check_update';
   static const String _prefsKeyLastCheckTime = 'last_update_check_time';
   static const String _prefsKeyContentVersion = 'content_version';
@@ -141,46 +143,93 @@ class AppUpdateManager {
     int? totalSize,
     Function(double progress)? onProgress,
     Function()? onCancel,
+    String? appName,
+    String? version,
   }) async {
-    final fullUrl = _getFullUrl(downloadUrl);
     final dir = await getTemporaryDirectory();
     final fileName = 'app_update_${DateTime.now().millisecondsSinceEpoch}.apk';
     final savePath = '${dir.path}/$fileName';
     final file = File(savePath);
 
-    var fileTotalSize = totalSize ?? 0;
+    final urls = _buildDownloadUrls(downloadUrl, appName, version);
 
-    final response = await http.Client().send(
-      http.Request('GET', Uri.parse(fullUrl)),
-    );
+    for (int i = 0; i < urls.length; i++) {
+      try {
+        final url = urls[i];
+        debugPrint('下载APK：尝试 $url');
 
-    if (fileTotalSize == 0) {
-      fileTotalSize = response.contentLength ?? 0;
+        var fileTotalSize = totalSize ?? 0;
+
+        final response = await http.Client().send(
+          http.Request('GET', Uri.parse(url)),
+        );
+
+        if (response.statusCode != 200) {
+          if (i < urls.length - 1) {
+            debugPrint('下载APK：地址 $url 返回 ${response.statusCode}，尝试下一个');
+            continue;
+          }
+          throw Exception('下载失败：HTTP ${response.statusCode}');
+        }
+
+        if (fileTotalSize == 0) {
+          fileTotalSize = response.contentLength ?? 0;
+        }
+        final clHeader = response.headers['content-length'];
+        if (fileTotalSize == 0 && clHeader != null) {
+          fileTotalSize = int.tryParse(clHeader) ?? 0;
+        }
+
+        var received = 0;
+
+        await response.stream
+            .listen(
+              (List<int> bytes) {
+                received += bytes.length;
+                file.writeAsBytesSync(bytes, mode: FileMode.append);
+                if (fileTotalSize > 0 && onProgress != null) {
+                  onProgress(received / fileTotalSize);
+                }
+              },
+              onDone: () {},
+              onError: (e) {
+                throw e;
+              },
+            )
+            .asFuture();
+
+        debugPrint('下载APK：成功，路径 $savePath');
+        return savePath;
+      } catch (e) {
+        debugPrint('下载APK：地址 ${urls[i]} 失败 - $e');
+        if (i < urls.length - 1) {
+          debugPrint('下载APK：尝试下一个地址');
+        } else {
+          rethrow;
+        }
+      }
     }
-    final clHeader = response.headers['content-length'];
-    if (fileTotalSize == 0 && clHeader != null) {
-      fileTotalSize = int.tryParse(clHeader) ?? 0;
+
+    throw Exception('所有下载地址均失败');
+  }
+
+  List<String> _buildDownloadUrls(
+    String downloadUrl,
+    String? appName,
+    String? version,
+  ) {
+    final urls = <String>[];
+
+    if (downloadUrl.isNotEmpty) {
+      urls.add(_getFullUrl(downloadUrl));
     }
 
-    var received = 0;
+    if (version != null && appName != null) {
+      final githubUrl = '$_githubMirrorUrl/$version/$appName.apk';
+      urls.add(githubUrl);
+    }
 
-    await response.stream
-        .listen(
-          (List<int> bytes) {
-            received += bytes.length;
-            file.writeAsBytesSync(bytes, mode: FileMode.append);
-            if (fileTotalSize > 0 && onProgress != null) {
-              onProgress(received / fileTotalSize);
-            }
-          },
-          onDone: () {},
-          onError: (e) {
-            throw e;
-          },
-        )
-        .asFuture();
-
-    return savePath;
+    return urls;
   }
 
   Future<bool> installApk(String filePath) async {

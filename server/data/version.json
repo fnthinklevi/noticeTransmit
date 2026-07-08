@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.26",
-  "latestVersion": "1.5.26",
-  "latestBuild": 60,
+  "appName": "notice1.5.27",
+  "latestVersion": "1.5.27",
+  "latestBuild": 61,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【图标美化与性能优化】\n• 图标主体缩小至24%，视觉效果更协调\n• 新增深色模式图标适配，系统深色模式下自动切换\n• 关于页图标替换为软件图标\n• 仅保留arm64位库，减小APK体积\n• 电量通知规则页、白黑名单页样式适配iOS风格\n• 电池通知规则支持低于/等于/高于某值三种条件\n• 优化通知列表渲染性能，解决卡顿问题\n• 代码格式化与分析优化",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.26.apk",
-  "fileSize": 23089726,
+  "changelog": "【更新优化与体验增强】\n• 更新检测逻辑优化：未上传APK时自动从GitHub下载（加速域名 xget.fnthink.top）\n• 电量规则增加左滑删除和长按删除功能\n• 规则引擎页增加第一次进入引导说明\n• UI风格统一为iOS风格（卡片、圆角、主题色）\n• base.md文档重新整理，已完成内容归档到对应章节\n• 五更新流程规范优化",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.27.apk",
+  "fileSize": 23090034,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

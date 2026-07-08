@@ -31,11 +31,11 @@ Notification Push Helper is an Android application developed with Flutter that l
 
 ### Advanced Features
 
-- 🔋 **Custom Battery Reminders** - Fully customizable battery notification rules (charging/discharging/specific battery level thresholds), support add/edit/delete rules
+- 🔋 **Custom Battery Reminders** - Fully customizable battery notification rules (charging/discharging/specific battery level thresholds), support add/edit/delete rules, support swipe left to delete and long press to delete
 - 📋 **History Records** - Locally save notification push history, support search, detail view and export
 - 📱 **App Filtering** - Customize which apps need notification push
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
-- 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
+- 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), first-time entry provides feature guide, built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
 
 ### Experience Optimization
 

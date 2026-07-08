@@ -1823,6 +1823,8 @@ class _MainPageState extends State<MainPage> {
         .downloadApk(
           result.downloadUrl,
           totalSize: result.fileSize,
+          appName: result.appName,
+          version: result.latestVersion,
           onProgress: (progress) {
             progressNotifier.value = progress;
             if (mounted) {
@@ -2797,31 +2799,69 @@ class _BatteryPageState extends State<BatteryPage> {
         subtitle = '未知规则类型';
     }
 
-    return InkWell(
-      onTap: widget.notifyEnabled && enabled
-          ? () => _showEditRuleDialog(rule)
-          : null,
-      child: _buildSwitchRow(
-        icon: icon,
-        iconColor: iconColor,
-        title: title,
-        subtitle: subtitle,
-        value: enabled,
-        onChanged: widget.notifyEnabled
-            ? (v) => widget.onToggleRule(rule['id'] as String, v)
-            : null,
-        context: context,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              color: AppColors.secondaryLabel(context),
-              onPressed: widget.notifyEnabled
-                  ? () => _showDeleteConfirmDialog(rule['id'] as String)
-                  : null,
+    return Dismissible(
+      key: Key(rule['id'] as String),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: const Color(0xFFFF3B30),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Icon(Icons.delete_outline, color: Colors.white, size: 24),
+      ),
+      confirmDismiss: (_) async {
+        if (!widget.notifyEnabled) return false;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('删除规则'),
+            content: const Text('确定要删除这条规则吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('删除'),
+              ),
+            ],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
             ),
-          ],
+          ),
+        );
+        return confirmed ?? false;
+      },
+      onDismissed: (_) => widget.onDeleteRule(rule['id'] as String),
+      child: InkWell(
+        onTap: widget.notifyEnabled && enabled
+            ? () => _showEditRuleDialog(rule)
+            : null,
+        onLongPress: widget.notifyEnabled
+            ? () => _showDeleteConfirmDialog(rule['id'] as String)
+            : null,
+        child: _buildSwitchRow(
+          icon: icon,
+          iconColor: iconColor,
+          title: title,
+          subtitle: subtitle,
+          value: enabled,
+          onChanged: widget.notifyEnabled
+              ? (v) => widget.onToggleRule(rule['id'] as String, v)
+              : null,
+          context: context,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 20),
+                color: AppColors.secondaryLabel(context),
+                onPressed: widget.notifyEnabled
+                    ? () => _showDeleteConfirmDialog(rule['id'] as String)
+                    : null,
+              ),
+            ],
+          ),
         ),
       ),
     );
