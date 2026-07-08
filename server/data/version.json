@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.23",
-  "latestVersion": "1.5.23",
-  "latestBuild": 57,
+  "appName": "notice1.5.24",
+  "latestVersion": "1.5.24",
+  "latestBuild": 58,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.10",
   "forceUpdateBuild": 44,
-  "changelog": "【隐私政策 & 代码架构优化】\n• 新增隐私政策页面，详细说明数据采集与隐私保护\n• README 增加隐私说明章节，明确 Bugly 仅收集崩溃数据\n• 代码拆分第一阶段：建立模块化目录结构（models/theme/pages）\n• 引入 provider 状态管理库，为后续状态管理做准备",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.23.apk",
-  "fileSize": 23366879,
+  "changelog": "【标准化更新流程 & 插件升级】\n• 将「五更新」「七更新」更名为「标准化更新」，统一更新流程\n• 标准化更新流程新增 dart format lib/ 步骤，确保代码格式一致\n• 更新 device_info_plus 到 v13.2.0，支持 Built-in Kotlin\n• 更新 package_info_plus 到 v10.2.0，支持 Built-in Kotlin\n• 修复 flutter_foreground_task 9.2.2 的 onDestroy 方法签名问题\n• 更新 README 常见问题与排错章节\n• 更新 base.md 技术文档\n• 更新 README-en.md 英文文档",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.24.apk",
+  "fileSize": 23525045,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }
