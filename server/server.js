@@ -1,7 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcrypt');
+const { authenticator, totp } = require('otplib');
+const QRCode = require('qrcode');
 
 const app = express();
 const PORT = process.env.PORT || 3456;
@@ -10,22 +14,126 @@ app.use(cors());
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+app.use((req, res, next) => {
+  const ip = getClientIp(req);
+  
+  if (isIpBlocked(ip)) {
+    const blockedIPs = getBlockedIPs();
+    const entry = blockedIPs.find(item => item.ip === ip);
+    const remainingHours = Math.ceil((entry.unblockTime - Date.now()) / (1000 * 60 * 60));
+    return res.status(403).json({
+      code: -3,
+      message: `您的IP已被封锁，剩余 ${remainingHours} 小时后解除`,
+      blocked: true,
+      remainingHours
+    });
+  }
+  
+  next();
+});
+
 const VERSION_FILE = path.join(__dirname, 'data', 'version.json');
 const HOTFIX_FILE = path.join(__dirname, 'data', 'hotfix.json');
+const TOTP_FILE = path.join(__dirname, 'data', 'totp.json');
+const BLOCK_FILE = path.join(__dirname, 'data', 'blocked_ips.json');
 const DATA_DIR = path.join(__dirname, 'data');
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'your-secret-token-change-in-production';
+const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH || '';
+const MAX_FAILED_ATTEMPTS = 3;
+const FAILURE_WINDOW_MINUTES = 10;
+const BLOCK_DURATION_HOURS = 240;
 
-function authMiddleware(req, res, next) {
-  const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_TOKEN) {
-    return res.status(401).json({ code: -1, message: '未授权' });
-  }
-  next();
+const sessions = {};
+const failedAttempts = {};
+
+function getClientIp(req) {
+  const ip = req.headers['x-forwarded-for'] ||
+             req.headers['x-real-ip'] ||
+             req.connection?.remoteAddress ||
+             req.socket?.remoteAddress ||
+             req.connection?.socket?.remoteAddress ||
+             'unknown';
+  return ip.split(',')[0].trim();
 }
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+function getBlockedIPs() {
+  return readJsonFile(BLOCK_FILE, []);
+}
+
+function saveBlockedIPs(ips) {
+  return writeJsonFile(BLOCK_FILE, ips);
+}
+
+function isIpBlocked(ip) {
+  const blockedIPs = getBlockedIPs();
+  const entry = blockedIPs.find(item => item.ip === ip);
+  if (!entry) return false;
+  if (Date.now() > entry.unblockTime) {
+    const filtered = blockedIPs.filter(item => item.ip !== ip);
+    saveBlockedIPs(filtered);
+    return false;
+  }
+  return true;
+}
+
+function blockIp(ip) {
+  const blockedIPs = getBlockedIPs();
+  const existing = blockedIPs.find(item => item.ip === ip);
+  if (existing) {
+    existing.unblockTime = Date.now() + BLOCK_DURATION_HOURS * 60 * 60 * 1000;
+  } else {
+    blockedIPs.push({
+      ip,
+      blockTime: Date.now(),
+      unblockTime: Date.now() + BLOCK_DURATION_HOURS * 60 * 60 * 1000
+    });
+  }
+  saveBlockedIPs(blockedIPs);
+  console.log(`IP ${ip} has been blocked for ${BLOCK_DURATION_HOURS} hours due to too many failed 2FA attempts`);
+}
+
+function recordFailedAttempt(ip) {
+  if (!failedAttempts[ip]) {
+    failedAttempts[ip] = {
+      count: 0,
+      firstAttempt: Date.now()
+    };
+  }
+  
+  failedAttempts[ip].count++;
+  
+  const windowStart = failedAttempts[ip].firstAttempt;
+  const windowEnd = windowStart + FAILURE_WINDOW_MINUTES * 60 * 1000;
+  
+  if (Date.now() > windowEnd) {
+    failedAttempts[ip] = {
+      count: 1,
+      firstAttempt: Date.now()
+    };
+  }
+  
+  if (failedAttempts[ip].count >= MAX_FAILED_ATTEMPTS) {
+    blockIp(ip);
+    delete failedAttempts[ip];
+    return true;
+  }
+  
+  return false;
+}
+
+function clearFailedAttempts(ip) {
+  delete failedAttempts[ip];
+}
+
+function getRemainingAttempts(ip) {
+  if (!failedAttempts[ip]) return MAX_FAILED_ATTEMPTS;
+  const windowEnd = failedAttempts[ip].firstAttempt + FAILURE_WINDOW_MINUTES * 60 * 1000;
+  if (Date.now() > windowEnd) return MAX_FAILED_ATTEMPTS;
+  return MAX_FAILED_ATTEMPTS - failedAttempts[ip].count;
+}
+
+function generateSessionId() {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
 function readJsonFile(filePath, defaultValue) {
@@ -54,6 +162,32 @@ function writeJsonFile(filePath, data) {
   }
 }
 
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const totpConfig = readJsonFile(TOTP_FILE, {
+  enabled: false,
+  secret: '',
+  recoveryCodes: []
+});
+
+function getTotpConfig() {
+  return readJsonFile(TOTP_FILE, { enabled: false, secret: '', recoveryCodes: [] });
+}
+
+function saveTotpConfig(config) {
+  return writeJsonFile(TOTP_FILE, config);
+}
+
+function generateRecoveryCodes() {
+  const codes = [];
+  for (let i = 0; i < 8; i++) {
+    codes.push(Math.random().toString(36).substring(2, 10).toUpperCase());
+  }
+  return codes;
+}
+
 function compareVersions(v1, v2) {
   const parts1 = v1.split('.').map(Number);
   const parts2 = v2.split('.').map(Number);
@@ -65,6 +199,279 @@ function compareVersions(v1, v2) {
   }
   return 0;
 }
+
+async function verifyToken(token) {
+  if (!ADMIN_TOKEN_HASH) {
+    console.warn('ADMIN_TOKEN_HASH 未配置');
+    return token === 'your-secret-token-change-in-production';
+  }
+  try {
+    return await bcrypt.compare(token, ADMIN_TOKEN_HASH);
+  } catch (e) {
+    console.error('Token验证失败:', e.message);
+    return false;
+  }
+}
+
+async function authMiddleware(req, res, next) {
+  const token = req.headers['x-admin-token'] || req.query.token;
+  const sessionId = req.headers['x-session-id'] || req.query.sessionId;
+
+  if (sessionId && sessions[sessionId]) {
+    if (Date.now() - sessions[sessionId].createdAt > 24 * 60 * 60 * 1000) {
+      delete sessions[sessionId];
+      return res.status(401).json({ code: -1, message: '会话已过期，请重新登录' });
+    }
+    sessions[sessionId].createdAt = Date.now();
+    req.session = sessions[sessionId];
+    return next();
+  }
+
+  const isValid = await verifyToken(token);
+  if (!isValid) {
+    return res.status(401).json({ code: -1, message: '未授权' });
+  }
+
+  const config = getTotpConfig();
+  if (config.enabled) {
+    return res.status(401).json({ code: -2, message: '需要二步验证', require2FA: true });
+  }
+
+  const newSessionId = generateSessionId();
+  sessions[newSessionId] = {
+    createdAt: Date.now(),
+    authenticated: true,
+    twoFAVerified: false
+  };
+  req.session = sessions[newSessionId];
+  res.setHeader('x-session-id', newSessionId);
+  next();
+}
+
+app.post('/api/admin/login', async (req, res) => {
+  const ip = getClientIp(req);
+  
+  if (isIpBlocked(ip)) {
+    const blockedIPs = getBlockedIPs();
+    const entry = blockedIPs.find(item => item.ip === ip);
+    const remainingHours = Math.ceil((entry.unblockTime - Date.now()) / (1000 * 60 * 60));
+    return res.status(403).json({ 
+      code: -3, 
+      message: `您的IP已被封锁，剩余 ${remainingHours} 小时后解除`,
+      blocked: true,
+      remainingHours 
+    });
+  }
+
+  const { token, otp, recoveryCode } = req.body;
+
+  const isValidToken = await verifyToken(token);
+  if (!isValidToken) {
+    return res.status(401).json({ code: -1, message: 'Token 错误' });
+  }
+
+  const config = getTotpConfig();
+
+  if (!config.enabled) {
+    const sessionId = generateSessionId();
+    sessions[sessionId] = {
+      createdAt: Date.now(),
+      authenticated: true,
+      twoFAVerified: false
+    };
+    clearFailedAttempts(ip);
+    return res.json({
+      code: 0,
+      message: '登录成功',
+      sessionId,
+      need2FA: false,
+      twoFAEnabled: false
+    });
+  }
+
+  let isValid = false;
+  if (otp) {
+    isValid = authenticator.verify({ token: otp, secret: config.secret });
+  } else if (recoveryCode && config.recoveryCodes) {
+    const codeIndex = config.recoveryCodes.indexOf(recoveryCode);
+    if (codeIndex !== -1) {
+      isValid = true;
+      config.recoveryCodes.splice(codeIndex, 1);
+      saveTotpConfig(config);
+    }
+  }
+
+  if (!isValid) {
+    const isBlocked = recordFailedAttempt(ip);
+    const remainingAttempts = getRemainingAttempts(ip);
+    
+    if (isBlocked) {
+      return res.status(403).json({ 
+        code: -3, 
+        message: `尝试次数过多，您的IP已被封锁 ${BLOCK_DURATION_HOURS} 小时`,
+        blocked: true,
+        remainingHours: BLOCK_DURATION_HOURS
+      });
+    }
+    
+    return res.status(401).json({ 
+      code: -1, 
+      message: `验证码错误，还剩 ${remainingAttempts} 次尝试机会`, 
+      need2FA: true,
+      remainingAttempts 
+    });
+  }
+
+  clearFailedAttempts(ip);
+  const sessionId = generateSessionId();
+  sessions[sessionId] = {
+    createdAt: Date.now(),
+    authenticated: true,
+    twoFAVerified: true
+  };
+
+  res.json({
+    code: 0,
+    message: '登录成功',
+    sessionId,
+    need2FA: false,
+    twoFAEnabled: true
+  });
+});
+
+app.get('/api/admin/totp/setup', authMiddleware, (req, res) => {
+  const config = getTotpConfig();
+  
+  if (config.enabled) {
+    return res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        enabled: true,
+        hasSecret: !!config.secret
+      }
+    });
+  }
+
+  const secret = authenticator.generateSecret();
+  const service = '通知推送助手管理后台';
+  const account = 'admin';
+  const otpauth = authenticator.keyuri(account, service, secret);
+
+  QRCode.toDataURL(otpauth, (err, qrCodeUrl) => {
+    if (err) {
+      return res.status(500).json({ code: -1, message: '生成二维码失败' });
+    }
+
+    res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        enabled: false,
+        secret,
+        qrCodeUrl,
+        otpauth,
+        manualCode: secret
+      }
+    });
+  });
+});
+
+app.post('/api/admin/totp/enable', authMiddleware, (req, res) => {
+  const { secret, otp } = req.body;
+
+  if (!secret || !otp) {
+    return res.status(400).json({ code: -1, message: '参数缺失' });
+  }
+
+  const isValid = authenticator.verify({ token: otp, secret });
+  if (!isValid) {
+    return res.status(400).json({ code: -1, message: '验证码错误' });
+  }
+
+  const recoveryCodes = generateRecoveryCodes();
+  const config = {
+    enabled: true,
+    secret,
+    recoveryCodes
+  };
+
+  saveTotpConfig(config);
+
+  res.json({
+    code: 0,
+    message: '二步验证已启用',
+    data: {
+      enabled: true,
+      recoveryCodes
+    }
+  });
+});
+
+app.post('/api/admin/totp/disable', authMiddleware, (req, res) => {
+  const { otp, recoveryCode } = req.body;
+  const config = getTotpConfig();
+
+  if (!config.enabled) {
+    return res.status(400).json({ code: -1, message: '二步验证未启用' });
+  }
+
+  let isValid = false;
+  if (otp) {
+    isValid = authenticator.verify({ token: otp, secret: config.secret });
+  } else if (recoveryCode && config.recoveryCodes) {
+    isValid = config.recoveryCodes.includes(recoveryCode);
+  }
+
+  if (!isValid) {
+    return res.status(400).json({ code: -1, message: '验证码错误' });
+  }
+
+  config.enabled = false;
+  saveTotpConfig(config);
+
+  res.json({
+    code: 0,
+    message: '二步验证已禁用'
+  });
+});
+
+app.get('/api/admin/totp/status', authMiddleware, (req, res) => {
+  const config = getTotpConfig();
+  res.json({
+    code: 0,
+    message: 'success',
+    data: {
+      enabled: config.enabled,
+      hasRecoveryCodes: config.recoveryCodes && config.recoveryCodes.length > 0
+    }
+  });
+});
+
+app.post('/api/admin/totp/regenerate-recovery', authMiddleware, (req, res) => {
+  const { otp } = req.body;
+  const config = getTotpConfig();
+
+  if (!config.enabled) {
+    return res.status(400).json({ code: -1, message: '二步验证未启用' });
+  }
+
+  if (!otp || !authenticator.verify({ token: otp, secret: config.secret })) {
+    return res.status(400).json({ code: -1, message: '验证码错误' });
+  }
+
+  const recoveryCodes = generateRecoveryCodes();
+  config.recoveryCodes = recoveryCodes;
+  saveTotpConfig(config);
+
+  res.json({
+    code: 0,
+    message: '恢复码已重新生成',
+    data: {
+      recoveryCodes
+    }
+  });
+});
 
 app.get('/api/version/check', (req, res) => {
   const { version, build, platform = 'android' } = req.query;
@@ -189,16 +596,25 @@ app.listen(PORT, () => {
   console.log('==============================');
   console.log('');
   console.log('API 接口:');
-  console.log('  GET  /api/version/check   - 检查版本更新');
-  console.log('  GET  /api/hotfix/check    - 检查热更新');
-  console.log('  GET  /api/admin/version   - 获取版本配置');
-  console.log('  POST /api/admin/version   - 更新版本配置');
-  console.log('  GET  /api/admin/hotfix    - 获取热更新配置');
-  console.log('  POST /api/admin/hotfix    - 更新热更新配置');
-  console.log('  GET  /health              - 健康检查');
+  console.log('  GET  /api/version/check           - 检查版本更新');
+  console.log('  GET  /api/hotfix/check            - 检查热更新');
+  console.log('  POST /api/admin/login             - 管理员登录');
+  console.log('  GET  /api/admin/totp/setup        - 获取二步验证设置');
+  console.log('  POST /api/admin/totp/enable       - 启用二步验证');
+  console.log('  POST /api/admin/totp/disable      - 禁用二步验证');
+  console.log('  GET  /api/admin/totp/status       - 获取二步验证状态');
+  console.log('  POST /api/admin/totp/regenerate-recovery - 重新生成恢复码');
+  console.log('  GET  /api/admin/version           - 获取版本配置');
+  console.log('  POST /api/admin/version           - 更新版本配置');
+  console.log('  GET  /api/admin/hotfix            - 获取热更新配置');
+  console.log('  POST /api/admin/hotfix            - 更新热更新配置');
+  console.log('  GET  /health                      - 健康检查');
   console.log('');
   console.log('静态资源:');
-  console.log('  /public/apks/    - APK 文件目录');
-  console.log('  /public/hotfix/  - 热更新包目录');
+  console.log('  /public/apks/      - APK 文件目录');
+  console.log('  /public/hotfix/    - 热更新包目录');
+  console.log('  /public/admin.html - 管理后台页面');
   console.log('');
+  console.log('二步验证状态:', getTotpConfig().enabled ? '✅ 已启用' : '❌ 未启用');
+  console.log('Token验证方式:', ADMIN_TOKEN_HASH ? '✅ bcrypt哈希' : '❌ 未配置（使用明文）');
 });

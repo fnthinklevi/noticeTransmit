@@ -208,7 +208,11 @@ class NotificationMonitorService : NotificationListenerService() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-        startForeground(FOREGROUND_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(FOREGROUND_ID, notification, 0x40000000)
+        } else {
+            startForeground(FOREGROUND_ID, notification)
+        }
         Log.i(TAG, "Foreground service started")
     }
 

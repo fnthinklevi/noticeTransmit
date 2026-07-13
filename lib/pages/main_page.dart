@@ -7,6 +7,7 @@ import '../services/services.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
 import '../theme/app_colors.dart';
+import 'splash_page.dart';
 import 'notification_page.dart';
 import 'battery_page.dart';
 import 'more_page.dart';
@@ -96,14 +97,31 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     _setupMethodChannel();
-    _initForegroundTask();
-    _loadAllSettings();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _postInit();
+    });
+  }
+
+  Future<void> _postInit() async {
+    try {
+      _initForegroundTask();
       _checkPermissions();
       _getDeviceInfo();
       _refreshBatteryStatus();
       _batteryService.startRefreshTimer();
-    });
+
+      if (!_notificationService.serviceManuallyStopped) {
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (mounted) {
+            _startForegroundService();
+          }
+        });
+      }
+
+      _checkUpdateOnStartup();
+    } catch (e) {
+      debugPrint('页面初始化失败: $e');
+    }
   }
 
   @override
@@ -136,26 +154,6 @@ class _MainPageState extends State<MainPage> {
 
   void _initForegroundTask() {
     _notificationService.initForegroundTask();
-  }
-
-  Future<void> _loadAllSettings() async {
-    await _webhookService.loadChannels();
-    await _batteryService.loadSettings();
-    await _notificationService.loadRecords();
-    await _notificationService.loadServiceState();
-    await _filterService.loadSettings();
-    await _updateService.init();
-
-    setState(() {});
-
-    if (!_notificationService.serviceManuallyStopped) {
-      Future.delayed(const Duration(milliseconds: 2000), () {
-        if (mounted) {
-          _startForegroundService();
-        }
-      });
-    }
-    _checkUpdateOnStartup();
   }
 
   Future<void> _checkUpdateOnStartup() async {
@@ -997,6 +995,7 @@ class MyAppState extends State<MyApp> {
   final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
     ThemeMode.system,
   );
+  bool _initialized = false;
 
   ThemeMode get themeMode => _themeMode;
 
@@ -1004,6 +1003,10 @@ class MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _loadThemeMode();
+  }
+
+  void _onInitCompleted() {
+    setState(() => _initialized = true);
   }
 
   Future<void> _loadThemeMode() async {
@@ -1037,7 +1040,9 @@ class MyAppState extends State<MyApp> {
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
       themeMode: _themeMode,
-      home: const SplashPage(),
+      home: _initialized
+          ? const MainPage()
+          : SplashPage(onInitCompleted: _onInitCompleted),
     );
   }
 
@@ -1273,111 +1278,6 @@ class MyAppState extends State<MyApp> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
         elevation: 4,
-      ),
-    );
-  }
-}
-
-class SplashPage extends StatefulWidget {
-  const SplashPage({super.key});
-
-  @override
-  State<SplashPage> createState() => _SplashPageState();
-}
-
-class _SplashPageState extends State<SplashPage> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 666), () {
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  const MainPage(),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) =>
-                      FadeTransition(opacity: animation, child: child),
-              transitionDuration: const Duration(milliseconds: 300),
-            ),
-          );
-        }
-      });
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark =
-        MyApp.of(context)?.themeMode == ThemeMode.dark ||
-        (MyApp.of(context)?.themeMode == ThemeMode.system &&
-            MediaQuery.of(context).platformBrightness == Brightness.dark);
-    final bgColor = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF);
-    final textColor = isDark
-        ? const Color(0xFFFFFFFF)
-        : const Color(0xFF1C1C1E);
-    final secondaryColor = const Color(0xFF8E8E93);
-
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Spacer(),
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF007AFF).withValues(alpha: 0.2),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(22),
-                      child: Image.asset(
-                        'assets/app_icon.png',
-                        width: 96,
-                        height: 96,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '通知推送助手',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 32),
-              child: Text(
-                '幻念团队',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: secondaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

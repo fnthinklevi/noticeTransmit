@@ -242,7 +242,9 @@ class _RuleListPageState extends State<RuleListPage> {
                       ),
                       Container(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                        child: Row(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -264,7 +266,6 @@ class _RuleListPageState extends State<RuleListPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -285,7 +286,6 @@ class _RuleListPageState extends State<RuleListPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,

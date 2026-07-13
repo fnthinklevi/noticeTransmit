@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>通知推送助手 - 管理后台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; min-height: 100vh; }
+    .login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .login-card { background: white; border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+    .login-card h1 { font-size: 24px; font-weight: 600; text-align: center; margin-bottom: 8px; color: #1d1d1f; }
+    .login-card p { text-align: center; color: #86868b; font-size: 14px; margin-bottom: 32px; }
+    .login-card .logo { text-align: center; margin-bottom: 20px; }
+    .login-card .logo svg { width: 60px; height: 60px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 13px; color: #86868b; font-weight: 500; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 16px; background: #fafafa; transition: all 0.2s; }
+    .form-group input:focus { outline: none; border-color: #007aff; background: white; box-shadow: 0 0 0 3px rgba(0,122,255,0.1); }
+    .form-group input.error { border-color: #ff3b30; }
+    .form-group .hint { font-size: 12px; color: #86868b; margin-top: 4px; }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .btn-primary { background: #007aff; color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: #f5f5f7; color: #1d1d1f; }
+    .btn-secondary:hover { background: #e5e5ea; }
+    .btn-danger { background: #ff3b30; color: white; }
+    .btn-danger:hover { opacity: 0.9; }
+    .status { padding: 10px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; text-align: center; }
+    .status.success { background: #e8f5e9; color: #2e7d32; }
+    .status.error { background: #ffebee; color: #c62828; }
+    .status.info { background: #e3f2fd; color: #1565c0; }
+    .qr-container { text-align: center; padding: 20px; background: #fafafa; border-radius: 12px; margin-bottom: 16px; }
+    .qr-container img { max-width: 200px; max-height: 200px; border-radius: 8px; }
+    .recovery-codes { background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .recovery-codes h4 { font-size: 14px; color: #e65100; margin-bottom: 12px; }
+    .recovery-codes .codes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .recovery-codes .code { background: white; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 12px; text-align: center; color: #333; }
+    .step-indicator { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #e5e5ea; }
+    .step-dot.active { background: #007aff; }
+    .step-dot.done { background: #34c759; }
+    .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
+    .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #007aff; }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    .header { background: #007aff; color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header .user-info { display: flex; align-items: center; gap: 12px; }
+    .header .user-info span { font-size: 14px; }
+    .header button { padding: 6px 12px; border: none; border-radius: 8px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 13px; }
+    .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1d1d1f; display: flex; align-items: center; gap: 8px; }
+    .card h2::before { content: ''; width: 4px; height: 16px; background: #007aff; border-radius: 2px; }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    .form-group.checkbox { display: flex; align-items: center; gap: 8px; }
+    .btn-group { display: flex; gap: 8px; margin-top: 16px; }
+    .tab-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; background: #f5f5f7; color: #86868b; border: none; }
+    .tab.active { background: #007aff; color: white; }
+    .hidden { display: none; }
+    .force-badge { background: #ff3b30; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
+    .json-viewer { background: #1d1d1f; color: #a5d6a7; padding: 12px; border-radius: 8px; font-family: 'Monaco', 'Consolas', monospace; font-size: 12px; overflow-x: auto; margin-top: 8px; }
+    .security-status { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 10px; margin-bottom: 16px; }
+    .security-status.enabled { background: #e8f5e9; }
+    .security-status.disabled { background: #fff3e0; }
+    .security-status .icon { font-size: 20px; }
+    .security-status .text { flex: 1; }
+    .security-status .text h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .security-status .text p { font-size: 12px; color: #86868b; }
+  </style>
+</head>
+<body>
+  <div id="loginSection">
+    <div class="login-page">
+      <div class="login-card">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <h1>管理后台</h1>
+        <p>通知推送助手 - 版本管理系统</p>
+        
+        <div class="step-indicator">
+          <div class="step-dot active"></div>
+          <div class="step-dot" id="step2"></div>
+        </div>
+
+        <div id="step1">
+          <div id="loginStatus" class="status info">请输入管理员 Token</div>
+          <div class="form-group">
+            <label>管理员 Token</label>
+            <input type="password" id="tokenInput" placeholder="输入管理员Token">
+            <div class="hint">Token 是访问管理后台的密钥</div>
+          </div>
+          <button class="btn btn-primary" onclick="handleLogin()">登录</button>
+          <button class="btn btn-secondary" style="margin-top: 10px;" id="setup2FABtn" onclick="showSetup2FA()">首次登录 - 设置二步验证</button>
+        </div>
+
+        <div id="step2" class="hidden">
+          <div id="otpStatus" class="status info">请输入二步验证验证码</div>
+          <div class="form-group">
+            <label>二步验证验证码</label>
+            <input type="text" id="otpInput" placeholder="输入6位验证码" maxlength="6">
+            <div class="hint">使用 Google Authenticator 或类似应用扫描二维码获取</div>
+          </div>
+          <button class="btn btn-primary" onclick="verifyOTP()">验证</button>
+          <button class="btn btn-secondary" style="margin-top: 10px;" onclick="useRecoveryCode()">使用恢复码</button>
+        </div>
+
+        <div id="setup2FA" class="hidden">
+          <div class="status info">首次登录，请设置二步验证以增强安全性</div>
+          <div class="qr-container" id="qrContainer"></div>
+          <div class="form-group">
+            <label>手动输入密钥（备用）</label>
+            <input type="text" id="manualSecret" readonly>
+          </div>
+          <div class="form-group">
+            <label>验证验证码</label>
+            <input type="text" id="setupOtp" placeholder="输入6位验证码" maxlength="6">
+            <div class="hint">在认证应用中扫描上方二维码后输入生成的验证码</div>
+          </div>
+          <button class="btn btn-primary" onclick="enable2FA()">启用二步验证</button>
+          <button class="btn btn-secondary" style="margin-top: 10px;" onclick="cancelSetup()">取消</button>
+        </div>
+
+        <div id="recoveryCodeSection" class="hidden">
+          <div class="status info">请输入恢复码</div>
+          <div class="form-group">
+            <label>恢复码</label>
+            <input type="text" id="recoveryInput" placeholder="输入8位恢复码" maxlength="8">
+            <div class="hint">恢复码在启用二步验证时生成，请妥善保管</div>
+          </div>
+          <button class="btn btn-primary" onclick="verifyRecoveryCode()">验证恢复码</button>
+          <button class="btn btn-secondary" style="margin-top: 10px;" onclick="backToOTP()">返回</button>
+        </div>
+
+        <div id="showRecoveryCodes" class="hidden">
+          <div class="recovery-codes">
+            <h4>⚠️ 请妥善保存以下恢复码</h4>
+            <div class="hint" style="margin-bottom: 12px;">如果丢失设备，可使用恢复码登录。请截图保存或记录在安全的地方。</div>
+            <div class="codes" id="recoveryCodesList"></div>
+          </div>
+          <button class="btn btn-primary" onclick="finishSetup()">完成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainSection" class="hidden">
+    <div class="header">
+      <h1>通知推送助手 - 管理后台</h1>
+      <div class="user-info">
+        <span>已登录</span>
+        <button onclick="logout()">退出登录</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="card">
+        <div class="tab-bar">
+          <button class="tab active" onclick="switchTab('version')">版本管理</button>
+          <button class="tab" onclick="switchTab('hotfix')">热更新管理</button>
+          <button class="tab" onclick="switchTab('security')">安全设置</button>
+          <button class="tab" onclick="switchTab('status')">服务状态</button>
+        </div>
+
+        <div id="versionTab">
+          <h2>APK 版本配置 <span id="versionForceBadge" class="force-badge hidden">强制更新</span></h2>
+          <div id="versionStatus" class="status info">请点击"加载数据"获取当前配置</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>版本号</label>
+              <input type="text" id="v_latestVersion" placeholder="1.0.0">
+            </div>
+            <div class="form-group">
+              <label>构建号</label>
+              <input type="number" id="v_latestBuild" placeholder="1">
+            </div>
+            <div class="form-group">
+              <label>最低支持版本</label>
+              <input type="text" id="v_minSupportedVersion" placeholder="1.0.0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>下载地址</label>
+              <input type="text" id="v_downloadUrl" placeholder="https://cdn.example.com/app.apk">
+            </div>
+            <div class="form-group">
+              <label>文件大小（字节）</label>
+              <input type="number" id="v_fileSize" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>平台</label>
+              <select id="v_platform">
+                <option value="android">Android</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group checkbox">
+            <input type="checkbox" id="v_forceUpdate">
+            <label for="v_forceUpdate">启用强制更新</label>
+          </div>
+          <div id="forceUpdateFields" class="hidden">
+            <div class="form-row">
+              <div class="form-group">
+                <label>强制更新版本</label>
+                <input type="text" id="v_forceUpdateVersion" placeholder="低于此版本强制更新">
+              </div>
+              <div class="form-group">
+                <label>强制更新构建号</label>
+                <input type="number" id="v_forceUpdateBuild" placeholder="低于此构建号强制更新">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>更新日志</label>
+            <textarea id="v_changelog" placeholder="每行一条更新内容"></textarea>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="saveVersion()">保存版本配置</button>
+            <button class="btn btn-secondary" onclick="loadVersion()">刷新数据</button>
+          </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label>JSON 预览</label>
+            <div id="versionJson" class="json-viewer"></div>
+          </div>
+        </div>
+
+        <div id="hotfixTab" class="hidden">
+          <h2>热更新配置 <span id="hotfixForceBadge" class="force-badge hidden">强制更新</span></h2>
+          <div id="hotfixStatus" class="status info">请点击"加载数据"获取当前配置</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>内容版本号</label>
+              <input type="number" id="h_latestContentVersion" placeholder="1">
+            </div>
+            <div class="form-group">
+              <label>版本号</label>
+              <input type="text" id="h_version" placeholder="1.0.0">
+            </div>
+            <div class="form-group">
+              <label>最低 APP 版本</label>
+              <input type="text" id="h_minAppVersion" placeholder="1.0.0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>下载地址</label>
+              <input type="text" id="h_downloadUrl" placeholder="https://cdn.example.com/hotfix.zip">
+            </div>
+            <div class="form-group">
+              <label>文件大小（字节）</label>
+              <input type="number" id="h_fileSize" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>平台</label>
+              <select id="h_platform">
+                <option value="android">Android</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group checkbox">
+            <input type="checkbox" id="h_forceUpdate">
+            <label for="h_forceUpdate">启用强制更新</label>
+          </div>
+          <div id="hForceUpdateFields" class="hidden">
+            <div class="form-group">
+              <label>强制更新内容版本</label>
+              <input type="number" id="h_forceContentVersion" placeholder="低于此版本强制更新">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>更新说明</label>
+            <textarea id="h_changelog" placeholder="热更新内容说明"></textarea>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="saveHotfix()">保存热更新配置</button>
+            <button class="btn btn-secondary" onclick="loadHotfix()">刷新数据</button>
+          </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label>JSON 预览</label>
+            <div id="hotfixJson" class="json-viewer"></div>
+          </div>
+        </div>
+
+        <div id="securityTab" class="hidden">
+          <h2>安全设置</h2>
+          <div id="securityStatus" class="status info">加载中...</div>
+          <div class="security-status" id="twoFAStatus">
+            <div class="icon">🔒</div>
+            <div class="text">
+              <h4>二步验证</h4>
+              <p>增强账户安全性，每次登录需要验证码</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="twoFASwitch" onchange="toggleTwoFA()">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="twoFAActions">
+            <div class="form-group">
+              <label>当前状态</label>
+              <input type="text" id="twoFAState" readonly value="加载中...">
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-secondary" onclick="regenerateRecoveryCodes()">重新生成恢复码</button>
+              <button class="btn btn-danger" onclick="disable2FA()">禁用二步验证</button>
+            </div>
+          </div>
+          <div id="twoFASetup" class="hidden">
+            <div class="qr-container" id="setupQrContainer"></div>
+            <div class="form-group">
+              <label>手动输入密钥</label>
+              <input type="text" id="setupSecret" readonly>
+            </div>
+            <div class="form-group">
+              <label>验证验证码</label>
+              <input type="text" id="verifyOtp" placeholder="输入6位验证码" maxlength="6">
+            </div>
+            <button class="btn btn-primary" onclick="confirmEnable2FA()">确认启用</button>
+          </div>
+        </div>
+
+        <div id="statusTab" class="hidden">
+          <h2>服务状态</h2>
+          <div id="healthStatus" class="status info">点击下方按钮检查服务状态</div>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="checkHealth()">检查服务健康</button>
+            <button class="btn btn-secondary" onclick="checkVersionAPI()">测试版本接口</button>
+          </div>
+          <div class="form-group" style="margin-top: 16px;">
+            <label>API 响应</label>
+            <div id="statusJson" class="json-viewer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let sessionId = null;
+    let setupSecret = null;
+
+    function showStatus(id, type, message) {
+      const el = document.getElementById(id);
+      el.className = `status ${type}`;
+      el.textContent = message;
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-bar .tab').forEach(t => {
+        if (t.getAttribute('onclick').includes(tab)) t.classList.add('active');
+      });
+      document.getElementById('versionTab').classList.add('hidden');
+      document.getElementById('hotfixTab').classList.add('hidden');
+      document.getElementById('securityTab').classList.add('hidden');
+      document.getElementById('statusTab').classList.add('hidden');
+      document.getElementById(`${tab}Tab`).classList.remove('hidden');
+    }
+
+    async function fetchWithSession(url, options = {}) {
+      const headers = { ...options.headers };
+      if (sessionId) {
+        headers['x-session-id'] = sessionId;
+      }
+      const response = await fetch(url, { ...options, headers });
+      const result = await response.json();
+      if (result.code === -1 && result.message === '未授权') {
+        logout();
+      }
+      return result;
+    }
+
+    async function handleLogin() {
+      const token = document.getElementById('tokenInput').value.trim();
+      if (!token) {
+        showStatus('loginStatus', 'error', '请输入管理员 Token');
+        return;
+      }
+
+      try {
+        const result = await fetch(`${API_BASE}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        }).then(r => r.json());
+
+        if (result.code === 0) {
+          sessionId = result.sessionId;
+          if (result.twoFAEnabled) {
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+            document.getElementById('step2').classList.add('active');
+            showStatus('otpStatus', 'info', '请输入二步验证验证码');
+          } else {
+            showStatus('loginStatus', 'success', '登录成功，正在跳转...');
+            setTimeout(() => showMain(), 500);
+          }
+        } else if (result.code === -3 && result.blocked) {
+          showStatus('loginStatus', 'error', result.message);
+          document.getElementById('tokenInput').disabled = true;
+        } else {
+          showStatus('loginStatus', 'error', result.message || '登录失败');
+        }
+      } catch (e) {
+        showStatus('loginStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function verifyOTP() {
+      const token = document.getElementById('tokenInput').value.trim();
+      const otp = document.getElementById('otpInput').value.trim();
+      
+      if (!otp || otp.length !== 6) {
+        showStatus('otpStatus', 'error', '请输入6位验证码');
+        return;
+      }
+
+      try {
+        const result = await fetch(`${API_BASE}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, otp })
+        }).then(r => r.json());
+
+        if (result.code === 0) {
+          sessionId = result.sessionId;
+          showStatus('otpStatus', 'success', '验证成功，正在跳转...');
+          setTimeout(() => showMain(), 500);
+        } else if (result.code === -3 && result.blocked) {
+          showStatus('otpStatus', 'error', result.message);
+          document.getElementById('otpInput').disabled = true;
+        } else {
+          showStatus('otpStatus', 'error', result.message || '验证码错误');
+        }
+      } catch (e) {
+        showStatus('otpStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    function useRecoveryCode() {
+      document.getElementById('step2').classList.add('hidden');
+      document.getElementById('recoveryCodeSection').classList.remove('hidden');
+    }
+
+    function backToOTP() {
+      document.getElementById('recoveryCodeSection').classList.add('hidden');
+      document.getElementById('step2').classList.remove('hidden');
+    }
+
+    async function verifyRecoveryCode() {
+      const token = document.getElementById('tokenInput').value.trim();
+      const recoveryCode = document.getElementById('recoveryInput').value.trim().toUpperCase();
+
+      if (!recoveryCode || recoveryCode.length !== 8) {
+        showStatus('otpStatus', 'error', '请输入8位恢复码');
+        return;
+      }
+
+      try {
+        const result = await fetch(`${API_BASE}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, recoveryCode })
+        }).then(r => r.json());
+
+        if (result.code === 0) {
+          sessionId = result.sessionId;
+          showStatus('otpStatus', 'success', '验证成功，正在跳转...');
+          setTimeout(() => showMain(), 500);
+        } else {
+          showStatus('otpStatus', 'error', result.message || '恢复码错误');
+        }
+      } catch (e) {
+        showStatus('otpStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function showSetup2FA() {
+      const token = document.getElementById('tokenInput').value.trim();
+      if (!token) {
+        showStatus('loginStatus', 'error', '请先输入管理员 Token');
+        return;
+      }
+
+      try {
+        const result = await fetch(`${API_BASE}/api/admin/totp/setup?token=${token}`).then(r => r.json());
+        
+        if (result.code === 0) {
+          setupSecret = result.data.secret;
+          document.getElementById('manualSecret').value = result.data.manualCode;
+          document.getElementById('qrContainer').innerHTML = `<img src="${result.data.qrCodeUrl}" alt="二维码">`;
+          document.getElementById('step1').classList.add('hidden');
+          document.getElementById('setup2FA').classList.remove('hidden');
+        } else {
+          showStatus('loginStatus', 'error', result.message || '获取设置失败');
+        }
+      } catch (e) {
+        showStatus('loginStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    function cancelSetup() {
+      document.getElementById('setup2FA').classList.add('hidden');
+      document.getElementById('step1').classList.remove('hidden');
+      setupSecret = null;
+    }
+
+    async function enable2FA() {
+      const token = document.getElementById('tokenInput').value.trim();
+      const otp = document.getElementById('setupOtp').value.trim();
+
+      if (!otp || otp.length !== 6) {
+        showStatus('loginStatus', 'error', '请输入6位验证码');
+        return;
+      }
+
+      try {
+        const result = await fetch(`${API_BASE}/api/admin/totp/enable?token=${token}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret: setupSecret, otp })
+        }).then(r => r.json());
+
+        if (result.code === 0) {
+          document.getElementById('setup2FA').classList.add('hidden');
+          document.getElementById('showRecoveryCodes').classList.remove('hidden');
+          const codesList = document.getElementById('recoveryCodesList');
+          codesList.innerHTML = result.data.recoveryCodes.map(c => `<div class="code">${c}</div>`).join('');
+        } else {
+          showStatus('loginStatus', 'error', result.message || '启用失败');
+        }
+      } catch (e) {
+        showStatus('loginStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    function finishSetup() {
+      handleLogin();
+    }
+
+    function showMain() {
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('mainSection').classList.remove('hidden');
+      loadVersion();
+      loadHotfix();
+      loadSecurityStatus();
+    }
+
+    function logout() {
+      sessionId = null;
+      document.getElementById('mainSection').classList.add('hidden');
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('step2').classList.add('hidden');
+      document.getElementById('recoveryCodeSection').classList.add('hidden');
+      document.getElementById('setup2FA').classList.add('hidden');
+      document.getElementById('showRecoveryCodes').classList.add('hidden');
+      document.getElementById('step1').classList.remove('hidden');
+    }
+
+    async function loadVersion() {
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/version`);
+        if (result.code === 0) {
+          const data = result.data;
+          document.getElementById('v_latestVersion').value = data.latestVersion || '';
+          document.getElementById('v_latestBuild').value = data.latestBuild || '';
+          document.getElementById('v_minSupportedVersion').value = data.minSupportedVersion || '';
+          document.getElementById('v_downloadUrl').value = data.downloadUrl || '';
+          document.getElementById('v_fileSize').value = data.fileSize || '';
+          document.getElementById('v_platform').value = data.platform || 'android';
+          document.getElementById('v_changelog').value = data.changelog || '';
+          document.getElementById('v_forceUpdate').checked = data.forceUpdate || false;
+          document.getElementById('v_forceUpdateVersion').value = data.forceUpdateVersion || '';
+          document.getElementById('v_forceUpdateBuild').value = data.forceUpdateBuild || '';
+          toggleForceFields('v', data.forceUpdate);
+          document.getElementById('versionJson').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('versionForceBadge').classList.toggle('hidden', !data.forceUpdate);
+          showStatus('versionStatus', 'success', '数据加载成功');
+        } else {
+          showStatus('versionStatus', 'error', result.message || '加载失败');
+        }
+      } catch (e) {
+        showStatus('versionStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function saveVersion() {
+      const data = {
+        latestVersion: document.getElementById('v_latestVersion').value,
+        latestBuild: parseInt(document.getElementById('v_latestBuild').value) || 0,
+        minSupportedVersion: document.getElementById('v_minSupportedVersion').value,
+        downloadUrl: document.getElementById('v_downloadUrl').value,
+        fileSize: parseInt(document.getElementById('v_fileSize').value) || 0,
+        platform: document.getElementById('v_platform').value,
+        changelog: document.getElementById('v_changelog').value,
+        forceUpdate: document.getElementById('v_forceUpdate').checked,
+        forceUpdateVersion: document.getElementById('v_forceUpdateVersion').value,
+        forceUpdateBuild: parseInt(document.getElementById('v_forceUpdateBuild').value) || 0
+      };
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/version`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (result.code === 0) {
+          showStatus('versionStatus', 'success', '保存成功');
+          document.getElementById('versionJson').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('versionForceBadge').classList.toggle('hidden', !data.forceUpdate);
+        } else {
+          showStatus('versionStatus', 'error', result.message || '保存失败');
+        }
+      } catch (e) {
+        showStatus('versionStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function loadHotfix() {
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/hotfix`);
+        if (result.code === 0) {
+          const data = result.data;
+          document.getElementById('h_latestContentVersion').value = data.latestContentVersion || '';
+          document.getElementById('h_version').value = data.version || '';
+          document.getElementById('h_minAppVersion').value = data.minAppVersion || '';
+          document.getElementById('h_downloadUrl').value = data.downloadUrl || '';
+          document.getElementById('h_fileSize').value = data.fileSize || '';
+          document.getElementById('h_platform').value = data.platform || 'android';
+          document.getElementById('h_changelog').value = data.changelog || '';
+          document.getElementById('h_forceUpdate').checked = data.forceUpdate || false;
+          document.getElementById('h_forceContentVersion').value = data.forceContentVersion || '';
+          toggleForceFields('h', data.forceUpdate);
+          document.getElementById('hotfixJson').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('hotfixForceBadge').classList.toggle('hidden', !data.forceUpdate);
+          showStatus('hotfixStatus', 'success', '数据加载成功');
+        } else {
+          showStatus('hotfixStatus', 'error', result.message || '加载失败');
+        }
+      } catch (e) {
+        showStatus('hotfixStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function saveHotfix() {
+      const data = {
+        latestContentVersion: parseInt(document.getElementById('h_latestContentVersion').value) || 0,
+        version: document.getElementById('h_version').value,
+        minAppVersion: document.getElementById('h_minAppVersion').value,
+        downloadUrl: document.getElementById('h_downloadUrl').value,
+        fileSize: parseInt(document.getElementById('h_fileSize').value) || 0,
+        platform: document.getElementById('h_platform').value,
+        changelog: document.getElementById('h_changelog').value,
+        forceUpdate: document.getElementById('h_forceUpdate').checked,
+        forceContentVersion: parseInt(document.getElementById('h_forceContentVersion').value) || 0
+      };
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/hotfix`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (result.code === 0) {
+          showStatus('hotfixStatus', 'success', '保存成功');
+          document.getElementById('hotfixJson').textContent = JSON.stringify(data, null, 2);
+          document.getElementById('hotfixForceBadge').classList.toggle('hidden', !data.forceUpdate);
+        } else {
+          showStatus('hotfixStatus', 'error', result.message || '保存失败');
+        }
+      } catch (e) {
+        showStatus('hotfixStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function loadSecurityStatus() {
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/totp/status`);
+        if (result.code === 0) {
+          const data = result.data;
+          document.getElementById('twoFASwitch').checked = data.enabled;
+          document.getElementById('twoFAState').value = data.enabled ? '✅ 已启用' : '❌ 未启用';
+          document.getElementById('twoFAStatus').className = `security-status ${data.enabled ? 'enabled' : 'disabled'}`;
+          showStatus('securityStatus', 'success', '状态加载成功');
+        } else {
+          showStatus('securityStatus', 'error', result.message || '加载失败');
+        }
+      } catch (e) {
+        showStatus('securityStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function toggleTwoFA() {
+      const enabled = document.getElementById('twoFASwitch').checked;
+      if (enabled) {
+        try {
+          const result = await fetchWithSession(`${API_BASE}/api/admin/totp/setup`);
+          if (result.code === 0) {
+            setupSecret = result.data.secret;
+            document.getElementById('setupSecret').value = result.data.manualCode;
+            document.getElementById('setupQrContainer').innerHTML = `<img src="${result.data.qrCodeUrl}" alt="二维码">`;
+            document.getElementById('twoFAActions').classList.add('hidden');
+            document.getElementById('twoFASetup').classList.remove('hidden');
+          }
+        } catch (e) {
+          showStatus('securityStatus', 'error', '网络错误: ' + e.message);
+          document.getElementById('twoFASwitch').checked = false;
+        }
+      }
+    }
+
+    async function confirmEnable2FA() {
+      const otp = document.getElementById('verifyOtp').value.trim();
+      if (!otp || otp.length !== 6) {
+        showStatus('securityStatus', 'error', '请输入6位验证码');
+        return;
+      }
+
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/totp/enable`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret: setupSecret, otp })
+        });
+
+        if (result.code === 0) {
+          showStatus('securityStatus', 'success', '二步验证已启用');
+          document.getElementById('twoFASetup').classList.add('hidden');
+          document.getElementById('twoFAActions').classList.remove('hidden');
+          loadSecurityStatus();
+          
+          const codesList = document.getElementById('recoveryCodesList');
+          if (codesList) {
+            codesList.innerHTML = result.data.recoveryCodes.map(c => `<div class="code">${c}</div>`).join('');
+            document.getElementById('showRecoveryCodes').classList.remove('hidden');
+          }
+        } else {
+          showStatus('securityStatus', 'error', result.message || '启用失败');
+        }
+      } catch (e) {
+        showStatus('securityStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function disable2FA() {
+      const otp = prompt('请输入二步验证验证码或恢复码：');
+      if (!otp) return;
+
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/totp/disable`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ otp })
+        });
+
+        if (result.code === 0) {
+          showStatus('securityStatus', 'success', '二步验证已禁用');
+          loadSecurityStatus();
+        } else {
+          showStatus('securityStatus', 'error', result.message || '禁用失败');
+        }
+      } catch (e) {
+        showStatus('securityStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function regenerateRecoveryCodes() {
+      const otp = prompt('请输入二步验证验证码：');
+      if (!otp) return;
+
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/totp/regenerate-recovery`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ otp })
+        });
+
+        if (result.code === 0) {
+          alert('恢复码已重新生成：\n' + result.data.recoveryCodes.join('\n'));
+          showStatus('securityStatus', 'success', '恢复码已重新生成');
+        } else {
+          showStatus('securityStatus', 'error', result.message || '操作失败');
+        }
+      } catch (e) {
+        showStatus('securityStatus', 'error', '网络错误: ' + e.message);
+      }
+    }
+
+    async function checkHealth() {
+      try {
+        const result = await fetch(`${API_BASE}/health`);
+        const data = await result.json();
+        document.getElementById('statusJson').textContent = JSON.stringify(data, null, 2);
+        showStatus('healthStatus', 'success', '服务运行正常');
+      } catch (e) {
+        showStatus('healthStatus', 'error', '服务异常: ' + e.message);
+      }
+    }
+
+    async function checkVersionAPI() {
+      try {
+        const result = await fetch(`${API_BASE}/api/version/check?version=1.0.0&build=1`);
+        const data = await result.json();
+        document.getElementById('statusJson').textContent = JSON.stringify(data, null, 2);
+        showStatus('healthStatus', 'success', '版本接口正常');
+      } catch (e) {
+        showStatus('healthStatus', 'error', '版本接口异常: ' + e.message);
+      }
+    }
+
+    function toggleForceFields(prefix, show) {
+      const el = document.getElementById(prefix === 'v' ? 'forceUpdateFields' : 'hForceUpdateFields');
+      el.classList.toggle('hidden', !show);
+    }
+
+    document.getElementById('v_forceUpdate').addEventListener('change', (e) => {
+      toggleForceFields('v', e.target.checked);
+    });
+
+    document.getElementById('h_forceUpdate').addEventListener('change', (e) => {
+      toggleForceFields('h', e.target.checked);
+    });
+  </script>
+</body>
+</html>

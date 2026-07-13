@@ -20,7 +20,11 @@ class NotificationService {
   bool get serviceManuallyStopped => _serviceManuallyStopped;
 
   Future<void> loadRecords() async {
-    await DatabaseHelper().migrateFromSharedPreferences();
+    try {
+      await DatabaseHelper().migrateFromSharedPreferences();
+    } catch (e) {
+      print('数据库迁移失败: $e');
+    }
 
     try {
       final List<dynamic> result = await platform.invokeMethod(
@@ -35,13 +39,19 @@ class NotificationService {
             .toList(),
       );
     } catch (e) {
-      final dbRecords = await DatabaseHelper().getNotifications(
-        limit: _maxRecords,
-      );
-      _records.clear();
-      _records.addAll(
-        dbRecords.map((e) => NotificationRecord.fromMap(e)).toList(),
-      );
+      print('从原生加载记录失败，尝试从数据库加载: $e');
+      try {
+        final dbRecords = await DatabaseHelper().getNotifications(
+          limit: _maxRecords,
+        );
+        _records.clear();
+        _records.addAll(
+          dbRecords.map((e) => NotificationRecord.fromMap(e)).toList(),
+        );
+      } catch (dbError) {
+        print('从数据库加载记录也失败: $dbError');
+        _records.clear();
+      }
     }
   }
 
