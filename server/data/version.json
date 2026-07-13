@@ -7,7 +7,7 @@
   "forceUpdateBuild": 64,
   "changelog": "【架构重构与安全加固】\n• 服务端API添加Token鉴权保护（x-admin-token头）\n• 删除crash_log.txt文件并确保已在.gitignore中\n• 创建AppState全局状态管理（ChangeNotifier），为后续代码拆分打下基础\n• 拆分main_page.dart为7个独立Service（WebhookService、BatteryService等）\n• 拆分NotificationMonitorService.kt为多个独立模块（NotificationProcessor、BatteryMonitor等）\n• 引入get_it依赖注入框架\n• 迁移通知记录到SQLite数据库\n• 添加推送失败重试机制\n• 规则引擎支持时间条件和正则表达式\n• 修复所有flutter analyze警告\n• 添加49个单元测试用例",
   "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.30.apk",
-  "fileSize": 23090034,
+  "fileSize": 23237902,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

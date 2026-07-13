@@ -49,14 +49,15 @@
 | 模块 | 技术 |
 |------|------|
 | 前端 | Flutter (Dart) |
-| 状态管理 | Provider |
+| 状态管理 | ChangeNotifier (AppState) |
+| 依赖注入 | get_it |
 | 原生服务 | Kotlin (Android) |
 | 通知监听 | NotificationListenerService |
 | 后台保活 | Foreground Service + WakeLock + WifiLock |
 | 跨端通信 | MethodChannel |
 | 崩溃统计 | 腾讯 Bugly |
-| 服务端 | Node.js + Express |
-| 数据存储 | SharedPreferences + 文件存储 |
+| 服务端 | Node.js + Express (Token鉴权) |
+| 数据存储 | SharedPreferences + SQLite |
 
 ## 权限说明
 
