@@ -289,6 +289,14 @@ app.post('/api/admin/login', async (req, res) => {
     });
   }
 
+  if (!otp && !recoveryCode) {
+    return res.json({
+      code: 0,
+      message: '请输入二步验证验证码',
+      twoFAEnabled: true
+    });
+  }
+
   let isValid = false;
   if (otp) {
     isValid = authenticator.verify({ token: otp, secret: config.secret });
