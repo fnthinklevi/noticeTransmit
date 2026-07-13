@@ -686,12 +686,12 @@ class _BatteryPageState extends State<BatteryPage> {
                 widget.onDeleteRule(id);
                 Navigator.pop(context);
               },
-              child: Text(
+              child: const Text(
                 '删除',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFFFF3B30),
+                  color: Color(0xFFFF3B30),
                 ),
               ),
             ),

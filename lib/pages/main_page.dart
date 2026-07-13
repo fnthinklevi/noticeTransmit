@@ -1,15 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:get_it/get_it.dart';
+import '../services/services.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
-import '../models/notification_record.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
 import 'battery_page.dart';
@@ -33,42 +29,26 @@ class _MainPageState extends State<MainPage> {
   static const platform = MethodChannel('com.fnthink.notice/notification');
 
   int _currentIndex = 0;
-
-  bool _notificationPermissionGranted = false;
-  bool _batteryOptimizationIgnored = false;
-  bool _foregroundServiceRunning = false;
-  bool _smsPermissionGranted = false;
-  bool _phonePermissionGranted = false;
-  bool _appListPermissionGranted = false;
-  bool _serviceManuallyStopped = false;
-  List<Map<String, dynamic>> _webhookChannels = [];
-  String _deviceName = '';
-  String _deviceModel = '';
-  String _manufacturer = '';
-  final List<NotificationRecord> _notificationRecords = [];
-  static const int _maxRecords = 500;
-
-  bool _batteryNotifyEnabled = true;
-  List<Map<String, dynamic>> _batteryRules = [];
-  int _currentBatteryLevel = -1;
-  bool _currentIsCharging = false;
-  Timer? _batteryRefreshTimer;
-
   bool _isCheckingUpdate = false;
   bool _isDownloading = false;
 
-  Set<String> _enabledPackages = {};
-  List<String> _blacklistKeywords = [];
-  List<String> _whitelistKeywords = [];
-  List<NotificationRule> _notificationRules = [];
-  final List<Map<String, dynamic>> _installedApps = [];
+  final WebhookService _webhookService = GetIt.instance<WebhookService>();
+  final BatteryService _batteryService = GetIt.instance<BatteryService>();
+  final NotificationService _notificationService =
+      GetIt.instance<NotificationService>();
+  final PermissionService _permissionService =
+      GetIt.instance<PermissionService>();
+  final FilterService _filterService = GetIt.instance<FilterService>();
+  final UpdateService _updateService = GetIt.instance<UpdateService>();
+  final DeviceInfoService _deviceInfoService =
+      GetIt.instance<DeviceInfoService>();
 
   List<Widget> _buildPages() {
     return [
       NotificationPage(
-        notificationPermissionGranted: _notificationPermissionGranted,
-        foregroundServiceRunning: _foregroundServiceRunning,
-        notificationCount: _notificationRecords.length,
+        notificationPermissionGranted: _permissionService.notificationGranted,
+        foregroundServiceRunning: _notificationService.serviceRunning,
+        notificationCount: _notificationService.records.length,
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
         onRefresh: _checkPermissions,
@@ -76,10 +56,10 @@ class _MainPageState extends State<MainPage> {
         onOpenPermissionSettings: _openPermissionSettingsPage,
       ),
       BatteryPage(
-        notifyEnabled: _batteryNotifyEnabled,
-        rules: _batteryRules,
-        currentLevel: _currentBatteryLevel,
-        isCharging: _currentIsCharging,
+        notifyEnabled: _batteryService.notifyEnabled,
+        rules: _batteryService.rules,
+        currentLevel: _batteryService.currentLevel,
+        isCharging: _batteryService.currentIsCharging,
         onToggleNotify: (v) => _saveBatteryNotifyEnabled(v),
         onAddRule: _addBatteryRule,
         onDeleteRule: _deleteBatteryRule,
@@ -89,12 +69,12 @@ class _MainPageState extends State<MainPage> {
       ),
       MorePage(
         key: ValueKey('more_${MyApp.of(context)?.themeMode.index ?? 0}'),
-        webhookChannels: _webhookChannels,
-        deviceName: _deviceName,
-        enabledPackagesCount: _enabledPackages.length,
-        blacklistCount: _blacklistKeywords.length,
-        whitelistCount: _whitelistKeywords.length,
-        ruleCount: _notificationRules.length,
+        webhookChannels: _webhookService.channels,
+        deviceName: _deviceInfoService.deviceName,
+        enabledPackagesCount: _filterService.enabledPackages.length,
+        blacklistCount: _filterService.blacklistKeywords.length,
+        whitelistCount: _filterService.whitelistKeywords.length,
+        ruleCount: _filterService.notificationRules.length,
         isCheckingUpdate: _isCheckingUpdate,
         themeMode: MyApp.of(context)?.themeMode ?? ThemeMode.system,
         onThemeModeChanged: (mode) {
@@ -122,22 +102,14 @@ class _MainPageState extends State<MainPage> {
       _checkPermissions();
       _getDeviceInfo();
       _refreshBatteryStatus();
-      _startBatteryRefreshTimer();
+      _batteryService.startRefreshTimer();
     });
   }
 
   @override
   void dispose() {
-    _batteryRefreshTimer?.cancel();
-    _batteryRefreshTimer = null;
+    _batteryService.stopRefreshTimer();
     super.dispose();
-  }
-
-  void _startBatteryRefreshTimer() {
-    _batteryRefreshTimer?.cancel();
-    _batteryRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _refreshBatteryStatus();
-    });
   }
 
   void _setupMethodChannel() {
@@ -146,171 +118,77 @@ class _MainPageState extends State<MainPage> {
         final Map<String, dynamic> record = Map<String, dynamic>.from(
           call.arguments,
         );
-        _addNotificationRecord(record);
+        _notificationService.addRecord(record);
+        setState(() {});
       } else if (call.method == 'onBatteryChanged') {
         final Map<String, dynamic> data = Map<String, dynamic>.from(
           call.arguments,
         );
-        setState(() {
-          _currentBatteryLevel = data['level'] ?? -1;
-          _currentIsCharging = data['isCharging'] ?? false;
-        });
+        _batteryService.updateBatteryStatus(data);
+        setState(() {});
       } else if (call.method == 'onSmsPermissionResult') {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(
-          call.arguments,
-        );
-        setState(() {
-          _smsPermissionGranted = data['granted'] ?? false;
-        });
+        setState(() {});
       } else if (call.method == 'onPhonePermissionResult') {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(
-          call.arguments,
-        );
-        setState(() {
-          _phonePermissionGranted = data['granted'] ?? false;
-        });
+        setState(() {});
       }
     });
   }
 
-  Future<void> _initForegroundTask() async {
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'notification_monitor',
-        channelName: '通知监听服务',
-        channelDescription: '后台运行通知监听服务',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
-      ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: false,
-        playSound: false,
-      ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.nothing(),
-        autoRunOnBoot: true,
-        allowWakeLock: true,
-        allowWifiLock: true,
-      ),
-    );
+  void _initForegroundTask() {
+    _notificationService.initForegroundTask();
   }
 
   Future<void> _loadAllSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<Map<String, dynamic>> channels = [];
-    bool loadedFromNative = false;
-    try {
-      final List<dynamic> result = await platform.invokeMethod(
-        'getWebhookChannels',
-      );
-      channels = result.map((e) => Map<String, dynamic>.from(e)).toList();
-      loadedFromNative = true;
-    } catch (e) {
-      debugPrint('从原生端加载webhook失败: $e');
-      final urlsJson = prefs.getString('webhook_channels');
-      if (urlsJson != null) {
-        try {
-          final List<dynamic> list = jsonDecode(urlsJson);
-          channels = list.map((e) => Map<String, dynamic>.from(e)).toList();
-        } catch (_) {
-          channels = [];
-        }
-      } else {
-        final oldUrlsJson = prefs.getString('webhook_urls');
-        if (oldUrlsJson != null) {
-          try {
-            final List<dynamic> list = jsonDecode(oldUrlsJson);
-            channels = list
-                .map((e) => {'url': e.toString(), 'enabled': true})
-                .toList();
-          } catch (_) {
-            channels = [];
-          }
-        } else {
-          final singleUrl = prefs.getString('webhook_url');
-          if (singleUrl != null && singleUrl.isNotEmpty) {
-            channels = [
-              {'url': singleUrl, 'enabled': true},
-            ];
-          }
-        }
-      }
-    }
-    if (loadedFromNative && channels.isNotEmpty) {
-      await prefs.setString('webhook_channels', jsonEncode(channels));
-    }
+    await _webhookService.loadChannels();
+    await _batteryService.loadSettings();
+    await _notificationService.loadRecords();
+    await _notificationService.loadServiceState();
+    await _filterService.loadSettings();
+    await _updateService.init();
 
-    String deviceName = '';
-    try {
-      final nativeDeviceName =
-          await platform.invokeMethod('getDeviceName') as String?;
-      if (nativeDeviceName != null && nativeDeviceName.isNotEmpty) {
-        deviceName = nativeDeviceName;
-        await prefs.setString('device_name', nativeDeviceName);
-      }
-    } catch (e) {
-      debugPrint('从原生端获取设备名失败: $e');
-      deviceName = prefs.getString('device_name') ?? '';
-    }
+    setState(() {});
 
-    await AppUpdateManager.instance.init();
-
-    setState(() {
-      _webhookChannels = channels;
-      _deviceName = deviceName;
-      _serviceManuallyStopped =
-          prefs.getBool('service_manually_stopped') ?? false;
-      _batteryNotifyEnabled = prefs.getBool('battery_notify_enabled') ?? true;
-      _batteryRules = _loadBatteryRules(prefs);
-    });
-    final enabledUrls = _webhookChannels
-        .where((c) => c['enabled'] == true)
-        .map((c) => c['url'] as String)
-        .toList();
-    if (enabledUrls.isNotEmpty) {
-      await _setNativeWebhookUrls(enabledUrls);
-    }
-    if (!_serviceManuallyStopped) {
+    if (!_notificationService.serviceManuallyStopped) {
       Future.delayed(const Duration(milliseconds: 2000), () {
         if (mounted) {
           _startForegroundService();
         }
       });
     }
-    _loadNotificationRecords();
-    _loadFilterSettings();
     _checkUpdateOnStartup();
   }
 
   Future<void> _checkUpdateOnStartup() async {
-    if (!AppUpdateManager.instance.autoCheck) return;
-    final shouldCheck = await AppUpdateManager.instance.shouldCheckNow();
-    if (!shouldCheck) return;
-    await _performUpdateCheck(isManual: false);
+    final result = await _updateService.checkUpdate(force: false);
+    if (!mounted) return;
+    if (result != null && result.hasUpdate) {
+      final ignored = await _updateService.getIgnoredVersion();
+      if (ignored != result.latestVersion) {
+        _showUpdateDialog(result);
+      }
+    }
   }
 
   Future<void> _performUpdateCheck({bool isManual = false}) async {
     if (!mounted) return;
 
     try {
-      final hotfixResult = await AppUpdateManager.instance.checkHotfix(
-        force: isManual,
-      );
+      final hotfixResult = await _updateService.checkHotfix(force: isManual);
       if (hotfixResult != null && hotfixResult.hasUpdate && mounted) {
         await _downloadAndApplyHotfix(hotfixResult);
       }
     } catch (e) {
-      debugPrint('热更新检查失败: $e');
+      // ignore
     }
 
-    final result = await AppUpdateManager.instance.checkUpdate(force: isManual);
+    final result = await _updateService.checkUpdate(force: isManual);
 
     if (!mounted) return;
 
     if (result != null) {
       if (result.hasUpdate) {
         if (!isManual && !result.forceUpdate) {
-          final ignored = await AppUpdateManager.instance.getIgnoredVersion();
+          final ignored = await _updateService.getIgnoredVersion();
           if (ignored == result.latestVersion) {
             return;
           }
@@ -322,7 +200,7 @@ class _MainPageState extends State<MainPage> {
         ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
       }
     } else if (isManual) {
-      final error = AppUpdateManager.instance.lastError;
+      final error = _updateService.lastError;
       final errorMsg = error != null && error.isNotEmpty
           ? '检查更新失败：$error'
           : '检查更新失败，请检查网络连接';
@@ -332,468 +210,63 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  Future<void> _loadFilterSettings() async {
-    try {
-      final List<dynamic> enabledPkgs = await platform.invokeMethod(
-        'getEnabledPackages',
-      );
-      final List<dynamic> blacklist = await platform.invokeMethod(
-        'getBlacklistKeywords',
-      );
-      final List<dynamic> whitelist = await platform.invokeMethod(
-        'getWhitelistKeywords',
-      );
-      setState(() {
-        _enabledPackages = Set<String>.from(
-          enabledPkgs.map((e) => e.toString()),
-        );
-        _blacklistKeywords = blacklist.map((e) => e.toString()).toList();
-        _whitelistKeywords = whitelist.map((e) => e.toString()).toList();
-      });
-    } catch (e) {
-      debugPrint('加载过滤配置失败: $e');
-    }
-  }
-
-  Future<void> _saveWebhookChannels(List<Map<String, dynamic>> channels) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('webhook_channels', jsonEncode(channels));
-    try {
-      await platform.invokeMethod('setWebhookChannels', {'channels': channels});
-    } catch (e) {
-      debugPrint('保存webhook到原生端失败: $e');
-    }
-    setState(() {
-      _webhookChannels = channels;
-    });
-  }
-
-  Future<void> _saveDeviceName(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('device_name', name);
-    setState(() {
-      _deviceName = name;
-    });
-    try {
-      await platform.invokeMethod('setDeviceName', {'name': name});
-    } catch (_) {}
-  }
-
-  List<Map<String, dynamic>> _loadBatteryRules(SharedPreferences prefs) {
-    final jsonStr = prefs.getString('battery_rules');
-    if (jsonStr != null) {
-      try {
-        final List<dynamic> list = jsonDecode(jsonStr);
-        return list.map((e) => Map<String, dynamic>.from(e)).toList();
-      } catch (_) {}
-    }
-    return _defaultBatteryRules();
-  }
-
-  List<Map<String, dynamic>> _defaultBatteryRules() {
-    return [
-      {
-        'id': 'charging',
-        'type': 'charging',
-        'value': 0,
-        'enabled': true,
-        'title': '开始充电',
-        'content': '',
-      },
-      {
-        'id': 'full',
-        'type': 'level_above',
-        'value': 100,
-        'enabled': true,
-        'title': '电量充满',
-        'content': '',
-      },
-      {
-        'id': 'low30',
-        'type': 'level_below',
-        'value': 30,
-        'enabled': true,
-        'title': '电量低于30%',
-        'content': '',
-      },
-      {
-        'id': 'low20',
-        'type': 'level_below',
-        'value': 20,
-        'enabled': true,
-        'title': '电量低于20%',
-        'content': '',
-      },
-      {
-        'id': 'discharging',
-        'type': 'discharging',
-        'value': 0,
-        'enabled': false,
-        'title': '断开充电',
-        'content': '',
-      },
-    ];
-  }
-
   Future<void> _saveBatteryNotifyEnabled(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('battery_notify_enabled', value);
-    setState(() {
-      _batteryNotifyEnabled = value;
-    });
-    try {
-      await platform.invokeMethod('setBatterySetting', {
-        'key': 'battery_notify_enabled',
-        'value': value,
-      });
-    } catch (e) {
-      debugPrint('同步电量设置失败: $e');
-    }
-  }
-
-  Future<void> _syncBatteryRules() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('battery_rules', jsonEncode(_batteryRules));
-    try {
-      await platform.invokeMethod('setBatteryRules', {'rules': _batteryRules});
-    } catch (e) {
-      debugPrint('同步电量规则失败: $e');
-    }
+    await _batteryService.saveNotifyEnabled(value);
+    setState(() {});
   }
 
   Future<void> _addBatteryRule(Map<String, dynamic> rule) async {
-    setState(() {
-      _batteryRules = [..._batteryRules, rule];
-    });
-    await _syncBatteryRules();
+    await _batteryService.addRule(rule);
+    setState(() {});
   }
 
   Future<void> _deleteBatteryRule(String id) async {
-    setState(() {
-      _batteryRules = _batteryRules.where((r) => r['id'] != id).toList();
-    });
-    await _syncBatteryRules();
+    await _batteryService.deleteRule(id);
+    setState(() {});
   }
 
   Future<void> _updateBatteryRule(
     String id,
     Map<String, dynamic> newRule,
   ) async {
-    setState(() {
-      _batteryRules = _batteryRules.map((r) {
-        if (r['id'] == id) return newRule;
-        return r;
-      }).toList();
-    });
-    await _syncBatteryRules();
+    await _batteryService.updateRule(id, newRule);
+    setState(() {});
   }
 
   Future<void> _toggleBatteryRule(String id, bool enabled) async {
-    setState(() {
-      _batteryRules = _batteryRules.map((r) {
-        if (r['id'] == id) {
-          return {...r, 'enabled': enabled};
-        }
-        return r;
-      }).toList();
-    });
-    await _syncBatteryRules();
-  }
-
-  Future<void> _loadNotificationRecords() async {
-    try {
-      final List<dynamic> result = await platform.invokeMethod(
-        'getNotificationRecords',
-      );
-      setState(() {
-        _notificationRecords.clear();
-        _notificationRecords.addAll(
-          result
-              .map(
-                (e) => NotificationRecord.fromMap(Map<String, dynamic>.from(e)),
-              )
-              .toList(),
-        );
-      });
-    } catch (e) {
-      debugPrint('从原生端加载历史记录失败: $e');
-      final prefs = await SharedPreferences.getInstance();
-      final recordsJson = prefs.getString('notification_records');
-      if (recordsJson != null) {
-        try {
-          final List<dynamic> list = jsonDecode(recordsJson);
-          setState(() {
-            _notificationRecords.clear();
-            _notificationRecords.addAll(
-              list
-                  .map(
-                    (e) => NotificationRecord.fromMap(
-                      Map<String, dynamic>.from(e),
-                    ),
-                  )
-                  .toList(),
-            );
-          });
-        } catch (e2) {
-          debugPrint('加载本地历史记录失败: $e2');
-        }
-      }
-    }
-  }
-
-  Future<void> _saveNotificationRecords() async {
-    final prefs = await SharedPreferences.getInstance();
-    final recordsJson = jsonEncode(
-      _notificationRecords.take(_maxRecords).map((r) => r.toMap()).toList(),
-    );
-    await prefs.setString('notification_records', recordsJson);
-  }
-
-  void _addNotificationRecord(Map<String, dynamic> record) {
-    setState(() {
-      _notificationRecords.insert(0, NotificationRecord.fromMap(record));
-      if (_notificationRecords.length > _maxRecords) {
-        _notificationRecords.removeRange(
-          _maxRecords,
-          _notificationRecords.length,
-        );
-      }
-    });
-    _saveNotificationRecords();
-  }
-
-  Future<void> _clearNotificationRecords() async {
-    try {
-      await platform.invokeMethod('clearNotificationRecords');
-    } catch (e) {
-      debugPrint('清空原生端历史记录失败: $e');
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('notification_records');
-    setState(() {
-      _notificationRecords.clear();
-    });
-  }
-
-  Future<String> _exportNotificationRecords() async {
-    final directory = await getExternalStorageDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final file = File(
-      '${directory?.path}/notification_records_$timestamp.json',
-    );
-    final exportData = {
-      'exportTime': DateTime.now().toIso8601String(),
-      'deviceName': _deviceName,
-      'deviceModel': _deviceModel,
-      'manufacturer': _manufacturer,
-      'totalCount': _notificationRecords.length,
-      'records': _notificationRecords.map((r) => r.toMap()).toList(),
-    };
-    await file.writeAsString(jsonEncode(exportData), mode: FileMode.write);
-    return file.path;
-  }
-
-  Future<void> _setNativeWebhookUrls(List<String> urls) async {
-    try {
-      await platform.invokeMethod('setWebhookUrls', {'urls': urls});
-    } catch (e) {
-      debugPrint('设置webhook失败: $e');
-    }
-  }
-
-  Future<void> _getDeviceInfo() async {
-    try {
-      final deviceInfo = DeviceInfoPlugin();
-      final androidInfo = await deviceInfo.androidInfo;
-      setState(() {
-        _deviceModel = androidInfo.model;
-        _manufacturer = androidInfo.manufacturer;
-      });
-    } catch (e) {
-      debugPrint('获取设备信息失败: $e');
-    }
-
-    try {
-      final model = await platform.invokeMethod('getDeviceModel') as String?;
-      final manu = await platform.invokeMethod('getManufacturer') as String?;
-      if (model != null) _deviceModel = model;
-      if (manu != null) _manufacturer = manu;
-    } catch (e) {
-      debugPrint('获取设备型号失败: $e');
-    }
-  }
-
-  Future<void> _checkPermissions() async {
-    try {
-      final granted =
-          await platform.invokeMethod('isNotificationPermissionGranted')
-              as bool?;
-      final batteryOk =
-          await platform.invokeMethod('isIgnoringBatteryOptimizations')
-              as bool?;
-      final running = await FlutterForegroundTask.isRunningService;
-      final smsGranted =
-          await platform.invokeMethod('isSmsPermissionGranted') as bool?;
-      final phoneGranted =
-          await platform.invokeMethod('isPhonePermissionGranted') as bool?;
-      final appListGranted =
-          await platform.invokeMethod('isAppListPermissionGranted') as bool?;
-
-      setState(() {
-        _notificationPermissionGranted = granted ?? false;
-        _batteryOptimizationIgnored = batteryOk ?? false;
-        _foregroundServiceRunning = running;
-        _smsPermissionGranted = smsGranted ?? false;
-        _phonePermissionGranted = phoneGranted ?? false;
-        _appListPermissionGranted = appListGranted ?? false;
-      });
-    } catch (e) {
-      debugPrint('检查权限失败: $e');
-    }
+    await _batteryService.toggleRule(id, enabled);
+    setState(() {});
   }
 
   Future<void> _refreshBatteryStatus() async {
-    try {
-      final result = await platform.invokeMethod('getBatteryStatus');
-      setState(() {
-        _currentBatteryLevel = result['level'] ?? -1;
-        _currentIsCharging = result['isCharging'] ?? false;
-      });
-    } catch (e) {
-      debugPrint('获取电量状态失败: $e');
-    }
+    await _batteryService.refreshStatus();
+    setState(() {});
   }
 
-  Future<void> _requestNotificationPermission() async {
-    try {
-      await platform.invokeMethod('requestNotificationPermission');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('请在设置中开启通知访问权限')));
-      }
-    } catch (e) {
-      debugPrint('请求通知权限失败: $e');
-    }
+  Future<void> _checkPermissions() async {
+    await _permissionService.checkAllPermissions();
+    setState(() {});
   }
 
-  Future<void> _requestBatteryOptimization() async {
-    try {
-      await platform.invokeMethod('requestBatteryOptimization');
-    } catch (e) {
-      debugPrint('请求电池优化失败: $e');
-    }
-  }
-
-  Future<void> _requestXiaomiAutoStart() async {
-    try {
-      await platform.invokeMethod('requestXiaomiAutoStart');
-    } catch (e) {
-      debugPrint('打开小米自启动失败: $e');
-    }
-  }
-
-  Future<void> _requestMeizuBackground() async {
-    try {
-      await platform.invokeMethod('requestMeizuBackground');
-    } catch (e) {
-      debugPrint('打开魅族后台失败: $e');
-    }
-  }
-
-  Future<void> _requestHuaweiLaunch() async {
-    try {
-      await platform.invokeMethod('requestHuaweiLaunch');
-    } catch (e) {
-      debugPrint('打开华为自启动失败: $e');
-    }
-  }
-
-  Future<void> _requestOppoBackground() async {
-    try {
-      await platform.invokeMethod('requestOppoBackground');
-    } catch (e) {
-      debugPrint('打开OPPO后台失败: $e');
-    }
-  }
-
-  Future<void> _requestVivoBackground() async {
-    try {
-      await platform.invokeMethod('requestVivoBackground');
-    } catch (e) {
-      debugPrint('打开vivo后台失败: $e');
-    }
-  }
-
-  Future<void> _requestSmsPermission() async {
-    try {
-      await platform.invokeMethod('requestSmsPermission');
-    } catch (e) {
-      debugPrint('请求短信权限失败: $e');
-    }
-  }
-
-  Future<void> _requestPhonePermission() async {
-    try {
-      await platform.invokeMethod('requestPhonePermission');
-    } catch (e) {
-      debugPrint('请求电话权限失败: $e');
-    }
-  }
-
-  Future<void> _requestAppListPermission() async {
-    try {
-      await platform.invokeMethod('requestAppListPermission');
-    } catch (e) {
-      debugPrint('请求应用列表权限失败: $e');
-    }
+  Future<void> _getDeviceInfo() async {
+    await _deviceInfoService.loadDeviceInfo();
+    setState(() {});
   }
 
   Future<void> _startForegroundService() async {
-    final result = await FlutterForegroundTask.startService(
-      notificationTitle: '通知监听中',
-      notificationText: '正在监听通知栏消息并推送',
-      callback: _foregroundTaskCallback,
-    );
-
-    final isSuccess = result is ServiceRequestSuccess;
-
-    setState(() {
-      _foregroundServiceRunning = isSuccess;
-      _serviceManuallyStopped = !isSuccess;
-    });
-
-    if (isSuccess) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('service_manually_stopped', false);
-      try {
-        await platform.invokeMethod('startNotificationListener');
-      } catch (e) {
-        debugPrint('启动通知监听失败: $e');
-      }
-    }
-  }
-
-  @pragma('vm:entry-point')
-  static void _foregroundTaskCallback() {
-    FlutterForegroundTask.setTaskHandler(NotificationTaskHandler());
+    await _notificationService.startService();
+    setState(() {});
   }
 
   Future<void> _stopForegroundService() async {
-    final result = await FlutterForegroundTask.stopService();
-    final isStopped = result is ServiceRequestSuccess;
-    setState(() {
-      _foregroundServiceRunning = !isStopped;
-      _serviceManuallyStopped = isStopped;
-    });
-    if (isStopped) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('service_manually_stopped', true);
-    }
+    await _notificationService.stopService();
+    setState(() {});
   }
 
   void _showDeviceNameDialog() {
-    final controller = TextEditingController(text: _deviceName);
+    final controller = TextEditingController(
+      text: _deviceInfoService.deviceName,
+    );
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -843,7 +316,8 @@ class _MainPageState extends State<MainPage> {
             onPressed: () {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                _saveDeviceName(name);
+                _deviceInfoService.saveDeviceName(name);
+                setState(() {});
                 Navigator.pop(context);
               }
             },
@@ -873,11 +347,11 @@ class _MainPageState extends State<MainPage> {
               height: 60,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                     color: Colors.black12,
                     blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    offset: Offset(0, 2),
                   ),
                 ],
               ),
@@ -902,7 +376,7 @@ class _MainPageState extends State<MainPage> {
             ),
             const SizedBox(height: 2),
             Text(
-              'v${AppUpdateManager.instance.currentVersion} (build ${AppUpdateManager.instance.currentBuild})',
+              'v${_updateService.currentVersion} (build ${_updateService.currentBuild})',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.secondaryLabel(context),
@@ -961,19 +435,17 @@ class _MainPageState extends State<MainPage> {
       context,
       MaterialPageRoute(
         builder: (context) => RuleListPage(
-          rules: _notificationRules,
+          rules: _filterService.notificationRules,
           onSave: (rules) {
-            setState(() {
-              _notificationRules = rules;
-            });
+            _filterService.saveNotificationRules(rules);
+            setState(() {});
           },
         ),
       ),
     );
     if (result != null) {
-      setState(() {
-        _notificationRules = result;
-      });
+      _filterService.saveNotificationRules(result);
+      setState(() {});
     }
   }
 
@@ -1057,7 +529,7 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ),
                 Text(
-                  'v${AppUpdateManager.instance.currentVersion} (build ${AppUpdateManager.instance.currentBuild})',
+                  'v${_updateService.currentVersion} (build ${_updateService.currentBuild})',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.primaryLabel(context),
@@ -1143,7 +615,7 @@ class _MainPageState extends State<MainPage> {
                       child: TextButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          AppUpdateManager.instance.setIgnoredVersion(
+                          _updateService.setIgnoredVersion(
                             result.latestVersion,
                           );
                         },
@@ -1188,9 +660,7 @@ class _MainPageState extends State<MainPage> {
     if (_isDownloading) return;
     Navigator.pop(context);
     final progressNotifier = ValueNotifier<double>(0);
-    setState(() {
-      _isDownloading = true;
-    });
+    setState(() => _isDownloading = true);
 
     showDialog(
       context: context,
@@ -1254,7 +724,7 @@ class _MainPageState extends State<MainPage> {
       ),
     );
 
-    AppUpdateManager.instance
+    _updateService
         .downloadApk(
           result.downloadUrl,
           totalSize: result.fileSize,
@@ -1262,16 +732,14 @@ class _MainPageState extends State<MainPage> {
           version: result.latestVersion,
           onProgress: (progress) {
             progressNotifier.value = progress;
-            if (mounted) {
-              setState(() {});
-            }
+            if (mounted) setState(() {});
           },
         )
         .then((filePath) {
           setState(() => _isDownloading = false);
           if (!mounted) return;
           Navigator.of(context, rootNavigator: true).pop();
-          AppUpdateManager.instance.installApk(filePath);
+          if (filePath != null) _updateService.installApk(filePath);
         })
         .catchError((e) {
           setState(() => _isDownloading = false);
@@ -1288,24 +756,23 @@ class _MainPageState extends State<MainPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('正在下载热更新包...')));
-
-      final zipPath = await AppUpdateManager.instance.downloadHotfix(
+      final zipPath = await _updateService.downloadHotfix(
         result.downloadUrl,
         totalSize: result.fileSize,
       );
+      if (zipPath == null) return;
 
-      final success = await AppUpdateManager.instance.applyHotfix(
+      final success = await _updateService.applyHotfix(
         zipPath,
         result.latestContentVersion,
       );
-
       if (!mounted) return;
 
       if (success) {
         try {
           await platform.invokeMethod('reloadHotfix');
         } catch (e) {
-          debugPrint('通知服务重载热更新失败: $e');
+          // ignore
         }
         if (!mounted) return;
         ScaffoldMessenger.of(
@@ -1337,9 +804,7 @@ class _MainPageState extends State<MainPage> {
       }
     } finally {
       await minWait;
-      if (mounted) {
-        setState(() => _isCheckingUpdate = false);
-      }
+      if (mounted) setState(() => _isCheckingUpdate = false);
     }
   }
 
@@ -1348,9 +813,16 @@ class _MainPageState extends State<MainPage> {
       context,
       MaterialPageRoute(
         builder: (context) => HistoryPage(
-          records: _notificationRecords,
-          onClear: _clearNotificationRecords,
-          onExport: _exportNotificationRecords,
+          records: _notificationService.records,
+          onClear: () async {
+            await _notificationService.clearRecords();
+            setState(() {});
+          },
+          onExport: () => _notificationService.exportRecords(
+            _deviceInfoService.deviceName,
+            _deviceInfoService.deviceModel,
+            _deviceInfoService.manufacturer,
+          ),
         ),
       ),
     );
@@ -1361,23 +833,27 @@ class _MainPageState extends State<MainPage> {
       context,
       MaterialPageRoute(
         builder: (context) => PermissionSettingsPage(
-          notificationPermissionGranted: _notificationPermissionGranted,
-          batteryOptimizationIgnored: _batteryOptimizationIgnored,
-          smsPermissionGranted: _smsPermissionGranted,
-          phonePermissionGranted: _phonePermissionGranted,
-          appListPermissionGranted: _appListPermissionGranted,
-          manufacturer: _manufacturer,
+          notificationPermissionGranted: _permissionService.notificationGranted,
+          batteryOptimizationIgnored:
+              _permissionService.batteryOptimizationIgnored,
+          smsPermissionGranted: _permissionService.smsGranted,
+          phonePermissionGranted: _permissionService.phoneGranted,
+          appListPermissionGranted: _permissionService.appListGranted,
+          manufacturer: _deviceInfoService.manufacturer,
           onRefresh: _checkPermissions,
-          onRequestNotificationPermission: _requestNotificationPermission,
-          onRequestBatteryOptimization: _requestBatteryOptimization,
-          onRequestXiaomiAutoStart: _requestXiaomiAutoStart,
-          onRequestMeizuBackground: _requestMeizuBackground,
-          onRequestHuaweiLaunch: _requestHuaweiLaunch,
-          onRequestOppoBackground: _requestOppoBackground,
-          onRequestVivoBackground: _requestVivoBackground,
-          onRequestSmsPermission: _requestSmsPermission,
-          onRequestPhonePermission: _requestPhonePermission,
-          onRequestAppListPermission: _requestAppListPermission,
+          onRequestNotificationPermission:
+              _permissionService.requestNotificationPermission,
+          onRequestBatteryOptimization:
+              _permissionService.requestBatteryOptimization,
+          onRequestXiaomiAutoStart: _permissionService.requestXiaomiAutoStart,
+          onRequestMeizuBackground: _permissionService.requestMeizuBackground,
+          onRequestHuaweiLaunch: _permissionService.requestHuaweiLaunch,
+          onRequestOppoBackground: _permissionService.requestOppoBackground,
+          onRequestVivoBackground: _permissionService.requestVivoBackground,
+          onRequestSmsPermission: _permissionService.requestSmsPermission,
+          onRequestPhonePermission: _permissionService.requestPhonePermission,
+          onRequestAppListPermission:
+              _permissionService.requestAppListPermission,
         ),
       ),
     );
@@ -1388,20 +864,14 @@ class _MainPageState extends State<MainPage> {
       context,
       MaterialPageRoute(
         builder: (context) => AppFilterPage(
-          installedApps: _installedApps,
-          enabledPackages: _enabledPackages.toList(),
+          installedApps: const [],
+          enabledPackages: _filterService.enabledPackages.toList(),
         ),
       ),
     );
     if (result != null) {
-      setState(() {
-        _enabledPackages = Set<String>.from(result);
-      });
-      try {
-        await platform.invokeMethod('setEnabledPackages', {'packages': result});
-      } catch (e) {
-        debugPrint('保存包名白名单失败: $e');
-      }
+      await _filterService.saveEnabledPackages(result);
+      setState(() {});
     }
   }
 
@@ -1410,28 +880,17 @@ class _MainPageState extends State<MainPage> {
       context,
       MaterialPageRoute(
         builder: (context) => KeywordsPage(
-          blacklistKeywords: _blacklistKeywords,
-          whitelistKeywords: _whitelistKeywords,
+          blacklistKeywords: _filterService.blacklistKeywords,
+          whitelistKeywords: _filterService.whitelistKeywords,
         ),
       ),
     );
     if (result != null) {
       final blacklist = result['blacklist'] ?? [];
       final whitelist = result['whitelist'] ?? [];
-      setState(() {
-        _blacklistKeywords = blacklist;
-        _whitelistKeywords = whitelist;
-      });
-      try {
-        await platform.invokeMethod('setBlacklistKeywords', {
-          'keywords': blacklist,
-        });
-        await platform.invokeMethod('setWhitelistKeywords', {
-          'keywords': whitelist,
-        });
-      } catch (e) {
-        debugPrint('保存关键词失败: $e');
-      }
+      await _filterService.saveBlacklistKeywords(blacklist);
+      await _filterService.saveWhitelistKeywords(whitelist);
+      setState(() {});
     }
   }
 
@@ -1440,12 +899,15 @@ class _MainPageState extends State<MainPage> {
       context,
       MaterialPageRoute(
         builder: (context) => WebhookSettingsPage(
-          webhookChannels: List<Map<String, dynamic>>.from(_webhookChannels),
+          webhookChannels: List<Map<String, dynamic>>.from(
+            _webhookService.channels,
+          ),
         ),
       ),
     );
     if (result != null) {
-      await _saveWebhookChannels(result);
+      await _webhookService.saveChannels(result);
+      setState(() {});
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -1463,11 +925,8 @@ class _MainPageState extends State<MainPage> {
         body: IndexedStack(index: _currentIndex, children: pages),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+          onDestinationSelected: (index) =>
+              setState(() => _currentIndex = index),
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.notifications),
@@ -1496,11 +955,8 @@ class _MainPageState extends State<MainPage> {
           body: IndexedStack(index: _currentIndex, children: pages),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _currentIndex,
-            onDestinationSelected: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
+            onDestinationSelected: (index) =>
+                setState(() => _currentIndex = index),
             destinations: const [
               NavigationDestination(
                 icon: Icon(Icons.notifications),
@@ -1522,31 +978,6 @@ class _MainPageState extends State<MainPage> {
         );
       },
     );
-  }
-}
-
-class NotificationTaskHandler extends TaskHandler {
-  @override
-  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    debugPrint('Foreground task started at $timestamp');
-  }
-
-  @override
-  void onRepeatEvent(DateTime timestamp) {}
-
-  @override
-  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    debugPrint(
-      'Foreground task destroyed at $timestamp, isTimeout: $isTimeout',
-    );
-  }
-
-  @override
-  void onNotificationButtonPressed(String id) {}
-
-  @override
-  void onNotificationPressed() {
-    FlutterForegroundTask.launchApp('/');
   }
 }
 
@@ -1583,16 +1014,12 @@ class MyAppState extends State<MyApp> {
       'dark' => ThemeMode.dark,
       _ => ThemeMode.system,
     };
-    setState(() {
-      _themeMode = newMode;
-    });
+    setState(() => _themeMode = newMode);
     themeModeNotifier.value = newMode;
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    setState(() {
-      _themeMode = mode;
-    });
+    setState(() => _themeMode = mode);
     themeModeNotifier.value = mode;
     final prefs = await SharedPreferences.getInstance();
     final modeStr = switch (mode) {
@@ -1654,18 +1081,16 @@ class MyAppState extends State<MyApp> {
         thickness: 0.5,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return Colors.white;
-          }
-          return Colors.grey.shade200;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colors.systemGreen;
-          }
-          return Colors.grey.shade300;
-        }),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? Colors.white
+              : Colors.grey.shade200,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? colors.systemGreen
+              : Colors.grey.shade300,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -1774,18 +1199,16 @@ class MyAppState extends State<MyApp> {
         thickness: 0.5,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return Colors.white;
-          }
-          return Colors.grey.shade400;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return colors.systemGreen;
-          }
-          return Colors.grey.shade700;
-        }),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? Colors.white
+              : Colors.grey.shade400,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? colors.systemGreen
+              : Colors.grey.shade700,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -1874,9 +1297,8 @@ class _SplashPageState extends State<SplashPage> {
               pageBuilder: (context, animation, secondaryAnimation) =>
                   const MainPage(),
               transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
+                  (context, animation, secondaryAnimation, child) =>
+                      FadeTransition(opacity: animation, child: child),
               transitionDuration: const Duration(milliseconds: 300),
             ),
           );
@@ -1895,9 +1317,7 @@ class _SplashPageState extends State<SplashPage> {
     final textColor = isDark
         ? const Color(0xFFFFFFFF)
         : const Color(0xFF1C1C1E);
-    final secondaryColor = isDark
-        ? const Color(0xFF8E8E93)
-        : const Color(0xFF8E8E93);
+    final secondaryColor = const Color(0xFF8E8E93);
 
     return Scaffold(
       backgroundColor: bgColor,

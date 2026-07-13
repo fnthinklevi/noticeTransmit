@@ -169,14 +169,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: _addWebhookField,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(
                       Icons.add_circle_outline,
                       size: 20,

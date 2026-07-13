@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../update_manager.dart';
+import 'stats_page.dart';
 
 class MorePage extends StatelessWidget {
   final List<Map<String, dynamic>> webhookChannels;
@@ -106,6 +107,18 @@ class MorePage extends StatelessWidget {
               title: '设备名称',
               subtitle: deviceName.isEmpty ? '未设置' : deviceName,
               onTap: onShowDeviceNameDialog,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildNavTile(
+              icon: Icons.bar_chart,
+              iconColor: const Color(0xFF5856D6),
+              title: '推送统计',
+              subtitle: '查看推送数据统计',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const StatsPage()),
+              ),
               context: context,
             ),
           ], context),

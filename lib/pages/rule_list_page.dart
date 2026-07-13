@@ -161,9 +161,9 @@ class _RuleListPageState extends State<RuleListPage> {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: _addRule,
-                  child: Text(
+                  child: const Text(
                     '添加第一条规则',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       color: Color(0xFF007AFF),
                       fontWeight: FontWeight.w600,
@@ -475,7 +475,7 @@ class _RuleListPageState extends State<RuleListPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Text(
                 description,

@@ -131,9 +131,9 @@ class _RuleEditPageState extends State<RuleEditPage> {
         actions: [
           TextButton(
             onPressed: _save,
-            child: Text(
+            child: const Text(
               '保存',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Color(0xFF007AFF),
@@ -395,12 +395,12 @@ class _RuleEditPageState extends State<RuleEditPage> {
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _rule.priority,
-              items: [
-                const DropdownMenuItem(value: 0, child: Text('默认 (0)')),
-                const DropdownMenuItem(value: 50, child: Text('低 (50)')),
-                const DropdownMenuItem(value: 100, child: Text('中 (100)')),
-                const DropdownMenuItem(value: 200, child: Text('高 (200)')),
-                const DropdownMenuItem(value: 500, child: Text('最高 (500)')),
+              items: const [
+                DropdownMenuItem(value: 0, child: Text('默认 (0)')),
+                DropdownMenuItem(value: 50, child: Text('低 (50)')),
+                DropdownMenuItem(value: 100, child: Text('中 (100)')),
+                DropdownMenuItem(value: 200, child: Text('高 (200)')),
+                DropdownMenuItem(value: 500, child: Text('最高 (500)')),
               ],
               onChanged: (value) {
                 if (value != null) {
@@ -696,9 +696,9 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
         ),
         TextButton(
           onPressed: _submit,
-          child: Text(
+          child: const Text(
             '添加',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Color(0xFF007AFF),
@@ -911,9 +911,9 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
         ),
         TextButton(
           onPressed: _submit,
-          child: Text(
+          child: const Text(
             '保存',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Color(0xFF007AFF),
@@ -1141,9 +1141,9 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
         ),
         TextButton(
           onPressed: _submit,
-          child: Text(
+          child: const Text(
             '添加',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Color(0xFF007AFF),
@@ -1267,9 +1267,9 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
         ),
         TextButton(
           onPressed: _submit,
-          child: Text(
+          child: const Text(
             '保存',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Color(0xFF007AFF),

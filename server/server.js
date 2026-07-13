@@ -14,6 +14,16 @@ const VERSION_FILE = path.join(__dirname, 'data', 'version.json');
 const HOTFIX_FILE = path.join(__dirname, 'data', 'hotfix.json');
 const DATA_DIR = path.join(__dirname, 'data');
 
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'your-secret-token-change-in-production';
+
+function authMiddleware(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ code: -1, message: '未授权' });
+  }
+  next();
+}
+
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -131,7 +141,7 @@ app.get('/api/hotfix/check', (req, res) => {
   });
 });
 
-app.get('/api/admin/version', (req, res) => {
+app.get('/api/admin/version', authMiddleware, (req, res) => {
   const data = readJsonFile(VERSION_FILE, {});
   res.json({
     code: 0,
@@ -140,7 +150,7 @@ app.get('/api/admin/version', (req, res) => {
   });
 });
 
-app.post('/api/admin/version', (req, res) => {
+app.post('/api/admin/version', authMiddleware, (req, res) => {
   const body = req.body;
   const success = writeJsonFile(VERSION_FILE, body);
   res.json({
@@ -149,7 +159,7 @@ app.post('/api/admin/version', (req, res) => {
   });
 });
 
-app.get('/api/admin/hotfix', (req, res) => {
+app.get('/api/admin/hotfix', authMiddleware, (req, res) => {
   const data = readJsonFile(HOTFIX_FILE, {});
   res.json({
     code: 0,
@@ -158,7 +168,7 @@ app.get('/api/admin/hotfix', (req, res) => {
   });
 });
 
-app.post('/api/admin/hotfix', (req, res) => {
+app.post('/api/admin/hotfix', authMiddleware, (req, res) => {
   const body = req.body;
   const success = writeJsonFile(HOTFIX_FILE, body);
   res.json({
