@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum ConditionType {
   packageName,
   titleContains,
@@ -90,6 +92,7 @@ extension ConditionTypeExtension on ConditionType {
       case 'regex_match':
         return ConditionType.regexMatch;
       default:
+        debugPrint('警告：未知的 ConditionType 值: $value');
         return ConditionType.titleContains;
     }
   }
@@ -123,6 +126,7 @@ extension LogicOperatorExtension on LogicOperator {
       case 'or':
         return LogicOperator.or;
       default:
+        debugPrint('警告：未知的 LogicOperator 值: $value');
         return LogicOperator.and;
     }
   }
@@ -232,6 +236,7 @@ extension ActionTypeExtension on ActionType {
       case 'record':
         return ActionType.record;
       default:
+        debugPrint('警告：未知的 ActionType 值: $value');
         return ActionType.push;
     }
   }

@@ -125,7 +125,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.pageBg(context),
+      backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
         title: const Text('编辑规则'),
         actions: [

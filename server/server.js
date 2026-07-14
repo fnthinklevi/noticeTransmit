@@ -14,6 +14,77 @@ app.use(cors());
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+const rateLimitStore = {};
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_GENERAL_MAX = 60;
+const RATE_LIMIT_AUTH_MAX = 5;
+
+function createRateLimitMiddleware(maxRequests, windowMs, message) {
+  return (req, res, next) => {
+    const ip = getClientIp(req);
+    const key = `${ip}:${req.path}`;
+    const now = Date.now();
+
+    if (!rateLimitStore[key]) {
+      rateLimitStore[key] = { count: 0, windowStart: now };
+    }
+
+    const entry = rateLimitStore[key];
+
+    if (now - entry.windowStart > windowMs) {
+      entry.count = 0;
+      entry.windowStart = now;
+    }
+
+    entry.count++;
+
+    if (entry.count > maxRequests) {
+      const remainingMs = windowMs - (now - entry.windowStart);
+      const remainingSeconds = Math.ceil(remainingMs / 1000);
+      return res.status(429).json({
+        code: -4,
+        message: message,
+        retryAfter: remainingSeconds
+      });
+    }
+
+    next();
+  };
+}
+
+const generalRateLimiter = createRateLimitMiddleware(
+  RATE_LIMIT_GENERAL_MAX,
+  RATE_LIMIT_WINDOW_MS,
+  '请求过于频繁，请稍后再试'
+);
+
+const authRateLimiter = createRateLimitMiddleware(
+  RATE_LIMIT_AUTH_MAX,
+  RATE_LIMIT_WINDOW_MS,
+  '认证请求过于频繁，请稍后再试'
+);
+
+function getClientIp(req) {
+  const ip = req.headers['x-forwarded-for'] ||
+             req.headers['x-real-ip'] ||
+             req.connection?.remoteAddress ||
+             req.socket?.remoteAddress ||
+             req.connection?.socket?.remoteAddress ||
+             'unknown';
+  return ip.split(',')[0].trim();
+}
+
+function cleanupRateLimitStore() {
+  const now = Date.now();
+  for (const [key, entry] of Object.entries(rateLimitStore)) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      delete rateLimitStore[key];
+    }
+  }
+}
+
+setInterval(cleanupRateLimitStore, RATE_LIMIT_WINDOW_MS);
+
 app.use((req, res, next) => {
   const ip = getClientIp(req);
   
@@ -32,29 +103,31 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(generalRateLimiter);
+app.use('/api/admin', authRateLimiter);
+
 const VERSION_FILE = path.join(__dirname, 'data', 'version.json');
 const HOTFIX_FILE = path.join(__dirname, 'data', 'hotfix.json');
 const TOTP_FILE = path.join(__dirname, 'data', 'totp.json');
 const BLOCK_FILE = path.join(__dirname, 'data', 'blocked_ips.json');
 const DATA_DIR = path.join(__dirname, 'data');
 
-const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH || '';
+const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH;
+
+if (!ADMIN_TOKEN_HASH) {
+  console.error('错误：未配置 ADMIN_TOKEN_HASH 环境变量，服务无法启动');
+  console.error('请运行: ADMIN_TOKEN_HASH=$(node -e "const bcrypt=require(\'bcrypt\');bcrypt.hash(\'your-token\',10).then(h=>console.log(h))")');
+  process.exit(1);
+}
+
 const MAX_FAILED_ATTEMPTS = 3;
 const FAILURE_WINDOW_MINUTES = 10;
 const BLOCK_DURATION_HOURS = 240;
 
-const sessions = {};
-const failedAttempts = {};
+const FAILED_ATTEMPTS_FILE = path.join(DATA_DIR, 'failed_attempts.json');
 
-function getClientIp(req) {
-  const ip = req.headers['x-forwarded-for'] ||
-             req.headers['x-real-ip'] ||
-             req.connection?.remoteAddress ||
-             req.socket?.remoteAddress ||
-             req.connection?.socket?.remoteAddress ||
-             'unknown';
-  return ip.split(',')[0].trim();
-}
+const sessions = {};
+let failedAttempts = loadFailedAttempts();
 
 function getBlockedIPs() {
   return readJsonFile(BLOCK_FILE, []);
@@ -62,6 +135,32 @@ function getBlockedIPs() {
 
 function saveBlockedIPs(ips) {
   return writeJsonFile(BLOCK_FILE, ips);
+}
+
+function loadFailedAttempts() {
+  const data = readJsonFile(FAILED_ATTEMPTS_FILE, {});
+  const cutoff = Date.now() - FAILURE_WINDOW_MINUTES * 60 * 1000;
+  const cleaned = {};
+  for (const [ip, record] of Object.entries(data)) {
+    if (record.lastAttempt > cutoff) {
+      cleaned[ip] = record;
+    }
+  }
+  if (Object.keys(cleaned).length !== Object.keys(data).length) {
+    saveFailedAttempts(cleaned);
+  }
+  return cleaned;
+}
+
+function saveFailedAttempts(data) {
+  const cutoff = Date.now() - FAILURE_WINDOW_MINUTES * 60 * 1000;
+  const cleaned = {};
+  for (const [ip, record] of Object.entries(data)) {
+    if (record.lastAttempt > cutoff) {
+      cleaned[ip] = record;
+    }
+  }
+  writeJsonFile(FAILED_ATTEMPTS_FILE, cleaned);
 }
 
 function isIpBlocked(ip) {
@@ -96,11 +195,13 @@ function recordFailedAttempt(ip) {
   if (!failedAttempts[ip]) {
     failedAttempts[ip] = {
       count: 0,
-      firstAttempt: Date.now()
+      firstAttempt: Date.now(),
+      lastAttempt: Date.now()
     };
   }
   
   failedAttempts[ip].count++;
+  failedAttempts[ip].lastAttempt = Date.now();
   
   const windowStart = failedAttempts[ip].firstAttempt;
   const windowEnd = windowStart + FAILURE_WINDOW_MINUTES * 60 * 1000;
@@ -108,21 +209,25 @@ function recordFailedAttempt(ip) {
   if (Date.now() > windowEnd) {
     failedAttempts[ip] = {
       count: 1,
-      firstAttempt: Date.now()
+      firstAttempt: Date.now(),
+      lastAttempt: Date.now()
     };
   }
   
   if (failedAttempts[ip].count >= MAX_FAILED_ATTEMPTS) {
     blockIp(ip);
     delete failedAttempts[ip];
+    saveFailedAttempts(failedAttempts);
     return true;
   }
   
+  saveFailedAttempts(failedAttempts);
   return false;
 }
 
 function clearFailedAttempts(ip) {
   delete failedAttempts[ip];
+  saveFailedAttempts(failedAttempts);
 }
 
 function getRemainingAttempts(ip) {
@@ -201,10 +306,6 @@ function compareVersions(v1, v2) {
 }
 
 async function verifyToken(token) {
-  if (!ADMIN_TOKEN_HASH) {
-    console.warn('ADMIN_TOKEN_HASH 未配置');
-    return token === 'your-secret-token-change-in-production';
-  }
   try {
     return await bcrypt.compare(token, ADMIN_TOKEN_HASH);
   } catch (e) {

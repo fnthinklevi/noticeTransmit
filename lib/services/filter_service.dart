@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:core';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notification_rule.dart';
@@ -167,30 +166,61 @@ class FilterService {
   }
 
   Future<void> loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
     try {
       final List<dynamic> enabledPkgs = await platform.invokeMethod(
         'getEnabledPackages',
       );
+      _enabledPackages = Set<String>.from(enabledPkgs.map((e) => e.toString()));
+    } catch (e) {
+      final jsonStr = prefs.getString('enabled_packages');
+      if (jsonStr != null) {
+        try {
+          final List<dynamic> list = jsonDecode(jsonStr);
+          _enabledPackages = Set<String>.from(list.map((e) => e.toString()));
+        } catch (_) {}
+      }
+    }
+
+    try {
       final List<dynamic> blacklist = await platform.invokeMethod(
         'getBlacklistKeywords',
       );
+      _blacklistKeywords = blacklist.map((e) => e.toString()).toList();
+    } catch (e) {
+      final jsonStr = prefs.getString('blacklist_keywords');
+      if (jsonStr != null) {
+        try {
+          final List<dynamic> list = jsonDecode(jsonStr);
+          _blacklistKeywords = list.map((e) => e.toString()).toList();
+        } catch (_) {}
+      }
+    }
+
+    try {
       final List<dynamic> whitelist = await platform.invokeMethod(
         'getWhitelistKeywords',
       );
-
-      _enabledPackages = Set<String>.from(enabledPkgs.map((e) => e.toString()));
-      _blacklistKeywords = blacklist.map((e) => e.toString()).toList();
       _whitelistKeywords = whitelist.map((e) => e.toString()).toList();
     } catch (e) {
-      // ignore
+      final jsonStr = prefs.getString('whitelist_keywords');
+      if (jsonStr != null) {
+        try {
+          final List<dynamic> list = jsonDecode(jsonStr);
+          _whitelistKeywords = list.map((e) => e.toString()).toList();
+        } catch (_) {}
+      }
     }
 
-    final prefs = await SharedPreferences.getInstance();
     _notificationRules = _loadNotificationRules(prefs);
   }
 
   Future<void> saveEnabledPackages(List<String> packages) async {
     _enabledPackages = Set<String>.from(packages);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('enabled_packages', jsonEncode(packages));
 
     try {
       await platform.invokeMethod('setEnabledPackages', {'packages': packages});
@@ -201,6 +231,9 @@ class FilterService {
 
   Future<void> saveBlacklistKeywords(List<String> keywords) async {
     _blacklistKeywords = keywords;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('blacklist_keywords', jsonEncode(keywords));
 
     try {
       await platform.invokeMethod('setBlacklistKeywords', {
@@ -213,6 +246,9 @@ class FilterService {
 
   Future<void> saveWhitelistKeywords(List<String> keywords) async {
     _whitelistKeywords = keywords;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('whitelist_keywords', jsonEncode(keywords));
 
     try {
       await platform.invokeMethod('setWhitelistKeywords', {

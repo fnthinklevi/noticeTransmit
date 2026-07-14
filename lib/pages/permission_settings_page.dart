@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class PermissionSettingsPage extends StatefulWidget {
-  final bool notificationPermissionGranted;
+  final bool notificationListenerGranted;
+  final bool postNotificationGranted;
   final bool batteryOptimizationIgnored;
   final bool smsPermissionGranted;
   final bool phonePermissionGranted;
   final bool appListPermissionGranted;
   final String manufacturer;
   final Future<void> Function() onRefresh;
-  final VoidCallback onRequestNotificationPermission;
+  final VoidCallback onRequestNotificationListenerPermission;
+  final VoidCallback onRequestPostNotificationPermission;
   final VoidCallback onRequestBatteryOptimization;
   final VoidCallback onRequestXiaomiAutoStart;
   final VoidCallback onRequestMeizuBackground;
@@ -22,14 +24,16 @@ class PermissionSettingsPage extends StatefulWidget {
 
   const PermissionSettingsPage({
     super.key,
-    required this.notificationPermissionGranted,
+    required this.notificationListenerGranted,
+    required this.postNotificationGranted,
     required this.batteryOptimizationIgnored,
     required this.smsPermissionGranted,
     required this.phonePermissionGranted,
     required this.appListPermissionGranted,
     required this.manufacturer,
     required this.onRefresh,
-    required this.onRequestNotificationPermission,
+    required this.onRequestNotificationListenerPermission,
+    required this.onRequestPostNotificationPermission,
     required this.onRequestBatteryOptimization,
     required this.onRequestXiaomiAutoStart,
     required this.onRequestMeizuBackground,
@@ -92,11 +96,22 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               _buildPermissionTile(
                 icon: Icons.notifications_active,
                 title: '通知访问权限',
-                subtitle: widget.notificationPermissionGranted ? '已开启' : '未开启',
-                isOn: widget.notificationPermissionGranted,
-                onTap: widget.notificationPermissionGranted
+                subtitle: widget.notificationListenerGranted ? '已开启' : '未开启',
+                isOn: widget.notificationListenerGranted,
+                onTap: widget.notificationListenerGranted
                     ? null
-                    : widget.onRequestNotificationPermission,
+                    : widget.onRequestNotificationListenerPermission,
+                context: context,
+              ),
+              _buildDivider(context),
+              _buildPermissionTile(
+                icon: Icons.notification_add,
+                title: '允许通知',
+                subtitle: widget.postNotificationGranted ? '已开启' : '未开启',
+                isOn: widget.postNotificationGranted,
+                onTap: widget.postNotificationGranted
+                    ? null
+                    : widget.onRequestPostNotificationPermission,
                 context: context,
               ),
               _buildDivider(context),
@@ -206,6 +221,16 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                     : widget.onRequestSmsPermission,
                 context: context,
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
+                child: Text(
+                  '用于获取短信发送者号码和内容，实现短信通知推送功能',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ),
               _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.call,
@@ -217,6 +242,16 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                     : widget.onRequestPhonePermission,
                 context: context,
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
+                child: Text(
+                  '用于获取来电号码和通话状态，实现来电通知推送功能',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ),
               _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.apps,
@@ -227,6 +262,16 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
                     ? null
                     : widget.onRequestAppListPermission,
                 context: context,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
+                child: Text(
+                  '用于获取已安装应用列表，支持按应用过滤通知功能',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
               ),
             ], context),
             const SizedBox(height: 8),

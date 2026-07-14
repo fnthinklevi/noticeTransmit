@@ -56,14 +56,15 @@ Notification Push Helper is an Android application developed with Flutter that l
 | Module | Technology |
 |--------|------------|
 | Frontend | Flutter (Dart) |
-| State Management | Provider |
+| State Management | get_it + Service Classes |
+| Dependency Injection | get_it |
 | Native Service | Kotlin (Android) |
 | Notification Listening | NotificationListenerService |
-| Background Survival | Foreground Service + WakeLock + WifiLock |
+| Background Survival | Android Native Foreground Service + WakeLock + WifiLock |
 | Cross-platform Communication | MethodChannel |
 | Crash Statistics | Tencent Bugly |
 | Server | Node.js + Express (Token Auth + Two-step Verification) |
-| Data Storage | SharedPreferences + File Storage |
+| Data Storage | SharedPreferences + SQLite |
 
 ## Permission Description
 
@@ -204,10 +205,10 @@ All notification pushes are sent through user-configured Webhook URLs. Developer
 3. Check logcat for `RELOAD_HOTFIX` broadcast
 4. Verify JSON format is correct
 
-### KGP build warnings?
-- **Issue**: Flutter 3.44+ introduces Built-in Kotlin, Kotlin Gradle Plugin (KGP) used by some plugins will be deprecated
-- **Impact**: Does not affect build and runtime, only a warning
-- **Status**: `device_info_plus` and `package_info_plus` updated, `flutter_foreground_task` waiting for author update
+### Data lost after restart?
+- **Issue**: Battery rules, keyword filters, push history and other data lost after app restart
+- **Cause**: Service initialization process not fully executed, data not properly loaded
+- **Solution**: Ensure app starts normally and wait for SplashPage initialization to complete before operating
 
 ## License
 

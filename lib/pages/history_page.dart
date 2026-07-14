@@ -383,6 +383,12 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final records = _filteredRecords;
     return Scaffold(

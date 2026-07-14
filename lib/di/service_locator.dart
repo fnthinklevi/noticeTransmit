@@ -7,6 +7,7 @@ import '../services/filter_service.dart';
 import '../services/update_service.dart';
 import '../services/device_info_service.dart';
 import '../services/retry_service.dart';
+import '../services/theme_service.dart';
 import '../state/app_state.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -21,4 +22,5 @@ void setupLocator() {
   getIt.registerLazySingleton<UpdateService>(() => UpdateService());
   getIt.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
   getIt.registerLazySingleton<RetryService>(() => RetryService());
+  getIt.registerLazySingleton<ThemeService>(() => ThemeService());
 }

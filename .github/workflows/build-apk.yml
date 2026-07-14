@@ -47,6 +47,18 @@ jobs:
           fi
           echo "✅ 所有测试通过"
 
+      - name: Run Android unit tests
+        run: |
+          cd android
+          ./gradlew testReleaseUnitTest > android_test_output.log 2>&1
+          EXIT_CODE=$?
+          cat android_test_output.log
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ Android单元测试失败，CI失败"
+            exit 1
+          fi
+          echo "✅ Android单元测试通过"
+
       - name: Flutter analyze
         run: |
           set +e

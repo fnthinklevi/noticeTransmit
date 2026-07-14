@@ -14,7 +14,7 @@ class NotificationProcessor(private val context: Context) {
         private const val MAX_NOTIFIED_KEYS = 200
     }
 
-    private val notifiedKeys = mutableSetOf<String>()
+    private val notifiedKeys = LinkedHashSet<String>()
     private var hotfixAppNames: Map<String, String>? = null
     private var hotfixNotificationTypes: Map<String, String>? = null
 
@@ -38,9 +38,17 @@ class NotificationProcessor(private val context: Context) {
         }
 
         if (isOngoing) {
+            notifiedKeys.remove(dedupKey)
             notifiedKeys.add(dedupKey)
             if (notifiedKeys.size > MAX_NOTIFIED_KEYS) {
-                notifiedKeys.clear()
+                val toRemove = notifiedKeys.size - MAX_NOTIFIED_KEYS + 50
+                val iterator = notifiedKeys.iterator()
+                repeat(toRemove) {
+                    if (iterator.hasNext()) {
+                        iterator.next()
+                        iterator.remove()
+                    }
+                }
             }
         }
 
@@ -57,7 +65,7 @@ class NotificationProcessor(private val context: Context) {
         val baseAppName = getAppNameByPackage(packageName)
         val isPushService = isVendorPushService(packageName)
         val resolvedAppName = if (isPushService) {
-            resolveRealAppName(sbn, baseAppName, title, content, subText)
+            resolveRealAppName(sbn, baseAppName, title, subText)
         } else {
             baseAppName
         }
@@ -158,71 +166,18 @@ class NotificationProcessor(private val context: Context) {
         return when {
             pkg.startsWith("com.tencent.mm") -> "微信"
             pkg.startsWith("com.tencent.mobileqq") -> "QQ"
-            pkg.startsWith("com.tencent.tim") -> "TIM"
-            pkg.startsWith("com.xingin") || pkg.startsWith("com.xhs") -> "小红书"
-            pkg.startsWith("com.zhihu.android") -> "知乎"
-            pkg.startsWith("com.sina.weibo") -> "微博"
-            pkg.startsWith("com.alibaba.android.rimet") -> "钉钉"
-            pkg.startsWith("com.alibaba.android.babylon") || pkg.startsWith("com.taobao.taobao") -> "淘宝"
-            pkg.startsWith("com.tmall.wireless") -> "天猫"
-            pkg.startsWith("com.jingdong.app.mall") -> "京东"
-            pkg.startsWith("com.xunmeng.pinduoduo") || pkg.startsWith("com.xunmeng.pinduoduoplus") -> "拼多多"
-            pkg.startsWith("com.netease.cloudmusic") -> "网易云音乐"
-            pkg.startsWith("com.tencent.qqmusic") -> "QQ音乐"
-            pkg.startsWith("com.baidu.netdisk") -> "百度网盘"
-            pkg.startsWith("com.eg.android.AlipayGphone") -> "支付宝"
-            pkg.startsWith("tv.danmaku.bili") || pkg.startsWith("com.bilibili.app.in") -> "哔哩哔哩"
-            pkg.startsWith("com.ss.android.ugc.aweme") || pkg.startsWith("com.ss.android.ugc.aweme.mobile") -> "抖音"
-            pkg.startsWith("com.smile.gifmaker") -> "快手"
-            pkg.startsWith("com.meituan") -> "美团"
-            pkg.startsWith("com.dianping.v1") -> "大众点评"
-            pkg.startsWith("me.ele") || pkg.startsWith("com.ele") -> "饿了么"
-            pkg.startsWith("com.sankuai") -> "美团"
-            pkg.startsWith("com.sdu.didi.psngr") || pkg.startsWith("com.didi") -> "滴滴出行"
-            pkg.startsWith("com.netease.mail") || pkg.startsWith("com.netease.mobile.mail") -> "网易邮箱"
-            pkg.startsWith("com.tencent.qqmail") -> "QQ邮箱"
-            pkg.startsWith("com.google.android.gm") -> "Gmail"
-            pkg.startsWith("com.android.chrome") -> "Chrome浏览器"
-            pkg.startsWith("com.android.browser") -> "浏览器"
             pkg.startsWith("com.android.mms") || pkg.startsWith("com.google.android.apps.messaging") || pkg.contains("sms") -> "短信"
             pkg.startsWith("com.android.dialer") || pkg.startsWith("com.android.incallui") || pkg.startsWith("com.android.phone") -> "电话"
-            pkg.startsWith("com.android.contacts") -> "联系人"
             pkg.startsWith("com.android.settings") -> "设置"
             pkg.startsWith("com.android.systemui") -> "系统界面"
-            pkg.startsWith("com.miui.home") -> "小米桌面"
-            pkg.startsWith("com.miui.securitycenter") -> "手机管家"
-            pkg.startsWith("com.xiaomi.market") -> "应用商店"
-            pkg.startsWith("com.xiaomi.account") -> "小米账号"
             pkg.startsWith("com.xiaomi.xmsf") -> "小米推送"
             pkg.startsWith("com.huawei.android.push") -> "华为推送"
-            pkg.startsWith("com.huawei.hwid") -> "华为账号"
-            pkg.startsWith("com.huawei.appmarket") -> "应用市场"
-            pkg.startsWith("com.huawei.browser") -> "华为浏览器"
-            pkg.startsWith("com.coloros") || pkg.startsWith("com.oppo") -> "OPPO系统"
             pkg.startsWith("com.vivo.push") -> "vivo推送"
-            pkg.startsWith("com.vivo.browser") -> "vivo浏览器"
-            pkg.startsWith("com.vivo.appstore") -> "vivo应用商店"
-            pkg.startsWith("com.google.android.gms") || pkg.contains("fcm") -> "Google服务"
             pkg.startsWith("com.meizu.cloud") || pkg.startsWith("com.meizu.push") -> "魅族推送"
-            pkg.startsWith("com.meizu") -> "魅族"
-            pkg.startsWith("com.hihonor") || pkg.startsWith("com.honor") -> "荣耀"
-            pkg.startsWith("com.oneplus") -> "一加"
-            pkg.startsWith("com.realme") -> "realme"
-            pkg.startsWith("com.smartisan") -> "锤子"
-            pkg.startsWith("com.lenovo") -> "联想"
-            pkg.startsWith("com.zte") -> "中兴"
-            pkg.startsWith("com.coolpad") -> "酷派"
-            pkg.startsWith("com.nubia") -> "努比亚"
-            pkg.startsWith("com.blackshark") -> "黑鲨"
-            pkg.startsWith("com.rog") -> "ROG"
-            pkg.startsWith("com.miui") || pkg.startsWith("com.xiaomi") -> "小米"
-            pkg.startsWith("com.android.calendar") -> "日历"
-            pkg.startsWith("com.android.calculator") -> "计算器"
-            pkg.startsWith("com.android.clock") || pkg.startsWith("com.android.alarm") -> "时钟"
-            pkg.startsWith("com.android.weather") -> "天气"
-            pkg.startsWith("com.android.notes") || pkg.startsWith("com.android.notepad") -> "笔记"
-            pkg.startsWith("com.mi.browser") -> "小米浏览器"
-            pkg.contains("launcher") -> "桌面"
+            pkg.startsWith("com.coloros.push") || pkg.startsWith("com.oppo.push") -> "OPPO推送"
+            pkg.startsWith("com.google.android.gms") || pkg.contains("fcm") -> "Google服务"
+            pkg.startsWith("com.eg.android.AlipayGphone") -> "支付宝"
+            pkg.startsWith("com.alibaba.android.rimet") -> "钉钉"
             else -> packageName
         }
     }
@@ -253,7 +208,6 @@ class NotificationProcessor(private val context: Context) {
         sbn: StatusBarNotification,
         baseName: String,
         title: String,
-        content: String,
         subText: String
     ): String {
         val extras = sbn.notification?.extras ?: return baseName

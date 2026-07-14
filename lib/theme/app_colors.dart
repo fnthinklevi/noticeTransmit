@@ -164,5 +164,4 @@ class AppColors {
   static Color systemCyan(BuildContext context) => of(context).systemCyan;
   static Color systemYellow(BuildContext context) => of(context).systemYellow;
   static Color systemGray(BuildContext context) => of(context).systemGray;
-  static Color pageBg(BuildContext context) => of(context).bgColor;
 }

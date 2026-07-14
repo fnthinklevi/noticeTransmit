@@ -38,6 +38,7 @@ android {
         applicationId = "com.fnthink.notice"
         minSdk = flutter.minSdkVersion
         targetSdk = 37
+        println("DEBUG: flutter.versionName=${flutter.versionName}, flutter.versionCode=${flutter.versionCode}")
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {

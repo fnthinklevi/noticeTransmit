@@ -39,6 +39,7 @@ class MainActivity : FlutterActivity() {
         const val EXTRA_NOTIFICATION_DATA = "notification_data"
         private const val REQUEST_SMS_PERMISSION = 1001
         private const val REQUEST_PHONE_PERMISSION = 1002
+        private const val REQUEST_POST_NOTIFICATION_PERMISSION = 1003
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -114,7 +115,6 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
-        stopOldService()
         val filter = IntentFilter(ACTION_NOTIFICATION_RECEIVED)
         registerReceiver(notificationReceiver, filter, Context.RECEIVER_EXPORTED)
         val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
@@ -147,10 +147,17 @@ class MainActivity : FlutterActivity() {
         methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "isNotificationPermissionGranted" -> {
-                    result.success(isNotificationPermissionGranted())
+                    result.success(isNotificationListenerPermissionGranted())
                 }
-                "requestNotificationPermission" -> {
-                    requestNotificationPermission()
+                "isPostNotificationPermissionGranted" -> {
+                    result.success(isPostNotificationPermissionGranted())
+                }
+                "requestNotificationListenerPermission" -> {
+                    requestNotificationListenerPermission()
+                    result.success(true)
+                }
+                "requestPostNotificationPermission" -> {
+                    requestPostNotificationPermission()
                     result.success(true)
                 }
                 "isSmsPermissionGranted" -> {
@@ -237,22 +244,36 @@ class MainActivity : FlutterActivity() {
                 "isIgnoringBatteryOptimizations" -> {
                     result.success(isIgnoringBatteryOptimizations())
                 }
-                "requestXiaomiAutoStart" -> {
-                    requestXiaomiAutoStart()
-                    result.success(true)
-                }
-                "requestMeizuBackground" -> {
-                    requestMeizuBackground()
-                    result.success(true)
-                }
                 "getDeviceModel" -> {
                     result.success(Build.MODEL)
                 }
                 "getManufacturer" -> {
                     result.success(Build.MANUFACTURER)
                 }
+                "getDownloadDirectory" -> {
+                    result.success(getDownloadDirectory())
+                }
+                "getAppVersion" -> {
+                    try {
+                        val info = packageManager.getPackageInfo(packageName, 0)
+                        val versionName = info.versionName ?: "1.5.32"
+                        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            info.longVersionCode.toInt()
+                        } else {
+                            info.versionCode
+                        }
+                        result.success(mapOf("versionName" to versionName, "versionCode" to versionCode))
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        result.success(mapOf("versionName" to "1.5.32", "versionCode" to 66))
+                    }
+                }
                 "startNotificationListener" -> {
                     startNotificationListener()
+                    result.success(true)
+                }
+                "stopNotificationListener" -> {
+                    stopNotificationListener()
                     result.success(true)
                 }
                 "testWebhook" -> {
@@ -561,7 +582,6 @@ class MainActivity : FlutterActivity() {
     private fun setEnabledPackages(packages: List<String>) {
         val jsonArray = org.json.JSONArray(packages)
         prefs.edit().putString("flutter.enabled_packages", jsonArray.toString()).apply()
-        NotificationMonitorService.enabledPackages = packages.toSet()
     }
 
     private fun getEnabledPackages(): List<String> {
@@ -580,7 +600,6 @@ class MainActivity : FlutterActivity() {
     private fun setBlacklistKeywords(keywords: List<String>) {
         val jsonArray = org.json.JSONArray(keywords)
         prefs.edit().putString("flutter.blacklist_keywords", jsonArray.toString()).apply()
-        NotificationMonitorService.blacklistKeywords = keywords
     }
 
     private fun getBlacklistKeywords(): List<String> {
@@ -599,7 +618,6 @@ class MainActivity : FlutterActivity() {
     private fun setWhitelistKeywords(keywords: List<String>) {
         val jsonArray = org.json.JSONArray(keywords)
         prefs.edit().putString("flutter.whitelist_keywords", jsonArray.toString()).apply()
-        NotificationMonitorService.whitelistKeywords = keywords
     }
 
     private fun getWhitelistKeywords(): List<String> {
@@ -686,11 +704,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isNotificationPermissionGranted(): Boolean {
+    private fun isNotificationListenerPermissionGranted(): Boolean {
         return NotificationMonitorService.isConnected
     }
 
-    private fun requestNotificationPermission() {
+    private fun requestNotificationListenerPermission() {
         try {
             val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -703,6 +721,27 @@ class MainActivity : FlutterActivity() {
             } catch (e2: Exception) {
                 e2.printStackTrace()
             }
+        }
+    }
+
+    private fun isPostNotificationPermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun requestPostNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_POST_NOTIFICATION_PERMISSION
+            )
         }
     }
 
@@ -919,9 +958,37 @@ class MainActivity : FlutterActivity() {
     private fun startNotificationListener() {
         try {
             toggleNotificationListenerService()
+            val intent = Intent(this, NotificationMonitorService::class.java)
+            startService(intent)
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun stopNotificationListener() {
+        try {
+            val pm = packageManager
+            val component = ComponentName(this, NotificationMonitorService::class.java)
+            pm.setComponentEnabledSetting(
+                component,
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                android.content.pm.PackageManager.DONT_KILL_APP
+            )
+            Log.i("MainActivity", "Notification listener service disabled")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun getDownloadDirectory(): String {
+        val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS
+        )
+        val appDir = java.io.File(downloadsDir, "fnthink.notice")
+        if (!appDir.exists()) {
+            appDir.mkdirs()
+        }
+        return appDir.absolutePath
     }
 
     private fun toggleNotificationListenerService() {

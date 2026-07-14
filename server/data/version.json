@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.31",
-  "latestVersion": "1.5.31",
-  "latestBuild": 65,
+  "appName": "notice1.5.32",
+  "latestVersion": "1.5.32",
+  "latestBuild": 66,
   "forceUpdate": true,
-  "forceUpdateVersion": "1.5.31",
-  "forceUpdateBuild": 65,
-  "changelog": "【Bug修复与稳定性提升】\n• 修复Android 14+前台服务启动崩溃问题（MissingForegroundServiceTypeException）\n• 修复规则列表页面标签栏溢出问题（RenderFlex overflowed）\n• 重构启动流程，添加全局异常捕获\n• 优化启动页，避免首帧阻塞导致白屏\n• 服务端二步验证支持恢复码功能\n• 添加IP封锁机制（10分钟内输错3次验证码封锁240小时）\n• Token验证升级为bcrypt哈希验证",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.31.apk",
-  "fileSize": 23237914,
+  "forceUpdateVersion": "1.5.32",
+  "forceUpdateBuild": 66,
+  "changelog": "【紧急修复 - 推送服务问题】\n• 移除FlutterForegroundTask依赖，消除状态栏双通知冲突\n• 修复首页点击「已停止」图标无响应问题\n• 修复MainActivity.onResume停止监听服务导致不推送通知的问题\n• 修复服务停止方式，改用setComponentEnabledSetting正确管理生命周期\n\n【权限申请优化】\n• 通知访问权限和允许通知权限（POST_NOTIFICATIONS）分开申请\n• 权限申请后返回页面自动刷新权限状态显示\n• 首次打开应用时弹窗引导开启必要权限\n• 非必要权限（短信、电话、应用列表）增加详细用途说明\n\n【在线更新优化】\n• 安装包存储路径改为Download/fnthink.notice目录\n• 下载前检测存储权限，未授予时引导用户开启\n• 安装后5分钟自动删除安装包，同时清理旧安装包",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.32.apk",
+  "fileSize": 23030212,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

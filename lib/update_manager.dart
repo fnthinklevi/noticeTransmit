@@ -2,14 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+const platform = MethodChannel('com.fnthink.notice/notification');
 
 class AppUpdateManager {
   static const String _updateServerUrl = 'https://notice.fnthink.top';
@@ -29,7 +31,8 @@ class AppUpdateManager {
 
   bool _autoCheck = true;
   int _contentVersion = 0;
-  PackageInfo? _packageInfo;
+  String _currentVersion = '1.5.32';
+  int _currentBuild = 66;
   String? _lastError;
 
   String get serverUrl => _updateServerUrl;
@@ -41,7 +44,39 @@ class AppUpdateManager {
     final prefs = await SharedPreferences.getInstance();
     _autoCheck = prefs.getBool(_prefsKeyAutoCheck) ?? true;
     _contentVersion = prefs.getInt(_prefsKeyContentVersion) ?? 0;
-    _packageInfo = await PackageInfo.fromPlatform();
+    await _updateVersionInfo();
+  }
+
+  Future<void> _updateVersionInfo() async {
+    if (Platform.isAndroid) {
+      try {
+        debugPrint('Calling getAppVersion method channel...');
+        final result = await platform.invokeMethod('getAppVersion');
+        debugPrint(
+          'getAppVersion result: $result, type: ${result.runtimeType}',
+        );
+        if (result is Map) {
+          _currentVersion = result['versionName']?.toString() ?? '1.5.32';
+          _currentBuild =
+              int.tryParse(result['versionCode']?.toString() ?? '66') ?? 66;
+        } else {
+          debugPrint('Result is not a Map, using default values');
+          _currentVersion = '1.5.32';
+          _currentBuild = 66;
+        }
+        debugPrint(
+          'Version from native: $_currentVersion build $_currentBuild',
+        );
+      } catch (e, stack) {
+        debugPrint('Failed to get version from native: $e');
+        debugPrint('Stack trace: $stack');
+        _currentVersion = '1.5.32';
+        _currentBuild = 66;
+      }
+    } else {
+      _currentVersion = '1.5.32';
+      _currentBuild = 66;
+    }
   }
 
   Future<void> setAutoCheck(bool value) async {
@@ -56,8 +91,8 @@ class AppUpdateManager {
     await prefs.setInt(_prefsKeyContentVersion, version);
   }
 
-  String get currentVersion => _packageInfo?.version ?? '1.0.0';
-  int get currentBuild => int.tryParse(_packageInfo?.buildNumber ?? '1') ?? 1;
+  String get currentVersion => _currentVersion;
+  int get currentBuild => _currentBuild;
 
   Future<bool> shouldCheckNow() async {
     if (!_autoCheck) return false;
@@ -146,10 +181,35 @@ class AppUpdateManager {
     String? appName,
     String? version,
   }) async {
-    final dir = await getTemporaryDirectory();
+    if (Platform.isAndroid) {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        throw Exception('存储权限未授予');
+      }
+    }
+
+    String downloadDirPath;
+    if (Platform.isAndroid) {
+      try {
+        downloadDirPath =
+            await platform.invokeMethod('getDownloadDirectory') as String;
+      } catch (e) {
+        downloadDirPath = '/storage/emulated/0/Download/fnthink.notice';
+      }
+    } else {
+      downloadDirPath = (await getTemporaryDirectory()).path;
+    }
+
+    final downloadsDir = Directory(downloadDirPath);
+    if (!await downloadsDir.exists()) {
+      await downloadsDir.create(recursive: true);
+    }
+
     final fileName = 'app_update_${DateTime.now().millisecondsSinceEpoch}.apk';
-    final savePath = '${dir.path}/$fileName';
+    final savePath = '${downloadsDir.path}/$fileName';
     final file = File(savePath);
+
+    await _cleanupOldApks(downloadsDir);
 
     final urls = _buildDownloadUrls(downloadUrl, appName, version);
 
@@ -245,9 +305,37 @@ class AppUpdateManager {
         filePath,
         type: 'application/vnd.android.package-archive',
       );
+
+      Future.delayed(const Duration(minutes: 5), () {
+        try {
+          final file = File(filePath);
+          if (file.existsSync()) {
+            file.deleteSync();
+            debugPrint('APK安装包已自动删除');
+          }
+        } catch (e) {
+          debugPrint('删除APK安装包失败: $e');
+        }
+      });
+
       return result.type == ResultType.done;
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<void> _cleanupOldApks(Directory downloadsDir) async {
+    try {
+      final files = downloadsDir.listSync().whereType<File>().toList();
+      files.sort(
+        (a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()),
+      );
+      for (int i = 1; i < files.length; i++) {
+        await files[i].delete();
+        debugPrint('清理旧APK文件: ${files[i].path}');
+      }
+    } catch (e) {
+      debugPrint('清理旧APK文件失败: $e');
     }
   }
 

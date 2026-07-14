@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceInfoService {
@@ -28,21 +28,10 @@ class DeviceInfoService {
     }
 
     try {
-      final deviceInfo = DeviceInfoPlugin();
-      final androidInfo = await deviceInfo.androidInfo;
-      _deviceModel = androidInfo.model;
-      _manufacturer = androidInfo.manufacturer;
+      _deviceModel = await platform.invokeMethod('getDeviceModel') ?? '';
+      _manufacturer = await platform.invokeMethod('getManufacturer') ?? '';
     } catch (e) {
-      // ignore
-    }
-
-    try {
-      final model = await platform.invokeMethod('getDeviceModel') as String?;
-      final manu = await platform.invokeMethod('getManufacturer') as String?;
-      if (model != null) _deviceModel = model;
-      if (manu != null) _manufacturer = manu;
-    } catch (e) {
-      // ignore
+      debugPrint('获取设备信息失败: $e');
     }
   }
 

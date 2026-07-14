@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
@@ -39,7 +39,7 @@ class NotificationService {
             .toList(),
       );
     } catch (e) {
-      print('从原生加载记录失败，尝试从数据库加载: $e');
+      debugPrint('从原生加载记录失败，尝试从数据库加载: $e');
       try {
         final dbRecords = await DatabaseHelper().getNotifications(
           limit: _maxRecords,
@@ -49,7 +49,7 @@ class NotificationService {
           dbRecords.map((e) => NotificationRecord.fromMap(e)).toList(),
         );
       } catch (dbError) {
-        print('从数据库加载记录也失败: $dbError');
+        debugPrint('从数据库加载记录也失败: $dbError');
         _records.clear();
       }
     }
@@ -59,7 +59,12 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     _serviceManuallyStopped =
         prefs.getBool('service_manually_stopped') ?? false;
-    _serviceRunning = await FlutterForegroundTask.isRunningService;
+    try {
+      _serviceRunning =
+          await platform.invokeMethod('isServiceRunning') as bool? ?? false;
+    } catch (e) {
+      _serviceRunning = false;
+    }
   }
 
   void addRecord(Map<String, dynamic> record) {
@@ -110,12 +115,6 @@ class NotificationService {
 
   Future<void> _saveRecords(Map<String, dynamic> record) async {
     await DatabaseHelper().insertNotification(record);
-
-    final prefs = await SharedPreferences.getInstance();
-    final recordsJson = jsonEncode(
-      _records.take(_maxRecords).map((r) => r.toMap()).toList(),
-    );
-    await prefs.setString('notification_records', recordsJson);
   }
 
   Future<List<Map<String, dynamic>>> getStats() async {
@@ -130,94 +129,31 @@ class NotificationService {
     return await DatabaseHelper().getNotificationCount(type: type);
   }
 
-  void initForegroundTask() {
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'notification_monitor',
-        channelName: '通知监听服务',
-        channelDescription: '后台运行通知监听服务',
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
-      ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: false,
-        playSound: false,
-      ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.nothing(),
-        autoRunOnBoot: true,
-        allowWakeLock: true,
-        allowWifiLock: true,
-      ),
-    );
-  }
-
   Future<bool> startService() async {
-    final result = await FlutterForegroundTask.startService(
-      notificationTitle: '通知监听中',
-      notificationText: '正在监听通知栏消息并推送',
-      callback: _foregroundTaskCallback,
-    );
-
-    final isSuccess = result is ServiceRequestSuccess;
-
-    _serviceRunning = isSuccess;
-    _serviceManuallyStopped = !isSuccess;
-
-    if (isSuccess) {
+    try {
+      await platform.invokeMethod('startNotificationListener');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('service_manually_stopped', false);
-
-      try {
-        await platform.invokeMethod('startNotificationListener');
-      } catch (e) {
-        // ignore
-      }
+      _serviceRunning = true;
+      _serviceManuallyStopped = false;
+      return true;
+    } catch (e) {
+      debugPrint('启动服务失败: $e');
+      return false;
     }
-
-    return isSuccess;
   }
 
   Future<bool> stopService() async {
-    final result = await FlutterForegroundTask.stopService();
-    final isStopped = result is ServiceRequestSuccess;
-
-    _serviceRunning = !isStopped;
-    _serviceManuallyStopped = isStopped;
-
-    if (isStopped) {
+    try {
+      await platform.invokeMethod('stopNotificationListener');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('service_manually_stopped', true);
+      _serviceRunning = false;
+      _serviceManuallyStopped = true;
+      return true;
+    } catch (e) {
+      debugPrint('停止服务失败: $e');
+      return false;
     }
-
-    return isStopped;
-  }
-
-  @pragma('vm:entry-point')
-  static void _foregroundTaskCallback() {
-    FlutterForegroundTask.setTaskHandler(NotificationTaskHandler());
-  }
-}
-
-class NotificationTaskHandler extends TaskHandler {
-  @override
-  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    // ignore
-  }
-
-  @override
-  void onRepeatEvent(DateTime timestamp) {}
-
-  @override
-  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
-    // ignore
-  }
-
-  @override
-  void onNotificationButtonPressed(String id) {}
-
-  @override
-  void onNotificationPressed() {
-    FlutterForegroundTask.launchApp('/');
   }
 }

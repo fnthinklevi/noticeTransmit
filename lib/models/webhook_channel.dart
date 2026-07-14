@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+
 enum WebhookChannelType { generic, wechatWork, dingtalk, feishu }
 
 extension WebhookChannelTypeExtension on WebhookChannelType {
@@ -61,15 +64,16 @@ class WebhookChannel {
     if (typeStr != null) {
       type = WebhookChannelType.values.firstWhere(
         (t) => t.value == typeStr,
-        orElse: () => detectTypeFromUrl(url),
+        orElse: () {
+          debugPrint('警告：未知的 WebhookChannelType 值: $typeStr，使用 URL 检测');
+          return detectTypeFromUrl(url);
+        },
       );
     } else {
       type = detectTypeFromUrl(url);
     }
     return WebhookChannel(
-      id:
-          map['id'] as String? ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
+      id: map['id'] as String? ?? const Uuid().v4(),
       name: map['name'] as String? ?? '',
       url: url,
       type: type,

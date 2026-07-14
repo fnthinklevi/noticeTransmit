@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import '../services/update_service.dart';
 import '../theme/app_colors.dart';
-import '../update_manager.dart';
 import 'stats_page.dart';
 
 class MorePage extends StatelessWidget {
@@ -162,7 +163,7 @@ class MorePage extends StatelessWidget {
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'v${AppUpdateManager.instance.currentVersion} (build ${AppUpdateManager.instance.currentBuild})',
+              'v${GetIt.instance<UpdateService>().currentVersion} (build ${GetIt.instance<UpdateService>().currentBuild})',
               style: TextStyle(
                 color: AppColors.secondaryLabel(context),
                 fontSize: 12,

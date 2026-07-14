@@ -5,44 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.telephony.TelephonyManager
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 class PhoneCallReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "PhoneCallReceiver"
-        private var lastState = TelephonyManager.CALL_STATE_IDLE
-        private var lastIncomingNumber: String = ""
-        private var callStartTime: Long = 0
-
-        private fun readDeviceNameFromFile(context: Context): String {
-            return try {
-                val file = java.io.File(context.filesDir, "device_name.txt")
-                if (file.exists()) file.readText().trim() else ""
-            } catch (_: Exception) {
-                ""
-            }
-        }
-    }
-
-    private val okHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(true)
-            .build()
+        @Volatile private var lastState = TelephonyManager.CALL_STATE_IDLE
+        @Volatile private var lastIncomingNumber: String = ""
+        @Volatile private var callStartTime: Long = 0
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -52,17 +25,11 @@ class PhoneCallReceiver : BroadcastReceiver() {
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
 
         try {
-            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            val webhookUrl = prefs.getString("flutter.webhook_url", "") ?: ""
-            var deviceName = readDeviceNameFromFile(context)
-            if (deviceName.isEmpty()) {
-                deviceName = prefs.getString("flutter.device_name", "") ?: ""
-            }
-            if (deviceName.isEmpty()) {
-                deviceName = android.os.Build.MODEL
-            }
+            val configManager = ConfigManager(context)
+            val webhookUrls = configManager.getWebhookUrls()
+            val deviceName = configManager.getDeviceName().ifEmpty { android.os.Build.MODEL }
 
-            if (webhookUrl.isEmpty()) return
+            if (webhookUrls.isEmpty()) return
 
             val stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE)
             val incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER) ?: ""
@@ -83,23 +50,27 @@ class PhoneCallReceiver : BroadcastReceiver() {
                     callStartTime = System.currentTimeMillis()
                     lastIncomingNumber = incomingNumber
                     if (incomingNumber.isNotEmpty()) {
-                        sendIncomingCallWebhook(
-                            context = context,
-                            phoneNumber = incomingNumber,
-                            webhookUrl = webhookUrl,
-                            deviceName = deviceName
-                        )
+                        for (url in webhookUrls) {
+                            sendIncomingCallWebhook(
+                                context = context,
+                                phoneNumber = incomingNumber,
+                                webhookUrl = url,
+                                deviceName = deviceName
+                            )
+                        }
                     }
                 }
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
                     if (lastState == TelephonyManager.CALL_STATE_RINGING) {
                         if (lastIncomingNumber.isNotEmpty()) {
-                            sendCallAnsweredWebhook(
-                                context = context,
-                                phoneNumber = lastIncomingNumber,
-                                webhookUrl = webhookUrl,
-                                deviceName = deviceName
-                            )
+                            for (url in webhookUrls) {
+                                sendCallAnsweredWebhook(
+                                    context = context,
+                                    phoneNumber = lastIncomingNumber,
+                                    webhookUrl = url,
+                                    deviceName = deviceName
+                                )
+                            }
                         }
                     }
                 }
@@ -109,13 +80,15 @@ class PhoneCallReceiver : BroadcastReceiver() {
                             val duration = if (callStartTime > 0) {
                                 System.currentTimeMillis() - callStartTime
                             } else 0L
-                            sendCallEndedWebhook(
-                                context = context,
-                                phoneNumber = lastIncomingNumber,
-                                duration = duration,
-                                webhookUrl = webhookUrl,
-                                deviceName = deviceName
-                            )
+                            for (url in webhookUrls) {
+                                sendCallEndedWebhook(
+                                    context = context,
+                                    phoneNumber = lastIncomingNumber,
+                                    duration = duration,
+                                    webhookUrl = url,
+                                    deviceName = deviceName
+                                )
+                            }
                         }
                         callStartTime = 0
                     }
@@ -163,9 +136,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
             deviceName = deviceName
         )
 
-        CoroutineScope(Dispatchers.IO).launch {
-            sendWithRetry(webhookUrl, payload, "来电通知")
-        }
+        NetworkClient.sendWithRetry(webhookUrl, payload, "来电通知")
     }
 
     private fun sendCallAnsweredWebhook(
@@ -203,9 +174,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
             deviceName = deviceName
         )
 
-        CoroutineScope(Dispatchers.IO).launch {
-            sendWithRetry(webhookUrl, payload, "接听通知")
-        }
+        NetworkClient.sendWithRetry(webhookUrl, payload, "接听通知")
     }
 
     private fun sendCallEndedWebhook(
@@ -249,9 +218,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
             deviceName = deviceName
         )
 
-        CoroutineScope(Dispatchers.IO).launch {
-            sendWithRetry(webhookUrl, payload, "挂断通知")
-        }
+        NetworkClient.sendWithRetry(webhookUrl, payload, "挂断通知")
     }
 
     private fun notifyFlutter(
@@ -289,45 +256,6 @@ class PhoneCallReceiver : BroadcastReceiver() {
             context.sendBroadcast(intent)
         } catch (e: Exception) {
             Log.e(TAG, "发送电话通知广播失败", e)
-        }
-    }
-
-    private fun sendWithRetry(
-        webhookUrl: String,
-        payload: String,
-        tag: String
-    ) {
-        var retryCount = 0
-        val maxRetries = 3
-
-        while (retryCount < maxRetries) {
-            try {
-                val body = payload.toRequestBody("application/json; charset=utf-8".toMediaType())
-                val request = Request.Builder()
-                    .url(webhookUrl)
-                    .post(body)
-                    .addHeader("User-Agent", "NotificationMonitor/1.0")
-                    .build()
-
-                okHttpClient.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        Log.d(TAG, "$tag Webhook发送成功 (尝试 ${retryCount + 1})")
-                        return
-                    } else {
-                        val respBody = response.body?.string() ?: ""
-                        Log.e(TAG, "$tag Webhook失败: ${response.code} - ${respBody.take(200)} (尝试 ${retryCount + 1})")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "$tag Webhook发送错误 (尝试 ${retryCount + 1})", e)
-            }
-
-            retryCount++
-            if (retryCount < maxRetries) {
-                try {
-                    Thread.sleep(2000L * retryCount)
-                } catch (_: InterruptedException) {}
-            }
         }
     }
 }

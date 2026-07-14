@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
+import android.content.pm.ServiceInfo
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
@@ -29,9 +30,6 @@ class NotificationMonitorService : NotificationListenerService() {
 
         var webhookUrls: List<String> = emptyList()
         var deviceName: String = ""
-        var enabledPackages: Set<String> = emptySet()
-        var blacklistKeywords: List<String> = emptyList()
-        var whitelistKeywords: List<String> = emptyList()
         var isConnected: Boolean = false
     }
 
@@ -87,6 +85,8 @@ class NotificationMonitorService : NotificationListenerService() {
                 unregisterReceiver(it)
             } catch (_: Exception) {}
         }
+        webhookSender.destroy()
+        Log.i(TAG, "Service destroyed")
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -96,6 +96,11 @@ class NotificationMonitorService : NotificationListenerService() {
         val notificationInfo = notificationProcessor.processNotification(sbn)
         if (notificationInfo != null) {
             val config = ConfigSnapshot()
+            notificationInfo.deviceName = config.deviceName
+
+            webhookSender.sendBroadcast(notificationInfo)
+            webhookSender.saveNotificationRecord(notificationInfo)
+
             if (notificationProcessor.shouldNotify(
                     notificationInfo.packageName,
                     notificationInfo.title,
@@ -106,8 +111,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     config.blacklistKeywords
                 )
             ) {
-                notificationInfo.deviceName = config.deviceName
-                webhookSender.sendNotification(notificationInfo)
+                webhookSender.sendToWebhooks(notificationInfo)
                 Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
             }
         }
@@ -132,13 +136,9 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookUrls = loadedUrls
         webhookSender.updateUrls(loadedUrls)
 
-        enabledPackages = configManager.getEnabledPackages()
-        blacklistKeywords = configManager.getBlacklistKeywords()
-        whitelistKeywords = configManager.getWhitelistKeywords()
-
         batteryMonitor.updateRules(configManager.getBatteryRules())
 
-        Log.d(TAG, "Config loaded: ${loadedUrls.size} webhooks, ${enabledPackages.size} enabled packages")
+        Log.d(TAG, "Config loaded: ${loadedUrls.size} webhooks")
     }
 
     private fun startBatteryMonitoring() {
@@ -209,7 +209,7 @@ class NotificationMonitorService : NotificationListenerService() {
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(FOREGROUND_ID, notification, 0x40000000)
+            startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         } else {
             startForeground(FOREGROUND_ID, notification)
         }

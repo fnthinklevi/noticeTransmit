@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum BatteryRuleType {
   charging,
   discharging,
@@ -50,6 +52,7 @@ extension BatteryRuleTypeExtension on BatteryRuleType {
       case 'level_equals':
         return BatteryRuleType.levelEquals;
       default:
+        debugPrint('警告：未知的 BatteryRuleType 值: $value');
         return BatteryRuleType.charging;
     }
   }

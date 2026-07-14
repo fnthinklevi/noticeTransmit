@@ -6,42 +6,16 @@ import android.content.Intent
 import android.os.Build
 import android.telephony.SmsMessage
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 class SmsReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "SmsReceiver"
         private const val SMS_RECEIVED = "android.provider.Telephony.SMS_RECEIVED"
-
-        private fun readDeviceNameFromFile(context: Context): String {
-            return try {
-                val file = java.io.File(context.filesDir, "device_name.txt")
-                if (file.exists()) file.readText().trim() else ""
-            } catch (_: Exception) {
-                ""
-            }
-        }
-    }
-
-    private val okHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(true)
-            .build()
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -51,17 +25,11 @@ class SmsReceiver : BroadcastReceiver() {
         if (intent.action != SMS_RECEIVED) return
 
         try {
-            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            val webhookUrl = prefs.getString("flutter.webhook_url", "") ?: ""
-            var deviceName = readDeviceNameFromFile(context)
-            if (deviceName.isEmpty()) {
-                deviceName = prefs.getString("flutter.device_name", "") ?: ""
-            }
-            if (deviceName.isEmpty()) {
-                deviceName = android.os.Build.MODEL
-            }
+            val configManager = ConfigManager(context)
+            val webhookUrls = configManager.getWebhookUrls()
+            val deviceName = configManager.getDeviceName().ifEmpty { android.os.Build.MODEL }
 
-            if (webhookUrl.isEmpty()) return
+            if (webhookUrls.isEmpty()) return
 
             val bundle = intent.extras ?: return
             val pdus = bundle.get("pdus") as Array<*>?
@@ -93,15 +61,17 @@ class SmsReceiver : BroadcastReceiver() {
                 val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                     .format(Date(timestamp))
 
-                sendWebhook(
-                    context = context,
-                    sender = sender,
-                    message = message,
-                    timestamp = timestamp,
-                    timeStr = timeStr,
-                    webhookUrl = webhookUrl,
-                    deviceName = deviceName
-                )
+                for (url in webhookUrls) {
+                    sendWebhook(
+                        context = context,
+                        sender = sender,
+                        message = message,
+                        timestamp = timestamp,
+                        timeStr = timeStr,
+                        webhookUrl = url,
+                        deviceName = deviceName
+                    )
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "处理短信失败", e)
@@ -150,39 +120,6 @@ class SmsReceiver : BroadcastReceiver() {
             deviceName = deviceName
         )
 
-        CoroutineScope(Dispatchers.IO).launch {
-            var retryCount = 0
-            val maxRetries = 3
-
-            while (retryCount < maxRetries) {
-                try {
-                    val body = payload.toRequestBody("application/json; charset=utf-8".toMediaType())
-                    val request = Request.Builder()
-                        .url(webhookUrl)
-                        .post(body)
-                        .addHeader("User-Agent", "NotificationMonitor/1.0")
-                        .build()
-
-                    okHttpClient.newCall(request).execute().use { response ->
-                        if (response.isSuccessful) {
-                            Log.d(TAG, "短信Webhook发送成功 (尝试 ${retryCount + 1})")
-                            return@launch
-                        } else {
-                            val respBody = response.body?.string() ?: ""
-                            Log.e(TAG, "短信Webhook失败: ${response.code} - ${respBody.take(200)} (尝试 ${retryCount + 1})")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "短信Webhook发送错误 (尝试 ${retryCount + 1})", e)
-                }
-
-                retryCount++
-                if (retryCount < maxRetries) {
-                    try {
-                        Thread.sleep(2000L * retryCount)
-                    } catch (_: InterruptedException) {}
-                }
-            }
-        }
+        NetworkClient.sendWithRetry(webhookUrl, payload, "短信")
     }
 }

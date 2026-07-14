@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/services.dart';
+import '../services/theme_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
 import '../theme/app_colors.dart';
-import 'splash_page.dart';
 import 'notification_page.dart';
 import 'battery_page.dart';
 import 'more_page.dart';
@@ -43,11 +43,13 @@ class _MainPageState extends State<MainPage> {
   final UpdateService _updateService = GetIt.instance<UpdateService>();
   final DeviceInfoService _deviceInfoService =
       GetIt.instance<DeviceInfoService>();
+  final ThemeService _themeService = GetIt.instance<ThemeService>();
 
   List<Widget> _buildPages() {
     return [
       NotificationPage(
-        notificationPermissionGranted: _permissionService.notificationGranted,
+        notificationPermissionGranted:
+            _permissionService.notificationListenerGranted,
         foregroundServiceRunning: _notificationService.serviceRunning,
         notificationCount: _notificationService.records.length,
         onStartService: _startForegroundService,
@@ -69,7 +71,7 @@ class _MainPageState extends State<MainPage> {
         onRefresh: _refreshBatteryStatus,
       ),
       MorePage(
-        key: ValueKey('more_${MyApp.of(context)?.themeMode.index ?? 0}'),
+        key: ValueKey('more_${_themeService.themeMode.index}'),
         webhookChannels: _webhookService.channels,
         deviceName: _deviceInfoService.deviceName,
         enabledPackagesCount: _filterService.enabledPackages.length,
@@ -77,9 +79,9 @@ class _MainPageState extends State<MainPage> {
         whitelistCount: _filterService.whitelistKeywords.length,
         ruleCount: _filterService.notificationRules.length,
         isCheckingUpdate: _isCheckingUpdate,
-        themeMode: MyApp.of(context)?.themeMode ?? ThemeMode.system,
+        themeMode: _themeService.themeMode,
         onThemeModeChanged: (mode) {
-          MyApp.of(context)?.setThemeMode(mode);
+          _themeService.setThemeMode(mode);
         },
         onOpenWebhookSettings: _openWebhookSettingsPage,
         onShowDeviceNameDialog: _showDeviceNameDialog,
@@ -104,11 +106,12 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _postInit() async {
     try {
-      _initForegroundTask();
-      _checkPermissions();
+      await _checkPermissions();
       _getDeviceInfo();
       _refreshBatteryStatus();
       _batteryService.startRefreshTimer();
+
+      await _checkFirstLaunch();
 
       if (!_notificationService.serviceManuallyStopped) {
         Future.delayed(const Duration(milliseconds: 1000), () {
@@ -122,6 +125,77 @@ class _MainPageState extends State<MainPage> {
     } catch (e) {
       debugPrint('页面初始化失败: $e');
     }
+  }
+
+  Future<void> _checkFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasLaunched = prefs.getBool('has_launched') ?? false;
+    if (!hasLaunched) {
+      await prefs.setBool('has_launched', true);
+      if (!_permissionService.notificationListenerGranted) {
+        if (mounted) {
+          _showPermissionGuideDialog();
+        }
+      }
+    }
+  }
+
+  void _showPermissionGuideDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBg(context),
+        title: Column(
+          children: [
+            const Icon(
+              Icons.notifications_active,
+              size: 48,
+              color: Color(0xFF007AFF),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '需要必要权限',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '为了正常监听和推送通知，需要开启「通知访问权限」。请点击下方按钮前往设置开启。',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '稍后',
+              style: TextStyle(color: AppColors.secondaryLabel(context)),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _openPermissionSettingsPage();
+            },
+            child: const Text(
+              '去设置',
+              style: TextStyle(
+                color: Color(0xFF007AFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
   }
 
   @override
@@ -150,10 +224,6 @@ class _MainPageState extends State<MainPage> {
         setState(() {});
       }
     });
-  }
-
-  void _initForegroundTask() {
-    _notificationService.initForegroundTask();
   }
 
   Future<void> _checkUpdateOnStartup() async {
@@ -826,12 +896,14 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  void _openPermissionSettingsPage() {
-    Navigator.push(
+  void _openPermissionSettingsPage() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PermissionSettingsPage(
-          notificationPermissionGranted: _permissionService.notificationGranted,
+          notificationListenerGranted:
+              _permissionService.notificationListenerGranted,
+          postNotificationGranted: _permissionService.postNotificationGranted,
           batteryOptimizationIgnored:
               _permissionService.batteryOptimizationIgnored,
           smsPermissionGranted: _permissionService.smsGranted,
@@ -839,8 +911,10 @@ class _MainPageState extends State<MainPage> {
           appListPermissionGranted: _permissionService.appListGranted,
           manufacturer: _deviceInfoService.manufacturer,
           onRefresh: _checkPermissions,
-          onRequestNotificationPermission:
-              _permissionService.requestNotificationPermission,
+          onRequestNotificationListenerPermission:
+              _permissionService.requestNotificationListenerPermission,
+          onRequestPostNotificationPermission:
+              _permissionService.requestPostNotificationPermission,
           onRequestBatteryOptimization:
               _permissionService.requestBatteryOptimization,
           onRequestXiaomiAutoStart: _permissionService.requestXiaomiAutoStart,
@@ -855,6 +929,9 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
     );
+    await _checkPermissions();
+    await _notificationService.loadServiceState();
+    setState(() {});
   }
 
   void _openAppFilterPage() async {
@@ -916,368 +993,29 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = MyApp.of(context)?.themeModeNotifier;
-    if (themeNotifier == null) {
-      final pages = _buildPages();
-      return Scaffold(
-        body: IndexedStack(index: _currentIndex, children: pages),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) =>
-              setState(() => _currentIndex = index),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.notifications),
-              selectedIcon: Icon(Icons.notifications_active),
-              label: '通知',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.battery_full),
-              selectedIcon: Icon(Icons.battery_charging_full),
-              label: '电量',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz),
-              selectedIcon: Icon(Icons.more_horiz),
-              label: '更多',
-            ),
-          ],
-        ),
-      );
-    }
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
-        final pages = _buildPages();
-        return Scaffold(
-          body: IndexedStack(index: _currentIndex, children: pages),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (index) =>
-                setState(() => _currentIndex = index),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.notifications),
-                selectedIcon: Icon(Icons.notifications_active),
-                label: '通知',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.battery_full),
-                selectedIcon: Icon(Icons.battery_charging_full),
-                label: '电量',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.more_horiz),
-                selectedIcon: Icon(Icons.more_horiz),
-                label: '更多',
-              ),
-            ],
+    final pages = _buildPages();
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.notifications),
+            selectedIcon: Icon(Icons.notifications_active),
+            label: '通知',
           ),
-        );
-      },
-    );
-  }
-}
-
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => MyAppState();
-
-  static MyAppState? of(BuildContext context) {
-    return context.findAncestorStateOfType<MyAppState>();
-  }
-}
-
-class MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = ThemeMode.system;
-  final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
-    ThemeMode.system,
-  );
-  bool _initialized = false;
-
-  ThemeMode get themeMode => _themeMode;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadThemeMode();
-  }
-
-  void _onInitCompleted() {
-    setState(() => _initialized = true);
-  }
-
-  Future<void> _loadThemeMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final mode = prefs.getString('theme_mode') ?? 'system';
-    final newMode = switch (mode) {
-      'light' => ThemeMode.light,
-      'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
-    };
-    setState(() => _themeMode = newMode);
-    themeModeNotifier.value = newMode;
-  }
-
-  Future<void> setThemeMode(ThemeMode mode) async {
-    setState(() => _themeMode = mode);
-    themeModeNotifier.value = mode;
-    final prefs = await SharedPreferences.getInstance();
-    final modeStr = switch (mode) {
-      ThemeMode.light => 'light',
-      ThemeMode.dark => 'dark',
-      ThemeMode.system => 'system',
-    };
-    await prefs.setString('theme_mode', modeStr);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '通知推送助手',
-      theme: _buildLightTheme(),
-      darkTheme: _buildDarkTheme(),
-      themeMode: _themeMode,
-      home: _initialized
-          ? const MainPage()
-          : SplashPage(onInitCompleted: _onInitCompleted),
-    );
-  }
-
-  ThemeData _buildLightTheme() {
-    final colors = AppThemeColors.light();
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: colors.systemBlue,
-        brightness: Brightness.light,
-      ),
-      scaffoldBackgroundColor: colors.bgColor,
-      extensions: <ThemeExtension<dynamic>>[colors],
-      appBarTheme: AppBarTheme(
-        backgroundColor: colors.bgColor,
-        foregroundColor: colors.primaryLabel,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        titleTextStyle: TextStyle(
-          color: colors.primaryLabel,
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      cardTheme: CardThemeData(
-        elevation: 0,
-        color: colors.cardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        clipBehavior: Clip.antiAlias,
-      ),
-      listTileTheme: ListTileThemeData(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-        minLeadingWidth: 32,
-        iconColor: colors.systemBlue,
-      ),
-      dividerTheme: DividerThemeData(
-        color: colors.separator,
-        space: 1,
-        thickness: 0.5,
-      ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? Colors.white
-              : Colors.grey.shade200,
-        ),
-        trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? colors.systemGreen
-              : Colors.grey.shade300,
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+          NavigationDestination(
+            icon: Icon(Icons.battery_full),
+            selectedIcon: Icon(Icons.battery_charging_full),
+            label: '电量',
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: colors.cardBg.withValues(alpha: 0.95),
-        elevation: 0,
-        height: 64,
-        indicatorColor: colors.systemBlue.withValues(alpha: 0.1),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: colors.systemBlue,
-            );
-          }
-          return TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: colors.secondaryLabel,
-          );
-        }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return IconThemeData(color: colors.systemBlue);
-          }
-          return IconThemeData(color: colors.secondaryLabel);
-        }),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: colors.inputBg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: colors.systemBlue, width: 1.5),
-        ),
-        hintStyle: TextStyle(color: colors.tertiaryLabel),
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: colors.cardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: colors.cardBg,
-        contentTextStyle: TextStyle(color: colors.primaryLabel),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        behavior: SnackBarBehavior.floating,
-        elevation: 4,
-      ),
-    );
-  }
-
-  ThemeData _buildDarkTheme() {
-    final colors = AppThemeColors.dark();
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: colors.systemBlue,
-        brightness: Brightness.dark,
-      ),
-      scaffoldBackgroundColor: colors.bgColor,
-      extensions: <ThemeExtension<dynamic>>[colors],
-      appBarTheme: AppBarTheme(
-        backgroundColor: colors.bgColor,
-        foregroundColor: colors.primaryLabel,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        titleTextStyle: TextStyle(
-          color: colors.primaryLabel,
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      cardTheme: CardThemeData(
-        elevation: 0,
-        color: colors.cardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        clipBehavior: Clip.antiAlias,
-      ),
-      listTileTheme: ListTileThemeData(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-        minLeadingWidth: 32,
-        iconColor: colors.systemBlue,
-      ),
-      dividerTheme: DividerThemeData(
-        color: colors.separator,
-        space: 1,
-        thickness: 0.5,
-      ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? Colors.white
-              : Colors.grey.shade400,
-        ),
-        trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? colors.systemGreen
-              : Colors.grey.shade700,
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+          NavigationDestination(
+            icon: Icon(Icons.more_horiz),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: '更多',
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: colors.cardBg.withValues(alpha: 0.95),
-        elevation: 0,
-        height: 64,
-        indicatorColor: colors.systemBlue.withValues(alpha: 0.3),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: colors.systemBlue,
-            );
-          }
-          return TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: colors.secondaryLabel,
-          );
-        }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return IconThemeData(color: colors.systemBlue);
-          }
-          return IconThemeData(color: colors.secondaryLabel);
-        }),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: colors.inputBg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: colors.systemBlue, width: 1.5),
-        ),
-        hintStyle: TextStyle(color: colors.tertiaryLabel),
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: colors.cardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: colors.cardBg,
-        contentTextStyle: TextStyle(color: colors.primaryLabel),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        behavior: SnackBarBehavior.floating,
-        elevation: 4,
+        ],
       ),
     );
   }

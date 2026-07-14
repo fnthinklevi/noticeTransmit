@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -56,11 +56,38 @@ class DatabaseHelper {
     await db.execute('''
       CREATE INDEX idx_notifications_package ON notifications(package_name)
     ''');
+
+    await db.execute('''
+      CREATE TABLE pending_notifications (
+        id TEXT PRIMARY KEY,
+        notification_data TEXT NOT NULL,
+        webhook_url TEXT NOT NULL,
+        retry_count INTEGER DEFAULT 0,
+        last_retry_time INTEGER DEFAULT 0,
+        added_time INTEGER NOT NULL,
+        status_code INTEGER,
+        error_message TEXT
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _onCreate(db, 1);
+    }
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE pending_notifications (
+          id TEXT PRIMARY KEY,
+          notification_data TEXT NOT NULL,
+          webhook_url TEXT NOT NULL,
+          retry_count INTEGER DEFAULT 0,
+          last_retry_time INTEGER DEFAULT 0,
+          added_time INTEGER NOT NULL,
+          status_code INTEGER,
+          error_message TEXT
+        )
+      ''');
     }
   }
 
@@ -204,5 +231,43 @@ class DatabaseHelper {
     ''',
       [cutoffTime],
     );
+  }
+
+  Future<void> insertPendingNotification(Map<String, dynamic> data) async {
+    final db = await database;
+    await db.insert(
+      'pending_notifications',
+      data,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingNotifications() async {
+    final db = await database;
+    return await db.query(
+      'pending_notifications',
+      orderBy: 'added_time DESC',
+      limit: 100,
+    );
+  }
+
+  Future<void> deletePendingNotification(String id) async {
+    final db = await database;
+    await db.delete('pending_notifications', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updatePendingNotification(Map<String, dynamic> data) async {
+    final db = await database;
+    await db.update(
+      'pending_notifications',
+      data,
+      where: 'id = ?',
+      whereArgs: [data['id']],
+    );
+  }
+
+  Future<void> clearAllPendingNotifications() async {
+    final db = await database;
+    await db.delete('pending_notifications');
   }
 }

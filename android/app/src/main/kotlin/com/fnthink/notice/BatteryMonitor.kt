@@ -34,15 +34,15 @@ class BatteryMonitor(private val context: Context) {
         }
     }
 
-    fun getBatteryInfo(): BatteryInfo {
+    fun getBatteryInfo(): BatteryInfo? {
         val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        return intent?.let { parseBatteryIntent(it) } ?: BatteryInfo(0, false, 0)
+        return intent?.let { parseBatteryIntent(it) }
     }
 
     fun checkBatteryAndNotify(): NotificationInfo? {
         if (batteryRules.isEmpty()) return null
 
-        val batteryInfo = getBatteryInfo()
+        val batteryInfo = getBatteryInfo() ?: return null
         val currentLevel = batteryInfo.level
 
         if (currentLevel == lastNotifiedLevel) return null

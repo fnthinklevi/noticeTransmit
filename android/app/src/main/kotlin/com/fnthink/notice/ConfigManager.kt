@@ -11,21 +11,37 @@ import java.io.FileInputStream
 class ConfigManager(private val context: Context) {
     companion object {
         private const val TAG = "ConfigManager"
-        private const val PREFS_NAME = "notification_monitor_prefs"
-        private const val KEY_WEBHOOK_URLS = "webhook_urls"
-        private const val KEY_ENABLED_PACKAGES = "enabled_packages"
-        private const val KEY_WHITELIST_KEYWORDS = "whitelist_keywords"
-        private const val KEY_BLACKLIST_KEYWORDS = "blacklist_keywords"
-        private const val KEY_DEVICE_NAME = "device_name"
-        private const val KEY_BATTERY_RULES = "battery_rules"
+        private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
+        private const val KEY_WEBHOOK_URLS = "flutter.webhook_channels"
+        private const val KEY_ENABLED_PACKAGES = "flutter.enabled_packages"
+        private const val KEY_WHITELIST_KEYWORDS = "flutter.whitelist_keywords"
+        private const val KEY_BLACKLIST_KEYWORDS = "flutter.blacklist_keywords"
+        private const val KEY_DEVICE_NAME = "flutter.device_name"
+        private const val KEY_BATTERY_RULES = "flutter.battery_rules"
     }
 
     private val prefs: SharedPreferences by lazy {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(FLUTTER_PREFS_NAME, Context.MODE_PRIVATE)
     }
 
     fun getWebhookUrls(): List<String> {
-        return getStringList(KEY_WEBHOOK_URLS)
+        val json = prefs.getString(KEY_WEBHOOK_URLS, "[]")
+        return try {
+            val array = JSONArray(json)
+            val list = mutableListOf<String>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val url = obj.optString("url", "")
+                val enabled = obj.optBoolean("enabled", true)
+                if (enabled && url.isNotEmpty()) {
+                    list.add(url)
+                }
+            }
+            list
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse webhook channels", e)
+            getStringList("flutter.webhook_urls")
+        }
     }
 
     fun getEnabledPackages(): Set<String> {
