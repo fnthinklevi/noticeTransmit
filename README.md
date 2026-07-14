@@ -44,6 +44,13 @@
 - 🔄 **在线更新** - 支持版本更新与热更新，无需重新安装 APK
 - 📲 **iOS 风格设计** - 采用 iOS 系统设计语言，界面简洁优雅
 
+### 安全加固
+
+- 🔐 **二步验证（TOTP）** - 管理后台登录启用二步验证，兼容 Google Authenticator
+- 🔑 **bcrypt 哈希** - Token 使用 bcrypt 哈希验证，防暴力破解
+- 🛡️ **IP 封锁** - 10分钟内输错3次验证码自动封锁IP 240小时
+- 🔢 **恢复码** - 生成8个恢复码，设备丢失时可找回账户
+
 ## 技术栈
 
 | 模块 | 技术 |
@@ -56,7 +63,7 @@
 | 后台保活 | Foreground Service + WakeLock + WifiLock |
 | 跨端通信 | MethodChannel |
 | 崩溃统计 | 腾讯 Bugly |
-| 服务端 | Node.js + Express (Token鉴权) |
+| 服务端 | Node.js + Express (Token鉴权 + 二步验证) |
 | 数据存储 | SharedPreferences + SQLite |
 
 ## 权限说明

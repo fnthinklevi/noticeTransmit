@@ -89,8 +89,8 @@
         <p>通知推送助手 - 版本管理系统</p>
         
         <div class="step-indicator">
-          <div class="step-dot active"></div>
-          <div class="step-dot" id="step2"></div>
+          <div class="step-dot active" id="stepDot1"></div>
+          <div class="step-dot" id="stepDot2"></div>
         </div>
 
         <div id="step1">
@@ -401,7 +401,8 @@
           if (result.twoFAEnabled) {
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step2').classList.remove('hidden');
-            document.getElementById('step2').classList.add('active');
+            document.getElementById('stepDot1').classList.add('done');
+            document.getElementById('stepDot2').classList.add('active');
             showStatus('otpStatus', 'info', '请输入二步验证验证码');
           } else {
             showStatus('loginStatus', 'success', '登录成功，正在跳转...');
@@ -829,6 +830,15 @@
 
     document.getElementById('h_forceUpdate').addEventListener('change', (e) => {
       toggleForceFields('h', e.target.checked);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('step1').classList.remove('hidden');
+      document.getElementById('step2').classList.add('hidden');
+      document.getElementById('setup2FA').classList.add('hidden');
+      document.getElementById('recoveryCodeSection').classList.add('hidden');
+      document.getElementById('mainSection').classList.add('hidden');
+      document.getElementById('loginSection').classList.remove('hidden');
     });
   </script>
 </body>

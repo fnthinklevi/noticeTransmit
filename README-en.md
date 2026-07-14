@@ -44,6 +44,13 @@ Notification Push Helper is an Android application developed with Flutter that l
 - 🔄 **Online Update** - Support version update and hot update, no need to reinstall APK
 - 📲 **iOS Style Design** - Adopt iOS system design language, clean and elegant interface
 
+### Security
+
+- 🔐 **Two-step Verification (TOTP)** - Admin panel login requires two-step verification, compatible with Google Authenticator
+- 🔑 **bcrypt Hashing** - Token verified using bcrypt hashing to prevent brute force attacks
+- 🛡️ **IP Blocking** - IP automatically blocked for 240 hours after 3 failed verification attempts within 10 minutes
+- 🔢 **Recovery Codes** - 8 recovery codes generated for account recovery when device is lost
+
 ## Technology Stack
 
 | Module | Technology |
@@ -55,7 +62,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 | Background Survival | Foreground Service + WakeLock + WifiLock |
 | Cross-platform Communication | MethodChannel |
 | Crash Statistics | Tencent Bugly |
-| Server | Node.js + Express |
+| Server | Node.js + Express (Token Auth + Two-step Verification) |
 | Data Storage | SharedPreferences + File Storage |
 
 ## Permission Description
