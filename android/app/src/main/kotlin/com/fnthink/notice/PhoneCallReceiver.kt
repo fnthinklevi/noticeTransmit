@@ -101,42 +101,91 @@ class PhoneCallReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun sendIncomingCallWebhook(
+    private fun sendCallWebhook(
         context: Context,
         phoneNumber: String,
         webhookUrl: String,
-        deviceName: String
+        deviceName: String,
+        callState: String,
+        duration: Long = 0L
     ) {
         val now = System.currentTimeMillis()
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             .format(Date(now))
+        val durationSec = duration / 1000
+        val durationStr = if (duration > 0) "${durationSec / 60}分${durationSec % 60}秒" else ""
+
+        val notifyType = when (callState) {
+            "ringing" -> "call_incoming"
+            "answered" -> "call_answered"
+            "ended" -> "call_ended"
+            else -> "call_unknown"
+        }
+
+        val title = when (callState) {
+            "ringing" -> "来电 - $phoneNumber"
+            "answered" -> "通话中 - $phoneNumber"
+            "ended" -> "通话结束 - $phoneNumber"
+            else -> "电话 - $phoneNumber"
+        }
+
+        val content = when (callState) {
+            "ringing" -> "来电: $phoneNumber"
+            "answered" -> "已接听: $phoneNumber"
+            "ended" -> "通话结束: $phoneNumber, 时长: $durationStr"
+            else -> "电话: $phoneNumber"
+        }
+
+        val extra = mutableMapOf<String, Any>(
+            "phoneNumber" to phoneNumber,
+            "callState" to callState
+        ).apply {
+            if (duration > 0) {
+                put("duration", duration)
+                put("durationStr", durationStr)
+            }
+        }
 
         notifyFlutter(
             context = context,
-            type = "call_incoming",
-            title = "来电 - $phoneNumber",
-            content = "来电: $phoneNumber",
+            type = notifyType,
+            title = title,
+            content = content,
             appName = "电话",
             packageName = "com.android.dialer",
             postTime = now,
             time = timeStr,
-            extra = mapOf(
-                "phoneNumber" to phoneNumber,
-                "callState" to "ringing"
-            ),
+            extra = extra,
             deviceName = deviceName
         )
 
         val webhookType = WebhookPayloadBuilder.detectType(webhookUrl)
         val payload = WebhookPayloadBuilder.buildCallPayload(
             type = webhookType,
-            state = "ringing",
+            state = callState,
             phoneNumber = phoneNumber,
             time = timeStr,
+            durationStr = durationStr,
             deviceName = deviceName
         )
 
-        NetworkClient.sendWithRetry(webhookUrl, payload, "来电通知")
+        val tag = when (callState) {
+            "ringing" -> "来电通知"
+            "answered" -> "接听通知"
+            "ended" -> "挂断通知"
+            else -> "电话通知"
+        }
+
+        NetworkClient.sendWithRetry(webhookUrl, payload, tag)
+    }
+
+    private fun sendIncomingCallWebhook(
+        context: Context,
+        phoneNumber: String,
+        webhookUrl: String,
+        deviceName: String
+    ) {
+        sendCallWebhook(context, phoneNumber, webhookUrl, deviceName, "ringing")
     }
 
     private fun sendCallAnsweredWebhook(
@@ -145,36 +194,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
         webhookUrl: String,
         deviceName: String
     ) {
-        val now = System.currentTimeMillis()
-        val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            .format(Date(now))
-
-        notifyFlutter(
-            context = context,
-            type = "call_answered",
-            title = "通话中 - $phoneNumber",
-            content = "已接听: $phoneNumber",
-            appName = "电话",
-            packageName = "com.android.dialer",
-            postTime = now,
-            time = timeStr,
-            extra = mapOf(
-                "phoneNumber" to phoneNumber,
-                "callState" to "answered"
-            ),
-            deviceName = deviceName
-        )
-
-        val webhookType = WebhookPayloadBuilder.detectType(webhookUrl)
-        val payload = WebhookPayloadBuilder.buildCallPayload(
-            type = webhookType,
-            state = "answered",
-            phoneNumber = phoneNumber,
-            time = timeStr,
-            deviceName = deviceName
-        )
-
-        NetworkClient.sendWithRetry(webhookUrl, payload, "接听通知")
+        sendCallWebhook(context, phoneNumber, webhookUrl, deviceName, "answered")
     }
 
     private fun sendCallEndedWebhook(
@@ -184,41 +204,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
         webhookUrl: String,
         deviceName: String
     ) {
-        val now = System.currentTimeMillis()
-        val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            .format(Date(now))
-        val durationSec = duration / 1000
-        val durationStr = "${durationSec / 60}分${durationSec % 60}秒"
-
-        notifyFlutter(
-            context = context,
-            type = "call_ended",
-            title = "通话结束 - $phoneNumber",
-            content = "通话结束: $phoneNumber, 时长: $durationStr",
-            appName = "电话",
-            packageName = "com.android.dialer",
-            postTime = now,
-            time = timeStr,
-            extra = mapOf(
-                "phoneNumber" to phoneNumber,
-                "callState" to "ended",
-                "duration" to duration,
-                "durationStr" to durationStr
-            ),
-            deviceName = deviceName
-        )
-
-        val webhookType = WebhookPayloadBuilder.detectType(webhookUrl)
-        val payload = WebhookPayloadBuilder.buildCallPayload(
-            type = webhookType,
-            state = "ended",
-            phoneNumber = phoneNumber,
-            time = timeStr,
-            durationStr = durationStr,
-            deviceName = deviceName
-        )
-
-        NetworkClient.sendWithRetry(webhookUrl, payload, "挂断通知")
+        sendCallWebhook(context, phoneNumber, webhookUrl, deviceName, "ended", duration)
     }
 
     private fun notifyFlutter(

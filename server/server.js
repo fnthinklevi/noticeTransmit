@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const { authenticator, totp } = require('otplib');
 const QRCode = require('qrcode');
@@ -113,6 +114,7 @@ const BLOCK_FILE = path.join(__dirname, 'data', 'blocked_ips.json');
 const DATA_DIR = path.join(__dirname, 'data');
 
 const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH;
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
 if (!ADMIN_TOKEN_HASH) {
   console.error('错误：未配置 ADMIN_TOKEN_HASH 环境变量，服务无法启动');
@@ -238,7 +240,40 @@ function getRemainingAttempts(ip) {
 }
 
 function generateSessionId() {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  return crypto.randomUUID();
+}
+
+function encryptSecret(secret) {
+  if (!ENCRYPTION_KEY) {
+    console.warn('未配置 ENCRYPTION_KEY，TOTP secret 将以明文存储');
+    return { plain: secret };
+  }
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+  const encrypted = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    iv: iv.toString('hex'),
+    data: encrypted.toString('hex'),
+    tag: tag.toString('hex')
+  };
+}
+
+function decryptSecret(encryptedData) {
+  if (!ENCRYPTION_KEY || encryptedData.plain) {
+    return encryptedData.plain || '';
+  }
+  try {
+    const iv = Buffer.from(encryptedData.iv, 'hex');
+    const data = Buffer.from(encryptedData.data, 'hex');
+    const tag = Buffer.from(encryptedData.tag, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+    decipher.setAuthTag(tag);
+    return decipher.update(data) + decipher.final('utf8');
+  } catch (e) {
+    console.error('解密失败:', e.message);
+    return '';
+  }
 }
 
 function readJsonFile(filePath, defaultValue) {
@@ -315,8 +350,8 @@ async function verifyToken(token) {
 }
 
 async function authMiddleware(req, res, next) {
-  const token = req.headers['x-admin-token'] || req.query.token;
-  const sessionId = req.headers['x-session-id'] || req.query.sessionId;
+  const token = req.headers['x-admin-token'];
+  const sessionId = req.headers['x-session-id'];
 
   if (sessionId && sessions[sessionId]) {
     if (Date.now() - sessions[sessionId].createdAt > 24 * 60 * 60 * 1000) {

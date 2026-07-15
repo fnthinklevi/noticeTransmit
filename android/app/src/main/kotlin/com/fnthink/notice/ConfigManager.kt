@@ -82,9 +82,9 @@ class ConfigManager(private val context: Context) {
         val hotfixFile = File(context.filesDir, "hotfix.json")
         if (hotfixFile.exists()) {
             try {
-                val inputStream = FileInputStream(hotfixFile)
-                val jsonStr = inputStream.bufferedReader().use { it.readText() }
-                inputStream.close()
+                val jsonStr = FileInputStream(hotfixFile).use { fis ->
+                    fis.bufferedReader().readText()
+                }
 
                 val json = JSONObject(jsonStr)
 

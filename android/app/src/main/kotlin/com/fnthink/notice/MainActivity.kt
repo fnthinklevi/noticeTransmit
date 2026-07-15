@@ -24,7 +24,9 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -44,6 +46,8 @@ class MainActivity : FlutterActivity() {
 
     private val channel = "com.fnthink.notice/notification"
     private var methodChannel: MethodChannel? = null
+    private val activityJob = SupervisorJob()
+    private val activityScope = CoroutineScope(activityJob + Dispatchers.Main)
     private val prefs: SharedPreferences by lazy {
         getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     }
@@ -138,6 +142,11 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashReport.initCrashReport(applicationContext)
+    }
+
+    override fun onDestroy() {
+        activityJob.cancel()
+        super.onDestroy()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -1034,7 +1043,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun testWebhook(url: String, result: MethodChannel.Result) {
-        CoroutineScope(Dispatchers.IO).launch {
+        activityScope.launch(Dispatchers.IO) {
             val (success, message) = try {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
                 val webhookType = WebhookPayloadBuilder.detectType(url)
@@ -1066,7 +1075,7 @@ class MainActivity : FlutterActivity() {
                 false to "推送异常: ${e.message ?: e.javaClass.simpleName}"
             }
 
-            runOnUiThread {
+            withContext(Dispatchers.Main) {
                 try {
                     result.success(mapOf(
                         "success" to success,
@@ -1081,6 +1090,6 @@ class MainActivity : FlutterActivity() {
 }
 
 object PrefsHelper {
-    var webhookUrls: List<String> = emptyList()
-    var deviceName: String = ""
+    @Volatile var webhookUrls: List<String> = emptyList()
+    @Volatile var deviceName: String = ""
 }

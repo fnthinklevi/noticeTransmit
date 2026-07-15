@@ -28,9 +28,9 @@ class NotificationMonitorService : NotificationListenerService() {
         const val EXTRA_BATTERY_LEVEL = "battery_level"
         const val EXTRA_BATTERY_CHARGING = "battery_charging"
 
-        var webhookUrls: List<String> = emptyList()
-        var deviceName: String = ""
-        var isConnected: Boolean = false
+        @Volatile var webhookUrls: List<String> = emptyList()
+        @Volatile var deviceName: String = ""
+        @Volatile var isConnected: Boolean = false
     }
 
     private lateinit var notificationProcessor: NotificationProcessor
@@ -38,6 +38,7 @@ class NotificationMonitorService : NotificationListenerService() {
     private lateinit var webhookSender: WebhookSender
     private lateinit var configManager: ConfigManager
     private var batteryChangedReceiver: android.content.BroadcastReceiver? = null
+    private var cachedConfig: ConfigSnapshot? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -102,7 +103,7 @@ class NotificationMonitorService : NotificationListenerService() {
 
         val notificationInfo = notificationProcessor.processNotification(sbn)
         if (notificationInfo != null) {
-            val config = ConfigSnapshot()
+            val config = cachedConfig ?: ConfigSnapshot()
             notificationInfo.deviceName = config.deviceName
 
             webhookSender.sendBroadcast(notificationInfo)
@@ -144,6 +145,8 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender.updateUrls(loadedUrls)
 
         batteryMonitor.updateRules(configManager.getBatteryRules())
+
+        cachedConfig = ConfigSnapshot()
 
         Log.d(TAG, "Config loaded: ${loadedUrls.size} webhooks")
     }

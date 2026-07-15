@@ -5,6 +5,7 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import java.text.SimpleDateFormat
+import java.util.Collections
 import java.util.Date
 import java.util.Locale
 
@@ -14,7 +15,7 @@ class NotificationProcessor(private val context: Context) {
         private const val MAX_NOTIFIED_KEYS = 200
     }
 
-    private val notifiedKeys = LinkedHashSet<String>()
+    private val notifiedKeys = Collections.synchronizedSet(LinkedHashSet<String>())
     private var hotfixAppNames: Map<String, String>? = null
     private var hotfixNotificationTypes: Map<String, String>? = null
 
@@ -41,12 +42,11 @@ class NotificationProcessor(private val context: Context) {
             notifiedKeys.remove(dedupKey)
             notifiedKeys.add(dedupKey)
             if (notifiedKeys.size > MAX_NOTIFIED_KEYS) {
-                val toRemove = notifiedKeys.size - MAX_NOTIFIED_KEYS + 50
-                val iterator = notifiedKeys.iterator()
-                repeat(toRemove) {
-                    if (iterator.hasNext()) {
-                        iterator.next()
-                        iterator.remove()
+                synchronized(notifiedKeys) {
+                    val toRemove = notifiedKeys.size - MAX_NOTIFIED_KEYS + 50
+                    val list = ArrayList(notifiedKeys)
+                    for (i in 0 until toRemove) {
+                        notifiedKeys.remove(list[i])
                     }
                 }
             }

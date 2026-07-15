@@ -18,15 +18,15 @@ class NetworkClient {
         private const val MAX_RETRIES = 3
         private const val RETRY_DELAY_MS = 2000L
 
-        private val job = SupervisorJob()
-        private val scope = CoroutineScope(job + Dispatchers.IO)
+        @Volatile private var isActive = true
+        private val scope = CoroutineScope(Dispatchers.IO)
 
         private val client: OkHttpClient by lazy {
             OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
-                .retryOnConnectionFailure(true)
+                .retryOnConnectionFailure(false)
                 .build()
         }
 
@@ -35,6 +35,7 @@ class NetworkClient {
             payload: String,
             tag: String = "webhook"
         ) {
+            if (!isActive) return
             scope.launch {
                 var retryCount = 0
 
@@ -69,8 +70,8 @@ class NetworkClient {
         }
 
         fun destroy() {
-            job.cancel()
-            Log.d(TAG, "NetworkClient scope cancelled")
+            isActive = false
+            Log.d(TAG, "NetworkClient deactivated")
         }
     }
 }

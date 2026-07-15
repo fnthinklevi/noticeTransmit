@@ -21,10 +21,13 @@ android {
                 this.keyAlias = keyAlias
                 this.keyPassword = keyPassword
             } else {
-                storeFile = file("D:\\fnthinklevi\\key.jks")
-                storePassword = "fnthinklevi"
-                this.keyAlias = "key"
-                this.keyPassword = "fnthinklevi"
+                val debugKeystore = File(System.getProperty("user.home"), ".android/debug.keystore")
+                if (debugKeystore.exists()) {
+                    storeFile = debugKeystore
+                    storePassword = "android"
+                    this.keyAlias = "androiddebugkey"
+                    this.keyPassword = "android"
+                }
             }
         }
     }
@@ -48,8 +51,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName("release")
         }
     }

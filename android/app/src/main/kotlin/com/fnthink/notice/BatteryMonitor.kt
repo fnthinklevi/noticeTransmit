@@ -19,8 +19,8 @@ class BatteryMonitor(private val context: Context) {
     }
 
     private var batteryRules = emptyList<BatteryRule>()
-    private var lastNotifiedLevel = -1
-    private var deviceName: String = ""
+    @Volatile private var lastNotifiedLevel = -1
+    @Volatile private var deviceName: String = ""
     private var notificationCallback: ((NotificationInfo) -> Unit)? = null
 
     private val handler = Handler(Looper.getMainLooper())
