@@ -55,6 +55,7 @@ app.*.map.json
 *.keystore
 android/key.jks
 android/app/key.jks
+android/key.properties
 
 # Environment variables
 .env

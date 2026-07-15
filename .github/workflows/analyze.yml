@@ -63,6 +63,9 @@ jobs:
           fi
           echo "✅ 所有测试通过"
 
+      - name: Install lcov
+        run: sudo apt-get install -y lcov
+
       - name: Generate coverage report
         run: |
           genhtml coverage/lcov.info -o coverage/html

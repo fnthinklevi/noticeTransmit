@@ -3,6 +3,15 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.fnthink.notice"
     compileSdk = 37
@@ -10,24 +19,16 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystoreFile = System.getenv("KEYSTORE_FILE")
-            val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-            val keyAlias = System.getenv("KEY_ALIAS")
-            val keyPassword = System.getenv("KEY_PASSWORD")
+            val ksFile = System.getenv("KEYSTORE_FILE") ?: keystoreProperties.getProperty("storeFile", "")
+            val ksPassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword", "")
+            val ksAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias", "")
+            val ksKeyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword", "")
             
-            if (keystoreFile != null && keystorePassword != null && keyAlias != null && keyPassword != null) {
-                storeFile = file(keystoreFile)
-                storePassword = keystorePassword
-                this.keyAlias = keyAlias
-                this.keyPassword = keyPassword
-            } else {
-                val debugKeystore = File(System.getProperty("user.home"), ".android/debug.keystore")
-                if (debugKeystore.exists()) {
-                    storeFile = debugKeystore
-                    storePassword = "android"
-                    this.keyAlias = "androiddebugkey"
-                    this.keyPassword = "android"
-                }
+            if (ksFile.isNotEmpty() && ksPassword.isNotEmpty() && ksAlias.isNotEmpty() && ksKeyPassword.isNotEmpty()) {
+                storeFile = file(ksFile)
+                storePassword = ksPassword
+                keyAlias = ksAlias
+                keyPassword = ksKeyPassword
             }
         }
     }
