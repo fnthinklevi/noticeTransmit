@@ -50,6 +50,10 @@ Notification Push Helper is an Android application developed with Flutter that l
 - 🔑 **bcrypt Hashing** - Token verified using bcrypt hashing to prevent brute force attacks
 - 🛡️ **IP Blocking** - IP automatically blocked for 240 hours after 3 failed verification attempts within 10 minutes
 - 🔢 **Recovery Codes** - 8 recovery codes generated for account recovery when device is lost
+- 🔒 **Sensitive Data Encryption** - TOTP secret stored using AES-256-GCM encryption
+- 🎭 **Code Obfuscation** - R8 code obfuscation and resource shrinking enabled
+- 📡 **Secure Token Transmission** - Token only accepted via Header, URL parameters disabled
+- 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
 
 ## Technology Stack
 

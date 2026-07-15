@@ -132,9 +132,12 @@ server/
 
 ### 环境变量
 
-| 变量名    | 说明     | 默认值    |
-| ------ | ------ | ------ |
-| `PORT` | 服务监听端口 | `3456` |
+| 变量名              | 说明                  | 默认值    |
+| ------------------- | --------------------- | --------- |
+| `PORT`              | 服务监听端口          | `3456`    |
+| `ADMIN_TOKEN_HASH`  | 管理员 Token 的 bcrypt 哈希 | 无        |
+| `ENCRYPTION_KEY`    | TOTP secret 加密密钥（32字节hex） | 无（可选） |
+| `NODE_ENV`          | 运行环境              | `production` |
 
 \*\*修改端口的方式：
 
@@ -561,6 +564,12 @@ journalctl -u update-server -f
 4. **定期备份**：定期备份 `data/` 目录的配置文件
 5. **使用 CDN**：大文件下载建议使用 CDN 或对象存储，减轻源站压力
 6. **限制访问频率**：使用 Nginx 或其他工具限制 API 调用频率，防止滥用
+7. **配置加密密钥**：设置 `ENCRYPTION_KEY` 环境变量加密 TOTP secret，生成方式：
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'));"
+   ```
+8. **Token 安全传输**：仅通过 `x-admin-token` Header 传递，禁止 URL 参数
+9. **请求体大小限制**：已默认限制为 1MB，防止超大请求攻击
 
 ***
 
@@ -730,7 +739,18 @@ pm2 restart update-server
 
 ---
 
-## �📝 更新日志
+## 📝 更新日志
+
+### 服务端版本：1.1.1（v1.5.33 同步）
+
+- ✅ TOTP secret 使用 AES-256-GCM 加密存储
+- ✅ 恢复码使用 bcrypt 哈希存储
+- ✅ 会话 ID 使用 crypto.randomUUID() 生成
+- ✅ Token 仅接受 Header 传递，禁止 URL 参数
+- ✅ 添加全局异步错误处理中间件
+- ✅ 配置 trust proxy，使用 req.ip 获取真实 IP
+- ✅ 请求体大小限制为 1MB
+- ✅ 关闭 OkHttp 自动重试，避免双重重试
 
 ### 服务端版本：1.1.0
 
