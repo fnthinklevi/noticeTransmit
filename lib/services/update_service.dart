@@ -1,4 +1,4 @@
-import '../update_manager.dart';
+﻿import '../update_manager.dart';
 
 class UpdateService {
   bool _isDownloading = false;

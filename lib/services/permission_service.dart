@@ -1,8 +1,9 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'platform_channel.dart';
 
 class PermissionService {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   bool _notificationListenerGranted = false;
   bool _postNotificationGranted = false;
@@ -21,20 +22,20 @@ class PermissionService {
   Future<void> checkAllPermissions() async {
     try {
       final listenerGranted =
-          await platform.invokeMethod('isNotificationPermissionGranted')
+          await _channel.invokeMethod('isNotificationPermissionGranted')
               as bool?;
       final postGranted =
-          await platform.invokeMethod('isPostNotificationPermissionGranted')
+          await _channel.invokeMethod('isPostNotificationPermissionGranted')
               as bool?;
       final batteryOk =
-          await platform.invokeMethod('isIgnoringBatteryOptimizations')
+          await _channel.invokeMethod('isIgnoringBatteryOptimizations')
               as bool?;
       final smsGranted =
-          await platform.invokeMethod('isSmsPermissionGranted') as bool?;
+          await _channel.invokeMethod('isSmsPermissionGranted') as bool?;
       final phoneGranted =
-          await platform.invokeMethod('isPhonePermissionGranted') as bool?;
+          await _channel.invokeMethod('isPhonePermissionGranted') as bool?;
       final appListGranted =
-          await platform.invokeMethod('isAppListPermissionGranted') as bool?;
+          await _channel.invokeMethod('isAppListPermissionGranted') as bool?;
 
       _notificationListenerGranted = listenerGranted ?? false;
       _postNotificationGranted = postGranted ?? false;
@@ -49,7 +50,7 @@ class PermissionService {
 
   Future<void> _requestPermission(String methodName) async {
     try {
-      await platform.invokeMethod(methodName);
+      await _channel.invokeMethod(methodName);
     } catch (e) {
       debugPrint('权限请求失败 $methodName: $e');
     }
@@ -57,24 +58,46 @@ class PermissionService {
 
   Future<void> requestNotificationListenerPermission() =>
       _requestPermission('requestNotificationListenerPermission');
-  Future<void> requestPostNotificationPermission() =>
-      _requestPermission('requestPostNotificationPermission');
+
+  Future<void> requestPostNotificationPermission() async {
+    final status = await Permission.notification.request();
+    if (status == PermissionStatus.granted) {
+      _postNotificationGranted = true;
+    }
+  }
+
   Future<void> requestBatteryOptimization() =>
       _requestPermission('requestBatteryOptimization');
+
   Future<void> requestXiaomiAutoStart() =>
       _requestPermission('requestXiaomiAutoStart');
+
   Future<void> requestMeizuBackground() =>
       _requestPermission('requestMeizuBackground');
+
   Future<void> requestHuaweiLaunch() =>
       _requestPermission('requestHuaweiLaunch');
+
   Future<void> requestOppoBackground() =>
       _requestPermission('requestOppoBackground');
+
   Future<void> requestVivoBackground() =>
       _requestPermission('requestVivoBackground');
-  Future<void> requestSmsPermission() =>
-      _requestPermission('requestSmsPermission');
-  Future<void> requestPhonePermission() =>
-      _requestPermission('requestPhonePermission');
+
+  Future<void> requestSmsPermission() async {
+    final status = await Permission.sms.request();
+    if (status == PermissionStatus.granted) {
+      _smsGranted = true;
+    }
+  }
+
+  Future<void> requestPhonePermission() async {
+    final status = await Permission.phone.request();
+    if (status == PermissionStatus.granted) {
+      _phoneGranted = true;
+    }
+  }
+
   Future<void> requestAppListPermission() =>
       _requestPermission('requestAppListPermission');
 }

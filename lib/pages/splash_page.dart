@@ -3,7 +3,6 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../services/services.dart';
-import '../di/service_locator.dart';
 import '../theme/app_colors.dart';
 
 class SplashPage extends StatefulWidget {
@@ -41,15 +40,6 @@ class _SplashPageState extends State<SplashPage>
 
   Future<void> _initServices() async {
     log('=== SplashPage 开始初始化服务 ===');
-
-    try {
-      setState(() => _statusText = '初始化依赖注入...');
-      log('初始化依赖注入');
-      setupLocator();
-      await Future.delayed(const Duration(milliseconds: 100));
-    } catch (e) {
-      log('依赖注入失败: $e');
-    }
 
     try {
       setState(() => _statusText = '加载 Webhook 配置...');

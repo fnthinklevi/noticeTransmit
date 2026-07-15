@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -34,6 +34,7 @@ class DatabaseHelper {
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         content TEXT NOT NULL,
+        sub_text TEXT,
         package_name TEXT NOT NULL,
         app_name TEXT NOT NULL,
         post_time INTEGER NOT NULL,
@@ -89,11 +90,16 @@ class DatabaseHelper {
         )
       ''');
     }
+    if (oldVersion < 3) {
+      await db.execute('''
+        ALTER TABLE notifications ADD COLUMN sub_text TEXT
+      ''');
+    }
   }
 
   Future<void> migrateFromSharedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
-    final recordsJson = prefs.getString('records');
+    final recordsJson = prefs.getString('notification_records');
     if (recordsJson == null || recordsJson == '[]') return;
 
     try {
@@ -109,12 +115,15 @@ class DatabaseHelper {
                 'id': record['id'] ?? '',
                 'title': record['title'] ?? '',
                 'content': record['content'] ?? '',
-                'package_name': record['package_name'] ?? '',
-                'app_name': record['app_name'] ?? '',
-                'post_time': record['post_time'] ?? 0,
+                'sub_text': record['subText'] ?? '',
+                'package_name':
+                    record['packageName'] ?? record['package_name'] ?? '',
+                'app_name': record['appName'] ?? record['app_name'] ?? '',
+                'post_time': record['postTime'] ?? record['post_time'] ?? 0,
                 'time': record['time'] ?? '',
                 'type': record['type'] ?? 'other',
-                'device_name': record['device_name'] ?? '',
+                'device_name':
+                    record['deviceName'] ?? record['device_name'] ?? '',
                 'timestamp': record['timestamp'] ?? 0,
                 'created_at': DateTime.now().millisecondsSinceEpoch,
               }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -123,25 +132,31 @@ class DatabaseHelper {
         }
       });
 
-      await prefs.remove('records');
+      await prefs.remove('notification_records');
     } catch (_) {}
   }
 
   Future<void> insertNotification(Map<String, dynamic> record) async {
     final db = await database;
-    await db.insert('notifications', {
+    final dbMap = <String, dynamic>{
       'id': record['id'] ?? '',
       'title': record['title'] ?? '',
       'content': record['content'] ?? '',
-      'package_name': record['package_name'] ?? '',
-      'app_name': record['app_name'] ?? '',
-      'post_time': record['post_time'] ?? 0,
+      'sub_text': record['subText'] ?? record['sub_text'] ?? '',
+      'package_name': record['packageName'] ?? record['package_name'] ?? '',
+      'app_name': record['appName'] ?? record['app_name'] ?? '',
+      'post_time': record['postTime'] ?? record['post_time'] ?? 0,
       'time': record['time'] ?? '',
       'type': record['type'] ?? 'other',
-      'device_name': record['device_name'] ?? '',
+      'device_name': record['deviceName'] ?? record['device_name'] ?? '',
       'timestamp': record['timestamp'] ?? 0,
       'created_at': DateTime.now().millisecondsSinceEpoch,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    };
+    await db.insert(
+      'notifications',
+      dbMap,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<List<Map<String, dynamic>>> getNotifications({
@@ -208,9 +223,9 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getNotificationStats() async {
     final db = await database;
     return await db.rawQuery('''
-      SELECT type, app_name, COUNT(*) as count
+      SELECT type, app_name, package_name, COUNT(*) as count
       FROM notifications
-      GROUP BY type, app_name
+      GROUP BY type, app_name, package_name
       ORDER BY count DESC
       LIMIT 20
     ''');

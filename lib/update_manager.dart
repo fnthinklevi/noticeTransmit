@@ -1,8 +1,7 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
@@ -10,8 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-const platform = MethodChannel('com.fnthink.notice/notification');
+import 'services/platform_channel.dart';
 
 class AppUpdateManager {
   static const String _updateServerUrl = 'https://notice.fnthink.top';
@@ -31,8 +29,8 @@ class AppUpdateManager {
 
   bool _autoCheck = true;
   int _contentVersion = 0;
-  String _currentVersion = '1.5.32';
-  int _currentBuild = 66;
+  String _currentVersion = '1.5.33';
+  int _currentBuild = 67;
   String? _lastError;
 
   String get serverUrl => _updateServerUrl;
@@ -51,18 +49,20 @@ class AppUpdateManager {
     if (Platform.isAndroid) {
       try {
         debugPrint('Calling getAppVersion method channel...');
-        final result = await platform.invokeMethod('getAppVersion');
+        final result = await AppChannels.notification.invokeMethod(
+          'getAppVersion',
+        );
         debugPrint(
           'getAppVersion result: $result, type: ${result.runtimeType}',
         );
         if (result is Map) {
-          _currentVersion = result['versionName']?.toString() ?? '1.5.32';
+          _currentVersion = result['versionName']?.toString() ?? '1.5.33';
           _currentBuild =
-              int.tryParse(result['versionCode']?.toString() ?? '66') ?? 66;
+              int.tryParse(result['versionCode']?.toString() ?? '67') ?? 67;
         } else {
           debugPrint('Result is not a Map, using default values');
-          _currentVersion = '1.5.32';
-          _currentBuild = 66;
+          _currentVersion = '1.5.33';
+          _currentBuild = 67;
         }
         debugPrint(
           'Version from native: $_currentVersion build $_currentBuild',
@@ -70,12 +70,12 @@ class AppUpdateManager {
       } catch (e, stack) {
         debugPrint('Failed to get version from native: $e');
         debugPrint('Stack trace: $stack');
-        _currentVersion = '1.5.32';
-        _currentBuild = 66;
+        _currentVersion = '1.5.33';
+        _currentBuild = 67;
       }
     } else {
-      _currentVersion = '1.5.32';
-      _currentBuild = 66;
+      _currentVersion = '1.5.33';
+      _currentBuild = 67;
     }
   }
 
@@ -192,7 +192,8 @@ class AppUpdateManager {
     if (Platform.isAndroid) {
       try {
         downloadDirPath =
-            await platform.invokeMethod('getDownloadDirectory') as String;
+            await AppChannels.notification.invokeMethod('getDownloadDirectory')
+                as String;
       } catch (e) {
         downloadDirPath = '/storage/emulated/0/Download/fnthink.notice';
       }

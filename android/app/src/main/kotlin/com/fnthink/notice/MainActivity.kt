@@ -310,6 +310,11 @@ class MainActivity : FlutterActivity() {
                 "getCachedInstalledApps" -> {
                     result.success(getCachedInstalledApps())
                 }
+                "saveInstalledAppsCache" -> {
+                    val apps = call.argument<List<Map<String, Any?>>>("apps") ?: emptyList()
+                    saveInstalledAppsCache(apps)
+                    result.success(true)
+                }
                 "canQueryAllPackages" -> {
                     result.success(canQueryAllPackages())
                 }
@@ -352,6 +357,10 @@ class MainActivity : FlutterActivity() {
                 "requestPhonePermission" -> {
                     requestPhonePermission()
                     result.success(true)
+                }
+                "getAppNameByPackage" -> {
+                    val packageName = call.argument<String>("packageName") ?: ""
+                    result.success(getAppNameByPackage(packageName))
                 }
                 else -> {
                     result.notImplemented()
@@ -534,6 +543,16 @@ class MainActivity : FlutterActivity() {
         return list
     }
 
+    private fun getAppNameByPackage(packageName: String): String {
+        return try {
+            val pm = packageManager
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(appInfo).toString()
+        } catch (e: Exception) {
+            packageName
+        }
+    }
+
     private fun canQueryAllPackages(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
@@ -705,7 +724,15 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun isNotificationListenerPermissionGranted(): Boolean {
-        return NotificationMonitorService.isConnected
+        return try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val method = android.app.NotificationManager::class.java.getMethod("getEnabledListenerPackages")
+            @Suppress("UNCHECKED_CAST")
+            val enabledListeners = method.invoke(notificationManager) as List<String>
+            enabledListeners.contains(packageName)
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun requestNotificationListenerPermission() {

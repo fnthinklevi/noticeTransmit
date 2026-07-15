@@ -1,10 +1,11 @@
-import 'dart:convert';
-import 'package:flutter/services.dart';
+﻿import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notification_rule.dart';
+import 'platform_channel.dart';
 
 class FilterService {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   Set<String> _enabledPackages = {};
   List<String> _blacklistKeywords = [];
@@ -18,16 +19,18 @@ class FilterService {
 
   bool evaluateRule(NotificationRule rule, Map<String, dynamic> notification) {
     if (!rule.enabled) return false;
+    if (rule.conditions.isEmpty) return false;
 
     final packageName = notification['packageName'] as String? ?? '';
     final title = notification['title'] as String? ?? '';
     final content = notification['content'] as String? ?? '';
     final time = notification['time'] as String? ?? '';
 
-    bool result = rule.conditions.isEmpty;
+    List<bool> andGroups = [];
+    bool currentGroupResult = true;
+    bool isFirstCondition = true;
 
-    for (var i = 0; i < rule.conditions.length; i++) {
-      final condition = rule.conditions[i];
+    for (final condition in rule.conditions) {
       bool conditionMatch = false;
 
       switch (condition.type) {
@@ -72,18 +75,20 @@ class FilterService {
           break;
       }
 
-      if (i == 0) {
-        result = conditionMatch;
+      if (isFirstCondition) {
+        currentGroupResult = conditionMatch;
+        isFirstCondition = false;
+      } else if (condition.logic == LogicOperator.and) {
+        currentGroupResult = currentGroupResult && conditionMatch;
       } else {
-        if (condition.logic == LogicOperator.and) {
-          result = result && conditionMatch;
-        } else {
-          result = result || conditionMatch;
-        }
+        andGroups.add(currentGroupResult);
+        currentGroupResult = conditionMatch;
       }
     }
 
-    return result;
+    andGroups.add(currentGroupResult);
+
+    return andGroups.any((g) => g);
   }
 
   List<RuleAction> getMatchingActions(Map<String, dynamic> notification) {
@@ -169,7 +174,7 @@ class FilterService {
     final prefs = await SharedPreferences.getInstance();
 
     try {
-      final List<dynamic> enabledPkgs = await platform.invokeMethod(
+      final List<dynamic> enabledPkgs = await _channel.invokeMethod(
         'getEnabledPackages',
       );
       _enabledPackages = Set<String>.from(enabledPkgs.map((e) => e.toString()));
@@ -184,7 +189,7 @@ class FilterService {
     }
 
     try {
-      final List<dynamic> blacklist = await platform.invokeMethod(
+      final List<dynamic> blacklist = await _channel.invokeMethod(
         'getBlacklistKeywords',
       );
       _blacklistKeywords = blacklist.map((e) => e.toString()).toList();
@@ -199,7 +204,7 @@ class FilterService {
     }
 
     try {
-      final List<dynamic> whitelist = await platform.invokeMethod(
+      final List<dynamic> whitelist = await _channel.invokeMethod(
         'getWhitelistKeywords',
       );
       _whitelistKeywords = whitelist.map((e) => e.toString()).toList();
@@ -223,9 +228,9 @@ class FilterService {
     await prefs.setString('enabled_packages', jsonEncode(packages));
 
     try {
-      await platform.invokeMethod('setEnabledPackages', {'packages': packages});
+      await _channel.invokeMethod('setEnabledPackages', {'packages': packages});
     } catch (e) {
-      // ignore
+      debugPrint('FilterService: 保存启用包失败: $e');
     }
   }
 
@@ -236,11 +241,11 @@ class FilterService {
     await prefs.setString('blacklist_keywords', jsonEncode(keywords));
 
     try {
-      await platform.invokeMethod('setBlacklistKeywords', {
+      await _channel.invokeMethod('setBlacklistKeywords', {
         'keywords': keywords,
       });
     } catch (e) {
-      // ignore
+      debugPrint('FilterService: 保存黑名单失败: $e');
     }
   }
 
@@ -251,11 +256,11 @@ class FilterService {
     await prefs.setString('whitelist_keywords', jsonEncode(keywords));
 
     try {
-      await platform.invokeMethod('setWhitelistKeywords', {
+      await _channel.invokeMethod('setWhitelistKeywords', {
         'keywords': keywords,
       });
     } catch (e) {
-      // ignore
+      debugPrint('FilterService: 保存白名单失败: $e');
     }
   }
 
@@ -269,11 +274,11 @@ class FilterService {
     );
 
     try {
-      await platform.invokeMethod('setNotificationRules', {
+      await _channel.invokeMethod('setNotificationRules', {
         'rules': rules.map((r) => r.toMap()).toList(),
       });
     } catch (e) {
-      // ignore
+      debugPrint('FilterService: 保存通知规则失败: $e');
     }
   }
 

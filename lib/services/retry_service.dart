@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -129,8 +129,12 @@ class RetryService {
     if (_isRunning) return;
     _isRunning = true;
 
-    _retryTimer = Timer.periodic(const Duration(minutes: 2), (_) async {
-      await retryAllPending();
+    _retryTimer = Timer.periodic(const Duration(minutes: 2), (timer) async {
+      if (_isRunning) {
+        await retryAllPending();
+      } else {
+        timer.cancel();
+      }
     });
   }
 

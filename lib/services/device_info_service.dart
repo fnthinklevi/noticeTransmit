@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'platform_channel.dart';
 
 class DeviceInfoService {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   String _deviceName = '';
   String _deviceModel = '';
@@ -18,7 +18,7 @@ class DeviceInfoService {
 
     try {
       final nativeDeviceName =
-          await platform.invokeMethod('getDeviceName') as String?;
+          await _channel.invokeMethod('getDeviceName') as String?;
       if (nativeDeviceName != null && nativeDeviceName.isNotEmpty) {
         _deviceName = nativeDeviceName;
         await prefs.setString('device_name', nativeDeviceName);
@@ -28,8 +28,8 @@ class DeviceInfoService {
     }
 
     try {
-      _deviceModel = await platform.invokeMethod('getDeviceModel') ?? '';
-      _manufacturer = await platform.invokeMethod('getManufacturer') ?? '';
+      _deviceModel = await _channel.invokeMethod('getDeviceModel') ?? '';
+      _manufacturer = await _channel.invokeMethod('getManufacturer') ?? '';
     } catch (e) {
       debugPrint('获取设备信息失败: $e');
     }
@@ -41,7 +41,7 @@ class DeviceInfoService {
     _deviceName = name;
 
     try {
-      await platform.invokeMethod('setDeviceName', {'name': name});
+      await _channel.invokeMethod('setDeviceName', {'name': name});
     } catch (_) {}
   }
 }

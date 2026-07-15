@@ -1,9 +1,10 @@
-import 'dart:convert';
-import 'package:flutter/services.dart';
+﻿import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'platform_channel.dart';
 
 class WebhookService {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   List<Map<String, dynamic>> _channels = [];
 
@@ -15,7 +16,7 @@ class WebhookService {
     bool loadedFromNative = false;
 
     try {
-      final List<dynamic> result = await platform.invokeMethod(
+      final List<dynamic> result = await _channel.invokeMethod(
         'getWebhookChannels',
       );
       channels = result.map((e) => Map<String, dynamic>.from(e)).toList();
@@ -64,9 +65,9 @@ class WebhookService {
     await prefs.setString('webhook_channels', jsonEncode(channels));
 
     try {
-      await platform.invokeMethod('setWebhookChannels', {'channels': channels});
+      await _channel.invokeMethod('setWebhookChannels', {'channels': channels});
     } catch (e) {
-      // ignore
+      debugPrint('WebhookService: 保存通道失败: $e');
     }
 
     _channels = channels;
@@ -81,9 +82,9 @@ class WebhookService {
 
     if (enabledUrls.isNotEmpty) {
       try {
-        await platform.invokeMethod('setWebhookUrls', {'urls': enabledUrls});
+        await _channel.invokeMethod('setWebhookUrls', {'urls': enabledUrls});
       } catch (e) {
-        // ignore
+        debugPrint('WebhookService: 同步启用URL失败: $e');
       }
     }
   }

@@ -1,14 +1,14 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
+import 'platform_channel.dart';
 
 class NotificationService {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
   static const int _maxRecords = 500;
 
   final List<NotificationRecord> _records = [];
@@ -27,7 +27,7 @@ class NotificationService {
     }
 
     try {
-      final List<dynamic> result = await platform.invokeMethod(
+      final List<dynamic> result = await _channel.invokeMethod(
         'getNotificationRecords',
       );
       _records.clear();
@@ -61,23 +61,24 @@ class NotificationService {
         prefs.getBool('service_manually_stopped') ?? false;
     try {
       _serviceRunning =
-          await platform.invokeMethod('isServiceRunning') as bool? ?? false;
+          await _channel.invokeMethod('isServiceRunning') as bool? ?? false;
     } catch (e) {
       _serviceRunning = false;
     }
   }
 
   void addRecord(Map<String, dynamic> record) {
-    _records.insert(0, NotificationRecord.fromMap(record));
+    final notificationRecord = NotificationRecord.fromMap(record);
+    _records.insert(0, notificationRecord);
     if (_records.length > _maxRecords) {
       _records.removeRange(_maxRecords, _records.length);
     }
-    _saveRecords(record);
+    _saveRecords(notificationRecord.toMap());
   }
 
   Future<void> clearRecords() async {
     try {
-      await platform.invokeMethod('clearNotificationRecords');
+      await _channel.invokeMethod('clearNotificationRecords');
     } catch (e) {
       // ignore
     }
@@ -131,7 +132,7 @@ class NotificationService {
 
   Future<bool> startService() async {
     try {
-      await platform.invokeMethod('startNotificationListener');
+      await _channel.invokeMethod('startNotificationListener');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('service_manually_stopped', false);
       _serviceRunning = true;
@@ -145,7 +146,7 @@ class NotificationService {
 
   Future<bool> stopService() async {
     try {
-      await platform.invokeMethod('stopNotificationListener');
+      await _channel.invokeMethod('stopNotificationListener');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('service_manually_stopped', true);
       _serviceRunning = false;

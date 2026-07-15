@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 enum WebhookChannelType { generic, wechatWork, dingtalk, feishu }
@@ -47,11 +47,15 @@ class WebhookChannel {
   });
 
   static WebhookChannelType detectTypeFromUrl(String url) {
-    if (url.contains('qyapi.weixin.qq.com') || url.contains('weixin.qq.com')) {
+    final lowerUrl = url.toLowerCase();
+    if (lowerUrl.contains('qyapi.weixin.qq.com') ||
+        lowerUrl.contains('weixin.qq.com')) {
       return WebhookChannelType.wechatWork;
-    } else if (url.contains('oapi.dingtalk.com') || url.contains('dingtalk')) {
+    } else if (lowerUrl.contains('oapi.dingtalk.com') ||
+        lowerUrl.contains('dingtalk')) {
       return WebhookChannelType.dingtalk;
-    } else if (url.contains('feishu.cn') || url.contains('larksuite.com')) {
+    } else if (lowerUrl.contains('feishu.cn') ||
+        lowerUrl.contains('larksuite.com')) {
       return WebhookChannelType.feishu;
     }
     return WebhookChannelType.generic;

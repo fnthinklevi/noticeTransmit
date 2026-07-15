@@ -1,16 +1,18 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'platform_channel.dart';
 
 class BatteryService {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   bool _notifyEnabled = true;
   List<Map<String, dynamic>> _rules = [];
   int _currentLevel = -1;
   bool _currentIsCharging = false;
   Timer? _refreshTimer;
+  bool _isDisposed = false;
 
   bool get notifyEnabled => _notifyEnabled;
   List<Map<String, dynamic>> get rules => _rules;
@@ -30,12 +32,12 @@ class BatteryService {
     _notifyEnabled = value;
 
     try {
-      await platform.invokeMethod('setBatterySetting', {
+      await _channel.invokeMethod('setBatterySetting', {
         'key': 'battery_notify_enabled',
         'value': value,
       });
     } catch (e) {
-      // ignore
+      debugPrint('BatteryService: 设置推送开关失败: $e');
     }
   }
 
@@ -72,9 +74,9 @@ class BatteryService {
     await prefs.setString('battery_rules', jsonEncode(_rules));
 
     try {
-      await platform.invokeMethod('setBatteryRules', {'rules': _rules});
+      await _channel.invokeMethod('setBatteryRules', {'rules': _rules});
     } catch (e) {
-      // ignore
+      debugPrint('BatteryService: 规则同步失败: $e');
     }
   }
 
@@ -136,11 +138,11 @@ class BatteryService {
 
   Future<void> refreshStatus() async {
     try {
-      final result = await platform.invokeMethod('getBatteryStatus');
+      final result = await _channel.invokeMethod('getBatteryStatus');
       _currentLevel = result['level'] ?? -1;
       _currentIsCharging = result['isCharging'] ?? false;
     } catch (e) {
-      // ignore
+      debugPrint('BatteryService: 获取电池状态失败: $e');
     }
   }
 
@@ -152,12 +154,21 @@ class BatteryService {
   void startRefreshTimer() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      refreshStatus();
+      if (!_isDisposed) {
+        refreshStatus();
+      } else {
+        timer.cancel();
+      }
     });
   }
 
   void stopRefreshTimer() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
+  }
+
+  void dispose() {
+    _isDisposed = true;
+    stopRefreshTimer();
   }
 }

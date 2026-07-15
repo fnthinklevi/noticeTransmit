@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.32",
-  "latestVersion": "1.5.32",
-  "latestBuild": 66,
-  "forceUpdate": true,
+  "appName": "notice1.5.33",
+  "latestVersion": "1.5.33",
+  "latestBuild": 67,
+  "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【紧急修复 - 推送服务问题】\n• 移除FlutterForegroundTask依赖，消除状态栏双通知冲突\n• 修复首页点击「已停止」图标无响应问题\n• 修复MainActivity.onResume停止监听服务导致不推送通知的问题\n• 修复服务停止方式，改用setComponentEnabledSetting正确管理生命周期\n\n【权限申请优化】\n• 通知访问权限和允许通知权限（POST_NOTIFICATIONS）分开申请\n• 权限申请后返回页面自动刷新权限状态显示\n• 首次打开应用时弹窗引导开启必要权限\n• 非必要权限（短信、电话、应用列表）增加详细用途说明\n\n【在线更新优化】\n• 安装包存储路径改为Download/fnthink.notice目录\n• 下载前检测存储权限，未授予时引导用户开启\n• 安装后5分钟自动删除安装包，同时清理旧安装包",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.32.apk",
-  "fileSize": 23030212,
+  "changelog": "【设置状态实时更新】\n• 修复深色模式切换后界面不立即刷新的问题\n• 修复权限设置页面状态不实时更新的问题\n• 权限设置页返回时自动刷新权限状态\n\n【权限申请优化】\n• 短信、电话权限改为弹窗直接申请，不再跳转系统设置\n• 使用permission_handler库统一管理权限请求\n• 权限请求结果实时反馈到UI\n\n【推送统计优化】\n• 修复推送统计中软件名显示为「未知」的问题\n• 新增包名到应用名的映射查询\n• 统计数据包含完整的包名信息，用于应用名解析\n\n【通知权限判断优化】\n• 修复通知访问权限判断不准确的问题\n• 改用系统API直接检查权限是否授予，而非检查服务连接状态\n• 解决关闭后台后权限状态显示错误的问题\n\n【规则引擎优化】\n• 规则引擎支持运算符优先级（AND优先于OR）\n• 空条件规则返回不匹配，行为更明确\n\n【Timer生命周期保护】\n• BatteryService添加_isDisposed标志，防止Timer回调持有无效引用\n• 所有Timer回调中检查服务生命周期状态\n\n【滑动组件优化】\n• 使用Flutter内置Dismissible替代自定义Slideable组件\n• 解决滑动删除与列表滚动冲突问题\n\n【异常日志完善】\n• 多个Service文件添加debugPrint日志输出\n• MethodChannel调用失败时不再静默吞掉异常\n\n【版本号同步】\n• update_manager.dart默认版本号与pubspec.yaml保持一致\n• 修复MethodChannel调用失败时显示错误版本号的问题\n\n【依赖注入优化】\n• 移除splash_page.dart中重复的setupLocator()调用\n• 统一在main.dart中初始化依赖注入\n\n【飞书域名支持】\n• 添加larksuite.com域名匹配，支持飞书开放平台两个域名\n• 域名匹配转为小写比较，提高兼容性",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.33.apk",
+  "fileSize": 23030216,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

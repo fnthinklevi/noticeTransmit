@@ -1,4 +1,4 @@
-class NotificationRecord {
+﻿class NotificationRecord {
   final String id;
   final String title;
   final String content;

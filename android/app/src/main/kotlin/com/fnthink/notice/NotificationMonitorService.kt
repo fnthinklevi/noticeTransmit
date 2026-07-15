@@ -48,8 +48,14 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender = WebhookSender(this)
         configManager = ConfigManager(this)
 
+        batteryMonitor.setNotificationCallback { batteryInfo ->
+            webhookSender.sendNotification(batteryInfo)
+            Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
+        }
+
         loadConfig()
         startBatteryMonitoring()
+        batteryMonitor.startPolling()
         createNotificationChannel()
         startForegroundService()
     }
@@ -85,6 +91,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 unregisterReceiver(it)
             } catch (_: Exception) {}
         }
+        batteryMonitor.stopPolling()
         webhookSender.destroy()
         Log.i(TAG, "Service destroyed")
     }
