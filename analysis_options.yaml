@@ -6,3 +6,8 @@ linter:
     prefer_final_fields: true
     prefer_const_constructors: true
     prefer_const_literals_to_create_immutables: true
+    avoid_unnecessary_containers: true
+    avoid_empty_else: true
+    prefer_const_declarations: true
+    require_trailing_commas: true
+    avoid_web_libraries_in_flutter: true

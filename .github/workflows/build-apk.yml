@@ -35,17 +35,7 @@ jobs:
         run: dart format --set-exit-if-changed lib/
 
       - name: Run unit tests
-        run: |
-          set +e
-          flutter test --no-pub > test_output.log 2>&1
-          EXIT_CODE=$?
-          set -e
-          cat test_output.log
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "❌ 测试失败，CI失败"
-            exit 1
-          fi
-          echo "✅ 所有测试通过"
+        run: flutter test --no-pub
 
       - name: Run Android unit tests
         run: |

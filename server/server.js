@@ -11,8 +11,10 @@ const QRCode = require('qrcode');
 const app = express();
 const PORT = process.env.PORT || 3456;
 
+app.set('trust proxy', 1);
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 const rateLimitStore = {};
@@ -66,13 +68,7 @@ const authRateLimiter = createRateLimitMiddleware(
 );
 
 function getClientIp(req) {
-  const ip = req.headers['x-forwarded-for'] ||
-             req.headers['x-real-ip'] ||
-             req.connection?.remoteAddress ||
-             req.socket?.remoteAddress ||
-             req.connection?.socket?.remoteAddress ||
-             'unknown';
-  return ip.split(',')[0].trim();
+  return req.ip || 'unknown';
 }
 
 function cleanupRateLimitStore() {
@@ -313,19 +309,30 @@ const totpConfig = readJsonFile(TOTP_FILE, {
 });
 
 function getTotpConfig() {
-  return readJsonFile(TOTP_FILE, { enabled: false, secret: '', recoveryCodes: [] });
+  const config = readJsonFile(TOTP_FILE, { enabled: false, secret: '', recoveryCodes: [] });
+  if (config.secret && typeof config.secret !== 'string') {
+    config.secret = decryptSecret(config.secret);
+  }
+  return config;
 }
 
 function saveTotpConfig(config) {
-  return writeJsonFile(TOTP_FILE, config);
+  const saveConfig = { ...config };
+  if (saveConfig.secret) {
+    saveConfig.secret = encryptSecret(saveConfig.secret);
+  }
+  return writeJsonFile(TOTP_FILE, saveConfig);
 }
 
-function generateRecoveryCodes() {
+async function generateRecoveryCodes() {
   const codes = [];
+  const hashedCodes = [];
   for (let i = 0; i < 8; i++) {
-    codes.push(Math.random().toString(36).substring(2, 10).toUpperCase());
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+    codes.push(code);
+    hashedCodes.push(await bcrypt.hash(code, 10));
   }
-  return codes;
+  return { plain: codes, hashed: hashedCodes };
 }
 
 function compareVersions(v1, v2) {
@@ -437,11 +444,14 @@ app.post('/api/admin/login', async (req, res) => {
   if (otp) {
     isValid = authenticator.verify({ token: otp, secret: config.secret });
   } else if (recoveryCode && config.recoveryCodes) {
-    const codeIndex = config.recoveryCodes.indexOf(recoveryCode);
-    if (codeIndex !== -1) {
-      isValid = true;
-      config.recoveryCodes.splice(codeIndex, 1);
-      saveTotpConfig(config);
+    for (let i = 0; i < config.recoveryCodes.length; i++) {
+      const hashedCode = config.recoveryCodes[i];
+      if (await bcrypt.compare(recoveryCode, hashedCode)) {
+        isValid = true;
+        config.recoveryCodes.splice(i, 1);
+        saveTotpConfig(config);
+        break;
+      }
     }
   }
 
@@ -521,7 +531,7 @@ app.get('/api/admin/totp/setup', authMiddleware, (req, res) => {
   });
 });
 
-app.post('/api/admin/totp/enable', authMiddleware, (req, res) => {
+app.post('/api/admin/totp/enable', authMiddleware, async (req, res) => {
   const { secret, otp } = req.body;
 
   if (!secret || !otp) {
@@ -533,11 +543,11 @@ app.post('/api/admin/totp/enable', authMiddleware, (req, res) => {
     return res.status(400).json({ code: -1, message: '验证码错误' });
   }
 
-  const recoveryCodes = generateRecoveryCodes();
+  const { plain: recoveryCodes, hashed: hashedCodes } = await generateRecoveryCodes();
   const config = {
     enabled: true,
     secret,
-    recoveryCodes
+    recoveryCodes: hashedCodes
   };
 
   saveTotpConfig(config);
@@ -552,7 +562,7 @@ app.post('/api/admin/totp/enable', authMiddleware, (req, res) => {
   });
 });
 
-app.post('/api/admin/totp/disable', authMiddleware, (req, res) => {
+app.post('/api/admin/totp/disable', authMiddleware, async (req, res) => {
   const { otp, recoveryCode } = req.body;
   const config = getTotpConfig();
 
@@ -564,7 +574,12 @@ app.post('/api/admin/totp/disable', authMiddleware, (req, res) => {
   if (otp) {
     isValid = authenticator.verify({ token: otp, secret: config.secret });
   } else if (recoveryCode && config.recoveryCodes) {
-    isValid = config.recoveryCodes.includes(recoveryCode);
+    for (const hashedCode of config.recoveryCodes) {
+      if (await bcrypt.compare(recoveryCode, hashedCode)) {
+        isValid = true;
+        break;
+      }
+    }
   }
 
   if (!isValid) {
@@ -592,7 +607,7 @@ app.get('/api/admin/totp/status', authMiddleware, (req, res) => {
   });
 });
 
-app.post('/api/admin/totp/regenerate-recovery', authMiddleware, (req, res) => {
+app.post('/api/admin/totp/regenerate-recovery', authMiddleware, async (req, res) => {
   const { otp } = req.body;
   const config = getTotpConfig();
 
@@ -604,8 +619,8 @@ app.post('/api/admin/totp/regenerate-recovery', authMiddleware, (req, res) => {
     return res.status(400).json({ code: -1, message: '验证码错误' });
   }
 
-  const recoveryCodes = generateRecoveryCodes();
-  config.recoveryCodes = recoveryCodes;
+  const { plain: recoveryCodes, hashed: hashedCodes } = await generateRecoveryCodes();
+  config.recoveryCodes = hashedCodes;
   saveTotpConfig(config);
 
   res.json({
@@ -730,6 +745,15 @@ app.post('/api/admin/hotfix', authMiddleware, (req, res) => {
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    code: -5,
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 app.listen(PORT, () => {

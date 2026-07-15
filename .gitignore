@@ -53,3 +53,17 @@ app.*.map.json
 # Signing keys
 *.jks
 *.keystore
+android/key.jks
+android/app/key.jks
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Server runtime data
+server/data/blocked_ips.json
+server/data/failed_attempts.json
+
+# Gradle build artifacts
+install_dir/
