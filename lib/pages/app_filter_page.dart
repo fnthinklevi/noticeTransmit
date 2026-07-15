@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
@@ -464,11 +464,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.info_outline,
-                  color: AppColors.blue,
-                  size: 18,
-                ),
+                const Icon(Icons.info_outline, color: AppColors.blue, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

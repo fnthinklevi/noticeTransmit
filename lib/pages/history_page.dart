@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../models/notification_record.dart';
@@ -163,9 +163,7 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.red,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.red),
             child: const Text('清空'),
           ),
         ],

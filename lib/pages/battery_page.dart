@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class Slideable extends StatefulWidget {
@@ -514,9 +514,7 @@ class _BatteryPageState extends State<BatteryPage> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: AppColors.blue,
-                          ),
+                          borderSide: const BorderSide(color: AppColors.blue),
                         ),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
@@ -593,14 +591,10 @@ class _BatteryPageState extends State<BatteryPage> {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: isSelected
-            ? AppColors.blue
-            : AppColors.inputBg(context),
+        color: isSelected ? AppColors.blue : AppColors.inputBg(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected
-              ? AppColors.blue
-              : AppColors.separator(context),
+          color: isSelected ? AppColors.blue : AppColors.separator(context),
         ),
       ),
       child: TextButton(
@@ -679,9 +673,7 @@ class _BatteryPageState extends State<BatteryPage> {
               ),
             ),
             TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.red,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.red),
               onPressed: () {
                 widget.onDeleteRule(id);
                 Navigator.pop(context);
