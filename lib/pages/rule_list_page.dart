@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notification_rule.dart';
@@ -165,7 +165,7 @@ class _RuleListPageState extends State<RuleListPage> {
                     '添加第一条规则',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Color(0xFF007AFF),
+                      color: AppColors.blue,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -512,7 +512,7 @@ class _RuleListPageState extends State<RuleListPage> {
       body: _buildRuleList(),
       floatingActionButton: FloatingActionButton(
         onPressed: _addRule,
-        backgroundColor: const Color(0xFF007AFF),
+        backgroundColor: AppColors.blue,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );

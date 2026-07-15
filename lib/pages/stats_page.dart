@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import 'package:get_it/get_it.dart';
@@ -82,7 +82,7 @@ class _StatsPageState extends State<StatsPage> {
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF007AFF),
+                    color: AppColors.blue,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -106,7 +106,7 @@ class _StatsPageState extends State<StatsPage> {
                   style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF34C759),
+                    color: AppColors.green,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -196,7 +196,7 @@ class _StatsPageState extends State<StatsPage> {
                                         .toDouble())
                                     .clamp(4.0, 80.0),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF007AFF),
+                              color: AppColors.blue,
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -358,10 +358,10 @@ class _StatsPageState extends State<StatsPage> {
     if (appName.isEmpty) return const Color(0xFF5856D6);
     final hash = appName.hashCode;
     final colors = [
-      const Color(0xFF007AFF),
+      AppColors.blue,
       const Color(0xFFFF9500),
-      const Color(0xFF34C759),
-      const Color(0xFFFF3B30),
+      AppColors.green,
+      AppColors.red,
       const Color(0xFFAF52DE),
       const Color(0xFF5856D6),
       const Color(0xFF00C7BE),

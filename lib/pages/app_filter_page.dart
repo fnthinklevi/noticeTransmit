@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
@@ -208,7 +208,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
               '完成',
               style: TextStyle(
                 fontSize: 16,
-                color: Color(0xFF007AFF),
+                color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -266,7 +266,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
               child: ElevatedButton(
                 onPressed: _requestPermission,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF007AFF),
+                  backgroundColor: AppColors.blue,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -399,15 +399,13 @@ class _AppFilterPageState extends State<AppFilterPage> {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF007AFF,
-                            ).withValues(alpha: 0.1),
+                            color: AppColors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
                             '全选',
                             style: TextStyle(
-                              color: Color(0xFF007AFF),
+                              color: AppColors.blue,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -460,7 +458,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF007AFF).withValues(alpha: 0.08),
+              color: AppColors.blue.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -468,7 +466,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
               children: [
                 const Icon(
                   Icons.info_outline,
-                  color: Color(0xFF007AFF),
+                  color: AppColors.blue,
                   size: 18,
                 ),
                 const SizedBox(width: 8),
@@ -479,7 +477,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
                         : '已选择 ${_selectedPackages.length} 个应用，仅这些应用的通知会被推送',
                     style: const TextStyle(
                       fontSize: 13,
-                      color: Color(0xFF007AFF),
+                      color: AppColors.blue,
                       height: 1.3,
                     ),
                   ),
@@ -492,7 +490,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
         Expanded(
           child: _loading
               ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF007AFF)),
+                  child: CircularProgressIndicator(color: AppColors.blue),
                 )
               : _filteredApps.isEmpty
               ? Center(
@@ -540,14 +538,12 @@ class _AppFilterPageState extends State<AppFilterPage> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF007AFF,
-                            ).withValues(alpha: 0.1),
+                            color: AppColors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
                             Icons.android,
-                            color: Color(0xFF007AFF),
+                            color: AppColors.blue,
                             size: 22,
                           ),
                         ),
@@ -570,7 +566,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
                               ? Icons.check_circle
                               : Icons.circle_outlined,
                           color: isSelected
-                              ? const Color(0xFF34C759)
+                              ? AppColors.green
                               : AppColors.tertiaryLabel(context),
                           size: 24,
                         ),

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -126,11 +126,11 @@ class _SplashPageState extends State<SplashPage>
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF),
+                  color: AppColors.blue,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                      color: AppColors.blue.withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -161,7 +161,7 @@ class _SplashPageState extends State<SplashPage>
                 height: 4,
                 child: LinearProgressIndicator(
                   backgroundColor: Colors.grey,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF007AFF)),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.blue),
                 ),
               ),
             ],

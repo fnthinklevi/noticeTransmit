@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class Slideable extends StatefulWidget {
@@ -100,10 +100,10 @@ class _BatteryPageState extends State<BatteryPage> {
   @override
   Widget build(BuildContext context) {
     final batteryColor = widget.currentLevel >= 50
-        ? const Color(0xFF34C759)
+        ? AppColors.green
         : widget.currentLevel >= 20
         ? const Color(0xFFFF9500)
-        : const Color(0xFFFF3B30);
+        : AppColors.red;
 
     return Scaffold(
       appBar: AppBar(
@@ -157,7 +157,7 @@ class _BatteryPageState extends State<BatteryPage> {
             _buildGroup([
               _buildSwitchRow(
                 icon: Icons.power_settings_new,
-                iconColor: const Color(0xFF007AFF),
+                iconColor: AppColors.blue,
                 title: '电量通知总开关',
                 subtitle: '开启后以下提醒才会生效',
                 value: widget.notifyEnabled,
@@ -218,7 +218,7 @@ class _BatteryPageState extends State<BatteryPage> {
     switch (type) {
       case 'charging':
         icon = Icons.battery_charging_full;
-        iconColor = const Color(0xFF34C759);
+        iconColor = AppColors.green;
         subtitle = '手机接入充电器时推送';
         break;
       case 'discharging':
@@ -228,12 +228,12 @@ class _BatteryPageState extends State<BatteryPage> {
         break;
       case 'level_above':
         icon = Icons.battery_full;
-        iconColor = const Color(0xFF007AFF);
+        iconColor = AppColors.blue;
         subtitle = '电量达到 $value% 时推送';
         break;
       case 'level_below':
         icon = Icons.battery_alert;
-        iconColor = const Color(0xFFFF3B30);
+        iconColor = AppColors.red;
         subtitle = '电量低于 $value% 时推送';
         break;
       case 'level_equals':
@@ -278,7 +278,7 @@ class _BatteryPageState extends State<BatteryPage> {
                   : null,
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
-                backgroundColor: const Color(0xFFFF3B30),
+                backgroundColor: AppColors.red,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 16,
@@ -461,7 +461,7 @@ class _BatteryPageState extends State<BatteryPage> {
                                 max: 100,
                                 divisions: 99,
                                 label: '$selectedValue%',
-                                activeColor: const Color(0xFF007AFF),
+                                activeColor: AppColors.blue,
                                 onChanged: (v) {
                                   setDialogState(() {
                                     selectedValue = v.round();
@@ -515,7 +515,7 @@ class _BatteryPageState extends State<BatteryPage> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                            color: Color(0xFF007AFF),
+                            color: AppColors.blue,
                           ),
                         ),
                         isDense: true,
@@ -568,7 +568,7 @@ class _BatteryPageState extends State<BatteryPage> {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF007AFF),
+                      color: AppColors.blue,
                     ),
                   ),
                 ),
@@ -594,12 +594,12 @@ class _BatteryPageState extends State<BatteryPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: isSelected
-            ? const Color(0xFF007AFF)
+            ? AppColors.blue
             : AppColors.inputBg(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isSelected
-              ? const Color(0xFF007AFF)
+              ? AppColors.blue
               : AppColors.separator(context),
         ),
       ),
@@ -680,7 +680,7 @@ class _BatteryPageState extends State<BatteryPage> {
             ),
             TextButton(
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFFF3B30),
+                foregroundColor: AppColors.red,
               ),
               onPressed: () {
                 widget.onDeleteRule(id);
@@ -691,7 +691,7 @@ class _BatteryPageState extends State<BatteryPage> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFFF3B30),
+                  color: AppColors.red,
                 ),
               ),
             ),

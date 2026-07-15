@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class AppThemeColors extends ThemeExtension<AppThemeColors> {
   final Color bgColor;
@@ -44,10 +44,10 @@ class AppThemeColors extends ThemeExtension<AppThemeColors> {
       secondaryLabel: Color(0xFF8E8E93),
       tertiaryLabel: Color(0xFFC7C7CC),
       inputBg: Color(0xFFF2F2F7),
-      systemBlue: Color(0xFF007AFF),
-      systemGreen: Color(0xFF34C759),
+      systemBlue: AppColors.blue,
+      systemGreen: AppColors.green,
       systemOrange: Color(0xFFFF9500),
-      systemRed: Color(0xFFFF3B30),
+      systemRed: AppColors.red,
       systemPurple: Color(0xFFAF52DE),
       systemCyan: Color(0xFF5AC8FA),
       systemYellow: Color(0xFFFFCC00),
@@ -164,4 +164,12 @@ class AppColors {
   static Color systemCyan(BuildContext context) => of(context).systemCyan;
   static Color systemYellow(BuildContext context) => of(context).systemYellow;
   static Color systemGray(BuildContext context) => of(context).systemGray;
+
+  static const Color blue = Color(0xFF007AFF);
+  static const Color green = Color(0xFF34C759);
+  static const Color red = Color(0xFFFF3B30);
+  static const Color orange = Color(0xFFFF9500);
+  static const Color purple = Color(0xFFAF52DE);
+  static const Color cyan = Color(0xFF5AC8FA);
+  static const Color yellow = Color(0xFFFFCC00);
 }

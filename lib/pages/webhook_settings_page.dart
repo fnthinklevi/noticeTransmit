@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
@@ -177,14 +177,14 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                     Icon(
                       Icons.add_circle_outline,
                       size: 20,
-                      color: Color(0xFF007AFF),
+                      color: AppColors.blue,
                     ),
                     SizedBox(width: 6),
                     Text(
                       '添加通道',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Color(0xFF007AFF),
+                        color: AppColors.blue,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -229,14 +229,14 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF007AFF).withValues(alpha: 0.1),
+                  color: AppColors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '通道 ${index + 1}',
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF007AFF),
+                    color: AppColors.blue,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -251,7 +251,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   icon: const Icon(
                     Icons.delete_outline,
                     size: 20,
-                    color: Color(0xFFFF3B30),
+                    color: AppColors.red,
                   ),
                   onPressed: () => _removeWebhookField(index),
                   padding: EdgeInsets.zero,
@@ -278,7 +278,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF007AFF)),
+                borderSide: const BorderSide(color: AppColors.blue),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
@@ -329,7 +329,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                     ),
                   ),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF007AFF),
+                    foregroundColor: AppColors.blue,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -345,8 +345,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: (_testSuccess ?? false)
-                    ? const Color(0xFF34C759).withValues(alpha: 0.1)
-                    : const Color(0xFFFF3B30).withValues(alpha: 0.1),
+                    ? AppColors.green.withValues(alpha: 0.1)
+                    : AppColors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -355,8 +355,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   Icon(
                     _testSuccess == true ? Icons.check_circle : Icons.error,
                     color: _testSuccess == true
-                        ? const Color(0xFF34C759)
-                        : const Color(0xFFFF3B30),
+                        ? AppColors.green
+                        : AppColors.red,
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -366,8 +366,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                       style: TextStyle(
                         fontSize: 12,
                         color: _testSuccess == true
-                            ? const Color(0xFF34C759)
-                            : const Color(0xFFFF3B30),
+                            ? AppColors.green
+                            : AppColors.red,
                       ),
                     ),
                   ),
@@ -427,7 +427,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     } else if (url.contains('feishu.cn') || url.contains('larksuite.com')) {
       typeName = '飞书';
       icon = Icons.flight;
-      color = const Color(0xFF007AFF);
+      color = AppColors.blue;
       desc = '文本格式推送';
     } else if (url.isEmpty) {
       typeName = '待输入';

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class PermissionSettingsPage extends StatefulWidget {
@@ -349,10 +349,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               height: 30,
               decoration: BoxDecoration(
                 color: isOn
-                    ? const Color(0xFF34C759)
+                    ? AppColors.green
                     : isWarning
                     ? const Color(0xFFFF9500)
-                    : const Color(0xFF007AFF),
+                    : AppColors.blue,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 18, color: Colors.white),

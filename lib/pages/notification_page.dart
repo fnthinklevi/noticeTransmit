@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class NotificationPage extends StatelessWidget {
@@ -44,14 +44,14 @@ class NotificationPage extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: foregroundServiceRunning
-                        ? const Color(0xFF34C759)
-                        : const Color(0xFFFF3B30),
+                        ? AppColors.green
+                        : AppColors.red,
                     boxShadow: [
                       BoxShadow(
                         color:
                             (foregroundServiceRunning
-                                    ? const Color(0xFF34C759)
-                                    : const Color(0xFFFF3B30))
+                                    ? AppColors.green
+                                    : AppColors.red)
                                 .withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
@@ -97,7 +97,7 @@ class NotificationPage extends StatelessWidget {
             const SizedBox(height: 40),
             _buildQuickAction(
               icon: Icons.settings,
-              iconColor: const Color(0xFF007AFF),
+              iconColor: AppColors.blue,
               title: '权限设置',
               subtitle: '配置通知、电池、后台运行等权限',
               onTap: onOpenPermissionSettings,
@@ -106,7 +106,7 @@ class NotificationPage extends StatelessWidget {
             const SizedBox(height: 12),
             _buildQuickAction(
               icon: Icons.history,
-              iconColor: const Color(0xFF34C759),
+              iconColor: AppColors.green,
               title: '推送历史',
               subtitle: '共 $notificationCount 条记录',
               onTap: onOpenHistory,

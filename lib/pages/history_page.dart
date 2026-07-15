@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../models/notification_record.dart';
@@ -55,7 +55,7 @@ class _HistoryPageState extends State<HistoryPage> {
       case 'call_incoming':
       case 'call_answered':
       case 'call_ended':
-        return const Color(0xFF34C759);
+        return AppColors.green;
       case 'wechat':
         return const Color(0xFF07C160);
       case 'qq':
@@ -68,7 +68,7 @@ class _HistoryPageState extends State<HistoryPage> {
       case 'battery_full':
       case 'battery_low_30':
       case 'battery_low_20':
-        return const Color(0xFF007AFF);
+        return AppColors.blue;
       default:
         return const Color(0xFF5856D6);
     }
@@ -97,10 +97,10 @@ class _HistoryPageState extends State<HistoryPage> {
     if (appName.isEmpty) return const Color(0xFF5856D6);
     final hash = appName.hashCode;
     final colors = [
-      const Color(0xFF007AFF),
+      AppColors.blue,
       const Color(0xFFFF9500),
-      const Color(0xFF34C759),
-      const Color(0xFFFF3B30),
+      AppColors.green,
+      AppColors.red,
       const Color(0xFFAF52DE),
       const Color(0xFF5856D6),
       const Color(0xFF00C7BE),
@@ -164,7 +164,7 @@ class _HistoryPageState extends State<HistoryPage> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFFF3B30),
+              foregroundColor: AppColors.red,
             ),
             child: const Text('清空'),
           ),
@@ -184,7 +184,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('已导出到: $path'),
-          backgroundColor: const Color(0xFF34C759),
+          backgroundColor: AppColors.green,
           duration: const Duration(seconds: 5),
           behavior: SnackBarBehavior.floating,
         ),
@@ -194,7 +194,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('导出失败: $e'),
-          backgroundColor: const Color(0xFFFF3B30),
+          backgroundColor: AppColors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -256,7 +256,7 @@ class _HistoryPageState extends State<HistoryPage> {
             child: const Text(
               '关闭',
               style: TextStyle(
-                color: Color(0xFF007AFF),
+                color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),
             ),

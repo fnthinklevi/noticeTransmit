@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -151,7 +151,7 @@ class _MainPageState extends State<MainPage> {
             const Icon(
               Icons.notifications_active,
               size: 48,
-              color: Color(0xFF007AFF),
+              color: AppColors.blue,
             ),
             const SizedBox(height: 12),
             Text(
@@ -187,7 +187,7 @@ class _MainPageState extends State<MainPage> {
             child: const Text(
               '去设置',
               style: TextStyle(
-                color: Color(0xFF007AFF),
+                color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -363,7 +363,7 @@ class _MainPageState extends State<MainPage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF007AFF)),
+              borderSide: const BorderSide(color: AppColors.blue),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -378,7 +378,7 @@ class _MainPageState extends State<MainPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消', style: TextStyle(color: Color(0xFF007AFF))),
+            child: const Text('取消', style: TextStyle(color: AppColors.blue)),
           ),
           TextButton(
             onPressed: () {
@@ -392,7 +392,7 @@ class _MainPageState extends State<MainPage> {
             child: const Text(
               '保存',
               style: TextStyle(
-                color: Color(0xFF007AFF),
+                color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -487,7 +487,7 @@ class _MainPageState extends State<MainPage> {
             child: const Text(
               '好的',
               style: TextStyle(
-                color: Color(0xFF007AFF),
+                color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -538,7 +538,7 @@ class _MainPageState extends State<MainPage> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF3B30),
+                  color: AppColors.red,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
@@ -662,7 +662,7 @@ class _MainPageState extends State<MainPage> {
                   child: ElevatedButton(
                     onPressed: () => _startDownloadUpdate(result),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF007AFF),
+                      backgroundColor: AppColors.blue,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -700,7 +700,7 @@ class _MainPageState extends State<MainPage> {
                         onPressed: () => Navigator.pop(context),
                         child: const Text(
                           '稍后',
-                          style: TextStyle(color: Color(0xFF007AFF)),
+                          style: TextStyle(color: AppColors.blue),
                         ),
                       ),
                     ),
@@ -710,7 +710,7 @@ class _MainPageState extends State<MainPage> {
                         child: const Text(
                           '更新',
                           style: TextStyle(
-                            color: Color(0xFF007AFF),
+                            color: AppColors.blue,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -757,7 +757,7 @@ class _MainPageState extends State<MainPage> {
                     minHeight: 6,
                     backgroundColor: AppColors.separator(context),
                     valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFF007AFF),
+                      AppColors.blue,
                     ),
                   ),
                 ),
@@ -784,7 +784,7 @@ class _MainPageState extends State<MainPage> {
                   },
                   child: const Text(
                     '取消',
-                    style: TextStyle(color: Color(0xFFFF3B30)),
+                    style: TextStyle(color: AppColors.red),
                   ),
                 ),
               ],

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../services/update_service.dart';
 import '../theme/app_colors.dart';
@@ -61,7 +61,7 @@ class MorePage extends StatelessWidget {
           _buildGroup([
             _buildNavTile(
               icon: Icons.link,
-              iconColor: const Color(0xFF007AFF),
+              iconColor: AppColors.blue,
               title: 'Webhook 推送通道',
               subtitle: webhookChannels.isEmpty
                   ? '未配置'
@@ -104,7 +104,7 @@ class MorePage extends StatelessWidget {
           _buildGroup([
             _buildNavTile(
               icon: Icons.smartphone,
-              iconColor: const Color(0xFF34C759),
+              iconColor: AppColors.green,
               title: '设备名称',
               subtitle: deviceName.isEmpty ? '未设置' : deviceName,
               onTap: onShowDeviceNameDialog,
@@ -128,7 +128,7 @@ class MorePage extends StatelessWidget {
           _buildGroup([
             _buildNavTile(
               icon: Icons.update,
-              iconColor: const Color(0xFF007AFF),
+              iconColor: AppColors.blue,
               title: '检查更新',
               subtitle: isCheckingUpdate ? '正在检查...' : '点击检查新版本',
               trailing: isCheckingUpdate
@@ -144,7 +144,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.privacy_tip_outlined,
-              iconColor: const Color(0xFF34C759),
+              iconColor: AppColors.green,
               title: '隐私政策',
               subtitle: '数据采集与隐私保护说明',
               onTap: onOpenPrivacyPolicy,
@@ -273,7 +273,7 @@ class MorePage extends StatelessWidget {
                       style: TextStyle(color: AppColors.primaryLabel(context)),
                     ),
                     trailing: themeMode == mode
-                        ? const Icon(Icons.check, color: Color(0xFF007AFF))
+                        ? const Icon(Icons.check, color: AppColors.blue)
                         : null,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                   ),

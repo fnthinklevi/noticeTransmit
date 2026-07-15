@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../models/notification_rule.dart';
 import '../theme/app_colors.dart';
@@ -136,7 +136,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF007AFF),
+                color: AppColors.blue,
               ),
             ),
           ),
@@ -336,7 +336,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF007AFF)),
+              borderSide: const BorderSide(color: AppColors.blue),
             ),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
@@ -701,7 +701,7 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF007AFF),
+              color: AppColors.blue,
             ),
           ),
         ),
@@ -800,7 +800,7 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF007AFF)),
+              borderSide: const BorderSide(color: AppColors.blue),
             ),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
@@ -916,7 +916,7 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF007AFF),
+              color: AppColors.blue,
             ),
           ),
         ),
@@ -1011,7 +1011,7 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF007AFF)),
+              borderSide: const BorderSide(color: AppColors.blue),
             ),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(
@@ -1146,7 +1146,7 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF007AFF),
+              color: AppColors.blue,
             ),
           ),
         ),
@@ -1272,7 +1272,7 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF007AFF),
+              color: AppColors.blue,
             ),
           ),
         ),
