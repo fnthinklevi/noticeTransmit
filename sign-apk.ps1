@@ -1,6 +1,6 @@
 $apkFile = "build\app\outputs\flutter-apk\app-release.apk"
-$signedFile = "build\app\outputs\flutter-apk\app-release-signed.apk"
-$finalFile = "build\app\outputs\flutter-apk\notice1.5.33.apk"
+$alignedFile = "build\app\outputs\flutter-apk\app-release-aligned.apk"
+$signedFile = "build\app\outputs\flutter-apk\notice1.5.33.apk"
 
 $keystoreFile = $env:KEYSTORE_FILE
 $keystorePassword = $env:KEYSTORE_PASSWORD
@@ -21,30 +21,53 @@ if (-not $keystoreFile -or -not $keystorePassword -or -not $keyAlias -or -not $k
 }
 
 if (-not $keystoreFile -or -not $keystorePassword -or -not $keyAlias -or -not $keyPassword) {
-    Write-Host "ERROR: Signing config not found! Set environment variables or create android/key.properties"
+    Write-Host "ERROR: Signing config not found!"
     exit 1
 }
 
-if (Test-Path $apkFile) {
-    Write-Host "Signing APK with keystore: $keystoreFile"
-    jarsigner -keystore $keystoreFile -storepass $keystorePassword -keypass $keyPassword -signedjar $signedFile $apkFile $keyAlias
-    
-    if (Test-Path $signedFile) {
-        Write-Host "Verifying signature..."
-        jarsigner -verify $signedFile
-        
-        Move-Item $signedFile $finalFile -Force
-        Remove-Item $apkFile
-        
-        $fileInfo = Get-Item $finalFile
-        Write-Host "`nAPK signed successfully!"
-        Write-Host "File: $finalFile"
-        Write-Host "Size: $($fileInfo.Length) bytes"
-    } else {
-        Write-Host "Signing failed!"
-        exit 1
-    }
-} else {
-    Write-Host "APK file not found: $apkFile"
+if (-not (Test-Path $apkFile)) {
+    Write-Host "ERROR: APK file not found: $apkFile"
     exit 1
 }
+
+$buildToolsVersions = Get-ChildItem "$env:USERPROFILE\Android\sdk\build-tools" -Directory -ErrorAction SilentlyContinue
+if (-not $buildToolsVersions) {
+    $buildToolsVersions = Get-ChildItem "D:\fnthinklevi\Android\sdk\build-tools" -Directory -ErrorAction SilentlyContinue
+}
+
+Write-Host "=== Step 1/3: Aligning APK ==="
+if ($buildToolsVersions) {
+    $latestVersion = $buildToolsVersions | Sort-Object Name -Descending | Select-Object -First 1
+    $zipalign = "$($latestVersion.FullName)\zipalign.exe"
+    if (Test-Path $zipalign) {
+        Write-Host "Using zipalign: $zipalign"
+        & $zipalign -f 4 $apkFile $alignedFile
+    } else {
+        Write-Host "WARNING: zipalign not found, using original APK"
+        Copy-Item $apkFile $alignedFile -Force
+    }
+} else {
+    Write-Host "WARNING: build-tools not found, using original APK"
+    Copy-Item $apkFile $alignedFile -Force
+}
+
+Write-Host "`n=== Step 2/3: Signing APK ==="
+Write-Host "Keystore: $keystoreFile"
+Write-Host "Alias: $keyAlias"
+jarsigner -keystore $keystoreFile -storepass $keystorePassword -keypass $keyPassword -signedjar $signedFile $alignedFile $keyAlias
+
+if (-not (Test-Path $signedFile)) {
+    Write-Host "ERROR: Signing failed!"
+    exit 1
+}
+
+Write-Host "`n=== Step 3/3: Verifying signature ==="
+jarsigner -verify $signedFile
+
+Remove-Item $apkFile -ErrorAction SilentlyContinue
+Remove-Item $alignedFile -ErrorAction SilentlyContinue
+
+$fileInfo = Get-Item $signedFile
+Write-Host "`n✅ APK signed successfully!"
+Write-Host "File: $signedFile"
+Write-Host "Size: $($fileInfo.Length) bytes"
