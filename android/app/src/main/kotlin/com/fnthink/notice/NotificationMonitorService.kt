@@ -44,6 +44,9 @@ class NotificationMonitorService : NotificationListenerService() {
         super.onCreate()
         Log.i(TAG, "Service created")
 
+        createNotificationChannel()
+        startForegroundService()
+
         notificationProcessor = NotificationProcessor(this)
         batteryMonitor = BatteryMonitor(this)
         webhookSender = WebhookSender(this)
@@ -57,8 +60,6 @@ class NotificationMonitorService : NotificationListenerService() {
         loadConfig()
         startBatteryMonitoring()
         batteryMonitor.startPolling()
-        createNotificationChannel()
-        startForegroundService()
     }
 
     override fun onListenerConnected() {

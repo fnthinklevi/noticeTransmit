@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 
 class PermissionSettingsPage extends StatefulWidget {
@@ -49,7 +51,40 @@ class PermissionSettingsPage extends StatefulWidget {
   State<PermissionSettingsPage> createState() => _PermissionSettingsPageState();
 }
 
-class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
+class _PermissionSettingsPageState extends State<PermissionSettingsPage>
+    with WidgetsBindingObserver {
+  final PermissionService _permissionService =
+      GetIt.instance<PermissionService>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.resumed) {
+      await _permissionService.checkAllPermissions();
+      if (mounted) setState(() {});
+    }
+  }
+
+  bool get _notificationListenerGranted =>
+      _permissionService.notificationListenerGranted;
+  bool get _postNotificationGranted =>
+      _permissionService.postNotificationGranted;
+  bool get _batteryOptimizationIgnored =>
+      _permissionService.batteryOptimizationIgnored;
+  bool get _smsPermissionGranted => _permissionService.smsGranted;
+  bool get _phonePermissionGranted => _permissionService.phoneGranted;
+  bool get _appListPermissionGranted => _permissionService.appListGranted;
   bool get _isXiaomi =>
       widget.manufacturer.toLowerCase().contains('xiaomi') ||
       widget.manufacturer.toLowerCase().contains('redmi') ||
@@ -96,9 +131,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               _buildPermissionTile(
                 icon: Icons.notifications_active,
                 title: '通知访问权限',
-                subtitle: widget.notificationListenerGranted ? '已开启' : '未开启',
-                isOn: widget.notificationListenerGranted,
-                onTap: widget.notificationListenerGranted
+                subtitle: _notificationListenerGranted ? '已开启' : '未开启',
+                isOn: _notificationListenerGranted,
+                onTap: _notificationListenerGranted
                     ? null
                     : widget.onRequestNotificationListenerPermission,
                 context: context,
@@ -107,9 +142,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               _buildPermissionTile(
                 icon: Icons.notification_add,
                 title: '允许通知',
-                subtitle: widget.postNotificationGranted ? '已开启' : '未开启',
-                isOn: widget.postNotificationGranted,
-                onTap: widget.postNotificationGranted
+                subtitle: _postNotificationGranted ? '已开启' : '未开启',
+                isOn: _postNotificationGranted,
+                onTap: _postNotificationGranted
                     ? null
                     : widget.onRequestPostNotificationPermission,
                 context: context,
@@ -118,9 +153,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               _buildPermissionTile(
                 icon: Icons.battery_full,
                 title: '忽略电池优化',
-                subtitle: widget.batteryOptimizationIgnored ? '已开启' : '未开启',
-                isOn: widget.batteryOptimizationIgnored,
-                onTap: widget.batteryOptimizationIgnored
+                subtitle: _batteryOptimizationIgnored ? '已开启' : '未开启',
+                isOn: _batteryOptimizationIgnored,
+                onTap: _batteryOptimizationIgnored
                     ? null
                     : widget.onRequestBatteryOptimization,
                 context: context,
@@ -214,9 +249,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               _buildPermissionTile(
                 icon: Icons.message,
                 title: '短信权限',
-                subtitle: widget.smsPermissionGranted ? '已开启' : '未开启',
-                isOn: widget.smsPermissionGranted,
-                onTap: widget.smsPermissionGranted
+                subtitle: _smsPermissionGranted ? '已开启' : '未开启',
+                isOn: _smsPermissionGranted,
+                onTap: _smsPermissionGranted
                     ? null
                     : widget.onRequestSmsPermission,
                 context: context,
@@ -235,9 +270,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               _buildPermissionTile(
                 icon: Icons.call,
                 title: '电话权限',
-                subtitle: widget.phonePermissionGranted ? '已开启' : '未开启',
-                isOn: widget.phonePermissionGranted,
-                onTap: widget.phonePermissionGranted
+                subtitle: _phonePermissionGranted ? '已开启' : '未开启',
+                isOn: _phonePermissionGranted,
+                onTap: _phonePermissionGranted
                     ? null
                     : widget.onRequestPhonePermission,
                 context: context,
@@ -256,9 +291,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage> {
               _buildPermissionTile(
                 icon: Icons.apps,
                 title: '应用列表权限',
-                subtitle: widget.appListPermissionGranted ? '已开启' : '未开启',
-                isOn: widget.appListPermissionGranted,
-                onTap: widget.appListPermissionGranted
+                subtitle: _appListPermissionGranted ? '已开启' : '未开启',
+                isOn: _appListPermissionGranted,
+                onTap: _appListPermissionGranted
                     ? null
                     : widget.onRequestAppListPermission,
                 context: context,

@@ -55,7 +55,6 @@ class _AppFilterPageState extends State<AppFilterPage> {
 
     if (hasPermission) {
       await _loadCachedApps();
-      _refreshAppsInBackground();
     }
 
     setState(() => _loading = false);
@@ -108,9 +107,9 @@ class _AppFilterPageState extends State<AppFilterPage> {
     }
   }
 
-  Future<void> _refreshAppsInBackground() async {
+  Future<void> _manualRefreshApps() async {
     if (_refreshing) return;
-    _refreshing = true;
+    setState(() => _refreshing = true);
 
     try {
       final List<dynamic> result = await platform.invokeMethod(
@@ -120,26 +119,19 @@ class _AppFilterPageState extends State<AppFilterPage> {
 
       if (!mounted) return;
 
-      final existingPackages = _allApps
-          .map((e) => e['packageName'] as String)
-          .toSet();
-      final newPackages = newApps
-          .map((e) => e['packageName'] as String)
-          .toSet();
-      final hasChanges =
-          !existingPackages.containsAll(newPackages) ||
-          existingPackages.length != newPackages.length;
-
-      if (hasChanges) {
-        setState(() {
-          _allApps = newApps;
-          _filterApps();
-        });
-      }
+      setState(() {
+        _allApps = newApps;
+        _filterApps();
+      });
     } catch (e) {
       debugPrint('刷新应用列表失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('刷新失败：$e')));
+      }
     } finally {
-      _refreshing = false;
+      setState(() => _refreshing = false);
     }
   }
 
@@ -202,6 +194,20 @@ class _AppFilterPageState extends State<AppFilterPage> {
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         actions: [
+          IconButton(
+            icon: _refreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.blue,
+                    ),
+                  )
+                : const Icon(Icons.refresh, color: AppColors.blue),
+            onPressed: _refreshing ? null : _manualRefreshApps,
+            tooltip: '更新软件列表',
+          ),
           TextButton(
             onPressed: _saveAndBack,
             child: const Text(

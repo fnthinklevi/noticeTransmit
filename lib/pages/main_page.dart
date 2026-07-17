@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -82,6 +82,7 @@ class _MainPageState extends State<MainPage> {
         themeMode: _themeService.themeMode,
         onThemeModeChanged: (mode) {
           _themeService.setThemeMode(mode);
+          setState(() {});
         },
         onOpenWebhookSettings: _openWebhookSettingsPage,
         onShowDeviceNameDialog: _showDeviceNameDialog,

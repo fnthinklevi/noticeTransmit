@@ -733,15 +733,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun isNotificationListenerPermissionGranted(): Boolean {
-        return try {
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            val method = android.app.NotificationManager::class.java.getMethod("getEnabledListenerPackages")
-            @Suppress("UNCHECKED_CAST")
-            val enabledListeners = method.invoke(notificationManager) as List<String>
-            enabledListeners.contains(packageName)
-        } catch (e: Exception) {
-            false
-        }
+        val flat = Settings.Secure.getString(
+            contentResolver,
+            "enabled_notification_listeners"
+        ) ?: ""
+        return flat.contains(packageName)
     }
 
     private fun requestNotificationListenerPermission() {
