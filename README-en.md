@@ -14,6 +14,8 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#license)
 
+🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
+
 </div>
 
 ## Introduction
