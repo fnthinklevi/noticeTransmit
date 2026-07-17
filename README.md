@@ -10,7 +10,7 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
 [![AGP](https://img.shields.io/badge/AGP-9.0.1-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://img.shields.io/badge/Gradle-9.1.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
+[![Gradle](https://img.shields.io/badge/Gradle-9.4.1-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 
@@ -59,16 +59,25 @@
 
 | 模块 | 技术 |
 |------|------|
-| 前端 | Flutter (Dart) |
+| 前端 | Flutter 3.44+ (Dart 3.12+) |
 | 状态管理 | get_it + Service 类 |
-| 依赖注入 | get_it |
-| 原生服务 | Kotlin (Android) |
+| 依赖注入 | get_it (^9.2.1) |
+| 本地数据库 | sqflite (SQLite) |
+| 键值存储 | shared_preferences |
+| 原生服务 | Kotlin 2.3.20 (Android) |
+| 网络请求 | http (Dart) / OkHttp 4.12.0 (Kotlin) |
 | 通知监听 | NotificationListenerService |
 | 后台保活 | Android 原生 Foreground Service + WakeLock + WifiLock |
-| 跨端通信 | MethodChannel |
-| 崩溃统计 | 腾讯 Bugly |
-| 服务端 | Node.js + Express (Token鉴权 + 二步验证) |
-| 数据存储 | SharedPreferences + SQLite |
+| 协程 | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
+| 跨端通信 | MethodChannel (统一声明) |
+| 崩溃统计 | 腾讯 Bugly 4.1.9.3 |
+| 服务端 | Node.js + Express 4.x (Token鉴权 + 二步验证) |
+| TOTP验证 | otplib (^12.0.1) |
+| 密码哈希 | bcryptjs (^2.4.3) |
+| 数据加密 | Node.js crypto (AES-256-GCM) |
+| 构建工具 | Gradle 9.4.1 + AGP 9.0.1 + JDK 21 |
+| CI/CD | GitHub Actions |
+| APK签名 | jarsigner + zipalign (V1+V2签名) |
 
 ## 权限说明
 
@@ -101,7 +110,7 @@ noticeTransmit/
 │   ├── pages/                    # 页面组件
 │   │   ├── splash_page.dart      # 开屏页
 │   │   └── privacy_policy_page.dart  # 隐私政策页
-│   ├── services/                 # 服务层（预留）
+│   ├── services/                 # 服务层（11个文件）
 │   ├── state/                    # 状态管理（预留）
 │   └── widgets/                  # 组件层（预留）
 │       └── common/               # 通用组件
@@ -109,6 +118,11 @@ noticeTransmit/
 │   └── app/src/main/kotlin/com/fnthink/notice/
 │       ├── MainActivity.kt       # 主 Activity
 │       ├── NotificationMonitorService.kt  # 通知监听服务
+│       ├── NotificationProcessor.kt       # 通知解析模块
+│       ├── BatteryMonitor.kt              # 电量监控模块
+│       ├── WebhookSender.kt               # Webhook 推送模块
+│       ├── NetworkClient.kt               # 网络请求客户端
+│       ├── ConfigManager.kt               # 配置管理模块
 │       ├── SmsReceiver.kt         # 短信广播接收器
 │       ├── PhoneCallReceiver.kt   # 来电广播接收器
 │       ├── BootReceiver.kt        # 开机广播接收器
@@ -130,17 +144,18 @@ noticeTransmit/
 
 ### 环境要求
 
-> **重要提示**：本项目使用 **AGP 9.0.1** + **Gradle 9.1.0**，对 Flutter / Dart / Android Studio 版本有最低要求。
+> **重要提示**：本项目使用 **AGP 9.0.1** + **Gradle 9.4.1**，对 Flutter / Dart / Android Studio 版本有最低要求。
 
 | 工具 | 最低版本 | 推荐版本 | 说明 |
 |------|----------|----------|------|
 | **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x 支持从 Flutter 3.44 开始 |
 | **Dart SDK** | 3.12.0 | 3.12.x | 随 Flutter 3.44 自带 |
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.0.1 | 项目已配置 |
-| **Gradle** | 9.1.0 | 9.1.0 | 项目已配置（gradle-wrapper.properties） |
+| **Gradle** | 9.4.1 | 9.4.1 | 项目已配置（gradle-wrapper.properties） |
+| **Kotlin** | 2.3.20 | 2.3.20 | AGP 9.x Built-in Kotlin |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x 要求 JDK 21 及以上 |
-| **Android SDK** | 21 (minSdk) | 37 (compileSdk) | minSdk 21，目标 Android 15 |
+| **Android SDK** | 24 (minSdk) | 37 (compileSdk) | minSdk 24，目标 Android 15 |
 
 #### 版本兼容性说明
 

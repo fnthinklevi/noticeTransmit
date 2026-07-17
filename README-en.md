@@ -10,7 +10,7 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
 [![AGP](https://img.shields.io/badge/AGP-9.0.1-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://img.shields.io/badge/Gradle-9.1.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
+[![Gradle](https://img.shields.io/badge/Gradle-9.4.1-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#license)
 
@@ -59,16 +59,25 @@ Notification Push Helper is an Android application developed with Flutter that l
 
 | Module | Technology |
 |--------|------------|
-| Frontend | Flutter (Dart) |
+| Frontend | Flutter 3.44+ (Dart 3.12+) |
 | State Management | get_it + Service Classes |
-| Dependency Injection | get_it |
-| Native Service | Kotlin (Android) |
+| Dependency Injection | get_it (^9.2.1) |
+| Local Database | sqflite (SQLite) |
+| Key-Value Storage | shared_preferences |
+| Native Service | Kotlin 2.3.20 (Android) |
+| HTTP Client | http (Dart) / OkHttp 4.12.0 (Kotlin) |
 | Notification Listening | NotificationListenerService |
 | Background Survival | Android Native Foreground Service + WakeLock + WifiLock |
-| Cross-platform Communication | MethodChannel |
-| Crash Statistics | Tencent Bugly |
-| Server | Node.js + Express (Token Auth + Two-step Verification) |
-| Data Storage | SharedPreferences + SQLite |
+| Coroutines | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
+| Cross-platform Communication | MethodChannel (unified declaration) |
+| Crash Statistics | Tencent Bugly 4.1.9.3 |
+| Server | Node.js + Express 4.x (Token Auth + Two-step Verification) |
+| TOTP Verification | otplib (^12.0.1) |
+| Password Hashing | bcryptjs (^2.4.3) |
+| Data Encryption | Node.js crypto (AES-256-GCM) |
+| Build Tools | Gradle 9.4.1 + AGP 9.0.1 + JDK 21 |
+| CI/CD | GitHub Actions |
+| APK Signing | jarsigner + zipalign (V1+V2 signing) |
 
 ## Permission Description
 
@@ -101,7 +110,7 @@ noticeTransmit/
 │   ├── pages/                    # Page components
 │   │   ├── splash_page.dart      # Splash page
 │   │   └── privacy_policy_page.dart  # Privacy policy page
-│   ├── services/                 # Service layer (reserved)
+│   ├── services/                 # Service layer (11 files)
 │   ├── state/                    # State management (reserved)
 │   └── widgets/                  # Widget layer (reserved)
 │       └── common/               # Common widgets
@@ -109,6 +118,11 @@ noticeTransmit/
 │   └── app/src/main/kotlin/com/fnthink/notice/
 │       ├── MainActivity.kt       # Main Activity
 │       ├── NotificationMonitorService.kt  # Notification listener service
+│       ├── NotificationProcessor.kt       # Notification processor module
+│       ├── BatteryMonitor.kt              # Battery monitor module
+│       ├── WebhookSender.kt               # Webhook sender module
+│       ├── NetworkClient.kt               # Network client
+│       ├── ConfigManager.kt               # Config manager module
 │       ├── SmsReceiver.kt         # SMS broadcast receiver
 │       ├── PhoneCallReceiver.kt   # Phone call broadcast receiver
 │       ├── BootReceiver.kt        # Boot broadcast receiver
