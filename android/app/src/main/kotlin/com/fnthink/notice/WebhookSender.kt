@@ -77,6 +77,7 @@ class WebhookSender(private val context: Context) {
                 put("id", info.id)
                 put("title", info.title)
                 put("content", info.content)
+                put("subText", info.subText)
                 put("packageName", info.packageName)
                 put("appName", info.appName)
                 put("postTime", info.postTime)

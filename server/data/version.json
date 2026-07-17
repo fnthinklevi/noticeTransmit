@@ -1,13 +1,14 @@
 {
-  "appName": "notice1.5.34",
-  "latestVersion": "1.5.34",
-  "latestBuild": 68,
+  "appName": "notice1.5.35",
+  "latestVersion": "1.5.35",
+  "latestBuild": 69,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【通知读取权限解耦】\n• 通知读取权限的申请与是否开启监听服务完全解耦\n• 不再禁用监听器组件，避免关闭后系统自动撤销权限\n• 未开启监听服务时也能正常申请通知访问权限\n• 使用持久化开关控制通知转发，状态显示与实际权限保持一致\n• 启动时自动修复历史被禁用的监听器组件\n\n【推送统计软件名修复】\n• 修复推送统计中软件名全部显示「未知」的问题\n• 修正统计查询的列名别名，正确读取应用名与包名\n• 应用名为空时回退显示包名\n\n【在线更新优化】\n• 安装包统一下载到 Download/fnthink.notice 目录\n• 点击在线更新前先检测存储权限，缺失时引导用户开启\n• 适配 Android 11+ “所有文件访问”权限\n• 更新成新版本后自动删除旧安装包，改用启动时版本比对清理，更可靠",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.34.apk",
-  "fileSize": 23046564,
+  "changelog": "【黑名单/白名单/应用过滤热更新】\n• 配置变更后实时通知后台监听服务重载配置\n• 删除黑名单词后无需重启软件即可立即生效\n• 应用筛选、关键词过滤、Webhook 等配置修改即时同步到服务\n\n【推送历史持久化与准确性修复】\n• 推送历史改为以 SQLite 数据库为持久化来源，关闭软件后记录不丢失\n• 历史记录只保留实际通过过滤并推送到 Webhook 的通知\n• 修复首次迁移后再次打开应用历史为空的问题\n• 原生侧缓存记录补充 subText 字段",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.35.apk",
+  "fileSize": 23597696,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }
+

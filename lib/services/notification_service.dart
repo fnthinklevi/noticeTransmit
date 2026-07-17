@@ -27,31 +27,16 @@ class NotificationService {
     }
 
     try {
-      final List<dynamic> result = await _channel.invokeMethod(
-        'getNotificationRecords',
+      final dbRecords = await DatabaseHelper().getNotifications(
+        limit: _maxRecords,
       );
       _records.clear();
       _records.addAll(
-        result
-            .map(
-              (e) => NotificationRecord.fromMap(Map<String, dynamic>.from(e)),
-            )
-            .toList(),
+        dbRecords.map((e) => NotificationRecord.fromMap(e)).toList(),
       );
     } catch (e) {
-      debugPrint('从原生加载记录失败，尝试从数据库加载: $e');
-      try {
-        final dbRecords = await DatabaseHelper().getNotifications(
-          limit: _maxRecords,
-        );
-        _records.clear();
-        _records.addAll(
-          dbRecords.map((e) => NotificationRecord.fromMap(e)).toList(),
-        );
-      } catch (dbError) {
-        debugPrint('从数据库加载记录也失败: $dbError');
-        _records.clear();
-      }
+      debugPrint('从数据库加载记录失败: $e');
+      _records.clear();
     }
   }
 

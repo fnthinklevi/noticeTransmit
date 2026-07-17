@@ -210,6 +210,7 @@ class MainActivity : FlutterActivity() {
                     PrefsHelper.webhookUrls = validUrls
                     saveWebhookUrls(validUrls)
                     NotificationMonitorService.webhookUrls = validUrls
+                    notifyServiceConfigChanged()
                     result.success(true)
                 }
                 "getWebhookChannels" -> {
@@ -241,6 +242,7 @@ class MainActivity : FlutterActivity() {
                     PrefsHelper.deviceName = name
                     saveDeviceName(name)
                     NotificationMonitorService.deviceName = name
+                    notifyServiceConfigChanged()
                     result.success(true)
                 }
                 "reloadHotfix" -> {
@@ -480,6 +482,7 @@ class MainActivity : FlutterActivity() {
             .commit()
         PrefsHelper.webhookUrls = enabledUrls
         NotificationMonitorService.webhookUrls = enabledUrls
+        notifyServiceConfigChanged()
     }
 
     private fun saveDeviceName(name: String) {
@@ -616,6 +619,7 @@ class MainActivity : FlutterActivity() {
     private fun setEnabledPackages(packages: List<String>) {
         val jsonArray = org.json.JSONArray(packages)
         prefs.edit().putString("flutter.enabled_packages", jsonArray.toString()).apply()
+        notifyServiceConfigChanged()
     }
 
     private fun getEnabledPackages(): List<String> {
@@ -634,6 +638,7 @@ class MainActivity : FlutterActivity() {
     private fun setBlacklistKeywords(keywords: List<String>) {
         val jsonArray = org.json.JSONArray(keywords)
         prefs.edit().putString("flutter.blacklist_keywords", jsonArray.toString()).apply()
+        notifyServiceConfigChanged()
     }
 
     private fun getBlacklistKeywords(): List<String> {
@@ -652,6 +657,7 @@ class MainActivity : FlutterActivity() {
     private fun setWhitelistKeywords(keywords: List<String>) {
         val jsonArray = org.json.JSONArray(keywords)
         prefs.edit().putString("flutter.whitelist_keywords", jsonArray.toString()).apply()
+        notifyServiceConfigChanged()
     }
 
     private fun getWhitelistKeywords(): List<String> {
@@ -733,6 +739,7 @@ class MainActivity : FlutterActivity() {
                 jsonArray.put(obj)
             }
             prefs.edit().putString("flutter.battery_rules", jsonArray.toString()).apply()
+            notifyServiceConfigChanged()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1045,6 +1052,16 @@ class MainActivity : FlutterActivity() {
             prefs.getBoolean(NotificationMonitorService.PREF_MONITORING_ENABLED, false)
         } catch (e: Exception) {
             false
+        }
+    }
+
+    private fun notifyServiceConfigChanged() {
+        try {
+            val intent = Intent(this, NotificationMonitorService::class.java)
+            intent.action = NotificationMonitorService.ACTION_UPDATE_CONFIG
+            startService(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

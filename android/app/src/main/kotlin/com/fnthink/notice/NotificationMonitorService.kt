@@ -125,9 +125,6 @@ class NotificationMonitorService : NotificationListenerService() {
             val config = cachedConfig ?: ConfigSnapshot()
             notificationInfo.deviceName = config.deviceName
 
-            webhookSender.sendBroadcast(notificationInfo)
-            webhookSender.saveNotificationRecord(notificationInfo)
-
             if (notificationProcessor.shouldNotify(
                     notificationInfo.packageName,
                     notificationInfo.title,
@@ -138,7 +135,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     config.blacklistKeywords
                 )
             ) {
-                webhookSender.sendToWebhooks(notificationInfo)
+                webhookSender.sendNotification(notificationInfo)
                 Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
             }
         }

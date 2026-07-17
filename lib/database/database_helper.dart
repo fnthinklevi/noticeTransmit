@@ -126,7 +126,7 @@ class DatabaseHelper {
                     record['deviceName'] ?? record['device_name'] ?? '',
                 'timestamp': record['timestamp'] ?? 0,
                 'created_at': DateTime.now().millisecondsSinceEpoch,
-              }, conflictAlgorithm: ConflictAlgorithm.replace);
+              }, conflictAlgorithm: ConflictAlgorithm.ignore);
             } catch (_) {}
           }
         }
