@@ -614,6 +614,13 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
   ConditionType? _selectedType;
   String _value = '';
   LogicOperator _logic = LogicOperator.and;
+  final TextEditingController _valueController = TextEditingController();
+
+  @override
+  void dispose() {
+    _valueController.dispose();
+    super.dispose();
+  }
 
   void _submit() {
     if (_selectedType != null && _value.isNotEmpty) {
@@ -665,7 +672,7 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
               '条件值',
               _selectedType?.hint ?? '',
               (value) => _value = value,
-              _value,
+              _valueController,
             ),
             const SizedBox(height: 16),
             _buildDropdownSection(
@@ -769,7 +776,7 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
     String label,
     String hint,
     ValueChanged<String> onChanged,
-    String initialValue,
+    TextEditingController controller,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -787,7 +794,7 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
         ),
         TextField(
           onChanged: onChanged,
-          controller: TextEditingController(text: initialValue),
+          controller: controller,
           style: TextStyle(color: AppColors.primaryLabel(context)),
           decoration: InputDecoration(
             hintText: hint,
@@ -828,6 +835,7 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
   late ConditionType _type;
   late String _value;
   late LogicOperator _logic;
+  late final TextEditingController _valueController;
 
   @override
   void initState() {
@@ -835,6 +843,13 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
     _type = widget.condition.type;
     _value = widget.condition.value;
     _logic = widget.condition.logic;
+    _valueController = TextEditingController(text: _value);
+  }
+
+  @override
+  void dispose() {
+    _valueController.dispose();
+    super.dispose();
   }
 
   void _submit() {
@@ -880,7 +895,7 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
               '条件值',
               _type.hint,
               (value) => _value = value,
-              _value,
+              _valueController,
             ),
             const SizedBox(height: 16),
             _buildDropdownSection(
@@ -980,7 +995,7 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
     String label,
     String hint,
     ValueChanged<String> onChanged,
-    String initialValue,
+    TextEditingController controller,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -998,7 +1013,7 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
         ),
         TextField(
           onChanged: onChanged,
-          controller: TextEditingController(text: initialValue),
+          controller: controller,
           style: TextStyle(color: AppColors.primaryLabel(context)),
           decoration: InputDecoration(
             hintText: hint,

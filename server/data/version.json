@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.37",
-  "latestVersion": "1.5.37",
-  "latestBuild": 71,
+  "appName": "notice1.5.38",
+  "latestVersion": "1.5.38",
+  "latestBuild": 72,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【电量条件通知修复（重要）】\n• 修复设定电量条件（如电量低于20%）却不通知的问题\n• 修复电量阈值读取错误与充电/放电规则缺失，现在电量到条件会正常推送\n• 修复「电量通知」总开关关闭后仍在原生侧推送的问题\n\n【底部提示条优化】\n• 「当前已是最新版本」等信息提示时长缩短\n• 跳转到其他页面时提示条立即消失，不再残留",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.37.apk",
-  "fileSize": 23094537,
+  "changelog": "【应用图标扩展】\n• 可选图标从 2 种扩展到 16 种常用颜色，加默认图标共 17 种\n• 选择图标时展示真实模样的图标预览\n• 原始图标更名为「默认图标」\n\n【稳定性与安全修复】\n• 修复电量规则页在异常数据下可能崩溃的问题\n• 修复后台服务重建后 Webhook 可能静默失效的问题\n• 修复来电结束通知可能误发的问题\n• 修复条件规则输入中文时光标跳到末尾的问题\n• 热更新解压增加安全校验\n• 统计页计数与图表健壮性优化",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.38.apk",
+  "fileSize": 23326413,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

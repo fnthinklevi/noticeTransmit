@@ -73,5 +73,10 @@ class NetworkClient {
             isActive = false
             Log.d(TAG, "NetworkClient deactivated")
         }
+
+        fun activate() {
+            isActive = true
+            Log.d(TAG, "NetworkClient activated")
+        }
     }
 }

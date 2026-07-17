@@ -98,8 +98,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
 
     try {
       final result = await platform.invokeMethod('testWebhook', {'url': url});
-      final success = result['success'] as bool;
-      final message = result['message'] as String;
+      final success = result['success'] as bool? ?? false;
+      final message = result['message'] as String? ?? '未知错误';
 
       setState(() {
         _isTesting = false;

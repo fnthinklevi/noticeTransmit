@@ -515,7 +515,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openRuleListPage() async {
-    final result = await _pushPage<List<NotificationRule>>(
+    await _pushPage<List<NotificationRule>>(
       RuleListPage(
         rules: _filterService.notificationRules,
         onSave: (rules) {
@@ -524,10 +524,6 @@ class _MainPageState extends State<MainPage> {
         },
       ),
     );
-    if (result != null) {
-      _filterService.saveNotificationRules(result);
-      setState(() {});
-    }
   }
 
   void _openPrivacyPolicyPage() {

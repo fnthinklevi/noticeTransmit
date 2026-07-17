@@ -224,11 +224,6 @@ All notification pushes are sent through user-configured Webhook URLs. Developer
 3. Check logcat for `RELOAD_HOTFIX` broadcast
 4. Verify JSON format is correct
 
-### Data lost after restart?
-- **Issue**: Battery rules, keyword filters, push history and other data lost after app restart
-- **Cause**: Service initialization process not fully executed, data not properly loaded
-- **Solution**: Ensure app starts normally and wait for SplashPage initialization to complete before operating
-
 ## License
 
 This project is for learning and communication purposes only.

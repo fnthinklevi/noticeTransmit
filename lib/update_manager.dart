@@ -456,7 +456,17 @@ class AppUpdateManager {
 
       for (final file in archive) {
         if (file.isFile) {
-          final outFile = File('${hotfixDir.path}/${file.name}');
+          final name = file.name;
+          // Guard against zip-slip: reject entries that escape the hotfix dir.
+          if (name.isEmpty ||
+              name.startsWith('/') ||
+              name.startsWith('\\') ||
+              name.startsWith('~') ||
+              name.contains('..')) {
+            debugPrint('跳过非法热修复条目: $name');
+            continue;
+          }
+          final outFile = File('${hotfixDir.path}/$name');
           await outFile.create(recursive: true);
           await outFile.writeAsBytes(file.content as List<int>);
         }

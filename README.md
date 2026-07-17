@@ -224,11 +224,6 @@ flutter build apk --release --target-platform android-arm64
 3. 查看 logcat 中是否有 `RELOAD_HOTFIX` 广播
 4. 确认 JSON 格式是否正确
 
-### 数据重启后丢失？
-- **问题**：应用重启后电量规则、关键词过滤、推送历史等数据丢失
-- **原因**：服务初始化流程未完整执行，数据未正确加载
-- **解决**：确保应用正常启动，等待 SplashPage 初始化完成后再操作
-
 ## 许可证
 
 本项目仅供学习交流使用。

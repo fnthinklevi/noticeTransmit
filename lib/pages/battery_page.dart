@@ -206,10 +206,10 @@ class _BatteryPageState extends State<BatteryPage> {
   }
 
   Widget _buildRuleTile(Map<String, dynamic> rule, BuildContext context) {
-    final type = rule['type'] as String;
-    final value = rule['value'] as int;
-    final enabled = rule['enabled'] as bool;
-    final title = rule['title'] as String;
+    final type = rule['type'] as String? ?? 'unknown';
+    final value = rule['value'] as int? ?? 0;
+    final enabled = rule['enabled'] as bool? ?? false;
+    final title = rule['title'] as String? ?? '';
 
     IconData icon;
     Color iconColor;

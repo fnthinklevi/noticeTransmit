@@ -11,9 +11,27 @@ const QRCode = require('qrcode');
 const app = express();
 const PORT = process.env.PORT || 3456;
 
-app.set('trust proxy', 1);
+// 信任反向代理跳数：默认 1（Nginx），可用 TRUST_PROXY 覆盖（0 表示不信任任何代理头）
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
 
-app.use(cors());
+// CORS 白名单：默认仅允许无 Origin 的请求（App 原生 http / curl 等）与 ALLOWED_ORIGINS 中列出的来源。
+// 设置 ALLOWED_ORIGINS='*' 可恢复放行所有来源。多个来源用逗号分隔。
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin(origin, callback) {
+      // 无 Origin（原生 App、服务端调用、同源）直接放行
+      if (!origin) return callback(null, true);
+      if (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
@@ -110,7 +128,15 @@ const BLOCK_FILE = path.join(__dirname, 'data', 'blocked_ips.json');
 const DATA_DIR = path.join(__dirname, 'data');
 
 const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH;
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+// ENCRYPTION_KEY 必须为 64 位十六进制（AES-256-GCM 需要 32 字节）。格式不合法则视为未配置，
+// 避免 Buffer.from(...,'hex') 产生错误长度密钥导致加解密崩溃。
+let ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+if (ENCRYPTION_KEY && !/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
+  console.warn(
+    'ENCRYPTION_KEY 格式不合法（应为 64 位十六进制字符），已忽略，TOTP secret 将以明文存储'
+  );
+  ENCRYPTION_KEY = undefined;
+}
 
 if (!ADMIN_TOKEN_HASH) {
   console.error('错误：未配置 ADMIN_TOKEN_HASH 环境变量，服务无法启动');
@@ -125,6 +151,20 @@ const BLOCK_DURATION_HOURS = 240;
 const FAILED_ATTEMPTS_FILE = path.join(DATA_DIR, 'failed_attempts.json');
 
 const sessions = {};
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+// 定期清理过期会话，避免内存无上限增长
+function cleanupSessions() {
+  const now = Date.now();
+  for (const [id, session] of Object.entries(sessions)) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
+      delete sessions[id];
+    }
+  }
+}
+
+setInterval(cleanupSessions, 60 * 60 * 1000);
+
 let failedAttempts = loadFailedAttempts();
 
 function getBlockedIPs() {
@@ -335,9 +375,26 @@ async function generateRecoveryCodes() {
   return { plain: codes, hashed: hashedCodes };
 }
 
+// 校验请求体为普通 JSON 对象（排除 null、数组、基本类型），防止写入畸形配置
+function isPlainObject(value) {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
 function compareVersions(v1, v2) {
-  const parts1 = v1.split('.').map(Number);
-  const parts2 = v2.split('.').map(Number);
+  // 容错：undefined/null/非字符串一律按 '0'，非数字段（如 1.5.0-beta）取前导整数，缺失补 0
+  const toParts = (v) =>
+    String(v == null ? '0' : v)
+      .split('.')
+      .map((s) => {
+        const n = parseInt(s, 10);
+        return Number.isNaN(n) ? 0 : n;
+      });
+  const parts1 = toParts(v1);
+  const parts2 = toParts(v2);
   for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
     const p1 = parts1[i] || 0;
     const p2 = parts2[i] || 0;
@@ -718,6 +775,9 @@ app.get('/api/admin/version', authMiddleware, (req, res) => {
 
 app.post('/api/admin/version', authMiddleware, (req, res) => {
   const body = req.body;
+  if (!isPlainObject(body)) {
+    return res.status(400).json({ code: -4, message: '请求体必须为 JSON 对象' });
+  }
   const success = writeJsonFile(VERSION_FILE, body);
   res.json({
     code: success ? 0 : -1,
@@ -736,6 +796,9 @@ app.get('/api/admin/hotfix', authMiddleware, (req, res) => {
 
 app.post('/api/admin/hotfix', authMiddleware, (req, res) => {
   const body = req.body;
+  if (!isPlainObject(body)) {
+    return res.status(400).json({ code: -4, message: '请求体必须为 JSON 对象' });
+  }
   const success = writeJsonFile(HOTFIX_FILE, body);
   res.json({
     code: success ? 0 : -1,

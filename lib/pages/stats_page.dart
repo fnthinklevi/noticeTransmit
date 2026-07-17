@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import 'package:get_it/get_it.dart';
@@ -63,7 +63,7 @@ class _StatsPageState extends State<StatsPage> {
     final todayCount = _dailyStats.firstOrNull?['count'] as int? ?? 0;
     final totalCount = _stats.fold(
       0,
-      (sum, item) => sum + (item['count'] as int),
+      (sum, item) => sum + (item['count'] as int? ?? 0),
     );
 
     return Row(
@@ -144,6 +144,12 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildDailyStats(BuildContext context) {
+    final maxCount = _dailyStats.isEmpty
+        ? 0
+        : _dailyStats
+              .map((s) => s['count'] as int? ?? 0)
+              .reduce((a, b) => a > b ? a : b);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBg(context),
@@ -167,6 +173,9 @@ class _StatsPageState extends State<StatsPage> {
               final date = stat['date'] as String? ?? '';
               final count = stat['count'] as int? ?? 0;
               final day = date.split('-').last;
+              final barHeight = maxCount > 0
+                  ? (count / maxCount * 80).toDouble().clamp(4.0, 80.0)
+                  : 4.0;
 
               return Expanded(
                 child: Column(
@@ -185,16 +194,7 @@ class _StatsPageState extends State<StatsPage> {
                           ),
                           Container(
                             width: 24,
-                            height:
-                                ((count /
-                                            (_dailyStats
-                                                .map((s) => s['count'] as int)
-                                                .reduce(
-                                                  (a, b) => a > b ? a : b,
-                                                )) *
-                                            80)
-                                        .toDouble())
-                                    .clamp(4.0, 80.0),
+                            height: barHeight,
                             decoration: BoxDecoration(
                               color: AppColors.blue,
                               borderRadius: BorderRadius.circular(4),
@@ -231,7 +231,9 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildAppStats(BuildContext context) {
     final sortedStats = List<Map<String, dynamic>>.from(_stats)
-      ..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+      ..sort(
+        (a, b) => (b['count'] as int? ?? 0).compareTo(a['count'] as int? ?? 0),
+      );
 
     final topStats = sortedStats.take(10).toList();
 
@@ -263,7 +265,7 @@ class _StatsPageState extends State<StatsPage> {
               final count = stat['count'] as int? ?? 0;
               final totalCount = _stats.fold(
                 0,
-                (sum, item) => sum + (item['count'] as int),
+                (sum, item) => sum + (item['count'] as int? ?? 0),
               );
               final percentage = totalCount > 0
                   ? (count / totalCount * 100)
@@ -271,8 +273,10 @@ class _StatsPageState extends State<StatsPage> {
 
               return Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Color(0xFFE5E5EA))),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppColors.separator(context)),
+                  ),
                 ),
                 child: Row(
                   children: [

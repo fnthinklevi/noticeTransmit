@@ -91,6 +91,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
                             }
                         }
                         callStartTime = 0
+                        lastIncomingNumber = ""
                     }
                 }
             }

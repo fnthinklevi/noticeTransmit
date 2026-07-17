@@ -18,6 +18,10 @@ class WebhookSender(private val context: Context) {
         Log.d(TAG, "WebhookSender destroyed")
     }
 
+    fun activate() {
+        NetworkClient.activate()
+    }
+
     fun setDeviceName(name: String) {
         deviceName = name
     }

@@ -58,6 +58,7 @@ class NotificationMonitorService : NotificationListenerService() {
         notificationProcessor = NotificationProcessor(this)
         batteryMonitor = BatteryMonitor(this)
         webhookSender = WebhookSender(this)
+        webhookSender.activate()
         configManager = ConfigManager(this)
 
         batteryMonitor.setNotificationCallback { batteryInfo ->
