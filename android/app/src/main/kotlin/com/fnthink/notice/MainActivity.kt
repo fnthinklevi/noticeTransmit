@@ -58,6 +58,12 @@ class MainActivity : FlutterActivity() {
             .writeTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .retryOnConnectionFailure(false)
+            // SSL 证书固定：防止中间人攻击。取消注释并填入证书 SHA256 base64 哈希即可启用。
+            // .certificatePinner(
+            //     CertificatePinner.Builder()
+            //         .add("notice.fnthink.top", CERT_PINS)
+            //         .build()
+            // )
             .build()
     }
 
@@ -120,9 +126,9 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter(ACTION_NOTIFICATION_RECEIVED)
-        registerReceiver(notificationReceiver, filter, Context.RECEIVER_EXPORTED)
+        registerReceiver(notificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
-        registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_EXPORTED)
+        registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onPause() {

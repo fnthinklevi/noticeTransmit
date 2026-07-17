@@ -8,8 +8,16 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+/// SSL 证书固定的 HTTP 客户端。不配置时仅做标准 TLS 验证。
+/// 配置示例：{ 'notice.fnthink.top': 'AA:BB:CC:...' }
+const _pinnedFingerprints = <String, String>{};
+final _updateHttpClient = PinnedHttpClient.create(
+  pinnedFingerprints: _pinnedFingerprints,
+);
 
 class AppUpdateManager {
   static const String _updateServerUrl = 'https://notice.fnthink.top';
@@ -187,7 +195,7 @@ class AppUpdateManager {
       );
       debugPrint('检查更新：请求地址 $uri');
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await _updateHttpClient.get(uri).timeout(const Duration(seconds: 15));
       debugPrint('检查更新：响应状态码 ${response.statusCode}');
       if (response.statusCode != 200) {
         _lastError = '服务器响应错误：HTTP ${response.statusCode}';
@@ -223,7 +231,7 @@ class AppUpdateManager {
         },
       );
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      final response = await _updateHttpClient.get(uri).timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
 
       final data = jsonDecode(response.body);
@@ -271,7 +279,7 @@ class AppUpdateManager {
 
         var fileTotalSize = totalSize ?? 0;
 
-        final response = await http.Client().send(
+        final response = await _updateHttpClient.send(
           http.Request('GET', Uri.parse(url)),
         );
 
@@ -409,7 +417,7 @@ class AppUpdateManager {
 
     var fileTotalSize = totalSize ?? 0;
 
-    final response = await http.Client().send(
+    final response = await _updateHttpClient.send(
       http.Request('GET', Uri.parse(fullUrl)),
     );
 

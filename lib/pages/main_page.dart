@@ -958,11 +958,28 @@ class _MainPageState extends State<MainPage> {
           await _notificationService.clearRecords();
           setState(() {});
         },
-        onExport: () => _notificationService.exportRecords(
-          _deviceInfoService.deviceName,
-          _deviceInfoService.deviceModel,
-          _deviceInfoService.manufacturer,
-        ),
+        onExport: () async {
+          // 安全确认：导出前弹出对话框验证用户意图
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('确认导出'),
+              content: const Text('通知记录将导出为 JSON 文件，包含通知内容和设备信息。\n\n'
+                  '文件将保存到外部存储，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定导出')),
+              ],
+            ),
+          );
+          if (confirm != true) return '';
+          final path = await _notificationService.exportRecords(
+            _deviceInfoService.deviceName,
+            _deviceInfoService.deviceModel,
+            _deviceInfoService.manufacturer,
+          );
+          return path;
+        },
       ),
     );
   }

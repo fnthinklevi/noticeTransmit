@@ -524,7 +524,9 @@
       }
 
       try {
-        const result = await fetch(`${API_BASE}/api/admin/totp/setup?token=${token}`).then(r => r.json());
+        const result = await fetch(`${API_BASE}/api/admin/totp/setup`, {
+          headers: { 'x-admin-token': token }
+        }).then(r => r.json());
         
         if (result.code === 0) {
           setupSecret = result.data.secret;
@@ -556,9 +558,9 @@
       }
 
       try {
-        const result = await fetch(`${API_BASE}/api/admin/totp/enable?token=${token}`, {
+        const result = await fetch(`${API_BASE}/api/admin/totp/enable`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
           body: JSON.stringify({ secret: setupSecret, otp })
         }).then(r => r.json());
 

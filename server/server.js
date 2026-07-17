@@ -33,6 +33,20 @@ app.use(
   })
 );
 app.use(express.json({ limit: '1mb' }));
+
+// 安全 HTTP 头
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '0'); // 现代浏览器已废弃此头，设为 0 禁用旧版非标准行为
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  if (req.path.startsWith('/api/admin')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  }
+  next();
+});
 // 静态资源：根路径直接映射到 public 目录
 // notice.fnthink.top/            → public/index.html（网站主页）
 // notice.fnthink.top/admin.html → public/admin.html（管理后台）
@@ -387,6 +401,66 @@ function isPlainObject(value) {
     value !== null &&
     !Array.isArray(value)
   );
+}
+
+// 字段级校验：版本配置必填字段与类型
+function validateVersionConfig(body) {
+  const errors = [];
+  // latestVersion: 必填、非空字符串
+  if (typeof body.latestVersion !== 'string' || !body.latestVersion.trim()) {
+    errors.push('latestVersion 必须为非空字符串');
+  }
+  // latestBuild: 必填、正整数
+  if (typeof body.latestBuild !== 'number' || !Number.isInteger(body.latestBuild) || body.latestBuild <= 0) {
+    errors.push('latestBuild 必须为正整数');
+  }
+  // downloadUrl: 必填、以 https:// 开头的合法 URL
+  if (typeof body.downloadUrl !== 'string' || !body.downloadUrl.trim()) {
+    errors.push('downloadUrl 必须为非空字符串');
+  } else {
+    try {
+      const url = new URL(body.downloadUrl);
+      if (url.protocol !== 'https:') {
+        errors.push('downloadUrl 必须使用 https:// 协议');
+      }
+    } catch {
+      errors.push('downloadUrl 不是合法 URL');
+    }
+  }
+  // fileSize: 必填、正整数（可选，如提供则校验）
+  if (body.fileSize !== undefined && (typeof body.fileSize !== 'number' || body.fileSize < 0)) {
+    errors.push('fileSize 必须为非负整数');
+  }
+  return errors;
+}
+
+// 字段级校验：热修复配置结构
+function validateHotfixConfig(body) {
+  const errors = [];
+  if (!isPlainObject(body)) return errors; // 顶层已通过 isPlainObject 校验
+
+  for (const [key, value] of Object.entries(body)) {
+    if (!isPlainObject(value)) {
+      errors.push(`hotfix.${key} 必须为 JSON 对象`);
+      continue;
+    }
+    if (typeof value.url !== 'string' || !value.url.trim()) {
+      errors.push(`hotfix.${key}.url 必须为非空字符串`);
+    } else {
+      try {
+        const url = new URL(value.url);
+        if (url.protocol !== 'https:') {
+          errors.push(`hotfix.${key}.url 必须使用 https:// 协议`);
+        }
+      } catch {
+        errors.push(`hotfix.${key}.url 不是合法 URL`);
+      }
+    }
+    if (value.version !== undefined && typeof value.version !== 'string') {
+      errors.push(`hotfix.${key}.version 必须为字符串`);
+    }
+  }
+  return errors;
 }
 
 function compareVersions(v1, v2) {
@@ -783,6 +857,10 @@ app.post('/api/admin/version', authMiddleware, (req, res) => {
   if (!isPlainObject(body)) {
     return res.status(400).json({ code: -4, message: '请求体必须为 JSON 对象' });
   }
+  const errors = validateVersionConfig(body);
+  if (errors.length > 0) {
+    return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
+  }
   const success = writeJsonFile(VERSION_FILE, body);
   res.json({
     code: success ? 0 : -1,
@@ -803,6 +881,10 @@ app.post('/api/admin/hotfix', authMiddleware, (req, res) => {
   const body = req.body;
   if (!isPlainObject(body)) {
     return res.status(400).json({ code: -4, message: '请求体必须为 JSON 对象' });
+  }
+  const errors = validateHotfixConfig(body);
+  if (errors.length > 0) {
+    return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
   }
   const success = writeJsonFile(HOTFIX_FILE, body);
   res.json({
@@ -853,6 +935,5 @@ app.listen(PORT, () => {
   console.log('  /hotfix/        - 热更新包目录');
   console.log('  (兼容) /public/... - 旧地址仍可用');
   console.log('');
-  console.log('二步验证状态:', getTotpConfig().enabled ? '✅ 已启用' : '❌ 未启用');
-  console.log('Token验证方式:', ADMIN_TOKEN_HASH ? '✅ bcrypt哈希' : '❌ 未配置（使用明文）');
+  console.log(`${process.env.NODE_ENV === 'development' ? '  二步验证状态: ' + (getTotpConfig().enabled ? '已启用' : '未启用') : ''}`);
 });

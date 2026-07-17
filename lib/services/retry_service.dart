@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
+import 'pinned_http_client.dart';
 
 class RetryService {
   static const int maxRetries = 5;
@@ -13,6 +14,13 @@ class RetryService {
   final List<Map<String, dynamic>> _pendingNotifications = [];
   Timer? _retryTimer;
   bool _isRunning = false;
+
+  /// SSL 证书固定的 HTTP 客户端。不配置时仅做标准 TLS 验证。
+  /// 配置示例：{ 'notice.fnthink.top': 'AA:BB:CC:...' }
+  static const _pinnedFingerprints = <String, String>{};
+  static final http.Client _httpClient = PinnedHttpClient.create(
+    pinnedFingerprints: _pinnedFingerprints,
+  );
 
   Future<void> init() async {
     await _migrateFromSharedPreferences();
@@ -101,7 +109,7 @@ class RetryService {
         'retryCount': pending['retry_count'],
       };
 
-      final response = await http
+      final response = await _httpClient
           .post(
             Uri.parse(url),
             headers: {

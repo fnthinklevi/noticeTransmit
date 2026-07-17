@@ -65,6 +65,9 @@ android/key.properties
 # Server runtime data
 server/data/blocked_ips.json
 server/data/failed_attempts.json
+server/data/version.json
+server/data/hotfix.json
+server/data/totp_config.json
 
 # Gradle build artifacts
 install_dir/

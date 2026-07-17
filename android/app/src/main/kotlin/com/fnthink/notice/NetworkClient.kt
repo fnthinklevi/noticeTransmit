@@ -27,6 +27,15 @@ class NetworkClient {
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(false)
+                // SSL 证书固定：防止中间人攻击。将以下 SHA256 改为你服务器的真实证书指纹。
+                // 使用 openssl s_client -connect notice.fnthink.top:443 -servername notice.fnthink.top 2>/dev/null | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64
+                // 如需启用，取消下面注释并在 CERT_PINS 中填入你的证书 SHA256 base64 哈希：
+                // .certificatePinner(
+                //     CertificatePinner.Builder()
+                //         .add("notice.fnthink.top", CERT_PINS)
+                //         .add("xget.fnthink.top", CERT_PINS)
+                //         .build()
+                // )
                 .build()
         }
 
@@ -50,15 +59,23 @@ class NetworkClient {
 
                         client.newCall(request).execute().use { response ->
                             if (response.isSuccessful) {
-                                Log.d(TAG, "$tag Webhook sent successfully to ${url.take(30)}... (attempt ${retryCount + 1})")
+                                if (BuildConfig.DEBUG) {
+                                    Log.d(TAG, "$tag Webhook sent successfully to ${url.take(30)}... (attempt ${retryCount + 1})")
+                                }
                                 return@launch
                             } else {
                                 val respBody = response.body?.string() ?: ""
-                                Log.e(TAG, "$tag Webhook failed for ${url.take(30)}...: ${response.code} - ${respBody.take(200)} (attempt ${retryCount + 1})")
+                                Log.e(TAG, "$tag Webhook failed: HTTP ${response.code} (attempt ${retryCount + 1})")
+                                if (BuildConfig.DEBUG) {
+                                    Log.d(TAG, "$tag  URL: ${url.take(30)}...  Body: ${respBody.take(200)}")
+                                }
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "$tag Webhook send error for ${url.take(30)}... (attempt ${retryCount + 1})", e)
+                        Log.e(TAG, "$tag Webhook send error (attempt ${retryCount + 1})")
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "$tag  URL: ${url.take(30)}...", e)
+                        }
                     }
 
                     retryCount++
