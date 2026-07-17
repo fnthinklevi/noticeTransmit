@@ -14,6 +14,7 @@ class ConfigManager(private val context: Context) {
         private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
         private const val KEY_WEBHOOK_URLS = "flutter.webhook_channels"
         private const val KEY_ENABLED_PACKAGES = "flutter.enabled_packages"
+        private const val KEY_APP_FILTER_MODE = "flutter.app_filter_mode"
         private const val KEY_WHITELIST_KEYWORDS = "flutter.whitelist_keywords"
         private const val KEY_BLACKLIST_KEYWORDS = "flutter.blacklist_keywords"
         private const val KEY_DEVICE_NAME = "flutter.device_name"
@@ -57,6 +58,10 @@ class ConfigManager(private val context: Context) {
             Log.e(TAG, "Failed to parse enabled packages", e)
             emptySet()
         }
+    }
+
+    fun getAppFilterMode(): String {
+        return prefs.getString(KEY_APP_FILTER_MODE, "allow") ?: "allow"
     }
 
     fun getWhitelistKeywords(): List<String> {

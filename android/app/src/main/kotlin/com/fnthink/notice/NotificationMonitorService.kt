@@ -132,7 +132,8 @@ class NotificationMonitorService : NotificationListenerService() {
                     notificationInfo.subText,
                     config.whitelistKeywords,
                     config.enabledPackages,
-                    config.blacklistKeywords
+                    config.blacklistKeywords,
+                    config.appFilterMode
                 )
             ) {
                 webhookSender.sendNotification(notificationInfo)
@@ -289,6 +290,7 @@ class NotificationMonitorService : NotificationListenerService() {
         val enabledPackages = configManager.getEnabledPackages()
         val blacklistKeywords = configManager.getBlacklistKeywords()
         val deviceName = configManager.getDeviceName()
+        val appFilterMode = configManager.getAppFilterMode()
     }
 }
 

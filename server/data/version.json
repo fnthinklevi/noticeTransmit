@@ -1,14 +1,13 @@
 {
-  "appName": "notice1.5.35",
-  "latestVersion": "1.5.35",
-  "latestBuild": 69,
+  "appName": "notice1.5.36",
+  "latestVersion": "1.5.36",
+  "latestBuild": 70,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【黑名单/白名单/应用过滤热更新】\n• 配置变更后实时通知后台监听服务重载配置\n• 删除黑名单词后无需重启软件即可立即生效\n• 应用筛选、关键词过滤、Webhook 等配置修改即时同步到服务\n\n【推送历史持久化与准确性修复】\n• 推送历史改为以 SQLite 数据库为持久化来源，关闭软件后记录不丢失\n• 历史记录只保留实际通过过滤并推送到 Webhook 的通知\n• 修复首次迁移后再次打开应用历史为空的问题\n• 原生侧缓存记录补充 subText 字段",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.35.apk",
-  "fileSize": 23597696,
+  "changelog": "【应用筛选体验优化】\n• 新增「反选」按钮，一键反转当前列表中的应用选择状态\n• 配合已有的全选/清空，更高效地调整通知范围\n\n【主题与提示色修复】\n• 修复浅色模式底部提示显示深色、深色模式显示浅色的颜色反转问题\n• 底部提示（如「当前已是最新版本」）背景与文字统一跟随主题\n\n【可选应用图标（新功能）】\n• 新增「蓝色」「紫色」两套备选启动图标\n• 在「更多 → 外观设置 → 应用图标」中即可切换（经典蓝铃 / 蓝色 / 紫色）",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.36.apk",
+  "fileSize": 23094537,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }
-

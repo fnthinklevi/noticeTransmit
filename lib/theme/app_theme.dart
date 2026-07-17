@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
@@ -117,6 +117,13 @@ class AppTheme {
         ),
         isDense: true,
         hintStyle: TextStyle(color: colors.tertiaryLabel),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: colors.cardBg,
+        contentTextStyle: TextStyle(color: colors.primaryLabel, fontSize: 14),
+        actionTextColor: colors.systemBlue,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        behavior: SnackBarBehavior.floating,
       ),
       textTheme: const TextTheme(
         bodyLarge: TextStyle(fontSize: 17),

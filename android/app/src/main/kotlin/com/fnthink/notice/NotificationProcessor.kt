@@ -100,7 +100,8 @@ class NotificationProcessor(private val context: Context) {
         subText: String,
         whitelistKeywords: List<String>,
         enabledPackages: Set<String>,
-        blacklistKeywords: List<String>
+        blacklistKeywords: List<String>,
+        filterMode: String = "allow"
     ): Boolean {
         val fullText = "$title $content $subText".lowercase()
 
@@ -112,8 +113,16 @@ class NotificationProcessor(private val context: Context) {
             }
         }
 
-        if (enabledPackages.isNotEmpty() && !enabledPackages.contains(packageName)) {
-            return false
+        if (filterMode == "block") {
+            // 黑名单模式：选中的应用不推送通知
+            if (enabledPackages.contains(packageName)) {
+                return false
+            }
+        } else {
+            // 白名单模式：仅选中的应用推送通知
+            if (enabledPackages.isNotEmpty() && !enabledPackages.contains(packageName)) {
+                return false
+            }
         }
 
         if (blacklistKeywords.isNotEmpty()) {

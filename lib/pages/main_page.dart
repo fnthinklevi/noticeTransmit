@@ -75,6 +75,7 @@ class _MainPageState extends State<MainPage> {
         webhookChannels: _webhookService.channels,
         deviceName: _deviceInfoService.deviceName,
         enabledPackagesCount: _filterService.enabledPackages.length,
+        appFilterMode: _filterService.appFilterMode,
         blacklistCount: _filterService.blacklistKeywords.length,
         whitelistCount: _filterService.whitelistKeywords.length,
         ruleCount: _filterService.notificationRules.length,
@@ -1005,17 +1006,20 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openAppFilterPage() async {
-    final result = await Navigator.push<List<String>>(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => AppFilterPage(
           installedApps: const [],
+          initialMode: _filterService.appFilterMode,
           enabledPackages: _filterService.enabledPackages.toList(),
         ),
       ),
     );
     if (result != null) {
-      await _filterService.saveEnabledPackages(result);
+      final mode = result['mode'] as String? ?? 'allow';
+      final packages = List<String>.from(result['packages'] ?? []);
+      await _filterService.saveAppFilter(mode, packages);
       setState(() {});
     }
   }

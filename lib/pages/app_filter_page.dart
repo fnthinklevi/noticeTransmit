@@ -6,11 +6,13 @@ import '../theme/app_colors.dart';
 class AppFilterPage extends StatefulWidget {
   final List<Map<String, dynamic>> installedApps;
   final List<String> enabledPackages;
+  final String initialMode; // 'allow' = 通知应用；'block' = 不通知应用
 
   const AppFilterPage({
     super.key,
     required this.installedApps,
     required this.enabledPackages,
+    this.initialMode = 'allow',
   });
 
   @override
@@ -23,6 +25,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
   List<Map<String, dynamic>> _allApps = [];
   List<Map<String, dynamic>> _filteredApps = [];
   Set<String> _selectedPackages = {};
+  String _selectedMode = 'allow';
   final _searchController = TextEditingController();
   bool _loading = true;
   bool _refreshing = false;
@@ -33,6 +36,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
   @override
   void initState() {
     super.initState();
+    _selectedMode = widget.initialMode == 'block' ? 'block' : 'allow';
     _selectedPackages = Set<String>.from(widget.enabledPackages);
     _initLoad();
     _searchController.addListener(_filterApps);
@@ -180,8 +184,24 @@ class _AppFilterPageState extends State<AppFilterPage> {
     });
   }
 
+  void _invertSelection() {
+    setState(() {
+      for (final app in _filteredApps) {
+        final packageName = app['packageName'] as String;
+        if (_selectedPackages.contains(packageName)) {
+          _selectedPackages.remove(packageName);
+        } else {
+          _selectedPackages.add(packageName);
+        }
+      }
+    });
+  }
+
   void _saveAndBack() {
-    Navigator.pop(context, _selectedPackages.toList());
+    Navigator.pop(context, {
+      'mode': _selectedMode,
+      'packages': _selectedPackages.toList(),
+    });
   }
 
   @override
@@ -224,6 +244,97 @@ class _AppFilterPageState extends State<AppFilterPage> {
       body: _checkedPermission && !_hasPermission
           ? _buildPermissionRequestView()
           : _buildAppListView(),
+    );
+  }
+
+  String get _infoText {
+    if (_selectedMode == 'block') {
+      return _selectedPackages.isEmpty
+          ? '当前模式：不通知应用 — 未选择时全部应用都推送通知'
+          : '已选择 ${_selectedPackages.length} 个应用，这些应用的通知不会被推送';
+    }
+    return _selectedPackages.isEmpty
+        ? '当前模式：通知应用 — 未选择时全部应用都推送通知（默认）'
+        : '已选择 ${_selectedPackages.length} 个应用，仅这些应用的通知会被推送';
+  }
+
+  Widget _buildModeToggle() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.inputBg(context),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            _buildModeChip(
+              icon: Icons.notifications_active,
+              label: '通知应用',
+              mode: 'allow',
+            ),
+            const SizedBox(width: 4),
+            _buildModeChip(
+              icon: Icons.notifications_off,
+              label: '不通知应用',
+              mode: 'block',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeChip({
+    required IconData icon,
+    required String label,
+    required String mode,
+  }) {
+    final selected = _selectedMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedMode = mode),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.cardBg(context) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected
+                    ? AppColors.blue
+                    : AppColors.secondaryLabel(context),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  color: selected
+                      ? AppColors.blue
+                      : AppColors.secondaryLabel(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -306,6 +417,8 @@ class _AppFilterPageState extends State<AppFilterPage> {
     return Column(
       children: [
         const SizedBox(height: 8),
+        _buildModeToggle(),
+        const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Container(
@@ -442,6 +555,30 @@ class _AppFilterPageState extends State<AppFilterPage> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _invertSelection,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondaryLabel(
+                              context,
+                            ).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '反选',
+                            style: TextStyle(
+                              color: AppColors.secondaryLabel(context),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
                       const Spacer(),
                       Text(
                         '已选 ${_selectedPackages.length}',
@@ -474,9 +611,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _selectedPackages.isEmpty
-                        ? '当前模式：所有应用都推送通知（默认）'
-                        : '已选择 ${_selectedPackages.length} 个应用，仅这些应用的通知会被推送',
+                    _infoText,
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.blue,

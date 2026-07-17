@@ -8,11 +8,13 @@ class FilterService {
   static const _channel = AppChannels.notification;
 
   Set<String> _enabledPackages = {};
+  String _appFilterMode = 'allow'; // 'allow' = 仅通知选中；'block' = 屏蔽选中
   List<String> _blacklistKeywords = [];
   List<String> _whitelistKeywords = [];
   List<NotificationRule> _notificationRules = [];
 
   Set<String> get enabledPackages => _enabledPackages;
+  String get appFilterMode => _appFilterMode;
   List<String> get blacklistKeywords => _blacklistKeywords;
   List<String> get whitelistKeywords => _whitelistKeywords;
   List<NotificationRule> get notificationRules => _notificationRules;
@@ -189,6 +191,14 @@ class FilterService {
     }
 
     try {
+      final mode = await _channel.invokeMethod('getAppFilterMode') as String?;
+      _appFilterMode = (mode == 'block') ? 'block' : 'allow';
+    } catch (e) {
+      final mode = prefs.getString('app_filter_mode');
+      _appFilterMode = (mode == 'block') ? 'block' : 'allow';
+    }
+
+    try {
       final List<dynamic> blacklist = await _channel.invokeMethod(
         'getBlacklistKeywords',
       );
@@ -221,16 +231,21 @@ class FilterService {
     _notificationRules = _loadNotificationRules(prefs);
   }
 
-  Future<void> saveEnabledPackages(List<String> packages) async {
+  Future<void> saveAppFilter(String mode, List<String> packages) async {
+    _appFilterMode = (mode == 'block') ? 'block' : 'allow';
     _enabledPackages = Set<String>.from(packages);
 
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_filter_mode', _appFilterMode);
     await prefs.setString('enabled_packages', jsonEncode(packages));
 
     try {
-      await _channel.invokeMethod('setEnabledPackages', {'packages': packages});
+      await _channel.invokeMethod('setAppFilter', {
+        'mode': _appFilterMode,
+        'packages': packages,
+      });
     } catch (e) {
-      debugPrint('FilterService: 保存启用包失败: $e');
+      debugPrint('FilterService: 保存应用筛选失败: $e');
     }
   }
 

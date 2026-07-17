@@ -2,12 +2,14 @@
 import 'package:get_it/get_it.dart';
 import '../services/update_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/icon_picker_tile.dart';
 import 'stats_page.dart';
 
 class MorePage extends StatelessWidget {
   final List<Map<String, dynamic>> webhookChannels;
   final String deviceName;
   final int enabledPackagesCount;
+  final String appFilterMode; // 'allow' = 通知应用；'block' = 不通知应用
   final int blacklistCount;
   final int whitelistCount;
   final int ruleCount;
@@ -28,6 +30,7 @@ class MorePage extends StatelessWidget {
     required this.webhookChannels,
     required this.deviceName,
     required this.enabledPackagesCount,
+    this.appFilterMode = 'allow',
     required this.blacklistCount,
     required this.whitelistCount,
     required this.ruleCount,
@@ -55,7 +58,11 @@ class MorePage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _buildSectionHeader('外观设置', context),
-          _buildGroup([_buildThemeTile(context)], context),
+          _buildGroup([
+            _buildThemeTile(context),
+            _buildDivider(context),
+            const IconPickerTile(),
+          ], context),
           const SizedBox(height: 24),
           _buildSectionHeader('推送设置', context),
           _buildGroup([
@@ -74,9 +81,7 @@ class MorePage extends StatelessWidget {
               icon: Icons.apps,
               iconColor: const Color(0xFFAF52DE),
               title: '应用筛选',
-              subtitle: enabledPackagesCount > 0
-                  ? '已选择 $enabledPackagesCount 个应用'
-                  : '全部应用都推送',
+              subtitle: _appFilterSubtitle,
               onTap: onOpenAppFilter,
               context: context,
             ),
@@ -174,6 +179,15 @@ class MorePage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String get _appFilterSubtitle {
+    if (enabledPackagesCount > 0) {
+      return appFilterMode == 'block'
+          ? '已屏蔽 $enabledPackagesCount 个应用'
+          : '已选择 $enabledPackagesCount 个应用';
+    }
+    return '全部应用都推送';
   }
 
   Widget _buildSectionHeader(String title, BuildContext context) {

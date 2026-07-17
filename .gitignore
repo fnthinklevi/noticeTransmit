@@ -68,3 +68,4 @@ server/data/failed_attempts.json
 
 # Gradle build artifacts
 install_dir/
+.workbuddy/

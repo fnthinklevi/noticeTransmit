@@ -347,6 +347,15 @@ class MainActivity : FlutterActivity() {
                 "getEnabledPackages" -> {
                     result.success(getEnabledPackages())
                 }
+                "setAppFilter" -> {
+                    val packages = call.argument<List<String>>("packages") ?: emptyList()
+                    val mode = call.argument<String>("mode") ?: "allow"
+                    setAppFilter(packages, mode)
+                    result.success(true)
+                }
+                "getAppFilterMode" -> {
+                    result.success(getAppFilterMode())
+                }
                 "setBlacklistKeywords" -> {
                     val keywords = call.argument<List<String>>("keywords") ?: emptyList()
                     setBlacklistKeywords(keywords)
@@ -378,6 +387,14 @@ class MainActivity : FlutterActivity() {
                 "getAppNameByPackage" -> {
                     val packageName = call.argument<String>("packageName") ?: ""
                     result.success(getAppNameByPackage(packageName))
+                }
+                "changeLauncherIcon" -> {
+                    val icon = call.argument<String>("icon") ?: "default"
+                    changeLauncherIcon(icon)
+                    result.success(true)
+                }
+                "getLauncherIcon" -> {
+                    result.success(getLauncherIcon())
                 }
                 else -> {
                     result.notImplemented()
@@ -633,6 +650,17 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {
         }
         return list
+    }
+
+    private fun setAppFilter(packages: List<String>, mode: String) {
+        val jsonArray = org.json.JSONArray(packages)
+        prefs.edit().putString("flutter.enabled_packages", jsonArray.toString()).apply()
+        prefs.edit().putString("flutter.app_filter_mode", mode).apply()
+        notifyServiceConfigChanged()
+    }
+
+    private fun getAppFilterMode(): String {
+        return prefs.getString("flutter.app_filter_mode", "allow") ?: "allow"
     }
 
     private fun setBlacklistKeywords(keywords: List<String>) {
@@ -1085,6 +1113,41 @@ class MainActivity : FlutterActivity() {
             android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
             android.content.pm.PackageManager.DONT_KILL_APP
         )
+    }
+
+    // 可选应用图标：default / blue / purple，同一时刻仅启用一个 alias
+    private val ICON_ALIASES: Map<String, ComponentName> by lazy {
+        mapOf(
+            "default" to ComponentName(packageName, "$packageName.LauncherDefault"),
+            "blue" to ComponentName(packageName, "$packageName.LauncherBlue"),
+            "purple" to ComponentName(packageName, "$packageName.LauncherPurple"),
+        )
+    }
+
+    private fun changeLauncherIcon(key: String) {
+        try {
+            val pm = packageManager
+            val target = ICON_ALIASES[key] ?: ICON_ALIASES["default"]!!
+            for ((k, comp) in ICON_ALIASES) {
+                val state = if (comp == target) {
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                } else {
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                }
+                pm.setComponentEnabledSetting(
+                    comp,
+                    state,
+                    android.content.pm.PackageManager.DONT_KILL_APP
+                )
+            }
+            prefs.edit().putString("flutter.selected_icon", key).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun getLauncherIcon(): String {
+        return prefs.getString("flutter.selected_icon", "default") ?: "default"
     }
 
     private fun testWebhook(url: String, result: MethodChannel.Result) {
