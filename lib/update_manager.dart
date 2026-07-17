@@ -118,13 +118,13 @@ class AppUpdateManager {
           'getAppVersion result: $result, type: ${result.runtimeType}',
         );
         if (result is Map) {
-          _currentVersion = result['versionName']?.toString() ?? '1.5.33';
+          _currentVersion = result['versionName']?.toString() ?? '1.5.34';
           _currentBuild =
-              int.tryParse(result['versionCode']?.toString() ?? '67') ?? 67;
+              int.tryParse(result['versionCode']?.toString() ?? '68') ?? 68;
         } else {
           debugPrint('Result is not a Map, using default values');
-          _currentVersion = '1.5.33';
-          _currentBuild = 67;
+          _currentVersion = '1.5.34';
+          _currentBuild = 68;
         }
         debugPrint(
           'Version from native: $_currentVersion build $_currentBuild',
@@ -132,12 +132,12 @@ class AppUpdateManager {
       } catch (e, stack) {
         debugPrint('Failed to get version from native: $e');
         debugPrint('Stack trace: $stack');
-        _currentVersion = '1.5.33';
-        _currentBuild = 67;
+        _currentVersion = '1.5.34';
+        _currentBuild = 68;
       }
     } else {
-      _currentVersion = '1.5.33';
-      _currentBuild = 67;
+      _currentVersion = '1.5.34';
+      _currentBuild = 68;
     }
   }
 
@@ -244,25 +244,13 @@ class AppUpdateManager {
     String? version,
   }) async {
     if (Platform.isAndroid) {
-      final status = await Permission.storage.request();
-      if (!status.isGranted) {
+      final granted = await requestStoragePermission();
+      if (!granted) {
         throw Exception('存储权限未授予');
       }
     }
 
-    String downloadDirPath;
-    if (Platform.isAndroid) {
-      try {
-        downloadDirPath =
-            await AppChannels.notification.invokeMethod('getDownloadDirectory')
-                as String;
-      } catch (e) {
-        downloadDirPath = '/storage/emulated/0/Download/fnthink.notice';
-      }
-    } else {
-      downloadDirPath = (await getTemporaryDirectory()).path;
-    }
-
+    final downloadDirPath = await resolveDownloadDir();
     final downloadsDir = Directory(downloadDirPath);
     if (!await downloadsDir.exists()) {
       await downloadsDir.create(recursive: true);
@@ -322,6 +310,7 @@ class AppUpdateManager {
             .asFuture();
 
         debugPrint('下载APK：成功，路径 $savePath');
+        await _recordPendingApk(savePath, version);
         return savePath;
       } catch (e) {
         debugPrint('下载APK：地址 ${urls[i]} 失败 - $e');
@@ -369,21 +358,26 @@ class AppUpdateManager {
         type: 'application/vnd.android.package-archive',
       );
 
-      Future.delayed(const Duration(minutes: 5), () {
-        try {
-          final file = File(filePath);
-          if (file.existsSync()) {
-            file.deleteSync();
-            debugPrint('APK安装包已自动删除');
-          }
-        } catch (e) {
-          debugPrint('删除APK安装包失败: $e');
-        }
-      });
-
+      // 不再使用脆弱的定时删除；安装包路径已记录，下次启动时
+      // 若检测到版本已升级，会由 _cleanupInstalledApk 自动删除。
       return result.type == ResultType.done;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// 记录本次下载的安装包路径与目标版本，供更新完成后自动清理
+  Future<void> _recordPendingApk(String path, String? version) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsKeyPendingApkPath, path);
+      if (version != null && version.isNotEmpty) {
+        await prefs.setString(_prefsKeyPendingApkVersion, version);
+      } else {
+        await prefs.remove(_prefsKeyPendingApkVersion);
+      }
+    } catch (e) {
+      debugPrint('记录待安装APK失败: $e');
     }
   }
 
