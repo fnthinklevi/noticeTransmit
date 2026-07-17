@@ -286,6 +286,14 @@
     .cta{padding:48px 22px}
     .wrap{padding:0 18px}
     .nav .btn-ghost.gh{display:none}
+    /* 手机端导航：收窄品牌字与按钮，避免下载按钮被挤出屏幕 */
+    .nav{padding:0 16px}
+    .brand{font-size:15px;gap:8px;white-space:nowrap}
+    .brand .logo{width:30px;height:30px}
+    .brand .logo svg{width:17px;height:17px}
+    .nav-burger{width:38px;height:38px}
+    .nav-cta{gap:8px}
+    .nav-cta .btn{padding:9px 13px;font-size:13.5px;white-space:nowrap}
   }
   @media(max-width:380px){
     .wrap{padding:0 14px}
@@ -303,6 +311,12 @@
     .s-head h2{font-size:28px}
     .cta h2{font-size:27px}
     .dl-meta{gap:12px;font-size:11.5px}
+    /* 超小屏再压缩导航 */
+    .nav{padding:0 12px}
+    .brand{font-size:13.5px;gap:7px}
+    .brand .logo{width:27px;height:27px}
+    .nav-cta .btn{padding:8px 11px;font-size:12.5px}
+    .nav-burger{width:36px;height:36px}
   }
 </style>
 </head>
