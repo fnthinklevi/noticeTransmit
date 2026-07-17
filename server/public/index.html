@@ -253,12 +253,24 @@
   .totop:hover{background:rgba(70,124,253,.3)}
   .totop svg{width:20px;height:20px}
 
+  /* 汉堡按钮：默认隐藏，移动端显示 */
+  .nav-burger{display:none;flex-direction:column;justify-content:center;gap:5px;width:42px;height:42px;padding:0;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:11px;cursor:pointer;transition:background .2s}
+  .nav-burger:active{background:rgba(255,255,255,.1)}
+  .nav-burger span{display:block;width:18px;height:2px;margin:0 auto;background:var(--ink);border-radius:2px;transition:transform .28s ease,opacity .2s ease}
+  .nav-burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+  .nav-burger[aria-expanded="true"] span:nth-child(2){opacity:0}
+  .nav-burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
   @media(max-width:940px){
     .hero{grid-template-columns:1fr;padding-top:120px;text-align:center}
     .hero p.sub{margin-left:auto;margin-right:auto}
     .hero-actions,.trust{justify-content:center}
     .stage{margin-top:20px;min-height:520px}
-    .nav-links{display:none}
+    .nav-burger{display:flex}
+    .nav-links{display:flex;position:absolute;top:68px;left:18px;right:18px;flex-direction:column;gap:4px;padding:0 12px;border-radius:16px;background:rgba(13,17,30,.98);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);box-shadow:0 20px 50px rgba(0,0,0,.55);max-height:0;overflow:hidden;opacity:0;pointer-events:none;transition:max-height .3s ease,opacity .25s ease,padding .3s ease}
+    .nav-links.open{display:flex;max-height:360px;opacity:1;pointer-events:auto;padding:12px}
+    .nav-links a{padding:13px 14px;border-radius:10px;font-size:15px}
+    .nav-links a:active{background:rgba(255,255,255,.07)}
     .grid{grid-template-columns:repeat(2,1fr)}
     .flow{grid-template-columns:1fr 1fr}
     .step .arrow{display:none}
@@ -274,6 +286,23 @@
     .cta{padding:48px 22px}
     .wrap{padding:0 18px}
     .nav .btn-ghost.gh{display:none}
+  }
+  @media(max-width:380px){
+    .wrap{padding:0 14px}
+    .hero{padding-top:104px}
+    .hero h1{font-size:clamp(30px,9.5vw,42px);letter-spacing:-.5px}
+    .hero p.sub{font-size:15.5px}
+    .badge{font-size:12px;padding:7px 12px}
+    .btn-lg{padding:14px 20px;font-size:15px;width:100%}
+    .hero-actions{flex-direction:column;align-items:stretch}
+    .trust{gap:14px;font-size:13px}
+    .stats{grid-template-columns:1fr 1fr;gap:12px;padding:22px}
+    .num{font-size:30px}
+    .section{padding:64px 0}
+    .s-head{margin-bottom:38px}
+    .s-head h2{font-size:28px}
+    .cta h2{font-size:27px}
+    .dl-meta{gap:12px;font-size:11.5px}
   }
 </style>
 </head>
@@ -291,13 +320,16 @@
       </span>
       通知推送助手
     </a>
-    <div class="nav-links">
+    <div class="nav-links" id="navLinks">
       <a href="#features">功能</a>
       <a href="#how">工作原理</a>
       <a href="#security">安全</a>
       <a href="#tech">技术栈</a>
       <a href="#faq">常见问题</a>
     </div>
+    <button class="nav-burger" id="navBurger" aria-label="打开菜单" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
     <div class="nav-cta">
       <a class="btn btn-ghost gh" href="https://github.com/fnthinklevi/noticeTransmit" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.2-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.75.81 1.2 1.84 1.2 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
@@ -586,6 +618,14 @@ function tick(){cx.clearRect(0,0,W,H);
     if(dist<15000){const o=(1-dist/15000)*.5;cx.strokeStyle='rgba(70,124,253,'+o+')';cx.lineWidth=.6;cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke();}}
   requestAnimationFrame(tick);}
 tick();
+
+/* ---- Mobile hamburger menu ---- */
+const burger=document.getElementById('navBurger'),navLinks=document.getElementById('navLinks');
+function setMenu(open){burger.setAttribute('aria-expanded',open?'true':'false');navLinks.classList.toggle('open',open);}
+burger.addEventListener('click',(e)=>{e.stopPropagation();setMenu(!navLinks.classList.contains('open'))});
+navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>setMenu(false)));
+document.addEventListener('click',(e)=>{if(navLinks.classList.contains('open')&&!navLinks.contains(e.target)&&e.target!==burger)setMenu(false)});
+addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(false)},{passive:true});
 </script>
 </body>
 </html>
