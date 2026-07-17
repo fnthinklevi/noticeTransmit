@@ -235,57 +235,69 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryChangedReceiver = object : android.content.BroadcastReceiver() {
             private val wakeLockTag = "BatteryMonitor::PowerWakeLock"
             override fun onReceive(context: Context?, intent: Intent?) {
-                val action = intent?.action
-
-                // 闹钟唤醒时重新排程下一次检查，保证息屏期间持续轮询
-                if (action == ACTION_BATTERY_ALARM) {
-                    scheduleBatteryAlarm()
-                }
-
-                // 息屏插入/拔出充电、或闹钟唤醒时，短暂持锁确保电量读取与 webhook 发送完成
+                // 关键：onReceive 内的任何未捕获异常都会让系统直接杀掉整个进程
+                // （表现为“打开即闪退”），因此整段必须包在 try/catch 中。
                 var wakeLock: PowerManager.WakeLock? = null
-                if (action == Intent.ACTION_POWER_CONNECTED ||
-                    action == Intent.ACTION_POWER_DISCONNECTED ||
-                    action == ACTION_BATTERY_ALARM
-                ) {
-                    try {
-                        val pm = context?.getSystemService(Context.POWER_SERVICE) as? PowerManager
-                        wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, wakeLockTag)
-                        wakeLock?.acquire(5000L)
-                    } catch (_: Exception) {}
-                }
+                try {
+                    val action = intent?.action
 
-                val batteryInfo = batteryMonitor.checkBatteryAndNotify()
-                if (batteryInfo != null) {
-                    webhookSender.sendNotification(batteryInfo)
-                    Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
-                }
+                    // 闹钟唤醒时重新排程下一次检查，保证息屏期间持续轮询
+                    if (action == ACTION_BATTERY_ALARM) {
+                        scheduleBatteryAlarm()
+                    }
 
-                val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-                val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
-                val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
-                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL
-                val actualLevel = if (level >= 0) (level * 100 / scale).coerceIn(0, 100) else -1
+                    // 息屏插入/拔出充电、或闹钟唤醒时，短暂持锁确保电量读取与 webhook 发送完成
+                    if (action == Intent.ACTION_POWER_CONNECTED ||
+                        action == Intent.ACTION_POWER_DISCONNECTED ||
+                        action == ACTION_BATTERY_ALARM
+                    ) {
+                        try {
+                            val pm = context?.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                            wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, wakeLockTag)
+                            wakeLock?.acquire(5000L)
+                        } catch (_: Exception) {
+                            wakeLock = null
+                        }
+                    }
 
-                val notifyIntent = Intent(ACTION_BATTERY_CHANGED_NOTIFY).apply {
-                    setPackage(context?.packageName)
-                    putExtra(EXTRA_BATTERY_LEVEL, actualLevel)
-                    putExtra(EXTRA_BATTERY_CHARGING, isCharging)
-                }
-                context?.sendBroadcast(notifyIntent)
+                    val batteryInfo = batteryMonitor.checkBatteryAndNotify()
+                    if (batteryInfo != null) {
+                        webhookSender.sendNotification(batteryInfo)
+                        Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
+                    }
 
-                // 延迟释放唤醒锁，确保异步 webhook 发送有机会完成
-                wakeLock?.let { wl ->
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        try { wl.release() } catch (_: Exception) {}
-                    }, 3000L)
+                    val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                    val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+                    val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
+                    val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                            status == BatteryManager.BATTERY_STATUS_FULL
+                    val actualLevel = if (level >= 0) (level * 100 / scale).coerceIn(0, 100) else -1
+
+                    val notifyIntent = Intent(ACTION_BATTERY_CHANGED_NOTIFY).apply {
+                        setPackage(context?.packageName)
+                        putExtra(EXTRA_BATTERY_LEVEL, actualLevel)
+                        putExtra(EXTRA_BATTERY_CHARGING, isCharging)
+                    }
+                    context?.sendBroadcast(notifyIntent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in battery receiver onReceive", e)
+                } finally {
+                    // 延迟释放唤醒锁，确保异步 webhook 发送有机会完成
+                    wakeLock?.let { wl ->
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            try { wl.release() } catch (_: Exception) {}
+                        }, 3000L)
+                    }
                 }
             }
         }
-        registerReceiver(batteryChangedReceiver, filter)
-        // 立即排程首次空闲闹钟（Handler 轮询在 Doze 下会被节流，此处为息屏兜底）
-        scheduleBatteryAlarm()
+        try {
+            registerReceiver(batteryChangedReceiver, filter)
+            // 立即排程首次空闲闹钟（Handler 轮询在 Doze 下会被节流，此处为息屏兜底）
+            scheduleBatteryAlarm()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start battery monitoring", e)
+        }
     }
 
     /**

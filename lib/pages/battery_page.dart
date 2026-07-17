@@ -370,7 +370,7 @@ class _BatteryPageState extends State<BatteryPage> {
             padding: const EdgeInsets.only(right: 24),
             child: TextButton(
               onPressed: widget.notifyEnabled
-                  ? () => _showDeleteConfirmDialog(rule['id'] as String)
+                  ? () => _showDeleteConfirmDialog(rule['id'] as String? ?? '')
                   : null,
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
@@ -398,9 +398,9 @@ class _BatteryPageState extends State<BatteryPage> {
           ),
         ),
         Slideable(
-          ruleId: rule['id'] as String,
+          ruleId: rule['id'] as String? ?? '',
           enabled: widget.notifyEnabled,
-          onDelete: () => _showDeleteConfirmDialog(rule['id'] as String),
+          onDelete: () => _showDeleteConfirmDialog(rule['id'] as String? ?? ''),
           child: Container(
             color: AppColors.cardBg(context),
             child: InkWell(
@@ -408,7 +408,7 @@ class _BatteryPageState extends State<BatteryPage> {
                   ? () => _showEditRuleDialog(rule)
                   : null,
               onLongPress: widget.notifyEnabled
-                  ? () => _showDeleteConfirmDialog(rule['id'] as String)
+                  ? () => _showDeleteConfirmDialog(rule['id'] as String? ?? '')
                   : null,
               child: _buildSwitchRow(
                 icon: icon,
@@ -417,7 +417,7 @@ class _BatteryPageState extends State<BatteryPage> {
                 subtitle: subtitle,
                 value: enabled,
                 onChanged: widget.notifyEnabled
-                    ? (v) => _handleToggleRule(rule['id'] as String, v)
+                    ? (v) => _handleToggleRule(rule['id'] as String? ?? '', v)
                     : null,
                 context: context,
                 trailing: null,
@@ -638,7 +638,7 @@ class _BatteryPageState extends State<BatteryPage> {
                 TextButton(
                   onPressed: () {
                     final id = isEdit
-                        ? existingRule['id'] as String
+                        ? existingRule['id'] as String? ?? ''
                         : 'rule_${DateTime.now().millisecondsSinceEpoch}';
                     final newRule = {
                       'id': id,

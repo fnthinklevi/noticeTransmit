@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#070b16" />
+<title>通知推送助手 · 让每条通知，抵达每个平台</title>
+<meta name="description" content="通知推送助手 —— Android 通知监听与 Webhook 推送工具。支持企业微信 / 钉钉 / 飞书多平台，具备应用筛选、关键词过滤、可视化规则引擎、电量提醒、二步验证等功能。开源、免费、本地处理。" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23467CFD' d='M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z'/%3E%3Cpath fill='%238BAEF7' d='M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.cn" />
+<link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin />
+<link href="https://fonts.googleapis.cn/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#070b16;
+    --bg-2:#0a1028;
+    --ink:#eaf0fb;
+    --ink-dim:#93a1c0;
+    --ink-faint:#5f6d8c;
+    --brand:#467cfd;
+    --brand-bright:#5b90ff;
+    --cyan:#22d3ee;
+    --violet:#7c6cff;
+    --line:rgba(255,255,255,.09);
+    --line-soft:rgba(255,255,255,.055);
+    --card:rgba(255,255,255,.028);
+    --card-hi:rgba(255,255,255,.05);
+    --radius:20px;
+    --maxw:1200px;
+    --font-display:"Sora","PingFang SC","Microsoft YaHei",sans-serif;
+    --font-body:"Manrope","PingFang SC","Microsoft YaHei",sans-serif;
+    --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--font-body);
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.65;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  ::selection{background:rgba(70,124,253,.35);color:#fff}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+
+  /* ===== Ambient background ===== */
+  #signal-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.55}
+  .aura{position:fixed;z-index:0;border-radius:50%;filter:blur(120px);pointer-events:none;opacity:.5}
+  .aura.a{top:-16%;left:-8%;width:640px;height:640px;background:radial-gradient(circle,#1d3b9e,transparent 70%)}
+  .aura.b{top:24%;right:-12%;width:560px;height:560px;background:radial-gradient(circle,#0e6b7a,transparent 70%);opacity:.4}
+  .aura.c{bottom:-18%;left:22%;width:600px;height:600px;background:radial-gradient(circle,#3a2d8a,transparent 70%);opacity:.35}
+  .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.035;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  .wrap{position:relative;z-index:2;max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+  /* ===== Nav ===== */
+  header{position:fixed;top:0;left:0;right:0;z-index:50;transition:.35s}
+  header.scrolled{background:rgba(8,12,24,.72);backdrop-filter:blur(18px) saturate(1.4);border-bottom:1px solid var(--line-soft)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:72px;max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:.2px}
+  .brand .logo{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;
+    background:linear-gradient(145deg,#1a2c66,#0d1330);border:1px solid rgba(91,144,255,.4);
+    box-shadow:0 0 22px rgba(70,124,253,.35)}
+  .brand .logo svg{width:20px;height:20px}
+  .nav-links{display:flex;gap:34px;font-size:14.5px;color:var(--ink-dim);font-weight:500}
+  .nav-links a{position:relative;transition:.25s}
+  .nav-links a::after{content:"";position:absolute;left:0;bottom:-6px;width:0;height:2px;border-radius:2px;
+    background:linear-gradient(90deg,var(--brand),var(--cyan));transition:.3s}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-links a:hover::after{width:100%}
+  .nav-cta{display:flex;align-items:center;gap:12px}
+
+  .btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-body);font-weight:600;font-size:14.5px;
+    padding:11px 20px;border-radius:12px;border:1px solid transparent;cursor:pointer;transition:.28s;white-space:nowrap}
+  .btn svg{width:17px;height:17px}
+  .btn-primary{color:#fff;background:linear-gradient(135deg,var(--brand),#3a63d6);
+    box-shadow:0 8px 26px rgba(70,124,253,.42),inset 0 1px 0 rgba(255,255,255,.25)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(70,124,253,.55),inset 0 1px 0 rgba(255,255,255,.3)}
+  .btn-ghost{color:var(--ink);background:rgba(255,255,255,.04);border-color:var(--line)}
+  .btn-ghost:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.2);transform:translateY(-2px)}
+  .btn-lg{padding:16px 30px;font-size:16px;border-radius:14px}
+
+  /* ===== Hero ===== */
+  .hero{position:relative;padding:150px 0 90px;display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+  .badge{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:#bcd0ff;
+    padding:7px 15px;border-radius:100px;background:rgba(70,124,253,.1);border:1px solid rgba(70,124,253,.3);margin-bottom:26px}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .hero h1{font-family:var(--font-display);font-weight:800;font-size:clamp(38px,5.4vw,66px);line-height:1.08;letter-spacing:-1px}
+  .hero h1 .grad{background:linear-gradient(115deg,#8fb4ff 0%,var(--cyan) 55%,#a78bff 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.sub{margin:24px 0 34px;font-size:18px;color:var(--ink-dim);max-width:530px;line-height:1.75}
+  .hero-actions{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .trust{display:flex;gap:22px;margin-top:32px;flex-wrap:wrap}
+  .trust span{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-faint)}
+  .trust svg{width:16px;height:16px;color:var(--brand-bright)}
+
+  /* Phone mockup */
+  .stage{position:relative;display:grid;place-items:center;min-height:560px}
+  .phone{position:relative;width:288px;height:588px;border-radius:44px;padding:13px;
+    background:linear-gradient(160deg,#1b2244,#0a0e20);border:1px solid rgba(120,150,255,.22);
+    box-shadow:0 40px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04),inset 0 2px 4px rgba(255,255,255,.08);
+    z-index:3}
+  .phone::before{content:"";position:absolute;top:20px;left:50%;transform:translateX(-50%);width:96px;height:24px;border-radius:0 0 16px 16px;background:#05070f;z-index:5}
+  .screen{position:relative;width:100%;height:100%;border-radius:33px;overflow:hidden;
+    background:linear-gradient(180deg,#0b1024,#0a0f22)}
+  .screen-top{padding:44px 20px 14px;display:flex;align-items:center;justify-content:space-between}
+  .screen-top .st-title{font-family:var(--font-display);font-weight:700;font-size:16px}
+  .screen-top .st-live{font-size:10.5px;color:#5be0a0;display:flex;align-items:center;gap:5px;font-weight:600}
+  .screen-top .st-live b{width:6px;height:6px;border-radius:50%;background:#5be0a0;box-shadow:0 0 8px #5be0a0;display:inline-block;animation:pulse 1.6s infinite}
+  .feed{padding:6px 14px;display:flex;flex-direction:column;gap:10px}
+  .msg{display:flex;gap:11px;padding:12px;border-radius:15px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.06);
+    opacity:0;transform:translateY(14px);animation:msgin .55s forwards}
+  .msg .ic{width:34px;height:34px;border-radius:10px;flex:0 0 34px;display:grid;place-items:center;font-size:16px}
+  .msg .tx b{display:block;font-size:12.5px;margin-bottom:2px}
+  .msg .tx small{font-size:11px;color:var(--ink-dim);line-height:1.4}
+  .msg .badge-ok{margin-left:auto;font-size:9px;color:#5be0a0;align-self:flex-start;white-space:nowrap}
+  @keyframes msgin{to{opacity:1;transform:none}}
+  .ic.wx{background:rgba(38,190,110,.16)}.ic.dd{background:rgba(70,124,253,.16)}.ic.fs{background:rgba(0,209,209,.15)}.ic.bt{background:rgba(255,176,32,.16)}
+  .relay{position:absolute;right:-4px;bottom:70px;z-index:4;display:flex;flex-direction:column;gap:10px}
+  .relay .chip{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;padding:8px 13px;border-radius:100px;
+    background:rgba(11,16,36,.9);border:1px solid var(--line);backdrop-filter:blur(8px);
+    box-shadow:0 8px 22px rgba(0,0,0,.4);opacity:0;transform:translateX(18px);animation:chipin .5s forwards}
+  .relay .chip span{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:11px}
+  @keyframes chipin{to{opacity:1;transform:none}}
+  .orbit{position:absolute;width:430px;height:430px;border:1px dashed rgba(120,150,255,.16);border-radius:50%;animation:spin 26s linear infinite;z-index:1}
+  .orbit.o2{width:540px;height:540px;animation-duration:38s;animation-direction:reverse;border-color:rgba(0,209,209,.1)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ===== Section shell ===== */
+  section{position:relative;padding:96px 0}
+  .eyebrow{font-family:var(--font-mono);font-size:12.5px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan);margin-bottom:16px;font-weight:600}
+  .s-head{max-width:680px;margin-bottom:56px}
+  .s-head.center{margin:0 auto 56px;text-align:center}
+  .s-head h2{font-family:var(--font-display);font-weight:700;font-size:clamp(28px,3.6vw,44px);line-height:1.15;letter-spacing:-.5px}
+  .s-head p{margin-top:16px;font-size:17px;color:var(--ink-dim)}
+
+  /* Stats bar */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding:34px;border-radius:var(--radius);
+    background:linear-gradient(180deg,rgba(70,124,253,.07),rgba(255,255,255,.01));border:1px solid var(--line)}
+  .stat{text-align:center}
+  .stat .num{font-family:var(--font-display);font-weight:800;font-size:clamp(30px,4vw,46px);
+    background:linear-gradient(120deg,#9cbcff,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat .lbl{font-size:13.5px;color:var(--ink-dim);margin-top:6px}
+
+  /* Feature grid */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .card{position:relative;padding:28px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line);
+    overflow:hidden;transition:.35s}
+  .card::before{content:"";position:absolute;inset:0;opacity:0;transition:.4s;
+    background:radial-gradient(320px circle at var(--mx,50%) var(--my,0%),rgba(70,124,253,.14),transparent 60%)}
+  .card:hover{transform:translateY(-5px);border-color:rgba(91,144,255,.35);background:var(--card-hi)}
+  .card:hover::before{opacity:1}
+  .card .fi{width:48px;height:48px;border-radius:13px;display:grid;place-items:center;margin-bottom:18px;font-size:22px;
+    background:linear-gradient(145deg,rgba(70,124,253,.18),rgba(34,211,238,.08));border:1px solid rgba(91,144,255,.22)}
+  .card h3{font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:9px}
+  .card p{font-size:14.5px;color:var(--ink-dim);line-height:1.7}
+  .card .tag{position:absolute;top:22px;right:22px;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;
+    color:var(--ink-faint);text-transform:uppercase}
+
+  /* Flow / how it works */
+  .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;align-items:stretch}
+  .step{position:relative;padding:26px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);text-align:center}
+  .step .n{font-family:var(--font-mono);font-size:12px;color:var(--cyan);font-weight:600;margin-bottom:14px;letter-spacing:2px}
+  .step .si{width:52px;height:52px;margin:0 auto 16px;border-radius:15px;display:grid;place-items:center;font-size:24px;
+    background:linear-gradient(145deg,rgba(70,124,253,.16),rgba(124,108,255,.08));border:1px solid rgba(91,144,255,.2)}
+  .step h4{font-family:var(--font-display);font-size:15.5px;font-weight:600;margin-bottom:7px}
+  .step p{font-size:12.8px;color:var(--ink-dim);line-height:1.6}
+  .step .arrow{position:absolute;top:50%;right:-14px;transform:translateY(-50%);z-index:4;color:var(--brand-bright);width:20px;height:20px}
+  .platforms{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:42px}
+  .plat{display:flex;align-items:center;gap:11px;padding:14px 22px;border-radius:15px;background:var(--card);border:1px solid var(--line);transition:.3s}
+  .plat:hover{border-color:rgba(91,144,255,.35);transform:translateY(-3px)}
+  .plat .pi{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:17px}
+  .plat b{font-family:var(--font-display);font-size:15px;font-weight:600}
+  .plat small{display:block;font-size:11.5px;color:var(--ink-faint)}
+
+  /* Security */
+  .sec-wrap{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .sec-list{display:flex;flex-direction:column;gap:14px}
+  .sec-item{display:flex;gap:16px;padding:20px;border-radius:16px;background:var(--card);border:1px solid var(--line);transition:.3s}
+  .sec-item:hover{border-color:rgba(34,211,238,.3);background:var(--card-hi)}
+  .sec-item .sic{flex:0 0 42px;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:19px;
+    background:linear-gradient(145deg,rgba(34,211,238,.14),rgba(70,124,253,.06));border:1px solid rgba(34,211,238,.22)}
+  .sec-item h4{font-family:var(--font-display);font-size:15.5px;font-weight:600;margin-bottom:4px}
+  .sec-item p{font-size:13.5px;color:var(--ink-dim);line-height:1.6}
+  .shield{position:relative;border-radius:var(--radius);border:1px solid var(--line);
+    background:radial-gradient(600px circle at 50% -10%,rgba(34,211,238,.12),transparent 60%),var(--card);
+    display:grid;place-items:center;padding:40px;text-align:center;overflow:hidden}
+  .shield .big{width:130px;height:130px;border-radius:34px;display:grid;place-items:center;font-size:58px;margin:0 auto 24px;
+    background:linear-gradient(145deg,rgba(34,211,238,.16),rgba(70,124,253,.1));border:1px solid rgba(34,211,238,.3);
+    box-shadow:0 0 60px rgba(34,211,238,.25)}
+  .shield h3{font-family:var(--font-display);font-weight:700;font-size:24px;margin-bottom:12px}
+  .shield p{font-size:14.5px;color:var(--ink-dim);max-width:340px}
+  .shield .ring{position:absolute;inset:0;background:repeating-conic-gradient(from 0deg,transparent 0 12deg,rgba(34,211,238,.04) 12deg 13deg);animation:spin 60s linear infinite}
+
+  /* Tech stack */
+  .tech{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+  .tech .t{font-family:var(--font-mono);font-size:13.5px;padding:11px 18px;border-radius:11px;color:var(--ink-dim);
+    background:var(--card);border:1px solid var(--line);transition:.3s}
+  .tech .t:hover{color:var(--ink);border-color:rgba(91,144,255,.4);transform:translateY(-3px);background:var(--card-hi)}
+  .tech .t b{color:var(--brand-bright);font-weight:600}
+
+  /* FAQ */
+  .faq{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .qa{border-radius:15px;background:var(--card);border:1px solid var(--line);overflow:hidden;transition:.3s}
+  .qa summary{list-style:none;cursor:pointer;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;
+    font-family:var(--font-display);font-weight:600;font-size:16px}
+  .qa summary::-webkit-details-marker{display:none}
+  .qa summary .plus{width:22px;height:22px;flex:0 0 22px;position:relative;transition:.3s}
+  .qa summary .plus::before,.qa summary .plus::after{content:"";position:absolute;background:var(--brand-bright);border-radius:2px}
+  .qa summary .plus::before{top:10px;left:2px;right:2px;height:2px}
+  .qa summary .plus::after{left:10px;top:2px;bottom:2px;width:2px;transition:.3s}
+  .qa[open] summary .plus::after{transform:rotate(90deg);opacity:0}
+  .qa[open]{border-color:rgba(91,144,255,.3)}
+  .qa .a{padding:0 24px 22px;font-size:14.5px;color:var(--ink-dim);line-height:1.75}
+
+  /* Download CTA */
+  .cta{position:relative;border-radius:28px;padding:70px 40px;text-align:center;overflow:hidden;
+    background:linear-gradient(160deg,rgba(70,124,253,.16),rgba(34,211,238,.06));border:1px solid rgba(91,144,255,.3)}
+  .cta::before{content:"";position:absolute;inset:0;background:radial-gradient(500px circle at 50% 0%,rgba(70,124,253,.25),transparent 60%)}
+  .cta-inner{position:relative;z-index:2}
+  .cta h2{font-family:var(--font-display);font-weight:800;font-size:clamp(30px,4vw,48px);letter-spacing:-.5px;line-height:1.1}
+  .cta p{margin:18px auto 30px;font-size:17px;color:#c6d4f2;max-width:520px}
+  .cta-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .dl-meta{margin-top:24px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-faint);display:flex;gap:20px;justify-content:center;flex-wrap:wrap}
+
+  /* Footer */
+  footer{position:relative;z-index:2;border-top:1px solid var(--line-soft);padding:56px 0 40px;margin-top:40px}
+  .foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px}
+  .foot .brand{margin-bottom:14px}
+  .foot p.desc{font-size:14px;color:var(--ink-dim);max-width:320px;line-height:1.7}
+  .foot h5{font-family:var(--font-display);font-size:14px;font-weight:600;margin-bottom:16px;color:var(--ink)}
+  .foot ul{list-style:none;display:flex;flex-direction:column;gap:11px}
+  .foot ul a{font-size:14px;color:var(--ink-dim);transition:.25s}
+  .foot ul a:hover{color:var(--brand-bright)}
+  .foot-bot{margin-top:44px;padding-top:24px;border-top:1px solid var(--line-soft);display:flex;justify-content:space-between;
+    align-items:center;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--ink-faint)}
+  .foot-bot .mono{font-family:var(--font-mono)}
+
+  /* reveal */
+  .reveal{opacity:0;transform:translateY(28px);transition:.8s cubic-bezier(.16,1,.3,1)}
+  .reveal.in{opacity:1;transform:none}
+
+  /* to top */
+  .totop{position:fixed;right:26px;bottom:26px;z-index:40;width:46px;height:46px;border-radius:13px;display:grid;place-items:center;
+    background:rgba(70,124,253,.16);border:1px solid rgba(91,144,255,.35);backdrop-filter:blur(10px);cursor:pointer;
+    opacity:0;transform:translateY(14px) scale(.9);transition:.35s;color:var(--ink)}
+  .totop.show{opacity:1;transform:none}
+  .totop:hover{background:rgba(70,124,253,.3)}
+  .totop svg{width:20px;height:20px}
+
+  @media(max-width:940px){
+    .hero{grid-template-columns:1fr;padding-top:120px;text-align:center}
+    .hero p.sub{margin-left:auto;margin-right:auto}
+    .hero-actions,.trust{justify-content:center}
+    .stage{margin-top:20px;min-height:520px}
+    .nav-links{display:none}
+    .grid{grid-template-columns:repeat(2,1fr)}
+    .flow{grid-template-columns:1fr 1fr}
+    .step .arrow{display:none}
+    .sec-wrap{grid-template-columns:1fr}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .foot{grid-template-columns:1fr 1fr}
+  }
+  @media(max-width:560px){
+    .grid{grid-template-columns:1fr}
+    .flow{grid-template-columns:1fr}
+    .stats{grid-template-columns:1fr 1fr}
+    .foot{grid-template-columns:1fr}
+    .cta{padding:48px 22px}
+    .wrap{padding:0 18px}
+    .nav .btn-ghost.gh{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="signal-canvas"></canvas>
+<div class="aura a"></div><div class="aura b"></div><div class="aura c"></div>
+<div class="grain"></div>
+
+<!-- NAV -->
+<header id="hdr">
+  <nav class="nav">
+    <a class="brand" href="#top">
+      <span class="logo">
+        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path fill="#5b90ff" d="M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z"/><path fill="#9cbcff" d="M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z"/></svg>
+      </span>
+      通知推送助手
+    </a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#how">工作原理</a>
+      <a href="#security">安全</a>
+      <a href="#tech">技术栈</a>
+      <a href="#faq">常见问题</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost gh" href="https://github.com/fnthinklevi/noticeTransmit" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.2-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.75.81 1.2 1.84 1.2 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+        GitHub
+      </a>
+      <a class="btn btn-primary" href="#download">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+        下载 APK
+      </a>
+    </div>
+  </nav>
+</header>
+
+<a id="top"></a>
+<div class="wrap">
+
+  <!-- HERO -->
+  <section class="hero" style="padding-top:150px">
+    <div class="hero-copy">
+      <span class="badge"><span class="dot"></span> v1.5.39 · 开源免费 · 本地处理</span>
+      <h1>让每条通知，<br><span class="grad">抵达每个平台</span></h1>
+      <p class="sub">通知推送助手是一款 Android 通知监听与 Webhook 推送工具。把手机上的任意通知，实时转发到企业微信、钉钉、飞书——支持应用筛选、关键词过滤、可视化规则引擎与自定义电量提醒。</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="#download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+          立即下载
+        </a>
+        <a class="btn btn-ghost btn-lg" href="https://github.com/fnthinklevi/noticeTransmit" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.2-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.75.81 1.2 1.84 1.2 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+          在 GitHub 查看源码
+        </a>
+      </div>
+      <div class="trust">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg> Android 7.0+</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg> MIT 开源</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg> Flutter 构建</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg> 无广告 · 无追踪</span>
+      </div>
+    </div>
+
+    <!-- Phone -->
+    <div class="stage">
+      <div class="orbit"></div>
+      <div class="orbit o2"></div>
+      <div class="phone">
+        <div class="screen">
+          <div class="screen-top">
+            <div class="st-title">通知推送</div>
+            <div class="st-live"><b></b> 监听中</div>
+          </div>
+          <div class="feed" id="feed">
+            <div class="msg" style="animation-delay:.2s"><div class="ic wx">💬</div><div class="tx"><b>微信</b><small>【项目群】发布会 15:00 开始</small></div><div class="badge-ok">✓ 已推送</div></div>
+            <div class="msg" style="animation-delay:.7s"><div class="ic bt">🔋</div><div class="tx"><b>电量提醒</b><small>电量已降至 20%，请及时充电</small></div><div class="badge-ok">✓ 已推送</div></div>
+            <div class="msg" style="animation-delay:1.2s"><div class="ic dd">✉️</div><div class="tx"><b>短信验证码</b><small>验证码 928311，优先推送</small></div><div class="badge-ok">✓ 已推送</div></div>
+            <div class="msg" style="animation-delay:1.7s"><div class="ic fs">📞</div><div class="tx"><b>来电结束</b><small>与 138****6021 通话 3 分钟</small></div><div class="badge-ok">✓ 已推送</div></div>
+            <div class="msg" style="animation-delay:2.2s"><div class="ic wx">🛒</div><div class="tx"><b>营销广告</b><small>已被夜间免打扰规则拦截</small></div><div class="badge-ok" style="color:#ff9f6b">⊘ 已拦截</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="relay">
+        <div class="chip" style="animation-delay:2.6s"><span class="ic wx">🏢</span> 企业微信</div>
+        <div class="chip" style="animation-delay:2.9s"><span class="ic dd">📊</span> 钉钉</div>
+        <div class="chip" style="animation-delay:3.2s"><span class="ic fs">🕊️</span> 飞书</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section style="padding-top:20px">
+    <div class="stats reveal">
+      <div class="stat"><div class="num" data-to="3">0</div><div class="lbl">主流推送平台</div></div>
+      <div class="stat"><div class="num" data-to="5">0</div><div class="lbl">种通知智能识别</div></div>
+      <div class="stat"><div class="num" data-to="17">0</div><div class="lbl">款可选应用图标</div></div>
+      <div class="stat"><div class="num" data-to="100" data-suffix="%">0</div><div class="lbl">通知本地处理</div></div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="s-head reveal">
+      <div class="eyebrow">Features</div>
+      <h2>一个应用，管好所有通知</h2>
+      <p>从监听、过滤到推送，每个环节都可精细掌控。为效率而生的完整功能矩阵。</p>
+    </div>
+    <div class="grid">
+      <div class="card reveal"><span class="tag">Core</span><div class="fi">🔔</div><h3>全量通知监听</h3><p>监听系统所有应用的通知栏消息，智能识别微信、QQ、短信、来电、系统等 5 类通知类型。</p></div>
+      <div class="card reveal"><span class="tag">Core</span><div class="fi">🔗</div><h3>Webhook 多通道</h3><p>同时配置多个 Webhook 地址，每个通道独立开关，自动适配企业微信 / 钉钉 / 飞书消息格式。</p></div>
+      <div class="card reveal"><span class="tag">Core</span><div class="fi">🧠</div><h3>可视化规则引擎</h3><p>IF 条件组合 + THEN 动作配置，内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">🏷️</div><h3>关键词过滤</h3><p>白名单 + 黑名单双模式关键词过滤，精准控制哪些内容推送、哪些内容拦截。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">📱</div><h3>应用筛选</h3><p>自定义选择需要推送的应用，支持「通知 / 不通知」双模式与一键全选、反选。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">🔋</div><h3>自定义电量提醒</h3><p>充电 / 断开 / 指定电量阈值全自定义规则，息屏 Doze 下依然可靠推送，可增删改。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">📋</div><h3>历史记录</h3><p>本地保存推送历史，支持搜索、详情查看与导出，随时回溯每一条通知去向。</p></div>
+      <div class="card reveal"><span class="tag">UX</span><div class="fi">🌙</div><h3>深色模式</h3><p>浅色 / 深色 / 跟随系统三种主题，iOS 风格设计语言，界面简洁优雅。</p></div>
+      <div class="card reveal"><span class="tag">UX</span><div class="fi">🔄</div><h3>后台保活 · 在线更新</h3><p>前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新与热更新，无需重装。</p></div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section id="how">
+    <div class="s-head center reveal">
+      <div class="eyebrow">How it works</div>
+      <h2>通知，如何抵达你想要的地方</h2>
+      <p>一条通知从产生到推送，只需毫秒级的四步流转。</p>
+    </div>
+    <div class="flow reveal">
+      <div class="step"><div class="n">01</div><div class="si">📲</div><h4>捕获通知</h4><p>系统通知栏产生消息，监听服务实时捕获</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="step"><div class="n">02</div><div class="si">🔍</div><h4>识别分类</h4><p>解析来源应用与类型，标记微信、短信、来电等</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="step"><div class="n">03</div><div class="si">⚙️</div><h4>规则过滤</h4><p>经规则引擎 + 关键词 + 应用筛选层层判定</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="step"><div class="n">04</div><div class="si">🚀</div><h4>多通道推送</h4><p>按格式封装，并行推送至各 Webhook 通道</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="step"><div class="n">05</div><div class="si">✅</div><h4>送达确认</h4><p>推送结果记入历史，成功失败一目了然</p></div>
+    </div>
+    <div class="platforms reveal">
+      <div class="plat"><span class="pi" style="background:rgba(38,190,110,.16)">🏢</span><div><b>企业微信</b><small>群机器人 Webhook</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(70,124,253,.16)">📊</span><div><b>钉钉</b><small>自定义机器人</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(0,209,209,.15)">🕊️</span><div><b>飞书</b><small>群自定义机器人</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(124,108,255,.16)">🔌</span><div><b>自定义 Webhook</b><small>任意兼容平台</small></div></div>
+    </div>
+  </section>
+
+  <!-- SECURITY -->
+  <section id="security">
+    <div class="s-head reveal">
+      <div class="eyebrow">Security</div>
+      <h2>把安全，做进每一层</h2>
+      <p>通知不上云、管理后台二步验证、敏感数据加密——隐私与安全，从设计之初就被认真对待。</p>
+    </div>
+    <div class="sec-wrap">
+      <div class="sec-list">
+        <div class="sec-item reveal"><div class="sic">🔐</div><div><h4>二步验证（TOTP）</h4><p>管理后台登录启用 2FA，兼容 Google Authenticator，防止凭据泄露。</p></div></div>
+        <div class="sec-item reveal"><div class="sic">🔑</div><div><h4>bcrypt 哈希</h4><p>Token 使用 bcrypt 哈希验证，抵御暴力破解与彩虹表攻击。</p></div></div>
+        <div class="sec-item reveal"><div class="sic">🛡️</div><div><h4>IP 智能封锁</h4><p>10 分钟内验证码错误 3 次自动封锁 IP，阻断自动化爆破。</p></div></div>
+        <div class="sec-item reveal"><div class="sic">🔢</div><div><h4>恢复码机制</h4><p>生成 8 个一次性恢复码，设备丢失时安全找回账户。</p></div></div>
+        <div class="sec-item reveal"><div class="sic">🔒</div><div><h4>AES-256-GCM 加密</h4><p>TOTP secret 等敏感数据加密存储，密钥泄露也无法直接读取。</p></div></div>
+      </div>
+      <div class="shield reveal">
+        <div class="ring"></div>
+        <div style="position:relative;z-index:2">
+          <div class="big">🛡️</div>
+          <h3>通知不上云</h3>
+          <p>所有通知、短信、通讯录仅在本地处理与推送，绝不上传任何服务器。推送只经你自己配置的 Webhook 发出——开发者不存储任何一条内容。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH -->
+  <section id="tech">
+    <div class="s-head center reveal">
+      <div class="eyebrow">Tech Stack</div>
+      <h2>现代、可靠的工程底座</h2>
+      <p>跨端 Flutter + 原生 Kotlin 后台服务 + Node.js 更新服务，全链路开源可审计。</p>
+    </div>
+    <div class="tech reveal">
+      <div class="t"><b>Flutter</b> 3.44+</div>
+      <div class="t"><b>Dart</b> 3.12+</div>
+      <div class="t"><b>Kotlin</b> 2.3.20</div>
+      <div class="t"><b>Node.js</b> + Express</div>
+      <div class="t">SQLite · sqflite</div>
+      <div class="t">get_it DI</div>
+      <div class="t">OkHttp 4.12</div>
+      <div class="t">NotificationListenerService</div>
+      <div class="t">Foreground Service + WakeLock</div>
+      <div class="t">otplib · TOTP</div>
+      <div class="t">bcryptjs</div>
+      <div class="t">AES-256-GCM</div>
+      <div class="t">Gradle 9.4.1 · AGP 9.0.1</div>
+      <div class="t">GitHub Actions CI/CD</div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="s-head center reveal">
+      <div class="eyebrow">FAQ</div>
+      <h2>常见问题</h2>
+    </div>
+    <div class="faq">
+      <details class="qa reveal"><summary>它会不会上传我的通知或短信内容？<span class="plus"></span></summary><div class="a">不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 地址发出，开发者不存储任何推送内容。仅崩溃统计（腾讯 Bugly）会采集崩溃堆栈用于修复问题。</div></details>
+      <details class="qa reveal"><summary>支持哪些推送平台？<span class="plus"></span></summary><div class="a">内置适配企业微信群机器人、钉钉自定义机器人、飞书群机器人的消息格式；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。</div></details>
+      <details class="qa reveal"><summary>为什么有时候收不到推送？<span class="plus"></span></summary><div class="a">请依次检查：① 通知访问权限是否开启；② 是否已忽略电池优化（应用会在首次启用时引导）；③ 前台服务是否运行；④ 厂商自启动 / 后台权限是否放行；⑤ Webhook 地址是否正确（设置页可测试）；⑥ 是否被应用筛选或关键词过滤拦截。</div></details>
+      <details class="qa reveal"><summary>需要 root 或特殊权限吗？<span class="plus"></span></summary><div class="a">无需 root。仅需授予通知监听权限，并按需开启短信 / 来电识别、忽略电池优化、开机自启等常规权限即可稳定运行。</div></details>
+      <details class="qa reveal"><summary>是免费的吗？开源吗？<span class="plus"></span></summary><div class="a">完全免费，且在 GitHub 开源（MIT 许可，供学习交流使用）。欢迎提交 Issue 与 Pull Request 参与共建。</div></details>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section id="download">
+    <div class="cta reveal">
+      <div class="cta-inner">
+        <h2>现在，就让通知流动起来</h2>
+        <p>下载最新版 APK，几分钟完成配置，再也不错过任何一条重要消息。</p>
+        <div class="cta-actions">
+          <a class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/notice1.5.39.apk">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+            下载 Android APK
+          </a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/fnthinklevi/noticeTransmit/releases" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.2-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.75.81 1.2 1.84 1.2 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+            全部历史版本
+          </a>
+        </div>
+        <div class="dl-meta">
+          <span>版本 v1.5.39 (build 73)</span>
+          <span>·</span>
+          <span>约 22.2 MB</span>
+          <span>·</span>
+          <span>arm64 · Android 7.0+</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#top">
+          <span class="logo"><svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path fill="#5b90ff" d="M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z"/><path fill="#9cbcff" d="M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z"/></svg></span>
+          通知推送助手
+        </a>
+        <p class="desc">Android 通知监听与 Webhook 推送工具。开源、免费、本地处理，让每条通知抵达每个平台。由 幻念团队 fnthinklevi 打造。</p>
+      </div>
+      <div>
+        <h5>产品</h5>
+        <ul>
+          <li><a href="#features">功能特性</a></li>
+          <li><a href="#how">工作原理</a></li>
+          <li><a href="#security">安全加固</a></li>
+          <li><a href="#download">下载</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>资源</h5>
+        <ul>
+          <li><a href="https://github.com/fnthinklevi/noticeTransmit" target="_blank" rel="noopener">GitHub 仓库</a></li>
+          <li><a href="https://github.com/fnthinklevi/noticeTransmit/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">贡献指南</a></li>
+          <li><a href="https://github.com/fnthinklevi/noticeTransmit/blob/main/SECURITY.md" target="_blank" rel="noopener">安全政策</a></li>
+          <li><a href="https://github.com/fnthinklevi/noticeTransmit/issues" target="_blank" rel="noopener">反馈问题</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 幻念团队 fnthinklevi · 通知推送助手</span>
+      <span class="mono">MIT License · Built with Flutter</span>
+    </div>
+  </div>
+</footer>
+
+<div class="totop" id="totop" title="返回顶部">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>
+</div>
+
+<script>
+/* ---- Nav scroll state + to-top ---- */
+const hdr=document.getElementById('hdr'),totop=document.getElementById('totop');
+const onScroll=()=>{const y=scrollY;hdr.classList.toggle('scrolled',y>20);totop.classList.toggle('show',y>600)};
+addEventListener('scroll',onScroll,{passive:true});onScroll();
+totop.onclick=()=>scrollTo({top:0,behavior:'smooth'});
+
+/* ---- Reveal on scroll ---- */
+const io=new IntersectionObserver((es)=>{es.forEach((e,i)=>{if(e.isIntersecting){e.target.style.transitionDelay=(i%3*70)+'ms';e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.12,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ---- Count up ---- */
+const cio=new IntersectionObserver((es)=>{es.forEach(e=>{if(!e.isIntersecting)return;const el=e.target,to=+el.dataset.to,suf=el.dataset.suffix||'';let n=0;const step=Math.max(1,Math.round(to/40));const t=setInterval(()=>{n+=step;if(n>=to){n=to;clearInterval(t)}el.textContent=n+suf},26);cio.unobserve(el)})},{threshold:.5});
+document.querySelectorAll('.num').forEach(el=>cio.observe(el));
+
+/* ---- Card spotlight ---- */
+document.querySelectorAll('.card').forEach(c=>{c.addEventListener('pointermove',e=>{const r=c.getBoundingClientRect();c.style.setProperty('--mx',(e.clientX-r.left)+'px');c.style.setProperty('--my',(e.clientY-r.top)+'px')})});
+
+/* ---- Loop the phone feed subtly ---- */
+const feed=document.getElementById('feed');
+setInterval(()=>{const msgs=feed.querySelectorAll('.msg');msgs.forEach((m,i)=>{m.style.animation='none';void m.offsetWidth;m.style.animation='msgin .55s forwards';m.style.animationDelay=(i*.4)+'s'})},9000);
+
+/* ---- Signal particle canvas ---- */
+const cv=document.getElementById('signal-canvas'),cx=cv.getContext('2d');
+let W,H,dots=[];
+function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;const n=Math.min(90,Math.floor(W*H/16000));dots=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:Math.random()*1.6+.4}))}
+resize();addEventListener('resize',resize);
+function tick(){cx.clearRect(0,0,W,H);
+  for(const d of dots){d.x+=d.vx;d.y+=d.vy;if(d.x<0||d.x>W)d.vx*=-1;if(d.y<0||d.y>H)d.vy*=-1;
+    cx.beginPath();cx.arc(d.x,d.y,d.r,0,7);cx.fillStyle='rgba(120,160,255,.6)';cx.fill();}
+  for(let i=0;i<dots.length;i++)for(let j=i+1;j<dots.length;j++){const a=dots[i],b=dots[j],dx=a.x-b.x,dy=a.y-b.y,dist=dx*dx+dy*dy;
+    if(dist<15000){const o=(1-dist/15000)*.5;cx.strokeStyle='rgba(70,124,253,'+o+')';cx.lineWidth=.6;cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke();}}
+  requestAnimationFrame(tick);}
+tick();
+</script>
+</body>
+</html>

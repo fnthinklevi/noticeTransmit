@@ -33,6 +33,11 @@ app.use(
   })
 );
 app.use(express.json({ limit: '1mb' }));
+// 静态资源：根路径直接映射到 public 目录
+// notice.fnthink.top/            → public/index.html（网站主页）
+// notice.fnthink.top/admin.html → public/admin.html（管理后台）
+app.use(express.static(path.join(__dirname, 'public')));
+// 兼容旧地址：保留 /public 前缀（notice.fnthink.top/public/... 仍可用）
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 const rateLimitStore = {};
@@ -842,9 +847,11 @@ app.listen(PORT, () => {
   console.log('  GET  /health                      - 健康检查');
   console.log('');
   console.log('静态资源:');
-  console.log('  /public/apks/      - APK 文件目录');
-  console.log('  /public/hotfix/    - 热更新包目录');
-  console.log('  /public/admin.html - 管理后台页面');
+  console.log('  /                - 网站主页 (public/index.html)');
+  console.log('  /admin.html      - 管理后台页面');
+  console.log('  /apks/          - APK 文件目录');
+  console.log('  /hotfix/        - 热更新包目录');
+  console.log('  (兼容) /public/... - 旧地址仍可用');
   console.log('');
   console.log('二步验证状态:', getTotpConfig().enabled ? '✅ 已启用' : '❌ 未启用');
   console.log('Token验证方式:', ADMIN_TOKEN_HASH ? '✅ bcrypt哈希' : '❌ 未配置（使用明文）');
