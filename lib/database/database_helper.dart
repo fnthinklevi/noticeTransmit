@@ -1,7 +1,10 @@
-﻿import 'dart:convert';
-import 'package:sqflite/sqflite.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/secure_storage_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -9,23 +12,67 @@ class DatabaseHelper {
   DatabaseHelper._internal();
 
   static Database? _database;
+  static const _encryptedDbName = 'notice_transmit_encrypted.db';
+  static const _oldDbName = 'notice_transmit.db';
+  static const _encryptionKeyStoreKey = 'db_encryption_key';
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
+  /// 获取或生成数据库加密密钥（AES-256，存储在 Android Keystore 中）
+  Future<String> _getEncryptionKey() async {
+    final secureStorage = SecureStorageService();
+    var key = await secureStorage.read(_encryptionKeyStoreKey);
+    if (key == null || key.length != 64) {
+      // 首次启动或密钥损坏：生成 256 位随机十六进制密钥
+      key = _generateRandomHexKey();
+      await secureStorage.write(_encryptionKeyStoreKey, key);
+    }
+    return key;
+  }
+
+  String _generateRandomHexKey() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
   Future<Database> _initDatabase() async {
     final databasesPath = await getDatabasesPath();
-    final path = join(databasesPath, 'notice_transmit.db');
+    final encryptedPath = join(databasesPath, _encryptedDbName);
+    final oldPath = join(databasesPath, _oldDbName);
+    final password = await _getEncryptionKey();
 
-    return await openDatabase(
-      path,
-      version: 3,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
+    try {
+      // 尝试打开加密数据库
+      return await openDatabase(
+        encryptedPath,
+        password: password,
+        version: 3,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+    } catch (e) {
+      // 打开失败：可能仍是旧版明文数据库
+      // 删除明文旧文件和残损文件，重新创建加密数据库
+      try {
+        await File(oldPath).delete();
+      } catch (_) {}
+      try {
+        await File(encryptedPath).delete();
+      } catch (_) {}
+
+      return await openDatabase(
+        encryptedPath,
+        password: password,
+        version: 3,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {

@@ -126,7 +126,9 @@ class WebhookService {
     // 尝试最旧单 URL 格式
     final singleUrl = prefs.getString('webhook_url');
     if (singleUrl != null && singleUrl.isNotEmpty) {
-      channels = [{'url': singleUrl, 'enabled': true}];
+      channels = [
+        {'url': singleUrl, 'enabled': true},
+      ];
     }
 
     return channels;

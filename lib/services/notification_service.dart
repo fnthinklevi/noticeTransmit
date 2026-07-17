@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -87,7 +87,8 @@ class NotificationService {
     );
 
     final exportData = {
-      '_warning': '此文件包含设备通知记录与应用使用数据，请妥善保管，避免泄露。'
+      '_warning':
+          '此文件包含设备通知记录与应用使用数据，请妥善保管，避免泄露。'
           '导出后建议及时从设备中删除此文件。',
       'exportTime': DateTime.now().toIso8601String(),
       'deviceName': deviceName,

@@ -36,22 +36,28 @@ class PinnedHttpClient {
     final httpClient = HttpClient();
 
     if (pinnedFingerprints.isNotEmpty) {
-      httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) {
-        final expected = pinnedFingerprints[host];
-        if (expected == null) return false;
+      httpClient.badCertificateCallback =
+          (X509Certificate cert, String host, int port) {
+            final expected = pinnedFingerprints[host];
+            if (expected == null) return false;
 
-        // 计算证书 PEM 中 DER 部分的 SHA256
-        final certDer = _pemToDer(cert.pem);
-        if (certDer.isEmpty) return false;
+            // 计算证书 PEM 中 DER 部分的 SHA256
+            final certDer = _pemToDer(cert.pem);
+            if (certDer.isEmpty) return false;
 
-        final hashBytes = sha256.convert(certDer).bytes;
-        final hexFingerprint = hashBytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(':');
+            final hashBytes = sha256.convert(certDer).bytes;
+            final hexFingerprint = hashBytes
+                .map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase())
+                .join(':');
 
-        // 比较指纹（支持带/不带冒号、空格的格式）
-        final expectedClean = expected.toUpperCase().replaceAll(':', '').replaceAll(' ', '');
-        final certClean = hexFingerprint.replaceAll(':', '');
-        return certClean == expectedClean;
-      };
+            // 比较指纹（支持带/不带冒号、空格的格式）
+            final expectedClean = expected
+                .toUpperCase()
+                .replaceAll(':', '')
+                .replaceAll(' ', '');
+            final certClean = hexFingerprint.replaceAll(':', '');
+            return certClean == expectedClean;
+          };
     }
 
     return IOClient(httpClient);

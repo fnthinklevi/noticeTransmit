@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.39",
-  "latestVersion": "1.5.39",
-  "latestBuild": 73,
+  "appName": "notice1.5.40",
+  "latestVersion": "1.5.40",
+  "latestBuild": 74,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【息屏电量通知修复】\n• 修复息屏/锁屏后电量达到阈值不推送的问题\n• 息屏插拔充电线也能可靠推送通知\n• 首次启用电量通知时引导关闭电池优化，保证后台及时推送\n\n【管理后台优化】\n• admin.html 界面全面美化，适配移动端\n• 恢复码支持一键复制",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.39.apk",
-  "fileSize": 23326417,
+  "changelog": "【安全审计全面修复】\n• 移除明文 HTTP (usesCleartextTraffic)，强制 HTTPS\n• 新增 SSL 证书固定基础设施 (4个HTTP客户端)\n• Webhook URL 加密存储 (flutter_secure_storage)\n• SQLite 数据库 AES-256 加密 (sqflite_sqlcipher)\n• 权限最小化 (20→17，移除3项未使用权限)\n• BroadcastReceiver 安全加固 (RECEIVER_EXPORTED→NOT_EXPORTED)\n• 通知导出确认对话框 + 安全 HTTP 头\n• 服务端 otplib v12→v13 升级",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.40.apk",
+  "fileSize": 29403757,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -195,7 +195,9 @@ class AppUpdateManager {
       );
       debugPrint('检查更新：请求地址 $uri');
 
-      final response = await _updateHttpClient.get(uri).timeout(const Duration(seconds: 15));
+      final response = await _updateHttpClient
+          .get(uri)
+          .timeout(const Duration(seconds: 15));
       debugPrint('检查更新：响应状态码 ${response.statusCode}');
       if (response.statusCode != 200) {
         _lastError = '服务器响应错误：HTTP ${response.statusCode}';
@@ -231,7 +233,9 @@ class AppUpdateManager {
         },
       );
 
-      final response = await _updateHttpClient.get(uri).timeout(const Duration(seconds: 10));
+      final response = await _updateHttpClient
+          .get(uri)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
 
       final data = jsonDecode(response.body);

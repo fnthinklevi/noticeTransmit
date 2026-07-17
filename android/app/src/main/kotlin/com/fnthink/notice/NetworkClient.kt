@@ -59,23 +59,14 @@ class NetworkClient {
 
                         client.newCall(request).execute().use { response ->
                             if (response.isSuccessful) {
-                                if (BuildConfig.DEBUG) {
-                                    Log.d(TAG, "$tag Webhook sent successfully to ${url.take(30)}... (attempt ${retryCount + 1})")
-                                }
+                                Log.d(TAG, "$tag Webhook sent successfully (attempt ${retryCount + 1})")
                                 return@launch
                             } else {
-                                val respBody = response.body?.string() ?: ""
                                 Log.e(TAG, "$tag Webhook failed: HTTP ${response.code} (attempt ${retryCount + 1})")
-                                if (BuildConfig.DEBUG) {
-                                    Log.d(TAG, "$tag  URL: ${url.take(30)}...  Body: ${respBody.take(200)}")
-                                }
                             }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "$tag Webhook send error (attempt ${retryCount + 1})")
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "$tag  URL: ${url.take(30)}...", e)
-                        }
                     }
 
                     retryCount++
