@@ -3,5 +3,19 @@
     <color name="ic_launcher_background">#ffffff</color>
     <color name="ic_launcher_background_dark">#1c1c1e</color>
     <color name="ic_launcher_blue_bg">#007AFF</color>
+    <color name="ic_launcher_cyan_bg">#32ADE6</color>
+    <color name="ic_launcher_teal_bg">#30B0C7</color>
+    <color name="ic_launcher_mint_bg">#00C7BE</color>
+    <color name="ic_launcher_green_bg">#34C759</color>
+    <color name="ic_launcher_yellow_bg">#FFCC00</color>
+    <color name="ic_launcher_orange_bg">#FF9500</color>
+    <color name="ic_launcher_red_bg">#FF3B30</color>
+    <color name="ic_launcher_pink_bg">#FF2D55</color>
+    <color name="ic_launcher_rose_bg">#E91E63</color>
     <color name="ic_launcher_purple_bg">#AF52DE</color>
+    <color name="ic_launcher_indigo_bg">#5856D6</color>
+    <color name="ic_launcher_brown_bg">#A2845E</color>
+    <color name="ic_launcher_gray_bg">#8E8E93</color>
+    <color name="ic_launcher_graphite_bg">#48484A</color>
+    <color name="ic_launcher_black_bg">#1C1C1E</color>
 </resources>

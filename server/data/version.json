@@ -1,12 +1,12 @@
 {
-  "appName": "notice1.5.36",
-  "latestVersion": "1.5.36",
-  "latestBuild": 70,
+  "appName": "notice1.5.37",
+  "latestVersion": "1.5.37",
+  "latestBuild": 71,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【应用筛选体验优化】\n• 新增「反选」按钮，一键反转当前列表中的应用选择状态\n• 配合已有的全选/清空，更高效地调整通知范围\n\n【主题与提示色修复】\n• 修复浅色模式底部提示显示深色、深色模式显示浅色的颜色反转问题\n• 底部提示（如「当前已是最新版本」）背景与文字统一跟随主题\n\n【可选应用图标（新功能）】\n• 新增「蓝色」「紫色」两套备选启动图标\n• 在「更多 → 外观设置 → 应用图标」中即可切换（经典蓝铃 / 蓝色 / 紫色）",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.36.apk",
+  "changelog": "【电量条件通知修复（重要）】\n• 修复设定电量条件（如电量低于20%）却不通知的问题\n• 修复电量阈值读取错误与充电/放电规则缺失，现在电量到条件会正常推送\n• 修复「电量通知」总开关关闭后仍在原生侧推送的问题\n\n【底部提示条优化】\n• 「当前已是最新版本」等信息提示时长缩短\n• 跳转到其他页面时提示条立即消失，不再残留",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.37.apk",
   "fileSize": 23094537,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"

@@ -206,6 +206,24 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
+  /// 显示短时效的提示条（2 秒），并在弹出前/跳转前先收起上一条，
+  /// 满足“显示时间缩短、跳转到其他页面时消失”的要求。
+  void _showInfo(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  /// 统一的页面跳转入口：跳转前收起底部提示条，使其不再残留到其他页面。
+  Future<T?> _pushPage<T>(Widget page) {
+    if (!mounted) return Future<T?>.value(null);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    return Navigator.push<T>(context, MaterialPageRoute(builder: (_) => page));
+  }
+
   void _setupMethodChannel() {
     platform.setMethodCallHandler((call) async {
       if (call.method == 'onNotificationReceived') {
@@ -265,18 +283,14 @@ class _MainPageState extends State<MainPage> {
         }
         _showUpdateDialog(result);
       } else if (isManual) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('当前已是最新版本')));
+        _showInfo('当前已是最新版本');
       }
     } else if (isManual) {
       final error = _updateService.lastError;
       final errorMsg = error != null && error.isNotEmpty
           ? '检查更新失败：$error'
           : '检查更新失败，请检查网络连接';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(errorMsg)));
+      _showInfo(errorMsg);
     }
   }
 
@@ -501,16 +515,13 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openRuleListPage() async {
-    final result = await Navigator.push<List<NotificationRule>>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => RuleListPage(
-          rules: _filterService.notificationRules,
-          onSave: (rules) {
-            _filterService.saveNotificationRules(rules);
-            setState(() {});
-          },
-        ),
+    final result = await _pushPage<List<NotificationRule>>(
+      RuleListPage(
+        rules: _filterService.notificationRules,
+        onSave: (rules) {
+          _filterService.saveNotificationRules(rules);
+          setState(() {});
+        },
       ),
     );
     if (result != null) {
@@ -520,9 +531,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openPrivacyPolicyPage() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => const PrivacyPolicyPage()));
+    _pushPage(const PrivacyPolicyPage());
   }
 
   void _showUpdateDialog(VersionCheckResult result) {
@@ -937,9 +946,7 @@ class _MainPageState extends State<MainPage> {
       await _performUpdateCheck(isManual: true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('检查更新失败：${e.toString()}')));
+        _showInfo('检查更新失败：${e.toString()}');
       }
     } finally {
       await minWait;
@@ -948,56 +955,49 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openHistoryPage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => HistoryPage(
-          records: _notificationService.records,
-          onClear: () async {
-            await _notificationService.clearRecords();
-            setState(() {});
-          },
-          onExport: () => _notificationService.exportRecords(
-            _deviceInfoService.deviceName,
-            _deviceInfoService.deviceModel,
-            _deviceInfoService.manufacturer,
-          ),
+    _pushPage(
+      HistoryPage(
+        records: _notificationService.records,
+        onClear: () async {
+          await _notificationService.clearRecords();
+          setState(() {});
+        },
+        onExport: () => _notificationService.exportRecords(
+          _deviceInfoService.deviceName,
+          _deviceInfoService.deviceModel,
+          _deviceInfoService.manufacturer,
         ),
       ),
     );
   }
 
   void _openPermissionSettingsPage() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PermissionSettingsPage(
-          notificationListenerGranted:
-              _permissionService.notificationListenerGranted,
-          postNotificationGranted: _permissionService.postNotificationGranted,
-          batteryOptimizationIgnored:
-              _permissionService.batteryOptimizationIgnored,
-          smsPermissionGranted: _permissionService.smsGranted,
-          phonePermissionGranted: _permissionService.phoneGranted,
-          appListPermissionGranted: _permissionService.appListGranted,
-          manufacturer: _deviceInfoService.manufacturer,
-          onRefresh: _checkPermissions,
-          onRequestNotificationListenerPermission:
-              _permissionService.requestNotificationListenerPermission,
-          onRequestPostNotificationPermission:
-              _permissionService.requestPostNotificationPermission,
-          onRequestBatteryOptimization:
-              _permissionService.requestBatteryOptimization,
-          onRequestXiaomiAutoStart: _permissionService.requestXiaomiAutoStart,
-          onRequestMeizuBackground: _permissionService.requestMeizuBackground,
-          onRequestHuaweiLaunch: _permissionService.requestHuaweiLaunch,
-          onRequestOppoBackground: _permissionService.requestOppoBackground,
-          onRequestVivoBackground: _permissionService.requestVivoBackground,
-          onRequestSmsPermission: _permissionService.requestSmsPermission,
-          onRequestPhonePermission: _permissionService.requestPhonePermission,
-          onRequestAppListPermission:
-              _permissionService.requestAppListPermission,
-        ),
+    await _pushPage(
+      PermissionSettingsPage(
+        notificationListenerGranted:
+            _permissionService.notificationListenerGranted,
+        postNotificationGranted: _permissionService.postNotificationGranted,
+        batteryOptimizationIgnored:
+            _permissionService.batteryOptimizationIgnored,
+        smsPermissionGranted: _permissionService.smsGranted,
+        phonePermissionGranted: _permissionService.phoneGranted,
+        appListPermissionGranted: _permissionService.appListGranted,
+        manufacturer: _deviceInfoService.manufacturer,
+        onRefresh: _checkPermissions,
+        onRequestNotificationListenerPermission:
+            _permissionService.requestNotificationListenerPermission,
+        onRequestPostNotificationPermission:
+            _permissionService.requestPostNotificationPermission,
+        onRequestBatteryOptimization:
+            _permissionService.requestBatteryOptimization,
+        onRequestXiaomiAutoStart: _permissionService.requestXiaomiAutoStart,
+        onRequestMeizuBackground: _permissionService.requestMeizuBackground,
+        onRequestHuaweiLaunch: _permissionService.requestHuaweiLaunch,
+        onRequestOppoBackground: _permissionService.requestOppoBackground,
+        onRequestVivoBackground: _permissionService.requestVivoBackground,
+        onRequestSmsPermission: _permissionService.requestSmsPermission,
+        onRequestPhonePermission: _permissionService.requestPhonePermission,
+        onRequestAppListPermission: _permissionService.requestAppListPermission,
       ),
     );
     await _checkPermissions();
@@ -1006,14 +1006,11 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openAppFilterPage() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AppFilterPage(
-          installedApps: const [],
-          initialMode: _filterService.appFilterMode,
-          enabledPackages: _filterService.enabledPackages.toList(),
-        ),
+    final result = await _pushPage<Map<String, dynamic>>(
+      AppFilterPage(
+        installedApps: const [],
+        initialMode: _filterService.appFilterMode,
+        enabledPackages: _filterService.enabledPackages.toList(),
       ),
     );
     if (result != null) {
@@ -1025,13 +1022,10 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openKeywordsPage() async {
-    final result = await Navigator.push<Map<String, List<String>>>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => KeywordsPage(
-          blacklistKeywords: _filterService.blacklistKeywords,
-          whitelistKeywords: _filterService.whitelistKeywords,
-        ),
+    final result = await _pushPage<Map<String, List<String>>>(
+      KeywordsPage(
+        blacklistKeywords: _filterService.blacklistKeywords,
+        whitelistKeywords: _filterService.whitelistKeywords,
       ),
     );
     if (result != null) {
@@ -1044,24 +1038,17 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _openWebhookSettingsPage() async {
-    final result = await Navigator.push<List<Map<String, dynamic>>>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => WebhookSettingsPage(
-          webhookChannels: List<Map<String, dynamic>>.from(
-            _webhookService.channels,
-          ),
+    final result = await _pushPage<List<Map<String, dynamic>>>(
+      WebhookSettingsPage(
+        webhookChannels: List<Map<String, dynamic>>.from(
+          _webhookService.channels,
         ),
       ),
     );
     if (result != null) {
       await _webhookService.saveChannels(result);
       setState(() {});
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Webhook 配置已保存')));
-      }
+      _showInfo('Webhook 配置已保存');
     }
   }
 
@@ -1072,7 +1059,10 @@ class _MainPageState extends State<MainPage> {
       body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        onDestinationSelected: (index) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          setState(() => _currentIndex = index);
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.notifications),

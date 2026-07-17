@@ -160,6 +160,7 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookUrls = loadedUrls
         webhookSender.updateUrls(loadedUrls)
 
+        batteryMonitor.setEnabled(configManager.getBatteryNotifyEnabled())
         batteryMonitor.updateRules(configManager.getBatteryRules())
 
         cachedConfig = ConfigSnapshot()

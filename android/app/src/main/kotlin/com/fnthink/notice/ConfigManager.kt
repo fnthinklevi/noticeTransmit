@@ -19,6 +19,7 @@ class ConfigManager(private val context: Context) {
         private const val KEY_BLACKLIST_KEYWORDS = "flutter.blacklist_keywords"
         private const val KEY_DEVICE_NAME = "flutter.device_name"
         private const val KEY_BATTERY_RULES = "flutter.battery_rules"
+        private const val KEY_BATTERY_NOTIFY_ENABLED = "flutter.battery_notify_enabled"
     }
 
     private val prefs: SharedPreferences by lazy {
@@ -78,6 +79,10 @@ class ConfigManager(private val context: Context) {
 
     fun getBatteryRules(): String {
         return prefs.getString(KEY_BATTERY_RULES, "[]") ?: "[]"
+    }
+
+    fun getBatteryNotifyEnabled(): Boolean {
+        return prefs.getBoolean(KEY_BATTERY_NOTIFY_ENABLED, true)
     }
 
     fun loadHotfixConfig(): HotfixConfig {

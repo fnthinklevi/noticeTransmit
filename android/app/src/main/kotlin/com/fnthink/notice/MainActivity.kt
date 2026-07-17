@@ -751,6 +751,7 @@ class MainActivity : FlutterActivity() {
     private fun setBatterySetting(key: String, value: Boolean) {
         val prefsKey = "flutter.$key"
         prefs.edit().putBoolean(prefsKey, value).apply()
+        notifyServiceConfigChanged()
     }
 
     private fun setBatteryRules(rules: List<Map<String, Any>>) {
@@ -1115,12 +1116,26 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    // 可选应用图标：default / blue / purple，同一时刻仅启用一个 alias
+    // 可选应用图标：default + 16 色，同一时刻仅启用一个 alias
     private val ICON_ALIASES: Map<String, ComponentName> by lazy {
         mapOf(
             "default" to ComponentName(packageName, "$packageName.LauncherDefault"),
             "blue" to ComponentName(packageName, "$packageName.LauncherBlue"),
+            "cyan" to ComponentName(packageName, "$packageName.LauncherCyan"),
+            "teal" to ComponentName(packageName, "$packageName.LauncherTeal"),
+            "mint" to ComponentName(packageName, "$packageName.LauncherMint"),
+            "green" to ComponentName(packageName, "$packageName.LauncherGreen"),
+            "yellow" to ComponentName(packageName, "$packageName.LauncherYellow"),
+            "orange" to ComponentName(packageName, "$packageName.LauncherOrange"),
+            "red" to ComponentName(packageName, "$packageName.LauncherRed"),
+            "pink" to ComponentName(packageName, "$packageName.LauncherPink"),
+            "rose" to ComponentName(packageName, "$packageName.LauncherRose"),
             "purple" to ComponentName(packageName, "$packageName.LauncherPurple"),
+            "indigo" to ComponentName(packageName, "$packageName.LauncherIndigo"),
+            "brown" to ComponentName(packageName, "$packageName.LauncherBrown"),
+            "gray" to ComponentName(packageName, "$packageName.LauncherGray"),
+            "graphite" to ComponentName(packageName, "$packageName.LauncherGraphite"),
+            "black" to ComponentName(packageName, "$packageName.LauncherBlack"),
         )
     }
 
