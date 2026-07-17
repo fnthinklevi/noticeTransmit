@@ -56,6 +56,10 @@
 - 🎭 **混淆规则就绪** - 已配置 ProGuard/R8 混淆规则文件（`proguard-rules.pro`，当前发布构建默认关闭混淆与资源压缩，可按需开启）
 - 📡 **Token安全传输** - 仅接受 Header 传递，禁止 URL 参数
 - 🎲 **安全随机数** - 使用 crypto.randomUUID() 生成会话 ID
+- 🗄️ **SQLite 加密** - 通知记录、Webhook 配置全部 AES-256 加密存储，密钥存于 AndroidKeyStore
+- 🔑 **Webhook 密钥安全** - Webhook URL（含钉钉/企微/飞书认证 key）使用 AndroidKeyStore 加密存储
+- 🔐 **SSL 证书固定** - 4 个 HTTP 客户端均预置证书固定基础设施，防中间人攻击
+- 🔒 **HTTPS 强制** - 全站 HTTPS，`network_security_config.xml` 禁止明文传输
 
 ## 技术栈
 
@@ -64,7 +68,7 @@
 | 前端 | Flutter 3.44+ (Dart 3.12+) |
 | 状态管理 | get_it + Service 类 |
 | 依赖注入 | get_it (^9.2.1) |
-| 本地数据库 | sqflite (SQLite) |
+| 本地数据库 | sqflite_sqlcipher (SQLite, AES-256 加密) |
 | 键值存储 | shared_preferences |
 | 原生服务 | Kotlin 2.3.20 (Android) |
 | 网络请求 | http (Dart) / OkHttp 4.12.0 (Kotlin) |
@@ -76,7 +80,7 @@
 | 服务端 | Node.js + Express 4.x (Token鉴权 + 二步验证) |
 | TOTP验证 | otplib (^12.0.1) |
 | 密码哈希 | bcryptjs (^2.4.3) |
-| 数据加密 | Node.js crypto (AES-256-GCM) |
+| 数据加密 | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
 | 构建工具 | Gradle 9.4.1 + AGP 9.0.1 + JDK 21 |
 | CI/CD | GitHub Actions |
 | APK签名 | jarsigner + zipalign (V1+V2签名) |

@@ -56,6 +56,10 @@ Notification Push Helper is an Android application developed with Flutter that l
 - 🎭 **Obfuscation Rules Ready** - ProGuard/R8 rules file configured (`proguard-rules.pro`; obfuscation and resource shrinking are disabled by default in release builds and can be enabled on demand)
 - 📡 **Secure Token Transmission** - Token only accepted via Header, URL parameters disabled
 - 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
+- 🗄️ **SQLite Encryption** - All notification records and webhook configs stored with AES-256 encryption, key in AndroidKeyStore
+- 🔑 **Webhook Key Protection** - Webhook URLs (including DingTalk/WeCom/Feishu auth keys) encrypted via AndroidKeyStore
+- 🔐 **SSL Certificate Pinning** - Infrastructure ready across 4 HTTP clients to prevent MITM attacks
+- 🔒 **Mandatory HTTPS** - Site-wide HTTPS enforced via `network_security_config.xml`
 
 ## Technology Stack
 
@@ -64,7 +68,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 | Frontend | Flutter 3.44+ (Dart 3.12+) |
 | State Management | get_it + Service Classes |
 | Dependency Injection | get_it (^9.2.1) |
-| Local Database | sqflite (SQLite) |
+| Local Database | sqflite_sqlcipher (SQLite, AES-256 encrypted) |
 | Key-Value Storage | shared_preferences |
 | Native Service | Kotlin 2.3.20 (Android) |
 | HTTP Client | http (Dart) / OkHttp 4.12.0 (Kotlin) |
@@ -76,7 +80,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 | Server | Node.js + Express 4.x (Token Auth + Two-step Verification) |
 | TOTP Verification | otplib (^12.0.1) |
 | Password Hashing | bcryptjs (^2.4.3) |
-| Data Encryption | Node.js crypto (AES-256-GCM) |
+| Data Encryption | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
 | Build Tools | Gradle 9.4.1 + AGP 9.0.1 + JDK 21 |
 | CI/CD | GitHub Actions |
 | APK Signing | jarsigner + zipalign (V1+V2 signing) |
