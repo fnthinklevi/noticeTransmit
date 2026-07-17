@@ -19,6 +19,11 @@ class AppUpdateManager {
   static const String _prefsKeyLastCheckTime = 'last_update_check_time';
   static const String _prefsKeyContentVersion = 'content_version';
   static const String _prefsKeyIgnoredVersion = 'ignored_version';
+  static const String _prefsKeyPendingApkPath = 'pending_apk_path';
+  static const String _prefsKeyPendingApkVersion = 'pending_apk_version';
+
+  static const String _defaultDownloadDir =
+      '/storage/emulated/0/Download/fnthink.notice';
 
   static const int _checkIntervalHours = 24;
 
@@ -29,8 +34,8 @@ class AppUpdateManager {
 
   bool _autoCheck = true;
   int _contentVersion = 0;
-  String _currentVersion = '1.5.33';
-  int _currentBuild = 67;
+  String _currentVersion = '1.5.34';
+  int _currentBuild = 68;
   String? _lastError;
 
   String get serverUrl => _updateServerUrl;
@@ -43,6 +48,63 @@ class AppUpdateManager {
     _autoCheck = prefs.getBool(_prefsKeyAutoCheck) ?? true;
     _contentVersion = prefs.getInt(_prefsKeyContentVersion) ?? 0;
     await _updateVersionInfo();
+    // 更新完成后（新版本已启动）自动删除上一次下载的安装包
+    await _cleanupInstalledApk();
+  }
+
+  /// 检测是否已拥有写入公共 Download 目录所需的存储权限
+  Future<bool> storagePermissionGranted() async {
+    if (!Platform.isAndroid) return true;
+    if (await Permission.manageExternalStorage.isGranted) return true;
+    if (await Permission.storage.isGranted) return true;
+    return false;
+  }
+
+  /// 申请存储权限：Android 10 及以下用普通存储权限；Android 11+ 需“所有文件访问”权限
+  Future<bool> requestStoragePermission() async {
+    if (!Platform.isAndroid) return true;
+    if (await storagePermissionGranted()) return true;
+    final legacy = await Permission.storage.request();
+    if (legacy.isGranted) return true;
+    final manage = await Permission.manageExternalStorage.request();
+    return manage.isGranted;
+  }
+
+  Future<String> resolveDownloadDir() async {
+    if (!Platform.isAndroid) {
+      return (await getTemporaryDirectory()).path;
+    }
+    try {
+      return await AppChannels.notification.invokeMethod('getDownloadDirectory')
+          as String;
+    } catch (e) {
+      return _defaultDownloadDir;
+    }
+  }
+
+  /// 更新完成后清理：若当前版本已等于上次下载安装包的目标版本，则删除该安装包
+  Future<void> _cleanupInstalledApk() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingPath = prefs.getString(_prefsKeyPendingApkPath);
+      final pendingVersion = prefs.getString(_prefsKeyPendingApkVersion);
+      if (pendingPath == null || pendingPath.isEmpty) return;
+      // 版本已升级（当前版本 == 下载时的目标版本）说明安装成功
+      final installed =
+          pendingVersion == null || pendingVersion == _currentVersion;
+      if (installed) {
+        final file = File(pendingPath);
+        if (await file.exists()) {
+          await file.delete();
+          debugPrint('更新后已自动删除安装包: $pendingPath');
+        }
+        await prefs.remove(_prefsKeyPendingApkPath);
+        await prefs.remove(_prefsKeyPendingApkVersion);
+      }
+    } catch (e) {
+      debugPrint('清理已安装包失败: $e');
+    }
   }
 
   Future<void> _updateVersionInfo() async {

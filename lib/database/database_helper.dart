@@ -223,7 +223,7 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getNotificationStats() async {
     final db = await database;
     return await db.rawQuery('''
-      SELECT type, app_name, package_name, COUNT(*) as count
+      SELECT type, app_name AS appName, package_name AS packageName, COUNT(*) as count
       FROM notifications
       GROUP BY type, app_name, package_name
       ORDER BY count DESC

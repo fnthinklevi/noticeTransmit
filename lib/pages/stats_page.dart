@@ -255,7 +255,11 @@ class _StatsPageState extends State<StatsPage> {
           const SizedBox(height: 12),
           Column(
             children: topStats.map((stat) {
-              final appName = stat['appName'] as String? ?? '未知';
+              final rawName = stat['appName'] as String?;
+              final pkgName = stat['packageName'] as String?;
+              final appName = (rawName != null && rawName.isNotEmpty)
+                  ? rawName
+                  : ((pkgName != null && pkgName.isNotEmpty) ? pkgName : '未知');
               final count = stat['count'] as int? ?? 0;
               final totalCount = _stats.fold(
                 0,

@@ -725,8 +725,77 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  void _startDownloadUpdate(VersionCheckResult result) {
+  Future<bool> _ensureStoragePermissionForUpdate() async {
+    final granted = await _updateService.storagePermissionGranted();
+    if (granted) return true;
+    if (!mounted) return false;
+
+    final agreed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardBg(context),
+        title: Column(
+          children: [
+            const Icon(Icons.folder_outlined, size: 44, color: AppColors.blue),
+            const SizedBox(height: 12),
+            Text(
+              '需要存储权限',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '在线更新需要将安装包保存到 Download/fnthink.notice 目录，请先授予存储权限后再下载更新。',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              '取消',
+              style: TextStyle(color: AppColors.secondaryLabel(context)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              '去开启',
+              style: TextStyle(
+                color: AppColors.blue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+
+    if (agreed != true) return false;
+
+    final result = await _updateService.requestStoragePermission();
+    if (!result && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未获得存储权限，无法下载更新')));
+    }
+    return result;
+  }
+
+  Future<void> _startDownloadUpdate(VersionCheckResult result) async {
     if (_isDownloading) return;
+
+    // 下载前先检测本地存储权限，若无则引导用户开启
+    final hasStorage = await _ensureStoragePermissionForUpdate();
+    if (!hasStorage || !mounted) return;
+
     Navigator.pop(context);
     final progressNotifier = ValueNotifier<double>(0);
     setState(() => _isDownloading = true);

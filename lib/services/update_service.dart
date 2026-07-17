@@ -44,6 +44,14 @@ class UpdateService {
     return AppUpdateManager.instance.applyHotfix(zipPath, contentVersion);
   }
 
+  Future<bool> storagePermissionGranted() async {
+    return AppUpdateManager.instance.storagePermissionGranted();
+  }
+
+  Future<bool> requestStoragePermission() async {
+    return AppUpdateManager.instance.requestStoragePermission();
+  }
+
   Future<String?> downloadApk(
     String url, {
     int? totalSize,

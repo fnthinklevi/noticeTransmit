@@ -24,6 +24,10 @@ class NotificationMonitorService : NotificationListenerService() {
         private const val CHANNEL_ID = "notification_monitor_channel"
         private const val CHANNEL_NAME = "通知监听"
         const val ACTION_UPDATE_CONFIG = "com.fnthink.notice.UPDATE_CONFIG"
+        const val ACTION_SET_MONITORING = "com.fnthink.notice.SET_MONITORING"
+        const val EXTRA_MONITORING_ENABLED = "monitoring_enabled"
+        const val PREFS_NAME = "FlutterSharedPreferences"
+        const val PREF_MONITORING_ENABLED = "flutter.monitoring_enabled"
         const val ACTION_BATTERY_CHANGED_NOTIFY = "com.fnthink.notice.BATTERY_CHANGED_NOTIFY"
         const val EXTRA_BATTERY_LEVEL = "battery_level"
         const val EXTRA_BATTERY_CHARGING = "battery_charging"
@@ -31,6 +35,7 @@ class NotificationMonitorService : NotificationListenerService() {
         @Volatile var webhookUrls: List<String> = emptyList()
         @Volatile var deviceName: String = ""
         @Volatile var isConnected: Boolean = false
+        @Volatile var monitoringEnabled: Boolean = true
     }
 
     private lateinit var notificationProcessor: NotificationProcessor
@@ -44,7 +49,10 @@ class NotificationMonitorService : NotificationListenerService() {
         super.onCreate()
         Log.i(TAG, "Service created")
 
+        monitoringEnabled = readMonitoringEnabled()
+
         createNotificationChannel()
+        // 先进入前台，满足 startForegroundService 的 5s 内必须 startForeground 的约束
         startForegroundService()
 
         notificationProcessor = NotificationProcessor(this)
@@ -58,8 +66,7 @@ class NotificationMonitorService : NotificationListenerService() {
         }
 
         loadConfig()
-        startBatteryMonitoring()
-        batteryMonitor.startPolling()
+        applyMonitoringState()
     }
 
     override fun onListenerConnected() {
@@ -75,9 +82,19 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent != null && ACTION_UPDATE_CONFIG == intent.action) {
-            Log.d(TAG, "Config update received")
-            loadConfig()
+        if (intent != null) {
+            when (intent.action) {
+                ACTION_UPDATE_CONFIG -> {
+                    Log.d(TAG, "Config update received")
+                    loadConfig()
+                }
+                ACTION_SET_MONITORING -> {
+                    val enabled = intent.getBooleanExtra(EXTRA_MONITORING_ENABLED, true)
+                    monitoringEnabled = enabled
+                    Log.i(TAG, "Monitoring set to $enabled")
+                    applyMonitoringState()
+                }
+            }
         }
         return START_STICKY
     }
@@ -100,6 +117,7 @@ class NotificationMonitorService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
+        if (!monitoringEnabled) return
         Log.d(TAG, "Notification posted: ${sbn.packageName}")
 
         val notificationInfo = notificationProcessor.processNotification(sbn)
@@ -135,7 +153,6 @@ class NotificationMonitorService : NotificationListenerService() {
     private fun loadConfig() {
         val hotfixConfig = configManager.loadHotfixConfig()
         notificationProcessor.setHotfixConfig(hotfixConfig.appNames, hotfixConfig.notificationTypes)
-
         val loadedDeviceName = configManager.getDeviceName()
         deviceName = loadedDeviceName
         batteryMonitor.setDeviceName(loadedDeviceName)
@@ -150,6 +167,49 @@ class NotificationMonitorService : NotificationListenerService() {
         cachedConfig = ConfigSnapshot()
 
         Log.d(TAG, "Config loaded: ${loadedUrls.size} webhooks")
+    }
+
+    private fun readMonitoringEnabled(): Boolean {
+        return try {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.getBoolean(PREF_MONITORING_ENABLED, true)
+        } catch (e: Exception) {
+            true
+        }
+    }
+
+    private fun applyMonitoringState() {
+        if (monitoringEnabled) {
+            startForegroundService()
+            if (batteryChangedReceiver == null) {
+                startBatteryMonitoring()
+            }
+            batteryMonitor.startPolling()
+            Log.i(TAG, "Monitoring enabled")
+        } else {
+            batteryMonitor.stopPolling()
+            batteryChangedReceiver?.let {
+                try {
+                    unregisterReceiver(it)
+                } catch (_: Exception) {}
+            }
+            batteryChangedReceiver = null
+            stopForegroundCompat()
+            Log.i(TAG, "Monitoring disabled")
+        }
+    }
+
+    private fun stopForegroundCompat() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "stopForeground failed", e)
+        }
     }
 
     private fun startBatteryMonitoring() {

@@ -142,6 +142,12 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashReport.initCrashReport(applicationContext)
+        // 修复历史版本可能禁用了监听组件的情况，确保组件启用以便系统能重新绑定通知监听器
+        try {
+            toggleNotificationListenerService()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onDestroy() {
@@ -244,7 +250,7 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "isServiceRunning" -> {
-                    result.success(isNotificationServiceRunning())
+                    result.success(isMonitoringEnabled())
                 }
                 "requestBatteryOptimization" -> {
                     requestBatteryOptimization()
@@ -989,8 +995,11 @@ class MainActivity : FlutterActivity() {
 
     private fun startNotificationListener() {
         try {
-            toggleNotificationListenerService()
+            // 开启监听：仅置位持久化开关并通知服务，绝不禁用组件（避免系统撤销通知访问权限）
+            setMonitoringEnabledPref(true)
             val intent = Intent(this, NotificationMonitorService::class.java)
+            intent.action = NotificationMonitorService.ACTION_SET_MONITORING
+            intent.putExtra(NotificationMonitorService.EXTRA_MONITORING_ENABLED, true)
             startService(intent)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -999,16 +1008,43 @@ class MainActivity : FlutterActivity() {
 
     private fun stopNotificationListener() {
         try {
-            val pm = packageManager
-            val component = ComponentName(this, NotificationMonitorService::class.java)
-            pm.setComponentEnabledSetting(
-                component,
-                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                android.content.pm.PackageManager.DONT_KILL_APP
-            )
-            Log.i("MainActivity", "Notification listener service disabled")
+            // 关闭监听：只关闭转发/前台，保留组件启用以不丢失通知访问权限
+            setMonitoringEnabledPref(false)
+            val intent = Intent(this, NotificationMonitorService::class.java)
+            intent.action = NotificationMonitorService.ACTION_SET_MONITORING
+            intent.putExtra(NotificationMonitorService.EXTRA_MONITORING_ENABLED, false)
+            startService(intent)
+            Log.i("MainActivity", "Notification monitoring disabled (component kept enabled)")
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun setMonitoringEnabledPref(enabled: Boolean) {
+        try {
+            val prefs = getSharedPreferences(
+                NotificationMonitorService.PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            prefs.edit().putBoolean(
+                NotificationMonitorService.PREF_MONITORING_ENABLED,
+                enabled
+            ).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        NotificationMonitorService.monitoringEnabled = enabled
+    }
+
+    private fun isMonitoringEnabled(): Boolean {
+        return try {
+            val prefs = getSharedPreferences(
+                NotificationMonitorService.PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            prefs.getBoolean(NotificationMonitorService.PREF_MONITORING_ENABLED, false)
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -1026,11 +1062,7 @@ class MainActivity : FlutterActivity() {
     private fun toggleNotificationListenerService() {
         val pm = packageManager
         val component = ComponentName(this, NotificationMonitorService::class.java)
-        pm.setComponentEnabledSetting(
-            component,
-            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            android.content.pm.PackageManager.DONT_KILL_APP
-        )
+        // 确保组件处于启用状态（历史版本可能曾被禁用），以便系统能重新绑定通知监听器
         pm.setComponentEnabledSetting(
             component,
             android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
