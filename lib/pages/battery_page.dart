@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
 class Slideable extends StatefulWidget {
@@ -161,7 +163,7 @@ class _BatteryPageState extends State<BatteryPage> {
                 title: '电量通知总开关',
                 subtitle: '开启后以下提醒才会生效',
                 value: widget.notifyEnabled,
-                onChanged: widget.onToggleNotify,
+                onChanged: _handleToggleNotify,
                 context: context,
               ),
             ], context),
@@ -202,6 +204,100 @@ class _BatteryPageState extends State<BatteryPage> {
           ],
         ),
       ),
+    );
+  }
+
+  static const String _batteryOptPromptShownKey = 'battery_opt_prompt_shown';
+
+  /// 首次启用电量通知时，检查是否已被电池优化限制；若未豁免则引导用户关闭。
+  Future<void> _maybePromptBatteryOptimization() async {
+    try {
+      final ignored =
+          await AppChannels.notification.invokeMethod<bool>(
+            'isIgnoringBatteryOptimizations',
+          ) ??
+          false;
+      if (ignored) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_batteryOptPromptShownKey) ?? false) return;
+      await prefs.setBool(_batteryOptPromptShownKey, true);
+      if (!mounted) return;
+      _showBatteryOptimizationDialog();
+    } catch (_) {}
+  }
+
+  void _handleToggleNotify(bool v) {
+    if (v) _maybePromptBatteryOptimization();
+    widget.onToggleNotify(v);
+  }
+
+  void _handleToggleRule(String id, bool v) {
+    if (v) _maybePromptBatteryOptimization();
+    widget.onToggleRule(id, v);
+  }
+
+  void _handleAddRule(Map<String, dynamic> rule) {
+    _maybePromptBatteryOptimization();
+    widget.onAddRule(rule);
+  }
+
+  void _showBatteryOptimizationDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardBg(context),
+          title: Text(
+            '关闭电池优化',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryLabel(context),
+            ),
+          ),
+          content: Text(
+            '息屏后系统会限制后台运行，可能导致电量通知延迟或收不到。\n\n'
+            '建议关闭本应用的「电池优化 / 省电限制」，以保证息屏时电量达到阈值也能及时推送。',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.secondaryLabel(context),
+              height: 1.4,
+            ),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                '暂不',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                AppChannels.notification.invokeMethod(
+                  'requestBatteryOptimization',
+                );
+              },
+              child: const Text(
+                '去设置',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.blue,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -321,7 +417,7 @@ class _BatteryPageState extends State<BatteryPage> {
                 subtitle: subtitle,
                 value: enabled,
                 onChanged: widget.notifyEnabled
-                    ? (v) => widget.onToggleRule(rule['id'] as String, v)
+                    ? (v) => _handleToggleRule(rule['id'] as String, v)
                     : null,
                 context: context,
                 trailing: null,
@@ -557,7 +653,7 @@ class _BatteryPageState extends State<BatteryPage> {
                     if (isEdit) {
                       widget.onUpdateRule(id, newRule);
                     } else {
-                      widget.onAddRule(newRule);
+                      _handleAddRule(newRule);
                     }
                     Navigator.pop(context);
                   },

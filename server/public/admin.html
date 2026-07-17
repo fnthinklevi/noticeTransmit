@@ -3,23 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#007aff">
   <title>通知推送助手 - 管理后台</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; min-height: 100vh; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f; min-height: 100vh; -webkit-font-smoothing: antialiased; }
     .login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    .login-card { background: white; border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+    .login-card { background: white; border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); animation: cardIn 0.35s ease; }
     .login-card h1 { font-size: 24px; font-weight: 600; text-align: center; margin-bottom: 8px; color: #1d1d1f; }
     .login-card p { text-align: center; color: #86868b; font-size: 14px; margin-bottom: 32px; }
-    .login-card .logo { text-align: center; margin-bottom: 20px; }
+    .login-card .logo { text-align: center; margin-bottom: 20px; color: #007aff; }
     .login-card .logo svg { width: 60px; height: 60px; }
     .form-group { margin-bottom: 20px; }
     .form-group label { display: block; font-size: 13px; color: #86868b; font-weight: 500; margin-bottom: 6px; }
     .form-group input { width: 100%; padding: 12px 16px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 16px; background: #fafafa; transition: all 0.2s; }
     .form-group input:focus { outline: none; border-color: #007aff; background: white; box-shadow: 0 0 0 3px rgba(0,122,255,0.1); }
     .form-group input.error { border-color: #ff3b30; }
+    .form-group textarea { width: 100%; padding: 12px 16px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 15px; font-family: inherit; background: #fafafa; resize: vertical; min-height: 100px; line-height: 1.5; transition: all 0.2s; box-sizing: border-box; }
+    .form-group textarea:focus { outline: none; border-color: #007aff; background: white; box-shadow: 0 0 0 3px rgba(0,122,255,0.1); }
+    .form-group select { width: 100%; padding: 12px 40px 12px 16px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 16px; background-color: #fafafa; color: #1d1d1f; transition: all 0.2s; box-sizing: border-box; -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2386868b' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; cursor: pointer; }
+    .form-group select:focus { outline: none; border-color: #007aff; background-color: white; box-shadow: 0 0 0 3px rgba(0,122,255,0.1); }
     .form-group .hint { font-size: 12px; color: #86868b; margin-top: 4px; }
-    .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; user-select: none; }
+    .btn:active { transform: translateY(1px) scale(0.99); }
     .btn-primary { background: #007aff; color: white; }
     .btn-primary:hover { opacity: 0.9; }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -27,7 +33,7 @@
     .btn-secondary:hover { background: #e5e5ea; }
     .btn-danger { background: #ff3b30; color: white; }
     .btn-danger:hover { opacity: 0.9; }
-    .status { padding: 10px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; text-align: center; }
+    .status { padding: 10px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; text-align: center; transition: all 0.2s; }
     .status.success { background: #e8f5e9; color: #2e7d32; }
     .status.error { background: #ffebee; color: #c62828; }
     .status.info { background: #e3f2fd; color: #1565c0; }
@@ -54,18 +60,18 @@
     .header .user-info span { font-size: 14px; }
     .header button { padding: 6px 12px; border: none; border-radius: 8px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; font-size: 13px; }
     .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
-    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: box-shadow 0.2s; }
     .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1d1d1f; display: flex; align-items: center; gap: 8px; }
     .card h2::before { content: ''; width: 4px; height: 16px; background: #007aff; border-radius: 2px; }
     .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
     .form-group.checkbox { display: flex; align-items: center; gap: 8px; }
     .btn-group { display: flex; gap: 8px; margin-top: 16px; }
     .tab-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; background: #f5f5f7; color: #86868b; border: none; }
+    .tab { padding: 8px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; background: #f5f5f7; color: #86868b; border: none; transition: all 0.2s; }
     .tab.active { background: #007aff; color: white; }
     .hidden { display: none; }
     .force-badge { background: #ff3b30; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
-    .json-viewer { background: #1d1d1f; color: #a5d6a7; padding: 12px; border-radius: 8px; font-family: 'Monaco', 'Consolas', monospace; font-size: 12px; overflow-x: auto; margin-top: 8px; }
+    .json-viewer { background: #1d1d1f; color: #a5d6a7; padding: 14px; border-radius: 8px; font-family: 'Monaco', 'Consolas', monospace; font-size: 12px; overflow: auto; max-height: 300px; line-height: 1.6; margin-top: 8px; }
     .security-status { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 10px; margin-bottom: 16px; }
     .security-status.enabled { background: #e8f5e9; }
     .security-status.disabled { background: #fff3e0; }
@@ -73,6 +79,23 @@
     .security-status .text { flex: 1; }
     .security-status .text h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
     .security-status .text p { font-size: 12px; color: #86868b; }
+    .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.09); }
+    .recovery-codes .rc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .recovery-codes .rc-header h4 { margin-bottom: 0; }
+    .recovery-codes .copy-btn { background: white; border: 1px solid #ffd180; color: #e65100; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+    .recovery-codes .copy-btn:hover { background: #fff8e1; }
+    .recovery-codes .copy-btn:active { transform: translateY(1px); }
+    .footer { text-align: center; color: #c7c7cc; font-size: 12px; padding: 24px 16px 32px; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 600px) {
+      .login-card { padding: 28px 20px; }
+      .container { margin: 16px auto; padding: 0 12px; }
+      .card { padding: 16px; }
+      .header { padding: 14px 16px; }
+      .header h1 { font-size: 16px; }
+      .recovery-codes .codes { grid-template-columns: repeat(2, 1fr); }
+      .form-row { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -144,7 +167,10 @@
 
         <div id="showRecoveryCodes" class="hidden">
           <div class="recovery-codes">
-            <h4>⚠️ 请妥善保存以下恢复码</h4>
+            <div class="rc-header">
+              <h4>⚠️ 请妥善保存以下恢复码</h4>
+              <button class="copy-btn" onclick="copyRecoveryCodes()">复制全部</button>
+            </div>
             <div class="hint" style="margin-bottom: 12px;">如果丢失设备，可使用恢复码登录。请截图保存或记录在安全的地方。</div>
             <div class="codes" id="recoveryCodesList"></div>
           </div>
@@ -345,6 +371,8 @@
       </div>
     </div>
   </div>
+
+  <div class="footer">通知推送助手 · 版本管理系统 v1.5.38</div>
 
   <script>
     const API_BASE = window.location.origin;
@@ -549,6 +577,22 @@
 
     function finishSetup() {
       handleLogin();
+    }
+
+    async function copyRecoveryCodes() {
+      const codes = Array.from(document.querySelectorAll('#recoveryCodesList .code'))
+        .map(e => e.textContent).join('\n');
+      if (!codes) return;
+      try {
+        await navigator.clipboard.writeText(codes);
+        const btn = document.querySelector('#showRecoveryCodes .copy-btn');
+        const old = btn.textContent;
+        btn.textContent = '已复制 ✓';
+        setTimeout(() => { btn.textContent = old; }, 1500);
+      } catch (e) {
+        // 剪贴板 API 不可用时降级为提示
+        alert('恢复码：\n' + codes);
+      }
     }
 
     function showMain() {

@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.38",
-  "latestVersion": "1.5.38",
-  "latestBuild": 72,
+  "appName": "notice1.5.39",
+  "latestVersion": "1.5.39",
+  "latestBuild": 73,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【应用图标扩展】\n• 可选图标从 2 种扩展到 16 种常用颜色，加默认图标共 17 种\n• 选择图标时展示真实模样的图标预览\n• 原始图标更名为「默认图标」\n\n【稳定性与安全修复】\n• 修复电量规则页在异常数据下可能崩溃的问题\n• 修复后台服务重建后 Webhook 可能静默失效的问题\n• 修复来电结束通知可能误发的问题\n• 修复条件规则输入中文时光标跳到末尾的问题\n• 热更新解压增加安全校验\n• 统计页计数与图表健壮性优化",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.38.apk",
-  "fileSize": 23326413,
+  "changelog": "【息屏电量通知修复】\n• 修复息屏/锁屏后电量达到阈值不推送的问题\n• 息屏插拔充电线也能可靠推送通知\n• 首次启用电量通知时引导关闭电池优化，保证后台及时推送\n\n【管理后台优化】\n• admin.html 界面全面美化，适配移动端\n• 恢复码支持一键复制",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.39.apk",
+  "fileSize": 23326417,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

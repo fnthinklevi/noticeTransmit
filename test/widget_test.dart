@@ -74,10 +74,7 @@ void main() {
         time: '',
         deviceName: '',
       );
-      final updated = original.copyWith(
-        title: 'Updated',
-        type: 'sms',
-      );
+      final updated = original.copyWith(title: 'Updated', type: 'sms');
       expect(updated.id, 'id-1');
       expect(updated.title, 'Updated');
       expect(updated.type, 'sms');
@@ -87,15 +84,33 @@ void main() {
 
   group('BatteryRuleType', () {
     test('fromValue returns correct type', () {
-      expect(BatteryRuleTypeExtension.fromValue('charging'), BatteryRuleType.charging);
-      expect(BatteryRuleTypeExtension.fromValue('discharging'), BatteryRuleType.discharging);
-      expect(BatteryRuleTypeExtension.fromValue('level_above'), BatteryRuleType.levelAbove);
-      expect(BatteryRuleTypeExtension.fromValue('level_below'), BatteryRuleType.levelBelow);
-      expect(BatteryRuleTypeExtension.fromValue('level_equals'), BatteryRuleType.levelEquals);
+      expect(
+        BatteryRuleTypeExtension.fromValue('charging'),
+        BatteryRuleType.charging,
+      );
+      expect(
+        BatteryRuleTypeExtension.fromValue('discharging'),
+        BatteryRuleType.discharging,
+      );
+      expect(
+        BatteryRuleTypeExtension.fromValue('level_above'),
+        BatteryRuleType.levelAbove,
+      );
+      expect(
+        BatteryRuleTypeExtension.fromValue('level_below'),
+        BatteryRuleType.levelBelow,
+      );
+      expect(
+        BatteryRuleTypeExtension.fromValue('level_equals'),
+        BatteryRuleType.levelEquals,
+      );
     });
 
     test('fromValue handles unknown value', () {
-      expect(BatteryRuleTypeExtension.fromValue('unknown'), BatteryRuleType.charging);
+      expect(
+        BatteryRuleTypeExtension.fromValue('unknown'),
+        BatteryRuleType.charging,
+      );
     });
 
     test('value getter returns correct string', () {
@@ -217,7 +232,9 @@ void main() {
   group('WebhookChannel', () {
     test('detectTypeFromUrl detects wechat work', () {
       expect(
-        WebhookChannel.detectTypeFromUrl('https://qyapi.weixin.qq.com/cgi-bin/webhook/send'),
+        WebhookChannel.detectTypeFromUrl(
+          'https://qyapi.weixin.qq.com/cgi-bin/webhook/send',
+        ),
         WebhookChannelType.wechatWork,
       );
       expect(
@@ -228,7 +245,9 @@ void main() {
 
     test('detectTypeFromUrl detects dingtalk', () {
       expect(
-        WebhookChannel.detectTypeFromUrl('https://oapi.dingtalk.com/robot/send'),
+        WebhookChannel.detectTypeFromUrl(
+          'https://oapi.dingtalk.com/robot/send',
+        ),
         WebhookChannelType.dingtalk,
       );
       expect(
@@ -239,7 +258,9 @@ void main() {
 
     test('detectTypeFromUrl detects feishu', () {
       expect(
-        WebhookChannel.detectTypeFromUrl('https://open.feishu.cn/open-apis/bot/v2/hook/test'),
+        WebhookChannel.detectTypeFromUrl(
+          'https://open.feishu.cn/open-apis/bot/v2/hook/test',
+        ),
         WebhookChannelType.feishu,
       );
       expect(

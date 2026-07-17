@@ -1,5 +1,6 @@
 package com.fnthink.notice
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,6 +12,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
 import android.os.IBinder
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -31,6 +35,10 @@ class NotificationMonitorService : NotificationListenerService() {
         const val ACTION_BATTERY_CHANGED_NOTIFY = "com.fnthink.notice.BATTERY_CHANGED_NOTIFY"
         const val EXTRA_BATTERY_LEVEL = "battery_level"
         const val EXTRA_BATTERY_CHARGING = "battery_charging"
+        // 息屏/Doze 下由精确-允许空闲闹钟唤醒，执行电量阈值检查（修复息屏时不推送）
+        const val ACTION_BATTERY_ALARM = "com.fnthink.notice.BATTERY_ALARM"
+        private const val BATTERY_ALARM_INTERVAL_MS = 15 * 60 * 1000L
+        private const val BATTERY_ALARM_REQUEST_CODE = 2001
 
         @Volatile var webhookUrls: List<String> = emptyList()
         @Volatile var deviceName: String = ""
@@ -43,6 +51,7 @@ class NotificationMonitorService : NotificationListenerService() {
     private lateinit var webhookSender: WebhookSender
     private lateinit var configManager: ConfigManager
     private var batteryChangedReceiver: android.content.BroadcastReceiver? = null
+    private var batteryAlarmPendingIntent: PendingIntent? = null
     private var cachedConfig: ConfigSnapshot? = null
 
     override fun onCreate() {
@@ -112,6 +121,7 @@ class NotificationMonitorService : NotificationListenerService() {
             } catch (_: Exception) {}
         }
         batteryMonitor.stopPolling()
+        cancelBatteryAlarm()
         webhookSender.destroy()
         Log.i(TAG, "Service destroyed")
     }
@@ -188,6 +198,7 @@ class NotificationMonitorService : NotificationListenerService() {
             Log.i(TAG, "Monitoring enabled")
         } else {
             batteryMonitor.stopPolling()
+            cancelBatteryAlarm()
             batteryChangedReceiver?.let {
                 try {
                     unregisterReceiver(it)
@@ -213,9 +224,37 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     private fun startBatteryMonitoring() {
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_BATTERY_CHANGED)
+            // 插拔充电专用广播：息屏/Doze 下仍可靠投递，是修复“锁屏插电无反应”的关键
+            addAction(Intent.ACTION_POWER_CONNECTED)
+            addAction(Intent.ACTION_POWER_DISCONNECTED)
+            // 息屏/Doze 下由允许空闲闹钟唤醒，执行电量阈值检查（修复息屏时不推送）
+            addAction(ACTION_BATTERY_ALARM)
+        }
         batteryChangedReceiver = object : android.content.BroadcastReceiver() {
+            private val wakeLockTag = "BatteryMonitor::PowerWakeLock"
             override fun onReceive(context: Context?, intent: Intent?) {
+                val action = intent?.action
+
+                // 闹钟唤醒时重新排程下一次检查，保证息屏期间持续轮询
+                if (action == ACTION_BATTERY_ALARM) {
+                    scheduleBatteryAlarm()
+                }
+
+                // 息屏插入/拔出充电、或闹钟唤醒时，短暂持锁确保电量读取与 webhook 发送完成
+                var wakeLock: PowerManager.WakeLock? = null
+                if (action == Intent.ACTION_POWER_CONNECTED ||
+                    action == Intent.ACTION_POWER_DISCONNECTED ||
+                    action == ACTION_BATTERY_ALARM
+                ) {
+                    try {
+                        val pm = context?.getSystemService(Context.POWER_SERVICE) as? PowerManager
+                        wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, wakeLockTag)
+                        wakeLock?.acquire(5000L)
+                    } catch (_: Exception) {}
+                }
+
                 val batteryInfo = batteryMonitor.checkBatteryAndNotify()
                 if (batteryInfo != null) {
                     webhookSender.sendNotification(batteryInfo)
@@ -235,9 +274,59 @@ class NotificationMonitorService : NotificationListenerService() {
                     putExtra(EXTRA_BATTERY_CHARGING, isCharging)
                 }
                 context?.sendBroadcast(notifyIntent)
+
+                // 延迟释放唤醒锁，确保异步 webhook 发送有机会完成
+                wakeLock?.let { wl ->
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        try { wl.release() } catch (_: Exception) {}
+                    }, 3000L)
+                }
             }
         }
         registerReceiver(batteryChangedReceiver, filter)
+        // 立即排程首次空闲闹钟（Handler 轮询在 Doze 下会被节流，此处为息屏兜底）
+        scheduleBatteryAlarm()
+    }
+
+    /**
+     * 安排一次「允许在空闲（Doze）时触发」的唤醒闹钟。
+     * 使用 setAndAllowWhileIdle（非精确闹钟），无需 SCHEDULE_EXACT_ALARM 权限，
+     * 设备进入 Doze 后会在维护窗口被唤醒执行电量检查；闹钟触发时自身会再次排程。
+     */
+    private fun scheduleBatteryAlarm() {
+        try {
+            val am = getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(ACTION_BATTERY_ALARM).apply { setPackage(packageName) }
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            val pi = PendingIntent.getBroadcast(this, BATTERY_ALARM_REQUEST_CODE, intent, flags)
+            batteryAlarmPendingIntent = pi
+            val triggerAt = System.currentTimeMillis() + BATTERY_ALARM_INTERVAL_MS
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            } else {
+                @Suppress("DEPRECATION")
+                am.setRepeating(AlarmManager.RTC_WAKEUP, triggerAt, BATTERY_ALARM_INTERVAL_MS, pi)
+            }
+            Log.d(TAG, "Battery idle alarm scheduled (15min)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule battery alarm", e)
+        }
+    }
+
+    private fun cancelBatteryAlarm() {
+        try {
+            val pi = batteryAlarmPendingIntent ?: return
+            val am = getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            am.cancel(pi)
+            batteryAlarmPendingIntent = null
+            Log.d(TAG, "Battery idle alarm cancelled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to cancel battery alarm", e)
+        }
     }
 
     private fun createNotificationChannel() {
