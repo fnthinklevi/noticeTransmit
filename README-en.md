@@ -51,7 +51,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 - 🛡️ **IP Blocking** - IP automatically blocked for 240 hours after 3 failed verification attempts within 10 minutes
 - 🔢 **Recovery Codes** - 8 recovery codes generated for account recovery when device is lost
 - 🔒 **Sensitive Data Encryption** - TOTP secret stored using AES-256-GCM encryption
-- 🎭 **Code Obfuscation** - R8 code obfuscation and resource shrinking enabled
+- 🎭 **Obfuscation Rules Ready** - ProGuard/R8 rules file configured (`proguard-rules.pro`; obfuscation and resource shrinking are disabled by default in release builds and can be enabled on demand)
 - 📡 **Secure Token Transmission** - Token only accepted via Header, URL parameters disabled
 - 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
 
@@ -144,23 +144,24 @@ noticeTransmit/
 
 ### Environment Requirements
 
-> **Important**: This project uses **AGP 9.0.1** + **Gradle 9.1.0**, which has minimum version requirements for Flutter / Dart / Android Studio.
+> **Important**: This project uses **AGP 9.0.1** + **Gradle 9.4.1**, which has minimum version requirements for Flutter / Dart / Android Studio.
 
 | Tool | Minimum Version | Recommended Version | Description |
 |------|----------------|--------------------|-------------|
 | **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x support starts from Flutter 3.44 |
 | **Dart SDK** | 3.12.0 | 3.12.x | Included with Flutter 3.44, no separate installation needed |
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.0.1 | Already configured in project |
-| **Gradle** | 9.1.0 | 9.1.0 | Already configured (see gradle-wrapper.properties) |
+| **Gradle** | 9.4.1 | 9.4.1 | Already configured (see gradle-wrapper.properties) |
+| **Kotlin** | 2.3.20 | 2.3.20 | Explicitly declared via `org.jetbrains.kotlin.android` plugin in `settings.gradle.kts` |
 | **Android Studio** | Koala (2024.1.1) | Latest stable | Need IDE version that supports AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x requires JDK 21+ |
-| **Android SDK** | 21 (minSdk) | 37 (compileSdk) | minSdk 21, target Android 15 |
+| **Android SDK** | 24 (minSdk) | 37 (compileSdk) | minSdk 24, target Android 15 |
 
 #### Version Compatibility Notes
 
 - **Flutter below 3.44**: Does not support AGP 9.x, build will fail. Please run `flutter upgrade` to upgrade to 3.44+.
 - **AGP 8.x and below**: This project has migrated to AGP 9.x, cannot be downgraded.
-- **Kotlin**: AGP 9.x uses Built-in Kotlin, no need to configure Kotlin version separately.
+- **Kotlin**: The project explicitly declares `org.jetbrains.kotlin.android` version 2.3.20 in `settings.gradle.kts`, and keeps `android.builtInKotlin=false` and `android.newDsl=false` in `gradle.properties`.
 
 ### Build APK
 

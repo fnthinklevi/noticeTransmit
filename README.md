@@ -51,7 +51,7 @@
 - 🛡️ **IP 封锁** - 10分钟内输错3次验证码自动封锁IP 240小时
 - 🔢 **恢复码** - 生成8个恢复码，设备丢失时可找回账户
 - 🔒 **敏感数据加密** - TOTP secret 使用 AES-256-GCM 加密存储
-- 🎭 **代码混淆** - 启用 R8 代码混淆和资源压缩
+- 🎭 **混淆规则就绪** - 已配置 ProGuard/R8 混淆规则文件（`proguard-rules.pro`，当前发布构建默认关闭混淆与资源压缩，可按需开启）
 - 📡 **Token安全传输** - 仅接受 Header 传递，禁止 URL 参数
 - 🎲 **安全随机数** - 使用 crypto.randomUUID() 生成会话 ID
 
@@ -152,7 +152,7 @@ noticeTransmit/
 | **Dart SDK** | 3.12.0 | 3.12.x | 随 Flutter 3.44 自带 |
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.0.1 | 项目已配置 |
 | **Gradle** | 9.4.1 | 9.4.1 | 项目已配置（gradle-wrapper.properties） |
-| **Kotlin** | 2.3.20 | 2.3.20 | AGP 9.x Built-in Kotlin |
+| **Kotlin** | 2.3.20 | 2.3.20 | 通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 插件 |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x 要求 JDK 21 及以上 |
 | **Android SDK** | 24 (minSdk) | 37 (compileSdk) | minSdk 24，目标 Android 15 |
@@ -161,7 +161,7 @@ noticeTransmit/
 
 - **Flutter 3.44 以下版本**：不支持 AGP 9.x，构建会失败。请先执行 `flutter upgrade` 升级到 3.44+。
 - **AGP 8.x 及以下**：本项目已迁移到 AGP 9.x，无法降级使用。
-- **Kotlin**：AGP 9.x 使用 Built-in Kotlin，无需单独配置 Kotlin 版本。
+- **Kotlin**：项目通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 版本 2.3.20，并在 `gradle.properties` 中保留 `android.builtInKotlin=false`、`android.newDsl=false`。
 
 ### 构建 APK
 
