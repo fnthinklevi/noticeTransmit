@@ -184,6 +184,10 @@ flutter build apk --release --target-platform android-arm64
 
 欢迎提交 Issue 和 Pull Request！
 
+- 贡献指南（中文）：[CONTRIBUTING.md](CONTRIBUTING.md)
+- Contributing Guide (English)：[CONTRIBUTING-en.md](CONTRIBUTING-en.md)
+- 安全政策：[SECURITY.md](SECURITY.md) / [SECURITY-en.md](SECURITY-en.md)
+
 ## 隐私说明
 
 ### 数据采集声明
