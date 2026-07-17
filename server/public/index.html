@@ -32,12 +32,13 @@
     --font-mono:"JetBrains Mono",ui-monospace,monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth;width:100%;max-width:100%;overflow-x:hidden}
   body{
     font-family:var(--font-body);
     background:var(--bg);
     color:var(--ink);
     line-height:1.65;
+    width:100%;max-width:100%;
     overflow-x:hidden;
     -webkit-font-smoothing:antialiased;
     text-rendering:optimizeLegibility;
@@ -48,7 +49,7 @@
 
   /* ===== Ambient background ===== */
   #signal-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.55}
-  .aura{position:fixed;z-index:0;border-radius:50%;filter:blur(120px);pointer-events:none;opacity:.5}
+  .aura{position:fixed;z-index:0;border-radius:50%;filter:blur(120px);pointer-events:none;opacity:.5;max-width:100vw;max-height:100vw}
   .aura.a{top:-16%;left:-8%;width:640px;height:640px;background:radial-gradient(circle,#1d3b9e,transparent 70%)}
   .aura.b{top:24%;right:-12%;width:560px;height:560px;background:radial-gradient(circle,#0e6b7a,transparent 70%);opacity:.4}
   .aura.c{bottom:-18%;left:22%;width:600px;height:600px;background:radial-gradient(circle,#3a2d8a,transparent 70%);opacity:.35}
@@ -101,7 +102,7 @@
 
   /* Phone mockup */
   .stage{position:relative;display:grid;place-items:center;min-height:560px}
-  .phone{position:relative;width:288px;height:588px;border-radius:44px;padding:13px;
+  .phone{position:relative;width:min(288px,78vw);height:min(588px,160vw);border-radius:44px;padding:13px;
     background:linear-gradient(160deg,#1b2244,#0a0e20);border:1px solid rgba(120,150,255,.22);
     box-shadow:0 40px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04),inset 0 2px 4px rgba(255,255,255,.08);
     z-index:3}
@@ -127,8 +128,8 @@
     box-shadow:0 8px 22px rgba(0,0,0,.4);opacity:0;transform:translateX(18px);animation:chipin .5s forwards}
   .relay .chip span{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:11px}
   @keyframes chipin{to{opacity:1;transform:none}}
-  .orbit{position:absolute;width:430px;height:430px;border:1px dashed rgba(120,150,255,.16);border-radius:50%;animation:spin 26s linear infinite;z-index:1}
-  .orbit.o2{width:540px;height:540px;animation-duration:38s;animation-direction:reverse;border-color:rgba(0,209,209,.1)}
+  .orbit{position:absolute;width:min(430px,90vw);height:min(430px,90vw);border:1px dashed rgba(120,150,255,.16);border-radius:50%;animation:spin 26s linear infinite;z-index:1}
+  .orbit.o2{width:min(540px,95vw);height:min(540px,95vw);animation-duration:38s;animation-direction:reverse;border-color:rgba(0,209,209,.1)}
   @keyframes spin{to{transform:rotate(360deg)}}
 
   /* ===== Section shell ===== */
@@ -278,7 +279,7 @@
     .stats{grid-template-columns:repeat(2,1fr)}
     .foot{grid-template-columns:1fr 1fr}
   }
-  @media(max-width:560px){
+  @media(max-width:530px){
     .grid{grid-template-columns:1fr}
     .flow{grid-template-columns:1fr}
     .stats{grid-template-columns:1fr 1fr}
@@ -286,17 +287,24 @@
     .cta{padding:48px 22px}
     .wrap{padding:0 18px}
     .nav .btn-ghost.gh{display:none}
-    /* 手机端导航：收窄品牌字与按钮，避免下载按钮被挤出屏幕 */
-    .nav{padding:0 16px}
-    .brand{font-size:15px;gap:8px;white-space:nowrap}
-    .brand .logo{width:30px;height:30px}
-    .brand .logo svg{width:17px;height:17px}
-    .nav-burger{width:38px;height:38px}
-    .nav-cta{gap:8px}
+    /* 手机端导航：space-between + 垂直居中 */
+    .nav{padding:0 14px;gap:8px;align-items:center}
+    .brand{font-size:13px;gap:6px;white-space:nowrap;flex-shrink:1;min-width:0;
+      overflow:hidden;text-overflow:ellipsis}
+    .brand .logo{width:28px;height:28px;flex-shrink:0}
+    .brand .logo svg{width:16px;height:16px}
+    .nav-burger{width:34px;height:34px;flex-shrink:0}
+    .nav-cta{gap:6px;flex-shrink:0;align-items:center}
     .nav-cta .btn{padding:9px 13px;font-size:13.5px;white-space:nowrap}
-    /* 手机端下载按钮：纯图标，文字被裁切不如直接隐藏 */
-    .nav-cta .btn-primary{padding:10px 12px;font-size:0;min-width:auto;border-radius:11px}
-    .nav-cta .btn-primary svg{display:inline-block;width:18px;height:18px;margin:0}
+    /* 手机端下载按钮：纯图标按钮，文字彻底不占位 */
+    .nav-cta .btn-primary{
+      width:38px;height:38px;padding:0;margin:0;
+      min-width:0;border-radius:11px;
+      display:inline-flex;align-items:center;justify-content:center;text-align:center
+    }
+    .nav-cta .btn-primary span{display:none}
+    /* SVG 显式白色，不依赖 currentColor 继承 */
+    .nav-cta .btn-primary svg{width:18px;height:18px;flex-shrink:0;stroke:#fff}
   }
   @media(max-width:380px){
     .wrap{padding:0 14px}
@@ -309,17 +317,46 @@
     .trust{gap:14px;font-size:13px}
     .stats{grid-template-columns:1fr 1fr;gap:12px;padding:22px}
     .num{font-size:30px}
-    .section{padding:64px 0}
+    section{padding:64px 0}
     .s-head{margin-bottom:38px}
     .s-head h2{font-size:28px}
     .cta h2{font-size:27px}
     .dl-meta{gap:12px;font-size:11.5px}
-    /* 超小屏再压缩导航 */
-    .nav{padding:0 12px}
-    .brand{font-size:13.5px;gap:7px}
-    .brand .logo{width:27px;height:27px}
-    .nav-cta .btn{padding:8px 11px;font-size:12.5px}
-    .nav-burger{width:36px;height:36px}
+    /* 超小屏导航 */
+    .nav{padding:0 10px;height:64px;gap:4px}
+    .brand{font-size:13px;gap:6px;flex-shrink:0}
+    .brand .logo{width:26px;height:26px;flex-shrink:0}
+    .nav-burger{width:34px;height:34px;flex-shrink:0}
+    .nav-cta{flex-shrink:0}
+    .nav-cta .btn-primary{width:36px;height:36px}
+  }
+  @media(max-width:340px){
+    .nav{padding:0 8px;height:60px;gap:4px}
+    .brand{font-size:12px;gap:5px;flex-shrink:0}
+    .brand .logo{width:24px;height:24px;flex-shrink:0}
+    .brand .logo svg{width:14px;height:14px}
+    .nav-burger{width:32px;height:32px;flex-shrink:0}
+    .nav-cta .btn-primary{width:34px;height:34px}
+    .nav-cta .btn-primary svg{width:16px;height:16px}
+  }
+  @media(max-width:300px){
+    .nav{padding:0 6px;height:56px;gap:3px}
+    .brand{font-size:11px;gap:4px;flex-shrink:0}
+    .brand .logo{width:22px;height:22px;flex-shrink:0}
+    .nav-burger{width:30px;height:30px;flex-shrink:0}
+    .nav-cta .btn-primary{width:32px;height:32px}
+    /* 全局收窄内边距 */
+    .wrap{padding:0 12px}
+  }
+  @media(max-width:260px){
+    .nav{padding:0 4px;height:52px;gap:2px}
+    .brand{font-size:10px;gap:3px;flex-shrink:0;white-space:nowrap}
+    .brand .logo{width:20px;height:20px;flex-shrink:0}
+    .brand .logo svg{width:13px;height:13px}
+    .nav-burger{width:28px;height:28px;flex-shrink:0}
+    .nav-cta .btn-primary{width:28px;height:28px}
+    .nav-cta .btn-primary svg{width:14px;height:14px}
+    .wrap{padding:0 10px}
   }
 </style>
 </head>
@@ -354,7 +391,7 @@
       </a>
       <a class="btn btn-primary" href="#download" title="下载 APK">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
-        下载 APK
+        <span>下载 APK</span>
       </a>
     </div>
   </nav>
