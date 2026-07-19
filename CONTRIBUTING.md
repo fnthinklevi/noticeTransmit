@@ -28,7 +28,7 @@
 | Gradle | 9.4.1 | 见 `gradle-wrapper.properties` |
 | Kotlin | 2.3.20 | 见 `settings.gradle.kts` |
 | JDK | 21 | AGP 9.x 要求 |
-| Android SDK | minSdk 24 / compileSdk 37 | 目标 Android 15 |
+| Android SDK | minSdk 24 / compileSdk 37 | 目标 SDK 37 |
 | Node.js | 18+ | 仅服务端 `server/` 需要 |
 
 环境准备：

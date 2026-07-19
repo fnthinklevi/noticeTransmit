@@ -46,8 +46,10 @@ class DatabaseHelper {
     final oldPath = join(databasesPath, _oldDbName);
     final password = await _getEncryptionKey();
 
+    // 从旧明文数据库迁移数据到新加密数据库
+    await _migrateOldDatabaseIfNeeded(oldPath, encryptedPath, password);
+
     try {
-      // 尝试打开加密数据库
       return await openDatabase(
         encryptedPath,
         password: password,
@@ -56,13 +58,12 @@ class DatabaseHelper {
         onUpgrade: _onUpgrade,
       );
     } catch (e) {
-      // 打开失败：可能仍是旧版明文数据库
-      // 删除明文旧文件和残损文件，重新创建加密数据库
-      try {
-        await File(oldPath).delete();
-      } catch (_) {}
+      // 加密数据库损坏 — 删除后重建
       try {
         await File(encryptedPath).delete();
+      } catch (_) {}
+      try {
+        await File(oldPath).delete();
       } catch (_) {}
 
       return await openDatabase(
@@ -73,6 +74,109 @@ class DatabaseHelper {
         onUpgrade: _onUpgrade,
       );
     }
+  }
+
+  /// 从旧明文数据库迁移数据到新加密数据库。
+  ///
+  /// 仅在旧数据库存在且新加密数据库不存在时执行。
+  /// 迁移完成后删除旧数据库文件。
+  Future<void> _migrateOldDatabaseIfNeeded(
+    String oldPath,
+    String encryptedPath,
+    String password,
+  ) async {
+    final oldExists = await File(oldPath).exists();
+    final encryptedExists = await File(encryptedPath).exists();
+
+    // 只有旧库存在且新库不存在时才迁移
+    if (!oldExists || encryptedExists) return;
+
+    List<Map<String, dynamic>> oldNotifications = [];
+    List<Map<String, dynamic>> oldPending = [];
+
+    // 1. 打开旧明文数据库（不传 password，SQLCipher 可读取明文库）
+    try {
+      final oldDb = await openDatabase(oldPath, version: 3);
+      try {
+        oldNotifications = await oldDb.query('notifications');
+      } catch (_) {}
+      try {
+        oldPending = await oldDb.query('pending_notifications');
+      } catch (_) {}
+      await oldDb.close();
+    } catch (_) {
+      // 旧库无法打开 — 删除后跳过迁移
+      try {
+        await File(oldPath).delete();
+      } catch (_) {}
+      return;
+    }
+
+    // 没有数据可迁移 — 直接删除旧库
+    if (oldNotifications.isEmpty && oldPending.isEmpty) {
+      try {
+        await File(oldPath).delete();
+      } catch (_) {}
+      return;
+    }
+
+    // 2. 创建新加密数据库并导入数据
+    Database? newDb;
+    try {
+      newDb = await openDatabase(
+        encryptedPath,
+        password: password,
+        version: 3,
+        onCreate: _onCreate,
+      );
+
+      if (oldNotifications.isNotEmpty) {
+        await newDb.transaction((txn) async {
+          for (final record in oldNotifications) {
+            try {
+              await txn.insert(
+                'notifications',
+                record,
+                conflictAlgorithm: ConflictAlgorithm.ignore,
+              );
+            } catch (_) {}
+          }
+        });
+      }
+
+      if (oldPending.isNotEmpty) {
+        await newDb.transaction((txn) async {
+          for (final record in oldPending) {
+            try {
+              await txn.insert(
+                'pending_notifications',
+                record,
+                conflictAlgorithm: ConflictAlgorithm.ignore,
+              );
+            } catch (_) {}
+          }
+        });
+      }
+
+      await newDb.close();
+      newDb = null;
+    } catch (_) {
+      // 迁移失败 — 删除残损的加密库，下次启动重试
+      if (newDb != null) {
+        try {
+          await newDb.close();
+        } catch (_) {}
+      }
+      try {
+        await File(encryptedPath).delete();
+      } catch (_) {}
+      return;
+    }
+
+    // 3. 迁移成功 — 删除旧明文数据库
+    try {
+      await File(oldPath).delete();
+    } catch (_) {}
   }
 
   Future<void> _onCreate(Database db, int version) async {

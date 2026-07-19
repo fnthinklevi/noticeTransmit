@@ -1,0 +1,52 @@
+name: Deploy to GitHub Pages
+
+# 将官网和版本配置部署到 GitHub Pages，作为 Node.js 服务器的替代方案。
+# 客户端自动兼容两种模式：先请求 /api/version/check（API 模式），
+# 失败后回退到 /api/version.json（静态模式，即 GitHub Pages）。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/data/version.json'
+      - 'server/data/hotfix.json'
+      - 'server/public/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Pages artifact
+        run: |
+          mkdir -p _pages/api
+          # 官网静态文件
+          cp -r server/public/* _pages/
+          # 版本配置（静态 JSON，客户端回退模式使用）
+          cp server/data/version.json _pages/api/version.json
+          cp server/data/hotfix.json  _pages/api/hotfix.json
+          # 防止 Jekyll 干扰 JSON 文件
+          touch _pages/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _pages
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

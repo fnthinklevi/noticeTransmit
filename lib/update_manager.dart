@@ -185,6 +185,7 @@ class AppUpdateManager {
     _lastError = null;
     if (!force && !(await shouldCheckNow())) return null;
 
+    // 1. 尝试 API 模式（Node.js 服务器）
     try {
       final uri = Uri.parse('$_updateServerUrl/api/version/check').replace(
         queryParameters: {
@@ -199,32 +200,109 @@ class AppUpdateManager {
           .get(uri)
           .timeout(const Duration(seconds: 15));
       debugPrint('检查更新：响应状态码 ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['code'] == 0) {
+          final result = VersionCheckResult.fromJson(data['data']);
+          debugPrint(
+            '检查更新：最新版本 ${result.latestVersion}，hasUpdate=${result.hasUpdate}',
+          );
+          await _markChecked();
+          return result;
+        }
+        _lastError = '服务器返回错误：${data['message'] ?? '未知错误'}';
+      }
+      // 404 等非 200 状态 → 尝试静态模式
+      debugPrint('检查更新：API 返回 ${response.statusCode}，尝试静态 JSON 模式');
+    } catch (e) {
+      // 网络异常 → 尝试静态模式
+      debugPrint('检查更新：API 异常 $e，尝试静态 JSON 模式');
+    }
+
+    // 2. 回退到静态 JSON 模式（GitHub Pages 等静态部署）
+    return _checkUpdateStatic();
+  }
+
+  /// 静态 JSON 模式：直接拉取 /api/version.json，客户端做版本比较
+  Future<VersionCheckResult?> _checkUpdateStatic() async {
+    try {
+      final uri = Uri.parse('$_updateServerUrl/api/version.json');
+      final response = await _updateHttpClient
+          .get(uri)
+          .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
         _lastError = '服务器响应错误：HTTP ${response.statusCode}';
         return null;
       }
 
-      final data = jsonDecode(response.body);
-      debugPrint('检查更新：响应数据 code=${data['code']}');
-      if (data['code'] != 0) {
-        _lastError = '服务器返回错误：${data['message'] ?? '未知错误'}';
-        return null;
-      }
+      final versionData = jsonDecode(response.body) as Map<String, dynamic>;
+      final latestVersion = versionData['latestVersion']?.toString() ?? '0.0.0';
+      final latestBuild =
+          int.tryParse(versionData['latestBuild']?.toString() ?? '0') ?? 0;
 
-      final result = VersionCheckResult.fromJson(data['data']);
-      debugPrint(
-        '检查更新：最新版本 ${result.latestVersion}，hasUpdate=${result.hasUpdate}',
+      final hasUpdate =
+          _compareVersions(latestVersion, currentVersion) > 0 ||
+          latestBuild > currentBuild;
+
+      final needForce =
+          (versionData['forceUpdate'] == true) &&
+          (_compareVersions(
+                    versionData['forceUpdateVersion']?.toString() ??
+                        latestVersion,
+                    currentVersion,
+                  ) >
+                  0 ||
+              (int.tryParse(
+                        versionData['forceUpdateBuild']?.toString() ?? '0',
+                      ) ??
+                      0) >
+                  currentBuild);
+
+      final result = VersionCheckResult(
+        hasUpdate: hasUpdate,
+        appName: versionData['appName']?.toString() ?? 'notice$latestVersion',
+        latestVersion: latestVersion,
+        latestBuild: latestBuild,
+        forceUpdate: needForce,
+        changelog: versionData['changelog']?.toString() ?? '',
+        downloadUrl: versionData['downloadUrl']?.toString() ?? '',
+        fileSize: int.tryParse(versionData['fileSize']?.toString() ?? '0') ?? 0,
+        platform: versionData['platform']?.toString() ?? 'android',
+        minSupportedVersion:
+            versionData['minSupportedVersion']?.toString() ?? '1.0.0',
       );
+
+      debugPrint('检查更新（静态）：最新版本 ${result.latestVersion}，hasUpdate=$hasUpdate');
       await _markChecked();
       return result;
     } catch (e) {
       _lastError = e.toString();
-      debugPrint('检查更新异常：$e');
+      debugPrint('检查更新（静态）异常：$e');
       return null;
     }
   }
 
+  /// 比较两个语义化版本号，返回 >0 / 0 / <0
+  int _compareVersions(String v1, String v2) {
+    List<int> toParts(String v) => v.split('.').map((s) {
+      return int.tryParse(s) ?? 0;
+    }).toList();
+    final parts1 = toParts(v1.isEmpty ? '0' : v1);
+    final parts2 = toParts(v2.isEmpty ? '0' : v2);
+    final maxLen = parts1.length > parts2.length
+        ? parts1.length
+        : parts2.length;
+    for (int i = 0; i < maxLen; i++) {
+      final p1 = i < parts1.length ? parts1[i] : 0;
+      final p2 = i < parts2.length ? parts2[i] : 0;
+      if (p1 > p2) return 1;
+      if (p1 < p2) return -1;
+    }
+    return 0;
+  }
+
   Future<HotfixCheckResult?> checkHotfix({bool force = false}) async {
+    // 1. 尝试 API 模式（Node.js 服务器）
     try {
       final uri = Uri.parse('$_updateServerUrl/api/hotfix/check').replace(
         queryParameters: {
@@ -236,13 +314,58 @@ class AppUpdateManager {
       final response = await _updateHttpClient
           .get(uri)
           .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['code'] == 0) {
+          return HotfixCheckResult.fromJson(data['data']);
+        }
+      }
+      // 非 200 → 尝试静态模式
+      debugPrint('热更新：API 返回 ${response.statusCode}，尝试静态 JSON 模式');
+    } catch (e) {
+      debugPrint('热更新：API 异常 $e，尝试静态 JSON 模式');
+    }
+
+    // 2. 回退到静态 JSON 模式（GitHub Pages 等静态部署）
+    return _checkHotfixStatic();
+  }
+
+  /// 静态 JSON 模式：直接拉取 /api/hotfix.json，客户端做版本比较
+  Future<HotfixCheckResult?> _checkHotfixStatic() async {
+    try {
+      final uri = Uri.parse('$_updateServerUrl/api/hotfix.json');
+      final response = await _updateHttpClient
+          .get(uri)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
 
-      final data = jsonDecode(response.body);
-      if (data['code'] != 0) return null;
+      final hotfixData = jsonDecode(response.body) as Map<String, dynamic>;
+      final latestContentVersion =
+          int.tryParse(hotfixData['latestContentVersion']?.toString() ?? '0') ??
+          0;
 
-      return HotfixCheckResult.fromJson(data['data']);
+      final hasUpdate = latestContentVersion > _contentVersion;
+      if (!hasUpdate) return null;
+
+      final needForce =
+          (hotfixData['forceUpdate'] == true) &&
+          (int.tryParse(hotfixData['forceContentVersion']?.toString() ?? '0') ??
+                  0) >
+              _contentVersion;
+
+      return HotfixCheckResult(
+        hasUpdate: true,
+        latestContentVersion: latestContentVersion,
+        version: hotfixData['version']?.toString() ?? '',
+        forceUpdate: needForce,
+        changelog: hotfixData['changelog']?.toString() ?? '',
+        downloadUrl: hotfixData['downloadUrl']?.toString() ?? '',
+        fileSize: int.tryParse(hotfixData['fileSize']?.toString() ?? '0') ?? 0,
+        platform: hotfixData['platform']?.toString() ?? 'android',
+        minAppVersion: hotfixData['minAppVersion']?.toString() ?? '',
+      );
     } catch (e) {
+      debugPrint('热更新（静态）异常：$e');
       return null;
     }
   }

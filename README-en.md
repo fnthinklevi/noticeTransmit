@@ -9,8 +9,8 @@
 A **notification listener and Webhook push tool** for Android devices, supporting WeChat Work, DingTalk, Feishu and other platforms. Features include app filtering, keyword filtering, custom battery reminders, dark mode and more.
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
-[![AGP](https://img.shields.io/badge/AGP-9.0.1-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://img.shields.io/badge/Gradle-9.4.1-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
+[![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
+[![Gradle](https://img.shields.io/badge/Gradle-9.5.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#license)
 
@@ -43,7 +43,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
-- 🔄 **Online Update** - Support version update and hot update, no need to reinstall APK
+- 🔄 **Online Update** - Support version update and hot update, no need to reinstall APK; dual deployment modes (Node.js / GitHub Pages) with automatic client fallback
 - 📲 **iOS Style Design** - Adopt iOS system design language, clean and elegant interface
 
 ### Security
@@ -77,13 +77,13 @@ Notification Push Helper is an Android application developed with Flutter that l
 | Coroutines | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
 | Cross-platform Communication | MethodChannel (unified declaration) |
 | Crash Statistics | Tencent Bugly 4.1.9.3 |
-| Server | Node.js + Express 4.x (Token Auth + Two-step Verification) |
+| Server | Node.js + Express 4.x (Token Auth + Two-step Verification) / GitHub Pages static deploy |
 | TOTP Verification | otplib (^12.0.1) |
 | Password Hashing | bcryptjs (^2.4.3) |
 | Data Encryption | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
-| Build Tools | Gradle 9.4.1 + AGP 9.0.1 + JDK 21 |
+| Build Tools | Gradle 9.5.0 + AGP 9.3.0 + JDK 21 |
 | CI/CD | GitHub Actions |
-| APK Signing | jarsigner + zipalign (V1+V2 signing) |
+| APK Signing | Gradle (apksigner) V1+V2+V3 signing |
 
 ## Permission Description
 
@@ -150,18 +150,18 @@ noticeTransmit/
 
 ### Environment Requirements
 
-> **Important**: This project uses **AGP 9.0.1** + **Gradle 9.4.1**, which has minimum version requirements for Flutter / Dart / Android Studio.
+> **Important**: This project uses **AGP 9.3.0** + **Gradle 9.5.0**, which has minimum version requirements for Flutter / Dart / Android Studio.
 
 | Tool | Minimum Version | Recommended Version | Description |
 |------|----------------|--------------------|-------------|
 | **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x support starts from Flutter 3.44 |
 | **Dart SDK** | 3.12.0 | 3.12.x | Included with Flutter 3.44, no separate installation needed |
-| **Android Gradle Plugin (AGP)** | 9.0.0 | 9.0.1 | Already configured in project |
+| **Android Gradle Plugin (AGP)** | 9.0.0 | 9.3.0 | Already configured in project |
 | **Gradle** | 9.4.1 | 9.4.1 | Already configured (see gradle-wrapper.properties) |
 | **Kotlin** | 2.3.20 | 2.3.20 | Explicitly declared via `org.jetbrains.kotlin.android` plugin in `settings.gradle.kts` |
 | **Android Studio** | Koala (2024.1.1) | Latest stable | Need IDE version that supports AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x requires JDK 21+ |
-| **Android SDK** | 24 (minSdk) | 37 (compileSdk) | minSdk 24, target Android 15 |
+| **Android SDK** | 24 (minSdk) | 37 (compileSdk) | minSdk 24, target SDK 37 |
 
 #### Version Compatibility Notes
 
@@ -184,7 +184,12 @@ flutter build apk --release --target-platform android-arm64
 
 ### Deploy Server
 
-See [server/README.md](server/README.md) for details.
+Two deployment modes are supported:
+
+- **Node.js Server** (full features): See [server/README.md](server/README.md) for details.
+- **GitHub Pages** (zero-maintenance static): See [server/GITHUB_PAGES.md](server/GITHUB_PAGES.md) for details.
+
+The client automatically falls back between modes with no code changes needed.
 
 ## Contribution
 

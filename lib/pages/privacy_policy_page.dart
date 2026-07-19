@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class PrivacyPolicyPage extends StatelessWidget {
@@ -50,10 +50,23 @@ class PrivacyPolicyPage extends StatelessWidget {
           _buildSection(
             title: '数据存储与安全',
             content:
-                '• 所有通知历史记录仅保存在设备本地\n'
-                '• 配置数据仅保存在设备本地的 SharedPreferences 中\n'
-                '• 不会将您的任何个人数据上传到开发者服务器\n'
-                '• Webhook 推送通过您自行配置的地址发送，请确保您信任该地址',
+                '本应用采用多层安全机制保护您的数据：\n\n'
+                '1. 本地数据库加密\n'
+                '   - 所有通知历史记录、推送统计使用 AES-256 加密存储\n'
+                '   - 加密密钥保存在 Android 系统密钥库（AndroidKeyStore）中\n'
+                '   - 即使设备被他人获取，也无法直接读取数据库内容\n\n'
+                '2. 敏感配置加密\n'
+                '   - Webhook URL（含企业微信、钉钉、飞书认证密钥）'
+                '使用 AndroidKeyStore 加密存储\n'
+                '   - 不会以明文形式保存在 SharedPreferences 中\n\n'
+                '3. 网络传输安全\n'
+                '   - 全站强制 HTTPS，禁止明文 HTTP 传输\n'
+                '   - 已部署 SSL 证书固定（Certificate Pinning）基础设施\n'
+                '   - 管理后台 Token 仅通过 HTTP Header 传递，不出现在 URL 中\n\n'
+                '4. 其他安全措施\n'
+                '   - 管理后台二步验证（TOTP）\n'
+                '   - 应用备份已禁用，防止通知数据通过云备份泄露\n'
+                '   - 应用内广播接收器已加固，防止外部伪造通知数据',
             context: context,
           ),
           const SizedBox(height: 16),
@@ -72,24 +85,31 @@ class PrivacyPolicyPage extends StatelessWidget {
           _buildSection(
             title: '权限说明',
             content:
-                '本应用申请的权限及其用途：\n\n'
+                '本应用遵循最小权限原则，仅申请必要权限：\n\n'
                 '• 通知访问权限：用于监听系统通知，实现推送功能\n'
                 '• 网络权限：用于 Webhook 推送和版本更新检查\n'
                 '• 前台服务：保活通知监听服务，确保消息及时推送\n'
                 '• 开机自启动：开机后自动启动通知监听服务\n'
-                '• 电量优化白名单：避免系统杀死后台服务',
+                '• 电量优化白名单：避免系统杀死后台服务\n'
+                '• 短信/电话状态：增强短信和来电通知类型识别（可选）\n\n'
+                '已移除的权限（v1.5.40 安全加固）：\n'
+                '• WiFi 状态变更（CHANGE_WIFI_STATE）\n'
+                '• WiFi 状态读取（ACCESS_WIFI_STATE）\n'
+                '• 网络状态变更（CHANGE_NETWORK_STATE）',
             context: context,
           ),
           const SizedBox(height: 16),
           _buildSection(
             title: '政策更新',
-            content: '本隐私政策可能会不定期更新。更新后的政策将在应用内发布，继续使用即表示您同意更新后的政策。',
+            content:
+                '本隐私政策可能会不定期更新。更新后的政策将在应用内发布，'
+                '继续使用即表示您同意更新后的政策。',
             context: context,
           ),
           const SizedBox(height: 32),
           Center(
             child: Text(
-              '最后更新：2026年7月2日',
+              '最后更新：2026年7月19日',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.secondaryLabel(context),

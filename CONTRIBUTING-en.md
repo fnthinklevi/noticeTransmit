@@ -28,7 +28,7 @@ This project uses **AGP 9.0.1 + Gradle 9.4.1**, which imposes minimum toolchain 
 | Gradle | 9.4.1 | See `gradle-wrapper.properties` |
 | Kotlin | 2.3.20 | See `settings.gradle.kts` |
 | JDK | 21 | Required by AGP 9.x |
-| Android SDK | minSdk 24 / compileSdk 37 | Targets Android 15 |
+| Android SDK | minSdk 24 / compileSdk 37 | Targets SDK 37 |
 | Node.js | 18+ | Only needed for `server/` |
 
 Preparation:

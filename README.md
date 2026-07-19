@@ -9,8 +9,8 @@
 为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、自定义电量提醒、深色模式等丰富功能。
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
-[![AGP](https://img.shields.io/badge/AGP-9.0.1-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://img.shields.io/badge/Gradle-9.4.1-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
+[![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
+[![Gradle](https://img.shields.io/badge/Gradle-9.5.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 
@@ -43,7 +43,7 @@
 
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
-- 🔄 **在线更新** - 支持版本更新与热更新，无需重新安装 APK
+- 🔄 **在线更新** - 支持版本更新与热更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
 - 📲 **iOS 风格设计** - 采用 iOS 系统设计语言，界面简洁优雅
 
 ### 安全加固
@@ -77,13 +77,13 @@
 | 协程 | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
 | 跨端通信 | MethodChannel (统一声明) |
 | 崩溃统计 | 腾讯 Bugly 4.1.9.3 |
-| 服务端 | Node.js + Express 4.x (Token鉴权 + 二步验证) |
+| 服务端 | Node.js + Express 4.x (Token鉴权 + 二步验证) / GitHub Pages 静态部署 |
 | TOTP验证 | otplib (^12.0.1) |
 | 密码哈希 | bcryptjs (^2.4.3) |
 | 数据加密 | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
-| 构建工具 | Gradle 9.4.1 + AGP 9.0.1 + JDK 21 |
+| 构建工具 | Gradle 9.5.0 + AGP 9.3.0 + JDK 21 |
 | CI/CD | GitHub Actions |
-| APK签名 | jarsigner + zipalign (V1+V2签名) |
+| APK签名 | Gradle (apksigner) V1+V2+V3 签名 |
 
 ## 权限说明
 
@@ -150,18 +150,18 @@ noticeTransmit/
 
 ### 环境要求
 
-> **重要提示**：本项目使用 **AGP 9.0.1** + **Gradle 9.4.1**，对 Flutter / Dart / Android Studio 版本有最低要求。
+> **重要提示**：本项目使用 **AGP 9.3.0** + **Gradle 9.5.0**，对 Flutter / Dart / Android Studio 版本有最低要求。
 
 | 工具 | 最低版本 | 推荐版本 | 说明 |
 |------|----------|----------|------|
 | **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x 支持从 Flutter 3.44 开始 |
 | **Dart SDK** | 3.12.0 | 3.12.x | 随 Flutter 3.44 自带 |
-| **Android Gradle Plugin (AGP)** | 9.0.0 | 9.0.1 | 项目已配置 |
+| **Android Gradle Plugin (AGP)** | 9.0.0 | 9.3.0 | 项目已配置 |
 | **Gradle** | 9.4.1 | 9.4.1 | 项目已配置（gradle-wrapper.properties） |
 | **Kotlin** | 2.3.20 | 2.3.20 | 通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 插件 |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x 要求 JDK 21 及以上 |
-| **Android SDK** | 24 (minSdk) | 37 (compileSdk) | minSdk 24，目标 Android 15 |
+| **Android SDK** | 24 (minSdk) | 37 (compileSdk) | minSdk 24，目标 SDK 37 |
 
 #### 版本兼容性说明
 
@@ -184,7 +184,12 @@ flutter build apk --release --target-platform android-arm64
 
 ### 部署服务端
 
-详见 [server/README.md](server/README.md)
+支持两种部署模式：
+
+- **Node.js 服务器**（完整功能）：详见 [server/README.md](server/README.md)
+- **GitHub Pages**（零运维静态部署）：详见 [server/GITHUB_PAGES.md](server/GITHUB_PAGES.md)
+
+客户端自动兼容两种模式，无需修改代码。
 
 ## 贡献
 
