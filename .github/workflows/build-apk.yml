@@ -35,10 +35,13 @@ jobs:
         run: flutter pub get
 
       - name: Dart format check
-        run: dart format --set-exit-if-changed lib/
+        run: flutter format --set-exit-if-changed lib/
 
       - name: Run unit tests
         run: flutter test --no-pub
+
+      - name: Ensure gradlew is executable
+        run: chmod +x android/gradlew
 
       - name: Run Android unit tests
         run: |
