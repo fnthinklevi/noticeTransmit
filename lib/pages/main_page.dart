@@ -755,7 +755,7 @@ class _MainPageState extends State<MainPage> {
           ],
         ),
         content: Text(
-          '在线更新需要将安装包保存到 Download/fnthink.notice 目录，请先授予存储权限后再下载更新。',
+          '在线更新需要将安装包保存到 Download/FnthinkNotice 目录，请先授予存储权限后再下载更新。',
           style: TextStyle(
             fontSize: 14,
             color: AppColors.primaryLabel(context),

@@ -159,7 +159,7 @@ noticeTransmit/
 | **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x 支持从 Flutter 3.44 开始 |
 | **Dart SDK** | 3.12.0 | 3.12.x | 随 Flutter 3.44 自带 |
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.3.0 | 项目已配置 |
-| **Gradle** | 9.4.1 | 9.4.1 | 项目已配置（gradle-wrapper.properties） |
+| **Gradle** | 9.5.0 | 9.5.0 | 项目已配置（gradle-wrapper.properties） |
 | **Kotlin** | 2.3.20 | 2.3.20 | 通过 `settings.gradle.kts` 显式声明 `org.jetbrains.kotlin.android` 插件 |
 | **Android Studio** | Koala (2024.1.1) | 最新稳定版 | 需支持 AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x 要求 JDK 21 及以上 |

@@ -19,13 +19,13 @@
 
 ## 2. 开发环境要求
 
-本项目使用 **AGP 9.0.1 + Gradle 9.4.1**，对工具链有最低版本要求：
+本项目使用 **AGP 9.3.0 + Gradle 9.5.0**，对工具链有最低版本要求：
 
 | 工具 | 最低版本 | 说明 |
 |------|----------|------|
 | Flutter SDK | 3.44.0 | 自带 Dart 3.12.0 |
-| Android Gradle Plugin | 9.0.1 | 不支持 8.x 及以下 |
-| Gradle | 9.4.1 | 见 `gradle-wrapper.properties` |
+| Android Gradle Plugin | 9.3.0 | 不支持 8.x 及以下 |
+| Gradle | 9.5.0 | 见 `gradle-wrapper.properties` |
 | Kotlin | 2.3.20 | 见 `settings.gradle.kts` |
 | JDK | 21 | AGP 9.x 要求 |
 | Android SDK | minSdk 24 / compileSdk 37 | 目标 SDK 37 |

@@ -19,13 +19,13 @@ Thanks for your interest in **通知推送助手 / Notice Transmit**! This docum
 
 ## 2. Development Environment
 
-This project uses **AGP 9.0.1 + Gradle 9.4.1**, which imposes minimum toolchain versions:
+This project uses **AGP 9.3.0 + Gradle 9.5.0**, which imposes minimum toolchain versions:
 
 | Tool | Minimum | Notes |
 |------|----------|-------|
 | Flutter SDK | 3.44.0 | Bundles Dart 3.12.0 |
-| Android Gradle Plugin | 9.0.1 | No AGP 8.x or below |
-| Gradle | 9.4.1 | See `gradle-wrapper.properties` |
+| Android Gradle Plugin | 9.3.0 | No AGP 8.x or below |
+| Gradle | 9.5.0 | See `gradle-wrapper.properties` |
 | Kotlin | 2.3.20 | See `settings.gradle.kts` |
 | JDK | 21 | Required by AGP 9.x |
 | Android SDK | minSdk 24 / compileSdk 37 | Targets SDK 37 |

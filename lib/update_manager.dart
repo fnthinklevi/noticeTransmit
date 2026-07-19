@@ -31,7 +31,7 @@ class AppUpdateManager {
   static const String _prefsKeyPendingApkVersion = 'pending_apk_version';
 
   static const String _defaultDownloadDir =
-      '/storage/emulated/0/Download/fnthink.notice';
+      '/storage/emulated/0/Download/FnthinkNotice';
 
   static const int _checkIntervalHours = 24;
 

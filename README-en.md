@@ -159,7 +159,7 @@ noticeTransmit/
 | **Flutter SDK** | 3.44.0 | 3.44.x stable | AGP 9.x support starts from Flutter 3.44 |
 | **Dart SDK** | 3.12.0 | 3.12.x | Included with Flutter 3.44, no separate installation needed |
 | **Android Gradle Plugin (AGP)** | 9.0.0 | 9.3.0 | Already configured in project |
-| **Gradle** | 9.4.1 | 9.4.1 | Already configured (see gradle-wrapper.properties) |
+| **Gradle** | 9.5.0 | 9.5.0 | Already configured (see gradle-wrapper.properties) |
 | **Kotlin** | 2.3.20 | 2.3.20 | Explicitly declared via `org.jetbrains.kotlin.android` plugin in `settings.gradle.kts` |
 | **Android Studio** | Koala (2024.1.1) | Latest stable | Need IDE version that supports AGP 9.x |
 | **JDK** | 21 | 21+ | AGP 9.x requires JDK 21+ |

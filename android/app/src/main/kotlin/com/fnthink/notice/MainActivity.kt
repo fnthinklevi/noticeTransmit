@@ -1104,7 +1104,7 @@ class MainActivity : FlutterActivity() {
         val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
             android.os.Environment.DIRECTORY_DOWNLOADS
         )
-        val appDir = java.io.File(downloadsDir, "fnthink.notice")
+        val appDir = java.io.File(downloadsDir, "FnthinkNotice")
         if (!appDir.exists()) {
             appDir.mkdirs()
         }
