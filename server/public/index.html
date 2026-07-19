@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#070b16" />
-<link rel="icon" type="image/png" href="app_icon.png">
+<link rel="icon" type="image/png" href="app_icon.png" sizes="any">
+<link rel="shortcut icon" href="app_icon.png">
 <link rel="apple-touch-icon" href="app_icon.png">
 <title>通知推送助手 · 让每条通知，抵达每个平台</title>
 <meta name="description" content="通知推送助手 —— Android 通知监听与 Webhook 推送工具。支持企业微信 / 钉钉 / 飞书多平台，具备应用筛选、关键词过滤、可视化规则引擎、电量提醒、二步验证等功能。开源、免费、本地处理。" />
@@ -65,11 +66,11 @@
   header.scrolled{background:rgba(8,12,24,.72);backdrop-filter:blur(18px) saturate(1.4);border-bottom:1px solid var(--line-soft)}
   .nav{display:flex;align-items:center;justify-content:space-between;height:72px;max-width:var(--maxw);margin:0 auto;padding:0 24px}
   .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:700;font-size:18px;letter-spacing:.2px}
-  .brand .logo{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;
+  .brand .logo{width:26px;height:26px;display:grid;place-items:center;border-radius:6px;
     background:linear-gradient(145deg,#1a2c66,#0d1330);border:1px solid rgba(91,144,255,.4);
     box-shadow:0 0 22px rgba(70,124,253,.35)}
   .brand .logo svg{width:20px;height:20px}
-  .brand .logo img{width:100%;height:100%;border-radius:10px}
+  .brand .logo img{width:100%;height:100%;border-radius:6px}
   .nav-links{display:flex;gap:34px;font-size:14.5px;color:var(--ink-dim);font-weight:500}
   .nav-links a{position:relative;transition:.25s}
   .nav-links a::after{content:"";position:absolute;left:0;bottom:-6px;width:0;height:2px;border-radius:2px;
@@ -373,7 +374,7 @@
   <nav class="nav">
     <a class="brand" href="#top">
       <span class="logo">
-        <img src="app_icon.png" alt="通知推送助手" width="36" height="36">
+        <img src="app_icon.png" alt="通知推送助手">
       </span>
       通知推送助手
     </a>
@@ -607,7 +608,7 @@
     <div class="foot">
       <div>
         <a class="brand" href="#top">
-          <span class="logo"><img src="app_icon.png" alt="通知推送助手" width="28" height="28"></span>
+          <span class="logo"><img src="app_icon.png" alt="通知推送助手"></span>
           通知推送助手
         </a>
         <p class="desc">Android 通知监听与 Webhook 推送工具。开源、免费、本地处理，让每条通知抵达每个平台。由 幻念团队 fnthinklevi 打造。</p>
