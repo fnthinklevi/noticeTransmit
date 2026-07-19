@@ -8,12 +8,12 @@
 
 为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、自定义电量提醒、深色模式等丰富功能。
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
-[![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://img.shields.io/badge/Gradle-9.5.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
-[![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
+[![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
+[![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
+[![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
+[![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
 [![Version](https://badgen.net/badge/Version/1.5.42/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
+[![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
 

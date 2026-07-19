@@ -8,12 +8,12 @@
 
 A **notification listener and Webhook push tool** for Android devices, supporting WeChat Work, DingTalk, Feishu and other platforms. Features include app filtering, keyword filtering, custom battery reminders, dark mode and more.
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.44+-02569B?style=flat-square&logo=flutter)](https://flutter.dev/)
-[![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
-[![Gradle](https://img.shields.io/badge/Gradle-9.5.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
-[![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
+[![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
+[![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
+[![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
+[![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
 [![Version](https://badgen.net/badge/Version/1.5.42/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#license)
+[![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
 
