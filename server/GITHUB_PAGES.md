@@ -36,8 +36,11 @@
 ### 1. 启用 GitHub Pages
 
 1. 进入 GitHub 仓库 → **Settings** → **Pages**
-2. **Source** 选择 **GitHub Actions**
-3. 仓库根目录的 `.github/workflows/deploy-pages.yml` 会自动被识别
+2. **Build and deployment** → Source 选择 **GitHub Actions**
+3. **重要**：若页面提示 "Allow GitHub Actions to publish to Pages"，勾选启用
+4. 仓库根目录的 `.github/workflows/deploy-pages.yml` 会自动被识别
+
+> ⚠️ **仅需设置一次**。此后每次推送符合条件的文件，GitHub Actions 自动部署，无需再次手动操作。
 
 ### 2. 推送触发部署
 
