@@ -12,7 +12,7 @@
 [![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://img.shields.io/badge/Gradle-9.5.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
-[![Version](https://img.shields.io/badge/Version-1.5.42-007AFF?style=flat-square)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://img.shields.io/static/v1?label=Version&message=1.5.42&color=007AFF&style=flat-square)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
