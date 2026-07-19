@@ -42,7 +42,11 @@ jobs:
           # 防止 Jekyll 干扰 JSON 文件
           touch _pages/.nojekyll
 
-      - uses: actions/configure-pages@v5
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
