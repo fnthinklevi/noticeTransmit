@@ -23,7 +23,15 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 
 ## Introduction
 
-Notification Push Helper is an Android application developed with Flutter that listens to system notification messages and pushes them to WeChat Work, DingTalk, Feishu and other platforms via Webhook. It supports multi-channel push, app filtering, keyword filtering, custom battery reminders and other features. The app adopts Cupertino design language, supports dark mode, and has a clean and elegant interface.
+Notification Push Helper is a **privacy-first** Android notification forwarding tool built with Flutter. It listens to system notifications and forwards them in real time to WeCom, DingTalk, Feishu and other platforms via user-configured Webhooks.
+
+**Core security design:**
+- 🔐 **100% Local Processing**: Notifications, SMS, and contacts are parsed and forwarded entirely on-device — **never uploaded to any server**
+- 🔑 **Hardware-backed Encryption**: Webhook URLs stored via AndroidKeyStore; push history encrypted with AES-256 locally
+- 🛡️ **Admin 2FA Protection**: TOTP two-factor auth + bcrypt hashing + intelligent IP blocking for the management backend
+- 📊 **Minimal Data Collection**: Only Bugly collects crash stack traces, device model, and OS version for bugfixing — no personal data collected
+
+Supports multi-channel push, app filtering, keyword filtering, custom battery alerts and more. Cupertino design language, dark mode support, open source (MIT) and completely free.
 
 ## Features
 
