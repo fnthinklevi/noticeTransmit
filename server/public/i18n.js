@@ -133,7 +133,9 @@
   if (!lang) lang = (navigator.language || '').startsWith('zh') ? 'zh' : 'en';
 
   // ── 存储原始文本用于恢复中文 ──
-  var originals = {};
+  // 用 Map 而非普通对象：对象 key 会被 toString 强转（Text 节点都是 "[object Text]"），
+  // 导致 originals[node] 互相覆盖，所有节点最终还原成同一个值
+  var originals = new Map();
 
   function walkTextNodes(root, fn) {
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
@@ -158,7 +160,7 @@
         // 跳过纯数字/符号/空格
         if (!/[\u4e00-\u9fff]/.test(text)) return;
         // 保存原始文本
-        if (!originals[node]) originals[node] = text;
+        if (!originals.has(node)) originals.set(node, text);
         // 按字符数降序排列键（先匹配长句，避免短字符串提前替换）
         var keys = Object.keys(D).sort(function(a,b){return b.length - a.length;});
         var replaced = text;
@@ -173,8 +175,8 @@
     } else {
       // 切换到中文：恢复原始文本
       walkTextNodes(document.body, function(node) {
-        if (originals[node]) {
-          node.nodeValue = originals[node];
+        if (originals.has(node)) {
+          node.nodeValue = originals.get(node);
         }
       });
     }
