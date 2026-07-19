@@ -6,6 +6,8 @@
   D['通知推送助手 · 让每条通知，抵达每个平台'] = 'Notification Push Helper';
   D['通知推送助手'] = 'Notification Push Helper';
   D['让每条通知，<br><span class="grad">抵达每个平台</span>'] = 'Every Notification, Every Platform';
+  D['让每条通知，'] = 'Every notification,';
+  D['抵达每个平台'] = 'every platform.';
   D['通知推送助手是一款 Android 通知监听与 Webhook 推送工具。把手机上的任意通知，实时转发到企业微信、钉钉、飞书——支持应用筛选、关键词过滤、可视化规则引擎与自定义电量提醒。'] = 'A Flutter-based Android app that listens to system notifications and forwards them to WeCom, DingTalk, Feishu and more. App filtering, keyword filtering, visual rule engine and custom battery reminders included.';
   D['开源免费 · 本地处理'] = 'Open Source · Local Processing';
   D['立即下载'] = 'Download Now';
@@ -17,6 +19,16 @@
   D['监听中'] = 'Listening';
   D['已推送'] = 'Sent';
   D['已拦截'] = 'Blocked';
+  D['微信'] = 'WeChat';
+  D['电量提醒'] = 'Battery Alert';
+  D['短信验证码'] = 'SMS Code';
+  D['来电结束'] = 'Call Ended';
+  D['营销广告'] = 'Marketing Ad';
+  D['【项目群】发布会 15:00 开始'] = '[Project] Event starts 15:00';
+  D['电量已降至 20%，请及时充电'] = 'Battery at 20%, please charge';
+  D['验证码 928311，优先推送'] = 'OTP 928311, push priority';
+  D['与 138****6021 通话 3 分钟'] = 'Call with 138****6021, 3 min';
+  D['已被夜间免打扰规则拦截'] = 'Blocked by DND rule';
   D['企业微信'] = 'WeCom';
   D['钉钉'] = 'DingTalk';
   D['飞书'] = 'Feishu';
@@ -156,13 +168,13 @@
             replaced = replaced.split(k).join(D[k]);
           }
         }
-        node.textContent = replaced;
+        node.nodeValue = replaced;
       });
     } else {
       // 切换到中文：恢复原始文本
       walkTextNodes(document.body, function(node) {
         if (originals[node]) {
-          node.textContent = originals[node];
+          node.nodeValue = originals[node];
         }
       });
     }
