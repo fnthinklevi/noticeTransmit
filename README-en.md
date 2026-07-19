@@ -12,9 +12,11 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 [![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://img.shields.io/badge/Gradle-9.5.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
+[![Version](https://img.shields.io/github/v/release/fnthinklevi/noticeTransmit?style=flat-square&label=Version&color=007AFF)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
+
 🌐 **GitHub Pages**: [fnthinklevi.github.io/noticeTransmit](https://fnthinklevi.github.io/noticeTransmit/) — zero-maintenance static deployment (auto-syncs version config)
 
 </div>
@@ -195,6 +197,9 @@ The client automatically falls back between modes with no code changes needed.
 ## Contribution
 
 Welcome to submit Issues and Pull Requests!
+
+- Contributing: See [CONTRIBUTING.md](CONTRIBUTING.md) · [English](CONTRIBUTING-en.md)
+- Security Policy: See [SECURITY.md](SECURITY.md) · [English](SECURITY-en.md)
 
 ## Privacy Notice
 

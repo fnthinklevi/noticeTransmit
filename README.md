@@ -12,9 +12,11 @@
 [![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://img.shields.io/badge/Gradle-9.5.0-02303A?style=flat-square&logo=gradle)](https://gradle.org/)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat-square&logo=android)](#)
+[![Version](https://img.shields.io/github/v/release/fnthinklevi/noticeTransmit?style=flat-square&label=Version&color=007AFF)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
+
 🌐 **GitHub Pages**：[fnthinklevi.github.io/noticeTransmit](https://fnthinklevi.github.io/noticeTransmit/) — 零运维静态部署（自动同步版本配置）
 
 </div>
@@ -196,9 +198,8 @@ flutter build apk --release --target-platform android-arm64
 
 欢迎提交 Issue 和 Pull Request！
 
-- 贡献指南（中文）：[CONTRIBUTING.md](CONTRIBUTING.md)
-- Contributing Guide (English)：[CONTRIBUTING-en.md](CONTRIBUTING-en.md)
-- 安全政策：[SECURITY.md](SECURITY.md) / [SECURITY-en.md](SECURITY-en.md)
+- 贡献指南：详见 [CONTRIBUTING.md](CONTRIBUTING.md) · [English](CONTRIBUTING-en.md)
+- 安全政策：详见 [SECURITY.md](SECURITY.md) · [English](SECURITY-en.md)
 
 ## 隐私说明
 
