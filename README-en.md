@@ -6,7 +6,7 @@
 
 **English / [中文](README.md)**
 
-A **notification listener and Webhook push tool** for Android devices, supporting WeChat Work, DingTalk, Feishu and other platforms. Features include app filtering, keyword filtering, custom battery reminders, dark mode and more.
+A **privacy-first** notification listener & Webhook push tool for Android, supporting WeCom, DingTalk, Feishu and more. All notifications are processed entirely on-device — never uploaded to any server. Webhook credentials are encrypted via AndroidKeyStore. Features include app filtering, keyword filtering, custom battery alerts, and dark mode.
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)

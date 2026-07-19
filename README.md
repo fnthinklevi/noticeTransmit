@@ -6,7 +6,7 @@
 
 **[English](README-en.md) / 中文**
 
-为 Android 设备提供的**通知监听与 Webhook 推送工具**，支持企业微信、钉钉、飞书等多平台推送，具备应用筛选、关键词过滤、自定义电量提醒、深色模式等丰富功能。
+为 Android 设备提供的**隐私优先**通知监听与 Webhook 推送工具，支持企业微信、钉钉、飞书等多平台推送。所有通知仅在设备本地处理，不上传任何服务器；Webhook 密钥使用 AndroidKeyStore 硬件加密。具备应用筛选、关键词过滤、自定义电量提醒、深色模式等丰富功能。
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
