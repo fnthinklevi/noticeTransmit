@@ -50,3 +50,6 @@ jobs:
 
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          enablement: true
+          token: ${{ secrets.GITHUB_TOKEN }}
