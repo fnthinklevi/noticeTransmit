@@ -303,23 +303,24 @@ class _BatteryPageState extends State<BatteryPage> {
       confirmDismiss: (direction) async {
         if (!widget.notifyEnabled) return false;
         return await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('确认删除'),
-            content: Text('确定要删除规则「$title」吗？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('取消'),
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('确认删除'),
+                content: Text('确定要删除规则「$title」吗？'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    style: TextButton.styleFrom(foregroundColor: AppColors.red),
+                    child: const Text('删除'),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                style: TextButton.styleFrom(foregroundColor: AppColors.red),
-                child: const Text('删除'),
-              ),
-            ],
-          ),
-        ) ?? false;
+            ) ??
+            false;
       },
       onDismissed: (_) => widget.onDeleteRule(ruleId),
       background: Container(
@@ -331,7 +332,13 @@ class _BatteryPageState extends State<BatteryPage> {
           children: [
             Icon(Icons.delete_outline, size: 20, color: Colors.white),
             SizedBox(width: 8),
-            Text('删除', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+            Text(
+              '删除',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),
