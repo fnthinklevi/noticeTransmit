@@ -35,7 +35,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 
 ## 3. Security Design Overview (Scope)
 
-- **Notification content is processed and forwarded locally only**: all system notifications, SMS, and contacts are parsed and forwarded on-device, **never uploaded to any third-party server** (except the user-configured Webhook target).
+- **Notification content is processed and forwarded locally only**: all system notifications, SMS, and contacts are parsed and forwarded on-device, **never uploaded to any third-party server** (except the user-configured Webhook target). Only Bugly collects minimal crash data (stack trace, device model, OS version, app version) for bugfixing.
 - **User-configured Webhooks**: forwarding URLs are entered by the user; the server stores no forwarded content.
 - **Admin auth**: login Token uses bcrypt hashing; TOTP two-factor auth is supported (compatible with Google Authenticator); the TOTP secret is stored encrypted with **AES-256-GCM** (key from `ENCRYPTION_KEY`).
 - **Token transport**: accepted only via HTTP Header; **never** in URL parameters.

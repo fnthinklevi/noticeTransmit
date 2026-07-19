@@ -138,7 +138,7 @@ kill %1
 
 This project is a **notification listener & forwarder**; security and privacy are non-negotiable:
 
-- **Notification content is processed and forwarded locally only**, never uploaded to any third-party server (except the user-configured Webhook).
+- **Notification content is processed and forwarded locally only**, never uploaded to any third-party server (except the user-configured Webhook). Only Bugly collects minimal crash data (stack trace, device model, OS version, app version) for bugfixing.
 - Do not write notification bodies, SMS, or contacts into logs, crash reports, or storage.
 - **Secret management**: `server/.env` is currently tracked by Git and contains real secrets (`ADMIN_TOKEN_HASH`, `ENCRYPTION_KEY`). **Do not commit production secrets.**
   Recommended approach: commit only `.env.example` (placeholders/notes) and add the real `.env` to `.gitignore`, provided locally by the deployer. Document any new environment variable in `server/README.md`'s env table.

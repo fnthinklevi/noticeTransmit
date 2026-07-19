@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.42/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.43/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -46,7 +46,7 @@
 
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
-- 🔄 **在线更新** - 支持版本更新与热更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
+- 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
 - 📲 **Cupertino 设计语言** - 采用 Cupertino（iOS）系统设计语言，界面简洁优雅
 
 ### 安全加固
@@ -139,8 +139,7 @@ noticeTransmit/
 ├── server/                       # 服务端（更新服务）
 │   ├── server.js                # Express 服务
 │   ├── data/                     # 版本配置数据
-│   │   ├── version.json          # 版本信息配置
-│   │   └── hotfix.json           # 热更新配置
+│   │   └── version.json          # 版本信息配置
 │   └── README.md                # 服务端部署文档
 ├── assets/                       # 资源文件
 │   ├── app_icon.png
@@ -223,7 +222,7 @@ flutter build apk --release --target-platform android-arm64
 
 ### 推送数据
 
-所有通知推送均通过用户自行配置的 Webhook URL 发送，开发者不存储任何推送内容。
+所有通知推送均通过用户自行配置的 Webhook URL 发送。仅 Bugly 采集最小必要的崩溃统计（堆栈、设备型号、系统版本、应用版本），不包含任何个人隐私数据。
 
 ## 常见问题与排错
 
@@ -234,12 +233,6 @@ flutter build apk --release --target-platform android-arm64
 4. 厂商自启动/后台权限是否开启
 5. Webhook URL 是否正确（可在设置页测试）
 6. 应用筛选 / 关键词过滤是否把通知过滤了
-
-### 热更新不生效？
-1. 检查 `flutter_contentVersion` 是否更新
-2. 检查 `app_flutter/hotfix/` 目录下文件是否存在
-3. 查看 logcat 中是否有 `RELOAD_HOTFIX` 广播
-4. 确认 JSON 格式是否正确
 
 ## 许可证
 

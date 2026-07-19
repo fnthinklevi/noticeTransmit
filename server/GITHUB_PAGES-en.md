@@ -26,7 +26,6 @@ The client (`update_manager.dart`) automatically handles both modes:
    └─ 200 + raw JSON → client-side comparison
 ```
 
-Hotfix: `/api/hotfix/check` → `/api/hotfix.json`. No client code changes needed.
 
 ## Quick Start (3 Steps)
 
@@ -41,7 +40,7 @@ Hotfix: `/api/hotfix/check` → `/api/hotfix.json`. No client code changes neede
 
 ### 2. Push to Deploy
 
-Changes to `server/data/version.json`, `server/data/hotfix.json`, or `server/public/**` on the `main` branch trigger automatic deployment.
+Changes to `server/data/version.json` or `server/public/**` on the `main` branch trigger automatic deployment.
 
 Manual trigger: **Actions** → **Deploy to GitHub Pages** → **Run workflow**.
 
@@ -61,8 +60,7 @@ Example: `https://fnthinklevi.github.io/noticeTransmit/`
 ├── admin.html              ← admin panel (static, no API)
 ├── .nojekyll               ← disables Jekyll processing
 └── api/
-    ├── version.json        ← version config (copied from server/data/)
-    └── hotfix.json         ← hotfix config (copied from server/data/)
+    └── version.json        ← version config (copied from server/data/)
 ```
 
 ## Publishing a New Release

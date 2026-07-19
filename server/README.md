@@ -1,6 +1,6 @@
 # 通知推送助手 - 更新服务端
 
-版本更新与热更新服务，基于 Node.js + Express 实现。
+版本更新服务，基于 Node.js + Express 实现。
 
 > 💡 **不想维护服务器？** 本项目也支持 [GitHub Pages 静态部署](GITHUB_PAGES.md)，零运维、免费、自动部署。客户端自动兼容两种模式，无需改代码。
 
@@ -94,7 +94,7 @@ http://你的服务器IP:3456/health
   "forceUpdate": false,
   "forceUpdateVersion": "1.0.0",
   "forceUpdateBuild": 1,
-  "changelog": "1. 新增在线更新功能\n2. 新增热更新功能\n3. 修复若干bug",
+  "changelog": "1. 新增在线更新功能\n2. 修复若干bug",
   "downloadUrl": "/public/apks/app-release.apk",
   "fileSize": 56623104,
   "platform": "android",
@@ -103,11 +103,6 @@ http://你的服务器IP:3456/health
 ```
 
 1. 保存文件，**不需要重启服务**（每次请求都会实时读取配置）
-
-\*\*发布热更新（可选）：
-
-1. 把热更新 ZIP 包放到 `server/public/hotfix/` 目录
-2. 编辑 `server/data/hotfix.json`
 
 ***
 
@@ -119,11 +114,9 @@ server/
 ├── package.json           # 项目依赖配置
 ├── README.md              # 本说明文档
 ├── data/                  # 配置数据目录（自动创建）
-│   ├── version.json       # APK 版本配置
-│   └── hotfix.json        # 热更新配置
+│   └── version.json       # APK 版本配置
 └── public/                # 静态资源目录（自动创建）
-    ├── apks/              # APK 文件存放
-    └── hotfix/           # 热更新包存放
+    └── apks/              # APK 文件存放
 ```
 
 > 💡 \*\*提示：`data/` 和 `public/` 目录如果不存在，服务启动时会自动创建。
@@ -176,20 +169,6 @@ PORT=8080 npm start
 | `platform`            | string  | 平台             | `"android"`                      |
 | `minSupportedVersion` | string  | 最低支持版本         | `"1.0.0"`                        |
 
-### hotfix.json 字段说明（热更新配置）
-
-| 字段                     | 类型      | 说明            | 示例                              |
-| ---------------------- | ------- | ------------- | ------------------------------- |
-| `latestContentVersion` | number  | 最新内容版本号（整数递增） | `3`                             |
-| `version`              | string  | 热更新包版本号       | `"1.0.3"`                       |
-| `forceUpdate`          | boolean | 是否强制更新        | `false`                         |
-| `forceContentVersion`  | number  | 低于此内容版本强制更新   | `1`                             |
-| `changelog`            | string  | 更新说明          | `"更新了部分文案"`                     |
-| `downloadUrl`          | string  | 热更新包下载路径      | `"/public/hotfix/hotfix_3.zip"` |
-| `fileSize`             | number  | 文件大小（字节）      | `1048576`                       |
-| `platform`             | string  | 平台            | `"android"`                     |
-| `minAppVersion`        | string  | 要求的最低 APP 版本  | `"1.2.0"`                       |
-
 ***
 
 ## 🔌 API 接口文档
@@ -228,46 +207,13 @@ GET /api/version/check
 }
 ```
 
-### 2. 检查热更新
-
-```
-GET /api/hotfix/check
-```
-
-**请求参数：**
-
-| 参数               | 类型     | 必填 | 说明              |
-| ---------------- | ------ | -- | --------------- |
-| `contentVersion` | number | 是  | 当前内容版本号         |
-| `platform`       | string | 否  | 平台，默认 `android` |
-
-**响应示例：**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "hasUpdate": true,
-    "latestContentVersion": 3,
-    "version": "1.0.3",
-    "forceUpdate": false,
-    "changelog": "更新了部分文案和图标",
-    "downloadUrl": "/public/hotfix/hotfix_3.zip",
-    "fileSize": 1048576,
-    "platform": "android",
-    "minAppVersion": "1.2.0"
-  }
-}
-```
-
-### 3. 获取版本配置（管理用）
+### 2. 获取版本配置（管理用）
 
 ```
 GET /api/admin/version
 ```
 
-### 4. 更新版本配置（管理用）
+### 3. 更新版本配置（管理用）
 
 ```
 POST /api/admin/version
@@ -276,22 +222,7 @@ Content-Type: application/json
 
 请求体为完整的 version.json 内容。
 
-### 5. 获取热更新配置（管理用）
-
-```
-GET /api/admin/hotfix
-```
-
-### 6. 更新热更新配置（管理用）
-
-```
-POST /api/admin/hotfix
-Content-Type: application/json
-```
-
-请求体为完整的 hotfix.json 内容。
-
-### 7. 健康检查
+### 4. 健康检查
 
 ```
 GET /health
@@ -334,33 +265,6 @@ GET /health
 **步骤 5：保存，完成！**
 
 保存文件后立即生效，无需重启服务。
-
-***
-
-### 发布热更新
-
-\*\*步骤 1：准备热更新包
-
-制作 ZIP 格式的热更新资源包。
-
-**步骤 2：上传文件**
-
-将 ZIP 文件上传到服务器的 `server/public/hotfix/` 目录。
-
-**步骤 3：修改配置**
-
-编辑 `server/data/hotfix.json`，更新以下字段：
-
-- `latestContentVersion` - 内容版本号（整数，每次 +1）
-- `version` - 热更新包版本号
-- `changelog` - 更新说明
-- `fileSize` - 文件大小（字节）
-
-**步骤 4：保存，完成！**
-
-> ⚠️ **注意：** 热更新的内容版本号是独立于 APK 版本号。APK 更新后，内容版本号会重置。所以发布新 APK 时，请确保 `minAppVersion` 字段设置正确，避免低版本 APK 收到不兼容的热更新。
-
-***
 
 ## 🔥 生产环境部署（专业运维指南）
 
@@ -584,7 +488,6 @@ APP 默认服务器地址：`https://notice.fnthink.top`
 APP 会自动拼接以下接口路径：
 
 - 版本检查：`/api/version/check`
-- 热更新检查：`/api/hotfix/check`
 
 **注意：** 如果你的服务端使用 HTTPS，请确保证书有效。
 
@@ -639,19 +542,9 @@ lsof -i :3456
 netstat -tlnp | grep 3456
 ```
 
-### Q: 热更新包支持更新哪些内容？
-
-A: 热更新目前主要用于资源文件和配置文件的热更新。不支持更新：
-
-- 文案配置文件
-- 图片等资源文件
-- 其他静态配置
-
-**注意：** Dart 代码的逻辑修改需要通过 APK 更新，热更新无法实现代码热更新需要配合 Flutter 的代码热更新能力。
-
 ***
 
-## � 二步验证（TOTP）
+## 二步验证（TOTP）
 
 ### 功能说明
 
@@ -733,7 +626,6 @@ pm2 restart update-server
 | 文件 | 生成时机 | 说明 |
 |------|----------|------|
 | `data/version.json` | 首次访问版本检查接口 | 版本配置 |
-| `data/hotfix.json` | 首次访问热更新检查接口 | 热更新配置 |
 | `data/totp.json` | 首次启用二步验证时 | 二步验证密钥和恢复码 |
 | `data/blocked_ips.json` | 首次封锁 IP 时 | 被封锁的 IP 列表 |
 
@@ -768,7 +660,6 @@ pm2 restart update-server
 
 - 初始版本
 - 支持 APK 版本检查和下载
-- 支持热更新检查和下载
 - 支持强制更新配置
 - 提供管理 API
 

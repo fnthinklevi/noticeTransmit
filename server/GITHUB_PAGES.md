@@ -27,7 +27,6 @@
    └─ 200 + 原始 version.json            → 客户端本地对比版本号
 ```
 
-热更新同理：`/api/hotfix/check` → `/api/hotfix.json`。
 
 **无需修改客户端代码**——只要部署的 URL 能返回正确的 JSON，两种模式自动切换。
 
@@ -44,7 +43,7 @@
 
 ### 2. 推送触发部署
 
-当 `server/data/version.json`、`server/data/hotfix.json` 或 `server/public/` 下的文件发生变更并推送到 `main` 分支时，GitHub Actions 会自动部署。
+当 `server/data/version.json` 或 `server/public/` 下的文件发生变更并推送到 `main` 分支时，GitHub Actions 会自动部署。
 
 也可以手动触发：**Actions** → **Deploy to GitHub Pages** → **Run workflow**。
 
@@ -68,8 +67,7 @@ GitHub Pages 部署后的文件结构：
 ├── admin.html              ← 管理后台页面（静态，API 不可用）
 ├── .nojekyll               ← 禁用 Jekyll 处理
 └── api/
-    ├── version.json        ← 版本配置（复制自 server/data/）
-    └── hotfix.json         ← 热更新配置（复制自 server/data/）
+    └── version.json        ← 版本配置（复制自 server/data/）
 ```
 
 ## 发布新版本

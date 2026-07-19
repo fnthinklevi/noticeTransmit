@@ -9,7 +9,6 @@ on:
     branches: [main]
     paths:
       - 'server/data/version.json'
-      - 'server/data/hotfix.json'
       - 'server/public/**'
   workflow_dispatch:
 
@@ -38,7 +37,6 @@ jobs:
           cp -r server/public/* _pages/
           # 版本配置（静态 JSON，客户端回退模式使用）
           cp server/data/version.json _pages/api/version.json
-          cp server/data/hotfix.json  _pages/api/hotfix.json
           # 防止 Jekyll 干扰 JSON 文件
           touch _pages/.nojekyll
 

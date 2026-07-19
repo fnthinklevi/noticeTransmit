@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.42",
-  "latestVersion": "1.5.42",
-  "latestBuild": 76,
+  "appName": "notice1.5.43",
+  "latestVersion": "1.5.43",
+  "latestBuild": 77,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【Live Update + 隐私政策 + Cupertino 品牌统一 + 图表优化】\n• 前台服务 Live Update 实时显示已推送通知数量\n• 首次启动隐私政策弹窗（同意进入/不同意退出）\n• 全项目「iOS风格」→「Cupertino设计语言」品牌统一\n• 推送统计页趋势图改为横向进度条列表，更直观\n• 官网新增中英文切换（i18n.js）\n• server 英文文档 + GitHub Pages 部署网址",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.42.apk",
-  "fileSize": 29420157,
+  "changelog": "v1.5.43: 隐私合规(Bugly最小收集原则) + 热更新移除 + 网站图标/翻译/徽章全面优化 + 电量左滑修复 + 推送计数每日重置 + 暗色图标适配 + CI修复",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.43.apk",
+  "fileSize": 29420413,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

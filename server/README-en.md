@@ -1,6 +1,6 @@
 # Notification Push Helper — Update Server
 
-Version update and hotfix service, built with Node.js + Express.
+Version update service, built with Node.js + Express.
 
 > 💡 **Don't want to maintain a server?** This project also supports [GitHub Pages static deployment](GITHUB_PAGES-en.md), zero-maintenance and free. The client auto-compatibles with both modes.
 
@@ -60,9 +60,7 @@ server {
 | Endpoint | Description |
 |---|---|
 | `GET /api/version/check` | Check for app version update |
-| `GET /api/hotfix/check` | Check for hotfix update |
 | `POST /api/admin/version` | Update version config (auth required) |
-| `POST /api/admin/hotfix` | Update hotfix config (auth required) |
 
 ## Admin Panel
 
@@ -73,7 +71,6 @@ Access at `notice.fnthink.top/admin.html` — requires TOTP two-step verificatio
 - `public/index.html` — project homepage
 - `public/admin.html` — admin console
 - `data/version.json` — release version configuration
-- `data/hotfix.json` — hotfix configuration
 
 ## Deployment Options
 

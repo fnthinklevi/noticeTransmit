@@ -60,7 +60,7 @@
   D['深色模式'] = 'Dark Mode';
   D['浅色 / 深色 / 跟随系统三种主题，Cupertino 设计语言，界面简洁优雅。'] = 'Light / Dark / System three themes. Cupertino design language. Clean, elegant interface.';
   D['后台保活 · 在线更新'] = 'Background Persistence & Updates';
-  D['前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新与热更新，无需重装。'] = 'Foreground service + battery whitelist + auto-start for reliable persistence. OTA and hotfix updates supported.';
+  D['前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新，无需重装。'] = 'Foreground service + battery whitelist + auto-start for reliable persistence. OTA updates supported.';
   D['通知，如何抵达你想要的地方'] = 'How Notifications Reach You';
   D['一条通知从产生到推送，只需毫秒级的四步流转。'] = 'From notification to delivery — four steps in milliseconds.';
   D['捕获通知'] = 'Capture';
@@ -79,7 +79,7 @@
   D['自定义 Webhook'] = 'Custom Webhook';
   D['任意兼容平台'] = 'Any compatible platform';
   D['把安全，做进每一层'] = 'Security at Every Layer';
-  D['通知不上云、管理后台二步验证、敏感数据加密——隐私与安全，从设计之初就被认真对待。'] = 'No cloud upload, admin 2FA, sensitive data encryption — privacy and security were taken seriously from day one.';
+  D['通知不上云、管理后台二步验证、敏感数据加密——隐私与安全，从设计之初就被认真对待。'] = 'Notifications stay local, admin 2FA, sensitive data encrypted. Privacy and security taken seriously from day one. Minimal crash logs collected via Bugly for bugfixing.';
   D['二步验证（TOTP）'] = 'Two-Factor Auth (TOTP)';
   D['管理后台登录启用 2FA，兼容 Google Authenticator，防止凭据泄露。'] = 'Admin login with 2FA, compatible with Google Authenticator, prevents credential leaks.';
   D['bcrypt 哈希'] = 'bcrypt Hashing';
@@ -90,8 +90,8 @@
   D['生成 8 个一次性恢复码，设备丢失时安全找回账户。'] = 'Generate 8 one-time recovery codes for safe account recovery if device is lost.';
   D['AES-256-GCM 加密'] = 'AES-256-GCM Encryption';
   D['TOTP secret 等敏感数据加密存储，密钥泄露也无法直接读取。'] = 'Sensitive data like TOTP secrets are encrypted. Even with a leaked key, data remains unreadable.';
-  D['通知不上云'] = 'No Cloud Upload';
-  D['所有通知、短信、通讯录仅在本地处理与推送，绝不上传任何服务器。推送只经你自己配置的 Webhook 发出——开发者不存储任何一条内容。'] = 'All notifications, SMS, contacts are processed locally. Never uploaded to any server. Push goes only through your configured Webhook — the developer stores zero content.';
+  D['通知不上云'] = 'Stay Local';
+  D['所有通知、短信、通讯录仅在本地处理与推送，不会上传到任何服务器。推送只经你自己配置的 Webhook 发出。仅崩溃统计（腾讯 Bugly）会采集必要的崩溃堆栈、设备型号、系统版本用于修复问题。'] = 'All notifications, SMS, contacts processed locally. Push goes only through your Webhook. Only Bugly collects minimal crash data (stack trace, device model, OS version) for bugfixing.';
   D['现代、可靠的工程底座'] = 'Modern, Reliable Engineering Foundation';
   D['跨端 Flutter + 原生 Kotlin 后台服务 + Node.js 更新服务，全链路开源可审计。'] = 'Cross-platform Flutter + native Kotlin background service + Node.js update server. Full-stack open source, fully auditable.';
   D['现在，就让通知流动起来'] = 'Let Notifications Flow';

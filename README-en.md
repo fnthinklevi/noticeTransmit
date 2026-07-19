@@ -12,7 +12,7 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.42/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.43/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -139,8 +139,7 @@ noticeTransmit/
 ├── server/                       # Server (update service)
 │   ├── server.js                # Express service
 │   ├── data/                     # Version configuration data
-│   │   ├── version.json          # Version info configuration
-│   │   └── hotfix.json           # Hotfix configuration
+│   │   └── version.json          # Version info configuration
 │   └── README.md                # Server deployment documentation
 ├── assets/                       # Resource files
 │   ├── app_icon.png
@@ -234,12 +233,6 @@ All notification pushes are sent through user-configured Webhook URLs. Developer
 4. Is auto-start/background permission enabled for OEM devices
 5. Is Webhook URL correct (testable in settings page)
 6. Is the notification filtered by app filter / keyword filter
-
-### Hotfix not working?
-1. Check if `flutter_contentVersion` is updated
-2. Check if files exist in `app_flutter/hotfix/` directory
-3. Check logcat for `RELOAD_HOTFIX` broadcast
-4. Verify JSON format is correct
 
 ## License
 
