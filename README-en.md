@@ -23,15 +23,7 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 
 ## Introduction
 
-Notification Push Helper is a **privacy-first** Android notification forwarding tool built with Flutter. It listens to system notifications and forwards them in real time to WeCom, DingTalk, Feishu and other platforms via user-configured Webhooks.
-
-**Core security design:**
-- 🔐 **100% Local Processing**: Notifications, SMS, and contacts are parsed and forwarded entirely on-device — **never uploaded to any server**
-- 🔑 **Hardware-backed Encryption**: Webhook URLs stored via AndroidKeyStore; push history encrypted with AES-256 locally
-- 🛡️ **Admin 2FA Protection**: TOTP two-factor auth + bcrypt hashing + intelligent IP blocking for the management backend
-- 📊 **Minimal Data Collection**: Only Bugly collects crash stack traces, device model, and OS version for bugfixing — no personal data collected
-
-Supports multi-channel push, app filtering, keyword filtering, custom battery alerts and more. Cupertino design language, dark mode support, open source (MIT) and completely free.
+Notification Push Helper is a privacy-focused Android notification forwarding tool, built with Flutter. It listens to system notifications and pushes them via user-configured Webhooks to WeCom, DingTalk, Feishu and more. All notifications are processed entirely on-device — never uploaded to any server. Webhook credentials are encrypted with AndroidKeyStore. Features include app filtering, keyword filtering, custom battery alerts, and dark mode. Open source (MIT), free, and ad-free.
 
 ## Features
 
