@@ -3,71 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
-class Slideable extends StatefulWidget {
-  final String ruleId;
-  final bool enabled;
-  final VoidCallback onDelete;
-  final Widget child;
-
-  const Slideable({
-    super.key,
-    required this.ruleId,
-    required this.enabled,
-    required this.onDelete,
-    required this.child,
-  });
-
-  @override
-  State<Slideable> createState() => _SlideableState();
-}
-
-class _SlideableState extends State<Slideable> {
-  double _offset = 0;
-  double _startX = 0;
-  bool _isDragging = false;
-  static const double _maxOffset = -80;
-
-  void _onPanStart(DragStartDetails details) {
-    if (!widget.enabled) return;
-    _startX = details.globalPosition.dx;
-    _isDragging = true;
-  }
-
-  void _onPanUpdate(DragUpdateDetails details) {
-    if (!widget.enabled || !_isDragging) return;
-    final delta = details.globalPosition.dx - _startX;
-    setState(() {
-      _offset = delta.clamp(_maxOffset, 0);
-    });
-    _startX = details.globalPosition.dx;
-  }
-
-  void _onPanEnd(DragEndDetails details) {
-    if (!widget.enabled || !_isDragging) return;
-    _isDragging = false;
-    setState(() {
-      if (_offset < _maxOffset / 2) {
-        _offset = _maxOffset;
-      } else {
-        _offset = 0;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onPanStart: _onPanStart,
-      onPanUpdate: _onPanUpdate,
-      onPanEnd: _onPanEnd,
-      child: Transform.translate(
-        offset: Offset(_offset, 0),
-        child: widget.child,
-      ),
-    );
-  }
-}
-
 class BatteryPage extends StatefulWidget {
   final bool notifyEnabled;
   final List<Map<String, dynamic>> rules;
@@ -361,71 +296,68 @@ class _BatteryPageState extends State<BatteryPage> {
     String subtitle,
     bool enabled,
   ) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          right: 0,
-          child: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 24),
-            child: TextButton(
-              onPressed: widget.notifyEnabled
-                  ? () => _showDeleteConfirmDialog(rule['id'] as String? ?? '')
-                  : null,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: AppColors.red,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.only(
-                    topRight: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                ),
+    final ruleId = rule['id'] as String? ?? '';
+    return Dismissible(
+      key: ValueKey(ruleId),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (direction) async {
+        if (!widget.notifyEnabled) return false;
+        return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('确认删除'),
+            content: Text('确定要删除规则「$title」吗？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('取消'),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.delete_outline, size: 20),
-                  SizedBox(width: 8),
-                  Text('删除'),
-                ],
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(foregroundColor: AppColors.red),
+                child: const Text('删除'),
               ),
-            ),
+            ],
+          ),
+        ) ?? false;
+      },
+      onDismissed: (_) => widget.onDeleteRule(ruleId),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        color: AppColors.red,
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline, size: 20, color: Colors.white),
+            SizedBox(width: 8),
+            Text('删除', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+      child: Container(
+        color: AppColors.cardBg(context),
+        child: InkWell(
+          onTap: widget.notifyEnabled && enabled
+              ? () => _showEditRuleDialog(rule)
+              : null,
+          onLongPress: widget.notifyEnabled
+              ? () => _showDeleteConfirmDialog(ruleId)
+              : null,
+          child: _buildSwitchRow(
+            icon: icon,
+            iconColor: iconColor,
+            title: title,
+            subtitle: subtitle,
+            value: enabled,
+            onChanged: widget.notifyEnabled
+                ? (v) => _handleToggleRule(ruleId, v)
+                : null,
+            context: context,
+            trailing: null,
           ),
         ),
-        Slideable(
-          ruleId: rule['id'] as String? ?? '',
-          enabled: widget.notifyEnabled,
-          onDelete: () => _showDeleteConfirmDialog(rule['id'] as String? ?? ''),
-          child: Container(
-            color: AppColors.cardBg(context),
-            child: InkWell(
-              onTap: widget.notifyEnabled && enabled
-                  ? () => _showEditRuleDialog(rule)
-                  : null,
-              onLongPress: widget.notifyEnabled
-                  ? () => _showDeleteConfirmDialog(rule['id'] as String? ?? '')
-                  : null,
-              child: _buildSwitchRow(
-                icon: icon,
-                iconColor: iconColor,
-                title: title,
-                subtitle: subtitle,
-                value: enabled,
-                onChanged: widget.notifyEnabled
-                    ? (v) => _handleToggleRule(rule['id'] as String? ?? '', v)
-                    : null,
-                context: context,
-                trailing: null,
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 

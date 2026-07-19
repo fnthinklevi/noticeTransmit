@@ -55,12 +55,25 @@ class NotificationMonitorService : NotificationListenerService() {
     private var batteryAlarmPendingIntent: PendingIntent? = null
     private var cachedConfig: ConfigSnapshot? = null
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
+    private var todayDate: String = ""
+    private val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+
+    /// 检查是否已跨日，是则重置计数器
+    private fun checkDailyReset() {
+        val now = dateFormat.format(java.util.Date())
+        if (now != todayDate) {
+            todayDate = now
+            pushCount = 0
+            Log.i(TAG, "Daily push count reset: $now")
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "Service created")
 
         monitoringEnabled = readMonitoringEnabled()
+        checkDailyReset()
 
         createNotificationChannel()
         // 先进入前台，满足 startForegroundService 的 5s 内必须 startForeground 的约束
@@ -150,6 +163,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 )
             ) {
                 webhookSender.sendNotification(notificationInfo)
+                checkDailyReset()
                 pushCount++
                 updatePromotedNotification()
                 Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
@@ -378,13 +392,13 @@ class NotificationMonitorService : NotificationListenerService() {
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("通知传输器")
-            .setContentText("正在监听通知 · 已推送 $pushCount 条")
+            .setContentText("正在监听通知 · 当日已推送 $pushCount 条")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("通知监听服务运行中\n已推送通知：$pushCount 条"))
+                .bigText("通知监听服务运行中\n当日已推送通知：$pushCount 条"))
             .build()
 
         // 请求提升为实时更新通知（Live Update）
@@ -412,13 +426,13 @@ class NotificationMonitorService : NotificationListenerService() {
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("通知传输器")
-            .setContentText("正在监听通知 · 已推送 $pushCount 条")
+            .setContentText("正在监听通知 · 当日已推送 $pushCount 条")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("通知监听服务运行中\n已推送通知：$pushCount 条"))
+                .bigText("通知监听服务运行中\n当日已推送通知：$pushCount 条"))
             .build()
 
         // 请求提升为实时更新通知（Live Update）

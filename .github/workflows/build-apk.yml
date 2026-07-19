@@ -35,7 +35,7 @@ jobs:
         run: flutter pub get
 
       - name: Dart format check
-        run: flutter format --set-exit-if-changed lib/
+        run: $FLUTTER_ROOT/bin/cache/dart-sdk/bin/dart format --set-exit-if-changed lib/
 
       - name: Run unit tests
         run: flutter test --no-pub
