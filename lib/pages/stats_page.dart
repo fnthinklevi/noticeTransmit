@@ -167,66 +167,94 @@ class _StatsPageState extends State<StatsPage> {
               color: AppColors.primaryLabel(context),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: _dailyStats.map((stat) {
+          const SizedBox(height: 12),
+          if (_dailyStats.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  '暂无数据',
+                  style: TextStyle(
+                    color: AppColors.secondaryLabel(context),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._dailyStats.map((stat) {
               final date = stat['date'] as String? ?? '';
               final count = stat['count'] as int? ?? 0;
-              final day = date.split('-').last;
-              final barHeight = maxCount > 0
-                  ? (count / maxCount * 80).toDouble().clamp(4.0, 80.0)
-                  : 4.0;
+              final ratio = maxCount > 0 ? count / maxCount : 0.0;
+              final dayLabel = _formatDayLabel(date);
 
-              return Expanded(
-                child: Column(
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
                   children: [
                     SizedBox(
-                      height: 80,
-                      child: Stack(
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                          Container(
-                            width: 24,
+                      width: 40,
+                      child: Text(
+                        dayLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.secondaryLabel(context),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Container(
+                            height: 24,
                             decoration: BoxDecoration(
                               color: AppColors.separator(context),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                          ),
-                          Container(
-                            width: 24,
-                            height: barHeight,
-                            decoration: BoxDecoration(
-                              color: AppColors.blue,
-                              borderRadius: BorderRadius.circular(4),
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: ratio.clamp(0.02, 1.0),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.blue,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      day,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.secondaryLabel(context),
-                      ),
-                    ),
-                    Text(
-                      count.toString(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primaryLabel(context),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 36,
+                      child: Text(
+                        '$count',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryLabel(context),
+                        ),
                       ),
                     ),
                   ],
                 ),
               );
-            }).toList(),
-          ),
+            }),
         ],
       ),
     );
+  }
+
+  String _formatDayLabel(String date) {
+    // date 格式: "2026-07-19"
+    if (date.length < 10) return date;
+    final month = int.tryParse(date.substring(5, 7)) ?? 0;
+    final day = int.tryParse(date.substring(8, 10)) ?? 0;
+    return '$month/$day';
   }
 
   Widget _buildAppStats(BuildContext context) {

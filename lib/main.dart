@@ -1,7 +1,9 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/main_page.dart';
 import 'pages/splash_page.dart';
 import 'di/service_locator.dart';
@@ -91,6 +93,9 @@ class MyApp extends StatefulWidget {
 class MyAppState extends State<MyApp> {
   bool _themeInitialized = false;
   bool _servicesInitialized = false;
+  bool? _privacyAccepted;
+
+  static const _privacyAcceptedKey = 'privacy_policy_accepted';
 
   @override
   void initState() {
@@ -100,7 +105,52 @@ class MyAppState extends State<MyApp> {
 
   Future<void> _initTheme() async {
     await GetIt.instance<ThemeService>().init();
+    final prefs = await SharedPreferences.getInstance();
+    _privacyAccepted = prefs.getBool(_privacyAcceptedKey) ?? false;
     setState(() => _themeInitialized = true);
+  }
+
+  Future<void> _acceptPrivacy() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_privacyAcceptedKey, true);
+    setState(() => _privacyAccepted = true);
+  }
+
+  void _rejectPrivacy() {
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+    exit(0);
+  }
+
+  void _showPrivacyDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('隐私政策'),
+        content: const SingleChildScrollView(
+          child: Text(
+            '欢迎使用通知推送助手！\n\n'
+            '在使用本应用前，请您仔细阅读我们的隐私政策。\n\n'
+            '• 所有通知内容仅在设备本地处理，不会上传到任何服务器\n'
+            '• 推送历史使用 AES-256 加密存储在本地\n'
+            '• Webhook 配置使用 AndroidKeyStore 加密存储\n\n'
+            '点击"同意"即表示您已阅读并接受我们的隐私政策。',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: _rejectPrivacy, child: const Text('不同意')),
+          FilledButton(
+            onPressed: () {
+              _acceptPrivacy();
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('同意'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onServicesInitialized() {
@@ -112,6 +162,16 @@ class MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     final themeService = GetIt.instance<ThemeService>();
+
+    // 首次启动时弹出隐私政策
+    if (_themeInitialized && _privacyAccepted == false) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _privacyAccepted == false) {
+          _showPrivacyDialog();
+        }
+      });
+    }
+
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeService.themeModeNotifier,
       builder: (context, themeMode, child) {

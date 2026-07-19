@@ -15,12 +15,13 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
+🌐 **GitHub Pages**：[fnthinklevi.github.io/noticeTransmit](https://fnthinklevi.github.io/noticeTransmit/) — 零运维静态部署（自动同步版本配置）
 
 </div>
 
 ## 简介
 
-通知推送助手是一款基于 Flutter 开发的 Android 应用，能够监听系统通知栏消息，通过 Webhook 推送到企业微信、钉钉、飞书等平台。支持多通道推送、应用筛选、关键词过滤、自定义电量提醒等功能，采用 iOS 风格设计，支持深色模式，界面简洁优雅。
+通知推送助手是一款基于 Flutter 开发的 Android 应用，能够监听系统通知栏消息，通过 Webhook 推送到企业微信、钉钉、飞书等平台。支持多通道推送、应用筛选、关键词过滤、自定义电量提醒等功能，采用 Cupertino 设计语言，支持深色模式，界面简洁优雅。
 
 ## 功能特性
 
@@ -44,7 +45,7 @@
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
 - 🔄 **在线更新** - 支持版本更新与热更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
-- 📲 **iOS 风格设计** - 采用 iOS 系统设计语言，界面简洁优雅
+- 📲 **Cupertino 设计语言** - 采用 Cupertino（iOS）系统设计语言，界面简洁优雅
 
 ### 安全加固
 
@@ -186,8 +187,8 @@ flutter build apk --release --target-platform android-arm64
 
 支持两种部署模式：
 
-- **Node.js 服务器**（完整功能）：详见 [server/README.md](server/README.md)
-- **GitHub Pages**（零运维静态部署）：详见 [server/GITHUB_PAGES.md](server/GITHUB_PAGES.md)
+- **Node.js 服务器**（完整功能）：详见 [server/README.md](server/README.md) · [English](server/README-en.md)
+- **GitHub Pages**（零运维静态部署）：详见 [server/GITHUB_PAGES.md](server/GITHUB_PAGES.md) · [English](server/GITHUB_PAGES-en.md)
 
 客户端自动兼容两种模式，无需修改代码。
 

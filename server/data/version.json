@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.41",
-  "latestVersion": "1.5.41",
-  "latestBuild": 75,
+  "appName": "notice1.5.42",
+  "latestVersion": "1.5.42",
+  "latestBuild": 76,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.32",
   "forceUpdateBuild": 66,
-  "changelog": "【数据库迁移修复 + 部署模式扩展 + 隐私政策更新 + AGP升级】\n• 修复 v1.5.40 更新后推送历史和统计消失（自动从旧明文DB迁移数据到加密DB）\n• 隐私政策全面更新：补充AES-256加密、Webhook密钥保护、HTTPS强制、SSL证书固定\n• 新增 GitHub Pages 静态部署模式（客户端自动兼容 API/静态 双模式）\n• AGP 9.0.1→9.3.0 + Gradle 9.4.1→9.5.0\n• 消除 3 项 Java 8 编译目标过时警告\n• 修正文档技术错误（apksigner签名、compileSdk版本号等）",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.41.apk",
-  "fileSize": 29420133,
+  "changelog": "【Live Update + 隐私政策 + Cupertino 品牌统一 + 图表优化】\n• 前台服务 Live Update 实时显示已推送通知数量\n• 首次启动隐私政策弹窗（同意进入/不同意退出）\n• 全项目「iOS风格」→「Cupertino设计语言」品牌统一\n• 推送统计页趋势图改为横向进度条列表，更直观\n• 官网新增中英文切换（i18n.js）\n• server 英文文档 + GitHub Pages 部署网址",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.42.apk",
+  "fileSize": 29420157,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

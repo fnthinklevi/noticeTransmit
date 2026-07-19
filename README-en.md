@@ -15,12 +15,13 @@ A **notification listener and Webhook push tool** for Android devices, supportin
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
+🌐 **GitHub Pages**: [fnthinklevi.github.io/noticeTransmit](https://fnthinklevi.github.io/noticeTransmit/) — zero-maintenance static deployment (auto-syncs version config)
 
 </div>
 
 ## Introduction
 
-Notification Push Helper is an Android application developed with Flutter that listens to system notification messages and pushes them to WeChat Work, DingTalk, Feishu and other platforms via Webhook. It supports multi-channel push, app filtering, keyword filtering, custom battery reminders and other features. The app adopts iOS-style design, supports dark mode, and has a clean and elegant interface.
+Notification Push Helper is an Android application developed with Flutter that listens to system notification messages and pushes them to WeChat Work, DingTalk, Feishu and other platforms via Webhook. It supports multi-channel push, app filtering, keyword filtering, custom battery reminders and other features. The app adopts Cupertino design language, supports dark mode, and has a clean and elegant interface.
 
 ## Features
 
@@ -44,7 +45,7 @@ Notification Push Helper is an Android application developed with Flutter that l
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
 - 🔄 **Online Update** - Support version update and hot update, no need to reinstall APK; dual deployment modes (Node.js / GitHub Pages) with automatic client fallback
-- 📲 **iOS Style Design** - Adopt iOS system design language, clean and elegant interface
+- 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface
 
 ### Security
 
@@ -186,8 +187,8 @@ flutter build apk --release --target-platform android-arm64
 
 Two deployment modes are supported:
 
-- **Node.js Server** (full features): See [server/README.md](server/README.md) for details.
-- **GitHub Pages** (zero-maintenance static): See [server/GITHUB_PAGES.md](server/GITHUB_PAGES.md) for details.
+- **Node.js Server** (full features): See [server/README.md](server/README.md) · [server/README-en.md](server/README-en.md)
+- **GitHub Pages** (zero-maintenance static): See [server/GITHUB_PAGES.md](server/GITHUB_PAGES.md) · [server/GITHUB_PAGES-en.md](server/GITHUB_PAGES-en.md)
 
 The client automatically falls back between modes with no code changes needed.
 

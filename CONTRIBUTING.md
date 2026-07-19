@@ -92,7 +92,7 @@ cd server && npm start    # 默认端口 3456，访问 /health 验证
 
 - **必须通过** `dart format lib/` 与 `flutter analyze`（CI 以 `--set-exit-if-changed` 检查格式，`error` 级问题直接失败）。
 - **空安全优先**：禁止对可能为空的数据做硬转换。本项目曾因 `rule['type'] as String` 在旧数据缺字段时整页崩溃——读取外部/存储数据时统一用 `as Type? ?? 默认值` 或 `map['x'] as int? ?? 0`。
-- **主题与配色**：统一使用 `AppColors`（iOS 风格语义色）与 `AppThemeColors`（`ThemeExtension`），**不要硬编码颜色**，否则深色模式会错。
+- **主题与配色**：统一使用 `AppColors`（Cupertino 风格语义色）与 `AppThemeColors`（`ThemeExtension`），**不要硬编码颜色**，否则深色模式会错。
 - **跨端通信**：Flutter ↔ Android 通过 `MethodChannel`（`com.fnthink.notice/notification`）通信，方法名在 `platform_channel.dart` 与原生侧保持一一对应。
 - **状态与依赖**：使用 `get_it` 注入的 Service 类，不要在 Widget 中直接 new 单例。
 - 文件较大（如 `main_page.dart`、`rule_edit_page.dart`）的改动请确保不破坏既有导航与底部提示条（`_pushPage` / `_showInfo`）行为。

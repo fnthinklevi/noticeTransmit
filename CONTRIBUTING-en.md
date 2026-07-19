@@ -92,7 +92,7 @@ Follow Conventional Commits:
 
 - **Must pass** `dart format lib/` and `flutter analyze` (CI checks formatting with `--set-exit-if-changed`; `error`-level issues fail the build).
 - **Null-safety first**: never hard-cast data that may be absent. This project once crashed an entire page due to `rule['type'] as String` when legacy data lacked a field — always read external/stored data with `as Type? ?? default` (e.g. `map['x'] as int? ?? 0`).
-- **Theme & colors**: use `AppColors` (iOS-style semantic colors) and `AppThemeColors` (`ThemeExtension`). **Do not hardcode colors**, or dark mode will break.
+- **Theme & colors**: use `AppColors` (Cupertino-style semantic colors) and `AppThemeColors` (`ThemeExtension`). **Do not hardcode colors**, or dark mode will break.
 - **Cross-platform comms**: Flutter ↔ Android communicate via `MethodChannel` (`com.fnthink.notice/notification`); method names must stay in sync between `platform_channel.dart` and the native side.
 - **State & DI**: use the `get_it`-injected Service classes; do not `new` singletons inside Widgets.
 - For large files (e.g. `main_page.dart`, `rule_edit_page.dart`), ensure changes don't break existing navigation or the bottom SnackBar behavior (`_pushPage` / `_showInfo`).

@@ -44,6 +44,7 @@ class NotificationMonitorService : NotificationListenerService() {
         @Volatile var deviceName: String = ""
         @Volatile var isConnected: Boolean = false
         @Volatile var monitoringEnabled: Boolean = true
+        @Volatile var pushCount: Int = 0
     }
 
     private lateinit var notificationProcessor: NotificationProcessor
@@ -53,6 +54,7 @@ class NotificationMonitorService : NotificationListenerService() {
     private var batteryChangedReceiver: android.content.BroadcastReceiver? = null
     private var batteryAlarmPendingIntent: PendingIntent? = null
     private var cachedConfig: ConfigSnapshot? = null
+    private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
 
     override fun onCreate() {
         super.onCreate()
@@ -148,6 +150,8 @@ class NotificationMonitorService : NotificationListenerService() {
                 )
             ) {
                 webhookSender.sendNotification(notificationInfo)
+                pushCount++
+                updatePromotedNotification()
                 Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
             }
         }
@@ -374,11 +378,21 @@ class NotificationMonitorService : NotificationListenerService() {
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("通知传输器")
-            .setContentText("正在监听通知")
+            .setContentText("正在监听通知 · 已推送 $pushCount 条")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText("通知监听服务运行中\n已推送通知：$pushCount 条"))
             .build()
+
+        // 请求提升为实时更新通知（Live Update）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            notification.extras.putBoolean(
+                android.app.Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true
+            )
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
@@ -386,6 +400,35 @@ class NotificationMonitorService : NotificationListenerService() {
             startForeground(FOREGROUND_ID, notification)
         }
         Log.i(TAG, "Foreground service started")
+    }
+
+    /// 更新实时通知显示当前已推送数量
+    private fun updatePromotedNotification() {
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("通知传输器")
+            .setContentText("正在监听通知 · 已推送 $pushCount 条")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText("通知监听服务运行中\n已推送通知：$pushCount 条"))
+            .build()
+
+        // 请求提升为实时更新通知（Live Update）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            notification.extras.putBoolean(
+                android.app.Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true
+            )
+        }
+
+        notificationManager.notify(FOREGROUND_ID, notification)
     }
 
     private inner class ConfigSnapshot {
