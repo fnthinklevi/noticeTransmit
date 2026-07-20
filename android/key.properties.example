@@ -1,0 +1,29 @@
+# ============================================================
+# Android 发布签名 key.properties —— 示例模板（可提交到仓库）
+# ============================================================
+# 本文件是模板，只含占位符，不含任何真实密钥，可安全提交。
+#
+# 使用方式（二选一）：
+#   1) 本地构建：把本文件复制为 android/key.properties，
+#      将下面 4 个占位符替换为真实值；
+#      该副本已被 .gitignore 忽略，不会进入仓库。
+#   2) CI 构建：无需本文件，由 GitHub Actions Secrets
+#      （KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS /
+#       KEY_PASSWORD）在构建时注入。
+#
+# 规则：build.gradle.kts 源码中不得出现任何明文密钥；
+#      环境变量与 key.properties 皆缺时，构建会主动抛出
+#      GradleException 中止，绝不回退到写死的密码。
+# ============================================================
+
+# keystore 文件绝对路径（配合 keyAlias / keyPassword 使用）
+storeFile=/absolute/path/to/your/release-key.jks
+
+# keystore 密码（对应 keytool -storepass）
+storePassword=YOUR_STORE_PASSWORD
+
+# 签名别名（对应 keytool -alias）
+keyAlias=YOUR_KEY_ALIAS
+
+# 别名密码（对应 keytool -keypass）
+keyPassword=YOUR_KEY_PASSWORD

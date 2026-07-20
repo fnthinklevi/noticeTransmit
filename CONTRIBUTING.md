@@ -155,6 +155,8 @@ keystore 路径、密码或别名明文。
 - **本地构建**：在 `android/key.properties`（已被 `android/.gitignore` 忽略）中填写
   `storeFile` / `storePassword` / `keyAlias` / `keyPassword`，由
   `android/app/build.gradle.kts` 读取。该文件不进仓库，**切勿提交**。
+  仓库内提供无密钥的占位模板 `android/key.properties.example`（可安全提交），
+  本地请复制它为 `key.properties` 后再填入真实值。
 - **CI 构建**：通过 GitHub Actions Secrets 注入 `KEYSTORE_BASE64`、`KEYSTORE_FILE`、
   `KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`；工作流将 `KEYSTORE_BASE64`
   解码为 keystore 文件后供 `build.gradle.kts` 使用。

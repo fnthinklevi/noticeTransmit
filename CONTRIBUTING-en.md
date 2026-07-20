@@ -152,6 +152,8 @@ source file may contain the keystore path, password, or alias in plaintext.
 - **Local build**: fill `storeFile` / `storePassword` / `keyAlias` / `keyPassword` in
   `android/key.properties` (ignored by `android/.gitignore`), read by
   `android/app/build.gradle.kts`. This file never enters the repo — **do not commit it**.
+  A keyless placeholder template `android/key.properties.example` (safe to commit) is
+  provided in the repo; locally copy it to `key.properties` and fill in the real values.
 - **CI build**: inject `KEYSTORE_BASE64`, `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`,
   `KEY_ALIAS`, `KEY_PASSWORD` via GitHub Actions Secrets; the workflow decodes
   `KEYSTORE_BASE64` into a keystore file for `build.gradle.kts` to use.
