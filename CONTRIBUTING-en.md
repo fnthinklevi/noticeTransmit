@@ -140,10 +140,30 @@ This project is a **notification listener & forwarder**; security and privacy ar
 
 - **Notification content is processed and forwarded locally only**, never uploaded to any third-party server (except the user-configured Webhook). Only Bugly collects minimal crash data (stack trace, device model, OS version, app version) for bugfixing.
 - Do not write notification bodies, SMS, or contacts into logs, crash reports, or storage.
-- **Secret management**: `server/.env` is currently tracked by Git and contains real secrets (`ADMIN_TOKEN_HASH`, `ENCRYPTION_KEY`). **Do not commit production secrets.**
-  Recommended approach: commit only `.env.example` (placeholders/notes) and add the real `.env` to `.gitignore`, provided locally by the deployer. Document any new environment variable in `server/README.md`'s env table.
+- **Server secret management (`.env`)**: `server/.env` is ignored by `.gitignore` and never enters the repo; only `.env.example` (placeholders/notes) is committed. The real `.env` is provided locally or via CI Secret. **Never commit production secrets** (`ADMIN_TOKEN_HASH`, `ENCRYPTION_KEY`, etc.). Document any new environment variable in `server/README.md`'s env table.
 - Server encryption (`ENCRYPTION_KEY`) must be **64 hex chars** (AES-256-GCM); an invalid format is ignored and the TOTP secret is stored in plaintext — self-check before committing.
 - CORS allows only origin-less (native) requests by default; cross-origin web admin access requires an explicit `ALLOWED_ORIGINS` allowlist.
+
+### 7.1 Android Release Signing Keys (APK)
+
+APK release signing follows a **zero-secrets-in-source** principle: no Git-tracked
+source file may contain the keystore path, password, or alias in plaintext.
+
+- **Local build**: fill `storeFile` / `storePassword` / `keyAlias` / `keyPassword` in
+  `android/key.properties` (ignored by `android/.gitignore`), read by
+  `android/app/build.gradle.kts`. This file never enters the repo — **do not commit it**.
+- **CI build**: inject `KEYSTORE_BASE64`, `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`,
+  `KEY_ALIAS`, `KEY_PASSWORD` via GitHub Actions Secrets; the workflow decodes
+  `KEYSTORE_BASE64` into a keystore file for `build.gradle.kts` to use.
+- **Fail on missing config**: if neither env vars nor `key.properties` are present,
+  `build.gradle.kts` throws a `GradleException` and aborts the build — **never falls
+  back to a hardcoded password**.
+- **Rotation**: if the keystore file or password leaks, generate a new keystore
+  immediately and update both the local `key.properties` and CI Secrets; rotate
+  periodically and record the deprecation date.
+- **`.gitignore` must cover it**: `*.jks`, `*.keystore`, `android/key.properties`, etc.
+  are already in the ignore list — run `git status` before committing to confirm no
+  key file is tracked.
 
 ---
 

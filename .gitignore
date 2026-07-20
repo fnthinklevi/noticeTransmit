@@ -37,6 +37,8 @@ server/node_modules/
 .pub-cache/
 .pub/
 /build/
+android/build/
+android/app/build/
 /coverage/
 
 # Symbolication related
@@ -61,6 +63,9 @@ android/key.properties
 .env
 .env.local
 .env.*.local
+
+# Release APK artifacts (distributed via CDN, not committed)
+server/public/apks/*.apk
 
 # Server runtime data
 server/data/blocked_ips.json

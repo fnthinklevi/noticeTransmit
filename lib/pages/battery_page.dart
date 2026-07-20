@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
@@ -297,50 +298,44 @@ class _BatteryPageState extends State<BatteryPage> {
     bool enabled,
   ) {
     final ruleId = rule['id'] as String? ?? '';
-    return Dismissible(
+    return Slidable(
       key: ValueKey(ruleId),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        if (!widget.notifyEnabled) return false;
-        return await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('确认删除'),
-                content: Text('确定要删除规则「$title」吗？'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('取消'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(true),
-                    style: TextButton.styleFrom(foregroundColor: AppColors.red),
-                    child: const Text('删除'),
-                  ),
-                ],
-              ),
-            ) ??
-            false;
-      },
-      onDismissed: (_) => widget.onDeleteRule(ruleId),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: AppColors.red,
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, size: 20, color: Colors.white),
-            SizedBox(width: 8),
-            Text(
-              '删除',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+      // 仅从右侧拖出固定宽度的红色删除按钮，内容只左移按钮宽度，不会整条滑走
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.28,
+        children: [
+          SlidableAction(
+            onPressed: (_) async {
+              if (!widget.notifyEnabled) return;
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('确认删除'),
+                  content: Text('确定要删除规则「$title」吗？'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.red,
+                      ),
+                      child: const Text('删除'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) widget.onDeleteRule(ruleId);
+            },
+            backgroundColor: AppColors.red,
+            foregroundColor: Colors.white,
+            icon: Icons.delete_outline,
+            label: '删除',
+          ),
+        ],
       ),
       child: Container(
         color: AppColors.cardBg(context),

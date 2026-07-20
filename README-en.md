@@ -12,7 +12,7 @@ A **privacy-first** notification listener & Webhook push tool for Android, suppo
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.43/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.44/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console

@@ -140,13 +140,30 @@ kill %1
 
 - **通知内容只在本地处理与推送**，不上传到任何第三方服务器（除非用户自行配置的 Webhook）。仅 Bugly 采集最小必要的崩溃统计（堆栈、设备型号、系统版本、应用版本）。
 - 不要在日志、崩溃上报或存储中写入通知正文、短信、通讯录等隐私数据。
-- **密钥管理**：`server/.env` 当前被 Git 跟踪并包含真实密钥
-  （`ADMIN_TOKEN_HASH`、`ENCRYPTION_KEY`）。**请勿将生产密钥提交到仓库。**
-  推荐做法：仓库只提交 `.env.example`（占位/说明），真实 `.env` 加入
-  `.gitignore` 并由部署方本地提供。新增环境变量请在 `server/README.md` 的
-  环境变量表中补充。
+- **服务器密钥管理（`.env`）**：`server/.env` 已被 `.gitignore` 忽略，不会进入
+  仓库；仓库仅保留 `.env.example`（占位/说明）。真实 `.env` 由部署方本地或 CI
+  Secret 提供，**切勿将生产密钥（`ADMIN_TOKEN_HASH`、`ENCRYPTION_KEY` 等）提交到仓库**。
+  新增环境变量请在 `server/README.md` 的环境变量表中补充。
 - 服务端加密（`ENCRYPTION_KEY`）须为 **64 位十六进制**（AES-256-GCM），非法格式会被忽略并以明文存储，提交前请自检。
 - CORS 默认仅放行无 `Origin` 的原生请求；跨域 Web 后台访问需显式配置 `ALLOWED_ORIGINS` 白名单。
+
+### 7.1 Android 发布签名密钥（APK）
+
+APK 发布签名遵循**源码零密钥**原则：任何被 Git 跟踪的源文件都不得包含
+keystore 路径、密码或别名明文。
+
+- **本地构建**：在 `android/key.properties`（已被 `android/.gitignore` 忽略）中填写
+  `storeFile` / `storePassword` / `keyAlias` / `keyPassword`，由
+  `android/app/build.gradle.kts` 读取。该文件不进仓库，**切勿提交**。
+- **CI 构建**：通过 GitHub Actions Secrets 注入 `KEYSTORE_BASE64`、`KEYSTORE_FILE`、
+  `KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`；工作流将 `KEYSTORE_BASE64`
+  解码为 keystore 文件后供 `build.gradle.kts` 使用。
+- **缺失即报错**：若既无环境变量也无 `key.properties`，`build.gradle.kts` 会主动抛出
+  `GradleException` 中止构建，**绝不使用硬编码兜底密码**。
+- **轮换策略**：keystore 文件或密码一旦泄露，立即生成新 keystore 并同步更新本地
+  `key.properties` 与 CI Secrets；建议定期轮换并记录失效时间。
+- **`.gitignore` 必须覆盖**：`*.jks`、`*.keystore`、`android/key.properties` 等已在
+  忽略清单中，提交前用 `git status` 确认无密钥文件被跟踪。
 
 ---
 
