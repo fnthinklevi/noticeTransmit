@@ -8,7 +8,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 
 ## 1. Supported Versions
 
-- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.38 (build 72)**.
+- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.45**.
 - Older versions (including those no longer maintained) are not patched — please upgrade to the latest release.
 
 ---
@@ -65,7 +65,7 @@ Deployment rules:
 
 ### 4.3 Client
 
-- Release builds disable R8 obfuscation and resource shrinking by default (see `proguard-rules.pro`; enable as needed) — if enabled, securely store the deobfuscation mapping.
+- Release builds enable R8 obfuscation and resource shrinking (`proguard-rules.pro`); keep the deobfuscation mapping file for readable crash logs.
 - Notification-listener, battery-optimization whitelist, and auto-start permissions are granted by the user; missing permissions are functional limitations, not security vulnerabilities.
 
 ---

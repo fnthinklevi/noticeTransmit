@@ -12,7 +12,7 @@ A **privacy-first** notification listener & Webhook push tool for Android, suppo
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.44/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.45/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -46,7 +46,7 @@ Notification Push Helper is a privacy-focused Android notification forwarding to
 
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
-- 🔄 **Online Update** - Support version update and hot update, no need to reinstall APK; dual deployment modes (Node.js / GitHub Pages) with automatic client fallback
+- 🔄 **Online Update** - Support version update, no need to reinstall APK; flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
 - 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface
 
 ### Security
@@ -56,7 +56,7 @@ Notification Push Helper is a privacy-focused Android notification forwarding to
 - 🛡️ **IP Blocking** - IP automatically blocked for 240 hours after 3 failed verification attempts within 10 minutes
 - 🔢 **Recovery Codes** - 8 recovery codes generated for account recovery when device is lost
 - 🔒 **Sensitive Data Encryption** - TOTP secret stored using AES-256-GCM encryption
-- 🎭 **Obfuscation Rules Ready** - ProGuard/R8 rules file configured (`proguard-rules.pro`; obfuscation and resource shrinking are disabled by default in release builds and can be enabled on demand)
+- 🎭 **Obfuscation Rules Ready** - ProGuard/R8 rules file configured (`proguard-rules.pro`), Release builds enable code obfuscation and resource shrinking
 - 📡 **Secure Token Transmission** - Token only accepted via Header, URL parameters disabled
 - 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
 - 🗄️ **SQLite Encryption** - All notification records and webhook configs stored with AES-256 encryption, key in AndroidKeyStore
@@ -119,10 +119,9 @@ noticeTransmit/
 │   ├── pages/                    # Page components
 │   │   ├── splash_page.dart      # Splash page
 │   │   └── privacy_policy_page.dart  # Privacy policy page
-│   ├── services/                 # Service layer (11 files)
-│   ├── state/                    # State management (reserved)
-│   └── widgets/                  # Widget layer (reserved)
-│       └── common/               # Common widgets
+│   ├── services/                 # Service layer (14 files)
+│   ├── widgets/                  # Reusable widgets (icon picker, etc.)
+│   │   └── common/               # Common widgets
 ├── android/                      # Android native code
 │   └── app/src/main/kotlin/com/fnthink/notice/
 │       ├── MainActivity.kt       # Main Activity
@@ -199,6 +198,7 @@ Welcome to submit Issues and Pull Requests!
 
 - Contributing: See [CONTRIBUTING.md](CONTRIBUTING.md) · [English](CONTRIBUTING-en.md)
 - Security Policy: See [SECURITY.md](SECURITY.md) · [English](SECURITY-en.md)
+- Code of Conduct: See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [中文](CODE_OF_CONDUCT-zh.md)
 
 ## Privacy Notice
 
@@ -236,4 +236,4 @@ All notification pushes are sent through user-configured Webhook URLs. Developer
 
 ## License
 
-This project is for learning and communication purposes only.
+This project is open source under the [MIT License](LICENSE).

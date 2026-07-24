@@ -5,11 +5,12 @@
 Thanks for your interest in **通知推送助手 / Notice Transmit**! This document explains how to develop, submit, and release for this project.
 
 > Main documentation: [README.md](README.md) (中文) / [README-en.md](README-en.md) (English)
-> Architecture & design baseline: [base.md](base.md)
 
 ---
 
 ## 1. Code of Conduct
+
+This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to abide by its terms.
 
 - Be friendly and respectful, and keep discussions technical.
 - Submissions must be original work or properly licensed; no infringing, malicious, or illegal code.
@@ -180,9 +181,9 @@ source file may contain the keystore path, password, or alias in plaintext.
    flutter build apk --release --target-platform android-arm64
    ```
 4. **Record size**: take the APK byte size, rename it to `noticeX.Y.Z.apk` and place it in `server/public/apks/`; put the byte count into `server/data/version.json`'s `fileSize`.
-5. **Update version config** `server/data/version.json`: `latestVersion` / `latestBuild` / `changelog` (consistent with `update.md`).
-6. **Append changelog**: add `### vX.Y.Z (build NN) - date` at the top of `update.md`, categorized as Features / Fixes / Server / Docs (follow existing entry format).
-7. **Sync docs**: if icons, permissions, or config changed, update the corresponding notes and footer version in `base.md` / `README.md`.
+5. **Update version config** `server/data/version.json`: `latestVersion` / `latestBuild` / `changelog`.
+6. **Append changelog**: add `### vX.Y.Z (build NN) - date` at the top, categorized as Features / Fixes / Server / Docs.
+7. **Sync docs**: if icons, permissions, or config changed, update the corresponding notes in `README.md`.
 8. **Deploy server**: sync the updated files (e.g. `server/server.js`, `server/data/version.json`) to the server and restart (see [server/README.md](server/README.md)).
 
 ---

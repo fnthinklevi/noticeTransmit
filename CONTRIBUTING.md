@@ -5,11 +5,12 @@
 感谢你关注 **通知推送助手（noticeTransmit）**！本文档说明如何在本项目中开发、提交与发版。
 
 > 项目主文档：[README.md](README.md)（中文） / [README-en.md](README-en.md)（English）
-> 架构与设计基准：[base.md](base.md)
 
 ---
 
 ## 1. 行为准则
+
+本项目遵循[贡献者行为准则](CODE_OF_CONDUCT-zh.md)。参与即表示你同意遵守该准则。
 
 - 请保持友善、尊重，聚焦技术讨论。
 - 提交内容须为你本人原创或已获授权，不得包含侵权、恶意或违法代码。
@@ -184,10 +185,10 @@ keystore 路径、密码或别名明文。
    `noticeX.Y.Z.apk` 并放入 `server/public/apks/`；把字节数填入
    `server/data/version.json` 的 `fileSize`。
 5. **更新版本配置** `server/data/version.json`：
-   `latestVersion` / `latestBuild` / `changelog`（与 `update.md` 一致）。
-6. **追加更新记录**：在 `update.md` 顶部新增 `### vX.Y.Z (build NN) - 日期`
-   条目，按「功能 / 修复 / 服务端 / 文档」分类说明（参考现有条目格式）。
-7. **同步文档**：如涉及图标、权限、配置等，更新 `base.md`、`README.md` 中对应说明与页脚版本。
+   `latestVersion` / `latestBuild` / `changelog`。
+6. **追加更新记录**：在 Changelog 顶部新增 `### vX.Y.Z (build NN) - 日期`
+   条目，按「功能 / 修复 / 服务端 / 文档」分类说明。
+7. **同步文档**：如涉及图标、权限、配置等，更新 `README.md` 中对应说明。
 8. **部署服务端**：将 `server/server.js`、`server/data/version.json` 等更新文件同步到服务器并重启（详见 [server/README.md](server/README.md)）。
 
 ---

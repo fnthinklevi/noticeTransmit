@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.44",
-  "latestVersion": "1.5.44",
-  "latestBuild": 78,
-  "forceUpdate": true,
+  "appName": "notice1.5.45",
+  "latestVersion": "1.5.45",
+  "latestBuild": 79,
+  "forceUpdate": false,
   "forceUpdateVersion": "1.5.44",
   "forceUpdateBuild": 78,
-  "changelog": "v1.5.44: 发布签名安全加固(源码零密钥,本地key.properties/CI Secrets注入,缺失即中止构建) + 电量规则左滑改为iOS风格固定宽度删除按钮 + CONTRIBUTING新增发布签名密钥规范",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.44.apk",
-  "fileSize": 29486001,
+  "changelog": "v1.5.45: 启用R8代码混淆及资源压缩 + 降低SmsReceiver优先级 + 添加dart_code_metrics静态分析 + 补充FilterService/DatabaseHelper/Widget单元测试(95用例) + markdown文档中英双版同步 + 许可证统一为MIT",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.45.apk",
+  "fileSize": 25603547,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }

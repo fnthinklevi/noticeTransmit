@@ -33,9 +33,7 @@ NotificationRule makeRule({
     name: name,
     enabled: enabled,
     priority: 10,
-    conditions: [
-      Condition(id: 'c1', type: type, value: value, logic: logic),
-    ],
+    conditions: [Condition(id: 'c1', type: type, value: value, logic: logic)],
   );
 }
 
@@ -66,10 +64,7 @@ void main() {
     });
 
     test('single AND condition matched → true', () {
-      final rule = makeRule(
-        type: ConditionType.titleContains,
-        value: 'Hello',
-      );
+      final rule = makeRule(type: ConditionType.titleContains, value: 'Hello');
       expect(
         service.evaluateRule(rule, makeNotification(title: 'Hello World')),
         true,
@@ -77,10 +72,7 @@ void main() {
     });
 
     test('single AND condition not matched → false', () {
-      final rule = makeRule(
-        type: ConditionType.titleContains,
-        value: 'Hello',
-      );
+      final rule = makeRule(type: ConditionType.titleContains, value: 'Hello');
       expect(
         service.evaluateRule(rule, makeNotification(title: 'World')),
         false,
@@ -102,10 +94,7 @@ void main() {
     });
 
     test('titleContains case-insensitive', () {
-      final rule = makeRule(
-        type: ConditionType.titleContains,
-        value: 'hello',
-      );
+      final rule = makeRule(type: ConditionType.titleContains, value: 'hello');
       expect(
         service.evaluateRule(rule, makeNotification(title: 'HELLO')),
         true,
@@ -128,15 +117,9 @@ void main() {
     });
 
     test('contentContains', () {
-      final rule = makeRule(
-        type: ConditionType.contentContains,
-        value: '验证码',
-      );
+      final rule = makeRule(type: ConditionType.contentContains, value: '验证码');
       expect(
-        service.evaluateRule(
-          rule,
-          makeNotification(content: '您的验证码是 123456'),
-        ),
+        service.evaluateRule(rule, makeNotification(content: '您的验证码是 123456')),
         true,
       );
     });
@@ -157,28 +140,22 @@ void main() {
     });
 
     test('regexMatch – valid pattern', () {
-      final rule = makeRule(
-        type: ConditionType.regexMatch,
-        value: r'验证码|校验码',
-      );
+      final rule = makeRule(type: ConditionType.regexMatch, value: r'验证码|校验码');
       expect(
-        service.evaluateRule(
-          rule,
-          makeNotification(title: '您的校验码是 888888'),
-        ),
+        service.evaluateRule(rule, makeNotification(title: '您的校验码是 888888')),
         true,
       );
       expect(
-        service.evaluateRule(
-          rule,
-          makeNotification(title: 'Hello World'),
-        ),
+        service.evaluateRule(rule, makeNotification(title: 'Hello World')),
         false,
       );
     });
 
     test('regexMatch – invalid pattern silently returns false', () {
-      final rule = makeRule(type: ConditionType.regexMatch, value: r'[unclosed');
+      final rule = makeRule(
+        type: ConditionType.regexMatch,
+        value: r'[unclosed',
+      );
       expect(
         service.evaluateRule(rule, makeNotification(title: 'anything')),
         false,
@@ -191,46 +168,26 @@ void main() {
       final low = makeRule(type: ConditionType.priority, value: 'low');
 
       // FilterService 实现中: high=priority>=2, medium=1, low=0
-      expect(
-        service.evaluateRule(high, makeNotification(priority: 2)),
-        true,
-      );
-      expect(
-        service.evaluateRule(high, makeNotification(priority: 0)),
-        false,
-      );
-      expect(
-        service.evaluateRule(medium, makeNotification(priority: 1)),
-        true,
-      );
+      expect(service.evaluateRule(high, makeNotification(priority: 2)), true);
+      expect(service.evaluateRule(high, makeNotification(priority: 0)), false);
+      expect(service.evaluateRule(medium, makeNotification(priority: 1)), true);
       expect(
         service.evaluateRule(medium, makeNotification(priority: 2)),
         false,
       );
-      expect(
-        service.evaluateRule(low, makeNotification(priority: 0)),
-        true,
-      );
-      expect(
-        service.evaluateRule(low, makeNotification(priority: 1)),
-        false,
-      );
+      expect(service.evaluateRule(low, makeNotification(priority: 0)), true);
+      expect(service.evaluateRule(low, makeNotification(priority: 1)), false);
     });
 
     test('timeRange – within range', () {
       final now = DateTime.now();
-      final startH = ((now.hour - 1 + 24) % 24)
-          .toString()
-          .padLeft(2, '0');
+      final startH = ((now.hour - 1 + 24) % 24).toString().padLeft(2, '0');
       final endH = ((now.hour + 1) % 24).toString().padLeft(2, '0');
       final rule = makeRule(
         type: ConditionType.timeRange,
         value: '$startH:00-$endH:00',
       );
-      expect(
-        service.evaluateRule(rule, makeNotification(time: '')),
-        true,
-      );
+      expect(service.evaluateRule(rule, makeNotification(time: '')), true);
     });
   });
 
@@ -296,27 +253,15 @@ void main() {
         ],
       );
       // 第一个条件作为第一组（isFirstCondition）
-      expect(
-        service.evaluateRule(
-          rule,
-          makeNotification(title: '优惠活动'),
-        ),
-        true,
-      );
+      expect(service.evaluateRule(rule, makeNotification(title: '优惠活动')), true);
       // 第二个条件（logic=or → 新组）独立匹配
       expect(
-        service.evaluateRule(
-          rule,
-          makeNotification(title: '我的验证码'),
-        ),
+        service.evaluateRule(rule, makeNotification(title: '我的验证码')),
         true,
       );
       // 两组都不匹配
       expect(
-        service.evaluateRule(
-          rule,
-          makeNotification(title: '普通消息'),
-        ),
+        service.evaluateRule(rule, makeNotification(title: '普通消息')),
         false,
       );
     });

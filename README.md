@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.44/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.45/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -56,7 +56,7 @@
 - 🛡️ **IP 封锁** - 10分钟内输错3次验证码自动封锁IP 240小时
 - 🔢 **恢复码** - 生成8个恢复码，设备丢失时可找回账户
 - 🔒 **敏感数据加密** - TOTP secret 使用 AES-256-GCM 加密存储
-- 🎭 **混淆规则就绪** - 已配置 ProGuard/R8 混淆规则文件（`proguard-rules.pro`，当前发布构建默认关闭混淆与资源压缩，可按需开启）
+- 🎭 **混淆规则就绪** - 已配置 ProGuard/R8 混淆规则文件（`proguard-rules.pro`），Release 构建启用代码混淆与资源压缩
 - 📡 **Token安全传输** - 仅接受 Header 传递，禁止 URL 参数
 - 🎲 **安全随机数** - 使用 crypto.randomUUID() 生成会话 ID
 - 🗄️ **SQLite 加密** - 通知记录、Webhook 配置全部 AES-256 加密存储，密钥存于 AndroidKeyStore
@@ -198,6 +198,7 @@ flutter build apk --release --target-platform android-arm64
 
 - 贡献指南：详见 [CONTRIBUTING.md](CONTRIBUTING.md) · [English](CONTRIBUTING-en.md)
 - 安全政策：详见 [SECURITY.md](SECURITY.md) · [English](SECURITY-en.md)
+- 行为准则：详见 [CODE_OF_CONDUCT-zh.md](CODE_OF_CONDUCT-zh.md) · [English](CODE_OF_CONDUCT.md)
 
 ## 隐私说明
 
