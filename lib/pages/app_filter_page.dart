@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
 class AppFilterPage extends StatefulWidget {
@@ -20,7 +20,7 @@ class AppFilterPage extends StatefulWidget {
 }
 
 class _AppFilterPageState extends State<AppFilterPage> {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   List<Map<String, dynamic>> _allApps = [];
   List<Map<String, dynamic>> _filteredApps = [];
@@ -67,7 +67,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
   Future<bool> _checkPermission() async {
     try {
       final result =
-          await platform.invokeMethod('canQueryAllPackages') as bool?;
+          await _channel.invokeMethod('canQueryAllPackages') as bool?;
       return result ?? true;
     } catch (e) {
       debugPrint('检查应用列表权限失败: $e');
@@ -77,7 +77,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
 
   Future<void> _requestPermission() async {
     try {
-      await platform.invokeMethod('requestQueryAllPackagesPermission');
+      await _channel.invokeMethod('requestQueryAllPackagesPermission');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -97,7 +97,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
 
   Future<void> _loadCachedApps() async {
     try {
-      final List<dynamic> result = await platform.invokeMethod(
+      final List<dynamic> result = await _channel.invokeMethod(
         'getCachedInstalledApps',
       );
       if (result.isNotEmpty) {
@@ -116,7 +116,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
     setState(() => _refreshing = true);
 
     try {
-      final List<dynamic> result = await platform.invokeMethod(
+      final List<dynamic> result = await _channel.invokeMethod(
         'getInstalledApps',
       );
       final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();

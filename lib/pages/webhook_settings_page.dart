@@ -1,6 +1,6 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
 class WebhookSettingsPage extends StatefulWidget {
@@ -13,7 +13,7 @@ class WebhookSettingsPage extends StatefulWidget {
 }
 
 class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   late List<TextEditingController> _webhookControllers;
   late List<bool> _webhookEnabled;
@@ -97,7 +97,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     });
 
     try {
-      final result = await platform.invokeMethod('testWebhook', {'url': url});
+      final result = await _channel.invokeMethod('testWebhook', {'url': url});
       final success = result['success'] as bool? ?? false;
       final message = result['message'] as String? ?? '未知错误';
 

@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+import 'platform_channel.dart';
 
 class IconOption {
   final String key;
@@ -11,7 +11,7 @@ class IconOption {
 }
 
 class IconService {
-  static const _platform = MethodChannel('com.fnthink.notice/notification');
+  static const _channel = AppChannels.notification;
 
   static const List<IconOption> options = [
     IconOption('default', '默认图标', 0xFF4070E0),
@@ -39,7 +39,7 @@ class IconService {
 
   static Future<String> getCurrent() async {
     try {
-      final v = await _platform.invokeMethod('getLauncherIcon');
+      final v = await _channel.invokeMethod('getLauncherIcon');
       return (v as String?) ?? 'default';
     } catch (_) {
       return 'default';
@@ -48,7 +48,7 @@ class IconService {
 
   static Future<bool> setIcon(String key) async {
     try {
-      await _platform.invokeMethod('changeLauncherIcon', {'icon': key});
+      await _channel.invokeMethod('changeLauncherIcon', {'icon': key});
       return true;
     } catch (_) {
       return false;

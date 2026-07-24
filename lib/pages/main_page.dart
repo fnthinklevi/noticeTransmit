@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/platform_channel.dart';
 import '../services/services.dart';
 import '../services/theme_service.dart';
 import '../update_manager.dart';
@@ -27,8 +27,6 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  static const platform = MethodChannel('com.fnthink.notice/notification');
-
   int _currentIndex = 0;
   bool _isCheckingUpdate = false;
   bool _isDownloading = false;
@@ -225,7 +223,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _setupMethodChannel() {
-    platform.setMethodCallHandler((call) async {
+    AppChannels.notification.setMethodCallHandler((call) async {
       if (call.method == 'onNotificationReceived') {
         final Map<String, dynamic> record = Map<String, dynamic>.from(
           call.arguments,
