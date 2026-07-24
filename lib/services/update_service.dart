@@ -18,30 +18,7 @@ class UpdateService {
     final shouldCheck = await AppUpdateManager.instance.shouldCheckNow();
     if (!shouldCheck) return;
 
-    try {
-      final hotfixResult = await AppUpdateManager.instance.checkHotfix(
-        force: false,
-      );
-      if (hotfixResult != null && hotfixResult.hasUpdate) {
-        // Hotfix handled by caller
-      }
-    } catch (e) {
-      // ignore
-    }
-
     await checkUpdate(force: false);
-  }
-
-  Future<HotfixCheckResult?> checkHotfix({bool force = false}) async {
-    return AppUpdateManager.instance.checkHotfix(force: force);
-  }
-
-  Future<String?> downloadHotfix(String url, {int? totalSize}) async {
-    return AppUpdateManager.instance.downloadHotfix(url, totalSize: totalSize);
-  }
-
-  Future<bool> applyHotfix(String zipPath, int contentVersion) async {
-    return AppUpdateManager.instance.applyHotfix(zipPath, contentVersion);
   }
 
   Future<bool> storagePermissionGranted() async {

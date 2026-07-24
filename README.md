@@ -119,10 +119,9 @@ noticeTransmit/
 │   ├── pages/                    # 页面组件
 │   │   ├── splash_page.dart      # 开屏页
 │   │   └── privacy_policy_page.dart  # 隐私政策页
-│   ├── services/                 # 服务层（11个文件）
-│   ├── state/                    # 状态管理（预留）
-│   └── widgets/                  # 组件层（预留）
-│       └── common/               # 通用组件
+│   ├── services/                 # 服务层（14个文件）
+│   ├── widgets/                  # 可复用组件（图标选择器等）
+│   │   └── common/               # 通用组件
 ├── android/                      # Android 原生代码
 │   └── app/src/main/kotlin/com/fnthink/notice/
 │       ├── MainActivity.kt       # 主 Activity
@@ -236,4 +235,4 @@ flutter build apk --release --target-platform android-arm64
 
 ## 许可证
 
-本项目仅供学习交流使用。
+本项目基于 [MIT License](LICENSE) 开源。

@@ -260,15 +260,6 @@ class _MainPageState extends State<MainPage> {
   Future<void> _performUpdateCheck({bool isManual = false}) async {
     if (!mounted) return;
 
-    try {
-      final hotfixResult = await _updateService.checkHotfix(force: isManual);
-      if (hotfixResult != null && hotfixResult.hasUpdate && mounted) {
-        await _downloadAndApplyHotfix(hotfixResult);
-      }
-    } catch (e) {
-      // ignore
-    }
-
     final result = await _updateService.checkUpdate(force: isManual);
 
     if (!mounted) return;
@@ -893,46 +884,6 @@ class _MainPageState extends State<MainPage> {
             context,
           ).showSnackBar(SnackBar(content: Text('下载失败：${e.toString()}')));
         });
-  }
-
-  Future<void> _downloadAndApplyHotfix(HotfixCheckResult result) async {
-    try {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('正在下载热更新包...')));
-      final zipPath = await _updateService.downloadHotfix(
-        result.downloadUrl,
-        totalSize: result.fileSize,
-      );
-      if (zipPath == null) return;
-
-      final success = await _updateService.applyHotfix(
-        zipPath,
-        result.latestContentVersion,
-      );
-      if (!mounted) return;
-
-      if (success) {
-        try {
-          await platform.invokeMethod('reloadHotfix');
-        } catch (e) {
-          // ignore
-        }
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('热更新完成，已生效')));
-      } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('热更新失败')));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('热更新失败：${e.toString()}')));
-    }
   }
 
   Future<void> _manualCheckUpdate() async {

@@ -141,7 +141,6 @@ app.use(generalRateLimiter);
 app.use('/api/admin', authRateLimiter);
 
 const VERSION_FILE = path.join(__dirname, 'data', 'version.json');
-const HOTFIX_FILE = path.join(__dirname, 'data', 'hotfix.json');
 const TOTP_FILE = path.join(__dirname, 'data', 'totp.json');
 const BLOCK_FILE = path.join(__dirname, 'data', 'blocked_ips.json');
 const DATA_DIR = path.join(__dirname, 'data');
@@ -430,35 +429,6 @@ function validateVersionConfig(body) {
   // fileSize: 必填、正整数（可选，如提供则校验）
   if (body.fileSize !== undefined && (typeof body.fileSize !== 'number' || body.fileSize < 0)) {
     errors.push('fileSize 必须为非负整数');
-  }
-  return errors;
-}
-
-// 字段级校验：热修复配置结构
-function validateHotfixConfig(body) {
-  const errors = [];
-  if (!isPlainObject(body)) return errors; // 顶层已通过 isPlainObject 校验
-
-  for (const [key, value] of Object.entries(body)) {
-    if (!isPlainObject(value)) {
-      errors.push(`hotfix.${key} 必须为 JSON 对象`);
-      continue;
-    }
-    if (typeof value.url !== 'string' || !value.url.trim()) {
-      errors.push(`hotfix.${key}.url 必须为非空字符串`);
-    } else {
-      try {
-        const url = new URL(value.url);
-        if (url.protocol !== 'https:') {
-          errors.push(`hotfix.${key}.url 必须使用 https:// 协议`);
-        }
-      } catch {
-        errors.push(`hotfix.${key}.url 不是合法 URL`);
-      }
-    }
-    if (value.version !== undefined && typeof value.version !== 'string') {
-      errors.push(`hotfix.${key}.version 必须为字符串`);
-    }
   }
   return errors;
 }
@@ -807,42 +777,6 @@ app.get('/api/version/check', (req, res) => {
   });
 });
 
-app.get('/api/hotfix/check', (req, res) => {
-  const { contentVersion, platform = 'android' } = req.query;
-  const hotfixData = readJsonFile(HOTFIX_FILE, {
-    latestContentVersion: 0,
-    version: '1.0.0',
-    forceUpdate: false,
-    forceContentVersion: 0,
-    changelog: '',
-    downloadUrl: '',
-    fileSize: 0,
-    platform: 'android',
-    minAppVersion: '1.0.0'
-  });
-
-  const currentContentVer = Number(contentVersion || 0);
-  const hasUpdate = hotfixData.latestContentVersion > currentContentVer;
-  const needForce = hotfixData.forceUpdate &&
-    hotfixData.forceContentVersion > currentContentVer;
-
-  res.json({
-    code: 0,
-    message: 'success',
-    data: {
-      hasUpdate,
-      latestContentVersion: hotfixData.latestContentVersion,
-      version: hotfixData.version,
-      forceUpdate: needForce,
-      changelog: hotfixData.changelog,
-      downloadUrl: hotfixData.downloadUrl,
-      fileSize: hotfixData.fileSize,
-      platform: hotfixData.platform,
-      minAppVersion: hotfixData.minAppVersion
-    }
-  });
-});
-
 app.get('/api/admin/version', authMiddleware, (req, res) => {
   const data = readJsonFile(VERSION_FILE, {});
   res.json({
@@ -862,31 +796,6 @@ app.post('/api/admin/version', authMiddleware, (req, res) => {
     return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
   }
   const success = writeJsonFile(VERSION_FILE, body);
-  res.json({
-    code: success ? 0 : -1,
-    message: success ? '保存成功' : '保存失败'
-  });
-});
-
-app.get('/api/admin/hotfix', authMiddleware, (req, res) => {
-  const data = readJsonFile(HOTFIX_FILE, {});
-  res.json({
-    code: 0,
-    message: 'success',
-    data
-  });
-});
-
-app.post('/api/admin/hotfix', authMiddleware, (req, res) => {
-  const body = req.body;
-  if (!isPlainObject(body)) {
-    return res.status(400).json({ code: -4, message: '请求体必须为 JSON 对象' });
-  }
-  const errors = validateHotfixConfig(body);
-  if (errors.length > 0) {
-    return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
-  }
-  const success = writeJsonFile(HOTFIX_FILE, body);
   res.json({
     code: success ? 0 : -1,
     message: success ? '保存成功' : '保存失败'
@@ -915,7 +824,6 @@ app.listen(PORT, () => {
   console.log('');
   console.log('API 接口:');
   console.log('  GET  /api/version/check           - 检查版本更新');
-  console.log('  GET  /api/hotfix/check            - 检查热更新');
   console.log('  POST /api/admin/login             - 管理员登录');
   console.log('  GET  /api/admin/totp/setup        - 获取二步验证设置');
   console.log('  POST /api/admin/totp/enable       - 启用二步验证');
@@ -924,15 +832,12 @@ app.listen(PORT, () => {
   console.log('  POST /api/admin/totp/regenerate-recovery - 重新生成恢复码');
   console.log('  GET  /api/admin/version           - 获取版本配置');
   console.log('  POST /api/admin/version           - 更新版本配置');
-  console.log('  GET  /api/admin/hotfix            - 获取热更新配置');
-  console.log('  POST /api/admin/hotfix            - 更新热更新配置');
   console.log('  GET  /health                      - 健康检查');
   console.log('');
   console.log('静态资源:');
   console.log('  /                - 网站主页 (public/index.html)');
   console.log('  /admin.html      - 管理后台页面');
   console.log('  /apks/          - APK 文件目录');
-  console.log('  /hotfix/        - 热更新包目录');
   console.log('  (兼容) /public/... - 旧地址仍可用');
   console.log('');
   console.log(`${process.env.NODE_ENV === 'development' ? '  二步验证状态: ' + (getTotpConfig().enabled ? '已启用' : '未启用') : ''}`);

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
-import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,8 +41,8 @@ class AppUpdateManager {
 
   bool _autoCheck = true;
   int _contentVersion = 0;
-  String _currentVersion = '1.5.34';
-  int _currentBuild = 68;
+  String _currentVersion = '1.5.44';
+  int _currentBuild = 78;
   String? _lastError;
 
   String get serverUrl => _updateServerUrl;
@@ -126,13 +125,13 @@ class AppUpdateManager {
           'getAppVersion result: $result, type: ${result.runtimeType}',
         );
         if (result is Map) {
-          _currentVersion = result['versionName']?.toString() ?? '1.5.34';
+          _currentVersion = result['versionName']?.toString() ?? '1.5.44';
           _currentBuild =
-              int.tryParse(result['versionCode']?.toString() ?? '68') ?? 68;
+              int.tryParse(result['versionCode']?.toString() ?? '78') ?? 78;
         } else {
           debugPrint('Result is not a Map, using default values');
-          _currentVersion = '1.5.34';
-          _currentBuild = 68;
+          _currentVersion = '1.5.44';
+          _currentBuild = 78;
         }
         debugPrint(
           'Version from native: $_currentVersion build $_currentBuild',
@@ -140,12 +139,12 @@ class AppUpdateManager {
       } catch (e, stack) {
         debugPrint('Failed to get version from native: $e');
         debugPrint('Stack trace: $stack');
-        _currentVersion = '1.5.34';
-        _currentBuild = 68;
+        _currentVersion = '1.5.44';
+        _currentBuild = 78;
       }
     } else {
-      _currentVersion = '1.5.34';
-      _currentBuild = 68;
+      _currentVersion = '1.5.44';
+      _currentBuild = 78;
     }
   }
 
@@ -299,75 +298,6 @@ class AppUpdateManager {
       if (p1 < p2) return -1;
     }
     return 0;
-  }
-
-  Future<HotfixCheckResult?> checkHotfix({bool force = false}) async {
-    // 1. 尝试 API 模式（Node.js 服务器）
-    try {
-      final uri = Uri.parse('$_updateServerUrl/api/hotfix/check').replace(
-        queryParameters: {
-          'contentVersion': _contentVersion.toString(),
-          'platform': 'android',
-        },
-      );
-
-      final response = await _updateHttpClient
-          .get(uri)
-          .timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['code'] == 0) {
-          return HotfixCheckResult.fromJson(data['data']);
-        }
-      }
-      // 非 200 → 尝试静态模式
-      debugPrint('热更新：API 返回 ${response.statusCode}，尝试静态 JSON 模式');
-    } catch (e) {
-      debugPrint('热更新：API 异常 $e，尝试静态 JSON 模式');
-    }
-
-    // 2. 回退到静态 JSON 模式（GitHub Pages 等静态部署）
-    return _checkHotfixStatic();
-  }
-
-  /// 静态 JSON 模式：直接拉取 /api/hotfix.json，客户端做版本比较
-  Future<HotfixCheckResult?> _checkHotfixStatic() async {
-    try {
-      final uri = Uri.parse('$_updateServerUrl/api/hotfix.json');
-      final response = await _updateHttpClient
-          .get(uri)
-          .timeout(const Duration(seconds: 10));
-      if (response.statusCode != 200) return null;
-
-      final hotfixData = jsonDecode(response.body) as Map<String, dynamic>;
-      final latestContentVersion =
-          int.tryParse(hotfixData['latestContentVersion']?.toString() ?? '0') ??
-          0;
-
-      final hasUpdate = latestContentVersion > _contentVersion;
-      if (!hasUpdate) return null;
-
-      final needForce =
-          (hotfixData['forceUpdate'] == true) &&
-          (int.tryParse(hotfixData['forceContentVersion']?.toString() ?? '0') ??
-                  0) >
-              _contentVersion;
-
-      return HotfixCheckResult(
-        hasUpdate: true,
-        latestContentVersion: latestContentVersion,
-        version: hotfixData['version']?.toString() ?? '',
-        forceUpdate: needForce,
-        changelog: hotfixData['changelog']?.toString() ?? '',
-        downloadUrl: hotfixData['downloadUrl']?.toString() ?? '',
-        fileSize: int.tryParse(hotfixData['fileSize']?.toString() ?? '0') ?? 0,
-        platform: hotfixData['platform']?.toString() ?? 'android',
-        minAppVersion: hotfixData['minAppVersion']?.toString() ?? '',
-      );
-    } catch (e) {
-      debugPrint('热更新（静态）异常：$e');
-      return null;
-    }
   }
 
   Future<String> downloadApk(
@@ -531,89 +461,6 @@ class AppUpdateManager {
     }
   }
 
-  Future<String> downloadHotfix(
-    String downloadUrl, {
-    int? totalSize,
-    Function(double progress)? onProgress,
-  }) async {
-    final fullUrl = _getFullUrl(downloadUrl);
-    final dir = await getTemporaryDirectory();
-    final fileName = 'hotfix_${DateTime.now().millisecondsSinceEpoch}.zip';
-    final savePath = '${dir.path}/$fileName';
-    final file = File(savePath);
-
-    var fileTotalSize = totalSize ?? 0;
-
-    final response = await _updateHttpClient.send(
-      http.Request('GET', Uri.parse(fullUrl)),
-    );
-
-    if (fileTotalSize == 0) {
-      fileTotalSize = response.contentLength ?? 0;
-    }
-    final clHeader = response.headers['content-length'];
-    if (fileTotalSize == 0 && clHeader != null) {
-      fileTotalSize = int.tryParse(clHeader) ?? 0;
-    }
-
-    var received = 0;
-
-    await response.stream
-        .listen(
-          (List<int> bytes) {
-            received += bytes.length;
-            file.writeAsBytesSync(bytes, mode: FileMode.append);
-            if (fileTotalSize > 0 && onProgress != null) {
-              onProgress(received / fileTotalSize);
-            }
-          },
-          onDone: () {},
-          onError: (e) {
-            throw e;
-          },
-        )
-        .asFuture();
-
-    return savePath;
-  }
-
-  Future<bool> applyHotfix(String zipPath, int newVersion) async {
-    try {
-      final bytes = await File(zipPath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
-
-      final appDir = await getApplicationDocumentsDirectory();
-      final hotfixDir = Directory('${appDir.path}/hotfix');
-      if (await hotfixDir.exists()) {
-        await hotfixDir.delete(recursive: true);
-      }
-      await hotfixDir.create(recursive: true);
-
-      for (final file in archive) {
-        if (file.isFile) {
-          final name = file.name;
-          // Guard against zip-slip: reject entries that escape the hotfix dir.
-          if (name.isEmpty ||
-              name.startsWith('/') ||
-              name.startsWith('\\') ||
-              name.startsWith('~') ||
-              name.contains('..')) {
-            debugPrint('跳过非法热修复条目: $name');
-            continue;
-          }
-          final outFile = File('${hotfixDir.path}/$name');
-          await outFile.create(recursive: true);
-          await outFile.writeAsBytes(file.content as List<int>);
-        }
-      }
-
-      await setContentVersion(newVersion);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
   String _getFullUrl(String url) {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
@@ -622,16 +469,6 @@ class AppUpdateManager {
       return '$_updateServerUrl$url';
     }
     return '$_updateServerUrl/$url';
-  }
-
-  Future<String?> getHotfixFilePath(String relativePath) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final filePath = '${appDir.path}/hotfix/$relativePath';
-    final file = File(filePath);
-    if (await file.exists()) {
-      return filePath;
-    }
-    return null;
   }
 
   Future<void> setIgnoredVersion(String version) async {
@@ -698,52 +535,4 @@ class VersionCheckResult {
   }
 }
 
-class HotfixCheckResult {
-  final bool hasUpdate;
-  final int latestContentVersion;
-  final String version;
-  final bool forceUpdate;
-  final String changelog;
-  final String downloadUrl;
-  final int fileSize;
-  final String platform;
-  final String minAppVersion;
 
-  HotfixCheckResult({
-    required this.hasUpdate,
-    required this.latestContentVersion,
-    required this.version,
-    required this.forceUpdate,
-    required this.changelog,
-    required this.downloadUrl,
-    required this.fileSize,
-    required this.platform,
-    required this.minAppVersion,
-  });
-
-  factory HotfixCheckResult.fromJson(Map<String, dynamic> json) {
-    return HotfixCheckResult(
-      hasUpdate: json['hasUpdate'] ?? false,
-      latestContentVersion: json['latestContentVersion'] ?? 0,
-      version: json['version'] ?? '',
-      forceUpdate: json['forceUpdate'] ?? false,
-      changelog: json['changelog'] ?? '',
-      downloadUrl: json['downloadUrl'] ?? '',
-      fileSize: json['fileSize'] ?? 0,
-      platform: json['platform'] ?? 'android',
-      minAppVersion: json['minAppVersion'] ?? '',
-    );
-  }
-
-  String get fileSizeStr {
-    if (fileSize <= 0) return '未知';
-    if (fileSize < 1024) return '$fileSize B';
-    if (fileSize < 1024 * 1024) {
-      return '${(fileSize / 1024).toStringAsFixed(1)} KB';
-    }
-    if (fileSize < 1024 * 1024 * 1024) {
-      return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
-}
