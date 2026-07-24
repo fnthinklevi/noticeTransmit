@@ -24,10 +24,14 @@ class AppUpdateManager {
       'https://xget.fnthink.top/gh/fnthinklevi/noticeTransmit/releases/download';
   static const String _prefsKeyAutoCheck = 'auto_check_update';
   static const String _prefsKeyLastCheckTime = 'last_update_check_time';
-  static const String _prefsKeyContentVersion = 'content_version';
   static const String _prefsKeyIgnoredVersion = 'ignored_version';
   static const String _prefsKeyPendingApkPath = 'pending_apk_path';
   static const String _prefsKeyPendingApkVersion = 'pending_apk_version';
+
+  /// 回退版本号：仅当 native getAppVersion 调用失败时使用。
+  /// 发版时同步更新为当前版本号。
+  static const String _fallbackVersion = '1.5.45';
+  static const int _fallbackBuild = 79;
 
   static const String _defaultDownloadDir =
       '/storage/emulated/0/Download/FnthinkNotice';
@@ -40,20 +44,17 @@ class AppUpdateManager {
   AppUpdateManager._();
 
   bool _autoCheck = true;
-  int _contentVersion = 0;
-  String _currentVersion = '1.5.44';
-  int _currentBuild = 78;
+  String _currentVersion = _fallbackVersion;
+  int _currentBuild = _fallbackBuild;
   String? _lastError;
 
   String get serverUrl => _updateServerUrl;
   bool get autoCheck => _autoCheck;
-  int get contentVersion => _contentVersion;
   String? get lastError => _lastError;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _autoCheck = prefs.getBool(_prefsKeyAutoCheck) ?? true;
-    _contentVersion = prefs.getInt(_prefsKeyContentVersion) ?? 0;
     await _updateVersionInfo();
     // 更新完成后（新版本已启动）自动删除上一次下载的安装包
     await _cleanupInstalledApk();
@@ -125,13 +126,13 @@ class AppUpdateManager {
           'getAppVersion result: $result, type: ${result.runtimeType}',
         );
         if (result is Map) {
-          _currentVersion = result['versionName']?.toString() ?? '1.5.44';
+          _currentVersion = result['versionName']?.toString() ?? _fallbackVersion;
           _currentBuild =
-              int.tryParse(result['versionCode']?.toString() ?? '78') ?? 78;
+              int.tryParse(result['versionCode']?.toString() ?? '$_fallbackBuild') ?? _fallbackBuild;
         } else {
-          debugPrint('Result is not a Map, using default values');
-          _currentVersion = '1.5.44';
-          _currentBuild = 78;
+          debugPrint('Result is not a Map, using fallback values');
+          _currentVersion = _fallbackVersion;
+          _currentBuild = _fallbackBuild;
         }
         debugPrint(
           'Version from native: $_currentVersion build $_currentBuild',
@@ -139,12 +140,12 @@ class AppUpdateManager {
       } catch (e, stack) {
         debugPrint('Failed to get version from native: $e');
         debugPrint('Stack trace: $stack');
-        _currentVersion = '1.5.44';
-        _currentBuild = 78;
+        _currentVersion = _fallbackVersion;
+        _currentBuild = _fallbackBuild;
       }
     } else {
-      _currentVersion = '1.5.44';
-      _currentBuild = 78;
+      _currentVersion = _fallbackVersion;
+      _currentBuild = _fallbackBuild;
     }
   }
 
@@ -152,12 +153,6 @@ class AppUpdateManager {
     _autoCheck = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefsKeyAutoCheck, value);
-  }
-
-  Future<void> setContentVersion(int version) async {
-    _contentVersion = version;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_prefsKeyContentVersion, version);
   }
 
   String get currentVersion => _currentVersion;
