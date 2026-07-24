@@ -18,6 +18,8 @@ crash_log.txt
 flutter_complete_tutorial.md
 server/node_modules/
 
+outputs/
+
 # IntelliJ related
 *.iml
 *.ipr
