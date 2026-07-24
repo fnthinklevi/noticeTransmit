@@ -186,7 +186,7 @@ keystore 路径、密码或别名明文。
    `server/data/version.json` 的 `fileSize`。
 5. **更新版本配置** `server/data/version.json`：
    `latestVersion` / `latestBuild` / `changelog`。
-6. **追加更新记录**：在 Changelog 顶部新增 `### vX.Y.Z (build NN) - 日期`
+6. **追加更新记录**：在 Changelog 顶部新增 `### vX.Y.Z - 日期`
    条目，按「功能 / 修复 / 服务端 / 文档」分类说明。
 7. **同步文档**：如涉及图标、权限、配置等，更新 `README.md` 中对应说明。
 8. **部署服务端**：将 `server/server.js`、`server/data/version.json` 等更新文件同步到服务器并重启（详见 [server/README.md](server/README.md)）。

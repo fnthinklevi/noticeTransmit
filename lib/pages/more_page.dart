@@ -168,7 +168,7 @@ class MorePage extends StatelessWidget {
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'v${GetIt.instance<UpdateService>().currentVersion} (build ${GetIt.instance<UpdateService>().currentBuild})',
+              'v${GetIt.instance<UpdateService>().currentVersion}',
               style: TextStyle(
                 color: AppColors.secondaryLabel(context),
                 fontSize: 12,

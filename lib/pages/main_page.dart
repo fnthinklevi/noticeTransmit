@@ -451,7 +451,7 @@ class _MainPageState extends State<MainPage> {
             ),
             const SizedBox(height: 2),
             Text(
-              'v${_updateService.currentVersion} (build ${_updateService.currentBuild})',
+              'v${_updateService.currentVersion}',
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.secondaryLabel(context),
@@ -575,7 +575,7 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ),
                 Text(
-                  'v${result.latestVersion} (build ${result.latestBuild})',
+                  'v${result.latestVersion}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -595,7 +595,7 @@ class _MainPageState extends State<MainPage> {
                   ),
                 ),
                 Text(
-                  'v${_updateService.currentVersion} (build ${_updateService.currentBuild})',
+                  'v${_updateService.currentVersion}',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.primaryLabel(context),

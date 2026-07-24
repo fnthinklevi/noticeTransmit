@@ -182,7 +182,7 @@ source file may contain the keystore path, password, or alias in plaintext.
    ```
 4. **Record size**: take the APK byte size, rename it to `noticeX.Y.Z.apk` and place it in `server/public/apks/`; put the byte count into `server/data/version.json`'s `fileSize`.
 5. **Update version config** `server/data/version.json`: `latestVersion` / `latestBuild` / `changelog`.
-6. **Append changelog**: add `### vX.Y.Z (build NN) - date` at the top, categorized as Features / Fixes / Server / Docs.
+6. **Append changelog**: add `### vX.Y.Z - date` at the top, categorized as Features / Fixes / Server / Docs.
 7. **Sync docs**: if icons, permissions, or config changed, update the corresponding notes in `README.md`.
 8. **Deploy server**: sync the updated files (e.g. `server/server.js`, `server/data/version.json`) to the server and restart (see [server/README.md](server/README.md)).
 
