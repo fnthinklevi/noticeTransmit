@@ -126,9 +126,13 @@ class AppUpdateManager {
           'getAppVersion result: $result, type: ${result.runtimeType}',
         );
         if (result is Map) {
-          _currentVersion = result['versionName']?.toString() ?? _fallbackVersion;
+          _currentVersion =
+              result['versionName']?.toString() ?? _fallbackVersion;
           _currentBuild =
-              int.tryParse(result['versionCode']?.toString() ?? '$_fallbackBuild') ?? _fallbackBuild;
+              int.tryParse(
+                result['versionCode']?.toString() ?? '$_fallbackBuild',
+              ) ??
+              _fallbackBuild;
         } else {
           debugPrint('Result is not a Map, using fallback values');
           _currentVersion = _fallbackVersion;
