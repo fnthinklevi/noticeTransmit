@@ -8,7 +8,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 
 ## 1. Supported Versions
 
-- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.46**.
+- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.47**.
 - Older versions (including those no longer maintained) are not patched — please upgrade to the latest release.
 
 ---

@@ -1,13 +1,13 @@
 {
-  "appName": "notice1.5.46",
-  "latestVersion": "1.5.46",
-  "latestBuild": 80,
+  "appName": "notice1.5.47",
+  "latestVersion": "1.5.47",
+  "latestBuild": 81,
   "forceUpdate": false,
-  "forceUpdateVersion": "1.5.45",
-  "forceUpdateBuild": 79,
-  "changelog": "v1.5.46: 新增SMTP邮件推送通道(SSL/STARTTLS) + 推送渠道追踪(Webhook/邮件标签) + 首页推送通道状态 + 配置文件迁移至AES-256加密SQLCipher + 修复多项崩溃与体验问题",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.46.apk",
-  "fileSize": 25724418,
+  "forceUpdateVersion": "1.5.46",
+  "forceUpdateBuild": 80,
+  "changelog": "v1.5.47: SMTP报错细化(12种异常码) + Webhook/Email旧配置自动迁移 + Webhook自定义通道名 + 首页推送通道状态改版(绿/红点) + 公开历史多种清除方式(今日/最近N条/全部) + 每日24时自动归档 + 后台通知缓存防丢失 + 下载闪退修复(async IO) + 导出文件选择器",
+  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.47.apk",
+  "fileSize": 25724526,
   "platform": "android-arm64",
   "minSupportedVersion": "1.0.0"
 }
