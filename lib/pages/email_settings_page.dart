@@ -207,15 +207,12 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     final result = await _emailService.testEmail(channel);
     if (!mounted) return;
     setState(() => _editorTesting = false);
-    final success = result?['success'] == true;
     final message = result?['message']?.toString() ?? '未知结果';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 3),
-        backgroundColor: success ? null : AppColors.red,
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+      );
   }
 
   Future<void> _testChannel(int index) async {
@@ -223,15 +220,12 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     final result = await _emailService.testEmail(_channels[index]);
     if (!mounted) return;
     setState(() => _testingIndex = null);
-    final success = result?['success'] == true;
     final message = result?['message']?.toString() ?? '未知结果';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 3),
-        backgroundColor: success ? null : AppColors.red,
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
+      );
   }
 
   void _showEditor({EmailChannel? existing, int? index}) {
@@ -281,7 +275,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                               smtpPort:
                                   int.tryParse(portCtrl.text.trim()) ?? 465,
                               username: usernameCtrl.text.trim(),
-                              password: passwordCtrl.text.trim(),
+                              password: passwordCtrl.text.trim().isNotEmpty
+                                  ? passwordCtrl.text.trim()
+                                  : existing.password,
                               fromEmail: fromCtrl.text.trim(),
                               toEmail: toCtrl.text.trim(),
                               useSSL: useSSL,
@@ -306,7 +302,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     smtpHost: hostCtrl.text.trim(),
                     smtpPort: int.tryParse(portCtrl.text.trim()) ?? 465,
                     username: usernameCtrl.text.trim(),
-                    password: passwordCtrl.text.trim(),
+                    password: passwordCtrl.text.trim().isNotEmpty
+                        ? passwordCtrl.text.trim()
+                        : existing?.password,
                     fromEmail: fromCtrl.text.trim(),
                     toEmail: toCtrl.text.trim(),
                     useSSL: useSSL,

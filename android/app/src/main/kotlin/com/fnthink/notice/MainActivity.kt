@@ -79,9 +79,15 @@ class MainActivity : FlutterActivity() {
                     try {
                         val json = JSONObject(data)
                         val map = json.toMap()
-                        methodChannel?.invokeMethod("onNotificationReceived", map)
+                        if (methodChannel != null) {
+                            methodChannel?.invokeMethod("onNotificationReceived", map)
+                        } else {
+                            // Flutter 引擎未就绪 → 缓存到 SP 待批量导入
+                            cacheNotificationRecord(data)
+                        }
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        // invokeMethod 异常时也缓存
+                        try { cacheNotificationRecord(data) } catch (_: Exception) {}
                     }
                 }
             }
@@ -124,6 +130,8 @@ class MainActivity : FlutterActivity() {
         registerReceiver(notificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
         registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED)
+        // 批量导入后台缓存的未送达通知记录
+        flushCachedNotificationRecords()
     }
 
     override fun onPause() {
@@ -282,6 +290,11 @@ class MainActivity : FlutterActivity() {
                 }
                 "getDownloadDirectory" -> {
                     result.success(getDownloadDirectory())
+                }
+                "saveFile" -> {
+                    val fileName = call.argument<String>("fileName") ?: "export.json"
+                    val content = call.argument<String>("content") ?: ""
+                    saveFileWithPicker(fileName, content, result)
                 }
                 "getAppVersion" -> {
                     try {
@@ -1072,6 +1085,42 @@ class MainActivity : FlutterActivity() {
         return appDir.absolutePath
     }
 
+    // 文件选择器保存
+    private var pendingSaveResult: MethodChannel.Result? = null
+    private var pendingSaveContent: String = ""
+    private val SAVE_FILE_REQUEST_CODE = 9001
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == SAVE_FILE_REQUEST_CODE) {
+            val uri = data?.data
+            if (resultCode == RESULT_OK && uri != null) {
+                try {
+                    contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(pendingSaveContent.toByteArray(Charsets.UTF_8))
+                        outputStream.flush()
+                    }
+                    pendingSaveResult?.success(mapOf("success" to true, "message" to "导出成功"))
+                } catch (e: Exception) {
+                    pendingSaveResult?.success(mapOf("success" to false, "message" to "写入失败: ${e.message}"))
+                }
+            } else {
+                pendingSaveResult?.success(mapOf("success" to false, "message" to "已取消"))
+            }
+        }
+    }
+
+    private fun saveFileWithPicker(fileName: String, content: String, result: MethodChannel.Result) {
+        pendingSaveResult = result
+        pendingSaveContent = content
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, fileName)
+        }
+        startActivityForResult(intent, SAVE_FILE_REQUEST_CODE)
+    }
+
     private fun toggleNotificationListenerService() {
         val pm = packageManager
         val component = ComponentName(this, NotificationMonitorService::class.java)
@@ -1206,6 +1255,40 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+    }
+
+    /** 缓存未送达的通知记录（Flutter 引擎未就绪时使用） */
+    private fun cacheNotificationRecord(data: String) {
+        try {
+            val prefs = applicationContext.getSharedPreferences("flutter.notification_cache", android.content.Context.MODE_PRIVATE)
+            val cached = prefs.getString("pending_records", "[]") ?: "[]"
+            val arr = org.json.JSONArray(cached)
+            arr.put(org.json.JSONObject(data))
+            while (arr.length() > 200) arr.remove(0)
+            prefs.edit().putString("pending_records", arr.toString()).apply()
+        } catch (_: Exception) {}
+    }
+
+    /** 批量导入缓存的未送达通知记录 */
+    private fun flushCachedNotificationRecords() {
+        try {
+            val prefs = applicationContext.getSharedPreferences("flutter.notification_cache", android.content.Context.MODE_PRIVATE)
+            val cached = prefs.getString("pending_records", "[]") ?: "[]"
+            val arr = org.json.JSONArray(cached)
+            for (i in 0 until arr.length()) {
+                try {
+                    val json = arr.getJSONObject(i)
+                    val map = mutableMapOf<String, Any?>()
+                    val keys = json.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        map[key] = json.get(key)
+                    }
+                    methodChannel?.invokeMethod("onNotificationReceived", map)
+                } catch (_: Exception) {}
+            }
+            prefs.edit().remove("pending_records").apply()
+        } catch (_: Exception) {}
     }
 }
 

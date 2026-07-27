@@ -6,13 +6,17 @@ import '../models/notification_record.dart';
 class HistoryPage extends StatefulWidget {
   final List<NotificationRecord> records;
   final Future<void> Function() onClear;
-  final Future<String> Function() onExport;
+  final Future<Map<String, dynamic>> Function() onExport;
+  final Future<int> Function() onClearToday;
+  final Future<int> Function(int n) onClearLastN;
 
   const HistoryPage({
     super.key,
     required this.records,
     required this.onClear,
     required this.onExport,
+    required this.onClearToday,
+    required this.onClearLastN,
   });
 
   @override
@@ -151,47 +155,16 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  Future<void> _handleClear() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          '确认清空',
-          style: TextStyle(color: AppColors.primaryLabel(context)),
-        ),
-        content: Text(
-          '确定要清空全部 ${widget.records.length} 条记录吗？',
-          style: TextStyle(color: AppColors.primaryLabel(context)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.red),
-            child: const Text('清空'),
-          ),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      await widget.onClear();
-      setState(() {});
-    }
-  }
-
   Future<void> _handleExport() async {
     try {
-      final path = await widget.onExport();
+      final result = await widget.onExport();
       if (!mounted) return;
+      final message = result['message']?.toString() ?? '';
+      if (message.isEmpty || message == '已取消') return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('已导出到: $path'),
-          backgroundColor: AppColors.green,
-          duration: const Duration(seconds: 5),
+          content: Text(message),
+          duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -200,7 +173,6 @@ class _HistoryPageState extends State<HistoryPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('导出失败: $e'),
-          backgroundColor: AppColors.red,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -440,10 +412,76 @@ class _HistoryPageState extends State<HistoryPage> {
             tooltip: '导出 JSON',
             onPressed: widget.records.isEmpty ? null : _handleExport,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: '清空记录',
-            onPressed: widget.records.isEmpty ? null : _handleClear,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.cleaning_services_outlined),
+            tooltip: '清除记录',
+            onSelected: widget.records.isEmpty
+                ? null
+                : (value) async {
+                    int deleted = 0;
+                    switch (value) {
+                      case 'today':
+                        deleted = await widget.onClearToday();
+                        break;
+                      case 'last10':
+                        deleted = await widget.onClearLastN(10);
+                        break;
+                      case 'last50':
+                        deleted = await widget.onClearLastN(50);
+                        break;
+                      case 'all':
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('确认清除'),
+                            content: Text(
+                              '确定要清空全部 ${widget.records.length} 条记录吗？',
+                              style: TextStyle(
+                                color: AppColors.primaryLabel(ctx),
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('取消'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text(
+                                  '确定',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await widget.onClear();
+                          deleted = widget.records.length;
+                        }
+                        break;
+                    }
+                    if (deleted > 0 && mounted) {
+                      setState(() {});
+                      if (!mounted) return;
+                      // ignore: use_build_context_synchronously
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('已清除 $deleted 条记录'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'today', child: Text('清除今日')),
+              PopupMenuItem(value: 'last10', child: Text('清除最近 10 条')),
+              PopupMenuItem(value: 'last50', child: Text('清除最近 50 条')),
+              PopupMenuItem(
+                value: 'all',
+                child: Text('清除全部', style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
         ],
       ),

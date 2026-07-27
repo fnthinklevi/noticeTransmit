@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -170,6 +171,108 @@ class NotificationService {
       debugPrint('启动服务失败: $e');
       return false;
     }
+  }
+
+  // ========== 每日自动归档 ==========
+
+  Timer? _midnightTimer;
+
+  void startDailyExport() {
+    _midnightTimer?.cancel();
+    _midnightTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _checkAndExport();
+    });
+  }
+
+  void dispose() {
+    _midnightTimer?.cancel();
+  }
+
+  Future<void> _checkAndExport() async {
+    final now = DateTime.now();
+    if (now.hour != 0 || now.minute != 0) return;
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final todayRecords = _records.where((r) {
+      return r.time.startsWith(today);
+    }).toList();
+    if (todayRecords.isEmpty) return;
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/history-$today.json');
+      await file.writeAsString(
+        jsonEncode(todayRecords.map((r) => r.toMap()).toList()),
+      );
+
+      for (final r in todayRecords) {
+        await DatabaseHelper().deleteNotification(r.id);
+      }
+      _records.removeWhere((r) => r.time.startsWith(today));
+      debugPrint('每日归档: ${todayRecords.length} 条 → ${file.path}');
+    } catch (e) {
+      debugPrint('每日归档失败: $e');
+    }
+  }
+
+  // ========== 多种清除方式 ==========
+
+  /// 清除今日通知
+  Future<int> clearToday() async {
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final toDelete = _records.where((r) => r.time.startsWith(today)).toList();
+    for (final r in toDelete) {
+      await DatabaseHelper().deleteNotification(r.id);
+    }
+    _records.removeWhere((r) => r.time.startsWith(today));
+    return toDelete.length;
+  }
+
+  /// 清除指定日期段内的通知
+  Future<int> clearDateRange(DateTime start, DateTime end) async {
+    final db = DatabaseHelper();
+    final startMs = start.millisecondsSinceEpoch;
+    final endMs = end.millisecondsSinceEpoch;
+    final toDelete = _records
+        .where((r) => r.postTime >= startMs && r.postTime <= endMs)
+        .toList();
+    for (final r in toDelete) {
+      await db.deleteNotification(r.id);
+    }
+    _records.removeWhere((r) => r.postTime >= startMs && r.postTime <= endMs);
+    return toDelete.length;
+  }
+
+  /// 构建导出 JSON 字符串
+  Future<String> buildExportJson(
+    String deviceName,
+    String deviceModel,
+    String manufacturer,
+  ) async {
+    final data = {
+      '_warning': '此文件包含设备通知记录，请妥善保管。',
+      'exportTime': DateTime.now().toIso8601String(),
+      'deviceName': deviceName,
+      'deviceModel': deviceModel,
+      'manufacturer': manufacturer,
+      'recordCount': _records.length,
+      'records': _records.map((r) => r.toMap()).toList(),
+    };
+    return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  /// 清除最近 N 条通知
+  Future<int> clearLastN(int n) async {
+    if (_records.isEmpty || n <= 0) return 0;
+    final count = n < _records.length ? n : _records.length;
+    final toDelete = _records.take(count).toList();
+    for (final r in toDelete) {
+      await DatabaseHelper().deleteNotification(r.id);
+    }
+    _records.removeRange(0, count);
+    return count;
   }
 
   Future<bool> stopService() async {

@@ -2,18 +2,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class NotificationPage extends StatelessWidget {
-  static Color _channelColor(String channel) {
-    if (channel.contains('企业微信')) return const Color(0xFF2BAA3E);
-    if (channel.contains('飞书')) return const Color(0xFF3370FF);
-    if (channel.contains('钉钉')) return const Color(0xFF0089FF);
-    if (channel.contains('邮件')) return AppColors.orange;
-    return Colors.grey;
-  }
-
   final bool notificationPermissionGranted;
   final bool foregroundServiceRunning;
   final int notificationCount;
-  final List<String> activeChannels;
+  final List<Map<String, String>> activeChannels;
   final VoidCallback onStartService;
   final VoidCallback onStopService;
   final Future<void> Function() onRefresh;
@@ -135,34 +127,46 @@ class NotificationPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     if (activeChannels.isNotEmpty)
-                      ...activeChannels.map(
-                        (c) => Padding(
-                          padding: const EdgeInsets.only(top: 6),
+                      ...activeChannels.map((c) {
+                        final type = c['type'] ?? '';
+                        final name = c['name'] ?? '';
+                        final status = c['status'] ?? 'ok';
+                        final isOk = status == 'ok';
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
                           child: Row(
                             children: [
                               Container(
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: _channelColor(c),
+                                  color: isOk ? AppColors.green : AppColors.red,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                c,
+                                isOk ? '状态正常' : '状态异常',
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.primaryLabel(context),
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w500,
+                                  color: isOk ? AppColors.green : AppColors.red,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '$type${name.isNotEmpty ? ' · $name' : ''}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.secondaryLabel(context),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      )
+                        );
+                      })
                     else
                       Text(
                         '未配置推送通道',

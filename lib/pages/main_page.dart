@@ -46,18 +46,24 @@ class _MainPageState extends State<MainPage> {
       GetIt.instance<DeviceInfoService>();
   final ThemeService _themeService = GetIt.instance<ThemeService>();
 
-  List<String> _getActiveChannels() {
-    final channels = <String>[];
+  List<Map<String, String>> _getActiveChannels() {
+    final channels = <Map<String, String>>[];
     final webhookChannels = _webhookService.channels
         .where((c) => c['enabled'] == true)
         .toList();
     for (final c in webhookChannels) {
       final type = c['type']?.toString() ?? 'generic';
-      channels.add(_webhookTypeLabel(type));
+      channels.add({
+        'type': _webhookTypeLabel(type),
+        'name': c['name']?.toString() ?? '',
+        'status': 'ok',
+      });
     }
     final emailService = GetIt.instance<EmailService>();
-    if (emailService.cachedChannels.any((c) => c.enabled)) {
-      channels.add('邮件');
+    for (final c in emailService.cachedChannels) {
+      if (c.enabled) {
+        channels.add({'type': '邮件', 'name': c.name, 'status': 'ok'});
+      }
     }
     return channels;
   }
@@ -148,10 +154,11 @@ class _MainPageState extends State<MainPage> {
       _refreshBatteryStatus();
       _batteryService.startRefreshTimer();
 
-      // 加载推送通道配置
+      // 加载推送通道配置 + 启动每日归档定时器
       await _webhookService.loadChannels();
       final emailService = GetIt.instance<EmailService>();
       await emailService.loadChannels();
+      _notificationService.startDailyExport();
       setState(() {});
 
       await _checkFirstLaunch();
@@ -942,7 +949,7 @@ class _MainPageState extends State<MainPage> {
               title: const Text('确认导出'),
               content: const Text(
                 '通知记录将导出为 JSON 文件，包含通知内容和设备信息。\n\n'
-                '文件将保存到外部存储，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？',
+                '请选择保存位置，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？',
               ),
               actions: [
                 TextButton(
@@ -956,13 +963,32 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
           );
-          if (confirm != true) return '';
-          final path = await _notificationService.exportRecords(
+          if (confirm != true) return {'success': false, 'message': '已取消'};
+          final json = await _notificationService.buildExportJson(
             _deviceInfoService.deviceName,
             _deviceInfoService.deviceModel,
             _deviceInfoService.manufacturer,
           );
-          return path;
+          final result = await AppChannels.notification.invokeMethod(
+            'saveFile',
+            {
+              'fileName':
+                  'notice_export_${DateTime.now().millisecondsSinceEpoch}.json',
+              'content': json,
+            },
+          );
+          if (result is Map) return Map<String, dynamic>.from(result);
+          return {'success': false, 'message': '导出异常'};
+        },
+        onClearToday: () async {
+          final count = await _notificationService.clearToday();
+          setState(() {});
+          return count;
+        },
+        onClearLastN: (int n) async {
+          final count = await _notificationService.clearLastN(n);
+          setState(() {});
+          return count;
         },
       ),
     );
@@ -1058,7 +1084,11 @@ class _MainPageState extends State<MainPage> {
     final emailService = EmailService();
     final channels = await emailService.loadChannels();
     final result = await _pushPage<List<Map<String, dynamic>>>(
-      EmailSettingsPage(emailChannels: channels.map((c) => c.toMap()).toList()),
+      EmailSettingsPage(
+        emailChannels: channels
+            .map((c) => c.toMap(includePassword: true))
+            .toList(),
+      ),
     );
     if (result != null) {
       final updatedChannels = result

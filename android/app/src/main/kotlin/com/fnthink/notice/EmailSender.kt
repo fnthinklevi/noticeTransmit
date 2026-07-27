@@ -81,7 +81,32 @@ object EmailSender {
             Log.e(TAG, msg, e)
             Pair(false, msg)
         } catch (e: javax.mail.MessagingException) {
-            val msg = "邮件协议错误: ${e.message}"
+            val rawMsg = e.message ?: ""
+            val msg = when {
+                rawMsg.contains("530", ignoreCase = true) ->
+                    "SMTP 认证失败(530)，请检查账号和授权码"
+                rawMsg.contains("534", ignoreCase = true) || rawMsg.contains("535", ignoreCase = true) ->
+                    "SMTP 认证失败，请检查账号和授权码是否正确"
+                rawMsg.contains("550", ignoreCase = true) ->
+                    "收件人地址被拒绝(550)，请检查收件邮箱地址"
+                rawMsg.contains("553", ignoreCase = true) ->
+                    "发件人地址被拒绝(553)，请检查发件邮箱"
+                rawMsg.contains("554", ignoreCase = true) ->
+                    "邮件被服务端拒绝(554)，可能触发反垃圾策略"
+                rawMsg.contains("421", ignoreCase = true) ->
+                    "SMTP 服务暂时不可用(421)，请稍后重试"
+                rawMsg.contains("450", ignoreCase = true) ->
+                    "收件人邮箱不存在或已停用(450)"
+                rawMsg.contains("504", ignoreCase = true) ->
+                    "SMTP 认证方式不支持(504)，请检查 SSL 开关设置"
+                rawMsg.contains("Connection refused", ignoreCase = true) ->
+                    "连接被拒绝，请检查 SMTP 地址和端口"
+                rawMsg.contains("UnknownHost", ignoreCase = true) || rawMsg.contains("Unable to resolve host", ignoreCase = true) ->
+                    "无法解析 SMTP 服务器地址，请检查域名是否正确"
+                rawMsg.contains("connect", ignoreCase = true) && rawMsg.contains("timed out", ignoreCase = true) ->
+                    "连接超时，请检查网络或防火墙设置"
+                else -> "邮件发送失败：${rawMsg.take(80)}"
+            }
             Log.e(TAG, msg, e)
             Pair(false, msg)
         } catch (e: Exception) {

@@ -1,11 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/email_channel.dart';
 import 'platform_channel.dart';
 
 /// 邮件通道持久化服务
 ///
-/// 存储策略（v1.5.45+）：
+/// 存储策略（v1.5.46+）：
 ///   1. 主存储 → 加密 SQLCipher 数据库（email_channels 表，AES-256）
 ///   2. 同步到原生端 → MethodChannel（供后台 NotificationMonitorService 读取）
 class EmailService {
@@ -25,13 +27,34 @@ class EmailService {
     await _syncToNative(channels);
   }
 
-  /// 从加密数据库加载邮件通道（含密码）
+  /// 从加密数据库加载邮件通道（含密码），若无数据则从旧存储迁移
   Future<List<EmailChannel>> loadChannels() async {
-    final rows = await _db.getEmailChannels();
+    var rows = await _db.getEmailChannels();
+    if (rows.isEmpty) {
+      rows = await _migrateFromLegacyStorage();
+    }
     final channels = rows.map((row) => EmailChannel.fromDbRow(row)).toList();
 
     cachedChannels = List.from(channels);
     return channels;
+  }
+
+  /// 从旧 SharedPreferences 迁移到加密数据库
+  Future<List<Map<String, dynamic>>> _migrateFromLegacyStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('email_channels');
+      if (list == null || list.isEmpty) return [];
+
+      final channels = list
+          .map((s) => jsonDecode(s) as Map<String, dynamic>)
+          .toList();
+      if (channels.isNotEmpty) {
+        await _db.saveEmailChannels(channels);
+        return channels;
+      }
+    } catch (_) {}
+    return [];
   }
 
   /// 同步到原生端（含密码），供后台 NotificationMonitorService 分发邮件

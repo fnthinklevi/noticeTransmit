@@ -16,6 +16,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   static const _channel = AppChannels.notification;
 
   late List<TextEditingController> _webhookControllers;
+  late List<TextEditingController> _nameControllers;
   late List<bool> _webhookEnabled;
   bool _isTesting = false;
   String? _testResult;
@@ -29,11 +30,15 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     _webhookControllers = widget.webhookChannels
         .map((c) => TextEditingController(text: c['url'] as String? ?? ''))
         .toList();
+    _nameControllers = widget.webhookChannels
+        .map((c) => TextEditingController(text: c['name'] as String? ?? ''))
+        .toList();
     _webhookEnabled = widget.webhookChannels
         .map((c) => c['enabled'] as bool? ?? true)
         .toList();
     if (_webhookControllers.isEmpty) {
       _webhookControllers.add(TextEditingController());
+      _nameControllers.add(TextEditingController());
       _webhookEnabled.add(true);
     }
   }
@@ -41,6 +46,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   void _addWebhookField() {
     setState(() {
       _webhookControllers.add(TextEditingController());
+      _nameControllers.add(TextEditingController());
       _webhookEnabled.add(true);
     });
   }
@@ -48,10 +54,13 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   void _removeWebhookField(int index) {
     setState(() {
       _webhookControllers[index].dispose();
+      _nameControllers[index].dispose();
       _webhookControllers.removeAt(index);
+      _nameControllers.removeAt(index);
       _webhookEnabled.removeAt(index);
       if (_webhookControllers.isEmpty) {
         _webhookControllers.add(TextEditingController());
+        _nameControllers.add(TextEditingController());
         _webhookEnabled.add(true);
       }
     });
@@ -70,8 +79,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     final channels = <Map<String, dynamic>>[];
     for (int i = 0; i < _webhookControllers.length; i++) {
       final url = _webhookControllers[i].text.trim();
+      final name = _nameControllers[i].text.trim();
       if (url.isNotEmpty) {
-        channels.add({'url': url, 'enabled': _webhookEnabled[i]});
+        channels.add({'url': url, 'name': name, 'enabled': _webhookEnabled[i]});
       }
     }
     if (!mounted) return;
@@ -261,6 +271,38 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _nameControllers[index],
+            decoration: InputDecoration(
+              hintText: '通道名称（可选，如 企业微信·通知）',
+              hintStyle: TextStyle(
+                fontSize: 13,
+                color: AppColors.tertiaryLabel(context),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.separator(context)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.separator(context)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.blue),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              isDense: true,
+            ),
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.primaryLabel(context),
+            ),
           ),
           const SizedBox(height: 10),
           TextField(
