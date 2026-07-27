@@ -62,7 +62,12 @@ class _MainPageState extends State<MainPage> {
     final emailService = GetIt.instance<EmailService>();
     for (final c in emailService.cachedChannels) {
       if (c.enabled) {
-        channels.add({'type': '邮件', 'name': c.name, 'status': 'ok'});
+        final tested = emailService.cachedTestResults[c.id];
+        channels.add({
+          'type': '邮件',
+          'name': c.name,
+          'status': tested == null ? 'ok' : (tested ? 'ok' : 'error'),
+        });
       }
     }
     return channels;

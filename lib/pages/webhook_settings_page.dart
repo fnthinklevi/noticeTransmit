@@ -81,7 +81,17 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final url = _webhookControllers[i].text.trim();
       final name = _nameControllers[i].text.trim();
       if (url.isNotEmpty) {
-        channels.add({'url': url, 'name': name, 'enabled': _webhookEnabled[i]});
+        // 自动识别通道类型
+        String channelType = 'generic';
+        if (url.contains('qyapi.weixin.qq.com')) channelType = '0';
+        else if (url.contains('oapi.dingtalk.com')) channelType = '1';
+        else if (url.contains('open.feishu.cn')) channelType = '2';
+        channels.add({
+          'url': url,
+          'name': name,
+          'channelType': channelType,
+          'enabled': _webhookEnabled[i],
+        });
       }
     }
     if (!mounted) return;

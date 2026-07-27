@@ -13,6 +13,7 @@ import 'platform_channel.dart';
 class EmailService {
   final DatabaseHelper _db = DatabaseHelper();
   List<EmailChannel> cachedChannels = [];
+  final Map<String, bool> cachedTestResults = {};
 
   /// 保存所有邮件通道（含密码）到加密数据库
   Future<void> saveChannels(List<EmailChannel> channels) async {

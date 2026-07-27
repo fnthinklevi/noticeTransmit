@@ -21,6 +21,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   final _emailService = GetIt.instance<EmailService>();
   int? _testingIndex;
   bool _editorTesting = false;
+  final Map<String, bool> _emailTestResults = {};
 
   @override
   void initState() {
@@ -109,12 +110,24 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   : AppColors.secondaryLabel(context),
             ),
           ),
-          subtitle: Text(
-            '${channel.fromEmail} → ${channel.toEmail}',
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.secondaryLabel(context),
-            ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${channel.fromEmail} → ${channel.toEmail}',
+                style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+              ),
+              if (_emailTestResults.containsKey(channel.id))
+                Text(
+                  _emailTestResults[channel.id] == true ? '✅ 验证通过' : '❌ 验证失败',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _emailTestResults[channel.id] == true
+                        ? AppColors.green
+                        : AppColors.red,
+                  ),
+                ),
+            ],
           ),
           trailing: Switch(
             value: channel.enabled,
@@ -199,8 +212,39 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
       _showEditor(existing: _channels[index], index: index);
 
   void _deleteChannel(int index) {
-    setState(() => _channels.removeAt(index));
+    setState(() {
+      _channels.removeAt(index);
+      _emailTestResults.remove(_channels[index].id);
+    });
     _save();
+  }
+
+  Future<void> _saveAndTest({
+    required EmailChannel channel,
+    required EmailChannel? existing,
+    required int? index,
+  }) async {
+    setState(() {
+      if (index != null) {
+        _channels[index] = channel;
+      } else {
+        _channels.add(channel);
+      }
+    });
+    await _save();
+    // 自动测试
+    final result = await _emailService.testEmail(channel);
+    final success = result?['success'] == true;
+    final message = result?['message']?.toString() ?? '未知结果';
+    _emailTestResults[channel.id] = success;
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(success ? '测试通过，配置已保存' : '验证失败: $message'),
+          duration: const Duration(seconds: 3),
+        ));
+    }
   }
 
   Future<void> _doEditorTest(EmailChannel channel) async {
@@ -219,8 +263,10 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     setState(() => _testingIndex = index);
     final result = await _emailService.testEmail(_channels[index]);
     if (!mounted) return;
-    setState(() => _testingIndex = null);
+    final success = result?['success'] == true;
     final message = result?['message']?.toString() ?? '未知结果';
+    _emailTestResults[_channels[index].id] = success;
+    setState(() => _testingIndex = null);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -322,11 +368,11 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                       _channels.add(channel);
                     }
                   });
-                  _save();
+                  _saveAndTest(channel: channel, existing: existing, index: index);
                   Navigator.pop(context);
                 },
                 child: const Text(
-                  '保存',
+                  '测试并保存',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),

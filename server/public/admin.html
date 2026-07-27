@@ -193,7 +193,6 @@
       <div class="card">
         <div class="tab-bar">
           <button class="tab active" onclick="switchTab('version')">版本管理</button>
-          <button class="tab" onclick="switchTab('hotfix')">热更新管理</button>
           <button class="tab" onclick="switchTab('security')">安全设置</button>
           <button class="tab" onclick="switchTab('status')">服务状态</button>
         </div>
@@ -258,63 +257,6 @@
           <div class="form-group" style="margin-top: 16px;">
             <label>JSON 预览</label>
             <div id="versionJson" class="json-viewer"></div>
-          </div>
-        </div>
-
-        <div id="hotfixTab" class="hidden">
-          <h2>热更新配置 <span id="hotfixForceBadge" class="force-badge hidden">强制更新</span></h2>
-          <div id="hotfixStatus" class="status info">请点击"加载数据"获取当前配置</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>内容版本号</label>
-              <input type="number" id="h_latestContentVersion" placeholder="1">
-            </div>
-            <div class="form-group">
-              <label>版本号</label>
-              <input type="text" id="h_version" placeholder="1.0.0">
-            </div>
-            <div class="form-group">
-              <label>最低 APP 版本</label>
-              <input type="text" id="h_minAppVersion" placeholder="1.0.0">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>下载地址</label>
-              <input type="text" id="h_downloadUrl" placeholder="https://cdn.example.com/hotfix.zip">
-            </div>
-            <div class="form-group">
-              <label>文件大小（字节）</label>
-              <input type="number" id="h_fileSize" placeholder="0">
-            </div>
-            <div class="form-group">
-              <label>平台</label>
-              <select id="h_platform">
-                <option value="android">Android</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group checkbox">
-            <input type="checkbox" id="h_forceUpdate">
-            <label for="h_forceUpdate">启用强制更新</label>
-          </div>
-          <div id="hForceUpdateFields" class="hidden">
-            <div class="form-group">
-              <label>强制更新内容版本</label>
-              <input type="number" id="h_forceContentVersion" placeholder="低于此版本强制更新">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>更新说明</label>
-            <textarea id="h_changelog" placeholder="热更新内容说明"></textarea>
-          </div>
-          <div class="btn-group">
-            <button class="btn btn-primary" onclick="saveHotfix()">保存热更新配置</button>
-            <button class="btn btn-secondary" onclick="loadHotfix()">刷新数据</button>
-          </div>
-          <div class="form-group" style="margin-top: 16px;">
-            <label>JSON 预览</label>
-            <div id="hotfixJson" class="json-viewer"></div>
           </div>
         </div>
 
@@ -391,7 +333,6 @@
         if (t.getAttribute('onclick').includes(tab)) t.classList.add('active');
       });
       document.getElementById('versionTab').classList.add('hidden');
-      document.getElementById('hotfixTab').classList.add('hidden');
       document.getElementById('securityTab').classList.add('hidden');
       document.getElementById('statusTab').classList.add('hidden');
       document.getElementById(`${tab}Tab`).classList.remove('hidden');
@@ -403,8 +344,23 @@
         headers['x-session-id'] = sessionId;
       }
       const response = await fetch(url, { ...options, headers });
+      const contentType = response.headers.get('content-type') || '';
+      // 非 JSON 响应（通常是 404/502/nginx 错误页）
+      if (!contentType.includes('application/json')) {
+        const text = await response.text().catch(() => '');
+        console.error('fetchWithSession: 非JSON响应', response.status, text.substring(0, 200));
+        if (response.status === 401 || response.status === 403) {
+          logout();
+        }
+        throw new Error(`服务器异常 (${response.status}): ${text.substring(0, 100)}`);
+      }
       const result = await response.json();
-      if (result.code === -1 && result.message === '未授权') {
+      console.log('fetchWithSession:', url, result.code);
+      // 任何需要重新登录的响应都触发 logout
+      if (response.status === 401 || result.requireAuth === true || result.need2FA === true) {
+        logout();
+      }
+      if (result.code === -1 && (result.message === '未授权' || result.message?.includes('会话'))) {
         logout();
       }
       return result;
@@ -601,7 +557,6 @@
       document.getElementById('loginSection').classList.add('hidden');
       document.getElementById('mainSection').classList.remove('hidden');
       loadVersion();
-      loadHotfix();
       loadSecurityStatus();
     }
 
@@ -671,62 +626,6 @@
         }
       } catch (e) {
         showStatus('versionStatus', 'error', '网络错误: ' + e.message);
-      }
-    }
-
-    async function loadHotfix() {
-      try {
-        const result = await fetchWithSession(`${API_BASE}/api/admin/hotfix`);
-        if (result.code === 0) {
-          const data = result.data;
-          document.getElementById('h_latestContentVersion').value = data.latestContentVersion || '';
-          document.getElementById('h_version').value = data.version || '';
-          document.getElementById('h_minAppVersion').value = data.minAppVersion || '';
-          document.getElementById('h_downloadUrl').value = data.downloadUrl || '';
-          document.getElementById('h_fileSize').value = data.fileSize || '';
-          document.getElementById('h_platform').value = data.platform || 'android';
-          document.getElementById('h_changelog').value = data.changelog || '';
-          document.getElementById('h_forceUpdate').checked = data.forceUpdate || false;
-          document.getElementById('h_forceContentVersion').value = data.forceContentVersion || '';
-          toggleForceFields('h', data.forceUpdate);
-          document.getElementById('hotfixJson').textContent = JSON.stringify(data, null, 2);
-          document.getElementById('hotfixForceBadge').classList.toggle('hidden', !data.forceUpdate);
-          showStatus('hotfixStatus', 'success', '数据加载成功');
-        } else {
-          showStatus('hotfixStatus', 'error', result.message || '加载失败');
-        }
-      } catch (e) {
-        showStatus('hotfixStatus', 'error', '网络错误: ' + e.message);
-      }
-    }
-
-    async function saveHotfix() {
-      const data = {
-        latestContentVersion: parseInt(document.getElementById('h_latestContentVersion').value) || 0,
-        version: document.getElementById('h_version').value,
-        minAppVersion: document.getElementById('h_minAppVersion').value,
-        downloadUrl: document.getElementById('h_downloadUrl').value,
-        fileSize: parseInt(document.getElementById('h_fileSize').value) || 0,
-        platform: document.getElementById('h_platform').value,
-        changelog: document.getElementById('h_changelog').value,
-        forceUpdate: document.getElementById('h_forceUpdate').checked,
-        forceContentVersion: parseInt(document.getElementById('h_forceContentVersion').value) || 0
-      };
-      try {
-        const result = await fetchWithSession(`${API_BASE}/api/admin/hotfix`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        if (result.code === 0) {
-          showStatus('hotfixStatus', 'success', '保存成功');
-          document.getElementById('hotfixJson').textContent = JSON.stringify(data, null, 2);
-          document.getElementById('hotfixForceBadge').classList.toggle('hidden', !data.forceUpdate);
-        } else {
-          showStatus('hotfixStatus', 'error', result.message || '保存失败');
-        }
-      } catch (e) {
-        showStatus('hotfixStatus', 'error', '网络错误: ' + e.message);
       }
     }
 
@@ -866,17 +765,16 @@
     }
 
     function toggleForceFields(prefix, show) {
-      const el = document.getElementById(prefix === 'v' ? 'forceUpdateFields' : 'hForceUpdateFields');
-      el.classList.toggle('hidden', !show);
+      const el = document.getElementById('forceUpdateFields');
+      if (el) el.classList.toggle('hidden', !show);
     }
 
-    document.getElementById('v_forceUpdate').addEventListener('change', (e) => {
-      toggleForceFields('v', e.target.checked);
-    });
-
-    document.getElementById('h_forceUpdate').addEventListener('change', (e) => {
-      toggleForceFields('h', e.target.checked);
-    });
+    const vForceUpdate = document.getElementById('v_forceUpdate');
+    if (vForceUpdate) {
+      vForceUpdate.addEventListener('change', (e) => {
+        toggleForceFields('v', e.target.checked);
+      });
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('step1').classList.remove('hidden');

@@ -18,5 +18,17 @@
 -keep class net.sqlcipher.** { *; }
 -keep class net.sqlcipher.database.** { *; }
 
+# javax.mail (SMTP 邮件发送，依赖反射加载传输协议)
+-dontwarn com.sun.mail.**
+-dontwarn javax.mail.**
+-dontwarn javax.activation.**
+-keep class com.sun.mail.** { *; }
+-keep class javax.mail.** { *; }
+-keep class javax.activation.** { *; }
+-keep class com.sun.mail.handlers.** { *; }
+-keep class com.sun.mail.smtp.** { *; }
+# 保留服务提供者配置文件
+-keepnames class * extends javax.mail.Provider
+
 -keepattributes Signature
 -keepattributes *Annotation*
