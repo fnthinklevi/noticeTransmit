@@ -403,10 +403,12 @@ class MorePage extends StatelessWidget {
                 const SizedBox(height: 4),
                 ...AppLanguage.values.map(
                   (lang) => ListTile(
-                    onTap: () async {
-                      await localeService.setLanguage(lang);
-                      onChangeLanguage(lang);
-                      Navigator.pop(ctx);
+                    onTap: () {
+                      final navigator = Navigator.of(ctx);
+                      localeService.setLanguage(lang).then((_) {
+                        onChangeLanguage(lang);
+                        navigator.pop();
+                      });
                     },
                     title: Text(
                       langNames[lang] ?? '',

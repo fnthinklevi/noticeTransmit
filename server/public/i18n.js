@@ -59,8 +59,32 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['本地保存推送历史，支持搜索、详情查看与导出，随时回溯每一条通知去向。'] = 'Locally saved push history with search, detail view, and export. Track every notification.';
   D['深色模式'] = 'Dark Mode';
   D['浅色 / 深色 / 跟随系统三种主题，Cupertino 设计语言，界面简洁优雅。'] = 'Light / Dark / System three themes. Cupertino design language. Clean, elegant interface.';
+  D['推送通道类型'] = 'Push Channel Types';
+  D['款可选应用图标'] = 'App Icon Variants';
+  D['通知本地处理'] = 'Local Processing';
   D['多语言国际化'] = 'Multi-language i18n';
   D['全应用中英双语支持（120+ 处迁移），设置页一键切换语言。'] = 'Full-app Chinese/English bilingual, switch language in settings page.';
+  // feature cards — updated v1.5.48
+  D['Webhook + 邮件双通道'] = 'Webhook + Email Dual Channel';
+  D['Webhook（企业微信 / 钉钉 / 飞书）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhook (WeCom / DingTalk / Feishu) + SMTP Email (SSL/STARTTLS), each channel independently toggleable, subject/body support template variables.';
+  // how it works — updated v1.5.48
+  D['按格式封装，并行推送至 Webhook / 邮件通道'] = 'Packaged per format, pushed in parallel to all Webhook / Email channels';
+  D['SMTP 邮件'] = 'SMTP Email';
+  D['SSL/STARTTLS 加密'] = 'SSL/STARTTLS Encryption';
+  // download buttons
+  D['下载 arm64'] = 'Download arm64';
+  D['下载 arm32'] = 'Download arm32';
+  D['下载 x86_64'] = 'Download x86_64';
+  D['下载 全平台'] = 'Download All';
+  // hero — updated v1.5.48
+  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎与自定义电量提醒。'] = 'An Android notification listener & push tool. Forward any notification via Webhook (WeCom / DingTalk / Feishu) or SMTP email in real time. App filtering, keyword filtering, visual rule engine & custom battery alerts included.';
+  // FAQ — updated v1.5.48
+  D['它会不会上传我的通知或短信内容？'] = 'Does it upload my notifications or SMS?';
+  D['不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 或 SMTP 邮件通道发出，开发者不存储任何推送内容。仅崩溃统计（腾讯 Bugly）会采集崩溃堆栈用于修复问题。'] = 'No. All notifications, SMS, contacts stay on-device. Push goes only through your configured Webhook or SMTP email. The developer stores nothing. Only crash logs (Tencent Bugly) are collected for bugfixing.';
+  D['支持哪些推送平台？'] = 'Which platforms are supported?';
+  D['内置适配企业微信群机器人、钉钉自定义机器人、飞书群机器人的消息格式；支持 SMTP 邮件推送（SSL/STARTTLS）；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。'] = 'Built-in support for WeCom group bots, DingTalk custom bots, and Feishu group bots. Also supports SMTP email push (SSL/STARTTLS) and any custom Webhook URL for third-party services or your own backend.';
+  // footer — updated v1.5.48
+  D['Android 通知监听与推送工具。开源、免费、本地处理，支持 Webhook 和 SMTP 邮件双通道。让每条通知抵达每个平台。由 幻念团队 fnthinklevi 打造。'] = 'Android notification listener & push tool. Open source, free, local processing. Webhook + SMTP dual channel. Every notification to every platform. Built by fnthinklevi.';
   D['后台保活 · 在线更新'] = 'Background Persistence & Updates';
   D['前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新，无需重装。'] = 'Foreground service + battery whitelist + auto-start for reliable persistence. OTA updates supported.';
   D['通知，如何抵达你想要的地方'] = 'How Notifications Reach You';
@@ -93,7 +117,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['AES-256-GCM 加密'] = 'AES-256-GCM Encryption';
   D['TOTP secret 等敏感数据加密存储，密钥泄露也无法直接读取。'] = 'Sensitive data like TOTP secrets are encrypted. Even with a leaked key, data remains unreadable.';
   D['通知不上云'] = 'Stay Local';
-  D['所有通知、短信、通讯录仅在本地处理与推送，不会上传到任何服务器。推送只经你自己配置的 Webhook 发出。仅崩溃统计（腾讯 Bugly）会采集必要的崩溃堆栈、设备型号、系统版本用于修复问题。'] = 'All notifications, SMS, contacts processed locally. Push goes only through your Webhook. Only Bugly collects minimal crash data (stack trace, device model, OS version) for bugfixing.';
+  D['所有通知、短信、通讯录仅在本地处理与推送，不会上传到任何服务器。推送只经你自己配置的 Webhook 或 SMTP 邮件通道发出。仅崩溃统计（腾讯 Bugly）会采集必要的崩溃堆栈、设备型号、系统版本用于修复问题。'] = 'All notifications, SMS, contacts processed locally. Push goes only through your configured Webhook or SMTP email. Only Bugly collects minimal crash data (stack trace, device model, OS version) for bugfixing.';
   D['现代、可靠的工程底座'] = 'Modern, Reliable Engineering Foundation';
   D['跨端 Flutter + 原生 Kotlin 后台服务 + Node.js 更新服务，全链路开源可审计。'] = 'Cross-platform Flutter + native Kotlin background service + Node.js update server. Full-stack open source, fully auditable.';
   D['现在，就让通知流动起来'] = 'Let Notifications Flow';
@@ -190,12 +214,12 @@ D['通知推送助手'] = 'NoticeTransmit';
     // 更新 <title> 和 <meta> description
     document.title = l === 'zh'
       ? '通知推送助手 · 让每条通知，抵达每个平台'
-      : 'NoticeTransmit · 通知推送助手';
+      : 'NoticeTransmit · Every Notification, Every Platform';
     var metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.content = l === 'zh'
-        ? '通知推送助手 —— Android 通知监听与 Webhook 推送工具。支持企业微信 / 钉钉 / 飞书多平台，具备应用筛选、关键词过滤、可视化规则引擎、电量提醒、二步验证等功能。开源、免费、本地处理。'
-        : 'Notification Push Helper — Android notification listener & Webhook push tool. Supports WeCom, DingTalk, Feishu. Features app filtering, keyword filtering, visual rule engine, battery alerts, and 2FA. Open source, free, local processing.';
+        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书）和 SMTP 邮件双通道，具备应用筛选、关键词过滤、可视化规则引擎、电量提醒等功能。开源、免费、本地处理。'
+        : 'NoticeTransmit — Android notification listener & push tool. Webhook (WeCom / DingTalk / Feishu) + SMTP email dual channel. App filtering, keyword filtering, visual rule engine, battery alerts. Open source, free, local processing.';
     }
   }
 

@@ -569,12 +569,13 @@ class VersionCheckResult {
   });
 
   factory VersionCheckResult.fromJson(Map<String, dynamic> json) {
-    final downloads =
-        Map<String, String>.from(json['downloads'] as Map? ?? {});
-    final fileSizes =
-        Map<String, int>.from((json['fileSizes'] as Map? ?? {}).map(
-          (k, v) => MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
-        ));
+    final downloads = Map<String, String>.from(json['downloads'] as Map? ?? {});
+    final fileSizes = Map<String, int>.from(
+      (json['fileSizes'] as Map? ?? {}).map(
+        (k, v) =>
+            MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
+      ),
+    );
     // API 模式兼容：优先取直接字段，缺失时从 downloads/fileSizes map 回退（默认 arm64）
     final downloadUrl = (json['downloadUrl'] as String?)?.isNotEmpty == true
         ? json['downloadUrl'] as String
