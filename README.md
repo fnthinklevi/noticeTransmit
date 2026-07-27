@@ -61,7 +61,7 @@
 - 🎲 **安全随机数** - 使用 crypto.randomUUID() 生成会话 ID
 - 🗄️ **SQLite 加密** - 通知记录、Webhook 配置全部 AES-256 加密存储，密钥存于 AndroidKeyStore
 - 🔑 **Webhook 密钥安全** - Webhook URL（含钉钉/企微/飞书认证 key）使用 AndroidKeyStore 加密存储
-- 🔐 **SSL 证书固定** - 4 个 HTTP 客户端均预置证书固定基础设施，防中间人攻击
+- 🔐 **SSL 证书固定** - `PinnedHttpClient` 基础设施已就位（2 个 HTTP 客户端），使用 Cloudflare CDN 暂不启用，启用指南见 base.md
 - 🔒 **HTTPS 强制** - 全站 HTTPS，`network_security_config.xml` 禁止明文传输
 
 ## 技术栈

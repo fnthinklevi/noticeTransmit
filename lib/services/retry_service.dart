@@ -15,9 +15,20 @@ class RetryService {
   Timer? _retryTimer;
   bool _isRunning = false;
 
-  /// SSL 证书固定的 HTTP 客户端。不配置时仅做标准 TLS 验证。
-  /// 配置示例：{ 'notice.fnthink.top': 'AA:BB:CC:...' }
-  static const _pinnedFingerprints = <String, String>{};
+  /// SSL 证书固定（当前未启用）
+  ///
+  /// 本服务使用 Cloudflare CDN，边缘证书由 Cloudflare 自动管理，指纹不固定，
+  /// 直接固定叶子证书指纹会导致证书续期后 App 全体断连。
+  ///
+  /// 如需启用：
+  /// 1. Cloudflare Dashboard → SSL/TLS → Origin Server → 上传自签名源站证书
+  /// 2. 获取该证书的 SHA256 指纹：
+  ///    openssl x509 -noout -fingerprint -sha256 -in origin.pem | sed 's/.*=//'
+  /// 3. 将指纹填入下方 map，域名与 Cloudflare 一致
+  static const _pinnedFingerprints = <String, String>{
+    // 'notice.fnthink.top': 'AA:BB:CC:DD:EE:FF:...',
+    // 'xget.fnthink.top': 'AA:BB:CC:DD:EE:FF:...',
+  };
   static final http.Client _httpClient = PinnedHttpClient.create(
     pinnedFingerprints: _pinnedFingerprints,
   );

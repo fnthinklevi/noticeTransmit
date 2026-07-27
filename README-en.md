@@ -61,7 +61,7 @@ Notification Push Helper is a privacy-focused Android notification forwarding to
 - 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
 - 🗄️ **SQLite Encryption** - All notification records and webhook configs stored with AES-256 encryption, key in AndroidKeyStore
 - 🔑 **Webhook Key Protection** - Webhook URLs (including DingTalk/WeCom/Feishu auth keys) encrypted via AndroidKeyStore
-- 🔐 **SSL Certificate Pinning** - Infrastructure ready across 4 HTTP clients to prevent MITM attacks
+- 🔐 **SSL Certificate Pinning** - `PinnedHttpClient` infrastructure ready (2 HTTP clients), currently disabled due to Cloudflare CDN; see base.md for enablement guide
 - 🔒 **Mandatory HTTPS** - Site-wide HTTPS enforced via `network_security_config.xml`
 
 ## Technology Stack
