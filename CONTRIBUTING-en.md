@@ -170,9 +170,9 @@ source file may contain the keystore path, password, or alias in plaintext.
 
 ---
 
-## 8. Release Flow (Five-Update Flow)
+## 8. Release Flow (Standard Release Process)
 
-> Maintainer-only. Each client release must synchronously update the changelog, version config, and artifact naming.
+> Maintainer-only. Each client release must synchronously update the changelog, version config, artifact naming, website content, and all markdown docs.
 
 1. **Code freeze**: changes done; `dart format` + `flutter analyze` clean.
 2. **Bump version**: edit `pubspec.yaml` `version: X.Y.Z+NN` (`versionName` and `versionCode` increment together, e.g. `1.5.38+72`).
