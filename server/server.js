@@ -758,6 +758,13 @@ app.get('/api/version/check', (req, res) => {
     (compareVersions(versionData.forceUpdateVersion || versionData.latestVersion, version) > 0 ||
      versionData.forceUpdateBuild > Number(build || 0));
 
+  const downloads = versionData.downloads || {};
+  const fileSizes = versionData.fileSizes || {};
+  // 根据平台参数解析对应的单架构下载链接和大小（默认 arm64）
+  const platformKey = platform === 'x86_64' ? 'x86_64' : (platform === 'armeabi-v7a' ? 'arm32' : 'arm64');
+  const downloadUrl = downloads[platformKey] || downloads['all'] || '';
+  const fileSize = fileSizes[platformKey] || fileSizes['all'] || 0;
+
   res.json({
     code: 0,
     message: 'success',
@@ -767,8 +774,10 @@ app.get('/api/version/check', (req, res) => {
       latestBuild: versionData.latestBuild,
       forceUpdate: needForce,
       changelog: versionData.changelog,
-      downloads: versionData.downloads || {},
-      fileSizes: versionData.fileSizes || {},
+      downloadUrl,
+      fileSize,
+      downloads,
+      fileSizes,
       minSupportedVersion: versionData.minSupportedVersion
     }
   });

@@ -569,16 +569,29 @@ class VersionCheckResult {
   });
 
   factory VersionCheckResult.fromJson(Map<String, dynamic> json) {
+    final downloads =
+        Map<String, String>.from(json['downloads'] as Map? ?? {});
+    final fileSizes =
+        Map<String, int>.from((json['fileSizes'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
+        ));
+    // API 模式兼容：优先取直接字段，缺失时从 downloads/fileSizes map 回退（默认 arm64）
+    final downloadUrl = (json['downloadUrl'] as String?)?.isNotEmpty == true
+        ? json['downloadUrl'] as String
+        : (downloads['arm64'] ?? downloads['all'] ?? '');
+    final fileSize = ((json['fileSize'] as int?) ?? 0) > 0
+        ? (json['fileSize'] as int)
+        : (fileSizes['arm64'] ?? fileSizes['all'] ?? 0);
     return VersionCheckResult(
       hasUpdate: json['hasUpdate'] ?? false,
       latestVersion: json['latestVersion'] ?? '',
       latestBuild: json['latestBuild'] ?? 0,
       forceUpdate: json['forceUpdate'] ?? false,
       changelog: json['changelog'] ?? '',
-      downloadUrl: json['downloadUrl'] ?? '',
-      fileSize: json['fileSize'] ?? 0,
+      downloadUrl: downloadUrl,
+      fileSize: fileSize,
       minSupportedVersion: json['minSupportedVersion'] ?? '',
-      downloads: Map<String, String>.from(json['downloads'] as Map? ?? {}),
+      downloads: downloads,
     );
   }
 

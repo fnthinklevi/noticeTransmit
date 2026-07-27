@@ -6,10 +6,10 @@
   "forceUpdateBuild": 81,
   "changelog": "v1.5.48: 全应用多语言国际化(120+处迁移) + 单架构APK纯净构建(arm64 25.2MB/arm32 21.3MB/x86_64 27.1MB) + 平台品牌名英文化 + Flutter格式与分析规范落定",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/notice_arm64_1.5.48.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/notice_arm32_1.5.48.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/notice_x86_1.5.48.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/notice_all_1.5.48.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_arm64_1.5.48.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_arm32_1.5.48.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_x86_1.5.48.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_all_1.5.48.apk"
   },
   "fileSizes": {
     "arm64": 26380334,
