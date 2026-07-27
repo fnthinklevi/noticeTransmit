@@ -151,8 +151,10 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['是免费的吗？开源吗？'] = 'Is it free? Open source?';
   D['完全免费，且在 GitHub 开源（MIT 许可，供学习交流使用）。欢迎提交 Issue 与 Pull Request 参与共建。'] = 'Completely free and open source on GitHub (MIT License). Issues and Pull Requests welcome!';
 
-  // lang toggle 按钮文字
-  D['English'] = '中文';
+  // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
+  // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换
+  D['版本 v1.5.48'] = 'Version v1.5.48';
+  D['约 25.2 MB'] = '~ 25.2 MB';
 
   // ── 当前语言 ──
   var lang = localStorage.getItem('lang');
