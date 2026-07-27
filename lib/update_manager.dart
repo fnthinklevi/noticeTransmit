@@ -40,8 +40,8 @@ class AppUpdateManager {
 
   /// 回退版本号：仅当 native getAppVersion 调用失败时使用。
   /// 发版时同步更新为当前版本号。
-  static const String _fallbackVersion = '1.5.47';
-  static const int _fallbackBuild = 81;
+  static const String _fallbackVersion = '1.5.48';
+  static const int _fallbackBuild = 82;
 
   static const String _defaultDownloadDir =
       '/storage/emulated/0/Download/FnthinkNotice';
@@ -266,23 +266,25 @@ class AppUpdateManager {
                       0) >
                   currentBuild);
 
-  // 解析 downloads（v1.5.47+） / 兼容旧 downloadUrl
-    final downloads = Map<String, String>.from(
-      versionData['downloads'] as Map? ?? {},
-    );
-    final fileSizes = Map<String, int>.from(
-      (versionData['fileSizes'] as Map? ?? {}).map(
-        (k, v) => MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
-      ),
-    );
-    final abiKey = await _getRealAbi();
-    final downloadUrl = downloads[abiKey] ??
-        downloads['all'] ??
-        versionData['downloadUrl']?.toString() ??
-        '';
-    final fileSize = fileSizes[abiKey] ?? fileSizes['all'] ?? 0;
+      // 解析 downloads（v1.5.47+） / 兼容旧 downloadUrl
+      final downloads = Map<String, String>.from(
+        versionData['downloads'] as Map? ?? {},
+      );
+      final fileSizes = Map<String, int>.from(
+        (versionData['fileSizes'] as Map? ?? {}).map(
+          (k, v) =>
+              MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
+        ),
+      );
+      final abiKey = await _getRealAbi();
+      final downloadUrl =
+          downloads[abiKey] ??
+          downloads['all'] ??
+          versionData['downloadUrl']?.toString() ??
+          '';
+      final fileSize = fileSizes[abiKey] ?? fileSizes['all'] ?? 0;
 
-    final result = VersionCheckResult(
+      final result = VersionCheckResult(
         hasUpdate: hasUpdate,
         latestVersion: latestVersion,
         latestBuild: latestBuild,
@@ -329,9 +331,7 @@ class AppUpdateManager {
     if (Platform.isAndroid) {
       // android-arm → armeabi-v7a, android-arm64 → arm64-v8a,
       // android-x64 → x86_64, android → 融合包
-      return Platform.isAndroid
-          ? 'arm64'
-          : 'all'; // Flutter TARGET_PLATFORM
+      return Platform.isAndroid ? 'arm64' : 'all'; // Flutter TARGET_PLATFORM
     }
     return 'all';
   }
@@ -339,7 +339,9 @@ class AppUpdateManager {
   /// 获取真实设备 ABI（通过 MethodChannel 从原生获取）
   static Future<String> _getRealAbi() async {
     try {
-      final abis = await AppChannels.notification.invokeMethod('getSupportedAbis');
+      final abis = await AppChannels.notification.invokeMethod(
+        'getSupportedAbis',
+      );
       if (abis is List && abis.isNotEmpty) {
         for (final abi in abis) {
           final s = abi.toString();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../l10n/app_localizations.dart';
 import '../models/email_channel.dart';
 import '../services/email_service.dart';
 import '../theme/app_colors.dart';
@@ -33,8 +34,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('邮件转发通道')),
+      appBar: AppBar(title: Text(l10n.emailSettingsTitle)),
       body: _channels.isEmpty
           ? Center(
               child: Column(
@@ -47,7 +49,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '暂无邮件通道',
+                    l10n.noEmailChannels,
                     style: TextStyle(
                       fontSize: 16,
                       color: AppColors.secondaryLabel(context),
@@ -55,7 +57,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '点击下方按钮添加',
+                    l10n.clickToAdd,
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.tertiaryLabel(context),
@@ -82,14 +84,16 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   }
 
   Widget _buildAddButton() {
+    final l10n = AppLocalizations.of(context);
     return ElevatedButton.icon(
       onPressed: _addChannel,
       icon: const Icon(Icons.add),
-      label: const Text('添加邮件通道'),
+      label: Text(l10n.addEmailChannel),
     );
   }
 
   Widget _buildChannelTile(int index) {
+    final l10n = AppLocalizations.of(context);
     final channel = _channels[index];
     final isTesting = _testingIndex == index;
 
@@ -122,7 +126,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
               ),
               if (_emailTestResults.containsKey(channel.id))
                 Text(
-                  _emailTestResults[channel.id] == true ? '✅ 验证通过' : '❌ 验证失败',
+                  _emailTestResults[channel.id] == true
+                      ? l10n.testPassed
+                      : l10n.testFailed,
                   style: TextStyle(
                     fontSize: 11,
                     color: _emailTestResults[channel.id] == true
@@ -153,21 +159,21 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
           child: Row(
             children: [
               _actionChip(
-                label: '编辑',
+                label: l10n.edit,
                 icon: Icons.settings_outlined,
                 color: AppColors.blue,
                 onTap: () => _editChannel(index),
               ),
               const SizedBox(width: 8),
               _actionChip(
-                label: isTesting ? '测试中...' : '测试',
+                label: isTesting ? l10n.testing : l10n.test,
                 icon: Icons.send_outlined,
                 color: AppColors.green,
                 onTap: isTesting ? null : () => _testChannel(index),
               ),
               const SizedBox(width: 8),
               _actionChip(
-                label: '删除',
+                label: l10n.delete,
                 icon: Icons.delete_outline,
                 color: AppColors.red,
                 onTap: () => _deleteChannel(index),
@@ -227,6 +233,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     required EmailChannel? existing,
     required int? index,
   }) async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       if (index != null) {
         _channels[index] = channel;
@@ -245,7 +252,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(success ? '测试通过，配置已保存' : '验证失败: $message'),
+            content: Text(
+              success ? l10n.testPassedSaved : l10n.verifyFailed(message),
+            ),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -280,6 +289,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   }
 
   void _showEditor({EmailChannel? existing, int? index}) {
+    final l10n = AppLocalizations.of(context);
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final hostCtrl = TextEditingController(text: existing?.smtpHost ?? '');
     final portCtrl = TextEditingController(
@@ -300,7 +310,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
       MaterialPageRoute(
         builder: (_) => Scaffold(
           appBar: AppBar(
-            title: Text(existing != null ? '编辑邮件通道' : '添加邮件通道'),
+            title: Text(
+              existing != null ? l10n.editEmailChannel : l10n.addEmailChannel,
+            ),
             actions: [
               if (existing != null)
                 _editorTesting
@@ -316,7 +328,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                         padding: const EdgeInsets.only(right: 4),
                         child: TextButton.icon(
                           icon: const Icon(Icons.send_outlined, size: 16),
-                          label: const Text('测试发送'),
+                          label: Text(l10n.testSend),
                           onPressed: () {
                             setState(() => _editorTesting = true);
                             final testChannel = EmailChannel(
@@ -380,9 +392,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   );
                   Navigator.pop(context);
                 },
-                child: const Text(
-                  '测试并保存',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                child: Text(
+                  l10n.testAndSave,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -393,18 +405,18 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
               builder: (ctx, setModalState) => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _field(nameCtrl, '通道名称', hint: '如：QQ邮箱'),
+                  _field(nameCtrl, '通道名称', hint: l10n.channelNameHint),
                   const SizedBox(height: 12),
                   _field(
                     hostCtrl,
-                    'SMTP 服务器',
+                    l10n.smtpHost,
                     hint: 'smtp.qq.com',
                     keyboardType: TextInputType.url,
                   ),
                   const SizedBox(height: 12),
                   _field(
                     portCtrl,
-                    '端口号',
+                    l10n.smtpPort,
                     hint: '465 (SSL) 或 587 (STARTTLS)',
                     keyboardType: TextInputType.number,
                   ),
@@ -421,7 +433,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     child: Row(
                       children: [
                         Text(
-                          'SSL 加密',
+                          l10n.useSSL,
                           style: TextStyle(
                             fontSize: 16,
                             color: AppColors.primaryLabel(context),
@@ -438,35 +450,35 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   const SizedBox(height: 12),
                   _field(
                     usernameCtrl,
-                    'SMTP 账号',
+                    l10n.smtpAccount,
                     hint: 'your@email.com',
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 12),
                   _field(
                     passwordCtrl,
-                    '密码/授权码',
+                    l10n.smtpPassword,
                     hint: 'SMTP 授权码（非邮箱密码）',
                     obscure: true,
                   ),
                   const SizedBox(height: 12),
                   _field(
                     fromCtrl,
-                    '发件人',
+                    l10n.fromEmail,
                     hint: 'your@email.com',
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 12),
                   _field(
                     toCtrl,
-                    '收件人',
+                    l10n.toEmail,
                     hint: '可多个，逗号分隔',
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 12),
                   _field(
                     subjectCtrl,
-                    '主题模板（可选）',
+                    l10n.subjectTemplate,
                     hint: '默认：🔔 %appName% — %title%',
                   ),
                   Padding(
@@ -476,28 +488,32 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                       runSpacing: 6,
                       children: [
                         _presetChip(
-                          '默认',
+                          l10n.presetDefault,
                           '🔔 %appName% — %title%',
                           subjectCtrl,
                         ),
-                        _presetChip('简洁', '%appName% — %title%', subjectCtrl),
                         _presetChip(
-                          '详细',
+                          l10n.presetSimple,
+                          '%appName% — %title%',
+                          subjectCtrl,
+                        ),
+                        _presetChip(
+                          l10n.presetDetailed,
                           '%appName% — %title%\n内容：%content%',
                           subjectCtrl,
                         ),
                         _presetChip(
-                          '时间',
+                          l10n.presetTime,
                           '%time% %appName% — %title%',
                           subjectCtrl,
                         ),
                         _presetChip(
-                          '验证码',
+                          l10n.presetCode,
                           '[%appName%] 验证码通知 — %title%',
                           subjectCtrl,
                         ),
                         _presetChip(
-                          '设备',
+                          l10n.presetDevice,
                           '[%deviceName%] %appName% — %title%',
                           subjectCtrl,
                         ),
@@ -507,7 +523,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6, left: 4),
                     child: Text(
-                      '可用变量：%appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%',
+                      l10n.availableVars,
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.tertiaryLabel(context),
@@ -516,7 +532,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    '正文模板（可选）',
+                    l10n.bodyTemplate,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -541,24 +557,24 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        _presetChip('默认', '', bodyCtrl),
+                        _presetChip(l10n.presetDefault, '', bodyCtrl),
                         _presetChip(
-                          '标准',
+                          l10n.presetStandard,
                           '应用：%appName%\n标题：%title%\n内容：%content%\n时间：%time%\n设备：%deviceName%',
                           bodyCtrl,
                         ),
                         _presetChip(
-                          '完整',
+                          l10n.presetComplete,
                           '应用：%appName%\n标题：%title%\n内容：%content%\n副标题：%subText%\n包名：%packageName%\n时间：%time%\n设备：%deviceName%',
                           bodyCtrl,
                         ),
                         _presetChip(
-                          '验证码',
+                          l10n.presetCode,
                           '验证码：%content%\n来源：%appName%(%packageName%)\n时间：%time%',
                           bodyCtrl,
                         ),
                         _presetChip(
-                          '极简',
+                          l10n.presetMinimal,
                           '%appName%：%title%\n%content%',
                           bodyCtrl,
                         ),

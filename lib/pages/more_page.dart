@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../services/update_service.dart';
 import '../services/locale_service.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'stats_page.dart';
@@ -54,15 +55,16 @@ class MorePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final enabledCount = webhookChannels
         .where((c) => c['enabled'] == true)
         .length;
     return Scaffold(
-      appBar: AppBar(title: const Text('更多')),
+      appBar: AppBar(title: Text(l10n.tabMore)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          _buildSectionHeader('外观设置', context),
+          _buildSectionHeader(l10n.appearance, context),
           _buildGroup([
             _buildThemeTile(context),
             _buildDivider(context),
@@ -71,23 +73,26 @@ class MorePage extends StatelessWidget {
             const IconPickerTile(),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader('推送设置', context),
+          _buildSectionHeader(l10n.pushSettings, context),
           _buildGroup([
             _buildNavTile(
               icon: Icons.link,
               iconColor: AppColors.blue,
-              title: 'Webhook 推送通道',
+              title: l10n.webhookChannel,
               subtitle: webhookChannels.isEmpty
-                  ? '未配置'
-                  : '已配置 ${webhookChannels.length} 个 · 启用 $enabledCount 个',
+                  ? l10n.webhookNotConfigured
+                  : l10n.webhookConfigured(
+                      webhookChannels.length,
+                      enabledCount,
+                    ),
               onTap: onOpenWebhookSettings,
               context: context,
             ),
             _buildNavTile(
               icon: Icons.email,
               iconColor: AppColors.orange,
-              title: '邮件转发通道',
-              subtitle: 'SMTP 邮件通知',
+              title: l10n.emailChannel,
+              subtitle: l10n.emailChannelDesc,
               onTap: onOpenEmailSettings,
               context: context,
             ),
@@ -95,8 +100,8 @@ class MorePage extends StatelessWidget {
             _buildNavTile(
               icon: Icons.apps,
               iconColor: const Color(0xFFAF52DE),
-              title: '应用筛选',
-              subtitle: _appFilterSubtitle,
+              title: l10n.appFilter,
+              subtitle: _appFilterSubtitle(context),
               onTap: onOpenAppFilter,
               context: context,
             ),
@@ -104,8 +109,11 @@ class MorePage extends StatelessWidget {
             _buildNavTile(
               icon: Icons.filter_list,
               iconColor: const Color(0xFFFF9500),
-              title: '关键词过滤',
-              subtitle: '白名单 $whitelistCount 条 · 黑名单 $blacklistCount 条',
+              title: l10n.keywordFilter,
+              subtitle: l10n.keywordWhitelistBlacklist(
+                whitelistCount,
+                blacklistCount,
+              ),
               onTap: onOpenKeywords,
               context: context,
             ),
@@ -113,20 +121,22 @@ class MorePage extends StatelessWidget {
             _buildNavTile(
               icon: Icons.rule,
               iconColor: const Color(0xFFAF52DE),
-              title: '规则引擎',
-              subtitle: ruleCount > 0 ? '$ruleCount 条规则' : '点击添加规则',
+              title: l10n.ruleEngine,
+              subtitle: ruleCount > 0
+                  ? l10n.ruleCount(ruleCount)
+                  : l10n.ruleEmpty,
               onTap: onOpenRules,
               context: context,
             ),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader('设备', context),
+          _buildSectionHeader(l10n.device, context),
           _buildGroup([
             _buildNavTile(
               icon: Icons.smartphone,
               iconColor: AppColors.green,
-              title: '设备名称',
-              subtitle: deviceName.isEmpty ? '未设置' : deviceName,
+              title: l10n.deviceName,
+              subtitle: deviceName.isEmpty ? l10n.notSet : deviceName,
               onTap: onShowDeviceNameDialog,
               context: context,
             ),
@@ -134,8 +144,8 @@ class MorePage extends StatelessWidget {
             _buildNavTile(
               icon: Icons.bar_chart,
               iconColor: const Color(0xFF5856D6),
-              title: '推送统计',
-              subtitle: '查看推送数据统计',
+              title: l10n.pushStats,
+              subtitle: l10n.pushStatsDesc,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const StatsPage()),
@@ -144,13 +154,13 @@ class MorePage extends StatelessWidget {
             ),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader('关于与更新', context),
+          _buildSectionHeader(l10n.aboutUpdate, context),
           _buildGroup([
             _buildNavTile(
               icon: Icons.update,
               iconColor: AppColors.blue,
-              title: '检查更新',
-              subtitle: isCheckingUpdate ? '正在检查...' : '点击检查新版本',
+              title: l10n.checkUpdate,
+              subtitle: isCheckingUpdate ? l10n.checking : l10n.clickToCheck,
               trailing: isCheckingUpdate
                   ? const SizedBox(
                       width: 18,
@@ -165,8 +175,8 @@ class MorePage extends StatelessWidget {
             _buildNavTile(
               icon: Icons.privacy_tip_outlined,
               iconColor: AppColors.green,
-              title: '隐私政策',
-              subtitle: '数据采集与隐私保护说明',
+              title: l10n.privacyPolicyTitle,
+              subtitle: l10n.privacyPolicyDesc,
               onTap: onOpenPrivacyPolicy,
               context: context,
             ),
@@ -174,8 +184,8 @@ class MorePage extends StatelessWidget {
             _buildNavTile(
               icon: Icons.info_outline,
               iconColor: const Color(0xFF8E8E93),
-              title: '关于',
-              subtitle: '版本信息、作者介绍',
+              title: l10n.aboutTitle,
+              subtitle: l10n.aboutDesc,
               onTap: onShowAboutDialog,
               context: context,
             ),
@@ -196,13 +206,14 @@ class MorePage extends StatelessWidget {
     );
   }
 
-  String get _appFilterSubtitle {
+  String _appFilterSubtitle(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (enabledPackagesCount > 0) {
       return appFilterMode == 'block'
-          ? '已屏蔽 $enabledPackagesCount 个应用'
-          : '已选择 $enabledPackagesCount 个应用';
+          ? l10n.appFilterBlocked(enabledPackagesCount)
+          : l10n.appFilterSelected(enabledPackagesCount);
     }
-    return '全部应用都推送';
+    return l10n.appFilterAll;
   }
 
   Widget _buildSectionHeader(String title, BuildContext context) {
@@ -244,10 +255,11 @@ class MorePage extends StatelessWidget {
   }
 
   Widget _buildThemeTile(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final themeNames = {
-      ThemeMode.system: '跟随系统',
-      ThemeMode.light: '浅色模式',
-      ThemeMode.dark: '深色模式',
+      ThemeMode.system: l10n.followSystem,
+      ThemeMode.light: l10n.lightMode,
+      ThemeMode.dark: l10n.darkMode,
     };
     final themeIcons = {
       ThemeMode.system: Icons.brightness_auto,
@@ -266,7 +278,7 @@ class MorePage extends StatelessWidget {
           builder: (context) => AlertDialog(
             backgroundColor: AppColors.cardBg(context),
             title: Text(
-              '深色模式',
+              l10n.darkMode,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
@@ -334,7 +346,7 @@ class MorePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '深色模式',
+                    l10n.darkMode,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -343,7 +355,7 @@ class MorePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    themeNames[themeMode] ?? '跟随系统',
+                    themeNames[themeMode] ?? l10n.followSystem,
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.secondaryLabel(context),
@@ -364,11 +376,12 @@ class MorePage extends StatelessWidget {
   }
 
   Widget _buildLanguageTile(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final localeService = GetIt.instance<LocaleService>();
     final langNames = {
-      AppLanguage.system: '默认',
-      AppLanguage.zh: '中文',
-      AppLanguage.en: 'English',
+      AppLanguage.system: l10n.langDefault,
+      AppLanguage.zh: l10n.langChinese,
+      AppLanguage.en: l10n.langEnglish,
     };
     return InkWell(
       onTap: () {
@@ -377,7 +390,7 @@ class MorePage extends StatelessWidget {
           builder: (ctx) => AlertDialog(
             backgroundColor: AppColors.cardBg(ctx),
             title: Text(
-              '语言',
+              l10n.language,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
@@ -390,8 +403,8 @@ class MorePage extends StatelessWidget {
                 const SizedBox(height: 4),
                 ...AppLanguage.values.map(
                   (lang) => ListTile(
-                    onTap: () {
-                      localeService.setLanguage(lang);
+                    onTap: () async {
+                      await localeService.setLanguage(lang);
                       onChangeLanguage(lang);
                       Navigator.pop(ctx);
                     },
@@ -435,7 +448,7 @@ class MorePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '语言',
+                    l10n.language,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -444,7 +457,7 @@ class MorePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    langNames[localeService.language] ?? '默认',
+                    langNames[localeService.language] ?? l10n.langDefault,
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.secondaryLabel(context),

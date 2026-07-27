@@ -6,13 +6,13 @@
 
 **English / [中文](README.md)**
 
-A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload. Supports Webhook (WeCom / DingTalk / Feishu) and SMTP email push, all configs AES-256 encrypted.
+A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload. Supports Webhook (WeCom / DingTalk / Feishu) and SMTP email push, all configs AES-256 encrypted. **Full-app Chinese/English i18n**.
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.47/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.48/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -23,7 +23,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 
 ## Introduction
 
-NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu) or SMTP email. Fully on-device processing — zero data upload. Open source MIT, free, no ads.
+NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu) or SMTP email. Fully on-device processing — zero data upload. Full-app Chinese/English i18n. Open source MIT, free, no ads.
 
 ## Features
 
@@ -45,6 +45,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 
 ### Experience Optimization
 
+- 🌐 **Multi-language i18n** - Full-app Chinese/English bilingual support (120+ strings migrated), switch language freely in settings
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
 - 🔄 **Online Update** - Support version update, no need to reinstall APK; flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)

@@ -67,6 +67,36 @@ android {
         targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 按 Flutter --target-platform 动态设置 ABI 过滤
+        // 单架构包必须纯净，只含一种 .so，不得混入其他架构的第三方库！
+        // 检测优先级：环境变量 > Flutter Gradle 属性 > 多架构回退
+        ndk {
+            abiFilters.clear()
+            val envTarget = System.getenv("FLUTTER_TARGET_PLATFORM")
+            val flutterTarget = project.findProperty("flutter.targetPlatform") as? String
+            val targetPlatform = envTarget ?: flutterTarget ?: ""
+            when {
+                targetPlatform.contains("arm64") && !targetPlatform.contains(",") -> {
+                    abiFilters.add("arm64-v8a")
+                    println("[abiFilter] 单架构 arm64-v8a")
+                }
+                targetPlatform.contains("x64") && !targetPlatform.contains(",") -> {
+                    abiFilters.add("x86_64")
+                    println("[abiFilter] 单架构 x86_64")
+                }
+                targetPlatform.contains("arm") && !targetPlatform.contains("arm64") && !targetPlatform.contains(",") -> {
+                    abiFilters.add("armeabi-v7a")
+                    println("[abiFilter] 单架构 armeabi-v7a")
+                }
+                else -> {
+                    abiFilters.add("arm64-v8a")
+                    abiFilters.add("armeabi-v7a")
+                    abiFilters.add("x86_64")
+                    println("[abiFilter] 融合包（全架构）")
+                }
+            }
+        }
     }
 
     buildTypes {

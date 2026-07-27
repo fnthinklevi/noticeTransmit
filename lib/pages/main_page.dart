@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/platform_channel.dart';
 import '../services/services.dart';
@@ -25,7 +26,9 @@ import 'rule_list_page.dart';
 import 'privacy_policy_page.dart';
 
 class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+  final ValueChanged<Locale>? onLocaleChanged;
+
+  const MainPage({super.key, this.onLocaleChanged});
 
   @override
   State<MainPage> createState() => _MainPageState();
@@ -251,7 +254,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               await localeService.recordSystemLang();
               if (mounted) {
                 Navigator.pop(ctx, true);
-                _rebuildApp();
+                widget.onLocaleChanged?.call(localeService.currentLocale);
               }
             },
             style: FilledButton.styleFrom(
@@ -267,14 +270,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     );
   }
 
-  void _rebuildApp() {
-    GetIt.instance<LocaleService>();
+  Future<void> _onChangeLanguage(AppLanguage lang) async {
+    final localeService = GetIt.instance<LocaleService>();
+    await localeService.setLanguage(lang);
     setState(() {});
-  }
-
-  void _onChangeLanguage(AppLanguage lang) {
-    GetIt.instance<LocaleService>().setLanguage(lang);
-    setState(() {});
+    widget.onLocaleChanged?.call(localeService.currentLocale);
   }
 
   /// 显示短时效的提示条（2 秒），并在弹出前/跳转前先收起上一条，
@@ -1187,6 +1187,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final pages = _buildPages();
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: pages),
@@ -1196,21 +1197,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           setState(() => _currentIndex = index);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.notifications),
-            selectedIcon: Icon(Icons.notifications_active),
-            label: '通知',
+            icon: const Icon(Icons.notifications),
+            selectedIcon: const Icon(Icons.notifications_active),
+            label: l10n.tabNotification,
           ),
           NavigationDestination(
-            icon: Icon(Icons.battery_full),
-            selectedIcon: Icon(Icons.battery_charging_full),
-            label: '电量',
+            icon: const Icon(Icons.battery_full),
+            selectedIcon: const Icon(Icons.battery_charging_full),
+            label: l10n.tabBattery,
           ),
           NavigationDestination(
-            icon: Icon(Icons.more_horiz),
-            selectedIcon: Icon(Icons.more_horiz),
-            label: '更多',
+            icon: const Icon(Icons.more_horiz),
+            selectedIcon: const Icon(Icons.more_horiz),
+            label: l10n.tabMore,
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import 'package:get_it/get_it.dart';
@@ -34,10 +35,11 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: const Text('推送统计'),
+        title: Text(l10n.pushStats),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadStats),
         ],
@@ -60,6 +62,7 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildSummaryCards(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final todayCount = _dailyStats.firstOrNull?['count'] as int? ?? 0;
     final totalCount = _stats.fold(
       0,
@@ -86,7 +89,7 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text('今日推送', style: TextStyle(fontSize: 13)),
+                Text(l10n.statsToday, style: const TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -110,7 +113,7 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text('总推送数', style: TextStyle(fontSize: 13)),
+                Text(l10n.statsTotal, style: const TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -134,7 +137,7 @@ class _StatsPageState extends State<StatsPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text('应用数', style: TextStyle(fontSize: 13)),
+                Text(l10n.statsApps, style: const TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -144,6 +147,7 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildDailyStats(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final maxCount = _dailyStats.isEmpty
         ? 0
         : _dailyStats
@@ -160,7 +164,7 @@ class _StatsPageState extends State<StatsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '近7天推送趋势',
+            l10n.statsTrend,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -173,7 +177,7 @@ class _StatsPageState extends State<StatsPage> {
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text(
-                  '暂无数据',
+                  l10n.statsNoData,
                   style: TextStyle(
                     color: AppColors.secondaryLabel(context),
                     fontSize: 14,
@@ -258,6 +262,7 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildAppStats(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final sortedStats = List<Map<String, dynamic>>.from(_stats)
       ..sort(
         (a, b) => (b['count'] as int? ?? 0).compareTo(a['count'] as int? ?? 0),
@@ -275,7 +280,7 @@ class _StatsPageState extends State<StatsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '应用推送排行',
+            l10n.statsRank,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -289,7 +294,9 @@ class _StatsPageState extends State<StatsPage> {
               final pkgName = stat['packageName'] as String?;
               final appName = (rawName != null && rawName.isNotEmpty)
                   ? rawName
-                  : ((pkgName != null && pkgName.isNotEmpty) ? pkgName : '未知');
+                  : ((pkgName != null && pkgName.isNotEmpty)
+                        ? pkgName
+                        : l10n.unknown);
               final count = stat['count'] as int? ?? 0;
               final totalCount = _stats.fold(
                 0,

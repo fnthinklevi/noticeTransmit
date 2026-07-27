@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
@@ -103,11 +104,12 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   }
 
   Future<void> _testWebhook(int index) async {
+    final l10n = AppLocalizations.of(context);
     final url = _webhookControllers[index].text.trim();
     if (url.isEmpty) {
       setState(() {
         _testSuccess = false;
-        _testResult = '请先输入 Webhook URL';
+        _testResult = l10n.webhookUrlRequired;
         _testIndex = index;
       });
       return;
@@ -123,7 +125,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     try {
       final result = await _channel.invokeMethod('testWebhook', {'url': url});
       final success = result['success'] as bool? ?? false;
-      final message = result['message'] as String? ?? '未知错误';
+      final message = result['message'] as String? ?? l10n.unknownError;
 
       setState(() {
         _isTesting = false;
@@ -134,17 +136,18 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       setState(() {
         _isTesting = false;
         _testSuccess = false;
-        _testResult = '测试失败: ${e.toString()}';
+        _testResult = l10n.testFailedMsg(e.toString());
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: const Text('Webhook 推送通道'),
+        title: Text(l10n.webhookSettingsTitle),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _saveAndBack,
@@ -154,9 +157,12 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text(
-                    '保存',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                : Text(
+                    l10n.save,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
           ),
         ],
@@ -164,7 +170,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          _buildSectionHeader('通道列表', context),
+          _buildSectionHeader(l10n.channelList, context),
           _buildGroup([
             ...List.generate(_webhookControllers.length, (index) {
               return Column(
@@ -193,20 +199,23 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: _addWebhookField,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.add_circle_outline,
                       size: 20,
                       color: AppColors.blue,
                     ),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     Text(
-                      '添加通道',
-                      style: TextStyle(
+                      l10n.addChannel,
+                      style: const TextStyle(
                         fontSize: 16,
                         color: AppColors.blue,
                         fontWeight: FontWeight.w500,
@@ -218,21 +227,18 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
             ),
           ),
           const SizedBox(height: 24),
-          _buildSectionHeader('说明', context),
+          _buildSectionHeader(l10n.notes, context),
           _buildGroup([
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _DescRow(
-                    text: '支持同时配置多个 Webhook 通道，每个通道可独立开关',
-                    context: context,
-                  ),
+                  _DescRow(text: l10n.webhookDesc1, context: context),
                   const SizedBox(height: 8),
-                  _DescRow(text: '自动识别企业微信、钉钉、飞书等平台格式', context: context),
+                  _DescRow(text: l10n.webhookDesc2, context: context),
                   const SizedBox(height: 8),
-                  _DescRow(text: '新添加的通道默认启用', context: context),
+                  _DescRow(text: l10n.webhookDesc3, context: context),
                 ],
               ),
             ),
@@ -243,6 +249,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   }
 
   Widget _buildChannelItem(int index, BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -257,7 +264,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  '通道 ${index + 1}',
+                  l10n.channelN(index + 1),
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.blue,
@@ -290,7 +297,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           TextField(
             controller: _nameControllers[index],
             decoration: InputDecoration(
-              hintText: '通道名称（可选，如 企业微信·通知）',
+              hintText: l10n.channelNameOptional,
               hintStyle: TextStyle(
                 fontSize: 13,
                 color: AppColors.tertiaryLabel(context),
@@ -322,7 +329,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           TextField(
             controller: _webhookControllers[index],
             decoration: InputDecoration(
-              hintText: 'https://example.com/webhook',
+              hintText: l10n.webhookUrlPlaceholder,
               hintStyle: TextStyle(color: AppColors.tertiaryLabel(context)),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -378,7 +385,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                         )
                       : const Icon(Icons.send, size: 16),
                   label: Text(
-                    (_isTesting && _testIndex == index) ? '测试中' : '测试',
+                    (_isTesting && _testIndex == index)
+                        ? l10n.testing
+                        : l10n.test,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -464,6 +473,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   }
 
   Widget _buildWebhookTypeHint(String urlStr, BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final url = urlStr.trim().toLowerCase();
     String typeName;
     IconData icon;
@@ -471,30 +481,30 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     String desc;
 
     if (url.contains('qyapi.weixin.qq.com') || url.contains('weixin.qq.com')) {
-      typeName = '企业微信';
+      typeName = l10n.platformWechat;
       icon = Icons.chat;
       color = const Color(0xFF07C160);
-      desc = '文本格式推送';
+      desc = l10n.platformWechatDesc;
     } else if (url.contains('oapi.dingtalk.com') || url.contains('dingtalk')) {
-      typeName = '钉钉';
+      typeName = l10n.platformDingtalk;
       icon = Icons.work;
       color = const Color(0xFF1677FF);
-      desc = '文本格式推送';
+      desc = l10n.platformWechatDesc;
     } else if (url.contains('feishu.cn') || url.contains('larksuite.com')) {
-      typeName = '飞书';
+      typeName = l10n.platformFeishu;
       icon = Icons.flight;
       color = AppColors.blue;
-      desc = '文本格式推送';
+      desc = l10n.platformWechatDesc;
     } else if (url.isEmpty) {
-      typeName = '待输入';
+      typeName = l10n.urlEmpty;
       icon = Icons.link_off;
       color = const Color(0xFF8E8E93);
-      desc = '请输入 Webhook URL';
+      desc = l10n.urlPlaceholder;
     } else {
-      typeName = '通用 JSON';
+      typeName = l10n.platformGeneric;
       icon = Icons.code;
       color = const Color(0xFFFF9500);
-      desc = '自定义 JSON 格式';
+      desc = l10n.platformGenericDesc;
     }
 
     return Container(

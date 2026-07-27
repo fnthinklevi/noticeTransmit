@@ -44,8 +44,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.47"
-        const val FALLBACK_BUILD = 81
+        const val FALLBACK_VERSION = "1.5.48"
+        const val FALLBACK_BUILD = 82
     }
 
     private val channel = "com.fnthink.notice/notification"

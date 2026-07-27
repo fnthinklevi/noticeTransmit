@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations_delegate.dart';
+import 'l10n/app_localizations.dart';
 import 'pages/main_page.dart';
 import 'pages/splash_page.dart';
 import 'di/service_locator.dart';
@@ -51,10 +52,22 @@ void main() {
 class DIErrorApp extends StatelessWidget {
   const DIErrorApp({super.key});
 
+  AppLocalizations _l10n(BuildContext context) {
+    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
+    if (l10n != null) return l10n;
+    // 错误回退：DIErrorApp 未配置 delegates，使用当前 locale 兜底
+    Locale locale = const Locale('zh');
+    try {
+      locale = GetIt.instance<LocaleService>().currentLocale;
+    } catch (_) {}
+    return AppLocalizations(locale);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = _l10n(context);
     return MaterialApp(
-      title: '通知推送助手',
+      title: l10n.appName,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
       home: Scaffold(
@@ -64,16 +77,19 @@ class DIErrorApp extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              const Text(
-                '应用启动失败',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                l10n.initFailed,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
-              const Text('依赖注入初始化失败，请重启应用'),
+              Text(l10n.initFailedMsg),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () => runApp(const MyApp()),
-                child: const Text('重试'),
+                child: Text(l10n.retry),
               ),
             ],
           ),
@@ -100,6 +116,7 @@ class MyAppState extends State<MyApp> {
   bool _servicesInitialized = false;
   bool? _privacyAccepted;
   bool _privacyDialogShown = false;
+  Locale _locale = const Locale('zh');
 
   static const _privacyAcceptedKey = 'privacy_policy_accepted';
 
@@ -126,71 +143,83 @@ class MyAppState extends State<MyApp> {
     exit(0);
   }
 
+  void _onLocaleChanged(Locale locale) {
+    setState(() {
+      _locale = locale;
+    });
+  }
+
   void _onDisagreeFirst(BuildContext dialogCtx) {
     showDialog(
       context: dialogCtx,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              size: 44,
-              color: AppColors.orange,
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '注意',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(ctx),
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: AppColors.cardBg(ctx),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.warning_amber_rounded,
+                size: 44,
+                color: AppColors.orange,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                l10n.privacyWarnTitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.privacyWarnBody,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                l10n.returnAgree,
+                style: TextStyle(
+                  color: AppColors.secondaryLabel(ctx),
+                  fontSize: 15,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              '您需要同意隐私政策才能使用本软件。\n\n'
-              '不同意将无法继续使用，软件将会退出。\n\n'
-              '确定要退出吗？',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: AppColors.primaryLabel(ctx),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).popUntil((route) => route.isFirst);
+                _rejectPrivacy();
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                l10n.confirmExit,
+                style: const TextStyle(fontSize: 15),
               ),
             ),
           ],
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              '返回同意',
-              style: TextStyle(
-                color: AppColors.secondaryLabel(ctx),
-                fontSize: 15,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).popUntil((route) => route.isFirst);
-              _rejectPrivacy();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('确定退出', style: TextStyle(fontSize: 15)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -200,74 +229,86 @@ class MyAppState extends State<MyApp> {
     showDialog(
       context: navContext,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-        title: null,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.shield_outlined, size: 44, color: AppColors.blue),
-            const SizedBox(height: 14),
-            Text(
-              '隐私政策',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(ctx),
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: AppColors.cardBg(ctx),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+          title: null,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.shield_outlined,
+                size: 44,
+                color: AppColors.blue,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                l10n.privacyTitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${l10n.privacyWelcome}\n\n${l10n.privacyBody}',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actions: [
+            TextButton(
+              onPressed: () => _onDisagreeFirst(ctx),
+              child: Text(
+                l10n.disagree,
+                style: TextStyle(
+                  color: AppColors.secondaryLabel(ctx),
+                  fontSize: 15,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              '欢迎使用通知推送助手！\n\n'
-              '在使用本应用前，请您仔细阅读我们的隐私政策。\n\n'
-              '• 所有通知内容仅在设备本地处理，不会上传到任何服务器\n'
-              '• 推送历史使用 AES-256 加密存储在本地\n'
-              '• 仅收集必要的崩溃日志（腾讯 Bugly）用于修复应用问题：崩溃堆栈、设备型号、系统版本、应用版本，不采集个人身份信息\n'
-              '• Webhook 配置使用 AndroidKeyStore 加密存储\n\n'
-              '点击"同意"即表示您已阅读并接受我们的隐私政策。',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: AppColors.primaryLabel(ctx),
+            FilledButton(
+              onPressed: () {
+                _acceptPrivacy();
+                Navigator.of(ctx).pop();
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              child: Text(l10n.agree, style: const TextStyle(fontSize: 15)),
             ),
           ],
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () => _onDisagreeFirst(ctx),
-            child: Text(
-              '不同意',
-              style: TextStyle(
-                color: AppColors.secondaryLabel(ctx),
-                fontSize: 15,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              _acceptPrivacy();
-              Navigator.of(ctx).pop();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('同意', style: TextStyle(fontSize: 15)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _onServicesInitialized() {
     setState(() => _servicesInitialized = true);
+    // 初始化 locale：读取 SharedPreferences 中保存的语言选择
+    try {
+      final localeService = GetIt.instance<LocaleService>();
+      localeService.init().then((_) {
+        if (mounted) {
+          setState(() => _locale = localeService.currentLocale);
+        }
+      });
+    } catch (_) {}
   }
 
   bool get _initialized => _themeInitialized && _servicesInitialized;
@@ -292,11 +333,10 @@ class MyAppState extends State<MyApp> {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeService.themeModeNotifier,
       builder: (context, themeMode, child) {
-        final localeService = GetIt.instance<LocaleService>();
         return MaterialApp(
           navigatorKey: _navigatorKey,
           title: 'NoticeTransmit',
-          locale: localeService.currentLocale,
+          locale: _locale,
           supportedLocales: const [Locale('zh'), Locale('en')],
           localizationsDelegates: const [
             AppLocalizationsDelegate(),
@@ -308,7 +348,7 @@ class MyAppState extends State<MyApp> {
           darkTheme: AppTheme.darkTheme(),
           themeMode: themeMode,
           home: _initialized
-              ? const MainPage()
+              ? MainPage(onLocaleChanged: _onLocaleChanged)
               : SplashPage(onInitCompleted: _onServicesInitialized),
         );
       },

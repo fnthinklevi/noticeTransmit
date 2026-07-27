@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
@@ -89,62 +90,66 @@ class _AppFilterPageState extends State<AppFilterPage>
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.apps, size: 44, color: AppColors.blue),
-            const SizedBox(height: 14),
-            Text(
-              '需要应用列表权限',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(ctx),
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: AppColors.cardBg(ctx),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.apps, size: 44, color: AppColors.blue),
+              const SizedBox(height: 14),
+              Text(
+                l10n.appListPermTitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.appListPermMsg,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                l10n.reject,
+                style: TextStyle(
+                  color: AppColors.secondaryLabel(ctx),
+                  fontSize: 15,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              '该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n'
-              '点击「允许」后将跳转到系统设置页，请手动开启权限。',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: AppColors.primaryLabel(ctx),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _channel.invokeMethod('requestQueryAllPackagesPermission');
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              child: Text(l10n.allow, style: const TextStyle(fontSize: 15)),
             ),
           ],
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              '拒绝',
-              style: TextStyle(
-                color: AppColors.secondaryLabel(ctx),
-                fontSize: 15,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _channel.invokeMethod('requestQueryAllPackagesPermission');
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('允许', style: TextStyle(fontSize: 15)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -183,9 +188,10 @@ class _AppFilterPageState extends State<AppFilterPage>
     } catch (e) {
       debugPrint('刷新应用列表失败: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('刷新失败：$e')));
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.refreshFailed(e.toString()))),
+        );
       }
     } finally {
       setState(() => _refreshing = false);
@@ -259,12 +265,13 @@ class _AppFilterPageState extends State<AppFilterPage>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: const Text(
-          '应用筛选',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          l10n.appFilter,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         actions: [
           IconButton(
@@ -279,13 +286,13 @@ class _AppFilterPageState extends State<AppFilterPage>
                   )
                 : const Icon(Icons.refresh, color: AppColors.blue),
             onPressed: _refreshing ? null : _manualRefreshApps,
-            tooltip: '更新软件列表',
+            tooltip: l10n.refreshAppList,
           ),
           TextButton(
             onPressed: _saveAndBack,
-            child: const Text(
-              '完成',
-              style: TextStyle(
+            child: Text(
+              l10n.done,
+              style: const TextStyle(
                 fontSize: 16,
                 color: AppColors.blue,
                 fontWeight: FontWeight.w600,
@@ -295,23 +302,23 @@ class _AppFilterPageState extends State<AppFilterPage>
         ],
       ),
       body: _checkedPermission && !_hasPermission
-          ? _buildPermissionRequestView()
-          : _buildAppListView(),
+          ? _buildPermissionRequestView(l10n)
+          : _buildAppListView(l10n),
     );
   }
 
-  String get _infoText {
+  String _infoText(AppLocalizations l10n) {
     if (_selectedMode == 'block') {
       return _selectedPackages.isEmpty
-          ? '当前模式：不通知应用 — 未选择时全部应用都推送通知'
-          : '已选择 ${_selectedPackages.length} 个应用，这些应用的通知不会被推送';
+          ? l10n.appFilterBlockModeInfo
+          : l10n.appFilterBlockModeSelected(_selectedPackages.length);
     }
     return _selectedPackages.isEmpty
-        ? '当前模式：通知应用 — 未选择时全部应用都推送通知（默认）'
-        : '已选择 ${_selectedPackages.length} 个应用，仅这些应用的通知会被推送';
+        ? l10n.appFilterAllowModeInfo
+        : l10n.appFilterAllowModeSelected(_selectedPackages.length);
   }
 
-  Widget _buildModeToggle() {
+  Widget _buildModeToggle(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -324,13 +331,13 @@ class _AppFilterPageState extends State<AppFilterPage>
           children: [
             _buildModeChip(
               icon: Icons.notifications_active,
-              label: '通知应用',
+              label: l10n.filterNotifyApps,
               mode: 'allow',
             ),
             const SizedBox(width: 4),
             _buildModeChip(
               icon: Icons.notifications_off,
-              label: '不通知应用',
+              label: l10n.filterBlockApps,
               mode: 'block',
             ),
           ],
@@ -391,7 +398,7 @@ class _AppFilterPageState extends State<AppFilterPage>
     );
   }
 
-  Widget _buildPermissionRequestView() {
+  Widget _buildPermissionRequestView(AppLocalizations l10n) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -413,7 +420,7 @@ class _AppFilterPageState extends State<AppFilterPage>
             ),
             const SizedBox(height: 20),
             Text(
-              '需要应用列表权限',
+              l10n.appListPermTitle,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -422,7 +429,7 @@ class _AppFilterPageState extends State<AppFilterPage>
             ),
             const SizedBox(height: 8),
             Text(
-              '为了能够筛选需要推送通知的应用，请授予应用读取已安装应用列表的权限。',
+              l10n.appListPermDesc2,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -443,9 +450,12 @@ class _AppFilterPageState extends State<AppFilterPage>
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  '前往开启权限',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                child: Text(
+                  l10n.goEnablePermission,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -453,7 +463,7 @@ class _AppFilterPageState extends State<AppFilterPage>
             TextButton(
               onPressed: _initLoad,
               child: Text(
-                '刷新重试',
+                l10n.refreshRetry,
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.secondaryLabel(context),
@@ -466,11 +476,11 @@ class _AppFilterPageState extends State<AppFilterPage>
     );
   }
 
-  Widget _buildAppListView() {
+  Widget _buildAppListView(AppLocalizations l10n) {
     return Column(
       children: [
         const SizedBox(height: 8),
-        _buildModeToggle(),
+        _buildModeToggle(l10n),
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -492,7 +502,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: '搜索应用名称或包名',
+                      hintText: l10n.searchAppHint,
                       hintStyle: TextStyle(
                         color: AppColors.secondaryLabel(context),
                         fontSize: 15,
@@ -529,7 +539,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                   child: Row(
                     children: [
                       Text(
-                        '显示系统应用',
+                        l10n.showSystemApps,
                         style: TextStyle(
                           fontSize: 15,
                           color: AppColors.primaryLabel(context),
@@ -574,9 +584,9 @@ class _AppFilterPageState extends State<AppFilterPage>
                             color: AppColors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
-                            '全选',
-                            style: TextStyle(
+                          child: Text(
+                            l10n.selectAll,
+                            style: const TextStyle(
                               color: AppColors.blue,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -599,7 +609,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '清空',
+                            l10n.deselectAll,
                             style: TextStyle(
                               color: AppColors.secondaryLabel(context),
                               fontSize: 14,
@@ -623,7 +633,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '反选',
+                            l10n.invertSelection,
                             style: TextStyle(
                               color: AppColors.secondaryLabel(context),
                               fontSize: 14,
@@ -634,7 +644,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                       ),
                       const Spacer(),
                       Text(
-                        '已选 ${_selectedPackages.length}',
+                        l10n.selectedCount(_selectedPackages.length),
                         style: TextStyle(
                           fontSize: 13,
                           color: AppColors.secondaryLabel(context),
@@ -664,7 +674,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _infoText,
+                    _infoText(l10n),
                     style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.blue,
@@ -685,7 +695,7 @@ class _AppFilterPageState extends State<AppFilterPage>
               : _filteredApps.isEmpty
               ? Center(
                   child: Text(
-                    '没有找到应用',
+                    l10n.noAppsFound,
                     style: TextStyle(color: AppColors.secondaryLabel(context)),
                   ),
                 )

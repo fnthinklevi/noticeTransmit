@@ -6,13 +6,13 @@
 
 **[English](README-en.md) / 中文**
 
-为 Android 设备提供**隐私优先**的通知转发工具。全链路本地处理，数据零上传。支持 Webhook（企业微信 / 钉钉 / 飞书）和 SMTP 邮件双通道推送，全部配置 AES-256 加密存储。
+为 Android 设备提供**隐私优先**的通知转发工具。全链路本地处理，数据零上传。支持 Webhook（企业微信 / 钉钉 / 飞书）和 SMTP 邮件双通道推送，全部配置 AES-256 加密存储。**全应用中英双语国际化**。
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.47/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.48/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -23,7 +23,7 @@
 
 ## 简介
 
-通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 Webhook（企业微信 / 钉钉 / 飞书）或 SMTP 邮件实时推送至目标平台。全链路本地处理，数据零上传。开源 MIT，免费无广告。
+通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 Webhook（企业微信 / 钉钉 / 飞书）或 SMTP 邮件实时推送至目标平台。全链路本地处理，数据零上传。全应用中英双语国际化。开源 MIT，免费无广告。
 
 ## 功能特性
 
@@ -45,6 +45,7 @@
 
 ### 体验优化
 
+- 🌐 **多语言国际化** - 全应用中英双语支持（120+ 处迁移），可在设置页自由切换语言
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
 - 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）

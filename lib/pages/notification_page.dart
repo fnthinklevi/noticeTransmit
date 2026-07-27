@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 
 class NotificationPage extends StatelessWidget {
@@ -27,8 +28,9 @@ class NotificationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('通知推送助手')),
+      appBar: AppBar(title: Text(l10n.appName)),
       body: RefreshIndicator(
         onRefresh: onRefresh,
         child: ListView(
@@ -72,7 +74,7 @@ class NotificationPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        foregroundServiceRunning ? '运行中' : '已停止',
+                        foregroundServiceRunning ? l10n.running : l10n.stopped,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -88,8 +90,8 @@ class NotificationPage extends StatelessWidget {
             Center(
               child: Text(
                 foregroundServiceRunning
-                    ? '通知监听服务正在运行，点击可停止'
-                    : '通知监听服务未启动，点击可启动',
+                    ? l10n.serviceRunning
+                    : l10n.serviceStopped,
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.secondaryLabel(context),
@@ -118,7 +120,7 @@ class NotificationPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '当前推送通道',
+                          l10n.currentChannels,
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -148,7 +150,7 @@ class NotificationPage extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                isOk ? '状态正常' : '状态异常',
+                                isOk ? l10n.statusOk : l10n.statusError,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -169,7 +171,7 @@ class NotificationPage extends StatelessWidget {
                       })
                     else
                       Text(
-                        '未配置推送通道',
+                        l10n.noChannels,
                         style: TextStyle(
                           fontSize: 13,
                           color: AppColors.tertiaryLabel(context),
@@ -183,8 +185,8 @@ class NotificationPage extends StatelessWidget {
             _buildQuickAction(
               icon: Icons.settings,
               iconColor: AppColors.blue,
-              title: '权限设置',
-              subtitle: '配置通知、电池、后台运行等权限',
+              title: l10n.permSettings,
+              subtitle: l10n.permSettingsDesc,
               onTap: onOpenPermissionSettings,
               context: context,
             ),
@@ -192,8 +194,8 @@ class NotificationPage extends StatelessWidget {
             _buildQuickAction(
               icon: Icons.history,
               iconColor: AppColors.green,
-              title: '推送历史',
-              subtitle: '共 $notificationCount 条记录',
+              title: l10n.pushHistory,
+              subtitle: l10n.recordCount(notificationCount),
               onTap: onOpenHistory,
               context: context,
             ),

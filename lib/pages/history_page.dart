@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../models/notification_record.dart';
 
@@ -156,11 +157,12 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _handleExport() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final result = await widget.onExport();
       if (!mounted) return;
       final message = result['message']?.toString() ?? '';
-      if (message.isEmpty || message == '已取消') return;
+      if (message.isEmpty || message == l10n.exportCancelled) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
@@ -172,7 +174,7 @@ class _HistoryPageState extends State<HistoryPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('导出失败: $e'),
+          content: Text('Error: $e'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -180,7 +182,10 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _showRecordDetail(NotificationRecord record) {
-    final appName = record.appName.isNotEmpty ? record.appName : '通知详情';
+    final l10n = AppLocalizations.of(context);
+    final appName = record.appName.isNotEmpty
+        ? record.appName
+        : l10n.notificationDetail;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -201,7 +206,7 @@ class _HistoryPageState extends State<HistoryPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '详细信息',
+                  l10n.detailInfo,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -231,8 +236,8 @@ class _HistoryPageState extends State<HistoryPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              '关闭',
+            child: Text(
+              l10n.close,
               style: TextStyle(
                 color: AppColors.blue,
                 fontWeight: FontWeight.w600,
@@ -251,8 +256,9 @@ class _HistoryPageState extends State<HistoryPage> {
     int index,
     int total,
   ) {
+    final l10n = AppLocalizations.of(context);
     final type = record.type;
-    final title = record.title.isNotEmpty ? record.title : '（无标题）';
+    final title = record.title.isNotEmpty ? record.title : l10n.noTitle;
     final content = record.content;
     final appName = record.appName;
     final time = _formatTime(record.postTime);
@@ -338,7 +344,7 @@ class _HistoryPageState extends State<HistoryPage> {
       columnChildren.add(const SizedBox(height: 4));
       columnChildren.add(
         Text(
-          '未配置推送通道',
+          l10n.noChannels,
           style: TextStyle(
             fontSize: 10,
             color: AppColors.secondaryLabel(context),
@@ -401,20 +407,21 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final records = _filteredRecords;
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: Text('历史记录 (${records.length})'),
+        title: Text(l10n.historyTitle(records.length)),
         actions: [
           IconButton(
             icon: const Icon(Icons.ios_share),
-            tooltip: '导出 JSON',
+            tooltip: l10n.exportJson,
             onPressed: widget.records.isEmpty ? null : _handleExport,
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.cleaning_services_outlined),
-            tooltip: '清除记录',
+            tooltip: l10n.clearRecords,
             onSelected: widget.records.isEmpty
                 ? null
                 : (value) async {
@@ -433,9 +440,9 @@ class _HistoryPageState extends State<HistoryPage> {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text('确认清除'),
+                            title: Text(l10n.confirmClear),
                             content: Text(
-                              '确定要清空全部 ${widget.records.length} 条记录吗？',
+                              l10n.clearConfirmMsg(widget.records.length),
                               style: TextStyle(
                                 color: AppColors.primaryLabel(ctx),
                               ),
@@ -443,12 +450,12 @@ class _HistoryPageState extends State<HistoryPage> {
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('取消'),
+                                child: Text(l10n.cancel),
                               ),
                               TextButton(
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text(
-                                  '确定',
+                                child: Text(
+                                  l10n.confirm,
                                   style: TextStyle(color: Colors.red),
                                 ),
                               ),
@@ -467,19 +474,19 @@ class _HistoryPageState extends State<HistoryPage> {
                       // ignore: use_build_context_synchronously
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('已清除 $deleted 条记录'),
+                          content: Text(l10n.clearedN(deleted)),
                           duration: const Duration(seconds: 2),
                         ),
                       );
                     }
                   },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'today', child: Text('清除今日')),
-              PopupMenuItem(value: 'last10', child: Text('清除最近 10 条')),
-              PopupMenuItem(value: 'last50', child: Text('清除最近 50 条')),
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'today', child: Text(l10n.clearToday)),
+              PopupMenuItem(value: 'last10', child: Text(l10n.clearLast10)),
+              PopupMenuItem(value: 'last50', child: Text(l10n.clearLast50)),
               PopupMenuItem(
                 value: 'all',
-                child: Text('清除全部', style: TextStyle(color: Colors.red)),
+                child: Text(l10n.clearAll, style: TextStyle(color: Colors.red)),
               ),
             ],
           ),
@@ -498,7 +505,7 @@ class _HistoryPageState extends State<HistoryPage> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: '搜索标题/内容/应用',
+                  hintText: l10n.searchHint,
                   hintStyle: TextStyle(
                     fontSize: 14,
                     color: AppColors.secondaryLabel(context),
@@ -551,7 +558,9 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          widget.records.isEmpty ? '暂无推送记录' : '没有匹配的记录',
+                          widget.records.isEmpty
+                              ? l10n.noRecords
+                              : l10n.noMatchRecords,
                           style: TextStyle(
                             color: AppColors.secondaryLabel(context),
                             fontSize: 15,

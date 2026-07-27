@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../l10n/app_localizations.dart';
 import '../services/services.dart';
 import '../theme/app_colors.dart';
 
@@ -18,7 +19,7 @@ class _SplashPageState extends State<SplashPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
-  String _statusText = '正在初始化...';
+  String? _statusText;
 
   @override
   void initState() {
@@ -39,10 +40,11 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _initServices() async {
+    final l10n = AppLocalizations.of(context);
     log('=== SplashPage 开始初始化服务 ===');
 
     try {
-      setState(() => _statusText = '加载 Webhook 配置...');
+      setState(() => _statusText = l10n.loadWebhook);
       log('加载 Webhook 配置');
       final webhookService = GetIt.instance<WebhookService>();
       await webhookService.loadChannels();
@@ -51,7 +53,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = '加载电池配置...');
+      setState(() => _statusText = l10n.loadBattery);
       log('加载电池配置');
       final batteryService = GetIt.instance<BatteryService>();
       await batteryService.loadSettings();
@@ -60,7 +62,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = '加载通知记录...');
+      setState(() => _statusText = l10n.loadRecords);
       log('加载通知记录');
       final notificationService = GetIt.instance<NotificationService>();
       await notificationService.loadRecords();
@@ -70,7 +72,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = '加载过滤配置...');
+      setState(() => _statusText = l10n.loadFilter);
       log('加载过滤配置');
       final filterService = GetIt.instance<FilterService>();
       await filterService.loadSettings();
@@ -79,7 +81,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = '初始化更新服务...');
+      setState(() => _statusText = l10n.initUpdate);
       log('初始化更新服务');
       final updateService = GetIt.instance<UpdateService>();
       await updateService.init();
@@ -88,7 +90,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = '初始化重试服务...');
+      setState(() => _statusText = l10n.initRetry);
       log('初始化重试服务');
       final retryService = GetIt.instance<RetryService>();
       await retryService.init();
@@ -96,7 +98,7 @@ class _SplashPageState extends State<SplashPage>
       log('初始化重试服务失败: $e');
     }
 
-    setState(() => _statusText = '初始化完成');
+    setState(() => _statusText = l10n.initComplete);
     log('=== 所有服务初始化完成 ===');
 
     await Future.delayed(const Duration(milliseconds: 300));
@@ -114,6 +116,7 @@ class _SplashPageState extends State<SplashPage>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       body: FadeTransition(
@@ -143,13 +146,16 @@ class _SplashPageState extends State<SplashPage>
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                '通知推送助手',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+              Text(
+                l10n.appName,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 32),
               Text(
-                _statusText,
+                _statusText ?? l10n.initializing,
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.secondaryLabel(context),

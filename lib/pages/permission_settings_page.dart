@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../l10n/app_localizations.dart';
 import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 
@@ -124,6 +125,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
           !_isSamsung;
 
   void _showAppListPermissionDialog() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -135,7 +137,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
             const Icon(Icons.apps, size: 44, color: AppColors.blue),
             const SizedBox(height: 14),
             Text(
-              '需要应用列表权限',
+              l10n.appListPermTitle,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -144,8 +146,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
             ),
             const SizedBox(height: 12),
             Text(
-              '该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n'
-              '点击「允许」后将跳转到系统设置页，请手动开启权限。',
+              l10n.appListPermMsg,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -160,7 +161,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
-              '拒绝',
+              l10n.reject,
               style: TextStyle(
                 color: AppColors.secondaryLabel(ctx),
                 fontSize: 15,
@@ -178,7 +179,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('允许', style: TextStyle(fontSize: 15)),
+            child: Text(l10n.allow, style: const TextStyle(fontSize: 15)),
           ),
         ],
       ),
@@ -187,19 +188,22 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('权限设置')),
+      appBar: AppBar(title: Text(l10n.permSettingsTitle)),
       body: RefreshIndicator(
         onRefresh: widget.onRefresh,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            _buildSectionHeader('必要权限', context),
+            _buildSectionHeader(l10n.essentialPerms, context),
             _buildGroup([
               _buildPermissionTile(
                 icon: Icons.notifications_active,
-                title: '通知访问权限',
-                subtitle: _notificationListenerGranted ? '已开启' : '未开启',
+                title: l10n.notifAccessPerm,
+                subtitle: _notificationListenerGranted
+                    ? l10n.enabled
+                    : l10n.disabled,
                 isOn: _notificationListenerGranted,
                 onTap: _notificationListenerGranted
                     ? null
@@ -209,8 +213,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.notification_add,
-                title: '允许通知',
-                subtitle: _postNotificationGranted ? '已开启' : '未开启',
+                title: l10n.allowNotifications,
+                subtitle: _postNotificationGranted
+                    ? l10n.enabled
+                    : l10n.disabled,
                 isOn: _postNotificationGranted,
                 onTap: _postNotificationGranted
                     ? null
@@ -220,8 +226,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.battery_full,
-                title: '忽略电池优化',
-                subtitle: _batteryOptimizationIgnored ? '已开启' : '未开启',
+                title: l10n.ignoreBatteryOpt,
+                subtitle: _batteryOptimizationIgnored
+                    ? l10n.enabled
+                    : l10n.disabled,
                 isOn: _batteryOptimizationIgnored,
                 onTap: _batteryOptimizationIgnored
                     ? null
@@ -237,13 +245,13 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 _isVivo ||
                 _isSamsung ||
                 _isStockAndroid) ...[
-              _buildSectionHeader('厂商后台设置', context),
+              _buildSectionHeader(l10n.vendorBgSettings, context),
               _buildGroup([
                 if (_isXiaomi)
                   _buildPermissionTile(
                     icon: Icons.rocket_launch,
-                    title: '小米自启动',
-                    subtitle: '点击前往设置',
+                    title: l10n.xiaomiAutoStart,
+                    subtitle: l10n.clickToSettings,
                     isOn: false,
                     onTap: widget.onRequestXiaomiAutoStart,
                     isWarning: true,
@@ -252,8 +260,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 if (_isMeizu)
                   _buildPermissionTile(
                     icon: Icons.rocket_launch,
-                    title: '魅族后台运行',
-                    subtitle: '点击前往设置',
+                    title: l10n.meizuBgRun,
+                    subtitle: l10n.clickToSettings,
                     isOn: false,
                     onTap: widget.onRequestMeizuBackground,
                     isWarning: true,
@@ -262,8 +270,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 if (_isHuawei)
                   _buildPermissionTile(
                     icon: Icons.rocket_launch,
-                    title: '华为自启动/受保护应用',
-                    subtitle: '点击前往设置',
+                    title: l10n.huaweiProtected,
+                    subtitle: l10n.clickToSettings,
                     isOn: false,
                     onTap: widget.onRequestHuaweiLaunch,
                     isWarning: true,
@@ -272,8 +280,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 if (_isOppo)
                   _buildPermissionTile(
                     icon: Icons.rocket_launch,
-                    title: 'OPPO自启动管理',
-                    subtitle: '点击前往设置',
+                    title: l10n.oppoAutoStart,
+                    subtitle: l10n.clickToSettings,
                     isOn: false,
                     onTap: widget.onRequestOppoBackground,
                     isWarning: true,
@@ -282,8 +290,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 if (_isVivo)
                   _buildPermissionTile(
                     icon: Icons.rocket_launch,
-                    title: 'vivo后台启动管理',
-                    subtitle: '点击前往设置',
+                    title: l10n.vivoBgStart,
+                    subtitle: l10n.clickToSettings,
                     isOn: false,
                     onTap: widget.onRequestVivoBackground,
                     isWarning: true,
@@ -292,8 +300,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 if (_isSamsung)
                   _buildPermissionTile(
                     icon: Icons.info_outline,
-                    title: '三星设备设置',
-                    subtitle: '请在智能管理器中将本应用加入自启动白名单',
+                    title: l10n.samsungSettings,
+                    subtitle: l10n.samsungSmartManagerDesc,
                     isOn: false,
                     onTap: null,
                     isWarning: true,
@@ -302,8 +310,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 if (_isStockAndroid)
                   _buildPermissionTile(
                     icon: Icons.info_outline,
-                    title: '原生Android设置',
-                    subtitle: '请在系统设置中确认电池优化已关闭',
+                    title: l10n.nativeAndroid,
+                    subtitle: l10n.nativeBatteryOptDesc,
                     isOn: false,
                     onTap: null,
                     isWarning: true,
@@ -312,12 +320,12 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               ], context),
               const SizedBox(height: 24),
             ],
-            _buildSectionHeader('非必要权限', context),
+            _buildSectionHeader(l10n.optionalPerms, context),
             _buildGroup([
               _buildPermissionTile(
                 icon: Icons.message,
-                title: '短信权限',
-                subtitle: _smsPermissionGranted ? '已开启' : '未开启',
+                title: l10n.smsPerm,
+                subtitle: _smsPermissionGranted ? l10n.enabled : l10n.disabled,
                 isOn: _smsPermissionGranted,
                 onTap: _smsPermissionGranted
                     ? null
@@ -327,7 +335,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               Padding(
                 padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
                 child: Text(
-                  '用于获取短信发送者号码和内容，实现短信通知推送功能',
+                  l10n.smsPermDesc,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.secondaryLabel(context),
@@ -337,8 +345,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.call,
-                title: '电话权限',
-                subtitle: _phonePermissionGranted ? '已开启' : '未开启',
+                title: l10n.phonePerm,
+                subtitle: _phonePermissionGranted
+                    ? l10n.enabled
+                    : l10n.disabled,
                 isOn: _phonePermissionGranted,
                 onTap: _phonePermissionGranted
                     ? null
@@ -348,7 +358,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               Padding(
                 padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
                 child: Text(
-                  '用于获取来电号码和通话状态，实现来电通知推送功能',
+                  l10n.phonePermDesc,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.secondaryLabel(context),
@@ -358,8 +368,10 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.apps,
-                title: '应用列表权限',
-                subtitle: _appListPermissionGranted ? '已开启' : '未开启',
+                title: l10n.appListPerm,
+                subtitle: _appListPermissionGranted
+                    ? l10n.enabled
+                    : l10n.disabled,
                 isOn: _appListPermissionGranted,
                 onTap: _appListPermissionGranted
                     ? null
@@ -369,7 +381,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               Padding(
                 padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
                 child: Text(
-                  '用于获取已安装应用列表，支持按应用过滤通知功能',
+                  l10n.appListPermExtra,
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.secondaryLabel(context),
@@ -381,7 +393,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                '非必要权限用于提升特定功能的准确性，不开启不影响核心功能使用',
+                l10n.appListPermDesc,
                 style: TextStyle(
                   color: AppColors.secondaryLabel(context),
                   fontSize: 12,

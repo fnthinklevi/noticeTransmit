@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
@@ -37,6 +38,7 @@ class BatteryPage extends StatefulWidget {
 class _BatteryPageState extends State<BatteryPage> {
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final batteryColor = widget.currentLevel >= 50
         ? AppColors.green
         : widget.currentLevel >= 20
@@ -45,11 +47,11 @@ class _BatteryPageState extends State<BatteryPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('电量'),
+        title: Text(l10n.batteryTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: '添加规则',
+            tooltip: l10n.addRule,
             onPressed: widget.notifyEnabled ? _showAddRuleDialog : null,
           ),
         ],
@@ -72,7 +74,9 @@ class _BatteryPageState extends State<BatteryPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    widget.currentLevel < 0 ? '未知' : '${widget.currentLevel}%',
+                    widget.currentLevel < 0
+                        ? l10n.unknown
+                        : '${widget.currentLevel}%',
                     style: TextStyle(
                       fontSize: 42,
                       fontWeight: FontWeight.w300,
@@ -81,7 +85,7 @@ class _BatteryPageState extends State<BatteryPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.isCharging ? '充电中' : '未充电',
+                    widget.isCharging ? l10n.charging : l10n.notCharging,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.secondaryLabel(context),
@@ -91,20 +95,20 @@ class _BatteryPageState extends State<BatteryPage> {
               ),
             ),
             const SizedBox(height: 32),
-            _buildSectionHeader('提醒设置', context),
+            _buildSectionHeader(l10n.reminderSettings, context),
             _buildGroup([
               _buildSwitchRow(
                 icon: Icons.power_settings_new,
                 iconColor: AppColors.blue,
-                title: '电量通知总开关',
-                subtitle: '开启后以下提醒才会生效',
+                title: l10n.batteryNotifToggle,
+                subtitle: l10n.batteryNotifToggleDesc,
                 value: widget.notifyEnabled,
                 onChanged: _handleToggleNotify,
                 context: context,
               ),
             ], context),
             const SizedBox(height: 24),
-            _buildSectionHeader('通知规则', context),
+            _buildSectionHeader(l10n.notifRules, context),
             _buildGroup(
               widget.rules.asMap().entries.map((entry) {
                 final index = entry.key;
@@ -119,20 +123,20 @@ class _BatteryPageState extends State<BatteryPage> {
               context,
             ),
             const SizedBox(height: 24),
-            _buildSectionHeader('说明', context),
+            _buildSectionHeader(l10n.notes, context),
             _buildGroup([
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _DescRow(text: '低电量提醒仅在非充电状态下触发', context: context),
+                    _DescRow(text: l10n.batteryNotes1, context: context),
                     const SizedBox(height: 8),
-                    _DescRow(text: '电量回升到阈值以上才会重置提醒状态', context: context),
+                    _DescRow(text: l10n.batteryNotes2, context: context),
                     const SizedBox(height: 8),
-                    _DescRow(text: '电量通知随通知监听服务一起运行', context: context),
+                    _DescRow(text: l10n.batteryNotes3, context: context),
                     const SizedBox(height: 8),
-                    _DescRow(text: '点击规则可编辑，左滑或长按可删除', context: context),
+                    _DescRow(text: l10n.batteryNotes4, context: context),
                   ],
                 ),
               ),
@@ -179,13 +183,14 @@ class _BatteryPageState extends State<BatteryPage> {
 
   void _showBatteryOptimizationDialog() {
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: AppColors.cardBg(context),
           title: Text(
-            '关闭电池优化',
+            l10n.closeBatteryOpt,
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
@@ -193,8 +198,7 @@ class _BatteryPageState extends State<BatteryPage> {
             ),
           ),
           content: Text(
-            '息屏后系统会限制后台运行，可能导致电量通知延迟或收不到。\n\n'
-            '建议关闭本应用的「电池优化 / 省电限制」，以保证息屏时电量达到阈值也能及时推送。',
+            l10n.batteryOptDesc,
             style: TextStyle(
               fontSize: 14,
               color: AppColors.secondaryLabel(context),
@@ -208,7 +212,7 @@ class _BatteryPageState extends State<BatteryPage> {
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text(
-                '暂不',
+                l10n.notNow,
                 style: TextStyle(
                   fontSize: 16,
                   color: AppColors.secondaryLabel(context),
@@ -222,9 +226,9 @@ class _BatteryPageState extends State<BatteryPage> {
                   'requestBatteryOptimization',
                 );
               },
-              child: const Text(
-                '去设置',
-                style: TextStyle(
+              child: Text(
+                l10n.goSettings,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.blue,
@@ -238,6 +242,7 @@ class _BatteryPageState extends State<BatteryPage> {
   }
 
   Widget _buildRuleTile(Map<String, dynamic> rule, BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final type = rule['type'] as String? ?? 'unknown';
     final value = rule['value'] as int? ?? 0;
     final enabled = rule['enabled'] as bool? ?? false;
@@ -251,32 +256,32 @@ class _BatteryPageState extends State<BatteryPage> {
       case 'charging':
         icon = Icons.battery_charging_full;
         iconColor = AppColors.green;
-        subtitle = '手机接入充电器时推送';
+        subtitle = l10n.ruleStartCharging;
         break;
       case 'discharging':
         icon = Icons.battery_0_bar;
         iconColor = const Color(0xFFFF9500);
-        subtitle = '手机断开充电器时推送';
+        subtitle = l10n.ruleStopCharging;
         break;
       case 'level_above':
         icon = Icons.battery_full;
         iconColor = AppColors.blue;
-        subtitle = '电量达到 $value% 时推送';
+        subtitle = l10n.ruleAboveThreshold(value);
         break;
       case 'level_below':
         icon = Icons.battery_alert;
         iconColor = AppColors.red;
-        subtitle = '电量低于 $value% 时推送';
+        subtitle = l10n.ruleBelowThreshold(value);
         break;
       case 'level_equals':
         icon = Icons.equalizer;
         iconColor = const Color(0xFFAF52DE);
-        subtitle = '电量等于 $value% 时推送';
+        subtitle = l10n.ruleEqualThreshold(value);
         break;
       default:
         icon = Icons.help_outline;
         iconColor = Colors.grey;
-        subtitle = '未知规则类型';
+        subtitle = l10n.ruleUnknown;
     }
 
     return _buildSlidableRuleTile(
@@ -297,6 +302,7 @@ class _BatteryPageState extends State<BatteryPage> {
     String subtitle,
     bool enabled,
   ) {
+    final l10n = AppLocalizations.of(context);
     final ruleId = rule['id'] as String? ?? '';
     return Slidable(
       key: ValueKey(ruleId),
@@ -311,19 +317,19 @@ class _BatteryPageState extends State<BatteryPage> {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text('确认删除'),
-                  content: Text('确定要删除规则「$title」吗？'),
+                  title: Text(l10n.confirmDeleteRule),
+                  content: Text(l10n.confirmDeleteRuleMsg(title)),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('取消'),
+                      child: Text(l10n.cancel),
                     ),
                     TextButton(
                       onPressed: () => Navigator.of(ctx).pop(true),
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.red,
                       ),
-                      child: const Text('删除'),
+                      child: Text(l10n.delete),
                     ),
                   ],
                 ),
@@ -333,7 +339,7 @@ class _BatteryPageState extends State<BatteryPage> {
             backgroundColor: AppColors.red,
             foregroundColor: Colors.white,
             icon: Icons.delete_outline,
-            label: '删除',
+            label: l10n.delete,
           ),
         ],
       ),
@@ -372,6 +378,7 @@ class _BatteryPageState extends State<BatteryPage> {
   }
 
   void _showRuleDialog(Map<String, dynamic>? existingRule) {
+    final l10n = AppLocalizations.of(context);
     final isEdit = existingRule != null;
     final valueController = TextEditingController(
       text: (existingRule?['value'] ?? 20).toString(),
@@ -390,7 +397,7 @@ class _BatteryPageState extends State<BatteryPage> {
             return AlertDialog(
               backgroundColor: AppColors.cardBg(context),
               title: Text(
-                isEdit ? '编辑规则' : '添加规则',
+                isEdit ? l10n.editRule : l10n.addRule,
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
@@ -405,7 +412,7 @@ class _BatteryPageState extends State<BatteryPage> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        '规则类型',
+                        l10n.ruleType,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -419,7 +426,7 @@ class _BatteryPageState extends State<BatteryPage> {
                       children: [
                         _buildTypeChip(
                           'charging',
-                          '开始充电',
+                          l10n.startCharging,
                           selectedType,
                           setDialogState,
                           (v) => selectedType = v,
@@ -427,7 +434,7 @@ class _BatteryPageState extends State<BatteryPage> {
                         ),
                         _buildTypeChip(
                           'discharging',
-                          '断开充电',
+                          l10n.stopCharging,
                           selectedType,
                           setDialogState,
                           (v) => selectedType = v,
@@ -435,7 +442,7 @@ class _BatteryPageState extends State<BatteryPage> {
                         ),
                         _buildTypeChip(
                           'level_below',
-                          '低于某值',
+                          l10n.belowValue,
                           selectedType,
                           setDialogState,
                           (v) => selectedType = v,
@@ -443,7 +450,7 @@ class _BatteryPageState extends State<BatteryPage> {
                         ),
                         _buildTypeChip(
                           'level_above',
-                          '高于某值',
+                          l10n.aboveValue,
                           selectedType,
                           setDialogState,
                           (v) => selectedType = v,
@@ -451,7 +458,7 @@ class _BatteryPageState extends State<BatteryPage> {
                         ),
                         _buildTypeChip(
                           'level_equals',
-                          '等于某值',
+                          l10n.equalValue,
                           selectedType,
                           setDialogState,
                           (v) => selectedType = v,
@@ -468,7 +475,7 @@ class _BatteryPageState extends State<BatteryPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
-                          '电量阈值（%）',
+                          l10n.threshold,
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -521,7 +528,7 @@ class _BatteryPageState extends State<BatteryPage> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        '自定义标题（可选）',
+                        l10n.customTitle,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -532,7 +539,7 @@ class _BatteryPageState extends State<BatteryPage> {
                     TextField(
                       controller: titleController,
                       decoration: InputDecoration(
-                        hintText: '留空则使用默认标题',
+                        hintText: l10n.customTitleHint,
                         hintStyle: TextStyle(
                           color: AppColors.secondaryLabel(context),
                         ),
@@ -561,7 +568,7 @@ class _BatteryPageState extends State<BatteryPage> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: Text(
-                    '取消',
+                    l10n.cancel,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -592,7 +599,7 @@ class _BatteryPageState extends State<BatteryPage> {
                     Navigator.pop(context);
                   },
                   child: Text(
-                    isEdit ? '保存' : '添加',
+                    isEdit ? l10n.save : l10n.add,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -651,30 +658,32 @@ class _BatteryPageState extends State<BatteryPage> {
   }
 
   String _defaultTitleForType(String type, int value) {
+    final l10n = AppLocalizations.of(context);
     switch (type) {
       case 'charging':
-        return '开始充电';
+        return l10n.startCharging;
       case 'discharging':
-        return '断开充电';
+        return l10n.stopCharging;
       case 'level_above':
-        return '电量达到$value%';
+        return l10n.ruleAboveThreshold(value);
       case 'level_below':
-        return '电量低于$value%';
+        return l10n.ruleBelowThreshold(value);
       case 'level_equals':
-        return '电量等于$value%';
+        return l10n.ruleEqualThreshold(value);
       default:
-        return '电量提醒';
+        return l10n.batteryReminder;
     }
   }
 
   void _showDeleteConfirmDialog(String id) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: AppColors.cardBg(context),
           title: Text(
-            '删除规则',
+            l10n.deleteRule,
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
@@ -682,7 +691,7 @@ class _BatteryPageState extends State<BatteryPage> {
             ),
           ),
           content: Text(
-            '确定要删除这条通知规则吗？',
+            l10n.confirmDeleteThisRule,
             style: TextStyle(
               fontSize: 14,
               color: AppColors.secondaryLabel(context),
@@ -695,7 +704,7 @@ class _BatteryPageState extends State<BatteryPage> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                '取消',
+                l10n.cancel,
                 style: TextStyle(
                   fontSize: 16,
                   color: AppColors.secondaryLabel(context),
@@ -708,9 +717,9 @@ class _BatteryPageState extends State<BatteryPage> {
                 widget.onDeleteRule(id);
                 Navigator.pop(context);
               },
-              child: const Text(
-                '删除',
-                style: TextStyle(
+              child: Text(
+                l10n.delete,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.red,

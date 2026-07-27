@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../services/icon_service.dart';
 
@@ -64,7 +65,49 @@ class _IconPickerTileState extends State<IconPickerTile> {
 
   IconOption get _currentOption => IconService.optionByKey(_current);
 
+  String _iconLabel(String key, AppLocalizations l10n) {
+    switch (key) {
+      case 'default':
+        return l10n.iconDefault;
+      case 'blue':
+        return l10n.iconBlue;
+      case 'cyan':
+        return l10n.iconCyan;
+      case 'teal':
+        return l10n.iconTeal;
+      case 'mint':
+        return l10n.iconMint;
+      case 'green':
+        return l10n.iconGreen;
+      case 'yellow':
+        return l10n.iconYellow;
+      case 'orange':
+        return l10n.iconOrange;
+      case 'red':
+        return l10n.iconRed;
+      case 'pink':
+        return l10n.iconPink;
+      case 'rose':
+        return l10n.iconRose;
+      case 'purple':
+        return l10n.iconPurple;
+      case 'indigo':
+        return l10n.iconIndigo;
+      case 'brown':
+        return l10n.iconBrown;
+      case 'gray':
+        return l10n.iconGray;
+      case 'graphite':
+        return l10n.iconGraphite;
+      case 'black':
+        return l10n.iconBlack;
+      default:
+        return key;
+    }
+  }
+
   Future<void> _select(IconOption opt) async {
+    final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final ok = await IconService.setIcon(opt.key);
@@ -72,17 +115,24 @@ class _IconPickerTileState extends State<IconPickerTile> {
     setState(() => _current = opt.key);
     navigator.pop();
     messenger.showSnackBar(
-      SnackBar(content: Text(ok ? '已切换至「${opt.label}」，桌面稍后刷新' : '切换失败')),
+      SnackBar(
+        content: Text(
+          ok
+              ? l10n.iconSwitched(_iconLabel(opt.label, l10n))
+              : l10n.iconSwitchFailed,
+        ),
+      ),
     );
   }
 
   void _openPicker() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
         title: Text(
-          '应用图标',
+          l10n.appIconTitle,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
@@ -147,7 +197,7 @@ class _IconPickerTileState extends State<IconPickerTile> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        opt.label,
+                        _iconLabel(opt.label, l10n),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -171,6 +221,7 @@ class _IconPickerTileState extends State<IconPickerTile> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return InkWell(
       onTap: _openPicker,
       child: Padding(
@@ -184,7 +235,7 @@ class _IconPickerTileState extends State<IconPickerTile> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '应用图标',
+                    l10n.appIconTitle,
                     style: TextStyle(
                       fontSize: 16,
                       color: AppColors.primaryLabel(context),
@@ -192,7 +243,7 @@ class _IconPickerTileState extends State<IconPickerTile> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '当前：${_currentOption.label}',
+                    l10n.currentIcon(_iconLabel(_currentOption.label, l10n)),
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.secondaryLabel(context),
