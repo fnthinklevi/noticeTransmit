@@ -63,10 +63,11 @@ class _MainPageState extends State<MainPage> {
     for (final c in emailService.cachedChannels) {
       if (c.enabled) {
         final tested = emailService.cachedTestResults[c.id];
+        // 未测试过或测试失败都视为异常
         channels.add({
           'type': '邮件',
           'name': c.name,
-          'status': tested == null ? 'ok' : (tested ? 'ok' : 'error'),
+          'status': (tested == true) ? 'ok' : 'error',
         });
       }
     }
@@ -85,7 +86,7 @@ class _MainPageState extends State<MainPage> {
       case 'feishu':
         return 'webhook:飞书';
       default:
-        return 'webhook:Webhook';
+        return 'webhook';
     }
   }
 

@@ -132,12 +132,26 @@ class WebhookService {
 
   /// DB 行格式 → UI 使用的 camelCase 格式
   Map<String, dynamic> _dbRowToUi(Map<String, dynamic> row) {
+    final url = row['url']?.toString() ?? '';
+    var channelType = row['channel_type']?.toString() ?? '';
+    // 若原数据为 generic 或为空，从 URL 重新识别
+    if (channelType.isEmpty || channelType == 'generic') {
+      if (url.contains('qyapi.weixin.qq.com')) {
+        channelType = '0';
+      } else if (url.contains('oapi.dingtalk.com')) {
+        channelType = '1';
+      } else if (url.contains('open.feishu.cn')) {
+        channelType = '2';
+      } else {
+        channelType = 'generic';
+      }
+    }
     return {
       'id': row['id'],
       'name': row['name'],
-      'url': row['url'],
-      'channelType': row['channel_type'] ?? 'generic',
-      'type': row['channel_type'] ?? 'generic',
+      'url': url,
+      'channelType': channelType,
+      'type': channelType,
       'enabled': row['enabled'] == 1 || row['enabled'] == true,
       'secret': row['secret'],
     };
