@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../services/update_service.dart';
 import '../theme/app_colors.dart';
@@ -17,6 +17,7 @@ class MorePage extends StatelessWidget {
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final VoidCallback onOpenWebhookSettings;
+  final VoidCallback onOpenEmailSettings;
   final VoidCallback onShowDeviceNameDialog;
   final VoidCallback onShowAboutDialog;
   final VoidCallback onOpenAppFilter;
@@ -38,6 +39,7 @@ class MorePage extends StatelessWidget {
     required this.themeMode,
     required this.onThemeModeChanged,
     required this.onOpenWebhookSettings,
+    required this.onOpenEmailSettings,
     required this.onShowDeviceNameDialog,
     required this.onShowAboutDialog,
     required this.onOpenAppFilter,
@@ -74,6 +76,14 @@ class MorePage extends StatelessWidget {
                   ? '未配置'
                   : '已配置 ${webhookChannels.length} 个 · 启用 $enabledCount 个',
               onTap: onOpenWebhookSettings,
+              context: context,
+            ),
+            _buildNavTile(
+              icon: Icons.email,
+              iconColor: AppColors.orange,
+              title: '邮件转发通道',
+              subtitle: 'SMTP 邮件通知',
+              onTap: onOpenEmailSettings,
               context: context,
             ),
             _buildDivider(context),

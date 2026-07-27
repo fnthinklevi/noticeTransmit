@@ -19,7 +19,8 @@ class AppFilterPage extends StatefulWidget {
   State<AppFilterPage> createState() => _AppFilterPageState();
 }
 
-class _AppFilterPageState extends State<AppFilterPage> {
+class _AppFilterPageState extends State<AppFilterPage>
+    with WidgetsBindingObserver {
   static const _channel = AppChannels.notification;
 
   List<Map<String, dynamic>> _allApps = [];
@@ -36,6 +37,7 @@ class _AppFilterPageState extends State<AppFilterPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedMode = widget.initialMode == 'block' ? 'block' : 'allow';
     _selectedPackages = Set<String>.from(widget.enabledPackages);
     _initLoad();
@@ -44,8 +46,16 @@ class _AppFilterPageState extends State<AppFilterPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _initLoad();
+    }
   }
 
   Future<void> _initLoad() async {
@@ -76,23 +86,66 @@ class _AppFilterPageState extends State<AppFilterPage> {
   }
 
   Future<void> _requestPermission() async {
-    try {
-      await _channel.invokeMethod('requestQueryAllPackagesPermission');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('请在设置中找到「所有应用访问权限」并开启'),
-          action: SnackBarAction(
-            label: '我已开启',
-            onPressed: () {
-              _initLoad();
-            },
-          ),
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg(ctx),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.apps, size: 44, color: AppColors.blue),
+            const SizedBox(height: 14),
+            Text(
+              '需要应用列表权限',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n'
+              '点击「允许」后将跳转到系统设置页，请手动开启权限。',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+          ],
         ),
-      );
-    } catch (e) {
-      debugPrint('请求应用列表权限失败: $e');
-    }
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              '拒绝',
+              style: TextStyle(
+                color: AppColors.secondaryLabel(ctx),
+                fontSize: 15,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _channel.invokeMethod('requestQueryAllPackagesPermission');
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('允许', style: TextStyle(fontSize: 15)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadCachedApps() async {

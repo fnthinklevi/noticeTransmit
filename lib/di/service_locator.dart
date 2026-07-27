@@ -1,4 +1,4 @@
-﻿import 'package:get_it/get_it.dart';
+import 'package:get_it/get_it.dart';
 import '../services/webhook_service.dart';
 import '../services/battery_service.dart';
 import '../services/notification_service.dart';
@@ -8,6 +8,7 @@ import '../services/update_service.dart';
 import '../services/device_info_service.dart';
 import '../services/retry_service.dart';
 import '../services/theme_service.dart';
+import '../services/email_service.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -21,4 +22,5 @@ void setupLocator() {
   getIt.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
   getIt.registerLazySingleton<RetryService>(() => RetryService());
   getIt.registerLazySingleton<ThemeService>(() => ThemeService());
+  getIt.registerLazySingleton<EmailService>(() => EmailService());
 }

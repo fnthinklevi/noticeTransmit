@@ -1,4 +1,4 @@
-﻿class NotificationRecord {
+class NotificationRecord {
   final String id;
   final String title;
   final String content;
@@ -9,6 +9,7 @@
   final int postTime;
   final String time;
   final String deviceName;
+  final List<String> channels;
 
   NotificationRecord({
     required this.id,
@@ -21,6 +22,7 @@
     required this.postTime,
     required this.time,
     required this.deviceName,
+    this.channels = const [],
   });
 
   factory NotificationRecord.fromMap(Map<String, dynamic> map) {
@@ -35,6 +37,11 @@
       postTime: map['postTime'] as int? ?? 0,
       time: map['time'] as String? ?? '',
       deviceName: map['deviceName'] as String? ?? '',
+      channels:
+          (map['channels'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
     );
   }
 
@@ -50,6 +57,7 @@
       'postTime': postTime,
       'time': time,
       'deviceName': deviceName,
+      'channels': channels,
     };
   }
 
@@ -64,6 +72,7 @@
     int? postTime,
     String? time,
     String? deviceName,
+    List<String>? channels,
   }) {
     return NotificationRecord(
       id: id ?? this.id,
@@ -76,6 +85,7 @@
       postTime: postTime ?? this.postTime,
       time: time ?? this.time,
       deviceName: deviceName ?? this.deviceName,
+      channels: channels ?? this.channels,
     );
   }
 

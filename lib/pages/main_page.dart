@@ -5,14 +5,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/platform_channel.dart';
 import '../services/services.dart';
 import '../services/theme_service.dart';
+import '../services/email_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
+import '../models/email_channel.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
 import 'battery_page.dart';
 import 'more_page.dart';
 import 'history_page.dart';
 import 'permission_settings_page.dart';
+import 'email_settings_page.dart';
 import 'webhook_settings_page.dart';
 import 'app_filter_page.dart';
 import 'keywords_page.dart';
@@ -43,6 +46,38 @@ class _MainPageState extends State<MainPage> {
       GetIt.instance<DeviceInfoService>();
   final ThemeService _themeService = GetIt.instance<ThemeService>();
 
+  List<String> _getActiveChannels() {
+    final channels = <String>[];
+    final webhookChannels = _webhookService.channels
+        .where((c) => c['enabled'] == true)
+        .toList();
+    for (final c in webhookChannels) {
+      final type = c['type']?.toString() ?? 'generic';
+      channels.add(_webhookTypeLabel(type));
+    }
+    final emailService = GetIt.instance<EmailService>();
+    if (emailService.cachedChannels.any((c) => c.enabled)) {
+      channels.add('邮件');
+    }
+    return channels;
+  }
+
+  String _webhookTypeLabel(String type) {
+    switch (type) {
+      case '0':
+      case 'wechatWork':
+        return 'webhook:企业微信';
+      case '1':
+      case 'dingtalk':
+        return 'webhook:钉钉';
+      case '2':
+      case 'feishu':
+        return 'webhook:飞书';
+      default:
+        return 'webhook:Webhook';
+    }
+  }
+
   List<Widget> _buildPages() {
     return [
       NotificationPage(
@@ -50,6 +85,7 @@ class _MainPageState extends State<MainPage> {
             _permissionService.notificationListenerGranted,
         foregroundServiceRunning: _notificationService.serviceRunning,
         notificationCount: _notificationService.records.length,
+        activeChannels: _getActiveChannels(),
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
         onRefresh: _checkPermissions,
@@ -84,6 +120,7 @@ class _MainPageState extends State<MainPage> {
           setState(() {});
         },
         onOpenWebhookSettings: _openWebhookSettingsPage,
+        onOpenEmailSettings: _openEmailSettingsPage,
         onShowDeviceNameDialog: _showDeviceNameDialog,
         onShowAboutDialog: _showAboutDialog,
         onOpenAppFilter: _openAppFilterPage,
@@ -111,6 +148,12 @@ class _MainPageState extends State<MainPage> {
       _refreshBatteryStatus();
       _batteryService.startRefreshTimer();
 
+      // 加载推送通道配置
+      await _webhookService.loadChannels();
+      final emailService = GetIt.instance<EmailService>();
+      await emailService.loadChannels();
+      setState(() {});
+
       await _checkFirstLaunch();
 
       if (!_notificationService.serviceManuallyStopped) {
@@ -132,70 +175,7 @@ class _MainPageState extends State<MainPage> {
     final hasLaunched = prefs.getBool('has_launched') ?? false;
     if (!hasLaunched) {
       await prefs.setBool('has_launched', true);
-      if (!_permissionService.notificationListenerGranted) {
-        if (mounted) {
-          _showPermissionGuideDialog();
-        }
-      }
     }
-  }
-
-  void _showPermissionGuideDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Column(
-          children: [
-            const Icon(
-              Icons.notifications_active,
-              size: 48,
-              color: AppColors.blue,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '需要必要权限',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(context),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          '为了正常监听和推送通知，需要开启「通知访问权限」。请点击下方按钮前往设置开启。',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              '稍后',
-              style: TextStyle(color: AppColors.secondaryLabel(context)),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _openPermissionSettingsPage();
-            },
-            child: const Text(
-              '去设置',
-              style: TextStyle(
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
   }
 
   @override
@@ -327,6 +307,12 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _startForegroundService() async {
+    await _permissionService.checkAllPermissions();
+    if (!_permissionService.notificationListenerGranted) {
+      if (mounted) _showNotificationPermissionDialog();
+      setState(() {});
+      return;
+    }
     await _notificationService.startService();
     setState(() {});
   }
@@ -334,6 +320,47 @@ class _MainPageState extends State<MainPage> {
   Future<void> _stopForegroundService() async {
     await _notificationService.stopService();
     setState(() {});
+  }
+
+  void _showNotificationPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg(ctx),
+        title: const Icon(
+          Icons.notifications_off,
+          size: 40,
+          color: AppColors.orange,
+        ),
+        content: const Text(
+          '通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              '稍后',
+              style: TextStyle(color: AppColors.secondaryLabel(ctx)),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _openPermissionSettingsPage();
+            },
+            child: const Text(
+              '去设置',
+              style: TextStyle(
+                color: AppColors.blue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
   }
 
   void _showDeviceNameDialog() {
@@ -968,11 +995,16 @@ class _MainPageState extends State<MainPage> {
         onRequestSmsPermission: _permissionService.requestSmsPermission,
         onRequestPhonePermission: _permissionService.requestPhonePermission,
         onRequestAppListPermission: _permissionService.requestAppListPermission,
+        onAppListPermissionGranted: _onAppListPermissionGranted,
       ),
     );
     await _checkPermissions();
     await _notificationService.loadServiceState();
     setState(() {});
+  }
+
+  void _onAppListPermissionGranted() {
+    AppChannels.notification.invokeMethod('getInstalledApps');
   }
 
   void _openAppFilterPage() async {
@@ -1019,6 +1051,22 @@ class _MainPageState extends State<MainPage> {
       await _webhookService.saveChannels(result);
       setState(() {});
       _showInfo('Webhook 配置已保存');
+    }
+  }
+
+  void _openEmailSettingsPage() async {
+    final emailService = EmailService();
+    final channels = await emailService.loadChannels();
+    final result = await _pushPage<List<Map<String, dynamic>>>(
+      EmailSettingsPage(emailChannels: channels.map((c) => c.toMap()).toList()),
+    );
+    if (result != null) {
+      final updatedChannels = result
+          .map((m) => EmailChannel.fromMap(m))
+          .toList();
+      await emailService.saveChannels(updatedChannels);
+      setState(() {});
+      _showInfo('邮件通道配置已保存');
     }
   }
 

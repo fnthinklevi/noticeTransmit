@@ -1,10 +1,19 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class NotificationPage extends StatelessWidget {
+  static Color _channelColor(String channel) {
+    if (channel.contains('企业微信')) return const Color(0xFF2BAA3E);
+    if (channel.contains('飞书')) return const Color(0xFF3370FF);
+    if (channel.contains('钉钉')) return const Color(0xFF0089FF);
+    if (channel.contains('邮件')) return AppColors.orange;
+    return Colors.grey;
+  }
+
   final bool notificationPermissionGranted;
   final bool foregroundServiceRunning;
   final int notificationCount;
+  final List<String> activeChannels;
   final VoidCallback onStartService;
   final VoidCallback onStopService;
   final Future<void> Function() onRefresh;
@@ -16,6 +25,7 @@ class NotificationPage extends StatelessWidget {
     required this.notificationPermissionGranted,
     required this.foregroundServiceRunning,
     required this.notificationCount,
+    this.activeChannels = const [],
     required this.onStartService,
     required this.onStopService,
     required this.onRefresh,
@@ -94,6 +104,77 @@ class NotificationPage extends StatelessWidget {
                 ),
               ),
             ),
+            if (foregroundServiceRunning) ...[
+              const SizedBox(height: 16),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.separator(context)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.router_outlined,
+                          size: 14,
+                          color: AppColors.blue,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '当前推送通道',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.secondaryLabel(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (activeChannels.isNotEmpty)
+                      ...activeChannels.map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _channelColor(c),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                c,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.primaryLabel(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Text(
+                        '未配置推送通道',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.tertiaryLabel(context),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 40),
             _buildQuickAction(
               icon: Icons.settings,

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 enum WebhookChannelType { generic, wechatWork, dingtalk, feishu }

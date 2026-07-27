@@ -20,6 +20,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.*
 
 class NotificationMonitorService : NotificationListenerService() {
     companion object {
@@ -57,6 +58,7 @@ class NotificationMonitorService : NotificationListenerService() {
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
     private var todayDate: String = ""
     private val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /// 检查是否已跨日，是则重置计数器
     private fun checkDailyReset() {
@@ -85,9 +87,10 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender.activate()
         configManager = ConfigManager(this)
 
-        batteryMonitor.setNotificationCallback { batteryInfo ->
-            webhookSender.sendNotification(batteryInfo)
-            Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
+            batteryMonitor.setNotificationCallback { batteryInfo ->
+                webhookSender.sendNotification(batteryInfo)
+                dispatchEmail(batteryInfo)
+                Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
         }
 
         loadConfig()
@@ -138,6 +141,7 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor.stopPolling()
         cancelBatteryAlarm()
         webhookSender.destroy()
+        serviceScope.cancel()
         Log.i(TAG, "Service destroyed")
     }
 
@@ -163,6 +167,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 )
             ) {
                 webhookSender.sendNotification(notificationInfo)
+                dispatchEmail(notificationInfo)
                 checkDailyReset()
                 pushCount++
                 updatePromotedNotification()
@@ -281,6 +286,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     val batteryInfo = batteryMonitor.checkBatteryAndNotify()
                     if (batteryInfo != null) {
                         webhookSender.sendNotification(batteryInfo)
+                        dispatchEmail(batteryInfo)
                         Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
                     }
 
@@ -391,7 +397,7 @@ class NotificationMonitorService : NotificationListenerService() {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("通知传输器")
+            .setContentTitle("通知推送助手")
             .setContentText("正在监听通知 · 当日已推送 $pushCount 条")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
@@ -427,7 +433,7 @@ class NotificationMonitorService : NotificationListenerService() {
         )
 
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("通知传输器")
+            .setContentTitle("通知推送助手")
             .setContentText("正在监听通知 · 当日已推送 $pushCount 条")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
@@ -453,6 +459,17 @@ class NotificationMonitorService : NotificationListenerService() {
         val blacklistKeywords = configManager.getBlacklistKeywords()
         val deviceName = configManager.getDeviceName()
         val appFilterMode = configManager.getAppFilterMode()
+    }
+
+    private fun dispatchEmail(info: NotificationInfo) {
+        try {
+            val configs = EmailManager.getEnabledConfigs(this)
+            if (configs.isNotEmpty()) {
+                EmailSender.sendNotification(configs, info, serviceScope)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "邮件分发异常: ${e.message}", e)
+        }
     }
 }
 

@@ -145,7 +145,7 @@ class BatteryMonitor(private val context: Context) {
             content = content,
             subText = "",
             packageName = "com.fnthink.notice",
-            appName = "通知传输器",
+            appName = "通知推送助手",
             postTime = System.currentTimeMillis(),
             time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
             type = "battery",

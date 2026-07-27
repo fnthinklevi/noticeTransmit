@@ -44,8 +44,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.45"
-        const val FALLBACK_BUILD = 79
+        const val FALLBACK_VERSION = "1.5.46"
+        const val FALLBACK_BUILD = 80
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -221,6 +221,18 @@ class MainActivity : FlutterActivity() {
                     val channels = call.argument<List<Map<String, Any?>>>("channels") ?: emptyList()
                     setWebhookChannels(channels)
                     result.success(true)
+                }
+                "getEmailChannels" -> {
+                    result.success(EmailManager.loadChannelsAsMap(this@MainActivity))
+                }
+                "setEmailChannels" -> {
+                    val channels = call.argument<List<Map<String, Any?>>>("channels") ?: emptyList()
+                    EmailManager.saveChannels(this@MainActivity, channels)
+                    result.success(true)
+                }
+                "testEmail" -> {
+                    val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                    testEmail(configMap, result)
                 }
                 "getDeviceName" -> {
                     var savedName = readDeviceNameFromFile()
@@ -827,17 +839,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun isAppListPermissionGranted(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                val packageManager = packageManager
-                val packages = packageManager.getInstalledApplications(0)
-                packages.size > 0
-            } catch (e: Exception) {
-                false
-            }
-        } else {
-            true
-        }
+        return canQueryAllPackages()
     }
 
     private fun requestBatteryOptimization() {
@@ -1171,6 +1173,36 @@ class MainActivity : FlutterActivity() {
                     ))
                 } catch (e: Exception) {
                     result.error("TEST_ERROR", message, null)
+                }
+            }
+        }
+    }
+
+    private fun testEmail(configMap: Map<String, Any?>, result: MethodChannel.Result) {
+        activityScope.launch(Dispatchers.IO) {
+            try {
+                val toEmails = (configMap["toEmail"]?.toString() ?: "")
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+
+                val config = EmailSender.EmailConfig(
+                    smtpHost = configMap["smtpHost"]?.toString() ?: "",
+                    smtpPort = (configMap["smtpPort"] as? Number)?.toInt() ?: 465,
+                    username = configMap["username"]?.toString() ?: "",
+                    password = configMap["password"]?.toString() ?: "",
+                    fromEmail = configMap["fromEmail"]?.toString() ?: "",
+                    toEmails = toEmails,
+                    useSSL = configMap["useSSL"] != false
+                )
+
+                val (success, message) = EmailSender.sendTestEmail(config)
+                withContext(Dispatchers.Main) {
+                    result.success(mapOf("success" to success, "message" to message))
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    result.success(mapOf("success" to false, "message" to "测试邮件异常: ${e.message}"))
                 }
             }
         }

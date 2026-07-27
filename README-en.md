@@ -6,13 +6,13 @@
 
 **English / [中文](README.md)**
 
-A **privacy-first** notification listener & Webhook push tool for Android, supporting WeCom, DingTalk, Feishu and more. All notifications are processed entirely on-device — never uploaded to any server. Webhook credentials are encrypted via AndroidKeyStore. Features include app filtering, keyword filtering, custom battery alerts, and dark mode.
+A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload. Supports Webhook (WeCom / DingTalk / Feishu) and SMTP email push, all configs AES-256 encrypted.
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.45/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.46/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -23,7 +23,7 @@ A **privacy-first** notification listener & Webhook push tool for Android, suppo
 
 ## Introduction
 
-Notification Push Helper is a privacy-focused Android notification forwarding tool, built with Flutter. It listens to system notifications and pushes them via user-configured Webhooks to WeCom, DingTalk, Feishu and more. All notifications are processed entirely on-device — never uploaded to any server. Webhook credentials are encrypted with AndroidKeyStore. Features include app filtering, keyword filtering, custom battery alerts, and dark mode. Open source (MIT), free, and ad-free.
+Notification Push Helper is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu) or SMTP email. Fully on-device processing — zero data upload. Open source MIT, free, no ads.
 
 ## Features
 
@@ -32,6 +32,7 @@ Notification Push Helper is a privacy-focused Android notification forwarding to
 - 🔔 **Notification Listening** - Listen to notification messages from all apps on the system
 - 📱 **Multi-type Recognition** - Smart recognition of WeChat, QQ, SMS, phone calls, system notifications, etc.
 - 🔗 **Webhook Multi-channel** - Support configuring multiple Webhook URLs simultaneously, each channel has independent on/off switch
+- 📧 **SMTP Email Push** - Support SMTP email forwarding (SSL/STARTTLS), customizable subject template and body template
 - 📤 **Multi-platform Adaptation** - Auto-adapt message format for WeChat Work, DingTalk, Feishu and other platforms
 
 ### Advanced Features
@@ -59,7 +60,7 @@ Notification Push Helper is a privacy-focused Android notification forwarding to
 - 🎭 **Obfuscation Rules Ready** - ProGuard/R8 rules file configured (`proguard-rules.pro`), Release builds enable code obfuscation and resource shrinking
 - 📡 **Secure Token Transmission** - Token only accepted via Header, URL parameters disabled
 - 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
-- 🗄️ **SQLite Encryption** - All notification records and webhook configs stored with AES-256 encryption, key in AndroidKeyStore
+- 🗄️ **SQLite Encryption** - All notification records, webhook configs and email channels stored with AES-256 encryption, key in AndroidKeyStore
 - 🔑 **Webhook Key Protection** - Webhook URLs (including DingTalk/WeCom/Feishu auth keys) encrypted via AndroidKeyStore
 - 🔐 **SSL Certificate Pinning** - `PinnedHttpClient` infrastructure ready (2 HTTP clients), currently disabled due to Cloudflare CDN; see base.md for enablement guide
 - 🔒 **Mandatory HTTPS** - Site-wide HTTPS enforced via `network_security_config.xml`

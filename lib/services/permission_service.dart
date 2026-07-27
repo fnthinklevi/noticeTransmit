@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'platform_channel.dart';
 
@@ -99,5 +99,5 @@ class PermissionService {
   }
 
   Future<void> requestAppListPermission() =>
-      _requestPermission('requestAppListPermission');
+      _requestPermission('requestQueryAllPackagesPermission');
 }

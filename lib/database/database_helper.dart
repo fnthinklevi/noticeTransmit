@@ -53,7 +53,7 @@ class DatabaseHelper {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 3,
+        version: 4,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -69,7 +69,7 @@ class DatabaseHelper {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 3,
+        version: 4,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -221,6 +221,38 @@ class DatabaseHelper {
         error_message TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE email_channels (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        smtp_host TEXT NOT NULL,
+        smtp_port INTEGER NOT NULL DEFAULT 465,
+        username TEXT NOT NULL,
+        password TEXT NOT NULL DEFAULT '',
+        from_email TEXT NOT NULL,
+        to_email TEXT NOT NULL,
+        use_ssl INTEGER NOT NULL DEFAULT 1,
+        subject_template TEXT,
+        body_template TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE webhook_channels (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        channel_type TEXT NOT NULL DEFAULT 'generic',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        secret TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -244,6 +276,38 @@ class DatabaseHelper {
     if (oldVersion < 3) {
       await db.execute('''
         ALTER TABLE notifications ADD COLUMN sub_text TEXT
+      ''');
+    }
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS email_channels (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          smtp_host TEXT NOT NULL,
+          smtp_port INTEGER NOT NULL DEFAULT 465,
+          username TEXT NOT NULL,
+          password TEXT NOT NULL DEFAULT '',
+          from_email TEXT NOT NULL,
+          to_email TEXT NOT NULL,
+          use_ssl INTEGER NOT NULL DEFAULT 1,
+          subject_template TEXT,
+          body_template TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS webhook_channels (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          url TEXT NOT NULL,
+          channel_type TEXT NOT NULL DEFAULT 'generic',
+          enabled INTEGER NOT NULL DEFAULT 1,
+          secret TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
       ''');
     }
   }
@@ -435,5 +499,78 @@ class DatabaseHelper {
   Future<void> clearAllPendingNotifications() async {
     final db = await database;
     await db.delete('pending_notifications');
+  }
+
+  // ========== 邮件通道（email_channels） ==========
+
+  Future<List<Map<String, dynamic>>> getEmailChannels() async {
+    final db = await database;
+    return await db.query('email_channels', orderBy: 'updated_at DESC');
+  }
+
+  Future<void> saveEmailChannels(List<Map<String, dynamic>> channels) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.delete('email_channels');
+      for (final c in channels) {
+        final row = <String, dynamic>{
+          'id': c['id'] ?? '',
+          'name': c['name'] ?? '',
+          'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
+          'smtp_host': c['smtpHost'] ?? '',
+          'smtp_port': c['smtpPort'] ?? 465,
+          'username': c['username'] ?? '',
+          'password': c['password'] ?? '',
+          'from_email': c['fromEmail'] ?? '',
+          'to_email': c['toEmail'] ?? '',
+          'use_ssl': (c['useSSL'] != false) ? 1 : 0,
+          'subject_template': c['subjectTemplate'],
+          'body_template': c['bodyTemplate'],
+          'created_at': c['created_at'] ?? now,
+          'updated_at': now,
+        };
+        await txn.insert(
+          'email_channels',
+          row,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  // ========== Webhook 通道（webhook_channels） ==========
+
+  Future<List<Map<String, dynamic>>> getWebhookChannels() async {
+    final db = await database;
+    return await db.query('webhook_channels', orderBy: 'updated_at DESC');
+  }
+
+  Future<void> saveWebhookChannels(List<Map<String, dynamic>> channels) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.delete('webhook_channels');
+      for (final c in channels) {
+        final row = <String, dynamic>{
+          'id': c['id'] ?? '',
+          'name': c['name'] ?? '',
+          'url': c['url'] ?? '',
+          'channel_type':
+              c['channelType']?.toString() ??
+              c['type']?.toString() ??
+              'generic',
+          'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
+          'secret': c['secret'],
+          'created_at': c['created_at'] ?? now,
+          'updated_at': now,
+        };
+        await txn.insert(
+          'webhook_channels',
+          row,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
   }
 }

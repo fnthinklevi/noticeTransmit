@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
 import 'platform_channel.dart';
+import 'webhook_service.dart';
+import 'email_service.dart';
 
 class NotificationService {
   static const _channel = AppChannels.notification;
@@ -42,8 +45,7 @@ class NotificationService {
 
   Future<void> loadServiceState() async {
     final prefs = await SharedPreferences.getInstance();
-    _serviceManuallyStopped =
-        prefs.getBool('service_manually_stopped') ?? false;
+    _serviceManuallyStopped = prefs.getBool('service_manually_stopped') ?? true;
     try {
       _serviceRunning =
           await _channel.invokeMethod('isServiceRunning') as bool? ?? false;
@@ -53,12 +55,50 @@ class NotificationService {
   }
 
   void addRecord(Map<String, dynamic> record) {
+    record['channels'] = _getActiveChannels();
     final notificationRecord = NotificationRecord.fromMap(record);
     _records.insert(0, notificationRecord);
     if (_records.length > _maxRecords) {
       _records.removeRange(_maxRecords, _records.length);
     }
     _saveRecords(notificationRecord.toMap());
+  }
+
+  List<String> _getActiveChannels() {
+    final channels = <String>[];
+    try {
+      final webhookService = GetIt.instance<WebhookService>();
+      for (final c in webhookService.channels) {
+        if (c['enabled'] == true) {
+          final type = c['type']?.toString() ?? 'generic';
+          channels.add(_webhookTypeLabel(type));
+        }
+      }
+    } catch (_) {}
+    try {
+      // 从 GetIt 获取已缓存的 EmailService，同步读取已加载的通道
+      final emailService = GetIt.instance<EmailService>();
+      if (emailService.cachedChannels.any((c) => c.enabled)) {
+        channels.add('邮件');
+      }
+    } catch (_) {}
+    return channels;
+  }
+
+  String _webhookTypeLabel(String type) {
+    switch (type) {
+      case '0':
+      case 'wechatWork':
+        return 'webhook:企业微信';
+      case '1':
+      case 'dingtalk':
+        return 'webhook:钉钉';
+      case '2':
+      case 'feishu':
+        return 'webhook:飞书';
+      default:
+        return 'webhook:Webhook';
+    }
   }
 
   Future<void> clearRecords() async {

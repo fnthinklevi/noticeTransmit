@@ -23,6 +23,7 @@ class PermissionSettingsPage extends StatefulWidget {
   final VoidCallback onRequestSmsPermission;
   final VoidCallback onRequestPhonePermission;
   final VoidCallback onRequestAppListPermission;
+  final VoidCallback onAppListPermissionGranted;
 
   const PermissionSettingsPage({
     super.key,
@@ -45,6 +46,7 @@ class PermissionSettingsPage extends StatefulWidget {
     required this.onRequestSmsPermission,
     required this.onRequestPhonePermission,
     required this.onRequestAppListPermission,
+    required this.onAppListPermissionGranted,
   });
 
   @override
@@ -71,7 +73,11 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
+      final wasGranted = _appListPermissionGranted;
       await _permissionService.checkAllPermissions();
+      if (!wasGranted && _appListPermissionGranted) {
+        widget.onAppListPermissionGranted();
+      }
       if (mounted) setState(() {});
     }
   }
@@ -116,6 +122,68 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
           !_isOppo &&
           !_isVivo &&
           !_isSamsung;
+
+  void _showAppListPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg(ctx),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.apps, size: 44, color: AppColors.blue),
+            const SizedBox(height: 14),
+            Text(
+              '需要应用列表权限',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n'
+              '点击「允许」后将跳转到系统设置页，请手动开启权限。',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              '拒绝',
+              style: TextStyle(
+                color: AppColors.secondaryLabel(ctx),
+                fontSize: 15,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onRequestAppListPermission();
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('允许', style: TextStyle(fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +363,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 isOn: _appListPermissionGranted,
                 onTap: _appListPermissionGranted
                     ? null
-                    : widget.onRequestAppListPermission,
+                    : _showAppListPermissionDialog,
                 context: context,
               ),
               Padding(

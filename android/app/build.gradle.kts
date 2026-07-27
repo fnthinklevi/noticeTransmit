@@ -90,6 +90,12 @@ android {
                 "lib/x86_64/**",
             )
         }
+        resources {
+            excludes += setOf(
+                "META-INF/NOTICE.md",
+                "META-INF/LICENSE.md",
+            )
+        }
     }
 }
 
@@ -102,6 +108,8 @@ kotlin {
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.tencent.bugly:crashreport:4.1.9.3")
+    implementation("com.sun.mail:android-mail:1.6.7")
+    implementation("com.sun.mail:android-activation:1.6.7")
 }
 
 flutter {

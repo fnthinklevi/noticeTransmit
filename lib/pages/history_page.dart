@@ -110,6 +110,14 @@ class _HistoryPageState extends State<HistoryPage> {
     return colors[hash.abs() % colors.length];
   }
 
+  Color _getChannelColor(String channel) {
+    if (channel.contains('企业微信')) return const Color(0xFF2BAA3E);
+    if (channel.contains('飞书')) return const Color(0xFF3370FF);
+    if (channel.contains('钉钉')) return const Color(0xFF0089FF);
+    if (channel.contains('邮件')) return AppColors.orange;
+    return Colors.grey;
+  }
+
   String _getTypeLabel(String? type) {
     switch (type) {
       case 'sms':
@@ -328,6 +336,39 @@ class _HistoryPageState extends State<HistoryPage> {
           appName,
           style: TextStyle(
             fontSize: 11,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+      );
+    }
+
+    // 推送渠道标签
+    if (record.channels.isNotEmpty) {
+      columnChildren.add(const SizedBox(height: 4));
+      columnChildren.add(
+        Wrap(
+          spacing: 4,
+          runSpacing: 2,
+          children: record.channels.map((c) {
+            final chipColor = _getChannelColor(c);
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: chipColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(c, style: TextStyle(fontSize: 10, color: chipColor)),
+            );
+          }).toList(),
+        ),
+      );
+    } else {
+      columnChildren.add(const SizedBox(height: 4));
+      columnChildren.add(
+        Text(
+          '未配置推送通道',
+          style: TextStyle(
+            fontSize: 10,
             color: AppColors.secondaryLabel(context),
           ),
         ),
