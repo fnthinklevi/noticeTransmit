@@ -1,6 +1,5 @@
 package com.fnthink.notice
 
-import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -112,15 +111,6 @@ class MainActivity : FlutterActivity() {
             map[key] = get(key)
         }
         return map
-    }
-
-    private fun stopOldService() {
-        try {
-            val serviceIntent = Intent(this, NotificationMonitorService::class.java)
-            stopService(serviceIntent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     override fun onResume() {
@@ -279,7 +269,7 @@ class MainActivity : FlutterActivity() {
                 "getAppVersion" -> {
                     try {
                         val info = packageManager.getPackageInfo(packageName, 0)
-                        val versionName = info.versionName ?: "1.5.32"
+                        val versionName = info.versionName ?: "1.5.45"
                         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                             info.longVersionCode.toInt()
                         } else {
@@ -288,7 +278,7 @@ class MainActivity : FlutterActivity() {
                         result.success(mapOf("versionName" to versionName, "versionCode" to versionCode))
                     } catch (e: Exception) {
                         e.printStackTrace()
-                        result.success(mapOf("versionName" to "1.5.32", "versionCode" to 66))
+                        result.success(mapOf("versionName" to "1.5.45", "versionCode" to 79))
                     }
                 }
                 "startNotificationListener" -> {
@@ -302,10 +292,6 @@ class MainActivity : FlutterActivity() {
                 "testWebhook" -> {
                     val url = call.argument<String>("url") ?: ""
                     testWebhook(url, result)
-                }
-                "getNotificationRecords" -> {
-                    val records = getNotificationRecords()
-                    result.success(records)
                 }
                 "clearNotificationRecords" -> {
                     clearNotificationRecords()
@@ -707,27 +693,6 @@ class MainActivity : FlutterActivity() {
         return list
     }
 
-    private fun getNotificationRecords(): List<Map<String, Any?>> {
-        val recordsJson = prefs.getString("flutter.notification_records", "[]") ?: "[]"
-        val list = mutableListOf<Map<String, Any?>>()
-        try {
-            val jsonArray = org.json.JSONArray(recordsJson)
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                val map = mutableMapOf<String, Any?>()
-                val keys = obj.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
-                    map[key] = obj.get(key)
-                }
-                list.add(map)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return list
-    }
-
     private fun clearNotificationRecords() {
         prefs.edit().remove("flutter.notification_records").apply()
     }
@@ -823,17 +788,6 @@ class MainActivity : FlutterActivity() {
                 REQUEST_POST_NOTIFICATION_PERMISSION
             )
         }
-    }
-
-    private fun isNotificationServiceRunning(): Boolean {
-        val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val runningServices = am.getRunningServices(100)
-        for (service in runningServices) {
-            if (service.service.className == NotificationMonitorService::class.java.name) {
-                return true
-            }
-        }
-        return false
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {

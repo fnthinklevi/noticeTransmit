@@ -33,16 +33,7 @@ class WebhookSender(private val context: Context) {
 
     fun sendNotification(info: NotificationInfo) {
         sendBroadcast(info)
-        saveNotificationRecord(info)
 
-        if (webhookUrls.isEmpty()) return
-
-        for (url in webhookUrls) {
-            sendToSingleUrl(url, info)
-        }
-    }
-
-    fun sendToWebhooks(info: NotificationInfo) {
         if (webhookUrls.isEmpty()) return
 
         for (url in webhookUrls) {
@@ -72,37 +63,6 @@ class WebhookSender(private val context: Context) {
             context.sendBroadcast(intent)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send broadcast", e)
-        }
-    }
-
-    fun saveNotificationRecord(info: NotificationInfo) {
-        try {
-            val json = JSONObject().apply {
-                put("id", info.id)
-                put("title", info.title)
-                put("content", info.content)
-                put("subText", info.subText)
-                put("packageName", info.packageName)
-                put("appName", info.appName)
-                put("postTime", info.postTime)
-                put("time", info.time)
-                put("type", info.type)
-                put("deviceName", info.deviceName)
-                put("timestamp", System.currentTimeMillis())
-            }
-
-            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-            val recordsJson = prefs.getString("flutter.notification_records", "[]")
-            val records = org.json.JSONArray(recordsJson)
-            records.put(0, json)
-
-            while (records.length() > 100) {
-                records.remove(records.length() - 1)
-            }
-
-            prefs.edit().putString("flutter.notification_records", records.toString()).apply()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to save notification record", e)
         }
     }
 

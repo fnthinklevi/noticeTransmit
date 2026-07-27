@@ -23,7 +23,7 @@ class NotificationService {
     try {
       await DatabaseHelper().migrateFromSharedPreferences();
     } catch (e) {
-      print('数据库迁移失败: $e');
+      debugPrint('数据库迁移失败: $e');
     }
 
     try {
