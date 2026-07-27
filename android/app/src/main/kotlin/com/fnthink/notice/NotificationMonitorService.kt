@@ -183,8 +183,6 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     private fun loadConfig() {
-        val hotfixConfig = configManager.loadHotfixConfig()
-        notificationProcessor.setHotfixConfig(hotfixConfig.appNames, hotfixConfig.notificationTypes)
         val loadedDeviceName = configManager.getDeviceName()
         deviceName = loadedDeviceName
         batteryMonitor.setDeviceName(loadedDeviceName)

@@ -55,6 +55,38 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 const rateLimitStore = {};
+
+// 定期清理 + 持久化：保存到文件防止重启丢失
+const RATE_LIMIT_FILE = path.join(DATA_DIR, 'rate_limit.json');
+function saveRateLimitStore() {
+  // 仅保存当前窗口内的记录，减少文件体积
+  const now = Date.now();
+  const slim = {};
+  for (const [key, entry] of Object.entries(rateLimitStore)) {
+    if (now - entry.windowStart <= RATE_LIMIT_WINDOW_MS) {
+      slim[key] = entry;
+    }
+  }
+  if (Object.keys(slim).length > 0) {
+    writeJsonFile(RATE_LIMIT_FILE, slim);
+  } else {
+    // 全部过期就删文件
+    try { if (fs.existsSync(RATE_LIMIT_FILE)) fs.unlinkSync(RATE_LIMIT_FILE); } catch (_) {}
+  }
+}
+// 启动时加载上次持久化的限流记录
+(function loadRateLimitStore() {
+  const saved = readJsonFile(RATE_LIMIT_FILE, {});
+  const now = Date.now();
+  for (const [key, entry] of Object.entries(saved)) {
+    if (now - entry.windowStart <= RATE_LIMIT_WINDOW_MS) {
+      rateLimitStore[key] = entry;
+    }
+  }
+  if (Object.keys(rateLimitStore).length > 0) {
+    console.log(`[persist] 恢复限流记录 ${Object.keys(rateLimitStore).length} 条`);
+  }
+})();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_GENERAL_MAX = 60;
 const RATE_LIMIT_AUTH_MAX = 5;
@@ -117,7 +149,10 @@ function cleanupRateLimitStore() {
   }
 }
 
-setInterval(cleanupRateLimitStore, RATE_LIMIT_WINDOW_MS);
+setInterval(() => {
+  cleanupRateLimitStore();
+  saveRateLimitStore();
+}, RATE_LIMIT_WINDOW_MS);
 
 app.use((req, res, next) => {
   const ip = getClientIp(req);
@@ -168,10 +203,31 @@ const BLOCK_DURATION_HOURS = 240;
 
 const FAILED_ATTEMPTS_FILE = path.join(DATA_DIR, 'failed_attempts.json');
 
-const sessions = {};
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 
-// 定期清理过期会话，避免内存无上限增长
+const sessions = {};
+
+// 持久化会话到文件
+function saveSessions() {
+  writeJsonFile(SESSIONS_FILE, sessions);
+}
+
+// 启动时加载上次的会话
+(function loadSessions() {
+  const saved = readJsonFile(SESSIONS_FILE, {});
+  const now = Date.now();
+  for (const [id, session] of Object.entries(saved)) {
+    if (now - session.createdAt <= SESSION_TTL_MS) {
+      sessions[id] = session;
+    }
+  }
+  if (Object.keys(sessions).length > 0) {
+    console.log(`[persist] 恢复会话 ${Object.keys(sessions).length} 条`);
+  }
+})();
+
+// 定期清理过期会话 + 持久化，避免内存无上限增长
 function cleanupSessions() {
   const now = Date.now();
   for (const [id, session] of Object.entries(sessions)) {
@@ -179,6 +235,7 @@ function cleanupSessions() {
       delete sessions[id];
     }
   }
+  saveSessions();
 }
 
 setInterval(cleanupSessions, 60 * 60 * 1000);
@@ -820,6 +877,19 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
+
+// 优雅关闭：进程退出前持久化内存状态
+function onShutdown(signal) {
+  console.log(`\n[${signal}] 正在保存状态...`);
+  saveRateLimitStore();
+  saveSessions();
+  saveFailedAttempts(failedAttempts);
+  console.log(`[${signal}] 状态已保存，安全退出`);
+  process.exit(0);
+}
+process.on('SIGTERM', () => onShutdown('SIGTERM'));
+process.on('SIGINT', () => onShutdown('SIGINT'));
+process.on('SIGHUP', () => onShutdown('SIGHUP'));
 
 app.listen(PORT, () => {
   console.log('==============================');

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
+import 'package:workmanager/workmanager.dart';
+import 'archive_worker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
@@ -174,45 +176,24 @@ class NotificationService {
   }
 
   // ========== 每日自动归档 ==========
-
-  Timer? _midnightTimer;
+  // 使用 WorkManager 替代 Timer.periodic，支持 Doze 模式唤醒
+  // 幂等保护：SharedPreferences 中记录 lastArchiveDate，防止重复归档
 
   void startDailyExport() {
-    _midnightTimer?.cancel();
-    _midnightTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      _checkAndExport();
-    });
+    Workmanager().registerPeriodicTask(
+      kArchiveTaskName,
+      kArchiveTaskName,
+      frequency: const Duration(hours: 1),
+      constraints: Constraints(
+        networkType: NetworkType.not_required,
+      ),
+      existingWorkPolicy: ExistingWorkPolicy.keep,
+    );
+    debugPrint('[Archive] WorkManager 任务已注册');
   }
 
   void dispose() {
-    _midnightTimer?.cancel();
-  }
-
-  Future<void> _checkAndExport() async {
-    final now = DateTime.now();
-    if (now.hour != 0 || now.minute != 0) return;
-    final today =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final todayRecords = _records.where((r) {
-      return r.time.startsWith(today);
-    }).toList();
-    if (todayRecords.isEmpty) return;
-
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/history-$today.json');
-      await file.writeAsString(
-        jsonEncode(todayRecords.map((r) => r.toMap()).toList()),
-      );
-
-      for (final r in todayRecords) {
-        await DatabaseHelper().deleteNotification(r.id);
-      }
-      _records.removeWhere((r) => r.time.startsWith(today));
-      debugPrint('每日归档: ${todayRecords.length} 条 → ${file.path}');
-    } catch (e) {
-      debugPrint('每日归档失败: $e');
-    }
+    Workmanager().cancelByUniqueName(kArchiveTaskName);
   }
 
   // ========== 多种清除方式 ==========

@@ -41,6 +41,9 @@ jobs:
       - name: Flutter format check
         run: dart format --set-exit-if-changed lib/
 
+      - name: Version consistency check
+        run: bash .github/scripts/check_version_consistency.sh
+
       - name: Run code metrics analysis
         run: |
           set +e

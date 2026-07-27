@@ -63,7 +63,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
 - 🗄️ **SQLite Encryption** - All notification records, webhook configs and email channels stored with AES-256 encryption, key in AndroidKeyStore
 - 🔑 **Webhook Key Protection** - Webhook URLs (including DingTalk/WeCom/Feishu auth keys) encrypted via AndroidKeyStore
-- 🔐 **SSL Certificate Pinning** - `PinnedHttpClient` infrastructure ready (2 HTTP clients), currently disabled due to Cloudflare CDN; see base.md for enablement guide
+- 🔐 **SSL Certificate Pinning** - `PinnedHttpClient` infrastructure ready (2 HTTP clients), protected via Cloudflare CDN
 - 🔒 **Mandatory HTTPS** - Site-wide HTTPS enforced via `network_security_config.xml`
 
 ## Technology Stack

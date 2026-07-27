@@ -85,46 +85,6 @@ class ConfigManager(private val context: Context) {
         return prefs.getBoolean(KEY_BATTERY_NOTIFY_ENABLED, true)
     }
 
-    fun loadHotfixConfig(): HotfixConfig {
-        val hotfixAppNames = mutableMapOf<String, String>()
-        val hotfixNotificationTypes = mutableMapOf<String, String>()
-
-        val hotfixFile = File(context.filesDir, "hotfix.json")
-        if (hotfixFile.exists()) {
-            try {
-                val jsonStr = FileInputStream(hotfixFile).use { fis ->
-                    fis.bufferedReader().readText()
-                }
-
-                val json = JSONObject(jsonStr)
-
-                if (json.has("appNames")) {
-                    val appNamesObj = json.getJSONObject("appNames")
-                    val keys = appNamesObj.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        hotfixAppNames[key] = appNamesObj.getString(key)
-                    }
-                }
-
-                if (json.has("notificationTypes")) {
-                    val typesObj = json.getJSONObject("notificationTypes")
-                    val keys = typesObj.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        hotfixNotificationTypes[key] = typesObj.getString(key)
-                    }
-                }
-
-                Log.i(TAG, "Hotfix loaded: ${hotfixAppNames.size} app names, ${hotfixNotificationTypes.size} notification types")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load hotfix config", e)
-            }
-        }
-
-        return HotfixConfig(hotfixAppNames, hotfixNotificationTypes)
-    }
-
     private fun getStringList(key: String): List<String> {
         val json = prefs.getString(key, "[]")
         return try {
@@ -140,8 +100,3 @@ class ConfigManager(private val context: Context) {
         }
     }
 }
-
-data class HotfixConfig(
-    val appNames: Map<String, String>,
-    val notificationTypes: Map<String, String>
-)

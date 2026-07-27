@@ -28,7 +28,11 @@ class BootReceiver : BroadcastReceiver() {
                     Handler(Looper.getMainLooper()).postDelayed({
                         try {
                             val serviceIntent = Intent(context, NotificationMonitorService::class.java)
-                            context.startService(serviceIntent)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent)
+                            } else {
+                                context.startService(serviceIntent)
+                            }
                             Log.d(TAG, "Notification service started on boot")
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to start service on boot", e)

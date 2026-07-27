@@ -266,12 +266,6 @@ class MainActivity : FlutterActivity() {
                     notifyServiceConfigChanged()
                     result.success(true)
                 }
-                "reloadHotfix" -> {
-                    val intent = android.content.Intent("com.fnthink.notice.RELOAD_HOTFIX")
-                    intent.setPackage(packageName)
-                    sendBroadcast(intent)
-                    result.success(true)
-                }
                 "isServiceRunning" -> {
                     result.success(isMonitoringEnabled())
                 }

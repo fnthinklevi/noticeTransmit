@@ -16,13 +16,6 @@ class NotificationProcessor(private val context: Context) {
     }
 
     private val notifiedKeys = Collections.synchronizedSet(LinkedHashSet<String>())
-    private var hotfixAppNames: Map<String, String>? = null
-    private var hotfixNotificationTypes: Map<String, String>? = null
-
-    fun setHotfixConfig(appNames: Map<String, String>?, notificationTypes: Map<String, String>?) {
-        hotfixAppNames = appNames
-        hotfixNotificationTypes = notificationTypes
-    }
 
     fun processNotification(sbn: StatusBarNotification): NotificationInfo? {
         val notification = sbn.notification ?: return null
@@ -165,13 +158,6 @@ class NotificationProcessor(private val context: Context) {
 
     private fun getFriendlyAppName(packageName: String): String {
         val pkg = packageName.lowercase()
-        hotfixAppNames?.let { map ->
-            for ((prefix, name) in map) {
-                if (pkg.startsWith(prefix)) {
-                    return name
-                }
-            }
-        }
         return when {
             pkg.startsWith("com.tencent.mm") -> "微信"
             pkg.startsWith("com.tencent.mobileqq") -> "QQ"
@@ -344,14 +330,6 @@ class NotificationProcessor(private val context: Context) {
         val pkg = packageName.lowercase()
         val appLower = appName.lowercase()
         val fullText = "$appName $title $content".lowercase()
-
-        hotfixNotificationTypes?.let { map ->
-            for ((keyword, type) in map) {
-                if (pkg.contains(keyword) || appLower.contains(keyword) || fullText.contains(keyword)) {
-                    return type
-                }
-            }
-        }
 
         return when {
             pkg.contains("tencent.mm") || appLower.contains("微信") || appLower.contains("wechat") -> "wechat"
