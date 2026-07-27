@@ -214,20 +214,45 @@
               <input type="text" id="v_minSupportedVersion" placeholder="1.0.0">
             </div>
           </div>
+          <h3>多平台 APK 下载配置</h3>
           <div class="form-row">
             <div class="form-group">
-              <label>下载地址</label>
-              <input type="text" id="v_downloadUrl" placeholder="https://cdn.example.com/app.apk">
+              <label>arm64 下载地址</label>
+              <input type="text" id="v_dl_arm64" placeholder=".../notice_arm64_X.Y.Z.apk">
             </div>
             <div class="form-group">
-              <label>文件大小（字节）</label>
-              <input type="number" id="v_fileSize" placeholder="0">
+              <label>arm64 文件大小(字节)</label>
+              <input type="number" id="v_fs_arm64" placeholder="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>arm32 下载地址</label>
+              <input type="text" id="v_dl_arm32" placeholder=".../notice_arm32_X.Y.Z.apk">
             </div>
             <div class="form-group">
-              <label>平台</label>
-              <select id="v_platform">
-                <option value="android">Android</option>
-              </select>
+              <label>arm32 文件大小(字节)</label>
+              <input type="number" id="v_fs_arm32" placeholder="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>x86_64 下载地址</label>
+              <input type="text" id="v_dl_x86" placeholder=".../notice_x86_X.Y.Z.apk">
+            </div>
+            <div class="form-group">
+              <label>x86_64 文件大小(字节)</label>
+              <input type="number" id="v_fs_x86" placeholder="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>全平台融合包 下载地址</label>
+              <input type="text" id="v_dl_all" placeholder=".../notice_all_X.Y.Z.apk">
+            </div>
+            <div class="form-group">
+              <label>全平台 文件大小(字节)</label>
+              <input type="number" id="v_fs_all" placeholder="0">
             </div>
           </div>
           <div class="form-group checkbox">
@@ -579,14 +604,22 @@
           document.getElementById('v_latestVersion').value = data.latestVersion || '';
           document.getElementById('v_latestBuild').value = data.latestBuild || '';
           document.getElementById('v_minSupportedVersion').value = data.minSupportedVersion || '';
-          document.getElementById('v_downloadUrl').value = data.downloadUrl || '';
-          document.getElementById('v_fileSize').value = data.fileSize || '';
-          document.getElementById('v_platform').value = data.platform || 'android';
           document.getElementById('v_changelog').value = data.changelog || '';
           document.getElementById('v_forceUpdate').checked = data.forceUpdate || false;
           document.getElementById('v_forceUpdateVersion').value = data.forceUpdateVersion || '';
           document.getElementById('v_forceUpdateBuild').value = data.forceUpdateBuild || '';
           toggleForceFields('v', data.forceUpdate);
+          // 多平台下载配置
+          const dl = data.downloads || {};
+          const fs = data.fileSizes || {};
+          document.getElementById('v_dl_arm64').value = dl.arm64 || '';
+          document.getElementById('v_dl_arm32').value = dl.arm32 || '';
+          document.getElementById('v_dl_x86').value = dl.x86_64 || '';
+          document.getElementById('v_dl_all').value = dl.all || '';
+          document.getElementById('v_fs_arm64').value = fs.arm64 || '';
+          document.getElementById('v_fs_arm32').value = fs.arm32 || '';
+          document.getElementById('v_fs_x86').value = fs.x86_64 || '';
+          document.getElementById('v_fs_all').value = fs.all || '';
           document.getElementById('versionJson').textContent = JSON.stringify(data, null, 2);
           document.getElementById('versionForceBadge').classList.toggle('hidden', !data.forceUpdate);
           showStatus('versionStatus', 'success', '数据加载成功');
@@ -603,13 +636,22 @@
         latestVersion: document.getElementById('v_latestVersion').value,
         latestBuild: parseInt(document.getElementById('v_latestBuild').value) || 0,
         minSupportedVersion: document.getElementById('v_minSupportedVersion').value,
-        downloadUrl: document.getElementById('v_downloadUrl').value,
-        fileSize: parseInt(document.getElementById('v_fileSize').value) || 0,
-        platform: document.getElementById('v_platform').value,
         changelog: document.getElementById('v_changelog').value,
         forceUpdate: document.getElementById('v_forceUpdate').checked,
         forceUpdateVersion: document.getElementById('v_forceUpdateVersion').value,
-        forceUpdateBuild: parseInt(document.getElementById('v_forceUpdateBuild').value) || 0
+        forceUpdateBuild: parseInt(document.getElementById('v_forceUpdateBuild').value) || 0,
+        downloads: {
+          arm64: document.getElementById('v_dl_arm64').value,
+          arm32: document.getElementById('v_dl_arm32').value,
+          x86_64: document.getElementById('v_dl_x86').value,
+          all: document.getElementById('v_dl_all').value
+        },
+        fileSizes: {
+          arm64: parseInt(document.getElementById('v_fs_arm64').value) || 0,
+          arm32: parseInt(document.getElementById('v_fs_arm32').value) || 0,
+          x86_64: parseInt(document.getElementById('v_fs_x86').value) || 0,
+          all: parseInt(document.getElementById('v_fs_all').value) || 0
+        }
       };
       try {
         const result = await fetchWithSession(`${API_BASE}/api/admin/version`, {

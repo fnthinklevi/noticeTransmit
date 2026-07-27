@@ -266,18 +266,33 @@ class AppUpdateManager {
                       0) >
                   currentBuild);
 
-      final result = VersionCheckResult(
+  // 解析 downloads（v1.5.47+） / 兼容旧 downloadUrl
+    final downloads = Map<String, String>.from(
+      versionData['downloads'] as Map? ?? {},
+    );
+    final fileSizes = Map<String, int>.from(
+      (versionData['fileSizes'] as Map? ?? {}).map(
+        (k, v) => MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
+      ),
+    );
+    final abiKey = await _getRealAbi();
+    final downloadUrl = downloads[abiKey] ??
+        downloads['all'] ??
+        versionData['downloadUrl']?.toString() ??
+        '';
+    final fileSize = fileSizes[abiKey] ?? fileSizes['all'] ?? 0;
+
+    final result = VersionCheckResult(
         hasUpdate: hasUpdate,
-        appName: versionData['appName']?.toString() ?? 'notice$latestVersion',
         latestVersion: latestVersion,
         latestBuild: latestBuild,
         forceUpdate: needForce,
         changelog: versionData['changelog']?.toString() ?? '',
-        downloadUrl: versionData['downloadUrl']?.toString() ?? '',
-        fileSize: int.tryParse(versionData['fileSize']?.toString() ?? '0') ?? 0,
-        platform: versionData['platform']?.toString() ?? 'android',
+        downloadUrl: downloadUrl,
+        fileSize: fileSize,
         minSupportedVersion:
             versionData['minSupportedVersion']?.toString() ?? '1.0.0',
+        downloads: downloads,
       );
 
       debugPrint('检查更新（静态）：最新版本 ${result.latestVersion}，hasUpdate=$hasUpdate');
@@ -307,6 +322,34 @@ class AppUpdateManager {
       if (p1 < p2) return -1;
     }
     return 0;
+  }
+
+  /// 获取当前设备 ABI 标识
+  static String get deviceAbi {
+    if (Platform.isAndroid) {
+      // android-arm → armeabi-v7a, android-arm64 → arm64-v8a,
+      // android-x64 → x86_64, android → 融合包
+      return Platform.isAndroid
+          ? 'arm64'
+          : 'all'; // Flutter TARGET_PLATFORM
+    }
+    return 'all';
+  }
+
+  /// 获取真实设备 ABI（通过 MethodChannel 从原生获取）
+  static Future<String> _getRealAbi() async {
+    try {
+      final abis = await AppChannels.notification.invokeMethod('getSupportedAbis');
+      if (abis is List && abis.isNotEmpty) {
+        for (final abi in abis) {
+          final s = abi.toString();
+          if (s.startsWith('arm64')) return 'arm64';
+          if (s.startsWith('armeabi')) return 'arm32';
+          if (s.startsWith('x86_64')) return 'x86_64';
+        }
+      }
+    } catch (_) {}
+    return 'arm64'; // 默认 arm64
   }
 
   Future<String> downloadApk(
@@ -502,41 +545,38 @@ class AppUpdateManager {
 
 class VersionCheckResult {
   final bool hasUpdate;
-  final String appName;
   final String latestVersion;
   final int latestBuild;
   final bool forceUpdate;
   final String changelog;
   final String downloadUrl;
   final int fileSize;
-  final String platform;
   final String minSupportedVersion;
+  final Map<String, String> downloads;
 
   VersionCheckResult({
     required this.hasUpdate,
-    required this.appName,
     required this.latestVersion,
     required this.latestBuild,
     required this.forceUpdate,
     required this.changelog,
     required this.downloadUrl,
     required this.fileSize,
-    required this.platform,
     required this.minSupportedVersion,
+    this.downloads = const {},
   });
 
   factory VersionCheckResult.fromJson(Map<String, dynamic> json) {
     return VersionCheckResult(
       hasUpdate: json['hasUpdate'] ?? false,
-      appName: json['appName'] ?? '',
       latestVersion: json['latestVersion'] ?? '',
       latestBuild: json['latestBuild'] ?? 0,
       forceUpdate: json['forceUpdate'] ?? false,
       changelog: json['changelog'] ?? '',
       downloadUrl: json['downloadUrl'] ?? '',
       fileSize: json['fileSize'] ?? 0,
-      platform: json['platform'] ?? 'android',
       minSupportedVersion: json['minSupportedVersion'] ?? '',
+      downloads: Map<String, String>.from(json['downloads'] as Map? ?? {}),
     );
   }
 

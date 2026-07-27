@@ -746,9 +746,8 @@ app.get('/api/version/check', (req, res) => {
     forceUpdate: false,
     forceUpdateBuild: 0,
     changelog: '',
-    downloadUrl: '',
-    fileSize: 0,
-    platform: 'android',
+    downloads: {},
+    fileSizes: {},
     minSupportedVersion: '1.0.0'
   });
 
@@ -764,14 +763,12 @@ app.get('/api/version/check', (req, res) => {
     message: 'success',
     data: {
       hasUpdate,
-      appName: versionData.appName || ('notice' + versionData.latestVersion),
       latestVersion: versionData.latestVersion,
       latestBuild: versionData.latestBuild,
       forceUpdate: needForce,
       changelog: versionData.changelog,
-      downloadUrl: versionData.downloadUrl,
-      fileSize: versionData.fileSize,
-      platform: versionData.platform,
+      downloads: versionData.downloads || {},
+      fileSizes: versionData.fileSizes || {},
       minSupportedVersion: versionData.minSupportedVersion
     }
   });

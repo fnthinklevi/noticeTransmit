@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="app_icon.png?v=20260719" sizes="any">
 <link rel="shortcut icon" href="favicon.ico?v=20260719">
 <link rel="apple-touch-icon" href="app_icon.png?v=20260719">
-<title>通知推送助手 · 让每条通知，抵达每个平台</title>
+<title>NoticeTransmit · 通知推送助手</title>
 <meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书）和 SMTP 邮件双通道，具备应用筛选、关键词过滤、可视化规则引擎、电量提醒等功能。开源、免费。仅收集必要的崩溃日志用于修复问题。" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23467CFD' d='M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z'/%3E%3Cpath fill='%238BAEF7' d='M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.cn" />
@@ -581,11 +581,25 @@
       <div class="cta-inner">
         <h2>现在，就让通知流动起来</h2>
         <p>下载最新版 APK，几分钟完成配置，再也不错过任何一条重要消息。</p>
-        <div class="cta-actions">
-          <a class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/notice1.5.47.apk">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
-            下载 Android APK
-          </a>
+        <div class="cta-actions" style="flex-direction: column; align-items: center; gap: 8px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+            <a class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/notice_arm64_1.5.47.apk">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+              下载 arm64
+            </a>
+            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/notice_arm32_1.5.47.apk">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+              下载 arm32
+            </a>
+            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/notice_x86_1.5.47.apk">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+              下载 x86_64
+            </a>
+            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/notice_all_1.5.47.apk">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+              下载 全平台
+            </a>
+          </div>
           <a class="btn btn-ghost btn-lg" href="https://github.com/fnthinklevi/noticeTransmit/releases" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.2-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.75.81 1.2 1.84 1.2 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.2.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
             全部历史版本
@@ -596,7 +610,7 @@
           <span>·</span>
           <span>约 24.5 MB</span>
           <span>·</span>
-          <span>arm64 · Android 7.0+</span>
+          <span>arm64 · arm32 · x86_64 · Android 7.0+</span>
         </div>
       </div>
     </div>

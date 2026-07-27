@@ -901,7 +901,6 @@ class _MainPageState extends State<MainPage> {
         .downloadApk(
           result.downloadUrl,
           totalSize: result.fileSize,
-          appName: result.appName,
           version: result.latestVersion,
           onProgress: (progress) {
             progressNotifier.value = progress;

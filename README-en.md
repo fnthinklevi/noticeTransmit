@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/app_icon.png" width="128" alt="Notification Push Helper">
+<img src="assets/app_icon.png" width="128" alt="NoticeTransmit">
 
-# Notification Push Helper
+# NoticeTransmit
 
 **English / [中文](README.md)**
 
@@ -23,7 +23,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 
 ## Introduction
 
-Notification Push Helper is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu) or SMTP email. Fully on-device processing — zero data upload. Open source MIT, free, no ads.
+NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu) or SMTP email. Fully on-device processing — zero data upload. Open source MIT, free, no ads.
 
 ## Features
 

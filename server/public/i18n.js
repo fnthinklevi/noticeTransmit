@@ -3,8 +3,8 @@
 (function () {
   // ── 完整翻译字典：中文原文 → 英文译文 ──
   var D = {};
-  D['通知推送助手 · 让每条通知，抵达每个平台'] = 'Notification Push Helper';
-  D['通知推送助手'] = 'Notification Push Helper';
+D['通知推送助手 · 让每条通知，抵达每个平台'] = 'NoticeTransmit';
+D['通知推送助手'] = 'NoticeTransmit';
   D['让每条通知，<br><span class="grad">抵达每个平台</span>'] = 'Every Notification, Every Platform';
   D['让每条通知，'] = 'Every notification,';
   D['抵达每个平台'] = 'every platform.';
@@ -109,7 +109,7 @@
   D['贡献指南'] = 'Contributing Guide';
   D['安全政策'] = 'Security Policy';
   D['反馈问题'] = 'Report Issue';
-  D['© 2026 幻念团队 fnthinklevi · 通知推送助手'] = '© 2026 fnthinklevi · Notification Push Helper';
+  D['© 2026 幻念团队 fnthinklevi · 通知推送助手'] = '© 2026 fnthinklevi · NoticeTransmit';
   D['打开菜单'] = 'Open Menu';
   D['关闭菜单'] = 'Close Menu';
   D['返回顶部'] = 'Back to Top';
@@ -188,7 +188,7 @@
     // 更新 <title> 和 <meta> description
     document.title = l === 'zh'
       ? '通知推送助手 · 让每条通知，抵达每个平台'
-      : 'Notification Push Helper';
+      : 'NoticeTransmit · 通知推送助手';
     var metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.content = l === 'zh'

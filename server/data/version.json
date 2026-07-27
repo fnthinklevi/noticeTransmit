@@ -1,13 +1,21 @@
 {
-  "appName": "notice1.5.47",
   "latestVersion": "1.5.47",
   "latestBuild": 81,
   "forceUpdate": false,
   "forceUpdateVersion": "1.5.46",
   "forceUpdateBuild": 80,
   "changelog": "v1.5.47: SMTP测试12种异常码 + 旧配置自动迁移 + Webhook自定义名 + 首页通道绿红点 + 推送历史多级清除+每日归档 + 后台缓存防丢失 + 下载闪退修复 + javax.mail R8混淆修复 + 管理后台崩溃修复",
-  "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/notice1.5.47.apk",
-  "fileSize": 25962797,
-  "platform": "android-arm64",
+  "downloads": {
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/notice_arm64_1.5.47.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/notice_arm32_1.5.47.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/notice_x86_1.5.47.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/notice_all_1.5.47.apk"
+  },
+  "fileSizes": {
+    "arm64": 25921477,
+    "arm32": 0,
+    "x86_64": 0,
+    "all": 0
+  },
   "minSupportedVersion": "1.0.0"
 }

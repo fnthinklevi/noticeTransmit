@@ -296,6 +296,9 @@ class MainActivity : FlutterActivity() {
                     val content = call.argument<String>("content") ?: ""
                     saveFileWithPicker(fileName, content, result)
                 }
+                "getSupportedAbis" -> {
+                    result.success(Build.SUPPORTED_ABIS.toList())
+                }
                 "getAppVersion" -> {
                     try {
                         val info = packageManager.getPackageInfo(packageName, 0)

@@ -59,14 +59,14 @@ android {
     }
 
     defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.fnthink.notice"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-        }
     }
 
     buildTypes {
@@ -82,14 +82,6 @@ android {
     }
 
     packaging {
-        jniLibs {
-            excludes += listOf(
-                "lib/armeabi/**",
-                "lib/armeabi-v7a/**",
-                "lib/x86/**",
-                "lib/x86_64/**",
-            )
-        }
         resources {
             excludes += setOf(
                 "META-INF/NOTICE.md",
