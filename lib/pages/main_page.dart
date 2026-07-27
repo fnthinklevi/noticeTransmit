@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,7 @@ import '../services/platform_channel.dart';
 import '../services/services.dart';
 import '../services/theme_service.dart';
 import '../services/email_service.dart';
+import '../services/locale_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
 import '../models/email_channel.dart';
@@ -29,7 +31,7 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _isCheckingUpdate = false;
   bool _isDownloading = false;
@@ -140,6 +142,7 @@ class _MainPageState extends State<MainPage> {
         onOpenRules: _openRuleListPage,
         onCheckUpdate: _manualCheckUpdate,
         onOpenPrivacyPolicy: _openPrivacyPolicyPage,
+        onChangeLanguage: _onChangeLanguage,
       ),
     ];
   }
@@ -147,6 +150,7 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _setupMethodChannel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _postInit();
@@ -193,8 +197,84 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _batteryService.stopRefreshTimer();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.resumed) {
+      final localeService = GetIt.instance<LocaleService>();
+      if (localeService.shouldPromptSwitch) {
+        await _showLanguageSwitchDialog(localeService);
+      }
+    }
+  }
+
+  Future<void> _showLanguageSwitchDialog(LocaleService localeService) async {
+    if (!mounted) return;
+    final newLang = PlatformDispatcher.instance.locale.languageCode;
+    final label = newLang == 'zh' ? '中文' : 'English';
+    await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg(ctx),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          '切换语言',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(ctx),
+          ),
+        ),
+        content: Text(
+          '检测到系统语言已变为 $label，是否同步切换应用语言？',
+          style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(ctx)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await localeService.setLanguage(AppLanguage.system);
+              await localeService.recordSystemLang();
+              if (mounted) Navigator.pop(ctx, false);
+            },
+            child: Text(
+              '暂不',
+              style: TextStyle(color: AppColors.secondaryLabel(ctx)),
+            ),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await localeService.setLanguage(AppLanguage.system);
+              await localeService.recordSystemLang();
+              if (mounted) {
+                Navigator.pop(ctx, true);
+                _rebuildApp();
+              }
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('切换', style: TextStyle(fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _rebuildApp() {
+    GetIt.instance<LocaleService>();
+    setState(() {});
+  }
+
+  void _onChangeLanguage(AppLanguage lang) {
+    GetIt.instance<LocaleService>().setLanguage(lang);
+    setState(() {});
   }
 
   /// 显示短时效的提示条（2 秒），并在弹出前/跳转前先收起上一条，

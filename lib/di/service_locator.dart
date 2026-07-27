@@ -9,6 +9,7 @@ import '../services/device_info_service.dart';
 import '../services/retry_service.dart';
 import '../services/theme_service.dart';
 import '../services/email_service.dart';
+import '../services/locale_service.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -23,4 +24,5 @@ void setupLocator() {
   getIt.registerLazySingleton<RetryService>(() => RetryService());
   getIt.registerLazySingleton<ThemeService>(() => ThemeService());
   getIt.registerLazySingleton<EmailService>(() => EmailService());
+  getIt.registerLazySingleton<LocaleService>(() => LocaleService());
 }

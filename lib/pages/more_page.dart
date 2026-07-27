@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../services/update_service.dart';
+import '../services/locale_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'stats_page.dart';
@@ -25,6 +26,7 @@ class MorePage extends StatelessWidget {
   final VoidCallback onOpenRules;
   final VoidCallback onCheckUpdate;
   final VoidCallback onOpenPrivacyPolicy;
+  final ValueChanged<AppLanguage> onChangeLanguage;
 
   const MorePage({
     super.key,
@@ -47,6 +49,7 @@ class MorePage extends StatelessWidget {
     required this.onOpenRules,
     required this.onCheckUpdate,
     required this.onOpenPrivacyPolicy,
+    required this.onChangeLanguage,
   });
 
   @override
@@ -62,6 +65,8 @@ class MorePage extends StatelessWidget {
           _buildSectionHeader('外观设置', context),
           _buildGroup([
             _buildThemeTile(context),
+            _buildDivider(context),
+            _buildLanguageTile(context),
             _buildDivider(context),
             const IconPickerTile(),
           ], context),
@@ -339,6 +344,107 @@ class MorePage extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     themeNames[themeMode] ?? '跟随系统',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.tertiaryLabel(context),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageTile(BuildContext context) {
+    final localeService = GetIt.instance<LocaleService>();
+    final langNames = {
+      AppLanguage.system: '默认',
+      AppLanguage.zh: '中文',
+      AppLanguage.en: 'English',
+    };
+    return InkWell(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.cardBg(ctx),
+            title: Text(
+              '语言',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 4),
+                ...AppLanguage.values.map(
+                  (lang) => ListTile(
+                    onTap: () {
+                      localeService.setLanguage(lang);
+                      onChangeLanguage(lang);
+                      Navigator.pop(ctx);
+                    },
+                    title: Text(
+                      langNames[lang] ?? '',
+                      style: TextStyle(color: AppColors.primaryLabel(ctx)),
+                    ),
+                    trailing: localeService.language == lang
+                        ? const Icon(Icons.check, color: AppColors.blue)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.blue.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.language,
+                color: AppColors.blue,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '语言',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    langNames[localeService.language] ?? '默认',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.secondaryLabel(context),

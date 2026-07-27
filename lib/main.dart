@@ -4,12 +4,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations_delegate.dart';
 import 'pages/main_page.dart';
 import 'pages/splash_page.dart';
 import 'di/service_locator.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_colors.dart';
 import 'services/theme_service.dart';
+import 'services/locale_service.dart';
 
 void main() {
   FlutterError.onError = (details) {
@@ -289,9 +292,18 @@ class MyAppState extends State<MyApp> {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeService.themeModeNotifier,
       builder: (context, themeMode, child) {
+        final localeService = GetIt.instance<LocaleService>();
         return MaterialApp(
           navigatorKey: _navigatorKey,
-          title: '通知推送助手',
+          title: 'NoticeTransmit',
+          locale: localeService.currentLocale,
+          supportedLocales: const [Locale('zh'), Locale('en')],
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           theme: AppTheme.lightTheme(),
           darkTheme: AppTheme.darkTheme(),
           themeMode: themeMode,
