@@ -184,9 +184,7 @@ class NotificationService {
       kArchiveTaskName,
       kArchiveTaskName,
       frequency: const Duration(hours: 1),
-      constraints: Constraints(
-        networkType: NetworkType.not_required,
-      ),
+      constraints: Constraints(networkType: NetworkType.not_required),
       existingWorkPolicy: ExistingWorkPolicy.keep,
     );
     debugPrint('[Archive] WorkManager 任务已注册');

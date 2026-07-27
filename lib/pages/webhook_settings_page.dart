@@ -84,11 +84,15 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       if (url.isNotEmpty) {
         // 自动识别通道类型（域名范围与 _buildWebhookTypeHint 保持一致）
         String channelType = 'generic';
-        if (url.contains('qyapi.weixin.qq.com') || url.contains('weixin.qq.com')) {
+        if (url.contains('qyapi.weixin.qq.com') ||
+            url.contains('weixin.qq.com')) {
           channelType = '0';
-        } else if (url.contains('oapi.dingtalk.com') || url.contains('dingtalk')) {
+        } else if (url.contains('oapi.dingtalk.com') ||
+            url.contains('dingtalk')) {
           channelType = '1';
-        } else if (url.contains('feishu.cn') || url.contains('larksuite.com') || url.contains('open.feishu.cn')) {
+        } else if (url.contains('feishu.cn') ||
+            url.contains('larksuite.com') ||
+            url.contains('open.feishu.cn')) {
           channelType = '2';
         }
         channels.add({
