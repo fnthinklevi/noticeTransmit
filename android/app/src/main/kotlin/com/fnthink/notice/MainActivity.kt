@@ -41,6 +41,11 @@ class MainActivity : FlutterActivity() {
         private const val REQUEST_SMS_PERMISSION = 1001
         private const val REQUEST_PHONE_PERMISSION = 1002
         private const val REQUEST_POST_NOTIFICATION_PERMISSION = 1003
+
+        // 回退版本号：getAppVersion 原生获取失败时使用。
+        // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
+        const val FALLBACK_VERSION = "1.5.45"
+        const val FALLBACK_BUILD = 79
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -269,7 +274,7 @@ class MainActivity : FlutterActivity() {
                 "getAppVersion" -> {
                     try {
                         val info = packageManager.getPackageInfo(packageName, 0)
-                        val versionName = info.versionName ?: "1.5.45"
+                        val versionName = info.versionName ?: FALLBACK_VERSION
                         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                             info.longVersionCode.toInt()
                         } else {
@@ -278,7 +283,7 @@ class MainActivity : FlutterActivity() {
                         result.success(mapOf("versionName" to versionName, "versionCode" to versionCode))
                     } catch (e: Exception) {
                         e.printStackTrace()
-                        result.success(mapOf("versionName" to "1.5.45", "versionCode" to 79))
+                        result.success(mapOf("versionName" to FALLBACK_VERSION, "versionCode" to FALLBACK_BUILD))
                     }
                 }
                 "startNotificationListener" -> {
