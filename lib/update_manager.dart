@@ -324,7 +324,15 @@ class AppUpdateManager {
       }
     }
 
-    final downloadDirPath = await resolveDownloadDir();
+    // 优先公共下载目录，失败时回退到应用私有目录
+    late String downloadDirPath;
+    try {
+      downloadDirPath = await resolveDownloadDir();
+    } catch (_) {
+      final appDir = await getApplicationDocumentsDirectory();
+      downloadDirPath = '${appDir.path}/downloads';
+    }
+
     final downloadsDir = Directory(downloadDirPath);
     if (!await downloadsDir.exists()) {
       await downloadsDir.create(recursive: true);
@@ -366,28 +374,29 @@ class AppUpdateManager {
         }
 
         var received = 0;
-
-        await response.stream
-            .listen(
-              (List<int> bytes) {
-                received += bytes.length;
-                file.writeAsBytesSync(bytes, mode: FileMode.append);
-                if (fileTotalSize > 0 && onProgress != null) {
-                  onProgress(received / fileTotalSize);
-                }
-              },
-              onDone: () {},
-              onError: (e) {
-                throw e;
-              },
-            )
-            .asFuture();
+        // 使用 RandomAccessFile 异步写入，避免 sync I/O 阻塞
+        final raf = await file.open(mode: FileMode.write);
+        try {
+          await for (final bytes in response.stream) {
+            await raf.writeFrom(bytes);
+            received += bytes.length;
+            if (fileTotalSize > 0 && onProgress != null) {
+              onProgress(received / fileTotalSize);
+            }
+          }
+        } finally {
+          await raf.close();
+        }
 
         debugPrint('下载APK：成功，路径 $savePath');
         await _recordPendingApk(savePath, version);
         return savePath;
       } catch (e) {
         debugPrint('下载APK：地址 ${urls[i]} 失败 - $e');
+        // 清理未完成的文件
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
         if (i < urls.length - 1) {
           debugPrint('下载APK：尝试下一个地址');
         } else {
