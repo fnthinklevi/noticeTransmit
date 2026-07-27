@@ -115,7 +115,10 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
             children: [
               Text(
                 '${channel.fromEmail} → ${channel.toEmail}',
-                style: TextStyle(fontSize: 13, color: AppColors.secondaryLabel(context)),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryLabel(context),
+                ),
               ),
               if (_emailTestResults.containsKey(channel.id))
                 Text(
@@ -240,10 +243,12 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     if (mounted) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(success ? '测试通过，配置已保存' : '验证失败: $message'),
-          duration: const Duration(seconds: 3),
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(success ? '测试通过，配置已保存' : '验证失败: $message'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
     }
   }
 
@@ -368,7 +373,11 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                       _channels.add(channel);
                     }
                   });
-                  _saveAndTest(channel: channel, existing: existing, index: index);
+                  _saveAndTest(
+                    channel: channel,
+                    existing: existing,
+                    index: index,
+                  );
                   Navigator.pop(context);
                 },
                 child: const Text(

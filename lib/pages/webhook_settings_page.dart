@@ -83,9 +83,13 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       if (url.isNotEmpty) {
         // 自动识别通道类型
         String channelType = 'generic';
-        if (url.contains('qyapi.weixin.qq.com')) channelType = '0';
-        else if (url.contains('oapi.dingtalk.com')) channelType = '1';
-        else if (url.contains('open.feishu.cn')) channelType = '2';
+        if (url.contains('qyapi.weixin.qq.com')) {
+          channelType = '0';
+        } else if (url.contains('oapi.dingtalk.com')) {
+          channelType = '1';
+        } else if (url.contains('open.feishu.cn')) {
+          channelType = '2';
+        }
         channels.add({
           'url': url,
           'name': name,
@@ -534,6 +538,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   @override
   void dispose() {
     for (final controller in _webhookControllers) {
+      controller.dispose();
+    }
+    for (final controller in _nameControllers) {
       controller.dispose();
     }
     super.dispose();
