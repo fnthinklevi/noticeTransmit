@@ -27,6 +27,11 @@
 -keep class javax.activation.** { *; }
 -keep class com.sun.mail.handlers.** { *; }
 -keep class com.sun.mail.smtp.** { *; }
+# WorkManager
+-keep class androidx.work.** { *; }
+-keep class net.jodah.concurrentunit.** { *; }
+-dontwarn androidx.work.**
+
 # 保留服务提供者配置文件
 -keepnames class * extends javax.mail.Provider
 
