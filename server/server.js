@@ -54,6 +54,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // 兼容旧地址：保留 /public 前缀（notice.fnthink.top/public/... 仍可用）
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
+const DATA_DIR = path.join(__dirname, 'data');
+
 const rateLimitStore = {};
 
 // 定期清理 + 持久化：保存到文件防止重启丢失
@@ -178,7 +180,6 @@ app.use('/api/admin', authRateLimiter);
 const VERSION_FILE = path.join(__dirname, 'data', 'version.json');
 const TOTP_FILE = path.join(__dirname, 'data', 'totp.json');
 const BLOCK_FILE = path.join(__dirname, 'data', 'blocked_ips.json');
-const DATA_DIR = path.join(__dirname, 'data');
 
 const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH;
 // ENCRYPTION_KEY 必须为 64 位十六进制（AES-256-GCM 需要 32 字节）。格式不合法则视为未配置，
