@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.48",
-  "latestBuild": 82,
+  "latestVersion": "1.5.49",
+  "latestBuild": 83,
   "forceUpdate": false,
-  "forceUpdateVersion": "1.5.47",
-  "forceUpdateBuild": 81,
-  "changelog": "v1.5.48: 全应用多语言国际化(120+处迁移) + 单架构APK纯净构建(arm64 25.2MB/arm32 21.3MB/x86_64 27.1MB) + 平台品牌名英文化 + Flutter格式与分析规范落定",
+  "forceUpdateVersion": "1.5.48",
+  "forceUpdateBuild": 82,
+  "changelog": "v1.5.49: 短信电话双卡识别(卡1/卡2+运营商) + SMTP通道状态修复 + 24:00推送历史归档 + 锁屏消息记录 + 语言弹窗图标风格统一 + 服务端状态持久化 + CI版本检查",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_arm64_1.5.48.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_arm32_1.5.48.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_x86_1.5.48.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.48/notice_all_1.5.48.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.49/notice_arm64_1.5.49.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.49/notice_arm32_1.5.49.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.49/notice_x86_1.5.49.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.49/notice_all_1.5.49.apk"
   },
   "fileSizes": {
-    "arm64": 26380334,
-    "arm32": 22292626,
-    "x86_64": 28413356,
-    "all": 72634700
+    "arm64": 26468923,
+    "arm32": 22381215,
+    "x86_64": 28501945,
+    "all": 72723289
   },
   "minSupportedVersion": "1.0.0"
 }

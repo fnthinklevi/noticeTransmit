@@ -14,6 +14,31 @@ class EmailService {
   final DatabaseHelper _db = DatabaseHelper();
   List<EmailChannel> cachedChannels = [];
   final Map<String, bool> cachedTestResults = {};
+  static const _testResultsKey = 'email_test_results';
+
+  /// 加载通道时同步恢复测试结果
+  Future<void> _loadTestResults() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_testResultsKey);
+      if (data != null) {
+        final map = jsonDecode(data) as Map<String, dynamic>;
+        cachedTestResults.clear();
+        map.forEach((k, v) => cachedTestResults[k] = v == true);
+      }
+    } catch (_) {}
+  }
+
+  /// 持久化测试结果
+  Future<void> saveTestResult(String channelId, bool success) async {
+    cachedTestResults[channelId] = success;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_testResultsKey, jsonEncode(cachedTestResults));
+    } catch (e) {
+      debugPrint('EmailService: 保存测试结果失败: $e');
+    }
+  }
 
   /// 保存所有邮件通道（含密码）到加密数据库
   Future<void> saveChannels(List<EmailChannel> channels) async {
@@ -37,6 +62,7 @@ class EmailService {
     final channels = rows.map((row) => EmailChannel.fromDbRow(row)).toList();
 
     cachedChannels = List.from(channels);
+    await _loadTestResults();
     return channels;
   }
 

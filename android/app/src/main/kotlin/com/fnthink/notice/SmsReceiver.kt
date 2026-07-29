@@ -39,6 +39,9 @@ class SmsReceiver : BroadcastReceiver() {
             var sender = ""
             var message = ""
             var timestamp = 0L
+            val subscriptionId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                intent.getIntExtra("subscription", 0)
+            } else 0
 
             for (pdu in pdus) {
                 val smsMessage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -55,8 +58,11 @@ class SmsReceiver : BroadcastReceiver() {
                 message += smsMessage.messageBody ?: ""
             }
 
+            val simInfo = if (subscriptionId > 0) SimInfoHelper.getSimLabel(context, subscriptionId) else null
+            val simLabel = if (simInfo != null) " [$simInfo]" else ""
+
             if (message.isNotEmpty()) {
-                Log.d(TAG, "收到短信: 来自 $sender")
+                Log.d(TAG, "收到短信: 来自 $sender$simLabel")
 
                 val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                     .format(Date(timestamp))
@@ -69,7 +75,8 @@ class SmsReceiver : BroadcastReceiver() {
                         timestamp = timestamp,
                         timeStr = timeStr,
                         webhookUrl = url,
-                        deviceName = deviceName
+                        deviceName = deviceName,
+                        simInfo = simInfo
                     )
                 }
             }
@@ -85,15 +92,17 @@ class SmsReceiver : BroadcastReceiver() {
         timestamp: Long,
         timeStr: String,
         webhookUrl: String,
-        deviceName: String
+        deviceName: String,
+        simInfo: String?
     ) {
+        val simLabel = if (simInfo != null) " [$simInfo]" else ""
         try {
             val intent = Intent(MainActivity.ACTION_NOTIFICATION_RECEIVED).apply {
                 setPackage(context.packageName)
                 val json = org.json.JSONObject().apply {
                     put("type", "sms")
                     put("id", "sms_${timestamp}_${sender.hashCode()}")
-                    put("title", "短信 - $sender")
+                    put("title", "短信$simLabel - $sender")
                     put("sender", sender)
                     put("content", message)
                     put("message", message)
@@ -103,6 +112,7 @@ class SmsReceiver : BroadcastReceiver() {
                     put("time", timeStr)
                     put("deviceName", deviceName)
                     put("timestamp", System.currentTimeMillis())
+                    if (simInfo != null) put("simInfo", simInfo)
                 }
                 putExtra(MainActivity.EXTRA_NOTIFICATION_DATA, json.toString())
             }
@@ -117,7 +127,8 @@ class SmsReceiver : BroadcastReceiver() {
             sender = sender,
             message = message,
             time = timeStr,
-            deviceName = deviceName
+            deviceName = deviceName,
+            simInfo = simInfo
         )
 
         NetworkClient.sendWithRetry(webhookUrl, payload, "短信")

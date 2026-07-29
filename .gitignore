@@ -79,3 +79,7 @@ server/data/totp_config.json
 # Gradle build artifacts
 install_dir/
 .workbuddy/
+_analyze.txt
+android/.kotlin/sessions/kotlin-compiler-14208473510752084311.salive
+lib/main.dart
+android/.kotlin/sessions/

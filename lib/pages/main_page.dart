@@ -238,10 +238,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         ),
         actions: [
           TextButton(
-            onPressed: () async {
-              await localeService.setLanguage(AppLanguage.system);
-              await localeService.recordSystemLang();
-              if (mounted) Navigator.pop(ctx, false);
+            onPressed: () {
+              final navigator = Navigator.of(ctx);
+              localeService.setLanguage(AppLanguage.system).then((_) async {
+                await localeService.recordSystemLang();
+                if (mounted) navigator.pop(false);
+              });
             },
             child: Text(
               '暂不',
@@ -249,13 +251,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             ),
           ),
           FilledButton(
-            onPressed: () async {
-              await localeService.setLanguage(AppLanguage.system);
-              await localeService.recordSystemLang();
-              if (mounted) {
-                Navigator.pop(ctx, true);
-                widget.onLocaleChanged?.call(localeService.currentLocale);
-              }
+            onPressed: () {
+              final navigator = Navigator.of(ctx);
+              localeService.setLanguage(AppLanguage.system).then((_) async {
+                await localeService.recordSystemLang();
+                if (mounted) {
+                  navigator.pop(true);
+                  widget.onLocaleChanged?.call(localeService.currentLocale);
+                }
+              });
             },
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.blue,

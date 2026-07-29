@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,8 +19,12 @@ import 'services/locale_service.dart';
 import 'services/archive_worker.dart';
 
 void main() {
-  // 初始化 WorkManager（必须在 runApp 之前）
-  Workmanager().initialize(archiveCallbackDispatcher);
+  WidgetsFlutterBinding.ensureInitialized();
+  // 初始化 WorkManager（用于每日通知归档）
+  Workmanager().initialize(
+    archiveCallbackDispatcher,
+    isInDebugMode: kDebugMode,
+  );
   FlutterError.onError = (details) {
     log(
       'FlutterError: ${details.exception}',

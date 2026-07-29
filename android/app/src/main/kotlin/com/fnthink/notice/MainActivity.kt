@@ -44,8 +44,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.48"
-        const val FALLBACK_BUILD = 82
+        const val FALLBACK_VERSION = "1.5.49"
+        const val FALLBACK_BUILD = 83
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -126,21 +126,12 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
-        val filter = IntentFilter(ACTION_NOTIFICATION_RECEIVED)
-        registerReceiver(notificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
-        registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED)
-        // 批量导入后台缓存的未送达通知记录
+        // receiver 已在 onCreate() 注册，这里仅回放缓存
         flushCachedNotificationRecords()
     }
 
     override fun onPause() {
         super.onPause()
-        try {
-            unregisterReceiver(notificationReceiver)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
         try {
             unregisterReceiver(batteryReceiver)
         } catch (e: Exception) {
@@ -157,9 +148,16 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        // 注册 receiver 在全生命周期（onCreate→onDestroy），避免锁屏 onPause 后丢失通知广播
+        val filter = IntentFilter(ACTION_NOTIFICATION_RECEIVED)
+        registerReceiver(notificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
+        registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onDestroy() {
+        try { unregisterReceiver(notificationReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
         activityJob.cancel()
         super.onDestroy()
     }

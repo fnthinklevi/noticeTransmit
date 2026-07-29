@@ -185,9 +185,12 @@ class NotificationService {
       kArchiveTaskName,
       frequency: const Duration(hours: 1),
       constraints: Constraints(networkType: NetworkType.not_required),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingWorkPolicy.replace,
+      initialDelay: const Duration(minutes: 1),
     );
     debugPrint('[Archive] WorkManager 任务已注册');
+    // 前台兜底：App 启动后立即检查并执行一次归档
+    performArchiveOnBoot();
   }
 
   void dispose() {

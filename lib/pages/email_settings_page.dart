@@ -247,6 +247,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     final success = result?['success'] == true;
     final message = result?['message']?.toString() ?? '未知结果';
     _emailTestResults[channel.id] = success;
+    _emailService.saveTestResult(channel.id, success);
     if (mounted) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()

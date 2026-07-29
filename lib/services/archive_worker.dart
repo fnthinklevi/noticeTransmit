@@ -22,14 +22,14 @@ void archiveCallbackDispatcher() {
   });
 }
 
-/// 从数据库读取当日记录并导出为 JSON 文件
+/// 从数据库读取昨日记录并导出为 JSON 文件
 Future<void> _performDailyArchive() async {
   try {
     final now = DateTime.now();
     final today =
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-    // 幂等检查：当日已归档则跳过
+    // 幂等检查
     final prefs = await SharedPreferences.getInstance();
     final lastArchive = prefs.getString(kLastArchiveKey);
     if (lastArchive == today) {
@@ -42,33 +42,70 @@ Future<void> _performDailyArchive() async {
         : DatabaseHelper();
     final allRecords = await db.getNotifications();
 
+    final yesterday = now.subtract(const Duration(days: 1));
+    final yesterdayStr =
+        '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
     final todayRecords = allRecords
         .map((m) => NotificationRecord.fromMap(m))
-        .where((r) => r.time.startsWith(today))
+        .where((r) => r.time.startsWith(yesterdayStr))
         .toList();
 
     if (todayRecords.isEmpty) {
-      // 无记录也标记已处理，避免重复检查
       await prefs.setString(kLastArchiveKey, today);
-      debugPrint('[Archive] $today 无记录可归档');
+      debugPrint('[Archive] $yesterdayStr 无记录可归档');
       return;
     }
 
     final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/history-$today.json');
+    final file = File('${dir.path}/history-$yesterdayStr.json');
     await file.writeAsString(
       jsonEncode(todayRecords.map((r) => r.toMap()).toList()),
     );
 
-    // 删除已归档记录
     for (final r in todayRecords) {
       await db.deleteNotification(r.id);
     }
 
-    // 标记已归档
     await prefs.setString(kLastArchiveKey, today);
-    debugPrint('[Archive] $today: ${todayRecords.length} 条 → ${file.path}');
+    debugPrint(
+      '[Archive] $yesterdayStr: ${todayRecords.length} 条 → ${file.path}',
+    );
   } catch (e, stack) {
     debugPrint('[Archive] 归档失败: $e\n$stack');
+  }
+}
+
+/// App 前台启动时兜底执行一次归档
+Future<void> performArchiveOnBoot() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    if (prefs.getString(kLastArchiveKey) == today) return;
+
+    final db = GetIt.instance.isRegistered<DatabaseHelper>()
+        ? GetIt.instance<DatabaseHelper>()
+        : DatabaseHelper();
+    final allRecords = await db.getNotifications();
+    final yesterday = now.subtract(const Duration(days: 1));
+    final yesterdayStr =
+        '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
+    final oldRecords = allRecords
+        .where((r) => (r['time'] as String?)?.startsWith(yesterdayStr) == true)
+        .toList();
+
+    if (oldRecords.isNotEmpty) {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/history-$yesterdayStr.json');
+      await file.writeAsString(jsonEncode(oldRecords));
+      for (final r in oldRecords) {
+        await db.deleteNotification(r['id']?.toString() ?? '');
+      }
+      debugPrint('[Archive] 前台兜底: $yesterdayStr ${oldRecords.length} 条');
+    }
+    await prefs.setString(kLastArchiveKey, today);
+  } catch (e) {
+    debugPrint('[Archive] 前台兜底失败: $e');
   }
 }

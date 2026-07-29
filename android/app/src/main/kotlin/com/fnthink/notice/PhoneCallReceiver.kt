@@ -34,6 +34,21 @@ class PhoneCallReceiver : BroadcastReceiver() {
             val stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE)
             val incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER) ?: ""
 
+            // 获取 SIM 卡槽位信息
+            var simInfo: String? = null
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
+                val subId = intent.getIntExtra("subscription", -1)
+                if (subId <= 0) {
+                    // 部分厂商用 EXTRA_SUBSCRIPTION_ID
+                    val fallbackId = intent.getIntExtra(TelephonyManager.EXTRA_SUBSCRIPTION_ID, -1)
+                    if (fallbackId > 0) {
+                        simInfo = SimInfoHelper.getSimLabel(context, fallbackId)
+                    }
+                } else {
+                    simInfo = SimInfoHelper.getSimLabel(context, subId)
+                }
+            }
+
             val state = when (stateStr) {
                 TelephonyManager.EXTRA_STATE_RINGING -> TelephonyManager.CALL_STATE_RINGING
                 TelephonyManager.EXTRA_STATE_OFFHOOK -> TelephonyManager.CALL_STATE_OFFHOOK
@@ -51,11 +66,14 @@ class PhoneCallReceiver : BroadcastReceiver() {
                     lastIncomingNumber = incomingNumber
                     if (incomingNumber.isNotEmpty()) {
                         for (url in webhookUrls) {
-                            sendIncomingCallWebhook(
+                            sendCallWebhook(
                                 context = context,
                                 phoneNumber = incomingNumber,
+                                callState = "ringing",
+                                duration = 0L,
                                 webhookUrl = url,
-                                deviceName = deviceName
+                                deviceName = deviceName,
+                                simInfo = simInfo
                             )
                         }
                     }
@@ -64,11 +82,14 @@ class PhoneCallReceiver : BroadcastReceiver() {
                     if (lastState == TelephonyManager.CALL_STATE_RINGING) {
                         if (lastIncomingNumber.isNotEmpty()) {
                             for (url in webhookUrls) {
-                                sendCallAnsweredWebhook(
+                                sendCallWebhook(
                                     context = context,
                                     phoneNumber = lastIncomingNumber,
+                                    callState = "answered",
+                                    duration = 0L,
                                     webhookUrl = url,
-                                    deviceName = deviceName
+                                    deviceName = deviceName,
+                                    simInfo = simInfo
                                 )
                             }
                         }
@@ -81,12 +102,14 @@ class PhoneCallReceiver : BroadcastReceiver() {
                                 System.currentTimeMillis() - callStartTime
                             } else 0L
                             for (url in webhookUrls) {
-                                sendCallEndedWebhook(
+                                sendCallWebhook(
                                     context = context,
                                     phoneNumber = lastIncomingNumber,
+                                    callState = "ended",
                                     duration = duration,
                                     webhookUrl = url,
-                                    deviceName = deviceName
+                                    deviceName = deviceName,
+                                    simInfo = simInfo
                                 )
                             }
                         }
@@ -108,7 +131,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
         webhookUrl: String,
         deviceName: String,
         callState: String,
-        duration: Long = 0L
+        duration: Long = 0L,
+        simInfo: String? = null
     ) {
         val now = System.currentTimeMillis()
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -123,18 +147,19 @@ class PhoneCallReceiver : BroadcastReceiver() {
             else -> "call_unknown"
         }
 
+        val simLabel = if (simInfo != null) " [$simInfo]" else ""
         val title = when (callState) {
-            "ringing" -> "来电 - $phoneNumber"
-            "answered" -> "通话中 - $phoneNumber"
-            "ended" -> "通话结束 - $phoneNumber"
-            else -> "电话 - $phoneNumber"
+            "ringing" -> "来电$simLabel - $phoneNumber"
+            "answered" -> "通话中$simLabel - $phoneNumber"
+            "ended" -> "通话结束$simLabel - $phoneNumber"
+            else -> "电话$simLabel - $phoneNumber"
         }
 
         val content = when (callState) {
-            "ringing" -> "来电: $phoneNumber"
-            "answered" -> "已接听: $phoneNumber"
-            "ended" -> "通话结束: $phoneNumber, 时长: $durationStr"
-            else -> "电话: $phoneNumber"
+            "ringing" -> "来电$simLabel: $phoneNumber"
+            "answered" -> "已接听$simLabel: $phoneNumber"
+            "ended" -> "通话结束$simLabel: $phoneNumber, 时长: $durationStr"
+            else -> "电话$simLabel: $phoneNumber"
         }
 
         val extra = mutableMapOf<String, Any>(
@@ -145,6 +170,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
                 put("duration", duration)
                 put("durationStr", durationStr)
             }
+            if (simInfo != null) put("simInfo", simInfo)
         }
 
         notifyFlutter(
@@ -167,7 +193,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
             phoneNumber = phoneNumber,
             time = timeStr,
             durationStr = durationStr,
-            deviceName = deviceName
+            deviceName = deviceName,
+            simInfo = simInfo
         )
 
         val tag = when (callState) {
@@ -178,34 +205,6 @@ class PhoneCallReceiver : BroadcastReceiver() {
         }
 
         NetworkClient.sendWithRetry(webhookUrl, payload, tag)
-    }
-
-    private fun sendIncomingCallWebhook(
-        context: Context,
-        phoneNumber: String,
-        webhookUrl: String,
-        deviceName: String
-    ) {
-        sendCallWebhook(context, phoneNumber, webhookUrl, deviceName, "ringing")
-    }
-
-    private fun sendCallAnsweredWebhook(
-        context: Context,
-        phoneNumber: String,
-        webhookUrl: String,
-        deviceName: String
-    ) {
-        sendCallWebhook(context, phoneNumber, webhookUrl, deviceName, "answered")
-    }
-
-    private fun sendCallEndedWebhook(
-        context: Context,
-        phoneNumber: String,
-        duration: Long,
-        webhookUrl: String,
-        deviceName: String
-    ) {
-        sendCallWebhook(context, phoneNumber, webhookUrl, deviceName, "ended", duration)
     }
 
     private fun notifyFlutter(

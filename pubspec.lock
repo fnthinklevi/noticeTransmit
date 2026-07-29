@@ -830,10 +830,10 @@ packages:
     dependency: "direct main"
     description:
       name: workmanager
-      sha256: ed13530cccd28c5c9959ad42d657cd0666274ca74c56dea0ca183ddd527d3a00
+      sha256: f3c3ce6d79cce53eee4a29dd2e8328c25db5ba5d9062fcc5e8f3c71e0af9b7e4
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.5.2"
+    version: "0.6.0"
   xdg_directories:
     dependency: transitive
     description:

@@ -235,8 +235,11 @@ object WebhookPayloadBuilder {
         sender: String,
         message: String,
         time: String,
-        deviceName: String
+        deviceName: String,
+        simInfo: String? = null
     ): String {
+        val simLabel = if (simInfo != null) "\nSIM卡：$simInfo" else ""
+
         return when (type) {
             WebhookType.GENERIC -> JSONObject().apply {
                 put("type", "sms")
@@ -245,6 +248,7 @@ object WebhookPayloadBuilder {
                 put("time", time)
                 put("deviceName", deviceName)
                 put("timestamp", System.currentTimeMillis())
+                if (simInfo != null) put("simInfo", simInfo)
             }.toString()
 
             WebhookType.WECHAT_WORK -> JSONObject().apply {
@@ -254,7 +258,7 @@ object WebhookPayloadBuilder {
                             "发送号码：$sender\n" +
                             "短信内容：$message\n" +
                             "接收时间：$time\n" +
-                            "设备：$deviceName")
+                            "设备：$deviceName$simLabel")
                 })
             }.toString()
 
@@ -265,7 +269,7 @@ object WebhookPayloadBuilder {
                             "发送号码：$sender\n" +
                             "短信内容：$message\n" +
                             "接收时间：$time\n" +
-                            "设备：$deviceName")
+                            "设备：$deviceName$simLabel")
                 })
             }.toString()
 
@@ -276,7 +280,7 @@ object WebhookPayloadBuilder {
                             "发送号码：$sender\n" +
                             "短信内容：$message\n" +
                             "接收时间：$time\n" +
-                            "设备：$deviceName")
+                            "设备：$deviceName$simLabel")
                 })
             }.toString()
         }
@@ -288,7 +292,8 @@ object WebhookPayloadBuilder {
         phoneNumber: String,
         time: String,
         durationStr: String = "",
-        deviceName: String
+        deviceName: String,
+        simInfo: String? = null
     ): String {
         val title = when (state) {
             "ringing" -> "来电提醒"
@@ -296,6 +301,8 @@ object WebhookPayloadBuilder {
             "ended" -> "通话结束"
             else -> "电话通知"
         }
+
+        val simLabel = if (simInfo != null) "\nSIM卡：$simInfo" else ""
 
         return when (type) {
             WebhookType.GENERIC -> JSONObject().apply {
@@ -306,6 +313,7 @@ object WebhookPayloadBuilder {
                 if (durationStr.isNotEmpty()) put("duration", durationStr)
                 put("deviceName", deviceName)
                 put("timestamp", System.currentTimeMillis())
+                if (simInfo != null) put("simInfo", simInfo)
             }.toString()
 
             WebhookType.WECHAT_WORK -> {
@@ -315,7 +323,7 @@ object WebhookPayloadBuilder {
                 if (durationStr.isNotEmpty()) {
                     content += "通话时长：$durationStr\n"
                 }
-                content += "设备：$deviceName"
+                content += "设备：$deviceName$simLabel"
 
                 JSONObject().apply {
                     put("msgtype", "text")
@@ -332,7 +340,7 @@ object WebhookPayloadBuilder {
                 if (durationStr.isNotEmpty()) {
                     content += "通话时长：$durationStr\n"
                 }
-                content += "设备：$deviceName"
+                content += "设备：$deviceName$simLabel"
 
                 JSONObject().apply {
                     put("msgtype", "text")
@@ -349,7 +357,7 @@ object WebhookPayloadBuilder {
                 if (durationStr.isNotEmpty()) {
                     content += "通话时长：$durationStr\n"
                 }
-                content += "设备：$deviceName"
+                content += "设备：$deviceName$simLabel"
 
                 JSONObject().apply {
                     put("msg_type", "text")

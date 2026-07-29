@@ -383,6 +383,11 @@ class MorePage extends StatelessWidget {
       AppLanguage.zh: l10n.langChinese,
       AppLanguage.en: l10n.langEnglish,
     };
+    final langIcons = {
+      AppLanguage.system: Icons.phone_android,
+      AppLanguage.zh: Icons.translate,
+      AppLanguage.en: Icons.g_translate,
+    };
     return InkWell(
       onTap: () {
         showDialog(
@@ -403,6 +408,13 @@ class MorePage extends StatelessWidget {
                 const SizedBox(height: 4),
                 ...AppLanguage.values.map(
                   (lang) => ListTile(
+                    leading: Icon(
+                      langIcons[lang],
+                      color: localeService.language == lang
+                          ? AppColors.blue
+                          : AppColors.secondaryLabel(ctx),
+                      size: 22,
+                    ),
                     onTap: () {
                       final navigator = Navigator.of(ctx);
                       localeService.setLanguage(lang).then((_) {
@@ -412,7 +424,15 @@ class MorePage extends StatelessWidget {
                     },
                     title: Text(
                       langNames[lang] ?? '',
-                      style: TextStyle(color: AppColors.primaryLabel(ctx)),
+                      style: TextStyle(
+                        color: AppColors.primaryLabel(ctx),
+                        fontWeight: localeService.language == lang
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     trailing: localeService.language == lang
                         ? const Icon(Icons.check, color: AppColors.blue)
@@ -422,7 +442,7 @@ class MorePage extends StatelessWidget {
               ],
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
         );
@@ -432,17 +452,13 @@ class MorePage extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
-                color: AppColors.blue.withValues(alpha: 0.12),
+                color: AppColors.blue,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.language,
-                color: AppColors.blue,
-                size: 18,
-              ),
+              child: const Icon(Icons.language, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(

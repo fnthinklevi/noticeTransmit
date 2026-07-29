@@ -238,7 +238,7 @@ class _HistoryPageState extends State<HistoryPage> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               l10n.close,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),
@@ -456,7 +456,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                 onPressed: () => Navigator.pop(ctx, true),
                                 child: Text(
                                   l10n.confirm,
-                                  style: TextStyle(color: Colors.red),
+                                  style: const TextStyle(color: Colors.red),
                                 ),
                               ),
                             ],
@@ -486,7 +486,10 @@ class _HistoryPageState extends State<HistoryPage> {
               PopupMenuItem(value: 'last50', child: Text(l10n.clearLast50)),
               PopupMenuItem(
                 value: 'all',
-                child: Text(l10n.clearAll, style: TextStyle(color: Colors.red)),
+                child: Text(
+                  l10n.clearAll,
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
