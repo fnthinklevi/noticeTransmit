@@ -153,8 +153,8 @@ D['通知推送助手'] = 'NoticeTransmit';
 
   // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
   // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换
-  D['版本 v1.5.48'] = 'Version v1.5.48';
-  D['约 25.2 MB'] = '~ 25.2 MB';
+  D['版本 v1.5.49'] = 'Version v1.5.49';
+  D['约 25.3 MB'] = '~ 25.3 MB';
 
   // ── 当前语言 ──
   var lang = localStorage.getItem('lang');
