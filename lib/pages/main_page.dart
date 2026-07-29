@@ -256,6 +256,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               localeService.setLanguage(AppLanguage.system).then((_) async {
                 await localeService.recordSystemLang();
                 if (mounted) {
+                  AppChannels.notification.invokeMethod('setLocaleLabel', 'zh');
                   navigator.pop(true);
                   widget.onLocaleChanged?.call(localeService.currentLocale);
                 }

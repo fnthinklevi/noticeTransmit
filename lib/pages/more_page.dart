@@ -2,10 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../services/update_service.dart';
 import '../services/locale_service.dart';
+import '../services/platform_channel.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'stats_page.dart';
+
+/// 同步语言到原生端，更新桌面应用名
+void _syncNativeLocale(AppLanguage lang) {
+  final localeCode = switch (lang) {
+    AppLanguage.en => 'en',
+    AppLanguage.zh => 'zh',
+    AppLanguage.system => 'zh',
+  };
+  AppChannels.notification.invokeMethod('setLocaleLabel', localeCode);
+}
 
 class MorePage extends StatelessWidget {
   final List<Map<String, dynamic>> webhookChannels;
@@ -419,6 +430,7 @@ class MorePage extends StatelessWidget {
                       final navigator = Navigator.of(ctx);
                       localeService.setLanguage(lang).then((_) {
                         onChangeLanguage(lang);
+                        _syncNativeLocale(lang);
                         navigator.pop();
                       });
                     },

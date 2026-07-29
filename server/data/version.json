@@ -12,10 +12,10 @@
     "all": "https://cdn2.fnthink.top/app/notice/update/1.5.49/notice_all_1.5.49.apk"
   },
   "fileSizes": {
-    "arm64": 26567227,
-    "arm32": 22479519,
-    "x86_64": 28600249,
-    "all": 72821593
+    "arm64": 26568015,
+    "arm32": 22480307,
+    "x86_64": 28601037,
+    "all": 72822381
   },
   "minSupportedVersion": "1.0.0"
 }

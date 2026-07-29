@@ -1,5 +1,6 @@
 package com.fnthink.notice
 
+import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -162,12 +163,36 @@ class MainActivity : FlutterActivity() {
         super.onDestroy()
     }
 
+    /**
+     * 根据当前语言偏好更新桌面应用名（最近任务）：
+     * 中文 → 通知推送助手 | English → NoticeTransmit
+     */
+    private fun updateAppLabel() {
+        val locale = prefs.getString("flutter.locale", "zh") ?: "zh"
+        val label = if (locale == "en") "NoticeTransmit" else "通知推送助手"
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                setTaskDescription(ActivityManager.TaskDescription(label))
+            }
+        } catch (_: Exception) {}
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // 冷启动时更新桌面应用名为当前语言
+        updateAppLabel()
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
         methodChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
+                "setLocaleLabel" -> {
+                    val locale = call.arguments as? String ?: "zh"
+                    prefs.edit().putString("flutter.locale", locale).apply()
+                    switchLocaleAlias()
+                    updateAppLabel()
+                    result.success(true)
+                }
                 "isNotificationPermissionGranted" -> {
                     result.success(isNotificationListenerPermissionGranted())
                 }
@@ -1127,46 +1152,83 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    // 可选应用图标：default + 16 色，同一时刻仅启用一个 alias
-    private val ICON_ALIASES: Map<String, ComponentName> by lazy {
-        mapOf(
-            "default" to ComponentName(packageName, "$packageName.LauncherDefault"),
-            "blue" to ComponentName(packageName, "$packageName.LauncherBlue"),
-            "cyan" to ComponentName(packageName, "$packageName.LauncherCyan"),
-            "teal" to ComponentName(packageName, "$packageName.LauncherTeal"),
-            "mint" to ComponentName(packageName, "$packageName.LauncherMint"),
-            "green" to ComponentName(packageName, "$packageName.LauncherGreen"),
-            "yellow" to ComponentName(packageName, "$packageName.LauncherYellow"),
-            "orange" to ComponentName(packageName, "$packageName.LauncherOrange"),
-            "red" to ComponentName(packageName, "$packageName.LauncherRed"),
-            "pink" to ComponentName(packageName, "$packageName.LauncherPink"),
-            "rose" to ComponentName(packageName, "$packageName.LauncherRose"),
-            "purple" to ComponentName(packageName, "$packageName.LauncherPurple"),
-            "indigo" to ComponentName(packageName, "$packageName.LauncherIndigo"),
-            "brown" to ComponentName(packageName, "$packageName.LauncherBrown"),
-            "gray" to ComponentName(packageName, "$packageName.LauncherGray"),
-            "graphite" to ComponentName(packageName, "$packageName.LauncherGraphite"),
-            "black" to ComponentName(packageName, "$packageName.LauncherBlack"),
-        )
+    // 可选应用图标：17 图标 × 2 语言 = 34 个别名
+    // key 格式: "iconKey_locale" 例如 "blue_zh"、"default_en"
+    private fun getIconAliases(): Map<String, ComponentName> = mapOf(
+        "default_zh" to ComponentName(packageName, "$packageName.LauncherDefaultZh"),
+        "default_en" to ComponentName(packageName, "$packageName.LauncherDefaultEn"),
+        "blue_zh" to ComponentName(packageName, "$packageName.LauncherBlueZh"),
+        "blue_en" to ComponentName(packageName, "$packageName.LauncherBlueEn"),
+        "cyan_zh" to ComponentName(packageName, "$packageName.LauncherCyanZh"),
+        "cyan_en" to ComponentName(packageName, "$packageName.LauncherCyanEn"),
+        "teal_zh" to ComponentName(packageName, "$packageName.LauncherTealZh"),
+        "teal_en" to ComponentName(packageName, "$packageName.LauncherTealEn"),
+        "mint_zh" to ComponentName(packageName, "$packageName.LauncherMintZh"),
+        "mint_en" to ComponentName(packageName, "$packageName.LauncherMintEn"),
+        "green_zh" to ComponentName(packageName, "$packageName.LauncherGreenZh"),
+        "green_en" to ComponentName(packageName, "$packageName.LauncherGreenEn"),
+        "yellow_zh" to ComponentName(packageName, "$packageName.LauncherYellowZh"),
+        "yellow_en" to ComponentName(packageName, "$packageName.LauncherYellowEn"),
+        "orange_zh" to ComponentName(packageName, "$packageName.LauncherOrangeZh"),
+        "orange_en" to ComponentName(packageName, "$packageName.LauncherOrangeEn"),
+        "red_zh" to ComponentName(packageName, "$packageName.LauncherRedZh"),
+        "red_en" to ComponentName(packageName, "$packageName.LauncherRedEn"),
+        "pink_zh" to ComponentName(packageName, "$packageName.LauncherPinkZh"),
+        "pink_en" to ComponentName(packageName, "$packageName.LauncherPinkEn"),
+        "rose_zh" to ComponentName(packageName, "$packageName.LauncherRoseZh"),
+        "rose_en" to ComponentName(packageName, "$packageName.LauncherRoseEn"),
+        "purple_zh" to ComponentName(packageName, "$packageName.LauncherPurpleZh"),
+        "purple_en" to ComponentName(packageName, "$packageName.LauncherPurpleEn"),
+        "indigo_zh" to ComponentName(packageName, "$packageName.LauncherIndigoZh"),
+        "indigo_en" to ComponentName(packageName, "$packageName.LauncherIndigoEn"),
+        "brown_zh" to ComponentName(packageName, "$packageName.LauncherBrownZh"),
+        "brown_en" to ComponentName(packageName, "$packageName.LauncherBrownEn"),
+        "gray_zh" to ComponentName(packageName, "$packageName.LauncherGrayZh"),
+        "gray_en" to ComponentName(packageName, "$packageName.LauncherGrayEn"),
+        "graphite_zh" to ComponentName(packageName, "$packageName.LauncherGraphiteZh"),
+        "graphite_en" to ComponentName(packageName, "$packageName.LauncherGraphiteEn"),
+        "black_zh" to ComponentName(packageName, "$packageName.LauncherBlackZh"),
+        "black_en" to ComponentName(packageName, "$packageName.LauncherBlackEn"),
+    )
+
+    private fun getAliasKey(icon: String): String {
+        val locale = prefs.getString("flutter.locale", "zh") ?: "zh"
+        return "${icon}_${if (locale == "en") "en" else "zh"}"
     }
 
-    private fun changeLauncherIcon(key: String) {
+    private fun changeLauncherIcon(icon: String) {
         try {
+            val key = getAliasKey(icon)
+            val aliases = getIconAliases()
+            val target = aliases[key] ?: aliases["default_zh"]!!
             val pm = packageManager
-            val target = ICON_ALIASES[key] ?: ICON_ALIASES["default"]!!
-            for ((k, comp) in ICON_ALIASES) {
-                val state = if (comp == target) {
-                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                } else {
-                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                }
-                pm.setComponentEnabledSetting(
-                    comp,
-                    state,
-                    android.content.pm.PackageManager.DONT_KILL_APP
-                )
+            for (comp in aliases.values) {
+                val state = if (comp == target)
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                else
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                pm.setComponentEnabledSetting(comp, state, PackageManager.DONT_KILL_APP)
             }
-            prefs.edit().putString("flutter.selected_icon", key).apply()
+            prefs.edit().putString("flutter.selected_icon", icon).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun switchLocaleAlias() {
+        try {
+            val icon = prefs.getString("flutter.selected_icon", "default") ?: "default"
+            val key = getAliasKey(icon)
+            val aliases = getIconAliases()
+            val target = aliases[key] ?: aliases["default_zh"]!!
+            val pm = packageManager
+            for (comp in aliases.values) {
+                val state = if (comp == target)
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                else
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                pm.setComponentEnabledSetting(comp, state, PackageManager.DONT_KILL_APP)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
