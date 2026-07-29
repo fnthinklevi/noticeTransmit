@@ -42,6 +42,10 @@ android {
                 storePassword = finalStorePassword
                 keyAlias = finalKeyAlias
                 keyPassword = finalKeyPassword
+                // 签名方案：V1 (JAR) + V2 (APK全文件) + V3 (密钥轮换)
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             } else {
                 throw GradleException(
                     "未找到发布签名配置，构建已中止。请二选一：\n" +
