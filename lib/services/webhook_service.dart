@@ -24,6 +24,19 @@ class WebhookService {
       _channels = await _migrateFromLegacyStorage();
     }
     _channels = _channels.map((row) => _dbRowToUi(row)).toList();
+    // 同步完整通道到原生端（含 secret/type/template），确保后台服务始终能读到
+    await _syncToNative();
+  }
+
+  /// 同步完整通道配置 + 启用 URL 到原生端
+  Future<void> _syncToNative() async {
+    try {
+      await AppChannels.notification.invokeMethod('setWebhookChannels', {
+        'channels': _channels,
+      });
+    } catch (e) {
+      debugPrint('WebhookService: 同步通道到原生端失败: $e');
+    }
     await _syncEnabledUrls();
   }
 
@@ -107,17 +120,10 @@ class WebhookService {
     }).toList();
     await _db.saveWebhookChannels(dbRows);
 
-    // 2. 同步到原生端
-    try {
-      await AppChannels.notification.invokeMethod('setWebhookChannels', {
-        'channels': channels,
-      });
-    } catch (e) {
-      debugPrint('WebhookService: 同步到原生端失败: $e');
-    }
-
     _channels = channels;
-    await _syncEnabledUrls();
+
+    // 同步到原生端（完整通道 + 启用 URL）
+    await _syncToNative();
   }
 
   /// 同步启用的 URL 到原生端
