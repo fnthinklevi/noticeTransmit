@@ -97,7 +97,12 @@ class WebhookService {
       row['channel_type'] =
           c['channelType']?.toString() ?? c['type']?.toString() ?? 'generic';
       row['name'] = c['name'] ?? '';
-      row['secret'] = c['secret'];
+      row['secret'] = c['secret'] == 'null' ? null : c['secret'];
+      // 过滤历史脏数据：旧版本 JSON 序列化曾把 null 存成字符串 "null"
+      row['message_format'] = c['message_format'] ?? 'default';
+      row['message_template'] = c['message_template'] == 'null'
+          ? null
+          : c['message_template'];
       return row;
     }).toList();
     await _db.saveWebhookChannels(dbRows);
@@ -146,10 +151,13 @@ class WebhookService {
       'channelType': channelType,
       'type': channelType,
       'enabled': row['enabled'] == 1 || row['enabled'] == true,
-      'secret': row['secret'],
+      // 旧版本 JSON 序列化曾把 null 存成字符串 "null"，此处过滤，避免误判已配置
+      'secret': row['secret'] == 'null' ? null : row['secret'],
       // v6: 推送模板系统字段（UI 展示 / 再次保存时透传，防止重启后模板丢失）
       'message_format': row['message_format'] ?? 'default',
-      'message_template': row['message_template'],
+      'message_template': row['message_template'] == 'null'
+          ? null
+          : row['message_template'],
     };
   }
 }

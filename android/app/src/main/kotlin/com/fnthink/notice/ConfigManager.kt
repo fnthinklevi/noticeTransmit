@@ -71,11 +71,13 @@ class ConfigManager(private val context: Context) {
                 val enabled = obj.optBoolean("enabled", true)
                 if (!enabled || url.isEmpty()) continue
 
-                val secret = obj.optString("secret", "").takeIf { it.isNotEmpty() }
+                val secret = obj.optString("secret", "")
+                    .takeIf { it.isNotEmpty() && it != "null" }
                 val typeStr = obj.optString("type", obj.optString("channel_type", "generic"))
                 val type = parseWebhookType(typeStr, url)
                 val messageFormat = obj.optString("message_format", "default").ifEmpty { "default" }
-                val messageTemplate = obj.optString("message_template", "").takeIf { it.isNotEmpty() }
+                val messageTemplate = obj.optString("message_template", "")
+                    .takeIf { it.isNotEmpty() && it != "null" }
                 list.add(WebhookChannelConfig(url, secret, type, messageFormat, messageTemplate))
             }
             list

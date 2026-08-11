@@ -539,7 +539,13 @@ class MainActivity : FlutterActivity() {
         val jsonArray = org.json.JSONArray()
         val enabledUrls = mutableListOf<String>()
         for (channel in channels) {
-            val obj = JSONObject(channel)
+            // 注意：JSONObject(Map) 会把 null 值序列化为字符串 "null"，
+            // 导致原生端把未设置的 secret / message_template 误读为非空值（签名错误、模板异常）。
+            // 因此显式过滤 null 字段后再序列化。
+            val obj = org.json.JSONObject()
+            for ((k, v) in channel) {
+                if (v != null) obj.put(k, v)
+            }
             jsonArray.put(obj)
             val url = channel["url"]?.toString() ?: ""
             val enabled = channel["enabled"] as? Boolean ?: true

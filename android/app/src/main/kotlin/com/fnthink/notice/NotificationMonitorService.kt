@@ -132,7 +132,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 ACTION_REFRESH_FOREGROUND -> {
                     // 推送启停状态变更后刷新前台通知（按钮文案 / 状态文案）
                     Log.d(TAG, "Refresh foreground notification (push toggle)")
-                    updatePromotedNotification()
+                    updateForegroundNotification()
                 }
             }
         }
@@ -182,7 +182,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 dispatchEmail(notificationInfo)
                 checkDailyReset()
                 pushCount++
-                updatePromotedNotification()
+                updateForegroundNotification()
                 Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
             }
         }
@@ -401,12 +401,9 @@ class NotificationMonitorService : NotificationListenerService() {
     private fun startForegroundService() {
         val notification = buildForegroundNotification()
 
-        // 请求提升为实时更新通知（Live Update）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            notification.extras.putBoolean(
-                android.app.Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true
-            )
-        }
+        // 注意：不请求 EXTRA_REQUEST_PROMOTED_ONGOING（Android 16 Live Update 提升）。
+        // 该标志会让常驻通知被提升为实时更新，在小米 HyperOS 上表现为「超级岛」常驻胶囊。
+        // 我们的前台通知仅需在通知栏展示，不参与系统胶囊/灵动岛。
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -418,17 +415,9 @@ class NotificationMonitorService : NotificationListenerService() {
         Log.i(TAG, "Foreground service started")
     }
 
-    /// 更新实时通知显示当前已推送数量与推送启停状态
-    private fun updatePromotedNotification() {
+    /// 更新前台通知显示当前已推送数量与推送启停状态
+    private fun updateForegroundNotification() {
         val notification = buildForegroundNotification()
-
-        // 请求提升为实时更新通知（Live Update）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            notification.extras.putBoolean(
-                android.app.Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true
-            )
-        }
-
         notificationManager.notify(FOREGROUND_ID, notification)
     }
 
@@ -458,6 +447,8 @@ class NotificationMonitorService : NotificationListenerService() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            // 归类为服务通知：系统（含各品牌灵动岛/超级岛）对服务类常驻通知默认不上岛
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
 
