@@ -96,37 +96,19 @@ class NotificationProcessor(private val context: Context) {
         blacklistKeywords: List<String>,
         filterMode: String = "allow"
     ): Boolean {
-        val fullText = "$title $content $subText".lowercase()
-
-        if (whitelistKeywords.isNotEmpty()) {
-            for (keyword in whitelistKeywords) {
-                if (keyword.isNotEmpty() && fullText.contains(keyword.lowercase())) {
-                    return true
-                }
-            }
-        }
-
-        if (filterMode == "block") {
-            // 黑名单模式：选中的应用不推送通知
-            if (enabledPackages.contains(packageName)) {
-                return false
-            }
-        } else {
-            // 白名单模式：仅选中的应用推送通知
-            if (enabledPackages.isNotEmpty() && !enabledPackages.contains(packageName)) {
-                return false
-            }
-        }
-
-        if (blacklistKeywords.isNotEmpty()) {
-            for (keyword in blacklistKeywords) {
-                if (keyword.isNotEmpty() && fullText.contains(keyword.lowercase())) {
-                    return false
-                }
-            }
-        }
-
-        return true
+        // 委托给统一过滤引擎，与 SMS / Call 链路共用同一套规则
+        // 修复点：黑名单优先级最高（原代码白名单命中后短路 return true，会跳过黑名单检查）
+        return FilterEngine.shouldNotify(
+            packageName = packageName,
+            title = title,
+            content = content,
+            subText = subText,
+            whitelistKeywords = whitelistKeywords,
+            enabledPackages = enabledPackages,
+            blacklistKeywords = blacklistKeywords,
+            filterMode = filterMode,
+            sourceType = "notification"
+        )
     }
 
     private fun getAppNameByPackage(packageName: String): String {

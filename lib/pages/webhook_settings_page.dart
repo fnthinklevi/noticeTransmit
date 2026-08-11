@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../models/webhook_channel.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
@@ -18,10 +19,15 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
 
   late List<TextEditingController> _webhookControllers;
   late List<TextEditingController> _nameControllers;
+  late List<TextEditingController> _secretControllers;
+  late List<TextEditingController> _templateControllers;
   late List<bool> _webhookEnabled;
+  late List<bool> _secretVisible;
+  late List<WebhookMessageFormat> _messageFormats;
   bool _isTesting = false;
   String? _testResult;
   bool? _testSuccess;
+  bool? _testSigned;
   int? _testIndex;
   bool _isSaving = false;
 
@@ -34,13 +40,35 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     _nameControllers = widget.webhookChannels
         .map((c) => TextEditingController(text: c['name'] as String? ?? ''))
         .toList();
+    _secretControllers = widget.webhookChannels
+        .map((c) => TextEditingController(text: c['secret'] as String? ?? ''))
+        .toList();
+    _templateControllers = widget.webhookChannels
+        .map(
+          (c) => TextEditingController(
+            text: c['message_template'] as String? ?? '',
+          ),
+        )
+        .toList();
     _webhookEnabled = widget.webhookChannels
         .map((c) => c['enabled'] as bool? ?? true)
+        .toList();
+    _secretVisible = widget.webhookChannels.map((c) => false).toList();
+    _messageFormats = widget.webhookChannels
+        .map(
+          (c) => WebhookMessageFormat.fromValue(
+            (c['message_format'] as String?) ?? (c['messageFormat'] as String?),
+          ),
+        )
         .toList();
     if (_webhookControllers.isEmpty) {
       _webhookControllers.add(TextEditingController());
       _nameControllers.add(TextEditingController());
+      _secretControllers.add(TextEditingController());
+      _templateControllers.add(TextEditingController());
       _webhookEnabled.add(true);
+      _secretVisible.add(false);
+      _messageFormats.add(WebhookMessageFormat.defaultFormat);
     }
   }
 
@@ -48,7 +76,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     setState(() {
       _webhookControllers.add(TextEditingController());
       _nameControllers.add(TextEditingController());
+      _secretControllers.add(TextEditingController());
+      _templateControllers.add(TextEditingController());
       _webhookEnabled.add(true);
+      _secretVisible.add(false);
+      _messageFormats.add(WebhookMessageFormat.defaultFormat);
     });
   }
 
@@ -56,13 +88,23 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     setState(() {
       _webhookControllers[index].dispose();
       _nameControllers[index].dispose();
+      _secretControllers[index].dispose();
+      _templateControllers[index].dispose();
       _webhookControllers.removeAt(index);
       _nameControllers.removeAt(index);
+      _secretControllers.removeAt(index);
+      _templateControllers.removeAt(index);
       _webhookEnabled.removeAt(index);
+      _secretVisible.removeAt(index);
+      _messageFormats.removeAt(index);
       if (_webhookControllers.isEmpty) {
         _webhookControllers.add(TextEditingController());
         _nameControllers.add(TextEditingController());
+        _secretControllers.add(TextEditingController());
+        _templateControllers.add(TextEditingController());
         _webhookEnabled.add(true);
+        _secretVisible.add(false);
+        _messageFormats.add(WebhookMessageFormat.defaultFormat);
       }
     });
   }
@@ -70,6 +112,12 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   void _toggleWebhookEnabled(int index) {
     setState(() {
       _webhookEnabled[index] = !_webhookEnabled[index];
+    });
+  }
+
+  void _toggleSecretVisible(int index) {
+    setState(() {
+      _secretVisible[index] = !_secretVisible[index];
     });
   }
 
@@ -81,25 +129,20 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     for (int i = 0; i < _webhookControllers.length; i++) {
       final url = _webhookControllers[i].text.trim();
       final name = _nameControllers[i].text.trim();
+      final secret = _secretControllers[i].text.trim();
       if (url.isNotEmpty) {
-        // 自动识别通道类型（域名范围与 _buildWebhookTypeHint 保持一致）
-        String channelType = 'generic';
-        if (url.contains('qyapi.weixin.qq.com') ||
-            url.contains('weixin.qq.com')) {
-          channelType = '0';
-        } else if (url.contains('oapi.dingtalk.com') ||
-            url.contains('dingtalk')) {
-          channelType = '1';
-        } else if (url.contains('feishu.cn') ||
-            url.contains('larksuite.com') ||
-            url.contains('open.feishu.cn')) {
-          channelType = '2';
-        }
+        // 自动识别通道类型（host 精确匹配，与 WebhookChannel.detectTypeFromUrl 一致）
+        final type = WebhookChannel.detectTypeFromUrl(url);
+        final channelType = type.value;
+        final template = _templateControllers[i].text.trim();
         channels.add({
           'url': url,
           'name': name,
           'channelType': channelType,
           'enabled': _webhookEnabled[i],
+          if (secret.isNotEmpty) 'secret': secret,
+          'message_format': _messageFormats[i].value,
+          if (template.isNotEmpty) 'message_template': template,
         });
       }
     }
@@ -110,6 +153,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   Future<void> _testWebhook(int index) async {
     final l10n = AppLocalizations.of(context);
     final url = _webhookControllers[index].text.trim();
+    final secret = _secretControllers[index].text.trim();
     if (url.isEmpty) {
       setState(() {
         _testSuccess = false;
@@ -123,25 +167,53 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _isTesting = true;
       _testResult = null;
       _testSuccess = null;
+      _testSigned = null;
       _testIndex = index;
     });
 
     try {
-      final result = await _channel.invokeMethod('testWebhook', {'url': url});
+      // 传递 secret 让原生端做签名验证，返回真实送达结果（含状态/HTTP码/签名标识）
+      final result = await _channel.invokeMethod('testWebhook', {
+        'url': url,
+        if (secret.isNotEmpty) 'secret': secret,
+      });
       final success = result['success'] as bool? ?? false;
       final message = result['message'] as String? ?? l10n.unknownError;
+      final signed = result['signed'] as bool? ?? false;
 
       setState(() {
         _isTesting = false;
         _testSuccess = success;
         _testResult = message;
+        _testSigned = signed;
       });
     } catch (e) {
       setState(() {
         _isTesting = false;
         _testSuccess = false;
+        _testSigned = false;
         _testResult = l10n.testFailedMsg(e.toString());
       });
+    }
+  }
+
+  /// 当前 URL 是否对应支持签名的平台（用于决定是否显示 secret 输入框）
+  bool _supportsSigning(String url) {
+    // 所有平台均支持（通用 webhook 通过 X-Signature 头），用户可按需填写
+    return true;
+  }
+
+  String _signingHint(String url) {
+    final type = WebhookChannel.detectTypeFromUrl(url);
+    switch (type) {
+      case WebhookChannelType.wechatWork:
+        return '企业微信群机器人开启「签名校验」后生成的密钥';
+      case WebhookChannelType.dingtalk:
+        return '钉钉机器人开启「加签」后生成的密钥（SEC 开头）';
+      case WebhookChannelType.feishu:
+        return '飞书自定义机器人开启「签名校验」后的密钥';
+      case WebhookChannelType.generic:
+        return '自建服务端校验签名用的密钥（通过 X-Signature 头传递）';
     }
   }
 
@@ -364,6 +436,245 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               setState(() {});
             },
           ),
+          if (_supportsSigning(_webhookControllers[index].text)) ...[
+            const SizedBox(height: 10),
+            Text(
+              l10n.webhookSecretLabel,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _secretControllers[index],
+              obscureText: !_secretVisible[index],
+              decoration: InputDecoration(
+                hintText: _signingHint(_webhookControllers[index].text),
+                hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.tertiaryLabel(context),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.separator(context)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.separator(context)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.blue),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.inputBg(context),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _secretVisible[index]
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 18,
+                    color: AppColors.tertiaryLabel(context),
+                  ),
+                  onPressed: () => _toggleSecretVisible(index),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.primaryLabel(context),
+              ),
+              maxLines: 1,
+            ),
+          ],
+          const SizedBox(height: 10),
+          // 消息格式选择器：default / text / markdown / json / xml
+          Row(
+            children: [
+              Text(
+                l10n.webhookFormatLabel,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondaryLabel(context),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: WebhookMessageFormat.values.map((fmt) {
+                      final selected = _messageFormats[index] == fmt;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _messageFormats[index] = fmt;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.blue.withValues(alpha: 0.12)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.blue
+                                    : AppColors.separator(context),
+                              ),
+                            ),
+                            child: Text(
+                              fmt.label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: selected
+                                    ? AppColors.blue
+                                    : AppColors.secondaryLabel(context),
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // 模板编辑器：仅当 format != default 时显示
+          if (_messageFormats[index] != WebhookMessageFormat.defaultFormat) ...[
+            const SizedBox(height: 10),
+            Text(
+              l10n.webhookTemplateLabel,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${l10n.webhookTemplateHint} %appName% %title% %content% %subText% %time% %deviceName% %packageName% %notifyType% %simInfo% %sender% %phoneNumber% %durationStr% %callState% %timestamp%',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.tertiaryLabel(context),
+              ),
+            ),
+            const SizedBox(height: 6),
+            // 变量插入按钮
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children:
+                  [
+                    '%appName%',
+                    '%title%',
+                    '%content%',
+                    '%time%',
+                    '%deviceName%',
+                    '%notifyType%',
+                  ].map((v) {
+                    return ActionChip(
+                      label: Text(
+                        v,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.blue,
+                        ),
+                      ),
+                      backgroundColor: AppColors.blue.withValues(alpha: 0.08),
+                      side: BorderSide.none,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 0,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        final controller = _templateControllers[index];
+                        final sel = controller.selection;
+                        final text = controller.text;
+                        final newText = sel.start >= 0
+                            ? text.replaceRange(
+                                sel.start,
+                                sel.end >= 0 ? sel.end : sel.start,
+                                v,
+                              )
+                            : text + v;
+                        controller.text = newText;
+                        controller.selection = TextSelection.collapsed(
+                          offset:
+                              (sel.start >= 0 ? sel.start : text.length) +
+                              v.length,
+                        );
+                        setState(() {});
+                      },
+                    );
+                  }).toList(),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _templateControllers[index],
+              minLines: 3,
+              maxLines: 8,
+              decoration: InputDecoration(
+                hintText: _messageFormats[index] == WebhookMessageFormat.json
+                    ? '{"title":"%title%","content":"%content%"}'
+                    : _messageFormats[index] == WebhookMessageFormat.xml
+                    ? '<notification><title>%title%</title></notification>'
+                    : '## %title%\n%content%',
+                hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.tertiaryLabel(context),
+                  fontFamily: 'monospace',
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.separator(context)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.separator(context)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.blue),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.inputBg(context),
+              ),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryLabel(context),
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,14 +741,52 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      _testResult!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _testSuccess == true
-                            ? AppColors.green
-                            : AppColors.red,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _testResult!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _testSuccess == true
+                                ? AppColors.green
+                                : AppColors.red,
+                          ),
+                        ),
+                        if (_testSigned == true) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.blue.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.verified_user_outlined,
+                                  size: 11,
+                                  color: AppColors.blue,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  l10n.webhookSigned,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.blue,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -478,37 +827,41 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
 
   Widget _buildWebhookTypeHint(String urlStr, BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final url = urlStr.trim().toLowerCase();
+    final url = urlStr.trim();
+    final type = WebhookChannel.detectTypeFromUrl(url);
     String typeName;
     IconData icon;
     Color color;
     String desc;
 
-    if (url.contains('qyapi.weixin.qq.com') || url.contains('weixin.qq.com')) {
-      typeName = l10n.platformWechat;
-      icon = Icons.chat;
-      color = const Color(0xFF07C160);
-      desc = l10n.platformWechatDesc;
-    } else if (url.contains('oapi.dingtalk.com') || url.contains('dingtalk')) {
-      typeName = l10n.platformDingtalk;
-      icon = Icons.work;
-      color = const Color(0xFF1677FF);
-      desc = l10n.platformWechatDesc;
-    } else if (url.contains('feishu.cn') || url.contains('larksuite.com')) {
-      typeName = l10n.platformFeishu;
-      icon = Icons.flight;
-      color = AppColors.blue;
-      desc = l10n.platformWechatDesc;
-    } else if (url.isEmpty) {
+    if (url.isEmpty) {
       typeName = l10n.urlEmpty;
       icon = Icons.link_off;
       color = const Color(0xFF8E8E93);
       desc = l10n.urlPlaceholder;
     } else {
-      typeName = l10n.platformGeneric;
-      icon = Icons.code;
-      color = const Color(0xFFFF9500);
-      desc = l10n.platformGenericDesc;
+      switch (type) {
+        case WebhookChannelType.wechatWork:
+          typeName = l10n.platformWechat;
+          icon = Icons.chat;
+          color = const Color(0xFF07C160);
+          desc = l10n.platformWechatDesc;
+        case WebhookChannelType.dingtalk:
+          typeName = l10n.platformDingtalk;
+          icon = Icons.work;
+          color = const Color(0xFF1677FF);
+          desc = l10n.platformWechatDesc;
+        case WebhookChannelType.feishu:
+          typeName = l10n.platformFeishu;
+          icon = Icons.flight;
+          color = AppColors.blue;
+          desc = l10n.platformWechatDesc;
+        case WebhookChannelType.generic:
+          typeName = l10n.platformGeneric;
+          icon = Icons.code;
+          color = const Color(0xFFFF9500);
+          desc = l10n.platformGenericDesc;
+      }
     }
 
     return Container(
@@ -555,6 +908,12 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       controller.dispose();
     }
     for (final controller in _nameControllers) {
+      controller.dispose();
+    }
+    for (final controller in _secretControllers) {
+      controller.dispose();
+    }
+    for (final controller in _templateControllers) {
       controller.dispose();
     }
     super.dispose();

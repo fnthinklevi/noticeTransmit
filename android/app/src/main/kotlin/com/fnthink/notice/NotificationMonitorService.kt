@@ -40,6 +40,8 @@ class NotificationMonitorService : NotificationListenerService() {
         const val ACTION_BATTERY_ALARM = "com.fnthink.notice.BATTERY_ALARM"
         private const val BATTERY_ALARM_INTERVAL_MS = 15 * 60 * 1000L
         private const val BATTERY_ALARM_REQUEST_CODE = 2001
+        // 前台通知刷新（推送启停状态变更后由 PushToggleActionReceiver 触发）
+        const val ACTION_REFRESH_FOREGROUND = "com.fnthink.notice.REFRESH_FOREGROUND"
 
         @Volatile var webhookUrls: List<String> = emptyList()
         @Volatile var deviceName: String = ""
@@ -76,6 +78,11 @@ class NotificationMonitorService : NotificationListenerService() {
 
         monitoringEnabled = readMonitoringEnabled()
         checkDailyReset()
+
+        // 初始化国际化（从 SharedPreferences 读取 locale 注入 I18n）
+        I18n.init(this)
+        // 初始化推送启停状态（从 SharedPreferences 恢复，前台通知一键暂停/恢复）
+        PushToggleManager.init(this)
 
         createNotificationChannel()
         // 先进入前台，满足 startForegroundService 的 5s 内必须 startForeground 的约束
@@ -121,6 +128,11 @@ class NotificationMonitorService : NotificationListenerService() {
                     monitoringEnabled = enabled
                     Log.i(TAG, "Monitoring set to $enabled")
                     applyMonitoringState()
+                }
+                ACTION_REFRESH_FOREGROUND -> {
+                    // 推送启停状态变更后刷新前台通知（按钮文案 / 状态文案）
+                    Log.d(TAG, "Refresh foreground notification (push toggle)")
+                    updatePromotedNotification()
                 }
             }
         }
@@ -188,16 +200,17 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor.setDeviceName(loadedDeviceName)
         webhookSender.setDeviceName(loadedDeviceName)
 
-        val loadedUrls = configManager.getWebhookUrls()
-        webhookUrls = loadedUrls
-        webhookSender.updateUrls(loadedUrls)
+        // 加载完整通道配置（含 secret 与 type，启用签名与送达校验）
+        val loadedConfigs = configManager.getWebhookChannelConfigs()
+        webhookUrls = loadedConfigs.map { it.url }
+        webhookSender.updateChannelConfigs(loadedConfigs)
 
         batteryMonitor.setEnabled(configManager.getBatteryNotifyEnabled())
         batteryMonitor.updateRules(configManager.getBatteryRules())
 
         cachedConfig = ConfigSnapshot()
 
-        Log.d(TAG, "Config loaded: ${loadedUrls.size} webhooks")
+        Log.d(TAG, "Config loaded: ${loadedConfigs.size} webhook channels (signed)")
     }
 
     private fun readMonitoringEnabled(): Boolean {
@@ -386,24 +399,7 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     private fun startForegroundService() {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("通知推送助手")
-            .setContentText("正在监听通知 · 当日已推送 $pushCount 条")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("通知监听服务运行中\n当日已推送通知：$pushCount 条"))
-            .build()
+        val notification = buildForegroundNotification()
 
         // 请求提升为实时更新通知（Live Update）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
@@ -422,24 +418,9 @@ class NotificationMonitorService : NotificationListenerService() {
         Log.i(TAG, "Foreground service started")
     }
 
-    /// 更新实时通知显示当前已推送数量
+    /// 更新实时通知显示当前已推送数量与推送启停状态
     private fun updatePromotedNotification() {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("通知推送助手")
-            .setContentText("正在监听通知 · 当日已推送 $pushCount 条")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("通知监听服务运行中\n当日已推送通知：$pushCount 条"))
-            .build()
+        val notification = buildForegroundNotification()
 
         // 请求提升为实时更新通知（Live Update）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
@@ -449,6 +430,54 @@ class NotificationMonitorService : NotificationListenerService() {
         }
 
         notificationManager.notify(FOREGROUND_ID, notification)
+    }
+
+    /**
+     * 构建前台通知（含推送启停 Action 按钮，文案随 push 状态切换）。
+     * - 推送激活：显示「暂停推送」按钮 + 「正在监听通知…」
+     * - 推送暂停：显示「恢复推送」按钮 + 「推送已暂停…」
+     */
+    private fun buildForegroundNotification(): Notification {
+        val contentIntent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val pushActive = PushToggleManager.isPushActive()
+        val title = I18n.serviceTitle()
+        val contentText = if (pushActive) {
+            I18n.serviceListening(pushCount)
+        } else {
+            I18n.servicePushPaused(pushCount)
+        }
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(contentText)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+
+        // 推送启停 Action 按钮（点击触发 PushToggleActionReceiver）
+        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        if (pushActive) {
+            val pauseIntent = Intent(this, PushToggleActionReceiver::class.java).apply {
+                action = PushToggleActionReceiver.ACTION_PAUSE_PUSH
+            }
+            val pausePi = PendingIntent.getBroadcast(this, 1, pauseIntent, piFlags)
+            builder.addAction(0, I18n.actionPausePush(), pausePi)
+        } else {
+            val resumeIntent = Intent(this, PushToggleActionReceiver::class.java).apply {
+                action = PushToggleActionReceiver.ACTION_RESUME_PUSH
+            }
+            val resumePi = PendingIntent.getBroadcast(this, 2, resumeIntent, piFlags)
+            builder.addAction(0, I18n.actionResumePush(), resumePi)
+        }
+
+        return builder.build()
     }
 
     private inner class ConfigSnapshot {

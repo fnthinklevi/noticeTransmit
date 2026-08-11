@@ -26,28 +26,17 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
         try {
             val configManager = ConfigManager(context)
-            val webhookUrls = configManager.getWebhookUrls()
+            val channelConfigs = configManager.getWebhookChannelConfigs()
             val deviceName = configManager.getDeviceName().ifEmpty { android.os.Build.MODEL }
 
-            if (webhookUrls.isEmpty()) return
+            if (channelConfigs.isEmpty()) return
 
             val stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE)
             val incomingNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER) ?: ""
 
-            // 获取 SIM 卡槽位信息
-            var simInfo: String? = null
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
-                val subId = intent.getIntExtra("subscription", -1)
-                if (subId <= 0) {
-                    // 部分厂商用 EXTRA_SUBSCRIPTION_ID
-                    val fallbackId = intent.getIntExtra(TelephonyManager.EXTRA_SUBSCRIPTION_ID, -1)
-                    if (fallbackId > 0) {
-                        simInfo = SimInfoHelper.getSimLabel(context, fallbackId)
-                    }
-                } else {
-                    simInfo = SimInfoHelper.getSimLabel(context, subId)
-                }
-            }
+            // 统一通过 SimInfoHelper.getSimInfoFromIntent 入口识别 SIM 卡
+            // 兼容多 key（subscription / EXTRA_SUBSCRIPTION_ID）+ 多策略降级（subId→单卡→slotId→占位）
+            val simInfo: String? = SimInfoHelper.getSimInfoFromIntent(context, intent)?.displayLabel
 
             val state = when (stateStr) {
                 TelephonyManager.EXTRA_STATE_RINGING -> TelephonyManager.CALL_STATE_RINGING
@@ -60,18 +49,42 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
             Log.d(TAG, "电话状态变化: $stateStr, 号码: $incomingNumber")
 
+            // 接入统一过滤引擎：来电链路与通知链路共用同一套黑白名单
+            // 注意：call 不走应用过滤，仅按关键词过滤；只在响铃阶段过滤，避免多次重复判定
+            if (state == TelephonyManager.CALL_STATE_RINGING && incomingNumber.isNotEmpty()) {
+                val titleForFilter = I18n.callNotifyTitle("ringing", incomingNumber, simInfo)
+                val contentForFilter = I18n.callStateContent("ringing", incomingNumber, simInfo)
+                val allowed = FilterEngine.shouldNotify(
+                    packageName = "com.android.dialer",
+                    title = titleForFilter,
+                    content = contentForFilter,
+                    subText = "",
+                    whitelistKeywords = configManager.getWhitelistKeywords(),
+                    enabledPackages = emptySet(),
+                    blacklistKeywords = configManager.getBlacklistKeywords(),
+                    filterMode = "allow",
+                    sourceType = "call"
+                )
+                if (!allowed) {
+                    Log.d(TAG, "来电被过滤拦截: $incomingNumber")
+                    // 标记状态防止后续 answered/ended 仍触发推送
+                    lastIncomingNumber = ""
+                    return
+                }
+            }
+
             when (state) {
                 TelephonyManager.CALL_STATE_RINGING -> {
                     callStartTime = System.currentTimeMillis()
                     lastIncomingNumber = incomingNumber
                     if (incomingNumber.isNotEmpty()) {
-                        for (url in webhookUrls) {
+                        for (cfg in channelConfigs) {
                             sendCallWebhook(
                                 context = context,
                                 phoneNumber = incomingNumber,
                                 callState = "ringing",
                                 duration = 0L,
-                                webhookUrl = url,
+                                channelConfig = cfg,
                                 deviceName = deviceName,
                                 simInfo = simInfo
                             )
@@ -81,13 +94,13 @@ class PhoneCallReceiver : BroadcastReceiver() {
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
                     if (lastState == TelephonyManager.CALL_STATE_RINGING) {
                         if (lastIncomingNumber.isNotEmpty()) {
-                            for (url in webhookUrls) {
+                            for (cfg in channelConfigs) {
                                 sendCallWebhook(
                                     context = context,
                                     phoneNumber = lastIncomingNumber,
                                     callState = "answered",
                                     duration = 0L,
-                                    webhookUrl = url,
+                                    channelConfig = cfg,
                                     deviceName = deviceName,
                                     simInfo = simInfo
                                 )
@@ -101,13 +114,13 @@ class PhoneCallReceiver : BroadcastReceiver() {
                             val duration = if (callStartTime > 0) {
                                 System.currentTimeMillis() - callStartTime
                             } else 0L
-                            for (url in webhookUrls) {
+                            for (cfg in channelConfigs) {
                                 sendCallWebhook(
                                     context = context,
                                     phoneNumber = lastIncomingNumber,
                                     callState = "ended",
                                     duration = duration,
-                                    webhookUrl = url,
+                                    channelConfig = cfg,
                                     deviceName = deviceName,
                                     simInfo = simInfo
                                 )
@@ -128,7 +141,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
     private fun sendCallWebhook(
         context: Context,
         phoneNumber: String,
-        webhookUrl: String,
+        channelConfig: ConfigManager.WebhookChannelConfig,
         deviceName: String,
         callState: String,
         duration: Long = 0L,
@@ -138,7 +151,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
             .format(Date(now))
         val durationSec = duration / 1000
-        val durationStr = if (duration > 0) "${durationSec / 60}分${durationSec % 60}秒" else ""
+        val durationStr = if (duration > 0) I18n.formatDuration(durationSec) else ""
 
         val notifyType = when (callState) {
             "ringing" -> "call_incoming"
@@ -147,20 +160,11 @@ class PhoneCallReceiver : BroadcastReceiver() {
             else -> "call_unknown"
         }
 
-        val simLabel = if (simInfo != null) " [$simInfo]" else ""
-        val title = when (callState) {
-            "ringing" -> "来电$simLabel - $phoneNumber"
-            "answered" -> "通话中$simLabel - $phoneNumber"
-            "ended" -> "通话结束$simLabel - $phoneNumber"
-            else -> "电话$simLabel - $phoneNumber"
-        }
-
-        val content = when (callState) {
-            "ringing" -> "来电$simLabel: $phoneNumber"
-            "answered" -> "已接听$simLabel: $phoneNumber"
-            "ended" -> "通话结束$simLabel: $phoneNumber, 时长: $durationStr"
-            else -> "电话$simLabel: $phoneNumber"
-        }
+        val title = I18n.callNotifyTitle(callState, phoneNumber, simInfo)
+        val content = I18n.callStateContent(callState, phoneNumber, simInfo) +
+                (if (callState == "ended" && durationStr.isNotEmpty())
+                    (if (I18n.getLocale() == "en") ", Duration: $durationStr" else ", 时长: $durationStr")
+                 else "")
 
         val extra = mutableMapOf<String, Any>(
             "phoneNumber" to phoneNumber,
@@ -178,7 +182,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
             type = notifyType,
             title = title,
             content = content,
-            appName = "电话",
+            appName = I18n.callAppName(),
             packageName = "com.android.dialer",
             postTime = now,
             time = timeStr,
@@ -186,9 +190,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
             deviceName = deviceName
         )
 
-        val webhookType = WebhookPayloadBuilder.detectType(webhookUrl)
         val payload = WebhookPayloadBuilder.buildCallPayload(
-            type = webhookType,
+            type = channelConfig.type,
             state = callState,
             phoneNumber = phoneNumber,
             time = timeStr,
@@ -204,7 +207,17 @@ class PhoneCallReceiver : BroadcastReceiver() {
             else -> "电话通知"
         }
 
-        NetworkClient.sendWithRetry(webhookUrl, payload, tag)
+        // 通过 NetworkClient 发送（含签名 + 送达校验）
+        NetworkClient.sendWithRetry(
+            url = channelConfig.url,
+            payload = payload,
+            tag = tag,
+            webhookType = channelConfig.type,
+            secret = channelConfig.secret,
+            onResult = { result ->
+                Log.d(TAG, "Call delivery: ${channelConfig.url.take(40)} → status=${result.status}")
+            }
+        )
     }
 
     private fun notifyFlutter(
@@ -220,23 +233,26 @@ class PhoneCallReceiver : BroadcastReceiver() {
         deviceName: String
     ) {
         try {
+            val json = org.json.JSONObject().apply {
+                put("type", type)
+                put("id", "call_${type}_${postTime}_${title.hashCode()}")
+                put("title", title)
+                put("content", content)
+                put("appName", appName)
+                put("packageName", packageName)
+                put("postTime", postTime)
+                put("time", time)
+                put("deviceName", deviceName)
+                put("timestamp", System.currentTimeMillis())
+                for ((k, v) in extra) {
+                    put(k, v)
+                }
+            }
+            // 同步写入离线缓存，避免 Flutter 引擎未就绪时丢失
+            HistoryCache.append(context, json)
+
             val intent = Intent(MainActivity.ACTION_NOTIFICATION_RECEIVED).apply {
                 setPackage(context.packageName)
-                val json = org.json.JSONObject().apply {
-                    put("type", type)
-                    put("id", "call_${type}_${postTime}_${title.hashCode()}")
-                    put("title", title)
-                    put("content", content)
-                    put("appName", appName)
-                    put("packageName", packageName)
-                    put("postTime", postTime)
-                    put("time", time)
-                    put("deviceName", deviceName)
-                    put("timestamp", System.currentTimeMillis())
-                    for ((k, v) in extra) {
-                        put(k, v)
-                    }
-                }
                 putExtra(MainActivity.EXTRA_NOTIFICATION_DATA, json.toString())
             }
             context.sendBroadcast(intent)

@@ -3,7 +3,6 @@ package com.fnthink.notice
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
@@ -17,6 +16,7 @@ class NetworkClient {
         private const val TAG = "NetworkClient"
         private const val MAX_RETRIES = 3
         private const val RETRY_DELAY_MS = 2000L
+        private const val RATE_LIMIT_RETRY_DELAY_MS = 10_000L // 限流时退避更长
 
         @Volatile private var isActive = true
         private val scope = CoroutineScope(Dispatchers.IO)
@@ -39,41 +39,131 @@ class NetworkClient {
                 .build()
         }
 
+        /**
+         * 发送 webhook（支持签名 + 送达校验）
+         *
+         * @param url 原始 webhook URL
+         * @param payload JSON payload
+         * @param tag 日志标签
+         * @param webhookType 平台类型（用于响应解析）
+         * @param secret 签名密钥（null/empty 时不签名）
+         * @param contentType 请求体 MIME 类型（默认 application/json; charset=utf-8）。
+         *                    当使用自定义模板（text/xml/markdown）时由调用方传入对应类型。
+         * @param onResult 可选回调，返回送达结果（含状态/HTTP 码/消息）
+         */
         fun sendWithRetry(
             url: String,
             payload: String,
-            tag: String = "webhook"
+            tag: String = "webhook",
+            webhookType: WebhookPayloadBuilder.WebhookType = WebhookPayloadBuilder.WebhookType.GENERIC,
+            secret: String? = null,
+            contentType: String = "application/json; charset=utf-8",
+            onResult: ((WebhookResponseParser.ParseResult) -> Unit)? = null
         ) {
-            if (!isActive) return
+            if (!isActive) {
+                onResult?.invoke(
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
+                        0, "NetworkClient inactive", false
+                    )
+                )
+                return
+            }
+            // 推送已暂停（前台通知一键启停）：监听继续，仅跳过 webhook 发送
+            if (!PushToggleManager.isPushActive()) {
+                Log.d(TAG, "$tag skipped: push paused")
+                onResult?.invoke(
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                        0, "Push paused (skipped)", false
+                    )
+                )
+                return
+            }
             scope.launch {
+                // 发送前签名（仅一次，重试时复用同一签名）
+                val signed = WebhookSigner.sign(webhookType, url, payload, secret)
+
                 var retryCount = 0
+                var lastResult: WebhookResponseParser.ParseResult? = null
 
                 while (retryCount < MAX_RETRIES) {
-                    try {
-                        val body = payload.toRequestBody("application/json; charset=utf-8".toMediaType())
-                        val request = Request.Builder()
-                            .url(url)
-                            .post(body)
-                            .addHeader("User-Agent", "NotificationMonitor/1.0")
-                            .build()
+                    val result = sendOnce(signed, tag, retryCount, contentType)
+                    lastResult = result
 
-                        client.newCall(request).execute().use { response ->
-                            if (response.isSuccessful) {
-                                Log.d(TAG, "$tag Webhook sent successfully (attempt ${retryCount + 1})")
-                                return@launch
-                            } else {
-                                Log.e(TAG, "$tag Webhook failed: HTTP ${response.code} (attempt ${retryCount + 1})")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "$tag Webhook send error (attempt ${retryCount + 1})")
+                    // 成功或不可重试 → 终止
+                    if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
+                        Log.d(TAG, "$tag delivered (attempt ${retryCount + 1}): ${result.message}")
+                        onResult?.invoke(result)
+                        return@launch
+                    }
+                    if (!result.retryable) {
+                        Log.e(TAG, "$tag delivery failed (no retry): ${result.message}")
+                        onResult?.invoke(result)
+                        return@launch
                     }
 
+                    Log.w(TAG, "$tag delivery failed (attempt ${retryCount + 1}), will retry: ${result.message}")
                     retryCount++
+
                     if (retryCount < MAX_RETRIES) {
-                        delay(RETRY_DELAY_MS * retryCount)
+                        // 限流用更长退避
+                        val delayMs = if (result.status == WebhookResponseParser.DeliveryStatus.RATE_LIMITED) {
+                            RATE_LIMIT_RETRY_DELAY_MS * retryCount
+                        } else {
+                            RETRY_DELAY_MS * retryCount
+                        }
+                        delay(delayMs)
                     }
                 }
+
+                // 重试耗尽
+                Log.e(TAG, "$tag delivery exhausted retries: ${lastResult?.message}")
+                onResult?.invoke(
+                    lastResult ?: WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
+                        0, "Unknown failure after $MAX_RETRIES attempts", false
+                    )
+                )
+            }
+        }
+
+        private fun sendOnce(
+            signed: WebhookSigner.SignedRequest,
+            tag: String,
+            attempt: Int,
+            contentType: String = "application/json; charset=utf-8"
+        ): WebhookResponseParser.ParseResult {
+            return try {
+                val body = signed.payload.toRequestBody(contentType.toMediaType())
+                val requestBuilder = Request.Builder()
+                    .url(signed.url)
+                    .post(body)
+                    .addHeader("User-Agent", "NotificationMonitor/1.0")
+
+                // 通用 webhook 签名头
+                for ((k, v) in signed.headers) {
+                    requestBuilder.addHeader(k, v)
+                }
+
+                val request = requestBuilder.build()
+
+                client.newCall(request).execute().use { response ->
+                    val respBody = response.body?.string() ?: ""
+                    val parser = WebhookResponseParser.parse(
+                        WebhookPayloadBuilder.detectType(signed.url),
+                        response.code,
+                        respBody
+                    )
+                    Log.d(TAG, "$tag HTTP ${response.code} (attempt ${attempt + 1}): ${parser.message}")
+                    parser
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "$tag network error (attempt ${attempt + 1}): ${e.message}")
+                WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
+                    0, "Network error: ${e.message}", true
+                )
             }
         }
 

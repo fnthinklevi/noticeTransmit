@@ -29,6 +29,93 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return '飞书群机器人';
     }
   }
+
+  /// 是否支持 HMAC 签名（用于 UI 显示 secret 输入框）
+  bool get supportsSigning {
+    switch (this) {
+      case WebhookChannelType.generic:
+      case WebhookChannelType.wechatWork:
+      case WebhookChannelType.dingtalk:
+      case WebhookChannelType.feishu:
+        return true;
+    }
+  }
+
+  /// 签名说明文案（用户在 UI 中看到的提示）
+  String get signingHint {
+    switch (this) {
+      case WebhookChannelType.wechatWork:
+        return '企业微信群机器人开启「签名校验」后生成的密钥';
+      case WebhookChannelType.dingtalk:
+        return '钉钉机器人开启「加签」后生成的密钥（SEC 开头）';
+      case WebhookChannelType.feishu:
+        return '飞书自定义机器人开启「签名校验」后的密钥';
+      case WebhookChannelType.generic:
+        return '自建服务端校验签名用的密钥（通过 X-Signature 头传递）';
+    }
+  }
+}
+
+enum WebhookMessageFormat {
+  /// 平台默认格式（企微/钉钉/飞书走文本，通用走 JSON）
+  defaultFormat,
+
+  /// 纯文本（无格式）
+  text,
+
+  /// Markdown（企微/钉钉/飞书走 markdown msgtype）
+  markdown,
+
+  /// 自定义 JSON body（通用 webhook）
+  json,
+
+  /// XML body（通用 webhook，Content-Type: application/xml）
+  xml;
+
+  String get value {
+    switch (this) {
+      case WebhookMessageFormat.defaultFormat:
+        return 'default';
+      case WebhookMessageFormat.text:
+        return 'text';
+      case WebhookMessageFormat.markdown:
+        return 'markdown';
+      case WebhookMessageFormat.json:
+        return 'json';
+      case WebhookMessageFormat.xml:
+        return 'xml';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case WebhookMessageFormat.defaultFormat:
+        return '默认格式';
+      case WebhookMessageFormat.text:
+        return '纯文本';
+      case WebhookMessageFormat.markdown:
+        return 'Markdown';
+      case WebhookMessageFormat.json:
+        return 'JSON';
+      case WebhookMessageFormat.xml:
+        return 'XML';
+    }
+  }
+
+  static WebhookMessageFormat fromValue(String? value) {
+    switch (value) {
+      case 'text':
+        return WebhookMessageFormat.text;
+      case 'markdown':
+        return WebhookMessageFormat.markdown;
+      case 'json':
+        return WebhookMessageFormat.json;
+      case 'xml':
+        return WebhookMessageFormat.xml;
+      default:
+        return WebhookMessageFormat.defaultFormat;
+    }
+  }
 }
 
 class WebhookChannel {
@@ -37,6 +124,9 @@ class WebhookChannel {
   final String url;
   final WebhookChannelType type;
   final bool enabled;
+  final String? secret;
+  final WebhookMessageFormat messageFormat;
+  final String? messageTemplate;
 
   WebhookChannel({
     required this.id,
@@ -44,21 +134,45 @@ class WebhookChannel {
     required this.url,
     required this.type,
     this.enabled = true,
+    this.secret,
+    this.messageFormat = WebhookMessageFormat.defaultFormat,
+    this.messageTemplate,
   });
 
   static WebhookChannelType detectTypeFromUrl(String url) {
-    final lowerUrl = url.toLowerCase();
-    if (lowerUrl.contains('qyapi.weixin.qq.com') ||
-        lowerUrl.contains('weixin.qq.com')) {
+    final host = _extractHost(url);
+    if (host == null) return WebhookChannelType.generic;
+    if (host == 'qyapi.weixin.qq.com') {
       return WebhookChannelType.wechatWork;
-    } else if (lowerUrl.contains('oapi.dingtalk.com') ||
-        lowerUrl.contains('dingtalk')) {
+    } else if (host == 'oapi.dingtalk.com') {
       return WebhookChannelType.dingtalk;
-    } else if (lowerUrl.contains('feishu.cn') ||
-        lowerUrl.contains('larksuite.com')) {
+    } else if (host == 'open.feishu.cn' || host == 'open.larksuite.com') {
       return WebhookChannelType.feishu;
     }
     return WebhookChannelType.generic;
+  }
+
+  /// 从 URL 提取小写 host（与 Kotlin 端 WebhookPayloadBuilder.extractHost 保持一致）。
+  static String? _extractHost(String url) {
+    var lower = url.trim().toLowerCase();
+    if (lower.isEmpty) return null;
+    if (lower.startsWith('https://')) {
+      lower = lower.substring(8);
+    } else if (lower.startsWith('http://')) {
+      lower = lower.substring(7);
+    }
+    // 找到 host 结束位置（首个 / ? # 之一）
+    var endIdx = -1;
+    for (final ch in const ['/', '?', '#']) {
+      final i = lower.indexOf(ch);
+      if (i >= 0 && (endIdx < 0 || i < endIdx)) endIdx = i;
+    }
+    final hostPort = endIdx >= 0 ? lower.substring(0, endIdx) : lower;
+    if (hostPort.isEmpty) return null;
+    // 去掉端口（webhook URL 不会用到 IPv6 字面量 host）
+    final colonIdx = hostPort.lastIndexOf(':');
+    final host = colonIdx >= 0 ? hostPort.substring(0, colonIdx) : hostPort;
+    return host.isEmpty ? null : host;
   }
 
   factory WebhookChannel.fromMap(Map<String, dynamic> map) {
@@ -82,6 +196,11 @@ class WebhookChannel {
       url: url,
       type: type,
       enabled: map['enabled'] as bool? ?? true,
+      secret: map['secret'] as String?,
+      messageFormat: WebhookMessageFormat.fromValue(
+        map['message_format'] as String?,
+      ),
+      messageTemplate: map['message_template'] as String?,
     );
   }
 
@@ -92,6 +211,10 @@ class WebhookChannel {
       'url': url,
       'type': type.value,
       'enabled': enabled,
+      if (secret != null && secret!.isNotEmpty) 'secret': secret,
+      'message_format': messageFormat.value,
+      if (messageTemplate != null && messageTemplate!.isNotEmpty)
+        'message_template': messageTemplate,
     };
   }
 
@@ -101,6 +224,9 @@ class WebhookChannel {
     String? url,
     WebhookChannelType? type,
     bool? enabled,
+    String? secret,
+    WebhookMessageFormat? messageFormat,
+    String? messageTemplate,
   }) {
     return WebhookChannel(
       id: id ?? this.id,
@@ -108,6 +234,9 @@ class WebhookChannel {
       url: url ?? this.url,
       type: type ?? this.type,
       enabled: enabled ?? this.enabled,
+      secret: secret ?? this.secret,
+      messageFormat: messageFormat ?? this.messageFormat,
+      messageTemplate: messageTemplate ?? this.messageTemplate,
     );
   }
 }

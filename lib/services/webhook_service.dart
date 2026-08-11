@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
+import '../models/webhook_channel.dart';
 import 'platform_channel.dart';
 import 'secure_storage_service.dart';
 
@@ -134,17 +135,9 @@ class WebhookService {
   Map<String, dynamic> _dbRowToUi(Map<String, dynamic> row) {
     final url = row['url']?.toString() ?? '';
     var channelType = row['channel_type']?.toString() ?? '';
-    // 若原数据为 generic 或为空，从 URL 重新识别
+    // 若原数据为 generic 或为空，从 URL 重新识别（host 精确匹配，与 WebhookChannel.detectTypeFromUrl 一致）
     if (channelType.isEmpty || channelType == 'generic') {
-      if (url.contains('qyapi.weixin.qq.com')) {
-        channelType = '0';
-      } else if (url.contains('oapi.dingtalk.com')) {
-        channelType = '1';
-      } else if (url.contains('open.feishu.cn')) {
-        channelType = '2';
-      } else {
-        channelType = 'generic';
-      }
+      channelType = WebhookChannel.detectTypeFromUrl(url).value;
     }
     return {
       'id': row['id'],
@@ -154,6 +147,9 @@ class WebhookService {
       'type': channelType,
       'enabled': row['enabled'] == 1 || row['enabled'] == true,
       'secret': row['secret'],
+      // v6: 推送模板系统字段（UI 展示 / 再次保存时透传，防止重启后模板丢失）
+      'message_format': row['message_format'] ?? 'default',
+      'message_template': row['message_template'],
     };
   }
 }

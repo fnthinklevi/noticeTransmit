@@ -191,6 +191,13 @@ class AppLocalizations {
     'channelN': '通道 {n}',
     'channelNameOptional': '通道名称（可选，如 企业微信·通知）',
     'webhookUrlPlaceholder': 'https://example.com/webhook',
+    'webhookSecretLabel': '签名密钥（可选）',
+    'webhookSigned': '已签名',
+    'webhookTemplateLabel': '推送模板（可选）',
+    'webhookFormatLabel': '消息格式',
+    'webhookTemplateHint': '留空则使用预置模板；支持变量：',
+    'webhookTemplateInsertVar': '插入变量',
+    'webhookTemplatePreview': '预览',
     'platformWechat': 'WeCom',
     'platformDingtalk': 'DingTalk',
     'platformFeishu': 'Feishu',
@@ -554,6 +561,13 @@ class AppLocalizations {
     'channelN': 'Channel {n}',
     'channelNameOptional': 'Channel name (optional)',
     'webhookUrlPlaceholder': 'https://example.com/webhook',
+    'webhookSecretLabel': 'Signing Secret (optional)',
+    'webhookSigned': 'Signed',
+    'webhookTemplateLabel': 'Push Template (optional)',
+    'webhookFormatLabel': 'Message Format',
+    'webhookTemplateHint': 'Leave empty to use preset; supported variables:',
+    'webhookTemplateInsertVar': 'Insert Variable',
+    'webhookTemplatePreview': 'Preview',
     'platformWechat': 'WeCom',
     'platformDingtalk': 'DingTalk',
     'platformFeishu': 'Feishu',
@@ -926,6 +940,13 @@ class AppLocalizations {
   String channelN(int n) => _get('channelN').replaceAll('{n}', n.toString());
   String get channelNameOptional => _get('channelNameOptional');
   String get webhookUrlPlaceholder => _get('webhookUrlPlaceholder');
+  String get webhookSecretLabel => _get('webhookSecretLabel');
+  String get webhookSigned => _get('webhookSigned');
+  String get webhookTemplateLabel => _get('webhookTemplateLabel');
+  String get webhookFormatLabel => _get('webhookFormatLabel');
+  String get webhookTemplateHint => _get('webhookTemplateHint');
+  String get webhookTemplateInsertVar => _get('webhookTemplateInsertVar');
+  String get webhookTemplatePreview => _get('webhookTemplatePreview');
   String get platformWechat => _get('platformWechat');
   String get platformDingtalk => _get('platformDingtalk');
   String get platformFeishu => _get('platformFeishu');

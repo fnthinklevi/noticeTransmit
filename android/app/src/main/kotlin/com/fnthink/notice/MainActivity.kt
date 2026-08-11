@@ -45,8 +45,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.49"
-        const val FALLBACK_BUILD = 83
+        const val FALLBACK_VERSION = "1.5.50"
+        const val FALLBACK_BUILD = 84
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -82,6 +82,11 @@ class MainActivity : FlutterActivity() {
                         val map = json.toMap()
                         if (methodChannel != null) {
                             methodChannel?.invokeMethod("onNotificationReceived", map)
+                            // Flutter 已接收，从离线缓存移除（避免 Flutter 重启后重复入库）
+                            val id = json.optString("id", "")
+                            if (id.isNotEmpty()) {
+                                HistoryCache.remove(applicationContext, id)
+                            }
                         } else {
                             // Flutter 引擎未就绪 → 缓存到 SP 待批量导入
                             cacheNotificationRecord(data)
@@ -189,6 +194,8 @@ class MainActivity : FlutterActivity() {
                 "setLocaleLabel" -> {
                     val locale = call.arguments as? String ?: "zh"
                     prefs.edit().putString("flutter.locale", locale).apply()
+                    // 同步给 Webhook 推送国际化模块
+                    I18n.setLocale(locale)
                     switchLocaleAlias()
                     updateAppLabel()
                     result.success(true)
@@ -341,11 +348,16 @@ class MainActivity : FlutterActivity() {
                 }
                 "testWebhook" -> {
                     val url = call.argument<String>("url") ?: ""
-                    testWebhook(url, result)
+                    val secret = call.argument<String>("secret")
+                    testWebhook(url, secret, result)
                 }
                 "clearNotificationRecords" -> {
                     clearNotificationRecords()
                     result.success(true)
+                }
+                "drainOfflineCache" -> {
+                    // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
+                    result.success(HistoryCache.drainAll(applicationContext))
                 }
                 "getBatteryStatus" -> {
                     result.success(getBatteryStatus())
@@ -1238,9 +1250,9 @@ class MainActivity : FlutterActivity() {
         return prefs.getString("flutter.selected_icon", "default") ?: "default"
     }
 
-    private fun testWebhook(url: String, result: MethodChannel.Result) {
+    private fun testWebhook(url: String, secret: String?, result: MethodChannel.Result) {
         activityScope.launch(Dispatchers.IO) {
-            val (success, message) = try {
+            val (success, message, signed) = try {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
                 val webhookType = WebhookPayloadBuilder.detectType(url)
                 val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
@@ -1252,30 +1264,43 @@ class MainActivity : FlutterActivity() {
                     WebhookPayloadBuilder.WebhookType.GENERIC -> "通用"
                 }
 
-                val body = payload.toRequestBody("application/json; charset=utf-8".toMediaType())
-                val request = Request.Builder()
-                    .url(url)
+                // 调用签名器（与正式推送走同一套签名逻辑）
+                val signedReq = WebhookSigner.sign(webhookType, url, payload, secret)
+
+                val body = signedReq.payload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                val requestBuilder = Request.Builder()
+                    .url(signedReq.url)
                     .post(body)
                     .addHeader("User-Agent", "NotificationMonitor/1.0")
-                    .build()
+                for ((k, v) in signedReq.headers) {
+                    requestBuilder.addHeader(k, v)
+                }
+                val request = requestBuilder.build()
 
                 okHttpClient.newCall(request).execute().use { response ->
                     val responseBody = response.body?.string() ?: ""
-                    if (response.isSuccessful) {
-                        true to "推送成功 ($typeLabel) (HTTP ${response.code})"
-                    } else {
-                        false to "推送失败 ($typeLabel) (HTTP ${response.code}): ${responseBody.take(200)}"
-                    }
+                    val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
+
+                    val signedLabel = if (!secret.isNullOrEmpty()) " [已签名]" else ""
+                    val detail = "$typeLabel$signedLabel HTTP ${response.code} · ${parseResult.status.name}"
+                    val fullMessage = "$detail\n${parseResult.message.take(300)}"
+
+                    Triple(
+                        parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                        fullMessage,
+                        !secret.isNullOrEmpty()
+                    )
                 }
             } catch (e: Exception) {
-                false to "推送异常: ${e.message ?: e.javaClass.simpleName}"
+                Triple(false, "推送异常: ${e.message ?: e.javaClass.simpleName}", !secret.isNullOrEmpty())
             }
 
             withContext(Dispatchers.Main) {
                 try {
                     result.success(mapOf(
                         "success" to success,
-                        "message" to message
+                        "message" to message,
+                        "signed" to signed
                     ))
                 } catch (e: Exception) {
                     result.error("TEST_ERROR", message, null)

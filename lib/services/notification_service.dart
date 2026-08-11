@@ -44,6 +44,48 @@ class NotificationService {
       debugPrint('从数据库加载记录失败: $e');
       _records.clear();
     }
+
+    // 拉取原生端离线缓存（软件被杀期间的通知），通过 id 去重后合并入库
+    await _drainOfflineCache();
+  }
+
+  /// 拉取原生 HistoryCache 缓存的离线通知，按 id 去重后入库。
+  /// 修复"软件关闭重开后推送历史记录消失"问题。
+  Future<void> _drainOfflineCache() async {
+    try {
+      final cached = await _channel.invokeMethod<List<dynamic>>(
+        'drainOfflineCache',
+      );
+      if (cached == null || cached.isEmpty) return;
+
+      // 获取现有 id 集合，避免重复入库
+      final existingIds = _records.map((r) => r.id).toSet();
+
+      var merged = 0;
+      for (final item in cached) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        final id = map['id']?.toString() ?? '';
+        if (id.isEmpty || existingIds.contains(id)) continue;
+
+        map['channels'] = _getActiveChannels();
+        final record = NotificationRecord.fromMap(map);
+        _records.insert(0, record);
+        await DatabaseHelper().insertNotification(record.toMap());
+        merged++;
+      }
+
+      // 超出上限时截断
+      if (_records.length > _maxRecords) {
+        _records.removeRange(_maxRecords, _records.length);
+      }
+
+      if (merged > 0) {
+        debugPrint('[HistoryCache] 合并 $merged 条离线通知');
+      }
+    } catch (e) {
+      debugPrint('拉取离线缓存失败: $e');
+    }
   }
 
   Future<void> loadServiceState() async {

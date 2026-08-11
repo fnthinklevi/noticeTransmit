@@ -129,23 +129,17 @@ class BatteryMonitor(private val context: Context) {
         currentLevel: Int,
         isCharging: Boolean
     ): NotificationInfo {
-        val defaultTitle = when (rule.type) {
-            "charging" -> "开始充电"
-            "discharging" -> "断开充电"
-            "level_above" -> "电量达到${rule.threshold}%"
-            "level_below" -> "电量低于${rule.threshold}%"
-            "level_equals" -> "电量等于${rule.threshold}%"
-            else -> "电量提醒"
-        }
+        // 中英双语（跟随应用语言设置），避免英文模式下推送内容仍为中文
+        val defaultTitle = I18n.batteryRuleTitle(rule.type, rule.threshold)
         val title = if (rule.title.isNotBlank()) rule.title else defaultTitle
-        val content = "当前电量: ${currentLevel}%${if (isCharging) " (充电中)" else ""}"
+        val content = I18n.batteryLevelText(currentLevel, isCharging)
         return NotificationInfo(
             id = "battery_${System.currentTimeMillis()}",
             title = title,
             content = content,
             subText = "",
             packageName = "com.fnthink.notice",
-            appName = "通知推送助手",
+            appName = I18n.appName(),
             postTime = System.currentTimeMillis(),
             time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
             type = "battery",

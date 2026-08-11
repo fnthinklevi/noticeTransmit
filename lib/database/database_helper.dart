@@ -53,7 +53,7 @@ class DatabaseHelper {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 4,
+        version: 6,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -69,7 +69,7 @@ class DatabaseHelper {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 4,
+        version: 6,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -249,9 +249,32 @@ class DatabaseHelper {
         channel_type TEXT NOT NULL DEFAULT 'generic',
         enabled INTEGER NOT NULL DEFAULT 1,
         secret TEXT,
+        message_format TEXT NOT NULL DEFAULT 'default',
+        message_template TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
+    ''');
+
+    // v5: Webhook 送达日志表（用于送达校验失败/成功记录归档）
+    await db.execute('''
+      CREATE TABLE webhook_delivery_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        channel_url TEXT NOT NULL,
+        notification_id TEXT,
+        tag TEXT,
+        status TEXT NOT NULL,
+        http_code INTEGER,
+        message TEXT,
+        retryable INTEGER NOT NULL DEFAULT 0,
+        timestamp INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_delivery_log_timestamp ON webhook_delivery_log(timestamp)
+    ''');
+    await db.execute('''
+      CREATE INDEX idx_delivery_log_status ON webhook_delivery_log(status)
     ''');
   }
 
@@ -305,9 +328,46 @@ class DatabaseHelper {
           channel_type TEXT NOT NULL DEFAULT 'generic',
           enabled INTEGER NOT NULL DEFAULT 1,
           secret TEXT,
+          message_format TEXT NOT NULL DEFAULT 'default',
+          message_template TEXT,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         )
+      ''');
+    }
+    if (oldVersion < 5) {
+      // v5: Webhook 送达日志表（用于送达校验失败/成功记录归档）
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS webhook_delivery_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          channel_url TEXT NOT NULL,
+          notification_id TEXT,
+          tag TEXT,
+          status TEXT NOT NULL,
+          http_code INTEGER,
+          message TEXT,
+          retryable INTEGER NOT NULL DEFAULT 0,
+          timestamp INTEGER NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_delivery_log_timestamp
+        ON webhook_delivery_log(timestamp)
+      ''');
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_delivery_log_status
+        ON webhook_delivery_log(status)
+      ''');
+    }
+    if (oldVersion < 6) {
+      // v6: Webhook 推送模板系统
+      // - message_format: default/text/markdown/json/xml
+      // - message_template: 用户自定义模板（含 %appName% 等变量占位符，空则用预置模板）
+      await db.execute('''
+        ALTER TABLE webhook_channels ADD COLUMN message_format TEXT NOT NULL DEFAULT 'default'
+      ''');
+      await db.execute('''
+        ALTER TABLE webhook_channels ADD COLUMN message_template TEXT
       ''');
     }
   }
@@ -562,6 +622,12 @@ class DatabaseHelper {
               'generic',
           'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
           'secret': c['secret'],
+          // v6: 推送模板系统字段（message_format / message_template）
+          'message_format':
+              c['message_format']?.toString() ??
+              c['messageFormat']?.toString() ??
+              'default',
+          'message_template': c['message_template'] ?? c['messageTemplate'],
           'created_at': c['created_at'] ?? now,
           'updated_at': now,
         };

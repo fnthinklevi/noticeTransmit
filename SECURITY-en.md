@@ -8,7 +8,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 
 ## 1. Supported Versions
 
-- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.47**.
+- **Only the latest stable release** receives security fixes. Currently supported: **v1.5.50**.
 - Older versions (including those no longer maintained) are not patched — please upgrade to the latest release.
 
 ---
@@ -41,6 +41,9 @@ This document describes the security-support scope, vulnerability-reporting proc
 - **Token transport**: accepted only via HTTP Header; **never** in URL parameters.
 - **Brute-force protection**: 3 failed code attempts within 10 minutes auto-blocks the IP for 240 hours; 8 recovery codes are provided for device-loss recovery.
 - **Secure randomness**: session IDs use `crypto.randomUUID()`.
+- **Webhook signature anti-forgery** (v1.5.49+): WeCom/DingTalk/Feishu compute signatures via platform-native rules; generic Webhooks use the `X-Signature` header — prevents push content tampering or forgery.
+- **Webhook delivery verification** (v1.5.49+): Parses platform response codes (WeCom errcode=0, DingTalk errcode=0, Feishu StatusCode=0, etc.) to determine real delivery status — HTTP 2xx with business failure is no longer misreported as "sent".
+- **Push-toggle state isolation** (v1.5.50+): When push is paused via the foreground notification action, monitoring continues but webhook sending is skipped; state persists to SharedPreferences and survives restarts.
 
 ---
 

@@ -26,6 +26,17 @@ class ConfigManager(private val context: Context) {
         context.getSharedPreferences(FLUTTER_PREFS_NAME, Context.MODE_PRIVATE)
     }
 
+    /**
+     * 完整的 webhook 通道配置（含 secret / type / 模板，用于签名、送达校验与自定义模板）
+     */
+    data class WebhookChannelConfig(
+        val url: String,
+        val secret: String?,
+        val type: WebhookPayloadBuilder.WebhookType,
+        val messageFormat: String = "default",
+        val messageTemplate: String? = null
+    )
+
     fun getWebhookUrls(): List<String> {
         val json = prefs.getString(KEY_WEBHOOK_URLS, "[]")
         return try {
@@ -43,6 +54,50 @@ class ConfigManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse webhook channels", e)
             getStringList("flutter.webhook_urls")
+        }
+    }
+
+    /**
+     * 返回启用的 webhook 通道完整配置（含 secret 与 type）
+     */
+    fun getWebhookChannelConfigs(): List<WebhookChannelConfig> {
+        val json = prefs.getString(KEY_WEBHOOK_URLS, "[]")
+        return try {
+            val array = JSONArray(json)
+            val list = mutableListOf<WebhookChannelConfig>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val url = obj.optString("url", "")
+                val enabled = obj.optBoolean("enabled", true)
+                if (!enabled || url.isEmpty()) continue
+
+                val secret = obj.optString("secret", "").takeIf { it.isNotEmpty() }
+                val typeStr = obj.optString("type", obj.optString("channel_type", "generic"))
+                val type = parseWebhookType(typeStr, url)
+                val messageFormat = obj.optString("message_format", "default").ifEmpty { "default" }
+                val messageTemplate = obj.optString("message_template", "").takeIf { it.isNotEmpty() }
+                list.add(WebhookChannelConfig(url, secret, type, messageFormat, messageTemplate))
+            }
+            list
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse webhook channel configs", e)
+            // 兜底：用 URL 列表，无签名
+            getWebhookUrls().map {
+                WebhookChannelConfig(it, null, WebhookPayloadBuilder.detectType(it))
+            }
+        }
+    }
+
+    private fun parseWebhookType(
+        typeStr: String,
+        url: String
+    ): WebhookPayloadBuilder.WebhookType {
+        return when (typeStr.lowercase()) {
+            "wechat_work", "wechatwork", "0" -> WebhookPayloadBuilder.WebhookType.WECHAT_WORK
+            "dingtalk", "1" -> WebhookPayloadBuilder.WebhookType.DINGTALK
+            "feishu", "2" -> WebhookPayloadBuilder.WebhookType.FEISHU
+            "generic", "3" -> WebhookPayloadBuilder.WebhookType.GENERIC
+            else -> WebhookPayloadBuilder.detectType(url)
         }
     }
 

@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.49/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.50/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -42,12 +42,14 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 📱 **App Filtering** - Customize which apps need notification push
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
 - 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), first-time entry provides feature guide, built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
+- 📝 **Push Template Engine** - Custom message format (text/markdown/json/xml), supports variable placeholders (`%appName%`/`%title%`/`%content%` etc.), auto-wraps payload per platform with escaping, each channel configured independently
 
 ### Experience Optimization
 
 - 🌐 **Multi-language i18n** - Full-app Chinese/English bilingual support (120+ strings migrated), switch language freely in settings
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
+- ⏸️ **One-tap Pause Push** - Pause/resume push via foreground notification action button (monitoring continues, only webhook sending stops), state persists across restarts
 - 🔄 **Online Update** - Support version update, no need to reinstall APK; flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
 - 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface
 

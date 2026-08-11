@@ -26,10 +26,10 @@ class SmsReceiver : BroadcastReceiver() {
 
         try {
             val configManager = ConfigManager(context)
-            val webhookUrls = configManager.getWebhookUrls()
+            val channelConfigs = configManager.getWebhookChannelConfigs()
             val deviceName = configManager.getDeviceName().ifEmpty { android.os.Build.MODEL }
 
-            if (webhookUrls.isEmpty()) return
+            if (channelConfigs.isEmpty()) return
 
             val bundle = intent.extras ?: return
             val pdus = bundle.get("pdus") as Array<*>?
@@ -39,9 +39,6 @@ class SmsReceiver : BroadcastReceiver() {
             var sender = ""
             var message = ""
             var timestamp = 0L
-            val subscriptionId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                intent.getIntExtra("subscription", 0)
-            } else 0
 
             for (pdu in pdus) {
                 val smsMessage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -52,13 +49,15 @@ class SmsReceiver : BroadcastReceiver() {
                 }
 
                 if (sender.isEmpty()) {
-                    sender = smsMessage.originatingAddress ?: "未知号码"
+                    sender = smsMessage.originatingAddress ?: I18n.unknownSender()
                     timestamp = smsMessage.timestampMillis
                 }
                 message += smsMessage.messageBody ?: ""
             }
 
-            val simInfo = if (subscriptionId > 0) SimInfoHelper.getSimLabel(context, subscriptionId) else null
+            // 统一通过 SimInfoHelper.getSimInfoFromIntent 入口识别 SIM 卡
+            // 兼容多 key（subscription / EXTRA_SUBSCRIPTION_ID）+ 多策略降级（subId→单卡→slotId→占位）
+            val simInfo = SimInfoHelper.getSimInfoFromIntent(context, intent)?.displayLabel
             val simLabel = if (simInfo != null) " [$simInfo]" else ""
 
             if (message.isNotEmpty()) {
@@ -67,14 +66,32 @@ class SmsReceiver : BroadcastReceiver() {
                 val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                     .format(Date(timestamp))
 
-                for (url in webhookUrls) {
+                // 接入统一过滤引擎：短信链路与通知链路共用同一套黑白名单
+                // 注意：sms 不走应用过滤（无 packageName 概念），仅按关键词过滤
+                val allowed = FilterEngine.shouldNotify(
+                    packageName = "com.android.mms",
+                    title = I18n.smsNotifyTitle(sender, simInfo),
+                    content = message,
+                    subText = "",
+                    whitelistKeywords = configManager.getWhitelistKeywords(),
+                    enabledPackages = emptySet(),
+                    blacklistKeywords = configManager.getBlacklistKeywords(),
+                    filterMode = "allow",
+                    sourceType = "sms"
+                )
+                if (!allowed) {
+                    Log.d(TAG, "短信被过滤拦截: 来自 $sender")
+                    return
+                }
+
+                for (cfg in channelConfigs) {
                     sendWebhook(
                         context = context,
                         sender = sender,
                         message = message,
                         timestamp = timestamp,
                         timeStr = timeStr,
-                        webhookUrl = url,
+                        channelConfig = cfg,
                         deviceName = deviceName,
                         simInfo = simInfo
                     )
@@ -91,29 +108,32 @@ class SmsReceiver : BroadcastReceiver() {
         message: String,
         timestamp: Long,
         timeStr: String,
-        webhookUrl: String,
+        channelConfig: ConfigManager.WebhookChannelConfig,
         deviceName: String,
         simInfo: String?
     ) {
         val simLabel = if (simInfo != null) " [$simInfo]" else ""
         try {
+            val json = org.json.JSONObject().apply {
+                put("type", "sms")
+                put("id", "sms_${timestamp}_${sender.hashCode()}")
+                put("title", I18n.smsNotifyTitle(sender, simInfo))
+                put("sender", sender)
+                put("content", message)
+                put("message", message)
+                put("packageName", "com.android.mms")
+                put("appName", I18n.smsAppName())
+                put("postTime", timestamp)
+                put("time", timeStr)
+                put("deviceName", deviceName)
+                put("timestamp", System.currentTimeMillis())
+                if (simInfo != null) put("simInfo", simInfo)
+            }
+            // 同步写入离线缓存，避免 Flutter 引擎未就绪时丢失
+            HistoryCache.append(context, json)
+
             val intent = Intent(MainActivity.ACTION_NOTIFICATION_RECEIVED).apply {
                 setPackage(context.packageName)
-                val json = org.json.JSONObject().apply {
-                    put("type", "sms")
-                    put("id", "sms_${timestamp}_${sender.hashCode()}")
-                    put("title", "短信$simLabel - $sender")
-                    put("sender", sender)
-                    put("content", message)
-                    put("message", message)
-                    put("packageName", "com.android.mms")
-                    put("appName", "短信")
-                    put("postTime", timestamp)
-                    put("time", timeStr)
-                    put("deviceName", deviceName)
-                    put("timestamp", System.currentTimeMillis())
-                    if (simInfo != null) put("simInfo", simInfo)
-                }
                 putExtra(MainActivity.EXTRA_NOTIFICATION_DATA, json.toString())
             }
             context.sendBroadcast(intent)
@@ -121,9 +141,8 @@ class SmsReceiver : BroadcastReceiver() {
             Log.e(TAG, "发送短信广播失败", e)
         }
 
-        val webhookType = WebhookPayloadBuilder.detectType(webhookUrl)
         val payload = WebhookPayloadBuilder.buildSmsPayload(
-            type = webhookType,
+            type = channelConfig.type,
             sender = sender,
             message = message,
             time = timeStr,
@@ -131,6 +150,16 @@ class SmsReceiver : BroadcastReceiver() {
             simInfo = simInfo
         )
 
-        NetworkClient.sendWithRetry(webhookUrl, payload, "短信")
+        // 通过 NetworkClient 发送（含签名 + 送达校验）
+        NetworkClient.sendWithRetry(
+            url = channelConfig.url,
+            payload = payload,
+            tag = "sms",
+            webhookType = channelConfig.type,
+            secret = channelConfig.secret,
+            onResult = { result ->
+                Log.d(TAG, "SMS delivery: ${channelConfig.url.take(40)} → status=${result.status}")
+            }
+        )
     }
 }

@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.49/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.50/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -42,12 +42,14 @@
 - 📱 **应用筛选** - 自定义选择需要推送通知的应用
 - 🏷️ **关键词过滤** - 支持白名单和黑名单关键词过滤，精准控制推送内容
 - 🧠 **规则引擎** - 可视化配置通知规则，支持条件组合（IF）和动作配置（THEN），第一次进入提供功能引导说明，内置验证码优先推送、营销广告拦截、夜间免打扰等默认规则
+- 📝 **推送模板引擎** - 自定义消息格式（text/markdown/json/xml），支持变量占位符（`%appName%`/`%title%`/`%content%` 等），按平台自动包裹 payload 与转义，每个通道独立配置
 
 ### 体验优化
 
 - 🌐 **多语言国际化** - 全应用中英双语支持（120+ 处迁移），可在设置页自由切换语言
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
+- ⏸️ **一键暂停推送** - 前台通知栏 Action 按钮一键暂停/恢复推送（监听继续，仅停止 webhook 发送），状态持久化重启后恢复
 - 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
 - 📲 **Cupertino 设计语言** - 采用 Cupertino（iOS）系统设计语言，界面简洁优雅
 

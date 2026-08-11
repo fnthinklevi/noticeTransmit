@@ -83,6 +83,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     switch (type) {
       case '0':
       case 'wechatWork':
+      case 'wechat_work':
         return 'webhook:企业微信';
       case '1':
       case 'dingtalk':
