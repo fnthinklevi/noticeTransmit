@@ -142,11 +142,16 @@ class WebhookChannel {
   static WebhookChannelType detectTypeFromUrl(String url) {
     final host = _extractHost(url);
     if (host == null) return WebhookChannelType.generic;
-    if (host == 'qyapi.weixin.qq.com') {
+
+    // 后缀/关键字匹配，容忍子域名与域名变体（与单元测试断言一致）：
+    // - 企微：qyapi.weixin.qq.com / weixin.qq.com 均以 weixin.qq.com 结尾
+    // - 钉钉：域名含 dingtalk（oapi.dingtalk.com / dingtalk.com / dingtalk.example.com）
+    // - 飞书：open.feishu.cn 以 feishu.cn 结尾；larksuite 系列以 larksuite.com 结尾
+    if (host.endsWith('weixin.qq.com')) {
       return WebhookChannelType.wechatWork;
-    } else if (host == 'oapi.dingtalk.com') {
+    } else if (host.contains('dingtalk')) {
       return WebhookChannelType.dingtalk;
-    } else if (host == 'open.feishu.cn' || host == 'open.larksuite.com') {
+    } else if (host.endsWith('feishu.cn') || host.endsWith('larksuite.com')) {
       return WebhookChannelType.feishu;
     }
     return WebhookChannelType.generic;
@@ -154,8 +159,19 @@ class WebhookChannel {
 
   /// 从 URL 提取小写 host（与 Kotlin 端 WebhookPayloadBuilder.extractHost 保持一致）。
   static String? _extractHost(String url) {
-    var lower = url.trim().toLowerCase();
-    if (lower.isEmpty) return null;
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return null;
+
+    // 优先使用 Dart 的 Uri 解析，正确提取 host（含端口、凭据等边界场景）
+    try {
+      final uri = Uri.parse(trimmed);
+      final host = uri.host;
+      if (host.isNotEmpty) return host.toLowerCase();
+    } catch (_) {
+      // 解析失败时走下方手动兜底
+    }
+
+    var lower = trimmed.toLowerCase();
     if (lower.startsWith('https://')) {
       lower = lower.substring(8);
     } else if (lower.startsWith('http://')) {
@@ -169,9 +185,16 @@ class WebhookChannel {
     }
     final hostPort = endIdx >= 0 ? lower.substring(0, endIdx) : lower;
     if (hostPort.isEmpty) return null;
+    // 去掉 credentials（user:pass@host）中的 userinfo 部分
+    final atIdx = hostPort.lastIndexOf('@');
+    final hostWithOptionalPort = atIdx >= 0
+        ? hostPort.substring(atIdx + 1)
+        : hostPort;
     // 去掉端口（webhook URL 不会用到 IPv6 字面量 host）
-    final colonIdx = hostPort.lastIndexOf(':');
-    final host = colonIdx >= 0 ? hostPort.substring(0, colonIdx) : hostPort;
+    final colonIdx = hostWithOptionalPort.lastIndexOf(':');
+    final host = colonIdx >= 0
+        ? hostWithOptionalPort.substring(0, colonIdx)
+        : hostWithOptionalPort;
     return host.isEmpty ? null : host;
   }
 
