@@ -46,7 +46,7 @@ jobs:
       - name: Run Android unit tests
         run: |
           cd android
-          ./gradlew testReleaseUnitTest > android_test_output.log 2>&1
+          ./gradlew testDebugUnitTest > android_test_output.log 2>&1
           EXIT_CODE=$?
           cat android_test_output.log
           if [ $EXIT_CODE -ne 0 ]; then
