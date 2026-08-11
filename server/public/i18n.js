@@ -153,7 +153,7 @@ D['通知推送助手'] = 'NoticeTransmit';
 
   // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
   // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换
-  D['版本 v1.5.50'] = 'Version v1.5.50';
+  D['版本 v1.5.51'] = 'Version v1.5.51';
   D['约 25.4 MB'] = '~ 25.4 MB';
   // feature cards — updated v1.5.50
   D['推送模板引擎'] = 'Push Template Engine';
