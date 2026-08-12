@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 
+import '../test_setup.dart';
+
 /// NotificationService 送达回传逻辑单元测试。
 ///
 /// 模拟 Kotlin 端短信/电话链路通过 onDeliveryResult 回传的送达结果，
@@ -9,6 +11,7 @@ import 'package:notice_transmit/services/notification_service.dart';
 /// - 电话链路：PhoneCallReceiver.onResult → DeliveryNotifier.notify → onDeliveryResult
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  initTestDatabase();
 
   group('NotificationService – 短信/电话送达回传', () {
     late NotificationService service;
