@@ -123,6 +123,73 @@ class _HistoryPageState extends State<HistoryPage> {
     return Colors.grey;
   }
 
+  /// 渠道 chip + 送达状态小圆点与文字（成功/失败/发送中；无状态记录仅显示渠道名）
+  Widget _buildChannelChip(
+    String channel,
+    Color chipColor,
+    String status,
+    String message,
+    AppLocalizations l10n,
+  ) {
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: chipColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(channel, style: TextStyle(fontSize: 10, color: chipColor)),
+          if (status.isNotEmpty) ...[
+            const SizedBox(width: 3),
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: _deliveryStatusColor(status),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Text(
+              _deliveryStatusText(status, l10n),
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                color: _deliveryStatusColor(status),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+    if (message.isEmpty) return chip;
+    return Tooltip(message: message, child: chip);
+  }
+
+  String _deliveryStatusText(String status, AppLocalizations l10n) {
+    switch (status) {
+      case 'success':
+        return l10n.deliverySuccess;
+      case 'failed':
+        return l10n.deliveryFailed;
+      default:
+        return l10n.deliveryPending;
+    }
+  }
+
+  Color _deliveryStatusColor(String status) {
+    switch (status) {
+      case 'success':
+        return AppColors.green;
+      case 'failed':
+        return AppColors.red;
+      default:
+        return AppColors.orange;
+    }
+  }
+
   String _getTypeLabel(String? type) {
     switch (type) {
       case 'sms':
@@ -320,23 +387,26 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    // 推送渠道标签
-    if (record.channels.isNotEmpty) {
+    // 推送渠道标签 + 各通道送达状态（重启后 channels 为空时回退用 deliveryStatus 键）
+    final displayChannels = record.channels.isNotEmpty
+        ? record.channels
+        : record.deliveryStatus.keys.toList();
+    if (displayChannels.isNotEmpty) {
       columnChildren.add(const SizedBox(height: 4));
       columnChildren.add(
         Wrap(
           spacing: 4,
           runSpacing: 2,
-          children: record.channels.map((c) {
+          children: displayChannels.map((c) {
             final chipColor = _getChannelColor(c);
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: chipColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(c, style: TextStyle(fontSize: 10, color: chipColor)),
-            );
+            final statusInfo = record.deliveryStatus[c];
+            final status = statusInfo is Map
+                ? (statusInfo['status']?.toString() ?? '')
+                : '';
+            final message = statusInfo is Map
+                ? (statusInfo['message']?.toString() ?? '')
+                : '';
+            return _buildChannelChip(c, chipColor, status, message, l10n);
           }).toList(),
         ),
       );

@@ -349,6 +349,10 @@ class AppLocalizations {
     'statsTrend': '近7天推送趋势',
     'statsNoData': '暂无数据',
     'statsRank': '应用推送排行',
+    // 送达状态
+    'deliverySuccess': '推送成功',
+    'deliveryFailed': '推送失败',
+    'deliveryPending': '发送中',
     // 隐私政策
     'privacyOverviewTitle': '隐私政策概述',
     'privacyOverviewContent':
@@ -728,6 +732,10 @@ class AppLocalizations {
     'statsTrend': 'Last 7 Days Trend',
     'statsNoData': 'No data',
     'statsRank': 'App Push Ranking',
+    // Delivery status
+    'deliverySuccess': 'Sent',
+    'deliveryFailed': 'Failed',
+    'deliveryPending': 'Sending',
     // Privacy Policy
     'privacyOverviewTitle': 'Privacy Policy Overview',
     'privacyOverviewContent':
@@ -1101,6 +1109,10 @@ class AppLocalizations {
   String get statsTrend => _get('statsTrend');
   String get statsNoData => _get('statsNoData');
   String get statsRank => _get('statsRank');
+  // Delivery status
+  String get deliverySuccess => _get('deliverySuccess');
+  String get deliveryFailed => _get('deliveryFailed');
+  String get deliveryPending => _get('deliveryPending');
   // Privacy Policy
   String get privacyOverviewTitle => _get('privacyOverviewTitle');
   String get privacyOverviewContent => _get('privacyOverviewContent');

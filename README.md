@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.51/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.52/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -39,6 +39,7 @@
 
 - 🔋 **自定义电量提醒** - 支持完全自定义电量通知规则（充电/断开/指定电量阈值等），支持添加、编辑、删除规则，支持左滑删除和长按删除
 - 📋 **历史记录** - 本地保存通知推送历史，支持搜索、详情查看和导出
+- ✅ **送达状态标注** - 首页推送记录逐条标注各通道送达状态（推送成功/推送失败/发送中），按企业微信/飞书/钉钉官方返回码判定，短信/电话通道送达结果实时回传
 - 📱 **应用筛选** - 自定义选择需要推送通知的应用
 - 🏷️ **关键词过滤** - 支持白名单和黑名单关键词过滤，精准控制推送内容
 - 🧠 **规则引擎** - 可视化配置通知规则，支持条件组合（IF）和动作配置（THEN），第一次进入提供功能引导说明，内置验证码优先推送、营销广告拦截、夜间免打扰等默认规则
@@ -52,6 +53,7 @@
 - ⏸️ **一键暂停推送** - 前台通知栏 Action 按钮一键暂停/恢复推送（监听继续，仅停止 webhook 发送），状态持久化重启后恢复
 - 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
 - 📲 **Cupertino 设计语言** - 采用 Cupertino（iOS）系统设计语言，界面简洁优雅
+- 📊 **推送统计统一** - 首页/更多页/状态栏推送统计共用同一数据源，当日计数实时同步
 
 ### 安全加固
 

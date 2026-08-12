@@ -39,14 +39,16 @@ class MainActivity : FlutterActivity() {
     companion object {
         const val ACTION_NOTIFICATION_RECEIVED = "com.fnthink.notice.NOTIFICATION_RECEIVED"
         const val EXTRA_NOTIFICATION_DATA = "notification_data"
+        // webhook 送达结果广播：WebhookSender 发送后异步回传，Flutter 用于逐条记录显示送达状态
+        const val ACTION_DELIVERY_RESULT = "com.fnthink.notice.DELIVERY_RESULT"
         private const val REQUEST_SMS_PERMISSION = 1001
         private const val REQUEST_PHONE_PERMISSION = 1002
         private const val REQUEST_POST_NOTIFICATION_PERMISSION = 1003
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.51"
-        const val FALLBACK_BUILD = 85
+        const val FALLBACK_VERSION = "1.5.52"
+        const val FALLBACK_BUILD = 86
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -95,6 +97,26 @@ class MainActivity : FlutterActivity() {
                         // invokeMethod 异常时也缓存
                         try { cacheNotificationRecord(data) } catch (_: Exception) {}
                     }
+                }
+            }
+        }
+    }
+
+    private val deliveryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_DELIVERY_RESULT) {
+                val notificationId = intent.getStringExtra("notification_id") ?: return
+                val data = mapOf(
+                    "notificationId" to notificationId,
+                    "webhookType" to (intent.getStringExtra("webhook_type") ?: ""),
+                    "status" to (intent.getStringExtra("status") ?: ""),
+                    "message" to (intent.getStringExtra("message") ?: ""),
+                    "httpCode" to (intent.getIntExtra("http_code", 0)),
+                )
+                try {
+                    methodChannel?.invokeMethod("onDeliveryResult", data)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }
@@ -157,12 +179,15 @@ class MainActivity : FlutterActivity() {
         // 注册 receiver 在全生命周期（onCreate→onDestroy），避免锁屏 onPause 后丢失通知广播
         val filter = IntentFilter(ACTION_NOTIFICATION_RECEIVED)
         registerReceiver(notificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        val deliveryFilter = IntentFilter(ACTION_DELIVERY_RESULT)
+        registerReceiver(deliveryReceiver, deliveryFilter, Context.RECEIVER_NOT_EXPORTED)
         val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
         registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onDestroy() {
         try { unregisterReceiver(notificationReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(deliveryReceiver) } catch (_: Exception) {}
         try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
         activityJob.cancel()
         super.onDestroy()
@@ -353,6 +378,21 @@ class MainActivity : FlutterActivity() {
                 }
                 "clearNotificationRecords" -> {
                     clearNotificationRecords()
+                    result.success(true)
+                }
+                "syncDailyPushCount" -> {
+                    // 统一状态栏与 DB 统计：Flutter 启动/恢复时把当日记录数同步为原生计数基数
+                    val count = call.argument<Int>("count") ?: 0
+                    val date = call.argument<String>("date") ?: ""
+                    val today = NotificationMonitorService.todayDateString()
+                    if (date == today) {
+                        // 同一天：取较大值（避免覆盖服务运行期间已累加的计数）
+                        NotificationMonitorService.pushCount =
+                            maxOf(NotificationMonitorService.pushCount, count)
+                    } else {
+                        NotificationMonitorService.pushCount = count
+                        NotificationMonitorService.applyTodayDate(date)
+                    }
                     result.success(true)
                 }
                 "drainOfflineCache" -> {
@@ -763,6 +803,9 @@ class MainActivity : FlutterActivity() {
 
     private fun clearNotificationRecords() {
         prefs.edit().remove("flutter.notification_records").apply()
+        // 同步重置状态栏当日计数（与 DB 清空保持一致）
+        NotificationMonitorService.pushCount = 0
+        NotificationMonitorService.applyTodayDate(NotificationMonitorService.todayDateString())
     }
 
     private fun getBatteryStatus(): Map<String, Any?> {

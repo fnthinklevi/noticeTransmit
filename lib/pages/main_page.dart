@@ -38,6 +38,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _isCheckingUpdate = false;
   bool _isDownloading = false;
+  // 首页推送记录总数（统一以 DB 为准，与更多页统计/状态栏统计共用同一数据源）
+  int _notificationTotalCount = 0;
 
   final WebhookService _webhookService = GetIt.instance<WebhookService>();
   final BatteryService _batteryService = GetIt.instance<BatteryService>();
@@ -102,7 +104,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         notificationPermissionGranted:
             _permissionService.notificationListenerGranted,
         foregroundServiceRunning: _notificationService.serviceRunning,
-        notificationCount: _notificationService.records.length,
+        notificationCount: _notificationTotalCount,
         activeChannels: _getActiveChannels(),
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
@@ -168,6 +170,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _refreshBatteryStatus();
       _batteryService.startRefreshTimer();
 
+      // 首页/更多页/状态栏统计统一：刷新首页总计数 + 同步原生今日计数基数
+      await _refreshTotalCount();
+      await _notificationService.syncDailyCountToNative();
+
       // 加载推送通道配置 + 启动每日归档定时器
       await _webhookService.loadChannels();
       final emailService = GetIt.instance<EmailService>();
@@ -188,6 +194,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _checkUpdateOnStartup();
     } catch (e) {
       debugPrint('页面初始化失败: $e');
+    }
+  }
+
+  /// 刷新首页"推送历史"总条数（以 DB 为准，统计口径与更多页/状态栏统一）
+  Future<void> _refreshTotalCount() async {
+    final count = await _notificationService.getTotalCount();
+    if (mounted && count != _notificationTotalCount) {
+      setState(() => _notificationTotalCount = count);
     }
   }
 
@@ -308,6 +322,19 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           call.arguments,
         );
         _notificationService.addRecord(record);
+        _refreshTotalCount();
+        setState(() {});
+      } else if (call.method == 'onDeliveryResult') {
+        // webhook 送达结果回传：更新对应记录的状态
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+          call.arguments,
+        );
+        await _notificationService.updateDelivery(
+          data['notificationId']?.toString() ?? '',
+          data['webhookType']?.toString() ?? '',
+          data['status']?.toString() ?? '',
+          data['message']?.toString() ?? '',
+        );
         setState(() {});
       } else if (call.method == 'onBatteryChanged') {
         final Map<String, dynamic> data = Map<String, dynamic>.from(
@@ -1030,6 +1057,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         records: _notificationService.records,
         onClear: () async {
           await _notificationService.clearRecords();
+          await _refreshTotalCount();
+          await _notificationService.syncDailyCountToNative();
           setState(() {});
         },
         onExport: () async {
@@ -1073,11 +1102,15 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         },
         onClearToday: () async {
           final count = await _notificationService.clearToday();
+          await _refreshTotalCount();
+          await _notificationService.syncDailyCountToNative();
           setState(() {});
           return count;
         },
         onClearLastN: (int n) async {
           final count = await _notificationService.clearLastN(n);
+          await _refreshTotalCount();
+          await _notificationService.syncDailyCountToNative();
           setState(() {});
           return count;
         },

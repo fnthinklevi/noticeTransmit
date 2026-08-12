@@ -166,6 +166,9 @@ class PhoneCallReceiver : BroadcastReceiver() {
                     (if (I18n.getLocale() == "en") ", Duration: $durationStr" else ", 时长: $durationStr")
                  else "")
 
+        // 与 notifyFlutter 中的记录 id 保持一致，供送达结果回传按 id 定位记录
+        val notificationId = "call_${notifyType}_${now}_${title.hashCode()}"
+
         val extra = mutableMapOf<String, Any>(
             "phoneNumber" to phoneNumber,
             "callState" to callState
@@ -179,6 +182,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
         notifyFlutter(
             context = context,
+            notificationId = notificationId,
             type = notifyType,
             title = title,
             content = content,
@@ -207,7 +211,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
             else -> "电话通知"
         }
 
-        // 通过 NetworkClient 发送（含签名 + 送达校验）
+        // 通过 NetworkClient 发送（含签名 + 送达校验），结果回传 Flutter 逐条显示送达状态
         NetworkClient.sendWithRetry(
             url = channelConfig.url,
             payload = payload,
@@ -216,12 +220,14 @@ class PhoneCallReceiver : BroadcastReceiver() {
             secret = channelConfig.secret,
             onResult = { result ->
                 Log.d(TAG, "Call delivery: ${channelConfig.url.take(40)} → status=${result.status}")
+                DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
             }
         )
     }
 
     private fun notifyFlutter(
         context: Context,
+        notificationId: String,
         type: String,
         title: String,
         content: String,
@@ -235,7 +241,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
         try {
             val json = org.json.JSONObject().apply {
                 put("type", type)
-                put("id", "call_${type}_${postTime}_${title.hashCode()}")
+                put("id", notificationId)
                 put("title", title)
                 put("content", content)
                 put("appName", appName)

@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.51",
-  "latestBuild": 85,
+  "latestVersion": "1.5.52",
+  "latestBuild": 86,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.51",
   "forceUpdateBuild": 82,
-  "changelog": "v1.5.51: 修复小米超级岛常驻通知问题(移除EXTRA_REQUEST_PROMOTED_ONGOING实时更新提升+前台通知归类CATEGORY_SERVICE) + 修复webhook未设置签名时JSON null被序列化为\"null\"导致签名错误无法推送(MainActivity过滤null字段+ConfigManager/Dart读取端防御) + WebhookChannel.detectTypeFromUrl改用Uri解析host并支持域名变体识别",
+  "changelog": "v1.5.52: 推送记录统计统一(首页/更多页/状态栏共用数据库同一数据源,状态栏当日计数随今日记录同步) + 首页推送记录逐条标注各通道送达状态(推送成功/推送失败/发送中,按企业微信/飞书/钉钉官方返回码判定) + 修复企业微信通道类型标签不一致导致送达状态无法更新 + 短信/电话通道送达结果回传(送达状态实时生效)",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.51/notice_arm64_1.5.51.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.51/notice_arm32_1.5.51.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.51/notice_x86_1.5.51.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.51/notice_all_1.5.51.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.52/notice_arm64_1.5.52.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.52/notice_arm32_1.5.52.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.52/notice_x86_1.5.52.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.52/notice_all_1.5.52.apk"
   },
   "fileSizes": {
-    "arm64": 26621276,
-    "arm32": 22566341,
-    "x86_64": 28654292,
-    "all": 72909418
+    "arm64": 26621294,
+    "arm32": 22599128,
+    "x86_64": 28654298,
+    "all": 72942201
   },
   "minSupportedVersion": "1.0.0"
 }

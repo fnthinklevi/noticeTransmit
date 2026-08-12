@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.51/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.52/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -39,6 +39,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 
 - 🔋 **Custom Battery Reminders** - Fully customizable battery notification rules (charging/discharging/specific battery level thresholds), support add/edit/delete rules, support swipe left to delete and long press to delete
 - 📋 **History Records** - Locally save notification push history, support search, detail view and export
+- ✅ **Delivery Status Labeling** - Each push record on the home page is labeled per-channel delivery status (success/failed/sending), determined by official return codes from WeChat Work/Feishu/DingTalk; SMS/call delivery results are reported back in real time
 - 📱 **App Filtering** - Customize which apps need notification push
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
 - 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), first-time entry provides feature guide, built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
@@ -52,6 +53,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - ⏸️ **One-tap Pause Push** - Pause/resume push via foreground notification action button (monitoring continues, only webhook sending stops), state persists across restarts
 - 🔄 **Online Update** - Support version update, no need to reinstall APK; flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
 - 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface
+- 📊 **Unified Push Stats** - Home/More/status bar push stats share the same database source, daily count syncs in real time
 
 ### Security
 

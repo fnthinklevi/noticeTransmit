@@ -53,7 +53,7 @@ class DatabaseHelper {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 6,
+        version: 7,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -69,7 +69,7 @@ class DatabaseHelper {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 6,
+        version: 7,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -192,6 +192,7 @@ class DatabaseHelper {
         time TEXT NOT NULL,
         type TEXT NOT NULL,
         device_name TEXT,
+        delivery_info TEXT,
         timestamp INTEGER NOT NULL,
         created_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
@@ -370,6 +371,12 @@ class DatabaseHelper {
         ALTER TABLE webhook_channels ADD COLUMN message_template TEXT
       ''');
     }
+    if (oldVersion < 7) {
+      // v7: 通知记录逐条送达状态（JSON：{"webhook:企业微信": {"status":"success","message":"..."}}）
+      await db.execute('''
+        ALTER TABLE notifications ADD COLUMN delivery_info TEXT
+      ''');
+    }
   }
 
   Future<void> migrateFromSharedPreferences() async {
@@ -424,6 +431,11 @@ class DatabaseHelper {
       'time': record['time'] ?? '',
       'type': record['type'] ?? 'other',
       'device_name': record['deviceName'] ?? record['device_name'] ?? '',
+      'delivery_info':
+          record['deliveryStatus'] != null &&
+              (record['deliveryStatus'] as Map).isNotEmpty
+          ? jsonEncode(record['deliveryStatus'])
+          : null,
       'timestamp': record['timestamp'] ?? 0,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     };
@@ -473,6 +485,37 @@ class DatabaseHelper {
     return result.isNotEmpty ? (result.first.values.first as int) : 0;
   }
 
+  /// 当日（本地时区 0 点至次日 0 点）记录数，用于统一三处统计口径
+  Future<int> getTodayCount() async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).millisecondsSinceEpoch;
+    final end = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+    ).millisecondsSinceEpoch;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) FROM notifications WHERE post_time >= ? AND post_time < ?',
+      [start, end],
+    );
+    return result.isNotEmpty ? (result.first.values.first as int) : 0;
+  }
+
+  /// 更新单条通知记录的送达状态（delivery_info JSON 列）
+  Future<void> updateNotificationDelivery(
+    String id,
+    Map<String, dynamic> delivery,
+  ) async {
+    final db = await database;
+    await db.update(
+      'notifications',
+      {'delivery_info': delivery.isEmpty ? null : jsonEncode(delivery)},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> deleteNotification(String id) async {
     final db = await database;
     await db.delete('notifications', where: 'id = ?', whereArgs: [id]);
@@ -513,7 +556,7 @@ class DatabaseHelper {
         .millisecondsSinceEpoch;
     return await db.rawQuery(
       '''
-      SELECT date(post_time / 1000, 'unixepoch') as date, COUNT(*) as count
+      SELECT date(post_time / 1000, 'unixepoch', 'localtime') as date, COUNT(*) as count
       FROM notifications
       WHERE post_time >= ?
       GROUP BY date

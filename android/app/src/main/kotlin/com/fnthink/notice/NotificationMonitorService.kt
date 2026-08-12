@@ -48,6 +48,19 @@ class NotificationMonitorService : NotificationListenerService() {
         @Volatile var isConnected: Boolean = false
         @Volatile var monitoringEnabled: Boolean = true
         @Volatile var pushCount: Int = 0
+        // 当日日期（yyyy-MM-dd），跨日重置 pushCount；供 MainActivity 同步 DB 今日计数基数
+        @Volatile var todayDate: String = ""
+
+        /** 当前日期字符串（yyyy-MM-dd） */
+        fun todayDateString(): String {
+            val now = java.util.Date()
+            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            return fmt.format(now)
+        }
+
+        fun applyTodayDate(date: String) {
+            todayDate = date
+        }
     }
 
     private lateinit var notificationProcessor: NotificationProcessor
@@ -58,13 +71,11 @@ class NotificationMonitorService : NotificationListenerService() {
     private var batteryAlarmPendingIntent: PendingIntent? = null
     private var cachedConfig: ConfigSnapshot? = null
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
-    private var todayDate: String = ""
-    private val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /// 检查是否已跨日，是则重置计数器
     private fun checkDailyReset() {
-        val now = dateFormat.format(java.util.Date())
+        val now = todayDateString()
         if (now != todayDate) {
             todayDate = now
             pushCount = 0

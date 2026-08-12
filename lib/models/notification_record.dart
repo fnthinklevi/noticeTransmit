@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class NotificationRecord {
   final String id;
   final String title;
@@ -10,6 +12,8 @@ class NotificationRecord {
   final String time;
   final String deviceName;
   final List<String> channels;
+  // 各推送通道的送达状态：label → {'status': 'pending/success/failed', 'message': '...'}
+  final Map<String, dynamic> deliveryStatus;
 
   NotificationRecord({
     required this.id,
@@ -23,6 +27,7 @@ class NotificationRecord {
     required this.time,
     required this.deviceName,
     this.channels = const [],
+    this.deliveryStatus = const {},
   });
 
   factory NotificationRecord.fromMap(Map<String, dynamic> map) {
@@ -42,7 +47,22 @@ class NotificationRecord {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      deliveryStatus: _parseDeliveryStatus(
+        map['deliveryStatus'] ?? map['delivery_info'],
+      ),
     );
+  }
+
+  /// 兼容 DB delivery_info（JSON 字符串）与内存对象（Map）两种来源
+  static Map<String, dynamic> _parseDeliveryStatus(dynamic v) {
+    if (v is Map) return Map<String, dynamic>.from(v);
+    if (v is String && v.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(v);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    return {};
   }
 
   Map<String, dynamic> toMap() {
@@ -58,6 +78,7 @@ class NotificationRecord {
       'time': time,
       'deviceName': deviceName,
       'channels': channels,
+      'deliveryStatus': deliveryStatus,
     };
   }
 
@@ -73,6 +94,7 @@ class NotificationRecord {
     String? time,
     String? deviceName,
     List<String>? channels,
+    Map<String, dynamic>? deliveryStatus,
   }) {
     return NotificationRecord(
       id: id ?? this.id,
@@ -86,6 +108,7 @@ class NotificationRecord {
       time: time ?? this.time,
       deviceName: deviceName ?? this.deviceName,
       channels: channels ?? this.channels,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
     );
   }
 

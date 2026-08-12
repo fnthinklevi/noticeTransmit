@@ -182,5 +182,100 @@ void main() {
       expect(deserialized.time, original.time);
       expect(deserialized.deviceName, original.deviceName);
     });
+
+    group('deliveryStatus 送达状态', () {
+      test('fromMap 解析内存 Map 来源', () {
+        final map = {
+          'id': testId,
+          'title': testTitle,
+          'content': testContent,
+          'packageName': testPackageName,
+          'appName': testAppName,
+          'type': testType,
+          'postTime': testPostTime,
+          'time': testTime,
+          'deliveryStatus': {
+            'webhook:企业微信': {'status': 'success', 'message': 'ok'},
+          },
+        };
+
+        final record = NotificationRecord.fromMap(map);
+
+        expect(record.deliveryStatus['webhook:企业微信']['status'], 'success');
+      });
+
+      test('fromMap 兼容 DB delivery_info JSON 字符串', () {
+        final map = {
+          'id': testId,
+          'title': testTitle,
+          'content': testContent,
+          'packageName': testPackageName,
+          'appName': testAppName,
+          'type': testType,
+          'postTime': testPostTime,
+          'time': testTime,
+          'delivery_info':
+              '{"webhook:钉钉":{"status":"failed","message":"HTTP 502"}}',
+        };
+
+        final record = NotificationRecord.fromMap(map);
+
+        expect(record.deliveryStatus['webhook:钉钉']['status'], 'failed');
+        expect(record.deliveryStatus['webhook:钉钉']['message'], 'HTTP 502');
+      });
+
+      test('deliveryStatus round-trip 序列化', () {
+        final original = NotificationRecord(
+          id: testId,
+          title: testTitle,
+          content: testContent,
+          subText: '',
+          packageName: testPackageName,
+          appName: testAppName,
+          type: testType,
+          postTime: testPostTime,
+          time: testTime,
+          deviceName: testDeviceName,
+          channels: const ['webhook:企业微信'],
+          deliveryStatus: {
+            'webhook:企业微信': {'status': 'success', 'message': 'ok'},
+          },
+        );
+
+        final map = original.toMap();
+        final restored = NotificationRecord.fromMap(map);
+
+        expect(restored.deliveryStatus['webhook:企业微信']['status'], 'success');
+        expect(restored.deliveryStatus['webhook:企业微信']['message'], 'ok');
+        expect(restored.channels, ['webhook:企业微信']);
+      });
+
+      test('缺失/非法 deliveryStatus 回退为空 Map', () {
+        final empty = NotificationRecord.fromMap({
+          'id': testId,
+          'title': testTitle,
+          'content': testContent,
+          'packageName': testPackageName,
+          'appName': testAppName,
+          'type': testType,
+          'postTime': testPostTime,
+          'time': testTime,
+        });
+        expect(empty.deliveryStatus, isEmpty);
+
+        final badJson = NotificationRecord.fromMap({
+          'id': testId,
+          'title': testTitle,
+          'content': testContent,
+          'packageName': testPackageName,
+          'appName': testAppName,
+          'type': testType,
+          'postTime': testPostTime,
+          'time': testTime,
+          'delivery_info': 'not-valid-json',
+        });
+        expect(badJson.deliveryStatus, isEmpty);
+      });
+    });
   });
 }

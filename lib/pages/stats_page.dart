@@ -16,6 +16,9 @@ class _StatsPageState extends State<StatsPage> {
       GetIt.instance<NotificationService>();
   List<Map<String, dynamic>> _stats = [];
   List<Map<String, dynamic>> _dailyStats = [];
+  // 今日/总数统一以 DB 为准（与首页推送记录、状态栏推送统计共用同一数据源）
+  int _todayCount = 0;
+  int _totalCount = 0;
   bool _isLoading = true;
 
   @override
@@ -29,6 +32,8 @@ class _StatsPageState extends State<StatsPage> {
     try {
       _stats = await _notificationService.getStats();
       _dailyStats = await _notificationService.getDailyStats(7);
+      _todayCount = await _notificationService.getTodayCount();
+      _totalCount = await _notificationService.getTotalCount();
     } catch (_) {}
     setState(() => _isLoading = false);
   }
@@ -63,11 +68,8 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildSummaryCards(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final todayCount = _dailyStats.firstOrNull?['count'] as int? ?? 0;
-    final totalCount = _stats.fold(
-      0,
-      (sum, item) => sum + (item['count'] as int? ?? 0),
-    );
+    final todayCount = _todayCount;
+    final totalCount = _totalCount;
 
     return Row(
       children: [
@@ -298,10 +300,7 @@ class _StatsPageState extends State<StatsPage> {
                         ? pkgName
                         : l10n.unknown);
               final count = stat['count'] as int? ?? 0;
-              final totalCount = _stats.fold(
-                0,
-                (sum, item) => sum + (item['count'] as int? ?? 0),
-              );
+              final totalCount = _totalCount;
               final percentage = totalCount > 0
                   ? (count / totalCount * 100)
                   : 0;

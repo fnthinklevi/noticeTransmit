@@ -69,6 +69,7 @@ class NotificationService {
         if (id.isEmpty || existingIds.contains(id)) continue;
 
         map['channels'] = _getActiveChannels();
+        map['deliveryStatus'] = _buildInitialDeliveries(map['channels']);
         final record = NotificationRecord.fromMap(map);
         _records.insert(0, record);
         await DatabaseHelper().insertNotification(record.toMap());
@@ -101,6 +102,7 @@ class NotificationService {
 
   void addRecord(Map<String, dynamic> record) {
     record['channels'] = _getActiveChannels();
+    record['deliveryStatus'] = _buildInitialDeliveries(record['channels']);
     final notificationRecord = NotificationRecord.fromMap(record);
     _records.insert(0, notificationRecord);
     if (_records.length > _maxRecords) {
@@ -134,6 +136,7 @@ class NotificationService {
     switch (type) {
       case '0':
       case 'wechatWork':
+      case 'wechat_work':
         return 'webhook:企业微信';
       case '1':
       case 'dingtalk':
@@ -143,6 +146,94 @@ class NotificationService {
         return 'webhook:飞书';
       default:
         return 'webhook:Webhook';
+    }
+  }
+
+  /// 初始送达状态：所有启用通道标记为 pending（发送中）
+  Map<String, dynamic> _buildInitialDeliveries(List<String> channels) {
+    final result = <String, dynamic>{};
+    for (final c in channels) {
+      result[c] = {'status': 'pending', 'message': ''};
+    }
+    return result;
+  }
+
+  /// Kotlin 端 WebhookType 枚举名 → 通道标签（与 _webhookTypeLabel 保持一致）
+  String _deliveryLabel(String kotlinType) {
+    switch (kotlinType) {
+      case 'WECHAT_WORK':
+        return 'webhook:企业微信';
+      case 'DINGTALK':
+        return 'webhook:钉钉';
+      case 'FEISHU':
+        return 'webhook:飞书';
+      default:
+        return 'webhook:Webhook';
+    }
+  }
+
+  /// 更新单条记录的送达状态（Kotlin 端 onDeliveryResult 回传）
+  Future<void> updateDelivery(
+    String notificationId,
+    String kotlinType,
+    String status,
+    String message,
+  ) async {
+    if (notificationId.isEmpty) return;
+    final idx = _records.indexWhere((r) => r.id == notificationId);
+    if (idx < 0) return;
+    final label = _deliveryLabel(kotlinType);
+    final updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);
+    updated[label] = {
+      'status': status == 'SUCCESS' ? 'success' : 'failed',
+      'message': message,
+    };
+    final newRecord = _records[idx].copyWith(deliveryStatus: updated);
+    _records[idx] = newRecord;
+    try {
+      await DatabaseHelper().updateNotificationDelivery(newRecord.id, updated);
+    } catch (e) {
+      // DB 持久化失败不影响内存送达状态显示
+      debugPrint('更新送达状态到 DB 失败: $e');
+    }
+  }
+
+  /// 统一统计：总数（DB），三处统计共用同一数据源
+  Future<int> getTotalCount() async {
+    try {
+      return await DatabaseHelper().getNotificationCount();
+    } catch (e) {
+      debugPrint('获取总记录数失败: $e');
+      return _records.length;
+    }
+  }
+
+  /// 统一统计：今日数（DB，本地时区），三处统计共用同一数据源
+  Future<int> getTodayCount() async {
+    try {
+      return await DatabaseHelper().getTodayCount();
+    } catch (e) {
+      debugPrint('获取今日记录数失败: $e');
+      final now = DateTime.now();
+      final today =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      return _records.where((r) => r.time.startsWith(today)).length;
+    }
+  }
+
+  /// 状态栏计数统一：把 DB 今日数同步为原生当日计数基数
+  Future<void> syncDailyCountToNative() async {
+    try {
+      final count = await getTodayCount();
+      final now = DateTime.now();
+      final date =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      await _channel.invokeMethod('syncDailyPushCount', {
+        'count': count,
+        'date': date,
+      });
+    } catch (e) {
+      debugPrint('同步今日计数到原生失败: $e');
     }
   }
 
@@ -188,7 +279,12 @@ class NotificationService {
   }
 
   Future<void> _saveRecords(Map<String, dynamic> record) async {
-    await DatabaseHelper().insertNotification(record);
+    try {
+      await DatabaseHelper().insertNotification(record);
+    } catch (e) {
+      // DB 持久化失败不阻塞内存记录显示（避免未处理异步异常）
+      debugPrint('保存通知记录到 DB 失败: $e');
+    }
   }
 
   Future<List<Map<String, dynamic>>> getStats() async {

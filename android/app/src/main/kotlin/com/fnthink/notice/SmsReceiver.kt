@@ -113,10 +113,12 @@ class SmsReceiver : BroadcastReceiver() {
         simInfo: String?
     ) {
         val simLabel = if (simInfo != null) " [$simInfo]" else ""
+        // 与 notifyFlutter 中的记录 id 保持一致，供送达结果回传按 id 定位记录
+        val notificationId = "sms_${timestamp}_${sender.hashCode()}"
         try {
             val json = org.json.JSONObject().apply {
                 put("type", "sms")
-                put("id", "sms_${timestamp}_${sender.hashCode()}")
+                put("id", notificationId)
                 put("title", I18n.smsNotifyTitle(sender, simInfo))
                 put("sender", sender)
                 put("content", message)
@@ -150,7 +152,7 @@ class SmsReceiver : BroadcastReceiver() {
             simInfo = simInfo
         )
 
-        // 通过 NetworkClient 发送（含签名 + 送达校验）
+        // 通过 NetworkClient 发送（含签名 + 送达校验），结果回传 Flutter 逐条显示送达状态
         NetworkClient.sendWithRetry(
             url = channelConfig.url,
             payload = payload,
@@ -159,6 +161,7 @@ class SmsReceiver : BroadcastReceiver() {
             secret = channelConfig.secret,
             onResult = { result ->
                 Log.d(TAG, "SMS delivery: ${channelConfig.url.take(40)} → status=${result.status}")
+                DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
             }
         )
     }

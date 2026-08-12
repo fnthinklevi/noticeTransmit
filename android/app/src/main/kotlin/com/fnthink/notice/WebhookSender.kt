@@ -116,6 +116,7 @@ class WebhookSender(private val context: Context) {
                 secret = cfg.secret,
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    notifyDeliveryResult(info.id, cfg.type, result)
                 }
             )
             return
@@ -139,6 +140,7 @@ class WebhookSender(private val context: Context) {
                 contentType = contentType,
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    notifyDeliveryResult(info.id, cfg.type, result)
                 }
             )
             return
@@ -164,8 +166,21 @@ class WebhookSender(private val context: Context) {
             secret = cfg.secret,
             onResult = { result ->
                 Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                notifyDeliveryResult(info.id, cfg.type, result)
                 // TODO: 可选写入 webhook_delivery_log 表（DB v5），当前先记录日志
             }
         )
+    }
+
+    /**
+     * 把单条通道的送达结果异步回传 Flutter（用于历史记录逐条显示推送成功状态）。
+     * 链路：ACTION_DELIVERY_RESULT 广播 → MainActivity.deliveryReceiver → onDeliveryResult MethodChannel
+     */
+    private fun notifyDeliveryResult(
+        notificationId: String,
+        type: WebhookPayloadBuilder.WebhookType,
+        result: WebhookResponseParser.ParseResult
+    ) {
+        DeliveryNotifier.notify(context, notificationId, type, result)
     }
 }
