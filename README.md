@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.55/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.56/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -43,6 +43,8 @@
 - 📱 **应用筛选** - 自定义选择需要推送通知的应用
 - 🏷️ **关键词过滤** - 支持白名单和黑名单关键词过滤，精准控制推送内容
 - 🧠 **规则引擎** - 可视化配置通知规则，支持条件组合（IF）和动作配置（THEN），第一次进入提供功能引导说明，内置验证码优先推送、营销广告拦截、夜间免打扰等默认规则
+- 🏷️ **通知优先级分级** - 原生链路提取系统通知优先级（高/中/低），可按「通知优先级」条件匹配规则；规则动作原生真实执行——静默忽略 / 仅记录 / 延迟推送 / 立即推送
+- ⏰ **定时/延迟推送** - 规则「延迟推送」动作支持参数配置（延迟秒数 / 定时时间 HH:mm），到点自动补推 webhook 与邮件，进程被杀/重启后任务自动恢复
 - 📝 **推送模板引擎** - 自定义消息格式（text/markdown/json/xml），支持变量占位符（`%appName%`/`%title%`/`%content%` 等），按平台自动包裹 payload 与转义，每个通道独立配置
 
 ### 体验优化

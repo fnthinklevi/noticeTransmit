@@ -45,7 +45,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['全量通知监听'] = 'Full Notification Listening';
   D['监听系统所有应用的通知栏消息，智能识别微信、QQ、短信、来电、系统等 5 类通知类型。'] = 'Monitors all app notifications, intelligently identifying WeChat, QQ, SMS, calls, system — 5 notification types.';
   D['可视化规则引擎'] = 'Visual Rule Engine';
-  D['IF 条件组合 + THEN 动作配置，内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。'] = 'IF condition + THEN action, built-in rules for OTP priority, ad blocking, nighttime DND — ready out of the box.';
+  D['IF 条件组合 + THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。'] = 'IF condition + THEN action, tiered by notification priority (high/medium/low) — silent ignore / record only / scheduled & delayed push / push now. Built-in rules for OTP priority, ad blocking, nighttime DND — ready out of the box.';
   D['关键词过滤'] = 'Keyword Filtering';
   D['白名单 + 黑名单双模式关键词过滤，精准控制哪些内容推送、哪些内容拦截。'] = 'Whitelist + blacklist dual-mode keyword filtering for precise push control.';
   D['应用筛选'] = 'App Filtering';
@@ -73,8 +73,8 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['下载 arm32'] = 'Download arm32';
   D['下载 x86_64'] = 'Download x86_64';
   D['下载 全平台'] = 'Download All';
-  // hero — updated v1.5.48
-  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎与自定义电量提醒。'] = 'An Android notification listener & push tool. Forward any notification via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark) or SMTP email in real time. App filtering, keyword filtering, visual rule engine & custom battery alerts included.';
+  // hero — updated v1.5.56
+  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'An Android notification listener & push tool. Forward any notification via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) or SMTP email in real time. App filtering, keyword filtering, visual rule engine (priority levels, scheduled/delayed push), one-tap pause widget & custom battery alerts included.';
   // FAQ — updated v1.5.48
   D['它会不会上传我的通知或短信内容？'] = 'Does it upload my notifications or SMS?';
   D['不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 或 SMTP 邮件通道发出，开发者不存储任何推送内容。仅崩溃统计（腾讯 Bugly）会采集崩溃堆栈用于修复问题。'] = 'No. All notifications, SMS, contacts stay on-device. Push goes only through your configured Webhook or SMTP email. The developer stores nothing. Only crash logs (Tencent Bugly) are collected for bugfixing.';
@@ -147,8 +147,8 @@ D['通知推送助手'] = 'NoticeTransmit';
 
   // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
   // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换
-  D['版本 v1.5.53'] = 'Version v1.5.53';
-  D['约 25.4 MB'] = '~ 25.4 MB';
+  D['版本 v1.5.56'] = 'Version v1.5.56';
+  D['约 25.5 MB'] = '~ 25.5 MB';
   // feature cards — updated v1.5.50
   D['推送模板引擎'] = 'Push Template Engine';
   D['text / markdown / json / xml 四种格式自定义，%appName% 等变量占位符自动替换，每个通道独立配置。'] = 'Custom text / markdown / json / xml formats, %appName% placeholder auto-replacement, configurable per channel.';

@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.55/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.56/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -43,6 +43,8 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 📱 **App Filtering** - Customize which apps need notification push
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
 - 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), first-time entry provides feature guide, built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
+- 🏷️ **Notification Priority Levels** - System notification priority (high/medium/low) extracted natively, matchable via "notification priority" condition; rule actions truly executed natively — silent ignore / record only / delayed push / push now
+- ⏰ **Scheduled / Delayed Push** - "Delayed push" action configurable (delay seconds / schedule HH:mm), auto re-push webhook & email when due, tasks auto-recover after process kill or reboot
 - 📝 **Push Template Engine** - Custom message format (text/markdown/json/xml), supports variable placeholders (`%appName%`/`%title%`/`%content%` etc.), auto-wraps payload per platform with escaping, each channel configured independently
 
 ### Experience Optimization

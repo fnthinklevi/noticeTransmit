@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.55",
-  "latestBuild": 89,
+  "latestVersion": "1.5.56",
+  "latestBuild": 90,
   "forceUpdate": true,
-  "forceUpdateVersion": "1.5.51",
-  "forceUpdateBuild": 82,
-  "changelog": "v1.5.55: Server酱/PushPlus推送渠道(POST form/token注入,内容不进URL) + 桌面小部件一键启停推送(多品牌手动添加引导) + 关于弹窗精简",
+  "forceUpdateVersion": "1.5.56",
+  "forceUpdateBuild": 90,
+  "changelog": "v1.5.56: 通知优先级分级(规则引擎原生生效,高/中/低) + 定时/延迟推送(到点自动补推) + 渠道类型英文翻译 + 最近任务页语言同步修复",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_arm64_1.5.55.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_arm32_1.5.55.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_x86_1.5.55.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_all_1.5.55.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.56/notice_arm64_1.5.56.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.56/notice_arm32_1.5.56.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.56/notice_x86_1.5.56.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.56/notice_all_1.5.56.apk"
   },
   "fileSizes": {
-    "arm64": 26757267,
-    "arm32": 22620417,
-    "x86_64": 28724741,
-    "all": 73160100
+    "arm64": 26773718,
+    "arm32": 22669641,
+    "x86_64": 28806733,
+    "all": 73274851
   },
   "minSupportedVersion": "1.0.0"
 }
