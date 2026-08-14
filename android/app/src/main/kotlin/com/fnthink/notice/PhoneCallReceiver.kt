@@ -201,7 +201,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
             time = timeStr,
             durationStr = durationStr,
             deviceName = deviceName,
-            simInfo = simInfo
+            simInfo = simInfo,
+            chatId = WebhookPayloadBuilder.extractChatIdFromUrl(channelConfig.url)
         )
 
         val tag = when (callState) {

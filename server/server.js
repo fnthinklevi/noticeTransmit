@@ -65,6 +65,16 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-DNS-Prefetch-Control', 'off');
   res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  // HSTS：仅在浏览器通过 HTTPS 访问时记录，纯 HTTP 部署无副作用
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // CSP：仅对管理后台启用严格策略（admin.js 已外置、无内联脚本/onclick）
+  // 二维码为 data: URI、多处使用内联 style 属性，故 img-src data: 与 style-src 'unsafe-inline' 需保留
+  if (req.path === '/admin.html' || req.path.endsWith('/admin.html')) {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+    );
+  }
   if (req.path.startsWith('/api/admin')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   }
@@ -181,6 +191,12 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 app.use((req, res, next) => {
+  // 公开接口（健康检查/版本检查）不受 IP 封锁影响：
+  // 封锁按 IP 维度生效，NAT 共享出口下误封会殃及所有 App 设备的版本更新检查
+  if (req.path === '/health' || req.path.startsWith('/api/version')) {
+    return next();
+  }
+
   const ip = getClientIp(req);
   
   if (isIpBlocked(ip)) {
@@ -225,9 +241,11 @@ if (!ADMIN_TOKEN_HASH) {
   process.exit(1);
 }
 
-const MAX_FAILED_ATTEMPTS = 3;
+// 封锁策略：5 次失败触发，封锁 1 小时（原为 3 次/240 小时，罚不当罪；
+// NAT 共享出口或运维误操作下 3 次即被长封 10 天，严重影响可用性）
+const MAX_FAILED_ATTEMPTS = 5;
 const FAILURE_WINDOW_MINUTES = 10;
-const BLOCK_DURATION_HOURS = 240;
+const BLOCK_DURATION_HOURS = 1;
 
 const FAILED_ATTEMPTS_FILE = path.join(DATA_DIR, 'failed_attempts.json');
 
@@ -663,7 +681,7 @@ async function authMiddleware(req, res, next) {
         delete sessions[sessionId];
         return res.status(401).json({ code: -1, message: '会话已过期，请重新登录' });
       }
-      sessions[sessionId].createdAt = Date.now();
+      // 注意：不重置 createdAt —— 会话为固定 24h TTL，持续使用不会无限续期
       req.session = sessions[sessionId];
       return next();
     }
@@ -825,13 +843,28 @@ app.post('/api/admin/login', asyncHandler(async (req, res) => {
   });
 }));
 
+// 注销：主动吊销当前会话，防止登出后会话 ID 在服务端继续有效
+app.post('/api/admin/logout', authMiddleware, (req, res) => {
+  const sessionId = req.headers['x-session-id'];
+  if (sessionId && sessions[sessionId]) {
+    delete sessions[sessionId];
+    saveSessions();
+  }
+  res.json({ code: 0, message: '已退出登录' });
+});
+
 app.get('/api/admin/totp/setup', authMiddleware, asyncHandler(async (req, res) => {
   const config = getTotpConfig();
   const { recoveryCode } = req.query;
-  const rebind = config.enabled && !!recoveryCode;
 
-  // 已启用且未提供恢复码：仅返回状态（不生成新 secret，避免破坏已绑定的认证器）
-  if (config.enabled && !rebind) {
+  // 恢复码经 GET query 传输会留在访问日志/浏览器历史，且该端点不消费恢复码。
+  // 重新绑定一律走 POST /api/admin/totp/rebind。
+  if (recoveryCode) {
+    return res.status(400).json({ code: -1, message: '请改用 POST /api/admin/totp/rebind 提交恢复码' });
+  }
+
+  // 已启用：仅返回状态（不生成新 secret，避免破坏已绑定的认证器）
+  if (config.enabled) {
     return res.json({
       code: 0,
       message: 'success',
@@ -841,26 +874,6 @@ app.get('/api/admin/totp/setup', authMiddleware, asyncHandler(async (req, res) =
         rebindable: Array.isArray(config.recoveryCodes) && config.recoveryCodes.length > 0
       }
     });
-  }
-
-  // 重新绑定：需先通过恢复码验证
-  if (rebind) {
-    let valid = false;
-    if (Array.isArray(config.recoveryCodes)) {
-      for (let i = 0; i < config.recoveryCodes.length; i++) {
-        try {
-          if (await bcrypt.compare(recoveryCode, config.recoveryCodes[i])) {
-            valid = true;
-            break;
-          }
-        } catch (e) {
-          console.error('恢复码验证异常:', e.message);
-        }
-      }
-    }
-    if (!valid) {
-      return res.status(400).json({ code: -1, message: '恢复码错误' });
-    }
   }
 
   const secret = generateSecret(32);
@@ -881,7 +894,76 @@ app.get('/api/admin/totp/setup', authMiddleware, asyncHandler(async (req, res) =
     message: 'success',
     data: {
       enabled: false,
-      rebind: !!rebind,
+      rebind: false,
+      secret,
+      qrCodeUrl,
+      otpauth,
+      manualCode: secret
+    }
+  });
+}));
+
+// 重新绑定二步验证：POST 提交恢复码（避免 GET query 泄露），校验成功后消费（一次性）
+app.post('/api/admin/totp/rebind', authMiddleware, asyncHandler(async (req, res) => {
+  const ip = getClientIp(req);
+  const config = getTotpConfig();
+  const { recoveryCode } = req.body || {};
+
+  if (!config.enabled) {
+    return res.status(400).json({ code: -1, message: '二步验证未启用，无需重新绑定' });
+  }
+  if (typeof recoveryCode !== 'string' || !recoveryCode.trim()) {
+    return res.status(400).json({ code: -1, message: '恢复码不能为空' });
+  }
+
+  const normalized = recoveryCode.trim().toUpperCase();
+  let consumedIndex = -1;
+  if (Array.isArray(config.recoveryCodes)) {
+    for (let i = 0; i < config.recoveryCodes.length; i++) {
+      try {
+        if (await bcrypt.compare(normalized, config.recoveryCodes[i])) {
+          consumedIndex = i;
+          break;
+        }
+      } catch (e) {
+        console.error('恢复码验证异常:', e.message);
+      }
+    }
+  }
+
+  if (consumedIndex === -1) {
+    // 校验失败计入失败次数，受 IP 封锁保护（与登录路径语义一致）
+    console.error('[rebind] 恢复码验证失败，IP:', ip);
+    const isBlocked = recordFailedAttempt(ip);
+    if (isBlocked) {
+      return res.status(403).json({ code: -3, message: `尝试次数过多，您的IP已被封锁 ${BLOCK_DURATION_HOURS} 小时`, blocked: true });
+    }
+    const remaining = getRemainingAttempts(ip);
+    return res.status(400).json({ code: -1, message: `恢复码错误，还剩 ${remaining} 次尝试机会` });
+  }
+
+  // 一次性消费：移除已使用的恢复码
+  config.recoveryCodes.splice(consumedIndex, 1);
+  saveTotpConfig(config);
+
+  const secret = generateSecret(32);
+  const service = '通知推送助手管理后台';
+  const account = 'admin';
+  const otpauth = generateURI({ label: account, issuer: service, secret });
+
+  let qrCodeUrl = '';
+  try {
+    qrCodeUrl = await QRCode.toDataURL(otpauth);
+  } catch (e) {
+    console.error('生成二维码失败:', e.message);
+    return res.status(500).json({ code: -1, message: '生成二维码失败' });
+  }
+
+  res.json({
+    code: 0,
+    message: 'success',
+    data: {
+      rebind: true,
       secret,
       qrCodeUrl,
       otpauth,

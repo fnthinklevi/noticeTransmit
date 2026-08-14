@@ -99,8 +99,9 @@ describe('server.js – Basic Endpoints', () => {
 
   describe('IP 封锁逻辑', () => {
     test('失败次数超过阈值应触发封锁', () => {
-      const MAX_ATTEMPTS = 3;
-      const attempts = [1, 2, 3];
+      // 当前策略：10 分钟窗口内 5 次失败触发封锁
+      const MAX_ATTEMPTS = 5;
+      const attempts = [1, 2, 3, 4, 5];
       let blocked = false;
       for (const attempt of attempts) {
         if (attempt >= MAX_ATTEMPTS) {
@@ -108,12 +109,18 @@ describe('server.js – Basic Endpoints', () => {
         }
       }
       expect(blocked).toBe(true);
+      // 5 次以内不应触发
+      let blockedUnder = false;
+      for (let i = 1; i < MAX_ATTEMPTS; i++) {
+        if (i >= MAX_ATTEMPTS) blockedUnder = true;
+      }
+      expect(blockedUnder).toBe(false);
     });
 
-    test('封锁时长应为 240 小时', () => {
-      const BLOCK_DURATION_HOURS = 240;
-      expect(BLOCK_DURATION_HOURS).toBe(240);
-      expect(BLOCK_DURATION_HOURS * 60 * 60 * 1000).toBe(864000000);
+    test('封锁时长应为 1 小时（原 240 小时罚不当罪）', () => {
+      const BLOCK_DURATION_HOURS = 1;
+      expect(BLOCK_DURATION_HOURS).toBe(1);
+      expect(BLOCK_DURATION_HOURS * 60 * 60 * 1000).toBe(3600000);
     });
   });
 

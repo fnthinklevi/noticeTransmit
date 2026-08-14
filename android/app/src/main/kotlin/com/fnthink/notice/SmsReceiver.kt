@@ -149,7 +149,8 @@ class SmsReceiver : BroadcastReceiver() {
             message = message,
             time = timeStr,
             deviceName = deviceName,
-            simInfo = simInfo
+            simInfo = simInfo,
+            chatId = WebhookPayloadBuilder.extractChatIdFromUrl(channelConfig.url)
         )
 
         // 通过 NetworkClient 发送（含签名 + 送达校验），结果回传 Flutter 逐条显示送达状态

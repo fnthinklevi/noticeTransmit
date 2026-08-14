@@ -6,6 +6,10 @@ import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/secure_storage_service.dart';
 
+/// 数据库加密密钥丢失/损坏异常。
+/// 由 [_initDatabase] 捕获后走「备份原库 + 重建」路径，禁止静默删库。
+class DatabaseKeyLostException implements Exception {}
+
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
@@ -16,20 +20,36 @@ class DatabaseHelper {
   static const _oldDbName = 'notice_transmit.db';
   static const _encryptionKeyStoreKey = 'db_encryption_key';
 
+  /// 最近一次因密钥失效或库损坏而备份的数据库文件路径（null 表示从未发生过备份），
+  /// 供 UI 层提示用户数据已保留在备份文件中。
+  static String? lastBackupPath;
+
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
-  /// 获取或生成数据库加密密钥（AES-256，存储在 Android Keystore 中）
+  /// 获取数据库加密密钥（AES-256，存储在 Android Keystore 中）。
+  ///
+  /// 仅在加密数据库尚不存在时允许生成新密钥（首次启动）。若加密库已存在而密钥
+  /// 缺失/长度不符，说明是密钥丢失而非首次启动——此时禁止用新密钥覆盖存储，
+  /// 抛出 [DatabaseKeyLostException] 交由上层备份原库，避免旧库永久无法打开、
+  /// 数据被静默清空。
   Future<String> _getEncryptionKey() async {
     final secureStorage = SecureStorageService();
     var key = await secureStorage.read(_encryptionKeyStoreKey);
     if (key == null || key.length != 64) {
-      // 首次启动或密钥损坏：生成 256 位随机十六进制密钥
-      key = _generateRandomHexKey();
-      await secureStorage.write(_encryptionKeyStoreKey, key);
+      final databasesPath = await getDatabasesPath();
+      final encryptedExists =
+          await File(join(databasesPath, _encryptedDbName)).exists();
+      if (!encryptedExists) {
+        // 首次启动（无库无钥）：生成 256 位随机十六进制密钥
+        key = _generateRandomHexKey();
+        await secureStorage.write(_encryptionKeyStoreKey, key);
+      } else {
+        throw DatabaseKeyLostException();
+      }
     }
     return key;
   }
@@ -44,7 +64,18 @@ class DatabaseHelper {
     final databasesPath = await getDatabasesPath();
     final encryptedPath = join(databasesPath, _encryptedDbName);
     final oldPath = join(databasesPath, _oldDbName);
-    final password = await _getEncryptionKey();
+
+    // 密钥丢失时先备份原库（保留恢复路径），再为新库生成新密钥；
+    // 绝不静默覆盖密钥 → 旧库彻底无法打开、数据被悄悄清空。
+    String password;
+    try {
+      password = await _getEncryptionKey();
+    } on DatabaseKeyLostException {
+      await _backupDatabaseFile(encryptedPath);
+      await _backupDatabaseFile(oldPath);
+      password = _generateRandomHexKey();
+      await SecureStorageService().write(_encryptionKeyStoreKey, password);
+    }
 
     // 从旧明文数据库迁移数据到新加密数据库
     await _migrateOldDatabaseIfNeeded(oldPath, encryptedPath, password);
@@ -58,13 +89,10 @@ class DatabaseHelper {
         onUpgrade: _onUpgrade,
       );
     } catch (e) {
-      // 加密数据库损坏 — 删除后重建
-      try {
-        await File(encryptedPath).delete();
-      } catch (_) {}
-      try {
-        await File(oldPath).delete();
-      } catch (_) {}
+      // 打开失败（密钥不符 / 库文件损坏）：先备份原文件再重建，避免数据被静默清空。
+      // 备份文件保留在磁盘上，作为人工恢复路径。
+      await _backupDatabaseFile(encryptedPath);
+      await _backupDatabaseFile(oldPath);
 
       return await openDatabase(
         encryptedPath,
@@ -73,6 +101,22 @@ class DatabaseHelper {
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
+    }
+  }
+
+  /// 把指定数据库文件重命名为带时间戳的备份文件（保留原数据供恢复）。
+  /// 返回备份路径；文件不存在或重命名失败时返回 null。
+  Future<String?> _backupDatabaseFile(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return null;
+      final backupPath =
+          '$path.corrupt-${DateTime.now().millisecondsSinceEpoch}';
+      await file.rename(backupPath);
+      lastBackupPath = backupPath;
+      return backupPath;
+    } catch (_) {
+      return null;
     }
   }
 

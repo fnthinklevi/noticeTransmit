@@ -515,6 +515,10 @@ class MainActivity : FlutterActivity() {
             REQUEST_PHONE_PERMISSION -> {
                 val granted = grantResults.isNotEmpty() &&
                         grantResults[0] == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    // 授权后立即使 SIM 缓存失效，避免最长 60 秒内 SIM 识别仍为空
+                    SimInfoHelper.invalidateCache()
+                }
                 methodChannel?.invokeMethod(
                     "onPhonePermissionResult",
                     mapOf("granted" to granted)
@@ -1304,7 +1308,8 @@ class MainActivity : FlutterActivity() {
             val (success, message, signed) = try {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
                 val webhookType = WebhookPayloadBuilder.detectType(url)
-                val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
+                val chatId = WebhookPayloadBuilder.extractChatIdFromUrl(url)
+                val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName, chatId)
 
                 val typeLabel = when (webhookType) {
                     WebhookPayloadBuilder.WebhookType.WECHAT_WORK -> "企业微信"

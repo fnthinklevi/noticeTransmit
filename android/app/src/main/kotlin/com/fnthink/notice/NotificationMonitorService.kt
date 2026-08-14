@@ -69,7 +69,7 @@ class NotificationMonitorService : NotificationListenerService() {
     private lateinit var configManager: ConfigManager
     private var batteryChangedReceiver: android.content.BroadcastReceiver? = null
     private var batteryAlarmPendingIntent: PendingIntent? = null
-    private var cachedConfig: ConfigSnapshot? = null
+    @Volatile private var cachedConfig: ConfigSnapshot? = null
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -173,28 +173,37 @@ class NotificationMonitorService : NotificationListenerService() {
         if (!monitoringEnabled) return
         Log.d(TAG, "Notification posted: ${sbn.packageName}")
 
-        val notificationInfo = notificationProcessor.processNotification(sbn)
-        if (notificationInfo != null) {
-            val config = cachedConfig ?: ConfigSnapshot()
-            notificationInfo.deviceName = config.deviceName
+        // PackageManager 查询、多轮包名反查、历史缓存全量 JSON 读与 commit() 同步写盘
+        // 均为重活，通知风暴下在主线程执行是 NotificationListenerService 的典型 ANR 隐患。
+        // 全部下沉到 IO 协程（serviceScope 在 onDestroy 时 cancel，随服务销毁而停止）。
+        serviceScope.launch {
+            try {
+                val notificationInfo = notificationProcessor.processNotification(sbn)
+                if (notificationInfo != null) {
+                    val config = cachedConfig ?: ConfigSnapshot()
+                    notificationInfo.deviceName = config.deviceName
 
-            if (notificationProcessor.shouldNotify(
-                    notificationInfo.packageName,
-                    notificationInfo.title,
-                    notificationInfo.content,
-                    notificationInfo.subText,
-                    config.whitelistKeywords,
-                    config.enabledPackages,
-                    config.blacklistKeywords,
-                    config.appFilterMode
-                )
-            ) {
-                webhookSender.sendNotification(notificationInfo)
-                dispatchEmail(notificationInfo)
-                checkDailyReset()
-                pushCount++
-                updateForegroundNotification()
-                Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
+                    if (notificationProcessor.shouldNotify(
+                            notificationInfo.packageName,
+                            notificationInfo.title,
+                            notificationInfo.content,
+                            notificationInfo.subText,
+                            config.whitelistKeywords,
+                            config.enabledPackages,
+                            config.blacklistKeywords,
+                            config.appFilterMode
+                        )
+                    ) {
+                        webhookSender.sendNotification(notificationInfo)
+                        dispatchEmail(notificationInfo)
+                        checkDailyReset()
+                        pushCount++
+                        updateForegroundNotification()
+                        Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing notification", e)
             }
         }
     }

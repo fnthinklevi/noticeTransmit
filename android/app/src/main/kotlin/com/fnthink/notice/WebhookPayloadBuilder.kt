@@ -70,6 +70,7 @@ object WebhookPayloadBuilder {
         time: String = "",
         deviceName: String = "",
         notifyType: String = "",
+        chatId: String = "",
         extras: Map<String, String> = emptyMap()
     ): String {
         return when (type) {
@@ -96,33 +97,38 @@ object WebhookPayloadBuilder {
                 content = content,
                 appName = appName,
                 time = time,
-                deviceName = deviceName
+                deviceName = deviceName,
+                notifyType = notifyType
             )
             WebhookType.FEISHU -> buildFeishu(
                 title = title,
                 content = content,
                 appName = appName,
                 time = time,
-                deviceName = deviceName
+                deviceName = deviceName,
+                notifyType = notifyType
             )
             WebhookType.TELEGRAM -> buildTelegram(
                 title = title,
                 content = content,
                 appName = appName,
                 time = time,
-                deviceName = deviceName
+                deviceName = deviceName,
+                notifyType = notifyType,
+                chatId = chatId
             )
             WebhookType.BARK -> buildBark(
                 title = title,
                 content = content,
                 appName = appName,
                 time = time,
-                deviceName = deviceName
+                deviceName = deviceName,
+                notifyType = notifyType
             )
         }
     }
 
-    fun buildTestPayload(type: WebhookType, deviceName: String): String {
+    fun buildTestPayload(type: WebhookType, deviceName: String, chatId: String = ""): String {
         val title = I18n.testTitle()
         val content = I18n.testContent()
         val deviceLabel = I18n.testDeviceLabel()
@@ -158,9 +164,10 @@ object WebhookPayloadBuilder {
                 })
             }.toString()
 
-            WebhookType.TELEGRAM -> JSONObject().apply {
-                put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-            }.toString()
+            WebhookType.TELEGRAM -> buildTelegramMessage(
+                "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName",
+                chatId
+            )
 
             WebhookType.BARK -> JSONObject().apply {
                 put("title", title)
@@ -276,11 +283,12 @@ object WebhookPayloadBuilder {
         content: String,
         appName: String,
         time: String,
-        deviceName: String
+        deviceName: String,
+        notifyType: String = ""
     ): String {
         val text = buildTextBody(
             title = title, content = content, appName = appName,
-            time = time, deviceName = deviceName
+            time = time, deviceName = deviceName, notifyType = notifyType
         )
         return JSONObject().apply {
             put("msgtype", "text")
@@ -293,11 +301,12 @@ object WebhookPayloadBuilder {
         content: String,
         appName: String,
         time: String,
-        deviceName: String
+        deviceName: String,
+        notifyType: String = ""
     ): String {
         val text = buildTextBody(
             title = title, content = content, appName = appName,
-            time = time, deviceName = deviceName
+            time = time, deviceName = deviceName, notifyType = notifyType
         )
         return JSONObject().apply {
             put("msg_type", "text")
@@ -310,13 +319,49 @@ object WebhookPayloadBuilder {
         content: String,
         appName: String,
         time: String,
-        deviceName: String
+        deviceName: String,
+        notifyType: String = "",
+        chatId: String = ""
     ): String {
         val text = buildTextBody(
             title = title, content = content, appName = appName,
-            time = time, deviceName = deviceName
+            time = time, deviceName = deviceName, notifyType = notifyType
         )
-        return JSONObject().apply { put("text", text) }.toString()
+        return buildTelegramMessage(text, chatId)
+    }
+
+    /**
+     * Telegram sendMessage payload：
+     * - 文本截断至 4096 字符（超长会返回 400 并被记为送达失败），不截断代理项对
+     * - 注入 chat_id（由 [extractChatIdFromUrl] 从 URL query 提取，缺省时由 URL 承担）
+     * - 禁用网页自动预览
+     */
+    fun buildTelegramMessage(text: String, chatId: String = ""): String {
+        val truncated = if (text.length > 4096) {
+            var end = 4096
+            if (end > 0 && Character.isHighSurrogate(text[end - 1])) end--
+            text.substring(0, end)
+        } else {
+            text
+        }
+        return JSONObject().apply {
+            put("text", truncated)
+            if (chatId.isNotEmpty()) put("chat_id", chatId)
+            put("disable_web_page_preview", true)
+        }.toString()
+    }
+
+    /**
+     * 从 Telegram webhook URL 的 query 中提取 chat_id（缺失时返回空串）。
+     * 例："https://api.telegram.org/bot<token>/sendMessage?chat_id=-100123" → "-100123"
+     */
+    fun extractChatIdFromUrl(url: String): String {
+        val queryStart = url.indexOf('?')
+        if (queryStart < 0) return ""
+        return url.substring(queryStart + 1)
+            .split('&')
+            .firstOrNull { it.startsWith("chat_id=") && it.length > "chat_id=".length }
+            ?.substringAfter('=') ?: ""
     }
 
     private fun buildBark(
@@ -324,11 +369,12 @@ object WebhookPayloadBuilder {
         content: String,
         appName: String,
         time: String,
-        deviceName: String
+        deviceName: String,
+        notifyType: String = ""
     ): String {
         val body = buildTextBody(
             title = "", content = content, appName = appName,
-            time = time, deviceName = deviceName
+            time = time, deviceName = deviceName, notifyType = notifyType
         )
         return JSONObject().apply {
             put("title", title)
@@ -342,7 +388,8 @@ object WebhookPayloadBuilder {
         message: String,
         time: String,
         deviceName: String,
-        simInfo: String? = null
+        simInfo: String? = null,
+        chatId: String = ""
     ): String {
         val simSuffix = I18n.simSuffix(simInfo)
         // SMS 标题（用于通用类型 JSON）
@@ -392,13 +439,14 @@ object WebhookPayloadBuilder {
                 })
             }.toString()
 
-            WebhookType.TELEGRAM -> JSONObject().apply {
-                put("text", buildTextBody(
+            WebhookType.TELEGRAM -> buildTelegramMessage(
+                buildTextBody(
                     title = title, content = "", appName = "",
                     time = time, deviceName = deviceName,
                     sender = sender, message = message, simInfo = simInfo
-                ))
-            }.toString()
+                ),
+                chatId
+            )
 
             WebhookType.BARK -> JSONObject().apply {
                 put("title", title)
@@ -418,7 +466,8 @@ object WebhookPayloadBuilder {
         time: String,
         durationStr: String = "",
         deviceName: String,
-        simInfo: String? = null
+        simInfo: String? = null,
+        chatId: String = ""
     ): String {
         return when (type) {
             WebhookType.GENERIC -> JSONObject().apply {
@@ -468,14 +517,15 @@ object WebhookPayloadBuilder {
                 })
             }.toString()
 
-            WebhookType.TELEGRAM -> JSONObject().apply {
-                put("text", buildTextBody(
+            WebhookType.TELEGRAM -> buildTelegramMessage(
+                buildTextBody(
                     title = "", content = "", appName = "",
                     time = time, deviceName = deviceName,
                     state = state, phoneNumber = phoneNumber,
                     durationStr = durationStr, simInfo = simInfo
-                ))
-            }.toString()
+                ),
+                chatId
+            )
 
             WebhookType.BARK -> JSONObject().apply {
                 put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))

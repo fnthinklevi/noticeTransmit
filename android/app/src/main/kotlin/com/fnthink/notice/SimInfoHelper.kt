@@ -76,7 +76,9 @@ object SimInfoHelper {
 
         // 策略 4：默认语音 SIM 回退（双卡场景：PHONE_STATE 广播通常不携带 subscriptionId，
         //         用系统默认语音通话 SIM 作为合理推断）
-        if (subId <= 0 && activeSubs.size > 1) {
+        // 注意：getDefaultVoiceSubscriptionId() 为 API 24+ 方法，老系统直接调用会抛
+        //       NoSuchMethodError（属 Error，catch(Exception) 接不住导致进程崩溃），必须按版本判断。
+        if (subId <= 0 && activeSubs.size > 1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             val defaultVoiceSubId = SubscriptionManager.getDefaultVoiceSubscriptionId()
             if (defaultVoiceSubId > 0) {
                 activeSubs.find { it.subscriptionId == defaultVoiceSubId }?.let { return buildSimInfo(it) }
@@ -134,11 +136,10 @@ object SimInfoHelper {
             if (now - cachedAt < CACHE_TTL_MS) return it
         }
 
-        // 权限检查
+        // 权限检查：无权限时不缓存空列表（缓存会掩盖运行时授权后的变化，
+        // 导致授权后最长 60 秒内 SIM 识别仍全部为空）
         if (!hasReadPhoneStatePermission(context)) {
             Log.w(TAG, "READ_PHONE_STATE not granted, returning empty subscription list")
-            cachedSubs = emptyList()
-            cachedAt = now
             return emptyList()
         }
 

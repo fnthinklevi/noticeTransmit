@@ -87,6 +87,22 @@ class WebhookSender(private val context: Context) {
         cfg: ConfigManager.WebhookChannelConfig,
         info: NotificationInfo
     ) {
+        // Telegram 必须携带 chat_id（一般来自 URL query）。缺失时提前失败并给出明确原因，
+        // 避免发出必然 400 的请求再被记为送达失败。
+        val chatId = WebhookPayloadBuilder.extractChatIdFromUrl(cfg.url)
+        if (cfg.type == WebhookPayloadBuilder.WebhookType.TELEGRAM && chatId.isEmpty()) {
+            Log.e(TAG, "Telegram URL missing chat_id, skip: ${cfg.url.take(60)}")
+            notifyDeliveryResult(
+                info.id,
+                cfg.type,
+                WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                    0, "Telegram 链接缺少 chat_id 参数", false
+                )
+            )
+            return
+        }
+
         // 优先使用自定义模板（仅当 messageFormat != default 且非空时）
         val vars = TemplateEngine.Vars(
             appName = info.appName,
@@ -103,7 +119,8 @@ class WebhookSender(private val context: Context) {
             type = cfg.type,
             format = cfg.messageFormat,
             template = cfg.messageTemplate ?: "",
-            vars = vars
+            vars = vars,
+            chatId = chatId
         )
 
         if (platformPayload != null) {
@@ -155,7 +172,8 @@ class WebhookSender(private val context: Context) {
             packageName = info.packageName,
             time = info.time,
             deviceName = deviceName,
-            notifyType = info.type
+            notifyType = info.type,
+            chatId = chatId
         )
         // 通过 NetworkClient 发送（含签名 + 送达校验）
         NetworkClient.sendWithRetry(

@@ -73,6 +73,8 @@ class WebhookService {
         }).toList();
         if (channels.isNotEmpty) {
           await _db.saveWebhookChannels(channels);
+          // 迁移完成后清理明文源头，避免 webhook 密钥以明文 XML 永久残留
+          await prefs.remove('webhook_channels');
           return channels;
         }
       }
@@ -93,6 +95,8 @@ class WebhookService {
           },
         ];
         await _db.saveWebhookChannels(channels);
+        // 迁移完成后清理明文源头，避免 webhook URL 以明文 XML 永久残留
+        await prefs.remove('webhook_url');
         return channels;
       }
     } catch (_) {}

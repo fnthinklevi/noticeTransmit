@@ -3,7 +3,10 @@ package com.fnthink.notice
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -19,7 +22,9 @@ class NetworkClient {
         private const val RATE_LIMIT_RETRY_DELAY_MS = 10_000L // 限流时退避更长
 
         @Volatile private var isActive = true
-        private val scope = CoroutineScope(Dispatchers.IO)
+        // 作用域在 destroy() 时 cancel，activate() 时重建，避免重试协程在服务销毁后仍回调
+        private var scope = newScope()
+        private fun newScope() = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         private val client: OkHttpClient by lazy {
             OkHttpClient.Builder()
@@ -169,11 +174,16 @@ class NetworkClient {
 
         fun destroy() {
             isActive = false
-            Log.d(TAG, "NetworkClient deactivated")
+            // 取消全部进行中的发送/重试协程，避免服务销毁后回调（最长约 34 秒退避）
+            scope.cancel()
+            Log.d(TAG, "NetworkClient deactivated (coroutines cancelled)")
         }
 
         fun activate() {
             isActive = true
+            if (!scope.isActive) {
+                scope = newScope()
+            }
             Log.d(TAG, "NetworkClient activated")
         }
     }

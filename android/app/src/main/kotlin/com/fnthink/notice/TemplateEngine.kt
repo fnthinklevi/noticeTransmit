@@ -147,7 +147,8 @@ object TemplateEngine {
         type: WebhookPayloadBuilder.WebhookType,
         format: String,
         template: String,
-        vars: Vars
+        vars: Vars,
+        chatId: String = ""
     ): String? {
         if (format == "default") return null
         if (!isPlatformSupported(format)) return null
@@ -184,9 +185,8 @@ object TemplateEngine {
                 put("content", JSONObject().apply { put("text", rendered) })
             }.toString()
 
-            WebhookPayloadBuilder.WebhookType.TELEGRAM -> JSONObject().apply {
-                put("text", rendered)
-            }.toString()
+            WebhookPayloadBuilder.WebhookType.TELEGRAM ->
+                WebhookPayloadBuilder.buildTelegramMessage(rendered, chatId)
 
             WebhookPayloadBuilder.WebhookType.BARK -> JSONObject().apply {
                 put("title", vars.title)
