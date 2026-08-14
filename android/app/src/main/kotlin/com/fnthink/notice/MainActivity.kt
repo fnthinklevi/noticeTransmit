@@ -47,8 +47,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.54"
-        const val FALLBACK_BUILD = 88
+        const val FALLBACK_VERSION = "1.5.55"
+        const val FALLBACK_BUILD = 89
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -1322,16 +1322,15 @@ class MainActivity : FlutterActivity() {
                 }
 
                 if (webhookType == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
-                    // Server酱：GET 请求
-                    val getUrl = WebhookPayloadBuilder.buildServerChanRequestUrl(
-                        url = url,
+                    // Server酱：POST form（application/x-www-form-urlencoded），内容不进 URL
+                    val formBody = WebhookPayloadBuilder.buildServerChanFormBody(
                         title = I18n.testTitle(),
                         content = I18n.testContent(),
                         deviceName = deviceName
                     )
                     val request = Request.Builder()
-                        .url(getUrl)
-                        .get()
+                        .url(url)
+                        .post(formBody.toRequestBody("application/x-www-form-urlencoded; charset=utf-8".toMediaType()))
                         .addHeader("User-Agent", "NotificationMonitor/1.0")
                         .build()
                     okHttpClient.newCall(request).execute().use { response ->

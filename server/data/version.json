@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.54",
-  "latestBuild": 88,
+  "latestVersion": "1.5.55",
+  "latestBuild": 89,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.51",
   "forceUpdateBuild": 82,
-  "changelog": "v1.5.54: 服务端模块化拆分(server.js → lib/ 分层) + 服务端HTTP契约测试(25用例) + Webhook多通道保存链路测试(WebhookChannelStore抽象) + Jest ESM兼容",
+  "changelog": "v1.5.55: Server酱/PushPlus推送渠道(POST form/token注入,内容不进URL) + 桌面小部件一键启停推送(多品牌手动添加引导) + 关于弹窗精简",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_arm64_1.5.54.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_arm32_1.5.54.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_x86_1.5.54.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_all_1.5.54.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_arm64_1.5.55.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_arm32_1.5.55.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_x86_1.5.55.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.55/notice_all_1.5.55.apk"
   },
   "fileSizes": {
-    "arm64": 26621583,
-    "arm32": 22615804,
-    "x86_64": 28720133,
-    "all": 73024411
+    "arm64": 26757267,
+    "arm32": 22620417,
+    "x86_64": 28724741,
+    "all": 73160100
   },
   "minSupportedVersion": "1.0.0"
 }

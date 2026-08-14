@@ -103,22 +103,21 @@ class WebhookSender(private val context: Context) {
             return
         }
 
-        // Server酱：GET 请求，title/desp 拼入 query（接口仅支持 GET / form，不支持 JSON body）
+        // Server酱：POST form（application/x-www-form-urlencoded），内容不进 URL，避免被代理/日志留存
         if (cfg.type == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
-            val getUrl = WebhookPayloadBuilder.buildServerChanRequestUrl(
-                url = cfg.url,
+            val formBody = WebhookPayloadBuilder.buildServerChanFormBody(
                 title = info.title,
                 content = info.content,
                 deviceName = deviceName,
                 time = info.time
             )
             NetworkClient.sendWithRetry(
-                url = getUrl,
-                payload = "",
+                url = cfg.url,
+                payload = formBody,
                 tag = "notification",
                 webhookType = cfg.type,
                 secret = cfg.secret,
-                useGet = true,
+                contentType = "application/x-www-form-urlencoded; charset=utf-8",
                 onResult = { result ->
                     Log.d(TAG, "Delivery(ServerChan): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result)

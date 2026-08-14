@@ -6,13 +6,13 @@
 
 **English / [中文](README.md)**
 
-A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload. Supports Webhook (WeCom / DingTalk / Feishu / Telegram / Bark) and SMTP email push, all configs AES-256 encrypted. **Full-app Chinese/English i18n**.
+A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload. Supports Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) and SMTP email push, one-tap pause/resume via home-screen widget, all configs AES-256 encrypted. **Full-app Chinese/English i18n**.
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.54/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.55/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -23,7 +23,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 
 ## Introduction
 
-NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark) or SMTP email. Fully on-device processing — zero data upload. Full-app Chinese/English i18n. Open source MIT, free, no ads.
+NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) or SMTP email, with one-tap pause/resume via home-screen widget. Fully on-device processing — zero data upload. Full-app Chinese/English i18n. Open source MIT, free, no ads.
 
 ## Features
 
@@ -33,7 +33,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 📱 **Multi-type Recognition** - Smart recognition of WeChat, QQ, SMS, phone calls, system notifications, etc.
 - 🔗 **Webhook Multi-channel** - Support configuring multiple Webhook URLs simultaneously, each channel has independent on/off switch
 - 📧 **SMTP Email Push** - Support SMTP email forwarding (SSL/STARTTLS), customizable subject template and body template
-- 📤 **Multi-platform Adaptation** - Auto-adapt message format for WeChat Work, DingTalk, Feishu, Telegram, Bark and other platforms
+- 📤 **Multi-platform Adaptation** - Auto-adapt message format for WeChat Work, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus and other platforms
 
 ### Advanced Features
 

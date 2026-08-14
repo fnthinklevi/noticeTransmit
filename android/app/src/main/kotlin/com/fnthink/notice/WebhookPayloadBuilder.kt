@@ -584,11 +584,11 @@ object WebhookPayloadBuilder {
     }
 
     /**
-     * Server酱（Server酱³ / Turbo）：GET 请求，title + desp 拼入 query。
-     * 接口：https://sctapi.ftqq.com/{SendKey}.send?title=xxx&desp=xxx
+     * Server酱（Server酱³ / Turbo）：POST form（application/x-www-form-urlencoded），
+     * title + desp 作为表单体提交，内容不进入 URL，避免被中间代理/访问日志留存。
+     * 接口：https://sctapi.ftqq.com/{SendKey}.send  body: title=xxx&desp=xxx
      */
-    fun buildServerChanRequestUrl(
-        url: String,
+    fun buildServerChanFormBody(
         title: String,
         content: String,
         deviceName: String,
@@ -598,10 +598,7 @@ object WebhookPayloadBuilder {
             title = title, content = content, appName = "",
             time = time, deviceName = deviceName
         )
-        val sep = if (url.contains("?")) "&" else "?"
-        return "$url$sep" +
-            "title=${urlEncode(title)}" +
-            "&desp=${urlEncode(desp)}"
+        return "title=${urlEncode(title)}&desp=${urlEncode(desp)}"
     }
 
     /**
