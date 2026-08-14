@@ -93,6 +93,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       case '2':
       case 'feishu':
         return 'webhook:飞书';
+      case 'telegram':
+        return 'webhook:Telegram';
+      case 'bark':
+        return 'webhook:Bark';
       default:
         return 'webhook';
     }

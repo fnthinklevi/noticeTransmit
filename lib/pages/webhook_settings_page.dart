@@ -258,10 +258,12 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     }
   }
 
-  /// 当前 URL 是否对应支持签名的平台（用于决定是否显示 secret 输入框）
-  bool _supportsSigning(String url) {
-    // 所有平台均支持（通用 webhook 通过 X-Signature 头），用户可按需填写
-    return true;
+  /// 当前通道是否支持服务端签名密钥（用于决定是否显示 secret 输入框）。
+  /// Telegram 用 Bot Token、Bark 用设备 Key 鉴权，不支持签名密钥；
+  /// 其余平台（含通用 webhook 的 X-Signature 头）可按需填写。
+  bool _supportsSigning(int index) {
+    final type = _effectiveType(index);
+    return type != WebhookChannelType.telegram && type != WebhookChannelType.bark;
   }
 
   String _signingHint(WebhookChannelType type) {
@@ -533,7 +535,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               ),
             ],
           ),
-          if (_supportsSigning(_webhookControllers[index].text)) ...[
+          if (_supportsSigning(index)) ...[
             const SizedBox(height: 10),
             Text(
               l10n.webhookSecretLabel,

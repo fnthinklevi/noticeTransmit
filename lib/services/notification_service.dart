@@ -144,6 +144,10 @@ class NotificationService {
       case '2':
       case 'feishu':
         return 'webhook:飞书';
+      case 'telegram':
+        return 'webhook:Telegram';
+      case 'bark':
+        return 'webhook:Bark';
       default:
         return 'webhook:Webhook';
     }
@@ -167,6 +171,10 @@ class NotificationService {
         return 'webhook:钉钉';
       case 'FEISHU':
         return 'webhook:飞书';
+      case 'TELEGRAM':
+        return 'webhook:Telegram';
+      case 'BARK':
+        return 'webhook:Bark';
       default:
         return 'webhook:Webhook';
     }

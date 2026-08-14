@@ -33,6 +33,8 @@ const QRCode = require('qrcode');
 
 const app = express();
 const PORT = process.env.PORT || 3456;
+// 禁用 X-Powered-By 响应头，避免暴露 Express 指纹
+app.disable('x-powered-by');
 
 // 信任反向代理跳数：默认 1（Nginx），可用 TRUST_PROXY 覆盖（0 表示不信任任何代理头）
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));

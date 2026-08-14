@@ -75,7 +75,6 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
             when (state) {
                 TelephonyManager.CALL_STATE_RINGING -> {
-                    callStartTime = System.currentTimeMillis()
                     lastIncomingNumber = incomingNumber
                     if (incomingNumber.isNotEmpty()) {
                         for (cfg in channelConfigs) {
@@ -93,6 +92,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
                 }
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
                     if (lastState == TelephonyManager.CALL_STATE_RINGING) {
+                        // 从「接听」时刻起计算通话时长，振铃段不计入（避免时长统计偏大）
+                        callStartTime = System.currentTimeMillis()
                         if (lastIncomingNumber.isNotEmpty()) {
                             for (cfg in channelConfigs) {
                                 sendCallWebhook(

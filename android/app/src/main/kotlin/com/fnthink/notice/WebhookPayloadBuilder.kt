@@ -56,8 +56,11 @@ object WebhookPayloadBuilder {
         val endIdx = noProto.indexOfAny(charArrayOf('/', '?', '#'))
         val hostPort = if (endIdx >= 0) noProto.substring(0, endIdx) else noProto
         if (hostPort.isEmpty()) return null
+        // 去掉 credentials（user:pass@host）中的 userinfo 部分，与 Dart 端 _extractHost 保持一致
+        val atIdx = hostPort.lastIndexOf('@')
+        val hostWithOptionalPort = if (atIdx >= 0) hostPort.substring(atIdx + 1) else hostPort
         // 去掉端口（不区分 IPv6，webhook URL 实际不会用到 IPv6 字面量 host）
-        val host = hostPort.substringBeforeLast(':')
+        val host = hostWithOptionalPort.substringBeforeLast(':')
         return host.takeIf { it.isNotEmpty() }
     }
 
@@ -230,9 +233,6 @@ object WebhookPayloadBuilder {
                 "ended" -> I18n.callEndedLabel()
                 else -> I18n.notificationLabel(appName)
             }
-            notifyType == "battery_charging" -> I18n.chargingLabel()
-            notifyType == "battery_full" -> I18n.batteryFullLabel()
-            notifyType == "battery_low_30" || notifyType == "battery_low_20" -> I18n.lowBatteryLabel()
             else -> I18n.notificationLabel(appName)
         }
         sb.append("$headLabel\n")
