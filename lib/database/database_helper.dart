@@ -41,8 +41,9 @@ class DatabaseHelper {
     var key = await secureStorage.read(_encryptionKeyStoreKey);
     if (key == null || key.length != 64) {
       final databasesPath = await getDatabasesPath();
-      final encryptedExists =
-          await File(join(databasesPath, _encryptedDbName)).exists();
+      final encryptedExists = await File(
+        join(databasesPath, _encryptedDbName),
+      ).exists();
       if (!encryptedExists) {
         // 首次启动（无库无钥）：生成 256 位随机十六进制密钥
         key = _generateRandomHexKey();
