@@ -190,6 +190,25 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  /// 优先级徽标（0=低 / 2=高，中优先级不显示以减少噪音）
+  Widget _buildPriorityBadge(BuildContext context, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   String _getTypeLabel(String? type) {
     switch (type) {
       case 'sms':
@@ -336,6 +355,13 @@ class _HistoryPageState extends State<HistoryPage> {
     final List<Widget> columnChildren = [
       Row(
         children: [
+          if (record.priority == 2) ...[
+            _buildPriorityBadge(context, '高', AppColors.red),
+            const SizedBox(width: 6),
+          ] else if (record.priority == 0) ...[
+            _buildPriorityBadge(context, '低', Colors.grey),
+            const SizedBox(width: 6),
+          ],
           Expanded(
             child: Text(
               title,

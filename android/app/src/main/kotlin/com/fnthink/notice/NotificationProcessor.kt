@@ -81,8 +81,24 @@ class NotificationProcessor(private val context: Context) {
             postTime = postTime,
             time = timeStr,
             type = notifyType,
-            deviceName = ""
+            deviceName = "",
+            priority = extractPriority(notification)
         )
+    }
+
+    /**
+     * 优先级分级：0=低 1=中 2=高。
+     * Android O+ 上系统会按渠道重要性维护 notification.priority 字段
+     * （IMPORTANCE_HIGH→MAX、DEFAULT→DEFAULT、LOW→LOW、MIN→MIN），因此直接读取即可，
+     * 无需再自行查询渠道重要性。
+     */
+    private fun extractPriority(notification: android.app.Notification): Int {
+        val p = notification.priority
+        return when {
+            p >= android.app.Notification.PRIORITY_HIGH -> 2
+            p <= android.app.Notification.PRIORITY_LOW -> 0
+            else -> 1
+        }
     }
 
     fun removeNotification(sbn: StatusBarNotification) {

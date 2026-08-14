@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../services/update_service.dart';
@@ -10,11 +11,14 @@ import 'stats_page.dart';
 import 'widget_guide_page.dart';
 
 /// 同步语言到原生端，更新桌面应用名
+/// system 模式按当前系统语言解析（与 LocaleService.currentLocale 保持一致），
+/// 避免系统英文时错误同步为中文
 void _syncNativeLocale(AppLanguage lang) {
   final localeCode = switch (lang) {
     AppLanguage.en => 'en',
     AppLanguage.zh => 'zh',
-    AppLanguage.system => 'zh',
+    AppLanguage.system =>
+      PlatformDispatcher.instance.locale.languageCode == 'zh' ? 'zh' : 'en',
   };
   AppChannels.notification.invokeMethod('setLocaleLabel', localeCode);
 }

@@ -228,6 +228,29 @@ class AppLocalizations {
     'platformGeneric': '通用 JSON',
     'platformWechatDesc': '文本格式推送',
     'platformGenericDesc': '自定义 JSON 格式',
+    // 推送渠道类型（渠道类型选择器 / 签名提示）
+    'channelTypeLabel': '渠道类型',
+    'channelTypeAuto': '自动识别',
+    'channelTypeAutoWith': '自动识别（{type}）',
+    'selectChannelType': '选择推送渠道',
+    'channelTypeWechat': '企业微信群机器人',
+    'channelTypeDingtalk': '钉钉群机器人',
+    'channelTypeFeishu': '飞书群机器人',
+    'channelTypeTelegram': 'Telegram',
+    'channelTypeBark': 'Bark',
+    'channelTypeServerChan': 'Server酱',
+    'channelTypePushPlus': 'PushPlus',
+    'channelTypeGeneric': '通用 Webhook',
+    'signingHintWechat': '企业微信群机器人开启「签名校验」后生成的密钥',
+    'signingHintDingtalk': '钉钉机器人开启「加签」后生成的密钥（SEC 开头）',
+    'signingHintFeishu': '飞书自定义机器人开启「签名校验」后的密钥',
+    'signingHintTelegram': 'Telegram 使用 Bot Token 鉴权，无需签名密钥',
+    'signingHintBark': 'Bark 使用设备 Key 鉴权，无需签名密钥',
+    'signingHintServerChan': 'Server酱 使用 SendKey 鉴权，无需签名密钥',
+    'signingHintPushPlus': 'PushPlus 使用 Token 鉴权，无需签名密钥',
+    'signingHintGeneric': '自建服务端校验签名用的密钥（通过 X-Signature 头传递）',
+    'msgFormatDefault': '默认格式',
+    'msgFormatText': '纯文本',
     'urlEmpty': '待输入',
     'urlPlaceholder': '请输入 Webhook URL',
     // 权限设置
@@ -636,6 +659,35 @@ class AppLocalizations {
     'platformGeneric': 'Generic JSON',
     'platformWechatDesc': 'Text format push',
     'platformGenericDesc': 'Custom JSON format',
+    // Channel types (channel type selector / signing hints)
+    'channelTypeLabel': 'Channel Type',
+    'channelTypeAuto': 'Auto Detect',
+    'channelTypeAutoWith': 'Auto Detect ({type})',
+    'selectChannelType': 'Select Channel Type',
+    'channelTypeWechat': 'WeCom Bot',
+    'channelTypeDingtalk': 'DingTalk Bot',
+    'channelTypeFeishu': 'Feishu Bot',
+    'channelTypeTelegram': 'Telegram',
+    'channelTypeBark': 'Bark',
+    'channelTypeServerChan': 'ServerChan',
+    'channelTypePushPlus': 'PushPlus',
+    'channelTypeGeneric': 'Generic Webhook',
+    'signingHintWechat':
+        'Secret generated after enabling signature verification for WeCom bot',
+    'signingHintDingtalk':
+        'Secret generated after enabling sign verification for DingTalk bot (starts with SEC)',
+    'signingHintFeishu':
+        'Secret generated after enabling signature verification for Feishu custom bot',
+    'signingHintTelegram':
+        'Telegram uses Bot Token auth, no signing secret needed',
+    'signingHintBark': 'Bark uses device Key auth, no signing secret needed',
+    'signingHintServerChan':
+        'ServerChan uses SendKey auth, no signing secret needed',
+    'signingHintPushPlus': 'PushPlus uses Token auth, no signing secret needed',
+    'signingHintGeneric':
+        'Secret for your server to verify the signature (sent via X-Signature header)',
+    'msgFormatDefault': 'Default Format',
+    'msgFormatText': 'Plain Text',
     'urlEmpty': 'Empty',
     'urlPlaceholder': 'Enter Webhook URL',
     // Permission settings
@@ -1041,6 +1093,29 @@ class AppLocalizations {
   String get platformGeneric => _get('platformGeneric');
   String get platformWechatDesc => _get('platformWechatDesc');
   String get platformGenericDesc => _get('platformGenericDesc');
+  String get channelTypeLabel => _get('channelTypeLabel');
+  String get channelTypeAuto => _get('channelTypeAuto');
+  String channelTypeAutoWith(String type) =>
+      _get('channelTypeAutoWith').replaceAll('{type}', type);
+  String get selectChannelType => _get('selectChannelType');
+  String get channelTypeWechat => _get('channelTypeWechat');
+  String get channelTypeDingtalk => _get('channelTypeDingtalk');
+  String get channelTypeFeishu => _get('channelTypeFeishu');
+  String get channelTypeTelegram => _get('channelTypeTelegram');
+  String get channelTypeBark => _get('channelTypeBark');
+  String get channelTypeServerChan => _get('channelTypeServerChan');
+  String get channelTypePushPlus => _get('channelTypePushPlus');
+  String get channelTypeGeneric => _get('channelTypeGeneric');
+  String get signingHintWechat => _get('signingHintWechat');
+  String get signingHintDingtalk => _get('signingHintDingtalk');
+  String get signingHintFeishu => _get('signingHintFeishu');
+  String get signingHintTelegram => _get('signingHintTelegram');
+  String get signingHintBark => _get('signingHintBark');
+  String get signingHintServerChan => _get('signingHintServerChan');
+  String get signingHintPushPlus => _get('signingHintPushPlus');
+  String get signingHintGeneric => _get('signingHintGeneric');
+  String get msgFormatDefault => _get('msgFormatDefault');
+  String get msgFormatText => _get('msgFormatText');
   String get urlEmpty => _get('urlEmpty');
   String get urlPlaceholder => _get('urlPlaceholder');
   String get permSettingsTitle => _get('permSettingsTitle');

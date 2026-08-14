@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.content.Intent
@@ -67,7 +68,9 @@ class NotificationMonitorService : NotificationListenerService() {
     private lateinit var batteryMonitor: BatteryMonitor
     private lateinit var webhookSender: WebhookSender
     private lateinit var configManager: ConfigManager
+    private lateinit var delayedPushManager: DelayedPushManager
     private var batteryChangedReceiver: android.content.BroadcastReceiver? = null
+    private var delayedPushReceiver: android.content.BroadcastReceiver? = null
     private var batteryAlarmPendingIntent: PendingIntent? = null
     @Volatile private var cachedConfig: ConfigSnapshot? = null
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
@@ -104,6 +107,8 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender = WebhookSender(this)
         webhookSender.activate()
         configManager = ConfigManager(this)
+        delayedPushManager = DelayedPushManager(this)
+        registerDelayedPushReceiver()
 
             batteryMonitor.setNotificationCallback { batteryInfo ->
                 webhookSender.sendNotification(batteryInfo)
@@ -161,6 +166,12 @@ class NotificationMonitorService : NotificationListenerService() {
                 unregisterReceiver(it)
             } catch (_: Exception) {}
         }
+        delayedPushReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {}
+        }
+        delayedPushReceiver = null
         batteryMonitor.stopPolling()
         cancelBatteryAlarm()
         webhookSender.destroy()
@@ -194,12 +205,30 @@ class NotificationMonitorService : NotificationListenerService() {
                             config.appFilterMode
                         )
                     ) {
-                        webhookSender.sendNotification(notificationInfo)
-                        dispatchEmail(notificationInfo)
-                        checkDailyReset()
-                        pushCount++
-                        updateForegroundNotification()
-                        Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
+                        // 规则引擎决策：立即推送 / 延迟推送 / 仅记录 / 静默忽略
+                        when (val decision = RuleEngine.decide(notificationInfo, config.rulesJson)) {
+                            RuleEngine.Decision.Block -> {
+                                Log.d(TAG, "Notification blocked by rule: ${notificationInfo.appName} - ${notificationInfo.title}")
+                            }
+                            RuleEngine.Decision.Record -> {
+                                webhookSender.sendBroadcast(notificationInfo)
+                                Log.d(TAG, "Notification recorded only: ${notificationInfo.appName} - ${notificationInfo.title}")
+                            }
+                            is RuleEngine.Decision.Delay -> {
+                                // 立即写入历史（pending 状态），到点后补推 webhook
+                                webhookSender.sendBroadcast(notificationInfo)
+                                delayedPushManager.enqueue(notificationInfo, decision.fireAt)
+                                Log.d(TAG, "Notification delayed push at ${decision.fireAt}: ${notificationInfo.appName} - ${notificationInfo.title}")
+                            }
+                            RuleEngine.Decision.Push -> {
+                                webhookSender.sendNotification(notificationInfo)
+                                dispatchEmail(notificationInfo)
+                                checkDailyReset()
+                                pushCount++
+                                updateForegroundNotification()
+                                Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -229,6 +258,8 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor.updateRules(configManager.getBatteryRules())
 
         cachedConfig = ConfigSnapshot()
+        // 服务重启后恢复未到期的延迟推送闹钟（进程被杀 → START_STICKY 重建场景）
+        delayedPushManager.rescheduleAll()
 
         Log.d(TAG, "Config loaded: ${loadedConfigs.size} webhook channels (signed)")
     }
@@ -274,6 +305,45 @@ class NotificationMonitorService : NotificationListenerService() {
             }
         } catch (e: Exception) {
             Log.e(TAG, "stopForeground failed", e)
+        }
+    }
+
+    /**
+     * 注册延迟推送闹钟接收器：到点后取出队列中已到期的通知并补推 webhook + 邮件。
+     * 应用内广播（ACTION_PUSH_DUE 由 AlarmManager 触发），无需对外导出。
+     */
+    private fun registerDelayedPushReceiver() {
+        val filter = IntentFilter(DelayedPushManager.ACTION_PUSH_DUE)
+        delayedPushReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action != DelayedPushManager.ACTION_PUSH_DUE) return
+                Log.d(TAG, "Delayed push alarm fired")
+                serviceScope.launch {
+                    try {
+                        val due = delayedPushManager.drainDue()
+                        for (info in due) {
+                            webhookSender.sendWebhooksOnly(info)
+                            dispatchEmail(info)
+                            checkDailyReset()
+                            pushCount++
+                            updateForegroundNotification()
+                            Log.d(TAG, "Delayed notification sent: ${info.appName} - ${info.title}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error sending delayed pushes", e)
+                    }
+                }
+            }
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(delayedPushReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(delayedPushReceiver, filter)
+            }
+            Log.d(TAG, "Delayed push receiver registered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register delayed push receiver", e)
         }
     }
 
@@ -512,6 +582,7 @@ class NotificationMonitorService : NotificationListenerService() {
         val blacklistKeywords = configManager.getBlacklistKeywords()
         val deviceName = configManager.getDeviceName()
         val appFilterMode = configManager.getAppFilterMode()
+        val rulesJson = configManager.getNotificationRules()
     }
 
     private fun dispatchEmail(info: NotificationInfo) {
@@ -536,5 +607,39 @@ data class NotificationInfo(
     val postTime: Long,
     val time: String,
     val type: String,
-    var deviceName: String
-)
+    var deviceName: String,
+    // 优先级分级：0=低 1=中 2=高（来自系统通知优先级，规则引擎据此评估「通知优先级」条件）
+    val priority: Int = 1
+) {
+    /** 序列化为 JSON（与 WebhookSender.sendBroadcast 字段保持一致，用于延迟推送队列持久化） */
+    fun toJson(): org.json.JSONObject = org.json.JSONObject().apply {
+        put("id", id)
+        put("title", title)
+        put("content", content)
+        put("subText", subText)
+        put("packageName", packageName)
+        put("appName", appName)
+        put("postTime", postTime)
+        put("time", time)
+        put("type", type)
+        put("deviceName", deviceName)
+        put("priority", priority)
+    }
+
+    companion object {
+        /** 从 JSON 还原（兼容旧数据缺失 priority 字段） */
+        fun fromJson(json: org.json.JSONObject): NotificationInfo = NotificationInfo(
+            id = json.optString("id", ""),
+            title = json.optString("title", ""),
+            content = json.optString("content", ""),
+            subText = json.optString("subText", ""),
+            packageName = json.optString("packageName", ""),
+            appName = json.optString("appName", ""),
+            postTime = json.optLong("postTime", 0L),
+            time = json.optString("time", ""),
+            type = json.optString("type", "other"),
+            deviceName = json.optString("deviceName", ""),
+            priority = json.optInt("priority", 1)
+        )
+    }
+}

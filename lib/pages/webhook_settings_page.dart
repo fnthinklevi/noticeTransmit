@@ -68,8 +68,49 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     }
   }
 
+  /// 渠道类型本地化名称（替代模型层的静态中文 label）
+  String _channelTypeLabel(BuildContext context, WebhookChannelType type) {
+    final l10n = AppLocalizations.of(context);
+    switch (type) {
+      case WebhookChannelType.generic:
+        return l10n.channelTypeGeneric;
+      case WebhookChannelType.wechatWork:
+        return l10n.channelTypeWechat;
+      case WebhookChannelType.dingtalk:
+        return l10n.channelTypeDingtalk;
+      case WebhookChannelType.feishu:
+        return l10n.channelTypeFeishu;
+      case WebhookChannelType.telegram:
+        return l10n.channelTypeTelegram;
+      case WebhookChannelType.bark:
+        return l10n.channelTypeBark;
+      case WebhookChannelType.serverChan:
+        return l10n.channelTypeServerChan;
+      case WebhookChannelType.pushPlus:
+        return l10n.channelTypePushPlus;
+    }
+  }
+
+  /// 消息格式本地化名称（品牌/格式名无需翻译）
+  String _messageFormatLabel(BuildContext context, WebhookMessageFormat fmt) {
+    final l10n = AppLocalizations.of(context);
+    switch (fmt) {
+      case WebhookMessageFormat.defaultFormat:
+        return l10n.msgFormatDefault;
+      case WebhookMessageFormat.text:
+        return l10n.msgFormatText;
+      case WebhookMessageFormat.markdown:
+        return 'Markdown';
+      case WebhookMessageFormat.json:
+        return 'JSON';
+      case WebhookMessageFormat.xml:
+        return 'XML';
+    }
+  }
+
   /// 渠道类型选择器：iOS 风格输入框样式 + 弹窗选择（替代 Material DropdownButton）
   Widget _buildChannelTypeSelector(int index, BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final manual = _channelTypes[index];
     final detected = WebhookChannel.detectTypeFromUrl(
       _webhookControllers[index].text,
@@ -83,9 +124,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           );
     final display = isAuto
         ? (detected == WebhookChannelType.generic
-              ? '自动识别'
-              : '自动识别（${detected.label}）')
-        : currentType.label;
+              ? l10n.channelTypeAuto
+              : l10n.channelTypeAutoWith(_channelTypeLabel(context, detected)))
+        : _channelTypeLabel(context, currentType);
     final visual = _typeVisual(currentType);
 
     return InkWell(
@@ -125,6 +166,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
 
   /// 渠道类型选择弹窗（与主题/语言选择同款 iOS 风格）
   void _showChannelTypePicker(int index, BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final detected = WebhookChannel.detectTypeFromUrl(
       _webhookControllers[index].text,
     );
@@ -135,7 +177,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
         title: Text(
-          '选择推送渠道',
+          l10n.selectChannelType,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
@@ -154,8 +196,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   icon: Icons.auto_awesome,
                   color: AppColors.blue,
                   label: detected == WebhookChannelType.generic
-                      ? '自动识别'
-                      : '自动识别（${detected.label}）',
+                      ? l10n.channelTypeAuto
+                      : l10n.channelTypeAutoWith(
+                          _channelTypeLabel(context, detected),
+                        ),
                   selected: current.isEmpty || current == 'auto',
                   onTap: () {
                     setState(() => _channelTypes[index] = 'auto');
@@ -168,7 +212,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                     context,
                     icon: visual.$1,
                     color: visual.$2,
-                    label: t.label,
+                    label: _channelTypeLabel(context, t),
                     selected: current == t.value,
                     onTap: () {
                       setState(() => _channelTypes[index] = t.value);
@@ -415,24 +459,25 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         type != WebhookChannelType.pushPlus;
   }
 
-  String _signingHint(WebhookChannelType type) {
+  String _signingHint(BuildContext context, WebhookChannelType type) {
+    final l10n = AppLocalizations.of(context);
     switch (type) {
       case WebhookChannelType.wechatWork:
-        return '企业微信群机器人开启「签名校验」后生成的密钥';
+        return l10n.signingHintWechat;
       case WebhookChannelType.dingtalk:
-        return '钉钉机器人开启「加签」后生成的密钥（SEC 开头）';
+        return l10n.signingHintDingtalk;
       case WebhookChannelType.feishu:
-        return '飞书自定义机器人开启「签名校验」后的密钥';
+        return l10n.signingHintFeishu;
       case WebhookChannelType.telegram:
-        return 'Telegram 使用 Bot Token 鉴权，无需签名密钥';
+        return l10n.signingHintTelegram;
       case WebhookChannelType.bark:
-        return 'Bark 使用设备 Key 鉴权，无需签名密钥';
+        return l10n.signingHintBark;
       case WebhookChannelType.serverChan:
-        return 'Server酱 使用 SendKey 鉴权，无需签名密钥';
+        return l10n.signingHintServerChan;
       case WebhookChannelType.pushPlus:
-        return 'PushPlus 使用 Token 鉴权，无需签名密钥';
+        return l10n.signingHintPushPlus;
       case WebhookChannelType.generic:
-        return '自建服务端校验签名用的密钥（通过 X-Signature 头传递）';
+        return l10n.signingHintGeneric;
     }
   }
 
@@ -659,7 +704,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           Row(
             children: [
               Text(
-                '渠道类型',
+                l10n.channelTypeLabel,
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.secondaryLabel(context),
@@ -685,7 +730,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               controller: _secretControllers[index],
               obscureText: !_secretVisible[index],
               decoration: InputDecoration(
-                hintText: _signingHint(_effectiveType(index)),
+                hintText: _signingHint(context, _effectiveType(index)),
                 hintStyle: TextStyle(
                   fontSize: 12,
                   color: AppColors.tertiaryLabel(context),
@@ -776,7 +821,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                               ),
                             ),
                             child: Text(
-                              fmt.label,
+                              _messageFormatLabel(context, fmt),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: selected
@@ -1135,7 +1180,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           color = const Color(0xFFE6A23C);
           desc = l10n.platformWechatDesc;
         case WebhookChannelType.serverChan:
-          typeName = 'Server酱';
+          typeName = l10n.channelTypeServerChan;
           icon = Icons.forward_to_inbox;
           color = const Color(0xFF4E5969);
           desc = l10n.platformWechatDesc;

@@ -93,7 +93,7 @@ class DatabaseHelper implements WebhookChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 7,
+        version: 8,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -106,7 +106,7 @@ class DatabaseHelper implements WebhookChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 7,
+        version: 8,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -245,6 +245,7 @@ class DatabaseHelper implements WebhookChannelStore {
         time TEXT NOT NULL,
         type TEXT NOT NULL,
         device_name TEXT,
+        priority INTEGER NOT NULL DEFAULT 1,
         delivery_info TEXT,
         timestamp INTEGER NOT NULL,
         created_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -430,6 +431,12 @@ class DatabaseHelper implements WebhookChannelStore {
         ALTER TABLE notifications ADD COLUMN delivery_info TEXT
       ''');
     }
+    if (oldVersion < 8) {
+      // v8: 通知优先级分级（0=低 / 1=中 / 2=高），旧数据默认中优先级
+      await db.execute('''
+        ALTER TABLE notifications ADD COLUMN priority INTEGER NOT NULL DEFAULT 1
+      ''');
+    }
   }
 
   Future<void> migrateFromSharedPreferences() async {
@@ -459,6 +466,7 @@ class DatabaseHelper implements WebhookChannelStore {
                 'type': record['type'] ?? 'other',
                 'device_name':
                     record['deviceName'] ?? record['device_name'] ?? '',
+                'priority': record['priority'] ?? 1,
                 'timestamp': record['timestamp'] ?? 0,
                 'created_at': DateTime.now().millisecondsSinceEpoch,
               }, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -484,6 +492,7 @@ class DatabaseHelper implements WebhookChannelStore {
       'time': record['time'] ?? '',
       'type': record['type'] ?? 'other',
       'device_name': record['deviceName'] ?? record['device_name'] ?? '',
+      'priority': record['priority'] ?? 1,
       'delivery_info':
           record['deliveryStatus'] != null &&
               (record['deliveryStatus'] as Map).isNotEmpty

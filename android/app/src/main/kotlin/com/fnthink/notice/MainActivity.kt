@@ -212,6 +212,8 @@ class MainActivity : FlutterActivity() {
 
         // 冷启动时更新桌面应用名为当前语言
         updateAppLabel()
+        // 校正桌面图标别名（zh/en），避免历史残留的英文别名导致最近任务页显示旧名称
+        switchLocaleAlias()
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
         methodChannel?.setMethodCallHandler { call, result ->
@@ -465,6 +467,12 @@ class MainActivity : FlutterActivity() {
                 }
                 "getWhitelistKeywords" -> {
                     result.success(getWhitelistKeywords())
+                }
+                "setNotificationRules" -> {
+                    // 保存通知规则（优先级分级 / 延迟推送等由原生 RuleEngine 执行），并通知服务热更新配置
+                    val rules = call.argument<List<Map<String, Any?>>>("rules") ?: emptyList()
+                    setNotificationRules(rules)
+                    result.success(true)
                 }
                 "openAppDetailsSettings" -> {
                     openAppDetailsSettings()
@@ -790,6 +798,27 @@ class MainActivity : FlutterActivity() {
         val jsonArray = org.json.JSONArray(keywords)
         prefs.edit().putString("flutter.whitelist_keywords", jsonArray.toString()).apply()
         notifyServiceConfigChanged()
+    }
+
+    private fun setNotificationRules(rules: List<Map<String, Any?>>) {
+        try {
+            val jsonArray = org.json.JSONArray()
+            for (rule in rules) {
+                // 注意：JSONObject(Map) 会把 null 值序列化为字符串 "null"，
+                // 因此显式过滤 null 字段后再序列化，避免原生 RuleEngine 误读。
+                val obj = org.json.JSONObject()
+                for ((k, v) in rule) {
+                    if (v != null) obj.put(k, v)
+                }
+                jsonArray.put(obj)
+            }
+            prefs.edit()
+                .putString("flutter.notification_rules", jsonArray.toString())
+                .apply()
+            notifyServiceConfigChanged()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun getWhitelistKeywords(): List<String> {

@@ -539,6 +539,24 @@ class _ActionItem extends StatelessWidget {
     required this.onRemove,
   });
 
+  /// 生成延迟推送参数摘要文本（与原生 RuleEngine 参数键保持一致）
+  String _delayParamsText(RuleAction action) {
+    final parts = <String>[];
+    final delaySeconds = action.params['delaySeconds'];
+    if (delaySeconds is int && delaySeconds > 0) {
+      if (delaySeconds % 60 == 0) {
+        parts.add('延迟 ${delaySeconds ~/ 60} 分钟');
+      } else {
+        parts.add('延迟 $delaySeconds 秒');
+      }
+    }
+    final scheduleTime = action.params['scheduleTime']?.toString() ?? '';
+    if (scheduleTime.isNotEmpty) {
+      parts.add('定时 $scheduleTime');
+    }
+    return parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -571,6 +589,18 @@ class _ActionItem extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (action.type == ActionType.delay && action.params.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _delayParamsText(action),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.systemBlue(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1051,6 +1081,15 @@ class _ActionAddDialog extends StatefulWidget {
 
 class _ActionAddDialogState extends State<_ActionAddDialog> {
   ActionType? _selectedType;
+  final TextEditingController _delaySecondsController = TextEditingController();
+  final TextEditingController _scheduleTimeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _delaySecondsController.dispose();
+    _scheduleTimeController.dispose();
+    super.dispose();
+  }
 
   void _submit() {
     if (_selectedType != null) {
@@ -1058,10 +1097,27 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
         RuleAction(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           type: _selectedType!,
+          params: _buildParams(),
         ),
       );
       Navigator.pop(context);
     }
+  }
+
+  /// 延迟推送动作参数：delaySeconds（延迟秒数）/ scheduleTime（HH:mm 定时），
+  /// 与原生 RuleEngine.computeFireAt 保持一致。
+  Map<String, dynamic> _buildParams() {
+    if (_selectedType != ActionType.delay) return const {};
+    final params = <String, dynamic>{};
+    final delaySeconds = int.tryParse(_delaySecondsController.text.trim());
+    if (delaySeconds != null && delaySeconds > 0) {
+      params['delaySeconds'] = delaySeconds;
+    }
+    final scheduleTime = _scheduleTimeController.text.trim();
+    if (scheduleTime.isNotEmpty) {
+      params['scheduleTime'] = scheduleTime;
+    }
+    return params;
   }
 
   @override
@@ -1140,6 +1196,13 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
                 ),
               ),
             ),
+            if (_selectedType == ActionType.delay) ...[
+              const SizedBox(height: 16),
+              _DelayParamsFields(
+                delaySecondsController: _delaySecondsController,
+                scheduleTimeController: _scheduleTimeController,
+              ),
+            ],
           ],
         ),
       ),
@@ -1182,15 +1245,44 @@ class _ActionEditDialog extends StatefulWidget {
 
 class _ActionEditDialogState extends State<_ActionEditDialog> {
   late ActionType _type;
+  final TextEditingController _delaySecondsController = TextEditingController();
+  final TextEditingController _scheduleTimeController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _type = widget.action.type;
+    final params = widget.action.params;
+    final delaySeconds = params['delaySeconds'];
+    if (delaySeconds is int && delaySeconds > 0) {
+      _delaySecondsController.text = delaySeconds.toString();
+    }
+    final scheduleTime = params['scheduleTime']?.toString() ?? '';
+    if (scheduleTime.isNotEmpty) {
+      _scheduleTimeController.text = scheduleTime;
+    }
+  }
+
+  @override
+  void dispose() {
+    _delaySecondsController.dispose();
+    _scheduleTimeController.dispose();
+    super.dispose();
   }
 
   void _submit() {
-    widget.onSave(widget.action.copyWith(type: _type));
+    final params = <String, dynamic>{};
+    if (_type == ActionType.delay) {
+      final delaySeconds = int.tryParse(_delaySecondsController.text.trim());
+      if (delaySeconds != null && delaySeconds > 0) {
+        params['delaySeconds'] = delaySeconds;
+      }
+      final scheduleTime = _scheduleTimeController.text.trim();
+      if (scheduleTime.isNotEmpty) {
+        params['scheduleTime'] = scheduleTime;
+      }
+    }
+    widget.onSave(widget.action.copyWith(type: _type, params: params));
     Navigator.pop(context);
   }
 
@@ -1266,6 +1358,13 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
                 ),
               ),
             ),
+            if (_type == ActionType.delay) ...[
+              const SizedBox(height: 16),
+              _DelayParamsFields(
+                delaySecondsController: _delaySecondsController,
+                scheduleTimeController: _scheduleTimeController,
+              ),
+            ],
           ],
         ),
       ),
@@ -1288,6 +1387,90 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppColors.blue,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 延迟推送动作的参数输入区（延迟秒数 + 定时时间），Add/Edit 对话框共用。
+class _DelayParamsFields extends StatelessWidget {
+  final TextEditingController delaySecondsController;
+  final TextEditingController scheduleTimeController;
+
+  const _DelayParamsFields({
+    required this.delaySecondsController,
+    required this.scheduleTimeController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            '延迟推送参数（至少填写一项）',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ),
+        TextField(
+          controller: delaySecondsController,
+          keyboardType: TextInputType.number,
+          style: TextStyle(color: AppColors.primaryLabel(context)),
+          decoration: InputDecoration(
+            labelText: '延迟秒数',
+            hintText: '如 60 = 延迟 1 分钟',
+            labelStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+            hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+            fillColor: AppColors.inputBg(context),
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.separator(context)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.blue),
+            ),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: scheduleTimeController,
+          keyboardType: TextInputType.datetime,
+          style: TextStyle(color: AppColors.primaryLabel(context)),
+          decoration: InputDecoration(
+            labelText: '定时时间',
+            hintText: '如 22:00（当日到点推送）',
+            labelStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+            hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+            fillColor: AppColors.inputBg(context),
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: AppColors.separator(context)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.blue),
+            ),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
             ),
           ),
         ),

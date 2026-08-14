@@ -20,6 +20,7 @@ class ConfigManager(private val context: Context) {
         private const val KEY_DEVICE_NAME = "flutter.device_name"
         private const val KEY_BATTERY_RULES = "flutter.battery_rules"
         private const val KEY_BATTERY_NOTIFY_ENABLED = "flutter.battery_notify_enabled"
+        private const val KEY_NOTIFICATION_RULES = "flutter.notification_rules"
     }
 
     private val prefs: SharedPreferences by lazy {
@@ -144,6 +145,14 @@ class ConfigManager(private val context: Context) {
 
     fun getBatteryNotifyEnabled(): Boolean {
         return prefs.getBoolean(KEY_BATTERY_NOTIFY_ENABLED, true)
+    }
+
+    /**
+     * 返回通知规则 JSON 数组字符串（结构与 Flutter 端 NotificationRule.toMap() 一致）。
+     * 未配置时返回空串，规则引擎按默认（立即推送）处理。
+     */
+    fun getNotificationRules(): String {
+        return prefs.getString(KEY_NOTIFICATION_RULES, "") ?: ""
     }
 
     private fun getStringList(key: String): List<String> {

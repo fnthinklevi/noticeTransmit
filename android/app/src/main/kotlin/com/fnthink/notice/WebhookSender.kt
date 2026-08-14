@@ -48,6 +48,14 @@ class WebhookSender(private val context: Context) {
     fun sendNotification(info: NotificationInfo) {
         sendBroadcast(info)
 
+        sendWebhooksOnly(info)
+    }
+
+    /**
+     * 仅推送 webhook（不广播记录）。用于延迟推送到点后的补推：
+     * 记录已在通知到达时通过 sendBroadcast 立即写入历史。
+     */
+    fun sendWebhooksOnly(info: NotificationInfo) {
         if (channelConfigs.isEmpty()) return
 
         for (cfg in channelConfigs) {
@@ -68,6 +76,7 @@ class WebhookSender(private val context: Context) {
                 put("time", info.time)
                 put("type", info.type)
                 put("deviceName", info.deviceName)
+                put("priority", info.priority)
                 put("timestamp", System.currentTimeMillis())
             }
             // 同步写入离线缓存：即使 MainActivity 被销毁，Flutter 重启后也能从缓存拉取

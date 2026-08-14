@@ -267,6 +267,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               final navigator = Navigator.of(ctx);
               localeService.setLanguage(AppLanguage.system).then((_) async {
                 await localeService.recordSystemLang();
+                // 同步原生端桌面应用名，保持与界面语言一致（避免残留旧语言）
+                AppChannels.notification.invokeMethod(
+                  'setLocaleLabel',
+                  localeService.currentLocale.languageCode,
+                );
                 if (mounted) navigator.pop(false);
               });
             },
@@ -281,7 +286,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               localeService.setLanguage(AppLanguage.system).then((_) async {
                 await localeService.recordSystemLang();
                 if (mounted) {
-                  AppChannels.notification.invokeMethod('setLocaleLabel', 'zh');
+                  AppChannels.notification.invokeMethod(
+                    'setLocaleLabel',
+                    localeService.currentLocale.languageCode,
+                  );
                   navigator.pop(true);
                   widget.onLocaleChanged?.call(localeService.currentLocale);
                 }
@@ -304,6 +312,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final localeService = GetIt.instance<LocaleService>();
     await localeService.setLanguage(lang);
     setState(() {});
+    // 同步原生端桌面应用名（最近任务页）为当前实际语言
+    AppChannels.notification.invokeMethod(
+      'setLocaleLabel',
+      localeService.currentLocale.languageCode,
+    );
     widget.onLocaleChanged?.call(localeService.currentLocale);
   }
 

@@ -11,6 +11,8 @@ class NotificationRecord {
   final int postTime;
   final String time;
   final String deviceName;
+  // 通知优先级：0=低 / 1=中 / 2=高（来源于系统通知 priority）
+  final int priority;
   final List<String> channels;
   // 各推送通道的送达状态：label → {'status': 'pending/success/failed', 'message': '...'}
   final Map<String, dynamic> deliveryStatus;
@@ -26,6 +28,7 @@ class NotificationRecord {
     required this.postTime,
     required this.time,
     required this.deviceName,
+    this.priority = 1,
     this.channels = const [],
     this.deliveryStatus = const {},
   });
@@ -42,6 +45,7 @@ class NotificationRecord {
       postTime: map['postTime'] as int? ?? 0,
       time: map['time'] as String? ?? '',
       deviceName: map['deviceName'] as String? ?? '',
+      priority: map['priority'] as int? ?? 1,
       channels:
           (map['channels'] as List<dynamic>?)
               ?.map((e) => e.toString())
@@ -77,6 +81,7 @@ class NotificationRecord {
       'postTime': postTime,
       'time': time,
       'deviceName': deviceName,
+      'priority': priority,
       'channels': channels,
       'deliveryStatus': deliveryStatus,
     };
@@ -93,6 +98,7 @@ class NotificationRecord {
     int? postTime,
     String? time,
     String? deviceName,
+    int? priority,
     List<String>? channels,
     Map<String, dynamic>? deliveryStatus,
   }) {
@@ -107,6 +113,7 @@ class NotificationRecord {
       postTime: postTime ?? this.postTime,
       time: time ?? this.time,
       deviceName: deviceName ?? this.deviceName,
+      priority: priority ?? this.priority,
       channels: channels ?? this.channels,
       deliveryStatus: deliveryStatus ?? this.deliveryStatus,
     );

@@ -183,6 +183,105 @@ void main() {
       expect(deserialized.deviceName, original.deviceName);
     });
 
+    group('priority 优先级', () {
+      test('fromMap 缺省为 1（中优先级）', () {
+        final map = {
+          'id': testId,
+          'title': testTitle,
+          'content': testContent,
+          'packageName': testPackageName,
+          'appName': testAppName,
+          'type': testType,
+          'postTime': testPostTime,
+          'time': testTime,
+        };
+
+        final record = NotificationRecord.fromMap(map);
+
+        expect(record.priority, 1);
+      });
+
+      test('fromMap 读取优先级值', () {
+        final map = {
+          'id': testId,
+          'title': testTitle,
+          'content': testContent,
+          'packageName': testPackageName,
+          'appName': testAppName,
+          'type': testType,
+          'postTime': testPostTime,
+          'time': testTime,
+          'priority': 2,
+        };
+
+        final record = NotificationRecord.fromMap(map);
+
+        expect(record.priority, 2);
+      });
+
+      test('toMap 序列化 priority 字段', () {
+        final record = NotificationRecord(
+          id: testId,
+          title: testTitle,
+          content: testContent,
+          subText: '',
+          packageName: testPackageName,
+          appName: testAppName,
+          type: testType,
+          postTime: testPostTime,
+          time: testTime,
+          deviceName: testDeviceName,
+          priority: 0,
+        );
+
+        final map = record.toMap();
+
+        expect(map['priority'], 0);
+      });
+
+      test('priority round-trip 序列化', () {
+        final original = NotificationRecord(
+          id: testId,
+          title: testTitle,
+          content: testContent,
+          subText: '',
+          packageName: testPackageName,
+          appName: testAppName,
+          type: testType,
+          postTime: testPostTime,
+          time: testTime,
+          deviceName: testDeviceName,
+          priority: 2,
+        );
+
+        final map = original.toMap();
+        final restored = NotificationRecord.fromMap(map);
+
+        expect(restored.priority, 2);
+      });
+
+      test('copyWith 可修改优先级', () {
+        final original = NotificationRecord(
+          id: testId,
+          title: testTitle,
+          content: testContent,
+          subText: '',
+          packageName: testPackageName,
+          appName: testAppName,
+          type: testType,
+          postTime: testPostTime,
+          time: testTime,
+          deviceName: testDeviceName,
+          priority: 1,
+        );
+
+        final updated = original.copyWith(priority: 0);
+
+        expect(updated.priority, 0);
+        expect(original.priority, 1);
+      });
+    });
+
     group('deliveryStatus 送达状态', () {
       test('fromMap 解析内存 Map 来源', () {
         final map = {
