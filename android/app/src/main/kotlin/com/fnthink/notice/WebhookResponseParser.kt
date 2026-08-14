@@ -144,6 +144,25 @@ object WebhookResponseParser {
                     )
                 }
             }
+
+            WebhookPayloadBuilder.WebhookType.TELEGRAM,
+            WebhookPayloadBuilder.WebhookType.BARK -> {
+                // Telegram: {"ok": true/false, "description": "..."}
+                // Bark: {"code": 200, "message": "..."}
+                val ok = json.optBoolean("ok", true)
+                val description = json.optString("description", json.optString("message", ""))
+                return if (ok) {
+                    ParseResult(
+                        DeliveryStatus.SUCCESS, httpCode,
+                        if (description.isNotEmpty()) description else "OK", false
+                    )
+                } else {
+                    ParseResult(
+                        DeliveryStatus.BIZ_FAIL, httpCode,
+                        if (description.isNotEmpty()) description else "失败", false
+                    )
+                }
+            }
         }
     }
 }

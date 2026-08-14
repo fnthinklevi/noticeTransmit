@@ -184,6 +184,15 @@ object TemplateEngine {
                 put("content", JSONObject().apply { put("text", rendered) })
             }.toString()
 
+            WebhookPayloadBuilder.WebhookType.TELEGRAM -> JSONObject().apply {
+                put("text", rendered)
+            }.toString()
+
+            WebhookPayloadBuilder.WebhookType.BARK -> JSONObject().apply {
+                put("title", vars.title)
+                put("body", rendered)
+            }.toString()
+
             WebhookPayloadBuilder.WebhookType.GENERIC -> return null
         }
     }

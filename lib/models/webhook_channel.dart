@@ -1,7 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-enum WebhookChannelType { generic, wechatWork, dingtalk, feishu }
+enum WebhookChannelType {
+  generic,
+  wechatWork,
+  dingtalk,
+  feishu,
+  telegram,
+  bark,
+}
 
 extension WebhookChannelTypeExtension on WebhookChannelType {
   String get value {
@@ -14,6 +21,10 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'dingtalk';
       case WebhookChannelType.feishu:
         return 'feishu';
+      case WebhookChannelType.telegram:
+        return 'telegram';
+      case WebhookChannelType.bark:
+        return 'bark';
     }
   }
 
@@ -27,6 +38,10 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return '钉钉群机器人';
       case WebhookChannelType.feishu:
         return '飞书群机器人';
+      case WebhookChannelType.telegram:
+        return 'Telegram';
+      case WebhookChannelType.bark:
+        return 'Bark';
     }
   }
 
@@ -38,6 +53,9 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
       case WebhookChannelType.dingtalk:
       case WebhookChannelType.feishu:
         return true;
+      case WebhookChannelType.telegram:
+      case WebhookChannelType.bark:
+        return false;
     }
   }
 
@@ -52,6 +70,10 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return '飞书自定义机器人开启「签名校验」后的密钥';
       case WebhookChannelType.generic:
         return '自建服务端校验签名用的密钥（通过 X-Signature 头传递）';
+      case WebhookChannelType.telegram:
+        return 'Telegram 使用 Bot Token 鉴权，无需签名密钥';
+      case WebhookChannelType.bark:
+        return 'Bark 使用设备 Key 鉴权，无需签名密钥';
     }
   }
 }
@@ -139,20 +161,22 @@ class WebhookChannel {
     this.messageTemplate,
   });
 
+  /// 平台 host 匹配规则（与 Kotlin 端 WebhookPayloadBuilder.PLATFORM_RULES 保持一致）
+  static const _platformRules = <(WebhookChannelType, List<String>)>[
+    (WebhookChannelType.wechatWork, ['qyapi.weixin.qq.com']),
+    (WebhookChannelType.dingtalk, ['oapi.dingtalk.com']),
+    (WebhookChannelType.feishu, ['open.feishu.cn', 'open.larksuite.com']),
+    (WebhookChannelType.telegram, ['api.telegram.org']),
+    (WebhookChannelType.bark, ['api.day.app', 'bark.gugu.ovh']),
+  ];
+
   static WebhookChannelType detectTypeFromUrl(String url) {
     final host = _extractHost(url);
     if (host == null) return WebhookChannelType.generic;
 
-    // 后缀/关键字匹配，容忍子域名与域名变体（与单元测试断言一致）：
-    // - 企微：qyapi.weixin.qq.com / weixin.qq.com 均以 weixin.qq.com 结尾
-    // - 钉钉：域名含 dingtalk（oapi.dingtalk.com / dingtalk.com / dingtalk.example.com）
-    // - 飞书：open.feishu.cn 以 feishu.cn 结尾；larksuite 系列以 larksuite.com 结尾
-    if (host.endsWith('weixin.qq.com')) {
-      return WebhookChannelType.wechatWork;
-    } else if (host.contains('dingtalk')) {
-      return WebhookChannelType.dingtalk;
-    } else if (host.endsWith('feishu.cn') || host.endsWith('larksuite.com')) {
-      return WebhookChannelType.feishu;
+    // host 精确匹配（与 Kotlin 端一致），新增平台只需在 _platformRules 中追加一行
+    for (final (type, hosts) in _platformRules) {
+      if (hosts.contains(host)) return type;
     }
     return WebhookChannelType.generic;
   }

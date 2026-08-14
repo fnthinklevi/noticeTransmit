@@ -8,30 +8,32 @@ object WebhookPayloadBuilder {
         GENERIC,
         WECHAT_WORK,
         DINGTALK,
-        FEISHU
+        FEISHU,
+        TELEGRAM,
+        BARK
     }
+
+    /** 平台 host 匹配规则（新增平台只需追加一行） */
+    data class PlatformRule(val type: WebhookType, val hosts: List<String>)
+
+    val PLATFORM_RULES = listOf(
+        PlatformRule(WebhookType.WECHAT_WORK, listOf("qyapi.weixin.qq.com")),
+        PlatformRule(WebhookType.DINGTALK, listOf("oapi.dingtalk.com")),
+        PlatformRule(WebhookType.FEISHU, listOf("open.feishu.cn", "open.larksuite.com")),
+        PlatformRule(WebhookType.TELEGRAM, listOf("api.telegram.org")),
+        PlatformRule(WebhookType.BARK, listOf("api.day.app", "bark.gugu.ovh")),
+    )
 
     /**
      * 根据 URL 猜测 webhook 平台类型（仅作为兜底，准确类型应由 DB channel_type 字段提供）。
-     *
-     * 精确匹配规则（避免误判）：
-     * - 企业微信群机器人：host == qyapi.weixin.qq.com
-     * - 钉钉群机器人：host == oapi.dingtalk.com
-     * - 飞书群机器人：host 后缀 == open.feishu.cn / open.larksuite.com
-     *
-     * 已修正的历史误判：
-     * - 旧逻辑 `url.contains("weixin.qq.com")` 会误匹配任意微信相关域名
-     * - 旧逻辑 `url.contains("dingtalk")` 会误匹配自定义域名中的 dingtalk 字样
-     * - 旧逻辑 `url.contains("feishu.cn")` 会误匹配 feishu.cn 子域
+     * 遍历 [PLATFORM_RULES] 做 host 精确匹配，新增平台只需在规则列表中追加一行。
      */
     fun detectType(url: String): WebhookType {
         val host = extractHost(url) ?: return WebhookType.GENERIC
-        return when {
-            host == "qyapi.weixin.qq.com" -> WebhookType.WECHAT_WORK
-            host == "oapi.dingtalk.com" -> WebhookType.DINGTALK
-            host == "open.feishu.cn" || host == "open.larksuite.com" -> WebhookType.FEISHU
-            else -> WebhookType.GENERIC
+        for (rule in PLATFORM_RULES) {
+            if (host in rule.hosts) return rule.type
         }
+        return WebhookType.GENERIC
     }
 
     /**
@@ -103,6 +105,20 @@ object WebhookPayloadBuilder {
                 time = time,
                 deviceName = deviceName
             )
+            WebhookType.TELEGRAM -> buildTelegram(
+                title = title,
+                content = content,
+                appName = appName,
+                time = time,
+                deviceName = deviceName
+            )
+            WebhookType.BARK -> buildBark(
+                title = title,
+                content = content,
+                appName = appName,
+                time = time,
+                deviceName = deviceName
+            )
         }
     }
 
@@ -140,6 +156,15 @@ object WebhookPayloadBuilder {
                 put("content", JSONObject().apply {
                     put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
                 })
+            }.toString()
+
+            WebhookType.TELEGRAM -> JSONObject().apply {
+                put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
+            }.toString()
+
+            WebhookType.BARK -> JSONObject().apply {
+                put("title", title)
+                put("body", "$content\n\n$deviceLabel$sep$deviceName")
             }.toString()
         }
     }
@@ -280,6 +305,37 @@ object WebhookPayloadBuilder {
         }.toString()
     }
 
+    private fun buildTelegram(
+        title: String,
+        content: String,
+        appName: String,
+        time: String,
+        deviceName: String
+    ): String {
+        val text = buildTextBody(
+            title = title, content = content, appName = appName,
+            time = time, deviceName = deviceName
+        )
+        return JSONObject().apply { put("text", text) }.toString()
+    }
+
+    private fun buildBark(
+        title: String,
+        content: String,
+        appName: String,
+        time: String,
+        deviceName: String
+    ): String {
+        val body = buildTextBody(
+            title = "", content = content, appName = appName,
+            time = time, deviceName = deviceName
+        )
+        return JSONObject().apply {
+            put("title", title)
+            put("body", body)
+        }.toString()
+    }
+
     fun buildSmsPayload(
         type: WebhookType,
         sender: String,
@@ -334,6 +390,23 @@ object WebhookPayloadBuilder {
                         sender = sender, message = message, simInfo = simInfo
                     ))
                 })
+            }.toString()
+
+            WebhookType.TELEGRAM -> JSONObject().apply {
+                put("text", buildTextBody(
+                    title = title, content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    sender = sender, message = message, simInfo = simInfo
+                ))
+            }.toString()
+
+            WebhookType.BARK -> JSONObject().apply {
+                put("title", title)
+                put("body", buildTextBody(
+                    title = "", content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    sender = sender, message = message, simInfo = simInfo
+                ))
             }.toString()
         }
     }
@@ -393,6 +466,25 @@ object WebhookPayloadBuilder {
                         durationStr = durationStr, simInfo = simInfo
                     ))
                 })
+            }.toString()
+
+            WebhookType.TELEGRAM -> JSONObject().apply {
+                put("text", buildTextBody(
+                    title = "", content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    state = state, phoneNumber = phoneNumber,
+                    durationStr = durationStr, simInfo = simInfo
+                ))
+            }.toString()
+
+            WebhookType.BARK -> JSONObject().apply {
+                put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
+                put("body", buildTextBody(
+                    title = "", content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    state = state, phoneNumber = phoneNumber,
+                    durationStr = durationStr, simInfo = simInfo
+                ))
             }.toString()
         }
     }

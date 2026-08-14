@@ -212,6 +212,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return '钉钉机器人开启「加签」后生成的密钥（SEC 开头）';
       case WebhookChannelType.feishu:
         return '飞书自定义机器人开启「签名校验」后的密钥';
+      case WebhookChannelType.telegram:
+        return 'Telegram 使用 Bot Token 鉴权，无需签名密钥';
+      case WebhookChannelType.bark:
+        return 'Bark 使用设备 Key 鉴权，无需签名密钥';
       case WebhookChannelType.generic:
         return '自建服务端校验签名用的密钥（通过 X-Signature 头传递）';
     }
@@ -562,6 +566,40 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               ),
             ],
           ),
+          // 飞书 markdown 降级提示
+          if (_messageFormats[index] == WebhookMessageFormat.markdown &&
+              (_webhookControllers[index].text.toLowerCase().contains(
+                    'feishu',
+                  ) ||
+                  _webhookControllers[index].text.toLowerCase().contains(
+                    'larksuite',
+                  ))) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 14,
+                    color: Colors.orange[700],
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      l10n.feishuMarkdownDowngradeHint,
+                      style: TextStyle(fontSize: 11, color: Colors.orange[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           // 模板编辑器：仅当 format != default 时显示
           if (_messageFormats[index] != WebhookMessageFormat.defaultFormat) ...[
             const SizedBox(height: 10),
@@ -855,6 +893,16 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           typeName = l10n.platformFeishu;
           icon = Icons.flight;
           color = AppColors.blue;
+          desc = l10n.platformWechatDesc;
+        case WebhookChannelType.telegram:
+          typeName = 'Telegram';
+          icon = Icons.send;
+          color = const Color(0xFF0088CC);
+          desc = l10n.platformWechatDesc;
+        case WebhookChannelType.bark:
+          typeName = 'Bark';
+          icon = Icons.notifications_active;
+          color = const Color(0xFFE6A23C);
           desc = l10n.platformWechatDesc;
         case WebhookChannelType.generic:
           typeName = l10n.platformGeneric;

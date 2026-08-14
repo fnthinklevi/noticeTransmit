@@ -24,6 +24,10 @@ class NotificationProcessor(private val context: Context) {
 
         if (packageName == context.packageName) return null
 
+        // 短信/电话应用由 SmsReceiver / PhoneCallReceiver 独占处理（携带 SIM 卡信息），
+        // 通知栏监听跳过，避免同一事件产生两条记录（一条有 SIM、一条无 SIM）。
+        if (isSmsPackage(packageName) || isCallPackage(packageName)) return null
+
         val isOngoing = (notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
         val dedupKey = "$packageName:$notificationId"
 
@@ -157,6 +161,21 @@ class NotificationProcessor(private val context: Context) {
             pkg.startsWith("com.alibaba.android.rimet") -> "钉钉"
             else -> packageName
         }
+    }
+
+    private fun isSmsPackage(packageName: String): Boolean {
+        val pkg = packageName.lowercase()
+        return pkg.startsWith("com.android.mms") ||
+            pkg.startsWith("com.google.android.apps.messaging") ||
+            pkg.contains("sms")
+    }
+
+    private fun isCallPackage(packageName: String): Boolean {
+        val pkg = packageName.lowercase()
+        return pkg.startsWith("com.android.dialer") ||
+            pkg.startsWith("com.android.incallui") ||
+            pkg.startsWith("com.android.phone") ||
+            pkg.startsWith("com.samsung.android.incallui")
     }
 
     private fun isVendorPushService(packageName: String): Boolean {

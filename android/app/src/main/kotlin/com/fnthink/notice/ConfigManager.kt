@@ -98,6 +98,8 @@ class ConfigManager(private val context: Context) {
             "wechat_work", "wechatwork", "0" -> WebhookPayloadBuilder.WebhookType.WECHAT_WORK
             "dingtalk", "1" -> WebhookPayloadBuilder.WebhookType.DINGTALK
             "feishu", "2" -> WebhookPayloadBuilder.WebhookType.FEISHU
+            "telegram", "4" -> WebhookPayloadBuilder.WebhookType.TELEGRAM
+            "bark", "5" -> WebhookPayloadBuilder.WebhookType.BARK
             "generic", "3" -> WebhookPayloadBuilder.WebhookType.GENERIC
             else -> WebhookPayloadBuilder.detectType(url)
         }

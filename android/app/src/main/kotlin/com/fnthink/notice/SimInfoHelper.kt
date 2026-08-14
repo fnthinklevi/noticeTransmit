@@ -18,8 +18,9 @@ import android.util.Log
  * 1. Intent extras 中的 subscriptionId（兼容多种 key：subscription / EXTRA_SUBSCRIPTION_ID）
  * 2. SubscriptionManager 精确匹配 subId
  * 3. 单卡场景回退到唯一卡
- * 4. slotIndex 反查（SubscriptionManager.getSlotIndex 在公共 SDK 中不可见，已禁用）
- * 5. 运营商占位（SIM1 / SIM2）—— 权限缺失或无信息时的兜底
+ * 4. 默认语音 SIM 回退（双卡场景：PHONE_STATE 广播通常不携带 subscriptionId）
+ * 5. slotIndex 反查（SubscriptionManager.getSlotIndex 在公共 SDK 中不可见，已禁用）
+ * 6. 占位回退 —— 权限缺失或无信息时的兜底
  *
  * 缓存：activeSubscriptionInfoList 缓存 60 秒，避免每次广播都查
  * 权限：READ_PHONE_STATE 缺失时不抛异常，回退占位标签
@@ -73,12 +74,21 @@ object SimInfoHelper {
             return buildSimInfo(activeSubs[0])
         }
 
-        // 策略 4：subId > 0 但精确匹配失败 → 尝试用 slotIndex 查
+        // 策略 4：默认语音 SIM 回退（双卡场景：PHONE_STATE 广播通常不携带 subscriptionId，
+        //         用系统默认语音通话 SIM 作为合理推断）
+        if (subId <= 0 && activeSubs.size > 1) {
+            val defaultVoiceSubId = SubscriptionManager.getDefaultVoiceSubscriptionId()
+            if (defaultVoiceSubId > 0) {
+                activeSubs.find { it.subscriptionId == defaultVoiceSubId }?.let { return buildSimInfo(it) }
+            }
+        }
+
+        // 策略 5：subId > 0 但精确匹配失败 → 尝试用 slotIndex 查
         // 说明：SubscriptionManager.getSlotIndex(int subId) 在公共 SDK 中不可见
         //       （被标记为 @SystemApi/@hide，仅系统应用可用），无法直接调用。
-        //       该场景实际触发率极低（subId 不在 activeSubs 中且非单卡），直接走策略 5 占位回退。
+        //       该场景实际触发率极低（subId 不在 activeSubs 中且非单卡），直接走策略 6 占位回退。
 
-        // 策略 5：占位回退（权限拒绝或无信息）
+        // 策略 6：占位回退（权限拒绝或无信息）
         return null
     }
 

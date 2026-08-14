@@ -84,7 +84,7 @@ class MorePage extends StatelessWidget {
             const IconPickerTile(),
           ], context),
           const SizedBox(height: 24),
-          _buildSectionHeader(l10n.pushSettings, context),
+          _buildSectionHeader(l10n.pushChannels, context),
           _buildGroup([
             _buildNavTile(
               icon: Icons.link,
@@ -107,7 +107,10 @@ class MorePage extends StatelessWidget {
               onTap: onOpenEmailSettings,
               context: context,
             ),
-            _buildDivider(context),
+          ], context),
+          const SizedBox(height: 24),
+          _buildSectionHeader(l10n.filterRules, context),
+          _buildGroup([
             _buildNavTile(
               icon: Icons.apps,
               iconColor: const Color(0xFFAF52DE),

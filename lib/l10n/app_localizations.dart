@@ -53,6 +53,8 @@ class AppLocalizations {
     // 更多页
     'appearance': '外观设置',
     'pushSettings': '推送设置',
+    'pushChannels': '推送通道',
+    'filterRules': '过滤规则',
     'webhookChannel': 'Webhook 推送通道',
     'webhookNotConfigured': '未配置',
     'webhookConfigured': '已配置 {n} 个 · 启用 {m} 个',
@@ -195,6 +197,8 @@ class AppLocalizations {
     'webhookSigned': '已签名',
     'webhookTemplateLabel': '推送模板（可选）',
     'webhookFormatLabel': '消息格式',
+    'feishuMarkdownDowngradeHint':
+        '飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号原样显示）。建议使用 text 格式。',
     'webhookTemplateHint': '留空则使用预置模板；支持变量：',
     'webhookTemplateInsertVar': '插入变量',
     'webhookTemplatePreview': '预览',
@@ -423,6 +427,8 @@ class AppLocalizations {
     // More page
     'appearance': 'Appearance',
     'pushSettings': 'Push Settings',
+    'pushChannels': 'Push Channels',
+    'filterRules': 'Filter Rules',
     'webhookChannel': 'Webhook Channels',
     'webhookNotConfigured': 'Not configured',
     'webhookConfigured': '{n} configured · {m} enabled',
@@ -569,6 +575,8 @@ class AppLocalizations {
     'webhookSigned': 'Signed',
     'webhookTemplateLabel': 'Push Template (optional)',
     'webhookFormatLabel': 'Message Format',
+    'feishuMarkdownDowngradeHint':
+        'Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.',
     'webhookTemplateHint': 'Leave empty to use preset; supported variables:',
     'webhookTemplateInsertVar': 'Insert Variable',
     'webhookTemplatePreview': 'Preview',
@@ -808,6 +816,8 @@ class AppLocalizations {
   String get notificationPermissionMsg => _get('notificationPermissionMsg');
   String get appearance => _get('appearance');
   String get pushSettings => _get('pushSettings');
+  String get pushChannels => _get('pushChannels');
+  String get filterRules => _get('filterRules');
   String get webhookChannel => _get('webhookChannel');
   String get webhookNotConfigured => _get('webhookNotConfigured');
   String webhookConfigured(int n, int m) => _get(
@@ -952,6 +962,7 @@ class AppLocalizations {
   String get webhookSigned => _get('webhookSigned');
   String get webhookTemplateLabel => _get('webhookTemplateLabel');
   String get webhookFormatLabel => _get('webhookFormatLabel');
+  String get feishuMarkdownDowngradeHint => _get('feishuMarkdownDowngradeHint');
   String get webhookTemplateHint => _get('webhookTemplateHint');
   String get webhookTemplateInsertVar => _get('webhookTemplateInsertVar');
   String get webhookTemplatePreview => _get('webhookTemplatePreview');

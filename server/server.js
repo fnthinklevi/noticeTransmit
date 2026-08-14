@@ -5,7 +5,30 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { authenticator, totp } = require('otplib');
+const { generateSecret, generateURI, verify, createGuardrails, NobleCryptoPlugin, ScureBase32Plugin } = require('otplib');
+// otplib v13：需显式提供 crypto / base32 插件
+const otpCrypto = new NobleCryptoPlugin();
+const otpBase32 = new ScureBase32Plugin();
+// v13 默认要求 secret 至少 16 字节(128bit)。旧版本生成的 16 字符 base32 secret 仅 10 字节，
+// 验证时需放宽 MIN_SECRET_BYTES guardrail，否则会抛 SecretTooShortError。
+function buildOtpVerifyOptions(secret) {
+  const decodedBytes = Math.floor(String(secret).replace(/=+$/, '').length * 5 / 8);
+  const opts = { secret, crypto: otpCrypto, base32: otpBase32, epochTolerance: 30 };
+  if (decodedBytes < 16) {
+    opts.guardrails = createGuardrails({ MIN_SECRET_BYTES: decodedBytes });
+  }
+  return opts;
+}
+// v13 的 verify 返回 Promise<{ valid, delta, ... }>，统一封装为 boolean
+async function verifyOtp(secret, token) {
+  try {
+    const result = await verify({ ...buildOtpVerifyOptions(secret), token });
+    return !!result.valid;
+  } catch (e) {
+    console.error('OTP 验证异常:', e.message);
+    return false;
+  }
+}
 const QRCode = require('qrcode');
 
 const app = express();
@@ -60,6 +83,10 @@ const rateLimitStore = {};
 
 // 定期清理 + 持久化：保存到文件防止重启丢失
 const RATE_LIMIT_FILE = path.join(DATA_DIR, 'rate_limit.json');
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_GENERAL_MAX = 60;
+const RATE_LIMIT_AUTH_MAX = 5;
+
 function saveRateLimitStore() {
   // 仅保存当前窗口内的记录，减少文件体积
   const now = Date.now();
@@ -89,9 +116,6 @@ function saveRateLimitStore() {
     console.log(`[persist] 恢复限流记录 ${Object.keys(rateLimitStore).length} 条`);
   }
 })();
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_GENERAL_MAX = 60;
-const RATE_LIMIT_AUTH_MAX = 5;
 
 function createRateLimitMiddleware(maxRequests, windowMs, message) {
   return (req, res, next) => {
@@ -180,6 +204,9 @@ app.use('/api/admin', authRateLimiter);
 const VERSION_FILE = path.join(__dirname, 'data', 'version.json');
 const TOTP_FILE = path.join(__dirname, 'data', 'totp.json');
 const BLOCK_FILE = path.join(__dirname, 'data', 'blocked_ips.json');
+
+// IP 封锁开关：设置 DISABLE_IP_BLOCKING=1 可临时关闭 IP 封锁（仍记录失败次数，但不执行封锁/拦截）
+const DISABLE_IP_BLOCKING = ['1', 'true', 'yes'].includes((process.env.DISABLE_IP_BLOCKING || '').toLowerCase());
 
 const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH;
 // ENCRYPTION_KEY 必须为 64 位十六进制（AES-256-GCM 需要 32 字节）。格式不合法则视为未配置，
@@ -278,6 +305,7 @@ function saveFailedAttempts(data) {
 }
 
 function isIpBlocked(ip) {
+  if (DISABLE_IP_BLOCKING) return false;
   const blockedIPs = getBlockedIPs();
   const entry = blockedIPs.find(item => item.ip === ip);
   if (!entry) return false;
@@ -329,10 +357,12 @@ function recordFailedAttempt(ip) {
   }
   
   if (failedAttempts[ip].count >= MAX_FAILED_ATTEMPTS) {
-    blockIp(ip);
+    if (!DISABLE_IP_BLOCKING) {
+      blockIp(ip);
+    }
     delete failedAttempts[ip];
     saveFailedAttempts(failedAttempts);
-    return true;
+    return !DISABLE_IP_BLOCKING;
   }
   
   saveFailedAttempts(failedAttempts);
@@ -391,7 +421,7 @@ function decryptSecret(encryptedData) {
 function readJsonFile(filePath, defaultValue) {
   try {
     if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
+      const content = fs.readFileSync(filePath, 'utf8');
       return JSON.parse(content);
     }
   } catch (e) {
@@ -406,7 +436,10 @@ function writeJsonFile(filePath, data) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    // 原子写入：先写 .tmp 再 rename，防止崩溃产生截断文件
+    const tmp = filePath + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+    fs.renameSync(tmp, filePath);
     return true;
   } catch (e) {
     console.error('写入文件失败:', filePath, e.message);
@@ -425,11 +458,24 @@ const totpConfig = readJsonFile(TOTP_FILE, {
 });
 
 function getTotpConfig() {
-  const config = readJsonFile(TOTP_FILE, { enabled: false, secret: '', recoveryCodes: [] });
-  if (config.secret && typeof config.secret !== 'string') {
-    config.secret = decryptSecret(config.secret);
+  try {
+    const config = readJsonFile(TOTP_FILE, { enabled: false, secret: '', recoveryCodes: [] });
+    if (config.secret && typeof config.secret !== 'string') {
+      const decrypted = decryptSecret(config.secret);
+      if (!decrypted) {
+        console.error('[totp] secret 解密失败，请检查 ENCRYPTION_KEY 是否与启用二步验证时一致');
+      }
+      config.secret = decrypted || '';
+    }
+    // 确保 secret 是字符串，防止 verify 抛出异常
+    if (typeof config.secret !== 'string') {
+      config.secret = '';
+    }
+    return config;
+  } catch (e) {
+    console.error('读取 TOTP 配置失败:', e.message);
+    return { enabled: false, secret: '', recoveryCodes: [] };
   }
-  return config;
 }
 
 function saveTotpConfig(config) {
@@ -520,42 +566,65 @@ async function verifyToken(token) {
   }
 }
 
-async function authMiddleware(req, res, next) {
-  const token = req.headers['x-admin-token'];
-  const sessionId = req.headers['x-session-id'];
-
-  if (sessionId && sessions[sessionId]) {
-    if (Date.now() - sessions[sessionId].createdAt > 24 * 60 * 60 * 1000) {
-      delete sessions[sessionId];
-      return res.status(401).json({ code: -1, message: '会话已过期，请重新登录' });
-    }
-    sessions[sessionId].createdAt = Date.now();
-    req.session = sessions[sessionId];
-    return next();
-  }
-
-  const isValid = await verifyToken(token);
-  if (!isValid) {
-    return res.status(401).json({ code: -1, message: '未授权' });
-  }
-
-  const config = getTotpConfig();
-  if (config.enabled) {
-    return res.status(401).json({ code: -2, message: '需要二步验证', require2FA: true });
-  }
-
-  const newSessionId = generateSessionId();
-  sessions[newSessionId] = {
-    createdAt: Date.now(),
-    authenticated: true,
-    twoFAVerified: false
+/**
+ * 安全包装 async 路由处理函数，捕获所有异常并返回 500，
+ * 防止 Express 4 中 async 函数异常导致请求挂起（504 网关超时）。
+ */
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch((err) => {
+      console.error('Async route error:', err.message, err.stack);
+      res.status(500).json({
+        code: -5,
+        message: '服务器内部错误',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
+    });
   };
-  req.session = sessions[newSessionId];
-  res.setHeader('x-session-id', newSessionId);
-  next();
 }
 
-app.post('/api/admin/login', async (req, res) => {
+async function authMiddleware(req, res, next) {
+  try {
+    const token = req.headers['x-admin-token'];
+    const sessionId = req.headers['x-session-id'];
+
+    if (sessionId && sessions[sessionId]) {
+      if (Date.now() - sessions[sessionId].createdAt > 24 * 60 * 60 * 1000) {
+        delete sessions[sessionId];
+        return res.status(401).json({ code: -1, message: '会话已过期，请重新登录' });
+      }
+      sessions[sessionId].createdAt = Date.now();
+      req.session = sessions[sessionId];
+      return next();
+    }
+
+    const isValid = await verifyToken(token);
+    if (!isValid) {
+      return res.status(401).json({ code: -1, message: '未授权' });
+    }
+
+    const config = getTotpConfig();
+    if (config.enabled) {
+      return res.status(401).json({ code: -2, message: '需要二步验证', require2FA: true });
+    }
+
+    const newSessionId = generateSessionId();
+    sessions[newSessionId] = {
+      createdAt: Date.now(),
+      authenticated: true,
+      twoFAVerified: false
+    };
+    saveSessions();
+    req.session = sessions[newSessionId];
+    res.setHeader('x-session-id', newSessionId);
+    next();
+  } catch (err) {
+    console.error('authMiddleware error:', err.message);
+    return res.status(500).json({ code: -5, message: '服务器内部错误' });
+  }
+}
+
+app.post('/api/admin/login', asyncHandler(async (req, res) => {
   const ip = getClientIp(req);
   
   if (isIpBlocked(ip)) {
@@ -586,6 +655,7 @@ app.post('/api/admin/login', async (req, res) => {
       authenticated: true,
       twoFAVerified: false
     };
+    saveSessions();
     clearFailedAttempts(ip);
     return res.json({
       code: 0,
@@ -606,20 +676,39 @@ app.post('/api/admin/login', async (req, res) => {
 
   let isValid = false;
   if (otp) {
-    isValid = authenticator.verify({ token: otp, secret: config.secret });
-  } else if (recoveryCode && config.recoveryCodes) {
+    // 安全验证 OTP：确保 secret 存在且为字符串，防止 verify 抛出异常
+    if (!config.secret || typeof config.secret !== 'string' || !config.secret.trim()) {
+      console.error('OTP验证失败：secret 为空或格式错误');
+      isValid = false;
+    } else {
+      isValid = await verifyOtp(config.secret, otp);
+    }
+  } else if (recoveryCode && config.recoveryCodes && Array.isArray(config.recoveryCodes)) {
     for (let i = 0; i < config.recoveryCodes.length; i++) {
       const hashedCode = config.recoveryCodes[i];
-      if (await bcrypt.compare(recoveryCode, hashedCode)) {
-        isValid = true;
-        config.recoveryCodes.splice(i, 1);
-        saveTotpConfig(config);
-        break;
+      try {
+        if (await bcrypt.compare(recoveryCode, hashedCode)) {
+          isValid = true;
+          config.recoveryCodes.splice(i, 1);
+          saveTotpConfig(config);
+          break;
+        }
+      } catch (e) {
+        console.error('恢复码验证异常:', e.message);
       }
     }
   }
 
   if (!isValid) {
+    // 诊断:输出 2FA 验证失败的详细上下文,便于服务器端排查
+    console.error('[login:2fa] 验证失败', {
+      hasOtp: !!otp,
+      hasRecovery: !!recoveryCode,
+      secretEmpty: !config.secret || typeof config.secret !== 'string' || !config.secret.trim(),
+      secretLen: config.secret ? config.secret.length : 0,
+      encKeyConfigured: !!process.env.ENCRYPTION_KEY,
+      recoveryCodeCount: Array.isArray(config.recoveryCodes) ? config.recoveryCodes.length : 0
+    });
     const isBlocked = recordFailedAttempt(ip);
     const remainingAttempts = getRemainingAttempts(ip);
     
@@ -647,6 +736,7 @@ app.post('/api/admin/login', async (req, res) => {
     authenticated: true,
     twoFAVerified: true
   };
+  saveSessions();
 
   res.json({
     code: 0,
@@ -655,54 +745,88 @@ app.post('/api/admin/login', async (req, res) => {
     need2FA: false,
     twoFAEnabled: true
   });
-});
+}));
 
-app.get('/api/admin/totp/setup', authMiddleware, (req, res) => {
+app.get('/api/admin/totp/setup', authMiddleware, asyncHandler(async (req, res) => {
   const config = getTotpConfig();
-  
-  if (config.enabled) {
+  const { recoveryCode } = req.query;
+  const rebind = config.enabled && !!recoveryCode;
+
+  // 已启用且未提供恢复码：仅返回状态（不生成新 secret，避免破坏已绑定的认证器）
+  if (config.enabled && !rebind) {
     return res.json({
       code: 0,
       message: 'success',
       data: {
         enabled: true,
-        hasSecret: !!config.secret
+        hasSecret: !!config.secret,
+        rebindable: Array.isArray(config.recoveryCodes) && config.recoveryCodes.length > 0
       }
     });
   }
 
-  const secret = authenticator.generateSecret();
+  // 重新绑定：需先通过恢复码验证
+  if (rebind) {
+    let valid = false;
+    if (Array.isArray(config.recoveryCodes)) {
+      for (let i = 0; i < config.recoveryCodes.length; i++) {
+        try {
+          if (await bcrypt.compare(recoveryCode, config.recoveryCodes[i])) {
+            valid = true;
+            break;
+          }
+        } catch (e) {
+          console.error('恢复码验证异常:', e.message);
+        }
+      }
+    }
+    if (!valid) {
+      return res.status(400).json({ code: -1, message: '恢复码错误' });
+    }
+  }
+
+  const secret = generateSecret(32);
   const service = '通知推送助手管理后台';
   const account = 'admin';
-  const otpauth = authenticator.keyuri(account, service, secret);
+  const otpauth = generateURI({ label: account, issuer: service, secret });
 
-  QRCode.toDataURL(otpauth, (err, qrCodeUrl) => {
-    if (err) {
-      return res.status(500).json({ code: -1, message: '生成二维码失败' });
+  let qrCodeUrl = '';
+  try {
+    qrCodeUrl = await QRCode.toDataURL(otpauth);
+  } catch (e) {
+    console.error('生成二维码失败:', e.message);
+    return res.status(500).json({ code: -1, message: '生成二维码失败' });
+  }
+
+  res.json({
+    code: 0,
+    message: 'success',
+    data: {
+      enabled: false,
+      rebind: !!rebind,
+      secret,
+      qrCodeUrl,
+      otpauth,
+      manualCode: secret
     }
-
-    res.json({
-      code: 0,
-      message: 'success',
-      data: {
-        enabled: false,
-        secret,
-        qrCodeUrl,
-        otpauth,
-        manualCode: secret
-      }
-    });
   });
-});
+}));
 
-app.post('/api/admin/totp/enable', authMiddleware, async (req, res) => {
+app.post('/api/admin/totp/enable', authMiddleware, asyncHandler(async (req, res) => {
   const { secret, otp } = req.body;
 
   if (!secret || !otp) {
     return res.status(400).json({ code: -1, message: '参数缺失' });
   }
 
-  const isValid = authenticator.verify({ token: otp, secret });
+  let isValid = false;
+  try {
+    isValid = await verifyOtp(secret, otp);
+  } catch (e) {
+    console.error('TOTP enable verify error:', e.message);
+    isValid = false;
+  }
+
   if (!isValid) {
     return res.status(400).json({ code: -1, message: '验证码错误' });
   }
@@ -724,9 +848,9 @@ app.post('/api/admin/totp/enable', authMiddleware, async (req, res) => {
       recoveryCodes
     }
   });
-});
+}));
 
-app.post('/api/admin/totp/disable', authMiddleware, async (req, res) => {
+app.post('/api/admin/totp/disable', authMiddleware, asyncHandler(async (req, res) => {
   const { otp, recoveryCode } = req.body;
   const config = getTotpConfig();
 
@@ -736,12 +860,21 @@ app.post('/api/admin/totp/disable', authMiddleware, async (req, res) => {
 
   let isValid = false;
   if (otp) {
-    isValid = authenticator.verify({ token: otp, secret: config.secret });
-  } else if (recoveryCode && config.recoveryCodes) {
+    try {
+      isValid = await verifyOtp(config.secret, otp);
+    } catch (e) {
+      console.error('TOTP disable verify error:', e.message);
+      isValid = false;
+    }
+  } else if (recoveryCode && config.recoveryCodes && Array.isArray(config.recoveryCodes)) {
     for (const hashedCode of config.recoveryCodes) {
-      if (await bcrypt.compare(recoveryCode, hashedCode)) {
-        isValid = true;
-        break;
+      try {
+        if (await bcrypt.compare(recoveryCode, hashedCode)) {
+          isValid = true;
+          break;
+        }
+      } catch (e) {
+        console.error('恢复码验证异常:', e.message);
       }
     }
   }
@@ -757,29 +890,57 @@ app.post('/api/admin/totp/disable', authMiddleware, async (req, res) => {
     code: 0,
     message: '二步验证已禁用'
   });
-});
+}));
 
 app.get('/api/admin/totp/status', authMiddleware, (req, res) => {
-  const config = getTotpConfig();
-  res.json({
-    code: 0,
-    message: 'success',
-    data: {
-      enabled: config.enabled,
-      hasRecoveryCodes: config.recoveryCodes && config.recoveryCodes.length > 0
-    }
-  });
+  try {
+    const config = getTotpConfig();
+    res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        enabled: config.enabled,
+        hasRecoveryCodes: config.recoveryCodes && config.recoveryCodes.length > 0
+      }
+    });
+  } catch (e) {
+    console.error('TOTP status error:', e.message);
+    res.status(500).json({ code: -5, message: '服务器内部错误' });
+  }
 });
 
-app.post('/api/admin/totp/regenerate-recovery', authMiddleware, async (req, res) => {
-  const { otp } = req.body;
+app.post('/api/admin/totp/regenerate-recovery', authMiddleware, asyncHandler(async (req, res) => {
+  const { otp, recoveryCode } = req.body;
   const config = getTotpConfig();
 
   if (!config.enabled) {
     return res.status(400).json({ code: -1, message: '二步验证未启用' });
   }
 
-  if (!otp || !authenticator.verify({ token: otp, secret: config.secret })) {
+  let isValid = false;
+  if (otp) {
+    try {
+      isValid = await verifyOtp(config.secret, otp);
+    } catch (e) {
+      console.error('TOTP regenerate verify error:', e.message);
+      isValid = false;
+    }
+  } else if (recoveryCode && Array.isArray(config.recoveryCodes)) {
+    for (let i = 0; i < config.recoveryCodes.length; i++) {
+      try {
+        if (await bcrypt.compare(recoveryCode, config.recoveryCodes[i])) {
+          isValid = true;
+          config.recoveryCodes.splice(i, 1);
+          saveTotpConfig(config);
+          break;
+        }
+      } catch (e) {
+        console.error('恢复码验证异常:', e.message);
+      }
+    }
+  }
+
+  if (!isValid) {
     return res.status(400).json({ code: -1, message: '验证码错误' });
   }
 
@@ -794,84 +955,100 @@ app.post('/api/admin/totp/regenerate-recovery', authMiddleware, async (req, res)
       recoveryCodes
     }
   });
-});
+}));
 
 app.get('/api/version/check', (req, res) => {
-  const { version, build, platform = 'android' } = req.query;
-  const versionData = readJsonFile(VERSION_FILE, {
-    latestVersion: '1.0.0',
-    latestBuild: 1,
-    forceUpdate: false,
-    forceUpdateBuild: 0,
-    changelog: '',
-    downloads: {},
-    fileSizes: {},
-    minSupportedVersion: '1.0.0'
-  });
+  try {
+    const { version, build, platform = 'android' } = req.query;
+    const versionData = readJsonFile(VERSION_FILE, {
+      latestVersion: '1.0.0',
+      latestBuild: 1,
+      forceUpdate: false,
+      forceUpdateBuild: 0,
+      changelog: '',
+      downloads: {},
+      fileSizes: {},
+      minSupportedVersion: '1.0.0'
+    });
 
-  const hasUpdate = compareVersions(versionData.latestVersion, version) > 0 ||
-    versionData.latestBuild > Number(build || 0);
+    const hasUpdate = compareVersions(versionData.latestVersion, version) > 0 ||
+      versionData.latestBuild > Number(build || 0);
 
-  const needForce = versionData.forceUpdate &&
-    (compareVersions(versionData.forceUpdateVersion || versionData.latestVersion, version) > 0 ||
-     versionData.forceUpdateBuild > Number(build || 0));
+    const needForce = versionData.forceUpdate &&
+      (compareVersions(versionData.forceUpdateVersion || versionData.latestVersion, version) > 0 ||
+       versionData.forceUpdateBuild > Number(build || 0));
 
-  const downloads = versionData.downloads || {};
-  const fileSizes = versionData.fileSizes || {};
-  // 根据平台参数解析对应的单架构下载链接和大小（默认 arm64）
-  const platformKey = platform === 'x86_64' ? 'x86_64' : (platform === 'armeabi-v7a' ? 'arm32' : 'arm64');
-  const downloadUrl = downloads[platformKey] || downloads['all'] || '';
-  const fileSize = fileSizes[platformKey] || fileSizes['all'] || 0;
+    const downloads = versionData.downloads || {};
+    const fileSizes = versionData.fileSizes || {};
+    // 根据平台参数解析对应的单架构下载链接和大小（默认 arm64）
+    const platformKey = platform === 'x86_64' ? 'x86_64' : (platform === 'armeabi-v7a' ? 'arm32' : 'arm64');
+    const downloadUrl = downloads[platformKey] || downloads['all'] || '';
+    const fileSize = fileSizes[platformKey] || fileSizes['all'] || 0;
 
-  res.json({
-    code: 0,
-    message: 'success',
-    data: {
-      hasUpdate,
-      latestVersion: versionData.latestVersion,
-      latestBuild: versionData.latestBuild,
-      forceUpdate: needForce,
-      changelog: versionData.changelog,
-      downloadUrl,
-      fileSize,
-      downloads,
-      fileSizes,
-      minSupportedVersion: versionData.minSupportedVersion
-    }
-  });
+    res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        hasUpdate,
+        latestVersion: versionData.latestVersion,
+        latestBuild: versionData.latestBuild,
+        forceUpdate: needForce,
+        changelog: versionData.changelog,
+        downloadUrl,
+        fileSize,
+        downloads,
+        fileSizes,
+        minSupportedVersion: versionData.minSupportedVersion
+      }
+    });
+  } catch (e) {
+    console.error('Version check error:', e.message);
+    res.status(500).json({ code: -5, message: '服务器内部错误' });
+  }
 });
 
 app.get('/api/admin/version', authMiddleware, (req, res) => {
-  const data = readJsonFile(VERSION_FILE, {});
-  res.json({
-    code: 0,
-    message: 'success',
-    data
-  });
+  try {
+    const data = readJsonFile(VERSION_FILE, {});
+    res.json({
+      code: 0,
+      message: 'success',
+      data
+    });
+  } catch (e) {
+    console.error('Get version error:', e.message);
+    res.status(500).json({ code: -5, message: '服务器内部错误' });
+  }
 });
 
 app.post('/api/admin/version', authMiddleware, (req, res) => {
-  const body = req.body;
-  if (!isPlainObject(body)) {
-    return res.status(400).json({ code: -4, message: '请求体必须为 JSON 对象' });
+  try {
+    const body = req.body;
+    if (!isPlainObject(body)) {
+      return res.status(400).json({ code: -4, message: '请求体必须为 JSON 对象' });
+    }
+    const errors = validateVersionConfig(body);
+    if (errors.length > 0) {
+      return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
+    }
+    const success = writeJsonFile(VERSION_FILE, body);
+    res.json({
+      code: success ? 0 : -1,
+      message: success ? '保存成功' : '保存失败'
+    });
+  } catch (e) {
+    console.error('Save version error:', e.message);
+    res.status(500).json({ code: -5, message: '服务器内部错误' });
   }
-  const errors = validateVersionConfig(body);
-  if (errors.length > 0) {
-    return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
-  }
-  const success = writeJsonFile(VERSION_FILE, body);
-  res.json({
-    code: success ? 0 : -1,
-    message: success ? '保存成功' : '保存失败'
-  });
 });
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// 全局错误处理中间件
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  console.error('Unhandled error:', err.message, err.stack);
   res.status(500).json({
     code: -5,
     message: 'Internal server error',
@@ -891,6 +1068,11 @@ function onShutdown(signal) {
 process.on('SIGTERM', () => onShutdown('SIGTERM'));
 process.on('SIGINT', () => onShutdown('SIGINT'));
 process.on('SIGHUP', () => onShutdown('SIGHUP'));
+
+// 捕获未处理的 Promise rejection，防止进程崩溃
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 app.listen(PORT, () => {
   console.log('==============================');
@@ -917,5 +1099,8 @@ app.listen(PORT, () => {
   console.log('  /apks/          - APK 文件目录');
   console.log('  (兼容) /public/... - 旧地址仍可用');
   console.log('');
-  console.log(`${process.env.NODE_ENV === 'development' ? '  二步验证状态: ' + (getTotpConfig().enabled ? '已启用' : '未启用') : ''}`);
+  // 启动时输出 2FA 配置诊断,便于排查验证失败问题
+  const diag = getTotpConfig();
+  console.log(`  二步验证诊断: enabled=${diag.enabled} secret=${diag.secret ? `有(${diag.secret.length}字符)` : '空'} 恢复码=${Array.isArray(diag.recoveryCodes) ? diag.recoveryCodes.length : 0} 个 ENCRYPTION_KEY=${process.env.ENCRYPTION_KEY ? '已配置' : '未配置'}`);
+  console.log(`  DISABLE_IP_BLOCKING=${DISABLE_IP_BLOCKING ? '开启(IP封锁已临时关闭)' : '关闭(IP封锁生效)'}`);
 });

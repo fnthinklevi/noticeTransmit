@@ -75,6 +75,9 @@ server/data/failed_attempts.json
 server/data/version.json
 server/data/hotfix.json
 server/data/totp_config.json
+server/data/totp.json
+server/data/sessions.json
+server/data/rate_limit.json
 
 # Gradle build artifacts
 install_dir/
@@ -85,3 +88,7 @@ lib/main.dart
 android/.kotlin/sessions/
 server/public/apks/
 .vscode/
+.dart_tmp/
+.dart_tmp2/
+.codebuddy/
+.tmp_local/

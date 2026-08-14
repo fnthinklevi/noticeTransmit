@@ -237,9 +237,10 @@ void main() {
         ),
         WebhookChannelType.wechatWork,
       );
+      // 精确 host 匹配：weixin.qq.com 非 qyapi.weixin.qq.com → generic
       expect(
         WebhookChannel.detectTypeFromUrl('https://weixin.qq.com/webhook'),
-        WebhookChannelType.wechatWork,
+        WebhookChannelType.generic,
       );
     });
 
@@ -250,9 +251,10 @@ void main() {
         ),
         WebhookChannelType.dingtalk,
       );
+      // 精确 host 匹配：dingtalk.com 非 oapi.dingtalk.com → generic
       expect(
         WebhookChannel.detectTypeFromUrl('https://dingtalk.com/webhook'),
-        WebhookChannelType.dingtalk,
+        WebhookChannelType.generic,
       );
     });
 
@@ -264,8 +266,15 @@ void main() {
         WebhookChannelType.feishu,
       );
       expect(
-        WebhookChannel.detectTypeFromUrl('https://larksuite.com/webhook'),
+        WebhookChannel.detectTypeFromUrl(
+          'https://open.larksuite.com/open-apis/bot/v2/hook/test',
+        ),
         WebhookChannelType.feishu,
+      );
+      // 精确 host 匹配：larksuite.com 非 open.larksuite.com → generic
+      expect(
+        WebhookChannel.detectTypeFromUrl('https://larksuite.com/webhook'),
+        WebhookChannelType.generic,
       );
     });
 

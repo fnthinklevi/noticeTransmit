@@ -305,11 +305,13 @@
               <input type="text" id="twoFAState" readonly value="加载中...">
             </div>
             <div class="btn-group">
+              <button class="btn btn-secondary" onclick="rebind2FA()">重新绑定二步验证</button>
               <button class="btn btn-secondary" onclick="regenerateRecoveryCodes()">重新生成恢复码</button>
               <button class="btn btn-danger" onclick="disable2FA()">禁用二步验证</button>
             </div>
           </div>
           <div id="twoFASetup" class="hidden">
+            <h3 id="twoFASetupTitle">启用二步验证</h3>
             <div class="qr-container" id="setupQrContainer"></div>
             <div class="form-group">
               <label>手动输入密钥</label>
@@ -339,7 +341,7 @@
     </div>
   </div>
 
-  <div class="footer">通知推送助手 · 版本管理系统 v1.5.52</div>
+  <div class="footer">通知推送助手 · 版本管理系统 v1.5.53</div>
 
   <script>
     const API_BASE = window.location.origin;
@@ -374,18 +376,14 @@
       if (!contentType.includes('application/json')) {
         const text = await response.text().catch(() => '');
         console.error('fetchWithSession: 非JSON响应', response.status, text.substring(0, 200));
-        if (response.status === 401 || response.status === 403) {
-          logout();
-        }
         throw new Error(`服务器异常 (${response.status}): ${text.substring(0, 100)}`);
       }
       const result = await response.json();
       console.log('fetchWithSession:', url, result.code);
-      // 任何需要重新登录的响应都触发 logout
-      if (response.status === 401 || result.requireAuth === true || result.need2FA === true) {
-        logout();
-      }
-      if (result.code === -1 && (result.message === '未授权' || result.message?.includes('会话'))) {
+      // 仅在会话明确失效时才 logout（未授权/会话过期），
+      // 不因 require2FA 等其他 401 场景触发 logout（避免 OTP 验证成功后 loadVersion 误触发跳回登录页）
+      if (response.status === 401 && result.code === -1 &&
+          (result.message === '未授权' || result.message?.includes('会话'))) {
         logout();
       }
       return result;
@@ -398,12 +396,22 @@
         return;
       }
 
+      const btn = document.querySelector('#step1 .btn-primary');
+      if (btn) { btn.disabled = true; btn.textContent = '登录中...'; }
+      showStatus('loginStatus', 'info', '正在验证...');
+
       try {
-        const result = await fetch(`${API_BASE}/api/admin/login`, {
+        const response = await fetch(`${API_BASE}/api/admin/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token })
-        }).then(r => r.json());
+        });
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const text = await response.text().catch(() => '');
+          throw new Error(`服务器异常 (${response.status})`);
+        }
+        const result = await response.json();
 
         if (result.code === 0) {
           sessionId = result.sessionId;
@@ -413,6 +421,7 @@
             document.getElementById('stepDot1').classList.add('done');
             document.getElementById('stepDot2').classList.add('active');
             showStatus('otpStatus', 'info', '请输入二步验证验证码');
+            document.getElementById('otpInput').focus();
           } else {
             showStatus('loginStatus', 'success', '登录成功，正在跳转...');
             setTimeout(() => showMain(), 500);
@@ -425,24 +434,36 @@
         }
       } catch (e) {
         showStatus('loginStatus', 'error', '网络错误: ' + e.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '登录'; }
       }
     }
 
     async function verifyOTP() {
       const token = document.getElementById('tokenInput').value.trim();
       const otp = document.getElementById('otpInput').value.trim();
-      
+
       if (!otp || otp.length !== 6) {
         showStatus('otpStatus', 'error', '请输入6位验证码');
         return;
       }
 
+      const btn = document.querySelector('#step2 .btn-primary');
+      if (btn) { btn.disabled = true; btn.textContent = '验证中...'; }
+      showStatus('otpStatus', 'info', '正在验证...');
+
       try {
-        const result = await fetch(`${API_BASE}/api/admin/login`, {
+        const response = await fetch(`${API_BASE}/api/admin/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token, otp })
-        }).then(r => r.json());
+        });
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const text = await response.text().catch(() => '');
+          throw new Error(`服务器异常 (${response.status})`);
+        }
+        const result = await response.json();
 
         if (result.code === 0) {
           sessionId = result.sessionId;
@@ -456,6 +477,8 @@
         }
       } catch (e) {
         showStatus('otpStatus', 'error', '网络错误: ' + e.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '验证'; }
       }
     }
 
@@ -581,8 +604,11 @@
     function showMain() {
       document.getElementById('loginSection').classList.add('hidden');
       document.getElementById('mainSection').classList.remove('hidden');
-      loadVersion();
-      loadSecurityStatus();
+      // 延迟加载，确保 session 已完全建立
+      setTimeout(() => {
+        loadVersion().catch(e => console.error('loadVersion:', e));
+        loadSecurityStatus().catch(e => console.error('loadSecurityStatus:', e));
+      }, 100);
     }
 
     function logout() {
@@ -694,16 +720,48 @@
         try {
           const result = await fetchWithSession(`${API_BASE}/api/admin/totp/setup`);
           if (result.code === 0) {
+            if (result.data.enabled === true) {
+              // 二步验证已启用：不允许直接覆盖，回滚开关并提示
+              document.getElementById('twoFASwitch').checked = false;
+              showStatus('securityStatus', 'error', '二步验证已启用，如需重新绑定请点击"重新绑定二步验证"');
+              return;
+            }
             setupSecret = result.data.secret;
             document.getElementById('setupSecret').value = result.data.manualCode;
             document.getElementById('setupQrContainer').innerHTML = `<img src="${result.data.qrCodeUrl}" alt="二维码">`;
             document.getElementById('twoFAActions').classList.add('hidden');
             document.getElementById('twoFASetup').classList.remove('hidden');
+            document.getElementById('twoFASetupTitle').textContent = '启用二步验证';
+          } else {
+            showStatus('securityStatus', 'error', result.message || '获取设置失败');
+            document.getElementById('twoFASwitch').checked = false;
           }
         } catch (e) {
           showStatus('securityStatus', 'error', '网络错误: ' + e.message);
           document.getElementById('twoFASwitch').checked = false;
         }
+      }
+    }
+
+    async function rebind2FA() {
+      const input = prompt('请输入恢复码以重新绑定二步验证：');
+      if (!input) return;
+      const recoveryCode = input.trim().toUpperCase();
+
+      try {
+        const result = await fetchWithSession(`${API_BASE}/api/admin/totp/setup?recoveryCode=${encodeURIComponent(recoveryCode)}`);
+        if (result.code === 0 && result.data.secret) {
+          setupSecret = result.data.secret;
+          document.getElementById('setupSecret').value = result.data.manualCode;
+          document.getElementById('setupQrContainer').innerHTML = `<img src="${result.data.qrCodeUrl}" alt="二维码">`;
+          document.getElementById('twoFAActions').classList.add('hidden');
+          document.getElementById('twoFASetup').classList.remove('hidden');
+          document.getElementById('twoFASetupTitle').textContent = '重新绑定二步验证';
+        } else {
+          showStatus('securityStatus', 'error', result.message || '恢复码错误或不可重新绑定');
+        }
+      } catch (e) {
+        showStatus('securityStatus', 'error', '网络错误: ' + e.message);
       }
     }
 
@@ -741,14 +799,18 @@
     }
 
     async function disable2FA() {
-      const otp = prompt('请输入二步验证验证码或恢复码：');
-      if (!otp) return;
+      const input = prompt('请输入二步验证验证码或恢复码：');
+      if (!input) return;
+      const value = input.trim();
+      // 6 位纯数字视为验证码，其余按恢复码处理
+      const isOtp = /^\d{6}$/.test(value);
+      const body = isOtp ? { otp: value } : { recoveryCode: value.toUpperCase() };
 
       try {
         const result = await fetchWithSession(`${API_BASE}/api/admin/totp/disable`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ otp })
+          body: JSON.stringify(body)
         });
 
         if (result.code === 0) {
@@ -763,14 +825,18 @@
     }
 
     async function regenerateRecoveryCodes() {
-      const otp = prompt('请输入二步验证验证码：');
-      if (!otp) return;
+      const input = prompt('请输入二步验证验证码或恢复码：');
+      if (!input) return;
+      const value = input.trim();
+      // 6 位纯数字视为验证码，其余按恢复码处理
+      const isOtp = /^\d{6}$/.test(value);
+      const body = isOtp ? { otp: value } : { recoveryCode: value.toUpperCase() };
 
       try {
         const result = await fetchWithSession(`${API_BASE}/api/admin/totp/regenerate-recovery`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ otp })
+          body: JSON.stringify(body)
         });
 
         if (result.code === 0) {
@@ -825,6 +891,13 @@
       document.getElementById('recoveryCodeSection').classList.add('hidden');
       document.getElementById('mainSection').classList.add('hidden');
       document.getElementById('loginSection').classList.remove('hidden');
+      // 回车键支持
+      document.getElementById('tokenInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleLogin();
+      });
+      document.getElementById('otpInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') verifyOTP();
+      });
     });
   </script>
 <script src="i18n.js"></script>

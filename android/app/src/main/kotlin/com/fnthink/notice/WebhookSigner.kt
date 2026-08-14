@@ -55,6 +55,8 @@ object WebhookSigner {
                 WebhookPayloadBuilder.WebhookType.DINGTALK -> signDingTalk(url, payload, secret)
                 WebhookPayloadBuilder.WebhookType.FEISHU -> signFeishu(url, payload, secret)
                 WebhookPayloadBuilder.WebhookType.GENERIC -> signGeneric(url, payload, secret)
+                WebhookPayloadBuilder.WebhookType.TELEGRAM -> SignedRequest(url, payload, emptyMap())
+                WebhookPayloadBuilder.WebhookType.BARK -> SignedRequest(url, payload, emptyMap())
             }
         } catch (e: Exception) {
             Log.e(TAG, "Sign failed for $type: ${e.message}", e)
