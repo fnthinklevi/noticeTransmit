@@ -146,8 +146,8 @@ class WebhookService {
   Map<String, dynamic> _dbRowToUi(Map<String, dynamic> row) {
     final url = row['url']?.toString() ?? '';
     var channelType = row['channel_type']?.toString() ?? '';
-    // 若原数据为 generic 或为空，从 URL 重新识别（host 精确匹配，与 WebhookChannel.detectTypeFromUrl 一致）
-    if (channelType.isEmpty || channelType == 'generic') {
+    // 仅当历史数据未存渠道类型（空值）时按 URL 识别；显式保存的 generic 视为用户手动选择，不重探测覆盖
+    if (channelType.isEmpty) {
       channelType = WebhookChannel.detectTypeFromUrl(url).value;
     }
     return {

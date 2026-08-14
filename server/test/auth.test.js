@@ -134,28 +134,46 @@ describe('server.js – Basic Endpoints', () => {
   describe('输入校验', () => {
     test('validateVersionConfig – latestVersion 必填', () => {
       const errors = [];
-      const body = { latestBuild: 1, downloadUrl: 'https://example.com/app.apk' };
+      const body = {
+        latestBuild: 1,
+        downloads: {
+          arm64: 'https://example.com/app_arm64.apk',
+          arm32: 'https://example.com/app_arm32.apk',
+          x86_64: 'https://example.com/app_x86.apk',
+          all: 'https://example.com/app_all.apk'
+        }
+      };
       if (typeof body.latestVersion !== 'string' || !body.latestVersion?.trim()) {
         errors.push('latestVersion 必须为非空字符串');
       }
       expect(errors.length).toBeGreaterThan(0);
     });
 
-    test('validateVersionConfig – downloadUrl 必须 HTTPS', () => {
+    test('validateVersionConfig – downloads 各平台必须 HTTPS', () => {
+      const errors = [];
       const body = {
         latestVersion: '1.0.0',
         latestBuild: 1,
-        downloadUrl: 'http://example.com/app.apk',
+        downloads: {
+          arm64: 'http://example.com/app_arm64.apk', // 非 https，应被拒绝
+          arm32: 'https://example.com/app_arm32.apk',
+          x86_64: 'https://example.com/app_x86.apk',
+          all: 'https://example.com/app_all.apk'
+        }
       };
-      try {
-        const url = new URL(body.downloadUrl);
-        expect(url.protocol).toBe('http:');
-        // 应被拒绝
-        const valid = url.protocol === 'https:';
-        expect(valid).toBe(false);
-      } catch {
-        // URL parse failed
+      for (const k of ['arm64', 'arm32', 'x86_64', 'all']) {
+        const v = body.downloads[k];
+        if (v === undefined || v === '') continue;
+        try {
+          const url = new URL(v);
+          if (url.protocol !== 'https:') {
+            errors.push(`downloads.${k} 必须使用 https:// 协议`);
+          }
+        } catch {
+          errors.push(`downloads.${k} 不是合法 URL`);
+        }
       }
+      expect(errors).toContain('downloads.arm64 必须使用 https:// 协议');
     });
 
     test('validateVersionConfig – latestBuild 必须为正整数', () => {

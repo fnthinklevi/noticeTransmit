@@ -401,9 +401,20 @@ function encryptSecret(secret) {
   };
 }
 
+// 解密 TOTP secret。返回 { ok, value }：
+//   ok=false 表示 ENCRYPTION_KEY 缺失/不匹配（解密失败），调用方应明确报错，
+//   而不是静默当作空 secret —— 否则 OTP 永远验证失败且被误计为登录尝试。
 function decryptSecret(encryptedData) {
-  if (!ENCRYPTION_KEY || encryptedData.plain) {
-    return encryptedData.plain || '';
+  if (!encryptedData) {
+    return { ok: true, value: '' };
+  }
+  // 明文存储（未配置 ENCRYPTION_KEY 时代写入）
+  if (encryptedData.plain !== undefined) {
+    return { ok: true, value: encryptedData.plain };
+  }
+  if (!ENCRYPTION_KEY) {
+    console.error('TOTP secret 已加密但未配置 ENCRYPTION_KEY，无法解密');
+    return { ok: false, value: '' };
   }
   try {
     const iv = Buffer.from(encryptedData.iv, 'hex');
@@ -411,10 +422,10 @@ function decryptSecret(encryptedData) {
     const tag = Buffer.from(encryptedData.tag, 'hex');
     const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
     decipher.setAuthTag(tag);
-    return decipher.update(data) + decipher.final('utf8');
+    return { ok: true, value: decipher.update(data) + decipher.final('utf8') };
   } catch (e) {
-    console.error('解密失败:', e.message);
-    return '';
+    console.error('TOTP secret 解密失败:', e.message);
+    return { ok: false, value: '' };
   }
 }
 
@@ -458,18 +469,24 @@ const totpConfig = readJsonFile(TOTP_FILE, {
 });
 
 function getTotpConfig() {
+  let decryptError = false;
   try {
     const config = readJsonFile(TOTP_FILE, { enabled: false, secret: '', recoveryCodes: [] });
     if (config.secret && typeof config.secret !== 'string') {
       const decrypted = decryptSecret(config.secret);
-      if (!decrypted) {
+      if (!decrypted.ok) {
+        decryptError = true;
         console.error('[totp] secret 解密失败，请检查 ENCRYPTION_KEY 是否与启用二步验证时一致');
       }
-      config.secret = decrypted || '';
+      config.secret = decrypted.value || '';
     }
     // 确保 secret 是字符串，防止 verify 抛出异常
     if (typeof config.secret !== 'string') {
       config.secret = '';
+    }
+    // 内部标志：仅用于区分"密钥配置错误"与"未启用 2FA"，不会写入文件
+    if (decryptError) {
+      config._decryptError = true;
     }
     return config;
   } catch (e) {
@@ -480,6 +497,8 @@ function getTotpConfig() {
 
 function saveTotpConfig(config) {
   const saveConfig = { ...config };
+  // _decryptError 是内存诊断标志，禁止写入 totp.json
+  delete saveConfig._decryptError;
   if (saveConfig.secret) {
     saveConfig.secret = encryptSecret(saveConfig.secret);
   }
@@ -507,6 +526,8 @@ function isPlainObject(value) {
 }
 
 // 字段级校验：版本配置必填字段与类型
+// 当前契约：downloads/fileSizes 对象（admin.html saveVersion 提交）；
+// 兼容旧契约：downloadUrl/fileSize 单字段（历史客户端）。
 function validateVersionConfig(body) {
   const errors = [];
   // latestVersion: 必填、非空字符串
@@ -517,22 +538,71 @@ function validateVersionConfig(body) {
   if (typeof body.latestBuild !== 'number' || !Number.isInteger(body.latestBuild) || body.latestBuild <= 0) {
     errors.push('latestBuild 必须为正整数');
   }
-  // downloadUrl: 必填、以 https:// 开头的合法 URL
-  if (typeof body.downloadUrl !== 'string' || !body.downloadUrl.trim()) {
-    errors.push('downloadUrl 必须为非空字符串');
-  } else {
-    try {
-      const url = new URL(body.downloadUrl);
-      if (url.protocol !== 'https:') {
-        errors.push('downloadUrl 必须使用 https:// 协议');
+  // downloads: 必填对象（当前契约），四个平台的下载链接
+  if (body.downloads !== undefined) {
+    if (!isPlainObject(body.downloads)) {
+      errors.push('downloads 必须为 JSON 对象');
+    } else {
+      for (const k of ['arm64', 'arm32', 'x86_64', 'all']) {
+        const v = body.downloads[k];
+        if (v === undefined || v === '') continue; // 空串表示该平台未发布，允许
+        if (typeof v !== 'string') {
+          errors.push(`downloads.${k} 必须为字符串`);
+          continue;
+        }
+        try {
+          const url = new URL(v);
+          if (url.protocol !== 'https:') {
+            errors.push(`downloads.${k} 必须使用 https:// 协议`);
+          }
+        } catch {
+          errors.push(`downloads.${k} 不是合法 URL`);
+        }
       }
-    } catch {
-      errors.push('downloadUrl 不是合法 URL');
     }
   }
-  // fileSize: 必填、正整数（可选，如提供则校验）
-  if (body.fileSize !== undefined && (typeof body.fileSize !== 'number' || body.fileSize < 0)) {
-    errors.push('fileSize 必须为非负整数');
+  // fileSizes: 可选对象，各平台大小为非负整数
+  if (body.fileSizes !== undefined) {
+    if (!isPlainObject(body.fileSizes)) {
+      errors.push('fileSizes 必须为 JSON 对象');
+    } else {
+      for (const k of ['arm64', 'arm32', 'x86_64', 'all']) {
+        const v = body.fileSizes[k];
+        if (v === undefined) continue;
+        if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) {
+          errors.push(`fileSizes.${k} 必须为非负整数`);
+        }
+      }
+    }
+  }
+  // 兼容旧契约：仅当未提供 downloads 时才校验 downloadUrl/fileSize
+  if (body.downloads === undefined) {
+    if (body.downloadUrl !== undefined) {
+      if (typeof body.downloadUrl !== 'string' || !body.downloadUrl.trim()) {
+        errors.push('downloadUrl 必须为非空字符串');
+      } else {
+        try {
+          const url = new URL(body.downloadUrl);
+          if (url.protocol !== 'https:') {
+            errors.push('downloadUrl 必须使用 https:// 协议');
+          }
+        } catch {
+          errors.push('downloadUrl 不是合法 URL');
+        }
+      }
+    }
+    if (body.fileSize !== undefined && (typeof body.fileSize !== 'number' || body.fileSize < 0)) {
+      errors.push('fileSize 必须为非负整数');
+    }
+  }
+  // forceUpdate: 可选布尔；为 true 时要求 forceUpdateVersion/Build
+  if (body.forceUpdate === true) {
+    if (typeof body.forceUpdateVersion !== 'string' || !body.forceUpdateVersion.trim()) {
+      errors.push('forceUpdateVersion 必须为非空字符串');
+    }
+    if (typeof body.forceUpdateBuild !== 'number' || !Number.isInteger(body.forceUpdateBuild) || body.forceUpdateBuild < 0) {
+      errors.push('forceUpdateBuild 必须为非负整数');
+    }
   }
   return errors;
 }
@@ -676,6 +746,14 @@ app.post('/api/admin/login', asyncHandler(async (req, res) => {
 
   let isValid = false;
   if (otp) {
+    // 服务端密钥配置错误：明确提示且不计入失败次数，避免 3 次误封 IP 240 小时
+    if (config._decryptError) {
+      console.error('[login:2fa] 服务端 TOTP secret 解密失败（ENCRYPTION_KEY 缺失或不匹配），拒绝验证且不计数');
+      return res.status(500).json({
+        code: -2,
+        message: '服务端二步验证密钥配置错误，请联系管理员检查 ENCRYPTION_KEY'
+      });
+    }
     // 安全验证 OTP：确保 secret 存在且为字符串，防止 verify 抛出异常
     if (!config.secret || typeof config.secret !== 'string' || !config.secret.trim()) {
       console.error('OTP验证失败：secret 为空或格式错误');
@@ -860,6 +938,9 @@ app.post('/api/admin/totp/disable', authMiddleware, asyncHandler(async (req, res
 
   let isValid = false;
   if (otp) {
+    if (config._decryptError) {
+      return res.status(500).json({ code: -2, message: '服务端二步验证密钥配置错误，请联系管理员检查 ENCRYPTION_KEY' });
+    }
     try {
       isValid = await verifyOtp(config.secret, otp);
     } catch (e) {
@@ -919,6 +1000,9 @@ app.post('/api/admin/totp/regenerate-recovery', authMiddleware, asyncHandler(asy
 
   let isValid = false;
   if (otp) {
+    if (config._decryptError) {
+      return res.status(500).json({ code: -2, message: '服务端二步验证密钥配置错误，请联系管理员检查 ENCRYPTION_KEY' });
+    }
     try {
       isValid = await verifyOtp(config.secret, otp);
     } catch (e) {
@@ -1101,6 +1185,11 @@ app.listen(PORT, () => {
   console.log('');
   // 启动时输出 2FA 配置诊断,便于排查验证失败问题
   const diag = getTotpConfig();
-  console.log(`  二步验证诊断: enabled=${diag.enabled} secret=${diag.secret ? `有(${diag.secret.length}字符)` : '空'} 恢复码=${Array.isArray(diag.recoveryCodes) ? diag.recoveryCodes.length : 0} 个 ENCRYPTION_KEY=${process.env.ENCRYPTION_KEY ? '已配置' : '未配置'}`);
+  const secretDesc = diag._decryptError
+    ? '解密失败(ENCRYPTION_KEY 缺失或不匹配)'
+    : diag.secret
+      ? `有(${diag.secret.length}字符)`
+      : '空';
+  console.log(`  二步验证诊断: enabled=${diag.enabled} secret=${secretDesc} 恢复码=${Array.isArray(diag.recoveryCodes) ? diag.recoveryCodes.length : 0} 个 ENCRYPTION_KEY=${process.env.ENCRYPTION_KEY ? '已配置' : '未配置'}`);
   console.log(`  DISABLE_IP_BLOCKING=${DISABLE_IP_BLOCKING ? '开启(IP封锁已临时关闭)' : '关闭(IP封锁生效)'}`);
 });

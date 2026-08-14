@@ -654,9 +654,14 @@ class DatabaseHelper {
     final now = DateTime.now().millisecondsSinceEpoch;
     await db.transaction((txn) async {
       await txn.delete('webhook_channels');
+      var i = 0;
       for (final c in channels) {
+        final rawId = c['id'] as String?;
         final row = <String, dynamic>{
-          'id': c['id'] ?? '',
+          // id 为空时兜底生成，避免主键冲突导致 replace 覆盖前一条记录
+          'id': (rawId != null && rawId.isNotEmpty)
+              ? rawId
+              : 'wh_${now}_${i++}',
           'name': c['name'] ?? '',
           'url': c['url'] ?? '',
           'channel_type':

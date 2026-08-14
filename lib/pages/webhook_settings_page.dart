@@ -24,12 +24,51 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   late List<bool> _webhookEnabled;
   late List<bool> _secretVisible;
   late List<WebhookMessageFormat> _messageFormats;
+  // 渠道类型：'auto' 表示自动识别（按 URL host 探测），否则为用户手动指定的类型值
+  late List<String> _channelTypes;
   bool _isTesting = false;
   String? _testResult;
   bool? _testSuccess;
   bool? _testSigned;
   int? _testIndex;
   bool _isSaving = false;
+
+  /// 通道的有效类型：手动指定优先，'auto' 时按 URL 探测
+  WebhookChannelType _effectiveType(int index) {
+    final manual = _channelTypes[index];
+    if (manual.isNotEmpty && manual != 'auto') {
+      return WebhookChannelType.values.firstWhere(
+        (t) => t.value == manual,
+        orElse: () =>
+            WebhookChannel.detectTypeFromUrl(_webhookControllers[index].text),
+      );
+    }
+    return WebhookChannel.detectTypeFromUrl(_webhookControllers[index].text);
+  }
+
+  /// 渠道类型下拉选项：'auto' 自动识别 + 各平台手动指定
+  List<DropdownMenuItem<String>> _channelTypeOptions(int index) {
+    final detected = WebhookChannel.detectTypeFromUrl(
+      _webhookControllers[index].text,
+    );
+    return [
+      DropdownMenuItem(
+        value: 'auto',
+        child: Text(
+          detected == WebhookChannelType.generic
+              ? '自动识别'
+              : '自动识别（${detected.label}）',
+          style: const TextStyle(fontSize: 14),
+        ),
+      ),
+      ...WebhookChannelType.values.map(
+        (t) => DropdownMenuItem(
+          value: t.value,
+          child: Text(t.label, style: const TextStyle(fontSize: 14)),
+        ),
+      ),
+    ];
+  }
 
   @override
   void initState() {
@@ -61,6 +100,15 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           ),
         )
         .toList();
+    // 已有通道保留原类型；空值的新通道默认自动识别
+    _channelTypes = widget.webhookChannels.map((c) {
+      final t =
+          c['channelType']?.toString() ??
+          c['type']?.toString() ??
+          c['channel_type']?.toString() ??
+          'auto';
+      return t.isEmpty ? 'auto' : t;
+    }).toList();
     if (_webhookControllers.isEmpty) {
       _webhookControllers.add(TextEditingController());
       _nameControllers.add(TextEditingController());
@@ -69,6 +117,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _webhookEnabled.add(true);
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
+      _channelTypes.add('auto');
     }
   }
 
@@ -81,6 +130,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _webhookEnabled.add(true);
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
+      _channelTypes.add('auto');
     });
   }
 
@@ -97,6 +147,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _webhookEnabled.removeAt(index);
       _secretVisible.removeAt(index);
       _messageFormats.removeAt(index);
+      _channelTypes.removeAt(index);
       if (_webhookControllers.isEmpty) {
         _webhookControllers.add(TextEditingController());
         _nameControllers.add(TextEditingController());
@@ -105,6 +156,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _webhookEnabled.add(true);
         _secretVisible.add(false);
         _messageFormats.add(WebhookMessageFormat.defaultFormat);
+        _channelTypes.add('auto');
       }
     });
   }
@@ -131,11 +183,20 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final name = _nameControllers[i].text.trim();
       final secret = _secretControllers[i].text.trim();
       if (url.isNotEmpty) {
-        // 自动识别通道类型（host 精确匹配，与 WebhookChannel.detectTypeFromUrl 一致）
-        final type = WebhookChannel.detectTypeFromUrl(url);
-        final channelType = type.value;
+        // 保留已有通道 id（webhook_channels.id 是 PRIMARY KEY，缺失会被 replace 覆盖）
+        final existingId = i < widget.webhookChannels.length
+            ? widget.webhookChannels[i]['id'] as String?
+            : null;
+        // 渠道类型：手动指定优先（自建 Telegram/Bark 代理等场景），'auto' 才按 URL host 探测
+        final manualType = _channelTypes[i];
+        final channelType = (manualType == 'auto' || manualType.isEmpty)
+            ? WebhookChannel.detectTypeFromUrl(url).value
+            : manualType;
         final template = _templateControllers[i].text.trim();
         channels.add({
+          'id': (existingId != null && existingId.isNotEmpty)
+              ? existingId
+              : 'wh_${DateTime.now().millisecondsSinceEpoch}_$i',
           'url': url,
           'name': name,
           'channelType': channelType,
@@ -203,8 +264,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     return true;
   }
 
-  String _signingHint(String url) {
-    final type = WebhookChannel.detectTypeFromUrl(url);
+  String _signingHint(WebhookChannelType type) {
     switch (type) {
       case WebhookChannelType.wechatWork:
         return '企业微信群机器人开启「签名校验」后生成的密钥';
@@ -440,6 +500,39 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               setState(() {});
             },
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                '渠道类型',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryLabel(context),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButton<String>(
+                  value: _channelTypes[index],
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                  items: _channelTypeOptions(index),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setState(() {
+                        _channelTypes[index] = v;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
           if (_supportsSigning(_webhookControllers[index].text)) ...[
             const SizedBox(height: 10),
             Text(
@@ -455,7 +548,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               controller: _secretControllers[index],
               obscureText: !_secretVisible[index],
               decoration: InputDecoration(
-                hintText: _signingHint(_webhookControllers[index].text),
+                hintText: _signingHint(_effectiveType(index)),
                 hintStyle: TextStyle(
                   fontSize: 12,
                   color: AppColors.tertiaryLabel(context),

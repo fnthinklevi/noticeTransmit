@@ -147,8 +147,8 @@ class NotificationProcessor(private val context: Context) {
         return when {
             pkg.startsWith("com.tencent.mm") -> "微信"
             pkg.startsWith("com.tencent.mobileqq") -> "QQ"
-            pkg.startsWith("com.android.mms") || pkg.startsWith("com.google.android.apps.messaging") || pkg.contains("sms") -> "短信"
-            pkg.startsWith("com.android.dialer") || pkg.startsWith("com.android.incallui") || pkg.startsWith("com.android.phone") -> "电话"
+            pkg.startsWith("com.android.mms") || pkg.startsWith("com.google.android.apps.messaging") || pkg.contains("sms") || pkg.contains(".mms") -> "短信"
+            pkg.startsWith("com.android.dialer") || pkg.startsWith("com.android.incallui") || pkg.startsWith("com.android.phone") || pkg.contains("incallui") || pkg.contains("dialer") -> "电话"
             pkg.startsWith("com.android.settings") -> "设置"
             pkg.startsWith("com.android.systemui") -> "系统界面"
             pkg.startsWith("com.xiaomi.xmsf") -> "小米推送"
@@ -167,7 +167,12 @@ class NotificationProcessor(private val context: Context) {
         val pkg = packageName.lowercase()
         return pkg.startsWith("com.android.mms") ||
             pkg.startsWith("com.google.android.apps.messaging") ||
-            pkg.contains("sms")
+            pkg.startsWith("com.samsung.android.messaging") || // 三星短信
+            pkg.startsWith("com.huawei.mms") || // 华为短信
+            pkg.startsWith("com.huawei.android.mms") ||
+            pkg.startsWith("com.vivo.mms") || // vivo 短信
+            pkg.contains("sms") ||
+            pkg.contains(".mms") // 兜底：各厂商短信应用
     }
 
     private fun isCallPackage(packageName: String): Boolean {
@@ -175,7 +180,14 @@ class NotificationProcessor(private val context: Context) {
         return pkg.startsWith("com.android.dialer") ||
             pkg.startsWith("com.android.incallui") ||
             pkg.startsWith("com.android.phone") ||
-            pkg.startsWith("com.samsung.android.incallui")
+            pkg.startsWith("com.google.android.dialer") || // Google 拨号器
+            pkg.startsWith("com.samsung.android.dialer") || // 三星拨号器
+            pkg.startsWith("com.samsung.android.incallui") || // 三星来电
+            pkg.startsWith("com.huawei.contacts") || // 华为拨号/联系人
+            pkg.startsWith("com.oplus.incallui") || pkg.startsWith("com.coloros.incallui") ||
+            pkg.startsWith("com.bbk.incallui") || pkg.startsWith("com.vivo.incallui") ||
+            pkg.contains("incallui") || // 兜底：各厂商来电界面
+            pkg.contains("dialer") // 兜底：各厂商拨号器
     }
 
     private fun isVendorPushService(packageName: String): Boolean {

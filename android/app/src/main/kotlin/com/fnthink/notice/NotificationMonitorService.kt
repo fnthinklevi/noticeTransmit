@@ -338,7 +338,22 @@ class NotificationMonitorService : NotificationListenerService() {
             }
         }
         try {
-            registerReceiver(batteryChangedReceiver, filter)
+            // Android 13+ (targetSdk 34+) 动态注册必须显式声明 exported 标志，
+            // 否则混入自定义 action（ACTION_BATTERY_ALARM）的 filter 不再满足"仅系统广播"豁免，
+            // 会抛 SecurityException 导致电量监听与息屏闹钟整体失效。
+            // 该 receiver 只接收系统广播与应用内闹钟广播，无需对外导出。
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(
+                    batteryChangedReceiver,
+                    filter,
+                    Context.RECEIVER_NOT_EXPORTED
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                registerReceiver(batteryChangedReceiver, filter, 0)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(batteryChangedReceiver, filter)
+            }
             // 立即排程首次空闲闹钟（Handler 轮询在 Doze 下会被节流，此处为息屏兜底）
             scheduleBatteryAlarm()
         } catch (e: Exception) {
