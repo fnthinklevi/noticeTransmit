@@ -82,6 +82,11 @@ class WebhookSender(private val context: Context) {
             // 同步写入离线缓存：即使 MainActivity 被销毁，Flutter 重启后也能从缓存拉取
             HistoryCache.append(context, json)
 
+            // 当日推送计数（桌面小部件 4×2 规格数据源，跨天自动重置）
+            WidgetDailyCounter.increment(context)
+            // 推送数量变化后刷新小部件（仅在已添加小部件时广播，无小部件时零开销）
+            PushToggleWidgetProvider.updateAllWidgetsIfExists(context)
+
             val intent = Intent(MainActivity.ACTION_NOTIFICATION_RECEIVED).apply {
                 setPackage(context.packageName)
                 putExtra(MainActivity.EXTRA_NOTIFICATION_DATA, json.toString())

@@ -595,10 +595,27 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.fnthink.notice.widget.TOGGLE_PUSH" />
+                <action android:name="com.fnthink.notice.widget.UPDATE_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/push_toggle_widget_info" />
+        </receiver>
+
+        <!-- 4×2 宽规格：与 2×2 共用布局自适应逻辑，独立注册以在桌面列表中提供两种规格 -->
+        <receiver
+            android:name=".PushToggleWidgetWideProvider"
+            android:enabled="true"
+            android:exported="true"
+            android:label="推送开关(4×2)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.fnthink.notice.widget.TOGGLE_PUSH" />
+                <action android:name="com.fnthink.notice.widget.UPDATE_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/push_toggle_widget_wide_info" />
         </receiver>
 
         <meta-data

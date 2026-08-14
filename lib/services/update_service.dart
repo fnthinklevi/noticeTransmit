@@ -21,14 +21,6 @@ class UpdateService {
     await checkUpdate(force: false);
   }
 
-  Future<bool> storagePermissionGranted() async {
-    return AppUpdateManager.instance.storagePermissionGranted();
-  }
-
-  Future<bool> requestStoragePermission() async {
-    return AppUpdateManager.instance.requestStoragePermission();
-  }
-
   Future<String?> downloadApk(
     String url, {
     int? totalSize,

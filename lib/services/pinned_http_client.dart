@@ -35,6 +35,14 @@ class PinnedHttpClient {
   }) {
     final httpClient = HttpClient();
 
+    // 设置自定义 User-Agent：Dart 默认 UA（Dart/3.x (dart:io)）会被
+    // Cloudflare Bot Fight Mode / WAF 识别为爬虫并返回 HTTP 403，
+    // 导致「检查更新：服务器响应错误 HTTP 403」。模拟浏览器 UA 可正常访问。
+    httpClient.userAgent =
+        'Mozilla/5.0 (Linux; Android 13; FnthinkNotice/1.5) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Mobile Safari/537.36';
+
     if (pinnedFingerprints.isNotEmpty) {
       httpClient.badCertificateCallback =
           (X509Certificate cert, String host, int port) {

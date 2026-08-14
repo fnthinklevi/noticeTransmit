@@ -1,39 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@drawable/widget_bg_active"
-    android:gravity="center"
-    android:padding="16dp">
+    android:padding="12dp">
 
+    <!-- 左上角标题 -->
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="通知推送"
+        android:layout_gravity="top|start"
+        android:maxWidth="96dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="通知推送助手"
         android:textColor="#1C1C1E"
-        android:textSize="13sp"
+        android:textSize="12sp"
         android:textStyle="bold" />
 
+    <!-- 中央圆形状态（推送=绿色 / 暂停=红色，圆内显示状态文字） -->
     <TextView
-        android:id="@+id/widget_status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:id="@+id/widget_circle"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:layout_gravity="center"
+        android:background="@drawable/widget_circle_active"
+        android:gravity="center"
         android:text="推送中"
-        android:textColor="#007AFF"
-        android:textSize="26sp"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
         android:textStyle="bold" />
 
+    <!-- 底部提示 -->
     <TextView
         android:id="@+id/widget_hint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:maxWidth="96dp"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:text="点击暂停推送"
         android:textColor="#8E8E93"
-        android:textSize="12sp" />
+        android:textSize="10sp" />
 
-</LinearLayout>
+</FrameLayout>

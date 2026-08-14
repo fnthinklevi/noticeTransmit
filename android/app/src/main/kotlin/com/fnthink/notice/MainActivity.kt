@@ -1,6 +1,8 @@
 package com.fnthink.notice
 
 import android.app.ActivityManager
+import android.app.DownloadManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -13,6 +15,7 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
@@ -47,8 +50,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.56"
-        const val FALLBACK_BUILD = 90
+        const val FALLBACK_VERSION = "1.5.57"
+        const val FALLBACK_BUILD = 91
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -497,6 +500,31 @@ class MainActivity : FlutterActivity() {
                 }
                 "getLauncherIcon" -> {
                     result.success(getLauncherIcon())
+                }
+                "requestPinWidget" -> {
+                    // 一键添加桌面小部件（Android 8.0+ 系统弹窗确认；不支持时降级手动添加）
+                    val wide = call.argument<Boolean>("wide") ?: false
+                    val ok = requestPinWidget(wide)
+                    result.success(ok)
+                }
+                "startSystemDownload" -> {
+                    // 使用系统下载器（DownloadManager）下载更新 APK，无需存储权限
+                    val url = call.argument<String>("url") ?: ""
+                    val fileName = call.argument<String>("fileName") ?: "app_update.apk"
+                    val title = call.argument<String>("title") ?: "通知推送助手"
+                    result.success(startSystemDownload(url, fileName, title))
+                }
+                "getSystemDownloadProgress" -> {
+                    val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
+                    result.success(querySystemDownloadProgress(id))
+                }
+                "getDownloadedApkPath" -> {
+                    val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
+                    result.success(getDownloadedApkPath(id))
+                }
+                "installSystemDownload" -> {
+                    val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
+                    result.success(installSystemDownload(id))
                 }
                 else -> {
                     result.notImplemented()
@@ -1330,6 +1358,185 @@ class MainActivity : FlutterActivity() {
 
     private fun getLauncherIcon(): String {
         return prefs.getString("flutter.selected_icon", "default") ?: "default"
+    }
+
+    /**
+     * 一键添加桌面小部件（Android 8.0+ 通过 requestPinAppWidget 弹出系统确认框）。
+     * @param wide true 请求 4×2 宽规格，false 请求 2×2 规格。
+     * @return 是否成功发起请求（Android < 8.0 或 Launcher 不支持时返回 false）
+     */
+    private fun requestPinWidget(wide: Boolean): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        val manager = android.appwidget.AppWidgetManager.getInstance(this)
+        val clazz = if (wide) PushToggleWidgetWideProvider::class.java
+            else PushToggleWidgetProvider::class.java
+        val component = android.content.ComponentName(this, clazz)
+        val callback = PendingIntent.getBroadcast(
+            this,
+            0,
+            Intent(this, clazz)
+                .setAction(PushToggleWidgetProvider.ACTION_UPDATE_WIDGET),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return manager.requestPinAppWidget(component, null, callback)
+    }
+
+    /**
+     * 使用系统下载器（DownloadManager）下载更新 APK。
+     * 下载到公共 Download/FnthinkNotice 目录，无需存储权限；进度在通知栏可见，
+     * 应用内通过 getSystemDownloadProgress 轮询同步进度条。
+     * @return downloadId（String，MethodChannel 避免 Long 精度丢失），失败返回 null
+     */
+    private fun startSystemDownload(url: String, fileName: String, title: String): String? {
+        if (url.isEmpty()) return null
+        return try {
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val request = DownloadManager.Request(Uri.parse(url)).apply {
+                setTitle(title)
+                setDescription(fileName)
+                setNotificationVisibility(
+                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                )
+                setMimeType("application/vnd.android.package-archive")
+                setAllowedOverMetered(true)
+                setAllowedOverRoaming(true)
+                setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_DOWNLOADS,
+                    "FnthinkNotice/$fileName"
+                )
+            }
+            dm.enqueue(request).toString()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "startSystemDownload failed", e)
+            null
+        }
+    }
+
+    /** 查询系统下载器任务状态与进度（Flutter 侧轮询，用于应用内进度条）。 */
+    private fun querySystemDownloadProgress(id: Long): Map<String, Any?> {
+        if (id < 0) return mapOf("status" to -1, "progress" to 0.0)
+        return try {
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val cursor = dm.query(DownloadManager.Query().setFilterById(id))
+            if (cursor != null && cursor.moveToFirst()) {
+                val status = cursor.getInt(
+                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+                )
+                val bytes = cursor.getLong(
+                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                )
+                val total = cursor.getLong(
+                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                )
+                cursor.close()
+                mapOf(
+                    "status" to status,
+                    "bytesDownloaded" to bytes,
+                    "totalBytes" to total,
+                    "progress" to if (total > 0) bytes.toDouble() / total else 0.0,
+                )
+            } else {
+                cursor?.close()
+                mapOf("status" to -1, "progress" to 0.0)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "querySystemDownloadProgress failed", e)
+            mapOf("status" to -1, "progress" to 0.0)
+        }
+    }
+
+    /** 获取系统下载器已下载 APK 的本地文件路径（用于 open_filex 打开安装）。 */
+    private fun getDownloadedApkPath(id: Long): String? {
+        if (id < 0) return null
+        return try {
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val cursor = dm.query(DownloadManager.Query().setFilterById(id))
+            if (cursor != null && cursor.moveToFirst()) {
+                val status = cursor.getInt(
+                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+                )
+                val localUri = cursor.getString(
+                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)
+                )
+                cursor.close()
+                if (status == DownloadManager.STATUS_SUCCESSFUL && !localUri.isNullOrEmpty()) {
+                    val uri = Uri.parse(localUri)
+                    if (uri.scheme == "file") uri.path else localUri
+                } else {
+                    null
+                }
+            } else {
+                cursor?.close()
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * 通过系统安装器安装系统下载器下载的 APK。
+     * Android 10+ 优先使用 content uri（MediaStore），旧版本回退 file uri。
+     * @return 是否成功启动安装流程
+     */
+    private fun installSystemDownload(id: Long): Boolean {
+        if (id < 0) return false
+        // 安装未知来源应用权限（Android 8.0+），缺失时引导用户去开启
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            } catch (e: Exception) {
+                // 部分厂商缺少该设置入口，直接放行尝试安装
+            }
+            return false
+        }
+        return try {
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val cursor = dm.query(DownloadManager.Query().setFilterById(id))
+            if (cursor != null && cursor.moveToFirst()) {
+                val status = cursor.getInt(
+                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+                )
+                if (status != DownloadManager.STATUS_SUCCESSFUL) {
+                    cursor.close()
+                    return false
+                }
+                val mediaUri = try {
+                    cursor.getString(
+                        cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_MEDIAPROVIDER_URI)
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+                val localUri = cursor.getString(
+                    cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)
+                )
+                cursor.close()
+                val uri: Uri = when {
+                    !mediaUri.isNullOrEmpty() -> Uri.parse(mediaUri)
+                    !localUri.isNullOrEmpty() -> Uri.parse(localUri)
+                    else -> return false
+                }
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(intent)
+                true
+            } else {
+                cursor?.close()
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun testWebhook(url: String, secret: String?, result: MethodChannel.Result) {

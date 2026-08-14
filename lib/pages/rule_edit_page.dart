@@ -395,12 +395,21 @@ class _RuleEditPageState extends State<RuleEditPage> {
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _rule.priority,
-              items: const [
-                DropdownMenuItem(value: 0, child: Text('默认 (0)')),
-                DropdownMenuItem(value: 50, child: Text('低 (50)')),
-                DropdownMenuItem(value: 100, child: Text('中 (100)')),
-                DropdownMenuItem(value: 200, child: Text('高 (200)')),
-                DropdownMenuItem(value: 500, child: Text('最高 (500)')),
+              items: [
+                for (final entry in const [
+                  (0, '默认 (0)'),
+                  (50, '低 (50)'),
+                  (100, '中 (100)'),
+                  (200, '高 (200)'),
+                  (500, '最高 (500)'),
+                ])
+                  DropdownMenuItem(
+                    value: entry.$1,
+                    child: Text(
+                      entry.$2,
+                      style: TextStyle(color: AppColors.primaryLabel(context)),
+                    ),
+                  ),
               ],
               onChanged: (value) {
                 if (value != null) {
@@ -411,6 +420,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
               },
               isExpanded: true,
               underline: const SizedBox(),
+              dropdownColor: AppColors.cardBg(context),
+              iconEnabledColor: AppColors.secondaryLabel(context),
               style: TextStyle(
                 fontSize: 16,
                 color: AppColors.primaryLabel(context),
@@ -794,6 +805,8 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
               onChanged: onChanged,
               isExpanded: true,
               underline: const SizedBox(),
+              dropdownColor: AppColors.cardBg(context),
+              iconEnabledColor: AppColors.secondaryLabel(context),
             ),
           ),
         ),
@@ -1013,6 +1026,8 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
               onChanged: onChanged,
               isExpanded: true,
               underline: const SizedBox(),
+              dropdownColor: AppColors.cardBg(context),
+              iconEnabledColor: AppColors.secondaryLabel(context),
             ),
           ),
         ),

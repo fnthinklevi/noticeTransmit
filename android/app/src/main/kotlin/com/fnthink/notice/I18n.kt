@@ -171,4 +171,25 @@ object I18n {
         else "推送已暂停 · 当日已推送 $count 条"
     fun actionPausePush(): String = if (isEn) "Pause push" else "暂停推送"
     fun actionResumePush(): String = if (isEn) "Resume push" else "恢复推送"
+
+    // ========== 桌面小部件 ==========
+    fun widgetActiveText(): String = if (isEn) "PUSHING" else "推送中"
+    fun widgetPausedText(): String = if (isEn) "PAUSED" else "已暂停"
+    fun widgetTapPause(): String = if (isEn) "Tap to pause push" else "点击暂停推送"
+    fun widgetTapResume(): String = if (isEn) "Tap to resume push" else "点击恢复推送"
+    fun widgetDailyPushed(): String = if (isEn) "Pushed today" else "当日已推送"
+    fun widgetAddTitle(): String = if (isEn) "Add widget" else "添加桌面小部件"
+    fun widgetAddDesc(): String = if (isEn)
+        "Tap below, then confirm in the system dialog to place the 2×2 push toggle widget on your home screen."
+        else "点击下方按钮后，在系统弹窗中确认即可将 2×2 推送开关小部件添加到桌面。"
+    fun widgetAddAction(): String = if (isEn) "Add 2×2 widget" else "一键添加 2×2 小部件"
+    fun widgetAddSuccess(): String = if (isEn)
+        "Added. You can now place the widget on the home screen."
+        else "已发起添加，请在桌面放置小部件。"
+    fun widgetAddUnsupported(): String = if (isEn)
+        "This launcher does not support quick-add. Please add it manually by long-pressing the home screen."
+        else "当前桌面不支持一键添加，请长按桌面空白处手动添加。"
+    fun widgetAddLowApi(): String = if (isEn)
+        "Quick-add requires Android 8.0+. Please add it manually by long-pressing the home screen."
+        else "一键添加需要 Android 8.0 及以上，请长按桌面空白处手动添加。"
 }

@@ -91,6 +91,15 @@ class AppLocalizations {
     'widgetTip2': '暂停后监听继续，仅不发送推送消息',
     'widgetTip3': '部分品牌需允许应用自启动，小部件状态才能实时刷新',
     'widgetTip4': '若桌面找不到小部件，请先打开一次应用或重启桌面',
+    'widgetPinTitle': '一键添加（推荐）',
+    'widgetPinDesc': '点击下方按钮，在系统弹窗中确认后即可将 2×2 推送开关小部件添加到桌面，无需手动拖拽。',
+    'widgetPinAction': '一键添加 2×2 小部件',
+    'widgetPinWideAction': '添加 4×2 横条小部件',
+    'widgetPinSuccess': '已发起添加，请在桌面放置小部件',
+    'widgetPinUnsupported': '当前桌面不支持一键添加，请长按桌面空白处手动添加',
+    'widgetPinLowApi': '一键添加需要 Android 8.0 及以上，请长按桌面空白处手动添加',
+    'widgetPin2x2': '2×2 圆形开关：标题 + 状态圆 + 点击提示',
+    'widgetPin4x2': '4×2 横条：标题 + 状态圆 + 当日已推送数量',
     'pushStats': '推送统计',
     'pushStatsDesc': '查看推送数据统计',
     'aboutUpdate': '关于与更新',
@@ -518,6 +527,18 @@ class AppLocalizations {
         'Some brands require autostart permission for the widget to refresh in real time',
     'widgetTip4':
         'If the widget is not listed, open the app once or restart the launcher',
+    'widgetPinTitle': 'Quick Add (Recommended)',
+    'widgetPinDesc':
+        'Tap below and confirm in the system dialog to place the 2×2 push toggle widget on your home screen, no dragging needed.',
+    'widgetPinAction': 'Add 2×2 widget',
+    'widgetPinWideAction': 'Add 4×2 wide widget',
+    'widgetPinSuccess': 'Request sent, place the widget on the home screen',
+    'widgetPinUnsupported':
+        'This launcher does not support quick-add. Long-press an empty area of the home screen to add manually',
+    'widgetPinLowApi':
+        'Quick-add requires Android 8.0+. Long-press an empty area of the home screen to add manually',
+    'widgetPin2x2': '2×2 round toggle: title + status circle + tap hint',
+    'widgetPin4x2': '4×2 wide bar: title + status circle + daily pushed count',
     'pushStats': 'Push Statistics',
     'pushStatsDesc': 'View push data statistics',
     'aboutUpdate': 'About & Update',
@@ -961,6 +982,15 @@ class AppLocalizations {
   String get widgetTip2 => _get('widgetTip2');
   String get widgetTip3 => _get('widgetTip3');
   String get widgetTip4 => _get('widgetTip4');
+  String get widgetPinTitle => _get('widgetPinTitle');
+  String get widgetPinDesc => _get('widgetPinDesc');
+  String get widgetPinAction => _get('widgetPinAction');
+  String get widgetPinWideAction => _get('widgetPinWideAction');
+  String get widgetPinSuccess => _get('widgetPinSuccess');
+  String get widgetPinUnsupported => _get('widgetPinUnsupported');
+  String get widgetPinLowApi => _get('widgetPinLowApi');
+  String get widgetPin2x2 => _get('widgetPin2x2');
+  String get widgetPin4x2 => _get('widgetPin4x2');
   String get pushStats => _get('pushStats');
   String get pushStatsDesc => _get('pushStatsDesc');
   String get aboutUpdate => _get('aboutUpdate');

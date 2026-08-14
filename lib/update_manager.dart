@@ -40,8 +40,8 @@ class AppUpdateManager {
 
   /// 回退版本号：仅当 native getAppVersion 调用失败时使用。
   /// 发版时同步更新为当前版本号。
-  static const String _fallbackVersion = '1.5.56';
-  static const int _fallbackBuild = 90;
+  static const String _fallbackVersion = '1.5.57';
+  static const int _fallbackBuild = 91;
 
   static const String _defaultDownloadDir =
       '/storage/emulated/0/Download/FnthinkNotice';
@@ -58,6 +58,9 @@ class AppUpdateManager {
   int _currentBuild = _fallbackBuild;
   String? _lastError;
 
+  /// 最近一次系统下载器（DownloadManager）任务的 downloadId，安装回退时使用
+  String? _lastDownloadId;
+
   String get serverUrl => _updateServerUrl;
   bool get autoCheck => _autoCheck;
   String? get lastError => _lastError;
@@ -68,24 +71,6 @@ class AppUpdateManager {
     await _updateVersionInfo();
     // 更新完成后（新版本已启动）自动删除上一次下载的安装包
     await _cleanupInstalledApk();
-  }
-
-  /// 检测是否已拥有写入公共 Download 目录所需的存储权限
-  Future<bool> storagePermissionGranted() async {
-    if (!Platform.isAndroid) return true;
-    if (await Permission.manageExternalStorage.isGranted) return true;
-    if (await Permission.storage.isGranted) return true;
-    return false;
-  }
-
-  /// 申请存储权限：Android 10 及以下用普通存储权限；Android 11+ 需“所有文件访问”权限
-  Future<bool> requestStoragePermission() async {
-    if (!Platform.isAndroid) return true;
-    if (await storagePermissionGranted()) return true;
-    final legacy = await Permission.storage.request();
-    if (legacy.isGranted) return true;
-    final manage = await Permission.manageExternalStorage.request();
-    return manage.isGranted;
   }
 
   Future<String> resolveDownloadDir() async {
@@ -363,12 +348,105 @@ class AppUpdateManager {
     String? version,
   }) async {
     if (Platform.isAndroid) {
-      final granted = await requestStoragePermission();
-      if (!granted) {
-        throw Exception('存储权限未授予');
+      // Android：调用系统下载器（DownloadManager），无需存储权限，
+      // 后台下载不中断，通知栏自动显示进度（各品牌系统下载器接管）。
+      return _downloadWithSystemDownloader(
+        downloadUrl,
+        totalSize: totalSize,
+        onProgress: onProgress,
+        appName: appName,
+        version: version,
+      );
+    }
+    // 桌面等其他平台：保持原有自实现下载（保存到临时目录）
+    return _downloadLegacy(
+      downloadUrl,
+      totalSize: totalSize,
+      onProgress: onProgress,
+      onCancel: onCancel,
+      appName: appName,
+      version: version,
+    );
+  }
+
+  /// 系统下载器（DownloadManager）下载实现。
+  /// 下载到公共 Download/FnthinkNotice 目录，返回本地文件路径；
+  /// 路径获取失败时返回空字符串（安装时回退系统安装器 content uri）。
+  Future<String> _downloadWithSystemDownloader(
+    String downloadUrl, {
+    int? totalSize,
+    Function(double progress)? onProgress,
+    String? appName,
+    String? version,
+  }) async {
+    final fileName =
+        '${appName ?? 'noticeTransmit'}_${version ?? 'update'}.apk';
+    final id = await AppChannels.notification.invokeMethod(
+      'startSystemDownload',
+      {'url': downloadUrl, 'fileName': fileName, 'title': '通知推送助手更新'},
+    );
+    if (id == null || id.toString().isEmpty) {
+      throw Exception('无法启动系统下载器');
+    }
+    _lastDownloadId = id.toString();
+
+    // DownloadManager 状态码：1 等待 / 2 下载中 / 4 暂停 / 8 完成 / 16 失败
+    const statusSuccessful = 8;
+    const statusFailed = 16;
+
+    var lastProgress = -1.0;
+    while (true) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      Map<Object?, Object?> info;
+      try {
+        info =
+            await AppChannels.notification.invokeMethod(
+                  'getSystemDownloadProgress',
+                  {'downloadId': _lastDownloadId},
+                )
+                as Map<Object?, Object?>;
+      } catch (e) {
+        throw Exception('获取下载进度失败');
+      }
+      final status = (info['status'] as int?) ?? -1;
+      if (status == statusSuccessful) {
+        onProgress?.call(1.0);
+        final path = await _getSystemDownloadedPath();
+        await _recordPendingApk(path ?? '', version);
+        return path ?? '';
+      }
+      if (status == statusFailed) {
+        throw Exception('系统下载器下载失败');
+      }
+      final progress = ((info['progress'] as num?) ?? 0).toDouble();
+      if (progress != lastProgress) {
+        lastProgress = progress;
+        onProgress?.call(progress);
       }
     }
+  }
 
+  Future<String?> _getSystemDownloadedPath() async {
+    try {
+      final path = await AppChannels.notification.invokeMethod(
+        'getDownloadedApkPath',
+        {'downloadId': _lastDownloadId},
+      );
+      return path?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 自实现下载（仅非 Android 平台使用）
+  Future<String> _downloadLegacy(
+    String downloadUrl, {
+    int? totalSize,
+    Function(double progress)? onProgress,
+    Function()? onCancel,
+    String? appName,
+    String? version,
+  }) async {
     // 优先公共下载目录，失败时回退到应用私有目录
     late String downloadDirPath;
     try {
@@ -479,6 +557,15 @@ class AppUpdateManager {
         if (!status.isGranted) {
           openAppSettings();
           return false;
+        }
+        // 系统下载器下载的文件：本地路径获取失败时（如 content uri 无法转路径），
+        // 由原生通过系统安装器直接安装（content uri + FLAG_GRANT_READ_URI_PERMISSION）。
+        if (filePath.isEmpty && _lastDownloadId != null) {
+          final ok = await AppChannels.notification.invokeMethod(
+            'installSystemDownload',
+            {'downloadId': _lastDownloadId},
+          );
+          return ok == true;
         }
       }
       final result = await OpenFilex.open(
