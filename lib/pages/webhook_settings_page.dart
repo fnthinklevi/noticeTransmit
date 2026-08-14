@@ -46,28 +46,174 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     return WebhookChannel.detectTypeFromUrl(_webhookControllers[index].text);
   }
 
-  /// 渠道类型下拉选项：'auto' 自动识别 + 各平台手动指定
-  List<DropdownMenuItem<String>> _channelTypeOptions(int index) {
+  /// 渠道类型图标与品牌色（与 URL 识别提示一致）
+  (IconData, Color) _typeVisual(WebhookChannelType type) {
+    switch (type) {
+      case WebhookChannelType.wechatWork:
+        return (Icons.chat, const Color(0xFF07C160));
+      case WebhookChannelType.dingtalk:
+        return (Icons.work, const Color(0xFF1677FF));
+      case WebhookChannelType.feishu:
+        return (Icons.flight, AppColors.blue);
+      case WebhookChannelType.telegram:
+        return (Icons.send, const Color(0xFF0088CC));
+      case WebhookChannelType.bark:
+        return (Icons.notifications_active, const Color(0xFFE6A23C));
+      case WebhookChannelType.serverChan:
+        return (Icons.forward_to_inbox, const Color(0xFF4E5969));
+      case WebhookChannelType.pushPlus:
+        return (Icons.bolt, const Color(0xFF00B96B));
+      case WebhookChannelType.generic:
+        return (Icons.code, const Color(0xFFFF9500));
+    }
+  }
+
+  /// 渠道类型选择器：iOS 风格输入框样式 + 弹窗选择（替代 Material DropdownButton）
+  Widget _buildChannelTypeSelector(int index, BuildContext context) {
+    final manual = _channelTypes[index];
     final detected = WebhookChannel.detectTypeFromUrl(
       _webhookControllers[index].text,
     );
-    return [
-      DropdownMenuItem(
-        value: 'auto',
-        child: Text(
-          detected == WebhookChannelType.generic
+    final isAuto = manual.isEmpty || manual == 'auto';
+    final currentType = isAuto
+        ? detected
+        : WebhookChannelType.values.firstWhere(
+            (t) => t.value == manual,
+            orElse: () => detected,
+          );
+    final display = isAuto
+        ? (detected == WebhookChannelType.generic
               ? '自动识别'
-              : '自动识别（${detected.label}）',
-          style: const TextStyle(fontSize: 14),
+              : '自动识别（${detected.label}）')
+        : currentType.label;
+    final visual = _typeVisual(currentType);
+
+    return InkWell(
+      onTap: () => _showChannelTypePicker(index, context),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.inputBg(context),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.separator(context)),
+        ),
+        child: Row(
+          children: [
+            Icon(visual.$1, size: 16, color: visual.$2),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                display,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primaryLabel(context),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: AppColors.tertiaryLabel(context),
+            ),
+          ],
         ),
       ),
-      ...WebhookChannelType.values.map(
-        (t) => DropdownMenuItem(
-          value: t.value,
-          child: Text(t.label, style: const TextStyle(fontSize: 14)),
+    );
+  }
+
+  /// 渠道类型选择弹窗（与主题/语言选择同款 iOS 风格）
+  void _showChannelTypePicker(int index, BuildContext context) {
+    final detected = WebhookChannel.detectTypeFromUrl(
+      _webhookControllers[index].text,
+    );
+    final current = _channelTypes[index];
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg(context),
+        title: Text(
+          '选择推送渠道',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(context),
+          ),
         ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 4),
+                _buildTypeOption(
+                  context,
+                  icon: Icons.auto_awesome,
+                  color: AppColors.blue,
+                  label: detected == WebhookChannelType.generic
+                      ? '自动识别'
+                      : '自动识别（${detected.label}）',
+                  selected: current.isEmpty || current == 'auto',
+                  onTap: () {
+                    setState(() => _channelTypes[index] = 'auto');
+                    Navigator.pop(dialogContext);
+                  },
+                ),
+                ...WebhookChannelType.values.map((t) {
+                  final visual = _typeVisual(t);
+                  return _buildTypeOption(
+                    context,
+                    icon: visual.$1,
+                    color: visual.$2,
+                    label: t.label,
+                    selected: current == t.value,
+                    onTap: () {
+                      setState(() => _channelTypes[index] = t.value);
+                      Navigator.pop(dialogContext);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
-    ];
+    );
+  }
+
+  Widget _buildTypeOption(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      dense: true,
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(fontSize: 15, color: AppColors.primaryLabel(context)),
+      ),
+      trailing: selected
+          ? const Icon(Icons.check, color: AppColors.blue)
+          : null,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+    );
   }
 
   @override
@@ -521,25 +667,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButton<String>(
-                  value: _channelTypes[index],
-                  isExpanded: true,
-                  underline: const SizedBox.shrink(),
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                  items: _channelTypeOptions(index),
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() {
-                        _channelTypes[index] = v;
-                      });
-                    }
-                  },
-                ),
-              ),
+              Expanded(child: _buildChannelTypeSelector(index, context)),
             ],
           ),
           if (_supportsSigning(index)) ...[

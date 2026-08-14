@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg_active"
-    android:gravity="center_vertical"
+    android:gravity="center"
     android:padding="16dp">
 
     <TextView
@@ -14,24 +14,24 @@
         android:layout_height="wrap_content"
         android:text="通知推送"
         android:textColor="#1C1C1E"
-        android:textSize="12sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="6dp"
         android:text="推送中"
         android:textColor="#007AFF"
-        android:textSize="22sp"
+        android:textSize="26sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_hint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="4dp"
         android:text="点击暂停推送"
         android:textColor="#8E8E93"
         android:textSize="12sp" />
