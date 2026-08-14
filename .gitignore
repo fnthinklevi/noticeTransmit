@@ -12,6 +12,8 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+# 终端误重定向产生的文件（less 帮助页等），禁止提交
+mitandroid
 update.md
 base.md
 crash_log.txt

@@ -329,6 +329,9 @@ class NotificationMonitorService : NotificationListenerService() {
                             updateForegroundNotification()
                             Log.d(TAG, "Delayed notification sent: ${info.appName} - ${info.title}")
                         }
+                        // 闹钟是一次性的（setAndAllowWhileIdle）：drain 后必须重排下一条到期推送，
+                        // 否则队列中多条延迟推送只有第一条会按时触发，其余要等新入队/服务重启才补推
+                        delayedPushManager.rescheduleAll()
                     } catch (e: Exception) {
                         Log.e(TAG, "Error sending delayed pushes", e)
                     }

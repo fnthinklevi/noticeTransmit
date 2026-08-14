@@ -44,7 +44,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
 - 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), first-time entry provides feature guide, built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
 - 🏷️ **Notification Priority Levels** - System notification priority (high/medium/low) extracted natively, matchable via "notification priority" condition; rule actions truly executed natively — silent ignore / record only / delayed push / push now
-- ⏰ **Scheduled / Delayed Push** - "Delayed push" action configurable (delay seconds / schedule HH:mm), auto re-push webhook & email when due, tasks auto-recover after process kill or reboot
+- ⏰ **Scheduled / Delayed Push** - "Delayed push" action configurable (delay seconds / schedule HH:mm), auto re-push webhook & email when due (may be delayed by minutes in deep Doze), tasks auto-recover after process kill or reboot
 - 📝 **Push Template Engine** - Custom message format (text/markdown/json/xml), supports variable placeholders (`%appName%`/`%title%`/`%content%` etc.), auto-wraps payload per platform with escaping, each channel configured independently
 - 📟 **Home Screen Widget** - 2×2 / 4×2 dual sizes with adaptive width layout, one-tap toggle push from the home screen; shows daily push count (auto-resets at midnight); one-tap add to home screen
 

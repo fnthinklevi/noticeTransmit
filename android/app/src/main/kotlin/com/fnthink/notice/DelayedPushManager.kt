@@ -14,6 +14,8 @@ import org.json.JSONObject
  * 命中规则「延迟推送」动作的通知会写入本队列（SharedPreferences 持久化，服务被杀/重启不丢失），
  * 到点后由 AlarmManager（setAndAllowWhileIdle，Doze 下也可触发）广播 ACTION_PUSH_DUE，
  * 由 NotificationMonitorService 注册的接收器统一取出并推送。
+ * 注：深度 Doze 下非精确闹钟只在维护窗口投递（约 9~15 分钟一次），到点可能有分钟级延迟；
+ * 精确闹钟 setExactAndAllowWhileIdle 在 Android 12+ 需 SCHEDULE_EXACT_ALARM 权限、14+ 默认拒绝，故采用非精确闹钟。
  *
  * 队列项：{"key": "pkg:id:postTime", "fireAt": 毫秒时间戳, "info": {NotificationInfo JSON}}
  */
