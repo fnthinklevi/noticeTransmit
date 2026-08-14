@@ -7,15 +7,15 @@
   "changelog": "v1.5.57: 桌面小部件全新升级(2×2 新 UI/4×2 横条新增/自适应尺寸/一键添加) + 更新下载改系统下载器(免存储权限后台不中断) + 深色模式下拉菜单修复 + 更新检查 403 修复",
   "downloads": {
     "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.57/notice_arm64_1.5.57.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.56/notice_arm32_1.5.56.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.56/notice_x86_1.5.56.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.56/notice_all_1.5.56.apk"
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.57/notice_arm32_1.5.57.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.57/notice_x86_1.5.57.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.57/notice_all_1.5.57.apk"
   },
   "fileSizes": {
-    "arm64": 36740834,
-    "arm32": 22669641,
-    "x86_64": 28806733,
-    "all": 73274851
+    "arm64": 26776647,
+    "arm32": 22656178,
+    "x86_64": 28809665,
+    "all": 73261398
   },
   "minSupportedVersion": "1.0.0"
 }

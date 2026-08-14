@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.56/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.57/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -46,6 +46,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🏷️ **Notification Priority Levels** - System notification priority (high/medium/low) extracted natively, matchable via "notification priority" condition; rule actions truly executed natively — silent ignore / record only / delayed push / push now
 - ⏰ **Scheduled / Delayed Push** - "Delayed push" action configurable (delay seconds / schedule HH:mm), auto re-push webhook & email when due, tasks auto-recover after process kill or reboot
 - 📝 **Push Template Engine** - Custom message format (text/markdown/json/xml), supports variable placeholders (`%appName%`/`%title%`/`%content%` etc.), auto-wraps payload per platform with escaping, each channel configured independently
+- 📟 **Home Screen Widget** - 2×2 / 4×2 dual sizes with adaptive width layout, one-tap toggle push from the home screen; shows daily push count (auto-resets at midnight); one-tap add to home screen
 
 ### Experience Optimization
 
@@ -53,7 +54,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
 - ⏸️ **One-tap Pause Push** - Pause/resume push via foreground notification action button (monitoring continues, only webhook sending stops), state persists across restarts
-- 🔄 **Online Update** - Support version update, no need to reinstall APK; flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
+- 🔄 **Online Update** - Support version update, no need to reinstall APK; downloads via system downloader (DownloadManager) in background — no storage permission needed, uninterrupted when screen is off; flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
 - 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface
 - 📊 **Unified Push Stats** - Home/More/status bar push stats share the same database source, daily count syncs in real time
 

@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.56/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.57/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -46,6 +46,7 @@
 - 🏷️ **通知优先级分级** - 原生链路提取系统通知优先级（高/中/低），可按「通知优先级」条件匹配规则；规则动作原生真实执行——静默忽略 / 仅记录 / 延迟推送 / 立即推送
 - ⏰ **定时/延迟推送** - 规则「延迟推送」动作支持参数配置（延迟秒数 / 定时时间 HH:mm），到点自动补推 webhook 与邮件，进程被杀/重启后任务自动恢复
 - 📝 **推送模板引擎** - 自定义消息格式（text/markdown/json/xml），支持变量占位符（`%appName%`/`%title%`/`%content%` 等），按平台自动包裹 payload 与转义，每个通道独立配置
+- 📟 **桌面小部件** - 2×2 / 4×2 双规格，自适应宽度布局，桌面点击一键启停推送；显示当日推送计数（跨天自动重置）；「推送开关」页一键添加到桌面
 
 ### 体验优化
 
@@ -53,7 +54,7 @@
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
 - ⏸️ **一键暂停推送** - 前台通知栏 Action 按钮一键暂停/恢复推送（监听继续，仅停止 webhook 发送），状态持久化重启后恢复
-- 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
+- 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；由系统下载器（DownloadManager）后台下载，免存储权限、锁屏后台不中断；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
 - 📲 **Cupertino 设计语言** - 采用 Cupertino（iOS）系统设计语言，界面简洁优雅
 - 📊 **推送统计统一** - 首页/更多页/状态栏推送统计共用同一数据源，当日计数实时同步
 
