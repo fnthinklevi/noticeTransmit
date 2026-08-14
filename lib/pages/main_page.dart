@@ -97,6 +97,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         return 'webhook:Telegram';
       case 'bark':
         return 'webhook:Bark';
+      case 'server_chan':
+      case 'serverChan':
+        return 'webhook:Server酱';
+      case 'push_plus':
+      case 'pushPlus':
+        return 'webhook:PushPlus';
       default:
         return 'webhook';
     }
@@ -604,14 +610,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 color: AppColors.primaryLabel(context),
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              'v${_updateService.currentVersion}',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.secondaryLabel(context),
-              ),
-            ),
           ],
         ),
         content: Column(
@@ -623,22 +621,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.primaryLabel(context),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '监听通知栏所有通知并推送到 Webhook',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.secondaryLabel(context),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '支持：微信 / QQ / 短信 / 来电 / 电量提醒',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.secondaryLabel(context),
               ),
             ),
           ],

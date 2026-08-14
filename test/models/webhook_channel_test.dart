@@ -8,6 +8,10 @@ void main() {
       expect(WebhookChannelType.wechatWork.value, 'wechat_work');
       expect(WebhookChannelType.dingtalk.value, 'dingtalk');
       expect(WebhookChannelType.feishu.value, 'feishu');
+      expect(WebhookChannelType.telegram.value, 'telegram');
+      expect(WebhookChannelType.bark.value, 'bark');
+      expect(WebhookChannelType.serverChan.value, 'server_chan');
+      expect(WebhookChannelType.pushPlus.value, 'push_plus');
     });
 
     test('label returns correct display text', () {
@@ -15,6 +19,10 @@ void main() {
       expect(WebhookChannelType.wechatWork.label, '企业微信群机器人');
       expect(WebhookChannelType.dingtalk.label, '钉钉群机器人');
       expect(WebhookChannelType.feishu.label, '飞书群机器人');
+      expect(WebhookChannelType.telegram.label, 'Telegram');
+      expect(WebhookChannelType.bark.label, 'Bark');
+      expect(WebhookChannelType.serverChan.label, 'Server酱');
+      expect(WebhookChannelType.pushPlus.label, 'PushPlus');
     });
   });
 
@@ -75,6 +83,38 @@ void main() {
           'https://api.telegram.org/bot123:abc/sendMessage',
         ),
         WebhookChannelType.telegram,
+      );
+    });
+
+    test('detectTypeFromUrl identifies server chan', () {
+      expect(
+        WebhookChannel.detectTypeFromUrl('https://sctapi.ftqq.com/ABC123.send'),
+        WebhookChannelType.serverChan,
+      );
+      // 精确 host 匹配：ftqq.com 非 sctapi.ftqq.com → generic
+      expect(
+        WebhookChannel.detectTypeFromUrl('https://ftqq.com/webhook'),
+        WebhookChannelType.generic,
+      );
+    });
+
+    test('detectTypeFromUrl identifies push plus', () {
+      expect(
+        WebhookChannel.detectTypeFromUrl(
+          'https://www.pushplus.plus/send?token=abc123',
+        ),
+        WebhookChannelType.pushPlus,
+      );
+      expect(
+        WebhookChannel.detectTypeFromUrl(
+          'https://pushplus.plus/send?token=abc123',
+        ),
+        WebhookChannelType.pushPlus,
+      );
+      // 精确 host 匹配：plus.com 非 pushplus.plus → generic
+      expect(
+        WebhookChannel.detectTypeFromUrl('https://plus.com/webhook'),
+        WebhookChannelType.generic,
       );
     });
 

@@ -193,6 +193,9 @@ object TemplateEngine {
                 put("body", rendered)
             }.toString()
 
+            // Server酱 / PushPlus 无平台模板包装（走 WebhookSender 独立发送路径）
+            WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
+            WebhookPayloadBuilder.WebhookType.PUSH_PLUS,
             WebhookPayloadBuilder.WebhookType.GENERIC -> return null
         }
     }

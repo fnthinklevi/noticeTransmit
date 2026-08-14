@@ -8,6 +8,8 @@ enum WebhookChannelType {
   feishu,
   telegram,
   bark,
+  serverChan,
+  pushPlus,
 }
 
 extension WebhookChannelTypeExtension on WebhookChannelType {
@@ -25,6 +27,10 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'telegram';
       case WebhookChannelType.bark:
         return 'bark';
+      case WebhookChannelType.serverChan:
+        return 'server_chan';
+      case WebhookChannelType.pushPlus:
+        return 'push_plus';
     }
   }
 
@@ -42,6 +48,10 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'Telegram';
       case WebhookChannelType.bark:
         return 'Bark';
+      case WebhookChannelType.serverChan:
+        return 'Server酱';
+      case WebhookChannelType.pushPlus:
+        return 'PushPlus';
     }
   }
 
@@ -55,6 +65,8 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return true;
       case WebhookChannelType.telegram:
       case WebhookChannelType.bark:
+      case WebhookChannelType.serverChan:
+      case WebhookChannelType.pushPlus:
         return false;
     }
   }
@@ -74,6 +86,10 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'Telegram 使用 Bot Token 鉴权，无需签名密钥';
       case WebhookChannelType.bark:
         return 'Bark 使用设备 Key 鉴权，无需签名密钥';
+      case WebhookChannelType.serverChan:
+        return 'Server酱 使用 SendKey 鉴权，无需签名密钥';
+      case WebhookChannelType.pushPlus:
+        return 'PushPlus 使用 Token 鉴权，无需签名密钥';
     }
   }
 }
@@ -168,6 +184,8 @@ class WebhookChannel {
     (WebhookChannelType.feishu, ['open.feishu.cn', 'open.larksuite.com']),
     (WebhookChannelType.telegram, ['api.telegram.org']),
     (WebhookChannelType.bark, ['api.day.app', 'bark.gugu.ovh']),
+    (WebhookChannelType.serverChan, ['sctapi.ftqq.com']),
+    (WebhookChannelType.pushPlus, ['www.pushplus.plus', 'pushplus.plus']),
   ];
 
   static WebhookChannelType detectTypeFromUrl(String url) {

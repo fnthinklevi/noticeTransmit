@@ -1309,7 +1309,6 @@ class MainActivity : FlutterActivity() {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
                 val webhookType = WebhookPayloadBuilder.detectType(url)
                 val chatId = WebhookPayloadBuilder.extractChatIdFromUrl(url)
-                val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName, chatId)
 
                 val typeLabel = when (webhookType) {
                     WebhookPayloadBuilder.WebhookType.WECHAT_WORK -> "企业微信"
@@ -1317,27 +1316,82 @@ class MainActivity : FlutterActivity() {
                     WebhookPayloadBuilder.WebhookType.FEISHU -> "飞书"
                     WebhookPayloadBuilder.WebhookType.TELEGRAM -> "Telegram"
                     WebhookPayloadBuilder.WebhookType.BARK -> "Bark"
+                    WebhookPayloadBuilder.WebhookType.SERVER_CHAN -> "Server酱"
+                    WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> "PushPlus"
                     WebhookPayloadBuilder.WebhookType.GENERIC -> "通用"
                 }
 
-                // 调用签名器（与正式推送走同一套签名逻辑）
-                val signedReq = WebhookSigner.sign(webhookType, url, payload, secret)
+                if (webhookType == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
+                    // Server酱：GET 请求
+                    val getUrl = WebhookPayloadBuilder.buildServerChanRequestUrl(
+                        url = url,
+                        title = I18n.testTitle(),
+                        content = I18n.testContent(),
+                        deviceName = deviceName
+                    )
+                    val request = Request.Builder()
+                        .url(getUrl)
+                        .get()
+                        .addHeader("User-Agent", "NotificationMonitor/1.0")
+                        .build()
+                    okHttpClient.newCall(request).execute().use { response ->
+                        val responseBody = response.body?.string() ?: ""
+                        val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
+                        Triple(
+                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            parseResult.message,
+                            false
+                        )
+                    }
+                } else if (webhookType == WebhookPayloadBuilder.WebhookType.PUSH_PLUS) {
+                    // PushPlus：POST JSON，token 注入 body
+                    val token = WebhookPayloadBuilder.extractTokenFromUrl(url)
+                    if (token.isEmpty()) {
+                        Triple(false, "PushPlus 链接缺少 token 参数", false)
+                    } else {
+                        val payload = WebhookPayloadBuilder.buildPushPlusPayload(
+                            title = I18n.testTitle(),
+                            content = I18n.testContent(),
+                            deviceName = deviceName,
+                            time = "",
+                            token = token
+                        )
+                        val request = Request.Builder()
+                            .url(url)
+                            .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                            .addHeader("User-Agent", "NotificationMonitor/1.0")
+                            .build()
+                        okHttpClient.newCall(request).execute().use { response ->
+                            val responseBody = response.body?.string() ?: ""
+                            val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
+                            Triple(
+                                parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                                parseResult.message,
+                                false
+                            )
+                        }
+                    }
+                } else {
+                    val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName, chatId)
 
-                val body = signedReq.payload.toRequestBody("application/json; charset=utf-8".toMediaType())
-                val requestBuilder = Request.Builder()
-                    .url(signedReq.url)
-                    .post(body)
-                    .addHeader("User-Agent", "NotificationMonitor/1.0")
-                for ((k, v) in signedReq.headers) {
-                    requestBuilder.addHeader(k, v)
-                }
-                val request = requestBuilder.build()
+                    // 调用签名器（与正式推送走同一套签名逻辑）
+                    val signedReq = WebhookSigner.sign(webhookType, url, payload, secret)
 
-                okHttpClient.newCall(request).execute().use { response ->
-                    val responseBody = response.body?.string() ?: ""
-                    val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
+                    val body = signedReq.payload.toRequestBody("application/json; charset=utf-8".toMediaType())
+                    val requestBuilder = Request.Builder()
+                        .url(signedReq.url)
+                        .post(body)
+                        .addHeader("User-Agent", "NotificationMonitor/1.0")
+                    for ((k, v) in signedReq.headers) {
+                        requestBuilder.addHeader(k, v)
+                    }
+                    val request = requestBuilder.build()
 
-                    val signedLabel = if (!secret.isNullOrEmpty()) " [已签名]" else ""
+                    okHttpClient.newCall(request).execute().use { response ->
+                        val responseBody = response.body?.string() ?: ""
+                        val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
+
+                        val signedLabel = if (!secret.isNullOrEmpty()) " [已签名]" else ""
                     val detail = "$typeLabel$signedLabel HTTP ${response.code} · ${parseResult.status.name}"
                     val fullMessage = "$detail\n${parseResult.message.take(300)}"
 
@@ -1346,6 +1400,7 @@ class MainActivity : FlutterActivity() {
                         fullMessage,
                         !secret.isNullOrEmpty()
                     )
+                }
                 }
             } catch (e: Exception) {
                 Triple(false, "推送异常: ${e.message ?: e.javaClass.simpleName}", !secret.isNullOrEmpty())

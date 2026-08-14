@@ -103,6 +103,66 @@ class WebhookSender(private val context: Context) {
             return
         }
 
+        // Server酱：GET 请求，title/desp 拼入 query（接口仅支持 GET / form，不支持 JSON body）
+        if (cfg.type == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
+            val getUrl = WebhookPayloadBuilder.buildServerChanRequestUrl(
+                url = cfg.url,
+                title = info.title,
+                content = info.content,
+                deviceName = deviceName,
+                time = info.time
+            )
+            NetworkClient.sendWithRetry(
+                url = getUrl,
+                payload = "",
+                tag = "notification",
+                webhookType = cfg.type,
+                secret = cfg.secret,
+                useGet = true,
+                onResult = { result ->
+                    Log.d(TAG, "Delivery(ServerChan): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    notifyDeliveryResult(info.id, cfg.type, result)
+                }
+            )
+            return
+        }
+
+        // PushPlus：token 从 URL query 提取注入 body（缺失时提前失败）
+        val pushPlusToken = WebhookPayloadBuilder.extractTokenFromUrl(cfg.url)
+        if (cfg.type == WebhookPayloadBuilder.WebhookType.PUSH_PLUS && pushPlusToken.isEmpty()) {
+            Log.e(TAG, "PushPlus URL missing token, skip: ${cfg.url.take(60)}")
+            notifyDeliveryResult(
+                info.id,
+                cfg.type,
+                WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                    0, "PushPlus 链接缺少 token 参数", false
+                )
+            )
+            return
+        }
+        if (cfg.type == WebhookPayloadBuilder.WebhookType.PUSH_PLUS) {
+            val pushPlusPayload = WebhookPayloadBuilder.buildPushPlusPayload(
+                title = info.title,
+                content = info.content,
+                deviceName = deviceName,
+                time = info.time,
+                token = pushPlusToken
+            )
+            NetworkClient.sendWithRetry(
+                url = cfg.url,
+                payload = pushPlusPayload,
+                tag = "notification",
+                webhookType = cfg.type,
+                secret = cfg.secret,
+                onResult = { result ->
+                    Log.d(TAG, "Delivery(PushPlus): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    notifyDeliveryResult(info.id, cfg.type, result)
+                }
+            )
+            return
+        }
+
         // 优先使用自定义模板（仅当 messageFormat != default 且非空时）
         val vars = TemplateEngine.Vars(
             appName = info.appName,

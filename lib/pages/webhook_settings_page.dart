@@ -264,7 +264,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   bool _supportsSigning(int index) {
     final type = _effectiveType(index);
     return type != WebhookChannelType.telegram &&
-        type != WebhookChannelType.bark;
+        type != WebhookChannelType.bark &&
+        type != WebhookChannelType.serverChan &&
+        type != WebhookChannelType.pushPlus;
   }
 
   String _signingHint(WebhookChannelType type) {
@@ -279,6 +281,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return 'Telegram 使用 Bot Token 鉴权，无需签名密钥';
       case WebhookChannelType.bark:
         return 'Bark 使用设备 Key 鉴权，无需签名密钥';
+      case WebhookChannelType.serverChan:
+        return 'Server酱 使用 SendKey 鉴权，无需签名密钥';
+      case WebhookChannelType.pushPlus:
+        return 'PushPlus 使用 Token 鉴权，无需签名密钥';
       case WebhookChannelType.generic:
         return '自建服务端校验签名用的密钥（通过 X-Signature 头传递）';
     }
@@ -999,6 +1005,16 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           typeName = 'Bark';
           icon = Icons.notifications_active;
           color = const Color(0xFFE6A23C);
+          desc = l10n.platformWechatDesc;
+        case WebhookChannelType.serverChan:
+          typeName = 'Server酱';
+          icon = Icons.forward_to_inbox;
+          color = const Color(0xFF4E5969);
+          desc = l10n.platformWechatDesc;
+        case WebhookChannelType.pushPlus:
+          typeName = 'PushPlus';
+          icon = Icons.bolt;
+          color = const Color(0xFF00B96B);
           desc = l10n.platformWechatDesc;
         case WebhookChannelType.generic:
           typeName = l10n.platformGeneric;

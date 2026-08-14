@@ -38,9 +38,9 @@ void main() {
     channelCalls = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AppChannels.notification, (call) async {
-      channelCalls.add(call);
-      return true;
-    });
+          channelCalls.add(call);
+          return true;
+        });
     service = WebhookService(store: storage);
   });
 
@@ -89,29 +89,35 @@ void main() {
       expect(rows[2]['message_format'], 'default');
 
       // ---- 前后端契约：setWebhookChannels 全量通道 ----
-      final setChannels = channelCalls
-          .firstWhere((c) => c.method == 'setWebhookChannels');
+      final setChannels = channelCalls.firstWhere(
+        (c) => c.method == 'setWebhookChannels',
+      );
       final channels = (setChannels.arguments as Map)['channels'] as List;
       expect(channels.length, 3);
       final first = channels[0] as Map;
-      expect(first['url'], 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=a');
+      expect(
+        first['url'],
+        'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=a',
+      );
       expect(first['channelType'], 'wechat_work');
       expect(first['secret'], 'sec-123');
       expect(first['enabled'], true);
       // 通道 map 应携带 Kotlin 端读取所需的所有键
-      expect(first.keys, containsAll(['url', 'secret', 'channelType', 'enabled']));
+      expect(
+        first.keys,
+        containsAll(['url', 'secret', 'channelType', 'enabled']),
+      );
 
       // ---- 前后端契约：setWebhookUrls 仅启用 URL ----
-      final setUrls = channelCalls.firstWhere((c) => c.method == 'setWebhookUrls');
+      final setUrls = channelCalls.firstWhere(
+        (c) => c.method == 'setWebhookUrls',
+      );
       final urls = (setUrls.arguments as Map)['urls'] as List;
       expect(urls.length, 2);
-      expect(
-        urls,
-        [
-          'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=a',
-          'https://api.telegram.org/botTOKEN/sendMessage?chat_id=-100',
-        ],
-      );
+      expect(urls, [
+        'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=a',
+        'https://api.telegram.org/botTOKEN/sendMessage?chat_id=-100',
+      ]);
       // c3 已禁用，不得出现在启用 URL 列表
       expect(urls, isNot(contains('https://example.com/hook')));
     });
@@ -140,7 +146,10 @@ void main() {
       expect(c['enabled'], true);
       expect(c['secret'], isNull);
       expect(c['message_template'], isNull);
-      expect(c['url'], 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=a');
+      expect(
+        c['url'],
+        'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=a',
+      );
 
       // 加载后同样触发原生同步
       expect(channelCalls.map((c) => c.method), contains('setWebhookChannels'));

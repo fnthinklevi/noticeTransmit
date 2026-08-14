@@ -163,6 +163,40 @@ object WebhookResponseParser {
                     )
                 }
             }
+
+            WebhookPayloadBuilder.WebhookType.SERVER_CHAN -> {
+                // Server酱：{"code":0,"message":"发送成功","data":{...}} — code==0 成功
+                val code = json.optInt("code", -1)
+                val message = json.optString("message", json.optString("msg", ""))
+                return if (code == 0) {
+                    ParseResult(
+                        DeliveryStatus.SUCCESS, httpCode,
+                        if (message.isNotEmpty()) message else "OK", false
+                    )
+                } else {
+                    ParseResult(
+                        DeliveryStatus.BIZ_FAIL, httpCode,
+                        "Server酱业务失败 code=$code: $message", false
+                    )
+                }
+            }
+
+            WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> {
+                // PushPlus：{"code":200,"msg":"发送成功","data":"..."} — code==200 成功
+                val code = json.optInt("code", -1)
+                val message = json.optString("msg", json.optString("message", ""))
+                return if (code == 200) {
+                    ParseResult(
+                        DeliveryStatus.SUCCESS, httpCode,
+                        if (message.isNotEmpty()) message else "OK", false
+                    )
+                } else {
+                    ParseResult(
+                        DeliveryStatus.BIZ_FAIL, httpCode,
+                        "PushPlus 业务失败 code=$code: $message", false
+                    )
+                }
+            }
         }
     }
 }

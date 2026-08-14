@@ -18,4 +18,8 @@
     <color name="ic_launcher_gray_bg">#8E8E93</color>
     <color name="ic_launcher_graphite_bg">#48484A</color>
     <color name="ic_launcher_black_bg">#1C1C1E</color>
+
+    <!-- 桌面小部件：推送开关 -->
+    <color name="widget_active_text">#007AFF</color>
+    <color name="widget_paused_text">#8E8E93</color>
 </resources>

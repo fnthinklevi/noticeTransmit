@@ -71,6 +71,26 @@ class AppLocalizations {
     'ruleEmpty': '点击添加规则',
     'device': '设备',
     'deviceName': '设备名称',
+    'widgetSection': '桌面小部件',
+    'widgetGuide': '推送开关',
+    'widgetGuideDesc': '桌面一键开启/暂停推送服务',
+    'widgetGuideIntro': '将「推送开关」小部件添加到桌面后，无需打开应用即可一键开启或暂停推送。',
+    'widgetGuideStep1': '1. 长按桌面空白处',
+    'widgetGuideStep2': '2. 点击「小部件 / 插件 / Widgets」',
+    'widgetGuideStep3': '3. 找到「通知推送助手」，将「推送开关」拖到桌面',
+    'widgetGuideBrand': '各品牌添加路径',
+    'widgetBrandXiaomi': '小米 / 红米：桌面长按 → 添加小部件 → 通知推送助手',
+    'widgetBrandHuawei': '华为 / 荣耀：双指捏合或长按桌面 → 服务卡片 / 小部件 → 通知推送助手',
+    'widgetBrandOppo': 'OPPO / realme / 一加：桌面长按 → 添加插件 → 通知推送助手',
+    'widgetBrandVivo': 'vivo / iQOO：桌面长按 → 原子组件 / 小部件 → 通知推送助手',
+    'widgetBrandSamsung': '三星：桌面长按 → 小组件 → 通知推送助手',
+    'widgetBrandOthers':
+        '其他品牌（原生 / 谷歌 Pixel / 摩托罗拉 / 索尼等）：桌面长按 → Widgets / 小部件 → 通知推送助手',
+    'widgetTipsTitle': '使用提示',
+    'widgetTip1': '点击小部件即可切换推送状态（推送中 ⇄ 已暂停）',
+    'widgetTip2': '暂停后监听继续，仅不发送推送消息',
+    'widgetTip3': '部分品牌需允许应用自启动，小部件状态才能实时刷新',
+    'widgetTip4': '若桌面找不到小部件，请先打开一次应用或重启桌面',
     'pushStats': '推送统计',
     'pushStatsDesc': '查看推送数据统计',
     'aboutUpdate': '关于与更新',
@@ -445,6 +465,36 @@ class AppLocalizations {
     'ruleEmpty': 'Tap to add rule',
     'device': 'Device',
     'deviceName': 'Device Name',
+    'widgetSection': 'Desktop Widget',
+    'widgetGuide': 'Push Toggle',
+    'widgetGuideDesc': 'One-tap start/pause push from home screen',
+    'widgetGuideIntro':
+        'After adding the "Push Toggle" widget to your home screen, you can start or pause push with one tap without opening the app.',
+    'widgetGuideStep1': '1. Long-press an empty area of the home screen',
+    'widgetGuideStep2': '2. Tap "Widgets" (小部件 / 插件)',
+    'widgetGuideStep3':
+        '3. Find "NoticeTransmit" and drag "Push Toggle" to the home screen',
+    'widgetGuideBrand': 'Add widget by brand',
+    'widgetBrandXiaomi':
+        'Xiaomi / Redmi: long-press home screen → Add widgets → NoticeTransmit',
+    'widgetBrandHuawei':
+        'Huawei / Honor: pinch or long-press home screen → Widgets → NoticeTransmit',
+    'widgetBrandOppo':
+        'OPPO / realme / OnePlus: long-press home screen → Add widgets → NoticeTransmit',
+    'widgetBrandVivo':
+        'vivo / iQOO: long-press home screen → Widgets → NoticeTransmit',
+    'widgetBrandSamsung':
+        'Samsung: long-press home screen → Widgets → NoticeTransmit',
+    'widgetBrandOthers':
+        'Other brands (Stock / Pixel / Motorola / Sony, etc.): long-press home screen → Widgets → NoticeTransmit',
+    'widgetTipsTitle': 'Tips',
+    'widgetTip1': 'Tap the widget to toggle push (Active ⇄ Paused)',
+    'widgetTip2':
+        'While paused, monitoring continues but messages are not sent',
+    'widgetTip3':
+        'Some brands require autostart permission for the widget to refresh in real time',
+    'widgetTip4':
+        'If the widget is not listed, open the app once or restart the launcher',
     'pushStats': 'Push Statistics',
     'pushStatsDesc': 'View push data statistics',
     'aboutUpdate': 'About & Update',
@@ -840,6 +890,25 @@ class AppLocalizations {
   String get ruleEmpty => _get('ruleEmpty');
   String get device => _get('device');
   String get deviceName => _get('deviceName');
+  String get widgetSection => _get('widgetSection');
+  String get widgetGuide => _get('widgetGuide');
+  String get widgetGuideDesc => _get('widgetGuideDesc');
+  String get widgetGuideIntro => _get('widgetGuideIntro');
+  String get widgetGuideStep1 => _get('widgetGuideStep1');
+  String get widgetGuideStep2 => _get('widgetGuideStep2');
+  String get widgetGuideStep3 => _get('widgetGuideStep3');
+  String get widgetGuideBrand => _get('widgetGuideBrand');
+  String get widgetBrandXiaomi => _get('widgetBrandXiaomi');
+  String get widgetBrandHuawei => _get('widgetBrandHuawei');
+  String get widgetBrandOppo => _get('widgetBrandOppo');
+  String get widgetBrandVivo => _get('widgetBrandVivo');
+  String get widgetBrandSamsung => _get('widgetBrandSamsung');
+  String get widgetBrandOthers => _get('widgetBrandOthers');
+  String get widgetTipsTitle => _get('widgetTipsTitle');
+  String get widgetTip1 => _get('widgetTip1');
+  String get widgetTip2 => _get('widgetTip2');
+  String get widgetTip3 => _get('widgetTip3');
+  String get widgetTip4 => _get('widgetTip4');
   String get pushStats => _get('pushStats');
   String get pushStatsDesc => _get('pushStatsDesc');
   String get aboutUpdate => _get('aboutUpdate');

@@ -100,6 +100,8 @@ class ConfigManager(private val context: Context) {
             "feishu", "2" -> WebhookPayloadBuilder.WebhookType.FEISHU
             "telegram", "4" -> WebhookPayloadBuilder.WebhookType.TELEGRAM
             "bark", "5" -> WebhookPayloadBuilder.WebhookType.BARK
+            "server_chan", "serverchan", "6" -> WebhookPayloadBuilder.WebhookType.SERVER_CHAN
+            "push_plus", "pushplus", "7" -> WebhookPayloadBuilder.WebhookType.PUSH_PLUS
             "generic", "3" -> WebhookPayloadBuilder.WebhookType.GENERIC
             else -> WebhookPayloadBuilder.detectType(url)
         }

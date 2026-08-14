@@ -1,6 +1,7 @@
 package com.fnthink.notice
 
 import org.json.JSONObject
+import java.net.URLEncoder
 
 object WebhookPayloadBuilder {
 
@@ -10,7 +11,9 @@ object WebhookPayloadBuilder {
         DINGTALK,
         FEISHU,
         TELEGRAM,
-        BARK
+        BARK,
+        SERVER_CHAN,
+        PUSH_PLUS
     }
 
     /** 平台 host 匹配规则（新增平台只需追加一行） */
@@ -22,6 +25,8 @@ object WebhookPayloadBuilder {
         PlatformRule(WebhookType.FEISHU, listOf("open.feishu.cn", "open.larksuite.com")),
         PlatformRule(WebhookType.TELEGRAM, listOf("api.telegram.org")),
         PlatformRule(WebhookType.BARK, listOf("api.day.app", "bark.gugu.ovh")),
+        PlatformRule(WebhookType.SERVER_CHAN, listOf("sctapi.ftqq.com")),
+        PlatformRule(WebhookType.PUSH_PLUS, listOf("www.pushplus.plus", "pushplus.plus")),
     )
 
     /**
@@ -128,6 +133,17 @@ object WebhookPayloadBuilder {
                 deviceName = deviceName,
                 notifyType = notifyType
             )
+            // Server酱 / PushPlus 在 WebhookSender 中走独立发送路径（GET / token 注入），
+            // 此处返回文本 body 作为兜底，保证 when 穷尽。
+            WebhookType.SERVER_CHAN,
+            WebhookType.PUSH_PLUS -> buildTextBody(
+                title = title,
+                content = content,
+                appName = appName,
+                time = time,
+                deviceName = deviceName,
+                notifyType = notifyType
+            )
         }
     }
 
@@ -175,6 +191,13 @@ object WebhookPayloadBuilder {
             WebhookType.BARK -> JSONObject().apply {
                 put("title", title)
                 put("body", "$content\n\n$deviceLabel$sep$deviceName")
+            }.toString()
+
+            WebhookType.SERVER_CHAN,
+            WebhookType.PUSH_PLUS -> JSONObject().apply {
+                put("title", title)
+                put("content", "$content\n\n$deviceLabel$sep$deviceName")
+                put("deviceName", deviceName)
             }.toString()
         }
     }
@@ -456,6 +479,16 @@ object WebhookPayloadBuilder {
                     sender = sender, message = message, simInfo = simInfo
                 ))
             }.toString()
+
+            WebhookType.SERVER_CHAN,
+            WebhookType.PUSH_PLUS -> JSONObject().apply {
+                put("title", title)
+                put("content", buildTextBody(
+                    title = "", content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    sender = sender, message = message, simInfo = simInfo
+                ))
+            }.toString()
         }
     }
 
@@ -536,6 +569,78 @@ object WebhookPayloadBuilder {
                     durationStr = durationStr, simInfo = simInfo
                 ))
             }.toString()
+
+            WebhookType.SERVER_CHAN,
+            WebhookType.PUSH_PLUS -> JSONObject().apply {
+                put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
+                put("content", buildTextBody(
+                    title = "", content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    state = state, phoneNumber = phoneNumber,
+                    durationStr = durationStr, simInfo = simInfo
+                ))
+            }.toString()
         }
     }
+
+    /**
+     * Server酱（Server酱³ / Turbo）：GET 请求，title + desp 拼入 query。
+     * 接口：https://sctapi.ftqq.com/{SendKey}.send?title=xxx&desp=xxx
+     */
+    fun buildServerChanRequestUrl(
+        url: String,
+        title: String,
+        content: String,
+        deviceName: String,
+        time: String = ""
+    ): String {
+        val desp = buildTextBody(
+            title = title, content = content, appName = "",
+            time = time, deviceName = deviceName
+        )
+        val sep = if (url.contains("?")) "&" else "?"
+        return "$url$sep" +
+            "title=${urlEncode(title)}" +
+            "&desp=${urlEncode(desp)}"
+    }
+
+    /**
+     * 从 URL query 中提取 token（PushPlus 使用），缺失时返回空串。
+     * 例："https://www.pushplus.plus/send?token=abc123" → "abc123"
+     */
+    fun extractTokenFromUrl(url: String): String {
+        val queryStart = url.indexOf('?')
+        if (queryStart < 0) return ""
+        return url.substring(queryStart + 1)
+            .split('&')
+            .firstOrNull { it.startsWith("token=") && it.length > "token=".length }
+            ?.substringAfter('=') ?: ""
+    }
+
+    /**
+     * PushPlus payload：POST JSON，token 由 [extractTokenFromUrl] 从 URL query 提取。
+     * 接口：https://www.pushplus.plus/send
+     * 响应：{"code":200,"msg":"发送成功"}（code==200 成功）
+     */
+    fun buildPushPlusPayload(
+        title: String,
+        content: String,
+        deviceName: String,
+        time: String,
+        token: String
+    ): String {
+        val body = buildTextBody(
+            title = title, content = content, appName = "",
+            time = time, deviceName = deviceName
+        )
+        return JSONObject().apply {
+            put("token", token)
+            put("title", title)
+            put("content", body)
+            put("template", "txt")
+            put("channel", "wechat")
+        }.toString()
+    }
+
+    private fun urlEncode(value: String): String = URLEncoder.encode(value, "UTF-8")
 }

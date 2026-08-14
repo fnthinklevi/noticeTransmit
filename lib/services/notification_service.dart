@@ -148,6 +148,12 @@ class NotificationService {
         return 'webhook:Telegram';
       case 'bark':
         return 'webhook:Bark';
+      case 'server_chan':
+      case 'serverChan':
+        return 'webhook:Server酱';
+      case 'push_plus':
+      case 'pushPlus':
+        return 'webhook:PushPlus';
       default:
         return 'webhook:Webhook';
     }
@@ -175,6 +181,10 @@ class NotificationService {
         return 'webhook:Telegram';
       case 'BARK':
         return 'webhook:Bark';
+      case 'SERVER_CHAN':
+        return 'webhook:Server酱';
+      case 'PUSH_PLUS':
+        return 'webhook:PushPlus';
       default:
         return 'webhook:Webhook';
     }

@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'stats_page.dart';
+import 'widget_guide_page.dart';
 
 /// 同步语言到原生端，更新桌面应用名
 void _syncNativeLocale(AppLanguage lang) {
@@ -152,6 +153,20 @@ class MorePage extends StatelessWidget {
               title: l10n.deviceName,
               subtitle: deviceName.isEmpty ? l10n.notSet : deviceName,
               onTap: onShowDeviceNameDialog,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildNavTile(
+              icon: Icons.widgets_outlined,
+              iconColor: AppColors.blue,
+              title: l10n.widgetGuide,
+              subtitle: l10n.widgetGuideDesc,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WidgetGuidePage(),
+                ),
+              ),
               context: context,
             ),
             _buildDivider(context),

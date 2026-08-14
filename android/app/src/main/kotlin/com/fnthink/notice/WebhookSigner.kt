@@ -57,6 +57,8 @@ object WebhookSigner {
                 WebhookPayloadBuilder.WebhookType.GENERIC -> signGeneric(url, payload, secret)
                 WebhookPayloadBuilder.WebhookType.TELEGRAM -> SignedRequest(url, payload, emptyMap())
                 WebhookPayloadBuilder.WebhookType.BARK -> SignedRequest(url, payload, emptyMap())
+                WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
+                WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> SignedRequest(url, payload, emptyMap())
             }
         } catch (e: Exception) {
             Log.e(TAG, "Sign failed for $type: ${e.message}", e)

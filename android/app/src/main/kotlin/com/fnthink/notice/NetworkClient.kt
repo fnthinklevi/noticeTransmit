@@ -63,6 +63,7 @@ class NetworkClient {
             webhookType: WebhookPayloadBuilder.WebhookType = WebhookPayloadBuilder.WebhookType.GENERIC,
             secret: String? = null,
             contentType: String = "application/json; charset=utf-8",
+            useGet: Boolean = false,
             onResult: ((WebhookResponseParser.ParseResult) -> Unit)? = null
         ) {
             if (!isActive) {
@@ -93,7 +94,7 @@ class NetworkClient {
                 var lastResult: WebhookResponseParser.ParseResult? = null
 
                 while (retryCount < MAX_RETRIES) {
-                    val result = sendOnce(signed, tag, retryCount, contentType)
+                    val result = sendOnce(signed, tag, retryCount, contentType, useGet)
                     lastResult = result
 
                     // 成功或不可重试 → 终止
@@ -137,14 +138,21 @@ class NetworkClient {
             signed: WebhookSigner.SignedRequest,
             tag: String,
             attempt: Int,
-            contentType: String = "application/json; charset=utf-8"
+            contentType: String = "application/json; charset=utf-8",
+            useGet: Boolean = false
         ): WebhookResponseParser.ParseResult {
             return try {
-                val body = signed.payload.toRequestBody(contentType.toMediaType())
                 val requestBuilder = Request.Builder()
                     .url(signed.url)
-                    .post(body)
                     .addHeader("User-Agent", "NotificationMonitor/1.0")
+
+                if (useGet) {
+                    // GET 请求（Server酱）：query 已由调用方拼入 URL，无需 body
+                    requestBuilder.get()
+                } else {
+                    val body = signed.payload.toRequestBody(contentType.toMediaType())
+                    requestBuilder.post(body)
+                }
 
                 // 通用 webhook 签名头
                 for ((k, v) in signed.headers) {

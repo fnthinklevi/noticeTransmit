@@ -585,6 +585,21 @@
             </intent-filter>
         </receiver>
 
+        <!-- 桌面小部件：一键开启/暂停推送服务 -->
+        <receiver
+            android:name=".PushToggleWidgetProvider"
+            android:enabled="true"
+            android:exported="false"
+            android:label="推送开关">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.fnthink.notice.widget.TOGGLE_PUSH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/push_toggle_widget_info" />
+        </receiver>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
