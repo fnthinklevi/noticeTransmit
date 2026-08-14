@@ -12,7 +12,11 @@ import 'secure_storage_service.dart';
 ///   1. 主存储 → 加密 SQLCipher 数据库（webhook_channels 表，AES-256）
 ///   2. 同步到原生端 → MethodChannel（供后台 NotificationMonitorService 读取 URL）
 class WebhookService {
-  final DatabaseHelper _db = DatabaseHelper();
+  final WebhookChannelStore _db;
+
+  /// [store] 用于测试注入伪存储；默认使用 SQLCipher 加密库 [DatabaseHelper]
+  WebhookService({WebhookChannelStore? store})
+    : _db = store ?? DatabaseHelper();
 
   List<Map<String, dynamic>> _channels = [];
   List<Map<String, dynamic>> get channels => _channels;

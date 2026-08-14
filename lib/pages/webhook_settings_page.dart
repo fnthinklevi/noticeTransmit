@@ -263,7 +263,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   /// 其余平台（含通用 webhook 的 X-Signature 头）可按需填写。
   bool _supportsSigning(int index) {
     final type = _effectiveType(index);
-    return type != WebhookChannelType.telegram && type != WebhookChannelType.bark;
+    return type != WebhookChannelType.telegram &&
+        type != WebhookChannelType.bark;
   }
 
   String _signingHint(WebhookChannelType type) {

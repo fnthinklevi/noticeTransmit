@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.53/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.54/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -142,7 +142,8 @@ noticeTransmit/
 │       ├── BootReceiver.kt        # 开机广播接收器
 │       └── WebhookPayloadBuilder.kt  # Webhook 消息构建器
 ├── server/                       # 服务端（更新服务）
-│   ├── server.js                # Express 服务
+│   ├── server.js                # 服务端入口（启动 + 优雅关闭）
+│   ├── lib/                     # 模块化分层（app/store/otp/middleware/routes）
 │   ├── data/                     # 版本配置数据
 │   │   └── version.json          # 版本信息配置
 │   └── README.md                # 服务端部署文档

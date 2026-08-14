@@ -10,7 +10,15 @@ import '../services/secure_storage_service.dart';
 /// 由 [_initDatabase] 捕获后走「备份原库 + 重建」路径，禁止静默删库。
 class DatabaseKeyLostException implements Exception {}
 
-class DatabaseHelper {
+/// Webhook 通道存取抽象。
+/// 默认实现为 SQLCipher 加密库 [DatabaseHelper]；测试可注入伪实现，
+/// 以覆盖「UI 通道 → DB 行 → 原生同步」的完整保存链路而不依赖原生加密库。
+abstract class WebhookChannelStore {
+  Future<List<Map<String, dynamic>>> getWebhookChannels();
+  Future<void> saveWebhookChannels(List<Map<String, dynamic>> channels);
+}
+
+class DatabaseHelper implements WebhookChannelStore {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
@@ -689,11 +697,13 @@ class DatabaseHelper {
 
   // ========== Webhook 通道（webhook_channels） ==========
 
+  @override
   Future<List<Map<String, dynamic>>> getWebhookChannels() async {
     final db = await database;
     return await db.query('webhook_channels', orderBy: 'updated_at DESC');
   }
 
+  @override
   Future<void> saveWebhookChannels(List<Map<String, dynamic>> channels) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;

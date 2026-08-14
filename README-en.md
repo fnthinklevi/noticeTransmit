@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.53/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.54/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -142,7 +142,8 @@ noticeTransmit/
 │       ├── BootReceiver.kt        # Boot broadcast receiver
 │       └── WebhookPayloadBuilder.kt  # Webhook message builder
 ├── server/                       # Server (update service)
-│   ├── server.js                # Express service
+│   ├── server.js                # Server entry point (startup + graceful shutdown)
+│   ├── lib/                     # Modular layers (app/store/otp/middleware/routes)
 │   ├── data/                     # Version configuration data
 │   │   └── version.json          # Version info configuration
 │   └── README.md                # Server deployment documentation

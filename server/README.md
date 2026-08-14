@@ -110,8 +110,16 @@ http://你的服务器IP:3456/health
 
 ```
 server/
-├── server.js              # 主服务文件（入口）
+├── server.js              # 入口（启动 + 优雅关闭）
+├── lib/                   # 模块化分层
+│   ├── app.js             # 应用组装（导出 app 供测试直连）
+│   ├── store.js           # 存储/持久化
+│   ├── otp.js             # TOTP 封装（otplib v13）
+│   ├── middleware.js      # 安全头/限流/封锁/鉴权/错误处理
+│   └── routes/            # 路由（auth.js / version.js）
+├── test/                  # HTTP 契约测试（jest + supertest）
 ├── package.json           # 项目依赖配置
+├── babel.config.js        # Jest ESM 兼容
 ├── README.md              # 本说明文档
 ├── data/                  # 配置数据目录（自动创建）
 │   └── version.json       # APK 版本配置
@@ -552,7 +560,7 @@ netstat -tlnp | grep 3456
 - 启用后每次登录需要输入 6 位验证码
 - 支持 Google Authenticator、Microsoft Authenticator 等应用
 - 提供 8 个恢复码用于设备丢失时登录
-- 10 分钟内连续输错 3 次验证码，IP 会被封锁 240 小时
+- 10 分钟窗口内连续输错 5 次验证码，IP 会被封锁 1 小时
 
 ### 首次登录流程
 
@@ -598,15 +606,16 @@ pm2 restart update-server
 
 | 规则 | 配置 |
 |------|------|
-| 最大失败次数 | 3 次 |
+| 最大失败次数 | 5 次 |
 | 时间窗口 | 10 分钟 |
-| 封锁时长 | 240 小时（10 天） |
+| 封锁时长 | 1 小时 |
 | 解封方式 | 自动到期解封 |
 
 ### 触发条件
 
-- 10 分钟内连续输错 3 次二步验证验证码
+- 10 分钟窗口内连续输错 5 次二步验证验证码
 - IP 被封锁后，所有管理接口（`/api/admin/*`）和管理后台页面都无法访问
+- 公开接口（版本检查 `/api/version/check`、健康检查 `/health`）豁免封锁
 
 ### 手动解除封锁
 

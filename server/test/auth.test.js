@@ -1,204 +1,421 @@
 /**
- * server.js 认证流程单元测试
+ * 服务端 HTTP 契约测试（真实请求，非纯逻辑）
  *
- * 使用 supertest 对 Express 应用进行 HTTP 层集成测试。
+ * 覆盖：
+ * - 安全头（CSP / nosniff / 禁用 X-Powered-By）
+ * - 认证与会话（登录 / 注销吊销 / 会话过期）
+ * - 版本配置保存链路（POST /api/admin/version → GET /api/version/check 读回，前后端契约）
+ * - 二步验证 TOTP 全流程（setup / enable / 登录 / 恢复码消费 / 2FA 未提交反馈）
+ * - IP 封锁（2FA 连续失败触发）
  *
  * 运行方式：在 server/ 目录下执行 `npm test`
  */
 
 const request = require('supertest');
-const path = require('path');
+const os = require('os');
 const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const { generate, NobleCryptoPlugin, ScureBase32Plugin } = require('otplib');
 
-// 设置测试环境变量（在任何 require 之前）
+const ADMIN_TOKEN = 'test-admin-token-123456';
+
+// ========== 测试环境（必须在任何 require 之前设置） ==========
 process.env.NODE_ENV = 'test';
-process.env.PORT = '0'; // 随机端口
-process.env.ADMIN_TOKEN_HASH =
-  '$2a$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUV';
+process.env.PORT = '0';
+// 独立数据目录：测试写入的 version.json / totp.json 等不污染真实 data/
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-server-test-'));
+process.env.ADMIN_TOKEN_HASH = bcrypt.hashSync(ADMIN_TOKEN, 10);
+// 合法 64 位十六进制密钥：覆盖 TOTP secret 的 AES-256-GCM 加解密往返
+process.env.ENCRYPTION_KEY =
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+// 放大限流阈值，避免契约测试被全局限流误伤（限流自身逻辑由常量断言覆盖）
+process.env.RATE_LIMIT_GENERAL_MAX = '10000';
+process.env.RATE_LIMIT_AUTH_MAX = '10000';
 
-describe('server.js – Basic Endpoints', () => {
-  let app;
+const app = require('../lib/app');
+const store = require('../lib/store');
 
-  beforeAll(() => {
-    // 动态加载 server.js
-    // 注意：server.js 在加载时即执行 app.listen，不适合直接 require。
-    // 我们通过 spawn 方式或直接引入 Express app 实例来测试。
-    // 这里改用重新组织的方式：将 app 导出，server.js 只负责启动。
-    // 为了不修改 server.js 结构，这些测试以文档形式记录核心认证流程，
-    // 并提供可执行的 token 验证逻辑测试。
+// 与 server/lib/otp.js 相同的插件配置，生成可被服务端 verify 接受的 TOTP 码
+const otpCrypto = new NobleCryptoPlugin();
+const otpBase32 = new ScureBase32Plugin();
+function totpFor(secret) {
+  return generate({ secret, crypto: otpCrypto, base32: otpBase32 });
+}
+
+// supertest 下默认客户端 IP（Node ≥17 为 IPv6 回环），清失败次数时两个形态都清
+const TEST_IP_KEYS = ['::ffff:127.0.0.1', '127.0.0.1'];
+
+function clearFailures() {
+  for (const ip of TEST_IP_KEYS) store.clearFailedAttempts(ip);
+}
+
+describe('基础端点与安全头', () => {
+  test('GET /health 返回 ok', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+    expect(res.body.timestamp).toBeTruthy();
   });
 
-  describe('认证流程（逻辑验证）', () => {
-    test('Token 验证 – bcrypt 比对正确', () => {
-      // 此处验证 bcrypt 逻辑正确性
-      const bcrypt = require('bcryptjs');
-      const hash =
-        '$2a$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUV';
-      // 错误的 token 应返回 false
-      return bcrypt.compare('wrong-token', hash).then((result) => {
-        expect(result).toBe(false);
+  test('响应不暴露 X-Powered-By（Express 指纹）', async () => {
+    const res = await request(app).get('/health');
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
+  test('安全头：nosniff / frame DENY / HSTS', async () => {
+    const res = await request(app).get('/health');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['strict-transport-security']).toContain('max-age=31536000');
+  });
+
+  test('/admin.html 启用严格 CSP，/api/admin 禁止缓存', async () => {
+    const admin = await request(app).get('/admin.html');
+    expect(admin.status).toBe(200);
+    expect(admin.headers['content-security-policy']).toContain("default-src 'self'");
+    expect(admin.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+
+    const api = await request(app).get('/api/admin/version');
+    expect(api.headers['cache-control']).toContain('no-store');
+  });
+});
+
+describe('认证与会话', () => {
+  test('错误 token 登录 → 401 code -1', async () => {
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ token: 'wrong-token' });
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe(-1);
+  });
+
+  test('正确 token 登录（2FA 未启用）→ 返回会话', async () => {
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN });
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.sessionId).toBeTruthy();
+    expect(res.body.need2FA).toBe(false);
+    expect(res.body.twoFAEnabled).toBe(false);
+  });
+
+  test('受保护端点：未认证 → 401；带会话 → 200', async () => {
+    const unauth = await request(app).get('/api/admin/version');
+    expect(unauth.status).toBe(401);
+
+    const login = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN });
+    const authed = await request(app)
+      .get('/api/admin/version')
+      .set('x-session-id', login.body.sessionId);
+    expect(authed.status).toBe(200);
+    expect(authed.body.code).toBe(0);
+  });
+
+  test('注销后会话被吊销，原会话 ID 失效', async () => {
+    const login = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN });
+    const sessionId = login.body.sessionId;
+
+    const logout = await request(app)
+      .post('/api/admin/logout')
+      .set('x-session-id', sessionId);
+    expect(logout.status).toBe(200);
+    expect(logout.body.code).toBe(0);
+
+    const after = await request(app)
+      .get('/api/admin/version')
+      .set('x-session-id', sessionId);
+    expect(after.status).toBe(401);
+  });
+
+  test('会话过期（>24h）→ 401 提示重新登录', async () => {
+    const login = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN });
+    const sessionId = login.body.sessionId;
+    store.sessions[sessionId].createdAt = Date.now() - 25 * 60 * 60 * 1000;
+
+    const res = await request(app)
+      .get('/api/admin/version')
+      .set('x-session-id', sessionId);
+    expect(res.status).toBe(401);
+    expect(res.body.message).toContain('会话已过期');
+  });
+});
+
+describe('版本保存链路（前后端契约）', () => {
+  let sessionId;
+
+  beforeAll(async () => {
+    const login = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN });
+    sessionId = login.body.sessionId;
+  });
+
+  const validBody = {
+    latestVersion: '2.0.0',
+    latestBuild: 20,
+    changelog: '测试版本更新',
+    downloads: {
+      arm64: 'https://example.com/app_arm64.apk',
+      arm32: 'https://example.com/app_arm32.apk',
+      x86_64: 'https://example.com/app_x86.apk',
+      all: ''
+    },
+    fileSizes: { arm64: 123456, arm32: 0, x86_64: 100 },
+    minSupportedVersion: '1.0.0'
+  };
+
+  test('未认证 POST 保存 → 401', async () => {
+    const res = await request(app)
+      .post('/api/admin/version')
+      .send(validBody);
+    expect(res.status).toBe(401);
+  });
+
+  test('字段校验：非 https 下载链接 / 非法 build → 400 code -4', async () => {
+    const badUrl = await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send({ ...validBody, downloads: { ...validBody.downloads, arm64: 'http://insecure.com/a.apk' } });
+    expect(badUrl.status).toBe(400);
+    expect(badUrl.body.code).toBe(-4);
+    expect(badUrl.body.message).toContain('https');
+
+    const badBuild = await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send({ ...validBody, latestBuild: 0 });
+    expect(badBuild.status).toBe(400);
+    expect(badBuild.body.code).toBe(-4);
+  });
+
+  test('保存成功 → code 0；version.json 落盘', async () => {
+    const res = await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send(validBody);
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+
+    // 落盘校验：写入的是明文契约，不含加密干扰
+    const onDisk = store.readJsonFile(store.VERSION_FILE, {});
+    expect(onDisk.latestVersion).toBe('2.0.0');
+    expect(onDisk.latestBuild).toBe(20);
+  });
+
+  test('保存链路读回：/api/version/check 反映新版本（前后端契约）', async () => {
+    const older = await request(app)
+      .get('/api/version/check')
+      .query({ version: '1.0.0', build: 1 });
+    expect(older.status).toBe(200);
+    expect(older.body.code).toBe(0);
+    expect(older.body.data.hasUpdate).toBe(true);
+    expect(older.body.data.latestVersion).toBe('2.0.0');
+    // 平台解析：默认 android → arm64
+    expect(older.body.data.downloadUrl).toBe('https://example.com/app_arm64.apk');
+    expect(older.body.data.fileSize).toBe(123456);
+
+    const current = await request(app)
+      .get('/api/version/check')
+      .query({ version: '2.0.0', build: 20 });
+    expect(current.body.data.hasUpdate).toBe(false);
+  });
+
+  test('forceUpdate 契约：低于阈值 needForce=true，达到后 false', async () => {
+    await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send({
+        latestVersion: '2.0.0',
+        latestBuild: 20,
+        forceUpdate: true,
+        forceUpdateVersion: '1.5.0',
+        forceUpdateBuild: 50,
+        downloads: validBody.downloads,
+        fileSizes: validBody.fileSizes,
+        minSupportedVersion: '1.0.0'
       });
-    });
 
-    test('会话 ID 生成 – crypto.randomUUID() 返回有效 UUID', () => {
-      const crypto = require('crypto');
-      const id = crypto.randomUUID();
-      expect(id).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-      );
-    });
+    const below = await request(app)
+      .get('/api/version/check')
+      .query({ version: '1.4.0', build: 40 });
+    expect(below.body.data.forceUpdate).toBe(true);
 
-    test('AES-256-GCM 加密解密往返', () => {
-      const crypto = require('crypto');
-      const key = crypto.randomBytes(32);
-      const iv = crypto.randomBytes(16);
-      const plaintext = 'test-secret-value';
-
-      const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-      const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-      const tag = cipher.getAuthTag();
-
-      const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-      decipher.setAuthTag(tag);
-      const decrypted = decipher.update(encrypted) + decipher.final('utf8');
-
-      expect(decrypted).toBe(plaintext);
-    });
-
-    test('ENCRYPTION_KEY 格式校验 – 64位十六进制', () => {
-      const validKey =
-        '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-      const invalidKey = 'short';
-      expect(/^[0-9a-fA-F]{64}$/.test(validKey)).toBe(true);
-      expect(/^[0-9a-fA-F]{64}$/.test(invalidKey)).toBe(false);
-    });
-
-    test('TOTP 生成与验证', () => {
-      const { authenticator } = require('otplib');
-      const secret = authenticator.generateSecret();
-      expect(secret).toBeTruthy();
-      expect(typeof secret).toBe('string');
-
-      const token = authenticator.generate(secret);
-      expect(token).toMatch(/^\d{6}$/);
-
-      const isValid = authenticator.verify({ token, secret });
-      expect(isValid).toBe(true);
-    });
-
-    test('bcrypt 恢复码哈希验证', () => {
-      const bcrypt = require('bcryptjs');
-      const recoveryCode = 'ABCD1234';
-      return bcrypt.hash(recoveryCode, 10).then((hash) => {
-        return bcrypt.compare(recoveryCode, hash).then((result) => {
-          expect(result).toBe(true);
-        });
-      });
-    });
+    const above = await request(app)
+      .get('/api/version/check')
+      .query({ version: '2.0.0', build: 60 });
+    expect(above.body.data.forceUpdate).toBe(false);
   });
 
-  describe('IP 封锁逻辑', () => {
-    test('失败次数超过阈值应触发封锁', () => {
-      // 当前策略：10 分钟窗口内 5 次失败触发封锁
-      const MAX_ATTEMPTS = 5;
-      const attempts = [1, 2, 3, 4, 5];
-      let blocked = false;
-      for (const attempt of attempts) {
-        if (attempt >= MAX_ATTEMPTS) {
-          blocked = true;
-        }
-      }
-      expect(blocked).toBe(true);
-      // 5 次以内不应触发
-      let blockedUnder = false;
-      for (let i = 1; i < MAX_ATTEMPTS; i++) {
-        if (i >= MAX_ATTEMPTS) blockedUnder = true;
-      }
-      expect(blockedUnder).toBe(false);
-    });
+  test('GET /api/admin/version 读回已保存配置', async () => {
+    const res = await request(app)
+      .get('/api/admin/version')
+      .set('x-session-id', sessionId);
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.data.latestVersion).toBe('2.0.0');
+  });
+});
 
-    test('封锁时长应为 1 小时（原 240 小时罚不当罪）', () => {
-      const BLOCK_DURATION_HOURS = 1;
-      expect(BLOCK_DURATION_HOURS).toBe(1);
-      expect(BLOCK_DURATION_HOURS * 60 * 60 * 1000).toBe(3600000);
-    });
+describe('二步验证 TOTP 全流程', () => {
+  let sessionId;
+  let secret;
+  let recoveryCodes;
+
+  beforeAll(async () => {
+    const login = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN });
+    sessionId = login.body.sessionId;
   });
 
-  describe('限流逻辑', () => {
-    test('60秒内超过60次请求应返回429', () => {
-      const RATE_LIMIT_GENERAL_MAX = 60;
-      const WINDOW_MS = 60 * 1000;
-      expect(RATE_LIMIT_GENERAL_MAX).toBe(60);
-      expect(WINDOW_MS).toBe(60000);
-    });
-
-    test('认证端点60秒内超过5次请求应返回429', () => {
-      const RATE_LIMIT_AUTH_MAX = 5;
-      expect(RATE_LIMIT_AUTH_MAX).toBe(5);
-    });
+  test('setup 生成 secret（未启用）', async () => {
+    const res = await request(app)
+      .get('/api/admin/totp/setup')
+      .set('x-session-id', sessionId);
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.data.enabled).toBe(false);
+    expect(res.body.data.secret).toBeTruthy();
+    expect(res.body.data.qrCodeUrl).toContain('data:image');
+    secret = res.body.data.secret;
   });
 
-  describe('输入校验', () => {
-    test('validateVersionConfig – latestVersion 必填', () => {
-      const errors = [];
-      const body = {
-        latestBuild: 1,
-        downloads: {
-          arm64: 'https://example.com/app_arm64.apk',
-          arm32: 'https://example.com/app_arm32.apk',
-          x86_64: 'https://example.com/app_x86.apk',
-          all: 'https://example.com/app_all.apk'
-        }
-      };
-      if (typeof body.latestVersion !== 'string' || !body.latestVersion?.trim()) {
-        errors.push('latestVersion 必须为非空字符串');
-      }
-      expect(errors.length).toBeGreaterThan(0);
-    });
+  test('enable 校验 OTP：错误码 → 400；正确码 → 启用并返回 8 个恢复码', async () => {
+    const bad = await request(app)
+      .post('/api/admin/totp/enable')
+      .set('x-session-id', sessionId)
+      .send({ secret, otp: '000000' });
+    expect(bad.status).toBe(400);
 
-    test('validateVersionConfig – downloads 各平台必须 HTTPS', () => {
-      const errors = [];
-      const body = {
-        latestVersion: '1.0.0',
-        latestBuild: 1,
-        downloads: {
-          arm64: 'http://example.com/app_arm64.apk', // 非 https，应被拒绝
-          arm32: 'https://example.com/app_arm32.apk',
-          x86_64: 'https://example.com/app_x86.apk',
-          all: 'https://example.com/app_all.apk'
-        }
-      };
-      for (const k of ['arm64', 'arm32', 'x86_64', 'all']) {
-        const v = body.downloads[k];
-        if (v === undefined || v === '') continue;
-        try {
-          const url = new URL(v);
-          if (url.protocol !== 'https:') {
-            errors.push(`downloads.${k} 必须使用 https:// 协议`);
-          }
-        } catch {
-          errors.push(`downloads.${k} 不是合法 URL`);
-        }
-      }
-      expect(errors).toContain('downloads.arm64 必须使用 https:// 协议');
-    });
+    const code = await totpFor(secret);
+    const good = await request(app)
+      .post('/api/admin/totp/enable')
+      .set('x-session-id', sessionId)
+      .send({ secret, otp: code });
+    expect(good.status).toBe(200);
+    expect(good.body.code).toBe(0);
+    expect(good.body.data.enabled).toBe(true);
+    expect(good.body.data.recoveryCodes).toHaveLength(8);
+    recoveryCodes = good.body.data.recoveryCodes;
+  });
 
-    test('validateVersionConfig – latestBuild 必须为正整数', () => {
-      const errors = [];
-      const testCases = [
-        { val: 0, expectError: true },
-        { val: 1, expectError: false },
-        { val: -1, expectError: true },
-        { val: 1.5, expectError: true },
-      ];
+  test('status：enabled=true 且持有恢复码', async () => {
+    const res = await request(app)
+      .get('/api/admin/totp/status')
+      .set('x-session-id', sessionId);
+    expect(res.body.code).toBe(0);
+    expect(res.body.data.enabled).toBe(true);
+    expect(res.body.data.hasRecoveryCodes).toBe(true);
+  });
 
-      for (const tc of testCases) {
-        const valid =
-          typeof tc.val === 'number' &&
-          Number.isInteger(tc.val) &&
-          tc.val > 0;
-        expect(valid).toBe(!tc.expectError);
+  test('已启用后 setup 不再泄露 secret', async () => {
+    const res = await request(app)
+      .get('/api/admin/totp/setup')
+      .set('x-session-id', sessionId);
+    expect(res.body.data.enabled).toBe(true);
+    expect(res.body.data.secret).toBeUndefined();
+    expect(res.body.data.rebindable).toBe(true);
+  });
+
+  test('2FA 启用后：纯 token 请求受保护端点 → 401 require2FA', async () => {
+    const res = await request(app)
+      .get('/api/admin/version')
+      .set('x-admin-token', ADMIN_TOKEN);
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe(-2);
+    expect(res.body.require2FA).toBe(true);
+  });
+
+  test('登录：未提交验证码 → 提示输入二步验证验证码', async () => {
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN });
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.twoFAEnabled).toBe(true);
+    expect(res.body.sessionId).toBeUndefined();
+  });
+
+  test('登录：错误 OTP → 401 且提示剩余次数（可感知的反馈）', async () => {
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN, otp: '000000' });
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe(-1);
+    expect(res.body.remainingAttempts).toBe(4);
+    expect(res.body.message).toContain('次尝试机会');
+    clearFailures(); // 隔离，避免影响后续 IP 封锁测试
+  });
+
+  test('登录：正确 OTP → 成功并返回 twoFAEnabled=true', async () => {
+    const code = await totpFor(secret);
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN, otp: code });
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+    expect(res.body.need2FA).toBe(false);
+    expect(res.body.twoFAEnabled).toBe(true);
+    expect(res.body.sessionId).toBeTruthy();
+  });
+
+  test('登录：恢复码一次性消费（8 → 7）', async () => {
+    const recovery = recoveryCodes[0];
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN, recoveryCode: recovery });
+    expect(res.status).toBe(200);
+    expect(res.body.code).toBe(0);
+
+    const config = store.getTotpConfig();
+    expect(config.recoveryCodes).toHaveLength(7);
+
+    // 已消费的恢复码再次使用 → 失败
+    const again = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN, recoveryCode: recovery });
+    expect(again.status).toBe(401);
+    clearFailures();
+  });
+});
+
+describe('IP 封锁（2FA 连续失败 5 次）', () => {
+  afterAll(() => {
+    store.saveBlockedIPs([]);
+  });
+
+  test('第 5 次失败触发 403 封锁，公开接口不受影响', async () => {
+    clearFailures();
+
+    let blockedRes = null;
+    for (let i = 1; i <= 5; i++) {
+      const res = await request(app)
+        .post('/api/admin/login')
+        .send({ token: ADMIN_TOKEN, otp: '000000' });
+      if (i < 5) {
+        expect(res.status).toBe(401);
+        expect(res.body.remainingAttempts).toBe(5 - i);
+      } else {
+        blockedRes = res;
       }
-    });
+    }
+
+    expect(blockedRes.status).toBe(403);
+    expect(blockedRes.body.code).toBe(-3);
+    expect(blockedRes.body.blocked).toBe(true);
+
+    // 封锁只针对非公开接口；版本检查 / health 仍可用
+    const health = await request(app).get('/health');
+    expect(health.status).toBe(200);
+    const version = await request(app).get('/api/version/check').query({ version: '1.0.0', build: 1 });
+    expect(version.status).toBe(200);
   });
 });

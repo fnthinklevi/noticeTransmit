@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.53",
-  "latestBuild": 87,
+  "latestVersion": "1.5.54",
+  "latestBuild": 88,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.51",
   "forceUpdateBuild": 82,
-  "changelog": "v1.5.53: 短信/电话重复推送修复(通知栏排除短信/电话应用,由SmsReceiver/PhoneCallReceiver独占) + 双卡SIM识别增强(默认语音SIM回退) + Telegram/Bark渠道新增 + Webhook渠道类型插件化(Kotlin/Dart两端host精确匹配统一) + 更多页推送通道/过滤规则拆分 + admin.html 2FA登录修复 + 服务端原子写入 + 飞书markdown降级提示",
+  "changelog": "v1.5.54: 服务端模块化拆分(server.js → lib/ 分层) + 服务端HTTP契约测试(25用例) + Webhook多通道保存链路测试(WebhookChannelStore抽象) + Jest ESM兼容",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.53/notice_arm64_1.5.53.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.53/notice_arm32_1.5.53.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.53/notice_x86_1.5.53.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.53/notice_all_1.5.53.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_arm64_1.5.54.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_arm32_1.5.54.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_x86_1.5.54.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.54/notice_all_1.5.54.apk"
   },
   "fileSizes": {
-    "arm64": 26621602,
-    "arm32": 22599433,
-    "x86_64": 28654612,
-    "all": 72942502
+    "arm64": 26621583,
+    "arm32": 22615804,
+    "x86_64": 28720133,
+    "all": 73024411
   },
   "minSupportedVersion": "1.0.0"
 }

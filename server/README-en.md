@@ -108,8 +108,16 @@ The service is running normally! 🎉
 
 ```
 server/
-├── server.js              # Main service file (entry point)
+├── server.js              # Entry point (startup + graceful shutdown)
+├── lib/                   # Modular layers
+│   ├── app.js             # App assembly (exports app for tests)
+│   ├── store.js           # Storage / persistence
+│   ├── otp.js             # TOTP wrapper (otplib v13)
+│   ├── middleware.js      # Security headers / rate limit / blocking / auth / errors
+│   └── routes/            # Routes (auth.js / version.js)
+├── test/                  # HTTP contract tests (jest + supertest)
 ├── package.json           # Project dependency config
+├── babel.config.js        # Jest ESM compatibility
 ├── README.md              # This documentation
 ├── data/                  # Config data directory (auto-created)
 │   └── version.json       # APK version config
@@ -543,7 +551,7 @@ netstat -tlnp | grep 3456
 - Each login requires a 6-digit code after enabling
 - Compatible with Google Authenticator, Microsoft Authenticator, etc.
 - 8 recovery codes provided for lost-device login
-- After 3 consecutive wrong codes within 10 minutes, IP is blocked for 240 hours
+- After 5 consecutive wrong codes within a 10-minute window, IP is blocked for 1 hour
 
 ### First Login Flow
 
@@ -589,15 +597,16 @@ pm2 restart update-server
 
 | Rule | Config |
 |------|------|
-| Max failed attempts | 3 |
+| Max failed attempts | 5 |
 | Time window | 10 minutes |
-| Block duration | 240 hours (10 days) |
+| Block duration | 1 hour |
 | Unblock | Auto-expiry |
 
 ### Trigger Conditions
 
-- 3 consecutive wrong TOTP codes within 10 minutes
+- 5 consecutive wrong TOTP codes within a 10-minute window
 - Blocked IPs cannot access any admin endpoints (`/api/admin/*`) or the admin panel page
+- Public endpoints (`/api/version/check`, `/health`) are exempt from blocking
 
 ### Manual Unblock
 
