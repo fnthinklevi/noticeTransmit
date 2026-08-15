@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/notification_rule.dart';
 
 class AppLocalizations {
   final Locale locale;
@@ -126,7 +127,7 @@ class AppLocalizations {
     'privacyTitle': '隐私政策',
     'privacyWelcome': '欢迎使用通知推送助手！',
     'privacyBody':
-        '在使用本应用前，请您仔细阅读我们的隐私政策。\n\n• 所有通知内容仅在设备本地处理，不会上传到任何服务器\n• 推送历史使用 AES-256 加密存储在本地\n• 仅收集必要的崩溃日志（腾讯 Bugly）用于修复应用问题：崩溃堆栈、设备型号、系统版本、应用版本，不采集个人身份信息\n• Webhook 配置使用 AndroidKeyStore 加密存储\n\n点击"同意"即表示您已阅读并接受我们的隐私政策。',
+        '在使用本应用前，请您仔细阅读我们的隐私政策。\n\n• 所有通知内容仅在设备本地处理，仅按您的配置转发到您指定的 Webhook 或邮件地址\n• 推送历史记录使用 AES-256 加密存储在本地数据库\n• 仅收集必要的崩溃日志（腾讯 Bugly）用于修复应用问题，不采集个人身份信息\n• 通道配置（Webhook/邮件）使用 AndroidKeyStore 加密存储\n\n点击"同意"即表示您已阅读并接受我们的隐私政策。',
     'disagree': '不同意',
     'agree': '同意',
     'privacyWarnTitle': '注意',
@@ -337,6 +338,104 @@ class AppLocalizations {
     'author': '作者：幻念团队 fnthinklevi',
     'appDesc': '监听通知栏所有通知并推送到 Webhook',
     'appFeatures': '支持：微信 / QQ / 短信 / 来电 / 电量提醒',
+    // 规则管理（规则列表页）
+    'ruleListTitle': '规则管理',
+    'ruleNew': '新规则',
+    'ruleNoCondition': '无条件',
+    'ruleNoAction': '无动作',
+    'ruleListEmpty': '暂无规则',
+    'ruleAddFirst': '添加第一条规则',
+    'rulePriorityBadge': '优先级 {n}',
+    'ruleGuideTitle': '规则引擎介绍',
+    'ruleGuideAdd': '添加规则',
+    'ruleGuideAddDesc': '点击右上角「+」或右下角浮动按钮创建新规则',
+    'ruleGuideCondition': '设置条件',
+    'ruleGuideConditionDesc': '配置触发规则的条件（IF），如应用包名、关键词、时间等',
+    'ruleGuideAction': '执行动作',
+    'ruleGuideActionDesc': '设置满足条件后执行的动作（THEN），如推送通知、静默忽略等',
+    'ruleGuideEnable': '启用规则',
+    'ruleGuideEnableDesc': '通过开关控制规则是否生效，未启用的规则不会执行',
+    'ruleGuideTip': '提示：规则按优先级顺序执行，匹配第一条规则后即停止。可通过编辑规则调整优先级。',
+    'ruleGuideGotIt': '知道了',
+    'ruleHelp': '使用帮助',
+    'ruleAddTooltip': '添加规则',
+    'ruleDeleteMsg': '确定要删除规则「{name}」吗？',
+    // 规则编辑页
+    'ruleEditTitle': '编辑规则',
+    'ruleName': '规则名称',
+    'ruleNameHint': '输入规则名称',
+    'ruleDescription': '规则描述',
+    'ruleDescriptionHint': '可选，描述规则用途',
+    'ruleConditions': '条件（IF）',
+    'ruleActions': '动作（THEN）',
+    'ruleAddCondition': '添加条件',
+    'ruleAddAction': '添加动作',
+    'rulePriority': '规则优先级',
+    'rulePriorityNote': '优先级越高，规则越先执行。相同优先级按添加顺序执行。',
+    'rulePDefault': '默认 (0)',
+    'rulePLow': '低 (50)',
+    'rulePMedium': '中 (100)',
+    'rulePHigh': '高 (200)',
+    'rulePHighest': '最高 (500)',
+    'ruleSelect': '请选择',
+    'ruleEditCondition': '编辑条件',
+    'ruleAddConditionTitle': '添加条件',
+    'ruleConditionType': '条件类型',
+    'ruleConditionValue': '条件值',
+    'ruleLogic': '逻辑运算符',
+    'ruleEditAction': '编辑动作',
+    'ruleAddActionTitle': '添加动作',
+    'ruleActionType': '动作类型',
+    'ruleDelayTitle': '延迟推送参数（至少填写一项）',
+    'ruleDelaySeconds': '延迟秒数',
+    'ruleDelaySecondsHint': '如 60 = 延迟 1 分钟',
+    'ruleScheduleTime': '定时时间',
+    'ruleScheduleTimeHint': '如 22:00（当日到点推送）',
+    'ruleBasicInfo': '基本信息',
+    'ruleEnableRule': '启用规则',
+    'ruleEmptyConditions': '暂无条件，点击添加',
+    'ruleEmptyActions': '暂无动作，点击添加',
+    'ruleDelayMinute': '延迟 {n} 分钟',
+    'ruleDelaySecond': '延迟 {n} 秒',
+    'ruleScheduleAt': '定时 {t}',
+    // 条件类型
+    'condPackage': '应用包名',
+    'condTitleContains': '标题包含',
+    'condTitleNotContains': '标题不包含',
+    'condContentContains': '内容包含',
+    'condContentNotContains': '内容不包含',
+    'condPriority': '通知优先级',
+    'condTimeRange': '时间范围',
+    'condRegex': '正则表达式',
+    'hintPackage': '例如: com.example.app',
+    'hintKeyword': '输入关键词',
+    'hintPriority': '高/中/低',
+    'hintTimeRange': '09:00-18:00',
+    'hintRegex': '正则表达式',
+    // 动作类型
+    'actionPush': '推送通知',
+    'actionSilent': '静默忽略',
+    'actionDelay': '延迟推送',
+    'actionMerge': '合并推送',
+    'actionRecord': '仅记录',
+    'actionPushDesc': '将通知推送到指定渠道',
+    'actionSilentDesc': '不推送，静默处理',
+    'actionDelayDesc': '延迟一段时间后推送',
+    'actionMergeDesc': '合并同应用多条通知',
+    'actionRecordDesc': '仅记录到历史，不推送',
+    // 逻辑运算符
+    'logicAnd': '且',
+    'logicOr': '或',
+    // 关键词过滤页
+    'keywordTitle': '关键词过滤',
+    'keywordWhitelist': '白名单',
+    'keywordBlacklist': '黑名单',
+    'keywordWhitelistHint': '输入白名单关键词',
+    'keywordBlacklistHint': '输入黑名单关键词',
+    'keywordWhitelistDesc': '白名单：通知内容包含任一关键词时，即使应用未被选中也会推送（优先级最高）',
+    'keywordBlacklistDesc': '黑名单：通知内容包含任一关键词时，即使应用被选中也不会推送',
+    'keywordWhitelistEmpty': '暂无白名单关键词',
+    'keywordBlacklistEmpty': '暂无黑名单关键词',
     // 启动页
     'initializing': '正在初始化...',
     'loadWebhook': '加载 Webhook 配置...',
@@ -412,25 +511,38 @@ class AppLocalizations {
     // 隐私政策
     'privacyOverviewTitle': '隐私政策概述',
     'privacyOverviewContent':
-        '通知推送助手（以下简称"本应用"）非常重视用户的隐私保护。本隐私政策将帮助您了解我们如何收集、使用和保护您的信息。',
-    'privacyInfoTitle': '信息收集与使用',
+        '通知推送助手（以下简称"本应用"）由幻念团队开发并运营。本应用高度重视您的个人信息与隐私保护，在您使用本应用前，请仔细阅读本隐私政策，了解我们如何收集、使用、存储和保护您的信息。\n\n本政策适用于本应用提供的所有服务。当您安装并使用本应用时，即表示您已阅读、理解并同意本政策的全部内容。',
+    'privacyInfoTitle': '我们收集的信息',
     'privacyInfoContent':
-        '本应用仅收集以下类型的信息：\n\n1. 崩溃统计信息\n   - 通过腾讯 Bugly SDK 收集应用崩溃时的堆栈信息\n   - 收集设备型号、系统版本、应用版本号、CPU 架构等基础信息\n   - 用于定位和修复崩溃问题，提升应用稳定性\n\n2. 通知内容（本地处理）\n   - 应用通过通知监听服务获取系统通知内容\n   - 所有通知内容仅在设备本地处理，不会上传到任何服务器\n   - 仅通过用户自行配置的 Webhook URL 进行推送',
+        '本应用遵循"最小必要"原则，仅收集实现核心功能所必需的信息：\n\n1. 通知内容（本地处理）\n   - 应用通过系统通知监听服务读取通知内容\n   - 所有通知内容仅在设备本地完成规则匹配、关键词过滤，并按您自行配置的 Webhook 或邮件地址转发\n   - 通知内容不会上传至除您指定目标以外的任何服务器\n\n2. 崩溃统计信息（腾讯 Bugly）\n   - 收集应用崩溃时的堆栈信息、设备型号、系统版本、应用版本号、CPU 架构\n   - 仅用于定位和修复崩溃问题，提升应用稳定性\n\n3. 推送统计与历史记录（本地存储）\n   - 通知记录、推送状态、每日统计等数据使用 AES-256 加密存储在本地数据库\n   - 这些数据仅保存在您的设备上，不会对外发送\n\n4. 延迟推送队列（本地存储）\n   - 规则引擎产生的延迟/定时推送任务持久化保存在本机，重启后不丢失\n\n5. 电池状态（本地监控）\n   - 电量及充电状态监控仅在本机采集，用于首页展示，不对外发送\n\n6. 已安装应用列表（本地使用）\n   - 用于规则引擎条件配置与应用过滤，仅在本机使用',
     'privacyNoCollectTitle': '我们不收集的信息',
     'privacyNoCollectContent':
-        '本应用不会收集以下个人隐私信息：\n\n• 通讯录、短信内容\n• 位置信息\n• 通话记录\n• 相册、文件\n• 麦克风、摄像头数据\n• 其他个人身份信息',
+        '本应用不会收集以下个人隐私信息：\n\n• 通讯录、短信内容（除非您主动授权用于短信通知识别）\n• 位置信息\n• 通话记录\n• 相册、文件内容\n• 麦克风、摄像头数据\n• 个人身份信息（姓名、身份证号、手机号等）\n\n当您不同意授权时，本应用的相关可选功能将不可用，但核心通知转发功能不受影响。',
+    'privacyShareTitle': '信息共享与披露',
+    'privacyShareContent':
+        '本应用不会出售、出租或交易您的个人信息。仅在以下情形中共享必要的信息：\n\n1. 您主动配置的转发目标\n   - 当您配置 Webhook（企业微信、钉钉、飞书、Telegram、Bark、Server酱、PushPlus）或 SMTP 邮件后，您选择转发的通知内容将发送至这些您指定的第三方平台\n   - 发送前需要您明确配置目标地址，未配置不会发生任何数据外发\n\n2. 第三方崩溃统计服务（腾讯 Bugly）\n   - 仅共享崩溃堆栈及设备基础环境信息，用于修复问题\n\n3. 法律法规要求\n   - 依据法律、法规或有权机关的要求披露相关信息',
     'privacyStorageTitle': '数据存储与安全',
     'privacyStorageContent':
-        '本应用采用多层安全机制保护您的数据：\n\n1. 本地数据库加密\n   - 所有通知历史记录、推送统计使用 AES-256 加密存储\n   - 加密密钥保存在 Android 系统密钥库（AndroidKeyStore）中\n   - 即使设备被他人获取，也无法直接读取数据库内容\n\n2. 敏感配置加密\n   - Webhook URL（含企业微信、钉钉、飞书认证密钥）使用 AndroidKeyStore 加密存储\n   - 不会以明文形式保存在 SharedPreferences 中\n\n3. 网络传输安全\n   - 全站强制 HTTPS，禁止明文 HTTP 传输\n   - 已部署 SSL 证书固定（Certificate Pinning）基础设施\n   - 管理后台 Token 仅通过 HTTP Header 传递，不出现在 URL 中\n\n4. 其他安全措施\n   - 管理后台二步验证（TOTP）\n   - 应用备份已禁用，防止通知数据通过云备份泄露\n   - 应用内广播接收器已加固，防止外部伪造通知数据',
+        '本应用采用多层安全机制保护您的数据：\n\n1. 本地数据库加密\n   - 通知历史记录、推送统计使用 AES-256 加密存储（sqflite_sqlcipher）\n   - 加密密钥保存在 Android 系统密钥库（AndroidKeyStore）中\n   - 即使设备被他人获取，也无法直接读取数据库内容\n\n2. 敏感配置加密\n   - Webhook URL、SMTP 账号、TOTP 密钥等敏感配置使用 AndroidKeyStore / AES-256-GCM 加密存储\n   - 不会以明文形式保存在 SharedPreferences 中\n\n3. 网络传输安全\n   - 全站强制 HTTPS，禁止明文 HTTP 传输\n   - 管理后台 Token 仅通过 HTTP Header 传递，不出现在 URL 中\n\n4. 其他安全措施\n   - 管理后台二步验证（TOTP）\n   - 应用备份已禁用（allowBackup=false），防止数据通过云备份泄露\n   - 应用内广播接收器已加固，防止外部伪造通知数据\n\n5. 数据保留\n   - 您可随时在应用内清除全部或部分推送历史记录\n   - 卸载应用将清除全部本地数据',
     'privacyThirdPartyTitle': '第三方服务',
     'privacyThirdPartyContent':
-        '本应用使用以下第三方服务：\n\n腾讯 Bugly（崩溃统计）\n• 服务商：深圳市腾讯计算机系统有限公司\n• 用途：收集应用崩溃信息，帮助定位和修复问题\n• 隐私政策：https://privacy.qq.com/\n• 采集数据：崩溃堆栈、设备型号、系统版本、应用版本',
+        '本应用使用以下第三方服务：\n\n腾讯 Bugly（崩溃统计）\n• 服务商：深圳市腾讯计算机系统有限公司\n• 用途：收集应用崩溃信息，帮助定位和修复问题\n• 隐私政策：https://privacy.qq.com/\n• 采集数据：崩溃堆栈、设备型号、系统版本、应用版本、CPU 架构\n\n用户主动配置的推送目标（非 SDK）\n• 企业微信、钉钉、飞书、Telegram、Bark、Server酱、PushPlus、SMTP 邮件服务器\n• 本应用仅向您自行配置的地址发送您选择转发的通知内容，不对第三方平台的数据处理行为负责\n• 涉及上述平台的隐私政策，请查阅对应平台官方文档',
     'privacyPermTitle': '权限说明',
     'privacyPermContent':
-        '本应用遵循最小权限原则，仅申请必要权限：\n\n• 通知访问权限：用于监听系统通知，实现推送功能\n• 网络权限：用于 Webhook 推送和版本更新检查\n• 前台服务：保活通知监听服务，确保消息及时推送\n• 开机自启动：开机后自动启动通知监听服务\n• 电量优化白名单：避免系统杀死后台服务\n• 短信/电话状态：增强短信和来电通知类型识别（可选）\n\n已移除的权限（v1.5.40 安全加固）：\n• WiFi 状态变更（CHANGE_WIFI_STATE）\n• WiFi 状态读取（ACCESS_WIFI_STATE）\n• 网络状态变更（CHANGE_NETWORK_STATE）',
+        '本应用遵循最小权限原则，以下为完整权限清单及用途说明：\n\n核心权限（必需）：\n• 通知使用权（Notification Listener）：读取通知内容，实现转发与规则引擎功能\n• 网络访问（INTERNET）：Webhook/邮件推送与版本更新检查\n• 前台服务（FOREGROUND_SERVICE 等）：保持通知监听服务常驻，确保消息及时推送\n• 开机自启动（RECEIVE_BOOT_COMPLETED）：设备重启后自动恢复通知监听服务\n• 通知发送（POST_NOTIFICATIONS）：发送本地通知提示\n• 唤醒锁（WAKE_LOCK）：延迟/定时推送到点唤醒设备\n\n辅助权限（可选）：\n• 电量优化白名单（REQUEST_IGNORE_BATTERY_OPTIMIZATIONS）：避免系统限制后台服务\n• 短信（RECEIVE_SMS/READ_SMS）：可选，用于短信通知识别与转发\n• 电话状态（READ_PHONE_STATE）：可选，用于来电通知识别\n• 存储（READ/WRITE_EXTERNAL_STORAGE、MANAGE_EXTERNAL_STORAGE）：导出推送历史 JSON、保存更新 APK\n• 安装未知应用（REQUEST_INSTALL_PACKAGES）：应用内在线更新时安装 APK\n• 查询已安装应用（QUERY_ALL_PACKAGES）：规则引擎条件配置与应用过滤\n• 振动（VIBRATE）：推送提示振动\n• 网络状态（ACCESS_NETWORK_STATE）：检测网络连接状态\n\n以上辅助权限均在您主动授权后使用，可随时在系统设置中关闭。',
+    'privacyChildTitle': '儿童隐私',
+    'privacyChildContent':
+        '本应用面向一般用户，不针对 14 周岁以下儿童设计，也不会故意收集儿童的个人信息。若您是未成年人，请在监护人陪同下阅读本政策，并在监护人同意后使用本应用。',
+    'privacyRightsTitle': '您的权利',
+    'privacyRightsContent':
+        '您对本应用所处理的本地数据享有以下权利：\n\n• 访问权：在应用内查看推送历史记录与统计信息\n• 删除权：随时清除全部或部分推送历史记录，卸载应用将删除全部本地数据\n• 撤回同意权：可在系统设置中关闭任何已授权的权限\n• 知情权：本政策将随应用功能变化及时更新并在应用内公示',
     'privacyUpdateTitle': '政策更新',
-    'privacyUpdateContent': '本隐私政策可能会不定期更新。更新后的政策将在应用内发布，继续使用即表示您同意更新后的政策。',
-    'lastUpdate': '最后更新：2026年7月19日',
+    'privacyUpdateContent':
+        '本隐私政策可能会不定期更新。当政策发生变更时，我们将在应用内发布更新后的政策，并更新页面底部的"最后更新"日期。您继续使用本应用即表示您同意更新后的政策。',
+    'privacyContactTitle': '联系我们',
+    'privacyContactContent':
+        '如果您对本隐私政策或数据处理有任何疑问、意见或建议，可通过以下方式联系我们：\n\n• 在应用内「更多」页查看最新版本与更新说明\n• 通过 GitHub 仓库提交 Issue：https://github.com/fnthinklevi/noticeTransmit\n\n我们将在收到您的反馈后尽快予以回复。',
+    'lastUpdate': '最后更新：2026年8月15日',
   };
 
   static const _en = <String, String>{
@@ -565,7 +677,7 @@ class AppLocalizations {
     'privacyTitle': 'Privacy Policy',
     'privacyWelcome': 'Welcome to NoticeTransmit!',
     'privacyBody':
-        'Please read our privacy policy before using this app.\n\n• All notifications are processed on-device, never uploaded to any server\n• Push history is AES-256 encrypted and stored locally\n• Only crash logs are collected (Tencent Bugly) for fixing issues: crash stack, device model, OS version, app version. No personal information is collected.\n• Webhook credentials are encrypted with AndroidKeyStore\n\nBy tapping "Agree", you agree to our privacy policy.',
+        'Please read our privacy policy before using this app.\n\n• All notifications are processed on-device and only forwarded to Webhook or email addresses you configure\n• Push history is AES-256 encrypted and stored in a local database\n• Only crash logs are collected (Tencent Bugly) for fixing issues; no personal information is collected\n• Channel credentials (Webhook/email) are encrypted with AndroidKeyStore\n\nBy tapping "Agree", you agree to our privacy policy.',
     'disagree': 'Disagree',
     'agree': 'Agree',
     'privacyWarnTitle': 'Notice',
@@ -790,6 +902,112 @@ class AppLocalizations {
     'author': 'Author: fnthinklevi',
     'appDesc': 'Listen to all notifications and push to Webhook',
     'appFeatures': 'Supports: WeChat / QQ / SMS / Call / Battery',
+    // Rule Management (rule list page)
+    'ruleListTitle': 'Rule Management',
+    'ruleNew': 'New Rule',
+    'ruleNoCondition': 'No conditions',
+    'ruleNoAction': 'No actions',
+    'ruleListEmpty': 'No rules yet',
+    'ruleAddFirst': 'Add Your First Rule',
+    'rulePriorityBadge': 'Priority {n}',
+    'ruleGuideTitle': 'Rule Engine Intro',
+    'ruleGuideAdd': 'Add Rule',
+    'ruleGuideAddDesc':
+        'Tap "+" in the top bar or the FAB to create a new rule',
+    'ruleGuideCondition': 'Set Conditions',
+    'ruleGuideConditionDesc':
+        'Configure the IF conditions (app package, keyword, time, etc.)',
+    'ruleGuideAction': 'Add Actions',
+    'ruleGuideActionDesc':
+        'Configure the THEN actions (push notification, silent ignore, etc.)',
+    'ruleGuideEnable': 'Enable Rule',
+    'ruleGuideEnableDesc':
+        'Toggle to control whether the rule takes effect; disabled rules won\'t run',
+    'ruleGuideTip':
+        'Tip: rules run by priority; execution stops after the first match. Edit a rule to adjust priority.',
+    'ruleGuideGotIt': 'Got It',
+    'ruleHelp': 'Help',
+    'ruleAddTooltip': 'Add Rule',
+    'ruleDeleteMsg': 'Delete rule "{name}"?',
+    // Rule Edit Page
+    'ruleEditTitle': 'Edit Rule',
+    'ruleName': 'Rule Name',
+    'ruleNameHint': 'Enter rule name',
+    'ruleDescription': 'Description',
+    'ruleDescriptionHint': 'Optional',
+    'ruleConditions': 'Conditions (IF)',
+    'ruleActions': 'Actions (THEN)',
+    'ruleAddCondition': 'Add Condition',
+    'ruleAddAction': 'Add Action',
+    'rulePriority': 'Rule Priority',
+    'rulePriorityNote':
+        'Higher priority runs first; equal priority runs in add order',
+    'rulePDefault': 'Default (0)',
+    'rulePLow': 'Low (50)',
+    'rulePMedium': 'Medium (100)',
+    'rulePHigh': 'High (200)',
+    'rulePHighest': 'Highest (500)',
+    'ruleSelect': 'Please select',
+    'ruleEditCondition': 'Edit Condition',
+    'ruleAddConditionTitle': 'Add Condition',
+    'ruleConditionType': 'Condition Type',
+    'ruleConditionValue': 'Value',
+    'ruleLogic': 'Logic Operator',
+    'ruleEditAction': 'Edit Action',
+    'ruleAddActionTitle': 'Add Action',
+    'ruleActionType': 'Action Type',
+    'ruleDelayTitle': 'Delayed Push Params (fill at least one)',
+    'ruleDelaySeconds': 'Delay (seconds)',
+    'ruleDelaySecondsHint': 'e.g. 60 = 1 minute',
+    'ruleScheduleTime': 'Schedule Time',
+    'ruleScheduleTimeHint': 'e.g. 22:00 (push when due)',
+    'ruleBasicInfo': 'Basic Info',
+    'ruleEnableRule': 'Enable Rule',
+    'ruleEmptyConditions': 'No conditions yet, tap to add',
+    'ruleEmptyActions': 'No actions yet, tap to add',
+    'ruleDelayMinute': 'Delay {n} min',
+    'ruleDelaySecond': 'Delay {n} s',
+    'ruleScheduleAt': 'Scheduled {t}',
+    // Condition types
+    'condPackage': 'App Package',
+    'condTitleContains': 'Title Contains',
+    'condTitleNotContains': 'Title Not Contains',
+    'condContentContains': 'Content Contains',
+    'condContentNotContains': 'Content Not Contains',
+    'condPriority': 'Priority',
+    'condTimeRange': 'Time Range',
+    'condRegex': 'Regex',
+    'hintPackage': 'e.g. com.example.app',
+    'hintKeyword': 'Enter keyword',
+    'hintPriority': 'High/Medium/Low',
+    'hintTimeRange': '09:00-18:00',
+    'hintRegex': 'Regex',
+    // Action types
+    'actionPush': 'Push Notification',
+    'actionSilent': 'Silent Ignore',
+    'actionDelay': 'Delayed Push',
+    'actionMerge': 'Merge Push',
+    'actionRecord': 'Record Only',
+    'actionPushDesc': 'Push to configured channels',
+    'actionSilentDesc': 'Don\'t push, process silently',
+    'actionDelayDesc': 'Push after a delay',
+    'actionMergeDesc': 'Merge notifications from the same app',
+    'actionRecordDesc': 'Record to history only, no push',
+    // Logic operators
+    'logicAnd': 'And',
+    'logicOr': 'Or',
+    // Keyword Filter Page
+    'keywordTitle': 'Keyword Filter',
+    'keywordWhitelist': 'Whitelist',
+    'keywordBlacklist': 'Blacklist',
+    'keywordWhitelistHint': 'Enter whitelist keyword',
+    'keywordBlacklistHint': 'Enter blacklist keyword',
+    'keywordWhitelistDesc':
+        'Whitelist: notification containing any keyword is pushed even if the app is not selected (highest priority)',
+    'keywordBlacklistDesc':
+        'Blacklist: notification containing any keyword won\'t be pushed even if the app is selected',
+    'keywordWhitelistEmpty': 'No whitelist keywords',
+    'keywordBlacklistEmpty': 'No blacklist keywords',
     // Splash
     'initializing': 'Initializing...',
     'loadWebhook': 'Loading Webhook config...',
@@ -870,26 +1088,38 @@ class AppLocalizations {
     // Privacy Policy
     'privacyOverviewTitle': 'Privacy Policy Overview',
     'privacyOverviewContent':
-        'NoticePush (hereinafter referred to as "this App") attaches great importance to user privacy protection. This Privacy Policy will help you understand how we collect, use, and protect your information.',
-    'privacyInfoTitle': 'Information Collection & Use',
+        'NoticeTransmit (hereinafter referred to as "this App") is developed and operated by the Fnthink team. This App takes your privacy seriously. Please read this Privacy Policy carefully before using this App to understand how we collect, use, store, and protect your information.\n\nThis Policy applies to all services provided by this App. By installing and using this App, you acknowledge that you have read, understood, and agreed to this Policy.',
+    'privacyInfoTitle': 'Information We Collect',
     'privacyInfoContent':
-        'This App only collects the following types of information:\n\n1. Crash Statistics\n   - Collects crash stack traces via Tencent Bugly SDK\n   - Collects device model, system version, app version, CPU architecture, and other basic info\n   - Used to locate and fix crash issues, improving app stability\n\n2. Notification Content (Local Processing)\n   - The app obtains system notification content through the notification listener service\n   - All notification content is processed locally on the device only and is not uploaded to any server\n   - Only pushed via user-configured Webhook URLs',
+        'This App follows the principle of "minimum necessary" and only collects information required for core functionality:\n\n1. Notification Content (Local Processing)\n   - The app reads notification content through the system notification listener service\n   - All notification content is matched against rules, filtered by keywords, and forwarded to Webhook or email addresses you configure, all on-device\n   - Notification content is never uploaded to any server other than the targets you specify\n\n2. Crash Statistics (Tencent Bugly)\n   - Collects crash stack traces, device model, system version, app version, and CPU architecture\n   - Used solely to locate and fix crash issues and improve app stability\n\n3. Push Statistics & History (Local Storage)\n   - Notification records, delivery status, and daily statistics are AES-256 encrypted and stored in a local database\n   - These data stay on your device and are never transmitted externally\n\n4. Delayed Push Queue (Local Storage)\n   - Delay/scheduled push tasks from the rule engine are persisted locally and survive reboots\n\n5. Battery Status (Local Monitoring)\n   - Battery level and charging status are monitored locally for the home page display only\n\n6. Installed App List (Local Use)\n   - Used for rule engine condition configuration and app filtering, on-device only',
     'privacyNoCollectTitle': 'Information We Do Not Collect',
     'privacyNoCollectContent':
-        'This App does NOT collect the following personal privacy information:\n\n• Contacts, SMS content\n• Location information\n• Call logs\n• Photos, files\n• Microphone, camera data\n• Other personally identifiable information',
+        'This App does NOT collect the following personal privacy information:\n\n• Contacts, or SMS content (unless you explicitly authorize SMS notification recognition)\n• Location information\n• Call logs\n• Photos, or file contents\n• Microphone or camera data\n• Personally identifiable information (name, ID number, phone number, etc.)\n\nIf you decline authorization, the related optional features will be unavailable, but core notification forwarding remains unaffected.',
+    'privacyShareTitle': 'Information Sharing & Disclosure',
+    'privacyShareContent':
+        'This App never sells, rents, or trades your personal information. Information is only shared in the following circumstances:\n\n1. Forwarding Targets You Configure\n   - Once you configure Webhook (WeCom, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus) or SMTP email, the notification content you choose to forward is sent to these third-party platforms you specified\n   - No data is transmitted externally until you explicitly configure a target address\n\n2. Third-Party Crash Statistics (Tencent Bugly)\n   - Only crash stack traces and basic device environment info are shared for issue fixing\n\n3. Legal Requirements\n   - Information may be disclosed as required by laws, regulations, or competent authorities',
     'privacyStorageTitle': 'Data Storage & Security',
     'privacyStorageContent':
-        'This App uses multi-layer security mechanisms to protect your data:\n\n1. Local Database Encryption\n   - All notification history and push statistics are AES-256 encrypted\n   - Encryption keys are stored in the Android system KeyStore (AndroidKeyStore)\n   - Even if the device is obtained by others, the database content cannot be read directly\n\n2. Sensitive Configuration Encryption\n   - Webhook URLs (including WeCom, DingTalk, Feishu authentication keys) are encrypted using AndroidKeyStore\n   - Never stored in plain text in SharedPreferences\n\n3. Network Transport Security\n   - HTTPS is enforced site-wide; plain HTTP transmission is prohibited\n   - SSL Certificate Pinning infrastructure has been deployed\n   - Admin backend Tokens are only passed via HTTP Headers, never in URLs\n\n4. Other Security Measures\n   - Admin backend two-step verification (TOTP)\n   - App backup is disabled to prevent notification data leakage via cloud backup\n   - In-app broadcast receivers are hardened to prevent external forged notification data',
+        'This App uses multi-layer security mechanisms to protect your data:\n\n1. Local Database Encryption\n   - Notification history and push statistics are AES-256 encrypted (sqflite_sqlcipher)\n   - Encryption keys are stored in the Android system KeyStore (AndroidKeyStore)\n   - Even if the device is obtained by others, the database content cannot be read directly\n\n2. Sensitive Configuration Encryption\n   - Webhook URLs, SMTP credentials, and TOTP secrets are encrypted with AndroidKeyStore / AES-256-GCM\n   - Never stored in plain text in SharedPreferences\n\n3. Network Transport Security\n   - HTTPS is enforced site-wide; plain HTTP transmission is prohibited\n   - Admin backend tokens are only passed via HTTP headers, never in URLs\n\n4. Other Security Measures\n   - Admin backend two-step verification (TOTP)\n   - App backup is disabled (allowBackup=false) to prevent data leakage via cloud backup\n   - In-app broadcast receivers are hardened against forged notification data\n\n5. Data Retention\n   - You may clear all or part of the push history at any time in the app\n   - Uninstalling the app deletes all local data',
     'privacyThirdPartyTitle': 'Third-Party Services',
     'privacyThirdPartyContent':
-        'This App uses the following third-party services:\n\nTencent Bugly (Crash Statistics)\n• Provider: Shenzhen Tencent Computer Systems Co., Ltd.\n• Purpose: Collect app crash information for issue diagnosis and fixing\n• Privacy Policy: https://privacy.qq.com/\n• Data Collected: Crash stack traces, device model, system version, app version',
+        'This App uses the following third-party services:\n\nTencent Bugly (Crash Statistics)\n• Provider: Shenzhen Tencent Computer Systems Co., Ltd.\n• Purpose: Collect app crash information for issue diagnosis and fixing\n• Privacy Policy: https://privacy.qq.com/\n• Data Collected: Crash stack traces, device model, system version, app version, CPU architecture\n\nForwarding Targets You Configure (Not SDKs)\n• WeCom, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus, SMTP email servers\n• This App only sends the notification content you choose to forward to addresses you configured and is not responsible for how third parties process data\n• Refer to the official documentation of the corresponding platform for its privacy policy',
     'privacyPermTitle': 'Permission Notes',
     'privacyPermContent':
-        'This App follows the principle of least privilege and only requests necessary permissions:\n\n• Notification Access: Used to listen to system notifications for push functionality\n• Network: Used for Webhook push and version update checks\n• Foreground Service: Keeps the notification listener service alive for timely message delivery\n• Boot Completed: Automatically starts the notification listener service after reboot\n• Battery Optimization Whitelist: Prevents the system from killing the background service\n• SMS/Phone State: Enhanced SMS and call notification type recognition (optional)\n\nRemoved Permissions (v1.5.40 Security Hardening):\n• CHANGE_WIFI_STATE\n• ACCESS_WIFI_STATE\n• CHANGE_NETWORK_STATE',
+        'This App follows the principle of least privilege. The complete permission list and purposes are as follows:\n\nCore Permissions (Required):\n• Notification Listener: Read notification content for forwarding and the rule engine\n• Internet (INTERNET): Webhook/email push and update checks\n• Foreground Service (FOREGROUND_SERVICE, etc.): Keeps the notification listener alive for timely delivery\n• Boot Completed (RECEIVE_BOOT_COMPLETED): Automatically restores the listener after reboot\n• Post Notifications (POST_NOTIFICATIONS): Sends local notification prompts\n• Wake Lock (WAKE_LOCK): Wakes the device for delayed/scheduled pushes\n\nAuxiliary Permissions (Optional):\n• Battery Optimization Whitelist (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS): Prevents the system from restricting background services\n• SMS (RECEIVE_SMS/READ_SMS): Optional, for SMS notification recognition and forwarding\n• Phone State (READ_PHONE_STATE): Optional, for incoming call notification recognition\n• Storage (READ/WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE): Export push history JSON and save update APKs\n• Install Unknown Apps (REQUEST_INSTALL_PACKAGES): Installs APKs for in-app updates\n• Query All Packages (QUERY_ALL_PACKAGES): Rule engine condition configuration and app filtering\n• Vibrate (VIBRATE): Vibration for push prompts\n• Network State (ACCESS_NETWORK_STATE): Detects network connectivity\n\nAuxiliary permissions are only used after your explicit authorization and can be revoked anytime in system settings.',
+    'privacyChildTitle': 'Children\'s Privacy',
+    'privacyChildContent':
+        'This App is designed for the general public, is not intended for children under 14, and does not knowingly collect children\'s personal information. If you are a minor, please read this Policy with a guardian and use this App only with their consent.',
+    'privacyRightsTitle': 'Your Rights',
+    'privacyRightsContent':
+        'You have the following rights regarding the local data processed by this App:\n\n• Access: View push history and statistics in the app\n• Deletion: Clear all or part of the push history at any time; uninstalling the app deletes all local data\n• Withdraw Consent: Disable any authorized permission in system settings at any time\n• Right to Know: This Policy is updated as features change and is published in the app',
     'privacyUpdateTitle': 'Policy Updates',
     'privacyUpdateContent':
-        'This Privacy Policy may be updated from time to time. Updated policies will be published within the app, and continued use signifies your agreement to the updated policy.',
-    'lastUpdate': 'Last updated: July 19, 2026',
+        'This Privacy Policy may be updated from time to time. When changes occur, the updated policy will be published in the app and the "Last updated" date at the bottom of this page will be refreshed. Your continued use of this App signifies your agreement to the updated policy.',
+    'privacyContactTitle': 'Contact Us',
+    'privacyContactContent':
+        'If you have any questions, comments, or suggestions about this Privacy Policy or data processing, you can reach us through:\n\n• Check the latest version and release notes on the "More" page in the app\n• Submit an Issue on GitHub: https://github.com/fnthinklevi/noticeTransmit\n\nWe will respond to your feedback as soon as possible.',
+    'lastUpdate': 'Last updated: August 15, 2026',
   };
 
   static const _localizedValues = {'zh': _zh, 'en': _en};
@@ -1314,4 +1544,130 @@ class AppLocalizations {
   String get privacyUpdateTitle => _get('privacyUpdateTitle');
   String get privacyUpdateContent => _get('privacyUpdateContent');
   String get lastUpdate => _get('lastUpdate');
+  String get privacyShareTitle => _get('privacyShareTitle');
+  String get privacyShareContent => _get('privacyShareContent');
+  String get privacyChildTitle => _get('privacyChildTitle');
+  String get privacyChildContent => _get('privacyChildContent');
+  String get privacyRightsTitle => _get('privacyRightsTitle');
+  String get privacyRightsContent => _get('privacyRightsContent');
+  String get privacyContactTitle => _get('privacyContactTitle');
+  String get privacyContactContent => _get('privacyContactContent');
+  // Rule Management
+  String get ruleListTitle => _get('ruleListTitle');
+  String get ruleNew => _get('ruleNew');
+  String get ruleNoCondition => _get('ruleNoCondition');
+  String get ruleNoAction => _get('ruleNoAction');
+  String get ruleListEmpty => _get('ruleListEmpty');
+  String get ruleAddFirst => _get('ruleAddFirst');
+  String rulePriorityBadge(int n) =>
+      _get('rulePriorityBadge').replaceAll('{n}', n.toString());
+  String get ruleGuideTitle => _get('ruleGuideTitle');
+  String get ruleGuideAdd => _get('ruleGuideAdd');
+  String get ruleGuideAddDesc => _get('ruleGuideAddDesc');
+  String get ruleGuideCondition => _get('ruleGuideCondition');
+  String get ruleGuideConditionDesc => _get('ruleGuideConditionDesc');
+  String get ruleGuideAction => _get('ruleGuideAction');
+  String get ruleGuideActionDesc => _get('ruleGuideActionDesc');
+  String get ruleGuideEnable => _get('ruleGuideEnable');
+  String get ruleGuideEnableDesc => _get('ruleGuideEnableDesc');
+  String get ruleGuideTip => _get('ruleGuideTip');
+  String get ruleGuideGotIt => _get('ruleGuideGotIt');
+  String get ruleHelp => _get('ruleHelp');
+  String get ruleAddTooltip => _get('ruleAddTooltip');
+  String ruleDeleteMsg(String name) =>
+      _get('ruleDeleteMsg').replaceAll('{name}', name);
+  // Rule Edit
+  String get ruleEditTitle => _get('ruleEditTitle');
+  String get ruleName => _get('ruleName');
+  String get ruleNameHint => _get('ruleNameHint');
+  String get ruleDescription => _get('ruleDescription');
+  String get ruleDescriptionHint => _get('ruleDescriptionHint');
+  String get ruleConditions => _get('ruleConditions');
+  String get ruleActions => _get('ruleActions');
+  String get ruleAddCondition => _get('ruleAddCondition');
+  String get ruleAddAction => _get('ruleAddAction');
+  String get rulePriority => _get('rulePriority');
+  String get rulePriorityNote => _get('rulePriorityNote');
+  String get rulePDefault => _get('rulePDefault');
+  String get rulePLow => _get('rulePLow');
+  String get rulePMedium => _get('rulePMedium');
+  String get rulePHigh => _get('rulePHigh');
+  String get rulePHighest => _get('rulePHighest');
+  String get ruleSelect => _get('ruleSelect');
+  String get ruleEditCondition => _get('ruleEditCondition');
+  String get ruleAddConditionTitle => _get('ruleAddConditionTitle');
+  String get ruleConditionType => _get('ruleConditionType');
+  String get ruleConditionValue => _get('ruleConditionValue');
+  String get ruleLogic => _get('ruleLogic');
+  String get ruleEditAction => _get('ruleEditAction');
+  String get ruleAddActionTitle => _get('ruleAddActionTitle');
+  String get ruleActionType => _get('ruleActionType');
+  String get ruleDelayTitle => _get('ruleDelayTitle');
+  String get ruleDelaySeconds => _get('ruleDelaySeconds');
+  String get ruleDelaySecondsHint => _get('ruleDelaySecondsHint');
+  String get ruleScheduleTime => _get('ruleScheduleTime');
+  String get ruleScheduleTimeHint => _get('ruleScheduleTimeHint');
+  String get ruleBasicInfo => _get('ruleBasicInfo');
+  String get ruleEnableRule => _get('ruleEnableRule');
+  String get ruleEmptyConditions => _get('ruleEmptyConditions');
+  String get ruleEmptyActions => _get('ruleEmptyActions');
+  String ruleDelayMinute(int n) =>
+      _get('ruleDelayMinute').replaceAll('{n}', n.toString());
+  String ruleDelaySecond(int n) =>
+      _get('ruleDelaySecond').replaceAll('{n}', n.toString());
+  String ruleScheduleAt(String t) =>
+      _get('ruleScheduleAt').replaceAll('{t}', t);
+  // Condition types
+  String conditionTypeLabel(ConditionType type) => switch (type) {
+    ConditionType.packageName => _get('condPackage'),
+    ConditionType.titleContains => _get('condTitleContains'),
+    ConditionType.titleNotContains => _get('condTitleNotContains'),
+    ConditionType.contentContains => _get('condContentContains'),
+    ConditionType.contentNotContains => _get('condContentNotContains'),
+    ConditionType.priority => _get('condPriority'),
+    ConditionType.timeRange => _get('condTimeRange'),
+    ConditionType.regexMatch => _get('condRegex'),
+  };
+  String conditionTypeHint(ConditionType type) => switch (type) {
+    ConditionType.packageName => _get('hintPackage'),
+    ConditionType.titleContains => _get('hintKeyword'),
+    ConditionType.titleNotContains => _get('hintKeyword'),
+    ConditionType.contentContains => _get('hintKeyword'),
+    ConditionType.contentNotContains => _get('hintKeyword'),
+    ConditionType.priority => _get('hintPriority'),
+    ConditionType.timeRange => _get('hintTimeRange'),
+    ConditionType.regexMatch => _get('hintRegex'),
+  };
+  // Action types
+  String actionTypeLabel(ActionType type) => switch (type) {
+    ActionType.push => _get('actionPush'),
+    ActionType.silent => _get('actionSilent'),
+    ActionType.delay => _get('actionDelay'),
+    ActionType.merge => _get('actionMerge'),
+    ActionType.record => _get('actionRecord'),
+  };
+  String actionTypeDesc(ActionType type) => switch (type) {
+    ActionType.push => _get('actionPushDesc'),
+    ActionType.silent => _get('actionSilentDesc'),
+    ActionType.delay => _get('actionDelayDesc'),
+    ActionType.merge => _get('actionMergeDesc'),
+    ActionType.record => _get('actionRecordDesc'),
+  };
+  // Logic operators
+  String get logicAnd => _get('logicAnd');
+  String get logicOr => _get('logicOr');
+  String logicLabel(LogicOperator op) => switch (op) {
+    LogicOperator.and => _get('logicAnd'),
+    LogicOperator.or => _get('logicOr'),
+  };
+  // Keyword Filter
+  String get keywordTitle => _get('keywordTitle');
+  String get keywordWhitelist => _get('keywordWhitelist');
+  String get keywordBlacklist => _get('keywordBlacklist');
+  String get keywordWhitelistHint => _get('keywordWhitelistHint');
+  String get keywordBlacklistHint => _get('keywordBlacklistHint');
+  String get keywordWhitelistDesc => _get('keywordWhitelistDesc');
+  String get keywordBlacklistDesc => _get('keywordBlacklistDesc');
+  String get keywordWhitelistEmpty => _get('keywordWhitelistEmpty');
+  String get keywordBlacklistEmpty => _get('keywordBlacklistEmpty');
 }

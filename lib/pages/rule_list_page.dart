@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_localizations.dart';
 import '../models/notification_rule.dart';
 import '../theme/app_colors.dart';
 import 'rule_edit_page.dart';
@@ -36,9 +37,10 @@ class _RuleListPageState extends State<RuleListPage> {
   }
 
   void _addRule() async {
+    final l10n = AppLocalizations.of(context);
     final newRule = NotificationRule(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: '新规则',
+      name: l10n.ruleNew,
       description: '',
       enabled: true,
       priority: _rules.length,
@@ -87,15 +89,16 @@ class _RuleListPageState extends State<RuleListPage> {
   }
 
   void _deleteRule(NotificationRule rule) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('确定要删除规则「${rule.name}」吗？'),
+        title: Text(l10n.confirmDeleteRule),
+        content: Text(l10n.ruleDeleteMsg(rule.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -105,7 +108,7 @@ class _RuleListPageState extends State<RuleListPage> {
               _saveRules();
               Navigator.pop(context);
             },
-            child: const Text('删除'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -117,21 +120,26 @@ class _RuleListPageState extends State<RuleListPage> {
     widget.onSave(_rules);
   }
 
-  String _getConditionSummary(NotificationRule rule) {
+  String _getConditionSummary(BuildContext context, NotificationRule rule) {
+    final l10n = AppLocalizations.of(context);
     if (rule.conditions.isEmpty) {
-      return '无条件';
+      return l10n.ruleNoCondition;
     }
-    return rule.conditions.map((c) => c.type.label).join(' 且 ');
+    return rule.conditions
+        .map((c) => l10n.conditionTypeLabel(c.type))
+        .join(' ${l10n.logicAnd} ');
   }
 
-  String _getActionSummary(NotificationRule rule) {
+  String _getActionSummary(BuildContext context, NotificationRule rule) {
+    final l10n = AppLocalizations.of(context);
     if (rule.actions.isEmpty) {
-      return '无动作';
+      return l10n.ruleNoAction;
     }
-    return rule.actions.map((a) => a.type.label).join(' → ');
+    return rule.actions.map((a) => l10n.actionTypeLabel(a.type)).join(' → ');
   }
 
   Widget _buildRuleList() {
+    final l10n = AppLocalizations.of(context);
     return _rules.isEmpty
         ? Center(
             child: Column(
@@ -152,7 +160,7 @@ class _RuleListPageState extends State<RuleListPage> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '暂无规则',
+                  l10n.ruleListEmpty,
                   style: TextStyle(
                     fontSize: 17,
                     color: AppColors.primaryLabel(context),
@@ -161,9 +169,9 @@ class _RuleListPageState extends State<RuleListPage> {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: _addRule,
-                  child: const Text(
-                    '添加第一条规则',
-                    style: TextStyle(
+                  child: Text(
+                    l10n.ruleAddFirst,
+                    style: const TextStyle(
                       fontSize: 16,
                       color: AppColors.blue,
                       fontWeight: FontWeight.w600,
@@ -258,7 +266,7 @@ class _RuleListPageState extends State<RuleListPage> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                _getConditionSummary(rule),
+                                _getConditionSummary(context, rule),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.systemBlue(context),
@@ -278,7 +286,7 @@ class _RuleListPageState extends State<RuleListPage> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                _getActionSummary(rule),
+                                _getActionSummary(context, rule),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.systemGreen(context),
@@ -296,7 +304,7 @@ class _RuleListPageState extends State<RuleListPage> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                '优先级 ${rule.priority + 1}',
+                                l10n.rulePriorityBadge(rule.priority + 1),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.secondaryLabel(context),
@@ -321,7 +329,7 @@ class _RuleListPageState extends State<RuleListPage> {
                                 ),
                               ),
                               child: Text(
-                                '编辑',
+                                l10n.edit,
                                 style: TextStyle(
                                   fontSize: 15,
                                   color: AppColors.systemBlue(context),
@@ -344,7 +352,7 @@ class _RuleListPageState extends State<RuleListPage> {
                                 ),
                               ),
                               child: Text(
-                                '删除',
+                                l10n.delete,
                                 style: TextStyle(
                                   fontSize: 15,
                                   color: AppColors.systemRed(context),
@@ -375,6 +383,7 @@ class _RuleListPageState extends State<RuleListPage> {
   }
 
   void _showGuideDialog() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -386,7 +395,7 @@ class _RuleListPageState extends State<RuleListPage> {
               color: AppColors.systemYellow(context),
             ),
             const SizedBox(width: 8),
-            const Text('规则引擎介绍'),
+            Text(l10n.ruleGuideTitle),
           ],
         ),
         content: SingleChildScrollView(
@@ -398,32 +407,32 @@ class _RuleListPageState extends State<RuleListPage> {
                 context,
                 Icons.plus_one,
                 AppColors.systemBlue(context),
-                '添加规则',
-                '点击右上角「+」或右下角浮动按钮创建新规则',
+                l10n.ruleGuideAdd,
+                l10n.ruleGuideAddDesc,
               ),
               const SizedBox(height: 16),
               _buildGuideItem(
                 context,
                 Icons.filter_alt,
                 AppColors.systemOrange(context),
-                '设置条件',
-                '配置触发规则的条件（IF），如应用包名、关键词、时间等',
+                l10n.ruleGuideCondition,
+                l10n.ruleGuideConditionDesc,
               ),
               const SizedBox(height: 16),
               _buildGuideItem(
                 context,
                 Icons.play_arrow,
                 AppColors.systemGreen(context),
-                '执行动作',
-                '设置满足条件后执行的动作（THEN），如推送通知、静默忽略等',
+                l10n.ruleGuideAction,
+                l10n.ruleGuideActionDesc,
               ),
               const SizedBox(height: 16),
               _buildGuideItem(
                 context,
                 Icons.toggle_on,
                 AppColors.systemPurple(context),
-                '启用规则',
-                '通过开关控制规则是否生效，未启用的规则不会执行',
+                l10n.ruleGuideEnable,
+                l10n.ruleGuideEnableDesc,
               ),
               const SizedBox(height: 20),
               Container(
@@ -432,9 +441,9 @@ class _RuleListPageState extends State<RuleListPage> {
                   color: AppColors.systemBlue(context).withAlpha(20),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  '提示：规则按优先级顺序执行，匹配第一条规则后即停止。可通过编辑规则调整优先级。',
-                  style: TextStyle(fontSize: 13),
+                child: Text(
+                  l10n.ruleGuideTip,
+                  style: const TextStyle(fontSize: 13),
                 ),
               ),
             ],
@@ -443,7 +452,7 @@ class _RuleListPageState extends State<RuleListPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('知道了'),
+            child: Text(l10n.ruleGuideGotIt),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -493,19 +502,20 @@ class _RuleListPageState extends State<RuleListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('规则管理'),
+        title: Text(l10n.ruleListTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: _showGuideDialog,
-            tooltip: '使用帮助',
+            tooltip: l10n.ruleHelp,
           ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _addRule,
-            tooltip: '添加规则',
+            tooltip: l10n.ruleAddTooltip,
           ),
         ],
       ),

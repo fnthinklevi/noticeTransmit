@@ -513,6 +513,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   void _showDeviceNameDialog() {
+    final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(
       text: _deviceInfoService.deviceName,
     );
@@ -521,7 +522,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
         title: Text(
-          '设置设备名称',
+          l10n.setDeviceName,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
@@ -532,7 +533,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           controller: controller,
           style: TextStyle(color: AppColors.primaryLabel(context)),
           decoration: InputDecoration(
-            hintText: '设备名称',
+            hintText: l10n.deviceNameLabel,
             hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -559,7 +560,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消', style: TextStyle(color: AppColors.blue)),
+            child: Text(
+              l10n.cancel,
+              style: const TextStyle(color: AppColors.blue),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -570,9 +574,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
                 Navigator.pop(context);
               }
             },
-            child: const Text(
-              '保存',
-              style: TextStyle(
+            child: Text(
+              l10n.save,
+              style: const TextStyle(
                 color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),
@@ -585,6 +589,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   void _showAboutDialog() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -616,7 +621,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 12),
             Text(
-              '通知推送助手',
+              l10n.appName,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
@@ -630,7 +635,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           children: [
             const SizedBox(height: 8),
             Text(
-              '作者：幻念团队 fnthinklevi',
+              l10n.author,
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.primaryLabel(context),
@@ -641,9 +646,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              '好的',
-              style: TextStyle(
+            child: Text(
+              l10n.ok,
+              style: const TextStyle(
                 color: AppColors.blue,
                 fontWeight: FontWeight.w600,
               ),

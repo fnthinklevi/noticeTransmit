@@ -1,6 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <corners android:radius="16dp" />
-    <solid android:color="#F2F2F7" />
-</shape>
+<!-- 暂停背景：浅灰柔和渐变卡片 + 1dp 细边框 + 底部投影 + 右上角红色状态点（iOS 风格） -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 投影层：模拟卡片浮起（右侧/底部略重） -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="16dp" />
+            <solid android:color="#263C3C43" />
+        </shape>
+    </item>
+
+    <!-- 主卡片：浅灰渐变 + 细边框 -->
+    <item
+        android:left="1dp"
+        android:top="1dp"
+        android:right="2dp"
+        android:bottom="3dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="16dp" />
+            <gradient
+                android:angle="315"
+                android:startColor="#F8F8FA"
+                android:endColor="#ECECF1"
+                android:type="linear" />
+            <stroke
+                android:width="1dp"
+                android:color="#D9D9E0" />
+        </shape>
+    </item>
+
+    <!-- 右上角状态指示点（暂停 = 红色，白色描边） -->
+    <item
+        android:gravity="top|end"
+        android:top="12dp"
+        android:right="12dp">
+        <shape android:shape="oval">
+            <size
+                android:width="9dp"
+                android:height="9dp" />
+            <gradient
+                android:angle="315"
+                android:startColor="#FF6B5E"
+                android:endColor="#E02D22"
+                android:type="linear" />
+            <stroke
+                android:width="1.5dp"
+                android:color="#B3FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

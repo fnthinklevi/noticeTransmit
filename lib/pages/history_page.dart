@@ -495,6 +495,144 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
+  /// 清除记录入口：iOS 风格弹窗（替代 Material PopupMenuButton）
+  Future<void> _showClearOptions() async {
+    final l10n = AppLocalizations.of(context);
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg(context),
+        title: Text(
+          l10n.clearRecords,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                dense: true,
+                title: Text(
+                  l10n.clearToday,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                onTap: () => Navigator.pop(dialogContext, 'today'),
+              ),
+              ListTile(
+                dense: true,
+                title: Text(
+                  l10n.clearLast10,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                onTap: () => Navigator.pop(dialogContext, 'last10'),
+              ),
+              ListTile(
+                dense: true,
+                title: Text(
+                  l10n.clearLast50,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                onTap: () => Navigator.pop(dialogContext, 'last50'),
+              ),
+              ListTile(
+                dense: true,
+                title: Text(
+                  l10n.clearAll,
+                  style: const TextStyle(color: Colors.red, fontSize: 15),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                onTap: () => Navigator.pop(dialogContext, 'all'),
+              ),
+            ],
+          ),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+    if (selected == null || !mounted) return;
+
+    int deleted = 0;
+    switch (selected) {
+      case 'today':
+        deleted = await widget.onClearToday();
+        break;
+      case 'last10':
+        deleted = await widget.onClearLastN(10);
+        break;
+      case 'last50':
+        deleted = await widget.onClearLastN(50);
+        break;
+      case 'all':
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.cardBg(ctx),
+            title: Text(
+              l10n.confirmClear,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+            content: Text(
+              l10n.clearConfirmMsg(widget.records.length),
+              style: TextStyle(color: AppColors.primaryLabel(ctx)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(l10n.cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  l10n.confirm,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        );
+        if (confirm == true) {
+          await widget.onClear();
+          deleted = widget.records.length;
+        }
+        break;
+    }
+    if (deleted > 0 && mounted) {
+      setState(() {});
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.clearedN(deleted)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -515,79 +653,10 @@ class _HistoryPageState extends State<HistoryPage> {
             tooltip: l10n.exportJson,
             onPressed: widget.records.isEmpty ? null : _handleExport,
           ),
-          PopupMenuButton<String>(
+          IconButton(
             icon: const Icon(Icons.cleaning_services_outlined),
             tooltip: l10n.clearRecords,
-            onSelected: widget.records.isEmpty
-                ? null
-                : (value) async {
-                    int deleted = 0;
-                    switch (value) {
-                      case 'today':
-                        deleted = await widget.onClearToday();
-                        break;
-                      case 'last10':
-                        deleted = await widget.onClearLastN(10);
-                        break;
-                      case 'last50':
-                        deleted = await widget.onClearLastN(50);
-                        break;
-                      case 'all':
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: Text(l10n.confirmClear),
-                            content: Text(
-                              l10n.clearConfirmMsg(widget.records.length),
-                              style: TextStyle(
-                                color: AppColors.primaryLabel(ctx),
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: Text(l10n.cancel),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: Text(
-                                  l10n.confirm,
-                                  style: const TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
-                          await widget.onClear();
-                          deleted = widget.records.length;
-                        }
-                        break;
-                    }
-                    if (deleted > 0 && mounted) {
-                      setState(() {});
-                      if (!mounted) return;
-                      // ignore: use_build_context_synchronously
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(l10n.clearedN(deleted)),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-            itemBuilder: (_) => [
-              PopupMenuItem(value: 'today', child: Text(l10n.clearToday)),
-              PopupMenuItem(value: 'last10', child: Text(l10n.clearLast10)),
-              PopupMenuItem(value: 'last50', child: Text(l10n.clearLast50)),
-              PopupMenuItem(
-                value: 'all',
-                child: Text(
-                  l10n.clearAll,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+            onPressed: widget.records.isEmpty ? null : _showClearOptions,
           ),
         ],
       ),

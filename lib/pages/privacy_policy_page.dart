@@ -39,6 +39,12 @@ class PrivacyPolicyPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _buildSection(
+            title: l10n.privacyShareTitle,
+            content: l10n.privacyShareContent,
+            context: context,
+          ),
+          const SizedBox(height: 16),
+          _buildSection(
             title: l10n.privacyThirdPartyTitle,
             content: l10n.privacyThirdPartyContent,
             context: context,
@@ -51,8 +57,26 @@ class PrivacyPolicyPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _buildSection(
+            title: l10n.privacyChildTitle,
+            content: l10n.privacyChildContent,
+            context: context,
+          ),
+          const SizedBox(height: 16),
+          _buildSection(
+            title: l10n.privacyRightsTitle,
+            content: l10n.privacyRightsContent,
+            context: context,
+          ),
+          const SizedBox(height: 16),
+          _buildSection(
             title: l10n.privacyUpdateTitle,
             content: l10n.privacyUpdateContent,
+            context: context,
+          ),
+          const SizedBox(height: 16),
+          _buildSection(
+            title: l10n.privacyContactTitle,
+            content: l10n.privacyContactContent,
             context: context,
           ),
           const SizedBox(height: 32),

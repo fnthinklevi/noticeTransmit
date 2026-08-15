@@ -6,21 +6,23 @@
     android:background="@drawable/widget_bg_active"
     android:padding="12dp">
 
-    <!-- 左上角标题 -->
+    <!-- 左上角标题（跟随语言切换，细字距更精致） -->
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|start"
-        android:maxWidth="96dp"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.15"
         android:maxLines="1"
         android:ellipsize="end"
+        android:maxWidth="96dp"
         android:text="通知推送助手"
         android:textColor="#1C1C1E"
         android:textSize="12sp"
         android:textStyle="bold" />
 
-    <!-- 中央圆形状态（推送=绿色 / 暂停=红色，圆内显示状态文字） -->
+    <!-- 中央圆形状态（推送=绿色 / 暂停=红色，圆内显示状态文字；渐变+白色描边+高光立体质感） -->
     <TextView
         android:id="@+id/widget_circle"
         android:layout_width="52dp"
@@ -28,22 +30,29 @@
         android:layout_gravity="center"
         android:background="@drawable/widget_circle_active"
         android:gravity="center"
+        android:includeFontPadding="false"
         android:text="推送中"
         android:textColor="#FFFFFF"
         android:textSize="12sp"
         android:textStyle="bold" />
 
-    <!-- 底部提示 -->
+    <!-- 底部提示（胶囊药丸样式） -->
     <TextView
         android:id="@+id/widget_hint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
-        android:maxWidth="96dp"
+        android:background="@drawable/widget_pill_hint"
+        android:includeFontPadding="false"
         android:maxLines="1"
+        android:maxWidth="96dp"
         android:ellipsize="end"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         android:text="点击暂停推送"
-        android:textColor="#8E8E93"
+        android:textColor="#6E6E73"
         android:textSize="10sp" />
 
 </FrameLayout>

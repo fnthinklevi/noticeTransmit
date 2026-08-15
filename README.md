@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.57/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.58/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -54,8 +54,9 @@
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
 - ⏸️ **一键暂停推送** - 前台通知栏 Action 按钮一键暂停/恢复推送（监听继续，仅停止 webhook 发送），状态持久化重启后恢复
-- 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；由系统下载器（DownloadManager）后台下载，免存储权限、锁屏后台不中断；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
+- 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；由系统下载器（DownloadManager）后台下载，免存储权限、锁屏后台不中断；多下载源自动回退（CDN / GitHub 加速镜像 / GitHub 直链，按设备架构匹配）；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）
 - 📲 **Cupertino 设计语言** - 采用 Cupertino（iOS）系统设计语言，界面简洁优雅
+- 🔒 **完整隐私政策** - 应用内置 11 章节隐私政策（数据收集边界 / 存储加密 / 信息共享 / 儿童隐私 / 用户权利等），首次启动弹窗征得同意，可随时在「更多」页查看
 - 📊 **推送统计统一** - 首页/更多页/状态栏推送统计共用同一数据源，当日计数实时同步
 
 ### 安全加固

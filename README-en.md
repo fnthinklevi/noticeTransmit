@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.57/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.58/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -54,8 +54,9 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
 - ⏸️ **One-tap Pause Push** - Pause/resume push via foreground notification action button (monitoring continues, only webhook sending stops), state persists across restarts
-- 🔄 **Online Update** - Support version update, no need to reinstall APK; downloads via system downloader (DownloadManager) in background — no storage permission needed, uninterrupted when screen is off; flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
+- 🔄 **Online Update** - Support version update, no need to reinstall APK; downloads via system downloader (DownloadManager) in background — no storage permission needed, uninterrupted when screen is off; multi-source fallback (CDN / GitHub mirror / GitHub direct, matched by device ABI); flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
 - 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface
+- 🔒 **Full Privacy Policy** - In-app 11-chapter privacy policy (data collection scope / encrypted storage / information sharing / children's privacy / user rights, etc.), consent dialog on first launch, viewable anytime from the More page
 - 📊 **Unified Push Stats** - Home/More/status bar push stats share the same database source, daily count syncs in real time
 
 ### Security

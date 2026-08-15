@@ -6,12 +6,14 @@
     android:background="@drawable/widget_bg_active"
     android:padding="14dp">
 
-    <!-- 左上角标题 -->
+    <!-- 左上角标题（跟随语言切换，细字距更精致） -->
     <TextView
         android:id="@+id/widget_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|start"
+        android:includeFontPadding="false"
+        android:letterSpacing="0.15"
         android:maxLines="1"
         android:ellipsize="end"
         android:text="通知推送助手"
@@ -38,55 +40,72 @@
 
             <TextView
                 android:id="@+id/widget_circle"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
                 android:background="@drawable/widget_circle_active"
                 android:gravity="center"
+                android:includeFontPadding="false"
                 android:text="推送中"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- 右半：当日已推送通知数量 -->
+        <!-- 右半：当日已推送通知数量（磨砂数据面板） -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_panel_count"
             android:gravity="center"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
 
             <TextView
                 android:id="@+id/widget_daily_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.6"
                 android:maxLines="1"
                 android:text="当日已推送"
                 android:textColor="#8E8E93"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
 
             <TextView
                 android:id="@+id/widget_daily_count"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
+                android:includeFontPadding="false"
+                android:letterSpacing="0.4"
                 android:maxLines="1"
                 android:text="0"
                 android:textColor="#007AFF"
-                android:textSize="20sp"
+                android:textSize="26sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 底部提示 -->
+    <!-- 底部提示（胶囊药丸样式） -->
     <TextView
         android:id="@+id/widget_hint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
+        android:background="@drawable/widget_pill_hint"
+        android:includeFontPadding="false"
         android:maxLines="1"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         android:text="点击暂停/恢复推送"
-        android:textColor="#8E8E93"
+        android:textColor="#6E6E73"
         android:textSize="11sp" />
 
 </FrameLayout>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 
 class KeywordsPage extends StatefulWidget {
@@ -70,15 +71,16 @@ class _KeywordsPageState extends State<KeywordsPage>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final currentList = _tabController.index == 0 ? _whitelist : _blacklist;
     final isWhitelist = _tabController.index == 0;
 
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: const Text(
-          '关键词过滤',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        title: Text(
+          l10n.keywordTitle,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -90,17 +92,17 @@ class _KeywordsPageState extends State<KeywordsPage>
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
-          tabs: const [
-            Tab(text: '白名单'),
-            Tab(text: '黑名单'),
+          tabs: [
+            Tab(text: l10n.keywordWhitelist),
+            Tab(text: l10n.keywordBlacklist),
           ],
         ),
         actions: [
           TextButton(
             onPressed: _saveAndBack,
-            child: const Text(
-              '保存',
-              style: TextStyle(
+            child: Text(
+              l10n.save,
+              style: const TextStyle(
                 fontSize: 16,
                 color: AppColors.blue,
                 fontWeight: FontWeight.w600,
@@ -130,7 +132,9 @@ class _KeywordsPageState extends State<KeywordsPage>
                     child: TextField(
                       controller: _textController,
                       decoration: InputDecoration(
-                        hintText: isWhitelist ? '输入白名单关键词' : '输入黑名单关键词',
+                        hintText: isWhitelist
+                            ? l10n.keywordWhitelistHint
+                            : l10n.keywordBlacklistHint,
                         hintStyle: TextStyle(
                           color: AppColors.secondaryLabel(context),
                           fontSize: 15,
@@ -153,9 +157,9 @@ class _KeywordsPageState extends State<KeywordsPage>
                   child: ElevatedButton.icon(
                     onPressed: _addKeyword,
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text(
-                      '添加',
-                      style: TextStyle(
+                    label: Text(
+                      l10n.add,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -198,8 +202,8 @@ class _KeywordsPageState extends State<KeywordsPage>
                   Expanded(
                     child: Text(
                       isWhitelist
-                          ? '白名单：通知内容包含任一关键词时，即使应用未被选中也会推送（优先级最高）'
-                          : '黑名单：通知内容包含任一关键词时，即使应用被选中也不会推送',
+                          ? l10n.keywordWhitelistDesc
+                          : l10n.keywordBlacklistDesc,
                       style: TextStyle(
                         fontSize: 13,
                         color: isWhitelist
@@ -218,7 +222,9 @@ class _KeywordsPageState extends State<KeywordsPage>
             child: currentList.isEmpty
                 ? Center(
                     child: Text(
-                      isWhitelist ? '暂无白名单关键词' : '暂无黑名单关键词',
+                      isWhitelist
+                          ? l10n.keywordWhitelistEmpty
+                          : l10n.keywordBlacklistEmpty,
                       style: TextStyle(
                         color: AppColors.secondaryLabel(context),
                         fontSize: 15,

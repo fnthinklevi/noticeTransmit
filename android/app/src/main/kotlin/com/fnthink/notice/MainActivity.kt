@@ -50,8 +50,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.57"
-        const val FALLBACK_BUILD = 91
+        const val FALLBACK_VERSION = "1.5.58"
+        const val FALLBACK_BUILD = 92
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -1428,12 +1428,19 @@ class MainActivity : FlutterActivity() {
                 val total = cursor.getLong(
                     cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
                 )
+                val reason = if (status == DownloadManager.STATUS_FAILED) {
+                    cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                } else {
+                    0
+                }
                 cursor.close()
                 mapOf(
                     "status" to status,
                     "bytesDownloaded" to bytes,
                     "totalBytes" to total,
                     "progress" to if (total > 0) bytes.toDouble() / total else 0.0,
+                    "reason" to reason,
+                    "reasonText" to downloadErrorReasonText(reason),
                 )
             } else {
                 cursor?.close()
@@ -1443,6 +1450,24 @@ class MainActivity : FlutterActivity() {
             Log.e("MainActivity", "querySystemDownloadProgress failed", e)
             mapOf("status" to -1, "progress" to 0.0)
         }
+    }
+
+    /** DownloadManager.COLUMN_REASON 失败码 → 可读文案（用于诊断下载失败原因）。 */
+    private fun downloadErrorReasonText(reason: Int): String = when (reason) {
+        DownloadManager.ERROR_UNKNOWN -> "未知错误"
+        DownloadManager.ERROR_FILE_ERROR -> "文件错误"
+        DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "服务器返回异常状态码（HTTP 错误）"
+        DownloadManager.ERROR_HTTP_DATA_ERROR -> "网络数据错误"
+        DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "重定向过多"
+        DownloadManager.ERROR_INSUFFICIENT_SPACE -> "存储空间不足"
+        DownloadManager.ERROR_DEVICE_NOT_FOUND -> "设备未找到"
+        DownloadManager.ERROR_CANNOT_RESUME -> "无法断点续传"
+        DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "文件已存在"
+        // 以下常量在部分 SDK 的 android.jar 中缺失，直接使用官方稳定数值
+        1010 -> "下载被阻止"
+        1011 -> "无法覆盖文件"
+        1012 -> "文件不存在（服务器 404）"
+        else -> "reason=$reason"
     }
 
     /** 获取系统下载器已下载 APK 的本地文件路径（用于 open_filex 打开安装）。 */

@@ -32,6 +32,8 @@ class AppUpdateManager {
   static const String _updateServerUrl = 'https://notice.fnthink.top';
   static const String _githubMirrorUrl =
       'https://xget.fnthink.top/gh/fnthinklevi/noticeTransmit/releases/download';
+  static const String _githubDirectUrl =
+      'https://github.com/fnthinklevi/noticeTransmit/releases/download';
   static const String _prefsKeyAutoCheck = 'auto_check_update';
   static const String _prefsKeyLastCheckTime = 'last_update_check_time';
   static const String _prefsKeyIgnoredVersion = 'ignored_version';
@@ -40,8 +42,8 @@ class AppUpdateManager {
 
   /// 回退版本号：仅当 native getAppVersion 调用失败时使用。
   /// 发版时同步更新为当前版本号。
-  static const String _fallbackVersion = '1.5.57';
-  static const int _fallbackBuild = 91;
+  static const String _fallbackVersion = '1.5.58';
+  static const int _fallbackBuild = 92;
 
   static const String _defaultDownloadDir =
       '/storage/emulated/0/Download/FnthinkNotice';
@@ -370,6 +372,13 @@ class AppUpdateManager {
   }
 
   /// 系统下载器（DownloadManager）下载实现。
+  ///
+  /// 下载源按优先级依次尝试（共三个）：
+  /// 1. CDN（cdn2.fnthink.top，主源）
+  /// 2. GitHub 国内加速镜像（xget.fnthink.top）
+  /// 3. GitHub 官方直链（github.com）
+  /// 后两个均按设备 ABI 取对应安装包。备用地址先做 HEAD 探测，
+  /// 可用才交给系统下载器；主地址失败或中途失败自动切换下一个。
   /// 下载到公共 Download/FnthinkNotice 目录，返回本地文件路径；
   /// 路径获取失败时返回空字符串（安装时回退系统安装器 content uri）。
   Future<String> _downloadWithSystemDownloader(
@@ -379,8 +388,51 @@ class AppUpdateManager {
     String? appName,
     String? version,
   }) async {
-    final fileName =
-        '${appName ?? 'noticeTransmit'}_${version ?? 'update'}.apk';
+    final abiKey = await _getRealAbi();
+    final candidates = _buildCandidateUrls(downloadUrl, version, abiKey);
+    String? lastError;
+    final errors = <String>[];
+    for (int i = 0; i < candidates.length; i++) {
+      final url = candidates[i];
+      if (i > 0) {
+        // 备用地址先探测可用性，避免系统下载器进入失败态
+        final ok = await _probeUrl(url);
+        if (!ok) {
+          errors.add('$url → 探测不可用');
+          debugPrint('系统下载器：备用地址不可用，跳过 $url');
+          continue;
+        }
+      }
+      final fileName =
+          '${appName ?? 'noticeTransmit'}_${version ?? 'update'}'
+          '${i == 0 ? '' : '_retry$i'}.apk';
+      try {
+        final path = await _downloadSingleWithSystem(
+          url,
+          fileName: fileName,
+          version: version,
+          onProgress: onProgress,
+        );
+        return path;
+      } catch (e) {
+        errors.add('$url → $e');
+        lastError = e.toString();
+        debugPrint('系统下载器：地址 $url 失败 - $e');
+      }
+    }
+    if (errors.isNotEmpty) {
+      debugPrint('下载源全部失败，明细：\n${errors.join('\n')}');
+    }
+    throw Exception(lastError ?? '所有下载地址均失败');
+  }
+
+  /// 使用系统下载器下载单个地址并轮询进度，失败时抛异常
+  Future<String> _downloadSingleWithSystem(
+    String downloadUrl, {
+    required String fileName,
+    String? version,
+    Function(double progress)? onProgress,
+  }) async {
     final id = await AppChannels.notification.invokeMethod(
       'startSystemDownload',
       {'url': downloadUrl, 'fileName': fileName, 'title': '通知推送助手更新'},
@@ -416,13 +468,87 @@ class AppUpdateManager {
         return path ?? '';
       }
       if (status == statusFailed) {
-        throw Exception('系统下载器下载失败');
+        final reason = (info['reason'] as int?) ?? 0;
+        final reasonText = info['reasonText']?.toString() ?? '未知';
+        debugPrint(
+          '系统下载器失败：$downloadUrl status=$status reason=$reason($reasonText)'
+          '${await _httpStatusDiagnosis(downloadUrl)}',
+        );
+        throw Exception('系统下载器下载失败（$reasonText）');
       }
       final progress = ((info['progress'] as num?) ?? 0).toDouble();
       if (progress != lastProgress) {
         lastProgress = progress;
         onProgress?.call(progress);
       }
+    }
+  }
+
+  /// 构建下载候选 URL 列表（按优先级排序，共三个下载源）：
+  /// 1. CDN 主地址（cdn2.fnthink.top，version.json 下发，已按 ABI 匹配）
+  /// 2. GitHub 国内加速镜像（xget.fnthink.top，按设备 ABI 取包）
+  /// 3. GitHub 官方直链（github.com，按设备 ABI 取包）
+  List<String> _buildCandidateUrls(
+    String downloadUrl,
+    String? version,
+    String abiKey,
+  ) {
+    final urls = <String>[];
+    void add(String u) {
+      final s = u.trim();
+      if (s.isNotEmpty && !urls.contains(s)) urls.add(s);
+    }
+
+    // ABI → 安装包平台名（release 资产命名规范 notice_{平台}_{版本}.apk）
+    final platform = switch (abiKey) {
+      'arm32' => 'arm32',
+      'x86_64' => 'x86',
+      _ => 'arm64',
+    };
+
+    add(downloadUrl);
+    if (version != null && version.isNotEmpty) {
+      add('$_githubMirrorUrl/$version/notice_${platform}_$version.apk');
+      add('$_githubDirectUrl/$version/notice_${platform}_$version.apk');
+    }
+    return urls;
+  }
+
+  /// HEAD 探测 URL 是否可下载（返回 true 表示 HTTP 200）。
+  /// 失败时打印状态码与关键响应头，便于排查 404 等下载源问题。
+  Future<bool> _probeUrl(String url) async {
+    try {
+      final response = await _updateHttpClient
+          .send(http.Request('HEAD', Uri.parse(url)))
+          .timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200) return true;
+      debugPrint(
+        '探测下载源失败：$url → HTTP ${response.statusCode} '
+        'content-type=${response.headers['content-type'] ?? '-'} '
+        'content-length=${response.headers['content-length'] ?? '-'}',
+      );
+      return false;
+    } catch (e) {
+      debugPrint('探测下载源异常：$url → $e');
+      return false;
+    }
+  }
+
+  /// 对下载地址做一次 HEAD 请求，返回 HTTP 状态码与关键响应头诊断信息。
+  /// 用于系统下载器失败后补充打印，定位是 404 / 重定向 / 限流等问题。
+  Future<String> _httpStatusDiagnosis(String url) async {
+    try {
+      final response = await _updateHttpClient
+          .send(http.Request('HEAD', Uri.parse(url)))
+          .timeout(const Duration(seconds: 6));
+      final headers = response.headers;
+      return '；HTTP ${response.statusCode} '
+          'content-type=${headers['content-type'] ?? '-'} '
+          'content-length=${headers['content-length'] ?? '-'} '
+          'location=${headers['location'] ?? '-'} '
+          'server=${headers['server'] ?? '-'}';
+    } catch (e) {
+      return '；HTTP 请求异常 $e';
     }
   }
 
@@ -543,7 +669,9 @@ class AppUpdateManager {
     }
 
     if (version != null && appName != null) {
-      final githubUrl = '$_githubMirrorUrl/$version/$appName.apk';
+      // GitHub Release 资产按项目命名规范为 notice_{平台}_{版本}.apk，
+      // 这里统一回退到全平台融合包（notice_all_{version}.apk）。
+      final githubUrl = '$_githubMirrorUrl/$version/notice_all_$version.apk';
       urls.add(githubUrl);
     }
 

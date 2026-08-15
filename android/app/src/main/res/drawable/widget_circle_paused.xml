@@ -1,5 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
-    <solid android:color="#FF3B30" />
-</shape>
+<!-- 暂停圆形：红色渐变（左上亮 → 右下暗）+ 白色描边 + 顶部玻璃高光 + 底部柔和光晕 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 底部柔和光晕 -->
+    <item
+        android:left="1dp"
+        android:top="1dp"
+        android:right="2dp"
+        android:bottom="3dp">
+        <shape android:shape="oval">
+            <solid android:color="#33FF453A" />
+        </shape>
+    </item>
+
+    <!-- 主体：红色渐变 + 2dp 白色描边（立体感） -->
+    <item
+        android:left="2dp"
+        android:top="2dp"
+        android:right="3dp"
+        android:bottom="4dp">
+        <shape android:shape="oval">
+            <gradient
+                android:angle="315"
+                android:startColor="#FF6B5E"
+                android:endColor="#E02D22"
+                android:type="linear" />
+            <stroke
+                android:width="2dp"
+                android:color="#FFFFFF" />
+        </shape>
+    </item>
+
+    <!-- 顶部高光（玻璃质感） -->
+    <item
+        android:left="5dp"
+        android:top="4dp"
+        android:right="5dp"
+        android:bottom="26dp">
+        <shape android:shape="oval">
+            <solid android:color="#40FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

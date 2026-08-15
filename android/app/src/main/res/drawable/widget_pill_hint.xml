@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 底部提示胶囊：柔和深色半透明圆角药丸（浅色卡片上呈浅灰质感） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="100dp" />
+    <solid android:color="#121C1C1E" />
+</shape>
