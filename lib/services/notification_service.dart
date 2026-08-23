@@ -47,6 +47,34 @@ class NotificationService {
 
     // 拉取原生端离线缓存（软件被杀期间的通知），通过 id 去重后合并入库
     await _drainOfflineCache();
+
+    // 补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
+    await drainPendingDeliveries();
+  }
+
+  /// 补偿拉取 DeliveryResultStore 中未消费的送达结果并逐条补更新。
+  /// 送达结果实时走广播链路（依赖 MainActivity 存活），Activity 被销毁期间的结果
+  /// 由原生持久化兜底，此处拉取后按记录幂等补更新（成功/失败/暂停状态写回）。
+  Future<void> drainPendingDeliveries() async {
+    try {
+      final results = await _channel.invokeMethod<List<dynamic>>(
+        'drainDeliveryResults',
+      );
+      if (results == null || results.isEmpty) return;
+      for (final item in results) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        await updateDelivery(
+          map['notificationId']?.toString() ?? '',
+          map['webhookType']?.toString() ?? '',
+          map['status']?.toString() ?? '',
+          map['message']?.toString() ?? '',
+        );
+      }
+      debugPrint('[DeliveryResultStore] 补更新 ${results.length} 条送达结果');
+    } catch (e) {
+      debugPrint('补偿拉取送达结果失败: $e');
+    }
   }
 
   /// 拉取原生 HistoryCache 缓存的离线通知，按 id 去重后入库。

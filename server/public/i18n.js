@@ -63,7 +63,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['全应用中英双语支持（120+ 处迁移），设置页一键切换语言。'] = 'Full-app Chinese/English bilingual, switch language in settings page.';
   // feature cards — updated v1.5.48
   D['Webhook + 邮件多通道'] = 'Webhook + Email Multi-channel';
-  D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / 自定义）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / Custom) + SMTP Email (SSL/STARTTLS), each channel independently toggleable, subject/body support template variables.';
+  D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / 自定义）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / Custom) + SMTP Email (SSL/STARTTLS), each channel independently toggleable, subject/body support template variables.';
   // how it works — updated v1.5.48
   D['按格式封装，并行推送至 Webhook / 邮件通道'] = 'Packaged per format, pushed in parallel to all Webhook / Email channels';
   D['SMTP 邮件'] = 'SMTP Email';
@@ -79,7 +79,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['它会不会上传我的通知或短信内容？'] = 'Does it upload my notifications or SMS?';
   D['不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 或 SMTP 邮件通道发出，开发者不存储任何推送内容。仅崩溃统计（腾讯 Bugly）会采集崩溃堆栈用于修复问题。'] = 'No. All notifications, SMS, contacts stay on-device. Push goes only through your configured Webhook or SMTP email. The developer stores nothing. Only crash logs (Tencent Bugly) are collected for bugfixing.';
   D['支持哪些推送平台？'] = 'Which platforms are supported?';
-  D['内置适配企业微信群机器人、钉钉自定义机器人、飞书群机器人、Telegram Bot、Bark 服务的消息格式；支持 SMTP 邮件推送（SSL/STARTTLS）；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。'] = 'Built-in support for WeCom group bots, DingTalk custom bots, Feishu group bots, Telegram Bot, and Bark service. Also supports SMTP email push (SSL/STARTTLS) and any custom Webhook URL for third-party services or your own backend.';
+  D['内置适配企业微信群机器人、钉钉自定义机器人、飞书群机器人、Telegram Bot、Bark 服务、Server酱、PushPlus 的消息格式；支持 SMTP 邮件推送（SSL/STARTTLS）；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。'] = 'Built-in support for WeCom group bots, DingTalk custom bots, Feishu group bots, Telegram Bot, Bark service, ServerChan, and PushPlus. Also supports SMTP email push (SSL/STARTTLS) and any custom Webhook URL for third-party services or your own backend.';
   // footer — updated v1.5.48
   D['Android 通知监听与推送工具。开源、免费、本地处理，支持 Webhook 和 SMTP 邮件多通道。让每条通知抵达每个平台。由 幻念团队 fnthinklevi 打造。'] = 'Android notification listener & push tool. Open source, free, local processing. Webhook + SMTP email multi-channel. Every notification to every platform. Built by fnthinklevi.';
   D['后台保活 · 在线更新'] = 'Background Persistence & Updates';
@@ -103,6 +103,9 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['任意兼容平台'] = 'Any compatible platform';
   D['Bot API 推送'] = 'Bot API push';
   D['iOS 推送服务'] = 'iOS push service';
+  D['微信推送 SendKey'] = 'WeChat push via SendKey';
+  D['微信/邮件多渠道'] = 'WeChat / Email multi-channel';
+  D['Server酱'] = 'ServerChan';
   D['把安全，做进每一层'] = 'Security at Every Layer';
   D['通知不上云、管理后台二步验证、敏感数据加密——隐私与安全，从设计之初就被认真对待。'] = 'Notifications stay local, admin 2FA, sensitive data encrypted. Privacy and security taken seriously from day one. Minimal crash logs collected via Bugly for bugfixing.';
   D['二步验证（TOTP）'] = 'Two-Factor Auth (TOTP)';
@@ -147,13 +150,13 @@ D['通知推送助手'] = 'NoticeTransmit';
 
   // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
   // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换
-  D['版本 v1.5.57'] = 'Version v1.5.57';
-  D['约 25.5 MB'] = '~ 25.5 MB';
+  D['版本 v1.5.60'] = 'Version v1.5.60';
+  D['约 25.4 MB'] = '~ 25.4 MB';
   // feature cards — updated v1.5.50
   D['推送模板引擎'] = 'Push Template Engine';
   D['text / markdown / json / xml 四种格式自定义，%appName% 等变量占位符自动替换，每个通道独立配置。'] = 'Custom text / markdown / json / xml formats, %appName% placeholder auto-replacement, configurable per channel.';
   D['一键暂停推送'] = 'One-Tap Pause Push';
-  D['前台通知栏按钮一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。'] = 'Pause / resume push via the foreground notification button. Listening continues, only Webhook sending pauses. State persists across restart.';
+  D['前台通知栏按钮或桌面小部件一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。小部件适配国内外主流品牌手动添加。'] = 'Pause / resume push via the foreground notification button or home-screen widget. Listening continues, only Webhook sending pauses. State persists across restart. Widgets must be added manually on major brands.';
 
   // ── 当前语言 ──
   var lang = localStorage.getItem('lang');

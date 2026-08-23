@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.59",
-  "latestBuild": 93,
+  "latestVersion": "1.5.60",
+  "latestBuild": 95,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.59",
   "forceUpdateBuild": 93,
-  "changelog": "v1.5.59: 漏通知修复(去重键加tag/记录ID全局唯一/MessagingStyle正文兜底/监听断开警告) + 推送历史状态增强(用户暂停推送状态/现在推送手动补推/失败原因内联显示)",
+  "changelog": "v1.5.60+95: 修复首页推送历史偶发一直显示\"推送中\"（送达结果补偿机制） + Android 12-13精确闹钟权限Intent兼容修复（去除可选data参数） + 精确闹钟开关(Doze下准点触发,可降级) + 国产ROM保活引导卡片 + 锁屏验证码星号兜底 + 邮件通道重试与错误分类 + 正则超长保护 + 证书固定框架/配置加密桥接(安全加固)",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_arm64_1.5.59.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_arm32_1.5.59.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_x86_1.5.59.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_all_1.5.59.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_arm64_1.5.60.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_arm32_1.5.60.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_x86_1.5.60.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_all_1.5.60.apk"
   },
   "fileSizes": {
-    "arm64": 26582892,
-    "arm32": 22527968,
-    "x86_64": 28615903,
-    "all": 72739950
+    "arm64": 26648558,
+    "arm32": 22560852,
+    "x86_64": 28681562,
+    "all": 72903919
   },
   "minSupportedVersion": "1.0.0"
 }

@@ -29,6 +29,16 @@ object DeliveryNotifier {
         result: WebhookResponseParser.ParseResult
     ) {
         try {
+            // 双写：广播走实时链路（MainActivity 存活时），持久化队列兜底
+            // （Activity 被销毁期间的结果，Flutter 下次 loadRecords / resume 时 drain 补更新）
+            DeliveryResultStore.push(
+                context,
+                notificationId,
+                type,
+                result.status.name,
+                result.message,
+                result.httpCode
+            )
             val intent = Intent(MainActivity.ACTION_DELIVERY_RESULT).apply {
                 setPackage(context.packageName)
                 putExtra("notification_id", notificationId)

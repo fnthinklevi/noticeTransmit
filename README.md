@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.59/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.60/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -52,7 +52,7 @@
 
 - 🌐 **多语言国际化** - 全应用中英双语支持（120+ 处迁移），可在设置页自由切换语言
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
-- 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动
+- 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动；内置国产 ROM 保活引导（省电无限制/自启动/任务锁定，一键跳转厂商设置）
 - 📡 **监听可靠性增强** - 会话类通知（微信/QQ/Telegram 等）正文仅存在于 MessagingStyle 时自动兜底读取，去重键含通知 tag 防误判漏读；通知使用权被系统回收时前台显示「监听已断开 · 可能漏读通知」警告
 - ⏸️ **一键暂停推送** - 前台通知栏 Action 按钮一键暂停/恢复推送（监听继续，仅停止 webhook 发送），状态持久化重启后恢复；暂停期间收到的消息在历史中显示「用户暂停推送」状态，可一键「现在推送」手动补推
 - 🔄 **在线更新** - 支持版本更新，无需重新安装 APK；由系统下载器（DownloadManager）后台下载，免存储权限、锁屏后台不中断；多下载源自动回退（CDN / GitHub 加速镜像 / GitHub 直链，按设备架构匹配）；部署模式灵活（Node.js 服务器 / GitHub Pages 静态部署，客户端自动兼容）

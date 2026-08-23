@@ -233,6 +233,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
+      // 回到前台时补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
+      unawaited(_notificationService.drainPendingDeliveries());
       final localeService = GetIt.instance<LocaleService>();
       if (localeService.shouldPromptSwitch) {
         await _showLanguageSwitchDialog(localeService);

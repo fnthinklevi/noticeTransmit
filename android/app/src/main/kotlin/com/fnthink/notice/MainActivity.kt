@@ -51,8 +51,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.59"
-        const val FALLBACK_BUILD = 93
+        const val FALLBACK_VERSION = "1.5.60"
+        const val FALLBACK_BUILD = 95
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -423,6 +423,11 @@ class MainActivity : FlutterActivity() {
                 "drainOfflineCache" -> {
                     // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
                     result.success(HistoryCache.drainAll(applicationContext))
+                }
+                "drainDeliveryResults" -> {
+                    // Flutter 启动 / resume 时补偿拉取 Activity 销毁期间丢失的送达结果
+                    // （广播无人接收时由 DeliveryResultStore 持久化兜底）
+                    result.success(DeliveryResultStore.drain(applicationContext))
                 }
                 "getBatteryStatus" -> {
                     result.success(getBatteryStatus())
@@ -1220,8 +1225,10 @@ class MainActivity : FlutterActivity() {
         try {
             if (canScheduleExactAlarms()) return
             if (Build.VERSION.SDK_INT in Build.VERSION_CODES.S..Build.VERSION_CODES.TIRAMISU) {
+                // data 为可选参数：官方文档 "Optionally, the Intent's data URI can specify the package name"。
+                // 部分 ROM（尤其国产）Settings 组件对该 action 的 intent-filter 不匹配带 data 的 intent，
+                // 设置 data 反而触发 ActivityNotFoundException；不带 data 时系统默认取调用者包名。
                 val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                intent.data = Uri.fromParts("package", packageName, null)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
             } else {
