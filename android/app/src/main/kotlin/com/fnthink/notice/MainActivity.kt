@@ -50,8 +50,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.58"
-        const val FALLBACK_BUILD = 92
+        const val FALLBACK_VERSION = "1.5.59"
+        const val FALLBACK_BUILD = 93
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -475,6 +475,12 @@ class MainActivity : FlutterActivity() {
                     // 保存通知规则（优先级分级 / 延迟推送等由原生 RuleEngine 执行），并通知服务热更新配置
                     val rules = call.argument<List<Map<String, Any?>>>("rules") ?: emptyList()
                     setNotificationRules(rules)
+                    result.success(true)
+                }
+                "pushRecordNow" -> {
+                    // 历史记录"现在推送"：把记录转发给服务手动补推（忽略推送暂停开关）
+                    val record = call.argument<Map<String, Any?>>("record") ?: emptyMap()
+                    pushRecordNow(record)
                     result.success(true)
                 }
                 "openAppDetailsSettings" -> {
@@ -1148,6 +1154,22 @@ class MainActivity : FlutterActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * 历史记录"现在推送"：把单条记录以 JSON 转发给前台服务手动补推。
+     * 服务侧 pushRecordNow 会忽略推送暂停开关，按当前配置立即推送 webhook + 邮件。
+     */
+    private fun pushRecordNow(record: Map<String, Any?>) {
+        try {
+            val intent = Intent(this, NotificationMonitorService::class.java).apply {
+                action = NotificationMonitorService.ACTION_PUSH_RECORD_NOW
+                putExtra(NotificationMonitorService.EXTRA_RECORD_DATA, JSONObject(record).toString())
+            }
+            startService(intent)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "pushRecordNow failed", e)
         }
     }
 

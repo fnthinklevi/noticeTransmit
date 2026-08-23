@@ -42,8 +42,8 @@ class AppUpdateManager {
 
   /// 回退版本号：仅当 native getAppVersion 调用失败时使用。
   /// 发版时同步更新为当前版本号。
-  static const String _fallbackVersion = '1.5.58';
-  static const int _fallbackBuild = 92;
+  static const String _fallbackVersion = '1.5.59';
+  static const int _fallbackBuild = 93;
 
   static const String _defaultDownloadDir =
       '/storage/emulated/0/Download/FnthinkNotice';

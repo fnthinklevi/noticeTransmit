@@ -18,6 +18,7 @@ import org.json.JSONObject
 object WebhookResponseParser {
     enum class DeliveryStatus {
         SUCCESS,        // 已送达
+        PAUSED,         // 推送被用户暂停（监听继续，仅跳过发送）
         BIZ_FAIL,       // 业务错误（不重试，例如 errcode!=0）
         HTTP_FAIL,      // HTTP 错误（可重试，例如 5xx/4xx）
         RATE_LIMITED,   // 限流（延迟重试，例如 errcode==45009）

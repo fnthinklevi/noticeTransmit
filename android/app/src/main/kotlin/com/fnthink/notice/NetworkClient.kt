@@ -54,6 +54,7 @@ class NetworkClient {
          * @param secret 签名密钥（null/empty 时不签名）
          * @param contentType 请求体 MIME 类型（默认 application/json; charset=utf-8）。
          *                    当使用自定义模板（text/xml/markdown）时由调用方传入对应类型。
+         * @param force 强制发送：为 true 时忽略"推送暂停"开关（用于历史记录"现在推送"手动补推）
          * @param onResult 可选回调，返回送达结果（含状态/HTTP 码/消息）
          */
         fun sendWithRetry(
@@ -63,6 +64,7 @@ class NetworkClient {
             webhookType: WebhookPayloadBuilder.WebhookType = WebhookPayloadBuilder.WebhookType.GENERIC,
             secret: String? = null,
             contentType: String = "application/json; charset=utf-8",
+            force: Boolean = false,
             onResult: ((WebhookResponseParser.ParseResult) -> Unit)? = null
         ) {
             if (!isActive) {
@@ -74,12 +76,13 @@ class NetworkClient {
                 )
                 return
             }
-            // 推送已暂停（前台通知一键启停）：监听继续，仅跳过 webhook 发送
-            if (!PushToggleManager.isPushActive()) {
+            // 推送已暂停（前台通知一键启停）：监听继续，仅跳过 webhook 发送。
+            // 手动"现在推送"（force=true）不受暂停开关限制。
+            if (!force && !PushToggleManager.isPushActive()) {
                 Log.d(TAG, "$tag skipped: push paused")
                 onResult?.invoke(
                     WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                        WebhookResponseParser.DeliveryStatus.PAUSED,
                         0, "Push paused (skipped)", false
                     )
                 )

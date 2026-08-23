@@ -29,7 +29,14 @@ class NotificationProcessor(private val context: Context) {
         if (isSmsPackage(packageName) || isCallPackage(packageName)) return null
 
         val isOngoing = (notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
-        val dedupKey = "$packageName:$notificationId"
+        val tag = sbn.tag
+        // 去重键必须包含 tag：同一应用可能用相同通知 id + 不同 tag 发多条常驻通知，
+        // 仅用 包名:id 会把第二条误判为重复而漏读。
+        val dedupKey = if (tag.isNullOrEmpty()) {
+            "$packageName:$notificationId"
+        } else {
+            "$packageName:$tag:$notificationId"
+        }
 
         if (isOngoing && notifiedKeys.contains(dedupKey)) {
             return null
@@ -54,9 +61,22 @@ class NotificationProcessor(private val context: Context) {
         val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString() ?: ""
         val bigText = extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
         val subText = extras.getCharSequence(android.app.Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+        val messagingContent = extractMessagingContent(extras)
+        val textLines = extras.getCharSequenceArray(android.app.Notification.EXTRA_TEXT_LINES)
+            ?.filterNotNull()
+            ?.joinToString("\n") ?: ""
+        val ticker = notification.tickerText?.toString() ?: ""
         val postTime = sbn.postTime
 
-        val content = bigText.ifEmpty { text }
+        // 内容兜底链：大文本 → 正文 → MessagingStyle 消息 → 多行文本 → ticker → 副标题。
+        // 会话类通知（微信/QQ/Telegram 等）正文可能只存在于 MessagingStyle.messages 中，
+        // 仅读 EXTRA_TEXT 会导致"标题和正文都为空被跳过"的漏通知。
+        val content = bigText
+            .ifEmpty { text }
+            .ifEmpty { messagingContent }
+            .ifEmpty { textLines }
+            .ifEmpty { ticker }
+            .ifEmpty { subText }
         if (title.isEmpty() && content.isEmpty()) return null
 
         val baseAppName = getAppNameByPackage(packageName)
@@ -72,7 +92,9 @@ class NotificationProcessor(private val context: Context) {
             .format(Date(postTime))
 
         return NotificationInfo(
-            id = notificationId.toString(),
+            // 全局唯一 id：包名 + tag + 通知 id。不同应用的通知 id 互相独立（如微信和 QQ 都可能是 1），
+            // 若只用 sbn.id 会因 HistoryCache 去重 / DB 主键冲突互相覆盖，表现为"偶尔漏通知"。
+            id = dedupKey,
             title = title,
             content = content,
             subText = subText,
@@ -102,8 +124,60 @@ class NotificationProcessor(private val context: Context) {
     }
 
     fun removeNotification(sbn: StatusBarNotification) {
-        val dedupKey = "${sbn.packageName}:${sbn.id}"
+        val tag = sbn.tag
+        val dedupKey = if (tag.isNullOrEmpty()) {
+            "${sbn.packageName}:${sbn.id}"
+        } else {
+            "${sbn.packageName}:$tag:${sbn.id}"
+        }
         notifiedKeys.remove(dedupKey)
+    }
+
+    /**
+     * 提取会话类通知（MessagingStyle）的正文。
+     *
+     * 微信/QQ/Telegram 等聊天应用的通知正文可能只写在 MessagingStyle.messages 中，
+     * EXTRA_TEXT / EXTRA_BIG_TEXT 可能为空；这里优先取最新一条消息作为正文兜底。
+     * 部分 ROM 对 MessagingStyle 的序列化不兼容，读取失败时静默忽略走其他兜底。
+     */
+    @Suppress("DEPRECATION")
+    private fun extractMessagingContent(extras: android.os.Bundle): String {
+        return try {
+            val style = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                extras.getParcelable(
+                    android.app.Notification.EXTRA_MESSAGING_STYLE,
+                    android.app.Notification.MessagingStyle::class.java
+                )
+            } else {
+                extras.getParcelable(android.app.Notification.EXTRA_MESSAGING_STYLE)
+            }
+            if (style != null) {
+                val messages = style.messages
+                if (messages.isNotEmpty()) {
+                    val last = messages[messages.size - 1]
+                    val lastText = last.text?.toString() ?: ""
+                    if (lastText.isNotEmpty()) return lastText
+                }
+            }
+            // 兜底：EXTRA_MESSAGES 数组（部分 ROM 只写该字段）
+            val messageList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                extras.getParcelableArrayList(
+                    android.app.Notification.EXTRA_MESSAGES,
+                    android.app.Notification.MessagingStyle.Message::class.java
+                )
+            } else {
+                extras.getParcelableArrayList<android.app.Notification.MessagingStyle.Message>(
+                    android.app.Notification.EXTRA_MESSAGES
+                )
+            }
+            if (messageList != null && messageList.isNotEmpty()) {
+                val last = messageList[messageList.size - 1] ?: return ""
+                return last.text?.toString() ?: ""
+            }
+            ""
+        } catch (e: Exception) {
+            ""
+        }
     }
 
     fun shouldNotify(

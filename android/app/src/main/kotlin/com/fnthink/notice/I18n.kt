@@ -169,6 +169,9 @@ object I18n {
     fun servicePushPaused(count: Int): String =
         if (isEn) "Push paused · $count pushed today"
         else "推送已暂停 · 当日已推送 $count 条"
+    fun serviceListenerDisconnected(): String = if (isEn)
+        "Listener disconnected · notifications may be missed, please check Notification Access"
+        else "监听已断开 · 可能漏读通知，请检查通知使用权"
     fun actionPausePush(): String = if (isEn) "Pause push" else "暂停推送"
     fun actionResumePush(): String = if (isEn) "Resume push" else "恢复推送"
 

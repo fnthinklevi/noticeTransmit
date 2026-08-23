@@ -185,6 +185,8 @@ class NotificationService {
         return 'webhook:Server酱';
       case 'PUSH_PLUS':
         return 'webhook:PushPlus';
+      case 'EMAIL':
+        return '邮件';
       default:
         return 'webhook:Webhook';
     }
@@ -202,10 +204,13 @@ class NotificationService {
     if (idx < 0) return;
     final label = _deliveryLabel(kotlinType);
     final updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);
-    updated[label] = {
-      'status': status == 'SUCCESS' ? 'success' : 'failed',
-      'message': message,
+    // SUCCESS → 成功；PAUSED（用户暂停推送，未实际发送）→ paused；其余 → failed
+    final normalized = switch (status) {
+      'SUCCESS' => 'success',
+      'PAUSED' => 'paused',
+      _ => 'failed',
     };
+    updated[label] = {'status': normalized, 'message': message};
     final newRecord = _records[idx].copyWith(deliveryStatus: updated);
     _records[idx] = newRecord;
     try {
@@ -213,6 +218,26 @@ class NotificationService {
     } catch (e) {
       // DB 持久化失败不影响内存送达状态显示
       debugPrint('更新送达状态到 DB 失败: $e');
+    }
+  }
+
+  /// 手动"现在推送"：把该记录状态重置为发送中，并通知原生立即补推当前所有启用通道。
+  /// 用于历史记录中"用户暂停推送"状态下未实际发送的消息。
+  Future<void> pushRecordNow(NotificationRecord record) async {
+    final idx = _records.indexWhere((r) => r.id == record.id);
+    if (idx < 0) return;
+    final pending = _buildInitialDeliveries(_getActiveChannels());
+    final newRecord = _records[idx].copyWith(deliveryStatus: pending);
+    _records[idx] = newRecord;
+    try {
+      await DatabaseHelper().updateNotificationDelivery(newRecord.id, pending);
+    } catch (e) {
+      debugPrint('更新送达状态到 DB 失败: $e');
+    }
+    try {
+      await _channel.invokeMethod('pushRecordNow', {'record': record.toMap()});
+    } catch (e) {
+      debugPrint('调用原生 pushRecordNow 失败: $e');
     }
   }
 

@@ -54,12 +54,14 @@ class WebhookSender(private val context: Context) {
     /**
      * 仅推送 webhook（不广播记录）。用于延迟推送到点后的补推：
      * 记录已在通知到达时通过 sendBroadcast 立即写入历史。
+     *
+     * @param force 强制发送：为 true 时忽略"推送暂停"开关（历史记录"现在推送"手动补推）
      */
-    fun sendWebhooksOnly(info: NotificationInfo) {
+    fun sendWebhooksOnly(info: NotificationInfo, force: Boolean = false) {
         if (channelConfigs.isEmpty()) return
 
         for (cfg in channelConfigs) {
-            sendToSingleUrl(cfg, info)
+            sendToSingleUrl(cfg, info, force)
         }
     }
 
@@ -99,7 +101,8 @@ class WebhookSender(private val context: Context) {
 
     private fun sendToSingleUrl(
         cfg: ConfigManager.WebhookChannelConfig,
-        info: NotificationInfo
+        info: NotificationInfo,
+        force: Boolean = false
     ) {
         // Telegram 必须携带 chat_id（一般来自 URL query）。缺失时提前失败并给出明确原因，
         // 避免发出必然 400 的请求再被记为送达失败。
@@ -132,6 +135,7 @@ class WebhookSender(private val context: Context) {
                 webhookType = cfg.type,
                 secret = cfg.secret,
                 contentType = "application/x-www-form-urlencoded; charset=utf-8",
+                force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery(ServerChan): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result)
@@ -168,6 +172,7 @@ class WebhookSender(private val context: Context) {
                 tag = "notification",
                 webhookType = cfg.type,
                 secret = cfg.secret,
+                force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery(PushPlus): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result)
@@ -204,6 +209,7 @@ class WebhookSender(private val context: Context) {
                 tag = "notification",
                 webhookType = cfg.type,
                 secret = cfg.secret,
+                force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result)
@@ -228,6 +234,7 @@ class WebhookSender(private val context: Context) {
                 webhookType = cfg.type,
                 secret = cfg.secret,
                 contentType = contentType,
+                force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result)
@@ -255,6 +262,7 @@ class WebhookSender(private val context: Context) {
             tag = "notification",
             webhookType = cfg.type,
             secret = cfg.secret,
+            force = force,
             onResult = { result ->
                 Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
                 notifyDeliveryResult(info.id, cfg.type, result)

@@ -1051,6 +1051,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           setState(() {});
           return count;
         },
+        // 历史记录"现在推送"：暂停期间未发送的消息手动补推
+        onPushNow: (record) async {
+          await _notificationService.pushRecordNow(record);
+          setState(() {});
+        },
       ),
     );
   }

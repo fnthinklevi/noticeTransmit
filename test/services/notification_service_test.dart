@@ -1,7 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
+import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/services/notification_service.dart';
+import 'package:notice_transmit/services/webhook_service.dart';
 
 import '../test_setup.dart';
+
+/// 伪 Webhook 存储：纯 Dart 测试中 sqflite_sqlcipher 平台通道不可用，
+/// 注入内存实现避免测试直接访问加密数据库。
+class _FakeWebhookStore implements WebhookChannelStore {
+  List<Map<String, dynamic>> rows = [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getWebhookChannels() async => rows;
+
+  @override
+  Future<void> saveWebhookChannels(List<Map<String, dynamic>> channels) async {
+    rows = channels;
+  }
+}
 
 /// NotificationService 送达回传逻辑单元测试。
 ///
@@ -148,6 +165,96 @@ void main() {
       // 短信记录不受影响
       final smsStatus = service.records[1].deliveryStatus['webhook:钉钉'];
       expect(smsStatus, isNull);
+    });
+  });
+
+  group('NotificationService – 暂停推送与手动补推', () {
+    late NotificationService service;
+
+    setUp(() async {
+      // 注册一个带启用通道的 WebhookService，使 addRecord/pushRecordNow 能生成通道状态
+      GetIt.instance.reset();
+      final webhookService = WebhookService(store: _FakeWebhookStore());
+      await webhookService.saveChannels([
+        {
+          'name': '企业微信',
+          'url': 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test',
+          'channelType': 'wechatWork',
+          'type': 'wechatWork',
+          'enabled': true,
+        },
+      ]);
+      GetIt.instance.registerLazySingleton<WebhookService>(
+        () => webhookService,
+      );
+      service = NotificationService();
+    });
+
+    Map<String, dynamic> smsRecord({String id = 'sms_1700000000000_12345'}) {
+      return {
+        'id': id,
+        'type': 'sms',
+        'title': '验证码',
+        'content': '您的验证码是 123456',
+        'packageName': 'com.android.mms',
+        'appName': '短信',
+        'postTime': 1700000000000,
+        'time': '2024-01-01 12:00:00',
+      };
+    }
+
+    test('用户暂停推送：PAUSED 回传 → 通道状态更新为 paused', () async {
+      service.addRecord(smsRecord());
+
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'WECHAT_WORK',
+        'PAUSED',
+        'Push paused (skipped)',
+      );
+
+      final delivery = service.records.first.deliveryStatus['webhook:企业微信'];
+      expect(delivery, isNotNull);
+      expect(delivery['status'], 'paused');
+      expect(delivery['message'], 'Push paused (skipped)');
+    });
+
+    test('邮件通道回传：EMAIL → 邮件标签更新为 success', () async {
+      service.addRecord(smsRecord());
+
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'EMAIL',
+        'SUCCESS',
+        '邮件发送成功',
+      );
+
+      final delivery = service.records.first.deliveryStatus['邮件'];
+      expect(delivery, isNotNull);
+      expect(delivery['status'], 'success');
+      expect(delivery['message'], '邮件发送成功');
+    });
+
+    test('现在推送：pushRecordNow 将 paused 状态重置为发送中(pending)', () async {
+      service.addRecord(smsRecord());
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'WECHAT_WORK',
+        'PAUSED',
+        'Push paused (skipped)',
+      );
+      expect(
+        service.records.first.deliveryStatus['webhook:企业微信']['status'],
+        'paused',
+      );
+
+      await service.pushRecordNow(service.records.first);
+
+      final delivery = service.records.first.deliveryStatus['webhook:企业微信'];
+      expect(delivery, isNotNull);
+      expect(delivery['status'], 'pending');
+      // paused 原因已被清除
+      expect(delivery['message'], isEmpty);
     });
   });
 }

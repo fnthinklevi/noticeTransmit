@@ -10,6 +10,8 @@ class HistoryPage extends StatefulWidget {
   final Future<Map<String, dynamic>> Function() onExport;
   final Future<int> Function() onClearToday;
   final Future<int> Function(int n) onClearLastN;
+  // 历史记录"现在推送"：暂停状态下未实际发送的消息可手动补推
+  final Future<void> Function(NotificationRecord record)? onPushNow;
 
   const HistoryPage({
     super.key,
@@ -18,6 +20,7 @@ class HistoryPage extends StatefulWidget {
     required this.onExport,
     required this.onClearToday,
     required this.onClearLastN,
+    this.onPushNow,
   });
 
   @override
@@ -124,6 +127,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   /// 渠道 chip + 送达状态小圆点与文字（成功/失败/发送中；无状态记录仅显示渠道名）
+  /// 失败时在 chip 下方内联显示失败原因
   Widget _buildChannelChip(
     String channel,
     Color chipColor,
@@ -164,8 +168,54 @@ class _HistoryPageState extends State<HistoryPage> {
         ],
       ),
     );
+    // 推送失败：原因内联显示在 chip 下方（长按 chip 仍可查看完整信息）
+    if (status == 'failed' && message.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          chip,
+          const SizedBox(height: 1),
+          Text(
+            message,
+            style: const TextStyle(fontSize: 9, color: AppColors.red),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    }
     if (message.isEmpty) return chip;
     return Tooltip(message: message, child: chip);
+  }
+
+  /// "现在推送"小按钮：iOS 风格圆角蓝底，点击手动补推暂停期间未发送的消息
+  Widget _buildPushNowButton(NotificationRecord record, AppLocalizations l10n) {
+    return GestureDetector(
+      onTap: () => widget.onPushNow!(record),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.blue,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.send, size: 11, color: Colors.white),
+            const SizedBox(width: 3),
+            Text(
+              l10n.pushNow,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _deliveryStatusText(String status, AppLocalizations l10n) {
@@ -174,6 +224,8 @@ class _HistoryPageState extends State<HistoryPage> {
         return l10n.deliverySuccess;
       case 'failed':
         return l10n.deliveryFailed;
+      case 'paused':
+        return l10n.pushPausedByUser;
       default:
         return l10n.deliveryPending;
     }
@@ -185,8 +237,10 @@ class _HistoryPageState extends State<HistoryPage> {
         return AppColors.green;
       case 'failed':
         return AppColors.red;
-      default:
+      case 'paused':
         return AppColors.orange;
+      default:
+        return AppColors.blue;
     }
   }
 
@@ -417,6 +471,11 @@ class _HistoryPageState extends State<HistoryPage> {
     final displayChannels = record.channels.isNotEmpty
         ? record.channels
         : record.deliveryStatus.keys.toList();
+    // 是否存在被用户暂停（未实际发送）的通道 → 显示"现在推送"按钮
+    final hasPausedChannel = displayChannels.any((c) {
+      final info = record.deliveryStatus[c];
+      return info is Map && info['status'] == 'paused';
+    });
     if (displayChannels.isNotEmpty) {
       columnChildren.add(const SizedBox(height: 4));
       columnChildren.add(
@@ -436,6 +495,11 @@ class _HistoryPageState extends State<HistoryPage> {
           }).toList(),
         ),
       );
+      // 暂停状态下未发送：提供手动补推入口
+      if (hasPausedChannel && widget.onPushNow != null) {
+        columnChildren.add(const SizedBox(height: 6));
+        columnChildren.add(_buildPushNowButton(record, l10n));
+      }
     } else {
       columnChildren.add(const SizedBox(height: 4));
       columnChildren.add(

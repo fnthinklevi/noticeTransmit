@@ -30,7 +30,8 @@ object EmailSender {
     fun sendNotification(
         configs: List<EmailConfig>,
         info: NotificationInfo,
-        scope: CoroutineScope
+        scope: CoroutineScope,
+        onResult: ((Boolean, String) -> Unit)? = null
     ) {
         for (config in configs) {
             scope.launch(Dispatchers.IO) {
@@ -39,8 +40,10 @@ object EmailSender {
                     val body = buildEmailBody(config, info)
                     sendEmail(config, subject, body)
                     Log.d(TAG, "邮件发送成功 → ${config.toEmails.joinToString()}")
+                    onResult?.invoke(true, "邮件发送成功")
                 } catch (e: Exception) {
                     Log.e(TAG, "邮件发送失败: ${e.message}", e)
+                    onResult?.invoke(false, "邮件发送失败: ${e.message ?: "未知错误"}")
                 }
             }
         }

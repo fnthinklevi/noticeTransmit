@@ -1085,6 +1085,8 @@ class AppLocalizations {
     'deliverySuccess': 'Sent',
     'deliveryFailed': 'Failed',
     'deliveryPending': 'Sending',
+    'pushPausedByUser': 'Paused by user',
+    'pushNow': 'Push Now',
     // Privacy Policy
     'privacyOverviewTitle': 'Privacy Policy Overview',
     'privacyOverviewContent':
@@ -1528,6 +1530,8 @@ class AppLocalizations {
   String get deliverySuccess => _get('deliverySuccess');
   String get deliveryFailed => _get('deliveryFailed');
   String get deliveryPending => _get('deliveryPending');
+  String get pushPausedByUser => _get('pushPausedByUser');
+  String get pushNow => _get('pushNow');
   // Privacy Policy
   String get privacyOverviewTitle => _get('privacyOverviewTitle');
   String get privacyOverviewContent => _get('privacyOverviewContent');

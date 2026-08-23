@@ -43,10 +43,16 @@ class NotificationMonitorService : NotificationListenerService() {
         private const val BATTERY_ALARM_REQUEST_CODE = 2001
         // 前台通知刷新（推送启停状态变更后由 PushToggleActionReceiver 触发）
         const val ACTION_REFRESH_FOREGROUND = "com.fnthink.notice.REFRESH_FOREGROUND"
+        // 历史记录"现在推送"：由 MainActivity.pushRecordNow 转发，手动补推单条记录
+        const val ACTION_PUSH_RECORD_NOW = "com.fnthink.notice.PUSH_RECORD_NOW"
+        const val EXTRA_RECORD_DATA = "record_data"
 
         @Volatile var webhookUrls: List<String> = emptyList()
         @Volatile var deviceName: String = ""
         @Volatile var isConnected: Boolean = false
+        // 通知监听器是否已与系统建立连接（断开时 onNotificationPosted 不再回调，
+        // 前台通知显示"监听已断开"警告，提醒用户重新授权通知使用权）
+        @Volatile var listenerConnected: Boolean = true
         @Volatile var monitoringEnabled: Boolean = true
         @Volatile var pushCount: Int = 0
         // 当日日期（yyyy-MM-dd），跨日重置 pushCount；供 MainActivity 同步 DB 今日计数基数
@@ -123,12 +129,19 @@ class NotificationMonitorService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         isConnected = true
+        listenerConnected = true
+        // 恢复连接后立即刷新前台通知，撤掉"监听已断开"警告
+        try { updateForegroundNotification() } catch (_: Exception) {}
         Log.i(TAG, "Notification listener connected")
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         isConnected = false
+        listenerConnected = false
+        // 监听断开后 onNotificationPosted 不再回调，通知会静默漏读。
+        // 刷新前台通知给出明确警告，引导用户检查通知使用权。
+        try { updateForegroundNotification() } catch (_: Exception) {}
         Log.i(TAG, "Notification listener disconnected")
     }
 
@@ -149,6 +162,13 @@ class NotificationMonitorService : NotificationListenerService() {
                     // 推送启停状态变更后刷新前台通知（按钮文案 / 状态文案）
                     Log.d(TAG, "Refresh foreground notification (push toggle)")
                     updateForegroundNotification()
+                }
+                ACTION_PUSH_RECORD_NOW -> {
+                    // 历史记录"现在推送"：手动补推单条记录（忽略暂停开关）
+                    val data = intent.getStringExtra(EXTRA_RECORD_DATA)
+                    if (!data.isNullOrEmpty()) {
+                        pushRecordNow(data)
+                    }
                 }
             }
         }
@@ -543,7 +563,10 @@ class NotificationMonitorService : NotificationListenerService() {
 
         val pushActive = PushToggleManager.isPushActive()
         val title = I18n.serviceTitle()
-        val contentText = if (pushActive) {
+        // 监听断开优先显示警告（此时既收不到通知也不推送），避免用户误以为服务正常
+        val contentText = if (!listenerConnected) {
+            I18n.serviceListenerDisconnected()
+        } else if (pushActive) {
             I18n.serviceListening(pushCount)
         } else {
             I18n.servicePushPaused(pushCount)
@@ -588,11 +611,57 @@ class NotificationMonitorService : NotificationListenerService() {
         val rulesJson = configManager.getNotificationRules()
     }
 
-    private fun dispatchEmail(info: NotificationInfo) {
+    /**
+     * 历史记录"现在推送"：把单条记录按当前配置立即补推（webhook + 邮件）。
+     * 绕过推送暂停开关（用户明确点击了"现在推送"）。
+     */
+    private fun pushRecordNow(data: String) {
+        serviceScope.launch {
+            try {
+                val record = org.json.JSONObject(data)
+                val info = NotificationInfo.fromJson(record)
+                if (info.title.isEmpty() && info.content.isEmpty()) {
+                    Log.w(TAG, "Push record now skipped: empty title/content")
+                    return@launch
+                }
+                webhookSender.sendWebhooksOnly(info, force = true)
+                dispatchEmail(info, force = true)
+                checkDailyReset()
+                pushCount++
+                updateForegroundNotification()
+                Log.d(TAG, "Manual push now: ${info.appName} - ${info.title}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error pushing record now", e)
+            }
+        }
+    }
+
+    private fun dispatchEmail(info: NotificationInfo, force: Boolean = false) {
         try {
             val configs = EmailManager.getEnabledConfigs(this)
-            if (configs.isNotEmpty()) {
-                EmailSender.sendNotification(configs, info, serviceScope)
+            if (configs.isEmpty()) return
+
+            // 推送暂停：邮件同样不发送，回传 paused 状态（与 webhook 行为一致）
+            if (!force && !PushToggleManager.isPushActive()) {
+                val paused = WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.PAUSED,
+                    0, "Push paused (skipped)", false
+                )
+                DeliveryNotifier.notify(this, info.id, "EMAIL", paused)
+                return
+            }
+
+            EmailSender.sendNotification(configs, info, serviceScope) { success, msg ->
+                val result = if (success) {
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.SUCCESS, 0, msg, false
+                    )
+                } else {
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, msg, false
+                    )
+                }
+                DeliveryNotifier.notify(this, info.id, "EMAIL", result)
             }
         } catch (e: Exception) {
             Log.e(TAG, "邮件分发异常: ${e.message}", e)
