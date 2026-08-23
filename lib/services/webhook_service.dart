@@ -34,6 +34,14 @@ class WebhookService {
 
   /// 同步完整通道配置 + 启用 URL 到原生端
   Future<void> _syncToNative() async {
+    // 写加密副本（C2）：flutter_secure_storage 加密文件（EncryptedSharedPreferences），
+    // 原生端 SecurePrefs 用同一文件/主密钥读取 `secure_webhook_channels`，含 secret。
+    // 与原生 setWebhookChannels 的写入同 key 同值（幂等），双端均保持最新。
+    try {
+      await SecureStorageService().saveWebhookChannels(jsonEncode(_channels));
+    } catch (e) {
+      debugPrint('WebhookService: 写入加密副本失败: $e');
+    }
     try {
       await AppChannels.notification.invokeMethod('setWebhookChannels', {
         'channels': _channels,

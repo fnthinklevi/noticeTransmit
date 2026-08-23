@@ -8,15 +8,17 @@ import org.json.JSONObject
 
 /// 邮件通道配置管理器（原生端）
 ///
-/// 存储策略：
-///   1. 密码 → 独立 SP key（email_channel_passwords），与元数据分离
+/// 存储策略（C2 加密改造后）：
+///   1. 密码 → 加密存储（SecurePrefs / EncryptedSharedPreferences，key: email_channel_passwords）
 ///   2. 非敏感元数据 → SharedPreferences（email_channel_configs）
 ///   3. Flutter 端同步时由 MethodChannel 传入完整配置（含密码），此处持久化。
+///   4. 旧版本明文密码（email_channel_passwords）在首次写入时清理；读取时作为迁移兜底。
 object EmailManager {
 
     private const val TAG = "EmailManager"
     private const val PREFS_NAME = "email_channel_configs"
     private const val PREFS_PASSWORDS = "email_channel_passwords"
+    private const val SECURE_KEY_PASSWORDS = "email_channel_passwords"
     private const val KEY_CHANNELS = "channels"
     private const val KEY_PASSWORDS = "passwords"
 
@@ -42,7 +44,17 @@ object EmailManager {
         }
 
         prefs.edit().putString(KEY_CHANNELS, metaArray.toString()).apply()
-        pwdPrefs.edit().putString(KEY_PASSWORDS, pwdObj.toString()).apply()
+
+        // 密码 → 加密存储；成功后清理旧明文，避免 SMTP 密码以明文 XML 持久化
+        try {
+            SecurePrefs.get(context).edit()
+                .putString(SECURE_KEY_PASSWORDS, pwdObj.toString())
+                .apply()
+            pwdPrefs.edit().remove(KEY_PASSWORDS).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "写入加密密码失败，回退明文", e)
+            pwdPrefs.edit().putString(KEY_PASSWORDS, pwdObj.toString()).apply()
+        }
         Log.d(TAG, "保存 ${channelsData.size} 个邮件通道配置")
     }
 
@@ -73,7 +85,9 @@ object EmailManager {
         val pwdPrefs = context.getSharedPreferences(PREFS_PASSWORDS, Context.MODE_PRIVATE)
 
         val json = prefs.getString(KEY_CHANNELS, "[]") ?: "[]"
-        val passwordsJson = pwdPrefs.getString(KEY_PASSWORDS, "{}") ?: "{}"
+        val passwordsJson = readEncryptedPasswords(context)
+            ?: pwdPrefs.getString(KEY_PASSWORDS, "{}")
+            ?: "{}"
 
         val passwords = mutableMapOf<String, String>()
         try {
@@ -111,5 +125,17 @@ object EmailManager {
         }
 
         return configs
+    }
+
+    /** 从加密存储读取密码 JSON；异常或为空时返回 null（调用方回退明文，迁移兼容） */
+    private fun readEncryptedPasswords(context: Context): String? {
+        return try {
+            SecurePrefs.get(context)
+                .getString(SECURE_KEY_PASSWORDS, null)
+                ?.takeIf { it.isNotEmpty() && it != "{}" }
+        } catch (e: Exception) {
+            Log.e(TAG, "读取加密密码失败", e)
+            null
+        }
     }
 }

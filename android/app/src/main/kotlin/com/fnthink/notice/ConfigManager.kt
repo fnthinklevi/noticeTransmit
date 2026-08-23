@@ -60,9 +60,15 @@ class ConfigManager(private val context: Context) {
 
     /**
      * 返回启用的 webhook 通道完整配置（含 secret 与 type）
+     *
+     * 读取优先级（C2）：
+     *   1. 加密存储 `secure_webhook_channels`（flutter_secure_storage 同源，含 secret）
+     *   2. 明文 `flutter.webhook_channels`（旧版本写入的完整数据，迁移兼容；
+     *      新版本明文副本已脱敏、无 secret）
      */
     fun getWebhookChannelConfigs(): List<WebhookChannelConfig> {
-        val json = prefs.getString(KEY_WEBHOOK_URLS, "[]")
+        val json = getEncryptedWebhookChannels()
+            ?: prefs.getString(KEY_WEBHOOK_URLS, "[]")
         return try {
             val array = JSONArray(json)
             val list = mutableListOf<WebhookChannelConfig>()
@@ -88,6 +94,18 @@ class ConfigManager(private val context: Context) {
             getWebhookUrls().map {
                 WebhookChannelConfig(it, null, WebhookPayloadBuilder.detectType(it))
             }
+        }
+    }
+
+    /** 从加密存储读取完整 webhook 通道 JSON（与 flutter_secure_storage 同文件同密钥） */
+    private fun getEncryptedWebhookChannels(): String? {
+        return try {
+            SecurePrefs.get(context)
+                .getString("secure_webhook_channels", null)
+                ?.takeIf { it.isNotEmpty() && it != "[]" }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read encrypted webhook channels", e)
+            null
         }
     }
 

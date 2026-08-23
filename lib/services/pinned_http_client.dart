@@ -28,6 +28,20 @@ import 'package:http/io_client.dart';
 /// );
 /// ```
 ///
+/// 从 `--dart-define=CERT_PINS=...` 解析证书指纹 map。
+///
+/// 格式：`host1=AA:BB:...;host2=CC:DD:...`（分号分隔，键值用 `=` 连接）。
+/// 未注入或为空时返回空 map（仅做标准 TLS 验证）。指纹格式：
+/// 证书公钥 SHA256（冒号分隔大写十六进制）。
+Map<String, String> certPinsFromEnvironment() {
+  const env = String.fromEnvironment('CERT_PINS');
+  return {
+    for (final entry in env.split(';'))
+      if (entry.contains('='))
+        entry.split('=').first.trim(): entry.split('=').last.trim(),
+  };
+}
+
 /// 不配置 `pinnedFingerprints` 时仅做标准 TLS 验证。
 class PinnedHttpClient {
   static http.Client create({

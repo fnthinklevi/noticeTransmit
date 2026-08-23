@@ -11,19 +11,18 @@ import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-/// SSL 证书固定（当前未启用）
+/// SSL 证书固定（默认关闭）
 ///
-/// 本服务使用 Cloudflare CDN，边缘证书由 Cloudflare 自动管理，指纹不固定，
-/// 直接固定叶子证书指纹会导致证书续期后 App 全体断连。
+/// 指纹通过 `--dart-define` 注入，格式（与原生 NetworkClient 统一用 CERT_PINS 名）：
+/// ```
+/// --dart-define=CERT_PINS="notice.fnthink.top=AA:BB:CC:...;xget.fnthink.top=DD:EE:..."
+/// ```
+/// 未注入或为空时仅做标准 TLS 验证。获取方式与多 pin/轮换策略见 base.md「3.5 证书固定」。
 ///
-/// 如需启用：
-/// 1. Cloudflare Dashboard → SSL/TLS → Origin Server → 上传自签名源站证书
-/// 2. 获取该证书的 SHA256 指纹：
-///    openssl x509 -noout -fingerprint -sha256 -in origin.pem | sed 's/.*=//'
-/// 3. 将指纹填入下方 map，域名与 Cloudflare 一致
-const _pinnedFingerprints = <String, String>{
-  // 'notice.fnthink.top': 'AA:BB:CC:DD:EE:FF:...',
-};
+/// ⚠️ 本项目使用 Cloudflare CDN，边缘证书由 Cloudflare 自动管理、指纹不固定，
+/// 直接固定叶子证书指纹会导致证书续期后 App 全体断连——启用前务必确认证书策略
+/// （推荐固定源站证书 + 至少 2 个备份 pin）。
+final _pinnedFingerprints = certPinsFromEnvironment();
 final _updateHttpClient = PinnedHttpClient.create(
   pinnedFingerprints: _pinnedFingerprints,
 );
@@ -180,38 +179,55 @@ class AppUpdateManager {
     _lastError = null;
     if (!force && !(await shouldCheckNow())) return null;
 
-    // 1. 尝试 API 模式（Node.js 服务器）
-    try {
-      final uri = Uri.parse('$_updateServerUrl/api/version/check').replace(
-        queryParameters: {
-          'version': currentVersion,
-          'build': currentBuild.toString(),
-          'platform': 'android',
-        },
-      );
-      debugPrint('检查更新：请求地址 $uri');
+    // 1. 尝试 API 模式（Node.js 服务器），失败后指数退避重试一次
+    //    （403 系 Cloudflare 评分抖动导致，重试通常可恢复）
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final uri = Uri.parse('$_updateServerUrl/api/version/check').replace(
+          queryParameters: {
+            'version': currentVersion,
+            'build': currentBuild.toString(),
+            'platform': 'android',
+          },
+        );
+        debugPrint('检查更新：请求地址 $uri（第 ${attempt + 1} 次）');
 
-      final response = await _updateHttpClient
-          .get(uri)
-          .timeout(const Duration(seconds: 15));
-      debugPrint('检查更新：响应状态码 ${response.statusCode}');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['code'] == 0) {
-          final result = VersionCheckResult.fromJson(data['data']);
-          debugPrint(
-            '检查更新：最新版本 ${result.latestVersion}，hasUpdate=${result.hasUpdate}',
-          );
-          await _markChecked();
-          return result;
+        final response = await _updateHttpClient
+            .get(uri)
+            .timeout(const Duration(seconds: 15));
+        debugPrint('检查更新：响应状态码 ${response.statusCode}');
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['code'] == 0) {
+            final result = VersionCheckResult.fromJson(data['data']);
+            debugPrint(
+              '检查更新：最新版本 ${result.latestVersion}，hasUpdate=${result.hasUpdate}',
+            );
+            await _markChecked();
+            return result;
+          }
+          _lastError = '服务器返回错误：${data['message'] ?? '未知错误'}';
         }
-        _lastError = '服务器返回错误：${data['message'] ?? '未知错误'}';
+        // Cloudflare/CDN 拦截（Bot Fight Mode / WAF）→ 静态端点同域同防护，
+        // 不再尝试必然失败的静态回退，直接给出可操作提示。
+        if (_isCloudflareBlocked(response.statusCode, response.headers)) {
+          _lastError =
+              '检查更新被 CDN 拦截（HTTP ${response.statusCode}），'
+              '请稍后重试，或访问 GitHub Releases 手动下载最新版';
+          debugPrint('检查更新：被 CDN 拦截，跳过静态回退');
+          return null;
+        }
+        // 404 等非 200 状态 → 尝试静态模式
+        debugPrint('检查更新：API 返回 ${response.statusCode}，尝试静态 JSON 模式');
+        break;
+      } catch (e) {
+        // 网络异常 → 重试一次后仍失败再尝试静态模式
+        debugPrint('检查更新：API 异常（第 ${attempt + 1} 次）$e');
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(seconds: 2));
+          continue;
+        }
       }
-      // 404 等非 200 状态 → 尝试静态模式
-      debugPrint('检查更新：API 返回 ${response.statusCode}，尝试静态 JSON 模式');
-    } catch (e) {
-      // 网络异常 → 尝试静态模式
-      debugPrint('检查更新：API 异常 $e，尝试静态 JSON 模式');
     }
 
     // 2. 回退到静态 JSON 模式（GitHub Pages 等静态部署）
@@ -226,7 +242,13 @@ class AppUpdateManager {
           .get(uri)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
-        _lastError = '服务器响应错误：HTTP ${response.statusCode}';
+        if (_isCloudflareBlocked(response.statusCode, response.headers)) {
+          _lastError =
+              '检查更新被 CDN 拦截（HTTP ${response.statusCode}），'
+              '请稍后重试，或访问 GitHub Releases 手动下载最新版';
+        } else {
+          _lastError = '服务器响应错误：HTTP ${response.statusCode}';
+        }
         return null;
       }
 
@@ -292,6 +314,18 @@ class AppUpdateManager {
       debugPrint('检查更新（静态）异常：$e');
       return null;
     }
+  }
+
+  /// 判断 HTTP 响应是否为 Cloudflare/CDN 拦截（Bot Fight Mode / WAF 等）。
+  ///
+  /// Cloudflare 拦截特征：状态码 403/429 + 响应头含 `cf-ray`，或
+  /// `server` 头为 cloudflare。命中时静态回退端点（同域同防护）大概率同样被拦，
+  /// 应直接给出可操作提示而非继续尝试。
+  bool _isCloudflareBlocked(int statusCode, Map<String, String> headers) {
+    if (statusCode != 403 && statusCode != 429) return false;
+    final lower = headers.map((k, v) => MapEntry(k.toLowerCase(), v));
+    return lower.containsKey('cf-ray') ||
+        (lower['server']?.toLowerCase().contains('cloudflare') ?? false);
   }
 
   /// 比较两个语义化版本号，返回 >0 / 0 / <0

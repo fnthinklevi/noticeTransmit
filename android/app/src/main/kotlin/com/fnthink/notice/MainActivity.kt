@@ -639,8 +639,27 @@ class MainActivity : FlutterActivity() {
                 enabledUrls.add(url)
             }
         }
+
+        // 完整通道配置（含 secret / message_template）→ 加密存储（C2）。
+        // 与 flutter_secure_storage 同文件同密钥，Flutter 端亦可读取。
+        try {
+            SecurePrefs.get(this).edit()
+                .putString("secure_webhook_channels", jsonArray.toString())
+                .apply()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "写入加密 webhook 通道失败", e)
+        }
+
+        // 明文副本仅存脱敏数据（剔除 secret），供 URL 同步与低版本原生端兜底，
+        // 不再让 Webhook 签名密钥以明文 XML 持久化。
+        val sanitized = org.json.JSONArray()
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            if (obj.has("secret")) obj.remove("secret")
+            sanitized.put(obj)
+        }
         prefs.edit()
-            .putString("flutter.webhook_channels", jsonArray.toString())
+            .putString("flutter.webhook_channels", sanitized.toString())
             .putString("flutter.webhook_urls", org.json.JSONArray(enabledUrls).toString())
             .commit()
         PrefsHelper.webhookUrls = enabledUrls

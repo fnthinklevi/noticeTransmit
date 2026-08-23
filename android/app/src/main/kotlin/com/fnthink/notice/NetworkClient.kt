@@ -8,6 +8,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import okhttp3.CertificatePinner
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -32,16 +33,40 @@ class NetworkClient {
                 .writeTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(false)
-                // SSL 证书固定：防止中间人攻击。将以下 SHA256 改为你服务器的真实证书指纹。
-                // 使用 openssl s_client -connect notice.fnthink.top:443 -servername notice.fnthink.top 2>/dev/null | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64
-                // 如需启用，取消下面注释并在 CERT_PINS 中填入你的证书 SHA256 base64 哈希：
-                // .certificatePinner(
-                //     CertificatePinner.Builder()
-                //         .add("notice.fnthink.top", CERT_PINS)
-                //         .add("xget.fnthink.top", CERT_PINS)
-                //         .build()
-                // )
+                .apply {
+                    // SSL 证书固定：防止中间人攻击。默认关闭（CERT_PINS 为空或
+                    // ENABLE_CERT_PINNING=false，Debug 构建恒关闭）。
+                    // 启用方式：构建时注入环境变量/参数
+                    //   CERT_PINS="sha256/xxx;sha256/yyy" ENABLE_CERT_PINNING=true
+                    // 获取指纹：
+                    //   openssl s_client -connect notice.fnthink.top:443 -servername notice.fnthink.top 2>/dev/null \
+                    //     | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary \
+                    //     | openssl base64
+                    // 证书轮换与多 pin 策略见 base.md「证书固定」章节。
+                    buildCertificatePinner()?.let { certificatePinner(it) }
+                }
                 .build()
+        }
+
+        /**
+         * 构建证书固定器。多 pin 用「;」分隔（至少保留 2 个：当前 + 备用），
+         * 未启用（Debug / 未注入 / 空指纹）时返回 null，仅做标准 TLS 验证。
+         */
+        private fun buildCertificatePinner(): CertificatePinner? {
+            if (!BuildConfig.ENABLE_CERT_PINNING) return null
+            val pins = BuildConfig.CERT_PINS
+                .split(';')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && it.startsWith("sha256/") }
+            if (pins.isEmpty()) return null
+            val hosts = listOf("notice.fnthink.top", "xget.fnthink.top")
+            return CertificatePinner.Builder().apply {
+                for (host in hosts) {
+                    for (pin in pins) {
+                        add(host, pin)
+                    }
+                }
+            }.build()
         }
 
         /**

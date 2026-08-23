@@ -10,6 +10,24 @@ android {
     compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
+    // ===== 证书固定（C1 框架，默认关闭）=====
+    // 多 pin 用「;」分隔，例如：sha256/AAAA...;sha256/BBBB...
+    // 注入方式（任选其一，禁止硬编码进仓库）：
+    //   · 环境变量 CERT_PINS / ENABLE_CERT_PINNING（CI 或本地 shell）
+    //   · Gradle 参数 -PcertPins=... -PenableCertPinning=true
+    // 证书轮换/启用流程见 base.md「10.x 证书固定」。
+    val certPins = System.getenv("CERT_PINS")
+        ?: (project.findProperty("certPins") as? String)
+        ?: ""
+    val enableCertPinning = (System.getenv("ENABLE_CERT_PINNING") ?: "")
+            .equals("true", ignoreCase = true) ||
+        (project.findProperty("enableCertPinning") as? String)
+            ?.equals("true", ignoreCase = true) == true
+
+    buildFeatures {
+        buildConfig = true
+    }
+
     signingConfigs {
         create("release") {
             // 1) CI：优先从环境变量读取（由 GitHub Actions secrets 在构建时注入，日志自动脱敏）
@@ -72,6 +90,15 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
+        // 证书固定：多 pin 用「;」分隔注入 BuildConfig，空值不启用；
+        // Debug 构建在 buildTypes 中强制关闭（见下方 debug 块）。
+        buildConfigField(
+            "String",
+            "CERT_PINS",
+            "\"${certPins.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
+        )
+        buildConfigField("boolean", "ENABLE_CERT_PINNING", enableCertPinning.toString())
+
         // 按 Flutter --target-platform 动态设置 ABI 过滤
         // 单架构包必须纯净，只含一种 .so，不得混入其他架构的第三方库！
         // 检测优先级：环境变量 > Flutter Gradle 属性 > 多架构回退
@@ -104,6 +131,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // 证书固定 Debug 恒关闭：开发期证书变化频繁，避免调试时误断连
+            buildConfigField("boolean", "ENABLE_CERT_PINNING", "false")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -136,6 +167,9 @@ dependencies {
     implementation("com.tencent.bugly:crashreport:4.1.9.3")
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
+    // 原生端加密存储（C2）：与 flutter_secure_storage 9.2.4 同源同版本，
+    // 保证 EncryptedSharedPreferences 主密钥（AndroidKeyStore 同一 alias）与算法一致，可跨端读写
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 }
 
 flutter {

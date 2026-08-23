@@ -94,3 +94,4 @@ server/public/apks/
 .dart_tmp2/
 .codebuddy/
 .tmp_local/
+.dartlocal/
