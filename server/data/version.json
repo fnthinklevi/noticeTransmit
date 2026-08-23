@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.58",
-  "latestBuild": 92,
+  "latestVersion": "1.5.59",
+  "latestBuild": 93,
   "forceUpdate": true,
-  "forceUpdateVersion": "1.5.58",
-  "forceUpdateBuild": 92,
-  "changelog": "v1.5.58: 隐私政策全面重写(11章节/信息共享与披露/儿童隐私/您的权利/联系我们) + 更新下载三源回退(CDN/xget加速镜像/GitHub直链,按ABI匹配) + 下载失败诊断日志 + 规则管理/编辑页与关键词过滤页国际化补全 + 规则编辑页下拉菜单改iOS风格 + 多条延迟推送按时触发修复",
+  "forceUpdateVersion": "1.5.59",
+  "forceUpdateBuild": 93,
+  "changelog": "v1.5.59: 漏通知修复(去重键加tag/记录ID全局唯一/MessagingStyle正文兜底/监听断开警告) + 推送历史状态增强(用户暂停推送状态/现在推送手动补推/失败原因内联显示)",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.58/notice_arm64_1.5.58.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.58/notice_arm32_1.5.58.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.58/notice_x86_1.5.58.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.58/notice_all_1.5.58.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_arm64_1.5.59.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_arm32_1.5.59.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_x86_1.5.59.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.59/notice_all_1.5.59.apk"
   },
   "fileSizes": {
-    "arm64": 26582896,
-    "arm32": 22527963,
-    "x86_64": 28615905,
-    "all": 72739960
+    "arm64": 26582892,
+    "arm32": 22527968,
+    "x86_64": 28615903,
+    "all": 72739950
   },
   "minSupportedVersion": "1.0.0"
 }

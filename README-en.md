@@ -39,7 +39,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 
 - 🔋 **Custom Battery Reminders** - Fully customizable battery notification rules (charging/discharging/specific battery level thresholds), support add/edit/delete rules, support swipe left to delete and long press to delete
 - 📋 **History Records** - Locally save notification push history, support search, detail view and export
-- ✅ **Delivery Status Labeling** - Each push record on the home page is labeled per-channel delivery status (success/failed/sending), determined by official return codes from WeChat Work/Feishu/DingTalk; SMS/call delivery results are reported back in real time
+- ✅ **Delivery Status Labeling** - Each push record on the home page is labeled per-channel delivery status (success/failed/sending/user-paused), determined by official return codes from WeChat Work/Feishu/DingTalk; SMS/call delivery results are reported back in real time; failure reasons (e.g. HTTP 502 / rate-limit hints) are shown inline
 - 📱 **App Filtering** - Customize which apps need notification push
 - 🏷️ **Keyword Filtering** - Support whitelist and blacklist keyword filtering for precise push control
 - 🧠 **Rule Engine** - Visual configuration of notification rules, support condition combination (IF) and action configuration (THEN), first-time entry provides feature guide, built-in default rules including verification code priority push, marketing ad blocking, night do not disturb
@@ -53,7 +53,8 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🌐 **Multi-language i18n** - Full-app Chinese/English bilingual support (120+ strings migrated), switch language freely in settings
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start
-- ⏸️ **One-tap Pause Push** - Pause/resume push via foreground notification action button (monitoring continues, only webhook sending stops), state persists across restarts
+- 📡 **Listener Reliability** - Fallback content extraction for conversation-style notifications (WeChat/QQ/Telegram etc.) whose body only exists in MessagingStyle; dedup key includes the notification tag to avoid missed reads; warns "listener disconnected · notifications may be missed" when notification access is revoked by the system
+- ⏸️ **One-tap Pause Push** - Pause/resume push via foreground notification action button (monitoring continues, only webhook sending stops), state persists across restarts; messages received while paused show a "user-paused" status in history, with a one-tap "push now" manual resend
 - 🔄 **Online Update** - Support version update, no need to reinstall APK; downloads via system downloader (DownloadManager) in background — no storage permission needed, uninterrupted when screen is off; multi-source fallback (CDN / GitHub mirror / GitHub direct, matched by device ABI); flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
 - 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface
 - 🔒 **Full Privacy Policy** - In-app 11-chapter privacy policy (data collection scope / encrypted storage / information sharing / children's privacy / user rights, etc.), consent dialog on first launch, viewable anytime from the More page

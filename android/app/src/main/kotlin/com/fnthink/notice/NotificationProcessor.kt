@@ -144,12 +144,13 @@ class NotificationProcessor(private val context: Context) {
     private fun extractMessagingContent(extras: android.os.Bundle): String {
         return try {
             val style = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // EXTRA_MESSAGING_STYLE 为隐藏 API，编译期不可引用，用字符串常量
                 extras.getParcelable(
-                    android.app.Notification.EXTRA_MESSAGING_STYLE,
+                    "android.messagingStyle",
                     android.app.Notification.MessagingStyle::class.java
                 )
             } else {
-                extras.getParcelable(android.app.Notification.EXTRA_MESSAGING_STYLE)
+                extras.getParcelable("android.messagingStyle")
             }
             if (style != null) {
                 val messages = style.messages
@@ -166,13 +167,14 @@ class NotificationProcessor(private val context: Context) {
                     android.app.Notification.MessagingStyle.Message::class.java
                 )
             } else {
-                extras.getParcelableArrayList<android.app.Notification.MessagingStyle.Message>(
+                extras.getParcelableArrayList<android.os.Parcelable>(
                     android.app.Notification.EXTRA_MESSAGES
                 )
             }
             if (messageList != null && messageList.isNotEmpty()) {
-                val last = messageList[messageList.size - 1] ?: return ""
-                return last.text?.toString() ?: ""
+                val last = messageList[messageList.size - 1]
+                val msg = last as? android.app.Notification.MessagingStyle.Message ?: return ""
+                return msg.text?.toString() ?: ""
             }
             ""
         } catch (e: Exception) {
