@@ -37,6 +37,10 @@ NotificationRule makeRule({
   );
 }
 
+/// 将分钟数格式化为 HH:mm，供跨零点时间区间测试构造 value 使用。
+String _fmtMinute(int m) =>
+    '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
+
 void main() {
   late FilterService service;
 
@@ -188,6 +192,54 @@ void main() {
         value: '$startH:00-$endH:00',
       );
       expect(service.evaluateRule(rule, makeNotification(time: '')), true);
+    });
+
+    test('timeRange – cross-midnight (start > end) hit', () {
+      // start > end 表示跨零点区间，当前时间在 [start, 24:00) 内应命中
+      final now = DateTime.now();
+      final curMin = now.hour * 60 + now.minute;
+      final startM = (curMin - 30 + 1440) % 1440;
+      final endM = (curMin - 90 + 1440) % 1440;
+      const fmt = _fmtMinute;
+      final rule = makeRule(
+        type: ConditionType.timeRange,
+        value: '${fmt(startM)}-${fmt(endM)}',
+      );
+      expect(service.evaluateRule(rule, makeNotification(time: '')), true);
+    });
+
+    test('timeRange – cross-midnight (start > end) miss', () {
+      // 当前时间落在跨零点区间的"夜间缺口"（end < now < start）应不命中
+      final now = DateTime.now();
+      final curMin = now.hour * 60 + now.minute;
+      final startM = (curMin + 30) % 1440;
+      final endM = (curMin - 30 + 1440) % 1440;
+      const fmt = _fmtMinute;
+      final rule = makeRule(
+        type: ConditionType.timeRange,
+        value: '${fmt(startM)}-${fmt(endM)}',
+      );
+      expect(service.evaluateRule(rule, makeNotification(time: '')), false);
+    });
+
+    test('regexMatch – oversize pattern (>200) rejected', () {
+      // E1：超长正则直接拒绝，避免灾难性回溯阻塞
+      final rule = makeRule(type: ConditionType.regexMatch, value: 'a' * 201);
+      expect(
+        service.evaluateRule(rule, makeNotification(title: 'anything')),
+        false,
+      );
+    });
+
+    test('regexMatch – long but valid pattern still works', () {
+      // 边界：恰好 200 字符的合法正则仍应正常评估（不被长度限制误拒）
+      final pattern = '${'a' * 197}验证码';
+      expect(pattern.length, 200);
+      final rule = makeRule(type: ConditionType.regexMatch, value: pattern);
+      expect(
+        service.evaluateRule(rule, makeNotification(title: pattern)),
+        true,
+      );
     });
   });
 

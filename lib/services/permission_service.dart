@@ -84,6 +84,38 @@ class PermissionService {
   Future<void> requestVivoBackground() =>
       _requestPermission('requestVivoBackground');
 
+  /// B1 精确闹钟：查询开关状态 / 系统授权状态 / 切换开关 / 引导授权
+  Future<bool> isExactAlarmEnabled() async {
+    try {
+      return await _channel.invokeMethod('isExactAlarmEnabled') as bool? ??
+          false;
+    } catch (e) {
+      debugPrint('查询精确闹钟开关失败: $e');
+      return false;
+    }
+  }
+
+  Future<bool> canScheduleExactAlarms() async {
+    try {
+      return await _channel.invokeMethod('canScheduleExactAlarms') as bool? ??
+          false;
+    } catch (e) {
+      debugPrint('查询精确闹钟授权失败: $e');
+      return false;
+    }
+  }
+
+  Future<void> setExactAlarmEnabled(bool enabled) async {
+    try {
+      await _channel.invokeMethod('setExactAlarmEnabled', {'enabled': enabled});
+    } catch (e) {
+      debugPrint('切换精确闹钟失败: $e');
+    }
+  }
+
+  Future<void> requestExactAlarmPermission() =>
+      _requestPermission('requestExactAlarmPermission');
+
   Future<void> requestSmsPermission() async {
     final status = await Permission.sms.request();
     if (status == PermissionStatus.granted) {

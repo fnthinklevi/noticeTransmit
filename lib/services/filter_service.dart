@@ -164,6 +164,8 @@ class FilterService {
   }
 
   bool _evaluateRegexCondition(String pattern, String title, String content) {
+    // E1：超长正则直接拒绝，防灾难性回溯阻塞（与原生 RuleEngine/FilterEngine 一致）
+    if (pattern.length > 200) return false;
     try {
       final regex = RegExp(pattern);
       return regex.hasMatch(title) || regex.hasMatch(content);

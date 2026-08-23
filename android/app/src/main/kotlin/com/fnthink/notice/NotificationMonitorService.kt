@@ -68,6 +68,15 @@ class NotificationMonitorService : NotificationListenerService() {
         fun applyTodayDate(date: String) {
             todayDate = date
         }
+
+        /** 跨日重置计数器（E2：@Synchronized 消除极小概率竞态窗口） */
+        @Synchronized
+        fun resetDailyIfNeeded(now: String) {
+            if (now != todayDate) {
+                todayDate = now
+                pushCount = 0
+            }
+        }
     }
 
     private lateinit var notificationProcessor: NotificationProcessor
@@ -80,16 +89,18 @@ class NotificationMonitorService : NotificationListenerService() {
     private var batteryAlarmPendingIntent: PendingIntent? = null
     @Volatile private var cachedConfig: ConfigSnapshot? = null
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val serviceScope = CoroutineScope(
+        Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, e ->
+            // E2：未捕获协程异常兜底记录，避免静默吞没
+            Log.e(TAG, "Unhandled coroutine exception", e)
+        }
+    )
 
-    /// 检查是否已跨日，是则重置计数器
+    /// 检查是否已跨日，是则重置计数器（委托给 @Synchronized 封装，消除竞态）
     private fun checkDailyReset() {
         val now = todayDateString()
-        if (now != todayDate) {
-            todayDate = now
-            pushCount = 0
-            Log.i(TAG, "Daily push count reset: $now")
-        }
+        resetDailyIfNeeded(now)
+        Log.i(TAG, "Daily push count check: $now count=$pushCount")
     }
 
     override fun onCreate() {

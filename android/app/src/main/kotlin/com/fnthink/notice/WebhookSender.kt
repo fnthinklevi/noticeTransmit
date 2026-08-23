@@ -10,8 +10,11 @@ class WebhookSender(private val context: Context) {
         private const val TAG = "WebhookSender"
     }
 
-    // 持有完整通道配置（url + secret + type），用于签名与送达校验
+    // 持有完整通道配置（url + secret + type），用于签名与送达校验。
+    // @Volatile + 不可变 List：配置线程写入、IO 线程读取，copy-on-write 保证可见性（E2）
+    @Volatile
     private var channelConfigs: List<ConfigManager.WebhookChannelConfig> = emptyList()
+    @Volatile
     private var deviceName: String = ""
 
     fun destroy() {

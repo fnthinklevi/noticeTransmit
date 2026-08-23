@@ -59,10 +59,40 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   final PermissionService _permissionService =
       GetIt.instance<PermissionService>();
 
+  // B1 精确闹钟开关状态 + 系统授权状态（Android 12+）
+  bool _exactAlarmEnabled = false;
+  bool _canScheduleExactAlarms = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadExactAlarmState();
+  }
+
+  Future<void> _loadExactAlarmState() async {
+    final enabled = await _permissionService.isExactAlarmEnabled();
+    final canSchedule = await _permissionService.canScheduleExactAlarms();
+    if (!mounted) return;
+    setState(() {
+      _exactAlarmEnabled = enabled;
+      _canScheduleExactAlarms = canSchedule;
+    });
+  }
+
+  /// 切换精确闹钟开关：开启时若系统未授权，先引导授权再落盘
+  Future<void> _onToggleExactAlarm(bool value) async {
+    if (value && !_canScheduleExactAlarms) {
+      await _permissionService.requestExactAlarmPermission();
+      final canSchedule = await _permissionService.canScheduleExactAlarms();
+      if (!canSchedule) {
+        // 用户未授权：不强制开启，提示后保持关闭（原生端未授权时自动降级非精确闹钟）
+        setState(() => _exactAlarmEnabled = false);
+        return;
+      }
+    }
+    await _permissionService.setExactAlarmEnabled(value);
+    if (mounted) setState(() => _exactAlarmEnabled = value);
   }
 
   @override
@@ -79,6 +109,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
       if (!wasGranted && _appListPermissionGranted) {
         widget.onAppListPermissionGranted();
       }
+      // 从系统授权页返回后刷新精确闹钟授权状态
+      await _loadExactAlarmState();
       if (mounted) setState(() {});
     }
   }
@@ -245,6 +277,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                 _isVivo ||
                 _isSamsung ||
                 _isStockAndroid) ...[
+              _buildSectionHeader(l10n.keepAliveGuideTitle, context),
+              _buildKeepAliveGuideCard(context),
+              const SizedBox(height: 24),
               _buildSectionHeader(l10n.vendorBgSettings, context),
               _buildGroup([
                 if (_isXiaomi)
@@ -322,6 +357,8 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
             ],
             _buildSectionHeader(l10n.optionalPerms, context),
             _buildGroup([
+              _buildExactAlarmTile(context),
+              _buildDivider(context),
               _buildPermissionTile(
                 icon: Icons.message,
                 title: l10n.smsPerm,
@@ -404,6 +441,153 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
         ),
       ),
     );
+  }
+
+  /// B1 精确闹钟开关（iOS 风格行 + Switch）
+  Widget _buildExactAlarmTile(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final subtitle = _canScheduleExactAlarms
+        ? l10n.exactAlarmGranted
+        : l10n.exactAlarmNeedGrant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: _exactAlarmEnabled
+                  ? AppColors.green
+                  : const Color(0xFFFF9500),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.alarm, size: 18, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.exactAlarmTitle,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$subtitle · ${l10n.exactAlarmDesc}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _exactAlarmEnabled,
+            onChanged: _onToggleExactAlarm,
+            activeTrackColor: AppColors.green,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// B2 后台保活引导卡片（dontkillmyapp 4 步）
+  Widget _buildKeepAliveGuideCard(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final vendorJump = _vendorJump();
+    final steps = [
+      (l10n.keepAliveStep1, widget.onRequestBatteryOptimization),
+      (l10n.keepAliveStep2, vendorJump),
+      (l10n.keepAliveStep3, vendorJump),
+      (l10n.keepAliveStep4, widget.onRequestNotificationListenerPermission),
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              l10n.keepAliveGuideDesc,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+          ),
+          for (var i = 0; i < steps.length; i++) ...[
+            InkWell(
+              onTap: steps[i].$2,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.blue.withValues(alpha: 0.12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.blue,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        steps[i].$1,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.primaryLabel(context),
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: AppColors.tertiaryLabel(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (i < steps.length - 1) _buildDivider(context),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 当前厂商后台设置跳转（自启动/任务锁定共用同一入口）
+  VoidCallback? _vendorJump() {
+    if (_isXiaomi) return widget.onRequestXiaomiAutoStart;
+    if (_isMeizu) return widget.onRequestMeizuBackground;
+    if (_isHuawei) return widget.onRequestHuaweiLaunch;
+    if (_isOppo) return widget.onRequestOppoBackground;
+    if (_isVivo) return widget.onRequestVivoBackground;
+    return null;
   }
 
   Widget _buildSectionHeader(String title, BuildContext context) {

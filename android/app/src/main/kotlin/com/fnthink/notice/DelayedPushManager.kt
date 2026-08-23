@@ -108,10 +108,32 @@ class DelayedPushManager(private val context: Context) {
             val intent = Intent(ACTION_PUSH_DUE).apply { setPackage(context.packageName) }
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             val pi = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
+            // 精确闹钟开关（设置页可配）：开启且系统已授权 → setExactAndAllowWhileIdle，
+            // 到点分秒不差（Doze 下也准点）；否则退回 setAndAllowWhileIdle（深度 Doze 下分钟级延迟）。
+            // Android 14+ SCHEDULE_EXACT_ALARM 默认拒绝，未授权时 setExact 会抛 SecurityException → 降级。
+            if (isExactAlarmEnabled()) {
+                try {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
+                    Log.d(TAG, "延迟推送精确闹钟已排程 fireAt=$fireAt")
+                    return
+                } catch (e: SecurityException) {
+                    Log.w(TAG, "精确闹钟未授权，降级非精确闹钟", e)
+                }
+            }
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
             Log.d(TAG, "延迟推送闹钟已排程 fireAt=$fireAt")
         } catch (e: Exception) {
             Log.e(TAG, "延迟推送闹钟排程失败", e)
+        }
+    }
+
+    /** 精确闹钟开关（设置页写入 FlutterSharedPreferences 的 flutter.exact_alarm_enabled） */
+    private fun isExactAlarmEnabled(): Boolean {
+        return try {
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            prefs.getBoolean("flutter.exact_alarm_enabled", false)
+        } catch (e: Exception) {
+            false
         }
     }
 

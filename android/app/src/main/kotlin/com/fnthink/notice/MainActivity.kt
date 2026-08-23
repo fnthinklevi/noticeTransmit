@@ -1,6 +1,7 @@
 package com.fnthink.notice
 
 import android.app.ActivityManager
+import android.app.AlarmManager
 import android.app.DownloadManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -328,6 +329,25 @@ class MainActivity : FlutterActivity() {
                 }
                 "isServiceRunning" -> {
                     result.success(isMonitoringEnabled())
+                }
+                "isExactAlarmEnabled" -> {
+                    result.success(
+                        prefs.getBoolean("flutter.exact_alarm_enabled", false)
+                    )
+                }
+                "setExactAlarmEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    prefs.edit().putBoolean("flutter.exact_alarm_enabled", enabled).apply()
+                    // 通知服务重新加载配置并重排延迟推送闹钟（切换精确/非精确模式）
+                    notifyServiceConfigChanged()
+                    result.success(true)
+                }
+                "canScheduleExactAlarms" -> {
+                    result.success(canScheduleExactAlarms())
+                }
+                "requestExactAlarmPermission" -> {
+                    requestExactAlarmPermission()
+                    result.success(true)
                 }
                 "requestBatteryOptimization" -> {
                     requestBatteryOptimization()
@@ -1173,6 +1193,42 @@ class MainActivity : FlutterActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    /** Android 12+ 是否已授权精确闹钟；12 以下系统无此概念，恒为 true */
+    private fun canScheduleExactAlarms(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val am = getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return false
+                am.canScheduleExactAlarms()
+            } catch (e: Exception) {
+                false
+            }
+        } else {
+            true
+        }
+    }
+
+    /**
+     * 引导用户授权精确闹钟（B1）。
+     * Android 12~13：系统弹授权对话框（ACTION_REQUEST_SCHEDULE_EXACT_ALARM）。
+     * Android 14+：SCHEDULE_EXACT_ALARM 默认拒绝且无系统授权入口，跳应用详情页引导手动开启；
+     * 未授权时 DelayedPushManager 会捕获 SecurityException 自动降级为非精确闹钟，不阻塞功能。
+     */
+    private fun requestExactAlarmPermission() {
+        try {
+            if (canScheduleExactAlarms()) return
+            if (Build.VERSION.SDK_INT in Build.VERSION_CODES.S..Build.VERSION_CODES.TIRAMISU) {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                intent.data = Uri.fromParts("package", packageName, null)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } else {
+                openAppDetailsSettings()
+            }
+        } catch (e: Exception) {
+            openAppDetailsSettings()
         }
     }
 

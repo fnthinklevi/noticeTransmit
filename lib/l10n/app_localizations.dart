@@ -291,6 +291,17 @@ class AppLocalizations {
     'clickToSettings': '点击前往设置',
     'samsungSmartManagerDesc': '请在智能管理器中将本应用加入自启动白名单',
     'nativeBatteryOptDesc': '请在系统设置中确认电池优化已关闭',
+    'exactAlarmTitle': '精确闹钟（准时推送）',
+    'exactAlarmDesc': '延迟/定时推送到点更准时；Android 12+ 需系统授权',
+    'exactAlarmGranted': '已授权',
+    'exactAlarmNeedGrant': '点击授权',
+    'exactAlarmUnsupported': '需 Android 12+',
+    'keepAliveGuideTitle': '后台保活引导',
+    'keepAliveGuideDesc': '部分系统会限制后台服务，可能导致收不到通知。按以下步骤设置可提高稳定性：',
+    'keepAliveStep1': '省电策略设为不限制',
+    'keepAliveStep2': '允许自启动',
+    'keepAliveStep3': '后台运行不受限（任务锁定）',
+    'keepAliveStep4': '确认已开启通知使用权',
     'notes': '说明',
     'allow': '允许',
     'reject': '拒绝',
@@ -853,7 +864,20 @@ class AppLocalizations {
     'samsungSmartManagerDesc':
         'Add this app to auto-start whitelist in Smart Manager',
     'nativeBatteryOptDesc':
-        'Confirm battery optimization is off in system settings',
+        'Confirm battery optimization is disabled in system settings',
+    'exactAlarmTitle': 'Exact Alarm (On-time Push)',
+    'exactAlarmDesc':
+        'Delayed/scheduled pushes fire on time; requires system grant on Android 12+',
+    'exactAlarmGranted': 'Granted',
+    'exactAlarmNeedGrant': 'Tap to grant',
+    'exactAlarmUnsupported': 'Requires Android 12+',
+    'keepAliveGuideTitle': 'Keep-alive Guide',
+    'keepAliveGuideDesc':
+        'Some systems restrict background services and may miss notifications. Follow these steps:',
+    'keepAliveStep1': 'Set battery optimization to Unrestricted',
+    'keepAliveStep2': 'Allow auto-start',
+    'keepAliveStep3': 'Keep running in background (task lock)',
+    'keepAliveStep4': 'Confirm notification access is enabled',
     'notes': 'Notes',
     'allow': 'Allow',
     'reject': 'Reject',
@@ -1237,6 +1261,17 @@ class AppLocalizations {
   String get lightMode => _get('lightMode');
   String get darkMode => _get('darkMode');
   String get language => _get('language');
+  String get exactAlarmTitle => _get('exactAlarmTitle');
+  String get exactAlarmDesc => _get('exactAlarmDesc');
+  String get exactAlarmGranted => _get('exactAlarmGranted');
+  String get exactAlarmNeedGrant => _get('exactAlarmNeedGrant');
+  String get exactAlarmUnsupported => _get('exactAlarmUnsupported');
+  String get keepAliveGuideTitle => _get('keepAliveGuideTitle');
+  String get keepAliveGuideDesc => _get('keepAliveGuideDesc');
+  String get keepAliveStep1 => _get('keepAliveStep1');
+  String get keepAliveStep2 => _get('keepAliveStep2');
+  String get keepAliveStep3 => _get('keepAliveStep3');
+  String get keepAliveStep4 => _get('keepAliveStep4');
   String get langDefault => _get('langDefault');
   String get langChinese => _get('langChinese');
   String get langEnglish => _get('langEnglish');

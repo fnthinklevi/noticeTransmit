@@ -54,6 +54,11 @@ object FilterEngine {
         if (keyword.startsWith("re:")) {
             val pattern = keyword.substring(3)
             if (pattern.isEmpty()) return false
+            // E1：超长正则直接拒绝，防灾难性回溯阻塞通知处理协程
+            if (pattern.length > 200) {
+                Log.w(TAG, "正则超长拒绝（>200 字符）: '${pattern.take(30)}...'")
+                return false
+            }
             return try {
                 Regex(pattern, RegexOption.IGNORE_CASE).containsMatchIn(normalizedText)
             } catch (e: Exception) {

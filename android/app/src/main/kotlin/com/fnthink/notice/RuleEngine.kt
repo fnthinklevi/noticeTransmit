@@ -237,8 +237,12 @@ object RuleEngine {
         return hour * 60 + minute
     }
 
-    /** 正则匹配：命中标题或内容（与 Flutter 端一致，大小写敏感） */
+    /** 正则匹配：命中标题或内容（与 Flutter 端一致，大小写敏感）。E1：超长 pattern 直接拒绝，防灾难性回溯阻塞 */
     private fun evaluateRegex(pattern: String, title: String, content: String): Boolean {
+        if (pattern.length > 200) {
+            Log.w(TAG, "正则超长拒绝（>200 字符）: ${pattern.take(30)}...")
+            return false
+        }
         return try {
             val regex = Regex(pattern)
             regex.containsMatchIn(title) || regex.containsMatchIn(content)

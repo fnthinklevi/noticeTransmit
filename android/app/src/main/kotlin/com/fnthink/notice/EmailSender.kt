@@ -26,7 +26,7 @@ object EmailSender {
         val bodyTemplate: String? = null
     )
 
-    /** 发送通知邮件 */
+    /** 发送通知邮件（失败自动重试 1 次，错误经分类后回传，供历史失败原因展示） */
     fun sendNotification(
         configs: List<EmailConfig>,
         info: NotificationInfo,
@@ -35,18 +35,41 @@ object EmailSender {
     ) {
         for (config in configs) {
             scope.launch(Dispatchers.IO) {
+                val subject = buildSubject(config, info)
+                val body = buildEmailBody(config, info)
                 try {
-                    val subject = buildSubject(config, info)
-                    val body = buildEmailBody(config, info)
                     sendEmail(config, subject, body)
                     Log.d(TAG, "邮件发送成功 → ${config.toEmails.joinToString()}")
                     onResult?.invoke(true, "邮件发送成功")
                 } catch (e: Exception) {
-                    Log.e(TAG, "邮件发送失败: ${e.message}", e)
-                    onResult?.invoke(false, "邮件发送失败: ${e.message ?: "未知错误"}")
+                    // 网络抖动类失败重试 1 次（指数退避 2s）；配置类失败（认证/地址错误）重试无意义，直接报错
+                    if (isTransientFailure(e)) {
+                        try {
+                            delay(2000)
+                            sendEmail(config, subject, body)
+                            Log.d(TAG, "邮件重试成功 → ${config.toEmails.joinToString()}")
+                            onResult?.invoke(true, "邮件发送成功（重试后）")
+                            return@launch
+                        } catch (retry: Exception) {
+                            Log.e(TAG, "邮件重试仍失败: ${retry.message}", retry)
+                        }
+                    }
+                    val msg = classifyError(e)
+                    Log.e(TAG, "邮件发送失败: $msg", e)
+                    onResult?.invoke(false, msg)
                 }
             }
         }
+    }
+
+    /** 是否属于"重试可能成功"的临时性失败（网络/超时/服务端 4xx 临时拒绝） */
+    private fun isTransientFailure(e: Exception): Boolean {
+        return e is java.net.SocketTimeoutException ||
+            e is java.net.ConnectException ||
+            e is java.net.UnknownHostException ||
+            e is javax.net.ssl.SSLException ||
+            (e is javax.mail.MessagingException && e.message.orEmpty()
+                .matches(Regex("(?i).*(connect|timed out|temporary|421).*")))
     }
 
     /** 发送测试邮件，返回 Pair(success, message) */
@@ -63,59 +86,60 @@ object EmailSender {
             sendEmail(config, subject, body)
             Log.d(TAG, "测试邮件发送成功")
             Pair(true, "测试邮件发送成功")
-        } catch (e: AuthenticationFailedException) {
-            val msg = "认证失败，请检查账号和授权码是否正确"
-            Log.e(TAG, msg, e)
-            Pair(false, msg)
-        } catch (e: javax.net.ssl.SSLHandshakeException) {
-            val msg = "SSL 连接失败，请检查端口号或关闭 SSL 后重试"
-            Log.e(TAG, msg, e)
-            Pair(false, msg)
-        } catch (e: java.net.ConnectException) {
-            val msg = "无法连接服务器 ${config.smtpHost}:${config.smtpPort}，请检查地址和端口"
-            Log.e(TAG, msg, e)
-            Pair(false, msg)
-        } catch (e: java.net.SocketTimeoutException) {
-            val msg = "连接超时，请检查网络或防火墙设置"
-            Log.e(TAG, msg, e)
-            Pair(false, msg)
-        } catch (e: javax.mail.SendFailedException) {
-            val msg = "邮件发送被拒: ${e.message}"
-            Log.e(TAG, msg, e)
-            Pair(false, msg)
-        } catch (e: javax.mail.MessagingException) {
-            val rawMsg = e.message ?: ""
-            val msg = when {
-                rawMsg.contains("530", ignoreCase = true) ->
-                    "SMTP 认证失败(530)，请检查账号和授权码"
-                rawMsg.contains("534", ignoreCase = true) || rawMsg.contains("535", ignoreCase = true) ->
-                    "SMTP 认证失败，请检查账号和授权码是否正确"
-                rawMsg.contains("550", ignoreCase = true) ->
-                    "收件人地址被拒绝(550)，请检查收件邮箱地址"
-                rawMsg.contains("553", ignoreCase = true) ->
-                    "发件人地址被拒绝(553)，请检查发件邮箱"
-                rawMsg.contains("554", ignoreCase = true) ->
-                    "邮件被服务端拒绝(554)，可能触发反垃圾策略"
-                rawMsg.contains("421", ignoreCase = true) ->
-                    "SMTP 服务暂时不可用(421)，请稍后重试"
-                rawMsg.contains("450", ignoreCase = true) ->
-                    "收件人邮箱不存在或已停用(450)"
-                rawMsg.contains("504", ignoreCase = true) ->
-                    "SMTP 认证方式不支持(504)，请检查 SSL 开关设置"
-                rawMsg.contains("Connection refused", ignoreCase = true) ->
-                    "连接被拒绝，请检查 SMTP 地址和端口"
-                rawMsg.contains("UnknownHost", ignoreCase = true) || rawMsg.contains("Unable to resolve host", ignoreCase = true) ->
-                    "无法解析 SMTP 服务器地址，请检查域名是否正确"
-                rawMsg.contains("connect", ignoreCase = true) && rawMsg.contains("timed out", ignoreCase = true) ->
-                    "连接超时，请检查网络或防火墙设置"
-                else -> "邮件发送失败：${rawMsg.take(80)}"
-            }
-            Log.e(TAG, msg, e)
-            Pair(false, msg)
         } catch (e: Exception) {
-            val msg = "发送失败: ${e.message}"
+            val msg = classifyError(e)
             Log.e(TAG, msg, e)
             Pair(false, msg)
+        }
+    }
+
+    /**
+     * SMTP 异常统一分类（D1）：测试邮件与通知邮件共用同一套错误文案，
+     * 分类后的原因经 DeliveryNotifier 写入历史失败原因字段，与 webhook 链路一致。
+     */
+    fun classifyError(e: Exception): String {
+        return when (e) {
+            is AuthenticationFailedException ->
+                "认证失败，请检查账号和授权码是否正确"
+            is javax.net.ssl.SSLHandshakeException ->
+                "SSL 连接失败，请检查端口号或关闭 SSL 后重试"
+            is java.net.ConnectException ->
+                "无法连接 SMTP 服务器，请检查地址和端口"
+            is java.net.SocketTimeoutException ->
+                "连接超时，请检查网络或防火墙设置"
+            is java.net.UnknownHostException ->
+                "无法解析 SMTP 服务器地址，请检查域名是否正确"
+            is javax.mail.SendFailedException ->
+                "邮件发送被拒: ${e.message.orEmpty().take(80)}"
+            is javax.mail.MessagingException -> {
+                val rawMsg = e.message.orEmpty()
+                when {
+                    rawMsg.contains("530", ignoreCase = true) ->
+                        "SMTP 认证失败(530)，请检查账号和授权码"
+                    rawMsg.contains("534", ignoreCase = true) || rawMsg.contains("535", ignoreCase = true) ->
+                        "SMTP 认证失败，请检查账号和授权码是否正确"
+                    rawMsg.contains("550", ignoreCase = true) ->
+                        "收件人地址被拒绝(550)，请检查收件邮箱地址"
+                    rawMsg.contains("553", ignoreCase = true) ->
+                        "发件人地址被拒绝(553)，请检查发件邮箱"
+                    rawMsg.contains("554", ignoreCase = true) ->
+                        "邮件被服务端拒绝(554)，可能触发反垃圾策略"
+                    rawMsg.contains("421", ignoreCase = true) ->
+                        "SMTP 服务暂时不可用(421)，请稍后重试"
+                    rawMsg.contains("450", ignoreCase = true) ->
+                        "收件人邮箱不存在或已停用(450)"
+                    rawMsg.contains("504", ignoreCase = true) ->
+                        "SMTP 认证方式不支持(504)，请检查 SSL 开关设置"
+                    rawMsg.contains("Connection refused", ignoreCase = true) ->
+                        "连接被拒绝，请检查 SMTP 地址和端口"
+                    rawMsg.contains("UnknownHost", ignoreCase = true) || rawMsg.contains("Unable to resolve host", ignoreCase = true) ->
+                        "无法解析 SMTP 服务器地址，请检查域名是否正确"
+                    rawMsg.contains("connect", ignoreCase = true) && rawMsg.contains("timed out", ignoreCase = true) ->
+                        "连接超时，请检查网络或防火墙设置"
+                    else -> "邮件发送失败：${rawMsg.take(80)}"
+                }
+            }
+            else -> "发送失败: ${e.message.orEmpty().take(80)}"
         }
     }
 

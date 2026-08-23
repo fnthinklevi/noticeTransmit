@@ -71,12 +71,18 @@ class NotificationProcessor(private val context: Context) {
         // 内容兜底链：大文本 → 正文 → MessagingStyle 消息 → 多行文本 → ticker → 副标题。
         // 会话类通知（微信/QQ/Telegram 等）正文可能只存在于 MessagingStyle.messages 中，
         // 仅读 EXTRA_TEXT 会导致"标题和正文都为空被跳过"的漏通知。
-        val content = bigText
+        var content = bigText
             .ifEmpty { text }
             .ifEmpty { messagingContent }
             .ifEmpty { textLines }
             .ifEmpty { ticker }
             .ifEmpty { subText }
+        // B3 星号兜底：锁屏脱敏时正文显示为 ******，直接转发无价值，
+        // 改为发送提示（验证码等敏感内容需解锁后查看）
+        if (isMaskedContent(content)) {
+            content = "验证码内容被锁屏隐藏（显示为 ${content.trim()}），请解锁后查看"
+            Log.d(TAG, "Notification content masked, replaced with hint: $packageName")
+        }
         if (title.isEmpty() && content.isEmpty()) return null
 
         val baseAppName = getAppNameByPackage(packageName)
@@ -106,6 +112,20 @@ class NotificationProcessor(private val context: Context) {
             deviceName = "",
             priority = extractPriority(notification)
         )
+    }
+
+    /**
+     * B3 星号兜底：检测正文是否被锁屏脱敏（如验证码显示为 ******）。
+     * 判定：长度 ≥ 4 且全部由掩码字符（* · ● • ﹡ × ○）+ 空格组成，不含数字/字母。
+     */
+    private fun isMaskedContent(content: String): Boolean {
+        val trimmed = content.trim()
+        if (trimmed.length < 4) return false
+        val maskedChars = setOf('*', '·', '●', '•', '﹡', '×', '○')
+        for (c in trimmed) {
+            if (c != ' ' && c !in maskedChars) return false
+        }
+        return true
     }
 
     /**
