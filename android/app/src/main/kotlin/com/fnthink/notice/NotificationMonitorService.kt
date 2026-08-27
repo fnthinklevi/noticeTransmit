@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.content.Intent
@@ -137,23 +138,92 @@ class NotificationMonitorService : NotificationListenerService() {
         applyMonitoringState()
     }
 
+    // —— 监听断线自恢复（锁屏 / Doze / 内存压力下系统可能解绑监听连接）——
+    // 断开时间戳：用于重连后补扫断线期间新发布的活跃通知（0 = 无断线发生）
+    @Volatile private var disconnectedAt: Long = 0L
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var rebindRetry: Runnable? = null
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         isConnected = true
         listenerConnected = true
+        cancelRebindRetry()
         // 恢复连接后立即刷新前台通知，撤掉"监听已断开"警告
         try { updateForegroundNotification() } catch (_: Exception) {}
         Log.i(TAG, "Notification listener connected")
+        recoverMissedNotifications()
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         isConnected = false
         listenerConnected = false
+        disconnectedAt = System.currentTimeMillis()
         // 监听断开后 onNotificationPosted 不再回调，通知会静默漏读。
-        // 刷新前台通知给出明确警告，引导用户检查通知使用权。
+        // 刷新前台通知给出明确警告，并主动重新请求绑定自恢复。
         try { updateForegroundNotification() } catch (_: Exception) {}
-        Log.i(TAG, "Notification listener disconnected")
+        Log.i(TAG, "Notification listener disconnected, requesting rebind")
+        requestRebindCompat()
+    }
+
+    /**
+     * 重新请求绑定监听连接。官方文档明确：
+     * requestRebind(ComponentName) 是 onListenerDisconnected 之后唯一安全的恢复调用。
+     * 调用可能被系统节流或失败，15 秒后仍未重连则再试一次。
+     */
+    private fun requestRebindCompat() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
+        try {
+            NotificationListenerService.requestRebind(
+                ComponentName(this, NotificationMonitorService::class.java)
+            )
+            rebindRetry?.let { mainHandler.removeCallbacks(it) }
+            val retry = Runnable {
+                if (!isConnected) {
+                    Log.w(TAG, "Still disconnected after rebind, retrying")
+                    try {
+                        NotificationListenerService.requestRebind(
+                            ComponentName(this, NotificationMonitorService::class.java)
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "rebind retry failed", e)
+                    }
+                }
+            }
+            rebindRetry = retry
+            mainHandler.postDelayed(retry, 15_000L)
+        } catch (e: Exception) {
+            Log.e(TAG, "requestRebind failed", e)
+        }
+    }
+
+    private fun cancelRebindRetry() {
+        rebindRetry?.let { mainHandler.removeCallbacks(it) }
+        rebindRetry = null
+    }
+
+    /**
+     * 重连补漏：断线期间新发布且仍驻留在通知栏的通知不会触发 onNotificationPosted，
+     * 从系统活跃通知快照中按 postTime 过滤出断线之后发布的条目，走同一处理管道补推，
+     * 避免静默漏读。常驻通知由 processNotification 内 dedupKey 去重跳过；
+     * 断线之前发布的普通通知（postTime < disconnectedAt）不回放，防止重复推送。
+     */
+    private fun recoverMissedNotifications() {
+        val since = disconnectedAt
+        if (since <= 0L) return
+        disconnectedAt = 0L
+        try {
+            val active = activeNotifications ?: return
+            val missed = active.filter { it.postTime >= since }
+            if (missed.isEmpty()) return
+            Log.i(TAG, "Recovering ${missed.size} notification(s) posted while disconnected")
+            for (sbn in missed) {
+                dispatchPosted(sbn)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to recover missed notifications", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -204,6 +274,8 @@ class NotificationMonitorService : NotificationListenerService() {
         }
         delayedPushReceiver = null
         batteryMonitor.stopPolling()
+        cancelRebindRetry()
+        mainHandler.removeCallbacksAndMessages(null)
         cancelBatteryAlarm()
         webhookSender.destroy()
         serviceScope.cancel()
@@ -212,6 +284,12 @@ class NotificationMonitorService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
+        dispatchPosted(sbn)
+    }
+
+    // 单条通知完整处理管道：提取 → 过滤 → 规则决策 → 分发
+    // （onNotificationPosted 与重连补漏 recoverMissedNotifications 共用）
+    private fun dispatchPosted(sbn: StatusBarNotification) {
         if (!monitoringEnabled) return
         Log.d(TAG, "Notification posted: ${sbn.packageName}")
 
