@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.60/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.61/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -54,6 +54,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start; built-in OEM ROM keep-alive guide (battery unrestricted / auto-start / task lock, one-tap jump to vendor settings)
 - 📡 **Listener Reliability** - Fallback content extraction for conversation-style notifications (WeChat/QQ/Telegram etc.) whose body only exists in MessagingStyle; dedup key includes the notification tag to avoid missed reads; warns "listener disconnected · notifications may be missed" when notification access is revoked by the system
+- 📩 **SMS Reliability (v1.5.61)** - SMS uses a dual-path design: besides the primary `SMS_RECEIVED` broadcast, a SMS-database ContentObserver catches messages missed by the broadcast; both paths are deduplicated by content fingerprint so nothing is pushed twice. Verification codes are extracted automatically and delivered as a dedicated field
 - ⏸️ **One-tap Pause Push** - Pause/resume push via foreground notification action button (monitoring continues, only webhook sending stops), state persists across restarts; messages received while paused show a "user-paused" status in history, with a one-tap "push now" manual resend
 - 🔄 **Online Update** - Support version update, no need to reinstall APK; downloads via system downloader (DownloadManager) in background — no storage permission needed, uninterrupted when screen is off; multi-source fallback (CDN / GitHub mirror / GitHub direct, matched by device ABI); flexible deployment modes (Node.js server / GitHub Pages static deployment, client auto-compatibility)
 - 📲 **Cupertino Design Language** - Adopt Cupertino (iOS) system design language, clean and elegant interface

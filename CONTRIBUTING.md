@@ -120,7 +120,8 @@ cd server && npm start    # 默认端口 3456，访问 /health 验证
 flutter pub get
 dart format lib/
 flutter analyze                  # 仅允许风格提示，不允许 error
-flutter test                    # 若有单元测试
+flutter test                    # Dart 单元测试
+(cd android && ./gradlew testDebugUnitTest)   # Android 原生单元测试（仅改 android/ 时；依赖 junit 4.13.2）
 
 # 服务端（仅改 server/ 时）
 cd server

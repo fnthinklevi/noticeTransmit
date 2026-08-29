@@ -170,6 +170,8 @@ dependencies {
     // 原生端加密存储（C2）：与 flutter_secure_storage 9.2.4 同源同版本，
     // 保证 EncryptedSharedPreferences 主密钥（AndroidKeyStore 同一 alias）与算法一致，可跨端读写
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    // 原生侧单元测试（如验证码提取 SmsDispatcher.extractCode）
+    testImplementation("junit:junit:4.13.2")
 }
 
 flutter {

@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.60",
-  "latestBuild": 95,
+  "latestVersion": "1.5.61",
+  "latestBuild": 96,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.59",
   "forceUpdateBuild": 93,
-  "changelog": "v1.5.60+95: 修复首页推送历史偶发一直显示\"推送中\"（送达结果补偿机制） + Android 12-13精确闹钟权限Intent兼容修复（去除可选data参数） + 精确闹钟开关(Doze下准点触发,可降级) + 国产ROM保活引导卡片 + 锁屏验证码星号兜底 + 邮件通道重试与错误分类 + 正则超长保护 + 证书固定框架/配置加密桥接(安全加固)",
+  "changelog": "v1.5.61+96: 短信读取可靠性修复(新增短信库ContentObserver兜底链路 + SmsDispatcher统一处理入口 + 跨链路去重,修复验证码短信被丢弃、异步推送被进程回收中断、服务销毁后短信静默丢失) + 验证码自动提取(verificationCode/code字段) + gradlew wrapper版本错配修复",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_arm64_1.5.60.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_arm32_1.5.60.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_x86_1.5.60.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.60/notice_all_1.5.60.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_arm64_1.5.61.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_arm32_1.5.61.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_x86_1.5.61.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_all_1.5.61.apk"
   },
   "fileSizes": {
-    "arm64": 26648558,
-    "arm32": 22560852,
-    "x86_64": 28681562,
-    "all": 72903919
+    "arm64": 26664944,
+    "arm32": 22577245,
+    "x86_64": 28697957,
+    "all": 72920304
   },
   "minSupportedVersion": "1.0.0"
 }

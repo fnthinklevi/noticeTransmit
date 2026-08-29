@@ -6,10 +6,9 @@ import android.content.Intent
 import android.os.Build
 import android.telephony.SmsMessage
 import android.util.Log
-import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class SmsReceiver : BroadcastReceiver() {
 
@@ -21,149 +20,105 @@ class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         context ?: return
         intent ?: return
-
         if (intent.action != SMS_RECEIVED) return
 
-        try {
-            val configManager = ConfigManager(context)
-            val channelConfigs = configManager.getWebhookChannelConfigs()
-            val deviceName = configManager.getDeviceName().ifEmpty { android.os.Build.MODEL }
-
-            if (channelConfigs.isEmpty()) return
-
-            val bundle = intent.extras ?: return
-            val pdus = bundle.get("pdus") as Array<*>?
-            if (pdus == null || pdus.isEmpty()) return
-
-            val format = bundle.getString("format")
-            var sender = ""
-            var message = ""
-            var timestamp = 0L
-
-            for (pdu in pdus) {
-                val smsMessage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    SmsMessage.createFromPdu(pdu as ByteArray, format)
-                } else {
-                    @Suppress("DEPRECATION")
-                    SmsMessage.createFromPdu(pdu as ByteArray)
-                }
-
-                if (sender.isEmpty()) {
-                    sender = smsMessage.originatingAddress ?: I18n.unknownSender()
-                    timestamp = smsMessage.timestampMillis
-                }
-                message += smsMessage.messageBody ?: ""
-            }
-
-            // 统一通过 SimInfoHelper.getSimInfoFromIntent 入口识别 SIM 卡
-            // 兼容多 key（subscription / EXTRA_SUBSCRIPTION_ID）+ 多策略降级（subId→单卡→slotId→占位）
-            val simInfo = SimInfoHelper.getSimInfoFromIntent(context, intent)?.displayLabel
-            val simLabel = if (simInfo != null) " [$simInfo]" else ""
-
-            if (message.isNotEmpty()) {
-                Log.d(TAG, "收到短信: 来自 $sender$simLabel")
-
-                val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                    .format(Date(timestamp))
-
-                // 接入统一过滤引擎：短信链路与通知链路共用同一套黑白名单
-                // 注意：sms 不走应用过滤（无 packageName 概念），仅按关键词过滤
-                val allowed = FilterEngine.shouldNotify(
-                    packageName = "com.android.mms",
-                    title = I18n.smsNotifyTitle(sender, simInfo),
-                    content = message,
-                    subText = "",
-                    whitelistKeywords = configManager.getWhitelistKeywords(),
-                    enabledPackages = emptySet(),
-                    blacklistKeywords = configManager.getBlacklistKeywords(),
-                    filterMode = "allow",
-                    sourceType = "sms"
-                )
-                if (!allowed) {
-                    Log.d(TAG, "短信被过滤拦截: 来自 $sender")
-                    return
-                }
-
-                for (cfg in channelConfigs) {
-                    sendWebhook(
-                        context = context,
-                        sender = sender,
-                        message = message,
-                        timestamp = timestamp,
-                        timeStr = timeStr,
-                        channelConfig = cfg,
-                        deviceName = deviceName,
-                        simInfo = simInfo
-                    )
+        // goAsync：onReceive 返回后进程优先级骤降、随时可能被回收，
+        // 而 Webhook 是异步请求，必须用 PendingResult 延长进程生命周期到发送完成。
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                handleSmsIntent(context, intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "处理短信失败", e)
+            } finally {
+                try {
+                    pendingResult.finish()
+                } catch (_: Exception) {
                 }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "处理短信失败", e)
         }
     }
 
-    private fun sendWebhook(
-        context: Context,
-        sender: String,
-        message: String,
-        timestamp: Long,
-        timeStr: String,
-        channelConfig: ConfigManager.WebhookChannelConfig,
-        deviceName: String,
-        simInfo: String?
-    ) {
-        val simLabel = if (simInfo != null) " [$simInfo]" else ""
-        // 与 notifyFlutter 中的记录 id 保持一致，供送达结果回传按 id 定位记录
-        val notificationId = "sms_${timestamp}_${sender.hashCode()}"
-        try {
-            val json = org.json.JSONObject().apply {
-                put("type", "sms")
-                put("id", notificationId)
-                put("title", I18n.smsNotifyTitle(sender, simInfo))
-                put("sender", sender)
-                put("content", message)
-                put("message", message)
-                put("packageName", "com.android.mms")
-                put("appName", I18n.smsAppName())
-                put("postTime", timestamp)
-                put("time", timeStr)
-                put("deviceName", deviceName)
-                put("timestamp", System.currentTimeMillis())
-                if (simInfo != null) put("simInfo", simInfo)
-            }
-            // 同步写入离线缓存，避免 Flutter 引擎未就绪时丢失
-            HistoryCache.append(context, json)
+    private fun handleSmsIntent(context: Context, intent: Intent) {
+        val bundle = intent.extras
+        if (bundle == null) {
+            Log.w(TAG, "SMS_RECEIVED 缺少 extras，丢弃")
+            return
+        }
+        // 个别 ROM 下 extras 类型可能与预期不符，用安全强转避免整条短信丢失
+        val pdus = bundle.get("pdus") as? Array<*>
+        if (pdus == null || pdus.isEmpty()) {
+            Log.w(TAG, "SMS_RECEIVED pdus 为空，丢弃")
+            return
+        }
+        val format = bundle.getString("format")
 
-            val intent = Intent(MainActivity.ACTION_NOTIFICATION_RECEIVED).apply {
-                setPackage(context.packageName)
-                putExtra(MainActivity.EXTRA_NOTIFICATION_DATA, json.toString())
+        var sender = ""
+        var timestamp = 0L
+        val body = StringBuilder()
+
+        for (pdu in pdus) {
+            // 单个分段解析失败不应连累其余分段（长短信按多段投递）
+            try {
+                val bytes = pdu as? ByteArray ?: continue
+                val sms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    SmsMessage.createFromPdu(bytes, format)
+                } else {
+                    @Suppress("DEPRECATION")
+                    SmsMessage.createFromPdu(bytes)
+                }
+                if (sender.isEmpty()) {
+                    sender = sms.originatingAddress ?: I18n.unknownSender()
+                    timestamp = sms.timestampMillis
+                }
+                val text = sms.messageBody
+                if (!text.isNullOrEmpty()) {
+                    body.append(text)
+                } else {
+                    // 数据短信 / WAP Push：正文不在 messageBody，回退读用户数据区。
+                    // 部分端口验证码走这类通道，此前会被判为空而整条丢弃。
+                    decodeUserData(sms.userData)?.let { body.append(it) }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "解析单个 pdu 失败，跳过该分段: ${e.message}")
             }
-            context.sendBroadcast(intent)
-        } catch (e: Exception) {
-            Log.e(TAG, "发送短信广播失败", e)
         }
 
-        val payload = WebhookPayloadBuilder.buildSmsPayload(
-            type = channelConfig.type,
+        val message = body.toString()
+        if (message.isBlank()) {
+            Log.w(TAG, "短信正文为空（特殊格式且无法解码），丢弃 sender=$sender")
+            return
+        }
+        if (timestamp == 0L) timestamp = System.currentTimeMillis()
+
+        val simInfo = SimInfoHelper.getSimInfoFromIntent(context, intent)?.displayLabel
+        SmsDispatcher.handle(
+            context = context,
             sender = sender,
             message = message,
-            time = timeStr,
-            deviceName = deviceName,
+            timestamp = timestamp,
             simInfo = simInfo,
-            chatId = WebhookPayloadBuilder.extractChatIdFromUrl(channelConfig.url)
+            source = "broadcast"
         )
+    }
 
-        // 通过 NetworkClient 发送（含签名 + 送达校验），结果回传 Flutter 逐条显示送达状态
-        NetworkClient.sendWithRetry(
-            url = channelConfig.url,
-            payload = payload,
-            tag = "sms",
-            webhookType = channelConfig.type,
-            secret = channelConfig.secret,
-            onResult = { result ->
-                Log.d(TAG, "SMS delivery: ${channelConfig.url.take(40)} → status=${result.status}")
-                DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
+    /**
+     * 数据短信用户数据区解码：优先 UTF-8；出现替换字符说明非文本负载，
+     * 退化为十六进制摘要，保证此类短信不会因正文为空被静默丢弃。
+     */
+    private fun decodeUserData(data: ByteArray?): String? {
+        if (data == null || data.isEmpty()) return null
+        return try {
+            val text = String(data, Charsets.UTF_8)
+            if (text.contains('\uFFFD')) {
+                // Byte 有符号，需掩成无符号再格式化，否则负数会输出错误字节
+                data.joinToString("") { "%02X".format(it.toInt() and 0xFF) }.take(200)
+            } else {
+                text
             }
-        )
+        } catch (e: Exception) {
+            Log.w(TAG, "数据短信解码失败: ${e.message}")
+            null
+        }
     }
 }

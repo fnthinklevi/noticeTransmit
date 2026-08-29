@@ -9,9 +9,11 @@ import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -22,6 +24,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.*
 
 class NotificationMonitorService : NotificationListenerService() {
@@ -136,6 +139,42 @@ class NotificationMonitorService : NotificationListenerService() {
 
         loadConfig()
         applyMonitoringState()
+        registerSmsObserver()
+    }
+
+    // —— 短信库兜底监听：SMS_RECEIVED 广播丢失时，改从短信库捕获并补推 ——
+    private var smsObserver: SmsObserver? = null
+
+    private fun registerSmsObserver() {
+        if (ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.READ_SMS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.i(TAG, "READ_SMS 未授予，跳过短信库兜底监听")
+            return
+        }
+        try {
+            val observer = SmsObserver(this)
+            contentResolver.registerContentObserver(
+                Uri.parse("content://sms"), true, observer
+            )
+            smsObserver = observer
+            observer.markBaseline()
+            Log.i(TAG, "短信库兜底监听已注册")
+        } catch (e: Exception) {
+            Log.w(TAG, "注册短信库兜底监听失败: ${e.message}")
+            smsObserver = null
+        }
+    }
+
+    private fun unregisterSmsObserver() {
+        smsObserver?.let {
+            try {
+                contentResolver.unregisterContentObserver(it)
+            } catch (_: Exception) {
+            }
+        }
+        smsObserver = null
     }
 
     // —— 监听断线自恢复（锁屏 / Doze / 内存压力下系统可能解绑监听连接）——
@@ -278,6 +317,7 @@ class NotificationMonitorService : NotificationListenerService() {
         mainHandler.removeCallbacksAndMessages(null)
         cancelBatteryAlarm()
         webhookSender.destroy()
+        unregisterSmsObserver()
         serviceScope.cancel()
         Log.i(TAG, "Service destroyed")
     }
