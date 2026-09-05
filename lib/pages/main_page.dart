@@ -359,6 +359,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           data['webhookType']?.toString() ?? '',
           data['status']?.toString() ?? '',
           data['message']?.toString() ?? '',
+          httpCode: (data['httpCode'] as num?)?.toInt() ?? 0,
+          channelUrl: data['channelUrl']?.toString() ?? '',
         );
         setState(() {});
       } else if (call.method == 'onBatteryChanged') {

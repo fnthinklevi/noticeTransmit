@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:workmanager/workmanager.dart';
 import 'archive_worker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
@@ -69,6 +67,8 @@ class NotificationService {
           map['webhookType']?.toString() ?? '',
           map['status']?.toString() ?? '',
           map['message']?.toString() ?? '',
+          httpCode: (map['httpCode'] as num?)?.toInt() ?? 0,
+          channelUrl: map['channelUrl']?.toString() ?? '',
         );
       }
       debugPrint('[DeliveryResultStore] 补更新 ${results.length} 条送达结果');
@@ -215,37 +215,63 @@ class NotificationService {
         return 'webhook:PushPlus';
       case 'EMAIL':
         return '邮件';
+      case 'SMS':
+      case 'FILTER':
+        // 短信兜底链路 / 通知被黑白名单或应用过滤拦截：历史中显示为过滤拦截
+        return '过滤拦截';
       default:
         return 'webhook:Webhook';
     }
   }
 
-  /// 更新单条记录的送达状态（Kotlin 端 onDeliveryResult 回传）
+  /// 更新单条记录的送达状态（Kotlin 端 onDeliveryResult 回传），
+  /// 终态（success/failed）同时写入 webhook_delivery_log 送达日志。
   Future<void> updateDelivery(
     String notificationId,
     String kotlinType,
     String status,
-    String message,
-  ) async {
+    String message, {
+    int httpCode = 0,
+    String channelUrl = '',
+  }) async {
     if (notificationId.isEmpty) return;
     final idx = _records.indexWhere((r) => r.id == notificationId);
-    if (idx < 0) return;
     final label = _deliveryLabel(kotlinType);
-    final updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);
     // SUCCESS → 成功；PAUSED（用户暂停推送，未实际发送）→ paused；其余 → failed
     final normalized = switch (status) {
       'SUCCESS' => 'success',
       'PAUSED' => 'paused',
       _ => 'failed',
     };
-    updated[label] = {'status': normalized, 'message': message};
-    final newRecord = _records[idx].copyWith(deliveryStatus: updated);
-    _records[idx] = newRecord;
-    try {
-      await DatabaseHelper().updateNotificationDelivery(newRecord.id, updated);
-    } catch (e) {
-      // DB 持久化失败不影响内存送达状态显示
-      debugPrint('更新送达状态到 DB 失败: $e');
+    if (idx >= 0) {
+      final updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);
+      updated[label] = {'status': normalized, 'message': message};
+      final newRecord = _records[idx].copyWith(deliveryStatus: updated);
+      _records[idx] = newRecord;
+      try {
+        await DatabaseHelper().updateNotificationDelivery(
+          newRecord.id,
+          updated,
+        );
+      } catch (e) {
+        // DB 持久化失败不影响内存送达状态显示
+        debugPrint('更新送达状态到 DB 失败: $e');
+      }
+    }
+    // 送达日志只记终态（paused 未实际发送，不落日志）
+    if (normalized != 'paused') {
+      try {
+        await DatabaseHelper().insertDeliveryLog(
+          channelUrl: channelUrl,
+          notificationId: notificationId,
+          tag: label,
+          status: normalized,
+          httpCode: httpCode,
+          message: message,
+        );
+      } catch (e) {
+        debugPrint('写入送达日志失败: $e');
+      }
     }
   }
 
@@ -322,31 +348,33 @@ class NotificationService {
     _records.clear();
   }
 
-  Future<String> exportRecords(
+  /// 构建导出 JSON 字符串。
+  /// 全量数据直读 DB（不受内存 500 条上限约束）；DB 不可用时回退内存记录。
+  /// 与旧 exportRecords 双轨实现已合并为本方法，字段统一为 recordCount。
+  Future<String> buildExportJson(
     String deviceName,
     String deviceModel,
     String manufacturer,
   ) async {
-    final directory = await getExternalStorageDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final file = File(
-      '${directory?.path}/notification_records_$timestamp.json',
-    );
-
-    final exportData = {
-      '_warning':
-          '此文件包含设备通知记录与应用使用数据，请妥善保管，避免泄露。'
-          '导出后建议及时从设备中删除此文件。',
+    List<Map<String, dynamic>> records;
+    try {
+      records = (await DatabaseHelper().getAllNotifications())
+          .map((e) => NotificationRecord.fromMap(e).toMap())
+          .toList();
+    } catch (e) {
+      debugPrint('导出读取 DB 失败，回退内存记录: $e');
+      records = _records.map((r) => r.toMap()).toList();
+    }
+    final data = {
+      '_warning': '此文件包含设备通知记录，请妥善保管。',
       'exportTime': DateTime.now().toIso8601String(),
       'deviceName': deviceName,
       'deviceModel': deviceModel,
       'manufacturer': manufacturer,
-      'totalCount': _records.length,
-      'records': _records.map((r) => r.toMap()).toList(),
+      'recordCount': records.length,
+      'records': records,
     };
-
-    await file.writeAsString(jsonEncode(exportData), mode: FileMode.write);
-    return file.path;
+    return const JsonEncoder.withIndent('  ').convert(data);
   }
 
   Future<void> _saveRecords(Map<String, dynamic> record) async {
@@ -434,24 +462,6 @@ class NotificationService {
     }
     _records.removeWhere((r) => r.postTime >= startMs && r.postTime <= endMs);
     return toDelete.length;
-  }
-
-  /// 构建导出 JSON 字符串
-  Future<String> buildExportJson(
-    String deviceName,
-    String deviceModel,
-    String manufacturer,
-  ) async {
-    final data = {
-      '_warning': '此文件包含设备通知记录，请妥善保管。',
-      'exportTime': DateTime.now().toIso8601String(),
-      'deviceName': deviceName,
-      'deviceModel': deviceModel,
-      'manufacturer': manufacturer,
-      'recordCount': _records.length,
-      'records': _records.map((r) => r.toMap()).toList(),
-    };
-    return const JsonEncoder.withIndent('  ').convert(data);
   }
 
   /// 清除最近 N 条通知

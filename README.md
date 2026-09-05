@@ -6,7 +6,7 @@
 
 **[English](README-en.md) / 中文**
 
-为 Android 设备提供**隐私优先**的通知转发工具。全链路本地处理，数据零上传。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）和 SMTP 邮件多通道推送，桌面小部件一键启停推送，全部配置 AES-256 加密存储。**全应用中英双语国际化**。
+为 Android 设备提供**隐私优先**的通知转发工具。全链路本地处理，数据零上传（唯一例外为崩溃上报：默认关闭，仅在您主动开启后向腾讯 Bugly 上报崩溃日志，详见[隐私说明](#隐私说明)）。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）和 SMTP 邮件多通道推送，桌面小部件一键启停推送，全部配置 AES-256 加密存储。**全应用中英双语国际化**。
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
@@ -23,7 +23,7 @@
 
 ## 简介
 
-通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）或 SMTP 邮件实时推送至目标平台，桌面小部件一键启停推送。全链路本地处理，数据零上传。全应用中英双语国际化。开源 MIT，免费无广告。
+通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）或 SMTP 邮件实时推送至目标平台，桌面小部件一键启停推送。全链路本地处理，数据零上传（崩溃上报默认关闭，开启后才向腾讯 Bugly 上报崩溃日志）。全应用中英双语国际化。开源 MIT，免费无广告。
 
 ## 功能特性
 
@@ -65,7 +65,7 @@
 
 - 🔐 **二步验证（TOTP）** - 管理后台登录启用二步验证，兼容 Google Authenticator
 - 🔑 **bcrypt 哈希** - Token 使用 bcrypt 哈希验证，防暴力破解
-- 🛡️ **IP 封锁** - 10分钟内输错3次验证码自动封锁IP 240小时
+- 🛡️ **IP 封锁** - 10分钟内输错5次验证码自动封锁IP 1小时
 - 🔢 **恢复码** - 生成8个恢复码，设备丢失时可找回账户
 - 🔒 **敏感数据加密** - TOTP secret 使用 AES-256-GCM 加密存储
 - 🎭 **混淆规则就绪** - 已配置 ProGuard/R8 混淆规则文件（`proguard-rules.pro`），Release 构建启用代码混淆与资源压缩
@@ -73,7 +73,7 @@
 - 🎲 **安全随机数** - 使用 crypto.randomUUID() 生成会话 ID
 - 🗄️ **SQLite 加密** - 通知记录、Webhook 配置、邮件通道全部 AES-256 加密存储，密钥存于 AndroidKeyStore
 - 🔑 **Webhook 密钥安全** - Webhook URL（含钉钉/企微/飞书认证 key）使用 AndroidKeyStore 加密存储
-- 🔐 **SSL 证书固定** - `PinnedHttpClient` 基础设施（2 个 HTTP 客户端）已就位，为 HTTPS 证书安全层，当前通过 Cloudflare CDN 间接保护
+- 🔐 **SSL 证书固定** - `PinnedHttpClient` 基础设施（2 个 HTTP 客户端）已就位，为 HTTPS 证书安全层，**默认未启用**，当前通过 Cloudflare CDN 间接保护；证书轮换/启用流程见 [docs/cert_rotation_runbook.md](docs/cert_rotation_runbook.md)
 - 🔒 **HTTPS 强制** - 全站 HTTPS，`network_security_config.xml` 禁止明文传输
 
 ## 技术栈
@@ -93,7 +93,7 @@
 | 跨端通信 | MethodChannel (统一声明) |
 | 崩溃统计 | 腾讯 Bugly 4.1.9.3 |
 | 服务端 | Node.js + Express 4.x (Token鉴权 + 二步验证) / GitHub Pages 静态部署 |
-| TOTP验证 | otplib (^12.0.1) |
+| TOTP验证 | otplib (^13.0.1) |
 | 密码哈希 | bcryptjs (^2.4.3) |
 | 数据加密 | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
 | 构建工具 | Gradle 9.5.0 + AGP 9.3.0 + JDK 21 |
@@ -223,19 +223,26 @@ flutter build apk --release --target-platform android-arm64
 |----------|----------|------|
 | **通知内容** | ❌ 不上传 | 所有通知仅在本地处理和推送，不上传到任何服务器 |
 | **通讯录/短信** | ❌ 不上传 | 仅本地监听用于推送，不上传到任何服务器 |
-| **设备标识** | ⚠️ 仅崩溃统计用 | Bugly SDK 用于设备去重统计 |
-| **崩溃信息** | ✅ 采集 | 通过 Bugly 收集崩溃堆栈，用于修复问题 |
+| **设备标识** | ⚠️ 仅崩溃上报开启时 | Bugly SDK 用于设备去重统计；崩溃上报默认关闭 |
+| **崩溃信息** | ⚠️ 仅崩溃上报开启时 | 用户主动开启后才通过 Bugly 收集崩溃堆栈 |
 
-### Bugly 崩溃统计
+### Bugly 崩溃上报（默认关闭，需用户同意）
 
+- **默认状态**：关闭。应用冷启动**不会初始化** Bugly SDK，不出网；仅在「更多 → 崩溃上报」开关开启（视为用户同意）后才初始化并开始上报
 - **用途**：仅用于收集应用崩溃信息，帮助开发者快速定位和修复问题
 - **采集内容**：崩溃堆栈、应用版本号、系统版本、设备型号、CPU 架构
+- **数据去向**：上传至腾讯 Bugly 服务器（[https://bugly.qq.com](https://bugly.qq.com)），仅开发者可访问，用于问题分析
 - **不采集**：用户通讯录、短信内容、通知内容、位置信息等任何个人隐私数据
-- **服务商**：腾讯 Bugly ([https://bugly.qq.com](https://bugly.qq.com))
+- **如何关闭**：关闭「更多 → 崩溃上报」开关即可；因 SDK 无反初始化能力，关闭在下次冷启动后完全生效
+- **合规依据**：上述范围按《个人信息保护法》(PIPL) 最小必要原则披露；未开启开关前不发生任何数据出网
 
 ### 推送数据
 
-所有通知推送均通过用户自行配置的 Webhook URL 发送。仅 Bugly 采集最小必要的崩溃统计（堆栈、设备型号、系统版本、应用版本），不包含任何个人隐私数据。
+所有通知推送均通过用户自行配置的 Webhook URL 发送。仅在崩溃上报开启后，Bugly 采集最小必要的崩溃统计（堆栈、设备型号、系统版本、应用版本），不包含任何个人隐私数据。
+
+### 分发渠道说明
+
+本应用包含 `RECEIVE_SMS` / `READ_SMS` / `REQUEST_INSTALL_PACKAGES` 等敏感权限（短信通知识别转发与应用内更新为其核心功能），不符合 Google Play 政策对短消息类权限的发行要求，因此**不通过 Google Play 分发**，采用官网与 GitHub Releases 等自有渠道分发 APK。安装前请从可信渠道获取安装包。
 
 ## 常见问题与排错
 

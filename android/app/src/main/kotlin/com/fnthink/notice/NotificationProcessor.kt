@@ -202,7 +202,8 @@ class NotificationProcessor(private val context: Context) {
         }
     }
 
-    fun shouldNotify(
+    /** 带过滤原因版：返回 FilterResult，供服务端完成「拦截入历史 / 白名单标注」 */
+    fun filter(
         packageName: String,
         title: String,
         content: String,
@@ -211,10 +212,10 @@ class NotificationProcessor(private val context: Context) {
         enabledPackages: Set<String>,
         blacklistKeywords: List<String>,
         filterMode: String = "allow"
-    ): Boolean {
+    ): FilterResult {
         // 委托给统一过滤引擎，与 SMS / Call 链路共用同一套规则
         // 修复点：黑名单优先级最高（原代码白名单命中后短路 return true，会跳过黑名单检查）
-        return FilterEngine.shouldNotify(
+        return FilterEngine.filter(
             packageName = packageName,
             title = title,
             content = content,
@@ -226,6 +227,20 @@ class NotificationProcessor(private val context: Context) {
             sourceType = "notification"
         )
     }
+
+    fun shouldNotify(
+        packageName: String,
+        title: String,
+        content: String,
+        subText: String,
+        whitelistKeywords: List<String>,
+        enabledPackages: Set<String>,
+        blacklistKeywords: List<String>,
+        filterMode: String = "allow"
+    ): Boolean = filter(
+        packageName, title, content, subText,
+        whitelistKeywords, enabledPackages, blacklistKeywords, filterMode
+    ).allowed
 
     private fun getAppNameByPackage(packageName: String): String {
         return try {

@@ -3,6 +3,32 @@ package com.fnthink.notice
 import android.util.Log
 
 /**
+ * 过滤命中来源：DEFAULT=默认放行 / WHITELIST=白名单命中 / BLACKLIST=黑名单命中 / APP_FILTER=应用过滤拦截
+ */
+enum class FilterSource { DEFAULT, WHITELIST, BLACKLIST, APP_FILTER }
+
+/**
+ * 统一过滤结果：除放行/拦截外，还携带命中来源与关键词，
+ * 供链路上层完成「白名单推送备注」「黑名单拦截入历史并标注失败原因」。
+ */
+data class FilterResult(
+    val allowed: Boolean,
+    val source: FilterSource,
+    val keyword: String = ""
+) {
+    /** 拦截原因（双语，可直接展示）；放行时为空串 */
+    fun blockReason(): String = when (source) {
+        FilterSource.BLACKLIST -> I18n.filterBlacklistReason(keyword)
+        FilterSource.APP_FILTER -> I18n.filterAppBlockReason()
+        else -> ""
+    }
+
+    /** 白名单备注标签；非白名单命中时为 null */
+    fun whitelistTag(): String? =
+        if (source == FilterSource.WHITELIST) I18n.whitelistTag() else null
+}
+
+/**
  * 统一过滤引擎
  *
  * 三条通知链路（通知栏 / SMS / Call）全部经过本引擎过滤，避免 SmsReceiver/PhoneCallReceiver
@@ -75,6 +101,65 @@ object FilterEngine {
      * @param sourceType 通知来源：notification / sms / call。sms 与 call 不走应用过滤
      * @param filterMode 应用过滤模式：allow（白名单模式，默认）/ block（黑名单模式）
      */
+    /**
+     * 统一过滤入口（带原因版）：返回 FilterResult，携带命中来源与关键词。
+     * 调用方据此完成「白名单推送备注」「黑名单拦截入历史并标注失败原因」。
+     */
+    fun filter(
+        packageName: String,
+        title: String,
+        content: String,
+        subText: String,
+        whitelistKeywords: List<String>,
+        enabledPackages: Set<String>,
+        blacklistKeywords: List<String>,
+        filterMode: String = "allow",
+        sourceType: String = "notification"
+    ): FilterResult {
+        val fullText = normalize("$title $content $subText")
+        val pkg = packageName.lowercase()
+
+        // 1. 黑名单优先级最高
+        for (raw in blacklistKeywords) {
+            if (raw.isBlank()) continue
+            if (matchKeyword(fullText, raw)) {
+                Log.d(TAG, "[$sourceType] 黑名单命中关键词='$raw' pkg=$pkg title='$title'")
+                return FilterResult(false, FilterSource.BLACKLIST, raw)
+            }
+        }
+
+        // 2. 白名单关键词命中 → 直接放行（无视应用过滤）
+        for (raw in whitelistKeywords) {
+            if (raw.isBlank()) continue
+            if (matchKeyword(fullText, raw)) {
+                Log.d(TAG, "[$sourceType] 白名单命中关键词='$raw' pkg=$pkg title='$title'")
+                return FilterResult(true, FilterSource.WHITELIST, raw)
+            }
+        }
+
+        // 3. 应用过滤（仅 notification 生效）
+        if (sourceType == "notification") {
+            if (filterMode == "block") {
+                // 黑名单模式：enabledPackages 中的应用不推送
+                if (enabledPackages.contains(packageName)) {
+                    Log.d(TAG, "[$sourceType] 应用黑名单命中 pkg=$packageName")
+                    return FilterResult(false, FilterSource.APP_FILTER)
+                }
+            } else {
+                // 白名单模式：仅 enabledPackages 中的应用推送
+                if (enabledPackages.isNotEmpty() && !enabledPackages.contains(packageName)) {
+                    Log.d(TAG, "[$sourceType] 应用白名单未命中 pkg=$packageName")
+                    return FilterResult(false, FilterSource.APP_FILTER)
+                }
+            }
+        }
+
+        return FilterResult(true, FilterSource.DEFAULT)
+    }
+
+    /**
+     * 统一过滤入口（布尔版）：电话链路等不关心命中原因的调用方使用。
+     */
     fun shouldNotify(
         packageName: String,
         title: String,
@@ -85,45 +170,8 @@ object FilterEngine {
         blacklistKeywords: List<String>,
         filterMode: String = "allow",
         sourceType: String = "notification"
-    ): Boolean {
-        val fullText = normalize("$title $content $subText")
-        val pkg = packageName.lowercase()
-
-        // 1. 黑名单优先级最高
-        for (raw in blacklistKeywords) {
-            if (raw.isBlank()) continue
-            if (matchKeyword(fullText, raw)) {
-                Log.d(TAG, "[$sourceType] 黑名单命中关键词='$raw' pkg=$pkg title='$title'")
-                return false
-            }
-        }
-
-        // 2. 白名单关键词命中 → 直接放行（无视应用过滤）
-        for (raw in whitelistKeywords) {
-            if (raw.isBlank()) continue
-            if (matchKeyword(fullText, raw)) {
-                Log.d(TAG, "[$sourceType] 白名单命中关键词='$raw' pkg=$pkg title='$title'")
-                return true
-            }
-        }
-
-        // 3. 应用过滤（仅 notification 生效）
-        if (sourceType == "notification") {
-            if (filterMode == "block") {
-                // 黑名单模式：enabledPackages 中的应用不推送
-                if (enabledPackages.contains(packageName)) {
-                    Log.d(TAG, "[$sourceType] 应用黑名单命中 pkg=$packageName")
-                    return false
-                }
-            } else {
-                // 白名单模式：仅 enabledPackages 中的应用推送
-                if (enabledPackages.isNotEmpty() && !enabledPackages.contains(packageName)) {
-                    Log.d(TAG, "[$sourceType] 应用白名单未命中 pkg=$packageName")
-                    return false
-                }
-            }
-        }
-
-        return true
-    }
+    ): Boolean = filter(
+        packageName, title, content, subText,
+        whitelistKeywords, enabledPackages, blacklistKeywords, filterMode, sourceType
+    ).allowed
 }

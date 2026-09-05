@@ -1,0 +1,920 @@
+{
+  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。",
+  "cases": [
+    {
+      "name": "title_contains 半角精确命中",
+      "rule": {
+        "id": "r1",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "xxx abc yyy",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "title_contains 条件值全角转半角后命中",
+      "rule": {
+        "id": "r2",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "ＡＢＣ",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc def",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "title_contains 文本全角转半角后命中",
+      "rule": {
+        "id": "r3",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "ＡＢＣ",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "content_contains 全角标点转半角后命中",
+      "rule": {
+        "id": "r4",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "content_contains",
+            "value": "优惠!",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "限时优惠！！",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "title_contains 连续半角与全角空白折叠后命中",
+      "rule": {
+        "id": "r5",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "满 减 活动",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "满  减　活动",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "title_contains 大小写不敏感",
+      "rule": {
+        "id": "r6",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "Server ERROR",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "server error",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "title_not_contains 未包含时命中",
+      "rule": {
+        "id": "r7",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_not_contains",
+            "value": "xyz",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "title_not_contains 包含时不命中",
+      "rule": {
+        "id": "r8",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_not_contains",
+            "value": "abc",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "content_not_contains 未包含时命中",
+      "rule": {
+        "id": "r9",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "content_not_contains",
+            "value": "spam",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "hello world",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "空条件值除包名外一律不匹配",
+      "rule": {
+        "id": "r10",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "纯空白条件值视为空值不匹配",
+      "rule": {
+        "id": "r11",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "   ",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "条件值首尾空白被 trim",
+      "rule": {
+        "id": "r12",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "  abc  ",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "xxabcxx",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "package_name 相等命中",
+      "rule": {
+        "id": "r13",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "com.a.b",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a.b",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "package_name 是全等而非子串匹配",
+      "rule": {
+        "id": "r14",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "com.a",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a.b",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "package_name 空值与非空包名不匹配",
+      "rule": {
+        "id": "r15",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "priority high 命中 p2",
+      "rule": {
+        "id": "r16",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "high",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 2
+      },
+      "expected": true
+    },
+    {
+      "name": "priority high 不命中 p1",
+      "rule": {
+        "id": "r17",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "high",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "priority medium 命中 p1",
+      "rule": {
+        "id": "r18",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "medium",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "priority medium 不命中 p0",
+      "rule": {
+        "id": "r19",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "medium",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 0
+      },
+      "expected": false
+    },
+    {
+      "name": "priority low 命中 p0",
+      "rule": {
+        "id": "r20",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "low",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 0
+      },
+      "expected": true
+    },
+    {
+      "name": "priority low 不命中 p1",
+      "rule": {
+        "id": "r21",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "low",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "priority 值大小写不敏感",
+      "rule": {
+        "id": "r22",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "HIGH",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 2
+      },
+      "expected": true
+    },
+    {
+      "name": "regex_match 数字模式命中",
+      "rule": {
+        "id": "r23",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "regex_match",
+            "value": "\\d{4}",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "code 1234 ok",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "regex_match 大小写敏感",
+      "rule": {
+        "id": "r24",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "regex_match",
+            "value": "Error",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "error here",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "regex_match 非法正则返回 false",
+      "rule": {
+        "id": "r25",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "regex_match",
+            "value": "[",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "any",
+        "content": "any",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "regex_match 超长正则直接拒绝",
+      "rule": {
+        "id": "r26",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "regex_match",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "aaaa",
+        "content": "aaaa",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "time_range 全天范围恒命中",
+      "rule": {
+        "id": "r27",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "time_range",
+            "value": "00:00-23:59",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "AND 组一真一假整体为假",
+      "rule": {
+        "id": "r28",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "content_contains",
+            "value": "xyz",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc here",
+        "content": "nothing",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "AND 组全真整体为真",
+      "rule": {
+        "id": "r29",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "content_contains",
+            "value": "xyz",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc here",
+        "content": "has xyz",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "OR 组一真一假整体为真",
+      "rule": {
+        "id": "r30",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "or"
+          },
+          {
+            "id": "c2",
+            "type": "content_contains",
+            "value": "xyz",
+            "logic": "or"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "aaa",
+        "content": "has xyz",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "多组 OR 第一组真即命中",
+      "rule": {
+        "id": "r31",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "content_contains",
+            "value": "xyz",
+            "logic": "and"
+          },
+          {
+            "id": "c3",
+            "type": "title_contains",
+            "value": "qqq",
+            "logic": "or"
+          },
+          {
+            "id": "c4",
+            "type": "content_contains",
+            "value": "www",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc",
+        "content": "xyz",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "多组 OR 第二组真即命中",
+      "rule": {
+        "id": "r32",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "content_contains",
+            "value": "xyz",
+            "logic": "and"
+          },
+          {
+            "id": "c3",
+            "type": "title_contains",
+            "value": "qqq",
+            "logic": "or"
+          },
+          {
+            "id": "c4",
+            "type": "content_contains",
+            "value": "www",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "qqq",
+        "content": "www",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "多组 OR 全组为假则不命中",
+      "rule": {
+        "id": "r33",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "title_contains",
+            "value": "abc",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "content_contains",
+            "value": "xyz",
+            "logic": "and"
+          },
+          {
+            "id": "c3",
+            "type": "title_contains",
+            "value": "qqq",
+            "logic": "or"
+          },
+          {
+            "id": "c4",
+            "type": "content_contains",
+            "value": "www",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "abc",
+        "content": "www",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "无条件规则不匹配",
+      "rule": {
+        "id": "r34",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "anything",
+        "content": "anything",
+        "priority": 1
+      },
+      "expected": false
+    }
+  ]
+}

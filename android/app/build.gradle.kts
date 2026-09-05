@@ -154,6 +154,14 @@ android {
             )
         }
     }
+
+    testOptions {
+        unitTests {
+            // JVM 单测放行 android.util.Log 等框架桩（RuleEngine/FilterEngine 日志路径），
+            // 返回默认值而非抛出 "not mocked"
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 kotlin {
@@ -172,6 +180,8 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     // 原生侧单元测试（如验证码提取 SmsDispatcher.extractCode）
     testImplementation("junit:junit:4.13.2")
+    // JVM 单测无 Android 的 org.json 桩可用，引入真实实现供 RuleEngine/WebhookPayloadBuilder 测试
+    testImplementation("org.json:json:20240303")
 }
 
 flutter {

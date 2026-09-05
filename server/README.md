@@ -467,6 +467,16 @@ journalctl -u update-server -f
 
 ***
 
+## ⚠️ 部署边界（仅限单实例）
+
+**限流、会话与 IP 封锁状态均保存在单进程内存中，通过定时 JSON 文件落盘**（`data/` 目录下的 `sessions.json` / `failed_attempts.json` / `blocked_ips.json` / `rate_limit.json`）。由此带来的部署约束：
+
+- 当前实现**仅支持单实例部署**（单 Node 进程）。PM2 cluster 模式、Docker 多副本或多机负载均衡会导致各实例状态不一致：限流计数各自独立、在 A 实例登录的会话到 B 实例无效、IP 封锁状态漂移。
+- JSON 落盘为定时批量写入，进程被 `kill -9` 时可能丢失最后一次落盘后的少量状态（需重新登录、限流/封锁计数重置），属设计内取舍。
+- 需要水平扩展时，必须先将状态外置到 Redis（或 SQLite），并改造 `server/lib/store.js` 为集中式存储后，再启用多副本。
+
+***
+
 ## 🔒 安全加固建议
 
 1. **启用 HTTPS**：生产环境务必使用 HTTPS，防止数据篡改

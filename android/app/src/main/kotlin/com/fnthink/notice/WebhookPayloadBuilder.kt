@@ -412,11 +412,12 @@ object WebhookPayloadBuilder {
         time: String,
         deviceName: String,
         simInfo: String? = null,
-        chatId: String = ""
+        chatId: String = "",
+        titleTag: String = ""
     ): String {
         val simSuffix = I18n.simSuffix(simInfo)
-        // SMS 标题（用于通用类型 JSON）
-        val title = I18n.smsNotifyTitle(sender, null)
+        // SMS 标题（用于通用类型 JSON）；titleTag 为白名单等命中来源备注前缀
+        val title = "$titleTag${I18n.smsNotifyTitle(sender, null)}"
 
         return when (type) {
             WebhookType.GENERIC -> JSONObject().apply {

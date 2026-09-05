@@ -7,6 +7,28 @@ import 'platform_channel.dart';
 class FilterService {
   static const _channel = AppChannels.notification;
 
+  /// 与原生 FilterEngine.normalize 逐行对齐的文本归一化：
+  /// trim + 全角转半角（\u3000 与 \uFF01-\uFF5E）+ 折叠连续空白 + 小写。
+  /// 双端必须保持一致，否则同一规则在 Flutter 侧与原生侧匹配结果不同
+  ///（对齐用例见 test/fixtures/rule_engine_golden.json）。
+  static String normalizeForMatch(String raw) {
+    if (raw.isEmpty) return raw;
+    var s = raw.trim();
+    final sb = StringBuffer();
+    for (final code in s.codeUnits) {
+      if (code == 0x3000) {
+        sb.write(' '); // 全角空格
+      } else if (code >= 0xFF01 && code <= 0xFF5E) {
+        sb.writeCharCode(code - 0xFEE0); // 全角!-~ → 半角
+      } else {
+        sb.writeCharCode(code);
+      }
+    }
+    s = sb.toString();
+    s = s.replaceAll(RegExp(r'\s+'), ' ');
+    return s.toLowerCase();
+  }
+
   Set<String> _enabledPackages = {};
   String _appFilterMode = 'allow'; // 'allow' = 仅通知选中；'block' = 屏蔽选中
   List<String> _blacklistKeywords = [];
@@ -34,47 +56,45 @@ class FilterService {
 
     for (final condition in rule.conditions) {
       bool conditionMatch = false;
-
-      switch (condition.type) {
-        case ConditionType.packageName:
-          conditionMatch = packageName == condition.value;
-          break;
-        case ConditionType.titleContains:
-          conditionMatch = title.toLowerCase().contains(
-            condition.value.toLowerCase(),
-          );
-          break;
-        case ConditionType.titleNotContains:
-          conditionMatch = !title.toLowerCase().contains(
-            condition.value.toLowerCase(),
-          );
-          break;
-        case ConditionType.contentContains:
-          conditionMatch = content.toLowerCase().contains(
-            condition.value.toLowerCase(),
-          );
-          break;
-        case ConditionType.contentNotContains:
-          conditionMatch = !content.toLowerCase().contains(
-            condition.value.toLowerCase(),
-          );
-          break;
-        case ConditionType.priority:
-          conditionMatch = _evaluatePriorityCondition(
-            condition.value,
-            notification,
-          );
-          break;
-        case ConditionType.timeRange:
-          conditionMatch = _evaluateTimeRangeCondition(condition.value, time);
-          break;
-        case ConditionType.regexMatch:
-          conditionMatch = _evaluateRegexCondition(
-            condition.value,
-            title,
-            content,
-          );
-          break;
+      // 对齐原生 RuleEngine.evaluateCondition：条件值先 trim；除包名外空值直接不匹配
+      final value = condition.value.trim();
+      if (value.isEmpty && condition.type != ConditionType.packageName) {
+        conditionMatch = false;
+      } else {
+        switch (condition.type) {
+          case ConditionType.packageName:
+            conditionMatch = packageName == value;
+            break;
+          case ConditionType.titleContains:
+            conditionMatch = FilterService.normalizeForMatch(
+              title,
+            ).contains(FilterService.normalizeForMatch(value));
+            break;
+          case ConditionType.titleNotContains:
+            conditionMatch = !FilterService.normalizeForMatch(
+              title,
+            ).contains(FilterService.normalizeForMatch(value));
+            break;
+          case ConditionType.contentContains:
+            conditionMatch = FilterService.normalizeForMatch(
+              content,
+            ).contains(FilterService.normalizeForMatch(value));
+            break;
+          case ConditionType.contentNotContains:
+            conditionMatch = !FilterService.normalizeForMatch(
+              content,
+            ).contains(FilterService.normalizeForMatch(value));
+            break;
+          case ConditionType.priority:
+            conditionMatch = _evaluatePriorityCondition(value, notification);
+            break;
+          case ConditionType.timeRange:
+            conditionMatch = _evaluateTimeRangeCondition(value, time);
+            break;
+          case ConditionType.regexMatch:
+            conditionMatch = _evaluateRegexCondition(value, title, content);
+            break;
+        }
       }
 
       if (isFirstCondition) {

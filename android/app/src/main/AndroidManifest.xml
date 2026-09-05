@@ -22,8 +22,8 @@
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
+    <!-- 导出走 DownloadManager（免存储权限）与 app-specific 目录，无需 MANAGE_EXTERNAL_STORAGE；
+         如未来确需所有文件访问，须同步更新隐私政策与各应用市场权限说明 -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 

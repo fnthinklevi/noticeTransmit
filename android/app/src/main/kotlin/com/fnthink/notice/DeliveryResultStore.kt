@@ -32,7 +32,8 @@ object DeliveryResultStore {
         type: String,
         status: String,
         message: String,
-        httpCode: Int
+        httpCode: Int,
+        channelUrl: String = ""
     ) {
         if (notificationId.isEmpty() || type.isEmpty()) return
         val p = prefs(context)
@@ -43,6 +44,7 @@ object DeliveryResultStore {
             put("status", status)
             put("message", message)
             put("httpCode", httpCode)
+            put("channelUrl", channelUrl)
         }
         var replaced = false
         for (i in 0 until arr.length()) {
@@ -70,15 +72,16 @@ object DeliveryResultStore {
         val list = mutableListOf<Map<String, Any>>()
         for (i in 0 until arr.length()) {
             val item = arr.optJSONObject(i) ?: continue
-            list.add(
-                mapOf(
-                    "notificationId" to item.optString("notificationId"),
-                    "webhookType" to item.optString("type"),
-                    "status" to item.optString("status"),
-                    "message" to item.optString("message"),
-                    "httpCode" to item.optInt("httpCode", 0),
+                list.add(
+                    mapOf(
+                        "notificationId" to item.optString("notificationId"),
+                        "webhookType" to item.optString("type"),
+                        "status" to item.optString("status"),
+                        "message" to item.optString("message"),
+                        "httpCode" to item.optInt("httpCode", 0),
+                        "channelUrl" to item.optString("channelUrl"),
+                    )
                 )
-            )
         }
         return list
     }

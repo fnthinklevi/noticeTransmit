@@ -64,11 +64,28 @@ if [ "$PUBSPEC_BUILD" != "$VJ_BUILD" ]; then
     ((errors++))
 fi
 
+# ===== 文档一致性：README 标注须与服务端依赖 / 实际运行参数同步 =====
+
+# otplib 版本：README 中的标注须与 server/package.json 声明一致
+OTPLIB_DECLARED=$(grep -E '"otplib"' server/package.json | head -1 | grep -oP '\^\d+\.\d+\.\d+' || true)
+if [ -n "$OTPLIB_DECLARED" ]; then
+    if ! grep -q "otplib ($OTPLIB_DECLARED)" README.md || ! grep -q "otplib ($OTPLIB_DECLARED)" README-en.md; then
+        echo -e "${RED}❌ README otplib 版本标注与 server/package.json ($OTPLIB_DECLARED) 不一致${NC}"
+        errors=$((errors+1))
+    fi
+fi
+
+# 封禁参数：README 不得再出现「3 次 / 240 小时」旧值（现行为 5 次 / 1 小时，以 server/lib/store.js 为准）
+if grep -qE "240 ?小时|240 hours" README.md README-en.md 2>/dev/null; then
+    echo -e "${RED}❌ README 仍存在过期封禁参数「3 次/240 小时」，应为「5 次/1 小时」${NC}"
+    errors=$((errors+1))
+fi
+
 if [ $errors -eq 0 ]; then
-    echo -e "${GREEN}✅ 所有文件版本号一致${NC}"
+    echo -e "${GREEN}✅ 版本号与文档一致性检查全部通过${NC}"
     exit 0
 else
     echo ""
-    echo -e "${RED}发现 $errors 处版本号不一致，请在发版前同步更新所有文件${NC}"
+    echo -e "${RED}发现 $errors 处不一致，请在发版前同步更新所有文件${NC}"
     exit 1
 fi

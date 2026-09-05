@@ -6,7 +6,7 @@
 
 **English / [中文](README.md)**
 
-A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload. Supports Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) and SMTP email push, one-tap pause/resume via home-screen widget, all configs AES-256 encrypted. **Full-app Chinese/English i18n**.
+A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload (sole exception: crash reporting, off by default; crash logs are uploaded to Tencent Bugly only after you explicitly enable it — see [Privacy Notice](#privacy-notice)). Supports Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) and SMTP email push, one-tap pause/resume via home-screen widget, all configs AES-256 encrypted. **Full-app Chinese/English i18n**.
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
@@ -23,7 +23,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 
 ## Introduction
 
-NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) or SMTP email, with one-tap pause/resume via home-screen widget. Fully on-device processing — zero data upload. Full-app Chinese/English i18n. Open source MIT, free, no ads.
+NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) or SMTP email, with one-tap pause/resume via home-screen widget. Fully on-device processing — zero data upload (crash reporting is off by default; crash logs are uploaded to Tencent Bugly only after being enabled). Full-app Chinese/English i18n. Open source MIT, free, no ads.
 
 ## Features
 
@@ -65,7 +65,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 
 - 🔐 **Two-step Verification (TOTP)** - Admin panel login requires two-step verification, compatible with Google Authenticator
 - 🔑 **bcrypt Hashing** - Token verified using bcrypt hashing to prevent brute force attacks
-- 🛡️ **IP Blocking** - IP automatically blocked for 240 hours after 3 failed verification attempts within 10 minutes
+- 🛡️ **IP Blocking** - IP automatically blocked for 1 hour after 5 failed verification attempts within 10 minutes
 - 🔢 **Recovery Codes** - 8 recovery codes generated for account recovery when device is lost
 - 🔒 **Sensitive Data Encryption** - TOTP secret stored using AES-256-GCM encryption
 - 🎭 **Obfuscation Rules Ready** - ProGuard/R8 rules file configured (`proguard-rules.pro`), Release builds enable code obfuscation and resource shrinking
@@ -73,7 +73,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🎲 **Cryptographic Randomness** - Session IDs generated using crypto.randomUUID()
 - 🗄️ **SQLite Encryption** - All notification records, webhook configs and email channels stored with AES-256 encryption, key in AndroidKeyStore
 - 🔑 **Webhook Key Protection** - Webhook URLs (including DingTalk/WeCom/Feishu auth keys) encrypted via AndroidKeyStore
-- 🔐 **SSL Certificate Pinning** - `PinnedHttpClient` infrastructure ready (2 HTTP clients), protected via Cloudflare CDN
+- 🔐 **SSL Certificate Pinning** - `PinnedHttpClient` infrastructure ready (2 HTTP clients), **disabled by default**, currently protected indirectly via Cloudflare CDN; see [docs/cert_rotation_runbook.md](docs/cert_rotation_runbook.md) for rotation/enablement
 - 🔒 **Mandatory HTTPS** - Site-wide HTTPS enforced via `network_security_config.xml`
 
 ## Technology Stack
@@ -93,7 +93,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 | Cross-platform Communication | MethodChannel (unified declaration) |
 | Crash Statistics | Tencent Bugly 4.1.9.3 |
 | Server | Node.js + Express 4.x (Token Auth + Two-step Verification) / GitHub Pages static deploy |
-| TOTP Verification | otplib (^12.0.1) |
+| TOTP Verification | otplib (^13.0.1) |
 | Password Hashing | bcryptjs (^2.4.3) |
 | Data Encryption | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |
 | Build Tools | Gradle 9.5.0 + AGP 9.3.0 + JDK 21 |
@@ -223,19 +223,26 @@ This application values user privacy. The following is a statement about data co
 |-----------|-----------|-------------|
 | **Notification Content** | ❌ Not uploaded | All notifications are processed and pushed locally only |
 | **Contacts/SMS** | ❌ Not uploaded | Only used locally for push, not uploaded to any server |
-| **Device ID** | ⚠️ Only for crash statistics | Used by Bugly SDK for device deduplication |
-| **Crash Information** | ✅ Collected | Crash stack collected via Bugly for issue fixing |
+| **Device ID** | ⚠️ Only when crash reporting is on | Used by Bugly SDK for device deduplication; crash reporting is off by default |
+| **Crash Information** | ⚠️ Only when crash reporting is on | Collected via Bugly only after user opt-in |
 
-### Bugly Crash Statistics
+### Bugly Crash Reporting (Off by Default, Opt-in)
 
+- **Default state**: Off. The Bugly SDK is **not initialized** on cold start and makes no network requests; it is initialized only after the "More → Crash Reporting" switch is turned on (treated as user consent)
 - **Purpose**: Only for collecting app crash information to help developers quickly locate and fix issues
 - **Collected Content**: Crash stack, app version, system version, device model, CPU architecture
+- **Data destination**: Uploaded to Tencent Bugly servers ([https://bugly.qq.com](https://bugly.qq.com)), accessible only by the developer for issue analysis
 - **Not Collected**: User contacts, SMS content, notification content, location information or any personal privacy data
-- **Provider**: Tencent Bugly ([https://bugly.qq.com](https://bugly.qq.com))
+- **How to disable**: Turn off the "More → Crash Reporting" switch; since the SDK cannot be de-initialized at runtime, disabling takes full effect after the next cold start
+- **Compliance**: Disclosed per the minimal-necessity principle of China's PIPL; no data leaves the device before the switch is enabled
 
 ### Push Data
 
 All notification pushes are sent through user-configured Webhook URLs. Developers do not store any push content.
+
+### Distribution Channels
+
+This app includes sensitive permissions such as `RECEIVE_SMS` / `READ_SMS` / `REQUEST_INSTALL_PACKAGES` (core to its SMS notification recognition/forwarding and in-app update features), which do not comply with Google Play's policy on SMS permissions. It is therefore **not distributed via Google Play**; APKs are distributed through official channels such as the project website and GitHub Releases. Please obtain installation packages only from trusted sources.
 
 ## FAQ & Troubleshooting
 

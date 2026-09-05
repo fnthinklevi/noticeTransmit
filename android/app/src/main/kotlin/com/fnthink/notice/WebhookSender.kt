@@ -118,7 +118,8 @@ class WebhookSender(private val context: Context) {
                 WebhookResponseParser.ParseResult(
                     WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
                     0, "Telegram 链接缺少 chat_id 参数", false
-                )
+                ),
+                cfg.url
             )
             return
         }
@@ -141,7 +142,7 @@ class WebhookSender(private val context: Context) {
                 force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery(ServerChan): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result)
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
             return
@@ -157,7 +158,8 @@ class WebhookSender(private val context: Context) {
                 WebhookResponseParser.ParseResult(
                     WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
                     0, "PushPlus 链接缺少 token 参数", false
-                )
+                ),
+                cfg.url
             )
             return
         }
@@ -178,7 +180,7 @@ class WebhookSender(private val context: Context) {
                 force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery(PushPlus): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result)
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
             return
@@ -215,7 +217,7 @@ class WebhookSender(private val context: Context) {
                 force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result)
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
             return
@@ -240,7 +242,7 @@ class WebhookSender(private val context: Context) {
                 force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result)
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
             return
@@ -268,8 +270,8 @@ class WebhookSender(private val context: Context) {
             force = force,
             onResult = { result ->
                 Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
-                notifyDeliveryResult(info.id, cfg.type, result)
-                // TODO: 可选写入 webhook_delivery_log 表（DB v5），当前先记录日志
+                // 送达结果回传 Flutter 后由 updateDelivery 统一写入 webhook_delivery_log（DB v5）
+                notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
             }
         )
     }
@@ -281,8 +283,9 @@ class WebhookSender(private val context: Context) {
     private fun notifyDeliveryResult(
         notificationId: String,
         type: WebhookPayloadBuilder.WebhookType,
-        result: WebhookResponseParser.ParseResult
+        result: WebhookResponseParser.ParseResult,
+        channelUrl: String
     ) {
-        DeliveryNotifier.notify(context, notificationId, type, result)
+        DeliveryNotifier.notify(context, notificationId, type, result, channelUrl)
     }
 }

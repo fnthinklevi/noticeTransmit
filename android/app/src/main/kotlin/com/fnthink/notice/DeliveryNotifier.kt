@@ -14,19 +14,22 @@ object DeliveryNotifier {
         context: Context,
         notificationId: String,
         type: WebhookPayloadBuilder.WebhookType,
-        result: WebhookResponseParser.ParseResult
+        result: WebhookResponseParser.ParseResult,
+        channelUrl: String = ""
     ) {
-        notify(context, notificationId, type.name, result)
+        notify(context, notificationId, type.name, result, channelUrl)
     }
 
     /**
      * 支持任意通道标识（如 "EMAIL"），邮件链路与 webhook 共用同一回传链路。
+     * channelUrl 用于 webhook_delivery_log 落库（Flutter 侧 updateDelivery 写入），无 URL 的链路传空。
      */
     fun notify(
         context: Context,
         notificationId: String,
         type: String,
-        result: WebhookResponseParser.ParseResult
+        result: WebhookResponseParser.ParseResult,
+        channelUrl: String = ""
     ) {
         try {
             // 双写：广播走实时链路（MainActivity 存活时），持久化队列兜底
@@ -37,7 +40,8 @@ object DeliveryNotifier {
                 type,
                 result.status.name,
                 result.message,
-                result.httpCode
+                result.httpCode,
+                channelUrl
             )
             val intent = Intent(MainActivity.ACTION_DELIVERY_RESULT).apply {
                 setPackage(context.packageName)
@@ -46,6 +50,7 @@ object DeliveryNotifier {
                 putExtra("status", result.status.name)
                 putExtra("message", result.message)
                 putExtra("http_code", result.httpCode)
+                putExtra("channel_url", channelUrl)
             }
             context.sendBroadcast(intent)
         } catch (e: Exception) {

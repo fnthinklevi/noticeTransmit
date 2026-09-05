@@ -96,3 +96,6 @@ server/public/apks/
 .tmp_local/
 .dartlocal/
 _java_procs.txt
+.mimosa/
+_java_check.txt
+.zcode/

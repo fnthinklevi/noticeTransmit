@@ -60,8 +60,19 @@ object SmsDispatcher {
         return null
     }
 
-    private fun dedupKey(sender: String, message: String, timestamp: Long): String =
-        "$sender|$message|${timestamp / 1000}"
+    /**
+     * 去重键：仅由「归一化号码 + 正文」组成，**不包含时间戳**。
+     * 广播链路用 SmsMessage.timestampMillis（SMSC 时间），观察者链路用短信库 date 列
+     * （入库时间），两者可能相差数秒——若把时间戳编进键内，同一条短信会被两条链路各推一次
+     * （表现为两条 id 不同的记录，且观察者链路那条缺 SIM 信息）。
+     */
+    private fun dedupKey(sender: String, message: String): String =
+        "${normalizeSender(sender)}|$message"
+
+    /** 归一化号码：广播与短信库的号码格式可能不同（+86 前缀 / 分隔符），统一后再比对 */
+    private fun normalizeSender(raw: String): String =
+        raw.replace(" ", "").replace("-", "")
+            .replace(Regex("^\\+?86"), "").lowercase()
 
     /**
      * 处理一条短信。
@@ -82,11 +93,11 @@ object SmsDispatcher {
         }
 
         val now = System.currentTimeMillis()
-        val key = dedupKey(sender, message, timestamp)
+        val key = dedupKey(sender, message)
         synchronized(dedupKeys) {
             val last = dedupKeys[key]
             if (last != null && now - last < DEDUP_WINDOW_MS) {
-                Log.d(TAG, "[$source] 短信重复，已去重 sender=$sender")
+                Log.d(TAG, "[$source] 短信重复（另一链路已处理），去重 sender=$sender")
                 return false
             }
             // 不用 removeIf（要求 API 24+），手动迭代清理过期指纹
@@ -117,7 +128,7 @@ object SmsDispatcher {
                 .format(Date(timestamp))
 
             // 短信不走应用过滤（无 packageName 概念），仅按关键词过滤
-            val allowed = FilterEngine.shouldNotify(
+            val fr = FilterEngine.filter(
                 packageName = "com.android.mms",
                 title = I18n.smsNotifyTitle(sender, simInfo),
                 content = message,
@@ -128,10 +139,16 @@ object SmsDispatcher {
                 filterMode = "allow",
                 sourceType = "sms"
             )
-            if (!allowed) {
-                Log.d(TAG, "[$source] 短信被过滤拦截: 来自 $sender")
+            if (!fr.allowed) {
+                // 拦截的消息也写入历史（状态=失败，原因=黑名单/应用过滤），不推 webhook。
+                // 之前静默丢弃会让用户以为"短信没读到"。
+                Log.d(TAG, "[$source] 短信被拦截(${fr.source.name}): 来自 $sender 原因=${fr.blockReason()}")
+                recordBlocked(context, sender, message, timestamp, timeStr, simInfo, deviceName, fr)
                 return false
             }
+
+            // 白名单命中：推送与历史记录均带备注标签
+            val whitelistTag = fr.whitelistTag()
 
             val code = extractCode(message)
             if (code != null) Log.d(TAG, "[$source] 提取到验证码: $code")
@@ -146,7 +163,8 @@ object SmsDispatcher {
                     channelConfig = cfg,
                     deviceName = deviceName,
                     simInfo = simInfo,
-                    verificationCode = code
+                    verificationCode = code,
+                    whitelistTag = whitelistTag
                 )
             }
             true
@@ -165,15 +183,17 @@ object SmsDispatcher {
         channelConfig: ConfigManager.WebhookChannelConfig,
         deviceName: String,
         simInfo: String?,
-        verificationCode: String?
+        verificationCode: String?,
+        whitelistTag: String? = null
     ) {
         // 与 notifyFlutter 中的记录 id 保持一致，供送达结果回传按 id 定位记录
         val notificationId = "sms_${timestamp}_${sender.hashCode()}"
+        val displayTitle = "${whitelistTag ?: ""}${I18n.smsNotifyTitle(sender, simInfo)}"
         try {
             val json = JSONObject().apply {
                 put("type", "sms")
                 put("id", notificationId)
-                put("title", I18n.smsNotifyTitle(sender, simInfo))
+                put("title", displayTitle)
                 put("sender", sender)
                 put("content", message)
                 put("message", message)
@@ -208,7 +228,8 @@ object SmsDispatcher {
             time = timeStr,
             deviceName = deviceName,
             simInfo = simInfo,
-            chatId = WebhookPayloadBuilder.extractChatIdFromUrl(channelConfig.url)
+            chatId = WebhookPayloadBuilder.extractChatIdFromUrl(channelConfig.url),
+            titleTag = whitelistTag ?: ""
         )
 
         // 通过 NetworkClient 发送（含签名 + 送达校验），结果回传 Flutter 逐条显示送达状态
@@ -222,6 +243,63 @@ object SmsDispatcher {
                 Log.d(TAG, "SMS delivery: ${channelConfig.url.take(40)} → status=${result.status}")
                 DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
             }
+        )
+    }
+
+    /**
+     * 被过滤规则拦截（黑名单/应用过滤）的短信：webhook 不发送，但写入推送历史，
+     * 送达状态直接置为失败并标注原因，保证"收到的每条消息都能在历史里看到去向"。
+     * 送达状态通过 DeliveryNotifier 回传（双写：实时广播 + 持久化队列兜底），
+     * Flutter 侧 `_deliveryLabel` 对 "SMS" 通道渲染为「过滤拦截」。
+     */
+    private fun recordBlocked(
+        context: Context,
+        sender: String,
+        message: String,
+        timestamp: Long,
+        timeStr: String,
+        simInfo: String?,
+        deviceName: String,
+        fr: FilterResult
+    ) {
+        val notificationId = "sms_${timestamp}_${sender.hashCode()}"
+        try {
+            val json = JSONObject().apply {
+                put("type", "sms")
+                put("id", notificationId)
+                put("title", I18n.smsNotifyTitle(sender, simInfo))
+                put("sender", sender)
+                put("content", message)
+                put("message", message)
+                put("packageName", "com.android.mms")
+                put("appName", I18n.smsAppName())
+                put("postTime", timestamp)
+                put("time", timeStr)
+                put("deviceName", deviceName)
+                put("timestamp", System.currentTimeMillis())
+                if (simInfo != null) put("simInfo", simInfo)
+            }
+            HistoryCache.append(context, json)
+
+            val intent = Intent(MainActivity.ACTION_NOTIFICATION_RECEIVED).apply {
+                setPackage(context.packageName)
+                putExtra(MainActivity.EXTRA_NOTIFICATION_DATA, json.toString())
+            }
+            context.sendBroadcast(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "拦截短信写入历史失败", e)
+        }
+
+        DeliveryNotifier.notify(
+            context,
+            notificationId,
+            "SMS",
+            WebhookResponseParser.ParseResult(
+                WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                0,
+                fr.blockReason(),
+                false
+            )
         )
     }
 }

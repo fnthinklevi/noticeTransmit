@@ -1,6 +1,8 @@
 import 'dart:ui';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/update_service.dart';
 import '../services/locale_service.dart';
 import '../services/platform_channel.dart';
@@ -213,6 +215,8 @@ class MorePage extends StatelessWidget {
               onTap: onOpenPrivacyPolicy,
               context: context,
             ),
+            _buildDivider(context),
+            const _CrashReportTile(),
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.info_outline,
@@ -584,6 +588,108 @@ class MorePage extends StatelessWidget {
                 size: 20,
                 color: AppColors.tertiaryLabel(context),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 崩溃上报开关（合规：用户同意后才初始化 Bugly）。
+/// 默认关闭；开启后立即初始化并开始上报；关闭因 SDK 无反初始化能力，冷启动后完全生效。
+/// 开关状态存于 SharedPreferences 的 crash_report_enabled，
+/// 原生端以 flutter.crash_report_enabled 键读取（见 MainActivity.maybeInitCrashReport）。
+class _CrashReportTile extends StatefulWidget {
+  const _CrashReportTile();
+
+  @override
+  State<_CrashReportTile> createState() => _CrashReportTileState();
+}
+
+class _CrashReportTileState extends State<_CrashReportTile> {
+  static const _prefKey = 'crash_report_enabled';
+
+  bool _enabled = false;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      setState(() {
+        _enabled = prefs.getBool(_prefKey) ?? false;
+        _loaded = true;
+      });
+    });
+  }
+
+  Future<void> _onChanged(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, value);
+    if (value) {
+      // 用户刚同意，立即初始化，无需重启
+      try {
+        await AppChannels.notification.invokeMethod('initCrashReport');
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    setState(() => _enabled = value);
+    if (!value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context).crashReportOffHint),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return InkWell(
+      onTap: _loaded ? () => _onChanged(!_enabled) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: AppColors.red,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.bug_report,
+                size: 18,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.crashReport,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.crashReportDesc,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            CupertinoSwitch(value: _enabled, onChanged: _onChanged),
           ],
         ),
       ),

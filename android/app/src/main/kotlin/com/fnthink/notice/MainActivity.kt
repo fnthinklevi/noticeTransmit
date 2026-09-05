@@ -63,6 +63,9 @@ class MainActivity : FlutterActivity() {
         getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     }
 
+    /** Bugly 是否已在本进程内完成初始化（initCrashReport 幂等保护） */
+    private var crashReportInitialized = false
+
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -116,6 +119,7 @@ class MainActivity : FlutterActivity() {
                     "status" to (intent.getStringExtra("status") ?: ""),
                     "message" to (intent.getStringExtra("message") ?: ""),
                     "httpCode" to (intent.getIntExtra("http_code", 0)),
+                    "channelUrl" to (intent.getStringExtra("channel_url") ?: ""),
                 )
                 try {
                     methodChannel?.invokeMethod("onDeliveryResult", data)
@@ -171,9 +175,21 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * 合规：崩溃上报默认关闭，仅在用户同意（设置页「崩溃上报」开关写入
+     * flutter.crash_report_enabled=true）后才初始化 Bugly。
+     * 关闭不反初始化（SDK 无此能力），下次冷启动不再加载。
+     */
+    private fun maybeInitCrashReport() {
+        if (crashReportInitialized) return
+        if (!prefs.getBoolean("flutter.crash_report_enabled", false)) return
+        CrashReport.initCrashReport(applicationContext)
+        crashReportInitialized = true
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        CrashReport.initCrashReport(applicationContext)
+        maybeInitCrashReport()
         // 修复历史版本可能禁用了监听组件的情况，确保组件启用以便系统能重新绑定通知监听器
         try {
             toggleNotificationListenerService()
@@ -253,6 +269,11 @@ class MainActivity : FlutterActivity() {
                 }
                 "isAppListPermissionGranted" -> {
                     result.success(isAppListPermissionGranted())
+                }
+                "initCrashReport" -> {
+                    // 用户在设置页开启崩溃上报后调用；幂等，未同意时为 no-op
+                    maybeInitCrashReport()
+                    result.success(crashReportInitialized)
                 }
                 "requestXiaomiAutoStart" -> {
                     requestXiaomiAutoStart()

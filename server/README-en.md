@@ -459,6 +459,16 @@ journalctl -u update-server -f
 
 ***
 
+## ⚠️ Deployment Boundary (Single Instance Only)
+
+**Rate limiting, sessions and IP blocking state live in a single process's memory, persisted to JSON files on a timer** (`sessions.json` / `failed_attempts.json` / `blocked_ips.json` / `rate_limit.json` under `data/`). Deployment constraints:
+
+- The current implementation supports **single-instance deployment only** (one Node process). PM2 cluster mode, multiple Docker replicas or multi-machine load balancing cause inconsistent state across instances: independent rate-limit counters, sessions logged in on instance A invalid on instance B, and drifting IP block state.
+- JSON persistence is written periodically in batches; a `kill -9` may lose state since the last write (re-login required, rate-limit/block counters reset). This is an accepted trade-off.
+- To scale horizontally, externalize state to Redis (or SQLite) and refactor `server/lib/store.js` to centralized storage first.
+
+***
+
 ## 🔒 Security Hardening
 
 1. **Enable HTTPS**: Production must use HTTPS to prevent data tampering

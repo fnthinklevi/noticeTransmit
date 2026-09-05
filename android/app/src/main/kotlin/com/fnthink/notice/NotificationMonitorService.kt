@@ -173,6 +173,10 @@ class NotificationMonitorService : NotificationListenerService() {
                 contentResolver.unregisterContentObserver(it)
             } catch (_: Exception) {
             }
+            try {
+                it.destroy()
+            } catch (_: Exception) {
+            }
         }
         smsObserver = null
     }
@@ -338,44 +342,62 @@ class NotificationMonitorService : NotificationListenerService() {
         // 全部下沉到 IO 协程（serviceScope 在 onDestroy 时 cancel，随服务销毁而停止）。
         serviceScope.launch {
             try {
-                val notificationInfo = notificationProcessor.processNotification(sbn)
-                if (notificationInfo != null) {
+                val rawInfo = notificationProcessor.processNotification(sbn)
+                if (rawInfo != null) {
                     val config = cachedConfig ?: ConfigSnapshot()
-                    notificationInfo.deviceName = config.deviceName
+                    rawInfo.deviceName = config.deviceName
 
-                    if (notificationProcessor.shouldNotify(
-                            notificationInfo.packageName,
-                            notificationInfo.title,
-                            notificationInfo.content,
-                            notificationInfo.subText,
-                            config.whitelistKeywords,
-                            config.enabledPackages,
-                            config.blacklistKeywords,
-                            config.appFilterMode
+                    val filterResult = notificationProcessor.filter(
+                        rawInfo.packageName,
+                        rawInfo.title,
+                        rawInfo.content,
+                        rawInfo.subText,
+                        config.whitelistKeywords,
+                        config.enabledPackages,
+                        config.blacklistKeywords,
+                        config.appFilterMode
+                    )
+                    if (!filterResult.allowed) {
+                        // 被过滤（黑名单/应用过滤）的也写入历史，送达状态=失败+原因。
+                        // 之前静默丢弃会让用户以为"通知没读到"。
+                        Log.d(TAG, "Notification filtered out (${filterResult.source.name}): ${rawInfo.appName} - ${rawInfo.title} reason=${filterResult.blockReason()}")
+                        webhookSender.sendBroadcast(rawInfo)
+                        DeliveryNotifier.notify(
+                            this@NotificationMonitorService,
+                            rawInfo.id,
+                            "FILTER",
+                            WebhookResponseParser.ParseResult(
+                                WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                                0, filterResult.blockReason(), false
+                            )
                         )
-                    ) {
+                    } else {
+                        // 白名单命中：标题加备注标签，推送与历史均可见
+                        val info = filterResult.whitelistTag()?.let { tag ->
+                            rawInfo.copy(title = "$tag${rawInfo.title}")
+                        } ?: rawInfo
                         // 规则引擎决策：立即推送 / 延迟推送 / 仅记录 / 静默忽略
-                        when (val decision = RuleEngine.decide(notificationInfo, config.rulesJson)) {
+                        when (val decision = RuleEngine.decide(info, config.rulesJson)) {
                             RuleEngine.Decision.Block -> {
-                                Log.d(TAG, "Notification blocked by rule: ${notificationInfo.appName} - ${notificationInfo.title}")
+                                Log.d(TAG, "Notification blocked by rule: ${info.appName} - ${info.title}")
                             }
                             RuleEngine.Decision.Record -> {
-                                webhookSender.sendBroadcast(notificationInfo)
-                                Log.d(TAG, "Notification recorded only: ${notificationInfo.appName} - ${notificationInfo.title}")
+                                webhookSender.sendBroadcast(info)
+                                Log.d(TAG, "Notification recorded only: ${info.appName} - ${info.title}")
                             }
                             is RuleEngine.Decision.Delay -> {
                                 // 立即写入历史（pending 状态），到点后补推 webhook
-                                webhookSender.sendBroadcast(notificationInfo)
-                                delayedPushManager.enqueue(notificationInfo, decision.fireAt)
-                                Log.d(TAG, "Notification delayed push at ${decision.fireAt}: ${notificationInfo.appName} - ${notificationInfo.title}")
+                                webhookSender.sendBroadcast(info)
+                                delayedPushManager.enqueue(info, decision.fireAt)
+                                Log.d(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName} - ${info.title}")
                             }
                             RuleEngine.Decision.Push -> {
-                                webhookSender.sendNotification(notificationInfo)
-                                dispatchEmail(notificationInfo)
+                                webhookSender.sendNotification(info)
+                                dispatchEmail(info)
                                 checkDailyReset()
                                 pushCount++
                                 updateForegroundNotification()
-                                Log.d(TAG, "Notification sent: ${notificationInfo.appName} - ${notificationInfo.title}")
+                                Log.d(TAG, "Notification sent: ${info.appName} - ${info.title}")
                             }
                         }
                     }

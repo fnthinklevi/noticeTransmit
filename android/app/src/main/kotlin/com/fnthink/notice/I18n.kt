@@ -99,6 +99,19 @@ object I18n {
     // ========== 未知发件人（SmsReceiver 使用，中英双语） ==========
     fun unknownSender(): String = if (isEn) "Unknown number" else "未知号码"
 
+    // ========== 过滤决策文案（FilterResult 使用，中英双语） ==========
+    fun filterBlacklistReason(keyword: String): String {
+        val kw = if (keyword.isNotEmpty()) {
+            if (isEn) " (keyword: $keyword)" else "（命中: $keyword）"
+        } else ""
+        return if (isEn) "Blocked by blacklist$kw" else "黑名单$kw"
+    }
+
+    fun filterAppBlockReason(): String =
+        if (isEn) "Blocked by app filter" else "应用过滤"
+
+    fun whitelistTag(): String = if (isEn) "[Whitelist]" else "[白名单]"
+
     // ========== 通话状态 → 标题/内容 ==========
     fun callStateTitle(state: String, simInfo: String?): String {
         val label = when (state) {

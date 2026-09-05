@@ -530,6 +530,55 @@ class DatabaseHelper implements WebhookChannelStore {
     return await db.rawQuery(sql, args);
   }
 
+  /// 全量通知记录（导出用），按 post_time 倒序，不受分页上限约束
+  Future<List<Map<String, dynamic>>> getAllNotifications() async {
+    final db = await database;
+    return await db.rawQuery(
+      'SELECT * FROM notifications ORDER BY post_time DESC',
+    );
+  }
+
+  /// 写入一条 Webhook 送达日志（webhook_delivery_log，DB v5 落地）。
+  /// 写入时顺带清理 30 天前的旧记录，防止表无限膨胀。
+  Future<void> insertDeliveryLog({
+    required String channelUrl,
+    required String notificationId,
+    required String tag,
+    required String status,
+    int? httpCode,
+    String? message,
+    int retryable = 0,
+  }) async {
+    final db = await database;
+    await db.insert('webhook_delivery_log', {
+      'channel_url': channelUrl,
+      'notification_id': notificationId,
+      'tag': tag,
+      'status': status,
+      'http_code': httpCode,
+      'message': message,
+      'retryable': retryable,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    final cutoff = DateTime.now()
+        .subtract(const Duration(days: 30))
+        .millisecondsSinceEpoch;
+    await db.delete(
+      'webhook_delivery_log',
+      where: 'timestamp < ?',
+      whereArgs: [cutoff],
+    );
+  }
+
+  /// 查询送达日志（调试/对账用），按时间倒序，limit 默认 200
+  Future<List<Map<String, dynamic>>> getDeliveryLogs({int limit = 200}) async {
+    final db = await database;
+    return await db.rawQuery(
+      'SELECT * FROM webhook_delivery_log ORDER BY timestamp DESC LIMIT ?',
+      [limit],
+    );
+  }
+
   Future<int> getNotificationCount({String? type, String? packageName}) async {
     final db = await database;
     var sql = 'SELECT COUNT(*) FROM notifications';
