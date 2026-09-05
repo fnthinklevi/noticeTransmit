@@ -100,6 +100,16 @@ object SmsDispatcher {
                 Log.d(TAG, "[$source] 短信重复（另一链路已处理），去重 sender=$sender")
                 return false
             }
+            // 跨发送方正文查重：通知栏兜底链路（source=notification）的 sender 是联系人名，
+            // 与广播链路的号码指纹不匹配；若窗口内已有同正文记录（任一链路处理过），判重丢弃。
+            // 代价：120s 内两个不同人发来完全相同的正文会漏推第二条——概率极低，可接受。
+            val bodySuffix = "|$message"
+            for ((k, v) in dedupKeys) {
+                if (now - v < DEDUP_WINDOW_MS && k.endsWith(bodySuffix)) {
+                    Log.d(TAG, "[$source] 短信正文重复（另一链路已处理同内容），去重 sender=$sender")
+                    return false
+                }
+            }
             // 不用 removeIf（要求 API 24+），手动迭代清理过期指纹
             val it = dedupKeys.entries.iterator()
             while (it.hasNext()) {

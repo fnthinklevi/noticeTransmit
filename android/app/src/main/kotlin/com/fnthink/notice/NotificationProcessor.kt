@@ -4,6 +4,10 @@ import android.content.Context
 import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
@@ -24,9 +28,19 @@ class NotificationProcessor(private val context: Context) {
 
         if (packageName == context.packageName) return null
 
-        // 短信/电话应用由 SmsReceiver / PhoneCallReceiver 独占处理（携带 SIM 卡信息），
-        // 通知栏监听跳过，避免同一事件产生两条记录（一条有 SIM、一条无 SIM）。
-        if (isSmsPackage(packageName) || isCallPackage(packageName)) return null
+        // 电话应用由 PhoneCallReceiver 独占处理（携带 SIM 卡信息），通知栏监听跳过，
+        // 避免同一事件产生两条记录（一条有 SIM、一条无 SIM）。
+        if (isCallPackage(packageName)) return null
+
+        // 短信应用通知：第三兜底链路（source=notification）。
+        // 系统「验证码安全保护」（MIUI/HyperOS 等默认开启）会拦截 SMS_RECEIVED 广播、
+        // 并对第三方应用隐藏短信库内容，使 SmsReceiver / SmsObserver 双链路同时失效；
+        // 通知栏不受影响（输入法读验证码同款方案）。统一走 SmsDispatcher 指纹去重：
+        // 双链路已处理则丢弃，未处理（保护开启）则补推，不产生重复记录。
+        if (isSmsPackage(packageName)) {
+            dispatchSmsFromNotification(sbn)
+            return null
+        }
 
         val isOngoing = (notification.flags and android.app.Notification.FLAG_ONGOING_EVENT) != 0
         val tag = sbn.tag
@@ -126,6 +140,59 @@ class NotificationProcessor(private val context: Context) {
             if (c != ' ' && c !in maskedChars) return false
         }
         return true
+    }
+
+    /**
+     * 短信应用通知 → SmsDispatcher 兜底分发。
+     *
+     * 通知格式：标题=发送方（可能是联系人名而非号码），正文=短信内容（BIG_TEXT 为展开全文）。
+     * 正文优先取 BIG_TEXT（缩略 TEXT 可能截断），其次 MessagingStyle 聚合内容。
+     *
+     * 延迟 2 秒再入队：广播（SmsReceiver）与短信库观察（SmsObserver）链路几乎同时触发，
+     * 让它们先把「发送方+正文」指纹写入 SmsDispatcher，本链路到达时即可被判重丢弃；
+     * 仅当双链路被系统保护切断时，本链路才实际补推。
+     *
+     * 锁屏脱敏（正文全为掩码字符）时跳过：完整内容应由广播/观察链路提供，
+     * 掩码版本只会产生一条无验证码价值的重复记录。
+     *
+     * 注意：本链路无 SIM 卡信息（simInfo=null），记录 id 基于通知 postTime，
+     * 与广播链路的 SMSC 时间戳不同源——跨链路去重依赖 SmsDispatcher 的正文指纹。
+     */
+    private fun dispatchSmsFromNotification(sbn: StatusBarNotification) {
+        try {
+            val extras = sbn.notification?.extras ?: return
+            val sender = extras.getCharSequence(android.app.Notification.EXTRA_TITLE)
+                ?.toString()?.trim().orEmpty()
+            val text = extras.getCharSequence(android.app.Notification.EXTRA_TEXT)
+                ?.toString()?.trim().orEmpty()
+            val bigText = extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)
+                ?.toString()?.trim().orEmpty()
+            val messaging = extractMessagingContent(extras).trim()
+            val body = when {
+                bigText.isNotEmpty() -> bigText
+                messaging.isNotEmpty() -> messaging
+                else -> text
+            }
+            if (sender.isEmpty() || body.isEmpty()) return
+            if (isMaskedContent(body)) {
+                Log.d(TAG, "短信通知正文为锁屏掩码，跳过通知栏兜底: $sender")
+                return
+            }
+            val postTime = sbn.postTime
+            CoroutineScope(Dispatchers.IO).launch {
+                delay(2_000L)
+                SmsDispatcher.handle(
+                    context = context,
+                    sender = sender,
+                    message = body,
+                    timestamp = postTime,
+                    simInfo = null,
+                    source = "notification"
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "短信通知栏兜底分发失败: ${e.message}")
+        }
     }
 
     /**
