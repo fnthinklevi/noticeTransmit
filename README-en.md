@@ -12,7 +12,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.63/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.64/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -54,6 +54,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start; built-in OEM ROM keep-alive guide (battery unrestricted / auto-start / task lock, one-tap jump to vendor settings)
 - 📡 **Listener Reliability** - Fallback content extraction for conversation-style notifications (WeChat/QQ/Telegram etc.) whose body only exists in MessagingStyle; dedup key includes the notification tag to avoid missed reads; warns "listener disconnected · notifications may be missed" when notification access is revoked by the system
+- 💾 **Config Backup & Restore (v1.5.64)** - Export all configs (Webhook/email channels with credentials, notification rules, SMS monitoring settings, app filter, keyword lists) encrypted as a `.nbackup` file (AES-256-GCM + PBKDF2 210k-iteration passphrase derivation, self-describing KDF header). Restore after switching or reinstalling by picking the file and entering your passphrase; conflict strategy offers "overwrite all / fill gaps only" when existing configs are detected, non-https URLs are skipped automatically
 - 📱 **Home-Screen Widgets Upgraded (v1.5.63)** - Fully redesigned 2×2/4×2 layouts (status ring, hint pill, daily counter); the system pin dialog now shows a preview and description, and launchers without pin support automatically open a brand-specific step-by-step guide. New SMS monitoring settings hub: listening toggle / verification-code toggle / SIM-card selection (auto-disabled on single-SIM devices); card filtering applies to both SMS and call paths, and pushed messages can carry a bilingual "SIM 1, Carrier" info line
 - 🔐 **Opt-in Crash Reporting (v1.5.62)** - Bugly crash reporting is off by default and initializes only after user consent; toggleable anytime in settings. Rule engine normalization aligned across Dart/Kotlin (full-width/half-width, whitespace collapsing, value trimming) locked by 34 dual-end golden test cases. Webhook delivery logs are persisted for auditing, and export reads the full database instead of the in-memory cap
 - 📩 **SMS Reliability (v1.5.61)** - SMS uses a dual-path design: besides the primary `SMS_RECEIVED` broadcast, a SMS-database ContentObserver catches messages missed by the broadcast; both paths are deduplicated by content fingerprint so nothing is pushed twice. Verification codes are extracted automatically and delivered as a dedicated field

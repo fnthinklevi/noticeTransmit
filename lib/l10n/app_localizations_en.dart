@@ -1718,4 +1718,79 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deliveryLogEmpty =>
       'No delivery log yet (older than the 30-day retention, or this notification predates the feature)';
+
+  @override
+  String get backupRestoreTitle => 'Backup & Restore';
+
+  @override
+  String get backupSectionTitle => 'Backup Configuration';
+
+  @override
+  String get backupSectionDesc =>
+      'Encrypt and export Webhook/email channels (with credentials), notification rules, SMS monitoring settings, app filter and keyword lists into a .nbackup file (AES-256-GCM with password-derived key). Push history is not included.';
+
+  @override
+  String get restoreSectionTitle => 'Restore Configuration';
+
+  @override
+  String get restoreSectionDesc =>
+      'Pick a .nbackup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.';
+
+  @override
+  String get backupCreate => 'Create Backup File';
+
+  @override
+  String get restorePick => 'Choose Backup File';
+
+  @override
+  String get backupPasswordTitle => 'Set Backup Password';
+
+  @override
+  String get backupPasswordHint =>
+      'Password (min 8 chars; unrecoverable if lost)';
+
+  @override
+  String get restorePasswordTitle => 'Enter Backup Password';
+
+  @override
+  String get backupTooShort => 'Password must be at least 8 characters';
+
+  @override
+  String get backupOk => 'Backup created and saved';
+
+  @override
+  String get backupCancelled => 'Cancelled';
+
+  @override
+  String get backupFailed => 'Backup failed: ';
+
+  @override
+  String get restoreWrongPassword => 'Wrong password or corrupted file';
+
+  @override
+  String get restoreInvalidFile => 'Not a valid backup file';
+
+  @override
+  String get restoreConfirmTitle => 'Existing Configuration Detected';
+
+  @override
+  String get restoreConflictMsg =>
+      'Some configuration already exists. Overwrite replaces everything in the matching categories; Fill gaps keeps existing configuration untouched.';
+
+  @override
+  String get restoreOverwriteAll => 'Overwrite All';
+
+  @override
+  String get restoreFillGaps => 'Fill Gaps Only';
+
+  @override
+  String get restoreDoneReTest =>
+      'Restore completed. Please re-test channels with credentials (Webhook/email).';
+
+  @override
+  String get restoreFailed => 'Restore failed: ';
+
+  @override
+  String get backupRestoreSubtitle =>
+      'Encrypted backup of channels, rules and settings';
 }

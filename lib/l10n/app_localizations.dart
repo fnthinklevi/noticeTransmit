@@ -3229,6 +3229,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无送达日志（可能已过 30 天保留期，或该通知早于送达日志功能启用）'**
   String get deliveryLogEmpty;
+
+  /// No description provided for @backupRestoreTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份与恢复'**
+  String get backupRestoreTitle;
+
+  /// No description provided for @backupSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份配置'**
+  String get backupSectionTitle;
+
+  /// No description provided for @backupSectionDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'将 Webhook/邮件通道（含密钥）、通知规则、短信监听设置、应用过滤与黑白名单关键词加密导出为 .nbackup 文件（AES-256-GCM，口令派生密钥）。不含通知历史。'**
+  String get backupSectionDesc;
+
+  /// No description provided for @restoreSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复配置'**
+  String get restoreSectionTitle;
+
+  /// No description provided for @restoreSectionDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择 .nbackup 备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。'**
+  String get restoreSectionDesc;
+
+  /// No description provided for @backupCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成备份文件'**
+  String get backupCreate;
+
+  /// No description provided for @restorePick.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择备份文件恢复'**
+  String get restorePick;
+
+  /// No description provided for @backupPasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置备份口令'**
+  String get backupPasswordTitle;
+
+  /// No description provided for @backupPasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'口令（至少 8 位；忘记将无法恢复）'**
+  String get backupPasswordHint;
+
+  /// No description provided for @restorePasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入备份口令'**
+  String get restorePasswordTitle;
+
+  /// No description provided for @backupTooShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'口令至少 8 位'**
+  String get backupTooShort;
+
+  /// No description provided for @backupOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份已生成并保存'**
+  String get backupOk;
+
+  /// No description provided for @backupCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消'**
+  String get backupCancelled;
+
+  /// No description provided for @backupFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份失败：'**
+  String get backupFailed;
+
+  /// No description provided for @restoreWrongPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'口令错误或文件已损坏'**
+  String get restoreWrongPassword;
+
+  /// No description provided for @restoreInvalidFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'不是有效的备份文件'**
+  String get restoreInvalidFile;
+
+  /// No description provided for @restoreConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'检测到现有配置'**
+  String get restoreConfirmTitle;
+
+  /// No description provided for @restoreConflictMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前已有部分配置。覆盖将替换对应类别的全部内容；仅导入空缺项则保留现有配置不动。'**
+  String get restoreConflictMsg;
+
+  /// No description provided for @restoreOverwriteAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖全部'**
+  String get restoreOverwriteAll;
+
+  /// No description provided for @restoreFillGaps.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅导入空缺项'**
+  String get restoreFillGaps;
+
+  /// No description provided for @restoreDoneReTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复完成。含凭据的通道（Webhook/邮件）请重新「测试」验证。'**
+  String get restoreDoneReTest;
+
+  /// No description provided for @restoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复失败：'**
+  String get restoreFailed;
+
+  /// No description provided for @backupRestoreSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密备份通道、规则与设置，支持换机恢复'**
+  String get backupRestoreSubtitle;
 }
 
 class _AppLocalizationsDelegate

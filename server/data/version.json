@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.63",
-  "latestBuild": 98,
+  "latestVersion": "1.5.64",
+  "latestBuild": 99,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.59",
   "forceUpdateBuild": 93,
-  "changelog": "v1.5.63+98: 短信监听设置中心(监听开关/验证码开关/监听卡选择,单卡设备自动灰化) + 卡槽过滤双链路生效(SmsMonitorGate纯函数闸门,通话链路卡过滤+跨卡状态串扰修复,推送正文SIM信息行双语) + 桌面小组件全新升级(provider规范化description/previewImage/label本地化,添加体验支持预检+失败弹分品牌引导+当前设备置顶徽标,2×2与4×2布局与drawable全面美化) + 应用筛选页重构(已选/未选分组) + 测试扩充(Dart 189例/原生90例)",
+  "changelog": "v1.5.64+99: 配置备份与恢复(新增备份恢复页,AES-256-GCM+PBKDF2口令派生加密,.nbackup文件头自描述KDF参数,覆盖全部/仅导入空缺项冲突策略,https字段级校验,恢复走既有保存链路后台即时生效) + file_picker升级8.3.7并强制compileSdk 37修复AAR元数据校验",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_arm64_1.5.63.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_arm32_1.5.63.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_x86_1.5.63.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_all_1.5.63.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm64_1.5.64.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm32_1.5.64.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_x86_1.5.64.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_all_1.5.64.apk"
   },
   "fileSizes": {
-    "all": 72927678,
-    "arm32": 22584613,
-    "arm64": 26672310,
-    "x86_64": 28705330
+    "all": 73341826,
+    "arm32": 22736614,
+    "arm64": 26824316,
+    "x86_64": 28857333
   },
   "minSupportedVersion": "1.0.0"
 }

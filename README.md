@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.63/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.64/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -54,6 +54,7 @@
 - 🌙 **深色模式** - 支持浅色/深色/跟随系统三种主题模式
 - 🛡️ **后台保活** - 前台服务 + 电量优化白名单 + 开机自启动；内置国产 ROM 保活引导（省电无限制/自启动/任务锁定，一键跳转厂商设置）
 - 📡 **监听可靠性增强** - 会话类通知（微信/QQ/Telegram 等）正文仅存在于 MessagingStyle 时自动兜底读取，去重键含通知 tag 防误判漏读；通知使用权被系统回收时前台显示「监听已断开 · 可能漏读通知」警告
+- 💾 **配置备份与恢复（v1.5.64）** - 一键将 Webhook/邮件通道（含凭据）、通知规则、短信监听设置、应用过滤与黑白名单加密导出为 `.nbackup` 文件（AES-256-GCM + PBKDF2 210k 迭代口令派生，文件头自描述 KDF 参数），换机/重装后选文件 + 输入口令即可还原；检测到现有配置时支持「覆盖全部 / 仅导入空缺项」冲突策略，非 https 地址自动跳过
 - 📱 **桌面小组件全新升级（v1.5.63）** - 2×2/4×2 布局与视觉全面美化（状态圆环/提示胶囊/当日计数），系统添加弹窗带预览与说明，不支持一键添加的桌面自动弹出分品牌分步引导；短信监听设置中心上线：监听开关 / 验证码开关 / 监听卡选择（单卡设备自动灰化），卡槽过滤同时作用于短信与电话链路，推送正文支持「卡1，运营商」双语信息行
 - 🔐 **崩溃上报合规开关（v1.5.62）** - Bugly 崩溃上报默认关闭、同意后才初始化，设置页可随时关闭；双端规则引擎归一化对齐（全角转半角/空白折叠/条件值 trim），34 条双端黄金用例锁定匹配一致性；Webhook 送达日志落地可审计，导出全量直读数据库不受内存上限约束
 - 📩 **短信可靠性增强（v1.5.61）** - 短信采用「广播 + 短信库监听」双链路：除 `SMS_RECEIVED` 广播主链路外，短信库 ContentObserver 会兜底捕获广播漏掉的短信，两条链路按内容指纹去重、不会重复推送；支持自动提取验证码并以独立字段下发

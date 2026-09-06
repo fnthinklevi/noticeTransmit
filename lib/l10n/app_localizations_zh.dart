@@ -1660,4 +1660,75 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deliveryLogEmpty => '暂无送达日志（可能已过 30 天保留期，或该通知早于送达日志功能启用）';
+
+  @override
+  String get backupRestoreTitle => '备份与恢复';
+
+  @override
+  String get backupSectionTitle => '备份配置';
+
+  @override
+  String get backupSectionDesc =>
+      '将 Webhook/邮件通道（含密钥）、通知规则、短信监听设置、应用过滤与黑白名单关键词加密导出为 .nbackup 文件（AES-256-GCM，口令派生密钥）。不含通知历史。';
+
+  @override
+  String get restoreSectionTitle => '恢复配置';
+
+  @override
+  String get restoreSectionDesc =>
+      '选择 .nbackup 备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。';
+
+  @override
+  String get backupCreate => '生成备份文件';
+
+  @override
+  String get restorePick => '选择备份文件恢复';
+
+  @override
+  String get backupPasswordTitle => '设置备份口令';
+
+  @override
+  String get backupPasswordHint => '口令（至少 8 位；忘记将无法恢复）';
+
+  @override
+  String get restorePasswordTitle => '输入备份口令';
+
+  @override
+  String get backupTooShort => '口令至少 8 位';
+
+  @override
+  String get backupOk => '备份已生成并保存';
+
+  @override
+  String get backupCancelled => '已取消';
+
+  @override
+  String get backupFailed => '备份失败：';
+
+  @override
+  String get restoreWrongPassword => '口令错误或文件已损坏';
+
+  @override
+  String get restoreInvalidFile => '不是有效的备份文件';
+
+  @override
+  String get restoreConfirmTitle => '检测到现有配置';
+
+  @override
+  String get restoreConflictMsg => '当前已有部分配置。覆盖将替换对应类别的全部内容；仅导入空缺项则保留现有配置不动。';
+
+  @override
+  String get restoreOverwriteAll => '覆盖全部';
+
+  @override
+  String get restoreFillGaps => '仅导入空缺项';
+
+  @override
+  String get restoreDoneReTest => '恢复完成。含凭据的通道（Webhook/邮件）请重新「测试」验证。';
+
+  @override
+  String get restoreFailed => '恢复失败：';
+
+  @override
+  String get backupRestoreSubtitle => '加密备份通道、规则与设置，支持换机恢复';
 }

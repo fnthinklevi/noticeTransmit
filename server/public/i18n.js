@@ -151,12 +151,18 @@ D['通知推送助手'] = 'NoticeTransmit';
   // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
   // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换
   D['版本 v1.5.60'] = 'Version v1.5.60';
-  D['约 25.4 MB'] = '~ 25.4 MB';
+  D['版本 v1.5.64'] = 'Version v1.5.64';
+  D['约 25.6 MB'] = '~ 25.6 MB';
   // feature cards — updated v1.5.50
   D['推送模板引擎'] = 'Push Template Engine';
   D['text / markdown / json / xml 四种格式自定义，%appName% 等变量占位符自动替换，每个通道独立配置。'] = 'Custom text / markdown / json / xml formats, %appName% placeholder auto-replacement, configurable per channel.';
   D['一键暂停推送'] = 'One-Tap Pause Push';
   D['前台通知栏按钮或桌面小部件一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。小部件适配国内外主流品牌手动添加。'] = 'Pause / resume push via the foreground notification button or home-screen widget. Listening continues, only Webhook sending pauses. State persists across restart. Widgets must be added manually on major brands.';
+  // feature cards & security — v1.5.64 backup & restore
+  D['配置备份与恢复'] = 'Config Backup & Restore';
+  D['一键将通道 / 规则 / 关键词等全部配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定。'] = 'Export all configs (channels / rules / keywords) encrypted as a .nbackup file (AES-256-GCM + PBKDF2 key derivation). Restore with your passphrase after switching or reinstalling — overwrite or fill gaps, your choice.';
+  D['配置备份加密'] = 'Encrypted Config Backup';
+  D['备份文件以 AES-256-GCM 认证加密、PBKDF2（210k 迭代）派生密钥，口令错误或密文被篡改均无法解密。'] = 'Backups are AES-256-GCM authenticated-encrypted with PBKDF2 (210k iterations) key derivation; wrong passphrase or tampered ciphertext cannot be decrypted.';
 
   // ── 当前语言 ──
   var lang = localStorage.getItem('lang');

@@ -10,6 +10,7 @@ import '../services/device_info_service.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
+import 'backup_restore_page.dart';
 import 'stats_page.dart';
 import 'widget_guide_page.dart';
 
@@ -209,6 +210,20 @@ class MorePage extends StatelessWidget {
                     )
                   : null,
               onTap: isCheckingUpdate ? null : onCheckUpdate,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildNavTile(
+              icon: Icons.backup_outlined,
+              iconColor: const Color(0xFF30B0C7),
+              title: l10n.backupRestoreTitle,
+              subtitle: l10n.backupSectionDesc,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const BackupRestorePage(),
+                ),
+              ),
               context: context,
             ),
             _buildDivider(context),

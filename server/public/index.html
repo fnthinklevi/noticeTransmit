@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
@@ -486,6 +486,7 @@
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📝</div><h3>推送模板引擎</h3><p>text / markdown / json / xml 四种格式自定义，%appName% 等变量占位符自动替换，每个通道独立配置。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">⏸️</div><h3>一键暂停推送</h3><p>前台通知栏按钮或桌面小部件一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。小部件 2×2/4×2 视觉焕新，支持系统添加弹窗预览；不支持一键添加的桌面自动弹出分品牌分步引导（小米/华为/OPPO/vivo/三星等）。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📶</div><h3>短信监听设置中心</h3><p>监听短信 / 验证码监听 / 监听卡选择三大开关集中管理，单卡设备自动灰化选卡；卡槽过滤同时作用于短信与来电，推送正文可附「卡1，运营商」双语信息行。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">💾</div><h3>配置备份与恢复</h3><p>一键将通道 / 规则 / 关键词等全部配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🌐</div><h3>多语言国际化</h3><p>全应用中英双语支持（120+ 处迁移），设置页一键切换语言。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🌙</div><h3>深色模式</h3><p>浅色 / 深色 / 跟随系统三种主题，Cupertino 设计语言，界面简洁优雅。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🔄</div><h3>后台保活 · 在线更新</h3><p>前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新，无需重装。</p></div>
@@ -533,6 +534,7 @@
         <div class="sec-item reveal"><div class="sic">🛡️</div><div><h4>IP 智能封锁</h4><p>10 分钟内验证码错误 3 次自动封锁 IP，阻断自动化爆破。</p></div></div>
         <div class="sec-item reveal"><div class="sic">🔢</div><div><h4>恢复码机制</h4><p>生成 8 个一次性恢复码，设备丢失时安全找回账户。</p></div></div>
         <div class="sec-item reveal"><div class="sic">🔒</div><div><h4>AES-256-GCM 加密</h4><p>TOTP secret 等敏感数据加密存储，密钥泄露也无法直接读取。</p></div></div>
+        <div class="sec-item reveal"><div class="sic">💾</div><div><h4>配置备份加密</h4><p>备份文件以 AES-256-GCM 认证加密、PBKDF2（210k 迭代）派生密钥，口令错误或密文被篡改均无法解密。</p></div></div>
       </div>
       <div class="shield reveal">
         <div class="ring"></div>
@@ -593,19 +595,19 @@
         <p>下载最新版 APK，几分钟完成配置，再也不错过任何一条重要消息。</p>
         <div class="cta-actions" style="flex-direction: column; align-items: center; gap: 8px;">
           <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-            <a id="dl-arm64" class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_arm64_1.5.63.apk">
+            <a id="dl-arm64" class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm64_1.5.64.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 arm64
             </a>
-            <a id="dl-arm32" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_arm32_1.5.63.apk">
+            <a id="dl-arm32" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm32_1.5.64.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 arm32
             </a>
-            <a id="dl-x86_64" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_x86_1.5.63.apk">
+            <a id="dl-x86_64" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_x86_1.5.64.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 x86_64
             </a>
-            <a id="dl-all" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_all_1.5.63.apk">
+            <a id="dl-all" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_all_1.5.64.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 全平台
             </a>
@@ -616,9 +618,9 @@
           </a>
         </div>
         <div class="dl-meta">
-          <span id="ver-text">版本 v1.5.63</span>
+          <span id="ver-text">版本 v1.5.64</span>
           <span>·</span>
-          <span id="ver-size">约 25.4 MB</span>
+          <span id="ver-size">约 25.6 MB</span>
           <span>·</span>
           <span>arm64 · arm32 · x86_64 · Android 7.0+</span>
         </div>
