@@ -595,19 +595,19 @@
         <p>下载最新版 APK，几分钟完成配置，再也不错过任何一条重要消息。</p>
         <div class="cta-actions" style="flex-direction: column; align-items: center; gap: 8px;">
           <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-            <a id="dl-arm64" class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm64_1.5.64.apk">
+            <a id="dl-arm64" class="btn btn-primary btn-lg" href="https://github.com/fnthinklevi/noticeTransmit/releases/latest">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 arm64
             </a>
-            <a id="dl-arm32" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm32_1.5.64.apk">
+            <a id="dl-arm32" class="btn btn-ghost btn-lg" href="https://github.com/fnthinklevi/noticeTransmit/releases/latest">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 arm32
             </a>
-            <a id="dl-x86_64" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_x86_1.5.64.apk">
+            <a id="dl-x86_64" class="btn btn-ghost btn-lg" href="https://github.com/fnthinklevi/noticeTransmit/releases/latest">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 x86_64
             </a>
-            <a id="dl-all" class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_all_1.5.64.apk">
+            <a id="dl-all" class="btn btn-ghost btn-lg" href="https://github.com/fnthinklevi/noticeTransmit/releases/latest">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 全平台
             </a>
@@ -618,9 +618,9 @@
           </a>
         </div>
         <div class="dl-meta">
-          <span id="ver-text">版本 v1.5.64</span>
+          <span id="ver-text">版本 --</span>
           <span>·</span>
-          <span id="ver-size">约 25.6 MB</span>
+          <span id="ver-size">约 -- MB</span>
           <span>·</span>
           <span>arm64 · arm32 · x86_64 · Android 7.0+</span>
         </div>
@@ -713,12 +713,18 @@ navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>setMenu
 document.addEventListener('click',(e)=>{if(navLinks.classList.contains('open')&&!navLinks.contains(e.target)&&e.target!==burger)setMenu(false)});
 addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(false)},{passive:true});
 
-/* ---- 动态版本号与下载链接（发版无需更新本页静态兜底值）----
+/* ---- 动态版本号、下载链接与文件大小（发版无需更新本页）----
  * 数据源优先级：同源 /api/version/check → notice.fnthink.top（需 CORS 白名单）→ GitHub Releases。
- * 任一来源成功即覆盖版本号文本与下载链接/大小；全部失败保留 HTML 内静态兜底值。
+ * 前两源来自 update-server 的 version.json（latestVersion/downloads/fileSizes）；
+ * GitHub 源从 latest release 的 assets 同时解析版本号、browser_download_url 与文件大小。
+ * 任一来源成功即覆盖页面显示；全部失败保留 HTML 内中性占位（不含具体版本/大小，永不随发版过期）。
+ * 文本语言随站点语言设置（localStorage.lang）生成，切换语言后刷新页面即可对齐。
  */
 (async () => {
   const $ = (id) => document.getElementById(id);
+  const zh = (localStorage.getItem('lang') || ((navigator.language || '').startsWith('zh') ? 'zh' : 'en')) !== 'en';
+  const verText = (v) => zh ? '版本 v' + v : 'Version v' + v;
+  const fmtSize = (b) => (zh ? '约 ' : '~') + (b / 1048576).toFixed(1) + ' MB';
   const sources = [
     new URL('/api/version/check?platform=all', location.href).href,
     'https://notice.fnthink.top/api/version/check?platform=all'
@@ -731,13 +737,13 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
         const j = await r.json();
         const d = j && j.code === 0 && j.data;
         if (!d || !d.latestVersion) continue;
-        $('ver-text').textContent = '版本 v' + d.latestVersion;
+        $('ver-text').textContent = verText(d.latestVersion);
         const dl = d.downloads || {}, fs = d.fileSizes || {};
         for (const k of ['arm64', 'arm32', 'x86_64', 'all']) {
           const a = $('dl-' + k);
           if (a && dl[k]) a.href = dl[k];
         }
-        if (fs.arm64) $('ver-size').textContent = '约 ' + (fs.arm64 / 1048576).toFixed(1) + ' MB';
+        if (fs.arm64) $('ver-size').textContent = fmtSize(fs.arm64);
         return;
       } catch (_) { /* 尝试下一来源 */ }
     }
@@ -745,9 +751,23 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
     if (r.ok) {
       const j = await r.json();
       const v = String(j.tag_name || '').replace(/^v/, '');
-      if (v) $('ver-text').textContent = '版本 v' + v;
+      if (v) {
+        $('ver-text').textContent = verText(v);
+        // assets 同时提供下载直链与字节大小（notice_{平台}_{版本}.apk 命名）
+        const assets = Array.isArray(j.assets) ? j.assets : [];
+        const patterns = { arm64: /notice_arm64_/, arm32: /notice_arm32_/, x86_64: /notice_x86_/, all: /notice_all_/ };
+        for (const [k, re] of Object.entries(patterns)) {
+          const a = assets.find((x) => re.test(x.name));
+          if (!a) continue;
+          const link = $('dl-' + k);
+          if (link && a.browser_download_url) link.href = a.browser_download_url;
+          if (k === 'arm64' && typeof a.size === 'number') {
+            $('ver-size').textContent = fmtSize(a.size);
+          }
+        }
+      }
     }
-  } catch (_) { /* 全部失败：保留静态兜底 */ }
+  } catch (_) { /* 全部失败：保留中性占位 */ }
 })();
 </script>
 <script src="i18n.js"></script>
