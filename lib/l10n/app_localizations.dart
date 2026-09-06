@@ -3217,6 +3217,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'最后更新：2026年8月15日'**
   String get lastUpdate;
+
+  /// No description provided for @deliveryLogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'送达记录'**
+  String get deliveryLogTitle;
+
+  /// No description provided for @deliveryLogEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无送达日志（可能已过 30 天保留期，或该通知早于送达日志功能启用）'**
+  String get deliveryLogEmpty;
 }
 
 class _AppLocalizationsDelegate

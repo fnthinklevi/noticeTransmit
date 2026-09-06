@@ -1711,4 +1711,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lastUpdate => 'Last updated: August 15, 2026';
+
+  @override
+  String get deliveryLogTitle => 'Delivery Log';
+
+  @override
+  String get deliveryLogEmpty =>
+      'No delivery log yet (older than the 30-day retention, or this notification predates the feature)';
 }

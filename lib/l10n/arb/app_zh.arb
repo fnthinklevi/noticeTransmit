@@ -755,5 +755,7 @@
   "privacyUpdateContent": "本隐私政策可能会不定期更新。当政策发生变更时，我们将在应用内发布更新后的政策，并更新页面底部的\"最后更新\"日期。您继续使用本应用即表示您同意更新后的政策。",
   "privacyContactTitle": "联系我们",
   "privacyContactContent": "如果您对本隐私政策或数据处理有任何疑问、意见或建议，可通过以下方式联系我们：\n\n• 在应用内「更多」页查看最新版本与更新说明\n• 通过 GitHub 仓库提交 Issue：https://github.com/fnthinklevi/noticeTransmit\n\n我们将在收到您的反馈后尽快予以回复。",
-  "lastUpdate": "最后更新：2026年8月15日"
+  "lastUpdate": "最后更新：2026年8月15日",
+  "deliveryLogTitle": "送达记录",
+  "deliveryLogEmpty": "暂无送达日志（可能已过 30 天保留期，或该通知早于送达日志功能启用）"
 }

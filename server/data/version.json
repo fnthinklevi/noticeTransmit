@@ -8,14 +8,14 @@
   "downloads": {
     "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_arm64_1.5.63.apk",
     "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_arm32_1.5.63.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_x86_64_1.5.63.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_x86_1.5.63.apk",
     "all": "https://cdn2.fnthink.top/app/notice/update/1.5.63/notice_all_1.5.63.apk"
   },
   "fileSizes": {
-    "all": 72976661,
-    "arm32": 22633601,
-    "arm64": 26672141,
-    "x86_64": 28705156
+    "all": 72927678,
+    "arm32": 22584613,
+    "arm64": 26672310,
+    "x86_64": 28705330
   },
   "minSupportedVersion": "1.0.0"
 }

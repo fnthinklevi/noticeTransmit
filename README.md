@@ -94,7 +94,7 @@
 | 协程 | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
 | 跨端通信 | MethodChannel (统一声明) |
 | 崩溃统计 | 腾讯 Bugly 4.1.9.3 |
-| 服务端 | Node.js + Express 4.x (Token鉴权 + 二步验证) / GitHub Pages 静态部署 |
+| 服务端 | Node.js + Express 5.x (Token鉴权 + 二步验证) / GitHub Pages 静态部署 |
 | TOTP验证 | otplib (^13.0.1) |
 | 密码哈希 | bcryptjs (^2.4.3) |
 | 数据加密 | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |

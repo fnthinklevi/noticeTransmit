@@ -1654,4 +1654,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get lastUpdate => '最后更新：2026年8月15日';
+
+  @override
+  String get deliveryLogTitle => '送达记录';
+
+  @override
+  String get deliveryLogEmpty => '暂无送达日志（可能已过 30 天保留期，或该通知早于送达日志功能启用）';
 }

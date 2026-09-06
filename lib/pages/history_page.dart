@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../database/database_helper.dart';
 import '../models/notification_record.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -325,11 +326,20 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  void _showRecordDetail(NotificationRecord record) {
+  /// 送达日志查询/展示用
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  Future<void> _showRecordDetail(NotificationRecord record) async {
     final l10n = AppLocalizations.of(context);
     final appName = record.appName.isNotEmpty
         ? record.appName
         : l10n.notificationDetail;
+    // Q2：送达日志（webhook_delivery_log）随详情一并查出，DB 异常静默降级
+    List<Map<String, dynamic>> deliveryLogs = [];
+    try {
+      deliveryLogs = await _dbHelper.getDeliveryLogsByNotification(record.id);
+    } catch (_) {}
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -373,6 +383,57 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                Text(
+                  l10n.deliveryLogTitle,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (deliveryLogs.isEmpty)
+                  Text(
+                    l10n.deliveryLogEmpty,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  )
+                else ...[
+                  for (final log in deliveryLogs)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(top: 5),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: log['status'] == 'success'
+                                  ? AppColors.green
+                                  : AppColors.red,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${log['tag']} · HTTP ${log['http_code'] ?? '-'}'
+                              ' · ${log['message'] ?? ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.primaryLabel(context),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ],
             ),
           ),

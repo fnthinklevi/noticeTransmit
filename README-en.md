@@ -94,7 +94,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 | Coroutines | kotlinx.coroutines (SupervisorJob + Dispatchers.IO) |
 | Cross-platform Communication | MethodChannel (unified declaration) |
 | Crash Statistics | Tencent Bugly 4.1.9.3 |
-| Server | Node.js + Express 4.x (Token Auth + Two-step Verification) / GitHub Pages static deploy |
+| Server | Node.js + Express 5.x (Token Auth + Two-step Verification) / GitHub Pages static deploy |
 | TOTP Verification | otplib (^13.0.1) |
 | Password Hashing | bcryptjs (^2.4.3) |
 | Data Encryption | Node.js crypto (AES-256-GCM) / AndroidKeyStore + flutter_secure_storage |

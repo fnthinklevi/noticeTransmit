@@ -755,5 +755,7 @@
   "privacyUpdateContent": "This Privacy Policy may be updated from time to time. When changes occur, the updated policy will be published in the app and the \"Last updated\" date at the bottom of this page will be refreshed. Your continued use of this App signifies your agreement to the updated policy.",
   "privacyContactTitle": "Contact Us",
   "privacyContactContent": "If you have any questions, comments, or suggestions about this Privacy Policy or data processing, you can reach us through:\n\n• Check the latest version and release notes on the \"More\" page in the app\n• Submit an Issue on GitHub: https://github.com/fnthinklevi/noticeTransmit\n\nWe will respond to your feedback as soon as possible.",
-  "lastUpdate": "Last updated: August 15, 2026"
+  "lastUpdate": "Last updated: August 15, 2026",
+  "deliveryLogTitle": "Delivery Log",
+  "deliveryLogEmpty": "No delivery log yet (older than the 30-day retention, or this notification predates the feature)"
 }

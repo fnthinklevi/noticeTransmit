@@ -579,6 +579,18 @@ class DatabaseHelper implements WebhookChannelStore {
     );
   }
 
+  /// 按通知 ID 查询送达日志（历史详情弹层展示），按时间倒序
+  Future<List<Map<String, dynamic>>> getDeliveryLogsByNotification(
+    String notificationId,
+  ) async {
+    final db = await database;
+    return await db.rawQuery(
+      'SELECT * FROM webhook_delivery_log '
+      'WHERE notification_id = ? ORDER BY timestamp DESC',
+      [notificationId],
+    );
+  }
+
   Future<int> getNotificationCount({String? type, String? packageName}) async {
     final db = await database;
     var sql = 'SELECT COUNT(*) FROM notifications';

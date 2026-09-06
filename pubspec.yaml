@@ -57,6 +57,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # 真机/模拟器集成冒烟测试（integration_test/smoke_test.dart，CI 见 integration_test.yml）
+  integration_test:
+    sdk: flutter
   sqflite_common_ffi: ^2.2.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
