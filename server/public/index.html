@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="favicon.ico?v=20260719">
 <link rel="apple-touch-icon" href="app_icon.png?v=20260719">
 <title>NoticeTransmit · 通知推送助手</title>
-<meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎（通知优先级分级 / 静默忽略 / 定时与延迟推送）、桌面小部件一键启停、电量提醒等功能。开源、免费。仅收集必要的崩溃日志用于修复问题。" />
+<meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎（通知优先级分级 / 静默忽略 / 定时与延迟推送）、桌面小部件一键启停、电量提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23467CFD' d='M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z'/%3E%3Cpath fill='%238BAEF7' d='M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.cn" />
 <link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin />
@@ -538,7 +538,7 @@
         <div style="position:relative;z-index:2">
           <div class="big">🛡️</div>
           <h3>通知不上云</h3>
-          <p>所有通知、短信、通讯录仅在本地处理与推送，不会上传到任何服务器。推送只经你自己配置的 Webhook 或 SMTP 邮件通道发出。仅崩溃统计（腾讯 Bugly）会采集必要的崩溃堆栈、设备型号、系统版本用于修复问题。</p>
+          <p>所有通知、短信、通讯录仅在本地处理与推送，不会上传到任何服务器。推送只经你自己配置的 Webhook 或 SMTP 邮件通道发出。崩溃统计（腾讯 Bugly）默认关闭，仅在你在应用内主动开启后采集必要的崩溃堆栈、设备型号、系统版本用于修复问题，可随时关闭。</p>
         </div>
       </div>
     </div>
@@ -576,7 +576,7 @@
       <h2>常见问题</h2>
     </div>
     <div class="faq">
-      <details class="qa reveal"><summary>它会不会上传我的通知或短信内容？<span class="plus"></span></summary><div class="a">不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 或 SMTP 邮件通道发出，开发者不存储任何推送内容。仅崩溃统计（腾讯 Bugly）会采集崩溃堆栈用于修复问题。</div></details>
+      <details class="qa reveal"><summary>它会不会上传我的通知或短信内容？<span class="plus"></span></summary><div class="a">不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 或 SMTP 邮件通道发出，开发者不存储任何推送内容。崩溃统计（腾讯 Bugly）默认关闭，仅在你主动开启后采集崩溃堆栈用于修复问题，可随时关闭。</div></details>
       <details class="qa reveal"><summary>支持哪些推送平台？<span class="plus"></span></summary><div class="a">内置适配企业微信群机器人、钉钉自定义机器人、飞书群机器人、Telegram Bot、Bark 服务、Server酱、PushPlus 的消息格式；支持 SMTP 邮件推送（SSL/STARTTLS）；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。</div></details>
       <details class="qa reveal"><summary>为什么有时候收不到推送？<span class="plus"></span></summary><div class="a">请依次检查：① 通知访问权限是否开启；② 是否已忽略电池优化（应用会在首次启用时引导）；③ 前台服务是否运行；④ 厂商自启动 / 后台权限是否放行；⑤ Webhook 地址是否正确（设置页可测试）；⑥ 是否被应用筛选或关键词过滤拦截。</div></details>
       <details class="qa reveal"><summary>需要 root 或特殊权限吗？<span class="plus"></span></summary><div class="a">无需 root。仅需授予通知监听权限，并按需开启短信 / 来电识别、忽略电池优化、开机自启等常规权限即可稳定运行。</div></details>
@@ -592,19 +592,19 @@
         <p>下载最新版 APK，几分钟完成配置，再也不错过任何一条重要消息。</p>
         <div class="cta-actions" style="flex-direction: column; align-items: center; gap: 8px;">
           <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
-            <a class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_arm64_1.5.61.apk">
+            <a class="btn btn-primary btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_arm64_1.5.62.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 arm64
             </a>
-            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_arm32_1.5.61.apk">
+            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_arm32_1.5.62.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 arm32
             </a>
-            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_x86_1.5.61.apk">
+            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_x86_1.5.62.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 x86_64
             </a>
-            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_all_1.5.61.apk">
+            <a class="btn btn-ghost btn-lg" href="https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_all_1.5.62.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
               下载 全平台
             </a>
@@ -615,7 +615,7 @@
           </a>
         </div>
         <div class="dl-meta">
-          <span>版本 v1.5.61</span>
+          <span>版本 v1.5.62</span>
           <span>·</span>
           <span>约 25.4 MB</span>
           <span>·</span>

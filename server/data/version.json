@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.61",
-  "latestBuild": 96,
+  "latestVersion": "1.5.62",
+  "latestBuild": 97,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.59",
   "forceUpdateBuild": 93,
-  "changelog": "v1.5.61+96: 短信读取可靠性修复(新增短信库ContentObserver兜底链路 + SmsDispatcher统一处理入口 + 跨链路去重,修复验证码短信被丢弃、异步推送被进程回收中断、服务销毁后短信静默丢失) + 验证码自动提取(verificationCode/code字段) + gradlew wrapper版本错配修复",
+  "changelog": "v1.5.62+97: 双端规则引擎归一化对齐(全角转半角+空白折叠+条件值trim，34条双端黄金用例锁定一致性) + 崩溃上报合规改造(Bugly默认关闭，同意后初始化+设置页开关+隐私披露更新) + 移除MANAGE_EXTERNAL_STORAGE冗余权限 + 导出统一走DB全量(单一buildExportJson，不再受内存500条限制) + webhook_delivery_log送达日志落地(链路携带channelUrl，30天保留清理) + 服务端express升级^4.21.2(修复low漏洞) + 服务端部署边界文档 + 证书固定轮换runbook + README封禁参数/otplib版本修正(一致性脚本覆盖文档) + 原生单测扩充65例(共73例)",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_arm64_1.5.61.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_arm32_1.5.61.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_x86_1.5.61.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.61/notice_all_1.5.61.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_arm64_1.5.62.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_arm32_1.5.62.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_x86_1.5.62.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.62/notice_all_1.5.62.apk"
   },
   "fileSizes": {
-    "arm64": 26664944,
-    "arm32": 22577245,
-    "x86_64": 28697957,
-    "all": 72920304
+    "arm64": 26665050,
+    "arm32": 22577355,
+    "x86_64": 28698068,
+    "all": 72920412
   },
   "minSupportedVersion": "1.0.0"
 }
