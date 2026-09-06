@@ -41,28 +41,6 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
         /** 宽布局阈值（dp）：宽度 >= 该值使用 4×2 宽布局，否则使用 2×2 紧凑布局 */
         const val WIDE_LAYOUT_MIN_WIDTH_DP = 220
 
-        /**
-         * 请求把 2×2 小部件固定到桌面（Android 8.0+ 系统弹窗确认）。
-         * 返回是否成功发起请求（部分 Launcher 不支持，返回 false 时降级为手动添加）。
-         */
-        fun requestPinWidget(context: Context, result: ((Boolean) -> Unit)? = null): Boolean {
-            val manager = AppWidgetManager.getInstance(context)
-            val component = ComponentName(context, PushToggleWidgetProvider::class.java)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                val callback: PendingIntent? = result?.let {
-                    PendingIntent.getBroadcast(
-                        context,
-                        0,
-                        Intent(context, PushToggleWidgetProvider::class.java)
-                            .setAction(ACTION_UPDATE_WIDGET),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                }
-                return manager.requestPinAppWidget(component, null, callback)
-            }
-            return false
-        }
-
         /** 刷新所有已添加的小部件（2×2 与 4×2 两种规格）。 */
         @JvmStatic
         fun updateAllWidgets(context: Context) {

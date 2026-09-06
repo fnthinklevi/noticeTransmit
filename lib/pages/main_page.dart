@@ -9,6 +9,7 @@ import '../services/services.dart';
 import '../services/theme_service.dart';
 import '../services/email_service.dart';
 import '../services/locale_service.dart';
+import '../services/sms_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
 import '../models/email_channel.dart';
@@ -24,6 +25,7 @@ import 'app_filter_page.dart';
 import 'keywords_page.dart';
 import 'rule_list_page.dart';
 import 'privacy_policy_page.dart';
+import 'sms_monitor_settings_page.dart';
 
 class MainPage extends StatefulWidget {
   final ValueChanged<Locale>? onLocaleChanged;
@@ -52,6 +54,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final DeviceInfoService _deviceInfoService =
       GetIt.instance<DeviceInfoService>();
   final ThemeService _themeService = GetIt.instance<ThemeService>();
+  final SmsService _smsService = GetIt.instance<SmsService>();
 
   List<Map<String, String>> _getActiveChannels() {
     final channels = <Map<String, String>>[];
@@ -116,11 +119,17 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         foregroundServiceRunning: _notificationService.serviceRunning,
         notificationCount: _notificationTotalCount,
         activeChannels: _getActiveChannels(),
+        smsMonitorEnabled: _smsService.smsMonitorEnabled,
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
         onRefresh: _checkPermissions,
         onOpenHistory: _openHistoryPage,
         onOpenPermissionSettings: _openPermissionSettingsPage,
+        onToggleSmsMonitor: (v) async {
+          await _smsService.saveSmsMonitorEnabled(v);
+          setState(() {});
+        },
+        onOpenSmsMonitorSettings: _openSmsMonitorSettingsPage,
       ),
       BatteryPage(
         notifyEnabled: _batteryService.notifyEnabled,
@@ -188,6 +197,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       await _webhookService.loadChannels();
       final emailService = GetIt.instance<EmailService>();
       await emailService.loadChannels();
+      await _smsService.loadSettings();
       _notificationService.startDailyExport();
       setState(() {});
 
@@ -1091,7 +1101,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onRequestSmsPermission: _permissionService.requestSmsPermission,
         onRequestPhonePermission: _permissionService.requestPhonePermission,
         onRequestAppListPermission: _permissionService.requestAppListPermission,
-        onAppListPermissionGranted: _onAppListPermissionGranted,
       ),
     );
     await _checkPermissions();
@@ -1099,8 +1108,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     setState(() {});
   }
 
-  void _onAppListPermissionGranted() {
-    AppChannels.notification.invokeMethod('getInstalledApps');
+  /// 打开短信/来电监听设置页
+  void _openSmsMonitorSettingsPage() async {
+    await _pushPage(SmsMonitorSettingsPage(smsService: _smsService));
+    setState(() {});
   }
 
   void _openAppFilterPage() async {

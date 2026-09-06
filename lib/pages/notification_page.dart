@@ -7,11 +7,14 @@ class NotificationPage extends StatelessWidget {
   final bool foregroundServiceRunning;
   final int notificationCount;
   final List<Map<String, String>> activeChannels;
+  final bool smsMonitorEnabled;
   final VoidCallback onStartService;
   final VoidCallback onStopService;
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenHistory;
   final VoidCallback onOpenPermissionSettings;
+  final ValueChanged<bool> onToggleSmsMonitor;
+  final VoidCallback onOpenSmsMonitorSettings;
 
   const NotificationPage({
     super.key,
@@ -19,11 +22,14 @@ class NotificationPage extends StatelessWidget {
     required this.foregroundServiceRunning,
     required this.notificationCount,
     this.activeChannels = const [],
+    this.smsMonitorEnabled = true,
     required this.onStartService,
     required this.onStopService,
     required this.onRefresh,
     required this.onOpenHistory,
     required this.onOpenPermissionSettings,
+    required this.onToggleSmsMonitor,
+    required this.onOpenSmsMonitorSettings,
   });
 
   @override
@@ -181,6 +187,8 @@ class NotificationPage extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 12),
+            _buildSmsMonitorCard(context, l10n),
             const SizedBox(height: 40),
             _buildQuickAction(
               icon: Icons.settings,
@@ -198,6 +206,68 @@ class NotificationPage extends StatelessWidget {
               subtitle: l10n.recordCount(notificationCount),
               onTap: onOpenHistory,
               context: context,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 首页"短信监听"卡片：开关直接切换总监听开关，点击卡片进入细化设置页
+  Widget _buildSmsMonitorCard(BuildContext context, AppLocalizations l10n) {
+    return InkWell(
+      onTap: onOpenSmsMonitorSettings,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg(context),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.sms_outlined,
+                size: 22,
+                color: AppColors.green,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.smsMonitor,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.smsMonitorDesc,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch(value: smsMonitorEnabled, onChanged: onToggleSmsMonitor),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: AppColors.tertiaryLabel(context),
             ),
           ],
         ),

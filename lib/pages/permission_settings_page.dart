@@ -24,7 +24,6 @@ class PermissionSettingsPage extends StatefulWidget {
   final VoidCallback onRequestSmsPermission;
   final VoidCallback onRequestPhonePermission;
   final VoidCallback onRequestAppListPermission;
-  final VoidCallback onAppListPermissionGranted;
 
   const PermissionSettingsPage({
     super.key,
@@ -47,7 +46,6 @@ class PermissionSettingsPage extends StatefulWidget {
     required this.onRequestSmsPermission,
     required this.onRequestPhonePermission,
     required this.onRequestAppListPermission,
-    required this.onAppListPermissionGranted,
   });
 
   @override
@@ -104,11 +102,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
-      final wasGranted = _appListPermissionGranted;
       await _permissionService.checkAllPermissions();
-      if (!wasGranted && _appListPermissionGranted) {
-        widget.onAppListPermissionGranted();
-      }
       // 从系统授权页返回后刷新精确闹钟授权状态
       await _loadExactAlarmState();
       if (mounted) setState(() {});

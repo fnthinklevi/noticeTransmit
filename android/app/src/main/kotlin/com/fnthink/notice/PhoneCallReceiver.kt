@@ -36,7 +36,17 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
             // 统一通过 SimInfoHelper.getSimInfoFromIntent 入口识别 SIM 卡
             // 兼容多 key（subscription / EXTRA_SUBSCRIPTION_ID）+ 多策略降级（subId→单卡→slotId→占位）
-            val simInfo: String? = SimInfoHelper.getSimInfoFromIntent(context, intent)?.displayLabel
+            val sim = SimInfoHelper.getSimInfoFromIntent(context, intent)
+            val simInfo: String? = sim?.displayLabel
+            val simFooter: String? = SimInfoHelper.footerLabel(sim)
+
+            // 卡槽过滤（用户设置"仅监听卡1/卡2"，同时作用于短信和电话）：
+            // 识别出且不属于所选卡的来电直接忽略（含状态机，避免跨卡状态串扰）；
+            // 无法识别 SIM 时放行，与短信通知兜底链路同一取舍
+            if (!SmsMonitorGate.allowSim(configManager.getSmsSimFilterSlot(), sim?.slotIndex)) {
+                Log.d(TAG, "来电来自未监听的卡(slot=${sim?.slotIndex})，忽略号码: $incomingNumber")
+                return
+            }
 
             val state = when (stateStr) {
                 TelephonyManager.EXTRA_STATE_RINGING -> TelephonyManager.CALL_STATE_RINGING
@@ -85,7 +95,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
                                 duration = 0L,
                                 channelConfig = cfg,
                                 deviceName = deviceName,
-                                simInfo = simInfo
+                                simInfo = simInfo,
+                                simFooter = simFooter
                             )
                         }
                     }
@@ -146,7 +157,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
         deviceName: String,
         callState: String,
         duration: Long = 0L,
-        simInfo: String? = null
+        simInfo: String? = null,
+        simFooter: String? = null
     ) {
         val now = System.currentTimeMillis()
         val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -203,6 +215,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
             durationStr = durationStr,
             deviceName = deviceName,
             simInfo = simInfo,
+            simFooter = simFooter,
             chatId = WebhookPayloadBuilder.extractChatIdFromUrl(channelConfig.url)
         )
 

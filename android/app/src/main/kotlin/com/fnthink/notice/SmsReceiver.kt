@@ -91,7 +91,8 @@ class SmsReceiver : BroadcastReceiver() {
         }
         if (timestamp == 0L) timestamp = System.currentTimeMillis()
 
-        val simInfo = SimInfoHelper.getSimInfoFromIntent(context, intent)?.displayLabel
+        // 传 SimInfo 对象（含 slotIndex），供 SmsDispatcher 做卡槽过滤与展示
+        val simInfo = SimInfoHelper.getSimInfoFromIntent(context, intent)
         SmsDispatcher.handle(
             context = context,
             sender = sender,

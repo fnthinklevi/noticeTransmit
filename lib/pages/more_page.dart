@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/update_service.dart';
 import '../services/locale_service.dart';
 import '../services/platform_channel.dart';
+import '../services/device_info_service.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
@@ -170,7 +171,11 @@ class MorePage extends StatelessWidget {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const WidgetGuidePage(),
+                  builder: (context) => WidgetGuidePage(
+                    // 传入厂商用于品牌适配（当前品牌路径置顶 + 失败时品牌引导）
+                    manufacturer:
+                        GetIt.instance<DeviceInfoService>().manufacturer,
+                  ),
                 ),
               ),
               context: context,

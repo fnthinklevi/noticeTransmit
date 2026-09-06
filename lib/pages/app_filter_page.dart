@@ -4,6 +4,25 @@ import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
+/// 应用列表条目：组头（已选/未选分组标题）或应用行
+class _AppListItem {
+  final String? header;
+  final Map<String, dynamic>? app;
+  final bool isFirstInGroup;
+  final bool isLastInGroup;
+
+  const _AppListItem.header(this.header)
+    : app = null,
+      isFirstInGroup = false,
+      isLastInGroup = false;
+
+  const _AppListItem.app(
+    this.app, {
+    required this.isFirstInGroup,
+    required this.isLastInGroup,
+  }) : header = null;
+}
+
 class AppFilterPage extends StatefulWidget {
   final List<Map<String, dynamic>> installedApps;
   final List<String> enabledPackages;
@@ -33,7 +52,8 @@ class _AppFilterPageState extends State<AppFilterPage>
   bool _refreshing = false;
   bool _showSystemApps = false;
   bool _hasPermission = true;
-  bool _checkedPermission = false;
+  // 权限提醒弹窗每次进入页面只弹一次：从系统设置返回（resumed 重查）不再弹
+  bool _permissionDialogShown = false;
 
   @override
   void initState() {
@@ -65,11 +85,16 @@ class _AppFilterPageState extends State<AppFilterPage>
     final hasPermission = await _checkPermission();
     setState(() {
       _hasPermission = hasPermission;
-      _checkedPermission = true;
     });
 
     if (hasPermission) {
+      // 先立刻展示之前缓存的应用列表，再后台静默刷新一次（动态更新差异部分）
       await _loadCachedApps();
+      _refreshAppsSilently();
+    } else if (!_permissionDialogShown) {
+      // 无权限：先弹窗提醒，用户拒绝则仅在列表区域显示提示文案
+      _permissionDialogShown = true;
+      _showPermissionDialog();
     }
 
     setState(() => _loading = false);
@@ -86,7 +111,8 @@ class _AppFilterPageState extends State<AppFilterPage>
     }
   }
 
-  Future<void> _requestPermission() async {
+  /// 无权限进入页面时的提醒弹窗：允许 → 跳系统设置申请；拒绝 → 仅显示提示文案
+  Future<void> _showPermissionDialog() async {
     if (!mounted) return;
     showDialog(
       context: context,
@@ -166,6 +192,28 @@ class _AppFilterPageState extends State<AppFilterPage>
       }
     } catch (e) {
       debugPrint('加载缓存应用列表失败: $e');
+    }
+  }
+
+  /// 后台静默刷新：进入页面（已授权）时自动执行一次，读取全量应用列表并
+  /// 动态更新与缓存的差异部分（原生端同时更新缓存）。失败时保留已展示的缓存。
+  Future<void> _refreshAppsSilently() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      final List<dynamic> result = await _channel.invokeMethod(
+        'getInstalledApps',
+      );
+      final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
+      if (!mounted) return;
+      setState(() {
+        _allApps = newApps;
+        _filterApps();
+      });
+    } catch (e) {
+      debugPrint('后台刷新应用列表失败: $e');
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -301,9 +349,7 @@ class _AppFilterPageState extends State<AppFilterPage>
           ),
         ],
       ),
-      body: _checkedPermission && !_hasPermission
-          ? _buildPermissionRequestView(l10n)
-          : _buildAppListView(l10n),
+      body: _buildAppListView(l10n),
     );
   }
 
@@ -398,79 +444,24 @@ class _AppFilterPageState extends State<AppFilterPage>
     );
   }
 
-  Widget _buildPermissionRequestView(AppLocalizations l10n) {
+  /// 无权限时应用列表区域显示的提示文案，点击整段文字直接发起权限申请
+  Widget _buildNoPermissionPrompt(AppLocalizations l10n) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF9500).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.security,
-                size: 36,
-                color: Color(0xFFFF9500),
-              ),
+        child: GestureDetector(
+          onTap: () {
+            _channel.invokeMethod('requestQueryAllPackagesPermission');
+          },
+          child: Text(
+            l10n.appFilterNoPermPrompt,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.6,
+              color: AppColors.blue,
             ),
-            const SizedBox(height: 20),
-            Text(
-              l10n.appListPermTitle,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(context),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.appListPermDesc2,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.secondaryLabel(context),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 28),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _requestPermission,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  l10n.goEnablePermission,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: _initLoad,
-              child: Text(
-                l10n.refreshRetry,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -688,7 +679,9 @@ class _AppFilterPageState extends State<AppFilterPage>
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: _loading
+          child: !_hasPermission
+              ? _buildNoPermissionPrompt(l10n)
+              : _loading
               ? const Center(
                   child: CircularProgressIndicator(color: AppColors.blue),
                 )
@@ -699,85 +692,155 @@ class _AppFilterPageState extends State<AppFilterPage>
                     style: TextStyle(color: AppColors.secondaryLabel(context)),
                   ),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _filteredApps.length,
-                  separatorBuilder: (_, _) => Padding(
-                    padding: const EdgeInsets.only(left: 60),
-                    child: Divider(
-                      height: 0.5,
-                      thickness: 0.5,
-                      color: AppColors.separator(context),
-                    ),
-                  ),
-                  itemBuilder: (context, index) {
-                    final app = _filteredApps[index];
-                    final packageName = app['packageName'] as String;
-                    final appName = app['appName'] as String;
-                    final isSelected = _selectedPackages.contains(packageName);
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.cardBg(context),
-                        borderRadius: BorderRadius.only(
-                          topLeft: index == 0
-                              ? const Radius.circular(12)
-                              : Radius.zero,
-                          topRight: index == 0
-                              ? const Radius.circular(12)
-                              : Radius.zero,
-                          bottomLeft: index == _filteredApps.length - 1
-                              ? const Radius.circular(12)
-                              : Radius.zero,
-                          bottomRight: index == _filteredApps.length - 1
-                              ? const Radius.circular(12)
-                              : Radius.zero,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: AppColors.blue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.android,
-                            color: AppColors.blue,
-                            size: 22,
-                          ),
-                        ),
-                        title: Text(
-                          appName,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: AppColors.primaryLabel(context),
-                          ),
-                        ),
-                        subtitle: Text(
-                          packageName,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.secondaryLabel(context),
-                          ),
-                        ),
-                        trailing: Icon(
-                          isSelected
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
-                          color: isSelected
-                              ? AppColors.green
-                              : AppColors.tertiaryLabel(context),
-                          size: 24,
-                        ),
-                        onTap: () => _togglePackage(packageName, !isSelected),
-                      ),
-                    );
-                  },
-                ),
+              : _buildAppList(l10n),
         ),
         const SizedBox(height: 8),
       ],
     );
+  }
+
+  /// 应用列表：有选中应用时按「已选（置顶）/未选」分组，未做选择时保持平铺
+  Widget _buildAppList(AppLocalizations l10n) {
+    final items = _buildAppListItems(l10n);
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final header = item.header;
+        if (header != null) {
+          return Padding(
+            padding: const EdgeInsets.only(left: 4, top: 8, bottom: 6),
+            child: Text(
+              header,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+          );
+        }
+        final app = item.app!;
+        final packageName = app['packageName'] as String;
+        final appName = app['appName'] as String;
+        final isSelected = _selectedPackages.contains(packageName);
+        // 分割线只出现在同组相邻应用行之间
+        final showDivider = index > 0 && items[index - 1].app != null;
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardBg(context),
+            borderRadius: BorderRadius.only(
+              topLeft: item.isFirstInGroup
+                  ? const Radius.circular(12)
+                  : Radius.zero,
+              topRight: item.isFirstInGroup
+                  ? const Radius.circular(12)
+                  : Radius.zero,
+              bottomLeft: item.isLastInGroup
+                  ? const Radius.circular(12)
+                  : Radius.zero,
+              bottomRight: item.isLastInGroup
+                  ? const Radius.circular(12)
+                  : Radius.zero,
+            ),
+          ),
+          child: Column(
+            children: [
+              if (showDivider)
+                Padding(
+                  padding: const EdgeInsets.only(left: 60),
+                  child: Divider(
+                    height: 0.5,
+                    thickness: 0.5,
+                    color: AppColors.separator(context),
+                  ),
+                ),
+              // 透明 Material：让 ListTile 的水波纹绘制在背景色之上（调试断言要求）
+              Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.android,
+                      color: AppColors.blue,
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    appName,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  subtitle: Text(
+                    packageName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                  trailing: Icon(
+                    isSelected ? Icons.check_circle : Icons.circle_outlined,
+                    color: isSelected
+                        ? AppColors.green
+                        : AppColors.tertiaryLabel(context),
+                    size: 24,
+                  ),
+                  onTap: () => _togglePackage(packageName, !isSelected),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 构建列表条目：已选应用置顶为「已选」组，其余为「未选」组；
+  /// 组内保持 _filteredApps 的字母序；某组在当前过滤结果中为空则不显示其组头
+  List<_AppListItem> _buildAppListItems(AppLocalizations l10n) {
+    final items = <_AppListItem>[];
+    void addApps(List<Map<String, dynamic>> apps) {
+      for (var i = 0; i < apps.length; i++) {
+        items.add(
+          _AppListItem.app(
+            apps[i],
+            isFirstInGroup: i == 0,
+            isLastInGroup: i == apps.length - 1,
+          ),
+        );
+      }
+    }
+
+    // 未做任何选择时不显示已选/未选分组
+    if (_selectedPackages.isEmpty) {
+      addApps(_filteredApps);
+      return items;
+    }
+    final selectedApps = _filteredApps
+        .where((a) => _selectedPackages.contains(a['packageName'] as String))
+        .toList();
+    final unselectedApps = _filteredApps
+        .where((a) => !_selectedPackages.contains(a['packageName'] as String))
+        .toList();
+    if (selectedApps.isNotEmpty) {
+      items.add(_AppListItem.header(l10n.selectedCount(selectedApps.length)));
+      addApps(selectedApps);
+    }
+    if (unselectedApps.isNotEmpty) {
+      items.add(
+        _AppListItem.header(l10n.unselectedCount(unselectedApps.length)),
+      );
+      addApps(unselectedApps);
+    }
+    return items;
   }
 }

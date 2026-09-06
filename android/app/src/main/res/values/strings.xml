@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 桌面小部件本地化文案（默认中文；英文见 values-en/strings.xml） -->
+<resources>
+    <string name="widget_label_toggle_2x2">推送开关</string>
+    <string name="widget_label_toggle_4x2">推送开关 (4×2)</string>
+    <string name="widget_desc_toggle_2x2">一键开启或暂停通知推送，实时查看推送状态</string>
+    <string name="widget_desc_toggle_4x2">一键开关通知推送，并显示当日已推送通知数量</string>
+</resources>

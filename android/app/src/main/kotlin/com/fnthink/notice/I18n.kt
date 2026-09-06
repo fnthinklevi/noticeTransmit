@@ -83,6 +83,13 @@ object I18n {
     // ========== SIM 槽位标签（SimInfoHelper 使用，中英双语） ==========
     fun simSlotLabel(slot: Int): String = if (isEn) "SIM$slot" else "卡$slot"
 
+    /**
+     * 推送正文底部 SIM 信息行（短信/通话链路，中英双语）
+     * 中文："卡1，运营商：中国移动" / 英文："SIM 1, Carrier: China Mobile"
+     */
+    fun simFooterLine(slot: Int, carrier: String): String =
+        if (isEn) "SIM $slot, Carrier: $carrier" else "卡$slot，运营商：$carrier"
+
     // ========== 电量规则文案（BatteryMonitor 使用，中英双语） ==========
     fun batteryRuleTitle(type: String, threshold: Int): String = when (type) {
         "charging" -> if (isEn) "Charging started" else "开始充电"

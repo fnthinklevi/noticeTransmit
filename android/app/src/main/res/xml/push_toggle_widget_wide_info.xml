@@ -11,5 +11,7 @@
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/push_toggle_widget_wide"
     android:previewLayout="@layout/push_toggle_widget_wide"
+    android:previewImage="@drawable/widget_preview_wide"
+    android:description="@string/widget_desc_toggle_4x2"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

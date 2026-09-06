@@ -46,8 +46,52 @@ class NotificationService {
     // 拉取原生端离线缓存（软件被杀期间的通知），通过 id 去重后合并入库
     await _drainOfflineCache();
 
+    // 存量修复：旧版本拦截记录的真实通道停留"发送中"
+    await migrateInterceptedRecords();
+
     // 补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
     await drainPendingDeliveries();
+  }
+
+  /// 存量数据修复：旧版本把拦截结果写到独立的 '过滤拦截' key 下，导致记录的
+  /// 真实通道永远停留 pending（"发送中"）。将含该 key 的记录统一迁移为
+  /// intercepted 状态：停留发送中的通道改为拦截并标注原因，已有终态不覆盖。
+  Future<void> migrateInterceptedRecords() async {
+    var migrated = 0;
+    for (var i = 0; i < _records.length; i++) {
+      final status = _records[i].deliveryStatus;
+      final legacy = status['过滤拦截'];
+      if (legacy is! Map) continue;
+      final message = legacy['message']?.toString() ?? '';
+      final updated = <String, dynamic>{};
+      for (final k in status.keys) {
+        if (k == '过滤拦截') continue;
+        final info = status[k];
+        if (info is Map && info['status'] == 'pending') {
+          updated[k] = {'status': 'intercepted', 'message': message};
+        } else {
+          updated[k] = info;
+        }
+      }
+      // 无真实通道时保留拦截标记本身（历史页对 channels 为空的记录回退按 key 渲染）
+      if (updated.isEmpty) {
+        updated['过滤拦截'] = {'status': 'intercepted', 'message': message};
+      }
+      final newRecord = _records[i].copyWith(deliveryStatus: updated);
+      _records[i] = newRecord;
+      migrated++;
+      try {
+        await DatabaseHelper().updateNotificationDelivery(
+          newRecord.id,
+          updated,
+        );
+      } catch (e) {
+        debugPrint('迁移拦截记录状态到 DB 失败: $e');
+      }
+    }
+    if (migrated > 0) {
+      debugPrint('[迁移] 修复 $migrated 条拦截记录的送达状态');
+    }
   }
 
   /// 补偿拉取 DeliveryResultStore 中未消费的送达结果并逐条补更新。
@@ -217,7 +261,9 @@ class NotificationService {
         return '邮件';
       case 'SMS':
       case 'FILTER':
-        // 短信兜底链路 / 通知被黑白名单或应用过滤拦截：历史中显示为过滤拦截
+        // 拦截伪通道类型（短信/通知被黑白名单或应用过滤拦截）：updateDelivery
+        // 会把记录所有真实通道统一置为 intercepted；本标签仅作送达日志 tag
+        // 和无通道记录的兜底 key
         return '过滤拦截';
       default:
         return 'webhook:Webhook';
@@ -244,8 +290,24 @@ class NotificationService {
       _ => 'failed',
     };
     if (idx >= 0) {
-      final updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);
-      updated[label] = {'status': normalized, 'message': message};
+      Map<String, dynamic> updated;
+      if (kotlinType == 'FILTER' || kotlinType == 'SMS') {
+        // 拦截伪通道（FILTER=通知被黑白名单/应用过滤拦截，SMS=短信被拦截）：
+        // 实际不会投递，把记录所有真实通道统一置为 intercepted 并标注原因，
+        // 否则真实通道永远停留 pending，历史里一直显示"发送中"
+        final existing = _records[idx].deliveryStatus;
+        updated = existing.isEmpty
+            ? <String, dynamic>{
+                label: {'status': 'intercepted', 'message': message},
+              }
+            : <String, dynamic>{
+                for (final k in existing.keys)
+                  k: {'status': 'intercepted', 'message': message},
+              };
+      } else {
+        updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);
+        updated[label] = {'status': normalized, 'message': message};
+      }
       final newRecord = _records[idx].copyWith(deliveryStatus: updated);
       _records[idx] = newRecord;
       try {

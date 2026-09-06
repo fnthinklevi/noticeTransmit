@@ -242,7 +242,7 @@ object WebhookPayloadBuilder {
         sender: String? = null,
         message: String? = null,
         durationStr: String? = null,
-        simInfo: String? = null
+        simFooter: String? = null
     ): String {
         val sep = I18n.labelSeparator()
         val sb = StringBuilder()
@@ -278,7 +278,8 @@ object WebhookPayloadBuilder {
         }
         if (time.isNotEmpty()) sb.append("${I18n.timeLabel()}$sep$time\n")
         if (deviceName.isNotEmpty()) sb.append("${I18n.deviceLabel()}$sep$deviceName")
-        if (simInfo != null) sb.append("\n${I18n.simCardLabel()}$sep$simInfo")
+        // 底部 SIM 信息行（"卡1，运营商：中国移动"），通知兜底链路无 SIM 信息时不加
+        if (simFooter != null) sb.append("\n$simFooter")
 
         return sb.toString()
     }
@@ -412,6 +413,7 @@ object WebhookPayloadBuilder {
         time: String,
         deviceName: String,
         simInfo: String? = null,
+        simFooter: String? = null,
         chatId: String = "",
         titleTag: String = ""
     ): String {
@@ -436,7 +438,7 @@ object WebhookPayloadBuilder {
                     put("content", buildTextBody(
                         title = title, content = "", appName = "",
                         time = time, deviceName = deviceName,
-                        sender = sender, message = message, simInfo = simInfo
+                        sender = sender, message = message, simFooter = simFooter
                     ))
                 })
             }.toString()
@@ -447,7 +449,7 @@ object WebhookPayloadBuilder {
                     put("content", buildTextBody(
                         title = title, content = "", appName = "",
                         time = time, deviceName = deviceName,
-                        sender = sender, message = message, simInfo = simInfo
+                        sender = sender, message = message, simFooter = simFooter
                     ))
                 })
             }.toString()
@@ -458,7 +460,7 @@ object WebhookPayloadBuilder {
                     put("text", buildTextBody(
                         title = title, content = "", appName = "",
                         time = time, deviceName = deviceName,
-                        sender = sender, message = message, simInfo = simInfo
+                        sender = sender, message = message, simFooter = simFooter
                     ))
                 })
             }.toString()
@@ -467,7 +469,7 @@ object WebhookPayloadBuilder {
                 buildTextBody(
                     title = title, content = "", appName = "",
                     time = time, deviceName = deviceName,
-                    sender = sender, message = message, simInfo = simInfo
+                    sender = sender, message = message, simFooter = simFooter
                 ),
                 chatId
             )
@@ -477,7 +479,7 @@ object WebhookPayloadBuilder {
                 put("body", buildTextBody(
                     title = "", content = "", appName = "",
                     time = time, deviceName = deviceName,
-                    sender = sender, message = message, simInfo = simInfo
+                    sender = sender, message = message, simFooter = simFooter
                 ))
             }.toString()
 
@@ -487,7 +489,7 @@ object WebhookPayloadBuilder {
                 put("content", buildTextBody(
                     title = "", content = "", appName = "",
                     time = time, deviceName = deviceName,
-                    sender = sender, message = message, simInfo = simInfo
+                    sender = sender, message = message, simFooter = simFooter
                 ))
             }.toString()
         }
@@ -501,6 +503,7 @@ object WebhookPayloadBuilder {
         durationStr: String = "",
         deviceName: String,
         simInfo: String? = null,
+        simFooter: String? = null,
         chatId: String = ""
     ): String {
         return when (type) {
@@ -522,7 +525,7 @@ object WebhookPayloadBuilder {
                         title = "", content = "", appName = "",
                         time = time, deviceName = deviceName,
                         state = state, phoneNumber = phoneNumber,
-                        durationStr = durationStr, simInfo = simInfo
+                        durationStr = durationStr, simFooter = simFooter
                     ))
                 })
             }.toString()
@@ -534,7 +537,7 @@ object WebhookPayloadBuilder {
                         title = "", content = "", appName = "",
                         time = time, deviceName = deviceName,
                         state = state, phoneNumber = phoneNumber,
-                        durationStr = durationStr, simInfo = simInfo
+                        durationStr = durationStr, simFooter = simFooter
                     ))
                 })
             }.toString()
@@ -546,7 +549,7 @@ object WebhookPayloadBuilder {
                         title = "", content = "", appName = "",
                         time = time, deviceName = deviceName,
                         state = state, phoneNumber = phoneNumber,
-                        durationStr = durationStr, simInfo = simInfo
+                        durationStr = durationStr, simFooter = simFooter
                     ))
                 })
             }.toString()
@@ -556,7 +559,7 @@ object WebhookPayloadBuilder {
                     title = "", content = "", appName = "",
                     time = time, deviceName = deviceName,
                     state = state, phoneNumber = phoneNumber,
-                    durationStr = durationStr, simInfo = simInfo
+                    durationStr = durationStr, simFooter = simFooter
                 ),
                 chatId
             )
@@ -567,7 +570,7 @@ object WebhookPayloadBuilder {
                     title = "", content = "", appName = "",
                     time = time, deviceName = deviceName,
                     state = state, phoneNumber = phoneNumber,
-                    durationStr = durationStr, simInfo = simInfo
+                    durationStr = durationStr, simFooter = simFooter
                 ))
             }.toString()
 
@@ -578,7 +581,7 @@ object WebhookPayloadBuilder {
                     title = "", content = "", appName = "",
                     time = time, deviceName = deviceName,
                     state = state, phoneNumber = phoneNumber,
-                    durationStr = durationStr, simInfo = simInfo
+                    durationStr = durationStr, simFooter = simFooter
                 ))
             }.toString()
         }

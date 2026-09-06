@@ -121,6 +121,13 @@ object SimInfoHelper {
     }
 
     /**
+     * 推送正文底部 SIM 信息行（"卡1，运营商：中国移动"）。
+     * info 为 null（通知兜底链路无法识别 SIM）时返回 null，调用方不加该行。
+     */
+    fun footerLabel(info: SimInfo?): String? =
+        info?.let { I18n.simFooterLine(it.slotIndex + 1, it.carrierName) }
+
+    /**
      * 从 Intent 直接获取 label（兼容旧调用方式）
      */
     fun getSimLabelFromIntent(context: Context, intent: Intent?): String? {

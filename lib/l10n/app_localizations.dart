@@ -509,8 +509,26 @@ class AppLocalizations {
     'deselectAll': '清空',
     'invertSelection': '反选',
     'selectedCount': '已选 {n}',
+    'unselectedCount': '未选 {n}',
     'noAppsFound': '没有找到应用',
     'refreshFailed': '刷新失败：{e}',
+    'appFilterNoPermPrompt': '当前无应用列表读取权限，无法进行应用筛选。\n若需进行应用筛选，请点击授予应用列表读取权限',
+    // 短信/来电监听设置
+    'smsMonitor': '短信监听',
+    'smsMonitorDesc': '控制是否监听收到的短信并推送',
+    'smsMonitorSettings': '短信监听设置',
+    'smsMonitorTotalDesc': '关闭后将不再监听、推送任何短信',
+    'simFilterTitle': '监听卡',
+    'simFilterDesc': '同时作用于短信和电话',
+    'simFilterSingleSim': '当前设备仅检测到一张SIM卡，无需选择',
+    'simFilterAll': '全部',
+    'simFilterSim1': '仅卡1',
+    'simFilterSim2': '仅卡2',
+    'simFilterRemindTitle': '部分短信可能无法识别所属卡',
+    'simFilterRemindMsg': '由于小米等系统的限制，部分短信无法识别所属卡（通知栏兜底链路）。这些短信不受该设置影响，将照常推送。',
+    'codeMonitor': '监听验证码',
+    'codeMonitorDesc': '关闭后，包含验证码的短信将不会被推送',
+    'widgetBrandCurrentDevice': '当前设备',
     // 推送统计
     'statsToday': '今日推送',
     'statsTotal': '总推送数',
@@ -522,6 +540,8 @@ class AppLocalizations {
     'deliverySuccess': '推送成功',
     'deliveryFailed': '推送失败',
     'deliveryPending': '发送中',
+    'pushPausedByUser': '已暂停',
+    'deliveryIntercepted': '已拦截',
     // 隐私政策
     'privacyOverviewTitle': '隐私政策概述',
     'privacyOverviewContent':
@@ -1103,8 +1123,29 @@ class AppLocalizations {
     'deselectAll': 'Clear All',
     'invertSelection': 'Invert',
     'selectedCount': 'Selected {n}',
+    'unselectedCount': 'Unselected {n}',
     'noAppsFound': 'No apps found',
     'refreshFailed': 'Refresh failed: {e}',
+    'appFilterNoPermPrompt':
+        'No permission to read the app list, app filtering is unavailable.\nTap here to grant the "read app list" permission',
+    'smsMonitor': 'SMS Monitoring',
+    'smsMonitorDesc': 'Control whether received SMS are monitored and pushed',
+    'smsMonitorSettings': 'SMS Monitor Settings',
+    'smsMonitorTotalDesc': 'When off, no SMS will be monitored or pushed',
+    'simFilterTitle': 'SIM to Monitor',
+    'simFilterDesc': 'Applies to both SMS and calls',
+    'simFilterSingleSim':
+        'Only one SIM detected on this device — no selection needed',
+    'simFilterAll': 'All',
+    'simFilterSim1': 'SIM 1 only',
+    'simFilterSim2': 'SIM 2 only',
+    'simFilterRemindTitle': 'Some SMS may not be identifiable by SIM',
+    'simFilterRemindMsg':
+        'Due to system limitations (e.g. Xiaomi/HyperOS), some SMS cannot be attributed to a SIM card (notification fallback link). These SMS are not affected by this setting and will still be pushed.',
+    'codeMonitor': 'Monitor Verification Codes',
+    'codeMonitorDesc':
+        'When off, SMS containing verification codes will not be pushed',
+    'widgetBrandCurrentDevice': 'Your device',
     // Push Stats
     'statsToday': 'Today',
     'statsTotal': 'Total',
@@ -1117,6 +1158,7 @@ class AppLocalizations {
     'deliveryFailed': 'Failed',
     'deliveryPending': 'Sending',
     'pushPausedByUser': 'Paused by user',
+    'deliveryIntercepted': 'Blocked',
     'pushNow': 'Push Now',
     // Privacy Policy
     'privacyOverviewTitle': 'Privacy Policy Overview',
@@ -1562,7 +1604,26 @@ class AppLocalizations {
   String get invertSelection => _get('invertSelection');
   String selectedCount(int n) =>
       _get('selectedCount').replaceAll('{n}', n.toString());
+  String unselectedCount(int n) =>
+      _get('unselectedCount').replaceAll('{n}', n.toString());
   String get noAppsFound => _get('noAppsFound');
+  String get appFilterNoPermPrompt => _get('appFilterNoPermPrompt');
+  // SMS monitor settings
+  String get smsMonitor => _get('smsMonitor');
+  String get smsMonitorDesc => _get('smsMonitorDesc');
+  String get smsMonitorSettings => _get('smsMonitorSettings');
+  String get smsMonitorTotalDesc => _get('smsMonitorTotalDesc');
+  String get simFilterTitle => _get('simFilterTitle');
+  String get simFilterDesc => _get('simFilterDesc');
+  String get simFilterSingleSim => _get('simFilterSingleSim');
+  String get simFilterAll => _get('simFilterAll');
+  String get simFilterSim1 => _get('simFilterSim1');
+  String get simFilterSim2 => _get('simFilterSim2');
+  String get simFilterRemindTitle => _get('simFilterRemindTitle');
+  String get simFilterRemindMsg => _get('simFilterRemindMsg');
+  String get codeMonitor => _get('codeMonitor');
+  String get codeMonitorDesc => _get('codeMonitorDesc');
+  String get widgetBrandCurrentDevice => _get('widgetBrandCurrentDevice');
   String refreshFailed(String e) => _get('refreshFailed').replaceAll('{e}', e);
   // Push Stats
   String get statsToday => _get('statsToday');
@@ -1575,6 +1636,7 @@ class AppLocalizations {
   String get deliverySuccess => _get('deliverySuccess');
   String get deliveryFailed => _get('deliveryFailed');
   String get deliveryPending => _get('deliveryPending');
+  String get deliveryIntercepted => _get('deliveryIntercepted');
   String get pushPausedByUser => _get('pushPausedByUser');
   String get pushNow => _get('pushNow');
   // Privacy Policy

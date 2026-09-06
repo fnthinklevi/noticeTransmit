@@ -113,12 +113,13 @@ class SmsObserver(private val context: Context) :
                 val body = it.getString(2) ?: continue
                 val date = it.getLong(3)
 
-                // SIM 信息：短信库 subscription_id 列经 SimInfoHelper 解析为显示名。
+                // SIM 信息：短信库 subscription_id 列经 SimInfoHelper 解析。
+                // 传 SimInfo 对象（含 slotIndex），供 SmsDispatcher 做卡槽过滤与展示，
                 // 与广播链路对齐，避免兜底链路产生的记录缺 SIM 信息。
                 val subIdx = it.getColumnIndex("subscription_id")
                 val subId = if (subIdx >= 0 && !it.isNull(subIdx)) it.getInt(subIdx) else -1
                 val simInfo = if (subId > 0) {
-                    SimInfoHelper.getSimInfoBySubId(context, subId)?.displayLabel
+                    SimInfoHelper.getSimInfoBySubId(context, subId)
                 } else null
 
                 SmsDispatcher.handle(

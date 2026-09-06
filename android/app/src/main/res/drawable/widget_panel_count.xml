@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 宽布局「当日已推送」数据面板：半透明白色磨砂卡片 + 细描边 -->
+<!-- 宽布局「当日已推送」数据面板：半透明白磨砂圆角卡片 + 细描边 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <corners android:radius="14dp" />
-    <solid android:color="#59FFFFFF" />
+    <corners android:radius="16dp" />
+    <gradient
+        android:angle="270"
+        android:startColor="#66FFFFFF"
+        android:endColor="#40FFFFFF"
+        android:type="linear" />
     <stroke
         android:width="1dp"
-        android:color="#148E8E93" />
+        android:color="#2E8E8E93" />
 </shape>

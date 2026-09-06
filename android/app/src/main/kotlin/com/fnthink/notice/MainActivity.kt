@@ -2,6 +2,7 @@ package com.fnthink.notice
 
 import android.app.ActivityManager
 import android.app.AlarmManager
+import android.app.AppOpsManager
 import android.app.DownloadManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -13,11 +14,14 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
+import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.PowerManager
+import android.os.Process
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.ActivityCompat
@@ -51,8 +55,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.62"
-        const val FALLBACK_BUILD = 97
+        const val FALLBACK_VERSION = "1.5.63"
+        const val FALLBACK_BUILD = 98
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -383,6 +387,9 @@ class MainActivity : FlutterActivity() {
                 "getManufacturer" -> {
                     result.success(Build.MANUFACTURER)
                 }
+                "getSimCardCount" -> {
+                    result.success(getSimCardCount())
+                }
                 "getDownloadDirectory" -> {
                     result.success(getDownloadDirectory())
                 }
@@ -457,6 +464,14 @@ class MainActivity : FlutterActivity() {
                     val key = call.argument<String>("key") ?: ""
                     val value = call.argument<Boolean>("value") ?: false
                     setBatterySetting(key, value)
+                    result.success(true)
+                }
+                "setSmsSetting" -> {
+                    // 短信监听配置（总开关/监听卡/验证码开关）。短信与电话链路每次
+                    // 事件都新建 ConfigManager 实时读取，无需 notifyServiceConfigChanged
+                    val key = call.argument<String>("key") ?: ""
+                    val value = call.argument<Any?>("value")
+                    setSmsSetting(key, value)
                     result.success(true)
                 }
                 "setBatteryRules" -> {
@@ -554,10 +569,15 @@ class MainActivity : FlutterActivity() {
                     result.success(getLauncherIcon())
                 }
                 "requestPinWidget" -> {
-                    // 一键添加桌面小部件（Android 8.0+ 系统弹窗确认；不支持时降级手动添加）
+                    // 一键添加桌面小部件（Android 8.0+ 系统弹窗确认；桌面不支持时降级手动添加）
                     val wide = call.argument<Boolean>("wide") ?: false
                     val ok = requestPinWidget(wide)
                     result.success(ok)
+                }
+                "isPinWidgetSupported" -> {
+                    // 当前桌面是否支持一键添加，Flutter 侧据此决定是否展示品牌分步引导
+                    val wide = call.argument<Boolean>("wide") ?: false
+                    result.success(isPinWidgetSupported(wide))
                 }
                 "startSystemDownload" -> {
                     // 使用系统下载器（DownloadManager）下载更新 APK，无需存储权限
@@ -799,19 +819,36 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * 查询"读取应用列表"权限状态。必须无副作用：启动时权限检查链路会调用本方法，
+     * 国产 ROM（MIUI/澎湃OS 等）把 QUERY_ALL_PACKAGES 定制为运行时开关，
+     * 若在这里真实执行 getInstalledApplications 类查询，首次打开 App 就会弹出系统授权框。
+     */
     private fun canQueryAllPackages(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                val pm = packageManager
-                val apps = pm.getInstalledApplications(0)
-                val launcherIntent = Intent(Intent.ACTION_MAIN, null)
-                    .addCategory(Intent.CATEGORY_LAUNCHER)
-                val launchableApps = pm.queryIntentActivities(launcherIntent, 0)
-                apps.size > launchableApps.size * 2
-            } catch (e: Exception) {
-                false
-            }
-        } else {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
+        // 先确认 Manifest 已声明该权限（查询自身包信息，不触发应用列表权限）
+        val declared = try {
+            packageManager
+                .getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+                .requestedPermissions
+                ?.contains(android.Manifest.permission.QUERY_ALL_PACKAGES) == true
+        } catch (e: Exception) {
+            false
+        }
+        if (!declared) return false
+        // 纯 AOSP 未映射 AppOps → 安装时已授予；国产 ROM 的运行时开关通过 op 状态读取
+        return try {
+            val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+                ?: return true
+            val op = AppOpsManager.permissionToOp(
+                android.Manifest.permission.QUERY_ALL_PACKAGES
+            ) ?: return true
+            val mode = appOps.checkOpNoThrow(op, Process.myUid(), packageName)
+            mode == null ||
+                mode == AppOpsManager.MODE_ALLOWED ||
+                mode == AppOpsManager.MODE_DEFAULT
+        } catch (e: Exception) {
+            // 检查失败保守放行：实际加载应用列表时由系统决定，筛选页已有兜底引导
             true
         }
     }
@@ -966,6 +1003,45 @@ class MainActivity : FlutterActivity() {
         val prefsKey = "flutter.$key"
         prefs.edit().putBoolean(prefsKey, value).apply()
         notifyServiceConfigChanged()
+    }
+
+    /** 短信监听配置写入（key 已含类型语义：sms_monitor_enabled/sms_code_monitor_enabled 为布尔，sms_sim_filter 为字符串） */
+    private fun setSmsSetting(key: String, value: Any?) {
+        val prefsKey = "flutter.$key"
+        when (value) {
+            is Boolean -> prefs.edit().putBoolean(prefsKey, value).apply()
+            is String -> prefs.edit().putString(prefsKey, value).apply()
+            else -> Log.w("MainActivity", "setSmsSetting 不支持的值类型: $value")
+        }
+    }
+
+    /**
+     * 当前可用的 SIM 卡数量（用于"监听卡"选项是否置灰）。
+     * 优先读已插入的活跃订阅数（需 READ_PHONE_STATE）；无权限/异常/读不到时
+     * 回退硬件卡槽数（无需权限），保证单卡设备总能被识别。
+     */
+    private fun getSimCardCount(): Int {
+        // 已插入的活跃卡
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            try {
+                val sm = getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
+                val list = sm?.activeSubscriptionInfoList
+                if (!list.isNullOrEmpty()) return list.size
+            } catch (_: SecurityException) {
+            } catch (_: Exception) {
+            }
+        }
+        // 回退：硬件卡槽数
+        return try {
+            val tm = getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+            when {
+                tm == null -> 1
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> tm.activeModemCount
+                else -> @Suppress("DEPRECATION") tm.phoneCount
+            }
+        } catch (_: Exception) {
+            1
+        }
     }
 
     private fun setBatteryRules(rules: List<Map<String, Any>>) {
@@ -1487,23 +1563,46 @@ class MainActivity : FlutterActivity() {
 
     /**
      * 一键添加桌面小部件（Android 8.0+ 通过 requestPinAppWidget 弹出系统确认框）。
+     * 先预检 isRequestPinAppWidgetSupported：不支持的桌面（部分厂商 Launcher）直接返回
+     * false，Flutter 侧据此转入当前品牌的分步引导，而不是无反馈失败。
      * @param wide true 请求 4×2 宽规格，false 请求 2×2 规格。
      * @return 是否成功发起请求（Android < 8.0 或 Launcher 不支持时返回 false）
      */
     private fun requestPinWidget(wide: Boolean): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
-        val manager = android.appwidget.AppWidgetManager.getInstance(this)
-        val clazz = if (wide) PushToggleWidgetWideProvider::class.java
-            else PushToggleWidgetProvider::class.java
-        val component = android.content.ComponentName(this, clazz)
-        val callback = PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent(this, clazz)
-                .setAction(PushToggleWidgetProvider.ACTION_UPDATE_WIDGET),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        return manager.requestPinAppWidget(component, null, callback)
+        return try {
+            val manager = android.appwidget.AppWidgetManager.getInstance(this)
+            val clazz = if (wide) PushToggleWidgetWideProvider::class.java
+                else PushToggleWidgetProvider::class.java
+            val component = android.content.ComponentName(this, clazz)
+            if (!manager.isRequestPinAppWidgetSupported()) return false
+            val callback = PendingIntent.getBroadcast(
+                this,
+                0,
+                Intent(this, clazz)
+                    .setAction(PushToggleWidgetProvider.ACTION_UPDATE_WIDGET),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            manager.requestPinAppWidget(component, null, callback)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "requestPinWidget 失败", e)
+            false
+        }
+    }
+
+    /**
+     * 当前桌面是否支持"一键添加小部件"（requestPinAppWidget）。
+     * Android < 8.0 或 Launcher 不支持时返回 false，供 Flutter 侧决定展示品牌引导。
+     * 注意：该预检与具体规格无关（无参 API），wide 参数仅为 channel 契约对称保留。
+     */
+    private fun isPinWidgetSupported(wide: Boolean): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        return try {
+            android.appwidget.AppWidgetManager.getInstance(this)
+                .isRequestPinAppWidgetSupported()
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /**

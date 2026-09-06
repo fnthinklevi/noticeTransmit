@@ -21,6 +21,9 @@ class ConfigManager(private val context: Context) {
         private const val KEY_BATTERY_RULES = "flutter.battery_rules"
         private const val KEY_BATTERY_NOTIFY_ENABLED = "flutter.battery_notify_enabled"
         private const val KEY_NOTIFICATION_RULES = "flutter.notification_rules"
+        private const val KEY_SMS_MONITOR_ENABLED = "flutter.sms_monitor_enabled"
+        private const val KEY_SMS_SIM_FILTER = "flutter.sms_sim_filter"
+        private const val KEY_SMS_CODE_MONITOR_ENABLED = "flutter.sms_code_monitor_enabled"
     }
 
     private val prefs: SharedPreferences by lazy {
@@ -163,6 +166,28 @@ class ConfigManager(private val context: Context) {
 
     fun getBatteryNotifyEnabled(): Boolean {
         return prefs.getBoolean(KEY_BATTERY_NOTIFY_ENABLED, true)
+    }
+
+    /** 短信监听总开关（首页「监听短信」，默认开） */
+    fun getSmsMonitorEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SMS_MONITOR_ENABLED, true)
+    }
+
+    /** 「监听验证码」开关（默认开；关闭后验证码短信整条拦截） */
+    fun getSmsCodeMonitorEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SMS_CODE_MONITOR_ENABLED, true)
+    }
+
+    /**
+     * 监听卡过滤（同时作用于短信和电话）。
+     * @return null=全部卡；0=仅卡1；1=仅卡2（slotIndex 0-based）
+     */
+    fun getSmsSimFilterSlot(): Int? {
+        return when (prefs.getString(KEY_SMS_SIM_FILTER, "all")) {
+            "1" -> 0
+            "2" -> 1
+            else -> null
+        }
     }
 
     /**

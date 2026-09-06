@@ -168,8 +168,9 @@ class _HistoryPageState extends State<HistoryPage> {
         ],
       ),
     );
-    // 推送失败：原因内联显示在 chip 下方（长按 chip 仍可查看完整信息）
-    if (status == 'failed' && message.isNotEmpty) {
+    // 推送失败/被拦截：原因内联显示在 chip 下方（长按 chip 仍可查看完整信息）。
+    // 拦截原因由原生生成，如"黑名单（命中: xxx）"/"应用过滤"
+    if ((status == 'failed' || status == 'intercepted') && message.isNotEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -178,7 +179,7 @@ class _HistoryPageState extends State<HistoryPage> {
           const SizedBox(height: 1),
           Text(
             message,
-            style: const TextStyle(fontSize: 9, color: AppColors.red),
+            style: TextStyle(fontSize: 9, color: _deliveryStatusColor(status)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -224,6 +225,8 @@ class _HistoryPageState extends State<HistoryPage> {
         return l10n.deliverySuccess;
       case 'failed':
         return l10n.deliveryFailed;
+      case 'intercepted':
+        return l10n.deliveryIntercepted;
       case 'paused':
         return l10n.pushPausedByUser;
       default:
@@ -237,6 +240,7 @@ class _HistoryPageState extends State<HistoryPage> {
         return AppColors.green;
       case 'failed':
         return AppColors.red;
+      case 'intercepted':
       case 'paused':
         return AppColors.orange;
       default:

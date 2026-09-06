@@ -76,7 +76,8 @@ object SmsDispatcher {
 
     /**
      * 处理一条短信。
-     * @param source 链路标识（broadcast / observer），仅用于日志区分
+     * @param simInfo 本条短信的 SIM 卡信息；通知兜底链路无法识别 SIM 时为 null
+     * @param source 链路标识（broadcast / observer / notification），仅用于日志区分
      * @return true 表示已推送，false 表示被去重、过滤或未配置通道
      */
     fun handle(
@@ -84,13 +85,28 @@ object SmsDispatcher {
         sender: String,
         message: String,
         timestamp: Long,
-        simInfo: String?,
+        simInfo: SimInfoHelper.SimInfo?,
         source: String
     ): Boolean {
         if (message.isBlank()) {
             Log.w(TAG, "[$source] 短信正文为空，丢弃 sender=$sender")
             return false
         }
+
+        // 监听门控（三条链路汇聚点）：配置每次实时读取，开关秒级生效。
+        // 被门控拦截的短信不读取、不推送、不入历史，也不消耗去重指纹。
+        val configManager = ConfigManager(context)
+        if (!configManager.getSmsMonitorEnabled()) {
+            Log.d(TAG, "[$source] 短信监听已关闭，忽略 sender=$sender")
+            return false
+        }
+        val filterSlot = configManager.getSmsSimFilterSlot()
+        if (!SmsMonitorGate.allowSim(filterSlot, simInfo?.slotIndex)) {
+            Log.d(TAG, "[$source] 短信来自未监听的卡(slot=${simInfo?.slotIndex})，忽略 sender=$sender")
+            return false
+        }
+        val simLabel = simInfo?.displayLabel
+        val simFooter = SimInfoHelper.footerLabel(simInfo)
 
         val now = System.currentTimeMillis()
         val key = dedupKey(sender, message)
@@ -123,7 +139,6 @@ object SmsDispatcher {
             // 兜底激活，避免短信被静默丢弃（"NetworkClient inactive"）。
             NetworkClient.activate()
 
-            val configManager = ConfigManager(context)
             val channelConfigs = configManager.getWebhookChannelConfigs()
             val deviceName = configManager.getDeviceName().ifEmpty { android.os.Build.MODEL }
 
@@ -140,7 +155,7 @@ object SmsDispatcher {
             // 短信不走应用过滤（无 packageName 概念），仅按关键词过滤
             val fr = FilterEngine.filter(
                 packageName = "com.android.mms",
-                title = I18n.smsNotifyTitle(sender, simInfo),
+                title = I18n.smsNotifyTitle(sender, simLabel),
                 content = message,
                 subText = "",
                 whitelistKeywords = configManager.getWhitelistKeywords(),
@@ -153,7 +168,7 @@ object SmsDispatcher {
                 // 拦截的消息也写入历史（状态=失败，原因=黑名单/应用过滤），不推 webhook。
                 // 之前静默丢弃会让用户以为"短信没读到"。
                 Log.d(TAG, "[$source] 短信被拦截(${fr.source.name}): 来自 $sender 原因=${fr.blockReason()}")
-                recordBlocked(context, sender, message, timestamp, timeStr, simInfo, deviceName, fr)
+                recordBlocked(context, sender, message, timestamp, timeStr, simLabel, deviceName, fr)
                 return false
             }
 
@@ -162,6 +177,11 @@ object SmsDispatcher {
 
             val code = extractCode(message)
             if (code != null) Log.d(TAG, "[$source] 提取到验证码: $code")
+            // 验证码监听开关关闭时，验证码短信整条拦截（不推送、不入历史）
+            if (!SmsMonitorGate.allowCode(configManager.getSmsCodeMonitorEnabled(), code)) {
+                Log.d(TAG, "[$source] 验证码监听已关闭，整条拦截 sender=$sender")
+                return false
+            }
 
             for (cfg in channelConfigs) {
                 sendWebhook(
@@ -172,7 +192,8 @@ object SmsDispatcher {
                     timeStr = timeStr,
                     channelConfig = cfg,
                     deviceName = deviceName,
-                    simInfo = simInfo,
+                    simInfo = simLabel,
+                    simFooter = simFooter,
                     verificationCode = code,
                     whitelistTag = whitelistTag
                 )
@@ -193,6 +214,7 @@ object SmsDispatcher {
         channelConfig: ConfigManager.WebhookChannelConfig,
         deviceName: String,
         simInfo: String?,
+        simFooter: String? = null,
         verificationCode: String?,
         whitelistTag: String? = null
     ) {
@@ -238,6 +260,7 @@ object SmsDispatcher {
             time = timeStr,
             deviceName = deviceName,
             simInfo = simInfo,
+            simFooter = simFooter,
             chatId = WebhookPayloadBuilder.extractChatIdFromUrl(channelConfig.url),
             titleTag = whitelistTag ?: ""
         )

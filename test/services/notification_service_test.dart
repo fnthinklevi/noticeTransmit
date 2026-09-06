@@ -257,4 +257,135 @@ void main() {
       expect(delivery['message'], isEmpty);
     });
   });
+
+  group('NotificationService – 黑白名单/应用过滤拦截回传', () {
+    late NotificationService service;
+
+    setUp(() async {
+      GetIt.instance.reset();
+      final webhookService = WebhookService(store: _FakeWebhookStore());
+      await webhookService.saveChannels([
+        {
+          'name': '企业微信',
+          'url': 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test',
+          'channelType': 'wechatWork',
+          'type': 'wechatWork',
+          'enabled': true,
+        },
+      ]);
+      GetIt.instance.registerLazySingleton<WebhookService>(
+        () => webhookService,
+      );
+      service = NotificationService();
+    });
+
+    Map<String, dynamic> smsRecord({String id = 'sms_1700000000000_12345'}) {
+      return {
+        'id': id,
+        'type': 'sms',
+        'title': '验证码',
+        'content': '您的验证码是 123456',
+        'packageName': 'com.android.mms',
+        'appName': '短信',
+        'postTime': 1700000000000,
+        'time': '2024-01-01 12:00:00',
+      };
+    }
+
+    test('通知被拦截：FILTER 回传 → 真实通道置为 intercepted 并标注原因', () async {
+      service.addRecord(smsRecord());
+
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'FILTER',
+        'BIZ_FAIL',
+        '黑名单（命中: 验证码）',
+      );
+
+      final status = service.records.first.deliveryStatus;
+      expect(status['webhook:企业微信']['status'], 'intercepted');
+      expect(status['webhook:企业微信']['message'], '黑名单（命中: 验证码）');
+      // 不再新开"过滤拦截"独立 key，避免真实通道停留"发送中"
+      expect(status.keys, isNot(contains('过滤拦截')));
+    });
+
+    test('短信被拦截：SMS 回传 → 真实通道置为 intercepted 并标注原因', () async {
+      service.addRecord(smsRecord());
+
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'SMS',
+        'BIZ_FAIL',
+        '应用过滤',
+      );
+
+      final status = service.records.first.deliveryStatus;
+      expect(status['webhook:企业微信']['status'], 'intercepted');
+      expect(status['webhook:企业微信']['message'], '应用过滤');
+    });
+
+    test('拦截回传落在其他通道状态之后：全部真实通道统一置为 intercepted', () async {
+      service.addRecord(smsRecord());
+      // 拦截前某一通道已有终态（罕见时序）——拦截应覆盖所有通道
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'WECHAT_WORK',
+        'SUCCESS',
+        'ok',
+      );
+      expect(
+        service.records.first.deliveryStatus['webhook:企业微信']['status'],
+        'success',
+      );
+
+      await service.updateDelivery(
+        'sms_1700000000000_12345',
+        'FILTER',
+        'BIZ_FAIL',
+        '黑名单（命中: 验证码）',
+      );
+
+      expect(
+        service.records.first.deliveryStatus['webhook:企业微信']['status'],
+        'intercepted',
+      );
+    });
+
+    test('无启用通道时拦截回传：兜底写入"过滤拦截"key 且状态为 intercepted', () async {
+      await GetIt.instance.reset();
+      final bareService = NotificationService();
+      bareService.addRecord(smsRecord());
+      expect(bareService.records.first.deliveryStatus, isEmpty);
+
+      await bareService.updateDelivery(
+        'sms_1700000000000_12345',
+        'FILTER',
+        'BIZ_FAIL',
+        '黑名单（命中: 验证码）',
+      );
+
+      final status = bareService.records.first.deliveryStatus;
+      expect(status['过滤拦截']['status'], 'intercepted');
+      expect(status['过滤拦截']['message'], '黑名单（命中: 验证码）');
+    });
+
+    test('存量数据迁移：旧版"过滤拦截"独立 key → 真实通道 intercepted', () async {
+      service.addRecord(smsRecord());
+      // 手工构造旧版数据形态：真实通道 pending + '过滤拦截' 独立 key
+      final record = service.records.first;
+      final legacyStatus = <String, dynamic>{
+        'webhook:企业微信': {'status': 'pending', 'message': ''},
+        '过滤拦截': {'status': 'failed', 'message': '黑名单（命中: 验证码）'},
+      };
+      final migrated = record.copyWith(deliveryStatus: legacyStatus);
+      service.records[0] = migrated;
+
+      await service.migrateInterceptedRecords();
+
+      final status = service.records.first.deliveryStatus;
+      expect(status['webhook:企业微信']['status'], 'intercepted');
+      expect(status['webhook:企业微信']['message'], '黑名单（命中: 验证码）');
+      expect(status.keys, isNot(contains('过滤拦截')));
+    });
+  });
 }

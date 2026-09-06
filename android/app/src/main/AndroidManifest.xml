@@ -593,7 +593,7 @@
             android:name=".PushToggleWidgetProvider"
             android:enabled="true"
             android:exported="true"
-            android:label="推送开关">
+            android:label="@string/widget_label_toggle_2x2">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.fnthink.notice.widget.TOGGLE_PUSH" />
@@ -609,7 +609,7 @@
             android:name=".PushToggleWidgetWideProvider"
             android:enabled="true"
             android:exported="true"
-            android:label="推送开关(4×2)">
+            android:label="@string/widget_label_toggle_4x2">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.fnthink.notice.widget.TOGGLE_PUSH" />
