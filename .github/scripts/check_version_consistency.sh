@@ -81,6 +81,33 @@ if grep -qE "240 ?小时|240 hours" README.md README-en.md 2>/dev/null; then
     errors=$((errors+1))
 fi
 
+# l10n 漏翻检查：app_zh.arb 与 app_en.arb 的词条键集合必须一致（@metadata 键除外）
+# python 探测顺序：先 python 后 python3，并排除 WindowsApps 商店占位 stub（执行即失败）
+PY=""
+for c in python python3; do
+    p=$(command -v "$c" 2>/dev/null) || p=""
+    case "$p" in
+        *WindowsApps*) p="" ;;
+    esac
+    if [ -z "$PY" ] && [ -n "$p" ]; then PY="$p"; fi
+done
+if [ -n "$PY" ] && [ -f lib/l10n/arb/app_zh.arb ]; then
+    if ! "$PY" - <<'EOF'
+import json, sys
+zh = {k for k in json.load(open('lib/l10n/arb/app_zh.arb', encoding='utf-8')) if not k.startswith('@')}
+en = {k for k in json.load(open('lib/l10n/arb/app_en.arb', encoding='utf-8')) if not k.startswith('@')}
+only_zh, only_en = sorted(zh - en), sorted(en - zh)
+if only_zh or only_en:
+    print(f"❌ l10n 漏翻：仅 zh 有 {only_zh}；仅 en 有 {only_en}")
+    sys.exit(1)
+print(f"l10n 漏翻检查通过（{len(zh)} 词条）")
+EOF
+    then
+        echo -e "${RED}❌ l10n 漏翻检查失败，请补齐 app_zh.arb / app_en.arb 缺失词条${NC}"
+        errors=$((errors+1))
+    fi
+fi
+
 if [ $errors -eq 0 ]; then
     echo -e "${GREEN}✅ 版本号与文档一致性检查全部通过${NC}"
     exit 0

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
 import '../theme/app_colors.dart';
 import 'rule_edit_page.dart';

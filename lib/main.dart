@@ -5,9 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:workmanager/workmanager.dart';
-import 'l10n/app_localizations_delegate.dart';
 import 'l10n/app_localizations.dart';
 import 'pages/main_page.dart';
 import 'pages/splash_page.dart';
@@ -69,7 +67,9 @@ class DIErrorApp extends StatelessWidget {
     try {
       locale = GetIt.instance<LocaleService>().currentLocale;
     } catch (_) {}
-    return AppLocalizations(locale);
+    return locale.languageCode == 'en'
+        ? lookupAppLocalizations(const Locale('en'))
+        : lookupAppLocalizations(const Locale('zh'));
   }
 
   @override
@@ -347,12 +347,7 @@ class MyAppState extends State<MyApp> {
           title: 'NoticeTransmit',
           locale: _locale,
           supportedLocales: const [Locale('zh'), Locale('en')],
-          localizationsDelegates: const [
-            AppLocalizationsDelegate(),
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           theme: AppTheme.lightTheme(),
           darkTheme: AppTheme.darkTheme(),
           themeMode: themeMode,

@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:notice_transmit/l10n/app_localizations_delegate.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/rule_edit_page.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 
 Widget _buildApp(Widget home) {
   return MaterialApp(
     localizationsDelegates: const [
-      AppLocalizationsDelegate(),
+      AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
       GlobalWidgetsLocalizations.delegate,
       GlobalCupertinoLocalizations.delegate,

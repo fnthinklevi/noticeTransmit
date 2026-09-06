@@ -27,6 +27,12 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.tencent.bugly.crashreport.CrashReport
+import com.fnthink.notice.channels.ChannelDispatcher
+import com.fnthink.notice.channels.ConfigChannelHandler
+import com.fnthink.notice.channels.DeviceChannelHandler
+import com.fnthink.notice.channels.FileChannelHandler
+import com.fnthink.notice.channels.PermissionChannelHandler
+import com.fnthink.notice.channels.StatsChannelHandler
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -63,12 +69,12 @@ class MainActivity : FlutterActivity() {
     private var methodChannel: MethodChannel? = null
     private val activityJob = SupervisorJob()
     private val activityScope = CoroutineScope(activityJob + Dispatchers.Main)
-    private val prefs: SharedPreferences by lazy {
+    internal val prefs: SharedPreferences by lazy {
         getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     }
 
     /** Bugly 是否已在本进程内完成初始化（initCrashReport 幂等保护） */
-    private var crashReportInitialized = false
+    internal var crashReportInitialized = false
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -154,7 +160,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun JSONObject.toMap(): Map<String, Any?> {
+    internal fun JSONObject.toMap(): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
         val keys = keys()
         while (keys.hasNext()) {
@@ -184,7 +190,7 @@ class MainActivity : FlutterActivity() {
      * flutter.crash_report_enabled=true）后才初始化 Bugly。
      * 关闭不反初始化（SDK 无此能力），下次冷启动不再加载。
      */
-    private fun maybeInitCrashReport() {
+    internal fun maybeInitCrashReport() {
         if (crashReportInitialized) return
         if (!prefs.getBoolean("flutter.crash_report_enabled", false)) return
         CrashReport.initCrashReport(applicationContext)
@@ -221,7 +227,7 @@ class MainActivity : FlutterActivity() {
      * 根据当前语言偏好更新桌面应用名（最近任务）：
      * 中文 → 通知推送助手 | English → NoticeTransmit
      */
-    private fun updateAppLabel() {
+    internal fun updateAppLabel() {
         val locale = prefs.getString("flutter.locale", "zh") ?: "zh"
         val label = if (locale == "en") "NoticeTransmit" else "通知推送助手"
         try {
@@ -240,367 +246,22 @@ class MainActivity : FlutterActivity() {
         switchLocaleAlias()
 
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
+        // 旧单 when（74 分支）已按域拆分至 channels/ 包，由 ChannelDispatcher 依序分发：
+        // Permission（权限与系统跳转）→ Config（通道/规则/过滤/服务开关）→ Device（设备与桌面）
+        // → File（导出/下载/安装）→ Stats（历史/计数/应用列表）。未消费方法回 notImplemented，
+        // 与拆分前 else 分支行为一致。
+        val dispatcher = ChannelDispatcher(
+            listOf(
+                PermissionChannelHandler(this),
+                ConfigChannelHandler(this),
+                DeviceChannelHandler(this),
+                FileChannelHandler(this),
+                StatsChannelHandler(this),
+            )
+        )
         methodChannel?.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "setLocaleLabel" -> {
-                    val locale = call.arguments as? String ?: "zh"
-                    prefs.edit().putString("flutter.locale", locale).apply()
-                    // 同步给 Webhook 推送国际化模块
-                    I18n.setLocale(locale)
-                    switchLocaleAlias()
-                    updateAppLabel()
-                    result.success(true)
-                }
-                "isNotificationPermissionGranted" -> {
-                    result.success(isNotificationListenerPermissionGranted())
-                }
-                "isPostNotificationPermissionGranted" -> {
-                    result.success(isPostNotificationPermissionGranted())
-                }
-                "requestNotificationListenerPermission" -> {
-                    requestNotificationListenerPermission()
-                    result.success(true)
-                }
-                "requestPostNotificationPermission" -> {
-                    requestPostNotificationPermission()
-                    result.success(true)
-                }
-                "isSmsPermissionGranted" -> {
-                    result.success(isSmsPermissionGranted())
-                }
-                "isPhonePermissionGranted" -> {
-                    result.success(isPhonePermissionGranted())
-                }
-                "isAppListPermissionGranted" -> {
-                    result.success(isAppListPermissionGranted())
-                }
-                "initCrashReport" -> {
-                    // 用户在设置页开启崩溃上报后调用；幂等，未同意时为 no-op
-                    maybeInitCrashReport()
-                    result.success(crashReportInitialized)
-                }
-                "requestXiaomiAutoStart" -> {
-                    requestXiaomiAutoStart()
-                    result.success(true)
-                }
-                "requestMeizuBackground" -> {
-                    requestMeizuBackground()
-                    result.success(true)
-                }
-                "requestHuaweiLaunch" -> {
-                    requestHuaweiLaunch()
-                    result.success(true)
-                }
-                "requestOppoBackground" -> {
-                    requestOppoBackground()
-                    result.success(true)
-                }
-                "requestVivoBackground" -> {
-                    requestVivoBackground()
-                    result.success(true)
-                }
-                "setWebhookUrls" -> {
-                    val urls = call.argument<List<String>>("urls") ?: emptyList()
-                    val validUrls = urls.filter { it.isNotEmpty() }
-                    PrefsHelper.webhookUrls = validUrls
-                    saveWebhookUrls(validUrls)
-                    NotificationMonitorService.webhookUrls = validUrls
-                    notifyServiceConfigChanged()
-                    result.success(true)
-                }
-                "getWebhookChannels" -> {
-                    result.success(getWebhookChannels())
-                }
-                "setWebhookChannels" -> {
-                    val channels = call.argument<List<Map<String, Any?>>>("channels") ?: emptyList()
-                    setWebhookChannels(channels)
-                    result.success(true)
-                }
-                "getEmailChannels" -> {
-                    result.success(EmailManager.loadChannelsAsMap(this@MainActivity))
-                }
-                "setEmailChannels" -> {
-                    val channels = call.argument<List<Map<String, Any?>>>("channels") ?: emptyList()
-                    EmailManager.saveChannels(this@MainActivity, channels)
-                    result.success(true)
-                }
-                "testEmail" -> {
-                    val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
-                    testEmail(configMap, result)
-                }
-                "getDeviceName" -> {
-                    var savedName = readDeviceNameFromFile()
-                    if (savedName.isEmpty()) {
-                        savedName = prefs.getString("flutter.device_name", "") ?: ""
-                        if (savedName.isNotEmpty()) {
-                            saveDeviceName(savedName)
-                        }
-                    }
-                    if (savedName.isEmpty()) {
-                        savedName = "${android.os.Build.BRAND} ${android.os.Build.MODEL}"
-                        saveDeviceName(savedName)
-                        PrefsHelper.deviceName = savedName
-                        NotificationMonitorService.deviceName = savedName
-                    }
-                    result.success(savedName)
-                }
-                "setDeviceName" -> {
-                    val name = call.argument<String>("name") ?: ""
-                    PrefsHelper.deviceName = name
-                    saveDeviceName(name)
-                    NotificationMonitorService.deviceName = name
-                    notifyServiceConfigChanged()
-                    result.success(true)
-                }
-                "isServiceRunning" -> {
-                    result.success(isMonitoringEnabled())
-                }
-                "isExactAlarmEnabled" -> {
-                    result.success(
-                        prefs.getBoolean("flutter.exact_alarm_enabled", false)
-                    )
-                }
-                "setExactAlarmEnabled" -> {
-                    val enabled = call.argument<Boolean>("enabled") ?: false
-                    prefs.edit().putBoolean("flutter.exact_alarm_enabled", enabled).apply()
-                    // 通知服务重新加载配置并重排延迟推送闹钟（切换精确/非精确模式）
-                    notifyServiceConfigChanged()
-                    result.success(true)
-                }
-                "canScheduleExactAlarms" -> {
-                    result.success(canScheduleExactAlarms())
-                }
-                "requestExactAlarmPermission" -> {
-                    requestExactAlarmPermission()
-                    result.success(true)
-                }
-                "requestBatteryOptimization" -> {
-                    requestBatteryOptimization()
-                    result.success(true)
-                }
-                "isIgnoringBatteryOptimizations" -> {
-                    result.success(isIgnoringBatteryOptimizations())
-                }
-                "getDeviceModel" -> {
-                    result.success(Build.MODEL)
-                }
-                "getManufacturer" -> {
-                    result.success(Build.MANUFACTURER)
-                }
-                "getSimCardCount" -> {
-                    result.success(getSimCardCount())
-                }
-                "getDownloadDirectory" -> {
-                    result.success(getDownloadDirectory())
-                }
-                "saveFile" -> {
-                    val fileName = call.argument<String>("fileName") ?: "export.json"
-                    val content = call.argument<String>("content") ?: ""
-                    saveFileWithPicker(fileName, content, result)
-                }
-                "getSupportedAbis" -> {
-                    result.success(Build.SUPPORTED_ABIS.toList())
-                }
-                "getAppVersion" -> {
-                    try {
-                        val info = packageManager.getPackageInfo(packageName, 0)
-                        val versionName = info.versionName ?: FALLBACK_VERSION
-                        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            info.longVersionCode.toInt()
-                        } else {
-                            info.versionCode
-                        }
-                        result.success(mapOf("versionName" to versionName, "versionCode" to versionCode))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        result.success(mapOf("versionName" to FALLBACK_VERSION, "versionCode" to FALLBACK_BUILD))
-                    }
-                }
-                "startNotificationListener" -> {
-                    startNotificationListener()
-                    result.success(true)
-                }
-                "stopNotificationListener" -> {
-                    stopNotificationListener()
-                    result.success(true)
-                }
-                "testWebhook" -> {
-                    val url = call.argument<String>("url") ?: ""
-                    val secret = call.argument<String>("secret")
-                    testWebhook(url, secret, result)
-                }
-                "clearNotificationRecords" -> {
-                    clearNotificationRecords()
-                    result.success(true)
-                }
-                "syncDailyPushCount" -> {
-                    // 统一状态栏与 DB 统计：Flutter 启动/恢复时把当日记录数同步为原生计数基数
-                    val count = call.argument<Int>("count") ?: 0
-                    val date = call.argument<String>("date") ?: ""
-                    val today = NotificationMonitorService.todayDateString()
-                    if (date == today) {
-                        // 同一天：取较大值（避免覆盖服务运行期间已累加的计数）
-                        NotificationMonitorService.pushCount =
-                            maxOf(NotificationMonitorService.pushCount, count)
-                    } else {
-                        NotificationMonitorService.pushCount = count
-                        NotificationMonitorService.applyTodayDate(date)
-                    }
-                    result.success(true)
-                }
-                "drainOfflineCache" -> {
-                    // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
-                    result.success(HistoryCache.drainAll(applicationContext))
-                }
-                "drainDeliveryResults" -> {
-                    // Flutter 启动 / resume 时补偿拉取 Activity 销毁期间丢失的送达结果
-                    // （广播无人接收时由 DeliveryResultStore 持久化兜底）
-                    result.success(DeliveryResultStore.drain(applicationContext))
-                }
-                "getBatteryStatus" -> {
-                    result.success(getBatteryStatus())
-                }
-                "setBatterySetting" -> {
-                    val key = call.argument<String>("key") ?: ""
-                    val value = call.argument<Boolean>("value") ?: false
-                    setBatterySetting(key, value)
-                    result.success(true)
-                }
-                "setSmsSetting" -> {
-                    // 短信监听配置（总开关/监听卡/验证码开关）。短信与电话链路每次
-                    // 事件都新建 ConfigManager 实时读取，无需 notifyServiceConfigChanged
-                    val key = call.argument<String>("key") ?: ""
-                    val value = call.argument<Any?>("value")
-                    setSmsSetting(key, value)
-                    result.success(true)
-                }
-                "setBatteryRules" -> {
-                    val rules = call.argument<List<Map<String, Any>>>("rules") ?: emptyList()
-                    setBatteryRules(rules)
-                    result.success(true)
-                }
-                "getInstalledApps" -> {
-                    val apps = getInstalledApps()
-                    saveInstalledAppsCache(apps)
-                    result.success(apps)
-                }
-                "getCachedInstalledApps" -> {
-                    result.success(getCachedInstalledApps())
-                }
-                "saveInstalledAppsCache" -> {
-                    val apps = call.argument<List<Map<String, Any?>>>("apps") ?: emptyList()
-                    saveInstalledAppsCache(apps)
-                    result.success(true)
-                }
-                "canQueryAllPackages" -> {
-                    result.success(canQueryAllPackages())
-                }
-                "requestQueryAllPackagesPermission" -> {
-                    requestQueryAllPackagesPermission()
-                    result.success(true)
-                }
-                "setEnabledPackages" -> {
-                    val packages = call.argument<List<String>>("packages") ?: emptyList()
-                    setEnabledPackages(packages)
-                    result.success(true)
-                }
-                "getEnabledPackages" -> {
-                    result.success(getEnabledPackages())
-                }
-                "setAppFilter" -> {
-                    val packages = call.argument<List<String>>("packages") ?: emptyList()
-                    val mode = call.argument<String>("mode") ?: "allow"
-                    setAppFilter(packages, mode)
-                    result.success(true)
-                }
-                "getAppFilterMode" -> {
-                    result.success(getAppFilterMode())
-                }
-                "setBlacklistKeywords" -> {
-                    val keywords = call.argument<List<String>>("keywords") ?: emptyList()
-                    setBlacklistKeywords(keywords)
-                    result.success(true)
-                }
-                "getBlacklistKeywords" -> {
-                    result.success(getBlacklistKeywords())
-                }
-                "setWhitelistKeywords" -> {
-                    val keywords = call.argument<List<String>>("keywords") ?: emptyList()
-                    setWhitelistKeywords(keywords)
-                    result.success(true)
-                }
-                "getWhitelistKeywords" -> {
-                    result.success(getWhitelistKeywords())
-                }
-                "setNotificationRules" -> {
-                    // 保存通知规则（优先级分级 / 延迟推送等由原生 RuleEngine 执行），并通知服务热更新配置
-                    val rules = call.argument<List<Map<String, Any?>>>("rules") ?: emptyList()
-                    setNotificationRules(rules)
-                    result.success(true)
-                }
-                "pushRecordNow" -> {
-                    // 历史记录"现在推送"：把记录转发给服务手动补推（忽略推送暂停开关）
-                    val record = call.argument<Map<String, Any?>>("record") ?: emptyMap()
-                    pushRecordNow(record)
-                    result.success(true)
-                }
-                "openAppDetailsSettings" -> {
-                    openAppDetailsSettings()
-                    result.success(true)
-                }
-                "requestSmsPermission" -> {
-                    requestSmsPermission()
-                    result.success(true)
-                }
-                "requestPhonePermission" -> {
-                    requestPhonePermission()
-                    result.success(true)
-                }
-                "getAppNameByPackage" -> {
-                    val packageName = call.argument<String>("packageName") ?: ""
-                    result.success(getAppNameByPackage(packageName))
-                }
-                "changeLauncherIcon" -> {
-                    val icon = call.argument<String>("icon") ?: "default"
-                    changeLauncherIcon(icon)
-                    result.success(true)
-                }
-                "getLauncherIcon" -> {
-                    result.success(getLauncherIcon())
-                }
-                "requestPinWidget" -> {
-                    // 一键添加桌面小部件（Android 8.0+ 系统弹窗确认；桌面不支持时降级手动添加）
-                    val wide = call.argument<Boolean>("wide") ?: false
-                    val ok = requestPinWidget(wide)
-                    result.success(ok)
-                }
-                "isPinWidgetSupported" -> {
-                    // 当前桌面是否支持一键添加，Flutter 侧据此决定是否展示品牌分步引导
-                    val wide = call.argument<Boolean>("wide") ?: false
-                    result.success(isPinWidgetSupported(wide))
-                }
-                "startSystemDownload" -> {
-                    // 使用系统下载器（DownloadManager）下载更新 APK，无需存储权限
-                    val url = call.argument<String>("url") ?: ""
-                    val fileName = call.argument<String>("fileName") ?: "app_update.apk"
-                    val title = call.argument<String>("title") ?: "通知推送助手"
-                    result.success(startSystemDownload(url, fileName, title))
-                }
-                "getSystemDownloadProgress" -> {
-                    val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
-                    result.success(querySystemDownloadProgress(id))
-                }
-                "getDownloadedApkPath" -> {
-                    val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
-                    result.success(getDownloadedApkPath(id))
-                }
-                "installSystemDownload" -> {
-                    val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
-                    result.success(installSystemDownload(id))
-                }
-                else -> {
-                    result.notImplemented()
-                }
+            if (!dispatcher.handle(call, result)) {
+                result.notImplemented()
             }
         }
     }
@@ -635,12 +296,12 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun saveWebhookUrls(urls: List<String>) {
+    internal fun saveWebhookUrls(urls: List<String>) {
         val jsonArray = org.json.JSONArray(urls)
         prefs.edit().putString("flutter.webhook_urls", jsonArray.toString()).apply()
     }
 
-    private fun getWebhookChannels(): List<Map<String, Any?>> {
+    internal fun getWebhookChannels(): List<Map<String, Any?>> {
         val channelsJson = prefs.getString("flutter.webhook_channels", null)
         val result = mutableListOf<Map<String, Any?>>()
 
@@ -687,7 +348,7 @@ class MainActivity : FlutterActivity() {
         return result
     }
 
-    private fun setWebhookChannels(channels: List<Map<String, Any?>>) {
+    internal fun setWebhookChannels(channels: List<Map<String, Any?>>) {
         val jsonArray = org.json.JSONArray()
         val enabledUrls = mutableListOf<String>()
         for (channel in channels) {
@@ -733,7 +394,7 @@ class MainActivity : FlutterActivity() {
         notifyServiceConfigChanged()
     }
 
-    private fun saveDeviceName(name: String) {
+    internal fun saveDeviceName(name: String) {
         prefs.edit().putString("flutter.device_name", name).apply()
         try {
             val file = java.io.File(filesDir, "device_name.txt")
@@ -741,7 +402,7 @@ class MainActivity : FlutterActivity() {
         } catch (_: Exception) {}
     }
 
-    private fun readDeviceNameFromFile(): String {
+    internal fun readDeviceNameFromFile(): String {
         return try {
             val file = java.io.File(filesDir, "device_name.txt")
             if (file.exists()) file.readText().trim() else ""
@@ -750,7 +411,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getInstalledApps(): List<Map<String, Any?>> {
+    internal fun getInstalledApps(): List<Map<String, Any?>> {
         val pm = packageManager
         val apps = pm.getInstalledApplications(0)
         val result = mutableListOf<Map<String, Any?>>()
@@ -773,7 +434,7 @@ class MainActivity : FlutterActivity() {
         return result
     }
 
-    private fun saveInstalledAppsCache(apps: List<Map<String, Any?>>) {
+    internal fun saveInstalledAppsCache(apps: List<Map<String, Any?>>) {
         try {
             val jsonArray = org.json.JSONArray()
             for (app in apps) {
@@ -789,7 +450,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getCachedInstalledApps(): List<Map<String, Any?>> {
+    internal fun getCachedInstalledApps(): List<Map<String, Any?>> {
         val json = prefs.getString("flutter.installed_apps_cache", null) ?: return emptyList()
         val list = mutableListOf<Map<String, Any?>>()
         try {
@@ -809,7 +470,7 @@ class MainActivity : FlutterActivity() {
         return list
     }
 
-    private fun getAppNameByPackage(packageName: String): String {
+    internal fun getAppNameByPackage(packageName: String): String {
         return try {
             val pm = packageManager
             val appInfo = pm.getApplicationInfo(packageName, 0)
@@ -824,7 +485,7 @@ class MainActivity : FlutterActivity() {
      * 国产 ROM（MIUI/澎湃OS 等）把 QUERY_ALL_PACKAGES 定制为运行时开关，
      * 若在这里真实执行 getInstalledApplications 类查询，首次打开 App 就会弹出系统授权框。
      */
-    private fun canQueryAllPackages(): Boolean {
+    internal fun canQueryAllPackages(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
         // 先确认 Manifest 已声明该权限（查询自身包信息，不触发应用列表权限）
         val declared = try {
@@ -853,7 +514,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestSmsPermission() {
+    internal fun requestSmsPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             ActivityCompat.requestPermissions(
                 this,
@@ -863,7 +524,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestPhonePermission() {
+    internal fun requestPhonePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             ActivityCompat.requestPermissions(
                 this,
@@ -873,7 +534,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestQueryAllPackagesPermission() {
+    internal fun requestQueryAllPackagesPermission() {
         try {
             openAppDetailsSettings()
         } catch (e: Exception) {
@@ -881,13 +542,13 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun setEnabledPackages(packages: List<String>) {
+    internal fun setEnabledPackages(packages: List<String>) {
         val jsonArray = org.json.JSONArray(packages)
         prefs.edit().putString("flutter.enabled_packages", jsonArray.toString()).apply()
         notifyServiceConfigChanged()
     }
 
-    private fun getEnabledPackages(): List<String> {
+    internal fun getEnabledPackages(): List<String> {
         val json = prefs.getString("flutter.enabled_packages", null) ?: return emptyList()
         val list = mutableListOf<String>()
         try {
@@ -900,24 +561,24 @@ class MainActivity : FlutterActivity() {
         return list
     }
 
-    private fun setAppFilter(packages: List<String>, mode: String) {
+    internal fun setAppFilter(packages: List<String>, mode: String) {
         val jsonArray = org.json.JSONArray(packages)
         prefs.edit().putString("flutter.enabled_packages", jsonArray.toString()).apply()
         prefs.edit().putString("flutter.app_filter_mode", mode).apply()
         notifyServiceConfigChanged()
     }
 
-    private fun getAppFilterMode(): String {
+    internal fun getAppFilterMode(): String {
         return prefs.getString("flutter.app_filter_mode", "allow") ?: "allow"
     }
 
-    private fun setBlacklistKeywords(keywords: List<String>) {
+    internal fun setBlacklistKeywords(keywords: List<String>) {
         val jsonArray = org.json.JSONArray(keywords)
         prefs.edit().putString("flutter.blacklist_keywords", jsonArray.toString()).apply()
         notifyServiceConfigChanged()
     }
 
-    private fun getBlacklistKeywords(): List<String> {
+    internal fun getBlacklistKeywords(): List<String> {
         val json = prefs.getString("flutter.blacklist_keywords", null) ?: return emptyList()
         val list = mutableListOf<String>()
         try {
@@ -930,13 +591,13 @@ class MainActivity : FlutterActivity() {
         return list
     }
 
-    private fun setWhitelistKeywords(keywords: List<String>) {
+    internal fun setWhitelistKeywords(keywords: List<String>) {
         val jsonArray = org.json.JSONArray(keywords)
         prefs.edit().putString("flutter.whitelist_keywords", jsonArray.toString()).apply()
         notifyServiceConfigChanged()
     }
 
-    private fun setNotificationRules(rules: List<Map<String, Any?>>) {
+    internal fun setNotificationRules(rules: List<Map<String, Any?>>) {
         try {
             val jsonArray = org.json.JSONArray()
             for (rule in rules) {
@@ -957,7 +618,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getWhitelistKeywords(): List<String> {
+    internal fun getWhitelistKeywords(): List<String> {
         val json = prefs.getString("flutter.whitelist_keywords", null) ?: return emptyList()
         val list = mutableListOf<String>()
         try {
@@ -970,14 +631,14 @@ class MainActivity : FlutterActivity() {
         return list
     }
 
-    private fun clearNotificationRecords() {
+    internal fun clearNotificationRecords() {
         prefs.edit().remove("flutter.notification_records").apply()
         // 同步重置状态栏当日计数（与 DB 清空保持一致）
         NotificationMonitorService.pushCount = 0
         NotificationMonitorService.applyTodayDate(NotificationMonitorService.todayDateString())
     }
 
-    private fun getBatteryStatus(): Map<String, Any?> {
+    internal fun getBatteryStatus(): Map<String, Any?> {
         return try {
             val batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
             val level = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -999,14 +660,14 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun setBatterySetting(key: String, value: Boolean) {
+    internal fun setBatterySetting(key: String, value: Boolean) {
         val prefsKey = "flutter.$key"
         prefs.edit().putBoolean(prefsKey, value).apply()
         notifyServiceConfigChanged()
     }
 
     /** 短信监听配置写入（key 已含类型语义：sms_monitor_enabled/sms_code_monitor_enabled 为布尔，sms_sim_filter 为字符串） */
-    private fun setSmsSetting(key: String, value: Any?) {
+    internal fun setSmsSetting(key: String, value: Any?) {
         val prefsKey = "flutter.$key"
         when (value) {
             is Boolean -> prefs.edit().putBoolean(prefsKey, value).apply()
@@ -1020,7 +681,7 @@ class MainActivity : FlutterActivity() {
      * 优先读已插入的活跃订阅数（需 READ_PHONE_STATE）；无权限/异常/读不到时
      * 回退硬件卡槽数（无需权限），保证单卡设备总能被识别。
      */
-    private fun getSimCardCount(): Int {
+    internal fun getSimCardCount(): Int {
         // 已插入的活跃卡
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
             try {
@@ -1044,7 +705,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun setBatteryRules(rules: List<Map<String, Any>>) {
+    internal fun setBatteryRules(rules: List<Map<String, Any>>) {
         try {
             val jsonArray = org.json.JSONArray()
             for (rule in rules) {
@@ -1064,7 +725,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isNotificationListenerPermissionGranted(): Boolean {
+    internal fun isNotificationListenerPermissionGranted(): Boolean {
         val flat = Settings.Secure.getString(
             contentResolver,
             "enabled_notification_listeners"
@@ -1072,7 +733,7 @@ class MainActivity : FlutterActivity() {
         return flat.contains(packageName)
     }
 
-    private fun requestNotificationListenerPermission() {
+    internal fun requestNotificationListenerPermission() {
         try {
             val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -1088,7 +749,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isPostNotificationPermissionGranted(): Boolean {
+    internal fun isPostNotificationPermissionGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
                 this,
@@ -1099,7 +760,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestPostNotificationPermission() {
+    internal fun requestPostNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ActivityCompat.requestPermissions(
                 this,
@@ -1109,7 +770,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isIgnoringBatteryOptimizations(): Boolean {
+    internal fun isIgnoringBatteryOptimizations(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             powerManager.isIgnoringBatteryOptimizations(packageName)
@@ -1118,7 +779,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isSmsPermissionGranted(): Boolean {
+    internal fun isSmsPermissionGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             ContextCompat.checkSelfPermission(
                 this,
@@ -1129,7 +790,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isPhonePermissionGranted(): Boolean {
+    internal fun isPhonePermissionGranted(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             ContextCompat.checkSelfPermission(
                 this,
@@ -1140,11 +801,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun isAppListPermissionGranted(): Boolean {
+    internal fun isAppListPermissionGranted(): Boolean {
         return canQueryAllPackages()
     }
 
-    private fun requestBatteryOptimization() {
+    internal fun requestBatteryOptimization() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 val intent = Intent()
@@ -1162,7 +823,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestXiaomiAutoStart() {
+    internal fun requestXiaomiAutoStart() {
         try {
             val intent = Intent()
             intent.component = ComponentName(
@@ -1193,7 +854,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestMeizuBackground() {
+    internal fun requestMeizuBackground() {
         try {
             val intent = Intent("com.meizu.safe.security.SHOW_APPSEC")
             intent.addCategory(Intent.CATEGORY_DEFAULT)
@@ -1215,7 +876,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestHuaweiLaunch() {
+    internal fun requestHuaweiLaunch() {
         try {
             val intent = Intent()
             intent.component = ComponentName(
@@ -1239,7 +900,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestOppoBackground() {
+    internal fun requestOppoBackground() {
         try {
             val intent = Intent()
             intent.component = ComponentName(
@@ -1263,7 +924,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestVivoBackground() {
+    internal fun requestVivoBackground() {
         try {
             val intent = Intent()
             intent.component = ComponentName(
@@ -1287,7 +948,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun openAppDetailsSettings() {
+    internal fun openAppDetailsSettings() {
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
             intent.data = Uri.fromParts("package", packageName, null)
@@ -1299,7 +960,7 @@ class MainActivity : FlutterActivity() {
     }
 
     /** Android 12+ 是否已授权精确闹钟；12 以下系统无此概念，恒为 true */
-    private fun canScheduleExactAlarms(): Boolean {
+    internal fun canScheduleExactAlarms(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 val am = getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return false
@@ -1318,7 +979,7 @@ class MainActivity : FlutterActivity() {
      * Android 14+：SCHEDULE_EXACT_ALARM 默认拒绝且无系统授权入口，跳应用详情页引导手动开启；
      * 未授权时 DelayedPushManager 会捕获 SecurityException 自动降级为非精确闹钟，不阻塞功能。
      */
-    private fun requestExactAlarmPermission() {
+    internal fun requestExactAlarmPermission() {
         try {
             if (canScheduleExactAlarms()) return
             if (Build.VERSION.SDK_INT in Build.VERSION_CODES.S..Build.VERSION_CODES.TIRAMISU) {
@@ -1340,7 +1001,7 @@ class MainActivity : FlutterActivity() {
      * 历史记录"现在推送"：把单条记录以 JSON 转发给前台服务手动补推。
      * 服务侧 pushRecordNow 会忽略推送暂停开关，按当前配置立即推送 webhook + 邮件。
      */
-    private fun pushRecordNow(record: Map<String, Any?>) {
+    internal fun pushRecordNow(record: Map<String, Any?>) {
         try {
             val intent = Intent(this, NotificationMonitorService::class.java).apply {
                 action = NotificationMonitorService.ACTION_PUSH_RECORD_NOW
@@ -1352,7 +1013,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun startNotificationListener() {
+    internal fun startNotificationListener() {
         try {
             // 开启监听：仅置位持久化开关并通知服务，绝不禁用组件（避免系统撤销通知访问权限）
             setMonitoringEnabledPref(true)
@@ -1365,7 +1026,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun stopNotificationListener() {
+    internal fun stopNotificationListener() {
         try {
             // 关闭监听：只关闭转发/前台，保留组件启用以不丢失通知访问权限
             setMonitoringEnabledPref(false)
@@ -1379,7 +1040,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun setMonitoringEnabledPref(enabled: Boolean) {
+    internal fun setMonitoringEnabledPref(enabled: Boolean) {
         try {
             val prefs = getSharedPreferences(
                 NotificationMonitorService.PREFS_NAME,
@@ -1395,7 +1056,7 @@ class MainActivity : FlutterActivity() {
         NotificationMonitorService.monitoringEnabled = enabled
     }
 
-    private fun isMonitoringEnabled(): Boolean {
+    internal fun isMonitoringEnabled(): Boolean {
         return try {
             val prefs = getSharedPreferences(
                 NotificationMonitorService.PREFS_NAME,
@@ -1407,7 +1068,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun notifyServiceConfigChanged() {
+    internal fun notifyServiceConfigChanged() {
         try {
             val intent = Intent(this, NotificationMonitorService::class.java)
             intent.action = NotificationMonitorService.ACTION_UPDATE_CONFIG
@@ -1417,7 +1078,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getDownloadDirectory(): String {
+    internal fun getDownloadDirectory(): String {
         val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
             android.os.Environment.DIRECTORY_DOWNLOADS
         )
@@ -1453,7 +1114,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun saveFileWithPicker(fileName: String, content: String, result: MethodChannel.Result) {
+    internal fun saveFileWithPicker(fileName: String, content: String, result: MethodChannel.Result) {
         pendingSaveResult = result
         pendingSaveContent = content
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -1464,7 +1125,7 @@ class MainActivity : FlutterActivity() {
         startActivityForResult(intent, SAVE_FILE_REQUEST_CODE)
     }
 
-    private fun toggleNotificationListenerService() {
+    internal fun toggleNotificationListenerService() {
         val pm = packageManager
         val component = ComponentName(this, NotificationMonitorService::class.java)
         // 确保组件处于启用状态（历史版本可能曾被禁用），以便系统能重新绑定通知监听器
@@ -1477,7 +1138,7 @@ class MainActivity : FlutterActivity() {
 
     // 可选应用图标：17 图标 × 2 语言 = 34 个别名
     // key 格式: "iconKey_locale" 例如 "blue_zh"、"default_en"
-    private fun getIconAliases(): Map<String, ComponentName> = mapOf(
+    internal fun getIconAliases(): Map<String, ComponentName> = mapOf(
         "default_zh" to ComponentName(packageName, "$packageName.LauncherDefaultZh"),
         "default_en" to ComponentName(packageName, "$packageName.LauncherDefaultEn"),
         "blue_zh" to ComponentName(packageName, "$packageName.LauncherBlueZh"),
@@ -1514,12 +1175,12 @@ class MainActivity : FlutterActivity() {
         "black_en" to ComponentName(packageName, "$packageName.LauncherBlackEn"),
     )
 
-    private fun getAliasKey(icon: String): String {
+    internal fun getAliasKey(icon: String): String {
         val locale = prefs.getString("flutter.locale", "zh") ?: "zh"
         return "${icon}_${if (locale == "en") "en" else "zh"}"
     }
 
-    private fun changeLauncherIcon(icon: String) {
+    internal fun changeLauncherIcon(icon: String) {
         try {
             val key = getAliasKey(icon)
             val aliases = getIconAliases()
@@ -1538,7 +1199,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun switchLocaleAlias() {
+    internal fun switchLocaleAlias() {
         try {
             val icon = prefs.getString("flutter.selected_icon", "default") ?: "default"
             val key = getAliasKey(icon)
@@ -1557,7 +1218,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun getLauncherIcon(): String {
+    internal fun getLauncherIcon(): String {
         return prefs.getString("flutter.selected_icon", "default") ?: "default"
     }
 
@@ -1568,7 +1229,7 @@ class MainActivity : FlutterActivity() {
      * @param wide true 请求 4×2 宽规格，false 请求 2×2 规格。
      * @return 是否成功发起请求（Android < 8.0 或 Launcher 不支持时返回 false）
      */
-    private fun requestPinWidget(wide: Boolean): Boolean {
+    internal fun requestPinWidget(wide: Boolean): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
         return try {
             val manager = android.appwidget.AppWidgetManager.getInstance(this)
@@ -1595,7 +1256,7 @@ class MainActivity : FlutterActivity() {
      * Android < 8.0 或 Launcher 不支持时返回 false，供 Flutter 侧决定展示品牌引导。
      * 注意：该预检与具体规格无关（无参 API），wide 参数仅为 channel 契约对称保留。
      */
-    private fun isPinWidgetSupported(wide: Boolean): Boolean {
+    internal fun isPinWidgetSupported(wide: Boolean): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
         return try {
             android.appwidget.AppWidgetManager.getInstance(this)
@@ -1611,7 +1272,7 @@ class MainActivity : FlutterActivity() {
      * 应用内通过 getSystemDownloadProgress 轮询同步进度条。
      * @return downloadId（String，MethodChannel 避免 Long 精度丢失），失败返回 null
      */
-    private fun startSystemDownload(url: String, fileName: String, title: String): String? {
+    internal fun startSystemDownload(url: String, fileName: String, title: String): String? {
         if (url.isEmpty()) return null
         return try {
             val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -1637,7 +1298,7 @@ class MainActivity : FlutterActivity() {
     }
 
     /** 查询系统下载器任务状态与进度（Flutter 侧轮询，用于应用内进度条）。 */
-    private fun querySystemDownloadProgress(id: Long): Map<String, Any?> {
+    internal fun querySystemDownloadProgress(id: Long): Map<String, Any?> {
         if (id < 0) return mapOf("status" to -1, "progress" to 0.0)
         return try {
             val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -1677,7 +1338,7 @@ class MainActivity : FlutterActivity() {
     }
 
     /** DownloadManager.COLUMN_REASON 失败码 → 可读文案（用于诊断下载失败原因）。 */
-    private fun downloadErrorReasonText(reason: Int): String = when (reason) {
+    internal fun downloadErrorReasonText(reason: Int): String = when (reason) {
         DownloadManager.ERROR_UNKNOWN -> "未知错误"
         DownloadManager.ERROR_FILE_ERROR -> "文件错误"
         DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "服务器返回异常状态码（HTTP 错误）"
@@ -1695,7 +1356,7 @@ class MainActivity : FlutterActivity() {
     }
 
     /** 获取系统下载器已下载 APK 的本地文件路径（用于 open_filex 打开安装）。 */
-    private fun getDownloadedApkPath(id: Long): String? {
+    internal fun getDownloadedApkPath(id: Long): String? {
         if (id < 0) return null
         return try {
             val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -1728,7 +1389,7 @@ class MainActivity : FlutterActivity() {
      * Android 10+ 优先使用 content uri（MediaStore），旧版本回退 file uri。
      * @return 是否成功启动安装流程
      */
-    private fun installSystemDownload(id: Long): Boolean {
+    internal fun installSystemDownload(id: Long): Boolean {
         if (id < 0) return false
         // 安装未知来源应用权限（Android 8.0+），缺失时引导用户去开启
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
@@ -1788,7 +1449,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun testWebhook(url: String, secret: String?, result: MethodChannel.Result) {
+    internal fun testWebhook(url: String, secret: String?, result: MethodChannel.Result) {
         activityScope.launch(Dispatchers.IO) {
             val (success, message, signed) = try {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
@@ -1904,7 +1565,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun testEmail(configMap: Map<String, Any?>, result: MethodChannel.Result) {
+    internal fun testEmail(configMap: Map<String, Any?>, result: MethodChannel.Result) {
         activityScope.launch(Dispatchers.IO) {
             try {
                 val toEmails = (configMap["toEmail"]?.toString() ?: "")
@@ -1935,7 +1596,7 @@ class MainActivity : FlutterActivity() {
     }
 
     /** 缓存未送达的通知记录（Flutter 引擎未就绪时使用） */
-    private fun cacheNotificationRecord(data: String) {
+    internal fun cacheNotificationRecord(data: String) {
         try {
             val prefs = applicationContext.getSharedPreferences("flutter.notification_cache", android.content.Context.MODE_PRIVATE)
             val cached = prefs.getString("pending_records", "[]") ?: "[]"
@@ -1947,7 +1608,7 @@ class MainActivity : FlutterActivity() {
     }
 
     /** 批量导入缓存的未送达通知记录 */
-    private fun flushCachedNotificationRecords() {
+    internal fun flushCachedNotificationRecords() {
         try {
             val prefs = applicationContext.getSharedPreferences("flutter.notification_cache", android.content.Context.MODE_PRIVATE)
             val cached = prefs.getString("pending_records", "[]") ?: "[]"

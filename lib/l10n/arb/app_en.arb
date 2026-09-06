@@ -1,0 +1,759 @@
+{
+  "appName": "NoticeTransmit",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "save": "Save",
+  "delete": "Delete",
+  "edit": "Edit",
+  "add": "Add",
+  "test": "Test",
+  "send": "Send",
+  "close": "Close",
+  "ok": "OK",
+  "later": "Later",
+  "goSettings": "Go to Settings",
+  "loading": "Loading...",
+  "unknown": "Unknown",
+  "notSet": "Not Set",
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "on": "On",
+  "off": "Off",
+  "tabNotification": "Notifications",
+  "tabBattery": "Battery",
+  "tabMore": "More",
+  "serviceRunning": "Notification service is running, tap to stop",
+  "serviceStopped": "Notification service is stopped, tap to start",
+  "running": "Running",
+  "stopped": "Stopped",
+  "currentChannels": "Push Channels",
+  "noChannels": "No channels configured",
+  "statusOk": "Normal",
+  "statusError": "Abnormal",
+  "permSettings": "Permissions",
+  "permSettingsDesc": "Configure notification, battery, background permissions",
+  "pushHistory": "Push History",
+  "recordCount": "{n} records",
+  "@recordCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "notificationPermissionTitle": "Notification Access Not Enabled",
+  "notificationPermissionMsg": "Notification access is not enabled. The app cannot read device notifications.\n\nPlease go to Permissions and enable notification access before starting the service.",
+  "appearance": "Appearance",
+  "pushSettings": "Push Settings",
+  "pushChannels": "Push Channels",
+  "filterRules": "Filter Rules",
+  "webhookChannel": "Webhook Channels",
+  "webhookNotConfigured": "Not configured",
+  "webhookConfigured": "{n} configured · {m} enabled",
+  "@webhookConfigured": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "emailChannel": "Email Forwarding",
+  "emailChannelDesc": "SMTP email notifications",
+  "appFilter": "App Filter",
+  "appFilterBlocked": "{n} apps blocked",
+  "@appFilterBlocked": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "appFilterSelected": "{n} apps selected",
+  "@appFilterSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "appFilterAll": "All apps push",
+  "keywordFilter": "Keyword Filter",
+  "keywordWhitelistBlacklist": "Whitelist {n} · Blacklist {m}",
+  "@keywordWhitelistBlacklist": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleEngine": "Rule Engine",
+  "ruleCount": "{n} rules",
+  "@ruleCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleEmpty": "Tap to add rule",
+  "device": "Device",
+  "deviceName": "Device Name",
+  "widgetSection": "Desktop Widget",
+  "widgetGuide": "Push Toggle",
+  "widgetGuideDesc": "One-tap start/pause push from home screen",
+  "widgetGuideIntro": "After adding the \"Push Toggle\" widget to your home screen, you can start or pause push with one tap without opening the app.",
+  "widgetGuideStep1": "1. Long-press an empty area of the home screen",
+  "widgetGuideStep2": "2. Tap \"Widgets\" (小部件 / 插件)",
+  "widgetGuideStep3": "3. Find \"NoticeTransmit\" and drag \"Push Toggle\" to the home screen",
+  "widgetGuideBrand": "Add widget by brand",
+  "widgetBrandXiaomi": "Xiaomi / Redmi: long-press home screen → Add widgets → NoticeTransmit",
+  "widgetBrandHuawei": "Huawei / Honor: pinch or long-press home screen → Widgets → NoticeTransmit",
+  "widgetBrandOppo": "OPPO / realme / OnePlus: long-press home screen → Add widgets → NoticeTransmit",
+  "widgetBrandVivo": "vivo / iQOO: long-press home screen → Widgets → NoticeTransmit",
+  "widgetBrandSamsung": "Samsung: long-press home screen → Widgets → NoticeTransmit",
+  "widgetBrandOthers": "Other brands (Stock / Pixel / Motorola / Sony, etc.): long-press home screen → Widgets → NoticeTransmit",
+  "widgetTipsTitle": "Tips",
+  "widgetTip1": "Tap the widget to toggle push (Active ⇄ Paused)",
+  "widgetTip2": "While paused, monitoring continues but messages are not sent",
+  "widgetTip3": "Some brands require autostart permission for the widget to refresh in real time",
+  "widgetTip4": "If the widget is not listed, open the app once or restart the launcher",
+  "widgetPinTitle": "Quick Add (Recommended)",
+  "widgetPinDesc": "Tap below and confirm in the system dialog to place the 2×2 push toggle widget on your home screen, no dragging needed.",
+  "widgetPinAction": "Add 2×2 widget",
+  "widgetPinWideAction": "Add 4×2 wide widget",
+  "widgetPinSuccess": "Request sent, place the widget on the home screen",
+  "widgetPinUnsupported": "This launcher does not support quick-add. Long-press an empty area of the home screen to add manually",
+  "widgetPinLowApi": "Quick-add requires Android 8.0+. Long-press an empty area of the home screen to add manually",
+  "widgetPin2x2": "2×2 round toggle: title + status circle + tap hint",
+  "widgetPin4x2": "4×2 wide bar: title + status circle + daily pushed count",
+  "pushStats": "Push Statistics",
+  "pushStatsDesc": "View push data statistics",
+  "aboutUpdate": "About & Update",
+  "checkUpdate": "Check Update",
+  "checking": "Checking...",
+  "clickToCheck": "Tap to check for updates",
+  "privacyPolicyTitle": "Privacy Policy",
+  "privacyPolicyDesc": "Data collection and privacy",
+  "crashReport": "Crash Reporting",
+  "crashReportDesc": "Off by default; when enabled, crash logs are uploaded to Tencent Bugly for diagnostics",
+  "crashReportOffHint": "Disabled; takes full effect after next launch",
+  "aboutTitle": "About",
+  "aboutDesc": "Version info and author",
+  "followSystem": "Follow System",
+  "lightMode": "Light Mode",
+  "darkMode": "Dark Mode",
+  "language": "Language",
+  "langDefault": "Default",
+  "langChinese": "中文",
+  "langEnglish": "English",
+  "switchLangTitle": "Switch Language",
+  "switchLangMsg": "System language changed to {lang}. Switch app language?",
+  "@switchLangMsg": {
+    "placeholders": {
+      "lang": {
+        "type": "String"
+      }
+    }
+  },
+  "switchBtn": "Switch",
+  "notNow": "Not Now",
+  "privacyTitle": "Privacy Policy",
+  "privacyWelcome": "Welcome to NoticeTransmit!",
+  "privacyBody": "Please read our privacy policy before using this app.\n\n• All notifications are processed on-device and only forwarded to Webhook or email addresses you configure\n• Push history is AES-256 encrypted and stored in a local database\n• Crash reporting (Tencent Bugly) is off by default; it only collects necessary crash logs for fixing issues after you enable it in settings, and no personal information is collected\n• Channel credentials (Webhook/email) are encrypted with AndroidKeyStore\n\nBy tapping \"Agree\", you agree to our privacy policy.",
+  "disagree": "Disagree",
+  "agree": "Agree",
+  "privacyWarnTitle": "Notice",
+  "privacyWarnBody": "You must agree to the privacy policy to use this app.\n\nIf you disagree, the app will exit.\n\nAre you sure you want to exit?",
+  "returnAgree": "Go Back",
+  "confirmExit": "Exit",
+  "latestVersion": "You are on the latest version",
+  "checkUpdateFailed": "Update check failed: {e}",
+  "@checkUpdateFailed": {
+    "placeholders": {
+      "e": {
+        "type": "String"
+      }
+    }
+  },
+  "checkUpdateNetworkError": "Update check failed, please check your network",
+  "importantUpdate": "Important Update",
+  "mustUpdate": "You must update to continue using this app",
+  "newVersionFound": "New Version Available",
+  "latestVer": "Latest version: ",
+  "currentVer": "Current version: ",
+  "fileSize": "File size: ",
+  "updateContent": "Changelog",
+  "updateNow": "Update Now",
+  "ignore": "Ignore",
+  "update": "Update",
+  "downloading": "Downloading update",
+  "downloadFailed": "Download failed: {e}",
+  "@downloadFailed": {
+    "placeholders": {
+      "e": {
+        "type": "String"
+      }
+    }
+  },
+  "storagePermissionRequired": "Storage Permission Required",
+  "storagePermissionMsg": "Storage permission is needed to save the APK file. Please go to Settings to enable it.",
+  "noStoragePermission": "Storage permission not granted, cannot download update",
+  "enable": "Enable",
+  "confirmExport": "Confirm Export",
+  "exportMsg": "Notification records will be exported as a JSON file containing notification content and device info.\n\nChoose a save location. Please keep the file safe or delete it after use.\n\nExport now?",
+  "exportBtn": "Export",
+  "exportCancelled": "Cancelled",
+  "exportError": "Export error",
+  "historyTitle": "History ({n})",
+  "@historyTitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "exportJson": "Export JSON",
+  "clearRecords": "Clear Records",
+  "clearToday": "Clear Today",
+  "clearLast10": "Clear Last 10",
+  "clearLast50": "Clear Last 50",
+  "clearAll": "Clear All",
+  "confirmClear": "Confirm Clear",
+  "clearConfirmMsg": "Clear all {n} records?",
+  "@clearConfirmMsg": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "clearedN": "{n} records cleared",
+  "@clearedN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "searchHint": "Search title/content/app",
+  "noRecords": "No records yet",
+  "noMatchRecords": "No matching records",
+  "notificationDetail": "Notification Detail",
+  "detailInfo": "Details",
+  "noTitle": "(No title)",
+  "emailSettingsTitle": "Email Forwarding",
+  "noEmailChannels": "No email channels",
+  "clickToAdd": "Tap the button below to add",
+  "addEmailChannel": "Add Email Channel",
+  "editEmailChannel": "Edit Email Channel",
+  "testSend": "Test Send",
+  "testAndSave": "Test & Save",
+  "testPassed": "✅ Verified",
+  "testFailed": "❌ Verification Failed",
+  "testPassedSaved": "Test passed, config saved",
+  "verifyFailed": "Verification failed: {msg}",
+  "@verifyFailed": {
+    "placeholders": {
+      "msg": {
+        "type": "String"
+      }
+    }
+  },
+  "testing": "Testing...",
+  "channelNameHint": "e.g. QQ Mail",
+  "smtpHost": "SMTP Server",
+  "smtpPort": "Port",
+  "smtpAccount": "SMTP Account",
+  "smtpPassword": "Password / Auth Code",
+  "fromEmail": "From",
+  "toEmail": "To",
+  "useSSL": "SSL",
+  "subjectTemplate": "Subject Template (optional)",
+  "bodyTemplate": "Body Template (optional)",
+  "presetDefault": "Default",
+  "presetSimple": "Simple",
+  "presetDetailed": "Detailed",
+  "presetTime": "Time",
+  "presetCode": "Code",
+  "presetDevice": "Device",
+  "presetStandard": "Standard",
+  "presetComplete": "Complete",
+  "presetMinimal": "Minimal",
+  "availableVars": "Variables: %appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%",
+  "webhookSettingsTitle": "Webhook Channels",
+  "webhookUrlRequired": "Please enter a Webhook URL first",
+  "channelList": "Channel List",
+  "addChannel": "Add Channel",
+  "webhookDesc1": "Support multiple Webhook channels with independent switches",
+  "webhookDesc2": "Auto-detect WeCom, DingTalk, Feishu formats",
+  "webhookDesc3": "Newly added channels are enabled by default",
+  "channelN": "Channel {n}",
+  "@channelN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "channelNameOptional": "Channel name (optional)",
+  "webhookUrlPlaceholder": "https://example.com/webhook",
+  "webhookSecretLabel": "Signing Secret (optional)",
+  "webhookSigned": "Signed",
+  "webhookTemplateLabel": "Push Template (optional)",
+  "webhookFormatLabel": "Message Format",
+  "feishuMarkdownDowngradeHint": "Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.",
+  "webhookTemplateHint": "Leave empty to use preset; supported variables:",
+  "webhookTemplateInsertVar": "Insert Variable",
+  "webhookTemplatePreview": "Preview",
+  "platformWechat": "WeCom",
+  "platformDingtalk": "DingTalk",
+  "platformFeishu": "Feishu",
+  "platformGeneric": "Generic JSON",
+  "platformWechatDesc": "Text format push",
+  "platformGenericDesc": "Custom JSON format",
+  "channelTypeLabel": "Channel Type",
+  "channelTypeAuto": "Auto Detect",
+  "channelTypeAutoWith": "Auto Detect ({type})",
+  "@channelTypeAutoWith": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "selectChannelType": "Select Channel Type",
+  "channelTypeWechat": "WeCom Bot",
+  "channelTypeDingtalk": "DingTalk Bot",
+  "channelTypeFeishu": "Feishu Bot",
+  "channelTypeTelegram": "Telegram",
+  "channelTypeBark": "Bark",
+  "channelTypeServerChan": "ServerChan",
+  "channelTypePushPlus": "PushPlus",
+  "channelTypeGeneric": "Generic Webhook",
+  "signingHintWechat": "Secret generated after enabling signature verification for WeCom bot",
+  "signingHintDingtalk": "Secret generated after enabling sign verification for DingTalk bot (starts with SEC)",
+  "signingHintFeishu": "Secret generated after enabling signature verification for Feishu custom bot",
+  "signingHintTelegram": "Telegram uses Bot Token auth, no signing secret needed",
+  "signingHintBark": "Bark uses device Key auth, no signing secret needed",
+  "signingHintServerChan": "ServerChan uses SendKey auth, no signing secret needed",
+  "signingHintPushPlus": "PushPlus uses Token auth, no signing secret needed",
+  "signingHintGeneric": "Secret for your server to verify the signature (sent via X-Signature header)",
+  "msgFormatDefault": "Default Format",
+  "msgFormatText": "Plain Text",
+  "urlEmpty": "Empty",
+  "urlPlaceholder": "Enter Webhook URL",
+  "permSettingsTitle": "Permissions",
+  "essentialPerms": "Essential Permissions",
+  "notifAccessPerm": "Notification Access",
+  "allowNotifications": "Allow Notifications",
+  "ignoreBatteryOpt": "Ignore Battery Optimization",
+  "vendorBgSettings": "Vendor Background Settings",
+  "xiaomiAutoStart": "Xiaomi Auto-start",
+  "meizuBgRun": "Meizu Background",
+  "huaweiProtected": "Huawei Protected Apps",
+  "oppoAutoStart": "OPPO Auto-start",
+  "vivoBgStart": "vivo Background Start",
+  "samsungSettings": "Samsung Settings",
+  "nativeAndroid": "Native Android Settings",
+  "optionalPerms": "Optional Permissions",
+  "smsPerm": "SMS Permission",
+  "smsPermDesc": "Read SMS sender and content",
+  "phonePerm": "Phone Permission",
+  "phonePermDesc": "Get call number and status",
+  "appListPerm": "App List Permission",
+  "appListPermDesc": "Improves accuracy of specific features",
+  "appListPermTitle": "App List Permission Required",
+  "appListPermMsg": "This permission is needed to get installed apps list for app filtering.\n\nTap \"Allow\" to go to system settings and enable it manually.",
+  "appListPermExtra": "Used to get installed apps list for app-based notification filtering",
+  "clickToSettings": "Tap to open settings",
+  "samsungSmartManagerDesc": "Add this app to auto-start whitelist in Smart Manager",
+  "nativeBatteryOptDesc": "Confirm battery optimization is disabled in system settings",
+  "exactAlarmTitle": "Exact Alarm (On-time Push)",
+  "exactAlarmDesc": "Delayed/scheduled pushes fire on time; requires system grant on Android 12+",
+  "exactAlarmGranted": "Granted",
+  "exactAlarmNeedGrant": "Tap to grant",
+  "exactAlarmUnsupported": "Requires Android 12+",
+  "keepAliveGuideTitle": "Keep-alive Guide",
+  "keepAliveGuideDesc": "Some systems restrict background services and may miss notifications. Follow these steps:",
+  "keepAliveStep1": "Set battery optimization to Unrestricted",
+  "keepAliveStep2": "Allow auto-start",
+  "keepAliveStep3": "Keep running in background (task lock)",
+  "keepAliveStep4": "Confirm notification access is enabled",
+  "notes": "Notes",
+  "allow": "Allow",
+  "reject": "Reject",
+  "batteryTitle": "Battery",
+  "addRule": "Add Rule",
+  "charging": "Charging",
+  "notCharging": "Not Charging",
+  "reminderSettings": "Reminder Settings",
+  "batteryNotifToggle": "Battery Notification Master Switch",
+  "batteryNotifToggleDesc": "Reminders below only work when enabled",
+  "notifRules": "Notification Rules",
+  "batteryNotes1": "Low battery alerts only trigger when not charging",
+  "batteryNotes2": "Alert resets when battery rises above threshold",
+  "batteryNotes3": "Battery notification runs with the notification listener service",
+  "batteryNotes4": "Tap to edit, swipe or long-press to delete",
+  "closeBatteryOpt": "Close Battery Optimization",
+  "batteryOptDesc": "System may restrict background running when screen off",
+  "ruleStartCharging": "Push when charger connected",
+  "ruleStopCharging": "Push when charger disconnected",
+  "ruleAboveThreshold": "Push when battery reaches {n}%",
+  "@ruleAboveThreshold": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleBelowThreshold": "Push when battery below {n}%",
+  "@ruleBelowThreshold": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleEqualThreshold": "Push when battery equals {n}%",
+  "@ruleEqualThreshold": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleUnknown": "Unknown rule type",
+  "confirmDeleteRule": "Confirm Delete",
+  "confirmDeleteRuleMsg": "Delete rule \"{title}\"?",
+  "@confirmDeleteRuleMsg": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "editRule": "Edit Rule",
+  "ruleType": "Rule Type",
+  "startCharging": "Start Charging",
+  "stopCharging": "Stop Charging",
+  "belowValue": "Below Value",
+  "aboveValue": "Above Value",
+  "equalValue": "Equal Value",
+  "threshold": "Threshold (%)",
+  "customTitle": "Custom Title (optional)",
+  "customTitleHint": "Leave empty for default title",
+  "batteryReminder": "Battery Reminder",
+  "deleteRule": "Delete Rule",
+  "confirmDeleteThisRule": "Delete this notification rule?",
+  "setDeviceName": "Set Device Name",
+  "deviceNameLabel": "Device Name",
+  "aboutDialogTitle": "About",
+  "author": "Author: fnthinklevi",
+  "appDesc": "Listen to all notifications and push to Webhook",
+  "appFeatures": "Supports: WeChat / QQ / SMS / Call / Battery",
+  "ruleListTitle": "Rule Management",
+  "ruleNew": "New Rule",
+  "ruleNoCondition": "No conditions",
+  "ruleNoAction": "No actions",
+  "ruleListEmpty": "No rules yet",
+  "ruleAddFirst": "Add Your First Rule",
+  "rulePriorityBadge": "Priority {n}",
+  "@rulePriorityBadge": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleGuideTitle": "Rule Engine Intro",
+  "ruleGuideAdd": "Add Rule",
+  "ruleGuideAddDesc": "Tap \"+\" in the top bar or the FAB to create a new rule",
+  "ruleGuideCondition": "Set Conditions",
+  "ruleGuideConditionDesc": "Configure the IF conditions (app package, keyword, time, etc.)",
+  "ruleGuideAction": "Add Actions",
+  "ruleGuideActionDesc": "Configure the THEN actions (push notification, silent ignore, etc.)",
+  "ruleGuideEnable": "Enable Rule",
+  "ruleGuideEnableDesc": "Toggle to control whether the rule takes effect; disabled rules won't run",
+  "ruleGuideTip": "Tip: rules run by priority; execution stops after the first match. Edit a rule to adjust priority.",
+  "ruleGuideGotIt": "Got It",
+  "ruleHelp": "Help",
+  "ruleAddTooltip": "Add Rule",
+  "ruleDeleteMsg": "Delete rule \"{name}\"?",
+  "@ruleDeleteMsg": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleEditTitle": "Edit Rule",
+  "ruleName": "Rule Name",
+  "ruleNameHint": "Enter rule name",
+  "ruleDescription": "Description",
+  "ruleDescriptionHint": "Optional",
+  "ruleConditions": "Conditions (IF)",
+  "ruleActions": "Actions (THEN)",
+  "ruleAddCondition": "Add Condition",
+  "ruleAddAction": "Add Action",
+  "rulePriority": "Rule Priority",
+  "rulePriorityNote": "Higher priority runs first; equal priority runs in add order",
+  "rulePDefault": "Default (0)",
+  "rulePLow": "Low (50)",
+  "rulePMedium": "Medium (100)",
+  "rulePHigh": "High (200)",
+  "rulePHighest": "Highest (500)",
+  "ruleSelect": "Please select",
+  "ruleEditCondition": "Edit Condition",
+  "ruleAddConditionTitle": "Add Condition",
+  "ruleConditionType": "Condition Type",
+  "ruleConditionValue": "Value",
+  "ruleLogic": "Logic Operator",
+  "ruleEditAction": "Edit Action",
+  "ruleAddActionTitle": "Add Action",
+  "ruleActionType": "Action Type",
+  "ruleDelayTitle": "Delayed Push Params (fill at least one)",
+  "ruleDelaySeconds": "Delay (seconds)",
+  "ruleDelaySecondsHint": "e.g. 60 = 1 minute",
+  "ruleScheduleTime": "Schedule Time",
+  "ruleScheduleTimeHint": "e.g. 22:00 (push when due)",
+  "ruleBasicInfo": "Basic Info",
+  "ruleEnableRule": "Enable Rule",
+  "ruleEmptyConditions": "No conditions yet, tap to add",
+  "ruleEmptyActions": "No actions yet, tap to add",
+  "ruleDelayMinute": "Delay {n} min",
+  "@ruleDelayMinute": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleDelaySecond": "Delay {n} s",
+  "@ruleDelaySecond": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleScheduleAt": "Scheduled {t}",
+  "@ruleScheduleAt": {
+    "placeholders": {
+      "t": {
+        "type": "String"
+      }
+    }
+  },
+  "condPackage": "App Package",
+  "condTitleContains": "Title Contains",
+  "condTitleNotContains": "Title Not Contains",
+  "condContentContains": "Content Contains",
+  "condContentNotContains": "Content Not Contains",
+  "condPriority": "Priority",
+  "condTimeRange": "Time Range",
+  "condRegex": "Regex",
+  "hintPackage": "e.g. com.example.app",
+  "hintKeyword": "Enter keyword",
+  "hintPriority": "High/Medium/Low",
+  "hintTimeRange": "09:00-18:00",
+  "hintRegex": "Regex",
+  "actionPush": "Push Notification",
+  "actionSilent": "Silent Ignore",
+  "actionDelay": "Delayed Push",
+  "actionMerge": "Merge Push",
+  "actionRecord": "Record Only",
+  "actionPushDesc": "Push to configured channels",
+  "actionSilentDesc": "Don't push, process silently",
+  "actionDelayDesc": "Push after a delay",
+  "actionMergeDesc": "Merge notifications from the same app",
+  "actionRecordDesc": "Record to history only, no push",
+  "logicAnd": "And",
+  "logicOr": "Or",
+  "keywordTitle": "Keyword Filter",
+  "keywordWhitelist": "Whitelist",
+  "keywordBlacklist": "Blacklist",
+  "keywordWhitelistHint": "Enter whitelist keyword",
+  "keywordBlacklistHint": "Enter blacklist keyword",
+  "keywordWhitelistDesc": "Whitelist: notification containing any keyword is pushed even if the app is not selected (highest priority)",
+  "keywordBlacklistDesc": "Blacklist: notification containing any keyword won't be pushed even if the app is selected",
+  "keywordWhitelistEmpty": "No whitelist keywords",
+  "keywordBlacklistEmpty": "No blacklist keywords",
+  "initializing": "Initializing...",
+  "loadWebhook": "Loading Webhook config...",
+  "loadBattery": "Loading battery config...",
+  "loadRecords": "Loading notification records...",
+  "loadFilter": "Loading filter config...",
+  "initUpdate": "Initializing update service...",
+  "initRetry": "Initializing retry service...",
+  "initComplete": "Initialization complete",
+  "initFailed": "App startup failed",
+  "initFailedMsg": "DI initialization failed, please restart the app",
+  "retry": "Retry",
+  "pageInitFailed": "Page init failed: {e}",
+  "@pageInitFailed": {
+    "placeholders": {
+      "e": {
+        "type": "String"
+      }
+    }
+  },
+  "webhookSaved": "Webhook config saved",
+  "emailSaved": "Email channel config saved",
+  "unknownError": "Unknown error",
+  "testFailedMsg": "Test failed: {e}",
+  "@testFailedMsg": {
+    "placeholders": {
+      "e": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownResult": "Unknown result",
+  "iconDefault": "Default",
+  "iconBlue": "Blue",
+  "iconCyan": "Cyan",
+  "iconTeal": "Teal",
+  "iconMint": "Mint",
+  "iconGreen": "Green",
+  "iconYellow": "Yellow",
+  "iconOrange": "Orange",
+  "iconRed": "Red",
+  "iconPink": "Pink",
+  "iconRose": "Rose",
+  "iconPurple": "Purple",
+  "iconIndigo": "Indigo",
+  "iconBrown": "Brown",
+  "iconGray": "Gray",
+  "iconGraphite": "Graphite",
+  "iconBlack": "Black",
+  "appIconTitle": "App Icon",
+  "currentIcon": "Current: {label}",
+  "@currentIcon": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "iconSwitched": "Switched to \"{label}\", home screen will refresh soon",
+  "@iconSwitched": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "iconSwitchFailed": "Switch failed",
+  "done": "Done",
+  "refreshAppList": "Refresh App List",
+  "appFilterBlockModeInfo": "Mode: Block — when none selected, all app notifications are pushed",
+  "appFilterBlockModeSelected": "{n} app(s) selected — notifications from these apps will NOT be pushed",
+  "@appFilterBlockModeSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "appFilterAllowModeInfo": "Mode: Allow — when none selected, all app notifications are pushed (default)",
+  "appFilterAllowModeSelected": "{n} app(s) selected — only notifications from these apps will be pushed",
+  "@appFilterAllowModeSelected": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "filterNotifyApps": "Notify Apps",
+  "filterBlockApps": "Block Apps",
+  "appListPermDesc2": "To filter apps for push notifications, please grant permission to read installed apps.",
+  "goEnablePermission": "Go to Enable Permission",
+  "refreshRetry": "Refresh & Retry",
+  "searchAppHint": "Search app name or package",
+  "showSystemApps": "Show System Apps",
+  "selectAll": "Select All",
+  "deselectAll": "Clear All",
+  "invertSelection": "Invert",
+  "selectedCount": "Selected {n}",
+  "@selectedCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "unselectedCount": "Unselected {n}",
+  "@unselectedCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "noAppsFound": "No apps found",
+  "refreshFailed": "Refresh failed: {e}",
+  "@refreshFailed": {
+    "placeholders": {
+      "e": {
+        "type": "String"
+      }
+    }
+  },
+  "appFilterNoPermPrompt": "No permission to read the app list, app filtering is unavailable.\nTap here to grant the \"read app list\" permission",
+  "smsMonitor": "SMS Monitoring",
+  "smsMonitorDesc": "Control whether received SMS are monitored and pushed",
+  "smsMonitorSettings": "SMS Monitor Settings",
+  "smsMonitorTotalDesc": "When off, no SMS will be monitored or pushed",
+  "simFilterTitle": "SIM to Monitor",
+  "simFilterDesc": "Applies to both SMS and calls",
+  "simFilterSingleSim": "Only one SIM detected on this device — no selection needed",
+  "simFilterAll": "All",
+  "simFilterSim1": "SIM 1 only",
+  "simFilterSim2": "SIM 2 only",
+  "simFilterRemindTitle": "Some SMS may not be identifiable by SIM",
+  "simFilterRemindMsg": "Due to system limitations (e.g. Xiaomi/HyperOS), some SMS cannot be attributed to a SIM card (notification fallback link). These SMS are not affected by this setting and will still be pushed.",
+  "codeMonitor": "Monitor Verification Codes",
+  "codeMonitorDesc": "When off, SMS containing verification codes will not be pushed",
+  "widgetBrandCurrentDevice": "Your device",
+  "statsToday": "Today",
+  "statsTotal": "Total",
+  "statsApps": "Apps",
+  "statsTrend": "Last 7 Days Trend",
+  "statsNoData": "No data",
+  "statsRank": "App Push Ranking",
+  "deliverySuccess": "Sent",
+  "deliveryFailed": "Failed",
+  "deliveryPending": "Sending",
+  "pushPausedByUser": "Paused by user",
+  "deliveryIntercepted": "Blocked",
+  "pushNow": "Push Now",
+  "privacyOverviewTitle": "Privacy Policy Overview",
+  "privacyOverviewContent": "NoticeTransmit (hereinafter referred to as \"this App\") is developed and operated by the Fnthink team. This App takes your privacy seriously. Please read this Privacy Policy carefully before using this App to understand how we collect, use, store, and protect your information.\n\nThis Policy applies to all services provided by this App. By installing and using this App, you acknowledge that you have read, understood, and agreed to this Policy.",
+  "privacyInfoTitle": "Information We Collect",
+  "privacyInfoContent": "This App follows the principle of \"minimum necessary\" and only collects information required for core functionality:\n\n1. Notification Content (Local Processing)\n   - The app reads notification content through the system notification listener service\n   - All notification content is matched against rules, filtered by keywords, and forwarded to Webhook or email addresses you configure, all on-device\n   - Notification content is never uploaded to any server other than the targets you specify\n\n2. Crash Statistics (Tencent Bugly, off by default)\n   - Collected only after you explicitly enable \"Crash Reporting\" under More → settings\n   - The SDK is not initialized and no data leaves the device until enabled; used solely to locate and fix crash issues and improve app stability\n\n3. Push Statistics & History (Local Storage)\n   - Notification records, delivery status, and daily statistics are AES-256 encrypted and stored in a local database\n   - These data stay on your device and are never transmitted externally\n\n4. Delayed Push Queue (Local Storage)\n   - Delay/scheduled push tasks from the rule engine are persisted locally and survive reboots\n\n5. Battery Status (Local Monitoring)\n   - Battery level and charging status are monitored locally for the home page display only\n\n6. Installed App List (Local Use)\n   - Used for rule engine condition configuration and app filtering, on-device only",
+  "privacyNoCollectTitle": "Information We Do Not Collect",
+  "privacyNoCollectContent": "This App does NOT collect the following personal privacy information:\n\n• Contacts, or SMS content (unless you explicitly authorize SMS notification recognition)\n• Location information\n• Call logs\n• Photos, or file contents\n• Microphone or camera data\n• Personally identifiable information (name, ID number, phone number, etc.)\n\nIf you decline authorization, the related optional features will be unavailable, but core notification forwarding remains unaffected.",
+  "privacyShareTitle": "Information Sharing & Disclosure",
+  "privacyShareContent": "This App never sells, rents, or trades your personal information. Information is only shared in the following circumstances:\n\n1. Forwarding Targets You Configure\n   - Once you configure Webhook (WeCom, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus) or SMTP email, the notification content you choose to forward is sent to these third-party platforms you specified\n   - No data is transmitted externally until you explicitly configure a target address\n\n2. Third-Party Crash Statistics (Tencent Bugly, off by default)\n   - Crash stack traces and basic device environment info are shared only after you opt in, for issue fixing\n\n3. Legal Requirements\n   - Information may be disclosed as required by laws, regulations, or competent authorities",
+  "privacyStorageTitle": "Data Storage & Security",
+  "privacyStorageContent": "This App uses multi-layer security mechanisms to protect your data:\n\n1. Local Database Encryption\n   - Notification history and push statistics are AES-256 encrypted (sqflite_sqlcipher)\n   - Encryption keys are stored in the Android system KeyStore (AndroidKeyStore)\n   - Even if the device is obtained by others, the database content cannot be read directly\n\n2. Sensitive Configuration Encryption\n   - Webhook URLs, SMTP credentials, and TOTP secrets are encrypted with AndroidKeyStore / AES-256-GCM\n   - Never stored in plain text in SharedPreferences\n\n3. Network Transport Security\n   - HTTPS is enforced site-wide; plain HTTP transmission is prohibited\n   - Admin backend tokens are only passed via HTTP headers, never in URLs\n\n4. Other Security Measures\n   - Admin backend two-step verification (TOTP)\n   - App backup is disabled (allowBackup=false) to prevent data leakage via cloud backup\n   - In-app broadcast receivers are hardened against forged notification data\n\n5. Data Retention\n   - You may clear all or part of the push history at any time in the app\n   - Uninstalling the app deletes all local data",
+  "privacyThirdPartyTitle": "Third-Party Services",
+  "privacyThirdPartyContent": "This App uses the following third-party services:\n\nTencent Bugly (Crash Statistics, off by default)\n• Provider: Shenzhen Tencent Computer Systems Co., Ltd.\n• Purpose: Collects app crash information for issue diagnosis and fixing only after you explicitly enable \"Crash Reporting\" under More → settings; the SDK stays uninitialized while disabled\n• Privacy Policy: https://privacy.qq.com/\n• Data Collected: Crash stack traces, device model, system version, app version, CPU architecture\n\nForwarding Targets You Configure (Not SDKs)\n• WeCom, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus, SMTP email servers\n• This App only sends the notification content you choose to forward to addresses you configured and is not responsible for how third parties process data\n• Refer to the official documentation of the corresponding platform for its privacy policy",
+  "privacyPermTitle": "Permission Notes",
+  "privacyPermContent": "This App follows the principle of least privilege. The complete permission list and purposes are as follows:\n\nCore Permissions (Required):\n• Notification Listener: Read notification content for forwarding and the rule engine\n• Internet (INTERNET): Webhook/email push and update checks\n• Foreground Service (FOREGROUND_SERVICE, etc.): Keeps the notification listener alive for timely delivery\n• Boot Completed (RECEIVE_BOOT_COMPLETED): Automatically restores the listener after reboot\n• Post Notifications (POST_NOTIFICATIONS): Sends local notification prompts\n• Wake Lock (WAKE_LOCK): Wakes the device for delayed/scheduled pushes\n\nAuxiliary Permissions (Optional):\n• Battery Optimization Whitelist (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS): Prevents the system from restricting background services\n• SMS (RECEIVE_SMS/READ_SMS): Optional, for SMS notification recognition and forwarding\n• Phone State (READ_PHONE_STATE): Optional, for incoming call notification recognition\n• Storage (READ/WRITE_EXTERNAL_STORAGE): Export push history JSON and save update APKs\n• Install Unknown Apps (REQUEST_INSTALL_PACKAGES): Installs APKs for in-app updates\n• Query All Packages (QUERY_ALL_PACKAGES): Rule engine condition configuration and app filtering\n• Vibrate (VIBRATE): Vibration for push prompts\n• Network State (ACCESS_NETWORK_STATE): Detects network connectivity\n\nAuxiliary permissions are only used after your explicit authorization and can be revoked anytime in system settings.",
+  "privacyChildTitle": "Children's Privacy",
+  "privacyChildContent": "This App is designed for the general public, is not intended for children under 14, and does not knowingly collect children's personal information. If you are a minor, please read this Policy with a guardian and use this App only with their consent.",
+  "privacyRightsTitle": "Your Rights",
+  "privacyRightsContent": "You have the following rights regarding the local data processed by this App:\n\n• Access: View push history and statistics in the app\n• Deletion: Clear all or part of the push history at any time; uninstalling the app deletes all local data\n• Withdraw Consent: Disable any authorized permission in system settings at any time\n• Right to Know: This Policy is updated as features change and is published in the app",
+  "privacyUpdateTitle": "Policy Updates",
+  "privacyUpdateContent": "This Privacy Policy may be updated from time to time. When changes occur, the updated policy will be published in the app and the \"Last updated\" date at the bottom of this page will be refreshed. Your continued use of this App signifies your agreement to the updated policy.",
+  "privacyContactTitle": "Contact Us",
+  "privacyContactContent": "If you have any questions, comments, or suggestions about this Privacy Policy or data processing, you can reach us through:\n\n• Check the latest version and release notes on the \"More\" page in the app\n• Submit an Issue on GitHub: https://github.com/fnthinklevi/noticeTransmit\n\nWe will respond to your feedback as soon as possible.",
+  "lastUpdate": "Last updated: August 15, 2026"
+}
