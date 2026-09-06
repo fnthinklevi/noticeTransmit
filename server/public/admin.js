@@ -625,3 +625,21 @@
     });
   });
 })();
+
+/* ---- 页脚动态显示线上最新版本（同源 version 接口，失败静默）----
+ * 版本号以 server/data/version.json 为准，admin.html 无需随发版更新。
+ */
+(async () => {
+  try {
+    const response = await fetch(`${window.location.origin}/api/version/check?platform=all`, {
+      headers: { Accept: 'application/json' },
+    });
+    const result = await response.json();
+    const el = document.getElementById('admin-latest');
+    if (result && result.code === 0 && result.data && result.data.latestVersion && el) {
+      el.textContent = ` · 最新版本 v${result.data.latestVersion}`;
+    }
+  } catch (_) {
+    /* 接口不可用时页脚不显示版本号 */
+  }
+})();
