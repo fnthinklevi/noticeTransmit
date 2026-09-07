@@ -93,15 +93,19 @@ object WebhookSigner {
     }
 
     /**
-     * 飞书群机器人 v1：payload 增加 timestamp + sign
-     * 飞书官方文档：sign = base64(HMAC-SHA256(string_to_sign, secret))
+     * 飞书群机器人签名：payload 增加 timestamp（秒）+ sign
+     * 飞书官方算法与钉钉不同（注意区分）：
      *   string_to_sign = timestamp + "\n" + secret
-     *   timestamp 是秒级
+     *   sign = base64(HMAC-SHA256(key = string_to_sign, data = 空字节))
+     * 即 stringToSign 同时作为 HMAC 的 key，参与摘要的 data 为空；
+     * 而钉钉/企微是 key = secret、data = timestamp+"\n"+secret。
+     * 用错算法飞书返回 code 19021（Sign match fail）。
+     * 参考：https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/bot-v3/use-custom-bots-in-a-group
      */
     private fun signFeishu(url: String, payload: String, secret: String): SignedRequest {
         val timestamp = System.currentTimeMillis() / 1000
         val stringToSign = "$timestamp\n$secret"
-        val sign = hmacSha256Base64(stringToSign.toByteArray(Charsets.UTF_8), secret.toByteArray(Charsets.UTF_8))
+        val sign = hmacSha256Base64(ByteArray(0), stringToSign.toByteArray(Charsets.UTF_8))
 
         // 飞书在 payload 顶层增加 timestamp 和 sign 字段
         val signedPayload = try {

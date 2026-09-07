@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.64",
-  "latestBuild": 99,
+  "latestVersion": "1.5.65",
+  "latestBuild": 100,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.59",
   "forceUpdateBuild": 93,
-  "changelog": "v1.5.64+99: 配置备份与恢复(新增备份恢复页,AES-256-GCM+PBKDF2口令派生加密,.nbackup文件头自描述KDF参数,覆盖全部/仅导入空缺项冲突策略,https字段级校验,恢复走既有保存链路后台即时生效) + file_picker升级8.3.7并强制compileSdk 37修复AAR元数据校验",
+  "changelog": "v1.5.65+100: 飞书签名修复(HMAC算法按官方规范key=时间戳+\\n+密钥,data=空,修复开启签名校验的飞书机器人推送失败19021) + 渠道名跟随软件语言(英文WeCom/Feishu/DingTalk/ServerChan) + 小米等ROM强杀后监听自动恢复(启动5秒检测未连接则组件禁用启用强制重绑+补扫断线通知)",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm64_1.5.64.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_arm32_1.5.64.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_x86_1.5.64.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.64/notice_all_1.5.64.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.65/notice_arm64_1.5.65.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.65/notice_arm32_1.5.65.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.65/notice_x86_1.5.65.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.65/notice_all_1.5.65.apk"
   },
   "fileSizes": {
-    "all": 73341826,
-    "arm32": 22736614,
-    "arm64": 26824316,
-    "x86_64": 28857333
+    "all": 73341830,
+    "arm32": 22736623,
+    "arm64": 26824324,
+    "x86_64": 28857343
   },
   "minSupportedVersion": "1.0.0"
 }

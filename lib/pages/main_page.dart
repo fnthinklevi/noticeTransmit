@@ -93,30 +93,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   String _webhookTypeLabel(String type) {
-    switch (type) {
-      case '0':
-      case 'wechatWork':
-      case 'wechat_work':
-        return 'webhook:企业微信';
-      case '1':
-      case 'dingtalk':
-        return 'webhook:钉钉';
-      case '2':
-      case 'feishu':
-        return 'webhook:飞书';
-      case 'telegram':
-        return 'webhook:Telegram';
-      case 'bark':
-        return 'webhook:Bark';
-      case 'server_chan':
-      case 'serverChan':
-        return 'webhook:Server酱';
-      case 'push_plus':
-      case 'pushPlus':
-        return 'webhook:PushPlus';
-      default:
-        return 'webhook';
-    }
+    return channelTypeDisplayName(type);
   }
 
   List<Widget> _buildPages() {

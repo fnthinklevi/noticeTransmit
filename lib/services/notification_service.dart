@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:workmanager/workmanager.dart';
 import 'archive_worker.dart';
+import 'channel_display.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
@@ -204,32 +205,7 @@ class NotificationService {
     return channels;
   }
 
-  String _webhookTypeLabel(String type) {
-    switch (type) {
-      case '0':
-      case 'wechatWork':
-      case 'wechat_work':
-        return 'webhook:企业微信';
-      case '1':
-      case 'dingtalk':
-        return 'webhook:钉钉';
-      case '2':
-      case 'feishu':
-        return 'webhook:飞书';
-      case 'telegram':
-        return 'webhook:Telegram';
-      case 'bark':
-        return 'webhook:Bark';
-      case 'server_chan':
-      case 'serverChan':
-        return 'webhook:Server酱';
-      case 'push_plus':
-      case 'pushPlus':
-        return 'webhook:PushPlus';
-      default:
-        return 'webhook:Webhook';
-    }
-  }
+  String _webhookTypeLabel(String type) => channelTypeDisplayName(type);
 
   /// 初始送达状态：所有启用通道标记为 pending（发送中）
   Map<String, dynamic> _buildInitialDeliveries(List<String> channels) {
@@ -240,23 +216,9 @@ class NotificationService {
     return result;
   }
 
-  /// Kotlin 端 WebhookType 枚举名 → 通道标签（与 _webhookTypeLabel 保持一致）
+  /// Kotlin 端 WebhookType 枚举名 → 通道标签（channelTypeDisplayName 兼容枚举名）
   String _deliveryLabel(String kotlinType) {
     switch (kotlinType) {
-      case 'WECHAT_WORK':
-        return 'webhook:企业微信';
-      case 'DINGTALK':
-        return 'webhook:钉钉';
-      case 'FEISHU':
-        return 'webhook:飞书';
-      case 'TELEGRAM':
-        return 'webhook:Telegram';
-      case 'BARK':
-        return 'webhook:Bark';
-      case 'SERVER_CHAN':
-        return 'webhook:Server酱';
-      case 'PUSH_PLUS':
-        return 'webhook:PushPlus';
       case 'EMAIL':
         return '邮件';
       case 'SMS':
@@ -266,7 +228,7 @@ class NotificationService {
         // 和无通道记录的兜底 key
         return '过滤拦截';
       default:
-        return 'webhook:Webhook';
+        return channelTypeDisplayName(kotlinType);
     }
   }
 

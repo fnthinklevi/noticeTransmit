@@ -181,6 +181,22 @@ object I18n {
         else "这是一条测试消息，Webhook 配置成功！"
     fun testDeviceLabel(): String = if (isEn) "Device" else "设备"
 
+    // ========== 渠道名（送达详情 / 测试结果显示用） ==========
+    fun channelName(type: WebhookPayloadBuilder.WebhookType): String = when (type) {
+        WebhookPayloadBuilder.WebhookType.WECHAT_WORK -> if (isEn) "WeCom" else "企业微信"
+        WebhookPayloadBuilder.WebhookType.DINGTALK -> if (isEn) "DingTalk" else "钉钉"
+        WebhookPayloadBuilder.WebhookType.FEISHU -> if (isEn) "Feishu" else "飞书"
+        WebhookPayloadBuilder.WebhookType.TELEGRAM -> "Telegram"
+        WebhookPayloadBuilder.WebhookType.BARK -> "Bark"
+        WebhookPayloadBuilder.WebhookType.SERVER_CHAN -> if (isEn) "ServerChan" else "Server酱"
+        WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> "PushPlus"
+        WebhookPayloadBuilder.WebhookType.GENERIC -> if (isEn) "Generic" else "通用"
+    }
+    fun pushPlusTokenMissing(): String =
+        if (isEn) "PushPlus URL is missing the token parameter" else "PushPlus 链接缺少 token 参数"
+    fun pushException(e: String?): String =
+        if (isEn) "Push exception: ${e ?: ""}" else "推送异常: ${e ?: ""}"
+
     // ========== 前台服务通知 ==========
     fun serviceTitle(): String = if (isEn) "NoticeTransmit" else "通知推送助手"
     fun serviceListening(count: Int): String =

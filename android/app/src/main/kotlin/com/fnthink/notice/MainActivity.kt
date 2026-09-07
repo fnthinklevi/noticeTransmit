@@ -61,8 +61,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.64"
-        const val FALLBACK_BUILD = 99
+        const val FALLBACK_VERSION = "1.5.65"
+        const val FALLBACK_BUILD = 100
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -213,6 +213,29 @@ class MainActivity : FlutterActivity() {
         registerReceiver(deliveryReceiver, deliveryFilter, Context.RECEIVER_NOT_EXPORTED)
         val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
         registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED)
+
+        // S3：进程被强杀（滑掉最近任务等）后，系统对 NotificationListenerService 的自动重绑
+        // 可能被 ROM 拦截（小米未授予自启动权限时尤甚），表现为重开 App 后收不到任何通知。
+        // 启动 5 秒后（留出系统正常重绑窗口）检查连接状态：已授权但未连接 → 组件
+        // disable→enable 强制系统重绑。isConnected 为 companion @Volatile，进程重建后
+        // 只有系统真正完成绑定（onListenerConnected）才会置 true，判断可靠。
+        activityScope.launch {
+            kotlinx.coroutines.delay(5_000L)
+            try {
+                val listenerEnabled = androidx.core.app.NotificationManagerCompat
+                    .getEnabledListenerPackages(this@MainActivity)
+                    .contains(packageName)
+                if (listenerEnabled && !NotificationMonitorService.isConnected) {
+                    android.util.Log.w(
+                        "MainActivity",
+                        "Notification listener not connected after start, force rebinding"
+                    )
+                    toggleNotificationListenerService(force = true)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -1125,9 +1148,20 @@ class MainActivity : FlutterActivity() {
         startActivityForResult(intent, SAVE_FILE_REQUEST_CODE)
     }
 
-    internal fun toggleNotificationListenerService() {
+    internal fun toggleNotificationListenerService(force: Boolean = false) {
         val pm = packageManager
         val component = ComponentName(this, NotificationMonitorService::class.java)
+        if (force) {
+            // S3：先禁用再启用——组件已处于 ENABLED 时单纯 set ENABLED 是无操作，
+            // 系统不会重新绑定；disable→enable 状态变化才会触发 NotificationManagerService
+            // 重新绑定监听器（进程被强杀后系统可能不自动重绑，小米等 ROM 未授予自启动时
+            // 会拦截系统的自动拉起，表现为重开 App 也读不到任何通知）。
+            pm.setComponentEnabledSetting(
+                component,
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                android.content.pm.PackageManager.DONT_KILL_APP
+            )
+        }
         // 确保组件处于启用状态（历史版本可能曾被禁用），以便系统能重新绑定通知监听器
         pm.setComponentEnabledSetting(
             component,
@@ -1492,7 +1526,7 @@ class MainActivity : FlutterActivity() {
                     // PushPlus：POST JSON，token 注入 body
                     val token = WebhookPayloadBuilder.extractTokenFromUrl(url)
                     if (token.isEmpty()) {
-                        Triple(false, "PushPlus 链接缺少 token 参数", false)
+                        Triple(false, I18n.pushPlusTokenMissing(), false)
                     } else {
                         val payload = WebhookPayloadBuilder.buildPushPlusPayload(
                             title = I18n.testTitle(),
