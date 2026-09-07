@@ -120,10 +120,21 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Color _getChannelColor(String channel) {
-    if (channel.contains('企业微信')) return const Color(0xFF2BAA3E);
-    if (channel.contains('飞书')) return const Color(0xFF3370FF);
-    if (channel.contains('钉钉')) return const Color(0xFF0089FF);
-    if (channel.contains('邮件')) return AppColors.orange;
+    // 通道名随软件语言（企业微信/WeCom、飞书/Feishu、钉钉/DingTalk、邮件/Email），
+    // 双语关键词都识别，保证历史记录跨语言显示时品牌色不丢失
+    final lower = channel.toLowerCase();
+    if (channel.contains('企业微信') || lower.contains('wecom')) {
+      return const Color(0xFF2BAA3E);
+    }
+    if (channel.contains('飞书') || lower.contains('feishu')) {
+      return const Color(0xFF3370FF);
+    }
+    if (channel.contains('钉钉') || lower.contains('dingtalk')) {
+      return const Color(0xFF0089FF);
+    }
+    if (channel.contains('邮件') || lower.contains('email')) {
+      return AppColors.orange;
+    }
     return Colors.grey;
   }
 

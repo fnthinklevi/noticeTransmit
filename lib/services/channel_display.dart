@@ -47,6 +47,16 @@ String channelTypeDisplayName(String rawType) {
     case 'pushPlus':
     case 'PUSH_PLUS':
       return 'webhook:PushPlus';
+    case 'email':
+    case 'EMAIL':
+      return isEn ? 'Email' : '邮件';
+    case 'sms':
+    case 'SMS':
+    case 'filter':
+    case 'FILTER':
+      // 拦截伪通道类型（短信/通知被黑白名单或应用过滤拦截时由原生回传），
+      // 与 FILTER 同义：内容不会实际投递，历史送达标签显示为「过滤拦截」
+      return isEn ? 'Blocked' : '过滤拦截';
     default:
       return isEn ? 'webhook:Generic' : 'webhook:通用';
   }

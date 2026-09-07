@@ -199,7 +199,7 @@ class NotificationService {
       // 从 GetIt 获取已缓存的 EmailService，同步读取已加载的通道
       final emailService = GetIt.instance<EmailService>();
       if (emailService.cachedChannels.any((c) => c.enabled)) {
-        channels.add('邮件');
+        channels.add(channelTypeDisplayName('EMAIL'));
       }
     } catch (_) {}
     return channels;
@@ -216,21 +216,10 @@ class NotificationService {
     return result;
   }
 
-  /// Kotlin 端 WebhookType 枚举名 → 通道标签（channelTypeDisplayName 兼容枚举名）
-  String _deliveryLabel(String kotlinType) {
-    switch (kotlinType) {
-      case 'EMAIL':
-        return '邮件';
-      case 'SMS':
-      case 'FILTER':
-        // 拦截伪通道类型（短信/通知被黑白名单或应用过滤拦截）：updateDelivery
-        // 会把记录所有真实通道统一置为 intercepted；本标签仅作送达日志 tag
-        // 和无通道记录的兜底 key
-        return '过滤拦截';
-      default:
-        return channelTypeDisplayName(kotlinType);
-    }
-  }
+  /// Kotlin 端通道类型 → 显示标签（EMAIL/SMS/FILTER 与 webhook 渠道统一由
+  /// channelTypeDisplayName 处理，语言随软件设置）
+  String _deliveryLabel(String kotlinType) =>
+      channelTypeDisplayName(kotlinType);
 
   /// 更新单条记录的送达状态（Kotlin 端 onDeliveryResult 回传），
   /// 终态（success/failed）同时写入 webhook_delivery_log 送达日志。

@@ -83,7 +83,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         final tested = emailService.cachedTestResults[c.id];
         // 未测试过或测试失败都视为异常
         channels.add({
-          'type': '邮件',
+          'type': channelTypeDisplayName('EMAIL'),
           'name': c.name,
           'status': (tested == true) ? 'ok' : 'error',
         });
