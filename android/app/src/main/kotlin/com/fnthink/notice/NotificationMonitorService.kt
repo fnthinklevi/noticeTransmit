@@ -121,6 +121,12 @@ class NotificationMonitorService : NotificationListenerService() {
         // 初始化推送启停状态（从 SharedPreferences 恢复，前台通知一键暂停/恢复）
         PushToggleManager.init(this)
 
+        // ⚠ 必须先于 startForegroundService()：buildForegroundNotification 的聚合预览
+        // （P2）会访问 mergePushManager（lateinit），延迟初始化会在服务 onCreate 即抛
+        // UninitializedPropertyAccessException 导致打开 App 闪退
+        delayedPushManager = DelayedPushManager(this)
+        mergePushManager = MergePushManager(this)
+
         createNotificationChannel()
         // 先进入前台，满足 startForegroundService 的 5s 内必须 startForeground 的约束
         startForegroundService()
@@ -130,8 +136,6 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender = WebhookSender(this)
         webhookSender.activate()
         configManager = ConfigManager(this)
-        delayedPushManager = DelayedPushManager(this)
-        mergePushManager = MergePushManager(this)
         registerDelayedPushReceiver()
         registerMergePushReceiver()
 
@@ -809,8 +813,12 @@ class NotificationMonitorService : NotificationListenerService() {
             .setOngoing(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
 
-        // P2 聚合预览：推送激活且存在待合并通知时，InboxStyle 逐组展示
-        if (pushActive && listenerConnected) {
+        // P2 聚合预览：推送激活且存在待合并通知时，InboxStyle 逐组展示。
+        // isInitialized 防御：本方法在 startForegroundService() 极早期被调用，
+        // 若未来初始化顺序再被调整，未初始化时静默跳过聚合预览，绝不允许崩服务
+        val mergeActive =
+            this::mergePushManager.isInitialized && pushActive && listenerConnected
+        if (mergeActive) {
             val groups = mergePushManager.activeGroups()
             if (groups.isNotEmpty()) {
                 val now = System.currentTimeMillis()
