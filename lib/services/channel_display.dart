@@ -57,6 +57,11 @@ String channelTypeDisplayName(String rawType) {
       // 拦截伪通道类型（短信/通知被黑白名单或应用过滤拦截时由原生回传），
       // 与 FILTER 同义：内容不会实际投递，历史送达标签显示为「过滤拦截」
       return isEn ? 'Blocked' : '过滤拦截';
+    case 'merge':
+    case 'MERGE':
+      // 聚合伪通道（P2 merge 动作）：窗口期内成员被合并推送时由原生逐条回传，
+      // 成员记录的全部真实通道随之置为成功
+      return isEn ? 'Merged' : '合并推送';
     default:
       return isEn ? 'webhook:Generic' : 'webhook:通用';
   }

@@ -538,6 +538,93 @@ class DatabaseHelper implements WebhookChannelStore {
     );
   }
 
+  /// LIKE 通配符转义（配合 ESCAPE '\'，避免用户输入 % _ 引起意外匹配）
+  static String escapeLike(String v) => v
+      .trim()
+      .replaceAll('\\', '\\\\')
+      .replaceAll('%', '\\%')
+      .replaceAll('_', '\\_');
+
+  /// 构建推送历史搜索的 WHERE 子句（纯函数，单测锁定行为）。
+  ///
+  /// 两层筛选设计（P1）：
+  /// - SQLite LIKE 粗筛：keyword 命中 title/content/app_name/package_name，
+  ///   送达状态对 delivery_info JSON 文本做 LIKE 粗筛（不引 JSON1 扩展依赖）；
+  /// - 精确判定由调用方在 Dart 端 jsonDecode delivery_info 后完成
+  ///   （见 NotificationService.searchRecords）。
+  static (String where, List<dynamic> args) buildSearchSql({
+    String? keyword,
+    int? startTime,
+    int? endTime,
+    String? appName,
+    String? packageName,
+    String? deliveryFilter,
+  }) {
+    final conds = <String>[];
+    final args = <dynamic>[];
+    if (keyword != null && keyword.trim().isNotEmpty) {
+      final like = '%${escapeLike(keyword)}%';
+      conds.add(
+        "(title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' "
+        "OR app_name LIKE ? ESCAPE '\\' OR package_name LIKE ? ESCAPE '\\')",
+      );
+      args.addAll([like, like, like, like]);
+    }
+    if (startTime != null) {
+      conds.add('post_time >= ?');
+      args.add(startTime);
+    }
+    if (endTime != null) {
+      conds.add('post_time < ?');
+      args.add(endTime);
+    }
+    if (appName != null && appName.trim().isNotEmpty) {
+      conds.add("app_name LIKE ? ESCAPE '\\'");
+      args.add('%${escapeLike(appName)}%');
+    }
+    if (packageName != null && packageName.trim().isNotEmpty) {
+      conds.add("package_name LIKE ? ESCAPE '\\'");
+      args.add('%${escapeLike(packageName)}%');
+    }
+    if (deliveryFilter == 'failed') {
+      conds.add('delivery_info LIKE ?');
+      args.add('%failed%');
+    } else if (deliveryFilter == 'success') {
+      conds.add('delivery_info LIKE ?');
+      args.add('%success%');
+    }
+    final where = conds.isEmpty ? '' : 'WHERE ${conds.join(' AND ')}';
+    return (where, args);
+  }
+
+  /// 全量历史搜索（P1）：按关键字/时间范围/应用名/包名/送达状态筛选，
+  /// post_time DESC 排序，LIMIT/OFFSET 分页。post_time 已有索引。
+  Future<List<Map<String, dynamic>>> searchNotifications({
+    String? keyword,
+    int? startTime,
+    int? endTime,
+    String? appName,
+    String? packageName,
+    String? deliveryFilter,
+    int limit = 200,
+    int offset = 0,
+  }) async {
+    final (where, args) = buildSearchSql(
+      keyword: keyword,
+      startTime: startTime,
+      endTime: endTime,
+      appName: appName,
+      packageName: packageName,
+      deliveryFilter: deliveryFilter,
+    );
+    final db = await database;
+    return await db.rawQuery(
+      'SELECT * FROM notifications $where '
+      'ORDER BY post_time DESC LIMIT ? OFFSET ?',
+      [...args, limit, offset],
+    );
+  }
+
   /// 写入一条 Webhook 送达日志（webhook_delivery_log，DB v5 落地）。
   /// 写入时顺带清理 30 天前的旧记录，防止表无限膨胀。
   Future<void> insertDeliveryLog({
@@ -579,16 +666,36 @@ class DatabaseHelper implements WebhookChannelStore {
     );
   }
 
-  /// 按通知 ID 查询送达日志（历史详情弹层展示），按时间倒序
+  /// 按通知 ID 查询送达日志（历史详情弹层展示），按时间倒序。
+  ///
+  /// 展示层去重：历史版本存在广播+补偿拉取双写导致的重复终态行，
+  /// 折叠后保留最新一条，兼容清理存量重复数据
+  /// （新写入已由 insertDeliveryLog 幂等拦截）。
   Future<List<Map<String, dynamic>>> getDeliveryLogsByNotification(
     String notificationId,
   ) async {
     final db = await database;
-    return await db.rawQuery(
+    final rows = await db.rawQuery(
       'SELECT * FROM webhook_delivery_log '
       'WHERE notification_id = ? ORDER BY timestamp DESC',
       [notificationId],
     );
+    return dedupeDeliveryLogs(rows);
+  }
+
+  /// 送达日志展示层折叠：按 (tag, status, http_code, message) 去重，
+  /// 保留顺序中的首条（调用方按 timestamp DESC 排序时即最新一条）。
+  static List<Map<String, dynamic>> dedupeDeliveryLogs(
+    List<Map<String, dynamic>> rows,
+  ) {
+    final seen = <String>{};
+    final result = <Map<String, dynamic>>[];
+    for (final r in rows) {
+      final key =
+          '${r['tag']}|${r['status']}|${r['http_code']}|${r['message']}';
+      if (seen.add(key)) result.add(r);
+    }
+    return result;
   }
 
   Future<int> getNotificationCount({String? type, String? packageName}) async {

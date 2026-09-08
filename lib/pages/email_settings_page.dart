@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/email_channel.dart';
@@ -99,55 +100,56 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
 
     return Column(
       children: [
-        ListTile(
-          leading: Icon(
-            channel.enabled ? Icons.email : Icons.email_outlined,
-            color: channel.enabled
-                ? AppColors.blue
-                : AppColors.secondaryLabel(context),
-          ),
-          title: Text(
-            channel.name,
-            style: TextStyle(
+        // 左右滑动切换通道启停（与点击开关等效）
+        Slidable(
+          key: ValueKey('email-channel-${channel.id}'),
+          startActionPane: _toggleActionPane(l10n, channel.enabled, index),
+          endActionPane: _toggleActionPane(l10n, channel.enabled, index),
+          child: ListTile(
+            leading: Icon(
+              channel.enabled ? Icons.email : Icons.email_outlined,
               color: channel.enabled
-                  ? AppColors.primaryLabel(context)
+                  ? AppColors.blue
                   : AppColors.secondaryLabel(context),
             ),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${channel.fromEmail} → ${channel.toEmail}',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.secondaryLabel(context),
-                ),
+            title: Text(
+              channel.name,
+              style: TextStyle(
+                color: channel.enabled
+                    ? AppColors.primaryLabel(context)
+                    : AppColors.secondaryLabel(context),
               ),
-              if (_emailTestResults.containsKey(channel.id))
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  _emailTestResults[channel.id] == true
-                      ? l10n.testPassed
-                      : l10n.testFailed,
+                  '${channel.fromEmail} → ${channel.toEmail}',
                   style: TextStyle(
-                    fontSize: 11,
-                    color: _emailTestResults[channel.id] == true
-                        ? AppColors.green
-                        : AppColors.red,
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
                   ),
                 ),
-            ],
+                if (_emailTestResults.containsKey(channel.id))
+                  Text(
+                    _emailTestResults[channel.id] == true
+                        ? l10n.testPassed
+                        : l10n.testFailed,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _emailTestResults[channel.id] == true
+                          ? AppColors.green
+                          : AppColors.red,
+                    ),
+                  ),
+              ],
+            ),
+            trailing: Switch(
+              value: channel.enabled,
+              onChanged: (v) => _toggleChannel(index, v),
+            ),
+            onTap: () => _editChannel(index),
           ),
-          trailing: Switch(
-            value: channel.enabled,
-            onChanged: (v) {
-              setState(() {
-                _channels[index] = channel.copyWith(enabled: v);
-              });
-              _save();
-            },
-          ),
-          onTap: () => _editChannel(index),
         ),
         if (isTesting)
           const Padding(
@@ -186,6 +188,31 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     );
   }
 
+  /// 左右滑出的启停动作面板（开启/停用，松手后自动收起）
+  ActionPane _toggleActionPane(AppLocalizations l10n, bool enabled, int index) {
+    return ActionPane(
+      motion: const BehindMotion(),
+      extentRatio: 0.22,
+      children: [
+        SlidableAction(
+          onPressed: (_) => _toggleChannel(index, !enabled),
+          backgroundColor: enabled ? AppColors.orange : AppColors.green,
+          foregroundColor: Colors.white,
+          icon: enabled ? Icons.toggle_off : Icons.toggle_on,
+          label: enabled ? l10n.turnOff : l10n.turnOn,
+        ),
+      ],
+    );
+  }
+
+  /// 切换通道启停（点击开关与左右滑动共用），即时落库并同步原生
+  void _toggleChannel(int index, bool v) {
+    setState(() {
+      _channels[index] = _channels[index].copyWith(enabled: v);
+    });
+    _save();
+  }
+
   Widget _actionChip({
     required String label,
     required IconData icon,
@@ -220,35 +247,61 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   void _editChannel(int index) =>
       _showEditor(existing: _channels[index], index: index);
 
-  void _deleteChannel(int index) {
+  Future<void> _deleteChannel(int index) async {
+    final l10n = AppLocalizations.of(context);
+    final channel = _channels[index];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg(ctx),
+        title: Text(
+          l10n.delete,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(ctx),
+          ),
+        ),
+        content: Text(
+          l10n.deleteEmailChannelConfirm(channel.name),
+          style: TextStyle(color: AppColors.primaryLabel(ctx)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+          ),
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    // 先取 id 再移除：删除最后一条时 _channels[index] 已越界，
+    // 旧实现访问 _channels[index].id 抛 RangeError 导致 _save() 永不执行，
+    // 表现为「删除按钮无效、重进页面通道复活」
+    final id = channel.id;
     setState(() {
       _channels.removeAt(index);
-      _emailTestResults.remove(_channels[index].id);
+      _emailTestResults.remove(id);
     });
     _save();
   }
 
-  Future<void> _saveAndTest({
-    required EmailChannel channel,
-    required EmailChannel? existing,
-    required int? index,
-  }) async {
+  Future<void> _saveAndTest({required EmailChannel channel}) async {
     final l10n = AppLocalizations.of(context);
-    setState(() {
-      if (index != null) {
-        _channels[index] = channel;
-      } else {
-        _channels.add(channel);
-      }
-    });
     await _save();
-    // 自动测试
+    // 自动测试（列表更新由编辑页保存按钮的 setState 完成，此处不再重复
+    // add/replace，修复新通道被添加两次的问题）
     final result = await _emailService.testEmail(channel);
     final success = result?['success'] == true;
     final message = result?['message']?.toString() ?? '未知结果';
-    _emailTestResults[channel.id] = success;
     _emailService.saveTestResult(channel.id, success);
     if (mounted) {
+      setState(() => _emailTestResults[channel.id] = success);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -305,114 +358,161 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     );
     final bodyCtrl = TextEditingController(text: existing?.bodyTemplate ?? '');
     var useSSL = existing?.useSSL ?? true;
+    // P5：必填项校验状态（key → 错误提示），点击「测试并保存」时刷新
+    var invalidFields = <String, String>{};
+
+    // SMTP 通道关键信息必填：名称/服务器/端口/账号/授权码/发件人/收件人。
+    // 授权码允许留空沿用已有通道的旧值（编辑场景不回显明文）。
+    Map<String, String> collectInvalid() {
+      final invalid = <String, String>{};
+      void check(String key, String? value) {
+        if (value == null || value.isEmpty) invalid[key] = l10n.fieldRequired;
+      }
+
+      check('name', nameCtrl.text.trim());
+      check('host', hostCtrl.text.trim());
+      final port = int.tryParse(portCtrl.text.trim());
+      if (port == null || port <= 0) {
+        invalid['port'] = l10n.fieldRequired;
+      }
+      check('username', usernameCtrl.text.trim());
+      final effectivePassword = passwordCtrl.text.trim().isNotEmpty
+          ? passwordCtrl.text.trim()
+          : existing?.password;
+      check('password', effectivePassword);
+      check('from', fromCtrl.text.trim());
+      check('to', toCtrl.text.trim());
+      return invalid;
+    }
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(
-            title: Text(
-              existing != null ? l10n.editEmailChannel : l10n.addEmailChannel,
-            ),
-            actions: [
-              if (existing != null)
-                _editorTesting
-                    ? const Padding(
-                        padding: EdgeInsets.only(right: 12),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: TextButton.icon(
-                          icon: const Icon(Icons.send_outlined, size: 16),
-                          label: Text(l10n.testSend),
-                          onPressed: () {
-                            setState(() => _editorTesting = true);
-                            final testChannel = EmailChannel(
-                              id: existing.id,
-                              name: nameCtrl.text.trim(),
-                              smtpHost: hostCtrl.text.trim(),
-                              smtpPort:
-                                  int.tryParse(portCtrl.text.trim()) ?? 465,
-                              username: usernameCtrl.text.trim(),
-                              password: passwordCtrl.text.trim().isNotEmpty
-                                  ? passwordCtrl.text.trim()
-                                  : existing.password,
-                              fromEmail: fromCtrl.text.trim(),
-                              toEmail: toCtrl.text.trim(),
-                              useSSL: useSSL,
-                              subjectTemplate: subjectCtrl.text.trim().isEmpty
-                                  ? null
-                                  : subjectCtrl.text.trim(),
-                              bodyTemplate: bodyCtrl.text.trim().isEmpty
-                                  ? null
-                                  : bodyCtrl.text.trim(),
-                            );
-                            _doEditorTest(testChannel);
-                          },
-                        ),
-                      ),
-              TextButton(
-                onPressed: () {
-                  final channel = EmailChannel(
-                    id:
-                        existing?.id ??
-                        DateTime.now().millisecondsSinceEpoch.toString(),
-                    name: nameCtrl.text.trim(),
-                    smtpHost: hostCtrl.text.trim(),
-                    smtpPort: int.tryParse(portCtrl.text.trim()) ?? 465,
-                    username: usernameCtrl.text.trim(),
-                    password: passwordCtrl.text.trim().isNotEmpty
-                        ? passwordCtrl.text.trim()
-                        : existing?.password,
-                    fromEmail: fromCtrl.text.trim(),
-                    toEmail: toCtrl.text.trim(),
-                    useSSL: useSSL,
-                    subjectTemplate: subjectCtrl.text.trim().isEmpty
-                        ? null
-                        : subjectCtrl.text.trim(),
-                    bodyTemplate: bodyCtrl.text.trim().isEmpty
-                        ? null
-                        : bodyCtrl.text.trim(),
-                  );
-                  setState(() {
-                    if (index != null) {
-                      _channels[index] = channel;
-                    } else {
-                      _channels.add(channel);
-                    }
-                  });
-                  _saveAndTest(
-                    channel: channel,
-                    existing: existing,
-                    index: index,
-                  );
-                  Navigator.pop(context);
-                },
-                child: Text(
-                  l10n.testAndSave,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+        // StatefulBuilder 包裹整个页面：AppBar 的「测试并保存」也能
+        // 触发 setModalState 更新必填项标红状态（P5）
+        builder: (_) => StatefulBuilder(
+          builder: (ctx, setModalState) => Scaffold(
+            appBar: AppBar(
+              title: Text(
+                existing != null ? l10n.editEmailChannel : l10n.addEmailChannel,
               ),
-            ],
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: StatefulBuilder(
-              builder: (ctx, setModalState) => Column(
+              actions: [
+                if (existing != null)
+                  _editorTesting
+                      ? const Padding(
+                          padding: EdgeInsets.only(right: 12),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.send_outlined, size: 16),
+                            label: Text(l10n.testSend),
+                            onPressed: () {
+                              setState(() => _editorTesting = true);
+                              final testChannel = EmailChannel(
+                                id: existing.id,
+                                name: nameCtrl.text.trim(),
+                                smtpHost: hostCtrl.text.trim(),
+                                smtpPort:
+                                    int.tryParse(portCtrl.text.trim()) ?? 465,
+                                username: usernameCtrl.text.trim(),
+                                password: passwordCtrl.text.trim().isNotEmpty
+                                    ? passwordCtrl.text.trim()
+                                    : existing.password,
+                                fromEmail: fromCtrl.text.trim(),
+                                toEmail: toCtrl.text.trim(),
+                                useSSL: useSSL,
+                                subjectTemplate: subjectCtrl.text.trim().isEmpty
+                                    ? null
+                                    : subjectCtrl.text.trim(),
+                                bodyTemplate: bodyCtrl.text.trim().isEmpty
+                                    ? null
+                                    : bodyCtrl.text.trim(),
+                              );
+                              _doEditorTest(testChannel);
+                            },
+                          ),
+                        ),
+                TextButton(
+                  onPressed: () {
+                    // P5：必填校验，未填输入框标红且不执行保存
+                    final invalid = collectInvalid();
+                    setModalState(() => invalidFields = invalid);
+                    if (invalid.isNotEmpty) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: Text(l10n.fillRequiredFields),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      return;
+                    }
+                    // P7：保留通道既有启停状态（旧实现未传 enabled，
+                    // 每次保存都会把已关闭的通道重置为默认开启）
+                    final channel = EmailChannel(
+                      id:
+                          existing?.id ??
+                          DateTime.now().millisecondsSinceEpoch.toString(),
+                      enabled: existing?.enabled ?? true,
+                      name: nameCtrl.text.trim(),
+                      smtpHost: hostCtrl.text.trim(),
+                      smtpPort: int.tryParse(portCtrl.text.trim()) ?? 465,
+                      username: usernameCtrl.text.trim(),
+                      password: passwordCtrl.text.trim().isNotEmpty
+                          ? passwordCtrl.text.trim()
+                          : existing?.password,
+                      fromEmail: fromCtrl.text.trim(),
+                      toEmail: toCtrl.text.trim(),
+                      useSSL: useSSL,
+                      subjectTemplate: subjectCtrl.text.trim().isEmpty
+                          ? null
+                          : subjectCtrl.text.trim(),
+                      bodyTemplate: bodyCtrl.text.trim().isEmpty
+                          ? null
+                          : bodyCtrl.text.trim(),
+                    );
+                    setState(() {
+                      if (index != null) {
+                        _channels[index] = channel;
+                      } else {
+                        _channels.add(channel);
+                      }
+                    });
+                    _saveAndTest(channel: channel);
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                    l10n.testAndSave,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _field(nameCtrl, '通道名称', hint: l10n.channelNameHint),
+                  _field(
+                    nameCtrl,
+                    l10n.channelName,
+                    hint: l10n.channelNameHint,
+                    errorText: invalidFields['name'],
+                  ),
                   const SizedBox(height: 12),
                   _field(
                     hostCtrl,
                     l10n.smtpHost,
                     hint: 'smtp.qq.com',
                     keyboardType: TextInputType.url,
+                    errorText: invalidFields['host'],
                   ),
                   const SizedBox(height: 12),
                   _field(
@@ -420,6 +520,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     l10n.smtpPort,
                     hint: '465 (SSL) 或 587 (STARTTLS)',
                     keyboardType: TextInputType.number,
+                    errorText: invalidFields['port'],
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -454,6 +555,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     l10n.smtpAccount,
                     hint: 'your@email.com',
                     keyboardType: TextInputType.emailAddress,
+                    errorText: invalidFields['username'],
                   ),
                   const SizedBox(height: 12),
                   _field(
@@ -461,6 +563,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     l10n.smtpPassword,
                     hint: 'SMTP 授权码（非邮箱密码）',
                     obscure: true,
+                    errorText: invalidFields['password'],
                   ),
                   const SizedBox(height: 12),
                   _field(
@@ -468,6 +571,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     l10n.fromEmail,
                     hint: 'your@email.com',
                     keyboardType: TextInputType.emailAddress,
+                    errorText: invalidFields['from'],
                   ),
                   const SizedBox(height: 12),
                   _field(
@@ -475,6 +579,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     l10n.toEmail,
                     hint: '可多个，逗号分隔',
                     keyboardType: TextInputType.emailAddress,
+                    errorText: invalidFields['to'],
                   ),
                   const SizedBox(height: 12),
                   _field(
@@ -547,6 +652,8 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     decoration: InputDecoration(
                       hintText:
                           '默认：\n【通知转发】\n\n应用：%appName%\n标题：%title%\n内容：%content%\n...',
+                      filled: true,
+                      fillColor: AppColors.cardBg(context),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -597,6 +704,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     String? hint,
     TextInputType? keyboardType,
     bool obscure = false,
+    String? errorText,
   }) {
     return TextField(
       controller: ctrl,
@@ -605,6 +713,11 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        errorText: errorText,
+        // P6：显式填充 cardBg（浅色纯白/深色 #1C1C1E）。全局主题的
+        // inputBg 浅色下与页面底色完全相同，导致输入框与页面融为一体
+        filled: true,
+        fillColor: AppColors.cardBg(context),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );

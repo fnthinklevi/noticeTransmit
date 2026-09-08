@@ -1,0 +1,332 @@
+package com.fnthink.notice
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * 聚合推送管理器（P2：规则引擎 merge 动作落地）
+ *
+ * 命中规则「合并推送」动作的通知按 packageName 聚合：首条通知开启固定窗口
+ * （windowEnd = now + windowMs），窗口内同应用后续通知追加进同一组（窗口结束点不延长），
+ * 到点后由 AlarmManager 广播 ACTION_MERGE_DUE，由 NotificationMonitorService 的接收器
+ * 取出各组、合并为一条聚合 NotificationInfo 统一推送，并对成员逐条回传 MERGE 伪通道
+ * 送达结果补标历史。
+ *
+ * ⚠⚠ 与延迟队列 / 去重键的交互风险（重要，改动前必读）⚠⚠
+ *
+ * 1. **与 DelayedPushManager 完全隔离**：本管理器使用独立的 SP 文件（merge_push_queue）、
+ *    独立的 PendingIntent requestCode（3002）、独立的广播 action（MERGE_DUE），
+ *    与延迟队列（3001/PUSH_DUE）互不干扰。同一通知不会同时进入两个队列——
+ *    RuleEngine.decide 命中第一条规则即停，且 delay 与 merge 同时配置时 delay 优先，
+ *    不存在"聚合组到点后又进延迟队列"的路径。
+ *
+ * 2. **去重键体系**：聚合组 id = "{packageName}:merge:{windowEnd}"，独立于通知去重键
+ *    "{pkg}:{tag}:{notificationId}"。成员通知仍以真实 id 各自写入 HistoryCache / DB
+ *    （dispatchPosted 先 sendBroadcast 记录单条），聚合推送本身再以聚合 id 记录一条汇总；
+ *    ⚠ 注意：聚合 id 中包含 windowEnd（开窗时间 + 窗口时长），同一应用每次开窗产生的
+ *    聚合记录 id 不同，不会互相覆盖；但若窗口秒数与开窗时刻完全一致（重启后 SP 残留 +
+ *    恰好同毫秒开窗，概率极低）才会触发 HistoryCache/DB 主键替换——可接受的幂等行为。
+ *
+ * 3. **送达回传按单条 id 运作**：聚合推送只有一条 HTTP 结果，无法映射回每个成员的
+ *    webhook_delivery_log。方案：聚合推送完成后对每个成员以 MERGE 伪通道
+ *    （DeliveryNotifier.notify(type="MERGE", SUCCESS)）逐条回传，Flutter 端
+ *    updateDelivery 把成员记录的全部真实通道置为 success("已合并推送")；
+ *    聚合汇总记录自身的真实通道状态由聚合推送的 HTTP 结果正常回传。
+ *    ⚠ 成员记录在窗口期内历史页会显示"发送中"（pending），到点批量转 success——
+ *    窗口设置过长（>10 分钟）时用户会长时间看到"发送中"，属预期行为。
+ *
+ * 4. **计数语义变化**：pushCount / WidgetDailyCounter 在聚合组推送时 +1（按组计），
+ *    不再按成员逐条 +N。桌面小部件"今日推送数"与成员条数不再一一对应。
+ *
+ * 5. **配置快照窗口**：append 捕获的是入队时的规则窗口参数；用户在窗口期内删除 merge
+ *    规则或调整窗口，已开启的聚合组仍会按旧窗口到点推送（下一次决策才生效新配置）。
+ *    rescheduleAll 在服务重启后按 SP 中的旧 windowEnd 重排，行为一致。
+ *
+ * 6. **闹钟精度**：与 DelayedPushManager 相同的 exact/非 exact 策略；非精确闹钟在
+ *    深度 Doze 下有分钟级延迟 → 实际聚合窗口可能被拉长（窗口越长单次推送内容越多，
+ *    但不会丢通知：SP 持久化，服务被杀重启后 rescheduleAll 恢复）。
+ *
+ * 队列项：{"key": "pkg", "windowEnd": 毫秒, "items": [{NotificationInfo}...]}
+ */
+class MergePushManager(private val context: Context) {
+    companion object {
+        private const val TAG = "MergePushManager"
+        const val ACTION_MERGE_DUE = "com.fnthink.notice.MERGE_DUE"
+        private const val PREFS_NAME = "merge_push_queue"
+        private const val KEY_QUEUE = "groups"
+        private const val REQUEST_CODE = 3002
+        private const val MAX_GROUPS = 50
+        private const val MAX_ITEMS_PER_GROUP = 50
+    }
+
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+
+    /** 单条成员在聚合推送里的展示行 */
+    data class MergeItem(val info: NotificationInfo)
+
+    /** 到期的聚合组 */
+    data class MergeGroup(
+        val key: String,
+        val windowEnd: Long,
+        val items: List<NotificationInfo>
+    ) {
+        /** 聚合组 id（写入 HistoryCache/DB 的主键） */
+        fun mergedId(): String = "$key:merge:$windowEnd"
+
+        /** 合并后的聚合 NotificationInfo：title=摘要、content=逐行明细 */
+        fun buildMergedInfo(): NotificationInfo {
+            val first = items.first()
+            val count = items.size
+            val id = mergedId()
+            val title = I18n.mergePushTitle(first.appName, count)
+            val content = items.joinToString("\n") { item ->
+                val line = if (item.title.isNotEmpty() && item.title != item.content) {
+                    "${item.title}：${item.content}"
+                } else {
+                    item.content
+                }
+                "· " + line.take(200)
+            }
+            val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                .format(Date(windowEnd))
+            return NotificationInfo(
+                id = id,
+                title = title,
+                content = content,
+                subText = "",
+                packageName = first.packageName,
+                appName = first.appName,
+                postTime = windowEnd,
+                time = timeStr,
+                // type=merge：历史页以独立类型标识聚合记录（Flutter 端 channelTypeDisplayName
+                // 无此值不影响送达标签；类型色走默认紫）
+                type = "merge",
+                deviceName = first.deviceName,
+                priority = items.maxOf { it.priority }
+            )
+        }
+    }
+
+    /**
+     * 追加一条通知进聚合组：同应用已有活跃组 → 追加（窗口结束点不变）；
+     * 无 → 开启新窗口。写入后调度最近的到期闹钟。
+     */
+    @Synchronized
+    fun append(info: NotificationInfo, windowMs: Long) {
+        val queue = readQueue()
+        val now = System.currentTimeMillis()
+        val key = info.packageName
+        val existing = queue.firstOrNull { it.optString("key", "") == key }
+        if (existing != null) {
+            // ⚠ 追加语义：窗口结束点不延长（固定窗口）。成员异常时 items 仍有
+            // MAX_ITEMS_PER_GROUP 上限防 SP 无限膨胀（超限丢弃最旧的成员行）。
+            val items = existing.optJSONArray("items") ?: JSONArray()
+            if (items.length() >= MAX_ITEMS_PER_GROUP) {
+                // 移除最旧一条（index 0）再追加
+                val trimmed = JSONArray()
+                for (i in 1 until items.length()) trimmed.put(items.getJSONObject(i))
+                trimmed.put(info.toJson())
+                existing.put("items", trimmed)
+            } else {
+                items.put(info.toJson())
+                existing.put("items", items)
+            }
+            Log.d(TAG, "聚合追加: ${info.packageName} (${existing.optString("key")}), 窗口至 ${existing.optLong("windowEnd", 0L)}")
+        } else {
+            val windowEnd = now + windowMs
+            val group = JSONObject().apply {
+                put("key", key)
+                put("windowEnd", windowEnd)
+                put("items", JSONArray().put(info.toJson()))
+            }
+            queue.add(group)
+            // 组数上限：超出时把 windowEnd 最早的组立即降级为直接推送（防止丢通知）
+            if (queue.size > MAX_GROUPS) {
+                val oldest = queue.minByOrNull { it.optLong("windowEnd", Long.MAX_VALUE) }
+                if (oldest != null) {
+                    queue.remove(oldest)
+                    forceFlush(oldest)
+                }
+            }
+            Log.d(TAG, "聚合开窗: ${info.packageName}, 窗口至 $windowEnd")
+        }
+        writeQueue(queue)
+        scheduleNext()
+    }
+
+    /** 取出全部已到期的聚合组；返回空列表表示无可推送组 */
+    @Synchronized
+    fun drainDue(): List<MergeGroup> {
+        val queue = readQueue()
+        if (queue.isEmpty()) return emptyList()
+        val now = System.currentTimeMillis()
+        val due = queue.filter { it.optLong("windowEnd", 0L) <= now }
+        if (due.isEmpty()) return emptyList()
+        writeQueue(queue.filter { it.optLong("windowEnd", 0L) > now })
+        Log.d(TAG, "聚合组到期 ${due.size} 组，剩余 ${queue.size - due.size}")
+        return due.mapNotNull { groupFromJson(it) }
+    }
+
+    /** 当前活跃的聚合组（前台通知 InboxStyle 预览用），按 windowEnd 升序 */
+    @Synchronized
+    fun activeGroups(): List<MergeGroup> {
+        return readQueue().mapNotNull { groupFromJson(it) }.sortedBy { it.windowEnd }
+    }
+
+    /** 服务启动/配置刷新时重排闹钟（进程被杀 → START_STICKY 重建场景） */
+    @Synchronized
+    fun rescheduleAll() {
+        val queue = readQueue()
+        if (queue.isEmpty()) {
+            cancelAlarm()
+            return
+        }
+        // 服务长时间未运行：过期组保留，靠 immediately 触发的闹钟尽快补推
+        // （不能用 DelayedPushManager 的"丢弃过期"策略——聚合组里是未推送的通知，不能丢）
+        scheduleNext()
+    }
+
+    /** 清空全部聚合组（仅调试/重置用；正常到点走 drainDue） */
+    @Synchronized
+    fun clear() {
+        writeQueue(ArrayList())
+        cancelAlarm()
+    }
+
+    /** 组数超限时兜底：立即以普通推送送出整组（不进闹钟，防止 SP 挤压丢通知） */
+    private fun forceFlush(groupJson: JSONObject) {
+        try {
+            val group = groupFromJson(groupJson) ?: return
+            val merged = group.buildMergedInfo()
+            WebhookSender(context).sendWebhooksOnly(merged)
+            for (member in group.items) {
+                DeliveryNotifier.notify(
+                    context,
+                    member.id,
+                    "MERGE",
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.SUCCESS,
+                        0,
+                        I18n.mergeDeliveredLabel(),
+                        false
+                    )
+                )
+            }
+            Log.d(TAG, "聚合组超限兜底推送: ${group.key} (${group.items.size} 条)")
+        } catch (e: Exception) {
+            Log.e(TAG, "聚合组兜底推送失败", e)
+        }
+    }
+
+    private fun groupFromJson(json: JSONObject): MergeGroup? {
+        return try {
+            val key = json.optString("key", "")
+            val windowEnd = json.optLong("windowEnd", 0L)
+            val itemsJson = json.optJSONArray("items") ?: return null
+            val items = ArrayList<NotificationInfo>(itemsJson.length())
+            for (i in 0 until itemsJson.length()) {
+                try {
+                    items.add(NotificationInfo.fromJson(itemsJson.getJSONObject(i)))
+                } catch (_: Exception) {}
+            }
+            if (key.isEmpty() || items.isEmpty()) return null
+            MergeGroup(key, windowEnd, items)
+        } catch (e: Exception) {
+            Log.w(TAG, "聚合组解析失败: ${e.message}")
+            null
+        }
+    }
+
+    private fun scheduleNext() {
+        val queue = readQueue()
+        if (queue.isEmpty()) {
+            cancelAlarm()
+            return
+        }
+        val next = queue.minByOrNull { it.optLong("windowEnd", Long.MAX_VALUE) } ?: return
+        val fireAt = next.optLong("windowEnd", 0L)
+        if (fireAt <= 0L) return
+        val am = alarmManager ?: return
+        try {
+            val intent = Intent(ACTION_MERGE_DUE).apply { setPackage(context.packageName) }
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            val pi = PendingIntent.getBroadcast(context, REQUEST_CODE, intent, flags)
+            // 精确闹钟策略与 DelayedPushManager 一致（共享 flutter.exact_alarm_enabled 开关）
+            if (isExactAlarmEnabled()) {
+                try {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
+                    Log.d(TAG, "聚合推送精确闹钟已排程 fireAt=$fireAt")
+                    return
+                } catch (e: SecurityException) {
+                    Log.w(TAG, "精确闹钟未授权，降级非精确闹钟", e)
+                }
+            }
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pi)
+            Log.d(TAG, "聚合推送闹钟已排程 fireAt=$fireAt")
+        } catch (e: Exception) {
+            Log.e(TAG, "聚合推送闹钟排程失败", e)
+        }
+    }
+
+    /** 精确闹钟开关（与 DelayedPushManager 共用同一 Flutter 设置项） */
+    private fun isExactAlarmEnabled(): Boolean {
+        return try {
+            val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            prefs.getBoolean("flutter.exact_alarm_enabled", false)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun cancelAlarm() {
+        try {
+            val am = alarmManager ?: return
+            val intent = Intent(ACTION_MERGE_DUE).apply { setPackage(context.packageName) }
+            val pi = PendingIntent.getBroadcast(
+                context,
+                REQUEST_CODE,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.cancel(pi)
+        } catch (e: Exception) {
+            Log.e(TAG, "取消聚合推送闹钟失败", e)
+        }
+    }
+
+    private fun readQueue(): ArrayList<JSONObject> {
+        val json = prefs.getString(KEY_QUEUE, "[]") ?: "[]"
+        return try {
+            val arr = JSONArray(json)
+            val list = ArrayList<JSONObject>(arr.length())
+            for (i in 0 until arr.length()) {
+                try {
+                    list.add(arr.getJSONObject(i))
+                } catch (_: Exception) {}
+            }
+            list
+        } catch (e: Exception) {
+            Log.e(TAG, "聚合队列读取失败", e)
+            ArrayList()
+        }
+    }
+
+    private fun writeQueue(queue: List<JSONObject>) {
+        try {
+            val arr = JSONArray()
+            for (item in queue) arr.put(item)
+            prefs.edit().putString(KEY_QUEUE, arr.toString()).apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "聚合队列写入失败", e)
+        }
+    }
+}

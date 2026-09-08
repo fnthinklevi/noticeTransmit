@@ -88,8 +88,10 @@ class NotificationMonitorService : NotificationListenerService() {
     private lateinit var webhookSender: WebhookSender
     private lateinit var configManager: ConfigManager
     private lateinit var delayedPushManager: DelayedPushManager
+    private lateinit var mergePushManager: MergePushManager
     private var batteryChangedReceiver: android.content.BroadcastReceiver? = null
     private var delayedPushReceiver: android.content.BroadcastReceiver? = null
+    private var mergePushReceiver: android.content.BroadcastReceiver? = null
     private var batteryAlarmPendingIntent: PendingIntent? = null
     @Volatile private var cachedConfig: ConfigSnapshot? = null
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
@@ -129,7 +131,9 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender.activate()
         configManager = ConfigManager(this)
         delayedPushManager = DelayedPushManager(this)
+        mergePushManager = MergePushManager(this)
         registerDelayedPushReceiver()
+        registerMergePushReceiver()
 
             batteryMonitor.setNotificationCallback { batteryInfo ->
                 webhookSender.sendNotification(batteryInfo)
@@ -391,6 +395,15 @@ class NotificationMonitorService : NotificationListenerService() {
                                 delayedPushManager.enqueue(info, decision.fireAt)
                                 Log.d(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName} - ${info.title}")
                             }
+                            is RuleEngine.Decision.Merge -> {
+                                // P2 聚合推送：成员先各自记录历史（独立可见），窗口结束时
+                                // 由 MergePushManager 合并为一条聚合推送；成员的送达结果
+                                // 到点以 MERGE 伪通道补标（见 MergePushManager 风险标注 3）
+                                webhookSender.sendBroadcast(info)
+                                mergePushManager.append(info, decision.windowMs)
+                                updateForegroundNotification()
+                                Log.d(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName} - ${info.title}")
+                            }
                             RuleEngine.Decision.Push -> {
                                 webhookSender.sendNotification(info)
                                 dispatchEmail(info)
@@ -431,6 +444,8 @@ class NotificationMonitorService : NotificationListenerService() {
         cachedConfig = ConfigSnapshot()
         // 服务重启后恢复未到期的延迟推送闹钟（进程被杀 → START_STICKY 重建场景）
         delayedPushManager.rescheduleAll()
+        // 聚合组恢复：过期组不丢弃（与延迟队列不同），重排闹钟尽快补推
+        mergePushManager.rescheduleAll()
 
         Log.d(TAG, "Config loaded: ${loadedConfigs.size} webhook channels (signed)")
     }
@@ -518,6 +533,64 @@ class NotificationMonitorService : NotificationListenerService() {
             Log.d(TAG, "Delayed push receiver registered")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register delayed push receiver", e)
+        }
+    }
+
+    /**
+     * 注册聚合推送闹钟接收器（P2）：到点取出到期聚合组，合并为一条聚合通知
+     * 统一推送 webhook + 邮件，并对成员逐条回传 MERGE 伪通道送达结果补标历史。
+     */
+    private fun registerMergePushReceiver() {
+        val filter = IntentFilter(MergePushManager.ACTION_MERGE_DUE)
+        mergePushReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action != MergePushManager.ACTION_MERGE_DUE) return
+                Log.d(TAG, "Merge push alarm fired")
+                serviceScope.launch {
+                    try {
+                        val groups = mergePushManager.drainDue()
+                        for (group in groups) {
+                            val merged = group.buildMergedInfo()
+                            webhookSender.sendWebhooksOnly(merged)
+                            dispatchEmail(merged)
+                            checkDailyReset()
+                            // 计数语义（风险标注 4）：按聚合组 +1，而非成员逐条 +N
+                            pushCount++
+                            // 送达映射（风险标注 3）：聚合 HTTP 结果归聚合记录本身，
+                            // 成员记录以 MERGE 伪通道补标 success，避免永远停留"发送中"
+                            for (member in group.items) {
+                                DeliveryNotifier.notify(
+                                    this@NotificationMonitorService,
+                                    member.id,
+                                    "MERGE",
+                                    WebhookResponseParser.ParseResult(
+                                        WebhookResponseParser.DeliveryStatus.SUCCESS,
+                                        0,
+                                        I18n.mergeDeliveredLabel(),
+                                        false
+                                    )
+                                )
+                            }
+                            updateForegroundNotification()
+                            Log.d(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
+                        }
+                        // 一次性闹钟：drain 后重排下一条到期聚合组
+                        mergePushManager.rescheduleAll()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error sending merged pushes", e)
+                    }
+                }
+            }
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(mergePushReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(mergePushReceiver, filter)
+            }
+            Log.d(TAG, "Merge push receiver registered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register merge push receiver", e)
         }
     }
 
@@ -704,6 +777,8 @@ class NotificationMonitorService : NotificationListenerService() {
      * 构建前台通知（含推送启停 Action 按钮，文案随 push 状态切换）。
      * - 推送激活：显示「暂停推送」按钮 + 「正在监听通知…」
      * - 推送暂停：显示「恢复推送」按钮 + 「推送已暂停…」
+     * - 有活跃聚合组（P2）：InboxStyle 逐组展示待合并通知（应用 ×条数 + 剩余秒数），
+     *   聚合窗口结束后自动恢复常规样式
      */
     private fun buildForegroundNotification(): Notification {
         val contentIntent = Intent(this, MainActivity::class.java)
@@ -733,6 +808,30 @@ class NotificationMonitorService : NotificationListenerService() {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+
+        // P2 聚合预览：推送激活且存在待合并通知时，InboxStyle 逐组展示
+        if (pushActive && listenerConnected) {
+            val groups = mergePushManager.activeGroups()
+            if (groups.isNotEmpty()) {
+                val now = System.currentTimeMillis()
+                val totalItems = groups.sumOf { it.items.size }
+                val inbox = NotificationCompat.InboxStyle()
+                    .setSummaryText(contentText)
+                for (group in groups) {
+                    val etaSec = maxOf(0L, (group.windowEnd - now) / 1000)
+                    val latest = group.items.last()
+                    val line = if (group.items.size > 1) {
+                        "${group.items.first().appName} ×${group.items.size} · ${latest.title} · ${I18n.mergeEta(etaSec)}"
+                    } else {
+                        "${latest.title} · ${I18n.mergeEta(etaSec)}"
+                    }
+                    inbox.addLine(line)
+                }
+                builder
+                    .setContentText(I18n.mergePendingSummary(totalItems))
+                    .setStyle(inbox)
+            }
+        }
 
         // 推送启停 Action 按钮（点击触发 PushToggleActionReceiver）
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

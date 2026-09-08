@@ -19,6 +19,22 @@ internal class FileChannelHandler(activity: MainActivity) : ChannelHandler(activ
                 val content = call.argument<String>("content") ?: ""
                 activity.saveFileWithPicker(fileName, content, result)
             }
+            "pickArchiveDirectory" -> {
+                // P1：推送历史自动归档目录选择（SAF + 持久化授权）
+                activity.pickArchiveDirectory(result)
+            }
+            "getArchiveDirectory" -> {
+                result.success(activity.getPersistedArchiveDir())
+            }
+            "clearArchiveDirectory" -> {
+                activity.clearArchiveDir()
+                result.success(true)
+            }
+            "writeArchiveFile" -> {
+                val fileName = call.argument<String>("fileName") ?: ""
+                val content = call.argument<String>("content") ?: ""
+                result.success(activity.writeArchiveFile(fileName, content))
+            }
             "startSystemDownload" -> {
                 // 使用系统下载器（DownloadManager）下载更新 APK，无需存储权限
                 val url = call.argument<String>("url") ?: ""

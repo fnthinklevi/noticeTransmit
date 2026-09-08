@@ -698,11 +698,13 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
   ActionType? _selectedType;
   final TextEditingController _delaySecondsController = TextEditingController();
   final TextEditingController _scheduleTimeController = TextEditingController();
+  final TextEditingController _mergeWindowController = TextEditingController();
 
   @override
   void dispose() {
     _delaySecondsController.dispose();
     _scheduleTimeController.dispose();
+    _mergeWindowController.dispose();
     super.dispose();
   }
 
@@ -719,20 +721,30 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
     }
   }
 
-  /// 延迟推送动作参数：delaySeconds（延迟秒数）/ scheduleTime（HH:mm 定时），
-  /// 与原生 RuleEngine.computeFireAt 保持一致。
+  /// 动作参数：delay（delaySeconds/scheduleTime，与原生 RuleEngine.computeFireAt
+  /// 一致）/ merge（windowSeconds，与原生 Decision.Merge 一致）。
   Map<String, dynamic> _buildParams() {
-    if (_selectedType != ActionType.delay) return const {};
-    final params = <String, dynamic>{};
-    final delaySeconds = int.tryParse(_delaySecondsController.text.trim());
-    if (delaySeconds != null && delaySeconds > 0) {
-      params['delaySeconds'] = delaySeconds;
+    if (_selectedType == ActionType.delay) {
+      final params = <String, dynamic>{};
+      final delaySeconds = int.tryParse(_delaySecondsController.text.trim());
+      if (delaySeconds != null && delaySeconds > 0) {
+        params['delaySeconds'] = delaySeconds;
+      }
+      final scheduleTime = _scheduleTimeController.text.trim();
+      if (scheduleTime.isNotEmpty) {
+        params['scheduleTime'] = scheduleTime;
+      }
+      return params;
     }
-    final scheduleTime = _scheduleTimeController.text.trim();
-    if (scheduleTime.isNotEmpty) {
-      params['scheduleTime'] = scheduleTime;
+    if (_selectedType == ActionType.merge) {
+      final params = <String, dynamic>{};
+      final windowSeconds = int.tryParse(_mergeWindowController.text.trim());
+      if (windowSeconds != null && windowSeconds > 0) {
+        params['windowSeconds'] = windowSeconds;
+      }
+      return params;
     }
-    return params;
+    return const {};
   }
 
   @override
@@ -779,6 +791,10 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
                 scheduleTimeController: _scheduleTimeController,
               ),
             ],
+            if (_selectedType == ActionType.merge) ...[
+              const SizedBox(height: 16),
+              _MergeParamsFields(windowController: _mergeWindowController),
+            ],
           ],
         ),
       ),
@@ -823,6 +839,7 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
   late ActionType _type;
   final TextEditingController _delaySecondsController = TextEditingController();
   final TextEditingController _scheduleTimeController = TextEditingController();
+  final TextEditingController _mergeWindowController = TextEditingController();
 
   @override
   void initState() {
@@ -837,12 +854,17 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
     if (scheduleTime.isNotEmpty) {
       _scheduleTimeController.text = scheduleTime;
     }
+    final windowSeconds = params['windowSeconds'];
+    if (windowSeconds is int && windowSeconds > 0) {
+      _mergeWindowController.text = windowSeconds.toString();
+    }
   }
 
   @override
   void dispose() {
     _delaySecondsController.dispose();
     _scheduleTimeController.dispose();
+    _mergeWindowController.dispose();
     super.dispose();
   }
 
@@ -856,6 +878,11 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
       final scheduleTime = _scheduleTimeController.text.trim();
       if (scheduleTime.isNotEmpty) {
         params['scheduleTime'] = scheduleTime;
+      }
+    } else if (_type == ActionType.merge) {
+      final windowSeconds = int.tryParse(_mergeWindowController.text.trim());
+      if (windowSeconds != null && windowSeconds > 0) {
+        params['windowSeconds'] = windowSeconds;
       }
     }
     widget.onSave(widget.action.copyWith(type: _type, params: params));
@@ -906,6 +933,10 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
                 scheduleTimeController: _scheduleTimeController,
               ),
             ],
+            if (_type == ActionType.merge) ...[
+              const SizedBox(height: 16),
+              _MergeParamsFields(windowController: _mergeWindowController),
+            ],
           ],
         ),
       ),
@@ -929,6 +960,49 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
               fontWeight: FontWeight.w600,
               color: AppColors.blue,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 聚合推送动作的参数输入区（合并窗口秒数），Add/Edit 对话框共用。
+/// 与原生 RuleEngine DEFAULT_MERGE_WINDOW_MS=60 / MIN=5 对应。
+class _MergeParamsFields extends StatelessWidget {
+  final TextEditingController windowController;
+
+  const _MergeParamsFields({required this.windowController});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.mergeWindowSeconds,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: windowController,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: '60',
+            helperText: l10n.mergeWindowHint,
+            helperMaxLines: 2,
+            isDense: true,
+            filled: true,
+            fillColor: AppColors.cardBg(context),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.primaryLabel(context),
           ),
         ),
       ],

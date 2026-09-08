@@ -520,6 +520,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search title/content/app';
 
   @override
+  String searchResultCount(int n) {
+    return 'Results ($n)';
+  }
+
+  @override
+  String get clearSearchFilter => 'Clear Filters';
+
+  @override
+  String get filterTitle => 'Filters';
+
+  @override
+  String get filterTimeAll => 'All Time';
+
+  @override
+  String get filterToday => 'Today';
+
+  @override
+  String get filterYesterday => 'Yesterday';
+
+  @override
+  String get filterLast7Days => 'Last 7 Days';
+
+  @override
+  String get filterLast30Days => 'Last 30 Days';
+
+  @override
+  String get filterCustomRange => 'Custom';
+
+  @override
+  String get filterDateRange => 'Date Range';
+
+  @override
+  String get filterAppName => 'App Name (contains)';
+
+  @override
+  String get filterPackageName => 'Package Name (contains)';
+
+  @override
+  String get filterDeliveryStatus => 'Delivery Status';
+
+  @override
+  String get deliveryAll => 'All';
+
+  @override
+  String get deliverySuccessOnly => 'Success Only';
+
+  @override
+  String get deliveryFailedOnly => 'Failed Only';
+
+  @override
+  String get filterApply => 'Apply Filters';
+
+  @override
+  String get filterReset => 'Reset';
+
+  @override
+  String get loadMoreHint => 'Pull up to load more';
+
+  @override
   String get noRecords => 'No records yet';
 
   @override
@@ -554,6 +613,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get testAndSave => 'Test & Save';
+
+  @override
+  String get turnOn => 'Turn On';
+
+  @override
+  String get turnOff => 'Turn Off';
+
+  @override
+  String get fieldRequired => 'Required';
+
+  @override
+  String get fillRequiredFields => 'Please fill in all required fields';
+
+  @override
+  String get channelName => 'Channel Name';
+
+  @override
+  String deleteEmailChannelConfirm(String name) {
+    return 'Delete email channel \"$name\"?';
+  }
+
+  @override
+  String get autoSavePath => 'Auto-save Path';
+
+  @override
+  String get autoSavePathDesc =>
+      'Where daily archived notification history JSON files are saved';
+
+  @override
+  String get archivePathDefault => 'Default (app-private directory)';
+
+  @override
+  String get chooseFolder => 'Choose Custom Folder';
+
+  @override
+  String get resetToDefault => 'Reset to Default';
+
+  @override
+  String get archivePathUpdated => 'Auto-save path updated';
+
+  @override
+  String get archivePathReset => 'Auto-save path reset to default';
 
   @override
   String get testPassed => '✅ Verified';
@@ -1259,6 +1360,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get condPriority => 'Priority';
+
+  @override
+  String get mergeWindowSeconds => 'Merge Window (seconds)';
+
+  @override
+  String get mergeWindowHint =>
+      'Default 60. Notifications from the same app within this window are merged into one push';
 
   @override
   String get condTimeRange => 'Time Range';

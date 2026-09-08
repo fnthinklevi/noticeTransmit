@@ -61,8 +61,11 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.65"
-        const val FALLBACK_BUILD = 100
+        const val FALLBACK_VERSION = "1.5.66"
+        const val FALLBACK_BUILD = 101
+
+        // 推送历史自动归档目录（SAF treeUri），持久化在 FlutterSharedPreferences
+        const val KEY_ARCHIVE_DIR_URI = "archive_dir_uri"
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -1135,6 +1138,24 @@ class MainActivity : FlutterActivity() {
                 pendingSaveResult?.success(mapOf("success" to false, "message" to "已取消"))
             }
         }
+        if (requestCode == PICK_DIR_REQUEST_CODE) {
+            val uri = data?.data
+            if (resultCode == RESULT_OK && uri != null) {
+                try {
+                    // 持久化读写授权：跨进程重启后仍可写入该目录
+                    val flags = data.flags and
+                        (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    contentResolver.takePersistableUriPermission(uri, flags)
+                    prefs.edit().putString(KEY_ARCHIVE_DIR_URI, uri.toString()).apply()
+                    pendingPickDirResult?.success(uri.toString())
+                } catch (e: Exception) {
+                    pendingPickDirResult?.success(null)
+                }
+            } else {
+                pendingPickDirResult?.success(null)
+            }
+            pendingPickDirResult = null
+        }
     }
 
     internal fun saveFileWithPicker(fileName: String, content: String, result: MethodChannel.Result) {
@@ -1146,6 +1167,82 @@ class MainActivity : FlutterActivity() {
             putExtra(Intent.EXTRA_TITLE, fileName)
         }
         startActivityForResult(intent, SAVE_FILE_REQUEST_CODE)
+    }
+
+    // ===== 推送历史自动归档目录（P1）：SAF 目录选择 + 持久化授权 + 归档文件写入 =====
+
+    private var pendingPickDirResult: MethodChannel.Result? = null
+    private val PICK_DIR_REQUEST_CODE = 9002
+
+    /** 弹出系统目录选择器（ACTION_OPEN_DOCUMENT_TREE），选择后持久化读写授权 */
+    internal fun pickArchiveDirectory(result: MethodChannel.Result) {
+        pendingPickDirResult = result
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), PICK_DIR_REQUEST_CODE)
+    }
+
+    /** 当前持久化的归档目录 treeUri（未设置返回 null） */
+    internal fun getPersistedArchiveDir(): String? =
+        prefs.getString(KEY_ARCHIVE_DIR_URI, null)
+
+    /** 恢复默认：清除持久化目录与授权 */
+    internal fun clearArchiveDir() {
+        val saved = prefs.getString(KEY_ARCHIVE_DIR_URI, null) ?: return
+        try {
+            contentResolver.releasePersistableUriPermission(
+                Uri.parse(saved),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } catch (_: Exception) {
+        }
+        prefs.edit().remove(KEY_ARCHIVE_DIR_URI).apply()
+    }
+
+    /**
+     * 向持久化目录写入归档 JSON（存在同名文件则覆盖）。
+     * 归档实际内容较大，Flutter 前台归档路径调用；后台 WorkManager isolate
+     * 无该 MethodChannel handler，调用方需自行回退应用专属目录。
+     */
+    internal fun writeArchiveFile(fileName: String, content: String): Map<String, Any> {
+        val saved = prefs.getString(KEY_ARCHIVE_DIR_URI, null)
+            ?: return mapOf("success" to false, "message" to "未设置自定义归档目录")
+        return try {
+            val treeUri = Uri.parse(saved)
+            val docId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+            val dirUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+            // 先查找同名文件，存在则直接覆盖写入
+            var targetUri: Uri? = null
+            val childrenUri =
+                android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+            contentResolver.query(
+                childrenUri,
+                arrayOf(
+                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                ),
+                null, null, null
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    if (c.getString(1) == fileName) {
+                        targetUri =
+                            android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, c.getString(0))
+                        break
+                    }
+                }
+            }
+            val fileUri = targetUri ?: android.provider.DocumentsContract.createDocument(
+                contentResolver, dirUri, "application/json", fileName
+            )
+            if (fileUri == null) {
+                return mapOf("success" to false, "message" to "创建文件失败")
+            }
+            contentResolver.openOutputStream(fileUri, "wt")?.use { os ->
+                os.write(content.toByteArray(Charsets.UTF_8))
+                os.flush()
+            } ?: return mapOf("success" to false, "message" to "无法打开输出流")
+            mapOf("success" to true, "message" to "OK")
+        } catch (e: Exception) {
+            mapOf("success" to false, "message" to "写入失败: ${e.message}")
+        }
     }
 
     internal fun toggleNotificationListenerService(force: Boolean = false) {

@@ -19,8 +19,10 @@ import java.util.Calendar
  * }]
  *
  * 动作语义：
- * - push   → 立即推送（默认，含 merge 动作暂按 push 处理）
+ * - push   → 立即推送（默认）
  * - delay  → 延迟/定时推送（params.delaySeconds 延迟秒数；params.scheduleTime "HH:mm" 定时）
+ * - merge  → 聚合推送（params.windowSeconds 聚合窗口秒数，默认 60）：同应用通知在窗口内
+ *            先记录历史，窗口结束时合并为一条聚合推送（详见 MergePushManager 的交互风险标注）
  * - record → 仅记录到历史，不推送
  * - silent → 静默忽略（不推送也不记录）
  */
@@ -29,6 +31,10 @@ object RuleEngine {
 
     /** 延迟动作未配置参数时的兜底延迟（60 秒） */
     const val DEFAULT_DELAY_MS = 60_000L
+
+    /** 聚合窗口未配置/非法时的兜底窗口（60 秒），下限 5 秒 */
+    const val DEFAULT_MERGE_WINDOW_MS = 60_000L
+    const val MIN_MERGE_WINDOW_MS = 5_000L
 
     sealed class Decision {
         /** 静默忽略：不推送、不记录 */
@@ -42,6 +48,18 @@ object RuleEngine {
 
         /** 延迟/定时推送：立即记录，到 fireAt 再推送 */
         data class Delay(val fireAt: Long) : Decision()
+
+        /**
+         * 聚合推送：立即记录，窗口期内同应用通知追加进同一聚合组，
+         * 窗口结束时合并为一条推送。
+         *
+         * ⚠ 与延迟队列/去重键的交互风险（详见 MergePushManager 头注释）：
+         * - 决策在命中规则时一次性产生，同一条通知不会同时进入 Delay 队列与 Merge 窗口
+         *  （decide 命中第一条规则即停，动作取第一个有效项）；
+         * - 聚合组 id 为 "{pkg}:merge:{windowEnd}"，与去重键 "{pkg}:{tag}:{id}" 体系独立；
+         * - 窗口到期推送使用聚合 id，成员记录的送达结果以 MERGE 伪通道逐条回传补标。
+         */
+        data class Merge(val windowMs: Long) : Decision()
     }
 
     /** 归一化文本（复用过滤引擎：trim + 全角转半角 + 折叠空白 + 小写） */
@@ -83,6 +101,7 @@ object RuleEngine {
         val actions = rule.optJSONArray("actions") ?: return Decision.Push
         var recordOnly = false
         var delayFireAt: Long? = null
+        var mergeWindowMs: Long? = null
 
         for (i in 0 until actions.length()) {
             val action = actions.getJSONObject(i)
@@ -98,14 +117,34 @@ object RuleEngine {
                         System.currentTimeMillis() + DEFAULT_DELAY_MS
                     }
                 }
-                // push / merge：按立即推送处理
+                "merge" -> {
+                    if (mergeWindowMs == null) {
+                        val params = action.optJSONObject("params")
+                        val seconds = params?.optInt("windowSeconds", -1) ?: -1
+                        mergeWindowMs = if (seconds > 0) {
+                            maxOf(
+                                seconds * 1000L,
+                                MIN_MERGE_WINDOW_MS
+                            )
+                        } else {
+                            DEFAULT_MERGE_WINDOW_MS
+                        }
+                    }
+                }
+                // push：按立即推送处理
                 else -> Unit
             }
         }
 
+        // 动作同时配置时的优先级：delay > merge > record（与 Flutter 端首次出现的
+        // 有效动作语义一致；delay/merge 都是"延后推送"，delay 定时点更明确故优先）
         if (delayFireAt != null) {
             Log.d(TAG, "延迟推送 fireAt=${delayFireAt} (${info.title})")
             return Decision.Delay(delayFireAt)
+        }
+        if (mergeWindowMs != null) {
+            Log.d(TAG, "聚合推送 windowMs=$mergeWindowMs (${info.title})")
+            return Decision.Merge(mergeWindowMs)
         }
         if (recordOnly) return Decision.Record
         return Decision.Push

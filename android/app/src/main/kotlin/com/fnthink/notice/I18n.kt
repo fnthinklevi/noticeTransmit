@@ -211,6 +211,23 @@ object I18n {
     fun actionPausePush(): String = if (isEn) "Pause push" else "暂停推送"
     fun actionResumePush(): String = if (isEn) "Resume push" else "恢复推送"
 
+    // ========== 聚合推送（P2 merge 动作） ==========
+    /** 聚合通知标题：{appName} 合并推送 (N 条) */
+    fun mergePushTitle(appName: String, count: Int): String =
+        if (isEn) "$appName merged push ($count)"
+        else "$appName 合并推送 ($count 条)"
+
+    /** 成员记录送达补标文案（MERGE 伪通道，success） */
+    fun mergeDeliveredLabel(): String = if (isEn) "Delivered as merged push" else "已合并推送"
+
+    /** 前台通知聚合预览：摘要行 */
+    fun mergePendingSummary(count: Int): String =
+        if (isEn) "Merging $count notification(s)…" else "正在合并 $count 条通知…"
+
+    /** 前台通知聚合预览：每组一行的尾注（剩余秒数） */
+    fun mergeEta(seconds: Long): String =
+        if (isEn) "push in ${seconds}s" else "${seconds}s 后推送"
+
     // ========== 桌面小部件 ==========
     fun widgetActiveText(): String = if (isEn) "PUSHING" else "推送中"
     fun widgetPausedText(): String = if (isEn) "PAUSED" else "已暂停"

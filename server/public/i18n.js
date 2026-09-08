@@ -45,7 +45,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['全量通知监听'] = 'Full Notification Listening';
   D['监听系统所有应用的通知栏消息，智能识别微信、QQ、短信、来电、系统等 5 类通知类型。'] = 'Monitors all app notifications, intelligently identifying WeChat, QQ, SMS, calls, system — 5 notification types.';
   D['可视化规则引擎'] = 'Visual Rule Engine';
-  D['IF 条件组合 + THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。'] = 'IF condition + THEN action, tiered by notification priority (high/medium/low) — silent ignore / record only / scheduled & delayed push / push now. Built-in rules for OTP priority, ad blocking, nighttime DND — ready out of the box.';
+  D['IF 条件组合 + THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。'] = 'IF condition + THEN action, tiered by notification priority (high/medium/low) — silent ignore / record only / scheduled & delayed push / push now / same-app merged push (configurable window). Built-in rules for OTP priority, ad blocking, nighttime DND — ready out of the box.';
   D['关键词过滤'] = 'Keyword Filtering';
   D['白名单 + 黑名单双模式关键词过滤，精准控制哪些内容推送、哪些内容拦截。'] = 'Whitelist + blacklist dual-mode keyword filtering for precise push control.';
   D['应用筛选'] = 'App Filtering';
@@ -53,7 +53,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['自定义电量提醒'] = 'Custom Battery Alerts';
   D['充电 / 断开 / 指定电量阈值全自定义规则，息屏 Doze 下依然可靠推送，可增删改。'] = 'Full custom rules for charging, disconnecting, and battery thresholds. Reliable push even in Doze mode.';
   D['历史记录'] = 'History';
-  D['本地保存推送历史，支持搜索、详情查看与导出，随时回溯每一条通知去向。'] = 'Locally saved push history with search, detail view, and export. Track every notification.';
+  D['推送历史完整保存于本地（无条数上限），支持全量搜索与按日 / 时间段 / 应用 / 包名 / 送达状态筛选，详情查看与导出，随时回溯每一条通知去向。'] = 'Push history is fully saved locally with no cap — full-history search with day / time-range / app / package / delivery-status filters, detail view, and export. Track every notification.';
   D['深色模式'] = 'Dark Mode';
   D['浅色 / 深色 / 跟随系统三种主题，Cupertino 设计语言，界面简洁优雅。'] = 'Light / Dark / System three themes. Cupertino design language. Clean, elegant interface.';
   D['推送通道类型'] = 'Push Channel Types';
@@ -164,6 +164,15 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['一键将通道 / 规则 / 关键词等全部配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定。'] = 'Export all configs (channels / rules / keywords) encrypted as a .nbackup file (AES-256-GCM + PBKDF2 key derivation). Restore with your passphrase after switching or reinstalling — overwrite or fill gaps, your choice.';
   D['配置备份加密'] = 'Encrypted Config Backup';
   D['备份文件以 AES-256-GCM 认证加密、PBKDF2（210k 迭代）派生密钥，口令错误或密文被篡改均无法解密。'] = 'Backups are AES-256-GCM authenticated-encrypted with PBKDF2 (210k iterations) key derivation; wrong passphrase or tampered ciphertext cannot be decrypted.';
+  D['一键暂停推送'] = 'One-Tap Pause';
+  D['前台通知栏按钮或桌面小部件一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。小部件 2×2/4×2 视觉焕新，支持系统添加弹窗预览；不支持一键添加的桌面自动弹出分品牌分步引导（小米/华为/OPPO/vivo/三星等）。'] = 'One-tap pause/resume from the foreground notification button or home-screen widget — listening continues, only Webhooks pause; state survives restarts. Widgets redesigned (2×2/4×2) with system add-dialog preview; launchers without one-tap pinning get a per-brand step-by-step guide (Xiaomi/Huawei/OPPO/vivo/Samsung, etc.).';
+  D['短信监听设置中心'] = 'SMS Monitoring Center';
+  D['监听短信 / 验证码监听 / 监听卡选择三大开关集中管理，单卡设备自动灰化选卡；卡槽过滤同时作用于短信与来电，推送正文可附「卡1，运营商」双语信息行。'] = 'Centralized switches for SMS listening / OTP listening / SIM selection; SIM choice is greyed out on single-SIM devices. SIM filtering applies to both SMS and calls, and pushed messages can carry a bilingual SIM line (e.g., SIM 1, Carrier).';
+  D['所有通知、短信、通讯录仅在本地处理与推送，不会上传到任何服务器。推送只经你自己配置的 Webhook 或 SMTP 邮件通道发出。崩溃统计（腾讯 Bugly）默认关闭，仅在你在应用内主动开启后采集必要的崩溃堆栈、设备型号、系统版本用于修复问题，可随时关闭。'] = 'All notifications, SMS, and contacts are processed and pushed locally only — nothing is uploaded to any server. Pushes go exclusively through your own Webhook or SMTP channels. Crash reporting (Tencent Bugly) is off by default; only if you enable it in-app does it collect crash stack traces, device model, and OS version for troubleshooting, and you can turn it off anytime.';
+  D['不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 或 SMTP 邮件通道发出，开发者不存储任何推送内容。崩溃统计（腾讯 Bugly）默认关闭，仅在你主动开启后采集崩溃堆栈用于修复问题，可随时关闭。'] = 'No. All notifications, SMS, and contacts are monitored, processed, and pushed locally only — nothing is uploaded to any server. Pushes go exclusively through your own Webhook or SMTP channels, and the developer never stores any pushed content. Crash reporting (Tencent Bugly) is off by default; only if you enable it does it collect crash stack traces for troubleshooting, and you can turn it off anytime.';
+  D['打开菜单'] = 'Open menu';
+  D['下载 APK'] = 'Download APK';
+  D['返回顶部'] = 'Back to top';
 
   // ── 当前语言 ──
   var lang = localStorage.getItem('lang');
@@ -173,6 +182,43 @@ D['通知推送助手'] = 'NoticeTransmit';
   // 用 Map 而非普通对象：对象 key 会被 toString 强转（Text 节点都是 "[object Text]"），
   // 导致 originals[node] 互相覆盖，所有节点最终还原成同一个值
   var originals = new Map();
+  // 属性原始值：Element → { attr: 原始文本 }（title / aria-label / alt / placeholder）
+  var attrOriginals = new Map();
+
+  // 中文 → 英文替换（按 key 长度降序，先长句后短词），文本节点与属性共用
+  function zhToEn(text) {
+    var keys = Object.keys(D).sort(function(a, b) { return b.length - a.length; });
+    var replaced = text;
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (replaced.indexOf(k) !== -1) replaced = replaced.split(k).join(D[k]);
+    }
+    return replaced;
+  }
+
+  // 翻译/恢复元素的 title / aria-label / alt / placeholder 属性
+  function applyAttrs(l) {
+    var els = document.querySelectorAll('[title],[aria-label],[alt],[placeholder]');
+    var attrs = ['title', 'aria-label', 'alt', 'placeholder'];
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      for (var j = 0; j < attrs.length; j++) {
+        var a = attrs[j];
+        if (!el.hasAttribute(a)) continue;
+        var cur = el.getAttribute(a);
+        if (!cur) continue;
+        var rec = attrOriginals.get(el);
+        if (!rec) { rec = {}; attrOriginals.set(el, rec); }
+        if (!(a in rec)) rec[a] = cur; // 首次记录原始值
+        if (l === 'en') {
+          // 始终从原始值出发替换，重复执行幂等
+          el.setAttribute(a, zhToEn(rec[a]));
+        } else {
+          el.setAttribute(a, rec[a]);
+        }
+      }
+    }
+  }
 
   function walkTextNodes(root, fn) {
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
@@ -217,6 +263,9 @@ D['通知推送助手'] = 'NoticeTransmit';
         }
       });
     }
+
+    // 翻译/恢复 title / aria-label / alt / placeholder 属性
+    applyAttrs(l);
 
     // 更新语言切换按钮文字
     var btn = document.getElementById('langToggle');

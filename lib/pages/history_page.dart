@@ -1,6 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
+import '../services/archive_worker.dart' show kArchiveDirModeKey;
+import '../services/notification_service.dart';
+import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
@@ -32,6 +38,28 @@ class _HistoryPageState extends State<HistoryPage> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // ── P1 全量历史搜索/筛选 ──
+  // 时间范围（按日）：null 表示未启用时间段筛选；start 含当日 0 点，end 含当日
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
+  String _filterAppName = '';
+  String _filterPackageName = '';
+  // 送达状态筛选：all / success / failed
+  String _filterDelivery = 'all';
+  // 非 null 时为 DB 搜索模式（全量历史分页加载），null 为常规模式（内存 records）
+  List<NotificationRecord>? _searchResults;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  Timer? _debounce;
+  final ScrollController _scrollController = ScrollController();
+  static const int _pageSize = 200;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
   List<NotificationRecord> get _filteredRecords {
     if (_searchQuery.isEmpty) return widget.records;
     final q = _searchQuery.toLowerCase();
@@ -45,6 +73,116 @@ class _HistoryPageState extends State<HistoryPage> {
           app.contains(q) ||
           pkg.contains(q);
     }).toList();
+  }
+
+  // ── P1 全量历史搜索/筛选逻辑 ──
+
+  bool get _hasActiveFilter =>
+      _searchQuery.isNotEmpty ||
+      _rangeStart != null ||
+      _filterAppName.isNotEmpty ||
+      _filterPackageName.isNotEmpty ||
+      _filterDelivery != 'all';
+
+  /// 查询起始毫秒（含）：起始日 0 点
+  int? get _startTimeMs => _rangeStart == null
+      ? null
+      : DateTime(
+          _rangeStart!.year,
+          _rangeStart!.month,
+          _rangeStart!.day,
+        ).millisecondsSinceEpoch;
+
+  /// 查询结束毫秒（不含）：结束日次日 0 点（当日整天包含在内）
+  int? get _endTimeMs => _rangeEnd == null
+      ? null
+      : DateTime(
+          _rangeEnd!.year,
+          _rangeEnd!.month,
+          _rangeEnd!.day + 1,
+        ).millisecondsSinceEpoch;
+
+  /// 滚动触底自动加载下一页
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.extentAfter < 240 &&
+        _hasMore &&
+        !_loadingMore &&
+        _searchResults != null) {
+      _loadSearch(reset: false);
+    }
+  }
+
+  /// 触发搜索：有关键字或筛选条件走 DB 全量搜索，否则回常规内存模式。
+  /// 关键字输入带 300ms 防抖；面板应用时 immediate 立即查询。
+  void _refreshSearch({bool immediate = false}) {
+    _debounce?.cancel();
+    if (!_hasActiveFilter) {
+      setState(() {
+        _searchResults = null;
+        _hasMore = false;
+      });
+      return;
+    }
+    if (immediate) {
+      _loadSearch(reset: true);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _loadSearch(reset: true);
+    });
+  }
+
+  Future<void> _loadSearch({required bool reset}) async {
+    if (_loadingMore) return;
+    setState(() => _loadingMore = true);
+    final offset = reset ? 0 : (_searchResults?.length ?? 0);
+    try {
+      final service = GetIt.instance<NotificationService>();
+      final (records, hasMore) = await service.searchRecords(
+        keyword: _searchQuery.isEmpty ? null : _searchQuery,
+        startTime: _startTimeMs,
+        endTime: _endTimeMs,
+        appName: _filterAppName.isEmpty ? null : _filterAppName,
+        packageName: _filterPackageName.isEmpty ? null : _filterPackageName,
+        deliveryFilter: _filterDelivery == 'all' ? null : _filterDelivery,
+        limit: _pageSize,
+        offset: offset,
+      );
+      if (!mounted) return;
+      setState(() {
+        _searchResults = reset ? records : [...?_searchResults, ...records];
+        _hasMore = hasMore;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      debugPrint('历史搜索失败: $e');
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  void _clearAllFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _rangeStart = null;
+      _rangeEnd = null;
+      _filterAppName = '';
+      _filterPackageName = '';
+      _filterDelivery = 'all';
+      _searchResults = null;
+      _hasMore = false;
+    });
+  }
+
+  /// 时间范围摘要（筛选条显示用），如 09-01 ~ 09-07 或单日 2026-09-08
+  String get _rangeSummary {
+    if (_rangeStart == null) return '';
+    String fmt(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    if (_rangeEnd == null) return fmt(_rangeStart!);
+    return '${fmt(_rangeStart!)} ~ ${fmt(_rangeEnd!)}';
   }
 
   String _formatTime(dynamic timestamp) {
@@ -310,6 +448,455 @@ class _HistoryPageState extends State<HistoryPage> {
       default:
         return '通知';
     }
+  }
+
+  // ── P1 筛选面板 ──
+
+  bool _sameDay(DateTime? a, DateTime? b) =>
+      a != null &&
+      b != null &&
+      a.year == b.year &&
+      a.month == b.month &&
+      a.day == b.day;
+
+  Widget _filterChip(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? AppColors.blue.withValues(alpha: 0.12) : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active ? AppColors.blue : AppColors.separator(context),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: active ? AppColors.blue : AppColors.primaryLabel(context),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P1 筛选面板（iOS 风格底部弹层）：时间段/日、应用名、包名、送达状态。
+  /// 面板内为局部草稿，「应用筛选」后生效；下拉关闭不保存。
+  Future<void> _showFilterPanel() async {
+    final l10n = AppLocalizations.of(context);
+    final today = DateTime.now();
+    final today0 = DateTime(today.year, today.month, today.day);
+    final yesterday0 = today0.subtract(const Duration(days: 1));
+    DateTime? start = _rangeStart;
+    DateTime? end = _rangeEnd;
+    final appNameCtrl = TextEditingController(text: _filterAppName);
+    final pkgCtrl = TextEditingController(text: _filterPackageName);
+    var delivery = _filterDelivery;
+
+    Widget timeChips(void Function(void Function()) setSheet) {
+      final is7 =
+          start != null &&
+          end != null &&
+          _sameDay(start, today0.subtract(const Duration(days: 6))) &&
+          _sameDay(end, today0);
+      final is30 =
+          start != null &&
+          end != null &&
+          _sameDay(start, today0.subtract(const Duration(days: 29))) &&
+          _sameDay(end, today0);
+      final isCustom =
+          start != null &&
+          !_sameDay(start, today0) &&
+          !_sameDay(start, yesterday0) &&
+          !is7 &&
+          !is30;
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _filterChip(
+            l10n.filterTimeAll,
+            start == null,
+            () => setSheet(() {
+              start = null;
+              end = null;
+            }),
+          ),
+          _filterChip(
+            l10n.filterToday,
+            _sameDay(start, today0) && _sameDay(end, today0),
+            () => setSheet(() {
+              start = today0;
+              end = today0;
+            }),
+          ),
+          _filterChip(
+            l10n.filterYesterday,
+            _sameDay(start, yesterday0) && _sameDay(end, yesterday0),
+            () => setSheet(() {
+              start = yesterday0;
+              end = yesterday0;
+            }),
+          ),
+          _filterChip(
+            l10n.filterLast7Days,
+            is7,
+            () => setSheet(() {
+              start = today0.subtract(const Duration(days: 6));
+              end = today0;
+            }),
+          ),
+          _filterChip(
+            l10n.filterLast30Days,
+            is30,
+            () => setSheet(() {
+              start = today0.subtract(const Duration(days: 29));
+              end = today0;
+            }),
+          ),
+          _filterChip(l10n.filterCustomRange, isCustom, () async {
+            // 用页面 context 打开日期选择器（面板 builder 内的 sheetContext
+            // 不在 timeChips 闭包作用域内）
+            final picked = await showDateRangePicker(
+              context: context,
+              firstDate: DateTime(2020),
+              lastDate: today0.add(const Duration(days: 1)),
+              initialDateRange: (start != null && end != null)
+                  ? DateTimeRange(start: start!, end: end!)
+                  : null,
+            );
+            if (picked != null) {
+              setSheet(() {
+                start = picked.start;
+                end = picked.end;
+              });
+            }
+          }),
+        ],
+      );
+    }
+
+    Widget deliveryChips(void Function(void Function()) setSheet) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          _filterChip(
+            l10n.deliveryAll,
+            delivery == 'all',
+            () => setSheet(() => delivery = 'all'),
+          ),
+          _filterChip(
+            l10n.deliverySuccessOnly,
+            delivery == 'success',
+            () => setSheet(() => delivery = 'success'),
+          ),
+          _filterChip(
+            l10n.deliveryFailedOnly,
+            delivery == 'failed',
+            () => setSheet(() => delivery = 'failed'),
+          ),
+        ],
+      );
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (ctx, setSheet) => Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardBg(sheetContext),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.separator(sheetContext),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.filterTitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  l10n.filterDateRange,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                timeChips(setSheet),
+                if (start != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _sameDay(start, end)
+                        ? '${start!.year}-${start!.month.toString().padLeft(2, '0')}-${start!.day.toString().padLeft(2, '0')}'
+                        : '${start!.year}-${start!.month.toString().padLeft(2, '0')}-${start!.day.toString().padLeft(2, '0')}'
+                              ' ~ ${end!.year}-${end!.month.toString().padLeft(2, '0')}-${end!.day.toString().padLeft(2, '0')}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondaryLabel(sheetContext),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: appNameCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.filterAppName,
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: pkgCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.filterPackageName,
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.filterDeliveryStatus,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                deliveryChips(setSheet),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _clearAllFilters();
+                        },
+                        child: Text(
+                          l10n.filterReset,
+                          style: TextStyle(
+                            color: AppColors.secondaryLabel(sheetContext),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          if (!mounted) return;
+                          setState(() {
+                            _rangeStart = start;
+                            _rangeEnd = end;
+                            _filterAppName = appNameCtrl.text.trim();
+                            _filterPackageName = pkgCtrl.text.trim();
+                            _filterDelivery = delivery;
+                          });
+                          _refreshSearch(immediate: true);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text(l10n.filterApply),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// P1：自动保存路径设置（iOS 风格弹窗）：查看当前归档目录、
+  /// 选择自定义文件夹（SAF，原生持久化授权）或恢复默认应用专属目录
+  Future<void> _showArchivePathDialog() async {
+    final l10n = AppLocalizations.of(context);
+    String? saved;
+    try {
+      saved = await AppChannels.notification.invokeMethod<String>(
+        'getArchiveDirectory',
+      );
+    } catch (_) {}
+    if (!mounted) return;
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg(dialogContext),
+        title: Text(
+          l10n.autoSavePath,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(dialogContext),
+          ),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.autoSavePathDesc,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondaryLabel(dialogContext),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                saved == null ? l10n.archivePathDefault : _prettyTreeUri(saved),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.primaryLabel(dialogContext),
+                ),
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.folder_open, size: 20),
+                title: Text(
+                  l10n.chooseFolder,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: AppColors.primaryLabel(dialogContext),
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                onTap: () => Navigator.pop(dialogContext, 'pick'),
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.restore, size: 20),
+                title: Text(
+                  l10n.resetToDefault,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: saved == null
+                        ? AppColors.tertiaryLabel(dialogContext)
+                        : AppColors.primaryLabel(dialogContext),
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                onTap: saved == null
+                    ? null
+                    : () => Navigator.pop(dialogContext, 'reset'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, null),
+            child: Text(l10n.cancel),
+          ),
+        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (action == 'pick') {
+      try {
+        final uri = await AppChannels.notification.invokeMethod<String>(
+          'pickArchiveDirectory',
+        );
+        if (!mounted) return;
+        if (uri != null) {
+          await prefs.setString(kArchiveDirModeKey, 'custom');
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(l10n.archivePathUpdated),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+      }
+    } else if (action == 'reset') {
+      try {
+        await AppChannels.notification.invokeMethod('clearArchiveDirectory');
+      } catch (_) {}
+      await prefs.setString(kArchiveDirModeKey, 'default');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l10n.archivePathReset),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    }
+  }
+
+  /// SAF treeUri 转可读路径（content://.../tree/primary%3ADownload%2Fxxx/... → Download/xxx）
+  String _prettyTreeUri(String uri) {
+    try {
+      final idx = uri.indexOf('/tree/');
+      if (idx >= 0) {
+        var part = uri.substring(idx + 6);
+        final slash = part.indexOf('/');
+        if (slash >= 0) part = part.substring(0, slash);
+        part = Uri.decodeComponent(part).replaceFirst(':', '/');
+        return part.startsWith('/') ? '存储根目录$part' : part;
+      }
+    } catch (_) {}
+    return uri;
   }
 
   Future<void> _handleExport() async {
@@ -775,6 +1362,8 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -782,12 +1371,30 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final records = _filteredRecords;
+    final searchMode = _searchResults != null;
+    final records = _searchResults ?? _filteredRecords;
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
-        title: Text(l10n.historyTitle(records.length)),
+        title: Text(
+          searchMode
+              ? l10n.searchResultCount(records.length)
+              : l10n.historyTitle(records.length),
+        ),
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.filter_list,
+              color: _hasActiveFilter ? AppColors.blue : null,
+            ),
+            tooltip: l10n.filterTitle,
+            onPressed: _showFilterPanel,
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: l10n.autoSavePath,
+            onPressed: _showArchivePathDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.ios_share),
             tooltip: l10n.exportJson,
@@ -835,6 +1442,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             setState(() {
                               _searchQuery = '';
                             });
+                            _refreshSearch();
                           },
                         )
                       : null,
@@ -849,10 +1457,51 @@ class _HistoryPageState extends State<HistoryPage> {
                   fontSize: 14,
                   color: AppColors.primaryLabel(context),
                 ),
-                onChanged: (v) => setState(() => _searchQuery = v),
+                onChanged: (v) {
+                  setState(() => _searchQuery = v);
+                  _refreshSearch();
+                },
               ),
             ),
           ),
+          // 激活筛选条：显示当前时间范围摘要 + 一键清除
+          if (_hasActiveFilter)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: _clearAllFilters,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: AppColors.blue,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          l10n.clearSearchFilter,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_rangeStart != null)
+                    Text(
+                      _rangeSummary,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryLabel(context),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           Expanded(
             child: records.isEmpty
                 ? Center(
@@ -866,9 +1515,9 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          widget.records.isEmpty
-                              ? l10n.noRecords
-                              : l10n.noMatchRecords,
+                          searchMode || widget.records.isNotEmpty
+                              ? l10n.noMatchRecords
+                              : l10n.noRecords,
                           style: TextStyle(
                             color: AppColors.secondaryLabel(context),
                             fontSize: 15,
@@ -878,8 +1527,10 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                   )
                 : ListView.separated(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: records.length,
+                    itemCount:
+                        records.length + (searchMode && _hasMore ? 1 : 0),
                     separatorBuilder: (_, _) => Padding(
                       padding: const EdgeInsets.only(left: 56),
                       child: Divider(
@@ -888,12 +1539,37 @@ class _HistoryPageState extends State<HistoryPage> {
                         color: AppColors.separator(context),
                       ),
                     ),
-                    itemBuilder: (context, index) => _buildRecordItem(
-                      context,
-                      records[index],
-                      index,
-                      records.length,
-                    ),
+                    itemBuilder: (context, index) {
+                      // 末尾加载指示：搜索模式且可能有下一页
+                      if (index >= records.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: _loadingMore
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    l10n.loadMoreHint,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.tertiaryLabel(context),
+                                    ),
+                                  ),
+                          ),
+                        );
+                      }
+                      return _buildRecordItem(
+                        context,
+                        records[index],
+                        index,
+                        records.length,
+                      );
+                    },
                   ),
           ),
         ],

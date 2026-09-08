@@ -14,7 +14,6 @@ import 'email_service.dart';
 
 class NotificationService {
   static const _channel = AppChannels.notification;
-  static const int _maxRecords = 500;
 
   final List<NotificationRecord> _records = [];
   bool _serviceRunning = false;
@@ -32,9 +31,11 @@ class NotificationService {
     }
 
     try {
-      final dbRecords = await DatabaseHelper().getNotifications(
-        limit: _maxRecords,
-      );
+      // 取消保存上限（P1）：全量加载历史记录，配合全量搜索/按时间筛选。
+      // 数据库无自动删旧逻辑（归档仅导出备份不删源），内存列表 = DB 全量；
+      // 历史页为 ListView 懒加载渲染，万级记录可用。启动耗时随记录数线性增长，
+      // 若未来积压过大（>5 万条）可考虑改为分页加载。
+      final dbRecords = await DatabaseHelper().getAllNotifications();
       _records.clear();
       _records.addAll(
         dbRecords.map((e) => NotificationRecord.fromMap(e)).toList(),
@@ -149,10 +150,7 @@ class NotificationService {
         merged++;
       }
 
-      // 超出上限时截断
-      if (_records.length > _maxRecords) {
-        _records.removeRange(_maxRecords, _records.length);
-      }
+      // 取消保存上限（P1）：离线通知全量合并，不再截断内存列表
 
       if (merged > 0) {
         debugPrint('[HistoryCache] 合并 $merged 条离线通知');
@@ -160,6 +158,62 @@ class NotificationService {
     } catch (e) {
       debugPrint('拉取离线缓存失败: $e');
     }
+  }
+
+  /// 全量历史搜索（P1）：SQLite LIKE 粗筛 + Dart 端 jsonDecode 精筛。
+  ///
+  /// 粗筛由 DatabaseHelper.searchNotifications 完成（keyword/时间范围/应用名/
+  /// 包名走 SQL，送达状态对 delivery_info JSON 文本 LIKE 粗筛，不引 JSON1 依赖）；
+  /// 送达状态的精确判定在 Dart 端 jsonDecode 后完成：
+  /// - failed：任一通道 status 为 failed 或 intercepted（拦截视为未送达）
+  /// - success：至少有一个通道状态，且全部通道均为 success
+  /// 返回 (精筛后记录, 是否可能有下一页)——hasMore 以粗筛行数为准，
+  /// 精筛只过滤当页不产生丢条（符合条件者必经粗筛命中）。
+  Future<(List<NotificationRecord>, bool)> searchRecords({
+    String? keyword,
+    int? startTime,
+    int? endTime,
+    String? appName,
+    String? packageName,
+    String? deliveryFilter,
+    int limit = 200,
+    int offset = 0,
+  }) async {
+    final rows = await DatabaseHelper().searchNotifications(
+      keyword: keyword,
+      startTime: startTime,
+      endTime: endTime,
+      appName: appName,
+      packageName: packageName,
+      deliveryFilter: deliveryFilter,
+      limit: limit,
+      offset: offset,
+    );
+    final hasMore = rows.length >= limit;
+    var records = rows.map((e) => NotificationRecord.fromMap(e)).toList();
+    // Dart flow analysis 不做 a=='x' || a=='y' 的"值集合"提升，
+    // 先显式判空得到非空局部（final 提升可跨闭包保留）
+    final df = deliveryFilter;
+    if (df != null && (df == 'failed' || df == 'success')) {
+      records = records
+          .where((r) => _matchDeliveryFilter(r.deliveryStatus, df))
+          .toList();
+    }
+    return (records, hasMore);
+  }
+
+  /// 送达状态精筛判定（jsonDecode 已由 NotificationRecord.fromMap 完成）
+  static bool _matchDeliveryFilter(Map<String, dynamic> status, String filter) {
+    if (status.isEmpty) return false;
+    final states = status.values
+        .whereType<Map>()
+        .map((m) => m['status']?.toString())
+        .toList();
+    if (filter == 'failed') {
+      return states.any((s) => s == 'failed' || s == 'intercepted');
+    }
+    // success：有状态且全部成功
+    return states.isNotEmpty && states.every((s) => s == 'success');
   }
 
   Future<void> loadServiceState() async {
@@ -177,10 +231,8 @@ class NotificationService {
     record['channels'] = _getActiveChannels();
     record['deliveryStatus'] = _buildInitialDeliveries(record['channels']);
     final notificationRecord = NotificationRecord.fromMap(record);
+    // 取消保存上限（P1）：新记录全量保留，不再截断内存列表
     _records.insert(0, notificationRecord);
-    if (_records.length > _maxRecords) {
-      _records.removeRange(_maxRecords, _records.length);
-    }
     _saveRecords(notificationRecord.toMap());
   }
 
@@ -254,6 +306,19 @@ class NotificationService {
             : <String, dynamic>{
                 for (final k in existing.keys)
                   k: {'status': 'intercepted', 'message': message},
+              };
+      } else if (kotlinType == 'MERGE') {
+        // 聚合伪通道（P2 merge 动作）：成员被合并推送后由原生逐条回传 SUCCESS，
+        // 把记录所有真实通道置为 success（"已合并推送"）——成员在窗口期内停留
+        // pending，到点批量转终态，避免一直显示"发送中"
+        final existing = _records[idx].deliveryStatus;
+        updated = existing.isEmpty
+            ? <String, dynamic>{
+                label: {'status': 'success', 'message': message},
+              }
+            : <String, dynamic>{
+                for (final k in existing.keys)
+                  k: {'status': 'success', 'message': message},
               };
       } else {
         updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);

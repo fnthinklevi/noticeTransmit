@@ -1016,6 +1016,120 @@ abstract class AppLocalizations {
   /// **'搜索标题/内容/应用'**
   String get searchHint;
 
+  /// No description provided for @searchResultCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索结果 ({n})'**
+  String searchResultCount(int n);
+
+  /// No description provided for @clearSearchFilter.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除筛选'**
+  String get clearSearchFilter;
+
+  /// No description provided for @filterTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选条件'**
+  String get filterTitle;
+
+  /// No description provided for @filterTimeAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部时间'**
+  String get filterTimeAll;
+
+  /// No description provided for @filterToday.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天'**
+  String get filterToday;
+
+  /// No description provided for @filterYesterday.
+  ///
+  /// In zh, this message translates to:
+  /// **'昨天'**
+  String get filterYesterday;
+
+  /// No description provided for @filterLast7Days.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近 7 天'**
+  String get filterLast7Days;
+
+  /// No description provided for @filterLast30Days.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近 30 天'**
+  String get filterLast30Days;
+
+  /// No description provided for @filterCustomRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get filterCustomRange;
+
+  /// No description provided for @filterDateRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期范围'**
+  String get filterDateRange;
+
+  /// No description provided for @filterAppName.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用名（含则筛选）'**
+  String get filterAppName;
+
+  /// No description provided for @filterPackageName.
+  ///
+  /// In zh, this message translates to:
+  /// **'包名（含则筛选）'**
+  String get filterPackageName;
+
+  /// No description provided for @filterDeliveryStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'送达状态'**
+  String get filterDeliveryStatus;
+
+  /// No description provided for @deliveryAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get deliveryAll;
+
+  /// No description provided for @deliverySuccessOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅成功'**
+  String get deliverySuccessOnly;
+
+  /// No description provided for @deliveryFailedOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅失败'**
+  String get deliveryFailedOnly;
+
+  /// No description provided for @filterApply.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用筛选'**
+  String get filterApply;
+
+  /// No description provided for @filterReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置'**
+  String get filterReset;
+
+  /// No description provided for @loadMoreHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'上拉加载更多'**
+  String get loadMoreHint;
+
   /// No description provided for @noRecords.
   ///
   /// In zh, this message translates to:
@@ -1087,6 +1201,84 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'测试并保存'**
   String get testAndSave;
+
+  /// No description provided for @turnOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启'**
+  String get turnOn;
+
+  /// No description provided for @turnOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'停用'**
+  String get turnOff;
+
+  /// No description provided for @fieldRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'必填'**
+  String get fieldRequired;
+
+  /// No description provided for @fillRequiredFields.
+  ///
+  /// In zh, this message translates to:
+  /// **'请填写所有必填项'**
+  String get fillRequiredFields;
+
+  /// No description provided for @channelName.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道名称'**
+  String get channelName;
+
+  /// No description provided for @deleteEmailChannelConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除邮件通道「{name}」吗？'**
+  String deleteEmailChannelConfirm(String name);
+
+  /// No description provided for @autoSavePath.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动保存路径'**
+  String get autoSavePath;
+
+  /// No description provided for @autoSavePathDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日自动归档推送历史 JSON 的保存位置'**
+  String get autoSavePathDesc;
+
+  /// No description provided for @archivePathDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认（应用专属目录）'**
+  String get archivePathDefault;
+
+  /// No description provided for @chooseFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择自定义文件夹'**
+  String get chooseFolder;
+
+  /// No description provided for @resetToDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认路径'**
+  String get resetToDefault;
+
+  /// No description provided for @archivePathUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动保存路径已更新'**
+  String get archivePathUpdated;
+
+  /// No description provided for @archivePathReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'已恢复默认保存路径'**
+  String get archivePathReset;
 
   /// No description provided for @testPassed.
   ///
@@ -2395,6 +2587,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'通知优先级'**
   String get condPriority;
+
+  /// No description provided for @mergeWindowSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并窗口（秒）'**
+  String get mergeWindowSeconds;
+
+  /// No description provided for @mergeWindowHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认 60，同应用通知在此窗口内合并为一条推送'**
+  String get mergeWindowHint;
 
   /// No description provided for @condTimeRange.
   ///

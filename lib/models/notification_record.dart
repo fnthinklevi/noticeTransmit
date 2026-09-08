@@ -34,17 +34,20 @@ class NotificationRecord {
   });
 
   factory NotificationRecord.fromMap(Map<String, dynamic> map) {
+    // 兼容两种来源：内存/导出（camelCase）与 DB rawQuery 行（snake_case）。
+    // 此前 DB 行的 post_time/sub_text 等会静默回退为 0/空串，导致按时间
+    // 筛选与排序失真（P1 历史搜索依赖 postTime，必须双键兼容）。
     return NotificationRecord(
       id: map['id'] as String? ?? '',
       title: map['title'] as String? ?? '',
       content: map['content'] as String? ?? '',
-      subText: map['subText'] as String? ?? '',
-      packageName: map['packageName'] as String? ?? '',
-      appName: map['appName'] as String? ?? '',
+      subText: (map['subText'] ?? map['sub_text']) as String? ?? '',
+      packageName: (map['packageName'] ?? map['package_name']) as String? ?? '',
+      appName: (map['appName'] ?? map['app_name']) as String? ?? '',
       type: map['type'] as String? ?? 'normal',
-      postTime: map['postTime'] as int? ?? 0,
+      postTime: (map['postTime'] ?? map['post_time']) as int? ?? 0,
       time: map['time'] as String? ?? '',
-      deviceName: map['deviceName'] as String? ?? '',
+      deviceName: (map['deviceName'] ?? map['device_name']) as String? ?? '',
       priority: map['priority'] as int? ?? 1,
       channels:
           (map['channels'] as List<dynamic>?)

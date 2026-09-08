@@ -497,6 +497,65 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHint => '搜索标题/内容/应用';
 
   @override
+  String searchResultCount(int n) {
+    return '搜索结果 ($n)';
+  }
+
+  @override
+  String get clearSearchFilter => '清除筛选';
+
+  @override
+  String get filterTitle => '筛选条件';
+
+  @override
+  String get filterTimeAll => '全部时间';
+
+  @override
+  String get filterToday => '今天';
+
+  @override
+  String get filterYesterday => '昨天';
+
+  @override
+  String get filterLast7Days => '最近 7 天';
+
+  @override
+  String get filterLast30Days => '最近 30 天';
+
+  @override
+  String get filterCustomRange => '自定义';
+
+  @override
+  String get filterDateRange => '日期范围';
+
+  @override
+  String get filterAppName => '应用名（含则筛选）';
+
+  @override
+  String get filterPackageName => '包名（含则筛选）';
+
+  @override
+  String get filterDeliveryStatus => '送达状态';
+
+  @override
+  String get deliveryAll => '全部';
+
+  @override
+  String get deliverySuccessOnly => '仅成功';
+
+  @override
+  String get deliveryFailedOnly => '仅失败';
+
+  @override
+  String get filterApply => '应用筛选';
+
+  @override
+  String get filterReset => '重置';
+
+  @override
+  String get loadMoreHint => '上拉加载更多';
+
+  @override
   String get noRecords => '暂无推送记录';
 
   @override
@@ -531,6 +590,47 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get testAndSave => '测试并保存';
+
+  @override
+  String get turnOn => '开启';
+
+  @override
+  String get turnOff => '停用';
+
+  @override
+  String get fieldRequired => '必填';
+
+  @override
+  String get fillRequiredFields => '请填写所有必填项';
+
+  @override
+  String get channelName => '通道名称';
+
+  @override
+  String deleteEmailChannelConfirm(String name) {
+    return '确定删除邮件通道「$name」吗？';
+  }
+
+  @override
+  String get autoSavePath => '自动保存路径';
+
+  @override
+  String get autoSavePathDesc => '每日自动归档推送历史 JSON 的保存位置';
+
+  @override
+  String get archivePathDefault => '默认（应用专属目录）';
+
+  @override
+  String get chooseFolder => '选择自定义文件夹';
+
+  @override
+  String get resetToDefault => '恢复默认路径';
+
+  @override
+  String get archivePathUpdated => '自动保存路径已更新';
+
+  @override
+  String get archivePathReset => '已恢复默认保存路径';
 
   @override
   String get testPassed => '✅ 验证通过';
@@ -1212,6 +1312,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get condPriority => '通知优先级';
+
+  @override
+  String get mergeWindowSeconds => '合并窗口（秒）';
+
+  @override
+  String get mergeWindowHint => '默认 60，同应用通知在此窗口内合并为一条推送';
 
   @override
   String get condTimeRange => '时间范围';
