@@ -42,9 +42,16 @@ class UpdateService {
     }
   }
 
-  void installApk(String filePath) {
-    AppUpdateManager.instance.installApk(filePath);
+  /// 安装已下载的安装包。
+  /// 返回是否成功启动安装；失败时可通过 [lastInstallBlockReason] 获取原因
+  /// （如签名校验不通过、版本降级被拦截），UI 层应展示给用户。
+  Future<bool> installApk(String filePath) async {
+    return AppUpdateManager.instance.installApk(filePath);
   }
+
+  /// 最近一次安装被完整性校验阻止的原因；无则 null
+  String? get lastInstallBlockReason =>
+      AppUpdateManager.instance.lastInstallBlockReason;
 
   void setIgnoredVersion(String version) {
     AppUpdateManager.instance.setIgnoredVersion(version);

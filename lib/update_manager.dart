@@ -59,6 +59,14 @@ class AppUpdateManager {
   int _currentBuild = _fallbackBuild;
   String? _lastError;
 
+  /// 最近一次安装被完整性校验阻止的原因（中英双语文案，来自原生 I18n）。
+  /// 非空表示上次 installApk 因签名/版本校验失败而拒绝安装，UI 层应据此提示用户
+  /// —— 这是最需要告知用户的场景（签名不匹配或版本降级都意味着风险）。
+  String? _lastInstallBlockReason;
+
+  /// 最近一次安装被阻止的原因；无则 null
+  String? get lastInstallBlockReason => _lastInstallBlockReason;
+
   /// 最近一次系统下载器（DownloadManager）任务的 downloadId，安装回退时使用
   String? _lastDownloadId;
 
@@ -718,26 +726,26 @@ class AppUpdateManager {
   /// 即使更新服务器被入侵、镜像被投毒或 CDN 被劫持，非本项目签名密钥
   /// 签署的安装包也会被拒绝安装（攻击者无法伪造他人密钥的签名）。
   /// 校验失败时删除安装包，防止用户后续绕过 App 误装。
-  Future<bool> _verifyApkSignature(String filePath) async {
+  Future<String?> _verifyApkSignature(String filePath) async {
     try {
       final result = await AppChannels.notification.invokeMethod(
         'verifyApkSignature',
         {'filePath': filePath},
       );
-      if (result is Map && result['valid'] == true) return true;
+      if (result is Map && result['valid'] == true) return null;
       final detail = result is Map ? (result['detail']?.toString() ?? '') : '';
-      debugPrint('更新包签名校验未通过: $detail');
+      debugPrint('更新包完整性校验未通过: $detail');
       // 删除被判定不可信的安装包，避免用户绕过 App 后误装
       try {
         final file = File(filePath);
         if (await file.exists()) await file.delete();
         await _clearPendingApkRecord();
       } catch (_) {}
-      return false;
+      return detail.isNotEmpty ? detail : '更新包校验未通过，已阻止安装';
     } catch (e) {
-      debugPrint('签名校验调用失败（按校验不通过处理）: $e');
+      debugPrint('完整性校验调用失败（按校验不通过处理）: $e');
       // 原生校验通道不可用时安全优先：拒绝安装
-      return false;
+      return '无法完成安全性校验，已阻止安装';
     }
   }
 
@@ -750,6 +758,7 @@ class AppUpdateManager {
   }
 
   Future<bool> installApk(String filePath) async {
+    _lastInstallBlockReason = null;
     try {
       if (Platform.isAndroid) {
         final status = await Permission.requestInstallPackages.request();
@@ -757,19 +766,26 @@ class AppUpdateManager {
           openAppSettings();
           return false;
         }
-        // P0 安全加固：本地路径场景在安装前强制校验签名（content uri 场景
+        // P0 安全加固：本地路径场景在安装前强制校验（content uri 场景
         // 由原生 installSystemDownload 内部校验，两条路径均不可绕过）。
         if (filePath.isNotEmpty) {
-          final sigOk = await _verifyApkSignature(filePath);
-          if (!sigOk) return false;
+          final blockReason = await _verifyApkSignature(filePath);
+          if (blockReason != null) {
+            _lastInstallBlockReason = blockReason;
+            return false;
+          }
         }
         // 系统下载器下载的文件：本地路径获取失败时（如 content uri 无法转路径），
-        // 由原生通过系统安装器直接安装（content uri + FLAG_GRANT_READ_URI_PERMISSION）。
+        // 由原生通过系统安装器直接安装（原生侧会先校验暂存副本的签名与版本）。
         if (filePath.isEmpty && _lastDownloadId != null) {
           final ok = await AppChannels.notification.invokeMethod(
             'installSystemDownload',
             {'downloadId': _lastDownloadId},
           );
+          if (ok != true) {
+            // content uri 场景原生仅返回 bool，无法透传详情，用通用文案
+            _lastInstallBlockReason = '更新包校验未通过，已阻止安装';
+          }
           return ok == true;
         }
       }

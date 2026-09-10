@@ -142,6 +142,11 @@ object I18n {
             "Cannot resolve downloaded file for signature verification. Installation blocked."
         else "无法获取下载文件以校验签名，已阻止安装"
 
+    fun updateSigDowngradeBlocked(): String =
+        if (isEn)
+            "The update package is older than the installed version. Downgrade blocked."
+        else "安装包版本低于当前版本，已阻止降级安装"
+
     // ========== 通话状态 → 标题/内容 ==========
     fun callStateTitle(state: String, simInfo: String?): String {
         val label = when (state) {

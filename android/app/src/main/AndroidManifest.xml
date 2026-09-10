@@ -628,6 +628,18 @@
                 android:resource="@xml/push_toggle_widget_wide_info" />
         </receiver>
 
+        <!-- FileProvider：用于安装已通过签名校验的更新包暂存副本（消除校验后被替换的 TOCTOU 窗口）。
+             Android 7.0+ 跨应用传递 file:// 会触发 FileUriExposedException，必须走 content uri 授权 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

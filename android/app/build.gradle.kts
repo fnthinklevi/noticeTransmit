@@ -182,6 +182,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // JVM 单测无 Android 的 org.json 桩可用，引入真实实现供 RuleEngine/WebhookPayloadBuilder 测试
     testImplementation("org.json:json:20240303")
+    // 仪表测试（androidTest）：更新包完整性校验需真实 Context 的正/负例
+    // 版本受项目既有约束限制（androidx.test:runner 被 strictly 1.3.0 锁定），勿随意升级
+    androidTestImplementation("androidx.test.ext:junit:1.1.3")
+    androidTestImplementation("androidx.test:runner:1.3.0")
+    androidTestImplementation("androidx.test:core:1.3.0")
 }
 
 flutter {

@@ -340,11 +340,21 @@ extension _MainPageUpdate on _MainPageState {
             if (mounted) setState(() {});
           },
         )
-        .then((filePath) {
+        .then((filePath) async {
           setState(() => _isDownloading = false);
           if (!mounted) return;
           Navigator.of(context, rootNavigator: true).pop();
-          if (filePath != null) _updateService.installApk(filePath);
+          if (filePath == null) return;
+          final installed = await _updateService.installApk(filePath);
+          if (!mounted || installed) return;
+          // 完整性校验（签名不一致 / 版本降级）失败时必须告知用户，
+          // 而不是让他只看到一句含糊的"安装失败"
+          final reason = _updateService.lastInstallBlockReason;
+          if (reason != null && reason.isNotEmpty) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(reason)));
+          }
         })
         .catchError((e) {
           setState(() => _isDownloading = false);
