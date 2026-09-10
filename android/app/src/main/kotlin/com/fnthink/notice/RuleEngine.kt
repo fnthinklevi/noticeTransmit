@@ -192,7 +192,6 @@ object RuleEngine {
     fun evaluate(rule: JSONObject, info: NotificationInfo): Boolean {
         val conditions = rule.optJSONArray("conditions") ?: return false
         if (conditions.length() == 0) return false
-
         val normTitle = normalize(info.title)
         val normContent = normalize(info.content)
 
@@ -231,7 +230,8 @@ object RuleEngine {
         if (value.isEmpty() && type != "package_name") return false
 
         return when (type) {
-            "package_name" -> info.packageName == value
+            // "*" 表示「任意应用」：用于聚合推送等不区分应用的规则（与 Dart 侧语义一致）
+            "package_name" -> value == "*" || info.packageName == value
             "title_contains" -> normTitle.contains(normalize(value))
             "title_not_contains" -> !normTitle.contains(normalize(value))
             "content_contains" -> normContent.contains(normalize(value))

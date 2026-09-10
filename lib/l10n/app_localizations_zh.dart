@@ -1775,7 +1775,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupSectionDesc =>
-      '将 Webhook/邮件通道（含密钥）、通知规则、短信监听设置、应用过滤与黑白名单关键词加密导出为 .nbackup 文件（AES-256-GCM，口令派生密钥）。不含通知历史。';
+      '把你的所有设置打包成一个文件，换手机或重装后可以一键恢复。\n\n包含：Webhook 和邮件通道（含密钥）、通知规则、短信监听开关、应用筛选和黑白名单关键词。\n不含：已经推送过的通知历史。\n\n文件有密码保护，恢复时需要输入同一个密码，请务必记住。';
 
   @override
   String get restoreSectionTitle => '恢复配置';

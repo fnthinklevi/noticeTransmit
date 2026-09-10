@@ -804,7 +804,7 @@
   "deliveryLogEmpty": "暂无送达日志（可能已过 30 天保留期，或该通知早于送达日志功能启用）",
   "backupRestoreTitle": "备份与恢复",
   "backupSectionTitle": "备份配置",
-  "backupSectionDesc": "将 Webhook/邮件通道（含密钥）、通知规则、短信监听设置、应用过滤与黑白名单关键词加密导出为 .nbackup 文件（AES-256-GCM，口令派生密钥）。不含通知历史。",
+  "backupSectionDesc": "把你的所有设置打包成一个文件，换手机或重装后可以一键恢复。\n\n包含：Webhook 和邮件通道（含密钥）、通知规则、短信监听开关、应用筛选和黑白名单关键词。\n不含：已经推送过的通知历史。\n\n文件有密码保护，恢复时需要输入同一个密码，请务必记住。",
   "restoreSectionTitle": "恢复配置",
   "restoreSectionDesc": "选择 .nbackup 备份文件并输入口令恢复。检测到现有配置时，可选择覆盖或仅导入空缺项。",
   "backupCreate": "生成备份文件",

@@ -1835,7 +1835,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupSectionDesc =>
-      'Encrypt and export Webhook/email channels (with credentials), notification rules, SMS monitoring settings, app filter and keyword lists into a .nbackup file (AES-256-GCM with password-derived key). Push history is not included.';
+      'Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.\n\nIncludes: Webhook and email channels (with credentials), notification rules, SMS monitoring toggle, app filter and keyword lists.\nExcludes: notification history that has already been pushed.\n\nThe file is password-protected — you will need the same password to restore, so keep it safe.';
 
   @override
   String get restoreSectionTitle => 'Restore Configuration';

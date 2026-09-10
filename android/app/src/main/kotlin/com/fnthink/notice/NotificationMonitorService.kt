@@ -405,7 +405,13 @@ class NotificationMonitorService : NotificationListenerService() {
                                 // 由 MergePushManager 合并为一条聚合推送；成员的送达结果
                                 // 到点以 MERGE 伪通道补标（见 MergePushManager 风险标注 3）
                                 webhookSender.sendBroadcast(info)
-                                mergePushManager.append(info, decision.windowMs)
+                                // append 返回「队列超限被移出的最旧组」，需在**锁外**兜底推送。
+                                // 不能在 MergePushManager 内部自行推送：那里处于 @Synchronized
+                                // 临界区且是每条通知的热路径，网络 IO 会长时间占用对象锁
+                                // （阻塞前台通知刷新）并有跨线程死锁风险。
+                                for (overflow in mergePushManager.append(info, decision.windowMs)) {
+                                    flushMergedGroup(overflow)
+                                }
                                 updateForegroundNotification()
                                 Log.d(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
                             }
@@ -542,6 +548,40 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     /**
+     * 推送一个聚合组（**唯一实现**，到点推送与超限兜底共用）。
+     *
+     * ⚠ 两处调用点必须共用本方法：历史上兜底推送曾自己 `WebhookSender(context)` 新建实例
+     * 直接推送，而通道配置只注入到本 Service 持有的实例上（`updateChannelConfigs`），
+     * 新建实例的 `channelConfigs` 恒为空 → **兜底推送从未真正发出**。
+     * 统一走本方法即可保证「通道配置已注入」且行为不分叉。
+     *
+     * ⚠ 必须在**锁外**调用（`MergePushManager` 的 `@Synchronized` 方法内不得触发网络 IO）。
+     *
+     * ⚠ 送达状态必须回传**真实结果**，不能写死 SUCCESS：否则推送失败时成员记录显示
+     * 「已合并推送」，用户以为送达而内容实际丢失（历史缺陷，见 MergePushManager 标注 3）。
+     */
+    private fun flushMergedGroup(group: MergePushManager.MergeGroup) {
+        try {
+            val merged = group.buildMergedInfo()
+            checkDailyReset()
+            // 计数语义（风险标注 4）：按聚合组 +1，而非成员逐条 +N
+            pushCount++
+            webhookSender.sendWebhooksOnly(merged) { result ->
+                mergePushManager.markMembersDelivered(group, result)
+                if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
+                    Log.d(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
+                } else {
+                    Log.w(TAG, "Merged push FAILED: ${group.key} status=${result.status} msg=${result.message}")
+                }
+            }
+            dispatchEmail(merged)
+            updateForegroundNotification()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error flushing merged group: ${group.key}", e)
+        }
+    }
+
+    /**
      * 注册聚合推送闹钟接收器（P2）：到点取出到期聚合组，合并为一条聚合通知
      * 统一推送 webhook + 邮件，并对成员逐条回传 MERGE 伪通道送达结果补标历史。
      */
@@ -555,29 +595,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     try {
                         val groups = mergePushManager.drainDue()
                         for (group in groups) {
-                            val merged = group.buildMergedInfo()
-                            webhookSender.sendWebhooksOnly(merged)
-                            dispatchEmail(merged)
-                            checkDailyReset()
-                            // 计数语义（风险标注 4）：按聚合组 +1，而非成员逐条 +N
-                            pushCount++
-                            // 送达映射（风险标注 3）：聚合 HTTP 结果归聚合记录本身，
-                            // 成员记录以 MERGE 伪通道补标 success，避免永远停留"发送中"
-                            for (member in group.items) {
-                                DeliveryNotifier.notify(
-                                    this@NotificationMonitorService,
-                                    member.id,
-                                    "MERGE",
-                                    WebhookResponseParser.ParseResult(
-                                        WebhookResponseParser.DeliveryStatus.SUCCESS,
-                                        0,
-                                        I18n.mergeDeliveredLabel(),
-                                        false
-                                    )
-                                )
-                            }
-                            updateForegroundNotification()
-                            Log.d(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
+                            flushMergedGroup(group)
                         }
                         // 一次性闹钟：drain 后重排下一条到期聚合组
                         mergePushManager.rescheduleAll()

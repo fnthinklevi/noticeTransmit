@@ -169,6 +169,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   Future<void> _postInit() async {
     try {
+      // P2：冷启动时把当前实际语言同步给原生端（最近任务页应用名 / Webhook 文案 / 桌面图标别名）。
+      // 此前只在"用户手动切换语言"时才调用 setLocaleLabel，system 模式下 flutter.locale 从未写入，
+      // 原生端只能退回默认 "zh"，导致系统语言为英文场景下最近任务页仍显示中文；
+      // 反向地，曾手动切到英文再切回"默认"时，残留的 flutter.locale="en" 会让中文系统显示英文名。
+      // 这里在冷启动即按 LocaleService.currentLocale 校正一次，确保原生端与界面语言一致。
+      _syncNativeLocaleOnStartup();
+
       await _checkPermissions();
       _getDeviceInfo();
       _refreshBatteryStatus();
@@ -199,6 +206,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _checkUpdateOnStartup();
     } catch (e) {
       debugPrint('页面初始化失败: $e');
+    }
+  }
+
+  /// P2：把当前语言同步到原生端（幂等）。
+  /// system 模式按当前系统语言解析，与 LocaleService.currentLocale 的语义保持一致。
+  void _syncNativeLocaleOnStartup() {
+    try {
+      final localeService = GetIt.instance<LocaleService>();
+      final locale = localeService.currentLocale;
+      AppChannels.notification.invokeMethod(
+        'setLocaleLabel',
+        locale.languageCode,
+      );
+    } catch (e) {
+      debugPrint('同步原生语言失败: $e');
     }
   }
 

@@ -59,14 +59,69 @@ class WebhookSender(private val context: Context) {
      * 记录已在通知到达时通过 sendBroadcast 立即写入历史。
      *
      * @param force 强制发送：为 true 时忽略"推送暂停"开关（历史记录"现在推送"手动补推）
+     * @param onAllComplete 全部通道发送结束后的汇总回调（含单通道/无通道两种短路情形）。
+     *   供聚合推送（[MergePushManager]）把**真实结果**回传给每个成员记录使用——
+     *   该链路只有一条聚合 HTTP 结果，无法逐成员映射，必须靠本回调拿到结果，
+     *   否则成员记录的送达状态只能写死成功（历史缺陷，见 MergePushManager 头注释 3）。
      */
-    fun sendWebhooksOnly(info: NotificationInfo, force: Boolean = false) {
-        if (channelConfigs.isEmpty()) return
+    fun sendWebhooksOnly(
+        info: NotificationInfo,
+        force: Boolean = false,
+        onAllComplete: ((WebhookResponseParser.ParseResult) -> Unit)? = null
+    ) {
+        if (channelConfigs.isEmpty()) {
+            onAllComplete?.invoke(noChannelResult())
+            return
+        }
 
+        // 单通道（最常见）直接透传，不做计数包装
+        if (channelConfigs.size == 1) {
+            sendToSingleUrl(channelConfigs[0], info, force, onAllComplete)
+            return
+        }
+
+        // 多通道：等全部通道回结果后按「最差优先」汇总（任一失败即失败）——
+        // 宁可多报一次失败，也不要让失败被某个成功通道掩盖。
+        val total = channelConfigs.size
+        val results = java.util.Collections.synchronizedList(
+            ArrayList<WebhookResponseParser.ParseResult>(total)
+        )
+        var delivered = 0
+        val lock = Any()
         for (cfg in channelConfigs) {
-            sendToSingleUrl(cfg, info, force)
+            sendToSingleUrl(cfg, info, force) { result ->
+                results.add(result)
+                val done = synchronized(lock) {
+                    delivered++
+                    delivered == total
+                }
+                if (done) {
+                    // 锁内只做判定，回调在锁外执行，避免回调里再进网络层造成死锁
+                    val worst = results.maxByOrNull { severity(it.status) } ?: noChannelResult()
+                    onAllComplete?.invoke(worst)
+                }
+            }
         }
     }
+
+    /** 无可用通道时的结果（不是成功，避免误标"已送达"） */
+    private fun noChannelResult() = WebhookResponseParser.ParseResult(
+        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+        0,
+        "未配置 Webhook 通道",
+        false
+    )
+
+    /** 结果严重度排序：数值越大越严重，「最差优先」汇总时取最大者 */
+    private fun severity(status: WebhookResponseParser.DeliveryStatus): Int =
+        when (status) {
+            WebhookResponseParser.DeliveryStatus.SUCCESS -> 0
+            WebhookResponseParser.DeliveryStatus.PAUSED -> 1
+            WebhookResponseParser.DeliveryStatus.BIZ_FAIL -> 2
+            WebhookResponseParser.DeliveryStatus.HTTP_FAIL -> 3
+            WebhookResponseParser.DeliveryStatus.RATE_LIMITED -> 4
+            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL -> 5
+        }
 
     fun sendBroadcast(info: NotificationInfo) {
         try {
@@ -105,22 +160,20 @@ class WebhookSender(private val context: Context) {
     private fun sendToSingleUrl(
         cfg: ConfigManager.WebhookChannelConfig,
         info: NotificationInfo,
-        force: Boolean = false
+        force: Boolean = false,
+        onResultDone: ((WebhookResponseParser.ParseResult) -> Unit)? = null
     ) {
         // Telegram 必须携带 chat_id（一般来自 URL query）。缺失时提前失败并给出明确原因，
         // 避免发出必然 400 的请求再被记为送达失败。
         val chatId = WebhookPayloadBuilder.extractChatIdFromUrl(cfg.url)
         if (cfg.type == WebhookPayloadBuilder.WebhookType.TELEGRAM && chatId.isEmpty()) {
             Log.e(TAG, "Telegram URL missing chat_id, skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
-            notifyDeliveryResult(
-                info.id,
-                cfg.type,
-                WebhookResponseParser.ParseResult(
-                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
-                    0, "Telegram 链接缺少 chat_id 参数", false
-                ),
-                cfg.url
+            val earlyFail = WebhookResponseParser.ParseResult(
+                WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                0, "Telegram 链接缺少 chat_id 参数", false
             )
+            notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+            onResultDone?.invoke(earlyFail)
             return
         }
 
@@ -143,6 +196,7 @@ class WebhookSender(private val context: Context) {
                 onResult = { result ->
                     Log.d(TAG, "Delivery(ServerChan): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                    onResultDone?.invoke(result)
                 }
             )
             return
@@ -152,15 +206,12 @@ class WebhookSender(private val context: Context) {
         val pushPlusToken = WebhookPayloadBuilder.extractTokenFromUrl(cfg.url)
         if (cfg.type == WebhookPayloadBuilder.WebhookType.PUSH_PLUS && pushPlusToken.isEmpty()) {
             Log.e(TAG, "PushPlus URL missing token, skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
-            notifyDeliveryResult(
-                info.id,
-                cfg.type,
-                WebhookResponseParser.ParseResult(
-                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
-                    0, "PushPlus 链接缺少 token 参数", false
-                ),
-                cfg.url
+            val earlyFail = WebhookResponseParser.ParseResult(
+                WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                0, "PushPlus 链接缺少 token 参数", false
             )
+            notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+            onResultDone?.invoke(earlyFail)
             return
         }
         if (cfg.type == WebhookPayloadBuilder.WebhookType.PUSH_PLUS) {
@@ -181,6 +232,7 @@ class WebhookSender(private val context: Context) {
                 onResult = { result ->
                     Log.d(TAG, "Delivery(PushPlus): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                    onResultDone?.invoke(result)
                 }
             )
             return
@@ -218,6 +270,7 @@ class WebhookSender(private val context: Context) {
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                    onResultDone?.invoke(result)
                 }
             )
             return
@@ -243,6 +296,7 @@ class WebhookSender(private val context: Context) {
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                    onResultDone?.invoke(result)
                 }
             )
             return
@@ -272,6 +326,7 @@ class WebhookSender(private val context: Context) {
                 Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                 // 送达结果回传 Flutter 后由 updateDelivery 统一写入 webhook_delivery_log（DB v5）
                 notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                    onResultDone?.invoke(result)
             }
         )
     }

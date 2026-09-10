@@ -63,7 +63,8 @@ class FilterService {
       } else {
         switch (condition.type) {
           case ConditionType.packageName:
-            conditionMatch = packageName == value;
+            // "*" 表示「任意应用」：用于聚合推送等不区分应用的规则（与原生 RuleEngine 一致）
+            conditionMatch = value == '*' || packageName == value;
             break;
           case ConditionType.titleContains:
             conditionMatch = FilterService.normalizeForMatch(
@@ -251,6 +252,31 @@ class FilterService {
     }
 
     _notificationRules = _loadNotificationRules(prefs);
+    await _ensureDefaultRulesActive(prefs);
+  }
+
+  /// 保证预制规则（含通知聚合）真正在原生生效。
+  ///
+  /// 背景：`_loadNotificationRules` 在本地无 `notification_rules` 时只是**内存中**返回
+  /// `defaultRules()`，既不落盘也不调用 `setNotificationRules` → 原生 RuleEngine 拿到空
+  /// 规则表，预制规则（如「应用通知聚合」）形同不存在，全部通知走 Push。
+  ///
+  /// 两种补齐场景：
+  /// 1. **首次启动**：本地无键 → 落盘全量默认规则并下发给原生；
+  /// 2. **老用户升级**：本地已有规则表，但缺少本次新增的预制规则 id →
+  ///    仅补齐缺失项后下发（按 id 去重，**不覆盖**用户已存在/已手动关闭的同 id 规则）。
+  Future<void> _ensureDefaultRulesActive(SharedPreferences prefs) async {
+    final saved = prefs.getString('notification_rules');
+    if (saved == null || saved.isEmpty) {
+      // 场景 1：首次启动，全量落盘 + 下发
+      await saveNotificationRules(NotificationRule.defaultRules());
+      return;
+    }
+    // 场景 2：老用户升级补齐（只在确有缺失时才写盘，避免每次启动都产生写操作）
+    final missing = NotificationRule.missingDefaults(_notificationRules);
+    if (missing.isNotEmpty) {
+      await saveNotificationRules([..._notificationRules, ...missing]);
+    }
   }
 
   Future<void> saveAppFilter(String mode, List<String> packages) async {

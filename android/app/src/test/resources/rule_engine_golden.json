@@ -1,5 +1,5 @@
 {
-  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。",
+  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。另含 package_name 通配 \"*\" 用例（v1.5.67 起双端支持，用于预制聚合规则的作用域）。 v1.5.67 追加 priority p>=3 边界用例：原有用例只覆盖 priority ∈ {0,1,2}，恰好绕过 medium/low 的区间上界（Dart 用 1<=p<2、Kotlin 用 p==1，两者在 p>=2 上必须同时为 false）。若任一端改成区间重叠写法，本组用例立即分叉报警。",
   "cases": [
     {
       "name": "title_contains 半角精确命中",
@@ -913,6 +913,293 @@
         "title": "anything",
         "content": "anything",
         "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "package_name 通配 * 命中任意应用",
+      "rule": {
+        "id": "rw1",
+        "name": "t",
+        "enabled": true,
+        "priority": 10,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.example.whatever",
+        "title": "x",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "package_name 通配 * 对空包名同样命中",
+      "rule": {
+        "id": "rw2",
+        "name": "t",
+        "enabled": true,
+        "priority": 10,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "",
+        "title": "x",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "package_name 非通配仍为精确匹配（前缀相同不命中）",
+      "rule": {
+        "id": "rw3",
+        "name": "t",
+        "enabled": true,
+        "priority": 10,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "com.a",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.ab",
+        "title": "x",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "package_name 通配 * 与 title_contains 组合（AND）",
+      "rule": {
+        "id": "rw4",
+        "name": "t",
+        "enabled": true,
+        "priority": 10,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "title_contains",
+            "value": "警报",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.b",
+        "title": "系统警报",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "package_name 通配 * 与 title_contains 组合（AND，标题不命中则整体不命中）",
+      "rule": {
+        "id": "rw5",
+        "name": "t",
+        "enabled": true,
+        "priority": 10,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          },
+          {
+            "id": "c2",
+            "type": "title_contains",
+            "value": "警报",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.b",
+        "title": "普通消息",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "priority high 命中 p3（高优先级上界之外仍命中）",
+      "rule": {
+        "id": "rp",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "high",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 3
+      },
+      "expected": true
+    },
+    {
+      "name": "priority high 命中 p4",
+      "rule": {
+        "id": "rp",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "high",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 4
+      },
+      "expected": true
+    },
+    {
+      "name": "priority medium 不命中 p3（medium 仅覆盖 p1 区间）",
+      "rule": {
+        "id": "rp",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "medium",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 3
+      },
+      "expected": false
+    },
+    {
+      "name": "priority low 不命中 p3（low 仅覆盖 p<1）",
+      "rule": {
+        "id": "rp",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "low",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 3
+      },
+      "expected": false
+    },
+    {
+      "name": "priority medium 不命中 p2",
+      "rule": {
+        "id": "rp",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "medium",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 2
+      },
+      "expected": false
+    },
+    {
+      "name": "priority low 不命中 p2",
+      "rule": {
+        "id": "rp",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "priority",
+            "value": "low",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 2
       },
       "expected": false
     }

@@ -6,12 +6,29 @@ import com.fnthink.notice.MainActivity
 import com.fnthink.notice.NotificationMonitorService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * 历史与统计域：清除通知记录、当日计数同步、离线缓存与送达结果补偿拉取、
  * 「现在推送」手动补推、应用列表缓存（应用过滤/规则条件的数据支撑）与包名反查。
  */
 internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(activity) {
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** 切回主线程回传结果（MethodChannel.Result 必须在平台线程调用） */
+    private fun postSuccess(result: MethodChannel.Result, value: Any?) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            try {
+                result.success(value)
+            } catch (_: Exception) {
+                // Activity 已销毁时忽略
+            }
+        }
+    }
+
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "clearNotificationRecords" -> {
@@ -49,9 +66,27 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
                 result.success(true)
             }
             "getInstalledApps" -> {
-                val apps = activity.getInstalledApps()
-                activity.saveInstalledAppsCache(apps)
-                result.success(apps)
+                // P3：全量扫描在 IO 线程执行（300+ 应用时 getApplicationLabel 累计可达 2 秒，
+                // 放 UI 线程会直接冻结界面，表现为进入应用筛选页明显卡顿）。
+                // result.success 由 postSuccess 切回主线程调用，满足 MethodChannel 线程约束。
+                val force = call.argument<Boolean>("force") ?: false
+                ioScope.launch {
+                    // 非强制刷新且缓存新鲜（24h 内）时直接复用缓存，避免每次进页面都全量扫描
+                    if (!force && activity.isInstalledAppsCacheFresh()) {
+                        val cached = activity.getCachedInstalledApps()
+                        if (cached.isNotEmpty()) {
+                            postSuccess(result, cached)
+                            return@launch
+                        }
+                    }
+                    val apps = try {
+                        activity.getInstalledApps()
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                    if (apps.isNotEmpty()) activity.saveInstalledAppsCache(apps)
+                    postSuccess(result, apps)
+                }
             }
             "getCachedInstalledApps" -> {
                 result.success(activity.getCachedInstalledApps())

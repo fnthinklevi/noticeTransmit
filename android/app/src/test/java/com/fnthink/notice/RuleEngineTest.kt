@@ -2,6 +2,7 @@ package com.fnthink.notice
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -53,7 +54,9 @@ class RuleEngineTest {
     @Test
     fun goldenCases_matchFlutterFilterService() {
         val cases = loadCases()
-        assertEquals("黄金用例数为双端同步的硬约定", 34, cases.size)
+        // 不写死用例数：数量是「随需要扩充」的，写死会让每次新增用例都要改断言，
+        // 并且拦不住真正要防的风险（两份 fixture 不同步）。改为下限 + 双份一致性校验。
+        assertTrue("黄金用例数异常偏少（疑似 fixture 读取失败）", cases.size >= 39)
         for (c in cases) {
             assertEquals(
                 "case: ${c.name}",
@@ -61,6 +64,43 @@ class RuleEngineTest {
                 RuleEngine.evaluate(c.rule, info(c.notification)),
             )
         }
+    }
+
+    /**
+     * 双份 fixture 必须逐字节一致。
+     *
+     * `test/fixtures/rule_engine_golden.json`（Flutter 侧读取）与
+     * `android/app/src/test/resources/rule_engine_golden.json`（本侧读取）是同步副本，
+     * 只改一份会让两端跑在不同用例集上——「双端对齐」的保护就失效了，
+     * 而且两边都显示通过，属最难发现的假保护。
+     */
+    @Test
+    fun goldenFixtureCopiesAreIdentical() {
+        val androidCopy = javaClass.getResourceAsStream("/rule_engine_golden.json")
+            ?.bufferedReader()?.use { it.readText() }
+            ?: error("缺少测试资源 rule_engine_golden.json")
+
+        // Gradle 的测试工作目录随 AGP/启动方式变化（android/app、android/ 或仓库根），
+        // 逐个探测而不是猜一个路径——猜错会让本用例变成"断言未执行"的假保护。
+        val candidates = listOf(
+            "../test/fixtures/rule_engine_golden.json",      // cwd = android/
+            "test/fixtures/rule_engine_golden.json",         // cwd = 仓库根
+            "../../test/fixtures/rule_engine_golden.json",   // cwd = android/app/
+        )
+        val flutterFixture = candidates
+            .map { java.io.File(it) }
+            .firstOrNull { it.exists() }
+            ?: error(
+                "找不到 Flutter 侧 fixture（探测过 ${candidates.joinToString()}），" +
+                    "cwd=${java.io.File(".").absolutePath}"
+            )
+
+        assertEquals(
+            "两份 rule_engine_golden.json 不一致，必须同步修改（Flutter 侧读 test/fixtures/，" +
+                "原生侧读 src/test/resources/）",
+            flutterFixture.readText(),
+            androidCopy
+        )
     }
 
     // ========== P2 merge（聚合推送）决策测试 ==========

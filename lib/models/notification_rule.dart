@@ -249,11 +249,32 @@ class RuleAction {
 
   RuleAction({required this.id, required this.type, this.params = const {}});
 
+  /// 反序列化（含 `params`）。
+  ///
+  /// ⚠ `params` 的 cast 必须宽松，否则**整条规则解析抛 TypeError**：
+  /// `jsonDecode` 产生的是 `_Map<String, dynamic>`，它同时满足
+  /// `is Map<String, dynamic>` 与 `is Map<dynamic, dynamic>`，所以
+  /// `map['params'] as Map<String, dynamic>?` 在**落盘读取**路径上是安全的；
+  /// 但 `Map<dynamic, dynamic>`（`_Map<dynamic, dynamic>`）**不是**
+  /// `Map<String, dynamic>` 的子类型，直接 cast 会抛：
+  ///   `type '_Map<dynamic, dynamic>' is not a subtype of type 'Map<String, dynamic>?'`
+  /// 而这些字面量来自 `NotificationRule.toMap()` 产生的
+  /// `Map<String, Map<dynamic, dynamic>>`（`defaultRules()` 里
+  /// `params: {'windowSeconds': 60}` 的推断类型）——即**代码内构造规则**的路径。
+  /// 用 `is Map` 判断 + `Map<String, dynamic>.from` 拷贝可同时覆盖两种泛型。
+  ///
+  /// 另注：本方法**不能丢弃 params**——`saveNotificationRules` 用 `toMap()` 落盘，
+  /// 丢字段会让 merge 的 `windowSeconds`、delay 的 `delaySeconds` / `scheduleTime`
+  /// 在用户编辑规则后被静默清空（原生退回默认值）。回归用例见
+  /// `test/models/notification_rule_test.dart` 的「落盘保真」一组。
   factory RuleAction.fromMap(Map<String, dynamic> map) {
+    final rawParams = map['params'];
     return RuleAction(
       id: map['id'] as String? ?? '',
       type: ActionTypeExtension.fromValue(map['type'] as String? ?? 'push'),
-      params: (map['params'] as Map<String, dynamic>?) ?? {},
+      params: rawParams is Map
+          ? Map<String, dynamic>.from(rawParams)
+          : const <String, dynamic>{},
     );
   }
 
@@ -297,6 +318,8 @@ class NotificationRule {
     final conditions = (map['conditions'] as List?) ?? [];
     final actions = (map['actions'] as List?) ?? [];
 
+    // ⚠ description 必须保留：saveNotificationRules 用 toMap() 落盘，
+    // 丢掉它会让用户编辑任意规则后预制规则的说明文案（UI 上直接展示）永久消失。
     return NotificationRule(
       id: map['id'] as String? ?? '',
       name: map['name'] as String? ?? '',
@@ -304,10 +327,10 @@ class NotificationRule {
       enabled: map['enabled'] as bool? ?? true,
       priority: map['priority'] as int? ?? 0,
       conditions: conditions
-          .map((e) => Condition.fromMap(e as Map<String, dynamic>))
+          .map((e) => Condition.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
       actions: actions
-          .map((e) => RuleAction.fromMap(e as Map<String, dynamic>))
+          .map((e) => RuleAction.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
     );
   }
@@ -344,6 +367,11 @@ class NotificationRule {
     );
   }
 
+  /// 预制规则列表（**默认全部开启**）。
+  ///
+  /// ⚠️ 新增/修改后需注意：默认规则必须真正下发给原生才生效——`FilterService.loadSettings`
+  /// 在本地无 `notification_rules` 时会调用 `ensureDefaultRulesPersisted()` 把本列表
+  /// 落盘并推给原生，否则原生 RuleEngine 拿到空规则表，全部走 Push。
   static List<NotificationRule> defaultRules() {
     return [
       NotificationRule(
@@ -367,6 +395,32 @@ class NotificationRule {
           ),
         ],
         actions: [RuleAction(id: 'a1', type: ActionType.push)],
+      ),
+      NotificationRule(
+        id: 'merge_burst',
+        name: '应用通知聚合',
+        description: '同一应用 60 秒内收到的多条通知合并为一条推送，避免连续打扰',
+        enabled: true,
+        // 优先级低于夜间免打扰(200)与验证码(100)：聚合是「降噪」而非「优先」，
+        // 命中优先级更高的规则时按更高优先级规则处理。
+        priority: 10,
+        conditions: [
+          // 聚合规则不筛应用：以「所有应用」为范围。规则引擎要求至少一个条件，
+          // 用 packageName 通配 "*" 表达「任意应用」（见 FilterEngine/RuleEngine 的匹配实现）。
+          Condition(
+            id: 'c1',
+            type: ConditionType.packageName,
+            value: '*',
+            logic: LogicOperator.and,
+          ),
+        ],
+        actions: [
+          RuleAction(
+            id: 'a1',
+            type: ActionType.merge,
+            params: {'windowSeconds': 60},
+          ),
+        ],
       ),
       NotificationRule(
         id: 'marketing_block',
@@ -413,5 +467,18 @@ class NotificationRule {
         actions: [RuleAction(id: 'a1', type: ActionType.silent)],
       ),
     ];
+  }
+
+  /// 需要补充进入既有规则表的预制规则（用于老用户升级补齐）。
+  ///
+  /// 按 [id] 与用户现有规则去重：用户已存在同 id 规则（含被手动关闭的）时不覆盖，
+  /// 尊重用户「关掉它」的明确意图。返回空列表表示无需补充。
+  static List<NotificationRule> missingDefaults(
+    List<NotificationRule> existing,
+  ) {
+    final existingIds = existing.map((r) => r.id).toSet();
+    return defaultRules()
+        .where((r) => !existingIds.contains(r.id))
+        .toList(growable: false);
   }
 }

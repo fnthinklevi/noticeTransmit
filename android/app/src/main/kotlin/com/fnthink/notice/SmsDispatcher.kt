@@ -96,14 +96,30 @@ object SmsDispatcher {
 
         // 监听门控（三条链路汇聚点）：配置每次实时读取，开关秒级生效。
         // 被门控拦截的短信不读取、不推送、不入历史，也不消耗去重指纹。
+        //
+        // ⚠ 必须走 SmsMonitorGate.shouldProcessSms 统一闸门（而非在此逐条内联判断）：
+        // 该纯函数被 SmsMonitorGateTest 覆盖，内联判断会让「测试通过但真实路径未受保护」
+        // —— 改动内联逻辑时测试不会报警。
+        //
+        // 验证码闸门需要先解析出 code，故此处只做「总开关 + 卡槽」两段；
+        // 验证码段在下方 extractCode 之后调用 allowCode（同属 SmsMonitorGate）。
         val configManager = ConfigManager(context)
-        if (!configManager.getSmsMonitorEnabled()) {
-            Log.d(TAG, "[$source] 短信监听已关闭，忽略")
-            return false
-        }
+        val smsMonitorEnabled = configManager.getSmsMonitorEnabled()
         val filterSlot = configManager.getSmsSimFilterSlot()
-        if (!SmsMonitorGate.allowSim(filterSlot, simInfo?.slotIndex)) {
-            Log.d(TAG, "[$source] 短信来自未监听的卡(slot=${simInfo?.slotIndex})，忽略")
+        if (!SmsMonitorGate.shouldProcessSms(
+                smsMonitorEnabled = smsMonitorEnabled,
+                filterSlot = filterSlot,
+                simSlot = simInfo?.slotIndex,
+                // 验证码开关与本次提取结果在下方单独判定，此处不参与
+                codeMonitorEnabled = true,
+                extractedCode = null
+            )
+        ) {
+            if (!smsMonitorEnabled) {
+                Log.d(TAG, "[$source] 短信监听已关闭，忽略")
+            } else {
+                Log.d(TAG, "[$source] 短信来自未监听的卡(slot=${simInfo?.slotIndex})，忽略")
+            }
             return false
         }
         val simLabel = simInfo?.displayLabel

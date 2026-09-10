@@ -799,7 +799,7 @@
   "deliveryLogEmpty": "No delivery log yet (older than the 30-day retention, or this notification predates the feature)",
   "backupRestoreTitle": "Backup & Restore",
   "backupSectionTitle": "Backup Configuration",
-  "backupSectionDesc": "Encrypt and export Webhook/email channels (with credentials), notification rules, SMS monitoring settings, app filter and keyword lists into a .nbackup file (AES-256-GCM with password-derived key). Push history is not included.",
+  "backupSectionDesc": "Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.\n\nIncludes: Webhook and email channels (with credentials), notification rules, SMS monitoring toggle, app filter and keyword lists.\nExcludes: notification history that has already been pushed.\n\nThe file is password-protected — you will need the same password to restore, so keep it safe.",
   "restoreSectionTitle": "Restore Configuration",
   "restoreSectionDesc": "Pick a .nbackup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.",
   "backupCreate": "Create Backup File",

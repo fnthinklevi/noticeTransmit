@@ -197,6 +197,7 @@ class _AppFilterPageState extends State<AppFilterPage>
 
   /// 后台静默刷新：进入页面（已授权）时自动执行一次，读取全量应用列表并
   /// 动态更新与缓存的差异部分（原生端同时更新缓存）。失败时保留已展示的缓存。
+  /// 不传 force：原生端在缓存新鲜时会直接复用缓存，避免每次进页面都全量扫描。
   Future<void> _refreshAppsSilently() async {
     if (_refreshing) return;
     _refreshing = true;
@@ -222,8 +223,10 @@ class _AppFilterPageState extends State<AppFilterPage>
     setState(() => _refreshing = true);
 
     try {
+      // 用户主动下拉刷新 → force=true 绕过缓存，强制重新扫描已安装应用
       final List<dynamic> result = await _channel.invokeMethod(
         'getInstalledApps',
+        {'force': true},
       );
       final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
 

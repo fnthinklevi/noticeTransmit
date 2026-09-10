@@ -308,17 +308,22 @@ class NotificationService {
                   k: {'status': 'intercepted', 'message': message},
               };
       } else if (kotlinType == 'MERGE') {
-        // 聚合伪通道（P2 merge 动作）：成员被合并推送后由原生逐条回传 SUCCESS，
-        // 把记录所有真实通道置为 success（"已合并推送"）——成员在窗口期内停留
-        // pending，到点批量转终态，避免一直显示"发送中"
+        // 聚合伪通道（P2 merge 动作）：成员被合并推送后由原生逐条回传聚合推送的
+        // **真实结果**，把记录所有真实通道置为对应终态——成员在窗口期内停留
+        // pending，到点批量转终态，避免一直显示"发送中"。
+        //
+        // ⚠ 必须按 normalized（而非写死 success）映射：聚合推送失败时若标成
+        // success("已合并推送")，用户会以为内容已送达，而实际丢了——
+        // 这类"假成功"比报失败危险得多（原生侧已改为回传真实结果，见
+        // MergePushManager.markMembersDelivered）。
         final existing = _records[idx].deliveryStatus;
         updated = existing.isEmpty
             ? <String, dynamic>{
-                label: {'status': 'success', 'message': message},
+                label: {'status': normalized, 'message': message},
               }
             : <String, dynamic>{
                 for (final k in existing.keys)
-                  k: {'status': 'success', 'message': message},
+                  k: {'status': normalized, 'message': message},
               };
       } else {
         updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);

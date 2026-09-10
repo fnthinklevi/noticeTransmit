@@ -35,12 +35,16 @@ import java.util.Locale
  *    聚合记录 id 不同，不会互相覆盖；但若窗口秒数与开窗时刻完全一致（重启后 SP 残留 +
  *    恰好同毫秒开窗，概率极低）才会触发 HistoryCache/DB 主键替换——可接受的幂等行为。
  *
- * 3. **送达回传按单条 id 运作**：聚合推送只有一条 HTTP 结果，无法映射回每个成员的
+ * 3. **送达回传按单条 id 运作**：聚合推送只有一条 HTTP 结果，无法逐成员映射回
  *    webhook_delivery_log。方案：聚合推送完成后对每个成员以 MERGE 伪通道
- *    （DeliveryNotifier.notify(type="MERGE", SUCCESS)）逐条回传，Flutter 端
- *    updateDelivery 把成员记录的全部真实通道置为 success("已合并推送")；
- *    聚合汇总记录自身的真实通道状态由聚合推送的 HTTP 结果正常回传。
- *    ⚠ 成员记录在窗口期内历史页会显示"发送中"（pending），到点批量转 success——
+ *    （DeliveryNotifier.notify(type="MERGE", …)）逐条回传，Flutter 端 updateDelivery
+ *    把成员记录的全部真实通道置为终态。
+ *    ⚠⚠ 必须回传**聚合推送的真实结果**，不能无条件 SUCCESS：
+ *    历史缺陷是无论 webhook 是否成功都把成员标成 success("已合并推送")，
+ *    于是推送失败时用户在历史里看到的是"已合并推送"——**内容丢失且无任何提示**。
+ *    现改为按聚合 HTTP 结果回传（成功→success、失败→failed），
+ *    Flutter 端 MERGE 分支按真实 status 映射。
+ *    ⚠ 成员记录在窗口期内历史页会显示"发送中"（pending），到点批量转终态——
  *    窗口设置过长（>10 分钟）时用户会长时间看到"发送中"，属预期行为。
  *
  * 4. **计数语义变化**：pushCount / WidgetDailyCounter 在聚合组推送时 +1（按组计），
@@ -119,13 +123,29 @@ class MergePushManager(private val context: Context) {
     /**
      * 追加一条通知进聚合组：同应用已有活跃组 → 追加（窗口结束点不变）；
      * 无 → 开启新窗口。写入后调度最近的到期闹钟。
+     *
+     * ⚠ **本方法全程不执行任何网络 IO**（锁内不做推送）。历史上队列超限时在此直接
+     * 触发兜底推送，把网络请求放进了 `@Synchronized` 临界区——而 `append` 处于
+     * **每条命中 merge 规则的通知都会经过的热路径**上，后果是：
+     * 1. 对象锁被网络 IO 长时间占用 → `drainDue` / `activeGroups` / `rescheduleAll`
+     *    （前台通知 InboxStyle 刷新用）全部阻塞等待，前台通知刷新卡顿；
+     * 2. 网络回调会链路到 `DeliveryNotifier.notify` → 发广播，若接收方同步回调进
+     *    本类其他 `@Synchronized` 方法，形成跨线程等待死锁。
+     *
+     * 现改为「锁内取快照，锁外推送」：超限组在此只从队列移除并放入返回值，
+     * 由调用方（`NotificationMonitorService`，持有共享且已配置通道的 `webhookSender`）
+     * 在锁外执行兜底推送。与 `DelayedPushManager` 的既有约定一致——管理器只负责
+     * 队列与闹钟，推送交给 Service 执行。
+     *
+     * @return 需要立即兜底推送的聚合组（队列超限时移出的最旧组）；无则空列表
      */
     @Synchronized
-    fun append(info: NotificationInfo, windowMs: Long) {
+    fun append(info: NotificationInfo, windowMs: Long): List<MergeGroup> {
         val queue = readQueue()
         val now = System.currentTimeMillis()
         val key = info.packageName
         val existing = queue.firstOrNull { it.optString("key", "") == key }
+        val overflowed = ArrayList<MergeGroup>(1)
         if (existing != null) {
             // ⚠ 追加语义：窗口结束点不延长（固定窗口）。成员异常时 items 仍有
             // MAX_ITEMS_PER_GROUP 上限防 SP 无限膨胀（超限丢弃最旧的成员行）。
@@ -149,18 +169,20 @@ class MergePushManager(private val context: Context) {
                 put("items", JSONArray().put(info.toJson()))
             }
             queue.add(group)
-            // 组数上限：超出时把 windowEnd 最早的组立即降级为直接推送（防止丢通知）
+            // 组数上限：超出时把 windowEnd 最早的组移出队列，**交由调用方在锁外**立即推送
+            // （防止 SP 无界增长；不能直接丢弃——聚合组里是尚未推送的通知）
             if (queue.size > MAX_GROUPS) {
                 val oldest = queue.minByOrNull { it.optLong("windowEnd", Long.MAX_VALUE) }
                 if (oldest != null) {
                     queue.remove(oldest)
-                    forceFlush(oldest)
+                    groupFromJson(oldest)?.let { overflowed.add(it) }
                 }
             }
             Log.d(TAG, "聚合开窗: ${info.packageName}, 窗口至 $windowEnd")
         }
         writeQueue(queue)
         scheduleNext()
+        return overflowed
     }
 
     /** 取出全部已到期的聚合组；返回空列表表示无可推送组 */
@@ -202,29 +224,34 @@ class MergePushManager(private val context: Context) {
         cancelAlarm()
     }
 
-    /** 组数超限时兜底：立即以普通推送送出整组（不进闹钟，防止 SP 挤压丢通知） */
-    private fun forceFlush(groupJson: JSONObject) {
-        try {
-            val group = groupFromJson(groupJson) ?: return
-            val merged = group.buildMergedInfo()
-            WebhookSender(context).sendWebhooksOnly(merged)
-            for (member in group.items) {
-                DeliveryNotifier.notify(
-                    context,
-                    member.id,
-                    "MERGE",
-                    WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.SUCCESS,
-                        0,
-                        I18n.mergeDeliveredLabel(),
-                        false
-                    )
-                )
-            }
-            Log.d(TAG, "聚合组超限兜底推送: ${group.key} (${group.items.size} 条)")
-        } catch (e: Exception) {
-            Log.e(TAG, "聚合组兜底推送失败", e)
+    /**
+     * 把聚合推送的送达结果按 MERGE 伪通道逐成员回传。
+     *
+     * 成功时把消息文案换成 [I18n.mergeDeliveredLabel]（"已合并推送"）——用户需要知道
+     * 这条内容不是单独发的、而是聚合推送的一部分；失败时保留原生失败原因，
+     * 否则用户看到"失败"却不知为何失败。
+     *
+     * 多通道时 [WebhookSender.sendWebhooksOnly] 已按「最差优先」汇总（任一通道失败即失败）——
+     * 宁可多报一次失败，也不要让失败被某个成功通道掩盖、静默成"已合并推送"。
+     */
+    fun markMembersDelivered(
+        group: MergeGroup,
+        result: WebhookResponseParser.ParseResult
+    ) {
+        val success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS
+        val forwarded = if (success) {
+            result.copy(message = I18n.mergeDeliveredLabel())
+        } else {
+            result
         }
+        for (member in group.items) {
+            DeliveryNotifier.notify(context, member.id, "MERGE", forwarded)
+        }
+        Log.d(
+            TAG,
+            "聚合组送达回传: ${group.key} (${group.items.size} 条) → " +
+                if (success) "success" else "failed(${result.status})"
+        )
     }
 
     private fun groupFromJson(json: JSONObject): MergeGroup? {

@@ -68,6 +68,9 @@ class MainActivity : FlutterActivity() {
 
         // 推送历史自动归档目录（SAF treeUri），持久化在 FlutterSharedPreferences
         const val KEY_ARCHIVE_DIR_URI = "archive_dir_uri"
+
+        /** 应用列表缓存有效期（24h）：避免每次进筛选页都全量扫描，见 isInstalledAppsCacheFresh */
+        const val INSTALLED_APPS_CACHE_TTL_MS = 24L * 60 * 60 * 1000
     }
 
     private val channel = "com.fnthink.notice/notification"
@@ -179,6 +182,21 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         // receiver 已在 onCreate() 注册，这里仅回放缓存
         flushCachedNotificationRecords()
+        // P2：每次回到前台自愈一次最近任务页应用名与桌面别名，
+        // 覆盖「后台期间系统语言变化」「flutter.locale 尚未由 Dart 侧写入」等场景。
+        updateAppLabel()
+        switchLocaleAlias()
+    }
+
+    /**
+     * P2：系统语言变化时同步最近任务页应用名与桌面图标别名。
+     * 仅当应用处于“跟随系统语言”提示场景时才会真正改变显示，
+     * 显式选择了中/英文时 flutter.locale 已固定，updateAppLabel 结果不变（幂等）。
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateAppLabel()
+        switchLocaleAlias()
     }
 
     override fun onPause() {
@@ -254,15 +272,33 @@ class MainActivity : FlutterActivity() {
     /**
      * 根据当前语言偏好更新桌面应用名（最近任务）：
      * 中文 → 通知推送助手 | English → NoticeTransmit
+     *
+     * P2 加固：除 cold start 与手动切语言外，也会在 [onResume] 调用。
+     * 原因是最近任务页（Recents）在部分 ROM 上使用 TaskDescription 快照，
+     * 若语言在后台期间发生变化（系统语言跟随模式），仅冷启动更新会残留旧名称。
      */
     internal fun updateAppLabel() {
-        val locale = prefs.getString("flutter.locale", "zh") ?: "zh"
+        val locale = prefs.getString("flutter.locale", defaultLocaleCode()) ?: defaultLocaleCode()
         val label = if (locale == "en") "NoticeTransmit" else "通知推送助手"
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 setTaskDescription(ActivityManager.TaskDescription(label))
             }
         } catch (_: Exception) {}
+    }
+
+    /**
+     * P2：flutter.locale 缺失时的兜底语言。
+     * 不再硬编码 "zh"，而是按系统语言推断，避免「系统英文 + flutter.locale 未写入」时
+     * 最近任务页显示中文名。中文（含 zh-Hans/zh-Hant 等变体）→ zh，其余 → en。
+     */
+    internal fun defaultLocaleCode(): String {
+        return try {
+            val sysLang = resources.configuration.locales.get(0).language
+            if (sysLang.equals("zh", ignoreCase = true)) "zh" else "en"
+        } catch (_: Exception) {
+            "zh"
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -439,6 +475,13 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * 全量扫描已安装应用（包名 / 显示名 / 是否系统应用）。
+     *
+     * ⚠️ **必须在后台线程调用**：`getInstalledApplications` + 逐应用 `getApplicationLabel`
+     * 在 300+ 应用的设备上耗时可达 2 秒，放到 UI 线程会直接卡死界面。
+     * 调用方（[StatsChannelHandler]）已改用 `Dispatchers.IO` 并回主线程回调。
+     */
     internal fun getInstalledApps(): List<Map<String, Any?>> {
         val pm = packageManager
         val apps = pm.getInstalledApplications(0)
@@ -478,6 +521,19 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * 应用列表缓存是否仍然新鲜（默认 24 小时）。
+     *
+     * 应用增删是低频事件，进筛选页时优先复用缓存可避免每次全量扫描（300+ 应用约 2 秒）；
+     * 用户主动下拉刷新时传 `force=true` 绕过本判断。
+     */
+    internal fun isInstalledAppsCacheFresh(): Boolean {
+        val cachedAt = prefs.getLong("flutter.installed_apps_cache_time", 0L)
+        if (cachedAt <= 0L) return false
+        val hasData = !prefs.getString("flutter.installed_apps_cache", null).isNullOrEmpty()
+        return hasData && (System.currentTimeMillis() - cachedAt) < INSTALLED_APPS_CACHE_TTL_MS
+    }
+
     internal fun getCachedInstalledApps(): List<Map<String, Any?>> {
         val json = prefs.getString("flutter.installed_apps_cache", null) ?: return emptyList()
         val list = mutableListOf<Map<String, Any?>>()
@@ -512,6 +568,16 @@ class MainActivity : FlutterActivity() {
      * 查询"读取应用列表"权限状态。必须无副作用：启动时权限检查链路会调用本方法，
      * 国产 ROM（MIUI/澎湃OS 等）把 QUERY_ALL_PACKAGES 定制为运行时开关，
      * 若在这里真实执行 getInstalledApplications 类查询，首次打开 App 就会弹出系统授权框。
+     *
+     * ⚠️ 判断策略（修正 v1.5.66 的国产 ROM 假阳性）：
+     * 部分 ROM（MIUI/HyperOS）在用户关闭"访问应用列表"开关后，AppOps 仍读作
+     * `MODE_DEFAULT`，旧实现据此返回 true → 筛选页误走"有权限"分支 → 直接调
+     * getInstalledApplications → **系统授权框突兀弹出**。
+     * 因此把 `MODE_DEFAULT` 由"通过"改为"未确认"：
+     *  - AOSP 未映射 AppOps（permissionToOp 返回 null / checkOpNoThrow 返回 null）→ 视为已授予；
+     *  - 仅 `MODE_ALLOWED` 才是明确已授予；
+     *  - `MODE_DEFAULT` 时用 [hasQueryAllPackagesEffective] 做一次无副作用探测，
+     *    探测不出则返回 false，让 UI 走"先应用内弹窗说明 → 再跳设置"的正常流程。
      */
     internal fun canQueryAllPackages(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
@@ -525,20 +591,47 @@ class MainActivity : FlutterActivity() {
             false
         }
         if (!declared) return false
-        // 纯 AOSP 未映射 AppOps → 安装时已授予；国产 ROM 的运行时开关通过 op 状态读取
         return try {
             val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
                 ?: return true
             val op = AppOpsManager.permissionToOp(
                 android.Manifest.permission.QUERY_ALL_PACKAGES
             ) ?: return true
-            val mode = appOps.checkOpNoThrow(op, Process.myUid(), packageName)
-            mode == null ||
-                mode == AppOpsManager.MODE_ALLOWED ||
-                mode == AppOpsManager.MODE_DEFAULT
+            when (appOps.checkOpNoThrow(op, Process.myUid(), packageName)) {
+                AppOpsManager.MODE_ALLOWED -> true
+                // MODE_DEFAULT / MODE_ERRORED / 其他：进一步探测，避免国产 ROM 假阳性
+                else -> hasQueryAllPackagesEffective()
+            }
         } catch (e: Exception) {
-            // 检查失败保守放行：实际加载应用列表时由系统决定，筛选页已有兜底引导
-            true
+            // 检查失败保守判为"未授予"：宁可多一次应用内引导，也不要突兀弹系统框
+            false
+        }
+    }
+
+    /**
+     * 无副作用探测"应用列表可见性"是否真正生效。
+     *
+     * 只查询**本应用自身**的包信息——该查询在任何权限状态下都合法、不会触发系统授权框，
+     * 但若 ROM 的开关确实生效，`queryIntentActivities` 对自身包仍可见。
+     * 返回 false 时 UI 会走应用内引导弹窗（先说明后申请），而非直接拉起系统框。
+     */
+    private fun hasQueryAllPackagesEffective(): Boolean {
+        return try {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            intent.setPackage(packageName)
+            val pm = packageManager
+            val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(0L)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(intent, 0)
+            }
+            list.isNotEmpty()
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -1309,7 +1402,7 @@ class MainActivity : FlutterActivity() {
     )
 
     internal fun getAliasKey(icon: String): String {
-        val locale = prefs.getString("flutter.locale", "zh") ?: "zh"
+        val locale = prefs.getString("flutter.locale", defaultLocaleCode()) ?: defaultLocaleCode()
         return "${icon}_${if (locale == "en") "en" else "zh"}"
     }
 

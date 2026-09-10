@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 
@@ -232,7 +234,8 @@ void main() {
     test('defaultRules returns expected rules', () {
       final rules = NotificationRule.defaultRules();
 
-      expect(rules, hasLength(3));
+      // v1.5.67：新增预制「应用通知聚合」规则（默认开启），预制规则共 4 条
+      expect(rules, hasLength(4));
 
       final smsRule = rules.firstWhere((r) => r.id == 'sms_code');
       expect(smsRule.name, '验证码短信优先推送');
@@ -246,6 +249,37 @@ void main() {
       final nightRule = rules.firstWhere((r) => r.id == 'night_dnd');
       expect(nightRule.name, '夜间免打扰');
       expect(nightRule.priority, 200);
+
+      // 预制聚合规则：默认开启，作用域为全部应用（packageName='*'），动作为 merge
+      final mergeRule = rules.firstWhere((r) => r.id == 'merge_burst');
+      expect(mergeRule.enabled, true);
+      expect(mergeRule.actions.first.type, ActionType.merge);
+      expect(mergeRule.actions.first.params['windowSeconds'], 60);
+      expect(mergeRule.conditions, hasLength(1));
+      expect(mergeRule.conditions.first.type, ConditionType.packageName);
+      expect(mergeRule.conditions.first.value, '*');
+      // 聚合是「降噪」而非「优先」，优先级应低于验证码(100)与夜间免打扰(200)
+      expect(mergeRule.priority, lessThan(smsRule.priority));
+    });
+
+    test('missingDefaults 仅补齐缺失 id，尊重用户已关闭的规则', () {
+      // 用户已有 sms_code（手动关闭），且缺少其余预制规则
+      final existing = [
+        NotificationRule(id: 'sms_code', name: '验证码短信优先推送', enabled: false),
+      ];
+      final missing = NotificationRule.missingDefaults(existing);
+      final missingIds = missing.map((r) => r.id).toSet();
+
+      // 不应包含用户已存在的 sms_code（即使是关闭状态）
+      expect(missingIds.contains('sms_code'), false);
+      expect(missingIds.contains('merge_burst'), true);
+      expect(missingIds.contains('marketing_block'), true);
+      expect(missingIds.contains('night_dnd'), true);
+    });
+
+    test('missingDefaults 全部存在时返回空列表', () {
+      final all = NotificationRule.defaultRules();
+      expect(NotificationRule.missingDefaults(all), isEmpty);
     });
 
     test('copyWith creates modified copy', () {
@@ -283,6 +317,140 @@ void main() {
       expect(deserialized.priority, original.priority);
       expect(deserialized.conditions.length, original.conditions.length);
       expect(deserialized.actions.length, original.actions.length);
+    });
+
+    // ---- 落盘保真契约（回归测试）----
+    //
+    // 背景：`saveNotificationRules` 走 `jsonEncode(rules.map(toMap))` 持久化，
+    // 因此 fromMap→toMap 的往返必须**逐字段无损**。历史缺陷：RuleAction.fromMap
+    // 丢弃 params、NotificationRule.fromMap 丢弃 description，后果是用户编辑
+    // 任意规则后 merge 的 windowSeconds、delay 的 delaySeconds 被静默清空
+    // （原生退回默认 60s），预制规则的说明文案在 UI 上消失。
+    // 这类缺陷不会报错、不会崩溃，只能靠本组用例拦住。
+
+    test('落盘保真：description 经 fromMap/toMap 往返不丢失', () {
+      final original = NotificationRule(
+        id: 'r',
+        name: 'n',
+        description: '同一应用 60 秒内收到的多条通知合并为一条推送',
+      );
+
+      final restored = NotificationRule.fromMap(original.toMap());
+
+      expect(restored.description, original.description);
+    });
+
+    test('落盘保真：merge 动作 windowSeconds 往返不丢失', () {
+      final original = NotificationRule(
+        id: 'merge_burst',
+        name: '应用通知聚合',
+        actions: [
+          RuleAction(
+            id: 'a1',
+            type: ActionType.merge,
+            params: {'windowSeconds': 120},
+          ),
+        ],
+      );
+
+      final restored = NotificationRule.fromMap(original.toMap());
+
+      expect(restored.actions.first.type, ActionType.merge);
+      // 关键断言：非默认值 120 必须原样保留（默认值是 60，用默认值做断言会假通过）
+      expect(restored.actions.first.params['windowSeconds'], 120);
+    });
+
+    test('落盘保真：delay 动作 delaySeconds/scheduleTime 往返不丢失', () {
+      final original = NotificationRule(
+        id: 'r',
+        name: 'n',
+        actions: [
+          RuleAction(
+            id: 'a1',
+            type: ActionType.delay,
+            params: {'delaySeconds': 300},
+          ),
+        ],
+      );
+
+      final restored = NotificationRule.fromMap(original.toMap());
+
+      expect(restored.actions.first.params['delaySeconds'], 300);
+
+      final scheduled = RuleAction(
+        id: 'a2',
+        type: ActionType.delay,
+        params: {'scheduleTime': '07:30'},
+      );
+      final restoredSchedule = RuleAction.fromMap(scheduled.toMap());
+      expect(restoredSchedule.params['scheduleTime'], '07:30');
+    });
+
+    test('落盘保真：全部预制规则往返后字段完全一致', () {
+      for (final rule in NotificationRule.defaultRules()) {
+        final restored = NotificationRule.fromMap(
+          jsonDecode(jsonEncode(rule.toMap())) as Map<String, dynamic>,
+        );
+
+        expect(restored.id, rule.id);
+        expect(restored.name, rule.name);
+        expect(
+          restored.description,
+          rule.description,
+          reason: '${rule.id} 说明丢失',
+        );
+        expect(restored.enabled, rule.enabled);
+        expect(restored.priority, rule.priority);
+        expect(restored.conditions.length, rule.conditions.length);
+        expect(restored.actions.length, rule.actions.length);
+        for (var i = 0; i < rule.actions.length; i++) {
+          expect(
+            restored.actions[i].params,
+            rule.actions[i].params,
+            reason: '${rule.id} 动作参数丢失',
+          );
+        }
+      }
+    });
+
+    test('RuleAction.fromMap 容忍 params 缺失、异型 Map 与类型化 Map', () {
+      // params 缺失 → 空表，不抛异常
+      expect(RuleAction.fromMap({'id': 'a', 'type': 'push'}).params, isEmpty);
+
+      // params 为 Map<dynamic, dynamic>（_Map<dynamic, dynamic>）——旧实现会抛
+      // TypeError: type '_Map<dynamic, dynamic>' is not a subtype of type
+      // 'Map<String, dynamic>?'
+      final loose = RuleAction.fromMap({
+        'id': 'a',
+        'type': 'merge',
+        'params': <dynamic, dynamic>{'windowSeconds': 30},
+      });
+      expect(loose.params['windowSeconds'], 30);
+
+      // params 为类型化 Map<String, int> → 可 cast，但 Map.from 拷贝后更安全
+      final typed = RuleAction.fromMap({
+        'id': 'a',
+        'type': 'merge',
+        'params': <String, int>{'windowSeconds': 45},
+      });
+      expect(typed.params['windowSeconds'], 45);
+    });
+
+    test('代码内构造规则经 toMap→fromMap 不抛异常（默认规则的 params 泛型）', () {
+      // 回归：`NotificationRule.toMap()` 返回 Map<String, dynamic>，其中
+      // actions/conditions 是 List<Map<String, dynamic>>、每个 action 的
+      // params 是 Map<String, dynamic>；但 defaultRules() 里写成
+      // `params: {'windowSeconds': 60}` 时，字面量的静态类型经构造器形参
+      // `Map<String, dynamic> params` 收敛，运行时才是 _Map<String, dynamic>。
+      // 真正危险的是**直接对 `defaultRules()` 产物做深拷贝/再解析**的路径。
+      for (final rule in NotificationRule.defaultRules()) {
+        final map = rule.toMap();
+        expect(
+          () => NotificationRule.fromMap(map),
+          returnsNormally,
+          reason: '${rule.id} toMap→fromMap 抛异常',
+        );
+      }
     });
   });
 }
