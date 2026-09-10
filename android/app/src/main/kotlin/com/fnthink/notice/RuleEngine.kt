@@ -88,8 +88,9 @@ object RuleEngine {
             if (!evaluate(rule, info)) continue
             Log.d(
                 TAG,
+                // 隐私：不记录通知标题（可能含验证码/余额等敏感内容）
                 "规则命中: ${rule.optString("name", "")} (${rule.optString("id", "")}) " +
-                    "pkg=${info.packageName} title=${info.title}"
+                    "pkg=${info.packageName}"
             )
             return decideAction(rule, info)
         }
@@ -139,11 +140,11 @@ object RuleEngine {
         // 动作同时配置时的优先级：delay > merge > record（与 Flutter 端首次出现的
         // 有效动作语义一致；delay/merge 都是"延后推送"，delay 定时点更明确故优先）
         if (delayFireAt != null) {
-            Log.d(TAG, "延迟推送 fireAt=${delayFireAt} (${info.title})")
+            Log.d(TAG, "延迟推送 fireAt=${delayFireAt}")
             return Decision.Delay(delayFireAt)
         }
         if (mergeWindowMs != null) {
-            Log.d(TAG, "聚合推送 windowMs=$mergeWindowMs (${info.title})")
+            Log.d(TAG, "聚合推送 windowMs=$mergeWindowMs")
             return Decision.Merge(mergeWindowMs)
         }
         if (recordOnly) return Decision.Record

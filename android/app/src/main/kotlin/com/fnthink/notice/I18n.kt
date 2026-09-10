@@ -147,6 +147,19 @@ object I18n {
             "The update package is older than the installed version. Downgrade blocked."
         else "安装包版本低于当前版本，已阻止降级安装"
 
+    fun updateInstallPermissionNeeded(): String =
+        if (isEn)
+            "Install permission is required. Please enable it in system settings."
+        else "缺少安装权限，请到系统设置中开启"
+
+    fun updateDownloadNotReady(): String =
+        if (isEn) "Download is not finished or no longer available"
+        else "下载未完成或已失效，无法安装"
+
+    fun updateInstallFailed(): String =
+        if (isEn) "Failed to start installation of the update package"
+        else "更新包安装失败"
+
     // ========== 通话状态 → 标题/内容 ==========
     fun callStateTitle(state: String, simInfo: String?): String {
         val label = when (state) {

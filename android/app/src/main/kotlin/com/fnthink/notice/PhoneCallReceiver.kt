@@ -44,7 +44,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
             // 识别出且不属于所选卡的来电直接忽略（含状态机，避免跨卡状态串扰）；
             // 无法识别 SIM 时放行，与短信通知兜底链路同一取舍
             if (!SmsMonitorGate.allowSim(configManager.getSmsSimFilterSlot(), sim?.slotIndex)) {
-                Log.d(TAG, "来电来自未监听的卡(slot=${sim?.slotIndex})，忽略号码: $incomingNumber")
+                // 隐私：不记录来电号码（通讯录级敏感信息）
+                Log.d(TAG, "来电来自未监听的卡(slot=${sim?.slotIndex})，忽略")
                 return
             }
 
@@ -57,7 +58,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
             if (state == lastState && incomingNumber == lastIncomingNumber) return
 
-            Log.d(TAG, "电话状态变化: $stateStr, 号码: $incomingNumber")
+            Log.d(TAG, "电话状态变化: $stateStr")
 
             // 接入统一过滤引擎：来电链路与通知链路共用同一套黑白名单
             // 注意：call 不走应用过滤，仅按关键词过滤；只在响铃阶段过滤，避免多次重复判定
@@ -76,7 +77,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
                     sourceType = "call"
                 )
                 if (!allowed) {
-                    Log.d(TAG, "来电被过滤拦截: $incomingNumber")
+                    Log.d(TAG, "来电被过滤拦截")
                     // 标记状态防止后续 answered/ended 仍触发推送
                     lastIncomingNumber = ""
                     return
@@ -234,7 +235,8 @@ class PhoneCallReceiver : BroadcastReceiver() {
             webhookType = channelConfig.type,
             secret = channelConfig.secret,
             onResult = { result ->
-                Log.d(TAG, "Call delivery: ${channelConfig.url.take(40)} → status=${result.status}")
+                // 隐私：URL 含平台 secret，只记 host
+                Log.d(TAG, "Call delivery: ${NetworkClient.sanitizeUrlHost(channelConfig.url)} → status=${result.status}")
                 DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
             }
         )

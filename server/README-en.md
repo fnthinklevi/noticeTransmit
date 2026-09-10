@@ -652,7 +652,7 @@ These files are auto-created at runtime; no manual creation needed.
 - ✅ Session IDs generated with crypto.randomUUID()
 - ✅ Token only accepted via Header, URL parameters disabled
 - ✅ Global async error handler middleware added
-- ✅ trust proxy configured, real IP via req.ip
+- ✅ trust proxy configured, real IP via req.ip (defaults to 0 = trust no proxy header; set `TRUST_PROXY=1` explicitly behind a reverse proxy, see `.env.example`)
 - ✅ Request body size limited to 1MB
 - ✅ OkHttp auto-retry disabled to avoid double retries
 

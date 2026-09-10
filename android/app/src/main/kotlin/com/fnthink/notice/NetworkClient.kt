@@ -8,6 +8,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
 import okhttp3.CertificatePinner
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -22,10 +23,31 @@ class NetworkClient {
         private const val RETRY_DELAY_MS = 2000L
         private const val RATE_LIMIT_RETRY_DELAY_MS = 10_000L // 限流时退避更长
 
+        /**
+         * 隐私脱敏：webhook URL 含平台 secret（Telegram bot token / Bark key /
+         * ServerChan SendKey 在路径中，企业微信 key / PushPlus token 在 query 中）。
+         * 日志只允许记录 host；禁止完整 URL 或固定长度截断（截断可能暴露路径型 token）。
+         */
+        fun sanitizeUrlHost(url: String): String =
+            try {
+                java.net.URI(url).host ?: "unknown-host"
+            } catch (_: Exception) {
+                "invalid-url"
+            }
+
         @Volatile private var isActive = true
         // 作用域在 destroy() 时 cancel，activate() 时重建，避免重试协程在服务销毁后仍回调
         private var scope = newScope()
         private fun newScope() = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        /**
+         * 全局发送并发上限（背压）。
+         *
+         * 群刷屏场景下一条通知起 N 个发送协程 + 3 次重试会形成请求风暴：
+         * 企业微信机器人硬限 20 条/分钟（超限 45009）、Telegram 同 token 30 条/秒。
+         * 上限 3 使第 4+ 条在协程层排队（而非压向平台），配合指数退避削峰。
+         */
+        private val sendLimiter = kotlinx.coroutines.sync.Semaphore(3)
 
         private val client: OkHttpClient by lazy {
             OkHttpClient.Builder()
@@ -114,50 +136,53 @@ class NetworkClient {
                 return
             }
             scope.launch {
-                // 发送前签名（仅一次，重试时复用同一签名）
-                val signed = WebhookSigner.sign(webhookType, url, payload, secret)
+                sendLimiter.withPermit {
+                    // 发送前签名（仅一次，重试时复用同一签名）
+                    val signed = WebhookSigner.sign(webhookType, url, payload, secret)
 
-                var retryCount = 0
-                var lastResult: WebhookResponseParser.ParseResult? = null
+                    var retryCount = 0
+                    var lastResult: WebhookResponseParser.ParseResult? = null
 
-                while (retryCount < MAX_RETRIES) {
-                    val result = sendOnce(signed, tag, retryCount, contentType)
-                    lastResult = result
+                    while (retryCount < MAX_RETRIES) {
+                        val result = sendOnce(signed, tag, retryCount, contentType)
+                        lastResult = result
 
-                    // 成功或不可重试 → 终止
-                    if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
-                        Log.d(TAG, "$tag delivered (attempt ${retryCount + 1}): ${result.message}")
-                        onResult?.invoke(result)
-                        return@launch
-                    }
-                    if (!result.retryable) {
-                        Log.e(TAG, "$tag delivery failed (no retry): ${result.message}")
-                        onResult?.invoke(result)
-                        return@launch
-                    }
-
-                    Log.w(TAG, "$tag delivery failed (attempt ${retryCount + 1}), will retry: ${result.message}")
-                    retryCount++
-
-                    if (retryCount < MAX_RETRIES) {
-                        // 限流用更长退避
-                        val delayMs = if (result.status == WebhookResponseParser.DeliveryStatus.RATE_LIMITED) {
-                            RATE_LIMIT_RETRY_DELAY_MS * retryCount
-                        } else {
-                            RETRY_DELAY_MS * retryCount
+                        // 成功或不可重试 → 终止
+                        if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
+                            Log.d(TAG, "$tag delivered (attempt ${retryCount + 1}): ${result.message}")
+                            onResult?.invoke(result)
+                            return@withPermit
                         }
-                        delay(delayMs)
-                    }
-                }
+                        if (!result.retryable) {
+                            Log.e(TAG, "$tag delivery failed (no retry): ${result.message}")
+                            onResult?.invoke(result)
+                            return@withPermit
+                        }
 
-                // 重试耗尽
-                Log.e(TAG, "$tag delivery exhausted retries: ${lastResult?.message}")
-                onResult?.invoke(
-                    lastResult ?: WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
-                        0, "Unknown failure after $MAX_RETRIES attempts", false
+                        Log.w(TAG, "$tag delivery failed (attempt ${retryCount + 1}), will retry: ${result.message}")
+                        retryCount++
+
+                        if (retryCount < MAX_RETRIES) {
+                            // 指数退避（2s, 4s, ...）；平台限流（如企业微信 45009）用更长基数
+                            val backoff = 1L shl (retryCount - 1)
+                            val delayMs = if (result.status == WebhookResponseParser.DeliveryStatus.RATE_LIMITED) {
+                                RATE_LIMIT_RETRY_DELAY_MS * backoff
+                            } else {
+                                RETRY_DELAY_MS * backoff
+                            }
+                            delay(delayMs)
+                        }
+                    }
+
+                    // 重试耗尽
+                    Log.e(TAG, "$tag delivery exhausted retries: ${lastResult?.message}")
+                    onResult?.invoke(
+                        lastResult ?: WebhookResponseParser.ParseResult(
+                            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
+                            0, "Unknown failure after $MAX_RETRIES attempts", false
+                        )
                     )
-                )
+                }
             }
         }
 

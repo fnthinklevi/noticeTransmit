@@ -19,8 +19,11 @@ const app = express();
 // 禁用 X-Powered-By 响应头，避免暴露 Express 指纹
 app.disable('x-powered-by');
 
-// 信任反向代理跳数：默认 1（Nginx），可用 TRUST_PROXY 覆盖（0 表示不信任任何代理头）
-app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
+// 信任反向代理跳数：默认 0（不信任任何代理头，直连部署安全默认值）。
+// 反代部署（Nginx/CF）必须显式设置 TRUST_PROXY=1（多级代理按跳数递增），
+// 否则 IP 封锁与限流看到的都是代理 IP；而未挂反代时若信任 X-Forwarded-For，
+// 攻击者伪造该头即可伪造 IP 绕过封锁/限流（fail-safe 默认）。
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0));
 
 // CORS 白名单：默认仅允许无 Origin 的请求（App 原生 http / curl 等）与 ALLOWED_ORIGINS 中列出的来源。
 // 设置 ALLOWED_ORIGINS='*' 可恢复放行所有来源。多个来源用逗号分隔。

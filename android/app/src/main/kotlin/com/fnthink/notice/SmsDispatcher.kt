@@ -89,7 +89,8 @@ object SmsDispatcher {
         source: String
     ): Boolean {
         if (message.isBlank()) {
-            Log.w(TAG, "[$source] 短信正文为空，丢弃 sender=$sender")
+            // 隐私：不记录发送方号码（通讯录级敏感信息）
+            Log.w(TAG, "[$source] 短信正文为空，丢弃")
             return false
         }
 
@@ -97,12 +98,12 @@ object SmsDispatcher {
         // 被门控拦截的短信不读取、不推送、不入历史，也不消耗去重指纹。
         val configManager = ConfigManager(context)
         if (!configManager.getSmsMonitorEnabled()) {
-            Log.d(TAG, "[$source] 短信监听已关闭，忽略 sender=$sender")
+            Log.d(TAG, "[$source] 短信监听已关闭，忽略")
             return false
         }
         val filterSlot = configManager.getSmsSimFilterSlot()
         if (!SmsMonitorGate.allowSim(filterSlot, simInfo?.slotIndex)) {
-            Log.d(TAG, "[$source] 短信来自未监听的卡(slot=${simInfo?.slotIndex})，忽略 sender=$sender")
+            Log.d(TAG, "[$source] 短信来自未监听的卡(slot=${simInfo?.slotIndex})，忽略")
             return false
         }
         val simLabel = simInfo?.displayLabel
@@ -113,7 +114,7 @@ object SmsDispatcher {
         synchronized(dedupKeys) {
             val last = dedupKeys[key]
             if (last != null && now - last < DEDUP_WINDOW_MS) {
-                Log.d(TAG, "[$source] 短信重复（另一链路已处理），去重 sender=$sender")
+                Log.d(TAG, "[$source] 短信重复（另一链路已处理），去重")
                 return false
             }
             // 跨发送方正文查重：通知栏兜底链路（source=notification）的 sender 是联系人名，
@@ -122,7 +123,7 @@ object SmsDispatcher {
             val bodySuffix = "|$message"
             for ((k, v) in dedupKeys) {
                 if (now - v < DEDUP_WINDOW_MS && k.endsWith(bodySuffix)) {
-                    Log.d(TAG, "[$source] 短信正文重复（另一链路已处理同内容），去重 sender=$sender")
+                    Log.d(TAG, "[$source] 短信正文重复（另一链路已处理同内容），去重")
                     return false
                 }
             }
@@ -147,7 +148,7 @@ object SmsDispatcher {
                 return false
             }
 
-            Log.d(TAG, "[$source] 收到短信: 来自 $sender")
+            Log.d(TAG, "[$source] 收到短信")
 
             val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                 .format(Date(timestamp))
@@ -167,7 +168,8 @@ object SmsDispatcher {
             if (!fr.allowed) {
                 // 拦截的消息也写入历史（状态=失败，原因=黑名单/应用过滤），不推 webhook。
                 // 之前静默丢弃会让用户以为"短信没读到"。
-                Log.d(TAG, "[$source] 短信被拦截(${fr.source.name}): 来自 $sender 原因=${fr.blockReason()}")
+                // 隐私：不记录发送方号码与拦截原因（原因含用户配置的关键词）
+                Log.d(TAG, "[$source] 短信被拦截(${fr.source.name})")
                 recordBlocked(context, sender, message, timestamp, timeStr, simLabel, deviceName, fr)
                 return false
             }
@@ -176,10 +178,13 @@ object SmsDispatcher {
             val whitelistTag = fr.whitelistTag()
 
             val code = extractCode(message)
-            if (code != null) Log.d(TAG, "[$source] 提取到验证码: $code")
+            if (code != null) {
+                // 隐私：验证码明文绝不写日志（等价于密码泄露）
+                Log.d(TAG, "[$source] 短信含验证码（已识别，内容不记录）")
+            }
             // 验证码监听开关关闭时，验证码短信整条拦截（不推送、不入历史）
             if (!SmsMonitorGate.allowCode(configManager.getSmsCodeMonitorEnabled(), code)) {
-                Log.d(TAG, "[$source] 验证码监听已关闭，整条拦截 sender=$sender")
+                Log.d(TAG, "[$source] 验证码监听已关闭，整条拦截")
                 return false
             }
 
@@ -273,7 +278,8 @@ object SmsDispatcher {
             webhookType = channelConfig.type,
             secret = channelConfig.secret,
             onResult = { result ->
-                Log.d(TAG, "SMS delivery: ${channelConfig.url.take(40)} → status=${result.status}")
+                // 隐私：URL 含平台 secret，只记 host
+                Log.d(TAG, "SMS delivery: ${NetworkClient.sanitizeUrlHost(channelConfig.url)} → status=${result.status}")
                 DeliveryNotifier.notify(context, notificationId, channelConfig.type, result)
             }
         )

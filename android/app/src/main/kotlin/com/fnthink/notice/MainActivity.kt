@@ -1550,10 +1550,11 @@ class MainActivity : FlutterActivity() {
     /**
      * 通过系统安装器安装系统下载器下载的 APK。
      * Android 10+ 优先使用 content uri（MediaStore），旧版本回退 file uri。
-     * @return 是否成功启动安装流程
+     * @return (是否成功启动安装流程, 失败原因) —— 失败原因用 I18n 双语文案，
+     *         供 Dart 侧透传到 UI（原生文案随 App 语言切换）。
      */
-    internal fun installSystemDownload(id: Long): Boolean {
-        if (id < 0) return false
+    internal fun installSystemDownload(id: Long): Pair<Boolean, String?> {
+        if (id < 0) return false to I18n.updateInstallFailed()
         // 安装未知来源应用权限（Android 8.0+），缺失时引导用户去开启
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !packageManager.canRequestPackageInstalls()
@@ -1568,7 +1569,7 @@ class MainActivity : FlutterActivity() {
             } catch (e: Exception) {
                 // 部分厂商缺少该设置入口，直接放行尝试安装
             }
-            return false
+            return false to I18n.updateInstallPermissionNeeded()
         }
         return try {
             val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -1579,7 +1580,7 @@ class MainActivity : FlutterActivity() {
                 )
                 if (status != DownloadManager.STATUS_SUCCESSFUL) {
                     cursor.close()
-                    return false
+                    return false to I18n.updateDownloadNotReady()
                 }
                 val mediaUri = try {
                     cursor.getString(
@@ -1595,13 +1596,13 @@ class MainActivity : FlutterActivity() {
                 val uri: Uri = when {
                     !mediaUri.isNullOrEmpty() -> Uri.parse(mediaUri)
                     !localUri.isNullOrEmpty() -> Uri.parse(localUri)
-                    else -> return false
+                    else -> return false to I18n.updateDownloadNotReady()
                 }
                 // 暂存到应用私有目录：后续【校验与安装同一份文件】，消除 TOCTOU 窗口
                 val staged = stageVerifiedCopy(id, uri)
                 if (staged == null) {
                     Log.e("MainActivity", "系统下载器安装被拦截：${I18n.updateSigUnverifiable()}")
-                    return false
+                    return false to I18n.updateSigUnverifiable()
                 }
                 val result = ApkSignatureVerifier.verify(this, staged.absolutePath)
                 if (!result.valid) {
@@ -1611,7 +1612,7 @@ class MainActivity : FlutterActivity() {
                         staged.delete()
                     } catch (_: Exception) {
                     }
-                    return false
+                    return false to result.detail
                 }
                 // 安装已校验的暂存副本（FileProvider 授权，避免 Android 7+ file:// 暴露异常）
                 val installUri = FileProvider.getUriForFile(
@@ -1622,13 +1623,14 @@ class MainActivity : FlutterActivity() {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 startActivity(intent)
-                true
+                true to null
             } else {
                 cursor?.close()
-                false
+                false to I18n.updateDownloadNotReady()
             }
         } catch (e: Exception) {
-            false
+            Log.e("MainActivity", "系统下载器安装异常", e)
+            false to I18n.updateInstallFailed()
         }
     }
 

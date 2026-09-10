@@ -86,7 +86,8 @@ class SmsReceiver : BroadcastReceiver() {
 
         val message = body.toString()
         if (message.isBlank()) {
-            Log.w(TAG, "短信正文为空（特殊格式且无法解码），丢弃 sender=$sender")
+            // 隐私：不记录发送方号码
+            Log.w(TAG, "短信正文为空（特殊格式且无法解码），丢弃")
             return
         }
         if (timestamp == 0L) timestamp = System.currentTimeMillis()

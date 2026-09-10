@@ -368,7 +368,8 @@ class NotificationMonitorService : NotificationListenerService() {
                     if (!filterResult.allowed) {
                         // 被过滤（黑名单/应用过滤）的也写入历史，送达状态=失败+原因。
                         // 之前静默丢弃会让用户以为"通知没读到"。
-                        Log.d(TAG, "Notification filtered out (${filterResult.source.name}): ${rawInfo.appName} - ${rawInfo.title} reason=${filterResult.blockReason()}")
+                        // 隐私：不记录通知标题与命中关键词（可能含验证码/余额等敏感内容）
+                        Log.d(TAG, "Notification filtered out (${filterResult.source.name}): ${rawInfo.appName}")
                         webhookSender.sendBroadcast(rawInfo)
                         DeliveryNotifier.notify(
                             this@NotificationMonitorService,
@@ -387,17 +388,17 @@ class NotificationMonitorService : NotificationListenerService() {
                         // 规则引擎决策：立即推送 / 延迟推送 / 仅记录 / 静默忽略
                         when (val decision = RuleEngine.decide(info, config.rulesJson)) {
                             RuleEngine.Decision.Block -> {
-                                Log.d(TAG, "Notification blocked by rule: ${info.appName} - ${info.title}")
+                                Log.d(TAG, "Notification blocked by rule: ${info.appName}")
                             }
                             RuleEngine.Decision.Record -> {
                                 webhookSender.sendBroadcast(info)
-                                Log.d(TAG, "Notification recorded only: ${info.appName} - ${info.title}")
+                                Log.d(TAG, "Notification recorded only: ${info.appName}")
                             }
                             is RuleEngine.Decision.Delay -> {
                                 // 立即写入历史（pending 状态），到点后补推 webhook
                                 webhookSender.sendBroadcast(info)
                                 delayedPushManager.enqueue(info, decision.fireAt)
-                                Log.d(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName} - ${info.title}")
+                                Log.d(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
                             }
                             is RuleEngine.Decision.Merge -> {
                                 // P2 聚合推送：成员先各自记录历史（独立可见），窗口结束时
@@ -406,7 +407,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                 webhookSender.sendBroadcast(info)
                                 mergePushManager.append(info, decision.windowMs)
                                 updateForegroundNotification()
-                                Log.d(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName} - ${info.title}")
+                                Log.d(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
                             }
                             RuleEngine.Decision.Push -> {
                                 webhookSender.sendNotification(info)
@@ -414,7 +415,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                 checkDailyReset()
                                 pushCount++
                                 updateForegroundNotification()
-                                Log.d(TAG, "Notification sent: ${info.appName} - ${info.title}")
+                                Log.d(TAG, "Notification sent: ${info.appName}")
                             }
                         }
                     }
@@ -516,8 +517,8 @@ class NotificationMonitorService : NotificationListenerService() {
                             dispatchEmail(info)
                             checkDailyReset()
                             pushCount++
-                            updateForegroundNotification()
-                            Log.d(TAG, "Delayed notification sent: ${info.appName} - ${info.title}")
+                        updateForegroundNotification()
+                        Log.d(TAG, "Delayed notification sent: ${info.appName}")
                         }
                         // 闹钟是一次性的（setAndAllowWhileIdle）：drain 后必须重排下一条到期推送，
                         // 否则队列中多条延迟推送只有第一条会按时触发，其余要等新入队/服务重启才补推
@@ -887,7 +888,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 checkDailyReset()
                 pushCount++
                 updateForegroundNotification()
-                Log.d(TAG, "Manual push now: ${info.appName} - ${info.title}")
+                Log.d(TAG, "Manual push now: ${info.appName}")
             } catch (e: Exception) {
                 Log.e(TAG, "Error pushing record now", e)
             }

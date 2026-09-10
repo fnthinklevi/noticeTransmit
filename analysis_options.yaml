@@ -2,7 +2,8 @@ include: package:flutter_lints/flutter.yaml
 
 linter:
   rules:
-    avoid_print: false
+    # avoid_print 保持启用：统一使用 debugPrint（release 可移除），print 禁用
+    avoid_print: true
     prefer_final_fields: true
     prefer_const_constructors: true
     prefer_const_literals_to_create_immutables: true

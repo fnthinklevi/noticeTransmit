@@ -661,7 +661,7 @@ pm2 restart update-server
 - ✅ 会话 ID 使用 crypto.randomUUID() 生成
 - ✅ Token 仅接受 Header 传递，禁止 URL 参数
 - ✅ 添加全局异步错误处理中间件
-- ✅ 配置 trust proxy，使用 req.ip 获取真实 IP
+- ✅ 配置 trust proxy，使用 req.ip 获取真实 IP（默认 0 不信任代理头，反代部署需显式设 `TRUST_PROXY=1`，见 `.env.example`）
 - ✅ 请求体大小限制为 1MB
 - ✅ 关闭 OkHttp 自动重试，避免双重重试
 

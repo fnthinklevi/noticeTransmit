@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
+import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
+import 'services/locale_service.dart';
 import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -59,13 +61,33 @@ class AppUpdateManager {
   int _currentBuild = _fallbackBuild;
   String? _lastError;
 
-  /// 最近一次安装被完整性校验阻止的原因（中英双语文案，来自原生 I18n）。
+  /// 最近一次安装被完整性校验阻止的原因（中英双语文案）。
   /// 非空表示上次 installApk 因签名/版本校验失败而拒绝安装，UI 层应据此提示用户
   /// —— 这是最需要告知用户的场景（签名不匹配或版本降级都意味着风险）。
   String? _lastInstallBlockReason;
 
   /// 最近一次安装被阻止的原因；无则 null
   String? get lastInstallBlockReason => _lastInstallBlockReason;
+
+  /// 是否英文界面（跟随 App 语言设置）。GetIt 未初始化（如纯 Dart 单测环境）
+  /// 时按中文处理。
+  bool get _isEnglish {
+    try {
+      return GetIt.instance<LocaleService>().currentLocale.languageCode == 'en';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 通用安装阻止文案（原生 detail 缺失时的 Dart 侧回退，双语）
+  String _genericInstallBlockMessage() => _isEnglish
+      ? 'Update package verification failed. Installation blocked.'
+      : '更新包校验未通过，已阻止安装';
+
+  /// 校验通道不可用文案（fail-closed 时的双语提示）
+  String _unverifiableInstallMessage() => _isEnglish
+      ? 'Cannot verify the update package. Installation blocked.'
+      : '无法完成安全性校验，已阻止安装';
 
   /// 最近一次系统下载器（DownloadManager）任务的 downloadId，安装回退时使用
   String? _lastDownloadId;
@@ -80,6 +102,8 @@ class AppUpdateManager {
     await _updateVersionInfo();
     // 更新完成后（新版本已启动）自动删除上一次下载的安装包
     await _cleanupInstalledApk();
+    // 清理原生暂存的已校验安装包副本（用户取消安装时的残留）
+    await _cleanupStagedCopies();
   }
 
   Future<String> resolveDownloadDir() async {
@@ -91,6 +115,47 @@ class AppUpdateManager {
           as String;
     } catch (e) {
       return _defaultDownloadDir;
+    }
+  }
+
+  /// 清理原生暂存的已校验安装包副本（filesDir/update/verified_*.apk）。
+  ///
+  /// 该副本由原生 installSystemDownload 在安装前暂存（校验与安装必须是
+  /// 同一份文件，消除 TOCTOU 窗口）。用户在系统安装器上取消后原生无法
+  /// 感知，副本会永久残留（每次几十 MB），只能由 Dart 侧在 App 启动时兜底清理。
+  ///
+  /// 保留条件：存在比当前版本新的待安装记录（用户可能稍后继续安装）；
+  /// 否则（已升级完成 / 无 pending / 记录已清）清空整个目录。
+  /// 即便误清也不影响后续安装——installSystemDownload 每次都会重新暂存。
+  /// 注意：仅在启动时清理；绝不能在 installApk 返回后立即清理，
+  /// 此时系统安装器可能正在读取该文件。
+  Future<void> _cleanupStagedCopies() async {
+    if (!Platform.isAndroid) return;
+    try {
+      // path_provider 在 Android 上 getApplicationSupportDirectory == filesDir，
+      // 与原生 File(filesDir, "update") 同一目录
+      final supportDir = await getApplicationSupportDirectory();
+      final updateDir = Directory('${supportDir.path}/update');
+      if (!await updateDir.exists()) return;
+      final prefs = await SharedPreferences.getInstance();
+      final pendingVersion = prefs.getString(_prefsKeyPendingApkVersion);
+      final pendingNewer =
+          pendingVersion != null &&
+          _compareVersions(pendingVersion, _currentVersion) > 0;
+      if (pendingNewer) {
+        debugPrint('暂存副本保留：待安装版本 $pendingVersion 尚未完成安装');
+        return;
+      }
+      var removed = 0;
+      await for (final entity in updateDir.list()) {
+        try {
+          await entity.delete(recursive: true);
+          removed++;
+        } catch (_) {}
+      }
+      if (removed > 0) debugPrint('已清理更新暂存副本 $removed 个');
+    } catch (e) {
+      debugPrint('清理更新暂存副本失败: $e');
     }
   }
 
@@ -741,11 +806,11 @@ class AppUpdateManager {
         if (await file.exists()) await file.delete();
         await _clearPendingApkRecord();
       } catch (_) {}
-      return detail.isNotEmpty ? detail : '更新包校验未通过，已阻止安装';
+      return detail.isNotEmpty ? detail : _genericInstallBlockMessage();
     } catch (e) {
       debugPrint('完整性校验调用失败（按校验不通过处理）: $e');
       // 原生校验通道不可用时安全优先：拒绝安装
-      return '无法完成安全性校验，已阻止安装';
+      return _unverifiableInstallMessage();
     }
   }
 
@@ -778,15 +843,20 @@ class AppUpdateManager {
         // 系统下载器下载的文件：本地路径获取失败时（如 content uri 无法转路径），
         // 由原生通过系统安装器直接安装（原生侧会先校验暂存副本的签名与版本）。
         if (filePath.isEmpty && _lastDownloadId != null) {
-          final ok = await AppChannels.notification.invokeMethod(
+          final res = await AppChannels.notification.invokeMethod(
             'installSystemDownload',
             {'downloadId': _lastDownloadId},
           );
-          if (ok != true) {
-            // content uri 场景原生仅返回 bool，无法透传详情，用通用文案
-            _lastInstallBlockReason = '更新包校验未通过，已阻止安装';
+          // 兼容原生返回格式：Map {ok, detail}（原生透传双语失败原因）或旧版 bool
+          final ok = res is Map ? res['ok'] == true : res == true;
+          if (!ok) {
+            // detail 来自原生 I18n（随 App 语言），缺失时用 Dart 侧双语回退
+            final detail = res is Map ? res['detail']?.toString() ?? '' : '';
+            _lastInstallBlockReason = detail.isNotEmpty
+                ? detail
+                : _genericInstallBlockMessage();
           }
-          return ok == true;
+          return ok;
         }
       }
       final result = await OpenFilex.open(

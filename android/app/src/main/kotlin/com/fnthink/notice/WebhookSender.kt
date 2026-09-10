@@ -111,7 +111,7 @@ class WebhookSender(private val context: Context) {
         // 避免发出必然 400 的请求再被记为送达失败。
         val chatId = WebhookPayloadBuilder.extractChatIdFromUrl(cfg.url)
         if (cfg.type == WebhookPayloadBuilder.WebhookType.TELEGRAM && chatId.isEmpty()) {
-            Log.e(TAG, "Telegram URL missing chat_id, skip: ${cfg.url.take(60)}")
+            Log.e(TAG, "Telegram URL missing chat_id, skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
             notifyDeliveryResult(
                 info.id,
                 cfg.type,
@@ -141,7 +141,7 @@ class WebhookSender(private val context: Context) {
                 contentType = "application/x-www-form-urlencoded; charset=utf-8",
                 force = force,
                 onResult = { result ->
-                    Log.d(TAG, "Delivery(ServerChan): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    Log.d(TAG, "Delivery(ServerChan): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
@@ -151,7 +151,7 @@ class WebhookSender(private val context: Context) {
         // PushPlus：token 从 URL query 提取注入 body（缺失时提前失败）
         val pushPlusToken = WebhookPayloadBuilder.extractTokenFromUrl(cfg.url)
         if (cfg.type == WebhookPayloadBuilder.WebhookType.PUSH_PLUS && pushPlusToken.isEmpty()) {
-            Log.e(TAG, "PushPlus URL missing token, skip: ${cfg.url.take(60)}")
+            Log.e(TAG, "PushPlus URL missing token, skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
             notifyDeliveryResult(
                 info.id,
                 cfg.type,
@@ -179,7 +179,7 @@ class WebhookSender(private val context: Context) {
                 secret = cfg.secret,
                 force = force,
                 onResult = { result ->
-                    Log.d(TAG, "Delivery(PushPlus): ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    Log.d(TAG, "Delivery(PushPlus): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
@@ -216,7 +216,7 @@ class WebhookSender(private val context: Context) {
                 secret = cfg.secret,
                 force = force,
                 onResult = { result ->
-                    Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
@@ -241,7 +241,7 @@ class WebhookSender(private val context: Context) {
                 contentType = contentType,
                 force = force,
                 onResult = { result ->
-                    Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                    Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                     notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 }
             )
@@ -269,7 +269,7 @@ class WebhookSender(private val context: Context) {
             secret = cfg.secret,
             force = force,
             onResult = { result ->
-                Log.d(TAG, "Delivery: ${cfg.url.take(40)} → status=${result.status} msg=${result.message}")
+                Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                 // 送达结果回传 Flutter 后由 updateDelivery 统一写入 webhook_delivery_log（DB v5）
                 notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
             }

@@ -51,8 +51,11 @@ internal class FileChannelHandler(activity: MainActivity) : ChannelHandler(activ
                 result.success(activity.getDownloadedApkPath(id))
             }
             "installSystemDownload" -> {
+                // 返回 (ok, detail)：detail 为失败原因的 I18n 双语文案，
+                // Dart 侧透传到 UI，避免英文用户看到硬编码中文
                 val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
-                result.success(activity.installSystemDownload(id))
+                val (ok, detail) = activity.installSystemDownload(id)
+                result.success(mapOf("ok" to ok, "detail" to detail))
             }
             "verifyApkSignature" -> {
                 // P0 安全加固：下载包签名必须与当前应用签名一致（可信根=本机签名，

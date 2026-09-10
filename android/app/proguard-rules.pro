@@ -1,6 +1,16 @@
 -keep class io.flutter.** { *; }
 -keep class com.fnthink.notice.** { *; }
 
+# 隐私保护：release 构建移除调试/信息级日志调用（R8 优化删除调用点）。
+# 通知标题、短信内容、验证码、号码等敏感信息不得进 logcat——Bugly 崩溃上报
+# 附带的日志也不会包含这些内容（详见 README「隐私说明」）。
+# Log.w/e 保留用于排查错误，但不得输出敏感字段（代码审查把关）。
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
+
 -dontwarn okhttp3.**
 -keep class okhttp3.** { *; }
 -dontwarn okio.**

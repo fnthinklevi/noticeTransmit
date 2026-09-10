@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 路径声明：最小暴露原则，仅声明当前实际使用的路径。
+     未来新增分享场景时，按需单独声明最小子目录，禁止声明根目录或 "."。 -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 应用内更新：已通过签名校验的暂存副本所在目录（filesDir/update） -->
     <files-path name="update_apk" path="update/" />
-    <!-- 导出/日志等临时文件（cacheDir） -->
-    <cache-path name="cache" path="." />
 </paths>

@@ -45,7 +45,8 @@ class DelayedPushManager(private val context: Context) {
         val filtered = ArrayList(queue.filter { it.optString("key", "") != item.optString("key", "") })
         filtered.add(item)
         writeQueue(filtered)
-        Log.d(TAG, "延迟推送入队 fireAt=$fireAt (${info.title}), 队列=${filtered.size}")
+        // 隐私：不记录通知标题（可能含验证码/余额等敏感内容）
+        Log.d(TAG, "延迟推送入队 fireAt=$fireAt, 队列=${filtered.size}")
         scheduleNext()
     }
 

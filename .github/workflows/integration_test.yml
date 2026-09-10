@@ -1,5 +1,8 @@
-# Q1 集成冒烟测试：真机/模拟器跑 integration_test/smoke_test.dart（7 步主链路）
-# 手动触发（模拟器分钟级计费，不挂在常规 PR 流水线）。
+# 集成测试：真机/模拟器跑两类设备侧测试（手动触发，模拟器分钟级计费）：
+# 1. integration_test/smoke_test.dart —— 7 步主链路冒烟
+# 2. androidTest 仪表测试（connectedDebugAndroidTest，含 ApkSignatureVerifier 等）——
+#    必须在 emulator-runner 的 script 内执行（模拟器存活期间），独立 step 会因
+#    模拟器已关闭而找不到设备。
 name: Integration Test
 
 on:
@@ -43,6 +46,8 @@ jobs:
           script: |
             flutter devices
             flutter test integration_test/smoke_test.dart --verbose
+            # 仪表测试（androidTest）：复用同一台存活模拟器
+            cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest
 
       - name: Upload failure screenshots
         if: failure()

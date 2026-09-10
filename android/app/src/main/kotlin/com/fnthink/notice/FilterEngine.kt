@@ -128,7 +128,8 @@ object FilterEngine {
         for (raw in blacklistKeywords) {
             if (raw.isBlank()) continue
             if (matchKeyword(fullText, raw)) {
-                Log.d(TAG, "[$sourceType] 黑名单命中关键词='$raw' pkg=$pkg title='$title'")
+                // 隐私：不记录关键词与通知标题（可能含验证码/余额等），命中详情在推送历史中可查
+                Log.d(TAG, "[$sourceType] blacklist hit, pkg=$pkg")
                 return FilterResult(false, FilterSource.BLACKLIST, raw)
             }
         }
@@ -137,7 +138,7 @@ object FilterEngine {
         for (raw in whitelistKeywords) {
             if (raw.isBlank()) continue
             if (matchKeyword(fullText, raw)) {
-                Log.d(TAG, "[$sourceType] 白名单命中关键词='$raw' pkg=$pkg title='$title'")
+                Log.d(TAG, "[$sourceType] whitelist hit, pkg=$pkg")
                 return FilterResult(true, FilterSource.WHITELIST, raw)
             }
         }
