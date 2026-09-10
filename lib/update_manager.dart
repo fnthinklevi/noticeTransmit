@@ -712,6 +712,43 @@ class AppUpdateManager {
     return urls;
   }
 
+  /// 安装前完整性校验（P0 安全加固）：下载包签名必须与当前应用签名一致。
+  ///
+  /// 可信根 = 本机已安装应用的签名证书，独立于任何分发服务器 ——
+  /// 即使更新服务器被入侵、镜像被投毒或 CDN 被劫持，非本项目签名密钥
+  /// 签署的安装包也会被拒绝安装（攻击者无法伪造他人密钥的签名）。
+  /// 校验失败时删除安装包，防止用户后续绕过 App 误装。
+  Future<bool> _verifyApkSignature(String filePath) async {
+    try {
+      final result = await AppChannels.notification.invokeMethod(
+        'verifyApkSignature',
+        {'filePath': filePath},
+      );
+      if (result is Map && result['valid'] == true) return true;
+      final detail = result is Map ? (result['detail']?.toString() ?? '') : '';
+      debugPrint('更新包签名校验未通过: $detail');
+      // 删除被判定不可信的安装包，避免用户绕过 App 后误装
+      try {
+        final file = File(filePath);
+        if (await file.exists()) await file.delete();
+        await _clearPendingApkRecord();
+      } catch (_) {}
+      return false;
+    } catch (e) {
+      debugPrint('签名校验调用失败（按校验不通过处理）: $e');
+      // 原生校验通道不可用时安全优先：拒绝安装
+      return false;
+    }
+  }
+
+  Future<void> _clearPendingApkRecord() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsKeyPendingApkPath);
+      await prefs.remove(_prefsKeyPendingApkVersion);
+    } catch (_) {}
+  }
+
   Future<bool> installApk(String filePath) async {
     try {
       if (Platform.isAndroid) {
@@ -719,6 +756,12 @@ class AppUpdateManager {
         if (!status.isGranted) {
           openAppSettings();
           return false;
+        }
+        // P0 安全加固：本地路径场景在安装前强制校验签名（content uri 场景
+        // 由原生 installSystemDownload 内部校验，两条路径均不可绕过）。
+        if (filePath.isNotEmpty) {
+          final sigOk = await _verifyApkSignature(filePath);
+          if (!sigOk) return false;
         }
         // 系统下载器下载的文件：本地路径获取失败时（如 content uri 无法转路径），
         // 由原生通过系统安装器直接安装（content uri + FLAG_GRANT_READ_URI_PERMISSION）。

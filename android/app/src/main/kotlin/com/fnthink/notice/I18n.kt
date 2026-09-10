@@ -119,6 +119,29 @@ object I18n {
 
     fun whitelistTag(): String = if (isEn) "[Whitelist]" else "[白名单]"
 
+    // ========== 更新包签名校验（P0 安全加固，中英双语） ==========
+    fun updateSigFileMissing(): String =
+        if (isEn) "Update package not found" else "安装包不存在"
+
+    fun updateSigReadCurrentFail(): String =
+        if (isEn) "Failed to read current app signature"
+        else "无法读取当前应用签名"
+
+    fun updateSigParseFail(): String =
+        if (isEn)
+            "Failed to parse update package signature (corrupted or tampered?)"
+        else "无法解析安装包签名（可能已损坏或被篡改）"
+
+    fun updateSigMismatch(): String =
+        if (isEn)
+            "Signature mismatch with the installed app. The package may be tampered. Installation blocked."
+        else "安装包签名与当前应用不一致，可能被篡改，已阻止安装"
+
+    fun updateSigUnverifiable(): String =
+        if (isEn)
+            "Cannot resolve downloaded file for signature verification. Installation blocked."
+        else "无法获取下载文件以校验签名，已阻止安装"
+
     // ========== 通话状态 → 标题/内容 ==========
     fun callStateTitle(state: String, simInfo: String?): String {
         val label = when (state) {

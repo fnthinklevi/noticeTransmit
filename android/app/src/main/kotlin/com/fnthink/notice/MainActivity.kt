@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.pm.Signature
 import android.content.res.Configuration
 import android.net.Uri
 import android.telephony.SubscriptionManager
@@ -46,6 +47,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity() {
@@ -1515,6 +1518,92 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // ========== 更新包签名校验（P0 安全加固） ==========
+
+    /** 当前应用签名证书 SHA-256 指纹集合（小写 hex）；读取失败返回 null */
+    private fun currentSigningFingerprints(): Set<String>? =
+        extractSigningFingerprints(
+            try {
+                val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                    PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+                packageManager.getPackageInfo(packageName, flags)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "读取当前应用签名失败", e)
+                null
+            }
+        )
+
+    /** 解析 APK 文件的签名证书 SHA-256 指纹集合；解析失败返回 null */
+    private fun archiveSigningFingerprints(apkPath: String): Set<String>? =
+        extractSigningFingerprints(
+            try {
+                val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                    PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+                packageManager.getPackageArchiveInfo(apkPath, flags)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "解析安装包签名失败: $apkPath", e)
+                null
+            }
+        )
+
+    /** 从 PackageInfo 提取签名指纹集合（兼容 API 28 前后两套签名 API） */
+    private fun extractSigningFingerprints(info: android.content.pm.PackageInfo?): Set<String>? {
+        if (info == null) return null
+        val sigs: List<Signature> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val si = info.signingInfo ?: return null
+            if (si.hasMultipleSigners()) si.apkContentsSigners.toList()
+            else si.signingCertificateHistory.toList()
+        } else {
+            @Suppress("DEPRECATION")
+            info.signatures?.toList() ?: return null
+        }
+        if (sigs.isEmpty()) return null
+        return sigs.map { sha256Hex(it.toByteArray()) }.toSet()
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+
+    /**
+     * 校验 APK 文件签名与当前应用签名是否一致。
+     *
+     * 可信根 = 本机已安装应用的签名证书（独立于任何分发服务器）：
+     * 无论下载源（CDN / 镜像 / GitHub）被入侵、投毒还是劫持，
+     * 非本项目签名密钥签署的安装包一律判定无效，阻止安装。
+     * @return Pair(是否通过, 不通过原因)
+     */
+    internal fun verifyApkSignature(apkPath: String): Pair<Boolean, String> {
+        if (apkPath.isEmpty()) return false to I18n.updateSigFileMissing()
+        val file = File(apkPath)
+        if (!file.exists() || file.length() <= 0L) return false to I18n.updateSigFileMissing()
+
+        val current = currentSigningFingerprints()
+            ?: return false to I18n.updateSigReadCurrentFail()
+        val archive = archiveSigningFingerprints(apkPath)
+            ?: return false to I18n.updateSigParseFail()
+        if (current != archive) {
+            Log.e("MainActivity", "更新包签名不一致，已阻止安装")
+            return false to I18n.updateSigMismatch()
+        }
+        Log.i("MainActivity", "更新包签名校验通过")
+        return true to ""
+    }
+
+    /** content uri 场景：把下载文件拷贝到应用缓存目录后校验签名；失败返回 null */
+    private fun copyDownloadedApkToCache(id: Long, uri: Uri): String? {
+        return try {
+            val out = File(cacheDir, "verify_download_$id.apk")
+            contentResolver.openInputStream(uri)?.use { input ->
+                out.outputStream().use { output -> input.copyTo(output) }
+            } ?: return null
+            out.absolutePath
+        } catch (e: Exception) {
+            Log.e("MainActivity", "拷贝下载文件用于签名校验失败", e)
+            null
+        }
+    }
+
     /**
      * 通过系统安装器安装系统下载器下载的 APK。
      * Android 10+ 优先使用 content uri（MediaStore），旧版本回退 file uri。
@@ -1564,6 +1653,28 @@ class MainActivity : FlutterActivity() {
                     !mediaUri.isNullOrEmpty() -> Uri.parse(mediaUri)
                     !localUri.isNullOrEmpty() -> Uri.parse(localUri)
                     else -> return false
+                }
+                // 签名校验（P0）：file uri 直接校验；content uri 先拷贝到缓存再校验；
+                // 无法获取可读文件时按"无法校验"拒绝安装（安全优先于可用性）
+                val verifyPath = when (uri.scheme) {
+                    "file" -> uri.path
+                    else -> copyDownloadedApkToCache(id, uri)
+                }
+                if (verifyPath == null) {
+                    Log.e("MainActivity", "系统下载器安装被拦截：无法获取下载文件以校验签名")
+                    return false
+                }
+                val (sigOk, sigReason) = verifyApkSignature(verifyPath)
+                if (!sigOk) {
+                    Log.e("MainActivity", "系统下载器安装被拦截：$sigReason")
+                    if (verifyPath.startsWith(cacheDir.absolutePath)) {
+                        // 校验失败的安装包可能是被篡改的，删除缓存拷贝以防误装
+                        try {
+                            File(verifyPath).delete()
+                        } catch (_: Exception) {
+                        }
+                    }
+                    return false
                 }
                 val intent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, "application/vnd.android.package-archive")

@@ -54,6 +54,13 @@ internal class FileChannelHandler(activity: MainActivity) : ChannelHandler(activ
                 val id = call.argument<String>("downloadId")?.toLongOrNull() ?: -1L
                 result.success(activity.installSystemDownload(id))
             }
+            "verifyApkSignature" -> {
+                // P0 安全加固：下载包签名必须与当前应用签名一致（可信根=本机签名，
+                // 独立于分发服务器），不一致则 Dart 侧阻止安装并删除安装包
+                val filePath = call.argument<String>("filePath") ?: ""
+                val (valid, detail) = activity.verifyApkSignature(filePath)
+                result.success(mapOf("valid" to valid, "detail" to detail))
+            }
             else -> return false
         }
         return true

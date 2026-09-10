@@ -26,6 +26,13 @@
          如未来确需所有文件访问，须同步更新隐私政策与各应用市场权限说明 -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
+    <!-- 小部件控制权限（签名级，P0 安全加固）：防止任意第三方应用伪造 TOGGLE_PUSH 广播
+         静默开启/暂停推送。本应用自身与系统 AppWidget 服务（system uid，广播权限检查恒通过）
+         自动满足；第三方应用因签名不匹配无法获得该权限，任何伪造广播都会被系统拒绝投递 -->
+    <permission
+        android:name="com.fnthink.notice.permission.WIDGET_CONTROL"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.fnthink.notice.permission.WIDGET_CONTROL" />
 
     <application
         android:label="通知推送助手"
@@ -588,16 +595,18 @@
         </receiver>
 
         <!-- 桌面小部件：一键开启/暂停推送服务 -->
-        <!-- exported=true：APPWIDGET_UPDATE / APPWIDGET_ENABLED 等广播由系统 AppWidget 服务从外部发送 -->
+        <!-- exported=true：APPWIDGET_UPDATE 等广播由系统 AppWidget 服务（system uid）发送 -->
+        <!-- permission（签名级）：TOGGLE_PUSH / UPDATE_WIDGET 仅由本应用显式 Intent 发送
+             （按钮 PendingIntent / MainActivity 配置变更后刷新），经自定义权限阻止第三方伪造；
+             intent-filter 仅声明 APPWIDGET_UPDATE（AppWidgetProvider 识别必需），私有 action 走显式 Intent -->
         <receiver
             android:name=".PushToggleWidgetProvider"
             android:enabled="true"
             android:exported="true"
+            android:permission="com.fnthink.notice.permission.WIDGET_CONTROL"
             android:label="@string/widget_label_toggle_2x2">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.fnthink.notice.widget.TOGGLE_PUSH" />
-                <action android:name="com.fnthink.notice.widget.UPDATE_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -609,11 +618,10 @@
             android:name=".PushToggleWidgetWideProvider"
             android:enabled="true"
             android:exported="true"
+            android:permission="com.fnthink.notice.permission.WIDGET_CONTROL"
             android:label="@string/widget_label_toggle_4x2">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.fnthink.notice.widget.TOGGLE_PUSH" />
-                <action android:name="com.fnthink.notice.widget.UPDATE_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
