@@ -82,22 +82,27 @@ class WebhookSender(private val context: Context) {
 
         // 多通道：等全部通道回结果后按「最差优先」汇总（任一失败即失败）——
         // 宁可多报一次失败，也不要让失败被某个成功通道掩盖。
+        //
+        // 并发约定（勿改）：结果集合与计数**共用同一把锁**（此前用
+        // synchronizedList + 独立 lock 两把锁保护同一批状态，虽逻辑正确但易被后人改错）；
+        // 且用 AtomicBoolean 保证汇总回调**至多触发一次**——某通道的 onResult 若因异常
+        // 路径被调用两次，计数会提前达到 total，导致在结果不全时就汇总（可能选出非最差者）。
         val total = channelConfigs.size
-        val results = java.util.Collections.synchronizedList(
-            ArrayList<WebhookResponseParser.ParseResult>(total)
-        )
-        var delivered = 0
+        val results = ArrayList<WebhookResponseParser.ParseResult>(total)
         val lock = Any()
+        val aggregated = java.util.concurrent.atomic.AtomicBoolean(false)
         for (cfg in channelConfigs) {
             sendToSingleUrl(cfg, info, force) { result ->
-                results.add(result)
                 val done = synchronized(lock) {
-                    delivered++
-                    delivered == total
+                    results.add(result)
+                    // 多调用防御：同一通道重复回结果时，计数不超过 total，避免提前汇总
+                    results.size >= total
                 }
-                if (done) {
-                    // 锁内只做判定，回调在锁外执行，避免回调里再进网络层造成死锁
-                    val worst = results.maxByOrNull { severity(it.status) } ?: noChannelResult()
+                if (done && aggregated.compareAndSet(false, true)) {
+                    // 锁内只做判定与收集，汇总回调在锁外执行，避免回调里再进网络层造成死锁
+                    val worst = synchronized(lock) {
+                        results.maxByOrNull { severity(it.status) }
+                    } ?: noChannelResult()
                     onAllComplete?.invoke(worst)
                 }
             }
@@ -112,7 +117,24 @@ class WebhookSender(private val context: Context) {
         false
     )
 
-    /** 结果严重度排序：数值越大越严重，「最差优先」汇总时取最大者 */
+    /**
+     * 结果严重度排序：数值越大越严重，「最差优先」汇总时取最大者。
+     *
+     * ⚠ `PAUSED` 的位置（=1）是**刻意**的，勿随意调整：
+     * - `PAUSED` 表示「用户主动暂停推送」，是**用户预期行为**，不是错误——它的
+     *   严重度必须低于一切真实失败（BIZ_FAIL 及以上），否则多通道汇总时会被
+     *   失败掩盖，历史里显示成「推送失败」，误导用户以为系统出了问题。
+     * - 这也是 Dart 侧能把 `PAUSED` 单独归一为 `paused`（而非 failed）并对
+     *   **不落送达日志**（`normalized != 'paused'` 才写 webhook_delivery_log）的前提：
+     *   一旦 PAUSED 被提升为「最差」，就会把「用户暂停」写进失败日志。
+     * - 注意 `PAUSED` 由 `NetworkClient` 在**每个通道**上一致返回（`!force && !isPushActive()`
+     *   是全局开关），正常不存在「部分通道 PAUSED、部分通道失败」的混合场景；
+     *   保留低严重度是为了在该混合场景下**优先显示真实失败**而非暂停。
+     *
+     * 断言：`PAUSED < BIZ_FAIL < HTTP_FAIL < RATE_LIMITED < NETWORK_FAIL`
+     * （由 `MergeDeliveryResultTest` 的 `pausedIsLessSevereThanEveryRealFailure` /
+     *  `pausedMixedWithFailureAggregatesToFailure` 锁定）
+     */
     private fun severity(status: WebhookResponseParser.DeliveryStatus): Int =
         when (status) {
             WebhookResponseParser.DeliveryStatus.SUCCESS -> 0

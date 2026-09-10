@@ -150,6 +150,58 @@ class MergeDeliveryResultTest {
         )
     }
 
+    /**
+     * `PAUSED` 的严重度必须低于**一切真实失败**。
+     *
+     * 语义依据：`PAUSED` 表示「用户主动暂停推送」，是用户预期行为而非错误。
+     * 若把它提升到 BIZ_FAIL 之上，多通道汇总时会显示成「推送失败」，误导用户以为
+     * 系统故障；更严重的是 Dart 侧依赖 `normalized == 'paused'` 来决定**不写送达日志**，
+     * 一旦暂停被当成最差结果，就会把"用户暂停"污染进 webhook_delivery_log。
+     *
+     * 注：`PAUSED` 由 NetworkClient 在全局开关下对每个通道一致返回，正常不存在
+     * 「部分暂停部分失败」的混合场景；本断言保护的是该混合场景下「失败优先于暂停」。
+     */
+    @Test
+    fun pausedIsLessSevereThanEveryRealFailure() {
+        val realFailures = allStatuses.filter {
+            it != DeliveryStatus.SUCCESS && it != DeliveryStatus.PAUSED
+        }
+        assertTrue("真实失败状态集不应为空", realFailures.isNotEmpty())
+        for (failure in realFailures) {
+            assertTrue(
+                "PAUSED 的严重度(${severity(DeliveryStatus.PAUSED)}) 必须低于 " +
+                    "真实失败 $failure(${severity(failure)}) —— " +
+                    "否则「用户暂停」会被失败掩盖显示成推送失败，并污染送达日志",
+                severity(DeliveryStatus.PAUSED) < severity(failure)
+            )
+        }
+    }
+
+    /**
+     * 混合场景回归：多通道「部分暂停 + 部分失败」时，汇总结果必须是**失败**而非暂停
+     * ——用户需要知道有通道真的出错了。
+     */
+    @Test
+    fun pausedMixedWithFailureAggregatesToFailure() {
+        val mixed = listOf(result(DeliveryStatus.PAUSED), result(DeliveryStatus.NETWORK_FAIL))
+        assertEquals(
+            "暂停与失败混合时，汇总必须取失败（更严重者）",
+            DeliveryStatus.NETWORK_FAIL,
+            worstOf(mixed).status
+        )
+    }
+
+    /** 纯暂停场景：所有通道一致暂停时，汇总仍为暂停（不应升级为失败） */
+    @Test
+    fun allPausedAggregatesToPaused() {
+        val allPaused = List(3) { result(DeliveryStatus.PAUSED) }
+        assertEquals(
+            "全部通道都暂停时，汇总应为暂停而非失败",
+            DeliveryStatus.PAUSED,
+            worstOf(allPaused).status
+        )
+    }
+
     // ---- 与生产实现保持镜像的纯函数（生产侧为私有成员，此处按同一规则复刻并断言）----
     //
     // ⚠ 若修改 MergePushManager.markMembersDelivered 或 WebhookSender.severity，
