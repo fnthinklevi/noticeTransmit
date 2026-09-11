@@ -582,7 +582,7 @@
   "historyActionBlockAppShort": "Block app",
   "historyActionBlockAppDescAllow": "Allow mode: remove this app from the push allowlist",
   "historyActionBlockAppDescBlock": "Block mode: add this app to the blocked list",
-  "historyActionBlockAppDescAlreadyExcluded": "This app is already excluded from pushes",
+  "historyActionBlockAppDescAlreadyExcluded": "This app is currently not in the push scope",
   "historyActionBlockAppDescAlreadyBlocked": "This app is already in the blocked list",
   "historyActionBlockContent": "Block notifications containing this text",
   "historyActionBlockContentShort": "Block text",
@@ -1061,5 +1061,6 @@
       }
     }
   },
-  "notificationPermOffMsg": "Notification access is off, so the app cannot read device notifications.\n\nEnable it in \"Permission settings\" first, then start the service."
+  "notificationPermOffMsg": "Notification access is off, so the app cannot read device notifications.\n\nEnable it in \"Permission settings\" first, then start the service.",
+  "historyBlockAppWhitelistNote": "Blocked as requested. Note: whitelist keyword hits will still push this app — consider removing related whitelist keywords."
 }

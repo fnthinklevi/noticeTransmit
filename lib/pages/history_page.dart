@@ -1241,12 +1241,11 @@ class _HistoryPageState extends State<HistoryPage> {
     final filterService = _filterService;
     if (filterService.appFilterMode == 'allow') {
       if (!filterService.enabledPackages.contains(pkg)) {
-        // 应用过滤已拦截，但白名单关键词命中仍会推送——不能提示"无需操作"
-        if (filterService.whitelistKeywords.isNotEmpty) {
-          _showToast(l10n.historyBlockAppAllowWhitelistToast);
-          return;
-        }
-        _showToast(l10n.historyBlockAppAlreadyExcluded(app));
+        // 应用过滤已拦截（操作幂等）：白名单关键词命中仍会推送——
+        // 真机反馈：此前直接提示"无需操作"让用户误以为屏蔽无效。现执行确认
+        // 动作并明确告知白名单例外，由用户决定是否删除相关白名单关键词。
+        _showToast(l10n.historyBlockAppWhitelistNote);
+        if (mounted) setState(() {});
         return;
       }
       final remaining = filterService.enabledPackages
@@ -1377,16 +1376,15 @@ class _HistoryPageState extends State<HistoryPage> {
     final isAllowMode = _filterService.appFilterMode == 'allow';
     final inList = _filterService.enabledPackages.contains(record.packageName);
     // 副标题动态说明当前模式下将执行的动作（或已屏蔽状态）。
-    // 两个特判：① 本应用自身通知由电量规则控制，屏蔽不适用；
-    // ② allow 模式不在名单时，若存在白名单关键词，命中仍会推送——不能说"无需操作"。
+    // 特判：本应用自身通知由电量规则控制，应用屏蔽不适用。
+    // 其余情况菜单项始终可点、始终执行（幂等）——白名单例外在点击后以
+    // toast 提示，而不是用「无需操作」把用户挡回去（真机反馈：误导）。
     final blockAppDesc = record.packageName == _selfPackage
         ? l10n.historyActionBlockAppDescSelf
         : isAllowMode
         ? (inList
               ? l10n.historyActionBlockAppDescAllow
-              : (_filterService.whitelistKeywords.isNotEmpty
-                    ? l10n.historyActionBlockAppDescAllowWhitelist
-                    : l10n.historyActionBlockAppDescAlreadyExcluded))
+              : l10n.historyActionBlockAppDescAlreadyExcluded)
         : (inList
               ? l10n.historyActionBlockAppDescAlreadyBlocked
               : l10n.historyActionBlockAppDescBlock);

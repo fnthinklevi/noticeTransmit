@@ -1294,7 +1294,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historyActionBlockAppDescBlock => '黑名单模式：将该应用加入屏蔽名单';
 
   @override
-  String get historyActionBlockAppDescAlreadyExcluded => '该应用已不在推送范围，无需操作';
+  String get historyActionBlockAppDescAlreadyExcluded => '该应用当前已不在推送范围';
 
   @override
   String get historyActionBlockAppDescAlreadyBlocked => '该应用已在屏蔽名单中';
@@ -2210,4 +2210,8 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get notificationPermOffMsg =>
       '通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。';
+
+  @override
+  String get historyBlockAppWhitelistNote =>
+      '已确认屏蔽；注意：白名单关键词命中仍会推送该应用，可删除相关白名单关键词';
 }

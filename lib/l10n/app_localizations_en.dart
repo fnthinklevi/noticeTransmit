@@ -1347,7 +1347,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyActionBlockAppDescAlreadyExcluded =>
-      'This app is already excluded from pushes';
+      'This app is currently not in the push scope';
 
   @override
   String get historyActionBlockAppDescAlreadyBlocked =>
@@ -2295,4 +2295,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get notificationPermOffMsg =>
       'Notification access is off, so the app cannot read device notifications.\n\nEnable it in \"Permission settings\" first, then start the service.';
+
+  @override
+  String get historyBlockAppWhitelistNote =>
+      'Blocked as requested. Note: whitelist keyword hits will still push this app — consider removing related whitelist keywords.';
 }

@@ -2555,7 +2555,7 @@ abstract class AppLocalizations {
   /// No description provided for @historyActionBlockAppDescAlreadyExcluded.
   ///
   /// In zh, this message translates to:
-  /// **'该应用已不在推送范围，无需操作'**
+  /// **'该应用当前已不在推送范围'**
   String get historyActionBlockAppDescAlreadyExcluded;
 
   /// No description provided for @historyActionBlockAppDescAlreadyBlocked.
@@ -4237,6 +4237,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。'**
   String get notificationPermOffMsg;
+
+  /// No description provided for @historyBlockAppWhitelistNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'已确认屏蔽；注意：白名单关键词命中仍会推送该应用，可删除相关白名单关键词'**
+  String get historyBlockAppWhitelistNote;
 }
 
 class _AppLocalizationsDelegate

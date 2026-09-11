@@ -589,7 +589,7 @@
   "historyActionBlockAppShort": "屏蔽该应用",
   "historyActionBlockAppDescAllow": "白名单模式：将该应用移出推送白名单",
   "historyActionBlockAppDescBlock": "黑名单模式：将该应用加入屏蔽名单",
-  "historyActionBlockAppDescAlreadyExcluded": "该应用已不在推送范围，无需操作",
+  "historyActionBlockAppDescAlreadyExcluded": "该应用当前已不在推送范围",
   "historyActionBlockAppDescAlreadyBlocked": "该应用已在屏蔽名单中",
   "historyActionBlockContent": "屏蔽含本通知内容的通知",
   "historyActionBlockContentShort": "屏蔽内容",
@@ -1068,5 +1068,6 @@
       }
     }
   },
-  "notificationPermOffMsg": "通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。"
+  "notificationPermOffMsg": "通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。",
+  "historyBlockAppWhitelistNote": "已确认屏蔽；注意：白名单关键词命中仍会推送该应用，可删除相关白名单关键词"
 }
