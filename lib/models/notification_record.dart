@@ -72,6 +72,26 @@ class NotificationRecord {
     return {};
   }
 
+  /// F2 批量补推：是否存在失败通道（与 DB 侧 `delivery_info LIKE '%failed%'`
+  /// 筛选同口径，见 `DatabaseHelper._buildSearchWhere`）。
+  /// 仅统计 Map 形态且 `status == 'failed'` 的通道条目；空/异形值保守判为无失败。
+  bool get hasFailedChannel {
+    for (final v in deliveryStatus.values) {
+      if (v is Map && v['status'] == 'failed') return true;
+    }
+    return false;
+  }
+
+  /// F2 批量补推：失败通道名列表（供 UI 展示明细）
+  List<String> get failedChannels {
+    final result = <String>[];
+    for (final entry in deliveryStatus.entries) {
+      final v = entry.value;
+      if (v is Map && v['status'] == 'failed') result.add(entry.key);
+    }
+    return result;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

@@ -271,7 +271,10 @@ class WebhookSender(private val context: Context) {
             time = info.time,
             deviceName = deviceName,
             packageName = info.packageName,
-            notifyType = info.type
+            notifyType = info.type,
+            // F3：聚合推送的 %count% / %titles%
+            mergeCount = info.mergeCount,
+            mergeTitles = info.mergeTitles
         )
 
         val platformPayload = TemplateEngine.buildPlatformPayload(

@@ -344,7 +344,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
                         ),
                         const Spacer(),
                         Text(
-                          l10n.ruleMergeWindowSummary(_mergeWindowSeconds),
+                          _mergeSummaryText(l10n),
                           style: TextStyle(
                             fontSize: 15,
                             color: AppColors.systemBlue(context),
@@ -638,10 +638,36 @@ class _RuleEditPageState extends State<RuleEditPage> {
     return v is int && v > 0 ? v : 60;
   }
 
-  /// P1：编辑聚合等待时长（快捷档位 + 自定义秒数，下限 5 秒与原生 MIN_MERGE_WINDOW_MS 一致）
+  /// F3：满 N 条提前触发（0 = 关闭，等窗口到点）
+  int get _mergeMaxItems {
+    final v = _mergeAction?.params['maxItems'];
+    return v is int && v > 0 ? v : 0;
+  }
+
+  /// F3：按会话分组（同应用不同标题分开聚合）
+  bool get _mergeGroupByTitle => _mergeAction?.params['groupByTitle'] == true;
+
+  /// F3：聚合参数摘要（等待秒数 · 满 N 条提前 · 按会话分组）
+  String _mergeSummaryText(AppLocalizations l10n) {
+    final parts = <String>[l10n.ruleMergeWindowSummary(_mergeWindowSeconds)];
+    if (_mergeMaxItems > 0) {
+      parts.add(l10n.ruleMergeMaxItemsSummary(_mergeMaxItems));
+    }
+    if (_mergeGroupByTitle) {
+      parts.add(l10n.ruleMergeGroupByTitleSummary);
+    }
+    return parts.join(' · ');
+  }
+
+  /// P1/F3：编辑聚合参数（等待秒数 + 满 N 条提前 + 按会话分组；
+  /// 窗口下限 5 秒与原生 MIN_MERGE_WINDOW_MS 一致）
   void _editMergeWindow() {
     final l10n = AppLocalizations.of(context);
     final controller = TextEditingController(text: '$_mergeWindowSeconds');
+    final maxItemsController = TextEditingController(
+      text: _mergeMaxItems > 0 ? '$_mergeMaxItems' : '',
+    );
+    var groupByTitle = _mergeGroupByTitle;
     String? errorText;
     const presets = [15, 30, 60, 120, 300];
     showDialog(
@@ -723,6 +749,62 @@ class _RuleEditPageState extends State<RuleEditPage> {
                     )
                     .toList(),
               ),
+              const SizedBox(height: 14),
+              // F3：满 N 条提前触发
+              TextField(
+                controller: maxItemsController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: TextStyle(color: AppColors.primaryLabel(context)),
+                decoration: InputDecoration(
+                  labelText: l10n.mergeMaxItemsLabel,
+                  labelStyle: TextStyle(
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                  helperText: l10n.mergeMaxItemsHint,
+                  helperMaxLines: 2,
+                  fillColor: AppColors.inputBg(context),
+                  filled: true,
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.separator(context)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // F3：按会话分组
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.mergeGroupByTitleLabel,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.primaryLabel(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l10n.mergeGroupByTitleDesc,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.secondaryLabel(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: groupByTitle,
+                    activeThumbColor: AppColors.blue,
+                    onChanged: (v) => setDialogState(() => groupByTitle = v),
+                  ),
+                ],
+              ),
             ],
           ),
           actions: [
@@ -745,13 +827,28 @@ class _RuleEditPageState extends State<RuleEditPage> {
                   });
                   return;
                 }
+                final maxItemsValue = int.tryParse(
+                  maxItemsController.text.trim(),
+                );
                 setState(() {
                   _rule = _rule.copyWith(
                     actions: _rule.actions.map((a) {
                       if (a.type != ActionType.merge) return a;
-                      return a.copyWith(
-                        params: {...a.params, 'windowSeconds': value},
-                      );
+                      final params = <String, dynamic>{
+                        ...a.params,
+                        'windowSeconds': value,
+                      };
+                      if (maxItemsValue != null && maxItemsValue > 0) {
+                        params['maxItems'] = maxItemsValue;
+                      } else {
+                        params.remove('maxItems');
+                      }
+                      if (groupByTitle) {
+                        params['groupByTitle'] = true;
+                      } else {
+                        params.remove('groupByTitle');
+                      }
+                      return a.copyWith(params: params);
                     }).toList(),
                   );
                 });

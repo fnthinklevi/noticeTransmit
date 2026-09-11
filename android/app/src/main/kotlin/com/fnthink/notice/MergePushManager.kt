@@ -10,6 +10,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.LinkedHashSet
 import java.util.Locale
 
 /**
@@ -87,6 +88,28 @@ class MergePushManager(private val context: Context) {
         /** 聚合组 id（写入 HistoryCache/DB 的主键） */
         fun mergedId(): String = "$key:merge:$windowEnd"
 
+        /**
+         * F3：聚合成员标题摘要（供 %titles% 模板变量）。
+         * 取各成员标题去重（标题与正文相同/为空时用正文首行兜底），
+         * 最多 10 个、每个截断 30 字符，超出以「等」收尾——防模板变量无限膨胀。
+         */
+        private fun buildMergeTitles(): String {
+            val seen = LinkedHashSet<String>()
+            for (item in items) {
+                val t = when {
+                    item.title.isNotEmpty() && item.title != item.content -> item.title
+                    item.content.isNotEmpty() -> item.content.lineSequence().firstOrNull() ?: ""
+                    else -> ""
+                }
+                val trimmed = t.trim()
+                if (trimmed.isNotEmpty()) seen.add(trimmed.take(30))
+                if (seen.size >= 10) break
+            }
+            if (seen.isEmpty()) return ""
+            val joined = seen.joinToString("、")
+            return if (items.size > seen.size) "$joined 等" else joined
+        }
+
         /** 合并后的聚合 NotificationInfo：title=摘要、content=逐行明细 */
         fun buildMergedInfo(): NotificationInfo {
             val first = items.first()
@@ -116,7 +139,10 @@ class MergePushManager(private val context: Context) {
                 // 无此值不影响送达标签；类型色走默认紫）
                 type = "merge",
                 deviceName = first.deviceName,
-                priority = items.maxOf { it.priority }
+                priority = items.maxOf { it.priority },
+                // F3：聚合模板变量（自定义模板可用 %count% / %titles%）
+                mergeCount = count,
+                mergeTitles = buildMergeTitles()
             )
         }
     }
@@ -133,18 +159,35 @@ class MergePushManager(private val context: Context) {
      * 2. 网络回调会链路到 `DeliveryNotifier.notify` → 发广播，若接收方同步回调进
      *    本类其他 `@Synchronized` 方法，形成跨线程等待死锁。
      *
-     * 现改为「锁内取快照，锁外推送」：超限组在此只从队列移除并放入返回值，
+     * 现改为「锁内取快照，锁外推送」：需立即推送的组在此只从队列移除并放入返回值，
      * 由调用方（`NotificationMonitorService`，持有共享且已配置通道的 `webhookSender`）
-     * 在锁外执行兜底推送。与 `DelayedPushManager` 的既有约定一致——管理器只负责
+     * 在锁外执行推送。与 `DelayedPushManager` 的既有约定一致——管理器只负责
      * 队列与闹钟，推送交给 Service 执行。
      *
-     * @return 需要立即兜底推送的聚合组（队列超限时移出的最旧组）；无则空列表
+     * @param windowMs 聚合窗口（毫秒），开窗时确定后不延长
+     * @param maxItems F3 满 N 条提前触发：>0 时该组达到 N 条立即移出队列交由调用方推送；
+     *                 0 = 关闭（等窗口到点）
+     * @param groupByTitle F3 按会话分组：true 时组 key = "包名|标题"
+     *                     （同应用不同联系人分开聚合）；false = 按应用聚合（默认）
+     *
+     * @return 需要**立即推送**的聚合组：① 队列超限时移出的最旧组；
+     *         ② 达到 maxItems 提前触发的当前组；无则空列表
      */
     @Synchronized
-    fun append(info: NotificationInfo, windowMs: Long): List<MergeGroup> {
+    fun append(
+        info: NotificationInfo,
+        windowMs: Long,
+        maxItems: Int = 0,
+        groupByTitle: Boolean = false,
+    ): List<MergeGroup> {
         val queue = readQueue()
         val now = System.currentTimeMillis()
-        val key = info.packageName
+        // F3 按会话分组：key = 包名|标题（标题为空时退化为按应用聚合）
+        val key = if (groupByTitle && info.title.isNotEmpty()) {
+            "${info.packageName}|${info.title}"
+        } else {
+            info.packageName
+        }
         // ⚠ 只匹配「未过期」的组：已过期但尚未被 drainDue（闹钟未触发 / 被系统杀进程
         // 错过唤醒）的僵尸组若仍被匹配到，后续通知会被并入该组并按旧的 windowEnd 排程，
         // 但 drainDue 只按 windowEnd 取组，僵尸组被取走后本应新开的通知就永久滞留；
@@ -152,7 +195,7 @@ class MergePushManager(private val context: Context) {
         val existing = queue.firstOrNull {
             it.optString("key", "") == key && it.optLong("windowEnd", 0L) > now
         }
-        val overflowed = ArrayList<MergeGroup>(1)
+        val toFlush = ArrayList<MergeGroup>(1)
         if (existing != null) {
             // ⚠ 追加语义：窗口结束点不延长（固定窗口）。成员异常时 items 仍有
             // MAX_ITEMS_PER_GROUP 上限防 SP 无限膨胀（超限丢弃最旧的成员行）。
@@ -167,7 +210,14 @@ class MergePushManager(private val context: Context) {
                 items.put(info.toJson())
                 existing.put("items", items)
             }
-            DiagLog.w(TAG, "聚合追加: ${info.packageName} (${existing.optString("key")}), 窗口至 ${existing.optLong("windowEnd", 0L)}")
+            DiagLog.w(TAG, "聚合追加: $key, 窗口至 ${existing.optLong("windowEnd", 0L)}")
+            // F3 满 N 条提前触发：达到上限则把该组移出队列，交由调用方在锁外立即推送
+            // （不能留在队列——否则闹钟到点会二次推送同一组）
+            if (maxItems > 0 && items.length() >= maxItems) {
+                queue.remove(existing)
+                groupFromJson(existing)?.let { toFlush.add(it) }
+                DiagLog.w(TAG, "聚合组达上限提前触发: $key (${items.length()} 条 ≥ $maxItems)")
+            }
         } else {
             val windowEnd = now + windowMs
             val group = JSONObject().apply {
@@ -182,14 +232,14 @@ class MergePushManager(private val context: Context) {
                 val oldest = queue.minByOrNull { it.optLong("windowEnd", Long.MAX_VALUE) }
                 if (oldest != null) {
                     queue.remove(oldest)
-                    groupFromJson(oldest)?.let { overflowed.add(it) }
+                    groupFromJson(oldest)?.let { toFlush.add(it) }
                 }
             }
-            DiagLog.w(TAG, "聚合开窗: ${info.packageName}, 窗口至 $windowEnd")
+            DiagLog.w(TAG, "聚合开窗: $key, 窗口至 $windowEnd")
         }
         writeQueue(queue)
         scheduleNext()
-        return overflowed
+        return toFlush
     }
 
     /** 取出全部已到期的聚合组；返回空列表表示无可推送组 */

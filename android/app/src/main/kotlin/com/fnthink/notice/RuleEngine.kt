@@ -60,7 +60,13 @@ object RuleEngine {
          * - 聚合组 id 为 "{pkg}:merge:{windowEnd}"，与去重键 "{pkg}:{tag}:{id}" 体系独立；
          * - 窗口到期推送使用聚合 id，成员记录的送达结果以 MERGE 伪通道逐条回传补标。
          */
-        data class Merge(val windowMs: Long) : Decision()
+        data class Merge(
+            val windowMs: Long,
+            /** F3：满 N 条提前触发窗口（0 = 关闭，等窗口到点）；由规则 params.maxItems 配置 */
+            val maxItems: Int = 0,
+            /** F3：按会话分组（true 时聚合组 key = 包名|标题，同应用不同联系人分开聚合） */
+            val groupByTitle: Boolean = false,
+        ) : Decision()
     }
 
     /** 归一化文本（复用过滤引擎：trim + 全角转半角 + 折叠空白 + 小写） */
@@ -127,6 +133,9 @@ object RuleEngine {
         var recordOnly = false
         var delayFireAt: Long? = null
         var mergeWindowMs: Long? = null
+        // F3 聚合深化：满 N 条提前触发 + 按会话分组（取首个 merge 动作的参数）
+        var mergeMaxItems = 0
+        var mergeGroupByTitle = false
 
         for (i in 0 until actions.length()) {
             val action = actions.getJSONObject(i)
@@ -154,6 +163,11 @@ object RuleEngine {
                         } else {
                             DEFAULT_MERGE_WINDOW_MS
                         }
+                        // F3：满 N 条提前触发（0/缺失 = 关闭）
+                        val maxItems = params?.optInt("maxItems", -1) ?: -1
+                        mergeMaxItems = if (maxItems > 0) maxItems else 0
+                        // F3：按会话分组（同应用不同标题分开聚合）
+                        mergeGroupByTitle = params?.optBoolean("groupByTitle", false) ?: false
                     }
                 }
                 // push：按立即推送处理
@@ -168,8 +182,8 @@ object RuleEngine {
             return Decision.Delay(delayFireAt)
         }
         if (mergeWindowMs != null) {
-            Log.d(TAG, "聚合推送 windowMs=$mergeWindowMs")
-            return Decision.Merge(mergeWindowMs)
+            Log.d(TAG, "聚合推送 windowMs=$mergeWindowMs maxItems=$mergeMaxItems groupByTitle=$mergeGroupByTitle")
+            return Decision.Merge(mergeWindowMs, mergeMaxItems, mergeGroupByTitle)
         }
         if (recordOnly) return Decision.Record
         return Decision.Push

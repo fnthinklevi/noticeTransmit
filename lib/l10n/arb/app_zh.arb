@@ -967,5 +967,67 @@
         "type": "int"
       }
     }
+  },
+  "batchPushEntry": "批量补推",
+  "batchPushNoFailed": "当前列表没有可补推的失败记录",
+  "batchSelectedCount": "已选 {n} 条",
+  "batchSelectAll": "全选失败记录",
+  "batchSelectNone": "全不选",
+  "batchPushAction": "补推 {n} 条",
+  "batchPushConfirmTitle": "确认补推",
+  "batchPushConfirmMsg": "将对 {n} 条失败记录重新发起推送，实际送达结果以记录状态为准。",
+  "batchPushRunning": "正在补推 {done}/{total}",
+  "batchPushDone": "已提交 {n} 条补推",
+  "batchPushUnsupported": "当前页面不支持补推",
+  "@batchSelectedCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushAction": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushConfirmMsg": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushRunning": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushDone": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "mergeMaxItemsLabel": "满 N 条提前推送",
+  "mergeMaxItemsHint": "达到此条数立即推送；0 或留空 = 等窗口到点（可选）",
+  "mergeGroupByTitleLabel": "按会话分组",
+  "mergeGroupByTitleDesc": "同应用不同标题（联系人/群）分开聚合，默认按应用聚合",
+  "ruleMergeMaxItemsSummary": "满 {n} 条提前",
+  "ruleMergeGroupByTitleSummary": "按会话分组",
+  "@ruleMergeMaxItemsSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -2064,4 +2064,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String testerActionMerge(int n) {
     return '合并推送（窗口 $n 秒）';
   }
+
+  @override
+  String get batchPushEntry => '批量补推';
+
+  @override
+  String get batchPushNoFailed => '当前列表没有可补推的失败记录';
+
+  @override
+  String batchSelectedCount(int n) {
+    return '已选 $n 条';
+  }
+
+  @override
+  String get batchSelectAll => '全选失败记录';
+
+  @override
+  String get batchSelectNone => '全不选';
+
+  @override
+  String batchPushAction(int n) {
+    return '补推 $n 条';
+  }
+
+  @override
+  String get batchPushConfirmTitle => '确认补推';
+
+  @override
+  String batchPushConfirmMsg(int n) {
+    return '将对 $n 条失败记录重新发起推送，实际送达结果以记录状态为准。';
+  }
+
+  @override
+  String batchPushRunning(int done, int total) {
+    return '正在补推 $done/$total';
+  }
+
+  @override
+  String batchPushDone(int n) {
+    return '已提交 $n 条补推';
+  }
+
+  @override
+  String get batchPushUnsupported => '当前页面不支持补推';
+
+  @override
+  String get mergeMaxItemsLabel => '满 N 条提前推送';
+
+  @override
+  String get mergeMaxItemsHint => '达到此条数立即推送；0 或留空 = 等窗口到点（可选）';
+
+  @override
+  String get mergeGroupByTitleLabel => '按会话分组';
+
+  @override
+  String get mergeGroupByTitleDesc => '同应用不同标题（联系人/群）分开聚合，默认按应用聚合';
+
+  @override
+  String ruleMergeMaxItemsSummary(int n) {
+    return '满 $n 条提前';
+  }
+
+  @override
+  String get ruleMergeGroupByTitleSummary => '按会话分组';
 }

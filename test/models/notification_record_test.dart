@@ -377,4 +377,77 @@ void main() {
       });
     });
   });
+
+  group('F2 批量补推：失败通道判定（与 DB %failed% 筛选同口径）', () {
+    NotificationRecord withDelivery(Map<String, dynamic> d) =>
+        NotificationRecord(
+          id: 'r1',
+          title: 't',
+          content: 'c',
+          subText: '',
+          packageName: 'com.demo.app',
+          appName: 'Demo',
+          type: 'normal',
+          postTime: 1,
+          time: '10:00:00',
+          deviceName: '',
+          deliveryStatus: d,
+        );
+
+    test('全部成功 → 无失败', () {
+      expect(
+        withDelivery({
+          'wecom': {'status': 'success'},
+          'email': {'status': 'success'},
+        }).hasFailedChannel,
+        isFalse,
+      );
+    });
+
+    test('任一路失败 → 判定为失败（混合状态）', () {
+      final r = withDelivery({
+        'wecom': {'status': 'success'},
+        'email': {'status': 'failed', 'message': 'HTTP 502'},
+      });
+      expect(r.hasFailedChannel, isTrue);
+      expect(r.failedChannels, ['email']);
+    });
+
+    test('发送中 / 暂停 / 拦截 均不算失败', () {
+      expect(
+        withDelivery({
+          'wecom': {'status': 'sending'},
+          'email': {'status': 'paused'},
+          'sms': {'status': 'intercepted'},
+        }).hasFailedChannel,
+        isFalse,
+      );
+    });
+
+    test('空 deliveryStatus → 无失败', () {
+      expect(withDelivery(const {}).hasFailedChannel, isFalse);
+      expect(withDelivery(const {}).failedChannels, isEmpty);
+    });
+
+    test('异形值（非 Map 条目）保守判为无失败，不抛异常', () {
+      final r = withDelivery({
+        'wecom': 'failed', // 字符串而非 Map（历史脏数据形态）
+        'email': 123,
+        'sms': null,
+      });
+      expect(r.hasFailedChannel, isFalse);
+      expect(r.failedChannels, isEmpty);
+    });
+
+    test('多条失败通道全部列出', () {
+      expect(
+        withDelivery({
+          'wecom': {'status': 'failed'},
+          'email': {'status': 'failed'},
+          'bark': {'status': 'success'},
+        }).failedChannels,
+        ['wecom', 'email'],
+      );
+    });
+  });
 }

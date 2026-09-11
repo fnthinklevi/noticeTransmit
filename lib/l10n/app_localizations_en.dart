@@ -2142,4 +2142,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String testerActionMerge(int n) {
     return 'Merged push (window ${n}s)';
   }
+
+  @override
+  String get batchPushEntry => 'Batch re-push';
+
+  @override
+  String get batchPushNoFailed =>
+      'No failed records to re-push in the current list';
+
+  @override
+  String batchSelectedCount(int n) {
+    return '$n selected';
+  }
+
+  @override
+  String get batchSelectAll => 'Select all failed';
+
+  @override
+  String get batchSelectNone => 'Clear selection';
+
+  @override
+  String batchPushAction(int n) {
+    return 'Re-push $n';
+  }
+
+  @override
+  String get batchPushConfirmTitle => 'Confirm re-push';
+
+  @override
+  String batchPushConfirmMsg(int n) {
+    return 'Will re-push $n failed records; the actual delivery result is reflected by record status.';
+  }
+
+  @override
+  String batchPushRunning(int done, int total) {
+    return 'Re-pushing $done/$total';
+  }
+
+  @override
+  String batchPushDone(int n) {
+    return 'Submitted $n re-pushes';
+  }
+
+  @override
+  String get batchPushUnsupported => 'Re-push is unavailable on this page';
+
+  @override
+  String get mergeMaxItemsLabel => 'Flush early at N items';
+
+  @override
+  String get mergeMaxItemsHint =>
+      'Push as soon as this many items arrive; 0 or empty = wait for the window (optional)';
+
+  @override
+  String get mergeGroupByTitleLabel => 'Group by conversation';
+
+  @override
+  String get mergeGroupByTitleDesc =>
+      'Aggregate per conversation title (contact/group) instead of per app';
+
+  @override
+  String ruleMergeMaxItemsSummary(int n) {
+    return 'flush at $n';
+  }
+
+  @override
+  String get ruleMergeGroupByTitleSummary => 'by conversation';
 }

@@ -3985,6 +3985,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'合并推送（窗口 {n} 秒）'**
   String testerActionMerge(int n);
+
+  /// No description provided for @batchPushEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量补推'**
+  String get batchPushEntry;
+
+  /// No description provided for @batchPushNoFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前列表没有可补推的失败记录'**
+  String get batchPushNoFailed;
+
+  /// No description provided for @batchSelectedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {n} 条'**
+  String batchSelectedCount(int n);
+
+  /// No description provided for @batchSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选失败记录'**
+  String get batchSelectAll;
+
+  /// No description provided for @batchSelectNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'全不选'**
+  String get batchSelectNone;
+
+  /// No description provided for @batchPushAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'补推 {n} 条'**
+  String batchPushAction(int n);
+
+  /// No description provided for @batchPushConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认补推'**
+  String get batchPushConfirmTitle;
+
+  /// No description provided for @batchPushConfirmMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'将对 {n} 条失败记录重新发起推送，实际送达结果以记录状态为准。'**
+  String batchPushConfirmMsg(int n);
+
+  /// No description provided for @batchPushRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在补推 {done}/{total}'**
+  String batchPushRunning(int done, int total);
+
+  /// No description provided for @batchPushDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已提交 {n} 条补推'**
+  String batchPushDone(int n);
+
+  /// No description provided for @batchPushUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前页面不支持补推'**
+  String get batchPushUnsupported;
+
+  /// No description provided for @mergeMaxItemsLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'满 N 条提前推送'**
+  String get mergeMaxItemsLabel;
+
+  /// No description provided for @mergeMaxItemsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'达到此条数立即推送；0 或留空 = 等窗口到点（可选）'**
+  String get mergeMaxItemsHint;
+
+  /// No description provided for @mergeGroupByTitleLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'按会话分组'**
+  String get mergeGroupByTitleLabel;
+
+  /// No description provided for @mergeGroupByTitleDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'同应用不同标题（联系人/群）分开聚合，默认按应用聚合'**
+  String get mergeGroupByTitleDesc;
+
+  /// No description provided for @ruleMergeMaxItemsSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'满 {n} 条提前'**
+  String ruleMergeMaxItemsSummary(int n);
+
+  /// No description provided for @ruleMergeGroupByTitleSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'按会话分组'**
+  String get ruleMergeGroupByTitleSummary;
 }
 
 class _AppLocalizationsDelegate

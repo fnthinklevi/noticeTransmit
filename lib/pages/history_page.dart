@@ -55,6 +55,172 @@ class _HistoryPageState extends State<HistoryPage> {
   final ScrollController _scrollController = ScrollController();
   static const int _pageSize = 200;
 
+  // ── F2 批量补推 ──
+  bool _batchMode = false;
+  final Set<String> _batchSelected = {};
+
+  /// 当前展示的记录（搜索模式取 DB 结果，否则取内存过滤结果）
+  List<NotificationRecord> get _displayedRecords =>
+      _searchResults ?? _filteredRecords;
+
+  /// 可补推池：当前展示列表中的失败记录（与 DB `%failed%` 筛选同口径）
+  List<NotificationRecord> get _batchPool =>
+      _displayedRecords.where((r) => r.hasFailedChannel).toList();
+
+  void _enterBatchMode() {
+    final l10n = AppLocalizations.of(context);
+    final pool = _batchPool;
+    if (pool.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.batchPushNoFailed)));
+      return;
+    }
+    setState(() {
+      _batchMode = true;
+      // 默认全选当前列表中的失败记录，用户可再取消
+      _batchSelected
+        ..clear()
+        ..addAll(pool.map((r) => r.id));
+    });
+  }
+
+  void _exitBatchMode() {
+    setState(() {
+      _batchMode = false;
+      _batchSelected.clear();
+    });
+  }
+
+  void _toggleBatchSelect(NotificationRecord record) {
+    if (!record.hasFailedChannel) return; // 非失败记录不可选
+    setState(() {
+      if (_batchSelected.contains(record.id)) {
+        _batchSelected.remove(record.id);
+      } else {
+        _batchSelected.add(record.id);
+      }
+    });
+  }
+
+  void _selectAllFailed() {
+    setState(() {
+      _batchSelected
+        ..clear()
+        ..addAll(_batchPool.map((r) => r.id));
+    });
+  }
+
+  /// 批量补推：二次确认 → 逐条顺序提交（带进度）→ 汇总反馈
+  Future<void> _runBatchPush() async {
+    final l10n = AppLocalizations.of(context);
+    final targets = _displayedRecords
+        .where((r) => _batchSelected.contains(r.id))
+        .toList();
+    if (targets.isEmpty) return;
+    if (widget.onPushNow == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.batchPushUnsupported)));
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg(dialogContext),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.batchPushConfirmTitle,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(dialogContext),
+          ),
+        ),
+        content: Text(
+          l10n.batchPushConfirmMsg(targets.length),
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.4,
+            color: AppColors.primaryLabel(dialogContext),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              l10n.cancel,
+              style: TextStyle(color: AppColors.secondaryLabel(dialogContext)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              l10n.confirm,
+              style: const TextStyle(
+                color: AppColors.blue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final progress = ValueNotifier<int>(0);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg(dialogContext),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        content: ValueListenableBuilder<int>(
+          valueListenable: progress,
+          builder: (_, done, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                l10n.batchPushRunning(done, targets.length),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primaryLabel(dialogContext),
+                ),
+              ),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: targets.isEmpty ? 0 : done / targets.length,
+                backgroundColor: AppColors.inputBg(dialogContext),
+                color: AppColors.blue,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    var submitted = 0;
+    for (final record in targets) {
+      try {
+        await widget.onPushNow!(record);
+        submitted++;
+      } catch (e) {
+        debugPrint('批量补推失败（${record.id}）: $e');
+      }
+      progress.value = submitted;
+    }
+    progress.dispose();
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    setState(() {
+      _batchMode = false;
+      _batchSelected.clear();
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.batchPushDone(submitted))));
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1451,9 +1617,12 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    return InkWell(
-      onTap: () => _showRecordDetail(record),
-      onLongPress: () => _showRecordActionsSheet(record),
+    final item = InkWell(
+      // F2：批量模式下点行切换选中（不打开详情），长按菜单禁用
+      onTap: _batchMode
+          ? () => _toggleBatchSelect(record)
+          : () => _showRecordDetail(record),
+      onLongPress: _batchMode ? null : () => _showRecordActionsSheet(record),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.cardBg(context),
@@ -1493,6 +1662,59 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+
+    // F2：批量模式左侧加勾选框（非失败记录不可选，置灰）
+    if (!_batchMode) return item;
+    final selectable = record.hasFailedChannel;
+    return Row(
+      children: [
+        Checkbox(
+          value: _batchSelected.contains(record.id),
+          activeColor: AppColors.blue,
+          onChanged: selectable ? (_) => _toggleBatchSelect(record) : null,
+        ),
+        Expanded(
+          child: Opacity(opacity: selectable ? 1 : 0.5, child: item),
+        ),
+      ],
+    );
+  }
+
+  /// F2：批量模式底部操作栏（取消 / 补推 N 条）
+  Widget _buildBatchBar(BuildContext context, AppLocalizations l10n) {
+    final count = _batchSelected.length;
+    return Container(
+      color: AppColors.cardBg(context),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(
+            children: [
+              TextButton(
+                onPressed: _exitBatchMode,
+                child: Text(
+                  l10n.cancel,
+                  style: TextStyle(color: AppColors.secondaryLabel(context)),
+                ),
+              ),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: count == 0 ? null : _runBatchPush,
+                icon: const Icon(Icons.replay, size: 18),
+                label: Text(l10n.batchPushAction(count)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.blue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1652,36 +1874,63 @@ class _HistoryPageState extends State<HistoryPage> {
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
+        leading: _batchMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: l10n.cancel,
+                onPressed: _exitBatchMode,
+              )
+            : null,
         title: Text(
-          searchMode
+          _batchMode
+              ? l10n.batchSelectedCount(_batchSelected.length)
+              : searchMode
               ? l10n.searchResultCount(records.length)
               : l10n.historyTitle(records.length),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.filter_list,
-              color: _hasActiveFilter ? AppColors.blue : null,
-            ),
-            tooltip: l10n.filterTitle,
-            onPressed: _showFilterPanel,
-          ),
-          IconButton(
-            icon: const Icon(Icons.folder_open),
-            tooltip: l10n.autoSavePath,
-            onPressed: _showArchivePathDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.ios_share),
-            tooltip: l10n.exportJson,
-            onPressed: widget.records.isEmpty ? null : _handleExport,
-          ),
-          IconButton(
-            icon: const Icon(Icons.cleaning_services_outlined),
-            tooltip: l10n.clearRecords,
-            onPressed: widget.records.isEmpty ? null : _showClearOptions,
-          ),
-        ],
+        actions: _batchMode
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.select_all),
+                  tooltip: l10n.batchSelectAll,
+                  onPressed: _selectAllFailed,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.deselect),
+                  tooltip: l10n.batchSelectNone,
+                  onPressed: () => setState(_batchSelected.clear),
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.replay),
+                  tooltip: l10n.batchPushEntry,
+                  onPressed: _enterBatchMode,
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.filter_list,
+                    color: _hasActiveFilter ? AppColors.blue : null,
+                  ),
+                  tooltip: l10n.filterTitle,
+                  onPressed: _showFilterPanel,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.folder_open),
+                  tooltip: l10n.autoSavePath,
+                  onPressed: _showArchivePathDialog,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.ios_share),
+                  tooltip: l10n.exportJson,
+                  onPressed: widget.records.isEmpty ? null : _handleExport,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.cleaning_services_outlined),
+                  tooltip: l10n.clearRecords,
+                  onPressed: widget.records.isEmpty ? null : _showClearOptions,
+                ),
+              ],
       ),
       body: Column(
         children: [
@@ -1848,6 +2097,8 @@ class _HistoryPageState extends State<HistoryPage> {
                     },
                   ),
           ),
+          // F2：批量模式底部操作栏
+          if (_batchMode) _buildBatchBar(context, l10n),
         ],
       ),
     );

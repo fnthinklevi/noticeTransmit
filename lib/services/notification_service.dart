@@ -362,17 +362,30 @@ class NotificationService {
   /// 用于历史记录中"用户暂停推送"状态下未实际发送的消息。
   Future<void> pushRecordNow(NotificationRecord record) async {
     final idx = _records.indexWhere((r) => r.id == record.id);
-    if (idx < 0) return;
-    final pending = _buildInitialDeliveries(_getActiveChannels());
-    final newRecord = _records[idx].copyWith(deliveryStatus: pending);
-    _records[idx] = newRecord;
+    // F2 修复：记录不在内存列表（典型场景：全量历史搜索打开的旧记录、
+    // 或内存已裁剪）时，此前会 `return` 静默不补推。现改为不依赖内存列表：
+    // 直接将送达状态重置为 pending 落库 + 调原生补推。
+    var target = record;
+    if (idx >= 0) {
+      target = _records[idx].copyWith(
+        deliveryStatus: _buildInitialDeliveries(_getActiveChannels()),
+      );
+      _records[idx] = target;
+    } else {
+      target = record.copyWith(
+        deliveryStatus: _buildInitialDeliveries(_getActiveChannels()),
+      );
+    }
     try {
-      await DatabaseHelper().updateNotificationDelivery(newRecord.id, pending);
+      await DatabaseHelper().updateNotificationDelivery(
+        target.id,
+        target.deliveryStatus,
+      );
     } catch (e) {
       debugPrint('更新送达状态到 DB 失败: $e');
     }
     try {
-      await _channel.invokeMethod('pushRecordNow', {'record': record.toMap()});
+      await _channel.invokeMethod('pushRecordNow', {'record': target.toMap()});
     } catch (e) {
       debugPrint('调用原生 pushRecordNow 失败: $e');
     }

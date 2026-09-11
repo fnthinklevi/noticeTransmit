@@ -288,6 +288,49 @@ void main() {
       expect(run(clamped).mergeWindowSeconds, 5);
     });
 
+    test('F3：maxItems 与 groupByTitle 被解析并透出（镜像原生 params）', () async {
+      final filter = await buildFilter(
+        rules: [
+          rule(
+            actions: [
+              {
+                'type': 'merge',
+                'params': {
+                  'windowSeconds': 30,
+                  'maxItems': 5,
+                  'groupByTitle': true,
+                },
+              },
+            ],
+          ),
+        ],
+      );
+      final r = run(filter);
+      expect(r.action, TraceActionKind.merge);
+      expect(r.mergeWindowSeconds, 30);
+      expect(r.mergeMaxItems, 5);
+      expect(r.mergeGroupByTitle, isTrue);
+    });
+
+    test('F3：maxItems=0/负数 视为关闭，groupByTitle 缺失 视为按应用聚合', () async {
+      final filter = await buildFilter(
+        rules: [
+          rule(
+            actions: [
+              {
+                'type': 'merge',
+                'params': {'maxItems': 0},
+              },
+            ],
+          ),
+        ],
+      );
+      final r = run(filter);
+      expect(r.mergeMaxItems, 0);
+      expect(r.mergeGroupByTitle, isFalse);
+      expect(r.mergeWindowSeconds, 60); // 未配置窗口 → 默认 60 秒
+    });
+
     test('record → 仅记录；push → 直推', () async {
       final record = await buildFilter(
         rules: [

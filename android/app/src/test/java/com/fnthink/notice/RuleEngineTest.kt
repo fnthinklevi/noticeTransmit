@@ -143,6 +143,58 @@ class RuleEngineTest {
         assertEquals(RuleEngine.MIN_MERGE_WINDOW_MS, (decision as RuleEngine.Decision.Merge).windowMs)
     }
 
+    // ── F3 聚合深化：满 N 条提前触发 / 按会话分组 ──
+
+    @Test
+    fun decide_mergeWithMaxItems_parsesEarlyFlush() {
+        val decision = RuleEngine.decide(
+            pkgInfo(),
+            mergeRule("""{"id":"a1","type":"merge","params":{"windowSeconds":60,"maxItems":5}}"""),
+        )
+        val merge = decision as RuleEngine.Decision.Merge
+        assertEquals(60_000L, merge.windowMs)
+        assertEquals(5, merge.maxItems)
+        assertEquals(false, merge.groupByTitle)
+    }
+
+    @Test
+    fun decide_mergeMaxItemsInvalid_treatedAsDisabled() {
+        val zero = RuleEngine.decide(
+            pkgInfo(),
+            mergeRule("""{"id":"a1","type":"merge","params":{"maxItems":0}}"""),
+        ) as RuleEngine.Decision.Merge
+        assertEquals(0, zero.maxItems)
+
+        val negative = RuleEngine.decide(
+            pkgInfo(),
+            mergeRule("""{"id":"a1","type":"merge","params":{"maxItems":-3}}"""),
+        ) as RuleEngine.Decision.Merge
+        assertEquals(0, negative.maxItems)
+    }
+
+    @Test
+    fun decide_mergeWithGroupByTitle_parsesConversationGrouping() {
+        val decision = RuleEngine.decide(
+            pkgInfo(),
+            mergeRule("""{"id":"a1","type":"merge","params":{"groupByTitle":true}}"""),
+        )
+        val merge = decision as RuleEngine.Decision.Merge
+        assertEquals(true, merge.groupByTitle)
+        assertEquals(0, merge.maxItems)
+    }
+
+    @Test
+    fun decide_mergeWithoutNewParams_defaultsUnchanged() {
+        // 兼容性：既有规则（无 maxItems/groupByTitle）行为不变
+        val decision = RuleEngine.decide(
+            pkgInfo(),
+            mergeRule("""{"id":"a1","type":"merge","params":{"windowSeconds":120}}"""),
+        ) as RuleEngine.Decision.Merge
+        assertEquals(120_000L, decision.windowMs)
+        assertEquals(0, decision.maxItems)
+        assertEquals(false, decision.groupByTitle)
+    }
+
     @Test
     fun decide_delayTakesPrecedenceOverMerge() {
         val decision = RuleEngine.decide(

@@ -960,5 +960,67 @@
         "type": "int"
       }
     }
+  },
+  "batchPushEntry": "Batch re-push",
+  "batchPushNoFailed": "No failed records to re-push in the current list",
+  "batchSelectedCount": "{n} selected",
+  "batchSelectAll": "Select all failed",
+  "batchSelectNone": "Clear selection",
+  "batchPushAction": "Re-push {n}",
+  "batchPushConfirmTitle": "Confirm re-push",
+  "batchPushConfirmMsg": "Will re-push {n} failed records; the actual delivery result is reflected by record status.",
+  "batchPushRunning": "Re-pushing {done}/{total}",
+  "batchPushDone": "Submitted {n} re-pushes",
+  "batchPushUnsupported": "Re-push is unavailable on this page",
+  "@batchSelectedCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushAction": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushConfirmMsg": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushRunning": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "@batchPushDone": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "mergeMaxItemsLabel": "Flush early at N items",
+  "mergeMaxItemsHint": "Push as soon as this many items arrive; 0 or empty = wait for the window (optional)",
+  "mergeGroupByTitleLabel": "Group by conversation",
+  "mergeGroupByTitleDesc": "Aggregate per conversation title (contact/group) instead of per app",
+  "ruleMergeMaxItemsSummary": "flush at {n}",
+  "ruleMergeGroupByTitleSummary": "by conversation",
+  "@ruleMergeMaxItemsSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

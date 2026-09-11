@@ -214,14 +214,27 @@ class MergeFailureContractTest {
     // ── 4. 队列成长与恢复边界 ─────────────────────────────────────────────
 
     @Test
-    fun overflowGroupIsPushedNotDropped() {
+    fun flushGroupsArePushedNotDropped() {
+        // F3 起 append 返回值语义扩展为「需立即推送的组」：① 队列超限移出的最旧组；
+        // ② 达到 maxItems 提前触发的当前组。两者都必须被调用方真正推送，不得丢弃。
         val body = functionBody(mergeManager, "fun append(")
-        assertTrue("超限组必须返回给调用方补推，不能丢弃", body.contains("overflowed"))
-        assertFalse("append 内不得直接丢弃超限组", body.contains("continue"))
-        // 调用方必须真的推送返回值
         assertTrue(
-            "Service 必须推送 append 返回的溢出组",
-            service.contains("for (overflow in mergePushManager.append(")
+            "待推送组必须返回给调用方（超限组 / F3 达标提前触发组），不能丢弃",
+            body.contains("toFlush")
+        )
+        assertFalse("append 内不得直接丢弃待推送组", body.contains("continue"))
+        // 调用方必须真的推送返回值（F3 起改为「先取局部变量再遍历」，避免与变量名耦合）
+        assertTrue(
+            "Service 必须调用 append 并推送返回的组",
+            service.contains("mergePushManager.append(") &&
+                Regex("""for \(\w+ in flushGroups\)""").containsMatchIn(service) &&
+                service.contains("flushMergedGroup(")
+        )
+        // F3：达到 maxItems 的组必须移出队列（否则闹钟到点会对同一组二次推送）
+        assertTrue(
+            "达到 maxItems 的组必须移出队列并加入返回值",
+            body.contains("maxItems > 0 && items.length() >= maxItems") &&
+                body.contains("queue.remove(existing)")
         )
     }
 

@@ -49,6 +49,12 @@ class RuleTraceResult {
   final NotificationRule? hitRule;
   final TraceActionKind action;
   final int? mergeWindowSeconds;
+
+  /// F3：满 N 条提前触发（0 = 关闭）
+  final int mergeMaxItems;
+
+  /// F3：按会话分组
+  final bool mergeGroupByTitle;
   final int? delayFireAtMs;
   final List<RuleTraceStep> steps;
 
@@ -60,6 +66,8 @@ class RuleTraceResult {
     required this.hitRule,
     required this.action,
     this.mergeWindowSeconds,
+    this.mergeMaxItems = 0,
+    this.mergeGroupByTitle = false,
     this.delayFireAtMs,
     required this.steps,
   });
@@ -207,6 +215,8 @@ class RuleTracer {
     // ── ③ 动作阶段（RuleEngine.decideAction）──
     var action = TraceActionKind.push;
     int? mergeWindowSeconds;
+    var mergeMaxItems = 0;
+    var mergeGroupByTitle = false;
     int? delayFireAtMs;
 
     if (hitRule != null) {
@@ -233,6 +243,11 @@ class RuleTracer {
               mergeWindowSeconds = s > 0
                   ? ((s * 1000) < minMergeWindowMs ? 5 : s)
                   : defaultMergeWindowMs ~/ 1000;
+              // F3：满 N 条提前触发（镜像原生 params.maxItems，>0 才有效）
+              final maxItems = a.params['maxItems'];
+              mergeMaxItems = (maxItems is int && maxItems > 0) ? maxItems : 0;
+              // F3：按会话分组（镜像原生 params.groupByTitle）
+              mergeGroupByTitle = a.params['groupByTitle'] == true;
             }
             break;
           case ActionType.push:
@@ -276,6 +291,8 @@ class RuleTracer {
       hitRule: hitRule,
       action: action,
       mergeWindowSeconds: mergeWindowSeconds,
+      mergeMaxItems: mergeMaxItems,
+      mergeGroupByTitle: mergeGroupByTitle,
       delayFireAtMs: delayFireAtMs,
       steps: steps,
     );

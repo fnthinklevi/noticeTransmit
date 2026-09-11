@@ -362,7 +362,12 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
         AppColors.blue,
       ),
       TraceActionKind.merge => (
-        l10n.testerActionMerge(r.mergeWindowSeconds ?? 60),
+        [
+          l10n.testerActionMerge(r.mergeWindowSeconds ?? 60),
+          if (r.mergeMaxItems > 0)
+            l10n.ruleMergeMaxItemsSummary(r.mergeMaxItems),
+          if (r.mergeGroupByTitle) l10n.ruleMergeGroupByTitleSummary,
+        ].join(' · '),
         AppColors.blue,
       ),
       TraceActionKind.record => (l10n.testerActionRecord, AppColors.green),

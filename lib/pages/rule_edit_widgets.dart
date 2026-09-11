@@ -273,15 +273,25 @@ class _ActionItem extends StatelessWidget {
     return parts.join(' · ');
   }
 
-  /// 生成合并推送参数摘要文本（窗口秒数，与原生 RuleEngine params 键一致）
+  /// 生成合并推送参数摘要文本（窗口秒数 + F3 提前触发/会话分组，与原生参数键一致）
   String _mergeParamsText(BuildContext context, RuleAction action) {
     final l10n = AppLocalizations.of(context);
+    final parts = <String>[];
     final windowSeconds = action.params['windowSeconds'];
-    if (windowSeconds is int && windowSeconds > 0) {
-      return l10n.ruleMergeWindowSummary(windowSeconds);
+    // 未配置窗口时与原生 DEFAULT_MERGE_WINDOW_MS=60s 对应
+    parts.add(
+      l10n.ruleMergeWindowSummary(
+        (windowSeconds is int && windowSeconds > 0) ? windowSeconds : 60,
+      ),
+    );
+    final maxItems = action.params['maxItems'];
+    if (maxItems is int && maxItems > 0) {
+      parts.add(l10n.ruleMergeMaxItemsSummary(maxItems));
     }
-    // 未配置时与原生 DEFAULT_MERGE_WINDOW_MS=60s 对应
-    return l10n.ruleMergeWindowSummary(60);
+    if (action.params['groupByTitle'] == true) {
+      parts.add(l10n.ruleMergeGroupByTitleSummary);
+    }
+    return parts.join(' · ');
   }
 
   @override
@@ -722,12 +732,17 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
   final TextEditingController _delaySecondsController = TextEditingController();
   final TextEditingController _scheduleTimeController = TextEditingController();
   final TextEditingController _mergeWindowController = TextEditingController();
+  // F3 聚合深化
+  final TextEditingController _mergeMaxItemsController =
+      TextEditingController();
+  bool _mergeGroupByTitle = false;
 
   @override
   void dispose() {
     _delaySecondsController.dispose();
     _scheduleTimeController.dispose();
     _mergeWindowController.dispose();
+    _mergeMaxItemsController.dispose();
     super.dispose();
   }
 
@@ -760,12 +775,11 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
       return params;
     }
     if (_selectedType == ActionType.merge) {
-      final params = <String, dynamic>{};
-      final windowSeconds = int.tryParse(_mergeWindowController.text.trim());
-      if (windowSeconds != null && windowSeconds > 0) {
-        params['windowSeconds'] = windowSeconds;
-      }
-      return params;
+      return _buildMergeParams(
+        _mergeWindowController,
+        _mergeMaxItemsController,
+        _mergeGroupByTitle,
+      );
     }
     return const {};
   }
@@ -816,7 +830,13 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
             ],
             if (_selectedType == ActionType.merge) ...[
               const SizedBox(height: 16),
-              _MergeParamsFields(windowController: _mergeWindowController),
+              _MergeParamsFields(
+                windowController: _mergeWindowController,
+                maxItemsController: _mergeMaxItemsController,
+                groupByTitle: _mergeGroupByTitle,
+                onGroupByTitleChanged: (v) =>
+                    setState(() => _mergeGroupByTitle = v),
+              ),
             ],
           ],
         ),
@@ -863,6 +883,10 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
   final TextEditingController _delaySecondsController = TextEditingController();
   final TextEditingController _scheduleTimeController = TextEditingController();
   final TextEditingController _mergeWindowController = TextEditingController();
+  // F3 聚合深化
+  final TextEditingController _mergeMaxItemsController =
+      TextEditingController();
+  bool _mergeGroupByTitle = false;
 
   @override
   void initState() {
@@ -881,6 +905,11 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
     if (windowSeconds is int && windowSeconds > 0) {
       _mergeWindowController.text = windowSeconds.toString();
     }
+    final maxItems = params['maxItems'];
+    if (maxItems is int && maxItems > 0) {
+      _mergeMaxItemsController.text = maxItems.toString();
+    }
+    _mergeGroupByTitle = params['groupByTitle'] == true;
   }
 
   @override
@@ -888,6 +917,7 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
     _delaySecondsController.dispose();
     _scheduleTimeController.dispose();
     _mergeWindowController.dispose();
+    _mergeMaxItemsController.dispose();
     super.dispose();
   }
 
@@ -903,10 +933,13 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
         params['scheduleTime'] = scheduleTime;
       }
     } else if (_type == ActionType.merge) {
-      final windowSeconds = int.tryParse(_mergeWindowController.text.trim());
-      if (windowSeconds != null && windowSeconds > 0) {
-        params['windowSeconds'] = windowSeconds;
-      }
+      params.addAll(
+        _buildMergeParams(
+          _mergeWindowController,
+          _mergeMaxItemsController,
+          _mergeGroupByTitle,
+        ),
+      );
     }
     widget.onSave(widget.action.copyWith(type: _type, params: params));
     Navigator.pop(context);
@@ -958,7 +991,13 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
             ],
             if (_type == ActionType.merge) ...[
               const SizedBox(height: 16),
-              _MergeParamsFields(windowController: _mergeWindowController),
+              _MergeParamsFields(
+                windowController: _mergeWindowController,
+                maxItemsController: _mergeMaxItemsController,
+                groupByTitle: _mergeGroupByTitle,
+                onGroupByTitleChanged: (v) =>
+                    setState(() => _mergeGroupByTitle = v),
+              ),
             ],
           ],
         ),
@@ -994,8 +1033,17 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
 /// 与原生 RuleEngine DEFAULT_MERGE_WINDOW_MS=60 / MIN=5 对应。
 class _MergeParamsFields extends StatelessWidget {
   final TextEditingController windowController;
+  // F3 聚合深化
+  final TextEditingController maxItemsController;
+  final bool groupByTitle;
+  final ValueChanged<bool>? onGroupByTitleChanged;
 
-  const _MergeParamsFields({required this.windowController});
+  const _MergeParamsFields({
+    required this.windowController,
+    required this.maxItemsController,
+    required this.groupByTitle,
+    this.onGroupByTitleChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1027,6 +1075,66 @@ class _MergeParamsFields extends StatelessWidget {
             fontSize: 14,
             color: AppColors.primaryLabel(context),
           ),
+        ),
+        const SizedBox(height: 14),
+        // F3：满 N 条提前触发
+        Text(
+          l10n.mergeMaxItemsLabel,
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: maxItemsController,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: '0',
+            helperText: l10n.mergeMaxItemsHint,
+            helperMaxLines: 2,
+            isDense: true,
+            filled: true,
+            fillColor: AppColors.cardBg(context),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // F3：按会话分组
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.mergeGroupByTitleLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.mergeGroupByTitleDesc,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: groupByTitle,
+              activeThumbColor: AppColors.blue,
+              onChanged: onGroupByTitleChanged,
+            ),
+          ],
         ),
       ],
     );
@@ -1116,4 +1224,26 @@ class _DelayParamsFields extends StatelessWidget {
       ],
     );
   }
+}
+
+/// F3 聚合参数构建（Add/Edit 对话框共用）：windowSeconds / maxItems / groupByTitle。
+/// 键名与原生 RuleEngine.decideAction 读取一致；仅在有效时写入对应键。
+Map<String, dynamic> _buildMergeParams(
+  TextEditingController windowController,
+  TextEditingController maxItemsController,
+  bool groupByTitle,
+) {
+  final params = <String, dynamic>{};
+  final windowSeconds = int.tryParse(windowController.text.trim());
+  if (windowSeconds != null && windowSeconds > 0) {
+    params['windowSeconds'] = windowSeconds;
+  }
+  final maxItems = int.tryParse(maxItemsController.text.trim());
+  if (maxItems != null && maxItems > 0) {
+    params['maxItems'] = maxItems;
+  }
+  if (groupByTitle) {
+    params['groupByTitle'] = true;
+  }
+  return params;
 }

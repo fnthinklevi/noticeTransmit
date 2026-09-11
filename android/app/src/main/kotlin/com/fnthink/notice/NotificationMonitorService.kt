@@ -411,12 +411,19 @@ class NotificationMonitorService : NotificationListenerService() {
                                 // 由 MergePushManager 合并为一条聚合推送；成员的送达结果
                                 // 到点以 MERGE 伪通道补标（见 MergePushManager 风险标注 3）
                                 webhookSender.sendBroadcast(info)
-                                // append 返回「队列超限被移出的最旧组」，需在**锁外**兜底推送。
+                                // append 返回「需立即推送的组」（队列超限移出的最旧组 /
+                                // F3 达到 maxItems 提前触发的当前组），需在**锁外**推送。
                                 // 不能在 MergePushManager 内部自行推送：那里处于 @Synchronized
                                 // 临界区且是每条通知的热路径，网络 IO 会长时间占用对象锁
                                 // （阻塞前台通知刷新）并有跨线程死锁风险。
-                                for (overflow in mergePushManager.append(info, decision.windowMs)) {
-                                    flushMergedGroup(overflow)
+                                val flushGroups = mergePushManager.append(
+                                    info,
+                                    decision.windowMs,
+                                    decision.maxItems,
+                                    decision.groupByTitle,
+                                )
+                                for (group in flushGroups) {
+                                    flushMergedGroup(group)
                                 }
                                 updateForegroundNotification()
                                 DiagLog.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
@@ -982,7 +989,10 @@ data class NotificationInfo(
     val type: String,
     var deviceName: String,
     // 优先级分级：0=低 1=中 2=高（来自系统通知优先级，规则引擎据此评估「通知优先级」条件）
-    val priority: Int = 1
+    val priority: Int = 1,
+    // F3 聚合深化：聚合推送专用模板变量（普通单条通知恒为 0/""，模板可用 %count% / %titles%）
+    val mergeCount: Int = 0,
+    val mergeTitles: String = ""
 ) {
     /** 序列化为 JSON（与 WebhookSender.sendBroadcast 字段保持一致，用于延迟推送队列持久化） */
     fun toJson(): org.json.JSONObject = org.json.JSONObject().apply {
@@ -997,6 +1007,8 @@ data class NotificationInfo(
         put("type", type)
         put("deviceName", deviceName)
         put("priority", priority)
+        if (mergeCount > 0) put("mergeCount", mergeCount)
+        if (mergeTitles.isNotEmpty()) put("mergeTitles", mergeTitles)
     }
 
     companion object {
@@ -1012,7 +1024,9 @@ data class NotificationInfo(
             time = json.optString("time", ""),
             type = json.optString("type", "other"),
             deviceName = json.optString("deviceName", ""),
-            priority = json.optInt("priority", 1)
+            priority = json.optInt("priority", 1),
+            mergeCount = json.optInt("mergeCount", 0),
+            mergeTitles = json.optString("mergeTitles", "")
         )
     }
 }
