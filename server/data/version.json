@@ -1,27 +1,27 @@
 {
-  "latestVersion": "1.5.69",
-  "latestBuild": 104,
+  "latestVersion": "1.5.70",
+  "latestBuild": 105,
   "forceUpdate": true,
-  "forceUpdateVersion": "1.5.59",
-  "forceUpdateBuild": 93,
-  "changelog": "规则测试器 + 推送可靠性大版本\n\n🧪 规则测试器：输入模拟通知，实时展示过滤 → 规则 → 动作的完整命中链路\n📵 锁屏后台漏通知修复：服务启动自动补扫通知栏中未处理的驻留通知\n📤 失败记录批量补推：历史页多选失败记录一键重推（带确认与进度）\n📦 聚合深化：满 N 条提前推送 / 按会话分组 / 模板新变量 %count% 与 %titles%\n🚨 Bark 判定修复：业务失败不再被误标为推送成功\n💾 备份补齐至 11 类（电池规则/设备名/主题语言），旧备份仍可恢复\n🛠️ 推送失败自动重试 / 权限误报根治 / 诊断日志运行时开关 / sha256 安装包校验 / 历史长按快捷屏蔽",
+  "forceUpdateVersion": "1.5.70",
+  "forceUpdateBuild": 105,
+  "changelog": "真机反馈修复 + 界面统一\n\n🛠️ 修复规则「适用应用」选择页部分机型反复提示无权限、列表为空的问题\n🛠️ 修复长按屏蔽菜单误导性提示（按实际推送链路显示准确状态）\n🎨 通知详情改为底部弹层；历史页右上角收纳为「更多」菜单\n🎨 全部确认弹窗统一 iOS 风格；导出等弹窗补齐多语言",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_arm64_1.5.69.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_arm32_1.5.69.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_x86_1.5.69.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_all_1.5.69.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_arm64_1.5.70.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_arm32_1.5.70.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_x86_1.5.70.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_all_1.5.70.apk"
   },
   "fileSizes": {
-    "arm64": 27480822,
-    "arm32": 23540588,
-    "x86_64": 29579381,
-    "all": 75522054
+    "arm64": 27480832,
+    "arm32": 23556974,
+    "x86_64": 29579374,
+    "all": 75538433
   },
   "sha256": {
-    "arm64": "6bad83e74334d6ac791c9d0a6071b3325ce49e80b395f68e71382a03043d8e16",
-    "arm32": "1c0039936fa8fced4faa7876ec1c449c45dc6f56280f5a82d166d923c53ba7de",
-    "x86_64": "9ff03baa5876cc3f05678adfd92904194683b55e6f3795221aef515f9bd85987",
-    "all": "df59061d4107ce0400534e3268c5d4eae10cbe0e40600da11546b64776f121a8"
+    "arm64": "b65c78d28edfa0834d345a652be1496d9e99239a95b5134102132bdab62db267",
+    "arm32": "2bfd2f079f4c8d99c516388e718604c720c90c022a70459e7a3e684f9210932a",
+    "x86_64": "4c7326ef5e9872f42ad967e040471e58687797f8a78ba65b1dfeaaa147d36e92",
+    "all": "fe5866c890483f6894ef6f22c106353c8a75409e5d4d8be42085a8761dad030b"
   },
   "minSupportedVersion": "1.0.0"
 }

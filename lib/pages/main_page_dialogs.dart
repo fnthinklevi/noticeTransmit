@@ -93,17 +93,15 @@ extension _MainPageDialogs on _MainPageState {
             color: AppColors.primaryLabel(ctx),
           ),
         ),
-        actions: [
-          ...IosDialogActions.confirm(
-            ctx,
-            cancelText: l10n.updateLater,
-            confirmText: l10n.goSettings,
-            onConfirm: () {
-              Navigator.pop(ctx);
-              _openPermissionSettingsPage();
-            },
-          ),
-        ],
+        actions: IosDialogActions.confirm(
+          ctx,
+          cancelText: l10n.updateLater,
+          confirmText: l10n.goSettings,
+          onConfirm: () {
+            Navigator.pop(ctx);
+            _openPermissionSettingsPage();
+          },
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
