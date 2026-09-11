@@ -599,8 +599,12 @@ class MainActivity : FlutterActivity() {
             ) ?: return true
             when (appOps.checkOpNoThrow(op, Process.myUid(), packageName)) {
                 AppOpsManager.MODE_ALLOWED -> true
-                // MODE_DEFAULT / MODE_ERRORED / 其他：进一步探测，避免国产 ROM 假阳性
-                else -> hasQueryAllPackagesEffective()
+                // MODE_DEFAULT：ROM 语义不明（部分国产 ROM 的开关关闭态也返回 DEFAULT）
+                // → 交由非自身包探测裁决（见 hasQueryAllPackagesEffective）
+                AppOpsManager.MODE_DEFAULT -> hasQueryAllPackagesEffective()
+                // MODE_IGNORED / MODE_ERRORED / MODE_DENIED：明确的拒绝信号，直接判未授予。
+                // ⚠ 修复前旧代码是 `else -> 探测`，把拒绝态也误判为已授予（假阳性根因之一）
+                else -> false
             }
         } catch (e: Exception) {
             // 检查失败保守判为"未授予"：宁可多一次应用内引导，也不要突兀弹系统框
@@ -609,16 +613,20 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * 无副作用探测"应用列表可见性"是否真正生效。
+     * 无副作用探测「应用列表可见性」是否真正生效。
      *
-     * 只查询**本应用自身**的包信息——该查询在任何权限状态下都合法、不会触发系统授权框，
-     * 但若 ROM 的开关确实生效，`queryIntentActivities` 对自身包仍可见。
+     * ⚠ **不得只查自身包**：`queryIntentActivities` 对自身包在任何权限状态下都恒成功，
+     * 构成假阳性（v1.5.68 前的缺陷：Flyme 未授权也返回 true，应用筛选页与规则适用
+     * 应用选择页因此跳过授权引导、拿到空列表。守卫：QueryAllPackagesContractTest）。
+     *
+     * 现探测**全量桌面 Activity 可见数量**：Android 11+ 包可见性过滤下，未授权时只能
+     * 看到自身与极少数自动可见的系统组件（通常 < 10）；已授予时为全量桌面应用（100+）。
+     * 阈值取 20，远离两端，避免小众设备误判。
      * 返回 false 时 UI 会走应用内引导弹窗（先说明后申请），而非直接拉起系统框。
      */
     private fun hasQueryAllPackagesEffective(): Boolean {
         return try {
             val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-            intent.setPackage(packageName)
             val pm = packageManager
             val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 pm.queryIntentActivities(
@@ -629,7 +637,9 @@ class MainActivity : FlutterActivity() {
                 @Suppress("DEPRECATION")
                 pm.queryIntentActivities(intent, 0)
             }
-            list.isNotEmpty()
+            // 应用筛选页实测：已授权时可见桌面 Activity 数量远超 20；
+            // 未授权（包可见性过滤生效）时通常仅自身 + 少数系统组件
+            list.size >= 20
         } catch (e: Exception) {
             false
         }
