@@ -1035,5 +1035,6 @@
   "historyBlockAppSelfToast": "本应用自身的通知由电量规则控制，请在电量设置中调整",
   "historyBlockAppAllowWhitelistToast": "该应用已被应用过滤拦截，但白名单关键词命中仍会推送",
   "exportConfirmDesc": "通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。",
-  "historyMoreActions": "更多操作"
+  "historyMoreActions": "更多操作",
+  "ruleAppPickScanEmpty": "未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。"
 }

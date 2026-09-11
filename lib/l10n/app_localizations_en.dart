@@ -2231,4 +2231,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyMoreActions => 'More actions';
+
+  @override
+  String get ruleAppPickScanEmpty =>
+      'No apps were scanned. Go back and retry; if still empty, make sure \"Query all packages\" is allowed in system settings.';
 }

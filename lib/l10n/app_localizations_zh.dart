@@ -2147,4 +2147,8 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get historyMoreActions => '更多操作';
+
+  @override
+  String get ruleAppPickScanEmpty =>
+      '未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。';
 }

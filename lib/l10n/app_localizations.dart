@@ -4123,6 +4123,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'更多操作'**
   String get historyMoreActions;
+
+  /// No description provided for @ruleAppPickScanEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。'**
+  String get ruleAppPickScanEmpty;
 }
 
 class _AppLocalizationsDelegate

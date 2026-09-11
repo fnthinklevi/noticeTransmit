@@ -898,6 +898,9 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
   final _searchController = TextEditingController();
   bool _loading = true;
   bool _hasPermission = true;
+
+  /// 已授权但扫描结果为空（区分于无权限：空态提示可返回重试，而非引导授权）
+  bool _scanEmpty = false;
   bool _showSystemApps = false;
   // 权限提醒弹窗每次进入页面只弹一次：从系统设置返回（resumed 重查）不再弹
   bool _permissionDialogShown = false;
@@ -1076,9 +1079,12 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
     setState(() {
       _allApps = apps ?? const [];
       _loading = false;
-      // ⚠ ROM 假阳性兜底：判定已授予但列表为空（如 Flyme 探测恒真、
-      // 原生扫描无权限时静默返回空）→ 同样走授权引导，与应用筛选页体验一致。
-      _hasPermission = granted && _allApps.isNotEmpty;
+      // N9 修复：判定与列表空解耦。原「_hasPermission = granted && 列表非空」
+      // 会把「已授权但扫描为空」（ROM 包可见性限制/缓存缺失）误判为无权限 →
+      // 每次进入都弹授权引导，形成「一直请求权限 + 显示无权限」的死循环
+      // （与应用筛选页表现不一致的根因——筛选页判定只看权限本身）。
+      _hasPermission = granted;
+      _scanEmpty = granted && _allApps.isEmpty;
     });
 
     if (!_hasPermission && !_permissionDialogShown) {
@@ -1144,6 +1150,21 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ),
+            )
+          : _scanEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  l10n.ruleAppPickScanEmpty,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
                     color: AppColors.secondaryLabel(context),
                   ),
                 ),

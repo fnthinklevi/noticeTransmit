@@ -1028,5 +1028,6 @@
   "historyBlockAppSelfToast": "This app's own notifications are governed by battery rules — adjust them in battery settings",
   "historyBlockAppAllowWhitelistToast": "Already blocked by app filter, but whitelist keyword hits will still push",
   "exportConfirmDesc": "Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.",
-  "historyMoreActions": "More actions"
+  "historyMoreActions": "More actions",
+  "ruleAppPickScanEmpty": "No apps were scanned. Go back and retry; if still empty, make sure \"Query all packages\" is allowed in system settings."
 }
