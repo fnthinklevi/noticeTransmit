@@ -144,10 +144,32 @@ class WebhookResponseParserTest {
     }
 
     @Test
-    fun bark_code200Body_successByOkDefault() {
-        // Bark 响应无 ok 字段，optBoolean("ok", true) 默认按成功处理
+    fun bark_code200_success() {
         val r = parse(WebhookType.BARK, 200, """{"code":200,"message":"success"}""")
         assertEquals(DeliveryStatus.SUCCESS, r.status)
+    }
+
+    @Test
+    fun bark_code400_bizFail_notSilentSuccess() {
+        // 修复回归守卫：Bark 响应无 ok 字段，原先 optBoolean("ok", true) 恒判成功，
+        // 400（参数错）/404（路径错）/500（服务端错）都会被标成「推送成功」
+        val r = parse(WebhookType.BARK, 200, """{"code":400,"message":"bad request"}""")
+        assertEquals(DeliveryStatus.BIZ_FAIL, r.status)
+        assertEquals(false, r.retryable)
+    }
+
+    @Test
+    fun bark_code429_rateLimited() {
+        val r = parse(WebhookType.BARK, 200, """{"code":429,"message":"too many requests"}""")
+        assertEquals(DeliveryStatus.RATE_LIMITED, r.status)
+        assertEquals(true, r.retryable)
+    }
+
+    @Test
+    fun bark_codeMissing_conservativeFail() {
+        // code 缺失保守判失败：宁可让用户看到失败，不要静默标成功
+        val r = parse(WebhookType.BARK, 200, """{"message":"weird"}""")
+        assertEquals(DeliveryStatus.BIZ_FAIL, r.status)
     }
 
     // ===== Server酱 / PushPlus =====

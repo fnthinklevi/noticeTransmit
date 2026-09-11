@@ -16,59 +16,21 @@ object WebhookPayloadBuilder {
         PUSH_PLUS
     }
 
-    /** 平台 host 匹配规则（新增平台只需追加一行） */
-    data class PlatformRule(val type: WebhookType, val hosts: List<String>)
-
-    val PLATFORM_RULES = listOf(
-        PlatformRule(WebhookType.WECHAT_WORK, listOf("qyapi.weixin.qq.com")),
-        PlatformRule(WebhookType.DINGTALK, listOf("oapi.dingtalk.com")),
-        PlatformRule(WebhookType.FEISHU, listOf("open.feishu.cn", "open.larksuite.com")),
-        PlatformRule(WebhookType.TELEGRAM, listOf("api.telegram.org")),
-        PlatformRule(WebhookType.BARK, listOf("api.day.app", "bark.gugu.ovh")),
-        PlatformRule(WebhookType.SERVER_CHAN, listOf("sctapi.ftqq.com")),
-        PlatformRule(WebhookType.PUSH_PLUS, listOf("www.pushplus.plus", "pushplus.plus")),
-    )
 
     /**
      * 根据 URL 猜测 webhook 平台类型（仅作为兜底，准确类型应由 DB channel_type 字段提供）。
      * 遍历 [PLATFORM_RULES] 做 host 精确匹配，新增平台只需在规则列表中追加一行。
      */
+    /** 自动识别通道类型：host 规则集中在 ChannelRegistry 描述符表；无匹配回退 GENERIC */
     fun detectType(url: String): WebhookType {
-        val host = extractHost(url) ?: return WebhookType.GENERIC
-        for (rule in PLATFORM_RULES) {
-            if (host in rule.hosts) return rule.type
-        }
-        return WebhookType.GENERIC
+        val host = ChannelRegistry.extractHost(url) ?: return WebhookType.GENERIC
+        return ChannelRegistry.typeByHost(host) ?: WebhookType.GENERIC
     }
+
 
     /**
-     * 从 URL 中提取 host（小写），失败返回 null。
-     * 示例：
-     *   "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx" → "qyapi.weixin.qq.com"
-     *   "qyapi.weixin.qq.com/cgi-bin/webhook/send" → "qyapi.weixin.qq.com"
-     *   "not a url" → null
+     * 构造通知载荷 —— 分派经 [ChannelRegistry] 描述符表（新增通道只需改表）。
      */
-    private fun extractHost(url: String): String? {
-        val lower = url.trim().lowercase()
-        if (lower.isEmpty()) return null
-        // 去掉协议
-        val noProto = when {
-            lower.startsWith("https://") -> lower.substring(8)
-            lower.startsWith("http://") -> lower.substring(7)
-            else -> lower
-        }
-        // 去掉 path / query / port
-        val endIdx = noProto.indexOfAny(charArrayOf('/', '?', '#'))
-        val hostPort = if (endIdx >= 0) noProto.substring(0, endIdx) else noProto
-        if (hostPort.isEmpty()) return null
-        // 去掉 credentials（user:pass@host）中的 userinfo 部分，与 Dart 端 _extractHost 保持一致
-        val atIdx = hostPort.lastIndexOf('@')
-        val hostWithOptionalPort = if (atIdx >= 0) hostPort.substring(atIdx + 1) else hostPort
-        // 去掉端口（不区分 IPv6，webhook URL 实际不会用到 IPv6 字面量 host）
-        val host = hostWithOptionalPort.substringBeforeLast(':')
-        return host.takeIf { it.isNotEmpty() }
-    }
-
     fun buildPayload(
         type: WebhookType,
         title: String,
@@ -81,128 +43,27 @@ object WebhookPayloadBuilder {
         chatId: String = "",
         extras: Map<String, String> = emptyMap()
     ): String {
-        return when (type) {
-            WebhookType.GENERIC -> buildGeneric(
-                title = title,
-                content = content,
-                appName = appName,
-                packageName = packageName,
-                time = time,
-                deviceName = deviceName,
-                notifyType = notifyType,
-                extras = extras
+        return ChannelRegistry.spec(type).notify(
+            NotifyInput(
+                title = title, content = content, appName = appName,
+                packageName = packageName, time = time, deviceName = deviceName,
+                notifyType = notifyType, chatId = chatId, extras = extras,
             )
-            WebhookType.WECHAT_WORK -> buildWeChatWork(
-                title = title,
-                content = content,
-                appName = appName,
-                time = time,
-                deviceName = deviceName,
-                notifyType = notifyType
-            )
-            WebhookType.DINGTALK -> buildDingTalk(
-                title = title,
-                content = content,
-                appName = appName,
-                time = time,
-                deviceName = deviceName,
-                notifyType = notifyType
-            )
-            WebhookType.FEISHU -> buildFeishu(
-                title = title,
-                content = content,
-                appName = appName,
-                time = time,
-                deviceName = deviceName,
-                notifyType = notifyType
-            )
-            WebhookType.TELEGRAM -> buildTelegram(
-                title = title,
-                content = content,
-                appName = appName,
-                time = time,
-                deviceName = deviceName,
-                notifyType = notifyType,
-                chatId = chatId
-            )
-            WebhookType.BARK -> buildBark(
-                title = title,
-                content = content,
-                appName = appName,
-                time = time,
-                deviceName = deviceName,
-                notifyType = notifyType
-            )
-            // Server酱 / PushPlus 在 WebhookSender 中走独立发送路径（GET / token 注入），
-            // 此处返回文本 body 作为兜底，保证 when 穷尽。
-            WebhookType.SERVER_CHAN,
-            WebhookType.PUSH_PLUS -> buildTextBody(
-                title = title,
-                content = content,
-                appName = appName,
-                time = time,
-                deviceName = deviceName,
-                notifyType = notifyType
-            )
-        }
+        )
     }
 
+    /** 构造测试发送载荷（文案取自 I18n，分派经描述符表） */
     fun buildTestPayload(type: WebhookType, deviceName: String, chatId: String = ""): String {
-        val title = I18n.testTitle()
-        val content = I18n.testContent()
-        val deviceLabel = I18n.testDeviceLabel()
-        val sep = I18n.labelSeparator()
-
-        return when (type) {
-            WebhookType.GENERIC -> JSONObject().apply {
-                put("type", "test")
-                put("title", title)
-                put("content", content)
-                put("deviceName", deviceName)
-                put("timestamp", System.currentTimeMillis())
-            }.toString()
-
-            WebhookType.WECHAT_WORK -> JSONObject().apply {
-                put("msgtype", "text")
-                put("text", JSONObject().apply {
-                    put("content", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-                })
-            }.toString()
-
-            WebhookType.DINGTALK -> JSONObject().apply {
-                put("msgtype", "text")
-                put("text", JSONObject().apply {
-                    put("content", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-                })
-            }.toString()
-
-            WebhookType.FEISHU -> JSONObject().apply {
-                put("msg_type", "text")
-                put("content", JSONObject().apply {
-                    put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-                })
-            }.toString()
-
-            WebhookType.TELEGRAM -> buildTelegramMessage(
-                "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName",
-                chatId
+        return ChannelRegistry.spec(type).test(
+            TestInput(
+                title = I18n.testTitle(), content = I18n.testContent(),
+                deviceLabel = I18n.testDeviceLabel(), sep = I18n.labelSeparator(),
+                deviceName = deviceName, chatId = chatId,
             )
-
-            WebhookType.BARK -> JSONObject().apply {
-                put("title", title)
-                put("body", "$content\n\n$deviceLabel$sep$deviceName")
-            }.toString()
-
-            WebhookType.SERVER_CHAN,
-            WebhookType.PUSH_PLUS -> JSONObject().apply {
-                put("title", title)
-                put("content", "$content\n\n$deviceLabel$sep$deviceName")
-                put("deviceName", deviceName)
-            }.toString()
-        }
+        )
     }
 
-    private fun buildGeneric(
+    internal fun buildGeneric(
         title: String,
         content: String,
         appName: String,
@@ -230,7 +91,7 @@ object WebhookPayloadBuilder {
     /**
      * 构造文本型推送正文（企微/钉钉/飞书通用），所有标签从 I18n 取，支持中英双语
      */
-    private fun buildTextBody(
+    internal fun buildTextBody(
         title: String,
         content: String,
         appName: String,
@@ -284,7 +145,7 @@ object WebhookPayloadBuilder {
         return sb.toString()
     }
 
-    private fun buildWeChatWork(
+    internal fun buildWeChatWork(
         title: String,
         content: String,
         appName: String,
@@ -302,7 +163,7 @@ object WebhookPayloadBuilder {
         }.toString()
     }
 
-    private fun buildDingTalk(
+    internal fun buildDingTalk(
         title: String,
         content: String,
         appName: String,
@@ -320,7 +181,7 @@ object WebhookPayloadBuilder {
         }.toString()
     }
 
-    private fun buildFeishu(
+    internal fun buildFeishu(
         title: String,
         content: String,
         appName: String,
@@ -338,7 +199,7 @@ object WebhookPayloadBuilder {
         }.toString()
     }
 
-    private fun buildTelegram(
+    internal fun buildTelegram(
         title: String,
         content: String,
         appName: String,
@@ -388,7 +249,7 @@ object WebhookPayloadBuilder {
             ?.substringAfter('=') ?: ""
     }
 
-    private fun buildBark(
+    internal fun buildBark(
         title: String,
         content: String,
         appName: String,
@@ -406,6 +267,7 @@ object WebhookPayloadBuilder {
         }.toString()
     }
 
+    /** 构造短信载荷（标题按既有规则预构造，分派经描述符表） */
     fun buildSmsPayload(
         type: WebhookType,
         sender: String,
@@ -420,81 +282,16 @@ object WebhookPayloadBuilder {
         val simSuffix = I18n.simSuffix(simInfo)
         // SMS 标题（用于通用类型 JSON）；titleTag 为白名单等命中来源备注前缀
         val title = "$titleTag${I18n.smsNotifyTitle(sender, null)}"
-
-        return when (type) {
-            WebhookType.GENERIC -> JSONObject().apply {
-                put("type", "sms")
-                put("sender", sender)
-                put("message", message)
-                put("time", time)
-                put("deviceName", deviceName)
-                put("timestamp", System.currentTimeMillis())
-                if (simInfo != null) put("simInfo", simInfo)
-            }.toString()
-
-            WebhookType.WECHAT_WORK -> JSONObject().apply {
-                put("msgtype", "text")
-                put("text", JSONObject().apply {
-                    put("content", buildTextBody(
-                        title = title, content = "", appName = "",
-                        time = time, deviceName = deviceName,
-                        sender = sender, message = message, simFooter = simFooter
-                    ))
-                })
-            }.toString()
-
-            WebhookType.DINGTALK -> JSONObject().apply {
-                put("msgtype", "text")
-                put("text", JSONObject().apply {
-                    put("content", buildTextBody(
-                        title = title, content = "", appName = "",
-                        time = time, deviceName = deviceName,
-                        sender = sender, message = message, simFooter = simFooter
-                    ))
-                })
-            }.toString()
-
-            WebhookType.FEISHU -> JSONObject().apply {
-                put("msg_type", "text")
-                put("content", JSONObject().apply {
-                    put("text", buildTextBody(
-                        title = title, content = "", appName = "",
-                        time = time, deviceName = deviceName,
-                        sender = sender, message = message, simFooter = simFooter
-                    ))
-                })
-            }.toString()
-
-            WebhookType.TELEGRAM -> buildTelegramMessage(
-                buildTextBody(
-                    title = title, content = "", appName = "",
-                    time = time, deviceName = deviceName,
-                    sender = sender, message = message, simFooter = simFooter
-                ),
-                chatId
+        return ChannelRegistry.spec(type).sms(
+            SmsInput(
+                title = title, sender = sender, message = message, time = time,
+                deviceName = deviceName, simInfo = simInfo, simFooter = simFooter,
+                chatId = chatId,
             )
-
-            WebhookType.BARK -> JSONObject().apply {
-                put("title", title)
-                put("body", buildTextBody(
-                    title = "", content = "", appName = "",
-                    time = time, deviceName = deviceName,
-                    sender = sender, message = message, simFooter = simFooter
-                ))
-            }.toString()
-
-            WebhookType.SERVER_CHAN,
-            WebhookType.PUSH_PLUS -> JSONObject().apply {
-                put("title", title)
-                put("content", buildTextBody(
-                    title = "", content = "", appName = "",
-                    time = time, deviceName = deviceName,
-                    sender = sender, message = message, simFooter = simFooter
-                ))
-            }.toString()
-        }
+        )
     }
 
+    /** 构造通话载荷（分派经描述符表） */
     fun buildCallPayload(
         type: WebhookType,
         state: String,
@@ -506,92 +303,15 @@ object WebhookPayloadBuilder {
         simFooter: String? = null,
         chatId: String = ""
     ): String {
-        return when (type) {
-            WebhookType.GENERIC -> JSONObject().apply {
-                put("type", "call_$state")
-                put("phoneNumber", phoneNumber)
-                put("callState", state)
-                put("time", time)
-                if (durationStr.isNotEmpty()) put("duration", durationStr)
-                put("deviceName", deviceName)
-                put("timestamp", System.currentTimeMillis())
-                if (simInfo != null) put("simInfo", simInfo)
-            }.toString()
-
-            WebhookType.WECHAT_WORK -> JSONObject().apply {
-                put("msgtype", "text")
-                put("text", JSONObject().apply {
-                    put("content", buildTextBody(
-                        title = "", content = "", appName = "",
-                        time = time, deviceName = deviceName,
-                        state = state, phoneNumber = phoneNumber,
-                        durationStr = durationStr, simFooter = simFooter
-                    ))
-                })
-            }.toString()
-
-            WebhookType.DINGTALK -> JSONObject().apply {
-                put("msgtype", "text")
-                put("text", JSONObject().apply {
-                    put("content", buildTextBody(
-                        title = "", content = "", appName = "",
-                        time = time, deviceName = deviceName,
-                        state = state, phoneNumber = phoneNumber,
-                        durationStr = durationStr, simFooter = simFooter
-                    ))
-                })
-            }.toString()
-
-            WebhookType.FEISHU -> JSONObject().apply {
-                put("msg_type", "text")
-                put("content", JSONObject().apply {
-                    put("text", buildTextBody(
-                        title = "", content = "", appName = "",
-                        time = time, deviceName = deviceName,
-                        state = state, phoneNumber = phoneNumber,
-                        durationStr = durationStr, simFooter = simFooter
-                    ))
-                })
-            }.toString()
-
-            WebhookType.TELEGRAM -> buildTelegramMessage(
-                buildTextBody(
-                    title = "", content = "", appName = "",
-                    time = time, deviceName = deviceName,
-                    state = state, phoneNumber = phoneNumber,
-                    durationStr = durationStr, simFooter = simFooter
-                ),
-                chatId
+        return ChannelRegistry.spec(type).call(
+            CallInput(
+                state = state, phoneNumber = phoneNumber, time = time,
+                durationStr = durationStr, deviceName = deviceName,
+                simInfo = simInfo, simFooter = simFooter, chatId = chatId,
             )
-
-            WebhookType.BARK -> JSONObject().apply {
-                put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
-                put("body", buildTextBody(
-                    title = "", content = "", appName = "",
-                    time = time, deviceName = deviceName,
-                    state = state, phoneNumber = phoneNumber,
-                    durationStr = durationStr, simFooter = simFooter
-                ))
-            }.toString()
-
-            WebhookType.SERVER_CHAN,
-            WebhookType.PUSH_PLUS -> JSONObject().apply {
-                put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
-                put("content", buildTextBody(
-                    title = "", content = "", appName = "",
-                    time = time, deviceName = deviceName,
-                    state = state, phoneNumber = phoneNumber,
-                    durationStr = durationStr, simFooter = simFooter
-                ))
-            }.toString()
-        }
+        )
     }
 
-    /**
-     * Server酱（Server酱³ / Turbo）：POST form（application/x-www-form-urlencoded），
-     * title + desp 作为表单体提交，内容不进入 URL，避免被中间代理/访问日志留存。
-     * 接口：https://sctapi.ftqq.com/{SendKey}.send  body: title=xxx&desp=xxx
-     */
     fun buildServerChanFormBody(
         title: String,
         content: String,

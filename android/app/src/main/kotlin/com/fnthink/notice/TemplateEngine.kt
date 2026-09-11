@@ -165,47 +165,10 @@ object TemplateEngine {
         val tpl = if (template.isEmpty()) presetTemplate(format) ?: return null else template
         val rendered = render(tpl, vars)
 
-        return when (type) {
-            WebhookPayloadBuilder.WebhookType.WECHAT_WORK -> JSONObject().apply {
-                put("msgtype", format) // text / markdown
-                if (format == "markdown") {
-                    put("markdown", JSONObject().apply { put("content", rendered) })
-                } else {
-                    put("text", JSONObject().apply { put("content", rendered) })
-                }
-            }.toString()
-
-            WebhookPayloadBuilder.WebhookType.DINGTALK -> JSONObject().apply {
-                put("msgtype", format)
-                if (format == "markdown") {
-                    put("markdown", JSONObject().apply {
-                        put("title", vars.title)
-                        put("text", rendered)
-                    })
-                } else {
-                    put("text", JSONObject().apply { put("content", rendered) })
-                }
-            }.toString()
-
-            // 飞书自定义机器人不支持 markdown msg_type（仅 text/post/image/interactive），
-            // markdown 格式降级为 text 发送渲染后的文本，保证送达。
-            WebhookPayloadBuilder.WebhookType.FEISHU -> JSONObject().apply {
-                put("msg_type", "text")
-                put("content", JSONObject().apply { put("text", rendered) })
-            }.toString()
-
-            WebhookPayloadBuilder.WebhookType.TELEGRAM ->
-                WebhookPayloadBuilder.buildTelegramMessage(rendered, chatId)
-
-            WebhookPayloadBuilder.WebhookType.BARK -> JSONObject().apply {
-                put("title", vars.title)
-                put("body", rendered)
-            }.toString()
-
-            // Server酱 / PushPlus 无平台模板包装（走 WebhookSender 独立发送路径）
-            WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
-            WebhookPayloadBuilder.WebhookType.PUSH_PLUS,
-            WebhookPayloadBuilder.WebhookType.GENERIC -> return null
-        }
+        // 分派经 ChannelRegistry 描述符表；未登记 platformPayload 的通道（GENERIC /
+        // Server酱 / PushPlus）返回 null，走文本或独立发送路径（与原行为一致）
+        return ChannelRegistry.spec(type).platformPayload
+            ?.invoke(vars, rendered, format, chatId)
     }
 }
+
