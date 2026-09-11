@@ -11,6 +11,7 @@ import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 class HistoryPage extends StatefulWidget {
   final List<NotificationRecord> records;
@@ -1993,19 +1994,13 @@ class _HistoryPageState extends State<HistoryPage> {
               l10n.clearConfirmMsg(widget.records.length),
               style: TextStyle(color: AppColors.primaryLabel(ctx)),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(l10n.cancel),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(
-                  l10n.confirm,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
+            actions: IosDialogActions.confirm(
+              ctx,
+              cancelText: l10n.cancel,
+              confirmText: l10n.confirm,
+              onConfirm: () => Navigator.pop(ctx, true),
+              destructive: true,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
             ),

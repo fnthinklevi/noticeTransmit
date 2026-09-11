@@ -26,6 +26,7 @@ import 'keywords_page.dart';
 import 'rule_list_page.dart';
 import 'privacy_policy_page.dart';
 import 'sms_monitor_settings_page.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 // R3 拆分：容器页按域拆分（part 共享 State 私有成员，行为零变化）
 // main_page_update: 更新检查/弹窗/下载安装

@@ -9,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../services/backup_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 /// P1 配置备份与恢复页。
 ///
@@ -324,23 +325,12 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              l10n.cancel,
-              style: TextStyle(color: AppColors.secondaryLabel(ctx)),
-            ),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.blue),
-            child: Text(
-              l10n.confirm,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
+        actions: IosDialogActions.confirm(
+          ctx,
+          cancelText: l10n.cancel,
+          confirmText: l10n.confirm,
+          onConfirm: () => Navigator.pop(ctx, controller.text),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );

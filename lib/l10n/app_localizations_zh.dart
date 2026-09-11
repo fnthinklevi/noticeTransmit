@@ -2206,4 +2206,8 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get emailConfigSaved => '邮件通道配置已保存';
+
+  @override
+  String get notificationPermOffMsg =>
+      '通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。';
 }

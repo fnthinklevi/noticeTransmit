@@ -45,7 +45,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get later => 'Later';
 
   @override
-  String get goSettings => 'Go to Settings';
+  String get goSettings => 'Settings';
 
   @override
   String get loading => 'Loading...';
@@ -2291,4 +2291,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emailConfigSaved => 'Email channel config saved';
+
+  @override
+  String get notificationPermOffMsg =>
+      'Notification access is off, so the app cannot read device notifications.\n\nEnable it in \"Permission settings\" first, then start the service.';
 }

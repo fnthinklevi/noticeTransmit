@@ -74,6 +74,7 @@ extension _MainPageDialogs on _MainPageState {
   }
 
   void _showNotificationPermissionDialog() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -83,30 +84,24 @@ extension _MainPageDialogs on _MainPageState {
           size: 40,
           color: AppColors.orange,
         ),
-        content: const Text(
-          '通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。',
+        content: Text(
+          l10n.notificationPermOffMsg,
           textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.5,
+            color: AppColors.primaryLabel(ctx),
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              '稍后',
-              style: TextStyle(color: AppColors.secondaryLabel(ctx)),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
+          ...IosDialogActions.confirm(
+            ctx,
+            cancelText: l10n.updateLater,
+            confirmText: l10n.goSettings,
+            onConfirm: () {
               Navigator.pop(ctx);
               _openPermissionSettingsPage();
             },
-            child: const Text(
-              '去设置',
-              style: TextStyle(
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -159,32 +154,19 @@ extension _MainPageDialogs on _MainPageState {
           ),
           autofocus: true,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              l10n.cancel,
-              style: const TextStyle(color: AppColors.blue),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                _deviceInfoService.saveDeviceName(name);
-                setState(() {});
-                Navigator.pop(context);
-              }
-            },
-            child: Text(
-              l10n.save,
-              style: const TextStyle(
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
+        actions: IosDialogActions.confirm(
+          context,
+          cancelText: l10n.cancel,
+          confirmText: l10n.save,
+          onConfirm: () {
+            final name = controller.text.trim();
+            if (name.isNotEmpty) {
+              _deviceInfoService.saveDeviceName(name);
+              setState(() {});
+              Navigator.pop(context);
+            }
+          },
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );

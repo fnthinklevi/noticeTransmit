@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../models/email_channel.dart';
 import '../services/email_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 /// 邮件通道设置页
 ///
@@ -266,16 +267,13 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
           l10n.deleteEmailChannelConfirm(channel.name),
           style: TextStyle(color: AppColors.primaryLabel(ctx)),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-          ),
-        ],
+        actions: IosDialogActions.confirm(
+          ctx,
+          cancelText: l10n.cancel,
+          confirmText: l10n.delete,
+          onConfirm: () => Navigator.pop(ctx, true),
+          destructive: true,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );

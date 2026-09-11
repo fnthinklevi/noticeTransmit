@@ -4231,6 +4231,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'邮件通道配置已保存'**
   String get emailConfigSaved;
+
+  /// No description provided for @notificationPermOffMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。'**
+  String get notificationPermOffMsg;
 }
 
 class _AppLocalizationsDelegate

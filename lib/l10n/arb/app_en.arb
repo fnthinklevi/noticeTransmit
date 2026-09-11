@@ -11,7 +11,7 @@
   "close": "Close",
   "ok": "OK",
   "later": "Later",
-  "goSettings": "Go to Settings",
+  "goSettings": "Settings",
   "loading": "Loading...",
   "unknown": "Unknown",
   "notSet": "Not Set",
@@ -1060,5 +1060,6 @@
         "type": "String"
       }
     }
-  }
+  },
+  "notificationPermOffMsg": "Notification access is off, so the app cannot read device notifications.\n\nEnable it in \"Permission settings\" first, then start the service."
 }

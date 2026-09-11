@@ -4,6 +4,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 class BatteryPage extends StatefulWidget {
   final bool notifyEnabled;
@@ -208,34 +209,17 @@ class _BatteryPageState extends State<BatteryPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                l10n.notNow,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                AppChannels.notification.invokeMethod(
-                  'requestBatteryOptimization',
-                );
-              },
-              child: Text(
-                l10n.goSettings,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.blue,
-                ),
-              ),
-            ),
-          ],
+          actions: IosDialogActions.confirm(
+            ctx,
+            cancelText: l10n.notNow,
+            confirmText: l10n.goSettings,
+            onConfirm: () {
+              Navigator.pop(ctx);
+              AppChannels.notification.invokeMethod(
+                'requestBatteryOptimization',
+              );
+            },
+          ),
         );
       },
     );
@@ -317,21 +301,19 @@ class _BatteryPageState extends State<BatteryPage> {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
+                  backgroundColor: AppColors.cardBg(ctx),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                   title: Text(l10n.confirmDeleteRule),
                   content: Text(l10n.confirmDeleteRuleMsg(title)),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(false),
-                      child: Text(l10n.cancel),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(true),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.red,
-                      ),
-                      child: Text(l10n.delete),
-                    ),
-                  ],
+                  actions: IosDialogActions.confirm(
+                    ctx,
+                    cancelText: l10n.cancel,
+                    confirmText: l10n.delete,
+                    onConfirm: () => Navigator.of(ctx).pop(true),
+                    destructive: true,
+                  ),
                 ),
               );
               if (confirmed == true) widget.onDeleteRule(ruleId);
@@ -700,33 +682,16 @@ class _BatteryPageState extends State<BatteryPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                l10n.cancel,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: AppColors.red),
-              onPressed: () {
-                widget.onDeleteRule(id);
-                Navigator.pop(context);
-              },
-              child: Text(
-                l10n.delete,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.red,
-                ),
-              ),
-            ),
-          ],
+          actions: IosDialogActions.confirm(
+            context,
+            cancelText: l10n.cancel,
+            confirmText: l10n.delete,
+            onConfirm: () {
+              widget.onDeleteRule(id);
+              Navigator.pop(context);
+            },
+            destructive: true,
+          ),
         );
       },
     );
