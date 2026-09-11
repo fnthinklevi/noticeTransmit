@@ -1282,6 +1282,68 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleMergeWindowInvalid => '请输入 5-86400 的整数（最小 5 秒）';
 
   @override
+  String get historyActionBlockApp => '屏蔽该应用的通知';
+
+  @override
+  String get historyActionBlockAppShort => '屏蔽该应用';
+
+  @override
+  String get historyActionBlockAppDescAllow => '白名单模式：将该应用移出推送白名单';
+
+  @override
+  String get historyActionBlockAppDescBlock => '黑名单模式：将该应用加入屏蔽名单';
+
+  @override
+  String get historyActionBlockAppDescAlreadyExcluded => '该应用已不在推送范围，无需操作';
+
+  @override
+  String get historyActionBlockAppDescAlreadyBlocked => '该应用已在屏蔽名单中';
+
+  @override
+  String get historyActionBlockContent => '屏蔽含本通知内容的通知';
+
+  @override
+  String get historyActionBlockContentShort => '屏蔽内容';
+
+  @override
+  String get historyBlockContentDialogTitle => '新增黑名单关键词';
+
+  @override
+  String get historyBlockContentEditHint => '可编辑后保存，含此文本的通知将被屏蔽';
+
+  @override
+  String get historyBlockContentSuccess => '已加入黑名单关键词';
+
+  @override
+  String get historyBlockContentDuplicate => '该关键词已在黑名单中';
+
+  @override
+  String historyBlockAppRemoved(String app) {
+    return '已将「$app」移出推送白名单';
+  }
+
+  @override
+  String historyBlockAppAdded(String app) {
+    return '已将「$app」加入屏蔽名单';
+  }
+
+  @override
+  String historyBlockAppAlreadyExcluded(String app) {
+    return '「$app」已不在推送范围内';
+  }
+
+  @override
+  String historyBlockAppAlreadyBlocked(String app) {
+    return '「$app」已在屏蔽名单中';
+  }
+
+  @override
+  String get historyBlockNoAppName => '该记录缺少应用信息，无法屏蔽';
+
+  @override
+  String get historyBlockNoText => '该记录无文本内容，无法屏蔽';
+
+  @override
   String get ruleSelect => '请选择';
 
   @override

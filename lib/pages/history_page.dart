@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../services/archive_worker.dart' show kArchiveDirModeKey;
+import '../services/filter_service.dart';
 import '../services/notification_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
@@ -927,6 +928,257 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 送达日志查询/展示用
   final DatabaseHelper _dbHelper = DatabaseHelper();
 
+  // ── 快捷屏蔽（长按记录菜单与详情页按钮共用）──
+
+  FilterService get _filterService => GetIt.instance<FilterService>();
+
+  void _showToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  /// 屏蔽该应用：按当前过滤模式分流。
+  /// - allow（白名单）模式：仅选中应用会被推送 → 应用在名单中则移出即屏蔽；
+  ///   不在名单中说明本就不推送，提示无需操作。
+  /// - block（黑名单）模式：应用加入屏蔽名单；已在名单中提示无需操作。
+  /// 返回后由调用方刷新列表显示。
+  Future<void> _blockApp(NotificationRecord record) async {
+    final l10n = AppLocalizations.of(context);
+    final pkg = record.packageName;
+    final app = record.appName.isNotEmpty ? record.appName : pkg;
+    if (pkg.isEmpty) {
+      _showToast(l10n.historyBlockNoAppName);
+      return;
+    }
+    final filterService = _filterService;
+    if (filterService.appFilterMode == 'allow') {
+      if (!filterService.enabledPackages.contains(pkg)) {
+        _showToast(l10n.historyBlockAppAlreadyExcluded(app));
+        return;
+      }
+      final remaining = filterService.enabledPackages
+          .where((p) => p != pkg)
+          .toList();
+      await filterService.saveAppFilter('allow', remaining);
+      _showToast(l10n.historyBlockAppRemoved(app));
+    } else {
+      if (filterService.enabledPackages.contains(pkg)) {
+        _showToast(l10n.historyBlockAppAlreadyBlocked(app));
+        return;
+      }
+      await filterService.saveAppFilter('block', [
+        ...filterService.enabledPackages,
+        pkg,
+      ]);
+      _showToast(l10n.historyBlockAppAdded(app));
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// 屏蔽含本通知内容的通知：弹窗预填通知全文（正文为空时用标题），
+  /// 可编辑后加入黑名单关键词（黑名单匹配为「标题/内容包含关键词」）。
+  Future<void> _blockContent(NotificationRecord record) async {
+    final l10n = AppLocalizations.of(context);
+    final initialText = record.content.isNotEmpty
+        ? record.content
+        : record.title;
+    if (initialText.isEmpty) {
+      _showToast(l10n.historyBlockNoText);
+      return;
+    }
+    final controller = TextEditingController(text: initialText);
+    final keyword = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg(dialogContext),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.historyBlockContentDialogTitle,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(dialogContext),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 3,
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.primaryLabel(dialogContext),
+              ),
+              decoration: InputDecoration(
+                fillColor: AppColors.inputBg(dialogContext),
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: AppColors.separator(dialogContext),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.blue),
+                ),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.historyBlockContentEditHint,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(dialogContext),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              l10n.cancel,
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.secondaryLabel(dialogContext),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: Text(
+              l10n.save,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.blue,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (keyword == null || keyword.isEmpty) return;
+    final filterService = _filterService;
+    if (filterService.blacklistKeywords.contains(keyword)) {
+      _showToast(l10n.historyBlockContentDuplicate);
+      return;
+    }
+    await filterService.saveBlacklistKeywords([
+      ...filterService.blacklistKeywords,
+      keyword,
+    ]);
+    _showToast(l10n.historyBlockContentSuccess);
+    if (mounted) setState(() {});
+  }
+
+  /// 长按记录弹出操作菜单（屏蔽应用 / 屏蔽内容）
+  void _showRecordActionsSheet(NotificationRecord record) {
+    final l10n = AppLocalizations.of(context);
+    final isAllowMode = _filterService.appFilterMode == 'allow';
+    final inList = _filterService.enabledPackages.contains(record.packageName);
+    // 副标题动态说明当前模式下将执行的动作（或已屏蔽状态）
+    final blockAppDesc = isAllowMode
+        ? (inList
+              ? l10n.historyActionBlockAppDescAllow
+              : l10n.historyActionBlockAppDescAlreadyExcluded)
+        : (inList
+              ? l10n.historyActionBlockAppDescAlreadyBlocked
+              : l10n.historyActionBlockAppDescBlock);
+    final textPreview = record.content.isNotEmpty
+        ? record.content
+        : record.title;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardBg(sheetContext),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.separator(sheetContext),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.block, color: AppColors.red),
+                title: Text(
+                  l10n.historyActionBlockApp,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                subtitle: Text(
+                  blockAppDesc,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _blockApp(record);
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.playlist_remove,
+                  color: Color(0xFFFF9500),
+                ),
+                title: Text(
+                  l10n.historyActionBlockContent,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                subtitle: Text(
+                  textPreview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _blockContent(record);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showRecordDetail(NotificationRecord record) async {
     final l10n = AppLocalizations.of(context);
     final appName = record.appName.isNotEmpty
@@ -1037,6 +1289,28 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _blockApp(record);
+            },
+            icon: const Icon(Icons.block, size: 16),
+            label: Text(
+              l10n.historyActionBlockAppShort,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _blockContent(record);
+            },
+            icon: const Icon(Icons.playlist_remove, size: 16),
+            label: Text(
+              l10n.historyActionBlockContentShort,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
@@ -1048,6 +1322,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ),
         ],
+        actionsOverflowButtonSpacing: 8,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
@@ -1178,6 +1453,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
     return InkWell(
       onTap: () => _showRecordDetail(record),
+      onLongPress: () => _showRecordActionsSheet(record),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.cardBg(context),

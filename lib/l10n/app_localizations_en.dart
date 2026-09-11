@@ -1332,6 +1332,75 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter an integer between 5 and 86400 (minimum 5s)';
 
   @override
+  String get historyActionBlockApp => 'Block notifications from this app';
+
+  @override
+  String get historyActionBlockAppShort => 'Block app';
+
+  @override
+  String get historyActionBlockAppDescAllow =>
+      'Allow mode: remove this app from the push allowlist';
+
+  @override
+  String get historyActionBlockAppDescBlock =>
+      'Block mode: add this app to the blocked list';
+
+  @override
+  String get historyActionBlockAppDescAlreadyExcluded =>
+      'This app is already excluded from pushes';
+
+  @override
+  String get historyActionBlockAppDescAlreadyBlocked =>
+      'This app is already in the blocked list';
+
+  @override
+  String get historyActionBlockContent =>
+      'Block notifications containing this text';
+
+  @override
+  String get historyActionBlockContentShort => 'Block text';
+
+  @override
+  String get historyBlockContentDialogTitle => 'Add blacklist keyword';
+
+  @override
+  String get historyBlockContentEditHint =>
+      'Editable; notifications containing this text will be blocked';
+
+  @override
+  String get historyBlockContentSuccess => 'Keyword added to blacklist';
+
+  @override
+  String get historyBlockContentDuplicate => 'Keyword already in the blacklist';
+
+  @override
+  String historyBlockAppRemoved(String app) {
+    return 'Removed \"$app\" from the push allowlist';
+  }
+
+  @override
+  String historyBlockAppAdded(String app) {
+    return 'Added \"$app\" to the blocked list';
+  }
+
+  @override
+  String historyBlockAppAlreadyExcluded(String app) {
+    return '\"$app\" is already excluded from pushes';
+  }
+
+  @override
+  String historyBlockAppAlreadyBlocked(String app) {
+    return '\"$app\" is already in the blocked list';
+  }
+
+  @override
+  String get historyBlockNoAppName =>
+      'This record has no app info; cannot block';
+
+  @override
+  String get historyBlockNoText => 'This record has no text to block';
+
+  @override
   String get ruleSelect => 'Please select';
 
   @override

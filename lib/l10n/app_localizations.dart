@@ -2528,6 +2528,114 @@ abstract class AppLocalizations {
   /// **'请输入 5-86400 的整数（最小 5 秒）'**
   String get ruleMergeWindowInvalid;
 
+  /// No description provided for @historyActionBlockApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽该应用的通知'**
+  String get historyActionBlockApp;
+
+  /// No description provided for @historyActionBlockAppShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽该应用'**
+  String get historyActionBlockAppShort;
+
+  /// No description provided for @historyActionBlockAppDescAllow.
+  ///
+  /// In zh, this message translates to:
+  /// **'白名单模式：将该应用移出推送白名单'**
+  String get historyActionBlockAppDescAllow;
+
+  /// No description provided for @historyActionBlockAppDescBlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'黑名单模式：将该应用加入屏蔽名单'**
+  String get historyActionBlockAppDescBlock;
+
+  /// No description provided for @historyActionBlockAppDescAlreadyExcluded.
+  ///
+  /// In zh, this message translates to:
+  /// **'该应用已不在推送范围，无需操作'**
+  String get historyActionBlockAppDescAlreadyExcluded;
+
+  /// No description provided for @historyActionBlockAppDescAlreadyBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'该应用已在屏蔽名单中'**
+  String get historyActionBlockAppDescAlreadyBlocked;
+
+  /// No description provided for @historyActionBlockContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽含本通知内容的通知'**
+  String get historyActionBlockContent;
+
+  /// No description provided for @historyActionBlockContentShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽内容'**
+  String get historyActionBlockContentShort;
+
+  /// No description provided for @historyBlockContentDialogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增黑名单关键词'**
+  String get historyBlockContentDialogTitle;
+
+  /// No description provided for @historyBlockContentEditHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'可编辑后保存，含此文本的通知将被屏蔽'**
+  String get historyBlockContentEditHint;
+
+  /// No description provided for @historyBlockContentSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入黑名单关键词'**
+  String get historyBlockContentSuccess;
+
+  /// No description provided for @historyBlockContentDuplicate.
+  ///
+  /// In zh, this message translates to:
+  /// **'该关键词已在黑名单中'**
+  String get historyBlockContentDuplicate;
+
+  /// No description provided for @historyBlockAppRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已将「{app}」移出推送白名单'**
+  String historyBlockAppRemoved(String app);
+
+  /// No description provided for @historyBlockAppAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已将「{app}」加入屏蔽名单'**
+  String historyBlockAppAdded(String app);
+
+  /// No description provided for @historyBlockAppAlreadyExcluded.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{app}」已不在推送范围内'**
+  String historyBlockAppAlreadyExcluded(String app);
+
+  /// No description provided for @historyBlockAppAlreadyBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{app}」已在屏蔽名单中'**
+  String historyBlockAppAlreadyBlocked(String app);
+
+  /// No description provided for @historyBlockNoAppName.
+  ///
+  /// In zh, this message translates to:
+  /// **'该记录缺少应用信息，无法屏蔽'**
+  String get historyBlockNoAppName;
+
+  /// No description provided for @historyBlockNoText.
+  ///
+  /// In zh, this message translates to:
+  /// **'该记录无文本内容，无法屏蔽'**
+  String get historyBlockNoText;
+
   /// No description provided for @ruleSelect.
   ///
   /// In zh, this message translates to:

@@ -581,6 +581,52 @@
   },
   "ruleMergeWindowPresets": "常用时长（点击填入）：",
   "ruleMergeWindowInvalid": "请输入 5-86400 的整数（最小 5 秒）",
+  "historyActionBlockApp": "屏蔽该应用的通知",
+  "historyActionBlockAppShort": "屏蔽该应用",
+  "historyActionBlockAppDescAllow": "白名单模式：将该应用移出推送白名单",
+  "historyActionBlockAppDescBlock": "黑名单模式：将该应用加入屏蔽名单",
+  "historyActionBlockAppDescAlreadyExcluded": "该应用已不在推送范围，无需操作",
+  "historyActionBlockAppDescAlreadyBlocked": "该应用已在屏蔽名单中",
+  "historyActionBlockContent": "屏蔽含本通知内容的通知",
+  "historyActionBlockContentShort": "屏蔽内容",
+  "historyBlockContentDialogTitle": "新增黑名单关键词",
+  "historyBlockContentEditHint": "可编辑后保存，含此文本的通知将被屏蔽",
+  "historyBlockContentSuccess": "已加入黑名单关键词",
+  "historyBlockContentDuplicate": "该关键词已在黑名单中",
+  "historyBlockAppRemoved": "已将「{app}」移出推送白名单",
+  "@historyBlockAppRemoved": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockAppAdded": "已将「{app}」加入屏蔽名单",
+  "@historyBlockAppAdded": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockAppAlreadyExcluded": "「{app}」已不在推送范围内",
+  "@historyBlockAppAlreadyExcluded": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockAppAlreadyBlocked": "「{app}」已在屏蔽名单中",
+  "@historyBlockAppAlreadyBlocked": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockNoAppName": "该记录缺少应用信息，无法屏蔽",
+  "historyBlockNoText": "该记录无文本内容，无法屏蔽",
   "ruleSelect": "请选择",
   "ruleEditCondition": "编辑条件",
   "ruleAddConditionTitle": "添加条件",

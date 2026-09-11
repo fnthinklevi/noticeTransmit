@@ -576,6 +576,52 @@
   },
   "ruleMergeWindowPresets": "Presets (tap to fill):",
   "ruleMergeWindowInvalid": "Enter an integer between 5 and 86400 (minimum 5s)",
+  "historyActionBlockApp": "Block notifications from this app",
+  "historyActionBlockAppShort": "Block app",
+  "historyActionBlockAppDescAllow": "Allow mode: remove this app from the push allowlist",
+  "historyActionBlockAppDescBlock": "Block mode: add this app to the blocked list",
+  "historyActionBlockAppDescAlreadyExcluded": "This app is already excluded from pushes",
+  "historyActionBlockAppDescAlreadyBlocked": "This app is already in the blocked list",
+  "historyActionBlockContent": "Block notifications containing this text",
+  "historyActionBlockContentShort": "Block text",
+  "historyBlockContentDialogTitle": "Add blacklist keyword",
+  "historyBlockContentEditHint": "Editable; notifications containing this text will be blocked",
+  "historyBlockContentSuccess": "Keyword added to blacklist",
+  "historyBlockContentDuplicate": "Keyword already in the blacklist",
+  "historyBlockAppRemoved": "Removed \"{app}\" from the push allowlist",
+  "@historyBlockAppRemoved": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockAppAdded": "Added \"{app}\" to the blocked list",
+  "@historyBlockAppAdded": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockAppAlreadyExcluded": "\"{app}\" is already excluded from pushes",
+  "@historyBlockAppAlreadyExcluded": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockAppAlreadyBlocked": "\"{app}\" is already in the blocked list",
+  "@historyBlockAppAlreadyBlocked": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "historyBlockNoAppName": "This record has no app info; cannot block",
+  "historyBlockNoText": "This record has no text to block",
   "ruleSelect": "Please select",
   "ruleEditCondition": "Edit Condition",
   "ruleAddConditionTitle": "Add Condition",
