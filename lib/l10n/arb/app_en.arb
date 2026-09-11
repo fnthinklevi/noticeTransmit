@@ -545,6 +545,26 @@
   "rulePMedium": "Medium (100)",
   "rulePHigh": "High (200)",
   "rulePHighest": "Highest (500)",
+  "rulePriorityCustom": "Custom…",
+  "rulePriorityCustomTitle": "Custom Priority",
+  "rulePriorityCustomHint": "Integer from 0 to 500",
+  "rulePriorityCustomInvalid": "Enter an integer between 0 and 500",
+  "ruleAppScope": "Applicable Apps",
+  "ruleAppScopeAll": "All apps",
+  "ruleAppScopeExcluded": "{n} apps excluded",
+  "@ruleAppScopeExcluded": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleAppScopeDesc": "Excluded apps won't match this rule",
+  "ruleAppPickTitle": "Select Applicable Apps",
+  "ruleAppPinnedSms": "System SMS",
+  "ruleAppPinnedCall": "Phone",
+  "ruleAppPinnedNote": "System SMS and call notifications are forwarded via separate pipelines and never reach the rule engine; listed here for unified management.",
+  "ruleAppNoPermission": "No permission to read the app list",
   "ruleSelect": "Please select",
   "ruleEditCondition": "Edit Condition",
   "ruleAddConditionTitle": "Add Condition",
@@ -819,5 +839,5 @@
   "restoreFillGaps": "Fill Gaps Only",
   "restoreDoneReTest": "Restore completed. Please re-test channels with credentials (Webhook/email).",
   "restoreFailed": "Restore failed: ",
-  "backupRestoreSubtitle": "Encrypted backup of channels, rules and settings"
+  "backupRestoreSubtitle": "Encrypted backup of channels, rules and settings, restorable on a new device"
 }

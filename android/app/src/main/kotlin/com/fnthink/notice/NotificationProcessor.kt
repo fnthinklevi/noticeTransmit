@@ -112,9 +112,13 @@ class NotificationProcessor(private val context: Context) {
             .format(Date(postTime))
 
         return NotificationInfo(
-            // 全局唯一 id：包名 + tag + 通知 id。不同应用的通知 id 互相独立（如微信和 QQ 都可能是 1），
-            // 若只用 sbn.id 会因 HistoryCache 去重 / DB 主键冲突互相覆盖，表现为"偶尔漏通知"。
-            id = dedupKey,
+            // 记录 id = dedupKey + postTime。⚠ 只用 dedupKey（包名+tag+通知id）不唯一：
+            // 微信等会话应用连发消息会**复用同一个 StatusBarNotification**（同 tag + sbn.id，
+            // 每条消息是一次 repost），dedupKey 完全相同 → ① DB 主键 ConflictAlgorithm.replace
+            // 静默覆盖，历史只剩最后一条；② 聚合推送的成员逐条回传（DeliveryNotifier）按 id
+            // 找记录时只能命中一条，其余成员永远停留「发送中」。
+            // postTime 在每次 repost 时由系统更新，拼上它即可让每条消息独立成行。
+            id = "$dedupKey:$postTime",
             title = title,
             content = content,
             subText = subText,

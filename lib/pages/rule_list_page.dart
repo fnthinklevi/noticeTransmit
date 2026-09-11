@@ -305,7 +305,7 @@ class _RuleListPageState extends State<RuleListPage> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                l10n.rulePriorityBadge(rule.priority + 1),
+                                l10n.rulePriorityBadge(rule.priority),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.secondaryLabel(context),

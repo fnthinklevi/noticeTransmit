@@ -304,6 +304,11 @@ class NotificationRule {
   final List<Condition> conditions;
   final List<RuleAction> actions;
 
+  /// 规则级适用应用（**排除制**，P1-4）：为空 = 适用于全部应用（默认，兼容旧数据）；
+  /// 非空 = 列表内的应用不适用本规则。双端评估语义一致
+  /// （原生 RuleEngine.evaluate 读同名 JSON 字段，见 base.md §4.6.1）。
+  final List<String> excludedPackages;
+
   NotificationRule({
     required this.id,
     required this.name,
@@ -312,11 +317,13 @@ class NotificationRule {
     this.priority = 0,
     this.conditions = const [],
     this.actions = const [],
+    this.excludedPackages = const [],
   });
 
   factory NotificationRule.fromMap(Map<String, dynamic> map) {
     final conditions = (map['conditions'] as List?) ?? [];
     final actions = (map['actions'] as List?) ?? [];
+    final excludedPackages = (map['excludedPackages'] as List?) ?? [];
 
     // ⚠ description 必须保留：saveNotificationRules 用 toMap() 落盘，
     // 丢掉它会让用户编辑任意规则后预制规则的说明文案（UI 上直接展示）永久消失。
@@ -332,6 +339,7 @@ class NotificationRule {
       actions: actions
           .map((e) => RuleAction.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList(),
+      excludedPackages: excludedPackages.map((e) => e.toString()).toList(),
     );
   }
 
@@ -344,6 +352,7 @@ class NotificationRule {
       'priority': priority,
       'conditions': conditions.map((c) => c.toMap()).toList(),
       'actions': actions.map((a) => a.toMap()).toList(),
+      'excludedPackages': excludedPackages,
     };
   }
 
@@ -355,6 +364,7 @@ class NotificationRule {
     int? priority,
     List<Condition>? conditions,
     List<RuleAction>? actions,
+    List<String>? excludedPackages,
   }) {
     return NotificationRule(
       id: id ?? this.id,
@@ -364,6 +374,7 @@ class NotificationRule {
       priority: priority ?? this.priority,
       conditions: conditions ?? this.conditions,
       actions: actions ?? this.actions,
+      excludedPackages: excludedPackages ?? this.excludedPackages,
     );
   }
 

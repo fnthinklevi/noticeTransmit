@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.fnthink.notice.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -144,7 +145,13 @@ class MergePushManager(private val context: Context) {
         val queue = readQueue()
         val now = System.currentTimeMillis()
         val key = info.packageName
-        val existing = queue.firstOrNull { it.optString("key", "") == key }
+        // ⚠ 只匹配「未过期」的组：已过期但尚未被 drainDue（闹钟未触发 / 被系统杀进程
+        // 错过唤醒）的僵尸组若仍被匹配到，后续通知会被并入该组并按旧的 windowEnd 排程，
+        // 但 drainDue 只按 windowEnd 取组，僵尸组被取走后本应新开的通知就永久滞留；
+        // 且多组同 key 时旧组会掩盖新组，表现为「不聚合、直接单条推送」。
+        val existing = queue.firstOrNull {
+            it.optString("key", "") == key && it.optLong("windowEnd", 0L) > now
+        }
         val overflowed = ArrayList<MergeGroup>(1)
         if (existing != null) {
             // ⚠ 追加语义：窗口结束点不延长（固定窗口）。成员异常时 items 仍有
@@ -160,7 +167,7 @@ class MergePushManager(private val context: Context) {
                 items.put(info.toJson())
                 existing.put("items", items)
             }
-            Log.d(TAG, "聚合追加: ${info.packageName} (${existing.optString("key")}), 窗口至 ${existing.optLong("windowEnd", 0L)}")
+            if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "聚合追加: ${info.packageName} (${existing.optString("key")}), 窗口至 ${existing.optLong("windowEnd", 0L)}")
         } else {
             val windowEnd = now + windowMs
             val group = JSONObject().apply {
@@ -178,7 +185,7 @@ class MergePushManager(private val context: Context) {
                     groupFromJson(oldest)?.let { overflowed.add(it) }
                 }
             }
-            Log.d(TAG, "聚合开窗: ${info.packageName}, 窗口至 $windowEnd")
+            if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "聚合开窗: ${info.packageName}, 窗口至 $windowEnd")
         }
         writeQueue(queue)
         scheduleNext()
@@ -194,7 +201,7 @@ class MergePushManager(private val context: Context) {
         val due = queue.filter { it.optLong("windowEnd", 0L) <= now }
         if (due.isEmpty()) return emptyList()
         writeQueue(queue.filter { it.optLong("windowEnd", 0L) > now })
-        Log.d(TAG, "聚合组到期 ${due.size} 组，剩余 ${queue.size - due.size}")
+        if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "聚合组到期 ${due.size} 组，剩余 ${queue.size - due.size}")
         return due.mapNotNull { groupFromJson(it) }
     }
 
@@ -247,7 +254,7 @@ class MergePushManager(private val context: Context) {
         for (member in group.items) {
             DeliveryNotifier.notify(context, member.id, "MERGE", forwarded)
         }
-        Log.d(
+        if (BuildConfig.DIAG_MERGE_LOGS) Log.w(
             TAG,
             "聚合组送达回传: ${group.key} (${group.items.size} 条) → " +
                 if (success) "success" else "failed(${result.status})"
@@ -280,8 +287,10 @@ class MergePushManager(private val context: Context) {
             return
         }
         val next = queue.minByOrNull { it.optLong("windowEnd", Long.MAX_VALUE) } ?: return
-        val fireAt = next.optLong("windowEnd", 0L)
-        if (fireAt <= 0L) return
+        val stored = next.optLong("windowEnd", 0L)
+        // windowEnd 缺失/非法时不能静默 return（否则该组永远等不到闹钟、通知滞留）。
+        // 兜底按「当前时间立即到期」排程，交给 drainDue 立即推送。
+        val fireAt = if (stored > 0L) stored else System.currentTimeMillis()
         val am = alarmManager ?: return
         try {
             val intent = Intent(ACTION_MERGE_DUE).apply { setPackage(context.packageName) }

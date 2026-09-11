@@ -1275,6 +1275,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rulePHighest => 'Highest (500)';
 
   @override
+  String get rulePriorityCustom => 'Custom…';
+
+  @override
+  String get rulePriorityCustomTitle => 'Custom Priority';
+
+  @override
+  String get rulePriorityCustomHint => 'Integer from 0 to 500';
+
+  @override
+  String get rulePriorityCustomInvalid => 'Enter an integer between 0 and 500';
+
+  @override
+  String get ruleAppScope => 'Applicable Apps';
+
+  @override
+  String get ruleAppScopeAll => 'All apps';
+
+  @override
+  String ruleAppScopeExcluded(int n) {
+    return '$n apps excluded';
+  }
+
+  @override
+  String get ruleAppScopeDesc => 'Excluded apps won\'t match this rule';
+
+  @override
+  String get ruleAppPickTitle => 'Select Applicable Apps';
+
+  @override
+  String get ruleAppPinnedSms => 'System SMS';
+
+  @override
+  String get ruleAppPinnedCall => 'Phone';
+
+  @override
+  String get ruleAppPinnedNote =>
+      'System SMS and call notifications are forwarded via separate pipelines and never reach the rule engine; listed here for unified management.';
+
+  @override
+  String get ruleAppNoPermission => 'No permission to read the app list';
+
+  @override
   String get ruleSelect => 'Please select';
 
   @override
@@ -1900,5 +1942,5 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupRestoreSubtitle =>
-      'Encrypted backup of channels, rules and settings';
+      'Encrypted backup of channels, rules and settings, restorable on a new device';
 }

@@ -2426,6 +2426,84 @@ abstract class AppLocalizations {
   /// **'最高 (500)'**
   String get rulePHighest;
 
+  /// No description provided for @rulePriorityCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义…'**
+  String get rulePriorityCustom;
+
+  /// No description provided for @rulePriorityCustomTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义优先级'**
+  String get rulePriorityCustomTitle;
+
+  /// No description provided for @rulePriorityCustomHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'0-500 的整数'**
+  String get rulePriorityCustomHint;
+
+  /// No description provided for @rulePriorityCustomInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 0-500 的整数'**
+  String get rulePriorityCustomInvalid;
+
+  /// No description provided for @ruleAppScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'适用应用'**
+  String get ruleAppScope;
+
+  /// No description provided for @ruleAppScopeAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部应用'**
+  String get ruleAppScopeAll;
+
+  /// No description provided for @ruleAppScopeExcluded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已排除 {n} 个应用'**
+  String ruleAppScopeExcluded(int n);
+
+  /// No description provided for @ruleAppScopeDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'被排除的应用不再适用本规则'**
+  String get ruleAppScopeDesc;
+
+  /// No description provided for @ruleAppPickTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择适用应用'**
+  String get ruleAppPickTitle;
+
+  /// No description provided for @ruleAppPinnedSms.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统短信'**
+  String get ruleAppPinnedSms;
+
+  /// No description provided for @ruleAppPinnedCall.
+  ///
+  /// In zh, this message translates to:
+  /// **'电话'**
+  String get ruleAppPinnedCall;
+
+  /// No description provided for @ruleAppPinnedNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统短信与电话由独立链路转发，不经过规则引擎，此处列出仅便于统一管理。'**
+  String get ruleAppPinnedNote;
+
+  /// No description provided for @ruleAppNoPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'无应用列表读取权限，无法加载应用列表'**
+  String get ruleAppNoPermission;
+
   /// No description provided for @ruleSelect.
   ///
   /// In zh, this message translates to:

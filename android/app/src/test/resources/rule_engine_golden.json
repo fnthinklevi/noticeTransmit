@@ -1,5 +1,5 @@
 {
-  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。另含 package_name 通配 \"*\" 用例（v1.5.67 起双端支持，用于预制聚合规则的作用域）。 v1.5.67 追加 priority p>=3 边界用例：原有用例只覆盖 priority ∈ {0,1,2}，恰好绕过 medium/low 的区间上界（Dart 用 1<=p<2、Kotlin 用 p==1，两者在 p>=2 上必须同时为 false）。若任一端改成区间重叠写法，本组用例立即分叉报警。",
+  "_comment": "双端规则引擎黄金用例。本文件与 android/app/src/test/resources/rule_engine_golden.json 为同步副本，修改任一份必须同步另一份。用例覆盖：全角/半角、空白折叠、大小写、正反向包含、优先级、正则（含非法与超长拒绝）、空值条件、AND/OR 分组。不含 time_range 非全天用例（依赖当前时刻，双端无法确定性对齐）。另含 package_name 通配 \"*\" 用例（v1.5.67 起双端支持，用于预制聚合规则的作用域）。 v1.5.67 追加 priority p>=3 边界用例：原有用例只覆盖 priority ∈ {0,1,2}，恰好绕过 medium/low 的区间上界（Dart 用 1<=p<2、Kotlin 用 p==1，两者在 p>=2 上必须同时为 false）。若任一端改成区间重叠写法，本组用例立即分叉报警。 v1.5.68 追加 excludedPackages（规则级适用应用，排除制）双端用例：排除当前应用/排除其他/空数组/与通配共存/多应用排除/缺省兼容，锁定「排除优先于条件命中」与「缺省 = 全部适用」语义。",
   "cases": [
     {
       "name": "title_contains 半角精确命中",
@@ -1202,6 +1202,170 @@
         "priority": 2
       },
       "expected": false
+    },
+    {
+      "name": "excludedPackages 排除当前应用 → 规则不适用",
+      "rule": {
+        "id": "rx",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": [],
+        "excludedPackages": [
+          "com.a"
+        ]
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "excludedPackages 排除其他应用 → 规则仍适用",
+      "rule": {
+        "id": "rx",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": [],
+        "excludedPackages": [
+          "com.b"
+        ]
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "excludedPackages 空数组 → 适用于全部应用",
+      "rule": {
+        "id": "rx",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": [],
+        "excludedPackages": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
+    },
+    {
+      "name": "excludedPackages 与通配共存 → 排除优先于命中",
+      "rule": {
+        "id": "rx",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": [],
+        "excludedPackages": [
+          "com.a"
+        ]
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "excludedPackages 多应用排除其一命中",
+      "rule": {
+        "id": "rx",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": [],
+        "excludedPackages": [
+          "com.b",
+          "com.a"
+        ]
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": false
+    },
+    {
+      "name": "excludedPackages 缺省（旧版本数据）→ 适用于全部",
+      "rule": {
+        "id": "rx",
+        "name": "t",
+        "enabled": true,
+        "priority": 1,
+        "conditions": [
+          {
+            "id": "c1",
+            "type": "package_name",
+            "value": "*",
+            "logic": "and"
+          }
+        ],
+        "actions": []
+      },
+      "notification": {
+        "packageName": "com.a",
+        "title": "t",
+        "content": "",
+        "priority": 1
+      },
+      "expected": true
     }
   ]
 }

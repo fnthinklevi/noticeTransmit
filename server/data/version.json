@@ -1,21 +1,21 @@
 {
-  "latestVersion": "1.5.67",
-  "latestBuild": 102,
+  "latestVersion": "1.5.68",
+  "latestBuild": 103,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.59",
   "forceUpdateBuild": 93,
-  "changelog": "v1.5.67+102: 应用通知聚合规则落地(同应用通知60秒窗口合并为一条推送,支持*通配符匹配任意应用) + 聚合推送失败不再误标成功,如实回传真实送达结果 + 修复聚合兜底推送无通道配置从未真正发出的问题 + 应用列表24小时缓存加速 + 冷启动同步界面语言到系统侧 + 备份恢复中英文说明重写",
+  "changelog": "v1.5.68+103: 修复聚合推送两大根因(规则未同步到原生引擎导致完全不生效 + 消息记录ID重复导致合并成员卡在发送中) + 单条消息不再合并推送直接直发 + 规则新增适用应用排除(系统短信/电话置顶) + 规则优先级支持自定义输入(0-500) + 合并窗口时长确认可配置 + 关闭Android16预见式返回动画",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.67/notice_arm64_1.5.67.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.67/notice_arm32_1.5.67.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.67/notice_x86_1.5.67.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.67/notice_all_1.5.67.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_arm64_1.5.68.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_arm32_1.5.68.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_x86_1.5.68.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_all_1.5.68.apk"
   },
   "fileSizes": {
-    "all": 74849849,
-    "arm32": 23327134,
-    "arm64": 27283762,
-    "x86_64": 29316765
+    "all": 75062859,
+    "arm32": 23409088,
+    "arm64": 27349324,
+    "x86_64": 29382333
   },
   "minSupportedVersion": "1.0.0"
 }

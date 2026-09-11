@@ -1,6 +1,7 @@
 package com.fnthink.notice
 
 import android.util.Log
+import com.fnthink.notice.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
@@ -70,7 +71,12 @@ object RuleEngine {
      * 规则按优先级（大 → 小）排序，命中第一条即停止；未命中任何规则时默认立即推送。
      */
     fun decide(info: NotificationInfo, rulesJson: String): Decision {
-        if (rulesJson.isBlank()) return Decision.Push
+        if (rulesJson.isBlank()) {
+            if (BuildConfig.DIAG_MERGE_LOGS) {
+                Log.w(TAG, "诊断·规则表为空(blank) → 全部默认推送")
+            }
+            return Decision.Push
+        }
 
         val rules = try {
             JSONArray(rulesJson)
@@ -79,19 +85,44 @@ object RuleEngine {
             return Decision.Push
         }
 
+        if (BuildConfig.DIAG_MERGE_LOGS) {
+            Log.w(TAG, "诊断·规则表载入: ${rules.length()} 条 (jsonLen=${rulesJson.length})")
+        }
+
         val sorted = (0 until rules.length())
             .map { rules.getJSONObject(it) }
             .sortedByDescending { it.optInt("priority", 0) }
 
         for (rule in sorted) {
-            if (!rule.optBoolean("enabled", true)) continue
-            if (!evaluate(rule, info)) continue
-            Log.d(
-                TAG,
-                // 隐私：不记录通知标题（可能含验证码/余额等敏感内容）
-                "规则命中: ${rule.optString("name", "")} (${rule.optString("id", "")}) " +
-                    "pkg=${info.packageName}"
-            )
+            if (!rule.optBoolean("enabled", true)) {
+                if (BuildConfig.DIAG_MERGE_LOGS) {
+                    Log.w(TAG, "诊断·规则跳过(禁用): ${rule.optString("name")}(${rule.optString("id")})")
+                }
+                continue
+            }
+            val matched = evaluate(rule, info)
+            if (BuildConfig.DIAG_MERGE_LOGS) {
+                val conds = rule.optJSONArray("conditions")
+                val condDesc = if (conds == null) "null" else
+                    (0 until conds.length()).joinToString(",") { i ->
+                        val c = conds.getJSONObject(i)
+                        "${c.optString("type")}='${c.optString("value")}'"
+                    }
+                Log.w(
+                    TAG,
+                    "诊断·规则评估: ${rule.optString("name")}(${rule.optString("id")}) " +
+                        "pri=${rule.optInt("priority", 0)} 条件[$condDesc] 匹配=$matched"
+                )
+            }
+            if (!matched) continue
+            if (BuildConfig.DIAG_MERGE_LOGS) {
+                Log.w(
+                    TAG,
+                    // 隐私：不记录通知标题（可能含验证码/余额等敏感内容）
+                    "规则命中: ${rule.optString("name", "")} (${rule.optString("id", "")}) " +
+                        "pkg=${info.packageName}"
+                )
+            }
             return decideAction(rule, info)
         }
         return Decision.Push
@@ -190,6 +221,16 @@ object RuleEngine {
 
     /** 评估单条规则：conditions 按 logic（and/or）分组，组内 AND、组间 OR */
     fun evaluate(rule: JSONObject, info: NotificationInfo): Boolean {
+        // P1-4 规则级适用应用（排除制）：excludedPackages 非空且包含通知来源应用
+        // → 本规则对该通知不适用。与 Dart 侧 FilterService.evaluateRule 语义一致；
+        // 字段缺省 = 不排除任何应用（兼容旧版本存量规则数据）。
+        val excluded = rule.optJSONArray("excludedPackages")
+        if (excluded != null) {
+            for (i in 0 until excluded.length()) {
+                if (excluded.optString(i) == info.packageName) return false
+            }
+        }
+
         val conditions = rule.optJSONArray("conditions") ?: return false
         if (conditions.length() == 0) return false
         val normTitle = normalize(info.title)

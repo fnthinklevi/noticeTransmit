@@ -63,8 +63,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.67"
-        const val FALLBACK_BUILD = 102
+        const val FALLBACK_VERSION = "1.5.68"
+        const val FALLBACK_BUILD = 103
 
         // 推送历史自动归档目录（SAF treeUri），持久化在 FlutterSharedPreferences
         const val KEY_ARCHIVE_DIR_URI = "archive_dir_uri"
@@ -718,17 +718,39 @@ class MainActivity : FlutterActivity() {
         notifyServiceConfigChanged()
     }
 
+    /**
+     * 把 MethodChannel 解码出的 Map/List 递归转换为 org.json 结构。
+     *
+     * ⚠ JSONObject.put(String, Object) 不会把 Collection/Map 自动转成 JSONArray/JSONObject：
+     * 嵌套的 List<Map> 会被当作原始对象存入，序列化时走 toString() 变成带引号的
+     * Java 字符串（如 "[{id=..., type=...}]"），原生端 optJSONArray() 读回恒为 null。
+     * 历史教训：setNotificationRules 曾因此丢失 conditions/actions，
+     * 导致原生规则引擎永远匹配不到任何规则（聚合推送等全部规则动作失效）。
+     */
+    private fun toNativeJson(v: Any?): Any? = when (v) {
+        null -> null
+        is Map<*, *> -> org.json.JSONObject().apply {
+            for ((k, value) in v) {
+                val key = k as? String ?: continue
+                val converted = toNativeJson(value)
+                if (converted != null) put(key, converted)
+            }
+        }
+        is List<*> -> org.json.JSONArray().apply {
+            for (item in v) {
+                toNativeJson(item)?.let { put(it) }
+            }
+        }
+        else -> v
+    }
+
     internal fun setNotificationRules(rules: List<Map<String, Any?>>) {
         try {
             val jsonArray = org.json.JSONArray()
             for (rule in rules) {
-                // 注意：JSONObject(Map) 会把 null 值序列化为字符串 "null"，
-                // 因此显式过滤 null 字段后再序列化，避免原生 RuleEngine 误读。
-                val obj = org.json.JSONObject()
-                for ((k, v) in rule) {
-                    if (v != null) obj.put(k, v)
-                }
-                jsonArray.put(obj)
+                // 必须经 toNativeJson 递归转换：规则含嵌套 conditions/actions，
+                // 直接 put 解码出的 List<Map> 会让条件在序列化后不可解析（见函数注释）。
+                jsonArray.put(toNativeJson(rule))
             }
             prefs.edit()
                 .putString("flutter.notification_rules", jsonArray.toString())

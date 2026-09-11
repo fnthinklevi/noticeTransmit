@@ -217,7 +217,7 @@ class MorePage extends StatelessWidget {
               icon: Icons.backup_outlined,
               iconColor: const Color(0xFF30B0C7),
               title: l10n.backupRestoreTitle,
-              subtitle: l10n.backupSectionDesc,
+              subtitle: l10n.backupRestoreSubtitle,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(

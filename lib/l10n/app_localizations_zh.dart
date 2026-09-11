@@ -1227,6 +1227,47 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rulePHighest => '最高 (500)';
 
   @override
+  String get rulePriorityCustom => '自定义…';
+
+  @override
+  String get rulePriorityCustomTitle => '自定义优先级';
+
+  @override
+  String get rulePriorityCustomHint => '0-500 的整数';
+
+  @override
+  String get rulePriorityCustomInvalid => '请输入 0-500 的整数';
+
+  @override
+  String get ruleAppScope => '适用应用';
+
+  @override
+  String get ruleAppScopeAll => '全部应用';
+
+  @override
+  String ruleAppScopeExcluded(int n) {
+    return '已排除 $n 个应用';
+  }
+
+  @override
+  String get ruleAppScopeDesc => '被排除的应用不再适用本规则';
+
+  @override
+  String get ruleAppPickTitle => '选择适用应用';
+
+  @override
+  String get ruleAppPinnedSms => '系统短信';
+
+  @override
+  String get ruleAppPinnedCall => '电话';
+
+  @override
+  String get ruleAppPinnedNote => '系统短信与电话由独立链路转发，不经过规则引擎，此处列出仅便于统一管理。';
+
+  @override
+  String get ruleAppNoPermission => '无应用列表读取权限，无法加载应用列表';
+
+  @override
   String get ruleSelect => '请选择';
 
   @override

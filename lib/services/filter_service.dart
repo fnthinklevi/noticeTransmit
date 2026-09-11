@@ -50,6 +50,11 @@ class FilterService {
     final content = notification['content'] as String? ?? '';
     final time = notification['time'] as String? ?? '';
 
+    // P1-4 规则级适用应用（排除制）：excludedPackages 非空且包含当前应用
+    // → 本规则对该通知不适用。与原生 RuleEngine.evaluate 语义一致
+    // （空列表 contains 恒为 false，等价于「适用于全部应用」）。
+    if (rule.excludedPackages.contains(packageName)) return false;
+
     List<bool> andGroups = [];
     bool currentGroupResult = true;
     bool isFirstCondition = true;

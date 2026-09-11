@@ -25,6 +25,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.fnthink.notice.BuildConfig
 import kotlinx.coroutines.*
 
 class NotificationMonitorService : NotificationListenerService() {
@@ -281,7 +282,7 @@ class NotificationMonitorService : NotificationListenerService() {
         if (intent != null) {
             when (intent.action) {
                 ACTION_UPDATE_CONFIG -> {
-                    Log.d(TAG, "Config update received")
+                    if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Config update received")
                     loadConfig()
                 }
                 ACTION_SET_MONITORING -> {
@@ -398,7 +399,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                 // 立即写入历史（pending 状态），到点后补推 webhook
                                 webhookSender.sendBroadcast(info)
                                 delayedPushManager.enqueue(info, decision.fireAt)
-                                Log.d(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
+                                if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
                             }
                             is RuleEngine.Decision.Merge -> {
                                 // P2 聚合推送：成员先各自记录历史（独立可见），窗口结束时
@@ -413,7 +414,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                     flushMergedGroup(overflow)
                                 }
                                 updateForegroundNotification()
-                                Log.d(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
+                                if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
                             }
                             RuleEngine.Decision.Push -> {
                                 webhookSender.sendNotification(info)
@@ -421,7 +422,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                 checkDailyReset()
                                 pushCount++
                                 updateForegroundNotification()
-                                Log.d(TAG, "Notification sent: ${info.appName}")
+                                if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Notification sent: ${info.appName}")
                             }
                         }
                     }
@@ -561,6 +562,26 @@ class NotificationMonitorService : NotificationListenerService() {
      * 「已合并推送」，用户以为送达而内容实际丢失（历史缺陷，见 MergePushManager 标注 3）。
      */
     private fun flushMergedGroup(group: MergePushManager.MergeGroup) {
+        // P1：窗口期内只收到一条通知 → 不做合并推送，按普通单条推送处理
+        //（标题为消息原文、逐通道回传真实送达结果，不出现「已合并推送 (1 条)」）。
+        // 成员记录早已在入组时写好历史（pending），sendToSingleUrl 会按通道真实结果
+        // notifyDeliveryResult 补终态，与普通推送语义完全一致。
+        if (group.items.size == 1) {
+            try {
+                val single = group.items[0]
+                checkDailyReset()
+                pushCount++
+                webhookSender.sendWebhooksOnly(single)
+                dispatchEmail(single)
+                updateForegroundNotification()
+                if (BuildConfig.DIAG_MERGE_LOGS) {
+                    Log.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error flushing single-member group: ${group.key}", e)
+            }
+            return
+        }
         try {
             val merged = group.buildMergedInfo()
             checkDailyReset()
@@ -569,7 +590,7 @@ class NotificationMonitorService : NotificationListenerService() {
             webhookSender.sendWebhooksOnly(merged) { result ->
                 mergePushManager.markMembersDelivered(group, result)
                 if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
-                    Log.d(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
+                    if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
                 } else {
                     Log.w(TAG, "Merged push FAILED: ${group.key} status=${result.status} msg=${result.message}")
                 }

@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
+import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
 // R3 拆分：iOS 选择器/条件行/动作行组件与条件/动作编辑对话框（part 共享私有类名）
@@ -230,6 +232,49 @@ class _RuleEditPageState extends State<RuleEditPage> {
                 ),
             ]),
             const SizedBox(height: 12),
+            _buildSectionCard(context, l10n.ruleAppScope, [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _rule.excludedPackages.isEmpty
+                          ? l10n.ruleAppScopeAll
+                          : l10n.ruleAppScopeExcluded(
+                              _rule.excludedPackages.length,
+                            ),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryLabel(context),
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _openAppScopePicker,
+                    child: Text(
+                      l10n.ruleAppPickTitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.systemBlue(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  l10n.ruleAppScopeDesc,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 12),
             _buildSectionCard(context, l10n.ruleActions, [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -385,20 +430,29 @@ class _RuleEditPageState extends State<RuleEditPage> {
 
   Widget _buildPriorityRow(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // P1-1：快捷档位 + 自定义。标准档位直接选；「自定义…」弹数字输入（0-500）。
+    const standardPriorities = [0, 10, 50, 100, 200, 500];
     final options = <_IosOption<int>>[
       _IosOption(0, l10n.rulePDefault),
+      // 10：低于「低(50)」，供聚合推送等应让位于营销拦截的规则使用，
+      // 避免与 50 撞优先级后按数组顺序误判（默认聚合规则即为 10）。
+      _IosOption(10, l10n.rulePriorityBadge(10)),
       _IosOption(50, l10n.rulePLow),
       _IosOption(100, l10n.rulePMedium),
       _IosOption(200, l10n.rulePHigh),
       _IosOption(500, l10n.rulePHighest),
     ];
-    // 历史规则可能带有非标准优先级值，保证仍能正确显示
-    if (!options.any((o) => o.value == _rule.priority)) {
-      options.insert(
-        0,
-        _IosOption(_rule.priority, l10n.rulePriorityBadge(_rule.priority)),
+    // 历史/自定义优先级不在标准档位内 → 追加「自定义 (N)」选项保证回显正确
+    if (!standardPriorities.contains(_rule.priority)) {
+      options.add(
+        _IosOption(
+          _rule.priority,
+          '${l10n.rulePriorityCustom} (${_rule.priority})',
+        ),
       );
     }
+    // 自定义入口：-1 为哨兵值，选中时弹输入对话框而非直接赋值
+    options.add(_IosOption(-1, l10n.rulePriorityCustom));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -407,11 +461,14 @@ class _RuleEditPageState extends State<RuleEditPage> {
           value: _rule.priority,
           options: options,
           onChanged: (value) {
-            if (value != null) {
-              setState(() {
-                _rule = _rule.copyWith(priority: value);
-              });
+            if (value == null) return;
+            if (value == -1) {
+              _showCustomPriorityDialog();
+              return;
             }
+            setState(() {
+              _rule = _rule.copyWith(priority: value);
+            });
           },
         ),
         Padding(
@@ -425,6 +482,423 @@ class _RuleEditPageState extends State<RuleEditPage> {
           ),
         ),
       ],
+    );
+  }
+
+  /// P1-1：自定义优先级输入（0-500，非法输入就地提示）
+  void _showCustomPriorityDialog() {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(text: '${_rule.priority}');
+    String? errorText;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.cardBg(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          title: Text(
+            l10n.rulePriorityCustomTitle,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryLabel(context),
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: TextStyle(color: AppColors.primaryLabel(context)),
+            decoration: InputDecoration(
+              hintText: l10n.rulePriorityCustomHint,
+              hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+              fillColor: AppColors.inputBg(context),
+              filled: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.separator(context)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.blue),
+              ),
+              isDense: true,
+              errorText: errorText,
+            ),
+            onChanged: (_) => setDialogState(() => errorText = null),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                l10n.cancel,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final value = int.tryParse(controller.text.trim());
+                if (value == null || value < 0 || value > 500) {
+                  setDialogState(() {
+                    errorText = l10n.rulePriorityCustomInvalid;
+                  });
+                  return;
+                }
+                setState(() {
+                  _rule = _rule.copyWith(priority: value);
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: Text(
+                l10n.confirm,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.blue,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// P1-4：打开「适用应用」选择页，返回排除列表后回写规则
+  Future<void> _openAppScopePicker() async {
+    final excluded = await Navigator.push<List<String>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            _AppScopePickerPage(initialExcluded: _rule.excludedPackages),
+      ),
+    );
+    if (excluded != null) {
+      setState(() {
+        _rule = _rule.copyWith(excludedPackages: excluded);
+      });
+    }
+  }
+}
+
+/// P1-4：规则「适用应用」选择页（排除制）。
+///
+/// 交互与「应用筛选」页一致：默认全部适用（排除列表为空），取消勾选的应用
+/// 不再适用本规则。系统短信/电话分组固定在列表顶部（与原生
+/// NotificationProcessor.isSmsPackage / isCallPackage 同源的匹配规则，
+/// 保证分组口径一致）。
+class _AppScopePickerPage extends StatefulWidget {
+  final List<String> initialExcluded;
+
+  const _AppScopePickerPage({required this.initialExcluded});
+
+  @override
+  State<_AppScopePickerPage> createState() => _AppScopePickerPageState();
+}
+
+class _AppScopePickerPageState extends State<_AppScopePickerPage> {
+  static const _channel = AppChannels.notification;
+
+  List<Map<String, dynamic>> _allApps = [];
+  Set<String> _excluded = {};
+  final _searchController = TextEditingController();
+  bool _loading = true;
+  bool _hasPermission = true;
+
+  // —— 与原生 NotificationProcessor 相同的分组匹配（保持口径一致）——
+  static bool _isSmsApp(String pkg) {
+    final p = pkg.toLowerCase();
+    return p.startsWith('com.android.mms') ||
+        p.startsWith('com.google.android.apps.messaging') ||
+        p.startsWith('com.samsung.android.messaging') ||
+        p.startsWith('com.huawei.mms') ||
+        p.startsWith('com.huawei.android.mms') ||
+        p.startsWith('com.vivo.mms') ||
+        p.contains('sms') ||
+        p.contains('.mms');
+  }
+
+  static bool _isCallApp(String pkg) {
+    final p = pkg.toLowerCase();
+    return p.startsWith('com.android.dialer') ||
+        p.startsWith('com.android.incallui') ||
+        p.startsWith('com.android.phone') ||
+        p.startsWith('com.google.android.dialer') ||
+        p.startsWith('com.samsung.android.dialer') ||
+        p.startsWith('com.samsung.android.incallui') ||
+        p.startsWith('com.huawei.contacts') ||
+        p.startsWith('com.oplus.incallui') ||
+        p.startsWith('com.coloros.incallui') ||
+        p.startsWith('com.bbk.incallui') ||
+        p.startsWith('com.vivo.incallui') ||
+        p.contains('incallui') ||
+        p.contains('dialer');
+  }
+
+  String _pkg(Map<String, dynamic> app) => app['packageName'] as String? ?? '';
+
+  List<Map<String, dynamic>> _matchApps(bool Function(String) test) =>
+      _allApps.where((a) => test(_pkg(a))).toList();
+
+  @override
+  void initState() {
+    super.initState();
+    _excluded = Set<String>.from(widget.initialExcluded);
+    _initLoad();
+    _searchController.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initLoad() async {
+    var hasPermission = true;
+    try {
+      final result =
+          await _channel.invokeMethod('canQueryAllPackages') as bool?;
+      hasPermission = result ?? true;
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _hasPermission = hasPermission);
+    if (!hasPermission) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    // 先展示缓存列表，再用全量扫描结果覆盖（与应用筛选页一致）
+    List<Map<String, dynamic>>? apps;
+    try {
+      final cached = await _channel.invokeMethod('getCachedInstalledApps');
+      apps = cached.map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (_) {}
+    try {
+      final fresh = await _channel.invokeMethod('getInstalledApps');
+      final freshList = fresh.map((e) => Map<String, dynamic>.from(e)).toList();
+      if (freshList.isNotEmpty) apps = freshList;
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _allApps = apps ?? const [];
+      _loading = false;
+    });
+  }
+
+  bool _matchesSearch(Map<String, dynamic> app, String query) {
+    if (query.isEmpty) return true;
+    final name = (app['appName'] as String? ?? '').toLowerCase();
+    final pkg = _pkg(app).toLowerCase();
+    return name.contains(query) || pkg.contains(query);
+  }
+
+  void _toggle(String pkg, bool applies) {
+    setState(() {
+      if (applies) {
+        _excluded.remove(pkg);
+      } else {
+        _excluded.add(pkg);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      backgroundColor: AppColors.bgColor(context),
+      appBar: AppBar(
+        title: Text(l10n.ruleAppPickTitle),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, _excluded.toList()),
+            child: Text(
+              l10n.save,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.blue,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : !_hasPermission
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  l10n.ruleAppNoPermission,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ),
+            )
+          : _buildList(context, l10n),
+    );
+  }
+
+  Widget _buildList(BuildContext context, AppLocalizations l10n) {
+    final query = _searchController.text.trim().toLowerCase();
+    final smsApps = _matchApps(
+      _isSmsApp,
+    ).where((a) => _matchesSearch(a, query)).toList();
+    final callApps = _matchApps(
+      _isCallApp,
+    ).where((a) => _matchesSearch(a, query)).toList();
+    final otherApps = _allApps
+        .where((a) {
+          final p = _pkg(a);
+          return !_isSmsApp(p) && !_isCallApp(p);
+        })
+        .where((a) => _matchesSearch(a, query))
+        .toList();
+
+    return Column(
+      children: [
+        // 全选（全部适用 ⇔ 排除列表为空）
+        Container(
+          color: AppColors.cardBg(context),
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.apps, size: 22, color: AppColors.blue),
+            title: Text(
+              l10n.ruleAppScopeAll,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+            trailing: Checkbox(
+              value: _excluded.isEmpty,
+              onChanged: (allApply) {
+                setState(() {
+                  if (allApply == true) {
+                    _excluded.clear();
+                  } else {
+                    _excluded.addAll(_allApps.map(_pkg));
+                  }
+                });
+              },
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: TextField(
+            controller: _searchController,
+            style: TextStyle(color: AppColors.primaryLabel(context)),
+            decoration: InputDecoration(
+              hintText: l10n.searchAppHint,
+              hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
+              prefixIcon: Icon(
+                Icons.search,
+                size: 20,
+                color: AppColors.secondaryLabel(context),
+              ),
+              fillColor: AppColors.inputBg(context),
+              filled: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.separator(context)),
+              ),
+              isDense: true,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            children: [
+              if (callApps.isNotEmpty) ...[
+                _buildGroupHeader(context, l10n.ruleAppPinnedCall),
+                ...callApps.map((a) => _buildAppRow(context, a)),
+              ],
+              if (smsApps.isNotEmpty) ...[
+                _buildGroupHeader(context, l10n.ruleAppPinnedSms),
+                ...smsApps.map((a) => _buildAppRow(context, a)),
+              ],
+              if (callApps.isNotEmpty || smsApps.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Text(
+                    l10n.ruleAppPinnedNote,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ),
+              if (otherApps.isEmpty && smsApps.isEmpty && callApps.isNotEmpty)
+                const SizedBox.shrink()
+              else
+                _buildGroupHeader(context, l10n.ruleAppScopeAll),
+              ...otherApps.map((a) => _buildAppRow(context, a)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupHeader(BuildContext context, String title) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      color: AppColors.bgColor(context),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppColors.secondaryLabel(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppRow(BuildContext context, Map<String, dynamic> app) {
+    final pkg = _pkg(app);
+    final applies = !_excluded.contains(pkg);
+    return Container(
+      color: AppColors.cardBg(context),
+      child: ListTile(
+        dense: true,
+        title: Text(
+          app['appName'] as String? ?? pkg,
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.primaryLabel(context),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          pkg,
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.secondaryLabel(context),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Checkbox(
+          value: applies,
+          onChanged: (v) => _toggle(pkg, v == true),
+        ),
+        onTap: () => _toggle(pkg, !applies),
+      ),
     );
   }
 }

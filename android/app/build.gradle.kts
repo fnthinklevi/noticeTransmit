@@ -99,6 +99,11 @@ android {
         )
         buildConfigField("boolean", "ENABLE_CERT_PINNING", enableCertPinning.toString())
 
+        // ⚠️ 聚合诊断日志开关（临时）：为 true 时规则/聚合链路用 Log.w 输出诊断日志。
+        // 正式发布必须为 false —— Log.w 在 release 不会被 R8 剔除，
+        // 开启会让 logcat 暴露包名/规则名（不含通知标题正文）。
+        buildConfigField("boolean", "DIAG_MERGE_LOGS", "false")
+
         // 按 Flutter --target-platform 动态设置 ABI 过滤
         // 单架构包必须纯净，只含一种 .so，不得混入其他架构的第三方库！
         // 检测优先级：环境变量 > Flutter Gradle 属性 > 多架构回退
