@@ -570,6 +570,17 @@
   "ruleAppPinnedCall": "电话",
   "ruleAppPinnedNote": "系统短信与电话由独立链路转发，不经过规则引擎，此处列出仅便于统一管理。",
   "ruleAppNoPermission": "无应用列表读取权限，无法加载应用列表",
+  "ruleMergeWindowRow": "聚合等待时长",
+  "ruleMergeWindowSummary": "等待 {n} 秒",
+  "@ruleMergeWindowSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleMergeWindowPresets": "常用时长（点击填入）：",
+  "ruleMergeWindowInvalid": "请输入 5-86400 的整数（最小 5 秒）",
   "ruleSelect": "请选择",
   "ruleEditCondition": "编辑条件",
   "ruleAddConditionTitle": "添加条件",

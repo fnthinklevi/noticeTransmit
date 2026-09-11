@@ -273,6 +273,17 @@ class _ActionItem extends StatelessWidget {
     return parts.join(' · ');
   }
 
+  /// 生成合并推送参数摘要文本（窗口秒数，与原生 RuleEngine params 键一致）
+  String _mergeParamsText(BuildContext context, RuleAction action) {
+    final l10n = AppLocalizations.of(context);
+    final windowSeconds = action.params['windowSeconds'];
+    if (windowSeconds is int && windowSeconds > 0) {
+      return l10n.ruleMergeWindowSummary(windowSeconds);
+    }
+    // 未配置时与原生 DEFAULT_MERGE_WINDOW_MS=60s 对应
+    return l10n.ruleMergeWindowSummary(60);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -311,6 +322,18 @@ class _ActionItem extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       _delayParamsText(context, action),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.systemBlue(context),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                if (action.type == ActionType.merge)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _mergeParamsText(context, action),
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.systemBlue(context),

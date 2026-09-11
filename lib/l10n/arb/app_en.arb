@@ -565,6 +565,17 @@
   "ruleAppPinnedCall": "Phone",
   "ruleAppPinnedNote": "System SMS and call notifications are forwarded via separate pipelines and never reach the rule engine; listed here for unified management.",
   "ruleAppNoPermission": "No permission to read the app list",
+  "ruleMergeWindowRow": "Merge wait duration",
+  "ruleMergeWindowSummary": "Wait {n}s",
+  "@ruleMergeWindowSummary": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleMergeWindowPresets": "Presets (tap to fill):",
+  "ruleMergeWindowInvalid": "Enter an integer between 5 and 86400 (minimum 5s)",
   "ruleSelect": "Please select",
   "ruleEditCondition": "Edit Condition",
   "ruleAddConditionTitle": "Add Condition",

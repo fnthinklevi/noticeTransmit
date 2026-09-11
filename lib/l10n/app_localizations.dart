@@ -2504,6 +2504,30 @@ abstract class AppLocalizations {
   /// **'无应用列表读取权限，无法加载应用列表'**
   String get ruleAppNoPermission;
 
+  /// No description provided for @ruleMergeWindowRow.
+  ///
+  /// In zh, this message translates to:
+  /// **'聚合等待时长'**
+  String get ruleMergeWindowRow;
+
+  /// No description provided for @ruleMergeWindowSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'等待 {n} 秒'**
+  String ruleMergeWindowSummary(int n);
+
+  /// No description provided for @ruleMergeWindowPresets.
+  ///
+  /// In zh, this message translates to:
+  /// **'常用时长（点击填入）：'**
+  String get ruleMergeWindowPresets;
+
+  /// No description provided for @ruleMergeWindowInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 5-86400 的整数（最小 5 秒）'**
+  String get ruleMergeWindowInvalid;
+
   /// No description provided for @ruleSelect.
   ///
   /// In zh, this message translates to:

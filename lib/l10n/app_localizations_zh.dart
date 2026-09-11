@@ -1268,6 +1268,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleAppNoPermission => '无应用列表读取权限，无法加载应用列表';
 
   @override
+  String get ruleMergeWindowRow => '聚合等待时长';
+
+  @override
+  String ruleMergeWindowSummary(int n) {
+    return '等待 $n 秒';
+  }
+
+  @override
+  String get ruleMergeWindowPresets => '常用时长（点击填入）：';
+
+  @override
+  String get ruleMergeWindowInvalid => '请输入 5-86400 的整数（最小 5 秒）';
+
+  @override
   String get ruleSelect => '请选择';
 
   @override

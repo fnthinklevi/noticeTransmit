@@ -1317,6 +1317,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleAppNoPermission => 'No permission to read the app list';
 
   @override
+  String get ruleMergeWindowRow => 'Merge wait duration';
+
+  @override
+  String ruleMergeWindowSummary(int n) {
+    return 'Wait ${n}s';
+  }
+
+  @override
+  String get ruleMergeWindowPresets => 'Presets (tap to fill):';
+
+  @override
+  String get ruleMergeWindowInvalid =>
+      'Enter an integer between 5 and 86400 (minimum 5s)';
+
+  @override
   String get ruleSelect => 'Please select';
 
   @override

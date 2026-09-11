@@ -324,6 +324,43 @@ class _RuleEditPageState extends State<RuleEditPage> {
                     );
                   }).toList(),
                 ),
+              if (_mergeAction != null) ...[
+                const SizedBox(height: 4),
+                // P1：聚合等待时长内联设置（此前藏在动作编辑对话框里不易发现）
+                InkWell(
+                  onTap: _editMergeWindow,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      children: [
+                        Text(
+                          l10n.ruleMergeWindowRow,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryLabel(context),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          l10n.ruleMergeWindowSummary(_mergeWindowSeconds),
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.systemBlue(context),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: AppColors.tertiaryLabel(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ]),
           ],
         ),
@@ -585,14 +622,167 @@ class _RuleEditPageState extends State<RuleEditPage> {
       });
     }
   }
+
+  /// 首个合并推送动作（等待时长行的数据源）
+  RuleAction? get _mergeAction {
+    for (final a in _rule.actions) {
+      if (a.type == ActionType.merge) return a;
+    }
+    return null;
+  }
+
+  /// 当前聚合等待秒数（未配置时与原生 DEFAULT_MERGE_WINDOW_MS=60 对应）
+  int get _mergeWindowSeconds {
+    final params = _mergeAction?.params;
+    final v = params?['windowSeconds'];
+    return v is int && v > 0 ? v : 60;
+  }
+
+  /// P1：编辑聚合等待时长（快捷档位 + 自定义秒数，下限 5 秒与原生 MIN_MERGE_WINDOW_MS 一致）
+  void _editMergeWindow() {
+    final l10n = AppLocalizations.of(context);
+    final controller = TextEditingController(text: '$_mergeWindowSeconds');
+    String? errorText;
+    const presets = [15, 30, 60, 120, 300];
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.cardBg(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          title: Text(
+            l10n.ruleMergeWindowRow,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryLabel(context),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: TextStyle(color: AppColors.primaryLabel(context)),
+                decoration: InputDecoration(
+                  labelText: l10n.mergeWindowSeconds,
+                  labelStyle: TextStyle(
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                  helperText: l10n.mergeWindowHint,
+                  helperMaxLines: 2,
+                  fillColor: AppColors.inputBg(context),
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.separator(context)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.blue),
+                  ),
+                  isDense: true,
+                  errorText: errorText,
+                ),
+                onChanged: (_) => setDialogState(() => errorText = null),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                l10n.ruleMergeWindowPresets,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                children: presets
+                    .map(
+                      (p) => ActionChip(
+                        label: Text(
+                          l10n.ruleMergeWindowSummary(p),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primaryLabel(context),
+                          ),
+                        ),
+                        backgroundColor: AppColors.inputBg(context),
+                        side: BorderSide(color: AppColors.separator(context)),
+                        onPressed: () {
+                          controller.text = '$p';
+                          setDialogState(() => errorText = null);
+                        },
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                l10n.cancel,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final value = int.tryParse(controller.text.trim());
+                if (value == null || value < 5 || value > 86400) {
+                  setDialogState(() {
+                    errorText = l10n.ruleMergeWindowInvalid;
+                  });
+                  return;
+                }
+                setState(() {
+                  _rule = _rule.copyWith(
+                    actions: _rule.actions.map((a) {
+                      if (a.type != ActionType.merge) return a;
+                      return a.copyWith(
+                        params: {...a.params, 'windowSeconds': value},
+                      );
+                    }).toList(),
+                  );
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: Text(
+                l10n.confirm,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.blue,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// P1-4：规则「适用应用」选择页（排除制）。
 ///
-/// 交互与「应用筛选」页一致：默认全部适用（排除列表为空），取消勾选的应用
-/// 不再适用本规则。系统短信/电话分组固定在列表顶部（与原生
-/// NotificationProcessor.isSmsPackage / isCallPackage 同源的匹配规则，
-/// 保证分组口径一致）。
+/// 权限与加载逻辑与「应用筛选」页**完全一致**（用户要求）：
+/// WidgetsBindingObserver 在从系统设置返回（resumed）后自动重查权限并重载；
+/// 未授予时弹「先说明后申请」引导框（allow → requestQueryAllPackagesPermission）；
+/// ⚠ ROM 假阳性兜底：部分国产 ROM（如 Flyme）`canQueryAllPackages` 的无副作用探测
+/// 恒真，即使未授权也返回 true —— 因此「判定已授予但列表仍为空」时同样走授权引导，
+/// 授权返回后 resumed 重载即可出现列表。
+/// 交互：默认全部适用（排除列表为空），取消勾选的应用不再适用本规则；
+/// 系统短信/电话分组固定在列表顶部（与原生 isSmsPackage/isCallPackage 同源匹配）。
 class _AppScopePickerPage extends StatefulWidget {
   final List<String> initialExcluded;
 
@@ -602,7 +792,8 @@ class _AppScopePickerPage extends StatefulWidget {
   State<_AppScopePickerPage> createState() => _AppScopePickerPageState();
 }
 
-class _AppScopePickerPageState extends State<_AppScopePickerPage> {
+class _AppScopePickerPageState extends State<_AppScopePickerPage>
+    with WidgetsBindingObserver {
   static const _channel = AppChannels.notification;
 
   List<Map<String, dynamic>> _allApps = [];
@@ -610,6 +801,9 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage> {
   final _searchController = TextEditingController();
   bool _loading = true;
   bool _hasPermission = true;
+  bool _showSystemApps = false;
+  // 权限提醒弹窗每次进入页面只弹一次：从系统设置返回（resumed 重查）不再弹
+  bool _permissionDialogShown = false;
 
   // —— 与原生 NotificationProcessor 相同的分组匹配（保持口径一致）——
   static bool _isSmsApp(String pkg) {
@@ -649,6 +843,7 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _excluded = Set<String>.from(widget.initialExcluded);
     _initLoad();
     _searchController.addListener(() {
@@ -658,40 +853,141 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _initLoad() async {
-    var hasPermission = true;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 与应用筛选页一致：从系统设置授权返回后自动重查权限并重载列表
+    if (state == AppLifecycleState.resumed) {
+      _initLoad();
+    }
+  }
+
+  Future<bool> _checkPermission() async {
     try {
       final result =
           await _channel.invokeMethod('canQueryAllPackages') as bool?;
-      hasPermission = result ?? true;
-    } catch (_) {}
+      return result ?? true;
+    } catch (e) {
+      debugPrint('检查应用列表权限失败: $e');
+      return true;
+    }
+  }
+
+  /// 无权限进入页面时的提醒弹窗：允许 → 跳系统设置申请；拒绝 → 仅显示提示文案
+  /// （与应用筛选页 _showPermissionDialog 相同）
+  Future<void> _showPermissionDialog() async {
     if (!mounted) return;
-    setState(() => _hasPermission = hasPermission);
-    if (!hasPermission) {
-      setState(() => _loading = false);
-      return;
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final l10n = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: AppColors.cardBg(ctx),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.apps, size: 44, color: AppColors.blue),
+              const SizedBox(height: 14),
+              Text(
+                l10n.appListPermTitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                l10n.appListPermMsg,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                l10n.reject,
+                style: TextStyle(
+                  color: AppColors.secondaryLabel(ctx),
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _channel.invokeMethod('requestQueryAllPackagesPermission');
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(l10n.allow, style: const TextStyle(fontSize: 15)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _initLoad() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+
+    final granted = await _checkPermission();
+
+    // 先加载缓存列表，再全量扫描覆盖（与应用筛选页一致）。
+    // ⚠ 即使判定为未授予也先试一次：ROM 对权限的判定可能有假阴性。
+    List<Map<String, dynamic>>? apps;
+    if (granted) {
+      try {
+        final cached = await _channel.invokeMethod('getCachedInstalledApps');
+        if (cached.isNotEmpty) {
+          apps = cached.map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+      } catch (e) {
+        debugPrint('加载缓存应用列表失败: $e');
+      }
+      try {
+        final fresh = await _channel.invokeMethod('getInstalledApps');
+        final freshList = fresh
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        if (freshList.isNotEmpty) apps = freshList;
+      } catch (e) {
+        debugPrint('加载应用列表失败: $e');
+      }
     }
 
-    // 先展示缓存列表，再用全量扫描结果覆盖（与应用筛选页一致）
-    List<Map<String, dynamic>>? apps;
-    try {
-      final cached = await _channel.invokeMethod('getCachedInstalledApps');
-      apps = cached.map((e) => Map<String, dynamic>.from(e)).toList();
-    } catch (_) {}
-    try {
-      final fresh = await _channel.invokeMethod('getInstalledApps');
-      final freshList = fresh.map((e) => Map<String, dynamic>.from(e)).toList();
-      if (freshList.isNotEmpty) apps = freshList;
-    } catch (_) {}
     if (!mounted) return;
     setState(() {
       _allApps = apps ?? const [];
       _loading = false;
+      // ⚠ ROM 假阳性兜底：判定已授予但列表为空（如 Flyme 探测恒真、
+      // 原生扫描无权限时静默返回空）→ 同样走授权引导，与应用筛选页体验一致。
+      _hasPermission = granted && _allApps.isNotEmpty;
     });
+
+    if (!_hasPermission && !_permissionDialogShown) {
+      _permissionDialogShown = true;
+      _showPermissionDialog();
+    }
   }
 
   bool _matchesSearch(Map<String, dynamic> app, String query) {
@@ -699,6 +995,14 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage> {
     final name = (app['appName'] as String? ?? '').toLowerCase();
     final pkg = _pkg(app).toLowerCase();
     return name.contains(query) || pkg.contains(query);
+  }
+
+  bool _isVisibleApp(Map<String, dynamic> app, String query) {
+    // 与应用筛选页一致：默认隐藏系统应用，可用开关显示
+    if (!_showSystemApps && (app['isSystemApp'] as bool? ?? false)) {
+      return false;
+    }
+    return _matchesSearch(app, query);
   }
 
   void _toggle(String pkg, bool applies) {
@@ -756,16 +1060,16 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage> {
     final query = _searchController.text.trim().toLowerCase();
     final smsApps = _matchApps(
       _isSmsApp,
-    ).where((a) => _matchesSearch(a, query)).toList();
+    ).where((a) => _isVisibleApp(a, query)).toList();
     final callApps = _matchApps(
       _isCallApp,
-    ).where((a) => _matchesSearch(a, query)).toList();
+    ).where((a) => _isVisibleApp(a, query)).toList();
     final otherApps = _allApps
         .where((a) {
           final p = _pkg(a);
           return !_isSmsApp(p) && !_isCallApp(p);
         })
-        .where((a) => _matchesSearch(a, query))
+        .where((a) => _isVisibleApp(a, query))
         .toList();
 
     return Column(
@@ -799,7 +1103,7 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: TextField(
             controller: _searchController,
             style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -821,35 +1125,66 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage> {
             ),
           ),
         ),
-        Expanded(
-          child: ListView(
+        // 与应用筛选页一致：默认隐藏系统应用
+        SizedBox(
+          height: 40,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              if (callApps.isNotEmpty) ...[
-                _buildGroupHeader(context, l10n.ruleAppPinnedCall),
-                ...callApps.map((a) => _buildAppRow(context, a)),
-              ],
-              if (smsApps.isNotEmpty) ...[
-                _buildGroupHeader(context, l10n.ruleAppPinnedSms),
-                ...smsApps.map((a) => _buildAppRow(context, a)),
-              ],
-              if (callApps.isNotEmpty || smsApps.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Text(
+                  l10n.showSystemApps,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ),
+              Switch(
+                value: _showSystemApps,
+                activeThumbColor: AppColors.blue,
+                onChanged: (v) => setState(() => _showSystemApps = v),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: otherApps.isEmpty && smsApps.isEmpty && callApps.isEmpty
+              ? Center(
                   child: Text(
-                    l10n.ruleAppPinnedNote,
+                    l10n.noAppsFound,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 14,
                       color: AppColors.secondaryLabel(context),
                     ),
                   ),
+                )
+              : ListView(
+                  children: [
+                    if (callApps.isNotEmpty) ...[
+                      _buildGroupHeader(context, l10n.ruleAppPinnedCall),
+                      ...callApps.map((a) => _buildAppRow(context, a)),
+                    ],
+                    if (smsApps.isNotEmpty) ...[
+                      _buildGroupHeader(context, l10n.ruleAppPinnedSms),
+                      ...smsApps.map((a) => _buildAppRow(context, a)),
+                    ],
+                    if (callApps.isNotEmpty || smsApps.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                        child: Text(
+                          l10n.ruleAppPinnedNote,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.secondaryLabel(context),
+                          ),
+                        ),
+                      ),
+                    _buildGroupHeader(context, l10n.ruleAppScopeAll),
+                    ...otherApps.map((a) => _buildAppRow(context, a)),
+                  ],
                 ),
-              if (otherApps.isEmpty && smsApps.isEmpty && callApps.isNotEmpty)
-                const SizedBox.shrink()
-              else
-                _buildGroupHeader(context, l10n.ruleAppScopeAll),
-              ...otherApps.map((a) => _buildAppRow(context, a)),
-            ],
-          ),
         ),
       ],
     );
