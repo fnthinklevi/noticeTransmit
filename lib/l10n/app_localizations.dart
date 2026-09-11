@@ -4087,6 +4087,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'按会话分组'**
   String get ruleMergeGroupByTitleSummary;
+
+  /// No description provided for @historyActionBlockAppDescSelf.
+  ///
+  /// In zh, this message translates to:
+  /// **'本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽'**
+  String get historyActionBlockAppDescSelf;
+
+  /// No description provided for @historyActionBlockAppDescAllowWhitelist.
+  ///
+  /// In zh, this message translates to:
+  /// **'该应用已被应用过滤拦截，但白名单关键词命中仍会推送，无需操作'**
+  String get historyActionBlockAppDescAllowWhitelist;
+
+  /// No description provided for @historyBlockAppSelfToast.
+  ///
+  /// In zh, this message translates to:
+  /// **'本应用自身的通知由电量规则控制，请在电量设置中调整'**
+  String get historyBlockAppSelfToast;
+
+  /// No description provided for @historyBlockAppAllowWhitelistToast.
+  ///
+  /// In zh, this message translates to:
+  /// **'该应用已被应用过滤拦截，但白名单关键词命中仍会推送'**
+  String get historyBlockAppAllowWhitelistToast;
+
+  /// No description provided for @exportConfirmDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。'**
+  String get exportConfirmDesc;
+
+  /// No description provided for @historyMoreActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多操作'**
+  String get historyMoreActions;
 }
 
 class _AppLocalizationsDelegate

@@ -55,6 +55,116 @@ class _HistoryPageState extends State<HistoryPage> {
   final ScrollController _scrollController = ScrollController();
   static const int _pageSize = 200;
 
+  /// F4：右上角「⋯」动作弹层——收纳低频操作（批量补推/导出/归档路径/清空），
+  /// 解决 AppBar 图标过多的问题；样式与长按屏蔽菜单一致（iOS 底部弹层）。
+  void _showMoreActionsSheet() {
+    final l10n = AppLocalizations.of(context);
+    final canAct = widget.records.isNotEmpty;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardBg(sheetContext),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.separator(sheetContext),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.replay, color: AppColors.blue),
+                title: Text(
+                  l10n.batchPushEntry,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _enterBatchMode();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.ios_share, color: AppColors.blue),
+                title: Text(
+                  l10n.exportJson,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: canAct
+                        ? AppColors.primaryLabel(sheetContext)
+                        : AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+                enabled: canAct,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _handleExport();
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.folder_open,
+                  color: AppColors.secondaryLabel(sheetContext),
+                ),
+                title: Text(
+                  l10n.autoSavePath,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showArchivePathDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.cleaning_services_outlined,
+                  color: AppColors.red,
+                ),
+                title: Text(
+                  l10n.clearRecords,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: canAct
+                        ? AppColors.primaryLabel(sheetContext)
+                        : AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+                enabled: canAct,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showClearOptions();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── F2 批量补推 ──
   bool _batchMode = false;
   final Set<String> _batchSelected = {};
@@ -1110,6 +1220,10 @@ class _HistoryPageState extends State<HistoryPage> {
   ///   不在名单中说明本就不推送，提示无需操作。
   /// - block（黑名单）模式：应用加入屏蔽名单；已在名单中提示无需操作。
   /// 返回后由调用方刷新列表显示。
+  /// 本应用自身的通知（电量提醒/测试推送等）不经过应用过滤与黑白名单，
+  /// 由电量规则与内置逻辑直接控制——「屏蔽该应用」对其无效，需特判提示。
+  static const _selfPackage = 'com.fnthink.notice';
+
   Future<void> _blockApp(NotificationRecord record) async {
     final l10n = AppLocalizations.of(context);
     final pkg = record.packageName;
@@ -1118,9 +1232,19 @@ class _HistoryPageState extends State<HistoryPage> {
       _showToast(l10n.historyBlockNoAppName);
       return;
     }
+    // 本应用自身通知：不受应用过滤/黑白名单影响，屏蔽无效
+    if (pkg == _selfPackage) {
+      _showToast(l10n.historyBlockAppSelfToast);
+      return;
+    }
     final filterService = _filterService;
     if (filterService.appFilterMode == 'allow') {
       if (!filterService.enabledPackages.contains(pkg)) {
+        // 应用过滤已拦截，但白名单关键词命中仍会推送——不能提示"无需操作"
+        if (filterService.whitelistKeywords.isNotEmpty) {
+          _showToast(l10n.historyBlockAppAllowWhitelistToast);
+          return;
+        }
         _showToast(l10n.historyBlockAppAlreadyExcluded(app));
         return;
       }
@@ -1251,11 +1375,17 @@ class _HistoryPageState extends State<HistoryPage> {
     final l10n = AppLocalizations.of(context);
     final isAllowMode = _filterService.appFilterMode == 'allow';
     final inList = _filterService.enabledPackages.contains(record.packageName);
-    // 副标题动态说明当前模式下将执行的动作（或已屏蔽状态）
-    final blockAppDesc = isAllowMode
+    // 副标题动态说明当前模式下将执行的动作（或已屏蔽状态）。
+    // 两个特判：① 本应用自身通知由电量规则控制，屏蔽不适用；
+    // ② allow 模式不在名单时，若存在白名单关键词，命中仍会推送——不能说"无需操作"。
+    final blockAppDesc = record.packageName == _selfPackage
+        ? l10n.historyActionBlockAppDescSelf
+        : isAllowMode
         ? (inList
               ? l10n.historyActionBlockAppDescAllow
-              : l10n.historyActionBlockAppDescAlreadyExcluded)
+              : (_filterService.whitelistKeywords.isNotEmpty
+                    ? l10n.historyActionBlockAppDescAllowWhitelist
+                    : l10n.historyActionBlockAppDescAlreadyExcluded))
         : (inList
               ? l10n.historyActionBlockAppDescAlreadyBlocked
               : l10n.historyActionBlockAppDescBlock);
@@ -1356,140 +1486,182 @@ class _HistoryPageState extends State<HistoryPage> {
       deliveryLogs = await _dbHelper.getDeliveryLogsByNotification(record.id);
     } catch (_) {}
     if (!mounted) return;
-    showDialog(
+
+    // UI 统一（v1.5.69）：详情改为 iOS 底部弹层（与长按屏蔽菜单同风格），
+    // 替换原 Material AlertDialog 的右对齐文字按钮布局
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          appName,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  l10n.detailInfo,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg(sheetContext),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.inputBg(context),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.separator(sheetContext),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: SelectableText(
-                    const JsonEncoder.withIndent('  ').convert(record.toMap()),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    appName,
                     style: TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      color: AppColors.primaryLabel(context),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLabel(sheetContext),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  l10n.deliveryLogTitle,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (deliveryLogs.isEmpty)
-                  Text(
-                    l10n.deliveryLogEmpty,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.secondaryLabel(context),
-                    ),
-                  )
-                else ...[
-                  for (final log in deliveryLogs)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(top: 5),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: log['status'] == 'success'
-                                  ? AppColors.green
-                                  : AppColors.red,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '${log['tag']} · HTTP ${log['http_code'] ?? '-'}'
-                              ' · ${log['message'] ?? ''}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.primaryLabel(context),
-                              ),
-                            ),
-                          ),
-                        ],
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n.detailInfo,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: AppColors.secondaryLabel(sheetContext),
+                        ),
                       ),
-                    ),
-                ],
-              ],
-            ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.inputBg(sheetContext),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SelectableText(
+                          const JsonEncoder.withIndent(
+                            '  ',
+                          ).convert(record.toMap()),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                            color: AppColors.primaryLabel(sheetContext),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        l10n.deliveryLogTitle,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: AppColors.secondaryLabel(sheetContext),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (deliveryLogs.isEmpty)
+                        Text(
+                          l10n.deliveryLogEmpty,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.secondaryLabel(sheetContext),
+                          ),
+                        )
+                      else
+                        for (final log in deliveryLogs)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(top: 5),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: log['status'] == 'success'
+                                        ? AppColors.green
+                                        : AppColors.red,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${log['tag']} · HTTP ${log['http_code'] ?? '-'}'
+                                    ' · ${log['message'] ?? ''}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.primaryLabel(
+                                        sheetContext,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(height: 0.5, color: AppColors.separator(sheetContext)),
+              ListTile(
+                leading: const Icon(Icons.block, color: AppColors.red),
+                title: Text(
+                  l10n.historyActionBlockAppShort,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _blockApp(record);
+                },
+              ),
+              Container(height: 0.5, color: AppColors.separator(sheetContext)),
+              ListTile(
+                leading: const Icon(
+                  Icons.playlist_remove,
+                  color: Color(0xFFFF9500),
+                ),
+                title: Text(
+                  l10n.historyActionBlockContentShort,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _blockContent(record);
+                },
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _blockApp(record);
-            },
-            icon: const Icon(Icons.block, size: 16),
-            label: Text(
-              l10n.historyActionBlockAppShort,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _blockContent(record);
-            },
-            icon: const Icon(Icons.playlist_remove, size: 16),
-            label: Text(
-              l10n.historyActionBlockContentShort,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              l10n.close,
-              style: const TextStyle(
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-        actionsOverflowButtonSpacing: 8,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -1903,11 +2075,6 @@ class _HistoryPageState extends State<HistoryPage> {
               ]
             : [
                 IconButton(
-                  icon: const Icon(Icons.replay),
-                  tooltip: l10n.batchPushEntry,
-                  onPressed: _enterBatchMode,
-                ),
-                IconButton(
                   icon: Icon(
                     Icons.filter_list,
                     color: _hasActiveFilter ? AppColors.blue : null,
@@ -1916,19 +2083,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   onPressed: _showFilterPanel,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.folder_open),
-                  tooltip: l10n.autoSavePath,
-                  onPressed: _showArchivePathDialog,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.ios_share),
-                  tooltip: l10n.exportJson,
-                  onPressed: widget.records.isEmpty ? null : _handleExport,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.cleaning_services_outlined),
-                  tooltip: l10n.clearRecords,
-                  onPressed: widget.records.isEmpty ? null : _showClearOptions,
+                  icon: const Icon(Icons.more_horiz),
+                  tooltip: l10n.historyMoreActions,
+                  onPressed: _showMoreActionsSheet,
                 ),
               ],
       ),

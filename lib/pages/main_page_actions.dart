@@ -104,23 +104,65 @@ extension _MainPageActions on _MainPageState {
           setState(() {});
         },
         onExport: () async {
-          // 安全确认：导出前弹出对话框验证用户意图
+          // 安全确认：导出前弹出对话框验证用户意图（UI 统一：iOS 分割线双按钮）
+          final l10n = AppLocalizations.of(context);
           final confirm = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('确认导出'),
-              content: const Text(
-                '通知记录将导出为 JSON 文件，包含通知内容和设备信息。\n\n'
-                '请选择保存位置，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？',
+              backgroundColor: AppColors.cardBg(ctx),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              title: Text(
+                l10n.confirmExport,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(ctx),
+                ),
+              ),
+              content: Text(
+                l10n.exportConfirmDesc,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppColors.primaryLabel(ctx),
+                ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('确定导出'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(
+                          l10n.cancel,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.secondaryLabel(ctx),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 0.5,
+                      height: 20,
+                      color: AppColors.separator(ctx),
+                    ),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(
+                          l10n.exportBtn,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.blue,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -2208,4 +2208,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleMergeGroupByTitleSummary => 'by conversation';
+
+  @override
+  String get historyActionBlockAppDescSelf =>
+      'This app\'s own notifications (battery alerts) are governed by battery rules — app blocking does not apply';
+
+  @override
+  String get historyActionBlockAppDescAllowWhitelist =>
+      'Already blocked by app filter, but whitelist keyword hits will still push — no action needed';
+
+  @override
+  String get historyBlockAppSelfToast =>
+      'This app\'s own notifications are governed by battery rules — adjust them in battery settings';
+
+  @override
+  String get historyBlockAppAllowWhitelistToast =>
+      'Already blocked by app filter, but whitelist keyword hits will still push';
+
+  @override
+  String get exportConfirmDesc =>
+      'Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.';
+
+  @override
+  String get historyMoreActions => 'More actions';
 }

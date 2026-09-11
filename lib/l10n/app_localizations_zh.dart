@@ -2127,4 +2127,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get ruleMergeGroupByTitleSummary => '按会话分组';
+
+  @override
+  String get historyActionBlockAppDescSelf => '本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽';
+
+  @override
+  String get historyActionBlockAppDescAllowWhitelist =>
+      '该应用已被应用过滤拦截，但白名单关键词命中仍会推送，无需操作';
+
+  @override
+  String get historyBlockAppSelfToast => '本应用自身的通知由电量规则控制，请在电量设置中调整';
+
+  @override
+  String get historyBlockAppAllowWhitelistToast => '该应用已被应用过滤拦截，但白名单关键词命中仍会推送';
+
+  @override
+  String get exportConfirmDesc =>
+      '通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。';
+
+  @override
+  String get historyMoreActions => '更多操作';
 }
