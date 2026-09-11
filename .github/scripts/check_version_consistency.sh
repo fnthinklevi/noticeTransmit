@@ -64,6 +64,48 @@ if [ "$PUBSPEC_BUILD" != "$VJ_BUILD" ]; then
     ((errors++))
 fi
 
+# python 探测顺序：先 python 后 python3，并排除 WindowsApps 商店占位 stub（执行即失败）
+PY=""
+for c in python python3; do
+    p=$(command -v "$c" 2>/dev/null) || p=""
+    case "$p" in
+        *WindowsApps*) p="" ;;
+    esac
+    if [ -z "$PY" ] && [ -n "$p" ]; then PY="$p"; fi
+done
+
+# ===== N3 传输层校验：version.json 的 sha256 字段完备性 =====
+# 四个平台均须为 64 位小写十六进制（空串表示该平台不校验，允许但会提示）
+if [ -n "$PY" ] && [ -f server/data/version.json ]; then
+    if ! "$PY" - <<'EOF'
+import json, re, sys
+data = json.load(open('server/data/version.json', encoding='utf-8'))
+sha = data.get('sha256')
+if not isinstance(sha, dict):
+    print("❌ version.json 缺少 sha256 字段（N3 传输层校验）")
+    sys.exit(1)
+hex64 = re.compile(r'^[0-9a-f]{64}$')
+problems, empties = [], []
+for k in ('arm64', 'arm32', 'x86_64', 'all'):
+    v = sha.get(k)
+    if v is None or v == '':
+        empties.append(k)
+        continue
+    if not (isinstance(v, str) and hex64.match(v)):
+        problems.append(f"{k}={v!r}")
+if problems:
+    print(f"❌ sha256 非法（须为 64 位小写十六进制）：{problems}")
+    sys.exit(1)
+if empties:
+    print(f"⚠ sha256 存在但以下平台为空（下载时跳过校验）：{empties}")
+print("sha256 字段检查通过（4 平台齐全）")
+EOF
+    then
+        echo -e "${RED}❌ version.json sha256 字段检查失败${NC}"
+        errors=$((errors+1))
+    fi
+fi
+
 # ===== 文档一致性：README 标注须与服务端依赖 / 实际运行参数同步 =====
 
 # otplib 版本：README 中的标注须与 server/package.json 声明一致
@@ -82,15 +124,6 @@ if grep -qE "240 ?小时|240 hours" README.md README-en.md 2>/dev/null; then
 fi
 
 # l10n 漏翻检查：app_zh.arb 与 app_en.arb 的词条键集合必须一致（@metadata 键除外）
-# python 探测顺序：先 python 后 python3，并排除 WindowsApps 商店占位 stub（执行即失败）
-PY=""
-for c in python python3; do
-    p=$(command -v "$c" 2>/dev/null) || p=""
-    case "$p" in
-        *WindowsApps*) p="" ;;
-    esac
-    if [ -z "$PY" ] && [ -n "$p" ]; then PY="$p"; fi
-done
 if [ -n "$PY" ] && [ -f lib/l10n/arb/app_zh.arb ]; then
     if ! "$PY" - <<'EOF'
 import json, sys

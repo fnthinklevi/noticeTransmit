@@ -345,7 +345,10 @@ extension _MainPageUpdate on _MainPageState {
           if (!mounted) return;
           Navigator.of(context, rootNavigator: true).pop();
           if (filePath == null) return;
-          final installed = await _updateService.installApk(filePath);
+          final installed = await _updateService.installApk(
+            filePath,
+            sha256ByAbi: result.sha256,
+          );
           if (!mounted || installed) return;
           // 完整性校验（签名不一致 / 版本降级）失败时必须告知用户，
           // 而不是让他只看到一句含糊的"安装失败"

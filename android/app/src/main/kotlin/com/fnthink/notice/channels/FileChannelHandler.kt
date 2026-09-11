@@ -1,5 +1,6 @@
 package com.fnthink.notice.channels
 
+import com.fnthink.notice.FileHasher
 import com.fnthink.notice.MainActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -63,6 +64,13 @@ internal class FileChannelHandler(activity: MainActivity) : ChannelHandler(activ
                 val filePath = call.argument<String>("filePath") ?: ""
                 val (valid, detail) = activity.verifyApkSignature(filePath)
                 result.success(mapOf("valid" to valid, "detail" to detail))
+            }
+            "computeFileSha256" -> {
+                // N3 传输层校验：计算安装包 sha256（64 位小写十六进制），
+                // 与 version.json 下发的期望值比对；文件缺失/不可读时抛 IOException，
+                // 由 Dart 侧按「通道异常跳过 sha256、签名校验兜底」策略处理
+                val filePath = call.argument<String>("filePath") ?: ""
+                result.success(FileHasher.sha256Hex(filePath))
             }
             else -> return false
         }

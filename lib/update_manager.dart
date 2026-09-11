@@ -84,6 +84,11 @@ class AppUpdateManager {
       ? 'Update package verification failed. Installation blocked.'
       : '更新包校验未通过，已阻止安装';
 
+  /// sha256 校验不通过文案（N3 传输层校验，双语）
+  String _sha256MismatchMessage() => _isEnglish
+      ? 'Update package integrity check failed (checksum mismatch). Installation blocked.'
+      : '更新包完整性校验未通过（校验和不匹配），已阻止安装';
+
   /// 校验通道不可用文案（fail-closed 时的双语提示）
   String _unverifiableInstallMessage() => _isEnglish
       ? 'Cannot verify the update package. Installation blocked.'
@@ -352,6 +357,11 @@ class AppUpdateManager {
       final downloads = Map<String, String>.from(
         versionData['downloads'] as Map? ?? {},
       );
+      final sha256Map = Map<String, String>.from(
+        (versionData['sha256'] as Map? ?? {}).map(
+          (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
+        ),
+      );
       final fileSizes = Map<String, int>.from(
         (versionData['fileSizes'] as Map? ?? {}).map(
           (k, v) =>
@@ -377,6 +387,7 @@ class AppUpdateManager {
         minSupportedVersion:
             versionData['minSupportedVersion']?.toString() ?? '1.0.0',
         downloads: downloads,
+        sha256: sha256Map,
       );
 
       debugPrint('检查更新（静态）：最新版本 ${result.latestVersion}，hasUpdate=$hasUpdate');
@@ -822,7 +833,47 @@ class AppUpdateManager {
     } catch (_) {}
   }
 
-  Future<bool> installApk(String filePath) async {
+  /// 安装前传输层完整性校验（N3）：安装包 sha256 必须与 version.json 下发的
+  /// 期望值一致（按设备 ABI 取对应字段）。
+  ///
+  /// 定位：签名校验是**可信根**（独立于分发服务器），sha256 是**附加层**——
+  /// 防 CDN 传输损坏与传输途中篡改（签名校验前执行，双重防线）。
+  /// 行为约定：
+  /// - 期望值缺失（旧服务端数据未含 sha256 字段）→ **跳过校验**（兼容性优先，
+  ///   签名校验仍会执行）；
+  /// - 不匹配 → 与签名失败同等处理：删除安装包 + 清 pending 记录 + 阻止安装；
+  /// - 校验通道异常 → 跳过 sha256（签名校验 fail-closed 兜底，可信根不受影响）。
+  Future<String?> _verifyFileSha256(
+    String filePath,
+    String expectedSha256,
+  ) async {
+    final expected = expectedSha256.toLowerCase().trim();
+    if (expected.isEmpty) return null; // 无期望值：跳过（兼容旧数据）
+    try {
+      final actual = await AppChannels.notification.invokeMethod(
+        'computeFileSha256',
+        {'filePath': filePath},
+      );
+      final actualHex = actual?.toString().toLowerCase().trim() ?? '';
+      if (actualHex == expected) return null;
+      debugPrint('更新包 sha256 校验未通过: expected=$expected actual=$actualHex');
+      // 与签名失败同等处理：删除被判定损坏的安装包，避免用户绕过 App 误装
+      try {
+        final file = File(filePath);
+        if (await file.exists()) await file.delete();
+        await _clearPendingApkRecord();
+      } catch (_) {}
+      return _sha256MismatchMessage();
+    } catch (e) {
+      debugPrint('sha256 校验调用失败（跳过，签名校验兜底）: $e');
+      return null;
+    }
+  }
+
+  Future<bool> installApk(
+    String filePath, {
+    Map<String, String> sha256ByAbi = const {},
+  }) async {
     _lastInstallBlockReason = null;
     try {
       if (Platform.isAndroid) {
@@ -830,6 +881,18 @@ class AppUpdateManager {
         if (!status.isGranted) {
           openAppSettings();
           return false;
+        }
+        // N3 传输层校验：本地路径可算时先比对 sha256（签名校验前执行）
+        if (filePath.isNotEmpty && sha256ByAbi.isNotEmpty) {
+          final abi = await _getRealAbi();
+          final expected = sha256ByAbi[abi] ?? sha256ByAbi['all'] ?? '';
+          if (expected.isNotEmpty) {
+            final blockReason = await _verifyFileSha256(filePath, expected);
+            if (blockReason != null) {
+              _lastInstallBlockReason = blockReason;
+              return false;
+            }
+          }
         }
         // P0 安全加固：本地路径场景在安装前强制校验（content uri 场景
         // 由原生 installSystemDownload 内部校验，两条路径均不可绕过）。
@@ -934,6 +997,10 @@ class VersionCheckResult {
   final String minSupportedVersion;
   final Map<String, String> downloads;
 
+  /// 各架构安装包的期望 sha256（N3 传输层校验；64 位小写十六进制）。
+  /// 旧服务端数据无此字段时为空 —— installApk 跳过 sha256 校验（签名校验兜底）。
+  final Map<String, String> sha256;
+
   VersionCheckResult({
     required this.hasUpdate,
     required this.latestVersion,
@@ -944,6 +1011,7 @@ class VersionCheckResult {
     required this.fileSize,
     required this.minSupportedVersion,
     this.downloads = const {},
+    this.sha256 = const {},
   });
 
   factory VersionCheckResult.fromJson(Map<String, dynamic> json) {
@@ -952,6 +1020,11 @@ class VersionCheckResult {
       (json['fileSizes'] as Map? ?? {}).map(
         (k, v) =>
             MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
+      ),
+    );
+    final sha256 = Map<String, String>.from(
+      (json['sha256'] as Map? ?? {}).map(
+        (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
       ),
     );
     // API 模式兼容：优先取直接字段，缺失时从 downloads/fileSizes map 回退（默认 arm64）
@@ -971,6 +1044,7 @@ class VersionCheckResult {
       fileSize: fileSize,
       minSupportedVersion: json['minSupportedVersion'] ?? '',
       downloads: downloads,
+      sha256: sha256,
     );
   }
 

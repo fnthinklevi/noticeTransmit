@@ -43,10 +43,17 @@ class UpdateService {
   }
 
   /// 安装已下载的安装包。
+  /// [sha256ByAbi]：各架构安装包的期望 sha256（version.json 下发，N3 传输层校验）。
   /// 返回是否成功启动安装；失败时可通过 [lastInstallBlockReason] 获取原因
-  /// （如签名校验不通过、版本降级被拦截），UI 层应展示给用户。
-  Future<bool> installApk(String filePath) async {
-    return AppUpdateManager.instance.installApk(filePath);
+  /// （如签名校验不通过、sha256 校验和不匹配、版本降级被拦截），UI 层应展示给用户。
+  Future<bool> installApk(
+    String filePath, {
+    Map<String, String> sha256ByAbi = const {},
+  }) async {
+    return AppUpdateManager.instance.installApk(
+      filePath,
+      sha256ByAbi: sha256ByAbi,
+    );
   }
 
   /// 最近一次安装被完整性校验阻止的原因；无则 null

@@ -73,6 +73,21 @@ function validateVersionConfig(body) {
       }
     }
   }
+  // sha256: 可选对象（N3 传输层校验），各平台 64 位十六进制（空串 = 跳过该校验）
+  if (body.sha256 !== undefined) {
+    if (!isPlainObject(body.sha256)) {
+      errors.push('sha256 必须为 JSON 对象');
+    } else {
+      const hex64 = /^[0-9a-f]{64}$/;
+      for (const k of ['arm64', 'arm32', 'x86_64', 'all']) {
+        const v = body.sha256[k];
+        if (v === undefined || v === '') continue; // 空串/缺失表示该平台不校验
+        if (typeof v !== 'string' || !hex64.test(v)) {
+          errors.push(`sha256.${k} 必须为 64 位小写十六进制`);
+        }
+      }
+    }
+  }
   // 兼容旧契约：仅当未提供 downloads 时才校验 downloadUrl/fileSize
   if (body.downloads === undefined) {
     if (body.downloadUrl !== undefined) {
@@ -149,6 +164,7 @@ router.get('/api/version/check', (req, res) => {
 
     const downloads = versionData.downloads || {};
     const fileSizes = versionData.fileSizes || {};
+    const sha256 = versionData.sha256 || {};
     // 根据平台参数解析对应的单架构下载链接和大小（默认 arm64）
     const platformKey = platform === 'x86_64' ? 'x86_64' : (platform === 'armeabi-v7a' ? 'arm32' : 'arm64');
     const downloadUrl = downloads[platformKey] || downloads['all'] || '';
@@ -167,6 +183,7 @@ router.get('/api/version/check', (req, res) => {
         fileSize,
         downloads,
         fileSizes,
+        sha256,
         minSupportedVersion: versionData.minSupportedVersion
       }
     });
@@ -201,6 +218,14 @@ router.post('/api/admin/version', authMiddleware, (req, res) => {
     const errors = validateVersionConfig(body);
     if (errors.length > 0) {
       return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
+    }
+    // N3：admin.html 的 saveVersion 不含 sha256 字段——直接覆盖会丢掉发版时写入的
+    // 传输层校验值。body 未提供 sha256 时沿用既有配置（显式提交的 sha256 仍可覆盖）。
+    if (body.sha256 === undefined) {
+      const existing = store.readJsonFile(store.VERSION_FILE, {});
+      if (isPlainObject(existing) && existing.sha256 !== undefined) {
+        body.sha256 = existing.sha256;
+      }
     }
     const success = store.writeJsonFile(store.VERSION_FILE, body);
     res.json({
