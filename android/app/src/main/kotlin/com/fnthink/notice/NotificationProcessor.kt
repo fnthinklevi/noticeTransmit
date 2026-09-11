@@ -21,6 +21,13 @@ class NotificationProcessor(private val context: Context) {
 
     private val notifiedKeys = Collections.synchronizedSet(LinkedHashSet<String>())
 
+    // N9：短信兜底分发的作用域。原实现每条短信通知都新建
+    // `CoroutineScope(Dispatchers.IO)`（无人管理、不受服务生命周期约束，
+    // 进程被回收即丢）——收敛为类级作用域（随 NotificationProcessor 实例存在）。
+    private val smsFallbackScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()
+    )
+
     fun processNotification(sbn: StatusBarNotification): NotificationInfo? {
         val notification = sbn.notification ?: return null
         val packageName = sbn.packageName
@@ -183,7 +190,7 @@ class NotificationProcessor(private val context: Context) {
                 return
             }
             val postTime = sbn.postTime
-            CoroutineScope(Dispatchers.IO).launch {
+            smsFallbackScope.launch {
                 delay(2_000L)
                 SmsDispatcher.handle(
                     context = context,

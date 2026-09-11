@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="favicon.ico?v=20260719">
 <link rel="apple-touch-icon" href="app_icon.png?v=20260719">
 <title>NoticeTransmit · 通知推送助手</title>
-<meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎（通知优先级分级 / 静默忽略 / 定时与延迟推送）、桌面小部件一键启停、电量提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。" />
+<meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎（通知优先级分级 / 静默忽略 / 定时与延迟推送）、规则测试器、桌面小部件一键启停、电量提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23467CFD' d='M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z'/%3E%3Cpath fill='%238BAEF7' d='M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.cn" />
 <link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin />
@@ -478,18 +478,20 @@
     <div class="grid">
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🔔</div><h3>全量通知监听</h3><p>监听系统所有应用的通知栏消息，智能识别微信、QQ、短信、来电、系统等 5 类通知类型。</p></div>
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🔗</div><h3>Webhook + 邮件多通道</h3><p>Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / 自定义）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。</p></div>
-      <div class="card reveal"><span class="tag">Core</span><div class="fi">🧠</div><h3>可视化规则引擎</h3><p>IF 条件组合 + THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。</p></div>
+      <div class="card reveal"><span class="tag">Core</span><div class="fi">🧠</div><h3>可视化规则引擎</h3><p>IF 条件组合 + THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期，支持满 N 条提前触发与按会话分组）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">🏷️</div><h3>关键词过滤</h3><p>白名单 + 黑名单双模式关键词过滤，精准控制哪些内容推送、哪些内容拦截。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📱</div><h3>应用筛选</h3><p>自定义选择需要推送的应用，支持「通知 / 不通知」双模式与一键全选、反选。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">🔋</div><h3>自定义电量提醒</h3><p>充电 / 断开 / 指定电量阈值全自定义规则，息屏 Doze 下依然可靠推送，可增删改。</p></div>
-      <div class="card reveal"><span class="tag">Pro</span><div class="fi">📋</div><h3>历史记录</h3><p>推送历史完整保存于本地（无条数上限），支持全量搜索与按日 / 时间段 / 应用 / 包名 / 送达状态筛选，详情查看与导出，随时回溯每一条通知去向。</p></div>
-      <div class="card reveal"><span class="tag">Pro</span><div class="fi">📝</div><h3>推送模板引擎</h3><p>text / markdown / json / xml 四种格式自定义，%appName% 等变量占位符自动替换，每个通道独立配置。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">📋</div><h3>历史记录</h3><p>推送历史完整保存于本地（无条数上限），支持全量搜索与按日 / 时间段 / 应用 / 包名 / 送达状态筛选，详情查看与导出，随时回溯每一条通知去向；失败记录支持多选批量补推。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">📝</div><h3>推送模板引擎</h3><p>text / markdown / json / xml 四种格式自定义，%appName% 等变量占位符自动替换，聚合推送额外提供 %count%（条数）与 %titles%（成员标题摘要）变量，每个通道独立配置。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">⏸️</div><h3>一键暂停推送</h3><p>前台通知栏按钮或桌面小部件一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。小部件 2×2/4×2 视觉焕新，支持系统添加弹窗预览；不支持一键添加的桌面自动弹出分品牌分步引导（小米/华为/OPPO/vivo/三星等）。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📶</div><h3>短信监听设置中心</h3><p>监听短信 / 验证码监听 / 监听卡选择三大开关集中管理，单卡设备自动灰化选卡；卡槽过滤同时作用于短信与来电，推送正文可附「卡1，运营商」双语信息行。</p></div>
-      <div class="card reveal"><span class="tag">Pro</span><div class="fi">💾</div><h3>配置备份与恢复</h3><p>一键将通道 / 规则 / 关键词等全部配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">💾</div><h3>配置备份与恢复</h3><p>一键将通道 / 规则 / 关键词 / 电池规则 / 设备名 / 主题语言等 11 类配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定；备份格式 v2 向后兼容 v1。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🌐</div><h3>多语言国际化</h3><p>全应用中英双语支持（120+ 处迁移），设置页一键切换语言。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🌙</div><h3>深色模式</h3><p>浅色 / 深色 / 跟随系统三种主题，Cupertino 设计语言，界面简洁优雅。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🔄</div><h3>后台保活 · 在线更新</h3><p>前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新，无需重装。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">🧪</div><h3>规则测试器</h3><p>输入模拟通知（应用 + 标题 / 内容 / 优先级），实时展示「过滤 → 规则匹配 → 最终动作」完整命中链路，规则为什么不生效一眼看清。</p></div>
+      <div class="card reveal"><span class="tag">Core</span><div class="fi">🛡️</div><h3>推送可靠性 · 自动重试与补扫</h3><p>推送失败自动重试（网络恢复 / 服务重启时重发最近失败项）；服务被系统回收后启动时自动补扫通知栏中未处理的驻留通知（最长回溯 6 小时），长时间锁屏后台也少漏通知。</p></div>
     </div>
   </section>
 
@@ -535,6 +537,7 @@
         <div class="sec-item reveal"><div class="sic">🔢</div><div><h4>恢复码机制</h4><p>生成 8 个一次性恢复码，设备丢失时安全找回账户。</p></div></div>
         <div class="sec-item reveal"><div class="sic">🔒</div><div><h4>AES-256-GCM 加密</h4><p>TOTP secret 等敏感数据加密存储，密钥泄露也无法直接读取。</p></div></div>
         <div class="sec-item reveal"><div class="sic">💾</div><div><h4>配置备份加密</h4><p>备份文件以 AES-256-GCM 认证加密、PBKDF2（210k 迭代）派生密钥，口令错误或密文被篡改均无法解密。</p></div></div>
+        <div class="sec-item reveal"><div class="sic">🧬</div><div><h4>安装包完整性校验 sha256</h4><p>应用内更新下载完成后、安装前先比对 version.json 下发的 sha256，不一致即删除并阻止安装——防 CDN 传输损坏或途中篡改，与签名校验（可信根）双层互补。</p></div></div>
       </div>
       <div class="shield reveal">
         <div class="ring"></div>

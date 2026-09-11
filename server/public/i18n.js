@@ -162,6 +162,18 @@ D['通知推送助手'] = 'NoticeTransmit';
   // feature cards & security — v1.5.64 backup & restore
   D['配置备份与恢复'] = 'Config Backup & Restore';
   D['一键将通道 / 规则 / 关键词等全部配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定。'] = 'Export all configs (channels / rules / keywords) encrypted as a .nbackup file (AES-256-GCM + PBKDF2 key derivation). Restore with your passphrase after switching or reinstalling — overwrite or fill gaps, your choice.';
+  // ── v1.5.69 官网内容 ──
+  D['IF 条件组合 + THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期，支持满 N 条提前触发与按会话分组）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。'] = 'IF condition + THEN action, tiered by notification priority (high/medium/low) — silent ignore / record only / scheduled & delayed push / push now / same-app merged push (configurable window, early flush at N items, group by conversation). Built-in rules for OTP priority, ad blocking, nighttime DND — ready out of the box.';
+  D['推送历史完整保存于本地（无条数上限），支持全量搜索与按日 / 时间段 / 应用 / 包名 / 送达状态筛选，详情查看与导出，随时回溯每一条通知去向；失败记录支持多选批量补推。'] = 'Push history is fully saved locally with no cap — full-history search with day / time-range / app / package / delivery-status filters, detail view, and export. Track every notification; failed records support multi-select batch re-push.';
+  D['text / markdown / json / xml 四种格式自定义，%appName% 等变量占位符自动替换，聚合推送额外提供 %count%（条数）与 %titles%（成员标题摘要）变量，每个通道独立配置。'] = 'Custom text / markdown / json / xml formats, %appName% placeholder auto-replacement, plus %count% (item count) and %titles% (member title digest) for merged pushes — configurable per channel.';
+  D['一键将通道 / 规则 / 关键词 / 电池规则 / 设备名 / 主题语言等 11 类配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定；备份格式 v2 向后兼容 v1。'] = 'Export 11 categories of configs (channels / rules / keywords / battery rules / device name / theme & language) encrypted as a .nbackup file (AES-256-GCM + PBKDF2 key derivation). Restore with your passphrase after switching or reinstalling — overwrite or fill gaps, your choice. Backup format v2 is backward compatible with v1.';
+  D['规则测试器'] = 'Rule Tester';
+  D['输入模拟通知（应用 + 标题 / 内容 / 优先级），实时展示「过滤 → 规则匹配 → 最终动作」完整命中链路，规则为什么不生效一眼看清。'] = 'Enter a simulated notification (app + title / content / priority) and see the full trace in real time — filter → rule matching → final action. See at a glance why a rule did or did not fire.';
+  D['推送可靠性 · 自动重试与补扫'] = 'Push Reliability · Auto-retry & Re-scan';
+  D['推送失败自动重试（网络恢复 / 服务重启时重发最近失败项）；服务被系统回收后启动时自动补扫通知栏中未处理的驻留通知（最长回溯 6 小时），长时间锁屏后台也少漏通知。'] = 'Failed pushes retry automatically (resent on network recovery / service restart); after the OS recycles the service, startup re-scans still-visible notifications against a persisted watermark (up to 6 hours back) — far fewer missed notifications during long screen-off periods.';
+  D['安装包完整性校验 sha256'] = 'APK Integrity Check (sha256)';
+  D['应用内更新下载完成后、安装前先比对 version.json 下发的 sha256，不一致即删除并阻止安装——防 CDN 传输损坏或途中篡改，与签名校验（可信根）双层互补。'] = 'After an in-app update is downloaded, the APK sha256 from version.json is verified before installation — mismatches are deleted and blocked, protecting against CDN corruption or in-transit tampering. Complements the signature check (root of trust).';
+
   D['配置备份加密'] = 'Encrypted Config Backup';
   D['备份文件以 AES-256-GCM 认证加密、PBKDF2（210k 迭代）派生密钥，口令错误或密文被篡改均无法解密。'] = 'Backups are AES-256-GCM authenticated-encrypted with PBKDF2 (210k iterations) key derivation; wrong passphrase or tampered ciphertext cannot be decrypted.';
   D['一键暂停推送'] = 'One-Tap Pause';
@@ -278,8 +290,8 @@ D['通知推送助手'] = 'NoticeTransmit';
     var metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.content = l === 'zh'
-        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎、电量提醒等功能。开源、免费、本地处理。'
-        : 'NoticeTransmit — Android notification listener & push tool. Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / Custom) + SMTP email multi-channel. App filtering, keyword filtering, visual rule engine, battery alerts. Open source, free, local processing.';
+        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎、规则测试器、电量提醒等功能。开源、免费、本地处理。'
+        : 'NoticeTransmit — Android notification listener & push tool. Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / Custom) + SMTP email multi-channel. App filtering, keyword filtering, visual rule engine, rule tester, battery alerts. Open source, free, local processing.';
     }
   }
 

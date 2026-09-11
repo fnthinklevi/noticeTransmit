@@ -172,8 +172,11 @@ PORT=8080 npm start
 | `forceUpdateVersion`  | string  | 低于此版本的强制更新     | `"1.0.0"`                        |
 | `forceUpdateBuild`    | number  | 低于此构建号的强制更新    | `1`                              |
 | `changelog`           | string  | 更新日志，`\n` 表示换行 | `"1. 修复bug"`                     |
-| `downloadUrl`         | string  | APK 下载路径       | `"/public/apks/app-release.apk"` |
-| `fileSize`            | number  | 文件大小（字节）       | `56623104`                       |
+| `downloads`           | object  | 各平台下载地址（arm64/arm32/x86_64/all，https） | `{"arm64":"https://.../notice_arm64_1.5.69.apk",...}` |
+| `fileSizes`           | object  | 各平台文件大小（字节）    | `{"arm64":27349386,...}`         |
+| `sha256`              | object  | 各平台安装包 sha256（v1.5.69+ 传输层校验，App 下载后安装前比对） | `{"arm64":"63c6...09b",...}` |
+| `downloadUrl`         | string  | （旧契约兼容）单一下载路径  | `"/public/apks/app-release.apk"` |
+| `fileSize`            | number  | （旧契约兼容）文件大小（字节） | `56623104`                      |
 | `platform`            | string  | 平台             | `"android"`                      |
 | `minSupportedVersion` | string  | 最低支持版本         | `"1.0.0"`                        |
 
@@ -209,6 +212,24 @@ GET /api/version/check
     "changelog": "1. 新增功能\n2. 修复bug",
     "downloadUrl": "/public/apks/app-release.apk",
     "fileSize": 56623104,
+    "downloads": {
+      "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
+      "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
+      "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
+      "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
+    },
+    "fileSizes": {
+      "arm64": 27349386,
+      "arm32": 23540588,
+      "x86_64": 29579381,
+      "all": 75522054
+    },
+    "sha256": {
+      "arm64": "63c6333b7406b4633ce0160ee435f82d3e46abfd9959293ac3d0eca12952609b",
+      "arm32": "1c0039936fa8fced4faa7876ec1c449c45dc6f56280f5a82d166d923c53ba7de",
+      "x86_64": "9ff03baa5876cc3f05678adfd92904194683b55e6f3795221aef515f9bd85987",
+      "all": "df59061d4107ce0400534e3268c5d4eae10cbe0e40600da11546b64776f121a8"
+    },
     "platform": "android",
     "minSupportedVersion": "1.0.0"
   }

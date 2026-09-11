@@ -1,27 +1,27 @@
 {
-  "latestVersion": "1.5.68",
-  "latestBuild": 103,
+  "latestVersion": "1.5.69",
+  "latestBuild": 104,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.59",
   "forceUpdateBuild": 93,
-  "changelog": "v1.5.68+103: 修复聚合推送两大根因(规则未同步到原生引擎导致完全不生效 + 消息记录ID重复导致合并成员卡在发送中) + 单条消息不再合并推送直接直发 + 规则新增适用应用排除(系统短信/电话置顶) + 规则优先级支持自定义输入(0-500) + 合并窗口时长确认可配置 + 关闭Android16预见式返回动画",
+  "changelog": "规则测试器 + 推送可靠性大版本\n\n🧪 规则测试器：输入模拟通知，实时展示过滤 → 规则 → 动作的完整命中链路\n📵 锁屏后台漏通知修复：服务启动自动补扫通知栏中未处理的驻留通知\n📤 失败记录批量补推：历史页多选失败记录一键重推（带确认与进度）\n📦 聚合深化：满 N 条提前推送 / 按会话分组 / 模板新变量 %count% 与 %titles%\n🚨 Bark 判定修复：业务失败不再被误标为推送成功\n💾 备份补齐至 11 类（电池规则/设备名/主题语言），旧备份仍可恢复\n🛠️ 推送失败自动重试 / 权限误报根治 / 诊断日志运行时开关 / sha256 安装包校验 / 历史长按快捷屏蔽",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_arm64_1.5.68.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_arm32_1.5.68.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_x86_1.5.68.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.68/notice_all_1.5.68.apk"
+    "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
+    "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
+    "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
+    "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
   },
   "fileSizes": {
-    "all": 75062859,
-    "arm32": 23409088,
-    "arm64": 27349324,
-    "x86_64": 29382333
+    "arm64": 27349386,
+    "arm32": 23540588,
+    "x86_64": 29579381,
+    "all": 75522054
   },
   "sha256": {
-    "arm64": "44a2ebf192f880d954f481b8d4e7767fdf797ac87899bf3e980b85963725719a",
-    "arm32": "1917b93546b84a1e8284254dfe972db529d51f4f1f2350a950747e5ad4619659",
-    "x86_64": "7f6c0ab3d9f622fad6104de92965712606e9d8e59ec9d4e2f22255d75cd3d7f2",
-    "all": "d32fc270ce3304d37be80693b35bd5893b30b4d2cdac9e70830f70b0b7907f7c"
+    "arm64": "63c6333b7406b4633ce0160ee435f82d3e46abfd9959293ac3d0eca12952609b",
+    "arm32": "1c0039936fa8fced4faa7876ec1c449c45dc6f56280f5a82d166d923c53ba7de",
+    "x86_64": "9ff03baa5876cc3f05678adfd92904194683b55e6f3795221aef515f9bd85987",
+    "all": "df59061d4107ce0400534e3268c5d4eae10cbe0e40600da11546b64776f121a8"
   },
   "minSupportedVersion": "1.0.0"
 }

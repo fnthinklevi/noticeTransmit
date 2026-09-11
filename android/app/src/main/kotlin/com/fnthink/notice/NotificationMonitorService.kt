@@ -39,6 +39,10 @@ class NotificationMonitorService : NotificationListenerService() {
         const val EXTRA_MONITORING_ENABLED = "monitoring_enabled"
         const val PREFS_NAME = "FlutterSharedPreferences"
         const val PREF_MONITORING_ENABLED = "flutter.monitoring_enabled"
+        // 服务存活心跳 / 补扫水位（持久化：进程被回收时内存字段会随进程消失，
+        // 只有落盘才能判定「服务中断过 → 期间事件可能丢失 → 需补扫」）
+        const val PREF_LAST_ALIVE = "flutter.notif_last_alive_at"
+        const val PREF_LAST_SCAN = "flutter.notif_last_scan_at"
         const val ACTION_BATTERY_CHANGED_NOTIFY = "com.fnthink.notice.BATTERY_CHANGED_NOTIFY"
         const val EXTRA_BATTERY_LEVEL = "battery_level"
         const val EXTRA_BATTERY_CHARGING = "battery_charging"
@@ -154,6 +158,11 @@ class NotificationMonitorService : NotificationListenerService() {
 
         // N4 失败推送自动重试队列：初始化上下文 + 启动重放（服务启动 + 网络恢复触发）
         RetryQueue.startWatching(applicationContext)
+
+        // N9 漏通知修复：启动补扫 —— 进程被系统回收期间 onNotificationPosted 事件
+        // 永久丢失（通知仍驻留通知栏），延迟 1.5 秒（等初始化完成）后按持久化水位
+        // 补扫仍驻留的通知（主线程调用，activeNotifications 仅主线程可读）
+        mainHandler.postDelayed({ recoverMissedOnStartup() }, 1500L)
     }
 
     // —— 短信库兜底监听：SMS_RECEIVED 广播丢失时，改从短信库捕获并补推 ——
@@ -205,6 +214,7 @@ class NotificationMonitorService : NotificationListenerService() {
         super.onListenerConnected()
         isConnected = true
         listenerConnected = true
+        touchAlive()
         cancelRebindRetry()
         // 恢复连接后立即刷新前台通知，撤掉"监听已断开"警告
         try { updateForegroundNotification() } catch (_: Exception) {}
@@ -270,17 +280,64 @@ class NotificationMonitorService : NotificationListenerService() {
         val since = disconnectedAt
         if (since <= 0L) return
         disconnectedAt = 0L
+        touchAlive()
+        scanActiveSince(since, tag = "断线重连补漏")
+    }
+
+    /**
+     * **服务启动补扫**（N9 漏通知修复核心）：覆盖「进程被系统回收 → 系统延迟/未重新绑定
+     * 监听器 → 期间 `onNotificationPosted` 事件永久丢失，但通知仍驻留通知栏」的漏读。
+     *
+     * 原实现只在 `onListenerDisconnected → onListenerConnected` 路径补扫，而进程被回收时
+     * 该回调不触发、`disconnectedAt` 随进程消失（重建后为 0）→ 冷启动**永不补扫**。
+     *
+     * 判定依据（`RecoveryWatermark`）：持久化的服务存活心跳 `PREF_LAST_ALIVE`——
+     * - 首次安装（无心跳）→ 不补扫（避免回放通知栏既有历史通知）；
+     * - 心跳新鲜（服务未中断）→ 不补扫（事件不会丢）；
+     * - 心跳陈旧（中断过）→ 以 `max(心跳, 上次补扫水位)` 为下界补扫，双水位防重复回放。
+     */
+    private fun recoverMissedOnStartup() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val lastAlive = prefs.getLong(PREF_LAST_ALIVE, 0L)
+        val lastScan = prefs.getLong(PREF_LAST_SCAN, 0L)
+        val since = RecoveryWatermark.scanSinceOrNull(lastAlive, lastScan, now)
+        // 水位推进到 now（无论是否补扫），防止下次启动重复回放同一段
+        prefs.edit()
+            .putLong(PREF_LAST_SCAN, now)
+            .putLong(PREF_LAST_ALIVE, now)
+            .apply()
+        if (since == null) {
+            Log.d(TAG, "启动补扫跳过（首次安装或服务未中断）")
+            return
+        }
+        touchAlive()
+        scanActiveSince(since, tag = "启动补扫")
+    }
+
+    /** 补扫通知栏中「postTime >= since」的仍驻留通知，走与实时回调完全相同的处理管道 */
+    private fun scanActiveSince(since: Long, tag: String) {
         try {
             val active = activeNotifications ?: return
             val missed = active.filter { it.postTime >= since }
             if (missed.isEmpty()) return
-            Log.i(TAG, "Recovering ${missed.size} notification(s) posted while disconnected")
+            Log.i(TAG, "$tag: ${missed.size} notification(s) (postTime >= $since)")
             for (sbn in missed) {
                 dispatchPosted(sbn)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to recover missed notifications", e)
+            Log.e(TAG, "$tag 失败", e)
         }
+    }
+
+    /** 服务存活心跳：持久化到 prefs，供冷启动补扫判定「服务中断时长」 */
+    private fun touchAlive() {
+        try {
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putLong(PREF_LAST_ALIVE, System.currentTimeMillis())
+                .apply()
+        } catch (_: Exception) {}
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -342,6 +399,8 @@ class NotificationMonitorService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
+        // N9：存活心跳（持久化）——供冷启动补扫判定「服务中断时长」
+        touchAlive()
         dispatchPosted(sbn)
     }
 
@@ -449,6 +508,29 @@ class NotificationMonitorService : NotificationListenerService() {
         super.onNotificationRemoved(sbn)
         notificationProcessor.removeNotification(sbn)
         Log.d(TAG, "Notification removed: ${sbn.packageName}")
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // 用户划掉最近任务：系统可能回收进程。START_STICKY 会重启服务但延迟不确定；
+        // 主动排程 1 秒后拉起，减小「监听 + 前台服务」的空窗期（漏通知窗口）。
+        try {
+            val restart = Intent(applicationContext, NotificationMonitorService::class.java)
+            val pi = PendingIntent.getService(
+                applicationContext,
+                0,
+                restart,
+                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            )
+            getSystemService(AlarmManager::class.java)?.set(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + 1000L,
+                pi
+            )
+            Log.i(TAG, "Task removed: service restart scheduled in 1s")
+        } catch (e: Exception) {
+            Log.w(TAG, "onTaskRemoved: restart scheduling failed", e)
+        }
     }
 
     private fun loadConfig() {

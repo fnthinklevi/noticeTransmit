@@ -95,6 +95,24 @@ The service is running normally! 🎉
   "changelog": "1. New feature\n2. Bug fixes",
   "downloadUrl": "/public/apks/app-release.apk",
   "fileSize": 56623104,
+  "downloads": {
+    "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
+    "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
+    "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
+    "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
+  },
+  "fileSizes": {
+    "arm64": 27349386,
+    "arm32": 23540588,
+    "x86_64": 29579381,
+    "all": 75522054
+  },
+  "sha256": {
+    "arm64": "63c6333b7406b4633ce0160ee435f82d3e46abfd9959293ac3d0eca12952609b",
+    "arm32": "1c0039936fa8fced4faa7876ec1c449c45dc6f56280f5a82d166d923c53ba7de",
+    "x86_64": "9ff03baa5876cc3f05678adfd92904194683b55e6f3795221aef515f9bd85987",
+    "all": "df59061d4107ce0400534e3268c5d4eae10cbe0e40600da11546b64776f121a8"
+  },
   "platform": "android",
   "minSupportedVersion": "1.0.0"
 }
@@ -170,8 +188,11 @@ PORT=8080 npm start
 | `forceUpdateVersion` | string | Force update below this version | `"1.0.0"` |
 | `forceUpdateBuild` | number | Force update below this build | `1` |
 | `changelog` | string | Changelog, `\n` for newlines | `"1. Bug fix"` |
-| `downloadUrl` | string | APK download path | `"/public/apks/app-release.apk"` |
-| `fileSize` | number | File size in bytes | `56623104` |
+| `downloads` | object | Per-platform download URLs (arm64/arm32/x86_64/all, https) | `{"arm64":"https://.../notice_arm64_1.5.69.apk",...}` |
+| `fileSizes` | object | Per-platform file sizes in bytes | `{"arm64":27349386,...}` |
+| `sha256` | object | Per-platform APK sha256 (v1.5.69+ transport-layer verification, compared by the app after download before install) | `{"arm64":"63c6...09b",...}` |
+| `downloadUrl` | string | (legacy compatibility) single download path | `"/public/apks/app-release.apk"` |
+| `fileSize` | number | (legacy compatibility) file size in bytes | `56623104` |
 | `platform` | string | Platform | `"android"` |
 | `minSupportedVersion` | string | Minimum supported version | `"1.0.0"` |
 
@@ -207,6 +228,24 @@ GET /api/version/check
     "changelog": "1. New feature\n2. Bug fix",
     "downloadUrl": "/public/apks/app-release.apk",
     "fileSize": 56623104,
+    "downloads": {
+      "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
+      "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
+      "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
+      "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
+    },
+    "fileSizes": {
+      "arm64": 27349386,
+      "arm32": 23540588,
+      "x86_64": 29579381,
+      "all": 75522054
+    },
+    "sha256": {
+      "arm64": "63c6333b7406b4633ce0160ee435f82d3e46abfd9959293ac3d0eca12952609b",
+      "arm32": "1c0039936fa8fced4faa7876ec1c449c45dc6f56280f5a82d166d923c53ba7de",
+      "x86_64": "9ff03baa5876cc3f05678adfd92904194683b55e6f3795221aef515f9bd85987",
+      "all": "df59061d4107ce0400534e3268c5d4eae10cbe0e40600da11546b64776f121a8"
+    },
     "platform": "android",
     "minSupportedVersion": "1.0.0"
   }

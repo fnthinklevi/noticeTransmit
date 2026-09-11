@@ -42,7 +42,7 @@ This document describes the security-support scope, vulnerability-reporting proc
 - **Brute-force protection**: 5 failed code attempts within a 10-minute window auto-blocks the IP for 1 hour; 8 recovery codes are provided for device-loss recovery.
 - **Secure randomness**: session IDs use `crypto.randomUUID()`.
 - **Webhook signature anti-forgery** (v1.5.49+): WeCom/DingTalk/Feishu compute signatures via platform-native rules; generic Webhooks use the `X-Signature` header — prevents push content tampering or forgery.
-- **Webhook delivery verification** (v1.5.49+): Parses platform response codes (WeCom errcode=0, DingTalk errcode=0, Feishu StatusCode=0, etc.) to determine real delivery status — HTTP 2xx with business failure is no longer misreported as "sent".
+- **Webhook delivery verification** (v1.5.49+): Parses platform response codes (WeCom errcode=0, DingTalk errcode=0, Feishu StatusCode=0, Bark code=200, etc.) to determine real delivery status — HTTP 2xx with business failure is no longer misreported as "sent". (Fixed in v1.5.69: Bark business failures used to be always marked as success because its response has no `ok` field)
 - **Push-toggle state isolation** (v1.5.50+): When push is paused via the foreground notification action, monitoring continues but webhook sending is skipped; state persists to SharedPreferences and survives restarts.
 
 ---
@@ -72,6 +72,12 @@ Deployment rules:
 - Notification-listener, battery-optimization whitelist, and auto-start permissions are granted by the user; missing permissions are functional limitations, not security vulnerabilities.
 
 ---
+
+### 4.3a APK Integrity Verification — sha256 (v1.5.69+)
+
+- **Transport-layer additional check**: `server/data/version.json` carries the sha256 of each platform's APK (64-hex). The app verifies it after download and **before** signature verification.
+- **Behavior**: mismatch → delete the APK and block installation (fail-closed); field absent on the server → skipped (legacy server compatibility, the signature check remains the root of trust); verification channel error → skipped.
+- **Positioning**: the signature check is the root of trust (independent of the distribution server); sha256 protects against CDN corruption / in-transit tampering — the two layers complement each other.
 
 ## 5. Out of Scope
 
