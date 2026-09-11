@@ -1960,4 +1960,108 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get developerDiagDisabled => '开发者诊断已关闭';
+
+  @override
+  String get ruleTesterTitle => '规则测试器';
+
+  @override
+  String get ruleTesterTooltip => '规则测试器（模拟通知查看命中链路）';
+
+  @override
+  String get testerHint => '输入模拟通知，实时查看完整命中链路（过滤 → 规则 → 动作，与原生引擎逐条对齐）';
+
+  @override
+  String get testerInputSection => '模拟通知';
+
+  @override
+  String get testerAppPackage => '应用包名';
+
+  @override
+  String get testerPickApp => '选择应用';
+
+  @override
+  String get testerTitleField => '通知标题';
+
+  @override
+  String get testerContentField => '通知内容';
+
+  @override
+  String get testerPriorityLabel => '通知优先级';
+
+  @override
+  String get testerPriorityHigh => '高';
+
+  @override
+  String get testerPriorityMid => '中';
+
+  @override
+  String get testerPriorityLow => '低';
+
+  @override
+  String get testerStageFilter => '① 过滤链路';
+
+  @override
+  String get testerStageRules => '② 规则匹配';
+
+  @override
+  String get testerStageAction => '③ 最终动作';
+
+  @override
+  String get testerAllowed => '放行';
+
+  @override
+  String get testerBlocked => '拦截';
+
+  @override
+  String get testerSrcAppFilter => '应用过滤拦截（当前模式的应用选择列表未包含/已包含该应用）';
+
+  @override
+  String get testerSrcDefault => '默认放行（未命中黑/白名单关键词与应用过滤）';
+
+  @override
+  String get testerNoRules => '未命中任何规则 → 默认立即推送';
+
+  @override
+  String get testerRuleHit => '命中';
+
+  @override
+  String get testerRuleMissed => '未命中';
+
+  @override
+  String get testerRuleDisabled => '已禁用';
+
+  @override
+  String get testerRuleExcluded => '不适用（该应用被排除）';
+
+  @override
+  String get testerActionPush => '立即推送';
+
+  @override
+  String get testerActionSilent => '静默忽略';
+
+  @override
+  String get testerActionRecord => '仅记录（不推送）';
+
+  @override
+  String get testerFilteredNote => '该通知会被过滤掉，不会进入规则引擎与推送链路';
+
+  @override
+  String testerSrcBlacklist(String kw) {
+    return '黑名单关键词命中：$kw';
+  }
+
+  @override
+  String testerSrcWhitelist(String kw) {
+    return '白名单关键词命中：$kw';
+  }
+
+  @override
+  String testerActionDelay(String when) {
+    return '延迟推送（$when）';
+  }
+
+  @override
+  String testerActionMerge(int n) {
+    return '合并推送（窗口 $n 秒）';
+  }
 }

@@ -6,6 +6,7 @@ import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
 import '../theme/app_colors.dart';
 import 'rule_edit_page.dart';
+import 'rule_tester_page.dart';
 
 class RuleListPage extends StatefulWidget {
   final List<NotificationRule> rules;
@@ -35,6 +36,14 @@ class _RuleListPageState extends State<RuleListPage> {
       setState(() => _showGuide = true);
       await prefs.setBool('rule_engine_guide_seen', true);
     }
+  }
+
+  /// F1：打开规则测试器（模拟通知查看命中链路）
+  Future<void> _openTester() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RuleTesterPage()),
+    );
   }
 
   void _addRule() async {
@@ -508,6 +517,11 @@ class _RuleListPageState extends State<RuleListPage> {
       appBar: AppBar(
         title: Text(l10n.ruleListTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.science_outlined),
+            onPressed: _openTester,
+            tooltip: l10n.ruleTesterTooltip,
+          ),
           IconButton(
             icon: const Icon(Icons.help_outline),
             onPressed: _showGuideDialog,

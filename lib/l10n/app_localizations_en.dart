@@ -2034,4 +2034,112 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get developerDiagDisabled => 'Developer diagnostics disabled';
+
+  @override
+  String get ruleTesterTitle => 'Rule Tester';
+
+  @override
+  String get ruleTesterTooltip =>
+      'Rule tester (trace a simulated notification)';
+
+  @override
+  String get testerHint =>
+      'Enter a simulated notification to see the full trace (filter → rules → action, aligned with the native engine)';
+
+  @override
+  String get testerInputSection => 'Simulated notification';
+
+  @override
+  String get testerAppPackage => 'App package';
+
+  @override
+  String get testerPickApp => 'Pick app';
+
+  @override
+  String get testerTitleField => 'Notification title';
+
+  @override
+  String get testerContentField => 'Notification content';
+
+  @override
+  String get testerPriorityLabel => 'Notify priority';
+
+  @override
+  String get testerPriorityHigh => 'High';
+
+  @override
+  String get testerPriorityMid => 'Medium';
+
+  @override
+  String get testerPriorityLow => 'Low';
+
+  @override
+  String get testerStageFilter => '① Filter stage';
+
+  @override
+  String get testerStageRules => '② Rule matching';
+
+  @override
+  String get testerStageAction => '③ Final action';
+
+  @override
+  String get testerAllowed => 'Allowed';
+
+  @override
+  String get testerBlocked => 'Blocked';
+
+  @override
+  String get testerSrcAppFilter =>
+      'Blocked by app filter (app not selected / selected, per current mode)';
+
+  @override
+  String get testerSrcDefault => 'Default pass (no keyword or app-filter hit)';
+
+  @override
+  String get testerNoRules => 'No rule matched → push immediately by default';
+
+  @override
+  String get testerRuleHit => 'hit';
+
+  @override
+  String get testerRuleMissed => 'miss';
+
+  @override
+  String get testerRuleDisabled => 'disabled';
+
+  @override
+  String get testerRuleExcluded => 'excluded (app excluded)';
+
+  @override
+  String get testerActionPush => 'Push immediately';
+
+  @override
+  String get testerActionSilent => 'Silently ignore';
+
+  @override
+  String get testerActionRecord => 'Record only (no push)';
+
+  @override
+  String get testerFilteredNote =>
+      'This notification is filtered out before the rule engine';
+
+  @override
+  String testerSrcBlacklist(String kw) {
+    return 'Blacklist keyword hit: $kw';
+  }
+
+  @override
+  String testerSrcWhitelist(String kw) {
+    return 'Whitelist keyword hit: $kw';
+  }
+
+  @override
+  String testerActionDelay(String when) {
+    return 'Delayed push ($when)';
+  }
+
+  @override
+  String testerActionMerge(int n) {
+    return 'Merged push (window ${n}s)';
+  }
 }

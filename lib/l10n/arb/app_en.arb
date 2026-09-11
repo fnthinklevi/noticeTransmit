@@ -245,7 +245,9 @@
   "searchResultCount": "Results ({n})",
   "@searchResultCount": {
     "placeholders": {
-      "n": { "type": "int" }
+      "n": {
+        "type": "int"
+      }
     }
   },
   "clearSearchFilter": "Clear Filters",
@@ -898,5 +900,65 @@
   "restoreFailed": "Restore failed: ",
   "backupRestoreSubtitle": "Encrypted backup of channels, rules and settings, restorable on a new device",
   "developerDiagEnabled": "Developer diagnostics enabled (rule/merge logs in logcat)",
-  "developerDiagDisabled": "Developer diagnostics disabled"
+  "developerDiagDisabled": "Developer diagnostics disabled",
+  "ruleTesterTitle": "Rule Tester",
+  "ruleTesterTooltip": "Rule tester (trace a simulated notification)",
+  "testerHint": "Enter a simulated notification to see the full trace (filter → rules → action, aligned with the native engine)",
+  "testerInputSection": "Simulated notification",
+  "testerAppPackage": "App package",
+  "testerPickApp": "Pick app",
+  "testerTitleField": "Notification title",
+  "testerContentField": "Notification content",
+  "testerPriorityLabel": "Notify priority",
+  "testerPriorityHigh": "High",
+  "testerPriorityMid": "Medium",
+  "testerPriorityLow": "Low",
+  "testerStageFilter": "① Filter stage",
+  "testerStageRules": "② Rule matching",
+  "testerStageAction": "③ Final action",
+  "testerAllowed": "Allowed",
+  "testerBlocked": "Blocked",
+  "testerSrcAppFilter": "Blocked by app filter (app not selected / selected, per current mode)",
+  "testerSrcDefault": "Default pass (no keyword or app-filter hit)",
+  "testerNoRules": "No rule matched → push immediately by default",
+  "testerRuleHit": "hit",
+  "testerRuleMissed": "miss",
+  "testerRuleDisabled": "disabled",
+  "testerRuleExcluded": "excluded (app excluded)",
+  "testerActionPush": "Push immediately",
+  "testerActionSilent": "Silently ignore",
+  "testerActionRecord": "Record only (no push)",
+  "testerFilteredNote": "This notification is filtered out before the rule engine",
+  "testerSrcBlacklist": "Blacklist keyword hit: {kw}",
+  "@testerSrcBlacklist": {
+    "placeholders": {
+      "kw": {
+        "type": "String"
+      }
+    }
+  },
+  "testerSrcWhitelist": "Whitelist keyword hit: {kw}",
+  "@testerSrcWhitelist": {
+    "placeholders": {
+      "kw": {
+        "type": "String"
+      }
+    }
+  },
+  "testerActionDelay": "Delayed push ({when})",
+  "@testerActionDelay": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "testerActionMerge": "Merged push (window {n}s)",
+  "@testerActionMerge": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -3793,6 +3793,198 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'开发者诊断已关闭'**
   String get developerDiagDisabled;
+
+  /// No description provided for @ruleTesterTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'规则测试器'**
+  String get ruleTesterTitle;
+
+  /// No description provided for @ruleTesterTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'规则测试器（模拟通知查看命中链路）'**
+  String get ruleTesterTooltip;
+
+  /// No description provided for @testerHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入模拟通知，实时查看完整命中链路（过滤 → 规则 → 动作，与原生引擎逐条对齐）'**
+  String get testerHint;
+
+  /// No description provided for @testerInputSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'模拟通知'**
+  String get testerInputSection;
+
+  /// No description provided for @testerAppPackage.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用包名'**
+  String get testerAppPackage;
+
+  /// No description provided for @testerPickApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择应用'**
+  String get testerPickApp;
+
+  /// No description provided for @testerTitleField.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知标题'**
+  String get testerTitleField;
+
+  /// No description provided for @testerContentField.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知内容'**
+  String get testerContentField;
+
+  /// No description provided for @testerPriorityLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知优先级'**
+  String get testerPriorityLabel;
+
+  /// No description provided for @testerPriorityHigh.
+  ///
+  /// In zh, this message translates to:
+  /// **'高'**
+  String get testerPriorityHigh;
+
+  /// No description provided for @testerPriorityMid.
+  ///
+  /// In zh, this message translates to:
+  /// **'中'**
+  String get testerPriorityMid;
+
+  /// No description provided for @testerPriorityLow.
+  ///
+  /// In zh, this message translates to:
+  /// **'低'**
+  String get testerPriorityLow;
+
+  /// No description provided for @testerStageFilter.
+  ///
+  /// In zh, this message translates to:
+  /// **'① 过滤链路'**
+  String get testerStageFilter;
+
+  /// No description provided for @testerStageRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'② 规则匹配'**
+  String get testerStageRules;
+
+  /// No description provided for @testerStageAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'③ 最终动作'**
+  String get testerStageAction;
+
+  /// No description provided for @testerAllowed.
+  ///
+  /// In zh, this message translates to:
+  /// **'放行'**
+  String get testerAllowed;
+
+  /// No description provided for @testerBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'拦截'**
+  String get testerBlocked;
+
+  /// No description provided for @testerSrcAppFilter.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用过滤拦截（当前模式的应用选择列表未包含/已包含该应用）'**
+  String get testerSrcAppFilter;
+
+  /// No description provided for @testerSrcDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认放行（未命中黑/白名单关键词与应用过滤）'**
+  String get testerSrcDefault;
+
+  /// No description provided for @testerNoRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命中任何规则 → 默认立即推送'**
+  String get testerNoRules;
+
+  /// No description provided for @testerRuleHit.
+  ///
+  /// In zh, this message translates to:
+  /// **'命中'**
+  String get testerRuleHit;
+
+  /// No description provided for @testerRuleMissed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命中'**
+  String get testerRuleMissed;
+
+  /// No description provided for @testerRuleDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已禁用'**
+  String get testerRuleDisabled;
+
+  /// No description provided for @testerRuleExcluded.
+  ///
+  /// In zh, this message translates to:
+  /// **'不适用（该应用被排除）'**
+  String get testerRuleExcluded;
+
+  /// No description provided for @testerActionPush.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即推送'**
+  String get testerActionPush;
+
+  /// No description provided for @testerActionSilent.
+  ///
+  /// In zh, this message translates to:
+  /// **'静默忽略'**
+  String get testerActionSilent;
+
+  /// No description provided for @testerActionRecord.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅记录（不推送）'**
+  String get testerActionRecord;
+
+  /// No description provided for @testerFilteredNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'该通知会被过滤掉，不会进入规则引擎与推送链路'**
+  String get testerFilteredNote;
+
+  /// No description provided for @testerSrcBlacklist.
+  ///
+  /// In zh, this message translates to:
+  /// **'黑名单关键词命中：{kw}'**
+  String testerSrcBlacklist(String kw);
+
+  /// No description provided for @testerSrcWhitelist.
+  ///
+  /// In zh, this message translates to:
+  /// **'白名单关键词命中：{kw}'**
+  String testerSrcWhitelist(String kw);
+
+  /// No description provided for @testerActionDelay.
+  ///
+  /// In zh, this message translates to:
+  /// **'延迟推送（{when}）'**
+  String testerActionDelay(String when);
+
+  /// No description provided for @testerActionMerge.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并推送（窗口 {n} 秒）'**
+  String testerActionMerge(int n);
 }
 
 class _AppLocalizationsDelegate

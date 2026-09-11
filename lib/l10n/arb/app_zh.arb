@@ -245,7 +245,9 @@
   "searchResultCount": "搜索结果 ({n})",
   "@searchResultCount": {
     "placeholders": {
-      "n": { "type": "int" }
+      "n": {
+        "type": "int"
+      }
     }
   },
   "clearSearchFilter": "清除筛选",
@@ -286,7 +288,9 @@
   "deleteEmailChannelConfirm": "确定删除邮件通道「{name}」吗？",
   "@deleteEmailChannelConfirm": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
   "autoSavePath": "自动保存路径",
@@ -903,5 +907,65 @@
   "restoreFailed": "恢复失败：",
   "backupRestoreSubtitle": "加密备份通道、规则与设置，支持换机恢复",
   "developerDiagEnabled": "开发者诊断已开启（logcat 输出规则/聚合链路日志）",
-  "developerDiagDisabled": "开发者诊断已关闭"
+  "developerDiagDisabled": "开发者诊断已关闭",
+  "ruleTesterTitle": "规则测试器",
+  "ruleTesterTooltip": "规则测试器（模拟通知查看命中链路）",
+  "testerHint": "输入模拟通知，实时查看完整命中链路（过滤 → 规则 → 动作，与原生引擎逐条对齐）",
+  "testerInputSection": "模拟通知",
+  "testerAppPackage": "应用包名",
+  "testerPickApp": "选择应用",
+  "testerTitleField": "通知标题",
+  "testerContentField": "通知内容",
+  "testerPriorityLabel": "通知优先级",
+  "testerPriorityHigh": "高",
+  "testerPriorityMid": "中",
+  "testerPriorityLow": "低",
+  "testerStageFilter": "① 过滤链路",
+  "testerStageRules": "② 规则匹配",
+  "testerStageAction": "③ 最终动作",
+  "testerAllowed": "放行",
+  "testerBlocked": "拦截",
+  "testerSrcAppFilter": "应用过滤拦截（当前模式的应用选择列表未包含/已包含该应用）",
+  "testerSrcDefault": "默认放行（未命中黑/白名单关键词与应用过滤）",
+  "testerNoRules": "未命中任何规则 → 默认立即推送",
+  "testerRuleHit": "命中",
+  "testerRuleMissed": "未命中",
+  "testerRuleDisabled": "已禁用",
+  "testerRuleExcluded": "不适用（该应用被排除）",
+  "testerActionPush": "立即推送",
+  "testerActionSilent": "静默忽略",
+  "testerActionRecord": "仅记录（不推送）",
+  "testerFilteredNote": "该通知会被过滤掉，不会进入规则引擎与推送链路",
+  "testerSrcBlacklist": "黑名单关键词命中：{kw}",
+  "@testerSrcBlacklist": {
+    "placeholders": {
+      "kw": {
+        "type": "String"
+      }
+    }
+  },
+  "testerSrcWhitelist": "白名单关键词命中：{kw}",
+  "@testerSrcWhitelist": {
+    "placeholders": {
+      "kw": {
+        "type": "String"
+      }
+    }
+  },
+  "testerActionDelay": "延迟推送（{when}）",
+  "@testerActionDelay": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "testerActionMerge": "合并推送（窗口 {n} 秒）",
+  "@testerActionMerge": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }
