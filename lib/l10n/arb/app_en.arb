@@ -896,5 +896,7 @@
   "restoreFillGaps": "Fill Gaps Only",
   "restoreDoneReTest": "Restore completed. Please re-test channels with credentials (Webhook/email).",
   "restoreFailed": "Restore failed: ",
-  "backupRestoreSubtitle": "Encrypted backup of channels, rules and settings, restorable on a new device"
+  "backupRestoreSubtitle": "Encrypted backup of channels, rules and settings, restorable on a new device",
+  "developerDiagEnabled": "Developer diagnostics enabled (rule/merge logs in logcat)",
+  "developerDiagDisabled": "Developer diagnostics disabled"
 }

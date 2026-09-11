@@ -3781,6 +3781,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'加密备份通道、规则与设置，支持换机恢复'**
   String get backupRestoreSubtitle;
+
+  /// No description provided for @developerDiagEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'开发者诊断已开启（logcat 输出规则/聚合链路日志）'**
+  String get developerDiagEnabled;
+
+  /// No description provided for @developerDiagDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'开发者诊断已关闭'**
+  String get developerDiagDisabled;
 }
 
 class _AppLocalizationsDelegate

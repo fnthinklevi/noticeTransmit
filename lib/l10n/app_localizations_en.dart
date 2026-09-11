@@ -2027,4 +2027,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get backupRestoreSubtitle =>
       'Encrypted backup of channels, rules and settings, restorable on a new device';
+
+  @override
+  String get developerDiagEnabled =>
+      'Developer diagnostics enabled (rule/merge logs in logcat)';
+
+  @override
+  String get developerDiagDisabled => 'Developer diagnostics disabled';
 }

@@ -167,7 +167,7 @@ class MergePushManager(private val context: Context) {
                 items.put(info.toJson())
                 existing.put("items", items)
             }
-            if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "聚合追加: ${info.packageName} (${existing.optString("key")}), 窗口至 ${existing.optLong("windowEnd", 0L)}")
+            DiagLog.w(TAG, "聚合追加: ${info.packageName} (${existing.optString("key")}), 窗口至 ${existing.optLong("windowEnd", 0L)}")
         } else {
             val windowEnd = now + windowMs
             val group = JSONObject().apply {
@@ -185,7 +185,7 @@ class MergePushManager(private val context: Context) {
                     groupFromJson(oldest)?.let { overflowed.add(it) }
                 }
             }
-            if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "聚合开窗: ${info.packageName}, 窗口至 $windowEnd")
+            DiagLog.w(TAG, "聚合开窗: ${info.packageName}, 窗口至 $windowEnd")
         }
         writeQueue(queue)
         scheduleNext()
@@ -201,7 +201,7 @@ class MergePushManager(private val context: Context) {
         val due = queue.filter { it.optLong("windowEnd", 0L) <= now }
         if (due.isEmpty()) return emptyList()
         writeQueue(queue.filter { it.optLong("windowEnd", 0L) > now })
-        if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "聚合组到期 ${due.size} 组，剩余 ${queue.size - due.size}")
+        DiagLog.w(TAG, "聚合组到期 ${due.size} 组，剩余 ${queue.size - due.size}")
         return due.mapNotNull { groupFromJson(it) }
     }
 
@@ -254,7 +254,7 @@ class MergePushManager(private val context: Context) {
         for (member in group.items) {
             DeliveryNotifier.notify(context, member.id, "MERGE", forwarded)
         }
-        if (BuildConfig.DIAG_MERGE_LOGS) Log.w(
+        DiagLog.w(
             TAG,
             "聚合组送达回传: ${group.key} (${group.items.size} 条) → " +
                 if (success) "success" else "failed(${result.status})"

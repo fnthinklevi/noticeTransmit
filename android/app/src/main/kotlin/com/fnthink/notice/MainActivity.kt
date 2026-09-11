@@ -222,6 +222,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // N7：恢复开发者诊断日志开关（默认关闭，更多页连点版本号 7 次切换）
+        DiagLog.init(this)
         maybeInitCrashReport()
         // 修复历史版本可能禁用了监听组件的情况，确保组件启用以便系统能重新绑定通知监听器
         try {

@@ -27,6 +27,10 @@ void _syncNativeLocale(AppLanguage lang) {
   AppChannels.notification.invokeMethod('setLocaleLabel', localeCode);
 }
 
+// N7 诊断模式：版本号连点计数（文件级——MorePage 为 @immutable 且会被父级
+// ValueKey 重建，实例字段不适用；顶层变量跨重建保持，2 秒无连点不影响语义）
+int _diagTapCount = 0;
+
 class MorePage extends StatelessWidget {
   final List<Map<String, dynamic>> webhookChannels;
   final String deviceName;
@@ -249,11 +253,16 @@ class MorePage extends StatelessWidget {
           ], context),
           const SizedBox(height: 32),
           Center(
-            child: Text(
-              'v${GetIt.instance<UpdateService>().currentVersion}',
-              style: TextStyle(
-                color: AppColors.secondaryLabel(context),
-                fontSize: 12,
+            child: GestureDetector(
+              // N7 诊断模式产品化：连点版本号 7 次 → 翻转开发者诊断日志开关
+              //（默认关闭；开启后 logcat 输出规则/聚合链路诊断日志，不含通知内容）
+              onTap: () => _onVersionTap(context),
+              child: Text(
+                'v${GetIt.instance<UpdateService>().currentVersion}',
+                style: TextStyle(
+                  color: AppColors.secondaryLabel(context),
+                  fontSize: 12,
+                ),
               ),
             ),
           ),
@@ -271,6 +280,30 @@ class MorePage extends StatelessWidget {
           : l10n.appFilterSelected(enabledPackagesCount);
     }
     return l10n.appFilterAll;
+  }
+
+  // ── N7 诊断模式：连点版本号 7 次翻转开发者诊断日志开关 ──
+  Future<void> _onVersionTap(BuildContext context) async {
+    _diagTapCount++;
+    if (_diagTapCount < 7) return;
+    _diagTapCount = 0;
+    try {
+      final enabled =
+          await AppChannels.notification.invokeMethod('toggleDiagLog')
+              as bool? ??
+          false;
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            enabled
+                ? AppLocalizations.of(context).developerDiagEnabled
+                : AppLocalizations.of(context).developerDiagDisabled,
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {}
   }
 
   Widget _buildSectionHeader(String title, BuildContext context) {

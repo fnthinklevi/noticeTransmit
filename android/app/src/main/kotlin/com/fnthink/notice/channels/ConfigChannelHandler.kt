@@ -1,5 +1,6 @@
 package com.fnthink.notice.channels
 
+import com.fnthink.notice.DiagLog
 import com.fnthink.notice.EmailManager
 import com.fnthink.notice.I18n
 import com.fnthink.notice.MainActivity
@@ -87,6 +88,11 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 val rules = call.argument<List<Map<String, Any?>>>("rules") ?: emptyList()
                 activity.setNotificationRules(rules)
                 result.success(true)
+            }
+            "toggleDiagLog" -> {
+                // N7 诊断模式产品化：翻转开发者诊断日志（DiagLog），返回切换后的状态，
+                // 持久化于原生 prefs（App/Service 启动时 init 恢复）
+                result.success(DiagLog.toggle(activity))
             }
             "setEnabledPackages" -> {
                 val packages = call.argument<List<String>>("packages") ?: emptyList()

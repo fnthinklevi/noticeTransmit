@@ -1954,4 +1954,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupRestoreSubtitle => '加密备份通道、规则与设置，支持换机恢复';
+
+  @override
+  String get developerDiagEnabled => '开发者诊断已开启（logcat 输出规则/聚合链路日志）';
+
+  @override
+  String get developerDiagDisabled => '开发者诊断已关闭';
 }

@@ -121,6 +121,8 @@ class NotificationMonitorService : NotificationListenerService() {
         I18n.init(this)
         // 初始化推送启停状态（从 SharedPreferences 恢复，前台通知一键暂停/恢复）
         PushToggleManager.init(this)
+        // N7：恢复开发者诊断日志开关（默认关闭，更多页连点版本号 7 次切换）
+        DiagLog.init(this)
 
         // ⚠ 必须先于 startForegroundService()：buildForegroundNotification 的聚合预览
         // （P2）会访问 mergePushManager（lateinit），延迟初始化会在服务 onCreate 即抛
@@ -285,7 +287,7 @@ class NotificationMonitorService : NotificationListenerService() {
         if (intent != null) {
             when (intent.action) {
                 ACTION_UPDATE_CONFIG -> {
-                    if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Config update received")
+                    DiagLog.w(TAG, "Config update received")
                     loadConfig()
                 }
                 ACTION_SET_MONITORING -> {
@@ -402,7 +404,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                 // 立即写入历史（pending 状态），到点后补推 webhook
                                 webhookSender.sendBroadcast(info)
                                 delayedPushManager.enqueue(info, decision.fireAt)
-                                if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
+                                DiagLog.w(TAG, "Notification delayed push at ${decision.fireAt}: ${info.appName}")
                             }
                             is RuleEngine.Decision.Merge -> {
                                 // P2 聚合推送：成员先各自记录历史（独立可见），窗口结束时
@@ -417,7 +419,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                     flushMergedGroup(overflow)
                                 }
                                 updateForegroundNotification()
-                                if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
+                                DiagLog.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
                             }
                             RuleEngine.Decision.Push -> {
                                 webhookSender.sendNotification(info)
@@ -425,7 +427,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                 checkDailyReset()
                                 pushCount++
                                 updateForegroundNotification()
-                                if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Notification sent: ${info.appName}")
+                                DiagLog.w(TAG, "Notification sent: ${info.appName}")
                             }
                         }
                     }
@@ -577,9 +579,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 webhookSender.sendWebhooksOnly(single)
                 dispatchEmail(single)
                 updateForegroundNotification()
-                if (BuildConfig.DIAG_MERGE_LOGS) {
-                    Log.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
-                }
+                    DiagLog.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
             } catch (e: Exception) {
                 Log.e(TAG, "Error flushing single-member group: ${group.key}", e)
             }
@@ -593,7 +593,7 @@ class NotificationMonitorService : NotificationListenerService() {
             webhookSender.sendWebhooksOnly(merged) { result ->
                 mergePushManager.markMembersDelivered(group, result)
                 if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
-                    if (BuildConfig.DIAG_MERGE_LOGS) Log.w(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
+                    DiagLog.w(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
                 } else {
                     Log.w(TAG, "Merged push FAILED: ${group.key} status=${result.status} msg=${result.message}")
                 }

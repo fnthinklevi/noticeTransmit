@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///    被点到时才炸，常规回归测试（走 mock 通道）根本发现不了。
 ///    这是本文件存在的首要原因，不允许为通过而放宽。
 ///
-/// 2. **总数 == 80**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+/// 2. **总数 == 81**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -48,10 +48,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 80（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 81（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        80,
+        81,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -62,7 +62,7 @@ void main() {
     test('每个 handler 的方法数固定（按域分布守卫）', () {
       final dist = _distribution(native);
       expect(dist, {
-        'ConfigChannelHandler': 23,
+        'ConfigChannelHandler': 24,
         'PermissionChannelHandler': 23,
         'DeviceChannelHandler': 13,
         'FileChannelHandler': 12,

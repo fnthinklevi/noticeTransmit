@@ -72,9 +72,7 @@ object RuleEngine {
      */
     fun decide(info: NotificationInfo, rulesJson: String): Decision {
         if (rulesJson.isBlank()) {
-            if (BuildConfig.DIAG_MERGE_LOGS) {
-                Log.w(TAG, "诊断·规则表为空(blank) → 全部默认推送")
-            }
+            DiagLog.w(TAG, "诊断·规则表为空(blank) → 全部默认推送")
             return Decision.Push
         }
 
@@ -85,9 +83,7 @@ object RuleEngine {
             return Decision.Push
         }
 
-        if (BuildConfig.DIAG_MERGE_LOGS) {
-            Log.w(TAG, "诊断·规则表载入: ${rules.length()} 条 (jsonLen=${rulesJson.length})")
-        }
+        DiagLog.w(TAG, "诊断·规则表载入: ${rules.length()} 条 (jsonLen=${rulesJson.length})")
 
         val sorted = (0 until rules.length())
             .map { rules.getJSONObject(it) }
@@ -95,34 +91,31 @@ object RuleEngine {
 
         for (rule in sorted) {
             if (!rule.optBoolean("enabled", true)) {
-                if (BuildConfig.DIAG_MERGE_LOGS) {
-                    Log.w(TAG, "诊断·规则跳过(禁用): ${rule.optString("name")}(${rule.optString("id")})")
-                }
+                DiagLog.w(TAG, "诊断·规则跳过(禁用): ${rule.optString("name")}(${rule.optString("id")})")
                 continue
             }
             val matched = evaluate(rule, info)
-            if (BuildConfig.DIAG_MERGE_LOGS) {
+            if (DiagLog.enabled) {
+                // 诊断明细含条件遍历，仅在诊断开启时构建（其余诊断点为轻量插值，非惰性足够）
                 val conds = rule.optJSONArray("conditions")
                 val condDesc = if (conds == null) "null" else
                     (0 until conds.length()).joinToString(",") { i ->
                         val c = conds.getJSONObject(i)
                         "${c.optString("type")}='${c.optString("value")}'"
                     }
-                Log.w(
+                DiagLog.w(
                     TAG,
                     "诊断·规则评估: ${rule.optString("name")}(${rule.optString("id")}) " +
                         "pri=${rule.optInt("priority", 0)} 条件[$condDesc] 匹配=$matched"
                 )
             }
             if (!matched) continue
-            if (BuildConfig.DIAG_MERGE_LOGS) {
-                Log.w(
-                    TAG,
-                    // 隐私：不记录通知标题（可能含验证码/余额等敏感内容）
-                    "规则命中: ${rule.optString("name", "")} (${rule.optString("id", "")}) " +
-                        "pkg=${info.packageName}"
-                )
-            }
+            DiagLog.w(
+                TAG,
+                // 隐私：不记录通知标题（可能含验证码/余额等敏感内容）
+                "规则命中: ${rule.optString("name", "")} (${rule.optString("id", "")}) " +
+                    "pkg=${info.packageName}"
+            )
             return decideAction(rule, info)
         }
         return Decision.Push
