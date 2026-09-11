@@ -42,7 +42,7 @@
     "parse:25:PUSH_PLUS:200": "status=BIZ_FAIL httpCode=200 retryable=false message=PushPlus 业务失败 code=500: token 无效",
     "parse:1:WECHAT_WORK:200": "status=RATE_LIMITED httpCode=200 retryable=true message=限流 errcode=45009: api freq out of limit",
     "parse:15:GENERIC:502": "status=HTTP_FAIL httpCode=502 retryable=true message=服务器错误 HTTP 502: <html>bad gateway<\/html>",
-    "parse:20:BARK:200": "status=SUCCESS httpCode=200 retryable=false message=bad request",
+    "parse:20:BARK:200": "status=BIZ_FAIL httpCode=200 retryable=false message=Bark 业务失败 code=400: bad request",
     "parse:18:TELEGRAM:429": "status=RATE_LIMITED httpCode=429 retryable=true message=限流 HTTP 429: {\"ok\":false,\"description\":\"Too Many Requests\"}",
     "parse:2:WECHAT_WORK:200": "status=BIZ_FAIL httpCode=200 retryable=false message=业务失败 errcode=93000: invalid webhook url",
     "parse:4:DINGTALK:200": "status=SUCCESS httpCode=200 retryable=false message=ok",

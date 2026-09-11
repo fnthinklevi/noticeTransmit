@@ -498,26 +498,19 @@ internal object ChannelRegistry {
         },
         parse = { httpCode, jsonOrNull, rawBody ->
             val json = jsonOrNull!!
-                // Bark：{"code":200,"message":"..."} —— code 为业务状态码（200 成功）
-                // ⚠ 修复（原与 Telegram 共用判定导致静默成功）：Bark 响应**没有 ok 字段**，
-                // 原先 `optBoolean("ok", true)` 恒取默认 true → 400（参数错）/404（路径错）/
-                // 500（服务端错）等业务失败全被判「推送成功」，历史页显示成功但实际未送达。
-                // 现按 code 语义独立判定；code 缺失（-1）同样保守判失败——宁可让用户看到
-                // 失败，也不要静默把失败标成成功（与 v1.5.68 聚合失败回传同一原则）。
-                val code = json.optInt("code", -1)
-                val message = json.optString("message", "")
-                when {
-                    code == 200 -> WebhookResponseParser.ParseResult(
+                // Telegram: {"ok": true/false, "description": "..."}
+                // （Bark 已独立判定——Bark 响应无 ok 字段，共用会导致业务失败被判成功）
+                val ok = json.optBoolean("ok", true)
+                val description = json.optString("description", json.optString("message", ""))
+                if (ok) {
+                    WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
-                        if (message.isNotEmpty()) message else "OK", false
+                        if (description.isNotEmpty()) description else "OK", false
                     )
-                    code == 429 -> WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 code=$code: $message", true
-                    )
-                    else -> WebhookResponseParser.ParseResult(
+                } else {
+                    WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "Bark 业务失败 code=$code: $message", false
+                        if (description.isNotEmpty()) description else "失败", false
                     )
                 }
         },
@@ -585,19 +578,26 @@ internal object ChannelRegistry {
         },
         parse = { httpCode, jsonOrNull, rawBody ->
             val json = jsonOrNull!!
-                // Telegram: {"ok": true/false, "description": "..."}
-                // Bark: {"code": 200, "message": "..."}
-                val ok = json.optBoolean("ok", true)
-                val description = json.optString("description", json.optString("message", ""))
-                if (ok) {
-                    WebhookResponseParser.ParseResult(
+                // Bark：{"code":200,"message":"..."} —— code 为业务状态码（200 成功）
+                // ⚠ 修复（原与 Telegram 共用判定导致静默成功）：Bark 响应**没有 ok 字段**，
+                // 原先 `optBoolean("ok", true)` 恒取默认 true → 400（参数错）/404（路径错）/
+                // 500（服务端错）等业务失败全被判「推送成功」，历史页显示成功但实际未送达。
+                // 现按 code 语义独立判定；code 缺失（-1）同样保守判失败——宁可让用户看到
+                // 失败，也不要静默把失败标成成功（与 v1.5.68 聚合失败回传同一原则）。
+                val code = json.optInt("code", -1)
+                val message = json.optString("message", "")
+                when {
+                    code == 200 -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
-                        if (description.isNotEmpty()) description else "OK", false
+                        if (message.isNotEmpty()) message else "OK", false
                     )
-                } else {
-                    WebhookResponseParser.ParseResult(
+                    code == 429 -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
+                        "限流 code=$code: $message", true
+                    )
+                    else -> WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        if (description.isNotEmpty()) description else "失败", false
+                        "Bark 业务失败 code=$code: $message", false
                     )
                 }
         },
