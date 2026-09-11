@@ -12,13 +12,13 @@
     "all": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_all_1.5.69.apk"
   },
   "fileSizes": {
-    "arm64": 27349386,
+    "arm64": 27480822,
     "arm32": 23540588,
     "x86_64": 29579381,
     "all": 75522054
   },
   "sha256": {
-    "arm64": "63c6333b7406b4633ce0160ee435f82d3e46abfd9959293ac3d0eca12952609b",
+    "arm64": "6bad83e74334d6ac791c9d0a6071b3325ce49e80b395f68e71382a03043d8e16",
     "arm32": "1c0039936fa8fced4faa7876ec1c449c45dc6f56280f5a82d166d923c53ba7de",
     "x86_64": "9ff03baa5876cc3f05678adfd92904194683b55e6f3795221aef515f9bd85987",
     "all": "df59061d4107ce0400534e3268c5d4eae10cbe0e40600da11546b64776f121a8"
