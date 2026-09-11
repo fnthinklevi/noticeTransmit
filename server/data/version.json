@@ -6,10 +6,10 @@
   "forceUpdateBuild": 93,
   "changelog": "规则测试器 + 推送可靠性大版本\n\n🧪 规则测试器：输入模拟通知，实时展示过滤 → 规则 → 动作的完整命中链路\n📵 锁屏后台漏通知修复：服务启动自动补扫通知栏中未处理的驻留通知\n📤 失败记录批量补推：历史页多选失败记录一键重推（带确认与进度）\n📦 聚合深化：满 N 条提前推送 / 按会话分组 / 模板新变量 %count% 与 %titles%\n🚨 Bark 判定修复：业务失败不再被误标为推送成功\n💾 备份补齐至 11 类（电池规则/设备名/主题语言），旧备份仍可恢复\n🛠️ 推送失败自动重试 / 权限误报根治 / 诊断日志运行时开关 / sha256 安装包校验 / 历史长按快捷屏蔽",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
-    "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
-    "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
-    "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_arm64_1.5.69.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_arm32_1.5.69.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_x86_1.5.69.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.69/notice_all_1.5.69.apk"
   },
   "fileSizes": {
     "arm64": 27349386,
