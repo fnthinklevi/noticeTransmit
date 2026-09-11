@@ -149,6 +149,9 @@ class NotificationMonitorService : NotificationListenerService() {
         loadConfig()
         applyMonitoringState()
         registerSmsObserver()
+
+        // N4 失败推送自动重试队列：初始化上下文 + 启动重放（服务启动 + 网络恢复触发）
+        RetryQueue.startWatching(applicationContext)
     }
 
     // —— 短信库兜底监听：SMS_RECEIVED 广播丢失时，改从短信库捕获并补推 ——

@@ -49,7 +49,31 @@ void main() {
     },
     'blacklistKeywords': ['广告'],
     'whitelistKeywords': ['验证码'],
+    // N5 v2 新增三类
+    'battery': {
+      'notify_enabled': true,
+      'rules': [
+        {
+          'id': 'charging',
+          'type': 'charging',
+          'value': 0,
+          'enabled': true,
+          'title': '开始充电',
+        },
+      ],
+    },
+    'deviceName': '我的设备',
+    'preferences': {'theme_mode': 'dark', 'app_language': 'zh'},
   };
+
+  /// v1 旧备份 payload：不含 N5 新增三类（电池/设备名/偏好）
+  Map<String, dynamic> sampleV1Data() {
+    final data = sampleData()
+      ..remove('battery')
+      ..remove('deviceName')
+      ..remove('preferences');
+    return data;
+  }
 
   setUp(() {
     service = BackupService();
@@ -207,6 +231,47 @@ void main() {
       });
       expect(skipped, 0);
       expect(fixed['webhookChannels'], isEmpty);
+    });
+  });
+
+  group('N5 schema v2 与 v1 兼容', () {
+    test('v2 容器（version=2）通过校验', () async {
+      final container = await service.encryptBackup(
+        sampleData(),
+        'password123',
+      );
+      expect(container['version'], 2);
+      expect(() => service.validateContainer(container), returnsNormally);
+    });
+
+    test('v1 旧容器（version=1）仍可校验与解密（向后兼容）', () async {
+      final container = await service.encryptBackup(
+        sampleV1Data(),
+        'password123',
+      );
+      // 强制把容器版本标回 v1（模拟旧版本 App 产出的备份）
+      container['version'] = 1;
+      expect(() => service.validateContainer(container), returnsNormally);
+      final restored = await service.decryptBackup(container, 'password123');
+      expect(restored, sampleV1Data());
+      expect(restored.containsKey('battery'), isFalse);
+      expect(restored.containsKey('preferences'), isFalse);
+    });
+
+    test('v1 payload（无新三类字段）通过字段级校验且原样保留', () {
+      final (fixed, skipped) = service.validatePayload(sampleV1Data());
+      expect(skipped, 0);
+      expect(fixed.containsKey('battery'), isFalse);
+      expect(fixed.containsKey('preferences'), isFalse);
+    });
+
+    test('v2 往返保真：新三类字段加密解密后逐字段一致', () async {
+      final data = sampleData();
+      final container = await service.encryptBackup(data, 'password123');
+      final restored = await service.decryptBackup(container, 'password123');
+      expect(restored['battery'], data['battery']);
+      expect(restored['deviceName'], data['deviceName']);
+      expect(restored['preferences'], data['preferences']);
     });
   });
 }

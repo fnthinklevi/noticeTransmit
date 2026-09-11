@@ -213,6 +213,7 @@ class WebhookSender(private val context: Context) {
                 tag = "notification",
                 webhookType = cfg.type,
                 secret = cfg.secret,
+                recordId = info.id,
                 contentType = "application/x-www-form-urlencoded; charset=utf-8",
                 force = force,
                 onResult = { result ->
@@ -250,6 +251,7 @@ class WebhookSender(private val context: Context) {
                 tag = "notification",
                 webhookType = cfg.type,
                 secret = cfg.secret,
+                recordId = info.id,
                 force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery(PushPlus): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
@@ -288,6 +290,7 @@ class WebhookSender(private val context: Context) {
                 tag = "notification",
                 webhookType = cfg.type,
                 secret = cfg.secret,
+                recordId = info.id,
                 force = force,
                 onResult = { result ->
                     Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
@@ -313,6 +316,7 @@ class WebhookSender(private val context: Context) {
                 tag = "notification",
                 webhookType = cfg.type,
                 secret = cfg.secret,
+                recordId = info.id,
                 contentType = contentType,
                 force = force,
                 onResult = { result ->
@@ -344,6 +348,7 @@ class WebhookSender(private val context: Context) {
             webhookType = cfg.type,
             secret = cfg.secret,
             force = force,
+            recordId = info.id,
             onResult = { result ->
                 Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                 // 送达结果回传 Flutter 后由 updateDelivery 统一写入 webhook_delivery_log（DB v5）

@@ -80,6 +80,21 @@ class BatteryService {
     }
   }
 
+  /// N5 备份恢复：整体恢复电量设置（开关 + 规则），走既有原生同步链路。
+  /// 参数为 null 的部分保持当前值不变。
+  Future<void> restoreSettings({
+    bool? notifyEnabled,
+    List<Map<String, dynamic>>? rules,
+  }) async {
+    if (notifyEnabled != null) {
+      await saveNotifyEnabled(notifyEnabled);
+    }
+    if (rules != null) {
+      _rules = rules;
+      await _syncRules();
+    }
+  }
+
   List<Map<String, dynamic>> _loadRules(SharedPreferences prefs) {
     final jsonStr = prefs.getString('battery_rules');
     if (jsonStr != null) {

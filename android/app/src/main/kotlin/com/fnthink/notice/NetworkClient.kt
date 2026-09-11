@@ -103,6 +103,9 @@ class NetworkClient {
          *                    当使用自定义模板（text/xml/markdown）时由调用方传入对应类型。
          * @param force 强制发送：为 true 时忽略"推送暂停"开关（用于历史记录"现在推送"手动补推）
          * @param onResult 可选回调，返回送达结果（含状态/HTTP 码/消息）
+         * @param recordId 推送历史记录 id（N4：webhook 推送重试耗尽且失败可重试时，
+         *                 携带它入自动重试队列，重放成功后可回传翻转记录状态；
+         *                 tag != "notification" 或无需入队时传 null）
          */
         fun sendWithRetry(
             url: String,
@@ -112,6 +115,7 @@ class NetworkClient {
             secret: String? = null,
             contentType: String = "application/json; charset=utf-8",
             force: Boolean = false,
+            recordId: String? = null,
             onResult: ((WebhookResponseParser.ParseResult) -> Unit)? = null
         ) {
             if (!isActive) {
@@ -176,6 +180,26 @@ class NetworkClient {
 
                     // 重试耗尽
                     Log.e(TAG, "$tag delivery exhausted retries: ${lastResult?.message}")
+                    // N4 自动重试队列：仅 webhook 推送（tag == "notification"）且失败状态
+                    // 属可重试类（HTTP_FAIL / NETWORK_FAIL / RATE_LIMITED）时入队。
+                    // 手动「现在推送」（force = true）失败不再自动排队；
+                    // BIZ_FAIL 为业务性拒绝（重试无意义）；PAUSED 在入口已短路不会到此；
+                    // tag = sms / phone / notification_retry 的链路各自处理，不入本队列。
+                    if (tag == "notification" && !force && lastResult != null) {
+                        when (lastResult.status) {
+                            WebhookResponseParser.DeliveryStatus.HTTP_FAIL,
+                            WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,
+                            WebhookResponseParser.DeliveryStatus.RATE_LIMITED -> RetryQueue.enqueue(
+                                url = url,
+                                payload = payload,
+                                webhookType = webhookType,
+                                secret = secret,
+                                contentType = contentType,
+                                recordId = recordId ?: "",
+                            )
+                            else -> {}
+                        }
+                    }
                     onResult?.invoke(
                         lastResult ?: WebhookResponseParser.ParseResult(
                             WebhookResponseParser.DeliveryStatus.NETWORK_FAIL,

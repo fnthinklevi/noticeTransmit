@@ -3,24 +3,34 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:get_it/get_it.dart';
 
 import '../models/email_channel.dart';
 import '../models/notification_rule.dart';
+import 'battery_service.dart';
+import 'device_info_service.dart';
 import 'email_service.dart';
 import 'filter_service.dart';
+import 'locale_service.dart';
 import 'sms_service.dart';
+import 'theme_service.dart';
 import 'webhook_service.dart';
 
 /// P1 配置备份与恢复。
 ///
 /// 容器格式（.nbackup，JSON 文本）：文件头携带版本号与 KDF 参数（盐/迭代次数），
 /// 密文为 AES-256-GCM（口令经 PBKDF2-HMAC-SHA256 派生，210000 次迭代）。
-/// 备份内容：Webhook/邮件通道（含凭据）、通知规则、短信监听设置、应用过滤与黑白名单；
-/// 不含通知历史与送达日志。
+/// 备份内容（N5 起 11 类，对齐 base.md §10.2「升级设置保留要求」）：
+/// Webhook/邮件通道（含凭据）、通知规则、短信监听设置、应用过滤与黑白名单关键词、
+/// **电池规则与电量通知开关、主题/语言、设备名**；不含通知历史与送达日志。
 class BackupService {
   static const formatId = 'notice-backup';
-  static const formatVersion = 1;
+  static const formatVersion = 2;
+
+  /// 支持解密的容器版本：v2（当前，含电池/设备名/偏好三新类别）与 v1（旧备份，
+  /// 无新类别字段——恢复时三类自然跳过，保证 v1 备份文件仍可恢复）。
+  static const supportedVersions = {1, 2};
   static const kdfIterations = 210000;
   static const minPasswordLength = 8;
 
@@ -43,6 +53,13 @@ class BackupService {
     await filter.loadSettings();
     final sms = GetIt.instance<SmsService>();
     await sms.loadSettings();
+    // N5 新增三类：电池规则/电量开关、设备名、主题/语言
+    final battery = GetIt.instance<BatteryService>();
+    await battery.loadSettings();
+    final device = GetIt.instance<DeviceInfoService>();
+    await device.loadDeviceInfo();
+    final theme = GetIt.instance<ThemeService>();
+    final locale = GetIt.instance<LocaleService>();
 
     return {
       'webhookChannels': webhook.channels,
@@ -63,6 +80,15 @@ class BackupService {
       },
       'blacklistKeywords': filter.blacklistKeywords,
       'whitelistKeywords': filter.whitelistKeywords,
+      'battery': {
+        'notify_enabled': battery.notifyEnabled,
+        'rules': battery.rules,
+      },
+      'deviceName': device.deviceName,
+      'preferences': {
+        'theme_mode': theme.themeMode.name,
+        'app_language': locale.language.name,
+      },
     };
   }
 
@@ -130,11 +156,13 @@ class BackupService {
   // ── 内容校验 ─────────────────────────────────────────────────────────
 
   /// 容器结构校验（解密前调用，供 UI 预检）。非法抛 [FormatException]。
+  /// 支持 v1（旧备份，无电池/设备名/偏好三类）与 v2（当前）。
   void validateContainer(Map<String, dynamic> c) {
     if (c['format'] != formatId) {
       throw const FormatException('不是有效备份文件（format 不符）');
     }
-    if ((c['version'] as num?)?.toInt() != formatVersion) {
+    final version = (c['version'] as num?)?.toInt() ?? 0;
+    if (!supportedVersions.contains(version)) {
       throw const FormatException('备份格式版本不受支持');
     }
     final kdf = c['kdf'];
@@ -182,6 +210,12 @@ class BackupService {
     final emailChannels = await email.loadChannels();
     final filter = GetIt.instance<FilterService>();
     await filter.loadSettings();
+    final battery = GetIt.instance<BatteryService>();
+    await battery.loadSettings();
+    final device = GetIt.instance<DeviceInfoService>();
+    await device.loadDeviceInfo();
+    final theme = GetIt.instance<ThemeService>();
+    final locale = GetIt.instance<LocaleService>();
     return {
       'webhookChannels': webhook.channels.isNotEmpty,
       'emailChannels': emailChannels.isNotEmpty,
@@ -189,6 +223,13 @@ class BackupService {
       'appFilter': filter.enabledPackages.isNotEmpty,
       'blacklistKeywords': filter.blacklistKeywords.isNotEmpty,
       'whitelistKeywords': filter.whitelistKeywords.isNotEmpty,
+      // N5：电池 = 有自定义规则即视为已有配置；设备名 = 非空；
+      // 偏好 = 主题或语言存在非默认（非 system）值
+      'battery': battery.rules.isNotEmpty,
+      'deviceName': device.deviceName.isNotEmpty,
+      'preferences':
+          theme.themeMode != ThemeMode.system ||
+          locale.language != AppLanguage.system,
     };
   }
 
@@ -303,6 +344,56 @@ class BackupService {
           return true;
         });
       }
+    }
+
+    // ── N5 新增三类（v1 备份无这些字段，自然跳过）──
+
+    final battery = payload['battery'];
+    if (battery is Map) {
+      await restore('battery', () async {
+        final rules = (battery['rules'] as List?)
+            ?.whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+        final notify = battery['notify_enabled'];
+        await GetIt.instance<BatteryService>().restoreSettings(
+          notifyEnabled: notify is bool ? notify : null,
+          rules: rules,
+        );
+        return true;
+      });
+    }
+
+    final deviceName = payload['deviceName'];
+    if (deviceName is String) {
+      await restore('deviceName', () async {
+        await GetIt.instance<DeviceInfoService>().saveDeviceName(deviceName);
+        return true;
+      });
+    }
+
+    // 偏好（主题/语言）放最后恢复：语言切换会立即改变 UI 文案
+    final preferences = payload['preferences'];
+    if (preferences is Map) {
+      await restore('preferences', () async {
+        final themeMode = preferences['theme_mode']?.toString();
+        if (themeMode != null) {
+          final mode = ThemeMode.values.firstWhere(
+            (e) => e.name == themeMode,
+            orElse: () => ThemeMode.system,
+          );
+          await GetIt.instance<ThemeService>().setThemeMode(mode);
+        }
+        final lang = preferences['app_language']?.toString();
+        if (lang != null) {
+          final language = AppLanguage.values.firstWhere(
+            (e) => e.name == lang,
+            orElse: () => AppLanguage.system,
+          );
+          await GetIt.instance<LocaleService>().setLanguage(language);
+        }
+        return true;
+      });
     }
     return report;
   }
