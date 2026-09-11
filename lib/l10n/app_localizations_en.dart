@@ -434,7 +434,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateContent => 'Changelog';
 
   @override
-  String get updateNow => 'Update Now';
+  String get updateNow => 'Update now';
 
   @override
   String get ignore => 'Ignore';
@@ -2235,4 +2235,60 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get ruleAppPickScanEmpty =>
       'No apps were scanned. Go back and retry; if still empty, make sure \"Query all packages\" is allowed in system settings.';
+
+  @override
+  String get updateAlreadyLatest => 'You\'re on the latest version';
+
+  @override
+  String get updateCheckFailed =>
+      'Update check failed. Check your network connection.';
+
+  @override
+  String updateCheckFailedWithError(String error) {
+    return 'Update check failed: $error';
+  }
+
+  @override
+  String updateDownloadFailed(String error) {
+    return 'Download failed: $error';
+  }
+
+  @override
+  String get updateForceBadge => 'Important update';
+
+  @override
+  String get updateForceRequired => 'Update required to continue';
+
+  @override
+  String get updateFoundNew => 'New version available';
+
+  @override
+  String get updateLatestVersionLabel => 'Latest version: ';
+
+  @override
+  String get updateCurrentVersionLabel => 'Current version: ';
+
+  @override
+  String get updateFileSizeLabel => 'File size: ';
+
+  @override
+  String get updateChangelogTitle => 'What\'s new';
+
+  @override
+  String get updateIgnore => 'Ignore';
+
+  @override
+  String get updateLater => 'Later';
+
+  @override
+  String get updateButton => 'Update';
+
+  @override
+  String get updateDownloading => 'Downloading update';
+
+  @override
+  String get webhookConfigSaved => 'Webhook config saved';
+
+  @override
+  String get emailConfigSaved => 'Email channel config saved';
 }

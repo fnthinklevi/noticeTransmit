@@ -167,7 +167,9 @@ extension _MainPageActions on _MainPageState {
               ],
             ),
           );
-          if (confirm != true) return {'success': false, 'message': '已取消'};
+          if (confirm != true) {
+            return {'success': false, 'message': l10n.exportCancelled};
+          }
           final json = await _notificationService.buildExportJson(
             _deviceInfoService.deviceName,
             _deviceInfoService.deviceModel,
@@ -182,7 +184,7 @@ extension _MainPageActions on _MainPageState {
             },
           );
           if (result is Map) return Map<String, dynamic>.from(result);
-          return {'success': false, 'message': '导出异常'};
+          return {'success': false, 'message': l10n.exportError};
         },
         onClearToday: () async {
           final count = await _notificationService.clearToday();
@@ -280,6 +282,7 @@ extension _MainPageActions on _MainPageState {
   }
 
   void _openWebhookSettingsPage() async {
+    final l10n = AppLocalizations.of(context);
     final result = await _pushPage<List<Map<String, dynamic>>>(
       WebhookSettingsPage(
         webhookChannels: List<Map<String, dynamic>>.from(
@@ -290,11 +293,12 @@ extension _MainPageActions on _MainPageState {
     if (result != null) {
       await _webhookService.saveChannels(result);
       setState(() {});
-      _showInfo('Webhook 配置已保存');
+      _showInfo(l10n.webhookConfigSaved);
     }
   }
 
   void _openEmailSettingsPage() async {
+    final l10n = AppLocalizations.of(context);
     final emailService = EmailService();
     final channels = await emailService.loadChannels();
     final result = await _pushPage<List<Map<String, dynamic>>>(
@@ -310,7 +314,7 @@ extension _MainPageActions on _MainPageState {
           .toList();
       await emailService.saveChannels(updatedChannels);
       setState(() {});
-      _showInfo('邮件通道配置已保存');
+      _showInfo(l10n.emailConfigSaved);
     }
   }
 }

@@ -189,7 +189,7 @@
   "currentVer": "Current version: ",
   "fileSize": "File size: ",
   "updateContent": "Changelog",
-  "updateNow": "Update Now",
+  "updateNow": "Update now",
   "ignore": "Ignore",
   "update": "Update",
   "downloading": "Downloading update",
@@ -1029,5 +1029,36 @@
   "historyBlockAppAllowWhitelistToast": "Already blocked by app filter, but whitelist keyword hits will still push",
   "exportConfirmDesc": "Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.",
   "historyMoreActions": "More actions",
-  "ruleAppPickScanEmpty": "No apps were scanned. Go back and retry; if still empty, make sure \"Query all packages\" is allowed in system settings."
+  "ruleAppPickScanEmpty": "No apps were scanned. Go back and retry; if still empty, make sure \"Query all packages\" is allowed in system settings.",
+  "updateAlreadyLatest": "You're on the latest version",
+  "updateCheckFailed": "Update check failed. Check your network connection.",
+  "updateCheckFailedWithError": "Update check failed: {error}",
+  "updateDownloadFailed": "Download failed: {error}",
+  "updateForceBadge": "Important update",
+  "updateForceRequired": "Update required to continue",
+  "updateFoundNew": "New version available",
+  "updateLatestVersionLabel": "Latest version: ",
+  "updateCurrentVersionLabel": "Current version: ",
+  "updateFileSizeLabel": "File size: ",
+  "updateChangelogTitle": "What's new",
+  "updateIgnore": "Ignore",
+  "updateLater": "Later",
+  "updateButton": "Update",
+  "updateDownloading": "Downloading update",
+  "webhookConfigSaved": "Webhook config saved",
+  "emailConfigSaved": "Email channel config saved",
+  "@updateCheckFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@updateDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

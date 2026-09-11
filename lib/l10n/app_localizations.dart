@@ -4129,6 +4129,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。'**
   String get ruleAppPickScanEmpty;
+
+  /// No description provided for @updateAlreadyLatest.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前已是最新版本'**
+  String get updateAlreadyLatest;
+
+  /// No description provided for @updateCheckFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新失败，请检查网络连接'**
+  String get updateCheckFailed;
+
+  /// No description provided for @updateCheckFailedWithError.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新失败：{error}'**
+  String updateCheckFailedWithError(String error);
+
+  /// No description provided for @updateDownloadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败：{error}'**
+  String updateDownloadFailed(String error);
+
+  /// No description provided for @updateForceBadge.
+  ///
+  /// In zh, this message translates to:
+  /// **'重要更新'**
+  String get updateForceBadge;
+
+  /// No description provided for @updateForceRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'必须更新才能继续使用'**
+  String get updateForceRequired;
+
+  /// No description provided for @updateFoundNew.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现新版本'**
+  String get updateFoundNew;
+
+  /// No description provided for @updateLatestVersionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'最新版本：'**
+  String get updateLatestVersionLabel;
+
+  /// No description provided for @updateCurrentVersionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前版本：'**
+  String get updateCurrentVersionLabel;
+
+  /// No description provided for @updateFileSizeLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件大小：'**
+  String get updateFileSizeLabel;
+
+  /// No description provided for @updateChangelogTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新内容'**
+  String get updateChangelogTitle;
+
+  /// No description provided for @updateIgnore.
+  ///
+  /// In zh, this message translates to:
+  /// **'忽略'**
+  String get updateIgnore;
+
+  /// No description provided for @updateLater.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后'**
+  String get updateLater;
+
+  /// No description provided for @updateButton.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新'**
+  String get updateButton;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在下载更新'**
+  String get updateDownloading;
+
+  /// No description provided for @webhookConfigSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'Webhook 配置已保存'**
+  String get webhookConfigSaved;
+
+  /// No description provided for @emailConfigSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'邮件通道配置已保存'**
+  String get emailConfigSaved;
 }
 
 class _AppLocalizationsDelegate

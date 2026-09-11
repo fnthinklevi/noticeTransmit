@@ -5,6 +5,9 @@ part of 'main_page.dart';
 // 同 library 内有意使用 State 的 protected 成员（setState/mounted/context）
 // ignore_for_file: invalid_use_of_protected_member
 extension _MainPageUpdate on _MainPageState {
+  /// 各方法共用的 l10n（依赖 mounted 的 context，由调用方保证时机）
+  AppLocalizations get _l10n => AppLocalizations.of(context);
+
   Future<void> _checkUpdateOnStartup() async {
     final result = await _updateService.checkUpdate(force: false);
     if (!mounted) return;
@@ -33,13 +36,13 @@ extension _MainPageUpdate on _MainPageState {
         }
         _showUpdateDialog(result);
       } else if (isManual) {
-        _showInfo('当前已是最新版本');
+        _showInfo(_l10n.updateAlreadyLatest);
       }
     } else if (isManual) {
       final error = _updateService.lastError;
       final errorMsg = error != null && error.isNotEmpty
-          ? '检查更新失败：$error'
-          : '检查更新失败，请检查网络连接';
+          ? _l10n.updateCheckFailedWithError(error)
+          : _l10n.updateCheckFailed;
       _showInfo(errorMsg);
     }
   }
@@ -51,7 +54,7 @@ extension _MainPageUpdate on _MainPageState {
       await _performUpdateCheck(isManual: true);
     } catch (e) {
       if (mounted) {
-        _showInfo('检查更新失败：${e.toString()}');
+        _showInfo(_l10n.updateCheckFailedWithError(e.toString()));
       }
     } finally {
       await minWait;
@@ -77,9 +80,9 @@ extension _MainPageUpdate on _MainPageState {
                   color: AppColors.red,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text(
-                  '重要更新',
-                  style: TextStyle(
+                child: Text(
+                  _l10n.updateForceBadge,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -89,7 +92,9 @@ extension _MainPageUpdate on _MainPageState {
               const SizedBox(height: 12),
             ],
             Text(
-              result.forceUpdate ? '必须更新才能继续使用' : '发现新版本',
+              result.forceUpdate
+                  ? _l10n.updateForceRequired
+                  : _l10n.updateFoundNew,
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
@@ -106,7 +111,7 @@ extension _MainPageUpdate on _MainPageState {
             Row(
               children: [
                 Text(
-                  '最新版本：',
+                  _l10n.updateLatestVersionLabel,
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.secondaryLabel(context),
@@ -126,7 +131,7 @@ extension _MainPageUpdate on _MainPageState {
             Row(
               children: [
                 Text(
-                  '当前版本：',
+                  _l10n.updateCurrentVersionLabel,
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.secondaryLabel(context),
@@ -145,7 +150,7 @@ extension _MainPageUpdate on _MainPageState {
             Row(
               children: [
                 Text(
-                  '文件大小：',
+                  _l10n.updateFileSizeLabel,
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.secondaryLabel(context),
@@ -162,7 +167,7 @@ extension _MainPageUpdate on _MainPageState {
             ),
             const SizedBox(height: 16),
             Text(
-              '更新内容',
+              _l10n.updateChangelogTitle,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -205,9 +210,9 @@ extension _MainPageUpdate on _MainPageState {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text(
-                      '立即更新',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: Text(
+                      _l10n.updateNow,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -224,7 +229,7 @@ extension _MainPageUpdate on _MainPageState {
                           );
                         },
                         child: Text(
-                          '忽略',
+                          _l10n.updateIgnore,
                           style: TextStyle(
                             color: AppColors.secondaryLabel(context),
                           ),
@@ -234,18 +239,18 @@ extension _MainPageUpdate on _MainPageState {
                     Expanded(
                       child: TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          '稍后',
-                          style: TextStyle(color: AppColors.blue),
+                        child: Text(
+                          _l10n.updateLater,
+                          style: const TextStyle(color: AppColors.blue),
                         ),
                       ),
                     ),
                     Expanded(
                       child: TextButton(
                         onPressed: () => _startDownloadUpdate(result),
-                        child: const Text(
-                          '更新',
-                          style: TextStyle(
+                        child: Text(
+                          _l10n.updateButton,
+                          style: const TextStyle(
                             color: AppColors.blue,
                             fontWeight: FontWeight.w600,
                           ),
@@ -274,7 +279,7 @@ extension _MainPageUpdate on _MainPageState {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBg(context),
         title: Text(
-          '正在下载更新',
+          _l10n.updateDownloading,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
@@ -320,9 +325,9 @@ extension _MainPageUpdate on _MainPageState {
                     Navigator.pop(context);
                     setState(() => _isDownloading = false);
                   },
-                  child: const Text(
-                    '取消',
-                    style: TextStyle(color: AppColors.red),
+                  child: Text(
+                    _l10n.cancel,
+                    style: const TextStyle(color: AppColors.red),
                   ),
                 ),
               ],
@@ -363,9 +368,9 @@ extension _MainPageUpdate on _MainPageState {
           setState(() => _isDownloading = false);
           if (!mounted) return;
           Navigator.of(context, rootNavigator: true).pop();
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('下载失败：${e.toString()}')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_l10n.updateDownloadFailed(e.toString()))),
+          );
         });
   }
 }

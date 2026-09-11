@@ -1036,5 +1036,36 @@
   "historyBlockAppAllowWhitelistToast": "该应用已被应用过滤拦截，但白名单关键词命中仍会推送",
   "exportConfirmDesc": "通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。",
   "historyMoreActions": "更多操作",
-  "ruleAppPickScanEmpty": "未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。"
+  "ruleAppPickScanEmpty": "未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。",
+  "updateAlreadyLatest": "当前已是最新版本",
+  "updateCheckFailed": "检查更新失败，请检查网络连接",
+  "updateCheckFailedWithError": "检查更新失败：{error}",
+  "updateDownloadFailed": "下载失败：{error}",
+  "updateForceBadge": "重要更新",
+  "updateForceRequired": "必须更新才能继续使用",
+  "updateFoundNew": "发现新版本",
+  "updateLatestVersionLabel": "最新版本：",
+  "updateCurrentVersionLabel": "当前版本：",
+  "updateFileSizeLabel": "文件大小：",
+  "updateChangelogTitle": "更新内容",
+  "updateIgnore": "忽略",
+  "updateLater": "稍后",
+  "updateButton": "更新",
+  "updateDownloading": "正在下载更新",
+  "webhookConfigSaved": "Webhook 配置已保存",
+  "emailConfigSaved": "邮件通道配置已保存",
+  "@updateCheckFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "@updateDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

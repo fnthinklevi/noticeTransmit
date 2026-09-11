@@ -2151,4 +2151,59 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get ruleAppPickScanEmpty =>
       '未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。';
+
+  @override
+  String get updateAlreadyLatest => '当前已是最新版本';
+
+  @override
+  String get updateCheckFailed => '检查更新失败，请检查网络连接';
+
+  @override
+  String updateCheckFailedWithError(String error) {
+    return '检查更新失败：$error';
+  }
+
+  @override
+  String updateDownloadFailed(String error) {
+    return '下载失败：$error';
+  }
+
+  @override
+  String get updateForceBadge => '重要更新';
+
+  @override
+  String get updateForceRequired => '必须更新才能继续使用';
+
+  @override
+  String get updateFoundNew => '发现新版本';
+
+  @override
+  String get updateLatestVersionLabel => '最新版本：';
+
+  @override
+  String get updateCurrentVersionLabel => '当前版本：';
+
+  @override
+  String get updateFileSizeLabel => '文件大小：';
+
+  @override
+  String get updateChangelogTitle => '更新内容';
+
+  @override
+  String get updateIgnore => '忽略';
+
+  @override
+  String get updateLater => '稍后';
+
+  @override
+  String get updateButton => '更新';
+
+  @override
+  String get updateDownloading => '正在下载更新';
+
+  @override
+  String get webhookConfigSaved => 'Webhook 配置已保存';
+
+  @override
+  String get emailConfigSaved => '邮件通道配置已保存';
 }
