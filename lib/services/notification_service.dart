@@ -351,14 +351,33 @@ class NotificationService {
         if (row != null) {
           final rec = NotificationRecord.fromMap(row);
           final existing = rec.deliveryStatus;
-          final updated = existing.isEmpty
-              ? <String, dynamic>{
-                  label: {'status': normalized, 'message': message},
-                }
-              : <String, dynamic>{
-                  for (final k in existing.keys)
-                    k: {'status': normalized, 'message': message},
-                };
+          // ⚠ 与内存命中分支逐分支对齐（改内存分支必须同步这里）：
+          // - FILTER/SMS/MERGE 伪通道 = 全通道统一终态（语义如此）；
+          // - 普通通道结果 = 仅更新当前 label，保留其他通道状态
+          //   （否则 webhook 结果会误覆盖 email 等通道的真实状态）。
+          Map<String, dynamic> updated;
+          if (kotlinType == 'FILTER' || kotlinType == 'SMS') {
+            updated = existing.isEmpty
+                ? <String, dynamic>{
+                    label: {'status': 'intercepted', 'message': message},
+                  }
+                : <String, dynamic>{
+                    for (final k in existing.keys)
+                      k: {'status': 'intercepted', 'message': message},
+                  };
+          } else if (kotlinType == 'MERGE') {
+            updated = existing.isEmpty
+                ? <String, dynamic>{
+                    label: {'status': normalized, 'message': message},
+                  }
+                : <String, dynamic>{
+                    for (final k in existing.keys)
+                      k: {'status': normalized, 'message': message},
+                  };
+          } else {
+            updated = Map<String, dynamic>.from(existing);
+            updated[label] = {'status': normalized, 'message': message};
+          }
           await DatabaseHelper().updateNotificationDelivery(
             notificationId,
             updated,
