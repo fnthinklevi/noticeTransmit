@@ -285,6 +285,8 @@ class NotificationService {
   }) async {
     if (notificationId.isEmpty) return;
     final idx = _records.indexWhere((r) => r.id == notificationId);
+    // N9-诊断：idx<0 时此前静默跳过（只写送达日志、不更新状态）——
+    // 合并成员卡「发送中」这类问题因此不可观测。此处记录被跳过的 id 供排查。
     final label = _deliveryLabel(kotlinType);
     // SUCCESS → 成功；PAUSED（用户暂停推送，未实际发送）→ paused；其余 → failed
     final normalized = switch (status) {
@@ -339,6 +341,34 @@ class NotificationService {
       } catch (e) {
         // DB 持久化失败不影响内存送达状态显示
         debugPrint('更新送达状态到 DB 失败: $e');
+      }
+    } else {
+      // N9-兜底：内存未命中（分页未加载 / 内存裁剪 / 时序竞态）不等于记录不存在——
+      // 合并成员在入组前已写历史（DB 必有该行）。直接按 id 从 DB 读取、合并
+      // 通道终态写回，修复「合并成员卡发送中」且跨重启不自愈的问题。
+      try {
+        final row = await DatabaseHelper().getNotificationById(notificationId);
+        if (row != null) {
+          final rec = NotificationRecord.fromMap(row);
+          final existing = rec.deliveryStatus;
+          final updated = existing.isEmpty
+              ? <String, dynamic>{
+                  label: {'status': normalized, 'message': message},
+                }
+              : <String, dynamic>{
+                  for (final k in existing.keys)
+                    k: {'status': normalized, 'message': message},
+                };
+          await DatabaseHelper().updateNotificationDelivery(
+            notificationId,
+            updated,
+          );
+          debugPrint(
+            '[updateDelivery] 兜底更新 DB 记录 id=$notificationId → $normalized',
+          );
+        }
+      } catch (e) {
+        debugPrint('送达状态 DB 兜底更新失败: $e');
       }
     }
     // 送达日志只记终态（paused 未实际发送，不落日志）

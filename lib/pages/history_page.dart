@@ -1241,9 +1241,13 @@ class _HistoryPageState extends State<HistoryPage> {
     final filterService = _filterService;
     if (filterService.appFilterMode == 'allow') {
       if (!filterService.enabledPackages.contains(pkg)) {
-        // 应用过滤已拦截（操作幂等）：白名单关键词命中仍会推送——
-        // 真机反馈：此前直接提示"无需操作"让用户误以为屏蔽无效。现执行确认
-        // 动作并明确告知白名单例外，由用户决定是否删除相关白名单关键词。
+        // 应用过滤已拦截：此处仍执行一次幂等写回（remaining == 当前名单），
+        // 把屏蔽意图显式固化到配置（消除「点了但什么都没发生」的观感）；
+        // 白名单关键词命中仍会推送——toast 明确告知例外，由用户决定是否删除关键词。
+        final remaining = filterService.enabledPackages
+            .where((p) => p != pkg)
+            .toList();
+        await filterService.saveAppFilter('allow', remaining);
         _showToast(l10n.historyBlockAppWhitelistNote);
         if (mounted) setState(() {});
         return;

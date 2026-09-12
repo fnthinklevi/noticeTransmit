@@ -733,6 +733,19 @@ class DatabaseHelper implements WebhookChannelStore {
   }
 
   /// 更新单条通知记录的送达状态（delivery_info JSON 列）
+  /// 按 id 查询单条通知（原始行，含 delivery_info JSON 字符串）。
+  /// 用于送达回传兜底：内存列表未命中时仍可更新 DB（分页未加载/裁剪场景）。
+  Future<Map<String, dynamic>?> getNotificationById(String id) async {
+    final db = await database;
+    final rows = await db.query(
+      'notifications',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.first;
+  }
+
   Future<void> updateNotificationDelivery(
     String id,
     Map<String, dynamic> delivery,

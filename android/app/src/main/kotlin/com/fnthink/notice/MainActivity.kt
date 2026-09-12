@@ -64,7 +64,7 @@ class MainActivity : FlutterActivity() {
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
         const val FALLBACK_VERSION = "1.5.70"
-        const val FALLBACK_BUILD = 105
+        const val FALLBACK_BUILD = 106
 
         // 推送历史自动归档目录（SAF treeUri），持久化在 FlutterSharedPreferences
         const val KEY_ARCHIVE_DIR_URI = "archive_dir_uri"
