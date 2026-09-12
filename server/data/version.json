@@ -12,16 +12,16 @@
     "all": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_all_1.5.70.apk"
   },
   "fileSizes": {
-    "arm64": 27480830,
-    "arm32": 23556973,
-    "x86_64": 29579379,
-    "all": 75538435
+    "arm64": 27480827,
+    "arm32": 23556969,
+    "x86_64": 29579378,
+    "all": 75538417
   },
   "sha256": {
-    "arm64": "5febddac838213ba294b3f97e0f40272b3d54197f850ff5fa889e4bc9e0fef4f",
-    "arm32": "20f4d3bc2e4cb18373741d86583e1f3377dff04a705bcdb3a29658e0b48565bc",
-    "x86_64": "a666cbd2bfb762d82a445a45bc9ccdaf6451bca4d2afcc5968d7526540e39808",
-    "all": "f3389aafa052d12e84a4df093d05e0bb3a03859db36a2c08443393f95e02e398"
+    "arm64": "3b6ff275909e3b0777fc03efaf6ba903dcf81fefd77998c39b58febc2a6a460a",
+    "arm32": "be9f06386a7a0a4fd033097760cabe94108a7432cf3506a25a0e9f52b615b90a",
+    "x86_64": "da66110fdba5faad01b2296e6cc2590c3e75414c38e8f028829de2a260ed69c4",
+    "all": "118b4962e74209f56f08c292fbc3b9a23fe6666e2dd16687e5cbdf540523bd60"
   },
   "minSupportedVersion": "1.0.0"
 }
