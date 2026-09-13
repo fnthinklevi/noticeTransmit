@@ -487,13 +487,13 @@ class MainActivity : FlutterActivity() {
     internal fun getInstalledApps(): List<Map<String, Any?>> {
         val pm = packageManager
         val apps = pm.getInstalledApplications(0)
-        val result = mutableListOf<Map<String, Any?>>()
+        val primary = mutableListOf<Map<String, Any?>>()
         for (appInfo in apps) {
             try {
                 val appName = pm.getApplicationLabel(appInfo).toString()
                 val packageName = appInfo.packageName
                 val isSystemApp = (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-                result.add(
+                primary.add(
                     mapOf(
                         "packageName" to packageName,
                         "appName" to appName,
@@ -503,8 +503,43 @@ class MainActivity : FlutterActivity() {
             } catch (_: Exception) {
             }
         }
-        result.sortBy { it["appName"].toString().lowercase() }
-        return result
+        // Flyme 等机型：「读取应用列表」限制只过滤 getInstalledApplications，
+        // 桌面 Activity 查询（与 hasQueryAllPackagesEffective 探测同源）仍可见。
+        // 若扫描结果少于可见桌面应用数，用桌面查询结果补足，
+        // 保证「权限判定」与「扫描」口径一致（否则判定已授权但列表为空）。
+        var launcherCount = 0
+        val secondary = mutableListOf<Map<String, Any?>>()
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(intent, 0)
+            }
+            launcherCount = list.size
+            for (ri in list) {
+                try {
+                    val ai = ri.activityInfo ?: continue
+                    val appInfo = ai.applicationInfo
+                    secondary.add(
+                        mapOf(
+                            "packageName" to ai.packageName,
+                            "appName" to ri.loadLabel(pm).toString(),
+                            "isSystemApp" to (((appInfo?.flags ?: 0) and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0)
+                        )
+                    )
+                } catch (_: Exception) {
+                }
+            }
+        } catch (_: Exception) {
+        }
+        // 仅当扫描结果明显少于可见桌面应用时才补足（正常设备 getInstalledApplications 已全量）
+        return if (primary.size >= launcherCount) {
+            primary.sortedBy { it["appName"].toString().lowercase() }
+        } else {
+            InstalledAppsMerger.merge(primary, secondary)
+        }
     }
 
     internal fun saveInstalledAppsCache(apps: List<Map<String, Any?>>) {
