@@ -1,27 +1,27 @@
 {
-  "latestVersion": "1.5.70",
-  "latestBuild": 106,
+  "latestVersion": "1.5.71",
+  "latestBuild": 107,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.70",
   "forceUpdateBuild": 105,
-  "changelog": "真机反馈修复 + 界面统一\n\n🛠️ 修复规则「适用应用」选择页部分机型反复提示无权限、列表为空的问题\n🛠️ 修复长按屏蔽菜单误导性提示（按实际推送链路显示准确状态）\n🎨 通知详情改为底部弹层；历史页右上角收纳为「更多」菜单\n🎨 全部确认弹窗统一 iOS 风格；导出等弹窗补齐多语言",
+  "changelog": "v1.5.71+107: 新增 ntfy/Gotify/Slack/Discord 四个推送通道(经 ChannelRegistry 描述符表接入,含自建服务器支持/访问令牌/正文截断/限流识别,ntfy.sh 自动识别) + 修复全部推送模式下长按屏蔽不生效且误提示「已不在推送范围」的问题(现正确切换黑名单并屏蔽,其余应用不受影响) + 规则「适用应用」选择页对齐应用筛选页(已选/未选分组,全选/反选,强制重扫)",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_arm64_1.5.70.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_arm32_1.5.70.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_x86_1.5.70.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.70/notice_all_1.5.70.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_arm64_1.5.71.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_arm32_1.5.71.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_x86_1.5.71.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_all_1.5.71.apk"
   },
   "fileSizes": {
-    "arm64": 27480827,
-    "arm32": 23556969,
-    "x86_64": 29579378,
-    "all": 75538417
+    "all": 75620698,
+    "arm32": 23573707,
+    "arm64": 27563101,
+    "x86_64": 29596115
   },
   "sha256": {
-    "arm64": "3b6ff275909e3b0777fc03efaf6ba903dcf81fefd77998c39b58febc2a6a460a",
-    "arm32": "be9f06386a7a0a4fd033097760cabe94108a7432cf3506a25a0e9f52b615b90a",
-    "x86_64": "da66110fdba5faad01b2296e6cc2590c3e75414c38e8f028829de2a260ed69c4",
-    "all": "118b4962e74209f56f08c292fbc3b9a23fe6666e2dd16687e5cbdf540523bd60"
+    "all": "c8d1b0ff14b5ea97d61c77c6308420e60aff763e2b0ae45b7a4993912821840b",
+    "arm32": "e1d2b2cd5b6ea444f8b65a633fbd4c3bb39ede097ab4fe42e7d13b1407282e77",
+    "arm64": "86621bb294bb50a9692b284a53a419ab9927492d87b10817fc755f39de8e46e7",
+    "x86_64": "2469a5f98ff66721c3237eb722597758e32b68d81ee3656acd7edc1f2dff097a"
   },
   "minSupportedVersion": "1.0.0"
 }

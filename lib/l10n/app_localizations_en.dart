@@ -2299,4 +2299,66 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get historyBlockAppWhitelistNote =>
       'Blocked as requested. Note: whitelist keyword hits will still push this app — consider removing related whitelist keywords.';
+
+  @override
+  String get channelTypeNtfy => 'ntfy Push';
+
+  @override
+  String get channelTypeGotify => 'Gotify Push';
+
+  @override
+  String get channelTypeSlack => 'Slack Notification';
+
+  @override
+  String get channelTypeDiscord => 'Discord Notification';
+
+  @override
+  String get platformNtfyDesc =>
+      'Push to an ntfy topic; official or self-hosted servers supported (optional access token)';
+
+  @override
+  String get platformGotifyDesc =>
+      'Push to a self-hosted Gotify server, authenticated with an application token (in the secret field)';
+
+  @override
+  String get platformSlackDesc => 'Send messages via a Slack Incoming Webhook';
+
+  @override
+  String get platformDiscordDesc =>
+      'Send messages via a Discord Webhook; content limited to 2000 chars';
+
+  @override
+  String get signingHintNtfy =>
+      'Optional: ntfy access token (Bearer), required if your server has auth enabled';
+
+  @override
+  String get signingHintGotify =>
+      'Required: Gotify application token (client tokens cannot push)';
+
+  @override
+  String get signingHintSlack =>
+      'Slack authenticates via the Incoming Webhook URL; no signing key needed';
+
+  @override
+  String get signingHintDiscord =>
+      'Discord authenticates via the Webhook URL; no signing key needed';
+
+  @override
+  String get historyActionBlockAppDescAllowAll =>
+      'All apps are currently pushed. Tapping switches to blocklist mode and blocks this app; other apps are unaffected';
+
+  @override
+  String historyBlockAppSwitchedToBlock(String app) {
+    return 'Blocked \"$app\"; filter mode switched to blocklist (other apps unaffected)';
+  }
+
+  @override
+  String ruleAppGroupApplied(int n) {
+    return 'Applied · $n';
+  }
+
+  @override
+  String ruleAppGroupExcludedN(int n) {
+    return 'Excluded · $n';
+  }
 }

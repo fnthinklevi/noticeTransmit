@@ -1240,6 +1240,15 @@ class _HistoryPageState extends State<HistoryPage> {
     }
     final filterService = _filterService;
     if (filterService.appFilterMode == 'allow') {
+      // allow 模式 + 名单为空 = 全部推送（FilterEngine 语义）。此模式下
+      // 「从白名单移除」无法实现屏蔽（名单从空到空），必须切换为黑名单模式：
+      // 其余应用在 block 模式下照常推送（与全推行为一致），仅目标应用被屏蔽。
+      if (filterService.enabledPackages.isEmpty) {
+        await filterService.saveAppFilter('block', [pkg]);
+        _showToast(l10n.historyBlockAppSwitchedToBlock(app));
+        if (mounted) setState(() {});
+        return;
+      }
       if (!filterService.enabledPackages.contains(pkg)) {
         // 应用过滤已拦截：此处仍执行一次幂等写回（remaining == 当前名单），
         // 把屏蔽意图显式固化到配置（消除「点了但什么都没发生」的观感）；
@@ -1374,11 +1383,21 @@ class _HistoryPageState extends State<HistoryPage> {
     if (mounted) setState(() {});
   }
 
-  /// 长按记录弹出操作菜单（屏蔽应用 / 屏蔽内容）
-  void _showRecordActionsSheet(NotificationRecord record) {
+  /// 长按记录弹出操作菜单（屏蔽应用 / 屏蔽内容）。
+  /// 打开前强制刷新过滤配置：FilterService 内存态可能尚未加载（冷启动直进历史页），
+  /// 以空名单误判「全推模式 / 不在范围」是本菜单第一版的核心缺陷。
+  Future<void> _showRecordActionsSheet(NotificationRecord record) async {
     final l10n = AppLocalizations.of(context);
+    await _filterService.loadSettings();
+    if (!mounted) return;
     final isAllowMode = _filterService.appFilterMode == 'allow';
     final inList = _filterService.enabledPackages.contains(record.packageName);
+    // 与 FilterEngine 的实际行为对齐：
+    // - allow 模式 + 名单为空 = 推送全部应用（此时任何应用都在推送范围内）；
+    // - allow 模式 + 名单非空 = 仅名单内应用推送；
+    // - block 模式 = 名单内应用被屏蔽，其余推送。
+    final allowPushesAll =
+        isAllowMode && _filterService.enabledPackages.isEmpty;
     // 副标题动态说明当前模式下将执行的动作（或已屏蔽状态）。
     // 特判：本应用自身通知由电量规则控制，应用屏蔽不适用。
     // 其余情况菜单项始终可点、始终执行（幂等）——白名单例外在点击后以
@@ -1386,9 +1405,11 @@ class _HistoryPageState extends State<HistoryPage> {
     final blockAppDesc = record.packageName == _selfPackage
         ? l10n.historyActionBlockAppDescSelf
         : isAllowMode
-        ? (inList
-              ? l10n.historyActionBlockAppDescAllow
-              : l10n.historyActionBlockAppDescAlreadyExcluded)
+        ? (allowPushesAll
+              ? l10n.historyActionBlockAppDescAllowAll
+              : (inList
+                    ? l10n.historyActionBlockAppDescAllow
+                    : l10n.historyActionBlockAppDescAlreadyExcluded))
         : (inList
               ? l10n.historyActionBlockAppDescAlreadyBlocked
               : l10n.historyActionBlockAppDescBlock);

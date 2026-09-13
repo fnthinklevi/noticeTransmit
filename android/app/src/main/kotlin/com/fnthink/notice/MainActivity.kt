@@ -63,8 +63,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.70"
-        const val FALLBACK_BUILD = 106
+        const val FALLBACK_VERSION = "1.5.71"
+        const val FALLBACK_BUILD = 107
 
         // 推送历史自动归档目录（SAF treeUri），持久化在 FlutterSharedPreferences
         const val KEY_ARCHIVE_DIR_URI = "archive_dir_uri"
@@ -1811,10 +1811,52 @@ class MainActivity : FlutterActivity() {
                     WebhookPayloadBuilder.WebhookType.BARK -> "Bark"
                     WebhookPayloadBuilder.WebhookType.SERVER_CHAN -> "Server酱"
                     WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> "PushPlus"
+                    WebhookPayloadBuilder.WebhookType.NTFY -> "ntfy"
+                    WebhookPayloadBuilder.WebhookType.GOTIFY -> "Gotify"
+                    WebhookPayloadBuilder.WebhookType.SLACK -> "Slack"
+                    WebhookPayloadBuilder.WebhookType.DISCORD -> "Discord"
                     WebhookPayloadBuilder.WebhookType.GENERIC -> "通用"
                 }
 
-                if (webhookType == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
+                if (webhookType == WebhookPayloadBuilder.WebhookType.NTFY) {
+                    // ntfy：header 模式——body 为纯文本，标题/鉴权走 HTTP header
+                    val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
+                    val requestBuilder = Request.Builder()
+                        .url(url)
+                        .post(payload.toRequestBody("text/plain; charset=utf-8".toMediaType()))
+                        .addHeader("Title", I18n.testTitle())
+                    if (!secret.isNullOrEmpty()) {
+                        requestBuilder.addHeader("Authorization", "Bearer $secret")
+                    }
+                    val request = requestBuilder.build()
+                    okHttpClient.newCall(request).execute().use { response ->
+                        val responseBody = response.body?.string() ?: ""
+                        val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
+                        Triple(
+                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            parseResult.message,
+                            false
+                        )
+                    }
+                } else if (webhookType == WebhookPayloadBuilder.WebhookType.GOTIFY) {
+                    // Gotify：POST {server}/message?token=...（token 走测试页 secret 输入框）
+                    val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
+                    val targetUrl = url.trimEnd('/') + "/message" +
+                        if (!secret.isNullOrEmpty()) "?token=" + java.net.URLEncoder.encode(secret, "UTF-8") else ""
+                    val request = Request.Builder()
+                        .url(targetUrl)
+                        .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                        .build()
+                    okHttpClient.newCall(request).execute().use { response ->
+                        val responseBody = response.body?.string() ?: ""
+                        val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
+                        Triple(
+                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            parseResult.message,
+                            false
+                        )
+                    }
+                } else if (webhookType == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
                     // Server酱：POST form（application/x-www-form-urlencoded），内容不进 URL
                     val formBody = WebhookPayloadBuilder.buildServerChanFormBody(
                         title = I18n.testTitle(),

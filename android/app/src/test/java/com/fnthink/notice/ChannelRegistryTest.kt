@@ -83,19 +83,40 @@ class ChannelRegistryTest {
 
     @Test
     fun everySpecRegistersParse() {
-        val missing = specs.filter { it.parse == null }.map { it.type }
+        // parse=null 的通道依赖外层「HTTP 2xx 即成功」兜底：自建服务器（ntfy/Gotify）
+        // host 不可枚举，响应无业务码；Slack 成功响应是文本 "ok"、Discord 成功是 204 空 body。
+        // 这些通道鉴权失败一律 4xx → HTTP_FAIL（fail-closed），不依赖业务码判定。
+        val parseExempt = setOf(
+            WebhookPayloadBuilder.WebhookType.NTFY,
+            WebhookPayloadBuilder.WebhookType.GOTIFY,
+            WebhookPayloadBuilder.WebhookType.SLACK,
+            WebhookPayloadBuilder.WebhookType.DISCORD,
+        )
+        val missing = specs.filter { it.parse == null && it.type !in parseExempt }.map { it.type }
         assertTrue(
             "以下通道未登记 parse（响应判定会退化为「HTTP 2xx 即成功」）：$missing",
             missing.isEmpty()
         )
         // 可调用性：代表性成功响应不得抛异常
         for (spec in specs) {
-            val result = spec.parse!!.invoke(
-                200,
-                org.json.JSONObject().apply { put("code", 0) },
-                """{"code":0}"""
-            )
-            assertNotNull("${spec.type} parse 返回 null", result)
+            if (spec.type in parseExempt) {
+                // 豁免通道锁定兜底行为：2xx 一律 SUCCESS（与 WebhookResponseParser 外层一致）
+                val result = WebhookResponseParser.parse(
+                    spec.type, 200, """{"code":0}"""
+                )
+                assertEquals(
+                    "${spec.type} 兜底通道 2xx 应判 SUCCESS",
+                    WebhookResponseParser.DeliveryStatus.SUCCESS,
+                    result.status
+                )
+            } else {
+                val result = spec.parse!!.invoke(
+                    200,
+                    org.json.JSONObject().apply { put("code", 0) },
+                    """{"code":0}"""
+                )
+                assertNotNull("${spec.type} parse 返回 null", result)
+            }
         }
     }
 
@@ -138,7 +159,20 @@ class ChannelRegistryTest {
             WebhookPayloadBuilder.WebhookType.TELEGRAM,
             ChannelRegistry.typeByHost("api.telegram.org")
         )
+        assertEquals(WebhookPayloadBuilder.WebhookType.SLACK, ChannelRegistry.typeByHost("hooks.slack.com"))
+        assertEquals(WebhookPayloadBuilder.WebhookType.DISCORD, ChannelRegistry.typeByHost("discord.com"))
+        assertEquals(WebhookPayloadBuilder.WebhookType.NTFY, ChannelRegistry.typeByHost("ntfy.sh"))
         assertEquals(null, ChannelRegistry.typeByHost("example.com"))
+        // 空 hosts 是 Gotify（无官方托管，自建 host 不可枚举）的合法形态：
+        // 类型由 DB channel_type 提供，不参与 host 自动识别（detectType 回退 GENERIC）
+        assertTrue(
+            "空 hosts 通道应恰为 GENERIC/GOTIFY：${specs.filter { it.hosts.isEmpty() }.map { it.type }}",
+            specs.filter { it.hosts.isEmpty() }.map { it.type } ==
+                listOf(
+                    WebhookPayloadBuilder.WebhookType.GENERIC,
+                    WebhookPayloadBuilder.WebhookType.GOTIFY,
+                )
+        )
     }
 
     @Test

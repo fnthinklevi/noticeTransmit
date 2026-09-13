@@ -6,13 +6,13 @@
 
 **English / [中文](README.md)**
 
-A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload (sole exception: crash reporting, off by default; crash logs are uploaded to Tencent Bugly only after you explicitly enable it — see [Privacy Notice](#privacy-notice)). Supports Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) and SMTP email push, one-tap pause/resume via home-screen widget, all configs AES-256 encrypted. **Full-app Chinese/English i18n**.
+A **privacy-first** notification forwarder for Android. Fully on-device processing — zero data upload (sole exception: crash reporting, off by default; crash logs are uploaded to Tencent Bugly only after you explicitly enable it — see [Privacy Notice](#privacy-notice)). Supports Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) and SMTP email push, one-tap pause/resume via home-screen widget, all configs AES-256 encrypted. **Full-app Chinese/English i18n**.
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.70/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.71/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
@@ -23,7 +23,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 
 ## Introduction
 
-NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) or SMTP email, with one-tap pause/resume via home-screen widget. Fully on-device processing — zero data upload (crash reporting is off by default; crash logs are uploaded to Tencent Bugly only after being enabled). Full-app Chinese/English i18n. Open source MIT, free, no ads.
+NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email, with one-tap pause/resume via home-screen widget. Fully on-device processing — zero data upload (crash reporting is off by default; crash logs are uploaded to Tencent Bugly only after being enabled). Full-app Chinese/English i18n. Open source MIT, free, no ads.
 
 ## Features
 

@@ -59,6 +59,15 @@ object WebhookSigner {
                 WebhookPayloadBuilder.WebhookType.BARK -> SignedRequest(url, payload, emptyMap())
                 WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
                 WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> SignedRequest(url, payload, emptyMap())
+                // ntfy：secret 为可选访问令牌（Bearer），签名豁免但注入鉴权 header
+                WebhookPayloadBuilder.WebhookType.NTFY -> SignedRequest(
+                    url, payload, mapOf("Authorization" to "Bearer $secret")
+                )
+                // Gotify：token 拼接在 URL query（WebhookSender 分支处理），无签名/header
+                WebhookPayloadBuilder.WebhookType.GOTIFY,
+                // Slack / Discord：Incoming Webhook URL 本身即凭据，无签名
+                WebhookPayloadBuilder.WebhookType.SLACK,
+                WebhookPayloadBuilder.WebhookType.DISCORD -> SignedRequest(url, payload, emptyMap())
             }
         } catch (e: Exception) {
             Log.e(TAG, "Sign failed for $type: ${e.message}", e)

@@ -125,6 +125,17 @@ class ChannelBehaviorGoldenTest {
         Triple(WebhookPayloadBuilder.WebhookType.SERVER_CHAN, 200, """{"code":40001,"message":"bad pushkey"}"""),
         Triple(WebhookPayloadBuilder.WebhookType.PUSH_PLUS, 200, """{"code":200,"msg":"请求成功"}"""),
         Triple(WebhookPayloadBuilder.WebhookType.PUSH_PLUS, 200, """{"code":500,"msg":"token 无效"}"""),
+        // ntfy / Gotify（parse=null：2xx JSON 走兜底 SUCCESS；鉴权失败 403 → HTTP_FAIL）
+        Triple(WebhookPayloadBuilder.WebhookType.NTFY, 200, """{"id":"RXJ8bWlp","time":1767223200,"topic":"mytopic"}"""),
+        Triple(WebhookPayloadBuilder.WebhookType.NTFY, 403, """{"code":40301,"http":403,"error":"forbidden"}"""),
+        Triple(WebhookPayloadBuilder.WebhookType.GOTIFY, 200, """{"id":1}"""),
+        Triple(WebhookPayloadBuilder.WebhookType.GOTIFY, 403, """{"error":"Unauthorized","errorDescription":"token required"}"""),
+        // Slack（成功/失败响应均为纯文本，非 JSON → 外层兜底）
+        Triple(WebhookPayloadBuilder.WebhookType.SLACK, 200, """ok"""),
+        Triple(WebhookPayloadBuilder.WebhookType.SLACK, 400, """invalid_payload"""),
+        // Discord（成功为 HTTP 204 空 body；429 带 retry_after）
+        Triple(WebhookPayloadBuilder.WebhookType.DISCORD, 204, """"""),
+        Triple(WebhookPayloadBuilder.WebhookType.DISCORD, 429, """{"retry_after":500,"global":false}"""),
     )
 
     private fun describe(r: WebhookResponseParser.ParseResult): String =

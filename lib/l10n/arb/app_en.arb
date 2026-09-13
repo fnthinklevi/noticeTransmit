@@ -1062,5 +1062,42 @@
     }
   },
   "notificationPermOffMsg": "Notification access is off, so the app cannot read device notifications.\n\nEnable it in \"Permission settings\" first, then start the service.",
-  "historyBlockAppWhitelistNote": "Blocked as requested. Note: whitelist keyword hits will still push this app — consider removing related whitelist keywords."
+  "historyBlockAppWhitelistNote": "Blocked as requested. Note: whitelist keyword hits will still push this app — consider removing related whitelist keywords.",
+  "channelTypeNtfy": "ntfy Push",
+  "channelTypeGotify": "Gotify Push",
+  "channelTypeSlack": "Slack Notification",
+  "channelTypeDiscord": "Discord Notification",
+  "platformNtfyDesc": "Push to an ntfy topic; official or self-hosted servers supported (optional access token)",
+  "platformGotifyDesc": "Push to a self-hosted Gotify server, authenticated with an application token (in the secret field)",
+  "platformSlackDesc": "Send messages via a Slack Incoming Webhook",
+  "platformDiscordDesc": "Send messages via a Discord Webhook; content limited to 2000 chars",
+  "signingHintNtfy": "Optional: ntfy access token (Bearer), required if your server has auth enabled",
+  "signingHintGotify": "Required: Gotify application token (client tokens cannot push)",
+  "signingHintSlack": "Slack authenticates via the Incoming Webhook URL; no signing key needed",
+  "signingHintDiscord": "Discord authenticates via the Webhook URL; no signing key needed",
+  "historyActionBlockAppDescAllowAll": "All apps are currently pushed. Tapping switches to blocklist mode and blocks this app; other apps are unaffected",
+  "historyBlockAppSwitchedToBlock": "Blocked \"{app}\"; filter mode switched to blocklist (other apps unaffected)",
+  "@historyBlockAppSwitchedToBlock": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleAppGroupApplied": "Applied · {n}",
+  "@ruleAppGroupApplied": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ruleAppGroupExcludedN": "Excluded · {n}",
+  "@ruleAppGroupExcludedN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

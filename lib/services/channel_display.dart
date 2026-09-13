@@ -47,6 +47,18 @@ String channelTypeDisplayName(String rawType) {
     case 'pushPlus':
     case 'PUSH_PLUS':
       return 'webhook:PushPlus';
+    case 'ntfy':
+    case 'NTFY':
+      return 'webhook:ntfy';
+    case 'gotify':
+    case 'GOTIFY':
+      return 'webhook:Gotify';
+    case 'slack':
+    case 'SLACK':
+      return 'webhook:Slack';
+    case 'discord':
+    case 'DISCORD':
+      return 'webhook:Discord';
     case 'email':
     case 'EMAIL':
       return isEn ? 'Email' : '邮件';

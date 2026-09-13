@@ -10,6 +10,10 @@ enum WebhookChannelType {
   bark,
   serverChan,
   pushPlus,
+  ntfy,
+  gotify,
+  slack,
+  discord,
 }
 
 extension WebhookChannelTypeExtension on WebhookChannelType {
@@ -31,6 +35,14 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'server_chan';
       case WebhookChannelType.pushPlus:
         return 'push_plus';
+      case WebhookChannelType.ntfy:
+        return 'ntfy';
+      case WebhookChannelType.gotify:
+        return 'gotify';
+      case WebhookChannelType.slack:
+        return 'slack';
+      case WebhookChannelType.discord:
+        return 'discord';
     }
   }
 
@@ -52,6 +64,14 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'Server酱';
       case WebhookChannelType.pushPlus:
         return 'PushPlus';
+      case WebhookChannelType.ntfy:
+        return 'ntfy';
+      case WebhookChannelType.gotify:
+        return 'Gotify';
+      case WebhookChannelType.slack:
+        return 'Slack';
+      case WebhookChannelType.discord:
+        return 'Discord';
     }
   }
 
@@ -62,11 +82,17 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
       case WebhookChannelType.wechatWork:
       case WebhookChannelType.dingtalk:
       case WebhookChannelType.feishu:
+      // ntfy/gotify 的 secret 用作访问令牌（Bearer / App Token），非签名
+      case WebhookChannelType.ntfy:
+      case WebhookChannelType.gotify:
         return true;
       case WebhookChannelType.telegram:
       case WebhookChannelType.bark:
       case WebhookChannelType.serverChan:
       case WebhookChannelType.pushPlus:
+      // Slack/Discord：Incoming Webhook URL 本身即凭据
+      case WebhookChannelType.slack:
+      case WebhookChannelType.discord:
         return false;
     }
   }
@@ -90,6 +116,14 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'Server酱 使用 SendKey 鉴权，无需签名密钥';
       case WebhookChannelType.pushPlus:
         return 'PushPlus 使用 Token 鉴权，无需签名密钥';
+      case WebhookChannelType.ntfy:
+        return '可选：ntfy 访问令牌（Bearer Token），自建服务器开启鉴权时填写';
+      case WebhookChannelType.gotify:
+        return '必填：Gotify 应用 Token（客户端 Token 无法推送）';
+      case WebhookChannelType.slack:
+        return 'Slack 使用 Incoming Webhook URL 鉴权，无需签名密钥';
+      case WebhookChannelType.discord:
+        return 'Discord 使用 Webhook URL 鉴权，无需签名密钥';
     }
   }
 }
@@ -186,6 +220,10 @@ class WebhookChannel {
     (WebhookChannelType.bark, ['api.day.app', 'bark.gugu.ovh']),
     (WebhookChannelType.serverChan, ['sctapi.ftqq.com']),
     (WebhookChannelType.pushPlus, ['www.pushplus.plus', 'pushplus.plus']),
+    (WebhookChannelType.slack, ['hooks.slack.com']),
+    (WebhookChannelType.discord, ['discord.com', 'discordapp.com']),
+    // ntfy 官方托管可自动识别；自建 ntfy/Gotify 的 host 不可枚举：
+    // 类型由用户手动选择（detectTypeFromUrl 兜底 generic）
   ];
 
   static WebhookChannelType detectTypeFromUrl(String url) {

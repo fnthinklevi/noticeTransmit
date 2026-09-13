@@ -66,6 +66,14 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return (Icons.forward_to_inbox, const Color(0xFF4E5969));
       case WebhookChannelType.pushPlus:
         return (Icons.bolt, const Color(0xFF00B96B));
+      case WebhookChannelType.ntfy:
+        return (Icons.cell_tower, const Color(0xFF33B18A));
+      case WebhookChannelType.gotify:
+        return (Icons.inbox, const Color(0xFF00A0E9));
+      case WebhookChannelType.slack:
+        return (Icons.tag, const Color(0xFF4A154B));
+      case WebhookChannelType.discord:
+        return (Icons.forum, const Color(0xFF5865F2));
       case WebhookChannelType.generic:
         return (Icons.code, const Color(0xFFFF9500));
     }
@@ -91,6 +99,14 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return l10n.channelTypeServerChan;
       case WebhookChannelType.pushPlus:
         return l10n.channelTypePushPlus;
+      case WebhookChannelType.ntfy:
+        return l10n.channelTypeNtfy;
+      case WebhookChannelType.gotify:
+        return l10n.channelTypeGotify;
+      case WebhookChannelType.slack:
+        return l10n.channelTypeSlack;
+      case WebhookChannelType.discord:
+        return l10n.channelTypeDiscord;
     }
   }
 
@@ -451,15 +467,18 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     }
   }
 
-  /// 当前通道是否支持服务端签名密钥（用于决定是否显示 secret 输入框）。
-  /// Telegram 用 Bot Token、Bark 用设备 Key 鉴权，不支持签名密钥；
-  /// 其余平台（含通用 webhook 的 X-Signature 头）可按需填写。
+  /// 当前通道是否显示 secret 输入框。
+  /// Telegram 用 Bot Token、Bark 用设备 Key、Slack/Discord 用 Webhook URL 本身
+  /// 鉴权，不显示签名密钥输入框；其余平台（ntfy/gotify 的访问令牌、通用 webhook
+  /// 的 X-Signature 头等）可按需填写。
   bool _supportsSigning(int index) {
     final type = _effectiveType(index);
     return type != WebhookChannelType.telegram &&
         type != WebhookChannelType.bark &&
         type != WebhookChannelType.serverChan &&
-        type != WebhookChannelType.pushPlus;
+        type != WebhookChannelType.pushPlus &&
+        type != WebhookChannelType.slack &&
+        type != WebhookChannelType.discord;
   }
 
   String _signingHint(BuildContext context, WebhookChannelType type) {
@@ -479,6 +498,14 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return l10n.signingHintServerChan;
       case WebhookChannelType.pushPlus:
         return l10n.signingHintPushPlus;
+      case WebhookChannelType.ntfy:
+        return l10n.signingHintNtfy;
+      case WebhookChannelType.gotify:
+        return l10n.signingHintGotify;
+      case WebhookChannelType.slack:
+        return l10n.signingHintSlack;
+      case WebhookChannelType.discord:
+        return l10n.signingHintDiscord;
       case WebhookChannelType.generic:
         return l10n.signingHintGeneric;
     }
@@ -618,10 +645,14 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     );
   }
 
-  Widget _buildWebhookTypeHint(String urlStr, BuildContext context) {
+  /// URL 识别提示区。
+  /// 尊重手动指定的通道类型（自建 ntfy/Gotify 服务器 host 不可枚举，
+  /// 纯 URL 探测会把手动选择的类型误显示为「通用 Webhook」，误导用户）；
+  /// 仅当处于「自动识别」模式时才按 URL host 探测。
+  Widget _buildWebhookTypeHint(int index, String urlStr, BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final url = urlStr.trim();
-    final type = WebhookChannel.detectTypeFromUrl(url);
+    final type = _effectiveType(index);
     String typeName;
     IconData icon;
     Color color;
@@ -669,6 +700,26 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           icon = Icons.bolt;
           color = const Color(0xFF00B96B);
           desc = l10n.platformWechatDesc;
+        case WebhookChannelType.ntfy:
+          typeName = l10n.channelTypeNtfy;
+          icon = Icons.cell_tower;
+          color = const Color(0xFF33B18A);
+          desc = l10n.platformNtfyDesc;
+        case WebhookChannelType.gotify:
+          typeName = l10n.channelTypeGotify;
+          icon = Icons.inbox;
+          color = const Color(0xFF00A0E9);
+          desc = l10n.platformGotifyDesc;
+        case WebhookChannelType.slack:
+          typeName = 'Slack';
+          icon = Icons.tag;
+          color = const Color(0xFF4A154B);
+          desc = l10n.platformSlackDesc;
+        case WebhookChannelType.discord:
+          typeName = 'Discord';
+          icon = Icons.forum;
+          color = const Color(0xFF5865F2);
+          desc = l10n.platformDiscordDesc;
         case WebhookChannelType.generic:
           typeName = l10n.platformGeneric;
           icon = Icons.code;

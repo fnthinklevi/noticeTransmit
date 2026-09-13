@@ -137,6 +137,29 @@ for k, base in names.items():
     shutil.copy2(f'build/app/outputs/flutter-apk/v{ver}/{base}', f'server/public/apks/{ver}/{base}')
 print('version.json 回填 + 归档同步完成:', sizes)
 PYEOF
+"$PY" - "$VER" <<'PYEOF'
+import glob, json, os, re, hashlib, sys
+ver = sys.argv[1]
+mapping = {'notice_arm64': 'arm64', 'notice_arm32': 'arm32', 'notice_x86': 'x86_64', 'notice_all': 'all'}
+p = 'server/data/version.json'
+d = json.load(open(p, encoding='utf-8'))
+# sha256：与 CDN 侧校验值一致（文件字节级 SHA256，十六进制小写）
+sha = {}
+for apk in sorted(glob.glob(f'build/app/outputs/flutter-apk/v{ver}/*.apk')):
+    base = os.path.basename(apk)
+    for pre, key in mapping.items():
+        if base.startswith(pre):
+            h = hashlib.sha256()
+            with open(apk, 'rb') as f:
+                for chunk in iter(lambda: f.read(1 << 20), b''):
+                    h.update(chunk)
+            sha[key] = h.hexdigest()
+d['sha256'] = sha
+json.dump(d, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+open(p, 'a', encoding='utf-8').write('\n')
+print('sha256 回填完成')
+PYEOF
+if [ $? -eq 0 ]; then ok "sha256 回填（4 架构）"; else fail "sha256 回填失败"; fi
 if [ $? -eq 0 ]; then ok "version.json 与 server/public/apks/$VER 同步"; else fail "version.json 回填/归档失败"; fi
 
 # ── 阶段 4：缺项显式检查（防漏：update.md/徽章/官网动态化说明）────────────

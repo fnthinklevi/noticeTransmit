@@ -61,6 +61,8 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['通知本地处理'] = 'Local Processing';
   D['多语言国际化'] = 'Multi-language i18n';
   D['全应用中英双语支持（120+ 处迁移），设置页一键切换语言。'] = 'Full-app Chinese/English bilingual, switch language in settings page.';
+  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email — with app filtering, keyword filtering, a visual rule engine (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and custom battery alerts.';
+  D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / custom — ntfy and Gotify support self-hosted servers) + SMTP email (SSL/STARTTLS). Independent switch per channel; subject/body support template variables.';
   // feature cards — updated v1.5.48
   D['Webhook + 邮件多通道'] = 'Webhook + Email Multi-channel';
   D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / 自定义）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / Custom) + SMTP Email (SSL/STARTTLS), each channel independently toggleable, subject/body support template variables.';

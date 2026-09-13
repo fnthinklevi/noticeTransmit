@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.70/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.71/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -33,7 +33,7 @@
 - 📱 **多类型识别** - 智能识别微信、QQ、短信、来电、系统通知等类型
 - 🔗 **Webhook 多通道** - 支持同时配置多个 Webhook URL，每个通道独立开关
 - 📧 **SMTP 邮件推送** - 支持 SMTP 邮件转发（SSL/STARTTLS），可自定义主题模板与正文模板
-- 📤 **多平台适配** - 自动适配企业微信、钉钉、飞书、Telegram、Bark、Server酱、PushPlus 等平台消息格式；应用内更新安装包带 sha256 完整性校验（v1.5.69），Bark 业务失败如实呈现不再误报成功
+- 📤 **多平台适配** - 自动适配企业微信、钉钉、飞书、Telegram、Bark、Server酱、PushPlus、ntfy、Gotify、Slack、Discord 等平台消息格式（ntfy/Gotify 支持自建服务器）；应用内更新安装包带 sha256 完整性校验（v1.5.69），Bark 业务失败如实呈现不再误报成功
 
 ### 进阶功能
 

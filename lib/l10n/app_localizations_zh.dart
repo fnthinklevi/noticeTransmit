@@ -2214,4 +2214,59 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get historyBlockAppWhitelistNote =>
       '已确认屏蔽；注意：白名单关键词命中仍会推送该应用，可删除相关白名单关键词';
+
+  @override
+  String get channelTypeNtfy => 'ntfy 推送';
+
+  @override
+  String get channelTypeGotify => 'Gotify 推送';
+
+  @override
+  String get channelTypeSlack => 'Slack 通知';
+
+  @override
+  String get channelTypeDiscord => 'Discord 通知';
+
+  @override
+  String get platformNtfyDesc => '向 ntfy topic 推送通知，支持官方与自建服务器（可选访问令牌）';
+
+  @override
+  String get platformGotifyDesc => '向自建 Gotify 服务器推送，使用应用 Token 鉴权（填于密钥字段）';
+
+  @override
+  String get platformSlackDesc => '通过 Slack Incoming Webhook 发送消息';
+
+  @override
+  String get platformDiscordDesc => '通过 Discord Webhook 发送消息，正文上限 2000 字符';
+
+  @override
+  String get signingHintNtfy => '可选：ntfy 访问令牌（Bearer Token），自建服务器开启鉴权时填写';
+
+  @override
+  String get signingHintGotify => '必填：Gotify 应用 Token（客户端 Token 无法推送）';
+
+  @override
+  String get signingHintSlack => 'Slack 使用 Incoming Webhook URL 鉴权，无需签名密钥';
+
+  @override
+  String get signingHintDiscord => 'Discord 使用 Webhook URL 鉴权，无需签名密钥';
+
+  @override
+  String get historyActionBlockAppDescAllowAll =>
+      '当前为全部推送模式；点击后切换为黑名单模式并屏蔽该应用，其余应用不受影响';
+
+  @override
+  String historyBlockAppSwitchedToBlock(String app) {
+    return '已屏蔽「$app」，过滤模式已切换为黑名单（其余应用推送不受影响）';
+  }
+
+  @override
+  String ruleAppGroupApplied(int n) {
+    return '适用 · $n 个';
+  }
+
+  @override
+  String ruleAppGroupExcludedN(int n) {
+    return '已排除 · $n 个';
+  }
 }

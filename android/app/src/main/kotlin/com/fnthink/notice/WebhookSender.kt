@@ -199,6 +199,79 @@ class WebhookSender(private val context: Context) {
             return
         }
 
+        // ntfy：header 模式——body 即纯文本消息；Title/Authorization（secret 为可选访问令牌）
+        // 由 WebhookSigner NTFY 分支注入 headers，发送层仅切换 Content-Type
+        if (cfg.type == WebhookPayloadBuilder.WebhookType.NTFY) {
+            val payload = WebhookPayloadBuilder.buildPayload(
+                type = cfg.type,
+                title = info.title,
+                content = info.content,
+                appName = info.appName,
+                packageName = info.packageName,
+                time = info.time,
+                deviceName = deviceName,
+                notifyType = info.type,
+            )
+            NetworkClient.sendWithRetry(
+                url = cfg.url,
+                payload = payload,
+                tag = "notification",
+                webhookType = cfg.type,
+                secret = cfg.secret,
+                recordId = info.id,
+                contentType = "text/plain; charset=utf-8",
+                force = force,
+                onResult = { result ->
+                    Log.d(TAG, "Delivery(ntfy): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                    onResultDone?.invoke(result)
+                }
+            )
+            return
+        }
+
+        // Gotify：POST {server}/message?token=...——App Token 走 secret 字段，不进明文副本/日志
+        if (cfg.type == WebhookPayloadBuilder.WebhookType.GOTIFY) {
+            val token = cfg.secret?.trim() ?: ""
+            if (token.isEmpty()) {
+                Log.e(TAG, "Gotify missing app token (secret), skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
+                val earlyFail = WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                    0, "Gotify 缺少应用 Token（secret 字段）", false
+                )
+                notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+                onResultDone?.invoke(earlyFail)
+                return
+            }
+            val targetUrl = cfg.url.trimEnd('/') + "/message?token=" +
+                java.net.URLEncoder.encode(token, "UTF-8")
+            val payload = WebhookPayloadBuilder.buildPayload(
+                type = cfg.type,
+                title = info.title,
+                content = info.content,
+                appName = info.appName,
+                packageName = info.packageName,
+                time = info.time,
+                deviceName = deviceName,
+                notifyType = info.type,
+            )
+            NetworkClient.sendWithRetry(
+                url = targetUrl,
+                payload = payload,
+                tag = "notification",
+                webhookType = cfg.type,
+                secret = null,
+                recordId = info.id,
+                force = force,
+                onResult = { result ->
+                    Log.d(TAG, "Delivery(Gotify): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                    onResultDone?.invoke(result)
+                }
+            )
+            return
+        }
+
         // Server酱：POST form（application/x-www-form-urlencoded），内容不进 URL，避免被代理/日志留存
         if (cfg.type == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
             val formBody = WebhookPayloadBuilder.buildServerChanFormBody(

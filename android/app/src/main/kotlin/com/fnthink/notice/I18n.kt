@@ -231,6 +231,10 @@ object I18n {
         WebhookPayloadBuilder.WebhookType.BARK -> "Bark"
         WebhookPayloadBuilder.WebhookType.SERVER_CHAN -> if (isEn) "ServerChan" else "Server酱"
         WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> "PushPlus"
+        WebhookPayloadBuilder.WebhookType.NTFY -> "ntfy"
+        WebhookPayloadBuilder.WebhookType.GOTIFY -> "Gotify"
+        WebhookPayloadBuilder.WebhookType.SLACK -> "Slack"
+        WebhookPayloadBuilder.WebhookType.DISCORD -> "Discord"
         WebhookPayloadBuilder.WebhookType.GENERIC -> if (isEn) "Generic" else "通用"
     }
     fun pushPlusTokenMissing(): String =

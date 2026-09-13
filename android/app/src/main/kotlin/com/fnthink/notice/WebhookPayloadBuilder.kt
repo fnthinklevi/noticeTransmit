@@ -13,7 +13,11 @@ object WebhookPayloadBuilder {
         TELEGRAM,
         BARK,
         SERVER_CHAN,
-        PUSH_PLUS
+        PUSH_PLUS,
+        NTFY,
+        GOTIFY,
+        SLACK,
+        DISCORD,
     }
 
 
@@ -234,6 +238,17 @@ object WebhookPayloadBuilder {
             if (chatId.isNotEmpty()) put("chat_id", chatId)
             put("disable_web_page_preview", true)
         }.toString()
+    }
+
+    /**
+     * Discord content 截断：消息正文上限 2000 字符，超长直接 400。
+     * 不截断代理项对（与 Telegram 4096 先例一致）。
+     */
+    fun truncateForDiscord(text: String): String {
+        if (text.length <= 2000) return text
+        var end = 2000
+        if (end > 0 && Character.isHighSurrogate(text[end - 1])) end--
+        return text.substring(0, end)
     }
 
     /**

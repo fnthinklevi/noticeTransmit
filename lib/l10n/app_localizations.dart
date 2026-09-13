@@ -4243,6 +4243,102 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已确认屏蔽；注意：白名单关键词命中仍会推送该应用，可删除相关白名单关键词'**
   String get historyBlockAppWhitelistNote;
+
+  /// No description provided for @channelTypeNtfy.
+  ///
+  /// In zh, this message translates to:
+  /// **'ntfy 推送'**
+  String get channelTypeNtfy;
+
+  /// No description provided for @channelTypeGotify.
+  ///
+  /// In zh, this message translates to:
+  /// **'Gotify 推送'**
+  String get channelTypeGotify;
+
+  /// No description provided for @channelTypeSlack.
+  ///
+  /// In zh, this message translates to:
+  /// **'Slack 通知'**
+  String get channelTypeSlack;
+
+  /// No description provided for @channelTypeDiscord.
+  ///
+  /// In zh, this message translates to:
+  /// **'Discord 通知'**
+  String get channelTypeDiscord;
+
+  /// No description provided for @platformNtfyDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'向 ntfy topic 推送通知，支持官方与自建服务器（可选访问令牌）'**
+  String get platformNtfyDesc;
+
+  /// No description provided for @platformGotifyDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'向自建 Gotify 服务器推送，使用应用 Token 鉴权（填于密钥字段）'**
+  String get platformGotifyDesc;
+
+  /// No description provided for @platformSlackDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过 Slack Incoming Webhook 发送消息'**
+  String get platformSlackDesc;
+
+  /// No description provided for @platformDiscordDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'通过 Discord Webhook 发送消息，正文上限 2000 字符'**
+  String get platformDiscordDesc;
+
+  /// No description provided for @signingHintNtfy.
+  ///
+  /// In zh, this message translates to:
+  /// **'可选：ntfy 访问令牌（Bearer Token），自建服务器开启鉴权时填写'**
+  String get signingHintNtfy;
+
+  /// No description provided for @signingHintGotify.
+  ///
+  /// In zh, this message translates to:
+  /// **'必填：Gotify 应用 Token（客户端 Token 无法推送）'**
+  String get signingHintGotify;
+
+  /// No description provided for @signingHintSlack.
+  ///
+  /// In zh, this message translates to:
+  /// **'Slack 使用 Incoming Webhook URL 鉴权，无需签名密钥'**
+  String get signingHintSlack;
+
+  /// No description provided for @signingHintDiscord.
+  ///
+  /// In zh, this message translates to:
+  /// **'Discord 使用 Webhook URL 鉴权，无需签名密钥'**
+  String get signingHintDiscord;
+
+  /// No description provided for @historyActionBlockAppDescAllowAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前为全部推送模式；点击后切换为黑名单模式并屏蔽该应用，其余应用不受影响'**
+  String get historyActionBlockAppDescAllowAll;
+
+  /// No description provided for @historyBlockAppSwitchedToBlock.
+  ///
+  /// In zh, this message translates to:
+  /// **'已屏蔽「{app}」，过滤模式已切换为黑名单（其余应用推送不受影响）'**
+  String historyBlockAppSwitchedToBlock(String app);
+
+  /// No description provided for @ruleAppGroupApplied.
+  ///
+  /// In zh, this message translates to:
+  /// **'适用 · {n} 个'**
+  String ruleAppGroupApplied(int n);
+
+  /// No description provided for @ruleAppGroupExcludedN.
+  ///
+  /// In zh, this message translates to:
+  /// **'已排除 · {n} 个'**
+  String ruleAppGroupExcludedN(int n);
 }
 
 class _AppLocalizationsDelegate

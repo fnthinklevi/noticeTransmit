@@ -410,6 +410,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
             children: [
               Expanded(
                 child: _buildWebhookTypeHint(
+                  index,
                   _webhookControllers[index].text,
                   context,
                 ),

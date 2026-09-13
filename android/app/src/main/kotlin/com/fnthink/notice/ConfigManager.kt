@@ -124,6 +124,10 @@ class ConfigManager(private val context: Context) {
             "bark", "5" -> WebhookPayloadBuilder.WebhookType.BARK
             "server_chan", "serverchan", "6" -> WebhookPayloadBuilder.WebhookType.SERVER_CHAN
             "push_plus", "pushplus", "7" -> WebhookPayloadBuilder.WebhookType.PUSH_PLUS
+            "ntfy", "8" -> WebhookPayloadBuilder.WebhookType.NTFY
+            "gotify", "9" -> WebhookPayloadBuilder.WebhookType.GOTIFY
+            "slack", "10" -> WebhookPayloadBuilder.WebhookType.SLACK
+            "discord", "11" -> WebhookPayloadBuilder.WebhookType.DISCORD
             "generic", "3" -> WebhookPayloadBuilder.WebhookType.GENERIC
             else -> WebhookPayloadBuilder.detectType(url)
         }

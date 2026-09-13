@@ -754,6 +754,206 @@ internal object ChannelRegistry {
                 }
         },
     ),
+    ChannelSpec(
+        type = WebhookPayloadBuilder.WebhookType.NTFY,
+        // 官方托管 ntfy.sh 可自动识别；自建服务器 host 不可枚举，
+        // 类型由 DB channel_type 字段提供（detectType 兜底 GENERIC）
+        hosts = listOf("ntfy.sh"),
+        notify = { p ->
+            val title = p.title; val content = p.content; val appName = p.appName
+            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+         WebhookPayloadBuilder.buildTextBody(
+                        title = title,
+                        content = content,
+                        appName = appName,
+                        time = time,
+                        deviceName = deviceName,
+                        notifyType = notifyType
+                    )
+                    // header 模式：body 即纯文本消息；Title/Authorization 由发送层注入
+        },
+        test = { p ->
+            val content = p.content; val deviceLabel = p.deviceLabel
+            val sep = p.sep; val deviceName = p.deviceName
+         "$content\n\n$deviceLabel$sep$deviceName"
+        },
+        sms = { p ->
+            val sender = p.sender; val message = p.message
+            val time = p.time; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            sender = sender, message = message, simFooter = simFooter
+                        )
+        },
+        call = { p ->
+            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+            val durationStr = p.durationStr; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            state = state, phoneNumber = phoneNumber,
+                            durationStr = durationStr, simFooter = simFooter
+                        )
+        },
+        // parse = null：ntfy 2xx（含 JSON {"id":...}）即成功，走外层兜底
+    ),
+    ChannelSpec(
+        type = WebhookPayloadBuilder.WebhookType.GOTIFY,
+        hosts = emptyList(),
+        notify = { p ->
+            val title = p.title; val content = p.content; val appName = p.appName
+            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+         JSONObject().apply {
+                        put("title", title.ifEmpty { appName })
+                        put("message", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = content, appName = "",
+                            time = time, deviceName = deviceName,
+                            notifyType = notifyType
+                        ))
+                    }.toString()
+        },
+        test = { p ->
+            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+            val sep = p.sep; val deviceName = p.deviceName
+         JSONObject().apply {
+                        put("title", title)
+                        put("message", "$content\n\n$deviceLabel$sep$deviceName")
+                    }.toString()
+        },
+        sms = { p ->
+            val title = p.title; val sender = p.sender; val message = p.message
+            val time = p.time; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         JSONObject().apply {
+                        put("title", title)
+                        put("message", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            sender = sender, message = message, simFooter = simFooter
+                        ))
+                    }.toString()
+        },
+        call = { p ->
+            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+            val durationStr = p.durationStr; val deviceName = p.deviceName
+            val simInfo = p.simInfo; val simFooter = p.simFooter
+         JSONObject().apply {
+                        put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
+                        put("message", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            state = state, phoneNumber = phoneNumber,
+                            durationStr = durationStr, simFooter = simFooter
+                        ))
+                    }.toString()
+        },
+        // parse = null：Gotify 2xx（含 JSON {"id":...}）即成功，走外层兜底
+    ),
+    ChannelSpec(
+        type = WebhookPayloadBuilder.WebhookType.SLACK,
+        hosts = listOf("hooks.slack.com"),
+        notify = { p ->
+            val title = p.title; val content = p.content; val appName = p.appName
+            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+         JSONObject().apply {
+                        put("text", WebhookPayloadBuilder.buildTextBody(
+                            title = title, content = content, appName = appName,
+                            time = time, deviceName = deviceName,
+                            notifyType = notifyType
+                        ))
+                    }.toString()
+        },
+        test = { p ->
+            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+            val sep = p.sep; val deviceName = p.deviceName
+         JSONObject().apply {
+                        put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
+                    }.toString()
+        },
+        sms = { p ->
+            val sender = p.sender; val message = p.message
+            val time = p.time; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         JSONObject().apply {
+                        put("text", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            sender = sender, message = message, simFooter = simFooter
+                        ))
+                    }.toString()
+        },
+        call = { p ->
+            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+            val durationStr = p.durationStr; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         JSONObject().apply {
+                        put("text", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            state = state, phoneNumber = phoneNumber,
+                            durationStr = durationStr, simFooter = simFooter
+                        ))
+                    }.toString()
+        },
+        // parse = null：Slack 成功响应为文本 "ok"（非 JSON）→ 外层兜底 SUCCESS；失败走 4xx HTTP_FAIL
+    ),
+    ChannelSpec(
+        type = WebhookPayloadBuilder.WebhookType.DISCORD,
+        hosts = listOf("discord.com", "discordapp.com"),
+        notify = { p ->
+            val title = p.title; val content = p.content; val appName = p.appName
+            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+         JSONObject().apply {
+                        put("content", WebhookPayloadBuilder.truncateForDiscord(
+                            WebhookPayloadBuilder.buildTextBody(
+                                title = title, content = content, appName = appName,
+                                time = time, deviceName = deviceName,
+                                notifyType = notifyType
+                            )
+                        ))
+                    }.toString()
+        },
+        test = { p ->
+            val content = p.content; val deviceLabel = p.deviceLabel
+            val sep = p.sep; val deviceName = p.deviceName
+         JSONObject().apply {
+                        put("content", "$content\n\n$deviceLabel$sep$deviceName")
+                    }.toString()
+        },
+        sms = { p ->
+            val sender = p.sender; val message = p.message
+            val time = p.time; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         JSONObject().apply {
+                        put("content", WebhookPayloadBuilder.truncateForDiscord(
+                            WebhookPayloadBuilder.buildTextBody(
+                                title = "", content = "", appName = "",
+                                time = time, deviceName = deviceName,
+                                sender = sender, message = message, simFooter = simFooter
+                            )
+                        ))
+                    }.toString()
+        },
+        call = { p ->
+            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+            val durationStr = p.durationStr; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         JSONObject().apply {
+                        put("content", WebhookPayloadBuilder.truncateForDiscord(
+                            WebhookPayloadBuilder.buildTextBody(
+                                title = "", content = "", appName = "",
+                                time = time, deviceName = deviceName,
+                                state = state, phoneNumber = phoneNumber,
+                                durationStr = durationStr, simFooter = simFooter
+                            )
+                        ))
+                    }.toString()
+        },
+        // parse = null：Discord 成功为 HTTP 204（空 body）→ 外层 SUCCESS；429 → 外层 RATE_LIMITED；400 → HTTP_FAIL
+    ),
     )
 
     private val byType: Map<WebhookPayloadBuilder.WebhookType, ChannelSpec> =
