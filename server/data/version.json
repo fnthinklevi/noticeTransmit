@@ -1,27 +1,27 @@
 {
-  "latestVersion": "1.5.71",
-  "latestBuild": 107,
+  "latestVersion": "1.5.72",
+  "latestBuild": 108,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.70",
   "forceUpdateBuild": 105,
-  "changelog": "v1.5.71+107: 新增 ntfy/Gotify/Slack/Discord 四个推送通道(经 ChannelRegistry 描述符表接入,含自建服务器支持/访问令牌/正文截断/限流识别,ntfy.sh 自动识别) + 修复全部推送模式下长按屏蔽不生效且误提示「已不在推送范围」的问题(现正确切换黑名单并屏蔽,其余应用不受影响) + 规则「适用应用」选择页对齐应用筛选页(已选/未选分组,全选/反选,强制重扫)",
+  "changelog": "v1.5.72+108: 规则「选择适用应用」新增快速选择分组(自动识别已安装的主流通讯/邮箱应用,系统短信组件聚合为「短信」行/系统电话组件聚合为「电话」行,微信/QQ/企业微信/飞书/钉钉/Telegram/X/WhatsApp等第三方应用逐行,Gmail/Outlook/QQ邮箱等邮箱应用分区,聚合行整组三态开关,全选/清空/反选覆盖全部可见项,搜索同步生效) + 修复适用应用列表恒为空显示「没有找到应用」(MethodChannel列表隐式类型转换异常致缓存与全量加载静默失败,手动刷新同因失效一并修复,新增回归测试)",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_arm64_1.5.71.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_arm32_1.5.71.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_x86_1.5.71.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.71/notice_all_1.5.71.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.72/notice_arm64_1.5.72.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.72/notice_arm32_1.5.72.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.72/notice_x86_1.5.72.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.72/notice_all_1.5.72.apk"
   },
   "fileSizes": {
-    "all": 75620698,
-    "arm32": 23573707,
-    "arm64": 27563101,
-    "x86_64": 29596115
+    "all": 75620862,
+    "arm32": 23573861,
+    "arm64": 27563256,
+    "x86_64": 29596274
   },
   "sha256": {
-    "all": "c8d1b0ff14b5ea97d61c77c6308420e60aff763e2b0ae45b7a4993912821840b",
-    "arm32": "e1d2b2cd5b6ea444f8b65a633fbd4c3bb39ede097ab4fe42e7d13b1407282e77",
-    "arm64": "86621bb294bb50a9692b284a53a419ab9927492d87b10817fc755f39de8e46e7",
-    "x86_64": "2469a5f98ff66721c3237eb722597758e32b68d81ee3656acd7edc1f2dff097a"
+    "all": "8c764a9baa168df215486d27080710493419206d5e37e8e4f118c3da7cdc3642",
+    "arm32": "397ef670a578756d28d80a6c9f243b9c789682a3b6424ae8ec4ea6f3f9d4be28",
+    "arm64": "52c17ae8516bac7d231d690dc75cf64f57e91108b53e47e891b6e534a56fb048",
+    "x86_64": "a5db70771151a3cd4ad2ed2b0a1850c2f54a2e6d4356420a62016c490a458d3e"
   },
   "minSupportedVersion": "1.0.0"
 }

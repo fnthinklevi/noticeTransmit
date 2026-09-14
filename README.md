@@ -12,7 +12,7 @@
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
-[![Version](https://badgen.net/badge/Version/1.5.71/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
+[![Version](https://badgen.net/badge/Version/1.5.72/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/MIT/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
@@ -42,7 +42,7 @@
 - ✅ **送达状态标注** - 首页推送记录逐条标注各通道送达状态（推送成功/推送失败/发送中/用户暂停推送），按企业微信/飞书/钉钉官方返回码判定，短信/电话通道送达结果实时回传；推送失败原因（如 HTTP 502 / 限流提示）直接内联显示
 - 📱 **应用筛选** - 自定义选择需要推送通知的应用
 - 🏷️ **关键词过滤** - 支持白名单和黑名单关键词过滤，精准控制推送内容
-- 🧠 **规则引擎** - 可视化配置通知规则，支持条件组合（IF）和动作配置（THEN），第一次进入提供功能引导说明，内置验证码优先推送、营销广告拦截、夜间免打扰、应用通知聚合等默认规则（开箱即用，升级自动补齐缺失项）；规则优先级支持快捷档位与自定义数值（0-500），每条规则可单独排除不适用的应用（系统短信/电话置顶展示）
+- 🧠 **规则引擎** - 可视化配置通知规则，支持条件组合（IF）和动作配置（THEN），第一次进入提供功能引导说明，内置验证码优先推送、营销广告拦截、夜间免打扰、应用通知聚合等默认规则（开箱即用，升级自动补齐缺失项）；规则优先级支持快捷档位与自定义数值（0-500），每条规则可单独排除不适用的应用（「快速选择」自动识别本机已安装的主流通讯/邮箱应用，系统短信/电话组件聚合为单行、三态整组开关，置顶展示）
 - 🧪 **规则测试器（v1.5.69）** - 输入模拟通知，实时展示「过滤 → 规则匹配 → 最终动作」的完整命中链路，规则配置问题一眼定位
 - 📤 **失败记录批量补推（v1.5.69）** - 推送历史筛选失败记录后多选一键重推；推送失败自动重试（网络恢复/服务重启时重发最近失败项）
 - 📦 **应用通知聚合（v1.5.69）** - 同一应用的通知在窗口期内（默认 60 秒，可配置，最小 5 秒）自动合并为一条推送，显著减少高频消息轰炸；支持「满 N 条提前推送」（不等窗口到点）与「按会话分组」（同应用不同联系人分开聚合）；自定义模板支持 `%count%`/`%titles%` 变量；窗口期内仅一条消息时按普通推送直发；聚合期间前台通知实时展示待合并列表与剩余时间；无论聚合成功或失败，成员内容都会先完整保存到推送历史，且各成员记录逐条如实标注真实送达状态
