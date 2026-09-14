@@ -4339,6 +4339,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已排除 · {n} 个'**
   String ruleAppGroupExcludedN(int n);
+
+  /// No description provided for @ruleAppQuickSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速选择'**
+  String get ruleAppQuickSelect;
+
+  /// No description provided for @ruleAppQuickComm.
+  ///
+  /// In zh, this message translates to:
+  /// **'通讯'**
+  String get ruleAppQuickComm;
+
+  /// No description provided for @ruleAppQuickMail.
+  ///
+  /// In zh, this message translates to:
+  /// **'邮箱'**
+  String get ruleAppQuickMail;
+
+  /// No description provided for @ruleAppQuickSms.
+  ///
+  /// In zh, this message translates to:
+  /// **'短信'**
+  String get ruleAppQuickSms;
+
+  /// No description provided for @ruleAppQuickPhone.
+  ///
+  /// In zh, this message translates to:
+  /// **'电话'**
+  String get ruleAppQuickPhone;
+
+  /// No description provided for @ruleAppQuickSmsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统短信 / 信息应用'**
+  String get ruleAppQuickSmsSub;
+
+  /// No description provided for @ruleAppQuickPhoneSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统电话 / 通话应用'**
+  String get ruleAppQuickPhoneSub;
+
+  /// No description provided for @ruleAppGroupOthersN.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他应用 · {n} 个'**
+  String ruleAppGroupOthersN(int n);
 }
 
 class _AppLocalizationsDelegate

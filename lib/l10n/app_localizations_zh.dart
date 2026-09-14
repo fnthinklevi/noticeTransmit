@@ -2269,4 +2269,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String ruleAppGroupExcludedN(int n) {
     return '已排除 · $n 个';
   }
+
+  @override
+  String get ruleAppQuickSelect => '快速选择';
+
+  @override
+  String get ruleAppQuickComm => '通讯';
+
+  @override
+  String get ruleAppQuickMail => '邮箱';
+
+  @override
+  String get ruleAppQuickSms => '短信';
+
+  @override
+  String get ruleAppQuickPhone => '电话';
+
+  @override
+  String get ruleAppQuickSmsSub => '系统短信 / 信息应用';
+
+  @override
+  String get ruleAppQuickPhoneSub => '系统电话 / 通话应用';
+
+  @override
+  String ruleAppGroupOthersN(int n) {
+    return '其他应用 · $n 个';
+  }
 }

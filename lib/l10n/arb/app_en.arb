@@ -1099,5 +1099,20 @@
         "type": "int"
       }
     }
+  },
+  "ruleAppQuickSelect": "Quick Select",
+  "ruleAppQuickComm": "Messaging",
+  "ruleAppQuickMail": "Email",
+  "ruleAppQuickSms": "SMS",
+  "ruleAppQuickPhone": "Phone",
+  "ruleAppQuickSmsSub": "System messaging apps",
+  "ruleAppQuickPhoneSub": "System phone & call apps",
+  "ruleAppGroupOthersN": "Other Apps · {n}",
+  "@ruleAppGroupOthersN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

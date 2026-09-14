@@ -1106,5 +1106,20 @@
         "type": "int"
       }
     }
+  },
+  "ruleAppQuickSelect": "快速选择",
+  "ruleAppQuickComm": "通讯",
+  "ruleAppQuickMail": "邮箱",
+  "ruleAppQuickSms": "短信",
+  "ruleAppQuickPhone": "电话",
+  "ruleAppQuickSmsSub": "系统短信 / 信息应用",
+  "ruleAppQuickPhoneSub": "系统电话 / 通话应用",
+  "ruleAppGroupOthersN": "其他应用 · {n} 个",
+  "@ruleAppGroupOthersN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

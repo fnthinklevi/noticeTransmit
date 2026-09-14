@@ -1024,7 +1024,15 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
     List<Map<String, dynamic>>? apps;
     if (granted) {
       try {
-        final cached = await _channel.invokeMethod('getCachedInstalledApps');
+        // 必须显式声明 List<dynamic>：invokeMethod 无上下文时 T 推断为 dynamic，
+        // 若用 final 无类型接收，后续在 dynamic 接收器上动态调用泛型 map 时
+        // 类型参数会被实例化为 dynamic，toList() 得到 List<dynamic>，
+        // 再赋给 List<Map<String, dynamic>>? 触发隐式 downcast 抛异常
+        // （List<dynamic> is not a subtype of List<Map<String,dynamic>>?），
+        // 表现为应用列表恒为空（与应用筛选页写法保持一致）。
+        final List<dynamic> cached = await _channel.invokeMethod(
+          'getCachedInstalledApps',
+        );
         if (cached.isNotEmpty) {
           apps = cached.map((e) => Map<String, dynamic>.from(e)).toList();
         }
@@ -1032,7 +1040,9 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
         debugPrint('加载缓存应用列表失败: $e');
       }
       try {
-        final fresh = await _channel.invokeMethod('getInstalledApps');
+        final List<dynamic> fresh = await _channel.invokeMethod(
+          'getInstalledApps',
+        );
         final freshList = fresh
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
@@ -1064,14 +1074,6 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
     final name = (app['appName'] as String? ?? '').toLowerCase();
     final pkg = _pkg(app).toLowerCase();
     return name.contains(query) || pkg.contains(query);
-  }
-
-  bool _isVisibleApp(Map<String, dynamic> app, String query) {
-    // 与应用筛选页一致：默认隐藏系统应用，可用开关显示
-    if (!_showSystemApps && (app['isSystemApp'] as bool? ?? false)) {
-      return false;
-    }
-    return _matchesSearch(app, query);
   }
 
   void _toggle(String pkg, bool applies) {
@@ -1145,9 +1147,12 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      final result = await _channel.invokeMethod('getInstalledApps', {
-        'force': true,
-      });
+      // 显式 List<dynamic>：同 _initLoad，避免动态泛型 map 产出 List<dynamic>
+      // 赋给 _allApps 时 downcast 失败导致手动刷新静默无效
+      final List<dynamic> result = await _channel.invokeMethod(
+        'getInstalledApps',
+        {'force': true},
+      );
       final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
       if (!mounted) return;
       setState(() => _allApps = newApps);
@@ -1160,7 +1165,66 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
 
   Widget _buildList(BuildContext context, AppLocalizations l10n) {
     final query = _searchController.text.trim().toLowerCase();
-    final visible = _allApps.where((a) => _isVisibleApp(a, query)).toList();
+    final searchMatched = _allApps
+        .where((a) => _matchesSearch(a, query))
+        .toList();
+
+    // ── 快速选择分组：主流通讯/邮箱类 APP ──
+    // 命中内置目录且用户确实已安装才展示；不受「显示系统应用」开关影响
+    // （短信/电话本身是系统应用，默认隐藏系统应用时仍须能快速选择）。
+    // 系统短信/电话组件各自聚合为单行（短信/电话），不逐条展示
+    // 「信息/通话界面/电话服务/短信存储」等用户不可感知的系统组件名。
+    final quickSms = <Map<String, dynamic>>[];
+    final quickPhone = <Map<String, dynamic>>[];
+    final quickComm = <Map<String, dynamic>>[];
+    final quickMail = <Map<String, dynamic>>[];
+    final quickPkgs = <String>{};
+    void collectQuick(
+      Map<String, dynamic> a,
+      List<Map<String, dynamic>> bucket,
+    ) {
+      bucket.add(a);
+      quickPkgs.add(_pkg(a));
+    }
+
+    for (final a in searchMatched) {
+      final p = _pkg(a);
+      if (_kQuickSmsIndex.containsKey(p)) {
+        collectQuick(a, quickSms);
+      } else if (_kQuickPhoneIndex.containsKey(p)) {
+        collectQuick(a, quickPhone);
+      } else if (_kQuickCommIndex.containsKey(p)) {
+        collectQuick(a, quickComm);
+      } else if (_kQuickMailIndex.containsKey(p)) {
+        collectQuick(a, quickMail);
+      }
+    }
+    quickSms.sort(
+      (a, b) => _kQuickSmsIndex[_pkg(a)]! - _kQuickSmsIndex[_pkg(b)]!,
+    );
+    quickPhone.sort(
+      (a, b) => _kQuickPhoneIndex[_pkg(a)]! - _kQuickPhoneIndex[_pkg(b)]!,
+    );
+    quickComm.sort(
+      (a, b) => _kQuickCommIndex[_pkg(a)]! - _kQuickCommIndex[_pkg(b)]!,
+    );
+    quickMail.sort(
+      (a, b) => _kQuickMailIndex[_pkg(a)]! - _kQuickMailIndex[_pkg(b)]!,
+    );
+
+    // 其他应用：非快速目录，沿用「默认隐藏系统应用」过滤
+    final visible = searchMatched
+        .where((a) => !quickPkgs.contains(_pkg(a)))
+        .where((a) => _showSystemApps || !(a['isSystemApp'] as bool? ?? false))
+        .toList();
+    // 当前屏幕上所有可操作应用（快速选择 + 其他），全选/清空/反选作用于此集合
+    final visibleTarget = [
+      ...quickSms,
+      ...quickPhone,
+      ...quickComm,
+      ...quickMail,
+      ...visible,
+    ];
     final appliedApps = visible
         .where((a) => !_excluded.contains(_pkg(a)))
         .toList();
@@ -1229,14 +1293,16 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
                 context,
                 l10n.selectAll,
                 AppColors.blue,
-                () => setState(() => _excluded.removeAll(visible.map(_pkg))),
+                () => setState(
+                  () => _excluded.removeAll(visibleTarget.map(_pkg)),
+                ),
               ),
               const SizedBox(width: 8),
               _quickAction(
                 context,
                 l10n.deselectAll,
                 AppColors.secondaryLabel(context),
-                () => setState(() => _excluded.addAll(visible.map(_pkg))),
+                () => setState(() => _excluded.addAll(visibleTarget.map(_pkg))),
               ),
               const SizedBox(width: 8),
               _quickAction(
@@ -1244,13 +1310,11 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
                 l10n.invertSelection,
                 AppColors.secondaryLabel(context),
                 () => setState(() {
-                  final flipped = visible
-                      .map(_pkg)
-                      .where((p) => !_excluded.contains(p))
-                      .toList();
-                  _excluded
-                    ..clear()
-                    ..addAll(flipped);
+                  // 仅翻转当前可见集合，保留不在视图内的应用既有排除状态
+                  final pkgs = visibleTarget.map(_pkg).toSet();
+                  final flipped = pkgs.where((p) => !_excluded.contains(p));
+                  _excluded.removeAll(pkgs);
+                  _excluded.addAll(flipped);
                 }),
               ),
               const Spacer(),
@@ -1265,7 +1329,7 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
           ),
         ),
         Expanded(
-          child: visible.isEmpty
+          child: visibleTarget.isEmpty
               ? Center(
                   child: Text(
                     l10n.noAppsFound,
@@ -1275,7 +1339,16 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
                     ),
                   ),
                 )
-              : _buildAppList(context, l10n, appliedApps, excludedApps),
+              : _buildAppList(
+                  context,
+                  l10n,
+                  quickSms,
+                  quickPhone,
+                  quickComm,
+                  quickMail,
+                  appliedApps,
+                  excludedApps,
+                ),
         ),
       ],
     );
@@ -1309,14 +1382,25 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
     );
   }
 
-  /// 应用列表：有排除时按「适用（置顶）/ 已排除」分组，无排除时保持平铺
-  /// （与应用筛选页的已选/未选分组交互一致）。
+  /// 应用列表：
+  /// 1) 顶部「快速选择」卡——已安装的主流通讯/邮箱类（短信、电话、微信、QQ、
+  ///    X、Telegram、WhatsApp、Gmail、Outlook 等），通讯/邮箱两个小区块；
+  /// 2) 其他应用：有排除时按「适用（置顶）/ 已排除」分组，无排除时平铺。
   Widget _buildAppList(
     BuildContext context,
     AppLocalizations l10n,
+    List<Map<String, dynamic>> quickSms,
+    List<Map<String, dynamic>> quickPhone,
+    List<Map<String, dynamic>> quickComm,
+    List<Map<String, dynamic>> quickMail,
     List<Map<String, dynamic>> appliedApps,
     List<Map<String, dynamic>> excludedApps,
   ) {
+    final hasQuick =
+        quickSms.isNotEmpty ||
+        quickPhone.isNotEmpty ||
+        quickComm.isNotEmpty ||
+        quickMail.isNotEmpty;
     final items = <_ScopeListItem>[];
     void addApps(List<Map<String, dynamic>> apps) {
       for (var i = 0; i < apps.length; i++) {
@@ -1330,7 +1414,39 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
       }
     }
 
-    if (_excluded.isEmpty) {
+    if (hasQuick) {
+      items.add(_ScopeListItem.header(l10n.ruleAppQuickSelect));
+      items.add(
+        _ScopeListItem.quickCard(quickSms, quickPhone, quickComm, quickMail),
+      );
+    }
+
+    if (hasQuick) {
+      // 有快速选择卡时，其余应用统一归入「其他应用」；
+      // 仅当其他应用自身出现排除项时才按「适用/已排除」拆分显示
+      final others = [...appliedApps, ...excludedApps];
+      if (others.isNotEmpty && excludedApps.isEmpty) {
+        items.add(
+          _ScopeListItem.header(l10n.ruleAppGroupOthersN(others.length)),
+        );
+        addApps(others);
+      } else {
+        if (appliedApps.isNotEmpty) {
+          items.add(
+            _ScopeListItem.header(l10n.ruleAppGroupApplied(appliedApps.length)),
+          );
+          addApps(appliedApps);
+        }
+        if (excludedApps.isNotEmpty) {
+          items.add(
+            _ScopeListItem.header(
+              l10n.ruleAppGroupExcludedN(excludedApps.length),
+            ),
+          );
+          addApps(excludedApps);
+        }
+      }
+    } else if (_excluded.isEmpty) {
       addApps(appliedApps);
     } else {
       if (appliedApps.isNotEmpty) {
@@ -1367,9 +1483,17 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
             ),
           );
         }
+        if (item.isQuickCard) {
+          return _buildQuickCard(
+            context,
+            l10n,
+            item.quickSms,
+            item.quickPhone,
+            item.quickComm,
+            item.quickMail,
+          );
+        }
         final app = item.app!;
-        final pkg = _pkg(app);
-        final applies = !_excluded.contains(pkg);
         final showDivider = index > 0 && items[index - 1].app != null;
         return Container(
           decoration: BoxDecoration(
@@ -1391,84 +1515,353 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
           ),
           child: Column(
             children: [
-              if (showDivider)
-                Padding(
-                  padding: const EdgeInsets.only(left: 60),
-                  child: Divider(
-                    height: 0.5,
-                    thickness: 0.5,
-                    color: AppColors.separator(context),
-                  ),
-                ),
-              Material(
-                type: MaterialType.transparency,
-                child: ListTile(
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color:
-                          (applies
-                                  ? AppColors.blue
-                                  : AppColors.tertiaryLabel(context))
-                              .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.android,
-                      color: applies
-                          ? AppColors.blue
-                          : AppColors.tertiaryLabel(context),
-                      size: 22,
-                    ),
-                  ),
-                  title: Text(
-                    app['appName'] as String? ?? pkg,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppColors.primaryLabel(context),
-                    ),
-                  ),
-                  subtitle: Text(
-                    pkg,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.secondaryLabel(context),
-                    ),
-                  ),
-                  trailing: Icon(
-                    applies ? Icons.check_circle : Icons.circle_outlined,
-                    color: applies
-                        ? AppColors.green
-                        : AppColors.tertiaryLabel(context),
-                    size: 24,
-                  ),
-                  onTap: () => _toggle(pkg, !applies),
-                ),
-              ),
+              if (showDivider) _rowDivider(context),
+              _appTile(context, app),
             ],
           ),
         );
       },
     );
   }
+
+  /// 快速选择卡：
+  /// - 通讯区块：短信（系统短信组件聚合行）、电话（系统电话组件聚合行）、
+  ///   第三方即时通讯 APP（逐行）；
+  /// - 邮箱区块：已安装的邮箱类 APP（逐行）。
+  Widget _buildQuickCard(
+    BuildContext context,
+    AppLocalizations l10n,
+    List<Map<String, dynamic>> sms,
+    List<Map<String, dynamic>> phone,
+    List<Map<String, dynamic>> comm,
+    List<Map<String, dynamic>> mail,
+  ) {
+    final children = <Widget>[];
+    var rowIndex = 0;
+
+    void addRow(Widget tile) {
+      children.add(_rowDivider(context, indent: 60, show: rowIndex != 0));
+      children.add(tile);
+      rowIndex++;
+    }
+
+    void addSectionLabel(String label) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 9, 16, 3),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.tertiaryLabel(context),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 通讯区块（至少有一个通讯类条目时才显示区块名）
+    if (sms.isNotEmpty || phone.isNotEmpty || comm.isNotEmpty) {
+      addSectionLabel(l10n.ruleAppQuickComm);
+      if (sms.isNotEmpty) {
+        addRow(
+          _groupTile(
+            context,
+            l10n.ruleAppQuickSms,
+            l10n.ruleAppQuickSmsSub,
+            Icons.sms_outlined,
+            sms,
+          ),
+        );
+      }
+      if (phone.isNotEmpty) {
+        addRow(
+          _groupTile(
+            context,
+            l10n.ruleAppQuickPhone,
+            l10n.ruleAppQuickPhoneSub,
+            Icons.call_outlined,
+            phone,
+          ),
+        );
+      }
+      for (final app in comm) {
+        addRow(_appTile(context, app));
+      }
+    }
+
+    // 邮箱区块
+    if (mail.isNotEmpty) {
+      addSectionLabel(l10n.ruleAppQuickMail);
+      for (final app in mail) {
+        addRow(_appTile(context, app));
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  /// 系统组件聚合行：多个系统包（如拨号器/通话界面/电话服务）合并为一行，
+  /// 状态三态：全部适用（绿勾）/ 全部排除（灰圈）/ 部分适用（蓝横）。
+  /// 点击：全部适用时整组排除，其余情况整组恢复适用。
+  Widget _groupTile(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    List<Map<String, dynamic>> apps,
+  ) {
+    final pkgs = apps.map(_pkg).toSet();
+    final appliedCount = pkgs.where((p) => !_excluded.contains(p)).length;
+    final allApplied = appliedCount == pkgs.length;
+    final noneApplied = appliedCount == 0;
+
+    final Color stateColor = allApplied
+        ? AppColors.green
+        : (noneApplied ? AppColors.tertiaryLabel(context) : AppColors.blue);
+    final IconData stateIcon = allApplied
+        ? Icons.check_circle
+        : (noneApplied ? Icons.circle_outlined : Icons.remove_circle_outline);
+
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.blue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: AppColors.blue, size: 20),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 15,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        trailing: Icon(stateIcon, color: stateColor, size: 24),
+        onTap: () => _toggleGroup(pkgs, allApplied),
+      ),
+    );
+  }
+
+  /// 聚合组整组切换：allApplied=true → 整组排除；否则整组恢复适用
+  void _toggleGroup(Set<String> pkgs, bool allApplied) {
+    setState(() {
+      if (allApplied) {
+        _excluded.addAll(pkgs);
+      } else {
+        _excluded.removeAll(pkgs);
+      }
+    });
+  }
+
+  /// 应用行分隔线（与应用筛选页一致：左侧留出图标区域）
+  Widget _rowDivider(
+    BuildContext context, {
+    double indent = 60,
+    bool show = true,
+  }) {
+    if (!show) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.only(left: indent),
+      child: Divider(
+        height: 0.5,
+        thickness: 0.5,
+        color: AppColors.separator(context),
+      ),
+    );
+  }
+
+  /// 单个应用行：图标 + 名称/包名 + 适用状态，点击切换是否适用
+  Widget _appTile(BuildContext context, Map<String, dynamic> app) {
+    final pkg = _pkg(app);
+    final applies = !_excluded.contains(pkg);
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: (applies ? AppColors.blue : AppColors.tertiaryLabel(context))
+                .withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.android,
+            color: applies ? AppColors.blue : AppColors.tertiaryLabel(context),
+            size: 22,
+          ),
+        ),
+        title: Text(
+          app['appName'] as String? ?? pkg,
+          style: TextStyle(
+            fontSize: 15,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        subtitle: Text(
+          pkg,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        trailing: Icon(
+          applies ? Icons.check_circle : Icons.circle_outlined,
+          color: applies ? AppColors.green : AppColors.tertiaryLabel(context),
+          size: 24,
+        ),
+        onTap: () => _toggle(pkg, !applies),
+      ),
+    );
+  }
 }
 
-/// 应用列表条目：组头（适用/已排除分组标题）或应用行
+/// 应用列表条目：组头 / 应用行 / 快速选择整卡
 class _ScopeListItem {
   final String? header;
   final Map<String, dynamic>? app;
   final bool isFirstInGroup;
   final bool isLastInGroup;
 
+  /// 快速选择卡（短信/电话聚合行 + 第三方通讯 + 邮箱）
+  final bool isQuickCard;
+  final List<Map<String, dynamic>> quickSms;
+  final List<Map<String, dynamic>> quickPhone;
+  final List<Map<String, dynamic>> quickComm;
+  final List<Map<String, dynamic>> quickMail;
+
   const _ScopeListItem.header(this.header)
     : app = null,
       isFirstInGroup = false,
-      isLastInGroup = false;
+      isLastInGroup = false,
+      isQuickCard = false,
+      quickSms = const [],
+      quickPhone = const [],
+      quickComm = const [],
+      quickMail = const [];
 
   const _ScopeListItem.app(
     this.app, {
     required this.isFirstInGroup,
     required this.isLastInGroup,
-  }) : header = null;
+  }) : header = null,
+       isQuickCard = false,
+       quickSms = const [],
+       quickPhone = const [],
+       quickComm = const [],
+       quickMail = const [];
+
+  const _ScopeListItem.quickCard(
+    this.quickSms,
+    this.quickPhone,
+    this.quickComm,
+    this.quickMail,
+  ) : header = null,
+      app = null,
+      isFirstInGroup = false,
+      isLastInGroup = false,
+      isQuickCard = true;
 }
+
+/// 快速选择目录：系统短信类包名（信息/短信应用 + 短信存储）。
+/// 多个系统组件（如「信息」「短信存储」）在 UI 聚合为单行「短信」。
+const List<String> _kQuickSmsPackages = [
+  'com.android.mms',
+  'com.android.messaging',
+  'com.google.android.apps.messaging',
+  'com.samsung.android.messaging',
+  'com.miui.sms',
+  'com.coloros.mms',
+  'com.heytap.mms',
+  'com.vivo.mms',
+  'com.huawei.message',
+  'com.android.providers.telephony', // 短信存储
+];
+
+/// 快速选择目录：系统电话类包名（拨号器 + 通话界面 + 电话服务）。
+/// 多个系统组件（如「电话」「通话界面」「电话服务」）在 UI 聚合为单行「电话」。
+const List<String> _kQuickPhonePackages = [
+  'com.android.dialer',
+  'com.android.incallui',
+  'com.google.android.dialer',
+  'com.samsung.android.dialer',
+  'com.android.phone',
+  'com.android.server.telecom',
+];
+
+/// 快速选择目录：第三方即时通讯/社交/办公类 APP 包名（顺序即展示顺序）。
+const List<String> _kQuickCommPackages = [
+  // 国内即时通讯/办公
+  'com.tencent.mm', // 微信
+  'com.tencent.mobileqq', // QQ
+  'com.tencent.tim', // TIM
+  'com.tencent.wework', // 企业微信
+  'com.ss.android.lark', // 飞书
+  'com.larksuite.suite', // Lark
+  'com.alibaba.android.rimet', // 钉钉
+  // 国际即时通讯/社交
+  'org.telegram.messenger', // Telegram
+  'org.telegram.messenger.web', // Telegram X
+  'com.twitter.android', // X
+  'com.whatsapp', // WhatsApp
+  'com.whatsapp.w4b', // WhatsApp Business
+  'com.facebook.orca', // Messenger
+  'com.instagram.android', // Instagram
+  'jp.naver.line.android', // LINE
+  'org.thoughtcrime.securesms', // Signal
+  'com.viber.voip', // Viber
+  'com.skype.raider', // Skype
+  'com.discord', // Discord
+  'com.Slack', // Slack
+  'com.zing.zalo', // Zalo
+  'com.kakao.talk', // KakaoTalk
+  'com.snapchat.android', // Snapchat
+];
+
+/// 快速选择目录：主流邮箱类 APP 包名。
+const List<String> _kQuickMailPackages = [
+  'com.google.android.gm', // Gmail
+  'com.microsoft.office.outlook', // Outlook
+  'com.tencent.androidqqmail', // QQ 邮箱
+  'com.netease.mail', // 网易邮箱大师
+  'com.netease.mobimail', // 网易邮箱
+  'com.samsung.android.email.provider', // Samsung Email
+  'com.yahoo.mobile.client.android.mail', // Yahoo Mail
+  'ch.protonmail.android', // Proton Mail
+  'readdle.com.sparkmailinbox', // Spark
+  'net.thunderbird.android', // Thunderbird
+  'me.bluemail.mail', // BlueMail
+  'com.easilydo.mail', // Edison Mail
+  'com.ninefolders.hd3', // Nine
+];
+
+/// 包名 → 目录序号（用于按目录顺序排序已安装的命中应用）
+Map<String, int> _indexOf(List<String> packages) => {
+  for (var i = 0; i < packages.length; i++) packages[i]: i,
+};
+
+final Map<String, int> _kQuickSmsIndex = _indexOf(_kQuickSmsPackages);
+final Map<String, int> _kQuickPhoneIndex = _indexOf(_kQuickPhonePackages);
+final Map<String, int> _kQuickCommIndex = _indexOf(_kQuickCommPackages);
+final Map<String, int> _kQuickMailIndex = _indexOf(_kQuickMailPackages);

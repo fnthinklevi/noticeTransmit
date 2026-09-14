@@ -2361,4 +2361,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String ruleAppGroupExcludedN(int n) {
     return 'Excluded · $n';
   }
+
+  @override
+  String get ruleAppQuickSelect => 'Quick Select';
+
+  @override
+  String get ruleAppQuickComm => 'Messaging';
+
+  @override
+  String get ruleAppQuickMail => 'Email';
+
+  @override
+  String get ruleAppQuickSms => 'SMS';
+
+  @override
+  String get ruleAppQuickPhone => 'Phone';
+
+  @override
+  String get ruleAppQuickSmsSub => 'System messaging apps';
+
+  @override
+  String get ruleAppQuickPhoneSub => 'System phone & call apps';
+
+  @override
+  String ruleAppGroupOthersN(int n) {
+    return 'Other Apps · $n';
+  }
 }
