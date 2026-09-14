@@ -172,9 +172,9 @@ PORT=8080 npm start
 | `forceUpdateVersion`  | string  | 低于此版本的强制更新     | `"1.0.0"`                        |
 | `forceUpdateBuild`    | number  | 低于此构建号的强制更新    | `1`                              |
 | `changelog`           | string  | 更新日志，`\n` 表示换行 | `"1. 修复bug"`                     |
-| `downloads`           | object  | 各平台下载地址（arm64/arm32/x86_64/all，https） | `{"arm64":"https://.../notice_arm64_1.5.69.apk",...}` |
+| `downloads`           | object  | 各平台下载地址（arm64/arm32/x86_64/all，https） | `{"arm64":"https://.../notice_arm64_1.5.72.apk",...}` |
 | `fileSizes`           | object  | 各平台文件大小（字节）    | `{"arm64":27349386,...}`         |
-| `sha256`              | object  | 各平台安装包 sha256（v1.5.69+ 传输层校验，App 下载后安装前比对） | `{"arm64":"63c6...09b",...}` |
+| `sha256`              | object  | 各平台安装包 sha256（v1.5.72+ 传输层校验，App 下载后安装前比对） | `{"arm64":"63c6...09b",...}` |
 | `downloadUrl`         | string  | （旧契约兼容）单一下载路径  | `"/public/apks/app-release.apk"` |
 | `fileSize`            | number  | （旧契约兼容）文件大小（字节） | `56623104`                      |
 | `platform`            | string  | 平台             | `"android"`                      |
@@ -213,10 +213,10 @@ GET /api/version/check
     "downloadUrl": "/public/apks/app-release.apk",
     "fileSize": 56623104,
     "downloads": {
-      "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
-      "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
-      "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
-      "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
+      "arm64": "https://cdn2.fnthink.top/apks/1.5.72/notice_arm64_1.5.72.apk",
+      "arm32": "https://cdn2.fnthink.top/apks/1.5.72/notice_arm32_1.5.72.apk",
+      "x86_64": "https://cdn2.fnthink.top/apks/1.5.72/notice_x86_1.5.72.apk",
+      "all": "https://cdn2.fnthink.top/apks/1.5.72/notice_all_1.5.72.apk"
     },
     "fileSizes": {
       "arm64": 27349386,

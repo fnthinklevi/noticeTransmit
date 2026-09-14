@@ -6,7 +6,7 @@
 
 **[English](README-en.md) / 中文**
 
-为 Android 设备提供**隐私优先**的通知转发工具。全链路本地处理，数据零上传（唯一例外为崩溃上报：默认关闭，仅在您主动开启后向腾讯 Bugly 上报崩溃日志，详见[隐私说明](#隐私说明)）。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）和 SMTP 邮件多通道推送，桌面小部件一键启停推送，全部配置 AES-256 加密存储。**全应用中英双语国际化**。
+为 Android 设备提供**隐私优先**的通知转发工具。全链路本地处理，数据零上传（唯一例外为崩溃上报：默认关闭，仅在您主动开启后向腾讯 Bugly 上报崩溃日志，详见[隐私说明](#隐私说明)）。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord，ntfy/Gotify 支持自建服务器）和 SMTP 邮件多通道推送，桌面小部件一键启停推送，全部配置 AES-256 加密存储。**全应用中英双语国际化**。
 
 [![Flutter](https://badgen.net/badge/Flutter/3.44%2B/02569B?icon=flutter)](https://flutter.dev/)
 [![AGP](https://badgen.net/badge/AGP/9.3.0/3DDC84?icon=android)](https://developer.android.com/build/releases/gradle-plugin)
@@ -23,7 +23,7 @@
 
 ## 简介
 
-通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）或 SMTP 邮件实时推送至目标平台，桌面小部件一键启停推送。全链路本地处理，数据零上传（崩溃上报默认关闭，开启后才向腾讯 Bugly 上报崩溃日志）。全应用中英双语国际化。开源 MIT，免费无广告。
+通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时推送至目标平台，桌面小部件一键启停推送。全链路本地处理，数据零上传（崩溃上报默认关闭，开启后才向腾讯 Bugly 上报崩溃日志）。全应用中英双语国际化。开源 MIT，免费无广告。
 
 ## 功能特性
 

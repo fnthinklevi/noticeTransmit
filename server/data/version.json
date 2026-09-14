@@ -2,8 +2,8 @@
   "latestVersion": "1.5.72",
   "latestBuild": 108,
   "forceUpdate": true,
-  "forceUpdateVersion": "1.5.70",
-  "forceUpdateBuild": 105,
+  "forceUpdateVersion": "1.5.72",
+  "forceUpdateBuild": 108,
   "changelog": "v1.5.72+108: 规则「选择适用应用」新增快速选择分组(自动识别已安装的主流通讯/邮箱应用,系统短信组件聚合为「短信」行/系统电话组件聚合为「电话」行,微信/QQ/企业微信/飞书/钉钉/Telegram/X/WhatsApp等第三方应用逐行,Gmail/Outlook/QQ邮箱等邮箱应用分区,聚合行整组三态开关,全选/清空/反选覆盖全部可见项,搜索同步生效) + 修复适用应用列表恒为空显示「没有找到应用」(MethodChannel列表隐式类型转换异常致缓存与全量加载静默失败,手动刷新同因失效一并修复,新增回归测试)",
   "downloads": {
     "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.72/notice_arm64_1.5.72.apk",

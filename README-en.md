@@ -33,7 +33,7 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 📱 **Multi-type Recognition** - Smart recognition of WeChat, QQ, SMS, phone calls, system notifications, etc.
 - 🔗 **Webhook Multi-channel** - Support configuring multiple Webhook URLs simultaneously, each channel has independent on/off switch
 - 📧 **SMTP Email Push** - Support SMTP email forwarding (SSL/STARTTLS), customizable subject template and body template
-- 📤 **Multi-platform Adaptation** - Auto-adapt message format for WeChat Work, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus and other platforms; in-app update APKs carry sha256 integrity verification (v1.5.69), and Bark business failures are reported truthfully instead of as success
+- 📤 **Multi-platform Adaptation** - Auto-adapt message format for WeChat Work, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus, ntfy, Gotify, Slack, Discord and other platforms (ntfy/Gotify support self-hosted servers); in-app update APKs carry sha256 integrity verification (v1.5.69), and Bark business failures are reported truthfully instead of as success
 
 ### Advanced Features
 

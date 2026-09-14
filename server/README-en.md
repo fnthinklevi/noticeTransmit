@@ -96,10 +96,10 @@ The service is running normally! 🎉
   "downloadUrl": "/public/apks/app-release.apk",
   "fileSize": 56623104,
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
-    "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
-    "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
-    "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
+    "arm64": "https://cdn2.fnthink.top/apks/1.5.72/notice_arm64_1.5.72.apk",
+    "arm32": "https://cdn2.fnthink.top/apks/1.5.72/notice_arm32_1.5.72.apk",
+    "x86_64": "https://cdn2.fnthink.top/apks/1.5.72/notice_x86_1.5.72.apk",
+    "all": "https://cdn2.fnthink.top/apks/1.5.72/notice_all_1.5.72.apk"
   },
   "fileSizes": {
     "arm64": 27349386,
@@ -188,9 +188,9 @@ PORT=8080 npm start
 | `forceUpdateVersion` | string | Force update below this version | `"1.0.0"` |
 | `forceUpdateBuild` | number | Force update below this build | `1` |
 | `changelog` | string | Changelog, `\n` for newlines | `"1. Bug fix"` |
-| `downloads` | object | Per-platform download URLs (arm64/arm32/x86_64/all, https) | `{"arm64":"https://.../notice_arm64_1.5.69.apk",...}` |
+| `downloads` | object | Per-platform download URLs (arm64/arm32/x86_64/all, https) | `{"arm64":"https://.../notice_arm64_1.5.72.apk",...}` |
 | `fileSizes` | object | Per-platform file sizes in bytes | `{"arm64":27349386,...}` |
-| `sha256` | object | Per-platform APK sha256 (v1.5.69+ transport-layer verification, compared by the app after download before install) | `{"arm64":"63c6...09b",...}` |
+| `sha256` | object | Per-platform APK sha256 (v1.5.72+ transport-layer verification, compared by the app after download before install) | `{"arm64":"63c6...09b",...}` |
 | `downloadUrl` | string | (legacy compatibility) single download path | `"/public/apks/app-release.apk"` |
 | `fileSize` | number | (legacy compatibility) file size in bytes | `56623104` |
 | `platform` | string | Platform | `"android"` |
@@ -229,10 +229,10 @@ GET /api/version/check
     "downloadUrl": "/public/apks/app-release.apk",
     "fileSize": 56623104,
     "downloads": {
-      "arm64": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm64_1.5.69.apk",
-      "arm32": "https://cdn2.fnthink.top/apks/1.5.69/notice_arm32_1.5.69.apk",
-      "x86_64": "https://cdn2.fnthink.top/apks/1.5.69/notice_x86_1.5.69.apk",
-      "all": "https://cdn2.fnthink.top/apks/1.5.69/notice_all_1.5.69.apk"
+      "arm64": "https://cdn2.fnthink.top/apks/1.5.72/notice_arm64_1.5.72.apk",
+      "arm32": "https://cdn2.fnthink.top/apks/1.5.72/notice_arm32_1.5.72.apk",
+      "x86_64": "https://cdn2.fnthink.top/apks/1.5.72/notice_x86_1.5.72.apk",
+      "all": "https://cdn2.fnthink.top/apks/1.5.72/notice_all_1.5.72.apk"
     },
     "fileSizes": {
       "arm64": 27349386,
