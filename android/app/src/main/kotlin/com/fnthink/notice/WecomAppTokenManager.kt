@@ -1,7 +1,5 @@
 package com.fnthink.notice
 
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.net.URLEncoder
 
@@ -46,23 +44,30 @@ object WecomAppTokenManager {
         suspend fun fetch(corpid: String, corpsecret: String): Pair<String, Int>
     }
 
-    @Volatile
-    private var cache: CachedToken? = null
-    private val mutex = Mutex()
+    /**
+     * token 缓存：按 (corpid, corpsecret) 摘要 **分 key 存储**。
+     * 用户可配置多个企业微信自建应用通道，单条缓存会让交替推送反复失效重取
+     * （gettoken 有频控），Map 分 key 后各凭据互不驱逐。
+     */
+    private val cache = LinkedHashMap<String, CachedToken>()
+    private val lock = Any()
 
     fun cacheKey(corpid: String, corpsecret: String): String =
         "${corpid}:${Integer.toHexString(corpsecret.hashCode())}"
 
-    fun cachedToken(): CachedToken? = cache
+    fun cachedToken(key: String): CachedToken? = synchronized(lock) { cache[key] }
 
-    /** 是否需要刷新：无缓存 / key 变更 / 已过期 / 距过期不足提前刷新窗口 */
+    /** 是否需要刷新：无缓存 / 已过期 / 距过期不足提前刷新窗口。
+     *  Map 按 key 存取不存在串 key；key 参数为防御性保留（与缓存条目一致性断言用）。 */
     fun needsRefresh(cached: CachedToken?, key: String, now: Long): Boolean =
         cached == null || cached.cacheKey != key ||
             now >= cached.expiresAt - EARLY_REFRESH_MS
 
     /**
-     * 获取 token（带缓存）。并发调用由 [mutex] 串行化 + 双重检查。
-     * fetch 失败抛 [TokenFetchException]，不缓存任何结果。
+     * 获取 token（按凭据分 key 缓存）。
+     * 命中判定在锁内；gettoken 网络请求在锁外执行（不阻塞其他凭据的命中路径）。
+     * 同 key 并发极端下会重复 fetch 一次——企业微信对有效期内重复 gettoken 返回
+     * 同一 token，无害。fetch 失败抛 [TokenFetchException]，不缓存任何结果。
      */
     suspend fun getToken(
         corpid: String,
@@ -71,24 +76,28 @@ object WecomAppTokenManager {
         now: Long = System.currentTimeMillis(),
     ): String {
         val key = cacheKey(corpid, corpsecret)
-        mutex.withLock {
-            val cached = cache
-            if (!needsRefresh(cached, key, now)) {
-                return cached!!.token
+        synchronized(lock) {
+            val cached = cache[key]
+            if (cached != null && !needsRefresh(cached, key, now)) {
+                return cached.token
             }
-            val (token, expiresIn) = fetcher.fetch(corpid, corpsecret)
-            if (token.isEmpty()) {
-                throw TokenFetchException(-1, "gettoken 返回空 access_token")
-            }
-            cache = CachedToken(key, token, now + expiresIn * 1000L)
-            return token
         }
+        val (token, expiresIn) = fetcher.fetch(corpid, corpsecret)
+        if (token.isEmpty()) {
+            throw TokenFetchException(-1, "gettoken 返回空 access_token")
+        }
+        synchronized(lock) {
+            cache[key] = CachedToken(key, token, now + expiresIn * 1000L)
+        }
+        return token
     }
 
-    /** message/send 返回 token 失效 errcode 后调用：清空缓存，下次强制重新获取 */
-    @Synchronized
-    fun invalidate() {
-        cache = null
+    /**
+     * message/send 返回 token 失效 errcode（40014/42001）后调用：
+     * **仅清除该凭据**的缓存并强制重取，其他通道的 token 不受影响。
+     */
+    fun invalidate(key: String) {
+        synchronized(lock) { cache.remove(key) }
     }
 }
 

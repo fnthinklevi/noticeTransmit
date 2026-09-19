@@ -374,8 +374,11 @@ class WebhookSender(private val context: Context) {
                             WecomAppTokenManager.isTokenErrorMessage(result.message)
                         ) {
                             // token 失效（被服务端吊销/提前过期）：清缓存换新 token 重试一次
+                            // token 失效：仅清除该凭据的缓存后重试一次（其他通道 token 不受影响）
                             Log.w(TAG, "WecomApp token expired, refresh and retry once")
-                            WecomAppTokenManager.invalidate()
+                            WecomAppTokenManager.invalidate(
+                                WecomAppTokenManager.cacheKey(corpid, corpsecret)
+                            )
                             deliver(1)
                             return@sendWithRetry
                         }
