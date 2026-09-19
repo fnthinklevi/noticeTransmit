@@ -1,10 +1,10 @@
 {
   "latestVersion": "1.5.73",
-  "latestBuild": 109,
+  "latestBuild": 110,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.72",
   "forceUpdateBuild": 108,
-  "changelog": "v1.5.73+109: 企业微信自建应用通道(两阶段gettoken/message/send+token缓存与失效自动重试+corpid/agentid/touser定向,数据库v9无损升级) + 规则模板库(5套预设模板一键导入+规则存为模板+模板导入导出可选AES-256加密) + 送达统计仪表盘(通道成功率排行/失败原因TOP/高峰时段分布,近7天/30天切换) + 通道健康探测(启用通道6小时自动连通探测,卡片显示连通状态/延迟/探测时间徽标)",
+  "changelog": "v1.5.73+109: 企业微信自建应用通道(两阶段gettoken/message/send+token缓存与失效自动重试+corpid/agentid/touser定向,数据库v9无损升级) + 规则模板库(5套预设模板一键导入+规则存为模板+模板导入导出可选AES-256加密) + 送达统计仪表盘(通道成功率排行/失败原因TOP/高峰时段分布,近7天/30天切换) + 通道健康探测(启用通道6小时自动连通探测,卡片显示连通状态/延迟/探测时间徽标) + 企业微信自建应用多通道token缓存修复(按凭据分key互不驱逐+失效定向清除) + extra_config编码统一上移至服务层",
   "downloads": {
     "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.73/notice_arm64_1.5.73.apk",
     "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.73/notice_arm32_1.5.73.apk",
@@ -12,16 +12,16 @@
     "all": "https://cdn2.fnthink.top/app/notice/update/1.5.73/notice_all_1.5.73.apk"
   },
   "fileSizes": {
-    "all": 75768568,
-    "arm32": 23656027,
-    "arm64": 27563498,
-    "x86_64": 29662049
+    "all": 75768563,
+    "arm32": 23656029,
+    "arm64": 27563503,
+    "x86_64": 29662059
   },
   "sha256": {
-    "all": "7e2046b609476c8d3b06aa10ca33bae7defe3ba9a95f9bbabf6dd57a79020e7e",
-    "arm32": "0a2ed5c728d3acbdbe1e31ba5d4c7a01fac9cc9403e16d1848284b71f8305a4e",
-    "arm64": "0e990171726d2cd5ce84246bb2e2f6d681988c4cd81ec92b370cfd08a3748ec1",
-    "x86_64": "12297838c64add42b967ef5a80bc313523a2e1e793cf02d85031a9700b1b2a95"
+    "all": "dcdb384830f052b7384c733327cdf9d07bd340342cf359d1eeee9152ba206c0a",
+    "arm32": "9a3f79e29a5fa56f2a76fd17fdc10f20954a1c4f2a14da23c8978de87dbf8d68",
+    "arm64": "e64ef016831c3d3bcb937c7f3b4c916d1f2520a2b8b63d1f6632ddee0e982b15",
+    "x86_64": "1119aea3a65b28d190184e918f0a29dd44816a22cfa09c4af36f193ae1653037"
   },
   "minSupportedVersion": "1.0.0"
 }
