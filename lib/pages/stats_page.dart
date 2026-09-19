@@ -20,6 +20,11 @@ class _StatsPageState extends State<StatsPage> {
   int _todayCount = 0;
   int _totalCount = 0;
   bool _isLoading = true;
+  // 送达健康：7/30 天可切换
+  int _healthDays = 7;
+  List<Map<String, dynamic>> _channelRates = [];
+  List<Map<String, dynamic>> _failureReasons = [];
+  List<Map<String, dynamic>> _hourlyDistribution = [];
 
   @override
   void initState() {
@@ -34,8 +39,23 @@ class _StatsPageState extends State<StatsPage> {
       _dailyStats = await _notificationService.getDailyStats(7);
       _todayCount = await _notificationService.getTodayCount();
       _totalCount = await _notificationService.getTotalCount();
+      await _loadHealthStats();
     } catch (_) {}
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadHealthStats() async {
+    try {
+      _channelRates = await _notificationService.getChannelSuccessRates(
+        days: _healthDays,
+      );
+      _failureReasons = await _notificationService.getTopFailureReasons(
+        days: _healthDays,
+      );
+      _hourlyDistribution = await _notificationService.getHourlyDistribution(
+        days: _healthDays,
+      );
+    } catch (_) {}
   }
 
   @override
@@ -58,6 +78,8 @@ class _StatsPageState extends State<StatsPage> {
                   _buildSummaryCards(context),
                   const SizedBox(height: 20),
                   _buildDailyStats(context),
+                  const SizedBox(height: 20),
+                  _buildDeliveryHealth(context),
                   const SizedBox(height: 20),
                   _buildAppStats(context),
                 ],
@@ -250,6 +272,259 @@ class _StatsPageState extends State<StatsPage> {
                 ),
               );
             }),
+        ],
+      ),
+    );
+  }
+
+  /// 送达健康：通道成功率排行 / 失败原因 TOP / 高峰时段分布
+  /// （webhook_delivery_log + notifications 聚合，7/30 天可切换）
+  Widget _buildDeliveryHealth(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.statsDeliveryHealth,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
+              ),
+              _rangeToggle(context, '7', l10n.statsRange7),
+              const SizedBox(width: 6),
+              _rangeToggle(context, '30', l10n.statsRange30),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (_channelRates.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  l10n.statsNoDeliveryData,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            Text(
+              l10n.statsChannelSuccess,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ..._channelRates.take(8).map(_buildChannelRateRow),
+            if (_failureReasons.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                l10n.statsFailureTop,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+              const SizedBox(height: 6),
+              ..._failureReasons.map(_buildFailureReasonRow),
+            ],
+            if (_hourlyDistribution.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                l10n.statsHourly,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildHourlyBars(context),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _rangeToggle(BuildContext context, String days, String label) {
+    final selected = _healthDays.toString() == days;
+    return GestureDetector(
+      onTap: selected
+          ? null
+          : () async {
+              setState(() => _healthDays = int.parse(days));
+              await _loadHealthStats();
+              if (mounted) setState(() {});
+            },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.blue
+              : AppColors.secondaryLabel(context).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: selected ? Colors.white : AppColors.secondaryLabel(context),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChannelRateRow(Map<String, dynamic> row) {
+    final tag = row['tag']?.toString() ?? '';
+    final total = (row['total'] as num?)?.toInt() ?? 0;
+    final success = (row['success'] as num?)?.toInt() ?? 0;
+    final ratio = total > 0 ? success / total : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              tag,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 8,
+              decoration: BoxDecoration(
+                color: AppColors.inputBg(context),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: ratio.clamp(0.0, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: ratio >= 0.9
+                        ? AppColors.green
+                        : (ratio >= 0.6
+                              ? AppColors.systemOrange(context)
+                              : AppColors.red),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 74,
+            child: Text(
+              '$success/$total',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFailureReasonRow(Map<String, dynamic> row) {
+    final l10n = AppLocalizations.of(context);
+    final code = (row['code'] as num?)?.toInt() ?? -1;
+    final cnt = (row['cnt'] as num?)?.toInt() ?? 0;
+    final label = code <= 0 ? l10n.statsFailNetwork : 'HTTP $code';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 15, color: AppColors.red),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ),
+          Text(
+            l10n.statsFailCount(cnt),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHourlyBars(BuildContext context) {
+    final counts = List<int>.filled(24, 0);
+    for (final row in _hourlyDistribution) {
+      final hour = (row['hour'] as num?)?.toInt() ?? -1;
+      if (hour >= 0 && hour < 24) {
+        counts[hour] = (row['cnt'] as num?)?.toInt() ?? 0;
+      }
+    }
+    final maxCnt = counts.reduce((a, b) => a > b ? a : b);
+    return SizedBox(
+      height: 72,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var h = 0; h < 24; h++)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 1),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      height: maxCnt > 0 ? 52 * counts[h] / maxCnt : 0.5,
+                      decoration: BoxDecoration(
+                        color: counts[h] > 0
+                            ? AppColors.blue
+                            : AppColors.separator(context),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

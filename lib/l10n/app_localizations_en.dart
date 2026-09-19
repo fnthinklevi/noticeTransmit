@@ -2387,4 +2387,125 @@ class AppLocalizationsEn extends AppLocalizations {
   String ruleAppGroupOthersN(int n) {
     return 'Other Apps · $n';
   }
+
+  @override
+  String get channelTypeWecomApp => 'WeCom App (self-built)';
+
+  @override
+  String get platformWecomAppDesc =>
+      'WeCom self-built app push (requires corpid/agentid/corpsecret), supports targeting users; content limited to 2048 bytes';
+
+  @override
+  String get signingHintWecomApp =>
+      'Required: corpsecret (exchanges for access_token); also fill in corpid and agentid';
+
+  @override
+  String get wecomAppExtraTitle => 'WeCom App Parameters';
+
+  @override
+  String get wecomAppCorpidHint => 'Corp ID (corpid)';
+
+  @override
+  String get wecomAppAgentidHint => 'App agentid (numeric)';
+
+  @override
+  String get wecomAppTouserHint =>
+      'Receiver touser (optional, default @all; separate users with |)';
+
+  @override
+  String get ruleTemplateTitle => 'Rule Templates';
+
+  @override
+  String get ruleTemplatePreset => 'Preset Templates';
+
+  @override
+  String get ruleTemplateMine => 'My Templates';
+
+  @override
+  String get ruleTemplateMineEmpty =>
+      'No custom templates yet; tap \"Save as Template\" on a rule card to create one';
+
+  @override
+  String get ruleTemplateSaveAs => 'Save as Template';
+
+  @override
+  String ruleTemplateSavedToast(String app) {
+    return '\"$app\" saved as template';
+  }
+
+  @override
+  String get ruleTemplateImport => 'Import File';
+
+  @override
+  String get ruleTemplateExport => 'Export & Share';
+
+  @override
+  String get ruleTemplateImportPasswordTitle => 'Template File Password';
+
+  @override
+  String get ruleTemplateImportPasswordHint =>
+      'This file is encrypted; enter the password set at export time';
+
+  @override
+  String get ruleTemplateExportPasswordTitle => 'Export Password (optional)';
+
+  @override
+  String get ruleTemplateExportPasswordHint =>
+      'Leave empty for plain export; with a password the file is AES-256 encrypted';
+
+  @override
+  String get ruleTemplateImportEmpty => 'No templates in the file';
+
+  @override
+  String get ruleTemplateInvalidFile => 'Not a valid template file';
+
+  @override
+  String get ruleTemplateExportOk => 'Templates exported';
+
+  @override
+  String get statsDeliveryHealth => 'Delivery Health';
+
+  @override
+  String get statsChannelSuccess => 'Channel Success Rate';
+
+  @override
+  String get statsFailureTop => 'Top Failure Reasons';
+
+  @override
+  String get statsHourly => 'Peak Hours';
+
+  @override
+  String get statsRange7 => '7 days';
+
+  @override
+  String get statsRange30 => '30 days';
+
+  @override
+  String get statsNoDeliveryData => 'No delivery records in this range';
+
+  @override
+  String get statsFailNetwork => 'Network / connection failure';
+
+  @override
+  String statsFailCount(int n) {
+    return '$n times';
+  }
+
+  @override
+  String healthReachable(int n) {
+    return 'Reachable · $n ms';
+  }
+
+  @override
+  String get healthUnreachable => 'Connection failed';
+
+  @override
+  String healthProbedMinutes(int n) {
+    return 'probed $n min ago';
+  }
+
+  @override
+  String healthProbedHours(int n) {
+    return 'probed $n h ago';
+  }
 }

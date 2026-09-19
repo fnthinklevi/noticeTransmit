@@ -4,6 +4,50 @@ part of 'webhook_settings_page.dart';
 // ignore_for_file: invalid_use_of_protected_member
 
 extension _WebhookFormMethods on _WebhookSettingsPageState {
+  /// 通道健康徽标：无探测记录不显示；有则显示 ✓/✗ + 延迟 + 距上次探测时间
+  Widget _buildHealthBadge(int index, BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final id = widget.webhookChannels[index]['id']?.toString() ?? '';
+    final health = _healthResults[id];
+    if (health == null) return const SizedBox.shrink();
+    final reachable = health['reachable'] == true;
+    final latency = (health['latencyMs'] as num?)?.toInt() ?? 0;
+    final probedAt = (health['probedAt'] as num?)?.toInt() ?? 0;
+    final ago = DateTime.now().millisecondsSinceEpoch - probedAt;
+    final agoText = ago < 60 * 60 * 1000
+        ? l10n.healthProbedMinutes(ago ~/ (60 * 1000))
+        : l10n.healthProbedHours(ago ~/ (60 * 60 * 1000));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(
+            reachable ? Icons.check_circle : Icons.cancel,
+            size: 14,
+            color: reachable ? AppColors.green : AppColors.red,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            reachable ? l10n.healthReachable(latency) : l10n.healthUnreachable,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: reachable ? AppColors.green : AppColors.red,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            agoText,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildChannelItem(int index, BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Padding(
@@ -185,6 +229,100 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                   ),
                   padding: EdgeInsets.zero,
                 ),
+              ),
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.primaryLabel(context),
+              ),
+              maxLines: 1,
+            ),
+          ],
+          // 企业微信自建应用扩展参数：corpid / agentid / touser
+          if (_effectiveType(index) == WebhookChannelType.wecomApp) ...[
+            const SizedBox(height: 12),
+            Text(
+              l10n.wecomAppExtraTitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _corpidControllers[index],
+              decoration: InputDecoration(
+                hintText: l10n.wecomAppCorpidHint,
+                hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.tertiaryLabel(context),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.separator(context)),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.inputBg(context),
+              ),
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.primaryLabel(context),
+              ),
+              maxLines: 1,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _agentidControllers[index],
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: l10n.wecomAppAgentidHint,
+                hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.tertiaryLabel(context),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.separator(context)),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.inputBg(context),
+              ),
+              style: TextStyle(
+                fontSize: 15,
+                color: AppColors.primaryLabel(context),
+              ),
+              maxLines: 1,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _touserControllers[index],
+              decoration: InputDecoration(
+                hintText: l10n.wecomAppTouserHint,
+                hintStyle: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.tertiaryLabel(context),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: AppColors.separator(context)),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.inputBg(context),
               ),
               style: TextStyle(
                 fontSize: 15,
@@ -405,6 +543,8 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
             ),
           ],
           const SizedBox(height: 10),
+          // 通道健康徽标（P2）：上次探测的连通状态 + 延迟 + 时间
+          _buildHealthBadge(index, context),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

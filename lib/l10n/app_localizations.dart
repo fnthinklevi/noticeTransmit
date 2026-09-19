@@ -4387,6 +4387,216 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'其他应用 · {n} 个'**
   String ruleAppGroupOthersN(int n);
+
+  /// No description provided for @channelTypeWecomApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'企业微信自建应用'**
+  String get channelTypeWecomApp;
+
+  /// No description provided for @platformWecomAppDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'企业微信自建应用推送（需 corpid/agentid/corpsecret），支持指定接收人，正文上限 2048 字节'**
+  String get platformWecomAppDesc;
+
+  /// No description provided for @signingHintWecomApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid'**
+  String get signingHintWecomApp;
+
+  /// No description provided for @wecomAppExtraTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'企业微信自建应用参数'**
+  String get wecomAppExtraTitle;
+
+  /// No description provided for @wecomAppCorpidHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'企业 ID（corpid）'**
+  String get wecomAppCorpidHint;
+
+  /// No description provided for @wecomAppAgentidHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用 agentid（纯数字）'**
+  String get wecomAppAgentidHint;
+
+  /// No description provided for @wecomAppTouserHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收人 touser（可选，默认 @all，多人间隔 |）'**
+  String get wecomAppTouserHint;
+
+  /// No description provided for @ruleTemplateTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'规则模板库'**
+  String get ruleTemplateTitle;
+
+  /// No description provided for @ruleTemplatePreset.
+  ///
+  /// In zh, this message translates to:
+  /// **'预设模板'**
+  String get ruleTemplatePreset;
+
+  /// No description provided for @ruleTemplateMine.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的模板'**
+  String get ruleTemplateMine;
+
+  /// No description provided for @ruleTemplateMineEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无自定义模板；在规则卡片上点「存为模板」即可保存'**
+  String get ruleTemplateMineEmpty;
+
+  /// No description provided for @ruleTemplateSaveAs.
+  ///
+  /// In zh, this message translates to:
+  /// **'存为模板'**
+  String get ruleTemplateSaveAs;
+
+  /// No description provided for @ruleTemplateSavedToast.
+  ///
+  /// In zh, this message translates to:
+  /// **'已将「{app}」存为模板'**
+  String ruleTemplateSavedToast(String app);
+
+  /// No description provided for @ruleTemplateImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'从文件导入'**
+  String get ruleTemplateImport;
+
+  /// No description provided for @ruleTemplateExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出分享'**
+  String get ruleTemplateExport;
+
+  /// No description provided for @ruleTemplateImportPasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入模板文件口令'**
+  String get ruleTemplateImportPasswordTitle;
+
+  /// No description provided for @ruleTemplateImportPasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'该文件已加密，请输入导出时设置的口令'**
+  String get ruleTemplateImportPasswordHint;
+
+  /// No description provided for @ruleTemplateExportPasswordTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出口令（可选）'**
+  String get ruleTemplateExportPasswordTitle;
+
+  /// No description provided for @ruleTemplateExportPasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空则明文导出；设置口令后需凭口令导入（AES-256 加密）'**
+  String get ruleTemplateExportPasswordHint;
+
+  /// No description provided for @ruleTemplateImportEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'模板文件中没有模板'**
+  String get ruleTemplateImportEmpty;
+
+  /// No description provided for @ruleTemplateInvalidFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'不是有效的模板文件'**
+  String get ruleTemplateInvalidFile;
+
+  /// No description provided for @ruleTemplateExportOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'模板已导出'**
+  String get ruleTemplateExportOk;
+
+  /// No description provided for @statsDeliveryHealth.
+  ///
+  /// In zh, this message translates to:
+  /// **'送达健康'**
+  String get statsDeliveryHealth;
+
+  /// No description provided for @statsChannelSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道成功率'**
+  String get statsChannelSuccess;
+
+  /// No description provided for @statsFailureTop.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败原因 TOP'**
+  String get statsFailureTop;
+
+  /// No description provided for @statsHourly.
+  ///
+  /// In zh, this message translates to:
+  /// **'高峰时段分布'**
+  String get statsHourly;
+
+  /// No description provided for @statsRange7.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 7 天'**
+  String get statsRange7;
+
+  /// No description provided for @statsRange30.
+  ///
+  /// In zh, this message translates to:
+  /// **'近 30 天'**
+  String get statsRange30;
+
+  /// No description provided for @statsNoDeliveryData.
+  ///
+  /// In zh, this message translates to:
+  /// **'该时间范围内暂无送达记录'**
+  String get statsNoDeliveryData;
+
+  /// No description provided for @statsFailNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络 / 连接失败'**
+  String get statsFailNetwork;
+
+  /// No description provided for @statsFailCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 次'**
+  String statsFailCount(int n);
+
+  /// No description provided for @healthReachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'连通 · {n} ms'**
+  String healthReachable(int n);
+
+  /// No description provided for @healthUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接失败'**
+  String get healthUnreachable;
+
+  /// No description provided for @healthProbedMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 分钟前探测'**
+  String healthProbedMinutes(int n);
+
+  /// No description provided for @healthProbedHours.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 小时前探测'**
+  String healthProbedHours(int n);
 }
 
 class _AppLocalizationsDelegate

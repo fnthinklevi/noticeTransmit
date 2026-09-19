@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/webhook_channel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 
@@ -24,12 +26,19 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   late List<TextEditingController> _nameControllers;
   late List<TextEditingController> _secretControllers;
   late List<TextEditingController> _templateControllers;
+  // 企业微信自建应用扩展参数（corpid/agentid/touser），非 wecom_app 通道不显示
+  late List<TextEditingController> _corpidControllers;
+  late List<TextEditingController> _agentidControllers;
+  late List<TextEditingController> _touserControllers;
   late List<bool> _webhookEnabled;
   late List<bool> _secretVisible;
   late List<WebhookMessageFormat> _messageFormats;
   // 渠道类型：'auto' 表示自动识别（按 URL host 探测），否则为用户手动指定的类型值
   late List<String> _channelTypes;
   bool _isTesting = false;
+  // 通道健康探测（P2）：channelId → {reachable, latencyMs, httpCode, probedAt}
+  Map<String, Map<String, dynamic>> _healthResults = {};
+  bool _probing = false;
   String? _testResult;
   bool? _testSuccess;
   bool? _testSigned;
@@ -74,6 +83,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return (Icons.tag, const Color(0xFF4A154B));
       case WebhookChannelType.discord:
         return (Icons.forum, const Color(0xFF5865F2));
+      case WebhookChannelType.wecomApp:
+        return (Icons.business, const Color(0xFF00D3B6));
       case WebhookChannelType.generic:
         return (Icons.code, const Color(0xFFFF9500));
     }
@@ -107,6 +118,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return l10n.channelTypeSlack;
       case WebhookChannelType.discord:
         return l10n.channelTypeDiscord;
+      case WebhookChannelType.wecomApp:
+        return l10n.channelTypeWecomApp;
     }
   }
 
@@ -298,6 +311,27 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           ),
         )
         .toList();
+    _corpidControllers = widget.webhookChannels
+        .map(
+          (c) => TextEditingController(
+            text: ((c['extra_config'] as Map?)?['corpid'] ?? '')!.toString(),
+          ),
+        )
+        .toList();
+    _agentidControllers = widget.webhookChannels
+        .map(
+          (c) => TextEditingController(
+            text: ((c['extra_config'] as Map?)?['agentid'] ?? '')!.toString(),
+          ),
+        )
+        .toList();
+    _touserControllers = widget.webhookChannels
+        .map(
+          (c) => TextEditingController(
+            text: ((c['extra_config'] as Map?)?['touser'] ?? '')!.toString(),
+          ),
+        )
+        .toList();
     _webhookEnabled = widget.webhookChannels
         .map((c) => c['enabled'] as bool? ?? true)
         .toList();
@@ -323,11 +357,70 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _nameControllers.add(TextEditingController());
       _secretControllers.add(TextEditingController());
       _templateControllers.add(TextEditingController());
+      _corpidControllers.add(TextEditingController());
+      _agentidControllers.add(TextEditingController());
+      _touserControllers.add(TextEditingController());
       _webhookEnabled.add(true);
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
       _channelTypes.add('auto');
     }
+    // 进入设置页即读取缓存健康状态；启用的通道超 6 小时未探测则后台刷新
+    _loadHealthCache();
+  }
+
+  /// 读取持久化的上次探测结果（SharedPreferences，key: `channel_health_<id>`）
+  Future<void> _loadHealthCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final results = <String, Map<String, dynamic>>{};
+    for (final c in widget.webhookChannels) {
+      final id = c['id']?.toString() ?? '';
+      if (id.isEmpty) continue;
+      final raw = prefs.getString('channel_health_$id');
+      if (raw == null) continue;
+      try {
+        results[id] = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      } catch (_) {}
+    }
+    setState(() => _healthResults = results);
+    _probeStaleChannels();
+  }
+
+  /// 启用通道超过 6 小时未探测 → 后台逐个探测并持久化
+  Future<void> _probeStaleChannels() async {
+    if (_probing) return;
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final stale = widget.webhookChannels.where((c) {
+      if (c['enabled'] != true) return false;
+      final id = c['id']?.toString() ?? '';
+      final cached = _healthResults[id];
+      final probedAt = (cached?['probedAt'] as num?)?.toInt() ?? 0;
+      return now - probedAt > const Duration(hours: 6).inMilliseconds;
+    }).toList();
+    if (stale.isEmpty) return;
+    _probing = true;
+    for (final c in stale) {
+      final id = c['id']?.toString() ?? '';
+      final url = c['url']?.toString() ?? '';
+      if (id.isEmpty || url.isEmpty) continue;
+      try {
+        final r = await _channel.invokeMethod('probeChannelHealth', {
+          'url': url,
+        });
+        final entry = <String, dynamic>{
+          'reachable': r['reachable'] as bool? ?? false,
+          'latencyMs': (r['latencyMs'] as num?)?.toInt() ?? 0,
+          'httpCode': (r['httpCode'] as num?)?.toInt() ?? 0,
+          'probedAt': DateTime.now().millisecondsSinceEpoch,
+        };
+        _healthResults[id] = entry;
+        await prefs.setString('channel_health_$id', jsonEncode(entry));
+        if (mounted) setState(() {});
+      } catch (_) {}
+    }
+    _probing = false;
   }
 
   void _addWebhookField() {
@@ -336,6 +429,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _nameControllers.add(TextEditingController());
       _secretControllers.add(TextEditingController());
       _templateControllers.add(TextEditingController());
+      _corpidControllers.add(TextEditingController());
+      _agentidControllers.add(TextEditingController());
+      _touserControllers.add(TextEditingController());
       _webhookEnabled.add(true);
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
@@ -353,6 +449,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _nameControllers.removeAt(index);
       _secretControllers.removeAt(index);
       _templateControllers.removeAt(index);
+      _corpidControllers.removeAt(index);
+      _agentidControllers.removeAt(index);
+      _touserControllers.removeAt(index);
       _webhookEnabled.removeAt(index);
       _secretVisible.removeAt(index);
       _messageFormats.removeAt(index);
@@ -362,6 +461,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _nameControllers.add(TextEditingController());
         _secretControllers.add(TextEditingController());
         _templateControllers.add(TextEditingController());
+        _corpidControllers.add(TextEditingController());
+        _agentidControllers.add(TextEditingController());
+        _touserControllers.add(TextEditingController());
         _webhookEnabled.add(true);
         _secretVisible.add(false);
         _messageFormats.add(WebhookMessageFormat.defaultFormat);
@@ -401,6 +503,15 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         final channelType = (manualType == 'auto' || manualType.isEmpty)
             ? WebhookChannel.detectTypeFromUrl(url).value
             : manualType;
+        // 企业微信自建应用：携带扩展参数（corpid/agentid/touser）
+        Map<String, dynamic>? extraConfig;
+        if (channelType == WebhookChannelType.wecomApp.value) {
+          extraConfig = {
+            'corpid': _corpidControllers[i].text.trim(),
+            'agentid': int.tryParse(_agentidControllers[i].text.trim()) ?? 0,
+            'touser': _touserControllers[i].text.trim(),
+          };
+        }
         final template = _templateControllers[i].text.trim();
         channels.add({
           'id': (existingId != null && existingId.isNotEmpty)
@@ -413,6 +524,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           if (secret.isNotEmpty) 'secret': secret,
           'message_format': _messageFormats[i].value,
           if (template.isNotEmpty) 'message_template': template,
+          'extra_config': ?extraConfig,
         });
       }
     }
@@ -446,6 +558,14 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final result = await _channel.invokeMethod('testWebhook', {
         'url': url,
         if (secret.isNotEmpty) 'secret': secret,
+        // 企业微信自建应用：测试同样需要 corpid/agentid/touser
+        if (_effectiveType(index) == WebhookChannelType.wecomApp)
+          'extraConfig': {
+            'corpid': _corpidControllers[index].text.trim(),
+            'agentid':
+                int.tryParse(_agentidControllers[index].text.trim()) ?? 0,
+            'touser': _touserControllers[index].text.trim(),
+          },
       });
       final success = result['success'] as bool? ?? false;
       final message = result['message'] as String? ?? l10n.unknownError;
@@ -506,6 +626,8 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return l10n.signingHintSlack;
       case WebhookChannelType.discord:
         return l10n.signingHintDiscord;
+      case WebhookChannelType.wecomApp:
+        return l10n.signingHintWecomApp;
       case WebhookChannelType.generic:
         return l10n.signingHintGeneric;
     }
@@ -720,6 +842,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           icon = Icons.forum;
           color = const Color(0xFF5865F2);
           desc = l10n.platformDiscordDesc;
+        case WebhookChannelType.wecomApp:
+          typeName = l10n.channelTypeWecomApp;
+          icon = Icons.business;
+          color = const Color(0xFF00D3B6);
+          desc = l10n.platformWecomAppDesc;
         case WebhookChannelType.generic:
           typeName = l10n.platformGeneric;
           icon = Icons.code;

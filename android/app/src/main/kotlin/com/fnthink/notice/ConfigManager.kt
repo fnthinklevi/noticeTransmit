@@ -38,7 +38,9 @@ class ConfigManager(private val context: Context) {
         val secret: String?,
         val type: WebhookPayloadBuilder.WebhookType,
         val messageFormat: String = "default",
-        val messageTemplate: String? = null
+        val messageTemplate: String? = null,
+        /** 企业微信自建应用等通道的扩展配置（corpid/agentid/touser），其余通道为 null */
+        val extraConfig: JSONObject? = null,
     )
 
     fun getWebhookUrls(): List<String> {
@@ -88,7 +90,12 @@ class ConfigManager(private val context: Context) {
                 val messageFormat = obj.optString("message_format", "default").ifEmpty { "default" }
                 val messageTemplate = obj.optString("message_template", "")
                     .takeIf { it.isNotEmpty() && it != "null" }
-                list.add(WebhookChannelConfig(url, secret, type, messageFormat, messageTemplate))
+                val extraConfig = obj.optJSONObject("extra_config")
+                list.add(
+                    WebhookChannelConfig(
+                        url, secret, type, messageFormat, messageTemplate, extraConfig
+                    )
+                )
             }
             list
         } catch (e: Exception) {
@@ -128,6 +135,7 @@ class ConfigManager(private val context: Context) {
             "gotify", "9" -> WebhookPayloadBuilder.WebhookType.GOTIFY
             "slack", "10" -> WebhookPayloadBuilder.WebhookType.SLACK
             "discord", "11" -> WebhookPayloadBuilder.WebhookType.DISCORD
+            "wecom_app", "wecomapp", "12" -> WebhookPayloadBuilder.WebhookType.WECOM_APP
             "generic", "3" -> WebhookPayloadBuilder.WebhookType.GENERIC
             else -> WebhookPayloadBuilder.detectType(url)
         }

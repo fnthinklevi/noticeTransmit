@@ -93,7 +93,7 @@ class DatabaseHelper implements WebhookChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 8,
+        version: 9,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -106,7 +106,7 @@ class DatabaseHelper implements WebhookChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 8,
+        version: 9,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -306,6 +306,7 @@ class DatabaseHelper implements WebhookChannelStore {
         secret TEXT,
         message_format TEXT NOT NULL DEFAULT 'default',
         message_template TEXT,
+        extra_config TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -385,6 +386,7 @@ class DatabaseHelper implements WebhookChannelStore {
           secret TEXT,
           message_format TEXT NOT NULL DEFAULT 'default',
           message_template TEXT,
+        extra_config TEXT,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         )
@@ -435,6 +437,12 @@ class DatabaseHelper implements WebhookChannelStore {
       // v8: 通知优先级分级（0=低 / 1=中 / 2=高），旧数据默认中优先级
       await db.execute('''
         ALTER TABLE notifications ADD COLUMN priority INTEGER NOT NULL DEFAULT 1
+      ''');
+    }
+    if (oldVersion < 9) {
+      // v9: 通道扩展配置（企业微信自建应用 corpid/agentid/touser 等，JSON 键值）
+      await db.execute('''
+        ALTER TABLE webhook_channels ADD COLUMN extra_config TEXT
       ''');
     }
   }
@@ -663,6 +671,57 @@ class DatabaseHelper implements WebhookChannelStore {
     return await db.rawQuery(
       'SELECT * FROM webhook_delivery_log ORDER BY timestamp DESC LIMIT ?',
       [limit],
+    );
+  }
+
+  /// 送达健康统计：N 天内各通道 推送数/成功数（webhook_delivery_log 聚合）
+  Future<List<Map<String, dynamic>>> getChannelSuccessRates({
+    int days = 7,
+  }) async {
+    final db = await database;
+    final since = DateTime.now()
+        .subtract(Duration(days: days))
+        .millisecondsSinceEpoch;
+    return await db.rawQuery(
+      'SELECT tag, COUNT(*) AS total, '
+      "SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success "
+      'FROM webhook_delivery_log WHERE timestamp >= ? '
+      'GROUP BY tag ORDER BY total DESC',
+      [since],
+    );
+  }
+
+  /// 失败原因 TOP：N 天内按 HTTP 码聚类（code 为空 = 网络/连接类失败）
+  Future<List<Map<String, dynamic>>> getTopFailureReasons({
+    int days = 7,
+    int limit = 5,
+  }) async {
+    final db = await database;
+    final since = DateTime.now()
+        .subtract(Duration(days: days))
+        .millisecondsSinceEpoch;
+    return await db.rawQuery(
+      'SELECT COALESCE(http_code, -1) AS code, COUNT(*) AS cnt '
+      'FROM webhook_delivery_log '
+      "WHERE status != 'success' AND timestamp >= ? "
+      'GROUP BY code ORDER BY cnt DESC LIMIT ?',
+      [since, limit],
+    );
+  }
+
+  /// 高峰时段分布：N 天内通知记录按小时（0-23）计数（notifications 聚合）
+  Future<List<Map<String, dynamic>>> getHourlyDistribution({
+    int days = 7,
+  }) async {
+    final db = await database;
+    final since = DateTime.now()
+        .subtract(Duration(days: days))
+        .millisecondsSinceEpoch;
+    return await db.rawQuery(
+      "SELECT CAST(strftime('%H', post_time / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour, "
+      'COUNT(*) AS cnt FROM notifications WHERE post_time >= ? '
+      'GROUP BY hour',
+      [since],
     );
   }
 
@@ -921,6 +980,10 @@ class DatabaseHelper implements WebhookChannelStore {
               c['messageFormat']?.toString() ??
               'default',
           'message_template': c['message_template'] ?? c['messageTemplate'],
+          // v9: 通道扩展配置（wecom_app corpid/agentid/touser，Map → JSON 字符串）
+          'extra_config': (c['extra_config'] ?? c['extraConfig']) is Map
+              ? jsonEncode(c['extra_config'] ?? c['extraConfig'])
+              : c['extra_config'] ?? c['extraConfig'],
           'created_at': c['created_at'] ?? now,
           'updated_at': now,
         };

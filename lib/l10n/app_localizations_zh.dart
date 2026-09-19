@@ -2295,4 +2295,122 @@ class AppLocalizationsZh extends AppLocalizations {
   String ruleAppGroupOthersN(int n) {
     return '其他应用 · $n 个';
   }
+
+  @override
+  String get channelTypeWecomApp => '企业微信自建应用';
+
+  @override
+  String get platformWecomAppDesc =>
+      '企业微信自建应用推送（需 corpid/agentid/corpsecret），支持指定接收人，正文上限 2048 字节';
+
+  @override
+  String get signingHintWecomApp =>
+      '必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid';
+
+  @override
+  String get wecomAppExtraTitle => '企业微信自建应用参数';
+
+  @override
+  String get wecomAppCorpidHint => '企业 ID（corpid）';
+
+  @override
+  String get wecomAppAgentidHint => '应用 agentid（纯数字）';
+
+  @override
+  String get wecomAppTouserHint => '接收人 touser（可选，默认 @all，多人间隔 |）';
+
+  @override
+  String get ruleTemplateTitle => '规则模板库';
+
+  @override
+  String get ruleTemplatePreset => '预设模板';
+
+  @override
+  String get ruleTemplateMine => '我的模板';
+
+  @override
+  String get ruleTemplateMineEmpty => '暂无自定义模板；在规则卡片上点「存为模板」即可保存';
+
+  @override
+  String get ruleTemplateSaveAs => '存为模板';
+
+  @override
+  String ruleTemplateSavedToast(String app) {
+    return '已将「$app」存为模板';
+  }
+
+  @override
+  String get ruleTemplateImport => '从文件导入';
+
+  @override
+  String get ruleTemplateExport => '导出分享';
+
+  @override
+  String get ruleTemplateImportPasswordTitle => '输入模板文件口令';
+
+  @override
+  String get ruleTemplateImportPasswordHint => '该文件已加密，请输入导出时设置的口令';
+
+  @override
+  String get ruleTemplateExportPasswordTitle => '导出口令（可选）';
+
+  @override
+  String get ruleTemplateExportPasswordHint =>
+      '留空则明文导出；设置口令后需凭口令导入（AES-256 加密）';
+
+  @override
+  String get ruleTemplateImportEmpty => '模板文件中没有模板';
+
+  @override
+  String get ruleTemplateInvalidFile => '不是有效的模板文件';
+
+  @override
+  String get ruleTemplateExportOk => '模板已导出';
+
+  @override
+  String get statsDeliveryHealth => '送达健康';
+
+  @override
+  String get statsChannelSuccess => '通道成功率';
+
+  @override
+  String get statsFailureTop => '失败原因 TOP';
+
+  @override
+  String get statsHourly => '高峰时段分布';
+
+  @override
+  String get statsRange7 => '近 7 天';
+
+  @override
+  String get statsRange30 => '近 30 天';
+
+  @override
+  String get statsNoDeliveryData => '该时间范围内暂无送达记录';
+
+  @override
+  String get statsFailNetwork => '网络 / 连接失败';
+
+  @override
+  String statsFailCount(int n) {
+    return '$n 次';
+  }
+
+  @override
+  String healthReachable(int n) {
+    return '连通 · $n ms';
+  }
+
+  @override
+  String get healthUnreachable => '连接失败';
+
+  @override
+  String healthProbedMinutes(int n) {
+    return '$n 分钟前探测';
+  }
+
+  @override
+  String healthProbedHours(int n) {
+    return '$n 小时前探测';
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
@@ -153,6 +155,84 @@ void main() {
 
       // 加载后同样触发原生同步
       expect(channelCalls.map((c) => c.method), contains('setWebhookChannels'));
+    });
+  });
+
+  group('wecom_app extra_config 契约（DB v9）', () {
+    test('保存：extra_config Map 序列化为 JSON 字符串进入 DB 行 + 原生 payload 携带', () async {
+      await service.saveChannels([
+        {
+          'id': 'wecom1',
+          'name': '企微自建应用',
+          'url': 'https://qyapi.weixin.qq.com',
+          'channelType': 'wecom_app',
+          'enabled': true,
+          'secret': 'corpsecret-demo',
+          'extra_config': {
+            'corpid': 'corp-demo',
+            'agentid': 1000002,
+            'touser': '@all',
+          },
+        },
+      ]);
+
+      // DB 行：extra_config 序列化为 JSON 字符串
+      final row = storage.savedBatches.single.single;
+      final encoded = row['extra_config'];
+      expect(encoded, isA<String>());
+      final decoded = jsonDecode(encoded as String) as Map<String, dynamic>;
+      expect(decoded['corpid'], 'corp-demo');
+      expect(decoded['agentid'], 1000002);
+      expect(decoded['touser'], '@all');
+
+      // 原生同步 payload：setWebhookChannels 的通道携带 extra_config（Map 直传）
+      final syncCall = channelCalls.singleWhere(
+        (c) => c.method == 'setWebhookChannels',
+      );
+      final channels = (syncCall.arguments as Map)['channels'] as List;
+      final nativeChannel = channels.single as Map;
+      final extra = nativeChannel['extra_config'] as Map;
+      expect(extra['corpid'], 'corp-demo');
+      expect(extra['agentid'], 1000002);
+    });
+
+    test('加载：DB 行 extra_config JSON 字符串 → UI Map 解码', () async {
+      storage.rows = [
+        {
+          'id': 'wecom1',
+          'name': '企微自建应用',
+          'url': 'https://qyapi.weixin.qq.com',
+          'channel_type': 'wecom_app',
+          'enabled': 1,
+          'secret': 'corpsecret-demo',
+          'message_format': 'default',
+          'message_template': null,
+          'extra_config':
+              '{"corpid":"corp-demo","agentid":1000002,"touser":"@all"}',
+        },
+      ];
+
+      await service.loadChannels();
+
+      final channel = service.channels.single;
+      final extra = channel['extra_config'] as Map;
+      expect(extra['corpid'], 'corp-demo');
+      expect(extra['agentid'], 1000002);
+      expect(extra['touser'], '@all');
+    });
+
+    test('非 wecom_app 通道 extra_config 为空不干扰保存', () async {
+      await service.saveChannels([
+        {
+          'id': 'tg1',
+          'name': 'TG',
+          'url': 'https://api.telegram.org/botT/sendMessage',
+          'channelType': 'telegram',
+          'enabled': true,
+        },
+      ]);
+      final row = storage.savedBatches.single.single;
+      expect(row['extra_config'], isNull);
     });
   });
 }

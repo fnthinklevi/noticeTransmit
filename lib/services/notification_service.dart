@@ -539,6 +539,16 @@ class NotificationService {
     return await DatabaseHelper().getDailyStats(days);
   }
 
+  /// 送达健康：通道成功率 / 失败原因 TOP / 高峰时段（webhook_delivery_log + notifications 聚合）
+  Future<List<Map<String, dynamic>>> getChannelSuccessRates({int days = 7}) =>
+      DatabaseHelper().getChannelSuccessRates(days: days);
+
+  Future<List<Map<String, dynamic>>> getTopFailureReasons({int days = 7}) =>
+      DatabaseHelper().getTopFailureReasons(days: days);
+
+  Future<List<Map<String, dynamic>>> getHourlyDistribution({int days = 7}) =>
+      DatabaseHelper().getHourlyDistribution(days: days);
+
   Future<int> getCount({String? type}) async {
     return await DatabaseHelper().getNotificationCount(type: type);
   }

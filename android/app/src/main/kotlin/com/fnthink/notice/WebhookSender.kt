@@ -3,7 +3,11 @@ package com.fnthink.notice
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 class WebhookSender(private val context: Context) {
     companion object {
@@ -16,6 +20,14 @@ class WebhookSender(private val context: Context) {
     private var channelConfigs: List<ConfigManager.WebhookChannelConfig> = emptyList()
     @Volatile
     private var deviceName: String = ""
+
+    /** 企业微信自建应用 gettoken 专用客户端（与推送重试客户端隔离，独立超时） */
+    private val tokenHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
 
     fun destroy() {
         NetworkClient.destroy()
@@ -269,6 +281,110 @@ class WebhookSender(private val context: Context) {
                     onResultDone?.invoke(result)
                 }
             )
+            return
+        }
+
+        // 企业微信自建应用：两阶段请求（gettoken 换 access_token → message/send）。
+        // corpid/agentid/touser 来自通道 extra_config；corpsecret 走 secret 字段。
+        // token 由 WecomAppTokenManager 缓存（提前 5 分钟刷新）；发送返回
+        // 40014/42001 时清缓存重试一次。msgtype 随 message_format：markdown 或 text。
+        if (cfg.type == WebhookPayloadBuilder.WebhookType.WECOM_APP) {
+            val base = try {
+                WecomAppTokenLogic.normalizeBase(cfg.url)
+            } catch (e: IllegalArgumentException) {
+                val earlyFail = WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                    0, e.message ?: "地址无效", false
+                )
+                notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+                onResultDone?.invoke(earlyFail)
+                return
+            }
+            val extra = cfg.extraConfig ?: org.json.JSONObject()
+            val (corpid, agentid, touser) = WecomAppTokenLogic.parseExtraConfig(extra)
+            val corpsecret = cfg.secret?.trim() ?: ""
+            if (corpid.isEmpty() || corpsecret.isEmpty() || agentid <= 0) {
+                Log.e(TAG, "WecomApp config incomplete: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
+                val earlyFail = WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                    0, "企业微信应用配置不完整：需填写 corpid、agentid 与 corpsecret（密钥字段）", false
+                )
+                notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+                onResultDone?.invoke(earlyFail)
+                return
+            }
+            val markdown = cfg.messageFormat == "markdown"
+            val content = WebhookPayloadBuilder.truncateForWecomApp(
+                WebhookPayloadBuilder.buildTextBody(
+                    title = info.title,
+                    content = info.content,
+                    appName = info.appName,
+                    time = info.time,
+                    deviceName = deviceName,
+                    notifyType = info.type,
+                )
+            )
+            val payload = try {
+                WecomAppTokenLogic.buildSendPayload(agentid, touser, content, markdown)
+            } catch (e: IllegalArgumentException) {
+                val earlyFail = WebhookResponseParser.ParseResult(
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                    0, e.message ?: "载荷构造失败", false
+                )
+                notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+                onResultDone?.invoke(earlyFail)
+                return
+            }
+
+            val fetcher = WecomAppTokenManager.TokenFetcher { cid, csecret ->
+                val tokenUrl = WecomAppTokenLogic.tokenUrl(base, cid, csecret)
+                val request = Request.Builder()
+                    .url(tokenUrl)
+                    .addHeader("User-Agent", "NotificationMonitor/1.0")
+                    .build()
+                tokenHttpClient.newCall(request).execute().use { response ->
+                    WecomAppTokenLogic.parseTokenResponse(response.body?.string() ?: "")
+                }
+            }
+
+            fun deliver(attempt: Int) {
+                val send: String = try {
+                    runBlocking { WecomAppTokenManager.getToken(corpid, corpsecret, fetcher) }
+                } catch (e: WecomAppTokenManager.TokenFetchException) {
+                    val fail = WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                        0, e.message ?: "获取 access_token 失败", false
+                    )
+                    notifyDeliveryResult(info.id, cfg.type, fail, cfg.url)
+                    onResultDone?.invoke(fail)
+                    return
+                }
+                NetworkClient.sendWithRetry(
+                    url = WecomAppTokenLogic.sendUrl(base, send),
+                    payload = payload,
+                    tag = "notification",
+                    webhookType = cfg.type,
+                    secret = null,
+                    recordId = info.id,
+                    force = force,
+                    onResult = { result ->
+                        Log.d(TAG, "Delivery(WecomApp): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
+                        if (attempt == 0 &&
+                            result.status == WebhookResponseParser.DeliveryStatus.BIZ_FAIL &&
+                            WecomAppTokenManager.isTokenErrorMessage(result.message)
+                        ) {
+                            // token 失效（被服务端吊销/提前过期）：清缓存换新 token 重试一次
+                            Log.w(TAG, "WecomApp token expired, refresh and retry once")
+                            WecomAppTokenManager.invalidate()
+                            deliver(1)
+                            return@sendWithRetry
+                        }
+                        notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                        onResultDone?.invoke(result)
+                    }
+                )
+            }
+            deliver(0)
             return
         }
 

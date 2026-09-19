@@ -14,6 +14,7 @@ enum WebhookChannelType {
   gotify,
   slack,
   discord,
+  wecomApp,
 }
 
 extension WebhookChannelTypeExtension on WebhookChannelType {
@@ -43,6 +44,8 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'slack';
       case WebhookChannelType.discord:
         return 'discord';
+      case WebhookChannelType.wecomApp:
+        return 'wecom_app';
     }
   }
 
@@ -72,6 +75,8 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'Slack';
       case WebhookChannelType.discord:
         return 'Discord';
+      case WebhookChannelType.wecomApp:
+        return '企业微信自建应用';
     }
   }
 
@@ -85,6 +90,8 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
       // ntfy/gotify 的 secret 用作访问令牌（Bearer / App Token），非签名
       case WebhookChannelType.ntfy:
       case WebhookChannelType.gotify:
+      // wecom_app 的 secret 为 corpsecret（gettoken 换 access_token），非签名
+      case WebhookChannelType.wecomApp:
         return true;
       case WebhookChannelType.telegram:
       case WebhookChannelType.bark:
@@ -124,6 +131,8 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
         return 'Slack 使用 Incoming Webhook URL 鉴权，无需签名密钥';
       case WebhookChannelType.discord:
         return 'Discord 使用 Webhook URL 鉴权，无需签名密钥';
+      case WebhookChannelType.wecomApp:
+        return '必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid';
     }
   }
 }

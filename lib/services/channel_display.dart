@@ -59,6 +59,10 @@ String channelTypeDisplayName(String rawType) {
     case 'discord':
     case 'DISCORD':
       return 'webhook:Discord';
+    case 'wecom_app':
+    case 'wecomApp':
+    case 'WECOM_APP':
+      return isEn ? 'webhook:WeCom App' : 'webhook:企业微信应用';
     case 'email':
     case 'EMAIL':
       return isEn ? 'Email' : '邮件';

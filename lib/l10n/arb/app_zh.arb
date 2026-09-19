@@ -1121,5 +1121,75 @@
         "type": "int"
       }
     }
+  },
+  "channelTypeWecomApp": "企业微信自建应用",
+  "platformWecomAppDesc": "企业微信自建应用推送（需 corpid/agentid/corpsecret），支持指定接收人，正文上限 2048 字节",
+  "signingHintWecomApp": "必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid",
+  "wecomAppExtraTitle": "企业微信自建应用参数",
+  "wecomAppCorpidHint": "企业 ID（corpid）",
+  "wecomAppAgentidHint": "应用 agentid（纯数字）",
+  "wecomAppTouserHint": "接收人 touser（可选，默认 @all，多人间隔 |）",
+  "ruleTemplateTitle": "规则模板库",
+  "ruleTemplatePreset": "预设模板",
+  "ruleTemplateMine": "我的模板",
+  "ruleTemplateMineEmpty": "暂无自定义模板；在规则卡片上点「存为模板」即可保存",
+  "ruleTemplateSaveAs": "存为模板",
+  "ruleTemplateSavedToast": "已将「{app}」存为模板",
+  "@ruleTemplateSavedToast": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "ruleTemplateImport": "从文件导入",
+  "ruleTemplateExport": "导出分享",
+  "ruleTemplateImportPasswordTitle": "输入模板文件口令",
+  "ruleTemplateImportPasswordHint": "该文件已加密，请输入导出时设置的口令",
+  "ruleTemplateExportPasswordTitle": "导出口令（可选）",
+  "ruleTemplateExportPasswordHint": "留空则明文导出；设置口令后需凭口令导入（AES-256 加密）",
+  "ruleTemplateImportEmpty": "模板文件中没有模板",
+  "ruleTemplateInvalidFile": "不是有效的模板文件",
+  "ruleTemplateExportOk": "模板已导出",
+  "statsDeliveryHealth": "送达健康",
+  "statsChannelSuccess": "通道成功率",
+  "statsFailureTop": "失败原因 TOP",
+  "statsHourly": "高峰时段分布",
+  "statsRange7": "近 7 天",
+  "statsRange30": "近 30 天",
+  "statsNoDeliveryData": "该时间范围内暂无送达记录",
+  "statsFailNetwork": "网络 / 连接失败",
+  "statsFailCount": "{n} 次",
+  "@statsFailCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "healthReachable": "连通 · {n} ms",
+  "@healthReachable": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "healthUnreachable": "连接失败",
+  "healthProbedMinutes": "{n} 分钟前探测",
+  "@healthProbedMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "healthProbedHours": "{n} 小时前探测",
+  "@healthProbedHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

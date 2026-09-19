@@ -132,6 +132,10 @@ class WebhookService {
       row['message_template'] = c['message_template'] == 'null'
           ? null
           : c['message_template'];
+      // v9: extra_config 统一在此层编码为 JSON 字符串（DB 行契约恒为 String）；
+      // DatabaseHelper 对字符串原样落库，避免双重编码
+      final rawExtra = c['extra_config'] ?? c['extraConfig'];
+      row['extra_config'] = rawExtra is Map ? jsonEncode(rawExtra) : rawExtra;
       return row;
     }).toList();
     await _db.saveWebhookChannels(dbRows);
@@ -180,6 +184,12 @@ class WebhookService {
       'message_template': row['message_template'] == 'null'
           ? null
           : row['message_template'],
+      // v9: 通道扩展配置（JSON 字符串 → Map，供 UI 编辑与原生同步透传）
+      'extra_config': row['extra_config'] == null
+          ? null
+          : (row['extra_config'] is Map
+                ? row['extra_config']
+                : jsonDecode(row['extra_config'] as String) as Map),
     };
   }
 }

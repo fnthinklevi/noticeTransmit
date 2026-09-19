@@ -63,8 +63,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.72"
-        const val FALLBACK_BUILD = 108
+        const val FALLBACK_VERSION = "1.5.73"
+        const val FALLBACK_BUILD = 109
 
         // 推送历史自动归档目录（SAF treeUri），持久化在 FlutterSharedPreferences
         const val KEY_ARCHIVE_DIR_URI = "archive_dir_uri"
@@ -1796,7 +1796,28 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    internal fun testWebhook(url: String, secret: String?, result: MethodChannel.Result) {
+    /** 通道健康探测（P2）：轻量 HEAD，任何 HTTP 响应 = 连通；网络失败 = 不可达 */
+    internal fun probeChannelHealth(url: String, result: MethodChannel.Result) {
+        activityScope.launch(Dispatchers.IO) {
+            val probe = ChannelHealthProbe.probe(url)
+            withContext(Dispatchers.Main) {
+                result.success(
+                    mapOf(
+                        "reachable" to probe.reachable,
+                        "latencyMs" to probe.latencyMs,
+                        "httpCode" to probe.httpCode,
+                    )
+                )
+            }
+        }
+    }
+
+    internal fun testWebhook(
+        url: String,
+        secret: String?,
+        result: MethodChannel.Result,
+        extraConfig: Map<String, Any?>? = null,
+    ) {
         activityScope.launch(Dispatchers.IO) {
             val (success, message, signed) = try {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
@@ -1815,10 +1836,65 @@ class MainActivity : FlutterActivity() {
                     WebhookPayloadBuilder.WebhookType.GOTIFY -> "Gotify"
                     WebhookPayloadBuilder.WebhookType.SLACK -> "Slack"
                     WebhookPayloadBuilder.WebhookType.DISCORD -> "Discord"
+                    WebhookPayloadBuilder.WebhookType.WECOM_APP -> "企业微信应用"
                     WebhookPayloadBuilder.WebhookType.GENERIC -> "通用"
                 }
 
-                if (webhookType == WebhookPayloadBuilder.WebhookType.NTFY) {
+                if (webhookType == WebhookPayloadBuilder.WebhookType.WECOM_APP) {
+                    // 企业微信自建应用测试：extraConfig 携带 corpid/agentid/touser，
+                    // secret 携带 corpsecret；gettoken → message/send → errcode 判定
+                    val extra = extraConfig?.let { m ->
+                        JSONObject().apply {
+                            for ((k, v) in m) if (v != null) put(k.toString(), v)
+                        }
+                    }
+                    val (corpid, agentid, touser) = WecomAppTokenLogic.parseExtraConfig(extra)
+                    val base = try {
+                        WecomAppTokenLogic.normalizeBase(url)
+                    } catch (e: IllegalArgumentException) {
+                        result.success(mapOf("success" to false, "message" to (e.message ?: "地址无效")))
+                        return@launch
+                    }
+                    if (corpid.isEmpty() || agentid <= 0 || secret.isNullOrEmpty()) {
+                        result.success(
+                            mapOf(
+                                "success" to false,
+                                "message" to "配置不完整：需填写 corpid、agentid 与 corpsecret（密钥字段）"
+                            )
+                        )
+                        return@launch
+                    }
+                    try {
+                        val tokenUrl = WecomAppTokenLogic.tokenUrl(base, corpid, secret)
+                        val tokenBody = okHttpClient.newCall(Request.Builder().url(tokenUrl).build())
+                            .execute().use { resp ->
+                                resp.body?.string() ?: ""
+                            }
+                        val (token, _) = WecomAppTokenLogic.parseTokenResponse(tokenBody)
+                        val content = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
+                        val payload = WecomAppTokenLogic.buildSendPayload(
+                            agentid, touser, content,
+                            markdown = false,
+                        )
+                        val sendReq = Request.Builder()
+                            .url(WecomAppTokenLogic.sendUrl(base, token))
+                            .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                            .build()
+                        okHttpClient.newCall(sendReq).execute().use { resp ->
+                            val respBody = resp.body?.string() ?: ""
+                            val parseResult = WebhookResponseParser.parse(webhookType, resp.code, respBody)
+                            Triple(
+                                parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                                parseResult.message,
+                                false
+                            )
+                        }
+                    } catch (e: WecomAppTokenManager.TokenFetchException) {
+                        Triple(false, e.message ?: "获取 access_token 失败", false)
+                    } catch (e: Exception) {
+                        Triple(false, "推送异常: ${e.message ?: e.javaClass.simpleName}", false)
+                    }
+                } else if (webhookType == WebhookPayloadBuilder.WebhookType.NTFY) {
                     // ntfy：header 模式——body 为纯文本，标题/鉴权走 HTTP header
                     val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
                     val requestBuilder = Request.Builder()

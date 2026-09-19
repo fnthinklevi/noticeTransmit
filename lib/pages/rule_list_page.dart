@@ -4,7 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
+import '../services/rule_template_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/rule_template_sheet.dart';
 import 'rule_edit_page.dart';
 import 'rule_tester_page.dart';
 
@@ -355,6 +357,29 @@ class _RuleListPageState extends State<RuleListPage> {
                           ),
                           Expanded(
                             child: TextButton(
+                              onPressed: () => _saveRuleAsTemplate(rule),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                              child: Text(
+                                l10n.ruleTemplateSaveAs,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: AppColors.systemOrange(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            color: AppColors.separator(context),
+                            width: 0.5,
+                            height: 24,
+                          ),
+                          Expanded(
+                            child: TextButton(
                               onPressed: () => _deleteRule(rule),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
@@ -510,6 +535,38 @@ class _RuleListPageState extends State<RuleListPage> {
     );
   }
 
+  final RuleTemplateService _templateService = RuleTemplateService();
+
+  /// 模板库入口：导入预设/用户模板（追加并持久化）
+  Future<void> _openTemplateSheet() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => RuleTemplateSheet(
+        currentRules: _rules,
+        onImport: (imported) {
+          setState(() {
+            _rules.addAll(imported);
+          });
+          _saveRules();
+        },
+      ),
+    );
+  }
+
+  /// 存为模板：把当前规则保存到用户模板（同名覆盖）
+  Future<void> _saveRuleAsTemplate(NotificationRule rule) async {
+    final l10n = AppLocalizations.of(context);
+    await _templateService.saveUserTemplate(rule);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.ruleTemplateSavedToast(rule.name)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -517,6 +574,11 @@ class _RuleListPageState extends State<RuleListPage> {
       appBar: AppBar(
         title: Text(l10n.ruleListTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.playlist_add_check_outlined),
+            onPressed: _openTemplateSheet,
+            tooltip: l10n.ruleTemplateTitle,
+          ),
           IconButton(
             icon: const Icon(Icons.science_outlined),
             onPressed: _openTester,

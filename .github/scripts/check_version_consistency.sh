@@ -106,6 +106,16 @@ EOF
     fi
 fi
 
+# 官网 i18n 覆盖检查：index.html 所有含中文的文本节点/属性，必须能被 i18n.js
+# 字典在英文模式下完整翻译（最长 key 优先子串替换模拟）；否则英文用户看到中英混排。
+# 官网新增中文内容时必须同步在 i18n.js 登记英文词条（tools/check_site_i18n.py 模拟替换逻辑）。
+if [ -n "$PY" ] && [ -f tools/check_site_i18n.py ]; then
+    if ! "$PY" tools/check_site_i18n.py; then
+        echo -e "${RED}❌ 官网 i18n 覆盖检查失败，请在 server/public/i18n.js 补齐缺失词条${NC}"
+        errors=$((errors+1))
+    fi
+fi
+
 # ===== 文档一致性：README 标注须与服务端依赖 / 实际运行参数同步 =====
 
 # otplib 版本：README 中的标注须与 server/package.json 声明一致

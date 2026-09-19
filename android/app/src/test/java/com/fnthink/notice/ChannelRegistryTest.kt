@@ -163,13 +163,14 @@ class ChannelRegistryTest {
         assertEquals(WebhookPayloadBuilder.WebhookType.DISCORD, ChannelRegistry.typeByHost("discord.com"))
         assertEquals(WebhookPayloadBuilder.WebhookType.NTFY, ChannelRegistry.typeByHost("ntfy.sh"))
         assertEquals(null, ChannelRegistry.typeByHost("example.com"))
-        // 空 hosts 是 Gotify（无官方托管，自建 host 不可枚举）的合法形态：
-        // 类型由 DB channel_type 提供，不参与 host 自动识别（detectType 回退 GENERIC）
+        // 空 hosts 是自建服务器/不可枚举通道的合法形态：类型由 DB channel_type 提供。
+        // WECOM_APP 与群机器人同在 qyapi host，无法靠 URL 区分 → 同样手动选择。
         assertTrue(
-            "空 hosts 通道应恰为 GENERIC/GOTIFY：${specs.filter { it.hosts.isEmpty() }.map { it.type }}",
+            "空 hosts 通道应恰为 GENERIC/WECOM_APP/GOTIFY：${specs.filter { it.hosts.isEmpty() }.map { it.type }}",
             specs.filter { it.hosts.isEmpty() }.map { it.type } ==
                 listOf(
                     WebhookPayloadBuilder.WebhookType.GENERIC,
+                    WebhookPayloadBuilder.WebhookType.WECOM_APP,
                     WebhookPayloadBuilder.WebhookType.GOTIFY,
                 )
         )

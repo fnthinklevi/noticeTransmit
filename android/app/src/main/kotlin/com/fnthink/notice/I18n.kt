@@ -235,6 +235,7 @@ object I18n {
         WebhookPayloadBuilder.WebhookType.GOTIFY -> "Gotify"
         WebhookPayloadBuilder.WebhookType.SLACK -> "Slack"
         WebhookPayloadBuilder.WebhookType.DISCORD -> "Discord"
+        WebhookPayloadBuilder.WebhookType.WECOM_APP -> if (isEn) "WeCom App" else "企业微信应用"
         WebhookPayloadBuilder.WebhookType.GENERIC -> if (isEn) "Generic" else "通用"
     }
     fun pushPlusTokenMissing(): String =

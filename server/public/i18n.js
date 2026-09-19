@@ -188,9 +188,41 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['下载 APK'] = 'Download APK';
   D['返回顶部'] = 'Back to top';
 
+  // ── v1.5.73 官网内容（通道扩展收尾 + 模板库 + 送达健康 + 健康探测）──
+  D['Webhook 推送通道'] = 'Webhook Channels';
+  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 企业微信自建应用 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / WeCom App (self-built) / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email — with app filtering, keyword filtering, a visual rule engine (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and custom battery alerts.';
+  D['Webhook（企业微信 / 企业微信自建应用 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhooks (WeCom / WeCom App (self-built) / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / custom — ntfy and Gotify support self-hosted servers) + SMTP email (SSL/STARTTLS). Independent switch per channel; subject/body support template variables.';
+  D['规则模板库'] = 'Rule Template Library';
+  D['内置验证码优先、营销拦截、夜间免打扰、社交消息聚合等 5 套预设模板一键导入；自定义规则可「存为模板」复用，支持导出分享（可选口令 AES-256 加密）与文件导入。'] = 'Five built-in presets (OTP priority, marketing block, night DND, social aggregation) import in one tap; save custom rules as reusable templates; export for sharing with optional AES-256 password protection, or import from file.';
+  D['送达健康统计'] = 'Delivery Health Stats';
+  D['通道成功率排行、失败原因 TOP（HTTP 状态码聚类）、24 小时高峰时段分布，近 7 天 / 30 天自由切换，哪个通道出问题一眼看清。'] = 'Channel success-rate ranking, top failure reasons (clustered by HTTP status), and a 24-hour peak-hours chart — switch freely between 7 and 30 days to spot a failing channel at a glance.';
+  D['通道健康探测'] = 'Channel Health Probe';
+  D['对启用的 Webhook 通道自动做轻量连通探测（默认 6 小时一轮），通道卡片实时显示「连通 · 延迟 · 探测时间」徽标，通道挂了第一时间发现。'] = 'Lightweight reachability probes run automatically for enabled Webhook channels (every 6 hours by default); channel cards show a "reachable · latency · probe time" badge, so a broken channel is caught immediately.';
+  D['企业微信自建应用'] = 'WeCom App (self-built)';
+  D['corpid/agentid 定向推送'] = 'Targeted push via corpid/agentid';
+  D['官方/自建服务器'] = 'Official or self-hosted';
+  D['自建服务器推送'] = 'Self-hosted server push';
+  D['Webhook 推送'] = 'Webhook push';
+  D['全应用中英双语支持（700+ 词条全量覆盖），设置页一键切换语言。'] = 'Full-app Chinese/English bilingual (700+ dictionary entries), switch language in settings.';
+  D['内置适配 12 类平台：企业微信群机器人、企业微信自建应用（corpid/agentid 定向）、钉钉、飞书、Telegram、Bark、Server酱、PushPlus、ntfy（官方/自建）、Gotify（自建）、Slack、Discord；支持 SMTP 邮件推送（SSL/STARTTLS）；也支持任意自定义 Webhook 地址，可对接兼容的第三方平台或你自己的服务端。'] = 'Twelve platforms built in: WeCom group bots, WeCom self-built apps (corpid/agentid targeting), DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus, ntfy (official/self-hosted), Gotify (self-hosted), Slack, and Discord. Plus SMTP email (SSL/STARTTLS) and any custom Webhook URL for third-party services or your own backend.';
+  D['10 分钟内验证码错误 5 次自动封锁 IP 1 小时，阻断自动化爆破。'] = 'Auto-block IP for 1 hour after 5 wrong code attempts in 10 minutes, stopping automated attacks.';
+
   // ── 当前语言 ──
+  // 语言检测（P2）：按用户需求——仅「简体中文」环境显示中文，
+  // 其他语言（含繁体 zh-tw/zh-hk/zh-hant）一律显示英文
+  function detectLang() {
+    var langs = navigator.languages || [navigator.language || ''];
+    for (var i = 0; i < langs.length; i++) {
+      var l = String(langs[i] || '').toLowerCase();
+      if (l === 'zh' || l.indexOf('zh-cn') === 0 || l.indexOf('zh-sg') === 0 || l.indexOf('zh-hans') === 0) {
+        return 'zh';
+      }
+    }
+    return 'en';
+  }
   var lang = localStorage.getItem('lang');
-  if (!lang) lang = (navigator.language || '').startsWith('zh') ? 'zh' : 'en';
+  if (!lang) lang = detectLang();
+  window._i18nDetect = detectLang;
 
   // ── 存储原始文本用于恢复中文 ──
   // 用 Map 而非普通对象：对象 key 会被 toString 强转（Text 节点都是 "[object Text]"），
@@ -292,8 +324,8 @@ D['通知推送助手'] = 'NoticeTransmit';
     var metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.content = l === 'zh'
-        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎、规则测试器、电量提醒等功能。开源、免费、本地处理。'
-        : 'NoticeTransmit — Android notification listener & push tool. Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / Custom) + SMTP email multi-channel. App filtering, keyword filtering, visual rule engine, rule tester, battery alerts. Open source, free, local processing.';
+        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 企业微信自建应用 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎、规则测试器、送达健康统计、通道健康探测、桌面小部件一键启停、电量提醒等功能。开源、免费、本地处理。'
+        : 'NoticeTransmit — Android notification listener & push tool. Webhooks (WeCom / WeCom App (self-built) / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / Custom) + SMTP email multi-channel. App filtering, keyword filtering, visual rule engine, rule tester, delivery health stats, channel health probe, battery alerts. Open source, free, local processing.';
     }
   }
 

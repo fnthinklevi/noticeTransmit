@@ -18,6 +18,7 @@ object WebhookPayloadBuilder {
         GOTIFY,
         SLACK,
         DISCORD,
+        WECOM_APP,
     }
 
 
@@ -248,6 +249,19 @@ object WebhookPayloadBuilder {
         if (text.length <= 2000) return text
         var end = 2000
         if (end > 0 && Character.isHighSurrogate(text[end - 1])) end--
+        return text.substring(0, end)
+    }
+
+    /**
+     * 企业微信自建应用 text 消息正文上限 2048 字节（UTF-8），超长返回错误码 40058。
+     * 按字符截断即可覆盖绝大多数场景（中文 3 字节，2048 字节 ≈ 680 汉字）。
+     */
+    fun truncateForWecomApp(text: String): String {
+        if (text.toByteArray(Charsets.UTF_8).size <= 2048) return text
+        var end = text.length
+        while (end > 0 && text.substring(0, end).toByteArray(Charsets.UTF_8).size > 2048) {
+            end--
+        }
         return text.substring(0, end)
     }
 

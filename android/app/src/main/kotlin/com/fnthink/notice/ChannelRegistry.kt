@@ -755,6 +755,75 @@ internal object ChannelRegistry {
         },
     ),
     ChannelSpec(
+        type = WebhookPayloadBuilder.WebhookType.WECOM_APP,
+        // 与群机器人同在 qyapi.weixin.qq.com，host 无法区分两类通道：
+        // 空 hosts（类型由 DB channel_type 提供，手动选择），不参与 detectType——
+        // 实际发送 URL 含 access_token，NetworkClient.sendOnce 按 URL 探测回
+        // WECHAT_WORK 的 errcode 判定，语义正确。
+        hosts = emptyList(),
+        notify = { p ->
+            val title = p.title; val content = p.content; val appName = p.appName
+            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+         WebhookPayloadBuilder.buildTextBody(
+                        title = title,
+                        content = content,
+                        appName = appName,
+                        time = time,
+                        deviceName = deviceName,
+                        notifyType = notifyType
+                    )
+                    // 实际发送走 WebhookSender 独立分支（gettoken → message/send），
+                    // 此处文本 body 仅为兜底（SERVER_CHAN/PUSH_PLUS 先例）
+        },
+        test = { p ->
+            val content = p.content; val deviceLabel = p.deviceLabel
+            val sep = p.sep; val deviceName = p.deviceName
+         "$content\n\n$deviceLabel$sep$deviceName"
+        },
+        sms = { p ->
+            val sender = p.sender; val message = p.message
+            val time = p.time; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            sender = sender, message = message, simFooter = simFooter
+                        )
+        },
+        call = { p ->
+            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+            val durationStr = p.durationStr; val deviceName = p.deviceName
+            val simFooter = p.simFooter
+         WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            state = state, phoneNumber = phoneNumber,
+                            durationStr = durationStr, simFooter = simFooter
+                        )
+        },
+        parse = { httpCode, jsonOrNull, rawBody ->
+            val json = jsonOrNull!!
+                // 与群机器人同构：errcode == 0 成功；45009 限流；40014/42001 token 失效
+                // （WebhookSender WECOM_APP 分支识别后刷新 token 重试一次）
+                val errcode = json.optInt("errcode", -1)
+                val errmsg = json.optString("errmsg", "")
+                when {
+                    errcode == 0 -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
+                        if (errmsg.isNotEmpty()) errmsg else "OK", false
+                    )
+                    errcode == 45009 -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
+                        "限流 errcode=$errcode: $errmsg", true
+                    )
+                    else -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
+                        "业务失败 errcode=$errcode: $errmsg", false
+                    )
+                }
+        },
+    ),
+    ChannelSpec(
         type = WebhookPayloadBuilder.WebhookType.NTFY,
         // 官方托管 ntfy.sh 可自动识别；自建服务器 host 不可枚举，
         // 类型由 DB channel_type 字段提供（detectType 兜底 GENERIC）
