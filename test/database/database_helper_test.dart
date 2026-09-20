@@ -36,5 +36,12 @@ void main() {
       expect(helper.clearAllPendingNotifications, isA<Function>());
       expect(helper.migrateFromSharedPreferences, isA<Function>());
     });
+
+    test('自建应用通道 API 签名存在（app_channels 表）', () {
+      // 应用通道体系的 DB 契约（详见 test/database/app_channel_schema_test.dart
+      // 的 schema 守卫：列名三方一致 + 双处建表 SQL 不漂移）
+      expect(helper.getAppChannels, isA<Function>());
+      expect(helper.saveAppChannels, isA<Function>());
+    });
   });
 }

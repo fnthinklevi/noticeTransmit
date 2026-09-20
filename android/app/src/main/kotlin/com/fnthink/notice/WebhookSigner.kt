@@ -67,10 +67,7 @@ object WebhookSigner {
                 WebhookPayloadBuilder.WebhookType.GOTIFY,
                 // Slack / Discord：Incoming Webhook URL 本身即凭据，无签名
                 WebhookPayloadBuilder.WebhookType.SLACK,
-                WebhookPayloadBuilder.WebhookType.DISCORD,
-                // 企业微信自建应用：secret 为 corpsecret（gettoken 换 access_token，
-                // 由 WebhookSender 分支处理），签名豁免
-                WebhookPayloadBuilder.WebhookType.WECOM_APP -> SignedRequest(url, payload, emptyMap())
+                WebhookPayloadBuilder.WebhookType.DISCORD -> SignedRequest(url, payload, emptyMap())
             }
         } catch (e: Exception) {
             Log.e(TAG, "Sign failed for $type: ${e.message}", e)

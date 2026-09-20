@@ -41,6 +41,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -358,6 +359,121 @@ class MainActivity : FlutterActivity() {
                     "onPhonePermissionResult",
                     mapOf("granted" to granted)
                 )
+            }
+        }
+    }
+
+    // ── 自建应用通道（应用通道体系，与 webhook 分离）──
+
+    /** 读取全部自建应用通道（明文镜像，secret 已脱敏），供设置页渲染 */
+    internal fun getAppChannels(): List<Map<String, Any?>> {
+        val rows = mutableListOf<Map<String, Any?>>()
+        val json = prefs.getString("flutter.app_channels", null)
+        if (json.isNullOrEmpty()) return rows
+        return try {
+            val arr = org.json.JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val map = mutableMapOf<String, Any?>()
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    map[key] = obj.get(key)
+                }
+                rows.add(map)
+            }
+            rows
+        } catch (e: Exception) {
+            e.printStackTrace()
+            rows
+        }
+    }
+
+    /** 保存自建应用通道：加密全量（含 secret）+ 明文脱敏镜像，并通知服务刷新 */
+    internal fun setAppChannels(channels: List<Map<String, Any?>>) {
+        val arr = org.json.JSONArray()
+        for (channel in channels) {
+            // 递归转换嵌套 Map/List（config 内嵌对象），与 setNotificationRules 同规
+            arr.put(toNativeJson(channel))
+        }
+        try {
+            SecurePrefs.get(this).edit()
+                .putString("secure_app_channels", arr.toString())
+                .apply()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "写入加密自建应用通道失败", e)
+        }
+        val sanitized = org.json.JSONArray()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            if (obj.has("secret")) obj.remove("secret")
+            sanitized.put(obj)
+        }
+        prefs.edit()
+            .putString("flutter.app_channels", sanitized.toString())
+            .commit()
+        notifyServiceConfigChanged()
+    }
+
+    /**
+     * 自建应用通道测试发送（两阶段：token → 消息端点）。
+     * configMap：base_url/secret/config{...}/appType（wecom_app|feishu_app）
+     */
+    internal fun testAppChannel(configMap: Map<String, Any?>, result: MethodChannel.Result) {
+        activityScope.launch(Dispatchers.IO) {
+            try {
+                val appType = configMap["appType"]?.toString() ?: ""
+                val spec = AppChannelRegistry.spec(appType)
+                if (spec == null) {
+                    result.success(mapOf("success" to false, "message" to "未知应用通道类型"))
+                    return@launch
+                }
+                val configObj = JSONObject()
+                val rawConfig = configMap["config"]
+                if (rawConfig is Map<*, *>) {
+                    for ((k, v) in rawConfig) if (v != null) configObj.put(k.toString(), v)
+                }
+                val base = AppChannelTokenHelper.normalizeBase(
+                    configMap["baseUrl"]?.toString() ?: "", spec.officialBase
+                )
+                val secret = configMap["secret"]?.toString() ?: ""
+                val cfg = AppChannelConfig(
+                    id = "test", name = "test", type = appType,
+                    baseUrl = base, secret = secret, config = configObj,
+                    messageFormat = "default", enabled = true,
+                )
+                val content = "这是一条测试消息，自建应用通道配置成功！" +
+                    "\n\n设备：${PrefsHelper.deviceName.ifEmpty { android.os.Build.MODEL }}"
+                val token = runBlocking {
+                    AppChannelTokenManager.getToken(
+                        appType,
+                        appType + "+" + secret,
+                        AppChannelTokenManager.TokenFetcher { spec.fetchToken(cfg, base, okHttpClient) },
+                    )
+                }
+                val (url, headers) = spec.sendTarget(cfg, base, token)
+                val payload = spec.buildPayload(cfg, content, false)
+                val request = Request.Builder()
+                    .url(url)
+                    .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                for ((k, v) in headers) request.addHeader(k, v)
+                okHttpClient.newCall(request.build()).execute().use { response ->
+                    val responseBody = response.body?.string() ?: ""
+                    // 响应按 host 解析：qyapi→errcode 语义、open.feishu.cn→code 语义
+                    val parseResult = WebhookResponseParser.parse(
+                        WebhookPayloadBuilder.detectType(url), response.code, responseBody
+                    )
+                    result.success(
+                        mapOf(
+                            "success" to (parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS),
+                            "message" to parseResult.message,
+                        )
+                    )
+                }
+            } catch (e: AppChannelTokenManager.TokenFetchException) {
+                result.success(mapOf("success" to false, "message" to (e.message ?: "获取 token 失败")))
+            } catch (e: Exception) {
+                result.success(mapOf("success" to false, "message" to "测试异常: ${e.message}"))
             }
         }
     }
@@ -1836,65 +1952,10 @@ class MainActivity : FlutterActivity() {
                     WebhookPayloadBuilder.WebhookType.GOTIFY -> "Gotify"
                     WebhookPayloadBuilder.WebhookType.SLACK -> "Slack"
                     WebhookPayloadBuilder.WebhookType.DISCORD -> "Discord"
-                    WebhookPayloadBuilder.WebhookType.WECOM_APP -> "企业微信应用"
                     WebhookPayloadBuilder.WebhookType.GENERIC -> "通用"
                 }
 
-                if (webhookType == WebhookPayloadBuilder.WebhookType.WECOM_APP) {
-                    // 企业微信自建应用测试：extraConfig 携带 corpid/agentid/touser，
-                    // secret 携带 corpsecret；gettoken → message/send → errcode 判定
-                    val extra = extraConfig?.let { m ->
-                        JSONObject().apply {
-                            for ((k, v) in m) if (v != null) put(k.toString(), v)
-                        }
-                    }
-                    val (corpid, agentid, touser) = WecomAppTokenLogic.parseExtraConfig(extra)
-                    val base = try {
-                        WecomAppTokenLogic.normalizeBase(url)
-                    } catch (e: IllegalArgumentException) {
-                        result.success(mapOf("success" to false, "message" to (e.message ?: "地址无效")))
-                        return@launch
-                    }
-                    if (corpid.isEmpty() || agentid <= 0 || secret.isNullOrEmpty()) {
-                        result.success(
-                            mapOf(
-                                "success" to false,
-                                "message" to "配置不完整：需填写 corpid、agentid 与 corpsecret（密钥字段）"
-                            )
-                        )
-                        return@launch
-                    }
-                    try {
-                        val tokenUrl = WecomAppTokenLogic.tokenUrl(base, corpid, secret)
-                        val tokenBody = okHttpClient.newCall(Request.Builder().url(tokenUrl).build())
-                            .execute().use { resp ->
-                                resp.body?.string() ?: ""
-                            }
-                        val (token, _) = WecomAppTokenLogic.parseTokenResponse(tokenBody)
-                        val content = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
-                        val payload = WecomAppTokenLogic.buildSendPayload(
-                            agentid, touser, content,
-                            markdown = false,
-                        )
-                        val sendReq = Request.Builder()
-                            .url(WecomAppTokenLogic.sendUrl(base, token))
-                            .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
-                            .build()
-                        okHttpClient.newCall(sendReq).execute().use { resp ->
-                            val respBody = resp.body?.string() ?: ""
-                            val parseResult = WebhookResponseParser.parse(webhookType, resp.code, respBody)
-                            Triple(
-                                parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
-                                parseResult.message,
-                                false
-                            )
-                        }
-                    } catch (e: WecomAppTokenManager.TokenFetchException) {
-                        Triple(false, e.message ?: "获取 access_token 失败", false)
-                    } catch (e: Exception) {
-                        Triple(false, "推送异常: ${e.message ?: e.javaClass.simpleName}", false)
-                    }
-                } else if (webhookType == WebhookPayloadBuilder.WebhookType.NTFY) {
+                if (webhookType == WebhookPayloadBuilder.WebhookType.NTFY) {
                     // ntfy：header 模式——body 为纯文本，标题/鉴权走 HTTP header
                     val payload = WebhookPayloadBuilder.buildTestPayload(webhookType, deviceName)
                     val requestBuilder = Request.Builder()

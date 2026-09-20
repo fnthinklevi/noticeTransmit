@@ -15,15 +15,17 @@ import 'filter_service.dart';
 import 'locale_service.dart';
 import 'sms_service.dart';
 import 'theme_service.dart';
+import 'app_channel_service.dart';
 import 'webhook_service.dart';
 
 /// P1 配置备份与恢复。
 ///
 /// 容器格式（.nbackup，JSON 文本）：文件头携带版本号与 KDF 参数（盐/迭代次数），
 /// 密文为 AES-256-GCM（口令经 PBKDF2-HMAC-SHA256 派生，210000 次迭代）。
-/// 备份内容（N5 起 11 类，对齐 base.md §10.2「升级设置保留要求」）：
+/// 备份内容（v1.59 起 **12 类**，对齐 base.md §10.2「升级设置保留要求」）：
 /// Webhook/邮件通道（含凭据）、通知规则、短信监听设置、应用过滤与黑白名单关键词、
-/// **电池规则与电量通知开关、主题/语言、设备名**；不含通知历史与送达日志。
+/// 电池规则与电量通知开关、主题/语言、设备名、**自建应用通道（含凭据，v1.59 新增）**；
+/// 不含通知历史与送达日志。
 class BackupService {
   static const formatId = 'notice-backup';
   static const formatVersion = 2;
@@ -49,6 +51,9 @@ class BackupService {
     final webhook = GetIt.instance<WebhookService>();
     if (webhook.channels.isEmpty) await webhook.loadChannels();
     final emailChannels = await GetIt.instance<EmailService>().loadChannels();
+    // v1.59：自建应用通道（含凭据）同样纳入备份
+    final appChannel = GetIt.instance<AppChannelService>();
+    if (appChannel.channels.isEmpty) await appChannel.loadChannels();
     final filter = GetIt.instance<FilterService>();
     await filter.loadSettings();
     final sms = GetIt.instance<SmsService>();
@@ -63,6 +68,7 @@ class BackupService {
 
     return {
       'webhookChannels': webhook.channels,
+      'appChannels': appChannel.channels,
       'emailChannels': emailChannels
           .map((c) => c.toMap(includePassword: true))
           .toList(),
@@ -206,8 +212,12 @@ class BackupService {
   Future<Map<String, bool>> detectExisting() async {
     final webhook = GetIt.instance<WebhookService>();
     if (webhook.channels.isEmpty) await webhook.loadChannels();
+    final appChannel = GetIt.instance<AppChannelService>();
+    if (appChannel.channels.isEmpty) await appChannel.loadChannels();
     final email = GetIt.instance<EmailService>();
     final emailChannels = await email.loadChannels();
+    final sms = GetIt.instance<SmsService>();
+    await sms.loadSettings();
     final filter = GetIt.instance<FilterService>();
     await filter.loadSettings();
     final battery = GetIt.instance<BatteryService>();
@@ -218,8 +228,13 @@ class BackupService {
     final locale = GetIt.instance<LocaleService>();
     return {
       'webhookChannels': webhook.channels.isNotEmpty,
+      'appChannels': appChannel.channels.isNotEmpty,
       'emailChannels': emailChannels.isNotEmpty,
       'notificationRules': filter.notificationRules.isNotEmpty,
+      'smsSettings':
+          sms.smsMonitorEnabled ||
+          sms.codeMonitorEnabled ||
+          sms.simFilter != 'all',
       'appFilter': filter.enabledPackages.isNotEmpty,
       'blacklistKeywords': filter.blacklistKeywords.isNotEmpty,
       'whitelistKeywords': filter.whitelistKeywords.isNotEmpty,
@@ -263,6 +278,19 @@ class BackupService {
             item['secret'] ??= '';
             return item;
           }).toList(),
+        );
+        return true;
+      });
+    }
+
+    final appChannelsRaw = payload['appChannels'];
+    if (appChannelsRaw is List) {
+      await restore('appChannels', () async {
+        await GetIt.instance<AppChannelService>().saveChannels(
+          appChannelsRaw
+              .whereType<Map>()
+              .map((m) => Map<String, dynamic>.from(m))
+              .toList(),
         );
         return true;
       });

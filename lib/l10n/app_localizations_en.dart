@@ -2508,4 +2508,205 @@ class AppLocalizationsEn extends AppLocalizations {
   String healthProbedHours(int n) {
     return 'probed $n h ago';
   }
+
+  @override
+  String get appChannelTitle => 'App Channels';
+
+  @override
+  String get appChannelPageDesc =>
+      'App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.';
+
+  @override
+  String get appChannelAddWecom => 'Add WeCom App';
+
+  @override
+  String get appChannelAddFeishu => 'Add Feishu App';
+
+  @override
+  String appChannelN(int n) {
+    return 'App Channel $n';
+  }
+
+  @override
+  String get appChannelNameLabel => 'Channel name';
+
+  @override
+  String get appChannelBaseUrlHint =>
+      'API base URL (leave empty for the official endpoint; self-hosted deployments supported — must be HTTPS with a system-trusted certificate)';
+
+  @override
+  String get appChannelSecretWecomHint =>
+      'corpsecret (exchanges for access_token)';
+
+  @override
+  String get appChannelSecretFeishuHint =>
+      'app_secret (exchanges for tenant_access_token)';
+
+  @override
+  String get appChannelCorpidLabel => 'Corp ID (corpid)';
+
+  @override
+  String get appChannelAgentidLabel => 'App agentid (numeric)';
+
+  @override
+  String get appChannelTouserLabel =>
+      'Receiver touser (optional, @all; | separated)';
+
+  @override
+  String get appChannelAppidLabel => 'App app_id';
+
+  @override
+  String get appChannelReceiveIdTypeLabel =>
+      'Receive ID type (chat_id or open_id)';
+
+  @override
+  String get appChannelReceiveIdLabel => 'Receiver receive_id';
+
+  @override
+  String get appChannelDeleteHint =>
+      'Deletions take effect after tapping Save.';
+
+  @override
+  String get appChannelTestFailed => 'Test failed: ';
+
+  @override
+  String get appChannelSaveOk => 'App channels saved and synced';
+
+  @override
+  String get appChannelSaveFailed => 'Save failed: ';
+
+  @override
+  String get channelTypeFeishuApp => 'Feishu App (self-built)';
+
+  @override
+  String get appChannelGuideEntry =>
+      'First time? Tap the \"?\" at the top-right of a card to see how to get each parameter';
+
+  @override
+  String get appChannelGuideOpen => 'Setup steps';
+
+  @override
+  String get appChannelGuideTitleWecom => 'WeCom Self-built App · Setup Steps';
+
+  @override
+  String get appChannelGuideTitleFeishu =>
+      'Feishu Self-built App · Setup Steps';
+
+  @override
+  String get appChannelGuidePrepWecom =>
+      'Prerequisite: WeCom admin (or app admin) access, and a self-built app created in the admin console.';
+
+  @override
+  String get appChannelGuidePrepFeishu =>
+      'Prerequisite: Feishu Open Platform developer access. Publishing a version requires admin approval.';
+
+  @override
+  String get appChannelGuideWecomS1 => 'Get the Corp ID (corpid)';
+
+  @override
+  String get appChannelGuideWecomS1Desc =>
+      'Admin console (work.weixin.qq.com) → \"My Enterprise\" → \"Enterprise Info\" → scroll to the bottom and copy the Enterprise ID.';
+
+  @override
+  String get appChannelGuideWecomS2 => 'Create a self-built app';
+
+  @override
+  String get appChannelGuideWecomS2Desc =>
+      '\"App Management\" → \"Apps\" → \"Self-built\" → \"Create App\"; fill in the name and icon.';
+
+  @override
+  String get appChannelGuideWecomS3 => 'Get AgentId and Secret';
+
+  @override
+  String get appChannelGuideWecomS3Desc =>
+      'Open the app you just created: the AgentId (digits only) is shown at the top; click \"View\" next to Secret, send the prompt to WeCom, then copy the secret (this is the corpsecret / Secret field in this app).';
+
+  @override
+  String get appChannelGuideWecomS4 => 'Set visible range (recipients)';
+
+  @override
+  String get appChannelGuideWecomS4Desc =>
+      'App details → \"Visible Range\": add the members/departments that should receive pushes. Leave the Recipient field empty to push to all visible members (@all); multiple user IDs can be separated by |.';
+
+  @override
+  String get appChannelGuideWecomS5 => '(Optional) Configure trusted IP';
+
+  @override
+  String get appChannelGuideWecomS5Desc =>
+      'If the enterprise enforces \"Trusted IP\": app details → \"Developer Interface\" → \"Trusted IP\" and add the phone\'s egress IP; otherwise skip.';
+
+  @override
+  String get appChannelGuideWecomS6 => 'Fill in and test';
+
+  @override
+  String get appChannelGuideWecomS6Desc =>
+      'Enter the Corp ID / AgentId / Secret, tap the card\'s \"Test\" button to confirm delivery, then save.';
+
+  @override
+  String get appChannelGuideFeishuS1 => 'Create an enterprise self-built app';
+
+  @override
+  String get appChannelGuideFeishuS1Desc =>
+      'Open the Feishu Developer Console (open.feishu.cn) → \"Create Enterprise Self-built App\"; fill in name, description and icon.';
+
+  @override
+  String get appChannelGuideFeishuS2 => 'Get App ID and App Secret';
+
+  @override
+  String get appChannelGuideFeishuS2Desc =>
+      'App details → \"Credentials & Basic Info\" → copy the App ID and App Secret.';
+
+  @override
+  String get appChannelGuideFeishuS3 => 'Enable message permissions';
+
+  @override
+  String get appChannelGuideFeishuS3Desc =>
+      'In \"Permissions\", search for and enable im:message (send single chat messages) and im:message:send_as_bot (send as the app).';
+
+  @override
+  String get appChannelGuideFeishuS4 => 'Create a version and publish';
+
+  @override
+  String get appChannelGuideFeishuS4Desc =>
+      '\"Version Management & Release\" → \"Create Version\" → request release. Permissions take effect only after admin approval (pushes fail before that).';
+
+  @override
+  String get appChannelGuideFeishuS5 => 'Get the recipient ID';
+
+  @override
+  String get appChannelGuideFeishuS5Desc =>
+      'Set receive_id_type to chat_id (group) or open_id (user). Use the API Explorer with im/v1/chats to get a chat_id; open_id can be found in contact details or via the explorer.';
+
+  @override
+  String get appChannelGuideFeishuS6 => 'Fill in and test';
+
+  @override
+  String get appChannelGuideFeishuS6Desc =>
+      'Enter App ID / App Secret / recipient type / recipient ID, tap the card\'s \"Test\" button to confirm delivery, then save.';
+
+  @override
+  String get appChannelGuideNoteTitle => 'Notes';
+
+  @override
+  String get appChannelGuideNote1 =>
+      'The secret is usually only visible at creation time — keep it safe; it is stored encrypted in this app.';
+
+  @override
+  String get appChannelGuideNote2 =>
+      'Self-hosted deployment: replace the API base URL with your own (leave empty to use the official one).';
+
+  @override
+  String get appChannelGuideNote3 =>
+      'Common causes of push failure: permissions not granted / app version not published / recipient not in the visible range / wrong Secret or recipient ID.';
+
+  @override
+  String get appChannelGuideNote4 =>
+      'App channels and Webhook channels are independent and can be enabled together; delivery results and retries behave the same as Webhook channels.';
+
+  @override
+  String get appChannelGuideClose => 'Got it';
+
+  @override
+  String get appChannelGuideNote5 =>
+      'A custom API base URL must use HTTPS (plain http is rejected by the system); self-signed certificates are not trusted and will fail to connect — use a proper certificate, or leave it empty to use the official endpoint.';
 }

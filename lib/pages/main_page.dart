@@ -9,6 +9,7 @@ import '../services/services.dart';
 import '../services/theme_service.dart';
 import '../services/email_service.dart';
 import '../services/locale_service.dart';
+import '../services/app_channel_service.dart';
 import '../services/sms_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
@@ -26,6 +27,7 @@ import 'keywords_page.dart';
 import 'rule_list_page.dart';
 import 'privacy_policy_page.dart';
 import 'sms_monitor_settings_page.dart';
+import 'app_channel_settings_page.dart';
 import '../widgets/ios_dialog_actions.dart';
 
 // R3 拆分：容器页按域拆分（part 共享 State 私有成员，行为零变化）
@@ -67,6 +69,18 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   List<Map<String, String>> _getActiveChannels() {
     final channels = <Map<String, String>>[];
+    // 自建应用通道（应用通道体系）同样计入当前推送通道（_postInit 已加载）
+    try {
+      for (final c in GetIt.instance<AppChannelService>().channels) {
+        if (c['enabled'] == true) {
+          final name = c['name']?.toString() ?? '';
+          channels.add({
+            'icon': 'apps',
+            'label': name.isNotEmpty ? name : (c['appType']?.toString() ?? ''),
+          });
+        }
+      }
+    } catch (_) {}
     final webhookChannels = _webhookService.channels
         .where((c) => c['enabled'] == true)
         .toList();
@@ -146,6 +160,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         },
         onOpenWebhookSettings: _openWebhookSettingsPage,
         onOpenEmailSettings: _openEmailSettingsPage,
+        onOpenAppChannels: _openAppChannelsSettingsPage,
         onShowDeviceNameDialog: _showDeviceNameDialog,
         onShowAboutDialog: _showAboutDialog,
         onOpenAppFilter: _openAppFilterPage,
@@ -169,6 +184,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   }
 
   Future<void> _postInit() async {
+    // 自建应用通道：启动加载（送达标签/首页通道状态共用数据源）
+    await GetIt.instance<AppChannelService>().loadChannels();
     try {
       // P2：冷启动时把当前实际语言同步给原生端（最近任务页应用名 / Webhook 文案 / 桌面图标别名）。
       // 此前只在"用户手动切换语言"时才调用 setLocaleLabel，system 模式下 flutter.locale 从未写入，

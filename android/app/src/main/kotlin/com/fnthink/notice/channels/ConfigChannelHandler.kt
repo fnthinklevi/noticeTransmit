@@ -66,10 +66,23 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 activity.testWebhook(url, secret, result, extraConfig)
             }
             "probeChannelHealth" -> {
-                // 通道健康探测（P2）：轻量 GET/HEAD，任何 HTTP 响应 = 连通；
+                // 通道健康探测（P2）：轻量 HEAD，任何 HTTP 响应 = 连通；
                 // 由 Dart 触发并持久化结果（每次进入 Webhook 设置页时刷新）
                 val url = call.argument<String>("url") ?: ""
                 activity.probeChannelHealth(url, result)
+            }
+            "getAppChannels" -> {
+                // 自建应用通道（应用通道体系，与 webhook 分离）
+                result.success(activity.getAppChannels())
+            }
+            "setAppChannels" -> {
+                val channels = call.argument<List<Map<String, Any?>>>("channels") ?: emptyList()
+                activity.setAppChannels(channels)
+                result.success(true)
+            }
+            "testAppChannel" -> {
+                val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                activity.testAppChannel(configMap, result)
             }
             "setBatteryRules" -> {
                 val rules = call.argument<List<Map<String, Any>>>("rules") ?: emptyList()

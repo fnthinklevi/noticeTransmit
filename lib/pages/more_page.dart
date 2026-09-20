@@ -44,6 +44,7 @@ class MorePage extends StatelessWidget {
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final VoidCallback onOpenWebhookSettings;
   final VoidCallback onOpenEmailSettings;
+  final VoidCallback onOpenAppChannels;
   final VoidCallback onShowDeviceNameDialog;
   final VoidCallback onShowAboutDialog;
   final VoidCallback onOpenAppFilter;
@@ -67,6 +68,7 @@ class MorePage extends StatelessWidget {
     required this.onThemeModeChanged,
     required this.onOpenWebhookSettings,
     required this.onOpenEmailSettings,
+    required this.onOpenAppChannels,
     required this.onShowDeviceNameDialog,
     required this.onShowAboutDialog,
     required this.onOpenAppFilter,
@@ -118,6 +120,15 @@ class MorePage extends StatelessWidget {
               title: l10n.emailChannel,
               subtitle: l10n.emailChannelDesc,
               onTap: onOpenEmailSettings,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildNavTile(
+              icon: Icons.apps,
+              iconColor: const Color(0xFF00D3B6),
+              title: l10n.appChannelTitle,
+              subtitle: l10n.appChannelPageDesc,
+              onTap: onOpenAppChannels,
               context: context,
             ),
           ], context),

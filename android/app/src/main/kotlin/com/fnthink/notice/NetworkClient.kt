@@ -116,6 +116,9 @@ class NetworkClient {
             contentType: String = "application/json; charset=utf-8",
             force: Boolean = false,
             recordId: String? = null,
+            extraHeaders: Map<String, String> = emptyMap(),
+            appChannelId: String? = null,
+            appTypeLabel: String? = null,
             onResult: ((WebhookResponseParser.ParseResult) -> Unit)? = null
         ) {
             if (!isActive) {
@@ -148,7 +151,7 @@ class NetworkClient {
                     var lastResult: WebhookResponseParser.ParseResult? = null
 
                     while (retryCount < MAX_RETRIES) {
-                        val result = sendOnce(signed, tag, retryCount, contentType)
+                        val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders)
                         lastResult = result
 
                         // 成功或不可重试 → 终止
@@ -196,6 +199,9 @@ class NetworkClient {
                                 secret = secret,
                                 contentType = contentType,
                                 recordId = recordId ?: "",
+                                extraHeaders = extraHeaders,
+                                appChannelId = appChannelId,
+                                appTypeLabel = appTypeLabel,
                             )
                             else -> {}
                         }
@@ -214,7 +220,8 @@ class NetworkClient {
             signed: WebhookSigner.SignedRequest,
             tag: String,
             attempt: Int,
-            contentType: String = "application/json; charset=utf-8"
+            contentType: String = "application/json; charset=utf-8",
+            extraHeaders: Map<String, String> = emptyMap()
         ): WebhookResponseParser.ParseResult {
             return try {
                 val requestBuilder = Request.Builder()
@@ -226,6 +233,10 @@ class NetworkClient {
 
                 // 通用 webhook 签名头
                 for ((k, v) in signed.headers) {
+                    requestBuilder.addHeader(k, v)
+                }
+                // 应用通道鉴权头（如飞书 Bearer token，v1.5.73）
+                for ((k, v) in extraHeaders) {
                     requestBuilder.addHeader(k, v)
                 }
 

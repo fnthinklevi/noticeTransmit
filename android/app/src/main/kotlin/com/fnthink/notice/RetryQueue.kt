@@ -27,6 +27,9 @@ data class RetryItem(
     val attempts: Int,
     val nextAttemptAt: Long,
     val createdAt: Long,
+    /** 应用通道（自建应用体系）：非空时重放走 AppChannelSender（token 按凭据重取），v1.5.73 */
+    val appChannelId: String = "",
+    val appType: String = "",
 )
 
 /**
@@ -75,6 +78,8 @@ object RetryQueueLogic {
                     put("secret", item.secret)
                     put("contentType", item.contentType)
                     put("recordId", item.recordId)
+                    put("appChannelId", item.appChannelId)
+                    put("appType", item.appType)
                     put("attempts", item.attempts)
                     put("nextAttemptAt", item.nextAttemptAt)
                     put("createdAt", item.createdAt)
@@ -97,6 +102,8 @@ object RetryQueueLogic {
                     secret = o.optString("secret", ""),
                     contentType = o.optString("contentType", "application/json; charset=utf-8"),
                     recordId = o.optString("recordId", ""),
+                    appChannelId = o.optString("appChannelId", ""),
+                    appType = o.optString("appType", ""),
                     attempts = o.optInt("attempts", 0),
                     nextAttemptAt = o.optLong("nextAttemptAt", 0L),
                     createdAt = o.optLong("createdAt", 0L),
@@ -133,6 +140,7 @@ object RetryQueue {
 
     @Volatile
     private var appContext: Context? = null
+    private var appChannelSender: AppChannelSender? = null
     private val watching = AtomicBoolean(false)
     private val lock = Any()
 
@@ -140,6 +148,9 @@ object RetryQueue {
     fun init(context: Context) {
         if (appContext == null) {
             appContext = context.applicationContext
+        }
+        if (appChannelSender == null) {
+            appChannelSender = AppChannelSender(context.applicationContext)
         }
     }
 
@@ -153,6 +164,9 @@ object RetryQueue {
         secret: String?,
         contentType: String,
         recordId: String,
+        extraHeaders: Map<String, String> = emptyMap(),
+        appChannelId: String? = null,
+        appTypeLabel: String? = null,
     ) {
         val context = appContext ?: run {
             Log.w(TAG, "enqueue skipped: queue not initialized")
@@ -171,6 +185,8 @@ object RetryQueue {
             attempts = 0,
             nextAttemptAt = RetryQueueLogic.nextAttemptAfter(now),
             createdAt = now,
+            appChannelId = appChannelId ?: "",
+            appType = appTypeLabel ?: webhookType.name,
         )
         synchronized(lock) {
             val prefs = prefs(context)
@@ -248,7 +264,24 @@ object RetryQueue {
     }
 
     /** 单条重放：成功 → 移出队列 + 回传记录状态；失败 → 保留（attempts 已在取出时递增） */
+    /** 成功后从队列移除（webhook 与应用通道重放共用） */
+    fun removeSuccess(context: Context, itemId: String) {
+        val prefs = prefs(context)
+        synchronized(lock) {
+            val items = RetryQueueLogic.parse(
+                prefs.getString(SECURE_KEY, "[]") ?: "[]"
+            ).filterNot { it.id == itemId }
+            prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(items)).apply()
+        }
+    }
+
     private fun sendOne(context: Context, item: RetryItem) {
+        // 应用通道（自建应用）：重放必须重取 token（旧 token 已失效），
+        // 载荷与凭据保留，由 AppChannelSender 走两阶段重发
+        if (item.appChannelId.isNotEmpty()) {
+            appChannelSender?.replayStored(item)
+            return
+        }
         val type = try {
             WebhookPayloadBuilder.WebhookType.valueOf(item.webhookType)
         } catch (_: Exception) {

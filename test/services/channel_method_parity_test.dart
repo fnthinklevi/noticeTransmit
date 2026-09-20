@@ -48,10 +48,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 82（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 85（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        82,
+        85,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -62,7 +62,7 @@ void main() {
     test('每个 handler 的方法数固定（按域分布守卫）', () {
       final dist = _distribution(native);
       expect(dist, {
-        'ConfigChannelHandler': 25,
+        'ConfigChannelHandler': 28,
         'PermissionChannelHandler': 23,
         'DeviceChannelHandler': 13,
         'FileChannelHandler': 12,

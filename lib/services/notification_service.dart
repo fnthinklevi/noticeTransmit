@@ -11,6 +11,7 @@ import '../models/notification_record.dart';
 import 'platform_channel.dart';
 import 'webhook_service.dart';
 import 'email_service.dart';
+import 'app_channel_service.dart';
 
 class NotificationService {
   static const _channel = AppChannels.notification;
@@ -252,6 +253,18 @@ class NotificationService {
       final emailService = GetIt.instance<EmailService>();
       if (emailService.cachedChannels.any((c) => c.enabled)) {
         channels.add(channelTypeDisplayName('EMAIL'));
+      }
+    } catch (_) {}
+    try {
+      // 应用通道（自建应用体系）：label 必须与原生回传的
+      // channelTypeDisplayName(appType) 同口径——否则应用通道的送达结果会写入
+      // 一个新键，而初始 pending 项永远停留「发送中」。
+      final appChannel = GetIt.instance<AppChannelService>();
+      for (final c in appChannel.channels) {
+        if (c['enabled'] == true) {
+          final type = c['appType']?.toString() ?? '';
+          if (type.isNotEmpty) channels.add(channelTypeDisplayName(type));
+        }
       }
     } catch (_) {}
     return channels;

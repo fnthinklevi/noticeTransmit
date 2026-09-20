@@ -107,6 +107,67 @@ class ConfigManager(private val context: Context) {
         }
     }
 
+    /**
+     * 自建应用通道完整配置读取（应用通道体系，与 webhook 通道分离存储）。
+     * 返回 AppChannelSpec.kt 定义的 AppChannelConfig（未启用的通道被过滤）。
+     */
+    fun getAppChannelConfigs(): List<AppChannelConfig> {
+        val json = try {
+            SecurePrefs.get(context)
+                .getString("secure_app_channels", null)
+                ?.takeIf { it.isNotEmpty() && it != "[]" }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read secure app channels", e)
+            null
+        } ?: return emptyList()
+        return try {
+            val array = JSONArray(json)
+            (0 until array.length()).mapNotNull { i ->
+                val obj = array.optJSONObject(i) ?: return@mapNotNull null
+                if (!obj.optBoolean("enabled", true)) return@mapNotNull null
+                AppChannelConfig(
+                    id = obj.optString("id", ""),
+                    name = obj.optString("name", ""),
+                    type = obj.optString("type", ""),
+                    baseUrl = obj.optString("base_url", obj.optString("url", "")),
+                    secret = obj.optString("secret", "").takeIf { it.isNotEmpty() && it != "null" } ?: "",
+                    config = obj.optJSONObject("config") ?: JSONObject(),
+                    messageFormat = obj.optString("message_format", "default").ifEmpty { "default" },
+                    enabled = obj.optBoolean("enabled", true),
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse app channel configs", e)
+            emptyList()
+        }
+    }
+
+    fun findAppChannelById(id: String): AppChannelConfig? =
+        getAppChannelConfigs().firstOrNull { it.id == id }
+
+    /** 写入自建应用通道（SecurePrefs 加密全量 + 明文脱敏镜像），服务刷新由 ACTION_UPDATE_CONFIG 触发 */
+    fun setAppChannels(channels: List<JSONObject>) {
+        val array = JSONArray()
+        for (obj in channels) array.put(obj)
+        try {
+            SecurePrefs.get(context)
+                .edit()
+                .putString("secure_app_channels", array.toString())
+                .apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "写入加密自建应用通道失败", e)
+        }
+        val sanitized = JSONArray()
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            if (obj.has("secret")) obj.remove("secret")
+            sanitized.put(obj)
+        }
+        prefs.edit()
+            .putString("flutter.app_channels", sanitized.toString())
+            .commit()
+    }
+
     /** 从加密存储读取完整 webhook 通道 JSON（与 flutter_secure_storage 同文件同密钥） */
     private fun getEncryptedWebhookChannels(): String? {
         return try {
@@ -135,7 +196,6 @@ class ConfigManager(private val context: Context) {
             "gotify", "9" -> WebhookPayloadBuilder.WebhookType.GOTIFY
             "slack", "10" -> WebhookPayloadBuilder.WebhookType.SLACK
             "discord", "11" -> WebhookPayloadBuilder.WebhookType.DISCORD
-            "wecom_app", "wecomapp", "12" -> WebhookPayloadBuilder.WebhookType.WECOM_APP
             "generic", "3" -> WebhookPayloadBuilder.WebhookType.GENERIC
             else -> WebhookPayloadBuilder.detectType(url)
         }

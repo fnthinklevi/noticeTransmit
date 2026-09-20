@@ -2413,4 +2413,197 @@ class AppLocalizationsZh extends AppLocalizations {
   String healthProbedHours(int n) {
     return '$n 小时前探测';
   }
+
+  @override
+  String get appChannelTitle => '自建应用通道';
+
+  @override
+  String get appChannelPageDesc =>
+      '自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。';
+
+  @override
+  String get appChannelAddWecom => '添加企微自建应用';
+
+  @override
+  String get appChannelAddFeishu => '添加飞书自建应用';
+
+  @override
+  String appChannelN(int n) {
+    return '自建应用 $n';
+  }
+
+  @override
+  String get appChannelNameLabel => '通道名称';
+
+  @override
+  String get appChannelBaseUrlHint =>
+      'API 地址（留空使用官方地址；支持私有化部署，须为 HTTPS 且证书受系统信任）';
+
+  @override
+  String get appChannelSecretWecomHint => 'corpsecret（用于获取 access_token）';
+
+  @override
+  String get appChannelSecretFeishuHint =>
+      'app_secret（用于获取 tenant_access_token）';
+
+  @override
+  String get appChannelCorpidLabel => '企业 ID（corpid）';
+
+  @override
+  String get appChannelAgentidLabel => '应用 agentid（纯数字）';
+
+  @override
+  String get appChannelTouserLabel => '接收人 touser（可选，@all；多人 | 分隔）';
+
+  @override
+  String get appChannelAppidLabel => '应用 app_id';
+
+  @override
+  String get appChannelReceiveIdTypeLabel => '接收人类型（chat_id 或 open_id）';
+
+  @override
+  String get appChannelReceiveIdLabel => '接收人 ID receive_id';
+
+  @override
+  String get appChannelDeleteHint => '删除后需点右上角保存生效。';
+
+  @override
+  String get appChannelTestFailed => '测试失败：';
+
+  @override
+  String get appChannelSaveOk => '自建应用通道已保存并同步';
+
+  @override
+  String get appChannelSaveFailed => '保存失败：';
+
+  @override
+  String get channelTypeFeishuApp => '飞书自建应用';
+
+  @override
+  String get appChannelGuideEntry => '首次接入？点卡片右上角「?」查看参数获取步骤';
+
+  @override
+  String get appChannelGuideOpen => '查看接入步骤';
+
+  @override
+  String get appChannelGuideTitleWecom => '企业微信自建应用 · 接入步骤';
+
+  @override
+  String get appChannelGuideTitleFeishu => '飞书自建应用 · 接入步骤';
+
+  @override
+  String get appChannelGuidePrepWecom =>
+      '前置条件：需要企业微信管理员（或应用管理员）权限，并已在管理后台创建自建应用。';
+
+  @override
+  String get appChannelGuidePrepFeishu =>
+      '前置条件：需要飞书开放平台开发者权限（可创建企业自建应用），发布版本需企业管理员审批。';
+
+  @override
+  String get appChannelGuideWecomS1 => '获取企业 ID（corpid）';
+
+  @override
+  String get appChannelGuideWecomS1Desc =>
+      '管理后台 work.weixin.qq.com →「我的企业」→「企业信息」→ 拉到底部复制「企业 ID」。';
+
+  @override
+  String get appChannelGuideWecomS2 => '创建自建应用';
+
+  @override
+  String get appChannelGuideWecomS2Desc =>
+      '「应用管理」→「应用」→「自建」→「创建应用」，填写名称与图标后创建。';
+
+  @override
+  String get appChannelGuideWecomS3 => '获取 AgentId 与 Secret';
+
+  @override
+  String get appChannelGuideWecomS3Desc =>
+      '进入刚创建的应用：顶部显示「AgentId」（纯数字，对应本软件的 agentid）；点「Secret」旁的「查看」，按提示发送到企业微信后复制该密钥（corpsecret，对应本软件的密钥字段）。';
+
+  @override
+  String get appChannelGuideWecomS4 => '设置可见范围（接收人）';
+
+  @override
+  String get appChannelGuideWecomS4Desc =>
+      '应用详情 →「可见范围」添加需要接收推送的成员/部门。软件中「接收人」留空即推送给全部可见成员（@all），也可填成员账号（多个用 | 分隔）。';
+
+  @override
+  String get appChannelGuideWecomS5 => '（可选）配置企业可信 IP';
+
+  @override
+  String get appChannelGuideWecomS5Desc =>
+      '若企业开启了「企业可信 IP」限制：应用详情 →「开发者接口」→「企业可信 IP」添加手机的出口 IP；未开启则跳过。';
+
+  @override
+  String get appChannelGuideWecomS6 => '填入软件并测试';
+
+  @override
+  String get appChannelGuideWecomS6Desc =>
+      '在企业 ID / agentid / 密钥 三处填入上述值，点卡片内「测试」按钮确认可收到消息后保存。';
+
+  @override
+  String get appChannelGuideFeishuS1 => '创建企业自建应用';
+
+  @override
+  String get appChannelGuideFeishuS1Desc =>
+      '打开 open.feishu.cn「开发者后台」→「创建企业自建应用」，填写名称、描述与图标。';
+
+  @override
+  String get appChannelGuideFeishuS2 => '获取 App ID 与 App Secret';
+
+  @override
+  String get appChannelGuideFeishuS2Desc =>
+      '应用详情 →「凭证与基础信息」→ 复制「App ID」与「App Secret」。';
+
+  @override
+  String get appChannelGuideFeishuS3 => '开通消息权限';
+
+  @override
+  String get appChannelGuideFeishuS3Desc =>
+      '「权限管理」中搜索并开通 im:message（发送单聊消息）与 im:message:send_as_bot（以应用身份发消息）权限。';
+
+  @override
+  String get appChannelGuideFeishuS4 => '创建版本并发布';
+
+  @override
+  String get appChannelGuideFeishuS4Desc =>
+      '「版本管理与发布」→「创建版本」→ 申请发布；经企业管理员审批通过后权限才会生效（未发布时推送会失败）。';
+
+  @override
+  String get appChannelGuideFeishuS5 => '获取接收人 ID';
+
+  @override
+  String get appChannelGuideFeishuS5Desc =>
+      'receive_id_type 选 chat_id（群）或 open_id（用户）。群 ID 可用「API 调试台」调 im/v1/chats 获取；用户 open_id 可在通讯录成员详情或通过调试台获取。';
+
+  @override
+  String get appChannelGuideFeishuS6 => '填入软件并测试';
+
+  @override
+  String get appChannelGuideFeishuS6Desc =>
+      '填入 App ID / App Secret / 接收人类型 / 接收人 ID，点卡片内「测试」按钮确认可收到消息后保存。';
+
+  @override
+  String get appChannelGuideNoteTitle => '注意事项';
+
+  @override
+  String get appChannelGuideNote1 => 'Secret 通常只在创建时可查看，请妥善保存；软件内该字段加密存储。';
+
+  @override
+  String get appChannelGuideNote2 => '私有化部署：把「API 地址」改为你的部署地址（留空则使用官方地址）。';
+
+  @override
+  String get appChannelGuideNote3 =>
+      '推送失败常见原因：权限未开通 / 应用版本未发布 / 接收人不在可见范围 / Secret 或接收人 ID 填错。';
+
+  @override
+  String get appChannelGuideNote4 =>
+      '自建应用通道与 Webhook 通道互不影响，可同时启用；推送结果与失败重试与 Webhook 一致。';
+
+  @override
+  String get appChannelGuideClose => '知道了';
+
+  @override
+  String get appChannelGuideNote5 =>
+      '自定义 API 地址须使用 HTTPS（明文 http 会被系统拒绝）；自签名证书不受系统信任会连接失败——请使用正式证书，或留空以使用官方地址。';
 }

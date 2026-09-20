@@ -4597,6 +4597,348 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{n} 小时前探测'**
   String healthProbedHours(int n);
+
+  /// No description provided for @appChannelTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自建应用通道'**
+  String get appChannelTitle;
+
+  /// No description provided for @appChannelPageDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。'**
+  String get appChannelPageDesc;
+
+  /// No description provided for @appChannelAddWecom.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加企微自建应用'**
+  String get appChannelAddWecom;
+
+  /// No description provided for @appChannelAddFeishu.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加飞书自建应用'**
+  String get appChannelAddFeishu;
+
+  /// No description provided for @appChannelN.
+  ///
+  /// In zh, this message translates to:
+  /// **'自建应用 {n}'**
+  String appChannelN(int n);
+
+  /// No description provided for @appChannelNameLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道名称'**
+  String get appChannelNameLabel;
+
+  /// No description provided for @appChannelBaseUrlHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'API 地址（留空使用官方地址；支持私有化部署，须为 HTTPS 且证书受系统信任）'**
+  String get appChannelBaseUrlHint;
+
+  /// No description provided for @appChannelSecretWecomHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'corpsecret（用于获取 access_token）'**
+  String get appChannelSecretWecomHint;
+
+  /// No description provided for @appChannelSecretFeishuHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'app_secret（用于获取 tenant_access_token）'**
+  String get appChannelSecretFeishuHint;
+
+  /// No description provided for @appChannelCorpidLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'企业 ID（corpid）'**
+  String get appChannelCorpidLabel;
+
+  /// No description provided for @appChannelAgentidLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用 agentid（纯数字）'**
+  String get appChannelAgentidLabel;
+
+  /// No description provided for @appChannelTouserLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收人 touser（可选，@all；多人 | 分隔）'**
+  String get appChannelTouserLabel;
+
+  /// No description provided for @appChannelAppidLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用 app_id'**
+  String get appChannelAppidLabel;
+
+  /// No description provided for @appChannelReceiveIdTypeLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收人类型（chat_id 或 open_id）'**
+  String get appChannelReceiveIdTypeLabel;
+
+  /// No description provided for @appChannelReceiveIdLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收人 ID receive_id'**
+  String get appChannelReceiveIdLabel;
+
+  /// No description provided for @appChannelDeleteHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除后需点右上角保存生效。'**
+  String get appChannelDeleteHint;
+
+  /// No description provided for @appChannelTestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试失败：'**
+  String get appChannelTestFailed;
+
+  /// No description provided for @appChannelSaveOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'自建应用通道已保存并同步'**
+  String get appChannelSaveOk;
+
+  /// No description provided for @appChannelSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：'**
+  String get appChannelSaveFailed;
+
+  /// No description provided for @channelTypeFeishuApp.
+  ///
+  /// In zh, this message translates to:
+  /// **'飞书自建应用'**
+  String get channelTypeFeishuApp;
+
+  /// No description provided for @appChannelGuideEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'首次接入？点卡片右上角「?」查看参数获取步骤'**
+  String get appChannelGuideEntry;
+
+  /// No description provided for @appChannelGuideOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看接入步骤'**
+  String get appChannelGuideOpen;
+
+  /// No description provided for @appChannelGuideTitleWecom.
+  ///
+  /// In zh, this message translates to:
+  /// **'企业微信自建应用 · 接入步骤'**
+  String get appChannelGuideTitleWecom;
+
+  /// No description provided for @appChannelGuideTitleFeishu.
+  ///
+  /// In zh, this message translates to:
+  /// **'飞书自建应用 · 接入步骤'**
+  String get appChannelGuideTitleFeishu;
+
+  /// No description provided for @appChannelGuidePrepWecom.
+  ///
+  /// In zh, this message translates to:
+  /// **'前置条件：需要企业微信管理员（或应用管理员）权限，并已在管理后台创建自建应用。'**
+  String get appChannelGuidePrepWecom;
+
+  /// No description provided for @appChannelGuidePrepFeishu.
+  ///
+  /// In zh, this message translates to:
+  /// **'前置条件：需要飞书开放平台开发者权限（可创建企业自建应用），发布版本需企业管理员审批。'**
+  String get appChannelGuidePrepFeishu;
+
+  /// No description provided for @appChannelGuideWecomS1.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取企业 ID（corpid）'**
+  String get appChannelGuideWecomS1;
+
+  /// No description provided for @appChannelGuideWecomS1Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理后台 work.weixin.qq.com →「我的企业」→「企业信息」→ 拉到底部复制「企业 ID」。'**
+  String get appChannelGuideWecomS1Desc;
+
+  /// No description provided for @appChannelGuideWecomS2.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建自建应用'**
+  String get appChannelGuideWecomS2;
+
+  /// No description provided for @appChannelGuideWecomS2Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'「应用管理」→「应用」→「自建」→「创建应用」，填写名称与图标后创建。'**
+  String get appChannelGuideWecomS2Desc;
+
+  /// No description provided for @appChannelGuideWecomS3.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取 AgentId 与 Secret'**
+  String get appChannelGuideWecomS3;
+
+  /// No description provided for @appChannelGuideWecomS3Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'进入刚创建的应用：顶部显示「AgentId」（纯数字，对应本软件的 agentid）；点「Secret」旁的「查看」，按提示发送到企业微信后复制该密钥（corpsecret，对应本软件的密钥字段）。'**
+  String get appChannelGuideWecomS3Desc;
+
+  /// No description provided for @appChannelGuideWecomS4.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置可见范围（接收人）'**
+  String get appChannelGuideWecomS4;
+
+  /// No description provided for @appChannelGuideWecomS4Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用详情 →「可见范围」添加需要接收推送的成员/部门。软件中「接收人」留空即推送给全部可见成员（@all），也可填成员账号（多个用 | 分隔）。'**
+  String get appChannelGuideWecomS4Desc;
+
+  /// No description provided for @appChannelGuideWecomS5.
+  ///
+  /// In zh, this message translates to:
+  /// **'（可选）配置企业可信 IP'**
+  String get appChannelGuideWecomS5;
+
+  /// No description provided for @appChannelGuideWecomS5Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'若企业开启了「企业可信 IP」限制：应用详情 →「开发者接口」→「企业可信 IP」添加手机的出口 IP；未开启则跳过。'**
+  String get appChannelGuideWecomS5Desc;
+
+  /// No description provided for @appChannelGuideWecomS6.
+  ///
+  /// In zh, this message translates to:
+  /// **'填入软件并测试'**
+  String get appChannelGuideWecomS6;
+
+  /// No description provided for @appChannelGuideWecomS6Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'在企业 ID / agentid / 密钥 三处填入上述值，点卡片内「测试」按钮确认可收到消息后保存。'**
+  String get appChannelGuideWecomS6Desc;
+
+  /// No description provided for @appChannelGuideFeishuS1.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建企业自建应用'**
+  String get appChannelGuideFeishuS1;
+
+  /// No description provided for @appChannelGuideFeishuS1Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开 open.feishu.cn「开发者后台」→「创建企业自建应用」，填写名称、描述与图标。'**
+  String get appChannelGuideFeishuS1Desc;
+
+  /// No description provided for @appChannelGuideFeishuS2.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取 App ID 与 App Secret'**
+  String get appChannelGuideFeishuS2;
+
+  /// No description provided for @appChannelGuideFeishuS2Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用详情 →「凭证与基础信息」→ 复制「App ID」与「App Secret」。'**
+  String get appChannelGuideFeishuS2Desc;
+
+  /// No description provided for @appChannelGuideFeishuS3.
+  ///
+  /// In zh, this message translates to:
+  /// **'开通消息权限'**
+  String get appChannelGuideFeishuS3;
+
+  /// No description provided for @appChannelGuideFeishuS3Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'「权限管理」中搜索并开通 im:message（发送单聊消息）与 im:message:send_as_bot（以应用身份发消息）权限。'**
+  String get appChannelGuideFeishuS3Desc;
+
+  /// No description provided for @appChannelGuideFeishuS4.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建版本并发布'**
+  String get appChannelGuideFeishuS4;
+
+  /// No description provided for @appChannelGuideFeishuS4Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'「版本管理与发布」→「创建版本」→ 申请发布；经企业管理员审批通过后权限才会生效（未发布时推送会失败）。'**
+  String get appChannelGuideFeishuS4Desc;
+
+  /// No description provided for @appChannelGuideFeishuS5.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取接收人 ID'**
+  String get appChannelGuideFeishuS5;
+
+  /// No description provided for @appChannelGuideFeishuS5Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'receive_id_type 选 chat_id（群）或 open_id（用户）。群 ID 可用「API 调试台」调 im/v1/chats 获取；用户 open_id 可在通讯录成员详情或通过调试台获取。'**
+  String get appChannelGuideFeishuS5Desc;
+
+  /// No description provided for @appChannelGuideFeishuS6.
+  ///
+  /// In zh, this message translates to:
+  /// **'填入软件并测试'**
+  String get appChannelGuideFeishuS6;
+
+  /// No description provided for @appChannelGuideFeishuS6Desc.
+  ///
+  /// In zh, this message translates to:
+  /// **'填入 App ID / App Secret / 接收人类型 / 接收人 ID，点卡片内「测试」按钮确认可收到消息后保存。'**
+  String get appChannelGuideFeishuS6Desc;
+
+  /// No description provided for @appChannelGuideNoteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'注意事项'**
+  String get appChannelGuideNoteTitle;
+
+  /// No description provided for @appChannelGuideNote1.
+  ///
+  /// In zh, this message translates to:
+  /// **'Secret 通常只在创建时可查看，请妥善保存；软件内该字段加密存储。'**
+  String get appChannelGuideNote1;
+
+  /// No description provided for @appChannelGuideNote2.
+  ///
+  /// In zh, this message translates to:
+  /// **'私有化部署：把「API 地址」改为你的部署地址（留空则使用官方地址）。'**
+  String get appChannelGuideNote2;
+
+  /// No description provided for @appChannelGuideNote3.
+  ///
+  /// In zh, this message translates to:
+  /// **'推送失败常见原因：权限未开通 / 应用版本未发布 / 接收人不在可见范围 / Secret 或接收人 ID 填错。'**
+  String get appChannelGuideNote3;
+
+  /// No description provided for @appChannelGuideNote4.
+  ///
+  /// In zh, this message translates to:
+  /// **'自建应用通道与 Webhook 通道互不影响，可同时启用；推送结果与失败重试与 Webhook 一致。'**
+  String get appChannelGuideNote4;
+
+  /// No description provided for @appChannelGuideClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get appChannelGuideClose;
+
+  /// No description provided for @appChannelGuideNote5.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义 API 地址须使用 HTTPS（明文 http 会被系统拒绝）；自签名证书不受系统信任会连接失败——请使用正式证书，或留空以使用官方地址。'**
+  String get appChannelGuideNote5;
 }
 
 class _AppLocalizationsDelegate

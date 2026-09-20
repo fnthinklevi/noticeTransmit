@@ -18,7 +18,6 @@ object WebhookPayloadBuilder {
         GOTIFY,
         SLACK,
         DISCORD,
-        WECOM_APP,
     }
 
 

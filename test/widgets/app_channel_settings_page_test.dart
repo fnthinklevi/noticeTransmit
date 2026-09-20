@@ -1,0 +1,271 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/pages/app_channel_settings_page.dart';
+import 'package:notice_transmit/database/database_helper.dart';
+import 'package:notice_transmit/services/app_channel_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// 自建应用通道设置页 widget 冒烟测试。
+///
+/// AppChannelService 通过 GetIt 注册（fake store 注入），
+/// MethodChannel mock 拦截 testAppChannel / probeChannelHealth。
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late FakeAppChannelStoreForPage store;
+  late AppChannelService service;
+  const channelName = 'com.fnthink.notice/notification';
+
+  Widget buildApp() {
+    return const MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: Locale('zh'),
+      home: AppChannelSettingsPage(),
+    );
+  }
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    store = FakeAppChannelStoreForPage();
+    service = AppChannelService(store: store);
+    // 替换 GetIt 中的 AppChannelService（主测试可能已注册）
+    GetIt.instance.allowReassignment = true;
+    if (GetIt.instance.isRegistered<AppChannelService>()) {
+      GetIt.instance.unregister<AppChannelService>();
+    }
+    GetIt.instance.registerLazySingleton<AppChannelService>(() => service);
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel(channelName), (
+          call,
+        ) async {
+          if (call.method == 'probeChannelHealth') {
+            return {'reachable': true, 'latencyMs': 50, 'httpCode': 200};
+          }
+          if (call.method == 'testAppChannel') {
+            return {'success': true, 'message': 'ok'};
+          }
+          return null;
+        });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel(channelName), null);
+  });
+
+  group('AppChannelSettingsPage – widget 冒烟', () {
+    testWidgets('空通道渲染：页面标题 + 说明文案 + 无崩溃', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(find.byType(AppChannelSettingsPage), findsOneWidget);
+      expect(find.byType(TextField), findsWidgets); // 首条默认通道的输入框
+    });
+
+    testWidgets('已有通道渲染：通道卡片 + 输入框', (tester) async {
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '测试企微应用',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': null,
+          'config': '{"corpid":"corp-x","agentid":1,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      // 页面数据源是 AppChannelService.channels —— 必须先加载
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      // 通道名称输入框有值
+      final nameField = find.byType(TextField).first;
+      final editor = tester.widget<TextField>(nameField);
+      expect(editor.controller?.text, '测试企微应用');
+    });
+
+    testWidgets('两条通道渲染：卡片数与输入框数量正确', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': 'A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://a.com',
+          'secret': null,
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+        {
+          'id': 'app-2',
+          'name': 'B',
+          'app_type': 'feishu_app',
+          'base_url': 'https://open.feishu.cn',
+          'secret': null,
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      // 每条通道：名称 + API 地址 + 密钥 + 扩展参数（企微 3 / 飞书 3）= 6 个输入框，
+      // 两条通道共 12 个。⚠ ListView 懒加载：默认 600px 视口只构建首张卡，
+      // 需放大视口才能断言两张卡同时渲染（否则会误判为"字段缺失"）。
+      expect(find.byType(TextField), findsNWidgets(12));
+    });
+
+    // ===== 回归守卫：字段回填 + 保存不丢字段 =====
+    // 背景：_bindControllers 曾只绑定 config 字段控制器，未创建
+    // name/baseUrl/secret 控制器 —— 表现为①打开已有通道时三个输入框空白；
+    // ②保存时 _channelPayload 读到 null，把 baseUrl 清空、secret 置 null（凭据丢失）。
+    testWidgets('字段回填：名称 / API 地址 / 密钥来自已保存通道', (tester) async {
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://custom.example.com',
+          'secret': 'corpsecret-demo',
+          'config': '{"corpid":"corp-x","agentid":1000002,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      final texts = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .map((f) => f.controller?.text ?? '')
+          .toList();
+      expect(texts, contains('企微应用A'), reason: '名称未回填');
+      expect(
+        texts,
+        contains('https://custom.example.com'),
+        reason: 'API 地址未回填（私有化部署地址会丢失）',
+      );
+      expect(texts, contains('corpsecret-demo'), reason: '密钥未回填');
+    });
+
+    testWidgets('保存不丢字段：baseUrl / secret / name 原值保留', (tester) async {
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 'corpsecret-demo',
+          'config': '{"corpid":"corp-x","agentid":1000002,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.pumpAndSettle();
+
+      // service.saveChannels 归一化后的行是 UI 格式（baseUrl/appType/...）；
+      // DB 列名映射（camelCase → snake_case）由 DatabaseHelper 负责，
+      // 已由 test/database/app_channel_schema_test.dart 守卫。
+      final saved = store.rows.firstWhere((r) => r['id'] == 'app-1');
+      expect(
+        saved['baseUrl'],
+        'https://qyapi.weixin.qq.com',
+        reason: '保存后 API 地址被清空（控制器缺失导致空值覆盖）',
+      );
+      expect(
+        saved['secret'],
+        'corpsecret-demo',
+        reason: '保存后密钥被置 null —— 凭据丢失，推送将全部失败',
+      );
+      expect(saved['name'], '企微应用A', reason: '保存后名称丢失');
+    });
+
+    // ===== 接入引导（v1.59）=====
+    testWidgets('卡片「?」打开企微接入引导（含步骤与注意事项）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': '',
+          'secret': null,
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      // 页面顶部入口 + 卡片入口 → 取卡片内的那个打开引导
+      await tester.tap(find.byIcon(Icons.help_outline).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('企业微信自建应用 · 接入步骤'), findsOneWidget);
+      expect(find.textContaining('获取企业 ID（corpid）'), findsOneWidget);
+      expect(find.text('注意事项'), findsOneWidget);
+      // 注意事项含 HTTPS/证书警示（自定义地址场景的高频坑）
+      expect(find.textContaining('自定义 API 地址须使用 HTTPS'), findsOneWidget);
+      expect(find.text('知道了'), findsOneWidget);
+    });
+
+    testWidgets('飞书类型卡片「?」打开飞书接入引导', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-2',
+          'name': '飞书应用B',
+          'app_type': 'feishu_app',
+          'base_url': '',
+          'secret': null,
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.help_outline).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('飞书自建应用 · 接入步骤'), findsOneWidget);
+      expect(find.textContaining('开通消息权限'), findsOneWidget);
+    });
+  });
+}
+
+/// 测试用 fake store（与 app_channel_service_test 相同模式）
+class FakeAppChannelStoreForPage implements AppChannelStore {
+  List<Map<String, dynamic>> rows = [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getAppChannels() async => rows;
+
+  @override
+  Future<void> saveAppChannels(List<Map<String, dynamic>> channels) async {
+    rows = List.of(channels);
+  }
+}

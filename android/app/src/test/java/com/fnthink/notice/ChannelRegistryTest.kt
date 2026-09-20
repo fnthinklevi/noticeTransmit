@@ -166,11 +166,10 @@ class ChannelRegistryTest {
         // 空 hosts 是自建服务器/不可枚举通道的合法形态：类型由 DB channel_type 提供。
         // WECOM_APP 与群机器人同在 qyapi host，无法靠 URL 区分 → 同样手动选择。
         assertTrue(
-            "空 hosts 通道应恰为 GENERIC/WECOM_APP/GOTIFY：${specs.filter { it.hosts.isEmpty() }.map { it.type }}",
+            "空 hosts 通道应恰为 GENERIC/GOTIFY（自建应用已迁出 webhook 体系）：${specs.filter { it.hosts.isEmpty() }.map { it.type }}",
             specs.filter { it.hosts.isEmpty() }.map { it.type } ==
                 listOf(
                     WebhookPayloadBuilder.WebhookType.GENERIC,
-                    WebhookPayloadBuilder.WebhookType.WECOM_APP,
                     WebhookPayloadBuilder.WebhookType.GOTIFY,
                 )
         )

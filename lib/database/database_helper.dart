@@ -18,7 +18,13 @@ abstract class WebhookChannelStore {
   Future<void> saveWebhookChannels(List<Map<String, dynamic>> channels);
 }
 
-class DatabaseHelper implements WebhookChannelStore {
+/// 自建应用通道存储抽象（可注入 fake 供测试）
+abstract class AppChannelStore {
+  Future<List<Map<String, dynamic>>> getAppChannels();
+  Future<void> saveAppChannels(List<Map<String, dynamic>> channels);
+}
+
+class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
@@ -93,7 +99,7 @@ class DatabaseHelper implements WebhookChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 9,
+        version: 10,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -106,7 +112,7 @@ class DatabaseHelper implements WebhookChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 9,
+        version: 10,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -332,6 +338,21 @@ class DatabaseHelper implements WebhookChannelStore {
     await db.execute('''
       CREATE INDEX idx_delivery_log_status ON webhook_delivery_log(status)
     ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_channels (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        app_type TEXT NOT NULL,
+        base_url TEXT NOT NULL DEFAULT '',
+        secret TEXT,
+        config TEXT,
+        message_format TEXT NOT NULL DEFAULT 'default',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -444,6 +465,34 @@ class DatabaseHelper implements WebhookChannelStore {
       await db.execute('''
         ALTER TABLE webhook_channels ADD COLUMN extra_config TEXT
       ''');
+    }
+    if (oldVersion < 10) {
+      // v10: 自建应用通道独立表（应用通道体系，与 webhook 分离）；
+      // 迁移 webhook_channels 中的 wecom_app 行，并在迁移后从 webhook 表清除
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_channels (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL DEFAULT '',
+          app_type TEXT NOT NULL,
+          base_url TEXT NOT NULL DEFAULT '',
+          secret TEXT,
+          config TEXT,
+          message_format TEXT NOT NULL DEFAULT 'default',
+          enabled INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO app_channels
+          (id, name, app_type, base_url, secret, config, message_format, enabled, created_at, updated_at)
+        SELECT id, name, 'wecom_app', url, secret, COALESCE(extra_config, '{}'),
+               COALESCE(message_format, 'default'), enabled, created_at, updated_at
+        FROM webhook_channels WHERE channel_type = 'wecom_app'
+      ''');
+      await db.execute(
+        "DELETE FROM webhook_channels WHERE channel_type = 'wecom_app'",
+      );
     }
   }
 
@@ -672,6 +721,49 @@ class DatabaseHelper implements WebhookChannelStore {
       'SELECT * FROM webhook_delivery_log ORDER BY timestamp DESC LIMIT ?',
       [limit],
     );
+  }
+
+  // ── 自建应用通道（app_channels，DB v10）──
+
+  @override
+  Future<List<Map<String, dynamic>>> getAppChannels() async {
+    final db = await database;
+    return await db.query('app_channels', orderBy: 'updated_at DESC');
+  }
+
+  @override
+  Future<void> saveAppChannels(List<Map<String, dynamic>> channels) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.delete('app_channels');
+      var i = 0;
+      for (final c in channels) {
+        final rawId = c['id'] as String?;
+        final row = <String, dynamic>{
+          'id': (rawId != null && rawId.isNotEmpty)
+              ? rawId
+              : 'app_${now}_${i++}',
+          'name': c['name'] ?? '',
+          'app_type':
+              c['appType']?.toString() ??
+              c['app_type']?.toString() ??
+              'wecom_app',
+          'base_url':
+              c['baseUrl']?.toString() ?? c['base_url']?.toString() ?? '',
+          'secret': c['secret'],
+          // config 为 Map → JSON 字符串落库
+          'config': c['config'] is Map
+              ? jsonEncode(c['config'])
+              : (c['config'] ?? '{}'),
+          'message_format': c['message_format']?.toString() ?? 'default',
+          'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
+          'created_at': c['created_at'] ?? now,
+          'updated_at': now,
+        };
+        await txn.insert('app_channels', row);
+      }
+    });
   }
 
   /// 送达健康统计：N 天内各通道 推送数/成功数（webhook_delivery_log 聚合）

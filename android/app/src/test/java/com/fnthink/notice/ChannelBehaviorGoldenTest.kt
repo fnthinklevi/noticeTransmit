@@ -125,10 +125,6 @@ class ChannelBehaviorGoldenTest {
         Triple(WebhookPayloadBuilder.WebhookType.SERVER_CHAN, 200, """{"code":40001,"message":"bad pushkey"}"""),
         Triple(WebhookPayloadBuilder.WebhookType.PUSH_PLUS, 200, """{"code":200,"msg":"请求成功"}"""),
         Triple(WebhookPayloadBuilder.WebhookType.PUSH_PLUS, 200, """{"code":500,"msg":"token 无效"}"""),
-        // 企业微信自建应用（errcode 语义与群机器人同构；42001 由发送层刷新 token 重试）
-        Triple(WebhookPayloadBuilder.WebhookType.WECOM_APP, 200, """{"errcode":0,"errmsg":"ok"}"""),
-        Triple(WebhookPayloadBuilder.WebhookType.WECOM_APP, 200, """{"errcode":42001,"errmsg":"access_token expired"}"""),
-        Triple(WebhookPayloadBuilder.WebhookType.WECOM_APP, 200, """{"errcode":81013,"errmsg":"invalid touser"}"""),
         // ntfy / Gotify（parse=null：2xx JSON 走兜底 SUCCESS；鉴权失败 403 → HTTP_FAIL）
         Triple(WebhookPayloadBuilder.WebhookType.NTFY, 200, """{"id":"RXJ8bWlp","time":1767223200,"topic":"mytopic"}"""),
         Triple(WebhookPayloadBuilder.WebhookType.NTFY, 403, """{"code":40301,"http":403,"error":"forbidden"}"""),

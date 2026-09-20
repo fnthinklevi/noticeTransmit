@@ -83,8 +83,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return (Icons.tag, const Color(0xFF4A154B));
       case WebhookChannelType.discord:
         return (Icons.forum, const Color(0xFF5865F2));
-      case WebhookChannelType.wecomApp:
-        return (Icons.business, const Color(0xFF00D3B6));
       case WebhookChannelType.generic:
         return (Icons.code, const Color(0xFFFF9500));
     }
@@ -118,8 +116,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return l10n.channelTypeSlack;
       case WebhookChannelType.discord:
         return l10n.channelTypeDiscord;
-      case WebhookChannelType.wecomApp:
-        return l10n.channelTypeWecomApp;
     }
   }
 
@@ -505,13 +501,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
             : manualType;
         // 企业微信自建应用：携带扩展参数（corpid/agentid/touser）
         Map<String, dynamic>? extraConfig;
-        if (channelType == WebhookChannelType.wecomApp.value) {
-          extraConfig = {
-            'corpid': _corpidControllers[i].text.trim(),
-            'agentid': int.tryParse(_agentidControllers[i].text.trim()) ?? 0,
-            'touser': _touserControllers[i].text.trim(),
-          };
-        }
         final template = _templateControllers[i].text.trim();
         channels.add({
           'id': (existingId != null && existingId.isNotEmpty)
@@ -558,14 +547,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final result = await _channel.invokeMethod('testWebhook', {
         'url': url,
         if (secret.isNotEmpty) 'secret': secret,
-        // 企业微信自建应用：测试同样需要 corpid/agentid/touser
-        if (_effectiveType(index) == WebhookChannelType.wecomApp)
-          'extraConfig': {
-            'corpid': _corpidControllers[index].text.trim(),
-            'agentid':
-                int.tryParse(_agentidControllers[index].text.trim()) ?? 0,
-            'touser': _touserControllers[index].text.trim(),
-          },
       });
       final success = result['success'] as bool? ?? false;
       final message = result['message'] as String? ?? l10n.unknownError;
@@ -626,8 +607,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         return l10n.signingHintSlack;
       case WebhookChannelType.discord:
         return l10n.signingHintDiscord;
-      case WebhookChannelType.wecomApp:
-        return l10n.signingHintWecomApp;
       case WebhookChannelType.generic:
         return l10n.signingHintGeneric;
     }
@@ -842,11 +821,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           icon = Icons.forum;
           color = const Color(0xFF5865F2);
           desc = l10n.platformDiscordDesc;
-        case WebhookChannelType.wecomApp:
-          typeName = l10n.channelTypeWecomApp;
-          icon = Icons.business;
-          color = const Color(0xFF00D3B6);
-          desc = l10n.platformWecomAppDesc;
         case WebhookChannelType.generic:
           typeName = l10n.platformGeneric;
           icon = Icons.code;

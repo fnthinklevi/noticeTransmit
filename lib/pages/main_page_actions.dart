@@ -297,6 +297,12 @@ extension _MainPageActions on _MainPageState {
     }
   }
 
+  /// 打开自建应用通道设置页
+  void _openAppChannelsSettingsPage() async {
+    await _pushPage(const AppChannelSettingsPage());
+    setState(() {});
+  }
+
   void _openEmailSettingsPage() async {
     final l10n = AppLocalizations.of(context);
     final emailService = EmailService();

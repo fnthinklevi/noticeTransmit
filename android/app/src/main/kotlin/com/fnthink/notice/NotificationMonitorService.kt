@@ -91,6 +91,7 @@ class NotificationMonitorService : NotificationListenerService() {
     private lateinit var notificationProcessor: NotificationProcessor
     private lateinit var batteryMonitor: BatteryMonitor
     private lateinit var webhookSender: WebhookSender
+    private lateinit var appChannelSender: AppChannelSender
     private lateinit var configManager: ConfigManager
     private lateinit var delayedPushManager: DelayedPushManager
     private lateinit var mergePushManager: MergePushManager
@@ -142,12 +143,14 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor = BatteryMonitor(this)
         webhookSender = WebhookSender(this)
         webhookSender.activate()
+        appChannelSender = AppChannelSender(this)
         configManager = ConfigManager(this)
         registerDelayedPushReceiver()
         registerMergePushReceiver()
 
             batteryMonitor.setNotificationCallback { batteryInfo ->
                 webhookSender.sendNotification(batteryInfo)
+                appChannelSender.sendNotification(batteryInfo)
                 dispatchEmail(batteryInfo)
                 Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
         }
@@ -392,6 +395,7 @@ class NotificationMonitorService : NotificationListenerService() {
         mainHandler.removeCallbacksAndMessages(null)
         cancelBatteryAlarm()
         webhookSender.destroy()
+        appChannelSender.destroy()
         unregisterSmsObserver()
         serviceScope.cancel()
         Log.i(TAG, "Service destroyed")
@@ -489,6 +493,7 @@ class NotificationMonitorService : NotificationListenerService() {
                             }
                             RuleEngine.Decision.Push -> {
                                 webhookSender.sendNotification(info)
+                                appChannelSender.sendNotification(info)
                                 dispatchEmail(info)
                                 checkDailyReset()
                                 pushCount++
@@ -543,6 +548,10 @@ class NotificationMonitorService : NotificationListenerService() {
         val loadedConfigs = configManager.getWebhookChannelConfigs()
         webhookUrls = loadedConfigs.map { it.url }
         webhookSender.updateChannelConfigs(loadedConfigs)
+
+        // 自建应用通道（应用通道体系，与 webhook 并行推送）
+        val loadedAppConfigs = configManager.getAppChannelConfigs()
+        appChannelSender.updateConfigs(loadedAppConfigs)
 
         batteryMonitor.setEnabled(configManager.getBatteryNotifyEnabled())
         batteryMonitor.updateRules(configManager.getBatteryRules())
@@ -615,6 +624,7 @@ class NotificationMonitorService : NotificationListenerService() {
                         val due = delayedPushManager.drainDue()
                         for (info in due) {
                             webhookSender.sendWebhooksOnly(info)
+                            appChannelSender.sendOnly(info)
                             dispatchEmail(info)
                             checkDailyReset()
                             pushCount++
@@ -666,6 +676,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 checkDailyReset()
                 pushCount++
                 webhookSender.sendWebhooksOnly(single)
+                appChannelSender.sendOnly(single)
                 dispatchEmail(single)
                 updateForegroundNotification()
                     DiagLog.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
@@ -679,6 +690,7 @@ class NotificationMonitorService : NotificationListenerService() {
             checkDailyReset()
             // 计数语义（风险标注 4）：按聚合组 +1，而非成员逐条 +N
             pushCount++
+            appChannelSender.sendOnly(merged)
             webhookSender.sendWebhooksOnly(merged) { result ->
                 mergePushManager.markMembersDelivered(group, result)
                 if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
@@ -770,6 +782,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     val batteryInfo = batteryMonitor.checkBatteryAndNotify()
                     if (batteryInfo != null) {
                         webhookSender.sendNotification(batteryInfo)
+                appChannelSender.sendNotification(batteryInfo)
                         dispatchEmail(batteryInfo)
                         Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
                     }
@@ -1015,6 +1028,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     return@launch
                 }
                 webhookSender.sendWebhooksOnly(info, force = true)
+                appChannelSender.sendOnly(info, force = true)
                 dispatchEmail(info, force = true)
                 checkDailyReset()
                 pushCount++

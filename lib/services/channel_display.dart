@@ -62,7 +62,11 @@ String channelTypeDisplayName(String rawType) {
     case 'wecom_app':
     case 'wecomApp':
     case 'WECOM_APP':
-      return isEn ? 'webhook:WeCom App' : 'webhook:企业微信应用';
+      return isEn ? 'App:WeCom App' : '应用:企业微信应用';
+    case 'feishu_app':
+    case 'feishuApp':
+    case 'FEISHU_APP':
+      return isEn ? 'App:Feishu App' : '应用:飞书应用';
     case 'email':
     case 'EMAIL':
       return isEn ? 'Email' : '邮件';
