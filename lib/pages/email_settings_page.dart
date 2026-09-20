@@ -645,7 +645,8 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+                  TextField(
+                    contextMenuBuilder: AppTextSelectionMenu.editableText,
                     controller: bodyCtrl,
                     maxLines: 8,
                     decoration: InputDecoration(
@@ -705,7 +706,8 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     bool obscure = false,
     String? errorText,
   }) {
-    return TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+    return TextField(
+      contextMenuBuilder: AppTextSelectionMenu.editableText,
       controller: ctrl,
       obscureText: obscure,
       keyboardType: keyboardType,

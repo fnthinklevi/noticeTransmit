@@ -94,7 +94,8 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
             ],
           ),
           const SizedBox(height: 10),
-          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: _nameControllers[index],
             decoration: InputDecoration(
               hintText: l10n.channelNameOptional,
@@ -126,7 +127,8 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
             ),
           ),
           const SizedBox(height: 10),
-          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: _webhookControllers[index],
             decoration: InputDecoration(
               hintText: l10n.webhookUrlPlaceholder,
@@ -186,7 +188,8 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
               ),
             ),
             const SizedBox(height: 6),
-            TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+            TextField(
+              contextMenuBuilder: AppTextSelectionMenu.editableText,
               controller: _secretControllers[index],
               obscureText: !_secretVisible[index],
               decoration: InputDecoration(
@@ -406,7 +409,8 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                   }).toList(),
             ),
             const SizedBox(height: 6),
-            TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+            TextField(
+              contextMenuBuilder: AppTextSelectionMenu.editableText,
               controller: _templateControllers[index],
               minLines: 3,
               maxLines: 8,

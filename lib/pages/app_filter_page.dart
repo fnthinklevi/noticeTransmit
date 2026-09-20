@@ -494,7 +494,8 @@ class _AppFilterPageState extends State<AppFilterPage>
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+                  child: TextField(
+                    contextMenuBuilder: AppTextSelectionMenu.editableText,
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: l10n.searchAppHint,

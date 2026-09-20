@@ -49,7 +49,9 @@ class AppTextSelectionMenu {
     // 文案重建为应用内词条（随应用语言），能力过滤与回调沿用框架默认
     final l10n = AppLocalizations.of(context);
     final items = defaultItems
-        .map((item) => item.copyWith(label: _label(item.type, item.label, l10n)))
+        .map(
+          (item) => item.copyWith(label: _label(item.type, item.label, l10n)),
+        )
         .toList();
     if (items.isEmpty) return const SizedBox.shrink();
     return AdaptiveTextSelectionToolbar.buttonItems(

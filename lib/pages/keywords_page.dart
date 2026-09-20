@@ -130,7 +130,8 @@ class _KeywordsPageState extends State<KeywordsPage>
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.separator(context)),
                     ),
-                    child: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+                    child: TextField(
+                      contextMenuBuilder: AppTextSelectionMenu.editableText,
                       controller: _textController,
                       decoration: InputDecoration(
                         hintText: isWhitelist

@@ -146,7 +146,8 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
           const SizedBox(height: 10),
           _textField(context, _titleController, l10n.testerTitleField),
           const SizedBox(height: 10),
-          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: _contentController,
             maxLines: 3,
             style: TextStyle(
@@ -443,7 +444,8 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
     BuildContext context,
     TextEditingController c,
     String label,
-  ) => TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+  ) => TextField(
+    contextMenuBuilder: AppTextSelectionMenu.editableText,
     controller: c,
     style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(context)),
     decoration: _inputDecoration(context, label),
@@ -552,7 +554,8 @@ class _AppPickDialogState extends State<_AppPickDialog> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+                  TextField(
+                    contextMenuBuilder: AppTextSelectionMenu.editableText,
                     controller: _search,
                     style: TextStyle(
                       fontSize: 14,

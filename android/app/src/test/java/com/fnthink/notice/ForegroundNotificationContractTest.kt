@@ -118,7 +118,7 @@ class ForegroundNotificationContractTest {
     }
 
     @Test
-    fun `监听断开文案对齐 v1.59 措辞（场景 5a）`() {
+    fun `监听断开文案对齐 v1_59 措辞（场景 5a）`() {
         assertTrue(
             "serviceListenerDisconnected 文案应为「未授予通知读取权限，通知监听已暂停」",
             i18nSource.contains("未授予通知读取权限，通知监听已暂停"),

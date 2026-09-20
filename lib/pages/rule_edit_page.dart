@@ -417,7 +417,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
             ),
           ),
         ),
-        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: controller,
           maxLines: maxLines,
           style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -544,7 +545,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
               color: AppColors.primaryLabel(context),
             ),
           ),
-          content: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          content: TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: controller,
             autofocus: true,
             keyboardType: TextInputType.number,
@@ -691,7 +693,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+              TextField(
+                contextMenuBuilder: AppTextSelectionMenu.editableText,
                 controller: controller,
                 autofocus: true,
                 keyboardType: TextInputType.number,
@@ -752,7 +755,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
               ),
               const SizedBox(height: 14),
               // F3：满 N 条提前触发
-              TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+              TextField(
+                contextMenuBuilder: AppTextSelectionMenu.editableText,
                 controller: maxItemsController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -1240,7 +1244,8 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          child: TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: _searchController,
             style: TextStyle(color: AppColors.primaryLabel(context)),
             decoration: InputDecoration(

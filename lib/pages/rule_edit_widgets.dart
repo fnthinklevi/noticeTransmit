@@ -520,7 +520,8 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
             ),
           ),
         ),
-        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           onChanged: onChanged,
           controller: controller,
           style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -689,7 +690,8 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
             ),
           ),
         ),
-        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           onChanged: onChanged,
           controller: controller,
           style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -1059,7 +1061,8 @@ class _MergeParamsFields extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: windowController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
@@ -1086,7 +1089,8 @@ class _MergeParamsFields extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: maxItemsController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
@@ -1168,7 +1172,8 @@ class _DelayParamsFields extends StatelessWidget {
             ),
           ),
         ),
-        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: delaySecondsController,
           keyboardType: TextInputType.number,
           style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -1195,7 +1200,8 @@ class _DelayParamsFields extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: scheduleTimeController,
           keyboardType: TextInputType.datetime,
           style: TextStyle(color: AppColors.primaryLabel(context)),

@@ -312,7 +312,8 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
             color: AppColors.primaryLabel(ctx),
           ),
         ),
-        content: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        content: TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: controller,
           obscureText: true,
           autofocus: true,

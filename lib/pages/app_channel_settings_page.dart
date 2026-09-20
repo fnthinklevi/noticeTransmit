@@ -241,7 +241,8 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
             ],
           ),
           const SizedBox(height: 8),
-          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: _controllers['$id.name'],
             style: TextStyle(color: AppColors.primaryLabel(context)),
             decoration: _decoration(context, l10n.appChannelNameLabel),
@@ -249,13 +250,15 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           const SizedBox(height: 10),
           _typeSelector(index, context),
           const SizedBox(height: 10),
-          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: _controllers['$id.baseUrl'],
             style: TextStyle(color: AppColors.primaryLabel(context)),
             decoration: _decoration(context, l10n.appChannelBaseUrlHint),
           ),
           const SizedBox(height: 10),
-          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+          TextField(
+            contextMenuBuilder: AppTextSelectionMenu.editableText,
             controller: _controllers['$id.secret'],
             obscureText: true,
             style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -269,7 +272,8 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           // 扩展参数（按类型渲染）
           for (final field in _configFields(c['appType'] as String)) ...[
             const SizedBox(height: 10),
-            TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+            TextField(
+              contextMenuBuilder: AppTextSelectionMenu.editableText,
               controller: fields[field.$1],
               keyboardType: field.$2 == 'number' ? TextInputType.number : null,
               style: TextStyle(color: AppColors.primaryLabel(context)),

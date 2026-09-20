@@ -519,7 +519,8 @@ class _BatteryPageState extends State<BatteryPage> {
                         ),
                       ),
                     ),
-                    TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+                    TextField(
+                      contextMenuBuilder: AppTextSelectionMenu.editableText,
                       controller: titleController,
                       decoration: InputDecoration(
                         hintText: l10n.customTitleHint,

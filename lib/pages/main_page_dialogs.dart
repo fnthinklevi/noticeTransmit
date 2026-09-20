@@ -124,7 +124,8 @@ extension _MainPageDialogs on _MainPageState {
             color: AppColors.primaryLabel(context),
           ),
         ),
-        content: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
+        content: TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: controller,
           style: TextStyle(color: AppColors.primaryLabel(context)),
           decoration: InputDecoration(
