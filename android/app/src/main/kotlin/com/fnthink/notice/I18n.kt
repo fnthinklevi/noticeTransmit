@@ -251,8 +251,8 @@ object I18n {
         if (isEn) "Push paused · $count pushed today"
         else "推送已暂停 · 当日已推送 $count 条"
     fun serviceListenerDisconnected(): String = if (isEn)
-        "Listener disconnected · notifications may be missed, please check Notification Access"
-        else "监听已断开 · 可能漏读通知，请检查通知使用权"
+        "Notification read permission not granted · listening paused. Enable Notification Access to resume"
+        else "未授予通知读取权限，通知监听已暂停"
     fun actionPausePush(): String = if (isEn) "Pause push" else "暂停推送"
     fun actionResumePush(): String = if (isEn) "Resume push" else "恢复推送"
 

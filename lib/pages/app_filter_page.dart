@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 /// 应用列表条目：组头（已选/未选分组标题）或应用行
 class _AppListItem {
@@ -493,7 +494,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                 ),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: TextField(
+                  child: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: l10n.searchAppHint,

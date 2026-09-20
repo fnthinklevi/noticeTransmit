@@ -8,6 +8,7 @@ import '../models/notification_rule.dart';
 import '../services/platform_channel.dart';
 import '../services/rule_template_service.dart';
 import '../theme/app_colors.dart';
+import 'app_text_selection_menu.dart';
 
 /// 规则模板库（P2）：预设模板 + 用户模板 + 文件导入导出。
 ///
@@ -303,6 +304,7 @@ class _RuleTemplateSheetState extends State<RuleTemplateSheet> {
           ),
         ),
         content: TextField(
+          contextMenuBuilder: AppTextSelectionMenu.editableText,
           controller: controller,
           obscureText: true,
           autofocus: true,

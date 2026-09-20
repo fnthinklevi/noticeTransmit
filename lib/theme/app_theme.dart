@@ -15,6 +15,23 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: colors.systemBlue,
         brightness: brightness,
+        // v1.59：文本选择工具栏容器色取自 colorScheme.surface（Flutter
+        // `_TextSelectionToolbarContainer._getColor` 实测），改 surface 才能让
+        // 工具栏底色 = 应用卡片色（否则深色模式偏黑 #111318，与卡片 #1C1C1E 不一致）。
+        // 影响面：M3 的 Card/Dialog/BottomSheet/Menu 默认取 surfaceContainer* 系列，
+        // 项目 83 处容器又显式设了 AppColors.cardBg —— 因此本改动实际只作用于
+        // 文本选择工具栏等直接消费 surface 的少数组件。
+        surface: colors.cardBg,
+        // 其余 M3 浮层（菜单/日期选择器等）同样统一为卡片色
+        surfaceContainerHighest: colors.cardBg,
+      ),
+      // v1.59：文本选择高亮 / 光标 / 手柄统一为应用蓝（各机型渲染一致，
+      // Flutter 自绘、不走厂商系统样式）。工具栏容器为 44px 胶囊（圆角 22），
+      // 底色见上方 colorScheme.surface。
+      textSelectionTheme: TextSelectionThemeData(
+        selectionColor: colors.systemBlue.withValues(alpha: 0.25),
+        cursorColor: colors.systemBlue,
+        selectionHandleColor: colors.systemBlue,
       ),
       scaffoldBackgroundColor: colors.bgColor,
       extensions: <ThemeExtension<dynamic>>[colors],

@@ -1248,5 +1248,9 @@
   "appChannelGuideNote3": "Common causes of push failure: permissions not granted / app version not published / recipient not in the visible range / wrong Secret or recipient ID.",
   "appChannelGuideNote4": "App channels and Webhook channels are independent and can be enabled together; delivery results and retries behave the same as Webhook channels.",
   "appChannelGuideClose": "Got it",
-  "appChannelGuideNote5": "A custom API base URL must use HTTPS (plain http is rejected by the system); self-signed certificates are not trusted and will fail to connect — use a proper certificate, or leave it empty to use the official endpoint."
+  "appChannelGuideNote5": "A custom API base URL must use HTTPS (plain http is rejected by the system); self-signed certificates are not trusted and will fail to connect — use a proper certificate, or leave it empty to use the official endpoint.",
+  "textMenuCopy": "Copy",
+  "textMenuPaste": "Paste",
+  "textMenuCut": "Cut",
+  "textMenuSelectAll": "Select all"
 }

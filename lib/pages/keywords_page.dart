@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 class KeywordsPage extends StatefulWidget {
   final List<String> blacklistKeywords;
@@ -129,7 +130,7 @@ class _KeywordsPageState extends State<KeywordsPage>
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.separator(context)),
                     ),
-                    child: TextField(
+                    child: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                       controller: _textController,
                       decoration: InputDecoration(
                         hintText: isWhitelist

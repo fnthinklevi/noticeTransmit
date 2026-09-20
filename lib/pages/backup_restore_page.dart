@@ -10,6 +10,7 @@ import '../services/backup_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 /// P1 配置备份与恢复页。
 ///
@@ -311,7 +312,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
             color: AppColors.primaryLabel(ctx),
           ),
         ),
-        content: TextField(
+        content: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
           controller: controller,
           obscureText: true,
           autofocus: true,

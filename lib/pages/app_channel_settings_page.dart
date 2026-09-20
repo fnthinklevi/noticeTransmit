@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../services/app_channel_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 /// 自建应用通道设置页（应用通道体系，管理完善度与 Webhook 通道对齐）。
 ///
@@ -240,7 +241,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
             ],
           ),
           const SizedBox(height: 8),
-          TextField(
+          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
             controller: _controllers['$id.name'],
             style: TextStyle(color: AppColors.primaryLabel(context)),
             decoration: _decoration(context, l10n.appChannelNameLabel),
@@ -248,13 +249,13 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           const SizedBox(height: 10),
           _typeSelector(index, context),
           const SizedBox(height: 10),
-          TextField(
+          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
             controller: _controllers['$id.baseUrl'],
             style: TextStyle(color: AppColors.primaryLabel(context)),
             decoration: _decoration(context, l10n.appChannelBaseUrlHint),
           ),
           const SizedBox(height: 10),
-          TextField(
+          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
             controller: _controllers['$id.secret'],
             obscureText: true,
             style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -268,7 +269,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           // 扩展参数（按类型渲染）
           for (final field in _configFields(c['appType'] as String)) ...[
             const SizedBox(height: 10),
-            TextField(
+            TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
               controller: fields[field.$1],
               keyboardType: field.$2 == 'number' ? TextInputType.number : null,
               style: TextStyle(color: AppColors.primaryLabel(context)),

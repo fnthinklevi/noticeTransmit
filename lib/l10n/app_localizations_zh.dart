@@ -2606,4 +2606,16 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get appChannelGuideNote5 =>
       '自定义 API 地址须使用 HTTPS（明文 http 会被系统拒绝）；自签名证书不受系统信任会连接失败——请使用正式证书，或留空以使用官方地址。';
+
+  @override
+  String get textMenuCopy => '复制';
+
+  @override
+  String get textMenuPaste => '粘贴';
+
+  @override
+  String get textMenuCut => '剪切';
+
+  @override
+  String get textMenuSelectAll => '全选';
 }

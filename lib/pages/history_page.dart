@@ -12,6 +12,7 @@ import '../theme/app_colors.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 class HistoryPage extends StatefulWidget {
   final List<NotificationRecord> records;
@@ -941,7 +942,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                 ],
                 const SizedBox(height: 12),
-                TextField(
+                TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                   controller: appNameCtrl,
                   decoration: InputDecoration(
                     labelText: l10n.filterAppName,
@@ -956,7 +957,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                TextField(
+                TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                   controller: pkgCtrl,
                   decoration: InputDecoration(
                     labelText: l10n.filterPackageName,
@@ -1309,7 +1310,7 @@ class _HistoryPageState extends State<HistoryPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
+            TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
               controller: controller,
               autofocus: true,
               maxLines: 3,
@@ -1580,7 +1581,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           color: AppColors.inputBg(sheetContext),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: SelectableText(
+                        child: SelectableText(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                           const JsonEncoder.withIndent(
                             '  ',
                           ).convert(record.toMap()),
@@ -2117,7 +2118,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 color: AppColors.inputBg(context),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: TextField(
+              child: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: l10n.searchHint,

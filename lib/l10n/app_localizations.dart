@@ -4939,6 +4939,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'自定义 API 地址须使用 HTTPS（明文 http 会被系统拒绝）；自签名证书不受系统信任会连接失败——请使用正式证书，或留空以使用官方地址。'**
   String get appChannelGuideNote5;
+
+  /// No description provided for @textMenuCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get textMenuCopy;
+
+  /// No description provided for @textMenuPaste.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴'**
+  String get textMenuPaste;
+
+  /// No description provided for @textMenuCut.
+  ///
+  /// In zh, this message translates to:
+  /// **'剪切'**
+  String get textMenuCut;
+
+  /// No description provided for @textMenuSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get textMenuSelectAll;
 }
 
 class _AppLocalizationsDelegate

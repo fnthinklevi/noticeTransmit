@@ -209,7 +209,19 @@ object AppChannelsTokenParsers {
 
     /** 企业微信：{"errcode":0,"access_token":"...","expires_in":7200} */
     fun parseWecomToken(body: String): Pair<String, Int> {
-        val json = JSONObject(body)
+        // 网关/代理错误页、空响应或非 JSON 错误结构都会让 JSONObject 构造函数抛异常。
+        // 必须在此收敛为 TokenFetchException（调用链的失败约定），否则 JSONException
+        // 会绕过 AppChannelSender 的 catch 冒泡，导致进程崩溃或通道静默失效。
+        // 网关/代理错误页、空响应或非 JSON 错误结构都会让 JSONObject 构造函数抛异常。
+        // 必须在此收敛为 TokenFetchException（调用链的失败约定），否则 JSONException
+        // 会绕过 AppChannelSender 的 catch 冒泡，导致进程崩溃或通道静默失效。
+        val json = try {
+            JSONObject(body)
+        } catch (e: Exception) {
+            throw AppChannelTokenManager.TokenFetchException(
+                -1, "gettoken 响应非 JSON（网关/代理错误页？）: ${body.take(120)}"
+            )
+        }
         val errcode = json.optInt("errcode", 0)
         if (errcode != 0) {
             throw AppChannelTokenManager.TokenFetchException(
@@ -225,7 +237,14 @@ object AppChannelsTokenParsers {
 
     /** 飞书：{"code":0,"tenant_access_token":"t-...","expire":7200} */
     fun parseFeishuToken(body: String): Pair<String, Int> {
-        val json = JSONObject(body)
+        // 同上：非 JSON 响应统一收敛为 TokenFetchException，避免异常冒泡崩溃
+        val json = try {
+            JSONObject(body)
+        } catch (e: Exception) {
+            throw AppChannelTokenManager.TokenFetchException(
+                -1, "tenant_access_token 响应非 JSON（网关/代理错误页？）: ${body.take(120)}"
+            )
+        }
         val code = json.optInt("code", 0)
         if (code != 0) {
             throw AppChannelTokenManager.TokenFetchException(

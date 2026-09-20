@@ -57,14 +57,26 @@ class AppChannelSender(private val context: Context) {
     /** 推送一条通知到全部启用的自建应用通道（通知到达 / 电量提醒主链路） */
     fun sendNotification(info: NotificationInfo) {
         for (cfg in channelConfigs) {
-            sendToSingle(cfg, info, force = false, onResultDone = null)
+            sendSafely(cfg, info, force = false)
         }
     }
 
     /** 指定 force 的发送（延迟补推 / 手动现在推送 / 合并 flush） */
     fun sendOnly(info: NotificationInfo, force: Boolean = false) {
         for (cfg in channelConfigs) {
+            sendSafely(cfg, info, force = force)
+        }
+    }
+
+    /**
+     * 单通道发送隔离：任一通道的意外异常不得影响其他通道，更不得冒泡导致
+     * Service/进程崩溃（多通道场景下「一个通道有问题 = 全部通道失效」不可接受）。
+     */
+    private fun sendSafely(cfg: AppChannelConfig, info: NotificationInfo, force: Boolean) {
+        try {
             sendToSingle(cfg, info, force = force, onResultDone = null)
+        } catch (e: Exception) {
+            Log.e(TAG, "应用通道发送异常 type=${cfg.type} id=${cfg.id}", e)
         }
     }
 
@@ -127,9 +139,13 @@ class AppChannelSender(private val context: Context) {
                         SpecTokenFetcher(spec, cfg, base, tokenClient),
                     )
                 }
-            } catch (e: AppChannelTokenManager.TokenFetchException) {
+            } catch (e: Exception) {
+                // 兜底捕获所有异常（TokenFetchException / JSONException / 网络异常等）：
+                // 任一异常都统一回传终态失败，避免冒泡导致进程崩溃或通道静默失效
+                val msg = (e as? AppChannelTokenManager.TokenFetchException)?.message
+                    ?: e.message ?: "获取 token 失败"
                 val fail = WebhookResponseParser.ParseResult(
-                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: "获取 token 失败", false
+                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, msg, false
                 )
                 notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl)
                 onResultDone?.invoke(fail)

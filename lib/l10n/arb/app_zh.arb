@@ -1255,5 +1255,9 @@
   "appChannelGuideNote3": "推送失败常见原因：权限未开通 / 应用版本未发布 / 接收人不在可见范围 / Secret 或接收人 ID 填错。",
   "appChannelGuideNote4": "自建应用通道与 Webhook 通道互不影响，可同时启用；推送结果与失败重试与 Webhook 一致。",
   "appChannelGuideClose": "知道了",
-  "appChannelGuideNote5": "自定义 API 地址须使用 HTTPS（明文 http 会被系统拒绝）；自签名证书不受系统信任会连接失败——请使用正式证书，或留空以使用官方地址。"
+  "appChannelGuideNote5": "自定义 API 地址须使用 HTTPS（明文 http 会被系统拒绝）；自签名证书不受系统信任会连接失败——请使用正式证书，或留空以使用官方地址。",
+  "textMenuCopy": "复制",
+  "textMenuPaste": "粘贴",
+  "textMenuCut": "剪切",
+  "textMenuSelectAll": "全选"
 }

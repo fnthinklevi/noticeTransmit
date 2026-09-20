@@ -6,6 +6,7 @@ import '../models/email_channel.dart';
 import '../services/email_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 /// 邮件通道设置页
 ///
@@ -644,7 +645,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextField(
+                  TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                     controller: bodyCtrl,
                     maxLines: 8,
                     decoration: InputDecoration(
@@ -704,7 +705,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     bool obscure = false,
     String? errorText,
   }) {
-    return TextField(
+    return TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
       controller: ctrl,
       obscureText: obscure,
       keyboardType: keyboardType,

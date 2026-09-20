@@ -2709,4 +2709,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get appChannelGuideNote5 =>
       'A custom API base URL must use HTTPS (plain http is rejected by the system); self-signed certificates are not trusted and will fail to connect — use a proper certificate, or leave it empty to use the official endpoint.';
+
+  @override
+  String get textMenuCopy => 'Copy';
+
+  @override
+  String get textMenuPaste => 'Paste';
+
+  @override
+  String get textMenuCut => 'Cut';
+
+  @override
+  String get textMenuSelectAll => 'Select all';
 }

@@ -64,6 +64,48 @@ class AppChannelSpecTest {
         }
     }
 
+    // ===== 非 JSON 响应（网关错误页/空响应）—— 崩溃防护（v1.59）=====
+
+    @Test
+    fun parseWecomToken_nonJsonThrowsTokenFetchException() {
+        // 回归背景：parseWecomToken 直接 JSONObject(body) 构造，非 JSON 响应
+        // （WAF/网关 502 错误页）会抛 JSONException 绕过调用链 catch 冒泡崩溃。
+        try {
+            AppChannelsTokenParsers.parseWecomToken("<!DOCTYPE html><html>502 Bad Gateway</html>")
+            throw AssertionError("非 JSON 响应应抛出 TokenFetchException")
+        } catch (e: AppChannelTokenManager.TokenFetchException) {
+            assertEquals(-1, e.errcode)
+            assertTrue(
+                "错误信息应带响应摘要便于排查：${e.message}",
+                e.message!!.contains("非 JSON"),
+            )
+        }
+    }
+
+    @Test
+    fun parseWecomToken_emptyBodyThrowsTokenFetchException() {
+        try {
+            AppChannelsTokenParsers.parseWecomToken("")
+            throw AssertionError("空响应应抛出 TokenFetchException")
+        } catch (e: AppChannelTokenManager.TokenFetchException) {
+            assertEquals(-1, e.errcode)
+        }
+    }
+
+    @Test
+    fun parseFeishuToken_nonJsonThrowsTokenFetchException() {
+        try {
+            AppChannelsTokenParsers.parseFeishuToken("<html>403 Forbidden</html>")
+            throw AssertionError("非 JSON 响应应抛出 TokenFetchException")
+        } catch (e: AppChannelTokenManager.TokenFetchException) {
+            assertEquals(-1, e.errcode)
+            assertTrue(
+                "错误信息应带响应摘要便于排查：${e.message}",
+                e.message!!.contains("非 JSON"),
+            )
+        }
+    }
+
     @Test
     fun parseFeishuToken_ok() {
         val (token, expire) = AppChannelsTokenParsers.parseFeishuToken(

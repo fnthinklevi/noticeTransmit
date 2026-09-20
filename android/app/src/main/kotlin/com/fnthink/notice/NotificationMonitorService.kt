@@ -157,6 +157,9 @@ class NotificationMonitorService : NotificationListenerService() {
 
         loadConfig()
         applyMonitoringState()
+        // v1.59：初始化后统一显隐决策（覆盖「通知权限被撤后服务重启」的场景：
+        // 权限缺失时这里会撤掉刚 startForeground 的通知，保证显示状态与权限一致）
+        refreshForegroundVisibility()
         registerSmsObserver()
 
         // N4 失败推送自动重试队列：初始化上下文 + 启动重放（服务启动 + 网络恢复触发）
@@ -220,7 +223,7 @@ class NotificationMonitorService : NotificationListenerService() {
         touchAlive()
         cancelRebindRetry()
         // 恢复连接后立即刷新前台通知，撤掉"监听已断开"警告
-        try { updateForegroundNotification() } catch (_: Exception) {}
+        try { refreshForegroundVisibility() } catch (_: Exception) {}
         Log.i(TAG, "Notification listener connected")
         recoverMissedNotifications()
     }
@@ -231,8 +234,9 @@ class NotificationMonitorService : NotificationListenerService() {
         listenerConnected = false
         disconnectedAt = System.currentTimeMillis()
         // 监听断开后 onNotificationPosted 不再回调，通知会静默漏读。
-        // 刷新前台通知给出明确警告，并主动重新请求绑定自恢复。
-        try { updateForegroundNotification() } catch (_: Exception) {}
+        // 走统一显隐入口：通知权限若也已被撤则直接隐藏，否则切换为
+        // 「未授予通知读取权限，通知监听已暂停」警告文案，并主动重新请求绑定。
+        try { refreshForegroundVisibility() } catch (_: Exception) {}
         Log.i(TAG, "Notification listener disconnected, requesting rebind")
         requestRebindCompat()
     }
@@ -398,6 +402,13 @@ class NotificationMonitorService : NotificationListenerService() {
         appChannelSender.destroy()
         unregisterSmsObserver()
         serviceScope.cancel()
+        // v1.59：服务销毁时显式撤掉常驻通知（场景「进程终止不得残留」）。
+        // 系统在服务销毁时会自动移除 FGS 通知，此处显式 cancel 双保险，
+        // 覆盖厂商 ROM 上 stopForeground 被延迟/吞掉的极端情况。
+        try {
+            stopForegroundCompat()
+        } catch (_: Exception) {}
+        notificationManager.cancel(FOREGROUND_ID)
         Log.i(TAG, "Service destroyed")
     }
 
@@ -596,6 +607,36 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     }
 
+    /**
+     * 常驻通知显隐与内容的统一决策入口（v1.59，场景 5 权限缺失处理）：
+     *
+     * 1. 通知权限（POST_NOTIFICATIONS）未授予 → 直接隐藏（cancel，含清理权限被撤
+     *    前显示过的残留；此后 startForeground 仍会调用以满足 5s 约束，但系统不会
+     *    展示任何通知，且此处会继续 cancel 防残留）。
+     * 2. 已授予 → 按 monitoringEnabled 显示或隐藏；内容文案由
+     *    buildForegroundNotification 依 listenerConnected / pushActive 决定
+     *    （使用权断开时显示「未授予通知读取权限，通知监听已暂停」）。
+     *
+     * 所有显隐变化（开始/停止/使用权断开重连/初始化）都经此入口，保证各场景
+     * 的显示与消失及时准确。
+     */
+    private fun refreshForegroundVisibility() {
+        val postAllowed = notificationManager.areNotificationsEnabled()
+        if (!postAllowed) {
+            // 场景 5b：通知权限缺失 → 直接隐藏
+            notificationManager.cancel(FOREGROUND_ID)
+            Log.i(TAG, "Foreground notification hidden: POST_NOTIFICATIONS not granted")
+            return
+        }
+        if (monitoringEnabled) {
+            // 场景 1 / 4 / 5a：显示（内容随 listenerConnected / pushActive 变化）
+            startForegroundService()
+        } else {
+            // 场景 2：停止监听 → 立即消失
+            stopForegroundCompat()
+        }
+    }
+
     private fun stopForegroundCompat() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -607,6 +648,10 @@ class NotificationMonitorService : NotificationListenerService() {
         } catch (e: Exception) {
             Log.e(TAG, "stopForeground failed", e)
         }
+        // 双保险：部分 ROM 对 REMOVE 的处理有延迟，显式 cancel 确保立即消失（v1.59）
+        try {
+            notificationManager.cancel(FOREGROUND_ID)
+        } catch (_: Exception) {}
     }
 
     /**
@@ -914,10 +959,20 @@ class NotificationMonitorService : NotificationListenerService() {
             startForeground(FOREGROUND_ID, notification)
         }
         Log.i(TAG, "Foreground service started")
+        // v1.59：通知权限未授予时系统不会展示任何通知；显式 cancel 防止
+        // 权限被撤前显示过的旧通知残留（场景 5b：权限缺失直接隐藏）
+        if (!notificationManager.areNotificationsEnabled()) {
+            notificationManager.cancel(FOREGROUND_ID)
+        }
     }
 
     /// 更新前台通知显示当前已推送数量与推送启停状态
     private fun updateForegroundNotification() {
+        // v1.59：通知权限已撤时不再 notify，并撤掉可能残留的旧通知
+        if (!notificationManager.areNotificationsEnabled()) {
+            notificationManager.cancel(FOREGROUND_ID)
+            return
+        }
         val notification = buildForegroundNotification()
         notificationManager.notify(FOREGROUND_ID, notification)
     }

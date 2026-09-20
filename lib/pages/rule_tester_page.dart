@@ -6,6 +6,7 @@ import '../services/filter_service.dart';
 import '../services/platform_channel.dart';
 import '../services/rule_trace.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 /// F1 规则测试器：输入模拟通知，实时展示完整命中链路
 ///（① 过滤 → ② 规则匹配 → ③ 最终动作）。
@@ -145,7 +146,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
           const SizedBox(height: 10),
           _textField(context, _titleController, l10n.testerTitleField),
           const SizedBox(height: 10),
-          TextField(
+          TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
             controller: _contentController,
             maxLines: 3,
             style: TextStyle(
@@ -442,7 +443,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
     BuildContext context,
     TextEditingController c,
     String label,
-  ) => TextField(
+  ) => TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
     controller: c,
     style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(context)),
     decoration: _inputDecoration(context, label),
@@ -551,7 +552,7 @@ class _AppPickDialogState extends State<_AppPickDialog> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
-                  TextField(
+                  TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                     controller: _search,
                     style: TextStyle(
                       fontSize: 14,

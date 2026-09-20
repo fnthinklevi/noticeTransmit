@@ -6,6 +6,7 @@ import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 // R3 拆分：iOS 选择器/条件行/动作行组件与条件/动作编辑对话框（part 共享私有类名）
 part 'rule_edit_widgets.dart';
@@ -416,7 +417,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
             ),
           ),
         ),
-        TextField(
+        TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
           controller: controller,
           maxLines: maxLines,
           style: TextStyle(color: AppColors.primaryLabel(context)),
@@ -543,7 +544,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
               color: AppColors.primaryLabel(context),
             ),
           ),
-          content: TextField(
+          content: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
             controller: controller,
             autofocus: true,
             keyboardType: TextInputType.number,
@@ -690,7 +691,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
+              TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                 controller: controller,
                 autofocus: true,
                 keyboardType: TextInputType.number,
@@ -751,7 +752,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
               ),
               const SizedBox(height: 14),
               // F3：满 N 条提前触发
-              TextField(
+              TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
                 controller: maxItemsController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -1239,7 +1240,7 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(
+          child: TextField(contextMenuBuilder: AppTextSelectionMenu.editableText, 
             controller: _searchController,
             style: TextStyle(color: AppColors.primaryLabel(context)),
             decoration: InputDecoration(

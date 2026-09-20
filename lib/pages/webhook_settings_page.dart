@@ -6,6 +6,7 @@ import '../models/webhook_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_text_selection_menu.dart';
 
 // R3 拆分：通道卡片构建巨型方法迁出（extension 共享 State 私有成员）
 part 'webhook_settings_item.dart';
