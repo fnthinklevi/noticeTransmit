@@ -331,7 +331,6 @@ extension _MainPageActions on _MainPageState {
         },
       ),
     );
-    setState(() {});
   }
 
   void _openEmailSettingsPage() async {
