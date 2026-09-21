@@ -1,27 +1,27 @@
 {
-  "latestVersion": "1.5.73",
-  "latestBuild": 110,
+  "latestVersion": "1.5.74",
+  "latestBuild": 111,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.72",
   "forceUpdateBuild": 108,
-  "changelog": "v1.5.73+109: 企业微信自建应用通道(两阶段gettoken/message/send+token缓存与失效自动重试+corpid/agentid/touser定向,数据库v9无损升级) + 规则模板库(5套预设模板一键导入+规则存为模板+模板导入导出可选AES-256加密) + 送达统计仪表盘(通道成功率排行/失败原因TOP/高峰时段分布,近7天/30天切换) + 通道健康探测(启用通道6小时自动连通探测,卡片显示连通状态/延迟/探测时间徽标) + 企业微信自建应用多通道token缓存修复(按凭据分key互不驱逐+失效定向清除) + extra_config编码统一上移至服务层",
+  "changelog": "温度推送 + 应用通道体系 + 界面统一\n\n🌡️ 新增手机温度推送：支持电池温度/设备温度/屏幕温度三维度独立规则，自定义阈值触发\n🏢 新增企业微信/飞书自建应用通道（两阶段 API，支持私有化部署）\n📱 规则适用应用新增快速选择分组（通讯/邮箱/系统组件聚合）\n📋 历史页右上角收纳为「更多」菜单；全部弹窗统一 iOS 风格\n🔧 备份扩展至 12 类（含自建应用通道）；接入引导；token 解析崩溃防护\n📄 全部确认弹窗统一分割线按钮；文本选择菜单 36 处多机型适配",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.73/notice_arm64_1.5.73.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.73/notice_arm32_1.5.73.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.73/notice_x86_1.5.73.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.73/notice_all_1.5.73.apk"
+    "arm64": "https://fnthink.cn/downloads/arm64/1.5.74/notice_arm64_1.5.74.apk",
+    "arm32": "https://fnthink.cn/downloads/arm32/1.5.74/notice_arm32_1.5.74.apk",
+    "x86_64": "https://fnthink.cn/downloads/x86_64/1.5.74/notice_x86_1.5.74.apk",
+    "all": "https://fnthink.cn/downloads/all/1.5.74/notice_all_1.5.74.apk"
   },
   "fileSizes": {
-    "all": 75768563,
-    "arm32": 23656029,
-    "arm64": 27563503,
-    "x86_64": 29662059
+    "all": 75981547,
+    "arm32": 23737936,
+    "arm64": 27710951,
+    "x86_64": 29678425
   },
   "sha256": {
-    "all": "dcdb384830f052b7384c733327cdf9d07bd340342cf359d1eeee9152ba206c0a",
-    "arm32": "9a3f79e29a5fa56f2a76fd17fdc10f20954a1c4f2a14da23c8978de87dbf8d68",
-    "arm64": "e64ef016831c3d3bcb937c7f3b4c916d1f2520a2b8b63d1f6632ddee0e982b15",
-    "x86_64": "1119aea3a65b28d190184e918f0a29dd44816a22cfa09c4af36f193ae1653037"
+    "all": "0eafb115299acbc2e081647eb54500c9c609383078620d71cbdf6b185f9cbd1a",
+    "arm32": "946fd1cf575ea0582db20f7615e9a192cb7a4d554e78fb937a53d2feac91359e",
+    "arm64": "b13f8502828cab3509c723c773820f35a2dbddd04efd5c16d850615689748cb2",
+    "x86_64": "2185e06b57566d1246fca36cda2d211c42b302631601d537e0bf72fe71824a01"
   },
   "minSupportedVersion": "1.0.0"
 }
