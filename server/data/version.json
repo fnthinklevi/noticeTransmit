@@ -1,27 +1,27 @@
 {
   "latestVersion": "1.5.74",
-  "latestBuild": 112,
+  "latestBuild": 113,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.72",
   "forceUpdateBuild": 108,
   "changelog": "温度推送 + 应用通道体系 + 界面统一\n\n🌡️ 新增手机温度推送：支持电池温度/设备温度/屏幕温度三维度独立规则，自定义阈值触发\n🏢 新增企业微信/飞书自建应用通道（两阶段 API，支持私有化部署）\n📱 规则适用应用新增快速选择分组（通讯/邮箱/系统组件聚合）\n📋 历史页右上角收纳为「更多」菜单；全部弹窗统一 iOS 风格\n🔧 备份扩展至 12 类（含自建应用通道）；接入引导；token 解析崩溃防护\n📄 全部确认弹窗统一分割线按钮；文本选择菜单 36 处多机型适配",
   "downloads": {
-    "arm64": "https://fnthink.cn/downloads/arm64/1.5.74/notice_arm64_1.5.74.apk",
-    "arm32": "https://fnthink.cn/downloads/arm32/1.5.74/notice_arm32_1.5.74.apk",
-    "x86_64": "https://fnthink.cn/downloads/x86_64/1.5.74/notice_x86_1.5.74.apk",
-    "all": "https://fnthink.cn/downloads/all/1.5.74/notice_all_1.5.74.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_arm64_1.5.74.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_arm32_1.5.74.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_x86_1.5.74.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_all_1.5.74.apk"
   },
   "fileSizes": {
-    "all": 76161838,
-    "arm32": 23787164,
-    "arm64": 27711017,
-    "x86_64": 29809563
+    "all": 76161926,
+    "arm32": 23787240,
+    "arm64": 27711096,
+    "x86_64": 29809646
   },
   "sha256": {
-    "all": "c9512ea24b37c3137a3d9158e577f19ea795c064991c4b759565e5db8f72b641",
-    "arm32": "855e081431c6c1d8050beca792376493d85d6f1e64063e9982cf631851a09175",
-    "arm64": "2383dd7faa11a9a92e85599f16b9bea8845b20469b3abc8cb63a67d68ec4e00f",
-    "x86_64": "10720ec0df2e3f1bf0f142127fd81d9c69295045c6d222d85b6ca1f47153f173"
+    "all": "7fa1a685fc597960ca11cfb9c4a29747d15a81b47b69927ace755b0a1dfe6675",
+    "arm32": "9d32de3ae7b7391223feaa6eb520b03b814efe5cdd89e86a8d91d47b678d68fc",
+    "arm64": "f474e7df3b27abea01e5f3276e460ba0def1916945ffbd9fdb839bf9a9ea70c9",
+    "x86_64": "236c677fedc212e5084794d31626ebd126c615ae291ae48d4b7b0ce3e8fcd798"
   },
   "minSupportedVersion": "1.0.0"
 }

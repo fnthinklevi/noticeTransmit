@@ -1187,6 +1187,18 @@
   },
   "appChannelTitle": "App Channels",
   "appChannelPageDesc": "App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.",
+  "appChannelConfigured": "{n} configured · {m} enabled",
+  "@appChannelConfigured": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "appChannelNotConfigured": "Not configured",
   "appChannelAddWecom": "Add WeCom App",
   "appChannelAddFeishu": "Add Feishu App",
   "appChannelN": "App Channel {n}",
@@ -1264,5 +1276,6 @@
   "noRules": "No temperature rules yet. Tap + to add one",
   "disable": "Disable",
   "temperatureNotifyEnabled": "Temperature push notification",
-  "textMenuShare": "Share"
+  "textMenuShare": "Share",
+  "temperaturePageDesc": "Battery / device / screen temperature threshold push"
 }

@@ -2422,6 +2422,14 @@ class AppLocalizationsZh extends AppLocalizations {
       '自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。';
 
   @override
+  String appChannelConfigured(int n, int m) {
+    return '已配置 $n 个 · 启用 $m 个';
+  }
+
+  @override
+  String get appChannelNotConfigured => '未配置';
+
+  @override
   String get appChannelAddWecom => '添加企微自建应用';
 
   @override
@@ -2660,4 +2668,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textMenuShare => '分享';
+
+  @override
+  String get temperaturePageDesc => '电池 / 设备 / 屏幕温度阈值推送';
 }

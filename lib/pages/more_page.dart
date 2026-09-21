@@ -33,6 +33,7 @@ int _diagTapCount = 0;
 
 class MorePage extends StatelessWidget {
   final List<Map<String, dynamic>> webhookChannels;
+  final List<Map<String, dynamic>> appChannels;
   final String deviceName;
   final int enabledPackagesCount;
   final String appFilterMode; // 'allow' = 通知应用；'block' = 不通知应用
@@ -44,6 +45,7 @@ class MorePage extends StatelessWidget {
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final VoidCallback onOpenWebhookSettings;
   final VoidCallback onOpenEmailSettings;
+  final VoidCallback onOpenTemperaturePush;
   final VoidCallback onOpenAppChannels;
   final VoidCallback onShowDeviceNameDialog;
   final VoidCallback onShowAboutDialog;
@@ -57,6 +59,7 @@ class MorePage extends StatelessWidget {
   const MorePage({
     super.key,
     required this.webhookChannels,
+    required this.appChannels,
     required this.deviceName,
     required this.enabledPackagesCount,
     this.appFilterMode = 'allow',
@@ -69,6 +72,7 @@ class MorePage extends StatelessWidget {
     required this.onOpenWebhookSettings,
     required this.onOpenEmailSettings,
     required this.onOpenAppChannels,
+    required this.onOpenTemperaturePush,
     required this.onShowDeviceNameDialog,
     required this.onShowAboutDialog,
     required this.onOpenAppFilter,
@@ -83,6 +87,9 @@ class MorePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final enabledCount = webhookChannels
+        .where((c) => c['enabled'] == true)
+        .length;
+    final appEnabledCount = appChannels
         .where((c) => c['enabled'] == true)
         .length;
     return Scaffold(
@@ -127,8 +134,22 @@ class MorePage extends StatelessWidget {
               icon: Icons.apps,
               iconColor: const Color(0xFF00D3B6),
               title: l10n.appChannelTitle,
-              subtitle: l10n.appChannelPageDesc,
+              subtitle: appChannels.isEmpty
+                  ? l10n.appChannelNotConfigured
+                  : l10n.appChannelConfigured(
+                      appChannels.length,
+                      appEnabledCount,
+                    ),
               onTap: onOpenAppChannels,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildNavTile(
+              icon: Icons.thermostat,
+              iconColor: const Color(0xFFFF9500),
+              title: l10n.temperatureTitle,
+              subtitle: l10n.temperaturePageDesc,
+              onTap: onOpenTemperaturePush,
               context: context,
             ),
           ], context),

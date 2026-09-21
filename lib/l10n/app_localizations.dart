@@ -4610,6 +4610,18 @@ abstract class AppLocalizations {
   /// **'自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。'**
   String get appChannelPageDesc;
 
+  /// No description provided for @appChannelConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配置 {n} 个 · 启用 {m} 个'**
+  String appChannelConfigured(int n, int m);
+
+  /// No description provided for @appChannelNotConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置'**
+  String get appChannelNotConfigured;
+
   /// No description provided for @appChannelAddWecom.
   ///
   /// In zh, this message translates to:
@@ -5035,6 +5047,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分享'**
   String get textMenuShare;
+
+  /// No description provided for @temperaturePageDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池 / 设备 / 屏幕温度阈值推送'**
+  String get temperaturePageDesc;
 }
 
 class _AppLocalizationsDelegate

@@ -147,33 +147,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onToggleRule: _toggleBatteryRule,
         onRefresh: _refreshBatteryStatus,
       ),
-      TemperaturePage(
-        notifyEnabled: GetIt.instance<TemperatureService>().notifyEnabled,
-        rules: GetIt.instance<TemperatureService>().rules,
-        onToggleNotify: (v) async {
-          await GetIt.instance<TemperatureService>().saveNotifyEnabled(v);
-          setState(() {});
-        },
-        onAddRule: (rule) async {
-          await GetIt.instance<TemperatureService>().addRule(rule);
-          setState(() {});
-        },
-        onDeleteRule: (id) async {
-          await GetIt.instance<TemperatureService>().deleteRule(id);
-          setState(() {});
-        },
-        onUpdateRule: (id, rule) async {
-          await GetIt.instance<TemperatureService>().updateRule(id, rule);
-          setState(() {});
-        },
-        onToggleRule: (id, enabled) async {
-          await GetIt.instance<TemperatureService>().toggleRule(id, enabled);
-          setState(() {});
-        },
-      ),
       MorePage(
         key: ValueKey('more_${_themeService.themeMode.index}'),
         webhookChannels: _webhookService.channels,
+        appChannels: GetIt.instance<AppChannelService>().channels,
         deviceName: _deviceInfoService.deviceName,
         enabledPackagesCount: _filterService.enabledPackages.length,
         appFilterMode: _filterService.appFilterMode,
@@ -189,6 +166,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onOpenWebhookSettings: _openWebhookSettingsPage,
         onOpenEmailSettings: _openEmailSettingsPage,
         onOpenAppChannels: _openAppChannelsSettingsPage,
+        onOpenTemperaturePush: _openTemperaturePush,
         onShowDeviceNameDialog: _showDeviceNameDialog,
         onShowAboutDialog: _showAboutDialog,
         onOpenAppFilter: _openAppFilterPage,

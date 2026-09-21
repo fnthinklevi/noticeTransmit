@@ -2517,6 +2517,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.';
 
   @override
+  String appChannelConfigured(int n, int m) {
+    return '$n configured · $m enabled';
+  }
+
+  @override
+  String get appChannelNotConfigured => 'Not configured';
+
+  @override
   String get appChannelAddWecom => 'Add WeCom App';
 
   @override
@@ -2763,4 +2771,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textMenuShare => 'Share';
+
+  @override
+  String get temperaturePageDesc =>
+      'Battery / device / screen temperature threshold push';
 }

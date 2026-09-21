@@ -1194,6 +1194,18 @@
   },
   "appChannelTitle": "自建应用通道",
   "appChannelPageDesc": "自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。",
+  "appChannelConfigured": "已配置 {n} 个 · 启用 {m} 个",
+  "@appChannelConfigured": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "appChannelNotConfigured": "未配置",
   "appChannelAddWecom": "添加企微自建应用",
   "appChannelAddFeishu": "添加飞书自建应用",
   "appChannelN": "自建应用 {n}",
@@ -1292,5 +1304,6 @@
   "noRules": "暂无温度规则，点右上角 + 添加",
   "disable": "停用",
   "temperatureNotifyEnabled": "温度推送通知",
-  "textMenuShare": "分享"
+  "textMenuShare": "分享",
+  "temperaturePageDesc": "电池 / 设备 / 屏幕温度阈值推送"
 }

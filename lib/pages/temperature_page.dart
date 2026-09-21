@@ -39,7 +39,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.batteryTitle),
+        title: Text(l10n.temperatureTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),

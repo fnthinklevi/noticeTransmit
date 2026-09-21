@@ -303,6 +303,37 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
+  void _openTemperaturePush() {
+    final service = GetIt.instance<TemperatureService>();
+    _pushPage(
+      TemperaturePage(
+        notifyEnabled: service.notifyEnabled,
+        rules: service.rules,
+        onToggleNotify: (v) async {
+          await service.saveNotifyEnabled(v);
+          if (mounted) setState(() {});
+        },
+        onAddRule: (rule) async {
+          await service.addRule(rule);
+          if (mounted) setState(() {});
+        },
+        onDeleteRule: (id) async {
+          await service.deleteRule(id);
+          if (mounted) setState(() {});
+        },
+        onUpdateRule: (id, rule) async {
+          await service.updateRule(id, rule);
+          if (mounted) setState(() {});
+        },
+        onToggleRule: (id, enabled) async {
+          await service.toggleRule(id, enabled);
+          if (mounted) setState(() {});
+        },
+      ),
+    );
+    setState(() {});
+  }
+
   void _openEmailSettingsPage() async {
     final l10n = AppLocalizations.of(context);
     final emailService = EmailService();
