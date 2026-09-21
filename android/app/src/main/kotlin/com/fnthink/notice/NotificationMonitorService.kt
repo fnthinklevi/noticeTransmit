@@ -566,6 +566,7 @@ class NotificationMonitorService : NotificationListenerService() {
 
         batteryMonitor.setEnabled(configManager.getBatteryNotifyEnabled())
         batteryMonitor.updateRules(configManager.getBatteryRules())
+        batteryMonitor.updateTemperatureRules(configManager.getTemperatureRules())
 
         cachedConfig = ConfigSnapshot()
         // 服务重启后恢复未到期的延迟推送闹钟（进程被杀 → START_STICKY 重建场景）

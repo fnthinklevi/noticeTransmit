@@ -204,7 +204,7 @@
   "storagePermissionRequired": "需要存储权限",
   "storagePermissionMsg": "在线更新需要存储权限来保存 APK 文件，请前往设置开启。",
   "noStoragePermission": "未获得存储权限，无法下载更新",
-  "enable": "去开启",
+  "enable": "启用",
   "confirmExport": "确认导出",
   "exportMsg": "通知记录将导出为 JSON 文件，包含通知内容和设备信息。\n\n请选择保存位置，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？",
   "exportBtn": "确定导出",
@@ -1259,5 +1259,37 @@
   "textMenuCopy": "复制",
   "textMenuPaste": "粘贴",
   "textMenuCut": "剪切",
-  "textMenuSelectAll": "全选"
+  "textMenuSelectAll": "全选",
+  "batteryTempAbove": "电池温度",
+  "deviceTempAbove": "设备温度",
+  "screenTempAbove": "屏幕温度",
+  "ruleBatteryTempAbove": "电池温度达到{value}℃",
+  "ruleDeviceTempAbove": "设备温度达到{value}℃",
+  "ruleScreenTempAbove": "屏幕温度达到{value}℃",
+  "tempThreshold": "温度阈值（℃）",
+  "@ruleBatteryTempAbove": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "@ruleDeviceTempAbove": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "@ruleScreenTempAbove": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "temperatureTitle": "温度推送",
+  "noRules": "暂无温度规则，点右上角 + 添加",
+  "disable": "停用",
+  "temperatureNotifyEnabled": "温度推送通知"
 }

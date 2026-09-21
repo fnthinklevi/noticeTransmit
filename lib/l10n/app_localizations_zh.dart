@@ -439,7 +439,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noStoragePermission => '未获得存储权限，无法下载更新';
 
   @override
-  String get enable => '去开启';
+  String get enable => '启用';
 
   @override
   String get confirmExport => '确认导出';
@@ -2618,4 +2618,43 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textMenuSelectAll => '全选';
+
+  @override
+  String get batteryTempAbove => '电池温度';
+
+  @override
+  String get deviceTempAbove => '设备温度';
+
+  @override
+  String get screenTempAbove => '屏幕温度';
+
+  @override
+  String ruleBatteryTempAbove(int value) {
+    return '电池温度达到$value℃';
+  }
+
+  @override
+  String ruleDeviceTempAbove(int value) {
+    return '设备温度达到$value℃';
+  }
+
+  @override
+  String ruleScreenTempAbove(int value) {
+    return '屏幕温度达到$value℃';
+  }
+
+  @override
+  String get tempThreshold => '温度阈值（℃）';
+
+  @override
+  String get temperatureTitle => '温度推送';
+
+  @override
+  String get noRules => '暂无温度规则，点右上角 + 添加';
+
+  @override
+  String get disable => '停用';
+
+  @override
+  String get temperatureNotifyEnabled => '温度推送通知';
 }

@@ -917,7 +917,7 @@ abstract class AppLocalizations {
   /// No description provided for @enable.
   ///
   /// In zh, this message translates to:
-  /// **'去开启'**
+  /// **'启用'**
   String get enable;
 
   /// No description provided for @confirmExport.
@@ -4963,6 +4963,72 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'全选'**
   String get textMenuSelectAll;
+
+  /// No description provided for @batteryTempAbove.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池温度'**
+  String get batteryTempAbove;
+
+  /// No description provided for @deviceTempAbove.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备温度'**
+  String get deviceTempAbove;
+
+  /// No description provided for @screenTempAbove.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏幕温度'**
+  String get screenTempAbove;
+
+  /// No description provided for @ruleBatteryTempAbove.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池温度达到{value}℃'**
+  String ruleBatteryTempAbove(int value);
+
+  /// No description provided for @ruleDeviceTempAbove.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备温度达到{value}℃'**
+  String ruleDeviceTempAbove(int value);
+
+  /// No description provided for @ruleScreenTempAbove.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏幕温度达到{value}℃'**
+  String ruleScreenTempAbove(int value);
+
+  /// No description provided for @tempThreshold.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度阈值（℃）'**
+  String get tempThreshold;
+
+  /// No description provided for @temperatureTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度推送'**
+  String get temperatureTitle;
+
+  /// No description provided for @noRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无温度规则，点右上角 + 添加'**
+  String get noRules;
+
+  /// No description provided for @disable.
+  ///
+  /// In zh, this message translates to:
+  /// **'停用'**
+  String get disable;
+
+  /// No description provided for @temperatureNotifyEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度推送通知'**
+  String get temperatureNotifyEnabled;
 }
 
 class _AppLocalizationsDelegate

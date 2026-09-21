@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import '../services/webhook_service.dart';
 import '../services/battery_service.dart';
+import '../services/temperature_service.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
 import '../services/filter_service.dart';
@@ -19,6 +20,7 @@ void setupLocator() {
   getIt.registerLazySingleton<WebhookService>(() => WebhookService());
   getIt.registerLazySingleton<BatteryService>(() => BatteryService());
   getIt.registerLazySingleton<NotificationService>(() => NotificationService());
+  getIt.registerLazySingleton<TemperatureService>(() => TemperatureService());
   getIt.registerLazySingleton<PermissionService>(() => PermissionService());
   getIt.registerLazySingleton<FilterService>(() => FilterService());
   getIt.registerLazySingleton<UpdateService>(() => UpdateService());

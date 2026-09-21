@@ -250,7 +250,28 @@ object I18n {
     fun servicePushPaused(count: Int): String =
         if (isEn) "Push paused · $count pushed today"
         else "推送已暂停 · 当日已推送 $count 条"
-    fun serviceListenerDisconnected(): String = if (isEn)
+    // ========== v1.59 温度维度（自建应用通道体系的电池域扩展） ==========
+
+/** 温度维度显示名（电池/设备/屏幕） */
+fun temperatureDimLabel(type: String): String = when (type) {
+    "battery_temp_above" -> if (isEn) "Battery" else "电池"
+    "screen_temp_above" -> if (isEn) "Screen" else "屏幕"
+    else -> if (isEn) "Device" else "设备"
+}
+
+/** 温度规则默认标题：{维度}温度已达{阈值}℃ */
+fun temperatureRuleTitle(dimLabel: String, threshold: Int): String =
+    if (isEn) "${dimLabel} temperature reached ${threshold}°C"
+    else "${dimLabel}温度已达${threshold}℃"
+
+/** 温度推送正文：当前{维度}温度 */
+fun temperatureContent(dimLabel: String, currentC: Double): String =
+    if (isEn) "Current ${dimLabel.lowercase()} temperature: ${
+        String.format(java.util.Locale.US, "%.1f", currentC)
+    }°C"
+    else "当前${dimLabel}温度：${String.format(java.util.Locale.US, "%.1f", currentC)}℃"
+
+fun serviceListenerDisconnected(): String = if (isEn)
         "Notification read permission not granted · listening paused. Enable Notification Access to resume"
         else "未授予通知读取权限，通知监听已暂停"
     fun actionPausePush(): String = if (isEn) "Pause push" else "暂停推送"

@@ -95,7 +95,18 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 activity.setBatterySetting(key, value)
                 result.success(true)
             }
-            "setSmsSetting" -> {
+            "setTemperatureRules" -> {
+                val rules = call.argument<List<Map<String, Any>>>("rules") ?: emptyList()
+                activity.setTemperatureRules(rules)
+                result.success(true)
+            }
+            "setTemperatureSetting" -> {
+                val key = call.argument<String>("key") ?: ""
+                val value = call.argument<Boolean>("value") ?: false
+                activity.setTemperatureSetting(key, value)
+                result.success(true)
+            }
+                        "setSmsSetting" -> {
                 // 短信监听配置（总开关/监听卡/验证码开关）。短信与电话链路每次
                 // 事件都新建 ConfigManager 实时读取，无需 notifyServiceConfigChanged
                 val key = call.argument<String>("key") ?: ""

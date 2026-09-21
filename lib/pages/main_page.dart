@@ -17,6 +17,7 @@ import '../models/email_channel.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
 import 'battery_page.dart';
+import 'temperature_page.dart';
 import 'more_page.dart';
 import 'history_page.dart';
 import 'permission_settings_page.dart';
@@ -144,6 +145,30 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onToggleRule: _toggleBatteryRule,
         onRefresh: _refreshBatteryStatus,
       ),
+      TemperaturePage(
+        notifyEnabled: GetIt.instance<TemperatureService>().notifyEnabled,
+        rules: GetIt.instance<TemperatureService>().rules,
+        onToggleNotify: (v) async {
+          await GetIt.instance<TemperatureService>().saveNotifyEnabled(v);
+          setState(() {});
+        },
+        onAddRule: (rule) async {
+          await GetIt.instance<TemperatureService>().addRule(rule);
+          setState(() {});
+        },
+        onDeleteRule: (id) async {
+          await GetIt.instance<TemperatureService>().deleteRule(id);
+          setState(() {});
+        },
+        onUpdateRule: (id, rule) async {
+          await GetIt.instance<TemperatureService>().updateRule(id, rule);
+          setState(() {});
+        },
+        onToggleRule: (id, enabled) async {
+          await GetIt.instance<TemperatureService>().toggleRule(id, enabled);
+          setState(() {});
+        },
+      ),
       MorePage(
         key: ValueKey('more_${_themeService.themeMode.index}'),
         webhookChannels: _webhookService.channels,
@@ -199,6 +224,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _getDeviceInfo();
       _refreshBatteryStatus();
       _batteryService.startRefreshTimer();
+      GetIt.instance<TemperatureService>().loadSettings();
 
       // 首页/更多页/状态栏统计统一：刷新首页总计数 + 同步原生今日计数基数
       await _refreshTotalCount();

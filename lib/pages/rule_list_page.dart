@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../widgets/rule_template_sheet.dart';
 import 'rule_edit_page.dart';
 import 'rule_tester_page.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 class RuleListPage extends StatefulWidget {
   final List<NotificationRule> rules;
@@ -105,24 +106,36 @@ class _RuleListPageState extends State<RuleListPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.confirmDeleteRule),
-        content: Text(l10n.ruleDeleteMsg(rule.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
+        backgroundColor: AppColors.cardBg(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.confirmDeleteRule,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(context),
           ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _rules.removeWhere((r) => r.id == rule.id);
-              });
-              _saveRules();
-              Navigator.pop(context);
-            },
-            child: Text(l10n.delete),
+        ),
+        content: Text(
+          l10n.ruleDeleteMsg(rule.name),
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.primaryLabel(context),
           ),
-        ],
+        ),
+        actions: IosDialogActions.confirm(
+          context,
+          cancelText: l10n.cancel,
+          confirmText: l10n.delete,
+          onConfirm: () {
+            setState(() {
+              _rules.removeWhere((r) => r.id == rule.id);
+            });
+            _saveRules();
+            Navigator.pop(context);
+          },
+          destructive: true,
+        ),
       ),
     );
   }

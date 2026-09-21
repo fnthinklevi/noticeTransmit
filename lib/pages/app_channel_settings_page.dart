@@ -89,6 +89,72 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     'receive_id': _controllers['$id.receive_id']!,
   };
 
+  /// 点击 + 后弹出 iOS 底部弹层选择通道类型
+  void _showAddTypePicker(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardBg(sheetContext),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.separator(sheetContext),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.business, color: AppColors.blue),
+                title: Text(
+                  l10n.appChannelAddWecom,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _addChannel('wecom_app');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.link, color: AppColors.blue),
+                title: Text(
+                  l10n.appChannelAddFeishu,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _addChannel('feishu_app');
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _addChannel(String appType) {
     final id = 'app_${DateTime.now().millisecondsSinceEpoch}';
     _channels.add({
@@ -118,12 +184,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: l10n.appChannelAddWecom,
-            onPressed: () => _addChannel('wecom_app'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_link_outlined),
-            tooltip: l10n.appChannelAddFeishu,
-            onPressed: () => _addChannel('feishu_app'),
+            onPressed: () => _showAddTypePicker(context),
           ),
           TextButton(
             onPressed: _saving ? null : _saveAll,

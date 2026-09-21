@@ -371,6 +371,12 @@ class _BatteryPageState extends State<BatteryPage> {
     );
     String selectedType = existingRule?['type'] ?? 'level_below';
     int selectedValue = existingRule?['value'] ?? 20;
+    // v1.59 温度维度：温度类型用 ℃ 滑块（30-90℃），电量类型用 % 滑块
+    final isTempType = [
+      'battery_temp_above',
+      'device_temp_above',
+      'screen_temp_above',
+    ].contains(selectedType);
 
     showDialog(
       context: context,
@@ -477,10 +483,12 @@ class _BatteryPageState extends State<BatteryPage> {
                             Expanded(
                               child: Slider(
                                 value: selectedValue.toDouble(),
-                                min: 1,
-                                max: 100,
-                                divisions: 99,
-                                label: '$selectedValue%',
+                                min: isTempType ? 30 : 1,
+                                max: isTempType ? 90 : 100,
+                                divisions: isTempType ? 60 : 99,
+                                label: isTempType
+                                    ? '$selectedValue℃'
+                                    : '$selectedValue%',
                                 activeColor: AppColors.blue,
                                 onChanged: (v) {
                                   setDialogState(() {
@@ -494,7 +502,9 @@ class _BatteryPageState extends State<BatteryPage> {
                             SizedBox(
                               width: 50,
                               child: Text(
-                                '$selectedValue%',
+                                isTempType
+                                    ? '$selectedValue℃'
+                                    : '$selectedValue%',
                                 textAlign: TextAlign.end,
                                 style: TextStyle(
                                   fontSize: 16,
@@ -654,6 +664,12 @@ class _BatteryPageState extends State<BatteryPage> {
         return l10n.ruleBelowThreshold(value);
       case 'level_equals':
         return l10n.ruleEqualThreshold(value);
+      case 'battery_temp_above':
+        return l10n.ruleBatteryTempAbove(value);
+      case 'device_temp_above':
+        return l10n.ruleDeviceTempAbove(value);
+      case 'screen_temp_above':
+        return l10n.ruleScreenTempAbove(value);
       default:
         return l10n.batteryReminder;
     }

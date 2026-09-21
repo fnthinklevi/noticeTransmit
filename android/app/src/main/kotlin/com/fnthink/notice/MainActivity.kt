@@ -64,8 +64,8 @@ class MainActivity : FlutterActivity() {
 
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
-        const val FALLBACK_VERSION = "1.5.73"
-        const val FALLBACK_BUILD = 110
+        const val FALLBACK_VERSION = "1.5.74"
+        const val FALLBACK_BUILD = 111
 
         // 推送历史自动归档目录（SAF treeUri），持久化在 FlutterSharedPreferences
         const val KEY_ARCHIVE_DIR_URI = "archive_dir_uri"
@@ -966,9 +966,35 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    internal fun setBatterySetting(key: String, value: Boolean) {
+    internal     fun setBatterySetting(key: String, value: Boolean) {
         val prefsKey = "flutter.$key"
         prefs.edit().putBoolean(prefsKey, value).apply()
+        notifyServiceConfigChanged()
+    }
+
+    fun setTemperatureRules(rules: List<Map<String, Any>>) {
+        try {
+            val jsonArray = org.json.JSONArray()
+            for (rule in rules) {
+                val obj = org.json.JSONObject()
+                obj.put("id", rule["id"]?.toString() ?: "")
+                obj.put("type", rule["type"]?.toString() ?: "battery_temp_above")
+                obj.put("value", (rule["value"] as? Int) ?: 45)
+                obj.put("enabled", (rule["enabled"] as? Boolean) ?: false)
+                obj.put("title", rule["title"]?.toString() ?: "")
+                obj.put("content", rule["content"]?.toString() ?: "")
+                obj.put("config", toNativeJson(rule["config"]))
+                jsonArray.put(obj)
+            }
+            prefs.edit().putString("flutter.temperature_rules", jsonArray.toString()).apply()
+            notifyServiceConfigChanged()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun setTemperatureSetting(key: String, value: Boolean) {
+        prefs.edit().putBoolean("flutter.$key", value).apply()
         notifyServiceConfigChanged()
     }
 

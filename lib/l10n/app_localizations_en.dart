@@ -2721,4 +2721,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textMenuSelectAll => 'Select all';
+
+  @override
+  String get batteryTempAbove => 'Battery temp';
+
+  @override
+  String get deviceTempAbove => 'Device temp';
+
+  @override
+  String get screenTempAbove => 'Screen temp';
+
+  @override
+  String ruleBatteryTempAbove(int value) {
+    return 'Battery temperature reached $value°C';
+  }
+
+  @override
+  String ruleDeviceTempAbove(int value) {
+    return 'Device temperature reached $value°C';
+  }
+
+  @override
+  String ruleScreenTempAbove(int value) {
+    return 'Screen temperature reached $value°C';
+  }
+
+  @override
+  String get tempThreshold => 'Temperature threshold (°C)';
+
+  @override
+  String get temperatureTitle => 'Temperature Push';
+
+  @override
+  String get noRules => 'No temperature rules yet. Tap + to add one';
+
+  @override
+  String get disable => 'Disable';
+
+  @override
+  String get temperatureNotifyEnabled => 'Temperature push notification';
 }

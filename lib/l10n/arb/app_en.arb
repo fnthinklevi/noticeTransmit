@@ -1252,5 +1252,16 @@
   "textMenuCopy": "Copy",
   "textMenuPaste": "Paste",
   "textMenuCut": "Cut",
-  "textMenuSelectAll": "Select all"
+  "textMenuSelectAll": "Select all",
+  "batteryTempAbove": "Battery temp",
+  "deviceTempAbove": "Device temp",
+  "screenTempAbove": "Screen temp",
+  "ruleBatteryTempAbove": "Battery temperature reached {value}°C",
+  "ruleDeviceTempAbove": "Device temperature reached {value}°C",
+  "ruleScreenTempAbove": "Screen temperature reached {value}°C",
+  "tempThreshold": "Temperature threshold (°C)",
+  "temperatureTitle": "Temperature Push",
+  "noRules": "No temperature rules yet. Tap + to add one",
+  "disable": "Disable",
+  "temperatureNotifyEnabled": "Temperature push notification"
 }
