@@ -34,7 +34,8 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 - 🔗 **Webhook Multi-channel** - Support configuring multiple Webhook URLs simultaneously, each channel has independent on/off switch
 - 📧 **SMTP Email Push** - Support SMTP email forwarding (SSL/STARTTLS), customizable subject template and body template
 - 📤 **Multi-platform Adaptation** - Auto-adapt message format for WeChat Work, DingTalk, Feishu, Telegram, Bark, ServerChan, PushPlus, ntfy, Gotify, Slack, Discord and other platforms (ntfy/Gotify support self-hosted servers); in-app update APKs carry sha256 integrity verification (v1.5.69), and Bark business failures are reported truthfully instead of as success
-- 🏢 **Self-built App Channels (WeCom / Feishu)** - An "app channel" system independent of Webhooks: send messages as your own app by providing corpsecret / app_secret; WeCom apps can target touser/@all, Feishu apps can specify chat_id/open_id; API base URL can point to self-hosted deployments; secrets are encrypted at rest, and delivery results / retries work the same as Webhook channels; **built-in step-by-step setup guide** (tap "?" on a card for how to obtain corpid/AgentId/Secret or App ID/App Secret, plus notes)
+- 🏢 **Self-built App Channels (WeCom / Feishu)** - An "app channel" system independent of Webhooks: send messages as your own app by providing corpsecret / app_secret; WeCom apps can target touser/@all, Feishu apps can specify chat_id/open_id; API base URL can point to self-hosted deployments; secrets are encrypted at rest, and delivery results / retries work the same as Webhook channels; **built-in step-by-step setup guide** (tap "?" on a card for how to obtain corpid/AgentId/Secret or App ID/App Secret, plus notes); **layered list page** shows channel name, type and connection status at a glance (v1.5.74)
+- 🌡️ **Device Temperature Push (v1.5.74)** - Three independent dimensions: battery temperature / device overall temperature / screen temperature, with custom threshold rules; 30-minute cooldown prevents repeated pushes from temperature fluctuation; shares the same polling source as battery push (no conflict)
 
 ### Advanced Features
 
@@ -55,6 +56,9 @@ NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotl
 ### Experience Optimization
 
 - 🌐 **Multi-language i18n** - Full-app Chinese/English bilingual support (120+ strings migrated), switch language freely in settings
+- 📄 **Text Selection Menu Adaptation (v1.5.74)** - Menu button labels (copy/cut/paste/select all/share) for all 36 text fields use app-localized strings, eliminating blank or English labels on vendor ROMs
+- 🎨 **Dialog iOS Style Unification (v1.5.74)** - All confirm dialogs use divider button layout (cancel=secondary / confirm=blue / delete=red), adaptive for light/dark themes
+- 🔄 **Notification State Machine Optimization (v1.5.74)** - Unified show/hide logic across 5 scenarios (start/stop/process kill/keep-alive/permission missing), persistent notification syncs in real-time with monitoring state
 - 🌙 **Dark Mode** - Support light/dark/follow system three theme modes
 - 🛡️ **Background Survival** - Foreground service + battery optimization whitelist + boot auto-start; built-in OEM ROM keep-alive guide (battery unrestricted / auto-start / task lock, one-tap jump to vendor settings)
 - 📡 **Listener Reliability (v1.5.69)** - Fallback content extraction for conversation-style notifications (WeChat/QQ/Telegram etc.) whose body only exists in MessagingStyle; dedup key includes the notification tag to avoid missed reads; warns "listener disconnected · notifications may be missed" and auto-rebinds when notification access is revoked; **after the OS recycles the service, startup re-scans still-visible notifications against a persisted watermark** (up to 6 hours back), greatly reducing missed notifications during long screen-off/background periods

@@ -52,6 +52,8 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['自定义选择需要推送的应用，支持「通知 / 不通知」双模式与一键全选、反选。'] = 'Select apps to push, with Notify/Do Not Notify modes, Select All and Invert.';
   D['自定义电量提醒'] = 'Custom Battery Alerts';
   D['充电 / 断开 / 指定电量阈值全自定义规则，息屏 Doze 下依然可靠推送，可增删改。'] = 'Full custom rules for charging, disconnecting, and battery thresholds. Reliable push even in Doze mode.';
+  D['温度推送'] = 'Temperature Push';
+  D['电池温度 / 设备整体温度 / 屏幕温度三维度独立规则，自定义阈值触发推送；30 分钟冷却防温度波动重复推送。'] = 'Battery / device / screen temperature — three independent rule dimensions with custom thresholds; 30-minute cooldown prevents fluctuation re-pushes.';
   D['历史记录'] = 'History';
   D['推送历史完整保存于本地（无条数上限），支持全量搜索与按日 / 时间段 / 应用 / 包名 / 送达状态筛选，详情查看与导出，随时回溯每一条通知去向。'] = 'Push history is fully saved locally with no cap — full-history search with day / time-range / app / package / delivery-status filters, detail view, and export. Track every notification.';
   D['深色模式'] = 'Dark Mode';
@@ -60,7 +62,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['款可选应用图标'] = 'App Icon Variants';
   D['通知本地处理'] = 'Local Processing';
   D['多语言国际化'] = 'Multi-language i18n';
-  D['全应用中英双语支持（120+ 处迁移），设置页一键切换语言。'] = 'Full-app Chinese/English bilingual, switch language in settings page.';
+  D['全应用中英双语支持（800+ 词条全量覆盖），设置页一键切换语言。'] = 'Full-app Chinese/English bilingual support (800+ strings fully covered), one-tap language switch in settings.';
   D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email — with app filtering, keyword filtering, a visual rule engine (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and custom battery alerts.';
   D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / custom — ntfy and Gotify support self-hosted servers) + SMTP email (SSL/STARTTLS). Independent switch per channel; subject/body support template variables.';
   // feature cards — updated v1.5.48
