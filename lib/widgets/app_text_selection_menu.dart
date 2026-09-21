@@ -74,6 +74,8 @@ class AppTextSelectionMenu {
         return l10n.textMenuPaste;
       case ContextMenuButtonType.selectAll:
         return l10n.textMenuSelectAll;
+      case ContextMenuButtonType.share:
+        return l10n.textMenuShare;
       default:
         return fallback ?? '';
     }

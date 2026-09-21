@@ -28,7 +28,7 @@ import 'keywords_page.dart';
 import 'rule_list_page.dart';
 import 'privacy_policy_page.dart';
 import 'sms_monitor_settings_page.dart';
-import 'app_channel_settings_page.dart';
+import 'app_channel_list_page.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -76,9 +76,11 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       for (final c in GetIt.instance<AppChannelService>().channels) {
         if (c['enabled'] == true) {
           final name = c['name']?.toString() ?? '';
+          final appType = c['appType']?.toString() ?? '';
           channels.add({
-            'icon': 'apps',
-            'label': name.isNotEmpty ? name : (c['appType']?.toString() ?? ''),
+            'type': appType == 'feishu_app' ? '自建应用:飞书' : '自建应用:企微',
+            'name': name,
+            'status': 'ok',
           });
         }
       }

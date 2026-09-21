@@ -7,6 +7,7 @@ import '../models/notification_rule.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 // R3 拆分：iOS 选择器/条件行/动作行组件与条件/动作编辑对话框（part 共享私有类名）
 part 'rule_edit_widgets.dart';
@@ -570,41 +571,25 @@ class _RuleEditPageState extends State<RuleEditPage> {
             ),
             onChanged: (_) => setDialogState(() => errorText = null),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                l10n.cancel,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                final value = int.tryParse(controller.text.trim());
-                if (value == null || value < 0 || value > 500) {
-                  setDialogState(() {
-                    errorText = l10n.rulePriorityCustomInvalid;
-                  });
-                  return;
-                }
-                setState(() {
-                  _rule = _rule.copyWith(priority: value);
+          actions: IosDialogActions.confirm(
+            dialogContext,
+            cancelText: l10n.cancel,
+            confirmText: l10n.confirm,
+            onCancel: () => Navigator.pop(dialogContext),
+            onConfirm: () {
+              final value = int.tryParse(controller.text.trim());
+              if (value == null || value < 0 || value > 500) {
+                setDialogState(() {
+                  errorText = l10n.rulePriorityCustomInvalid;
                 });
-                Navigator.pop(dialogContext);
-              },
-              child: Text(
-                l10n.confirm,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.blue,
-                ),
-              ),
-            ),
-          ],
+                return;
+              }
+              setState(() {
+                _rule = _rule.copyWith(priority: value);
+              });
+              Navigator.pop(dialogContext);
+            },
+          ),
         ),
       ),
     );

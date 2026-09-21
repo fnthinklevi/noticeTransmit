@@ -5029,6 +5029,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'温度推送通知'**
   String get temperatureNotifyEnabled;
+
+  /// No description provided for @textMenuShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享'**
+  String get textMenuShare;
 }
 
 class _AppLocalizationsDelegate

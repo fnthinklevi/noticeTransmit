@@ -2657,4 +2657,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get temperatureNotifyEnabled => '温度推送通知';
+
+  @override
+  String get textMenuShare => '分享';
 }

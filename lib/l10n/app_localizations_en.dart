@@ -2760,4 +2760,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get temperatureNotifyEnabled => 'Temperature push notification';
+
+  @override
+  String get textMenuShare => 'Share';
 }

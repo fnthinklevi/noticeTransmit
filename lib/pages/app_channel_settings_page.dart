@@ -16,7 +16,10 @@ import '../widgets/app_text_selection_menu.dart';
 /// （app_id/receive_id），每通道独立开关、测试发送、健康探测徽标、删除；
 /// 保存后经 MethodChannel 同步原生（AppChannelSender 两阶段推送）。
 class AppChannelSettingsPage extends StatefulWidget {
-  const AppChannelSettingsPage({super.key});
+  /// 编辑模式入口索引（null = 管理全部通道，非 null = 聚焦指定通道）
+  final int? initialIndex;
+
+  const AppChannelSettingsPage({super.key, this.initialIndex});
 
   @override
   State<AppChannelSettingsPage> createState() => _AppChannelSettingsPageState();
@@ -809,6 +812,23 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
   Future<void> _saveAll() async {
     final l10n = AppLocalizations.of(context);
+    // ── 表单校验：启用通道的必填字段不能为空（name 从控制器读，_channelPayload 不含 name）──
+    for (var i = 0; i < _channels.length; i++) {
+      final c = _channels[i];
+      if (c['enabled'] != true) continue;
+      final id = c['id'] as String;
+      final name = _controllers['$id.name']?.text.trim() ?? '';
+      final payload = _channelPayload(i);
+      final baseUrl = payload['baseUrl']?.toString() ?? '';
+      if (name.isEmpty) {
+        _showToast('${l10n.appChannelSaveFailed}通道名称不能为空', false);
+        return;
+      }
+      if (baseUrl.isEmpty) {
+        _showToast('${l10n.appChannelSaveFailed}API 地址不能为空', false);
+        return;
+      }
+    }
     setState(() => _saving = true);
     try {
       final service = GetIt.instance<AppChannelService>();
@@ -819,6 +839,12 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       await service.saveChannels(payload);
       if (!mounted) return;
       _showToast(l10n.appChannelSaveOk, true);
+      // ── 保存成功后自动发起连接测试（fire-and-forget，不阻塞保存反馈）──
+      for (var i = 0; i < _channels.length; i++) {
+        final c = _channels[i];
+        if (c['enabled'] != true) continue;
+        _testChannel(i, c);
+      }
     } catch (e) {
       _showToast('${l10n.appChannelSaveFailed}$e', false);
     } finally {

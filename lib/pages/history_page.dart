@@ -257,25 +257,13 @@ class _HistoryPageState extends State<HistoryPage> {
             color: AppColors.primaryLabel(dialogContext),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(
-              l10n.cancel,
-              style: TextStyle(color: AppColors.secondaryLabel(dialogContext)),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
-              l10n.confirm,
-              style: const TextStyle(
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
+        actions: IosDialogActions.confirm(
+          dialogContext,
+          cancelText: l10n.cancel,
+          confirmText: l10n.confirm,
+          onCancel: () => Navigator.pop(dialogContext, false),
+          onConfirm: () => Navigator.pop(dialogContext, true),
+        ),
       ),
     );
     if (confirmed != true || !mounted) return;

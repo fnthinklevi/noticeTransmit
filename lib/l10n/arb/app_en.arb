@@ -1263,5 +1263,6 @@
   "temperatureTitle": "Temperature Push",
   "noRules": "No temperature rules yet. Tap + to add one",
   "disable": "Disable",
-  "temperatureNotifyEnabled": "Temperature push notification"
+  "temperatureNotifyEnabled": "Temperature push notification",
+  "textMenuShare": "Share"
 }
