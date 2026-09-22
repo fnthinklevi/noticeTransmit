@@ -105,7 +105,7 @@ jobs:
           # 单架构包必须只含一种 .so：--target-platform 管不住第三方依赖的 ABI，
           # 而 abiFilters 在 FLUTTER_TARGET_PLATFORM 缺失时会回退成全架构 —— 只有
           # 事后校验能拦住「按 arm64 名义归档的伪融合包」。
-          python3 .workbuddy/scripts/verify_apk_purity.py "$APK" arm64
+          python3 tools/verify_apk_purity.py "$APK" arm64
           AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
           BADGING="$("$AAPT" dump badging "$APK" | head -2)"
           echo "$BADGING"

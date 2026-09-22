@@ -344,25 +344,21 @@ router.post(
         console.error('TOTP disable verify error:', e.message);
         isValid = false;
       }
-    } else if (recoveryCode && config.recoveryCodes && Array.isArray(config.recoveryCodes)) {
-      for (const hashedCode of config.recoveryCodes) {
-        try {
-          if (await bcrypt.compare(recoveryCode, hashedCode)) {
-            isValid = true;
-            break;
-          }
-        } catch (e) {
-          console.error('恢复码验证异常:', e.message);
-        }
-      }
+    } else if (recoveryCode) {
+      // 恢复码在这里也必须**核销**：旧实现只比对不落盘，一条码只要没被 /login 消费过，
+      // 就能反复用来关闭 2FA（等于把二步验证长期降级为「仅 token」）；而且裸 bcrypt.compare
+      // 会 await 让出事件循环，并发下同一码可通过多次。统一走 store 的认证临界区。
+      isValid = await store.consumeRecoveryCode(String(recoveryCode).trim().toUpperCase());
     }
 
     if (!isValid) {
       return res.status(400).json({ code: -1, message: '验证码错误' });
     }
 
-    config.enabled = false;
-    store.saveTotpConfig(config);
+    // consumeRecoveryCode 已在锁内落盘，这里必须重读：拿上面的旧快照写回会把刚核销的码复活
+    const disabled = store.getTotpConfig();
+    disabled.enabled = false;
+    store.saveTotpConfig(disabled);
 
     res.json({
       code: 0,
@@ -413,28 +409,21 @@ router.post(
         console.error('TOTP regenerate verify error:', e.message);
         isValid = false;
       }
-    } else if (recoveryCode && Array.isArray(config.recoveryCodes)) {
-      for (let i = 0; i < config.recoveryCodes.length; i++) {
-        try {
-          if (await bcrypt.compare(recoveryCode, config.recoveryCodes[i])) {
-            isValid = true;
-            config.recoveryCodes.splice(i, 1);
-            store.saveTotpConfig(config);
-            break;
-          }
-        } catch (e) {
-          console.error('恢复码验证异常:', e.message);
-        }
-      }
+    } else if (recoveryCode) {
+      // 与 /login、/totp/rebind 同一条临界区：旧实现裸比对 + splice + 写盘，并发下同一恢复码
+      // 可被两个请求同时通过（各自基于同一快照改数组，后写者覆盖前者）。
+      isValid = await store.consumeRecoveryCode(String(recoveryCode).trim().toUpperCase());
     }
 
     if (!isValid) {
       return res.status(400).json({ code: -1, message: '验证码错误' });
     }
 
+    // 核销已在锁内落盘 → 重读后再换发新批次，避免用旧快照复活刚核销的那条
+    const fresh = store.getTotpConfig();
     const { plain: recoveryCodes, hashed: hashedCodes } = await store.generateRecoveryCodes();
-    config.recoveryCodes = hashedCodes;
-    store.saveTotpConfig(config);
+    fresh.recoveryCodes = hashedCodes;
+    store.saveTotpConfig(fresh);
 
     res.json({
       code: 0,

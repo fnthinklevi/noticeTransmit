@@ -428,6 +428,69 @@ describe('二步验证 TOTP 全流程', () => {
     expect(store.getTotpConfig().recoveryCodes).toHaveLength(before - 1);
     clearFailures();
   });
+
+  let regeneratedCodes;
+
+  test('安全回归：regenerate-recovery 的恢复码同样单次消费（并发只成功一次）', async () => {
+    // ⑪ 只在 /login 与 /totp/rebind 走了 withAuthLock；本端点当时仍裸 bcrypt.compare
+    // + splice + 写盘，两个并发请求基于同一快照各自改数组，后写者覆盖前者 ⇒ 同一码可用两次。
+    const code = recoveryCodes[3];
+    const [a, b] = await Promise.all([
+      request(app)
+        .post('/api/admin/totp/regenerate-recovery')
+        .set('x-session-id', sessionId)
+        .send({ recoveryCode: code }),
+      request(app)
+        .post('/api/admin/totp/regenerate-recovery')
+        .set('x-session-id', sessionId)
+        .send({ recoveryCode: code }),
+    ]);
+
+    const ok = [a, b].filter((r) => r.status === 200);
+    expect(ok).toHaveLength(1);
+    expect([a, b].filter((r) => r.status === 400)).toHaveLength(1);
+    // 换发的新批次仍为 8 条（核销 + 整批替换都只发生一次）
+    expect(store.getTotpConfig().recoveryCodes).toHaveLength(8);
+    regeneratedCodes = ok[0].body.data.recoveryCodes;
+    expect(regeneratedCodes).toHaveLength(8);
+    clearFailures();
+  });
+
+  test('安全回归：恢复码关闭 2FA 也必须核销（并发只成功一次，用完即废）', async () => {
+    // 旧实现比对通过后不落盘 ⇒ 未被 /login 消费过的码可反复用来关闭 2FA，
+    // 等于把二步验证长期降级为「仅 token」。
+    const code = regeneratedCodes[0];
+    const [a, b] = await Promise.all([
+      request(app)
+        .post('/api/admin/totp/disable')
+        .set('x-session-id', sessionId)
+        .send({ recoveryCode: code }),
+      request(app)
+        .post('/api/admin/totp/disable')
+        .set('x-session-id', sessionId)
+        .send({ recoveryCode: code }),
+    ]);
+
+    expect([a, b].filter((r) => r.status === 200)).toHaveLength(1);
+    expect([a, b].filter((r) => r.status === 400)).toHaveLength(1);
+    expect(store.getTotpConfig().enabled).toBe(false);
+
+    const reused = await request(app)
+      .post('/api/admin/totp/disable')
+      .set('x-session-id', sessionId)
+      .send({ recoveryCode: code });
+    expect(reused.status).toBe(400);
+
+    // 复原：后续「IP 封锁」套件依赖 2FA 处于启用态（需要错误 OTP 累计失败次数）
+    const reEnabled = await request(app)
+      .post('/api/admin/totp/enable')
+      .set('x-session-id', sessionId)
+      .send({ secret, otp: await totpFor(secret) });
+    expect(reEnabled.status).toBe(200);
+    expect(store.getTotpConfig().enabled).toBe(true);
+    expect(store.getTotpConfig().recoveryCodes).toHaveLength(8);
+    clearFailures();
+  });
 });
 
 describe('IP 封锁（2FA 连续失败 5 次）', () => {

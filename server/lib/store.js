@@ -51,7 +51,7 @@ if (ENCRYPTION_KEY && !/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
 if (!ADMIN_TOKEN_HASH) {
   console.error('错误：未配置 ADMIN_TOKEN_HASH 环境变量，服务无法启动');
   console.error(
-    "请运行: ADMIN_TOKEN_HASH=$(node -e \"const bcrypt=require('bcrypt');bcrypt.hash('your-token',10).then(h=>console.log(h))\")",
+    "请运行: ADMIN_TOKEN_HASH=$(node -e \"const bcrypt=require('bcryptjs');bcrypt.hash('your-token',10).then(h=>console.log(h))\")",
   );
   process.exit(1);
 }
