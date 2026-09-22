@@ -50,6 +50,9 @@ class NotificationPage extends StatelessWidget {
                     ? onStopService
                     : onStartService,
                 child: Container(
+                  // 冒烟测试的稳定锚点：文案不可点、图标在页内不唯一，
+                  // 只有这个圆形按钮是真正的服务启停控件。
+                  key: const ValueKey<String>('service-toggle'),
                   width: 180,
                   height: 180,
                   decoration: BoxDecoration(

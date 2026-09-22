@@ -10,10 +10,10 @@ on:
 jobs:
   analyze:
     name: Flutter Analyze
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -68,7 +68,7 @@ jobs:
       #   build-apk.yml 里跑（合入前不受约束），服务端契约测试则完全没接 CI。
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -90,7 +90,7 @@ jobs:
       # Node 版本必须与生产一致（服务器 pm2 跑的是 24 LTS）——CI 用 EOL 运行时测服务端，
       # 等于测了一个生产不该跑的版本；反之亦然。版本单一真值见 server/package.json 的 engines。
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 
@@ -115,7 +115,7 @@ jobs:
           echo "✅ 代码覆盖率报告已生成"
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/html/

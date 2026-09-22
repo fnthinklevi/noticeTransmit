@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,7 +8,10 @@ import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/main.dart' show MyApp;
 import 'package:notice_transmit/update_manager.dart' show VersionCheckResult;
 import 'package:notice_transmit/services/notification_service.dart';
+import 'package:notice_transmit/services/archive_worker.dart'
+    show archiveCallbackDispatcher;
 import 'package:notice_transmit/services/update_service.dart';
+import 'package:workmanager/workmanager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Q1 真机/模拟器集成冒烟测试：7 步主链路。
@@ -25,11 +29,26 @@ void main() {
   final capturedCalls = <String, List<List<Object?>>>{};
 
   setUpAll(() async {
+    // WorkManager 必须在这里补初始化：本文件的 main() 直接 pumpWidget(MyApp())，
+    // **不会执行应用的 main()**（`lib/main.dart` 里那句 Workmanager().initialize 因此被跳过），
+    // 而 ArchiveWorker 在页面装配阶段就调用 registerPeriodicTask →
+    // 平台侧抛 "You have not properly initialized the Flutter WorkManager Package"。
+    // 这里镜像应用真实启动路径（而不是 mock 掉该通道），让冒烟测试仍覆盖真机 WorkManager。
+    Workmanager().initialize(archiveCallbackDispatcher);
+
     // 真实 SharedPreferences 与 KeyStore 均可用，仅预置首启/隐私状态跳过弹窗
     SharedPreferences.setMockInitialValues({
       'flutter.privacy_policy_accepted': true,
       'privacy_policy_accepted': true,
       'has_launched': true,
+      // 语言必须显式钉成中文：本测试的断言用的是中文 UI 文案，而
+      // LocaleService 在 system 模式下回落到**设备语言**——模拟器默认 en，
+      // 于是所有中文 find.text 落空（首个症状是 tabNotification 找不到）。
+      // 键名与值都按 LocaleService 的实现写（'app_language' = AppLanguage.name）。
+      'app_language': 'zh',
+      'flutter.app_language': 'zh',
+      'last_system_lang': 'zh',
+      'flutter.last_system_lang': 'zh',
     });
 
     // 原生通道 mock：按方法名分发；未知方法返回 null（走 Flutter 默认值兜底）
@@ -130,38 +149,71 @@ void main() {
     // ── 步骤 1：启动装配（隐私/首启弹窗已跳过，MainPage 出现）──
     await tester.pumpWidget(const MyApp());
     await waitUntil(tester, find.byType(NavigationBar));
-    expect(find.text('通知'), findsWidgets); // tabNotification
-
-    // ── 步骤 2：数据注入（drainOfflineCache/drainDeliveryResults 已在 mock 中）
-    // loadRecords 于 _postInit 执行；此处等待记录进入 service 内存与真实 DB
-    final notificationService = GetIt.instance<NotificationService>();
-    await waitUntil(
-      tester,
-      find.text('冒烟离线通知'),
-      timeout: const Duration(seconds: 25),
+    // 后续 11 处断言全部依赖中文文案，这里先验证语言预置真的生效：
+    // 失败时报"语言回落"而不是"0 widgets with text 通知"，避免排查方向被带偏。
+    expect(
+      find.text('通知'),
+      findsWidgets,
+      reason:
+          'tabNotification 未渲染中文 —— 语言钉定未生效，'
+          '检查 setUpAll 的 app_language 预置与 LocaleService 回落逻辑',
     );
 
-    // ── 步骤 3：通知页渲染（通知标题可见，ActiveChannels 非崩溃）──
-    expect(find.text('冒烟离线通知'), findsWidgets);
+    // ── 步骤 2：数据注入（drainOfflineCache/drainDeliveryResults 已在 mock 中）
+    // ⚠ 通知 tab 是「服务仪表盘」（圆形开关 + 条数 + 通道），**不渲染记录列表**——
+    //   记录只在历史页出现。所以这里等的是 service 内存态；等 find.text(标题) 是步骤 5 的事。
+    //   （原实现在此等标题文本，25s 必超时。）
+    final notificationService = GetIt.instance<NotificationService>();
+    final injectDeadline = DateTime.now().add(const Duration(seconds: 25));
+    while (DateTime.now().isBefore(injectDeadline) &&
+        notificationService.records.every((r) => r.id != 'smoke_offline_1')) {
+      await tester.pump(const Duration(milliseconds: 120));
+    }
+    expect(
+      notificationService.records.any((r) => r.id == 'smoke_offline_1'),
+      isTrue,
+      reason: 'drainOfflineCache 的记录未合并进内存列表（loadRecords 链路断）',
+    );
+
+    // ── 步骤 3：仪表盘把条数反映到界面（recordCount = 共 N 条记录）──
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.text('共 1 条记录'),
+      findsWidgets,
+      reason: '仪表盘未反映注入后的记录条数（notificationCount 链路断）',
+    );
 
     // ── 步骤 4：送达状态 success（drainDeliveryResults → updateDelivery 幂等补更新）
     await pumpFor(tester, const Duration(seconds: 1));
     final record = notificationService.records.firstWhere(
       (r) => r.id == 'smoke_offline_1',
     );
+    // 键必须是**应用语言**的标签：曾因 LocaleService 尚未 init 而按系统语言写成
+    // 'webhook:DingTalk'，随后实时回传再写中文键 → 同一记录出现中英双键。
     expect(record.deliveryStatus['webhook:钉钉']['status'], 'success');
+    expect(
+      record.deliveryStatus.keys,
+      isNot(contains('webhook:DingTalk')),
+      reason: '出现英文通道键 = 装配期语言未初始化（locale 竞态回归）',
+    );
 
     // ── 步骤 5：历史页呈现记录与送达徽标（推送成功）
     await tester.tap(find.text('推送历史'));
     await pumpFor(tester, const Duration(seconds: 2));
     await waitUntil(tester, find.text('冒烟离线通知'));
     expect(find.text('推送成功'), findsWidgets); // deliverySuccess
-    // 返回通知页
-    await tester.pageBack();
+    // 返回通知页：pageBack() 只找 CupertinoNavigationBarBackButton（本页是 Material 路由，
+    // 且中文 locale 下背键 tooltip 不是它预期的 'Back'）→ 直接从 Navigator 弹出，
+    // 不依赖任何本地化文案。
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await pumpFor(tester, const Duration(milliseconds: 800));
 
     // ── 步骤 6：服务启停（通知页圆形按钮 → mock 捕获 start/stop）
-    await tester.tap(find.text('通知监听服务未启动，点击可启动'));
+    // ⚠ 「通知监听服务未启动，点击可启动」那行是**纯 Text**（notification_page.dart:97），
+    //   没有手势；真正可点的是上面的圆形按钮（onTap: onStartService/onStopService）。
+    //   点文案不会报错（tap 只是打在坐标上），但方法不会被调用——曾在此静默失败。
+    final serviceToggle = find.byKey(const ValueKey<String>('service-toggle'));
+    await tester.tap(serviceToggle);
     await pumpFor(tester, const Duration(seconds: 1));
     expect(
       capturedCalls['startNotificationListener'],
@@ -169,7 +221,7 @@ void main() {
       reason: '应调用原生 startNotificationListener',
     );
     expect(notificationService.serviceRunning, isTrue);
-    await tester.tap(find.text('通知监听服务正在运行，点击可停止'));
+    await tester.tap(serviceToggle);
     await pumpFor(tester, const Duration(seconds: 1));
     expect(
       capturedCalls['stopNotificationListener'],
@@ -177,13 +229,18 @@ void main() {
       reason: '应调用原生 stopNotificationListener',
     );
 
-    // ── 步骤 6.5：更多页 → 短信监听设置 → 验证码开关切换（mock 捕获 setSmsSetting）
+    // ── 步骤 6.5：tab 切换 → 通知页「短信监听」卡片 → 验证码开关（mock 捕获 setSmsSetting）
+    //   ⚠ 入口是**通知仪表盘上的卡片**（标题 l10n.smsMonitor = 短信监听），不在更多页：
+    //     原实现先点「更多」再找「短信监听设置」（那是点进去之后的页面标题），必然 0 命中。
     await tester.tap(find.text('更多'));
     await pumpFor(tester, const Duration(seconds: 1));
-    await tester.tap(find.text('短信监听设置'));
+    await tester.tap(find.text('通知'));
+    await pumpFor(tester, const Duration(seconds: 1));
+    await tester.tap(find.text('短信监听'));
     await pumpFor(tester, const Duration(seconds: 1));
     await waitUntil(tester, find.text('监听验证码'));
-    final switches = find.byType(Switch);
+    // 应用内开关已统一为 CupertinoSwitch（Material Switch 已全量替换）
+    final switches = find.byType(CupertinoSwitch);
     expect(switches.evaluate().length, greaterThanOrEqualTo(2));
     await tester.tap(switches.at(1)); // 第二个开关 = 监听验证码
     await pumpFor(tester, const Duration(seconds: 1));

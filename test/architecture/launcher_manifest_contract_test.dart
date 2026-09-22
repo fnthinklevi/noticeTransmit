@@ -77,7 +77,7 @@ void main() {
     });
 
     test('alias 数量与中英配对完整（图标切换体系未被误删）', () {
-      final expected = launcherIconCount * launcherLanguageCount;
+      const expected = launcherIconCount * launcherLanguageCount;
       // 从清单实际解析：原始标签数（含任何不符合命名约定的 alias）
       final rawCount = RegExp(
         r'<activity-alias[\s>]',

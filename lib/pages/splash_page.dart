@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../services/locale_service.dart';
 import '../services/services.dart';
 import '../theme/app_colors.dart';
 
@@ -42,6 +43,19 @@ class _SplashPageState extends State<SplashPage>
   Future<void> _initServices() async {
     final l10n = AppLocalizations.of(context);
     log('=== SplashPage 开始初始化服务 ===');
+
+    // 语言必须先于任何「会写通道标签」的装配步骤：channelTypeDisplayName 用
+    // LocaleService.currentLocale 决定键名（webhook:钉钉 / webhook:DingTalk），
+    // 而 LocaleService 默认是 system 模式、init() 过去挂在 MyApp 的
+    // _onServicesInitialized 里（= splash 全部装配完之后）。
+    // 于是系统语言非中文、应用内选中文的用户，会在 loadRecords /
+    // drainPendingDeliveries 阶段把送达状态写成英文键，之后实时回传再写中文键，
+    // 同一条记录出现中英双键（历史重复徽标 / 旧键永远「发送中」）。
+    try {
+      await GetIt.instance<LocaleService>().init();
+    } catch (e) {
+      log('初始化语言失败: $e');
+    }
 
     try {
       if (mounted) setState(() => _statusText = l10n.loadWebhook);
