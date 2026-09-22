@@ -1,5 +1,16 @@
+// 仓库顺序按环境切换（v1.62）：CI（GitHub Actions 境外 runner）必须上游优先——
+// aliyun 镜像在境外慢且会返回 502，而 Gradle 一旦因错误把某个仓库标记为 disabled，
+// 本轮依赖解析就整体失败（实测事故：com.sun.mail:android-mail 502 → androidx.test:* 连带全崩，
+// 报 "Repository maven is disabled due to earlier error"）。本地开发在国内网络下反过来：
+// 镜像优先，直连 google()/mavenCentral() 常超时。判据用 CI 环境变量，无需新增配置项。
+val useUpstreamFirst = System.getenv("CI").equals("true", ignoreCase = true)
+
 allprojects {
     repositories {
+        if (useUpstreamFirst) {
+            google()
+            mavenCentral()
+        }
         maven{ url=uri("https://maven.aliyun.com/repository/releases")}
         maven{ url=uri("https://maven.aliyun.com/repository/google")}
         maven{ url=uri("https://maven.aliyun.com/repository/central")}
@@ -8,8 +19,10 @@ allprojects {
         maven{ url=uri("https://maven.aliyun.com/repository/snapshots")}
         maven{ url=uri("https://jitpack.io")}
         maven{ url=uri("https://storage.googleapis.com/download.flutter.io")}
-        google()
-        mavenCentral()
+        if (!useUpstreamFirst) {
+            google()
+            mavenCentral()
+        }
     }
 }
 

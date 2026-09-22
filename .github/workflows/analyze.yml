@@ -87,10 +87,12 @@ jobs:
         working-directory: android
         run: ./gradlew :app:lintDebug --console=plain
 
+      # Node 版本必须与生产一致（服务器 pm2 跑的是 24 LTS）——CI 用 EOL 运行时测服务端，
+      # 等于测了一个生产不该跑的版本；反之亦然。版本单一真值见 server/package.json 的 engines。
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Server HTTP contract tests
         working-directory: server
