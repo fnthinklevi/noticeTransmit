@@ -3,7 +3,8 @@
 // 本轮依赖解析就整体失败（实测事故：com.sun.mail:android-mail 502 → androidx.test:* 连带全崩，
 // 报 "Repository maven is disabled due to earlier error"）。本地开发在国内网络下反过来：
 // 镜像优先，直连 google()/mavenCentral() 常超时。判据用 CI 环境变量，无需新增配置项。
-val useUpstreamFirst = System.getenv("CI").equals("true", ignoreCase = true)
+// getenv 在变量缺失时返回 null：字面量作接收者，避免本地构建（无 CI）NPE
+val useUpstreamFirst = "true".equals(System.getenv("CI"), ignoreCase = true)
 
 allprojects {
     repositories {

@@ -5,7 +5,8 @@ pluginManagement {
     // 就整体失败（实测：com.sun.mail:android-mail 502 → androidx.test:* 连带全崩，
     // 报 "Repository maven is disabled due to earlier error"）。本地国内网络反之：镜像优先。
     // ⚠ 必须写在 pluginManagement 内部——它是独立编译阶段，看不到脚本顶层的 val。
-    val useUpstreamFirst = System.getenv("CI").equals("true", ignoreCase = true)
+    // getenv 变量缺失时返回 null：字面量作接收者，避免本地构建（无 CI）NPE
+    val useUpstreamFirst = "true".equals(System.getenv("CI"), ignoreCase = true)
 
     val flutterSdkPath =
         run {
