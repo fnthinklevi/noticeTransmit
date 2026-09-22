@@ -18,6 +18,13 @@ import '../support/source_guards.dart';
 /// 本守卫钉住这套 overlay 结构。任何一处被"顺手清理"都会退化成
 /// ①集成测试再次跑不起来，或 ②release 出现双图标 / 启动入口被改（用户可见）。
 /// 合并产物的实测口径见 `tools/check_launcher_manifest.py`。
+
+/// 图标体系规模（唯一维护点）：新增/删除桌面图标时只需修改 [launcherIconCount]。
+/// 期望 alias 总数由它与语言数推导，中英是否成对由测试从清单实际解析校验——
+/// 不再散落硬编码的 34。
+const launcherIconCount = 17;
+const launcherLanguageCount = 2;
+
 void main() {
   final root = projectRoot();
 
@@ -69,11 +76,49 @@ void main() {
       expect(n, 1, reason: 'main 清单里带 LAUNCHER 的 activity 必须恰好 1 个');
     });
 
-    test('34 个 alias 与默认 alias 在场（图标切换体系未被误删）', () {
-      final aliases = RegExp(
+    test('alias 数量与中英配对完整（图标切换体系未被误删）', () {
+      final expected = launcherIconCount * launcherLanguageCount;
+      // 从清单实际解析：原始标签数（含任何不符合命名约定的 alias）
+      final rawCount = RegExp(
         r'<activity-alias[\s>]',
       ).allMatches(mainManifest).length;
-      expect(aliases, 34, reason: '17 图标 × 2 语言 = 34 个 alias');
+      // 解析出 (图标基名, 语言后缀)；不匹配约定的 alias 不会进入此列表
+      final named = RegExp(
+        r'<activity-alias\s+android:name="\.Launcher([A-Za-z0-9]+)(Zh|En)"',
+      ).allMatches(mainManifest).map((m) => (m.group(1)!, m.group(2)!)).toList();
+
+      expect(
+        rawCount,
+        named.length,
+        reason: '存在不符合 .Launcher<图标>Zh/En 命名约定的 alias，计数会失真',
+      );
+      expect(
+        named.length,
+        expected,
+        reason:
+            '$launcherIconCount 图标 × $launcherLanguageCount 语言 = $expected 个 alias',
+      );
+
+      // 结构契约：每个图标基名必须同时具备 Zh 与 En，漏配一种语言即失败
+      final byIcon = <String, Set<String>>{};
+      for (final (icon, lang) in named) {
+        byIcon.putIfAbsent(icon, () => <String>{}).add(lang);
+      }
+      expect(
+        byIcon.length,
+        launcherIconCount,
+        reason: '图标基名数应为 $launcherIconCount（alias 数对但图标数变了也要显式确认）',
+      );
+      for (final entry in byIcon.entries) {
+        expect(
+          entry.value,
+          containsAll(<String>['Zh', 'En']),
+          reason:
+              '图标 .Launcher${entry.key} 缺少语言变体: '
+              '${<String>{'Zh', 'En'}.difference(entry.value)}',
+        );
+      }
+
       expect(
         mainManifest,
         contains('android:name=".LauncherDefaultZh"'),
