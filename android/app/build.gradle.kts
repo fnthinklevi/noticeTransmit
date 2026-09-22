@@ -28,6 +28,20 @@ android {
         buildConfig = true
     }
 
+    // 签名守卫的适用面：下面这段在**配置期**执行，若无条件 throw，则任何一次 gradle 调用
+    // （PR 门禁 analyze.yml 的 :app:testDebugUnitTest / :app:lintDebug、
+    //   仪器测试的 assembleDebugAndroidTest）在没有密钥时都会失败——
+    // 而它们根本不产出 release 包，也不需要签名。故只在「本次调用真要打 release 包」时才拦。
+    // 判定口径：任务名既像打包（assemble/bundle/build）又像 release；裸 assemble/bundle/build 全量任务同样要求。
+    val requestedTasks = gradle.startParameter.taskNames
+    val needsReleaseSigning = requestedTasks.any { raw ->
+        val t = raw.substringAfterLast(':').lowercase()
+        val packaging =
+            t.contains("assemble") || t.contains("bundle") || t.contains("package") || t == "build"
+        val release = t.contains("release") || t == "build" || t == "assemble" || t == "bundle"
+        packaging && release
+    }
+
     signingConfigs {
         create("release") {
             // 1) CI：优先从环境变量读取（由 GitHub Actions secrets 在构建时注入，日志自动脱敏）
@@ -64,12 +78,38 @@ android {
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
-            } else {
+            } else if (needsReleaseSigning) {
                 throw GradleException(
                     "未找到发布签名配置，构建已中止。请二选一：\n" +
                     "  · 本地：在 android/key.properties 中填写 storeFile / storePassword / keyAlias / keyPassword（该文件已被 .gitignore 忽略）；\n" +
                     "  · CI：设置环境变量 KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD。\n" +
                     "禁止将任何密钥明文写入被 git 跟踪的源文件。"
+                )
+            } else {
+                // 不产出 release 包的调用（测试 / lint / IDE 同步）放行，但留下可见痕迹：
+                // 一旦有人在此环境下打 release，上面那条分支会立刻拦住。
+                logger.warn(
+                    "未找到发布签名配置：本次调用（${requestedTasks.joinToString(" ")}）" +
+                        "不涉及 release 打包，继续执行。"
+                )
+            }
+        }
+    }
+
+    // 兜底守卫：不依赖上面的任务名启发式。真正打 release 包之前再确认签名有效，
+    // 守住「未签名包绝不静默归档」这条底线。
+    // ⚠ 必须惰性挂载：`tasks.matching{}` 会**立即实体化**被匹配的任务，实测在
+    //   :app:testDebugUnitTest 这类无关调用里也会强建 assembleRelease，
+    //   既触发本守卫误报，又引出 AGP 内部 "KotlinJvmAndroidCompilation 'release' not found"。
+    //   故用 afterEvaluate + findByName（不存在则跳过，且不强迫创建）。
+    afterEvaluate {
+        tasks.findByName("packageRelease")?.doFirst {
+            val cfg = signingConfigs.getByName("release")
+            if (cfg.storeFile == null || !cfg.storeFile!!.exists()) {
+                throw GradleException(
+                    "release 打包前校验失败：签名配置为空（storeFile 缺失或不存在）。" +
+                        "请提供 KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD，" +
+                        "或本地 android/key.properties。"
                 )
             }
         }
