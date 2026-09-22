@@ -53,6 +53,24 @@ String projectRoot() {
   throw StateError('未找到项目根目录（pubspec.yaml）');
 }
 
+/// 剥离 XML 注释（`<!--` … `-->`）。清单类守卫读的是 XML，
+/// 上面那套 C 风格注释规则对它无效——注释里出现的组件名同样会污染断言。
+/// 用显式扫描而非正则：本仓库多次踩到 shell 层吞反斜杠把 `\s` 写坏的问题。
+String stripXmlComments(String source) {
+  var out = source;
+  while (true) {
+    final start = out.indexOf('<!--');
+    if (start < 0) break;
+    final end = out.indexOf('-->', start);
+    if (end < 0) {
+      out = out.substring(0, start);
+      break;
+    }
+    out = out.substring(0, start) + out.substring(end + 3);
+  }
+  return out;
+}
+
 /// 从 [source] 中 [signature] 处起，按花括号配对取出整块（含函数体）。
 /// 用于「顺序 / 包含关系」类断言——全文件 indexOf 会命中前面的同名片段。
 String blockAfter(String source, String signature) {

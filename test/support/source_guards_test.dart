@@ -51,6 +51,29 @@ const keys = {
     });
   });
 
+  group('stripXmlComments', () {
+    test('跨行注释整体剥离，标签本体保留', () {
+      const src =
+          '<a>1<!-- 说明'
+          '\n'
+          '第二行 -->2</a>';
+      final out = stripXmlComments(src);
+      expect(out, '<a>12</a>');
+    });
+
+    test('注释里的组件名不得污染断言（守卫存在的前提）', () {
+      const src = '<activity android:name=".Real"/><!-- .Ghost -->';
+      final out = stripXmlComments(src);
+      expect(out.contains('.Ghost'), isFalse);
+      expect(out.contains('.Real'), isTrue);
+    });
+
+    test('未闭合注释按截断处理，不静默保留原文', () {
+      const src = '<a>1<!-- 未闭合';
+      expect(stripXmlComments(src), '<a>1');
+    });
+  });
+
   group('blockAfter – 按大括号配对取块', () {
     test('命中签名自身起点，不误取前一个同名片段', () {
       const src = 'fun a() { x }\nfun b() { if (c) { y }\n  z }\nfun c() {}';

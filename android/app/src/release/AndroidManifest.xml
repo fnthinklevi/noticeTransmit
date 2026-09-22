@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 与 release 包形态保持一致：可启动组件只能是 activity-alias（桌面图标切换设计）。
+         main 清单里 .MainActivity 带 MAIN/LAUNCHER 只为满足 flutter_tools 的集成测试发现逻辑，
+         这里把它移除，否则桌面会出现第二个图标、且线上启动路径被改变。 -->
+    <application>
+        <activity
+            android:name=".MainActivity"
+            tools:node="merge">
+            <intent-filter tools:node="removeAll" />
+        </activity>
+    </application>
+
+</manifest>

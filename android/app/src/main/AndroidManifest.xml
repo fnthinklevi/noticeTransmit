@@ -62,6 +62,16 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- 集成测试启动入口（v1.62）。flutter_tools 只扫 <activity> 上的 MAIN/LAUNCHER，
+                 不认 activity-alias（application_package.dart: findAllElements('activity')），
+                 而本应用的可启动组件全在 alias 上（桌面图标切换设计），导致
+                 `flutter test integration_test/` 报「launch activity not found」。
+                 ⚠ 该 filter 在 release / profile 由 src/{release,profile}/AndroidManifest.xml
+                 用 tools:node="removeAll" 移除，线上仍是「只有 alias 可启动」，不会出现双图标。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
         </activity>
 
         <!-- 可选应用图标（17 图标 × 2 语言 = 34 个别名） -->
