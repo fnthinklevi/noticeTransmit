@@ -99,6 +99,20 @@ jobs:
           echo "build=$BUILD" >> $GITHUB_OUTPUT
           echo "APK_NAME=notice${VERSION}.apk" >> $GITHUB_OUTPUT
 
+      - name: 纯净度 + 版本号双闸（base.md §10.2 步骤 6.5 铁律）
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          # 单架构包必须只含一种 .so：--target-platform 管不住第三方依赖的 ABI，
+          # 而 abiFilters 在 FLUTTER_TARGET_PLATFORM 缺失时会回退成全架构 —— 只有
+          # 事后校验能拦住「按 arm64 名义归档的伪融合包」。
+          python3 .workbuddy/scripts/verify_apk_purity.py "$APK" arm64
+          AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
+          BADGING="$("$AAPT" dump badging "$APK" | head -2)"
+          echo "$BADGING"
+          echo "$BADGING" | grep -q "versionCode='${{ steps.version.outputs.build }}'" || { echo "❌ versionCode 与 pubspec 不符（Gradle daemon 配置缓存吞掉了版本变更），禁止归档"; exit 1; }
+          echo "$BADGING" | grep -q "versionName='${{ steps.version.outputs.version }}'" || { echo "❌ versionName 与 pubspec 不符，禁止归档"; exit 1; }
+          echo "✅ 纯净度与版本号双闸通过"
+
       - name: Rename APK
         run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/${{ steps.version.outputs.APK_NAME }}
 

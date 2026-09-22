@@ -22,6 +22,10 @@ class SmsReceiver : BroadcastReceiver() {
         intent ?: return
         if (intent.action != SMS_RECEIVED) return
 
+        // 进程可能由本广播冷启动（服务尚未 onCreate）：不先恢复暂停状态，
+        // 用户已暂停的推送会被 NetworkClient 放行。
+        PushToggleManager.ensureInit(context)
+
         // goAsync：onReceive 返回后进程优先级骤降、随时可能被回收，
         // 而 Webhook 是异步请求，必须用 PendingResult 延长进程生命周期到发送完成。
         val pendingResult = goAsync()

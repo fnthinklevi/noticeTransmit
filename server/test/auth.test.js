@@ -7,6 +7,7 @@
  * - 版本配置保存链路（POST /api/admin/version → GET /api/version/check 读回，前后端契约）
  * - 二步验证 TOTP 全流程（setup / enable / 登录 / 恢复码消费 / 2FA 未提交反馈）
  * - IP 封锁（2FA 连续失败触发）
+ * - 认证回归（原型键伪造会话 / 开启 2FA 前铸造的 token-only 会话失效 / 恢复码并发重放）
  *
  * 运行方式：在 server/ 目录下执行 `npm test`
  */
@@ -196,6 +197,25 @@ describe('版本保存链路（前后端契约）', () => {
     expect(badBuild.body.code).toBe(-4);
   });
 
+  test('mass assignment：未知字段不得入库、不得经公开接口回显', async () => {
+    const res = await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send({
+        ...validBody,
+        injectedField: 'pwn',
+        nested: { a: 1 },
+      });
+    expect(res.status).toBe(200);
+
+    const onDisk = store.readJsonFile(store.VERSION_FILE, {});
+    expect(onDisk.injectedField).toBeUndefined();
+    expect(onDisk.nested).toBeUndefined();
+
+    const pub = await request(app).get('/api/version/check');
+    expect(JSON.stringify(pub.body)).not.toContain('pwn');
+  });
+
   test('保存成功 → code 0；version.json 落盘', async () => {
     const res = await request(app)
       .post('/api/admin/version')
@@ -254,8 +274,7 @@ describe('版本保存链路（前后端契约）', () => {
     expect(above.body.data.forceUpdate).toBe(false);
   });
 
-  test('GET /api/admin/version 读回已保存配置', async () => {
-    const res = await request(app)
+  test('GET /api/admin/version 读回已保存配置', async () => {    const res = await request(app)
       .get('/api/admin/version')
       .set('x-session-id', sessionId);
     expect(res.status).toBe(200);
@@ -268,6 +287,7 @@ describe('二步验证 TOTP 全流程', () => {
   let sessionId;
   let secret;
   let recoveryCodes;
+  let tokenOnlySessionId;
 
   beforeAll(async () => {
     const login = await request(app)
@@ -305,6 +325,53 @@ describe('二步验证 TOTP 全流程', () => {
     expect(good.body.data.enabled).toBe(true);
     expect(good.body.data.recoveryCodes).toHaveLength(8);
     recoveryCodes = good.body.data.recoveryCodes;
+
+    // 开启 2FA 后，此前「仅凭 Token」铸造的会话不再享有管理员权限（见 authMiddleware），
+    // 必须用 OTP 重新换取会话 —— 后续用例以这条已验证会话为基准。
+    tokenOnlySessionId = sessionId;
+    const relogin = await request(app)
+      .post('/api/admin/login')
+      .send({ token: ADMIN_TOKEN, otp: await totpFor(secret) });
+    expect(relogin.status).toBe(200);
+    sessionId = relogin.body.sessionId;
+  });
+
+  test('安全回归：开启 2FA 前铸造的 token-only 会话已失效', async () => {
+    // 第一层：/totp/enable 吊销全部会话 → 旧会话 ID 直接不再存在
+    const gone = await request(app)
+      .get('/api/admin/version')
+      .set('x-session-id', tokenOnlySessionId);
+    expect(gone.status).toBe(401);
+
+    // 第二层：authMiddleware 对「2FA 已开启 + 该会话未过 OTP」的组合必须拒绝。
+    // 单独造一条会话来锁这条规则，覆盖未经 enable 接口而启用 2FA 的路径
+    // （旧版 sessions.json 被恢复、直接改 totp.json 等）。
+    const staleId = store.generateSessionId();
+    store.sessions[staleId] = {
+      createdAt: Date.now(),
+      authenticated: true,
+      twoFAVerified: false,
+    };
+    const stale = await request(app)
+      .get('/api/admin/version')
+      .set('x-session-id', staleId);
+    expect(stale.status).toBe(401);
+    expect(stale.body.require2FA).toBe(true);
+    // 码值约定：-1 = 会话失效（前端应登出），-2 = 需二次验证（前端只提示，不清会话）。
+    // 与下方「纯 token 请求 → -2」用例共同锁住两条分支的一致性。
+    expect(stale.body.code).toBe(-2);
+    delete store.sessions[staleId];
+  });
+
+  test('安全回归：x-session-id 取原型属性名不得绕过认证', async () => {
+    // sessions 曾为 {}，__proto__ / constructor 等键经原型链命中真值对象 → 无凭据放行，
+    // 攻击者可直取 POST /api/admin/version 改写线上更新分发（供应链面）。
+    for (const forged of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
+      const res = await request(app)
+        .get('/api/admin/version')
+        .set('x-session-id', forged);
+      expect(res.status).toBe(401);
+    }
   });
 
   test('status：enabled=true 且持有恢复码', async () => {
@@ -383,6 +450,26 @@ describe('二步验证 TOTP 全流程', () => {
       .post('/api/admin/login')
       .send({ token: ADMIN_TOKEN, recoveryCode: recovery });
     expect(again.status).toBe(401);
+    clearFailures();
+  });
+
+  test('安全回归：同一恢复码并发重放只能成功一次', async () => {
+    // bcrypt.compare 会 await（让出事件循环），旧实现各请求独立读 totp.json 再写回，
+    // 最后一个写盘者覆盖前者 → 同一个「一次性」恢复码可被重复使用 = 绕过 2FA。
+    const code = recoveryCodes[2];
+    const before = store.getTotpConfig().recoveryCodes.length;
+    const [a, b] = await Promise.all([
+      request(app)
+        .post('/api/admin/login')
+        .send({ token: ADMIN_TOKEN, recoveryCode: code }),
+      request(app)
+        .post('/api/admin/login')
+        .send({ token: ADMIN_TOKEN, recoveryCode: code }),
+    ]);
+
+    expect([a, b].filter((r) => r.status === 200)).toHaveLength(1);
+    // 只被核销一次
+    expect(store.getTotpConfig().recoveryCodes).toHaveLength(before - 1);
     clearFailures();
   });
 });

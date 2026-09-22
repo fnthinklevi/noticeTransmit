@@ -1,3 +1,4 @@
+import '../support/source_guards.dart';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -13,8 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// 该类配置**静默丢失**（备份面板仍显示成功），且没有任何编译期或运行期报错。
 /// 本守卫把这条对称性变成显式断言。
 void main() {
-  final root = _projectRoot();
-  final source = _stripComments(
+  final root = projectRoot();
+  final source = stripComments(
     File('$root/lib/services/backup_service.dart').readAsStringSync(),
   );
 
@@ -72,26 +73,6 @@ void main() {
       );
     });
   });
-}
-
-/// 仓库根探测（与既有守卫一致）。
-String _projectRoot() {
-  for (final rel in const ['../..', '..', '.']) {
-    if (File('$rel/pubspec.yaml').existsSync()) return rel;
-  }
-  throw StateError('未找到项目根目录（pubspec.yaml）');
-}
-
-/// 剥离注释，避免注释中的键名造成误判（项目既有教训）。
-String _stripComments(String source) {
-  final withoutBlock = source.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), '');
-  return withoutBlock
-      .split('\n')
-      .map((line) {
-        final idx = line.indexOf('//');
-        return idx >= 0 ? line.substring(0, idx) : line;
-      })
-      .join('\n');
 }
 
 /// 提取指定方法体内 `return { ... }` 的**顶层键**集合。

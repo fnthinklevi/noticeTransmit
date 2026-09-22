@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/app_filter_page.dart';
+import 'package:notice_transmit/services/installed_apps_service.dart';
 
 const _channel = MethodChannel('com.fnthink.notice/notification');
 
@@ -30,6 +32,12 @@ final _installedApps = [
 /// Mock 原生通道：有权限 + 返回固定应用列表
 void _mockChannel() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // 页面改经 InstalledAppsService 读清单，DI 需先注册（测试不跑 setupLocator）
+  if (!GetIt.instance.isRegistered<InstalledAppsService>()) {
+    GetIt.instance.registerLazySingleton<InstalledAppsService>(
+      () => InstalledAppsService(),
+    );
+  }
   TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(_channel, (call) async {
         switch (call.method) {

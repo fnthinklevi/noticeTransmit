@@ -2485,6 +2485,90 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appChannelSaveFailed => '保存失败：';
 
   @override
+  String get channelStateEnabled => '已启用';
+
+  @override
+  String get channelStateDisabled => '已停用';
+
+  @override
+  String get appChannelErrNameRequired => '保存失败：通道名称不能为空';
+
+  @override
+  String get appChannelErrBaseUrlRequired => '保存失败：API 地址不能为空';
+
+  @override
+  String get priorityBadgeHigh => '高';
+
+  @override
+  String get priorityBadgeLow => '低';
+
+  @override
+  String get channelBadgeFallback => '通';
+
+  @override
+  String storageRootPath(String path) {
+    return '存储根目录$path';
+  }
+
+  @override
+  String get recordTypeSms => '短信';
+
+  @override
+  String get recordTypeCallIncoming => '来电';
+
+  @override
+  String get recordTypeCallAnswered => '接听';
+
+  @override
+  String get recordTypeCallEnded => '挂断';
+
+  @override
+  String get recordTypeWechat => '微信';
+
+  @override
+  String get recordTypeQq => 'QQ';
+
+  @override
+  String get recordTypeAlipay => '支付宝';
+
+  @override
+  String get recordTypeSystem => '系统';
+
+  @override
+  String get recordTypeTest => '测试';
+
+  @override
+  String get recordTypeCharging => '充电';
+
+  @override
+  String get recordTypeFull => '充满';
+
+  @override
+  String get recordTypeLow30 => '低电量30%';
+
+  @override
+  String get recordTypeLow20 => '低电量20%';
+
+  @override
+  String get recordTypeNotification => '通知';
+
+  @override
+  String get emailHintPort => '465 (SSL) 或 587 (STARTTLS)';
+
+  @override
+  String get emailHintPassword => 'SMTP 授权码（非邮箱密码）';
+
+  @override
+  String get emailHintRecipients => '可多个，逗号分隔';
+
+  @override
+  String get emailHintSubjectDefault => '默认：🔔 %appName% — %title%';
+
+  @override
+  String get emailHintBodyDefault =>
+      '默认：\n【通知转发】\n\n应用：%appName%\n标题：%title%\n内容：%content%\n...';
+
+  @override
   String get channelTypeFeishuApp => '飞书自建应用';
 
   @override

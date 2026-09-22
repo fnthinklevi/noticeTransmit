@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,9 +35,11 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
   static const _oldDbName = 'notice_transmit.db';
   static const _encryptionKeyStoreKey = 'db_encryption_key';
 
-  /// 最近一次因密钥失效或库损坏而备份的数据库文件路径（null 表示从未发生过备份），
-  /// 供 UI 层提示用户数据已保留在备份文件中。
-  static String? lastBackupPath;
+  /// 当前 schema 版本。**任何** openDatabase 调用（含迁移期新建的加密库）都必须用它，
+  /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
+  /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
+  /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
+  static const int dbVersion = 10;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -99,7 +102,7 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 10,
+        version: dbVersion,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -112,7 +115,7 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       return await openDatabase(
         encryptedPath,
         password: password,
-        version: 10,
+        version: dbVersion,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -128,7 +131,6 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       final backupPath =
           '$path.corrupt-${DateTime.now().millisecondsSinceEpoch}';
       await file.rename(backupPath);
-      lastBackupPath = backupPath;
       return backupPath;
     } catch (_) {
       return null;
@@ -185,7 +187,9 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       newDb = await openDatabase(
         encryptedPath,
         password: password,
-        version: 3,
+        // 与生产打开路径同版本号：迁移期建的是「当前全量 schema」的库，贴旧号会让
+        // 下次启动跑 onUpgrade 并对已存在的列重复 ALTER（曾整库被备份重建）。
+        version: dbVersion,
         onCreate: _onCreate,
       );
 
@@ -355,13 +359,38 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
     ''');
   }
 
+  /// 仅供测试：在 sqflite_common_ffi 下直接跑建表 / 升级逻辑，验证迁移幂等。
+  @visibleForTesting
+  Future<void> createSchemaForTest(Database db) => _onCreate(db, dbVersion);
+
+  @visibleForTesting
+  Future<void> upgradeSchemaForTest(Database db, int oldV, int newV) =>
+      _onUpgrade(db, oldV, newV);
+
+  /// 幂等加列：列已存在时直接跳过。
+  ///
+  /// 迁移路径曾把「当前全量 schema」的库贴上旧版本号，onUpgrade 于是对已存在的列重复
+  /// ALTER 并抛 duplicate column —— 打开失败会被 _initDatabase 的 catch 备份成
+  /// `.corrupt-*` 再重建空库，历史与库内通道配置就此丢失。版本号已统一为 [dbVersion]，
+  /// 这层存在性判定兜住**已被错号标记的存量库**（它们每次启动都会重演该路径）。
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String definition,
+  ) async {
+    final columns = await db.rawQuery('PRAGMA table_info($table)');
+    if (columns.any((r) => r['name'] == column)) return;
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _onCreate(db, 1);
     }
     if (oldVersion < 2) {
       await db.execute('''
-        CREATE TABLE pending_notifications (
+        CREATE TABLE IF NOT EXISTS pending_notifications (
           id TEXT PRIMARY KEY,
           notification_data TEXT NOT NULL,
           webhook_url TEXT NOT NULL,
@@ -374,9 +403,7 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       ''');
     }
     if (oldVersion < 3) {
-      await db.execute('''
-        ALTER TABLE notifications ADD COLUMN sub_text TEXT
-      ''');
+      await _addColumnIfMissing(db, 'notifications', 'sub_text', 'TEXT');
     }
     if (oldVersion < 4) {
       await db.execute('''
@@ -441,30 +468,35 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       // v6: Webhook 推送模板系统
       // - message_format: default/text/markdown/json/xml
       // - message_template: 用户自定义模板（含 %appName% 等变量占位符，空则用预置模板）
-      await db.execute('''
-        ALTER TABLE webhook_channels ADD COLUMN message_format TEXT NOT NULL DEFAULT 'default'
-      ''');
-      await db.execute('''
-        ALTER TABLE webhook_channels ADD COLUMN message_template TEXT
-      ''');
+      await _addColumnIfMissing(
+        db,
+        'webhook_channels',
+        'message_format',
+        "TEXT NOT NULL DEFAULT 'default'",
+      );
+      await _addColumnIfMissing(
+        db,
+        'webhook_channels',
+        'message_template',
+        'TEXT',
+      );
     }
     if (oldVersion < 7) {
       // v7: 通知记录逐条送达状态（JSON：{"webhook:企业微信": {"status":"success","message":"..."}}）
-      await db.execute('''
-        ALTER TABLE notifications ADD COLUMN delivery_info TEXT
-      ''');
+      await _addColumnIfMissing(db, 'notifications', 'delivery_info', 'TEXT');
     }
     if (oldVersion < 8) {
       // v8: 通知优先级分级（0=低 / 1=中 / 2=高），旧数据默认中优先级
-      await db.execute('''
-        ALTER TABLE notifications ADD COLUMN priority INTEGER NOT NULL DEFAULT 1
-      ''');
+      await _addColumnIfMissing(
+        db,
+        'notifications',
+        'priority',
+        'INTEGER NOT NULL DEFAULT 1',
+      );
     }
     if (oldVersion < 9) {
       // v9: 通道扩展配置（企业微信自建应用 corpid/agentid/touser 等，JSON 键值）
-      await db.execute('''
-        ALTER TABLE webhook_channels ADD COLUMN extra_config TEXT
-      ''');
+      await _addColumnIfMissing(db, 'webhook_channels', 'extra_config', 'TEXT');
     }
     if (oldVersion < 10) {
       // v10: 自建应用通道独立表（应用通道体系，与 webhook 分离）；

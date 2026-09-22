@@ -73,7 +73,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 ),
               ),
               const Spacer(),
-              Switch(
+              CupertinoSwitch(
                 value: _webhookEnabled[index],
                 onChanged: (_) => _toggleWebhookEnabled(index),
               ),

@@ -40,7 +40,12 @@ class _StatsPageState extends State<StatsPage> {
       _todayCount = await _notificationService.getTodayCount();
       _totalCount = await _notificationService.getTotalCount();
       await _loadHealthStats();
-    } catch (_) {}
+    } catch (e) {
+      // 统计读取失败此前被完全吞掉，页面照常渲染成全 0（用户以为是「没有数据」）。
+      // 至少留下可诊断的痕迹；错误态 UI 待补。
+      debugPrint('统计加载失败: $e');
+    }
+    if (!mounted) return;
     setState(() => _isLoading = false);
   }
 

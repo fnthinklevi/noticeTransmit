@@ -508,20 +508,9 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Color _getAppColor(String appName) {
-    if (appName.isEmpty) return const Color(0xFF5856D6);
+    if (appName.isEmpty) return AppColors.indigo;
     final hash = appName.hashCode;
-    final colors = [
-      AppColors.blue,
-      const Color(0xFFFF9500),
-      AppColors.green,
-      AppColors.red,
-      const Color(0xFFAF52DE),
-      const Color(0xFF5856D6),
-      const Color(0xFF00C7BE),
-      const Color(0xFFFF2D55),
-      const Color(0xFFFFCC00),
-    ];
-    return colors[hash.abs() % colors.length];
+    return AppColors.avatarPalette[hash.abs() % AppColors.avatarPalette.length];
   }
 
   Color _getChannelColor(String channel) {
@@ -684,36 +673,36 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  String _getTypeLabel(String? type) {
+  String _getTypeLabel(AppLocalizations l10n, String? type) {
     switch (type) {
       case 'sms':
-        return '短信';
+        return l10n.recordTypeSms;
       case 'call_incoming':
-        return '来电';
+        return l10n.recordTypeCallIncoming;
       case 'call_answered':
-        return '接听';
+        return l10n.recordTypeCallAnswered;
       case 'call_ended':
-        return '挂断';
+        return l10n.recordTypeCallEnded;
       case 'wechat':
-        return '微信';
+        return l10n.recordTypeWechat;
       case 'qq':
-        return 'QQ';
+        return l10n.recordTypeQq;
       case 'alipay':
-        return '支付宝';
+        return l10n.recordTypeAlipay;
       case 'system':
-        return '系统';
+        return l10n.recordTypeSystem;
       case 'test':
-        return '测试';
+        return l10n.recordTypeTest;
       case 'battery_charging':
-        return '充电';
+        return l10n.recordTypeCharging;
       case 'battery_full':
-        return '充满';
+        return l10n.recordTypeFull;
       case 'battery_low_30':
-        return '低电量30%';
+        return l10n.recordTypeLow30;
       case 'battery_low_20':
-        return '低电量20%';
+        return l10n.recordTypeLow20;
       default:
-        return '通知';
+        return l10n.recordTypeNotification;
     }
   }
 
@@ -1059,7 +1048,9 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                saved == null ? l10n.archivePathDefault : _prettyTreeUri(saved),
+                saved == null
+                    ? l10n.archivePathDefault
+                    : _prettyTreeUri(l10n, saved),
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.primaryLabel(dialogContext),
@@ -1154,7 +1145,7 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   /// SAF treeUri 转可读路径（content://.../tree/primary%3ADownload%2Fxxx/... → Download/xxx）
-  String _prettyTreeUri(String uri) {
+  String _prettyTreeUri(AppLocalizations l10n, String uri) {
     try {
       final idx = uri.indexOf('/tree/');
       if (idx >= 0) {
@@ -1162,7 +1153,7 @@ class _HistoryPageState extends State<HistoryPage> {
         final slash = part.indexOf('/');
         if (slash >= 0) part = part.substring(0, slash);
         part = Uri.decodeComponent(part).replaceFirst(':', '/');
-        return part.startsWith('/') ? '存储根目录$part' : part;
+        return part.startsWith('/') ? l10n.storageRootPath(part) : part;
       }
     } catch (_) {}
     return uri;
@@ -1697,16 +1688,16 @@ class _HistoryPageState extends State<HistoryPage> {
     final time = _formatTime(record.postTime);
     final isKnownType = _isKnownType(type);
     final color = isKnownType ? _getTypeColor(type) : _getAppColor(appName);
-    final label = isKnownType ? _getTypeLabel(type) : appName;
+    final label = isKnownType ? _getTypeLabel(l10n, type) : appName;
 
     final List<Widget> columnChildren = [
       Row(
         children: [
           if (record.priority == 2) ...[
-            _buildPriorityBadge(context, '高', AppColors.red),
+            _buildPriorityBadge(context, l10n.priorityBadgeHigh, AppColors.red),
             const SizedBox(width: 6),
           ] else if (record.priority == 0) ...[
-            _buildPriorityBadge(context, '低', Colors.grey),
+            _buildPriorityBadge(context, l10n.priorityBadgeLow, Colors.grey),
             const SizedBox(width: 6),
           ],
           Expanded(
@@ -1834,7 +1825,9 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
               child: Center(
                 child: Text(
-                  label.isNotEmpty ? label.substring(0, 1) : '通',
+                  label.isNotEmpty
+                      ? label.substring(0, 1)
+                      : AppLocalizations.of(context).channelBadgeFallback,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

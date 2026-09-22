@@ -286,6 +286,52 @@ class NotificationService {
   String _deliveryLabel(String kotlinType) =>
       channelTypeDisplayName(kotlinType);
 
+  /// 送达回传 → 新的 `deliveryStatus` 映射（纯函数；内存命中与 DB 兜底两条路径共用）。
+  ///
+  /// - `FILTER` / `SMS` 是拦截伪通道回传：通知实际不会投递，把该记录**所有**真实通道
+  ///   统一置为 `intercepted` 并带上原因，否则真实通道永远停留 pending、历史一直显示
+  ///   "发送中"。
+  /// - `MERGE` 是聚合伪通道回传：成员在窗口期内停留 pending，到点按聚合推送的
+  ///   **真实结果**批量转终态。必须按传入 `normalized` 映射而**不是写死 success**——
+  ///   失败却标成"已合并推送"等于让用户以为已送达而内容已丢（原生侧对应
+  ///   `MergePushManager.markMembersDelivered`）。
+  /// - 其余为普通通道结果：只更新自己那条 `label`，保留其他通道状态，否则 webhook 的
+  ///   结果会误覆盖邮件等通道的真实状态。
+  static Map<String, dynamic> applyDelivery({
+    required String kotlinType,
+    required String label,
+    required Map<String, dynamic> existing,
+    required String normalized,
+    required String message,
+  }) {
+    if (kotlinType == 'FILTER' || kotlinType == 'SMS') {
+      return _fanOutToAllChannels(existing, label, 'intercepted', message);
+    }
+    if (kotlinType == 'MERGE') {
+      return _fanOutToAllChannels(existing, label, normalized, message);
+    }
+    final updated = Map<String, dynamic>.from(existing);
+    updated[label] = {'status': normalized, 'message': message};
+    return updated;
+  }
+
+  /// 伪通道回传的展开：已有通道全部置同一终态；无已有通道时以 [label] 建一条占位。
+  static Map<String, dynamic> _fanOutToAllChannels(
+    Map<String, dynamic> existing,
+    String label,
+    String status,
+    String message,
+  ) {
+    if (existing.isEmpty) {
+      return <String, dynamic>{
+        label: {'status': status, 'message': message},
+      };
+    }
+    return <String, dynamic>{
+      for (final k in existing.keys) k: {'status': status, 'message': message},
+    };
+  }
+
   /// 更新单条记录的送达状态（Kotlin 端 onDeliveryResult 回传），
   /// 终态（success/failed）同时写入 webhook_delivery_log 送达日志。
   Future<void> updateDelivery(
@@ -308,42 +354,13 @@ class NotificationService {
       _ => 'failed',
     };
     if (idx >= 0) {
-      Map<String, dynamic> updated;
-      if (kotlinType == 'FILTER' || kotlinType == 'SMS') {
-        // 拦截伪通道（FILTER=通知被黑白名单/应用过滤拦截，SMS=短信被拦截）：
-        // 实际不会投递，把记录所有真实通道统一置为 intercepted 并标注原因，
-        // 否则真实通道永远停留 pending，历史里一直显示"发送中"
-        final existing = _records[idx].deliveryStatus;
-        updated = existing.isEmpty
-            ? <String, dynamic>{
-                label: {'status': 'intercepted', 'message': message},
-              }
-            : <String, dynamic>{
-                for (final k in existing.keys)
-                  k: {'status': 'intercepted', 'message': message},
-              };
-      } else if (kotlinType == 'MERGE') {
-        // 聚合伪通道（P2 merge 动作）：成员被合并推送后由原生逐条回传聚合推送的
-        // **真实结果**，把记录所有真实通道置为对应终态——成员在窗口期内停留
-        // pending，到点批量转终态，避免一直显示"发送中"。
-        //
-        // ⚠ 必须按 normalized（而非写死 success）映射：聚合推送失败时若标成
-        // success("已合并推送")，用户会以为内容已送达，而实际丢了——
-        // 这类"假成功"比报失败危险得多（原生侧已改为回传真实结果，见
-        // MergePushManager.markMembersDelivered）。
-        final existing = _records[idx].deliveryStatus;
-        updated = existing.isEmpty
-            ? <String, dynamic>{
-                label: {'status': normalized, 'message': message},
-              }
-            : <String, dynamic>{
-                for (final k in existing.keys)
-                  k: {'status': normalized, 'message': message},
-              };
-      } else {
-        updated = Map<String, dynamic>.from(_records[idx].deliveryStatus);
-        updated[label] = {'status': normalized, 'message': message};
-      }
+      final updated = applyDelivery(
+        kotlinType: kotlinType,
+        label: label,
+        existing: _records[idx].deliveryStatus,
+        normalized: normalized,
+        message: message,
+      );
       final newRecord = _records[idx].copyWith(deliveryStatus: updated);
       _records[idx] = newRecord;
       try {
@@ -363,34 +380,15 @@ class NotificationService {
         final row = await DatabaseHelper().getNotificationById(notificationId);
         if (row != null) {
           final rec = NotificationRecord.fromMap(row);
-          final existing = rec.deliveryStatus;
-          // ⚠ 与内存命中分支逐分支对齐（改内存分支必须同步这里）：
-          // - FILTER/SMS/MERGE 伪通道 = 全通道统一终态（语义如此）；
-          // - 普通通道结果 = 仅更新当前 label，保留其他通道状态
-          //   （否则 webhook 结果会误覆盖 email 等通道的真实状态）。
-          Map<String, dynamic> updated;
-          if (kotlinType == 'FILTER' || kotlinType == 'SMS') {
-            updated = existing.isEmpty
-                ? <String, dynamic>{
-                    label: {'status': 'intercepted', 'message': message},
-                  }
-                : <String, dynamic>{
-                    for (final k in existing.keys)
-                      k: {'status': 'intercepted', 'message': message},
-                  };
-          } else if (kotlinType == 'MERGE') {
-            updated = existing.isEmpty
-                ? <String, dynamic>{
-                    label: {'status': normalized, 'message': message},
-                  }
-                : <String, dynamic>{
-                    for (final k in existing.keys)
-                      k: {'status': normalized, 'message': message},
-                  };
-          } else {
-            updated = Map<String, dynamic>.from(existing);
-            updated[label] = {'status': normalized, 'message': message};
-          }
+          // 与内存命中分支共用同一份纯函数裁决（历史上这里是逐分支手抄的第二份，
+          // 只靠注释维系同步 —— 改一处忘另一处即静默分叉）。
+          final updated = applyDelivery(
+            kotlinType: kotlinType,
+            label: label,
+            existing: rec.deliveryStatus,
+            normalized: normalized,
+            message: message,
+          );
           await DatabaseHelper().updateNotificationDelivery(
             notificationId,
             updated,

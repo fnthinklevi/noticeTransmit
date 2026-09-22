@@ -37,13 +37,26 @@ function securityHeaders(req, res, next) {
 
 // ========== 限流 ==========
 
+// 限流表条目硬上限（防御性封顶，正常情况下按桶计数远达不到此值）
+const RATE_LIMIT_MAX_KEYS = 20000;
+
 function createRateLimitMiddleware(maxRequests, windowMs, message) {
   return (req, res, next) => {
     const ip = store.getClientIp(req);
-    const key = `${ip}:${req.path}`;
+    // 键里的 path 由请求者控制：原实现按 `ip:精确路径` 记账，而任意路径（含 404、
+    // 带随机 query 的探测串）都会新建一条记录并整体落盘 → 内存与 rate_limit.json
+    // 可被撑到任意大。改为**按路由桶**计数：同一 IP 最多产生个位数条目，
+    // 限流语义（每 IP 每分钟 N 次）也随之更贴近本意。
+    const bucket = store.rateLimitBucket(req.path);
+    const key = `${ip}:${bucket}`;
     const now = Date.now();
 
     if (!store.rateLimitStore[key]) {
+      // 兜底封顶：极端情况（海量不同 IP）下先清过期，仍超限则本次不记账
+      store.cleanupRateLimitStore();
+      if (Object.keys(store.rateLimitStore).length >= RATE_LIMIT_MAX_KEYS) {
+        return next();
+      }
       store.rateLimitStore[key] = { count: 0, windowStart: now };
     }
 
@@ -145,13 +158,23 @@ async function authMiddleware(req, res, next) {
     const token = req.headers['x-admin-token'];
     const sessionId = req.headers['x-session-id'];
 
-    if (sessionId && store.sessions[sessionId]) {
-      if (Date.now() - store.sessions[sessionId].createdAt > store.SESSION_TTL_MS) {
+    if (store.isValidSession(sessionId)) {
+      const session = store.sessions[sessionId];
+      if (Date.now() - session.createdAt > store.SESSION_TTL_MS) {
         delete store.sessions[sessionId];
+        store.saveSessions();
         return res.status(401).json({ code: -1, message: '会话已过期，请重新登录' });
       }
+      // 仅凭 Token 铸造的会话（twoFAVerified !== true）在二步验证已开启后不得继续享有
+      // 管理员权限——否则「事后开启 2FA」可被开启前拿到会话的人完整绕过。
+      const totpConfig = store.getTotpConfig();
+      if (totpConfig.enabled && session.twoFAVerified !== true) {
+        // code: -2 与下方纯 Token 分支同语义（-1 = 会话失效需重登，-2 = 需二次验证）。
+        // 后台 admin.js 的自动登出条件只认 -1 + 「未授权/会话…」，用 -2 才不会误踢。
+        return res.status(401).json({ code: -2, message: '需要二步验证', require2FA: true });
+      }
       // 注意：不重置 createdAt —— 会话为固定 24h TTL，持续使用不会无限续期
-      req.session = store.sessions[sessionId];
+      req.session = session;
       return next();
     }
 

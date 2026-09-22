@@ -11,6 +11,16 @@ import 'platform_channel.dart';
 class TemperatureService {
   static const _channel = AppChannels.notification;
 
+  /// 温度规则类型 —— Dart 侧唯一定义处，必须与 Kotlin
+  /// `BatteryMonitor.TEMP_RULE_TYPES` 逐字一致（由
+  /// test/services/battery_temperature_contract_test.dart 实测比对）。
+  /// 两端字符串不一致不会有任何编译期报错，规则只会静默不触发。
+  static const Set<String> tempRuleTypes = <String>{
+    'battery_temp_above',
+    'device_temp_above',
+    'screen_temp_above',
+  };
+
   bool _notifyEnabled = true;
   List<Map<String, dynamic>> _rules = [];
 

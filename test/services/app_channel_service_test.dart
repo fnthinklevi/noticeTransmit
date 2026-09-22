@@ -1,3 +1,6 @@
+import '../support/source_guards.dart';
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
@@ -134,12 +137,69 @@ void main() {
       );
       final channels = (syncCall.arguments as Map)['channels'] as List;
       final ch = channels.single as Map;
-      expect(ch['appType'], 'feishu_app');
-      expect(ch['baseUrl'], 'https://open.feishu.cn');
+      // 原生契约键（ConfigManager.getAppChannelConfigs 读 type / base_url），
+      // 不是 UI 侧的 appType / baseUrl —— 发错键名会让原生解析出空 type，
+      // 每条自建应用推送静默落到「未知应用通道类型」。
+      expect(ch['type'], 'feishu_app');
+      expect(ch['base_url'], 'https://open.feishu.cn');
       expect(ch['secret'], 'app-secret-x');
+      expect(ch['enabled'], true);
+      expect(ch['id'], 'app-feishu-1');
+      expect(ch['name'], '飞书应用');
+      expect(ch['message_format'], 'default');
       final config = ch['config'] as Map;
       expect(config['receive_id'], 'oc-x');
       expect(config['receive_id_type'], 'chat_id');
+      // UI 键不得漏进跨端载荷（出现即说明映射被绕过、把 _channels 原样下发了）
+      expect(ch.containsKey('appType'), isFalse);
+      expect(ch.containsKey('baseUrl'), isFalse);
+    });
+
+    test('跨端契约：原生读取的每个键 Dart 载荷都必须提供（解析 ConfigManager.kt 实测）', () {
+      final kotlin = File(
+        'android/app/src/main/kotlin/com/fnthink/notice/ConfigManager.kt',
+      ).readAsStringSync();
+      final start = kotlin.indexOf('fun getAppChannelConfigs(');
+      expect(start, greaterThanOrEqualTo(0), reason: '原生读取函数改名了，需同步本用例');
+      // 只取本函数体：到下一个 fun 声明为止，避免把别的读取键算进来
+      final next = kotlin.indexOf('\n    fun ', start + 1);
+      final block = stripComments(
+        kotlin.substring(start, next < 0 ? kotlin.length : next),
+      );
+      final read = RegExp(
+        r'opt(?:String|Boolean|Int|Long|Double|JSONObject|JSONArray)\(\s*"([A-Za-z_][A-Za-z0-9_]*)"',
+      ).allMatches(block).map((m) => m.group(1)!).toSet();
+      expect(read, isNotEmpty, reason: '未解析到任何读取键 —— 本用例已失效');
+
+      final produced = AppChannelService.toNativePayload({
+        'id': 'app-1',
+        'name': 'n',
+        'appType': 'wecom_app',
+        'baseUrl': 'https://qyapi.weixin.qq.com',
+        'secret': 's',
+        'config': <String, dynamic>{},
+        'message_format': 'default',
+        'enabled': true,
+      }).keys.toSet();
+
+      // 原生对 base_url 保留了历史别名兜底（optString("base_url", optString("url", ""))）：
+      // 别名键由原生兜底，Dart 只需提供主键名。
+      const nativeFallbackAliases = <String>{'url'};
+      final missing = read.difference(produced);
+
+      expect(
+        missing.difference(nativeFallbackAliases),
+        isEmpty,
+        reason:
+            '原生读取但 Dart 载荷未提供的键 → 原生取到空值、推送静默失败：'
+            '${missing.difference(nativeFallbackAliases)}',
+      );
+      // 反向自检：别名一旦从原生代码里消失，下面的豁免就该删掉（否则豁免变成死角）
+      expect(
+        read.intersection(nativeFallbackAliases),
+        nativeFallbackAliases,
+        reason: '原生已不再读这些别名键，请同步删除本用例的别名豁免',
+      );
     });
 
     test('空通道保存：原生同步 payload 为空数组', () async {

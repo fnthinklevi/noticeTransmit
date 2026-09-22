@@ -274,31 +274,28 @@ class MergeFailureContractTest {
 
     @Test
     fun retryServiceDartQueueIsNotWiredIntoMergePath() {
-        // 事实核查：Dart RetryService 的 addFailedNotification 目前**零调用点**，
-        // 即失败推送的持久化重试队列是"有实现未接线"的状态。
-        // 本断言把这个事实钉住：若将来接线，必须同步更新文档，避免文档继续声称"有自动重试"。
-        val retry = src("lib/services/retry_service.dart")
-        assertTrue("RetryService 存在 addFailedNotification", retry.contains("addFailedNotification"))
+        // 事实核查（v1.62 校准）：Dart RetryService 的 addFailedNotification **零调用点**，
+        // 即"失败推送持久化重试队列"是有实现无接线的死代码，已随 v1.62 删除。
+        // 本守卫把结论反过来钉住：复活未接线队列、或接线却没同步文档，都必须在这里失败。
+        assertFalse(
+            "retry_service.dart 已作为无调用点死代码删除。若恢复该文件，" +
+                "必须同时接线并更新 base.md §4.9 与 MergePushManager 头注释，再更新本守卫。",
+            File("$root/lib/services/retry_service.dart").exists(),
+        )
 
-        val dartFiles = File("$root/lib").walkTopDown()
+        val dartCallSites = File("$root/lib").walkTopDown()
             .filter { it.isFile && it.extension == "dart" }
-            .toList()
-        val callSites = dartFiles.count { f ->
-            f.readText().let { t ->
-                // 排除定义文件自身
-                f.name != "retry_service.dart" && t.contains("addFailedNotification(")
-            }
-        }
+            .count { it.readText().contains("addFailedNotification") }
         val nativeCallSites = File("$root/android/app/src/main/kotlin").walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .count { it.readText().contains("addFailedNotification") }
 
         assertEquals(
-            "RetryService.addFailedNotification 仍无调用点（未接线）。" +
-                "若此处失败说明已接线——请同步更新 base.md 与 MergePushManager 头注释中" +
-                "「聚合推送失败无自动重试」的表述。",
+            "addFailedNotification 必须保持零调用点——聚合推送失败无自动重试" +
+                "（重试只在原生 NetworkClient 的 MAX_RETRIES 层）。" +
+                "若此处失败说明已接线：请同步更新 base.md 与 MergePushManager 头注释。",
             0,
-            callSites + nativeCallSites
+            dartCallSites + nativeCallSites,
         )
     }
 

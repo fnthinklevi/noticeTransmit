@@ -410,7 +410,8 @@ class MergePushManager(private val context: Context) {
         try {
             val arr = JSONArray()
             for (item in queue) arr.put(item)
-            prefs.edit().putString(KEY_QUEUE, arr.toString()).apply()
+            // commit()：聚合队列的全部意义是「进程被杀/重启后仍能补推」，apply() 在强杀时可能整笔丢
+            prefs.edit().putString(KEY_QUEUE, arr.toString()).commit()
         } catch (e: Exception) {
             Log.e(TAG, "聚合队列写入失败", e)
         }

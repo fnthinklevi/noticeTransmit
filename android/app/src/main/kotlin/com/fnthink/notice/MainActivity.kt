@@ -200,15 +200,6 @@ class MainActivity : FlutterActivity() {
         switchLocaleAlias()
     }
 
-    override fun onPause() {
-        super.onPause()
-        try {
-            unregisterReceiver(batteryReceiver)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     /**
      * 合规：崩溃上报默认关闭，仅在用户同意（设置页「崩溃上报」开关写入
      * flutter.crash_report_enabled=true）后才初始化 Bugly。
@@ -219,6 +210,25 @@ class MainActivity : FlutterActivity() {
         if (!prefs.getBoolean("flutter.crash_report_enabled", false)) return
         CrashReport.initCrashReport(applicationContext)
         crashReportInitialized = true
+    }
+
+    /**
+     * 注册应用内私有广播。
+     *
+     * 两个约束叠在一起，必须按版本分支（与 NotificationMonitorService.startBatteryMonitoring 同构）：
+     * - targetSdk 34 起，API 33+ 上注册**非受保护**广播若不带导出标志会抛 SecurityException
+     *   （接收器从此静默失效）；`RECEIVER_NOT_EXPORTED` 常量本身自 API 33 起（编译期内联，无运行期查找）。
+     * - 三参重载 `registerReceiver(BroadcastReceiver, IntentFilter, int)` 自 API 26 起才有，
+     *   minSdk 24/25 上直接调用抛 NoSuchMethodError——它是 Error，不被 catch (Exception) 兜住，
+     *   表现为「打开即闪退」。
+     * 故 33+ 走三参 + NOT_EXPORTED，以下走两参（两参在 <33 合法且无需标志）。
+     */
+    private fun registerInternalReceiver(receiver: BroadcastReceiver, filter: IntentFilter) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(receiver, filter)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -233,12 +243,18 @@ class MainActivity : FlutterActivity() {
             e.printStackTrace()
         }
         // 注册 receiver 在全生命周期（onCreate→onDestroy），避免锁屏 onPause 后丢失通知广播
-        val filter = IntentFilter(ACTION_NOTIFICATION_RECEIVED)
-        registerReceiver(notificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        val deliveryFilter = IntentFilter(ACTION_DELIVERY_RESULT)
-        registerReceiver(deliveryReceiver, deliveryFilter, Context.RECEIVER_NOT_EXPORTED)
-        val batteryFilter = IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
-        registerReceiver(batteryReceiver, batteryFilter, Context.RECEIVER_NOT_EXPORTED)
+        registerInternalReceiver(
+            notificationReceiver,
+            IntentFilter(ACTION_NOTIFICATION_RECEIVED)
+        )
+        registerInternalReceiver(
+            deliveryReceiver,
+            IntentFilter(ACTION_DELIVERY_RESULT)
+        )
+        registerInternalReceiver(
+            batteryReceiver,
+            IntentFilter(NotificationMonitorService.ACTION_BATTERY_CHANGED_NOTIFY)
+        )
 
         // S3：进程被强杀（滑掉最近任务等）后，系统对 NotificationListenerService 的自动重绑
         // 可能被 ROM 拦截（小米未授予自启动权限时尤甚），表现为重开 App 后收不到任何通知。
@@ -366,6 +382,32 @@ class MainActivity : FlutterActivity() {
     // ── 自建应用通道（应用通道体系，与 webhook 分离）──
 
     /** 读取全部自建应用通道（明文镜像，secret 已脱敏），供设置页渲染 */
+    /**
+     * org.json 值 → MethodChannel 可编码的纯 Kotlin 结构。
+     *
+     * 直接把 `JSONObject`/`JSONArray` 交给 `result.success` 会让 StandardMessageCodec
+     * 抛 `IllegalArgumentException("Unsupported value...")`（它只认 Map/List/基本类型），
+     * 且异常发生在平台线程上。`toNativeJson` 的反向配套，成对维护。
+     */
+    private fun jsonToPlain(value: Any?): Any? = when (value) {
+        JSONObject.NULL -> null
+        is JSONObject -> {
+            val m = LinkedHashMap<String, Any?>()
+            val keys = value.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                m[k] = jsonToPlain(value.get(k))
+            }
+            m
+        }
+        is org.json.JSONArray -> {
+            val l = ArrayList<Any?>(value.length())
+            for (i in 0 until value.length()) l.add(jsonToPlain(value.get(i)))
+            l
+        }
+        else -> value
+    }
+
     internal fun getAppChannels(): List<Map<String, Any?>> {
         val rows = mutableListOf<Map<String, Any?>>()
         val json = prefs.getString("flutter.app_channels", null)
@@ -378,7 +420,8 @@ class MainActivity : FlutterActivity() {
                 val keys = obj.keys()
                 while (keys.hasNext()) {
                     val key = keys.next()
-                    map[key] = obj.get(key)
+                    // 嵌套 config 必须转纯 Map，否则 codec 抛 Unsupported value
+                    map[key] = jsonToPlain(obj.get(key))
                 }
                 rows.add(map)
             }
@@ -979,7 +1022,7 @@ class MainActivity : FlutterActivity() {
                 val obj = org.json.JSONObject()
                 obj.put("id", rule["id"]?.toString() ?: "")
                 obj.put("type", rule["type"]?.toString() ?: "battery_temp_above")
-                obj.put("value", (rule["value"] as? Int) ?: 45)
+                obj.put("value", (rule["value"] as? Number)?.toInt() ?: 45)
                 obj.put("enabled", (rule["enabled"] as? Boolean) ?: false)
                 obj.put("title", rule["title"]?.toString() ?: "")
                 obj.put("content", rule["content"]?.toString() ?: "")
@@ -1044,7 +1087,9 @@ class MainActivity : FlutterActivity() {
                 val obj = org.json.JSONObject()
                 obj.put("id", rule["id"] as? String ?: "")
                 obj.put("type", rule["type"] as? String ?: "")
-                obj.put("value", (rule["value"] as? Int) ?: 0)
+                // MethodChannel 把 Dart 数字解成 Any?，滑块值可能是 Double/Long：
+                // `as? Int` 会静默失败取默认值（温度阈值变 45、电量阈值变 0 = 规则永不触发）
+                obj.put("value", (rule["value"] as? Number)?.toInt() ?: 0)
                 obj.put("enabled", (rule["enabled"] as? Boolean) ?: false)
                 obj.put("title", rule["title"] as? String ?: "")
                 obj.put("content", rule["content"] as? String ?: "")
@@ -1394,7 +1439,15 @@ class MainActivity : FlutterActivity() {
                 NotificationMonitorService.PREFS_NAME,
                 Context.MODE_PRIVATE
             )
-            prefs.getBoolean(NotificationMonitorService.PREF_MONITORING_ENABLED, false)
+            if (prefs.contains(NotificationMonitorService.PREF_MONITORING_ENABLED)) {
+                prefs.getBoolean(NotificationMonitorService.PREF_MONITORING_ENABLED, false)
+            } else {
+                // 键缺失 = 用户从未手动开关过监听（新装 / 数据恢复 / 清过 pref）。
+                // 此时以监听器是否真的绑定为准，否则服务在正常转发而首页显示「未运行」。
+                // 注意：服务侧 readMonitoringEnabled() 的缺失兜底刻意取 true（保投递），
+                // 两处默认值语义不同且都必须保留，故此处不做统一常量。
+                NotificationMonitorService.isConnected
+            }
         } catch (e: Exception) {
             false
         }
@@ -1448,10 +1501,26 @@ class MainActivity : FlutterActivity() {
             val uri = data?.data
             if (resultCode == RESULT_OK && uri != null) {
                 try {
-                    // 持久化读写授权：跨进程重启后仍可写入该目录
-                    val flags = data.flags and
-                        (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                    contentResolver.takePersistableUriPermission(uri, flags)
+                    // 持久化读写授权：跨进程重启后仍可写入该目录。
+                    // 只申请读/写这两位——其余授权位传给 takePersistableUriPermission
+                    // 会抛 IllegalArgumentException。
+                    val granted = data.flags
+                    if (granted and Intent.FLAG_GRANT_WRITE_URI_PERMISSION != 0) {
+                        contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        )
+                    } else if (granted and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0) {
+                        contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } else {
+                        // 两位都没授（部分 SAF 实现如此）按失败处理，否则会留下
+                        // 「本次能写、重启后失效」的静默降级
+                        error("SAF 未授予读写权限")
+                    }
                     prefs.edit().putString(KEY_ARCHIVE_DIR_URI, uri.toString()).apply()
                     pendingPickDirResult?.success(uri.toString())
                 } catch (e: Exception) {
@@ -1617,19 +1686,32 @@ class MainActivity : FlutterActivity() {
         return "${icon}_${if (locale == "en") "en" else "zh"}"
     }
 
+    /** 上一次实际生效的桌面启动器别名（供 onResume 跳过重复的 34 次 binder 调用） */
+    @Volatile
+    private var appliedLauncherAlias: android.content.ComponentName? = null
+
+    /** 切换启动器别名：34 个 activity-alias（17 图标 × 2 语言）逐个改启用态 */
+    private fun applyLauncherAlias(target: android.content.ComponentName) {
+        val pm = packageManager
+        for (comp in getIconAliases().values) {
+            pm.setComponentEnabledSetting(
+                comp,
+                if (comp == target) {
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                } else {
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                },
+                PackageManager.DONT_KILL_APP
+            )
+        }
+        appliedLauncherAlias = target
+    }
+
     internal fun changeLauncherIcon(icon: String) {
         try {
             val key = getAliasKey(icon)
             val aliases = getIconAliases()
-            val target = aliases[key] ?: aliases["default_zh"]!!
-            val pm = packageManager
-            for (comp in aliases.values) {
-                val state = if (comp == target)
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                else
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                pm.setComponentEnabledSetting(comp, state, PackageManager.DONT_KILL_APP)
-            }
+            applyLauncherAlias(aliases[key] ?: aliases["default_zh"]!!)
             prefs.edit().putString("flutter.selected_icon", icon).apply()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -1642,14 +1724,10 @@ class MainActivity : FlutterActivity() {
             val key = getAliasKey(icon)
             val aliases = getIconAliases()
             val target = aliases[key] ?: aliases["default_zh"]!!
-            val pm = packageManager
-            for (comp in aliases.values) {
-                val state = if (comp == target)
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                else
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                pm.setComponentEnabledSetting(comp, state, PackageManager.DONT_KILL_APP)
-            }
+            // 别名未变则整段跳过：本方法每次 onResume 都会跑，逐次发 34 个
+            // setComponentEnabledSetting binder 调用会明显拖慢回前台
+            if (appliedLauncherAlias == target) return
+            applyLauncherAlias(target)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -2165,20 +2243,40 @@ class MainActivity : FlutterActivity() {
             val prefs = applicationContext.getSharedPreferences("flutter.notification_cache", android.content.Context.MODE_PRIVATE)
             val cached = prefs.getString("pending_records", "[]") ?: "[]"
             val arr = org.json.JSONArray(cached)
+            // 逐条投递给 Flutter；失败（引擎分离 / methodChannel 为 null / 抛异常）的记录
+            // 必须留在队列里。此前无论成败都在循环后无条件 remove("pending_records")，
+            // 于是一次 UI 未就绪的启动就会把整批离线缓存抹掉——通知内容彻底消失且无痕迹。
+            val remaining = org.json.JSONArray()
             for (i in 0 until arr.length()) {
-                try {
-                    val json = arr.getJSONObject(i)
+                val json = try {
+                    arr.getJSONObject(i)
+                } catch (_: Exception) {
+                    continue
+                }
+                val delivered = try {
+                    val channel = methodChannel ?: throw IllegalStateException("methodChannel 未就绪")
                     val map = mutableMapOf<String, Any?>()
                     val keys = json.keys()
                     while (keys.hasNext()) {
                         val key = keys.next()
                         map[key] = json.get(key)
                     }
-                    methodChannel?.invokeMethod("onNotificationReceived", map)
-                } catch (_: Exception) {}
+                    channel.invokeMethod("onNotificationReceived", map)
+                    true
+                } catch (e: Exception) {
+                    Log.w("MainActivity", "离线缓存记录投递失败，保留待下次", e)
+                    false
+                }
+                if (!delivered) remaining.put(json)
             }
-            prefs.edit().remove("pending_records").apply()
-        } catch (_: Exception) {}
+            val editor = prefs.edit()
+            if (remaining.length() == 0) editor.remove("pending_records")
+            else editor.putString("pending_records", remaining.toString())
+            editor.apply()
+        } catch (e: Exception) {
+            // 整体解析失败（缓存串损坏）时不清空：留待人工排查，避免静默丢数据
+            Log.w("MainActivity", "flushCachedNotificationRecords 异常", e)
+        }
     }
 }
 

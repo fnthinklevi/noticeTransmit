@@ -72,7 +72,7 @@ object DeliveryResultStore {
         val list = mutableListOf<Map<String, Any>>()
         for (i in 0 until arr.length()) {
             val item = arr.optJSONObject(i) ?: continue
-                list.add(
+            list.add(
                     mapOf(
                         "notificationId" to item.optString("notificationId"),
                         "webhookType" to item.optString("type"),

@@ -33,46 +33,6 @@ extension ConditionTypeExtension on ConditionType {
     }
   }
 
-  String get label {
-    switch (this) {
-      case ConditionType.packageName:
-        return '应用包名';
-      case ConditionType.titleContains:
-        return '标题包含';
-      case ConditionType.titleNotContains:
-        return '标题不包含';
-      case ConditionType.contentContains:
-        return '内容包含';
-      case ConditionType.contentNotContains:
-        return '内容不包含';
-      case ConditionType.priority:
-        return '通知优先级';
-      case ConditionType.timeRange:
-        return '时间范围';
-      case ConditionType.regexMatch:
-        return '正则表达式';
-    }
-  }
-
-  String get hint {
-    switch (this) {
-      case ConditionType.packageName:
-        return '例如: com.example.app';
-      case ConditionType.titleContains:
-      case ConditionType.titleNotContains:
-        return '输入关键词';
-      case ConditionType.contentContains:
-      case ConditionType.contentNotContains:
-        return '输入关键词';
-      case ConditionType.priority:
-        return '高/中/低';
-      case ConditionType.timeRange:
-        return '09:00-18:00';
-      case ConditionType.regexMatch:
-        return '正则表达式';
-    }
-  }
-
   static ConditionType fromValue(String value) {
     switch (value) {
       case 'package_name':
@@ -107,15 +67,6 @@ extension LogicOperatorExtension on LogicOperator {
         return 'and';
       case LogicOperator.or:
         return 'or';
-    }
-  }
-
-  String get label {
-    switch (this) {
-      case LogicOperator.and:
-        return '且';
-      case LogicOperator.or:
-        return '或';
     }
   }
 
@@ -190,36 +141,6 @@ extension ActionTypeExtension on ActionType {
         return 'merge';
       case ActionType.record:
         return 'record';
-    }
-  }
-
-  String get label {
-    switch (this) {
-      case ActionType.push:
-        return '推送通知';
-      case ActionType.silent:
-        return '静默忽略';
-      case ActionType.delay:
-        return '延迟推送';
-      case ActionType.merge:
-        return '合并推送';
-      case ActionType.record:
-        return '仅记录';
-    }
-  }
-
-  String get description {
-    switch (this) {
-      case ActionType.push:
-        return '将通知推送到指定渠道';
-      case ActionType.silent:
-        return '不推送，静默处理';
-      case ActionType.delay:
-        return '延迟一段时间后推送';
-      case ActionType.merge:
-        return '合并同应用多条通知';
-      case ActionType.record:
-        return '仅记录到历史，不推送';
     }
   }
 

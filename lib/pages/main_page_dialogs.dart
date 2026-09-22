@@ -7,15 +7,16 @@ part of 'main_page.dart';
 extension _MainPageDialogs on _MainPageState {
   Future<void> _showLanguageSwitchDialog(LocaleService localeService) async {
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     final newLang = PlatformDispatcher.instance.locale.languageCode;
-    final label = newLang == 'zh' ? '中文' : 'English';
+    final label = newLang == 'zh' ? l10n.langChinese : l10n.langEnglish;
     await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardBg(ctx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(
-          '切换语言',
+          l10n.switchLangTitle,
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w600,
@@ -23,7 +24,7 @@ extension _MainPageDialogs on _MainPageState {
           ),
         ),
         content: Text(
-          '检测到系统语言已变为 $label，是否同步切换应用语言？',
+          l10n.switchLangMsg(label),
           style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(ctx)),
         ),
         actions: [
@@ -41,7 +42,7 @@ extension _MainPageDialogs on _MainPageState {
               });
             },
             child: Text(
-              '暂不',
+              l10n.notNow,
               style: TextStyle(color: AppColors.secondaryLabel(ctx)),
             ),
           ),
@@ -66,7 +67,7 @@ extension _MainPageDialogs on _MainPageState {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('切换', style: TextStyle(fontSize: 15)),
+            child: Text(l10n.switchBtn, style: const TextStyle(fontSize: 15)),
           ),
         ],
       ),

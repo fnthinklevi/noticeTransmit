@@ -1,3 +1,4 @@
+import '../support/source_guards.dart';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -17,7 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///    被点到时才炸，常规回归测试（走 mock 通道）根本发现不了。
 ///    这是本文件存在的首要原因，不允许为通过而放宽。
 ///
-/// 2. **总数 == 81**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+/// 2. **总数 == 87**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -26,7 +27,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// 属正常设计，不必也不该强制 Dart 调用。
 void main() {
   /// 仓库根目录。`flutter test` 的 cwd 是项目根，但为兼容从子目录运行做了探测。
-  final root = _projectRoot();
+  final root = projectRoot();
 
   /// 原生 MethodChannel 方法名 → 定义它的 handler 文件。
   final native = _nativeChannelMethods(root);
@@ -82,21 +83,6 @@ void main() {
       );
     });
   });
-}
-
-/// 探测仓库根目录。
-String _projectRoot() {
-  final candidates = ['../..', '..', '.'];
-  for (final rel in candidates) {
-    if (File(
-      '$rel/android/app/src/main/kotlin/com/fnthink/notice/channels/'
-      'ChannelDispatcher.kt',
-    ).existsSync()) {
-      return rel;
-    }
-  }
-  if (File('CHANGELOG.md').existsSync()) return '.';
-  throw StateError('未找到仓库根目录（channels/*.kt 不存在）');
 }
 
 /// 解析 Kotlin ChannelHandler 中的 `"methodName" ->` 分支。

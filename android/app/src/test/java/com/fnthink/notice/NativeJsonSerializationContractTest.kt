@@ -71,15 +71,6 @@ class NativeJsonSerializationContractTest {
         return stripComments(source.substring(bodyStart, i + 1))
     }
 
-    private fun stripComments(code: String): String {
-        val noBlock = Regex("""/\*[\s\S]*?\*/""").replace(code, " ")
-        return noBlock.lineSequence()
-            .joinToString("\n") { line ->
-                val idx = line.indexOf("//")
-                if (idx >= 0) line.substring(0, idx) else line
-            }
-    }
-
     /**
      * 全标量扁平结构白名单：这些函数接收 `List<Map<...>>` 但**不存在嵌套字段风险**：
      * - `setWebhookChannels` / `setBatteryRules`：逐字段显式取标量（String/Int/Boolean）；

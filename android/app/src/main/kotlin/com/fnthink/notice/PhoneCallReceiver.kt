@@ -24,6 +24,9 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
 
+        // 冷启动入口：先恢复推送暂停状态，否则已暂停仍会推来电通知
+        PushToggleManager.ensureInit(context)
+
         try {
             val configManager = ConfigManager(context)
             val channelConfigs = configManager.getWebhookChannelConfigs()

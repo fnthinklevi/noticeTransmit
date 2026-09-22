@@ -26,6 +26,23 @@ function isPlainObject(value) {
 // 字段级校验：版本配置必填字段与类型
 // 当前契约：downloads/fileSizes 对象（admin.html saveVersion 提交）；
 // 兼容旧契约：downloadUrl/fileSize 单字段（历史客户端）。
+/// version.json 的合法字段（保存接口只接受这些键，其余忽略不落盘）。
+/// 前 10 项为当前契约；`downloadUrl` / `fileSize` 是旧版客户端仍读的兼容字段。
+const VERSION_CONFIG_FIELDS = [
+  'latestVersion',
+  'latestBuild',
+  'forceUpdate',
+  'forceUpdateVersion',
+  'forceUpdateBuild',
+  'changelog',
+  'downloads',
+  'fileSizes',
+  'sha256',
+  'minSupportedVersion',
+  'downloadUrl',
+  'fileSize',
+];
+
 function validateVersionConfig(body) {
   const errors = [];
   // latestVersion: 必填、非空字符串
@@ -219,15 +236,26 @@ router.post('/api/admin/version', authMiddleware, (req, res) => {
     if (errors.length > 0) {
       return res.status(400).json({ code: -4, message: `字段校验失败: ${errors.join('; ')}` });
     }
+    // 白名单投影后再落盘：`writeJsonFile(body)` 原样入库会把请求体的任意字段写进
+    // version.json，而该文件经公开接口 /api/admin/version 完整回显 —— 等于让管理员
+    // 会话把服务器变成任意键值的存储（mass assignment + 公开回显）。
+    const safe = {};
+    for (const key of VERSION_CONFIG_FIELDS) {
+      if (body[key] !== undefined) safe[key] = body[key];
+    }
+    const ignored = Object.keys(body).filter((k) => !VERSION_CONFIG_FIELDS.includes(k));
+    if (ignored.length > 0) {
+      console.warn(`[version] 已忽略未知字段（不落盘）：${ignored.join(', ')}`);
+    }
     // N3：admin.html 的 saveVersion 不含 sha256 字段——直接覆盖会丢掉发版时写入的
     // 传输层校验值。body 未提供 sha256 时沿用既有配置（显式提交的 sha256 仍可覆盖）。
-    if (body.sha256 === undefined) {
+    if (safe.sha256 === undefined) {
       const existing = store.readJsonFile(store.VERSION_FILE, {});
       if (isPlainObject(existing) && existing.sha256 !== undefined) {
-        body.sha256 = existing.sha256;
+        safe.sha256 = existing.sha256;
       }
     }
-    const success = store.writeJsonFile(store.VERSION_FILE, body);
+    const success = store.writeJsonFile(store.VERSION_FILE, safe);
     res.json({
       code: success ? 0 : -1,
       message: success ? '保存成功' : '保存失败'

@@ -47,17 +47,6 @@ class ForegroundNotificationContractTest {
         )
     }
 
-    private fun stripComments(source: String): String {
-        val withoutBlock = source.replace(Regex("/\\*[\\s\\S]*?\\*/"), "")
-        return withoutBlock
-            .split('\n')
-            .map { line ->
-                val idx = line.indexOf("//")
-                if (idx >= 0) line.substring(0, idx) else line
-            }
-            .joinToString("\n")
-    }
-
     @Test
     fun `onDestroy 显式清理常驻通知（进程终止不得残留）`() {
         val onDestroyBlock = extractFunction(serviceSource, "override fun onDestroy()")

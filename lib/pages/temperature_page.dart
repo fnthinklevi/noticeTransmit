@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../l10n/app_localizations.dart';
@@ -116,9 +117,9 @@ class _TemperaturePageState extends State<TemperaturePage> {
             color: AppColors.secondaryLabel(context),
           ),
         ),
-        trailing: Switch(
+        trailing: CupertinoSwitch(
           value: enabled,
-          activeThumbColor: AppColors.blue,
+          activeTrackColor: AppColors.blue,
           onChanged: (v) => widget.onToggleRule(id, v),
         ),
       ),

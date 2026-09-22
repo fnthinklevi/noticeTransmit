@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/models/notification_record.dart';
-import 'package:notice_transmit/models/battery_rule.dart';
 import 'package:notice_transmit/models/webhook_channel.dart';
 
 void main() {
@@ -82,150 +81,12 @@ void main() {
     });
   });
 
-  group('BatteryRuleType', () {
-    test('fromValue returns correct type', () {
-      expect(
-        BatteryRuleTypeExtension.fromValue('charging'),
-        BatteryRuleType.charging,
-      );
-      expect(
-        BatteryRuleTypeExtension.fromValue('discharging'),
-        BatteryRuleType.discharging,
-      );
-      expect(
-        BatteryRuleTypeExtension.fromValue('level_above'),
-        BatteryRuleType.levelAbove,
-      );
-      expect(
-        BatteryRuleTypeExtension.fromValue('level_below'),
-        BatteryRuleType.levelBelow,
-      );
-      expect(
-        BatteryRuleTypeExtension.fromValue('level_equals'),
-        BatteryRuleType.levelEquals,
-      );
-    });
-
-    test('fromValue handles unknown value', () {
-      expect(
-        BatteryRuleTypeExtension.fromValue('unknown'),
-        BatteryRuleType.charging,
-      );
-    });
-
-    test('value getter returns correct string', () {
-      expect(BatteryRuleType.charging.value, 'charging');
-      expect(BatteryRuleType.discharging.value, 'discharging');
-      expect(BatteryRuleType.levelAbove.value, 'level_above');
-      expect(BatteryRuleType.levelBelow.value, 'level_below');
-      expect(BatteryRuleType.levelEquals.value, 'level_equals');
-    });
-
-    test('label getter returns correct label', () {
-      expect(BatteryRuleType.charging.label, '开始充电');
-      expect(BatteryRuleType.discharging.label, '断开充电');
-      expect(BatteryRuleType.levelAbove.label, '高于某值');
-      expect(BatteryRuleType.levelBelow.label, '低于某值');
-      expect(BatteryRuleType.levelEquals.label, '等于某值');
-    });
-
-    test('hasValue returns correct boolean', () {
-      expect(BatteryRuleType.charging.hasValue, false);
-      expect(BatteryRuleType.discharging.hasValue, false);
-      expect(BatteryRuleType.levelAbove.hasValue, true);
-      expect(BatteryRuleType.levelBelow.hasValue, true);
-      expect(BatteryRuleType.levelEquals.hasValue, true);
-    });
-  });
-
-  group('BatteryRule', () {
-    test('fromMap handles null values', () {
-      final rule = BatteryRule.fromMap({});
-      expect(rule.id, '');
-      expect(rule.type, BatteryRuleType.charging);
-      expect(rule.value, 0);
-      expect(rule.enabled, true);
-      expect(rule.title, '');
-      expect(rule.content, '');
-    });
-
-    test('fromMap with partial data', () {
-      final rule = BatteryRule.fromMap({
-        'id': 'low20',
-        'type': 'level_below',
-        'value': 20,
-        'enabled': false,
-      });
-      expect(rule.id, 'low20');
-      expect(rule.type, BatteryRuleType.levelBelow);
-      expect(rule.value, 20);
-      expect(rule.enabled, false);
-    });
-
-    test('toMap round-trip', () {
-      final original = BatteryRule(
-        id: 'rule-1',
-        type: BatteryRuleType.levelBelow,
-        value: 20,
-        enabled: true,
-        title: '低电量提醒',
-        content: '电量低于20%',
-      );
-      final map = original.toMap();
-      final deserialized = BatteryRule.fromMap(map);
-      expect(deserialized.id, original.id);
-      expect(deserialized.type, original.type);
-      expect(deserialized.value, original.value);
-      expect(deserialized.enabled, original.enabled);
-      expect(deserialized.title, original.title);
-      expect(deserialized.content, original.content);
-    });
-
-    test('copyWith works correctly', () {
-      final original = BatteryRule(
-        id: 'id-1',
-        type: BatteryRuleType.charging,
-        enabled: true,
-      );
-      final updated = original.copyWith(
-        type: BatteryRuleType.levelBelow,
-        value: 30,
-        enabled: false,
-      );
-      expect(updated.id, 'id-1');
-      expect(updated.type, BatteryRuleType.levelBelow);
-      expect(updated.value, 30);
-      expect(updated.enabled, false);
-    });
-
-    test('defaultRules returns correct rules', () {
-      final rules = BatteryRule.defaultRules();
-      expect(rules.length, 5);
-      expect(rules[0].type, BatteryRuleType.charging);
-      expect(rules[1].type, BatteryRuleType.levelAbove);
-      expect(rules[1].value, 100);
-      expect(rules[2].type, BatteryRuleType.levelBelow);
-      expect(rules[2].value, 30);
-      expect(rules[3].type, BatteryRuleType.levelBelow);
-      expect(rules[3].value, 20);
-      expect(rules[4].type, BatteryRuleType.discharging);
-      expect(rules[4].enabled, false);
-    });
-  });
-
   group('WebhookChannelType', () {
     test('value getter returns correct string', () {
       expect(WebhookChannelType.generic.value, 'generic');
       expect(WebhookChannelType.wechatWork.value, 'wechat_work');
       expect(WebhookChannelType.dingtalk.value, 'dingtalk');
       expect(WebhookChannelType.feishu.value, 'feishu');
-    });
-
-    test('label getter returns correct label', () {
-      expect(WebhookChannelType.generic.label, '通用 Webhook');
-      expect(WebhookChannelType.wechatWork.label, '企业微信群机器人');
-      expect(WebhookChannelType.dingtalk.label, '钉钉群机器人');
-      expect(WebhookChannelType.feishu.label, '飞书群机器人');
     });
   });
 

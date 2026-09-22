@@ -36,6 +36,7 @@ class _RuleListPageState extends State<RuleListPage> {
     final prefs = await SharedPreferences.getInstance();
     final hasSeenGuide = prefs.getBool('rule_engine_guide_seen') ?? false;
     if (!hasSeenGuide) {
+      if (!mounted) return;
       setState(() => _showGuide = true);
       await prefs.setBool('rule_engine_guide_seen', true);
     }

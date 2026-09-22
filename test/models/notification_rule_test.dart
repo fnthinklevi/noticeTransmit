@@ -14,15 +14,6 @@ void main() {
       expect(ConditionType.regexMatch.value, 'regex_match');
     });
 
-    test('label returns correct display text', () {
-      expect(ConditionType.packageName.label, '应用包名');
-      expect(ConditionType.titleContains.label, '标题包含');
-      expect(ConditionType.contentContains.label, '内容包含');
-      expect(ConditionType.priority.label, '通知优先级');
-      expect(ConditionType.timeRange.label, '时间范围');
-      expect(ConditionType.regexMatch.label, '正则表达式');
-    });
-
     test('fromValue parses correctly', () {
       expect(
         ConditionTypeExtension.fromValue('package_name'),
@@ -47,11 +38,6 @@ void main() {
     test('value returns correct string', () {
       expect(LogicOperator.and.value, 'and');
       expect(LogicOperator.or.value, 'or');
-    });
-
-    test('label returns correct display text', () {
-      expect(LogicOperator.and.label, '且');
-      expect(LogicOperator.or.label, '或');
     });
 
     test('fromValue parses correctly', () {
@@ -118,20 +104,6 @@ void main() {
       expect(ActionType.delay.value, 'delay');
       expect(ActionType.merge.value, 'merge');
       expect(ActionType.record.value, 'record');
-    });
-
-    test('label returns correct display text', () {
-      expect(ActionType.push.label, '推送通知');
-      expect(ActionType.silent.label, '静默忽略');
-      expect(ActionType.delay.label, '延迟推送');
-      expect(ActionType.merge.label, '合并推送');
-      expect(ActionType.record.label, '仅记录');
-    });
-
-    test('description returns correct description', () {
-      expect(ActionType.push.description, '将通知推送到指定渠道');
-      expect(ActionType.silent.description, '不推送，静默处理');
-      expect(ActionType.delay.description, '延迟一段时间后推送');
     });
 
     test('fromValue parses correctly', () {

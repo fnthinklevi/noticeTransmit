@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
+import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -372,11 +374,8 @@ class _BatteryPageState extends State<BatteryPage> {
     String selectedType = existingRule?['type'] ?? 'level_below';
     int selectedValue = existingRule?['value'] ?? 20;
     // v1.59 温度维度：温度类型用 ℃ 滑块（30-90℃），电量类型用 % 滑块
-    final isTempType = [
-      'battery_temp_above',
-      'device_temp_above',
-      'screen_temp_above',
-    ].contains(selectedType);
+    // 类型集合取 TemperatureService.tempRuleTypes（Dart 侧唯一定义处，与原生同字面量）
+    final isTempType = TemperatureService.tempRuleTypes.contains(selectedType);
 
     showDialog(
       context: context,
@@ -800,7 +799,7 @@ class _BatteryPageState extends State<BatteryPage> {
             ),
           ),
           trailing ?? const SizedBox.shrink(),
-          Switch(value: value, onChanged: onChanged),
+          CupertinoSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );

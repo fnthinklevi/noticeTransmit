@@ -172,4 +172,22 @@ class AppColors {
   static const Color purple = Color(0xFFAF52DE);
   static const Color cyan = Color(0xFF5AC8FA);
   static const Color yellow = Color(0xFFFFCC00);
+  static const Color indigo = Color(0xFF5856D6);
+  static const Color teal = Color(0xFF00C7BE);
+  static const Color pink = Color(0xFFFF2D55);
+
+  /// 应用头像/渠道标识的固定色板（按名称哈希取色，不随明暗模式变化）。
+  /// 集中在此而非散落在页面里：满足「颜色一律取自 AppColors」的规范，
+  /// 且顺序即取色结果，改动会让既有记录的颜色跳变。
+  static const List<Color> avatarPalette = <Color>[
+    blue,
+    orange,
+    green,
+    red,
+    purple,
+    indigo,
+    teal,
+    pink,
+    yellow,
+  ];
 }

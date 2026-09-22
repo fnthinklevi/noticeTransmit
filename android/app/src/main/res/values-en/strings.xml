@@ -5,4 +5,5 @@
     <string name="widget_label_toggle_4x2">Push Toggle (4×2)</string>
     <string name="widget_desc_toggle_2x2">Start or pause notification push with one tap and see the live status</string>
     <string name="widget_desc_toggle_4x2">Toggle notification push and show today\'s pushed notification count</string>
+    <string name="service_label_monitor">Notification Monitor Service</string>
 </resources>

@@ -133,9 +133,41 @@ function getClientIp(req) {
   return req.ip || 'unknown';
 }
 
+/**
+ * 限流键的路由桶：把请求者可控的任意路径收敛为固定少数几类，
+ * 否则每个探测路径都会新建一条记录并整体落盘（内存/文件无上限增长）。
+ */
+function rateLimitBucket(path) {
+  const p = String(path || '');
+  if (p.startsWith('/api/admin')) return 'api-admin';
+  if (p.startsWith('/api/')) return 'api';
+  return 'static';
+}
+
 // ========== 会话 ==========
 
-const sessions = {};
+// 必须用 null 原型：`{}` 会经原型链命中，`sessions['__proto__']` / `sessions['constructor']`
+// 返回真值对象，使「请求头带的会话键恰为原型属性名」被误判为有效会话 → 无凭据通过认证。
+const sessions = Object.create(null);
+
+/**
+ * 会话是否有效。三重判定：键为自有属性（排除原型链命中）+ 记录存在 + 确实已认证。
+ * 攻击者可控的 x-session-id 只能走到这里，不再能借原型链绕过。
+ */
+function isValidSession(sessionId) {
+  if (typeof sessionId !== 'string' || sessionId === '') return false;
+  if (!Object.prototype.hasOwnProperty.call(sessions, sessionId)) return false;
+  const s = sessions[sessionId];
+  return !!s && s.authenticated === true;
+}
+
+/** 吊销全部会话（二步验证开关等凭据状态变更后必须重新登录） */
+function revokeAllSessions(reason) {
+  const ids = Object.keys(sessions);
+  for (const id of ids) delete sessions[id];
+  saveSessions();
+  console.log(`[auth] 已吊销全部会话（${ids.length} 条）：${reason || '未说明'}`);
+}
 
 function saveSessions() {
   writeJsonFile(SESSIONS_FILE, sessions);
@@ -172,12 +204,29 @@ function generateSessionId() {
 
 // ========== IP 封锁 ==========
 
+// 内存为准 + 变更落盘。原实现每个非公开请求都 existsSync + readFileSync + JSON.parse
+// 一个文件（`isIpBlocked` 在中间件里逐请求调用），同步 IO 压在事件循环上，负载下
+// 等于自我 DoS。启动后首次访问读入，此后读写走内存。
+let blockedIPsCache = null;
+
 function getBlockedIPs() {
-  return readJsonFile(BLOCK_FILE, []);
+  if (blockedIPsCache === null) {
+    const saved = readJsonFile(BLOCK_FILE, []);
+    const now = Date.now();
+    // 读入即剔除已过期封锁，行为与原来的惰性剔除一致但只做一次
+    blockedIPsCache = Array.isArray(saved)
+      ? saved.filter((item) => item && item.unblockTime > now)
+      : [];
+    if (Array.isArray(saved) && blockedIPsCache.length !== saved.length) {
+      writeJsonFile(BLOCK_FILE, blockedIPsCache);
+    }
+  }
+  return blockedIPsCache;
 }
 
 function saveBlockedIPs(ips) {
-  return writeJsonFile(BLOCK_FILE, ips);
+  blockedIPsCache = Array.isArray(ips) ? ips : [];
+  return writeJsonFile(BLOCK_FILE, blockedIPsCache);
 }
 
 function isIpBlocked(ip) {
@@ -370,6 +419,48 @@ function saveTotpConfig(config) {
   return writeJsonFile(TOTP_FILE, saveConfig);
 }
 
+// ========== 恢复码原子消费 ==========
+
+// 同进程认证临界区（串行队列）。恢复码的「读配置 → bcrypt 校验 → 核销 → 落盘」中间有
+// await（bcrypt.compare 会让出事件循环），并发请求各自读到同一份 recoveryCodes 数组，
+// 最后一个写盘者覆盖前一个 → 同一个「一次性」恢复码可被重复使用，等于绕过二步验证。
+let authChain = Promise.resolve();
+
+function withAuthLock(task) {
+  const result = authChain.then(() => task());
+  // 队列必须与前序结果解耦：前一个请求抛错不得卡死后续认证
+  authChain = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+/**
+ * 原子核销一个恢复码。锁内**重新读取**配置，因此并发重放的第二个请求看到的是
+ * 已被前序请求移除后的集合。
+ * @param {string} plainCode 用户提交的明文恢复码
+ * @returns {Promise<boolean>} true = 本次核销成功（该码此前未被使用）
+ */
+function consumeRecoveryCode(plainCode) {
+  return withAuthLock(async () => {
+    const config = getTotpConfig();
+    if (!config || !Array.isArray(config.recoveryCodes) || !plainCode) return false;
+    for (let i = 0; i < config.recoveryCodes.length; i++) {
+      let matched = false;
+      try {
+        matched = await bcrypt.compare(plainCode, config.recoveryCodes[i]);
+      } catch (e) {
+        console.error('恢复码校验异常:', e.message);
+        matched = false;
+      }
+      if (matched) {
+        config.recoveryCodes.splice(i, 1);
+        saveTotpConfig(config);
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
 async function generateRecoveryCodes() {
   const codes = [];
   const hashedCodes = [];
@@ -405,10 +496,13 @@ module.exports = {
   cleanupRateLimitStore,
   getClientIp,
   sessions,
+  isValidSession,
+  revokeAllSessions,
   saveSessions,
   cleanupSessions,
   generateSessionId,
   getBlockedIPs,
+  rateLimitBucket,
   saveBlockedIPs,
   isIpBlocked,
   blockIp,
@@ -419,5 +513,6 @@ module.exports = {
   getRemainingAttempts,
   getTotpConfig,
   saveTotpConfig,
+  consumeRecoveryCode,
   generateRecoveryCodes,
 };

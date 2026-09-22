@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/webhook_channel.dart';
@@ -36,6 +37,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   late List<WebhookMessageFormat> _messageFormats;
   // 渠道类型：'auto' 表示自动识别（按 URL host 探测），否则为用户手动指定的类型值
   late List<String> _channelTypes;
+  // 各行的既有通道 id，与上面所有列表**并行同下标**。删除行时必须同步 removeAt：
+  // widget.webhookChannels 是 final 输入、不会随删除收缩，按其下标取 id 会让
+  // 删掉第 1 条后其余各行继承错位的 id（保存走 delete+insert，健康缓存/送达归属全错）。
+  late List<String?> _channelIds;
   bool _isTesting = false;
   // 通道健康探测（P2）：channelId → {reachable, latencyMs, httpCode, probedAt}
   Map<String, Map<String, dynamic>> _healthResults = {};
@@ -349,6 +354,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           'auto';
       return t.isEmpty ? 'auto' : t;
     }).toList();
+    _channelIds = widget.webhookChannels
+        .map((c) => c['id'] as String?)
+        .toList();
     if (_webhookControllers.isEmpty) {
       _webhookControllers.add(TextEditingController());
       _nameControllers.add(TextEditingController());
@@ -361,6 +369,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
       _channelTypes.add('auto');
+      _channelIds.add(null);
     }
     // 进入设置页即读取缓存健康状态；启用的通道超 6 小时未探测则后台刷新
     _loadHealthCache();
@@ -433,6 +442,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
       _channelTypes.add('auto');
+      _channelIds.add(null);
     });
   }
 
@@ -453,6 +463,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _secretVisible.removeAt(index);
       _messageFormats.removeAt(index);
       _channelTypes.removeAt(index);
+      _channelIds.removeAt(index);
       if (_webhookControllers.isEmpty) {
         _webhookControllers.add(TextEditingController());
         _nameControllers.add(TextEditingController());
@@ -465,6 +476,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _secretVisible.add(false);
         _messageFormats.add(WebhookMessageFormat.defaultFormat);
         _channelTypes.add('auto');
+        _channelIds.add(null);
       }
     });
   }
@@ -492,9 +504,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final secret = _secretControllers[i].text.trim();
       if (url.isNotEmpty) {
         // 保留已有通道 id（webhook_channels.id 是 PRIMARY KEY，缺失会被 replace 覆盖）
-        final existingId = i < widget.webhookChannels.length
-            ? widget.webhookChannels[i]['id'] as String?
-            : null;
+        // 取并行列表 _channelIds —— 不能按 i 读 widget.webhookChannels：那是 final
+        // 输入、不随删除收缩，删过一行后其余行会继承错位的 id（保存走 delete+insert，
+        // 健康缓存 channel_health_<id> 与送达归属会整体串台）。
+        final existingId = i < _channelIds.length ? _channelIds[i] : null;
         // 渠道类型：手动指定优先（自建 Telegram/Bark 代理等场景），'auto' 才按 URL host 探测
         final manualType = _channelTypes[i];
         final channelType = (manualType == 'auto' || manualType.isEmpty)
@@ -553,6 +566,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final message = result['message'] as String? ?? l10n.unknownError;
       final signed = result['signed'] as bool? ?? false;
 
+      if (!mounted) return;
       setState(() {
         _isTesting = false;
         _testSuccess = success;

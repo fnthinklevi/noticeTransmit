@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
@@ -85,6 +86,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
       final canSchedule = await _permissionService.canScheduleExactAlarms();
       if (!canSchedule) {
         // 用户未授权：不强制开启，提示后保持关闭（原生端未授权时自动降级非精确闹钟）
+        if (!mounted) return;
         setState(() => _exactAlarmEnabled = false);
         return;
       }
@@ -481,7 +483,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               ],
             ),
           ),
-          Switch(
+          CupertinoSwitch(
             value: _exactAlarmEnabled,
             onChanged: _onToggleExactAlarm,
             activeTrackColor: AppColors.green,

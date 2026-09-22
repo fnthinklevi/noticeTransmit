@@ -148,11 +148,20 @@ class NotificationMonitorService : NotificationListenerService() {
         registerDelayedPushReceiver()
         registerMergePushReceiver()
 
-            batteryMonitor.setNotificationCallback { batteryInfo ->
-                webhookSender.sendNotification(batteryInfo)
-                appChannelSender.sendNotification(batteryInfo)
-                dispatchEmail(batteryInfo)
-                Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
+        // 轮询 Handler 绑的是主 Looper（BatteryMonitor.pollingRunnable），回调体就在
+        // 主线程执行；而 AppChannelSender 内部 runBlocking 取 token 后再同步发 HTTP，
+        // 留在主线程会 ANR。与 batteryChangedReceiver.onReceive 同规，交 IO 协程。
+        batteryMonitor.setNotificationCallback { batteryInfo ->
+            serviceScope.launch {
+                try {
+                    webhookSender.sendNotification(batteryInfo)
+                    appChannelSender.sendNotification(batteryInfo)
+                    dispatchEmail(batteryInfo)
+                    Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Battery polling dispatch failed", e)
+                }
+            }
         }
 
         loadConfig()
@@ -337,13 +346,23 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     }
 
-    /** 服务存活心跳：持久化到 prefs，供冷启动补扫判定「服务中断时长」 */
+    /** 服务存活心跳：持久化到 prefs，供冷启动补扫判定「服务中断时长 */
+    @Volatile
+    private var lastAliveWritten: Long = 0L
+
     private fun touchAlive() {
         try {
+            val now = System.currentTimeMillis()
+            // 心跳的语义是「只有落盘才能判定服务是否中断过」（见补扫注释）：apply() 在
+            // 进程被强杀时可能整笔丢失 → 冷启动读到陈旧心跳 → 补扫 → 重复推送。
+            // 但逐条 commit() 会把同步磁盘 IO 压在通知风暴的主线程上。折中：节流到
+            // 30 秒一次 commit()（本方法只在主线程回调里被调用，无并发）。
+            if (now - lastAliveWritten < 30_000L) return
+            lastAliveWritten = now
             getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
-                .putLong(PREF_LAST_ALIVE, System.currentTimeMillis())
-                .apply()
+                .putLong(PREF_LAST_ALIVE, now)
+                .commit()
         } catch (_: Exception) {}
     }
 
@@ -393,6 +412,14 @@ class NotificationMonitorService : NotificationListenerService() {
                 unregisterReceiver(it)
             } catch (_: Exception) {}
         }
+        // 聚合到点接收器同样必须注销：只注册不注销会让系统持有本 Service 引用
+        // （连带 MergePushManager / NotificationProcessor / Handler）直到进程结束。
+        mergePushReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {}
+        }
+        mergePushReceiver = null
         delayedPushReceiver = null
         batteryMonitor.stopPolling()
         cancelRebindRetry()
@@ -516,6 +543,33 @@ class NotificationMonitorService : NotificationListenerService() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing notification", e)
+                // 兜底降级历史：本 catch 此前只写 logcat，于是提取阶段（processNotification）
+                // 一旦抛异常，这条通知**既不入历史也不推送**，用户完全无从得知内容丢了。
+                // 这里只使用 sbn 直接可得的字段（不再调 PackageManager，避免二次抛错），
+                // 正文不含通知内容与异常细节（与日志脱敏同规）。
+                try {
+                    val now = System.currentTimeMillis()
+                    val timeStr = java.text.SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm:ss",
+                        java.util.Locale.getDefault(),
+                    ).format(java.util.Date(sbn.postTime))
+                    webhookSender.sendBroadcast(
+                        NotificationInfo(
+                            id = "${sbn.packageName}:${sbn.tag}:${sbn.id}:$now",
+                            title = I18n.processFailedTitle(),
+                            content = I18n.processFailedBody(),
+                            subText = "",
+                            packageName = sbn.packageName ?: "",
+                            appName = sbn.packageName ?: "",
+                            postTime = sbn.postTime,
+                            time = timeStr,
+                            type = "notification",
+                            deviceName = PrefsHelper.deviceName,
+                        ),
+                    )
+                } catch (e2: Exception) {
+                    Log.e(TAG, "降级历史记录也失败", e2)
+                }
             }
         }
     }
@@ -580,6 +634,8 @@ class NotificationMonitorService : NotificationListenerService() {
     private fun readMonitoringEnabled(): Boolean {
         return try {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            // 缺失兜底取 true：服务已存活说明用户在用，宁可多推也不静默停推。
+            // 首页状态查询的兜底不同（按监听器实际绑定态），见 MainActivity.isMonitoringEnabled
             prefs.getBoolean(PREF_MONITORING_ENABLED, true)
         } catch (e: Exception) {
             true
@@ -827,10 +883,18 @@ class NotificationMonitorService : NotificationListenerService() {
 
                     val batteryInfo = batteryMonitor.checkBatteryAndNotify()
                     if (batteryInfo != null) {
-                        webhookSender.sendNotification(batteryInfo)
-                appChannelSender.sendNotification(batteryInfo)
-                        dispatchEmail(batteryInfo)
-                        Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
+                        // onReceive 在主线程：推送必须交 IO 协程。AppChannelSender 内部
+                        // runBlocking 取 token 后再同步发 HTTP，留在主线程会 ANR。
+                        serviceScope.launch {
+                            try {
+                                webhookSender.sendNotification(batteryInfo)
+                                appChannelSender.sendNotification(batteryInfo)
+                                dispatchEmail(batteryInfo)
+                                Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Battery alert dispatch failed", e)
+                            }
+                        }
                     }
 
                     val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1

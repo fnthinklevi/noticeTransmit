@@ -4724,6 +4724,168 @@ abstract class AppLocalizations {
   /// **'保存失败：'**
   String get appChannelSaveFailed;
 
+  /// No description provided for @channelStateEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已启用'**
+  String get channelStateEnabled;
+
+  /// No description provided for @channelStateDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已停用'**
+  String get channelStateDisabled;
+
+  /// No description provided for @appChannelErrNameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：通道名称不能为空'**
+  String get appChannelErrNameRequired;
+
+  /// No description provided for @appChannelErrBaseUrlRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：API 地址不能为空'**
+  String get appChannelErrBaseUrlRequired;
+
+  /// No description provided for @priorityBadgeHigh.
+  ///
+  /// In zh, this message translates to:
+  /// **'高'**
+  String get priorityBadgeHigh;
+
+  /// No description provided for @priorityBadgeLow.
+  ///
+  /// In zh, this message translates to:
+  /// **'低'**
+  String get priorityBadgeLow;
+
+  /// No description provided for @channelBadgeFallback.
+  ///
+  /// In zh, this message translates to:
+  /// **'通'**
+  String get channelBadgeFallback;
+
+  /// No description provided for @storageRootPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储根目录{path}'**
+  String storageRootPath(String path);
+
+  /// No description provided for @recordTypeSms.
+  ///
+  /// In zh, this message translates to:
+  /// **'短信'**
+  String get recordTypeSms;
+
+  /// No description provided for @recordTypeCallIncoming.
+  ///
+  /// In zh, this message translates to:
+  /// **'来电'**
+  String get recordTypeCallIncoming;
+
+  /// No description provided for @recordTypeCallAnswered.
+  ///
+  /// In zh, this message translates to:
+  /// **'接听'**
+  String get recordTypeCallAnswered;
+
+  /// No description provided for @recordTypeCallEnded.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂断'**
+  String get recordTypeCallEnded;
+
+  /// No description provided for @recordTypeWechat.
+  ///
+  /// In zh, this message translates to:
+  /// **'微信'**
+  String get recordTypeWechat;
+
+  /// No description provided for @recordTypeQq.
+  ///
+  /// In zh, this message translates to:
+  /// **'QQ'**
+  String get recordTypeQq;
+
+  /// No description provided for @recordTypeAlipay.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付宝'**
+  String get recordTypeAlipay;
+
+  /// No description provided for @recordTypeSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统'**
+  String get recordTypeSystem;
+
+  /// No description provided for @recordTypeTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试'**
+  String get recordTypeTest;
+
+  /// No description provided for @recordTypeCharging.
+  ///
+  /// In zh, this message translates to:
+  /// **'充电'**
+  String get recordTypeCharging;
+
+  /// No description provided for @recordTypeFull.
+  ///
+  /// In zh, this message translates to:
+  /// **'充满'**
+  String get recordTypeFull;
+
+  /// No description provided for @recordTypeLow30.
+  ///
+  /// In zh, this message translates to:
+  /// **'低电量30%'**
+  String get recordTypeLow30;
+
+  /// No description provided for @recordTypeLow20.
+  ///
+  /// In zh, this message translates to:
+  /// **'低电量20%'**
+  String get recordTypeLow20;
+
+  /// No description provided for @recordTypeNotification.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知'**
+  String get recordTypeNotification;
+
+  /// No description provided for @emailHintPort.
+  ///
+  /// In zh, this message translates to:
+  /// **'465 (SSL) 或 587 (STARTTLS)'**
+  String get emailHintPort;
+
+  /// No description provided for @emailHintPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'SMTP 授权码（非邮箱密码）'**
+  String get emailHintPassword;
+
+  /// No description provided for @emailHintRecipients.
+  ///
+  /// In zh, this message translates to:
+  /// **'可多个，逗号分隔'**
+  String get emailHintRecipients;
+
+  /// No description provided for @emailHintSubjectDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认：🔔 %appName% — %title%'**
+  String get emailHintSubjectDefault;
+
+  /// No description provided for @emailHintBodyDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认：\n【通知转发】\n\n应用：%appName%\n标题：%title%\n内容：%content%\n...'**
+  String get emailHintBodyDefault;
+
   /// No description provided for @channelTypeFeishuApp.
   ///
   /// In zh, this message translates to:

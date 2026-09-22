@@ -26,7 +26,10 @@ object SecurePrefs {
     private const val TAG = "SecurePrefs"
     private const val FILE_NAME = "FlutterSecureStorage"
 
-    private val cache = HashMap<Context, SharedPreferences>()
+    // 该访问器会被 IO 线程（WebhookSender / AppChannelSender / 协程）与主线程并发调用，
+    // 裸 HashMap 并发读写会丢条目甚至抛 ConcurrentModificationException——
+    // 表现为偶发「读到空通道配置」。构建可能重复一次，但返回值一律取已入表的那个。
+    private val cache = java.util.concurrent.ConcurrentHashMap<Context, SharedPreferences>()
 
     /** 与 flutter_secure_storage 的 initializeEncryptedSharedPreferencesManager 参数一致 */
     private fun buildMasterKey(context: Context): MasterKey {

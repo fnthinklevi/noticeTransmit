@@ -472,7 +472,13 @@ class NotificationProcessor(private val context: Context) {
             }
         }
 
-        val channelId = sbn.notification?.channelId
+        // Notification.getChannelId() 自 API 26 起（minSdk 24）：低版本裸调用抛
+        // NoSuchMethodError，而它是 Error、不被本文件随处可见的 catch (Exception) 兜住。
+        val channelId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            sbn.notification?.channelId
+        } else {
+            null
+        }
         if (!channelId.isNullOrEmpty()) {
             val channelLower = channelId.lowercase()
 

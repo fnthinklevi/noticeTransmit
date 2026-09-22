@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../support/source_guards.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// app_channels 表 schema 契约守卫（静态源码断言，**注释已剥离**）。
@@ -30,11 +31,11 @@ class _SchemaFixture {
 }
 
 void main() {
-  final root = _projectRoot();
-  final dbSource = _stripComments(
+  final root = projectRoot();
+  final dbSource = stripComments(
     File('$root/lib/database/database_helper.dart').readAsStringSync(),
   );
-  final serviceSource = _stripComments(
+  final serviceSource = stripComments(
     File('$root/lib/services/app_channel_service.dart').readAsStringSync(),
   );
 
@@ -114,26 +115,6 @@ void main() {
       );
     });
   });
-}
-
-/// 仓库根探测（与既有守卫一致：兼容从项目根或子目录运行）。
-String _projectRoot() {
-  for (final rel in const ['../..', '..', '.']) {
-    if (File('$rel/pubspec.yaml').existsSync()) return rel;
-  }
-  throw StateError('未找到项目根目录（pubspec.yaml）');
-}
-
-/// 剥离注释：避免注释中的示例 SQL / 列名造成误判（项目既有教训）。
-String _stripComments(String source) {
-  final withoutBlock = source.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), '');
-  return withoutBlock
-      .split('\n')
-      .map((line) {
-        final idx = line.indexOf('//');
-        return idx >= 0 ? line.substring(0, idx) : line;
-      })
-      .join('\n');
 }
 
 /// 提取 app_channels 的建表列集合（每处一个 Set）。

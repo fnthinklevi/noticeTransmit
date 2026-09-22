@@ -286,6 +286,22 @@ fun serviceListenerDisconnected(): String = if (isEn)
     /** 成员记录送达补标文案（MERGE 伪通道，success） */
     fun mergeDeliveredLabel(): String = if (isEn) "Delivered as merged push" else "已合并推送"
 
+    /**
+     * 通知处理失败时的降级历史（提取/过滤/分发任一步抛异常）。
+     * 此前只写 logcat，release 下用户完全无感 —— 该通知既不入历史也不推送，内容静默消失。
+     * 正文刻意不含通知内容与异常堆栈（隐私：日志脱敏同样适用于历史）。
+     */
+    fun processFailedTitle(): String =
+        if (isEn) "Notification processing failed" else "通知处理失败"
+
+    fun processFailedBody(): String =
+        if (isEn) {
+            "This notification could not be processed or pushed. " +
+                "Check the app logs for details."
+        } else {
+            "这条通知处理失败，未推送。详细信息见应用日志。"
+        }
+
     /** 前台通知聚合预览：摘要行 */
     fun mergePendingSummary(count: Int): String =
         if (isEn) "Merging $count notification(s)…" else "正在合并 $count 条通知…"

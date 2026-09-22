@@ -6,6 +6,5 @@ export 'permission_service.dart';
 export 'filter_service.dart';
 export 'update_service.dart';
 export 'device_info_service.dart';
-export 'retry_service.dart';
 export 'backup_service.dart';
 export 'channel_display.dart';

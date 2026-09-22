@@ -44,7 +44,7 @@ class _SplashPageState extends State<SplashPage>
     log('=== SplashPage 开始初始化服务 ===');
 
     try {
-      setState(() => _statusText = l10n.loadWebhook);
+      if (mounted) setState(() => _statusText = l10n.loadWebhook);
       log('加载 Webhook 配置');
       final webhookService = GetIt.instance<WebhookService>();
       await webhookService.loadChannels();
@@ -53,7 +53,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = l10n.loadBattery);
+      if (mounted) setState(() => _statusText = l10n.loadBattery);
       log('加载电池配置');
       final batteryService = GetIt.instance<BatteryService>();
       await batteryService.loadSettings();
@@ -62,7 +62,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = l10n.loadRecords);
+      if (mounted) setState(() => _statusText = l10n.loadRecords);
       log('加载通知记录');
       final notificationService = GetIt.instance<NotificationService>();
       await notificationService.loadRecords();
@@ -72,7 +72,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = l10n.loadFilter);
+      if (mounted) setState(() => _statusText = l10n.loadFilter);
       log('加载过滤配置');
       final filterService = GetIt.instance<FilterService>();
       await filterService.loadSettings();
@@ -81,7 +81,7 @@ class _SplashPageState extends State<SplashPage>
     }
 
     try {
-      setState(() => _statusText = l10n.initUpdate);
+      if (mounted) setState(() => _statusText = l10n.initUpdate);
       log('初始化更新服务');
       final updateService = GetIt.instance<UpdateService>();
       await updateService.init();
@@ -89,16 +89,7 @@ class _SplashPageState extends State<SplashPage>
       log('初始化更新服务失败: $e');
     }
 
-    try {
-      setState(() => _statusText = l10n.initRetry);
-      log('初始化重试服务');
-      final retryService = GetIt.instance<RetryService>();
-      await retryService.init();
-    } catch (e) {
-      log('初始化重试服务失败: $e');
-    }
-
-    setState(() => _statusText = l10n.initComplete);
+    if (mounted) setState(() => _statusText = l10n.initComplete);
     log('=== 所有服务初始化完成 ===');
 
     await Future.delayed(const Duration(milliseconds: 300));

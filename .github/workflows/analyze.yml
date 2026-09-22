@@ -66,6 +66,41 @@ jobs:
           fi
           echo "✅ 所有测试通过"
 
+      # ↓ 以下三步把 base.md §10.2「按 GitHub Actions 检验流程完整自检」声明的
+      #   6 项检查真正接进 PR 门禁。此前 Android 单元测试只在打 tag 的
+      #   build-apk.yml 里跑（合入前不受约束），服务端契约测试则完全没接 CI。
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android unit tests (JVM)
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:testDebugUnitTest --console=plain
+
+      # Android lint：抓编译器与 flutter analyze 都看不见的跨版本误用
+      # （NewApi / WrongConstant / 未加导出标志的 registerReceiver 等——在 minSdk 24
+      # 上表现为运行期 NoSuchMethodError，而不是编译错误）。
+      # 已知误报由 android/app/lint-baseline.xml 兜住；新增 issue 不在基线内 → 依旧红。
+      - name: Android lint (debug)
+        working-directory: android
+        run: ./gradlew :app:lintDebug --console=plain
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Server HTTP contract tests
+        working-directory: server
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
       - name: Install lcov
         run: sudo apt-get install -y lcov
 

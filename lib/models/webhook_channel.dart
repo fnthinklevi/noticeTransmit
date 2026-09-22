@@ -46,35 +46,6 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
     }
   }
 
-  String get label {
-    switch (this) {
-      case WebhookChannelType.generic:
-        return '通用 Webhook';
-      case WebhookChannelType.wechatWork:
-        return '企业微信群机器人';
-      case WebhookChannelType.dingtalk:
-        return '钉钉群机器人';
-      case WebhookChannelType.feishu:
-        return '飞书群机器人';
-      case WebhookChannelType.telegram:
-        return 'Telegram';
-      case WebhookChannelType.bark:
-        return 'Bark';
-      case WebhookChannelType.serverChan:
-        return 'Server酱';
-      case WebhookChannelType.pushPlus:
-        return 'PushPlus';
-      case WebhookChannelType.ntfy:
-        return 'ntfy';
-      case WebhookChannelType.gotify:
-        return 'Gotify';
-      case WebhookChannelType.slack:
-        return 'Slack';
-      case WebhookChannelType.discord:
-        return 'Discord';
-    }
-  }
-
   /// 是否支持 HMAC 签名（用于 UI 显示 secret 输入框）
   bool get supportsSigning {
     switch (this) {
@@ -155,21 +126,6 @@ enum WebhookMessageFormat {
         return 'json';
       case WebhookMessageFormat.xml:
         return 'xml';
-    }
-  }
-
-  String get label {
-    switch (this) {
-      case WebhookMessageFormat.defaultFormat:
-        return '默认格式';
-      case WebhookMessageFormat.text:
-        return '纯文本';
-      case WebhookMessageFormat.markdown:
-        return 'Markdown';
-      case WebhookMessageFormat.json:
-        return 'JSON';
-      case WebhookMessageFormat.xml:
-        return 'XML';
     }
   }
 

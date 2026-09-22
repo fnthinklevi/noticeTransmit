@@ -13,17 +13,6 @@ void main() {
       expect(WebhookChannelType.serverChan.value, 'server_chan');
       expect(WebhookChannelType.pushPlus.value, 'push_plus');
     });
-
-    test('label returns correct display text', () {
-      expect(WebhookChannelType.generic.label, '通用 Webhook');
-      expect(WebhookChannelType.wechatWork.label, '企业微信群机器人');
-      expect(WebhookChannelType.dingtalk.label, '钉钉群机器人');
-      expect(WebhookChannelType.feishu.label, '飞书群机器人');
-      expect(WebhookChannelType.telegram.label, 'Telegram');
-      expect(WebhookChannelType.bark.label, 'Bark');
-      expect(WebhookChannelType.serverChan.label, 'Server酱');
-      expect(WebhookChannelType.pushPlus.label, 'PushPlus');
-    });
   });
 
   group('WebhookChannel', () {

@@ -335,7 +335,7 @@ extension _MainPageActions on _MainPageState {
 
   void _openEmailSettingsPage() async {
     final l10n = AppLocalizations.of(context);
-    final emailService = EmailService();
+    final emailService = GetIt.instance<EmailService>();
     final channels = await emailService.loadChannels();
     final result = await _pushPage<List<Map<String, dynamic>>>(
       EmailSettingsPage(

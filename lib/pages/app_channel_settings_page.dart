@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -296,9 +297,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
                 ),
               ),
               const Spacer(),
-              Switch(
+              CupertinoSwitch(
                 value: enabled,
-                activeThumbColor: AppColors.blue,
+                activeTrackColor: AppColors.blue,
                 onChanged: (v) =>
                     setState(() => _channels[index]['enabled'] = v),
               ),
@@ -821,11 +822,11 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       final payload = _channelPayload(i);
       final baseUrl = payload['baseUrl']?.toString() ?? '';
       if (name.isEmpty) {
-        _showToast('${l10n.appChannelSaveFailed}通道名称不能为空', false);
+        _showToast(l10n.appChannelErrNameRequired, false);
         return;
       }
       if (baseUrl.isEmpty) {
-        _showToast('${l10n.appChannelSaveFailed}API 地址不能为空', false);
+        _showToast(l10n.appChannelErrBaseUrlRequired, false);
         return;
       }
     }

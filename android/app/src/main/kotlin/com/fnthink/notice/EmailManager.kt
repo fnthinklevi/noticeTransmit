@@ -29,13 +29,23 @@ object EmailManager {
 
         val metaArray = JSONArray()
         val pwdObj = JSONObject()
+        val seenIds = HashSet<String>()
 
         for (data in channelsData) {
             val id = data["id"]?.toString() ?: ""
             val obj = JSONObject()
             data.forEach { (k, v) ->
                 if (k == "password") {
-                    pwdObj.put(id, v?.toString() ?: "")
+                    // 密码按 id 键控：id 为空或重复会让多个通道命中同一条密码
+                    // （发件时用了别的通道的授权码 → 认证失败且极难排查）。宁可不存，
+                    // 也不能互相覆盖。
+                    when {
+                        id.isEmpty() ->
+                            Log.w(TAG, "邮件通道缺少 id，跳过其密码存储（避免串通道）")
+                        !seenIds.add(id) ->
+                            Log.w(TAG, "邮件通道 id 重复（$id），跳过重复密码")
+                        else -> pwdObj.put(id, v?.toString() ?: "")
+                    }
                 } else {
                     obj.put(k, v?.toString() ?: "")
                 }

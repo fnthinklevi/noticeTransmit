@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/app_localizations_enum_helpers.dart';
 import '../models/notification_rule.dart';
+import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -605,6 +607,7 @@ class _RuleEditPageState extends State<RuleEditPage> {
       ),
     );
     if (excluded != null) {
+      if (!mounted) return;
       setState(() {
         _rule = _rule.copyWith(excludedPackages: excluded);
       });
@@ -788,9 +791,9 @@ class _RuleEditPageState extends State<RuleEditPage> {
                       ],
                     ),
                   ),
-                  Switch(
+                  CupertinoSwitch(
                     value: groupByTitle,
-                    activeThumbColor: AppColors.blue,
+                    activeTrackColor: AppColors.blue,
                     onChanged: (v) => setDialogState(() => groupByTitle = v),
                   ),
                 ],
@@ -882,6 +885,9 @@ class _AppScopePickerPage extends StatefulWidget {
 class _AppScopePickerPageState extends State<_AppScopePickerPage>
     with WidgetsBindingObserver {
   static const _channel = AppChannels.notification;
+
+  /// 应用清单读取走服务层（原生方法名不下沉到 widget 层）
+  InstalledAppsService get _apps => GetIt.instance<InstalledAppsService>();
 
   List<Map<String, dynamic>> _allApps = [];
   Set<String> _excluded = {};
@@ -1013,30 +1019,11 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
     // ⚠ 即使判定为未授予也先试一次：ROM 对权限的判定可能有假阴性。
     List<Map<String, dynamic>>? apps;
     if (granted) {
+      final cached = await _apps.loadCached();
+      if (cached.isNotEmpty) apps = cached;
       try {
-        // 必须显式声明 List<dynamic>：invokeMethod 无上下文时 T 推断为 dynamic，
-        // 若用 final 无类型接收，后续在 dynamic 接收器上动态调用泛型 map 时
-        // 类型参数会被实例化为 dynamic，toList() 得到 List<dynamic>，
-        // 再赋给 List<Map<String, dynamic>>? 触发隐式 downcast 抛异常
-        // （List<dynamic> is not a subtype of List<Map<String,dynamic>>?），
-        // 表现为应用列表恒为空（与应用筛选页写法保持一致）。
-        final List<dynamic> cached = await _channel.invokeMethod(
-          'getCachedInstalledApps',
-        );
-        if (cached.isNotEmpty) {
-          apps = cached.map((e) => Map<String, dynamic>.from(e)).toList();
-        }
-      } catch (e) {
-        debugPrint('加载缓存应用列表失败: $e');
-      }
-      try {
-        final List<dynamic> fresh = await _channel.invokeMethod(
-          'getInstalledApps',
-        );
-        final freshList = fresh
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-        if (freshList.isNotEmpty) apps = freshList;
+        final fresh = await _apps.load();
+        if (fresh.isNotEmpty) apps = fresh;
       } catch (e) {
         debugPrint('加载应用列表失败: $e');
       }
@@ -1137,13 +1124,7 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      // 显式 List<dynamic>：同 _initLoad，避免动态泛型 map 产出 List<dynamic>
-      // 赋给 _allApps 时 downcast 失败导致手动刷新静默无效
-      final List<dynamic> result = await _channel.invokeMethod(
-        'getInstalledApps',
-        {'force': true},
-      );
-      final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
+      final newApps = await _apps.load(force: true);
       if (!mounted) return;
       setState(() => _allApps = newApps);
     } catch (e) {
@@ -1267,9 +1248,9 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
                   ),
                 ),
               ),
-              Switch(
+              CupertinoSwitch(
                 value: _showSystemApps,
-                activeThumbColor: AppColors.blue,
+                activeTrackColor: AppColors.blue,
                 onChanged: (v) => setState(() => _showSystemApps = v),
               ),
             ],

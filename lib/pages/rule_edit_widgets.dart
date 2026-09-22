@@ -1133,9 +1133,9 @@ class _MergeParamsFields extends StatelessWidget {
                 ],
               ),
             ),
-            Switch(
+            CupertinoSwitch(
               value: groupByTitle,
-              activeThumbColor: AppColors.blue,
+              activeTrackColor: AppColors.blue,
               onChanged: onGroupByTitleChanged,
             ),
           ],

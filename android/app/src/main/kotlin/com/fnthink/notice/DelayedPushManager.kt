@@ -182,7 +182,8 @@ class DelayedPushManager(private val context: Context) {
             }
             val arr = JSONArray()
             for (item in capped) arr.put(item)
-            prefs.edit().putString(KEY_QUEUE, arr.toString()).apply()
+            // commit()：延迟队列必须跨进程被杀存活（apply() 丢写 = 到点的推送永不补发）
+            prefs.edit().putString(KEY_QUEUE, arr.toString()).commit()
         } catch (e: Exception) {
             Log.e(TAG, "延迟推送队列写入失败", e)
         }

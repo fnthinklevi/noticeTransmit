@@ -194,7 +194,10 @@ object RetryQueue {
                 prefs.getString(SECURE_KEY, "[]") ?: "[]"
             ).filterNot { it.url == url && it.recordId == recordId } + item
             val capped = RetryQueueLogic.applyCap(items)
-            prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(capped)).apply()
+            // 本文件所有队列写盘一律 commit()：apply() 在进程被强杀时可能整笔丢失，
+            // 丢「入队」= 失败推送永不重放，丢「出队」= 同一条被重复推送，都是用户可见错误。
+            // 队列体量小（有 applyCap 上限）且写频低，同步落盘的代价可接受。
+            prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(capped)).commit()
         }
         Log.i(TAG, "重试入队: ${NetworkClient.sanitizeUrlHost(url)} record=$recordId")
     }
@@ -240,7 +243,7 @@ object RetryQueue {
             )
             val cleaned = RetryQueueLogic.purge(items, now)
             if (cleaned.size != items.size) {
-                prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(cleaned)).apply()
+                prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(cleaned)).commit()
             }
             val due = cleaned.filter { RetryQueueLogic.isReplayable(it, now) }
             if (due.isNotEmpty()) {
@@ -252,7 +255,7 @@ object RetryQueue {
                         item
                     }
                 }
-                prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(bumped)).apply()
+                prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(bumped)).commit()
             }
             due to cleaned
         }
@@ -271,7 +274,7 @@ object RetryQueue {
             val items = RetryQueueLogic.parse(
                 prefs.getString(SECURE_KEY, "[]") ?: "[]"
             ).filterNot { it.id == itemId }
-            prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(items)).apply()
+            prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(items)).commit()
         }
     }
 
@@ -303,7 +306,7 @@ object RetryQueue {
                         val items = RetryQueueLogic.parse(
                             prefs.getString(SECURE_KEY, "[]") ?: "[]"
                         ).filterNot { it.id == item.id }
-                        prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(items)).apply()
+                        prefs.edit().putString(SECURE_KEY, RetryQueueLogic.toJson(items)).commit()
                     }
                     // 重放成功：记录从「推送失败」如实翻转为「推送成功」
                     DeliveryNotifier.notify(

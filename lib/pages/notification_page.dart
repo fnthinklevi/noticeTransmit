@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
@@ -263,7 +264,10 @@ class NotificationPage extends StatelessWidget {
                 ],
               ),
             ),
-            Switch(value: smsMonitorEnabled, onChanged: onToggleSmsMonitor),
+            CupertinoSwitch(
+              value: smsMonitorEnabled,
+              onChanged: onToggleSmsMonitor,
+            ),
             Icon(
               Icons.chevron_right,
               size: 20,

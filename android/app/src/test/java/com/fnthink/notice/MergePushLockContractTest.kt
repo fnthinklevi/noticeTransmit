@@ -242,16 +242,4 @@ class MergePushLockContractTest {
         return stripComments(source.substring(bodyStart, i + 1))
     }
 
-    /**
-     * 剥离行注释与块注释（保守实现：不做字符串字面量感知，
-     * 因为本仓库受守卫的代码中不存在含双斜杠的字符串字面量；若将来出现需升级本方法）。
-     */
-    private fun stripComments(code: String): String {
-        val noBlock = Regex("""/\*[\s\S]*?\*/""").replace(code, " ")
-        return noBlock.lineSequence()
-            .joinToString("\n") { line ->
-                val idx = line.indexOf("//")
-                if (idx >= 0) line.substring(0, idx) else line
-            }
-    }
 }

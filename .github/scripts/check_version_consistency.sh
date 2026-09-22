@@ -40,28 +40,28 @@ echo "--- 一致性检查 ---"
 
 if [ "$PUBSPEC_VERSION" != "$UM_VERSION" ]; then
     echo -e "${RED}❌ pubspec.yaml ($PUBSPEC_VERSION) != update_manager.dart ($UM_VERSION)${NC}"
-    ((errors++))
+    errors=$((errors+1))
 fi
 if [ "$PUBSPEC_VERSION" != "$MA_VERSION" ]; then
     echo -e "${RED}❌ pubspec.yaml ($PUBSPEC_VERSION) != MainActivity.kt ($MA_VERSION)${NC}"
-    ((errors++))
+    errors=$((errors+1))
 fi
 if [ "$PUBSPEC_VERSION" != "$VJ_VERSION" ]; then
     echo -e "${RED}❌ pubspec.yaml ($PUBSPEC_VERSION) != version.json ($VJ_VERSION)${NC}"
-    ((errors++))
+    errors=$((errors+1))
 fi
 
 if [ "$PUBSPEC_BUILD" != "$UM_BUILD" ]; then
     echo -e "${RED}❌ pubspec.yaml build ($PUBSPEC_BUILD) != update_manager.dart ($UM_BUILD)${NC}"
-    ((errors++))
+    errors=$((errors+1))
 fi
 if [ "$PUBSPEC_BUILD" != "$MA_BUILD" ]; then
     echo -e "${RED}❌ pubspec.yaml build ($PUBSPEC_BUILD) != MainActivity.kt ($MA_BUILD)${NC}"
-    ((errors++))
+    errors=$((errors+1))
 fi
 if [ "$PUBSPEC_BUILD" != "$VJ_BUILD" ]; then
     echo -e "${RED}❌ pubspec.yaml build ($PUBSPEC_BUILD) != version.json ($VJ_BUILD)${NC}"
-    ((errors++))
+    errors=$((errors+1))
 fi
 
 # python 探测顺序：先 python 后 python3，并排除 WindowsApps 商店占位 stub（执行即失败）
@@ -73,6 +73,13 @@ for c in python python3; do
     esac
     if [ -z "$PY" ] && [ -n "$p" ]; then PY="$p"; fi
 done
+
+# python 缺失必须报错：sha256 / 官网 i18n / l10n 漏翻三道闸都挂在 $PY 上，
+# 静默跳过会让「脚本 exit 0」被误读成「所有闸都过了」。
+if [ -z "$PY" ]; then
+    echo -e "${RED}❌ 未找到可用的 python（python → python3 均不可用），后三道闸无法执行${NC}"
+    errors=$((errors+1))
+fi
 
 # ===== N3 传输层校验：version.json 的 sha256 字段完备性 =====
 # 四个平台均须为 64 位小写十六进制（空串表示该平台不校验，允许但会提示）

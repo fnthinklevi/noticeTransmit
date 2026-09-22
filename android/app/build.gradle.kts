@@ -133,6 +133,22 @@ android {
         }
     }
 
+    lint {
+        // CI 闸门：.github/workflows/analyze.yml 跑 :app:lintDebug，error 即红。
+        // baseline 只放过已核对过的误报：预 33 分支上的 UnspecifiedRegisterReceiverFlag
+        // （两参调用在 <33 合法且无需导出标志）、以及 Flutter 工具自生成的
+        // android/local.properties 反斜杠（该文件不入库、由工具重写，改不了）。
+        // 新增 error 不会被 baseline 兜住——「只放已知、不放新账」的棘轮。
+        baseline = file("lint-baseline.xml")
+        abortOnError = true
+        // android/local.properties 由 Flutter 工具生成（Windows 下路径写法必然触发
+        // PropertyEscape），且该文件不入库——改不了也不该改，故直接关掉这条检查，
+        // 不把它写进 baseline（baseline 里的这条会带上本机绝对路径，换机器就失配）。
+        disable += "PropertyEscape"
+        // 发布构建已由 ABI/版本双闸门把关，lint 只在显式 lintDebug 时评估
+        checkReleaseBuilds = false
+    }
+
     buildTypes {
         debug {
             // 证书固定 Debug 恒关闭：开发期证书变化频繁，避免调试时误断连

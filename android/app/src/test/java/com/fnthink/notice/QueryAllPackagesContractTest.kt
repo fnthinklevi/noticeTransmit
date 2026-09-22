@@ -65,15 +65,6 @@ class QueryAllPackagesContractTest {
         return stripComments(source.substring(bodyStart, i + 1))
     }
 
-    private fun stripComments(code: String): String {
-        val noBlock = Regex("""/\*[\s\S]*?\*/""").replace(code, " ")
-        return noBlock.lineSequence()
-            .joinToString("\n") { line ->
-                val idx = line.indexOf("//")
-                if (idx >= 0) line.substring(0, idx) else line
-            }
-    }
-
     // ===== 约束 1：探测不得只查自身包（假阳性根因），且必须有可见数量阈值 =====
 
     @Test

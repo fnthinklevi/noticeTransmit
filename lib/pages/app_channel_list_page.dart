@@ -80,11 +80,14 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
   }
 
   Widget _buildChannelTile(int index) {
+    final l10n = AppLocalizations.of(context);
     final c = _channels[index];
     final name = c['name']?.toString() ?? '';
     final appType = c['appType']?.toString() ?? '';
     final enabled = c['enabled'] == true;
-    final typeLabel = appType == 'feishu_app' ? '飞书自建应用' : '企微自建应用';
+    final typeLabel = appType == 'feishu_app'
+        ? l10n.channelTypeFeishuApp
+        : l10n.channelTypeWecomApp;
     final typeIcon = appType == 'feishu_app' ? Icons.link : Icons.business;
 
     return Card(
@@ -133,7 +136,7 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
             ),
             const SizedBox(width: 8),
             Text(
-              enabled ? '已启用' : '已停用',
+              enabled ? l10n.channelStateEnabled : l10n.channelStateDisabled,
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.secondaryLabel(context),

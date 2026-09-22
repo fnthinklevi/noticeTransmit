@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/sms_service.dart';
@@ -163,7 +164,7 @@ class _SmsMonitorSettingsPageState extends State<SmsMonitorSettingsPage> {
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged),
+          CupertinoSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );

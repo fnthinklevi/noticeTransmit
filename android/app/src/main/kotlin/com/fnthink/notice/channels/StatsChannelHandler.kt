@@ -16,18 +16,7 @@ import kotlinx.coroutines.launch
  * 「现在推送」手动补推、应用列表缓存（应用过滤/规则条件的数据支撑）与包名反查。
  */
 internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(activity) {
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    /** 切回主线程回传结果（MethodChannel.Result 必须在平台线程调用） */
-    private fun postSuccess(result: MethodChannel.Result, value: Any?) {
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            try {
-                result.success(value)
-            } catch (_: Exception) {
-                // Activity 已销毁时忽略
-            }
-        }
-    }
+    // ioScope / postSuccess 由基类提供（handle 跑在平台线程）
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
@@ -52,12 +41,23 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
             }
             "drainOfflineCache" -> {
                 // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
-                result.success(HistoryCache.drainAll(activity.applicationContext))
+                // drainAll 会解析最多 500 条 JSON 并读写 prefs —— 留在平台线程会卡首帧
+                ioScope.launch {
+                    postSuccess(
+                        result,
+                        HistoryCache.drainAll(activity.applicationContext),
+                    )
+                }
             }
             "drainDeliveryResults" -> {
                 // Flutter 启动 / resume 时补偿拉取 Activity 销毁期间丢失的送达结果
                 // （广播无人接收时由 DeliveryResultStore 持久化兜底）
-                result.success(DeliveryResultStore.drain(activity.applicationContext))
+                ioScope.launch {
+                    postSuccess(
+                        result,
+                        DeliveryResultStore.drain(activity.applicationContext),
+                    )
+                }
             }
             "pushRecordNow" -> {
                 // 历史记录"现在推送"：把记录转发给服务手动补推（忽略推送暂停开关）
@@ -89,16 +89,22 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
                 }
             }
             "getCachedInstalledApps" -> {
-                result.success(activity.getCachedInstalledApps())
+                // 缓存是 prefs 里最多 300+ 条应用的 JSON，读 + 反序列化不放平台线程
+                ioScope.launch { postSuccess(result, activity.getCachedInstalledApps()) }
             }
             "saveInstalledAppsCache" -> {
                 val apps = call.argument<List<Map<String, Any?>>>("apps") ?: emptyList()
-                activity.saveInstalledAppsCache(apps)
-                result.success(true)
+                ioScope.launch {
+                    activity.saveInstalledAppsCache(apps)
+                    postSuccess(result, true)
+                }
             }
             "getAppNameByPackage" -> {
                 val packageName = call.argument<String>("packageName") ?: ""
-                result.success(activity.getAppNameByPackage(packageName))
+                // PackageManager 查询，同步 binder 调用
+                ioScope.launch {
+                    postSuccess(result, activity.getAppNameByPackage(packageName))
+                }
             }
             else -> return false
         }

@@ -221,6 +221,9 @@ object SmsDispatcher {
             }
             true
         } catch (e: Exception) {
+            // 去重指纹是在 try 之前占的，失败必须撤销：否则另外两条链路在 120s 窗口内
+            // 全被判重丢弃，这条短信既不推送也不入历史，用户毫无感知。
+            synchronized(dedupKeys) { dedupKeys.remove(key) }
             Log.e(TAG, "[$source] 处理短信失败", e)
             false
         }

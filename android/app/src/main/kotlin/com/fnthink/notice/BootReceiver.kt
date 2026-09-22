@@ -24,6 +24,10 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
             Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
+                // goAsync：onReceive 返回后进程优先级立刻回落、随时可能被系统回收，
+                // 那时 3 秒后的 postDelayed 根本不会执行 → 开机不自启（表现为
+                // 「重启手机后一条通知都没收到」）。挂住 PendingResult 让延迟任务跑完。
+                val pendingResult = goAsync()
                 try {
                     Handler(Looper.getMainLooper()).postDelayed({
                         try {
@@ -36,10 +40,13 @@ class BootReceiver : BroadcastReceiver() {
                             Log.d(TAG, "Notification service started on boot")
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to start service on boot", e)
+                        } finally {
+                            pendingResult.finish()
                         }
                     }, 3000)
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to post delayed start", e)
+                    pendingResult.finish()
                 }
             }
         }

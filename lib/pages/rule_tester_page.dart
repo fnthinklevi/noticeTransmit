@@ -1,9 +1,10 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/filter_service.dart';
-import '../services/platform_channel.dart';
+import '../services/installed_apps_service.dart';
 import '../services/rule_trace.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -483,7 +484,6 @@ class _AppPickDialog extends StatefulWidget {
 }
 
 class _AppPickDialogState extends State<_AppPickDialog> {
-  static const _channel = AppChannels.notification;
   final _search = TextEditingController();
   List<Map<String, dynamic>> _apps = [];
   bool _showSystem = false;
@@ -509,16 +509,9 @@ class _AppPickDialogState extends State<_AppPickDialog> {
       return;
     }
     try {
-      final cached = await _channel.invokeMethod('getCachedInstalledApps');
-      var list = (cached as List)
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-      if (list.isEmpty) {
-        final fresh = await _channel.invokeMethod('getInstalledApps');
-        list = (fresh as List)
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-      }
+      final svc = GetIt.instance<InstalledAppsService>();
+      var list = await svc.loadCached();
+      if (list.isEmpty) list = await svc.load();
       _apps = list;
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
@@ -590,9 +583,9 @@ class _AppPickDialogState extends State<_AppPickDialog> {
                           ),
                         ),
                       ),
-                      Switch(
+                      CupertinoSwitch(
                         value: _showSystem,
-                        activeThumbColor: AppColors.blue,
+                        activeTrackColor: AppColors.blue,
                         onChanged: (v) => setState(() => _showSystem = v),
                       ),
                     ],

@@ -85,20 +85,12 @@ router.post('/login', asyncHandler(async (req, res) => {
     } else {
       isValid = await verifyOtp(config.secret, otp);
     }
-  } else if (recoveryCode && config.recoveryCodes && Array.isArray(config.recoveryCodes)) {
-    for (let i = 0; i < config.recoveryCodes.length; i++) {
-      const hashedCode = config.recoveryCodes[i];
-      try {
-        if (await bcrypt.compare(recoveryCode, hashedCode)) {
-          isValid = true;
-          config.recoveryCodes.splice(i, 1);
-          store.saveTotpConfig(config);
-          break;
-        }
-      } catch (e) {
-        console.error('恢复码验证异常:', e.message);
-      }
-    }
+  } else if (recoveryCode) {
+    // 一次性核销在 store 的认证临界区内完成（锁内重读配置），防并发重放；
+    // 明文归一化与 /totp/rebind 保持同口径。
+    isValid = await store.consumeRecoveryCode(
+      String(recoveryCode).trim().toUpperCase()
+    );
   }
 
   if (!isValid) {
@@ -152,7 +144,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 // 注销：主动吊销当前会话，防止登出后会话 ID 在服务端继续有效
 router.post('/logout', authMiddleware, (req, res) => {
   const sessionId = req.headers['x-session-id'];
-  if (sessionId && store.sessions[sessionId]) {
+  if (store.isValidSession(sessionId)) {
     delete store.sessions[sessionId];
     store.saveSessions();
   }
@@ -223,21 +215,10 @@ router.post('/totp/rebind', authMiddleware, asyncHandler(async (req, res) => {
   }
 
   const normalized = recoveryCode.trim().toUpperCase();
-  let consumedIndex = -1;
-  if (Array.isArray(config.recoveryCodes)) {
-    for (let i = 0; i < config.recoveryCodes.length; i++) {
-      try {
-        if (await bcrypt.compare(normalized, config.recoveryCodes[i])) {
-          consumedIndex = i;
-          break;
-        }
-      } catch (e) {
-        console.error('恢复码验证异常:', e.message);
-      }
-    }
-  }
+  // 一次性核销走 store 的认证临界区（锁内重读配置），与 /login 同规，防并发重放。
+  const consumed = await store.consumeRecoveryCode(normalized);
 
-  if (consumedIndex === -1) {
+  if (!consumed) {
     // 校验失败计入失败次数，受 IP 封锁保护（与登录路径语义一致）
     console.error('[rebind] 恢复码验证失败，IP:', ip);
     const isBlocked = store.recordFailedAttempt(ip);
@@ -247,10 +228,6 @@ router.post('/totp/rebind', authMiddleware, asyncHandler(async (req, res) => {
     const remaining = store.getRemainingAttempts(ip);
     return res.status(400).json({ code: -1, message: `恢复码错误，还剩 ${remaining} 次尝试机会` });
   }
-
-  // 一次性消费：移除已使用的恢复码
-  config.recoveryCodes.splice(consumedIndex, 1);
-  store.saveTotpConfig(config);
 
   const secret = generateSecret(32);
   const service = '通知推送助手管理后台';
@@ -305,6 +282,9 @@ router.post('/totp/enable', authMiddleware, asyncHandler(async (req, res) => {
   };
 
   store.saveTotpConfig(config);
+  // 凭据态势已变更：吊销全部会话，强制以「Token + OTP」重新登录。authMiddleware 也会
+  // 拒绝开启前铸造的 token-only 会话，这里把内存与落盘会话一并清掉。
+  store.revokeAllSessions('二步验证已启用');
 
   res.json({
     code: 0,

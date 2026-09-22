@@ -2584,6 +2584,93 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appChannelSaveFailed => 'Save failed: ';
 
   @override
+  String get channelStateEnabled => 'Enabled';
+
+  @override
+  String get channelStateDisabled => 'Disabled';
+
+  @override
+  String get appChannelErrNameRequired =>
+      'Save failed: channel name is required';
+
+  @override
+  String get appChannelErrBaseUrlRequired =>
+      'Save failed: API address is required';
+
+  @override
+  String get priorityBadgeHigh => 'High';
+
+  @override
+  String get priorityBadgeLow => 'Low';
+
+  @override
+  String get channelBadgeFallback => 'C';
+
+  @override
+  String storageRootPath(String path) {
+    return 'Storage root $path';
+  }
+
+  @override
+  String get recordTypeSms => 'SMS';
+
+  @override
+  String get recordTypeCallIncoming => 'Incoming call';
+
+  @override
+  String get recordTypeCallAnswered => 'Answered';
+
+  @override
+  String get recordTypeCallEnded => 'Call ended';
+
+  @override
+  String get recordTypeWechat => 'WeChat';
+
+  @override
+  String get recordTypeQq => 'QQ';
+
+  @override
+  String get recordTypeAlipay => 'Alipay';
+
+  @override
+  String get recordTypeSystem => 'System';
+
+  @override
+  String get recordTypeTest => 'Test';
+
+  @override
+  String get recordTypeCharging => 'Charging';
+
+  @override
+  String get recordTypeFull => 'Fully charged';
+
+  @override
+  String get recordTypeLow30 => 'Low battery 30%';
+
+  @override
+  String get recordTypeLow20 => 'Low battery 20%';
+
+  @override
+  String get recordTypeNotification => 'Notification';
+
+  @override
+  String get emailHintPort => '465 (SSL) or 587 (STARTTLS)';
+
+  @override
+  String get emailHintPassword =>
+      'SMTP authorization code (not your mailbox password)';
+
+  @override
+  String get emailHintRecipients => 'Separate multiple addresses with commas';
+
+  @override
+  String get emailHintSubjectDefault => 'Default: 🔔 %appName% — %title%';
+
+  @override
+  String get emailHintBodyDefault =>
+      'Default:\n[Notice] app: %appName%\ntitle: %title%\nbody: %content%\n...';
+
+  @override
   String get channelTypeFeishuApp => 'Feishu App (self-built)';
 
   @override

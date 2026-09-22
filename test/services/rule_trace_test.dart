@@ -1,7 +1,9 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 import 'package:notice_transmit/services/filter_service.dart';
+import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/rule_trace.dart';
 
 /// F1 规则测试器追踪引擎的语义锁定测试。
@@ -10,10 +12,85 @@ import 'package:notice_transmit/services/rule_trace.dart';
 /// 本测试锁定「链路各阶段的分支与优先级」不被无意破坏（与双端 golden 51 条互补：
 /// golden 锁条件语义，本测试锁链路编排）。
 void main() {
+  late List<MethodCall> channelCalls;
+
   setUp(() {
-    // save* 方法会写 SharedPreferences（mock 即可）；原生通道调用在 save* 内
-    // 已 try/catch 包裹，缺失 mock 时静默降级，不影响内存态。
+    TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
+    // 必须注册通道 mock：此前本文件不注册，save* 里的 invokeMethod 抛
+    // 「Binding has not yet been initialized」被生产代码的 try/catch 吞掉，
+    // 于是 20 个用例只验了内存态，删掉下发调用或改错参数名都照样全绿。
+    channelCalls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AppChannels.notification, (call) async {
+          channelCalls.add(call);
+          return true;
+        });
+  });
+
+  group('save* 真正落盘 + 下发原生（防静默降级）', () {
+    test('黑名单：prefs 与 setBlacklistKeywords 都收到同一份列表', () async {
+      final filter = FilterService();
+      await filter.saveBlacklistKeywords(<String>['广告', 'promo']);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('blacklist_keywords'), '["广告","promo"]');
+
+      final call = channelCalls.firstWhere(
+        (c) => c.method == 'setBlacklistKeywords',
+      );
+      expect((call.arguments as Map)['keywords'], <String>['广告', 'promo']);
+    });
+
+    test('应用筛选：prefs 与 setAppFilter 参数一致（mode/packages 两键齐备）', () async {
+      final filter = FilterService();
+      await filter.saveAppFilter('block', <String>['com.x']);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('app_filter_mode'), 'block');
+      final call = channelCalls.firstWhere((c) => c.method == 'setAppFilter');
+      final args = call.arguments as Map;
+      expect(args['mode'], 'block');
+      expect(args['packages'], <String>['com.x']);
+    });
+
+    test('白名单关键词下发 setWhitelistKeywords', () async {
+      final filter = FilterService();
+      await filter.saveWhitelistKeywords(<String>['重要']);
+      final call = channelCalls.firstWhere(
+        (c) => c.method == 'setWhitelistKeywords',
+      );
+      expect((call.arguments as Map)['keywords'], <String>['重要']);
+    });
+
+    test('通知规则下发 setNotificationRules，且规则 JSON 含 conditions/actions', () async {
+      final filter = FilterService();
+      await filter.saveNotificationRules([
+        NotificationRule.fromMap({
+          'id': 'r-persist',
+          'name': 'n',
+          'description': '',
+          'enabled': true,
+          'priority': 10,
+          'conditions': <Map<String, dynamic>>[
+            {'type': 'title_contains', 'value': '验证码', 'logic': 'and'},
+          ],
+          'actions': <Map<String, dynamic>>[
+            {'type': 'push'},
+          ],
+        }),
+      ]);
+
+      final call = channelCalls.firstWhere(
+        (c) => c.method == 'setNotificationRules',
+      );
+      final rules = (call.arguments as Map)['rules'] as List;
+      expect(rules, hasLength(1));
+      final r = rules.single as Map;
+      expect(r['id'], 'r-persist');
+      expect(r['conditions'], isNotEmpty);
+      expect(r['actions'], isNotEmpty);
+    });
   });
 
   /// 构造带配置的 FilterService

@@ -47,8 +47,47 @@ class WebhookResponseParserTest {
 
     @Test
     fun http2xxNonJsonBody_isSuccess() {
+        // 通用 webhook 的端点回 200 + "OK" 纯文本完全合法，其契约本就是 HTTP 成功；
+        // 若一并判失败会造成大面积误报 —— 这是 GENERIC 被排除在 jsonContractPlatform
+        // 之外的原因，勿改成统一失败。
         val r = parse(WebhookType.GENERIC, 200, "ok,plain text")
         assertEquals(DeliveryStatus.SUCCESS, r.status)
+    }
+
+    @Test
+    fun http2xxNonJsonBody_jsonContractPlatform_isBizFail() {
+        // 契约要求 JSON 业务码的平台（企微/钉钉/飞书/Telegram/Bark/Server酱/PushPlus）：
+        // 200 + 非 JSON 多为反代/认证门户/风控页，消息其实没送达。判成功=假成功+静默丢内容。
+        for (t in listOf(
+            WebhookType.WECHAT_WORK,
+            WebhookType.DINGTALK,
+            WebhookType.FEISHU,
+            WebhookType.TELEGRAM,
+            WebhookType.BARK,
+            WebhookType.SERVER_CHAN,
+            WebhookType.PUSH_PLUS,
+        )) {
+            val r = parse(t, 200, "<html>login required</html>")
+            assertEquals(
+                "$t 的 200 + 非 JSON 响应必须判 BIZ_FAIL（不得假成功）",
+                DeliveryStatus.BIZ_FAIL,
+                r.status,
+            )
+            assertTrue(r.message.contains("响应非 JSON"))
+        }
+    }
+
+    @Test
+    fun http2xxNonJsonBody_channelWithoutParseContract_isSuccess() {
+        // 未登记 parse 的通道按 HTTP 状态码判定（ntfy 回 text/plain、Discord 回 204 空 body）
+        assertEquals(
+            DeliveryStatus.SUCCESS,
+            parse(WebhookType.SLACK, 200, "ok").status,
+        )
+        assertEquals(
+            DeliveryStatus.SUCCESS,
+            parse(WebhookType.NTFY, 200, "text reply").status,
+        )
     }
 
     // ===== 企业微信 / 钉钉：errcode =====

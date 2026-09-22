@@ -55,14 +55,35 @@ class AppChannelService {
     await _syncToNative();
   }
 
-  /// 原生同步：完整通道（含 secret）交由 AppChannelSender 使用
+  /// 原生同步：完整通道（含 secret）交由 AppChannelSender 使用。
+  ///
+  /// 只在这里做 UI → 原生契约键的映射（见 [toNativePayload]），`_channels` 保持
+  /// UI 形状供页面与送达标签使用。
   Future<void> _syncToNative() async {
     try {
-      await _channel.invokeMethod('setAppChannels', {'channels': _channels});
+      await _channel.invokeMethod('setAppChannels', {
+        'channels': _channels.map(toNativePayload).toList(),
+      });
     } catch (e) {
       debugPrint('AppChannelService: 同步自建应用通道失败: $e');
     }
   }
+
+  /// 自建应用通道的跨端契约边界：原生 `ConfigManager.getAppChannelConfigs()` 读的是
+  /// `type` / `base_url`（与 app_channels 表列名同源），UI 侧用的是 `appType` / `baseUrl`。
+  /// 直接把 UI Map 下发会让原生解析出空 type → `AppChannelRegistry.spec("")` 返回 null
+  /// → 每条自建应用推送静默落到「未知应用通道类型」，而应用内「测试」按钮走的是另一条
+  /// 读 `appType` 的路径，因此表现为「测试成功、真实推送永远失败」。
+  static Map<String, dynamic> toNativePayload(Map<String, dynamic> ui) => {
+    'id': ui['id'],
+    'name': ui['name'] ?? '',
+    'type': ui['appType']?.toString() ?? 'wecom_app',
+    'base_url': ui['baseUrl']?.toString() ?? '',
+    'secret': ui['secret'],
+    'config': ui['config'] ?? <String, dynamic>{},
+    'message_format': ui['message_format'] ?? 'default',
+    'enabled': ui['enabled'] == true,
+  };
 
   /// DB 行 → UI Map
   Map<String, dynamic> _rowToUi(Map<String, dynamic> row) {

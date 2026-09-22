@@ -1,6 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 短信转发是核心能力，但电话硬件本身可选：不显式声明 required="false" 时，Play 会根据
+    RECEIVE_SMS / READ_SMS 推断需要 telephony，把无该硬件的平板 / ChromeOS 设备判为不兼容
+    （lint PermissionImpliesUnsupportedChromeOsHardware）。 -->
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -538,7 +545,7 @@
 
         <service
             android:name=".NotificationMonitorService"
-            android:label="通知监听服务"
+            android:label="@string/service_label_monitor"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="false"
             android:stopWithTask="false"

@@ -70,8 +70,29 @@ object WebhookResponseParser {
             val json = JSONObject(body)
             parseBusinessCode(type, httpCode, json, body)
         } catch (e: Exception) {
-            // body 非 JSON：HTTP 2xx 视为成功
-            ParseResult(DeliveryStatus.SUCCESS, httpCode, body.take(200), false)
+            // body 非 JSON 时不能一律按 HTTP 2xx 判成功：反代 / 认证门户 / 风控网关常回
+            // 200 + HTML，此时消息其实没送达，历史却显示「已送达」——属「假成功 +
+            // 静默丢内容」，比报失败危险得多（失败至少会提示、还能手动重推）。
+            //
+            // 只对**契约要求 JSON 业务码的平台**判失败（企微/钉钉/飞书/Telegram/Bark/
+            // Server酱/PushPlus）：
+            //  - GENERIC 排除：自建端点回 200 + "OK" 纯文本完全合法，其 parse 本就按
+            //    「HTTP 成功」兜底，判失败会造成大面积误报；
+            //  - 未登记 parse 的通道（ntfy / Gotify / Slack / Discord）排除：语义就是
+            //    HTTP 状态码（ntfy 回 text/plain，Discord 回 204 空 body）。
+            val jsonContractPlatform =
+                type != WebhookPayloadBuilder.WebhookType.GENERIC &&
+                    ChannelRegistry.spec(type).parse != null
+            return if (jsonContractPlatform) {
+                ParseResult(
+                    DeliveryStatus.BIZ_FAIL,
+                    httpCode,
+                    "响应非 JSON，无法确认送达：${body.take(120)}",
+                    false
+                )
+            } else {
+                ParseResult(DeliveryStatus.SUCCESS, httpCode, body.take(200), false)
+            }
         }
     }
 

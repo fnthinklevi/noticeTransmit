@@ -7,11 +7,11 @@ import '../services/permission_service.dart';
 import '../services/filter_service.dart';
 import '../services/update_service.dart';
 import '../services/device_info_service.dart';
-import '../services/retry_service.dart';
 import '../services/theme_service.dart';
 import '../services/email_service.dart';
 import '../services/locale_service.dart';
 import '../services/app_channel_service.dart';
+import '../services/installed_apps_service.dart';
 import '../services/sms_service.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -25,10 +25,12 @@ void setupLocator() {
   getIt.registerLazySingleton<FilterService>(() => FilterService());
   getIt.registerLazySingleton<UpdateService>(() => UpdateService());
   getIt.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
-  getIt.registerLazySingleton<RetryService>(() => RetryService());
   getIt.registerLazySingleton<ThemeService>(() => ThemeService());
   getIt.registerLazySingleton<EmailService>(() => EmailService());
   getIt.registerLazySingleton<LocaleService>(() => LocaleService());
   getIt.registerLazySingleton<SmsService>(() => SmsService());
   getIt.registerLazySingleton<AppChannelService>(() => AppChannelService());
+  getIt.registerLazySingleton<InstalledAppsService>(
+    () => InstalledAppsService(),
+  );
 }

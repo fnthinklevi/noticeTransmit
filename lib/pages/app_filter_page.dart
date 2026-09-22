@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -44,6 +47,9 @@ class _AppFilterPageState extends State<AppFilterPage>
     with WidgetsBindingObserver {
   static const _channel = AppChannels.notification;
 
+  /// 应用清单读取走服务层（原生方法名不下沉到 widget 层）
+  InstalledAppsService get _apps => GetIt.instance<InstalledAppsService>();
+
   List<Map<String, dynamic>> _allApps = [];
   List<Map<String, dynamic>> _filteredApps = [];
   Set<String> _selectedPackages = {};
@@ -84,6 +90,7 @@ class _AppFilterPageState extends State<AppFilterPage>
     setState(() => _loading = true);
 
     final hasPermission = await _checkPermission();
+    if (!mounted) return;
     setState(() {
       _hasPermission = hasPermission;
     });
@@ -98,6 +105,7 @@ class _AppFilterPageState extends State<AppFilterPage>
       _showPermissionDialog();
     }
 
+    if (!mounted) return;
     setState(() => _loading = false);
   }
 
@@ -181,18 +189,12 @@ class _AppFilterPageState extends State<AppFilterPage>
   }
 
   Future<void> _loadCachedApps() async {
-    try {
-      final List<dynamic> result = await _channel.invokeMethod(
-        'getCachedInstalledApps',
-      );
-      if (result.isNotEmpty) {
-        setState(() {
-          _allApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
-          _filterApps();
-        });
-      }
-    } catch (e) {
-      debugPrint('加载缓存应用列表失败: $e');
+    final cached = await _apps.loadCached();
+    if (cached.isNotEmpty) {
+      setState(() {
+        _allApps = cached;
+        _filterApps();
+      });
     }
   }
 
@@ -203,10 +205,7 @@ class _AppFilterPageState extends State<AppFilterPage>
     if (_refreshing) return;
     _refreshing = true;
     try {
-      final List<dynamic> result = await _channel.invokeMethod(
-        'getInstalledApps',
-      );
-      final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
+      final newApps = await _apps.load();
       if (!mounted) return;
       setState(() {
         _allApps = newApps;
@@ -225,12 +224,7 @@ class _AppFilterPageState extends State<AppFilterPage>
 
     try {
       // 用户主动下拉刷新 → force=true 绕过缓存，强制重新扫描已安装应用
-      final List<dynamic> result = await _channel.invokeMethod(
-        'getInstalledApps',
-        {'force': true},
-      );
-      final newApps = result.map((e) => Map<String, dynamic>.from(e)).toList();
-
+      final newApps = await _apps.load(force: true);
       if (!mounted) return;
 
       setState(() {
@@ -542,7 +536,7 @@ class _AppFilterPageState extends State<AppFilterPage>
                         ),
                       ),
                       const Spacer(),
-                      Switch(
+                      CupertinoSwitch(
                         value: _showSystemApps,
                         onChanged: (v) {
                           setState(() {

@@ -50,7 +50,7 @@
     "call:NTFY": "【来电提醒】\n来电号码：13800138000\n时间：2026-01-01 10:00:00\n设备：我的设备\n卡1，中国移动"
   },
   "parses": {
-    "parse:21:BARK:200": "status=SUCCESS httpCode=200 retryable=false message=not-json",
+    "parse:21:BARK:200": "status=BIZ_FAIL httpCode=200 retryable=false message=响应非 JSON，无法确认送达：not-json",
     "parse:29:GOTIFY:403": "status=HTTP_FAIL httpCode=403 retryable=false message=客户端错误 HTTP 403: {\"error\":\"Unauthorized\",\"errorDescription\":\"token required\"}",
     "parse:23:SERVER_CHAN:200": "status=BIZ_FAIL httpCode=200 retryable=false message=Server酱业务失败 code=40001: bad pushkey",
     "parse:3:WECHAT_WORK:500": "status=HTTP_FAIL httpCode=500 retryable=true message=服务器错误 HTTP 500: {\"errcode\":-1}",

@@ -39,7 +39,17 @@ object PushToggleManager {
     }
 
     /**
-     * 推送是否激活（NetworkClient 调用此方法判断是否真正发送）
+     * 幂等初始化。进程被短信/来电/开机广播直接唤醒（服务尚未 onCreate）时，
+     * [isPushActive] 在 !initialized 下会返回 true 放行推送 —— 用户明明暂停过却
+     * 仍收到验证码推送。这些入口必须先调用本方法。
+     */
+    fun ensureInit(context: Context) {
+        if (!initialized) init(context)
+    }
+
+    /**
+     * 推送是否激活（NetworkClient 调用此方法判断是否真正发送）。
+     * 未初始化时按默认 RUNNING 放行，故广播入口须先 [ensureInit]。
      */
     fun isPushActive(): Boolean {
         if (!initialized) return true

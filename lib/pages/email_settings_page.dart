@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
@@ -146,7 +147,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   ),
               ],
             ),
-            trailing: Switch(
+            trailing: CupertinoSwitch(
               value: channel.enabled,
               onChanged: (v) => _toggleChannel(index, v),
             ),
@@ -517,7 +518,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   _field(
                     portCtrl,
                     l10n.smtpPort,
-                    hint: '465 (SSL) 或 587 (STARTTLS)',
+                    hint: l10n.emailHintPort,
                     keyboardType: TextInputType.number,
                     errorText: invalidFields['port'],
                   ),
@@ -541,7 +542,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                           ),
                         ),
                         const Spacer(),
-                        Switch(
+                        CupertinoSwitch(
                           value: useSSL,
                           onChanged: (v) => setModalState(() => useSSL = v),
                         ),
@@ -560,7 +561,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   _field(
                     passwordCtrl,
                     l10n.smtpPassword,
-                    hint: 'SMTP 授权码（非邮箱密码）',
+                    hint: l10n.emailHintPassword,
                     obscure: true,
                     errorText: invalidFields['password'],
                   ),
@@ -576,7 +577,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   _field(
                     toCtrl,
                     l10n.toEmail,
-                    hint: '可多个，逗号分隔',
+                    hint: l10n.emailHintRecipients,
                     keyboardType: TextInputType.emailAddress,
                     errorText: invalidFields['to'],
                   ),
@@ -584,7 +585,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   _field(
                     subjectCtrl,
                     l10n.subjectTemplate,
-                    hint: '默认：🔔 %appName% — %title%',
+                    hint: l10n.emailHintSubjectDefault,
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -650,8 +651,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     controller: bodyCtrl,
                     maxLines: 8,
                     decoration: InputDecoration(
-                      hintText:
-                          '默认：\n【通知转发】\n\n应用：%appName%\n标题：%title%\n内容：%content%\n...',
+                      hintText: l10n.emailHintBodyDefault,
                       filled: true,
                       fillColor: AppColors.cardBg(context),
                       border: OutlineInputBorder(
