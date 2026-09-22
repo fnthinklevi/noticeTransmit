@@ -73,6 +73,8 @@
     "parse:5:DINGTALK:200": "status=RATE_LIMITED httpCode=200 retryable=true message=限流 errcode=130101: send too fast",
     "parse:10:FEISHU:200": "status=BIZ_FAIL httpCode=200 retryable=false message=业务失败 code=9499 StatusCode=-1: rate limit",
     "parse:13:GENERIC:200": "status=BIZ_FAIL httpCode=200 retryable=false message=业务失败 code=500: server error",
+    "parse:34:GENERIC:200": "status=BIZ_FAIL httpCode=200 retryable=false message=业务失败 errcode=42001: invalid credential",
+    "parse:35:GENERIC:200": "status=SUCCESS httpCode=200 retryable=false message=ok",
     "parse:6:DINGTALK:200": "status=BIZ_FAIL httpCode=200 retryable=false message=业务失败 errcode=310000: keywords not in content",
     "parse:30:SLACK:200": "status=SUCCESS httpCode=200 retryable=false message=ok",
     "parse:0:WECHAT_WORK:200": "status=SUCCESS httpCode=200 retryable=false message=ok",

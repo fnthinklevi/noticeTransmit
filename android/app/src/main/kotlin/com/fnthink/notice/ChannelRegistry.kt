@@ -3,7 +3,13 @@ package com.fnthink.notice
 import org.json.JSONObject
 
 /**
- * 通道描述符表（**新增通道的唯一改动点**）。
+ * 通道描述符表（**载荷与判定层的唯一改动点**）。
+ *
+ * ⚠️ 说清楚边界：本表收敛了「host 识别 / 四类载荷 / 模板包装 / 响应判定」，
+ *   但今天新增一个通道仍要另改：`WebhookType` 枚举、`WebhookSigner.when`（不加即编译失败）、
+ *   `MainActivity.testWebhook` 的 typeLabel、`ConfigManager` 的 channel_type 映射、
+ *   Dart 侧 `channel_display.dart` 与四处 UI 扩展与 ARB 词条 —— 合计约 9 处。
+ *   收敛到「只填描述符」是 `outputs/通道模板重构方案.md` 的目标（第 4 步）。
  *
  * 背景：此前「加一个通道」需要改 6 处散落的 `when`（host 识别 / 通知载荷 / 测试载荷 /
  * 短信载荷 / 电话载荷 / 模板平台 JSON / 响应判定），漏改一处即静默失效
@@ -13,7 +19,8 @@ import org.json.JSONObject
  * 完整性由守卫测试锁定：`ChannelRegistryTest` 断言「每个枚举值都有表项、
  * 表项四类载荷齐全、host 规则不重复」——漏登记会直接测试失败。
  *
- * ⚠ 行为等价性由 `ChannelBehaviorGoldenTest` 的逐字节快照锁定（32 条载荷 + 26 条解析）。
+ * ⚠ 行为等价性由 `ChannelBehaviorGoldenTest` 的逐字节快照锁定（实测 **48 条载荷 + 36 条解析**；
+ *   2026-09-23 为 GENERIC 补了 2 条 errcode 判定用例，故为 36）。
  * 表内 lambda 体为既有分支代码的**原文搬迁**（开头解构参数以避免改名引入漂移），
  * 修改任何一条都会触发快照对比失败——这是有意设计：通道行为变更必须显式更新快照。
  */
@@ -148,13 +155,25 @@ internal object ChannelRegistry {
             },
             parse = { httpCode, jsonOrNull, rawBody ->
                 val json = jsonOrNull!!
-                // 通用 webhook：尝试解析 code 字段，0 为成功；否则视为 HTTP 成功
+                // 通用 webhook：尝试解析 code / errcode 字段，0 为成功；两者都缺才视为 HTTP 成功。
+                // ⚠ errcode 分支不是多余的：应用通道（企微/飞书自建应用）复用本管线时传 GENERIC，
+                //   官方域名下可由 host 回退拿到真实判定；但**私有化部署/走代理网关**时 host 匹配不上，
+                //   原先只看 code 会把企微的 {"errcode":42001} 判成「成功」——历史显示已送达而实际没送达。
                 val code = json.optInt("code", -1)
-                val message = json.optString("message", json.optString("msg", ""))
+                val errcode = json.optInt("errcode", -1)
+                val message = json.optString(
+                    "message",
+                    json.optString("msg", json.optString("errmsg", ""))
+                )
                 if (json.has("code") && code != 0) {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
                         "业务失败 code=$code: $message", false
+                    )
+                } else if (json.has("errcode") && errcode != 0) {
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
+                        "业务失败 errcode=$errcode: $message", false
                     )
                 } else {
                     WebhookResponseParser.ParseResult(

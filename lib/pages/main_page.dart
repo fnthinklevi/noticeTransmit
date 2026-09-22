@@ -77,8 +77,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         if (c['enabled'] == true) {
           final name = c['name']?.toString() ?? '';
           final appType = c['appType']?.toString() ?? '';
+          // 标签必须与送达状态键同源：app_channel 的送达结果由原生回传 cfg.type，
+          // 经 channelTypeDisplayName 生成键。此处若另写字面量（历史上是
+          // '自建应用:企微'），首页显示与 deliveryStatus 键就成了两套字符串，永不相等。
+          if (appType.isEmpty) continue;
           channels.add({
-            'type': appType == 'feishu_app' ? '自建应用:飞书' : '自建应用:企微',
+            'type': channelTypeDisplayName(appType),
             'name': name,
             'status': 'ok',
           });

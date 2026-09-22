@@ -136,6 +136,12 @@ class ChannelBehaviorGoldenTest {
         // Discord（成功为 HTTP 204 空 body；429 带 retry_after）
         Triple(WebhookPayloadBuilder.WebhookType.DISCORD, 204, """"""),
         Triple(WebhookPayloadBuilder.WebhookType.DISCORD, 429, """{"retry_after":500,"global":false}"""),
+        // v1.62 追加（放末尾，避免上面所有用例的索引位移）：GENERIC 也必须识别 errcode。
+        // 应用通道复用同一管线时传 GENERIC，官方域名可由 host 回退拿真实判定；
+        // 但**私有化部署 / 走代理网关**时 host 匹配不上，原先只看 code 会把
+        // {"errcode":42001} 判成成功 —— 历史显示已送达而实际没送达。
+        Triple(WebhookPayloadBuilder.WebhookType.GENERIC, 200, """{"errcode":42001,"errmsg":"invalid credential"}"""),
+        Triple(WebhookPayloadBuilder.WebhookType.GENERIC, 200, """{"errcode":0,"errmsg":"ok"}"""),
     )
 
     private fun describe(r: WebhookResponseParser.ParseResult): String =

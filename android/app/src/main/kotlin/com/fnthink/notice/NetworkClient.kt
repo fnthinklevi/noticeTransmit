@@ -35,6 +35,23 @@ class NetworkClient {
                 "invalid-url"
             }
 
+        /**
+         * 送达判定使用的平台身份：**调用方显式声明的类型优先，仅当其为 GENERIC 时**才按 host 回退。
+         *
+         * 旧实现在 [sendOnce] 里无条件 `detectType(signed.url)`，把调用方传进来的 `webhookType`
+         * 直接丢掉。后果：GOTIFY 与自建 ntfy 在 `ChannelRegistry` 里刻意不登记 host（域名由用户
+         * 自填），于是它们永远被判成 GENERIC，平台业务码判定形同虚设（假成功 / 假失败都可能）。
+         *
+         * 保留 GENERIC→host 回退是必须的：应用通道（企微/飞书自建应用）复用本管线时传 GENERIC
+         * （它们不属于 WebhookType 体系），端点就是平台官方域名，靠 host 才拿得到真实判定。
+         */
+        fun resolveWebhookType(
+            explicit: WebhookPayloadBuilder.WebhookType,
+            url: String
+        ): WebhookPayloadBuilder.WebhookType =
+            if (explicit != WebhookPayloadBuilder.WebhookType.GENERIC) explicit
+            else WebhookPayloadBuilder.detectType(url)
+
         @Volatile private var isActive = true
         // 作用域在 destroy() 时 cancel，activate() 时重建，避免重试协程在服务销毁后仍回调
         private var scope = newScope()
@@ -151,7 +168,7 @@ class NetworkClient {
                     var lastResult: WebhookResponseParser.ParseResult? = null
 
                     while (retryCount < MAX_RETRIES) {
-                        val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders)
+                        val result = sendOnce(signed, tag, retryCount, contentType, extraHeaders, webhookType)
                         lastResult = result
 
                         // 成功或不可重试 → 终止
@@ -221,7 +238,8 @@ class NetworkClient {
             tag: String,
             attempt: Int,
             contentType: String = "application/json; charset=utf-8",
-            extraHeaders: Map<String, String> = emptyMap()
+            extraHeaders: Map<String, String> = emptyMap(),
+            webhookType: WebhookPayloadBuilder.WebhookType = WebhookPayloadBuilder.WebhookType.GENERIC
         ): WebhookResponseParser.ParseResult {
             return try {
                 val requestBuilder = Request.Builder()
@@ -245,7 +263,8 @@ class NetworkClient {
                 client.newCall(request).execute().use { response ->
                     val respBody = response.body?.string() ?: ""
                     val parser = WebhookResponseParser.parse(
-                        WebhookPayloadBuilder.detectType(signed.url),
+                        // 显式声明优先，GENERIC 才按 host 回退（见 resolveWebhookType 注释）
+                        resolveWebhookType(webhookType, signed.url),
                         response.code,
                         respBody
                     )

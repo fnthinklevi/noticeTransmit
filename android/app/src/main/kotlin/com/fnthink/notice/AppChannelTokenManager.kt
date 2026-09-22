@@ -26,9 +26,17 @@ object AppChannelTokenManager {
 
     fun isTokenError(errcode: Int): Boolean = errcode in TOKEN_ERROR_CODES
 
-    /** 从 WebhookResponseParser 的 message（形如 "业务失败 errcode=42001: ..."）识别 token 失效 */
+    /**
+     * 从 WebhookResponseParser 的 message（形如 "业务失败 errcode=42001: ..." 或
+     * "业务失败 code=99991661: ..."）识别 token 失效。
+     *
+     * ⚠ 必须同时认两种参数名：企微用 errcode，飞书用 code。原实现只匹配 errcode=，
+     *   于是飞书 token 过期时这条判定永远为 false ⇒ 不清缓存、不重试一次，此后持续失败。
+     */
+    private val TOKEN_ERROR_PARAM = Regex("(?:errcode|code)=(\\d+)")
+
     fun isTokenErrorMessage(message: String): Boolean {
-        val m = Regex("errcode=(\\d+)").find(message) ?: return false
+        val m = TOKEN_ERROR_PARAM.find(message) ?: return false
         return isTokenError(m.groupValues[1].toIntOrNull() ?: -1)
     }
 
