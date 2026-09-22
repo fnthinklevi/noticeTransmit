@@ -73,15 +73,15 @@ object DeliveryResultStore {
         for (i in 0 until arr.length()) {
             val item = arr.optJSONObject(i) ?: continue
             list.add(
-                    mapOf(
-                        "notificationId" to item.optString("notificationId"),
-                        "webhookType" to item.optString("type"),
-                        "status" to item.optString("status"),
-                        "message" to item.optString("message"),
-                        "httpCode" to item.optInt("httpCode", 0),
-                        "channelUrl" to item.optString("channelUrl"),
-                    )
+                mapOf(
+                    "notificationId" to item.optString("notificationId"),
+                    "webhookType" to item.optString("type"),
+                    "status" to item.optString("status"),
+                    "message" to item.optString("message"),
+                    "httpCode" to item.optInt("httpCode", 0),
+                    "channelUrl" to item.optString("channelUrl"),
                 )
+            )
         }
         return list
     }

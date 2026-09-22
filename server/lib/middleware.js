@@ -26,7 +26,7 @@ function securityHeaders(req, res, next) {
   if (req.path === '/admin.html' || req.path.endsWith('/admin.html')) {
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
     );
   }
   if (req.path.startsWith('/api/admin')) {
@@ -75,7 +75,7 @@ function createRateLimitMiddleware(maxRequests, windowMs, message) {
       return res.status(429).json({
         code: -4,
         message: message,
-        retryAfter: remainingSeconds
+        retryAfter: remainingSeconds,
       });
     }
 
@@ -86,13 +86,13 @@ function createRateLimitMiddleware(maxRequests, windowMs, message) {
 const generalRateLimiter = createRateLimitMiddleware(
   store.RATE_LIMIT_GENERAL_MAX,
   store.RATE_LIMIT_WINDOW_MS,
-  '请求过于频繁，请稍后再试'
+  '请求过于频繁，请稍后再试',
 );
 
 const authRateLimiter = createRateLimitMiddleware(
   store.RATE_LIMIT_AUTH_MAX,
   store.RATE_LIMIT_WINDOW_MS,
-  '认证请求过于频繁，请稍后再试'
+  '认证请求过于频繁，请稍后再试',
 );
 
 // ========== IP 封锁 ==========
@@ -114,7 +114,7 @@ function ipBlockMiddleware(req, res, next) {
       code: -3,
       message: `您的IP已被封锁，剩余 ${remainingHours} 小时后解除`,
       blocked: true,
-      remainingHours
+      remainingHours,
     });
   }
 
@@ -145,7 +145,7 @@ function asyncHandler(fn) {
       res.status(500).json({
         code: -5,
         message: '服务器内部错误',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
       });
     });
   };
@@ -192,7 +192,7 @@ async function authMiddleware(req, res, next) {
     store.sessions[newSessionId] = {
       createdAt: Date.now(),
       authenticated: true,
-      twoFAVerified: false
+      twoFAVerified: false,
     };
     store.saveSessions();
     req.session = store.sessions[newSessionId];
@@ -211,7 +211,7 @@ function errorMiddleware(err, req, res, next) {
   res.status(500).json({
     code: -5,
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
   });
 }
 

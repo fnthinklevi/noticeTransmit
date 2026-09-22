@@ -88,66 +88,66 @@ internal class ChannelSpec(
 internal object ChannelRegistry {
     /** 全部通道（顺序即 host 匹配优先级） */
     val CHANNELS: List<ChannelSpec> = listOf(
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.GENERIC,
-        hosts = emptyList(),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildGeneric(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        packageName = packageName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType,
-                        extras = extras
-                    )
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         JSONObject().apply {
-                        put("type", "test")
-                        put("title", title)
-                        put("content", content)
-                        put("deviceName", deviceName)
-                        put("timestamp", System.currentTimeMillis())
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("type", "sms")
-                        put("sender", sender)
-                        put("message", message)
-                        put("time", time)
-                        put("deviceName", deviceName)
-                        put("timestamp", System.currentTimeMillis())
-                        if (simInfo != null) put("simInfo", simInfo)
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("type", "call_$state")
-                        put("phoneNumber", phoneNumber)
-                        put("callState", state)
-                        put("time", time)
-                        if (durationStr.isNotEmpty()) put("duration", durationStr)
-                        put("deviceName", deviceName)
-                        put("timestamp", System.currentTimeMillis())
-                        if (simInfo != null) put("simInfo", simInfo)
-                    }.toString()
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.GENERIC,
+            hosts = emptyList(),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildGeneric(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    packageName = packageName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType,
+                    extras = extras
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("type", "test")
+                    put("title", title)
+                    put("content", content)
+                    put("deviceName", deviceName)
+                    put("timestamp", System.currentTimeMillis())
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("type", "sms")
+                    put("sender", sender)
+                    put("message", message)
+                    put("time", time)
+                    put("deviceName", deviceName)
+                    put("timestamp", System.currentTimeMillis())
+                    if (simInfo != null) put("simInfo", simInfo)
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("type", "call_$state")
+                    put("phoneNumber", phoneNumber)
+                    put("callState", state)
+                    put("time", time)
+                    if (durationStr.isNotEmpty()) put("duration", durationStr)
+                    put("deviceName", deviceName)
+                    put("timestamp", System.currentTimeMillis())
+                    if (simInfo != null) put("simInfo", simInfo)
+                }.toString()
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
                 // 通用 webhook：尝试解析 code 字段，0 为成功；否则视为 HTTP 成功
                 val code = json.optInt("code", -1)
                 val message = json.optString("message", json.optString("msg", ""))
@@ -162,175 +162,77 @@ internal object ChannelRegistry {
                         if (message.isNotEmpty()) message else "OK", false
                     )
                 }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.WECHAT_WORK,
-        hosts = listOf("qyapi.weixin.qq.com"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildWeChatWork(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType
-                    )
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msgtype", "text")
-                        put("text", JSONObject().apply {
-                            put("content", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-                        })
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msgtype", "text")
-                        put("text", JSONObject().apply {
-                            put("content", WebhookPayloadBuilder.buildTextBody(
-                                title = title, content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                sender = sender, message = message, simFooter = simFooter
-                            ))
-                        })
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msgtype", "text")
-                        put("text", JSONObject().apply {
-                            put("content", WebhookPayloadBuilder.buildTextBody(
-                                title = "", content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                state = state, phoneNumber = phoneNumber,
-                                durationStr = durationStr, simFooter = simFooter
-                            ))
-                        })
-                    }.toString()
-        },
-        platformPayload = { vars, rendered, format, chatId ->
- JSONObject().apply {
-                put("msgtype", format) // text / markdown
-                if (format == "markdown") {
-                    put("markdown", JSONObject().apply { put("content", rendered) })
-                } else {
-                    put("text", JSONObject().apply { put("content", rendered) })
-                }
-            }.toString()
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
-                // errcode == 0 为成功
-                val errcode = json.optInt("errcode", -1)
-                val errmsg = json.optString("errmsg", "")
-                when {
-                    errcode == 0 -> WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
-                        if (errmsg.isNotEmpty()) errmsg else "OK", false
-                    )
-                    errcode == 45009 -> WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 errcode=$errcode: $errmsg", true
-                    )
-                    errcode == 130101 -> WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
-                        "限流 errcode=$errcode: $errmsg", true
-                    )
-                    else -> WebhookResponseParser.ParseResult(
-                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
-                        "业务失败 errcode=$errcode: $errmsg", false
-                    )
-                }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.DINGTALK,
-        hosts = listOf("oapi.dingtalk.com"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildDingTalk(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType
-                    )
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msgtype", "text")
-                        put("text", JSONObject().apply {
-                            put("content", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-                        })
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msgtype", "text")
-                        put("text", JSONObject().apply {
-                            put("content", WebhookPayloadBuilder.buildTextBody(
-                                title = title, content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                sender = sender, message = message, simFooter = simFooter
-                            ))
-                        })
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msgtype", "text")
-                        put("text", JSONObject().apply {
-                            put("content", WebhookPayloadBuilder.buildTextBody(
-                                title = "", content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                state = state, phoneNumber = phoneNumber,
-                                durationStr = durationStr, simFooter = simFooter
-                            ))
-                        })
-                    }.toString()
-        },
-        platformPayload = { vars, rendered, format, chatId ->
- JSONObject().apply {
-                put("msgtype", format)
-                if (format == "markdown") {
-                    put("markdown", JSONObject().apply {
-                        put("title", vars.title)
-                        put("text", rendered)
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.WECHAT_WORK,
+            hosts = listOf("qyapi.weixin.qq.com"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildWeChatWork(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msgtype", "text")
+                    put("text", JSONObject().apply {
+                        put("content", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
                     })
-                } else {
-                    put("text", JSONObject().apply { put("content", rendered) })
-                }
-            }.toString()
-
-            // 飞书自定义机器人不支持 markdown msg_type（仅 text/post/image/interactive），
-            // markdown 格式降级为 text 发送渲染后的文本，保证送达。
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msgtype", "text")
+                    put("text", JSONObject().apply {
+                        put("content", WebhookPayloadBuilder.buildTextBody(
+                            title = title, content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            sender = sender, message = message, simFooter = simFooter
+                        ))
+                    })
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msgtype", "text")
+                    put("text", JSONObject().apply {
+                        put("content", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            state = state, phoneNumber = phoneNumber,
+                            durationStr = durationStr, simFooter = simFooter
+                        ))
+                    })
+                }.toString()
+            },
+            platformPayload = { vars, rendered, format, chatId ->
+                JSONObject().apply {
+                    put("msgtype", format) // text / markdown
+                    if (format == "markdown") {
+                        put("markdown", JSONObject().apply { put("content", rendered) })
+                    } else {
+                        put("text", JSONObject().apply { put("content", rendered) })
+                    }
+                }.toString()
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
                 // errcode == 0 为成功
                 val errcode = json.optInt("errcode", -1)
                 val errmsg = json.optString("errmsg", "")
@@ -352,73 +254,171 @@ internal object ChannelRegistry {
                         "业务失败 errcode=$errcode: $errmsg", false
                     )
                 }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.FEISHU,
-        hosts = listOf("open.feishu.cn", "open.larksuite.com"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildFeishu(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.DINGTALK,
+            hosts = listOf("oapi.dingtalk.com"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildDingTalk(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msgtype", "text")
+                    put("text", JSONObject().apply {
+                        put("content", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
+                    })
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msgtype", "text")
+                    put("text", JSONObject().apply {
+                        put("content", WebhookPayloadBuilder.buildTextBody(
+                            title = title, content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            sender = sender, message = message, simFooter = simFooter
+                        ))
+                    })
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msgtype", "text")
+                    put("text", JSONObject().apply {
+                        put("content", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            state = state, phoneNumber = phoneNumber,
+                            durationStr = durationStr, simFooter = simFooter
+                        ))
+                    })
+                }.toString()
+            },
+            platformPayload = { vars, rendered, format, chatId ->
+                JSONObject().apply {
+                    put("msgtype", format)
+                    if (format == "markdown") {
+                        put("markdown", JSONObject().apply {
+                            put("title", vars.title)
+                            put("text", rendered)
+                        })
+                    } else {
+                        put("text", JSONObject().apply { put("content", rendered) })
+                    }
+                }.toString()
+
+                // 飞书自定义机器人不支持 markdown msg_type（仅 text/post/image/interactive），
+                // markdown 格式降级为 text 发送渲染后的文本，保证送达。
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
+                // errcode == 0 为成功
+                val errcode = json.optInt("errcode", -1)
+                val errmsg = json.optString("errmsg", "")
+                when {
+                    errcode == 0 -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.SUCCESS, httpCode,
+                        if (errmsg.isNotEmpty()) errmsg else "OK", false
                     )
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msg_type", "text")
-                        put("content", JSONObject().apply {
-                            put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-                        })
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msg_type", "text")
-                        put("content", JSONObject().apply {
-                            put("text", WebhookPayloadBuilder.buildTextBody(
-                                title = title, content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                sender = sender, message = message, simFooter = simFooter
-                            ))
-                        })
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("msg_type", "text")
-                        put("content", JSONObject().apply {
-                            put("text", WebhookPayloadBuilder.buildTextBody(
-                                title = "", content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                state = state, phoneNumber = phoneNumber,
-                                durationStr = durationStr, simFooter = simFooter
-                            ))
-                        })
-                    }.toString()
-        },
-        platformPayload = { vars, rendered, format, chatId ->
- JSONObject().apply {
-                put("msg_type", "text")
-                put("content", JSONObject().apply { put("text", rendered) })
-            }.toString()
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
+                    errcode == 45009 -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
+                        "限流 errcode=$errcode: $errmsg", true
+                    )
+                    errcode == 130101 -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.RATE_LIMITED, httpCode,
+                        "限流 errcode=$errcode: $errmsg", true
+                    )
+                    else -> WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL, httpCode,
+                        "业务失败 errcode=$errcode: $errmsg", false
+                    )
+                }
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.FEISHU,
+            hosts = listOf("open.feishu.cn", "open.larksuite.com"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildFeishu(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msg_type", "text")
+                    put("content", JSONObject().apply {
+                        put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
+                    })
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msg_type", "text")
+                    put("content", JSONObject().apply {
+                        put("text", WebhookPayloadBuilder.buildTextBody(
+                            title = title, content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            sender = sender, message = message, simFooter = simFooter
+                        ))
+                    })
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("msg_type", "text")
+                    put("content", JSONObject().apply {
+                        put("text", WebhookPayloadBuilder.buildTextBody(
+                            title = "", content = "", appName = "",
+                            time = time, deviceName = deviceName,
+                            state = state, phoneNumber = phoneNumber,
+                            durationStr = durationStr, simFooter = simFooter
+                        ))
+                    })
+                }.toString()
+            },
+            platformPayload = { vars, rendered, format, chatId ->
+                JSONObject().apply {
+                    put("msg_type", "text")
+                    put("content", JSONObject().apply { put("text", rendered) })
+                }.toString()
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
                 // 飞书 code == 0 / StatusCode == 0 / FalconCode == 0 为成功
                 val code = json.optInt("code", -1)
                 val statusCode = json.optInt("StatusCode", -1)
@@ -438,66 +438,66 @@ internal object ChannelRegistry {
                         "业务失败 code=$code StatusCode=$statusCode: $msg", false
                     )
                 }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.TELEGRAM,
-        hosts = listOf("api.telegram.org"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildTelegram(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType,
-                        chatId = chatId
-                    )
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         WebhookPayloadBuilder.buildTelegramMessage(
-                        "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName",
-                        chatId
-                    )
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         WebhookPayloadBuilder.buildTelegramMessage(
-                        WebhookPayloadBuilder.buildTextBody(
-                            title = title, content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            sender = sender, message = message, simFooter = simFooter
-                        ),
-                        chatId
-                    )
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         WebhookPayloadBuilder.buildTelegramMessage(
-                        WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            state = state, phoneNumber = phoneNumber,
-                            durationStr = durationStr, simFooter = simFooter
-                        ),
-                        chatId
-                    )
-        },
-        platformPayload = { vars, rendered, format, chatId ->
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.TELEGRAM,
+            hosts = listOf("api.telegram.org"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildTelegram(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType,
+                    chatId = chatId
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                WebhookPayloadBuilder.buildTelegramMessage(
+                    "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName",
+                    chatId
+                )
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                WebhookPayloadBuilder.buildTelegramMessage(
+                    WebhookPayloadBuilder.buildTextBody(
+                        title = title, content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        sender = sender, message = message, simFooter = simFooter
+                    ),
+                    chatId
+                )
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                WebhookPayloadBuilder.buildTelegramMessage(
+                    WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        state = state, phoneNumber = phoneNumber,
+                        durationStr = durationStr, simFooter = simFooter
+                    ),
+                    chatId
+                )
+            },
+            platformPayload = { vars, rendered, format, chatId ->
 
                 WebhookPayloadBuilder.buildTelegramMessage(rendered, chatId)
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
                 // Telegram: {"ok": true/false, "description": "..."}
                 // （Bark 已独立判定——Bark 响应无 ok 字段，共用会导致业务失败被判成功）
                 val ok = json.optBoolean("ok", true)
@@ -513,71 +513,71 @@ internal object ChannelRegistry {
                         if (description.isNotEmpty()) description else "失败", false
                     )
                 }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.BARK,
-        hosts = listOf("api.day.app", "bark.gugu.ovh"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildBark(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType
-                    )
-                    // Server酱 / PushPlus 在 WebhookSender 中走独立发送路径（GET / token 注入），
-                    // 此处返回文本 body 作为兜底，保证 when 穷尽。
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", title)
-                        put("body", "$content\n\n$deviceLabel$sep$deviceName")
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", title)
-                        put("body", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            sender = sender, message = message, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
-                        put("body", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            state = state, phoneNumber = phoneNumber,
-                            durationStr = durationStr, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        platformPayload = { vars, rendered, format, chatId ->
- JSONObject().apply {
-                put("title", vars.title)
-                put("body", rendered)
-            }.toString()
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.BARK,
+            hosts = listOf("api.day.app", "bark.gugu.ovh"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildBark(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType
+                )
+                // Server酱 / PushPlus 在 WebhookSender 中走独立发送路径（GET / token 注入），
+                // 此处返回文本 body 作为兜底，保证 when 穷尽。
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", title)
+                    put("body", "$content\n\n$deviceLabel$sep$deviceName")
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", title)
+                    put("body", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        sender = sender, message = message, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
+                    put("body", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        state = state, phoneNumber = phoneNumber,
+                        durationStr = durationStr, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            platformPayload = { vars, rendered, format, chatId ->
+                JSONObject().apply {
+                    put("title", vars.title)
+                    put("body", rendered)
+                }.toString()
 
-            // Server酱 / PushPlus 无平台模板包装（走 WebhookSender 独立发送路径）
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
+                // Server酱 / PushPlus 无平台模板包装（走 WebhookSender 独立发送路径）
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
                 // Bark：{"code":200,"message":"..."} —— code 为业务状态码（200 成功）
                 // ⚠ 修复（原与 Telegram 共用判定导致静默成功）：Bark 响应**没有 ok 字段**，
                 // 原先 `optBoolean("ok", true)` 恒取默认 true → 400（参数错）/404（路径错）/
@@ -600,68 +600,68 @@ internal object ChannelRegistry {
                         "Bark 业务失败 code=$code: $message", false
                     )
                 }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
-        hosts = listOf("sctapi.ftqq.com"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildTextBody(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType
-                    )
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", title)
-                        put("content", "$content\n\n$deviceLabel$sep$deviceName")
-                        put("deviceName", deviceName)
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", title)
-                        put("content", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            sender = sender, message = message, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
-                        put("content", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            state = state, phoneNumber = phoneNumber,
-                            durationStr = durationStr, simFooter = simFooter
-                        ))
-                    }.toString()
-        
-            /**
-             * Server酱（Server酱³ / Turbo）：POST form（application/x-www-form-urlencoded），
-             * title + desp 作为表单体提交，内容不进入 URL，避免被中间代理/访问日志留存。
-             * 接口：https://sctapi.ftqq.com/{SendKey}.send  body: title=xxx&desp=xxx
-             */
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
+            hosts = listOf("sctapi.ftqq.com"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildTextBody(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", title)
+                    put("content", "$content\n\n$deviceLabel$sep$deviceName")
+                    put("deviceName", deviceName)
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", title)
+                    put("content", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        sender = sender, message = message, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
+                    put("content", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        state = state, phoneNumber = phoneNumber,
+                        durationStr = durationStr, simFooter = simFooter
+                    ))
+                }.toString()
+
+                /**
+                 * Server酱（Server酱³ / Turbo）：POST form（application/x-www-form-urlencoded），
+                 * title + desp 作为表单体提交，内容不进入 URL，避免被中间代理/访问日志留存。
+                 * 接口：https://sctapi.ftqq.com/{SendKey}.send  body: title=xxx&desp=xxx
+                 */
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
                 // Server酱：{"code":0,"message":"发送成功","data":{...}} — code==0 成功
                 val code = json.optInt("code", -1)
                 val message = json.optString("message", json.optString("msg", ""))
@@ -676,68 +676,68 @@ internal object ChannelRegistry {
                         "Server酱业务失败 code=$code: $message", false
                     )
                 }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.PUSH_PLUS,
-        hosts = listOf("www.pushplus.plus", "pushplus.plus"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
-            val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
-         WebhookPayloadBuilder.buildTextBody(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
-                        notifyType = notifyType
-                    )
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", title)
-                        put("content", "$content\n\n$deviceLabel$sep$deviceName")
-                        put("deviceName", deviceName)
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", title)
-                        put("content", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            sender = sender, message = message, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
-         JSONObject().apply {
-                        put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
-                        put("content", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            state = state, phoneNumber = phoneNumber,
-                            durationStr = durationStr, simFooter = simFooter
-                        ))
-                    }.toString()
-        
-            /**
-             * Server酱（Server酱³ / Turbo）：POST form（application/x-www-form-urlencoded），
-             * title + desp 作为表单体提交，内容不进入 URL，避免被中间代理/访问日志留存。
-             * 接口：https://sctapi.ftqq.com/{SendKey}.send  body: title=xxx&desp=xxx
-             */
-        },
-        parse = { httpCode, jsonOrNull, rawBody ->
-            val json = jsonOrNull!!
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.PUSH_PLUS,
+            hosts = listOf("www.pushplus.plus", "pushplus.plus"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
+                val notifyType = p.notifyType; val chatId = p.chatId; val extras = p.extras
+                WebhookPayloadBuilder.buildTextBody(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType
+                )
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", title)
+                    put("content", "$content\n\n$deviceLabel$sep$deviceName")
+                    put("deviceName", deviceName)
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", title)
+                    put("content", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        sender = sender, message = message, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter; val chatId = p.chatId
+                JSONObject().apply {
+                    put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
+                    put("content", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        state = state, phoneNumber = phoneNumber,
+                        durationStr = durationStr, simFooter = simFooter
+                    ))
+                }.toString()
+
+                /**
+                 * Server酱（Server酱³ / Turbo）：POST form（application/x-www-form-urlencoded），
+                 * title + desp 作为表单体提交，内容不进入 URL，避免被中间代理/访问日志留存。
+                 * 接口：https://sctapi.ftqq.com/{SendKey}.send  body: title=xxx&desp=xxx
+                 */
+            },
+            parse = { httpCode, jsonOrNull, rawBody ->
+                val json = jsonOrNull!!
                 // PushPlus：{"code":200,"msg":"发送成功","data":"..."} — code==200 成功
                 val code = json.optInt("code", -1)
                 val message = json.optString("msg", json.optString("message", ""))
@@ -752,208 +752,208 @@ internal object ChannelRegistry {
                         "PushPlus 业务失败 code=$code: $message", false
                     )
                 }
-        },
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.NTFY,
-        // 官方托管 ntfy.sh 可自动识别；自建服务器 host 不可枚举，
-        // 类型由 DB channel_type 字段提供（detectType 兜底 GENERIC）
-        hosts = listOf("ntfy.sh"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
-         WebhookPayloadBuilder.buildTextBody(
-                        title = title,
-                        content = content,
-                        appName = appName,
-                        time = time,
-                        deviceName = deviceName,
+            },
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.NTFY,
+            // 官方托管 ntfy.sh 可自动识别；自建服务器 host 不可枚举，
+            // 类型由 DB channel_type 字段提供（detectType 兜底 GENERIC）
+            hosts = listOf("ntfy.sh"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+                WebhookPayloadBuilder.buildTextBody(
+                    title = title,
+                    content = content,
+                    appName = appName,
+                    time = time,
+                    deviceName = deviceName,
+                    notifyType = notifyType
+                )
+                // header 模式：body 即纯文本消息；Title/Authorization 由发送层注入
+            },
+            test = { p ->
+                val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName
+                "$content\n\n$deviceLabel$sep$deviceName"
+            },
+            sms = { p ->
+                val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simFooter = p.simFooter
+                WebhookPayloadBuilder.buildTextBody(
+                    title = "", content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    sender = sender, message = message, simFooter = simFooter
+                )
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simFooter = p.simFooter
+                WebhookPayloadBuilder.buildTextBody(
+                    title = "", content = "", appName = "",
+                    time = time, deviceName = deviceName,
+                    state = state, phoneNumber = phoneNumber,
+                    durationStr = durationStr, simFooter = simFooter
+                )
+            },
+            // parse = null：ntfy 2xx（含 JSON {"id":...}）即成功，走外层兜底
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.GOTIFY,
+            hosts = emptyList(),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+                JSONObject().apply {
+                    put("title", title.ifEmpty { appName })
+                    put("message", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = content, appName = "",
+                        time = time, deviceName = deviceName,
                         notifyType = notifyType
-                    )
-                    // header 模式：body 即纯文本消息；Title/Authorization 由发送层注入
-        },
-        test = { p ->
-            val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName
-         "$content\n\n$deviceLabel$sep$deviceName"
-        },
-        sms = { p ->
-            val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simFooter = p.simFooter
-         WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            sender = sender, message = message, simFooter = simFooter
-                        )
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simFooter = p.simFooter
-         WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            state = state, phoneNumber = phoneNumber,
-                            durationStr = durationStr, simFooter = simFooter
-                        )
-        },
-        // parse = null：ntfy 2xx（含 JSON {"id":...}）即成功，走外层兜底
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.GOTIFY,
-        hosts = emptyList(),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
-         JSONObject().apply {
-                        put("title", title.ifEmpty { appName })
-                        put("message", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = content, appName = "",
-                            time = time, deviceName = deviceName,
-                            notifyType = notifyType
-                        ))
-                    }.toString()
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName
-         JSONObject().apply {
-                        put("title", title)
-                        put("message", "$content\n\n$deviceLabel$sep$deviceName")
-                    }.toString()
-        },
-        sms = { p ->
-            val title = p.title; val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simFooter = p.simFooter
-         JSONObject().apply {
-                        put("title", title)
-                        put("message", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            sender = sender, message = message, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simInfo = p.simInfo; val simFooter = p.simFooter
-         JSONObject().apply {
-                        put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
-                        put("message", WebhookPayloadBuilder.buildTextBody(
-                            title = "", content = "", appName = "",
-                            time = time, deviceName = deviceName,
-                            state = state, phoneNumber = phoneNumber,
-                            durationStr = durationStr, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        // parse = null：Gotify 2xx（含 JSON {"id":...}）即成功，走外层兜底
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.SLACK,
-        hosts = listOf("hooks.slack.com"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
-         JSONObject().apply {
-                        put("text", WebhookPayloadBuilder.buildTextBody(
+                    ))
+                }.toString()
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName
+                JSONObject().apply {
+                    put("title", title)
+                    put("message", "$content\n\n$deviceLabel$sep$deviceName")
+                }.toString()
+            },
+            sms = { p ->
+                val title = p.title; val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simFooter = p.simFooter
+                JSONObject().apply {
+                    put("title", title)
+                    put("message", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        sender = sender, message = message, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simInfo = p.simInfo; val simFooter = p.simFooter
+                JSONObject().apply {
+                    put("title", I18n.callNotifyTitle(state, phoneNumber, simInfo))
+                    put("message", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        state = state, phoneNumber = phoneNumber,
+                        durationStr = durationStr, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            // parse = null：Gotify 2xx（含 JSON {"id":...}）即成功，走外层兜底
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.SLACK,
+            hosts = listOf("hooks.slack.com"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+                JSONObject().apply {
+                    put("text", WebhookPayloadBuilder.buildTextBody(
+                        title = title, content = content, appName = appName,
+                        time = time, deviceName = deviceName,
+                        notifyType = notifyType
+                    ))
+                }.toString()
+            },
+            test = { p ->
+                val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName
+                JSONObject().apply {
+                    put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
+                }.toString()
+            },
+            sms = { p ->
+                val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simFooter = p.simFooter
+                JSONObject().apply {
+                    put("text", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        sender = sender, message = message, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simFooter = p.simFooter
+                JSONObject().apply {
+                    put("text", WebhookPayloadBuilder.buildTextBody(
+                        title = "", content = "", appName = "",
+                        time = time, deviceName = deviceName,
+                        state = state, phoneNumber = phoneNumber,
+                        durationStr = durationStr, simFooter = simFooter
+                    ))
+                }.toString()
+            },
+            // parse = null：Slack 成功响应为文本 "ok"（非 JSON）→ 外层兜底 SUCCESS；失败走 4xx HTTP_FAIL
+        ),
+        ChannelSpec(
+            type = WebhookPayloadBuilder.WebhookType.DISCORD,
+            hosts = listOf("discord.com", "discordapp.com"),
+            notify = { p ->
+                val title = p.title; val content = p.content; val appName = p.appName
+                val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
+                JSONObject().apply {
+                    put("content", WebhookPayloadBuilder.truncateForDiscord(
+                        WebhookPayloadBuilder.buildTextBody(
                             title = title, content = content, appName = appName,
                             time = time, deviceName = deviceName,
                             notifyType = notifyType
-                        ))
-                    }.toString()
-        },
-        test = { p ->
-            val title = p.title; val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName
-         JSONObject().apply {
-                        put("text", "${I18n.bracket(title)}\n$content\n\n$deviceLabel$sep$deviceName")
-                    }.toString()
-        },
-        sms = { p ->
-            val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simFooter = p.simFooter
-         JSONObject().apply {
-                        put("text", WebhookPayloadBuilder.buildTextBody(
+                        )
+                    ))
+                }.toString()
+            },
+            test = { p ->
+                val content = p.content; val deviceLabel = p.deviceLabel
+                val sep = p.sep; val deviceName = p.deviceName
+                JSONObject().apply {
+                    put("content", "$content\n\n$deviceLabel$sep$deviceName")
+                }.toString()
+            },
+            sms = { p ->
+                val sender = p.sender; val message = p.message
+                val time = p.time; val deviceName = p.deviceName
+                val simFooter = p.simFooter
+                JSONObject().apply {
+                    put("content", WebhookPayloadBuilder.truncateForDiscord(
+                        WebhookPayloadBuilder.buildTextBody(
                             title = "", content = "", appName = "",
                             time = time, deviceName = deviceName,
                             sender = sender, message = message, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simFooter = p.simFooter
-         JSONObject().apply {
-                        put("text", WebhookPayloadBuilder.buildTextBody(
+                        )
+                    ))
+                }.toString()
+            },
+            call = { p ->
+                val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
+                val durationStr = p.durationStr; val deviceName = p.deviceName
+                val simFooter = p.simFooter
+                JSONObject().apply {
+                    put("content", WebhookPayloadBuilder.truncateForDiscord(
+                        WebhookPayloadBuilder.buildTextBody(
                             title = "", content = "", appName = "",
                             time = time, deviceName = deviceName,
                             state = state, phoneNumber = phoneNumber,
                             durationStr = durationStr, simFooter = simFooter
-                        ))
-                    }.toString()
-        },
-        // parse = null：Slack 成功响应为文本 "ok"（非 JSON）→ 外层兜底 SUCCESS；失败走 4xx HTTP_FAIL
-    ),
-    ChannelSpec(
-        type = WebhookPayloadBuilder.WebhookType.DISCORD,
-        hosts = listOf("discord.com", "discordapp.com"),
-        notify = { p ->
-            val title = p.title; val content = p.content; val appName = p.appName
-            val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
-         JSONObject().apply {
-                        put("content", WebhookPayloadBuilder.truncateForDiscord(
-                            WebhookPayloadBuilder.buildTextBody(
-                                title = title, content = content, appName = appName,
-                                time = time, deviceName = deviceName,
-                                notifyType = notifyType
-                            )
-                        ))
-                    }.toString()
-        },
-        test = { p ->
-            val content = p.content; val deviceLabel = p.deviceLabel
-            val sep = p.sep; val deviceName = p.deviceName
-         JSONObject().apply {
-                        put("content", "$content\n\n$deviceLabel$sep$deviceName")
-                    }.toString()
-        },
-        sms = { p ->
-            val sender = p.sender; val message = p.message
-            val time = p.time; val deviceName = p.deviceName
-            val simFooter = p.simFooter
-         JSONObject().apply {
-                        put("content", WebhookPayloadBuilder.truncateForDiscord(
-                            WebhookPayloadBuilder.buildTextBody(
-                                title = "", content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                sender = sender, message = message, simFooter = simFooter
-                            )
-                        ))
-                    }.toString()
-        },
-        call = { p ->
-            val state = p.state; val phoneNumber = p.phoneNumber; val time = p.time
-            val durationStr = p.durationStr; val deviceName = p.deviceName
-            val simFooter = p.simFooter
-         JSONObject().apply {
-                        put("content", WebhookPayloadBuilder.truncateForDiscord(
-                            WebhookPayloadBuilder.buildTextBody(
-                                title = "", content = "", appName = "",
-                                time = time, deviceName = deviceName,
-                                state = state, phoneNumber = phoneNumber,
-                                durationStr = durationStr, simFooter = simFooter
-                            )
-                        ))
-                    }.toString()
-        },
-        // parse = null：Discord 成功为 HTTP 204（空 body）→ 外层 SUCCESS；429 → 外层 RATE_LIMITED；400 → HTTP_FAIL
-    ),
+                        )
+                    ))
+                }.toString()
+            },
+            // parse = null：Discord 成功为 HTTP 204（空 body）→ 外层 SUCCESS；429 → 外层 RATE_LIMITED；400 → HTTP_FAIL
+        ),
     )
 
     private val byType: Map<WebhookPayloadBuilder.WebhookType, ChannelSpec> =

@@ -267,5 +267,4 @@ class AppChannelSpecTest {
             assertEquals("${spec.type} configSchema 存在重复 key", keys.size, keys.toSet().size)
         }
     }
-
 }

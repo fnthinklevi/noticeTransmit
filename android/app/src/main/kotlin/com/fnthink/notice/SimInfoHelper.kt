@@ -36,9 +36,9 @@ object SimInfoHelper {
 
     data class SimInfo(
         val subscriptionId: Int,
-        val slotIndex: Int,        // 0-based
+        val slotIndex: Int, // 0-based
         val carrierName: String,
-        val displayLabel: String   // "卡1(中国移动)" / "SIM1(China Mobile)" 等
+        val displayLabel: String // "卡1(中国移动)" / "SIM1(China Mobile)" 等
     )
 
     /**

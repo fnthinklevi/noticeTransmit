@@ -178,7 +178,7 @@ object RuleEngine {
         // 动作同时配置时的优先级：delay > merge > record（与 Flutter 端首次出现的
         // 有效动作语义一致；delay/merge 都是"延后推送"，delay 定时点更明确故优先）
         if (delayFireAt != null) {
-            Log.d(TAG, "延迟推送 fireAt=${delayFireAt}")
+            Log.d(TAG, "延迟推送 fireAt=$delayFireAt")
             return Decision.Delay(delayFireAt)
         }
         if (mergeWindowMs != null) {

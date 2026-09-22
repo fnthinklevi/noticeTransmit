@@ -1,0 +1,31 @@
+root = true
+
+# ==== Kotlin（ktlint 1.8.0；入口 .github/scripts/check_format.sh）====
+# 取向：只把「格式不变量」纳入门禁，不采纳 ktlint 的排版主张。
+# 关闭项都是会重排既有代码、且与本仓库「静态源码守卫按源文本断言」冲突的 rule
+# —— 换行/续行对齐一改，守卫里形如 "registerReceiver(receiver, filter)" 的
+# 精确子串断言就会红，等于让格式化工具去改测试语义。
+[*.{kt,kts}]
+indent_size = 4
+insert_final_newline = true
+ktlint_code_style = intellij_idea
+# 排版主张（会大范围重排代码）
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_statement-wrapping = disabled
+ktlint_standard_wrapping = disabled
+ktlint_standard_function-signature = disabled
+ktlint_standard_function-expression-body = disabled
+ktlint_standard_multiline-if-else = disabled
+ktlint_standard_trailing-comma-on-call-site = disabled
+ktlint_standard_trailing-comma-on-declaration-site = disabled
+ktlint_standard_blank-line-between-when-conditions = disabled
+ktlint_standard_spacing-between-declarations-with-comments = disabled
+ktlint_standard_spacing-between-declarations-with-annotations = disabled
+# 非格式类规则（命名 / 导入卫生 / 注释位置）——不属本工具职责，
+# 要治请单独一轮提交：展开 javax.mail.* 与 kotlinx.coroutines.* 会牵动整份符号引用，
+# 混进格式化提交就毁掉「这个 diff 只含空白改动」这个前提。
+ktlint_standard_no-wildcard-imports = disabled
+ktlint_standard_property-naming = disabled
+ktlint_standard_backing-property-naming = disabled
+ktlint_standard_kdoc = disabled
+ktlint_standard_value-parameter-comment = disabled

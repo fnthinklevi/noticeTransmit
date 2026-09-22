@@ -14,8 +14,6 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
-import android.telephony.SubscriptionManager
-import android.telephony.TelephonyManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
@@ -23,17 +21,19 @@ import android.os.Environment
 import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
+import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import com.tencent.bugly.crashreport.CrashReport
 import com.fnthink.notice.channels.ChannelDispatcher
 import com.fnthink.notice.channels.ConfigChannelHandler
 import com.fnthink.notice.channels.DeviceChannelHandler
 import com.fnthink.notice.channels.FileChannelHandler
 import com.fnthink.notice.channels.PermissionChannelHandler
 import com.fnthink.notice.channels.StatsChannelHandler
+import com.tencent.bugly.crashreport.CrashReport
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -358,7 +358,7 @@ class MainActivity : FlutterActivity() {
         when (requestCode) {
             REQUEST_SMS_PERMISSION -> {
                 val granted = grantResults.isNotEmpty() &&
-                        grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
                 methodChannel?.invokeMethod(
                     "onSmsPermissionResult",
                     mapOf("granted" to granted)
@@ -366,7 +366,7 @@ class MainActivity : FlutterActivity() {
             }
             REQUEST_PHONE_PERMISSION -> {
                 val granted = grantResults.isNotEmpty() &&
-                        grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
                 if (granted) {
                     // 授权后立即使 SIM 缓存失效，避免最长 60 秒内 SIM 识别仍为空
                     SimInfoHelper.invalidateCache()
@@ -993,7 +993,7 @@ class MainActivity : FlutterActivity() {
             val level = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
             val chargingStatus = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
             val isCharging = chargingStatus == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    chargingStatus == BatteryManager.BATTERY_STATUS_FULL
+                chargingStatus == BatteryManager.BATTERY_STATUS_FULL
             mapOf(
                 "level" to level,
                 "isCharging" to isCharging,
@@ -1009,7 +1009,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    internal     fun setBatterySetting(key: String, value: Boolean) {
+    internal fun setBatterySetting(key: String, value: Boolean) {
         val prefsKey = "flutter.$key"
         prefs.edit().putBoolean(prefsKey, value).apply()
         notifyServiceConfigChanged()
@@ -1073,7 +1073,9 @@ class MainActivity : FlutterActivity() {
             when {
                 tm == null -> 1
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> tm.activeModemCount
-                else -> @Suppress("DEPRECATION") tm.phoneCount
+                else ->
+                    @Suppress("DEPRECATION")
+                    tm.phoneCount
             }
         } catch (_: Exception) {
             1
@@ -1749,7 +1751,7 @@ class MainActivity : FlutterActivity() {
         return try {
             val manager = android.appwidget.AppWidgetManager.getInstance(this)
             val clazz = if (wide) PushToggleWidgetWideProvider::class.java
-                else PushToggleWidgetProvider::class.java
+            else PushToggleWidgetProvider::class.java
             val component = android.content.ComponentName(this, clazz)
             if (!manager.isRequestPinAppWidgetSupported()) return false
             val callback = PendingIntent.getBroadcast(
@@ -2167,15 +2169,15 @@ class MainActivity : FlutterActivity() {
                         val parseResult = WebhookResponseParser.parse(webhookType, response.code, responseBody)
 
                         val signedLabel = if (!secret.isNullOrEmpty()) " [已签名]" else ""
-                    val detail = "$typeLabel$signedLabel HTTP ${response.code} · ${parseResult.status.name}"
-                    val fullMessage = "$detail\n${parseResult.message.take(300)}"
+                        val detail = "$typeLabel$signedLabel HTTP ${response.code} · ${parseResult.status.name}"
+                        val fullMessage = "$detail\n${parseResult.message.take(300)}"
 
-                    Triple(
-                        parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
-                        fullMessage,
-                        !secret.isNullOrEmpty()
-                    )
-                }
+                        Triple(
+                            parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                            fullMessage,
+                            !secret.isNullOrEmpty()
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 Triple(false, "推送异常: ${e.message ?: e.javaClass.simpleName}", !secret.isNullOrEmpty())

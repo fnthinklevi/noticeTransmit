@@ -328,12 +328,12 @@ class NotificationProcessor(private val context: Context) {
             val friendlyName = getFriendlyAppName(packageName)
 
             val isLabelSuspicious = label.isEmpty() ||
-                    label == packageName ||
-                    label.length > 12 ||
-                    label.contains("推送") ||
-                    label.contains("服务") ||
-                    label.contains("system", ignoreCase = true) ||
-                    label.contains("push", ignoreCase = true)
+                label == packageName ||
+                label.length > 12 ||
+                label.contains("推送") ||
+                label.contains("服务") ||
+                label.contains("system", ignoreCase = true) ||
+                label.contains("push", ignoreCase = true)
 
             if (isLabelSuspicious && friendlyName != packageName && friendlyName.isNotEmpty()) {
                 friendlyName
@@ -462,11 +462,11 @@ class NotificationProcessor(private val context: Context) {
 
         if (subText.isNotEmpty() && subText.length in 1..12) {
             val isAppName = !subText.contains("push", true) &&
-                    !subText.contains("service", true) &&
-                    !subText.contains("notification", true) &&
-                    !subText.contains("条消息", true) &&
-                    !subText.contains("新消息", true) &&
-                    !subText.contains("通知", true)
+                !subText.contains("service", true) &&
+                !subText.contains("notification", true) &&
+                !subText.contains("条消息", true) &&
+                !subText.contains("新消息", true) &&
+                !subText.contains("通知", true)
             if (isAppName) {
                 return subText
             }
@@ -571,7 +571,7 @@ class NotificationProcessor(private val context: Context) {
             pkg.contains("xingin") || pkg.contains("xhs") || appLower.contains("小红书") -> "xiaohongshu"
             pkg.contains("zhihu") || appLower.contains("知乎") -> "zhihu"
             pkg.contains("meituan") || pkg.contains("dianping") || pkg.contains("sankuai") ||
-                    appLower.contains("美团") || appLower.contains("大众点评") -> "meituan"
+                appLower.contains("美团") || appLower.contains("大众点评") -> "meituan"
             pkg.contains("ele") || appLower.contains("饿了么") -> "eleme"
             pkg.contains("pinduoduo") || appLower.contains("拼多多") -> "pinduoduo"
             pkg.contains("kuaishou") || appLower.contains("快手") -> "kuaishou"

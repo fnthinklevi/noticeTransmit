@@ -21,8 +21,8 @@ class PushToggleActionReceiver : BroadcastReceiver() {
         const val ACTION_PAUSE_PUSH = "com.fnthink.notice.action.PAUSE_PUSH"
         const val ACTION_RESUME_PUSH = "com.fnthink.notice.action.RESUME_PUSH"
 
-        /// 通过显式 Intent 触发 NotificationMonitorService 刷新前台通知（按钮文案 / 状态）。
-        /// internal：桌面小部件 PushToggleWidgetProvider 也复用此逻辑。
+        // / 通过显式 Intent 触发 NotificationMonitorService 刷新前台通知（按钮文案 / 状态）。
+        // / internal：桌面小部件 PushToggleWidgetProvider 也复用此逻辑。
         @JvmStatic
         internal fun notifyServiceToUpdate(context: Context) {
             val intent = Intent(context, NotificationMonitorService::class.java).apply {

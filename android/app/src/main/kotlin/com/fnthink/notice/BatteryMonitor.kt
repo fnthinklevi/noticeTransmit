@@ -36,8 +36,8 @@ class BatteryMonitor(private val context: Context) {
         /** 温度规则类型集合（与 Dart battery_service 的规则类型契约一致） */
         val TEMP_RULE_TYPES = setOf(
             "battery_temp_above", // 电池温度（BatteryManager，最可靠）
-            "device_temp_above",  // 设备整体温度（thermal_zone 最热温区）
-            "screen_temp_above",  // 屏幕温度（display/lcd 温区，部分机型不可得）
+            "device_temp_above", // 设备整体温度（thermal_zone 最热温区）
+            "screen_temp_above", // 屏幕温度（display/lcd 温区，部分机型不可得）
         )
 
         /** 温度 crossing：由低于阈值变为达到阈值（纯函数，JVM 可测） */
@@ -280,7 +280,7 @@ class BatteryMonitor(private val context: Context) {
         return BatteryInfo(
             level = (level * 100 / scale).coerceIn(0, 100),
             isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    status == BatteryManager.BATTERY_STATUS_FULL,
+                status == BatteryManager.BATTERY_STATUS_FULL,
             voltage = voltage
         )
     }
@@ -300,7 +300,6 @@ data class BatteryInfo(
     val voltage: Int,
     val temperatureC: Double? = null,
 )
-
 
 // ═══════════════════════════════════════════════════════════════════
 // v1.59 温度维度：通知构建 + 热区读取器

@@ -69,6 +69,10 @@ app.listen(PORT, () => {
     : diag.secret
       ? `有(${diag.secret.length}字符)`
       : '空';
-  console.log(`  二步验证诊断: enabled=${diag.enabled} secret=${secretDesc} 恢复码=${Array.isArray(diag.recoveryCodes) ? diag.recoveryCodes.length : 0} 个 ENCRYPTION_KEY=${process.env.ENCRYPTION_KEY ? '已配置' : '未配置'}`);
-  console.log(`  DISABLE_IP_BLOCKING=${store.DISABLE_IP_BLOCKING ? '开启(IP封锁已临时关闭)' : '关闭(IP封锁生效)'}`);
+  console.log(
+    `  二步验证诊断: enabled=${diag.enabled} secret=${secretDesc} 恢复码=${Array.isArray(diag.recoveryCodes) ? diag.recoveryCodes.length : 0} 个 ENCRYPTION_KEY=${process.env.ENCRYPTION_KEY ? '已配置' : '未配置'}`,
+  );
+  console.log(
+    `  DISABLE_IP_BLOCKING=${store.DISABLE_IP_BLOCKING ? '开启(IP封锁已临时关闭)' : '关闭(IP封锁生效)'}`,
+  );
 });

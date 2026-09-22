@@ -1,15 +1,15 @@
 package com.fnthink.notice
 
 import android.util.Log
+import kotlinx.coroutines.*
 import java.util.*
 import javax.mail.*
 import javax.mail.internet.*
-import kotlinx.coroutines.*
 
-/// SMTP 邮件发送器
-///
-/// 使用 javax.mail 实现，支持 SSL 直连(465) 和 STARTTLS(587)。
-/// 在后台协程中异步发送，不阻塞通知处理流程。
+// / SMTP 邮件发送器
+// /
+// / 使用 javax.mail 实现，支持 SSL 直连(465) 和 STARTTLS(587)。
+// / 在后台协程中异步发送，不阻塞通知处理流程。
 object EmailSender {
 
     private const val TAG = "EmailSender"

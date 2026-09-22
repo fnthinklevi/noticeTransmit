@@ -43,11 +43,11 @@ class AppChannelTokenManagerTest {
         val t1Third = AppChannelTokenManager.getToken("wecom_app", "corp-a+s-a", fa)
 
         assertEquals("token-a-1", t1)
-        assertEquals("token-a-1", t1Again)    // 命中缓存
+        assertEquals("token-a-1", t1Again) // 命中缓存
         assertEquals("token-b-1", t2)
-        assertEquals("token-a-1", t1Third)    // 另一凭据未驱逐本条
-        assertEquals(1, fa.calls)             // A 仅 fetch 一次
-        assertEquals(1, fb.calls)             // B 仅 fetch 一次
+        assertEquals("token-a-1", t1Third) // 另一凭据未驱逐本条
+        assertEquals(1, fa.calls) // A 仅 fetch 一次
+        assertEquals(1, fb.calls) // B 仅 fetch 一次
     }
 
     @Test
@@ -65,7 +65,7 @@ class AppChannelTokenManagerTest {
         // 模拟 message/send 对 wecom 返回 40014 → 定向失效
         AppChannelTokenManager.invalidate(AppChannelTokenManager.cacheKey("wecom_app", "c-c"))
 
-        AppChannelTokenManager.getToken("wecom_app", "c-c", fc)  // 重新 fetch
+        AppChannelTokenManager.getToken("wecom_app", "c-c", fc) // 重新 fetch
         AppChannelTokenManager.getToken("feishu_app", "c-d", fd) // 仍命中缓存
 
         assertEquals(2, fc.calls) // 仅 wecom 重取一次

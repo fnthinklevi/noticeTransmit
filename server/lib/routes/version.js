@@ -16,11 +16,7 @@ const router = express.Router();
 
 // 校验请求体为普通 JSON 对象（排除 null、数组、基本类型），防止写入畸形配置
 function isPlainObject(value) {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 // 字段级校验：版本配置必填字段与类型
@@ -50,7 +46,11 @@ function validateVersionConfig(body) {
     errors.push('latestVersion 必须为非空字符串');
   }
   // latestBuild: 必填、正整数
-  if (typeof body.latestBuild !== 'number' || !Number.isInteger(body.latestBuild) || body.latestBuild <= 0) {
+  if (
+    typeof body.latestBuild !== 'number' ||
+    !Number.isInteger(body.latestBuild) ||
+    body.latestBuild <= 0
+  ) {
     errors.push('latestBuild 必须为正整数');
   }
   // downloads: 必填对象（当前契约），四个平台的下载链接
@@ -130,7 +130,11 @@ function validateVersionConfig(body) {
     if (typeof body.forceUpdateVersion !== 'string' || !body.forceUpdateVersion.trim()) {
       errors.push('forceUpdateVersion 必须为非空字符串');
     }
-    if (typeof body.forceUpdateBuild !== 'number' || !Number.isInteger(body.forceUpdateBuild) || body.forceUpdateBuild < 0) {
+    if (
+      typeof body.forceUpdateBuild !== 'number' ||
+      !Number.isInteger(body.forceUpdateBuild) ||
+      body.forceUpdateBuild < 0
+    ) {
       errors.push('forceUpdateBuild 必须为非负整数');
     }
   }
@@ -169,21 +173,24 @@ router.get('/api/version/check', (req, res) => {
       changelog: '',
       downloads: {},
       fileSizes: {},
-      minSupportedVersion: '1.0.0'
+      minSupportedVersion: '1.0.0',
     });
 
-    const hasUpdate = compareVersions(versionData.latestVersion, version) > 0 ||
+    const hasUpdate =
+      compareVersions(versionData.latestVersion, version) > 0 ||
       versionData.latestBuild > Number(build || 0);
 
-    const needForce = versionData.forceUpdate &&
+    const needForce =
+      versionData.forceUpdate &&
       (compareVersions(versionData.forceUpdateVersion || versionData.latestVersion, version) > 0 ||
-       versionData.forceUpdateBuild > Number(build || 0));
+        versionData.forceUpdateBuild > Number(build || 0));
 
     const downloads = versionData.downloads || {};
     const fileSizes = versionData.fileSizes || {};
     const sha256 = versionData.sha256 || {};
     // 根据平台参数解析对应的单架构下载链接和大小（默认 arm64）
-    const platformKey = platform === 'x86_64' ? 'x86_64' : (platform === 'armeabi-v7a' ? 'arm32' : 'arm64');
+    const platformKey =
+      platform === 'x86_64' ? 'x86_64' : platform === 'armeabi-v7a' ? 'arm32' : 'arm64';
     const downloadUrl = downloads[platformKey] || downloads['all'] || '';
     const fileSize = fileSizes[platformKey] || fileSizes['all'] || 0;
 
@@ -201,8 +208,8 @@ router.get('/api/version/check', (req, res) => {
         downloads,
         fileSizes,
         sha256,
-        minSupportedVersion: versionData.minSupportedVersion
-      }
+        minSupportedVersion: versionData.minSupportedVersion,
+      },
     });
   } catch (e) {
     console.error('Version check error:', e.message);
@@ -217,7 +224,7 @@ router.get('/api/admin/version', authMiddleware, (req, res) => {
     res.json({
       code: 0,
       message: 'success',
-      data
+      data,
     });
   } catch (e) {
     console.error('Get version error:', e.message);
@@ -258,7 +265,7 @@ router.post('/api/admin/version', authMiddleware, (req, res) => {
     const success = store.writeJsonFile(store.VERSION_FILE, safe);
     res.json({
       code: success ? 0 : -1,
-      message: success ? '保存成功' : '保存失败'
+      message: success ? '保存成功' : '保存失败',
     });
   } catch (e) {
     console.error('Save version error:', e.message);

@@ -16,9 +16,9 @@ import java.net.URLEncoder
 object AppChannelTokenManager {
 
     /** 消息发送端点返回这些业务码时，调用方应 [invalidate] 对应凭据后重试一次 */
-    const val ERR_INVALID_TOKEN = 40014        // 企业微信：invalid access_token
-    const val ERR_TOKEN_EXPIRED = 42001        // 企业微信：access_token expired
-    const val ERR_INVALID_CREDENTIAL = 40001   // 企业微信：invalid credential
+    const val ERR_INVALID_TOKEN = 40014 // 企业微信：invalid access_token
+    const val ERR_TOKEN_EXPIRED = 42001 // 企业微信：access_token expired
+    const val ERR_INVALID_CREDENTIAL = 40001 // 企业微信：invalid credential
     const val ERR_FEISHU_TOKEN_INVALID = 99991661 // 飞书：invalid access token
     val TOKEN_ERROR_CODES = setOf(
         ERR_INVALID_TOKEN, ERR_TOKEN_EXPIRED, ERR_INVALID_CREDENTIAL, ERR_FEISHU_TOKEN_INVALID,

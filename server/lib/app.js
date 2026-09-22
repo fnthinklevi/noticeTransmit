@@ -41,7 +41,7 @@ app.use(
       }
       return callback(null, false);
     },
-  })
+  }),
 );
 app.use(express.json({ limit: '1mb' }));
 

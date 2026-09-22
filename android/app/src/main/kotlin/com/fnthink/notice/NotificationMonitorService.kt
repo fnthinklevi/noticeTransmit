@@ -9,17 +9,17 @@ import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
-import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
-import android.os.IBinder
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -108,7 +108,7 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     )
 
-    /// 检查是否已跨日，是则重置计数器（委托给 @Synchronized 封装，消除竞态）
+    // / 检查是否已跨日，是则重置计数器（委托给 @Synchronized 封装，消除竞态）
     private fun checkDailyReset() {
         val now = todayDateString()
         resetDailyIfNeeded(now)
@@ -730,8 +730,8 @@ class NotificationMonitorService : NotificationListenerService() {
                             dispatchEmail(info)
                             checkDailyReset()
                             pushCount++
-                        updateForegroundNotification()
-                        Log.d(TAG, "Delayed notification sent: ${info.appName}")
+                            updateForegroundNotification()
+                            Log.d(TAG, "Delayed notification sent: ${info.appName}")
                         }
                         // 闹钟是一次性的（setAndAllowWhileIdle）：drain 后必须重排下一条到期推送，
                         // 否则队列中多条延迟推送只有第一条会按时触发，其余要等新入队/服务重启才补推
@@ -769,7 +769,7 @@ class NotificationMonitorService : NotificationListenerService() {
      */
     private fun flushMergedGroup(group: MergePushManager.MergeGroup) {
         // P1：窗口期内只收到一条通知 → 不做合并推送，按普通单条推送处理
-        //（标题为消息原文、逐通道回传真实送达结果，不出现「已合并推送 (1 条)」）。
+        // （标题为消息原文、逐通道回传真实送达结果，不出现「已合并推送 (1 条)」）。
         // 成员记录早已在入组时写好历史（pending），sendToSingleUrl 会按通道真实结果
         // notifyDeliveryResult 补终态，与普通推送语义完全一致。
         if (group.items.size == 1) {
@@ -781,7 +781,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 appChannelSender.sendOnly(single)
                 dispatchEmail(single)
                 updateForegroundNotification()
-                    DiagLog.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
+                DiagLog.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
             } catch (e: Exception) {
                 Log.e(TAG, "Error flushing single-member group: ${group.key}", e)
             }
@@ -901,7 +901,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
                     val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
                     val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                            status == BatteryManager.BATTERY_STATUS_FULL
+                        status == BatteryManager.BATTERY_STATUS_FULL
                     val actualLevel = if (level >= 0) (level * 100 / scale).coerceIn(0, 100) else -1
 
                     val notifyIntent = Intent(ACTION_BATTERY_CHANGED_NOTIFY).apply {
@@ -1031,7 +1031,7 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     }
 
-    /// 更新前台通知显示当前已推送数量与推送启停状态
+    // / 更新前台通知显示当前已推送数量与推送启停状态
     private fun updateForegroundNotification() {
         // v1.59：通知权限已撤时不再 notify，并撤掉可能残留的旧通知
         if (!notificationManager.areNotificationsEnabled()) {

@@ -179,9 +179,9 @@ class PhoneCallReceiver : BroadcastReceiver() {
 
         val title = I18n.callNotifyTitle(callState, phoneNumber, simInfo)
         val content = I18n.callStateContent(callState, phoneNumber, simInfo) +
-                (if (callState == "ended" && durationStr.isNotEmpty())
-                    (if (I18n.getLocale() == "en") ", Duration: $durationStr" else ", 时长: $durationStr")
-                 else "")
+            (if (callState == "ended" && durationStr.isNotEmpty())
+                (if (I18n.getLocale() == "en") ", Duration: $durationStr" else ", 时长: $durationStr")
+            else "")
 
         // 与 notifyFlutter 中的记录 id 保持一致，供送达结果回传按 id 定位记录
         val notificationId = "call_${notifyType}_${now}_${title.hashCode()}"

@@ -441,7 +441,7 @@ class WebhookSender(private val context: Context) {
                 Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
                 // 送达结果回传 Flutter 后由 updateDelivery 统一写入 webhook_delivery_log（DB v5）
                 notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
-                    onResultDone?.invoke(result)
+                onResultDone?.invoke(result)
             }
         )
     }

@@ -241,5 +241,4 @@ class MergePushLockContractTest {
         }
         return stripComments(source.substring(bodyStart, i + 1))
     }
-
 }

@@ -28,8 +28,7 @@ process.env.PORT = '0';
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-server-test-'));
 process.env.ADMIN_TOKEN_HASH = bcrypt.hashSync(ADMIN_TOKEN, 10);
 // 合法 64 位十六进制密钥：覆盖 TOTP secret 的 AES-256-GCM 加解密往返
-process.env.ENCRYPTION_KEY =
-  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+process.env.ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 // 放大限流阈值，避免契约测试被全局限流误伤（限流自身逻辑由常量断言覆盖）
 process.env.RATE_LIMIT_GENERAL_MAX = '10000';
 process.env.RATE_LIMIT_AUTH_MAX = '10000';
@@ -84,17 +83,13 @@ describe('基础端点与安全头', () => {
 
 describe('认证与会话', () => {
   test('错误 token 登录 → 401 code -1', async () => {
-    const res = await request(app)
-      .post('/api/admin/login')
-      .send({ token: 'wrong-token' });
+    const res = await request(app).post('/api/admin/login').send({ token: 'wrong-token' });
     expect(res.status).toBe(401);
     expect(res.body.code).toBe(-1);
   });
 
   test('正确 token 登录（2FA 未启用）→ 返回会话', async () => {
-    const res = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN });
+    const res = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(0);
     expect(res.body.sessionId).toBeTruthy();
@@ -106,9 +101,7 @@ describe('认证与会话', () => {
     const unauth = await request(app).get('/api/admin/version');
     expect(unauth.status).toBe(401);
 
-    const login = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN });
+    const login = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
     const authed = await request(app)
       .get('/api/admin/version')
       .set('x-session-id', login.body.sessionId);
@@ -117,33 +110,23 @@ describe('认证与会话', () => {
   });
 
   test('注销后会话被吊销，原会话 ID 失效', async () => {
-    const login = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN });
+    const login = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
     const sessionId = login.body.sessionId;
 
-    const logout = await request(app)
-      .post('/api/admin/logout')
-      .set('x-session-id', sessionId);
+    const logout = await request(app).post('/api/admin/logout').set('x-session-id', sessionId);
     expect(logout.status).toBe(200);
     expect(logout.body.code).toBe(0);
 
-    const after = await request(app)
-      .get('/api/admin/version')
-      .set('x-session-id', sessionId);
+    const after = await request(app).get('/api/admin/version').set('x-session-id', sessionId);
     expect(after.status).toBe(401);
   });
 
   test('会话过期（>24h）→ 401 提示重新登录', async () => {
-    const login = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN });
+    const login = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
     const sessionId = login.body.sessionId;
     store.sessions[sessionId].createdAt = Date.now() - 25 * 60 * 60 * 1000;
 
-    const res = await request(app)
-      .get('/api/admin/version')
-      .set('x-session-id', sessionId);
+    const res = await request(app).get('/api/admin/version').set('x-session-id', sessionId);
     expect(res.status).toBe(401);
     expect(res.body.message).toContain('会话已过期');
   });
@@ -153,9 +136,7 @@ describe('版本保存链路（前后端契约）', () => {
   let sessionId;
 
   beforeAll(async () => {
-    const login = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN });
+    const login = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
     sessionId = login.body.sessionId;
   });
 
@@ -167,16 +148,14 @@ describe('版本保存链路（前后端契约）', () => {
       arm64: 'https://example.com/app_arm64.apk',
       arm32: 'https://example.com/app_arm32.apk',
       x86_64: 'https://example.com/app_x86.apk',
-      all: ''
+      all: '',
     },
     fileSizes: { arm64: 123456, arm32: 0, x86_64: 100 },
-    minSupportedVersion: '1.0.0'
+    minSupportedVersion: '1.0.0',
   };
 
   test('未认证 POST 保存 → 401', async () => {
-    const res = await request(app)
-      .post('/api/admin/version')
-      .send(validBody);
+    const res = await request(app).post('/api/admin/version').send(validBody);
     expect(res.status).toBe(401);
   });
 
@@ -184,7 +163,10 @@ describe('版本保存链路（前后端契约）', () => {
     const badUrl = await request(app)
       .post('/api/admin/version')
       .set('x-session-id', sessionId)
-      .send({ ...validBody, downloads: { ...validBody.downloads, arm64: 'http://insecure.com/a.apk' } });
+      .send({
+        ...validBody,
+        downloads: { ...validBody.downloads, arm64: 'http://insecure.com/a.apk' },
+      });
     expect(badUrl.status).toBe(400);
     expect(badUrl.body.code).toBe(-4);
     expect(badUrl.body.message).toContain('https');
@@ -249,19 +231,16 @@ describe('版本保存链路（前后端契约）', () => {
   });
 
   test('forceUpdate 契约：低于阈值 needForce=true，达到后 false', async () => {
-    await request(app)
-      .post('/api/admin/version')
-      .set('x-session-id', sessionId)
-      .send({
-        latestVersion: '2.0.0',
-        latestBuild: 20,
-        forceUpdate: true,
-        forceUpdateVersion: '1.5.0',
-        forceUpdateBuild: 50,
-        downloads: validBody.downloads,
-        fileSizes: validBody.fileSizes,
-        minSupportedVersion: '1.0.0'
-      });
+    await request(app).post('/api/admin/version').set('x-session-id', sessionId).send({
+      latestVersion: '2.0.0',
+      latestBuild: 20,
+      forceUpdate: true,
+      forceUpdateVersion: '1.5.0',
+      forceUpdateBuild: 50,
+      downloads: validBody.downloads,
+      fileSizes: validBody.fileSizes,
+      minSupportedVersion: '1.0.0',
+    });
 
     const below = await request(app)
       .get('/api/version/check')
@@ -274,9 +253,8 @@ describe('版本保存链路（前后端契约）', () => {
     expect(above.body.data.forceUpdate).toBe(false);
   });
 
-  test('GET /api/admin/version 读回已保存配置', async () => {    const res = await request(app)
-      .get('/api/admin/version')
-      .set('x-session-id', sessionId);
+  test('GET /api/admin/version 读回已保存配置', async () => {
+    const res = await request(app).get('/api/admin/version').set('x-session-id', sessionId);
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(0);
     expect(res.body.data.latestVersion).toBe('2.0.0');
@@ -290,16 +268,12 @@ describe('二步验证 TOTP 全流程', () => {
   let tokenOnlySessionId;
 
   beforeAll(async () => {
-    const login = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN });
+    const login = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
     sessionId = login.body.sessionId;
   });
 
   test('setup 生成 secret（未启用）', async () => {
-    const res = await request(app)
-      .get('/api/admin/totp/setup')
-      .set('x-session-id', sessionId);
+    const res = await request(app).get('/api/admin/totp/setup').set('x-session-id', sessionId);
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(0);
     expect(res.body.data.enabled).toBe(false);
@@ -352,9 +326,7 @@ describe('二步验证 TOTP 全流程', () => {
       authenticated: true,
       twoFAVerified: false,
     };
-    const stale = await request(app)
-      .get('/api/admin/version')
-      .set('x-session-id', staleId);
+    const stale = await request(app).get('/api/admin/version').set('x-session-id', staleId);
     expect(stale.status).toBe(401);
     expect(stale.body.require2FA).toBe(true);
     // 码值约定：-1 = 会话失效（前端应登出），-2 = 需二次验证（前端只提示，不清会话）。
@@ -367,44 +339,34 @@ describe('二步验证 TOTP 全流程', () => {
     // sessions 曾为 {}，__proto__ / constructor 等键经原型链命中真值对象 → 无凭据放行，
     // 攻击者可直取 POST /api/admin/version 改写线上更新分发（供应链面）。
     for (const forged of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
-      const res = await request(app)
-        .get('/api/admin/version')
-        .set('x-session-id', forged);
+      const res = await request(app).get('/api/admin/version').set('x-session-id', forged);
       expect(res.status).toBe(401);
     }
   });
 
   test('status：enabled=true 且持有恢复码', async () => {
-    const res = await request(app)
-      .get('/api/admin/totp/status')
-      .set('x-session-id', sessionId);
+    const res = await request(app).get('/api/admin/totp/status').set('x-session-id', sessionId);
     expect(res.body.code).toBe(0);
     expect(res.body.data.enabled).toBe(true);
     expect(res.body.data.hasRecoveryCodes).toBe(true);
   });
 
   test('已启用后 setup 不再泄露 secret', async () => {
-    const res = await request(app)
-      .get('/api/admin/totp/setup')
-      .set('x-session-id', sessionId);
+    const res = await request(app).get('/api/admin/totp/setup').set('x-session-id', sessionId);
     expect(res.body.data.enabled).toBe(true);
     expect(res.body.data.secret).toBeUndefined();
     expect(res.body.data.rebindable).toBe(true);
   });
 
   test('2FA 启用后：纯 token 请求受保护端点 → 401 require2FA', async () => {
-    const res = await request(app)
-      .get('/api/admin/version')
-      .set('x-admin-token', ADMIN_TOKEN);
+    const res = await request(app).get('/api/admin/version').set('x-admin-token', ADMIN_TOKEN);
     expect(res.status).toBe(401);
     expect(res.body.code).toBe(-2);
     expect(res.body.require2FA).toBe(true);
   });
 
   test('登录：未提交验证码 → 提示输入二步验证验证码', async () => {
-    const res = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN });
+    const res = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(0);
     expect(res.body.twoFAEnabled).toBe(true);
@@ -424,9 +386,7 @@ describe('二步验证 TOTP 全流程', () => {
 
   test('登录：正确 OTP → 成功并返回 twoFAEnabled=true', async () => {
     const code = await totpFor(secret);
-    const res = await request(app)
-      .post('/api/admin/login')
-      .send({ token: ADMIN_TOKEN, otp: code });
+    const res = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN, otp: code });
     expect(res.status).toBe(200);
     expect(res.body.code).toBe(0);
     expect(res.body.need2FA).toBe(false);
@@ -459,12 +419,8 @@ describe('二步验证 TOTP 全流程', () => {
     const code = recoveryCodes[2];
     const before = store.getTotpConfig().recoveryCodes.length;
     const [a, b] = await Promise.all([
-      request(app)
-        .post('/api/admin/login')
-        .send({ token: ADMIN_TOKEN, recoveryCode: code }),
-      request(app)
-        .post('/api/admin/login')
-        .send({ token: ADMIN_TOKEN, recoveryCode: code }),
+      request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN, recoveryCode: code }),
+      request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN, recoveryCode: code }),
     ]);
 
     expect([a, b].filter((r) => r.status === 200)).toHaveLength(1);
@@ -502,7 +458,9 @@ describe('IP 封锁（2FA 连续失败 5 次）', () => {
     // 封锁只针对非公开接口；版本检查 / health 仍可用
     const health = await request(app).get('/health');
     expect(health.status).toBe(200);
-    const version = await request(app).get('/api/version/check').query({ version: '1.0.0', build: 1 });
+    const version = await request(app)
+      .get('/api/version/check')
+      .query({ version: '1.0.0', build: 1 });
     expect(version.status).toBe(200);
   });
 });

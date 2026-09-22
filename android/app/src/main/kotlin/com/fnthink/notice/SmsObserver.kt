@@ -25,8 +25,7 @@ import kotlinx.coroutines.sync.withLock
  * 与 SmsReceiver 通过 SmsDispatcher 内的指纹去重，同一条短信只会推送一次。
  * 需要 READ_SMS 权限；未授予时不注册，不影响既有行为。
  */
-class SmsObserver(private val context: Context) :
-    ContentObserver(Handler(Looper.getMainLooper())) {
+class SmsObserver(private val context: Context) : ContentObserver(Handler(Looper.getMainLooper())) {
 
     companion object {
         private const val TAG = "SmsObserver"

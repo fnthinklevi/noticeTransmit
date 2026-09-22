@@ -6,13 +6,13 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 
-/// 邮件通道配置管理器（原生端）
-///
-/// 存储策略（C2 加密改造后）：
-///   1. 密码 → 加密存储（SecurePrefs / EncryptedSharedPreferences，key: email_channel_passwords）
-///   2. 非敏感元数据 → SharedPreferences（email_channel_configs）
-///   3. Flutter 端同步时由 MethodChannel 传入完整配置（含密码），此处持久化。
-///   4. 旧版本明文密码（email_channel_passwords）在首次写入时清理；读取时作为迁移兜底。
+// / 邮件通道配置管理器（原生端）
+// /
+// / 存储策略（C2 加密改造后）：
+// /   1. 密码 → 加密存储（SecurePrefs / EncryptedSharedPreferences，key: email_channel_passwords）
+// /   2. 非敏感元数据 → SharedPreferences（email_channel_configs）
+// /   3. Flutter 端同步时由 MethodChannel 传入完整配置（含密码），此处持久化。
+// /   4. 旧版本明文密码（email_channel_passwords）在首次写入时清理；读取时作为迁移兜底。
 object EmailManager {
 
     private const val TAG = "EmailManager"

@@ -19,7 +19,7 @@ class ConfigManager(private val context: Context) {
         private const val KEY_BLACKLIST_KEYWORDS = "flutter.blacklist_keywords"
         private const val KEY_DEVICE_NAME = "flutter.device_name"
         private const val KEY_BATTERY_RULES = "flutter.battery_rules"
-    private val KEY_TEMPERATURE_RULES = "flutter.temperature_rules"
+        private val KEY_TEMPERATURE_RULES = "flutter.temperature_rules"
         private const val KEY_BATTERY_NOTIFY_ENABLED = "flutter.battery_notify_enabled"
         private const val KEY_NOTIFICATION_RULES = "flutter.notification_rules"
         private const val KEY_SMS_MONITOR_ENABLED = "flutter.sms_monitor_enabled"

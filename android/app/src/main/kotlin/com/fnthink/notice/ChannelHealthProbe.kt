@@ -1,8 +1,8 @@
 package com.fnthink.notice
 
-import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 /**
  * 通道健康探测（P2）。

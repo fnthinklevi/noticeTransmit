@@ -20,7 +20,6 @@ object WebhookPayloadBuilder {
         DISCORD,
     }
 
-
     /**
      * 根据 URL 猜测 webhook 平台类型（仅作为兜底，准确类型应由 DB channel_type 字段提供）。
      * 遍历 [PLATFORM_RULES] 做 host 精确匹配，新增平台只需在规则列表中追加一行。
@@ -30,7 +29,6 @@ object WebhookPayloadBuilder {
         val host = ChannelRegistry.extractHost(url) ?: return WebhookType.GENERIC
         return ChannelRegistry.typeByHost(host) ?: WebhookType.GENERIC
     }
-
 
     /**
      * 构造通知载荷 —— 分派经 [ChannelRegistry] 描述符表（新增通道只需改表）。

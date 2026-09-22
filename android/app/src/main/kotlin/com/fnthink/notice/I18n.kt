@@ -175,13 +175,13 @@ object I18n {
         val simSuffix = simSuffix(simInfo)
         return when (state) {
             "ringing" -> if (isEn) "Incoming call$simSuffix: $phoneNumber"
-                         else "来电$simSuffix: $phoneNumber"
+            else "来电$simSuffix: $phoneNumber"
             "answered" -> if (isEn) "Answered$simSuffix: $phoneNumber"
-                          else "已接听$simSuffix: $phoneNumber"
+            else "已接听$simSuffix: $phoneNumber"
             "ended" -> if (isEn) "Call ended$simSuffix: $phoneNumber"
-                       else "通话结束$simSuffix: $phoneNumber"
+            else "通话结束$simSuffix: $phoneNumber"
             else -> if (isEn) "Phone$simSuffix: $phoneNumber"
-                    else "电话$simSuffix: $phoneNumber"
+            else "电话$simSuffix: $phoneNumber"
         }
     }
 
@@ -219,7 +219,7 @@ object I18n {
     fun testTitle(): String = if (isEn) "Test Notification" else "测试通知"
     fun testContent(): String = if (isEn)
         "This is a test message. Webhook configured successfully!"
-        else "这是一条测试消息，Webhook 配置成功！"
+    else "这是一条测试消息，Webhook 配置成功！"
     fun testDeviceLabel(): String = if (isEn) "Device" else "设备"
 
     // ========== 渠道名（送达详情 / 测试结果显示用） ==========
@@ -253,27 +253,27 @@ object I18n {
     // ========== v1.59 温度维度（自建应用通道体系的电池域扩展） ==========
 
 /** 温度维度显示名（电池/设备/屏幕） */
-fun temperatureDimLabel(type: String): String = when (type) {
-    "battery_temp_above" -> if (isEn) "Battery" else "电池"
-    "screen_temp_above" -> if (isEn) "Screen" else "屏幕"
-    else -> if (isEn) "Device" else "设备"
-}
+    fun temperatureDimLabel(type: String): String = when (type) {
+        "battery_temp_above" -> if (isEn) "Battery" else "电池"
+        "screen_temp_above" -> if (isEn) "Screen" else "屏幕"
+        else -> if (isEn) "Device" else "设备"
+    }
 
 /** 温度规则默认标题：{维度}温度已达{阈值}℃ */
-fun temperatureRuleTitle(dimLabel: String, threshold: Int): String =
-    if (isEn) "${dimLabel} temperature reached ${threshold}°C"
-    else "${dimLabel}温度已达${threshold}℃"
+    fun temperatureRuleTitle(dimLabel: String, threshold: Int): String =
+        if (isEn) "$dimLabel temperature reached $threshold°C"
+        else "${dimLabel}温度已达$threshold℃"
 
 /** 温度推送正文：当前{维度}温度 */
-fun temperatureContent(dimLabel: String, currentC: Double): String =
-    if (isEn) "Current ${dimLabel.lowercase()} temperature: ${
-        String.format(java.util.Locale.US, "%.1f", currentC)
-    }°C"
-    else "当前${dimLabel}温度：${String.format(java.util.Locale.US, "%.1f", currentC)}℃"
+    fun temperatureContent(dimLabel: String, currentC: Double): String =
+        if (isEn) "Current ${dimLabel.lowercase()} temperature: ${
+            String.format(java.util.Locale.US, "%.1f", currentC)
+        }°C"
+        else "当前${dimLabel}温度：${String.format(java.util.Locale.US, "%.1f", currentC)}℃"
 
-fun serviceListenerDisconnected(): String = if (isEn)
+    fun serviceListenerDisconnected(): String = if (isEn)
         "Notification read permission not granted · listening paused. Enable Notification Access to resume"
-        else "未授予通知读取权限，通知监听已暂停"
+    else "未授予通知读取权限，通知监听已暂停"
     fun actionPausePush(): String = if (isEn) "Pause push" else "暂停推送"
     fun actionResumePush(): String = if (isEn) "Resume push" else "恢复推送"
 
@@ -319,15 +319,15 @@ fun serviceListenerDisconnected(): String = if (isEn)
     fun widgetAddTitle(): String = if (isEn) "Add widget" else "添加桌面小部件"
     fun widgetAddDesc(): String = if (isEn)
         "Tap below, then confirm in the system dialog to place the 2×2 push toggle widget on your home screen."
-        else "点击下方按钮后，在系统弹窗中确认即可将 2×2 推送开关小部件添加到桌面。"
+    else "点击下方按钮后，在系统弹窗中确认即可将 2×2 推送开关小部件添加到桌面。"
     fun widgetAddAction(): String = if (isEn) "Add 2×2 widget" else "一键添加 2×2 小部件"
     fun widgetAddSuccess(): String = if (isEn)
         "Added. You can now place the widget on the home screen."
-        else "已发起添加，请在桌面放置小部件。"
+    else "已发起添加，请在桌面放置小部件。"
     fun widgetAddUnsupported(): String = if (isEn)
         "This launcher does not support quick-add. Please add it manually by long-pressing the home screen."
-        else "当前桌面不支持一键添加，请长按桌面空白处手动添加。"
+    else "当前桌面不支持一键添加，请长按桌面空白处手动添加。"
     fun widgetAddLowApi(): String = if (isEn)
         "Quick-add requires Android 8.0+. Please add it manually by long-pressing the home screen."
-        else "一键添加需要 Android 8.0 及以上，请长按桌面空白处手动添加。"
+    else "一键添加需要 Android 8.0 及以上，请长按桌面空白处手动添加。"
 }

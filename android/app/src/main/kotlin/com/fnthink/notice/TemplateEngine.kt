@@ -171,4 +171,3 @@ object TemplateEngine {
             ?.invoke(vars, rendered, format, chatId)
     }
 }
-

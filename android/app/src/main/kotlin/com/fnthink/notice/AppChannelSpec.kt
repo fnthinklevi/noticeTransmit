@@ -31,8 +31,8 @@ data class AppChannelConfig(
     val name: String,
     val type: String,
     val baseUrl: String,
-    val secret: String,       // corpsecret / app_secret（加密存储）
-    val config: JSONObject,   // 扩展参数（corpid/agentid/touser 或 app_id/receive_id_type/receive_id）
+    val secret: String, // corpsecret / app_secret（加密存储）
+    val config: JSONObject, // 扩展参数（corpid/agentid/touser 或 app_id/receive_id_type/receive_id）
     val messageFormat: String,
     val enabled: Boolean,
 )

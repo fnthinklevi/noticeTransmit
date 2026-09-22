@@ -32,7 +32,9 @@ const FAILURE_WINDOW_MINUTES = 10;
 const BLOCK_DURATION_HOURS = 1;
 
 // IP 封锁开关：设置 DISABLE_IP_BLOCKING=1 可临时关闭 IP 封锁（仍记录失败次数，但不执行封锁/拦截）
-const DISABLE_IP_BLOCKING = ['1', 'true', 'yes'].includes((process.env.DISABLE_IP_BLOCKING || '').toLowerCase());
+const DISABLE_IP_BLOCKING = ['1', 'true', 'yes'].includes(
+  (process.env.DISABLE_IP_BLOCKING || '').toLowerCase(),
+);
 
 const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH;
 
@@ -41,14 +43,16 @@ const ADMIN_TOKEN_HASH = process.env.ADMIN_TOKEN_HASH;
 let ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 if (ENCRYPTION_KEY && !/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
   console.warn(
-    'ENCRYPTION_KEY 格式不合法（应为 64 位十六进制字符），已忽略，TOTP secret 将以明文存储'
+    'ENCRYPTION_KEY 格式不合法（应为 64 位十六进制字符），已忽略，TOTP secret 将以明文存储',
   );
   ENCRYPTION_KEY = undefined;
 }
 
 if (!ADMIN_TOKEN_HASH) {
   console.error('错误：未配置 ADMIN_TOKEN_HASH 环境变量，服务无法启动');
-  console.error('请运行: ADMIN_TOKEN_HASH=$(node -e "const bcrypt=require(\'bcrypt\');bcrypt.hash(\'your-token\',10).then(h=>console.log(h))")');
+  console.error(
+    "请运行: ADMIN_TOKEN_HASH=$(node -e \"const bcrypt=require('bcrypt');bcrypt.hash('your-token',10).then(h=>console.log(h))\")",
+  );
   process.exit(1);
 }
 
@@ -102,7 +106,9 @@ function saveRateLimitStore() {
     writeJsonFile(RATE_LIMIT_FILE, slim);
   } else {
     // 全部过期就删文件
-    try { if (fs.existsSync(RATE_LIMIT_FILE)) fs.unlinkSync(RATE_LIMIT_FILE); } catch (_) {}
+    try {
+      if (fs.existsSync(RATE_LIMIT_FILE)) fs.unlinkSync(RATE_LIMIT_FILE);
+    } catch (_) {}
   }
 }
 
@@ -232,10 +238,10 @@ function saveBlockedIPs(ips) {
 function isIpBlocked(ip) {
   if (DISABLE_IP_BLOCKING) return false;
   const blockedIPs = getBlockedIPs();
-  const entry = blockedIPs.find(item => item.ip === ip);
+  const entry = blockedIPs.find((item) => item.ip === ip);
   if (!entry) return false;
   if (Date.now() > entry.unblockTime) {
-    const filtered = blockedIPs.filter(item => item.ip !== ip);
+    const filtered = blockedIPs.filter((item) => item.ip !== ip);
     saveBlockedIPs(filtered);
     return false;
   }
@@ -244,18 +250,20 @@ function isIpBlocked(ip) {
 
 function blockIp(ip) {
   const blockedIPs = getBlockedIPs();
-  const existing = blockedIPs.find(item => item.ip === ip);
+  const existing = blockedIPs.find((item) => item.ip === ip);
   if (existing) {
     existing.unblockTime = Date.now() + BLOCK_DURATION_HOURS * 60 * 60 * 1000;
   } else {
     blockedIPs.push({
       ip,
       blockTime: Date.now(),
-      unblockTime: Date.now() + BLOCK_DURATION_HOURS * 60 * 60 * 1000
+      unblockTime: Date.now() + BLOCK_DURATION_HOURS * 60 * 60 * 1000,
     });
   }
   saveBlockedIPs(blockedIPs);
-  console.log(`IP ${ip} has been blocked for ${BLOCK_DURATION_HOURS} hours due to too many failed 2FA attempts`);
+  console.log(
+    `IP ${ip} has been blocked for ${BLOCK_DURATION_HOURS} hours due to too many failed 2FA attempts`,
+  );
 }
 
 // ========== 失败次数（2FA） ==========
@@ -293,7 +301,7 @@ function recordFailedAttempt(ip) {
     failedAttempts[ip] = {
       count: 0,
       firstAttempt: Date.now(),
-      lastAttempt: Date.now()
+      lastAttempt: Date.now(),
     };
   }
 
@@ -307,7 +315,7 @@ function recordFailedAttempt(ip) {
     failedAttempts[ip] = {
       count: 1,
       firstAttempt: Date.now(),
-      lastAttempt: Date.now()
+      lastAttempt: Date.now(),
     };
   }
 
@@ -350,7 +358,7 @@ function encryptSecret(secret) {
   return {
     iv: iv.toString('hex'),
     data: encrypted.toString('hex'),
-    tag: tag.toString('hex')
+    tag: tag.toString('hex'),
   };
 }
 
@@ -429,7 +437,10 @@ let authChain = Promise.resolve();
 function withAuthLock(task) {
   const result = authChain.then(() => task());
   // 队列必须与前序结果解耦：前一个请求抛错不得卡死后续认证
-  authChain = result.then(() => undefined, () => undefined);
+  authChain = result.then(
+    () => undefined,
+    () => undefined,
+  );
   return result;
 }
 

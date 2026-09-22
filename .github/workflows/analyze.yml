@@ -38,9 +38,6 @@ jobs:
           fi
           echo "✅ 无致命代码错误，仅风格提示已忽略"
 
-      - name: Flutter format check
-        run: dart format --set-exit-if-changed lib/
-
       - name: Version consistency check
         run: bash .github/scripts/check_version_consistency.sh
 
@@ -100,6 +97,12 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm test
+
+      # 代码格式统一闸门（本地跑同一支：bash .github/scripts/check_format.sh --fix）
+      # 三路一并校验：dart format / ktlint 1.8.0（规则见仓库根 .editorconfig）/ prettier。
+      # 放在 JDK 与 server/node_modules 就绪之后，prettier 直接复用 npm script。
+      - name: Code format check (Dart / Kotlin / JS)
+        run: bash .github/scripts/check_format.sh
 
       - name: Install lcov
         run: sudo apt-get install -y lcov

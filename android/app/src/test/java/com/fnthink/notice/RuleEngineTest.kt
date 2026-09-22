@@ -83,9 +83,9 @@ class RuleEngineTest {
         // Gradle 的测试工作目录随 AGP/启动方式变化（android/app、android/ 或仓库根），
         // 逐个探测而不是猜一个路径——猜错会让本用例变成"断言未执行"的假保护。
         val candidates = listOf(
-            "../test/fixtures/rule_engine_golden.json",      // cwd = android/
-            "test/fixtures/rule_engine_golden.json",         // cwd = 仓库根
-            "../../test/fixtures/rule_engine_golden.json",   // cwd = android/app/
+            "../test/fixtures/rule_engine_golden.json", // cwd = android/
+            "test/fixtures/rule_engine_golden.json", // cwd = 仓库根
+            "../../test/fixtures/rule_engine_golden.json", // cwd = android/app/
         )
         val flutterFixture = candidates
             .map { java.io.File(it) }
@@ -108,7 +108,7 @@ class RuleEngineTest {
     private fun mergeRule(params: String): String =
         """[{"id":"r1","name":"m","enabled":true,"priority":10,
             "conditions":[{"id":"c1","type":"package_name","value":"com.a.b","logic":"and"}],
-            "actions":[${params}]}]"""
+            "actions":[$params]}]"""
 
     private fun pkgInfo(): NotificationInfo = NotificationInfo(
         id = "com.a.b:1", title = "t", content = "c", subText = "",
