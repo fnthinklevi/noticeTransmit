@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/app_channel_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/channel_visuals.dart';
 import 'app_channel_settings_page.dart';
 
 /// 自建应用通道列表页（分层展示：总设置页仅显示通道名称、类型、连接状态）。
@@ -85,19 +86,14 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
     final name = c['name']?.toString() ?? '';
     final appType = c['appType']?.toString() ?? '';
     final enabled = c['enabled'] == true;
-    // 类型标签按 key 查表。**不能**用「不是 feishu_app 就是 wecom_app」这种三元
-    // 兜底：原生侧新增应用通道而本页没跟上时，会把没配好的通道标成企业微信应用，
-    // 用户照着企微的引导去填飞书凭据（图标同理）。
-    final typeLabel = switch (appType) {
-      'feishu_app' => l10n.channelTypeFeishuApp,
-      'wecom_app' => l10n.channelTypeWecomApp,
-      _ => l10n.unknown,
-    };
-    final typeIcon = switch (appType) {
-      'feishu_app' => Icons.link,
-      'wecom_app' => Icons.business,
-      _ => Icons.help_outline,
-    };
+    // 类型标签与图标按 key 查**通道视觉表**（与设置页、webhook 页同一份）。
+    // ⚠ 不能写成「不是 feishu_app 就是 wecom_app」这种三元兜底：原生新增应用通道
+    // 而本页没跟上时，会把没配好的通道标成企业微信应用，用户照着企微的引导去填飞书凭据。
+    final known = hasChannelVisual(appType);
+    final typeLabel = known
+        ? channelDisplayNameFor(l10n, appType)
+        : l10n.unknown;
+    final typeIcon = known ? channelVisual(appType).icon : Icons.help_outline;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

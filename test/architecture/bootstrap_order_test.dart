@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/source_guards.dart';
 
-/// 启动装配顺序与集成冒烟测试自身的不变式（v1.62）。
-///
-/// 这三条都是 `integration_test/smoke_test.dart` 在真机上跑出来的**真实缺陷**，
-/// 而那条工作流是 `workflow_dispatch`（仅手动触发）——所以必须有一份能在每次 PR
-/// 上跑起来的静态守卫，否则同类退化又要等手动跑才发现。
+/// 装配顺序与集成冒烟测试自身的不变式（v1.62 起）。
+/// 1–3 是 `integration_test/smoke_test.dart` 在真机上跑出来的**真实缺陷**，4 是第 5 步
+/// 描述符改造引入新的装配依赖后补的顺序约束。那条工作流是 `workflow_dispatch`
+/// （仅手动触发）——所以必须有一份能在每次 PR 上跑起来的静态守卫，
+/// 否则同类退化又要等手动跑才发现。
 ///
 /// 1. **语言必须先于装配链初始化**：通道显示名取 `LocaleService.currentLocale`，
 ///    而 `LocaleService` 默认 system 模式。原先 `init()` 挂在 `MyApp` 的
@@ -23,6 +23,9 @@ import '../support/source_guards.dart';
 ///    系统 locale；模拟器默认 en，则全部中文 `find.text` 落空。
 /// 3. **测试里的控件 finder 要跟着应用走**：应用已把 Material `Switch` 全量换成
 ///    `CupertinoSwitch`，且历史页是 Material 路由（`pageBack()` 只认 Cupertino 背键）。
+/// 4. **通道描述符先于通道页可达**（第 5 步）：设置页的表单字段、类型列表、secret/模板
+///    显隐全按 `getChannelDescriptors` 渲染。装配链不 await 它，第一个打开设置页的人
+///    就会看到一张缺字段的表单（保存还可能把已存配置写空）。
 void main() {
   final root = projectRoot();
   final splash = stripComments(
@@ -59,6 +62,28 @@ void main() {
         _lineOf(splash, init),
         contains('await'),
         reason: '缺 await：顺序仍会赛跑',
+      );
+    });
+
+    test('splash 在通道页可达之前拉好通道描述符（第 5 步）', () {
+      final load = splash.indexOf('ChannelDescriptorService>().load()');
+      final goto = splash.indexOf('widget.onInitCompleted()');
+      expect(
+        load,
+        greaterThanOrEqualTo(0),
+        reason: 'splash 里没有拉取描述符：设置页会带着空 schema 打开',
+      );
+      expect(goto, greaterThanOrEqualTo(0), reason: '找不到装配终点');
+      expect(load, lessThan(goto), reason: 'onInitCompleted 之后通道页即可达，描述符必须先到手');
+      expect(
+        _lineOf(splash, load),
+        contains('await'),
+        reason: '缺 await：装配链与描述符拉取赛跑',
+      );
+      expect(
+        File('$root/lib/di/service_locator.dart').readAsStringSync(),
+        contains('registerLazySingleton<ChannelDescriptorService>'),
+        reason: '没注册就在 splash 装配链里 GetIt.instance，直接抛异常打断启动',
       );
     });
   });

@@ -803,6 +803,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get platformFeishu => 'Feishu';
 
   @override
+  String get platformSlack => 'Slack';
+
+  @override
+  String get platformDiscord => 'Discord';
+
+  @override
   String get platformGeneric => 'Generic JSON';
 
   @override
@@ -2525,12 +2531,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appChannelNotConfigured => 'Not configured';
 
   @override
-  String get appChannelAddWecom => 'Add WeCom App';
-
-  @override
-  String get appChannelAddFeishu => 'Add Feishu App';
-
-  @override
   String appChannelN(int n) {
     return 'App Channel $n';
   }
@@ -2596,6 +2596,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get appChannelErrBaseUrlRequired =>
       'Save failed: API address is required';
+
+  @override
+  String appChannelErrFieldsRequired(String fields) {
+    return 'Save failed: required fields are empty ($fields)';
+  }
 
   @override
   String get priorityBadgeHigh => 'High';

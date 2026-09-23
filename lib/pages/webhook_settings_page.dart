@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/webhook_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/channel_descriptor_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/channel_visuals.dart';
 
 // R3 拆分：通道卡片构建巨型方法迁出（extension 共享 State 私有成员）
 part 'webhook_settings_item.dart';
@@ -24,6 +27,8 @@ class WebhookSettingsPage extends StatefulWidget {
 class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   static const _channel = AppChannels.notification;
 
+  /// 通道描述符（原生表）：secret/模板显隐、类型候选列表与名称都按它渲染
+  late final ChannelDescriptorService _descriptors;
   late List<TextEditingController> _webhookControllers;
   late List<TextEditingController> _nameControllers;
   late List<TextEditingController> _secretControllers;
@@ -47,78 +52,33 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   int? _testIndex;
   bool _isSaving = false;
 
-  /// 通道的有效类型：手动指定优先，'auto' 时按 URL 探测
-  WebhookChannelType _effectiveType(int index) {
+  /// 当前行的**有效类型 slug**：手动指定优先，'auto' 时按 URL host 探测。
+  ///
+  /// 以前这里返回 Dart 枚举，于是「Dart 有没有登记这个平台」会决定界面能不能显示它。
+  /// 第 5 步起一律用 slug（与原生描述符的 `key`、送达键 `chan:<slug>` 同一口径），
+  /// 原生新增通道时 Dart 不再需要跟着加枚举臂。
+  String _effectiveSlug(int index) {
     final manual = _channelTypes[index];
-    if (manual.isNotEmpty && manual != 'auto') {
-      return WebhookChannelType.values.firstWhere(
-        (t) => t.value == manual,
-        orElse: () =>
-            WebhookChannel.detectTypeFromUrl(_webhookControllers[index].text),
-      );
-    }
-    return WebhookChannel.detectTypeFromUrl(_webhookControllers[index].text);
+    if (manual.isNotEmpty && manual != 'auto') return manual;
+    return WebhookChannel.detectTypeFromUrl(
+      _webhookControllers[index].text,
+    ).value;
   }
 
-  /// 渠道类型图标与品牌色（与 URL 识别提示一致）
-  (IconData, Color) _typeVisual(WebhookChannelType type) {
-    switch (type) {
-      case WebhookChannelType.wechatWork:
-        return (Icons.chat, const Color(0xFF07C160));
-      case WebhookChannelType.dingtalk:
-        return (Icons.work, const Color(0xFF1677FF));
-      case WebhookChannelType.feishu:
-        return (Icons.flight, AppColors.blue);
-      case WebhookChannelType.telegram:
-        return (Icons.send, const Color(0xFF0088CC));
-      case WebhookChannelType.bark:
-        return (Icons.notifications_active, const Color(0xFFE6A23C));
-      case WebhookChannelType.serverChan:
-        return (Icons.forward_to_inbox, const Color(0xFF4E5969));
-      case WebhookChannelType.pushPlus:
-        return (Icons.bolt, const Color(0xFF00B96B));
-      case WebhookChannelType.ntfy:
-        return (Icons.cell_tower, const Color(0xFF33B18A));
-      case WebhookChannelType.gotify:
-        return (Icons.inbox, const Color(0xFF00A0E9));
-      case WebhookChannelType.slack:
-        return (Icons.tag, const Color(0xFF4A154B));
-      case WebhookChannelType.discord:
-        return (Icons.forum, const Color(0xFF5865F2));
-      case WebhookChannelType.generic:
-        return (Icons.code, const Color(0xFFFF9500));
-    }
-  }
+  /// 该行的描述符（原生表）；描述符未拉到时 null，调用方按"不收窄"处理。
+  ChannelDescriptor? _descriptorFor(int index) =>
+      _descriptors.byKey(_effectiveSlug(index));
 
-  /// 渠道类型本地化名称（替代模型层的静态中文 label）
-  String _channelTypeLabel(BuildContext context, WebhookChannelType type) {
+  /// 渠道类型图标与品牌色
+  ChannelVisual _typeVisual(String slug) => channelVisual(slug);
+
+  /// 渠道类型本地化名称：描述符的 labelKey 优先，Dart slug 表兜底，最后原样显示 slug
+  String _channelTypeLabel(BuildContext context, String slug) {
     final l10n = AppLocalizations.of(context);
-    switch (type) {
-      case WebhookChannelType.generic:
-        return l10n.channelTypeGeneric;
-      case WebhookChannelType.wechatWork:
-        return l10n.channelTypeWechat;
-      case WebhookChannelType.dingtalk:
-        return l10n.channelTypeDingtalk;
-      case WebhookChannelType.feishu:
-        return l10n.channelTypeFeishu;
-      case WebhookChannelType.telegram:
-        return l10n.channelTypeTelegram;
-      case WebhookChannelType.bark:
-        return l10n.channelTypeBark;
-      case WebhookChannelType.serverChan:
-        return l10n.channelTypeServerChan;
-      case WebhookChannelType.pushPlus:
-        return l10n.channelTypePushPlus;
-      case WebhookChannelType.ntfy:
-        return l10n.channelTypeNtfy;
-      case WebhookChannelType.gotify:
-        return l10n.channelTypeGotify;
-      case WebhookChannelType.slack:
-        return l10n.channelTypeSlack;
-      case WebhookChannelType.discord:
-        return l10n.channelTypeDiscord;
-    }
+    final descriptor = _descriptors.byKey(slug);
+    return descriptor == null
+        ? channelDisplayNameFor(l10n, slug)
+        : channelNameOf(l10n, descriptor);
   }
 
   /// 消息格式本地化名称（品牌/格式名无需翻译）
@@ -142,22 +102,19 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   Widget _buildChannelTypeSelector(int index, BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final manual = _channelTypes[index];
-    final detected = WebhookChannel.detectTypeFromUrl(
-      _webhookControllers[index].text,
-    );
     final isAuto = manual.isEmpty || manual == 'auto';
-    final currentType = isAuto
-        ? detected
-        : WebhookChannelType.values.firstWhere(
-            (t) => t.value == manual,
-            orElse: () => detected,
-          );
+    final detectedSlug = WebhookChannel.detectTypeFromUrl(
+      _webhookControllers[index].text,
+    ).value;
+    final currentSlug = isAuto ? detectedSlug : manual;
     final display = isAuto
-        ? (detected == WebhookChannelType.generic
+        ? (detectedSlug == 'generic'
               ? l10n.channelTypeAuto
-              : l10n.channelTypeAutoWith(_channelTypeLabel(context, detected)))
-        : _channelTypeLabel(context, currentType);
-    final visual = _typeVisual(currentType);
+              : l10n.channelTypeAutoWith(
+                  _channelTypeLabel(context, detectedSlug),
+                ))
+        : _channelTypeLabel(context, currentSlug);
+    final visual = _typeVisual(currentSlug);
 
     return InkWell(
       onTap: () => _showChannelTypePicker(index, context),
@@ -171,7 +128,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         ),
         child: Row(
           children: [
-            Icon(visual.$1, size: 16, color: visual.$2),
+            Icon(visual.icon, size: 16, color: visual.color),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -194,12 +151,24 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     );
   }
 
+  /// 类型下拉的候选项：**描述符列表**（原生表为准）。
+  /// 描述符没拉到时退回 Dart 枚举（12 个），保证离线也能改类型。
+  List<String> _typeSlugs() {
+    final descriptors = _descriptors.webhook;
+    if (descriptors.isNotEmpty) {
+      return descriptors.map((d) => d.key).toList(growable: false);
+    }
+    return WebhookChannelType.values
+        .map((t) => t.value)
+        .toList(growable: false);
+  }
+
   /// 渠道类型选择弹窗（与主题/语言选择同款 iOS 风格）
   void _showChannelTypePicker(int index, BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final detected = WebhookChannel.detectTypeFromUrl(
+    final detectedSlug = WebhookChannel.detectTypeFromUrl(
       _webhookControllers[index].text,
-    );
+    ).value;
     final current = _channelTypes[index];
 
     showDialog(
@@ -225,10 +194,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                   context,
                   icon: Icons.auto_awesome,
                   color: AppColors.blue,
-                  label: detected == WebhookChannelType.generic
+                  label: detectedSlug == 'generic'
                       ? l10n.channelTypeAuto
                       : l10n.channelTypeAutoWith(
-                          _channelTypeLabel(context, detected),
+                          _channelTypeLabel(context, detectedSlug),
                         ),
                   selected: current.isEmpty || current == 'auto',
                   onTap: () {
@@ -236,16 +205,16 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
                     Navigator.pop(dialogContext);
                   },
                 ),
-                ...WebhookChannelType.values.map((t) {
-                  final visual = _typeVisual(t);
+                ..._typeSlugs().map((slug) {
+                  final visual = _typeVisual(slug);
                   return _buildTypeOption(
                     context,
-                    icon: visual.$1,
-                    color: visual.$2,
-                    label: _channelTypeLabel(context, t),
-                    selected: current == t.value,
+                    icon: visual.icon,
+                    color: visual.color,
+                    label: _channelTypeLabel(context, slug),
+                    selected: current == slug,
                     onTap: () {
-                      setState(() => _channelTypes[index] = t.value);
+                      setState(() => _channelTypes[index] = slug);
                       Navigator.pop(dialogContext);
                     },
                   );
@@ -293,6 +262,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   @override
   void initState() {
     super.initState();
+    _descriptors = GetIt.instance<ChannelDescriptorService>();
     _webhookControllers = widget.webhookChannels
         .map((c) => TextEditingController(text: c['url'] as String? ?? ''))
         .toList();
@@ -345,6 +315,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     }
     // 进入设置页即读取缓存健康状态；启用的通道超 6 小时未探测则后台刷新
     _loadHealthCache();
+    // splash 那次没拉成功时兜底重取：到手后重建，否则显隐判断会一直停在"按显示处理"
+    _descriptors.load().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   /// 读取持久化的上次探测结果（SharedPreferences，key: `channel_health_<id>`）
@@ -547,48 +521,20 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   }
 
   /// 当前通道是否显示 secret 输入框。
-  /// Telegram 用 Bot Token、Bark 用设备 Key、Slack/Discord 用 Webhook URL 本身
-  /// 鉴权，不显示签名密钥输入框；其余平台（ntfy/gotify 的访问令牌、通用 webhook
-  /// 的 X-Signature 头等）可按需填写。
-  bool _supportsSigning(int index) {
-    final type = _effectiveType(index);
-    return type != WebhookChannelType.telegram &&
-        type != WebhookChannelType.bark &&
-        type != WebhookChannelType.serverChan &&
-        type != WebhookChannelType.pushPlus &&
-        type != WebhookChannelType.slack &&
-        type != WebhookChannelType.discord;
-  }
+  ///
+  /// 判据来自描述符的 `secretUsed` 能力位（= 原生签名表 + 传输事实派生：
+  /// 有签名方案 / secret 走 Bearer 头 / secret 作为 URL token）。此前这里是本页
+  /// 自带的一份「排除 6 个平台」黑名单 —— 原生加一个签名方案时这边不会跟着变，
+  /// 表现就是"能签名却没地方填密钥"。
+  /// 描述符没拉到时**按显示处理**：宁可多给一个入口，也不能让凭据没地方填。
+  bool _supportsSigning(int index) =>
+      _descriptorFor(index)?.usesSecretField ?? true;
 
-  String _signingHint(BuildContext context, WebhookChannelType type) {
-    final l10n = AppLocalizations.of(context);
-    switch (type) {
-      case WebhookChannelType.wechatWork:
-        return l10n.signingHintWechat;
-      case WebhookChannelType.dingtalk:
-        return l10n.signingHintDingtalk;
-      case WebhookChannelType.feishu:
-        return l10n.signingHintFeishu;
-      case WebhookChannelType.telegram:
-        return l10n.signingHintTelegram;
-      case WebhookChannelType.bark:
-        return l10n.signingHintBark;
-      case WebhookChannelType.serverChan:
-        return l10n.signingHintServerChan;
-      case WebhookChannelType.pushPlus:
-        return l10n.signingHintPushPlus;
-      case WebhookChannelType.ntfy:
-        return l10n.signingHintNtfy;
-      case WebhookChannelType.gotify:
-        return l10n.signingHintGotify;
-      case WebhookChannelType.slack:
-        return l10n.signingHintSlack;
-      case WebhookChannelType.discord:
-        return l10n.signingHintDiscord;
-      case WebhookChannelType.generic:
-        return l10n.signingHintGeneric;
-    }
-  }
+  /// 「消息格式 / 自定义模板」对该通道是否生效（不生效时不给入口）。
+  /// Server酱 / PushPlus 有实发正文覆写，ntfy / gotify / slack / discord 没有平台
+  /// 模板包装 —— 用户选了格式也不会进正文，以前照样给一整排选择器。
+  bool _supportsCustomTemplate(int index) =>
+      _descriptorFor(index)?.supportsCustomTemplate ?? true;
 
   @override
   Widget build(BuildContext context) {
@@ -731,82 +677,34 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   Widget _buildWebhookTypeHint(int index, String urlStr, BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final url = urlStr.trim();
-    final type = _effectiveType(index);
-    String typeName;
-    IconData icon;
-    Color color;
-    String desc;
-
     if (url.isEmpty) {
-      typeName = l10n.urlEmpty;
-      icon = Icons.link_off;
-      color = const Color(0xFF8E8E93);
-      desc = l10n.urlPlaceholder;
-    } else {
-      switch (type) {
-        case WebhookChannelType.wechatWork:
-          typeName = l10n.platformWechat;
-          icon = Icons.chat;
-          color = const Color(0xFF07C160);
-          desc = l10n.platformWechatDesc;
-        case WebhookChannelType.dingtalk:
-          typeName = l10n.platformDingtalk;
-          icon = Icons.work;
-          color = const Color(0xFF1677FF);
-          desc = l10n.platformWechatDesc;
-        case WebhookChannelType.feishu:
-          typeName = l10n.platformFeishu;
-          icon = Icons.flight;
-          color = AppColors.blue;
-          desc = l10n.platformWechatDesc;
-        case WebhookChannelType.telegram:
-          typeName = 'Telegram';
-          icon = Icons.send;
-          color = const Color(0xFF0088CC);
-          desc = l10n.platformWechatDesc;
-        case WebhookChannelType.bark:
-          typeName = 'Bark';
-          icon = Icons.notifications_active;
-          color = const Color(0xFFE6A23C);
-          desc = l10n.platformWechatDesc;
-        case WebhookChannelType.serverChan:
-          typeName = l10n.channelTypeServerChan;
-          icon = Icons.forward_to_inbox;
-          color = const Color(0xFF4E5969);
-          desc = l10n.platformWechatDesc;
-        case WebhookChannelType.pushPlus:
-          typeName = 'PushPlus';
-          icon = Icons.bolt;
-          color = const Color(0xFF00B96B);
-          desc = l10n.platformWechatDesc;
-        case WebhookChannelType.ntfy:
-          typeName = l10n.channelTypeNtfy;
-          icon = Icons.cell_tower;
-          color = const Color(0xFF33B18A);
-          desc = l10n.platformNtfyDesc;
-        case WebhookChannelType.gotify:
-          typeName = l10n.channelTypeGotify;
-          icon = Icons.inbox;
-          color = const Color(0xFF00A0E9);
-          desc = l10n.platformGotifyDesc;
-        case WebhookChannelType.slack:
-          typeName = 'Slack';
-          icon = Icons.tag;
-          color = const Color(0xFF4A154B);
-          desc = l10n.platformSlackDesc;
-        case WebhookChannelType.discord:
-          typeName = 'Discord';
-          icon = Icons.forum;
-          color = const Color(0xFF5865F2);
-          desc = l10n.platformDiscordDesc;
-        case WebhookChannelType.generic:
-          typeName = l10n.platformGeneric;
-          icon = Icons.code;
-          color = const Color(0xFFFF9500);
-          desc = l10n.platformGenericDesc;
-      }
+      // 未填 URL：没有类型可识别，用中性样式（不冒充某个平台的名字和颜色）
+      return _typeHintChip(
+        context,
+        name: l10n.urlEmpty,
+        desc: l10n.urlPlaceholder,
+        icon: Icons.link_off,
+        color: const Color(0xFF8E8E93),
+      );
     }
+    final visual = _typeVisual(_effectiveSlug(index));
+    return _typeHintChip(
+      context,
+      name: channelHintNameFor(l10n, visual),
+      desc: channelDescFor(l10n, visual),
+      icon: visual.icon,
+      color: visual.color,
+    );
+  }
 
+  /// 「URL 识别」提示卡片：图标 + 平台名 + 一句说明。
+  Widget _typeHintChip(
+    BuildContext context, {
+    required String name,
+    required String desc,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -822,7 +720,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  typeName,
+                  name,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: color,

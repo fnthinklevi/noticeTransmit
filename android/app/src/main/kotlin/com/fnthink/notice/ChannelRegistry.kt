@@ -105,6 +105,11 @@ internal class ChannelSpec(
     /** 发送层事实（默认「普通 JSON webhook」）。见 [ChannelTransport]。 */
     val transport: ChannelTransport = ChannelTransport(),
     /**
+     * 该通道独有的配置字段。webhook 侧各平台字段同构（名称/URL/密钥/格式/模板）
+     * 因此留空；应用通道在 `AppChannelSpec.configSchema`。第 5 步随描述符导出给 Dart 渲染。
+     */
+    val fields: List<FieldSpec> = emptyList(),
+    /**
      * Dart ARB 资源名（如 `channelTypeDingtalk`）。**只存资源名、不存译文** ——
      * 译文只在 Dart ARB 一处（853 词条 + 漏翻守卫的既有规则）。
      *
@@ -1001,6 +1006,8 @@ internal object ChannelRegistry {
             hosts = listOf("hooks.slack.com"),
             legacyTokens = listOf("10"),
             requiresJsonContract = false,
+            // 无 platformPayload：自定义格式/模板对 Slack 不生效，显式声明给 UI（第 5 步收起入口）
+            transport = ChannelTransport(templateSupport = TemplateSupport.DISABLED),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
@@ -1051,7 +1058,11 @@ internal object ChannelRegistry {
             hosts = listOf("discord.com", "discordapp.com"),
             legacyTokens = listOf("11"),
             requiresJsonContract = false,
-            transport = ChannelTransport(textLimitChars = ChannelLimits.DISCORD_CHARS),
+            transport = ChannelTransport(
+                textLimitChars = ChannelLimits.DISCORD_CHARS,
+                // 同 Slack：未登记 platformPayload，选了什么格式都不影响实发正文
+                templateSupport = TemplateSupport.DISABLED,
+            ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
@@ -1124,6 +1135,52 @@ internal object ChannelRegistry {
             spec.storedTokens.any { it.lowercase() == key }
         }?.type
     }
+
+    /**
+     * 能力位（**派生**，不另立声明）：Dart 读它决定表单显隐。
+     * 派生规则只在这里，改这里即改两端行为；不允许在 UI 里再写一份平台名单。
+     */
+    fun capabilitiesOf(type: WebhookPayloadBuilder.WebhookType): List<String> {
+        val s = spec(type)
+        val t = s.transport
+        return buildList {
+            if (s.signature != SignatureScheme.NONE || t.secretRequired || t.secretAsQueryToken) {
+                add(Capability.SECRET_USED)
+            }
+            if (s.signature == SignatureScheme.BEARER_HEADER) add(Capability.BEARER_TOKEN)
+            if (t.secretAsQueryToken) add(Capability.SECRET_IN_QUERY)
+            if (t.secretRequired) add(Capability.SECRET_REQUIRED)
+            if (t.requiredUrlParam == UrlParam.CHAT_ID) add(Capability.CHAT_ID_REQUIRED)
+            if (t.requiredUrlParam == UrlParam.TOKEN) add(Capability.URL_TOKEN_REQUIRED)
+            if (t.templateSupport != TemplateSupport.DISABLED) add(Capability.CUSTOM_TEMPLATE)
+            if (t.templateSupport == TemplateSupport.RAW_BODY) add(Capability.RAW_TEMPLATE_BODY)
+            if (s.requiresJsonContract) add(Capability.JSON_CONTRACT)
+        }
+    }
+
+    /**
+     * 导出给 Dart 的描述符（`getChannelDescriptors` 的载荷）。
+     *
+     * 只给**身份 + 能力 + 字段**：载荷构造、判定与签名算法留在原生侧 ——
+     * Dart 拿不到、也就改不了行为，避免"前端以为自己知道怎么发"。
+     */
+    fun descriptorOf(type: WebhookPayloadBuilder.WebhookType): Map<String, Any?> {
+        val s = spec(type)
+        return mapOf(
+            "family" to "webhook",
+            "key" to s.slug,
+            "nativeType" to s.type.name,
+            "labelKey" to s.labelKey,
+            "iconKey" to s.iconKey,
+            "hosts" to s.hosts,
+            "capabilities" to capabilitiesOf(type),
+            "fields" to s.fields.map { it.toMap() },
+            "textLimitChars" to s.transport.textLimitChars,
+        )
+    }
+
+    /** 全部 webhook 描述符（表顺序即 Dart 类型选择器的展示顺序） */
+    fun descriptors(): List<Map<String, Any?>> = CHANNELS.map { descriptorOf(it.type) }
 
     /** 按 host 自动识别通道；无匹配返回 null（调用方回退 GENERIC） */
     fun typeByHost(host: String): WebhookPayloadBuilder.WebhookType? {

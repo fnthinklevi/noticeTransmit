@@ -120,7 +120,8 @@ class WebhookChannel {
     this.messageTemplate,
   });
 
-  /// 平台 host 匹配规则（与 Kotlin 端 WebhookPayloadBuilder.PLATFORM_RULES 保持一致）
+  /// 平台 host 匹配规则（与 Kotlin 端 `ChannelRegistry` 各通道的 `hosts` 一致；
+  /// 一致性由 `channel_descriptor_export_contract_test` 按导出快照核对）
   static const _platformRules = <(WebhookChannelType, List<String>)>[
     (WebhookChannelType.wechatWork, ['qyapi.weixin.qq.com']),
     (WebhookChannelType.dingtalk, ['oapi.dingtalk.com']),
@@ -129,11 +130,21 @@ class WebhookChannel {
     (WebhookChannelType.bark, ['api.day.app', 'bark.gugu.ovh']),
     (WebhookChannelType.serverChan, ['sctapi.ftqq.com']),
     (WebhookChannelType.pushPlus, ['www.pushplus.plus', 'pushplus.plus']),
+    // ntfy 官方托管 host 可枚举（原生侧同一张表里有它）：漏这一行的表现是
+    // URL 填 ntfy.sh 时界面显示「自动识别 · 通用 Webhook」，而原生按 ntfy 发送
+    // （text/plain + Bearer 头）—— 显示与判定分叉。跨语言一致性由
+    // channel_descriptor_export_contract_test 按导出快照核对。
+    (WebhookChannelType.ntfy, ['ntfy.sh']),
     (WebhookChannelType.slack, ['hooks.slack.com']),
     (WebhookChannelType.discord, ['discord.com', 'discordapp.com']),
-    // ntfy 官方托管可自动识别；自建 ntfy/Gotify 的 host 不可枚举：
-    // 类型由用户手动选择（detectTypeFromUrl 兜底 generic）
+    // 自建 ntfy / Gotify 的 host 不可枚举：类型由用户手动选择
+    //（detectTypeFromUrl 兜底 generic，原生侧同样回退 GENERIC）
   ];
+
+  /// 仅供跨语言一致性守卫读取（`channel_descriptor_export_contract_test`）
+  @visibleForTesting
+  static List<(WebhookChannelType, List<String>)> get platformRules =>
+      _platformRules;
 
   static WebhookChannelType detectTypeFromUrl(String url) {
     final host = _extractHost(url);

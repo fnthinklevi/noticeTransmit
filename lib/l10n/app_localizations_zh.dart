@@ -777,6 +777,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get platformFeishu => 'Feishu';
 
   @override
+  String get platformSlack => 'Slack';
+
+  @override
+  String get platformDiscord => 'Discord';
+
+  @override
   String get platformGeneric => '通用 JSON';
 
   @override
@@ -2430,12 +2436,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appChannelNotConfigured => '未配置';
 
   @override
-  String get appChannelAddWecom => '添加企微自建应用';
-
-  @override
-  String get appChannelAddFeishu => '添加飞书自建应用';
-
-  @override
   String appChannelN(int n) {
     return '自建应用 $n';
   }
@@ -2495,6 +2495,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appChannelErrBaseUrlRequired => '保存失败：API 地址不能为空';
+
+  @override
+  String appChannelErrFieldsRequired(String fields) {
+    return '保存失败：必填项未填写（$fields）';
+  }
 
   @override
   String get priorityBadgeHigh => '高';

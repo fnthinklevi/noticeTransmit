@@ -122,6 +122,74 @@ internal class ChannelTransport(
     val textLimitChars: Int? = null,
 )
 
+/** 表单字段类型：Dart 渲染器按它决定键盘类型与落库类型。 */
+enum class FieldKind { TEXT, NUMBER }
+
+/**
+ * 通道配置字段声明（应用通道的扩展参数等）。
+ *
+ * ⚠ [labelKey] 存的是 **Dart ARB 资源名**、不是文案：译文只在 ARB 一处。
+ * 这里此前另存 `labelZh/labelEn/hintZh/hintEn` 四份字面量，已与 ARB 漂移
+ * （agentid：Kotlin「应用 agentid」vs ARB「应用 agentid（纯数字）」），
+ * 而且整份 schema 在生产代码里零消费者 —— Dart 表单是四处硬编码列表（第 5 步收口）。
+ */
+class FieldSpec(
+    val key: String,
+    val labelKey: String,
+    val kind: FieldKind = FieldKind.TEXT,
+    val required: Boolean = false,
+    /** 留空时落库的默认值（touser=@all、receive_id_type=chat_id、agentid=0） */
+    val defaultValue: String? = null,
+) {
+    /** MethodChannel 可序列化的 Map（不放 org.json 对象，Dart 侧拿不到） */
+    fun toMap(): Map<String, Any?> = mapOf(
+        "key" to key,
+        "labelKey" to labelKey,
+        "kind" to kind.name.lowercase(),
+        "required" to required,
+        "defaultValue" to defaultValue,
+    )
+}
+
+/**
+ * 能力位名字（导出给 Dart 的是**派生布尔**，不是平台名单）。
+ *
+ * 派生规则唯一定义在 `ChannelRegistry.capabilitiesOf` / `AppChannelRegistry.capabilitiesOf`。
+ * Dart 侧只读这些名字决定表单显隐 —— 此前 `webhook_settings_page._supportsSigning`
+ * 自带一份"排除 6 个平台"的黑名单，是原生签名表之外的第二处真相。
+ */
+object Capability {
+    /** secret 字段承载真实凭据（HMAC 密钥 / Bearer 令牌 / App Token）⇒ UI 需要显示它 */
+    const val SECRET_USED = "secretUsed"
+
+    /** secret 走 Authorization: Bearer 头（ntfy），不参与签名 */
+    const val BEARER_TOKEN = "bearerToken"
+
+    /** secret 以 URL query token 传（Gotify），不再交给签名层 */
+    const val SECRET_IN_QUERY = "secretInQuery"
+
+    /** secret 必填，缺失即早失败 */
+    const val SECRET_REQUIRED = "secretRequired"
+
+    /** 必须从 URL 取 chat_id（Telegram） */
+    const val CHAT_ID_REQUIRED = "chatIdRequired"
+
+    /** 必须从 URL 取 token（PushPlus） */
+    const val URL_TOKEN_REQUIRED = "urlTokenRequired"
+
+    /** 自定义消息格式 / 模板对该通道生效 */
+    const val CUSTOM_TEMPLATE = "customTemplate"
+
+    /** 渲染结果原样作为请求体（通用 webhook），并采用该格式自己的 content-type */
+    const val RAW_TEMPLATE_BODY = "rawTemplateBody"
+
+    /** 响应按业务码判定：2xx + 非 JSON 视为未送达（防反代/认证门户页假成功） */
+    const val JSON_CONTRACT = "jsonContract"
+
+    /** 支持 markdown 消息（企业微信自建应用；飞书统一降级为 text） */
+    const val MARKDOWN = "markdown"
+}
+
 /** 正文上限常量：唯一定义处（描述符声明与截断实现共用，避免魔数漂移）。 */
 internal object ChannelLimits {
     /** Telegram sendMessage 文本上限（超出平台直接回 400） */

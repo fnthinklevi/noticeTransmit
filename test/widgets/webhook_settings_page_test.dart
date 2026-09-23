@@ -7,6 +7,8 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/webhook_settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/channel_descriptor_fixtures.dart';
+
 /// Webhook 通道设置页「行下标 ↔ 通道」对应关系的回归测试。
 ///
 /// 页面的表单状态是**一堆并行列表**（controllers / enabled / types / ids），
@@ -20,6 +22,23 @@ void main() {
 
   const methodChannelName = 'com.fnthink.notice/notification';
   final now = DateTime.now().millisecondsSinceEpoch;
+
+  /// false = 原生描述符拉不到（装配失败 / 旧 App 配新原生）
+  var serveDescriptors = true;
+
+  /// Telegram：URL 里带 chat_id，类型走**自动识别**，用来证明按 host 探测出的类型
+  /// 也走描述符（secretUsed=false ⇒ 密钥输入框不出现）。
+  List<Map<String, dynamic>> oneTelegram() => [
+    {
+      'id': 'tg',
+      'name': 'TG',
+      'url': 'https://api.telegram.org/bot12345:secret-abc/sendMessage',
+      'type': 'telegram',
+      'channelType': 'auto',
+      'enabled': true,
+      'message_format': 'default',
+    },
+  ];
 
   Map<String, Object> healthPrefs() => {
     // a 不可达 / b 可达 7ms。probedAt 取"刚刚"，避免进入页面就触发
@@ -112,13 +131,18 @@ void main() {
   }
 
   setUp(() {
+    serveDescriptors = true;
     SharedPreferences.setMockInitialValues(healthPrefs());
+    registerChannelDescriptorService();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel(methodChannelName), (
           call,
         ) async {
           if (call.method == 'probeChannelHealth') {
             return {'reachable': true, 'latencyMs': 42, 'httpCode': 200};
+          }
+          if (call.method == 'getChannelDescriptors') {
+            return serveDescriptors ? descriptorCallResponse(call) : null;
           }
           return null;
         });
@@ -209,6 +233,75 @@ void main() {
         // 假字段留着，下一个改这里的人会以为"这里有扩展配置"。
         expect(row.containsKey('extra_config'), isFalse);
       }
+    });
+  });
+
+  // ===== 描述符驱动显隐（第 5 步）=====
+  group('WebhookSettingsPage – 显隐按原生能力位', () {
+    testWidgets('Telegram 无凭据形态 ⇒ 不渲染 secret 输入框（此前是页面黑名单）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, oneTelegram());
+
+      expect(find.text('签名密钥（可选）'), findsNothing);
+      // 只剩 URL + 名称两个输入框
+      expect(find.byType(TextField), findsNWidgets(2));
+      // 且识别提示确实按 telegram 显示（不是 generic）
+      expect(find.text('自动识别（Telegram）'), findsOneWidget);
+    });
+
+    testWidgets('Gotify 的实发正文不吃自定义格式 ⇒ 格式与模板入口一起收掉', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, [
+        {
+          'id': 'g',
+          'name': 'G',
+          'url': 'https://gotify.example.com/message',
+          'type': 'gotify',
+          'channelType': 'gotify',
+          'enabled': true,
+          'message_format': 'default',
+        },
+      ]);
+
+      expect(find.text('消息格式'), findsNothing);
+      expect(find.text('推送模板（可选）'), findsNothing);
+      // Gotify 的 secret 是必填应用 Token ⇒ 密钥区要在
+      expect(find.text('签名密钥（可选）'), findsOneWidget);
+    });
+
+    testWidgets('企微 webhook 有签名 ⇒ 密钥区在、格式选择器也在', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, [
+        {
+          'id': 'w',
+          'name': 'W',
+          'url': 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=abc',
+          'type': 'wechat_work',
+          'channelType': 'wechat_work',
+          'enabled': true,
+          'message_format': 'default',
+        },
+      ]);
+
+      expect(find.text('签名密钥（可选）'), findsOneWidget);
+      expect(find.text('消息格式'), findsOneWidget);
+    });
+
+    testWidgets('描述符拉不到时不收入口（宁可多给，不能让凭据没地方填）', (tester) async {
+      serveDescriptors = false;
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, oneTelegram());
+
+      expect(find.text('签名密钥（可选）'), findsOneWidget);
+      expect(find.text('消息格式'), findsOneWidget);
     });
   });
 }

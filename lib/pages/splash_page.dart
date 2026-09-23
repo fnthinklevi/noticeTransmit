@@ -56,6 +56,12 @@ class _SplashPageState extends State<SplashPage>
       log('初始化语言失败: $e');
     }
 
+    // 通道描述符（第 5 步）：设置页的表单字段、类型选择器、secret/模板显隐都按它渲染。
+    // 顺序约束 = 必须早于 `onInitCompleted()`（那之后通道页才可达）。取不到时服务
+    // 保持未就绪，页面自己会再 load() 一次，且不会因此把已存配置写空。
+    log('加载通道描述符');
+    await GetIt.instance<ChannelDescriptorService>().load();
+
     try {
       if (mounted) setState(() => _statusText = l10n.loadWebhook);
       log('加载 Webhook 配置');

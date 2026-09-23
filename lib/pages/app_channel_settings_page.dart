@@ -7,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/app_channel_service.dart';
+import '../services/channel_descriptor_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/channel_form_renderer.dart';
+import '../widgets/channel_visuals.dart';
 
 /// 自建应用通道设置页（应用通道体系，管理完善度与 Webhook 通道对齐）。
 ///
@@ -37,9 +40,17 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   String? _testingId;
   final Map<String, Map<String, dynamic>> _health = {};
 
+  /// 通道描述符（原生表）：扩展参数字段清单、必填校验、类型选择器全部由它驱动。
+  late final ChannelDescriptorService _descriptors;
+
+  /// 本页有接入引导的类型。**引导内容**只有企微/飞书两套（步骤文案按类型写在 l10n），
+  /// 兜底成企微会把用户带去填错的凭据，所以入口只对这两类开放。
+  static const _guidedTypes = {'wecom_app', 'feishu_app'};
+
   @override
   void initState() {
     super.initState();
+    _descriptors = GetIt.instance<ChannelDescriptorService>();
     final service = GetIt.instance<AppChannelService>();
     _channels = List<Map<String, dynamic>>.from(service.channels);
     if (_channels.isEmpty) _addChannel('wecom_app');
@@ -47,6 +58,22 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       _bindControllers(c);
     }
     _loadHealthCache();
+    // 描述符可能晚到（splash 那次没拉成功 / 原生未就绪）：到手后补建控制器并重建表单
+    _descriptors.load().then((_) {
+      if (!mounted) return;
+      for (final c in _channels) {
+        // initState 里自动新增的那一行拿不到基址时，这里补上（只补空值，不动用户填过的）
+        if ((c['baseUrl']?.toString() ?? '').isEmpty) {
+          final base = _descriptors.byKey(c['appType'] as String)?.officialBase;
+          if (base != null && base.isNotEmpty) {
+            c['baseUrl'] = base;
+            _controllers['${c['id']}.baseUrl']?.text = base;
+          }
+        }
+        _bindControllers(c);
+      }
+      setState(() {});
+    });
   }
 
   @override
@@ -71,105 +98,51 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     _controllers['$id.secret'] ??= TextEditingController(
       text: c['secret']?.toString() ?? '',
     );
-    final config = (c['config'] as Map?) ?? const {};
-    for (final key in const [
-      'corpid',
-      'agentid',
-      'touser',
-      'app_id',
-      'receive_id_type',
-      'receive_id',
-    ]) {
-      _controllers['$id.$key'] ??= TextEditingController(
-        text: config[key]?.toString() ?? '',
-      );
+    // 扩展参数：字段清单来自描述符，不再手抄 key（抄漏一个 = 该字段显示空白且保存写空）
+    final descriptor = _descriptors.byKey(c['appType'] as String);
+    if (descriptor == null) return;
+    ChannelFormRenderer.ensureControllers(
+      descriptor,
+      _controllers,
+      keyPrefix: '$id.',
+      existingConfig: _existingConfig(c),
+    );
+  }
+
+  Map<String, dynamic> _existingConfig(Map<String, dynamic> c) {
+    final raw = c['config'];
+    if (raw is Map && raw.isNotEmpty) return Map<String, dynamic>.from(raw);
+    return <String, dynamic>{};
+  }
+
+  /// 换类型时清掉旧类型的字段文本（config 也整体重置，见调用点）
+  void _clearFields(String appType, String id) {
+    final descriptor = _descriptors.byKey(appType);
+    if (descriptor == null) return;
+    for (final f in descriptor.fields) {
+      _controllers['$id.${f.key}']?.clear();
     }
   }
 
-  Map<String, TextEditingController> _field(String id) => {
-    'corpid': _controllers['$id.corpid']!,
-    'agentid': _controllers['$id.agentid']!,
-    'touser': _controllers['$id.touser']!,
-    'app_id': _controllers['$id.app_id']!,
-    'receive_id_type': _controllers['$id.receive_id_type']!,
-    'receive_id': _controllers['$id.receive_id']!,
-  };
-
-  /// 点击 + 后弹出 iOS 底部弹层选择通道类型
-  void _showAddTypePicker(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardBg(sheetContext),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.separator(sheetContext),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(Icons.business, color: AppColors.blue),
-                title: Text(
-                  l10n.appChannelAddWecom,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryLabel(sheetContext),
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _addChannel('wecom_app');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.link, color: AppColors.blue),
-                title: Text(
-                  l10n.appChannelAddFeishu,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryLabel(sheetContext),
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _addChannel('feishu_app');
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
+  /// 「新增」与「改类型」共用同一个选择弹层：列表来自描述符，
+  /// 不再硬编码两个 ListTile（硬编码时新增一个应用通道只改原生表，界面上根本选不到）。
+  Future<String?> _pickAppChannelType(String title) {
+    return showChannelPickerSheet(
+      context,
+      descriptors: _descriptors.appChannels,
+      title: title,
     );
   }
 
   void _addChannel(String appType) {
     final id = 'app_${DateTime.now().millisecondsSinceEpoch}';
+    // 官方基址由描述符给出（私有化部署时用户改这一栏即可）
+    final officialBase = _descriptors.byKey(appType)?.officialBase ?? '';
     _channels.add({
       'id': id,
       'name': '',
       'appType': appType,
-      'baseUrl': appType == 'wecom_app'
-          ? 'https://qyapi.weixin.qq.com'
-          : 'https://open.feishu.cn',
+      'baseUrl': officialBase,
       'secret': null,
       'config': <String, dynamic>{},
       'message_format': 'default',
@@ -189,8 +162,11 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            tooltip: l10n.appChannelAddWecom,
-            onPressed: () => _showAddTypePicker(context),
+            tooltip: l10n.addChannel,
+            onPressed: () async {
+              final picked = await _pickAppChannelType(l10n.selectChannelType);
+              if (picked != null) _addChannel(picked);
+            },
           ),
           TextButton(
             onPressed: _saving ? null : _saveAll,
@@ -259,9 +235,10 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   ) {
     final c = _channels[index];
     final id = c['id'] as String;
+    final appType = c['appType'] as String;
     final enabled = c['enabled'] == true;
     final health = _health[id];
-    final fields = _field(id);
+    final descriptor = _descriptors.byKey(appType);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -284,9 +261,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
                   color: AppColors.blue,
                 ),
               ),
-              // 按当前类型打开对应接入引导（v1.59）。只对**已知类型**给入口：
+              // 按当前类型打开对应接入引导（v1.59）。只对**有引导内容**的类型给入口：
               // 引导文案只有企微/飞书两套，兜底成企微会把用户带去填错的凭据。
-              if (c['appType'] == 'wecom_app' || c['appType'] == 'feishu_app')
+              if (_guidedTypes.contains(appType))
                 IconButton(
                   icon: const Icon(
                     Icons.help_outline,
@@ -295,8 +272,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
                   ),
                   tooltip: l10n.appChannelGuideOpen,
                   visualDensity: VisualDensity.compact,
-                  onPressed: () =>
-                      _showSetupGuide(context, c['appType'].toString()),
+                  onPressed: () => _showSetupGuide(context, appType),
                 ),
               const Spacer(),
               CupertinoSwitch(
@@ -331,22 +307,16 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
             style: TextStyle(color: AppColors.primaryLabel(context)),
             decoration: _decoration(
               context,
-              c['appType'] == 'feishu_app'
-                  ? l10n.appChannelSecretFeishuHint
-                  : l10n.appChannelSecretWecomHint,
+              channelSecretHintFor(l10n, channelVisual(appType)),
             ),
           ),
-          // 扩展参数（按类型渲染）
-          for (final field in _configFields(c['appType'] as String)) ...[
-            const SizedBox(height: 10),
-            TextField(
-              contextMenuBuilder: AppTextSelectionMenu.editableText,
-              controller: fields[field.$1],
-              keyboardType: field.$2 == 'number' ? TextInputType.number : null,
-              style: TextStyle(color: AppColors.primaryLabel(context)),
-              decoration: _decoration(context, field.$3),
+          // 扩展参数：字段清单 = 原生描述符（不再在此按类型手抄一份）
+          if (descriptor != null)
+            ChannelFormRenderer(
+              descriptor: descriptor,
+              controllers: _controllers,
+              keyPrefix: '$id.',
             ),
-          ],
           if (health != null) ...[
             const SizedBox(height: 10),
             _healthBadge(health, l10n),
@@ -404,7 +374,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     final isWecom = appType != 'feishu_app';
     // 调用方只可能传这两个值（引导入口已按类型收窄）；写死默认值会让未知类型
     // 静默显示企微步骤，故此处显式断言而不是兜底。
-    assert(appType == 'wecom_app' || appType == 'feishu_app');
+    assert(_guidedTypes.contains(appType));
     final title = isWecom
         ? l10n.appChannelGuideTitleWecom
         : l10n.appChannelGuideTitleFeishu;
@@ -635,25 +605,6 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     );
   }
 
-  List<(String, String, String)> _configFields(String appType) {
-    final l10n = AppLocalizations.of(context);
-    if (appType == 'wecom_app') {
-      return [
-        ('corpid', 'text', l10n.appChannelCorpidLabel),
-        ('agentid', 'number', l10n.appChannelAgentidLabel),
-        ('touser', 'text', l10n.appChannelTouserLabel),
-      ];
-    }
-    if (appType == 'feishu_app') {
-      return [
-        ('app_id', 'text', l10n.appChannelAppidLabel),
-        ('receive_id_type', 'text', l10n.appChannelReceiveIdTypeLabel),
-        ('receive_id', 'text', l10n.appChannelReceiveIdLabel),
-      ];
-    }
-    return const [];
-  }
-
   InputDecoration _decoration(BuildContext context, String hint) {
     return InputDecoration(
       hintText: hint,
@@ -674,15 +625,15 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
   Widget _typeSelector(int index, BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final c = _channels[index];
-    final type = c['appType'] as String;
-    final label = type == 'wecom_app'
-        ? l10n.channelTypeWecomApp
-        : type == 'feishu_app'
-        ? l10n.channelTypeFeishuApp
-        : type;
+    final type = _channels[index]['appType'] as String;
+    final descriptor = _descriptors.byKey(type);
+    // 名称优先取描述符的 labelKey（原生表为准），取不到再退回 slug 表
+    final label = descriptor == null
+        ? channelDisplayNameFor(l10n, type)
+        : channelNameOf(l10n, descriptor);
+    final visual = channelVisual(type);
     return InkWell(
-      onTap: () => _pickType(index, context),
+      onTap: () => _pickType(index),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -693,6 +644,8 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
         ),
         child: Row(
           children: [
+            Icon(visual.icon, size: 16, color: visual.color),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 label,
@@ -713,69 +666,47 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     );
   }
 
-  Future<void> _pickType(int index, BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
+  /// 换类型：扩展参数与 config 一起重置。两套应用通道的凭据字段完全不同，
+  /// 把 corpid 残留塞进飞书通道不会报错、却会让用户以为「配过了」——合并语义
+  /// （[ChannelFormRenderer.collect] 保留未知键）在这里必须显式让位于重置。
+  Future<void> _pickType(int index) async {
     final current = _channels[index]['appType'] as String;
-    final picked = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        title: Text(
-          l10n.selectChannelType,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _typeOption(ctx, index, 'wecom_app', l10n.channelTypeWecomApp),
-            _typeOption(ctx, index, 'feishu_app', l10n.channelTypeFeishuApp),
-          ],
-        ),
-      ),
+    final picked = await _pickAppChannelType(
+      AppLocalizations.of(context).selectChannelType,
     );
-    if (picked != null && picked != current) {
-      setState(() => _channels[index]['appType'] = picked);
-    }
-  }
-
-  Widget _typeOption(BuildContext ctx, int index, String type, String label) {
-    final selected = _channels[index]['appType'] == type;
-    return ListTile(
-      dense: true,
-      title: Text(
-        label,
-        style: TextStyle(fontSize: 15, color: AppColors.primaryLabel(ctx)),
-      ),
-      trailing: selected
-          ? const Icon(Icons.check, color: AppColors.blue)
-          : null,
-      onTap: () => Navigator.pop(ctx, type),
-    );
+    if (picked == null || picked == current || !mounted) return;
+    final id = _channels[index]['id'] as String;
+    _clearFields(current, id);
+    setState(() {
+      _channels[index]['appType'] = picked;
+      _channels[index]['config'] = <String, dynamic>{};
+    });
+    _bindControllers(_channels[index]);
+    if (mounted) setState(() {});
   }
 
   // ── 测试 / 保存 ──────────────────────────────────────────────────────
 
-  Map<String, dynamic> _collectConfig(int index) {
-    final c = _channels[index];
-    final id = c['id'] as String;
-    final appType = c['appType'] as String;
-    final config = <String, dynamic>{};
-    if (appType == 'wecom_app') {
-      config['corpid'] = _controllers['$id.corpid']?.text.trim() ?? '';
-      config['agentid'] =
-          int.tryParse(_controllers['$id.agentid']?.text.trim() ?? '') ?? 0;
-      config['touser'] = _controllers['$id.touser']?.text.trim() ?? '@all';
-    } else {
-      config['app_id'] = _controllers['$id.app_id']?.text.trim() ?? '';
-      config['receive_id_type'] =
-          _controllers['$id.receive_id_type']?.text.trim() ?? 'chat_id';
-      config['receive_id'] = _controllers['$id.receive_id']?.text.trim() ?? '';
-    }
-    return config;
+  /// 扩展参数收集：字段清单与默认值都由描述符决定。
+  /// 描述符未就绪时**原样回传已存 config** —— 重建会把 corpid/app_id 写空（凭据丢失）。
+  /// 校验提示里用字段自己的显示名，而不是 `corpid` 这种存储键
+  String _fieldLabel(ChannelDescriptor descriptor, String fieldKey) {
+    final f = descriptor.fields.where((e) => e.key == fieldKey).firstOrNull;
+    return f == null
+        ? fieldKey
+        : channelLabelFor(AppLocalizations.of(context), f.labelKey);
+  }
+
+  Map<String, dynamic> _configOf(Map<String, dynamic> c) {
+    final existing = _existingConfig(c);
+    final descriptor = _descriptors.byKey(c['appType'] as String);
+    if (descriptor == null) return existing;
+    return ChannelFormRenderer.collect(
+      descriptor,
+      _controllers,
+      existing,
+      keyPrefix: '${c['id']}.',
+    );
   }
 
   Map<String, dynamic> _channelPayload(int index, {bool forTest = false}) {
@@ -788,7 +719,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           _controllers['$id.baseUrl']?.text.trim() ??
           (c['baseUrl']?.toString() ?? ''),
       'secret': _controllers['$id.secret']?.text.trim() ?? c['secret'],
-      'config': _collectConfig(index),
+      'config': _configOf(c),
       if (!forTest) 'message_format': c['message_format'] ?? 'default',
       if (!forTest) 'enabled': c['enabled'] == true,
     };
@@ -870,6 +801,23 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       }
       if (baseUrl.isEmpty) {
         _showToast(l10n.appChannelErrBaseUrlRequired, false);
+        return;
+      }
+      // 扩展参数必填项：以前这里**不校验**，靠原生 require() 抛错，用户只看到一句"保存失败"
+      final descriptor = _descriptors.byKey(c['appType'] as String);
+      if (descriptor == null) continue;
+      final missing = ChannelFormRenderer.missingRequired(
+        descriptor,
+        _controllers,
+        keyPrefix: '$id.',
+      );
+      if (missing.isNotEmpty) {
+        _showToast(
+          l10n.appChannelErrFieldsRequired(
+            missing.map((k) => _fieldLabel(descriptor, k)).join(', '),
+          ),
+          false,
+        );
         return;
       }
     }

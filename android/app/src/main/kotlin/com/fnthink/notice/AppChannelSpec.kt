@@ -52,18 +52,39 @@ class AppChannelSpec(
     val buildPayload: (AppChannelConfig, String, Boolean) -> String,
     val truncate: (String) -> String,
     val configSchema: List<ConfigField>,
-)
+    /** Dart ARB 资源名（通道类型标签）。译文只在 ARB。 */
+    val labelKey: String,
+    /** Dart 图标表 key */
+    val iconKey: String,
+    /** 该平台的 markdown 消息是否真被支持（飞书统一降级为 text） */
+    val supportsMarkdown: Boolean,
+) {
+    /** 能力位：与 webhook 侧同一套名字，Dart 只读名字不猜平台 */
+    fun capabilities(): List<String> = buildList {
+        add(Capability.SECRET_USED) // secret = corpsecret / app_secret，必填凭据
+        if (supportsMarkdown) add(Capability.MARKDOWN)
+    }
 
-/** 扩展参数字段描述（Dart 设置页按此渲染输入框，kinds: text/number） */
-data class ConfigField(
-    val key: String,
-    val labelZh: String,
-    val labelEn: String,
-    val hintZh: String,
-    val hintEn: String,
-    val kind: String = "text",
-    val required: Boolean = false,
-)
+    /** `getChannelDescriptors` 的载荷（应用通道族） */
+    fun descriptor(): Map<String, Any?> = mapOf(
+        "family" to "app",
+        "key" to type,
+        "nativeType" to type,
+        "labelKey" to labelKey,
+        "iconKey" to iconKey,
+        "officialBase" to officialBase,
+        "hosts" to listOf(officialBase.removePrefix("https://")),
+        "capabilities" to capabilities(),
+        "fields" to configSchema.map { it.toMap() },
+    )
+}
+
+/**
+ * 扩展参数字段描述。第 5 步起直接复用 webhook 侧的 [FieldSpec]：
+ * 原来的 `ConfigField` 另存中英双份 label/hint 字面量（与 ARB 已漂移），
+ * 且 `configSchema` 在生产代码里**零消费者**。保留别名是为了测试与调用点可读。
+ */
+typealias ConfigField = FieldSpec
 
 object AppChannelRegistry {
 
@@ -120,19 +141,16 @@ object AppChannelRegistry {
             json.toString()
         },
         truncate = { text -> truncateByBytes(text, ChannelLimits.WECOM_APP_BYTES) },
+        labelKey = "channelTypeWecomApp",
+        iconKey = AppChannelTypes.WECOM_APP,
+        supportsMarkdown = true,
         configSchema = listOf(
+            ConfigField("corpid", "appChannelCorpidLabel", required = true),
             ConfigField(
-                "corpid", "企业 ID（corpid）", "Corp ID (corpid)",
-                "企业微信管理后台「我的企业」页可见", "Visible in WeCom admin console", required = true,
+                "agentid", "appChannelAgentidLabel",
+                kind = FieldKind.NUMBER, required = true, defaultValue = "0",
             ),
-            ConfigField(
-                "agentid", "应用 agentid", "App agentid",
-                "纯数字，自建应用详情页可见", "Numeric, from the app details page", kind = "number", required = true,
-            ),
-            ConfigField(
-                "touser", "接收人 touser", "Receiver touser",
-                "可选，默认 @all；多人用 | 分隔", "Optional, default @all; separate users with |",
-            ),
+            ConfigField("touser", "appChannelTouserLabel", defaultValue = "@all"),
         ),
     )
 
@@ -175,19 +193,16 @@ object AppChannelRegistry {
                 .toString()
         },
         truncate = { text -> truncateByChars(text, ChannelLimits.FEISHU_APP_CHARS) },
+        labelKey = "channelTypeFeishuApp",
+        iconKey = AppChannelTypes.FEISHU_APP,
+        supportsMarkdown = false,
         configSchema = listOf(
+            ConfigField("app_id", "appChannelAppidLabel", required = true),
             ConfigField(
-                "app_id", "应用 app_id", "App app_id",
-                "飞书开放平台应用凭证页可见", "From the Feishu app credentials page", required = true,
+                "receive_id_type", "appChannelReceiveIdTypeLabel",
+                defaultValue = "chat_id",
             ),
-            ConfigField(
-                "receive_id_type", "接收人类型", "Receive ID type",
-                "chat_id（群聊）或 open_id（单人）", "chat_id (group) or open_id (user)",
-            ),
-            ConfigField(
-                "receive_id", "接收人 ID receive_id", "Receiver receive_id",
-                "群聊 oc_ 开头 / 单人 ou_ 开头", "oc_ for chats, ou_ for users", required = true,
-            ),
+            ConfigField("receive_id", "appChannelReceiveIdLabel", required = true),
         ),
     )
 
@@ -198,6 +213,9 @@ object AppChannelRegistry {
     fun spec(type: String): AppChannelSpec? = byType[type]
 
     fun exists(type: String): Boolean = byType.containsKey(type)
+
+    /** 全部应用通道描述符（顺序即 Dart「新增通道」弹层的展示顺序） */
+    fun descriptors(): List<Map<String, Any?>> = SPECS.map { it.descriptor() }
 }
 
 /** 各平台 token 响应解析（含错误码语义） */
@@ -205,9 +223,6 @@ object AppChannelsTokenParsers {
 
     /** 企业微信：{"errcode":0,"access_token":"...","expires_in":7200} */
     fun parseWecomToken(body: String): Pair<String, Int> {
-        // 网关/代理错误页、空响应或非 JSON 错误结构都会让 JSONObject 构造函数抛异常。
-        // 必须在此收敛为 TokenFetchException（调用链的失败约定），否则 JSONException
-        // 会绕过 AppChannelSender 的 catch 冒泡，导致进程崩溃或通道静默失效。
         // 网关/代理错误页、空响应或非 JSON 错误结构都会让 JSONObject 构造函数抛异常。
         // 必须在此收敛为 TokenFetchException（调用链的失败约定），否则 JSONException
         // 会绕过 AppChannelSender 的 catch 冒泡，导致进程崩溃或通道静默失效。

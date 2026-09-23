@@ -10,16 +10,25 @@ import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/channel_descriptor_fixtures.dart';
+
 /// 自建应用通道设置页 widget 冒烟测试。
 ///
 /// AppChannelService 通过 GetIt 注册（fake store 注入），
-/// MethodChannel mock 拦截 testAppChannel / probeChannelHealth。
+/// MethodChannel mock 拦截 testAppChannel / probeChannelHealth / getChannelDescriptors。
+///
+/// ⚠ 描述符 fixture 来自原生导出快照（见 support/channel_descriptor_fixtures），
+/// 「扩展参数有几个输入框」这类断言因此是**跟着原生表变的**，不是测试自己抄一份。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late FakeAppChannelStoreForPage store;
   late AppChannelService service;
   const channelName = 'com.fnthink.notice/notification';
+
+  /// false = 原生描述符拉不到（老 App 配新原生、或装配失败）：
+  /// 页面必须仍能保存且不把已存 config 写空。
+  var serveDescriptors = true;
 
   Widget buildApp() {
     return const MaterialApp(
@@ -31,6 +40,7 @@ void main() {
   }
 
   setUp(() {
+    serveDescriptors = true;
     SharedPreferences.setMockInitialValues({});
     store = FakeAppChannelStoreForPage();
     service = AppChannelService(store: store);
@@ -40,6 +50,7 @@ void main() {
       GetIt.instance.unregister<AppChannelService>();
     }
     GetIt.instance.registerLazySingleton<AppChannelService>(() => service);
+    registerChannelDescriptorService();
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel(channelName), (
@@ -50,6 +61,9 @@ void main() {
           }
           if (call.method == 'testAppChannel') {
             return {'success': true, 'message': 'ok'};
+          }
+          if (call.method == 'getChannelDescriptors') {
+            return serveDescriptors ? descriptorCallResponse(call) : null;
           }
           return null;
         });
@@ -344,6 +358,203 @@ void main() {
 
       // 只剩页面顶部那个企微入口；卡片内不得再多出一个（否则点开就是企微步骤）
       expect(find.byIcon(Icons.help_outline), findsOneWidget);
+    });
+    // ===== 描述符驱动（第 5 步）=====
+
+    testWidgets('字段清单来自描述符：企微 corpid/agentid/touser 都回填了', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 's',
+          'config': '{"corpid":"corp-x","agentid":1000002,"touser":"user1"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      final texts = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .map((f) => f.controller?.text ?? '')
+          .toList();
+      expect(texts, containsAll(['corp-x', '1000002', 'user1']));
+    });
+
+    testWidgets('描述符拉不到时保存不写空 config（合并语义，不是重建）', (tester) async {
+      serveDescriptors = false;
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 'corpsecret-demo',
+          'config': '{"corpid":"corp-x","agentid":1000002,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.pumpAndSettle();
+
+      final saved = store.rows.firstWhere((r) => r['id'] == 'app-1');
+      final config = Map<String, dynamic>.from(saved['config'] as Map);
+      expect(
+        config['corpid'],
+        'corp-x',
+        reason: '描述符未就绪时重建 config 会抹掉已存凭据（推送从此静默失败）',
+      );
+    });
+
+    testWidgets('必填项未填 → 保存被拦下并指名缺哪个字段（不再只报"保存失败"）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 's',
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.pumpAndSettle();
+
+      final toast = find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.byType(Text),
+      );
+      final message = tester.widget<Text>(toast.first).data ?? '';
+      expect(message, contains('必填项未填写'));
+      // agentid 有默认值 0、touser 非必填：都不该出现在报错里，只有 corpid 缺
+      expect(
+        message,
+        contains('企业 ID（corpid）'),
+        reason: '报错要点名缺的字段（用 ARB 显示名，不是 corpid 这种存储键）',
+      );
+      expect(message, isNot(contains('应用 agentid（纯数字）')));
+      expect(message, isNot(contains('appChannelCorpidLabel')));
+      // 输入框标签本身也要渲染得出来（描述符发的是 ARB 资源名）
+      expect(find.text('企业 ID（corpid）'), findsOneWidget);
+    });
+
+    testWidgets('切换类型重置扩展参数：corpid 不会带进飞书通道', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 's',
+          'config': '{"corpid":"corp-x","agentid":1,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(find.text('corp-x'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.chevron_right).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('飞书自建应用'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('corp-x'), findsNothing, reason: '旧类型的凭据残留会让用户以为配过了');
+      expect(find.text('企业 ID（corpid）'), findsNothing);
+      expect(find.text('应用 app_id'), findsOneWidget, reason: '飞书字段应换上来');
+      // 一条通道：3 基础字段 + 3 描述符字段
+      expect(find.byType(TextField), findsNWidgets(6));
+    });
+
+    testWidgets('飞书三字段逐个回填 + 编辑后原样落库（漏绑控制器就会写空）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-f',
+          'name': '飞书应用F',
+          'app_type': 'feishu_app',
+          'base_url': 'https://open.feishu.cn',
+          'secret': 'app-secret',
+          'config':
+              '{"app_id":"cli_x","receive_id_type":"chat_id",'
+              '"receive_id":"oc_y"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      final texts = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .map((f) => f.controller?.text ?? '')
+          .toList();
+      expect(
+        texts,
+        containsAll(['cli_x', 'chat_id', 'oc_y']),
+        reason: '三个字段都各自绑到了控制器；少绑一个就是"输入框空白 + 保存写空"',
+      );
+
+      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.pumpAndSettle();
+      final saved = store.rows.firstWhere((r) => r['id'] == 'app-f');
+      final config = Map<String, dynamic>.from(saved['config'] as Map);
+      expect(config['app_id'], 'cli_x');
+      expect(config['receive_id_type'], 'chat_id');
+      expect(config['receive_id'], 'oc_y');
+    });
+
+    testWidgets('新增按钮的类型列表来自描述符（不再硬编码两个类型）', (tester) async {
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': 'A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': null,
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.add));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(ListTile, '企业微信自建应用'), findsOneWidget);
+      expect(find.widgetWithText(ListTile, '飞书自建应用'), findsOneWidget);
     });
   });
 }

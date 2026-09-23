@@ -220,7 +220,7 @@ CI 额外做的事（本地可选）：
 | Dart 单元测试 | **379 例 / 37 文件** | `flutter test --no-pub`（`test/` 下按 `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support` 分目录） |
 | Kotlin JVM 单元测试 | **234 例 / 26 类** | `cd android && ./gradlew :app:testDebugUnitTest`（报告在 `build/app/test-results/testDebugUnitTest/`） |
 | 服务端契约测试 | **29 例** | `cd server && npm test`（`server/test/auth.test.js`） |
-| l10n 词条 | **853 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
+| l10n 词条 | **854 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
 
 跑测试前 `flutter pub get`；Dart 与 Kotlin 两侧的用例数会随功能增长，若你新增/删除测试，
 请同步更新本表的数字（它是文档口径，不是 CI 断言）。
@@ -257,7 +257,13 @@ CI 额外做的事（本地可选）：
    改规则引擎/通道行为时**必须两份一起改**：只改一份会让双端跑在不同用例集上，而两侧各自都显示通过，
    属最难发现的假保护。另有原生侧单端快照 `android/app/src/test/resources/channel_behavior_golden.json`
    （`ChannelBehaviorGoldenTest.kt` 读取），改通道外发行为时需按该测试的说明重生成。
-3. **守卫要做反向验证**：新增或修改守卫后，先把你要防的缺陷**植入**被测实现，确认守卫确实变红，
+3. **跨端 fixture 只能是生成物，不能手抄**：Dart widget 测试用的通道描述符来自
+   `android/app/src/test/resources/channel_descriptors.json`，它由原生侧
+   `ChannelDescriptorExportTest` 从 `ChannelRegistry` / `AppChannelRegistry` 导出后写入，
+   内容与生产代码不一致时该测试直接红。**改通道表之后要重跑它**。
+   理由：测试里另抄一份描述符，跑绿只证明"两份抄件一致"，不证明 UI 与原生同源 ——
+   表单字段、能力位显隐这类断言会静默失去保护。
+4. **守卫要做反向验证**：新增或修改守卫后，先把你要防的缺陷**植入**被测实现，确认守卫确实变红，
    再撤销缺陷。路径探测（`projectRoot()` / Kotlin 侧的 cwd 候选列表）写错时，断言可能根本没执行
    而测试仍然绿。
 

@@ -11,6 +11,7 @@ import '../services/theme_service.dart';
 import '../services/email_service.dart';
 import '../services/locale_service.dart';
 import '../services/app_channel_service.dart';
+import '../services/channel_descriptor_service.dart';
 import '../services/installed_apps_service.dart';
 import '../services/sms_service.dart';
 
@@ -30,6 +31,10 @@ void setupLocator() {
   getIt.registerLazySingleton<LocaleService>(() => LocaleService());
   getIt.registerLazySingleton<SmsService>(() => SmsService());
   getIt.registerLazySingleton<AppChannelService>(() => AppChannelService());
+  // 通道描述符缓存：设置页的表单字段 / 类型选择器 / 显隐都按它渲染（第 5 步）
+  getIt.registerLazySingleton<ChannelDescriptorService>(
+    () => ChannelDescriptorService(),
+  );
   getIt.registerLazySingleton<InstalledAppsService>(
     () => InstalledAppsService(),
   );

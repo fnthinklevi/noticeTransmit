@@ -228,7 +228,7 @@ Extra things CI does (optional locally):
 | Dart unit tests | **379 cases / 37 files** | `flutter test --no-pub` (`test/` is grouped into `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support`) |
 | Kotlin JVM unit tests | **234 cases / 26 classes** | `cd android && ./gradlew :app:testDebugUnitTest` (reports under `build/app/test-results/testDebugUnitTest/`) |
 | Server contract tests | **29 cases** | `cd server && npm test` (`server/test/auth.test.js`) |
-| l10n keys | **853 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
+| l10n keys | **854 keys × 2 (zh / en)** | `lib/l10n/arb/app_zh.arb`, `lib/l10n/arb/app_en.arb` |
 
 Run `flutter pub get` before testing. Counts grow with features; if you add or remove tests, update
 the numbers above too (they are documentation, not a CI assertion).
@@ -270,7 +270,15 @@ When changing an implementation, two real failure modes have already bitten this
    `android/app/src/test/resources/channel_behavior_golden.json` (read by
    `ChannelBehaviorGoldenTest.kt`); regenerate it per that test's instructions when outbound channel
    behavior changes.
-3. **Reverse-verify every guard**: after adding or changing a guard, deliberately implant the defect it
+3. **Cross-platform fixtures must be generated, never hand-copied**: the channel
+   descriptors used by Dart widget tests come from
+   `android/app/src/test/resources/channel_descriptors.json`, which the JVM test
+   `ChannelDescriptorExportTest` writes out of `ChannelRegistry` / `AppChannelRegistry`,
+   and it fails whenever the file and the production table disagree. **Re-run it after
+   editing the channel table.** A hand-maintained copy would only prove two copies agree;
+   assertions about form fields and capability-driven visibility would silently stop
+   protecting anything.
+4. **Reverse-verify every guard**: after adding or changing a guard, deliberately implant the defect it
    is supposed to catch, confirm the guard actually turns red, then revert. If path resolution is wrong
    (`projectRoot()` on the Dart side, the cwd candidate list on the Kotlin side), the assertions may
    never run while the test still reports green.

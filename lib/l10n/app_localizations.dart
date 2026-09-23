@@ -1556,6 +1556,18 @@ abstract class AppLocalizations {
   /// **'Feishu'**
   String get platformFeishu;
 
+  /// No description provided for @platformSlack.
+  ///
+  /// In zh, this message translates to:
+  /// **'Slack'**
+  String get platformSlack;
+
+  /// No description provided for @platformDiscord.
+  ///
+  /// In zh, this message translates to:
+  /// **'Discord'**
+  String get platformDiscord;
+
   /// No description provided for @platformGeneric.
   ///
   /// In zh, this message translates to:
@@ -4622,18 +4634,6 @@ abstract class AppLocalizations {
   /// **'未配置'**
   String get appChannelNotConfigured;
 
-  /// No description provided for @appChannelAddWecom.
-  ///
-  /// In zh, this message translates to:
-  /// **'添加企微自建应用'**
-  String get appChannelAddWecom;
-
-  /// No description provided for @appChannelAddFeishu.
-  ///
-  /// In zh, this message translates to:
-  /// **'添加飞书自建应用'**
-  String get appChannelAddFeishu;
-
   /// No description provided for @appChannelN.
   ///
   /// In zh, this message translates to:
@@ -4747,6 +4747,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'保存失败：API 地址不能为空'**
   String get appChannelErrBaseUrlRequired;
+
+  /// No description provided for @appChannelErrFieldsRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：必填项未填写（{fields}）'**
+  String appChannelErrFieldsRequired(String fields);
 
   /// No description provided for @priorityBadgeHigh.
   ///

@@ -196,7 +196,10 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
               controller: _secretControllers[index],
               obscureText: !_secretVisible[index],
               decoration: InputDecoration(
-                hintText: _signingHint(context, _effectiveType(index)),
+                hintText: channelSigningHintFor(
+                  l10n,
+                  _typeVisual(_effectiveSlug(index)),
+                ),
                 hintStyle: TextStyle(
                   fontSize: 12,
                   color: AppColors.tertiaryLabel(context),
@@ -243,217 +246,230 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
               maxLines: 1,
             ),
           ],
-          const SizedBox(height: 10),
-          // 消息格式选择器：default / text / markdown / json / xml
-          Row(
-            children: [
+          // 该通道的实发正文不吃自定义格式/模板（能力位 customTemplate=false）时，
+          // 连整排选择器一起收掉：以前给了入口也毫无作用，用户以为设置了其实没有。
+          if (_supportsCustomTemplate(index)) ...[
+            const SizedBox(height: 10),
+            // 消息格式选择器：default / text / markdown / json / xml
+            Row(
+              children: [
+                Text(
+                  l10n.webhookFormatLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: WebhookMessageFormat.values.map((fmt) {
+                        final selected = _messageFormats[index] == fmt;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _messageFormats[index] = fmt;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? AppColors.blue.withValues(alpha: 0.12)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: selected
+                                      ? AppColors.blue
+                                      : AppColors.separator(context),
+                                ),
+                              ),
+                              child: Text(
+                                _messageFormatLabel(context, fmt),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: selected
+                                      ? AppColors.blue
+                                      : AppColors.secondaryLabel(context),
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // 飞书 markdown 降级提示
+            if (_messageFormats[index] == WebhookMessageFormat.markdown &&
+                (_webhookControllers[index].text.toLowerCase().contains(
+                      'feishu',
+                    ) ||
+                    _webhookControllers[index].text.toLowerCase().contains(
+                      'larksuite',
+                    ))) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 14,
+                      color: Colors.orange[700],
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        l10n.feishuMarkdownDowngradeHint,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // 模板编辑器：仅当 format != default 时显示
+            if (_messageFormats[index] !=
+                WebhookMessageFormat.defaultFormat) ...[
+              const SizedBox(height: 10),
               Text(
-                l10n.webhookFormatLabel,
+                l10n.webhookTemplateLabel,
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.secondaryLabel(context),
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: WebhookMessageFormat.values.map((fmt) {
-                      final selected = _messageFormats[index] == fmt;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _messageFormats[index] = fmt;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.blue.withValues(alpha: 0.12)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: selected
-                                    ? AppColors.blue
-                                    : AppColors.separator(context),
-                              ),
-                            ),
-                            child: Text(
-                              _messageFormatLabel(context, fmt),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: selected
-                                    ? AppColors.blue
-                                    : AppColors.secondaryLabel(context),
-                                fontWeight: selected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
+              const SizedBox(height: 4),
+              Text(
+                '${l10n.webhookTemplateHint} %appName% %title% %content% %subText% %time% %deviceName% %packageName% %notifyType% %simInfo% %sender% %phoneNumber% %durationStr% %callState% %timestamp%',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.tertiaryLabel(context),
+                ),
+              ),
+              const SizedBox(height: 6),
+              // 变量插入按钮
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children:
+                    [
+                      '%appName%',
+                      '%title%',
+                      '%content%',
+                      '%time%',
+                      '%deviceName%',
+                      '%notifyType%',
+                    ].map((v) {
+                      return ActionChip(
+                        label: Text(
+                          v,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.blue,
                           ),
                         ),
+                        backgroundColor: AppColors.blue.withValues(alpha: 0.08),
+                        side: BorderSide.none,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 0,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          final controller = _templateControllers[index];
+                          final sel = controller.selection;
+                          final text = controller.text;
+                          final newText = sel.start >= 0
+                              ? text.replaceRange(
+                                  sel.start,
+                                  sel.end >= 0 ? sel.end : sel.start,
+                                  v,
+                                )
+                              : text + v;
+                          controller.text = newText;
+                          controller.selection = TextSelection.collapsed(
+                            offset:
+                                (sel.start >= 0 ? sel.start : text.length) +
+                                v.length,
+                          );
+                          setState(() {});
+                        },
                       );
                     }).toList(),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                contextMenuBuilder: AppTextSelectionMenu.editableText,
+                controller: _templateControllers[index],
+                minLines: 3,
+                maxLines: 8,
+                decoration: InputDecoration(
+                  hintText: _messageFormats[index] == WebhookMessageFormat.json
+                      ? '{"title":"%title%","content":"%content%"}'
+                      : _messageFormats[index] == WebhookMessageFormat.xml
+                      ? '<notification><title>%title%</title></notification>'
+                      : '## %title%\n%content%',
+                  hintStyle: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.tertiaryLabel(context),
+                    fontFamily: 'monospace',
                   ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.separator(context)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.separator(context)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.blue),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  isDense: true,
+                  filled: true,
+                  fillColor: AppColors.inputBg(context),
+                ),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.primaryLabel(context),
+                  fontFamily: 'monospace',
                 ),
               ),
             ],
-          ),
-          // 飞书 markdown 降级提示
-          if (_messageFormats[index] == WebhookMessageFormat.markdown &&
-              (_webhookControllers[index].text.toLowerCase().contains(
-                    'feishu',
-                  ) ||
-                  _webhookControllers[index].text.toLowerCase().contains(
-                    'larksuite',
-                  ))) ...[
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    size: 14,
-                    color: Colors.orange[700],
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      l10n.feishuMarkdownDowngradeHint,
-                      style: TextStyle(fontSize: 11, color: Colors.orange[700]),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          // 模板编辑器：仅当 format != default 时显示
-          if (_messageFormats[index] != WebhookMessageFormat.defaultFormat) ...[
-            const SizedBox(height: 10),
-            Text(
-              l10n.webhookTemplateLabel,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.secondaryLabel(context),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${l10n.webhookTemplateHint} %appName% %title% %content% %subText% %time% %deviceName% %packageName% %notifyType% %simInfo% %sender% %phoneNumber% %durationStr% %callState% %timestamp%',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.tertiaryLabel(context),
-              ),
-            ),
-            const SizedBox(height: 6),
-            // 变量插入按钮
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children:
-                  [
-                    '%appName%',
-                    '%title%',
-                    '%content%',
-                    '%time%',
-                    '%deviceName%',
-                    '%notifyType%',
-                  ].map((v) {
-                    return ActionChip(
-                      label: Text(
-                        v,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.blue,
-                        ),
-                      ),
-                      backgroundColor: AppColors.blue.withValues(alpha: 0.08),
-                      side: BorderSide.none,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 0,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () {
-                        final controller = _templateControllers[index];
-                        final sel = controller.selection;
-                        final text = controller.text;
-                        final newText = sel.start >= 0
-                            ? text.replaceRange(
-                                sel.start,
-                                sel.end >= 0 ? sel.end : sel.start,
-                                v,
-                              )
-                            : text + v;
-                        controller.text = newText;
-                        controller.selection = TextSelection.collapsed(
-                          offset:
-                              (sel.start >= 0 ? sel.start : text.length) +
-                              v.length,
-                        );
-                        setState(() {});
-                      },
-                    );
-                  }).toList(),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              contextMenuBuilder: AppTextSelectionMenu.editableText,
-              controller: _templateControllers[index],
-              minLines: 3,
-              maxLines: 8,
-              decoration: InputDecoration(
-                hintText: _messageFormats[index] == WebhookMessageFormat.json
-                    ? '{"title":"%title%","content":"%content%"}'
-                    : _messageFormats[index] == WebhookMessageFormat.xml
-                    ? '<notification><title>%title%</title></notification>'
-                    : '## %title%\n%content%',
-                hintStyle: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.tertiaryLabel(context),
-                  fontFamily: 'monospace',
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.separator(context)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.separator(context)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.blue),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                isDense: true,
-                filled: true,
-                fillColor: AppColors.inputBg(context),
-              ),
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.primaryLabel(context),
-                fontFamily: 'monospace',
-              ),
-            ),
           ],
           const SizedBox(height: 10),
           // 通道健康徽标（P2）：上次探测的连通状态 + 延迟 + 时间

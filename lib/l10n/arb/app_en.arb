@@ -353,6 +353,8 @@
   "platformWechat": "WeCom",
   "platformDingtalk": "DingTalk",
   "platformFeishu": "Feishu",
+  "platformSlack": "Slack",
+  "platformDiscord": "Discord",
   "platformGeneric": "Generic JSON",
   "platformWechatDesc": "Text format push",
   "platformGenericDesc": "Custom JSON format",
@@ -1199,8 +1201,6 @@
     }
   },
   "appChannelNotConfigured": "Not configured",
-  "appChannelAddWecom": "Add WeCom App",
-  "appChannelAddFeishu": "Add Feishu App",
   "appChannelN": "App Channel {n}",
   "@appChannelN": {
     "placeholders": {
@@ -1227,6 +1227,14 @@
   "channelStateDisabled": "Disabled",
   "appChannelErrNameRequired": "Save failed: channel name is required",
   "appChannelErrBaseUrlRequired": "Save failed: API address is required",
+  "appChannelErrFieldsRequired": "Save failed: required fields are empty ({fields})",
+  "@appChannelErrFieldsRequired": {
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
   "priorityBadgeHigh": "High",
   "priorityBadgeLow": "Low",
   "channelBadgeFallback": "C",

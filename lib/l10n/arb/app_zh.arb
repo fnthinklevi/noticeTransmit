@@ -360,6 +360,8 @@
   "platformWechat": "WeCom",
   "platformDingtalk": "DingTalk",
   "platformFeishu": "Feishu",
+  "platformSlack": "Slack",
+  "platformDiscord": "Discord",
   "platformGeneric": "通用 JSON",
   "platformWechatDesc": "文本格式推送",
   "platformGenericDesc": "自定义 JSON 格式",
@@ -1206,8 +1208,6 @@
     }
   },
   "appChannelNotConfigured": "未配置",
-  "appChannelAddWecom": "添加企微自建应用",
-  "appChannelAddFeishu": "添加飞书自建应用",
   "appChannelN": "自建应用 {n}",
   "@appChannelN": {
     "placeholders": {
@@ -1234,6 +1234,14 @@
   "channelStateDisabled": "已停用",
   "appChannelErrNameRequired": "保存失败：通道名称不能为空",
   "appChannelErrBaseUrlRequired": "保存失败：API 地址不能为空",
+  "appChannelErrFieldsRequired": "保存失败：必填项未填写（{fields}）",
+  "@appChannelErrFieldsRequired": {
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
   "priorityBadgeHigh": "高",
   "priorityBadgeLow": "低",
   "channelBadgeFallback": "通",

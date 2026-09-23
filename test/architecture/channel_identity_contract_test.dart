@@ -288,7 +288,18 @@ void main() {
         isNot(contains("? l10n.channelTypeFeishuApp")),
         reason: '三元否定分支会把未知 app_type 标成企业微信应用',
       );
-      expect(listPage, contains('=> l10n.unknown,'));
+      expect(
+        listPage,
+        isNot(contains("appType != 'feishu_app'")),
+        reason: '「不是 X 就是 Y」的否定分支 = 新增应用通道时静默冒充既有平台',
+      );
+      // 第 5 步起标签与图标都查视觉表：兜底必须是显式的「未知」，不是某个平台
+      expect(listPage, contains('hasChannelVisual(appType)'));
+      expect(
+        listPage,
+        contains('l10n.unknown'),
+        reason: '未登记的 app_type 要显示「未知」，让用户看得见配错了',
+      );
     });
 
     test('AppChannelSettingsPage 不再收留从未读取的 initialIndex', () {

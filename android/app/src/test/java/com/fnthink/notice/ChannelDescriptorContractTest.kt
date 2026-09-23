@@ -1,6 +1,7 @@
 package com.fnthink.notice
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -180,10 +181,55 @@ class ChannelDescriptorContractTest {
         )) {
             assertEquals("$t 的模板策略必须仍是 DISABLED", TemplateSupport.DISABLED, ChannelRegistry.spec(t).transport.templateSupport)
         }
+        // Slack / Discord 第 5 步补上：它们不在旧的回退分支里，而是**从未登记** platformPayload，
+        // 所以 buildPlatformPayload 恒返回 null —— 同样是「选了没效果」，UI 入口一并收掉。
+        // 判据只有一条：有 platformPayload 才可能有 customTemplate，见下面的双向核对。
+        for (t in listOf(
+            WebhookPayloadBuilder.WebhookType.SLACK,
+            WebhookPayloadBuilder.WebhookType.DISCORD,
+        )) {
+            assertEquals("$t 无 platformPayload，模板策略必须是 DISABLED", TemplateSupport.DISABLED, ChannelRegistry.spec(t).transport.templateSupport)
+        }
         // 通用 webhook 的自定义模板是"原样发出渲染结果"
         assertEquals(TemplateSupport.RAW_BODY, ChannelRegistry.spec(WebhookPayloadBuilder.WebhookType.GENERIC).transport.templateSupport)
         // 其余平台走平台包装（企微/钉钉/飞书的 text/markdown）
         assertEquals(TemplateSupport.STANDARD, ChannelRegistry.spec(WebhookPayloadBuilder.WebhookType.WECHAT_WORK).transport.templateSupport)
+    }
+
+    @Test
+    fun customTemplateCapability_neverAdvertisesADeadSelector() {
+        // 第 5 步起 UI 的「消息格式 / 模板」入口按 CUSTOM_TEMPLATE 能力位显隐，
+        // 所以这条声明必须与实发路径严格等价，否则要么给出死选择器、要么藏掉有效功能。
+        // STANDARD ⇒ 必须有 platformPayload（buildPlatformPayload 里没有它就拿不到正文）；
+        // RAW_BODY ⇒ 走 buildGenericBody，是通用 webhook 专用。
+        for (spec in specs) {
+            when (spec.transport.templateSupport) {
+                TemplateSupport.DISABLED -> Unit
+                TemplateSupport.STANDARD -> assertNotNull(
+                    "${spec.type} 标了 STANDARD 却没有 platformPayload：格式/模板选择器对它不生效，应改成 DISABLED",
+                    spec.platformPayload,
+                )
+                TemplateSupport.RAW_BODY -> assertEquals(
+                    "RAW_BODY 只有通用 webhook 一条路径",
+                    WebhookPayloadBuilder.WebhookType.GENERIC,
+                    spec.type,
+                )
+            }
+        }
+        // 能力位与之一致（导给 Dart 的就是这个）
+        for (t in listOf(
+            WebhookPayloadBuilder.WebhookType.NTFY,
+            WebhookPayloadBuilder.WebhookType.GOTIFY,
+            WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
+            WebhookPayloadBuilder.WebhookType.PUSH_PLUS,
+            WebhookPayloadBuilder.WebhookType.SLACK,
+            WebhookPayloadBuilder.WebhookType.DISCORD,
+        )) {
+            assertFalse(
+                "$t 不该声明 customTemplate",
+                ChannelRegistry.capabilitiesOf(t).contains(Capability.CUSTOM_TEMPLATE),
+            )
+        }
     }
 
     @Test

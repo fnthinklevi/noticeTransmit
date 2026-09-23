@@ -1,5 +1,7 @@
 package com.fnthink.notice.channels
 
+import com.fnthink.notice.AppChannelRegistry
+import com.fnthink.notice.ChannelRegistry
 import com.fnthink.notice.DiagLog
 import com.fnthink.notice.EmailManager
 import com.fnthink.notice.I18n
@@ -67,6 +69,11 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 // 旧版 App 不传该参数 ⇒ null，行为与之前一致（向后兼容）
                 val channelType = call.argument<String>("channelType")
                 activity.testWebhook(url, secret, result, extraConfig, channelType)
+            }
+            "getChannelDescriptors" -> {
+                // 通道描述符导出（第 5 步）：身份 + 能力位 + 字段 schema。
+                // **只读**：载荷/判定/签名算法仍只在原生侧，Dart 不因此获得行为能力。
+                result.success(ChannelRegistry.descriptors() + AppChannelRegistry.descriptors())
             }
             "probeChannelHealth" -> {
                 // 通道健康探测（P2）：轻量 HEAD，任何 HTTP 响应 = 连通；
