@@ -153,6 +153,37 @@ void main() {
     });
   });
 
+  group('提示文案不得互相借用（roadmap E8）', () {
+    test('12 个 webhook 通道各有一句自己的说明，且两两不同', () {
+      final slugs = descriptors
+          .where((d) => d['family'] == 'webhook')
+          .map((d) => d['key'] as String)
+          .toList();
+      expect(slugs, hasLength(12));
+
+      final seen = <String, String>{};
+      for (final slug in slugs) {
+        final visual = channelVisual(slug);
+        final descKey = visual.descKey;
+        expect(descKey, isNotNull, reason: '$slug 没有自己的提示词条（会退回通用占位文案）');
+        expect(
+          channelLabelFor(l10n, descKey!),
+          isNot(descKey),
+          reason: '$slug 的 $descKey 在 channelLabelFor 里没有 case',
+        );
+        final owner = seen[descKey];
+        expect(
+          owner,
+          isNull,
+          reason:
+              '$slug 借用了 $owner 的说明文字（$descKey）：这正是 E8 那类缺陷 —— '
+              '复制别家文案的表现是用户对着自己的平台读到不相干的能力说明',
+        );
+        seen[descKey] = slug;
+      }
+    });
+  });
+
   group('URL 自动识别的 host 表两端同一份事实', () {
     test('Dart _platformRules 与描述符 hosts 完全一致', () {
       final dartRules = <String, Set<String>>{

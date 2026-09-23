@@ -4304,6 +4304,42 @@ abstract class AppLocalizations {
   /// **'通过 Discord Webhook 发送消息，正文上限 2000 字符'**
   String get platformDiscordDesc;
 
+  /// No description provided for @platformDingtalkDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'URL 加签（timestamp+sign），正文可发 Markdown'**
+  String get platformDingtalkDesc;
+
+  /// No description provided for @platformFeishuDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'签名写在请求体（timestamp+sign）；正文按纯文本发送，Markdown 会降级'**
+  String get platformFeishuDesc;
+
+  /// No description provided for @platformTelegramDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'Bot Token 与 chat_id 取自 URL；纯文本，正文上限 4096 字符'**
+  String get platformTelegramDesc;
+
+  /// No description provided for @platformBarkDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备 Key 取自 URL 路径；标题与正文以 JSON 发送，无需签名密钥'**
+  String get platformBarkDesc;
+
+  /// No description provided for @platformServerChanDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'SendKey 取自 URL 路径；正文以表单提交（title/desp），无签名'**
+  String get platformServerChanDesc;
+
+  /// No description provided for @platformPushPlusDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'token 取自 URL 并写入请求体，正文按纯文本模板发送，无需签名密钥'**
+  String get platformPushPlusDesc;
+
   /// No description provided for @signingHintNtfy.
   ///
   /// In zh, this message translates to:

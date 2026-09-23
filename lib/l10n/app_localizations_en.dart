@@ -2334,6 +2334,30 @@ class AppLocalizationsEn extends AppLocalizations {
       'Send messages via a Discord Webhook; content limited to 2000 chars';
 
   @override
+  String get platformDingtalkDesc =>
+      'Signed URL (timestamp + sign); Markdown supported';
+
+  @override
+  String get platformFeishuDesc =>
+      'Signature goes in the request body; content is sent as plain text (Markdown downgrades)';
+
+  @override
+  String get platformTelegramDesc =>
+      'Bot token and chat_id come from the URL; plain text, 4096-character limit';
+
+  @override
+  String get platformBarkDesc =>
+      'Device key comes from the URL path; title and body sent as JSON, no signing secret';
+
+  @override
+  String get platformServerChanDesc =>
+      'SendKey comes from the URL path; content posted as form fields (title/desp), no signing';
+
+  @override
+  String get platformPushPlusDesc =>
+      'Token taken from the URL is written into the body; plain-text template, no signing secret';
+
+  @override
   String get signingHintNtfy =>
       'Optional: ntfy access token (Bearer), required if your server has auth enabled';
 

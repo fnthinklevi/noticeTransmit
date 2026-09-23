@@ -31,7 +31,12 @@ class ChannelVisual {
   /// 通道名（选择器 / 列表 / 卡片标题）的 ARB 资源名
   final String labelKey;
 
-  /// 「URL 识别」提示的描述行 ARB 资源名；null = 用通用占位文案
+  /// 「URL 识别」提示的描述行 ARB 资源名；null = 用通用占位文案。
+  ///
+  /// ⚠ 12 个 webhook 通道**各写各的**，不得借用别家那句（历史上钉钉/飞书/Telegram/
+  /// Bark/Server酱/PushPlus 全复制了企微的「文本格式推送」= roadmap E8，已闭合）。每条只写
+  /// 描述符里能核实的事实：签名方案、鉴权取值位置（URL / 请求体 / 表单）、是否走平台 Markdown。
+  /// 由 `channel_descriptor_export_contract_test` 的「提示说明不得互相借用」守着。
   final String? descKey;
 
   /// 提示区的显示名（品牌名，如 WeCom）；null = 与 [labelKey] 同一个词。
@@ -60,10 +65,7 @@ const Map<String, ChannelVisual> _channelVisuals = {
     color: Color(0xFF1677FF),
     labelKey: 'channelTypeDingtalk',
     hintLabelKey: 'platformDingtalk',
-    // TODO(roadmap E8): 原代码把钉钉/飞书/Telegram/Bark/Server酱/PushPlus 的提示
-    // 全复用成企微那句 platformWechatDesc（"文本格式推送"），属于文案缺陷；
-    // 补词条要产品定稿，本步只把"复用"这件事搬到一处，不改显示文案。
-    descKey: 'platformWechatDesc',
+    descKey: 'platformDingtalkDesc',
     signingHintKey: 'signingHintDingtalk',
   ),
   'feishu': ChannelVisual(
@@ -71,35 +73,35 @@ const Map<String, ChannelVisual> _channelVisuals = {
     color: AppColors.blue,
     labelKey: 'channelTypeFeishu',
     hintLabelKey: 'platformFeishu',
-    descKey: 'platformWechatDesc',
+    descKey: 'platformFeishuDesc',
     signingHintKey: 'signingHintFeishu',
   ),
   'telegram': ChannelVisual(
     icon: Icons.send,
     color: Color(0xFF0088CC),
     labelKey: 'channelTypeTelegram',
-    descKey: 'platformWechatDesc',
+    descKey: 'platformTelegramDesc',
     signingHintKey: 'signingHintTelegram',
   ),
   'bark': ChannelVisual(
     icon: Icons.notifications_active,
     color: Color(0xFFE6A23C),
     labelKey: 'channelTypeBark',
-    descKey: 'platformWechatDesc',
+    descKey: 'platformBarkDesc',
     signingHintKey: 'signingHintBark',
   ),
   'server_chan': ChannelVisual(
     icon: Icons.forward_to_inbox,
     color: Color(0xFF4E5969),
     labelKey: 'channelTypeServerChan',
-    descKey: 'platformWechatDesc',
+    descKey: 'platformServerChanDesc',
     signingHintKey: 'signingHintServerChan',
   ),
   'push_plus': ChannelVisual(
     icon: Icons.bolt,
     color: Color(0xFF00B96B),
     labelKey: 'channelTypePushPlus',
-    descKey: 'platformWechatDesc',
+    descKey: 'platformPushPlusDesc',
     signingHintKey: 'signingHintPushPlus',
   ),
   'ntfy': ChannelVisual(
@@ -249,6 +251,18 @@ String channelLabelFor(AppLocalizations l10n, String labelKey) {
       return l10n.platformDiscordDesc;
     case 'platformGenericDesc':
       return l10n.platformGenericDesc;
+    case 'platformDingtalkDesc':
+      return l10n.platformDingtalkDesc;
+    case 'platformFeishuDesc':
+      return l10n.platformFeishuDesc;
+    case 'platformTelegramDesc':
+      return l10n.platformTelegramDesc;
+    case 'platformBarkDesc':
+      return l10n.platformBarkDesc;
+    case 'platformServerChanDesc':
+      return l10n.platformServerChanDesc;
+    case 'platformPushPlusDesc':
+      return l10n.platformPushPlusDesc;
     case 'signingHintWechat':
       return l10n.signingHintWechat;
     case 'signingHintDingtalk':

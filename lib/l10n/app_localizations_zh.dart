@@ -2246,6 +2246,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get platformDiscordDesc => '通过 Discord Webhook 发送消息，正文上限 2000 字符';
 
   @override
+  String get platformDingtalkDesc => 'URL 加签（timestamp+sign），正文可发 Markdown';
+
+  @override
+  String get platformFeishuDesc =>
+      '签名写在请求体（timestamp+sign）；正文按纯文本发送，Markdown 会降级';
+
+  @override
+  String get platformTelegramDesc =>
+      'Bot Token 与 chat_id 取自 URL；纯文本，正文上限 4096 字符';
+
+  @override
+  String get platformBarkDesc => '设备 Key 取自 URL 路径；标题与正文以 JSON 发送，无需签名密钥';
+
+  @override
+  String get platformServerChanDesc =>
+      'SendKey 取自 URL 路径；正文以表单提交（title/desp），无签名';
+
+  @override
+  String get platformPushPlusDesc => 'token 取自 URL 并写入请求体，正文按纯文本模板发送，无需签名密钥';
+
+  @override
   String get signingHintNtfy => '可选：ntfy 访问令牌（Bearer Token），自建服务器开启鉴权时填写';
 
   @override

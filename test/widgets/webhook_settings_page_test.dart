@@ -293,6 +293,44 @@ void main() {
       expect(find.text('消息格式'), findsOneWidget);
     });
 
+    testWidgets('每家的「URL 识别」说明用自己的文案（roadmap E8 的行为锁）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, [
+        {
+          'id': 'dt',
+          'name': 'DT',
+          'url': 'https://oapi.dingtalk.com/robot/send?access_token=x',
+          'type': 'dingtalk',
+          'channelType': 'dingtalk',
+          'enabled': true,
+          'message_format': 'default',
+        },
+        {
+          'id': 'fs',
+          'name': 'FS',
+          'url': 'https://open.feishu.cn/open-apis/bot/v2/hook/x',
+          'type': 'feishu',
+          'channelType': 'feishu',
+          'enabled': true,
+          'message_format': 'default',
+        },
+      ]);
+
+      expect(find.text('URL 加签（timestamp+sign），正文可发 Markdown'), findsOneWidget);
+      expect(
+        find.textContaining('正文按纯文本发送，Markdown 会降级'),
+        findsOneWidget,
+        reason: '飞书恒发 msg_type=text，说明里必须体现（页面另有降级提示条）',
+      );
+      expect(
+        find.text('文本格式推送'),
+        findsNothing,
+        reason: '这句是企微的；钉钉/飞书借用它 = E8 那个文案缺陷',
+      );
+    });
+
     testWidgets('描述符拉不到时不收入口（宁可多给，不能让凭据没地方填）', (tester) async {
       serveDescriptors = false;
       tester.view.physicalSize = const Size(1200, 3600);
