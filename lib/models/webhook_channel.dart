@@ -46,56 +46,10 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
     }
   }
 
-  /// 是否支持 HMAC 签名（用于 UI 显示 secret 输入框）
-  bool get supportsSigning {
-    switch (this) {
-      case WebhookChannelType.generic:
-      case WebhookChannelType.wechatWork:
-      case WebhookChannelType.dingtalk:
-      case WebhookChannelType.feishu:
-      // ntfy/gotify 的 secret 用作访问令牌（Bearer / App Token），非签名
-      case WebhookChannelType.ntfy:
-      case WebhookChannelType.gotify:
-      case WebhookChannelType.telegram:
-      case WebhookChannelType.bark:
-      case WebhookChannelType.serverChan:
-      case WebhookChannelType.pushPlus:
-      // Slack/Discord：Incoming Webhook URL 本身即凭据
-      case WebhookChannelType.slack:
-      case WebhookChannelType.discord:
-        return false;
-    }
-  }
-
-  /// 签名说明文案（用户在 UI 中看到的提示）
-  String get signingHint {
-    switch (this) {
-      case WebhookChannelType.wechatWork:
-        return '企业微信群机器人开启「签名校验」后生成的密钥';
-      case WebhookChannelType.dingtalk:
-        return '钉钉机器人开启「加签」后生成的密钥（SEC 开头）';
-      case WebhookChannelType.feishu:
-        return '飞书自定义机器人开启「签名校验」后的密钥';
-      case WebhookChannelType.generic:
-        return '自建服务端校验签名用的密钥（通过 X-Signature 头传递）';
-      case WebhookChannelType.telegram:
-        return 'Telegram 使用 Bot Token 鉴权，无需签名密钥';
-      case WebhookChannelType.bark:
-        return 'Bark 使用设备 Key 鉴权，无需签名密钥';
-      case WebhookChannelType.serverChan:
-        return 'Server酱 使用 SendKey 鉴权，无需签名密钥';
-      case WebhookChannelType.pushPlus:
-        return 'PushPlus 使用 Token 鉴权，无需签名密钥';
-      case WebhookChannelType.ntfy:
-        return '可选：ntfy 访问令牌（Bearer Token），自建服务器开启鉴权时填写';
-      case WebhookChannelType.gotify:
-        return '必填：Gotify 应用 Token（客户端 Token 无法推送）';
-      case WebhookChannelType.slack:
-        return 'Slack 使用 Incoming Webhook URL 鉴权，无需签名密钥';
-      case WebhookChannelType.discord:
-        return 'Discord 使用 Webhook URL 鉴权，无需签名密钥';
-    }
-  }
+  // 签名能力与提示文案只在 UI 层判定（webhook_settings_page 的
+  // _supportsSigning / _signingHint，提示走 l10n）。此处此前另存过一份
+  // supportsSigning（12 臂全 false）与 signingHint（硬编码中文），零调用点、
+  // 且与 UI 判定矛盾（UI 排除 6 个平台，这里全 false）——已删，勿再留第二处真相。
 }
 
 enum WebhookMessageFormat {

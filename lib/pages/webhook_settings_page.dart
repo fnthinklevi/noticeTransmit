@@ -28,10 +28,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   late List<TextEditingController> _nameControllers;
   late List<TextEditingController> _secretControllers;
   late List<TextEditingController> _templateControllers;
-  // 企业微信自建应用扩展参数（corpid/agentid/touser），非 wecom_app 通道不显示
-  late List<TextEditingController> _corpidControllers;
-  late List<TextEditingController> _agentidControllers;
-  late List<TextEditingController> _touserControllers;
   late List<bool> _webhookEnabled;
   late List<bool> _secretVisible;
   late List<WebhookMessageFormat> _messageFormats;
@@ -313,27 +309,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           ),
         )
         .toList();
-    _corpidControllers = widget.webhookChannels
-        .map(
-          (c) => TextEditingController(
-            text: ((c['extra_config'] as Map?)?['corpid'] ?? '')!.toString(),
-          ),
-        )
-        .toList();
-    _agentidControllers = widget.webhookChannels
-        .map(
-          (c) => TextEditingController(
-            text: ((c['extra_config'] as Map?)?['agentid'] ?? '')!.toString(),
-          ),
-        )
-        .toList();
-    _touserControllers = widget.webhookChannels
-        .map(
-          (c) => TextEditingController(
-            text: ((c['extra_config'] as Map?)?['touser'] ?? '')!.toString(),
-          ),
-        )
-        .toList();
     _webhookEnabled = widget.webhookChannels
         .map((c) => c['enabled'] as bool? ?? true)
         .toList();
@@ -362,9 +337,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _nameControllers.add(TextEditingController());
       _secretControllers.add(TextEditingController());
       _templateControllers.add(TextEditingController());
-      _corpidControllers.add(TextEditingController());
-      _agentidControllers.add(TextEditingController());
-      _touserControllers.add(TextEditingController());
       _webhookEnabled.add(true);
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
@@ -435,9 +407,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _nameControllers.add(TextEditingController());
       _secretControllers.add(TextEditingController());
       _templateControllers.add(TextEditingController());
-      _corpidControllers.add(TextEditingController());
-      _agentidControllers.add(TextEditingController());
-      _touserControllers.add(TextEditingController());
       _webhookEnabled.add(true);
       _secretVisible.add(false);
       _messageFormats.add(WebhookMessageFormat.defaultFormat);
@@ -456,9 +425,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _nameControllers.removeAt(index);
       _secretControllers.removeAt(index);
       _templateControllers.removeAt(index);
-      _corpidControllers.removeAt(index);
-      _agentidControllers.removeAt(index);
-      _touserControllers.removeAt(index);
       _webhookEnabled.removeAt(index);
       _secretVisible.removeAt(index);
       _messageFormats.removeAt(index);
@@ -469,9 +435,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _nameControllers.add(TextEditingController());
         _secretControllers.add(TextEditingController());
         _templateControllers.add(TextEditingController());
-        _corpidControllers.add(TextEditingController());
-        _agentidControllers.add(TextEditingController());
-        _touserControllers.add(TextEditingController());
         _webhookEnabled.add(true);
         _secretVisible.add(false);
         _messageFormats.add(WebhookMessageFormat.defaultFormat);
@@ -513,8 +476,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         final channelType = (manualType == 'auto' || manualType.isEmpty)
             ? WebhookChannel.detectTypeFromUrl(url).value
             : manualType;
-        // 企业微信自建应用：携带扩展参数（corpid/agentid/touser）
-        Map<String, dynamic>? extraConfig;
         final template = _templateControllers[i].text.trim();
         channels.add({
           'id': (existingId != null && existingId.isNotEmpty)
@@ -527,7 +488,6 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           if (secret.isNotEmpty) 'secret': secret,
           'message_format': _messageFormats[i].value,
           if (template.isNotEmpty) 'message_template': template,
-          'extra_config': ?extraConfig,
         });
       }
     }

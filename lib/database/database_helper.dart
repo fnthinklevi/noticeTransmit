@@ -1113,9 +1113,16 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
     final now = DateTime.now().millisecondsSinceEpoch;
     await db.transaction((txn) async {
       await txn.delete('email_channels');
+      var i = 0;
       for (final c in channels) {
+        final rawId = c['id']?.toString();
         final row = <String, dynamic>{
-          'id': c['id'] ?? '',
+          // 与 saveWebhookChannels / saveAppChannels 同规则：id 缺失或为空时兜底生成。
+          // 此前写死 `c['id'] ?? ''`，两条无 id 的通道会以同一个空主键落库，
+          // 后一条 replace 掉前一条 ⇒ 保存一次静默丢一条邮箱通道。
+          'id': (rawId != null && rawId.isNotEmpty)
+              ? rawId
+              : 'em_${now}_${i++}',
           'name': c['name'] ?? '',
           'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
           'smtp_host': c['smtpHost'] ?? '',

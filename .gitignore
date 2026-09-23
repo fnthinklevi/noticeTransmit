@@ -16,6 +16,7 @@ migrate_working_dir/
 mitandroid
 update.md
 base.md
+NoticeTransmit关键密钥.md
 crash_log.txt
 flutter_complete_tutorial.md
 server/node_modules/
@@ -59,6 +60,7 @@ app.*.map.json
 # Signing keys
 *.jks
 *.keystore
+key/
 android/key.jks
 android/app/key.jks
 android/key.properties

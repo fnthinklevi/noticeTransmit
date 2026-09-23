@@ -17,10 +17,12 @@ import '../widgets/app_text_selection_menu.dart';
 /// （app_id/receive_id），每通道独立开关、测试发送、健康探测徽标、删除；
 /// 保存后经 MethodChannel 同步原生（AppChannelSender 两阶段推送）。
 class AppChannelSettingsPage extends StatefulWidget {
-  /// 编辑模式入口索引（null = 管理全部通道，非 null = 聚焦指定通道）
-  final int? initialIndex;
-
-  const AppChannelSettingsPage({super.key, this.initialIndex});
+  /// 本页一次列出全部通道卡片并整表保存（delete+insert），没有"只编辑某一条"的
+  /// 形态。此前这里有个 `initialIndex` 参数，调用方一路传进来但**从未被读取**，
+  /// 于是从列表点第 2 条与点 FAB 打开的是同一个页面位置——参数已删。
+  /// 若将来要做单通道编辑视图，必须同时改保存路径（只替换该行而不是整表重写），
+  /// 否则保存会把其余通道删掉。
+  const AppChannelSettingsPage({super.key});
 
   @override
   State<AppChannelSettingsPage> createState() => _AppChannelSettingsPageState();
@@ -282,20 +284,20 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
                   color: AppColors.blue,
                 ),
               ),
-              // 按当前类型打开对应接入引导（v1.59）
-              IconButton(
-                icon: const Icon(
-                  Icons.help_outline,
-                  size: 18,
-                  color: AppColors.blue,
+              // 按当前类型打开对应接入引导（v1.59）。只对**已知类型**给入口：
+              // 引导文案只有企微/飞书两套，兜底成企微会把用户带去填错的凭据。
+              if (c['appType'] == 'wecom_app' || c['appType'] == 'feishu_app')
+                IconButton(
+                  icon: const Icon(
+                    Icons.help_outline,
+                    size: 18,
+                    color: AppColors.blue,
+                  ),
+                  tooltip: l10n.appChannelGuideOpen,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () =>
+                      _showSetupGuide(context, c['appType'].toString()),
                 ),
-                tooltip: l10n.appChannelGuideOpen,
-                visualDensity: VisualDensity.compact,
-                onPressed: () => _showSetupGuide(
-                  context,
-                  c['appType']?.toString() ?? 'wecom_app',
-                ),
-              ),
               const Spacer(),
               CupertinoSwitch(
                 value: enabled,
@@ -400,6 +402,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   void _showSetupGuide(BuildContext context, String appType) {
     final l10n = AppLocalizations.of(context);
     final isWecom = appType != 'feishu_app';
+    // 调用方只可能传这两个值（引导入口已按类型收窄）；写死默认值会让未知类型
+    // 静默显示企微步骤，故此处显式断言而不是兜底。
+    assert(appType == 'wecom_app' || appType == 'feishu_app');
     final title = isWecom
         ? l10n.appChannelGuideTitleWecom
         : l10n.appChannelGuideTitleFeishu;
@@ -793,6 +798,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     final l10n = AppLocalizations.of(context);
     final id = c['id'] as String;
     setState(() => _testingId = id);
+    final watch = Stopwatch()..start();
     try {
       final result = await _channel.invokeMethod('testAppChannel', {
         ..._channelPayload(index, forTest: true),
@@ -800,14 +806,51 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       });
       final success = result['success'] as bool? ?? false;
       final message = result['message'] as String? ?? '';
+      await _recordHealth(
+        id,
+        reachable: success,
+        latencyMs: watch.elapsedMilliseconds,
+      );
       _showToast(
         '${success ? l10n.test : l10n.testFailedMsg(message)} $message',
         success,
       );
     } catch (e) {
+      await _recordHealth(
+        id,
+        reachable: false,
+        latencyMs: watch.elapsedMilliseconds,
+      );
       _showToast('${l10n.appChannelTestFailed}$e', false);
     } finally {
       if (mounted) setState(() => _testingId = null);
+    }
+  }
+
+  /// 健康徽标的唯一数据源。
+  ///
+  /// 此前 `channel_health_<id>` 只有 webhook 侧会写，本页面只读不写 ⇒ 应用通道的
+  /// 徽标永远不出现（读一条恒为空的缓存）。
+  ///
+  /// ⚠️ 这里**不做进入页面时的自动探测**（与 webhook 的 6h 后台刷新不同）：
+  /// `testAppChannel` 会真的向企业微信/飞书发一条测试消息，自动探测等于每 6 小时
+  /// 骚扰用户一次。要做自动健康度，得先加只换 access_token 的非侵入探测（第 6 步）。
+  Future<void> _recordHealth(
+    String id, {
+    required bool reachable,
+    required int latencyMs,
+  }) async {
+    final entry = <String, dynamic>{
+      'reachable': reachable,
+      'latencyMs': latencyMs,
+      'probedAt': DateTime.now().millisecondsSinceEpoch,
+    };
+    _health[id] = entry;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('channel_health_$id', jsonEncode(entry));
+    } catch (e) {
+      debugPrint('写入应用通道健康缓存失败: $e');
     }
   }
 

@@ -7,9 +7,12 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
   /// 通道健康徽标：无探测记录不显示；有则显示 ✓/✗ + 延迟 + 距上次探测时间
   Widget _buildHealthBadge(int index, BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final id = widget.webhookChannels[index]['id']?.toString() ?? '';
+    // 必须按**并行 id 列表**取，不能按 index 读 widget.webhookChannels：
+    // 那是构造期输入、不随行增删收缩——新增一行后 index 越界直接抛 RangeError，
+    // 删掉一行后其余行会继承上一条通道的健康记录（徽标串台）。
+    final id = _channelIds[index] ?? '';
     final health = _healthResults[id];
-    if (health == null) return const SizedBox.shrink();
+    if (id.isEmpty || health == null) return const SizedBox.shrink();
     final reachable = health['reachable'] == true;
     final latency = (health['latencyMs'] as num?)?.toInt() ?? 0;
     final probedAt = (health['probedAt'] as num?)?.toInt() ?? 0;

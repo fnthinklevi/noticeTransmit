@@ -73,7 +73,7 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
               itemBuilder: (context, index) => _buildChannelTile(index),
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _openDetail(null),
+        onPressed: _openDetail,
         child: const Icon(Icons.add),
       ),
     );
@@ -85,10 +85,19 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
     final name = c['name']?.toString() ?? '';
     final appType = c['appType']?.toString() ?? '';
     final enabled = c['enabled'] == true;
-    final typeLabel = appType == 'feishu_app'
-        ? l10n.channelTypeFeishuApp
-        : l10n.channelTypeWecomApp;
-    final typeIcon = appType == 'feishu_app' ? Icons.link : Icons.business;
+    // 类型标签按 key 查表。**不能**用「不是 feishu_app 就是 wecom_app」这种三元
+    // 兜底：原生侧新增应用通道而本页没跟上时，会把没配好的通道标成企业微信应用，
+    // 用户照着企微的引导去填飞书凭据（图标同理）。
+    final typeLabel = switch (appType) {
+      'feishu_app' => l10n.channelTypeFeishuApp,
+      'wecom_app' => l10n.channelTypeWecomApp,
+      _ => l10n.unknown,
+    };
+    final typeIcon = switch (appType) {
+      'feishu_app' => Icons.link,
+      'wecom_app' => Icons.business,
+      _ => Icons.help_outline,
+    };
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -150,18 +159,17 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
             ),
           ],
         ),
-        onTap: () => _openDetail(index),
+        onTap: _openDetail,
       ),
     );
   }
 
-  Future<void> _openDetail(int? index) async {
-    // 导航到现有编辑页（该页管理所有通道的完整配置）
+  Future<void> _openDetail() async {
+    // 导航到现有编辑页（该页管理所有通道的完整配置，没有单通道形态：
+    // 传 index 也无从"聚焦"，此前那个 initialIndex 参数从未被读取，已删）
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => AppChannelSettingsPage(initialIndex: index),
-      ),
+      MaterialPageRoute(builder: (_) => const AppChannelSettingsPage()),
     );
     // 返回后刷新列表
     _refresh();

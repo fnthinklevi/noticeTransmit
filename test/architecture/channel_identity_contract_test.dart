@@ -200,4 +200,86 @@ void main() {
       );
     });
   });
+
+  group('第 3 步局部缺陷不得复活', () {
+    test('webhook 设置页不再留 extra_config 死路径', () {
+      final page = stripComments(
+        File('$root/lib/pages/webhook_settings_page.dart').readAsStringSync(),
+      );
+      final item = stripComments(
+        File('$root/lib/pages/webhook_settings_item.dart').readAsStringSync(),
+      );
+      // 页面上没有任何 corpid/agentid/touser 输入框（自建应用凭据在 app_channels 体系里编辑），
+      // 却声明过三个从不渲染、也从不 dispose 的控制器 + 一个恒为 null 的 extraConfig 假传参。
+      for (final dead in ['extraConfig', 'corpid', 'agentid', 'touser']) {
+        expect(page, isNot(contains(dead)), reason: 'webhook 页面残留 $dead');
+        expect(item, isNot(contains(dead)), reason: 'webhook 卡片残留 $dead');
+      }
+      // 服务层/DB 层的 extra_config 是活的（备份恢复、原生 testWebhook 会用），不许一起删
+      final svc = File(
+        '$root/lib/services/webhook_service.dart',
+      ).readAsStringSync();
+      expect(svc, contains('extra_config'));
+    });
+
+    test('健康徽标按并行 id 列表取，不按下标读构造期输入', () {
+      final item = stripComments(
+        File('$root/lib/pages/webhook_settings_item.dart').readAsStringSync(),
+      );
+      final badge = blockAfter(
+        item,
+        'Widget _buildHealthBadge(int index, BuildContext context) {',
+      );
+      expect(badge, contains('_channelIds[index]'));
+      expect(
+        badge,
+        isNot(contains('widget.webhookChannels[')),
+        reason: 'widget.webhookChannels 不随行增删收缩：新增行会 RangeError，删行会串台',
+      );
+    });
+
+    test('签名能力与提示文案只有一处判定', () {
+      final model = stripComments(
+        File('$root/lib/models/webhook_channel.dart').readAsStringSync(),
+      );
+      for (final dup in ['supportsSigning', 'signingHint']) {
+        expect(
+          model,
+          isNot(contains(dup)),
+          reason:
+              '模型里再存一份 $dup 就会出现第二处真相：此前那份 12 臂全 false，'
+              '而 UI 实际只排除 6 个平台，且提示文案是硬编码中文（UI 走 l10n）',
+        );
+      }
+      final page = File(
+        '$root/lib/pages/webhook_settings_page.dart',
+      ).readAsStringSync();
+      expect(page, contains('bool _supportsSigning(int index)'));
+    });
+
+    test('应用通道类型标签必须有未知兜底，不许用否定分支当默认', () {
+      final listPage = stripComments(
+        File('$root/lib/pages/app_channel_list_page.dart').readAsStringSync(),
+      );
+      expect(
+        listPage,
+        isNot(contains("? l10n.channelTypeFeishuApp")),
+        reason: '三元否定分支会把未知 app_type 标成企业微信应用',
+      );
+      expect(listPage, contains('=> l10n.unknown,'));
+    });
+
+    test('AppChannelSettingsPage 不再收留从未读取的 initialIndex', () {
+      for (final rel in [
+        'lib/pages/app_channel_settings_page.dart',
+        'lib/pages/app_channel_list_page.dart',
+      ]) {
+        expect(
+          stripComments(File('$root/$rel').readAsStringSync()),
+          isNot(contains('initialIndex')),
+          reason: '$rel 仍有 initialIndex：参数传而不用，从列表点第 2 条与点 FAB 无区别',
+        );
+      }
+    });
+  });
 }

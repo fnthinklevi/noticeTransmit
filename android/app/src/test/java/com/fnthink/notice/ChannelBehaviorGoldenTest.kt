@@ -187,7 +187,11 @@ class ChannelBehaviorGoldenTest {
     fun payloads_matchGoldenSnapshot() {
         val actual = payloadMatrix()
         val (golden, _) = loadOrGenerate(actual, parseMatrix())
-        assertTrue("快照条目数异常：${golden.size}", golden.size >= 32)
+        assertTrue(
+            "载荷快照条目数应为 48（实际 ${golden.size}）：数量掉了说明矩阵用例被删/合并，" +
+                "零 diff 就不再是证据；确实要改条目数时，连同本行与 §12.3 基线一起显式改",
+            golden.size == 48
+        )
         val drift = actual.filter { (k, v) -> golden[k] != v }
         assertEquals(
             "载荷与快照不一致（${drift.size} 条）。重构必须逐字节等价；" +
@@ -204,7 +208,11 @@ class ChannelBehaviorGoldenTest {
     fun parses_matchGoldenSnapshot() {
         val actual = parseMatrix()
         val (_, golden) = loadOrGenerate(payloadMatrix(), actual)
-        assertTrue("快照条目数异常：${golden.size}", golden.size >= 24)
+        assertTrue(
+            "解析快照条目数应为 36（实际 ${golden.size}）：下限式断言（>=24）挡不住" +
+                "矩阵少一路或快照文件被截断，这里钉死数量，改动必须显式",
+            golden.size == 36
+        )
         val drift = actual.filter { (k, v) -> golden[k] != v }
         assertEquals(
             "解析结果与快照不一致（${drift.size} 条）：\n" +

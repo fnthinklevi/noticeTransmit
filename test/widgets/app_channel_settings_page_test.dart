@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -253,6 +255,95 @@ void main() {
 
       expect(find.text('飞书自建应用 · 接入步骤'), findsOneWidget);
       expect(find.textContaining('开通消息权限'), findsOneWidget);
+    });
+
+    // ===== 健康徽标数据源 =====
+    // 此前 channel_health_<id> 只有 webhook 侧会写，本页面只读不写 ⇒
+    // 应用通道的徽标永远不出现（读一条恒为空的缓存）。
+    testWidgets('点「测试」后写健康缓存并显示徽标（此前徽标恒空）', (tester) async {
+      // 「测试」按钮在卡片底部，默认 800×600 视口里落在屏幕外，tap 会命中失败
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-h1',
+          'name': '企微应用H',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 's',
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('连通 ·'),
+        findsNothing,
+        reason: '未测试过时不应凭空出现徽标',
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, '测试'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('连通 ·'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      final cachedRaw = prefs.getString('channel_health_app-h1');
+      expect(cachedRaw, isNotNull, reason: '徽标必须落缓存，否则重进页面又变回恒空');
+      final cached = jsonDecode(cachedRaw!) as Map<String, dynamic>;
+      expect(cached['reachable'], isTrue);
+      expect(cached['probedAt'], isNotNull);
+    });
+
+    testWidgets('重进页面后徽标从缓存恢复（探测结果跨页面存活）', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'channel_health_app-h2':
+            '{"reachable":false,"latencyMs":0,"httpCode":0,"probedAt":${DateTime.now().millisecondsSinceEpoch}}',
+      });
+      store.rows = [
+        {
+          'id': 'app-h2',
+          'name': '飞书应用H2',
+          'app_type': 'feishu_app',
+          'base_url': 'https://open.feishu.cn',
+          'secret': 's',
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(find.text('连接失败'), findsOneWidget);
+    });
+
+    // ===== 未知应用类型不得冒充企业微信 =====
+    testWidgets('未知 app_type 不给接入引导入口（引导文案只有企微/飞书两套）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-x',
+          'name': '未来的通道',
+          'app_type': 'whatever_app',
+          'base_url': '',
+          'secret': null,
+          'config': '{}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      // 只剩页面顶部那个企微入口；卡片内不得再多出一个（否则点开就是企微步骤）
+      expect(find.byIcon(Icons.help_outline), findsOneWidget);
     });
   });
 }

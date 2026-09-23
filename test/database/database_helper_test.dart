@@ -351,4 +351,30 @@ void main() {
       await db.close();
     });
   });
+
+  // 三张通道表的保存都是「整表 delete + 逐行 insert」，行主键 id 缺失时必须兜底生成。
+  // 写成空串会让多行共用同一个 ''，后一条 replace 掉前一条 —— 保存一次静默丢通道。
+  group('通道保存的 id 兜底（三表同规则）', () {
+    final src = stripComments(
+      File('lib/database/database_helper.dart').readAsStringSync(),
+    );
+
+    // 锚点必须带上实现签名（含 `async {`）：文件里同名**抽象声明**在前，
+    // 只匹配方法名的话 blockAfter 会从接口声明处起算，取到的是整个类的开头几行。
+    for (final sig in [
+      'Future<void> saveEmailChannels(List<Map<String, dynamic>> channels) async {',
+      'Future<void> saveWebhookChannels(List<Map<String, dynamic>> channels) async {',
+      'Future<void> saveAppChannels(List<Map<String, dynamic>> channels) async {',
+    ]) {
+      test('$sig 缺 id 时生成，不落空主键', () {
+        final body = blockAfter(src, sig);
+        expect(body, contains('rawId'), reason: '$sig 没有 id 兜底分支：新增行会拿到空主键');
+        expect(
+          body,
+          isNot(contains("'id': c['id'] ?? ''")),
+          reason: "写死 c['id'] ?? '' ⇒ 两条无 id 的行同主键，保存即丢一条",
+        );
+      });
+    }
+  });
 }
