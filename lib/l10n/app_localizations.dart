@@ -1514,6 +1514,12 @@ abstract class AppLocalizations {
   /// **'消息格式'**
   String get webhookFormatLabel;
 
+  /// No description provided for @webhookUrlInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：第 {n} 行的 URL 必须是 http(s):// 开头'**
+  String webhookUrlInvalid(int n);
+
   /// No description provided for @feishuMarkdownDowngradeHint.
   ///
   /// In zh, this message translates to:

@@ -50,7 +50,7 @@ void main() {
       GetIt.instance.unregister<AppChannelService>();
     }
     GetIt.instance.registerLazySingleton<AppChannelService>(() => service);
-    registerChannelDescriptorService();
+    registerChannelPageServices();
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel(channelName), (
@@ -305,14 +305,16 @@ void main() {
 
       expect(find.textContaining('连通 ·'), findsOneWidget);
       final prefs = await SharedPreferences.getInstance();
-      final cachedRaw = prefs.getString('channel_health_app-h1');
+      // 第 6 步起键里带 family（`channel_health_app:<id>`）：不带 family 时三族各自的
+      // id 序列一旦撞上，徽标就会串到别人身上。
+      final cachedRaw = prefs.getString('channel_health_app:app-h1');
       expect(cachedRaw, isNotNull, reason: '徽标必须落缓存，否则重进页面又变回恒空');
       final cached = jsonDecode(cachedRaw!) as Map<String, dynamic>;
       expect(cached['reachable'], isTrue);
       expect(cached['probedAt'], isNotNull);
     });
 
-    testWidgets('重进页面后徽标从缓存恢复（探测结果跨页面存活）', (tester) async {
+    testWidgets('旧格式键（不带 family）仍读得穿：徽标不因第 6 步换键而消失', (tester) async {
       SharedPreferences.setMockInitialValues({
         'channel_health_app-h2':
             '{"reachable":false,"latencyMs":0,"httpCode":0,"probedAt":${DateTime.now().millisecondsSinceEpoch}}',

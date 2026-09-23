@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 
 import '../database/database_helper.dart';
+import 'channel_config_codec.dart';
 import 'platform_channel.dart';
 
 /// 自建应用通道服务（应用通道体系，与 WebhookService 并列）。
@@ -26,30 +25,17 @@ class AppChannelService {
   /// 加载通道（DB）并同步原生
   Future<void> loadChannels() async {
     final rows = await _store.getAppChannels();
-    _channels = rows.map(_rowToUi).toList();
+    _channels = rows
+        .map<Map<String, dynamic>>(ChannelConfigCodec.appFromDb)
+        .toList();
     await _syncToNative();
   }
 
   /// 保存通道（归一化 → DB → 同步原生）
   Future<void> saveChannels(List<Map<String, dynamic>> channels) async {
-    final normalized = channels.map((c) {
-      final row = Map<String, dynamic>.from(c);
-      row['appType'] = c['appType']?.toString() ?? 'wecom_app';
-      row['name'] = c['name'] ?? '';
-      row['baseUrl'] = c['baseUrl']?.toString() ?? '';
-      row['secret'] = c['secret'] == 'null' ? null : c['secret'];
-      row['message_format'] = c['message_format']?.toString() ?? 'default';
-      // config 统一为 Map（UI 编辑态），DB 层负责 JSON 序列化
-      if (row['config'] is String) {
-        try {
-          row['config'] = jsonDecode(row['config'] as String);
-        } catch (_) {
-          row['config'] = <String, dynamic>{};
-        }
-      }
-      row['config'] ??= <String, dynamic>{};
-      return row;
-    }).toList();
+    final normalized = channels
+        .map<Map<String, dynamic>>(ChannelConfigCodec.appToDb)
+        .toList();
     await _store.saveAppChannels(normalized);
     _channels = normalized;
     await _syncToNative();
@@ -74,36 +60,6 @@ class AppChannelService {
   /// 直接把 UI Map 下发会让原生解析出空 type → `AppChannelRegistry.spec("")` 返回 null
   /// → 每条自建应用推送静默落到「未知应用通道类型」，而应用内「测试」按钮走的是另一条
   /// 读 `appType` 的路径，因此表现为「测试成功、真实推送永远失败」。
-  static Map<String, dynamic> toNativePayload(Map<String, dynamic> ui) => {
-    'id': ui['id'],
-    'name': ui['name'] ?? '',
-    'type': ui['appType']?.toString() ?? 'wecom_app',
-    'base_url': ui['baseUrl']?.toString() ?? '',
-    'secret': ui['secret'],
-    'config': ui['config'] ?? <String, dynamic>{},
-    'message_format': ui['message_format'] ?? 'default',
-    'enabled': ui['enabled'] == true,
-  };
-
-  /// DB 行 → UI Map
-  Map<String, dynamic> _rowToUi(Map<String, dynamic> row) {
-    Map<String, dynamic> config = {};
-    final raw = row['config']?.toString();
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) config = decoded;
-      } catch (_) {}
-    }
-    return {
-      'id': row['id'],
-      'name': row['name'] ?? '',
-      'appType': row['app_type']?.toString() ?? 'wecom_app',
-      'baseUrl': row['base_url']?.toString() ?? '',
-      'enabled': row['enabled'] == 1 || row['enabled'] == true,
-      'secret': row['secret'] == 'null' ? null : row['secret'],
-      'config': config,
-      'message_format': row['message_format'] ?? 'default',
-    };
-  }
+  static Map<String, dynamic> toNativePayload(Map<String, dynamic> ui) =>
+      ChannelConfigCodec.appToNative(ui);
 }

@@ -105,6 +105,35 @@ void main() {
       },
     ]);
 
+    test('同类两个通道只留一个送达键（键按类型，第 6 步去重）', () async {
+      await webhookService.saveChannels([
+        {
+          'name': '企微群 A',
+          'url': 'https://qyapi.weixin.qq.com/a',
+          'type': 'wechat_work',
+          'enabled': true,
+        },
+        {
+          'name': '企微群 B',
+          'url': 'https://qyapi.weixin.qq.com/b',
+          'type': 'wechat_work',
+          'enabled': true,
+        },
+      ]);
+
+      service.addRecord(record());
+
+      final saved = service.records.first;
+      expect(
+        saved.channels,
+        ['chan:wechat_work'],
+        reason:
+            '送达键按类型（维护者决策），两个同类通道共用一个状态；'
+            '不去重就会在同一记录里存两个相同键，历史页画两枚一样的徽标',
+      );
+      expect(saved.deliveryStatus.keys, ['chan:wechat_work']);
+    });
+
     test('缺陷基线：email 通道未加载时入库 → deliveryStatus 不含邮件通道', () async {
       // 此时 webhook 已加载（splash 阶段在前）、email 尚未加载（MainPage._postInit 在后）
       await seedWebhook();

@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/email_channel.dart';
+import 'channel_health_store.dart';
 import 'platform_channel.dart';
 
 /// 邮件通道持久化服务
@@ -13,32 +15,17 @@ import 'platform_channel.dart';
 class EmailService {
   final DatabaseHelper _db = DatabaseHelper();
   List<EmailChannel> cachedChannels = [];
-  final Map<String, bool> cachedTestResults = {};
-  static const _testResultsKey = 'email_test_results';
 
-  /// 加载通道时同步恢复测试结果
-  Future<void> _loadTestResults() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final data = prefs.getString(_testResultsKey);
-      if (data != null) {
-        final map = jsonDecode(data) as Map<String, dynamic>;
-        cachedTestResults.clear();
-        map.forEach((k, v) => cachedTestResults[k] = v == true);
-      }
-    } catch (_) {}
-  }
-
-  /// 持久化测试结果
-  Future<void> saveTestResult(String channelId, bool success) async {
-    cachedTestResults[channelId] = success;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_testResultsKey, jsonEncode(cachedTestResults));
-    } catch (e) {
-      debugPrint('EmailService: 保存测试结果失败: $e');
-    }
-  }
+  /// 测试结果落**健康度单点**（第 6 步）。此前这里是自己一个 `email_test_results`
+  /// JSON Map：没有时间戳（说不出「多久以前」）也没有耗时，于是首页的邮件状态与
+  /// webhook / 应用通道页的徽标是三套行为。旧键由 `ChannelHealthStore.load()` 读穿迁移。
+  Future<void> saveTestResult(String channelId, bool success) =>
+      GetIt.instance<ChannelHealthStore>().record(
+        'email',
+        channelId,
+        reachable: success,
+        latencyMs: 0,
+      );
 
   /// 保存所有邮件通道（含密码）到加密数据库
   Future<void> saveChannels(List<EmailChannel> channels) async {
@@ -62,7 +49,6 @@ class EmailService {
     final channels = rows.map((row) => EmailChannel.fromDbRow(row)).toList();
 
     cachedChannels = List.from(channels);
-    await _loadTestResults();
     return channels;
   }
 

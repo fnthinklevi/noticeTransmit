@@ -61,6 +61,10 @@ class _SplashPageState extends State<SplashPage>
     // 保持未就绪，页面自己会再 load() 一次，且不会因此把已存配置写空。
     log('加载通道描述符');
     await GetIt.instance<ChannelDescriptorService>().load();
+    // 健康度缓存同样先装载：徽标是同步渲染的（build 里读内存快照），装载晚于装配
+    // 就等于首帧没徽标、且各页面会各自去读 prefs（三份实现的旧账）。
+    log('加载通道健康缓存');
+    await GetIt.instance<ChannelHealthStore>().load();
 
     try {
       if (mounted) setState(() => _statusText = l10n.loadWebhook);

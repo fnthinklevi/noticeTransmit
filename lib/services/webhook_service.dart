@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
-import '../models/webhook_channel.dart';
+import 'channel_config_codec.dart';
 import 'platform_channel.dart';
 import 'secure_storage_service.dart';
 
@@ -36,15 +36,19 @@ class WebhookService {
   Future<void> _syncToNative() async {
     // 写加密副本（C2）：flutter_secure_storage 加密文件（EncryptedSharedPreferences），
     // 原生端 SecurePrefs 用同一文件/主密钥读取 `secure_webhook_channels`，含 secret。
-    // 与原生 setWebhookChannels 的写入同 key 同值（幂等），双端均保持最新。
+    // 与原生 setWebhookChannels 的写入同 key 同值（幂等），双端均保持最新 ——
+    // 「同值」由下面两处都走 [ChannelConfigCodec.webhookToNative] 保证，不再各发一份。
+    final native = _channels
+        .map<Map<String, dynamic>>(ChannelConfigCodec.webhookToNative)
+        .toList();
     try {
-      await SecureStorageService().saveWebhookChannels(jsonEncode(_channels));
+      await SecureStorageService().saveWebhookChannels(jsonEncode(native));
     } catch (e) {
       debugPrint('WebhookService: 写入加密副本失败: $e');
     }
     try {
       await AppChannels.notification.invokeMethod('setWebhookChannels', {
-        'channels': _channels,
+        'channels': native,
       });
     } catch (e) {
       debugPrint('WebhookService: 同步通道到原生端失败: $e');
@@ -118,26 +122,10 @@ class WebhookService {
 
   /// 保存所有 Webhook 通道到加密数据库
   Future<void> saveChannels(List<Map<String, dynamic>> channels) async {
-    // 1. 主存储：加密 SQLCipher
-    final dbRows = channels.map((c) {
-      final row = Map<String, dynamic>.from(c);
-      // 确保有正确的 DB 字段
-      row['url'] = c['url'] ?? '';
-      row['channel_type'] =
-          c['channelType']?.toString() ?? c['type']?.toString() ?? 'generic';
-      row['name'] = c['name'] ?? '';
-      row['secret'] = c['secret'] == 'null' ? null : c['secret'];
-      // 过滤历史脏数据：旧版本 JSON 序列化曾把 null 存成字符串 "null"
-      row['message_format'] = c['message_format'] ?? 'default';
-      row['message_template'] = c['message_template'] == 'null'
-          ? null
-          : c['message_template'];
-      // v9: extra_config 统一在此层编码为 JSON 字符串（DB 行契约恒为 String）；
-      // DatabaseHelper 对字符串原样落库，避免双重编码
-      final rawExtra = c['extra_config'] ?? c['extraConfig'];
-      row['extra_config'] = rawExtra is Map ? jsonEncode(rawExtra) : rawExtra;
-      return row;
-    }).toList();
+    // DB 行契约（列名、'null' 脏数据清洗、extra_config 编码）统一在 ChannelConfigCodec
+    final dbRows = channels
+        .map<Map<String, dynamic>>(ChannelConfigCodec.webhookToDb)
+        .toList();
     await _db.saveWebhookChannels(dbRows);
 
     _channels = channels;
@@ -162,34 +150,7 @@ class WebhookService {
     }
   }
 
-  /// DB 行格式 → UI 使用的 camelCase 格式
-  Map<String, dynamic> _dbRowToUi(Map<String, dynamic> row) {
-    final url = row['url']?.toString() ?? '';
-    var channelType = row['channel_type']?.toString() ?? '';
-    // 仅当历史数据未存渠道类型（空值）时按 URL 识别；显式保存的 generic 视为用户手动选择，不重探测覆盖
-    if (channelType.isEmpty) {
-      channelType = WebhookChannel.detectTypeFromUrl(url).value;
-    }
-    return {
-      'id': row['id'],
-      'name': row['name'],
-      'url': url,
-      'channelType': channelType,
-      'type': channelType,
-      'enabled': row['enabled'] == 1 || row['enabled'] == true,
-      // 旧版本 JSON 序列化曾把 null 存成字符串 "null"，此处过滤，避免误判已配置
-      'secret': row['secret'] == 'null' ? null : row['secret'],
-      // v6: 推送模板系统字段（UI 展示 / 再次保存时透传，防止重启后模板丢失）
-      'message_format': row['message_format'] ?? 'default',
-      'message_template': row['message_template'] == 'null'
-          ? null
-          : row['message_template'],
-      // v9: 通道扩展配置（JSON 字符串 → Map，供 UI 编辑与原生同步透传）
-      'extra_config': row['extra_config'] == null
-          ? null
-          : (row['extra_config'] is Map
-                ? row['extra_config']
-                : jsonDecode(row['extra_config'] as String) as Map),
-    };
-  }
+  /// DB 行格式 → UI 使用的 camelCase 格式（映射规则见 [ChannelConfigCodec]）
+  Map<String, dynamic> _dbRowToUi(Map<String, dynamic> row) =>
+      ChannelConfigCodec.webhookFromDb(row);
 }

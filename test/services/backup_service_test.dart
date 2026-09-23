@@ -209,20 +209,24 @@ void main() {
   });
 
   group('validatePayload 字段级校验', () {
-    test('非 https webhook 被跳过并计数', () {
+    // 第 6 步：URL 规则统一到 ChannelUrlPolicy（http+https 都算合法，与原生
+    // `normalizeBase` / `isProbeableUrl` 一致）。本用例原先把 `http://…` 当非法样本，
+    // 等于把「恢复备份时静默丢掉自建 http 的 ntfy/Gotify 通道」这个缺陷钉成了期望值。
+    test('非法 URL 被跳过并计数；自建 http 端点算合法', () {
       final (fixed, skipped) = service.validatePayload({
         'webhookChannels': [
           {'url': 'https://good.example.com/hook'},
-          {'url': 'http://bad.example.com/hook'},
+          {'url': 'http://ntfy.lan.example.com/topic'},
           {'url': 'ftp://worse.example.com/f'},
+          {'url': 'ntfy.sh/topic'},
+          {'url': ''},
         ],
       });
-      expect(skipped, 2);
-      expect((fixed['webhookChannels'] as List).length, 1);
-      expect(
-        (fixed['webhookChannels'] as List).first['url'],
+      expect(skipped, 3);
+      expect((fixed['webhookChannels'] as List).map((m) => m['url']), [
         'https://good.example.com/hook',
-      );
+        'http://ntfy.lan.example.com/topic',
+      ]);
     });
 
     test('webhookChannels 非列表时归一为空列表', () {

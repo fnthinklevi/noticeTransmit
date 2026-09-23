@@ -12,6 +12,7 @@ import '../services/email_service.dart';
 import '../services/locale_service.dart';
 import '../services/app_channel_service.dart';
 import '../services/channel_descriptor_service.dart';
+import '../services/channel_health_store.dart';
 import '../services/installed_apps_service.dart';
 import '../services/sms_service.dart';
 
@@ -35,6 +36,8 @@ void setupLocator() {
   getIt.registerLazySingleton<ChannelDescriptorService>(
     () => ChannelDescriptorService(),
   );
+  // 健康度缓存单点（第 6 步）：webhook / 应用通道 / 邮件三族共用一份读写与时效口径
+  getIt.registerLazySingleton<ChannelHealthStore>(() => ChannelHealthStore());
   getIt.registerLazySingleton<InstalledAppsService>(
     () => InstalledAppsService(),
   );

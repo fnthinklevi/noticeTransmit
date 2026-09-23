@@ -220,7 +220,7 @@ CI 额外做的事（本地可选）：
 | Dart 单元测试 | **379 例 / 37 文件** | `flutter test --no-pub`（`test/` 下按 `architecture` / `database` / `models` / `services` / `theme` / `widgets` / `support` 分目录） |
 | Kotlin JVM 单元测试 | **234 例 / 26 类** | `cd android && ./gradlew :app:testDebugUnitTest`（报告在 `build/app/test-results/testDebugUnitTest/`） |
 | 服务端契约测试 | **29 例** | `cd server && npm test`（`server/test/auth.test.js`） |
-| l10n 词条 | **860 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
+| l10n 词条 | **861 键 × 2（zh / en）** | `lib/l10n/arb/app_zh.arb`、`lib/l10n/arb/app_en.arb` |
 
 跑测试前 `flutter pub get`；Dart 与 Kotlin 两侧的用例数会随功能增长，若你新增/删除测试，
 请同步更新本表的数字（它是文档口径，不是 CI 断言）。

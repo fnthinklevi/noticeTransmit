@@ -780,6 +780,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webhookFormatLabel => 'Message Format';
 
   @override
+  String webhookUrlInvalid(int n) {
+    return 'Save failed: row $n URL must start with http(s)://';
+  }
+
+  @override
   String get feishuMarkdownDowngradeHint =>
       'Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.';
 

@@ -1,12 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/webhook_channel.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/channel_descriptor_service.dart';
+import '../services/channel_url_policy.dart';
+import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -43,8 +43,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   // 删掉第 1 条后其余各行继承错位的 id（保存走 delete+insert，健康缓存/送达归属全错）。
   late List<String?> _channelIds;
   bool _isTesting = false;
-  // 通道健康探测（P2）：channelId → {reachable, latencyMs, httpCode, probedAt}
-  Map<String, Map<String, dynamic>> _healthResults = {};
+
+  /// 通道健康：读写、键格式与 6h 时效全在 [ChannelHealthStore]（第 6 步单点），
+  /// 页面只负责渲染与「进页刷新过期条目」。此前这里自己读 prefs、自己写 prefs、
+  /// 自己判时效，应用通道页又写一份 —— 三族通道的徽标因此行为各不相同。
+  late final ChannelHealthStore _health;
   bool _probing = false;
   String? _testResult;
   bool? _testSuccess;
@@ -263,6 +266,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   void initState() {
     super.initState();
     _descriptors = GetIt.instance<ChannelDescriptorService>();
+    _health = GetIt.instance<ChannelHealthStore>();
     _webhookControllers = widget.webhookChannels
         .map((c) => TextEditingController(text: c['url'] as String? ?? ''))
         .toList();
@@ -314,63 +318,54 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       _channelIds.add(null);
     }
     // 进入设置页即读取缓存健康状态；启用的通道超 6 小时未探测则后台刷新
-    _loadHealthCache();
+    _loadHealthAndProbe();
     // splash 那次没拉成功时兜底重取：到手后重建，否则显隐判断会一直停在"按显示处理"
     _descriptors.load().then((_) {
       if (mounted) setState(() {});
     });
   }
 
-  /// 读取持久化的上次探测结果（SharedPreferences，key: `channel_health_<id>`）
-  Future<void> _loadHealthCache() async {
-    final prefs = await SharedPreferences.getInstance();
+  /// 进页：确保健康单点已装载（splash 装过就是 no-op），再刷新过期条目
+  Future<void> _loadHealthAndProbe() async {
+    await _health.load();
     if (!mounted) return;
-    final results = <String, Map<String, dynamic>>{};
-    for (final c in widget.webhookChannels) {
-      final id = c['id']?.toString() ?? '';
-      if (id.isEmpty) continue;
-      final raw = prefs.getString('channel_health_$id');
-      if (raw == null) continue;
-      try {
-        results[id] = Map<String, dynamic>.from(jsonDecode(raw) as Map);
-      } catch (_) {}
-    }
-    setState(() => _healthResults = results);
+    setState(() {});
     _probeStaleChannels();
   }
 
-  /// 启用通道超过 6 小时未探测 → 后台逐个探测并持久化
+  /// 启用通道超过 [ChannelHealthStore.staleness] 未探测 → 后台逐个探测并写回单点
   Future<void> _probeStaleChannels() async {
     if (_probing) return;
-    final prefs = await SharedPreferences.getInstance();
-    final now = DateTime.now().millisecondsSinceEpoch;
+    final now = DateTime.now();
     final stale = widget.webhookChannels.where((c) {
       if (c['enabled'] != true) return false;
       final id = c['id']?.toString() ?? '';
-      final cached = _healthResults[id];
-      final probedAt = (cached?['probedAt'] as num?)?.toInt() ?? 0;
-      return now - probedAt > const Duration(hours: 6).inMilliseconds;
+      if (id.isEmpty) return false;
+      return ChannelHealthStore.needsProbe(_health.of('webhook', id), now: now);
     }).toList();
     if (stale.isEmpty) return;
     _probing = true;
     for (final c in stale) {
       final id = c['id']?.toString() ?? '';
       final url = c['url']?.toString() ?? '';
-      if (id.isEmpty || url.isEmpty) continue;
+      if (url.isEmpty) continue;
+      final watch = Stopwatch()..start();
       try {
         final r = await _channel.invokeMethod('probeChannelHealth', {
           'url': url,
         });
-        final entry = <String, dynamic>{
-          'reachable': r['reachable'] as bool? ?? false,
-          'latencyMs': (r['latencyMs'] as num?)?.toInt() ?? 0,
-          'httpCode': (r['httpCode'] as num?)?.toInt() ?? 0,
-          'probedAt': DateTime.now().millisecondsSinceEpoch,
-        };
-        _healthResults[id] = entry;
-        await prefs.setString('channel_health_$id', jsonEncode(entry));
+        await _health.record(
+          'webhook',
+          id,
+          reachable: r['reachable'] as bool? ?? false,
+          latencyMs:
+              (r['latencyMs'] as num?)?.toInt() ?? watch.elapsedMilliseconds,
+          httpCode: (r['httpCode'] as num?)?.toInt(),
+        );
         if (mounted) setState(() {});
-      } catch (_) {}
+      } catch (_) {
+        // 探测本身失败不写「不可达」：那会把徽标钉成红，比"这次没探到"更误导
+      }
     }
     _probing = false;
   }
@@ -434,6 +429,27 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     setState(() {
       _isSaving = true;
     });
+    // 保存前一次性校验：URL 必须过 [ChannelUrlPolicy]（与原生、备份恢复同一规则）。
+    // 以前只查「非空」⇒ 少写 scheme 的串（`ntfy.sh/topic`）会静默存进 DB，
+    // 原生侧把它当非法 URL 跳过，用户看到的是「配了却永远收不到」。
+    for (int i = 0; i < _webhookControllers.length; i++) {
+      final url = _webhookControllers[i].text.trim();
+      if (url.isNotEmpty && !ChannelUrlPolicy.isHttpUrl(url)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).webhookUrlInvalid(i + 1),
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: AppColors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        setState(() => _isSaving = false);
+        return;
+      }
+    }
     final channels = <Map<String, dynamic>>[];
     for (int i = 0; i < _webhookControllers.length; i++) {
       final url = _webhookControllers[i].text.trim();

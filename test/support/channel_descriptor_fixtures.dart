@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/services/channel_descriptor_service.dart';
+import 'package:notice_transmit/services/channel_health_store.dart';
 
 import 'source_guards.dart';
 
@@ -39,14 +40,21 @@ List<Map<Object?, Object?>> exportedDescriptors() {
 /// 用法：在测试自己的 handler 里 `if (call.method == 'getChannelDescriptors') return descriptorCallResponse(call);`
 Object? descriptorCallResponse(MethodCall call) => exportedDescriptors();
 
-/// 把描述符服务注册进 GetIt（widget 测试用；重复注册时覆盖）。
-void registerChannelDescriptorService({GetIt? getIt}) {
+/// 注册「通道设置页」依赖的两个服务（widget 测试用；重复注册时覆盖）。
+///
+/// 两个都要：页面 initState 里各取一次，缺任何一个都是**建页即抛**，
+/// 表现为 `Found 0 widgets with type "...SettingsPage"`（不是断言失败，容易被误读成路由问题）。
+void registerChannelPageServices({GetIt? getIt}) {
   final locator = getIt ?? GetIt.instance;
   locator.allowReassignment = true;
   if (locator.isRegistered<ChannelDescriptorService>()) {
     locator.unregister<ChannelDescriptorService>();
   }
+  if (locator.isRegistered<ChannelHealthStore>()) {
+    locator.unregister<ChannelHealthStore>();
+  }
   locator.registerLazySingleton<ChannelDescriptorService>(
     ChannelDescriptorService.new,
   );
+  locator.registerLazySingleton<ChannelHealthStore>(ChannelHealthStore.new);
 }

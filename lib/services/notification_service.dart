@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:get_it/get_it.dart';
 import 'package:workmanager/workmanager.dart';
 import 'archive_worker.dart';
 import 'channel_display.dart';
@@ -9,9 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
 import 'platform_channel.dart';
-import 'webhook_service.dart';
-import 'email_service.dart';
-import 'app_channel_service.dart';
+import 'active_channels.dart';
 
 class NotificationService {
   static const _channel = AppChannels.notification;
@@ -252,37 +249,10 @@ class NotificationService {
   /// 入库瞬间的通道快照：返回**送达键**（`chan:<slug>`），与 [applyDelivery]
   /// 由原生回传算出的键同源。快照里存的是键不是文案——显示名随时可改、随语言变，
   /// 键必须稳定，否则送达结果写进新键而快照里的旧键永远停留「发送中」。
-  List<String> _getActiveChannels() {
-    final channels = <String>[];
-    try {
-      final webhookService = GetIt.instance<WebhookService>();
-      for (final c in webhookService.channels) {
-        if (c['enabled'] == true) {
-          final type = c['type']?.toString() ?? 'generic';
-          channels.add(channelDeliveryKey(type));
-        }
-      }
-    } catch (_) {}
-    try {
-      // 从 GetIt 获取已缓存的 EmailService，同步读取已加载的通道
-      final emailService = GetIt.instance<EmailService>();
-      if (emailService.cachedChannels.any((c) => c.enabled)) {
-        channels.add(channelDeliveryKey('EMAIL'));
-      }
-    } catch (_) {}
-    try {
-      // 应用通道（自建应用体系）：原生回传的是 cfg.type（wecom_app/feishu_app），
-      // 与本处的 appType 经同一 channelDeliveryKey 归一。
-      final appChannel = GetIt.instance<AppChannelService>();
-      for (final c in appChannel.channels) {
-        if (c['enabled'] == true) {
-          final type = c['appType']?.toString() ?? '';
-          if (type.isNotEmpty) channels.add(channelDeliveryKey(type));
-        }
-      }
-    } catch (_) {}
-    return channels;
-  }
+  ///
+  /// 「哪些通道算启用」不在这里判 —— 与首页显示的清单同一来源（`collectActiveChannels`），
+  /// 否则会出现「首页三条、记录按两条算」。
+  List<String> _getActiveChannels() => deliveryKeysOfActiveChannels();
 
   /// 初始送达状态：所有启用通道标记为 pending（发送中）
   Map<String, dynamic> _buildInitialDeliveries(List<String> channels) {

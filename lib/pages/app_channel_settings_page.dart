@@ -1,13 +1,11 @@
-import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/app_channel_service.dart';
 import '../services/channel_descriptor_service.dart';
+import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -38,7 +36,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   final Map<String, TextEditingController> _controllers = {};
   bool _saving = false;
   String? _testingId;
-  final Map<String, Map<String, dynamic>> _health = {};
+
+  /// 健康度读写走单点（与 webhook 页同一份实现与同一套时效口径）
+  late final ChannelHealthStore _health;
 
   /// 通道描述符（原生表）：扩展参数字段清单、必填校验、类型选择器全部由它驱动。
   late final ChannelDescriptorService _descriptors;
@@ -51,13 +51,14 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   void initState() {
     super.initState();
     _descriptors = GetIt.instance<ChannelDescriptorService>();
+    _health = GetIt.instance<ChannelHealthStore>();
     final service = GetIt.instance<AppChannelService>();
     _channels = List<Map<String, dynamic>>.from(service.channels);
     if (_channels.isEmpty) _addChannel('wecom_app');
     for (final c in _channels) {
       _bindControllers(c);
     }
-    _loadHealthCache();
+    _loadHealth();
     // 描述符可能晚到（splash 那次没拉成功 / 原生未就绪）：到手后补建控制器并重建表单
     _descriptors.load().then((_) {
       if (!mounted) return;
@@ -237,7 +238,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     final id = c['id'] as String;
     final appType = c['appType'] as String;
     final enabled = c['enabled'] == true;
-    final health = _health[id];
+    final health = _health.of('app', id);
     final descriptor = _descriptors.byKey(appType);
 
     return Container(
@@ -758,32 +759,17 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     }
   }
 
-  /// 健康徽标的唯一数据源。
-  ///
-  /// 此前 `channel_health_<id>` 只有 webhook 侧会写，本页面只读不写 ⇒ 应用通道的
-  /// 徽标永远不出现（读一条恒为空的缓存）。
+  /// 记一次「测试」的结果到健康单点。
   ///
   /// ⚠️ 这里**不做进入页面时的自动探测**（与 webhook 的 6h 后台刷新不同）：
   /// `testAppChannel` 会真的向企业微信/飞书发一条测试消息，自动探测等于每 6 小时
-  /// 骚扰用户一次。要做自动健康度，得先加只换 access_token 的非侵入探测（第 6 步）。
+  /// 骚扰用户一次。要做自动健康度，得先加只换 access_token 的非侵入探测
+  /// （roadmap 第 3.1 步 / 本步 6e）。
   Future<void> _recordHealth(
     String id, {
     required bool reachable,
     required int latencyMs,
-  }) async {
-    final entry = <String, dynamic>{
-      'reachable': reachable,
-      'latencyMs': latencyMs,
-      'probedAt': DateTime.now().millisecondsSinceEpoch,
-    };
-    _health[id] = entry;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('channel_health_$id', jsonEncode(entry));
-    } catch (e) {
-      debugPrint('写入应用通道健康缓存失败: $e');
-    }
-  }
+  }) => _health.record('app', id, reachable: reachable, latencyMs: latencyMs);
 
   Future<void> _saveAll() async {
     final l10n = AppLocalizations.of(context);
@@ -844,24 +830,15 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     }
   }
 
-  Future<void> _loadHealthCache() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    for (final c in _channels) {
-      final id = c['id'] as String;
-      final raw = prefs.getString('channel_health_$id');
-      if (raw == null) continue;
-      try {
-        _health[id] = Map<String, dynamic>.from(jsonDecode(raw) as Map);
-      } catch (_) {}
-    }
+  Future<void> _loadHealth() async {
+    await _health.load();
     if (mounted) setState(() {});
   }
 
-  Widget _healthBadge(Map<String, dynamic> health, AppLocalizations l10n) {
-    final reachable = health['reachable'] == true;
-    final latency = (health['latencyMs'] as num?)?.toInt() ?? 0;
-    final probedAt = (health['probedAt'] as num?)?.toInt() ?? 0;
+  Widget _healthBadge(ChannelHealth health, AppLocalizations l10n) {
+    final reachable = health.reachable;
+    final latency = health.latencyMs;
+    final probedAt = health.probedAt;
     final ago = DateTime.now().millisecondsSinceEpoch - probedAt;
     final agoText = ago < 60 * 60 * 1000
         ? l10n.healthProbedMinutes(ago ~/ (60 * 1000))

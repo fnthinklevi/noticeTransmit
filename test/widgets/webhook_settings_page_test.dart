@@ -133,7 +133,7 @@ void main() {
   setUp(() {
     serveDescriptors = true;
     SharedPreferences.setMockInitialValues(healthPrefs());
-    registerChannelDescriptorService();
+    registerChannelPageServices();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel(methodChannelName), (
           call,
@@ -329,6 +329,39 @@ void main() {
         findsNothing,
         reason: '这句是企微的；钉钉/飞书借用它 = E8 那个文案缺陷',
       );
+    });
+
+    testWidgets('URL 缺 scheme 时保存被拦下并点名行号（不再静默存进 DB）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, const []);
+
+      // 卡片里第一个输入框是「通道名称」，第二个才是 URL（不是直觉上第一个）
+      final urlField = find.byType(TextField).at(1);
+      await tester.enterText(urlField, 'ntfy.sh/topic');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));
+      // ⚠ 用 pump 而不是 pumpAndSettle：SnackBar 有 2s 自动收起计时，
+      //   pumpAndSettle 会把计时器跑完 → 断言时条已经消失（不是没弹）。
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.textContaining('第 1 行的 URL 必须是 http(s):// 开头'),
+        findsOneWidget,
+      );
+      expect(
+        find.byType(WebhookSettingsPage),
+        findsOneWidget,
+        reason: '校验没过就不该 pop（保存会连带写库，非法 URL 就此静默落地）',
+      );
+
+      // 局域网 http 自建端点必须能存：原生两处规则都接受 http
+      await tester.enterText(urlField, 'http://ntfy.lan:8080/topic');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WebhookSettingsPage), findsNothing);
     });
 
     testWidgets('描述符拉不到时不收入口（宁可多给，不能让凭据没地方填）', (tester) async {

@@ -11,7 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// 1. `DatabaseHelper._onCreate` 的建表 SQL；
 /// 2. `DatabaseHelper` 迁移路径中的建表 SQL（两处必须列集合一致，防升级漂移）；
 /// 3. `saveAppChannels` 的写入列映射（UI camelCase → DB snake_case）；
-/// 4. `AppChannelService._rowToUi` 的读取列名。
+/// 4. 读取列名 —— 第 6 步起在 `ChannelConfigCodec.appFromDb`（三向映射单点：
+///    UI ↔ DB ↔ 原生），服务本身不再自己读列，所以本守卫扫的是**两个文件**。
 ///
 /// 违反后果：列名不匹配时 SQLite 插入/查询会静默丢字段（如 secret 丢失导致
 /// 推送鉴权失败），或 Dart 侧读出 null 落到默认值——都是"看起来成功了"的故障。
@@ -35,9 +36,22 @@ void main() {
   final dbSource = stripComments(
     File('$root/lib/database/database_helper.dart').readAsStringSync(),
   );
-  final serviceSource = stripComments(
-    File('$root/lib/services/app_channel_service.dart').readAsStringSync(),
-  );
+  // 读取列名第 6 步起搬进 `ChannelConfigCodec.appFromDb`：两处都要扫，否则守卫会因为
+  // 「读不到任何列」而静默失去保护（下面的 isNotEmpty 断言就是防这个的）。
+  // ⚠ 只取 appFromDb 那一段 —— 整个 codec 里还有 webhook 的列名（url/channel_type/
+  //   extra_config…），整份一起扫会把它们误判成「app_channels 读了不存在的列」。
+  final serviceSource =
+      stripComments(
+        File('$root/lib/services/app_channel_service.dart').readAsStringSync(),
+      ) +
+      blockAfter(
+        stripComments(
+          File(
+            '$root/lib/services/channel_config_codec.dart',
+          ).readAsStringSync(),
+        ),
+        'static Map<String, dynamic> appFromDb',
+      );
 
   final createBlocks = _createTableBlocks(dbSource);
 
@@ -68,7 +82,7 @@ void main() {
       expect(writeColumns.difference(createBlocks.first), isEmpty);
     });
 
-    test('AppChannelService 读取的列都在建表列内', () {
+    test('自建应用通道的读取列（service + codec）都在建表列内', () {
       final readColumns = _serviceReadColumns(serviceSource);
       expect(readColumns, isNotEmpty, reason: '未解析到读取列，断言失效');
       // 'config' 等读取列必须真实存在；否则设置页字段恒为默认值

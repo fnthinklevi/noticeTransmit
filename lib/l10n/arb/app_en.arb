@@ -346,6 +346,14 @@
   "webhookSigned": "Signed",
   "webhookTemplateLabel": "Push Template (optional)",
   "webhookFormatLabel": "Message Format",
+  "webhookUrlInvalid": "Save failed: row {n} URL must start with http(s)://",
+  "@webhookUrlInvalid": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "feishuMarkdownDowngradeHint": "Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.",
   "webhookTemplateHint": "Leave empty to use preset; supported variables:",
   "webhookTemplateInsertVar": "Insert Variable",

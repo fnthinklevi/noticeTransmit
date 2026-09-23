@@ -12,6 +12,7 @@ import 'battery_service.dart';
 import 'device_info_service.dart';
 import 'email_service.dart';
 import 'filter_service.dart';
+import 'channel_url_policy.dart';
 import 'locale_service.dart';
 import 'sms_service.dart';
 import 'theme_service.dart';
@@ -184,7 +185,10 @@ class BackupService {
   }
 
   /// 字段级校验：返回 (合法 payload, 被跳过的非法 webhook 数)。
-  /// Webhook URL 必须 https://（与原生保存链路一致）。
+  /// URL 规则复用 [ChannelUrlPolicy]（第 6 步）。这里原来**只认 https**，而原生两处
+  /// （`AppChannelTokenHelper.normalizeBase` / `ChannelHealthProbe.isProbeableUrl`）
+  /// 都认 http+https ⇒ 自建 http 的 ntfy / Gotify 通道在恢复备份时会被当非法条目跳过：
+  /// 备份显示成功、通道列表静默少几条。
   (Map<String, dynamic>, int) validatePayload(Map<String, dynamic> payload) {
     var skipped = 0;
     final rawWebhooks = payload['webhookChannels'];
@@ -194,7 +198,7 @@ class BackupService {
               .map((m) {
                 final item = Map<String, dynamic>.from(m);
                 final url = item['url']?.toString() ?? '';
-                final ok = Uri.tryParse(url)?.scheme == 'https';
+                final ok = ChannelUrlPolicy.isHttpUrl(url);
                 if (!ok) skipped++;
                 return ok ? item : null;
               })

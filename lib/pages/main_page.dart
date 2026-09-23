@@ -9,6 +9,7 @@ import '../services/services.dart';
 import '../services/theme_service.dart';
 import '../services/email_service.dart';
 import '../services/locale_service.dart';
+import '../services/active_channels.dart';
 import '../services/app_channel_service.dart';
 import '../services/sms_service.dart';
 import '../update_manager.dart';
@@ -69,55 +70,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final ThemeService _themeService = GetIt.instance<ThemeService>();
   final SmsService _smsService = GetIt.instance<SmsService>();
 
+  /// 首页「当前推送通道」：条目与判据都来自 [collectActiveChannels]（第 6 步单点），
+  /// 与历史记录入库时的送达键快照同源。这里只做显示形状。
+  /// ⚠ status 是**配置状态**（启用即在列，email 额外看 SMTP 验证结果），
+  ///   连通状态在设置页的健康徽标里（`channel_health_*` 缓存）。
   List<Map<String, String>> _getActiveChannels() {
-    final channels = <Map<String, String>>[];
-    // 自建应用通道（应用通道体系）同样计入当前推送通道（_postInit 已加载）
-    try {
-      for (final c in GetIt.instance<AppChannelService>().channels) {
-        if (c['enabled'] == true) {
-          final name = c['name']?.toString() ?? '';
-          final appType = c['appType']?.toString() ?? '';
-          // 首页只**显示**通道名，不参与送达键（键是 chan:<slug>，由
-          // NotificationService 生成）。名字必须走 channelTypeDisplayName：
-          // 早期在此手打过 '自建应用:企微'，那时显示串同时充当送达键，两套字符串
-          // 永不相等 ⇒ 该通道的送达状态长期错配。
-          if (appType.isEmpty) continue;
-          channels.add({
-            'type': channelTypeDisplayName(appType),
-            'name': name,
-            'status': 'ok',
-          });
-        }
-      }
-    } catch (_) {}
-    final webhookChannels = _webhookService.channels
-        .where((c) => c['enabled'] == true)
-        .toList();
-    for (final c in webhookChannels) {
-      final type = c['type']?.toString() ?? 'generic';
-      channels.add({
-        'type': _webhookTypeLabel(type),
-        'name': c['name']?.toString() ?? '',
-        'status': 'ok',
-      });
-    }
-    final emailService = GetIt.instance<EmailService>();
-    for (final c in emailService.cachedChannels) {
-      if (c.enabled) {
-        final tested = emailService.cachedTestResults[c.id];
-        // 未测试过或测试失败都视为异常
-        channels.add({
-          'type': channelTypeDisplayName('EMAIL'),
-          'name': c.name,
-          'status': (tested == true) ? 'ok' : 'error',
-        });
-      }
-    }
-    return channels;
-  }
-
-  String _webhookTypeLabel(String type) {
-    return channelTypeDisplayName(type);
+    return collectActiveChannels()
+        .map(
+          (c) => {
+            'type': c.displayName,
+            'name': c.configName,
+            'status': c.statusLabel,
+          },
+        )
+        .toList(growable: false);
   }
 
   List<Widget> _buildPages() {

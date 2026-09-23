@@ -85,21 +85,41 @@ void main() {
       );
     });
 
-    test('首页通道列表的标签走显示名函数，不手打文案', () {
-      final src = stripComments(
+    test('启用通道清单只有一个生产者，标签走显示名函数不手打文案', () {
+      // 第 6 步：首页显示与历史记录的送达键快照共用 collectActiveChannels，
+      // 所以「标签不手打文案」盯 active_channels.dart，同时盯首页别再自己
+      // 遍历三个 service 长出第二份清单（两份实现对「什么算启用」口径漂移过一次）。
+      final producer = stripComments(
+        File('$root/lib/services/active_channels.dart').readAsStringSync(),
+      );
+      final home = stripComments(
         File('$root/lib/pages/main_page.dart').readAsStringSync(),
       );
-      final body = blockAfter(
-        src,
-        'List<Map<String, String>> _getActiveChannels()',
+      final snapshot = stripComments(
+        File('$root/lib/services/notification_service.dart').readAsStringSync(),
       );
+
+      expect(producer, contains('channelTypeDisplayName('));
+      expect(producer, isNot(contains('自建应用:')));
+      expect(producer, isNot(contains("chan:")));
       expect(
-        body,
-        contains('channelTypeDisplayName('),
-        reason: '首页标签若另写字面量，就和通道体系脱钩',
+        producer,
+        contains('channelDeliveryKey('),
+        reason: '送达键必须仍由 channel_display 这一个生产者算',
       );
-      expect(body, isNot(contains('自建应用:')));
-      expect(body, isNot(contains('webhook:')));
+
+      expect(home, contains('collectActiveChannels()'));
+      expect(
+        home,
+        isNot(contains('channelTypeDisplayName(')),
+        reason: '首页又自己算标签了：清单应整体来自 active_channels',
+      );
+      expect(snapshot, contains('deliveryKeysOfActiveChannels()'));
+      expect(
+        snapshot,
+        isNot(contains('WebhookService>().channels')),
+        reason: '快照侧又自己遍历通道列表 = 回到两份实现',
+      );
     });
   });
 

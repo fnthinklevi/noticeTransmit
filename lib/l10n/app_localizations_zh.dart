@@ -755,6 +755,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookFormatLabel => '消息格式';
 
   @override
+  String webhookUrlInvalid(int n) {
+    return '保存失败：第 $n 行的 URL 必须是 http(s):// 开头';
+  }
+
+  @override
   String get feishuMarkdownDowngradeHint =>
       '飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号原样显示）。建议使用 text 格式。';
 
