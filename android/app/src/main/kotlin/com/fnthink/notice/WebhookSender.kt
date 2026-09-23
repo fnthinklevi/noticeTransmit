@@ -191,163 +191,29 @@ class WebhookSender(private val context: Context) {
         }
     }
 
+    /**
+     * 单通道发送。**函数内不再有任何按平台分支**：签名方式、端点改写、content-type、
+     * 必填参数与早失败文案、自定义模板是否生效，全部取自 `ChannelRegistry` 描述符
+     * （第 4 步把原来 5 个 `if (cfg.type == ...)` 早退分支消成了表里的数据）。
+     *
+     * 正文优先级（与重构前逐条等价）：
+     *   早失败（缺必填参数/secret）
+     *   → 实发正文覆写（Server酱表单 / PushPlus 带 token 正文；这两家重构前是早退分支，
+     *     自定义模板对它们本来就不生效）
+     *   → 平台模板包装（企微/钉钉/飞书的 text/markdown）
+     *   → 通用 webhook 的原样模板 body（含该 body 自己声明的 content-type）
+     *   → 描述符 notify 默认正文
+     */
     private fun sendToSingleUrl(
         cfg: ConfigManager.WebhookChannelConfig,
         info: NotificationInfo,
         force: Boolean = false,
         onResultDone: ((WebhookResponseParser.ParseResult) -> Unit)? = null
     ) {
-        // Telegram 必须携带 chat_id（一般来自 URL query）。缺失时提前失败并给出明确原因，
-        // 避免发出必然 400 的请求再被记为送达失败。
+        val spec = ChannelRegistry.spec(cfg.type)
         val chatId = WebhookPayloadBuilder.extractChatIdFromUrl(cfg.url)
-        if (cfg.type == WebhookPayloadBuilder.WebhookType.TELEGRAM && chatId.isEmpty()) {
-            Log.e(TAG, "Telegram URL missing chat_id, skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
-            val earlyFail = WebhookResponseParser.ParseResult(
-                WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
-                0, "Telegram 链接缺少 chat_id 参数", false
-            )
-            notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
-            onResultDone?.invoke(earlyFail)
-            return
-        }
-
-        // ntfy：header 模式——body 即纯文本消息；Title/Authorization（secret 为可选访问令牌）
-        // 由 WebhookSigner NTFY 分支注入 headers，发送层仅切换 Content-Type
-        if (cfg.type == WebhookPayloadBuilder.WebhookType.NTFY) {
-            val payload = WebhookPayloadBuilder.buildPayload(
-                type = cfg.type,
-                title = info.title,
-                content = info.content,
-                appName = info.appName,
-                packageName = info.packageName,
-                time = info.time,
-                deviceName = deviceName,
-                notifyType = info.type,
-            )
-            NetworkClient.sendWithRetry(
-                url = cfg.url,
-                payload = payload,
-                tag = "notification",
-                webhookType = cfg.type,
-                secret = cfg.secret,
-                recordId = info.id,
-                contentType = "text/plain; charset=utf-8",
-                force = force,
-                onResult = { result ->
-                    Log.d(TAG, "Delivery(ntfy): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
-                    onResultDone?.invoke(result)
-                }
-            )
-            return
-        }
-
-        // Gotify：POST {server}/message?token=...——App Token 走 secret 字段，不进明文副本/日志
-        if (cfg.type == WebhookPayloadBuilder.WebhookType.GOTIFY) {
-            val token = cfg.secret?.trim() ?: ""
-            if (token.isEmpty()) {
-                Log.e(TAG, "Gotify missing app token (secret), skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
-                val earlyFail = WebhookResponseParser.ParseResult(
-                    WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
-                    0, "Gotify 缺少应用 Token（secret 字段）", false
-                )
-                notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
-                onResultDone?.invoke(earlyFail)
-                return
-            }
-            val targetUrl = cfg.url.trimEnd('/') + "/message?token=" +
-                java.net.URLEncoder.encode(token, "UTF-8")
-            val payload = WebhookPayloadBuilder.buildPayload(
-                type = cfg.type,
-                title = info.title,
-                content = info.content,
-                appName = info.appName,
-                packageName = info.packageName,
-                time = info.time,
-                deviceName = deviceName,
-                notifyType = info.type,
-            )
-            NetworkClient.sendWithRetry(
-                url = targetUrl,
-                payload = payload,
-                tag = "notification",
-                webhookType = cfg.type,
-                secret = null,
-                recordId = info.id,
-                force = force,
-                onResult = { result ->
-                    Log.d(TAG, "Delivery(Gotify): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
-                    onResultDone?.invoke(result)
-                }
-            )
-            return
-        }
-
-        // Server酱：POST form（application/x-www-form-urlencoded），内容不进 URL，避免被代理/日志留存
-        if (cfg.type == WebhookPayloadBuilder.WebhookType.SERVER_CHAN) {
-            val formBody = WebhookPayloadBuilder.buildServerChanFormBody(
-                title = info.title,
-                content = info.content,
-                deviceName = deviceName,
-                time = info.time
-            )
-            NetworkClient.sendWithRetry(
-                url = cfg.url,
-                payload = formBody,
-                tag = "notification",
-                webhookType = cfg.type,
-                secret = cfg.secret,
-                recordId = info.id,
-                contentType = "application/x-www-form-urlencoded; charset=utf-8",
-                force = force,
-                onResult = { result ->
-                    Log.d(TAG, "Delivery(ServerChan): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
-                    onResultDone?.invoke(result)
-                }
-            )
-            return
-        }
-
-        // PushPlus：token 从 URL query 提取注入 body（缺失时提前失败）
-        val pushPlusToken = WebhookPayloadBuilder.extractTokenFromUrl(cfg.url)
-        if (cfg.type == WebhookPayloadBuilder.WebhookType.PUSH_PLUS && pushPlusToken.isEmpty()) {
-            Log.e(TAG, "PushPlus URL missing token, skip: ${NetworkClient.sanitizeUrlHost(cfg.url)}")
-            val earlyFail = WebhookResponseParser.ParseResult(
-                WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
-                0, "PushPlus 链接缺少 token 参数", false
-            )
-            notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
-            onResultDone?.invoke(earlyFail)
-            return
-        }
-        if (cfg.type == WebhookPayloadBuilder.WebhookType.PUSH_PLUS) {
-            val pushPlusPayload = WebhookPayloadBuilder.buildPushPlusPayload(
-                title = info.title,
-                content = info.content,
-                deviceName = deviceName,
-                time = info.time,
-                token = pushPlusToken
-            )
-            NetworkClient.sendWithRetry(
-                url = cfg.url,
-                payload = pushPlusPayload,
-                tag = "notification",
-                webhookType = cfg.type,
-                secret = cfg.secret,
-                recordId = info.id,
-                force = force,
-                onResult = { result ->
-                    Log.d(TAG, "Delivery(PushPlus): ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
-                    onResultDone?.invoke(result)
-                }
-            )
-            return
-        }
-
-        // 优先使用自定义模板（仅当 messageFormat != default 且非空时）
+        val urlToken = WebhookPayloadBuilder.extractTokenFromUrl(cfg.url)
+        val template = cfg.messageTemplate ?: ""
         val vars = TemplateEngine.Vars(
             appName = info.appName,
             title = info.title,
@@ -362,83 +228,89 @@ class WebhookSender(private val context: Context) {
             mergeTitles = info.mergeTitles
         )
 
-        val platformPayload = TemplateEngine.buildPlatformPayload(
-            type = cfg.type,
-            format = cfg.messageFormat,
-            template = cfg.messageTemplate ?: "",
-            vars = vars,
-            chatId = chatId
-        )
-
-        if (platformPayload != null) {
-            // 企微/钉钉/飞书：平台原生支持 text/markdown，按平台 payload 发送
-            NetworkClient.sendWithRetry(
+        val plan = ChannelDispatch.plan(
+            spec,
+            OutboundInput(
                 url = cfg.url,
-                payload = platformPayload,
-                tag = "notification",
-                webhookType = cfg.type,
                 secret = cfg.secret,
-                recordId = info.id,
-                force = force,
-                onResult = { result ->
-                    Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
-                    onResultDone?.invoke(result)
+                chatId = chatId,
+                urlToken = urlToken,
+                overrideBody = {
+                    spec.transport.bodyOverride?.invoke(
+                        BodyInput(
+                            title = info.title,
+                            content = info.content,
+                            time = info.time,
+                            deviceName = deviceName,
+                            url = cfg.url
+                        )
+                    )
+                },
+                platformBody = {
+                    TemplateEngine.buildPlatformPayload(
+                        type = cfg.type,
+                        format = cfg.messageFormat,
+                        template = template,
+                        vars = vars,
+                        chatId = chatId
+                    )
+                },
+                rawTemplateBody = {
+                    TemplateEngine.buildGenericBody(
+                        format = cfg.messageFormat,
+                        template = template,
+                        vars = vars
+                    )
+                },
+                defaultBody = {
+                    WebhookPayloadBuilder.buildPayload(
+                        type = cfg.type,
+                        title = info.title,
+                        content = info.content,
+                        appName = info.appName,
+                        packageName = info.packageName,
+                        time = info.time,
+                        deviceName = deviceName,
+                        notifyType = info.type,
+                        chatId = chatId
+                    )
                 }
             )
+        )
+
+        // 必填凭据/参数缺失 → 提前失败并给出明确原因（决策来自描述符，不在此按平台分支）
+        val missingReason = plan.earlyFailReason
+        if (missingReason != null) {
+            Log.e(
+                TAG,
+                "Skip ${'$'}{cfg.type}: required credential/param missing, " +
+                    "url=${'$'}{NetworkClient.sanitizeUrlHost(cfg.url)}"
+            )
+            val earlyFail = WebhookResponseParser.ParseResult(
+                WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                0, missingReason, false
+            )
+            notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+            onResultDone?.invoke(earlyFail)
             return
         }
 
-        val genericBody = TemplateEngine.buildGenericBody(
-            format = cfg.messageFormat,
-            template = cfg.messageTemplate ?: "",
-            vars = vars
-        )
-
-        if (genericBody != null && cfg.type == WebhookPayloadBuilder.WebhookType.GENERIC) {
-            // 通用 webhook + 自定义模板（text/markdown/json/xml）：直接发送渲染后 body
-            val (body, contentType) = genericBody
-            NetworkClient.sendWithRetry(
-                url = cfg.url,
-                payload = body,
-                tag = "notification",
-                webhookType = cfg.type,
-                secret = cfg.secret,
-                recordId = info.id,
-                contentType = contentType,
-                force = force,
-                onResult = { result ->
-                    Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
-                    notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
-                    onResultDone?.invoke(result)
-                }
-            )
-            return
-        }
-
-        // 默认：走平台默认 payload
-        val payload = WebhookPayloadBuilder.buildPayload(
-            type = cfg.type,
-            title = info.title,
-            content = info.content,
-            appName = info.appName,
-            packageName = info.packageName,
-            time = info.time,
-            deviceName = deviceName,
-            notifyType = info.type,
-            chatId = chatId
-        )
-        // 通过 NetworkClient 发送（含签名 + 送达校验）
+        // 4) 一次发送出口（重构前是 6 处重复的 sendWithRetry 调用）
         NetworkClient.sendWithRetry(
-            url = cfg.url,
-            payload = payload,
+            url = plan.url,
+            payload = plan.body,
             tag = "notification",
             webhookType = cfg.type,
-            secret = cfg.secret,
-            force = force,
+            secret = plan.secretForSigner,
             recordId = info.id,
+            contentType = plan.contentType,
+            force = force,
             onResult = { result ->
-                Log.d(TAG, "Delivery: ${NetworkClient.sanitizeUrlHost(cfg.url)} → status=${result.status} msg=${result.message}")
+                Log.d(
+                    TAG,
+                    "Delivery(${cfg.type}): ${NetworkClient.sanitizeUrlHost(cfg.url)} " +
+                        "\u2192 status=${result.status} msg=${result.message}"
+                )
                 // 送达结果回传 Flutter 后由 updateDelivery 统一写入 webhook_delivery_log（DB v5）
                 notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
                 onResultDone?.invoke(result)

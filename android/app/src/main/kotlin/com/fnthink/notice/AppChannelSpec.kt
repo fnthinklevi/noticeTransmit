@@ -67,23 +67,19 @@ data class ConfigField(
 
 object AppChannelRegistry {
 
-    /** 字节上限截断（不截断代理项对） */
-    fun truncateByBytes(text: String, maxBytes: Int): String {
-        if (text.toByteArray(Charsets.UTF_8).size <= maxBytes) return text
-        var end = text.length
-        while (end > 0 && text.substring(0, end).toByteArray(Charsets.UTF_8).size > maxBytes) {
-            end--
-        }
-        return text.substring(0, end)
-    }
+    /**
+     * 字节上限截断 / 字符上限截断。
+     *
+     * 实现已并入 `ChannelDefaults`（第 4 步）：此前 webhook 侧的 Telegram/Discord 与
+     * 应用通道侧各写了一份同样的「超长就回退一位、不拆代理项对」逻辑，
+     * 三份实现在边界（末位是代理项、恰好等于上限）上只要有一处改动就会分叉。
+     * 这里保留同名入口，行为逐字节不变。
+     */
+    fun truncateByBytes(text: String, maxBytes: Int): String =
+        ChannelDefaults.truncateBytes(text, maxBytes)
 
-    /** 字符上限截断（不截断代理项对） */
-    fun truncateByChars(text: String, maxChars: Int): String {
-        if (text.length <= maxChars) return text
-        var end = maxChars
-        if (end > 0 && Character.isHighSurrogate(text[end - 1])) end--
-        return text.substring(0, end)
-    }
+    fun truncateByChars(text: String, maxChars: Int): String =
+        ChannelDefaults.truncateChars(text, maxChars)
 
     /** 企业微信自建应用 */
     private val wecomAppSpec = AppChannelSpec(
@@ -123,7 +119,7 @@ object AppChannelRegistry {
             json.put("touser", touser)
             json.toString()
         },
-        truncate = { text -> truncateByBytes(text, 2048) },
+        truncate = { text -> truncateByBytes(text, ChannelLimits.WECOM_APP_BYTES) },
         configSchema = listOf(
             ConfigField(
                 "corpid", "企业 ID（corpid）", "Corp ID (corpid)",
@@ -178,7 +174,7 @@ object AppChannelRegistry {
                 .put("content", contentJson)
                 .toString()
         },
-        truncate = { text -> truncateByChars(text, 3000) },
+        truncate = { text -> truncateByChars(text, ChannelLimits.FEISHU_APP_CHARS) },
         configSchema = listOf(
             ConfigField(
                 "app_id", "应用 app_id", "App app_id",

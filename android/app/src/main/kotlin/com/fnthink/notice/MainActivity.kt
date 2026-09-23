@@ -2039,27 +2039,24 @@ class MainActivity : FlutterActivity() {
         secret: String?,
         result: MethodChannel.Result,
         extraConfig: Map<String, Any?>? = null,
+        channelType: String? = null,
     ) {
         activityScope.launch(Dispatchers.IO) {
             val (success, message, signed) = try {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
-                val webhookType = WebhookPayloadBuilder.detectType(url)
+                // 身份由调用方贯穿（第 4 步）：用户在通道里显式选过类型时必须按该类型判定，
+                // 只有"自动识别"(空/auto) 才回退 host 猜测。此前这里无条件 detectType(url)，
+                // 自建 Gotify / 私有 ntfy（host 不在表内）会被降级成 GENERIC ⇒ 业务码规则失效，
+                // 于是「测试按钮说成功、真实推送却按错的平台判定」。
+                val webhookType = channelType
+                    ?.takeUnless { it.isBlank() || it == "auto" }
+                    ?.let { ChannelRegistry.typeByStoredToken(it) }
+                    ?: WebhookPayloadBuilder.detectType(url)
                 val chatId = WebhookPayloadBuilder.extractChatIdFromUrl(url)
 
-                val typeLabel = when (webhookType) {
-                    WebhookPayloadBuilder.WebhookType.WECHAT_WORK -> "企业微信"
-                    WebhookPayloadBuilder.WebhookType.DINGTALK -> "钉钉"
-                    WebhookPayloadBuilder.WebhookType.FEISHU -> "飞书"
-                    WebhookPayloadBuilder.WebhookType.TELEGRAM -> "Telegram"
-                    WebhookPayloadBuilder.WebhookType.BARK -> "Bark"
-                    WebhookPayloadBuilder.WebhookType.SERVER_CHAN -> "Server酱"
-                    WebhookPayloadBuilder.WebhookType.PUSH_PLUS -> "PushPlus"
-                    WebhookPayloadBuilder.WebhookType.NTFY -> "ntfy"
-                    WebhookPayloadBuilder.WebhookType.GOTIFY -> "Gotify"
-                    WebhookPayloadBuilder.WebhookType.SLACK -> "Slack"
-                    WebhookPayloadBuilder.WebhookType.DISCORD -> "Discord"
-                    WebhookPayloadBuilder.WebhookType.GENERIC -> "通用"
-                }
+                // 标签取自 I18n（双语）：此前这里是 12 臂中文字面量，
+                // 与 I18n.channelName 构成"同一个名字两处真相"
+                val typeLabel = I18n.channelName(webhookType)
 
                 if (webhookType == WebhookPayloadBuilder.WebhookType.NTFY) {
                     // ntfy：header 模式——body 为纯文本，标题/鉴权走 HTTP header

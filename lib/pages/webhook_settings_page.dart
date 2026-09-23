@@ -521,6 +521,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final result = await _channel.invokeMethod('testWebhook', {
         'url': url,
         if (secret.isNotEmpty) 'secret': secret,
+        // 把用户在通道上选过的类型一起传过去：只给 URL 时，自建 Gotify / 私有 ntfy
+        // 会被原生按 host 降级成通用 webhook 判定，测试按钮的结论与真实推送不一致。
+        'channelType': _channelTypes[index],
       });
       final success = result['success'] as bool? ?? false;
       final message = result['message'] as String? ?? l10n.unknownError;

@@ -87,6 +87,23 @@ class ChannelBehaviorGoldenTest {
                     chatId = "12345",
                 )
             )
+            // 实发正文覆写（Server酱表单 / PushPlus 带 token 正文）：
+            // 这些通道的**真实请求体不是 notify 产出的 JSON**（第 4 步把它变成表里的声明位），
+            // 所以必须单独锁一条 body|<TYPE>，否则快照会声称覆盖了一个生产上永不发送的正文。
+            val bodyOverride = ChannelRegistry.spec(type).transport.bodyOverride
+            if (bodyOverride != null) {
+                result["body:${type.name}"] = norm(
+                    bodyOverride(
+                        BodyInput(
+                            title = "测试标题",
+                            content = "测试内容",
+                            time = "2026-01-01 10:00:00",
+                            deviceName = "我的设备",
+                            url = "https://example.com/hook?token=tok123&chat_id=12345"
+                        )
+                    )
+                )
+            }
         }
         return result
     }
@@ -188,9 +205,10 @@ class ChannelBehaviorGoldenTest {
         val actual = payloadMatrix()
         val (golden, _) = loadOrGenerate(actual, parseMatrix())
         assertTrue(
-            "载荷快照条目数应为 48（实际 ${golden.size}）：数量掉了说明矩阵用例被删/合并，" +
-                "零 diff 就不再是证据；确实要改条目数时，连同本行与 §12.3 基线一起显式改",
-            golden.size == 48
+            "载荷快照条目数应为 50（实际 ${golden.size}）：48 条 notify/test/sms/call + 2 条 body 覆写。" +
+                "数量掉了说明矩阵用例被删/合并，零 diff 就不再是证据；" +
+                "确实要改条目数时，连同本行与 §12.3 基线一起显式改",
+            golden.size == 50
         )
         val drift = actual.filter { (k, v) -> golden[k] != v }
         assertEquals(

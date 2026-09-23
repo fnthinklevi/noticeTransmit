@@ -63,7 +63,10 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 val url = call.argument<String>("url") ?: ""
                 val secret = call.argument<String>("secret")
                 val extraConfig = call.argument<Map<String, Any?>>("extraConfig")
-                activity.testWebhook(url, secret, result, extraConfig)
+                // 用户在通道上显式选过的类型（'auto'/缺省 = 按 host 识别）。
+                // 旧版 App 不传该参数 ⇒ null，行为与之前一致（向后兼容）
+                val channelType = call.argument<String>("channelType")
+                activity.testWebhook(url, secret, result, extraConfig, channelType)
             }
             "probeChannelHealth" -> {
                 // 通道健康探测（P2）：轻量 HEAD，任何 HTTP 响应 = 连通；

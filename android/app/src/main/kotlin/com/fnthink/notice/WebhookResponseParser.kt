@@ -36,6 +36,17 @@ object WebhookResponseParser {
         type: WebhookPayloadBuilder.WebhookType,
         httpCode: Int,
         responseBody: String
+    ): ParseResult = parseBySpec(ChannelRegistry.spec(type), type, httpCode, responseBody)
+
+    /**
+     * 按**描述符**判定（第 4 步）：不查全局注册表，因此未登记的合成描述符也能走同一条路。
+     * [type] 仅用于给业务码判定回传原始类型（parse lambda 的既有签名），可为 null。
+     */
+    internal fun parseBySpec(
+        spec: ChannelSpec,
+        type: WebhookPayloadBuilder.WebhookType?,
+        httpCode: Int,
+        responseBody: String
     ): ParseResult {
         // HTTP 5xx → 可重试
         if (httpCode in 500..599) {
@@ -68,7 +79,7 @@ object WebhookResponseParser {
 
         return try {
             val json = JSONObject(body)
-            parseBusinessCode(type, httpCode, json, body)
+            parseBusinessCode(spec, httpCode, json, body)
         } catch (e: Exception) {
             // body 非 JSON 时不能一律按 HTTP 2xx 判成功：反代 / 认证门户 / 风控网关常回
             // 200 + HTML，此时消息其实没送达，历史却显示「已送达」——属「假成功 +
@@ -80,9 +91,8 @@ object WebhookResponseParser {
             //    「HTTP 成功」兜底，判失败会造成大面积误报；
             //  - 未登记 parse 的通道（ntfy / Gotify / Slack / Discord）排除：语义就是
             //    HTTP 状态码（ntfy 回 text/plain，Discord 回 204 空 body）。
-            val jsonContractPlatform =
-                type != WebhookPayloadBuilder.WebhookType.GENERIC &&
-                    ChannelRegistry.spec(type).parse != null
+            // 声明位：响应契约由描述符给出（此前写成 type != GENERIC && parse != null 的间接推断）
+            val jsonContractPlatform = spec.requiresJsonContract
             return if (jsonContractPlatform) {
                 ParseResult(
                     DeliveryStatus.BIZ_FAIL,
@@ -101,13 +111,10 @@ object WebhookResponseParser {
      * 未登记 parse 的通道按「HTTP 2xx 即成功」兜底（与原行为一致）。
      */
     private fun parseBusinessCode(
-        type: WebhookPayloadBuilder.WebhookType,
+        spec: ChannelSpec,
         httpCode: Int,
         json: JSONObject,
         rawBody: String
-    ): ParseResult {
-        val spec = ChannelRegistry.spec(type)
-        return spec.parse?.invoke(httpCode, json, rawBody)
-            ?: ParseResult(DeliveryStatus.SUCCESS, httpCode, rawBody.take(200), false)
-    }
+    ): ParseResult = spec.parse?.invoke(httpCode, json, rawBody)
+        ?: ParseResult(DeliveryStatus.SUCCESS, httpCode, rawBody.take(200), false)
 }

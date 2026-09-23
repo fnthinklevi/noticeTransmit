@@ -3,24 +3,24 @@ package com.fnthink.notice
 import org.json.JSONObject
 
 /**
- * 通道描述符表（**载荷与判定层的唯一改动点**）。
+ * 通道描述符表（**通道身份、载荷、判定、签名、发送层事实的唯一改动点**）。
  *
- * ⚠️ 说清楚边界：本表收敛了「host 识别 / 四类载荷 / 模板包装 / 响应判定」，
- *   但今天新增一个通道仍要另改：`WebhookType` 枚举、`WebhookSigner.when`（不加即编译失败）、
- *   `MainActivity.testWebhook` 的 typeLabel、`ConfigManager` 的 channel_type 映射、
- *   Dart 侧 `channel_display.dart` 与四处 UI 扩展与 ARB 词条 —— 合计约 9 处。
- *   收敛到「只填描述符」是 `outputs/通道模板重构方案.md` 的目标（第 4 步）。
+ * 第 4 步之后，新增一个 webhook 平台在原生侧只需要：
+ *   ① `WebhookType` 加一个枚举值（跨进程身份：`RetryQueue` 存 `.name`、送达广播存 `.name`）
+ *   ② 本表加一行（host 识别 + 四类载荷 + 判定 + 签名方案 + 存储别名 + 发送层事实）
+ * 核心管线（`WebhookSender` / `WebhookSigner` / `WebhookResponseParser` / `TemplateEngine` /
+ * `NetworkClient` / `ConfigManager`）**零改动**，由 `ChannelDescriptorContractTest` 的
+ * 「生产代码不得再按平台分支」源码守卫 + 一个未注册进本表的合成描述符跑通全链路来证明。
  *
- * 背景：此前「加一个通道」需要改 6 处散落的 `when`（host 识别 / 通知载荷 / 测试载荷 /
- * 短信载荷 / 电话载荷 / 模板平台 JSON / 响应判定），漏改一处即静默失效
- * （典型表现：能推送但状态永远"发送中"、或测试按钮失败）。现全部收敛到本表：
- * **新增通道 = 加一个枚举值 + 在本表加一行（表内以 lambda 提供各载荷与判定）**。
+ * 还剩两处是"表之外"的（第 5 步收口）：Dart 的 ARB 词条与图标表；以及
+ * `MainActivity.testWebhook` 的四条手工构造正文（测试按钮与真实推送不同源）。
  *
- * 完整性由守卫测试锁定：`ChannelRegistryTest` 断言「每个枚举值都有表项、
- * 表项四类载荷齐全、host 规则不重复」——漏登记会直接测试失败。
+ * 完整性由守卫测试锁定：`ChannelRegistryTest`（枚举↔表项 1:1、四类载荷齐全、host 不重复）
+ * + `ChannelDescriptorContractTest`（存储别名唯一、`labelKey` 真实存在于 ARB、
+ * 响应契约显式声明、上限常量与实现同源）。
  *
- * ⚠ 行为等价性由 `ChannelBehaviorGoldenTest` 的逐字节快照锁定（实测 **48 条载荷 + 36 条解析**；
- *   2026-09-23 为 GENERIC 补了 2 条 errcode 判定用例，故为 36）。
+ * ⚠ 行为等价性由 `ChannelBehaviorGoldenTest` 的逐字节快照锁定（实测 **50 条载荷 + 36 条解析**；
+ *   50 = 12 通道 × 4 类载荷 + Server酱/PushPlus 两条 `body:` 实发正文覆写）。
  * 表内 lambda 体为既有分支代码的**原文搬迁**（开头解构参数以避免改名引入漂移），
  * 修改任何一条都会触发快照对比失败——这是有意设计：通道行为变更必须显式更新快照。
  */
@@ -90,7 +90,68 @@ internal class ChannelSpec(
      * 返回该通道的最终请求体；null = 该通道不支持平台模板包装（走文本/独立发送路径）。
      */
     val platformPayload: ((TemplateEngine.Vars, String, String, String) -> String?)? = null,
-)
+    /**
+     * **早期按枚举序号存储的数字**（`"0"`..`"11"`）。
+     *
+     * 其余合法写法由 [storedTokens] 自动派生（枚举名 / 小写 / 去下划线），
+     * 因此 `ConfigManager.parseWebhookType` 那张 12 臂 `when` 已收敛成本表 + 本字段。
+     * ⚠ 数字**不是** `WebhookType` 的下标（3=generic、4=telegram），别按枚举顺序推。
+     * Dart 侧同名表在 `lib/services/channel_display.dart` 的 `_slugAliases`，
+     * 两端一致性由 `test/architecture/channel_identity_contract_test.dart` 跨语言比对。
+     */
+    val legacyTokens: List<String> = emptyList(),
+    /** 签名方案（默认不签名）。见 [SignatureScheme]。 */
+    val signature: SignatureScheme = SignatureScheme.NONE,
+    /** 发送层事实（默认「普通 JSON webhook」）。见 [ChannelTransport]。 */
+    val transport: ChannelTransport = ChannelTransport(),
+    /**
+     * Dart ARB 资源名（如 `channelTypeDingtalk`）。**只存资源名、不存译文** ——
+     * 译文只在 Dart ARB 一处（853 词条 + 漏翻守卫的既有规则）。
+     *
+     * 默认由枚举名派生；ARB 命名不符合派生规则时在本表显式覆写（目前只有 wechat_work：
+     * ARB 里是 `channelTypeWechat`）。每条 labelKey 都必须真实存在于 `app_zh.arb`，
+     * 由 `ChannelDescriptorContractTest.labelKeys_existInArb` 跨语言锁住
+     * （第 5 步 `getChannelDescriptors` 会把这个名字直接发给 Dart）。
+     */
+    val labelKey: String =
+        "channelType" + type.name.lowercase().split("_").joinToString("") {
+            it.replaceFirstChar(Char::uppercase)
+        },
+
+    /** Dart 图标表的 key（与 slug 同值；单列出来是为了让"图标按什么取"这件事可见） */
+    val iconKey: String = type.name.lowercase(),
+    /**
+     * 响应契约：2xx + **非 JSON** body 算不算送达成功。
+     *
+     * 默认 true —— "业务码才算数"是常态：反代 / 认证门户 / 风控网关经常回 200 + HTML，
+     * 一律按 HTTP 2xx 判成功就是「假成功 + 静默丢内容」（比报失败危险：失败会提示、还能手动重推）。
+     *
+     * 此前这条判断写成 `type != GENERIC && spec.parse != null`，藏在解析器里，
+     * 等于用"有没有登记 parse"间接推断契约 —— 新通道要么被误判失败、要么被误判成功。
+     * 显式声明后，false 的只有 5 家：
+     * - GENERIC：自建端点回 200 + "OK" 纯文本完全合法；
+     * - ntfy / Gotify / Slack / Discord：语义就是 HTTP 状态码（回 text/plain 或 204 空 body）。
+     */
+    val requiresJsonContract: Boolean = true,
+) {
+    /**
+     * 存储/跨端可用的全部写法：枚举名、小写、去下划线小写 + 手写的早期数字。
+     *
+     * ⚠ 必须按**大小写无关**去重：查找侧把输入 lowercase 后再比，所以 "GENERIC" 与 "generic"
+     * 是同一个键；不去重的话 `ChannelDescriptorContractTest` 的「存储值全局唯一」会把自己判成歧义。
+     */
+    val storedTokens: List<String>
+        get() = (listOf(type.name, type.name.lowercase(), type.name.lowercase().replace("_", "")) + legacyTokens)
+            .distinctBy { it.lowercase() }
+
+    /**
+     * 稳定标识（`dingtalk` / `wechat_work`）。
+     *
+     * Dart 侧 `chan:<slug>` 的 slug、健康缓存 key、图标表 key 都用它 —— 与显示名无关
+     * （第 2 步把"显示名当键"的缺陷消掉后，这里就是原生侧的同一身份口径）。
+     */
+    val slug: String get() = type.name.lowercase()
+}
 
 internal object ChannelRegistry {
     /** 全部通道（顺序即 host 匹配优先级） */
@@ -98,6 +159,11 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.GENERIC,
             hosts = emptyList(),
+            legacyTokens = listOf("3"),
+            signature = SignatureScheme.HEADER_HEX_BODY,
+            // 自建端点回 200 + "OK" 纯文本完全合法 ⇒ 不按 JSON 契约判失败
+            requiresJsonContract = false,
+            transport = ChannelTransport(templateSupport = TemplateSupport.RAW_BODY),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -186,6 +252,10 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.WECHAT_WORK,
             hosts = listOf("qyapi.weixin.qq.com"),
+            legacyTokens = listOf("0"),
+            signature = SignatureScheme.URL_TIMESTAMP_SECONDS,
+            // ARB 里的历史命名是 channelTypeWechat（不是派生的 channelTypeWechatWork）
+            labelKey = "channelTypeWechat",
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -278,6 +348,8 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.DINGTALK,
             hosts = listOf("oapi.dingtalk.com"),
+            legacyTokens = listOf("1"),
+            signature = SignatureScheme.URL_TIMESTAMP_MILLIS,
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -376,6 +448,8 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.FEISHU,
             hosts = listOf("open.feishu.cn", "open.larksuite.com"),
+            legacyTokens = listOf("2"),
+            signature = SignatureScheme.FEISHU_PAYLOAD_JSON,
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -462,6 +536,12 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.TELEGRAM,
             hosts = listOf("api.telegram.org"),
+            legacyTokens = listOf("4"),
+            transport = ChannelTransport(
+                requiredUrlParam = UrlParam.CHAT_ID,
+                missingParamReason = "Telegram 链接缺少 chat_id 参数",
+                textLimitChars = ChannelLimits.TELEGRAM_CHARS,
+            ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -537,6 +617,7 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.BARK,
             hosts = listOf("api.day.app", "bark.gugu.ovh"),
+            legacyTokens = listOf("5"),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -624,6 +705,19 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.SERVER_CHAN,
             hosts = listOf("sctapi.ftqq.com"),
+            legacyTokens = listOf("6"),
+            transport = ChannelTransport(
+                contentType = "application/x-www-form-urlencoded; charset=utf-8",
+                templateSupport = TemplateSupport.DISABLED,
+                bodyOverride = { b ->
+                    WebhookPayloadBuilder.buildServerChanFormBody(
+                        title = b.title,
+                        content = b.content,
+                        deviceName = b.deviceName,
+                        time = b.time
+                    )
+                },
+            ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -700,6 +794,21 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.PUSH_PLUS,
             hosts = listOf("www.pushplus.plus", "pushplus.plus"),
+            legacyTokens = listOf("7"),
+            transport = ChannelTransport(
+                requiredUrlParam = UrlParam.TOKEN,
+                missingParamReason = "PushPlus 链接缺少 token 参数",
+                templateSupport = TemplateSupport.DISABLED,
+                bodyOverride = { b ->
+                    WebhookPayloadBuilder.buildPushPlusPayload(
+                        title = b.title,
+                        content = b.content,
+                        deviceName = b.deviceName,
+                        time = b.time,
+                        token = WebhookPayloadBuilder.extractTokenFromUrl(b.url)
+                    )
+                },
+            ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val packageName = p.packageName; val time = p.time; val deviceName = p.deviceName
@@ -778,6 +887,13 @@ internal object ChannelRegistry {
             // 官方托管 ntfy.sh 可自动识别；自建服务器 host 不可枚举，
             // 类型由 DB channel_type 字段提供（detectType 兜底 GENERIC）
             hosts = listOf("ntfy.sh"),
+            legacyTokens = listOf("8"),
+            requiresJsonContract = false,
+            signature = SignatureScheme.BEARER_HEADER,
+            transport = ChannelTransport(
+                contentType = "text/plain; charset=utf-8",
+                templateSupport = TemplateSupport.DISABLED,
+            ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
@@ -822,6 +938,15 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.GOTIFY,
             hosts = emptyList(),
+            legacyTokens = listOf("9"),
+            requiresJsonContract = false,
+            transport = ChannelTransport(
+                pathSuffix = "/message",
+                secretAsQueryToken = true,
+                secretRequired = true,
+                templateSupport = TemplateSupport.DISABLED,
+                missingParamReason = "Gotify 缺少应用 Token（secret 字段）",
+            ),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
@@ -874,6 +999,8 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.SLACK,
             hosts = listOf("hooks.slack.com"),
+            legacyTokens = listOf("10"),
+            requiresJsonContract = false,
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
@@ -922,6 +1049,9 @@ internal object ChannelRegistry {
         ChannelSpec(
             type = WebhookPayloadBuilder.WebhookType.DISCORD,
             hosts = listOf("discord.com", "discordapp.com"),
+            legacyTokens = listOf("11"),
+            requiresJsonContract = false,
+            transport = ChannelTransport(textLimitChars = ChannelLimits.DISCORD_CHARS),
             notify = { p ->
                 val title = p.title; val content = p.content; val appName = p.appName
                 val time = p.time; val deviceName = p.deviceName; val notifyType = p.notifyType
@@ -981,6 +1111,19 @@ internal object ChannelRegistry {
     /** 取通道描述（未登记时退化为 GENERIC，保证运行时不崩；漏登记由守卫测试拦截） */
     fun spec(type: WebhookPayloadBuilder.WebhookType): ChannelSpec =
         byType[type] ?: byType.getValue(WebhookPayloadBuilder.WebhookType.GENERIC)
+
+    /**
+     * 存储值 → 通道类型。命中口径与旧的 `ConfigManager.parseWebhookType` 一致：
+     * 输入先 trim + lowercase，再与本表 [ChannelSpec.storedTokens] 逐条比。
+     * 未匹配返回 null，由调用方回退 host 识别（**不要**在这里猜）。
+     */
+    fun typeByStoredToken(stored: String): WebhookPayloadBuilder.WebhookType? {
+        val key = stored.trim().lowercase()
+        if (key.isEmpty()) return null
+        return CHANNELS.firstOrNull { spec ->
+            spec.storedTokens.any { it.lowercase() == key }
+        }?.type
+    }
 
     /** 按 host 自动识别通道；无匹配返回 null（调用方回退 GENERIC） */
     fun typeByHost(host: String): WebhookPayloadBuilder.WebhookType? {

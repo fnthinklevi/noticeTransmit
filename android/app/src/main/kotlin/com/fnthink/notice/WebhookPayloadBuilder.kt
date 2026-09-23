@@ -224,13 +224,8 @@ object WebhookPayloadBuilder {
      * - 禁用网页自动预览
      */
     fun buildTelegramMessage(text: String, chatId: String = ""): String {
-        val truncated = if (text.length > 4096) {
-            var end = 4096
-            if (end > 0 && Character.isHighSurrogate(text[end - 1])) end--
-            text.substring(0, end)
-        } else {
-            text
-        }
+        // 上限常量与描述符声明共用 ChannelLimits.TELEGRAM_CHARS（此前 4096 在本函数里出现两次）
+        val truncated = ChannelDefaults.truncateChars(text, ChannelLimits.TELEGRAM_CHARS)
         return JSONObject().apply {
             put("text", truncated)
             if (chatId.isNotEmpty()) put("chat_id", chatId)
@@ -242,25 +237,11 @@ object WebhookPayloadBuilder {
      * Discord content 截断：消息正文上限 2000 字符，超长直接 400。
      * 不截断代理项对（与 Telegram 4096 先例一致）。
      */
-    fun truncateForDiscord(text: String): String {
-        if (text.length <= 2000) return text
-        var end = 2000
-        if (end > 0 && Character.isHighSurrogate(text[end - 1])) end--
-        return text.substring(0, end)
-    }
+    fun truncateForDiscord(text: String): String =
+        ChannelDefaults.truncateChars(text, ChannelLimits.DISCORD_CHARS)
 
-    /**
-     * 企业微信自建应用 text 消息正文上限 2048 字节（UTF-8），超长返回错误码 40058。
-     * 按字符截断即可覆盖绝大多数场景（中文 3 字节，2048 字节 ≈ 680 汉字）。
-     */
-    fun truncateForWecomApp(text: String): String {
-        if (text.toByteArray(Charsets.UTF_8).size <= 2048) return text
-        var end = text.length
-        while (end > 0 && text.substring(0, end).toByteArray(Charsets.UTF_8).size > 2048) {
-            end--
-        }
-        return text.substring(0, end)
-    }
+    // truncateForWecomApp 已删除（第 4 步）：零调用点，且与 AppChannelRegistry.truncateByBytes
+    // 是同一件事的第二份实现（企微应用正文上限现在统一由 ChannelLimits.WECOM_APP_BYTES 声明）。
 
     /**
      * 从 Telegram webhook URL 的 query 中提取 chat_id（缺失时返回空串）。

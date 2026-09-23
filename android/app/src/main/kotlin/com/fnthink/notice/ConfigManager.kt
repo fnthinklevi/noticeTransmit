@@ -181,25 +181,19 @@ class ConfigManager(private val context: Context) {
         }
     }
 
+    /**
+     * 解析存储的 `channel_type`（字符串或早期数字）为平台类型。
+     *
+     * 合法写法表已收敛进 `ChannelRegistry`（`ChannelSpec.storedTokens` / `legacyTokens`），
+     * 这里只负责"查不到就按 host 猜"的兜底 —— 新增通道不再需要改本函数
+     * （原来这里是 12 臂 `when`，漏一臂就把已知平台静默降级成 GENERIC）。
+     */
     private fun parseWebhookType(
         typeStr: String,
         url: String
     ): WebhookPayloadBuilder.WebhookType {
-        return when (typeStr.lowercase()) {
-            "wechat_work", "wechatwork", "0" -> WebhookPayloadBuilder.WebhookType.WECHAT_WORK
-            "dingtalk", "1" -> WebhookPayloadBuilder.WebhookType.DINGTALK
-            "feishu", "2" -> WebhookPayloadBuilder.WebhookType.FEISHU
-            "telegram", "4" -> WebhookPayloadBuilder.WebhookType.TELEGRAM
-            "bark", "5" -> WebhookPayloadBuilder.WebhookType.BARK
-            "server_chan", "serverchan", "6" -> WebhookPayloadBuilder.WebhookType.SERVER_CHAN
-            "push_plus", "pushplus", "7" -> WebhookPayloadBuilder.WebhookType.PUSH_PLUS
-            "ntfy", "8" -> WebhookPayloadBuilder.WebhookType.NTFY
-            "gotify", "9" -> WebhookPayloadBuilder.WebhookType.GOTIFY
-            "slack", "10" -> WebhookPayloadBuilder.WebhookType.SLACK
-            "discord", "11" -> WebhookPayloadBuilder.WebhookType.DISCORD
-            "generic", "3" -> WebhookPayloadBuilder.WebhookType.GENERIC
-            else -> WebhookPayloadBuilder.detectType(url)
-        }
+        return ChannelRegistry.typeByStoredToken(typeStr)
+            ?: WebhookPayloadBuilder.detectType(url)
     }
 
     fun getEnabledPackages(): Set<String> {

@@ -104,35 +104,57 @@ void main() {
   });
 
   group('通道序号表跨端一致', () {
-    test('Dart _slugAliases 的数字条目与 Kotlin parseWebhookType 一一对应', () {
-      final kotlin = stripComments(
+    test('Dart _slugAliases 与 Kotlin 描述符的 legacyTokens / 枚举名一一对应', () {
+      // 第 4 步起 Kotlin 侧的真值不再是 `ConfigManager` 的 12 臂 when，
+      // 而是 ChannelRegistry 每个条目的 type + legacyTokens（本守卫同时确保
+      // ConfigManager 没有把那张表偷偷长回来）。
+      final registry = stripComments(
+        File(
+          '$root/android/app/src/main/kotlin/com/fnthink/notice/ChannelRegistry.kt',
+        ).readAsStringSync(),
+      );
+      final configManager = stripComments(
         File(
           '$root/android/app/src/main/kotlin/com/fnthink/notice/ConfigManager.kt',
         ).readAsStringSync(),
       );
-      final arms = blockAfter(kotlin, 'private fun parseWebhookType(');
+      expect(
+        RegExp(
+          r'"(wechat_work|dingtalk|feishu|generic)",\s*"\d+"',
+        ).hasMatch(configManager),
+        isFalse,
+        reason:
+            'ConfigManager 又自己存了一份 channel_type 映射表 ⇒ 与描述符表两处真相，'
+            '加通道时漏改一侧会把已有通道静默读成 GENERIC',
+      );
+      expect(
+        configManager,
+        contains('ChannelRegistry.typeByStoredToken'),
+        reason: '存储值解析必须走描述符表',
+      );
+
       final kotlinDigits = <String, String>{};
       final kotlinNames = <String>{};
-      for (final line in arms.split('\n')) {
-        final arrow = line.indexOf('->');
-        if (arrow < 0) continue;
-        final target = RegExp(
-          r'WebhookType\.([A-Z_]+)',
-        ).firstMatch(line.substring(arrow));
-        if (target == null) continue; // else 分支走 detectType
-        final slug = target.group(1)!.toLowerCase();
+      for (final chunk in registry.split('ChannelSpec(').skip(1)) {
+        final typeMatch = RegExp(
+          r'type = WebhookPayloadBuilder\.WebhookType\.([A-Z_]+)',
+        ).firstMatch(chunk);
+        if (typeMatch == null) continue;
+        final slug = typeMatch.group(1)!.toLowerCase();
         kotlinNames.add(slug);
-        for (final m in RegExp(
-          r'"(\d+)"',
-        ).allMatches(line.substring(0, arrow))) {
+        final tokens = RegExp(
+          r'legacyTokens = listOf\(([^)]*)\)',
+        ).firstMatch(chunk);
+        for (final m in RegExp(r'"(\d+)"').allMatches(tokens?.group(1) ?? '')) {
           kotlinDigits[m.group(1)!] = slug;
         }
       }
       expect(
         kotlinDigits.length,
-        greaterThanOrEqualTo(12),
-        reason: '未从 Kotlin 解析到序号表，守卫会假绿',
+        12,
+        reason: '未从描述符表解析到 12 个数字序号（0..11），守卫会假绿',
       );
+      expect(kotlinNames.length, 12, reason: '描述符表条目数与 WebhookType 枚举不符（12 个）');
 
       final dartSrc = stripComments(
         File('$root/lib/services/channel_display.dart').readAsStringSync(),

@@ -236,6 +236,9 @@ object I18n {
         WebhookPayloadBuilder.WebhookType.SLACK -> "Slack"
         WebhookPayloadBuilder.WebhookType.DISCORD -> "Discord"
         WebhookPayloadBuilder.WebhookType.GENERIC -> if (isEn) "Generic" else "通用"
+        // else 分支（第 4 步）：新增通道还没补文案时显示枚举名，而不是编译失败——
+        // 本函数与 MainActivity 的 typeLabel 曾是"加一个通道必须改两处中文"的强制点。
+        else -> type.name.lowercase()
     }
     fun pushPlusTokenMissing(): String =
         if (isEn) "PushPlus URL is missing the token parameter" else "PushPlus 链接缺少 token 参数"
