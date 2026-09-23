@@ -15,7 +15,7 @@ import '../models/webhook_channel.dart';
 /// - **UI 形状**给页面用 camel（`channelType` / `baseUrl`），webhook 侧同时保留
 ///   `type` 别名（历史读者：`notification_service`、送达回传都按 `type` 取）；
 /// - **原生载荷**：webhook 走 [webhookToNative]（今天等于 UI 形状 —— 原生只读其中
-///   `url`/`type`/`enabled`/`secret`/`message_format`/`message_template`/`extra_config`，
+///   `url`/`type`/`enabled`/`secret`/`message_format`/`message_template`，
 ///   多余键无害；已有 `webhook_service_save_chain_test` 钉住该形状，改它属契约变更，
 ///   另开批次），应用通道走 [appToNative]（原生读 `type`/`base_url`，与 UI 键不同名，
 ///   所以必须显式映射）。
@@ -45,7 +45,6 @@ class ChannelConfigCodec {
     if (channelType.isEmpty) {
       channelType = WebhookChannel.detectTypeFromUrl(url).value;
     }
-    final extra = row['extra_config'];
     return {
       'id': row['id'],
       'name': row['name'],
@@ -56,16 +55,21 @@ class ChannelConfigCodec {
       'secret': nullableText(row['secret']),
       'message_format': row['message_format'] ?? 'default',
       'message_template': nullableText(row['message_template']),
-      // v9: 扩展配置在 DB 里恒为 JSON 字符串，UI 侧要 Map
-      'extra_config': extra == null
-          ? null
-          : (extra is Map ? extra : jsonDecode(extra as String) as Map),
+      // v9 的 extra_config 不再进 UI（roadmap D4 / ㊷）：原生解析了它但全链路无人消费，
+      // wecom_app 的 corpid/agentid/touser 早在 v10 搬进 app_channels.config。
+      // DB 列保留（见 database_helper 的 DDL 与 v9→v10 搬家 SELECT）。
     };
   }
 
-  /// UI → DB 行（列名 + `extra_config` 编码回字符串）
+  /// UI → DB 行（列名 + `'null'` 脏数据清洗）
+  ///
+  /// 入口是**白名单式整表复制**，所以历史上带过 `extra_config` 的输入（老备份恢复、
+  /// 手造 Map）会顺流写进 DB 行与原生载荷。㊷ 按 D4=B 显式摘掉它：列保留在 schema 里，
+  /// 但没有任何一条链路再读写它。
   static Map<String, dynamic> webhookToDb(Map<String, dynamic> ui) {
     final row = Map<String, dynamic>.from(ui);
+    row.remove('extra_config');
+    row.remove('extraConfig');
     row['url'] = ui['url'] ?? '';
     row['channel_type'] =
         ui['channelType']?.toString() ?? ui['type']?.toString() ?? 'generic';
@@ -73,14 +77,16 @@ class ChannelConfigCodec {
     row['secret'] = nullableText(ui['secret']);
     row['message_format'] = ui['message_format'] ?? 'default';
     row['message_template'] = nullableText(ui['message_template']);
-    final rawExtra = ui['extra_config'] ?? ui['extraConfig'];
-    row['extra_config'] = rawExtra is Map ? jsonEncode(rawExtra) : rawExtra;
     return row;
   }
 
   /// UI → 原生载荷（含 secret；另写进加密副本，两处同形）
-  static Map<String, dynamic> webhookToNative(Map<String, dynamic> ui) =>
-      Map<String, dynamic>.from(ui);
+  static Map<String, dynamic> webhookToNative(Map<String, dynamic> ui) {
+    final payload = Map<String, dynamic>.from(ui);
+    payload.remove('extra_config');
+    payload.remove('extraConfig');
+    return payload;
+  }
 
   // ── 自建应用通道 ─────────────────────────────────────────────────────
 

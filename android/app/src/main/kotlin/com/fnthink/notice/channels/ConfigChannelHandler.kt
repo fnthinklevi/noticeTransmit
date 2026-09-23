@@ -64,11 +64,11 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
             "testWebhook" -> {
                 val url = call.argument<String>("url") ?: ""
                 val secret = call.argument<String>("secret")
-                val extraConfig = call.argument<Map<String, Any?>>("extraConfig")
                 // 用户在通道上显式选过的类型（'auto'/缺省 = 按 host 识别）。
                 // 旧版 App 不传该参数 ⇒ null，行为与之前一致（向后兼容）
                 val channelType = call.argument<String>("channelType")
-                activity.testWebhook(url, secret, result, extraConfig, channelType)
+                // 原 `extraConfig` 参数已删（roadmap D4 / ㊷）：Dart 从不传它，接收端也从不使用
+                activity.testWebhook(url, secret, result, channelType = channelType)
             }
             "getChannelDescriptors" -> {
                 // 通道描述符导出（第 5 步）：身份 + 能力位 + 字段 schema。

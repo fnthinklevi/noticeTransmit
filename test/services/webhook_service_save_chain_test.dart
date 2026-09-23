@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
@@ -158,14 +156,16 @@ void main() {
     });
   });
 
-  group('wecom_app extra_config 契约（DB v9）', () {
-    test('保存：extra_config Map 序列化为 JSON 字符串进入 DB 行 + 原生 payload 携带', () async {
+  group('extra_config 已退出链路（roadmap D4 / ㊷；DB 列保留不动）', () {
+    test('保存：UI 里带 extra_config 也不得写进 DB 行或原生载荷', () async {
       await service.saveChannels([
         {
           'id': 'wecom1',
           'name': '企微自建应用',
           'url': 'https://qyapi.weixin.qq.com',
           'channelType': 'wecom_app',
+          // 真实页面发的就是 webhookFromDb 的形状：两个键都在（`type` 是原生首选键）
+          'type': 'wecom_app',
           'enabled': true,
           'secret': 'corpsecret-demo',
           'extra_config': {
@@ -176,27 +176,26 @@ void main() {
         },
       ]);
 
-      // DB 行：extra_config 序列化为 JSON 字符串
+      // 写入端已断：DB 行不再含该列键（列留在 schema 里，值为默认 NULL）。
+      // wecom_app 的 corpid/agentid/touser 自 v10 起只走 app_channels.config。
       final row = storage.savedBatches.single.single;
-      final encoded = row['extra_config'];
-      expect(encoded, isA<String>());
-      final decoded = jsonDecode(encoded as String) as Map<String, dynamic>;
-      expect(decoded['corpid'], 'corp-demo');
-      expect(decoded['agentid'], 1000002);
-      expect(decoded['touser'], '@all');
+      expect(row.containsKey('extra_config'), isFalse);
 
-      // 原生同步 payload：setWebhookChannels 的通道携带 extra_config（Map 直传）
       final syncCall = channelCalls.singleWhere(
         (c) => c.method == 'setWebhookChannels',
       );
       final channels = (syncCall.arguments as Map)['channels'] as List;
       final nativeChannel = channels.single as Map;
-      final extra = nativeChannel['extra_config'] as Map;
-      expect(extra['corpid'], 'corp-demo');
-      expect(extra['agentid'], 1000002);
+      expect(nativeChannel.containsKey('extra_config'), isFalse);
+      // 其余契约键不得被连带丢掉（否则就是"删死代码顺手改契约"）：
+      // 原生首选 `type`（optString("type", optString("channel_type", …))），UI 别名 `channelType` 同发
+      expect(nativeChannel['url'], 'https://qyapi.weixin.qq.com');
+      expect(nativeChannel['type'], 'wecom_app');
+      expect(nativeChannel['channelType'], 'wecom_app');
+      expect(nativeChannel['secret'], 'corpsecret-demo');
     });
 
-    test('加载：DB 行 extra_config JSON 字符串 → UI Map 解码', () async {
+    test('加载：DB 行里的历史 JSON 值被忽略，且不得抛错', () async {
       storage.rows = [
         {
           'id': 'wecom1',
@@ -215,24 +214,31 @@ void main() {
       await service.loadChannels();
 
       final channel = service.channels.single;
-      final extra = channel['extra_config'] as Map;
-      expect(extra['corpid'], 'corp-demo');
-      expect(extra['agentid'], 1000002);
-      expect(extra['touser'], '@all');
+      expect(channel.containsKey('extra_config'), isFalse);
+      // 老库里存量的 9 类行仍要正常读出（删的是链路，不是数据可读性）
+      expect(channel['channelType'], 'wecom_app');
+      expect(channel['secret'], 'corpsecret-demo');
     });
 
-    test('非 wecom_app 通道 extra_config 为空不干扰保存', () async {
-      await service.saveChannels([
+    test('读回再保存：老行的 extra_config 值在下一次保存后归为 NULL（预期清理）', () async {
+      storage.rows = [
         {
           'id': 'tg1',
           'name': 'TG',
           'url': 'https://api.telegram.org/botT/sendMessage',
-          'channelType': 'telegram',
-          'enabled': true,
+          'channel_type': 'telegram',
+          'enabled': 1,
+          'secret': null,
+          'message_format': 'default',
+          'extra_config': '{"legacy":true}',
         },
-      ]);
-      final row = storage.savedBatches.single.single;
-      expect(row['extra_config'], isNull);
+      ];
+      await service.loadChannels();
+      await service.saveChannels(service.channels);
+      final row = storage.savedBatches.last.single;
+      expect(row.containsKey('extra_config'), isFalse);
+      expect(row['url'], 'https://api.telegram.org/botT/sendMessage');
+      expect(row['channel_type'], 'telegram');
     });
   });
 }

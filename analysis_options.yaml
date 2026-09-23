@@ -13,9 +13,6 @@ linter:
     require_trailing_commas: true
     avoid_web_libraries_in_flutter: true
 
-dart_code_metrics:
-  rules:
-    - avoid-non-null-assertions
-    - no-equal-arguments
-    - prefer-trailing-comma
-    - no-boolean-literal-compare
+# （原 `dart_code_metrics:` 段已删，roadmap E2）该工具 4.12.0 自带 analyzer 3.3.1，
+# 在 Dart 3.12 上恒崩、CI 那一步又不判退出码，等于零作用；它原来配的 4 条规则里
+# prefer-trailing-comma 与上面 require_trailing_commas 重复。别再把它加回来。

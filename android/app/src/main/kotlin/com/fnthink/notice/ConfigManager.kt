@@ -40,8 +40,10 @@ class ConfigManager(private val context: Context) {
         val type: WebhookPayloadBuilder.WebhookType,
         val messageFormat: String = "default",
         val messageTemplate: String? = null,
-        /** 企业微信自建应用等通道的扩展配置（corpid/agentid/touser），其余通道为 null */
-        val extraConfig: JSONObject? = null,
+        // `extraConfig` 字段已删（roadmap D4 / ㊷）：v9 时代它承载 wecom_app 的
+        // corpid/agentid/touser，v10 起那些搬进 app_channels.config；此后无人读它
+        // （发送层零引用，testWebhook 那条也恒为 null，因为 Dart 不传）。
+        // webhook_channels.extra_config **列本身保留**（删列要迁用户数据），只是不再解析。
     )
 
     fun getWebhookUrls(): List<String> {
@@ -91,10 +93,10 @@ class ConfigManager(private val context: Context) {
                 val messageFormat = obj.optString("message_format", "default").ifEmpty { "default" }
                 val messageTemplate = obj.optString("message_template", "")
                     .takeIf { it.isNotEmpty() && it != "null" }
-                val extraConfig = obj.optJSONObject("extra_config")
+                // extra_config 不再解析（roadmap D4 / ㊷），见 WebhookChannelConfig 上的说明
                 list.add(
                     WebhookChannelConfig(
-                        url, secret, type, messageFormat, messageTemplate, extraConfig
+                        url, secret, type, messageFormat, messageTemplate
                     )
                 )
             }

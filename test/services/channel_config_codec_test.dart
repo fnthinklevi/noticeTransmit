@@ -43,6 +43,8 @@ void main() {
         'secret': 'null',
         'message_format': 'markdown',
         'message_template': 'null',
+        // 老库里仍存着 v9 时代的扩展配置值：读取端必须**安静忽略**它（roadmap D4 / ㊷），
+        // 而不是解码成 UI 键、也不是抛异常。
         'extra_config': '{"corpid":"corp"}',
       });
       expect(ui['channelType'], 'wechat_work');
@@ -50,7 +52,11 @@ void main() {
       expect(ui['enabled'], isTrue);
       expect(ui['secret'], isNull, reason: '"null" 未洗掉就会被当成已配置密钥');
       expect(ui['message_template'], isNull);
-      expect((ui['extra_config'] as Map)['corpid'], 'corp');
+      expect(
+        ui.containsKey('extra_config'),
+        isFalse,
+        reason: 'extra_config 全链路无人消费，不再进 UI（㊷）',
+      );
     });
 
     test('DB 行 channel_type 为空才按 URL 识别；显式 generic 不被覆盖', () {
@@ -70,7 +76,7 @@ void main() {
       );
     });
 
-    test('UI → DB：列名、extra_config 编码为字符串（DB 行契约恒为 String）', () {
+    test('UI → DB：列名与 null 脏数据清洗；extra_config 不再写入（㊷）', () {
       final row = ChannelConfigCodec.webhookToDb({
         'id': 'wh_1',
         'name': 'n',
@@ -84,8 +90,11 @@ void main() {
       });
       expect(row['channel_type'], 'ntfy');
       expect(row['secret'], isNull);
-      expect(row['extra_config'], isA<String>());
-      expect(row['extra_config'], '{"a":1}');
+      expect(
+        row.containsKey('extra_config'),
+        isFalse,
+        reason: '写入端已断：列保留但没人写，老值在下一次保存时归 NULL',
+      );
       // UI 键仍随行透传（DatabaseHelper 只取它认识的列，多余键忽略）
       expect(row['channelType'], 'ntfy');
     });
@@ -118,14 +127,21 @@ void main() {
         'secret': 's',
         'message_format': 'default',
         'message_template': '',
-        'extra_config': <String, dynamic>{},
       }).keys.toSet();
+      final read = nativeReadKeys('getWebhookChannelConfigs');
       expect(
-        nativeReadKeys('getWebhookChannelConfigs'),
+        read,
         // 原生对 type 保留了历史列名兜底（optString("type", optString("channel_type", …))），
         // 主键名给了即可，别名不必再发。
         subsetOf(produced, aliases: {'channel_type'}),
         reason: '原生读得到而 Dart 不发的键 → 后台推送取空值，且「测试」按钮查不出（㉑ 同族）',
+      );
+      // 反向钉住 ㊷：extra_config 的解析已从原生侧删掉。将来若有人重新 optJSONObject 它，
+      // 这条会红 —— 那时要么把链路接通（给用途），要么别加（roadmap D4 选的是删）。
+      expect(
+        read,
+        isNot(contains('extra_config')),
+        reason: 'extra_config 已按 D4=B 退出跨端契约',
       );
     });
   });

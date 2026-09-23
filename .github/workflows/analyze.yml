@@ -28,27 +28,36 @@ jobs:
       - name: Flutter analyze
         run: |
           set +e
-          flutter analyze --no-pub > analyze_output.log 2>&1
+          # --fatal-infos：以前这步只 grep `error •`，warning 与 info 全放过（"仅风格提示已忽略"），
+          # 于是 analysis_options.yaml 里那批 lint 规则实际上没有门禁。现在按退出码判红。
+          # 本机基线实测：dart analyze --fatal-infos lib test integration_test → No issues found（exit 0）。
+          flutter analyze --no-pub --fatal-infos > analyze_output.log 2>&1
           EXIT_CODE=$?
           set -e
           cat analyze_output.log
-          if grep -E "^ +error •" analyze_output.log; then
-            echo "❌ 存在代码错误，CI失败"
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo "❌ flutter analyze --fatal-infos 退出码 $EXIT_CODE，CI 失败"
             exit 1
           fi
-          echo "✅ 无致命代码错误，仅风格提示已忽略"
+          echo "✅ analyze 无 error / warning / info"
 
       - name: Version consistency check
         run: bash .github/scripts/check_version_consistency.sh
 
-      - name: Run code metrics analysis
-        run: |
-          set +e
-          dart run dart_code_metrics:metrics analyze lib/ --reporter=github > metrics_output.log 2>&1
-          EXIT_CODE=$?
-          set -e
-          cat metrics_output.log
-          echo "代码质量检测完成"
+      # 发版闸门（update.md 按构件号 / version.json 回填）的行为测试：不跑整个发版脚本，
+      # 只把它里面那两段按标记提取出来跑正反用例。放 PR 门禁是因为这两个闸门一旦退化，
+      # 表现是"发版一路绿、线上却发旧包"——本地没人会主动去测它。
+      - name: Release gate behavior test
+        run: bash .github/scripts/test_release_gates.sh
+
+      # （原「Run code metrics analysis」步已删，roadmap E2）：`dart_code_metrics 4.12.0` 自带的
+      # analyzer 3.3.1 解析不了 Dart 3.12，实跑恒抛 `Null check operator used on a null value`
+      # （exit 255）；而该步 `EXIT_CODE=$?` 赋值后**从未被读** ⇒ 结构上不可能判红，日志也不上传。
+      # 它唯一的产出是十几秒 CI 时间 + "门禁表上像有一道质量闸"。它配的 4 条规则里
+      # prefer-trailing-comma 与已启用的 require_trailing_commas 重复，其余按实测（lib/ 里 47 处
+      # `== true` 多为 Map 动态读值的必要写法、9 处 `!`）复活后主要产噪声。
+      # 真要复杂度/断言治理请单独评估后继独立 CLI `dcm`，**不要**把这个依赖加回来；
+      # 上面那步改成 `--fatal-infos` 才是这道门禁该有的样子。
 
       - name: Run unit tests
         run: |

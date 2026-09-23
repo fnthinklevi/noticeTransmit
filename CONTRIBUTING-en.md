@@ -211,11 +211,16 @@ Extra things CI does (optional locally):
 
 - Coverage report and upload: `genhtml coverage/lcov.info -o coverage/html`, then uploaded as the
   `coverage-report` artifact.
-- `dart run dart_code_metrics:metrics analyze lib/ --reporter=github`: this step is wrapped in
-  `set +e` and **never fails the build**. On the Dart 3.12 toolchain it currently throws
-  `Null check operator used on a null value` (analyzer incompatibility), so do not use it as a local
-  gate and do not reshape your code style because of its output.
-- The integration smoke test is **not part of the PR gate** (see Section 8.2).
+- **Local and CI share the same analyze verdict**: `flutter analyze --no-pub --fatal-infos`, failing on
+  the exit code. The old step only grepped `error •` and let warnings and infos through, which meant the
+  lint rules in `analysis_options.yaml` had no gate at all; measured locally the baseline is clean both
+  before and after, so tightening costs nothing.
+- The `dart_code_metrics` step was **removed** (roadmap E2 / batch ㊶): 4.12.0 pins `analyzer 3.3.1`,
+  which reliably throws `Null check operator used on a null value` (exit 255) on Dart 3.12, and the step
+  assigned `EXIT_CODE=$?` and never read it ⇒ it could not fail the build by construction.
+  **Do not add it back** — the reasoning is in the `analyze.yml` comment.
+- The integration smoke test is **not part of the PR gate**, but a `schedule` now runs it every Tuesday
+  (batch ㊵; see Section 8.2).
 
 ---
 

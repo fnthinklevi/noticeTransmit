@@ -2038,7 +2038,8 @@ class MainActivity : FlutterActivity() {
         url: String,
         secret: String?,
         result: MethodChannel.Result,
-        extraConfig: Map<String, Any?>? = null,
+        // 原 extraConfig 形参已删（roadmap D4 / ㊷）：Dart 侧只传 url/secret/channelType，
+        // 它永远收到 null，且发送层也从不需要它。
         channelType: String? = null,
     ) {
         activityScope.launch(Dispatchers.IO) {

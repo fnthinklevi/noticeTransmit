@@ -244,7 +244,7 @@ void main() {
   });
 
   group('第 3 步局部缺陷不得复活', () {
-    test('webhook 设置页不再留 extra_config 死路径', () {
+    test('extra_config 死链路已断开（D4=B / ㊷），且不得只删一半', () {
       final page = stripComments(
         File('$root/lib/pages/webhook_settings_page.dart').readAsStringSync(),
       );
@@ -257,11 +257,37 @@ void main() {
         expect(page, isNot(contains(dead)), reason: 'webhook 页面残留 $dead');
         expect(item, isNot(contains(dead)), reason: 'webhook 卡片残留 $dead');
       }
-      // 服务层/DB 层的 extra_config 是活的（备份恢复、原生 testWebhook 会用），不许一起删
-      final svc = File(
-        '$root/lib/services/webhook_service.dart',
+      // ⚠ 本用例原来的收尾断言是 `expect(svc, contains('extra_config'))`，理由是
+      // "备份恢复、原生 testWebhook 会用" —— 那句话**经查是错的**（testWebhook 的形参恒为 null，
+      // 发送层零引用）。㊷ 按 D4=B 把链路删干净，因此这里反过来钉"不许再出现"，
+      // 只留 database_helper 的建表/迁移白名单（列保留，删列要迁用户数据）。
+      final svc = stripComments(
+        File('$root/lib/services/webhook_service.dart').readAsStringSync(),
+      );
+      expect(svc, isNot(contains('extra_config')));
+      for (final f in [
+        'lib/services/channel_config_codec.dart',
+        'lib/pages/webhook_settings_page.dart',
+      ]) {
+        final src = stripComments(File('$root/$f').readAsStringSync());
+        expect(
+          src,
+          isNot(contains("row['extra_config']")),
+          reason: '$f 又去读写 extra_config 了 —— 该键已退出契约（D4）',
+        );
+      }
+      // 反向自检：白名单那两处（建表 + 搬家 SELECT）必须还在，否则说明列被顺手删了
+      final db = File(
+        '$root/lib/database/database_helper.dart',
       ).readAsStringSync();
-      expect(svc, contains('extra_config'));
+      expect(
+        db,
+        allOf(
+          contains('extra_config TEXT'),
+          contains("COALESCE(extra_config, '{}')"),
+        ),
+        reason: 'DB 列与 v9→v10 搬家 SELECT 必须保留（本步只删读写链路）',
+      );
     });
 
     test('健康徽标按并行 id 列表取，不按下标读构造期输入', () {

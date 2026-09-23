@@ -1,4 +1,4 @@
-# 集成测试：真机/模拟器跑两类设备侧测试（手动触发，模拟器分钟级计费）：
+# 集成测试：真机/模拟器跑两类设备侧测试（每周自动 + 可手动；模拟器分钟级计费）：
 # 1. integration_test/smoke_test.dart —— 7 步主链路冒烟
 # 2. androidTest 仪表测试（connectedDebugAndroidTest，含 ApkSignatureVerifier 等）——
 #    必须在 emulator-runner 的 script 内执行（模拟器存活期间），独立 step 会因
@@ -7,6 +7,11 @@ name: Integration Test
 
 on:
   workflow_dispatch:
+  # E3：此前只有 workflow_dispatch ⇒ 这条链在 PR 上永远不跑，装配顺序类生产缺陷
+  # （㉗ 的 locale 事故）只能靠人记得去点。每周二 03:00 UTC 自动跑一次；
+  # 只想省分钟数时可把下面两行删掉，手动触发仍然保留。
+  schedule:
+    - cron: '0 3 * * 2'
 
 jobs:
   integration-test:

@@ -301,9 +301,9 @@ The client automatically falls back between modes with no code changes needed.
 
 **CI workflows** (`.github/workflows/`, all on `ubuntu-24.04`):
 
-- **`analyze.yml` (PR gate, 16 steps)** - flutter analyze → version consistency → code metrics → Dart tests → Android JVM tests → Android lint → server contract tests → three-way format check → coverage artifact
-- **`build-apk.yml` (on `v*` tags or manual, 18 steps)** - pre-flight tests & analyze → arm64 release build → ABI purity & version double gate → GitHub Release
-- **`integration_test.yml` (manual, 7 steps)** - emulator smoke test + instrumented tests
+- **`analyze.yml` (PR gate, 16 steps)** - `flutter analyze --fatal-infos` (verdict = exit code) → version consistency → release-gate behavior test → Dart tests → Android JVM tests → Android lint → server contract tests → three-way format check → coverage artifact
+- **`build-apk.yml` (on `v*` tags or manual, 17 steps)** - pre-flight tests & analyze → arm64 release build → ABI purity & version double gate → GitHub Release
+- **`integration_test.yml` (weekly, Tue 03:00 UTC + manual, 7 steps)** - emulator smoke test + instrumented tests
 - **`deploy-pages.yml` (on changes to `server/public/**` or `server/data/version.json`, or manual, 5 steps)** - zero-maintenance static version source publishing
 - **Format unification** - `.github/scripts/check_format.sh` is the same script locally and in CI: `dart format` + ktlint 1.8.0 (rules in `.editorconfig`) + prettier 3.9.8 (config in `server/.prettierrc`)
 - **Version consistency gate** - `.github/scripts/check_version_consistency.sh` compares version & build across `pubspec.yaml` / `update_manager.dart` / `MainActivity.kt` / `server/data/version.json`, and additionally validates the sha256 fields of `version.json`, website i18n coverage, README dependency annotations and the zh/en ARB key sets

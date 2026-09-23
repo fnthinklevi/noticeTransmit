@@ -1182,10 +1182,9 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
               c['messageFormat']?.toString() ??
               'default',
           'message_template': c['message_template'] ?? c['messageTemplate'],
-          // v9: 通道扩展配置（wecom_app corpid/agentid/touser，Map → JSON 字符串）
-          'extra_config': (c['extra_config'] ?? c['extraConfig']) is Map
-              ? jsonEncode(c['extra_config'] ?? c['extraConfig'])
-              : c['extra_config'] ?? c['extraConfig'],
+          // v9 的 extra_config 不再写（roadmap D4 / ㊷）：全链路无人消费它。
+          // **列保留**（DDL 与 v9→v10 搬家 SELECT 都在下面），删列要迁用户数据、风险不对等。
+          // 老行里已有的值会在下一次保存该通道时被置空 —— 该值从来没人读过，属预期清理。
           'created_at': c['created_at'] ?? now,
           'updated_at': now,
         };

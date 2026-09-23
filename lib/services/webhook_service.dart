@@ -122,7 +122,7 @@ class WebhookService {
 
   /// 保存所有 Webhook 通道到加密数据库
   Future<void> saveChannels(List<Map<String, dynamic>> channels) async {
-    // DB 行契约（列名、'null' 脏数据清洗、extra_config 编码）统一在 ChannelConfigCodec
+    // DB 行契约（列名、'null' 脏数据清洗）统一在 ChannelConfigCodec
     final dbRows = channels
         .map<Map<String, dynamic>>(ChannelConfigCodec.webhookToDb)
         .toList();

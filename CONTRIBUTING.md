@@ -203,11 +203,13 @@ CI 额外做的事（本地可选）：
 
 - 覆盖率报告与上传：`genhtml coverage/lcov.info -o coverage/html`，随后作为
   `coverage-report` 工件上传。
-- `dart run dart_code_metrics:metrics analyze lib/ --reporter=github`：该步在 CI 里被
-  `set +e` 包住、**不参与判红**。在 Dart 3.12 工具链上它目前会直接抛
-  `Null check operator used on a null value`（与新版 analyzer 不兼容），因此不要把它当本地闸门，
-  也不要因为它的输出修改代码风格判断。
-- 集成冒烟测试**不在 PR 门禁内**（见第 8.2 节）。
+- **本地与 CI 的 analyze 判据同一条**：`flutter analyze --no-pub --fatal-infos`，**按退出码判红**。
+  以前那步只 grep 日志里的 `error •`、放过 warning 与 info，等于 `analysis_options.yaml` 里那批
+  lint 规则没有门禁；基线实测收紧前后都是 `No issues found!`，所以零成本。
+- 原来的 `dart_code_metrics` 步**已删除**（roadmap E2 / ㊶）：4.12.0 自带 `analyzer 3.3.1`，
+  在 Dart 3.12 上恒抛 `Null check operator used on a null value`（exit 255），且那步把
+  `EXIT_CODE=$?` 赋完就再没读过 ⇒ 结构上不可能判红。**别把它加回来**（理由写在 `analyze.yml` 注释里）。
+- 集成冒烟测试**不在 PR 门禁内**，但已加 `schedule` 每周二自动跑一次（㊵，见第 8.2 节）。
 
 ---
 

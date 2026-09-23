@@ -301,9 +301,9 @@ flutter test integration_test/smoke_test.dart
 
 **CI 工作流**（`.github/workflows/`，均运行于 `ubuntu-24.04`）：
 
-- **`analyze.yml`（PR 门禁，16 步）** - flutter analyze → 版本一致性 → 代码度量 → Dart 单测 → Android JVM 单测 → Android lint → 服务端契约测试 → 三路格式校验 → 覆盖率产物
-- **`build-apk.yml`（`v*` tag 或手动触发，18 步）** - 前置测试与 analyze → arm64 release 打包 → ABI 纯净度与版本号双闸 → GitHub Release
-- **`integration_test.yml`（手动触发，7 步）** - 模拟器冒烟测试 + 仪表测试
+- **`analyze.yml`（PR 门禁，16 步）** - `flutter analyze --fatal-infos`（按退出码判红）→ 版本一致性 → 发版闸门行为测试 → Dart 单测 → Android JVM 单测 → Android lint → 服务端契约测试 → 三路格式校验 → 覆盖率产物
+- **`build-apk.yml`（`v*` tag 或手动触发，17 步）** - 前置测试与 analyze → arm64 release 打包 → ABI 纯净度与版本号双闸 → GitHub Release
+- **`integration_test.yml`（每周二 03:00 UTC + 手动触发，7 步）** - 模拟器冒烟测试 + 仪表测试
 - **`deploy-pages.yml`（`server/public/**` 或 `server/data/version.json` 变更 / 手动触发，5 步）** - 零运维静态版本源发布
 - **格式统一** - `.github/scripts/check_format.sh` 本地与 CI 跑同一支：`dart format` + ktlint 1.8.0（规则见 `.editorconfig`）+ prettier 3.9.8（配置见 `server/.prettierrc`）
 - **版本一致性闸门** - `.github/scripts/check_version_consistency.sh` 比对 `pubspec.yaml` / `update_manager.dart` / `MainActivity.kt` / `server/data/version.json` 四处版本与 build 号，并校验 `version.json` 的 sha256 字段完备性、官网 i18n 覆盖、README 依赖标注与 zh/en ARB 键集合一致

@@ -20,6 +20,32 @@ fail() { echo -e "${RED}❌ $*${NC}"; FAIL=$((FAIL+1)); }
 warn() { echo -e "${YELLOW}⚠️  $*${NC}"; }
 hr()   { echo "────────────────────────────────────────────"; }
 
+# >>> E1 闸门（这两段被 .github/scripts/test_release_gates.sh 按标记原样提取执行，勿改标记）
+# update.md 条目必须按**标题行的构件号**匹配。只 grep "v$VER" 时，从 +112 重建到 +113
+# 而 update.md 没补 +113 条目也照样通过（v1.5.74 实际发生过），故区分三种红法。
+check_update_entry() { # $1=VER $2=BUILD；返回 0=通过，非 0=失败（已打印原因）
+    local ver="$1" build="$2" esc
+    esc=$(printf '%s' "$ver" | sed 's/\./\\./g')
+    if grep -qE "^### v${esc}\+${build}([^0-9]|$)" update.md; then return 0
+    elif grep -qE "^### v${esc}\+" update.md; then
+        fail "update.md 有 v$ver 的其它构件号、但**没有本次的 +$build**（重建后忘补条目，base.md 步骤 8）"
+    else
+        fail "update.md 完全没有 v$ver 条目（base.md 步骤 8）"
+    fi
+    return 1
+}
+# version.json 回填后的自校验：latestVersion/latestBuild 必须等于本次 pubspec 的 VER+BUILD。
+# 回填失败/被 daemon 缓存吞掉时，下载端会继续发旧包与旧 sha256，而脚本一路绿到底。
+check_version_json_sync() { # $1=VER $2=BUILD
+    local ver="$1" build="$2" vj vjb
+    vj=$(grep '"latestVersion"' server/data/version.json | head -1 | grep -oP '"\K[0-9.]+(?=")')
+    vjb=$(grep '"latestBuild"' server/data/version.json | head -1 | grep -oP ':\s*\K[0-9]+')
+    if [ "$vj" = "$ver" ] && [ "$vjb" = "$build" ]; then return 0; fi
+    fail "version.json 为 $vj+$vjb ≠ 本次 $ver+$build（回填未生效：客户端会拿到旧包/旧 sha256）"
+    return 1
+}
+# <<< E1 闸门
+
 [ -d "$ROOT/.git" ] || { echo "请在仓库根目录运行"; exit 2; }
 cd "$ROOT"
 if ! [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -50,9 +76,7 @@ VJ_V=$(grep '"latestVersion"' server/data/version.json | head -1 | grep -oP '"\K
 if [ "$VJ_V" = "$VER" ]; then ok "version.json 已同步 $VER"; else
     warn "version.json 为 $VJ_V ≠ $VER（阶段 3 将自动回填 latestVersion/latestBuild/链接，fileSize 构建后回填）"
 fi
-if grep -q "v$VER" update.md; then ok "update.md 已有 v$VER 条目"; else
-    fail "update.md 缺 v$VER 条目（base.md 步骤 8）"; SYNC_OK=0
-fi
+check_update_entry "$VER" "$BUILD" || SYNC_OK=0
 [ $SYNC_OK -eq 1 ] || { echo -e "${RED}版本号未就绪，先完成 base.md 步骤 5-8 再运行本脚本${NC}"; exit 1; }
 
 # ── 阶段 1：format + analyze（步骤 2/2.1/3）──────────────────────────────
@@ -164,7 +188,8 @@ if [ $? -eq 0 ]; then ok "version.json 与 server/public/apks/$VER 同步"; else
 
 # ── 阶段 4：缺项显式检查（防漏：update.md/徽章/官网动态化说明）────────────
 hr; echo "── 阶段 4：文档缺项检查 ──"
-grep -q "v$VER" update.md && ok "update.md 条目存在" || fail "update.md 缺 v$VER 条目"
+check_update_entry "$VER" "$BUILD" && ok "update.md 条目存在（v$VER_FULL）"
+check_version_json_sync "$VER" "$BUILD" && ok "version.json latestVersion/latestBuild == v$VER_FULL"
 grep -q "badge/Version/$VER/" README.md && grep -q "badge/Version/$VER/" README-en.md && ok "README 双语徽章已同步" || fail "README 徽章未同步"
 warn "人工确认项：官网 index.html 是否需要内容/文案更新（版本号已动态化，常规发版免更新）；base.md 审计条目与技术栈校准；隐私政策（如涉数据采集变更）"
 
@@ -190,6 +215,14 @@ hr
 if [ $FAIL -eq 0 ]; then
     echo -e "${GREEN}🎉 v$VER 发版机械步骤全部通过（$PASS 项）${NC}"
     echo "剩余人工步骤：base.md 审计条目/官网完备性确认 → git 提交打 tag → 部署 server/public"
+    # E7（口径已定：tag 一律带 v 前缀）。build-apk.yml 的过滤器是 on.push.tags: ['v*']，
+    # 而现存 tag 全部无前缀（1.5.71…1.5.74）⇒ 打 tag 从未触发过 release 构建，全靠手动。
+    if git rev-parse -q --verify "refs/tags/v$VER" >/dev/null; then
+        ok "tag v$VER 已存在（会触发 build-apk.yml）"
+    else
+        warn "下一步请打 **带 v 前缀** 的 tag：git tag v$VER && git push --tags"
+        warn "  打成 \"$VER\"（无前缀）不会触发 build-apk.yml，release 构建就得手动点。"
+    fi
     exit 0
 else
     echo -e "${RED}共 $FAIL 项失败、$PASS 项通过。按 base.md §10.2：任何一步失败都不允许发布${NC}"
