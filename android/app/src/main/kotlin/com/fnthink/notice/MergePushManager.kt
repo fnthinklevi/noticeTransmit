@@ -135,8 +135,8 @@ class MergePushManager(private val context: Context) {
                 appName = first.appName,
                 postTime = windowEnd,
                 time = timeStr,
-                // type=merge：历史页以独立类型标识聚合记录（Flutter 端 channelTypeDisplayName
-                // 无此值不影响送达标签；类型色走默认紫）
+                // type=merge 只是历史记录的**类型**标识，不是送达通道键（聚合的送达侧
+                // 是伪通道 chan:merge）；历史页类型色无此值，走默认紫
                 type = "merge",
                 deviceName = first.deviceName,
                 priority = items.maxOf { it.priority },

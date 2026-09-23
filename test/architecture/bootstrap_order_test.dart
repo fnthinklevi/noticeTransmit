@@ -10,13 +10,15 @@ import '../support/source_guards.dart';
 /// 而那条工作流是 `workflow_dispatch`（仅手动触发）——所以必须有一份能在每次 PR
 /// 上跑起来的静态守卫，否则同类退化又要等手动跑才发现。
 ///
-/// 1. **语言必须先于装配链初始化**：`channelTypeDisplayName` 用
-///    `LocaleService.currentLocale` 决定送达状态的**存储键**（`webhook:钉钉` vs
-///    `webhook:DingTalk`）。原先 `LocaleService.init()` 挂在 `MyApp` 的
-///    `_onServicesInitialized`（= splash 装配完之后），于是系统语言非中文、
-///    应用内选中文的用户，会在 `loadRecords` / `drainPendingDeliveries` 阶段
-///    把记录写成英文键，之后实时回传再写中文键 → 同一条记录出现中英双键
-///    （历史重复徽标 / 旧键永远「发送中」）。
+/// 1. **语言必须先于装配链初始化**：通道显示名取 `LocaleService.currentLocale`，
+///    而 `LocaleService` 默认 system 模式。原先 `init()` 挂在 `MyApp` 的
+///    `_onServicesInitialized`（= splash 装配完之后），于是系统语言非中文、应用内
+///    选中文的用户，装配期渲染出来的通道名是英文。
+///    v1.62 之前这里还有一个更重的后果：**送达状态的存储键就是显示名**，装配期按
+///    系统语言写 `webhook:DingTalk`、实时回传再写 `webhook:钉钉` ⇒ 同一条记录中英
+///    双键（历史重复徽标 / 旧键永远「发送中」）。DB v11 起存储键改为与语言无关的
+///    `chan:<slug>`（见 channel_display），该缺陷类别从根上消除；本条守卫保留，
+///    守的是显示层以及任何"装配期就要读语言"的新步骤。
 /// 2. **冒烟测试必须自己钉定语言**：它 pump 的是真 `MyApp()`，语言取自 prefs /
 ///    系统 locale；模拟器默认 en，则全部中文 `find.text` 落空。
 /// 3. **测试里的控件 finder 要跟着应用走**：应用已把 Material `Switch` 全量换成
@@ -48,8 +50,8 @@ void main() {
         init,
         lessThan(load),
         reason:
-            '语言初始化必须早于记录装配：否则 drain 阶段按系统语言写通道键，'
-            '与后续中文回传形成同记录双键',
+            '语言初始化必须早于记录装配：否则装配期（drain 补更新、历史首帧）按系统语言'
+            '渲染通道名，与用户设置不一致',
       );
       // 按整行判定，不用固定长度的回看窗口：`await GetIt.instance<LocaleService>()`
       // 前面的字面量宽度会随泛型/重命名变化，窗口写法会自己产生假阳性。

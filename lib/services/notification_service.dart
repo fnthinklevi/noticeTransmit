@@ -56,19 +56,28 @@ class NotificationService {
     await drainPendingDeliveries();
   }
 
-  /// 存量数据修复：旧版本把拦截结果写到独立的 '过滤拦截' key 下，导致记录的
-  /// 真实通道永远停留 pending（"发送中"）。将含该 key 的记录统一迁移为
+  /// 存量数据修复：早期版本把拦截结果写到独立的拦截键下、**不动真实通道**，
+  /// 导致记录的真实通道永远停留 pending（"发送中"）。将含拦截项的记录统一迁移为
   /// intercepted 状态：停留发送中的通道改为拦截并标注原因，已有终态不覆盖。
   Future<void> migrateInterceptedRecords() async {
     var migrated = 0;
     for (var i = 0; i < _records.length; i++) {
       final status = _records[i].deliveryStatus;
-      final legacy = status['过滤拦截'];
+      // 拦截项的键随版本有三种拼写（'过滤拦截' / 'Blocked' / 'chan:blocked'），
+      // 按规范键识别而非字面量相等——否则迁移静默不命中，缺陷原样保留。
+      String? blockedKey;
+      for (final k in status.keys) {
+        if (channelKey(k) == kBlockedChannelKey) {
+          blockedKey = k;
+          break;
+        }
+      }
+      final legacy = blockedKey == null ? null : status[blockedKey];
       if (legacy is! Map) continue;
       final message = legacy['message']?.toString() ?? '';
       final updated = <String, dynamic>{};
       for (final k in status.keys) {
-        if (k == '过滤拦截') continue;
+        if (k == blockedKey) continue;
         final info = status[k];
         if (info is Map && info['status'] == 'pending') {
           updated[k] = {'status': 'intercepted', 'message': message};
@@ -78,7 +87,10 @@ class NotificationService {
       }
       // 无真实通道时保留拦截标记本身（历史页对 channels 为空的记录回退按 key 渲染）
       if (updated.isEmpty) {
-        updated['过滤拦截'] = {'status': 'intercepted', 'message': message};
+        updated[deliveryKeyBlocked] = {
+          'status': 'intercepted',
+          'message': message,
+        };
       }
       final newRecord = _records[i].copyWith(deliveryStatus: updated);
       _records[i] = newRecord;
@@ -237,6 +249,9 @@ class NotificationService {
     _saveRecords(notificationRecord.toMap());
   }
 
+  /// 入库瞬间的通道快照：返回**送达键**（`chan:<slug>`），与 [applyDelivery]
+  /// 由原生回传算出的键同源。快照里存的是键不是文案——显示名随时可改、随语言变，
+  /// 键必须稳定，否则送达结果写进新键而快照里的旧键永远停留「发送中」。
   List<String> _getActiveChannels() {
     final channels = <String>[];
     try {
@@ -244,7 +259,7 @@ class NotificationService {
       for (final c in webhookService.channels) {
         if (c['enabled'] == true) {
           final type = c['type']?.toString() ?? 'generic';
-          channels.add(_webhookTypeLabel(type));
+          channels.add(channelDeliveryKey(type));
         }
       }
     } catch (_) {}
@@ -252,25 +267,22 @@ class NotificationService {
       // 从 GetIt 获取已缓存的 EmailService，同步读取已加载的通道
       final emailService = GetIt.instance<EmailService>();
       if (emailService.cachedChannels.any((c) => c.enabled)) {
-        channels.add(channelTypeDisplayName('EMAIL'));
+        channels.add(channelDeliveryKey('EMAIL'));
       }
     } catch (_) {}
     try {
-      // 应用通道（自建应用体系）：label 必须与原生回传的
-      // channelTypeDisplayName(appType) 同口径——否则应用通道的送达结果会写入
-      // 一个新键，而初始 pending 项永远停留「发送中」。
+      // 应用通道（自建应用体系）：原生回传的是 cfg.type（wecom_app/feishu_app），
+      // 与本处的 appType 经同一 channelDeliveryKey 归一。
       final appChannel = GetIt.instance<AppChannelService>();
       for (final c in appChannel.channels) {
         if (c['enabled'] == true) {
           final type = c['appType']?.toString() ?? '';
-          if (type.isNotEmpty) channels.add(channelTypeDisplayName(type));
+          if (type.isNotEmpty) channels.add(channelDeliveryKey(type));
         }
       }
     } catch (_) {}
     return channels;
   }
-
-  String _webhookTypeLabel(String type) => channelTypeDisplayName(type);
 
   /// 初始送达状态：所有启用通道标记为 pending（发送中）
   Map<String, dynamic> _buildInitialDeliveries(List<String> channels) {
@@ -281,50 +293,49 @@ class NotificationService {
     return result;
   }
 
-  /// Kotlin 端通道类型 → 显示标签（EMAIL/SMS/FILTER 与 webhook 渠道统一由
-  /// channelTypeDisplayName 处理，语言随软件设置）
-  String _deliveryLabel(String kotlinType) =>
-      channelTypeDisplayName(kotlinType);
-
   /// 送达回传 → 新的 `deliveryStatus` 映射（纯函数；内存命中与 DB 兜底两条路径共用）。
   ///
-  /// - `FILTER` / `SMS` 是拦截伪通道回传：通知实际不会投递，把该记录**所有**真实通道
-  ///   统一置为 `intercepted` 并带上原因，否则真实通道永远停留 pending、历史一直显示
-  ///   "发送中"。
+  /// 键由 [channelDeliveryKey] 从 [kotlinType] 推导，**不由调用方传入**：
+  /// 历史上键是显示名，两处各写一份字面量就会永不相等（首页曾写 `'自建应用:企微'`）。
+  ///
+  /// - 拦截伪通道（原生回传 `FILTER` / `SMS`，规范键同为 `blocked`）：通知实际不会
+  ///   投递，把该记录**所有**真实通道统一置为 `intercepted` 并带上原因，否则真实通道
+  ///   永远停留 pending、历史一直显示"发送中"。
   /// - `MERGE` 是聚合伪通道回传：成员在窗口期内停留 pending，到点按聚合推送的
   ///   **真实结果**批量转终态。必须按传入 `normalized` 映射而**不是写死 success**——
   ///   失败却标成"已合并推送"等于让用户以为已送达而内容已丢（原生侧对应
   ///   `MergePushManager.markMembersDelivered`）。
-  /// - 其余为普通通道结果：只更新自己那条 `label`，保留其他通道状态，否则 webhook 的
+  /// - 其余为普通通道结果：只更新自己那条键，保留其他通道状态，否则 webhook 的
   ///   结果会误覆盖邮件等通道的真实状态。
   static Map<String, dynamic> applyDelivery({
     required String kotlinType,
-    required String label,
     required Map<String, dynamic> existing,
     required String normalized,
     required String message,
   }) {
-    if (kotlinType == 'FILTER' || kotlinType == 'SMS') {
-      return _fanOutToAllChannels(existing, label, 'intercepted', message);
+    final key = channelDeliveryKey(kotlinType);
+    final slug = channelKey(kotlinType);
+    if (slug == kBlockedChannelKey) {
+      return _fanOutToAllChannels(existing, key, 'intercepted', message);
     }
-    if (kotlinType == 'MERGE') {
-      return _fanOutToAllChannels(existing, label, normalized, message);
+    if (slug == kMergedChannelKey) {
+      return _fanOutToAllChannels(existing, key, normalized, message);
     }
     final updated = Map<String, dynamic>.from(existing);
-    updated[label] = {'status': normalized, 'message': message};
+    updated[key] = {'status': normalized, 'message': message};
     return updated;
   }
 
-  /// 伪通道回传的展开：已有通道全部置同一终态；无已有通道时以 [label] 建一条占位。
+  /// 伪通道回传的展开：已有通道全部置同一终态；无已有通道时以 [key] 建一条占位。
   static Map<String, dynamic> _fanOutToAllChannels(
     Map<String, dynamic> existing,
-    String label,
+    String key,
     String status,
     String message,
   ) {
     if (existing.isEmpty) {
       return <String, dynamic>{
-        label: {'status': status, 'message': message},
+        key: {'status': status, 'message': message},
       };
     }
     return <String, dynamic>{
@@ -346,17 +357,18 @@ class NotificationService {
     final idx = _records.indexWhere((r) => r.id == notificationId);
     // N9-诊断：idx<0 时此前静默跳过（只写送达日志、不更新状态）——
     // 合并成员卡「发送中」这类问题因此不可观测。此处记录被跳过的 id 供排查。
-    final label = _deliveryLabel(kotlinType);
     // SUCCESS → 成功；PAUSED（用户暂停推送，未实际发送）→ paused；其余 → failed
     final normalized = switch (status) {
       'SUCCESS' => 'success',
       'PAUSED' => 'paused',
       _ => 'failed',
     };
+    // 送达键：deliveryStatus 的键与 webhook_delivery_log.tag 共用同一串，
+    // 同一通道在历史页与送达健康统计里才是同一个身份。
+    final deliveryKey = channelDeliveryKey(kotlinType);
     if (idx >= 0) {
       final updated = applyDelivery(
         kotlinType: kotlinType,
-        label: label,
         existing: _records[idx].deliveryStatus,
         normalized: normalized,
         message: message,
@@ -384,7 +396,6 @@ class NotificationService {
           // 只靠注释维系同步 —— 改一处忘另一处即静默分叉）。
           final updated = applyDelivery(
             kotlinType: kotlinType,
-            label: label,
             existing: rec.deliveryStatus,
             normalized: normalized,
             message: message,
@@ -407,7 +418,7 @@ class NotificationService {
         await DatabaseHelper().insertDeliveryLog(
           channelUrl: channelUrl,
           notificationId: notificationId,
-          tag: label,
+          tag: deliveryKey,
           status: normalized,
           httpCode: httpCode,
           message: message,

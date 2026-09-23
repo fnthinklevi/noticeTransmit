@@ -294,13 +294,13 @@ void main() {
           'postTime': testPostTime,
           'time': testTime,
           'deliveryStatus': {
-            'webhook:企业微信': {'status': 'success', 'message': 'ok'},
+            'chan:wechat_work': {'status': 'success', 'message': 'ok'},
           },
         };
 
         final record = NotificationRecord.fromMap(map);
 
-        expect(record.deliveryStatus['webhook:企业微信']['status'], 'success');
+        expect(record.deliveryStatus['chan:wechat_work']['status'], 'success');
       });
 
       test('fromMap 兼容 DB delivery_info JSON 字符串', () {
@@ -314,13 +314,36 @@ void main() {
           'postTime': testPostTime,
           'time': testTime,
           'delivery_info':
-              '{"webhook:钉钉":{"status":"failed","message":"HTTP 502"}}',
+              '{"chan:dingtalk":{"status":"failed","message":"HTTP 502"}}',
         };
 
         final record = NotificationRecord.fromMap(map);
 
-        expect(record.deliveryStatus['webhook:钉钉']['status'], 'failed');
-        expect(record.deliveryStatus['webhook:钉钉']['message'], 'HTTP 502');
+        expect(record.deliveryStatus['chan:dingtalk']['status'], 'failed');
+        expect(record.deliveryStatus['chan:dingtalk']['message'], 'HTTP 502');
+      });
+
+      test('v11 前的本地化键在读取时归一（旧记录不靠 DB 迁移也能读对）', () {
+        final record = NotificationRecord.fromMap({
+          'id': testId,
+          'title': testTitle,
+          'content': testContent,
+          'packageName': testPackageName,
+          'appName': testAppName,
+          'type': testType,
+          'postTime': testPostTime,
+          'time': testTime,
+          'channels': ['webhook:企业微信'],
+          'delivery_info':
+              '{"webhook:企业微信":{"status":"success","message":"ok"},'
+              '"Blocked":{"status":"intercepted","message":"黑名单"}}',
+        });
+
+        expect(record.deliveryStatus['chan:wechat_work']['status'], 'success');
+        expect(record.deliveryStatus['chan:blocked']['status'], 'intercepted');
+        // channels 里的每一项都得能在 deliveryStatus 里查到状态（同键口径）
+        expect(record.channels, ['chan:wechat_work']);
+        expect(record.deliveryStatus.keys, containsAll(record.channels));
       });
 
       test('deliveryStatus round-trip 序列化', () {
@@ -335,18 +358,21 @@ void main() {
           postTime: testPostTime,
           time: testTime,
           deviceName: testDeviceName,
-          channels: const ['webhook:企业微信'],
+          channels: const ['chan:wechat_work'],
           deliveryStatus: {
-            'webhook:企业微信': {'status': 'success', 'message': 'ok'},
+            'chan:wechat_work': {'status': 'success', 'message': 'ok'},
           },
         );
 
         final map = original.toMap();
         final restored = NotificationRecord.fromMap(map);
 
-        expect(restored.deliveryStatus['webhook:企业微信']['status'], 'success');
-        expect(restored.deliveryStatus['webhook:企业微信']['message'], 'ok');
-        expect(restored.channels, ['webhook:企业微信']);
+        expect(
+          restored.deliveryStatus['chan:wechat_work']['status'],
+          'success',
+        );
+        expect(restored.deliveryStatus['chan:wechat_work']['message'], 'ok');
+        expect(restored.channels, ['chan:wechat_work']);
       });
 
       test('缺失/非法 deliveryStatus 回退为空 Map', () {

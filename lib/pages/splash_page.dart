@@ -44,13 +44,12 @@ class _SplashPageState extends State<SplashPage>
     final l10n = AppLocalizations.of(context);
     log('=== SplashPage 开始初始化服务 ===');
 
-    // 语言必须先于任何「会写通道标签」的装配步骤：channelTypeDisplayName 用
-    // LocaleService.currentLocale 决定键名（webhook:钉钉 / webhook:DingTalk），
-    // 而 LocaleService 默认是 system 模式、init() 过去挂在 MyApp 的
-    // _onServicesInitialized 里（= splash 全部装配完之后）。
-    // 于是系统语言非中文、应用内选中文的用户，会在 loadRecords /
-    // drainPendingDeliveries 阶段把送达状态写成英文键，之后实时回传再写中文键，
-    // 同一条记录出现中英双键（历史重复徽标 / 旧键永远「发送中」）。
+    // 语言装配必须先于任何显示通道名的步骤（LocaleService 默认 system 模式，
+    // init() 过去挂在 MyApp 的 _onServicesInitialized 里 = splash 装配完之后）。
+    // 历史上它还**同时决定存储键**（webhook:钉钉 / webhook:DingTalk），于是系统语言
+    // 非中文、应用内选中文的用户会在 loadRecords / drainPendingDeliveries 阶段写出
+    // 中英双键（历史重复徽标 / 旧键永远「发送中」）。DB v11 起存储键改为与语言无关的
+    // chan:<slug>，该缺陷类别从根上消除；此处顺序约束只剩显示层。
     try {
       await GetIt.instance<LocaleService>().init();
     } catch (e) {

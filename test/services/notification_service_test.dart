@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
+import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
 
@@ -75,7 +76,7 @@ void main() {
         'ok',
       );
 
-      final delivery = service.records.first.deliveryStatus['webhook:企业微信'];
+      final delivery = service.records.first.deliveryStatus['chan:wechat_work'];
       expect(delivery, isNotNull);
       expect(delivery['status'], 'success');
       expect(delivery['message'], 'ok');
@@ -91,7 +92,7 @@ void main() {
         'HTTP 502',
       );
 
-      final delivery = service.records.first.deliveryStatus['webhook:钉钉'];
+      final delivery = service.records.first.deliveryStatus['chan:dingtalk'];
       expect(delivery, isNotNull);
       expect(delivery['status'], 'failed');
       expect(delivery['message'], 'HTTP 502');
@@ -107,13 +108,13 @@ void main() {
         '请求过于频繁，已被限流',
       );
 
-      final delivery = service.records.first.deliveryStatus['webhook:飞书'];
+      final delivery = service.records.first.deliveryStatus['chan:feishu'];
       expect(delivery, isNotNull);
       expect(delivery['status'], 'failed');
       expect(delivery['message'], '请求过于频繁，已被限流');
     });
 
-    test('标签映射正确：WECHAT_WORK 回传更新的是企业微信而非通用 Webhook', () async {
+    test('键映射正确：WECHAT_WORK 回传写的是 chan:wechat_work 而非通用键', () async {
       service.addRecord(smsRecord());
 
       await service.updateDelivery(
@@ -124,8 +125,8 @@ void main() {
       );
 
       final status = service.records.first.deliveryStatus;
-      expect(status.keys, contains('webhook:企业微信'));
-      expect(status.keys, isNot(contains('webhook:Webhook')));
+      expect(status.keys, contains('chan:wechat_work'));
+      expect(status.keys, isNot(contains('chan:generic')));
     });
 
     test('未知 id 回传：不抛异常且记录送达状态无变化', () async {
@@ -160,10 +161,10 @@ void main() {
         'ok',
       );
 
-      final callStatus = service.records.first.deliveryStatus['webhook:钉钉'];
+      final callStatus = service.records.first.deliveryStatus['chan:dingtalk'];
       expect(callStatus['status'], 'success');
       // 短信记录不受影响
-      final smsStatus = service.records[1].deliveryStatus['webhook:钉钉'];
+      final smsStatus = service.records[1].deliveryStatus['chan:dingtalk'];
       expect(smsStatus, isNull);
     });
   });
@@ -213,7 +214,7 @@ void main() {
         'Push paused (skipped)',
       );
 
-      final delivery = service.records.first.deliveryStatus['webhook:企业微信'];
+      final delivery = service.records.first.deliveryStatus['chan:wechat_work'];
       expect(delivery, isNotNull);
       expect(delivery['status'], 'paused');
       expect(delivery['message'], 'Push paused (skipped)');
@@ -229,7 +230,7 @@ void main() {
         '邮件发送成功',
       );
 
-      final delivery = service.records.first.deliveryStatus['邮件'];
+      final delivery = service.records.first.deliveryStatus['chan:email'];
       expect(delivery, isNotNull);
       expect(delivery['status'], 'success');
       expect(delivery['message'], '邮件发送成功');
@@ -244,13 +245,13 @@ void main() {
         'Push paused (skipped)',
       );
       expect(
-        service.records.first.deliveryStatus['webhook:企业微信']['status'],
+        service.records.first.deliveryStatus['chan:wechat_work']['status'],
         'paused',
       );
 
       await service.pushRecordNow(service.records.first);
 
-      final delivery = service.records.first.deliveryStatus['webhook:企业微信'];
+      final delivery = service.records.first.deliveryStatus['chan:wechat_work'];
       expect(delivery, isNotNull);
       expect(delivery['status'], 'pending');
       // paused 原因已被清除
@@ -303,10 +304,10 @@ void main() {
       );
 
       final status = service.records.first.deliveryStatus;
-      expect(status['webhook:企业微信']['status'], 'intercepted');
-      expect(status['webhook:企业微信']['message'], '黑名单（命中: 验证码）');
+      expect(status['chan:wechat_work']['status'], 'intercepted');
+      expect(status['chan:wechat_work']['message'], '黑名单（命中: 验证码）');
       // 不再新开"过滤拦截"独立 key，避免真实通道停留"发送中"
-      expect(status.keys, isNot(contains('过滤拦截')));
+      expect(status.keys, isNot(contains('chan:blocked')));
     });
 
     test('短信被拦截：SMS 回传 → 真实通道置为 intercepted 并标注原因', () async {
@@ -320,8 +321,8 @@ void main() {
       );
 
       final status = service.records.first.deliveryStatus;
-      expect(status['webhook:企业微信']['status'], 'intercepted');
-      expect(status['webhook:企业微信']['message'], '应用过滤');
+      expect(status['chan:wechat_work']['status'], 'intercepted');
+      expect(status['chan:wechat_work']['message'], '应用过滤');
     });
 
     test('拦截回传落在其他通道状态之后：全部真实通道统一置为 intercepted', () async {
@@ -334,7 +335,7 @@ void main() {
         'ok',
       );
       expect(
-        service.records.first.deliveryStatus['webhook:企业微信']['status'],
+        service.records.first.deliveryStatus['chan:wechat_work']['status'],
         'success',
       );
 
@@ -346,12 +347,12 @@ void main() {
       );
 
       expect(
-        service.records.first.deliveryStatus['webhook:企业微信']['status'],
+        service.records.first.deliveryStatus['chan:wechat_work']['status'],
         'intercepted',
       );
     });
 
-    test('无启用通道时拦截回传：兜底写入"过滤拦截"key 且状态为 intercepted', () async {
+    test('无启用通道时拦截回传：兜底写入 chan:blocked 键且状态为 intercepted', () async {
       await GetIt.instance.reset();
       final bareService = NotificationService();
       bareService.addRecord(smsRecord());
@@ -365,27 +366,44 @@ void main() {
       );
 
       final status = bareService.records.first.deliveryStatus;
-      expect(status['过滤拦截']['status'], 'intercepted');
-      expect(status['过滤拦截']['message'], '黑名单（命中: 验证码）');
+      expect(status['chan:blocked']['status'], 'intercepted');
+      expect(status['chan:blocked']['message'], '黑名单（命中: 验证码）');
     });
 
-    test('存量数据迁移：旧版"过滤拦截"独立 key → 真实通道 intercepted', () async {
-      service.addRecord(smsRecord());
-      // 手工构造旧版数据形态：真实通道 pending + '过滤拦截' 独立 key
-      final record = service.records.first;
-      final legacyStatus = <String, dynamic>{
-        'webhook:企业微信': {'status': 'pending', 'message': ''},
-        '过滤拦截': {'status': 'failed', 'message': '黑名单（命中: 验证码）'},
-      };
-      final migrated = record.copyWith(deliveryStatus: legacyStatus);
-      service.records[0] = migrated;
+    test('存量数据迁移：旧版本地化拦截键 → 真实通道 intercepted', () async {
+      // 旧版数据形态：真实通道 pending + 独立的拦截键（v11 前键就是显示名，
+      // 中文环境写 '过滤拦截'、英文环境写 'Blocked'）。经 fromMap 读入即归一为
+      // chan: 键——真实链路里 migrateInterceptedRecords 看到的总是归一后的形状。
+      for (final legacy in [
+        {'channel': 'webhook:企业微信', 'blocked': '过滤拦截'},
+        {'channel': 'webhook:WeCom', 'blocked': 'Blocked'},
+      ]) {
+        service.addRecord(smsRecord());
+        service.records[0] = NotificationRecord.fromMap({
+          ...smsRecord(),
+          'channels': [legacy['channel']],
+          'deliveryStatus': <String, dynamic>{
+            legacy['channel']!: {'status': 'pending', 'message': ''},
+            legacy['blocked']!: {'status': 'failed', 'message': '黑名单（命中: 验证码）'},
+          },
+        });
 
-      await service.migrateInterceptedRecords();
+        await service.migrateInterceptedRecords();
 
-      final status = service.records.first.deliveryStatus;
-      expect(status['webhook:企业微信']['status'], 'intercepted');
-      expect(status['webhook:企业微信']['message'], '黑名单（命中: 验证码）');
-      expect(status.keys, isNot(contains('过滤拦截')));
+        final status = service.records.first.deliveryStatus;
+        expect(
+          status['chan:wechat_work']['status'],
+          'intercepted',
+          reason: '$legacy',
+        );
+        expect(
+          status['chan:wechat_work']['message'],
+          '黑名单（命中: 验证码）',
+          reason: '$legacy',
+        );
+        // 拦截项不再单列：真实通道已转终态
+        expect(status.keys, isNot(contains('chan:blocked')), reason: '$legacy');
+      }
     });
   });
 }

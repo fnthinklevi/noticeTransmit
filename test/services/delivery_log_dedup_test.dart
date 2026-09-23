@@ -16,14 +16,14 @@ void main() {
     test('重复终态行折叠为一条，保留最新（列表首条）', () {
       final rows = [
         {
-          'tag': 'webhook:钉钉',
+          'tag': 'chan:dingtalk',
           'status': 'success',
           'http_code': 200,
           'message': 'ok',
           'timestamp': 2000,
         },
         {
-          'tag': 'webhook:钉钉',
+          'tag': 'chan:dingtalk',
           'status': 'success',
           'http_code': 200,
           'message': 'ok',
@@ -38,14 +38,14 @@ void main() {
     test('不同终态各自保留（失败后重试成功不折叠）', () {
       final rows = [
         {
-          'tag': 'webhook:飞书',
+          'tag': 'chan:feishu',
           'status': 'success',
           'http_code': 200,
           'message': 'ok',
           'timestamp': 2000,
         },
         {
-          'tag': 'webhook:飞书',
+          'tag': 'chan:feishu',
           'status': 'failed',
           'http_code': 502,
           'message': 'Bad Gateway',
@@ -64,7 +64,7 @@ void main() {
       final rows = List.generate(
         3,
         (i) => {
-          'tag': '过滤拦截',
+          'tag': 'chan:blocked',
           'status': 'failed',
           'http_code': 0,
           'message': '黑名单（命中: 关键词）',
@@ -79,14 +79,14 @@ void main() {
     test('http_code/message 为 NULL 的重复终态同样折叠', () {
       final rows = [
         {
-          'tag': 'webhook:通用',
+          'tag': 'chan:generic',
           'status': 'failed',
           'http_code': null,
           'message': null,
           'timestamp': 2000,
         },
         {
-          'tag': 'webhook:通用',
+          'tag': 'chan:generic',
           'status': 'failed',
           'http_code': null,
           'message': null,
@@ -101,14 +101,14 @@ void main() {
     test('不同通道的相同状态互不折叠', () {
       final rows = [
         {
-          'tag': 'webhook:钉钉',
+          'tag': 'chan:dingtalk',
           'status': 'success',
           'http_code': 200,
           'message': 'ok',
           'timestamp': 2000,
         },
         {
-          'tag': 'webhook:飞书',
+          'tag': 'chan:feishu',
           'status': 'success',
           'http_code': 200,
           'message': 'ok',

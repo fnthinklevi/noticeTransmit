@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../services/archive_worker.dart' show kArchiveDirModeKey;
+import '../services/channel_display.dart';
 import '../services/filter_service.dart';
 import '../services/notification_service.dart';
 import '../services/platform_channel.dart';
@@ -514,26 +515,29 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Color _getChannelColor(String channel) {
-    // 通道名随软件语言（企业微信/WeCom、飞书/Feishu、钉钉/DingTalk、邮件/Email），
-    // 双语关键词都识别，保证历史记录跨语言显示时品牌色不丢失
-    final lower = channel.toLowerCase();
-    if (channel.contains('企业微信') || lower.contains('wecom')) {
-      return const Color(0xFF2BAA3E);
+    // channel 是送达键（chan:<slug>），早期记录也可能是本地化显示名——channelKey
+    // 两种都认，因此品牌色不再依赖"显示名里含品牌词"这种字符串巧合。
+    switch (channelKey(channel)) {
+      case 'wechat_work':
+      case 'wecom_app':
+        return const Color(0xFF2BAA3E);
+      case 'feishu':
+      case 'feishu_app':
+        return const Color(0xFF3370FF);
+      case 'dingtalk':
+        return const Color(0xFF0089FF);
+      case 'email':
+        return AppColors.orange;
+      default:
+        return Colors.grey;
     }
-    if (channel.contains('飞书') || lower.contains('feishu')) {
-      return const Color(0xFF3370FF);
-    }
-    if (channel.contains('钉钉') || lower.contains('dingtalk')) {
-      return const Color(0xFF0089FF);
-    }
-    if (channel.contains('邮件') || lower.contains('email')) {
-      return AppColors.orange;
-    }
-    return Colors.grey;
   }
 
   /// 渠道 chip + 送达状态小圆点与文字（成功/失败/发送中；无状态记录仅显示渠道名）
   /// 失败时在 chip 下方内联显示失败原因
+  ///
+  /// [channel] 传送达键（`chan:<slug>`）：界面显示名在此统一换算，调用方不必再
+  /// 关心"这条是键还是名字"。
   Widget _buildChannelChip(
     String channel,
     Color chipColor,
@@ -550,7 +554,10 @@ class _HistoryPageState extends State<HistoryPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(channel, style: TextStyle(fontSize: 10, color: chipColor)),
+          Text(
+            channelTypeDisplayName(channel),
+            style: TextStyle(fontSize: 10, color: chipColor),
+          ),
           if (status.isNotEmpty) ...[
             const SizedBox(width: 3),
             Container(
@@ -1614,7 +1621,8 @@ class _HistoryPageState extends State<HistoryPage> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    '${log['tag']} · HTTP ${log['http_code'] ?? '-'}'
+                                    '${channelTypeDisplayName(log['tag']?.toString() ?? '')}'
+                                    ' · HTTP ${log['http_code'] ?? '-'}'
                                     ' · ${log['message'] ?? ''}',
                                     style: TextStyle(
                                       fontSize: 12,
@@ -1751,7 +1759,8 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    // 推送渠道标签 + 各通道送达状态（重启后 channels 为空时回退用 deliveryStatus 键）
+    // 推送渠道标签 + 各通道送达状态（两者用同一串送达键 chan:<slug>；
+    // 重启后 channels 为空时回退用 deliveryStatus 键）
     final displayChannels = record.channels.isNotEmpty
         ? record.channels
         : record.deliveryStatus.keys.toList();

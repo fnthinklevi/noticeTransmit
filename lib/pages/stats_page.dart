@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../services/channel_display.dart';
 import '../services/notification_service.dart';
 import '../theme/app_colors.dart';
 import 'package:get_it/get_it.dart';
@@ -400,7 +401,8 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildChannelRateRow(Map<String, dynamic> row) {
-    final tag = row['tag']?.toString() ?? '';
+    // tag 存的是送达键（chan:<slug>），此处换算成当前语言的显示名
+    final tag = channelTypeDisplayName(row['tag']?.toString() ?? '');
     final total = (row['total'] as num?)?.toInt() ?? 0;
     final success = (row['success'] as num?)?.toInt() ?? 0;
     final ratio = total > 0 ? success / total : 0.0;

@@ -114,11 +114,11 @@ void main() {
       service.addRecord(record());
 
       final status = service.records.first.deliveryStatus;
-      expect(status.keys, contains('webhook:企业微信'));
-      // 当前行为：邮件通道缺失。修复该时序后此处应改为 contains('邮件')
+      expect(status.keys, contains('chan:wechat_work'));
+      // 当前行为：邮件通道缺失。修复该时序后此处应改为 contains('chan:email')
       expect(
         status.keys,
-        isNot(contains('邮件')),
+        isNot(contains('chan:email')),
         reason:
             '若此断言失败，说明邮件通道已在入库前加载，该时序缺陷已被修复——'
             '请改写本用例并同步更新 notification_service.dart 的注释。',
@@ -133,15 +133,18 @@ void main() {
       service.addRecord(record());
 
       final status = service.records.first.deliveryStatus;
-      expect(status.keys, contains('webhook:企业微信'));
-      expect(status.keys, contains('邮件'));
-      expect(status['邮件']!['status'], 'pending');
+      expect(status.keys, contains('chan:wechat_work'));
+      expect(status.keys, contains('chan:email'));
+      expect(status['chan:email']!['status'], 'pending');
     });
 
     test('快照固化：入库后再加载 email，既有记录不会被补上邮件通道', () async {
       await seedWebhook();
       service.addRecord(record());
-      expect(service.records.first.deliveryStatus.keys, isNot(contains('邮件')));
+      expect(
+        service.records.first.deliveryStatus.keys,
+        isNot(contains('chan:email')),
+      );
 
       // 随后 MainPage._postInit 载入 email 通道
       emailService.cachedChannels = [enabledEmail()];
@@ -149,19 +152,22 @@ void main() {
       // 既有记录的快照不会追溯补齐——邮件通道永远缺席这条记录
       expect(
         service.records.first.deliveryStatus.keys,
-        isNot(contains('邮件')),
+        isNot(contains('chan:email')),
         reason: '通道快照在 addRecord 时固化，后续加载不回溯。',
       );
 
       // 但此后的新记录能拿到邮件通道
       service.addRecord(record(id: 'pkg:tag:2'));
-      expect(service.records.first.deliveryStatus.keys, contains('邮件'));
+      expect(service.records.first.deliveryStatus.keys, contains('chan:email'));
     });
 
     test('邮件回传会补上缺失的通道 key（回传本身不丢）', () async {
       await seedWebhook();
       service.addRecord(record());
-      expect(service.records.first.deliveryStatus.keys, isNot(contains('邮件')));
+      expect(
+        service.records.first.deliveryStatus.keys,
+        isNot(contains('chan:email')),
+      );
 
       // 原生端确实发出了邮件并回传结果
       await service.updateDelivery('pkg:tag:1', 'EMAIL', 'SUCCESS', '邮件发送成功');
@@ -172,11 +178,11 @@ void main() {
       // 不会导致回传结果丢失——回传丢失的风险仅存在于 FILTER/SMS/MERGE 这类
       // 按 existing.keys 整体改写的路径上（已由各自的用例覆盖）。
       final status = service.records.first.deliveryStatus;
-      expect(status.keys, contains('邮件'));
-      expect(status['邮件']!['status'], 'success');
-      expect(status['邮件']!['message'], '邮件发送成功');
+      expect(status.keys, contains('chan:email'));
+      expect(status['chan:email']!['status'], 'success');
+      expect(status['chan:email']!['message'], '邮件发送成功');
       // 其他通道不受影响，仍停留在 pending
-      expect(status['webhook:企业微信']!['status'], 'pending');
+      expect(status['chan:wechat_work']!['status'], 'pending');
     });
 
     test('快照缺通道只影响展示占位，不改写其他通道', () async {
@@ -186,8 +192,8 @@ void main() {
       // 入库瞬间：邮件通道未就绪 → 该记录少一个"发送中"占位。
       // 这是本组测试记录的**真实缺陷面**：用户在历史页看到的通道数少于实际启用数，
       // 直到原生回传才补齐。若后续修复（在 splash 阶段预加载 email 通道），
-      // 本用例应改为断言 contains('邮件')。
-      expect(service.records.first.deliveryStatus.keys, ['webhook:企业微信']);
+      // 本用例应改为断言 contains('chan:email')。
+      expect(service.records.first.deliveryStatus.keys, ['chan:wechat_work']);
     });
   });
 }

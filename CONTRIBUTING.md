@@ -276,9 +276,12 @@ flutter gen-l10n
 
 ### 8.5 数据库
 
-`lib/database/database_helper.dart` 的 `dbVersion = 10`，当前 6 张表（`notifications`、
+`lib/database/database_helper.dart` 的 `dbVersion = 11`，当前 6 张表（`notifications`、
 `pending_notifications`、`email_channels`、`webhook_channels`、`webhook_delivery_log`、
-`app_channels`）。新增表/字段必须递增 `dbVersion` 并补 `onUpgrade` 分支；
+`app_channels`）。新增表/字段必须递增 `dbVersion` 并补 `onUpgrade` 分支；**只改存量数据的值**
+（如 v11 把送达键从本地化显示名改写为 `chan:<slug>`）同样要递增版本号并补分支，
+且必须幂等（重复执行结果一致）、坏数据跳过而非抛出——`onUpgrade` 抛错的后果是
+「备份原库 + 重建空库」，等于清空用户历史。
 `test/database/database_helper_test.dart` 钉住了版本号与建表增量一致，也禁止迁移期建库使用字面量版本。
 推送历史使用 SQLCipher（`sqflite_sqlcipher`）加密存储，改动请一并保持加密开关语义。
 

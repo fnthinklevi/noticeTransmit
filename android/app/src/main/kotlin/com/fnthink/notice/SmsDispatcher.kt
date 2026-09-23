@@ -308,7 +308,8 @@ object SmsDispatcher {
      * 被过滤规则拦截（黑名单/应用过滤）的短信：webhook 不发送，但写入推送历史，
      * 送达状态直接置为失败并标注原因，保证"收到的每条消息都能在历史里看到去向"。
      * 送达状态通过 DeliveryNotifier 回传（双写：实时广播 + 持久化队列兜底），
-     * Flutter 侧 `_deliveryLabel` 对 "SMS" 通道渲染为「过滤拦截」。
+     * Flutter 侧把 "SMS" 与 "FILTER" 归一为同一拦截伪通道（送达键 chan:blocked），
+     * 并把该记录**所有**真实通道置为 intercepted，不留「发送中」。
      */
     private fun recordBlocked(
         context: Context,

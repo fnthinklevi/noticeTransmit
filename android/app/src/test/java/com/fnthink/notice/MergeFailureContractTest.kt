@@ -59,16 +59,19 @@ class MergeFailureContractTest {
 
     @Test
     fun dartMergeBranch_mapsNormalizedNotHardcodedSuccess() {
-        val idx = notifService.indexOf("kotlinType == 'MERGE'")
-        assertTrue("Dart 侧应有 MERGE 分支", idx >= 0)
-        val body = notifService.substring(idx, minOf(idx + 1400, notifService.length))
+        // 送达键去本地化（v11）后，Dart 侧不再比对回传字面量，而是把 kotlinType 归一为
+        // 规范键再判定 —— MERGE / merge / '合并推送' 都会落到这个分支。
+        val idx = notifService.indexOf("slug == kMergedChannelKey")
+        assertTrue("Dart 侧应有 MERGE 分支（按规范键判定）", idx >= 0)
+        val end = notifService.indexOf("\n  }", idx)
+        val body = notifService.substring(idx, if (end > idx) end else notifService.length)
         assertTrue(
             "Dart MERGE 分支必须用 normalized（真实结果映射），不能写死 'success'",
             body.contains("normalized")
         )
         assertFalse(
             "Dart MERGE 分支出现写死 success 即为回归（历史缺陷）",
-            body.contains("'status': 'success'")
+            body.contains("'success'")
         )
     }
 

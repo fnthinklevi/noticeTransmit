@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../services/channel_display.dart';
+
 class NotificationRecord {
   final String id;
   final String title;
@@ -14,7 +16,8 @@ class NotificationRecord {
   // 通知优先级：0=低 / 1=中 / 2=高（来源于系统通知 priority）
   final int priority;
   final List<String> channels;
-  // 各推送通道的送达状态：label → {'status': 'pending/success/failed', 'message': '...'}
+  // 各推送通道的送达状态：送达键（`chan:<slug>`，见 channel_display）→
+  // {'status': 'pending/success/failed', 'message': '...'}
   final Map<String, dynamic> deliveryStatus;
 
   NotificationRecord({
@@ -49,9 +52,11 @@ class NotificationRecord {
       time: map['time'] as String? ?? '',
       deviceName: (map['deviceName'] ?? map['device_name']) as String? ?? '',
       priority: map['priority'] as int? ?? 1,
+      // channels 与 deliveryStatus 的键必须是同一串（历史页用 channels 做键查状态），
+      // 因此同样归一：旧导出文件里存的是显示名。
       channels:
           (map['channels'] as List<dynamic>?)
-              ?.map((e) => e.toString())
+              ?.map((e) => channelDeliveryKey(e.toString()))
               .toList() ??
           [],
       deliveryStatus: _parseDeliveryStatus(
@@ -60,16 +65,22 @@ class NotificationRecord {
     );
   }
 
-  /// 兼容 DB delivery_info（JSON 字符串）与内存对象（Map）两种来源
+  /// 兼容 DB delivery_info（JSON 字符串）与内存对象（Map）两种来源。
+  /// 读取即归一为 `chan:<slug>` 键：v11 之前的行存的是本地化显示名
+  /// （`webhook:企业微信` / `邮件`），归一后下游（历史页 chip、状态查询、
+  /// 手动补推重置）不必再区分新旧格式，也不会因语言切换而分裂出第二套键。
   static Map<String, dynamic> _parseDeliveryStatus(dynamic v) {
-    if (v is Map) return Map<String, dynamic>.from(v);
-    if (v is String && v.isNotEmpty) {
+    Map<String, dynamic>? raw;
+    if (v is Map) {
+      raw = Map<String, dynamic>.from(v);
+    } else if (v is String && v.isNotEmpty) {
       try {
         final decoded = jsonDecode(v);
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        if (decoded is Map) raw = Map<String, dynamic>.from(decoded);
       } catch (_) {}
     }
-    return {};
+    if (raw == null) return {};
+    return normalizeDeliveryKeys(raw);
   }
 
   /// F2 批量补推：是否存在失败通道（与 DB 侧 `delivery_info LIKE '%failed%'`

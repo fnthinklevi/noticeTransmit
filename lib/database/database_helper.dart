@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/channel_display.dart';
 import '../services/secure_storage_service.dart';
 
 /// 数据库加密密钥丢失/损坏异常。
@@ -39,7 +40,7 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 10;
+  static const int dbVersion = 11;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -482,7 +483,8 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       );
     }
     if (oldVersion < 7) {
-      // v7: 通知记录逐条送达状态（JSON：{"webhook:企业微信": {"status":"success","message":"..."}}）
+      // v7: 通知记录逐条送达状态（JSON：{"chan:wechat_work": {"status":"success","message":"..."}}）
+      // 键在 v11 前存的是本地化显示名，见 v11 分支
       await _addColumnIfMissing(db, 'notifications', 'delivery_info', 'TEXT');
     }
     if (oldVersion < 8) {
@@ -525,6 +527,75 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
       await db.execute(
         "DELETE FROM webhook_channels WHERE channel_type = 'wecom_app'",
       );
+    }
+    if (oldVersion < 11) {
+      // v11: 送达键去本地化（不改表结构，只改写值）
+      await _migrateDeliveryKeysToCanonical(db);
+    }
+  }
+
+  /// 把逐条送达状态与送达日志里的「通道标识」改写为稳定键 `chan:<slug>`。
+  ///
+  /// v11 之前存的是**显示名**（`webhook:企业微信` / `邮件`，英文环境是
+  /// `webhook:WeCom` / `Email`），于是切换语言或改一次文案就会让同一通道的
+  /// 键分裂（表现为某些通道永远「发送中」、送达健康统计按语言拆成两行）。
+  /// 幂等：已归一的键写回同值，重复执行结果不变。
+  Future<void> _migrateDeliveryKeysToCanonical(Database db) async {
+    // 迁移异常**不向上抛**：onUpgrade 抛错会让 _initDatabase 走「备份原库 +
+    // 重建空库」分支，等于把用户历史连库里已配置的通道一起清掉。
+    // 读取侧（NotificationRecord.fromMap → normalizeDeliveryKeys）本就兼容旧键，
+    // 所以此处失败最多是旧键留在库里、记录下次写回时自愈，不会显示错状态。
+    try {
+      // 不在这里再开 transaction()：onUpgrade 本身已跑在 sqflite 打开库的事务里，
+      // 嵌套 BEGIN 在 SQLite 层是错误，逐条 db.update 已被外层事务批量吞掉。
+      final rows = await db.query(
+        'notifications',
+        columns: ['id', 'delivery_info'],
+        where: 'delivery_info IS NOT NULL AND delivery_info != \'\'',
+      );
+      for (final row in rows) {
+        final raw = row['delivery_info'];
+        if (raw is! String || raw.isEmpty) continue;
+        dynamic decoded;
+        try {
+          decoded = jsonDecode(raw);
+        } catch (_) {
+          // 单行坏 JSON 只跳过本行：整批抛出会让下面的 catch 吞掉全部迁移
+          continue;
+        }
+        if (decoded is! Map) continue;
+        final normalized = normalizeDeliveryKeys(
+          Map<String, dynamic>.from(decoded),
+        );
+        final encoded = jsonEncode(normalized);
+        if (encoded == raw) continue;
+        await db.update(
+          'notifications',
+          {'delivery_info': encoded},
+          where: 'id = ?',
+          whereArgs: [row['id']],
+        );
+      }
+
+      // 送达日志的 tag 同理：GROUP BY tag 的送达健康统计、按 (tag,status,code,msg)
+      // 折叠的展示层去重，都要求同一通道只有一个拼写。
+      final tags = await db.rawQuery(
+        'SELECT DISTINCT tag FROM webhook_delivery_log '
+        'WHERE tag IS NOT NULL AND tag NOT LIKE ?',
+        ['$kDeliveryKeyPrefix%'],
+      );
+      for (final row in tags) {
+        final old = row['tag'];
+        if (old is! String || old.isEmpty) continue;
+        await db.update(
+          'webhook_delivery_log',
+          {'tag': channelDeliveryKey(old)},
+          where: 'tag = ?',
+          whereArgs: [old],
+        );
+      }
+    } catch (e) {
+      debugPrint('送达键归一迁移失败（读取侧兼容旧键，不影响数据）: $e');
     }
   }
 

@@ -188,13 +188,15 @@ void main() {
     final record = notificationService.records.firstWhere(
       (r) => r.id == 'smoke_offline_1',
     );
-    // 键必须是**应用语言**的标签：曾因 LocaleService 尚未 init 而按系统语言写成
-    // 'webhook:DingTalk'，随后实时回传再写中文键 → 同一记录出现中英双键。
-    expect(record.deliveryStatus['webhook:钉钉']['status'], 'success');
+    // 送达键与语言无关（DB v11 起为 chan:<slug>）。历史上键就是显示名，曾因
+    // LocaleService 尚未 init 而按系统语言写成 'webhook:DingTalk'，实时回传再写
+    // 中文键 → 同一记录中英双键。此处锁「存储键必须是 chan: 键」；装配期语言
+    // 竞态本身由 bootstrap_order_test 在源码层守（显示名仍依赖 init 顺序）。
+    expect(record.deliveryStatus['chan:dingtalk']['status'], 'success');
     expect(
-      record.deliveryStatus.keys,
-      isNot(contains('webhook:DingTalk')),
-      reason: '出现英文通道键 = 装配期语言未初始化（locale 竞态回归）',
+      record.deliveryStatus.keys.every((k) => k.startsWith('chan:')),
+      isTrue,
+      reason: '出现非 chan: 前缀的送达键 = 键又长回了本地化显示名',
     );
 
     // ── 步骤 5：历史页呈现记录与送达徽标（推送成功）

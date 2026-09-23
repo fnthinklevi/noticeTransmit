@@ -77,7 +77,7 @@ void main() {
         channelUrl: 'https://oapi.dingtalk.com/robot/send?access_token=x',
       );
 
-      final delivery = service.records.first.deliveryStatus['webhook:钉钉'];
+      final delivery = service.records.first.deliveryStatus['chan:dingtalk'];
       expect(delivery['status'], 'success');
       expect(delivery['message'], 'ok');
     });
@@ -97,7 +97,7 @@ void main() {
 
       await service.updateDelivery('log_2', 'EMAIL', 'PAUSED', '用户暂停推送');
 
-      final delivery = service.records.first.deliveryStatus['邮件'];
+      final delivery = service.records.first.deliveryStatus['chan:email'];
       expect(delivery['status'], 'paused');
     });
 

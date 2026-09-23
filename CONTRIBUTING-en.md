@@ -290,11 +290,15 @@ flutter gen-l10n
 
 ### 8.5 Database
 
-`lib/database/database_helper.dart` declares `dbVersion = 10`, with 6 tables currently
+`lib/database/database_helper.dart` declares `dbVersion = 11`, with 6 tables currently
 (`notifications`, `pending_notifications`, `email_channels`, `webhook_channels`,
 `webhook_delivery_log`, `app_channels`). Any new table/column must bump `dbVersion` and add an
-`onUpgrade` branch; `test/database/database_helper_test.dart` pins the version against the schema
-increments and forbids literal versions when creating the DB during migration. Push history is stored
+`onUpgrade` branch; so does a migration that only rewrites the **values** of existing rows (v11
+rewrote the delivery keys from localized display names to `chan:<slug>`). Such migrations must be
+idempotent and must skip bad rows instead of throwing — an `onUpgrade` exception makes the app
+"back up the database and rebuild an empty one", i.e. it wipes the user's history.
+`test/database/database_helper_test.dart` pins the version against the schema increments and
+forbids literal versions when opening the database during migration. Push history is stored
 in SQLCipher (`sqflite_sqlcipher`); keep the encryption semantics when changing it.
 
 ---

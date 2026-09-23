@@ -77,9 +77,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         if (c['enabled'] == true) {
           final name = c['name']?.toString() ?? '';
           final appType = c['appType']?.toString() ?? '';
-          // 标签必须与送达状态键同源：app_channel 的送达结果由原生回传 cfg.type，
-          // 经 channelTypeDisplayName 生成键。此处若另写字面量（历史上是
-          // '自建应用:企微'），首页显示与 deliveryStatus 键就成了两套字符串，永不相等。
+          // 首页只**显示**通道名，不参与送达键（键是 chan:<slug>，由
+          // NotificationService 生成）。名字必须走 channelTypeDisplayName：
+          // 早期在此手打过 '自建应用:企微'，那时显示串同时充当送达键，两套字符串
+          // 永不相等 ⇒ 该通道的送达状态长期错配。
           if (appType.isEmpty) continue;
           channels.add({
             'type': channelTypeDisplayName(appType),
