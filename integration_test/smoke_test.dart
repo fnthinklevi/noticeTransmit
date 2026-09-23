@@ -7,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/main.dart' show MyApp;
 import 'package:notice_transmit/update_manager.dart' show VersionCheckResult;
+import 'package:notice_transmit/services/channel_descriptor_service.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/services/archive_worker.dart'
     show archiveCallbackDispatcher;
@@ -69,6 +70,45 @@ void main() {
       'getWhitelistKeywords': <String>[],
       'getAppFilterMode': 'allow',
       'getWebhookChannels': <Map<String, dynamic>>[],
+      // 第 5 步：splash 的装配链会 await 这个调用。桩必须给出**非空**列表 ——
+      // 服务对空列表按"原生未就绪"处理（不覆盖缓存），那样冒烟跑的就只是降级分支。
+      // ⚠️ 这里只是形状正确的最小桩：真实导出内容 + 能否过 MethodChannel 编码，
+      //    由设备侧 ChannelDescriptorsInstrumentedTest 与 JVM 侧
+      //    ChannelDescriptorExportTest 锁（Dart 测试一律走 mock，碰不到原生分支）。
+      'getChannelDescriptors': <Map<String, Object?>>[
+        <String, Object?>{
+          'family': 'webhook',
+          'key': 'dingtalk',
+          'nativeType': 'DINGTALK',
+          'labelKey': 'channelTypeDingtalk',
+          'iconKey': 'dingtalk',
+          'hosts': <String>['oapi.dingtalk.com'],
+          'capabilities': <String>[
+            'secretUsed',
+            'jsonContract',
+            'customTemplate',
+          ],
+          'fields': <Map<String, Object?>>[],
+        },
+        <String, Object?>{
+          'family': 'app',
+          'key': 'wecom_app',
+          'nativeType': 'wecom_app',
+          'labelKey': 'channelTypeWecomApp',
+          'iconKey': 'wecom_app',
+          'hosts': <String>['qyapi.weixin.qq.com'],
+          'officialBase': 'https://qyapi.weixin.qq.com',
+          'capabilities': <String>['secretUsed', 'markdown'],
+          'fields': <Map<String, Object?>>[
+            <String, Object?>{
+              'key': 'corpid',
+              'labelKey': 'appChannelCorpidLabel',
+              'kind': 'text',
+              'required': true,
+            },
+          ],
+        },
+      ],
       'getEmailChannels': <Map<String, dynamic>>[],
       'getDeviceName': '冒烟设备',
       'getAppVersion': {'versionName': '1.5.63', 'versionCode': 98},
@@ -157,6 +197,15 @@ void main() {
       reason:
           'tabNotification 未渲染中文 —— 语言钉定未生效，'
           '检查 setUpAll 的 app_language 预置与 LocaleService 回落逻辑',
+    );
+
+    // ── 步骤 1.5：通道描述符已随装配链就绪（第 5 步）──────────────
+    // 设置页的字段清单与显隐全按它渲染；这里若为 false，说明 splash 漏了 await
+    // 或 GetIt 未注册 —— 表现是"打开设置页时表单缺字段"，静态测试查不出来。
+    expect(
+      GetIt.instance<ChannelDescriptorService>().isReady,
+      isTrue,
+      reason: 'splash 未拉取通道描述符（装配链缺 await / 注册缺失 / 原生无该分支）',
     );
 
     // ── 步骤 2：数据注入（drainOfflineCache/drainDeliveryResults 已在 mock 中）

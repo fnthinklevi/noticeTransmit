@@ -22,7 +22,11 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          # ⚠ 版本必须与 analyze.yml / build-apk.yml 一致：以前这里只写 channel: stable，
+          #   于是冒烟测试跑在「当时最新的 stable」上，可能比两道门禁更新
+          #   （失败表现是 Gradle 构建成功后 0 tests、且看不到异常文本，排查方向直接被带偏）。
+          flutter-version: '3.44.4'
+          channel: 'stable'
           cache: true
 
       - name: Enable KVM group perms
@@ -44,10 +48,29 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
+            # android-emulator-runner 以 bash -e 执行脚本；这里显式关掉 errexit，
+            # 否则第一条失败命令会直接中止，下面的设备日志（唯一的真线索）就抓不到了。
+            set +e
+            mkdir -p test_report
+            flutter --version | tee test_report/flutter_version.txt
             flutter devices
-            flutter test integration_test/smoke_test.dart --verbose
+            flutter test integration_test/smoke_test.dart --verbose 2>&1 | tee test_report/smoke.log
+            smoke_status=${PIPESTATUS[0]}
+            if [ "$smoke_status" != "0" ]; then
+              # 应用侧崩溃只出现在 logcat：没有它，CI 上永远只能看到 "0 tests passed"
+              adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
+              adb shell dumpsys activity activities > test_report/activities.txt 2>&1
+              adb logcat -d -b crash -t 500 > test_report/logcat_crash.txt 2>&1
+              tail -n 120 test_report/logcat_crash.txt
+              tail -n 60 test_report/logcat.txt
+            fi
             # 仪表测试（androidTest）：复用同一台存活模拟器
-            cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest
+            (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) 2>&1 | tee test_report/connected.log
+            connected_status=${PIPESTATUS[0]}
+            if [ "$smoke_status" != "0" ] || [ "$connected_status" != "0" ]; then
+              echo "❌ smoke=$smoke_status connectedAndroidTest=$connected_status（日志见 test_report/ 产物）"
+              exit 1
+            fi
 
       - name: Upload failure screenshots
         if: failure()

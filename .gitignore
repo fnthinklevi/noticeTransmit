@@ -45,6 +45,8 @@ outputs/
 android/build/
 android/app/build/
 /coverage/
+# integration_test.yml 失败时留的日志（flutter 输出 / logcat / dumpsys），只进 CI artifact
+/test_report/
 
 # Symbolication related
 app.*.symbols
