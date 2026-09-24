@@ -1874,6 +1874,12 @@ abstract class AppLocalizations {
   /// **'用于获取已安装应用列表，支持按应用过滤通知功能'**
   String get appListPermExtra;
 
+  /// No description provided for @appListPermUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'该系统版本不提供明确状态，以能否读到应用列表为准'**
+  String get appListPermUnknown;
+
   /// No description provided for @clickToSettings.
   ///
   /// In zh, this message translates to:

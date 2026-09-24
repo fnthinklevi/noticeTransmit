@@ -71,8 +71,9 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
                 // result.success 由 postSuccess 切回主线程调用，满足 MethodChannel 线程约束。
                 val force = call.argument<Boolean>("force") ?: false
                 ioScope.launch {
-                    // 非强制刷新且缓存新鲜（24h 内）时直接复用缓存，避免每次进页面都全量扫描
-                    if (!force && activity.isInstalledAppsCacheFresh()) {
+                    // 非强制刷新且缓存新鲜（24h 内）时直接复用缓存，避免每次进页面都全量扫描。
+                    // ⚠ 但"明确拒绝"态下不得复用：缓存里可能留着拒前采到的全量清单（㊸ 的修复点）。
+                    if (!force && activity.canQueryAllPackages() && activity.isInstalledAppsCacheFresh()) {
                         val cached = activity.getCachedInstalledApps()
                         if (cached.isNotEmpty()) {
                             postSuccess(result, cached)
@@ -84,7 +85,12 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
                     } catch (e: Exception) {
                         emptyList()
                     }
-                    if (apps.isNotEmpty()) activity.saveInstalledAppsCache(apps)
+                    if (activity.lastAppListScanDenied) {
+                        // 权限被拒 → 抹掉旧清单，而不是"空结果不覆盖缓存"地留着旧数据
+                        activity.clearInstalledAppsCache()
+                    } else if (apps.isNotEmpty()) {
+                        activity.saveInstalledAppsCache(apps)
+                    }
                     postSuccess(result, apps)
                 }
             }

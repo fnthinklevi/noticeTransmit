@@ -420,6 +420,7 @@
   "appListPermTitle": "App List Permission Required",
   "appListPermMsg": "This permission is needed to get installed apps list for app filtering.\n\nTap \"Allow\" to go to system settings and enable it manually.",
   "appListPermExtra": "Used to get installed apps list for app-based notification filtering",
+  "appListPermUnknown": "This system version reports no explicit state; readability is decided by whether the app list can actually be read",
   "clickToSettings": "Tap to open settings",
   "samsungSmartManagerDesc": "Add this app to auto-start whitelist in Smart Manager",
   "nativeBatteryOptDesc": "Confirm battery optimization is disabled in system settings",

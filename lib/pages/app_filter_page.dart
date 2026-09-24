@@ -109,14 +109,18 @@ class _AppFilterPageState extends State<AppFilterPage>
     setState(() => _loading = false);
   }
 
+  /// `canQueryAllPackages` 的原生语义是「允许去枚举」，不是「已授予」：
+  /// 只有拿到明确拒绝信号才返回 false。取不到结果时**按不允许处理**——
+  /// 旧写法是 `?? true` / catch 也 return true，等于第二个 fail-open：
+  /// 用户在系统里拒了权限，页面照样去扫描并展示结果。
   Future<bool> _checkPermission() async {
     try {
       final result =
           await _channel.invokeMethod('canQueryAllPackages') as bool?;
-      return result ?? true;
+      return result ?? false;
     } catch (e) {
       debugPrint('检查应用列表权限失败: $e');
-      return true;
+      return false;
     }
   }
 
@@ -209,6 +213,10 @@ class _AppFilterPageState extends State<AppFilterPage>
       if (!mounted) return;
       setState(() {
         _allApps = newApps;
+        // 空结果 = 原生判定不可读（明确拒绝，或枚举被 ROM 过滤成 0 条）。
+        // 此时必须退回引导态，而不是显示"没有找到应用"——后者会让用户以为设备真的没装应用，
+        // 也掩盖了"权限被拒"这件需要用户去系统设置里改的事。
+        _hasPermission = newApps.isNotEmpty;
         _filterApps();
       });
     } catch (e) {
@@ -229,6 +237,8 @@ class _AppFilterPageState extends State<AppFilterPage>
 
       setState(() {
         _allApps = newApps;
+        // 与 _refreshAppsSilently 同一条判据：空结果按"不可读"退回引导态
+        _hasPermission = newApps.isNotEmpty;
         _filterApps();
       });
     } catch (e) {

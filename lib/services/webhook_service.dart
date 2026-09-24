@@ -128,7 +128,13 @@ class WebhookService {
         .toList();
     await _db.saveWebhookChannels(dbRows);
 
-    _channels = channels;
+    // ⚠ 内存里必须存**归一化后的形状**，不是调用方传进来的原始 Map：
+    // 调用方可能是备份恢复（文件里的形状不可信：`enabled` 可能是 0/1、键可能是 snake_case），
+    // 而设置页按 UI 形状读它并做过硬转型 —— 一旦 DB 形状漏进内存，页面直接打死、
+    // 表现为"恢复备份后打不开 webhook 设置页"。走一遍 codec 就等于复用 loadChannels 的归一化。
+    _channels = dbRows
+        .map<Map<String, dynamic>>(ChannelConfigCodec.webhookFromDb)
+        .toList();
 
     // 同步到原生端（完整通道 + 启用 URL）
     await _syncToNative();

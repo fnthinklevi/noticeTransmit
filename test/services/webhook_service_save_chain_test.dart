@@ -241,4 +241,59 @@ void main() {
       expect(row['channel_type'], 'telegram');
     });
   });
+
+  group('保存后内存列表的形状（㊹：备份恢复不得把 DB 形状留在内存）', () {
+    test('调用方传来的形状被归一化后才留在 _channels', () async {
+      // 备份恢复走的就是 saveChannels，而文件里的形状不受我们控制：
+      // enabled 可能是 0/1、类型可能只有 channel_type、secret 可能是字符串 "null"。
+      // 旧实现 `_channels = channels` 原样保留输入 → 设置页按 UI 形状硬转 → 页面打死。
+      await service.saveChannels([
+        {
+          'id': 'wh_1',
+          'name': '钉钉',
+          'url': 'https://oapi.dingtalk.com/robot/send?access_token=x',
+          'channel_type': 'dingtalk',
+          'enabled': 1,
+          'secret': 'null',
+        },
+      ]);
+
+      final ch = service.channels.single;
+      expect(ch['enabled'], isA<bool>(), reason: '页面用 flag() 读，但内存里就该是 bool');
+      expect(ch['enabled'], isTrue);
+      expect(ch['channelType'], 'dingtalk');
+      expect(ch['type'], 'dingtalk', reason: '送达回传/通知服务按 type 取');
+      expect(ch['secret'], isNull, reason: '"null" 字符串必须在归一化时被洗掉，否则被当成已配置密钥');
+      expect(ch['message_format'], 'default');
+    });
+
+    test('恢复备份再打开页面所依赖的形状与 loadChannels 一致', () async {
+      final rows = [
+        {
+          'id': 'wh_9',
+          'name': 'ntfy',
+          'url': 'http://192.168.1.9:8888/topic',
+          'channelType': 'ntfy',
+          'enabled': true,
+          'secret': null,
+          'message_format': 'default',
+        },
+      ];
+      await service.saveChannels(rows);
+      final afterSave = List<Map<String, dynamic>>.from(service.channels);
+
+      storage.rows = List.of(storage.rows);
+      await service.loadChannels();
+      final afterLoad = service.channels;
+
+      expect(afterSave.single.keys, isNotEmpty);
+      for (var i = 0; i < afterLoad.length; i++) {
+        expect(
+          afterSave[i].keys.toSet(),
+          equals(afterLoad[i].keys.toSet()),
+          reason: 'saveChannels 与 loadChannels 必须交出同一套键，否则页面按来源不同表现不一致',
+        );
+      }
+    });
+  });
 }

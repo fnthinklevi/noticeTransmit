@@ -976,6 +976,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Used to get installed apps list for app-based notification filtering';
 
   @override
+  String get appListPermUnknown =>
+      'This system version reports no explicit state; readability is decided by whether the app list can actually be read';
+
+  @override
   String get clickToSettings => 'Tap to open settings';
 
   @override

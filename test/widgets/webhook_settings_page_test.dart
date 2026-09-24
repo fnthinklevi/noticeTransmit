@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -373,6 +374,66 @@ void main() {
 
       expect(find.text('签名密钥（可选）'), findsOneWidget);
       expect(find.text('消息格式'), findsOneWidget);
+    });
+  });
+
+  group('备份/DB 形状的行不得打死页面（㊹）', () {
+    testWidgets(
+      'enabled 是 0/1、类型只有 snake_case、secret 是 "null"、还带旧 extra_config',
+      (tester) async {
+        // 维护者实测：备份后重新导入，webhook 设置页打不开。
+        // 页面 initState 原先对这些值做 `as bool?` / `as String?` 硬转型 —— 备份文件里的形状
+        // 不受我们控制（旧版本、DB 行漏进 UI、手改过的文件），一个 int 就足以让整个页面抛异常。
+        tester.view.physicalSize = const Size(1200, 3600);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await openDirectly(tester, [
+          {
+            'id': 'a',
+            'name': '钉钉',
+            'url': 'https://oapi.dingtalk.com/robot/send?access_token=x',
+            'channel_type': 'dingtalk',
+            'enabled': 1,
+            'secret': 'null',
+            'message_format': null,
+            'message_template': 'null',
+            'extra_config': {'corpid': 'legacy'},
+          },
+        ]);
+
+        expect(tester.takeException(), isNull, reason: '备份形状的行把页面打死了');
+        expect(find.text('钉钉'), findsOneWidget);
+        // 值被按语义读出来：1 ⇒ 启用、"null" ⇒ 视为未配置密钥
+        final switchFinder = find.byType(CupertinoSwitch);
+        expect(switchFinder, findsWidgets);
+        expect(
+          tester.widget<CupertinoSwitch>(switchFinder.first).value,
+          isTrue,
+          reason: 'enabled:1 必须读成启用，而不是静默变关',
+        );
+        // 钉钉本来就要签名字段（secretUsed），所以字段在；关键是字符串 "null" 没漏进任何输入框
+        final texts = tester
+            .widgetList<TextField>(find.byType(TextField))
+            .map((t) => t.controller?.text ?? '')
+            .toList();
+        expect(
+          texts,
+          isNot(contains('null')),
+          reason: '"null" 脏数据必须被洗成未配置，否则被当成已配置密钥/模板',
+        );
+      },
+    );
+
+    testWidgets('值缺键/为数字 id 也不崩（id 用 toString 兜住）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, [
+        {'url': 'https://ntfy.sh/topic', 'id': 7},
+      ]);
+      expect(tester.takeException(), isNull);
+      // 没有 channelType/type ⇒ 按 host 自动识别，页面仍可编辑
+      expect(find.byType(TextField), findsWidgets);
     });
   });
 }

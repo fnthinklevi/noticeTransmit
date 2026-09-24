@@ -6,116 +6,174 @@ import org.junit.Test
 import java.io.File
 
 /**
- * `canQueryAllPackages` 权限判定的静态源码守卫（JVM 直测，无需 Android 运行时）。
+ * 「读取应用列表」权限链路的静态源码守卫（JVM 直测，无需 Android 运行时）。
  *
- * **背景（v1.5.68 缺陷）**：原「无副作用探测」`hasQueryAllPackagesEffective()` 查的是
- * **应用自身**的包信息——该查询在任何权限状态下都恒成功，构成**假阳性**：
- * AppOps 返回 `MODE_DEFAULT`（部分国产 ROM 的开关关闭态也返回 DEFAULT）时，探测恒返回
- * true → 未授权被误判为已授权 → 应用筛选页 / 规则适用应用选择页跳过授权引导、
- * 拿到空列表（原生 `getInstalledApps` 无权限时静默返回空）。
+ * **本类在 2026-09-23 被整体重写**，因为真机探针把旧契约的前提证伪了。
+ * 旧版本（v1.5.68 立）钉的是：
+ *   - `MODE_ALLOWED -> true`、`MODE_DEFAULT -> hasQueryAllPackagesEffective()`、`else -> false`；
+ *   - 探测必须用"桌面 Activity 可见数 ≥ 阈值"。
+ * 而 MEIZU 21（Android 16 / Flyme）实测（`AppListPermissionProbeTest`）：
+ *   `permissionToOp=NULL`、`getInstalledApplications=0`、`queryIntentActivities(LAUNCHER)=121`
+ *   ⇒ ① AOSP 根本没给 `QUERY_ALL_PACKAGES` 建 appop 映射，旧代码在此 `?: return true`，
+ *      所以权限页在**所有** Android 11+ 设备上恒显"已授予"；
+ *   ② "桌面可见数 ≥ 20"这个探测在拒绝态下给出 121 → 判"已授予"，
+ *      而 `getInstalledApps()` 还把同一批桌面结果 merge 回来当列表 ⇒ 系统明确拒绝、应用照样列出。
+ * 因此新契约改成下面这几条（语义本体在 [AppListVisibility]，由 `AppListVisibilityTest` 穷举锁）。
  *
- * **修复后的结构性约束（本类锁定的契约）**：
- * 1. 探测**不得**只查自身包（不得出现 `setPackage(`）——必须查全量桌面 Activity 可见数量，
- *    并与阈值比较（未授权时包可见性过滤生效，可见数通常 < 10；已授予时 100+）；
- * 2. `canQueryAllPackages` 的 AppOps 分派必须保守：
- *    `MODE_ALLOWED -> true`、`MODE_DEFAULT -> 交由探测裁决`、**其余模式（IGNORED/ERRORED/DENIED）
- *    一律 `else -> false`**（修复前的旧代码是 `else -> 探测`，把明确的拒绝信号也误判为已授予）。
- *
- * ⚠⚠ 改动 `canQueryAllPackages` / `hasQueryAllPackagesEffective` 的结构时必须同步更新本文件 ⚠⚠
- * ⚠ 断言前剥离注释（stripComments）——注释里的同名字样会误伤守卫（历史教训，见
- * MergePushLockContractTest 头注释）。
+ * ⚠ 断言前一律剥离注释：注释里的同名字样会误伤守卫（历史教训见 MergePushLockContractTest 头注释）。
  */
 class QueryAllPackagesContractTest {
 
     private val repoRoot: File = run {
-        // Gradle 测试工作目录随 AGP/启动方式变化，逐个探测而不猜路径
         val candidates = listOf(File("../.."), File("."), File(".."))
         candidates.firstOrNull { File(it, "android/app/src/main/kotlin/com/fnthink/notice").isDirectory }
-            ?: error("无法定位仓库根目录（cwd=${File(".").absolutePath}）")
+            ?: error("无法定位仓库根目录（cwd=${File(".").absolutePath}")
     }
 
     private fun kotlinSource(name: String): String {
-        val f = File(
-            repoRoot,
-            "android/app/src/main/kotlin/com/fnthink/notice/$name"
-        )
+        val f = File(repoRoot, "android/app/src/main/kotlin/com/fnthink/notice/$name")
         assertTrue("源文件不存在: ${f.absolutePath}", f.isFile)
-        return f.readText()
+        return stripComments(f.readText())
     }
 
-    /** 按函数名提取函数体（大括号配平），并剥离注释——断言只看可执行代码 */
-    private fun functionBody(source: String, funName: String): String {
+    /**
+     * 取某个函数从声明处到**下一个成员声明**之间的片段。
+     *
+     * ⚠ 不能按大括号配平取：`canQueryAllPackages` 是表达式体（`= AppListVisibility.shouldScan(...)`），
+     * 找 `\{` 会一路滑到后面某个无关函数的大括号里，断言退化成"签名字符串里有没有 X"且常绿
+     * —— 这一族陷阱在 blockAfter 上踩过（见 base.md §12.3 静态守卫工具行）。
+     */
+    private fun functionRegion(source: String, funName: String): String {
         val marker = "fun $funName"
         val idx = source.indexOf(marker)
         assertTrue("未找到函数 $funName", idx >= 0)
-        val bodyStart = source.indexOf('{', idx)
-        assertTrue("函数 $funName 缺少函数体", bodyStart >= 0)
-        var depth = 0
-        var i = bodyStart
-        while (i < source.length) {
-            when (source[i]) {
-                '{' -> depth++
-                '}' -> {
-                    depth--
-                    if (depth == 0) break
-                }
-            }
-            i++
-        }
-        return stripComments(source.substring(bodyStart, i + 1))
+        val boundaries = listOf(
+            "\n    internal fun ",
+            "\n    private fun ",
+            "\n    internal var ",
+            "\n    private var ",
+            "\n    @Volatile",
+            "\n    companion object",
+            "\n    override fun ",
+        )
+        val next = boundaries.mapNotNull { source.indexOf(it, idx + marker.length) }
+            .filter { it > 0 }
+            .minOrNull()
+        return if (next == null) source.substring(idx) else source.substring(idx, next)
     }
 
-    // ===== 约束 1：探测不得只查自身包（假阳性根因），且必须有可见数量阈值 =====
+    // ===== 1. 旧的错误探测必须消失 =====
 
     @Test
-    fun probeQueriesLauncherVisibilityWithThreshold_notSelfPackage() {
-        val body = functionBody(
-            kotlinSource("MainActivity.kt"),
-            "hasQueryAllPackagesEffective"
-        )
+    fun launcherCountProbe_isGone_becauseItSaysGrantedWhileDenied() {
+        val src = kotlinSource("MainActivity.kt")
         assertFalse(
-            "探测函数出现 `setPackage(` —— 只查自身包的探测在任何权限状态下都恒成功" +
-                "（假阳性：未授权也返回 true，授权引导被跳过、列表加载为空）。" +
-                "必须探测全量桌面 Activity 可见数量。",
-            body.contains("setPackage(")
-        )
-        assertTrue(
-            "探测函数应调用 queryIntentActivities 统计可见桌面 Activity",
-            body.contains("queryIntentActivities")
-        )
-        assertTrue(
-            "探测函数缺少可见数量阈值判定（如 list.size >= 20）——" +
-                "没有阈值就无法区分「未授权的少量可见」与「已授权的全量可见」",
-            Regex("""\.size\s*>=\s*\d+""").containsMatchIn(body)
+            "`hasQueryAllPackagesEffective` 必须已删除：它以「桌面 Activity 数 ≥ 20」判可读，" +
+                "而真机拒绝态实测该数为 121（getInstalledApplications 才是 0）。" +
+                "可读与否一律由 AppListVisibility.fromScan(枚举计数) 定。",
+            src.contains("hasQueryAllPackagesEffective"),
         )
     }
 
-    // ===== 约束 2：AppOps 分派必须保守 —— 明确的拒绝信号不得交给探测 =====
+    // ===== 2. 状态判定不得有任何 fail-open =====
 
     @Test
-    fun appOpsModesAreJudgedConservatively() {
-        val body = functionBody(
-            kotlinSource("MainActivity.kt"),
-            "canQueryAllPackages"
-        )
-        assertTrue(
-            "MODE_ALLOWED 应直接判 true（快速路径）",
-            Regex("""MODE_ALLOWED\s*->\s*true""").containsMatchIn(body)
-        )
-        assertTrue(
-            "MODE_DEFAULT 应交由非自身包探测裁决（ROM 语义不明）",
-            Regex("""MODE_DEFAULT\s*->\s*hasQueryAllPackagesEffective\(\)""")
-                .containsMatchIn(body)
-        )
-        assertTrue(
-            "其余 AppOps 模式（IGNORED/ERRORED/DENIED，明确的拒绝信号）必须 `else -> false`。" +
-                "修复前的旧代码是 `else -> 探测`，把拒绝态也误判为已授予",
-            Regex("""else\s*->\s*false""").containsMatchIn(body)
+    fun stateComputationHasNoFailOpenFallbacks() {
+        val body = functionRegion(kotlinSource("MainActivity.kt"), "appListPermissionState")
+        assertFalse(
+            "出现 `?: return true` = 拿不到读数就当已授予（旧假阳性根因，" +
+                "AOSP 对 QUERY_ALL_PACKAGES 的 permissionToOp 就是 null）。必须退回 UNKNOWN。",
+            Regex("""\?:\s*return\s+true""").containsMatchIn(body),
         )
         assertFalse(
-            "canQueryAllPackages 不得把探测函数用于非 DEFAULT 分支（拒绝态必须直接 false）",
-            Regex("""else\s*->\s*hasQueryAllPackagesEffective\(\)""")
-                .containsMatchIn(body)
+            "状态函数里不得直接 return true —— 布尔结论只能来自 AppListVisibility 的裁决",
+            Regex("""return\s+true""").containsMatchIn(body),
+        )
+        assertTrue(
+            "必须把 declared / appOpMode 交给 AppListVisibility.fromAppOp 裁决",
+            body.contains("AppListVisibility.fromAppOp"),
+        )
+    }
+
+    @Test
+    fun canQueryAllPackagesDelegatesToShouldScan() {
+        val body = functionRegion(kotlinSource("MainActivity.kt"), "canQueryAllPackages")
+        assertTrue(
+            "`canQueryAllPackages` 的语义是「允许去枚举」（只有明确拒绝才拦），" +
+                "必须转发 AppListVisibility.shouldScan，不得自己读 AppOps",
+            body.contains("AppListVisibility.shouldScan"),
+        )
+        assertFalse(
+            "canQueryAllPackages 不得再直接查 AppOps（判定已集中到 appListPermissionState）",
+            body.contains("checkOpNoThrow"),
+        )
+    }
+
+    // ===== 3. 扫描路径：先拦明确拒绝，再用枚举计数定论，且拒绝态不得 merge =====
+
+    @Test
+    fun scanGatesOnStateAndSettlesByEnumerationCount() {
+        val body = functionRegion(kotlinSource("MainActivity.kt"), "getInstalledApps")
+        assertTrue(
+            "扫描前必须判 shouldScan：明确拒绝时不得再枚举（国产 ROM 会在首次枚举时弹系统框）",
+            body.contains("AppListVisibility.shouldScan"),
+        )
+        assertTrue(
+            "扫描后必须以枚举计数定论（fromScan），否则拒绝态下桌面查询会冒充「读到了列表」。",
+            body.contains("AppListVisibility.fromScan"),
+        )
+        assertTrue(
+            "判定为 DENIED 时必须返回空列表",
+            Regex("""return\s+emptyList\(\)""").containsMatchIn(body),
+        )
+        // merge 只能出现在 fromScan 之后：桌面查询不得成为拒绝态的兜底数据源
+        val mergeAt = body.indexOf("InstalledAppsMerger.merge")
+        val scanAt = body.indexOf("AppListVisibility.fromScan")
+        assertTrue(
+            "InstalledAppsMerger.merge 必须排在 fromScan 之后（先定论、再决定要不要补标签）",
+            mergeAt in 0 until Int.MAX_VALUE && scanAt in 0 until mergeAt,
+        )
+    }
+
+    // ===== 4. 缓存：拒绝态不得复用、且要抹掉拒前数据 =====
+
+    @Test
+    fun deniedStateClearsCacheAndNeverServesStaleCache() {
+        val src = kotlinSource("channels/StatsChannelHandler.kt")
+        assertTrue(
+            "权限被拒时必须在 lastAppListScanDenied 分支里清缓存（里面可能留着拒前采到的全量清单）。" +
+                "⚠ 这里刻意用结构式正则而不是 contains(\"clearInstalledAppsCache\")：" +
+                "反证植入 `if (false) { …clearInstalledAppsCache()… }` 时字面量仍在，" +
+                "contains 型断言会假绿 —— 那是「测试通过 ≠ 有保护」的又一实例。",
+            Regex(
+                """lastAppListScanDenied\s*\)\s*\{[^}]*clearInstalledAppsCache\(\)""",
+                RegexOption.DOT_MATCHES_ALL,
+            ).containsMatchIn(src),
+        )
+        assertTrue(
+            "复用缓存前必须过 canQueryAllPackages，否则拒绝态仍会吐出旧清单",
+            Regex("""canQueryAllPackages\(\)\s*&&\s*activity\.isInstalledAppsCacheFresh""")
+                .containsMatchIn(src),
+        )
+    }
+
+    // ===== 5. 跨端契约：三态字符串取代布尔（布尔必然说谎） =====
+
+    @Test
+    fun channelExposesTriStateAndOldBoolIsGone() {
+        val handler = kotlinSource("channels/PermissionChannelHandler.kt")
+        assertTrue(
+            "必须暴露 getAppListPermissionState（granted/denied/unknown）给权限页显示",
+            handler.contains("getAppListPermissionState"),
+        )
+        assertFalse(
+            "`isAppListPermissionGranted` 必须删除：布尔把「系统不给状态」压成了「已授予」。",
+            handler.contains("isAppListPermissionGranted"),
+        )
+        val main = kotlinSource("MainActivity.kt")
+        assertTrue(
+            "MainActivity 必须提供 wire 出口，值域由 AppListState.wire() 单点定义",
+            main.contains("appListPermissionState().wire()"),
         )
     }
 }

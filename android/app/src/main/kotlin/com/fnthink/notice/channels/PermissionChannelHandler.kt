@@ -31,8 +31,11 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
             "isPhonePermissionGranted" -> {
                 result.success(activity.isPhonePermissionGranted())
             }
-            "isAppListPermissionGranted" -> {
-                result.success(activity.isAppListPermissionGranted())
+            "getAppListPermissionState" -> {
+                // 三态（granted / denied / unknown）。旧的布尔方法
+                // `isAppListPermissionGranted` 已删：它把"系统不给状态"当成已授予，
+                // 权限页因此在所有 Android 11+ 设备上恒显"已授予"（真机实测，见 ㊸）。
+                result.success(activity.getAppListPermissionState())
             }
             "requestSmsPermission" -> {
                 activity.requestSmsPermission()
@@ -43,6 +46,8 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 result.success(true)
             }
             "canQueryAllPackages" -> {
+                // ⚠ 语义是"允许去枚举"（只有明确拒绝才拦），不是"已授予"。
+                // 显示权限状态请用 getAppListPermissionState。
                 result.success(activity.canQueryAllPackages())
             }
             "requestQueryAllPackagesPermission" -> {

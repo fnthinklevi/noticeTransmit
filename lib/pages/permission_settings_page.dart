@@ -402,9 +402,14 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               _buildPermissionTile(
                 icon: Icons.apps,
                 title: l10n.appListPerm,
-                subtitle: _appListPermissionGranted
-                    ? l10n.enabled
-                    : l10n.disabled,
+                // 三态而不是开关：`unknown` 表示"这个系统压根不给明确读数"。
+                // 显示成「已开启」是本次修复的原始缺陷（权限页恒显已授予），
+                // 显示成「已关闭」会误导用户去系统里找一个并不存在的开关。
+                subtitle: switch (_permissionService.appListPermission) {
+                  AppListPermission.granted => l10n.enabled,
+                  AppListPermission.denied => l10n.disabled,
+                  AppListPermission.unknown => l10n.appListPermUnknown,
+                },
                 isOn: _appListPermissionGranted,
                 onTap: _appListPermissionGranted
                     ? null

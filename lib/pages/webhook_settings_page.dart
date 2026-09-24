@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/webhook_channel.dart';
+import '../services/channel_config_codec.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_url_policy.dart';
 import '../services/channel_health_store.dart';
@@ -267,44 +268,65 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     super.initState();
     _descriptors = GetIt.instance<ChannelDescriptorService>();
     _health = GetIt.instance<ChannelHealthStore>();
+    // ⚠ 这里**不得用硬转型**：通道列表可能来自备份文件（形状不可信 ——
+    // `enabled` 可能是 0/1、值可能是数字、键可能是 snake_case），一个 `as bool?`
+    // 就能让整个页面在 initState 抛异常，表现为"恢复备份后打不开 webhook 设置页"。
+    // 归一化统一走 ChannelConfigCodec（与 loadChannels 同一套读法）。
     _webhookControllers = widget.webhookChannels
-        .map((c) => TextEditingController(text: c['url'] as String? ?? ''))
+        .map(
+          (c) => TextEditingController(
+            text: ChannelConfigCodec.nullableText(c['url']) ?? '',
+          ),
+        )
         .toList();
     _nameControllers = widget.webhookChannels
-        .map((c) => TextEditingController(text: c['name'] as String? ?? ''))
+        .map(
+          (c) => TextEditingController(
+            text: ChannelConfigCodec.nullableText(c['name']) ?? '',
+          ),
+        )
         .toList();
     _secretControllers = widget.webhookChannels
-        .map((c) => TextEditingController(text: c['secret'] as String? ?? ''))
+        .map(
+          (c) => TextEditingController(
+            text: ChannelConfigCodec.nullableText(c['secret']) ?? '',
+          ),
+        )
         .toList();
     _templateControllers = widget.webhookChannels
         .map(
           (c) => TextEditingController(
-            text: c['message_template'] as String? ?? '',
+            text: ChannelConfigCodec.nullableText(c['message_template']) ?? '',
           ),
         )
         .toList();
     _webhookEnabled = widget.webhookChannels
-        .map((c) => c['enabled'] as bool? ?? true)
+        .map(
+          (c) => c.containsKey('enabled')
+              ? ChannelConfigCodec.flag(c['enabled'])
+              : true,
+        )
         .toList();
     _secretVisible = widget.webhookChannels.map((c) => false).toList();
     _messageFormats = widget.webhookChannels
         .map(
           (c) => WebhookMessageFormat.fromValue(
-            (c['message_format'] as String?) ?? (c['messageFormat'] as String?),
+            ChannelConfigCodec.nullableText(c['message_format']) ??
+                ChannelConfigCodec.nullableText(c['messageFormat']),
           ),
         )
         .toList();
     // 已有通道保留原类型；空值的新通道默认自动识别
     _channelTypes = widget.webhookChannels.map((c) {
       final t =
-          c['channelType']?.toString() ??
-          c['type']?.toString() ??
-          c['channel_type']?.toString() ??
+          ChannelConfigCodec.nullableText(c['channelType']) ??
+          ChannelConfigCodec.nullableText(c['type']) ??
+          ChannelConfigCodec.nullableText(c['channel_type']) ??
           'auto';
       return t.isEmpty ? 'auto' : t;
     }).toList();
     _channelIds = widget.webhookChannels
-        .map((c) => c['id'] as String?)
+        .map((c) => ChannelConfigCodec.nullableText(c['id']))
         .toList();
     if (_webhookControllers.isEmpty) {
       _webhookControllers.add(TextEditingController());

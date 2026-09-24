@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/app_channel_service.dart';
+import '../services/channel_config_codec.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
@@ -65,7 +66,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       for (final c in _channels) {
         // initState 里自动新增的那一行拿不到基址时，这里补上（只补空值，不动用户填过的）
         if ((c['baseUrl']?.toString() ?? '').isEmpty) {
-          final base = _descriptors.byKey(c['appType'] as String)?.officialBase;
+          final base = _descriptors
+              .byKey(ChannelConfigCodec.nullableText(c['appType']) ?? '')
+              ?.officialBase;
           if (base != null && base.isNotEmpty) {
             c['baseUrl'] = base;
             _controllers['${c['id']}.baseUrl']?.text = base;
@@ -86,7 +89,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   }
 
   void _bindControllers(Map<String, dynamic> c) {
-    final id = c['id'] as String;
+    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
     // 基础字段控制器：渲染（名称/地址/密钥输入框）与保存（_channelPayload）
     // 都读取这三个控制器。缺失时输入框空白、且保存会把 baseUrl 清空、secret 置 null
     //（凭据丢失）——回归守卫见 app_channel_settings_page_test「保存不丢字段」。
@@ -100,7 +103,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       text: c['secret']?.toString() ?? '',
     );
     // 扩展参数：字段清单来自描述符，不再手抄 key（抄漏一个 = 该字段显示空白且保存写空）
-    final descriptor = _descriptors.byKey(c['appType'] as String);
+    final descriptor = _descriptors.byKey(
+      ChannelConfigCodec.nullableText(c['appType']) ?? '',
+    );
     if (descriptor == null) return;
     ChannelFormRenderer.ensureControllers(
       descriptor,
@@ -235,8 +240,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     AppLocalizations l10n,
   ) {
     final c = _channels[index];
-    final id = c['id'] as String;
-    final appType = c['appType'] as String;
+    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
+    final appType =
+        ChannelConfigCodec.nullableText(c['appType']) ?? 'wecom_app';
     final enabled = c['enabled'] == true;
     final health = _health.of('app', id);
     final descriptor = _descriptors.byKey(appType);
@@ -626,7 +632,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
   Widget _typeSelector(int index, BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final type = _channels[index]['appType'] as String;
+    final type =
+        ChannelConfigCodec.nullableText(_channels[index]['appType']) ??
+        'wecom_app';
     final descriptor = _descriptors.byKey(type);
     // 名称优先取描述符的 labelKey（原生表为准），取不到再退回 slug 表
     final label = descriptor == null
@@ -671,7 +679,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   /// 把 corpid 残留塞进飞书通道不会报错、却会让用户以为「配过了」——合并语义
   /// （[ChannelFormRenderer.collect] 保留未知键）在这里必须显式让位于重置。
   Future<void> _pickType(int index) async {
-    final current = _channels[index]['appType'] as String;
+    final current =
+        ChannelConfigCodec.nullableText(_channels[index]['appType']) ??
+        'wecom_app';
     final picked = await _pickAppChannelType(
       AppLocalizations.of(context).selectChannelType,
     );
@@ -700,7 +710,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
   Map<String, dynamic> _configOf(Map<String, dynamic> c) {
     final existing = _existingConfig(c);
-    final descriptor = _descriptors.byKey(c['appType'] as String);
+    final descriptor = _descriptors.byKey(
+      ChannelConfigCodec.nullableText(c['appType']) ?? '',
+    );
     if (descriptor == null) return existing;
     return ChannelFormRenderer.collect(
       descriptor,
@@ -712,7 +724,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
   Map<String, dynamic> _channelPayload(int index, {bool forTest = false}) {
     final c = _channels[index];
-    final id = c['id'] as String;
+    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
     return {
       'appType': c['appType'],
       // 控制器缺失时保留原值（防空值覆盖导致 baseUrl/secret 丢失）
@@ -728,7 +740,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
   Future<void> _testChannel(int index, Map<String, dynamic> c) async {
     final l10n = AppLocalizations.of(context);
-    final id = c['id'] as String;
+    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
     setState(() => _testingId = id);
     final watch = Stopwatch()..start();
     try {
@@ -777,7 +789,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     for (var i = 0; i < _channels.length; i++) {
       final c = _channels[i];
       if (c['enabled'] != true) continue;
-      final id = c['id'] as String;
+      final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
       final name = _controllers['$id.name']?.text.trim() ?? '';
       final payload = _channelPayload(i);
       final baseUrl = payload['baseUrl']?.toString() ?? '';
@@ -790,7 +802,9 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
         return;
       }
       // 扩展参数必填项：以前这里**不校验**，靠原生 require() 抛错，用户只看到一句"保存失败"
-      final descriptor = _descriptors.byKey(c['appType'] as String);
+      final descriptor = _descriptors.byKey(
+        ChannelConfigCodec.nullableText(c['appType']) ?? '',
+      );
       if (descriptor == null) continue;
       final missing = ChannelFormRenderer.missingRequired(
         descriptor,

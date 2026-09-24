@@ -37,7 +37,11 @@ class AppChannelService {
         .map<Map<String, dynamic>>(ChannelConfigCodec.appToDb)
         .toList();
     await _store.saveAppChannels(normalized);
-    _channels = normalized;
+    // 与 WebhookService 同一条规矩：内存里放**归一化后的 UI 形状**，
+    // 不要把 DB 行（config 是 JSON 字符串、enabled 是 0/1）直接当 UI 列表用。
+    _channels = normalized
+        .map<Map<String, dynamic>>(ChannelConfigCodec.appFromDb)
+        .toList();
     await _syncToNative();
   }
 

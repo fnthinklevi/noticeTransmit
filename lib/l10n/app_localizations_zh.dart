@@ -941,6 +941,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appListPermExtra => '用于获取已安装应用列表，支持按应用过滤通知功能';
 
   @override
+  String get appListPermUnknown => '该系统版本不提供明确状态，以能否读到应用列表为准';
+
+  @override
   String get clickToSettings => '点击前往设置';
 
   @override

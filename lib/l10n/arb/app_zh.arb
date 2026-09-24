@@ -427,6 +427,7 @@
   "appListPermTitle": "需要应用列表权限",
   "appListPermMsg": "该权限用于获取已安装应用列表，支持按应用过滤通知功能。\n\n点击「允许」后将跳转到系统设置页，请手动开启权限。",
   "appListPermExtra": "用于获取已安装应用列表，支持按应用过滤通知功能",
+  "appListPermUnknown": "该系统版本不提供明确状态，以能否读到应用列表为准",
   "clickToSettings": "点击前往设置",
   "samsungSmartManagerDesc": "请在智能管理器中将本应用加入自启动白名单",
   "nativeBatteryOptDesc": "请在系统设置中确认电池优化已关闭",

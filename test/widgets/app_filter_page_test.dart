@@ -164,4 +164,56 @@ void main() {
       expect(requestCalls, 1);
     });
   });
+
+  group('AppFilterPage – 读不到就退回引导（㊸ 的修复点）', () {
+    testWidgets('枚举被 ROM 过滤成 0 条：显示引导文案，而不是"没有找到应用"', (tester) async {
+      // 真机形态：canQueryAllPackages 允许扫描（系统不给明确状态），但 getInstalledApplications
+      // 返回 0 条 ⇒ 原生判定不可读并返回空。旧代码在这里会把桌面查询的 121 条 merge 回来，
+      // 于是"系统已拒绝、页面照样列出应用"。
+      TestWidgetsFlutterBinding.ensureInitialized();
+      if (!GetIt.instance.isRegistered<InstalledAppsService>()) {
+        GetIt.instance.registerLazySingleton<InstalledAppsService>(
+          () => InstalledAppsService(),
+        );
+      }
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            switch (call.method) {
+              case 'canQueryAllPackages':
+                return true;
+              case 'getCachedInstalledApps':
+              case 'getInstalledApps':
+                return <Map<String, dynamic>>[];
+              default:
+                return null;
+            }
+          });
+
+      await tester.pumpWidget(
+        _buildApp(const AppFilterPage(installedApps: [], enabledPackages: [])),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('当前无应用列表读取权限'), findsOneWidget);
+      expect(find.text('没有找到应用'), findsNothing);
+    });
+
+    testWidgets('权限检查取不到结果：fail-closed 走引导（旧写法是默认有权限）', (tester) async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            // 连 canQueryAllPackages 都不回值（模拟通道异常/旧版原生）
+            return null;
+          });
+
+      await tester.pumpWidget(
+        _buildApp(const AppFilterPage(installedApps: [], enabledPackages: [])),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('需要应用列表权限'), findsOneWidget);
+      // 不得去扫描应用列表
+      expect(find.text('Alpha'), findsNothing);
+    });
+  });
 }

@@ -39,15 +39,19 @@ class ChannelConfigCodec {
   /// DB 行 → UI
   static Map<String, dynamic> webhookFromDb(Map<String, dynamic> row) {
     final url = row['url']?.toString() ?? '';
-    var channelType = row['channel_type']?.toString() ?? '';
+    var channelType =
+        row['channel_type']?.toString() ??
+        row['channelType']?.toString() ??
+        row['type']?.toString() ??
+        '';
     // 仅当历史数据未存渠道类型（空值）时按 URL 识别；显式保存的 generic 视为
     // 用户手动选择，不重探测覆盖。
     if (channelType.isEmpty) {
       channelType = WebhookChannel.detectTypeFromUrl(url).value;
     }
     return {
-      'id': row['id'],
-      'name': row['name'],
+      'id': row['id']?.toString() ?? '',
+      'name': row['name'] ?? '',
       'url': url,
       'channelType': channelType,
       'type': channelType,
@@ -71,8 +75,13 @@ class ChannelConfigCodec {
     row.remove('extra_config');
     row.remove('extraConfig');
     row['url'] = ui['url'] ?? '';
+    // ⚠ 必须连 DB 列名一起认：备份恢复传进来的行可能只有 `channel_type`（文件形状不受控），
+    // 只读 camel 键会把通道类型静默写成 generic —— 恢复一次备份就丢一次类型。
     row['channel_type'] =
-        ui['channelType']?.toString() ?? ui['type']?.toString() ?? 'generic';
+        ui['channelType']?.toString() ??
+        ui['type']?.toString() ??
+        ui['channel_type']?.toString() ??
+        'generic';
     row['name'] = ui['name'] ?? '';
     row['secret'] = nullableText(ui['secret']);
     row['message_format'] = ui['message_format'] ?? 'default';
@@ -93,22 +102,35 @@ class ChannelConfigCodec {
   /// DB 行 → UI（`config` 的 JSON 字符串解码成 Map）
   static Map<String, dynamic> appFromDb(Map<String, dynamic> row) {
     Map<String, dynamic> config = {};
-    final raw = nullableText(row['config']);
-    if (raw != null) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) config = decoded;
-      } catch (_) {
-        // 坏 JSON 按「无扩展参数」处理：清空比抛异常好（抛在 onUpgrade/加载链上
-        // 会连带整表读不出来）
-        config = {};
+    final rawConfig = row['config'];
+    if (rawConfig is Map) {
+      // 内存里的行可能已经是 Map（appToDb 不编码，编码在 DatabaseHelper 落库时做）
+      config = Map<String, dynamic>.from(rawConfig);
+    } else {
+      final raw = nullableText(rawConfig);
+      if (raw != null) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map<String, dynamic>) config = decoded;
+        } catch (_) {
+          // 坏 JSON 按「无扩展参数」处理：清空比抛异常好（抛在 onUpgrade/加载链上
+          // 会连带整表读不出来）
+          config = {};
+        }
       }
     }
+    // ⚠ 两套键名都要认：本函数现在同时是"DB 行 → UI"和"任意形状 → 规范 UI"的归一化器
+    // （saveChannels 保存后也走它）。只读 snake 的话，把 UI 形状喂进来会得到
+    // appType='wecom_app'、baseUrl=''、config={} —— 等于把飞书通道改成企微并丢掉扩展参数。
     return {
-      'id': row['id'],
+      'id': row['id']?.toString() ?? '',
       'name': row['name'] ?? '',
-      'appType': row['app_type']?.toString() ?? 'wecom_app',
-      'baseUrl': row['base_url']?.toString() ?? '',
+      'appType':
+          row['app_type']?.toString() ??
+          row['appType']?.toString() ??
+          'wecom_app',
+      'baseUrl':
+          row['base_url']?.toString() ?? row['baseUrl']?.toString() ?? '',
       'enabled': flag(row['enabled']),
       'secret': nullableText(row['secret']),
       'config': config,
@@ -119,9 +141,13 @@ class ChannelConfigCodec {
   /// UI → DB 行（config 编码成 JSON 字符串；键名沿用 DatabaseHelper 期望）
   static Map<String, dynamic> appToDb(Map<String, dynamic> ui) {
     final row = Map<String, dynamic>.from(ui);
-    row['appType'] = ui['appType']?.toString() ?? 'wecom_app';
+    // 同上：`app_type` / `base_url` 是 DB 与原生载荷用的键名，备份文件里可能就是这套，
+    // 不认就会把飞书通道静默改成企微（类型丢+基址丢，属数据级缺陷）。
+    row['appType'] =
+        ui['appType']?.toString() ?? ui['app_type']?.toString() ?? 'wecom_app';
     row['name'] = ui['name'] ?? '';
-    row['baseUrl'] = ui['baseUrl']?.toString() ?? '';
+    row['baseUrl'] =
+        ui['baseUrl']?.toString() ?? ui['base_url']?.toString() ?? '';
     row['secret'] = nullableText(ui['secret']);
     row['message_format'] = ui['message_format']?.toString() ?? 'default';
     final config = ui['config'];

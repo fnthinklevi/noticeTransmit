@@ -643,7 +643,19 @@ class MainActivity : FlutterActivity() {
      * 在 300+ 应用的设备上耗时可达 2 秒，放到 UI 线程会直接卡死界面。
      * 调用方（[StatsChannelHandler]）已改用 `Dispatchers.IO` 并回主线程回调。
      */
+    /** 上一次扫描是否"因权限被拒而返回空"（供调用方决定是否清缓存，与瞬时失败区分）。 */
+    @Volatile
+    internal var lastAppListScanDenied = false
+        private set
+
     internal fun getInstalledApps(): List<Map<String, Any?>> {
+        lastAppListScanDenied = false
+        // 明确的拒绝态：不枚举、不补足。国产 ROM 会在首次真实枚举时弹系统授权框，
+        // 而这里已经拿到拒绝信号，没有任何理由再去触发它。
+        if (!AppListVisibility.shouldScan(appListPermissionState())) {
+            lastAppListScanDenied = true
+            return emptyList()
+        }
         val pm = packageManager
         val apps = pm.getInstalledApplications(0)
         val primary = mutableListOf<Map<String, Any?>>()
@@ -662,10 +674,9 @@ class MainActivity : FlutterActivity() {
             } catch (_: Exception) {
             }
         }
-        // Flyme 等机型：「读取应用列表」限制只过滤 getInstalledApplications，
-        // 桌面 Activity 查询（与 hasQueryAllPackagesEffective 探测同源）仍可见。
-        // 若扫描结果少于可见桌面应用数，用桌面查询结果补足，
-        // 保证「权限判定」与「扫描」口径一致（否则判定已授权但列表为空）。
+        // 桌面 Activity 查询：Flyme 等机型的「读取应用列表」限制**只过滤枚举接口**，
+        // 这里仍能拿到 100+ 条 —— 所以它只能作为"已确认可读后的标签补全"，
+        // 绝不可当作可读证据或拒绝态的兜底数据源（见下方 fromScan 与 ㊸ 的实测记录）。
         var launcherCount = 0
         val secondary = mutableListOf<Map<String, Any?>>()
         try {
@@ -693,12 +704,27 @@ class MainActivity : FlutterActivity() {
             }
         } catch (_: Exception) {
         }
-        // 仅当扫描结果明显少于可见桌面应用时才补足（正常设备 getInstalledApplications 已全量）
+        // ⚠ 定论只看**枚举**计数：Flyme 拒绝态下 getInstalledApplications=0，而桌面 Activity
+        // 仍有 121 条（真机实测）。旧代码在这里直接把桌面结果 merge 回来，等于绕过系统的
+        // "拒绝"，用户看到的正是那 121 个桌面应用 —— 这是本次修复的核心一刀。
+        if (AppListVisibility.fromScan(primary.size) == AppListState.DENIED) {
+            lastAppListScanDenied = true
+            return emptyList()
+        }
+        // 已确认可读：桌面查询此时只用于补全标签/条目（正常设备枚举已全量，不会进这分支）
         return if (primary.size >= launcherCount) {
             primary.sortedBy { it["appName"].toString().lowercase() }
         } else {
             InstalledAppsMerger.merge(primary, secondary)
         }
+    }
+
+    /** 清空应用列表缓存。权限被拒时必须调用：缓存里可能留着拒前采到的全量清单。 */
+    internal fun clearInstalledAppsCache() {
+        prefs.edit()
+            .remove("flutter.installed_apps_cache")
+            .remove("flutter.installed_apps_cache_time")
+            .apply()
     }
 
     internal fun saveInstalledAppsCache(apps: List<Map<String, Any?>>) {
@@ -761,23 +787,23 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * 查询"读取应用列表"权限状态。必须无副作用：启动时权限检查链路会调用本方法，
-     * 国产 ROM（MIUI/澎湃OS 等）把 QUERY_ALL_PACKAGES 定制为运行时开关，
-     * 若在这里真实执行 getInstalledApplications 类查询，首次打开 App 就会弹出系统授权框。
+     * 「读取已安装应用列表」的三态权限状态。**必须无副作用**：启动期权限检查链路会调用它，
+     * 而国产 ROM（MIUI/澎湃OS）会在首次真实枚举时弹系统授权框，所以这里只读静态信号、不扫描。
      *
-     * ⚠️ 判断策略（修正 v1.5.66 的国产 ROM 假阳性）：
-     * 部分 ROM（MIUI/HyperOS）在用户关闭"访问应用列表"开关后，AppOps 仍读作
-     * `MODE_DEFAULT`，旧实现据此返回 true → 筛选页误走"有权限"分支 → 直接调
-     * getInstalledApplications → **系统授权框突兀弹出**。
-     * 因此把 `MODE_DEFAULT` 由"通过"改为"未确认"：
-     *  - AOSP 未映射 AppOps（permissionToOp 返回 null / checkOpNoThrow 返回 null）→ 视为已授予；
-     *  - 仅 `MODE_ALLOWED` 才是明确已授予；
-     *  - `MODE_DEFAULT` 时用 [hasQueryAllPackagesEffective] 做一次无副作用探测，
-     *    探测不出则返回 false，让 UI 走"先应用内弹窗说明 → 再跳设置"的正常流程。
+     * ⚠️ 2026-09-23 真机实测（MEIZU 21 / Android 16，探针 `AppListPermissionProbeTest`）
+     * 推翻了旧实现的两条前提，故整体重写：
+     *  1. `AppOpsManager.permissionToOp(QUERY_ALL_PACKAGES)` 返回 **null**（AOSP 未给它建 appop
+     *     映射），而旧代码在此 `?: return true`（取不到 AppOps 服务时也是）⇒ 权限页在**所有**
+     *     Android 11+ 设备上恒显"已授予"，与系统的拒绝无关。这就是维护者报的假阳性主因，
+     *     而且与同函数 catch 里那句"检查失败保守判为未授予"自相矛盾。
+     *  2. 旧探测 `hasQueryAllPackagesEffective()` 以"桌面 Activity 可见数 ≥ 20"为判据，而拒绝态下
+     *     实测 `getInstalledApplications=0` / `queryIntentActivities(LAUNCHER)=121` ⇒ 它在拒绝态下
+     *     照样判"已授予"，其数据源还被 `getInstalledApps()` 当"补足"用，于是"系统明确拒绝、
+     *     应用仍列出 121 个桌面应用"。该函数已删除；裁决改由纯函数 [AppListVisibility] 负责。
      */
-    internal fun canQueryAllPackages(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
-        // 先确认 Manifest 已声明该权限（查询自身包信息，不触发应用列表权限）
+    internal fun appListPermissionState(): AppListState {
+        val applies = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+        // 只查自身包的声明，不触发应用列表枚举（任何状态下都成功，安全）
         val declared = try {
             packageManager
                 .getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
@@ -786,60 +812,35 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             false
         }
-        if (!declared) return false
-        return try {
+        @Suppress("DEPRECATION")
+        val mode: Int? = try {
             val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
-                ?: return true
             val op = AppOpsManager.permissionToOp(
                 android.Manifest.permission.QUERY_ALL_PACKAGES
-            ) ?: return true
-            when (appOps.checkOpNoThrow(op, Process.myUid(), packageName)) {
-                AppOpsManager.MODE_ALLOWED -> true
-                // MODE_DEFAULT：ROM 语义不明（部分国产 ROM 的开关关闭态也返回 DEFAULT）
-                // → 交由非自身包探测裁决（见 hasQueryAllPackagesEffective）
-                AppOpsManager.MODE_DEFAULT -> hasQueryAllPackagesEffective()
-                // MODE_IGNORED / MODE_ERRORED / MODE_DENIED：明确的拒绝信号，直接判未授予。
-                // ⚠ 修复前旧代码是 `else -> 探测`，把拒绝态也误判为已授予（假阳性根因之一）
-                else -> false
+            )
+            if (appOps == null || op == null) {
+                null // 没有映射 / 没有服务：是"不知道"，不是"已授予"
+            } else {
+                appOps.checkOpNoThrow(op, Process.myUid(), packageName)
             }
         } catch (e: Exception) {
-            // 检查失败保守判为"未授予"：宁可多一次应用内引导，也不要突兀弹系统框
-            false
+            null // 读数失败同样退回 UNKNOWN，由扫描定论；绝不默认放行
         }
+        return AppListVisibility.fromAppOp(applies, declared, mode)
     }
 
     /**
-     * 无副作用探测「应用列表可见性」是否真正生效。
+     * 布尔视图，供 `canQueryAllPackages` 通道方法使用（应用筛选页据此决定"要不要去枚举"）。
      *
-     * ⚠ **不得只查自身包**：`queryIntentActivities` 对自身包在任何权限状态下都恒成功，
-     * 构成假阳性（v1.5.68 前的缺陷：Flyme 未授权也返回 true，应用筛选页与规则适用
-     * 应用选择页因此跳过授权引导、拿到空列表。守卫：QueryAllPackagesContractTest）。
-     *
-     * 现探测**全量桌面 Activity 可见数量**：Android 11+ 包可见性过滤下，未授权时只能
-     * 看到自身与极少数自动可见的系统组件（通常 < 10）；已授予时为全量桌面应用（100+）。
-     * 阈值取 20，远离两端，避免小众设备误判。
-     * 返回 false 时 UI 会走应用内引导弹窗（先说明后申请），而非直接拉起系统框。
+     * ⚠ 它的语义是"**允许去扫描**"，不是"已授予"：只有明确拒绝才拦下来，UNKNOWN 必须放行一次
+     * 扫描才能定论（扫描只发生在用户主动进入筛选页时，正是该弹系统框的位置）。
+     * 权限页要显示"是否已授予"请用 [appListPermissionState] / `getAppListPermissionState`。
      */
-    private fun hasQueryAllPackagesEffective(): Boolean {
-        return try {
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-            val pm = packageManager
-            val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                pm.queryIntentActivities(
-                    intent,
-                    PackageManager.ResolveInfoFlags.of(0L)
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                pm.queryIntentActivities(intent, 0)
-            }
-            // 应用筛选页实测：已授权时可见桌面 Activity 数量远超 20；
-            // 未授权（包可见性过滤生效）时通常仅自身 + 少数系统组件
-            list.size >= 20
-        } catch (e: Exception) {
-            false
-        }
-    }
+    internal fun canQueryAllPackages(): Boolean =
+        AppListVisibility.shouldScan(appListPermissionState())
+
+    /** 跨端契约（通道方法 `getAppListPermissionState`）：granted / denied / unknown。 */
+    internal fun getAppListPermissionState(): String = appListPermissionState().wire()
 
     internal fun requestSmsPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -1178,10 +1179,6 @@ class MainActivity : FlutterActivity() {
         } else {
             true
         }
-    }
-
-    internal fun isAppListPermissionGranted(): Boolean {
-        return canQueryAllPackages()
     }
 
     internal fun requestBatteryOptimization() {

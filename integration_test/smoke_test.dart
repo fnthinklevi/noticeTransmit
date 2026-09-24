@@ -60,7 +60,8 @@ void main() {
       'isPostNotificationPermissionGranted': true,
       'isSmsPermissionGranted': true,
       'isPhonePermissionGranted': true,
-      'isAppListPermissionGranted': true,
+      // 三态契约（㊸）：权限页读的是状态字符串，不再是布尔
+      'getAppListPermissionState': 'granted',
       'isIgnoringBatteryOptimizations': true,
       'canScheduleExactAlarms': true,
       'isExactAlarmEnabled': false,
