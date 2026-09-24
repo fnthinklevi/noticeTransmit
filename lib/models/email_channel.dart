@@ -8,6 +8,10 @@ class EmailChannel {
   final String id;
   final String name;
   final bool enabled;
+
+  /// 主备角色（T11）：'primary' | 'backup' | 'none'。
+  /// 取值与缺省归一的口径在 `ChannelConfigCodec.normalizeRole`，别在别处再写一套。
+  final String role;
   final String smtpHost;
   final int smtpPort;
   final String username;
@@ -22,6 +26,7 @@ class EmailChannel {
     required this.id,
     required this.name,
     this.enabled = true,
+    this.role = 'primary',
     required this.smtpHost,
     required this.smtpPort,
     required this.username,
@@ -38,6 +43,7 @@ class EmailChannel {
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
       enabled: map['enabled'] != false && map['enabled'] != 0,
+      role: map['role']?.toString() ?? 'primary',
       smtpHost: map['smtpHost']?.toString() ?? '',
       smtpPort: int.tryParse(map['smtpPort']?.toString() ?? '465') ?? 465,
       username: map['username']?.toString() ?? '',
@@ -56,6 +62,7 @@ class EmailChannel {
       id: row['id']?.toString() ?? '',
       name: row['name']?.toString() ?? '',
       enabled: row['enabled'] == 1 || row['enabled'] == true,
+      role: row['role']?.toString() ?? 'primary',
       smtpHost: row['smtp_host']?.toString() ?? '',
       smtpPort: int.tryParse(row['smtp_port']?.toString() ?? '465') ?? 465,
       username: row['username']?.toString() ?? '',
@@ -73,6 +80,7 @@ class EmailChannel {
       'id': id,
       'name': name,
       'enabled': enabled,
+      'role': role,
       'smtpHost': smtpHost,
       'smtpPort': smtpPort,
       'username': username,
@@ -96,6 +104,7 @@ class EmailChannel {
     String? id,
     String? name,
     bool? enabled,
+    String? role,
     String? smtpHost,
     int? smtpPort,
     String? username,
@@ -110,6 +119,7 @@ class EmailChannel {
       id: id ?? this.id,
       name: name ?? this.name,
       enabled: enabled ?? this.enabled,
+      role: role ?? this.role,
       smtpHost: smtpHost ?? this.smtpHost,
       smtpPort: smtpPort ?? this.smtpPort,
       username: username ?? this.username,

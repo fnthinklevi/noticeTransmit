@@ -34,6 +34,31 @@ class ChannelConfigCodec {
   /// SQLite 的 BOOLEAN 在 Android 侧存成 0/1，JSON 侧是真 bool：两种都要认。
   static bool flag(Object? value) => value == 1 || value == true;
 
+  // ── 主备角色（T11）────────────────────────────────────────────────────
+  //
+  // 三族共用同一套取值。存 DB 列 `role`、进 UI 与原生载荷都叫 `role`。
+  //
+  // ⚠ 缺省与非法值一律按 **primary**：
+  //   - 老库/老备份没有这一列 ⇒ 它们本来就是"全量推给每条通道"，primary 才不改语义；
+  //   - 读到不认识的值只可能来自更新的版本或手改的文件，此时**宁可多推一条也不静默不推**
+  //     （none 会让这条通道彻底不出现在推送里，误判成 none 就是丢通知）。
+
+  /// 主通道：正常路径，全量推。
+  static const String rolePrimary = 'primary';
+
+  /// 备用通道：**只在所有主通道都不可用时**才推（判据见 T12）。
+  static const String roleBackup = 'backup';
+
+  /// 不参与推送：保留配置但不推（与"关掉启用开关"不同，这里是为了主备编排时排除它）。
+  static const String roleNone = 'none';
+
+  /// 任意形状的角色值 → 规范值。
+  static String normalizeRole(Object? value) {
+    final text = nullableText(value)?.trim().toLowerCase();
+    if (text == roleBackup || text == roleNone) return text!;
+    return rolePrimary;
+  }
+
   // ── Webhook ──────────────────────────────────────────────────────────
 
   /// DB 行 → UI
@@ -56,6 +81,7 @@ class ChannelConfigCodec {
       'channelType': channelType,
       'type': channelType,
       'enabled': flag(row['enabled']),
+      'role': normalizeRole(row['role']),
       'secret': nullableText(row['secret']),
       'message_format': row['message_format'] ?? 'default',
       'message_template': nullableText(row['message_template']),
@@ -83,6 +109,7 @@ class ChannelConfigCodec {
         ui['channel_type']?.toString() ??
         'generic';
     row['name'] = ui['name'] ?? '';
+    row['role'] = normalizeRole(ui['role']);
     row['secret'] = nullableText(ui['secret']);
     row['message_format'] = ui['message_format'] ?? 'default';
     row['message_template'] = nullableText(ui['message_template']);
@@ -132,6 +159,7 @@ class ChannelConfigCodec {
       'baseUrl':
           row['base_url']?.toString() ?? row['baseUrl']?.toString() ?? '',
       'enabled': flag(row['enabled']),
+      'role': normalizeRole(row['role']),
       'secret': nullableText(row['secret']),
       'config': config,
       'message_format': row['message_format'] ?? 'default',
@@ -146,6 +174,7 @@ class ChannelConfigCodec {
     row['appType'] =
         ui['appType']?.toString() ?? ui['app_type']?.toString() ?? 'wecom_app';
     row['name'] = ui['name'] ?? '';
+    row['role'] = normalizeRole(ui['role']);
     row['baseUrl'] =
         ui['baseUrl']?.toString() ?? ui['base_url']?.toString() ?? '';
     row['secret'] = nullableText(ui['secret']);
@@ -169,6 +198,7 @@ class ChannelConfigCodec {
     'config': ui['config'] ?? <String, dynamic>{},
     'message_format': ui['message_format'] ?? 'default',
     'enabled': ui['enabled'] == true,
+    'role': normalizeRole(ui['role']),
   };
 
   static Map<String, dynamic> _decodeOrEmpty(String raw) {

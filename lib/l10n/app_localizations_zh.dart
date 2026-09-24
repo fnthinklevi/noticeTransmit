@@ -115,6 +115,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelStatusNeverProbed => '从未探测';
 
   @override
+  String get mainBackupSettings => '主备设置';
+
+  @override
+  String get mainBackupHint => '主通道全量推送；仅当所有主通道都不可用时，才推给备用通道。同一通知不会被主备各推一次。';
+
+  @override
+  String get mainBackupRecommend => '主通道建议不超过 5 条。超出仍可保存，但通道越多并发发送与失败判定越慢。';
+
+  @override
+  String get rolePrimary => '主';
+
+  @override
+  String get roleBackup => '备';
+
+  @override
+  String get roleNone => '不参与';
+
+  @override
+  String get mainBackupExcluded => '标记为「不参与」的通道保留配置但不推送，随时可归队。';
+
+  @override
+  String get mainBackupChannelGone => '通道已不存在，本次设置未保存。';
+
+  @override
   String get permSettings => '权限设置';
 
   @override

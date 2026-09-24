@@ -308,6 +308,54 @@ abstract class AppLocalizations {
   /// **'从未探测'**
   String get channelStatusNeverProbed;
 
+  /// No description provided for @mainBackupSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'主备设置'**
+  String get mainBackupSettings;
+
+  /// No description provided for @mainBackupHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'主通道全量推送；仅当所有主通道都不可用时，才推给备用通道。同一通知不会被主备各推一次。'**
+  String get mainBackupHint;
+
+  /// No description provided for @mainBackupRecommend.
+  ///
+  /// In zh, this message translates to:
+  /// **'主通道建议不超过 5 条。超出仍可保存，但通道越多并发发送与失败判定越慢。'**
+  String get mainBackupRecommend;
+
+  /// No description provided for @rolePrimary.
+  ///
+  /// In zh, this message translates to:
+  /// **'主'**
+  String get rolePrimary;
+
+  /// No description provided for @roleBackup.
+  ///
+  /// In zh, this message translates to:
+  /// **'备'**
+  String get roleBackup;
+
+  /// No description provided for @roleNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'不参与'**
+  String get roleNone;
+
+  /// No description provided for @mainBackupExcluded.
+  ///
+  /// In zh, this message translates to:
+  /// **'标记为「不参与」的通道保留配置但不推送，随时可归队。'**
+  String get mainBackupExcluded;
+
+  /// No description provided for @mainBackupChannelGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道已不存在，本次设置未保存。'**
+  String get mainBackupChannelGone;
+
   /// No description provided for @permSettings.
   ///
   /// In zh, this message translates to:

@@ -115,6 +115,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelStatusNeverProbed => 'Never probed';
 
   @override
+  String get mainBackupSettings => 'Primary & Backup';
+
+  @override
+  String get mainBackupHint =>
+      'Primary channels always receive the notification. Backup channels are used only when every primary channel is unavailable — a notification is never sent to both.';
+
+  @override
+  String get mainBackupRecommend =>
+      'Keep primary channels at 5 or fewer. More are allowed, but fan-out and failure detection get slower.';
+
+  @override
+  String get rolePrimary => 'Primary';
+
+  @override
+  String get roleBackup => 'Backup';
+
+  @override
+  String get roleNone => 'Excluded';
+
+  @override
+  String get mainBackupExcluded =>
+      'Excluded channels keep their configuration but receive nothing until re-assigned.';
+
+  @override
+  String get mainBackupChannelGone =>
+      'That channel is gone; the change was not saved.';
+
+  @override
   String get permSettings => 'Permissions';
 
   @override

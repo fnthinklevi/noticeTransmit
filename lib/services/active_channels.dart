@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 
 import '../models/email_channel.dart';
 import 'app_channel_service.dart';
+import 'channel_config_codec.dart';
 import 'channel_health_store.dart';
 import 'channel_display.dart';
 import 'email_service.dart';
@@ -20,6 +21,7 @@ class ActiveChannel {
     required this.displayName,
     required this.configName,
     required this.target,
+    required this.role,
     this.health,
   });
 
@@ -41,6 +43,11 @@ class ActiveChannel {
   /// 关键链接（通道状态页用）：**只有 host[:port]**，见 [channelTargetLabel]。
   /// 邮件族没有 URL，放 `smtpHost:port`。
   final String target;
+
+  /// 主备角色（T11）：`ChannelConfigCodec.rolePrimary` / `roleBackup` / `roleNone`。
+  /// 与 `enabled` 是两件事：enabled=false 根本不进这份清单，role=none 是"启用但
+  /// 不参与推送"（保留配置以便随时归队）。
+  final String role;
 
   /// 最近一次探测结果（来自健康单点）。null = 从没探过。
   final ChannelHealth? health;
@@ -116,6 +123,7 @@ List<ActiveChannel> collectActiveChannels() {
         displayName: channelTypeDisplayName(appType),
         configName: c['name']?.toString() ?? '',
         target: channelTargetLabel(c['baseUrl']?.toString() ?? ''),
+        role: ChannelConfigCodec.normalizeRole(c['role']),
         // T01：三族一律读健康单点。此前只有 email 带状态，webhook / 应用通道恒判 ok，
         // 首页于是对着一堆从没探过的通道显示"状态正常"。
         health: health?.of('app', id),
@@ -135,6 +143,7 @@ List<ActiveChannel> collectActiveChannels() {
         displayName: channelTypeDisplayName(type),
         configName: c['name']?.toString() ?? '',
         target: channelTargetLabel(c['url']?.toString() ?? ''),
+        role: ChannelConfigCodec.normalizeRole(c['role']),
         health: health?.of('webhook', id),
       ),
     );
@@ -156,6 +165,7 @@ List<ActiveChannel> collectActiveChannels() {
         configName: c.name,
         // 邮件族没有 URL：smtp 主机+端口就是它的"关键链接"（不含口令）
         target: '${c.smtpHost}:${c.smtpPort}',
+        role: ChannelConfigCodec.normalizeRole(c.role),
         health: health?.of('email', c.id),
       ),
     );
@@ -172,6 +182,46 @@ List<String> deliveryKeysOfActiveChannels() => collectActiveChannels()
     .map((c) => c.deliveryKey)
     .toSet()
     .toList(growable: false);
+
+/// 改一条通道的主备角色（T11）。写回**该族自己的服务**，因此走的就是既有的
+/// "归一化 → DB → 同步原生"链路，不另开一条写路径。
+///
+/// 返回 false = 没找到这条通道（并发删除、或 family/id 传错），调用方据此提示而不是静默。
+Future<bool> updateChannelRole(String family, String id, String role) async {
+  final normalized = ChannelConfigCodec.normalizeRole(role);
+  switch (family) {
+    case 'webhook':
+      final service = GetIt.instance<WebhookService>();
+      final rows = service.channels
+          .map<Map<String, dynamic>>(
+            (c) => c['id']?.toString() == id ? {...c, 'role': normalized} : c,
+          )
+          .toList();
+      if (!rows.any((c) => c['id']?.toString() == id)) return false;
+      await service.saveChannels(rows);
+      return true;
+    case 'app':
+      final service = GetIt.instance<AppChannelService>();
+      final rows = service.channels
+          .map<Map<String, dynamic>>(
+            (c) => c['id']?.toString() == id ? {...c, 'role': normalized} : c,
+          )
+          .toList();
+      if (!rows.any((c) => c['id']?.toString() == id)) return false;
+      await service.saveChannels(rows);
+      return true;
+    case 'email':
+      final service = GetIt.instance<EmailService>();
+      if (!service.cachedChannels.any((c) => c.id == id)) return false;
+      await service.saveChannels([
+        for (final c in service.cachedChannels)
+          if (c.id == id) c.copyWith(role: normalized) else c,
+      ]);
+      return true;
+    default:
+      return false;
+  }
+}
 
 /// 服务未注册（早期启动阶段 / 测试环境）时按「该族无通道」处理，与两份旧实现一致。
 List<Map<String, dynamic>> _rows(List<Map<String, dynamic>> Function() read) {

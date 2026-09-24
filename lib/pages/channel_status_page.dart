@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/active_channels.dart';
+import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../theme/app_colors.dart';
@@ -58,7 +59,17 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     final channels = collectActiveChannels();
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.channelStatusTitle)),
+      appBar: AppBar(
+        title: Text(l10n.channelStatusTitle),
+        actions: [
+          // 主备设置（T11）的入口在右上角：这一页本身是只读视图，改角色是个动作。
+          TextButton(
+            key: const ValueKey('channel-status-open-roles'),
+            onPressed: () => _showRoleSheet(),
+            child: Text(l10n.mainBackupSettings),
+          ),
+        ],
+      ),
       body: channels.isEmpty
           ? Center(
               child: Text(
@@ -187,20 +198,183 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
             color: AppColors.secondaryLabel(context),
           ),
         ),
-        trailing: Text(
-          statusText,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: color,
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _RoleBadge(role: channel.role),
+            const SizedBox(width: 6),
+            Text(
+              statusText,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// 「n 分钟前探测 / n 小时前探测」。`probedAt == 0` 是从旧的
-  /// `email_test_results` 搬进来的条目（没有时间戳），只能说"从未探测"。
+  /// 主备设置弹层（T11）：三族一起看，每条三个档（主 / 备 / 不参与）。
+  ///
+  /// 数量**不设硬上限**（维护者的决定），但主通道超过 5 条时给一句提示 ——
+  /// 上限卡住会让用户以为"配到第 6 条就自动失效"，而实际只是变慢。
+  /// 改一条就立刻写回该族服务（走既有"归一化 → DB → 同步原生"链路），
+  /// 弹层保持打开以便连续设置；关闭后本页重取一次。
+  Future<void> _showRoleSheet() async {
+    final l10n = AppLocalizations.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final channels = collectActiveChannels();
+          final primaryCount = channels
+              .where((c) => c.role == ChannelConfigCodec.rolePrimary)
+              .length;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.mainBackupSettings,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLabel(context),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.mainBackupHint,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                  if (primaryCount > _recommendedPrimaryMax)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        l10n.mainBackupRecommend,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.orange,
+                        ),
+                      ),
+                    ),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final family in const ['webhook', 'email', 'app'])
+                          for (final c in channels.where(
+                            (c) => c.family == family,
+                          ))
+                            _roleRow(context, l10n, c, () {
+                              setSheetState(() {});
+                              setState(() {});
+                            }),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  /// 推荐上限：只用于提示，不做硬限制。
+  static const int _recommendedPrimaryMax = 5;
+
+  Widget _roleRow(
+    BuildContext context,
+    AppLocalizations l10n,
+    ActiveChannel channel,
+    VoidCallback onChanged,
+  ) {
+    final options = <(String, String)>[
+      (ChannelConfigCodec.rolePrimary, l10n.rolePrimary),
+      (ChannelConfigCodec.roleBackup, l10n.roleBackup),
+      (ChannelConfigCodec.roleNone, l10n.roleNone),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  channel.configName.trim().isNotEmpty
+                      ? channel.configName
+                      : channel.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.primaryLabel(context),
+                  ),
+                ),
+                Text(
+                  '${channel.displayName} · ${channel.target}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SegmentedButton<String>(
+            // 一条一行，key 给测试与朗读用
+            key: ValueKey('role-picker-${channel.family}-${channel.id}'),
+            showSelectedIcon: false,
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            segments: [
+              for (final (value, label) in options)
+                ButtonSegment(value: value, label: Text(label)),
+            ],
+            selected: {channel.role},
+            onSelectionChanged: (selection) async {
+              final ok = await updateChannelRole(
+                channel.family,
+                channel.id,
+                selection.first,
+              );
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l10n.mainBackupChannelGone)),
+                );
+              }
+              onChanged();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 探测时间的口语化距离（与两个设置页原来各写一份的口径一致）；
+  /// `probedAt == 0` 是从旧的 `email_test_results` 搬进来的条目（没有时间戳），只能说"从未探测"。
   String _probeAge(AppLocalizations l10n, ChannelHealth? health) {
     if (health == null || health.probedAt == 0) {
       return l10n.channelStatusNeverProbed;
@@ -212,5 +386,42 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
       return l10n.healthProbedMinutes(ago ~/ (60 * 1000));
     }
     return l10n.healthProbedHours(ago ~/ (60 * 60 * 1000));
+  }
+}
+
+/// 角色徽标：主 / 备 / 不参与。三族共用一种形状，颜色只在"主"上实心，
+/// 避免首页那页出现三种彩色抢占注意力。
+class _RoleBadge extends StatelessWidget {
+  final String role;
+  const _RoleBadge({required this.role});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final (label, filled) = switch (role) {
+      ChannelConfigCodec.roleBackup => (l10n.roleBackup, false),
+      ChannelConfigCodec.roleNone => (l10n.roleNone, false),
+      _ => (l10n.rolePrimary, true),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: filled
+            ? AppColors.blue.withValues(alpha: 0.14)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: filled ? AppColors.blue : AppColors.separator(context),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          height: 1.2,
+          color: filled ? AppColors.blue : AppColors.secondaryLabel(context),
+        ),
+      ),
+    );
   }
 }

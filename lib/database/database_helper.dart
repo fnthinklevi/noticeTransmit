@@ -49,7 +49,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 11;
+  static const int dbVersion = 12;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -309,6 +309,7 @@ class DatabaseHelper
         from_email TEXT NOT NULL,
         to_email TEXT NOT NULL,
         use_ssl INTEGER NOT NULL DEFAULT 1,
+        role TEXT NOT NULL DEFAULT 'primary',
         subject_template TEXT,
         body_template TEXT,
         created_at INTEGER NOT NULL,
@@ -325,6 +326,7 @@ class DatabaseHelper
         enabled INTEGER NOT NULL DEFAULT 1,
         secret TEXT,
         message_format TEXT NOT NULL DEFAULT 'default',
+        role TEXT NOT NULL DEFAULT 'primary',
         message_template TEXT,
         extra_config TEXT,
         created_at INTEGER NOT NULL,
@@ -361,6 +363,7 @@ class DatabaseHelper
         base_url TEXT NOT NULL DEFAULT '',
         secret TEXT,
         config TEXT,
+        role TEXT NOT NULL DEFAULT 'primary',
         message_format TEXT NOT NULL DEFAULT 'default',
         enabled INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER NOT NULL,
@@ -430,6 +433,7 @@ class DatabaseHelper
           use_ssl INTEGER NOT NULL DEFAULT 1,
           subject_template TEXT,
           body_template TEXT,
+          role TEXT NOT NULL DEFAULT 'primary',
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         )
@@ -445,6 +449,7 @@ class DatabaseHelper
           message_format TEXT NOT NULL DEFAULT 'default',
           message_template TEXT,
         extra_config TEXT,
+          role TEXT NOT NULL DEFAULT 'primary',
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         )
@@ -522,6 +527,7 @@ class DatabaseHelper
           config TEXT,
           message_format TEXT NOT NULL DEFAULT 'default',
           enabled INTEGER NOT NULL DEFAULT 1,
+          role TEXT NOT NULL DEFAULT 'primary',
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         )
@@ -540,6 +546,23 @@ class DatabaseHelper
     if (oldVersion < 11) {
       // v11: 送达键去本地化（不改表结构，只改写值）
       await _migrateDeliveryKeysToCanonical(db);
+    }
+    if (oldVersion < 12) {
+      // v12: 主备通道（T11）。三张通道表各加一列，**存量一律按"主"**：
+      // 老库里所有通道本来都是全量推，默认 primary 才等于不改变既有语义。
+      // 非法/缺失值在 Dart 侧统一按 primary 解释（宁可多推一条，也不静默不推）。
+      for (final table in const [
+        'webhook_channels',
+        'app_channels',
+        'email_channels',
+      ]) {
+        await _addColumnIfMissing(
+          db,
+          table,
+          'role',
+          "TEXT NOT NULL DEFAULT 'primary'",
+        );
+      }
     }
   }
 
@@ -870,6 +893,9 @@ class DatabaseHelper
               : (c['config'] ?? '{}'),
           'message_format': c['message_format']?.toString() ?? 'default',
           'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
+          // T11 主备角色：调用方（ChannelConfigCodec）已归一化，这里只兜缺省。
+          // 缺省 **primary** = 老库/老备份的既有语义（本来就全量推给每条通道）。
+          'role': c['role']?.toString() ?? 'primary',
           'created_at': c['created_at'] ?? now,
           'updated_at': now,
         };
@@ -1136,6 +1162,9 @@ class DatabaseHelper
               : 'em_${now}_${i++}',
           'name': c['name'] ?? '',
           'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
+          // T11 主备角色：调用方（ChannelConfigCodec）已归一化，这里只兜缺省。
+          // 缺省 **primary** = 老库/老备份的既有语义（本来就全量推给每条通道）。
+          'role': c['role']?.toString() ?? 'primary',
           'smtp_host': c['smtpHost'] ?? '',
           'smtp_port': c['smtpPort'] ?? 465,
           'username': c['username'] ?? '',
@@ -1191,6 +1220,9 @@ class DatabaseHelper
               c['type']?.toString() ??
               'generic',
           'enabled': (c['enabled'] == true || c['enabled'] == 1) ? 1 : 0,
+          // T11 主备角色：调用方（ChannelConfigCodec）已归一化，这里只兜缺省。
+          // 缺省 **primary** = 老库/老备份的既有语义（本来就全量推给每条通道）。
+          'role': c['role']?.toString() ?? 'primary',
           'secret': c['secret'],
           // v6: 推送模板系统字段（message_format / message_template）
           'message_format':

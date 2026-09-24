@@ -26,6 +26,9 @@ class _SchemaFixture {
     'config',
     'message_format',
     'enabled',
+    // T11 主备角色。两处建表都有它，v11→v12 的老库靠 _addColumnIfMissing 补，
+    // 所以"新建库"与"升级库"的最终列集合一致 —— 这正是本守卫要保的不变量。
+    'role',
     'created_at',
     'updated_at',
   };
@@ -70,7 +73,7 @@ void main() {
       expect(createBlocks.first, equals(createBlocks.last));
     });
 
-    test('列集合与契约一致（10 列）', () {
+    test('列集合与契约一致（11 列）', () {
       expect(createBlocks.first, equals(_SchemaFixture.expectedColumns));
     });
   });

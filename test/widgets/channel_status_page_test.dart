@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
@@ -87,20 +86,12 @@ void main() {
     opened.clear();
     await GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
-    // 见 base.md（53）：testWidgets 里不给通道装 mock handler，服务侧那一句
+    // 见 base.md（53）（54）：testWidgets 里不接住原生通道，服务侧那一句
     // `await invokeMethod(...)` 永远不返回 ⇒ 整批用例 did not complete。
-    for (final name in const [
-      'com.fnthink.notice/notification',
-      // SecureStorageService 走的是**另一个**通道：webhook 的 _syncToNative 会先写它，
-      // 不接住就卡在 await（普通 test() 里它抛 MissingPluginException 所以看不出来）。
-      'plugins.it_nomads.com/flutter_secure_storage',
-    ]) {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(MethodChannel(name), (call) async => null);
-    }
+    stubNativeChannels();
     appService = AppChannelService(store: _FakeAppStore());
     webhookService = WebhookService(store: _FakeWebhookStore());
-    emailService = EmailService();
+    emailService = EmailService(store: _FakeEmailStore());
     GetIt.instance.registerSingleton<AppChannelService>(appService);
     GetIt.instance.registerSingleton<WebhookService>(webhookService);
     GetIt.instance.registerSingleton<EmailService>(emailService);
@@ -108,13 +99,7 @@ void main() {
   });
 
   tearDown(() async {
-    for (final name in const [
-      'com.fnthink.notice/notification',
-      'plugins.it_nomads.com/flutter_secure_storage',
-    ]) {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(MethodChannel(name), null);
-    }
+    clearNativeChannelStubs();
     await GetIt.instance.reset();
   });
 
@@ -251,6 +236,73 @@ void main() {
       reason: '从配置页回来没有重取数据（禁用后仍显示）',
     );
   });
+  group('T11 主备角色', () {
+    testWidgets('弹层里改成备用 → 服务落库、页面徽标跟着变', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      // 新库没写过 role → 一律"主"（老语义：全量推）
+      expect(find.text('主'), findsNWidgets(3));
+      final whId = webhookService.channels.first['id'] as String;
+
+      await tester.tap(find.byKey(const ValueKey('channel-status-open-roles')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('仅当所有主通道都不可用时'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey('role-picker-webhook-$whId')),
+          matching: find.text('备'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        webhookService.channels.first['role'],
+        'backup',
+        reason: '改了没落库 = 重启设置就丢',
+      );
+      // 点遮罩关掉弹层（BottomSheet 默认可点外关闭），再看页面徽标
+      await tester.tapAt(const Offset(6, 6));
+      await tester.pumpAndSettle();
+
+      expect(find.text('备'), findsOneWidget);
+      expect(find.text('主'), findsNWidgets(2));
+    });
+
+    testWidgets('主通道超过 5 条只提示、不阻止保存', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await appService.saveChannels([
+        for (var i = 0; i < 6; i++)
+          {
+            'id': 'app-$i',
+            'name': '应用$i',
+            'appType': 'wecom_app',
+            'baseUrl': 'https://qyapi.weixin.qq.com',
+            'config': <String, dynamic>{},
+            'enabled': true,
+          },
+      ]);
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(find.text('主'), findsNWidgets(6), reason: '全部默认主通道');
+
+      await tester.tap(find.byKey(const ValueKey('channel-status-open-roles')));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('建议不超过 5 条'),
+        findsOneWidget,
+        reason: '超过推荐值要给提示（但不设硬上限）',
+      );
+    });
+  });
 }
 
 class _FakeAppStore implements AppChannelStore {
@@ -262,6 +314,18 @@ class _FakeAppStore implements AppChannelStore {
   @override
   Future<void> saveAppChannels(List<Map<String, dynamic>> channels) async {
     rows = List.of(channels);
+  }
+}
+
+class _FakeEmailStore implements EmailChannelStore {
+  List<Map<String, dynamic>> rows = [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getEmailChannels() async => rows;
+
+  @override
+  Future<void> saveEmailChannels(List<Map<String, dynamic>> channels) async {
+    rows = channels.map(Map<String, dynamic>.from).toList();
   }
 }
 
