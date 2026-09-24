@@ -281,7 +281,7 @@ extension _MainPageActions on _MainPageState {
     }
   }
 
-  void _openWebhookSettingsPage() async {
+  Future<void> _openWebhookSettingsPage() async {
     final l10n = AppLocalizations.of(context);
     final result = await _pushPage<List<Map<String, dynamic>>>(
       WebhookSettingsPage(
@@ -298,7 +298,7 @@ extension _MainPageActions on _MainPageState {
   }
 
   /// 打开自建应用通道设置页
-  void _openAppChannelsSettingsPage() async {
+  Future<void> _openAppChannelsSettingsPage() async {
     await _pushPage(const AppChannelListPage());
     setState(() {});
   }
@@ -308,10 +308,11 @@ extension _MainPageActions on _MainPageState {
   /// （T16 的病灶就是把 push 那一刻的 List 引用传进去，服务换新列表后页面还看着旧列表）。
   Future<void> _openTemperaturePush() async {
     await _pushPage(const TemperaturePage());
+    if (!mounted) return;
     setState(() {});
   }
 
-  void _openEmailSettingsPage() async {
+  Future<void> _openEmailSettingsPage() async {
     final l10n = AppLocalizations.of(context);
     final emailService = GetIt.instance<EmailService>();
     final channels = await emailService.loadChannels();
@@ -330,5 +331,28 @@ extension _MainPageActions on _MainPageState {
       setState(() {});
       _showInfo(l10n.emailConfigSaved);
     }
+  }
+
+  /// 通道状态页（T10）：从首页「当前推送通道」那张卡点进来。
+  /// 点某一行按族进对应配置页 —— 直接复用上面三个开页方法：
+  /// webhook / email 都是"先把数据取进来、退出时把结果存回去"的形态，
+  /// 在状态页里再写一份加载与回存逻辑就会和这里漂移。
+  Future<void> _openChannelStatusPage() async {
+    await _pushPage(
+      ChannelStatusPage(
+        onOpenChannel: (family) async {
+          switch (family) {
+            case 'webhook':
+              await _openWebhookSettingsPage();
+            case 'email':
+              await _openEmailSettingsPage();
+            default:
+              await _openAppChannelsSettingsPage();
+          }
+        },
+      ),
+    );
+    if (!mounted) return;
+    setState(() {});
   }
 }

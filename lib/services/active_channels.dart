@@ -19,6 +19,7 @@ class ActiveChannel {
     required this.id,
     required this.displayName,
     required this.configName,
+    required this.target,
     this.health,
   });
 
@@ -36,6 +37,10 @@ class ActiveChannel {
 
   /// 用户给这条通道起的名字
   final String configName;
+
+  /// 关键链接（通道状态页用）：**只有 host[:port]**，见 [channelTargetLabel]。
+  /// 邮件族没有 URL，放 `smtpHost:port`。
+  final String target;
 
   /// 最近一次探测结果（来自健康单点）。null = 从没探过。
   final ChannelHealth? health;
@@ -110,6 +115,7 @@ List<ActiveChannel> collectActiveChannels() {
         id: id,
         displayName: channelTypeDisplayName(appType),
         configName: c['name']?.toString() ?? '',
+        target: channelTargetLabel(c['baseUrl']?.toString() ?? ''),
         // T01：三族一律读健康单点。此前只有 email 带状态，webhook / 应用通道恒判 ok，
         // 首页于是对着一堆从没探过的通道显示"状态正常"。
         health: health?.of('app', id),
@@ -128,6 +134,7 @@ List<ActiveChannel> collectActiveChannels() {
         id: id,
         displayName: channelTypeDisplayName(type),
         configName: c['name']?.toString() ?? '',
+        target: channelTargetLabel(c['url']?.toString() ?? ''),
         health: health?.of('webhook', id),
       ),
     );
@@ -147,6 +154,8 @@ List<ActiveChannel> collectActiveChannels() {
         id: c.id,
         displayName: channelTypeDisplayName('EMAIL'),
         configName: c.name,
+        // 邮件族没有 URL：smtp 主机+端口就是它的"关键链接"（不含口令）
+        target: '${c.smtpHost}:${c.smtpPort}',
         health: health?.of('email', c.id),
       ),
     );

@@ -105,6 +105,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusUnknown => 'Unknown';
 
   @override
+  String get channelStatusTitle => 'Channel Status';
+
+  @override
+  String get channelStatusGuide =>
+      'Every enabled channel with its latest probe result and address. Tap any row to open that channel\'s settings.';
+
+  @override
+  String get channelStatusNeverProbed => 'Never probed';
+
+  @override
   String get permSettings => 'Permissions';
 
   @override

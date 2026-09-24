@@ -105,6 +105,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get statusUnknown => '状态未知';
 
   @override
+  String get channelStatusTitle => '通道状态';
+
+  @override
+  String get channelStatusGuide =>
+      '这里列出所有已启用的通道，以及每条最近一次探测的结果与地址。点任意一条可直接进入它的配置页。';
+
+  @override
+  String get channelStatusNeverProbed => '从未探测';
+
+  @override
   String get permSettings => '权限设置';
 
   @override

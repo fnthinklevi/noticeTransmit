@@ -14,6 +14,7 @@ class NotificationPage extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenHistory;
   final VoidCallback onOpenPermissionSettings;
+  final VoidCallback onOpenChannelStatus;
   final ValueChanged<bool> onToggleSmsMonitor;
   final VoidCallback onOpenSmsMonitorSettings;
 
@@ -29,6 +30,7 @@ class NotificationPage extends StatelessWidget {
     required this.onRefresh,
     required this.onOpenHistory,
     required this.onOpenPermissionSettings,
+    required this.onOpenChannelStatus,
     required this.onToggleSmsMonitor,
     required this.onOpenSmsMonitorSettings,
   });
@@ -108,9 +110,16 @@ class NotificationPage extends StatelessWidget {
                 ),
               ),
             ),
-            if (foregroundServiceRunning) ...[
-              const SizedBox(height: 16),
-              Container(
+            // 通道卡**常驻**（不再只在监听运行时才显示）：
+            // 「配了哪些通道、最近探到过不通」与"服务此刻在不在跑"是两件事，
+            // 服务停着的时候反而更需要看到这两行；入口也才稳定可点。
+            const SizedBox(height: 16),
+            // 整张卡可点 → 通道状态页（T10）。卡片本身只做"有几条、大致怎样"，
+            // 明细与主备设置都在那一页；不铺开的理由是首页要留给监听状态与快捷入口。
+            InkWell(
+              onTap: onOpenChannelStatus,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -136,6 +145,12 @@ class NotificationPage extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             color: AppColors.secondaryLabel(context),
                           ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: AppColors.tertiaryLabel(context),
                         ),
                       ],
                     ),
@@ -210,7 +225,7 @@ class NotificationPage extends StatelessWidget {
                   ],
                 ),
               ),
-            ],
+            ),
             const SizedBox(height: 12),
             _buildSmsMonitorCard(context, l10n),
             const SizedBox(height: 40),

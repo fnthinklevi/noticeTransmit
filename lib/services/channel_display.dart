@@ -162,6 +162,19 @@ Map<String, dynamic> normalizeDeliveryKeys(Map<String, dynamic> status) {
   return result;
 }
 
+/// 通道「关键链接」的可显示部分：**只有 host[:port]，path 与 query 一律丢掉**。
+///
+/// 为什么不显示 path：webhook 的凭据常常就在 path 里 —— Server酱是
+/// `https://sctapi.ftqq.com/<SENDKEY>.send`、飞书是 `/open-apis/bot/v2/hook/<token>`，
+/// query 里更是标配（`?access_token=` / `?key=`）。这个字段要显示在通道状态页上，
+/// 任何一条都等于把凭据抄进界面（截图即泄露）。
+/// 解析不出来（缺 scheme 的旧值等）返回空串，由调用方省略这一行。
+String channelTargetLabel(String raw) {
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null || uri.host.isEmpty) return '';
+  return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+}
+
 /// 通道显示名（语言感知）。输入同 [channelKey]，因此把键直接喂进来也能得到名字。
 String channelTypeDisplayName(String rawType) {
   final names = _channelNames[channelKey(rawType)]!;

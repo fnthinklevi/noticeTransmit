@@ -290,6 +290,24 @@ abstract class AppLocalizations {
   /// **'状态未知'**
   String get statusUnknown;
 
+  /// No description provided for @channelStatusTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道状态'**
+  String get channelStatusTitle;
+
+  /// No description provided for @channelStatusGuide.
+  ///
+  /// In zh, this message translates to:
+  /// **'这里列出所有已启用的通道，以及每条最近一次探测的结果与地址。点任意一条可直接进入它的配置页。'**
+  String get channelStatusGuide;
+
+  /// No description provided for @channelStatusNeverProbed.
+  ///
+  /// In zh, this message translates to:
+  /// **'从未探测'**
+  String get channelStatusNeverProbed;
+
   /// No description provided for @permSettings.
   ///
   /// In zh, this message translates to:

@@ -17,6 +17,7 @@ import '../models/notification_rule.dart';
 import '../models/email_channel.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
+import 'channel_status_page.dart';
 import 'battery_page.dart';
 import 'temperature_page.dart';
 import 'more_page.dart';
@@ -94,6 +95,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onStopService: _stopForegroundService,
         onRefresh: _checkPermissions,
         onOpenHistory: _openHistoryPage,
+        onOpenChannelStatus: _openChannelStatusPage,
         onOpenPermissionSettings: _openPermissionSettingsPage,
         onToggleSmsMonitor: (v) async {
           await _smsService.saveSmsMonitorEnabled(v);

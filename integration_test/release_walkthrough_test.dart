@@ -12,6 +12,7 @@ import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/main.dart' show MyApp;
 import 'package:notice_transmit/pages/app_channel_list_page.dart';
+import 'package:notice_transmit/pages/channel_status_page.dart';
 import 'package:notice_transmit/pages/app_channel_settings_page.dart';
 import 'package:notice_transmit/pages/app_filter_page.dart';
 import 'package:notice_transmit/pages/backup_restore_page.dart';
@@ -801,6 +802,42 @@ void main() {
         await _backToHomeQuietly(tester);
       },
     );
+
+    // ── 5.9 通道状态页（T10）：首页通道卡 → 三族分组 → 返回 ─────────────
+    // 这一节存在的理由：新页面最容易"编译过、单测绿、真机上入口是死的"。
+    // 首页那张卡现在**常驻**（以前只在监听运行时显示，第 1 节刚把服务关掉 ⇒ 入口忽在忽不在，
+    // 这一节就会假红），所以这里不需要先把服务开回来。
+    await _step(tester, gateFailures, '── 5.9 通道状态页：入口、三族分组与脱敏', () async {
+      await _backToHomeQuietly(tester);
+      // ⚠ 必须真的点一下 tab：主界面是 IndexedStack，停在更多/电量时，通知页的卡
+      // "在树上但不在屏幕上" ⇒ 滚到底也找不到（5.9 第一次红的真因）。
+      // 与 `_openMoreRow` 同一个规矩：tab 文案是「通知」（T13 才改成「首页」）。
+      await _tap(
+        tester,
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('通知'),
+        ),
+        '底部 tab→通知',
+      );
+      await _tap(tester, find.text('当前推送通道'), '通知页→通道状态');
+      await _onPage(tester, ChannelStatusPage, '通道状态页');
+      expect(
+        _in(ChannelStatusPage, find.text('Webhook')),
+        findsOneWidget,
+        reason: '三族分组标题里没有 webhook 族（第 5 节刚存过一条启用的 webhook）',
+      );
+      final shown = tester
+          .widgetList<Text>(_in(ChannelStatusPage, find.byType(Text)))
+          .map((t) => t.data ?? '')
+          .join(' | ');
+      expect(
+        shown,
+        isNot(contains('access_token')),
+        reason: '关键链接整条 URL 上屏 = 把 query 里的凭据画进界面（截图即泄露）',
+      );
+      await _backToHomeQuietly(tester);
+    });
 
     // ── 6. 电量 tab：加规则 → 切开关
     await _step(tester, gateFailures, '── 6. 电量 tab：加规则 → 切开关', () async {

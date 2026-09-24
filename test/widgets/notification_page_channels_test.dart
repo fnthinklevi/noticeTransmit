@@ -14,14 +14,18 @@ import 'package:notice_transmit/theme/app_colors.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  Widget page(List<Map<String, String>> channels) {
+  Widget page(
+    List<Map<String, String>> channels, {
+    bool running = true,
+    VoidCallback? onOpenChannelStatus,
+  }) {
     return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('zh'),
       home: NotificationPage(
         notificationPermissionGranted: true,
-        foregroundServiceRunning: true,
+        foregroundServiceRunning: running,
         notificationCount: 3,
         activeChannels: channels,
         onStartService: () {},
@@ -29,6 +33,7 @@ void main() {
         onRefresh: () async {},
         onOpenHistory: () {},
         onOpenPermissionSettings: () {},
+        onOpenChannelStatus: onOpenChannelStatus ?? () {},
         onToggleSmsMonitor: (_) {},
         onOpenSmsMonitorSettings: () {},
       ),
@@ -104,5 +109,30 @@ void main() {
 
     expect(find.text('未配置推送通道'), findsOneWidget);
     expect(find.text('状态未知'), findsNothing);
+  });
+
+  testWidgets('通道卡常驻且可点 → 通道状态页（T10 的入口）', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    var opened = 0;
+
+    // 故意用 running: false —— 这张卡以前只在监听运行时渲染，闸门 5.9 因此忽红忽绿：
+    // 第 1 节刚把服务关掉，入口就不在树上了。常驻是这次的有意改动，必须钉住。
+    await tester.pumpWidget(
+      page(
+        const [
+          {'label': 'Webhook：钉钉/告警群', 'status': 'ok'},
+        ],
+        running: false,
+        onOpenChannelStatus: () => opened++,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前推送通道'), findsOneWidget, reason: '服务停着时通道卡应当仍在');
+    await tester.tap(find.text('当前推送通道'));
+    await tester.pumpAndSettle();
+    expect(opened, 1, reason: '首页那张卡点不进状态页 = T10 的入口没了');
   });
 }
