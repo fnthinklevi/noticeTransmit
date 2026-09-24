@@ -36,7 +36,9 @@ void main() {
     });
 
     test('闸门脚本只允许跑在模拟器上', () {
-      final src = read('.github/scripts/release_emulator.sh');
+      final src = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
       expect(
         src.contains(r'emulator-*)'),
         isTrue,
@@ -46,6 +48,55 @@ void main() {
         src.contains('running_serial_for'),
         isTrue,
         reason: 'AVD 与 adb serial 的对应必须走 `adb emu avd name`（serial 不含 AVD 名）',
+      );
+    });
+
+    test('模拟器由 EXIT trap 收尾，失败或中断也不许留在后台', () {
+      final src = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
+      expect(
+        RegExp(
+          r'^trap\s+cleanup_emulator\s+EXIT',
+          multiLine: true,
+        ).hasMatch(src),
+        isTrue,
+        reason:
+            '只在脚本末尾 emu kill ⇒ boot 超时、测试失败、Ctrl-C 这些出口都会把模拟器'
+            '留在后台吃内存（维护者 2026-09-25 明确要求：用完必须关）',
+      );
+      // 反证 1：旧写法（无 trap，只在末尾收尾）必须判假
+      expect(
+        RegExp(r'^trap\s+cleanup_emulator\s+EXIT', multiLine: true).hasMatch(
+          'STARTED_BY_US=1\nflutter test\n'
+          'if [ "\$STARTED_BY_US" = "1" ]; then "\$ADB" emu kill; fi\n',
+        ),
+        isFalse,
+        reason: '守卫对"无 trap 的旧写法"不敏感 ⇒ 它是摆设',
+      );
+      // 反证 2：注释掉的 trap 必须判假（实测踩过：不加剥注释这一步时它是绿的，闸门是空的）
+      expect(
+        RegExp(r'^trap\s+cleanup_emulator\s+EXIT', multiLine: true).hasMatch(
+          stripShellComments('# trap cleanup_emulator EXIT\nflutter test\n'),
+        ),
+        isFalse,
+        reason: '注释里的 trap 也算命中 ⇒ 把闸门注释掉，守卫仍然绿（假绿）',
+      );
+      // 关闭动作只允许一处，且必须先确认 serial 是 emulator-*（不能误伤真机）
+      expect(
+        RegExp(r'emu kill').allMatches(src).length,
+        1,
+        reason: '出现第二处 emu kill ⇒ 两处收尾会互相掩盖，其中一处可能不在 trap 里',
+      );
+      final cleanup = src.substring(
+        src.indexOf('cleanup_emulator()'),
+        src.indexOf('trap cleanup_emulator EXIT'),
+      );
+      expect(
+        RegExp(r'emulator-\*\)\s*:').hasMatch(cleanup) &&
+            RegExp(r'case "\$\{SERIAL:-\}"').hasMatch(cleanup),
+        isTrue,
+        reason: 'trap 里没有 serial 画像判定 ⇒ 中断路径上可能对真机执行 emu kill',
       );
     });
 

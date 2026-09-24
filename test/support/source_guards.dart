@@ -71,6 +71,41 @@ String stripXmlComments(String source) {
   return out;
 }
 
+/// 剥离 shell 脚本的 `#` 注释（逐行截断、保留行数、引号内的 `#` 不算注释）。
+///
+/// 为什么单列一份：shell 的注释符与 Dart/XML 都不同，套用上面两个剥离器会**完全不生效**，
+/// 于是 `#trap cleanup_emulator EXIT` 这种「注释掉的现役代码」在守卫眼里仍是代码 ——
+/// 判据为真、闸门其实是空的（本仓库 2026-09-25 实测踩过：把 trap 注释掉，守卫照样绿）。
+/// 局限：不处理 heredoc 内的 `#`（被扫描的发版脚本没有 heredoc）。
+String stripShellComments(String source) {
+  final out = <String>[];
+  for (final line in source.split('\n')) {
+    var quote = '';
+    var cut = -1;
+    for (var i = 0; i < line.length; i++) {
+      final ch = line[i];
+      if (quote.isNotEmpty) {
+        if (ch == r'\') {
+          i++;
+        } else if (ch == quote) {
+          quote = '';
+        }
+        continue;
+      }
+      if (ch == '"' || ch == "'") {
+        quote = ch;
+        continue;
+      }
+      if (ch == '#' && (i == 0 || line[i - 1] == ' ' || line[i - 1] == '\t')) {
+        cut = i;
+        break;
+      }
+    }
+    out.add(cut >= 0 ? line.substring(0, cut) : line);
+  }
+  return out.join('\n');
+}
+
 /// 从 [source] 中 [signature] 处起，按花括号配对取出整块（含函数体）。
 /// 用于「顺序 / 包含关系」类断言——全文件 indexOf 会命中前面的同名片段。
 String blockAfter(String source, String signature) {

@@ -12,6 +12,8 @@
 #
 # 只做三件事：确保有 AVD → 启动并等 boot 完成 → 跑 integration_test/ 下所有测试文件。
 # 不构建 APK（flutter test 自己会构建成 debug 包并装机）。
+# 出口约定：只要模拟器是本脚本起的，**boot 超时 / 测试失败 / Ctrl-C 都要关掉它**（EXIT trap），
+# 不许把它留在后台 —— 这是维护者的硬性要求（2026-09-25）。手动起的模拟器脚本不会碰。
 #
 # ⚠ 数据安全：`flutter test integration_test/...` 在**签名不匹配**时会先 `adb uninstall`
 #   目标应用（连带清掉它的加密数据库）。所以这条闸门**只允许跑在模拟器上**；
@@ -98,6 +100,20 @@ if [ -z "$SERIAL" ]; then
     done
     [ -n "$SERIAL" ] || { fail "180s 内 $AVD 没出现在 adb devices（见 /tmp/release_emulator.log）"; exit 1; }
 fi
+# 闸门：拿到 serial 就登记清理，**任何出口**（boot 超时、测试失败、Ctrl-C）都不把模拟器留在后台。
+cleanup_emulator() {
+    case "${SERIAL:-}" in
+        emulator-*) : ;;                       # 只接受模拟器 serial，绝不碰真机
+        *) return 0 ;;
+    esac
+    if [ "$STARTED_BY_US" = "1" ]; then
+        "$ADB" -s "$SERIAL" emu kill > /dev/null 2>&1 || true
+        ok "已关闭本脚本启动的模拟器 $AVD（$SERIAL）"
+    fi
+}
+trap cleanup_emulator EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 case "$SERIAL" in
     emulator-*) : ;;
     *) fail "目标设备不是模拟器（$SERIAL）—— 本闸门禁止在真机上跑，会清掉真机数据"; exit 1 ;;
@@ -136,9 +152,5 @@ else
     fail "集成测试失败（完整日志：$LOG）"
 fi
 
-# ── 收尾：只关本脚本自己起的模拟器 ────────────────────────────────────────
-if [ "$STARTED_BY_US" = "1" ]; then
-    "$ADB" -s "$SERIAL" emu kill > /dev/null 2>&1 || true
-    ok "已关闭本脚本启动的模拟器 $AVD（保留快照外的现场请设 ANDROID_AVD_NAME 手动跑）"
-fi
+# ── 收尾：关模拟器由上面的 EXIT trap 负责（含失败与中断路径）────────────────
 exit $RC
