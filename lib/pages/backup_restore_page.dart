@@ -206,6 +206,12 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
         l10n.backupPasswordHint,
       );
       if (password == null || password.isEmpty) return;
+      // 口令长度在解密前就判：否则 decryptBackup 的 FormatException 会被外层
+      // 统一映射成「不是有效的备份文件」，用户看到的是错误的结论。
+      if (password.length < BackupService.minPasswordLength) {
+        _showInfo(l10n.backupTooShort, AppColors.orange);
+        return;
+      }
 
       Map<String, dynamic> payload;
       try {
@@ -231,13 +237,20 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
         overwriteExisting: strategy == 'overwrite',
       );
       if (!mounted) return;
-      final skippedNote = report.skippedCategories.isEmpty
-          ? ''
-          : ' (${l10n.restoreFillGaps}: ${report.skippedCategories.length})';
+      final lines = <String>[
+        l10n.restoreDoneReTest,
+        if (report.skippedCategories.isNotEmpty)
+          '(${l10n.restoreFillGaps}: ${report.skippedCategories.length})',
+        if (skippedInvalid > 0) l10n.restoreSkippedInvalid(skippedInvalid),
+        if (report.failedCategories.isNotEmpty) l10n.restorePartialFailed,
+      ];
+      // 类别名与异常原文不进 SnackBar（用户读不懂也无处反馈），只落 logcat 供排查
+      report.failedCategories.forEach((category, error) {
+        debugPrint('BackupRestore: 类别 $category 恢复失败: $error');
+      });
       _showInfo(
-        '${l10n.restoreDoneReTest}$skippedNote'
-        '${skippedInvalid > 0 ? ' [https: -$skippedInvalid]' : ''}',
-        AppColors.green,
+        lines.join('\n'),
+        report.failedCategories.isEmpty ? AppColors.green : AppColors.orange,
       );
     } on SecretBoxAuthenticationError {
       _showInfo(l10n.restoreWrongPassword, AppColors.red);

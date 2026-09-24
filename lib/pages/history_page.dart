@@ -65,12 +65,15 @@ class _HistoryPageState extends State<HistoryPage> {
     final canAct = widget.records.isNotEmpty;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardBg(sheetContext),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
+      // 颜色与圆角交给 sheet 自己的 Material：以前涂在中间层 Container 的
+      // BoxDecoration 上，会把 ListTile 的水波纹盖掉（Flutter 直接抛断言，
+      // 6.7 模拟器闸门实测到 4 次）。
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => Material(
+        type: MaterialType.transparency,
         child: SafeArea(
           top: false,
           child: Column(
@@ -868,13 +871,12 @@ class _HistoryPageState extends State<HistoryPage> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (sheetContext) => StatefulBuilder(
         builder: (ctx, setSheet) => Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardBg(sheetContext),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-          ),
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
           child: SafeArea(
             top: false,
@@ -1409,12 +1411,12 @@ class _HistoryPageState extends State<HistoryPage> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardBg(sheetContext),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => Material(
+        type: MaterialType.transparency,
         child: SafeArea(
           top: false,
           child: Column(
@@ -1505,15 +1507,14 @@ class _HistoryPageState extends State<HistoryPage> {
     // 替换原 Material AlertDialog 的右对齐文字按钮布局
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       isScrollControlled: true,
       builder: (sheetContext) => Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.cardBg(sheetContext),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: SafeArea(
           top: false,

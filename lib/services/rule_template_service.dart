@@ -270,9 +270,8 @@ class RuleTemplateService {
         throw const FormatException('不是有效的模板文件');
     }
     return raw
-        .map(
-          (e) => NotificationRule.fromMap(Map<String, dynamic>.from(e as Map)),
-        )
+        .whereType<Map>()
+        .map((e) => NotificationRule.fromMap(Map<String, dynamic>.from(e)))
         .toList();
   }
 

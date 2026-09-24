@@ -120,13 +120,30 @@ void main() {
       expect(storeBlock, contains('saveAppChannels('));
     });
 
-    test('DatabaseHelper 实现 AppChannelStore', () {
-      expect(
-        dbSource.contains('class DatabaseHelper implements')
-            ? dbSource.contains('AppChannelStore')
-            : false,
-        isTrue,
-      );
+    test('EmailChannelStore 声明 getEmailChannels / saveEmailChannels', () {
+      final storeBlock = _interfaceBlock(dbSource, 'EmailChannelStore');
+      expect(storeBlock, contains('getEmailChannels()'));
+      expect(storeBlock, contains('saveEmailChannels('));
+    });
+
+    test('DatabaseHelper 实现三个存储接缝', () {
+      // 用正则取 implements 子句而不是 contains('class X implements')：
+      // 后者对 dart format 的换行敏感，一行变两行就静默失效（实测踩过）。
+      final clause = RegExp(
+        r'class DatabaseHelper\s+implements\s+([^{]+)\{',
+      ).firstMatch(dbSource);
+      expect(clause, isNotNull, reason: '没找到 DatabaseHelper 的 implements 子句');
+      for (final store in [
+        'WebhookChannelStore',
+        'AppChannelStore',
+        'EmailChannelStore',
+      ]) {
+        expect(
+          clause!.group(1),
+          contains(store),
+          reason: '$store 失去实现 = 备份恢复的那一类在测试里再也注入不了伪存储',
+        );
+      }
     });
   });
 }

@@ -1967,6 +1967,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoreFailed => '恢复失败：';
 
   @override
+  String restoreSkippedInvalid(int n) {
+    return '已跳过 $n 条地址非法的 Webhook 通道';
+  }
+
+  @override
+  String get restorePartialFailed => '部分配置未恢复成功，请逐项检查设置页';
+
+  @override
   String get backupRestoreSubtitle => '加密备份通道、规则与设置，支持换机恢复';
 
   @override

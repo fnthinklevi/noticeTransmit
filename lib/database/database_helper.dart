@@ -26,7 +26,16 @@ abstract class AppChannelStore {
   Future<void> saveAppChannels(List<Map<String, dynamic>> channels);
 }
 
-class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
+/// 邮件通道存储抽象（可注入 fake 供测试）。
+/// 有了它，备份恢复的 12 个类别才能在纯 Dart 测试里整体跑通 ——
+/// 此前 EmailService 硬连 SQLCipher 单例，restorePayload 一律测不到邮件分支。
+abstract class EmailChannelStore {
+  Future<List<Map<String, dynamic>>> getEmailChannels();
+  Future<void> saveEmailChannels(List<Map<String, dynamic>> channels);
+}
+
+class DatabaseHelper
+    implements WebhookChannelStore, AppChannelStore, EmailChannelStore {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
@@ -1103,11 +1112,13 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
 
   // ========== 邮件通道（email_channels） ==========
 
+  @override
   Future<List<Map<String, dynamic>>> getEmailChannels() async {
     final db = await database;
     return await db.query('email_channels', orderBy: 'updated_at DESC');
   }
 
+  @override
   Future<void> saveEmailChannels(List<Map<String, dynamic>> channels) async {
     final db = await database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -1170,7 +1181,12 @@ class DatabaseHelper implements WebhookChannelStore, AppChannelStore {
               : 'wh_${now}_${i++}',
           'name': c['name'] ?? '',
           'url': c['url'] ?? '',
+          // ⚠ `channel_type`（列名）必须排在最前：调用方是 ChannelConfigCodec，
+          // 它已经把 camel/snake 两套键归一化到这一列；这里再从 camel 重算会**倒着
+          // 覆盖**归一化结果 —— 只带 snake 键的行（老备份文件、legacy 迁移）会被写成
+          // generic，用户恢复一次备份就丢一次通道类型。
           'channel_type':
+              c['channel_type']?.toString() ??
               c['channelType']?.toString() ??
               c['type']?.toString() ??
               'generic',

@@ -58,6 +58,21 @@ void main() {
     }),
   };
 
+  /// 一条已保存的钉钉通道（形状 = 服务归一化后交给页面的样子）。
+  List<Map<String, dynamic>> oneDingTalk() => [
+    {
+      'id': 'dt',
+      'name': '钉钉A',
+      'url': 'https://oapi.dingtalk.com/robot/send?access_token=a',
+      'channelType': 'dingtalk',
+      'type': 'dingtalk',
+      'enabled': true,
+      'secret': 'sec-a',
+      'message_format': 'default',
+      'message_template': null,
+    },
+  ];
+
   List<Map<String, dynamic>> twoChannels() => [
     {
       'id': 'a',
@@ -224,6 +239,41 @@ void main() {
       expect(saved, hasLength(1));
       expect(saved!.single['id'], 'b', reason: '按下标取 id 会拿到被删掉的 a');
       expect(saved.single['url'], 'https://b.example.com/hook');
+    });
+
+    testWidgets('已有 1 条时新增一行并保存，两条都必须在结果里', (tester) async {
+      // 模拟器闸门（6.7）在"第二条"这一步发现结果里只剩新加的那条，
+      // 老那条不见了 ⇒ 这是数据级丢失，必须有用例钉住（快、可离线跑）。
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final saved = await pushAndSave(
+        tester,
+        oneDingTalk(),
+        interact: (t) async {
+          await t.tap(find.byIcon(Icons.add_circle_outline));
+          await t.pumpAndSettle();
+          // 新行的 URL 框 = 唯一"占位是 URL 且内容为空"的那个。
+          // ⚠ 不能按占位文案是否可见来找：Material 会把 hintText 留成浮动标签，
+          // 已填过的那一行同样命中 ⇒ 会覆盖掉已有通道。
+          final urlField = find.byWidgetPredicate(
+            (w) =>
+                w is TextField &&
+                w.decoration?.hintText == 'https://example.com/webhook' &&
+                (w.controller?.text ?? '').isEmpty,
+          );
+          expect(urlField, findsOneWidget, reason: '新行没建出来');
+          await t.enterText(urlField, 'https://b.example.com/hook');
+          await t.pumpAndSettle();
+        },
+      );
+      expect(saved, hasLength(2), reason: '新增一行后保存，原有那条被吞了（数据丢失）');
+      // 原有那条必须带着自己的 id 与地址活着；新行没有 id（保存时由 DB 侧生成）
+      expect(saved!.map((c) => c['url']).toList(), [
+        'https://oapi.dingtalk.com/robot/send?access_token=a',
+        'https://b.example.com/hook',
+      ]);
+      expect(saved.first['id'], 'dt');
     });
 
     testWidgets('保存的通道不再携带恒为 null 的 extra_config 假字段', (tester) async {

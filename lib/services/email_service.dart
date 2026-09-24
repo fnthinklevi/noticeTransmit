@@ -13,7 +13,11 @@ import 'platform_channel.dart';
 ///   1. 主存储 → 加密 SQLCipher 数据库（email_channels 表，AES-256）
 ///   2. 同步到原生端 → MethodChannel（供后台 NotificationMonitorService 读取）
 class EmailService {
-  final DatabaseHelper _db = DatabaseHelper();
+  final EmailChannelStore _db;
+
+  /// [store] 用于测试注入伪存储；默认使用 SQLCipher 加密库 [DatabaseHelper]
+  EmailService({EmailChannelStore? store}) : _db = store ?? DatabaseHelper();
+
   List<EmailChannel> cachedChannels = [];
 
   /// 测试结果落**健康度单点**（第 6 步）。此前这里是自己一个 `email_test_results`

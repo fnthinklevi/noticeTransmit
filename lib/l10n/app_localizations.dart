@@ -3800,6 +3800,18 @@ abstract class AppLocalizations {
   /// **'恢复失败：'**
   String get restoreFailed;
 
+  /// No description provided for @restoreSkippedInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'已跳过 {n} 条地址非法的 Webhook 通道'**
+  String restoreSkippedInvalid(int n);
+
+  /// No description provided for @restorePartialFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'部分配置未恢复成功，请逐项检查设置页'**
+  String get restorePartialFailed;
+
   /// No description provided for @backupRestoreSubtitle.
   ///
   /// In zh, this message translates to:

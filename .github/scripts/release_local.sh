@@ -5,8 +5,10 @@
 #   例：bash .github/scripts/release_local.sh 1.5.64
 #
 # 覆盖：版本一致性预检 → format/analyze → 4 APK 构建+纯净度验证 → fileSize 回填
-#       version.json + 归档同步 → update.md/徽章缺项检查 → CI 等价自检 → 汇总报告。
-# 不覆盖（人工步骤）：update.md/base.md 文案撰写、官网内容完备性判断、git 操作、部署。
+#       version.json + 归档同步 → update.md/徽章缺项检查 → CI 等价自检
+#       → **模拟器全功能点击 + 备份导入导出往返（阶段 6，硬闸门）** → 汇总报告。
+# 不覆盖（人工步骤）：update.md/base.md 文案撰写、官网内容完备性判断、git 操作、部署、
+#       真机（实体手机）覆盖升级与真实推送自检。
 set -uo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
@@ -209,6 +211,19 @@ A2=$(flutter analyze 2>&1 | tail -1)
 [[ "$A2" == *"No issues found"* ]] && ok "flutter analyze" || fail "flutter analyze: $A2"
 NT=$(cd server && npm test 2>&1 | grep "Tests:")
 [[ "$NT" == *"passed"* ]] && ok "npm test: $NT" || fail "npm test: $NT"
+
+# ── 阶段 6：模拟器全功能点击 + 导入导出往返（步骤 6.7，硬闸门）────────────
+hr; echo "── 阶段 6：模拟器全功能点击 + 备份导入导出往返 ──"
+# 为什么不可跳过：1.5.74 上线后"备份导入后打不开 webhook 设置页"是维护者手点撞出来的，
+# 而当时前 5 个阶段全绿。单测/构建/一致性自检都覆盖不到"每个页面进去一次、导入导出真做一次"。
+# GATE_ALLOW_FAIL=1 是**显式**的临时放行口子（调试本闸门自身时用）；正式发版不得设置。
+if bash .github/scripts/release_emulator.sh; then
+    ok "模拟器全功能闸门通过"
+elif [ "${GATE_ALLOW_FAIL:-0}" = "1" ]; then
+    warn "模拟器闸门失败，但 GATE_ALLOW_FAIL=1 ⇒ 本项被显式放行（**这不是发布许可**）"
+else
+    fail "模拟器全功能闸门失败 —— 按 base.md §10.2，任何一步失败都不允许发布"
+fi
 
 # ── 汇总 ──────────────────────────────────────────────────────────────────
 hr

@@ -1,5 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+/// 宽松取整数：文件里的 `priority` 可能是 int、可能是手改的 "100"，也可能是
+/// 别的工具导出的 100.0。取不到就回 0（最低优先级），不抛。
+int _intValue(Object? value) =>
+    value is num ? value.round() : int.tryParse(value?.toString() ?? '') ?? 0;
+
 enum ConditionType {
   packageName,
   titleContains,
@@ -96,14 +101,22 @@ class Condition {
     this.logic = LogicOperator.and,
   });
 
+  /// 反序列化。⚠ 入参可能是**备份文件或规则模板**里的 Map，形状不受我们控制：
+  /// 任何一处 `as String?` / `as int?` 硬转抛 TypeError，代价是整张规则表恢复不回来
+  /// （备份恢复按类别串行执行，这一类失败会让用户的通知规则全部保持原样）。
+  /// 因此这里一律宽松取值，缺省保持"启用"语义（老备份没写 enabled）。
+  /// 与 [ChannelConfigCodec.flag] 的区别是刻意的：那个是 DB 行读取器，故意不认字符串，
+  /// 以免脏数据混进 UI。
   factory Condition.fromMap(Map<String, dynamic> map) {
     return Condition(
-      id: map['id'] as String? ?? '',
+      id: map['id']?.toString() ?? '',
       type: ConditionTypeExtension.fromValue(
-        map['type'] as String? ?? 'title_contains',
+        map['type']?.toString() ?? 'title_contains',
       ),
-      value: map['value'] as String? ?? '',
-      logic: LogicOperatorExtension.fromValue(map['logic'] as String? ?? 'and'),
+      value: map['value']?.toString() ?? '',
+      logic: LogicOperatorExtension.fromValue(
+        map['logic']?.toString() ?? 'and',
+      ),
     );
   }
 
@@ -191,8 +204,8 @@ class RuleAction {
   factory RuleAction.fromMap(Map<String, dynamic> map) {
     final rawParams = map['params'];
     return RuleAction(
-      id: map['id'] as String? ?? '',
-      type: ActionTypeExtension.fromValue(map['type'] as String? ?? 'push'),
+      id: map['id']?.toString() ?? '',
+      type: ActionTypeExtension.fromValue(map['type']?.toString() ?? 'push'),
       params: rawParams is Map
           ? Map<String, dynamic>.from(rawParams)
           : const <String, dynamic>{},
@@ -242,25 +255,26 @@ class NotificationRule {
   });
 
   factory NotificationRule.fromMap(Map<String, dynamic> map) {
-    final conditions = (map['conditions'] as List?) ?? [];
-    final actions = (map['actions'] as List?) ?? [];
-    final excludedPackages = (map['excludedPackages'] as List?) ?? [];
+    // 子表按「是不是列表」取，非列表（文件被手改成对象/字符串）视为没有这一项：
+    // 这一层抛 TypeError 的代价是整类配置恢复不回来（见上面的说明）。
+    List<Map<String, dynamic>> asMaps(Object? value) => value is List
+        ? value.whereType<Map>().map(Map<String, dynamic>.from).toList()
+        : const <Map<String, dynamic>>[];
+    List<String> asTexts(Object? value) => value is List
+        ? value.map((e) => e?.toString() ?? '').toList()
+        : const <String>[];
 
     // ⚠ description 必须保留：saveNotificationRules 用 toMap() 落盘，
     // 丢掉它会让用户编辑任意规则后预制规则的说明文案（UI 上直接展示）永久消失。
     return NotificationRule(
-      id: map['id'] as String? ?? '',
-      name: map['name'] as String? ?? '',
-      description: map['description'] as String? ?? '',
-      enabled: map['enabled'] as bool? ?? true,
-      priority: map['priority'] as int? ?? 0,
-      conditions: conditions
-          .map((e) => Condition.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList(),
-      actions: actions
-          .map((e) => RuleAction.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList(),
-      excludedPackages: excludedPackages.map((e) => e.toString()).toList(),
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      enabled: map['enabled'] != false && map['enabled'] != 0,
+      priority: _intValue(map['priority']),
+      conditions: asMaps(map['conditions']).map(Condition.fromMap).toList(),
+      actions: asMaps(map['actions']).map(RuleAction.fromMap).toList(),
+      excludedPackages: asTexts(map['excludedPackages']),
     );
   }
 

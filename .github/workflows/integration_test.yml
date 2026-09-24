@@ -61,7 +61,10 @@ jobs:
             flutter devices
             flutter test integration_test/smoke_test.dart --verbose 2>&1 | tee test_report/smoke.log
             smoke_status=${PIPESTATUS[0]}
-            if [ "$smoke_status" != "0" ]; then
+            # ㊻ 全功能点击 + 备份导入导出往返（发版硬闸门，见 base.md 步骤 6.7）
+            flutter test integration_test/release_walkthrough_test.dart --verbose 2>&1 | tee test_report/walkthrough.log
+            walk_status=${PIPESTATUS[0]}
+            if [ "$smoke_status" != "0" ] || [ "$walk_status" != "0" ]; then
               # 应用侧崩溃只出现在 logcat：没有它，CI 上永远只能看到 "0 tests passed"
               adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
               adb shell dumpsys activity activities > test_report/activities.txt 2>&1
@@ -72,8 +75,8 @@ jobs:
             # 仪表测试（androidTest）：复用同一台存活模拟器
             (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) 2>&1 | tee test_report/connected.log
             connected_status=${PIPESTATUS[0]}
-            if [ "$smoke_status" != "0" ] || [ "$connected_status" != "0" ]; then
-              echo "❌ smoke=$smoke_status connectedAndroidTest=$connected_status（日志见 test_report/ 产物）"
+            if [ "$smoke_status" != "0" ] || [ "$walk_status" != "0" ] || [ "$connected_status" != "0" ]; then
+              echo "❌ smoke=$smoke_status walkthrough=$walk_status connectedAndroidTest=$connected_status（日志见 test_report/ 产物）"
               exit 1
             fi
 

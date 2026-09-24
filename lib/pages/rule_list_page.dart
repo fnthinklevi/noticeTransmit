@@ -555,7 +555,10 @@ class _RuleListPageState extends State<RuleListPage> {
   Future<void> _openTemplateSheet() async {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (_) => RuleTemplateSheet(
         currentRules: _rules,
         onImport: (imported) {

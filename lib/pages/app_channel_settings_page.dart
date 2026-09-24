@@ -415,15 +415,16 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      // 颜色/圆角放在 sheet 自己的 Material 上：涂在中间层 Container 会吞掉
+      // 选项 ListTile 的水波纹（Flutter 调试断言，6.7 闸门同类问题）。
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       isScrollControlled: true,
       builder: (sheetContext) => Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.cardBg(sheetContext),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: SafeArea(
           top: false,

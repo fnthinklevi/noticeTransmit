@@ -53,12 +53,10 @@ class _RuleTemplateSheetState extends State<RuleTemplateSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // 颜色与圆角交给 sheet 自己的 Material（见 rule_list_page 的呈现处）：
+    // 涂在这层 Container 上会把 ListTile 的水波纹盖掉（6.7 闸门实测到 5 条断言）。
     return Container(
       constraints: const BoxConstraints(maxHeight: 560),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       child: SafeArea(
         top: false,
         child: Column(

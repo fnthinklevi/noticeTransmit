@@ -12,6 +12,7 @@ import 'battery_service.dart';
 import 'device_info_service.dart';
 import 'email_service.dart';
 import 'filter_service.dart';
+import 'channel_config_codec.dart';
 import 'channel_url_policy.dart';
 import 'locale_service.dart';
 import 'sms_service.dart';
@@ -184,30 +185,127 @@ class BackupService {
     }
   }
 
-  /// 字段级校验：返回 (合法 payload, 被跳过的非法 webhook 数)。
+  /// 字段级校验 + **形状归一化**：返回 (可安全恢复的 payload, 被跳过的非法 webhook 数)。
+  ///
+  /// 备份文件是这条链路上唯一的**外部输入**：跨版本（v1 容器里没有电池/设备名/偏好）、
+  /// 可能被手改、可能来自别的导出工具。而下游是硬类型的：`NotificationRule.fromMap`
+  /// 用 `as int?`/`as bool?`，`List<String>.from` 遇到非字符串元素就抛。
+  /// 所以形状必须在**这里**修好，让模型层保持严格、恢复逻辑不必处处兜底。
+  ///
   /// URL 规则复用 [ChannelUrlPolicy]（第 6 步）。这里原来**只认 https**，而原生两处
   /// （`AppChannelTokenHelper.normalizeBase` / `ChannelHealthProbe.isProbeableUrl`）
   /// 都认 http+https ⇒ 自建 http 的 ntfy / Gotify 通道在恢复备份时会被当非法条目跳过：
   /// 备份显示成功、通道列表静默少几条。
+  ///
+  /// ⚠ 缺键的类别**不补空列表**：补了就会被 [restorePayload] 当成「备份里该类为空」，
+  /// 覆盖模式下等于删掉用户本机的全部该类配置。只对「存在但形状不对」的键做收拾。
   (Map<String, dynamic>, int) validatePayload(Map<String, dynamic> payload) {
     var skipped = 0;
-    final rawWebhooks = payload['webhookChannels'];
-    final webhooks = rawWebhooks is List
-        ? rawWebhooks
-              .whereType<Map>()
-              .map((m) {
-                final item = Map<String, dynamic>.from(m);
-                final url = item['url']?.toString() ?? '';
-                final ok = ChannelUrlPolicy.isHttpUrl(url);
-                if (!ok) skipped++;
-                return ok ? item : null;
-              })
-              .whereType<Map<String, dynamic>>()
-              .toList()
-        : <Map<String, dynamic>>[];
     final fixed = Map<String, dynamic>.from(payload);
-    fixed['webhookChannels'] = webhooks;
+
+    final rawWebhooks = payload['webhookChannels'];
+    if (rawWebhooks is! List) {
+      // 键存在但不是列表（'garbage'）→ 清空；键不存在 → 保持不存在
+      if (payload.containsKey('webhookChannels')) {
+        fixed['webhookChannels'] = <Map<String, dynamic>>[];
+      }
+    } else {
+      final webhooks = <Map<String, dynamic>>[];
+      for (final item in rawWebhooks.whereType<Map>()) {
+        final row = Map<String, dynamic>.from(item);
+        final url = row['url']?.toString().trim() ?? '';
+        if (!ChannelUrlPolicy.isHttpUrl(url)) {
+          skipped++;
+          continue;
+        }
+        // 归一化写回：下游 webhookToDb 读 `ui['url'] ?? ''`，非字符串会原样落库
+        row['url'] = url;
+        webhooks.add(row);
+      }
+      fixed['webhookChannels'] = webhooks;
+    }
+
+    // 规则表**不在这里重塑形状**：NotificationRule/Condition/RuleAction 的 fromMap
+    // 自己容忍宽松取值（备份恢复与规则模板导入共用这两个模型，兜底只能做在模型里）。
+    // 这里只保住一条语义：键存在但不是列表 ⇒ 原样留着，让 restorePayload 整类跳过，
+    // 而不是当成"备份里没有规则"删掉本机规则。
+
+    final appFilter = payload['appFilter'];
+    if (appFilter is Map) {
+      fixed['appFilter'] = {
+        ...Map<String, dynamic>.from(appFilter),
+        'mode': _text(appFilter['mode'], 'allow'),
+        // packages 不是列表就当没有名单：saveAppFilter 需要 List<String>，
+        // 而「allow + 空列表」在原生侧是"全部放行"（FilterEngine：非空才拦截），
+        // 与"这份备份没写名单"的语义一致。
+        'packages': _textList(appFilter['packages']),
+      };
+    }
+
+    for (final key in ['blacklistKeywords', 'whitelistKeywords']) {
+      if (payload[key] is List) {
+        fixed[key] = _textList(payload[key]);
+      }
+    }
+
+    final sms = payload['smsSettings'];
+    if (sms is Map) {
+      fixed['smsSettings'] = {
+        ...Map<String, dynamic>.from(sms),
+        'sms_monitor_enabled': _bool(sms['sms_monitor_enabled'], true),
+        'sms_code_monitor_enabled': _bool(
+          sms['sms_code_monitor_enabled'],
+          true,
+        ),
+        'sms_sim_filter': _text(sms['sms_sim_filter'], 'all'),
+      };
+    }
+
+    final battery = payload['battery'];
+    if (battery is Map) {
+      final notify = battery['notify_enabled'];
+      fixed['battery'] = {
+        ...Map<String, dynamic>.from(battery),
+        'notify_enabled': notify == null ? null : _bool(notify, true),
+        // 非列表 → null（BatteryService.restoreSettings 把 null 解释为"保持当前规则"）；
+        // 归一化成 [] 会删掉本机全部电量规则。
+        'rules': battery['rules'] is List ? _mapList(battery['rules']) : null,
+      };
+    }
+
     return (fixed, skipped);
+  }
+
+  // ── 形状兜底（只服务于"文件里的值类型不受控"这一件事）───────────────
+
+  static String _text(Object? value, String fallback) =>
+      ChannelConfigCodec.nullableText(value) ?? fallback;
+
+  /// JSON 侧是真 bool，DB 导出侧是 0/1，字符串 "true" 也可能出现在手改的文件里
+  static bool _bool(Object? value, bool fallback) {
+    if (value == null) return fallback;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = value.toString().toLowerCase();
+    if (text == 'true' || text == '1') return true;
+    if (text == 'false' || text == '0') return false;
+    return fallback;
+  }
+
+  static List<String> _textList(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .map((e) => ChannelConfigCodec.nullableText(e) ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  static List<Map<String, dynamic>> _mapList(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   // ── 冲突检测 / 恢复 ──────────────────────────────────────────────────
@@ -269,7 +367,14 @@ class BackupService {
         report.skippedCategories.add(category);
         return;
       }
-      report.restored[category] = await doRestore() ? 1 : 0;
+      // 逐类别落盘 ⇒ 中途抛异常会留下「一半备份、一半本机」的配置，
+      // 而界面只会显示一句"恢复失败"。所以单类失败记进报告后继续，
+      // 由 UI 明确列出哪些类没恢复成功。
+      try {
+        report.restored[category] = await doRestore() ? 1 : 0;
+      } catch (e) {
+        report.failedCategories[category] = e.toString();
+      }
     }
 
     final webhook = payload['webhookChannels'];
@@ -458,8 +563,9 @@ class BackupService {
   }
 }
 
-/// 恢复结果报告：各类别是否恢复、因冲突跳过的类别。
+/// 恢复结果报告：各类别是否恢复、因冲突跳过的类别、失败的类别（category → 原因）。
 class RestoreReport {
   final Map<String, int> restored = {};
   final List<String> skippedCategories = [];
+  final Map<String, String> failedCategories = {};
 }

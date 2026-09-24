@@ -909,6 +909,15 @@
   "restoreFillGaps": "Fill Gaps Only",
   "restoreDoneReTest": "Restore completed. Please re-test channels with credentials (Webhook/email).",
   "restoreFailed": "Restore failed: ",
+  "restoreSkippedInvalid": "Skipped {n} webhook channels with invalid URLs",
+  "@restoreSkippedInvalid": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "restorePartialFailed": "Some settings were not restored \u2014 please check each settings page",
   "backupRestoreSubtitle": "Encrypted backup of channels, rules and settings, restorable on a new device",
   "developerDiagEnabled": "Developer diagnostics enabled (rule/merge logs in logcat)",
   "developerDiagDisabled": "Developer diagnostics disabled",

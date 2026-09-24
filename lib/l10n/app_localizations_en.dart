@@ -2040,6 +2040,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get restoreFailed => 'Restore failed: ';
 
   @override
+  String restoreSkippedInvalid(int n) {
+    return 'Skipped $n webhook channels with invalid URLs';
+  }
+
+  @override
+  String get restorePartialFailed =>
+      'Some settings were not restored — please check each settings page';
+
+  @override
   String get backupRestoreSubtitle =>
       'Encrypted backup of channels, rules and settings, restorable on a new device';
 
