@@ -303,34 +303,12 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
-  void _openTemperaturePush() {
-    final service = GetIt.instance<TemperatureService>();
-    _pushPage(
-      TemperaturePage(
-        notifyEnabled: service.notifyEnabled,
-        rules: service.rules,
-        onToggleNotify: (v) async {
-          await service.saveNotifyEnabled(v);
-          if (mounted) setState(() {});
-        },
-        onAddRule: (rule) async {
-          await service.addRule(rule);
-          if (mounted) setState(() {});
-        },
-        onDeleteRule: (id) async {
-          await service.deleteRule(id);
-          if (mounted) setState(() {});
-        },
-        onUpdateRule: (id, rule) async {
-          await service.updateRule(id, rule);
-          if (mounted) setState(() {});
-        },
-        onToggleRule: (id, enabled) async {
-          await service.toggleRule(id, enabled);
-          if (mounted) setState(() {});
-        },
-      ),
-    );
+  /// 温度规则页：页面自己订阅 `TemperatureService` 取最新列表，
+  /// 所以这里**不再传快照、也不再回调 setState** —— 那些回调从来没能刷新这个路由
+  /// （T16 的病灶就是把 push 那一刻的 List 引用传进去，服务换新列表后页面还看着旧列表）。
+  Future<void> _openTemperaturePush() async {
+    await _pushPage(const TemperaturePage());
+    setState(() {});
   }
 
   void _openEmailSettingsPage() async {

@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -9,34 +11,41 @@ import '../widgets/app_text_selection_menu.dart';
 ///
 /// 支持三种温度维度规则：电池温度 / 设备整体温度 / 屏幕温度。
 /// 阈值滑块 30-90℃，crossing + 30 分钟冷却防抖。
+///
+/// ⚠ 数据源是 [TemperatureService] 本身（订阅），**不是构造时传进来的列表**：
+/// 本页是路由推进去的，父页 setState 重建不到它，而服务的写操作是整体换新列表 ——
+/// 传快照的结果就是"保存后不刷新、开关点完弹回"（T16 的病灶）。
 class TemperaturePage extends StatefulWidget {
-  final bool notifyEnabled;
-  final List<Map<String, dynamic>> rules;
-  final ValueChanged<bool> onToggleNotify;
-  final void Function(Map<String, dynamic>) onAddRule;
-  final void Function(String) onDeleteRule;
-  final void Function(String, Map<String, dynamic>) onUpdateRule;
-  final void Function(String, bool) onToggleRule;
-
-  const TemperaturePage({
-    super.key,
-    required this.notifyEnabled,
-    required this.rules,
-    required this.onToggleNotify,
-    required this.onAddRule,
-    required this.onDeleteRule,
-    required this.onUpdateRule,
-    required this.onToggleRule,
-  });
+  const TemperaturePage({super.key});
 
   @override
   State<TemperaturePage> createState() => _TemperaturePageState();
 }
 
 class _TemperaturePageState extends State<TemperaturePage> {
+  final TemperatureService _service = GetIt.instance<TemperatureService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _service.addListener(_onServiceChanged);
+  }
+
+  @override
+  void dispose() {
+    // 服务是 GetIt 里的长生命周期单例：只摘监听，不 dispose
+    _service.removeListener(_onServiceChanged);
+    super.dispose();
+  }
+
+  void _onServiceChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final rules = _service.rules;
 
     return Scaffold(
       appBar: AppBar(
@@ -45,11 +54,11 @@ class _TemperaturePageState extends State<TemperaturePage> {
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: l10n.addRule,
-            onPressed: widget.notifyEnabled ? _showAddRuleDialog : null,
+            onPressed: _service.notifyEnabled ? _showAddRuleDialog : null,
           ),
         ],
       ),
-      body: widget.rules.isEmpty
+      body: rules.isEmpty
           ? Center(
               child: Text(
                 l10n.noRules,
@@ -60,9 +69,9 @@ class _TemperaturePageState extends State<TemperaturePage> {
               ),
             )
           : ListView.builder(
-              itemCount: widget.rules.length,
+              itemCount: rules.length,
               itemBuilder: (context, index) =>
-                  _buildRuleTile(context, widget.rules[index], l10n),
+                  _buildRuleTile(context, rules[index], l10n),
             ),
     );
   }
@@ -84,14 +93,14 @@ class _TemperaturePageState extends State<TemperaturePage> {
         motion: const DrawerMotion(),
         children: [
           SlidableAction(
-            onPressed: (_) => widget.onDeleteRule(id),
+            onPressed: (_) => _service.deleteRule(id),
             backgroundColor: AppColors.red,
             foregroundColor: Colors.white,
             icon: Icons.delete_outline,
             label: l10n.delete,
           ),
           SlidableAction(
-            onPressed: (_) => widget.onToggleRule(id, !enabled),
+            onPressed: (_) => _service.toggleRule(id, !enabled),
             backgroundColor: AppColors.blue,
             foregroundColor: Colors.white,
             icon: enabled ? Icons.pause : Icons.play_arrow,
@@ -120,7 +129,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
         trailing: CupertinoSwitch(
           value: enabled,
           activeTrackColor: AppColors.blue,
-          onChanged: (v) => widget.onToggleRule(id, v),
+          onChanged: (v) => _service.toggleRule(id, v),
         ),
       ),
     );
@@ -344,9 +353,9 @@ class _TemperaturePageState extends State<TemperaturePage> {
                       'content': '',
                     };
                     if (isEdit) {
-                      widget.onUpdateRule(id, newRule);
+                      _service.updateRule(id, newRule);
                     } else {
-                      widget.onAddRule(newRule);
+                      _service.addRule(newRule);
                     }
                     Navigator.pop(context);
                   },
