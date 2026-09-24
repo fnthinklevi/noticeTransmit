@@ -211,6 +211,71 @@ void main() {
       expect(saved['name'], '企微应用A', reason: '保存后名称丢失');
     });
 
+    // ===== 回归守卫 T02：通道名必须跟着保存走 =====
+    // 背景（roadmap T02）：`_channelPayload` 曾**不含 name**，控制器里的名字只在
+    // `_saveAll` 的非空校验里读一次、从不回填进载荷 ⇒ `{...旧行, ...payload}` 合并后
+    // 用的仍是旧行的 name：新建通道存成 `''`（列表页/首页标签空白），改名则**静默失效**
+    // （看起来"保存成功"，重进页面还是老名字）。
+    // 上面那条「保存不丢字段」用例**守不住这个**：它只验原值保留，不验值被改过。
+    testWidgets('T02 改名后保存：新名字真的落库（此前只校验、从不回填）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 's',
+          'config': '{"corpid":"corp-x","agentid":1,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_fieldName(), '办公告警应用');
+      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.pumpAndSettle();
+
+      final saved = store.rows.firstWhere((r) => r['id'] == 'app-1');
+      expect(saved['name'], '办公告警应用', reason: '改名没落库：载荷缺 name 键（T02 病灶）');
+    });
+
+    testWidgets('T02 新建→填名→保存→重进页面名字仍在（此前存成空串）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      // 空列表时 initState 会自动补一张企微空卡（`_channels.isEmpty → _addChannel`）
+      expect(find.byType(TextField), findsNWidgets(6));
+
+      await tester.enterText(_fieldName(), 'NAS 告警应用');
+      await tester.enterText(_fieldWithLabel('企业 ID（corpid）'), 'corp-new');
+      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.pumpAndSettle();
+
+      expect(store.rows, hasLength(1));
+      expect(store.rows.first['name'], 'NAS 告警应用');
+      expect(store.rows.first['id'], isNotEmpty, reason: '新增行要带得住 id');
+
+      // 「重载」才是这条用例的重点：换掉页面实例，让名字从 service 走一遍回来
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(_fieldName()).controller?.text,
+        'NAS 告警应用',
+        reason: '保存后重进页面名字空白 ⇒ 落库的就是空串（T02）',
+      );
+    });
+
     // ===== 接入引导（v1.59）=====
     testWidgets('卡片「?」打开企微接入引导（含步骤与注意事项）', (tester) async {
       tester.view.physicalSize = const Size(1200, 3600);
@@ -560,6 +625,16 @@ void main() {
     });
   });
 }
+
+/// 卡片内输入框的 build 顺序是 name → （类型选择器）→ baseUrl → secret → 扩展参数，
+/// 所以"第一个 TextField"就是通道名。单卡通例用它是为了不把 l10n 标签文本抄进测试
+/// （标签由描述符的 ARB 资源名驱动，抄一次就会随原生表漂移）。
+Finder _fieldName() => find.byType(TextField).first;
+
+/// 按标签文本定位扩展参数输入框。Material 把 hintText 当浮动标签留着，
+/// 空值时 `find.text(标签)` 仍在树里（既有断言 :461 依赖同一条行为）。
+Finder _fieldWithLabel(String label) =>
+    find.ancestor(of: find.text(label), matching: find.byType(TextField));
 
 /// 测试用 fake store（与 app_channel_service_test 相同模式）
 class FakeAppChannelStoreForPage implements AppChannelStore {

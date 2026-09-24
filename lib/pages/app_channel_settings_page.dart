@@ -728,6 +728,12 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
     return {
       'appType': c['appType'],
+      // name 必须进载荷：它此前只在 _saveAll 里做非空校验、从不回填 ⇒ 合并
+      // `{..._channels[i], ...payload}` 时用的仍是 _addChannel 写下的 ''（新建）
+      // 或加载时的旧名（改名），列表页/首页标签因此看不到名字。
+      'name':
+          _controllers['$id.name']?.text.trim() ??
+          (c['name']?.toString() ?? ''),
       // 控制器缺失时保留原值（防空值覆盖导致 baseUrl/secret 丢失）
       'baseUrl':
           _controllers['$id.baseUrl']?.text.trim() ??
