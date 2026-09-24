@@ -7,7 +7,11 @@ import 'channel_display.dart';
 import 'email_service.dart';
 import 'webhook_service.dart';
 
-/// 一个**已启用**通道的条目：身份、显示名、用户命名、（email 族的）测试态。
+/// 一条通道在首页/状态页的健康态。**三态**，不是二态：
+/// 「没有新鲜的探测结果」既不能说正常（那是恒绿的谎），也不能说异常（那是假警报）。
+enum ChannelHealthState { ok, error, unknown }
+
+/// 一个**已启用**通道的条目：身份、显示名、用户命名、最近一次探测结果。
 class ActiveChannel {
   const ActiveChannel({
     required this.family,
@@ -15,7 +19,7 @@ class ActiveChannel {
     required this.id,
     required this.displayName,
     required this.configName,
-    this.tested,
+    this.health,
   });
 
   /// 'webhook' | 'app' | 'email'
@@ -33,15 +37,42 @@ class ActiveChannel {
   /// 用户给这条通道起的名字
   final String configName;
 
-  /// 仅 email 族有值：SMTP 验证结果。null = 该族不以此判状态。
-  final bool? tested;
+  /// 最近一次探测结果（来自健康单点）。null = 从没探过。
+  final ChannelHealth? health;
 
   String get deliveryKey => channelDeliveryKey(slug);
 
-  /// 首页「当前推送通道」的状态标签。
-  /// ⚠ 这是**配置状态**不是连通状态：webhook / 应用通道只要启用就算 ok，
-  /// 连通与否看各设置页的健康徽标（`ChannelHealthStore`）。
-  String get statusLabel => tested == false ? 'error' : 'ok';
+  /// 健康态：失败就一直是失败（有确凿证据），成功但记录过期算未知。
+  ChannelHealthState get healthState {
+    final h = health;
+    if (h == null) return ChannelHealthState.unknown;
+    if (!h.reachable) return ChannelHealthState.error;
+    return ChannelHealthStore.needsProbe(h)
+        ? ChannelHealthState.unknown
+        : ChannelHealthState.ok;
+  }
+
+  /// 首页「当前推送通道」的状态标签（页面据此取 l10n 文案与点色）。
+  String get statusLabel => switch (healthState) {
+    ChannelHealthState.ok => 'ok',
+    ChannelHealthState.error => 'error',
+    ChannelHealthState.unknown => 'unknown',
+  };
+
+  /// 统一显示格式 `类型：（子类型/）通道名`（邮件族无子类型）。
+  /// 名字为空时不留空尾巴 —— 只到子类型为止。
+  String get displayLine {
+    final familyName = channelFamilyName(family);
+    final name = configName.trim();
+    final subtype = family == 'email' ? '' : displayName.trim();
+    final tail = [
+      if (subtype.isNotEmpty && subtype != familyName) subtype,
+      if (name.isNotEmpty) name,
+    ].join('/');
+    return tail.isEmpty
+        ? familyName
+        : '$familyName${channelLabelSeparator()}$tail';
+  }
 }
 
 /// 当前启用的通道清单（**唯一实现**，第 6 步）。
@@ -57,18 +88,31 @@ class ActiveChannel {
 List<ActiveChannel> collectActiveChannels() {
   final result = <ActiveChannel>[];
 
+  // ⚠ 两个 GetIt 解析必须分开兜底：合成一个 try 时「健康单点没注册」会连带把
+  //   email 通道整族丢掉 —— 表现是历史记录的送达快照里再也不会出现 chan:email。
+  ChannelHealthStore? health;
+  try {
+    health = GetIt.instance<ChannelHealthStore>();
+  } catch (_) {
+    health = null;
+  }
+
   for (final c in _rows(() => GetIt.instance<AppChannelService>().channels)) {
     if (c['enabled'] != true) continue;
     final appType = c['appType']?.toString() ?? '';
+    final id = c['id']?.toString() ?? '';
     // 未登记的 appType 也要出现在清单里（它可能就是原生新增而 Dart 未跟上的通道）：
     // 跳过会让「历史记录按几条算」与首页显示不一致，且推送照发不误。
     result.add(
       ActiveChannel(
         family: 'app',
         slug: appType,
-        id: c['id']?.toString() ?? '',
+        id: id,
         displayName: channelTypeDisplayName(appType),
         configName: c['name']?.toString() ?? '',
+        // T01：三族一律读健康单点。此前只有 email 带状态，webhook / 应用通道恒判 ok，
+        // 首页于是对着一堆从没探过的通道显示"状态正常"。
+        health: health?.of('app', id),
       ),
     );
   }
@@ -76,13 +120,15 @@ List<ActiveChannel> collectActiveChannels() {
   for (final c in _rows(() => GetIt.instance<WebhookService>().channels)) {
     if (c['enabled'] != true) continue;
     final type = c['type']?.toString() ?? 'generic';
+    final id = c['id']?.toString() ?? '';
     result.add(
       ActiveChannel(
         family: 'webhook',
         slug: type,
-        id: c['id']?.toString() ?? '',
+        id: id,
         displayName: channelTypeDisplayName(type),
         configName: c['name']?.toString() ?? '',
+        health: health?.of('webhook', id),
       ),
     );
   }
@@ -93,14 +139,6 @@ List<ActiveChannel> collectActiveChannels() {
   } catch (_) {
     emails = const [];
   }
-  // ⚠ 两个 GetIt 解析必须分开兜底：合成一个 try 时「健康单点没注册」会连带把
-  //   email 通道整族丢掉 —— 表现是历史记录的送达快照里再也不会出现 chan:email。
-  ChannelHealthStore? health;
-  try {
-    health = GetIt.instance<ChannelHealthStore>();
-  } catch (_) {
-    health = null;
-  }
   for (final c in emails.where((c) => c.enabled)) {
     result.add(
       ActiveChannel(
@@ -109,8 +147,7 @@ List<ActiveChannel> collectActiveChannels() {
         id: c.id,
         displayName: channelTypeDisplayName('EMAIL'),
         configName: c.name,
-        // 未探测过或探测失败都算异常（首页既有语义；第 6 步只把状态来源换成健康单点）
-        tested: health?.of('email', c.id)?.reachable == true,
+        health: health?.of('email', c.id),
       ),
     );
   }

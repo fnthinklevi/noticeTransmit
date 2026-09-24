@@ -30,6 +30,7 @@
   "noChannels": "No channels configured",
   "statusOk": "Normal",
   "statusError": "Abnormal",
+  "statusUnknown": "Unknown",
   "permSettings": "Permissions",
   "permSettingsDesc": "Configure notification, battery, background permissions",
   "pushHistory": "Push History",

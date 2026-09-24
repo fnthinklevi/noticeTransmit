@@ -284,6 +284,12 @@ abstract class AppLocalizations {
   /// **'状态异常'**
   String get statusError;
 
+  /// No description provided for @statusUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'状态未知'**
+  String get statusUnknown;
+
   /// No description provided for @permSettings.
   ///
   /// In zh, this message translates to:

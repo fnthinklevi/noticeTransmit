@@ -102,6 +102,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statusError => 'Abnormal';
 
   @override
+  String get statusUnknown => 'Unknown';
+
+  @override
   String get permSettings => 'Permissions';
 
   @override

@@ -142,10 +142,23 @@ class NotificationPage extends StatelessWidget {
                     const SizedBox(height: 10),
                     if (activeChannels.isNotEmpty)
                       ...activeChannels.map((c) {
-                        final type = c['type'] ?? '';
-                        final name = c['name'] ?? '';
-                        final status = c['status'] ?? 'ok';
-                        final isOk = status == 'ok';
+                        final label = c['label'] ?? '';
+                        // 三态：正常 / 异常 / 未知（没有新鲜的探测结果）。
+                        // 未知既不是绿灯也不是红灯 —— 之前只有二态，webhook 与应用通道
+                        // 从没探过也被算成"正常"（T01 的病灶）。
+                        final isOk = (c['status'] ?? 'unknown') == 'ok';
+                        final isUnknown =
+                            (c['status'] ?? 'unknown') == 'unknown';
+                        final statusColor = isOk
+                            ? AppColors.green
+                            : isUnknown
+                            ? AppColors.tertiaryLabel(context)
+                            : AppColors.red;
+                        final statusText = isOk
+                            ? l10n.statusOk
+                            : isUnknown
+                            ? l10n.statusUnknown
+                            : l10n.statusError;
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Row(
@@ -154,25 +167,32 @@ class NotificationPage extends StatelessWidget {
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: isOk ? AppColors.green : AppColors.red,
+                                  color: statusColor,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                isOk ? l10n.statusOk : l10n.statusError,
+                                statusText,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: isOk ? AppColors.green : AppColors.red,
+                                  color: statusColor,
                                 ),
                               ),
-                              const Spacer(),
-                              Text(
-                                '$type${name.isNotEmpty ? ' · $name' : ''}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.secondaryLabel(context),
+                              const SizedBox(width: 8),
+                              // 「类型：子类型/通道名」可能很长（自定义通道名），
+                              // 原来用 Spacer + 不定宽 Text 在窄屏会溢出报错
+                              Expanded(
+                                child: Text(
+                                  label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.secondaryLabel(context),
+                                  ),
                                 ),
                               ),
                             ],

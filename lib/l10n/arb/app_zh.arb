@@ -30,6 +30,7 @@
   "noChannels": "未配置推送通道",
   "statusOk": "状态正常",
   "statusError": "状态异常",
+  "statusUnknown": "状态未知",
   "permSettings": "权限设置",
   "permSettingsDesc": "配置通知、电池、后台运行等权限",
   "pushHistory": "推送历史",

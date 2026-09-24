@@ -102,6 +102,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get statusError => '状态异常';
 
   @override
+  String get statusUnknown => '状态未知';
+
+  @override
   String get permSettings => '权限设置';
 
   @override

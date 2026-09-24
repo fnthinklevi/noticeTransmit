@@ -129,6 +129,26 @@ String channelKey(String rawType) {
 String channelDeliveryKey(String rawType) =>
     '$kDeliveryKeyPrefix${channelKey(rawType)}';
 
+/// 通道**族**显示名（T01：首页与通道状态页的「类型：」前缀）。
+///
+/// 与 [_channelNames] 分两张表是有意的：族只有三个、不随原生描述符表增删，
+/// 而子类型（钉钉/飞书应用/…）会变。混成一张表会让"族"这一层跟着通道数漂移。
+const Map<String, (String, String)> _familyNames = {
+  'webhook': ('Webhook', 'Webhook'),
+  'app': ('自建应用', 'App Channel'),
+  'email': ('邮件', 'Email'),
+};
+
+/// 族显示名（语言感知）。未登记的族原样返回，不猜成 webhook。
+String channelFamilyName(String family) {
+  final names = _familyNames[family];
+  if (names == null) return family;
+  return _isEnglishLocale() ? names.$2 : names.$1;
+}
+
+/// 「类型：子类型/通道名」里的那个冒号（英文用半角 + 空格，中文用全角）。
+String channelLabelSeparator() => _isEnglishLocale() ? ': ' : '：';
+
 /// 送达状态映射的键归一（幂等）。同 slug 冲突时保留后写入者——
 /// 旧数据里 `webhook:通用` 与 `webhook:Generic` 本就是同一通道的两套语言写法。
 Map<String, dynamic> normalizeDeliveryKeys(Map<String, dynamic> status) {

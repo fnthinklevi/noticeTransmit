@@ -70,19 +70,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   final ThemeService _themeService = GetIt.instance<ThemeService>();
   final SmsService _smsService = GetIt.instance<SmsService>();
 
-  /// 首页「当前推送通道」：条目与判据都来自 [collectActiveChannels]（第 6 步单点），
+  /// 首页「当前推送通道」：条目、健康态与显示格式都来自 [collectActiveChannels]（第 6 步单点），
   /// 与历史记录入库时的送达键快照同源。这里只做显示形状。
-  /// ⚠ status 是**配置状态**（启用即在列，email 额外看 SMTP 验证结果），
-  ///   连通状态在设置页的健康徽标里（`channel_health_*` 缓存）。
+  /// status 三态（ok / error / unknown）来自健康单点 `channel_health_*`：
+  /// **没有新鲜探测结果就报未知，不再一律报正常**（T01）。要让首页少出现未知，
+  /// 靠 T09/6e 的非侵入探测，而不是把标签改回恒绿。
   List<Map<String, String>> _getActiveChannels() {
     return collectActiveChannels()
-        .map(
-          (c) => {
-            'type': c.displayName,
-            'name': c.configName,
-            'status': c.statusLabel,
-          },
-        )
+        .map((c) => {'label': c.displayLine, 'status': c.statusLabel})
         .toList(growable: false);
   }
 
