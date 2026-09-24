@@ -1,8 +1,15 @@
-# 集成测试：真机/模拟器跑两类设备侧测试（每周自动 + 可手动；模拟器分钟级计费）：
-# 1. integration_test/smoke_test.dart —— 7 步主链路冒烟
-# 2. androidTest 仪表测试（connectedDebugAndroidTest，含 ApkSignatureVerifier 等）——
-#    必须在 emulator-runner 的 script 内执行（模拟器存活期间），独立 step 会因
-#    模拟器已关闭而找不到设备。
+# 集成测试（每周自动 + 可手动；模拟器按分钟计费）：
+#
+# 拆成两个 job 的理由（㊼）：
+#   原来一个 job 里顺序跑 smoke → walkthrough → connectedAndroidTest，共用一个 45 分钟预算。
+#   后果是「慢的那个把预算吃掉，快的那个还没跑到就没结论」，而且红的时候只能去翻日志。
+#   现在：
+#     · device-basic   = 冒烟主链路（4 个分步用例）+ androidTest 仪表测试（同一台模拟器，都很快）
+#     · walkthrough    = 发版全功能点击闸门（一条长链路，单独预算，不与上面抢时间）
+#   两个 job 各判各的 ⇒ 哪个红一目了然，也不会互相顶掉结论。
+#
+# 每条失败都会：写 ::error:: 注解（run 页面直接可见，不再只能下日志）、把设备日志
+# 落进 test_report/、无论成败都上传产物（绿的时候要能证明它真跑过，而不是"没跑所以绿"）。
 name: Integration Test
 
 on:
@@ -13,10 +20,16 @@ on:
   schedule:
     - cron: '0 3 * * 2'
 
+env:
+  # ⚠ 必须与 analyze.yml / build-apk.yml 一致：以前这里只写 channel: stable，于是冒烟
+  #   跑在「当时最新的 stable」上（失败表现是 Gradle 构建成功后 0 tests、看不到异常文本）。
+  FLUTTER_VERSION: '3.44.4'
+
 jobs:
-  integration-test:
+  device-basic:
+    name: 冒烟主链路 + 仪表测试
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -27,10 +40,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          # ⚠ 版本必须与 analyze.yml / build-apk.yml 一致：以前这里只写 channel: stable，
-          #   于是冒烟测试跑在「当时最新的 stable」上，可能比两道门禁更新
-          #   （失败表现是 Gradle 构建成功后 0 tests、且看不到异常文本，排查方向直接被带偏）。
-          flutter-version: '3.44.4'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
@@ -44,7 +54,7 @@ jobs:
       - name: Pub get
         run: flutter pub get
 
-      - name: Run integration smoke test on emulator
+      - name: Run smoke + instrumented tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -54,38 +64,123 @@ jobs:
           disable-animations: true
           script: |
             # android-emulator-runner 以 bash -e 执行脚本；这里显式关掉 errexit，
-            # 否则第一条失败命令会直接中止，下面的设备日志（唯一的真线索）就抓不到了。
+            # 否则第一条失败命令就中止，下面的设备日志（唯一的真线索）一行都留不下。
             set +e
             mkdir -p test_report
             flutter --version | tee test_report/flutter_version.txt
             flutter devices
-            flutter test integration_test/smoke_test.dart --verbose 2>&1 | tee test_report/smoke.log
+            # --reporter expanded：每个用例名单独一行。冒烟已按步拆成 4 个用例，
+            # 于是"哪一步红"直接出现在日志里（以前是一条巨型用例，只知道"冒烟红了"）。
+            flutter test integration_test/smoke_test.dart --reporter expanded 2>&1 | tee test_report/smoke.log
             smoke_status=${PIPESTATUS[0]}
-            # ㊻ 全功能点击 + 备份导入导出往返（发版硬闸门，见 base.md 步骤 6.7）
-            flutter test integration_test/release_walkthrough_test.dart --verbose 2>&1 | tee test_report/walkthrough.log
-            walk_status=${PIPESTATUS[0]}
-            if [ "$smoke_status" != "0" ] || [ "$walk_status" != "0" ]; then
-              # 应用侧崩溃只出现在 logcat：没有它，CI 上永远只能看到 "0 tests passed"
-              adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
-              adb shell dumpsys activity activities > test_report/activities.txt 2>&1
-              adb logcat -d -b crash -t 500 > test_report/logcat_crash.txt 2>&1
-              tail -n 120 test_report/logcat_crash.txt
-              tail -n 60 test_report/logcat.txt
-            fi
-            # 仪表测试（androidTest）：复用同一台存活模拟器
+            # 仪表测试（androidTest）：必须复用这台存活模拟器，独立 step 会因模拟器已关而找不到设备
             (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) 2>&1 | tee test_report/connected.log
             connected_status=${PIPESTATUS[0]}
-            if [ "$smoke_status" != "0" ] || [ "$walk_status" != "0" ] || [ "$connected_status" != "0" ]; then
-              echo "❌ smoke=$smoke_status walkthrough=$walk_status connectedAndroidTest=$connected_status（日志见 test_report/ 产物）"
-              exit 1
+            # 应用侧崩溃只出现在 logcat：没有它，CI 上永远只能看到 "0 tests passed"
+            adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
+            adb shell dumpsys activity activities > test_report/activities.txt 2>&1
+            adb logcat -d -b crash -t 500 > test_report/logcat_crash.txt 2>&1
+            if [ "$smoke_status" != "0" ] || [ "$connected_status" != "0" ]; then
+              tail -n 120 test_report/logcat_crash.txt
+              tail -n 60 test_report/logcat.txt
+              echo "::error::device-basic 失败 smoke=$smoke_status connectedAndroidTest=$connected_status（test_report 产物已上传）"
             fi
+            {
+              echo "### device-basic"
+              echo "- smoke（4 个分步用例）：exit \`$smoke_status\`"
+              echo "- connectedAndroidTest：exit \`$connected_status\`"
+              echo '```'
+              grep -E "^[0-9]{2}:[0-9]{2} (\+[0-9]+.*(-[0-9]+)?: |All tests passed|Some tests failed)|FAILURE|Exception|tests? (completed|failed)" \
+                test_report/smoke.log | tail -n 25
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            [ "$smoke_status" = "0" ] && [ "$connected_status" = "0" ]
 
-      - name: Upload failure screenshots
+      - name: Upload test report（无论成败都留档）
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-basic-report
+          path: test_report/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build outputs（仅失败时，体积大）
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: integration-failure
-          path: |
-            build/
-            test_report/
+          name: device-basic-build
+          path: build/
           if-no-files-found: ignore
+
+  walkthrough:
+    name: 发版全功能点击闸门
+    runs-on: ubuntu-24.04
+    # 单独预算：这条链路本机 5:23，而 CI 用 swiftshader 软件渲染（比本机 -gpu auto 慢），
+    # 按 3 倍估也要留到 30 分钟以上 —— 顶格的话报的是「闸门超时红」，会被误读成功能回归。
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Run full-feature click gate on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set +e
+            mkdir -p test_report
+            flutter --version | tee test_report/flutter_version.txt
+            # ㊻ 发版硬闸门（base.md 步骤 6.7）：所有可达页面逐个进入、每条 CRUD 各走一次、
+            # 备份真落盘再真读回。分节失败由测试自己收集后一次性报，日志里是 GATE-STEP-FAIL。
+            flutter test integration_test/release_walkthrough_test.dart --reporter expanded 2>&1 \
+              | tee test_report/walkthrough.log
+            walk_status=${PIPESTATUS[0]}
+            adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
+            adb logcat -d -b crash -t 500 > test_report/logcat_crash.txt 2>&1
+            if [ "$walk_status" != "0" ]; then
+              grep -E "GATE-STEP-FAIL|GATE-DIAG" test_report/walkthrough.log | tail -n 40
+              tail -n 60 test_report/logcat_crash.txt
+              echo "::error::walkthrough 失败 exit=$walk_status（GATE-STEP-FAIL 见日志与产物）"
+            fi
+            {
+              echo "### walkthrough"
+              echo "- release_walkthrough_test.dart：exit \`$walk_status\`"
+              echo '```'
+              grep -E "GATE-STEP-FAIL|All tests passed|Some tests failed" test_report/walkthrough.log | tail -n 25
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            [ "$walk_status" = "0" ]
+
+      - name: Upload test report（无论成败都留档）
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: walkthrough-report
+          path: test_report/
+          if-no-files-found: error
+          retention-days: 14

@@ -87,6 +87,22 @@ void main() {
     FilePicker.platform = _FakeFilePicker(() => pickedPathForNextCall);
 
     const channelName = 'com.fnthink.notice/notification';
+    // 应用清单：缓存与全量给同一份数据。⚠ 别只桩 getInstalledApps ——
+    // 页面首帧先读缓存（InstalledAppsService.loadCached），没桩到的那个方法会返回 null，
+    // 于是闸门跑的是"缓存读失败⇒空列表"的降级分支，还顺带在日志里刷一条
+    // `type 'Null' is not a subtype of type 'List<dynamic>'`（看着像产品 bug，其实是桩缺项）。
+    final gateApps = <Map<String, dynamic>>[
+      {
+        'packageName': 'com.gate.app1',
+        'appName': '闸门应用一',
+        'isSystemApp': false,
+      },
+      {
+        'packageName': 'com.gate.app2',
+        'appName': '闸门应用二',
+        'isSystemApp': false,
+      },
+    ];
     final stubs = <String, Object?>{
       'getSimCardCount': 2,
       'isNotificationPermissionGranted': true,
@@ -103,18 +119,8 @@ void main() {
       'getBlacklistKeywords': <String>[],
       'getWhitelistKeywords': <String>[],
       'getAppFilterMode': 'allow',
-      'getInstalledApps': <Map<String, dynamic>>[
-        {
-          'packageName': 'com.gate.app1',
-          'appName': '闸门应用一',
-          'isSystemApp': false,
-        },
-        {
-          'packageName': 'com.gate.app2',
-          'appName': '闸门应用二',
-          'isSystemApp': false,
-        },
-      ],
+      'getInstalledApps': gateApps,
+      'getCachedInstalledApps': gateApps,
       'getDeviceName': '闸门设备',
       'getDeviceModel': 'GateModel',
       'getManufacturer': 'Google',
@@ -989,7 +995,10 @@ void main() {
           '以下闸门步骤失败：\n'
           '${gateFailures.entries.map((e) => "  \u25b8 ${e.key} \u2192 ${e.value}").join("\n")}',
     );
-  }, timeout: const Timeout(Duration(minutes: 18)));
+    // 预算说明（㊼）：本机 5:23，但 CI 的 job 用 `-gpu swiftshader_indirect` 软件渲染，
+    // 比本机 `-gpu auto` 慢数倍。原来钉 18 分钟 ⇒ 超时先于功能失败，报出来的是
+    // "闸门超时红"，会被误读成功能回归。放宽到 30，配套 job 预算 45 分钟。
+  }, timeout: const Timeout(Duration(minutes: 30)));
 }
 
 /// 描述符桩：形状与 `getChannelDescriptors` 的导出契约一致
@@ -1271,10 +1280,17 @@ Finder _emptyWebhookUrlField() => find.byWidgetPredicate(
 
 Future<void> _fillWebhookUrl(WidgetTester t, String url) async {
   final f = _emptyWebhookUrlField();
+  // ⚠ 必须先等/找，不能进页后立刻断言：行的 URL 框是异步装载后建出来的，
+  // CI 的 swiftshader 软件渲染比本机慢，第 21 轮在 API 34 画像上就是在这里红了
+  // （本机 API 36 永远来得及 ⇒ 典型的"本地绿 CI 红"）。_scrollUntil 会边泵帧边找。
+  await _scrollUntil(t, f);
   expect(
     f.evaluate().isNotEmpty,
     isTrue,
-    reason: '找不到待填的 Webhook URL 输入框（占位文案未渲染或行没建出来）',
+    reason:
+        '找不到待填的 Webhook URL 输入框（占位文案未渲染或行没建出来）'
+        '；当前页面上 TextField 数='
+        '${find.byType(TextField).evaluate().length}',
   );
   await _type(t, f, url, 'Webhook URL 输入框');
   await _settle(t);

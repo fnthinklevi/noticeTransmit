@@ -1,27 +1,27 @@
 {
-  "latestVersion": "1.5.74",
-  "latestBuild": 113,
+  "latestVersion": "1.5.75",
+  "latestBuild": 115,
   "forceUpdate": true,
   "forceUpdateVersion": "1.5.72",
   "forceUpdateBuild": 108,
-  "changelog": "温度推送 + 应用通道体系 + 界面统一\n\n🌡️ 新增手机温度推送：支持电池温度/设备温度/屏幕温度三维度独立规则，自定义阈值触发\n🏢 新增企业微信/飞书自建应用通道（两阶段 API，支持私有化部署）\n📱 规则适用应用新增快速选择分组（通讯/邮箱/系统组件聚合）\n📋 历史页右上角收纳为「更多」菜单；全部弹窗统一 iOS 风格\n🔧 备份扩展至 12 类（含自建应用通道）；接入引导；token 解析崩溃防护\n📄 全部确认弹窗统一分割线按钮；文本选择菜单 36 处多机型适配",
+  "changelog": "送达状态判定修正 + 备份恢复兼容 + 应用列表权限三态 + 表单统一\n\n📡 自建 / 私有部署通道不再被按 URL 误判为「通用」；飞书 token 过期可自动换票重试；徽标重复与永远「发送中」已修\n🛰️ 修复导入备份后 Webhook 设置页打不开、恢复丢通道类型、自建 http:// 通道被静默丢弃；无协议头的地址保存时点名第几行不合法\n🔒 系统拒绝后不再通过桌面查询读取已安装应用列表；权限页改为三态显示\n🧩 Slack / Discord / Gotify / ntfy / Server酱 / PushPlus 不再显示无效字段；应用通道必填项保存前拦截并点名\n⚠️ 送达记录键为单向迁移（DB v10→v11）：升级后请勿回退到 v1.5.74 及更早版本",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_arm64_1.5.74.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_arm32_1.5.74.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_x86_1.5.74.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.74/notice_all_1.5.74.apk"
+    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.5.75/notice_arm64_1.5.75.apk",
+    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.5.75/notice_arm32_1.5.75.apk",
+    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.5.75/notice_x86_1.5.75.apk",
+    "all": "https://cdn2.fnthink.top/app/notice/update/1.5.75/notice_all_1.5.75.apk"
   },
   "fileSizes": {
-    "all": 76161926,
-    "arm32": 23787240,
-    "arm64": 27711096,
-    "x86_64": 29809646
+    "all": 76063239,
+    "arm32": 23754095,
+    "arm64": 27710716,
+    "x86_64": 29743728
   },
   "sha256": {
-    "all": "7fa1a685fc597960ca11cfb9c4a29747d15a81b47b69927ace755b0a1dfe6675",
-    "arm32": "9d32de3ae7b7391223feaa6eb520b03b814efe5cdd89e86a8d91d47b678d68fc",
-    "arm64": "f474e7df3b27abea01e5f3276e460ba0def1916945ffbd9fdb839bf9a9ea70c9",
-    "x86_64": "236c677fedc212e5084794d31626ebd126c615ae291ae48d4b7b0ce3e8fcd798"
+    "all": "7713055f37f883963d8416ce6a7525fe7410f5451344bbbf2b4f15b2fe71cc09",
+    "arm32": "9cd27a8dbe552a4a90cec4a1a94281855f014659df79e5fb99b3d41a25f96706",
+    "arm64": "eee785cdddf907cc4020f3f67155b919b859354262a9136cbfc659ec66af3705",
+    "x86_64": "3667c2842416534cfa3f6757d61cc81c5dc9dfbd22e0eec529ed3c6f688a90cf"
   },
   "minSupportedVersion": "1.0.0"
 }

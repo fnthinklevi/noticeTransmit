@@ -102,6 +102,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onOpenPermissionSettings: _openPermissionSettingsPage,
         onToggleSmsMonitor: (v) async {
           await _smsService.saveSmsMonitorEnabled(v);
+          // 开关落库是异步的：用户在等待期间离开页面时本 State 已 dispose，
+          // 裸 setState 会抛 "setState() called after dispose()"（㊽ 的发版闸门日志里就是这么冒出来的）
+          if (!mounted) return;
           setState(() {});
         },
         onOpenSmsMonitorSettings: _openSmsMonitorSettingsPage,
@@ -187,6 +190,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       await emailService.loadChannels();
       await _smsService.loadSettings();
       _notificationService.startDailyExport();
+      // 装配链里前面已有 4 个 await：页面在此期间被销毁时，裸 setState 抛异常会被下面的
+      // catch 吞掉，连带**跳过** `_checkFirstLaunch()` 与延迟启动服务那一段（㊽ 实测冒出来的正是它）。
+      // 守卫放在这里而不是靠 catch：语义不变（页面没了就不该继续），但不再靠异常控制流。
+      if (!mounted) return;
       setState(() {});
 
       await _checkFirstLaunch();

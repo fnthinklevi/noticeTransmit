@@ -5,7 +5,8 @@
 #   不带参数时按顺序自动挑选：ANDROID_AVD_NAME 环境变量 → flutter_emulator → 第一个可用 AVD
 #
 # 为什么必须有它：base.md §10.2 的发版流程此前只跑到「单元测试 + 构建 4 包 + 一致性自检」，
-# 而集成冒烟（smoke_test）只有 7 步主链路。真实发版事故恰恰出在没被自动化覆盖的地方：
+# 而集成冒烟（smoke_test）只有主链路那几步（㊼ 起是 4 条独立用例），覆盖不到设置页的逐个入口。
+# 真实发版事故恰恰出在没被自动化覆盖的地方：
 # 备份导入后设置页打不开（1.5.74 上线后被维护者撞出）。本闸门把「每个页面都点一遍、
 # 每条 CRUD 都走一次、备份真的导出再导回来」变成发版前必须绿的一项。
 #
@@ -84,9 +85,11 @@ running_serial_for() {
 }
 SERIAL=$(running_serial_for "$AVD" || true)
 if [ -z "$SERIAL" ]; then
-    ok "启动模拟器 $AVD（headless，无音频、无启动动画）"
+    ok "启动模拟器 $AVD（headless，无音频、无启动动画；GPU=${GATE_GPU:-auto}）"
+    # GATE_GPU=swiftshader_indirect 用来**对齐 CI 的渲染后端**（integration_test.yml 用的是软件渲染，
+    # 比本机 -gpu auto 慢）。怀疑"本地绿 CI 红"是设备画像差异时，就按 CI 的画像跑一遍复现。
     ( "$EMULATOR" -avd "$AVD" -no-window -no-audio -no-boot-anim \
-        -gpu auto -no-snapshot-save > /tmp/release_emulator.log 2>&1 & )
+        -gpu "${GATE_GPU:-auto}" -no-snapshot-save > /tmp/release_emulator.log 2>&1 & )
     STARTED_BY_US=1
     for _ in $(seq 1 90); do
         SERIAL=$(running_serial_for "$AVD" || true)
