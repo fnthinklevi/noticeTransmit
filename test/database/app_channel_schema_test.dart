@@ -132,7 +132,7 @@ void main() {
       expect(storeBlock, contains('saveEmailChannels('));
     });
 
-    test('DatabaseHelper 实现三个存储接缝', () {
+    test('DatabaseHelper 实现四个存储接缝', () {
       // 用正则取 implements 子句而不是 contains('class X implements')：
       // 后者对 dart format 的换行敏感，一行变两行就静默失效（实测踩过）。
       final clause = RegExp(
@@ -143,6 +143,8 @@ void main() {
         'WebhookChannelStore',
         'AppChannelStore',
         'EmailChannelStore',
+        // T20：引擎规则。少了这一条，服务层的伪存储注入就换不了实现。
+        'EngineRuleStore',
       ]) {
         expect(
           clause!.group(1),

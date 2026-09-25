@@ -19,8 +19,11 @@ class ConfigManager(private val context: Context) {
         private const val KEY_WHITELIST_KEYWORDS = "flutter.whitelist_keywords"
         private const val KEY_BLACKLIST_KEYWORDS = "flutter.blacklist_keywords"
         private const val KEY_DEVICE_NAME = "flutter.device_name"
+        // T20：这两把键的**唯一写入者是 Dart**（`EngineRuleRepository` 写的兼容镜像）。
+        // 原生侧没有 SQLCipher 依赖，打不开存规则的加密库，所以规则入 DB 之后仍然要靠
+        // 这份镜像喂 BatteryMonitor —— T21/T22 切主路径之前不许撤，撤了就是"改了规则不生效"。
         private const val KEY_BATTERY_RULES = "flutter.battery_rules"
-        private val KEY_TEMPERATURE_RULES = "flutter.temperature_rules"
+        private const val KEY_TEMPERATURE_RULES = "flutter.temperature_rules"
         private const val KEY_BATTERY_NOTIFY_ENABLED = "flutter.battery_notify_enabled"
         private const val KEY_NOTIFICATION_RULES = "flutter.notification_rules"
         private const val KEY_SMS_MONITOR_ENABLED = "flutter.sms_monitor_enabled"
@@ -263,10 +266,6 @@ class ConfigManager(private val context: Context) {
 
     fun getTemperatureRules(): String {
         return prefs.getString(KEY_TEMPERATURE_RULES, "[]") ?: "[]"
-    }
-
-    fun setTemperatureRules(json: String) {
-        prefs.edit().putString(KEY_TEMPERATURE_RULES, json).apply()
     }
 
     fun getBatteryRules(): String {

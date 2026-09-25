@@ -1081,27 +1081,6 @@ class MainActivity : FlutterActivity() {
         notifyServiceConfigChanged()
     }
 
-    fun setTemperatureRules(rules: List<Map<String, Any>>) {
-        try {
-            val jsonArray = org.json.JSONArray()
-            for (rule in rules) {
-                val obj = org.json.JSONObject()
-                obj.put("id", rule["id"]?.toString() ?: "")
-                obj.put("type", rule["type"]?.toString() ?: "battery_temp_above")
-                obj.put("value", (rule["value"] as? Number)?.toInt() ?: 45)
-                obj.put("enabled", (rule["enabled"] as? Boolean) ?: false)
-                obj.put("title", rule["title"]?.toString() ?: "")
-                obj.put("content", rule["content"]?.toString() ?: "")
-                obj.put("config", toNativeJson(rule["config"]))
-                jsonArray.put(obj)
-            }
-            prefs.edit().putString("flutter.temperature_rules", jsonArray.toString()).apply()
-            notifyServiceConfigChanged()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     fun setTemperatureSetting(key: String, value: Boolean) {
         prefs.edit().putBoolean("flutter.$key", value).apply()
         notifyServiceConfigChanged()
@@ -1145,28 +1124,6 @@ class MainActivity : FlutterActivity() {
             }
         } catch (_: Exception) {
             1
-        }
-    }
-
-    internal fun setBatteryRules(rules: List<Map<String, Any>>) {
-        try {
-            val jsonArray = org.json.JSONArray()
-            for (rule in rules) {
-                val obj = org.json.JSONObject()
-                obj.put("id", rule["id"] as? String ?: "")
-                obj.put("type", rule["type"] as? String ?: "")
-                // MethodChannel 把 Dart 数字解成 Any?，滑块值可能是 Double/Long：
-                // `as? Int` 会静默失败取默认值（温度阈值变 45、电量阈值变 0 = 规则永不触发）
-                obj.put("value", (rule["value"] as? Number)?.toInt() ?: 0)
-                obj.put("enabled", (rule["enabled"] as? Boolean) ?: false)
-                obj.put("title", rule["title"] as? String ?: "")
-                obj.put("content", rule["content"] as? String ?: "")
-                jsonArray.put(obj)
-            }
-            prefs.edit().putString("flutter.battery_rules", jsonArray.toString()).apply()
-            notifyServiceConfigChanged()
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 

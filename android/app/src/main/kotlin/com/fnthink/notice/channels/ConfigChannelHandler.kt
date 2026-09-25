@@ -108,26 +108,24 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
                 activity.testAppChannel(configMap, result)
             }
-            "setBatteryRules" -> {
-                val rules = call.argument<List<Map<String, Any>>>("rules") ?: emptyList()
-                activity.setBatteryRules(rules)
-                result.success(true)
-            }
             "setBatterySetting" -> {
                 val key = call.argument<String>("key") ?: ""
                 val value = call.argument<Boolean>("value") ?: false
                 activity.setBatterySetting(key, value)
                 result.success(true)
             }
-            "setTemperatureRules" -> {
-                val rules = call.argument<List<Map<String, Any>>>("rules") ?: emptyList()
-                activity.setTemperatureRules(rules)
-                result.success(true)
-            }
             "setTemperatureSetting" -> {
                 val key = call.argument<String>("key") ?: ""
                 val value = call.argument<Boolean>("value") ?: false
                 activity.setTemperatureSetting(key, value)
+                result.success(true)
+            }
+            // T20：引擎规则改由 Dart 写 prefs 镜像，原生侧不再复制那份 JSON
+            // （`setBatteryRules` / `setTemperatureRules` 已删：两处写同一把键、
+            //  两套默认值，迟早漂出"界面有规则、告警永远不来"）。
+            // 这里只剩"配置变了，重新 loadConfig()"这一件事 —— 两族共用一枚方法。
+            "refreshEngineRules" -> {
+                activity.notifyServiceConfigChanged()
                 result.success(true)
             }
             // ── 备用模式锁存（T12）────────────────────────────────────────

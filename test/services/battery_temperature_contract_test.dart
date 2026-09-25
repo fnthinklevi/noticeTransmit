@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
+
+import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/source_guards.dart';
@@ -20,7 +22,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(AppChannels.notification, (call) async {
-          return true; // setBatterySetting / setBatteryRules 同步成功
+          return true; // setBatterySetting / refreshEngineRules 同步成功
         });
   });
 
@@ -105,7 +107,7 @@ void main() {
 
   group('规则透传保真', () {
     test('温度服务：addRule 后类型与阈值原样保留', () async {
-      final service = TemperatureService();
+      final service = TemperatureService(store: MemoryRuleStore());
       await service.loadSettings();
       await service.addRule({
         'id': 'temp-s-1',
@@ -121,7 +123,7 @@ void main() {
     });
 
     test('电量服务：温度类型规则经 addRule/save 后透传保真', () async {
-      final service = BatteryService();
+      final service = BatteryService(store: MemoryRuleStore());
       await service.loadSettings();
       final before = service.rules.length;
       await service.addRule({

@@ -8,6 +8,7 @@ import '../models/email_channel.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/channel_display.dart';
+import '../services/engine_rule_codec.dart';
 import '../services/secure_storage_service.dart';
 
 /// 数据库加密密钥丢失/损坏异常。
@@ -36,8 +37,20 @@ abstract class EmailChannelStore {
   Future<void> saveEmailChannels(List<Map<String, dynamic>> channels);
 }
 
+/// 通知引擎规则存储抽象（T20）。可按族注入 fake，供服务层与 widget 测试使用。
+/// 传/收的都是**归一后的 UI map**（id/type/value/enabled/title/content），
+/// 列名只在本文件内部出现 —— 形状的契约在 `EngineRuleCodec`。
+abstract class EngineRuleStore {
+  Future<List<Map<String, dynamic>>> getEngineRules(String family);
+  Future<void> saveEngineRules(String family, List<Map<String, dynamic>> rules);
+}
+
 class DatabaseHelper
-    implements WebhookChannelStore, AppChannelStore, EmailChannelStore {
+    implements
+        WebhookChannelStore,
+        AppChannelStore,
+        EmailChannelStore,
+        EngineRuleStore {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
   DatabaseHelper._internal();
@@ -51,9 +64,20 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 12;
+  static const int dbVersion = 13;
+
+  /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
+  ///
+  /// 为什么开这个口子：`EngineRuleStore` 那几个方法里真正会咬人的是**SQL 本身**
+  /// （整族替换写成了整表 `delete` 就会"存电量丢温度"），而注入 fake 存储测不出来 ——
+  /// fake 里没有"删掉另一族"这回事。有了它，用例跑的是真 SQLite，又不必去碰
+  /// SQLCipher 单例那个跨测试文件共享的库文件。⚠ 用完必须在 tearDown 里置回 null。
+  @visibleForTesting
+  Database? debugDatabase;
 
   Future<Database> get database async {
+    final override = debugDatabase;
+    if (override != null) return override;
     if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDatabase();
     return _database!;
@@ -372,6 +396,72 @@ class DatabaseHelper
         updated_at INTEGER NOT NULL
       )
     ''');
+
+    await _createEngineRules(db);
+  }
+
+  /// v13 / T20：通知引擎规则表（电量族 + 温度族）。
+  ///
+  /// 两处建表（本方法被 `_onCreate` 与 `oldVersion < 13` 同时调用）列必须一致，
+  /// 由 `test/database/engine_rules_schema_test.dart` 实测比对。
+  /// `PRIMARY KEY (family, position)` 把"顺序即引擎判定优先级"写进结构：
+  /// position 由列表下标生成，同族内不可能重复，而**规则 id 允许重复**
+  /// （页面用毫秒时间戳生成 id，历史上就是"同 id 一起删"的列表语义，不能改成主键）。
+  Future<void> _createEngineRules(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS engine_rules (
+        family TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        id TEXT NOT NULL DEFAULT '',
+        type TEXT NOT NULL,
+        threshold INTEGER NOT NULL,
+        title TEXT NOT NULL DEFAULT '',
+        content TEXT NOT NULL DEFAULT '',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (family, position)
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_engine_rules_family
+      ON engine_rules(family, position)
+    ''');
+    await _importLegacyEngineRules(db);
+  }
+
+  /// 一次性把 prefs 里的旧规则搬进表。
+  ///
+  /// 建库（含"旧明文库 → 加密库"那条路径）与 v12→v13 升级都走这里，所以**每条能建出
+  /// 本表的路径都灌过一次数据** —— 只在 onUpgrade 里迁会把"从没建过加密库的老设备"
+  /// 漏掉（那些设备prefs 里有规则，库里却是空表，界面看起来就像规则被删了）。
+  ///
+  /// 失败不抛：旧键仍在，`EngineRuleRepository.load` 还能只读回退到它们；
+  /// 而这里的异常若向上抛，`_initDatabase` 会走"备份原库 + 重建空库"，
+  /// 等于为了搬规则把用户历史整库清掉。
+  Future<void> _importLegacyEngineRules(Database db) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final entry in const {
+        EngineRuleCodec.familyBattery: 'battery_rules',
+        EngineRuleCodec.familyTemperature: 'temperature_rules',
+      }.entries) {
+        final legacy = EngineRuleCodec.parseLegacyJson(
+          prefs.getString(entry.value),
+          entry.key,
+        );
+        if (legacy == null || legacy.isEmpty) continue;
+        final now = DateTime.now().millisecondsSinceEpoch;
+        for (var i = 0; i < legacy.length; i++) {
+          await db.insert(
+            'engine_rules',
+            EngineRuleCodec.toDbRow(legacy[i], entry.key, i, now),
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('引擎规则入 DB 迁移失败（旧键仍在，读取侧可回退）: $e');
+    }
   }
 
   /// 仅供测试：在 sqflite_common_ffi 下直接跑建表 / 升级逻辑，验证迁移幂等。
@@ -565,6 +655,10 @@ class DatabaseHelper
           "TEXT NOT NULL DEFAULT 'primary'",
         );
       }
+    }
+    if (oldVersion < 13) {
+      // v13: 通知引擎规则入 DB（T20）。建表 + 把 prefs 里的旧规则灌进来。
+      await _createEngineRules(db);
     }
   }
 
@@ -902,6 +996,46 @@ class DatabaseHelper
           'updated_at': now,
         };
         await txn.insert('app_channels', row);
+      }
+    });
+  }
+
+  /// 通知引擎规则（T20）：按族读，顺序 = 引擎的判定优先级 = position。
+  ///
+  /// ⚠ 只读**本族**：电量页与温度页各持一族，两族规则类型不同（`level_below` 与
+  /// `battery_temp_above`），混读会让一条电量规则被当成温度规则去判。
+  @override
+  Future<List<Map<String, dynamic>>> getEngineRules(String family) async {
+    final db = await database;
+    final rows = await db.query(
+      'engine_rules',
+      where: 'family = ?',
+      whereArgs: [family],
+      orderBy: 'position ASC',
+    );
+    return rows.map(EngineRuleCodec.fromDbRow).toList();
+  }
+
+  /// 整族替换（与三张通道表同规则：删该族 + 按下标逐行写）。
+  /// 事务内完成 ⇒ 中途出错回滚成旧内容，不会留下"删了没写回"的空族。
+  @override
+  Future<void> saveEngineRules(
+    String family,
+    List<Map<String, dynamic>> rules,
+  ) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'engine_rules',
+        where: 'family = ?',
+        whereArgs: [family],
+      );
+      for (var i = 0; i < rules.length; i++) {
+        await txn.insert(
+          'engine_rules',
+          EngineRuleCodec.toDbRow(rules[i], family, i, now),
+        );
       }
     });
   }

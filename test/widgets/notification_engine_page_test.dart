@@ -8,6 +8,8 @@ import 'package:notice_transmit/pages/notification_engine_page.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
+
+import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test_setup.dart';
@@ -24,13 +26,17 @@ void main() {
 
   late BatteryService battery;
   late TemperatureService temperature;
+  late MemoryRuleStore store;
 
   setUp(() async {
     await GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
     stubNativeChannels();
-    battery = BatteryService();
-    temperature = TemperatureService();
+    // T20：规则住 engine_rules 表。这两个服务共用一份内存存储（与真实表一样按族分隔）
+    // —— 不注伪就会走"库打不开→只读回退"的降级分支，看着绿其实测的是兜底路径。
+    store = MemoryRuleStore();
+    battery = BatteryService(store: store);
+    temperature = TemperatureService(store: store);
     GetIt.instance
       ..registerSingleton<BatteryService>(battery)
       ..registerSingleton<TemperatureService>(temperature);

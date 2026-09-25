@@ -21,7 +21,7 @@ import java.io.File
  * 1. `toNativeJson` 必须存在且**递归自调用**（嵌套任意深度都要转换）；
  * 2. 所有接收 `List<Map<String, ...>>`（MethodChannel 解码结构）的写入函数，
  *    函数体必须调用 `toNativeJson(` ——例外仅限**全标量扁平结构白名单**
- *    （`setWebhookChannels` / `setBatteryRules`：逐字段显式取值，无嵌套字段）；
+ *    （`setWebhookChannels`：逐字段显式取值，无嵌套字段）；
  * 3. `setNotificationRules` 禁止「迭代解码 Map 后直接 put」的危险模式。
  *
  * 新增通道写入函数时：若参数含 `List<Map<...>>`，**必须经 `toNativeJson`**，
@@ -73,16 +73,16 @@ class NativeJsonSerializationContractTest {
 
     /**
      * 全标量扁平结构白名单：这些函数接收 `List<Map<...>>` 但**不存在嵌套字段风险**：
-     * - `setWebhookChannels` / `setBatteryRules`：逐字段显式取标量（String/Int/Boolean）；
+     * - `setWebhookChannels`：逐字段显式取标量（String/Int/Boolean）；
      * - `saveInstalledAppsCache`：用 `JSONObject(Map)` **拷贝构造器**——该构造器内部
      *   递归 wrap（Map→JSONObject / Collection→JSONArray），与手动 `put(k, v)` 不同，
      *   天然安全。
      * ⚠ 若未来给这些配置增加嵌套字段，手动 put 写法必须改走 `toNativeJson` 并把
      * 函数移出本白名单——否则会复发 v1.5.68 的同类缺陷。
+     * （曾在此列的 `setBatteryRules` 随 T20 一起删了：规则改由 Dart 写 prefs 镜像。）
      */
     private val flatAllowlist = setOf(
         "setWebhookChannels",
-        "setBatteryRules",
         "saveInstalledAppsCache",
     )
 

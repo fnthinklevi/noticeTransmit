@@ -6,7 +6,10 @@ import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
+import 'package:notice_transmit/services/engine_rule_codec.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
+
+import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// T16：温度规则页「保存后不刷新 / 开关点完弹回」。
@@ -23,6 +26,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late TemperatureService service;
+  late MemoryRuleStore store;
 
   Widget buildApp() {
     return const MaterialApp(
@@ -45,16 +49,17 @@ void main() {
   setUp(() async {
     await GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
-    // 服务每次写都会 invokeMethod('setTemperatureRules')。**在 testWidgets 里不给通道
-    // 装 mock handler，这个 await 就永远不返回**（实测：四条用例全部 did not complete；
-    // 同一个调用放在普通 test() 里则会立刻 MissingPluginException 返回）。
-    // 与 app_channel_settings_page_test 同一做法：先把通道接住。
+    // 服务每次写都会落库 + 刷镜像 + invokeMethod('refreshEngineRules')。**在 testWidgets
+    // 里不给通道装 mock handler，那个 await 就永远不返回**（实测：四条用例全部 did not
+    // complete；同一个调用放在普通 test() 里则会立刻 MissingPluginException 返回）。
+    // 存储注伪：T20 起规则落 engine_rules 表，真库要走 sqflite ffi，页测试不该依赖它。
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('com.fnthink.notice/notification'),
           (call) async => null,
         );
-    service = TemperatureService();
+    store = MemoryRuleStore();
+    service = TemperatureService(store: store);
     GetIt.instance.registerSingleton<TemperatureService>(service);
     await service.loadSettings();
   });
@@ -195,5 +200,23 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, '删除').last);
     await tester.pumpAndSettle();
     expect(service.rules, isEmpty, reason: '确认之后必须真的删掉（并落盘）');
+    expect(
+      store.rows[EngineRuleCodec.familyTemperature],
+      isEmpty,
+      reason: '内存空了而存储还有行 = 重启后规则复活',
+    );
+  });
+
+  testWidgets('换一个服务实例重读（= 重启进程）：规则原样回来', (tester) async {
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+    await service.addRule(rule());
+    await tester.pumpAndSettle();
+
+    final reopened = TemperatureService(store: store);
+    await reopened.loadSettings();
+    expect(reopened.rules.map((r) => r['id']).toList(), [
+      'r1',
+    ], reason: '写操作只改内存列表的话，这条必红');
   });
 }

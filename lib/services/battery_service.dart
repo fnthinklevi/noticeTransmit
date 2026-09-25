@@ -1,7 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../database/database_helper.dart';
+import 'engine_rule_codec.dart';
+import 'engine_rule_repository.dart';
 import 'platform_channel.dart';
 
 /// 电量告警设置的服务（与 [TemperatureService] 同构）。
@@ -11,7 +13,17 @@ import 'platform_channel.dart';
 /// `setState` rebuild 不到它；② 中间 tab 换成了「通知引擎」骨架页，电量页变成它
 /// push 出去的子页 —— 再造一层"父页持有回调往下传"的形状，就是第三份接线。
 class BatteryService extends ChangeNotifier {
+  BatteryService({EngineRuleStore? store})
+    : _ruleStore = EngineRuleRepository(
+        family: EngineRuleCodec.familyBattery,
+        prefsKey: 'battery_rules',
+        store: store,
+      );
+
   static const _channel = AppChannels.notification;
+
+  /// 规则存储咽喉（T20 起 DB 为准，prefs 旧键是原生镜像 + 回退）。
+  final EngineRuleRepository _ruleStore;
 
   bool _notifyEnabled = true;
   List<Map<String, dynamic>> _rules = [];
@@ -28,9 +40,8 @@ class BatteryService extends ChangeNotifier {
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _notifyEnabled = prefs.getBool('battery_notify_enabled') ?? true;
-    _rules = _loadRules(prefs);
+    _rules = await _ruleStore.load(seed: _defaultRules);
     notifyListeners();
-    await _syncRules();
   }
 
   Future<void> saveNotifyEnabled(bool value) async {
@@ -80,15 +91,15 @@ class BatteryService extends ChangeNotifier {
 
   /// 规则落库 + 同步原生的**唯一**出口，广播也收在这里（T16 的先例）：
   /// 写操作散在五处，逐个补 notify 迟早漏一个。
+  ///
+  /// 落点自 T20 起是 `engine_rules` 表（[EngineRuleRepository] 里还顺带刷原生镜像、
+  /// 通知服务重载）。这里只兜住"库写不进去"：内存里的编辑保留，界面不吞掉用户的操作。
   Future<void> _syncRules() async {
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('battery_rules', jsonEncode(_rules));
-
     try {
-      await _channel.invokeMethod('setBatteryRules', {'rules': _rules});
+      await _ruleStore.save(_rules);
     } catch (e) {
-      debugPrint('BatteryService: 规则同步失败: $e');
+      debugPrint('BatteryService: 规则保存失败: $e');
     }
   }
 
@@ -105,17 +116,6 @@ class BatteryService extends ChangeNotifier {
       _rules = rules;
       await _syncRules();
     }
-  }
-
-  List<Map<String, dynamic>> _loadRules(SharedPreferences prefs) {
-    final jsonStr = prefs.getString('battery_rules');
-    if (jsonStr != null) {
-      try {
-        final List<dynamic> list = jsonDecode(jsonStr);
-        return list.map((e) => Map<String, dynamic>.from(e)).toList();
-      } catch (_) {}
-    }
-    return _defaultRules();
   }
 
   List<Map<String, dynamic>> _defaultRules() {

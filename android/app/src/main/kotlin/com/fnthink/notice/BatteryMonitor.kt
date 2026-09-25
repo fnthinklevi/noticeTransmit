@@ -18,7 +18,7 @@ class BatteryMonitor(private val context: Context) {
     @Volatile private var deviceName: String = ""
     private var notificationCallback: ((NotificationInfo) -> Unit)? = null
 
-    /** v1.59：温度规则（独立于电量规则，由 TemperatureService 经通道同步） */
+    /** v1.59：温度规则（独立于电量规则，由 TemperatureService 写 prefs 镜像同步） */
     private var temperatureRules = emptyList<BatteryRule>()
 
     /**
@@ -165,7 +165,7 @@ class BatteryMonitor(private val context: Context) {
         )
     }
 
-    /** v1.59：更新温度规则列表（独立于电量规则，由 TemperatureService 经通道同步） */
+    /** v1.59：更新温度规则列表（独立于电量规则，由 TemperatureService 写 prefs 镜像同步） */
     fun updateTemperatureRules(rulesJson: String) {
         try {
             val jsonArray = org.json.JSONArray(rulesJson)

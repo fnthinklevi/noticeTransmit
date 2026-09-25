@@ -18,8 +18,10 @@ import 'package:flutter_test/flutter_test.dart';
 ///    被点到时才炸，常规回归测试（走 mock 通道）根本发现不了。
 ///    这是本文件存在的首要原因，不允许为通过而放宽。
 ///
-/// 2. **总数 == 93**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
-///    （6e 加了两个非侵入探测 `probeAppChannelToken` / `verifySmtp`：91 → 93。）
+/// 2. **总数 == 92**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+///    （6e 加了两个非侵入探测 `probeAppChannelToken` / `verifySmtp`：91 → 93；
+///     T20 引擎规则入 DB，删掉两处原生镜像写 `setBatteryRules` / `setTemperatureRules`、
+///     换成一枚无载荷的 `refreshEngineRules`：93 → 92。**只降不升**是这条的验收口径。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -67,10 +69,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 93（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 92（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        93,
+        92,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -81,7 +83,7 @@ void main() {
     test('每个 handler 的方法数固定（按域分布守卫）', () {
       final dist = _distribution(native);
       expect(dist, {
-        'ConfigChannelHandler': 35,
+        'ConfigChannelHandler': 34,
         'PermissionChannelHandler': 23,
         'DeviceChannelHandler': 14,
         'FileChannelHandler': 12,
@@ -108,7 +110,7 @@ void main() {
         dart.length,
         greaterThanOrEqualTo(70),
         reason:
-            'Dart 侧只解析出 ${dart.length} 个方法名，远低于原生 93 个里的实际调用面：'
+            'Dart 侧只解析出 ${dart.length} 个方法名，远低于原生 92 个里的实际调用面：'
             '要么 _dartChannelMethods 的正则退化了，要么调用写法又多了第五种',
       );
       // 三种书写形态各钉一枚代表：少一种 = 对应的解析分支已经不再命中。

@@ -18,9 +18,11 @@ import 'package:notice_transmit/services/locale_service.dart';
 import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/sms_service.dart';
 import 'package:notice_transmit/services/theme_service.dart';
+import 'package:notice_transmit/services/engine_rule_codec.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/engine_rule_store_fake.dart';
 import '../support/source_guards.dart';
 
 /// 跨版本备份兼容回归（roadmap E10 的收尾项）。
@@ -158,6 +160,10 @@ void main() {
   late BackupService backup;
   late List<MethodCall> nativeCalls;
 
+  /// 电量规则的内存存储（T20 起住 engine_rules 表）：备份的 battery 类别要钉的是
+  /// "**库里**那一族真的被换了"，而不是内存列表换了个引用。
+  late MemoryRuleStore batteryStore;
+
   /// 伪原生：写方法记账，读方法回读同一份 —— 否则 loadSettings 永远读到空，
   /// 「本机已有配置」这类判定就测不出来。
   late Map<String, Object?> nativeState;
@@ -185,6 +191,7 @@ void main() {
   }
 
   setUp(() async {
+    batteryStore = MemoryRuleStore();
     webhookStore = _FakeWebhookStore();
     appChannelStore = _FakeAppChannelStore();
     emailStore = _FakeEmailStore();
@@ -204,7 +211,7 @@ void main() {
       ..registerSingleton<EmailService>(EmailService(store: emailStore))
       ..registerSingleton<FilterService>(FilterService())
       ..registerSingleton<SmsService>(SmsService())
-      ..registerSingleton<BatteryService>(BatteryService())
+      ..registerSingleton<BatteryService>(BatteryService(store: batteryStore))
       ..registerSingleton<DeviceInfoService>(DeviceInfoService())
       ..registerSingleton<ThemeService>(ThemeService())
       ..registerSingleton<LocaleService>(LocaleService());
@@ -494,6 +501,11 @@ void main() {
         },
       });
       expect(battery.rules, hasLength(1));
+      expect(
+        batteryStore.rows[EngineRuleCodec.familyBattery],
+        hasLength(1),
+        reason: '只改内存不写存储 = 备份恢复"看起来成功"，重启又回到旧规则',
+      );
       expect(battery.notifyEnabled, isFalse);
     });
 
