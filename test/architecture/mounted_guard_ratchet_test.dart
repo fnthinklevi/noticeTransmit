@@ -16,7 +16,10 @@ import '../support/source_guards.dart';
 /// 判据是保守近似（回溯 6 行找 `await `、同窗口内没有 `mounted` 就算一处），
 /// 因此**存量计数里含误报**（例如 await 属于上一个函数的尾巴）。
 /// 本文件锁的是「不要再新增」，不是「已经干净」；修掉存量请把 `_ratchet` 一起调小。
-const int _ratchet = 48;
+/// 2026-09-25（T15）48 → 41：删掉 main_page 为 BatteryPage 包的那 6 个
+/// "调服务 + 父页 setState"包装（路由里的子页收不到父页 rebuild，那些 setState
+/// 本来就没有效果）+ 温度入口改由骨架页 push。
+const int _ratchet = 41;
 
 /// 判据本体（独立成函数是为了能被合成样本反证，见第一个 test）。
 List<int> unguardedSetStateLines(String src) {
