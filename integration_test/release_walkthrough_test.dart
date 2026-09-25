@@ -50,6 +50,7 @@ import 'package:notice_transmit/services/update_service.dart';
 import 'package:notice_transmit/update_manager.dart' show VersionCheckResult;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import 'support/native_payload_stubs.dart';
 
 /// ㊻ 发版硬闸门：**所有**用户可达页面各点一遍 + 每条 CRUD 各走一次 +
 /// 备份**真的**导出成文件再导回来。与 `smoke_test.dart`（7 步主链路）互补，不重复它。
@@ -163,56 +164,15 @@ void main() {
           'channelUrl': 'https://oapi.dingtalk.com/robot/send',
         },
       ],
-      // 描述符必须给**非空**桩：空列表按"原生未就绪"处理（见 smoke 的同一注释）
-      // T08-B：载荷是对象 `{descriptors, messageFormats}`；档位桩只给一个 'default'
-      //    （真实名单只在原生 TemplateEngine.formatOptions，抄进测试 = 第三份真值）。
-      'getChannelDescriptors': <String, Object?>{
-        'descriptors': <Map<String, Object?>>[
-          _descriptor(
-            'webhook',
-            'dingtalk',
-            'DINGTALK',
-            '钉钉',
-            ['oapi.dingtalk.com'],
-            ['secretUsed', 'jsonContract', 'customTemplate'],
-          ),
-          _descriptor(
-            'webhook',
-            'wechat_work',
-            'WECHAT_WORK',
-            '企业微信',
-            ['qyapi.weixin.qq.com'],
-            ['markdown', 'customTemplate'],
-          ),
-          _descriptor(
-            'app',
-            'wecom_app',
-            'wecom_app',
-            '企业微信应用',
-            ['qyapi.weixin.qq.com'],
-            ['secretUsed', 'markdown'],
-            extra: {
-              'officialBase': 'https://qyapi.weixin.qq.com',
-              'fields': <Map<String, Object?>>[
-                <String, Object?>{
-                  'key': 'corpid',
-                  'labelKey': 'appChannelCorpidLabel',
-                  'kind': 'text',
-                  'required': true,
-                },
-                <String, Object?>{
-                  'key': 'agentid',
-                  'labelKey': 'appChannelAgentIdLabel',
-                  'kind': 'text',
-                  'required': true,
-                },
-              ],
-            },
-          ),
-          _emailDescriptor(),
-        ],
-        'messageFormats': <String>['default'],
-      },
+      // 描述符必须给**非空**桩：空载荷按"原生未就绪"处理（见 smoke 的同一注释）。
+      // 桩只有一份来源：integration_test/support/native_payload_stubs.dart，
+      // 由 native_payload_stub_test 与导出快照逐字段比对（手抄两份各撞过一次静默降级）。
+      'getChannelDescriptors': channelDescriptorsStub([
+        stubDingtalk(),
+        stubWechatWork(),
+        stubWecomApp(),
+        stubEmail(),
+      ]),
     };
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -1334,86 +1294,6 @@ void main() {
     // "闸门超时红"，会被误读成功能回归。放宽到 30，配套 job 预算 45 分钟。
   }, timeout: const Timeout(Duration(minutes: 30)));
 }
-
-/// 描述符桩：形状与 `getChannelDescriptors` 的导出契约一致
-/// （family/key/nativeType/labelKey/iconKey/hosts/capabilities/fields）。
-Map<String, Object?> _descriptor(
-  String family,
-  String key,
-  String nativeType,
-  String label,
-  List<String> hosts,
-  List<String> capabilities, {
-  Map<String, Object?> extra = const {},
-}) {
-  return <String, Object?>{
-    'family': family,
-    'key': key,
-    'nativeType': nativeType,
-    'labelKey': 'gateLabel$key',
-    'iconKey': key,
-    'hosts': hosts,
-    'capabilities': capabilities,
-    'fields': <Map<String, Object?>>[],
-    ...extra,
-  };
-}
-
-/// 邮件族的描述符桩（T08-C2：邮件页的字段清单、必填与默认值全部来自这里）。
-///
-/// ⚠ 内容与原生 `EmailChannelSpec` 的字段清单**必须一致**，由
-/// `bootstrap_order_test.dart` 的「集成桩的邮件字段 == 导出快照」守着。
-/// 不一致的表现不是红，而是闸门在编辑器里按位置索引点到错的输入框（字段错位）。
-Map<String, Object?> _emailDescriptor() => <String, Object?>{
-  'family': 'email',
-  'key': 'email',
-  'labelKey': 'emailChannel',
-  'iconKey': 'email',
-  'hosts': <String>[],
-  'capabilities': <String>[
-    'secretUsed',
-    'secretRequired',
-    'secretKeepsPrevious',
-    'customTemplate',
-  ],
-  'fields': <Map<String, Object?>>[
-    _emailField('smtpHost', 'smtpHost',
-        kind: 'host', required: true, hint: 'emailHintHostExample'),
-    _emailField('smtpPort', 'smtpPort',
-        kind: 'number', required: true,
-        defaultValue: '465', hint: 'emailHintPort'),
-    _emailField('useSSL', 'useSSL', kind: 'switch', defaultValue: 'true'),
-    _emailField('username', 'smtpAccount',
-        kind: 'email_address', required: true, hint: 'emailHintAddressExample'),
-    _emailField('password', 'smtpPassword',
-        kind: 'secret', required: true, hint: 'emailHintPassword'),
-    _emailField('fromEmail', 'fromEmail',
-        kind: 'email_address', required: true, hint: 'emailHintAddressExample'),
-    _emailField('toEmail', 'toEmail',
-        required: true, hint: 'emailHintRecipients'),
-    _emailField('subjectTemplate', 'subjectTemplate', hint: 'emailHintSubject'),
-    _emailField('bodyTemplate', 'bodyTemplate',
-        kind: 'multiline', hint: 'emailHintBody'),
-  ],
-};
-
-Map<String, Object?> _emailField(
-  String key,
-  String labelKey, {
-  String kind = 'text',
-  bool required = false,
-  String? defaultValue,
-  String? hint,
-}) =>
-    <String, Object?>{
-      'key': key,
-      'labelKey': labelKey,
-      'kind': kind,
-      'required': required,
-      'defaultValue': defaultValue,
-      'hintKey': hint,
-      'presets': <Map<String, Object?>>[],
-    };
 
 /// 假 FilePicker：把「选文件」变成返回测试自己写出来的那个备份文件路径。
 /// SAF 系统选单本身不可自动化，其余环节（读盘/解密/校验/恢复）全部走真实代码。
