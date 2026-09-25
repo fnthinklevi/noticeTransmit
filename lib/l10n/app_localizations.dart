@@ -218,17 +218,17 @@ abstract class AppLocalizations {
   /// **'关'**
   String get off;
 
-  /// No description provided for @tabNotification.
+  /// No description provided for @tabHome.
   ///
   /// In zh, this message translates to:
-  /// **'通知'**
-  String get tabNotification;
+  /// **'首页'**
+  String get tabHome;
 
-  /// No description provided for @tabBattery.
+  /// No description provided for @tabNotificationEngine.
   ///
   /// In zh, this message translates to:
-  /// **'电量'**
-  String get tabBattery;
+  /// **'通知引擎'**
+  String get tabNotificationEngine;
 
   /// No description provided for @tabMore.
   ///

@@ -335,7 +335,14 @@ void main() {
     await _backToHome(tester);
 
     // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
-    await _tap(tester, find.text('更多'), '底部 tab→更多');
+    await _tap(
+      tester,
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('更多'),
+      ),
+      '底部 tab→更多',
+    );
     await _onPage(tester, MorePage, '更多页');
 
     // 5.1 Webhook 通道：建两条 → 保存 → 重进 → 删掉第一行 → 保存
@@ -809,18 +816,18 @@ void main() {
     // 这一节就会假红），所以这里不需要先把服务开回来。
     await _step(tester, gateFailures, '── 5.9 通道状态页：入口、三族分组与脱敏', () async {
       await _backToHomeQuietly(tester);
-      // ⚠ 必须真的点一下 tab：主界面是 IndexedStack，停在更多/电量时，通知页的卡
+      // ⚠ 必须真的点一下 tab：主界面是 IndexedStack，停在更多/通知引擎时，首页的卡
       // "在树上但不在屏幕上" ⇒ 滚到底也找不到（5.9 第一次红的真因）。
-      // 与 `_openMoreRow` 同一个规矩：tab 文案是「通知」（T13 才改成「首页」）。
+      // 与 `_openMoreRow` 同一个规矩：tab 一律**限定在 NavigationBar 里**找。
       await _tap(
         tester,
         find.descendant(
           of: find.byType(NavigationBar),
-          matching: find.text('通知'),
+          matching: find.text('首页'),
         ),
-        '底部 tab→通知',
+        '底部 tab→首页',
       );
-      await _tap(tester, find.text('当前推送通道'), '通知页→通道状态');
+      await _tap(tester, find.text('当前推送通道'), '首页→通道状态');
       await _onPage(tester, ChannelStatusPage, '通道状态页');
       expect(
         _in(ChannelStatusPage, find.text('Webhook')),
@@ -839,10 +846,19 @@ void main() {
       await _backToHomeQuietly(tester);
     });
 
-    // ── 6. 电量 tab：加规则 → 切开关
-    await _step(tester, gateFailures, '── 6. 电量 tab：加规则 → 切开关', () async {
+    // ── 6. 通知引擎 tab（T13 换了导航名，内容当前仍是电量页；骨架在 T15）：加规则 → 切开关
+    await _step(tester, gateFailures, '── 6. 通知引擎 tab：加规则 → 切开关', () async {
       await _backToHomeQuietly(tester);
-      await _tap(tester, find.text('电量'), '底部 tab→电量');
+      // tab 文案限定在 NavigationBar 里找：BatteryPage 自己的标题也含"电量"，
+      // 不限定就会点到页面标题上（点了没反应，下一句 _onPage 才红，排查方向被带偏）。
+      await _tap(
+        tester,
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('通知引擎'),
+        ),
+        '底部 tab→通知引擎',
+      );
       await _onPage(tester, BatteryPage, '电量页');
       await _tap(tester, _in(BatteryPage, find.byIcon(Icons.add)), '电量→添加规则');
       await _settle(tester);
@@ -859,7 +875,14 @@ void main() {
         isTrue,
         reason: '电量规则没落库（标题→规则→prefs+原生同步链路）',
       );
-      await _tap(tester, find.text('通知'), '底部 tab→回通知页');
+      await _tap(
+        tester,
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('首页'),
+        ),
+        '底部 tab→回首页',
+      );
       await _settle(tester, seconds: 1);
 
       await _backToHomeQuietly(tester);

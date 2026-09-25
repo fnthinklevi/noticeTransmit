@@ -329,14 +329,17 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         },
         destinations: [
           NavigationDestination(
-            icon: const Icon(Icons.notifications),
-            selectedIcon: const Icon(Icons.notifications_active),
-            label: l10n.tabNotification,
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: l10n.tabHome,
           ),
+          // 中间这一格是「通知引擎」：电量 / 温度 / 设备状态这类**设备侧触发**的告警
+          // 都归它（内容骨架 = T15）。本批只换导航形状，child 暂时仍是电量页 ——
+          // 顺序上先立形状，是为了让集成测试的 tab 文案只被改动一次。
           NavigationDestination(
-            icon: const Icon(Icons.battery_full),
-            selectedIcon: const Icon(Icons.battery_charging_full),
-            label: l10n.tabBattery,
+            icon: const Icon(Icons.bolt_outlined),
+            selectedIcon: const Icon(Icons.bolt),
+            label: l10n.tabNotificationEngine,
           ),
           NavigationDestination(
             icon: const Icon(Icons.more_horiz),

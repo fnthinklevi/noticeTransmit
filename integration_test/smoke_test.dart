@@ -201,20 +201,22 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await waitUntil(tester, find.byType(NavigationBar));
     // 后面所有断言都依赖中文文案，这里先验证语言预置真的生效：
-    // 失败时报"语言回落"而不是"0 widgets with text 通知"，避免排查方向被带偏。
+    // 失败时报"语言回落"而不是"0 widgets with text 首页"，避免排查方向被带偏。
     // ⚠ 用 waitUntil 而不是 pump 一次就断言：LocaleService 应用语言与首帧装配是异步的，
     //   CI 的软件渲染（swiftshader）比本机慢，这类"不等就断言"正是"本地绿 CI 红"的成因
     //   （㊼ 在闸门 5.1 上实测复现过一次）。
+    // ⚠ 钉的是**底部导航第一个 tab**（T13 起为「首页」）：它是主页必然渲染的文本，
+    //   而页面标题会随改版漂移。
     await waitUntil(
       tester,
-      find.text('通知'),
+      find.text('首页'),
       timeout: const Duration(seconds: 30),
     );
     expect(
-      find.text('通知'),
+      find.text('首页'),
       findsWidgets,
       reason:
-          'tabNotification 未渲染中文 —— 语言钉定未生效，'
+          'tabHome 未渲染中文 —— 语言钉定未生效，'
           '检查 setUpAll 的 app_language 预置与 LocaleService 回落逻辑',
     );
     return GetIt.instance<NotificationService>();
@@ -333,9 +335,21 @@ void main() {
       // tab 切换 → 通知页「短信监听」卡片 → 验证码开关（mock 捕获 setSmsSetting）
       // ⚠ 入口是**通知仪表盘上的卡片**（标题 l10n.smsMonitor = 短信监听），不在更多页：
       //   原实现先点「更多」再找「短信监听设置」（那是点进去之后的页面标题），必然 0 命中。
-      await tester.tap(find.text('更多'));
+      // tab 一律限定在 NavigationBar 里点：页面上别处也有同样的字样（例如首页卡片
+      // 标题里的"更多"），不限定就会点到不响应的元素上，红在下一句、排查方向被带偏。
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('更多'),
+        ),
+      );
       await pumpFor(tester, const Duration(seconds: 1));
-      await tester.tap(find.text('通知'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('首页'),
+        ),
+      );
       await pumpFor(tester, const Duration(seconds: 1));
       await tester.tap(find.text('短信监听'));
       await pumpFor(tester, const Duration(seconds: 1));

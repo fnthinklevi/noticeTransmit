@@ -69,10 +69,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get off => '关';
 
   @override
-  String get tabNotification => '通知';
+  String get tabHome => '首页';
 
   @override
-  String get tabBattery => '电量';
+  String get tabNotificationEngine => '通知引擎';
 
   @override
   String get tabMore => '更多';

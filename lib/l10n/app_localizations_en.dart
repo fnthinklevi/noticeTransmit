@@ -69,10 +69,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get off => 'Off';
 
   @override
-  String get tabNotification => 'Notifications';
+  String get tabHome => 'Home';
 
   @override
-  String get tabBattery => 'Battery';
+  String get tabNotificationEngine => 'Alerts';
 
   @override
   String get tabMore => 'More';
