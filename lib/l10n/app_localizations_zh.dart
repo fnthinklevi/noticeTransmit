@@ -2709,7 +2709,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emailHintSubject => '留空则用默认主题（应用名 + 标题）';
 
   @override
-  String get emailHintBody => '留空则用默认正文（应用/标题/内容/时间/设备）';
+  String get emailHintBody => '留空则用默认正文（应用/标题/内容/包名/时间/设备）';
 
   @override
   String get emailPresetSubjectDefault => '🔔 %appName% — %title%';
@@ -2743,13 +2743,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get emailPresetBodyMinimal => '%appName%：%title%\n%content%';
-
-  @override
-  String get emailHintSubjectDefault => '默认：🔔 %appName% — %title%';
-
-  @override
-  String get emailHintBodyDefault =>
-      '默认：\n【通知转发】\n\n应用：%appName%\n标题：%title%\n内容：%content%\n...';
 
   @override
   String get channelTypeFeishuApp => '飞书自建应用';

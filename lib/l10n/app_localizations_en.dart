@@ -2824,7 +2824,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emailHintBody =>
-      'Leave empty for the default body (app / title / content / time / device)';
+      'Leave empty for the default body (app / title / content / package / time / device)';
 
   @override
   String get emailPresetSubjectDefault => '🔔 %appName% — %title%';
@@ -2860,13 +2860,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get emailPresetBodyMinimal => '%appName%: %title%\n%content%';
-
-  @override
-  String get emailHintSubjectDefault => 'Default: 🔔 %appName% — %title%';
-
-  @override
-  String get emailHintBodyDefault =>
-      'Default:\n[Notice] app: %appName%\ntitle: %title%\nbody: %content%\n...';
 
   @override
   String get channelTypeFeishuApp => 'Feishu App (self-built)';

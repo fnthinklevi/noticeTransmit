@@ -420,6 +420,36 @@ void main() {
       expect(checked, greaterThan(0), reason: '快照里一个预置正文都没有：守卫变空转');
     });
 
+    test('主题档位的「默认」与原生运行时默认同源', () {
+      // 芯片写进用户配置的正文，必须等于用户什么都不填时 `EmailSender` 实际发出去的
+      // 那一行。两处各写一份的漂移表现是"预览与实发不一致"，而且没人会红。
+      final arb = arbOf('lib/l10n/arb/app_zh.arb');
+      final sender = stripComments(
+        File(
+          '$root/android/app/src/main/kotlin/com/fnthink/notice/EmailSender.kt',
+        ).readAsStringSync(),
+      );
+      final native = RegExp(
+        r'val defaultSubject = "([^"]*)"',
+      ).firstMatch(sender);
+      expect(native, isNotNull, reason: 'EmailSender 里找不到默认主题的定义');
+      final subject = emailFields.firstWhere(
+        (f) => f['key'] == 'subjectTemplate',
+      );
+      final presets = (subject['presets'] as List<Object?>)
+          .cast<Map<Object?, Object?>>();
+      final defaultPreset = presets.firstWhere(
+        (p) => p['labelKey'] == 'presetDefault',
+      );
+      expect(
+        arb[defaultPreset['valueKey']],
+        native!.group(1),
+        reason:
+            '预置档位「默认」的正文与原生运行时默认分叉：'
+            '点它和留空会得到两封不一样的邮件',
+      );
+    });
+
     test('快照里出现的 kind 都必须有渲染分支', () {
       final kinds = emailFields.map((f) => f['kind'] as String).toSet();
       expect(kinds, containsAll(['number', 'switch', 'secret', 'multiline']));

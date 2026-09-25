@@ -5135,7 +5135,7 @@ abstract class AppLocalizations {
   /// No description provided for @emailHintBody.
   ///
   /// In zh, this message translates to:
-  /// **'留空则用默认正文（应用/标题/内容/时间/设备）'**
+  /// **'留空则用默认正文（应用/标题/内容/包名/时间/设备）'**
   String get emailHintBody;
 
   /// No description provided for @emailPresetSubjectDefault.
@@ -5197,18 +5197,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'%appName%：%title%\n%content%'**
   String get emailPresetBodyMinimal;
-
-  /// No description provided for @emailHintSubjectDefault.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认：🔔 %appName% — %title%'**
-  String get emailHintSubjectDefault;
-
-  /// No description provided for @emailHintBodyDefault.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认：\n【通知转发】\n\n应用：%appName%\n标题：%title%\n内容：%content%\n...'**
-  String get emailHintBodyDefault;
 
   /// No description provided for @channelTypeFeishuApp.
   ///
