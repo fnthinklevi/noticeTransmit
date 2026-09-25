@@ -27,6 +27,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get edit => '编辑';
 
   @override
+  String get duplicate => '复制';
+
+  @override
+  String copyOfName(String name) {
+    return '$name 副本';
+  }
+
+  @override
   String get add => '添加';
 
   @override

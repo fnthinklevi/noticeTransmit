@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -130,5 +131,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ListTile), findsOneWidget);
     expect(service.rules.single['id'], 'r9');
+  });
+
+  // T05：规则卡的滑出动作（删除/暂停）原本要先横向拖一下才看得见，
+  // 长按菜单把同一批动作 + 修改/复制收进一个不需要发现的入口。
+  testWidgets('长按规则行 ⇒ 修改/复制/暂停/删除；复制换新 id', (tester) async {
+    await service.addRule(rule());
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('电池过热'));
+    await tester.pumpAndSettle();
+    Finder inSheet(String label) => find.descendant(
+      of: find.byType(CardActionSheet),
+      matching: find.text(label),
+    );
+    expect(inSheet('编辑'), findsOneWidget);
+    expect(inSheet('复制'), findsOneWidget);
+    expect(inSheet('停用'), findsOneWidget, reason: '规则当前是启用态 ⇒ 给"停用"');
+    expect(inSheet('删除'), findsOneWidget);
+
+    await tester.tap(inSheet('复制'));
+    await tester.pumpAndSettle();
+
+    final rules = service.rules;
+    expect(rules, hasLength(2));
+    expect(
+      rules.map((r) => r['id']).toSet(),
+      hasLength(2),
+      reason: 'updateRule/deleteRule 都按 id 找，两条同 id 会一次改中两条',
+    );
+    expect(rules[1]['value'], rules[0]['value'], reason: '复制要带走阈值，否则用户得再拖一次滑块');
   });
 }

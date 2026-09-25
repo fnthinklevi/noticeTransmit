@@ -5,6 +5,15 @@
   "save": "Save",
   "delete": "Delete",
   "edit": "Edit",
+  "duplicate": "Duplicate",
+  "copyOfName": "{name} copy",
+  "@copyOfName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "add": "Add",
   "test": "Test",
   "send": "Send",

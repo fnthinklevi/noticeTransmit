@@ -7,6 +7,7 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/email_settings_page.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/email_service.dart';
+import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// T04：邮件页的测试结论必须落到**健康单点**，且「仅测试」不许顺手写库。
@@ -142,6 +143,48 @@ void main() {
         health.of('email', 'em-1'),
         isNull,
         reason: '记录留着，日后 id 复用（从旧备份恢复）时徽标会复活成上一条通道的状态',
+      );
+    });
+  });
+
+  // T05：邮件列表卡是只读的，所以长按菜单里的三个动作在这一页都必须是真动作。
+  group('EmailSettingsPage – 长按菜单（T05）', () {
+    testWidgets('长按出「编辑 / 复制 / 删除」；复制换新 id 并立刻落库', (tester) async {
+      final calls = <String>[];
+      stubTest(success: true, calls: calls);
+      await open(tester);
+
+      await tester.longPress(find.text('值班邮箱'));
+      await tester.pumpAndSettle();
+      // 三项都必须**在弹层里**：卡片自己就挂着「编辑/删除」两个动作芯片，
+      // 不限定的 finder 会把它们数进来（第一次写就踩到了）。
+      Finder inSheet(String label) => find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text(label),
+      );
+      expect(inSheet('编辑'), findsOneWidget);
+      expect(inSheet('复制'), findsOneWidget);
+      expect(inSheet('删除'), findsOneWidget);
+
+      calls.clear();
+      await tester.tap(inSheet('复制'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('值班邮箱 副本'), findsOneWidget);
+      expect(
+        store.rows,
+        hasLength(2),
+        reason: '这一页没有"未保存"状态：复制完就得落库，否则退出页面那条就没了',
+      );
+      expect(
+        store.rows.map((r) => r['id']).toSet(),
+        hasLength(2),
+        reason: '两条同 id ⇒ 健康徽标与送达归属互相顶掉，编辑/删除也会一次中两条',
+      );
+      expect(
+        store.rows[1]['password'],
+        store.rows[0]['password'],
+        reason: '复制的意义就是不用再填一遍授权码',
       );
     });
   });

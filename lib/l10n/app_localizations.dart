@@ -134,6 +134,18 @@ abstract class AppLocalizations {
   /// **'编辑'**
   String get edit;
 
+  /// No description provided for @duplicate.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get duplicate;
+
+  /// No description provided for @copyOfName.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 副本'**
+  String copyOfName(String name);
+
   /// No description provided for @add.
   ///
   /// In zh, this message translates to:

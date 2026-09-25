@@ -5,6 +5,15 @@
   "save": "保存",
   "delete": "删除",
   "edit": "编辑",
+  "duplicate": "复制",
+  "copyOfName": "{name} 副本",
+  "@copyOfName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "add": "添加",
   "test": "测试",
   "send": "发送",

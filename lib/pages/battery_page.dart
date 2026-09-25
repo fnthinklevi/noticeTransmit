@@ -8,6 +8,7 @@ import '../services/battery_service.dart';
 import '../services/platform_channel.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/card_action_sheet.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -340,7 +341,7 @@ class _BatteryPageState extends State<BatteryPage> {
               ? () => _showEditRuleDialog(rule)
               : null,
           onLongPress: _service.notifyEnabled
-              ? () => _showDeleteConfirmDialog(ruleId)
+              ? () => _showRuleActions(rule, ruleId, title, enabled)
               : null,
           child: _buildSwitchRow(
             icon: icon,
@@ -361,6 +362,60 @@ class _BatteryPageState extends State<BatteryPage> {
 
   void _showAddRuleDialog() {
     _showRuleDialog(null);
+  }
+
+  /// T05 长按菜单（共用组件见 [CardActionSheet]）。此前长按直接弹删除确认，
+  /// 等于把"长按 = 一整套动作"这条约定用掉了一次就没了。
+  ///
+  /// ⚠ 「删除」这里走的是既有的确认框（本页本来就有）；滑出删除按钮走的是**另一条**
+  /// 没确认的路径 —— 两条统一到"删除一律二次确认"是 T06 的活，不在本批半途改。
+  Future<void> _showRuleActions(
+    Map<String, dynamic> rule,
+    String ruleId,
+    String title,
+    bool enabled,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final canEdit = enabled;
+    await CardActionSheet.show(
+      context,
+      title: title.isEmpty ? null : title,
+      actions: [
+        CardAction(
+          icon: Icons.settings_outlined,
+          label: l10n.edit,
+          // 已停用的规则没有"编辑"入口（与整行 onTap 的既门口径一致）⇒ 置灰不藏
+          onTap: canEdit ? () => _showEditRuleDialog(rule) : null,
+        ),
+        CardAction(
+          icon: Icons.copy,
+          label: l10n.duplicate,
+          onTap: () => _duplicateRule(rule, title),
+        ),
+        CardAction(
+          icon: enabled ? Icons.toggle_off : Icons.toggle_on,
+          label: enabled ? l10n.turnOff : l10n.turnOn,
+          iconColor: enabled ? AppColors.orange : AppColors.green,
+          onTap: () => _handleToggleRule(ruleId, !enabled),
+        ),
+        CardAction(
+          icon: Icons.delete_outline,
+          label: l10n.delete,
+          danger: true,
+          onTap: () => _showDeleteConfirmDialog(ruleId),
+        ),
+      ],
+    );
+  }
+
+  /// 复制规则：**换新 id**（两条同 id 会让 `updateRule`/`deleteRule` 一次改中两条）。
+  void _duplicateRule(Map<String, dynamic> rule, String title) {
+    final l10n = AppLocalizations.of(context);
+    _service.addRule({
+      ...rule,
+      'id': 'rule_${DateTime.now().millisecondsSinceEpoch}',
+      'title': l10n.copyOfName(title),
+    });
   }
 
   void _showEditRuleDialog(Map<String, dynamic> rule) {

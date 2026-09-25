@@ -35,6 +35,7 @@ import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/channel_descriptor_service.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
+import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/filter_service.dart';
@@ -334,6 +335,28 @@ void main() {
       isTrue,
       reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
     );
+    // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
+    // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
+    // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
+    await _longPress(tester, find.text('闸门通知一'), '历史记录行');
+    // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
+    // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
+    final blockAppItem = find.descendant(
+      of: find.byType(CardActionSheet),
+      matching: find.text('屏蔽该应用的通知'),
+    );
+    expect(
+      blockAppItem,
+      findsOneWidget,
+      reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
+    );
+    await tester.tapAt(const Offset(10, 10));
+    await _settle(tester);
+    expect(
+      find.byType(CardActionSheet),
+      findsNothing,
+      reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
+    );
     await _backToHome(tester);
 
     // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
@@ -539,6 +562,51 @@ void main() {
           ?.reachable,
       isTrue,
       reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
+    );
+    // T05：长按卡片标题行 → 「复制」。复制的凭据与扩展参数必须跟着过来，
+    // 且新那条得有自己的 id（同 id 会让徽标与送达归属互相顶掉）。
+    // ⚠ 与 _tap 同一套前置：懒加载列表里"finder 命中 ≠ 已绘制"，而打不中**只打印
+    // warning 不抛异常** ⇒ 手势静默丢失（第一轮闸门就红在这里：sheet=false）。
+    final appMenu = find.byKey(const ValueKey('app-card-menu-0'));
+    await _longPress(tester, appMenu, '应用通道卡标题行');
+    await _must(
+      tester,
+      find.byType(CardActionSheet).evaluate().isNotEmpty,
+      '应用通道卡长按弹层（打不中=手势静默丢失）',
+      appMenu,
+    );
+    await _tap(
+      tester,
+      find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text('复制'),
+      ),
+      '应用通道→长按→复制',
+    );
+    await _settle(tester);
+    // 第二张卡在真机视口下方：ListView 懒加载 ⇒ 它**根本不在树上**，
+    // 必须先滚过去再断言（本文件里同一坑已经红过好几轮）。
+    final secondCard = find.byKey(const ValueKey('app-card-menu-1'));
+    await _scrollUntil(tester, secondCard);
+    await _must(
+      tester,
+      secondCard.evaluate().isNotEmpty,
+      '应用通道→复制后的第二张卡',
+      secondCard,
+    );
+    await _tap(tester, _appBarText('测试并保存'), '应用通道→复制后测试并保存');
+    await _settle(tester, seconds: 2);
+    final appChannels = GetIt.instance<AppChannelService>().channels;
+    expect(appChannels, hasLength(2));
+    expect(
+      appChannels.map((c) => c['id']).toSet(),
+      hasLength(2),
+      reason: '两条同 id ⇒ 保存走 delete+insert，第二条会覆盖第一条',
+    );
+    expect(
+      appChannels[1]['baseUrl'],
+      'https://qyapi.weixin.qq.com',
+      reason: '复制不到 API 地址的"复制"等于让用户重填一遍',
     );
     await _backToHome(tester);
 
@@ -1289,6 +1357,24 @@ bool _modalUp(WidgetTester t) =>
     find.byType(SimpleDialog).evaluate().isNotEmpty ||
     find.byType(Dialog).evaluate().isNotEmpty ||
     find.byType(BottomSheet).evaluate().isNotEmpty;
+
+/// 长按一个可能不在屏幕中间的控件。
+///
+/// 与 `_tap` 同一套前置，但**必须居中对齐**：`WidgetTester.ensureVisible` 默认
+/// `alignment: 0.0`（把目标贴到视口上沿），而设置页的卡片上沿紧贴 AppBar —— 贴顶的
+/// 行会被 AppBar 的 Material 吃掉手势。`longPress()` 打不中时**只打印 warning
+/// 不抛异常**，于是表现为"菜单没出来"（闸门第 3 轮的真实红因：现场中心点 y=35.9
+/// 落在 AppBar 里，`sheet=false`）。同理这里不用 `pumpAndSettle`：刚输入过的
+/// TextField 有光标动画，它会永远不收敛（本文件其余分节都因此用 `_settle`）。
+Future<void> _longPress(WidgetTester t, Finder f, String why) async {
+  await _scrollUntil(t, f);
+  await _must(t, f.evaluate().isNotEmpty, '长按目标 $why', f);
+  // 不带 duration ⇒ 瞬移，不留滚动动画（动画 + 已聚焦的输入框 = pumpAndSettle 永不收敛）
+  await Scrollable.ensureVisible(t.element(f.first), alignment: 0.5);
+  await _settle(t);
+  await t.longPress(f.first);
+  await _settle(t);
+}
 
 Future<void> _tap(WidgetTester t, Finder f, String why) async {
   await _scrollUntil(t, f);

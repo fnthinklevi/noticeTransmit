@@ -12,6 +12,7 @@ import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
+import '../widgets/card_action_sheet.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -1421,85 +1422,24 @@ class _HistoryPageState extends State<HistoryPage> {
         ? record.content
         : record.title;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.cardBg(context),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => Material(
-        type: MaterialType.transparency,
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.separator(sheetContext),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: const Icon(Icons.block, color: AppColors.red),
-                title: Text(
-                  l10n.historyActionBlockApp,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryLabel(sheetContext),
-                  ),
-                ),
-                subtitle: Text(
-                  blockAppDesc,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(sheetContext),
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _blockApp(record);
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.playlist_remove,
-                  color: Color(0xFFFF9500),
-                ),
-                title: Text(
-                  l10n.historyActionBlockContent,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryLabel(sheetContext),
-                  ),
-                ),
-                subtitle: Text(
-                  textPreview,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(sheetContext),
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _blockContent(record);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
+    await CardActionSheet.show(
+      context,
+      actions: [
+        CardAction(
+          icon: Icons.block,
+          iconColor: AppColors.red,
+          label: l10n.historyActionBlockApp,
+          description: blockAppDesc,
+          onTap: () => _blockApp(record),
         ),
-      ),
+        CardAction(
+          icon: Icons.playlist_remove,
+          iconColor: AppColors.orange,
+          label: l10n.historyActionBlockContent,
+          description: textPreview,
+          onTap: () => _blockContent(record),
+        ),
+      ],
     );
   }
 

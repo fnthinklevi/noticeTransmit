@@ -8,6 +8,7 @@ import '../services/active_channels.dart';
 import '../services/channel_health_store.dart';
 import '../services/email_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/card_action_sheet.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -210,6 +211,9 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
               onChanged: (v) => _toggleChannel(index, v),
             ),
             onTap: () => _editChannel(index),
+            // T05：列表卡是只读的（改配置要点进表单），所以长按菜单里的三个动作
+            // 在这一页**都是真动作** —— 复制尤其省掉重填 7 个必填项。
+            onLongPress: () => _showChannelActions(index),
           ),
         ),
         if (isTesting)
@@ -307,6 +311,53 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   void _addChannel() => _showEditor();
   void _editChannel(int index) =>
       _showEditor(existing: _channels[index], index: index);
+
+  /// T05 长按菜单（共用组件见 [CardActionSheet]）。
+  ///
+  /// 动作顺序按"最常用的排前面"：修改 → 复制 → 删除（删除永远在末位且转红）。
+  Future<void> _showChannelActions(int index) async {
+    final l10n = AppLocalizations.of(context);
+    final channel = _channels[index];
+    await CardActionSheet.show(
+      context,
+      title: channel.name.isEmpty ? null : channel.name,
+      actions: [
+        CardAction(
+          icon: Icons.settings_outlined,
+          label: l10n.edit,
+          onTap: () => _editChannel(index),
+        ),
+        CardAction(
+          icon: Icons.copy,
+          label: l10n.duplicate,
+          onTap: () => _duplicateChannel(index),
+        ),
+        CardAction(
+          icon: Icons.delete_outline,
+          label: l10n.delete,
+          danger: true,
+          onTap: () => _deleteChannel(index),
+        ),
+      ],
+    );
+  }
+
+  /// 复制出一条同配置通道。**id 必须换**：健康记录（`channel_health_email:<id>`）
+  /// 与送达归属都按 id 走，两条同 id 会互相顶掉徽标、送达状态也会写错条目。
+  void _duplicateChannel(int index) {
+    final l10n = AppLocalizations.of(context);
+    final src = _channels[index];
+    setState(() {
+      _channels.insert(
+        index + 1,
+        src.copyWith(
+          id: 'email_${DateTime.now().millisecondsSinceEpoch}',
+          name: l10n.copyOfName(src.name),
+        ),
+      );
+    });
+    _save();
+  }
 
   Future<void> _deleteChannel(int index) async {
     final l10n = AppLocalizations.of(context);

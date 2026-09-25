@@ -22,43 +22,52 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  l10n.channelN(index + 1),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.blue,
-                    fontWeight: FontWeight.w600,
+          InkWell(
+            // 整条标题行都是长按热区（InkWell 的命中区域 = 它自己的盒子，
+            // Row 里的 Spacer 那片空白因此也算）
+            key: ValueKey('webhook-row-menu-$index'),
+            onLongPress: () => _showRowActions(index),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    l10n.channelN(index + 1),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.blue,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              CupertinoSwitch(
-                value: _webhookEnabled[index],
-                onChanged: (_) => _toggleWebhookEnabled(index),
-              ),
-              if (_webhookControllers.length > 1)
-                IconButton(
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: AppColors.red,
-                  ),
-                  onPressed: () => _removeWebhookField(index),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
-                  ),
+                const Spacer(),
+                CupertinoSwitch(
+                  value: _webhookEnabled[index],
+                  onChanged: (_) => _toggleWebhookEnabled(index),
                 ),
-            ],
+                if (_webhookControllers.length > 1)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: AppColors.red,
+                    ),
+                    onPressed: () => _removeWebhookField(index),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 10),
           TextField(

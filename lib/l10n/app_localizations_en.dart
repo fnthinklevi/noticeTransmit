@@ -27,6 +27,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get edit => 'Edit';
 
   @override
+  String get duplicate => 'Duplicate';
+
+  @override
+  String copyOfName(String name) {
+    return '$name copy';
+  }
+
+  @override
   String get add => 'Add';
 
   @override

@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/card_action_sheet.dart';
 
 /// 自建应用通道体系的温度规则设置页（与 BatteryPage 同级独立入口）。
 ///
@@ -110,6 +111,9 @@ class _TemperaturePageState extends State<TemperaturePage> {
       ),
       child: ListTile(
         onTap: () => _showEditRuleDialog(rule),
+        // T05：滑出动作要先横向拖一下才看得见，长按菜单把同一批动作摆到一个
+        // 不用发现的入口里（共用组件见 [CardActionSheet]）
+        onLongPress: () => _showRuleActions(rule),
         title: Text(
           title.isNotEmpty ? title : dimLabel,
           style: TextStyle(
@@ -133,6 +137,57 @@ class _TemperaturePageState extends State<TemperaturePage> {
         ),
       ),
     );
+  }
+
+  /// T05 长按菜单：修改 / 复制 / 暂停|恢复 / 删除（任务书里"温度规则再加暂停"那条）。
+  ///
+  /// ⚠ 「删除」走的是与滑出按钮同一条 service 调用，**都还没有二次确认**；
+  /// 把两类通道的删除统一成"一律二次确认"是 T06（届时这两个入口一起改，不留半成品）。
+  Future<void> _showRuleActions(Map<String, dynamic> rule) async {
+    final l10n = AppLocalizations.of(context);
+    final id = rule['id']?.toString() ?? '';
+    final enabled = rule['enabled'] == true;
+    final title = rule['title']?.toString() ?? '';
+    await CardActionSheet.show(
+      context,
+      title: title.isEmpty
+          ? _dimLabel(rule['type']?.toString() ?? '', l10n)
+          : title,
+      actions: [
+        CardAction(
+          icon: Icons.settings_outlined,
+          label: l10n.edit,
+          onTap: () => _showEditRuleDialog(rule),
+        ),
+        CardAction(
+          icon: Icons.copy,
+          label: l10n.duplicate,
+          onTap: () => _duplicateRule(rule, title),
+        ),
+        CardAction(
+          icon: enabled ? Icons.pause : Icons.play_arrow,
+          label: enabled ? l10n.disable : l10n.enable,
+          iconColor: enabled ? AppColors.orange : AppColors.green,
+          onTap: () => _service.toggleRule(id, !enabled),
+        ),
+        CardAction(
+          icon: Icons.delete_outline,
+          label: l10n.delete,
+          danger: true,
+          onTap: () => _service.deleteRule(id),
+        ),
+      ],
+    );
+  }
+
+  /// 复制规则：**换新 id**（`updateRule`/`deleteRule` 都按 id 找，两条同 id 会一次改中两条）。
+  void _duplicateRule(Map<String, dynamic> rule, String title) {
+    final l10n = AppLocalizations.of(context);
+    _service.addRule({
+      ...rule,
+      'id': 'temp_rule_${DateTime.now().millisecondsSinceEpoch}',
+      'title': l10n.copyOfName(title),
+    });
   }
 
   String _dimLabel(String type, AppLocalizations l10n) {

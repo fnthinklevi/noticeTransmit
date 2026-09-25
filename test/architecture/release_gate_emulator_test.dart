@@ -293,6 +293,42 @@ void main() {
         reason: '「测试并保存」不再被点 ⇒ T04 的两条动作只剩一条还在被验证',
       );
     });
+
+    test('两处长按弹层都被真点过，且都先滚到可见（T05）', () {
+      // T05 把卡片动作表搬进共用组件（历史记录那一份原本是就地写的）。
+      // 新入口一旦退出闸门覆盖面，红的是"没人点过"，而不是"点错了"——所以钉在这里。
+      // ⚠ 长按与 _tap 有同一个坑：懒加载列表里"finder 命中 ≠ 已绘制"，而打不中
+      // **只打印 warning 不抛异常** ⇒ 手势静默丢失（闸门第一轮就是这么红的）。
+      // 因此这里钉的不只是"点了"，还有"点之前 ensureVisible 过"。
+      final flat = src.replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        flat,
+        allOf(
+          contains("_longPress(tester, appMenu, '应用通道卡标题行')"),
+          contains("_longPress(tester, find.text('闸门通知一'), '历史记录行')"),
+        ),
+        reason: '应用通道卡或历史记录卡的长按不再被点 ⇒ 共用组件失去真机覆盖',
+      );
+      // helper 自己的两条不变量：居中对齐（贴顶会被 AppBar 吃手势）+ 不用 pumpAndSettle。
+      // 必须剥注释再判：解释"为什么不用 pumpAndSettle"的那句注释里就有这个词，
+      // 拿原文匹配会让守卫在干净的树上红（本仓库为这类事错过不止一次）。
+      final helper = blockAfter(stripComments(src), 'Future<void> _longPress(');
+      expect(
+        helper,
+        contains('alignment: 0.5'),
+        reason: '长按目标又回到"贴视口上沿"⇒ 手势被 AppBar 吃掉，闸门只会说"菜单没出来"',
+      );
+      expect(
+        helper,
+        isNot(contains('pumpAndSettle')),
+        reason: '刚输入过的 TextField 有光标动画 ⇒ helper 里用 pumpAndSettle 会永不收敛',
+      );
+      expect(
+        flat,
+        contains('tapAt(const Offset(10, 10))'),
+        reason: '弹层只展开不收起 ⇒ 后面的分节会被模态遮罩挡死（也是用户被困住的形状）',
+      );
+    });
   });
 }
 

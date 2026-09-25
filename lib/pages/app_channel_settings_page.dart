@@ -10,6 +10,7 @@ import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
@@ -274,37 +275,41 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                l10n.appChannelN(index + 1),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.blue,
-                ),
-              ),
-              // 按当前类型打开对应接入引导（v1.59）。只对**有引导内容**的类型给入口：
-              // 引导文案只有企微/飞书两套，兜底成企微会把用户带去填错的凭据。
-              if (_guidedTypes.contains(appType))
-                IconButton(
-                  icon: const Icon(
-                    Icons.help_outline,
-                    size: 18,
+          InkWell(
+            key: ValueKey('app-card-menu-$index'),
+            onLongPress: () => _showCardActions(index),
+            child: Row(
+              children: [
+                Text(
+                  l10n.appChannelN(index + 1),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.blue,
                   ),
-                  tooltip: l10n.appChannelGuideOpen,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _showSetupGuide(context, appType),
                 ),
-              const Spacer(),
-              CupertinoSwitch(
-                value: enabled,
-                activeTrackColor: AppColors.blue,
-                onChanged: (v) =>
-                    setState(() => _channels[index]['enabled'] = v),
-              ),
-            ],
+                // 按当前类型打开对应接入引导（v1.59）。只对**有引导内容**的类型给入口：
+                // 引导文案只有企微/飞书两套，兜底成企微会把用户带去填错的凭据。
+                if (_guidedTypes.contains(appType))
+                  IconButton(
+                    icon: const Icon(
+                      Icons.help_outline,
+                      size: 18,
+                      color: AppColors.blue,
+                    ),
+                    tooltip: l10n.appChannelGuideOpen,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _showSetupGuide(context, appType),
+                  ),
+                const Spacer(),
+                CupertinoSwitch(
+                  value: enabled,
+                  activeTrackColor: AppColors.blue,
+                  onChanged: (v) =>
+                      setState(() => _channels[index]['enabled'] = v),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -388,6 +393,68 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
         ],
       ),
     );
+  }
+
+  /// T05 长按菜单（共用组件见 [CardActionSheet]）。
+  ///
+  /// ⚠ 这一族**没有「修改」**：卡片本身就是编辑表单（三个凭据框 + 扩展参数都在眼前），
+  /// 长按再"跳到编辑态"是空动作。等 T07 拆成「列表页 → 单通道详情页」后补上。
+  /// 复制走的是**当前表单值**（`_channelPayload`），所以"改了一半先复制一份"是安全的。
+  Future<void> _showCardActions(int index) async {
+    final l10n = AppLocalizations.of(context);
+    final c = _channels[index];
+    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
+    final name = (_controllers['$id.name']?.text ?? '').trim();
+    final enabled = c['enabled'] == true;
+    await CardActionSheet.show(
+      context,
+      title: name.isEmpty ? l10n.appChannelN(index + 1) : name,
+      actions: [
+        CardAction(
+          icon: Icons.copy,
+          label: l10n.duplicate,
+          onTap: () => _duplicateChannel(index),
+        ),
+        CardAction(
+          icon: enabled ? Icons.toggle_off : Icons.toggle_on,
+          label: enabled ? l10n.turnOff : l10n.turnOn,
+          iconColor: enabled ? AppColors.orange : AppColors.green,
+          onTap: () => setState(() => _channels[index]['enabled'] = !enabled),
+        ),
+        CardAction(
+          icon: Icons.delete_outline,
+          label: l10n.delete,
+          danger: true,
+          onTap: () => _removeChannel(index),
+        ),
+      ],
+    );
+  }
+
+  /// 卡片右下角的删除按钮与长按菜单共用这一条（此前两处各写一遍 `removeAt`）。
+  void _removeChannel(int index) {
+    setState(() => _channels.removeAt(index));
+  }
+
+  /// 复制出一条同配置通道：**新 id** ⇒ 健康记录不跟着复制（刚复制的那条没测过，
+  /// 顶着一枚绿勾比顶着空白更糟）。追加在末尾，不插在原行后面：`_channels` 的下标
+  /// 被卡片构建与 `_testChannel(i, …)` 共用，中间插入会让进行中的测试对错通道。
+  void _duplicateChannel(int index) {
+    final l10n = AppLocalizations.of(context);
+    final src = _channels[index];
+    final payload = _channelPayload(index);
+    final name = payload['name']?.toString().trim() ?? '';
+    final id = 'app_${DateTime.now().millisecondsSinceEpoch}';
+    _channels.add({
+      ...src,
+      // 表单当前值优先（改了一半就复制，复制到的应是眼前这份）；
+      // enabled / message_format 也随 _channelPayload 一起带过来
+      ...payload,
+      'id': id,
+      'name': name.isEmpty ? '' : l10n.copyOfName(name),
+    });
+    _bindControllers(_channels.last);
+    setState(() {});
   }
 
   /// 接入步骤引导（v1.59）：按通道类型展示详细参数获取步骤 + 注意事项。

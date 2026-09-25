@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/pages/webhook_settings_page.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -681,6 +682,61 @@ void main() {
       expect(calls, isNot(contains('testWebhook')));
       expect(find.textContaining('请先输入 Webhook URL'), findsOneWidget);
       expect(find.byType(WebhookSettingsPage), findsOneWidget);
+    });
+  });
+
+  // T05：长按标题行的动作表。
+  group('WebhookSettingsPage – 长按菜单（T05）', () {
+    Finder inSheet(String label) => find.descendant(
+      of: find.byType(CardActionSheet),
+      matching: find.text(label),
+    );
+
+    testWidgets('复制出的新行**不带被复制那条的 id**（徽标归属不能跟着复制）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final popped = await pushAndSave(
+        tester,
+        oneDingTalk(),
+        interact: (t) async {
+          await t.longPress(find.byKey(const ValueKey('webhook-row-menu-0')));
+          await t.pumpAndSettle();
+          expect(inSheet('复制'), findsOneWidget);
+          await t.tap(inSheet('复制'));
+          await t.pumpAndSettle();
+        },
+      );
+      expect(popped, hasLength(2));
+      expect(popped![0]['id'], 'dt');
+      expect(
+        popped[1]['id'],
+        isNot('dt'),
+        reason: '两条同 id ⇒ 保存走 delete+insert 时徽标与送达归属整体串台（本页面犯过）',
+      );
+      expect(
+        popped[1]['url'],
+        popped[0]['url'],
+        reason: '复制的意义就是不用再粘一遍地址（含凭据 query）',
+      );
+    });
+
+    testWidgets('只剩一行时「删除」置灰，而不是把入口藏掉', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, oneDingTalk());
+      await tester.longPress(find.byKey(const ValueKey('webhook-row-menu-0')));
+      await tester.pumpAndSettle();
+
+      final tile = tester.widget<ListTile>(
+        find.ancestor(of: inSheet('删除'), matching: find.byType(ListTile)),
+      );
+      expect(
+        tile.enabled,
+        isFalse,
+        reason: '与卡片上删除按钮的显隐条件同一口径：最后一行不许删；置灰才看得出"有这条路但当前不通"',
+      );
     });
   });
 }

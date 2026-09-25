@@ -11,6 +11,7 @@ import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
 
@@ -433,6 +434,71 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _channelTypes.add('auto');
         _channelIds.add(null);
       }
+    });
+  }
+
+  /// T05 长按菜单（共用组件见 [CardActionSheet]）。
+  ///
+  /// ⚠ 这一族**没有「修改」**：本页是全量平铺编辑器，该行的三个输入框就在眼前，
+  /// 长按后再"跳到编辑态"是空动作。等 T07 拆成「列表页 → 单通道详情页」之后，
+  /// 「修改」在 webhook 上才成为真动作（届时这一条要补上，别当成漏做）。
+  Future<void> _showRowActions(int index) async {
+    final l10n = AppLocalizations.of(context);
+    final name = _nameControllers[index].text.trim();
+    final enabled = _webhookEnabled[index];
+    await CardActionSheet.show(
+      context,
+      title: name.isEmpty ? l10n.channelN(index + 1) : name,
+      actions: [
+        CardAction(
+          icon: Icons.copy,
+          label: l10n.duplicate,
+          onTap: () => _duplicateWebhookRow(index),
+        ),
+        CardAction(
+          icon: enabled ? Icons.toggle_off : Icons.toggle_on,
+          label: enabled ? l10n.turnOff : l10n.turnOn,
+          iconColor: enabled ? AppColors.orange : AppColors.green,
+          onTap: () => _toggleWebhookEnabled(index),
+        ),
+        CardAction(
+          icon: Icons.delete_outline,
+          label: l10n.delete,
+          danger: true,
+          // 只剩一行时不许删（与卡片上删除按钮的显隐条件同一口径）⇒ 置灰而不是藏起来
+          onTap: _webhookControllers.length > 1
+              ? () => _removeWebhookField(index)
+              : null,
+        ),
+      ],
+    );
+  }
+
+  /// 复制出一行同配置的新通道。**新行不带 id**（`_channelIds.add(null)`）⇒ 健康记录
+  /// 不会跟着复制：刚复制出来的那条本来就没测过，顶着一枚绿勾比顶着空白更糟。
+  /// 追加在末尾而不是紧贴原行：本页所有行状态都是**并行列表按下标**寻址
+  /// （`_testIndex` 等），中间插入会让它们集体错位（这个页面的老缺陷类别）。
+  void _duplicateWebhookRow(int index) {
+    final l10n = AppLocalizations.of(context);
+    final name = _nameControllers[index].text.trim();
+    setState(() {
+      _webhookControllers.add(
+        TextEditingController(text: _webhookControllers[index].text),
+      );
+      _nameControllers.add(
+        TextEditingController(text: name.isEmpty ? '' : l10n.copyOfName(name)),
+      );
+      _secretControllers.add(
+        TextEditingController(text: _secretControllers[index].text),
+      );
+      _templateControllers.add(
+        TextEditingController(text: _templateControllers[index].text),
+      );
+      _webhookEnabled.add(_webhookEnabled[index]);
+      _secretVisible.add(false);
+      _messageFormats.add(_messageFormats[index]);
+      _channelTypes.add(_channelTypes[index]);
+      _channelIds.add(null);
     });
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/pages/app_channel_settings_page.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
@@ -718,6 +719,70 @@ void main() {
         GetIt.instance<ChannelHealthStore>().of('app', 'app-1')?.reachable,
         isFalse,
         reason: '失败必须留痕，否则首页的三态永远是 unknown',
+      );
+    });
+  });
+
+  // T05：长按卡片标题行的动作表。
+  group('AppChannelSettingsPage – 长按菜单（T05）', () {
+    testWidgets('复制 = 再一张卡，凭据与扩展参数一起带过来，且换新 id', (tester) async {
+      tester.view.physicalSize = const Size(1200, 4200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 's',
+          'config': '{"corpid":"corp-x","agentid":1,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.byKey(const ValueKey('app-card-menu-0')));
+      await tester.pumpAndSettle();
+      Finder inSheet(String label) => find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text(label),
+      );
+      expect(inSheet('复制'), findsOneWidget);
+      // enabled=true ⇒ 菜单里给的是"停用"，不是"启用"
+      expect(inSheet('停用'), findsOneWidget);
+      expect(inSheet('删除'), findsOneWidget);
+
+      await tester.tap(inSheet('复制'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('app-card-menu-1')),
+        findsOneWidget,
+        reason: '复制完必须当场出现第二张卡（控制器也要绑到新 id）',
+      );
+
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.pumpAndSettle();
+
+      final saved = service.channels;
+      expect(saved, hasLength(2));
+      expect(
+        saved.map((c) => c['id']).toSet(),
+        hasLength(2),
+        reason: '同 id 的两条会让健康徽标与送达归属互相顶掉',
+      );
+      expect(
+        saved[1]['baseUrl'],
+        'https://qyapi.weixin.qq.com',
+        reason: '复制不到凭据的"复制"等于让用户重填一遍',
+      );
+      expect(
+        (saved[1]['config'] as Map).cast<String, dynamic>(),
+        isNotEmpty,
+        reason: '扩展参数（corpid/agentid/touser）必须一起过来',
       );
     });
   });
