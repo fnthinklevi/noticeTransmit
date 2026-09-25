@@ -14,6 +14,35 @@ object EmailSender {
 
     private const val TAG = "EmailSender"
 
+    /**
+     * 用户没填主题模板时**实际发出去**的主题。
+     *
+     * 提到常量并由 JVM 测试钉住，是因为界面上预置档位「默认」的正文（ARB
+     * `emailPresetSubjectDefault`）必须与它同源 —— 不一致的表现是"点这个芯片和
+     * 什么都不填，得到两封不一样的邮件"，而两侧各自都不会报错
+     * （跨语言守卫见 `channel_descriptor_export_contract_test.dart`）。
+     */
+    internal const val DEFAULT_SUBJECT = "🔔 %appName% — %title%"
+
+    /**
+     * 用户没填正文模板时的默认正文。`%subTextLine` 是**整行开关**：有副标题时替换成
+     * "副标题：…" 一行，没有时**连行一起删掉**（不是留一个空行，也不是留占位符原文）。
+     */
+    internal val DEFAULT_BODY_TEMPLATE: String =
+        """
+        【通知转发】
+
+        应用：%appName%
+        标题：%title%
+        内容：%content%
+        %subTextLine
+        包名：%packageName%
+        时间：%time%
+        设备：%deviceName%
+
+        --- 由 NoticeTransmit 自动发送 ---
+        """.trimIndent()
+
     data class EmailConfig(
         /** 可用性记账与主备路由的键（与 Dart 侧 `channel_health_email_<id>` 同源） */
         val id: String = "",
@@ -186,8 +215,14 @@ object EmailSender {
         Transport.send(message)
     }
 
-    /** 模板变量替换，支持主题模板与正文模板 */
-    private fun applyTemplate(template: String, info: NotificationInfo): String {
+    /**
+     * 模板变量替换，支持主题模板与正文模板。
+     *
+     * `internal` 而不是 `private`：这是**纯函数**，却是 T09 证据矩阵里"邮件的构造载荷"
+     * 那一列唯一的被测对象（此前邮件渲染零证据 —— 变量表与 `%subTextLine` 删行都在
+     * private 里，改坏了没有任何一处会红）。不开测试缝就只能把那两类缺陷留到人眼验收。
+     */
+    internal fun applyTemplate(template: String, info: NotificationInfo): String {
         return template
             .replace("%appName%", info.appName)
             .replace("%title%", info.title)
@@ -202,26 +237,13 @@ object EmailSender {
             .replace("%datetime%", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(Date()))
     }
 
-    private fun buildSubject(config: EmailConfig, info: NotificationInfo): String {
-        val defaultSubject = "🔔 %appName% — %title%"
-        val template = config.subjectTemplate ?: defaultSubject
+    internal fun buildSubject(config: EmailConfig, info: NotificationInfo): String {
+        val template = config.subjectTemplate ?: DEFAULT_SUBJECT
         return applyTemplate(template, info)
     }
 
-    private fun buildEmailBody(config: EmailConfig, info: NotificationInfo): String {
-        val template = config.bodyTemplate?.ifBlank { null } ?: """
-【通知转发】
-
-应用：%appName%
-标题：%title%
-内容：%content%
-%subTextLine
-包名：%packageName%
-时间：%time%
-设备：%deviceName%
-
---- 由 NoticeTransmit 自动发送 ---
-        """.trimIndent()
+    internal fun buildEmailBody(config: EmailConfig, info: NotificationInfo): String {
+        val template = config.bodyTemplate?.ifBlank { null } ?: DEFAULT_BODY_TEMPLATE
         val body = applyTemplate(template, info)
         return if (info.subText.isNotEmpty()) {
             body.replace("%subTextLine", "副标题：${info.subText}\n")

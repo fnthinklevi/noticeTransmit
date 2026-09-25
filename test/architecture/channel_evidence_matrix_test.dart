@@ -136,7 +136,11 @@ void main() {
       for (final r in rows.where(
         (r) => (r['payloadEvidence'] as String).startsWith('jvm:'),
       )) {
-        final cls = (r['payloadEvidence'] as String).substring(4);
+        // 指针语法：jvm:<类名>[#<必须出现在类里的断言锚>]，缺省锚是 buildPayload(
+        final pointer = (r['payloadEvidence'] as String).substring(4);
+        final parts = pointer.split('#');
+        final cls = parts[0];
+        final anchor = parts.length > 1 ? parts[1] : 'buildPayload(';
         final file = File(
           '$root/android/app/src/test/java/com/fnthink/notice/$cls.kt',
         );
@@ -144,8 +148,8 @@ void main() {
         final src = stripComments(file.readAsStringSync());
         expect(
           src,
-          contains('buildPayload('),
-          reason: '$cls 存在但没有断言 buildPayload：载荷列不能算盖章',
+          contains(anchor),
+          reason: '$cls 存在但没有断言 "$anchor"：载荷列不能算盖章',
         );
       }
     });

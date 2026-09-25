@@ -52,8 +52,8 @@ void main() {
       .allMatches(
         slice(
           sender,
-          'private fun applyTemplate(',
-          'private fun buildSubject(',
+          'fun applyTemplate(', // 不写可见性：T09-A2 把它从 private 开成 internal 测试缝，锚点不该关心
+          'fun buildSubject(', // 同上：不写可见性
           'EmailSender.applyTemplate',
         ),
       )

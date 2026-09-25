@@ -10,7 +10,7 @@
     "  realSend —— 「真发一次」只有人眼能盖章：state=verified 必须带 date/build/note，",
     "    并且盖章总数由守卫按 ratchet 核对（只许升，升的时候要显式改数字）。"
   ],
-  "pendingPayloadEvidence": 1,
+  "pendingPayloadEvidence": 0,
   "verifiedRatchet": 0,
   "types": [
     {
@@ -128,7 +128,7 @@
     {
       "type": "email",
       "family": "email",
-      "payloadEvidence": "todo:邮件主题/正文渲染目前零证据（EmailSender 的 applyTemplate 与 %subTextLine 删行都是 private，没有任何测试）",
+      "payloadEvidence": "jvm:EmailSenderRenderTest#buildEmailBody",
       "statusEvidence": "widget+gate",
       "backupEvidence": "gate",
       "realSend": { "state": "unverified" }

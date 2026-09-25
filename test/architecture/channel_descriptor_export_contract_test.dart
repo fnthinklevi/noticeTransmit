@@ -430,9 +430,9 @@ void main() {
         ).readAsStringSync(),
       );
       final native = RegExp(
-        r'val defaultSubject = "([^"]*)"',
+        r'val DEFAULT_SUBJECT = "([^"]*)"',
       ).firstMatch(sender);
-      expect(native, isNotNull, reason: 'EmailSender 里找不到默认主题的定义');
+      expect(native, isNotNull, reason: 'EmailSender 里找不到 DEFAULT_SUBJECT');
       final subject = emailFields.firstWhere(
         (f) => f['key'] == 'subjectTemplate',
       );
