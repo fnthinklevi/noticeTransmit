@@ -43,7 +43,10 @@ void main() {
   // 「读不到任何列」而静默失去保护（下面的 isNotEmpty 断言就是防这个的）。
   // ⚠ 只取 appFromDb 那一段 —— 整个 codec 里还有 webhook 的列名（url/channel_type/
   //   extra_config…），整份一起扫会把它们误判成「app_channels 读了不存在的列」。
-  final serviceSource =
+  // ⚠ 两段都放进**惰性函数**里：锚点找不到时 blockAfter 会抛 StateError，而在 `main()`
+  //   顶层抛 = 整个测试文件加载失败，CI 里表现为"这个文件没有测试"而不是红
+  //   （本仓库撞过两次，见 base.md（75））。锚点也刻意不写可见性与返回类型。
+  String serviceSource() =>
       stripComments(
         File('$root/lib/services/app_channel_service.dart').readAsStringSync(),
       ) +
@@ -53,7 +56,7 @@ void main() {
             '$root/lib/services/channel_config_codec.dart',
           ).readAsStringSync(),
         ),
-        'static Map<String, dynamic> appFromDb',
+        'appFromDb(',
       );
 
   final createBlocks = _createTableBlocks(dbSource);
@@ -86,7 +89,7 @@ void main() {
     });
 
     test('自建应用通道的读取列（service + codec）都在建表列内', () {
-      final readColumns = _serviceReadColumns(serviceSource);
+      final readColumns = _serviceReadColumns(serviceSource());
       expect(readColumns, isNotEmpty, reason: '未解析到读取列，断言失效');
       // 'config' 等读取列必须真实存在；否则设置页字段恒为默认值
       expect(readColumns.difference(createBlocks.first), isEmpty);

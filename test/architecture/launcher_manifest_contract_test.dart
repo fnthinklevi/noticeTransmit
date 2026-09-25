@@ -28,16 +28,14 @@ const launcherLanguageCount = 2;
 void main() {
   final root = projectRoot();
 
-  String manifest(String variant) => stripXmlComments(
-    File(
-      '$root/android/app/src/$variant/AndroidManifest.xml',
-    ).readAsStringSync(),
-  );
-
-  final mainManifest = manifest('main');
-  final debugManifest = manifest('debug');
-  final releaseManifest = manifest('release');
-  final profileManifest = manifest('profile');
+  /// ⚠ 清单按**变体名惰性读取**：早先是在 `main()` 顶层把四份读进变量，某个变体目录改名
+  ///   就抛在测试体之外 ⇒ 整个文件加载失败，CI 表现为"这个文件没有用例"而不是红。
+  ///   下面「四个变体都在」那条测试就是把这个空洞补上的正面锚点。
+  String manifest(String variant) {
+    final file = File('$root/android/app/src/$variant/AndroidManifest.xml');
+    expect(file.existsSync(), isTrue, reason: '缺 $variant 覆盖清单');
+    return stripXmlComments(file.readAsStringSync());
+  }
 
   /// 源清单里组件写成多行属性，`<activity` 之后是换行而非空格；
   /// 又必须与 `<activity-alias` 区分，故用 `[\s>]` 限定后随字符。
@@ -53,8 +51,22 @@ void main() {
   }
 
   group('桌面启动入口 – main 清单', () {
+    test('四个变体清单都在（缺文件要红，不许表现为"没有用例"）', () {
+      for (final variant in const ['main', 'debug', 'release', 'profile']) {
+        expect(
+          File(
+            '$root/android/app/src/$variant/AndroidManifest.xml',
+          ).existsSync(),
+          isTrue,
+          reason:
+              'src/$variant/AndroidManifest.xml 不见了：'
+              'overlay 结构一旦被挪走，下面所有断言都无从谈起',
+        );
+      }
+    });
+
     test('.MainActivity 带 MAIN + LAUNCHER（flutter_tools 只认 activity）', () {
-      final block = blockOf(mainManifest, '.MainActivity');
+      final block = blockOf(manifest('main'), '.MainActivity');
       expect(block, isNotEmpty, reason: '未定位到 .MainActivity 的 activity 块');
       expect(
         block,
@@ -71,13 +83,14 @@ void main() {
 
     test('带 LAUNCHER 的 activity 恰好 1 个（防 debug 双入口）', () {
       final n = activityBlocks(
-        mainManifest,
+        manifest('main'),
       ).where((b) => b.contains('android.intent.category.LAUNCHER')).length;
       expect(n, 1, reason: 'main 清单里带 LAUNCHER 的 activity 必须恰好 1 个');
     });
 
     test('alias 数量与中英配对完整（图标切换体系未被误删）', () {
       const expected = launcherIconCount * launcherLanguageCount;
+      final mainManifest = manifest('main');
       // 从清单实际解析：原始标签数（含任何不符合命名约定的 alias）
       final rawCount = RegExp(
         r'<activity-alias[\s>]',
@@ -128,31 +141,36 @@ void main() {
   });
 
   group('release / profile 必须移除 activity 级 LAUNCHER', () {
-    for (final entry in {
-      'release': releaseManifest,
-      'profile': profileManifest,
-    }.entries) {
-      test('${entry.key} 覆盖清单结构完整', () {
-        final src = entry.value;
+    for (final variant in const ['release', 'profile']) {
+      test('$variant 覆盖清单结构完整', () {
+        final src = manifest(variant);
         expect(
           src,
           contains('xmlns:tools='),
-          reason: '${entry.key} 未声明 tools 命名空间 → tools: 属性被静默忽略，移除根本不生效',
+          reason: '$variant 未声明 tools 命名空间 → tools: 属性被静默忽略，移除根本不生效',
         );
         expect(
           src,
           contains('android:name=".MainActivity"'),
-          reason: '${entry.key} 未针对 .MainActivity 做覆盖 → release 会出现双图标',
+          reason: '$variant 未针对 .MainActivity 做覆盖 → release 会出现双图标',
         );
         expect(
           src,
           contains('tools:node="removeAll"'),
-          reason: '${entry.key} 缺 removeAll → 线上启动入口从 alias 变成 activity（用户可见）',
+          reason: '$variant 缺 removeAll → 线上启动入口从 alias 变成 activity（用户可见）',
+        );
+        final block = blockOf(src, '.MainActivity');
+        expect(
+          block,
+          isNotEmpty,
+          reason:
+              '$variant 里定位不到 .MainActivity 的 activity 块 ⇒ 下面那条「不含 LAUNCHER」'
+              '会对空串永远成立（典型的抽取落空假绿）',
         );
         expect(
-          blockOf(src, '.MainActivity'),
+          block,
           isNot(contains('android.intent.category.LAUNCHER')),
-          reason: '${entry.key} 覆盖清单自己又声明了 LAUNCHER，语义互相矛盾',
+          reason: '$variant 覆盖清单自己又声明了 LAUNCHER，语义互相矛盾',
         );
       });
     }
@@ -160,6 +178,7 @@ void main() {
 
   group('debug 必须禁用默认 alias（可启动组件恒为 1）', () {
     test('debug 对 LauncherDefaultZh 置 enabled=false 且显式 replace', () {
+      final debugManifest = manifest('debug');
       expect(
         debugManifest,
         contains('android:name=".LauncherDefaultZh"'),

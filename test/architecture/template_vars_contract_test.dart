@@ -24,36 +24,45 @@ void main() {
     ).readAsStringSync(),
   );
 
-  /// 取 `start` 到 `end` 之间的那段源码（两个标记都必须唯一，否则说明函数被挪动过）。
-  /// ⚠ 这里不能 expect：本函数在 `main()` 顶层求值，测试体外调用 expect 会抛
-  /// `OutsideTestException`（实测整个文件加载失败，看起来像"没有用例"）。
-  String slice(String src, String start, String end, String what) {
+  /// 取 `start` 之后到第一个匹配 [endAt] 的位置之前那段源码。
+  /// ⚠ 终点用**正则**而不是定长字符串：锚点一旦写死可见性修饰符或"恰好两个换行"，
+  ///   加个 `internal` 就找不到终点（T09-A2 撞过）。4 空格缩进可以放心写死，ktlint 挡着。
+  /// ⚠ 这里不能 expect：调用点在测试体外，expect 会抛 `OutsideTestException`。
+  String slice(String src, String start, RegExp endAt, String what) {
     final a = src.indexOf(start);
     if (a < 0) {
       throw StateError('原生里找不到 $what 的起点「$start」（函数改名/挪动 ⇒ 本守卫要同步）');
     }
-    final b = src.indexOf(end, a + start.length);
-    if (b <= a) {
-      throw StateError('原生里找不到 $what 的终点「$end」（函数结构变了 ⇒ 本守卫要同步）');
+    final head = src.substring(a + start.length);
+    final b = endAt.firstMatch(head)?.start;
+    if (b == null) {
+      throw StateError('原生里找不到 $what 的终点「${endAt.pattern}」（函数结构变了 ⇒ 本守卫要同步）');
     }
-    return src.substring(a, b);
+    return head.substring(0, b);
   }
 
-  final engine = readKotlin('TemplateEngine.kt');
-  final sender = readKotlin('EmailSender.kt');
+  String engine() => readKotlin('TemplateEngine.kt');
+  String sender() => readKotlin('EmailSender.kt');
 
-  final nativeWebhookVars = RegExp(r'put\("([A-Za-z]+)"')
+  /// ⚠ 三段抽取都放在**惰性函数**里：`slice` 找不到锚点会抛 StateError，而在 `main()`
+  ///   顶层求值 = 整个文件加载失败，CI 里表现为"这个文件没有用例"而不是红（本仓库撞过三次）。
+  Set<String> nativeWebhookVars() => RegExp(r'put\("([A-Za-z]+)"')
       .allMatches(
-        slice(engine, 'fun render(', '\n    }\n\n', 'TemplateEngine.render'),
+        slice(
+          engine(),
+          'fun render(',
+          RegExp('\n    \\}'),
+          'TemplateEngine.render',
+        ),
       )
       .map((m) => m.group(1)!)
       .toSet();
-  final nativeEmailVars = RegExp(r'\.replace\("%([A-Za-z]+)%"')
+  Set<String> nativeEmailVars() => RegExp(r'\.replace\("%([A-Za-z]+)%"')
       .allMatches(
         slice(
-          sender,
+          sender(),
           'fun applyTemplate(', // 不写可见性：T09-A2 把它从 private 开成 internal 测试缝，锚点不该关心
-          'fun buildSubject(', // 同上：不写可见性
+          RegExp('fun buildSubject\\('), // 同上：不写可见性
           'EmailSender.applyTemplate',
         ),
       )
@@ -62,14 +71,20 @@ void main() {
 
   group('模板变量名单只有一份，且与原生两张表一致', () {
     test('webhook/应用：Dart 名单 == TemplateEngine.render 实际替换的键', () {
+      final native = nativeWebhookVars();
+      expect(
+        native,
+        isNotEmpty,
+        reason: '正则一枚 token 都没抓到 ⇒ 断言退化成「Dart ⊆ 空集」，守卫已经没了',
+      );
       final dart = webhookTemplateVars.map((v) => v.token).toSet();
       expect(
-        dart.difference(nativeWebhookVars),
+        dart.difference(native),
         isEmpty,
         reason: 'Dart 列了原生不替换的变量 ⇒ 插进去原样留在正文里',
       );
       expect(
-        nativeWebhookVars.difference(dart),
+        native.difference(dart),
         isEmpty,
         reason: '原生新增/改名了变量而 Dart 名单没跟上 ⇒ 界面上永远看不见它',
       );
@@ -81,14 +96,16 @@ void main() {
     });
 
     test('邮件：Dart 名单 == EmailSender.applyTemplate 实际替换的键', () {
+      final native = nativeEmailVars();
+      expect(native, isNotEmpty, reason: '一枚邮件变量都没抓到 ⇒ 上面两条双向核对会同时失去保护');
       final dart = emailTemplateVars.map((v) => v.token).toSet();
       expect(
-        dart.difference(nativeEmailVars),
+        dart.difference(native),
         isEmpty,
         reason: '邮件侧原生不替换这些变量（%notifyType% 之类只在 webhook 侧有）',
       );
       expect(
-        nativeEmailVars.difference(dart),
+        native.difference(dart),
         isEmpty,
         reason: 'EmailSender 新增/改名了变量而 Dart 名单没跟上',
       );
@@ -106,16 +123,17 @@ void main() {
 
     test('预置模板里用到的变量都在名单内', () {
       final preset = slice(
-        engine,
+        engine(),
         'fun presetTemplate(',
         // 终点标记必须选**剥注释后仍然存在**的东西（`stripComments` 会连 KDoc 一起删掉，
         // 拿 '/**' 当终点会在清洗过的源码上永远找不到）。下一个函数声明是稳妥锚点。
-        '\n    fun ',
+        RegExp('\n    (?:private |internal |public |suspend )*fun '),
         'TemplateEngine.presetTemplate',
       );
       final used = RegExp(
         '%([A-Za-z]+)%',
       ).allMatches(preset).map((m) => m.group(1)!).toSet();
+      expect(used, isNotEmpty, reason: '一段 %var% 都没抓到 ⇒ 抽取多半已经落空，这条断言也就永远为真');
       expect(
         used.difference(webhookTemplateVars.map((v) => v.token).toSet()),
         isEmpty,

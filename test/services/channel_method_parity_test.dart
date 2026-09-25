@@ -29,13 +29,30 @@ void main() {
   /// 仓库根目录。`flutter test` 的 cwd 是项目根，但为兼容从子目录运行做了探测。
   final root = projectRoot();
 
-  /// 原生 MethodChannel 方法名 → 定义它的 handler 文件。
-  final native = _nativeChannelMethods(root);
+  /// ⚠ 两侧解析包在 try 里：目录改名时 `_nativeChannelMethods` 的 StateError 或
+  ///   `listSync` 的 FileSystemException 若抛在 `main()` 顶层 = 整个文件加载失败，
+  ///   CI 表现为"这个文件没有用例"而不是红（base.md（75））。改成红交给下面第一条用例。
+  Object? parseError;
+  Map<String, List<String>> native = const {};
+  Set<String> dart = const {};
+  try {
+    /// 原生 MethodChannel 方法名 → 定义它的 handler 文件。
+    native = _nativeChannelMethods(root);
 
-  /// Dart 侧实际会发出的方法名集合。
-  final dart = _dartChannelMethods(root);
+    /// Dart 侧实际会发出的方法名集合。
+    dart = _dartChannelMethods(root);
+  } catch (e) {
+    parseError = e;
+  }
 
   group('MethodChannel 方法名双端契约', () {
+    test('两侧源码都解析成功（口径漂移要红，不许静默变空）', () {
+      final err = parseError;
+      if (err != null) throw err;
+      expect(native, isNotEmpty, reason: '原生侧一枚方法名都没解析到');
+      expect(dart, isNotEmpty, reason: 'Dart 侧一枚方法名都没解析到');
+    });
+
     test('方向1：Dart 调用的方法 Kotlin 必须已定义（MissingPluginException 守卫）', () {
       final undefined = dart.difference(native.keys.toSet()).toList()..sort();
       expect(
@@ -81,6 +98,32 @@ void main() {
             '${dup.map((e) => '${e.key} -> ${e.value}').join('; ')}。'
             'ChannelDispatcher 取首个消费者，后面的分支永远不会执行（死分支）。',
       );
+    });
+
+    test('Dart 侧抽取有效（正面锚点：拦住"一个都没抓到"的假绿）', () {
+      // 方向 1 判的是 dart ⊆ native —— dart 集合若因正则退化而变空，那条断言就**永远成立**，
+      // 整个文件只剩"原生方法数"在守，而它守不到"Dart 调用了一个不存在的方法"。
+      expect(
+        dart.length,
+        greaterThanOrEqualTo(70),
+        reason:
+            'Dart 侧只解析出 ${dart.length} 个方法名，远低于原生 91 中的实际调用面：'
+            '要么 _dartChannelMethods 的正则退化了，要么调用写法又多了第五种',
+      );
+      // 三种书写形态各钉一枚代表：少一种 = 对应的解析分支已经不再命中。
+      const probes = {
+        'testAppChannel': 'invokeMethod(\'m\') 同行写法',
+        'isIgnoringBatteryOptimizations':
+            'invokeMethod<bool>(\\n  \'m\', 带泛型跨行写法',
+        'requestBatteryOptimization': '_requestPermission(\'m\') 间接转发写法',
+      };
+      for (final probe in probes.entries) {
+        expect(
+          dart,
+          contains(probe.key),
+          reason: '缺「${probe.value}」这一形态的样本 ⇒ 该形态以后新增方法会漏出守卫',
+        );
+      }
     });
   });
 }

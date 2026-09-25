@@ -92,10 +92,22 @@ void main() {
       ]) {
         final src = read(rel);
         final body = blockAfter(src, 'void dispose() {');
+        // 判据必须**扣掉 super.dispose()**：否则一个只调用父类、什么都不释放的
+        // dispose() 也算命中（`contains('.dispose()')` 对它是真的 ⇒ 空壳守卫）。
+        final releases = body
+            .replaceAll('super.dispose();', '')
+            .split('\n')
+            .where(
+              (l) =>
+                  l.contains('.dispose()') ||
+                  l.contains('.cancel()') ||
+                  l.contains('.removeListener('),
+            )
+            .toList();
         expect(
-          body,
-          contains('.dispose()'),
-          reason: '$rel 的输入框控制器必须随页面释放（TextEditingController 不释放会漏监听）',
+          releases,
+          isNotEmpty,
+          reason: '$rel 的 dispose() 只剩 super.dispose() ⇒ 输入框控制器/订阅随页面泄漏',
         );
         expect(
           src,

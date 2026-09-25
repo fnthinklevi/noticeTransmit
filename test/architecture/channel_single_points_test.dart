@@ -18,18 +18,20 @@ void main() {
       stripComments(File('$root/$rel').readAsStringSync());
 
   group('URL 规则跨端同一口径', () {
+    // 锚点一律写成 `fun 名字(`：带 `fun ` 就不会命中调用点，而不抄参数表/返回类型 ——
+    // 那些细节一改，blockAfter 抛的 StateError 会让整条守卫变红却跟"口径"无关（base.md（75））。
     test('原生两处仍是 http+https，Dart 规则字面一致', () {
       final base = blockAfter(
         read(
           'android/app/src/main/kotlin/com/fnthink/notice/AppChannelTokenManager.kt',
         ),
-        'fun normalizeBase(raw: String, fallback: String): String',
+        'fun normalizeBase(',
       );
       final probe = blockAfter(
         read(
           'android/app/src/main/kotlin/com/fnthink/notice/ChannelHealthProbe.kt',
         ),
-        'fun isProbeableUrl(url: String): Boolean',
+        'fun isProbeableUrl(',
       );
       for (final (where, block) in [
         ('normalizeBase', base),
@@ -78,10 +80,16 @@ void main() {
   group('健康度只有一个生产者', () {
     test('页面不再直接读写 channel_health_ / email_test_results', () {
       final offenders = <String>[];
-      for (final file in Directory(
-        '$root/lib/pages',
-      ).listSync(recursive: true)) {
+      final dir = Directory('$root/lib/pages');
+      expect(
+        dir.existsSync(),
+        isTrue,
+        reason: 'lib/pages 不在了：目录型守卫会"扫不到文件 ⇒ 没有违规"，绿得毫无意义',
+      );
+      var scanned = 0;
+      for (final file in dir.listSync(recursive: true)) {
         if (file is! File || !file.path.endsWith('.dart')) continue;
+        scanned++;
         final src = stripComments(file.readAsStringSync());
         // 认「字符串字面量」而不是裸前缀：`import '../services/channel_health_store.dart'`
         // 也含 channel_health_，那样每条 import 都会变成假阳性
@@ -91,6 +99,13 @@ void main() {
           }
         }
       }
+      // 正面锚点：扫到的文件数要跟得上页面规模（口径变了 / 目录搬走时这条会红，
+      // 而不是悄悄变成"零个文件、零条违规"）。
+      expect(
+        scanned,
+        greaterThanOrEqualTo(25),
+        reason: '只扫到 $scanned 个页面文件（当前约 30）⇒ 页面目录口径变了，本条已在空跑',
+      );
       expect(
         offenders,
         isEmpty,

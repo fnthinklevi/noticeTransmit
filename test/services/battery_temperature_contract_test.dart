@@ -6,6 +6,8 @@ import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/source_guards.dart';
+
 /// 温度规则类型双端契约（v1.59 引入，v1.62 修成**真**比对）。
 ///
 /// 本文件原版本名为「与 Kotlin TEMP_RULE_TYPES 一致」，实际是拿一个测试内部的
@@ -23,10 +25,14 @@ void main() {
   });
 
   /// 从 Kotlin 源码里取 `val TEMP_RULE_TYPES = setOf(...)` 的字符串字面量集合。
+  /// ⚠ 两侧都要剥注释：一句"TEMP_RULE_TYPES = setOf(...) 已改名"的注释，
+  ///   或页面里一行提到某类型字面量的注释，都能让判据为真而代码其实什么都没做。
   Set<String> kotlinTempRuleTypes() {
-    final src = File(
-      'android/app/src/main/kotlin/com/fnthink/notice/BatteryMonitor.kt',
-    ).readAsStringSync();
+    final src = stripComments(
+      File(
+        'android/app/src/main/kotlin/com/fnthink/notice/BatteryMonitor.kt',
+      ).readAsStringSync(),
+    );
     final start = src.indexOf('TEMP_RULE_TYPES = setOf(');
     expect(
       start,
@@ -68,7 +74,7 @@ void main() {
         'lib/pages/battery_page.dart',
         'lib/pages/temperature_page.dart',
       ]) {
-        final src = File(page).readAsStringSync();
+        final src = stripComments(File(page).readAsStringSync());
         for (final t in TemperatureService.tempRuleTypes) {
           expect(src.contains("'$t'"), isTrue, reason: '$page 缺少类型 $t 的入口');
         }

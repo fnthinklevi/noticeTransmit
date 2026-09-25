@@ -12,15 +12,20 @@ import 'package:flutter_test/flutter_test.dart';
 /// 比色值时把 `AppColors.x` 解析成实际 ARGB 再比 —— 按字面串比会让
 /// "同一颜色两种写法"（`AppColors.orange` 与 `const Color(0xFFFF9500)`）漏网。
 void main() {
-  final page = File('lib/pages/more_page.dart').readAsStringSync();
-  final palette = File('lib/theme/app_colors.dart').readAsStringSync();
+  /// ⚠ 两份源码都**惰性读取**：写在 `main()` 顶层时，文件改名会抛在测试体之外 ⇒
+  ///   整个文件加载失败，CI 表现为"这个文件没有用例"而不是红（见 base.md（75））。
+  String page() => File('lib/pages/more_page.dart').readAsStringSync();
+  String palette() => File('lib/theme/app_colors.dart').readAsStringSync();
 
   /// AppColors 常量名 → 源码里写死的色值表达式
-  final colorLiterals = <String, String>{};
-  for (final m in RegExp(
-    r'static const Color (\w+) = (Color\(0x[0-9A-Fa-f]{8}\))',
-  ).allMatches(palette)) {
-    colorLiterals[m.group(1)!] = m.group(2)!;
+  Map<String, String> colorLiterals() {
+    final out = <String, String>{};
+    for (final m in RegExp(
+      r'static const Color (\w+) = (Color\(0x[0-9A-Fa-f]{8}\))',
+    ).allMatches(palette())) {
+      out[m.group(1)!] = m.group(2)!;
+    }
+    return out;
   }
 
   String resolvedColor(String written) {
@@ -29,7 +34,7 @@ void main() {
       return RegExp(r'0x[0-9A-Fa-f]{8}').firstMatch(written)?.group(0) ??
           written;
     }
-    final literal = colorLiterals[named.group(1)];
+    final literal = colorLiterals()[named.group(1)];
     return literal != null
         ? RegExp(r'0x[0-9A-Fa-f]{8}').firstMatch(literal)!.group(0)!
         // 主题自适应色（systemXxx）按名字比：不同名字不算撞色
@@ -38,14 +43,15 @@ void main() {
 
   /// 按 section header 切段，返回 段名 → 该段内的 nav tile（icon / color / title 键）
   Map<String, List<({String icon, String color, String titleKey})>> sections() {
+    final src = page();
     final out =
         <String, List<({String icon, String color, String titleKey})>>{};
     final headerRe = RegExp(r'_buildSectionHeader\(l10n\.(\w+)');
-    final heads = headerRe.allMatches(page).toList();
+    final heads = headerRe.allMatches(src).toList();
     for (var i = 0; i < heads.length; i++) {
       final from = heads[i].start;
-      final to = i + 1 < heads.length ? heads[i + 1].start : page.length;
-      final body = page.substring(from, to);
+      final to = i + 1 < heads.length ? heads[i + 1].start : src.length;
+      final body = src.substring(from, to);
       out[heads[i].group(1)!] = [
         for (final t in RegExp(
           r'icon: Icons\.(\w+),\s*iconColor: ([^,\n]+),\s*title: l10n\.(\w+)',
@@ -59,6 +65,29 @@ void main() {
     }
     return out;
   }
+
+  int tileCount() => sections().values.fold(0, (a, b) => a + b.length);
+
+  test('解析本身有效（色板 + 分组 + 条目数）：抽取落空时"无撞色"会假绿', () {
+    // 下面三条判的是"没有重复"——sections() 一旦返回空 Map，三条全部空跑且全绿。
+    expect(
+      colorLiterals().length,
+      greaterThanOrEqualTo(10),
+      reason:
+          '色板只解析出 ${colorLiterals().length} 个常量：写法一改（如换成 const Color(0x..) 之外的形式），'
+          '同一颜色两种写法就再也归不到一起',
+    );
+    expect(
+      sections().length,
+      5,
+      reason: '「更多」页分组数变了（当前 ${sections().length}）：分组切法变了要同步这三条断言',
+    );
+    expect(
+      tileCount(),
+      13,
+      reason: '解析出的 nav tile 数 = ${tileCount()}，为 0 时下面几条全是空断言',
+    );
+  });
 
   test('规则约束三行都在「更多」的 filterRules 分组里', () {
     final s = sections();

@@ -277,9 +277,10 @@ void main() {
         );
       }
       // 反向自检：白名单那两处（建表 + 搬家 SELECT）必须还在，否则说明列被顺手删了
-      final db = File(
-        '$root/lib/database/database_helper.dart',
-      ).readAsStringSync();
+      // （同样要剥注释：一句"extra_config TEXT 列保留"的注释不算它还活着）
+      final db = stripComments(
+        File('$root/lib/database/database_helper.dart').readAsStringSync(),
+      );
       expect(
         db,
         allOf(

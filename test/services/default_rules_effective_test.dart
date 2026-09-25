@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 import 'package:notice_transmit/services/filter_service.dart';
 
+import '../support/source_guards.dart';
+
 /// 预制（默认）规则**生效链路**契约测试。
 ///
 /// 背景：`NotificationRule.defaultRules()` 只是「内存里有一套默认规则」。
@@ -174,12 +176,15 @@ void main() {
     late String notificationService;
 
     setUpAll(() {
-      filterService = File(
-        'lib/services/filter_service.dart',
-      ).readAsStringSync();
-      notificationService = File(
-        'lib/services/notification_service.dart',
-      ).readAsStringSync();
+      // 一律剥注释：这一组里既有"必须包含"也有"必须不包含"两种判据，
+      // 不剥的话一句"当年这里写过 saveNotificationRules(defaultRules())"的注释
+      // 就能让判据为真/为假，而代码其实什么都没做（base.md（75）记的同类事故）。
+      filterService = stripComments(
+        File('lib/services/filter_service.dart').readAsStringSync(),
+      );
+      notificationService = stripComments(
+        File('lib/services/notification_service.dart').readAsStringSync(),
+      );
     });
 
     test('saveNotificationRules 必须同时落盘并下发原生（缺一即默认规则不生效）', () {
@@ -240,13 +245,17 @@ void main() {
     });
 
     test('原生侧 setNotificationRules 必须落到 flutter.notification_rules 并广播配置变更', () {
-      final handler = File(
-        'android/app/src/main/kotlin/com/fnthink/notice/channels/ConfigChannelHandler.kt',
-      ).readAsStringSync();
+      final handler = stripComments(
+        File(
+          'android/app/src/main/kotlin/com/fnthink/notice/channels/ConfigChannelHandler.kt',
+        ).readAsStringSync(),
+      );
       expect(handler.contains('"setNotificationRules"'), true);
-      final activity = File(
-        'android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt',
-      ).readAsStringSync();
+      final activity = stripComments(
+        File(
+          'android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt',
+        ).readAsStringSync(),
+      );
       expect(
         activity.contains('flutter.notification_rules'),
         true,
@@ -260,9 +269,11 @@ void main() {
     });
 
     test('原生 RuleEngine 读取的 key 必须与 Flutter 写入的 key 完全一致', () {
-      final cm = File(
-        'android/app/src/main/kotlin/com/fnthink/notice/ConfigManager.kt',
-      ).readAsStringSync();
+      final cm = stripComments(
+        File(
+          'android/app/src/main/kotlin/com/fnthink/notice/ConfigManager.kt',
+        ).readAsStringSync(),
+      );
       // ⚠ 原生不是直接写字符串字面量，而是走 KEY_NOTIFICATION_RULES 常量：
       //   `fun getNotificationRules() { return prefs.getString(KEY_NOTIFICATION_RULES, "") }`
       //   因此必须**两段断言**——① 函数体用常量取值；② 常量值 == Flutter 侧键 + "flutter." 前缀。

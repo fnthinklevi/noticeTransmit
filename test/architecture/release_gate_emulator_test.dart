@@ -158,13 +158,17 @@ void main() {
   });
 
   group('冒烟测试必须保持"红在第几步"可读', () {
-    final src = read('integration_test/smoke_test.dart');
+    /// ⚠ 惰性 + 剥注释：写在 group 体里的 `read()` 若文件被改名，异常抛在用例之外 ⇒
+    ///   整个文件加载失败（CI 表现为"这个文件没有用例"）；而不剥注释时，
+    ///   一句提到 `testWidgets('冒烟 1/4 …'` 的注释就能让计数虚高。
+    String smokeSrc() =>
+        stripComments(read('integration_test/smoke_test.dart'));
 
     // ⚠ 这里的匹配一律按**语句片段**数，不要按 `testWidgets('名字'` 整行匹配：
     //   dart format 会把长签名折行（本文件写完就被折过一次），整行正则会静默漏数，
     //   守卫于是既会假红也会假绿。名字字面量与 timeout: 片段是稳定的。
     test('按步拆成多条用例，而不是一个大 testWidgets 串到底', () {
-      final n = RegExp(r"'冒烟 \d+/\d+").allMatches(src).length;
+      final n = RegExp(r"'冒烟 \d+/\d+").allMatches(smokeSrc()).length;
       expect(
         n,
         greaterThanOrEqualTo(4),
@@ -175,10 +179,13 @@ void main() {
     });
 
     test('每条用例都有自己的超时', () {
+      final src = smokeSrc();
       final cases = RegExp(r"'冒烟 \d+/\d+").allMatches(src).length;
       final timeouts = RegExp(
         r'timeout: const Timeout\(',
       ).allMatches(src).length;
+      // 正面锚点：cases 为 0 时下面这条不等式对任何 timeouts 都成立（空断言）。
+      expect(cases, greaterThanOrEqualTo(4), reason: '没数到冒烟用例 ⇒ 计数正则已失效');
       expect(
         timeouts,
         greaterThanOrEqualTo(cases),
@@ -189,6 +196,7 @@ void main() {
     });
 
     test('用例之间互不依赖（各自 launchApp 装配）', () {
+      final src = smokeSrc();
       // 拆分的真正前提是每条用例自己能灌数据；否则只有 1/4 单独跑得动
       expect(
         RegExp(r"await launchApp\(tester\)").allMatches(src).length,
@@ -204,15 +212,20 @@ void main() {
   });
 
   group('闸门测试自身不得被静默削弱', () {
-    final src = read('integration_test/release_walkthrough_test.dart');
+    /// 同上：惰性读取，并且**剥注释** —— 本组全是 `src.contains('…')` 型判据，
+    /// 一句"当初点这里"的注释就能让判据为真而闸门其实是空的（base.md（75）记的同类事故）。
+    String walkSrc() =>
+        stripComments(read('integration_test/release_walkthrough_test.dart'));
 
     test('没有 skip / 空跑标记', () {
+      final src = walkSrc();
       for (final marker in const ['skip:', 'skip: true', 'markTestSkipped']) {
         expect(src.contains(marker), isFalse, reason: '出现 $marker ⇒ 闸门变成了摆设');
       }
     });
 
     test('备份导出与导入两端都真的被点到', () {
+      final src = walkSrc();
       // 只点"生成备份文件"而不点恢复，等于没验往返（1.5.74 事故就在恢复侧）
       expect(src.contains("find.text('生成备份文件')"), isTrue);
       expect(src.contains("find.text('选择备份文件恢复')"), isTrue);
@@ -225,6 +238,7 @@ void main() {
     });
 
     test('每个设置页入口都被点过', () {
+      final src = walkSrc();
       for (final entry in const [
         'Webhook 推送通道',
         '邮件转发通道',
@@ -259,6 +273,7 @@ void main() {
     });
 
     test('通知引擎 tab 的两类告警入口都被点过（T15）', () {
+      final src = walkSrc();
       // 电量/温度从"独立 tab / 更多页入口"挪进骨架页 ⇒ 点法也换了 helper。
       // 只查字面量不够：文案可以只活在注释里。所以钉的是"确实经 _openEngineRow 点过"。
       for (final entry in const ['电量告警', '温度告警']) {
@@ -276,16 +291,17 @@ void main() {
     });
 
     test('删除的二次确认在闸门里被走通（T06）', () {
+      final src = walkSrc();
       final flat = src.replaceAll(RegExp(r'\s+'), ' ');
       expect(
         flat,
         contains("_confirmDelete(tester, 'Webhook 行')"),
         reason: 'webhook 那条删除不再走确认框 ⇒ T06 的咽喉在闸门上失去覆盖（红的是"没弹框"）',
       );
-      final helper = blockAfter(
-        stripComments(src),
-        'Future<void> _confirmDelete(',
-      );
+      // 锚点必须带返回类型：光写 `_confirmDelete(` 会先命中调用点，blockAfter 于是截到
+      // 调用点后面那个 lambda，断言的对象就错了一个函数（找不到时抛 StateError ⇒ 用例红，
+      // 而不是静默通过，这点由 blockAfter 的语义保证）。
+      final helper = blockAfter(src, 'Future<void> _confirmDelete(');
       expect(
         helper,
         contains('_must('),
@@ -295,9 +311,9 @@ void main() {
 
     test('两条测试动作都被真点过：仅测试 与 测试并保存（T04）', () {
       // 「仅测试」与「测试并保存」是两个按钮、两条不同路径（一条落库、一条不落库）。
-      // 只钉字面量不够（文案可以只活在注释里），也不许被 dart format 的换行打断 ⇒
-      // 先压平空白再匹配"确实经 _tap + _appBarText 点过"。
-      final flat = src.replaceAll(RegExp(r'\s+'), ' ');
+      // 只钉字面量不够（文案可以只活在注释里 ⇒ walkSrc 已剥注释），也不许被 dart format
+      // 的换行打断 ⇒ 先压平空白再匹配"确实经 _tap + _appBarText 点过"。
+      final flat = walkSrc().replaceAll(RegExp(r'\s+'), ' ');
       for (final step in const ['Webhook→仅测试', '应用通道→仅测试']) {
         expect(
           flat,
@@ -318,6 +334,7 @@ void main() {
       // ⚠ 长按与 _tap 有同一个坑：懒加载列表里"finder 命中 ≠ 已绘制"，而打不中
       // **只打印 warning 不抛异常** ⇒ 手势静默丢失（闸门第一轮就是这么红的）。
       // 因此这里钉的不只是"点了"，还有"点之前 ensureVisible 过"。
+      final src = walkSrc();
       final flat = src.replaceAll(RegExp(r'\s+'), ' ');
       expect(
         flat,
@@ -328,9 +345,9 @@ void main() {
         reason: '应用通道卡或历史记录卡的长按不再被点 ⇒ 共用组件失去真机覆盖',
       );
       // helper 自己的两条不变量：居中对齐（贴顶会被 AppBar 吃手势）+ 不用 pumpAndSettle。
-      // 必须剥注释再判：解释"为什么不用 pumpAndSettle"的那句注释里就有这个词，
-      // 拿原文匹配会让守卫在干净的树上红（本仓库为这类事错过不止一次）。
-      final helper = blockAfter(stripComments(src), 'Future<void> _longPress(');
+      // walkSrc 已剥注释，所以解释"为什么不用 pumpAndSettle"的那句注释不会再让守卫
+      // 在干净的树上红（不剥注释就错过不止一次，见 base.md（75））。
+      final helper = blockAfter(src, 'Future<void> _longPress(');
       expect(
         helper,
         contains('alignment: 0.5'),

@@ -115,6 +115,16 @@ void main() {
           .toSet();
 
       expect(
+        cases,
+        isNotEmpty,
+        reason: '一枚 case 都没解析到 ⇒ 上面两条双向核对与下面那条 ARB 遍历全部空跑（假绿）',
+      );
+      expect(
+        referenced,
+        isNotEmpty,
+        reason: '没解析到任何"表内引用的词条" ⇒ referenced/cases 的比较退化成空对空',
+      );
+      expect(
         referenced.difference(cases),
         isEmpty,
         reason: '这些词条被文案表引用却没有 channelLabelFor 的 case',
@@ -252,6 +262,19 @@ void main() {
         page,
         contains('_descriptor?.supportsCustomTemplate'),
         reason: '格式/模板入口显隐必须走描述符',
+      );
+      // 正面锚点：被禁的那个符号必须**还活着**。整个枚举一旦消失，上面两条
+      // 「页面里不许出现 WebhookChannelType 分支」会因为找不到主语而永远为真 ——
+      // 那时这条守卫已经谁也不拦了（A 类失效：判据为真 ≠ 有保护）。
+      final model = stripComments(
+        File('$root/lib/models/webhook_channel.dart').readAsStringSync(),
+      );
+      expect(
+        model,
+        contains('enum WebhookChannelType'),
+        reason:
+            '枚举已不在 lib/models/webhook_channel.dart：请把上面两条禁令一起改掉，'
+            '别留一条空转的守卫',
       );
     });
 
