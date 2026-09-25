@@ -7,6 +7,7 @@ import '../models/email_channel.dart';
 import '../services/active_channels.dart';
 import '../services/channel_health_store.dart';
 import '../services/email_service.dart';
+import '../services/template_variables.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -765,7 +766,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6, left: 4),
                     child: Text(
-                      l10n.availableVars,
+                      l10n.availableVars(templateVarTokens(emailTemplateVars)),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.tertiaryLabel(context),

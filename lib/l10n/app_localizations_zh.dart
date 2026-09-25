@@ -782,8 +782,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get presetMinimal => '极简';
 
   @override
-  String get availableVars =>
-      '可用变量：%appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%';
+  String availableVars(String vars) {
+    return '可用变量：$vars';
+  }
 
   @override
   String get webhookSettingsTitle => 'Webhook 推送通道';

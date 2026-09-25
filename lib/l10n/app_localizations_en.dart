@@ -810,8 +810,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get presetMinimal => 'Minimal';
 
   @override
-  String get availableVars =>
-      'Variables: %appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%';
+  String availableVars(String vars) {
+    return 'Variables: $vars';
+  }
 
   @override
   String get webhookSettingsTitle => 'Webhook Channels';

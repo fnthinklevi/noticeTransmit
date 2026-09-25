@@ -374,7 +374,14 @@
   "presetStandard": "Standard",
   "presetComplete": "Complete",
   "presetMinimal": "Minimal",
-  "availableVars": "Variables: %appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%",
+  "availableVars": "Variables: {vars}",
+  "@availableVars": {
+    "placeholders": {
+      "vars": {
+        "type": "String"
+      }
+    }
+  },
   "webhookSettingsTitle": "Webhook Channels",
   "webhookUrlRequired": "Please enter a Webhook URL first",
   "webhookChannelNewTitle": "New webhook channel",

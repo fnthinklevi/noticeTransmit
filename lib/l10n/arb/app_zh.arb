@@ -374,7 +374,14 @@
   "presetStandard": "标准",
   "presetComplete": "完整",
   "presetMinimal": "极简",
-  "availableVars": "可用变量：%appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%",
+  "availableVars": "可用变量：{vars}",
+  "@availableVars": {
+    "placeholders": {
+      "vars": {
+        "type": "String"
+      }
+    }
+  },
   "webhookSettingsTitle": "Webhook 推送通道",
   "webhookUrlRequired": "请先输入 Webhook URL",
   "webhookChannelNewTitle": "新增 Webhook 通道",

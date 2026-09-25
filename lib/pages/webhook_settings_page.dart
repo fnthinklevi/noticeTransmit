@@ -7,6 +7,7 @@ import '../services/channel_descriptor_service.dart';
 import '../services/channel_health_store.dart';
 import '../services/channel_url_policy.dart';
 import '../services/platform_channel.dart';
+import '../services/template_variables.dart';
 import '../services/webhook_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';

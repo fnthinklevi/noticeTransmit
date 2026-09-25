@@ -1559,8 +1559,8 @@ abstract class AppLocalizations {
   /// No description provided for @availableVars.
   ///
   /// In zh, this message translates to:
-  /// **'可用变量：%appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%'**
-  String get availableVars;
+  /// **'可用变量：{vars}'**
+  String availableVars(String vars);
 
   /// No description provided for @webhookSettingsTitle.
   ///

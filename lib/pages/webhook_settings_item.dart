@@ -249,7 +249,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${l10n.webhookTemplateHint} %appName% %title% %content% %subText% %time% %deviceName% %packageName% %notifyType% %simInfo% %sender% %phoneNumber% %durationStr% %callState% %timestamp%',
+                  '${l10n.webhookTemplateHint} ${templateVarTokens(webhookTemplateVars)}',
                   style: TextStyle(
                     fontSize: 11,
                     color: AppColors.tertiaryLabel(context),
@@ -259,32 +259,22 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
-                  children:
-                      [
-                        '%appName%',
-                        '%title%',
-                        '%content%',
-                        '%time%',
-                        '%deviceName%',
-                        '%notifyType%',
-                      ].map((v) {
-                        return ActionChip(
-                          label: Text(
-                            v,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.blue,
-                            ),
-                          ),
-                          backgroundColor: AppColors.blue.withValues(
-                            alpha: 0.08,
-                          ),
-                          side: BorderSide.none,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => _insertTemplateVar(v),
-                        );
-                      }).toList(),
+                  children: commonTemplateVars(webhookTemplateVars).map((v) {
+                    return ActionChip(
+                      label: Text(
+                        '%${v.token}%',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.blue,
+                        ),
+                      ),
+                      backgroundColor: AppColors.blue.withValues(alpha: 0.08),
+                      side: BorderSide.none,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _insertTemplateVar('%${v.token}%'),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 6),
                 TextField(
