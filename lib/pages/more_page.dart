@@ -146,7 +146,7 @@ class MorePage extends StatelessWidget {
             _buildDivider(context),
             _buildNavTile(
               icon: Icons.thermostat,
-              iconColor: const Color(0xFFFF9500),
+              iconColor: AppColors.red,
               title: l10n.temperatureTitle,
               subtitle: l10n.temperaturePageDesc,
               onTap: onOpenTemperaturePush,
@@ -157,8 +157,8 @@ class MorePage extends StatelessWidget {
           _buildSectionHeader(l10n.filterRules, context),
           _buildGroup([
             _buildNavTile(
-              icon: Icons.apps,
-              iconColor: const Color(0xFFAF52DE),
+              icon: Icons.app_blocking,
+              iconColor: AppColors.cyan,
               title: l10n.appFilter,
               subtitle: _appFilterSubtitle(context),
               onTap: onOpenAppFilter,
