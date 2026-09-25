@@ -820,7 +820,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webhookUrlRequired => 'Please enter a Webhook URL first';
 
   @override
-  String get channelList => 'Channel List';
+  String get webhookChannelNewTitle => 'New webhook channel';
+
+  @override
+  String get noWebhookChannels => 'No webhook channels yet';
+
+  @override
+  String get channelUntitled => 'Untitled channel';
+
+  @override
+  String get saveFailedPrefix => 'Save failed: ';
+
+  @override
+  String get webhookErrUrlRequired => 'Save failed: a Webhook URL is required';
+
+  @override
+  String get webhookErrUrlInvalid =>
+      'Save failed: the Webhook URL must start with http(s)://';
+
+  @override
+  String get webhookErrSecretRequired =>
+      'Save failed: this platform requires a credential (signing secret or token) - requests would be rejected';
 
   @override
   String get addChannel => 'Add Channel';
@@ -857,21 +877,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webhookFormatLabel => 'Message Format';
-
-  @override
-  String webhookUrlInvalid(int n) {
-    return 'Save failed: row $n URL must start with http(s)://';
-  }
-
-  @override
-  String webhookUrlMissing(int n) {
-    return 'Save failed: row $n has no Webhook URL (the name and secret typed there would be discarded too)';
-  }
-
-  @override
-  String webhookSecretMissing(int n) {
-    return 'Save failed: row $n is missing the credential this platform requires (signing secret or token) — requests would be rejected';
-  }
 
   @override
   String get feishuMarkdownDowngradeHint =>
@@ -2650,9 +2655,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appChannelNewTitle => 'New app channel';
 
   @override
-  String get appChannelUntitled => 'Untitled channel';
-
-  @override
   String get noAppChannels => 'No app channels yet';
 
   @override
@@ -2716,9 +2718,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appChannelSaveOk => 'App channels saved and synced';
-
-  @override
-  String get appChannelSaveFailed => 'Save failed: ';
 
   @override
   String get channelStateEnabled => 'Enabled';

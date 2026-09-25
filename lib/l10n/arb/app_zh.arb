@@ -377,7 +377,13 @@
   "availableVars": "可用变量：%appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%",
   "webhookSettingsTitle": "Webhook 推送通道",
   "webhookUrlRequired": "请先输入 Webhook URL",
-  "channelList": "通道列表",
+  "webhookChannelNewTitle": "新增 Webhook 通道",
+  "noWebhookChannels": "暂无 Webhook 通道",
+  "channelUntitled": "未命名通道",
+  "saveFailedPrefix": "保存失败：",
+  "webhookErrUrlRequired": "保存失败：Webhook 地址不能为空",
+  "webhookErrUrlInvalid": "保存失败：Webhook 地址必须以 http(s):// 开头",
+  "webhookErrSecretRequired": "保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺了会被服务端直接拒收",
   "addChannel": "添加通道",
   "webhookDesc1": "支持同时配置多个 Webhook 通道，每个通道独立开关",
   "webhookDesc2": "自动识别企业微信、钉钉、飞书等平台格式",
@@ -396,30 +402,6 @@
   "webhookSigned": "已签名",
   "webhookTemplateLabel": "推送模板（可选）",
   "webhookFormatLabel": "消息格式",
-  "webhookUrlInvalid": "保存失败：第 {n} 行的 URL 必须是 http(s):// 开头",
-  "@webhookUrlInvalid": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
-  "webhookUrlMissing": "保存失败：第 {n} 行没填 Webhook 地址（这一行填过的名字与密钥会一起被丢掉）",
-  "@webhookUrlMissing": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
-  "webhookSecretMissing": "保存失败：第 {n} 行缺这个平台必需的凭据（签名密钥或 Token），缺了会被服务端直接拒收",
-  "@webhookSecretMissing": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "feishuMarkdownDowngradeHint": "飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号原样显示）。建议使用 text 格式。",
   "webhookTemplateHint": "留空则使用预置模板；支持变量：",
   "webhookTemplateInsertVar": "插入变量",
@@ -1278,7 +1260,6 @@
   },
   "appChannelTitle": "自建应用通道",
   "appChannelNewTitle": "新增自建应用通道",
-  "appChannelUntitled": "未命名通道",
   "noAppChannels": "暂无自建应用通道",
   "appChannelPageDesc": "自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。",
   "appChannelConfigured": "已配置 {n} 个 · 启用 {m} 个",
@@ -1314,7 +1295,6 @@
   "appChannelDeleteHint": "删除后需点右上角保存生效。",
   "appChannelTestFailed": "测试失败：",
   "appChannelSaveOk": "自建应用通道已保存并同步",
-  "appChannelSaveFailed": "保存失败：",
   "channelStateEnabled": "已启用",
   "channelStateDisabled": "已停用",
   "appChannelErrNameRequired": "保存失败：通道名称不能为空",

@@ -216,14 +216,19 @@ void main() {
   });
 
   group('能力位驱动显隐（页面不得再按平台分支）', () {
-    test('webhook 设置页没有平台枚举分支与凭据黑名单', () {
+    test('webhook 两页都没有平台枚举分支与凭据黑名单', () {
       final page = stripComments(
         File('$root/lib/pages/webhook_settings_page.dart').readAsStringSync(),
       );
       final item = stripComments(
         File('$root/lib/pages/webhook_settings_item.dart').readAsStringSync(),
       );
-      for (final src in [page, item]) {
+      final list = stripComments(
+        File(
+          '$root/lib/pages/webhook_channel_list_page.dart',
+        ).readAsStringSync(),
+      );
+      for (final src in [page, item, list]) {
         expect(
           src,
           isNot(contains('case WebhookChannelType.')),
@@ -237,12 +242,12 @@ void main() {
       }
       expect(
         page,
-        contains('_descriptorFor(index)?.usesSecretField'),
-        reason: 'secret 输入框显隐必须走描述符',
+        contains('_descriptor?.usesSecretField'),
+        reason: 'secret 输入框显隐必须走描述符（单通道形态下没有 index，判据仍是同一个）',
       );
       expect(
         page,
-        contains('_descriptorFor(index)?.supportsCustomTemplate'),
+        contains('_descriptor?.supportsCustomTemplate'),
         reason: '格式/模板入口显隐必须走描述符',
       );
     });

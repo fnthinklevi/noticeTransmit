@@ -290,20 +290,27 @@ void main() {
       );
     });
 
-    test('健康徽标按并行 id 列表取，不按下标读构造期输入', () {
-      final item = stripComments(
-        File('$root/lib/pages/webhook_settings_item.dart').readAsStringSync(),
-      );
-      final badge = blockAfter(
-        item,
-        'Widget _buildHealthBadge(int index, BuildContext context) {',
-      );
-      expect(badge, contains('_channelIds[index]'));
-      expect(
-        badge,
-        isNot(contains('widget.webhookChannels[')),
-        reason: 'widget.webhookChannels 不随行增删收缩：新增行会 RangeError，删行会串台',
-      );
+    test('健康徽标只按本条通道的 id 取，构造期快照整条链路已退场（T07-B）', () {
+      // 平铺页时代这份守卫钉的是"徽标要按并行 id 列表取，不能按 index 读
+      // widget.webhookChannels"。T07-B 之后更好的答案是：**根本没有那份快照** ——
+      // 构造函数只收一个 channelId，页面从服务里按 id 取那一条。
+      // 所以这里钉两件：按 id 取；以及不许再出现按构造期输入下标寻址的写法。
+      for (final rel in const [
+        'lib/pages/webhook_settings_page.dart',
+        'lib/pages/webhook_channel_list_page.dart',
+      ]) {
+        final src = stripComments(File('$root/$rel').readAsStringSync());
+        expect(
+          src,
+          contains("_health.of('webhook', id)"),
+          reason: '$rel 的徽标不再按 id 取 ⇒ 会退回"删一行其余行继承上一条状态"那一类缺陷',
+        );
+        expect(
+          src,
+          isNot(contains('webhookChannels')),
+          reason: '$rel 又拿整表快照了：它不随行增删收缩，新增行 RangeError、删行串台（探测结论同理）',
+        );
+      }
     });
 
     test('签名能力与提示文案只有一处判定', () {
@@ -319,10 +326,21 @@ void main() {
               '而 UI 实际只排除 6 个平台，且提示文案是硬编码中文（UI 走 l10n）',
         );
       }
-      final page = File(
-        '$root/lib/pages/webhook_settings_page.dart',
-      ).readAsStringSync();
-      expect(page, contains('bool _supportsSigning(int index)'));
+      final page = stripComments(
+        File('$root/lib/pages/webhook_settings_page.dart').readAsStringSync(),
+      );
+      expect(page, contains('bool get _supportsSigning'));
+      // 列表页只显示状态，不该另算一次"这条要不要密钥"
+      final list = stripComments(
+        File(
+          '$root/lib/pages/webhook_channel_list_page.dart',
+        ).readAsStringSync(),
+      );
+      expect(
+        list,
+        isNot(contains('_supportsSigning')),
+        reason: '判据长第二份，两页就会开始分叉',
+      );
     });
 
     test('应用通道类型标签必须有未知兜底，不许用否定分支当默认', () {

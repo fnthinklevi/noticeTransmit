@@ -23,7 +23,7 @@ import 'more_page.dart';
 import 'history_page.dart';
 import 'permission_settings_page.dart';
 import 'email_settings_page.dart';
-import 'webhook_settings_page.dart';
+import 'webhook_channel_list_page.dart';
 import 'app_filter_page.dart';
 import 'keywords_page.dart';
 import 'rule_list_page.dart';
@@ -124,7 +124,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           _themeService.setThemeMode(mode);
           setState(() {});
         },
-        onOpenWebhookSettings: _openWebhookSettingsPage,
+        onOpenWebhookSettings: _openWebhookChannelsPage,
         onOpenEmailSettings: _openEmailSettingsPage,
         onOpenAppChannels: _openAppChannelsSettingsPage,
         onShowDeviceNameDialog: _showDeviceNameDialog,

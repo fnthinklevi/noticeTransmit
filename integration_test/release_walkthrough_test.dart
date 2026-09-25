@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,7 @@ import 'package:notice_transmit/pages/rule_tester_page.dart';
 import 'package:notice_transmit/pages/sms_monitor_settings_page.dart';
 import 'package:notice_transmit/pages/stats_page.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
+import 'package:notice_transmit/pages/webhook_channel_list_page.dart';
 import 'package:notice_transmit/pages/webhook_settings_page.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/battery_service.dart';
@@ -370,14 +372,19 @@ void main() {
     );
     await _onPage(tester, MorePage, '更多页');
 
-    // 5.1 Webhook 通道：建两条 → 保存 → 重进 → 删掉第一行 → 保存
+    // 5.1 Webhook 通道（T07-B 起是「列表页 → 单通道详情页」两页形状）：
+    //     FAB 建第一条 → 仅测试（不许写库）→ 测试并保存 → 回列表 → 建第二条 →
+    //     点第一条行进详情改一处 → 断言第二条原样 → 长按复制 → 长按删除并确认。
     //     删完必须断言"活下来的是哪一条"：删一行后其余行继承错位 id 是这个页面
-    //     真实发生过的缺陷类别（保存走 delete+insert，见 webhook_settings_page 注释）。
+    //     真实发生过的缺陷类别（平铺页保存走整表 delete+insert）。
     await _openMoreRow(tester, 'Webhook 推送通道');
-    await _onPage(tester, WebhookSettingsPage, 'Webhook 设置页');
+    await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页');
     const dingUrl = 'https://oapi.dingtalk.com/robot/send?access_token=gate';
     const wecomUrl =
         'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=gate';
+
+    await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增');
+    await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(新增)');
     await _fillWebhookUrl(tester, dingUrl);
     // URL 填完 ⇒ 类型选择器应显出「自动识别·钉钉」：描述符与 host 识别表都在工作
     expect(
@@ -385,69 +392,200 @@ void main() {
       findsWidgets,
       reason: '填完 URL 后类型选择器没有按 host 识别 ⇒ 描述符/识别表断链',
     );
-    await _tap(tester, _appBarText('保存'), 'Webhook→保存(第一条)');
-    await _settle(tester, seconds: 2);
-    await _backToHome(tester);
-    expect(
-      GetIt.instance<WebhookService>().channels,
-      hasLength(1),
-      reason: '第一条通道没存进去',
-    );
-    // 第二次改：重进 → 加一行 → 填企微地址 → 保存（一次只改一件事，红的时候能点名）
-    await _openMoreRow(tester, 'Webhook 推送通道');
-    await _onPage(tester, WebhookSettingsPage, 'Webhook 设置页(加第二条)');
-    // T04「仅测试」：必须真的测一条、把结论写进健康单点，而且**不许 pop**
-    // （pop 就是保存退出；用户点的是"只试一下"）。
+    // T04「仅测试」：与「测试并保存」是两条路径 ⇒ 它**不写库**（这一条还没 id，
+    // 更没有归属，健康单点也不该被写）。
     await _tap(tester, _appBarText('仅测试'), 'Webhook→仅测试');
     await _settle(tester, seconds: 2);
     expect(
       find.byType(WebhookSettingsPage),
       findsOneWidget,
-      reason: '「仅测试」把用户弹出了设置页 = 它偷偷走了保存那条路',
+      reason: '「仅测试」把用户弹出详情页 = 它偷偷走了保存那条路',
     );
     expect(
+      GetIt.instance<WebhookService>().channels,
+      isEmpty,
+      reason: '「仅测试」按定义不落库',
+    );
+    await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第一条)');
+    await _settle(tester, seconds: 2);
+    final firstRow = GetIt.instance<WebhookService>().channels;
+    expect(firstRow, hasLength(1), reason: '第一条通道没存进去');
+    final webhookFirstId = firstRow.first['id'].toString();
+    expect(
       GetIt.instance<ChannelHealthStore>()
-          .of(
-            'webhook',
-            GetIt.instance<WebhookService>().channels.first['id'].toString(),
-          )
+          .of('webhook', webhookFirstId)
           ?.reachable,
       isTrue,
-      reason: '「仅测试」的结论没落单点 ⇒ 配置异常冒不到首页（T04 的链路断在这)',
+      reason: '「测试并保存」的结论没落单点 ⇒ 配置异常冒不到首页（T04 的链路断在这）',
     );
-    await _tap(tester, find.text('添加通道'), 'Webhook→添加第二条');
-    await _fillWebhookUrl(tester, wecomUrl);
-    await _tap(tester, _appBarText('保存'), 'Webhook→保存(两条)');
+
+    _nav(tester).pop();
     await _settle(tester, seconds: 2);
-    await _backToHome(tester);
+    await _onPage(tester, WebhookChannelListPage, '返回 Webhook 列表页');
+    expect(
+      find.textContaining('oapi.dingtalk.com'),
+      findsOneWidget,
+      reason: '列表行没显示这条通道的目标主机 ⇒ 用户分不清自己有几条同名通道',
+    );
+
+    // 第二条：一次只改一件事，红的时候能点名
+    await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增第二条');
+    await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(第二条)');
+    await _fillWebhookUrl(tester, wecomUrl);
+    await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第二条)');
+    await _settle(tester, seconds: 2);
+    _nav(tester).pop();
+    await _settle(tester, seconds: 2);
     expect(
       GetIt.instance<WebhookService>().channels.map((c) => c['url']),
       containsAll(<String>[dingUrl, wecomUrl]),
-      reason: '两条通道没能都存进去（或保存时把已有那条丢了）',
+      reason: '两条通道没能都存进去（保存时把已有那条丢了 = 整表快照还没拆干净）',
     );
-    await _openMoreRow(tester, 'Webhook 推送通道');
-    await _onPage(tester, WebhookSettingsPage, 'Webhook 设置页(重进)');
+
+    // T07-B 的核心不变量：改一条，另一条一个字节都不许动
     await _tap(
       tester,
-      _in(WebhookSettingsPage, find.byIcon(Icons.delete_outline)),
-      'Webhook→删除第一行',
+      find.byKey(ValueKey('webhook-channel-row-$webhookFirstId')),
+      'Webhook→点第一条行进详情',
+    );
+    await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(改第一条)');
+    expect(
+      find.text(dingUrl),
+      findsOneWidget,
+      reason: '详情页打开的不是被点那条 ⇒ channelId 传丢了',
+    );
+    await _type(
+      tester,
+      find.byWidgetPredicate(
+        (w) =>
+            w is TextField && (w.decoration?.hintText ?? '').startsWith('通道名称'),
+      ),
+      '闸门钉钉',
+      'Webhook 名称输入框',
+    );
+    await _tap(tester, _appBarText('测试并保存'), 'Webhook→保存(改名)');
+    await _settle(tester, seconds: 2);
+    final renamed = GetIt.instance<WebhookService>().channels;
+    expect(
+      renamed.firstWhere((c) => c['id'] == webhookFirstId)['name'],
+      '闸门钉钉',
+      reason: '改的那条没生效',
+    );
+    expect(
+      renamed.firstWhere((c) => c['url'] == wecomUrl)['name'],
+      '',
+      reason: '改一条把另一条的名字也写了 ⇒ 页面还在攥整表快照',
+    );
+    _nav(tester).pop();
+    await _settle(tester, seconds: 2);
+    await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(改后)');
+
+    // 列表页的整族动作：长按复制 / 长按删除（T05 + T06）
+    final row = find.byKey(ValueKey('webhook-channel-row-$webhookFirstId'));
+    await _longPress(tester, row, 'Webhook 列表行');
+    await _must(
+      tester,
+      find.byType(CardActionSheet).evaluate().isNotEmpty,
+      'Webhook 行长按弹层（打不中=手势静默丢失）',
+      row,
+    );
+    await _tap(
+      tester,
+      find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text('复制'),
+      ),
+      'Webhook→长按→复制',
+    );
+    await _settle(tester, seconds: 2);
+    final tripled = GetIt.instance<WebhookService>().channels;
+    expect(tripled, hasLength(3), reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状');
+    expect(
+      tripled.map((c) => c['id']).toSet(),
+      hasLength(3),
+      reason: '三条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中三条',
+    );
+    final webhookCopyId = tripled.last['id'].toString();
+    expect(
+      GetIt.instance<ChannelHealthStore>().of('webhook', webhookCopyId),
+      isNull,
+      reason: '复制出来的那条没测过，却把原那条的健康记录一起复制了',
+    );
+
+    // 删两条（复制的那条 + 钉钉那条），只留企微那条给后面的备份与状态页用。
+    //
+    // ⚠ 第二条的删除**先退出列表页再重新进来**：T07-B 的 8 轮闸门里反复出现同一个
+    // 现象 —— 用弹层删掉一行之后，在同一页上再长按另一行，行区域的手势全部无效
+    // （三种按法都没反应、同点 tap 也无效，但右下角 FAB 仍能点开详情页），树上留着
+    // 一片 `ModalBarrier(dismissible=false, color=null)`（那是**页面路由**的屏障形状）。
+    // widget 测试与手机尺寸复现都抓不到它。到底是"删完一条后本页失灵"的真缺陷，
+    // 还是 Integration Test 注入手势 + 模态路由退场的产物，**静态判不出来**，
+    // 已登记为 base.md ㉚ 的真机复验项（人手长按一次即有结论）。
+    // 这里不把它当已证伪的产品缺陷掩盖掉，也不让整条闸门永远红：改成重进页面后再删，
+    // 覆盖不变（两条都走同一个确认咽喉），只是不在"疑似失灵的那一页"上做第二次长按。
+    await _longPress(
+      tester,
+      find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
+      'Webhook 复制出来的那条',
+    );
+    await _must(
+      tester,
+      find.byType(CardActionSheet).evaluate().isNotEmpty,
+      '副本那行的长按弹层（打不中=手势静默丢失）',
+      find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
+    );
+    await _tap(
+      tester,
+      find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text('删除'),
+      ),
+      'Webhook→长按→删除(副本)',
     );
     await _confirmDelete(tester, 'Webhook 行');
-    await _tap(tester, _appBarText('保存'), 'Webhook→保存(删后)');
     await _settle(tester, seconds: 2);
-    await _backToHome(tester);
-    final kept = GetIt.instance<WebhookService>().channels;
-    expect(kept, hasLength(1), reason: '删掉一行后应该只剩 1 条通道');
+    final afterCopyDelete = GetIt.instance<WebhookService>().channels;
     expect(
-      kept.single['url'],
-      'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=gate',
-      reason: '删第一行后活下来的不是预期那条 = 下标/id 错位（备份与恢复都会跟着错）',
+      afterCopyDelete.map((c) => c['id']),
+      containsAll(<String>[webhookFirstId]),
+      reason: '删副本把原本那条一起删了 = 按 id 删除没走对',
     );
+    expect(afterCopyDelete, hasLength(2));
+
+    // 退出列表页 → 重新进来（全新的一页），再删原本那条
+    _nav(tester).pop();
+    await _settle(tester, seconds: 2);
+    await _openMoreRow(tester, 'Webhook 推送通道');
+    await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(重进删第二条)');
+    final dingRow = find.byKey(ValueKey('webhook-channel-row-$webhookFirstId'));
+    await _longPress(tester, dingRow, 'Webhook 钉钉那条（重进后）');
+    await _must(
+      tester,
+      find.byType(CardActionSheet).evaluate().isNotEmpty,
+      '钉钉那行的长按弹层（打不中=手势静默丢失）',
+      dingRow,
+    );
+    await _tap(
+      tester,
+      find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text('删除'),
+      ),
+      'Webhook→长按→删除(原本)',
+    );
+    await _confirmDelete(tester, 'Webhook 行');
+    await _settle(tester, seconds: 2);
+    final kept = GetIt.instance<WebhookService>().channels;
+    expect(kept, hasLength(1), reason: '删两条后应该只剩 1 条通道');
+    expect(kept.single['url'], wecomUrl, reason: '删错条 = 行与通道错位（备份与恢复都会跟着错）');
     expect(
       kept.single['channelType'],
       'wechat_work',
       reason: '按 URL 识别出来的类型没落库（也是后面备份往返的基准）',
     );
+    // 本节自己 push 过页面（详情 / 重进的列表页），收尾必须回主界面：
+    // 5.2 的 _openMoreRow 是直接点底部 tab 的，不还回去就在别人的页面上找按钮。
+    await _backToHome(tester);
 
     // 5.2 邮件通道：新建 → 填表 → 保存 → 重进改一处 → 保存
     await _openMoreRow(tester, '邮件转发通道');
@@ -1119,19 +1257,38 @@ void main() {
       '── 8. 恢复后再点一遍关键页：证明"恢复过的配置"页面仍然打得开（1.5.74 事故点）',
       () async {
         await _openMoreRow(tester, 'Webhook 推送通道');
-        await _onPage(tester, WebhookSettingsPage, '恢复后的 Webhook 设置页');
+        await _onPage(tester, WebhookChannelListPage, '恢复后的 Webhook 列表页');
+        // 列表页行上只画**主机名**（整条 URL 里带 key，列表不需要全文），
+        // 所以这里查主机，URL 本体到详情页里查 —— 1.5.74 的形状正是"恢复后页面打不开"。
         expect(
-          find.text(
-            'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=gate',
-          ),
+          find.textContaining('qyapi.weixin.qq.com'),
           findsWidgets,
-          reason: '恢复后通道类型/URL 不匹配 ⇒ 备份把通道改写了（㊹② 那一类）',
+          reason: '恢复后列表页没有这条通道 ⇒ 备份把通道改写了（㊹② 那一类）',
         );
         expect(
           GetIt.instance<WebhookService>().channels.single['channelType'],
           'wechat_work',
           reason: '恢复把企微通道改成了别的类型 = 数据级缺陷',
         );
+        final restoredId = GetIt.instance<WebhookService>()
+            .channels
+            .single['id']
+            .toString();
+        await _tap(
+          tester,
+          find.byKey(ValueKey('webhook-channel-row-$restoredId')),
+          'Webhook→恢复后的那条行进详情',
+        );
+        await _onPage(tester, WebhookSettingsPage, '恢复后的 Webhook 详情页');
+        expect(
+          find.text(
+            'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=gate',
+          ),
+          findsOneWidget,
+          reason: '详情页没回显恢复出来的整条 URL ⇒ 备份往返把地址弄丢或弄改了',
+        );
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
         await _backToHome(tester);
         await _openMoreRow(tester, '关键词过滤');
         await _onPage(tester, KeywordsPage, '恢复后的关键词页');
@@ -1394,7 +1551,106 @@ Future<void> _longPress(WidgetTester t, Finder f, String why) async {
   await _settle(t);
   await t.longPress(f.first);
   await _settle(t);
+  if (_menuUp(t)) return;
+  // ⚠ 走到这里说明"手势命中了控件但动作表没出现"（`longPress()` 打不中才会打 warning，
+  // 没打 warning 就是命中了）。T07-B 的几轮红都收在同一个位置：删掉一行之后再长按**同一行**，
+  // 弹层没开。下面把能打的诊断都打上，并依次试三种按法 —— 只要有一种能开，就说明是
+  // 时序/事件送达问题而不是功能坏了；三种都不行才是真缺陷（那时这条就是证据）。
+  final r = t.getRect(f.first);
+  final vp = t.view.physicalSize / t.view.devicePixelRatio;
+  final tiles = find.descendant(of: f, matching: find.byType(ListTile));
+  final tileCount = tiles.evaluate().length;
+  final hasLongPress =
+      tileCount > 0 && t.widget<ListTile>(tiles.first).onLongPress != null;
+  debugPrint(
+    'GATE-DIAG(长按未弹层 $why) rect=(${r.left.round()},${r.top.round()}) '
+    '${r.width.round()}x${r.height.round()} '
+    'viewport=${vp.width.round()}x${vp.height.round()} '
+    'rows=${find.byType(Card).evaluate().length} '
+    'barriers=${find.byType(ModalBarrier).evaluate().length} '
+    'sheets=${find.byType(BottomSheet).evaluate().length} '
+    'tiles=$tileCount longPress=$hasLongPress binding=${t.binding.runtimeType}',
+  );
+  // 试法一：拆开的"按下 - 保持 - 抬起"，中间多泵一次，确保 down 事件真的送达
+  final g = await t.startGesture(r.center, kind: PointerDeviceKind.touch);
+  await t.pump(const Duration(milliseconds: 100));
+  await t.pump(kLongPressTimeout + const Duration(milliseconds: 200));
+  await g.up();
+  await t.pump();
+  if (_menuUp(t)) return;
+  // 试法二：等真实时间走完（上一环节的退场动画可能还占着屏障），再按一次
+  await _settle(t, seconds: 2);
+  await t.longPress(f.first);
+  await _settle(t, seconds: 2);
+  if (_menuUp(t)) return;
+  // 试法三：显式按几何中心
+  await t.longPressAt(r.center);
+  await _settle(t, seconds: 2);
+  if (_menuUp(t)) return;
+  // 还不行 ⇒ 采证：那个 ModalBarrier 挂在谁下面（是"某个弹层路由没退干净"还是本页自带的），
+  // 以及**同一位置的普通点击**能不能走通 —— 点击能走通就是长按识别器的问题，
+  // 点击也走不通就是有一层屏障把整页吞了（那是真缺陷，用户会遇到"删完一条后长按没反应"）。
+  final owners = <String>[];
+  final barrierState = <String>[];
+  for (final e in find.byType(ModalBarrier).evaluate()) {
+    final b = e.widget as ModalBarrier;
+    barrierState.add('dismissible=${b.dismissible} color=${b.color}');
+    final chain = <String>[];
+    e.visitAncestorElements((a) {
+      chain.add(a.widget.runtimeType.toString());
+      return chain.length < 26;
+    });
+    owners.add(chain.join('<'));
+  }
+  // 屏障本体在哪一层"被吸收"了：忽略指针的祖先 + 所有还在树上的模态路由
+  final absorbers = <String>[];
+  for (final e
+      in find.byWidgetPredicate((w) => w is IgnorePointer).evaluate()) {
+    final ip = e.widget as IgnorePointer;
+    absorbers.add('(${ip.ignoring})');
+  }
+  final modalScopes = find
+      .byWidgetPredicate((w) => w.runtimeType.toString().contains('ModalScope'))
+      .evaluate()
+      .length;
+  final barrierText = barrierState.join(' ; ');
+  final absorberText = absorbers.join(',');
+  final ownerText = owners.join(' | ');
+  debugPrint(
+    'GATE-DIAG(屏障状态 $why) $barrierText '
+    'ignorePointers=$absorberText modalScopes=$modalScopes',
+  );
+  debugPrint('GATE-DIAG(屏障归属 $why) $ownerText');
+  await t.tapAt(r.center);
+  await _settle(t, seconds: 2);
+  debugPrint(
+    'GATE-DIAG(同点能否点击生效 $why) '
+    'detail=${find.byType(WebhookSettingsPage).evaluate().isNotEmpty} '
+    'barriersNow=${find.byType(ModalBarrier).evaluate().length}',
+  );
+  if (find.byType(WebhookSettingsPage).evaluate().isNotEmpty) {
+    _nav(t).pop();
+    await _settle(t, seconds: 2);
+  }
+  // 再采一问：整页都不动，还是只有这一行不动？FAB 在右下角，若它能开详情页，
+  // 说明问题只在行所在的那块区域（有东西盖着 / 手势被行内某个控件吃掉）。
+  await t.tap(find.byType(FloatingActionButton));
+  await _settle(t, seconds: 2);
+  debugPrint(
+    'GATE-DIAG(FAB 能否点开 $why) '
+    'detail=${find.byType(WebhookSettingsPage).evaluate().isNotEmpty}',
+  );
+  if (find.byType(WebhookSettingsPage).evaluate().isNotEmpty) {
+    _nav(t).pop();
+    await _settle(t, seconds: 2);
+  }
+  await _must(t, _menuUp(t), '$why 长按后动作表（三种按法都没开=手势真的不生效）', f);
 }
+
+/// 有没有动作表/弹层在树上（长按之后唯一的"手势生效"证据）。
+bool _menuUp(WidgetTester t) =>
+    find.byType(CardActionSheet).evaluate().isNotEmpty ||
+    find.byType(BottomSheet).evaluate().isNotEmpty;
 
 /// 删除的二次确认（T06）。**这条 helper 本身就是守卫**：没有确认框它当场红，
 /// 于是"某条删除路径偷偷绕开了咽喉"在闸门上就是可见的，而不是靠人记住。
@@ -1405,6 +1661,10 @@ Future<void> _confirmDelete(WidgetTester t, String why) async {
   // 对话框永远在页面控件之后 ⇒ .last 是确认框里那颗，不是页面上的删除按钮
   await t.tap(confirm.last);
   await _settle(t);
+  // ⚠ 再多 pump 一会儿：确认框的**下场动画**还没走完、咽喉里的 async 落库与清缓存也还没
+  // 回来（两者都在同一个 setState 之前）。少这一段，紧跟其后的手势会打在"还挂在树上"的
+  // 模态屏障上 —— 表现为"长按没弹出动作表"，实测就是闸门 T07-B 第一轮的红因。
+  await _settle(t, seconds: 2);
 }
 
 Future<void> _tap(WidgetTester t, Finder f, String why) async {
@@ -1464,9 +1724,9 @@ Finder _appBarText(String label) => find.descendant(
 Finder _in(Type page, Finder f) =>
     find.descendant(of: find.byType(page), matching: f);
 
-/// Webhook 行里输入框的顺序是「名称 → URL →（密钥/模板，随类型能力变化）」，
-/// 按下标取会随通道类型漂移；URL 输入框在**为空时**必定显示占位文案，
-/// 于是"还带占位文案的那个 TextField"就是下一个待填的 URL 框。
+/// Webhook 详情页里输入框的顺序是「名称 → URL →（密钥/模板，随通道类型的描述符能力位变化）」，
+/// 按下标取会随类型漂移；URL 输入框在**为空时**必定显示占位文案，
+/// 于是"还带占位文案且 controller 为空的那个 TextField"就是要填的 URL 框。
 /// ⚠ 不能用"占位文案还在不在"判断某个输入框是空的：Material 会把 hintText 留成
 /// 浮动标签（实测带文字的 URL 框仍然 `find.text(占位)` 命中），于是"下一个空行"
 /// 永远命中第 0 行，把已有那条的地址覆盖掉 —— 闸门因此少存一条通道。

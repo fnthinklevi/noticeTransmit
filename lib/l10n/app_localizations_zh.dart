@@ -792,7 +792,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookUrlRequired => '请先输入 Webhook URL';
 
   @override
-  String get channelList => '通道列表';
+  String get webhookChannelNewTitle => '新增 Webhook 通道';
+
+  @override
+  String get noWebhookChannels => '暂无 Webhook 通道';
+
+  @override
+  String get channelUntitled => '未命名通道';
+
+  @override
+  String get saveFailedPrefix => '保存失败：';
+
+  @override
+  String get webhookErrUrlRequired => '保存失败：Webhook 地址不能为空';
+
+  @override
+  String get webhookErrUrlInvalid => '保存失败：Webhook 地址必须以 http(s):// 开头';
+
+  @override
+  String get webhookErrSecretRequired =>
+      '保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺了会被服务端直接拒收';
 
   @override
   String get addChannel => '添加通道';
@@ -828,21 +847,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webhookFormatLabel => '消息格式';
-
-  @override
-  String webhookUrlInvalid(int n) {
-    return '保存失败：第 $n 行的 URL 必须是 http(s):// 开头';
-  }
-
-  @override
-  String webhookUrlMissing(int n) {
-    return '保存失败：第 $n 行没填 Webhook 地址（这一行填过的名字与密钥会一起被丢掉）';
-  }
-
-  @override
-  String webhookSecretMissing(int n) {
-    return '保存失败：第 $n 行缺这个平台必需的凭据（签名密钥或 Token），缺了会被服务端直接拒收';
-  }
 
   @override
   String get feishuMarkdownDowngradeHint =>
@@ -2546,9 +2550,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appChannelNewTitle => '新增自建应用通道';
 
   @override
-  String get appChannelUntitled => '未命名通道';
-
-  @override
   String get noAppChannels => '暂无自建应用通道';
 
   @override
@@ -2608,9 +2609,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appChannelSaveOk => '自建应用通道已保存并同步';
-
-  @override
-  String get appChannelSaveFailed => '保存失败：';
 
   @override
   String get channelStateEnabled => '已启用';

@@ -20,7 +20,8 @@ void main() {
       stripComments(File('$root/$rel').readAsStringSync());
 
   const chokes = {
-    'lib/pages/webhook_settings_page.dart': 'Future<void> _removeWebhookField(',
+    'lib/pages/webhook_channel_list_page.dart':
+        'Future<void> _confirmDeleteChannel(',
     'lib/pages/app_channel_list_page.dart':
         'Future<void> _confirmDeleteChannel(',
     'lib/pages/email_settings_page.dart': 'Future<void> _deleteChannel(',
@@ -60,7 +61,7 @@ void main() {
 
     test('真正改掉数据的那一句只出现在咽喉里', () {
       const mutators = {
-        'lib/pages/webhook_settings_page.dart': '_webhookControllers.removeAt(',
+        'lib/pages/webhook_channel_list_page.dart': '_service.deleteChannel(',
         'lib/pages/app_channel_list_page.dart': '_service.deleteChannel(',
         'lib/pages/email_settings_page.dart': '_channels.removeAt(',
         'lib/pages/battery_page.dart': '_service.deleteRule(',
@@ -81,23 +82,28 @@ void main() {
       // T06 时删除发生在详情页内部，所以要在删除的那一刻按 id 前缀释放
       // （`_releaseControllers`）。T07 把删除挪到列表页、详情页只握一条通道，
       // 于是"整页控制器随页面 dispose"就是完备的了 —— 钉这一条而不是留一个空壳函数。
-      final src = read('lib/pages/app_channel_settings_page.dart');
-      final body = blockAfter(src, 'void dispose() {');
-      expect(
-        body,
-        contains('.dispose()'),
-        reason: '详情页的 `<id>.<字段>` 控制器必须随页面释放（TextEditingController 不释放会漏监听）',
-      );
-      expect(
-        src,
-        isNot(contains('_releaseControllers')),
-        reason: '按 id 前缀释放的补丁已经跟着"详情页删通道"一起退场，别再留第二份',
-      );
+      for (final rel in const [
+        'lib/pages/app_channel_settings_page.dart',
+        'lib/pages/webhook_settings_page.dart',
+      ]) {
+        final src = read(rel);
+        final body = blockAfter(src, 'void dispose() {');
+        expect(
+          body,
+          contains('.dispose()'),
+          reason: '$rel 的输入框控制器必须随页面释放（TextEditingController 不释放会漏监听）',
+        );
+        expect(
+          src,
+          isNot(contains('_releaseControllers')),
+          reason: '按 id 前缀释放的补丁已经跟着"详情页删通道"一起退场，别再留第二份',
+        );
+      }
     });
 
     test('删通道连带清健康记录（徽标不能靠 id 复用复活）', () {
       for (final entry in {
-        'lib/pages/webhook_settings_page.dart': 'webhook',
+        'lib/pages/webhook_channel_list_page.dart': 'webhook',
         'lib/pages/app_channel_list_page.dart': 'app',
         'lib/pages/email_settings_page.dart': 'email',
       }.entries) {

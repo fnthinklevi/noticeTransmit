@@ -25,6 +25,9 @@ class CardAction {
 
   /// 破坏性动作（删除）⇒ 文字与图标转红。真正的确认弹窗仍由调用方在 [onTap] 里弹
   /// （T06：所有删除一律二次确认）。
+  ///
+  /// ⚠ [onTap] 由 [CardActionSheet.show] 在**弹层完全下场之后**统一调用，不在弹层内调用：
+  /// 见 [show] 的说明。
   final bool danger;
 
   final VoidCallback? onTap;
@@ -37,27 +40,43 @@ class CardAction {
 /// 电量规则则是长按直接弹删除确认）。不抽出来就得抄五份。
 /// 弹层里只放动作，不放业务判断 —— 副标题文案、可用性都由调用方算好后传进来。
 ///
-/// 点击顺序固定为**先关弹层再执行**：动作里常有 `Navigator.push` 与 `setState`，
-/// 拿着 `sheetContext` 去 push 会在已销毁的 element 上操作。
+/// 点击顺序固定为**弹层真的退掉之后才执行动作**（见 [show] 里的 await）：
+/// 动作里几乎都会紧接着 push 一个确认框，如果不等弹层路由下场，两个模态路由的
+/// 退场/入场会交叉，弹层那片 `ModalBarrier` 会留在 Overlay 里 ⇒ **整页再也收不到手势**。
 class CardActionSheet extends StatelessWidget {
   const CardActionSheet({super.key, required this.actions, this.title});
 
   final List<CardAction> actions;
   final String? title;
 
-  /// 弹出动作表。`await` 到弹层关闭为止。
+  /// 弹出动作表，并在用户选完、**弹层完全下场之后**执行该动作。
+  ///
+  /// 调用方照旧只写 `await CardActionSheet.show(context, actions: [...])`：
+  /// 动作回调交给本组件统一调度，就是为了不让某一个调用点又在弹层还没退干净时
+  /// push 第二个模态（T07-B 的模拟器闸门第一次撞到这个：删完一条通道之后，
+  /// 列表页的长按与点击全部失效，三种按法都无反应，屏障归属探到的是
+  /// `IgnorePointer<…Overlay…>` 里的 ModalBarrier）。
   static Future<void> show(
     BuildContext context, {
     required List<CardAction> actions,
     String? title,
-  }) => showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppColors.cardBg(context),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => CardActionSheet(actions: actions, title: title),
-  );
+  }) async {
+    final picked = await showModalBottomSheet<CardAction>(
+      context: context,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => CardActionSheet(actions: actions, title: title),
+    );
+    // ⚠ 关键：动作**不在弹层自己的 onTap 里执行**，而是等这条模态路由 popped 之后。
+    // 以前是"先 pop 再立刻调动作"，而动作里几乎都会紧接着 push 一个确认框（T06 的
+    // 二次确认）⇒ 两层模态路由的退场/入场交叉，真机上会把退场中那片 `ModalBarrier`
+    // 留在 Overlay 里 ⇒ 整页再也收不到任何手势（T07-B 的模拟器闸门实测：删完一条通道后
+    // 列表页的长按与点击全部失效，三种按法都没反应，屏障归属探到的是
+    // `IgnorePointer<…Overlay…>` 里的 ModalBarrier）。
+    picked?.onTap?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,10 +147,8 @@ class CardActionSheet extends StatelessWidget {
                       ),
                 onTap: action.onTap == null
                     ? null
-                    : () {
-                        Navigator.pop(context);
-                        action.onTap!();
-                      },
+                    // 只负责"把选中的动作带出弹层"，执行点在 [show] 里（等弹层下场之后）。
+                    : () => Navigator.pop(context, action),
               ),
             const SizedBox(height: 8),
           ],

@@ -252,20 +252,14 @@ extension _MainPageActions on _MainPageState {
     }
   }
 
-  Future<void> _openWebhookSettingsPage() async {
-    final l10n = AppLocalizations.of(context);
-    final result = await _pushPage<List<Map<String, dynamic>>>(
-      WebhookSettingsPage(
-        webhookChannels: List<Map<String, dynamic>>.from(
-          _webhookService.channels,
-        ),
-      ),
-    );
-    if (result != null) {
-      await _webhookService.saveChannels(result);
-      setState(() {});
-      _showInfo(l10n.webhookConfigSaved);
-    }
+  /// Webhook 通道页（T07-B）：进**列表页**，那一页自己读写 `WebhookService`。
+  ///
+  /// 不再传构造期快照、也不再收"整表 pop 回来再 saveChannels"的结果 —— 那份快照正是
+  /// "只想改一条却把别的通道一起覆盖"的来源，而 pop 契约让设置页没法只写一条。
+  Future<void> _openWebhookChannelsPage() async {
+    await _pushPage(const WebhookChannelListPage());
+    if (!mounted) return;
+    setState(() {});
   }
 
   /// 打开自建应用通道设置页
@@ -308,7 +302,7 @@ extension _MainPageActions on _MainPageState {
         onOpenChannel: (family) async {
           switch (family) {
             case 'webhook':
-              await _openWebhookSettingsPage();
+              await _openWebhookChannelsPage();
             case 'email':
               await _openEmailSettingsPage();
             default:

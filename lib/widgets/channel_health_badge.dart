@@ -47,24 +47,37 @@ class ChannelHealthBadge extends StatelessWidget {
         : l10n.healthProbedHours(ago ~/ (60 * 1000));
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
+      // ⚠ 两段文字都必须是 Flexible：这条徽标挂在列表行副标题里，可用宽度只有 ~170dp，
+      // 而"连通 · 42 ms" + "0 分钟前探测"加起来更宽 —— 不换行也不收缩就会
+      // `RenderFlex overflowed by 43 pixels`（T07-B 模拟器闸门实测出来的，手机宽度才现形，
+      // 桌面尺寸的 widget 测试看不见）。flex: loose ⇒ 放得下时按自然宽度，放不下才缩略。
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 5),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: color,
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
             ),
           ),
           const SizedBox(width: 6),
-          Text(
-            agoText,
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.secondaryLabel(context),
+          Flexible(
+            child: Text(
+              agoText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.secondaryLabel(context),
+              ),
             ),
           ),
         ],

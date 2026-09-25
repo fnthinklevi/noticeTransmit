@@ -17,8 +17,7 @@ void main() {
   group('卡片长按菜单的接入面（T05）', () {
     const entries = {
       'lib/pages/app_channel_list_page.dart': '自建应用通道卡（T07 起在列表页）',
-      // webhook 的菜单在库文件里，卡片只是挂上长按手势（part 文件）
-      'lib/pages/webhook_settings_page.dart': 'webhook 通道行',
+      'lib/pages/webhook_channel_list_page.dart': 'webhook 通道行（T07-B 起也在列表页）',
       'lib/pages/email_settings_page.dart': '邮件通道卡',
       'lib/pages/battery_page.dart': '电量规则卡',
       'lib/pages/temperature_page.dart': '温度规则卡',
@@ -33,18 +32,23 @@ void main() {
           reason: '${entry.value} 不再挂长按菜单 ⇒ 该入口静默退出 T05 的覆盖面',
         );
       }
-      // 手势挂在卡片上（在 part 文件里），菜单本体在库文件里：两边都得在
-      expect(
-        read('lib/pages/webhook_settings_item.dart'),
-        contains('onLongPress: () => _showRowActions(index)'),
-        reason: 'webhook 行上没有长按手势了 ⇒ 菜单成了永远打不开的代码',
-      );
+      // 菜单本体在一页，手势必须真的挂在行上 —— 两族通道页都是列表行的 onLongPress
+      for (final rel in const [
+        'lib/pages/app_channel_list_page.dart',
+        'lib/pages/webhook_channel_list_page.dart',
+      ]) {
+        expect(
+          read(rel),
+          contains('onLongPress: () => _showChannelActions(index)'),
+          reason: '$rel 的行上没有长按手势了 ⇒ 菜单成了永远打不开的代码',
+        );
+      }
     });
 
     test('每一处「复制」都不带原条目的历史归属', () {
       const copiers = [
         'lib/pages/app_channel_list_page.dart',
-        'lib/pages/webhook_settings_page.dart',
+        'lib/pages/webhook_channel_list_page.dart',
         'lib/pages/email_settings_page.dart',
         'lib/pages/battery_page.dart',
         'lib/pages/temperature_page.dart',
@@ -62,8 +66,6 @@ void main() {
           offenders.add('$rel（找不到 _duplicate* 声明）');
           continue;
         }
-        // 两种合法写法：当场 mint 新 id；或**留空**让保存路径发号
-        // （webhook 是并行列表，id 由 `_saveAndBack` 生成）
         if (!_givesFreshIdentity(blockAfter(src, decl.group(0)!))) {
           offenders.add(rel);
         }
@@ -72,7 +74,7 @@ void main() {
         offenders,
         isEmpty,
         reason:
-            '复制出来的那条必须"没有过去"：当场换新 id，或不带 id 交给保存路径发号。'
+            '复制出来的那条必须"没有过去"：当场换新 id。'
             '沿用原 id 会让两条互相顶掉健康徽标与送达归属，'
             '规则页的 updateRule/deleteRule 还会一次改中两条：$offenders',
       );
@@ -87,10 +89,33 @@ void main() {
         reason: '弹层里的文字一律由调用方传 l10n —— 组件自己写中文就没有英文可言',
       );
     });
+
+    test('动作只能在弹层下场后执行，不得在弹层自己的 onTap 里调', () {
+      // T07-B 的形状决定：ListTile 只把选中的 CardAction 作为 pop 结果带出去，
+      // 由 show() await 到路由 popped 之后再调用。理由见组件里的注释（两层模态交叉退场
+      // 会在真机上留下吞手势的屏障）。这条守卫钉的就是"别再改回原地调"。
+      final code = read('lib/widgets/card_action_sheet.dart');
+      expect(
+        code,
+        contains('Navigator.pop(context, action)'),
+        reason: '弹层项必须把动作作为路由结果带出去，而不是自己执行',
+      );
+      expect(
+        code,
+        contains('picked?.onTap?.call()'),
+        reason: '执行点必须收在 show() 里（await 到 popped 之后）',
+      );
+      expect(
+        code,
+        isNot(contains('action.onTap!()')),
+        reason: '又在弹层内部原地执行动作 = 恢复成与确认框交叉退场的那个形状',
+      );
+    });
   });
 }
 
-/// 复制出来的那条必须"没有过去"：要么当场换新 id，要么根本不带 id（保存时再发号）。
+/// 复制出来的那条必须"没有过去"：当场换新 id。
+/// （T07-B 之前还有第二种合法写法"不带 id 交给保存路径发号"，那是 webhook 并行列表的
+/// 产物；页面不再握整表快照之后，那种写法等于"复制出来的那条没有 id"，直接写不进库。）
 bool _givesFreshIdentity(String block) =>
-    block.contains('DateTime.now().millisecondsSinceEpoch') ||
-    block.contains('add(null)');
+    block.contains('DateTime.now().millisecondsSinceEpoch');

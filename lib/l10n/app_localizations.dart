@@ -1574,11 +1574,47 @@ abstract class AppLocalizations {
   /// **'请先输入 Webhook URL'**
   String get webhookUrlRequired;
 
-  /// No description provided for @channelList.
+  /// No description provided for @webhookChannelNewTitle.
   ///
   /// In zh, this message translates to:
-  /// **'通道列表'**
-  String get channelList;
+  /// **'新增 Webhook 通道'**
+  String get webhookChannelNewTitle;
+
+  /// No description provided for @noWebhookChannels.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无 Webhook 通道'**
+  String get noWebhookChannels;
+
+  /// No description provided for @channelUntitled.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命名通道'**
+  String get channelUntitled;
+
+  /// No description provided for @saveFailedPrefix.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：'**
+  String get saveFailedPrefix;
+
+  /// No description provided for @webhookErrUrlRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：Webhook 地址不能为空'**
+  String get webhookErrUrlRequired;
+
+  /// No description provided for @webhookErrUrlInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：Webhook 地址必须以 http(s):// 开头'**
+  String get webhookErrUrlInvalid;
+
+  /// No description provided for @webhookErrSecretRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：该平台必需的凭据（签名密钥或 Token）不能为空，缺了会被服务端直接拒收'**
+  String get webhookErrSecretRequired;
 
   /// No description provided for @addChannel.
   ///
@@ -1645,24 +1681,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'消息格式'**
   String get webhookFormatLabel;
-
-  /// No description provided for @webhookUrlInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存失败：第 {n} 行的 URL 必须是 http(s):// 开头'**
-  String webhookUrlInvalid(int n);
-
-  /// No description provided for @webhookUrlMissing.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存失败：第 {n} 行没填 Webhook 地址（这一行填过的名字与密钥会一起被丢掉）'**
-  String webhookUrlMissing(int n);
-
-  /// No description provided for @webhookSecretMissing.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存失败：第 {n} 行缺这个平台必需的凭据（签名密钥或 Token），缺了会被服务端直接拒收'**
-  String webhookSecretMissing(int n);
 
   /// No description provided for @feishuMarkdownDowngradeHint.
   ///
@@ -4820,12 +4838,6 @@ abstract class AppLocalizations {
   /// **'新增自建应用通道'**
   String get appChannelNewTitle;
 
-  /// No description provided for @appChannelUntitled.
-  ///
-  /// In zh, this message translates to:
-  /// **'未命名通道'**
-  String get appChannelUntitled;
-
   /// No description provided for @noAppChannels.
   ///
   /// In zh, this message translates to:
@@ -4933,12 +4945,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'自建应用通道已保存并同步'**
   String get appChannelSaveOk;
-
-  /// No description provided for @appChannelSaveFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存失败：'**
-  String get appChannelSaveFailed;
 
   /// No description provided for @channelStateEnabled.
   ///

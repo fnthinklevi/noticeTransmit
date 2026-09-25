@@ -393,7 +393,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     if (name.isNotEmpty) return name;
     return widget.channelId == null
         ? l10n.appChannelNewTitle
-        : l10n.appChannelUntitled;
+        : l10n.channelUntitled;
   }
 
   /// 本页当前那条通道的 id（新增模式下是 initState 里就 mint 好的 `app_<时间戳>`）。
@@ -874,7 +874,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       // 停用的通道不测：它本来就不在推送路由里（与改造前的整表循环同一口径）。
       if (_channels.first['enabled'] == true) _testChannel(0, _channels.first);
     } catch (e) {
-      _showToast('${l10n.appChannelSaveFailed}$e', false);
+      _showToast('${l10n.saveFailedPrefix}$e', false);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

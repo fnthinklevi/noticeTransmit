@@ -45,7 +45,7 @@ void main() {
   }
 
   group('CardActionSheet', () {
-    testWidgets('列出标题与全部动作；点某项 = 先关弹层再执行那一项', (tester) async {
+    testWidgets('动作由 show() 在弹层 popped 之后统一执行，执行完树上不留弹层与屏障', (tester) async {
       final order = <String>[];
       await open(
         tester,
@@ -72,11 +72,26 @@ void main() {
       await tester.tap(find.text('复制它'));
       await tester.pumpAndSettle();
 
-      // 关闭必须在回调之前：回调里常是 Navigator.push / setState，
-      // 拿弹层的 context 去 push 会作用在已销毁的 element 上。
-      expect(order, ['copy']);
+      // ⚠ 这条钉的是 T07-B 真机教训的**可观测面**：动作必须等弹层路由 popped 之后再执行
+      // （以前是 ListTile 的 onTap 里"先 pop 再立刻执行"，动作里紧接着 push 的确认框会与
+      // 退场中的弹层交叉，真机上留下一片 ModalBarrier ⇒ 整页再也收不到手势）。
+      // 交叉本身只在模拟器闸门里看得见（见 `release_walkthrough_test.dart` 5.1 的长按删除
+      // 之后还要再长按），这里钉"执行完不留任何模态层"。
+      expect(order, ['copy'], reason: '选中的那一项必须被执行，且只执行它');
       expect(find.text('open'), findsOneWidget);
       expect(find.text('删了它'), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
+      // 用户视角的不变量（比"数屏障个数"准）：这套流程走完，页面必须**还能继续操作**。
+      // T07-B 的真机缺陷正是"删完一条通道后整页再也收不到手势"，而一片 ignoring 的
+      // ModalBarrier 留在树上本身是合法的（路由下场比组件摘除晚一帧），所以这里不数屏障，
+      // 直接再开一次弹层 —— 开不出来就是那个缺陷的形状。
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('复制它'),
+        findsOneWidget,
+        reason: '上一轮弹层没退干净 ⇒ 页面再也点不动（真机上表现为长按与点击全部失效）',
+      );
     });
 
     testWidgets('onTap 为 null ⇒ 置灰且点不动（不藏起来，用户要看得见功能存在）', (tester) async {

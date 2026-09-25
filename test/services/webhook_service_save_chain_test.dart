@@ -242,6 +242,118 @@ void main() {
     });
   });
 
+  group('单条写入咽喉（T07-B：列表页 → 单通道详情页）', () {
+    Future<void> seedTwo() async {
+      await service.saveChannels([
+        {
+          'id': 'wh-1',
+          'name': '钉钉群',
+          'url': 'https://oapi.dingtalk.com/robot/send?access_token=a',
+          'channelType': 'dingtalk',
+          'enabled': true,
+          'secret': 'sec-1',
+          'message_format': 'markdown',
+        },
+        {
+          'id': 'wh-2',
+          'name': 'ntfy',
+          'url': 'https://ntfy.sh/topic',
+          'channelType': 'ntfy',
+          'enabled': false,
+          'secret': null,
+          'message_format': 'default',
+        },
+      ]);
+      storage.savedBatches.clear();
+      channelCalls.clear();
+    }
+
+    test('saveChannel 按 id 就地替换，载荷没提到的键保留原值', () async {
+      await seedTwo();
+      // 详情页只改名称与 URL：不带 secret / message_format ⇒ 不得把签名密钥洗掉
+      await service.saveChannel({
+        'id': 'wh-1',
+        'name': '钉钉值班群',
+        'url': 'https://oapi.dingtalk.com/robot/send?access_token=b',
+      });
+
+      final updated = service.channels.firstWhere((c) => c['id'] == 'wh-1');
+      expect(updated['name'], '钉钉值班群');
+      expect(updated['url'], endsWith('access_token=b'));
+      expect(updated['secret'], 'sec-1');
+      expect(
+        updated['message_format'],
+        'markdown',
+        reason: '合并语义：漏传一个键就等于把凭据/格式写空（T02 那类缺陷的形状）',
+      );
+      expect(
+        service.channels.firstWhere((c) => c['id'] == 'wh-2')['name'],
+        'ntfy',
+        reason: '改一条不许顺手覆盖另一条 —— 这正是拆详情页要解决的问题',
+      );
+    });
+
+    test('saveChannel 不带 id ⇒ 追加为新通道', () async {
+      await seedTwo();
+      await service.saveChannel({
+        'id': '',
+        'name': '新通道',
+        'url': 'https://ntfy.sh/new',
+        'channelType': 'ntfy',
+        'enabled': true,
+      });
+      expect(service.channels, hasLength(3));
+      expect(service.channels.last['name'], '新通道');
+    });
+
+    test('deleteChannel：找到就删并同步原生，找不到返回 false 且不写库', () async {
+      await seedTwo();
+      expect(await service.deleteChannel('wh-1'), isTrue);
+      expect(service.channels.map((c) => c['id']), ['wh-2']);
+      expect(
+        channelCalls.map((c) => c.method),
+        containsAll(['setWebhookChannels', 'setWebhookUrls']),
+        reason: '删掉的是启用通道：不同步原生就等于后台还在往已删的 URL 推',
+      );
+
+      storage.savedBatches.clear();
+      channelCalls.clear();
+      expect(
+        await service.deleteChannel('不存在的 id'),
+        isFalse,
+        reason: '静默"删除成功"会让列表页连健康缓存一起清掉一条还在用的通道',
+      );
+      expect(storage.savedBatches, isEmpty);
+      expect(channelCalls, isEmpty);
+      expect(service.channels, hasLength(1));
+    });
+
+    test('setEnabled 只翻那一条，并跟着重算启用 URL 列表', () async {
+      await seedTwo();
+      await service.setEnabled('wh-2', true);
+
+      expect(
+        service.channels.firstWhere((c) => c['id'] == 'wh-2')['enabled'],
+        isTrue,
+      );
+      expect(
+        service.channels.firstWhere((c) => c['id'] == 'wh-1')['enabled'],
+        isTrue,
+        reason: '另一条原样',
+      );
+      final urls =
+          channelCalls
+                  .singleWhere((c) => c.method == 'setWebhookUrls')
+                  .arguments
+              as Map;
+      expect(
+        (urls['urls'] as List).cast<String>(),
+        contains('https://ntfy.sh/topic'),
+        reason: '后台只推启用通道：开关翻了的这条必须出现在新列表里',
+      );
+    });
+  });
+
   group('保存后内存列表的形状（㊹：备份恢复不得把 DB 形状留在内存）', () {
     test('调用方传来的形状被归一化后才留在 _channels', () async {
       // 备份恢复走的就是 saveChannels，而文件里的形状不受我们控制：

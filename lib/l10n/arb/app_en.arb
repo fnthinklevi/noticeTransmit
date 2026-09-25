@@ -377,7 +377,13 @@
   "availableVars": "Variables: %appName% %title% %content% %subText% %packageName% %deviceName% %time% %type% %date% %datetime%",
   "webhookSettingsTitle": "Webhook Channels",
   "webhookUrlRequired": "Please enter a Webhook URL first",
-  "channelList": "Channel List",
+  "webhookChannelNewTitle": "New webhook channel",
+  "noWebhookChannels": "No webhook channels yet",
+  "channelUntitled": "Untitled channel",
+  "saveFailedPrefix": "Save failed: ",
+  "webhookErrUrlRequired": "Save failed: a Webhook URL is required",
+  "webhookErrUrlInvalid": "Save failed: the Webhook URL must start with http(s)://",
+  "webhookErrSecretRequired": "Save failed: this platform requires a credential (signing secret or token) - requests would be rejected",
   "addChannel": "Add Channel",
   "webhookDesc1": "Support multiple Webhook channels with independent switches",
   "webhookDesc2": "Auto-detect WeCom, DingTalk, Feishu formats",
@@ -396,30 +402,6 @@
   "webhookSigned": "Signed",
   "webhookTemplateLabel": "Push Template (optional)",
   "webhookFormatLabel": "Message Format",
-  "webhookUrlInvalid": "Save failed: row {n} URL must start with http(s)://",
-  "@webhookUrlInvalid": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
-  "webhookUrlMissing": "Save failed: row {n} has no Webhook URL (the name and secret typed there would be discarded too)",
-  "@webhookUrlMissing": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
-  "webhookSecretMissing": "Save failed: row {n} is missing the credential this platform requires (signing secret or token) — requests would be rejected",
-  "@webhookSecretMissing": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "feishuMarkdownDowngradeHint": "Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.",
   "webhookTemplateHint": "Leave empty to use preset; supported variables:",
   "webhookTemplateInsertVar": "Insert Variable",
@@ -1278,7 +1260,6 @@
   },
   "appChannelTitle": "App Channels",
   "appChannelNewTitle": "New app channel",
-  "appChannelUntitled": "Untitled channel",
   "noAppChannels": "No app channels yet",
   "appChannelPageDesc": "App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.",
   "appChannelConfigured": "{n} configured · {m} enabled",
@@ -1314,7 +1295,6 @@
   "appChannelDeleteHint": "Deletions take effect after tapping Save.",
   "appChannelTestFailed": "Test failed: ",
   "appChannelSaveOk": "App channels saved and synced",
-  "appChannelSaveFailed": "Save failed: ",
   "channelStateEnabled": "Enabled",
   "channelStateDisabled": "Disabled",
   "appChannelErrNameRequired": "Save failed: channel name is required",
