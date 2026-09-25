@@ -54,6 +54,19 @@ void main() {
     'email': ['test/widgets/email_settings_page_test.dart'],
   };
 
+  /// 6e：`probe` 这个种类 = "这一族有非侵入探测，并且页面真的会自动跑它"。
+  /// 两半都必须查：只探测不接线，状态列照样永远空白。
+  const probePageByFamily = <String, String>{
+    'webhook': 'lib/pages/webhook_channel_list_page.dart',
+    'app': 'lib/pages/app_channel_list_page.dart',
+    'email': 'lib/pages/email_settings_page.dart',
+  };
+  const probeMethodByFamily = <String, String>{
+    'webhook': 'probeChannelHealth',
+    'app': 'probeAppChannelToken',
+    'email': 'verifySmtp',
+  };
+
   List<Map<String, dynamic>> rowsWithPayload(String prefix) => rows()
       .where((r) => (r['payloadEvidence'] as String).startsWith(prefix))
       .toList();
@@ -110,11 +123,25 @@ void main() {
         for (final token in [status, backup]) {
           for (final part in token.split('+')) {
             expect(
-              const {'widget', 'gate', 'jvm'},
+              const {'widget', 'gate', 'jvm', 'probe'},
               contains(part),
               reason: '$type 的证据指针 "$part" 不是已定义的种类',
             );
           }
+        }
+        if (status.contains('probe')) {
+          // 声称"这一族会自动探测"的两半都得查：探测方法必须存在，且页面真的调它。
+          // 只加指针不接线，状态列照样永远是"未知"，而矩阵看起来是满的。
+          final page = probePageByFamily[r['family']];
+          expect(page, isNotNull, reason: '${r["family"]} 族没有登记探测页面');
+          final src = stripComments(File('$root/$page').readAsStringSync());
+          expect(
+            src,
+            contains("'${probeMethodByFamily[r['family']]}'"),
+            reason:
+                '${r["type"]} 声称状态由非侵入探测自动刷新，但 $page 里没有那次调用 ⇒ '
+                '矩阵在谎报（6e 的接线被移走时会红在这里）',
+          );
         }
         if (status.contains('widget')) {
           expect(

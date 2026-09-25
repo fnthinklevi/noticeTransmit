@@ -139,6 +139,10 @@ void main() {
       'testAppChannel': {'success': true, 'message': '闸门通过'},
       'testEmail': {'success': true, 'message': '闸门通过'},
       'probeChannelHealth': {'reachable': true, 'latencyMs': 12},
+      // 6e 非侵入探测：应用族只换 token、邮件族只握手，都不投递。给"通"的桩，
+      // 让设备侧真走完「进页 → 探测 → 落健康单点 → 徽标刷新」那一段（缺桩=静默跳过）。
+      'probeAppChannelToken': {'reachable': true, 'latencyMs': 31, 'reason': ''},
+      'verifySmtp': {'reachable': true, 'latencyMs': 24, 'reason': ''},
       'requestPinAppWidget': true,
       'drainOfflineCache': <Map<String, dynamic>>[
         {

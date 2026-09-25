@@ -205,6 +205,21 @@ class ChannelConfigCodec {
     'role': normalizeRole(ui['role']),
   };
 
+  /// UI → 「测试 / 非侵入探测」载荷（`testAppChannel` 与 6e 的 `probeAppChannelToken` 共用一份）。
+  ///
+  /// ⚠ 与 [appToNative] **不是同一套键**：下发给 `ConfigManager` 的那份读 `type` / `base_url`
+  /// （与表列名同源），而这两个方法的原生入口读 `appType` / `baseUrl`（UI 口径）。
+  /// 两套键并存的风险是"探测说通、实发失败"这类分裂没人发现 ⇒ 原生实际读的键集合
+  /// 由 `channel_config_codec_test` 的跨语言守卫钉住（它去解析
+  /// `MainActivity.appChannelTarget` 里的 `configMap["…"]`），键名一漂移就红。
+  static Map<String, dynamic> appProbePayload(Map<String, dynamic> ui) => {
+    'appType': ui['appType'],
+    'name': ui['name'] ?? '',
+    'baseUrl': ui['baseUrl']?.toString() ?? '',
+    'secret': ui['secret'],
+    'config': ui['config'] ?? <String, dynamic>{},
+  };
+
   static Map<String, dynamic> _decodeOrEmpty(String raw) {
     try {
       final decoded = jsonDecode(raw);

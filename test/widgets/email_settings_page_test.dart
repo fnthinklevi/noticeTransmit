@@ -83,7 +83,18 @@ void main() {
   final calls = <String>[];
   var testSucceeds = true;
 
-  Future<void> open(WidgetTester tester, {int count = 1}) async {
+  /// `verifySmtp`（6e 非侵入探测）的答复；null = 原生没这个方法/缺桩
+  Map<String, Object?>? probeReply = {
+    'reachable': true,
+    'latencyMs': 21,
+    'reason': '',
+  };
+
+  Future<void> open(
+    WidgetTester tester, {
+    int count = 1,
+    List<Map<String, dynamic>>? channels,
+  }) async {
     tester.view.physicalSize = const Size(1200, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -92,7 +103,9 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh'),
-        home: EmailSettingsPage(emailChannels: uiChannels(count: count)),
+        home: EmailSettingsPage(
+          emailChannels: channels ?? uiChannels(count: count),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -109,6 +122,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     serveDescriptors = true;
     testSucceeds = true;
+    probeReply = {'reachable': true, 'latencyMs': 21, 'reason': ''};
     calls.clear();
     // ⚠ 两个原生通道都要桩（secure storage 缺桩会让 await 永远不返回）
     stubNativeChannels(
@@ -123,6 +137,7 @@ void main() {
             'message': testSucceeds ? '已送达' : '535 认证失败',
           };
         }
+        if (call.method == 'verifySmtp') return probeReply;
         return null;
       },
     );
@@ -425,6 +440,61 @@ void main() {
         store.rows[0]['password'],
         reason: '复制的意义就是不用再填一遍授权码',
       );
+    });
+  });
+
+  // 6e：邮件族此前**没有**自动健康度，因为它唯一的"测一下"会真寄一封测试邮件。
+  // 原生补上"只握手不投递"的 verifySmtp 之后才有资格自动跑，于是这里钉两件事：
+  // 会去探（否则这一族的状态列永远是空白），以及探的方式绝不寄信。
+  group('EmailSettingsPage – 进页自动刷新（6e 非侵入探测）', () {
+    testWidgets('凭据完整的启用通道进页握手一次，且不寄测试邮件', (tester) async {
+      probeReply = {
+        'reachable': false,
+        'latencyMs': 120,
+        'reason': 'SMTP 认证失败，请检查账号和授权码是否正确',
+      };
+      await open(tester);
+
+      expect(
+        calls,
+        contains('verifySmtp'),
+        reason: '6e 之后这一族也该有自动健康度：不探就永远说不出这条通道的状态',
+      );
+      expect(
+        calls,
+        isNot(contains('testEmail')),
+        reason: '进页面就寄测试邮件 = 每 6 小时给 oncall 邮箱添一封噪声信',
+      );
+      expect(
+        health.of('email', 'em-1')?.reachable,
+        isFalse,
+        reason: '探测结论不落健康单点 = 白探，首页与通道状态页还是看不见异常',
+      );
+    });
+
+    testWidgets('授权码没填的通道不探测（"还没填完"不是"配置坏了"）', (tester) async {
+      final rows = uiChannels();
+      rows.first['password'] = null;
+      await open(tester, channels: rows);
+
+      expect(
+        calls,
+        isNot(contains('verifySmtp')),
+        reason: '空凭据去握手必然失败，把那记成"不可达"会误导用户去改本来正确的服务器地址',
+      );
+      expect(health.of('email', 'em-1'), isNull);
+    });
+
+    testWidgets('原生没这个探测方法（老原生配新 App）⇒ 不写"不可达"，列表照常', (tester) async {
+      probeReply = null;
+      await open(tester);
+
+      expect(
+        health.of('email', 'em-1'),
+        isNull,
+        reason: '"这次没探到"与"这条通道坏了"是两件事，缺桩必须落在前者',
+      );
+      expect(find.text('值班邮箱'), findsOneWidget);
     });
   });
 }

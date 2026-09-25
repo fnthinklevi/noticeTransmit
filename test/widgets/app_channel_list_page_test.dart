@@ -32,6 +32,16 @@ void main() {
   late AppChannelService service;
   late ChannelHealthStore health;
 
+  /// 本页发出去的 MethodChannel 方法名（6e 的守卫要看"进页有没有真发消息"）
+  final calls = <MethodCall>[];
+
+  /// `probeAppChannelToken` 的答复（置为 null 时走"缺桩/老原生"分支）
+  Map<String, Object?>? probeReply = {
+    'reachable': true,
+    'latencyMs': 33,
+    'reason': '',
+  };
+
   Map<String, dynamic> row(String id, String appType, String name) => {
     'id': id,
     'name': name,
@@ -72,17 +82,21 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    calls.clear();
+    probeReply = {'reachable': true, 'latencyMs': 33, 'reason': ''};
     // loadChannels() 末尾会 setAppChannels 同步原生：widget 测试里若不给该通道装
     // mock handler，invokeMethod 永不返回，pumpAndSettle 会一直挂到 10 分钟超时。
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('com.fnthink.notice/notification'),
           (call) async {
+            calls.add(call);
             // FAB 的类型弹层内容来自原生描述符表；给 null 就等于"原生没返回"，
             // 弹层会是空的 ⇒ 用例会在自己的假前提下判红。
             if (call.method == 'getChannelDescriptors') {
               return descriptorCallResponse(call);
             }
+            if (call.method == 'probeAppChannelToken') return probeReply;
             return null;
           },
         );
@@ -239,7 +253,77 @@ void main() {
         isNull,
         reason: '记录留着，日后 id 复用（从旧备份恢复）时徽标会复活成上一条通道的状态',
       );
-      expect(health.of('app', 'b'), isNull, reason: '只清被删那条');
+      expect(
+        health.of('app', 'b'),
+        isNotNull,
+        reason:
+            '只清被删那条：6e 之后这条记录也可能是进页自动探出来的，'
+            '但删除动作绝不该连带抹掉邻居的结论',
+      );
+    });
+  });
+
+  // 6e：这一族此前**没有**自动健康度，理由很正当——唯一的"测一下"会真发一条消息。
+  // 原生补了只换 token 的非侵入探测之后才有资格自动跑，所以这里同时钉两件事：
+  // 会去探（否则状态列永远空白），以及探的方式绝不投递（否则就是每 6 小时骚扰一次群）。
+  group('AppChannelListPage – 进页自动刷新（6e 非侵入探测）', () {
+    testWidgets('启用的通道进页探一次，用的不是会真发消息的那个方法', (tester) async {
+      store.rows = [row('a', 'wecom_app', '企微A')];
+      await open(tester);
+
+      final probes = calls
+          .where((c) => c.method == 'probeAppChannelToken')
+          .toList();
+      expect(probes, hasLength(1), reason: '6e 之后这一族也该有自动健康度：进页不探就永远显示"未知"');
+      expect(
+        calls.map((c) => c.method),
+        isNot(contains('testAppChannel')),
+        reason: '进页面就调 testAppChannel = 每 6 小时给企业微信群发一条测试消息',
+      );
+      final args = probes.single.arguments! as Map;
+      expect(args['appType'], 'wecom_app');
+      expect(
+        args['secret'],
+        'sec-a',
+        reason: '探测必须带真实凭据（列表行里本来就有，别再脱敏一遍把探测弄成假失败）',
+      );
+      expect(
+        args['config'],
+        isA<Map>(),
+        reason: 'corpid/agentid 这类扩展参数都在 config 里：给 JSON 字符串原生读不出',
+      );
+      expect(
+        health.of('app', 'a')?.reachable,
+        isTrue,
+        reason: '结论不落健康单点 = 白探，首页与通道状态页还是说不出状态',
+      );
+    });
+
+    testWidgets('停用的通道不产生对外请求', (tester) async {
+      store.rows = [
+        {...row('a', 'wecom_app', '企微A'), 'enabled': 0},
+      ];
+      await open(tester);
+
+      expect(
+        calls.map((c) => c.method),
+        isNot(contains('probeAppChannelToken')),
+        reason: '它本来就不在推送路由里，探它只会白白消耗厂商的 gettoken 频控',
+      );
+      expect(health.of('app', 'a'), isNull);
+    });
+
+    testWidgets('原生没这个探测方法（老原生配新 App）⇒ 不写"不可达"，页面照常', (tester) async {
+      probeReply = null;
+      store.rows = [row('a', 'wecom_app', '企微A')];
+      await open(tester);
+
+      expect(
+        health.of('app', 'a'),
+        isNull,
+        reason: '"这次没探到"与"这条通道坏了"是两件事；缺桩/版本错配必须落在前者',
+      );
+      expect(find.text('企微A'), findsOneWidget);
     });
   });
 }

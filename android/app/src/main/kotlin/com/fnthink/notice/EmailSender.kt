@@ -176,7 +176,37 @@ object EmailSender {
         }
     }
 
-    private fun sendEmail(config: EmailConfig, subject: String, body: String) {
+    /**
+     * 6e 非侵入探测：**只握手 + 认证，不投递任何邮件**。
+     *
+     * 为什么要有第三条路：`sendTestEmail` 会真的发出一封信 —— 用户只是想确认
+     * "这组授权码对不对"，不该给收件人造成一封测试信；正因如此，邮件页此前
+     * **没有任何自动化手段**能刷新通道状态（只能靠人点「测试」）。
+     * ⚠ 与 webhook 侧的 `probeChannelHealth` 不同，这条**会真的走到厂商服务器并认证**，
+     * 所以调用方必须只在"用户进页面 + 缓存超过 staleness"或用户主动点测试时触发，
+     * 不得做成轮询（QQ/163 对连续认证失败有临时封禁）。
+     */
+    fun verifyConnection(config: EmailConfig): Pair<Boolean, String> {
+        return try {
+            val transport = sessionFor(config).getTransport("smtp")
+            try {
+                transport.connect(config.smtpHost, config.smtpPort, config.username, config.password)
+            } finally {
+                runCatching { transport.close() }
+            }
+            Pair(true, "SMTP 握手与认证通过（未发送邮件）")
+        } catch (e: Exception) {
+            val msg = classifyError(e)
+            Log.e(TAG, "SMTP 探测失败: $msg", e)
+            Pair(false, msg)
+        }
+    }
+
+    /**
+     * 邮件会话（props + 认证器）的**唯一构造点**：实发、测试、非侵入探测三条路
+     * 必须用同一份 SSL/STARTTLS 口径，否则"探测说通、实发不通"这类分裂无法避免。
+     */
+    internal fun sessionFor(config: EmailConfig): Session {
         val props = Properties().apply {
             put("mail.smtp.host", config.smtpHost)
             put("mail.smtp.port", config.smtpPort.toString())
@@ -195,11 +225,15 @@ object EmailSender {
             put("mail.smtp.writetimeout", "15000")
         }
 
-        val session = Session.getInstance(props, object : Authenticator() {
+        return Session.getInstance(props, object : Authenticator() {
             override fun getPasswordAuthentication(): PasswordAuthentication {
                 return PasswordAuthentication(config.username, config.password)
             }
         })
+    }
+
+    private fun sendEmail(config: EmailConfig, subject: String, body: String) {
+        val session = sessionFor(config)
 
         val message = MimeMessage(session).apply {
             setFrom(InternetAddress(config.fromEmail))

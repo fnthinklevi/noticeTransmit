@@ -84,6 +84,17 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 val url = call.argument<String>("url") ?: ""
                 activity.probeChannelHealth(url, result)
             }
+            "probeAppChannelToken" -> {
+                // 6e 非侵入探测（自建应用族）：只换 token，**不发消息**。
+                // 与 testAppChannel 的区别就是这条边界 —— 后者会真发一条测试消息。
+                val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                activity.probeAppChannelToken(configMap, result)
+            }
+            "verifySmtp" -> {
+                // 6e 非侵入探测（邮件族）：SMTP 握手 + 认证，**不投递**。
+                val configMap = call.arguments as? Map<String, Any?> ?: emptyMap()
+                activity.verifySmtp(configMap, result)
+            }
             "getAppChannels" -> {
                 // 自建应用通道（应用通道体系，与 webhook 分离）
                 result.success(activity.getAppChannels())

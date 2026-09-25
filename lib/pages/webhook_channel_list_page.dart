@@ -7,7 +7,7 @@ import '../services/channel_config_codec.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
-import '../services/platform_channel.dart';
+import '../services/channel_probe_service.dart';
 import '../services/webhook_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
@@ -32,19 +32,18 @@ class WebhookChannelListPage extends StatefulWidget {
 }
 
 class _WebhookChannelListPageState extends State<WebhookChannelListPage> {
-  static const _channel = AppChannels.notification;
-
   late final WebhookService _service;
   late final ChannelHealthStore _health;
+  late final ChannelProbeService _prober;
   late final ChannelDescriptorService _descriptors;
   List<Map<String, dynamic>> _channels = [];
-  bool _probing = false;
 
   @override
   void initState() {
     super.initState();
     _service = GetIt.instance<WebhookService>();
     _health = GetIt.instance<ChannelHealthStore>();
+    _prober = GetIt.instance<ChannelProbeService>();
     _descriptors = GetIt.instance<ChannelDescriptorService>();
     // 类型标签与图标按描述符渲染；splash 那次没拉到时补取一次（load() 幂等）
     _descriptors.load().then((_) {
@@ -78,41 +77,26 @@ class _WebhookChannelListPageState extends State<WebhookChannelListPage> {
   /// ⚠ 读的是 `_channels`（服务里的实时列表），不是构造时传进来的快照：
   /// 平铺页时代这件事发生在 initState，用户在页面上删过一行之后，探测循环还在
   /// 按那份不收缩的旧列表跑 ⇒ 结论写到已删除的 id 上，还会把过期徽标算回单点。
-  Future<void> _probeStaleChannels() async {
-    if (_probing) return;
-    final now = DateTime.now();
-    final stale = _channels.where((c) {
-      if (c['enabled'] != true) return false;
-      final id = _idOf(c);
-      if (id.isEmpty) return false;
-      return ChannelHealthStore.needsProbe(_health.of('webhook', id), now: now);
-    }).toList();
-    if (stale.isEmpty) return;
-    _probing = true;
-    for (final c in stale) {
-      final id = _idOf(c);
-      final url = c['url']?.toString() ?? '';
-      if (url.isEmpty) continue;
-      final watch = Stopwatch()..start();
-      try {
-        final r = await _channel.invokeMethod('probeChannelHealth', {
-          'url': url,
-        });
-        await _health.record(
-          'webhook',
-          id,
-          reachable: r['reachable'] as bool? ?? false,
-          latencyMs:
-              (r['latencyMs'] as num?)?.toInt() ?? watch.elapsedMilliseconds,
-          httpCode: (r['httpCode'] as num?)?.toInt(),
-        );
-        if (mounted) setState(() {});
-      } catch (_) {
-        // 探测本身失败不写「不可达」：那会把徽标钉成红，比"这次没探到"更误导
-      }
-    }
-    _probing = false;
-  }
+  ///
+  /// 判据与写回都在 [ChannelProbeService]（三族共用），这里只负责"这条通道怎么探"：
+  /// URL 为空的通道**不给探测目标** —— 让它去探测会把徽标钉成"不可达"，
+  /// 而那其实是"配置没填完"（T04 的缺失字段标记才是这件事的正确出口）。
+  Future<void> _probeStaleChannels() => _prober.probeStale(
+    'webhook',
+    [
+      for (final c in _channels)
+        if ((c['url']?.toString() ?? '').isNotEmpty)
+          ChannelProbeTarget(
+            id: _idOf(c),
+            enabled: c['enabled'] == true,
+            method: 'probeChannelHealth',
+            args: {'url': c['url'].toString()},
+          ),
+    ],
+    onUpdated: () {
+      if (mounted) setState(() {});
+    },
+  );
 
   @override
   Widget build(BuildContext context) {

@@ -18,7 +18,8 @@ import 'package:flutter_test/flutter_test.dart';
 ///    被点到时才炸，常规回归测试（走 mock 通道）根本发现不了。
 ///    这是本文件存在的首要原因，不允许为通过而放宽。
 ///
-/// 2. **总数 == 91**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+/// 2. **总数 == 93**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+///    （6e 加了两个非侵入探测 `probeAppChannelToken` / `verifySmtp`：91 → 93。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -66,10 +67,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 91（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 93（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        91,
+        93,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -80,7 +81,7 @@ void main() {
     test('每个 handler 的方法数固定（按域分布守卫）', () {
       final dist = _distribution(native);
       expect(dist, {
-        'ConfigChannelHandler': 33,
+        'ConfigChannelHandler': 35,
         'PermissionChannelHandler': 23,
         'DeviceChannelHandler': 14,
         'FileChannelHandler': 12,
@@ -107,7 +108,7 @@ void main() {
         dart.length,
         greaterThanOrEqualTo(70),
         reason:
-            'Dart 侧只解析出 ${dart.length} 个方法名，远低于原生 91 中的实际调用面：'
+            'Dart 侧只解析出 ${dart.length} 个方法名，远低于原生 93 个里的实际调用面：'
             '要么 _dartChannelMethods 的正则退化了，要么调用写法又多了第五种',
       );
       // 三种书写形态各钉一枚代表：少一种 = 对应的解析分支已经不再命中。
@@ -122,6 +123,36 @@ void main() {
           dart,
           contains(probe.key),
           reason: '缺「${probe.value}」这一形态的样本 ⇒ 该形态以后新增方法会漏出守卫',
+        );
+      }
+    });
+
+    test('三个非侵入探测方法都有 Dart 侧调用点（6e 的动态方法名补钉）', () {
+      // 探测走 `ChannelProbeService`，方法名来自变量 ⇒ 上面那套字面量解析看不见它。
+      // 方向 2（原生有、Dart 不调）本文件整体不做断言，所以这里为这一族单独钉一次：
+      // 原生多出一扇没人走的门 = 探测白写，而通道状态列会一直说"未知"。
+      final dartFiles = Directory('$root/lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .toList();
+      for (final name in const [
+        'probeChannelHealth',
+        'probeAppChannelToken',
+        'verifySmtp',
+      ]) {
+        final hits = dartFiles
+            .where(
+              (f) => stripComments(f.readAsStringSync()).contains("'$name'"),
+            )
+            .map((f) => f.uri.pathSegments.last)
+            .toList();
+        expect(
+          hits,
+          isNotEmpty,
+          reason:
+              '$name 在 lib 里没有任何字面量调用点 ⇒ 原生那扇门白开了：'
+              '这一族的通道状态永远刷不出结论，而测试全绿',
         );
       }
     });
@@ -176,6 +207,11 @@ Map<String, List<String>> _nativeChannelMethods(String root) {
 ///    `invokeMethod<T>('m')`、`invokeMethod(\n  'm',\n)` 四种写法——项目中四种都在用。
 /// 2. 项目内的间接转发点 `_requestPermission('m')`（permission_service.dart 的
 ///    统一权限请求入口，方法名以参数传入，不直接出现在 invokeMethod 之后）。
+///
+/// 第三种写法是**方法名来自变量**（`ChannelProbeService` 按 family 选探测方法）：
+/// 这种调用点必须跳过 —— 窗口里的首个字面量会是**后面的**表达式
+/// （`r['reachable']` ⇒ 曾被当成方法名 `'reachable'` 而假红）。跳过不等于漏守：
+/// 变量取值的集合由下面那条「三个探测方法都得在 lib 里出现为字面量」钉住。
 Set<String> _dartChannelMethods(String root) {
   final files = Directory('$root/lib')
       .listSync(recursive: true)
@@ -197,7 +233,13 @@ Set<String> _dartChannelMethods(String root) {
         end > src.length ? src.length : end,
       );
       final lit = window.firstMatch(slice);
-      if (lit != null) methods.add(lit.group(1)!);
+      if (lit == null) continue;
+      // 字面量之前除泛型与标点之外还有标识符 ⇒ 方法名不是字面量（动态调用点）
+      final before = slice
+          .substring(0, lit.start)
+          .replaceAll(RegExp(r'<[^<>]*>'), '');
+      if (RegExp(r'[A-Za-z_$][\w$]*').hasMatch(before)) continue;
+      methods.add(lit.group(1)!);
     }
     for (final m in indirect.allMatches(src)) {
       methods.add(m.group(1)!);

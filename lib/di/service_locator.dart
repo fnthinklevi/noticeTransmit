@@ -13,6 +13,7 @@ import '../services/locale_service.dart';
 import '../services/app_channel_service.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_health_store.dart';
+import '../services/channel_probe_service.dart';
 import '../services/installed_apps_service.dart';
 import '../services/sms_service.dart';
 
@@ -41,4 +42,6 @@ void setupLocator() {
   getIt.registerLazySingleton<InstalledAppsService>(
     () => InstalledAppsService(),
   );
+  // 6e：三族「进页刷新通道状态」的非侵入探测调度（依赖上面的健康单点，注册顺序要紧）
+  getIt.registerLazySingleton<ChannelProbeService>(() => ChannelProbeService());
 }

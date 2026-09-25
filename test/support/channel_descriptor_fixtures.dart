@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/services/channel_descriptor_service.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
+import 'package:notice_transmit/services/channel_probe_service.dart';
 
 import 'source_guards.dart';
 
@@ -61,6 +62,11 @@ void registerChannelPageServices({GetIt? getIt}) {
   if (locator.isRegistered<ChannelDescriptorService>()) {
     locator.unregister<ChannelDescriptorService>();
   }
+  // 探测调度持健康单点的引用 ⇒ 必须**先**换掉 store 再换掉 prober，
+  // 否则 prober 还指着上一个测试的 store（徽标与断言各看一份，测试会以假前提判绿）。
+  if (locator.isRegistered<ChannelProbeService>()) {
+    locator.unregister<ChannelProbeService>();
+  }
   if (locator.isRegistered<ChannelHealthStore>()) {
     locator.unregister<ChannelHealthStore>();
   }
@@ -68,4 +74,5 @@ void registerChannelPageServices({GetIt? getIt}) {
     ChannelDescriptorService.new,
   );
   locator.registerLazySingleton<ChannelHealthStore>(ChannelHealthStore.new);
+  locator.registerLazySingleton<ChannelProbeService>(ChannelProbeService.new);
 }

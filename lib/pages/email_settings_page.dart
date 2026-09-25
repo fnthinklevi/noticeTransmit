@@ -7,6 +7,7 @@ import '../models/email_channel.dart';
 import '../services/active_channels.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_health_store.dart';
+import '../services/channel_probe_service.dart';
 import '../services/email_service.dart';
 import '../services/template_variables.dart';
 import '../theme/app_colors.dart';
@@ -92,9 +93,36 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   /// 重启后列表全变空白，而首页因为单点里有记录仍显示异常，两页互相打脸。
   final ChannelHealthStore _health = GetIt.instance<ChannelHealthStore>();
 
+  /// 6e：进页自动刷新健康度（走 SMTP 握手，不投递邮件）。与另两族共用调度单点。
+  final ChannelProbeService _prober = GetIt.instance<ChannelProbeService>();
+
   /// 测试进行中的通道 id（不是下标）：写操作现在都经过 await，
   /// 下标在等待期间会因为增删而错位。
   String? _testingId;
+
+  /// 6e：启用且**已填完凭据**的通道，超过 [ChannelHealthStore.staleness] 没有结论就后台探一次。
+  ///
+  /// 凭据不完整的通道**不给探测目标**：握手必然失败，把那记成"不可达"会把
+  /// "还没填完"糊弄成"配置坏了"（缺失字段有 T04 的标记负责，徽标不该替它说话）。
+  Future<void> _probeStaleChannels() => _prober.probeStale(
+    'email',
+    [
+      for (final c in _channels)
+        if (c.smtpHost.isNotEmpty &&
+            c.username.isNotEmpty &&
+            (c.password?.isNotEmpty ?? false))
+          ChannelProbeTarget(
+            id: c.id,
+            enabled: c.enabled,
+            method: 'verifySmtp',
+            // 与 testEmail 同一份载荷（模型自己序列化，含密码）：两条路必须读同一组凭据
+            args: c.toMap(includePassword: true),
+          ),
+    ],
+    onUpdated: () {
+      if (mounted) setState(() {});
+    },
+  );
 
   /// 列表里的"上次测试"标注：只在**确有结论**时显示（成功但已过期算 unknown ⇒
   /// 不显示，比拿很久以前的一次成功糊弄用户诚实）。
@@ -118,7 +146,10 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
         .toList();
     // 徽标的数据在 prefs 里：没 load 过就读不到（幂等，splash 已 load 时是空操作）
     _health.load().then((_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      // 拿到缓存之后才谈得上"哪些过期了"⇒ 探测必须排在 load 之后，否则会重复探
+      _probeStaleChannels();
     });
   }
 
@@ -209,6 +240,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     final channels = await _emailService.loadChannels();
     if (!mounted) return;
     setState(() => _channels = channels);
+    _probeStaleChannels();
   }
 
   Widget _buildChannelTile(EmailChannel channel) {

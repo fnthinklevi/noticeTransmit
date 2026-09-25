@@ -460,64 +460,128 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
+     * 从 MethodChannel 载荷还原「类型 + 运行时配置」。
+     * `testAppChannel`（真发一条测试消息）与 6e 的 `probeAppChannelToken`（只换 token）
+     * 必须还原出**同一个** cfg：两条路的凭据口径一旦分叉，探测说通而实发失败
+     * （或反之）就没有可比性。返回 null = 未知的 app_type。
+     */
+    private fun appChannelTarget(
+        configMap: Map<String, Any?>
+    ): Pair<AppChannelSpec, AppChannelConfig>? {
+        val appType = configMap["appType"]?.toString() ?: ""
+        val spec = AppChannelRegistry.spec(appType) ?: return null
+        val configObj = JSONObject()
+        val rawConfig = configMap["config"]
+        if (rawConfig is Map<*, *>) {
+            for ((k, v) in rawConfig) if (v != null) configObj.put(k.toString(), v)
+        }
+        val base = AppChannelTokenHelper.normalizeBase(
+            configMap["baseUrl"]?.toString() ?: "", spec.officialBase
+        )
+        val cfg = AppChannelConfig(
+            id = "test", name = "test", type = appType,
+            baseUrl = base, secret = configMap["secret"]?.toString() ?: "",
+            config = configObj, messageFormat = "default", enabled = true,
+        )
+        return spec to cfg
+    }
+
+    /**
+     * 6e 自建应用通道的**非侵入**健康探测：只走第一阶段（换 token），
+     * 不向消息端点发任何东西。这样"进页面自动刷新通道状态"才不需要
+     * 每次给全公司群发一条测试消息。
+     *
+     * ⚠ 故意**不查 `AppChannelTokenManager` 的缓存**：命中缓存的 token 只能证明
+     * 曾经配对成功过，证明不了这组凭据现在还有效（企微/飞书都会在后台改 Secret、
+     * 应用下架、IP 白名单变更）。代价是每次探测一个 gettoken 请求 —— 频控由
+     * Dart 侧的 staleness（6h）与"仅启用通道"两道门挡着，不做轮询。
+     */
+    internal fun probeAppChannelToken(
+        configMap: Map<String, Any?>,
+        result: MethodChannel.Result
+    ) {
+        activityScope.launch(Dispatchers.IO) {
+            val start = System.currentTimeMillis()
+            val target = appChannelTarget(configMap)
+            // 空串 = 探测通过；非空 = 失败原因（与 verifySmtp 同一口径）
+            val reason = if (target == null) {
+                "未知应用通道类型"
+            } else {
+                val (spec, cfg) = target
+                try {
+                    spec.fetchToken(cfg, cfg.baseUrl, okHttpClient)
+                    ""
+                } catch (e: AppChannelTokenManager.TokenFetchException) {
+                    e.message ?: "获取 token 失败"
+                } catch (e: Exception) {
+                    e.message ?: e.javaClass.simpleName
+                }
+            }
+            withContext(Dispatchers.Main) {
+                result.success(
+                    mapOf(
+                        "reachable" to reason.isEmpty(),
+                        "latencyMs" to (System.currentTimeMillis() - start).toInt(),
+                        "reason" to reason
+                    )
+                )
+            }
+        }
+    }
+
+    /**
      * 自建应用通道测试发送（两阶段：token → 消息端点）。
      * configMap：base_url/secret/config{...}/appType（wecom_app|feishu_app）
+     *
+     * ⚠ 结论回主线程再 success：`MethodChannel.Result` 不是线程安全的，从 IO 线程直接
+     * 回复会让这一次调用的结论**静默丢失**（Dart 侧一直等在 await 上，表现是"点了测试
+     * 没反应"）。原先四个出口各自 success、且都在 IO 线程上，现收敛成一个出口一次回复。
      */
     internal fun testAppChannel(configMap: Map<String, Any?>, result: MethodChannel.Result) {
         activityScope.launch(Dispatchers.IO) {
-            try {
-                val appType = configMap["appType"]?.toString() ?: ""
-                val spec = AppChannelRegistry.spec(appType)
-                if (spec == null) {
-                    result.success(mapOf("success" to false, "message" to "未知应用通道类型"))
-                    return@launch
-                }
-                val configObj = JSONObject()
-                val rawConfig = configMap["config"]
-                if (rawConfig is Map<*, *>) {
-                    for ((k, v) in rawConfig) if (v != null) configObj.put(k.toString(), v)
-                }
-                val base = AppChannelTokenHelper.normalizeBase(
-                    configMap["baseUrl"]?.toString() ?: "", spec.officialBase
-                )
-                val secret = configMap["secret"]?.toString() ?: ""
-                val cfg = AppChannelConfig(
-                    id = "test", name = "test", type = appType,
-                    baseUrl = base, secret = secret, config = configObj,
-                    messageFormat = "default", enabled = true,
-                )
-                val content = "这是一条测试消息，自建应用通道配置成功！" +
-                    "\n\n设备：${PrefsHelper.deviceName.ifEmpty { android.os.Build.MODEL }}"
-                val token = runBlocking {
-                    AppChannelTokenManager.getToken(
-                        appType,
-                        appType + "+" + secret,
-                        AppChannelTokenManager.TokenFetcher { spec.fetchToken(cfg, base, okHttpClient) },
-                    )
-                }
-                val (url, headers) = spec.sendTarget(cfg, base, token)
-                val payload = spec.buildPayload(cfg, content, false)
-                val request = Request.Builder()
-                    .url(url)
-                    .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
-                for ((k, v) in headers) request.addHeader(k, v)
-                okHttpClient.newCall(request.build()).execute().use { response ->
-                    val responseBody = response.body?.string() ?: ""
-                    // 响应按 host 解析：qyapi→errcode 语义、open.feishu.cn→code 语义
-                    val parseResult = WebhookResponseParser.parse(
-                        WebhookPayloadBuilder.detectType(url), response.code, responseBody
-                    )
-                    result.success(
-                        mapOf(
-                            "success" to (parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS),
-                            "message" to parseResult.message,
+            val outcome = try {
+                val target = appChannelTarget(configMap)
+                if (target == null) {
+                    false to "未知应用通道类型"
+                } else {
+                    val (spec, cfg) = target
+                    val base = cfg.baseUrl
+                    val content = "这是一条测试消息，自建应用通道配置成功！" +
+                        "\n\n设备：${PrefsHelper.deviceName.ifEmpty { android.os.Build.MODEL }}"
+                    val token = runBlocking {
+                        AppChannelTokenManager.getToken(
+                            cfg.type,
+                            cfg.type + "+" + cfg.secret,
+                            AppChannelTokenManager.TokenFetcher {
+                                spec.fetchToken(cfg, base, okHttpClient)
+                            },
                         )
-                    )
+                    }
+                    val (url, headers) = spec.sendTarget(cfg, base, token)
+                    val payload = spec.buildPayload(cfg, content, false)
+                    val request = Request.Builder()
+                        .url(url)
+                        .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                    for ((k, v) in headers) request.addHeader(k, v)
+                    okHttpClient.newCall(request.build()).execute().use { response ->
+                        val responseBody = response.body?.string() ?: ""
+                        // 响应按 host 解析：qyapi→errcode 语义、open.feishu.cn→code 语义
+                        val parseResult = WebhookResponseParser.parse(
+                            WebhookPayloadBuilder.detectType(url), response.code, responseBody
+                        )
+                        (parseResult.status == WebhookResponseParser.DeliveryStatus.SUCCESS) to
+                            parseResult.message
+                    }
                 }
             } catch (e: AppChannelTokenManager.TokenFetchException) {
-                result.success(mapOf("success" to false, "message" to (e.message ?: "获取 token 失败")))
+                false to (e.message ?: "获取 token 失败")
             } catch (e: Exception) {
-                result.success(mapOf("success" to false, "message" to "测试异常: ${e.message}"))
+                false to "测试异常: ${e.message}"
+            }
+            withContext(Dispatchers.Main) {
+                result.success(
+                    mapOf("success" to outcome.first, "message" to outcome.second)
+                )
             }
         }
     }
@@ -2193,23 +2257,46 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /** MethodChannel 载荷 → `EmailSender.EmailConfig`（测试与探测共用一份解析，键名漂移只此一处） */
+    private fun emailConfigOf(configMap: Map<String, Any?>): EmailSender.EmailConfig =
+        EmailSender.EmailConfig(
+            smtpHost = configMap["smtpHost"]?.toString() ?: "",
+            smtpPort = (configMap["smtpPort"] as? Number)?.toInt() ?: 465,
+            username = configMap["username"]?.toString() ?: "",
+            password = configMap["password"]?.toString() ?: "",
+            fromEmail = configMap["fromEmail"]?.toString() ?: "",
+            toEmails = (configMap["toEmail"]?.toString() ?: "")
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() },
+            useSSL = configMap["useSSL"] != false
+        )
+
+    /**
+     * 6e 邮件通道的**非侵入**健康探测：SMTP 握手 + 认证，不投递。
+     * 见 [EmailSender.verifyConnection] 的触发约束（不得轮询）。
+     */
+    internal fun verifySmtp(configMap: Map<String, Any?>, result: MethodChannel.Result) {
+        activityScope.launch(Dispatchers.IO) {
+            val config = emailConfigOf(configMap)
+            val start = System.currentTimeMillis()
+            val (ok, message) = EmailSender.verifyConnection(config)
+            withContext(Dispatchers.Main) {
+                result.success(
+                    mapOf(
+                        "reachable" to ok,
+                        "latencyMs" to (System.currentTimeMillis() - start).toInt(),
+                        "reason" to message
+                    )
+                )
+            }
+        }
+    }
+
     internal fun testEmail(configMap: Map<String, Any?>, result: MethodChannel.Result) {
         activityScope.launch(Dispatchers.IO) {
             try {
-                val toEmails = (configMap["toEmail"]?.toString() ?: "")
-                    .split(",")
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-
-                val config = EmailSender.EmailConfig(
-                    smtpHost = configMap["smtpHost"]?.toString() ?: "",
-                    smtpPort = (configMap["smtpPort"] as? Number)?.toInt() ?: 465,
-                    username = configMap["username"]?.toString() ?: "",
-                    password = configMap["password"]?.toString() ?: "",
-                    fromEmail = configMap["fromEmail"]?.toString() ?: "",
-                    toEmails = toEmails,
-                    useSSL = configMap["useSSL"] != false
-                )
+                val config = emailConfigOf(configMap)
 
                 val (success, message) = EmailSender.sendTestEmail(config)
                 withContext(Dispatchers.Main) {

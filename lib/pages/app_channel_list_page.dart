@@ -4,9 +4,11 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/app_channel_service.dart';
+import '../services/channel_config_codec.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
+import '../services/channel_probe_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_form_renderer.dart';
@@ -32,6 +34,7 @@ class AppChannelListPage extends StatefulWidget {
 class _AppChannelListPageState extends State<AppChannelListPage> {
   late final AppChannelService _service;
   late final ChannelHealthStore _health;
+  late final ChannelProbeService _prober;
   late final ChannelDescriptorService _descriptors;
   List<Map<String, dynamic>> _channels = [];
 
@@ -40,6 +43,7 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
     super.initState();
     _service = GetIt.instance<AppChannelService>();
     _health = GetIt.instance<ChannelHealthStore>();
+    _prober = GetIt.instance<ChannelProbeService>();
     _descriptors = GetIt.instance<ChannelDescriptorService>();
     // FAB 的类型弹层读 _descriptors.appChannels：splash 那次没拉到（原生未就绪 /
     // 老 App 配新原生）时这里补一次。load() 幂等，已就绪时是空操作。
@@ -56,7 +60,27 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
     setState(() => _channels = _service.channels);
     await _health.load();
     if (mounted) setState(() {});
+    _probeStaleChannels();
   }
+
+  /// 6e：应用通道的进页自动刷新。此前这一族**没有**自动探测，因为它只有
+  /// `testAppChannel` 这种"真发一条测试消息"的手段 ⇒ 自动跑等于每 6 小时骚扰一次
+  /// 企业微信/飞书群。现在走只换 token 的非侵入探测（同一份载荷口径见 codec）。
+  Future<void> _probeStaleChannels() => _prober.probeStale(
+    'app',
+    [
+      for (final c in _channels)
+        ChannelProbeTarget(
+          id: _idOf(c),
+          enabled: c['enabled'] == true,
+          method: 'probeAppChannelToken',
+          args: ChannelConfigCodec.appProbePayload(c),
+        ),
+    ],
+    onUpdated: () {
+      if (mounted) setState(() {});
+    },
+  );
 
   String _idOf(Map<String, dynamic> c) => c['id']?.toString() ?? '';
 

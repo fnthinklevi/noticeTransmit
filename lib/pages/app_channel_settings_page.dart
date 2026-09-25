@@ -749,25 +749,34 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     );
   }
 
+  /// UI 行 + 表单值 → 原生载荷。
+  ///
+  /// 「测试」与「保存」读的是同一批控制器值，区别只在要不要带 `message_format`/`enabled`
+  /// 这两个"落库才有"的键。测试那条分支走 [ChannelConfigCodec.appProbePayload]，
+  /// 与列表页的 6e 自动探测共用一份键集合（两处各写一份就会分叉：探测通≠实发通）。
   Map<String, dynamic> _channelPayload(int index, {bool forTest = false}) {
     final c = _channels[index];
     final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
-    return {
-      'appType': c['appType'],
+    // 控制器缺失时保留原值（防空值覆盖导致 baseUrl/secret 丢失）
+    final typed = <String, dynamic>{
       // name 必须进载荷：它此前只在 _saveAll 里做非空校验、从不回填 ⇒ 合并
       // `{..._channels[i], ...payload}` 时用的仍是 _addChannel 写下的 ''（新建）
       // 或加载时的旧名（改名），列表页/首页标签因此看不到名字。
       'name':
           _controllers['$id.name']?.text.trim() ??
           (c['name']?.toString() ?? ''),
-      // 控制器缺失时保留原值（防空值覆盖导致 baseUrl/secret 丢失）
       'baseUrl':
           _controllers['$id.baseUrl']?.text.trim() ??
           (c['baseUrl']?.toString() ?? ''),
       'secret': _controllers['$id.secret']?.text.trim() ?? c['secret'],
       'config': _configOf(c),
-      if (!forTest) 'message_format': c['message_format'] ?? 'default',
-      if (!forTest) 'enabled': c['enabled'] == true,
+    };
+    if (forTest) return ChannelConfigCodec.appProbePayload({...c, ...typed});
+    return {
+      ...typed,
+      'appType': c['appType'],
+      'message_format': c['message_format'] ?? 'default',
+      'enabled': c['enabled'] == true,
     };
   }
 
@@ -813,10 +822,10 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
 
   /// 记一次「测试」的结果到健康单点。
   ///
-  /// ⚠️ 这里**不做进入页面时的自动探测**（与 webhook 的 6h 后台刷新不同）：
-  /// `testAppChannel` 会真的向企业微信/飞书发一条测试消息，自动探测等于每 6 小时
-  /// 骚扰用户一次。要做自动健康度，得先加只换 access_token 的非侵入探测
-  /// （roadmap 第 3.1 步 / 本步 6e）。
+  /// 这一页**不做进入页面时的自动探测**：详情页是编辑现场，边打字边发探测请求既无意义
+  /// 又会打断输入。自动刷新在列表页（`app_channel_list_page._probeStaleChannels`），
+  /// 走的是 6e 加的只换 token 非侵入探测（`probeAppChannelToken`，不落消息）。
+  /// 两条路共用 `ChannelConfigCodec.appProbePayload`，所以"测试通过"与"徽标说通"是同一组凭据。
   Future<void> _recordHealth(
     String id, {
     required bool reachable,
