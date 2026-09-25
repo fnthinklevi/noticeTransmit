@@ -5114,6 +5114,18 @@ abstract class AppLocalizations {
   /// **'your@email.com'**
   String get emailHintAddressExample;
 
+  /// No description provided for @emailMetaUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道元数据未就绪，请稍后重试（本次操作没有改动任何配置）'**
+  String get emailMetaUnavailable;
+
+  /// No description provided for @testUnknownResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知结果'**
+  String get testUnknownResult;
+
   /// No description provided for @emailHintSubject.
   ///
   /// In zh, this message translates to:

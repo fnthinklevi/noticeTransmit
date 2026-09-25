@@ -5,6 +5,16 @@ import 'package:flutter/foundation.dart';
 /// 存储 SMTP 配置信息，密码存储在加密 SQLCipher 数据库中。
 @immutable
 class EmailChannel {
+  /// 端口与 SSL 的**兜底默认值**：只在读到缺键的旧行时使用。
+  ///
+  /// 表单真正预填的是原生描述符里 `smtpPort.defaultValue` / `useSSL.defaultValue`
+  /// （T08-C2）。这两个常量和它必须相等 —— 相等关系由
+  /// `test/widgets/email_settings_page_test.dart` 拿导出快照核对；
+  /// 此前 `465` 同时抄在页面三处、模型两处、`EmailManager` 一处，
+  /// 改一处就会变成"界面显示 A、发信用 B"。
+  static const int defaultSmtpPort = 465;
+  static const bool defaultUseSsl = true;
+
   final String id;
   final String name;
   final bool enabled;
@@ -33,7 +43,7 @@ class EmailChannel {
     this.password,
     required this.fromEmail,
     required this.toEmail,
-    this.useSSL = true,
+    this.useSSL = defaultUseSsl,
     this.subjectTemplate,
     this.bodyTemplate,
   });
@@ -45,7 +55,8 @@ class EmailChannel {
       enabled: map['enabled'] != false && map['enabled'] != 0,
       role: map['role']?.toString() ?? 'primary',
       smtpHost: map['smtpHost']?.toString() ?? '',
-      smtpPort: int.tryParse(map['smtpPort']?.toString() ?? '465') ?? 465,
+      smtpPort:
+          int.tryParse(map['smtpPort']?.toString() ?? '') ?? defaultSmtpPort,
       username: map['username']?.toString() ?? '',
       password: map['password']?.toString(),
       fromEmail: map['fromEmail']?.toString() ?? '',
@@ -64,7 +75,8 @@ class EmailChannel {
       enabled: row['enabled'] == 1 || row['enabled'] == true,
       role: row['role']?.toString() ?? 'primary',
       smtpHost: row['smtp_host']?.toString() ?? '',
-      smtpPort: int.tryParse(row['smtp_port']?.toString() ?? '465') ?? 465,
+      smtpPort:
+          int.tryParse(row['smtp_port']?.toString() ?? '') ?? defaultSmtpPort,
       username: row['username']?.toString() ?? '',
       password: row['password']?.toString(),
       fromEmail: row['from_email']?.toString() ?? '',
@@ -131,8 +143,6 @@ class EmailChannel {
       bodyTemplate: bodyTemplate ?? this.bodyTemplate,
     );
   }
-
-  String get defaultSubject => subjectTemplate ?? '🔔 %appName% — %title%';
 
   @override
   bool operator ==(Object other) =>

@@ -2812,6 +2812,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailHintAddressExample => 'your@email.com';
 
   @override
+  String get emailMetaUnavailable =>
+      'Channel metadata is not ready yet, try again later (no configuration was changed)';
+
+  @override
+  String get testUnknownResult => 'Unknown result';
+
+  @override
   String get emailHintSubject =>
       'Leave empty for the default subject (app name + title)';
 

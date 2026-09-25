@@ -47,6 +47,50 @@ class EmailService {
     await _syncToNative(channels);
   }
 
+  // ── 单条写入咽喉（T08-C2，与 webhook / 自建应用两族同形）────────────────
+  //
+  // 页面过去攥着整表快照做"只改一条"：任何一次列表错位都会覆盖别的通道，而邮件页
+  // 的编辑弹层每次新建 9 个 controller、按下标写回（`_channels[index] = channel`），
+  // 是同一类缺陷的另一个实例。底层仍是整表写（改 DB 会牵动迁移与备份格式），
+  // 但**页面拿不到整表**：它只交出正在编辑的那一条。
+  //
+  // ⚠ 三个方法都以**数据库当前内容**为准做合并，不读 `cachedChannels`：
+  // 内存缓存可能是空的（本进程从没 load 过），拿它当基线会把整表写成只剩这一条。
+
+  /// 按 id 就地替换；id 不在表里（新增）则追加。
+  Future<void> saveChannel(EmailChannel channel) async {
+    final current = await loadChannels();
+    final i = channel.id.isEmpty
+        ? -1
+        : current.indexWhere((c) => c.id == channel.id);
+    if (i >= 0) {
+      current[i] = channel;
+    } else {
+      current.add(channel);
+    }
+    await saveChannels(current);
+  }
+
+  /// 删除一条；**找不到就返回 false 且一个字都不写**（避免"删不掉却把表重写一遍"）。
+  Future<bool> deleteChannel(String id) async {
+    final current = await loadChannels();
+    final before = current.length;
+    current.removeWhere((c) => c.id == id);
+    if (current.length == before) return false;
+    await saveChannels(current);
+    return true;
+  }
+
+  /// 只翻启停：其余字段原样（页面不再为了改一个开关重建整表）。
+  Future<bool> setEnabled(String id, bool enabled) async {
+    final current = await loadChannels();
+    final i = current.indexWhere((c) => c.id == id);
+    if (i < 0) return false;
+    current[i] = current[i].copyWith(enabled: enabled);
+    await saveChannels(current);
+    return true;
+  }
+
   /// 从加密数据库加载邮件通道（含密码），若无数据则从旧存储迁移
   Future<List<EmailChannel>> loadChannels() async {
     var rows = await _db.getEmailChannels();

@@ -209,6 +209,7 @@ void main() {
               ],
             },
           ),
+          _emailDescriptor(),
         ],
         'messageFormats': <String>['default'],
       },
@@ -1357,6 +1358,62 @@ Map<String, Object?> _descriptor(
     ...extra,
   };
 }
+
+/// 邮件族的描述符桩（T08-C2：邮件页的字段清单、必填与默认值全部来自这里）。
+///
+/// ⚠ 内容与原生 `EmailChannelSpec` 的字段清单**必须一致**，由
+/// `bootstrap_order_test.dart` 的「集成桩的邮件字段 == 导出快照」守着。
+/// 不一致的表现不是红，而是闸门在编辑器里按位置索引点到错的输入框（字段错位）。
+Map<String, Object?> _emailDescriptor() => <String, Object?>{
+  'family': 'email',
+  'key': 'email',
+  'labelKey': 'emailChannel',
+  'iconKey': 'email',
+  'hosts': <String>[],
+  'capabilities': <String>[
+    'secretUsed',
+    'secretRequired',
+    'secretKeepsPrevious',
+    'customTemplate',
+  ],
+  'fields': <Map<String, Object?>>[
+    _emailField('smtpHost', 'smtpHost',
+        kind: 'host', required: true, hint: 'emailHintHostExample'),
+    _emailField('smtpPort', 'smtpPort',
+        kind: 'number', required: true,
+        defaultValue: '465', hint: 'emailHintPort'),
+    _emailField('useSSL', 'useSSL', kind: 'switch', defaultValue: 'true'),
+    _emailField('username', 'smtpAccount',
+        kind: 'email_address', required: true, hint: 'emailHintAddressExample'),
+    _emailField('password', 'smtpPassword',
+        kind: 'secret', required: true, hint: 'emailHintPassword'),
+    _emailField('fromEmail', 'fromEmail',
+        kind: 'email_address', required: true, hint: 'emailHintAddressExample'),
+    _emailField('toEmail', 'toEmail',
+        required: true, hint: 'emailHintRecipients'),
+    _emailField('subjectTemplate', 'subjectTemplate', hint: 'emailHintSubject'),
+    _emailField('bodyTemplate', 'bodyTemplate',
+        kind: 'multiline', hint: 'emailHintBody'),
+  ],
+};
+
+Map<String, Object?> _emailField(
+  String key,
+  String labelKey, {
+  String kind = 'text',
+  bool required = false,
+  String? defaultValue,
+  String? hint,
+}) =>
+    <String, Object?>{
+      'key': key,
+      'labelKey': labelKey,
+      'kind': kind,
+      'required': required,
+      'defaultValue': defaultValue,
+      'hintKey': hint,
+      'presets': <Map<String, Object?>>[],
+    };
 
 /// 假 FilePicker：把「选文件」变成返回测试自己写出来的那个备份文件路径。
 /// SAF 系统选单本身不可自动化，其余环节（读盘/解密/校验/恢复）全部走真实代码。

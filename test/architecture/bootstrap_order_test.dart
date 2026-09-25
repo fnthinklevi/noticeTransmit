@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/channel_descriptor_fixtures.dart';
 import '../support/source_guards.dart';
 
 /// 装配顺序与集成冒烟测试自身的不变式（v1.62 起）。
@@ -123,6 +124,34 @@ void main() {
         reason:
             '绕过应用 main() 时 WorkManager 平台侧未初始化，'
             'ArchiveWorker 注册任务会抛 MissingPlugin 类异常',
+      );
+    });
+
+    test('集成桩的邮件字段 == 导出快照（T08-C2）', () {
+      // 表单现在按描述符渲染，而闸门是按**位置**点输入框的：桩与原生表一旦分叉，
+      // 表现不是红，而是"在端口框里敲进了主机名"这类字段错位（比 14 条计数更难发现）。
+      final src = stripComments(
+        File(
+          '$root/integration_test/release_walkthrough_test.dart',
+        ).readAsStringSync(),
+      );
+      final stubbed = RegExp(
+        r"_emailField\(\s*'([A-Za-z0-9_]+)'",
+      ).allMatches(src).map((m) => m.group(1)!).toList();
+      final email = exportedDescriptors().firstWhere(
+        (d) => d['family'] == 'email',
+      );
+      final real = (email['fields'] as List<Object?>)
+          .cast<Map<Object?, Object?>>()
+          .map((f) => f['key'].toString())
+          .toList();
+      expect(stubbed, isNotEmpty, reason: '桩里没有邮件字段：守卫会空转');
+      expect(
+        stubbed,
+        real,
+        reason:
+            '闸门桩与原生表分叉（左=桩，右=快照）。改原生表后要同步这里，'
+            '或者把桩改成从快照生成 —— 但别让按位置点输入框的闸门悄悄点错。',
       );
     });
 

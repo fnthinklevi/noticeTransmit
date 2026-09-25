@@ -1344,6 +1344,8 @@
   "emailHintRecipients": "Separate multiple addresses with commas",
   "emailHintHostExample": "smtp.qq.com",
   "emailHintAddressExample": "your@email.com",
+  "emailMetaUnavailable": "Channel metadata is not ready yet, try again later (no configuration was changed)",
+  "testUnknownResult": "Unknown result",
   "emailHintSubject": "Leave empty for the default subject (app name + title)",
   "emailHintBody": "Leave empty for the default body (app / title / content / time / device)",
   "emailPresetSubjectDefault": "🔔 %appName% — %title%",

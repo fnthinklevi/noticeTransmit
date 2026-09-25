@@ -1344,6 +1344,8 @@
   "emailHintRecipients": "可多个，逗号分隔",
   "emailHintHostExample": "smtp.qq.com",
   "emailHintAddressExample": "your@email.com",
+  "emailMetaUnavailable": "通道元数据未就绪，请稍后重试（本次操作没有改动任何配置）",
+  "testUnknownResult": "未知结果",
   "emailHintSubject": "留空则用默认主题（应用名 + 标题）",
   "emailHintBody": "留空则用默认正文（应用/标题/内容/时间/设备）",
   "emailPresetSubjectDefault": "🔔 %appName% — %title%",

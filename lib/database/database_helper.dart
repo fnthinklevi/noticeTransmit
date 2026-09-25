@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
+
+import '../models/email_channel.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/channel_display.dart';
@@ -1166,7 +1168,7 @@ class DatabaseHelper
           // 缺省 **primary** = 老库/老备份的既有语义（本来就全量推给每条通道）。
           'role': c['role']?.toString() ?? 'primary',
           'smtp_host': c['smtpHost'] ?? '',
-          'smtp_port': c['smtpPort'] ?? 465,
+          'smtp_port': c['smtpPort'] ?? EmailChannel.defaultSmtpPort,
           'username': c['username'] ?? '',
           'password': c['password'] ?? '',
           'from_email': c['fromEmail'] ?? '',

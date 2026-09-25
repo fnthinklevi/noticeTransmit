@@ -2700,6 +2700,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emailHintAddressExample => 'your@email.com';
 
   @override
+  String get emailMetaUnavailable => '通道元数据未就绪，请稍后重试（本次操作没有改动任何配置）';
+
+  @override
+  String get testUnknownResult => '未知结果';
+
+  @override
   String get emailHintSubject => '留空则用默认主题（应用名 + 标题）';
 
   @override

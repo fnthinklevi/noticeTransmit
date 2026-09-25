@@ -63,7 +63,8 @@ void main() {
       const mutators = {
         'lib/pages/webhook_channel_list_page.dart': '_service.deleteChannel(',
         'lib/pages/app_channel_list_page.dart': '_service.deleteChannel(',
-        'lib/pages/email_settings_page.dart': '_channels.removeAt(',
+        // T08-C2：邮件页不再改本地列表，删除走服务层单条咽喉
+        'lib/pages/email_settings_page.dart': '_emailService.deleteChannel(',
         'lib/pages/battery_page.dart': '_service.deleteRule(',
         'lib/pages/temperature_page.dart': '_service.deleteRule(',
         'lib/pages/rule_list_page.dart': '_rules.removeWhere(',
@@ -85,6 +86,9 @@ void main() {
       for (final rel in const [
         'lib/pages/app_channel_settings_page.dart',
         'lib/pages/webhook_settings_page.dart',
+        // T08-C2：邮件编辑器的 controller 建在路由里（不是 State 字段），
+        // T06 那轮按 State 字段收口时正好漏掉这一页 —— 每次开合泄漏 9 个。
+        'lib/pages/email_settings_page.dart',
       ]) {
         final src = read(rel);
         final body = blockAfter(src, 'void dispose() {');
