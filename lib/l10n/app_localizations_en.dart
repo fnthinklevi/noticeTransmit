@@ -78,6 +78,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabMore => 'More';
 
   @override
+  String get notificationEngineTitle => 'Notification Engine';
+
+  @override
+  String get notificationEngineDesc =>
+      'Alerts the device raises about itself: battery and temperature. Whether an incoming notification gets forwarded is set under More → Filter & Rules.';
+
+  @override
+  String get engineBatteryEntry => 'Battery Alerts';
+
+  @override
+  String get engineTemperatureEntry => 'Temperature Alerts';
+
+  @override
   String get serviceRunning => 'Notification service is running, tap to stop';
 
   @override
@@ -2956,8 +2969,4 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textMenuShare => 'Share';
-
-  @override
-  String get temperaturePageDesc =>
-      'Battery / device / screen temperature threshold push';
 }

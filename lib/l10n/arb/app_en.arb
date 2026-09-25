@@ -22,6 +22,10 @@
   "tabHome": "Home",
   "tabNotificationEngine": "Alerts",
   "tabMore": "More",
+  "notificationEngineTitle": "Notification Engine",
+  "notificationEngineDesc": "Alerts the device raises about itself: battery and temperature. Whether an incoming notification gets forwarded is set under More → Filter & Rules.",
+  "engineBatteryEntry": "Battery Alerts",
+  "engineTemperatureEntry": "Temperature Alerts",
   "serviceRunning": "Notification service is running, tap to stop",
   "serviceStopped": "Notification service is stopped, tap to start",
   "running": "Running",
@@ -1357,6 +1361,5 @@
   "noRules": "No temperature rules yet. Tap + to add one",
   "disable": "Disable",
   "temperatureNotifyEnabled": "Temperature push notification",
-  "textMenuShare": "Share",
-  "temperaturePageDesc": "Battery / device / screen temperature threshold push"
+  "textMenuShare": "Share"
 }

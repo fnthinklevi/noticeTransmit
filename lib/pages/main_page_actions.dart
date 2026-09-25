@@ -18,39 +18,10 @@ extension _MainPageActions on _MainPageState {
     widget.onLocaleChanged?.call(localeService.currentLocale);
   }
 
-  Future<void> _saveBatteryNotifyEnabled(bool value) async {
-    await _batteryService.saveNotifyEnabled(value);
-    setState(() {});
-  }
-
-  Future<void> _addBatteryRule(Map<String, dynamic> rule) async {
-    await _batteryService.addRule(rule);
-    setState(() {});
-  }
-
-  Future<void> _deleteBatteryRule(String id) async {
-    await _batteryService.deleteRule(id);
-    setState(() {});
-  }
-
-  Future<void> _updateBatteryRule(
-    String id,
-    Map<String, dynamic> newRule,
-  ) async {
-    await _batteryService.updateRule(id, newRule);
-    setState(() {});
-  }
-
-  Future<void> _toggleBatteryRule(String id, bool enabled) async {
-    await _batteryService.toggleRule(id, enabled);
-    setState(() {});
-  }
-
-  Future<void> _refreshBatteryStatus() async {
-    await _batteryService.refreshStatus();
-    setState(() {});
-  }
-
+  // 电量/温度设置页不在这份接线里：两页都订阅各自的服务（T16 先例），
+  // 从「通知引擎」tab 直接 push。此前这里为 BatteryPage 逐个包一层
+  // "调服务 + 父页 setState"，而父页 rebuild 根本到不了被 push 出去的子页 ——
+  // 那六层包装等于没有效果的错觉代码。
   Future<void> _checkPermissions() async {
     await _permissionService.checkAllPermissions();
     setState(() {});
@@ -306,12 +277,6 @@ extension _MainPageActions on _MainPageState {
   /// 温度规则页：页面自己订阅 `TemperatureService` 取最新列表，
   /// 所以这里**不再传快照、也不再回调 setState** —— 那些回调从来没能刷新这个路由
   /// （T16 的病灶就是把 push 那一刻的 List 引用传进去，服务换新列表后页面还看着旧列表）。
-  Future<void> _openTemperaturePush() async {
-    await _pushPage(const TemperaturePage());
-    if (!mounted) return;
-    setState(() {});
-  }
-
   Future<void> _openEmailSettingsPage() async {
     final l10n = AppLocalizations.of(context);
     final emailService = GetIt.instance<EmailService>();

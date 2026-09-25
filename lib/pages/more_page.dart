@@ -45,7 +45,6 @@ class MorePage extends StatelessWidget {
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final VoidCallback onOpenWebhookSettings;
   final VoidCallback onOpenEmailSettings;
-  final VoidCallback onOpenTemperaturePush;
   final VoidCallback onOpenAppChannels;
   final VoidCallback onShowDeviceNameDialog;
   final VoidCallback onShowAboutDialog;
@@ -72,7 +71,6 @@ class MorePage extends StatelessWidget {
     required this.onOpenWebhookSettings,
     required this.onOpenEmailSettings,
     required this.onOpenAppChannels,
-    required this.onOpenTemperaturePush,
     required this.onShowDeviceNameDialog,
     required this.onShowAboutDialog,
     required this.onOpenAppFilter,
@@ -141,15 +139,6 @@ class MorePage extends StatelessWidget {
                       appEnabledCount,
                     ),
               onTap: onOpenAppChannels,
-              context: context,
-            ),
-            _buildDivider(context),
-            _buildNavTile(
-              icon: Icons.thermostat,
-              iconColor: AppColors.red,
-              title: l10n.temperatureTitle,
-              subtitle: l10n.temperaturePageDesc,
-              onTap: onOpenTemperaturePush,
               context: context,
             ),
           ], context),

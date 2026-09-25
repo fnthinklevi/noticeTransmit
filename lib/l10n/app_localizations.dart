@@ -236,6 +236,30 @@ abstract class AppLocalizations {
   /// **'更多'**
   String get tabMore;
 
+  /// No description provided for @notificationEngineTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知引擎'**
+  String get notificationEngineTitle;
+
+  /// No description provided for @notificationEngineDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备自己到了某个状态就提醒：电量、温度。已到达的通知要不要转，在「更多 → 筛选与规则」里配。'**
+  String get notificationEngineDesc;
+
+  /// No description provided for @engineBatteryEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'电量告警'**
+  String get engineBatteryEntry;
+
+  /// No description provided for @engineTemperatureEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度告警'**
+  String get engineTemperatureEntry;
+
   /// No description provided for @serviceRunning.
   ///
   /// In zh, this message translates to:
@@ -5365,12 +5389,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分享'**
   String get textMenuShare;
-
-  /// No description provided for @temperaturePageDesc.
-  ///
-  /// In zh, this message translates to:
-  /// **'电池 / 设备 / 屏幕温度阈值推送'**
-  String get temperaturePageDesc;
 }
 
 class _AppLocalizationsDelegate

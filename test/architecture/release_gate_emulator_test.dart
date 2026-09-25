@@ -229,7 +229,6 @@ void main() {
         'Webhook 推送通道',
         '邮件转发通道',
         '自建应用通道',
-        '温度推送',
         '应用筛选',
         '关键词过滤',
         '规则引擎',
@@ -250,7 +249,6 @@ void main() {
       // 三个 tab（T13 起：首页 / 通知引擎 / 更多）与两条 tab 内入口。
       // ⚠ tab 名一改这里必须同步：闸门是按文案点 tab 的，漏改的后果不是红，
       //   而是"找不到就跳过"——覆盖面静默缩水（本条存在的唯一理由）。
-      //   电量作为 tab 没了，但电量页仍在中间那一格（通知引擎），点它=点这一格。
       for (final entry in const ['权限设置', '短信监听', '推送历史', '首页', '通知引擎', '更多']) {
         expect(
           src.contains("'$entry'"),
@@ -258,6 +256,23 @@ void main() {
           reason: '主链路入口「$entry」不再被点击 ⇒ 覆盖面缩水',
         );
       }
+    });
+
+    test('通知引擎 tab 的两类告警入口都被点过（T15）', () {
+      // 电量/温度从"独立 tab / 更多页入口"挪进骨架页 ⇒ 点法也换了 helper。
+      // 只查字面量不够：文案可以只活在注释里。所以钉的是"确实经 _openEngineRow 点过"。
+      for (final entry in const ['电量告警', '温度告警']) {
+        expect(
+          RegExp("_openEngineRow\\(tester, '$entry'\\)").hasMatch(src),
+          isTrue,
+          reason: '「$entry」不再经 `_openEngineRow` 被点开 ⇒ 骨架页换了文案而闸门静默失配',
+        );
+      }
+      expect(
+        src.contains('find.byType(NotificationEnginePage)'),
+        isTrue,
+        reason: '入口没有"限定在骨架页里找" ⇒ 首页卡片上的同名字样会被误点',
+      );
     });
   });
 }

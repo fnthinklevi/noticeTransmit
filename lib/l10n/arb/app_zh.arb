@@ -22,6 +22,10 @@
   "tabHome": "首页",
   "tabNotificationEngine": "通知引擎",
   "tabMore": "更多",
+  "notificationEngineTitle": "通知引擎",
+  "notificationEngineDesc": "设备自己到了某个状态就提醒：电量、温度。已到达的通知要不要转，在「更多 → 筛选与规则」里配。",
+  "engineBatteryEntry": "电量告警",
+  "engineTemperatureEntry": "温度告警",
   "serviceRunning": "通知监听服务正在运行，点击可停止",
   "serviceStopped": "通知监听服务未启动，点击可启动",
   "running": "运行中",
@@ -1385,6 +1389,5 @@
   "noRules": "暂无温度规则，点右上角 + 添加",
   "disable": "停用",
   "temperatureNotifyEnabled": "温度推送通知",
-  "textMenuShare": "分享",
-  "temperaturePageDesc": "电池 / 设备 / 屏幕温度阈值推送"
+  "textMenuShare": "分享"
 }

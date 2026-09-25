@@ -21,6 +21,7 @@ import 'package:notice_transmit/pages/email_settings_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/pages/keywords_page.dart';
 import 'package:notice_transmit/pages/more_page.dart';
+import 'package:notice_transmit/pages/notification_engine_page.dart';
 import 'package:notice_transmit/pages/notification_page.dart';
 import 'package:notice_transmit/pages/permission_settings_page.dart';
 import 'package:notice_transmit/pages/rule_edit_page.dart';
@@ -503,11 +504,11 @@ void main() {
     );
     await _backToHome(tester);
 
-    // 5.4 温度推送：加一条规则 → 开关切一次
-    await _step(tester, gateFailures, '5.4 温度推送：加一条规则 → 开关切一次', () async {
+    // 5.4 温度告警（通知引擎 tab 的入口，T15 起不在「更多」）：加一条规则 → 开关切一次
+    await _step(tester, gateFailures, '5.4 温度告警：加一条规则 → 开关切一次', () async {
       await _backToHomeQuietly(tester);
-      await _openMoreRow(tester, '温度推送');
-      await _onPage(tester, TemperaturePage, '温度推送页');
+      await _openEngineRow(tester, '温度告警');
+      await _onPage(tester, TemperaturePage, '温度告警页');
       await _tap(
         tester,
         _in(TemperaturePage, find.byIcon(Icons.add)),
@@ -846,19 +847,10 @@ void main() {
       await _backToHomeQuietly(tester);
     });
 
-    // ── 6. 通知引擎 tab（T13 换了导航名，内容当前仍是电量页；骨架在 T15）：加规则 → 切开关
-    await _step(tester, gateFailures, '── 6. 通知引擎 tab：加规则 → 切开关', () async {
+    // ── 6. 通知引擎 tab → 电量告警：加规则 → 切开关（骨架页 T15 落地后，电量页是 push 出来的子页）
+    await _step(tester, gateFailures, '── 6. 通知引擎→电量告警：加规则 → 切开关', () async {
       await _backToHomeQuietly(tester);
-      // tab 文案限定在 NavigationBar 里找：BatteryPage 自己的标题也含"电量"，
-      // 不限定就会点到页面标题上（点了没反应，下一句 _onPage 才红，排查方向被带偏）。
-      await _tap(
-        tester,
-        find.descendant(
-          of: find.byType(NavigationBar),
-          matching: find.text('通知引擎'),
-        ),
-        '底部 tab→通知引擎',
-      );
+      await _openEngineRow(tester, '电量告警');
       await _onPage(tester, BatteryPage, '电量页');
       await _tap(tester, _in(BatteryPage, find.byIcon(Icons.add)), '电量→添加规则');
       await _settle(tester);
@@ -875,16 +867,9 @@ void main() {
         isTrue,
         reason: '电量规则没落库（标题→规则→prefs+原生同步链路）',
       );
-      await _tap(
-        tester,
-        find.descendant(
-          of: find.byType(NavigationBar),
-          matching: find.text('首页'),
-        ),
-        '底部 tab→回首页',
-      );
-      await _settle(tester, seconds: 1);
-
+      // 电量页现在是**push 出来的子页**（T15），NavigationBar 不在这条路由的子树里
+      // ⇒ 不能靠点 tab 回去（实测：pages=[BatteryPage] nav=false，"找不到首页"就是它）。
+      // 出页只能弹栈，交给下面的 _backToHomeQuietly（它同时要求回到根路由）。
       await _backToHomeQuietly(tester);
     });
 
@@ -1438,6 +1423,34 @@ Future<void> _openMoreRow(WidgetTester t, String label) async {
     fail('更多页里找不到入口「$label」（上一条 GATE-DIAG 的 texts 是页面上真实标签）');
   }
   await _tap(t, row, '更多页→$label');
+  await _settle(t);
+}
+
+/// 「通知引擎」tab 里的入口（T15 骨架页：电量告警 / 温度告警）。
+///
+/// 与 `_openMoreRow` 同一套规矩：IndexedStack 让这页永远在树上，不在屏幕上的时候
+/// 点不到 ⇒ 先限定在 NavigationBar 里点 tab，再把行限定在本页里找（首页卡片上也有
+/// "电量/温度"这类字样）。
+Future<void> _openEngineRow(WidgetTester t, String label) async {
+  await _tap(
+    t,
+    find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('通知引擎'),
+    ),
+    '底部 tab→通知引擎',
+  );
+  await _waitUntil(t, find.byType(NotificationEnginePage), '通知引擎页(打开 $label)');
+  final row = find.descendant(
+    of: find.byType(NotificationEnginePage),
+    matching: find.text(label),
+  );
+  await _scrollUntil(t, row);
+  if (row.evaluate().isEmpty) {
+    _diagnose(t, '通知引擎页缺入口 $label');
+    fail('通知引擎页里找不到入口「$label」（上一条 GATE-DIAG 的 texts 是页面上真实标签）');
+  }
+  await _tap(t, row, '通知引擎→$label');
   await _settle(t);
 }
 

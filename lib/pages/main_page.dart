@@ -18,8 +18,7 @@ import '../models/email_channel.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
 import 'channel_status_page.dart';
-import 'battery_page.dart';
-import 'temperature_page.dart';
+import 'notification_engine_page.dart';
 import 'more_page.dart';
 import 'history_page.dart';
 import 'permission_settings_page.dart';
@@ -106,18 +105,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         },
         onOpenSmsMonitorSettings: _openSmsMonitorSettingsPage,
       ),
-      BatteryPage(
-        notifyEnabled: _batteryService.notifyEnabled,
-        rules: _batteryService.rules,
-        currentLevel: _batteryService.currentLevel,
-        isCharging: _batteryService.currentIsCharging,
-        onToggleNotify: (v) => _saveBatteryNotifyEnabled(v),
-        onAddRule: _addBatteryRule,
-        onDeleteRule: _deleteBatteryRule,
-        onUpdateRule: _updateBatteryRule,
-        onToggleRule: _toggleBatteryRule,
-        onRefresh: _refreshBatteryStatus,
-      ),
+      // 中间那一格＝通知引擎骨架页（T15）：电量/温度两类设备侧告警的入口。
+      // 电量页原先直接挂在这里、由本页逐个包回调，现在它订阅自己的服务并由骨架页 push。
+      const NotificationEnginePage(),
       MorePage(
         key: ValueKey('more_${_themeService.themeMode.index}'),
         webhookChannels: _webhookService.channels,
@@ -137,7 +127,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onOpenWebhookSettings: _openWebhookSettingsPage,
         onOpenEmailSettings: _openEmailSettingsPage,
         onOpenAppChannels: _openAppChannelsSettingsPage,
-        onOpenTemperaturePush: _openTemperaturePush,
         onShowDeviceNameDialog: _showDeviceNameDialog,
         onShowAboutDialog: _showAboutDialog,
         onOpenAppFilter: _openAppFilterPage,
@@ -173,7 +162,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
       await _checkPermissions();
       _getDeviceInfo();
-      _refreshBatteryStatus();
+      await _batteryService.refreshStatus();
       _batteryService.startRefreshTimer();
       GetIt.instance<TemperatureService>().loadSettings();
 

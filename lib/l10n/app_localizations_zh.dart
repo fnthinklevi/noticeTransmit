@@ -78,6 +78,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tabMore => '更多';
 
   @override
+  String get notificationEngineTitle => '通知引擎';
+
+  @override
+  String get notificationEngineDesc =>
+      '设备自己到了某个状态就提醒：电量、温度。已到达的通知要不要转，在「更多 → 筛选与规则」里配。';
+
+  @override
+  String get engineBatteryEntry => '电量告警';
+
+  @override
+  String get engineTemperatureEntry => '温度告警';
+
+  @override
   String get serviceRunning => '通知监听服务正在运行，点击可停止';
 
   @override
@@ -2841,7 +2854,4 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textMenuShare => '分享';
-
-  @override
-  String get temperaturePageDesc => '电池 / 设备 / 屏幕温度阈值推送';
 }

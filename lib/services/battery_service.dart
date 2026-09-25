@@ -4,7 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'platform_channel.dart';
 
-class BatteryService {
+/// 电量告警设置的服务（与 [TemperatureService] 同构）。
+///
+/// 是 [ChangeNotifier]：每个写操作都广播。电量页从"父页装配回调 + 传快照"改成
+/// 订阅本服务（T16 为温度页立的先例），原因有两条：① 设置页是路由推进去的，父页
+/// `setState` rebuild 不到它；② 中间 tab 换成了「通知引擎」骨架页，电量页变成它
+/// push 出去的子页 —— 再造一层"父页持有回调往下传"的形状，就是第三份接线。
+class BatteryService extends ChangeNotifier {
   static const _channel = AppChannels.notification;
 
   bool _notifyEnabled = true;
@@ -23,6 +29,7 @@ class BatteryService {
     final prefs = await SharedPreferences.getInstance();
     _notifyEnabled = prefs.getBool('battery_notify_enabled') ?? true;
     _rules = _loadRules(prefs);
+    notifyListeners();
     await _syncRules();
   }
 
@@ -30,6 +37,8 @@ class BatteryService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('battery_notify_enabled', value);
     _notifyEnabled = value;
+    // 先广播再调原生：界面不等平台通道往返（开关"点完弹回"的成因之一就是反序）
+    notifyListeners();
 
     try {
       await _channel.invokeMethod('setBatterySetting', {
@@ -69,7 +78,10 @@ class BatteryService {
     await _syncRules();
   }
 
+  /// 规则落库 + 同步原生的**唯一**出口，广播也收在这里（T16 的先例）：
+  /// 写操作散在五处，逐个补 notify 迟早漏一个。
   Future<void> _syncRules() async {
+    notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('battery_rules', jsonEncode(_rules));
 
@@ -154,16 +166,23 @@ class BatteryService {
   Future<void> refreshStatus() async {
     try {
       final result = await _channel.invokeMethod('getBatteryStatus');
-      _currentLevel = result['level'] ?? -1;
-      _currentIsCharging = result['isCharging'] ?? false;
+      _applyStatus(result['level'] ?? -1, result['isCharging'] ?? false);
     } catch (e) {
       debugPrint('BatteryService: 获取电池状态失败: $e');
     }
   }
 
   void updateBatteryStatus(Map<String, dynamic> data) {
-    _currentLevel = data['level'] ?? -1;
-    _currentIsCharging = data['isCharging'] ?? false;
+    _applyStatus(data['level'] ?? -1, data['isCharging'] ?? false);
+  }
+
+  /// 只在**真的变了**才广播：本服务每 30 秒轮询一次，无条件 notify 等于每 30 秒
+  /// 重建一次电量页（而且看不出是哪次变更引起的重建）。
+  void _applyStatus(int level, bool isCharging) {
+    if (level == _currentLevel && isCharging == _currentIsCharging) return;
+    _currentLevel = level;
+    _currentIsCharging = isCharging;
+    notifyListeners();
   }
 
   void startRefreshTimer() {
@@ -182,8 +201,10 @@ class BatteryService {
     _refreshTimer = null;
   }
 
+  @override
   void dispose() {
     _isDisposed = true;
     stopRefreshTimer();
+    super.dispose();
   }
 }

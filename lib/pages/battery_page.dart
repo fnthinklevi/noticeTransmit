@@ -2,50 +2,53 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../services/battery_service.dart';
 import '../services/platform_channel.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
+/// 电量告警设置页（「通知引擎」tab 的一个入口，规则列表 + 当前电量）。
+///
+/// ⚠ 数据源是 [BatteryService] 本身（订阅），**不是构造时传进来的快照**：
+/// 本页现在是骨架页 push 出去的子页，父页 setState 重建不到它，而服务的写操作是
+/// 整体换新列表 —— 传快照的结果就是"保存后不刷新、开关点完弹回"（T16 的病灶）。
 class BatteryPage extends StatefulWidget {
-  final bool notifyEnabled;
-  final List<Map<String, dynamic>> rules;
-  final int currentLevel;
-  final bool isCharging;
-  final ValueChanged<bool> onToggleNotify;
-  final void Function(Map<String, dynamic>) onAddRule;
-  final void Function(String) onDeleteRule;
-  final void Function(String, Map<String, dynamic>) onUpdateRule;
-  final void Function(String, bool) onToggleRule;
-  final Future<void> Function() onRefresh;
-
-  const BatteryPage({
-    super.key,
-    required this.notifyEnabled,
-    required this.rules,
-    required this.currentLevel,
-    required this.isCharging,
-    required this.onToggleNotify,
-    required this.onAddRule,
-    required this.onDeleteRule,
-    required this.onUpdateRule,
-    required this.onToggleRule,
-    required this.onRefresh,
-  });
+  const BatteryPage({super.key});
 
   @override
   State<BatteryPage> createState() => _BatteryPageState();
 }
 
 class _BatteryPageState extends State<BatteryPage> {
+  final BatteryService _service = GetIt.instance<BatteryService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _service.addListener(_onServiceChanged);
+  }
+
+  @override
+  void dispose() {
+    // 服务是 GetIt 里的长生命周期单例：只摘监听，不 dispose
+    _service.removeListener(_onServiceChanged);
+    super.dispose();
+  }
+
+  void _onServiceChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final batteryColor = widget.currentLevel >= 50
+    final batteryColor = _service.currentLevel >= 50
         ? AppColors.green
-        : widget.currentLevel >= 20
+        : _service.currentLevel >= 20
         ? const Color(0xFFFF9500)
         : AppColors.red;
 
@@ -56,12 +59,12 @@ class _BatteryPageState extends State<BatteryPage> {
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: l10n.addRule,
-            onPressed: widget.notifyEnabled ? _showAddRuleDialog : null,
+            onPressed: _service.notifyEnabled ? _showAddRuleDialog : null,
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: widget.onRefresh,
+        onRefresh: _service.refreshStatus,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
@@ -70,7 +73,7 @@ class _BatteryPageState extends State<BatteryPage> {
               child: Column(
                 children: [
                   Icon(
-                    widget.isCharging
+                    _service.currentIsCharging
                         ? Icons.battery_charging_full
                         : Icons.battery_full,
                     size: 80,
@@ -78,9 +81,9 @@ class _BatteryPageState extends State<BatteryPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    widget.currentLevel < 0
+                    _service.currentLevel < 0
                         ? l10n.unknown
-                        : '${widget.currentLevel}%',
+                        : '${_service.currentLevel}%',
                     style: TextStyle(
                       fontSize: 42,
                       fontWeight: FontWeight.w300,
@@ -89,7 +92,9 @@ class _BatteryPageState extends State<BatteryPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.isCharging ? l10n.charging : l10n.notCharging,
+                    _service.currentIsCharging
+                        ? l10n.charging
+                        : l10n.notCharging,
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.secondaryLabel(context),
@@ -106,7 +111,7 @@ class _BatteryPageState extends State<BatteryPage> {
                 iconColor: AppColors.blue,
                 title: l10n.batteryNotifToggle,
                 subtitle: l10n.batteryNotifToggleDesc,
-                value: widget.notifyEnabled,
+                value: _service.notifyEnabled,
                 onChanged: _handleToggleNotify,
                 context: context,
               ),
@@ -114,7 +119,7 @@ class _BatteryPageState extends State<BatteryPage> {
             const SizedBox(height: 24),
             _buildSectionHeader(l10n.notifRules, context),
             _buildGroup(
-              widget.rules.asMap().entries.map((entry) {
+              _service.rules.asMap().entries.map((entry) {
                 final index = entry.key;
                 final rule = entry.value;
                 return Column(
@@ -172,17 +177,17 @@ class _BatteryPageState extends State<BatteryPage> {
 
   void _handleToggleNotify(bool v) {
     if (v) _maybePromptBatteryOptimization();
-    widget.onToggleNotify(v);
+    _service.saveNotifyEnabled(v);
   }
 
   void _handleToggleRule(String id, bool v) {
     if (v) _maybePromptBatteryOptimization();
-    widget.onToggleRule(id, v);
+    _service.toggleRule(id, v);
   }
 
   void _handleAddRule(Map<String, dynamic> rule) {
     _maybePromptBatteryOptimization();
-    widget.onAddRule(rule);
+    _service.addRule(rule);
   }
 
   void _showBatteryOptimizationDialog() {
@@ -300,7 +305,7 @@ class _BatteryPageState extends State<BatteryPage> {
         children: [
           SlidableAction(
             onPressed: (_) async {
-              if (!widget.notifyEnabled) return;
+              if (!_service.notifyEnabled) return;
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
@@ -319,7 +324,7 @@ class _BatteryPageState extends State<BatteryPage> {
                   ),
                 ),
               );
-              if (confirmed == true) widget.onDeleteRule(ruleId);
+              if (confirmed == true) _service.deleteRule(ruleId);
             },
             backgroundColor: AppColors.red,
             foregroundColor: Colors.white,
@@ -331,10 +336,10 @@ class _BatteryPageState extends State<BatteryPage> {
       child: Container(
         color: AppColors.cardBg(context),
         child: InkWell(
-          onTap: widget.notifyEnabled && enabled
+          onTap: _service.notifyEnabled && enabled
               ? () => _showEditRuleDialog(rule)
               : null,
-          onLongPress: widget.notifyEnabled
+          onLongPress: _service.notifyEnabled
               ? () => _showDeleteConfirmDialog(ruleId)
               : null,
           child: _buildSwitchRow(
@@ -343,7 +348,7 @@ class _BatteryPageState extends State<BatteryPage> {
             title: title,
             subtitle: subtitle,
             value: enabled,
-            onChanged: widget.notifyEnabled
+            onChanged: _service.notifyEnabled
                 ? (v) => _handleToggleRule(ruleId, v)
                 : null,
             context: context,
@@ -585,7 +590,7 @@ class _BatteryPageState extends State<BatteryPage> {
                       'content': '',
                     };
                     if (isEdit) {
-                      widget.onUpdateRule(id, newRule);
+                      _service.updateRule(id, newRule);
                     } else {
                       _handleAddRule(newRule);
                     }
@@ -704,7 +709,7 @@ class _BatteryPageState extends State<BatteryPage> {
             cancelText: l10n.cancel,
             confirmText: l10n.delete,
             onConfirm: () {
-              widget.onDeleteRule(id);
+              _service.deleteRule(id);
               Navigator.pop(context);
             },
             destructive: true,
