@@ -23,7 +23,9 @@ object EmailSender {
         val toEmails: List<String>,
         val useSSL: Boolean,
         val subjectTemplate: String? = null,
-        val bodyTemplate: String? = null
+        val bodyTemplate: String? = null,
+        /** T12 主备角色；`NONE` 由 `EmailManager.getEnabledConfigs()` 挡掉（发送侧唯一入口）。 */
+        val role: ChannelRole = ChannelRole.PRIMARY
     )
 
     /** 发送通知邮件（失败自动重试 1 次，错误经分类后回传，供历史失败原因展示） */

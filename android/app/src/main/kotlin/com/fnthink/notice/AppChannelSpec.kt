@@ -35,6 +35,10 @@ data class AppChannelConfig(
     val config: JSONObject, // 扩展参数（corpid/agentid/touser 或 app_id/receive_id_type/receive_id）
     val messageFormat: String,
     val enabled: Boolean,
+    /** T12 主备角色。`NONE` 的通道由 `ConfigManager.getAppChannelConfigs()` 挡掉，
+     *  但 `getAppChannelConfigById()`（「测试」按钮走它）**看得到** —— 不参与推送
+     *  不该连"手动测一下"都不让做。 */
+    val role: ChannelRole = ChannelRole.PRIMARY,
 )
 
 /**

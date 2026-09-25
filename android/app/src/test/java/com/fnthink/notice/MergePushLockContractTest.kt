@@ -182,8 +182,9 @@ class MergePushLockContractTest {
             Regex("""ParseResult\(\s*[^)]*DeliveryStatus\.SUCCESS""").containsMatchIn(body)
         )
         assertTrue(
-            "flushMergedGroup 必须通过 sendWebhooksOnly 的 onAllComplete 回调获取真实结果",
-            body.contains("sendWebhooksOnly(") && body.contains("result")
+            "flushMergedGroup 必须把 webhook 的真实汇总结果拿到手（T12 起经 dispatchToChannels 的" +
+            "尾随回调；不收口的那条路径会退回「成员写死成功」的旧缺陷）",
+            body.contains("dispatchToChannels(") && body.contains("result")
         )
     }
 

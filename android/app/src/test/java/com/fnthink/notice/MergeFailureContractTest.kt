@@ -204,9 +204,18 @@ class MergeFailureContractTest {
         // 最后一道兜底：历史记录「现在推送」可绕过暂停开关强制补推
         val pushNow = functionBody(service, "private fun pushRecordNow(")
         assertTrue("手动补推必须 force=true（绕过推送暂停开关）", pushNow.contains("force = true"))
+        // T12：手动补推只调收口函数，"同时补 webhook / 应用 / 邮件"这条事实住在
+        // dispatchToChannels 里 —— 两段都断言，缺一段就是"绕开收口自己发"。
         assertTrue(
-            "手动补推要同时补 webhook 与邮件",
-            pushNow.contains("sendWebhooksOnly") && pushNow.contains("dispatchEmail")
+            "手动补推必须走三族收口（否则新增一族就会在这里被漏掉）",
+            pushNow.contains("dispatchToChannels(")
+        )
+        val funnel = functionBody(service, "private fun dispatchToChannels(")
+        assertTrue(
+            "收口函数必须同时覆盖 webhook、自建应用与邮件",
+            funnel.contains("sendWebhooksOnly") &&
+                funnel.contains("sendOnly") &&
+                funnel.contains("dispatchEmail")
         )
         assertTrue(
             "Dart 侧 pushRecordNow 必须重置为 pending（否则历史里仍显示失败）",

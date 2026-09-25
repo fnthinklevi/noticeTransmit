@@ -40,6 +40,9 @@ class ConfigManager(private val context: Context) {
         val type: WebhookPayloadBuilder.WebhookType,
         val messageFormat: String = "default",
         val messageTemplate: String? = null,
+        // T12：主备角色。`getWebhookChannelConfigs()` 只返回**要推的**通道
+        // （role=NONE 已被排除），所以发送层不需要再判一次。
+        val role: ChannelRole = ChannelRole.PRIMARY,
         // `extraConfig` 字段已删（roadmap D4 / ㊷）：v9 时代它承载 wecom_app 的
         // corpid/agentid/touser，v10 起那些搬进 app_channels.config；此后无人读它
         // （发送层零引用，testWebhook 那条也恒为 null，因为 Dart 不传）。
@@ -93,10 +96,13 @@ class ConfigManager(private val context: Context) {
                 val messageFormat = obj.optString("message_format", "default").ifEmpty { "default" }
                 val messageTemplate = obj.optString("message_template", "")
                     .takeIf { it.isNotEmpty() && it != "null" }
+                val role = ChannelRole.parse(obj.optString("role", ""))
+                // 「不参与」：保留配置但一条都不推（与"关掉启用开关"的区别是随时可归队）
+                if (role == ChannelRole.NONE) continue
                 // extra_config 不再解析（roadmap D4 / ㊷），见 WebhookChannelConfig 上的说明
                 list.add(
                     WebhookChannelConfig(
-                        url, secret, type, messageFormat, messageTemplate
+                        url, secret, type, messageFormat, messageTemplate, role
                     )
                 )
             }
@@ -114,7 +120,15 @@ class ConfigManager(private val context: Context) {
      * 自建应用通道完整配置读取（应用通道体系，与 webhook 通道分离存储）。
      * 返回 AppChannelSpec.kt 定义的 AppChannelConfig（未启用的通道被过滤）。
      */
-    fun getAppChannelConfigs(): List<AppChannelConfig> {
+    /**
+     * **要推的**应用通道：已启用且角色不是 `NONE`（T12）。
+     * 需要"包含不参与"的全量视图时用 [parseAppChannelConfigs]（例如「测试」按 id 找通道）。
+     */
+    fun getAppChannelConfigs(): List<AppChannelConfig> =
+        parseAppChannelConfigs().filter { it.role != ChannelRole.NONE }
+
+    /** 全量解析（不按角色过滤）：读不到 / 解析失败时返回空表。 */
+    private fun parseAppChannelConfigs(): List<AppChannelConfig> {
         val json = try {
             SecurePrefs.get(context)
                 .getString("secure_app_channels", null)
@@ -137,6 +151,7 @@ class ConfigManager(private val context: Context) {
                     config = obj.optJSONObject("config") ?: JSONObject(),
                     messageFormat = obj.optString("message_format", "default").ifEmpty { "default" },
                     enabled = obj.optBoolean("enabled", true),
+                    role = ChannelRole.parse(obj.optString("role", "")),
                 )
             }
         } catch (e: Exception) {
@@ -145,8 +160,10 @@ class ConfigManager(private val context: Context) {
         }
     }
 
+    /** 按 id 找通道（「测试」按钮走这里）：**含**角色为 NONE 的通道 ——
+     *  不参与推送不该连手动测试都不让做，所以这里用全量视图而不是 [getAppChannelConfigs]。 */
     fun findAppChannelById(id: String): AppChannelConfig? =
-        getAppChannelConfigs().firstOrNull { it.id == id }
+        parseAppChannelConfigs().firstOrNull { it.id == id }
 
     /** 写入自建应用通道（SecurePrefs 加密全量 + 明文脱敏镜像），服务刷新由 ACTION_UPDATE_CONFIG 触发 */
     fun setAppChannels(channels: List<JSONObject>) {

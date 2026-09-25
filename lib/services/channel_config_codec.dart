@@ -121,6 +121,10 @@ class ChannelConfigCodec {
     final payload = Map<String, dynamic>.from(ui);
     payload.remove('extra_config');
     payload.remove('extraConfig');
+    // role **显式给**，不靠"整份拷贝"：调用方可能是备份恢复（文件形状不受控，
+    // 老文件就没有这个键），漏给原生 = 原生按主通道读，用户设的"备用/不参与"失效。
+    // 这条是 channel_config_codec_test 的跨端键集合守卫抓出来的。
+    payload['role'] = normalizeRole(ui['role']);
     return payload;
   }
 

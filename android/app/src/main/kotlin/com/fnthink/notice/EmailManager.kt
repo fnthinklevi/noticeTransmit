@@ -115,6 +115,10 @@ object EmailManager {
                 if (!enabled) continue
 
                 val id = obj.optString("id", "")
+                // T12：角色为「不参与」的邮件通道不推（与 webhook / 应用通道同一条规则，
+                // 判断只放在这个"发送侧唯一入口"里，不在三个 sender 各写一遍）
+                val role = ChannelRole.parse(obj.optString("role", ""))
+                if (role == ChannelRole.NONE) continue
                 configs.add(EmailSender.EmailConfig(
                     smtpHost = obj.optString("smtpHost", ""),
                     smtpPort = obj.optInt("smtpPort", 465),
@@ -127,7 +131,8 @@ object EmailManager {
                         .filter { it.isNotEmpty() },
                     useSSL = obj.optBoolean("useSSL", true),
                     subjectTemplate = obj.optString("subjectTemplate", "").ifBlank { null },
-                    bodyTemplate = obj.optString("bodyTemplate", "").ifBlank { null }
+                    bodyTemplate = obj.optString("bodyTemplate", "").ifBlank { null },
+                    role = role
                 ))
             }
         } catch (e: Exception) {

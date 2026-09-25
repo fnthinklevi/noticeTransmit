@@ -154,9 +154,7 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor.setNotificationCallback { batteryInfo ->
             serviceScope.launch {
                 try {
-                    webhookSender.sendNotification(batteryInfo)
-                    appChannelSender.sendNotification(batteryInfo)
-                    dispatchEmail(batteryInfo)
+                    dispatchToChannels(batteryInfo)
                     Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
                 } catch (e: Exception) {
                     Log.e(TAG, "Battery polling dispatch failed", e)
@@ -530,9 +528,7 @@ class NotificationMonitorService : NotificationListenerService() {
                                 DiagLog.w(TAG, "Notification merged (window ${decision.windowMs}ms): ${info.appName}")
                             }
                             RuleEngine.Decision.Push -> {
-                                webhookSender.sendNotification(info)
-                                appChannelSender.sendNotification(info)
-                                dispatchEmail(info)
+                                dispatchToChannels(info)
                                 checkDailyReset()
                                 pushCount++
                                 updateForegroundNotification()
@@ -725,9 +721,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     try {
                         val due = delayedPushManager.drainDue()
                         for (info in due) {
-                            webhookSender.sendWebhooksOnly(info)
-                            appChannelSender.sendOnly(info)
-                            dispatchEmail(info)
+                            dispatchToChannels(info, alsoBroadcastRecord = false)
                             checkDailyReset()
                             pushCount++
                             updateForegroundNotification()
@@ -777,9 +771,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 val single = group.items[0]
                 checkDailyReset()
                 pushCount++
-                webhookSender.sendWebhooksOnly(single)
-                appChannelSender.sendOnly(single)
-                dispatchEmail(single)
+                dispatchToChannels(single, alsoBroadcastRecord = false)
                 updateForegroundNotification()
                 DiagLog.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
             } catch (e: Exception) {
@@ -792,8 +784,7 @@ class NotificationMonitorService : NotificationListenerService() {
             checkDailyReset()
             // 计数语义（风险标注 4）：按聚合组 +1，而非成员逐条 +N
             pushCount++
-            appChannelSender.sendOnly(merged)
-            webhookSender.sendWebhooksOnly(merged) { result ->
+            dispatchToChannels(merged, alsoBroadcastRecord = false) { result ->
                 mergePushManager.markMembersDelivered(group, result)
                 if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
                     DiagLog.w(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
@@ -801,7 +792,6 @@ class NotificationMonitorService : NotificationListenerService() {
                     Log.w(TAG, "Merged push FAILED: ${group.key} status=${result.status} msg=${result.message}")
                 }
             }
-            dispatchEmail(merged)
             updateForegroundNotification()
         } catch (e: Exception) {
             Log.e(TAG, "Error flushing merged group: ${group.key}", e)
@@ -887,9 +877,7 @@ class NotificationMonitorService : NotificationListenerService() {
                         // runBlocking 取 token 后再同步发 HTTP，留在主线程会 ANR。
                         serviceScope.launch {
                             try {
-                                webhookSender.sendNotification(batteryInfo)
-                                appChannelSender.sendNotification(batteryInfo)
-                                dispatchEmail(batteryInfo)
+                                dispatchToChannels(batteryInfo)
                                 Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Battery alert dispatch failed", e)
@@ -1147,9 +1135,7 @@ class NotificationMonitorService : NotificationListenerService() {
                     Log.w(TAG, "Push record now skipped: empty title/content")
                     return@launch
                 }
-                webhookSender.sendWebhooksOnly(info, force = true)
-                appChannelSender.sendOnly(info, force = true)
-                dispatchEmail(info, force = true)
+                dispatchToChannels(info, alsoBroadcastRecord = false, force = true)
                 checkDailyReset()
                 pushCount++
                 updateForegroundNotification()
@@ -1158,6 +1144,29 @@ class NotificationMonitorService : NotificationListenerService() {
                 Log.e(TAG, "Error pushing record now", e)
             }
         }
+    }
+
+    /**
+     * 三族扇出的**唯一**入口（T12）。原先这段在三处各写一遍、共 7 个调用点，
+     * 任何"发送前先做的判断"（推送开关、主备分流）都只能挑几个点加 —— 一旦漏一处，
+     * 表现就是"某条路径的通知不受策略约束"。所以先收口，再在收口处加分流。
+     *
+     * @param alsoBroadcastRecord 是否把这条通知写进历史记录。通知到达的主链路要写；
+     *   延迟补推 / 聚合 flush / 手动「现在推送」的记录在到达时已经写过，再播一次就多一条历史。
+     * @param force 忽略「推送暂停」开关（只给手动补推用）。
+     * @param onWebhooksComplete webhook 全部通道结束后的汇总回调（聚合推送要用真实结果
+     *   逐成员回写，见 [MergePushManager] 头注释 3）。
+     */
+    private fun dispatchToChannels(
+        info: NotificationInfo,
+        alsoBroadcastRecord: Boolean = true,
+        force: Boolean = false,
+        onWebhooksComplete: ((WebhookResponseParser.ParseResult) -> Unit)? = null,
+    ) {
+        if (alsoBroadcastRecord) webhookSender.sendBroadcast(info)
+        webhookSender.sendWebhooksOnly(info, force = force, onAllComplete = onWebhooksComplete)
+        appChannelSender.sendOnly(info, force = force)
+        dispatchEmail(info, force = force)
     }
 
     private fun dispatchEmail(info: NotificationInfo, force: Boolean = false) {

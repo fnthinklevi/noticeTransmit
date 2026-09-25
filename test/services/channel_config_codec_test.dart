@@ -108,11 +108,24 @@ void main() {
         'enabled': true,
       };
       final native = ChannelConfigCodec.webhookToNative(ui);
-      expect(native, equals(ui));
+      // 唯一允许的差集是 `role`（T12）：**总是显式给**，UI 缺该键时补规范缺省值。
+      // 不这么做的话，备份恢复来的老文件（没有 role 键）会让原生读到空值，
+      // 用户设的「备用 / 不参与」在恢复之后静默失效。
+      expect(native, equals({...ui, 'role': 'primary'}));
       expect(
         identical(native, ui),
         isFalse,
         reason: '必须是副本：原生长出独立字段时不能改一个 map 就同步改到 UI 列表',
+      );
+      expect(
+        ui.containsKey('role'),
+        isFalse,
+        reason: '补 role 不得写回调用方的 UI map（首页列表会跟着变形）',
+      );
+      expect(
+        ChannelConfigCodec.webhookToNative({...ui, 'role': ' BACKUP '})['role'],
+        'backup',
+        reason: '过界处就要归一：脏值留给原生会读成主通道',
       );
     });
 

@@ -112,10 +112,10 @@ class MainThreadAndApiGuardContractTest {
     private fun assertSendersInsideLaunch(block: String, label: String) {
         val launch = blockAfter(block, 0, "serviceScope.launch")
         val outsideLaunch = block.replace(launch, "")
+        // T12 起三族扇出收进 dispatchToChannels()，所以"发送体在协程内"这条判据
+        // 跟着指向收口函数本身（判据强度不变：仍要求 launch 内有、外部无裸调）。
         for (callee in listOf(
-            "webhookSender.sendNotification(",
-            "appChannelSender.sendNotification(",
-            "dispatchEmail(",
+            "dispatchToChannels(",
         )) {
             assertTrue(
                 "$label：$callee 必须包在 serviceScope.launch 内（onReceive/轮询回调在主线程，" +
