@@ -499,7 +499,10 @@ void main() {
       '应用通道→添加(FAB)',
     );
     await _settle(tester, seconds: 1);
-    await _onPage(tester, AppChannelSettingsPage, '应用通道编辑页');
+    // T07：新增从列表页发起 ⇒ FAB 先开类型弹层（列表来自原生描述符），选完才进详情页
+    await _tap(tester, find.text('企业微信自建应用'), '应用通道→类型弹层选企微');
+    await _settle(tester, seconds: 1);
+    await _onPage(tester, AppChannelSettingsPage, '应用通道详情页（单条）');
     // 必填校验：空表点保存必须**点名缺哪个字段**并拒绝写入（第 5 步表单收口的承课）
     await _tap(tester, _appBarText('测试并保存'), '应用通道→空表保存(应被拦)');
     await _settle(tester, seconds: 1);
@@ -563,17 +566,23 @@ void main() {
       isTrue,
       reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
     );
-    // T05：长按卡片标题行 → 「复制」。复制的凭据与扩展参数必须跟着过来，
-    // 且新那条得有自己的 id（同 id 会让徽标与送达归属互相顶掉）。
-    // ⚠ 与 _tap 同一套前置：懒加载列表里"finder 命中 ≠ 已绘制"，而打不中**只打印
-    // warning 不抛异常** ⇒ 手势静默丢失（第一轮闸门就红在这里：sheet=false）。
-    final appMenu = find.byKey(const ValueKey('app-card-menu-0'));
-    await _longPress(tester, appMenu, '应用通道卡标题行');
+    // T07：回到列表页做"整族级"的动作（复制 / 启停 / 删除）。详情页只管一条。
+    // ⚠ 不用 `tester.pageBack()`：它找的是 Cupertino 返回键 / 本地化 tooltip，
+    // 本应用的页头是自己搭的 Material AppBar ⇒ 当场 "One back button expected"（实测红）。
+    _nav(tester).pop();
+    await _settle(tester, seconds: 2);
+    await _onPage(tester, AppChannelListPage, '返回列表页');
+    final firstId = GetIt.instance<AppChannelService>().channels.first['id']
+        .toString();
+    // ⚠ key 挂在**通道 id** 上（不是下标）：复制/删除会改变顺序，按下标挂 key 会让
+    // 控件状态跟着错位。行在真机上可能刚被滚出视口 ⇒ 走 _longPress（居中对齐 + 不 pumpAndSettle）。
+    final appRow = find.byKey(ValueKey('app-channel-row-$firstId'));
+    await _longPress(tester, appRow, '应用通道列表行');
     await _must(
       tester,
       find.byType(CardActionSheet).evaluate().isNotEmpty,
-      '应用通道卡长按弹层（打不中=手势静默丢失）',
-      appMenu,
+      '应用通道行长按弹层（打不中=手势静默丢失）',
+      appRow,
     );
     await _tap(
       tester,
@@ -583,30 +592,41 @@ void main() {
       ),
       '应用通道→长按→复制',
     );
-    await _settle(tester);
-    // 第二张卡在真机视口下方：ListView 懒加载 ⇒ 它**根本不在树上**，
-    // 必须先滚过去再断言（本文件里同一坑已经红过好几轮）。
-    final secondCard = find.byKey(const ValueKey('app-card-menu-1'));
-    await _scrollUntil(tester, secondCard);
-    await _must(
-      tester,
-      secondCard.evaluate().isNotEmpty,
-      '应用通道→复制后的第二张卡',
-      secondCard,
-    );
-    await _tap(tester, _appBarText('测试并保存'), '应用通道→复制后测试并保存');
     await _settle(tester, seconds: 2);
     final appChannels = GetIt.instance<AppChannelService>().channels;
-    expect(appChannels, hasLength(2));
+    expect(
+      appChannels,
+      hasLength(2),
+      reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
+    );
     expect(
       appChannels.map((c) => c['id']).toSet(),
       hasLength(2),
-      reason: '两条同 id ⇒ 保存走 delete+insert，第二条会覆盖第一条',
+      reason: '两条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中两条',
     );
     expect(
-      appChannels[1]['baseUrl'],
+      appChannels.last['baseUrl'],
       'https://qyapi.weixin.qq.com',
       reason: '复制不到 API 地址的"复制"等于让用户重填一遍',
+    );
+
+    // T06：删除要二次确认，且这一族的咽喉在列表页。
+    final copyId = appChannels.last['id'].toString();
+    final copyRow = find.byKey(ValueKey('app-channel-row-$copyId'));
+    await _longPress(tester, copyRow, '复制出来的那条');
+    await _tap(
+      tester,
+      find.descendant(
+        of: find.byType(CardActionSheet),
+        matching: find.text('删除'),
+      ),
+      '应用通道→长按→删除',
+    );
+    await _confirmDelete(tester, '应用通道行');
+    expect(
+      GetIt.instance<AppChannelService>().channels.map((c) => c['id']),
+      [firstId],
+      reason: '确认之后必须真的删掉那一条，且不动另一条',
     );
     await _backToHome(tester);
 
@@ -1494,6 +1514,10 @@ Future<void> _step(
 }
 
 /// 每节收尾都回主界面；回不去本身不算该节失败（由下一节的入口断言去暴露）。
+/// 主 Navigator 的 state（弹一层路由用，不依赖任何本地化返回按钮文案）。
+NavigatorState _nav(WidgetTester t) =>
+    t.state<NavigatorState>(find.byType(Navigator).first);
+
 Future<void> _backToHomeQuietly(WidgetTester t) async {
   try {
     await _backToHome(t);
@@ -1520,7 +1544,7 @@ Future<void> _backToHome(WidgetTester t) async {
     }
     // 判定"已回主界面"要求没有弹窗盖着（modalUp）；页面本身照常 pop，
     // 到根路由时 canPop() 为 false，不会弹过头。
-    final nav = t.state<NavigatorState>(find.byType(Navigator).first);
+    final nav = _nav(t);
     if (nav.canPop()) {
       nav.pop();
     } else {

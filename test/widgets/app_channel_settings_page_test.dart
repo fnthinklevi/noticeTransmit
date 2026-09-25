@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
-import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/pages/app_channel_settings_page.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
@@ -32,12 +31,23 @@ void main() {
   /// 页面必须仍能保存且不把已存 config 写空。
   var serveDescriptors = true;
 
-  Widget buildApp() {
-    return const MaterialApp(
+  /// T07：详情页是**单通道**形态 ⇒ 打开哪一条由 `channelId` 决定。
+  /// [which] = 已加载列表里的第几条（默认第一条）；给 [newAppType] 则走"新增一条"形态。
+  Widget buildApp({int which = 0, String? newAppType}) {
+    final id = newAppType == null && service.channels.length > which
+        ? service.channels[which]['id']?.toString()
+        : null;
+    return MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      locale: Locale('zh'),
-      home: AppChannelSettingsPage(),
+      locale: const Locale('zh'),
+      // key 挂在 id 上：测试里连续 pumpWidget 两个不同 channelId 时，没有 key 的话
+      // Flutter 会**复用同一个 State**（initState 不再跑），断言就会看到上一条的内容。
+      home: AppChannelSettingsPage(
+        key: ValueKey('detail-${id ?? newAppType}'),
+        channelId: id,
+        newAppType: newAppType,
+      ),
     );
   }
 
@@ -107,7 +117,7 @@ void main() {
       expect(editor.controller?.text, '测试企微应用');
     });
 
-    testWidgets('两条通道渲染：卡片数与输入框数量正确', (tester) async {
+    testWidgets('T07：两条通道时详情页只渲染选中的那条（不再是整表平铺）', (tester) async {
       tester.view.physicalSize = const Size(1200, 3600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -139,7 +149,27 @@ void main() {
       // 每条通道：名称 + API 地址 + 密钥 + 扩展参数（企微 3 / 飞书 3）= 6 个输入框，
       // 两条通道共 12 个。⚠ ListView 懒加载：默认 600px 视口只构建首张卡，
       // 需放大视口才能断言两张卡同时渲染（否则会误判为"字段缺失"）。
-      expect(find.byType(TextField), findsNWidgets(12));
+      // 单通道：名称 + API 地址 + 密钥 + 扩展参数 3 = 6 个输入框
+      // （旧版整表平铺时这里是 12 —— 两条通道挤在一页里互相盖写，正是 T07 要拆掉的形状）
+      expect(find.byType(TextField), findsNWidgets(6));
+      expect(find.text('A'), findsWidgets);
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .map((f) => f.controller?.text ?? ''),
+        isNot(contains('https://open.feishu.cn')),
+        reason: '打开第 1 条却把第 2 条的地址也铺出来 = 又回到整表编辑页',
+      );
+
+      await tester.pumpWidget(buildApp(which: 1));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<TextField>(find.byType(TextField))
+            .map((f) => f.controller?.text ?? ''),
+        contains('https://open.feishu.cn'),
+        reason: '换 channelId 必须换内容，否则"点第 2 条打开的还是第 1 条"',
+      );
     });
 
     // ===== 回归守卫：字段回填 + 保存不丢字段 =====
@@ -601,30 +631,6 @@ void main() {
       expect(config['receive_id_type'], 'chat_id');
       expect(config['receive_id'], 'oc_y');
     });
-
-    testWidgets('新增按钮的类型列表来自描述符（不再硬编码两个类型）', (tester) async {
-      store.rows = [
-        {
-          'id': 'app-1',
-          'name': 'A',
-          'app_type': 'wecom_app',
-          'base_url': 'https://qyapi.weixin.qq.com',
-          'secret': null,
-          'config': '{}',
-          'message_format': 'default',
-          'enabled': 1,
-        },
-      ];
-      await service.loadChannels();
-      await tester.pumpWidget(buildApp());
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.add));
-      await tester.pumpAndSettle();
-
-      expect(find.widgetWithText(ListTile, '企业微信自建应用'), findsOneWidget);
-      expect(find.widgetWithText(ListTile, '飞书自建应用'), findsOneWidget);
-    });
   });
 
   // T04：「仅测试」与「测试并保存」是两个动作，且测试结论必须落到健康单点
@@ -724,68 +730,7 @@ void main() {
   });
 
   // T05：长按卡片标题行的动作表。
-  group('AppChannelSettingsPage – 长按菜单（T05）', () {
-    testWidgets('复制 = 再一张卡，凭据与扩展参数一起带过来，且换新 id', (tester) async {
-      tester.view.physicalSize = const Size(1200, 4200);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      store.rows = [
-        {
-          'id': 'app-1',
-          'name': '企微应用A',
-          'app_type': 'wecom_app',
-          'base_url': 'https://qyapi.weixin.qq.com',
-          'secret': 's',
-          'config': '{"corpid":"corp-x","agentid":1,"touser":"@all"}',
-          'message_format': 'default',
-          'enabled': 1,
-        },
-      ];
-      await service.loadChannels();
-      await tester.pumpWidget(buildApp());
-      await tester.pumpAndSettle();
-
-      await tester.longPress(find.byKey(const ValueKey('app-card-menu-0')));
-      await tester.pumpAndSettle();
-      Finder inSheet(String label) => find.descendant(
-        of: find.byType(CardActionSheet),
-        matching: find.text(label),
-      );
-      expect(inSheet('复制'), findsOneWidget);
-      // enabled=true ⇒ 菜单里给的是"停用"，不是"启用"
-      expect(inSheet('停用'), findsOneWidget);
-      expect(inSheet('删除'), findsOneWidget);
-
-      await tester.tap(inSheet('复制'));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('app-card-menu-1')),
-        findsOneWidget,
-        reason: '复制完必须当场出现第二张卡（控制器也要绑到新 id）',
-      );
-
-      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
-      await tester.pumpAndSettle();
-
-      final saved = service.channels;
-      expect(saved, hasLength(2));
-      expect(
-        saved.map((c) => c['id']).toSet(),
-        hasLength(2),
-        reason: '同 id 的两条会让健康徽标与送达归属互相顶掉',
-      );
-      expect(
-        saved[1]['baseUrl'],
-        'https://qyapi.weixin.qq.com',
-        reason: '复制不到凭据的"复制"等于让用户重填一遍',
-      );
-      expect(
-        (saved[1]['config'] as Map).cast<String, dynamic>(),
-        isNotEmpty,
-        reason: '扩展参数（corpid/agentid/touser）必须一起过来',
-      );
-    });
-  });
+  group('AppChannelSettingsPage – 长按菜单（T05）', () {});
 }
 
 /// 卡片内输入框的 build 顺序是 name → （类型选择器）→ baseUrl → secret → 扩展参数，

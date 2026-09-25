@@ -322,7 +322,7 @@ void main() {
       expect(
         flat,
         allOf(
-          contains("_longPress(tester, appMenu, '应用通道卡标题行')"),
+          contains("_longPress(tester, appRow, '应用通道列表行')"),
           contains("_longPress(tester, find.text('闸门通知一'), '历史记录行')"),
         ),
         reason: '应用通道卡或历史记录卡的长按不再被点 ⇒ 共用组件失去真机覆盖',

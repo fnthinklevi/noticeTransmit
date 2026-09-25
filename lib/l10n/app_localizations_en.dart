@@ -2647,6 +2647,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appChannelTitle => 'App Channels';
 
   @override
+  String get appChannelNewTitle => 'New app channel';
+
+  @override
+  String get appChannelUntitled => 'Untitled channel';
+
+  @override
+  String get noAppChannels => 'No app channels yet';
+
+  @override
   String get appChannelPageDesc =>
       'App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.';
 

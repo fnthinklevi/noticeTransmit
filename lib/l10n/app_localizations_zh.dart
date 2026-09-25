@@ -2543,6 +2543,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appChannelTitle => '自建应用通道';
 
   @override
+  String get appChannelNewTitle => '新增自建应用通道';
+
+  @override
+  String get appChannelUntitled => '未命名通道';
+
+  @override
+  String get noAppChannels => '暂无自建应用通道';
+
+  @override
   String get appChannelPageDesc =>
       '自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。';
 

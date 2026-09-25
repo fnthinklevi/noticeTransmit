@@ -45,6 +45,52 @@ class AppChannelService {
     await _syncToNative();
   }
 
+  /// 保存/新增**一条**通道（T07：「列表页 → 单通道详情页」的写入咽喉）。
+  ///
+  /// 底层仍是整表 delete+insert（`app_channels` 没有按 id 的 UPDATE 路径，动 DB 会牵动
+  /// 迁移与备份格式），但**调用方只描述一条**：同 id 就地替换（与已有行合并，没提到的
+  /// 键保留原值），id 为空则追加。此前详情页自己攥着整表、保存时整表重写 ⇒ 从列表进来
+  /// 只改一条时，别的通道会被这份快照覆盖掉。
+  Future<void> saveChannel(Map<String, dynamic> channel) async {
+    final id = ChannelConfigCodec.nullableText(channel['id']) ?? '';
+    final next = List<Map<String, dynamic>>.from(_channels);
+    final at = id.isEmpty
+        ? -1
+        : next.indexWhere(
+            (c) => (ChannelConfigCodec.nullableText(c['id']) ?? '') == id,
+          );
+    if (at >= 0) {
+      next[at] = <String, dynamic>{...next[at], ...channel};
+    } else {
+      next.add(channel);
+    }
+    await saveChannels(next);
+  }
+
+  /// 删除一条通道（按 id）。找不到就什么都不做 —— 静默"保存成功"比不保存更糟。
+  /// 返回是否真的删掉了，调用据此决定要不要清健康缓存。
+  Future<bool> deleteChannel(String id) async {
+    if (id.isEmpty) return false;
+    final next = _channels
+        .where((c) => (ChannelConfigCodec.nullableText(c['id']) ?? '') != id)
+        .toList();
+    if (next.length == _channels.length) return false;
+    await saveChannels(next);
+    return true;
+  }
+
+  /// 启停一条通道（列表页的开关用；不碰其它行）。
+  Future<void> setEnabled(String id, bool enabled) async {
+    final next = _channels
+        .map<Map<String, dynamic>>(
+          (c) => (ChannelConfigCodec.nullableText(c['id']) ?? '') == id
+              ? <String, dynamic>{...c, 'enabled': enabled}
+              : c,
+        )
+        .toList();
+    await saveChannels(next);
+  }
+
   /// 原生同步：完整通道（含 secret）交由 AppChannelSender 使用。
   ///
   /// 只在这里做 UI → 原生契约键的映射（见 [toNativePayload]），`_channels` 保持

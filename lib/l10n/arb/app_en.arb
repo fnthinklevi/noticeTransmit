@@ -1277,6 +1277,9 @@
     }
   },
   "appChannelTitle": "App Channels",
+  "appChannelNewTitle": "New app channel",
+  "appChannelUntitled": "Untitled channel",
+  "noAppChannels": "No app channels yet",
   "appChannelPageDesc": "App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.",
   "appChannelConfigured": "{n} configured · {m} enabled",
   "@appChannelConfigured": {

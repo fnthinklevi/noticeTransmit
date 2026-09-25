@@ -228,6 +228,104 @@ void main() {
       expect(service.channels.single['enabled'], true);
     });
   });
+
+  // T07：详情页只描述**一条**通道，"整表 delete+insert"由服务在背后兜住。
+  // 这一组钉的是拆分后不会丢数据的四条前提。
+  group('AppChannelService – 单条写入（T07）', () {
+    Future<void> seedTwo() async {
+      await service.saveChannels([
+        {
+          'id': 'app-1',
+          'name': '一条',
+          'appType': 'wecom_app',
+          'baseUrl': 'https://qyapi.weixin.qq.com',
+          'secret': 'sec-1',
+          'config': {'corpid': 'corp-1', 'agentid': 1, 'touser': '@all'},
+          'message_format': 'default',
+          'enabled': true,
+        },
+        {
+          'id': 'app-2',
+          'name': '两条',
+          'appType': 'feishu_app',
+          'baseUrl': 'https://open.feishu.cn',
+          'secret': 'sec-2',
+          'config': {'app_id': 'cli-2', 'receive_id': 'oc-2'},
+          'message_format': 'default',
+          'enabled': false,
+        },
+      ]);
+      storage.savedBatches.clear();
+    }
+
+    test('saveChannel 按 id 就地替换，载荷没提到的键保留原值', () async {
+      await seedTwo();
+      await service.saveChannel({
+        'id': 'app-2',
+        'name': '改名了',
+        // 故意不带 secret / config / appType：详情页只改名称时不许把凭据洗掉
+      });
+      final updated = service.channels.firstWhere((c) => c['id'] == 'app-2');
+      expect(updated['name'], '改名了');
+      expect(updated['baseUrl'], 'https://open.feishu.cn');
+      expect(updated['appType'], 'feishu_app');
+      expect(
+        (updated['config'] as Map)['app_id'],
+        'cli-2',
+        reason: '合并语义：漏传一个键就等于把凭据写空（T02 那类缺陷的形状）',
+      );
+      expect(
+        service.channels.firstWhere((c) => c['id'] == 'app-1')['name'],
+        '一条',
+        reason: '改一条不许顺手覆盖另一条',
+      );
+    });
+
+    test('saveChannel 不带 id ⇒ 追加为新通道', () async {
+      await seedTwo();
+      await service.saveChannel({
+        'id': '',
+        'name': '新通道',
+        'appType': 'wecom_app',
+        'baseUrl': 'https://qyapi.weixin.qq.com',
+        'secret': 'sec-3',
+        'config': {'corpid': 'corp-3'},
+        'message_format': 'default',
+        'enabled': true,
+      });
+      expect(service.channels, hasLength(3));
+      expect(service.channels.last['name'], '新通道');
+    });
+
+    test('deleteChannel：找到就删并同步原生，找不到返回 false 且不写库', () async {
+      await seedTwo();
+      expect(await service.deleteChannel('app-1'), isTrue);
+      expect(service.channels.map((c) => c['id']), ['app-2']);
+
+      storage.savedBatches.clear();
+      channelCalls.clear();
+      expect(
+        await service.deleteChannel('不存在的 id'),
+        isFalse,
+        reason: '静默"删除成功"会让列表页连健康缓存一起清掉一条还在用的通道',
+      );
+      expect(storage.savedBatches, isEmpty);
+      expect(channelCalls, isEmpty);
+      expect(service.channels, hasLength(1));
+    });
+
+    test('setEnabled 只翻那一条，其它行原样', () async {
+      await seedTwo();
+      await service.setEnabled('app-1', false);
+      expect(
+        service.channels.firstWhere((c) => c['id'] == 'app-1')['enabled'],
+        false,
+      );
+      final other = service.channels.firstWhere((c) => c['id'] == 'app-2');
+      expect(other['enabled'], false, reason: 'app-2 本来就是停用，不该被顺手改写');
+      expect(other['name'], '两条');
+    });
+  });
 }
 
 /// 伪自建应用通道存储（注入 AppChannelService，不出网）

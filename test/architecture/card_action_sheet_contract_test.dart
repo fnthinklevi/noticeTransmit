@@ -16,7 +16,7 @@ void main() {
 
   group('卡片长按菜单的接入面（T05）', () {
     const entries = {
-      'lib/pages/app_channel_settings_page.dart': '自建应用通道卡',
+      'lib/pages/app_channel_list_page.dart': '自建应用通道卡（T07 起在列表页）',
       // webhook 的菜单在库文件里，卡片只是挂上长按手势（part 文件）
       'lib/pages/webhook_settings_page.dart': 'webhook 通道行',
       'lib/pages/email_settings_page.dart': '邮件通道卡',
@@ -43,19 +43,31 @@ void main() {
 
     test('每一处「复制」都不带原条目的历史归属', () {
       const copiers = [
-        'lib/pages/app_channel_settings_page.dart',
+        'lib/pages/app_channel_list_page.dart',
         'lib/pages/webhook_settings_page.dart',
         'lib/pages/email_settings_page.dart',
         'lib/pages/battery_page.dart',
         'lib/pages/temperature_page.dart',
       ];
-      final offenders = <String>[
-        for (final rel in copiers)
-          // 两种合法写法：当场 mint 新 id；或**留空**让保存路径发号
-          // （webhook 是并行列表，id 由 `_saveAndBack` 生成）
-          if (!_givesFreshIdentity(blockAfter(read(rel), 'void _duplicate')))
-            rel,
-      ];
+      final offenders = <String>[];
+      for (final rel in copiers) {
+        final src = read(rel);
+        // 锚在**声明**上（`void` / `Future<void>` 前缀），不是光秃秃的函数名：
+        // 长按菜单里的 `onTap: () => _duplicateChannel(index)` 出现在声明之前，
+        // 用函数名当锚会截到调用点那一块，守卫就变成"看运气"。
+        final decl = RegExp(
+          '(?:Future<void>|void)\\s+_duplicate\\w*\\(',
+        ).firstMatch(src);
+        if (decl == null) {
+          offenders.add('$rel（找不到 _duplicate* 声明）');
+          continue;
+        }
+        // 两种合法写法：当场 mint 新 id；或**留空**让保存路径发号
+        // （webhook 是并行列表，id 由 `_saveAndBack` 生成）
+        if (!_givesFreshIdentity(blockAfter(src, decl.group(0)!))) {
+          offenders.add(rel);
+        }
+      }
       expect(
         offenders,
         isEmpty,

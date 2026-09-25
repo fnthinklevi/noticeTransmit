@@ -10,11 +10,9 @@ import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
-import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
-import '../widgets/ios_dialog_actions.dart';
 
 /// 自建应用通道设置页（应用通道体系，管理完善度与 Webhook 通道对齐）。
 ///
@@ -22,12 +20,17 @@ import '../widgets/ios_dialog_actions.dart';
 /// （app_id/receive_id），每通道独立开关、测试发送、健康探测徽标、删除；
 /// 保存后经 MethodChannel 同步原生（AppChannelSender 两阶段推送）。
 class AppChannelSettingsPage extends StatefulWidget {
-  /// 本页一次列出全部通道卡片并整表保存（delete+insert），没有"只编辑某一条"的
-  /// 形态。此前这里有个 `initialIndex` 参数，调用方一路传进来但**从未被读取**，
-  /// 于是从列表点第 2 条与点 FAB 打开的是同一个页面位置——参数已删。
-  /// 若将来要做单通道编辑视图，必须同时改保存路径（只替换该行而不是整表重写），
-  /// 否则保存会把其余通道删掉。
-  const AppChannelSettingsPage({super.key});
+  /// **单通道详情页**（T07）。「有哪些通道」归 [AppChannelListPage] 管，本页只编辑一条：
+  ///  * [channelId] 非空 ⇒ 编辑那条已存在的通道；
+  ///  * [channelId] 为空 ⇒ 新增一条，初始类型取 [newAppType]（列表页 FAB 的弹层里选的）。
+  ///
+  /// 保存走 `AppChannelService.saveChannel`（按 id 就地替换、没有则追加），
+  /// **不再整表重写** —— 以前这里是"整表快照 + 整表 delete+insert"，所以
+  /// "只想改一条"没有安全路径（别的通道会被这份快照覆盖）。
+  const AppChannelSettingsPage({super.key, this.channelId, this.newAppType});
+
+  final String? channelId;
+  final String? newAppType;
 
   @override
   State<AppChannelSettingsPage> createState() => _AppChannelSettingsPageState();
@@ -57,8 +60,14 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     _descriptors = GetIt.instance<ChannelDescriptorService>();
     _health = GetIt.instance<ChannelHealthStore>();
     final service = GetIt.instance<AppChannelService>();
-    _channels = List<Map<String, dynamic>>.from(service.channels);
-    if (_channels.isEmpty) _addChannel('wecom_app');
+    final wanted = widget.channelId ?? '';
+    // 取**副本**：本页会就地改 enabled/config，直接改服务里的那份等于"没点保存也已经生效"，
+    // 而返回列表页时它会按库里的内容重刷 ⇒ 用户看到的是改了又弹回去。
+    _channels = service.channels
+        .where((c) => (c['id']?.toString() ?? '') == wanted)
+        .map((c) => Map<String, dynamic>.from(c))
+        .toList();
+    if (_channels.isEmpty) _addChannel(widget.newAppType ?? 'wecom_app');
     for (final c in _channels) {
       _bindControllers(c);
     }
@@ -169,19 +178,12 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       appBar: AppBar(
         title: Text(l10n.appChannelTitle),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: l10n.addChannel,
-            onPressed: () async {
-              final picked = await _pickAppChannelType(l10n.selectChannelType);
-              if (picked != null) _addChannel(picked);
-            },
-          ),
-          // T04：两个动作分开。**仅测试**不落库（测的是表单当前值，保存前先验一次），
-          // **测试并保存** = 先落库再逐条测；测试失败绝不回滚保存（配置是对的、
-          // 只是这一刻连不上，回滚会把用户的有效编辑一起吞掉）。
+          // T04 的形状落在这一页：右上角「测试并保存」、其左「仅测试」。
+          // 「新增通道」不在这里 —— 那是列表页的事（本页只描述一条）。
+          // 测试失败绝不回滚保存：配置是对的、只是这一刻连不上，回滚会把用户的有效
+          // 编辑一起吞掉。
           TextButton(
-            onPressed: _saving || _testingId != null ? null : _testAll,
+            onPressed: _saving || _testingId != null ? null : _testThis,
             child: Text(
               l10n.testOnly,
               style: TextStyle(
@@ -193,7 +195,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
             ),
           ),
           TextButton(
-            onPressed: _saving ? null : _saveAll,
+            onPressed: _saving ? null : _saveChannelAndTest,
             child: Text(
               l10n.testAndSave,
               style: const TextStyle(
@@ -276,41 +278,39 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            key: ValueKey('app-card-menu-$index'),
-            onLongPress: () => _showCardActions(index),
-            child: Row(
-              children: [
-                Text(
-                  l10n.appChannelN(index + 1),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          Row(
+            children: [
+              Text(
+                _title(l10n),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.blue,
+                ),
+              ),
+              // 按当前类型打开对应接入引导（v1.59）。只对**有引导内容**的类型给入口：
+              // 引导文案只有企微/飞书两套，兜底成企微会把用户带去填错的凭据。
+              if (_guidedTypes.contains(appType))
+                IconButton(
+                  icon: const Icon(
+                    Icons.help_outline,
+                    size: 18,
                     color: AppColors.blue,
                   ),
+                  tooltip: l10n.appChannelGuideOpen,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _showSetupGuide(context, appType),
                 ),
-                // 按当前类型打开对应接入引导（v1.59）。只对**有引导内容**的类型给入口：
-                // 引导文案只有企微/飞书两套，兜底成企微会把用户带去填错的凭据。
-                if (_guidedTypes.contains(appType))
-                  IconButton(
-                    icon: const Icon(
-                      Icons.help_outline,
-                      size: 18,
-                      color: AppColors.blue,
-                    ),
-                    tooltip: l10n.appChannelGuideOpen,
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _showSetupGuide(context, appType),
-                  ),
-                const Spacer(),
-                CupertinoSwitch(
-                  value: enabled,
-                  activeTrackColor: AppColors.blue,
-                  onChanged: (v) =>
-                      setState(() => _channels[index]['enabled'] = v),
-                ),
-              ],
-            ),
+              const Spacer(),
+              CupertinoSwitch(
+                value: enabled,
+                activeTrackColor: AppColors.blue,
+                onChanged: (v) =>
+                    setState(() => _channels[index]['enabled'] = v),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           TextField(
@@ -381,112 +381,24 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
               color: AppColors.secondaryLabel(context),
             ),
           ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              // 与长按菜单共用同一条（那里也只有这一条路可走）：确认 + 释放控制器
-              onPressed: () => _removeChannel(index),
-              icon: const Icon(Icons.delete_outline, size: 16),
-              label: Text(l10n.delete, style: const TextStyle(fontSize: 13)),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  /// T05 长按菜单（共用组件见 [CardActionSheet]）。
-  ///
-  /// ⚠ 这一族**没有「修改」**：卡片本身就是编辑表单（三个凭据框 + 扩展参数都在眼前），
-  /// 长按再"跳到编辑态"是空动作。等 T07 拆成「列表页 → 单通道详情页」后补上。
-  /// 复制走的是**当前表单值**（`_channelPayload`），所以"改了一半先复制一份"是安全的。
-  Future<void> _showCardActions(int index) async {
-    final l10n = AppLocalizations.of(context);
-    final c = _channels[index];
-    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
-    final name = (_controllers['$id.name']?.text ?? '').trim();
-    final enabled = c['enabled'] == true;
-    await CardActionSheet.show(
-      context,
-      title: name.isEmpty ? l10n.appChannelN(index + 1) : name,
-      actions: [
-        CardAction(
-          icon: Icons.copy,
-          label: l10n.duplicate,
-          onTap: () => _duplicateChannel(index),
-        ),
-        CardAction(
-          icon: enabled ? Icons.toggle_off : Icons.toggle_on,
-          label: enabled ? l10n.turnOff : l10n.turnOn,
-          iconColor: enabled ? AppColors.orange : AppColors.green,
-          onTap: () => setState(() => _channels[index]['enabled'] = !enabled),
-        ),
-        CardAction(
-          icon: Icons.delete_outline,
-          label: l10n.delete,
-          danger: true,
-          onTap: () => _removeChannel(index),
-        ),
-      ],
-    );
+  /// 详情页标题 / 卡片头部：有名字用名字，没有名字就说清"这是新增一条"。
+  /// （"自建应用 1"那种序号是给整表平铺页用的，单通道形态下它既不是名字也不是状态。）
+  String _title(AppLocalizations l10n) {
+    final name = (_controllers['$_id.name']?.text ?? '').trim();
+    if (name.isNotEmpty) return name;
+    return widget.channelId == null
+        ? l10n.appChannelNewTitle
+        : l10n.appChannelUntitled;
   }
 
-  /// 删除一条通道 —— **卡片红叉与长按菜单共用这一条**（T06 的单一咽喉：确认写在
-  /// 执行删除的函数里，而不是写在每个调用点，否则新增入口必然漏一条）。
-  Future<void> _removeChannel(int index) async {
-    final l10n = AppLocalizations.of(context);
-    final c = _channels[index];
-    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
-    final name = (_controllers['$id.name']?.text ?? '').trim();
-    final confirmed = await IosDialogActions.askConfirm(
-      context,
-      title: l10n.confirmDelete,
-      message: l10n.deleteChannelConfirm(
-        name.isEmpty ? l10n.appChannelN(index + 1) : name,
-      ),
-      confirmText: l10n.delete,
-    );
-    if (!confirmed || !mounted) return;
-    // 控制器按 `<id>.<字段>` 存在 map 里，只删 `_channels` 那一条会让它们整批留在
-    // map 中（页面关闭前不会回收）。今天它们已经不可达（新通道拿新 id），但留着
-    // 就是下一次"id 复用即串台"的现成弹药，所以删。
-    _releaseControllers(id);
-    setState(() => _channels.removeAt(index));
-    await _health.remove('app', id);
-  }
-
-  /// 释放某条通道的全部控制器（名称/地址/密钥 + 描述符声明的扩展参数）。
-  void _releaseControllers(String id) {
-    if (id.isEmpty) return;
-    final prefix = '$id.';
-    for (final key
-        in _controllers.keys
-            .where((k) => k.startsWith(prefix))
-            .toList(growable: false)) {
-      _controllers.remove(key)?.dispose();
-    }
-  }
-
-  /// 复制出一条同配置通道：**新 id** ⇒ 健康记录不跟着复制（刚复制的那条没测过，
-  /// 顶着一枚绿勾比顶着空白更糟）。追加在末尾，不插在原行后面：`_channels` 的下标
-  /// 被卡片构建与 `_testChannel(i, …)` 共用，中间插入会让进行中的测试对错通道。
-  void _duplicateChannel(int index) {
-    final l10n = AppLocalizations.of(context);
-    final src = _channels[index];
-    final payload = _channelPayload(index);
-    final name = payload['name']?.toString().trim() ?? '';
-    final id = 'app_${DateTime.now().millisecondsSinceEpoch}';
-    _channels.add({
-      ...src,
-      // 表单当前值优先（改了一半就复制，复制到的应是眼前这份）；
-      // enabled / message_format 也随 _channelPayload 一起带过来
-      ...payload,
-      'id': id,
-      'name': name.isEmpty ? '' : l10n.copyOfName(name),
-    });
-    _bindControllers(_channels.last);
-    setState(() {});
-  }
+  /// 本页当前那条通道的 id（新增模式下是 initState 里就 mint 好的 `app_<时间戳>`）。
+  String get _id =>
+      ChannelConfigCodec.nullableText(_channels.first['id']) ?? '';
 
   /// 接入步骤引导（v1.59）：按通道类型展示详细参数获取步骤 + 注意事项。
   /// iOS 底部弹层，与页面其他弹层风格一致。
@@ -859,17 +771,12 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     };
   }
 
-  /// 「仅测试」：不落库，把每条**启用**通道按当前表单值依次测一遍。
+  /// 「仅测试」：不落库，按**当前表单值**测这一条。
   ///
   /// 读的是控制器里的值（`_channelPayload(forTest: true)`），所以"先验再存"是安全的：
-  /// 测坏了也不会把已保存的配置改掉。结果逐条写进健康单点 ⇒ 异常能冒到首页。
-  Future<void> _testAll() async {
-    for (var i = 0; i < _channels.length; i++) {
-      if (_channels[i]['enabled'] != true) continue;
-      await _testChannel(i, _channels[i]);
-      if (!mounted) return;
-    }
-  }
+  /// 测坏了也不会把已保存的配置改掉。结果写进健康单点 ⇒ 异常能冒到首页。
+  /// 未启用的通道也允许测（用户可能就是想先验再启用）。
+  Future<void> _testThis() => _testChannel(0, _channels.first);
 
   Future<void> _testChannel(int index, Map<String, dynamic> c) async {
     final l10n = AppLocalizations.of(context);
@@ -916,7 +823,8 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     required int latencyMs,
   }) => _health.record('app', id, reachable: reachable, latencyMs: latencyMs);
 
-  Future<void> _saveAll() async {
+  /// 保存**这一条**并随即测一次（右上角「测试并保存」）。
+  Future<void> _saveChannelAndTest() async {
     final l10n = AppLocalizations.of(context);
     // ── 表单校验：启用通道的必填字段不能为空（name 从控制器读，_channelPayload 不含 name）──
     for (var i = 0; i < _channels.length; i++) {
@@ -957,19 +865,14 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     setState(() => _saving = true);
     try {
       final service = GetIt.instance<AppChannelService>();
-      final payload = <Map<String, dynamic>>[];
-      for (var i = 0; i < _channels.length; i++) {
-        payload.add({..._channels[i], ..._channelPayload(i)});
-      }
-      await service.saveChannels(payload);
+      // 单条写入：服务层负责"按 id 就地替换、没有则追加"的合并语义。
+      // 以前这里是整表快照 + 整表 delete+insert ⇒ "只想改一条"会把别的通道一起覆盖。
+      await service.saveChannel({..._channels[0], ..._channelPayload(0)});
       if (!mounted) return;
       _showToast(l10n.appChannelSaveOk, true);
       // ── 保存成功后自动发起连接测试（fire-and-forget，不阻塞保存反馈）──
-      for (var i = 0; i < _channels.length; i++) {
-        final c = _channels[i];
-        if (c['enabled'] != true) continue;
-        _testChannel(i, c);
-      }
+      // 停用的通道不测：它本来就不在推送路由里（与改造前的整表循环同一口径）。
+      if (_channels.first['enabled'] == true) _testChannel(0, _channels.first);
     } catch (e) {
       _showToast('${l10n.appChannelSaveFailed}$e', false);
     } finally {

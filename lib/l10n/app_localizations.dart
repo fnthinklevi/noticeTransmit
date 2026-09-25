@@ -4814,6 +4814,24 @@ abstract class AppLocalizations {
   /// **'自建应用通道'**
   String get appChannelTitle;
 
+  /// No description provided for @appChannelNewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增自建应用通道'**
+  String get appChannelNewTitle;
+
+  /// No description provided for @appChannelUntitled.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命名通道'**
+  String get appChannelUntitled;
+
+  /// No description provided for @noAppChannels.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无自建应用通道'**
+  String get noAppChannels;
+
   /// No description provided for @appChannelPageDesc.
   ///
   /// In zh, this message translates to:
