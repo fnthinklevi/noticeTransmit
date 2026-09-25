@@ -34,14 +34,70 @@ void main() {
   void answer(Object? Function(MethodCall) h) => handler = h;
 
   group('解析', () {
-    test('导出快照能整份解析：14 条、族分布正确', () async {
+    test('导出快照能整份解析：15 条、族分布正确', () async {
       answer(descriptorCallResponse);
       final service = ChannelDescriptorService();
       await service.load();
       expect(service.isReady, isTrue);
-      expect(service.all, hasLength(14));
+      expect(service.all, hasLength(15));
       expect(service.webhook, hasLength(12));
       expect(service.appChannels, hasLength(2));
+      expect(service.email, isNotNull);
+    });
+
+    test('邮件族字段带提示与预置档位（T08-C：表单文本只发资源名）', () async {
+      answer(descriptorCallResponse);
+      final service = ChannelDescriptorService();
+      await service.load();
+      final email = service.email!;
+
+      expect(email.family, 'email');
+      expect(email.iconKey, email.key, reason: '图标表按 iconKey 取，两者必须同值');
+      expect(email.fields.map((f) => f.key), [
+        'smtpHost',
+        'smtpPort',
+        'useSSL',
+        'username',
+        'password',
+        'fromEmail',
+        'toEmail',
+        'subjectTemplate',
+        'bodyTemplate',
+      ]);
+      expect(email.secretKeepsPrevious, isTrue);
+
+      final port = email.fields.firstWhere((f) => f.key == 'smtpPort');
+      expect(port.kind, 'number');
+      expect(port.keyboardHint, 'number');
+      expect(port.defaultValue, '465', reason: '默认端口只在原生一份');
+
+      final ssl = email.fields.firstWhere((f) => f.key == 'useSSL');
+      expect(ssl.isSwitch, isTrue);
+      expect(ssl.keyboardHint, isNull, reason: '开关没有键盘');
+
+      final pwd = email.fields.firstWhere((f) => f.key == 'password');
+      expect(pwd.isSecret, isTrue);
+
+      final body = email.fields.firstWhere((f) => f.key == 'bodyTemplate');
+      expect(body.isMultiline, isTrue);
+      expect(body.presets, hasLength(5));
+      expect(
+        body.presets.first.valueKey,
+        isNull,
+        reason: '「默认」档位的语义是清空自定义、交回运行时默认，不是空字符串巧合',
+      );
+      expect(
+        email.fields.firstWhere((f) => f.key == 'subjectTemplate').presets,
+        hasLength(6),
+      );
+      // 未登记的 kind 会静默降级成"另一个控件"，所以快照里出现的每个 kind 都要有渲染分支
+      for (final f in email.fields) {
+        expect(
+          ChannelFieldSpec.knownKinds,
+          contains(f.kind),
+          reason: '${f.key} 的 kind=${f.kind} 没有渲染分支',
+        );
+      }
     });
 
     test('消息格式档位随同一份载荷到达（Dart 不再另存枚举）', () async {

@@ -14,15 +14,17 @@ import java.io.File
  *
  * Dart 侧的表单字段、类型选择器、secret/模板显隐全部改成读这份导出之后，
  * 原生表与 UI 之间就只剩**这一条边界**：它出错的表现是"表单没有字段""密钥框消失"
- * "类型列表少一项"，而不是编译错误。本类锁四件事：
+ * "类型列表少一项"，而不是编译错误。本类锁五件事：
  * 1. 载荷必须是 MethodChannel standard codec 能过的类型（放 enum / JSONObject 进去
  *    会在运行时抛 IllegalArgumentException，而且只在点开设置页时抛）；
- * 2. key 全局唯一、family 只能是 webhook / app（Dart 按 family 分页渲染）；
+ * 2. key 全局唯一、family 只能是 webhook / app / email（Dart 按 family 分页渲染）；
  * 3. 能力位必须由描述符事实派生，不能有人另抄一份名单（`secretUsed` 与签名表、
  *    `customTemplate` 与模板策略两两核对）；
- * 4. **导出快照** `channel_descriptors.json` 与生产代码逐字节一致 ——
- *    该文件同时是 Dart widget 测试的 fixture，所以它必须来自原生表本身，
- *    否则测试是在对着一份手抄的假描述符跑绿。
+ * 4. **邮件族**（T08-C）：描述符声明的列 == `EmailManager` 真读的列，且预置档位不带正文
+ *    （正文留 ARB，否则英文界面点档位会把中文写进用户配置）；
+ * 5. **导出快照** `channel_descriptors.json` 与生产代码逐字节一致（快照由**生产构造点**
+ *    `channelDescriptorsPayload()` 渲染）—— 该文件同时是 Dart widget 测试的 fixture，
+ *    所以它必须来自原生表本身，否则测试是在对着一份手抄的假描述符跑绿。
  */
 class ChannelDescriptorExportTest {
 
@@ -40,7 +42,9 @@ class ChannelDescriptorExportTest {
         )
 
     private val all: List<Map<String, Any?>>
-        get() = ChannelRegistry.descriptors() + AppChannelRegistry.descriptors()
+        get() = ChannelRegistry.descriptors() +
+            AppChannelRegistry.descriptors() +
+            EmailChannelSpec.descriptors()
 
     // ── 1. 可序列化 ─────────────────────────────────────────────────────
 
@@ -75,8 +79,8 @@ class ChannelDescriptorExportTest {
         val keys = all.map { it["key"] as String }
         assertEquals("描述符 key 不得重复", keys.size, keys.toSet().size)
         assertEquals(
-            "webhook 12 + 应用通道 2",
-            mapOf("webhook" to 12, "app" to 2),
+            "webhook 12 + 应用通道 2 + 邮件 1",
+            mapOf("webhook" to 12, "app" to 2, "email" to 1),
             all.groupBy { it["family"] as String }.mapValues { it.value.size },
         )
         for (d in all) {
@@ -165,7 +169,96 @@ class ChannelDescriptorExportTest {
         assertEquals(AppChannelTypes.FEISHU_OFFICIAL_BASE, feishu["officialBase"])
     }
 
-    // ── 4. 导出快照 == Dart 侧 fixture ──────────────────────────────────
+    // ── 4. 邮件族：表 ⇄ 原生真读的列 ────────────────────────────────────
+
+    /** 读一个主源码文件并剥注释（守卫用的都是可执行代码里的字面量）。 */
+    private fun mainSource(name: String): String = stripComments(
+        File(
+            repoRoot,
+            "android/app/src/main/kotlin/com/fnthink/notice/$name",
+        ).readText(Charsets.UTF_8),
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun emailFieldsMatchWhatNativeActuallyReads() {
+        // 反证过方向的两种坏法：表里多一个键 = 用户在界面上填了但发送时没人读
+        // （`extra_config` 就是这条死链路活了三个版本）；表里少一个键 = 发送侧读空值，
+        // 表现是"配了却发不出去"。
+        val declared = EmailChannelSpec.fields.map { it.key }.toSet()
+        val read = Regex("""obj\.opt(?:String|Int|Boolean|Long)\("([A-Za-z][A-Za-z0-9_]*)""")
+            .findAll(mainSource("EmailManager.kt"))
+            .map { it.groupValues[1] }
+            .toSet()
+        // 这三列由列表页与路由管（启停、主备角色、身份），不进表单 schema
+        val notFormFields = setOf("id", "enabled", "role")
+        // password 是**例外**：它不在 obj 列里，而在原生按 id 键控的加密表（下面单独钉），
+        // 所以不能混在同一次集合比对里 —— 混了就会把"表里有 password"判成假违规。
+        assertEquals(
+            "邮件描述符字段与 `EmailManager` 真读的列不一致（差集见左右两边）",
+            read - notFormFields,
+            declared - setOf("password"),
+        )
+        // 密码走原生按 id 键控的加密表，必须仍然在表里（它不是 obj 列，故单独钉）
+        assertTrue("'password' 不在描述符里：表单没地方填授权码", "password" in declared)
+        assertTrue(
+            "原生仍在按 id 读密码表，描述符却声明了 password ⇒ 两侧存储形状要重新对齐",
+            mainSource("EmailManager.kt").contains("passwords[id]"),
+        )
+        // 默认值也只能有一处：表说 465、原生兜底写另一个数，表现是"没填过的通道"
+        // 在界面上显示 A、发信时按 B 连（T08-C 之前端口在六处各写一遍）。
+        @Suppress("UNCHECKED_CAST")
+        val declaredFields = EmailChannelSpec.descriptor()["fields"] as List<Map<String, Any?>>
+        assertEquals(
+            "smtpPort 的表内默认值必须就是常量本身",
+            EmailChannelSpec.DEFAULT_PORT.toString(),
+            declaredFields.first { it["key"] == "smtpPort" }["defaultValue"],
+        )
+        val manager = mainSource("EmailManager.kt")
+        assertTrue(
+            "EmailManager 又写了自己的端口字面量（应引用 EmailChannelSpec.DEFAULT_PORT）",
+            manager.contains("optInt(\"smtpPort\", EmailChannelSpec.DEFAULT_PORT)"),
+        )
+        assertTrue(
+            "EmailManager 又写了自己的 SSL 兜底字面量",
+            manager.contains("optBoolean(\"useSSL\", EmailChannelSpec.DEFAULT_USE_SSL)"),
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun emailPresetsCarryNoTemplateText() {
+        // 预置档位的正文必须留 ARB：写在原生 = 第二份文案（而且只有一种语言，
+        // 英文界面点档位会往用户配置里塞中文 —— 这就是这次要修掉的缺陷）。
+        val descriptor = EmailChannelSpec.descriptor()
+        val fields = descriptor["fields"] as List<Map<String, Any?>>
+        val presetBearing = fields.filter {
+            (it["presets"] as List<Map<String, Any?>>).isNotEmpty()
+        }
+        assertEquals(
+            "只有模板类字段可以有预置档位",
+            listOf("subjectTemplate", "bodyTemplate"),
+            presetBearing.map { it["key"] },
+        )
+        for (f in presetBearing) {
+            val presets = f["presets"] as List<Map<String, Any?>>
+            assertTrue("${f["key"]} 一个档位都没有：界面会给一排空按钮", presets.isNotEmpty())
+            for (t in presets) {
+                assertTrue(
+                    "${f["key"]} 的档位缺 labelKey",
+                    (t["labelKey"] as? String)?.isNotEmpty() == true,
+                )
+                val valueKey = t["valueKey"] as? String
+                // valueKey=null 是显式语义：清空该字段 = 用运行时默认（邮件正文的「默认」档位）
+                assertTrue(
+                    "${f["key"]} 的档位 valueKey 必须是 emailPreset* 资源名或 null（=清空）",
+                    valueKey == null || valueKey.startsWith("emailPreset"),
+                )
+            }
+        }
+    }
+
+    // ── 5. 导出快照 == Dart 侧 fixture ──────────────────────────────────
 
     private fun toJsonValue(value: Any?): Any = when (value) {
         null -> JSONObject.NULL

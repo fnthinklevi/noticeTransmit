@@ -2694,6 +2694,51 @@ class AppLocalizationsZh extends AppLocalizations {
   String get emailHintRecipients => '可多个，逗号分隔';
 
   @override
+  String get emailHintHostExample => 'smtp.qq.com';
+
+  @override
+  String get emailHintAddressExample => 'your@email.com';
+
+  @override
+  String get emailHintSubject => '留空则用默认主题（应用名 + 标题）';
+
+  @override
+  String get emailHintBody => '留空则用默认正文（应用/标题/内容/时间/设备）';
+
+  @override
+  String get emailPresetSubjectDefault => '🔔 %appName% — %title%';
+
+  @override
+  String get emailPresetSubjectSimple => '%appName% — %title%';
+
+  @override
+  String get emailPresetSubjectDetailed => '%appName% — %title%\n内容：%content%';
+
+  @override
+  String get emailPresetSubjectTime => '%time% %appName% — %title%';
+
+  @override
+  String get emailPresetSubjectCode => '[%appName%] 验证码通知 — %title%';
+
+  @override
+  String get emailPresetSubjectDevice => '[%deviceName%] %appName% — %title%';
+
+  @override
+  String get emailPresetBodyStandard =>
+      '应用：%appName%\n标题：%title%\n内容：%content%\n时间：%time%\n设备：%deviceName%';
+
+  @override
+  String get emailPresetBodyComplete =>
+      '应用：%appName%\n标题：%title%\n内容：%content%\n副标题：%subText%\n包名：%packageName%\n时间：%time%\n设备：%deviceName%';
+
+  @override
+  String get emailPresetBodyCode =>
+      '验证码：%content%\n来源：%appName%(%packageName%)\n时间：%time%';
+
+  @override
+  String get emailPresetBodyMinimal => '%appName%：%title%\n%content%';
+
+  @override
   String get emailHintSubjectDefault => '默认：🔔 %appName% — %title%';
 
   @override

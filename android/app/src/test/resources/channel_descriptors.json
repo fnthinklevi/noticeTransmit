@@ -190,6 +190,8 @@
       "labelKey": "channelTypeWecomApp",
       "fields": [
         {
+          "hintKey": null,
+          "presets": [],
           "kind": "text",
           "defaultValue": null,
           "labelKey": "appChannelCorpidLabel",
@@ -197,6 +199,8 @@
           "required": true
         },
         {
+          "hintKey": null,
+          "presets": [],
           "kind": "number",
           "defaultValue": "0",
           "labelKey": "appChannelAgentidLabel",
@@ -204,6 +208,8 @@
           "required": true
         },
         {
+          "hintKey": null,
+          "presets": [],
           "kind": "text",
           "defaultValue": "@all",
           "labelKey": "appChannelTouserLabel",
@@ -223,6 +229,8 @@
       "labelKey": "channelTypeFeishuApp",
       "fields": [
         {
+          "hintKey": null,
+          "presets": [],
           "kind": "text",
           "defaultValue": null,
           "labelKey": "appChannelAppidLabel",
@@ -230,6 +238,8 @@
           "required": true
         },
         {
+          "hintKey": null,
+          "presets": [],
           "kind": "text",
           "defaultValue": "chat_id",
           "labelKey": "appChannelReceiveIdTypeLabel",
@@ -237,6 +247,8 @@
           "required": false
         },
         {
+          "hintKey": null,
+          "presets": [],
           "kind": "text",
           "defaultValue": null,
           "labelKey": "appChannelReceiveIdLabel",
@@ -245,6 +257,148 @@
         }
       ],
       "key": "feishu_app"
+    },
+    {
+      "capabilities": [
+        "secretUsed",
+        "secretRequired",
+        "secretKeepsPrevious",
+        "customTemplate"
+      ],
+      "hosts": [],
+      "iconKey": "email",
+      "family": "email",
+      "labelKey": "emailChannel",
+      "fields": [
+        {
+          "hintKey": "emailHintHostExample",
+          "presets": [],
+          "kind": "host",
+          "defaultValue": null,
+          "labelKey": "smtpHost",
+          "key": "smtpHost",
+          "required": true
+        },
+        {
+          "hintKey": "emailHintPort",
+          "presets": [],
+          "kind": "number",
+          "defaultValue": "465",
+          "labelKey": "smtpPort",
+          "key": "smtpPort",
+          "required": true
+        },
+        {
+          "hintKey": null,
+          "presets": [],
+          "kind": "switch",
+          "defaultValue": "true",
+          "labelKey": "useSSL",
+          "key": "useSSL",
+          "required": false
+        },
+        {
+          "hintKey": "emailHintAddressExample",
+          "presets": [],
+          "kind": "email_address",
+          "defaultValue": null,
+          "labelKey": "smtpAccount",
+          "key": "username",
+          "required": true
+        },
+        {
+          "hintKey": "emailHintPassword",
+          "presets": [],
+          "kind": "secret",
+          "defaultValue": null,
+          "labelKey": "smtpPassword",
+          "key": "password",
+          "required": true
+        },
+        {
+          "hintKey": "emailHintAddressExample",
+          "presets": [],
+          "kind": "email_address",
+          "defaultValue": null,
+          "labelKey": "fromEmail",
+          "key": "fromEmail",
+          "required": true
+        },
+        {
+          "hintKey": "emailHintRecipients",
+          "presets": [],
+          "kind": "text",
+          "defaultValue": null,
+          "labelKey": "toEmail",
+          "key": "toEmail",
+          "required": true
+        },
+        {
+          "hintKey": "emailHintSubject",
+          "presets": [
+            {
+              "labelKey": "presetDefault",
+              "valueKey": "emailPresetSubjectDefault"
+            },
+            {
+              "labelKey": "presetSimple",
+              "valueKey": "emailPresetSubjectSimple"
+            },
+            {
+              "labelKey": "presetDetailed",
+              "valueKey": "emailPresetSubjectDetailed"
+            },
+            {
+              "labelKey": "presetTime",
+              "valueKey": "emailPresetSubjectTime"
+            },
+            {
+              "labelKey": "presetCode",
+              "valueKey": "emailPresetSubjectCode"
+            },
+            {
+              "labelKey": "presetDevice",
+              "valueKey": "emailPresetSubjectDevice"
+            }
+          ],
+          "kind": "text",
+          "defaultValue": null,
+          "labelKey": "subjectTemplate",
+          "key": "subjectTemplate",
+          "required": false
+        },
+        {
+          "hintKey": "emailHintBody",
+          "presets": [
+            {
+              "labelKey": "presetDefault",
+              "valueKey": null
+            },
+            {
+              "labelKey": "presetStandard",
+              "valueKey": "emailPresetBodyStandard"
+            },
+            {
+              "labelKey": "presetComplete",
+              "valueKey": "emailPresetBodyComplete"
+            },
+            {
+              "labelKey": "presetCode",
+              "valueKey": "emailPresetBodyCode"
+            },
+            {
+              "labelKey": "presetMinimal",
+              "valueKey": "emailPresetBodyMinimal"
+            }
+          ],
+          "kind": "multiline",
+          "defaultValue": null,
+          "labelKey": "bodyTemplate",
+          "key": "bodyTemplate",
+          "required": false
+        }
+      ],
+      "key": "email"
     }
   ],
   "messageFormats": [

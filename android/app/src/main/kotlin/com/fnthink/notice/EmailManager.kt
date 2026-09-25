@@ -122,7 +122,10 @@ object EmailManager {
                 configs.add(EmailSender.EmailConfig(
                     id = id,
                     smtpHost = obj.optString("smtpHost", ""),
-                    smtpPort = obj.optInt("smtpPort", 465),
+                    // 缺省值取自描述符（EmailChannelSpec）：以前这里是第二处 465/true，
+                    // 与 Dart 表单的默认值各写各的 —— 改一处就出现"存的没这个键时按 A 发、
+                    // 界面上显示 B"。
+                    smtpPort = obj.optInt("smtpPort", EmailChannelSpec.DEFAULT_PORT),
                     username = obj.optString("username", ""),
                     password = passwords[id] ?: "",
                     fromEmail = obj.optString("fromEmail", ""),
@@ -130,7 +133,7 @@ object EmailManager {
                         .split(",")
                         .map { it.trim() }
                         .filter { it.isNotEmpty() },
-                    useSSL = obj.optBoolean("useSSL", true),
+                    useSSL = obj.optBoolean("useSSL", EmailChannelSpec.DEFAULT_USE_SSL),
                     subjectTemplate = obj.optString("subjectTemplate", "").ifBlank { null },
                     bodyTemplate = obj.optString("bodyTemplate", "").ifBlank { null },
                     role = role

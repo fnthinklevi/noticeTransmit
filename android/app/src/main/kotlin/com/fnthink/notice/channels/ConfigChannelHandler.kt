@@ -4,6 +4,7 @@ import com.fnthink.notice.AppChannelRegistry
 import com.fnthink.notice.BackupModeStore
 import com.fnthink.notice.ChannelRegistry
 import com.fnthink.notice.DiagLog
+import com.fnthink.notice.EmailChannelSpec
 import com.fnthink.notice.EmailManager
 import com.fnthink.notice.I18n
 import com.fnthink.notice.MainActivity
@@ -209,7 +210,9 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
  */
 internal fun channelDescriptorsPayload(): Map<String, Any?> = mapOf(
     "descriptors" to (
-        ChannelRegistry.descriptors() + AppChannelRegistry.descriptors()
+        ChannelRegistry.descriptors() +
+            AppChannelRegistry.descriptors() +
+            EmailChannelSpec.descriptors()
         ),
     "messageFormats" to TemplateEngine.formatOptions,
 )

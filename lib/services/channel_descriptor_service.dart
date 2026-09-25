@@ -2,6 +2,25 @@ import 'package:flutter/foundation.dart';
 
 import 'platform_channel.dart';
 
+/// 预置档位（原生 `FieldPreset` 的镜像）：点一下把模板正文填进该字段。
+@immutable
+class ChannelFieldPreset {
+  const ChannelFieldPreset({required this.labelKey, this.valueKey});
+
+  /// 档位名的 ARB 资源名
+  final String labelKey;
+
+  /// 模板正文的 ARB 资源名；**null = 清空该字段**（= 交回原生运行时默认，
+  /// 邮件正文的「默认」档位就是这种）。不得回退成空字符串去覆盖"没这个概念"的情形。
+  final String? valueKey;
+
+  factory ChannelFieldPreset.fromMap(Map<dynamic, dynamic> m) =>
+      ChannelFieldPreset(
+        labelKey: m['labelKey']?.toString() ?? '',
+        valueKey: m['valueKey']?.toString(),
+      );
+}
+
 /// 通道配置字段声明（原生 `FieldSpec` 的 Dart 镜像）。
 @immutable
 class ChannelFieldSpec {
@@ -11,6 +30,8 @@ class ChannelFieldSpec {
     required this.kind,
     required this.required,
     this.defaultValue,
+    this.hintKey,
+    this.presets = const [],
   });
 
   final String key;
@@ -18,14 +39,49 @@ class ChannelFieldSpec {
   /// ARB 资源名（译文只在 ARB 一处）
   final String labelKey;
 
-  /// 'text' | 'number'
+  /// 'text' | 'number' | 'switch' | 'secret' | 'multiline' | 'email_address' | 'host'
+  ///
+  /// ⚠ 每加一个 kind，`ChannelFormRenderer` 必须有对应渲染分支；由
+  /// `channel_form_renderer_test` 的"未登记 kind 不得静默降级"钉住 ——
+  /// 静默降级的表现是"密码明文显示""开关画成输入框"。
   final String kind;
   final bool required;
 
-  /// 留空时落库的值（touser=@all、receive_id_type=chat_id、agentid=0）
+  /// 留空时落库的值（touser=@all、receive_id_type=chat_id、agentid=0、smtpPort=465）
   final String? defaultValue;
 
+  /// 输入框提示的 ARB 资源名；null = 不给提示
+  final String? hintKey;
+
+  /// 预置档位（模板类字段才有）；空列表 = 不给档位按钮
+  final List<ChannelFieldPreset> presets;
+
   bool get isNumber => kind == 'number';
+  bool get isSwitch => kind == 'switch';
+  bool get isSecret => kind == 'secret';
+  bool get isMultiline => kind == 'multiline';
+
+  /// kind → 键盘类型的**中立名字**（渲染器再映射成 `TextInputType`）。
+  /// 这里刻意不 import flutter/services：服务层不碰 UI 类型，否则
+  /// "widget 层不得直调原生通道"那条棘轮守卫就失去意义。
+  /// null = 用平台默认键盘（'switch' / 'multiline' / 'text' / 'secret' 走这条）。
+  String? get keyboardHint => switch (kind) {
+    'number' => 'number',
+    'email_address' => 'email',
+    'host' => 'url',
+    _ => null,
+  };
+
+  /// 已登记的渲染分支（守卫拿它与描述符里实际出现的 kind 集合比对）。
+  static const Set<String> knownKinds = {
+    'text',
+    'number',
+    'switch',
+    'secret',
+    'multiline',
+    'email_address',
+    'host',
+  };
 
   factory ChannelFieldSpec.fromMap(Map<dynamic, dynamic> m) => ChannelFieldSpec(
     key: m['key']?.toString() ?? '',
@@ -33,6 +89,11 @@ class ChannelFieldSpec {
     kind: m['kind']?.toString() ?? 'text',
     required: m['required'] == true,
     defaultValue: m['defaultValue']?.toString(),
+    hintKey: m['hintKey']?.toString(),
+    presets: ((m['presets'] as List<dynamic>?) ?? const [])
+        .whereType<Map<dynamic, dynamic>>()
+        .map(ChannelFieldPreset.fromMap)
+        .toList(growable: false),
   );
 }
 
@@ -51,7 +112,8 @@ class ChannelDescriptor {
     this.officialBase,
   });
 
-  /// 'webhook' | 'app'
+  /// 'webhook' | 'app' | 'email'（T08-C 起有第三种；三族各自渲染页面，
+  /// 集合封闭由 `channel_descriptor_export_contract_test` 钉）
   final String family;
 
   /// 稳定标识（与 Dart 送达键 `chan:<key>`、图标 key 同一口径）
@@ -73,6 +135,11 @@ class ChannelDescriptor {
   /// secret 输入框是否显示：HMAC 签名密钥 / Bearer 令牌 / Gotify App Token 都算凭据。
   /// 原生已把这条判断从"UI 平台黑名单"变成能力位，UI 只读结果。
   bool get usesSecretField => can('secretUsed');
+
+  /// 凭据字段**留空 = 沿用已存值**（邮件 SMTP 授权码：原生按 id 键控单独存，
+  /// 表单从不回显明文）。与 webhook 的"清空白就是清空白"相反，所以必须是能力位
+  /// 而不是页面按族分支 —— 表现差异见 `Capability.SECRET_KEEPS_PREVIOUS` 的注释。
+  bool get secretKeepsPrevious => can('secretKeepsPrevious');
 
   /// secret 是否**必填**（缺了原生直接早失败，服务端会拒收）。
   /// 与 [usesSecretField] 是两件事：显示输入框 ≠ 非填不可（Bark 显示 key 但可以留空）。
@@ -134,6 +201,11 @@ class ChannelDescriptorService {
       _all.where((d) => d.family == 'webhook').toList(growable: false);
   List<ChannelDescriptor> get appChannels =>
       _all.where((d) => d.family == 'app').toList(growable: false);
+
+  /// 邮件族的描述符（T08-C：邮件表单的字段/默认值/预置档位也来自原生表）。
+  /// 取不到（原生未就绪）返回 null —— 页面**必须**保留自己的既有渲染兜底，
+  /// 不得因为表没到手就把已存配置写空（与 `ChannelFormRenderer.collect` 同一口径）。
+  ChannelDescriptor? get email => byKey('email');
 
   /// 按稳定 key 查描述符（`wecom_app` / `dingtalk` / ...）；未登记返回 null。
   ChannelDescriptor? byKey(String key) {

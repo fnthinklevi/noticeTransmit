@@ -155,7 +155,7 @@ void main() {
   group('描述符视图', () {
     test('byKey / families / 能力位读取', () {
       final serviceDescriptors = parsed();
-      expect(serviceDescriptors, hasLength(14));
+      expect(serviceDescriptors, hasLength(15));
       final byKey = {for (final d in serviceDescriptors) d.key: d};
       expect(byKey['wecom_app']!.family, 'app');
       expect(byKey['dingtalk']!.family, 'webhook');

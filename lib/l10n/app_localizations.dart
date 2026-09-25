@@ -5102,6 +5102,90 @@ abstract class AppLocalizations {
   /// **'可多个，逗号分隔'**
   String get emailHintRecipients;
 
+  /// No description provided for @emailHintHostExample.
+  ///
+  /// In zh, this message translates to:
+  /// **'smtp.qq.com'**
+  String get emailHintHostExample;
+
+  /// No description provided for @emailHintAddressExample.
+  ///
+  /// In zh, this message translates to:
+  /// **'your@email.com'**
+  String get emailHintAddressExample;
+
+  /// No description provided for @emailHintSubject.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空则用默认主题（应用名 + 标题）'**
+  String get emailHintSubject;
+
+  /// No description provided for @emailHintBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空则用默认正文（应用/标题/内容/时间/设备）'**
+  String get emailHintBody;
+
+  /// No description provided for @emailPresetSubjectDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'🔔 %appName% — %title%'**
+  String get emailPresetSubjectDefault;
+
+  /// No description provided for @emailPresetSubjectSimple.
+  ///
+  /// In zh, this message translates to:
+  /// **'%appName% — %title%'**
+  String get emailPresetSubjectSimple;
+
+  /// No description provided for @emailPresetSubjectDetailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'%appName% — %title%\n内容：%content%'**
+  String get emailPresetSubjectDetailed;
+
+  /// No description provided for @emailPresetSubjectTime.
+  ///
+  /// In zh, this message translates to:
+  /// **'%time% %appName% — %title%'**
+  String get emailPresetSubjectTime;
+
+  /// No description provided for @emailPresetSubjectCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'[%appName%] 验证码通知 — %title%'**
+  String get emailPresetSubjectCode;
+
+  /// No description provided for @emailPresetSubjectDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'[%deviceName%] %appName% — %title%'**
+  String get emailPresetSubjectDevice;
+
+  /// No description provided for @emailPresetBodyStandard.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用：%appName%\n标题：%title%\n内容：%content%\n时间：%time%\n设备：%deviceName%'**
+  String get emailPresetBodyStandard;
+
+  /// No description provided for @emailPresetBodyComplete.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用：%appName%\n标题：%title%\n内容：%content%\n副标题：%subText%\n包名：%packageName%\n时间：%time%\n设备：%deviceName%'**
+  String get emailPresetBodyComplete;
+
+  /// No description provided for @emailPresetBodyCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'验证码：%content%\n来源：%appName%(%packageName%)\n时间：%time%'**
+  String get emailPresetBodyCode;
+
+  /// No description provided for @emailPresetBodyMinimal.
+  ///
+  /// In zh, this message translates to:
+  /// **'%appName%：%title%\n%content%'**
+  String get emailPresetBodyMinimal;
+
   /// No description provided for @emailHintSubjectDefault.
   ///
   /// In zh, this message translates to:

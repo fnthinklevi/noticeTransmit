@@ -54,12 +54,25 @@ class ChannelDescriptorsInstrumentedTest {
         // ⚠ 不要用 `?: org.junit.Assert.fail(...)` 做兜底 —— JUnit 的 fail 返回 void，
         //   elvis 会把元素静态类型推成 Any?，后面每个 `it["key"]` 都编不过。
         val rows = (map["descriptors"] as List<*>).map { it as Map<String, Any?> }
-        assertEquals("webhook 12 + 应用通道 2", 14, rows.size)
+        assertEquals("webhook 12 + 应用通道 2 + 邮件 1", 15, rows.size)
         assertEquals(TemplateEngine.formatOptions, map["messageFormats"])
 
         // 逐条核对解码后的类型：codec 会把 Int 收成 32/64 位两种，Dart 侧统一按 num 取
         val byKey = rows.associateBy { it["key"] as String }
-        assertEquals(14, byKey.size)
+        assertEquals(15, byKey.size)
+        // 邮件族第一次让 family 长出第三种：Dart 按 family 分页渲染，漏一族 = 那族表单没数据
+        assertEquals(
+            setOf("webhook", "app", "email"),
+            rows.map { it["family"] as String }.toSet(),
+        )
+        val email = byKey["email"]!!
+        assertEquals("email", email["iconKey"])
+        assertTrue(
+            "邮件字段的 presets 丢了：预置档位按钮会整排消失",
+            (email["fields"] as List<Map<String, Any?>>)
+                .first { it["key"] == "subjectTemplate" }
+                .let { (it["presets"] as List<*>).isNotEmpty() },
+        )
 
         val dingtalk = byKey["dingtalk"]!!
         assertEquals("webhook", dingtalk["family"])

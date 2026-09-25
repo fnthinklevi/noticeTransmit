@@ -154,6 +154,14 @@ const Map<String, ChannelVisual> _channelVisuals = {
     labelKey: 'channelTypeFeishuApp',
     secretHintKey: 'appChannelSecretFeishuHint',
   ),
+  // T08-C：邮件族第一次有描述符（`family=email`，key=iconKey=`email`）。
+  // 它此前只在 `email_settings_page` 里就地写了两颗 `Icons.email*`，
+  // 而导出守卫要求每条描述符在本判决表里有自己的条目 —— 用它而不是再抄一遍图标名。
+  'email': ChannelVisual(
+    icon: Icons.email,
+    color: AppColors.blue,
+    labelKey: 'emailChannel',
+  ),
 };
 
 /// 通用兜底样式：未知 slug（新通道还没补这张表时）也要能渲染，不能崩。
@@ -307,6 +315,9 @@ String channelLabelFor(AppLocalizations l10n, String labelKey) {
       return l10n.appChannelReceiveIdTypeLabel;
     case 'appChannelReceiveIdLabel':
       return l10n.appChannelReceiveIdLabel;
+    // 邮件族的通道名（T08-C：它现在是第三条描述符，labelKey 与其余两族同一条路）
+    case 'emailChannel':
+      return l10n.emailChannel;
     default:
       // 不硬编码中文兜底：宁可显示 key 名，也不要造出"第二处译文"
       return labelKey;

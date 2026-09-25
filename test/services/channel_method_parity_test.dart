@@ -112,7 +112,7 @@ Map<String, List<String>> _nativeChannelMethods(String root) {
   final result = <String, List<String>>{};
   for (final f in handlers) {
     final name = f.uri.pathSegments.last.replaceAll('.kt', '');
-    final src = f.readAsStringSync();
+    final src = stripComments(f.readAsStringSync());
     for (final m in branchPattern.allMatches(src)) {
       result.putIfAbsent(m.group(1)!, () => []).add(name);
     }
@@ -121,6 +121,11 @@ Map<String, List<String>> _nativeChannelMethods(String root) {
 }
 
 /// 解析 Dart 侧实际发出的方法名。
+///
+/// ⚠ 两侧源码都先 `stripComments`：本守卫靠「invokeMethod 之后第一个字符串字面量」
+/// 取名字，注释里出现 `invokeMethod` 这个词（写文档时很常见）就会把注释正文里的
+/// 引号片段当成方法名 —— T08-C 就是这么红了一次（`'switch'` 被当成方法）。
+/// 剥注释是引号感知的，所以真实字符串字面量不受影响。
 ///
 /// 两种来源：
 /// 1. `invokeMethod` 之后的第一个字符串字面量。用「窗口内首个字面量」而非
@@ -139,7 +144,7 @@ Set<String> _dartChannelMethods(String root) {
   final methods = <String>{};
 
   for (final f in files) {
-    final src = f.readAsStringSync();
+    final src = stripComments(f.readAsStringSync());
     for (final call in RegExp(r'invokeMethod\b').allMatches(src)) {
       // 240 字符足够覆盖 invokeMethod<T>(\n  'name',\n) 的最长现实形态；
       // 不足以跨到下一次 invokeMethod（方法名之间通常隔着参数与日志）。

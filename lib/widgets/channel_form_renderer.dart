@@ -149,6 +149,67 @@ class ChannelFormRenderer extends StatelessWidget {
   );
 }
 
+/// 描述符引用的**表单文本**（字段标签 / 输入提示 / 预置档位名与正文）→ 译文。
+///
+/// 为什么要有这张表：第 5 步起表单只发 **ARB 资源名**，译文必须有个地方按名字取。
+/// 通道名的资源名走 `channelLabelFor`（那是通道身份表的一部分，含 appChannel*Label）；
+/// 这里只登记**表单专属**的词条 —— 邮件族的 9 个字段标签、7 条提示、9 个档位名、
+/// 10 条预置正文（T08-C）。
+///
+/// ⚠ 漏登记的表现是"输入框显示资源名原文"（不是崩溃、不是报错），所以
+/// `channel_descriptor_export_contract_test` 会拿导出快照逐键核对：快照里出现的每个
+/// labelKey/hintKey/preset key 都必须在这里或 `channelLabelFor` 解析得出来，
+/// 且两份 ARB 都有该词条。**别凭印象增删，改表就重跑那条守卫。**
+final Map<String, String Function(AppLocalizations)> _channelFormText = {
+  // 字段标签
+  'smtpHost': (l) => l.smtpHost,
+  'smtpPort': (l) => l.smtpPort,
+  'useSSL': (l) => l.useSSL,
+  'smtpAccount': (l) => l.smtpAccount,
+  'smtpPassword': (l) => l.smtpPassword,
+  'fromEmail': (l) => l.fromEmail,
+  'toEmail': (l) => l.toEmail,
+  'subjectTemplate': (l) => l.subjectTemplate,
+  'bodyTemplate': (l) => l.bodyTemplate,
+  // 输入提示
+  'emailHintHostExample': (l) => l.emailHintHostExample,
+  'emailHintAddressExample': (l) => l.emailHintAddressExample,
+  'emailHintPort': (l) => l.emailHintPort,
+  'emailHintPassword': (l) => l.emailHintPassword,
+  'emailHintRecipients': (l) => l.emailHintRecipients,
+  'emailHintSubject': (l) => l.emailHintSubject,
+  'emailHintBody': (l) => l.emailHintBody,
+  // 预置档位名
+  'presetDefault': (l) => l.presetDefault,
+  'presetSimple': (l) => l.presetSimple,
+  'presetDetailed': (l) => l.presetDetailed,
+  'presetTime': (l) => l.presetTime,
+  'presetCode': (l) => l.presetCode,
+  'presetDevice': (l) => l.presetDevice,
+  'presetStandard': (l) => l.presetStandard,
+  'presetComplete': (l) => l.presetComplete,
+  'presetMinimal': (l) => l.presetMinimal,
+  // 预置档位正文（语言跟着界面走 —— 这正是 T08-C 要修掉的那条缺陷）
+  'emailPresetSubjectDefault': (l) => l.emailPresetSubjectDefault,
+  'emailPresetSubjectSimple': (l) => l.emailPresetSubjectSimple,
+  'emailPresetSubjectDetailed': (l) => l.emailPresetSubjectDetailed,
+  'emailPresetSubjectTime': (l) => l.emailPresetSubjectTime,
+  'emailPresetSubjectCode': (l) => l.emailPresetSubjectCode,
+  'emailPresetSubjectDevice': (l) => l.emailPresetSubjectDevice,
+  'emailPresetBodyStandard': (l) => l.emailPresetBodyStandard,
+  'emailPresetBodyComplete': (l) => l.emailPresetBodyComplete,
+  'emailPresetBodyCode': (l) => l.emailPresetBodyCode,
+  'emailPresetBodyMinimal': (l) => l.emailPresetBodyMinimal,
+};
+
+/// 按 ARB 资源名取表单文本；两处登记表都查不到才退回原文（并让守卫红）。
+String channelFormText(AppLocalizations l10n, String key) =>
+    _channelFormText[key]?.call(l10n) ?? channelLabelFor(l10n, key);
+
+/// 预置档位的正文；`valueKey == null` 是显式语义 = **清空该字段**（交回运行时默认）。
+String channelPresetText(AppLocalizations l10n, ChannelFieldPreset preset) =>
+    preset.valueKey == null ? '' : channelFormText(l10n, preset.valueKey!);
+
 /// 「新增通道」类型选择弹层（iOS 风格底部弹层）。
 ///
 /// 第 5 步统一入口：原来三种新增形态各写一套（行内追加空行 / 先选类型 / 全屏编辑器），

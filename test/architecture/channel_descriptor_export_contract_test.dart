@@ -5,7 +5,10 @@ import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/webhook_channel.dart';
+import 'package:notice_transmit/services/channel_descriptor_service.dart';
 import 'package:notice_transmit/services/channel_display.dart';
+import 'package:notice_transmit/services/template_variables.dart';
+import 'package:notice_transmit/widgets/channel_form_renderer.dart';
 import 'package:notice_transmit/widgets/channel_visuals.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
@@ -31,14 +34,14 @@ void main() {
         ..removeWhere((k, _) => k.startsWith('@'));
 
   group('导出快照自身', () {
-    test('14 条：12 webhook + 2 应用通道', () {
-      expect(descriptors, hasLength(14));
+    test('15 条：12 webhook + 2 应用通道 + 1 邮件', () {
+      expect(descriptors, hasLength(15));
       final families = <String, int>{};
       for (final d in descriptors) {
         final f = d['family'] as String;
         families[f] = (families[f] ?? 0) + 1;
       }
-      expect(families, {'webhook': 12, 'app': 2});
+      expect(families, {'webhook': 12, 'app': 2, 'email': 1});
     });
 
     test('key 唯一且是 slug 口径', () {
@@ -336,6 +339,97 @@ void main() {
           src,
           isNot(contains('enum WebhookMessageFormat')),
           reason: '$rel 又把档位做成了 Dart 枚举',
+        );
+      }
+    });
+  });
+
+  group('邮件族表单文本两端一致（T08-C）', () {
+    final email = descriptors.firstWhere((d) => d['family'] == 'email');
+    final emailFields = (email['fields'] as List<Object?>)
+        .cast<Map<Object?, Object?>>();
+
+    /// 快照引用到的全部词条资源名（通道名 + 字段标签 + 提示 + 档位名 + 档位正文）
+    Set<String> referencedKeys() {
+      final keys = <String>{email['labelKey'] as String};
+      for (final f in emailFields) {
+        keys.add(f['labelKey'] as String);
+        final hint = f['hintKey'];
+        if (hint != null) keys.add(hint.toString());
+        for (final p
+            in (f['presets'] as List<Object?>).cast<Map<Object?, Object?>>()) {
+          keys.add(p['labelKey'] as String);
+          final value = p['valueKey'];
+          if (value != null) keys.add(value.toString());
+        }
+      }
+      return keys;
+    }
+
+    test('每个资源名都在两份 ARB 里，且解析得出来（不是原样吐回 key）', () {
+      final arbZh = arbOf('lib/l10n/arb/app_zh.arb');
+      final arbEn = arbOf('lib/l10n/arb/app_en.arb');
+      final zh = lookupAppLocalizations(const Locale('zh'));
+      final en = lookupAppLocalizations(const Locale('en'));
+      final keys = referencedKeys();
+      expect(keys, isNotEmpty);
+      for (final k in keys) {
+        expect(arbZh.containsKey(k), isTrue, reason: 'ARB(zh) 缺词条 $k');
+        expect(arbEn.containsKey(k), isTrue, reason: 'ARB(en) 缺词条 $k');
+        expect(
+          channelFormText(zh, k),
+          isNot(k),
+          reason:
+              '$k 没有登记进 channelFormText / channelLabelFor：'
+              '表现是输入框或档位按钮直接显示资源名原文',
+        );
+        expect(
+          channelFormText(en, k),
+          isNot(k),
+          reason: '$k 在英文环境下解析不出来（英文界面会看到中文键名）',
+        );
+      }
+    });
+
+    test('预置正文只许用邮件模板名单里的变量', () {
+      final arbZh = arbOf('lib/l10n/arb/app_zh.arb');
+      final arbEn = arbOf('lib/l10n/arb/app_en.arb');
+      final allowed = emailTemplateVars.map((v) => v.token).toSet();
+      var checked = 0;
+      for (final f in emailFields) {
+        for (final p
+            in (f['presets'] as List<Object?>).cast<Map<Object?, Object?>>()) {
+          final valueKey = p['valueKey'];
+          // valueKey == null 是显式语义「清空」（交回运行时默认），不是漏登记
+          if (valueKey == null) continue;
+          checked++;
+          for (final arb in {arbZh, arbEn}) {
+            final text = arb[valueKey].toString();
+            for (final v in RegExp(r'%(\w+)%').allMatches(text)) {
+              expect(
+                allowed,
+                contains(v.group(1)),
+                reason:
+                    '$valueKey 用了原生不替换的变量 %${v.group(1)}%'
+                    '（用户会收到原样留在正文里的占位符）',
+              );
+            }
+          }
+        }
+      }
+      expect(checked, greaterThan(0), reason: '快照里一个预置正文都没有：守卫变空转');
+    });
+
+    test('快照里出现的 kind 都必须有渲染分支', () {
+      final kinds = emailFields.map((f) => f['kind'] as String).toSet();
+      expect(kinds, containsAll(['number', 'switch', 'secret', 'multiline']));
+      for (final k in kinds) {
+        expect(
+          ChannelFieldSpec.knownKinds,
+          contains(k),
+          reason:
+              'kind=$k 没有渲染分支：会静默降级成普通文本框'
+              '（凭据明文显示 / 开关画成输入框 就是这一类）',
         );
       }
     });

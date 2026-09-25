@@ -122,13 +122,35 @@ internal class ChannelTransport(
     val textLimitChars: Int? = null,
 )
 
-/** 表单字段类型：Dart 渲染器按它决定键盘类型与落库类型。 */
-enum class FieldKind { TEXT, NUMBER }
+/**
+ * 表单字段类型：Dart 渲染器按它决定控件形态（键盘类型 / 遮罩 / 多行）与落库类型。
+ *
+ * T08-C 之前只有 TEXT/NUMBER 两值 —— 那是"应用通道只有三个文本框"的形状。邮件族第一次
+ * 出现了开关（useSSL）、要遮罩的凭据（SMTP 授权码）、多行正文（bodyTemplate）与
+ * 邮箱/主机两种键盘，所以补齐。**每个值都必须有渲染分支**：`kind` 落回 text 的表现是
+ * "密码明文显示 / 开关画成输入框"，由 `ChannelFormRenderer` 的用例与
+ * `channel_descriptor_export_contract_test` 的"未登记 kind 不得静默降级"一起钉。
+ */
+enum class FieldKind { TEXT, NUMBER, SWITCH, SECRET, MULTILINE, EMAIL_ADDRESS, HOST }
 
 /**
- * 通道配置字段声明（应用通道的扩展参数等）。
+ * 字段上的一个预置档位（点一下把模板正文填进该字段）。
  *
- * ⚠ [labelKey] 存的是 **Dart ARB 资源名**、不是文案：译文只在 ARB 一处。
+ * 只存 **ARB 资源名**，不存文案：正文曾经硬编码在 Dart 页面上（11 条中文字面量），
+ * 于是英文界面点预置会往用户配置里写中文。现在文本只在 ARB 一处，语言跟着界面走。
+ * [valueKey] = null 表示"清空该字段"（= 交回运行时默认，邮件正文的「默认」档位就是这种）。
+ */
+class FieldPreset(
+    val labelKey: String,
+    val valueKey: String? = null,
+) {
+    fun toMap(): Map<String, Any?> = mapOf("labelKey" to labelKey, "valueKey" to valueKey)
+}
+
+/**
+ * 通道配置字段声明（应用通道的扩展参数、邮件族的连接参数）。
+ *
+ * ⚠ [labelKey]/[hintKey] 存的是 **Dart ARB 资源名**、不是文案：译文只在 ARB 一处。
  * 这里此前另存 `labelZh/labelEn/hintZh/hintEn` 四份字面量，已与 ARB 漂移
  * （agentid：Kotlin「应用 agentid」vs ARB「应用 agentid（纯数字）」），
  * 而且整份 schema 在生产代码里零消费者 —— Dart 表单是四处硬编码列表（第 5 步收口）。
@@ -138,8 +160,12 @@ class FieldSpec(
     val labelKey: String,
     val kind: FieldKind = FieldKind.TEXT,
     val required: Boolean = false,
-    /** 留空时落库的默认值（touser=@all、receive_id_type=chat_id、agentid=0） */
+    /** 留空时落库的默认值（touser=@all、receive_id_type=chat_id、agentid=0、smtpPort=465） */
     val defaultValue: String? = null,
+    /** 输入框提示的 ARB 资源名；null = 不给提示 */
+    val hintKey: String? = null,
+    /** 预置档位（模板类字段才有）；空列表 = 界面不给档位按钮 */
+    val presets: List<FieldPreset> = emptyList(),
 ) {
     /** MethodChannel 可序列化的 Map（不放 org.json 对象，Dart 侧拿不到） */
     fun toMap(): Map<String, Any?> = mapOf(
@@ -148,6 +174,10 @@ class FieldSpec(
         "kind" to kind.name.lowercase(),
         "required" to required,
         "defaultValue" to defaultValue,
+        "hintKey" to hintKey,
+        // 空列表也发出去：Dart 侧要能区分"这字段没档位"与"描述符没拉到"
+        // （后者不得把已存配置写空）。
+        "presets" to presets.map { it.toMap() },
     )
 }
 
@@ -188,6 +218,16 @@ object Capability {
 
     /** 支持 markdown 消息（企业微信自建应用；飞书统一降级为 text） */
     const val MARKDOWN = "markdown"
+
+    /**
+     * 凭据字段**留空 = 沿用已存值**（邮件的 SMTP 授权码）。
+     *
+     * 与 webhook 族正好相反：那边"清空密钥框"是真的清（见 T07-B 的载荷语义），
+     * 因为邮件授权码在原生按 id 键控单独存（`EmailManager` 的 passwords 表），
+     * 编辑弹层从来读不回明文 ⇒ 空白只能解释为"没改"。这条差异必须在表里可见，
+     * 否则 UI 要么把已存授权码洗成空，要么反过来让用户清不掉。
+     */
+    const val SECRET_KEEPS_PREVIOUS = "secretKeepsPrevious"
 }
 
 /** 正文上限常量：唯一定义处（描述符声明与截断实现共用，避免魔数漂移）。 */

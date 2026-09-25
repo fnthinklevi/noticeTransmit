@@ -2806,6 +2806,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emailHintRecipients => 'Separate multiple addresses with commas';
 
   @override
+  String get emailHintHostExample => 'smtp.qq.com';
+
+  @override
+  String get emailHintAddressExample => 'your@email.com';
+
+  @override
+  String get emailHintSubject =>
+      'Leave empty for the default subject (app name + title)';
+
+  @override
+  String get emailHintBody =>
+      'Leave empty for the default body (app / title / content / time / device)';
+
+  @override
+  String get emailPresetSubjectDefault => '🔔 %appName% — %title%';
+
+  @override
+  String get emailPresetSubjectSimple => '%appName% — %title%';
+
+  @override
+  String get emailPresetSubjectDetailed =>
+      '%appName% — %title%\nContent: %content%';
+
+  @override
+  String get emailPresetSubjectTime => '%time% %appName% — %title%';
+
+  @override
+  String get emailPresetSubjectCode =>
+      '[%appName%] verification code — %title%';
+
+  @override
+  String get emailPresetSubjectDevice => '[%deviceName%] %appName% — %title%';
+
+  @override
+  String get emailPresetBodyStandard =>
+      'App: %appName%\nTitle: %title%\nContent: %content%\nTime: %time%\nDevice: %deviceName%';
+
+  @override
+  String get emailPresetBodyComplete =>
+      'App: %appName%\nTitle: %title%\nContent: %content%\nSub-text: %subText%\nPackage: %packageName%\nTime: %time%\nDevice: %deviceName%';
+
+  @override
+  String get emailPresetBodyCode =>
+      'Code: %content%\nFrom: %appName% (%packageName%)\nTime: %time%';
+
+  @override
+  String get emailPresetBodyMinimal => '%appName%: %title%\n%content%';
+
+  @override
   String get emailHintSubjectDefault => 'Default: 🔔 %appName% — %title%';
 
   @override
