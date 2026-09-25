@@ -35,7 +35,7 @@ void main() {
 
   group('解析', () {
     test('导出快照能整份解析：14 条、族分布正确', () async {
-      answer((call) => exportedDescriptors());
+      answer(descriptorCallResponse);
       final service = ChannelDescriptorService();
       await service.load();
       expect(service.isReady, isTrue);
@@ -44,8 +44,21 @@ void main() {
       expect(service.appChannels, hasLength(2));
     });
 
+    test('消息格式档位随同一份载荷到达（Dart 不再另存枚举）', () async {
+      answer(descriptorCallResponse);
+      final service = ChannelDescriptorService();
+      await service.load();
+      expect(service.messageFormats, [
+        'default',
+        'text',
+        'markdown',
+        'json',
+        'xml',
+      ]);
+    });
+
     test('能力位与字段解析成只读视图', () async {
-      answer((call) => exportedDescriptors());
+      answer(descriptorCallResponse);
       final service = ChannelDescriptorService();
       await service.load();
 
@@ -77,7 +90,7 @@ void main() {
     });
 
     test('未登记的 key 返回 null（调用方据此走兜底，不崩）', () async {
-      answer((call) => exportedDescriptors());
+      answer(descriptorCallResponse);
       final service = ChannelDescriptorService();
       await service.load();
       expect(service.byKey('matrix'), isNull);
@@ -86,14 +99,31 @@ void main() {
 
   group('缓存与失败', () {
     test('原生返回空列表时保留旧缓存，不进入就绪态', () async {
-      answer((call) => exportedDescriptors());
+      answer(descriptorCallResponse);
       final service = ChannelDescriptorService();
       await service.load();
       final before = service.all;
 
-      answer((call) => const <Object?>[]);
+      answer((call) => const <String, Object?>{'descriptors': <Object?>[]});
       await service.load(force: true);
       expect(service.all, same(before), reason: '空列表覆盖缓存 = 表单以为"这通道没字段"');
+      expect(
+        service.messageFormats,
+        hasLength(5),
+        reason: '描述符为空时档位也不得被清掉：清掉会让表单只剩当前值，看起来像"档位丢了"',
+      );
+    });
+
+    test('载荷是旧形状（裸列表）时保留旧缓存', () async {
+      // 两侧同包发布，认旧形状只会把协议错配藏起来 —— 这里锁的是"不藏"。
+      answer(descriptorCallResponse);
+      final service = ChannelDescriptorService();
+      await service.load();
+      final before = service.all;
+
+      answer((call) => exportedDescriptors());
+      await service.load(force: true);
+      expect(service.all, same(before));
     });
 
     test('未就绪时能力位查询不抛（服务只提供 null，收窄与否由页面决定）', () async {
@@ -109,13 +139,13 @@ void main() {
       await service.load();
       expect(service.isReady, isFalse);
 
-      answer((call) => exportedDescriptors());
+      answer(descriptorCallResponse);
       await service.load();
       expect(service.isReady, isTrue);
     });
 
     test('已就绪时重复 load 不再打原生；force 才重取', () async {
-      answer((call) => exportedDescriptors());
+      answer(descriptorCallResponse);
       final service = ChannelDescriptorService();
       await service.load();
       await service.load();

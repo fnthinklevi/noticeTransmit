@@ -3,6 +3,7 @@ package com.fnthink.notice
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,6 +24,34 @@ class TemplateEngineTest {
         notifyType = "notification",
         timestamp = 1700000000000L
     )
+
+    @Test
+    fun formatOptionsAreTheSingleSourceAndAllUsable() {
+        // T08-B：档位名单在原生只有一份（Dart 经 getChannelDescriptors 取用）。
+        // 名单里每个非 default 档位都必须真的有预置模板 —— 否则用户在界面上选了它，
+        // 发出去的却和没选一样；反过来 default 与未知值必须回 null（交给平台包装）。
+        assertEquals(
+            "档位名单不得重复（Dart 选择器会出现两个同名项）",
+            TemplateEngine.formatOptions.size,
+            TemplateEngine.formatOptions.toSet().size,
+        )
+        assertEquals(
+            "default 必须是第一项：它表示\"不覆写平台包装\"，是新增通道的缺省档",
+            "default",
+            TemplateEngine.formatOptions.first(),
+        )
+        for (format in TemplateEngine.formatOptions.drop(1)) {
+            assertNotNull(
+                "$format 在名单里却没有预置模板：选了它等于选了一个没用的档位",
+                TemplateEngine.presetTemplate(format),
+            )
+        }
+        assertNull("'default' 不该有预置模板", TemplateEngine.presetTemplate("default"))
+        assertNull(
+            "未知档位必须回 null（存量数据里出现过的值不能凭空造模板）",
+            TemplateEngine.presetTemplate("noSuchFormat"),
+        )
+    }
 
     @Test
     fun render_replacesAllPlaceholders() {

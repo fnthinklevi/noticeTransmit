@@ -1,5 +1,6 @@
 package com.fnthink.notice
 
+import com.fnthink.notice.channels.channelDescriptorsPayload
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -175,16 +176,12 @@ class ChannelDescriptorExportTest {
         else -> value
     }
 
-    private fun toJson(d: Map<String, Any?>): JSONObject =
-        JSONObject().apply { d.forEach { (k, v) -> put(k, toJsonValue(v)) } }
-
     @Test
     fun dartFixtureMatchesProductionExport() {
+        // 快照直接由**生产载荷**渲染（T08-B）：以前这里自己 mapOf 一遍，
+        // handler 少发一个键也照样绿，Dart 只表现为"档位莫名少一排"。
         val root = JSONObject()
-        root.put(
-            "descriptors",
-            JSONArray().apply { all.forEach { put(toJson(it)) } },
-        )
+        channelDescriptorsPayload().forEach { (k, v) -> root.put(k, toJsonValue(v)) }
         val rendered = root.toString(2) + "\n"
         if (!fixtureFile.exists()) {
             fixtureFile.writeText(rendered, Charsets.UTF_8)
@@ -193,10 +190,13 @@ class ChannelDescriptorExportTest {
                     "请人工核对内容（尤其 capabilities 与 fields）后重跑。",
             )
         }
+        // 只比内容不比换行符：本机 core.autocrlf=true，签出后 fixture 会是 CRLF，
+        // 而 rendered 永远是 "\n"，逐字节比会让这条守卫在干净签出下恒红。
+        val committed = fixtureFile.readText(Charsets.UTF_8).replace("\r\n", "\n")
         assertEquals(
             "描述符导出变了：Dart widget 测试的 fixture 会跟着失真。" +
                 "确认改动是有意的之后删除本文件重跑生成，并同步 base.md。",
-            fixtureFile.readText(Charsets.UTF_8),
+            committed,
             rendered,
         )
     }

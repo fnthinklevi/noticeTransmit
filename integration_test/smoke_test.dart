@@ -83,40 +83,46 @@ void main() {
       // ⚠️ 这里只是形状正确的最小桩：真实导出内容 + 能否过 MethodChannel 编码，
       //    由设备侧 ChannelDescriptorsInstrumentedTest 与 JVM 侧
       //    ChannelDescriptorExportTest 锁（Dart 测试一律走 mock，碰不到原生分支）。
-      'getChannelDescriptors': <Map<String, Object?>>[
-        <String, Object?>{
-          'family': 'webhook',
-          'key': 'dingtalk',
-          'nativeType': 'DINGTALK',
-          'labelKey': 'channelTypeDingtalk',
-          'iconKey': 'dingtalk',
-          'hosts': <String>['oapi.dingtalk.com'],
-          'capabilities': <String>[
-            'secretUsed',
-            'jsonContract',
-            'customTemplate',
-          ],
-          'fields': <Map<String, Object?>>[],
-        },
-        <String, Object?>{
-          'family': 'app',
-          'key': 'wecom_app',
-          'nativeType': 'wecom_app',
-          'labelKey': 'channelTypeWecomApp',
-          'iconKey': 'wecom_app',
-          'hosts': <String>['qyapi.weixin.qq.com'],
-          'officialBase': 'https://qyapi.weixin.qq.com',
-          'capabilities': <String>['secretUsed', 'markdown'],
-          'fields': <Map<String, Object?>>[
-            <String, Object?>{
-              'key': 'corpid',
-              'labelKey': 'appChannelCorpidLabel',
-              'kind': 'text',
-              'required': true,
-            },
-          ],
-        },
-      ],
+      // T08-B：载荷是对象 `{descriptors, messageFormats}`，不再是裸列表；
+      //    档位桩只给一个 'default'（真实名单只在原生 TemplateEngine.formatOptions，
+      //    抄进测试 = 第三份真值，而冒烟只看装配就绪，不校档位）。
+      'getChannelDescriptors': <String, Object?>{
+        'descriptors': <Map<String, Object?>>[
+          <String, Object?>{
+            'family': 'webhook',
+            'key': 'dingtalk',
+            'nativeType': 'DINGTALK',
+            'labelKey': 'channelTypeDingtalk',
+            'iconKey': 'dingtalk',
+            'hosts': <String>['oapi.dingtalk.com'],
+            'capabilities': <String>[
+              'secretUsed',
+              'jsonContract',
+              'customTemplate',
+            ],
+            'fields': <Map<String, Object?>>[],
+          },
+          <String, Object?>{
+            'family': 'app',
+            'key': 'wecom_app',
+            'nativeType': 'wecom_app',
+            'labelKey': 'channelTypeWecomApp',
+            'iconKey': 'wecom_app',
+            'hosts': <String>['qyapi.weixin.qq.com'],
+            'officialBase': 'https://qyapi.weixin.qq.com',
+            'capabilities': <String>['secretUsed', 'markdown'],
+            'fields': <Map<String, Object?>>[
+              <String, Object?>{
+                'key': 'corpid',
+                'labelKey': 'appChannelCorpidLabel',
+                'kind': 'text',
+                'required': true,
+              },
+            ],
+          },
+        ],
+        'messageFormats': <String>['default'],
+      },
       'getEmailChannels': <Map<String, dynamic>>[],
       'getDeviceName': '冒烟设备',
       'getAppVersion': {'versionName': '1.5.63', 'versionCode': 98},

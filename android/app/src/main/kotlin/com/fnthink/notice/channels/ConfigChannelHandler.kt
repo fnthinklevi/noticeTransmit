@@ -9,6 +9,7 @@ import com.fnthink.notice.I18n
 import com.fnthink.notice.MainActivity
 import com.fnthink.notice.NotificationMonitorService
 import com.fnthink.notice.PrefsHelper
+import com.fnthink.notice.TemplateEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -72,9 +73,9 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 activity.testWebhook(url, secret, result, channelType = channelType)
             }
             "getChannelDescriptors" -> {
-                // 通道描述符导出（第 5 步）：身份 + 能力位 + 字段 schema。
+                // 通道描述符导出（第 5 步）：身份 + 能力位 + 字段 schema + 消息格式档位。
                 // **只读**：载荷/判定/签名算法仍只在原生侧，Dart 不因此获得行为能力。
-                result.success(ChannelRegistry.descriptors() + AppChannelRegistry.descriptors())
+                result.success(channelDescriptorsPayload())
             }
             "probeChannelHealth" -> {
                 // 通道健康探测（P2）：轻量 HEAD，任何 HTTP 响应 = 连通；
@@ -194,3 +195,21 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
         return true
     }
 }
+
+/**
+ * `getChannelDescriptors` 的载荷（T08-B 起是**一个对象**，不再是裸列表）。
+ *
+ * 为什么单独成函数：这条载荷有三个消费者 —— 原生 handler、JVM 导出快照
+ * （`ChannelDescriptorExportTest`，它同时是 Dart widget 测试的 fixture 来源）、
+ * 设备侧 codec 闸门。三处各自 `mapOf(...)` 的话，handler 少写一个键也没人红 ——
+ * 现在只有这一个构造点，删掉 `messageFormats` 会立刻让快照对不上。
+ *
+ * ⚠ 换键形状就是协议变更，两侧同包发布；Dart 只认这个形状，不给旧形状留兼容分支
+ * （兼容分支会把真正的错配藏成"表单只剩当前值"）。
+ */
+internal fun channelDescriptorsPayload(): Map<String, Any?> = mapOf(
+    "descriptors" to (
+        ChannelRegistry.descriptors() + AppChannelRegistry.descriptors()
+        ),
+    "messageFormats" to TemplateEngine.formatOptions,
+)

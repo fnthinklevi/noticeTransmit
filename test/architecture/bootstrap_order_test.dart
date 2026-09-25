@@ -125,6 +125,39 @@ void main() {
             'ArchiveWorker 注册任务会抛 MissingPlugin 类异常',
       );
     });
+
+    test('描述符桩与生产载荷同形状（T08-B：对象，不是裸列表）', () {
+      // 形状错在这里是**静默降级**：服务认不下载荷就保留旧缓存 ⇒ 真机 splash 判"未就绪"、
+      // 后续每个表单缺字段；而 widget 测试各用自己的导出 fixture，永远发现不了集成测试里的旧桩。
+      for (final rel in const [
+        'integration_test/smoke_test.dart',
+        'integration_test/release_walkthrough_test.dart',
+      ]) {
+        final src = stripComments(File('$root/$rel').readAsStringSync());
+        final at = src.indexOf("'getChannelDescriptors'");
+        expect(
+          at,
+          greaterThanOrEqualTo(0),
+          reason: '$rel 没有该桩：splash 的装配前提没人准备了',
+        );
+        expect(
+          src.substring(at, at + 120),
+          contains('<String, Object?>{'),
+          reason: '$rel 的桩不是 Map（原生 T08-B 起发 {descriptors, messageFormats}）',
+        );
+        final body = src.substring(at, at + 3000);
+        expect(
+          body,
+          contains("'descriptors'"),
+          reason: '$rel 的桩缺 descriptors 键',
+        );
+        expect(
+          body,
+          contains("'messageFormats'"),
+          reason: '$rel 的桩缺 messageFormats 键',
+        );
+      }
+    });
   });
 }
 

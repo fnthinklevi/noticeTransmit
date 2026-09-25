@@ -164,49 +164,54 @@ void main() {
         },
       ],
       // 描述符必须给**非空**桩：空列表按"原生未就绪"处理（见 smoke 的同一注释）
-      'getChannelDescriptors': <Map<String, Object?>>[
-        _descriptor(
-          'webhook',
-          'dingtalk',
-          'DINGTALK',
-          '钉钉',
-          ['oapi.dingtalk.com'],
-          ['secretUsed', 'jsonContract', 'customTemplate'],
-        ),
-        _descriptor(
-          'webhook',
-          'wechat_work',
-          'WECHAT_WORK',
-          '企业微信',
-          ['qyapi.weixin.qq.com'],
-          ['markdown', 'customTemplate'],
-        ),
-        _descriptor(
-          'app',
-          'wecom_app',
-          'wecom_app',
-          '企业微信应用',
-          ['qyapi.weixin.qq.com'],
-          ['secretUsed', 'markdown'],
-          extra: {
-            'officialBase': 'https://qyapi.weixin.qq.com',
-            'fields': <Map<String, Object?>>[
-              <String, Object?>{
-                'key': 'corpid',
-                'labelKey': 'appChannelCorpidLabel',
-                'kind': 'text',
-                'required': true,
-              },
-              <String, Object?>{
-                'key': 'agentid',
-                'labelKey': 'appChannelAgentIdLabel',
-                'kind': 'text',
-                'required': true,
-              },
-            ],
-          },
-        ),
-      ],
+      // T08-B：载荷是对象 `{descriptors, messageFormats}`；档位桩只给一个 'default'
+      //    （真实名单只在原生 TemplateEngine.formatOptions，抄进测试 = 第三份真值）。
+      'getChannelDescriptors': <String, Object?>{
+        'descriptors': <Map<String, Object?>>[
+          _descriptor(
+            'webhook',
+            'dingtalk',
+            'DINGTALK',
+            '钉钉',
+            ['oapi.dingtalk.com'],
+            ['secretUsed', 'jsonContract', 'customTemplate'],
+          ),
+          _descriptor(
+            'webhook',
+            'wechat_work',
+            'WECHAT_WORK',
+            '企业微信',
+            ['qyapi.weixin.qq.com'],
+            ['markdown', 'customTemplate'],
+          ),
+          _descriptor(
+            'app',
+            'wecom_app',
+            'wecom_app',
+            '企业微信应用',
+            ['qyapi.weixin.qq.com'],
+            ['secretUsed', 'markdown'],
+            extra: {
+              'officialBase': 'https://qyapi.weixin.qq.com',
+              'fields': <Map<String, Object?>>[
+                <String, Object?>{
+                  'key': 'corpid',
+                  'labelKey': 'appChannelCorpidLabel',
+                  'kind': 'text',
+                  'required': true,
+                },
+                <String, Object?>{
+                  'key': 'agentid',
+                  'labelKey': 'appChannelAgentIdLabel',
+                  'kind': 'text',
+                  'required': true,
+                },
+              ],
+            },
+          ),
+        ],
+        'messageFormats': <String>['default'],
+      },
     };
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

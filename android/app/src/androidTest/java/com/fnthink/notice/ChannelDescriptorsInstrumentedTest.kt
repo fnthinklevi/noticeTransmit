@@ -1,6 +1,7 @@
 package com.fnthink.notice
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.fnthink.notice.channels.channelDescriptorsPayload
 import io.flutter.plugin.common.StandardMethodCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -27,27 +28,34 @@ class ChannelDescriptorsInstrumentedTest {
     @Suppress("UNCHECKED_CAST")
     @Test
     fun descriptorsSurviveFlutterStandardCodec() {
-        val descriptors = ChannelRegistry.descriptors() + AppChannelRegistry.descriptors()
-        assertEquals("webhook 12 + 应用通道 2", 14, descriptors.size)
-
+        // 编码的是**生产载荷**（T08-B：handler / JVM 快照 / 这里同一构造点），
+        // 而不是自己拼一份"看起来一样的" map —— 自己拼就等于少发一个键也没人红。
+        val payload = channelDescriptorsPayload()
+        val envelope = StandardMethodCodec.INSTANCE.encodeSuccessEnvelope(payload)
+        assertNotNull(envelope)
         // ⚠ 必须走 MethodCodec 的 envelope，而不是把 encodeMessage 的缓冲直接喂回
         //   decodeMessage：前者带 3 字节长度前缀（由引擎侧剥离），跳过它才解得开 ——
         //   实测直接 round-trip 抛 IllegalArgumentException: Message corrupted。
         //   而 `result.success(payload)` 本来就走 success envelope，与真实通道完全同路径。
-        val envelope = StandardMethodCodec.INSTANCE.encodeSuccessEnvelope(descriptors)
-        assertNotNull(envelope)
-        // 按「线上字节」复制一份再解：encodeSuccessEnvelope 返回的 direct buffer 的
-        // position/limit 语义随 embedding 版本变过（实测把它直接回喂 decodeEnvelope 抛
-        // BufferUnderflowException），而引擎侧收到的是剥掉长度前缀后的完整字节。
         val decoded = StandardMethodCodec.INSTANCE.decodeEnvelope(
             ByteBuffer.wrap(envelope.toByteArray()),
         )
-        assertTrue("解码结果不是 List：${decoded.javaClass}", decoded is List<*>)
+        assertTrue("解码结果不是 Map：${decoded.javaClass}", decoded is Map<*, *>)
+        val map = decoded as Map<String, Any?>
+        assertEquals(
+            "载荷键变了：Dart 侧只认 descriptors + messageFormats，多给/少给都是协议漂移",
+            setOf("descriptors", "messageFormats"),
+            map.keys,
+        )
+        // 按「线上字节」复制一份再解：encodeSuccessEnvelope 返回的 direct buffer 的
+        // position/limit 语义随 embedding 版本变过（实测把它直接回喂 decodeEnvelope 抛
+        // BufferUnderflowException），而引擎侧收到的是剥掉长度前缀后的完整字节。
         // codec 只保证 Map 的键是 String；这里按解码后的实际结构取值。
         // ⚠ 不要用 `?: org.junit.Assert.fail(...)` 做兜底 —— JUnit 的 fail 返回 void，
         //   elvis 会把元素静态类型推成 Any?，后面每个 `it["key"]` 都编不过。
-        val rows = (decoded as List<*>).map { it as Map<String, Any?> }
-        assertEquals(descriptors.size, rows.size)
+        val rows = (map["descriptors"] as List<*>).map { it as Map<String, Any?> }
+        assertEquals("webhook 12 + 应用通道 2", 14, rows.size)
+        assertEquals(TemplateEngine.formatOptions, map["messageFormats"])
 
         // 逐条核对解码后的类型：codec 会把 Int 收成 32/64 位两种，Dart 侧统一按 num 取
         val byKey = rows.associateBy { it["key"] as String }

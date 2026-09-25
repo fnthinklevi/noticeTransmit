@@ -52,7 +52,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   final TextEditingController _templateController = TextEditingController();
   bool _enabled = true;
   bool _secretVisible = false;
-  WebhookMessageFormat _messageFormat = WebhookMessageFormat.defaultFormat;
+
+  /// 消息格式档位（token 字符串，名单来自原生；见 `_formatOptions`）。
+  /// 用字符串而不是 Dart 枚举：枚举曾把不认识的存量值静默回退成 'default'。
+  String _messageFormat = 'default';
   // 'auto' = 按 URL host 探测，否则为用户手动指定的类型（自建代理等场景）
   String _channelType = 'auto';
 
@@ -100,10 +103,12 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     _enabled = c.containsKey('enabled')
         ? ChannelConfigCodec.flag(c['enabled'])
         : true;
-    _messageFormat = WebhookMessageFormat.fromValue(
-      ChannelConfigCodec.nullableText(c['message_format']) ??
-          ChannelConfigCodec.nullableText(c['messageFormat']),
-    );
+    // 原样收下存着的档位 token：未知值也必须能显示出来，否则"看一眼设置页"就把
+    // 用户的格式改掉了（旧的 WebhookMessageFormat.fromValue 就会静默回退 default）。
+    _messageFormat =
+        ChannelConfigCodec.nullableText(c['message_format']) ??
+        ChannelConfigCodec.nullableText(c['messageFormat']) ??
+        'default';
     final type =
         ChannelConfigCodec.nullableText(c['channelType']) ??
         ChannelConfigCodec.nullableText(c['type']) ??
@@ -204,7 +209,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       'enabled': _enabled,
       if (_supportsSigning) 'secret': _orNull(_secretController.text),
       if (_supportsCustomTemplate) ...{
-        'message_format': _messageFormat.value,
+        'message_format': _messageFormat,
         'message_template': _orNull(_templateController.text),
       },
     };
@@ -230,6 +235,21 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   /// 模板包装 —— 用户选了格式也不会进正文，以前照样给一整排选择器。
   bool get _supportsCustomTemplate =>
       _descriptor?.supportsCustomTemplate ?? true;
+
+  /// 可选的消息格式档位：**名单只在原生**（`TemplateEngine.formatOptions`，随
+  /// `getChannelDescriptors` 一起导出）。Dart 不再存第二份枚举 —— 加一个格式只改原生，
+  /// 界面自动跟着走。
+  ///
+  /// 描述符还没到手时不编一份自己的名单，只显示"该通道当前存着的那个值"：
+  /// 用户既看不到凭空多出来的档位，也不会看到自己存的值被换掉。
+  List<String> get _formatOptions {
+    final native = _descriptors.messageFormats;
+    if (native.isEmpty) return <String>[_messageFormat];
+    if (native.contains(_messageFormat)) return native;
+    // 存量值不在原生名单里（老数据、或原生删掉了某个档位）：仍然显示它，
+    // 否则选择器会显示成"没选中任何项"，用户以为设置丢了。
+    return <String>[...native, _messageFormat];
+  }
 
   /// 右上角「测试并保存」：先校验落库，再按当前值测这一条。
   ///

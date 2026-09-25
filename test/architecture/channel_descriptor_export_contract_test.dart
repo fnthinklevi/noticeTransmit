@@ -279,4 +279,65 @@ void main() {
       );
     });
   });
+
+  group('消息格式档位只有原生一份（T08-B）', () {
+    test('快照里的档位 == TemplateEngine.formatOptions（改了原生不重跑快照就红）', () {
+      final kt = stripComments(
+        File(
+          '$root/android/app/src/main/kotlin/com/fnthink/notice/TemplateEngine.kt',
+        ).readAsStringSync(),
+      );
+      final decl = RegExp(
+        r'val formatOptions[^=]*=\s*listOf\(([^)]*)\)',
+      ).firstMatch(kt);
+      expect(
+        decl,
+        isNotNull,
+        reason: 'TemplateEngine 里找不到 formatOptions 名单：定义被挪走，导出与守卫都会静默失真',
+      );
+      final native = decl!
+          .group(1)!
+          .split(',')
+          .map((e) => e.trim().replaceAll('"', ''))
+          .where((e) => e.isNotEmpty)
+          .toList();
+      expect(
+        exportedMessageFormats(),
+        native,
+        reason:
+            '导出快照与原生名单分叉：Dart widget 测试会对着旧档位跑绿'
+            '（重跑 ChannelDescriptorExportTest 生成快照）',
+      );
+      expect(native, contains('default'), reason: 'default 是"不覆写平台包装"的哨兵档位');
+    });
+
+    test('Dart 侧不得再抄一份档位名单，选择器读的是导出值', () {
+      final page = stripComments(
+        File('$root/lib/pages/webhook_settings_page.dart').readAsStringSync(),
+      );
+      expect(
+        page,
+        contains('_descriptors.messageFormats'),
+        reason: '档位必须来自描述符服务（第二份名单 = 加档位时漏改的那类缺陷）',
+      );
+      for (final rel in [
+        'lib/pages/webhook_settings_page.dart',
+        'lib/pages/webhook_settings_item.dart',
+        'lib/models/webhook_channel.dart',
+        'lib/services/channel_descriptor_service.dart',
+      ]) {
+        final src = stripComments(File('$root/$rel').readAsStringSync());
+        expect(
+          RegExp(r"'default'\s*,\s*'text'").hasMatch(src),
+          isFalse,
+          reason: '$rel 里出现了手抄的档位名单（Dart 只按导出渲染，标签映射不算）',
+        );
+        expect(
+          src,
+          isNot(contains('enum WebhookMessageFormat')),
+          reason: '$rel 又把档位做成了 Dart 枚举',
+        );
+      }
+    });
+  });
 }

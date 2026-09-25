@@ -1,248 +1,257 @@
-{"descriptors": [
-  {
-    "capabilities": [
-      "secretUsed",
-      "customTemplate",
-      "rawTemplateBody"
-    ],
-    "hosts": [],
-    "nativeType": "GENERIC",
-    "textLimitChars": null,
-    "iconKey": "generic",
-    "family": "webhook",
-    "labelKey": "channelTypeGeneric",
-    "fields": [],
-    "key": "generic"
-  },
-  {
-    "capabilities": [
-      "secretUsed",
-      "customTemplate",
-      "jsonContract"
-    ],
-    "hosts": ["qyapi.weixin.qq.com"],
-    "nativeType": "WECHAT_WORK",
-    "textLimitChars": null,
-    "iconKey": "wechat_work",
-    "family": "webhook",
-    "labelKey": "channelTypeWechat",
-    "fields": [],
-    "key": "wechat_work"
-  },
-  {
-    "capabilities": [
-      "secretUsed",
-      "customTemplate",
-      "jsonContract"
-    ],
-    "hosts": ["oapi.dingtalk.com"],
-    "nativeType": "DINGTALK",
-    "textLimitChars": null,
-    "iconKey": "dingtalk",
-    "family": "webhook",
-    "labelKey": "channelTypeDingtalk",
-    "fields": [],
-    "key": "dingtalk"
-  },
-  {
-    "capabilities": [
-      "secretUsed",
-      "customTemplate",
-      "jsonContract"
-    ],
-    "hosts": [
-      "open.feishu.cn",
-      "open.larksuite.com"
-    ],
-    "nativeType": "FEISHU",
-    "textLimitChars": null,
-    "iconKey": "feishu",
-    "family": "webhook",
-    "labelKey": "channelTypeFeishu",
-    "fields": [],
-    "key": "feishu"
-  },
-  {
-    "capabilities": [
-      "chatIdRequired",
-      "customTemplate",
-      "jsonContract"
-    ],
-    "hosts": ["api.telegram.org"],
-    "nativeType": "TELEGRAM",
-    "textLimitChars": 4096,
-    "iconKey": "telegram",
-    "family": "webhook",
-    "labelKey": "channelTypeTelegram",
-    "fields": [],
-    "key": "telegram"
-  },
-  {
-    "capabilities": [
-      "customTemplate",
-      "jsonContract"
-    ],
-    "hosts": [
-      "api.day.app",
-      "bark.gugu.ovh"
-    ],
-    "nativeType": "BARK",
-    "textLimitChars": null,
-    "iconKey": "bark",
-    "family": "webhook",
-    "labelKey": "channelTypeBark",
-    "fields": [],
-    "key": "bark"
-  },
-  {
-    "capabilities": ["jsonContract"],
-    "hosts": ["sctapi.ftqq.com"],
-    "nativeType": "SERVER_CHAN",
-    "textLimitChars": null,
-    "iconKey": "server_chan",
-    "family": "webhook",
-    "labelKey": "channelTypeServerChan",
-    "fields": [],
-    "key": "server_chan"
-  },
-  {
-    "capabilities": [
-      "urlTokenRequired",
-      "jsonContract"
-    ],
-    "hosts": [
-      "www.pushplus.plus",
-      "pushplus.plus"
-    ],
-    "nativeType": "PUSH_PLUS",
-    "textLimitChars": null,
-    "iconKey": "push_plus",
-    "family": "webhook",
-    "labelKey": "channelTypePushPlus",
-    "fields": [],
-    "key": "push_plus"
-  },
-  {
-    "capabilities": [
-      "secretUsed",
-      "bearerToken"
-    ],
-    "hosts": ["ntfy.sh"],
-    "nativeType": "NTFY",
-    "textLimitChars": null,
-    "iconKey": "ntfy",
-    "family": "webhook",
-    "labelKey": "channelTypeNtfy",
-    "fields": [],
-    "key": "ntfy"
-  },
-  {
-    "capabilities": [
-      "secretUsed",
-      "secretInQuery",
-      "secretRequired"
-    ],
-    "hosts": [],
-    "nativeType": "GOTIFY",
-    "textLimitChars": null,
-    "iconKey": "gotify",
-    "family": "webhook",
-    "labelKey": "channelTypeGotify",
-    "fields": [],
-    "key": "gotify"
-  },
-  {
-    "capabilities": [],
-    "hosts": ["hooks.slack.com"],
-    "nativeType": "SLACK",
-    "textLimitChars": null,
-    "iconKey": "slack",
-    "family": "webhook",
-    "labelKey": "channelTypeSlack",
-    "fields": [],
-    "key": "slack"
-  },
-  {
-    "capabilities": [],
-    "hosts": [
-      "discord.com",
-      "discordapp.com"
-    ],
-    "nativeType": "DISCORD",
-    "textLimitChars": 2000,
-    "iconKey": "discord",
-    "family": "webhook",
-    "labelKey": "channelTypeDiscord",
-    "fields": [],
-    "key": "discord"
-  },
-  {
-    "capabilities": [
-      "secretUsed",
-      "markdown"
-    ],
-    "hosts": ["qyapi.weixin.qq.com"],
-    "nativeType": "wecom_app",
-    "officialBase": "https://qyapi.weixin.qq.com",
-    "iconKey": "wecom_app",
-    "family": "app",
-    "labelKey": "channelTypeWecomApp",
-    "fields": [
-      {
-        "kind": "text",
-        "defaultValue": null,
-        "labelKey": "appChannelCorpidLabel",
-        "key": "corpid",
-        "required": true
-      },
-      {
-        "kind": "number",
-        "defaultValue": "0",
-        "labelKey": "appChannelAgentidLabel",
-        "key": "agentid",
-        "required": true
-      },
-      {
-        "kind": "text",
-        "defaultValue": "@all",
-        "labelKey": "appChannelTouserLabel",
-        "key": "touser",
-        "required": false
-      }
-    ],
-    "key": "wecom_app"
-  },
-  {
-    "capabilities": ["secretUsed"],
-    "hosts": ["open.feishu.cn"],
-    "nativeType": "feishu_app",
-    "officialBase": "https://open.feishu.cn",
-    "iconKey": "feishu_app",
-    "family": "app",
-    "labelKey": "channelTypeFeishuApp",
-    "fields": [
-      {
-        "kind": "text",
-        "defaultValue": null,
-        "labelKey": "appChannelAppidLabel",
-        "key": "app_id",
-        "required": true
-      },
-      {
-        "kind": "text",
-        "defaultValue": "chat_id",
-        "labelKey": "appChannelReceiveIdTypeLabel",
-        "key": "receive_id_type",
-        "required": false
-      },
-      {
-        "kind": "text",
-        "defaultValue": null,
-        "labelKey": "appChannelReceiveIdLabel",
-        "key": "receive_id",
-        "required": true
-      }
-    ],
-    "key": "feishu_app"
-  }
-]}
+{
+  "descriptors": [
+    {
+      "capabilities": [
+        "secretUsed",
+        "customTemplate",
+        "rawTemplateBody"
+      ],
+      "hosts": [],
+      "nativeType": "GENERIC",
+      "textLimitChars": null,
+      "iconKey": "generic",
+      "family": "webhook",
+      "labelKey": "channelTypeGeneric",
+      "fields": [],
+      "key": "generic"
+    },
+    {
+      "capabilities": [
+        "secretUsed",
+        "customTemplate",
+        "jsonContract"
+      ],
+      "hosts": ["qyapi.weixin.qq.com"],
+      "nativeType": "WECHAT_WORK",
+      "textLimitChars": null,
+      "iconKey": "wechat_work",
+      "family": "webhook",
+      "labelKey": "channelTypeWechat",
+      "fields": [],
+      "key": "wechat_work"
+    },
+    {
+      "capabilities": [
+        "secretUsed",
+        "customTemplate",
+        "jsonContract"
+      ],
+      "hosts": ["oapi.dingtalk.com"],
+      "nativeType": "DINGTALK",
+      "textLimitChars": null,
+      "iconKey": "dingtalk",
+      "family": "webhook",
+      "labelKey": "channelTypeDingtalk",
+      "fields": [],
+      "key": "dingtalk"
+    },
+    {
+      "capabilities": [
+        "secretUsed",
+        "customTemplate",
+        "jsonContract"
+      ],
+      "hosts": [
+        "open.feishu.cn",
+        "open.larksuite.com"
+      ],
+      "nativeType": "FEISHU",
+      "textLimitChars": null,
+      "iconKey": "feishu",
+      "family": "webhook",
+      "labelKey": "channelTypeFeishu",
+      "fields": [],
+      "key": "feishu"
+    },
+    {
+      "capabilities": [
+        "chatIdRequired",
+        "customTemplate",
+        "jsonContract"
+      ],
+      "hosts": ["api.telegram.org"],
+      "nativeType": "TELEGRAM",
+      "textLimitChars": 4096,
+      "iconKey": "telegram",
+      "family": "webhook",
+      "labelKey": "channelTypeTelegram",
+      "fields": [],
+      "key": "telegram"
+    },
+    {
+      "capabilities": [
+        "customTemplate",
+        "jsonContract"
+      ],
+      "hosts": [
+        "api.day.app",
+        "bark.gugu.ovh"
+      ],
+      "nativeType": "BARK",
+      "textLimitChars": null,
+      "iconKey": "bark",
+      "family": "webhook",
+      "labelKey": "channelTypeBark",
+      "fields": [],
+      "key": "bark"
+    },
+    {
+      "capabilities": ["jsonContract"],
+      "hosts": ["sctapi.ftqq.com"],
+      "nativeType": "SERVER_CHAN",
+      "textLimitChars": null,
+      "iconKey": "server_chan",
+      "family": "webhook",
+      "labelKey": "channelTypeServerChan",
+      "fields": [],
+      "key": "server_chan"
+    },
+    {
+      "capabilities": [
+        "urlTokenRequired",
+        "jsonContract"
+      ],
+      "hosts": [
+        "www.pushplus.plus",
+        "pushplus.plus"
+      ],
+      "nativeType": "PUSH_PLUS",
+      "textLimitChars": null,
+      "iconKey": "push_plus",
+      "family": "webhook",
+      "labelKey": "channelTypePushPlus",
+      "fields": [],
+      "key": "push_plus"
+    },
+    {
+      "capabilities": [
+        "secretUsed",
+        "bearerToken"
+      ],
+      "hosts": ["ntfy.sh"],
+      "nativeType": "NTFY",
+      "textLimitChars": null,
+      "iconKey": "ntfy",
+      "family": "webhook",
+      "labelKey": "channelTypeNtfy",
+      "fields": [],
+      "key": "ntfy"
+    },
+    {
+      "capabilities": [
+        "secretUsed",
+        "secretInQuery",
+        "secretRequired"
+      ],
+      "hosts": [],
+      "nativeType": "GOTIFY",
+      "textLimitChars": null,
+      "iconKey": "gotify",
+      "family": "webhook",
+      "labelKey": "channelTypeGotify",
+      "fields": [],
+      "key": "gotify"
+    },
+    {
+      "capabilities": [],
+      "hosts": ["hooks.slack.com"],
+      "nativeType": "SLACK",
+      "textLimitChars": null,
+      "iconKey": "slack",
+      "family": "webhook",
+      "labelKey": "channelTypeSlack",
+      "fields": [],
+      "key": "slack"
+    },
+    {
+      "capabilities": [],
+      "hosts": [
+        "discord.com",
+        "discordapp.com"
+      ],
+      "nativeType": "DISCORD",
+      "textLimitChars": 2000,
+      "iconKey": "discord",
+      "family": "webhook",
+      "labelKey": "channelTypeDiscord",
+      "fields": [],
+      "key": "discord"
+    },
+    {
+      "capabilities": [
+        "secretUsed",
+        "markdown"
+      ],
+      "hosts": ["qyapi.weixin.qq.com"],
+      "nativeType": "wecom_app",
+      "officialBase": "https://qyapi.weixin.qq.com",
+      "iconKey": "wecom_app",
+      "family": "app",
+      "labelKey": "channelTypeWecomApp",
+      "fields": [
+        {
+          "kind": "text",
+          "defaultValue": null,
+          "labelKey": "appChannelCorpidLabel",
+          "key": "corpid",
+          "required": true
+        },
+        {
+          "kind": "number",
+          "defaultValue": "0",
+          "labelKey": "appChannelAgentidLabel",
+          "key": "agentid",
+          "required": true
+        },
+        {
+          "kind": "text",
+          "defaultValue": "@all",
+          "labelKey": "appChannelTouserLabel",
+          "key": "touser",
+          "required": false
+        }
+      ],
+      "key": "wecom_app"
+    },
+    {
+      "capabilities": ["secretUsed"],
+      "hosts": ["open.feishu.cn"],
+      "nativeType": "feishu_app",
+      "officialBase": "https://open.feishu.cn",
+      "iconKey": "feishu_app",
+      "family": "app",
+      "labelKey": "channelTypeFeishuApp",
+      "fields": [
+        {
+          "kind": "text",
+          "defaultValue": null,
+          "labelKey": "appChannelAppidLabel",
+          "key": "app_id",
+          "required": true
+        },
+        {
+          "kind": "text",
+          "defaultValue": "chat_id",
+          "labelKey": "appChannelReceiveIdTypeLabel",
+          "key": "receive_id_type",
+          "required": false
+        },
+        {
+          "kind": "text",
+          "defaultValue": null,
+          "labelKey": "appChannelReceiveIdLabel",
+          "key": "receive_id",
+          "required": true
+        }
+      ],
+      "key": "feishu_app"
+    }
+  ],
+  "messageFormats": [
+    "default",
+    "text",
+    "markdown",
+    "json",
+    "xml"
+  ]
+}

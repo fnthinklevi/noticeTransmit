@@ -117,9 +117,18 @@ class ChannelDescriptorService {
   static const _channel = AppChannels.notification;
 
   List<ChannelDescriptor> _all = const [];
+
+  /// 消息格式档位（`default` / `text` / `markdown` / `json` / `xml`），与描述符同一次导出。
+  ///
+  /// T08-B：此前 Dart 侧另存了一份 `WebhookMessageFormat` 枚举 —— 加一个格式要改两处，
+  /// 而且它把不认识的存量值**静默回退成 default**（用户只是打开设置页看了一眼，
+  /// 存着的格式就被改了）。现在名单只有原生一份；未就绪时是空列表，
+  /// 表单据此只显示该通道当前已存的值，不凭空造档位。
+  List<String> _messageFormats = const [];
   bool _loaded = false;
 
   bool get isReady => _loaded;
+  List<String> get messageFormats => _messageFormats;
   List<ChannelDescriptor> get all => _all;
   List<ChannelDescriptor> get webhook =>
       _all.where((d) => d.family == 'webhook').toList(growable: false);
@@ -138,11 +147,23 @@ class ChannelDescriptorService {
   Future<void> load({bool force = false}) async {
     if (_loaded && !force) return;
     try {
-      final raw = await _channel.invokeMethod<List<dynamic>>(
-        'getChannelDescriptors',
-      );
+      // 载荷是对象不是裸列表：`{descriptors: [...], messageFormats: [...]}`（T08-B）。
+      // 两侧同包发布，所以不需要"旧形状也认"的兼容分支 —— 认了反而会掩盖真正的错配。
+      final raw = await _channel.invokeMethod<Object?>('getChannelDescriptors');
       if (raw == null) return;
-      final parsed = raw
+      if (raw is! Map) {
+        debugPrint(
+          '[ChannelDescriptorService] 原生载荷形状不是 Map（拿到 ${raw.runtimeType}），'
+          '保留旧缓存',
+        );
+        return;
+      }
+      final descriptors = raw['descriptors'];
+      if (descriptors is! List) {
+        debugPrint('[ChannelDescriptorService] 载荷缺 descriptors 字段，保留旧缓存');
+        return;
+      }
+      final parsed = descriptors
           .whereType<Map<dynamic, dynamic>>()
           .map(ChannelDescriptor.fromMap)
           .toList(growable: false);
@@ -152,6 +173,9 @@ class ChannelDescriptorService {
         return;
       }
       _all = parsed;
+      _messageFormats = ((raw['messageFormats'] as List<Object?>?) ?? const [])
+          .map((e) => e.toString())
+          .toList(growable: false);
       _loaded = true;
     } catch (e) {
       debugPrint('[ChannelDescriptorService] 描述符拉取失败（表单将只渲染通用字段）: $e');

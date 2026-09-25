@@ -52,53 +52,9 @@ extension WebhookChannelTypeExtension on WebhookChannelType {
   // 且与 UI 判定矛盾（UI 排除 6 个平台，这里全 false）——已删，勿再留第二处真相。
 }
 
-enum WebhookMessageFormat {
-  /// 平台默认格式（企微/钉钉/飞书走文本，通用走 JSON）
-  defaultFormat,
-
-  /// 纯文本（无格式）
-  text,
-
-  /// Markdown（企微/钉钉/飞书走 markdown msgtype）
-  markdown,
-
-  /// 自定义 JSON body（通用 webhook）
-  json,
-
-  /// XML body（通用 webhook，Content-Type: application/xml）
-  xml;
-
-  String get value {
-    switch (this) {
-      case WebhookMessageFormat.defaultFormat:
-        return 'default';
-      case WebhookMessageFormat.text:
-        return 'text';
-      case WebhookMessageFormat.markdown:
-        return 'markdown';
-      case WebhookMessageFormat.json:
-        return 'json';
-      case WebhookMessageFormat.xml:
-        return 'xml';
-    }
-  }
-
-  static WebhookMessageFormat fromValue(String? value) {
-    switch (value) {
-      case 'text':
-        return WebhookMessageFormat.text;
-      case 'markdown':
-        return WebhookMessageFormat.markdown;
-      case 'json':
-        return WebhookMessageFormat.json;
-      case 'xml':
-        return WebhookMessageFormat.xml;
-      default:
-        return WebhookMessageFormat.defaultFormat;
-    }
-  }
-}
-
+// 消息格式档位不再是 Dart 枚举（T08-B）：名单只在原生 `TemplateEngine.formatOptions`，界面用 token 字符串。
+// 枚举的两个恶果都修掉了：加一个格式要改两处；`fromValue` 会把不认得的存量值静默回退成 default
+// （用户打开设置页看一眼，存着的格式就被改了）。
 class WebhookChannel {
   final String id;
   final String name;
@@ -106,7 +62,9 @@ class WebhookChannel {
   final WebhookChannelType type;
   final bool enabled;
   final String? secret;
-  final WebhookMessageFormat messageFormat;
+
+  /// 消息格式档位（token 字符串，名单来自原生 `TemplateEngine.formatOptions`）。
+  final String messageFormat;
   final String? messageTemplate;
 
   WebhookChannel({
@@ -116,7 +74,7 @@ class WebhookChannel {
     required this.type,
     this.enabled = true,
     this.secret,
-    this.messageFormat = WebhookMessageFormat.defaultFormat,
+    this.messageFormat = 'default',
     this.messageTemplate,
   });
 
@@ -220,9 +178,8 @@ class WebhookChannel {
       type: type,
       enabled: map['enabled'] as bool? ?? true,
       secret: map['secret'] as String?,
-      messageFormat: WebhookMessageFormat.fromValue(
-        map['message_format'] as String?,
-      ),
+      // 原样收下，不认识的也留着：旧实现回退成 default，等于"看一眼页面就改设置"
+      messageFormat: map['message_format'] as String? ?? 'default',
       messageTemplate: map['message_template'] as String?,
     );
   }
@@ -235,7 +192,7 @@ class WebhookChannel {
       'type': type.value,
       'enabled': enabled,
       if (secret != null && secret!.isNotEmpty) 'secret': secret,
-      'message_format': messageFormat.value,
+      'message_format': messageFormat,
       if (messageTemplate != null && messageTemplate!.isNotEmpty)
         'message_template': messageTemplate,
     };
@@ -248,7 +205,7 @@ class WebhookChannel {
     WebhookChannelType? type,
     bool? enabled,
     String? secret,
-    WebhookMessageFormat? messageFormat,
+    String? messageFormat,
     String? messageTemplate,
   }) {
     return WebhookChannel(

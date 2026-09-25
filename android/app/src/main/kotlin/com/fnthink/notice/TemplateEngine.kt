@@ -26,6 +26,21 @@ import org.json.JSONObject
  */
 object TemplateEngine {
     /**
+     * 用户可选的消息格式档位（**唯一定义处**）。
+     *
+     * T08-B 之前这份名单在 Dart 侧还有一份枚举副本（`WebhookMessageFormat`），
+     * 加一个格式要改两处，漏一处就是"原生能发但界面上选不到"；而且 Dart 那份
+     * 遇到不认识的存量值会**静默回退成 default** —— 用户只是打开设置页看了一眼，
+     * 存着的格式就被改了。现在 Dart 只渲染原生给的档位（`getChannelDescriptors`
+     * 一并导出），不认识的值原样留着显示。
+     *
+     * `default` = 不覆写平台包装；其余每一项都必须在 [presetTemplate] 里有预置模板
+     * （约束由 `TemplateEngineTest` 钉住：选了档位却拿不到模板 = 选了个没用的东西）。
+     */
+    val formatOptions: List<String> =
+        listOf("default", "text", "markdown", "json", "xml")
+
+    /**
      * 变量集合（值已格式化为字符串，null → 空串）
      */
     data class Vars(

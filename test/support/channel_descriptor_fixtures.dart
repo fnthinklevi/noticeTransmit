@@ -18,10 +18,10 @@ import 'source_guards.dart';
 const String kDescriptorFixtureRelPath =
     'android/app/src/test/resources/channel_descriptors.json';
 
-List<Map<Object?, Object?>>? _cached;
+Map<String, Object?>? _fixtureRoot;
 
-List<Map<Object?, Object?>> exportedDescriptors() {
-  final cached = _cached;
+Map<String, Object?> _fixtureJson() {
+  final cached = _fixtureRoot;
   if (cached != null) return cached;
   final file = File('${projectRoot()}/$kDescriptorFixtureRelPath');
   if (!file.existsSync()) {
@@ -31,14 +31,25 @@ List<Map<Object?, Object?>> exportedDescriptors() {
       '（它是 Dart 表单测试唯一的描述符来源）',
     );
   }
-  final decoded = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
-  return _cached = (decoded['descriptors'] as List<Object?>)
-      .cast<Map<Object?, Object?>>();
+  return _fixtureRoot =
+      jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
 }
 
-/// `getChannelDescriptors` 的 mock 答复（形状与 MethodChannel 真实回传一致）。
+List<Map<Object?, Object?>> exportedDescriptors() =>
+    (_fixtureJson()['descriptors'] as List<Object?>)
+        .cast<Map<Object?, Object?>>();
+
+/// 快照里的消息格式档位（与描述符同一次导出，T08-B）。
+List<String> exportedMessageFormats() =>
+    ((_fixtureJson()['messageFormats'] as List<Object?>?) ?? const [])
+        .map((e) => e.toString())
+        .toList(growable: false);
+
+/// `getChannelDescriptors` 的 mock 答复（**形状与 MethodChannel 真实回传一致**：
+/// T08-B 起是 `{descriptors: [...], messageFormats: [...]}` 对象，不再是裸列表 ——
+/// 桩若给旧形状，服务层会按"未知形状保留旧缓存"处理，测试就会在假前提下判绿）。
 /// 用法：在测试自己的 handler 里 `if (call.method == 'getChannelDescriptors') return descriptorCallResponse(call);`
-Object? descriptorCallResponse(MethodCall call) => exportedDescriptors();
+Object? descriptorCallResponse(MethodCall call) => _fixtureJson();
 
 /// 注册「通道设置页」依赖的两个服务（widget 测试用；重复注册时覆盖）。
 ///

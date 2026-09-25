@@ -149,7 +149,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: WebhookMessageFormat.values.map((fmt) {
+                        children: _formatOptions.map((fmt) {
                           final selected = _messageFormat == fmt;
                           return Padding(
                             padding: const EdgeInsets.only(right: 6),
@@ -197,7 +197,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 ],
               ),
               // 飞书 markdown 降级提示
-              if (_messageFormat == WebhookMessageFormat.markdown &&
+              if (_messageFormat == 'markdown' &&
                   (_urlController.text.toLowerCase().contains('feishu') ||
                       _urlController.text.toLowerCase().contains(
                         'larksuite',
@@ -237,7 +237,7 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
                 ),
               ],
               // 模板编辑器：仅当 format != default 时显示
-              if (_messageFormat != WebhookMessageFormat.defaultFormat) ...[
+              if (_messageFormat != 'default') ...[
                 const SizedBox(height: 10),
                 Text(
                   l10n.webhookTemplateLabel,
@@ -321,11 +321,12 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
     setState(() {});
   }
 
-  String _templateHintFor(WebhookMessageFormat fmt) {
-    if (fmt == WebhookMessageFormat.json) {
+  /// 示例正文（只是输入框的占位提示，不参与出站载荷）。
+  String _templateHintFor(String fmt) {
+    if (fmt == 'json') {
       return '{"title":"%title%","content":"%content%"}';
     }
-    if (fmt == WebhookMessageFormat.xml) {
+    if (fmt == 'xml') {
       return '<notification><title>%title%</title></notification>';
     }
     return '## %title%\n%content%';
@@ -454,20 +455,25 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
     );
   }
 
-  /// 消息格式本地化名称（品牌/格式名无需翻译）
-  String _messageFormatLabel(BuildContext context, WebhookMessageFormat fmt) {
+  /// 档位 → 显示名。**档位名单本身来自原生**（`_formatOptions`），这里只负责渲染：
+  /// default/text 有译文，markdown/json/xml 是品牌名不翻译，
+  /// 名单里出现 Dart 没登记的新档位就原样显示 token（与未知通道 slug 同一口径 ——
+  /// 宁可显示原文也不许把选项藏掉，那样用户会以为功能被删了）。
+  String _messageFormatLabel(BuildContext context, String fmt) {
     final l10n = AppLocalizations.of(context);
     switch (fmt) {
-      case WebhookMessageFormat.defaultFormat:
+      case 'default':
         return l10n.msgFormatDefault;
-      case WebhookMessageFormat.text:
+      case 'text':
         return l10n.msgFormatText;
-      case WebhookMessageFormat.markdown:
+      case 'markdown':
         return 'Markdown';
-      case WebhookMessageFormat.json:
+      case 'json':
         return 'JSON';
-      case WebhookMessageFormat.xml:
+      case 'xml':
         return 'XML';
+      default:
+        return fmt;
     }
   }
 

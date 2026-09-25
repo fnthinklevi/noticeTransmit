@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
@@ -34,6 +35,15 @@ void main() {
 
   /// testWebhook 的答复，逐条用例可改
   var testSucceeds = true;
+
+  /// 改写原生载荷里的档位名单（null = 用导出快照原样）。T08-B 用它证明名单真的来自载荷。
+  List<String>? formatsOverride;
+
+  Map<String, Object?> descriptorsPayload(List<String> formats) => {
+    ...descriptorCallResponse(const MethodCall('getChannelDescriptors'))
+        as Map<String, Object?>,
+    'messageFormats': formats,
+  };
 
   Map<String, dynamic> uiRow(
     String id,
@@ -93,6 +103,7 @@ void main() {
   setUp(() async {
     serveDescriptors = true;
     testSucceeds = true;
+    formatsOverride = null;
     calls.clear();
     SharedPreferences.setMockInitialValues({});
     // ⚠ 桩**两个**原生通道：`WebhookService._syncToNative` 先走 flutter_secure_storage，
@@ -101,7 +112,11 @@ void main() {
       onCall: (call) async {
         calls.add(call.method);
         if (call.method == 'getChannelDescriptors') {
-          return serveDescriptors ? descriptorCallResponse(call) : null;
+          if (!serveDescriptors) return null;
+          final override = formatsOverride;
+          return override == null
+              ? descriptorCallResponse(call)
+              : descriptorsPayload(override);
         }
         if (call.method == 'testWebhook') {
           return {
@@ -232,6 +247,81 @@ void main() {
 
       expect(find.text('签名密钥（可选）'), findsOneWidget);
       expect(find.text('消息格式'), findsOneWidget);
+    });
+  });
+
+  group('详情页 – 消息格式档位来自原生（T08-B）', () {
+    Map<String, dynamic> generic(String id, {String format = 'default'}) =>
+        uiRow(
+          id,
+          '通道$id',
+          'https://$id.example.com/hook',
+          'generic',
+          format: format,
+        );
+
+    testWidgets('导出的档位逐个成 chip（Dart 不再另存一份名单）', (tester) async {
+      await openDetail(tester, [generic('a')], channelId: 'a');
+
+      expect(find.text('默认格式'), findsOneWidget);
+      expect(find.text('纯文本'), findsOneWidget);
+      expect(find.text('Markdown'), findsOneWidget);
+      expect(find.text('JSON'), findsOneWidget);
+      expect(find.text('XML'), findsOneWidget);
+    });
+
+    testWidgets('原生加一档 ⇒ 界面就多一档，选了也能存下来', (tester) async {
+      // 这条是"单一来源"的正证：以前要在 Dart 枚举里也加一项，否则界面看不见。
+      formatsOverride = const [
+        'default',
+        'text',
+        'markdown',
+        'json',
+        'xml',
+        'html',
+      ];
+      await openDetail(tester, [generic('a')], channelId: 'a');
+
+      expect(find.text('HTML'), findsNothing);
+      await tester.tap(find.text('html'));
+      await tester.pumpAndSettle();
+      await tapSave(tester);
+
+      expect(
+        saved('a')['message_format'],
+        'html',
+        reason: '未知 token 被回退成 default = 用户选了档位却没生效',
+      );
+    });
+
+    testWidgets('存量档位不认识也原样留着（旧枚举 fromValue 会静默改设置）', (tester) async {
+      await openDetail(tester, [
+        generic('a', format: 'card_v2'),
+      ], channelId: 'a');
+
+      expect(
+        find.text('card_v2'),
+        findsOneWidget,
+        reason: '看不见自己存的档位 = 用户以为它不存在，下次保存顺手换成别的',
+      );
+      await tapSave(tester);
+      expect(saved('a')['message_format'], 'card_v2');
+    });
+
+    testWidgets('描述符拉不到 ⇒ 不凭空造档位，也不把已存的洗掉', (tester) async {
+      serveDescriptors = false;
+      await openDetail(tester, [
+        generic('a', format: 'markdown'),
+      ], channelId: 'a');
+
+      expect(find.text('Markdown'), findsOneWidget);
+      expect(find.text('XML'), findsNothing);
+      await tapSave(tester);
+      expect(
+        saved('a')['message_format'],
+        'markdown',
+        reason: '原生没答复时宁可只显示当前值，也不给出点了就丢真值的假档位',
+      );
     });
   });
 
