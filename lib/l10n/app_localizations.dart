@@ -1298,17 +1298,17 @@ abstract class AppLocalizations {
   /// **'编辑邮件通道'**
   String get editEmailChannel;
 
-  /// No description provided for @testSend.
-  ///
-  /// In zh, this message translates to:
-  /// **'测试发送'**
-  String get testSend;
-
   /// No description provided for @testAndSave.
   ///
   /// In zh, this message translates to:
   /// **'测试并保存'**
   String get testAndSave;
+
+  /// No description provided for @testOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅测试'**
+  String get testOnly;
 
   /// No description provided for @turnOn.
   ///

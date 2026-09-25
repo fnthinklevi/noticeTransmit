@@ -4,8 +4,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/webhook_settings_page.dart';
+import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
@@ -571,6 +573,114 @@ void main() {
         findsNothing,
         reason: 'URL 合法、只是读不到描述符 ⇒ 这时拦人保存是无据可依的猜测',
       );
+    });
+  });
+
+  // T04：「仅测试」与保存是两个动作，且测试结论必须落到健康单点 ——
+  // 否则测出来的失败只活在这一屏，首页与通道状态页永远说不出这条通道的状态。
+  group('WebhookSettingsPage – 仅测试（T04）', () {
+    void stubTest({required bool success, required List<String> calls}) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel(methodChannelName), (
+            call,
+          ) async {
+            calls.add(call.method);
+            if (call.method == 'testWebhook') {
+              return {
+                'success': success,
+                'message': success ? 'ok' : 'HTTP 401 未授权',
+              };
+            }
+            if (call.method == 'getChannelDescriptors') {
+              return serveDescriptors ? descriptorCallResponse(call) : null;
+            }
+            if (call.method == 'probeChannelHealth') {
+              return {'reachable': true, 'latencyMs': 42, 'httpCode': 200};
+            }
+            return null;
+          });
+    }
+
+    Future<void> openBig(
+      WidgetTester tester,
+      List<Map<String, dynamic>> rows,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, rows);
+    }
+
+    testWidgets('测出失败也要记进单点，但绝不 pop（pop 才是保存）', (tester) async {
+      final calls = <String>[];
+      stubTest(success: false, calls: calls);
+      final health = GetIt.instance<ChannelHealthStore>();
+      // 前提写成一条"刚刚探测过、且是绿的"记录：stale 才会触发进页后台探测，
+      // 不压掉它，本用例会和异步探测抢同一条记录（断言变成看时序）。
+      await health.record('webhook', 'dt', reachable: true, latencyMs: 5);
+      await openBig(tester, oneDingTalk());
+      expect(health.of('webhook', 'dt')?.reachable, isTrue);
+
+      calls.clear();
+      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.pumpAndSettle();
+
+      expect(calls, contains('testWebhook'));
+      expect(
+        find.byType(WebhookSettingsPage),
+        findsOneWidget,
+        reason: '「仅测试」按定义不落库：本页的保存动作就是 pop 把通道交回上层写库',
+      );
+      expect(
+        health.of('webhook', 'dt')?.reachable,
+        isFalse,
+        reason: '手动测试盖不掉旧的绿 ⇒ 首页与通道状态页还在说"正常"，异常冒不上去',
+      );
+    });
+
+    testWidgets('新增行（保存前没有 id）测了但不记账', (tester) async {
+      final calls = <String>[];
+      stubTest(success: true, calls: calls);
+      await openBig(tester, const []);
+      final prefs = await SharedPreferences.getInstance();
+      List<String> healthKeys() =>
+          prefs.getKeys().where((k) => k.startsWith('channel_health_')).toList()
+            ..sort();
+      final before = healthKeys();
+
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        'https://ntfy.sh/topic',
+      );
+      await tester.pumpAndSettle();
+      calls.clear();
+      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.pumpAndSettle();
+
+      expect(
+        calls,
+        contains('testWebhook'),
+        reason: '这一行确实要被测到，否则「仅测试」对新行就是空按钮',
+      );
+      expect(
+        healthKeys(),
+        before,
+        reason: '没有归属的记账比不记更糟：空 id 写进去，下一条复用该位置的通道会继承这枚徽标',
+      );
+    });
+
+    testWidgets('整页一行 URL 都没填 ⇒ 不假装测过，直接说要填什么', (tester) async {
+      final calls = <String>[];
+      stubTest(success: true, calls: calls);
+      await openBig(tester, const []);
+      calls.clear();
+
+      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.pumpAndSettle();
+
+      expect(calls, isNot(contains('testWebhook')));
+      expect(find.textContaining('请先输入 Webhook URL'), findsOneWidget);
+      expect(find.byType(WebhookSettingsPage), findsOneWidget);
     });
   });
 }

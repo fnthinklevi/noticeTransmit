@@ -23,13 +23,16 @@ class EmailService {
   /// 测试结果落**健康度单点**（第 6 步）。此前这里是自己一个 `email_test_results`
   /// JSON Map：没有时间戳（说不出「多久以前」）也没有耗时，于是首页的邮件状态与
   /// webhook / 应用通道页的徽标是三套行为。旧键由 `ChannelHealthStore.load()` 读穿迁移。
-  Future<void> saveTestResult(String channelId, bool success) =>
-      GetIt.instance<ChannelHealthStore>().record(
-        'email',
-        channelId,
-        reachable: success,
-        latencyMs: 0,
-      );
+  Future<void> saveTestResult(
+    String channelId,
+    bool success, {
+    int latencyMs = 0,
+  }) => GetIt.instance<ChannelHealthStore>().record(
+    'email',
+    channelId,
+    reachable: success,
+    latencyMs: latencyMs,
+  );
 
   /// 保存所有邮件通道（含密码）到加密数据库
   Future<void> saveChannels(List<EmailChannel> channels) async {

@@ -139,4 +139,72 @@ void main() {
       );
     });
   });
+
+  // T04：三族通道的"测一下"与"什么状态"必须各只有一个来源。
+  // 抄本的代价本项目已经付过多次：徽标抄成两份 ⇒ 一份看时效、一份不看，
+  // 设置页画绿勾、首页说未知；测试入口只长在 app 页 ⇒ 另两族只能靠保存触发。
+  group('通道测试入口与健康徽标各只有一处（T04）', () {
+    const pages = [
+      'lib/pages/app_channel_settings_page.dart',
+      'lib/pages/webhook_settings_page.dart',
+      'lib/pages/email_settings_page.dart',
+    ];
+
+    test('三族设置页都得有「仅测试」入口', () {
+      for (final rel in pages) {
+        expect(
+          read(rel),
+          contains('l10n.testOnly'),
+          reason: '$rel 没有「仅测试」⇒ 想验一次配置就只能把半成品保存进去',
+        );
+      }
+      final arb = stripComments(
+        File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync(),
+      );
+      expect(arb, contains('"testOnly"'), reason: '三处共用同一个资源名，别再各自写一份字面量');
+    });
+
+    test('健康状态只有 ChannelHealthBadge / channelHealthState 这一条判定', () {
+      final badge = read('lib/widgets/channel_health_badge.dart');
+      expect(
+        badge,
+        contains('channelHealthState('),
+        reason: '徽标自己判三态 = 又开一份真值',
+      );
+      // 注意 webhook：它的卡片构建在 part 文件 `webhook_settings_item.dart` 里，
+      // 所以列的是"真正渲染健康的地方"，不是页面的库文件。
+      for (final rel in [
+        'lib/pages/app_channel_settings_page.dart',
+        'lib/pages/email_settings_page.dart',
+        'lib/pages/webhook_settings_item.dart',
+      ]) {
+        expect(
+          read(rel),
+          anyOf(
+            contains('ChannelHealthBadge'),
+            contains('channelHealthState('),
+            contains('.healthState'),
+          ),
+          reason: '$rel 显示通道健康却没走单点',
+        );
+      }
+      // 抄本的特征就是这个三元：只看 reachable、不看探测时效
+      final offenders = <String>[
+        for (final rel in [
+          ...pages,
+          'lib/pages/webhook_settings_item.dart',
+          'lib/pages/channel_status_page.dart',
+          'lib/pages/main_page.dart',
+        ])
+          if (read(rel).contains('reachable ?')) rel,
+      ];
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            '直接对 reachable 做三元判断会漏掉"成功但已过期"，'
+            '首页说未知、设置页画绿勾：$offenders',
+      );
+    });
+  });
 }

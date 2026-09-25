@@ -4,6 +4,8 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/email_channel.dart';
+import '../services/active_channels.dart';
+import '../services/channel_health_store.dart';
 import '../services/email_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -61,9 +63,26 @@ class EmailSettingsPage extends StatefulWidget {
 class _EmailSettingsPageState extends State<EmailSettingsPage> {
   late List<EmailChannel> _channels;
   final _emailService = GetIt.instance<EmailService>();
+
+  /// 上次测试的结果**只从健康单点读**（T04）。这里此前另有一份内存 Map ⇒
+  /// 重启后列表全变空白，而首页因为单点里有记录仍显示异常，两页互相打脸。
+  final ChannelHealthStore _health = GetIt.instance<ChannelHealthStore>();
   int? _testingIndex;
   bool _editorTesting = false;
-  final Map<String, bool> _emailTestResults = {};
+
+  /// 列表里的"上次测试"标注：只在**确有结论**时显示（成功但已过期算 unknown ⇒
+  /// 不显示，比拿很久以前的一次成功糊弄用户诚实）。
+  String? _lastTestLabel(AppLocalizations l10n, String id) {
+    final state = channelHealthState(_health.of('email', id));
+    return switch (state) {
+      ChannelHealthState.ok => l10n.testPassed,
+      ChannelHealthState.error => l10n.testFailed,
+      ChannelHealthState.unknown => null,
+    };
+  }
+
+  bool _lastTestOk(String id) =>
+      channelHealthState(_health.of('email', id)) == ChannelHealthState.ok;
 
   @override
   void initState() {
@@ -71,6 +90,10 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     _channels = widget.emailChannels
         .map((m) => EmailChannel.fromMap(m))
         .toList();
+    // 徽标的数据在 prefs 里：没 load 过就读不到（幂等，splash 已 load 时是空操作）
+    _health.load().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -170,14 +193,12 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                     color: AppColors.secondaryLabel(context),
                   ),
                 ),
-                if (_emailTestResults.containsKey(channel.id))
+                if (_lastTestLabel(l10n, channel.id) != null)
                   Text(
-                    _emailTestResults[channel.id] == true
-                        ? l10n.testPassed
-                        : l10n.testFailed,
+                    _lastTestLabel(l10n, channel.id)!,
                     style: TextStyle(
                       fontSize: 11,
-                      color: _emailTestResults[channel.id] == true
+                      color: _lastTestOk(channel.id)
                           ? AppColors.green
                           : AppColors.red,
                     ),
@@ -323,8 +344,10 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     final id = channel.id;
     setState(() {
       _channels.removeAt(index);
-      _emailTestResults.remove(id);
     });
+    // 健康缓存一起删：留着它，日后 id 复用（例如从旧备份恢复）时徽标会复活成
+    // 上一条通道的状态。
+    await _health.remove('email', id);
     _save();
   }
 
@@ -333,12 +356,18 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     await _save();
     // 自动测试（列表更新由编辑页保存按钮的 setState 完成，此处不再重复
     // add/replace，修复新通道被添加两次的问题）
+    final watch = Stopwatch()..start();
     final result = await _emailService.testEmail(channel);
     final success = result?['success'] == true;
     final message = result?['message']?.toString() ?? '未知结果';
-    _emailService.saveTestResult(channel.id, success);
+    await _emailService.saveTestResult(
+      channel.id,
+      success,
+      latencyMs: watch.elapsedMilliseconds,
+    );
     if (mounted) {
-      setState(() => _emailTestResults[channel.id] = success);
+      // 徽标从健康单点读，这里只负责触发重建
+      setState(() {});
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -353,7 +382,17 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   }
 
   Future<void> _doEditorTest(EmailChannel channel) async {
+    final watch = Stopwatch()..start();
     final result = await _emailService.testEmail(channel);
+    if (!mounted) return;
+    final success = result?['success'] == true;
+    // 弹窗里点「测试」测的是**未保存**的表单值，但结论照样要落单点：用户要的就是
+    // "这组凭据到底能不能用"，测完退出弹窗也不该让首页退回 unknown。
+    await _emailService.saveTestResult(
+      channel.id,
+      success,
+      latencyMs: watch.elapsedMilliseconds,
+    );
     if (!mounted) return;
     setState(() => _editorTesting = false);
     final message = result?['message']?.toString() ?? '未知结果';
@@ -366,11 +405,21 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
 
   Future<void> _testChannel(int index) async {
     setState(() => _testingIndex = index);
-    final result = await _emailService.testEmail(_channels[index]);
+    // 先取引用再 await：中途用户删掉一行时，按下标再取一次会取到别的通道
+    final channel = _channels[index];
+    final watch = Stopwatch()..start();
+    final result = await _emailService.testEmail(channel);
     if (!mounted) return;
     final success = result?['success'] == true;
     final message = result?['message']?.toString() ?? '未知结果';
-    _emailTestResults[_channels[index].id] = success;
+    // 「仅测试」也必须落健康单点：否则测出失败的通道在首页永远是 unknown，
+    // 配置异常冒不上去（T04 的"异常要冒到首页"就是靠这一条链路）。
+    await _emailService.saveTestResult(
+      channel.id,
+      success,
+      latencyMs: watch.elapsedMilliseconds,
+    );
+    if (!mounted) return;
     setState(() => _testingIndex = null);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -461,7 +510,7 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                           padding: const EdgeInsets.only(right: 4),
                           child: TextButton.icon(
                             icon: const Icon(Icons.send_outlined, size: 16),
-                            label: Text(l10n.testSend),
+                            label: Text(l10n.testOnly),
                             onPressed: () {
                               setState(() => _editorTesting = true);
                               final testChannel = EmailChannel(

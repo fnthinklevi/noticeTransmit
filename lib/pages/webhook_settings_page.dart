@@ -11,6 +11,7 @@ import '../services/channel_health_store.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
 
 // R3 拆分：通道卡片构建巨型方法迁出（extension 共享 State 私有成员）
@@ -541,7 +542,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     Navigator.pop(context, channels);
   }
 
-  Future<void> _testWebhook(int index) async {
+  Future<bool> _testWebhook(int index) async {
     final l10n = AppLocalizations.of(context);
     final url = _webhookControllers[index].text.trim();
     final secret = _secretControllers[index].text.trim();
@@ -551,7 +552,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _testResult = l10n.webhookUrlRequired;
         _testIndex = index;
       });
-      return;
+      return false;
     }
 
     setState(() {
@@ -563,6 +564,7 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     });
 
     try {
+      final watch = Stopwatch()..start();
       // 传递 secret 让原生端做签名验证，返回真实送达结果（含状态/HTTP码/签名标识）
       final result = await _channel.invokeMethod('testWebhook', {
         'url': url,
@@ -575,13 +577,28 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       final message = result['message'] as String? ?? l10n.unknownError;
       final signed = result['signed'] as bool? ?? false;
 
-      if (!mounted) return;
+      if (!mounted) return false;
+      // T04：手动测试的结果落健康单点，否则"测出失败"只活在这一屏 ——
+      // 首页与通道状态页永远显示 unknown，配置异常冒不上去。
+      // 新增行还没有稳定 id（保存前 `id` 为空）⇒ 不记：没有归属的记账比不记更糟
+      // （会把下一条复用该位置的通道的徽标钉错）。
+      final testedId = index < _channelIds.length ? _channelIds[index] : null;
+      if (testedId != null && testedId.isNotEmpty) {
+        await _health.record(
+          'webhook',
+          testedId,
+          reachable: success,
+          latencyMs: watch.elapsedMilliseconds,
+        );
+        if (!mounted) return false;
+      }
       setState(() {
         _isTesting = false;
         _testSuccess = success;
         _testResult = message;
         _testSigned = signed;
       });
+      return success;
     } catch (e) {
       setState(() {
         _isTesting = false;
@@ -589,6 +606,36 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _testSigned = false;
         _testResult = l10n.testFailedMsg(e.toString());
       });
+      return false;
+    }
+  }
+
+  /// T04「仅测试」：把每一行按**当前表单值**依次测一遍，不落库、不退出页面。
+  ///
+  /// 为什么单独要有这个动作：本页是全量平铺编辑器，「保存」= 校验 + 落库 + pop，
+  /// 以前唯一的测试入口在每张卡片里，逐条手点；用户想"整页先验一遍再决定存不存"
+  /// 只能一边点一边担心自己是不是已经把半成品存进去了。
+  /// 测出来的失败会写健康单点 ⇒ 即使不保存，异常也能冒到首页（T04 的冒泡链路）。
+  /// 这里**不**在保存后自动测：webhook 的一次测试就是往真实机器人发一条消息，
+  /// 每次保存都轰炸一遍不是用户要的（自建应用页是 token 校验，量级不同）。
+  Future<void> _testAll() async {
+    final l10n = AppLocalizations.of(context);
+    var tested = 0;
+    for (var i = 0; i < _webhookControllers.length; i++) {
+      if (_webhookControllers[i].text.trim().isEmpty) continue;
+      tested++;
+      await _testWebhook(i);
+      if (!mounted) return;
+    }
+    if (tested == 0) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(l10n.webhookUrlRequired),
+            duration: const Duration(seconds: 2),
+          ),
+        );
     }
   }
 
@@ -616,6 +663,19 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       appBar: AppBar(
         title: Text(l10n.webhookSettingsTitle),
         actions: [
+          // T04：「仅测试」在左、保存类动作在右，三页同一形状（自建应用页同）。
+          TextButton(
+            onPressed: _isSaving || _isTesting ? null : _testAll,
+            child: Text(
+              l10n.testOnly,
+              style: TextStyle(
+                fontSize: 16,
+                color: _isSaving || _isTesting
+                    ? AppColors.tertiaryLabel(context)
+                    : AppColors.secondaryLabel(context),
+              ),
+            ),
+          ),
           TextButton(
             onPressed: _isSaving ? null : _saveAndBack,
             child: _isSaving

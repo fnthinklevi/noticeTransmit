@@ -643,10 +643,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get editEmailChannel => '编辑邮件通道';
 
   @override
-  String get testSend => '测试发送';
+  String get testAndSave => '测试并保存';
 
   @override
-  String get testAndSave => '测试并保存';
+  String get testOnly => '仅测试';
 
   @override
   String get turnOn => '开启';

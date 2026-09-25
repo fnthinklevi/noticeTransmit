@@ -12,6 +12,20 @@ import 'webhook_service.dart';
 /// 「没有新鲜的探测结果」既不能说正常（那是恒绿的谎），也不能说异常（那是假警报）。
 enum ChannelHealthState { ok, error, unknown }
 
+/// 三态判定的**唯一**实现（T04 抽出）：首页通道卡、通道状态页、各通道列表的徽标
+/// 必须同一条规则，否则同一刻会出现"首页说正常、列表说失败"。
+///
+/// - `null`（从没测过）与"成功但已过期"都算 [ChannelHealthState.unknown]：
+///   说不出可用性就画成红色，等于把"我不知道"伪装成"坏了"；
+/// - 失败则一直是失败（有确凿证据），直到下一次测试覆盖它。
+ChannelHealthState channelHealthState(ChannelHealth? h) {
+  if (h == null) return ChannelHealthState.unknown;
+  if (!h.reachable) return ChannelHealthState.error;
+  return ChannelHealthStore.needsProbe(h)
+      ? ChannelHealthState.unknown
+      : ChannelHealthState.ok;
+}
+
 /// 一个**已启用**通道的条目：身份、显示名、用户命名、最近一次探测结果。
 class ActiveChannel {
   const ActiveChannel({
@@ -54,15 +68,8 @@ class ActiveChannel {
 
   String get deliveryKey => channelDeliveryKey(slug);
 
-  /// 健康态：失败就一直是失败（有确凿证据），成功但记录过期算未知。
-  ChannelHealthState get healthState {
-    final h = health;
-    if (h == null) return ChannelHealthState.unknown;
-    if (!h.reachable) return ChannelHealthState.error;
-    return ChannelHealthStore.needsProbe(h)
-        ? ChannelHealthState.unknown
-        : ChannelHealthState.ok;
-  }
+  /// 健康态：见 [channelHealthState]（单点，各页共用同一条规则）。
+  ChannelHealthState get healthState => channelHealthState(health);
 
   /// 首页「当前推送通道」的状态标签（页面据此取 l10n 文案与点色）。
   String get statusLabel => switch (healthState) {

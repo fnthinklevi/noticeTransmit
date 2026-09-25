@@ -670,10 +670,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editEmailChannel => 'Edit Email Channel';
 
   @override
-  String get testSend => 'Test Send';
+  String get testAndSave => 'Test & Save';
 
   @override
-  String get testAndSave => 'Test & Save';
+  String get testOnly => 'Test only';
 
   @override
   String get turnOn => 'Turn On';

@@ -274,6 +274,25 @@ void main() {
         reason: '入口没有"限定在骨架页里找" ⇒ 首页卡片上的同名字样会被误点',
       );
     });
+
+    test('两条测试动作都被真点过：仅测试 与 测试并保存（T04）', () {
+      // 「仅测试」与「测试并保存」是两个按钮、两条不同路径（一条落库、一条不落库）。
+      // 只钉字面量不够（文案可以只活在注释里），也不许被 dart format 的换行打断 ⇒
+      // 先压平空白再匹配"确实经 _tap + _appBarText 点过"。
+      final flat = src.replaceAll(RegExp(r'\s+'), ' ');
+      for (final step in const ['Webhook→仅测试', '应用通道→仅测试']) {
+        expect(
+          flat,
+          contains("_appBarText('仅测试'), '$step'"),
+          reason: '「$step」不再被点 ⇒ 「仅测试」这条不落库的路径静默退出了闸门覆盖面',
+        );
+      }
+      expect(
+        flat,
+        contains("_appBarText('测试并保存')"),
+        reason: '「测试并保存」不再被点 ⇒ T04 的两条动作只剩一条还在被验证',
+      );
+    });
   });
 }
 

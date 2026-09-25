@@ -4,51 +4,15 @@ part of 'webhook_settings_page.dart';
 // ignore_for_file: invalid_use_of_protected_member
 
 extension _WebhookFormMethods on _WebhookSettingsPageState {
-  /// 通道健康徽标：无探测记录不显示；有则显示 ✓/✗ + 延迟 + 距上次探测时间
+  /// 通道健康徽标：显示形状在共用的 [ChannelHealthBadge] 里，三态判定在
+  /// [channelHealthState] 里 —— 都只有一个来源（此前这里是一份抄本，且只看
+  /// `reachable` 一个布尔，过期六个月的绿勾也照画，跟首页互相打脸）。
   Widget _buildHealthBadge(int index, BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     // 必须按**并行 id 列表**取，不能按 index 读 widget.webhookChannels：
     // 那是构造期输入、不随行增删收缩——新增一行后 index 越界直接抛 RangeError，
     // 删掉一行后其余行会继承上一条通道的健康记录（徽标串台）。
     final id = _channelIds[index] ?? '';
-    final health = _health.of('webhook', id);
-    if (id.isEmpty || health == null) return const SizedBox.shrink();
-    final reachable = health.reachable;
-    final latency = health.latencyMs;
-    final probedAt = health.probedAt;
-    final ago = DateTime.now().millisecondsSinceEpoch - probedAt;
-    final agoText = ago < 60 * 60 * 1000
-        ? l10n.healthProbedMinutes(ago ~/ (60 * 1000))
-        : l10n.healthProbedHours(ago ~/ (60 * 60 * 1000));
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(
-            reachable ? Icons.check_circle : Icons.cancel,
-            size: 14,
-            color: reachable ? AppColors.green : AppColors.red,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            reachable ? l10n.healthReachable(latency) : l10n.healthUnreachable,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: reachable ? AppColors.green : AppColors.red,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            agoText,
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-        ],
-      ),
-    );
+    return ChannelHealthBadge(health: _health.of('webhook', id));
   }
 
   Widget _buildChannelItem(int index, BuildContext context) {

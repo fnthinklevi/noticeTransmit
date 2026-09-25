@@ -8,6 +8,7 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/app_channel_settings_page.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
+import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
@@ -191,7 +192,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
       await tester.pumpAndSettle();
 
       // service.saveChannels 归一化后的行是 UI 格式（baseUrl/appType/...）；
@@ -238,7 +239,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(_fieldName(), '办公告警应用');
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
       await tester.pumpAndSettle();
 
       final saved = store.rows.firstWhere((r) => r['id'] == 'app-1');
@@ -258,7 +259,7 @@ void main() {
 
       await tester.enterText(_fieldName(), 'NAS 告警应用');
       await tester.enterText(_fieldWithLabel('企业 ID（corpid）'), 'corp-new');
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
       await tester.pumpAndSettle();
 
       expect(store.rows, hasLength(1));
@@ -473,7 +474,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
       await tester.pumpAndSettle();
 
       final saved = store.rows.firstWhere((r) => r['id'] == 'app-1');
@@ -505,7 +506,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
       await tester.pumpAndSettle();
 
       final toast = find.descendant(
@@ -591,7 +592,7 @@ void main() {
         reason: '三个字段都各自绑到了控制器；少绑一个就是"输入框空白 + 保存写空"',
       );
 
-      await tester.tap(find.widgetWithText(TextButton, '保存'));
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
       await tester.pumpAndSettle();
       final saved = store.rows.firstWhere((r) => r['id'] == 'app-f');
       final config = Map<String, dynamic>.from(saved['config'] as Map);
@@ -622,6 +623,102 @@ void main() {
 
       expect(find.widgetWithText(ListTile, '企业微信自建应用'), findsOneWidget);
       expect(find.widgetWithText(ListTile, '飞书自建应用'), findsOneWidget);
+    });
+  });
+
+  // T04：「仅测试」与「测试并保存」是两个动作，且测试结论必须落到健康单点
+  // （首页/通道状态页只认那一份）。此前只有"保存后自动测试"一条路，而且测出的
+  // 失败只活在弹条里 ⇒ 配置异常的通道在首页永远是 unknown。
+  group('AppChannelSettingsPage – 仅测试 / 测试并保存（T04）', () {
+    void stubTest({required bool success, required List<String> calls}) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel(channelName), (
+            call,
+          ) async {
+            calls.add(call.method);
+            if (call.method == 'testAppChannel') {
+              return {'success': success, 'message': success ? 'ok' : '凭据无效'};
+            }
+            if (call.method == 'getChannelDescriptors') {
+              return descriptorCallResponse(call);
+            }
+            return null;
+          });
+    }
+
+    Future<void> seedOneChannel() async {
+      store.rows = [
+        {
+          'id': 'app-1',
+          'name': '企微应用A',
+          'app_type': 'wecom_app',
+          'base_url': 'https://qyapi.weixin.qq.com',
+          'secret': 's',
+          'config': '{"corpid":"corp-x","agentid":1,"touser":"@all"}',
+          'message_format': 'default',
+          'enabled': 1,
+        },
+      ];
+      await service.loadChannels();
+    }
+
+    testWidgets('仅测试：跑一次测试并记健康度，但绝不落库', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final calls = <String>[];
+      stubTest(success: true, calls: calls);
+      await seedOneChannel();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_fieldName(), '改了名但只想试一下');
+      // 只判"点击之后"的调用：进页面时的 loadChannels/描述符拉取会先写进库里一条
+      // setAppChannels（初始化同步），不清掉就成了「谁先跑」的假阳性。
+      calls.clear();
+      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.pumpAndSettle();
+
+      expect(calls, contains('testAppChannel'));
+      expect(
+        calls,
+        isNot(contains('setAppChannels')),
+        reason: '「仅测试」按定义不落库：写了库就等于偷偷替用户保存了半成品',
+      );
+      expect(store.rows.first['name'], '企微应用A');
+      expect(
+        GetIt.instance<ChannelHealthStore>().of('app', 'app-1')?.reachable,
+        isTrue,
+        reason: '测试结论没记进单点 ⇒ 首页说不出这条通道的状态',
+      );
+    });
+
+    testWidgets('测试失败照样保存，并把异常落进健康单点（冒到首页）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final calls = <String>[];
+      stubTest(success: false, calls: calls);
+      await seedOneChannel();
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_fieldName(), '改好的名字');
+      await tester.tap(find.widgetWithText(TextButton, '测试并保存'));
+      await tester.pumpAndSettle();
+
+      expect(
+        store.rows.first['name'],
+        '改好的名字',
+        reason:
+            '测试失败不该回滚保存：配置是对的、只是这一刻连不上，'
+            '回滚会把用户的有效编辑一起吞掉（roadmap T04 的决策）',
+      );
+      expect(
+        GetIt.instance<ChannelHealthStore>().of('app', 'app-1')?.reachable,
+        isFalse,
+        reason: '失败必须留痕，否则首页的三态永远是 unknown',
+      );
     });
   });
 }

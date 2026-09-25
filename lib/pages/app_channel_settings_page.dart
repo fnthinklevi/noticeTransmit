@@ -11,6 +11,7 @@ import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/channel_form_renderer.dart';
+import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
 
 /// 自建应用通道设置页（应用通道体系，管理完善度与 Webhook 通道对齐）。
@@ -174,10 +175,25 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
               if (picked != null) _addChannel(picked);
             },
           ),
+          // T04：两个动作分开。**仅测试**不落库（测的是表单当前值，保存前先验一次），
+          // **测试并保存** = 先落库再逐条测；测试失败绝不回滚保存（配置是对的、
+          // 只是这一刻连不上，回滚会把用户的有效编辑一起吞掉）。
+          TextButton(
+            onPressed: _saving || _testingId != null ? null : _testAll,
+            child: Text(
+              l10n.testOnly,
+              style: TextStyle(
+                fontSize: 16,
+                color: _saving || _testingId != null
+                    ? AppColors.tertiaryLabel(context)
+                    : AppColors.secondaryLabel(context),
+              ),
+            ),
+          ),
           TextButton(
             onPressed: _saving ? null : _saveAll,
             child: Text(
-              l10n.save,
+              l10n.testAndSave,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -326,7 +342,7 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
             ),
           if (health != null) ...[
             const SizedBox(height: 10),
-            _healthBadge(health, l10n),
+            ChannelHealthBadge(health: health),
           ],
           const SizedBox(height: 12),
           SizedBox(
@@ -745,6 +761,18 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     };
   }
 
+  /// 「仅测试」：不落库，把每条**启用**通道按当前表单值依次测一遍。
+  ///
+  /// 读的是控制器里的值（`_channelPayload(forTest: true)`），所以"先验再存"是安全的：
+  /// 测坏了也不会把已保存的配置改掉。结果逐条写进健康单点 ⇒ 异常能冒到首页。
+  Future<void> _testAll() async {
+    for (var i = 0; i < _channels.length; i++) {
+      if (_channels[i]['enabled'] != true) continue;
+      await _testChannel(i, _channels[i]);
+      if (!mounted) return;
+    }
+  }
+
   Future<void> _testChannel(int index, Map<String, dynamic> c) async {
     final l10n = AppLocalizations.of(context);
     final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
@@ -854,42 +882,6 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
   Future<void> _loadHealth() async {
     await _health.load();
     if (mounted) setState(() {});
-  }
-
-  Widget _healthBadge(ChannelHealth health, AppLocalizations l10n) {
-    final reachable = health.reachable;
-    final latency = health.latencyMs;
-    final probedAt = health.probedAt;
-    final ago = DateTime.now().millisecondsSinceEpoch - probedAt;
-    final agoText = ago < 60 * 60 * 1000
-        ? l10n.healthProbedMinutes(ago ~/ (60 * 1000))
-        : l10n.healthProbedHours(ago ~/ (60 * 60 * 1000));
-    return Row(
-      children: [
-        Icon(
-          reachable ? Icons.check_circle : Icons.cancel,
-          size: 14,
-          color: reachable ? AppColors.green : AppColors.red,
-        ),
-        const SizedBox(width: 5),
-        Text(
-          reachable ? l10n.healthReachable(latency) : l10n.healthUnreachable,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: reachable ? AppColors.green : AppColors.red,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          agoText,
-          style: TextStyle(
-            fontSize: 11,
-            color: AppColors.secondaryLabel(context),
-          ),
-        ),
-      ],
-    );
   }
 
   void _showToast(String message, bool ok) {

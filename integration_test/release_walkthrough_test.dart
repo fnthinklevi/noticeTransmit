@@ -34,6 +34,7 @@ import 'package:notice_transmit/pages/webhook_settings_page.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/channel_descriptor_service.dart';
+import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/filter_service.dart';
@@ -372,6 +373,25 @@ void main() {
     // 第二次改：重进 → 加一行 → 填企微地址 → 保存（一次只改一件事，红的时候能点名）
     await _openMoreRow(tester, 'Webhook 推送通道');
     await _onPage(tester, WebhookSettingsPage, 'Webhook 设置页(加第二条)');
+    // T04「仅测试」：必须真的测一条、把结论写进健康单点，而且**不许 pop**
+    // （pop 就是保存退出；用户点的是"只试一下"）。
+    await _tap(tester, _appBarText('仅测试'), 'Webhook→仅测试');
+    await _settle(tester, seconds: 2);
+    expect(
+      find.byType(WebhookSettingsPage),
+      findsOneWidget,
+      reason: '「仅测试」把用户弹出了设置页 = 它偷偷走了保存那条路',
+    );
+    expect(
+      GetIt.instance<ChannelHealthStore>()
+          .of(
+            'webhook',
+            GetIt.instance<WebhookService>().channels.first['id'].toString(),
+          )
+          ?.reachable,
+      isTrue,
+      reason: '「仅测试」的结论没落单点 ⇒ 配置异常冒不到首页（T04 的链路断在这)',
+    );
     await _tap(tester, find.text('添加通道'), 'Webhook→添加第二条');
     await _fillWebhookUrl(tester, wecomUrl);
     await _tap(tester, _appBarText('保存'), 'Webhook→保存(两条)');
@@ -458,7 +478,7 @@ void main() {
     await _settle(tester, seconds: 1);
     await _onPage(tester, AppChannelSettingsPage, '应用通道编辑页');
     // 必填校验：空表点保存必须**点名缺哪个字段**并拒绝写入（第 5 步表单收口的承课）
-    await _tap(tester, _appBarText('保存'), '应用通道→空表保存(应被拦)');
+    await _tap(tester, _appBarText('测试并保存'), '应用通道→空表保存(应被拦)');
     await _settle(tester, seconds: 1);
     expect(
       find.text('保存失败：通道名称不能为空'),
@@ -495,12 +515,30 @@ void main() {
       if (empty.evaluate().isEmpty) break;
       await _type(tester, empty, '闸门扩展$i', '应用通道扩展参数 #$i');
     }
-    await _tap(tester, _appBarText('保存'), '应用通道→保存');
+    await _tap(tester, _appBarText('测试并保存'), '应用通道→测试并保存');
     await _settle(tester, seconds: 2);
     expect(
       GetIt.instance<AppChannelService>().channels,
       hasLength(1),
       reason: '自建应用通道未保存（必填校验/字段键名链路）',
+    );
+    // T04「仅测试」：与「测试并保存」是两个动作 ⇒ 它不写库，但结论同样要落单点。
+    await _tap(tester, _appBarText('仅测试'), '应用通道→仅测试');
+    await _settle(tester, seconds: 2);
+    expect(
+      find.byType(AppChannelSettingsPage),
+      findsOneWidget,
+      reason: '「仅测试」按定义不保存，不该把用户弹出编辑页',
+    );
+    expect(
+      GetIt.instance<ChannelHealthStore>()
+          .of(
+            'app',
+            GetIt.instance<AppChannelService>().channels.first['id'].toString(),
+          )
+          ?.reachable,
+      isTrue,
+      reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
     );
     await _backToHome(tester);
 
