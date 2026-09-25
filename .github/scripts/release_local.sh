@@ -199,6 +199,12 @@ warn "人工确认项：官网 index.html 是否需要内容/文案更新（版�
 hr; echo "── 阶段 5：CI 等价自检 ──"
 T=$(flutter test 2>&1 | tail -1)
 [[ "$T" == *"All tests passed"* ]] && ok "flutter test: $T" || fail "flutter test: $T"
+# T09 证据矩阵的欠账必须出现在交付报告里。守卫每次都会打印"待人工盖章"清单，但全量
+# `flutter test` 时那行被几百行输出淹没 ⇒ 单拎出来重打一次。只展示、不判成败：
+# 判成败的是守卫本身（盖章数与 ratchet 不符会红），这里防的是"绿了就没人去看缺了什么"。
+flutter test test/architecture/channel_evidence_matrix_test.dart 2>&1 \
+    | grep -E "T09 待人工盖章" \
+    | while IFS= read -r line; do warn "$line"; done
 (cd android && ./gradlew testDebugUnitTest --console=plain > /tmp/rel_ci.log 2>&1)
 [ $? -eq 0 ] && ok "gradlew testDebugUnitTest" || fail "gradlew testDebugUnitTest（见 /tmp/rel_ci.log）"
 if bash .github/scripts/check_version_consistency.sh > /tmp/rel_consistency.log 2>&1; then

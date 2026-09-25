@@ -131,6 +131,27 @@ done
 [ "$BOOT" = "1" ] || { fail "180s 内 sys.boot_completed 仍不为 1"; exit 1; }
 ok "模拟器已就绪（$SERIAL）"
 
+# ── 起跑前清空被测应用的数据 ──────────────────────────────────────────────
+# AVD 的 /data 是**跨启动保留**的，`flutter test` 也只是覆盖安装：上一次跑完（或被 Ctrl-C
+# 掐断的那一次）留下的通道/规则会原封不动留在库里。后果有两面：
+#   ① 假红 —— 本次跑到"仅测试不许落库"时看见的是上次建的通道（2026-09-26 实测撞到）；
+#   ② 更危险的假绿 —— 后面的分节可能靠上次的残留才"点得动"，闸门于是测的已经不是这份代码。
+# 包名与 android/app/build.gradle 的 applicationId 同源（debug 无 suffix）。
+# 分三种情形说清楚，别把"没装过"报成"清不掉"：装过却清不掉就是本轮结论不可信，宁可停。
+case "$SERIAL" in
+    emulator-*)
+        if "$ADB" -s "$SERIAL" shell pm list packages com.fnthink.notice \
+                2>/dev/null | tr -d '\r' | grep -q com.fnthink.notice; then
+            "$ADB" -s "$SERIAL" shell pm clear com.fnthink.notice > /dev/null 2>&1 \
+                && ok "已清空被测应用数据（com.fnthink.notice）" \
+                || { fail "pm clear 失败：残留会让本轮结论失真（可能是上一轮建的通道帮它点过去的）"; exit 1; }
+        else
+            ok "被测应用尚未安装：无残留可清"
+        fi
+        ;;
+    *) fail "目标设备不是模拟器（$SERIAL）—— 清数据这一步禁止对真机执行"; exit 1 ;;
+esac
+
 # ── 跑集成测试 ────────────────────────────────────────────────────────────
 # 默认跑 integration_test/ 下全部文件；调试单个文件时可设 GATE_FILES 覆盖。
 FILES=${GATE_FILES:-$(ls integration_test/*_test.dart 2>/dev/null | tr '\n' ' ')}

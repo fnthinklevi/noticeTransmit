@@ -18,7 +18,9 @@ void main() {
 
   group('发版脚本必须挂上模拟器全功能闸门', () {
     test('release_local.sh 调用 release_emulator.sh，且失败判红不吞', () {
-      final src = read('.github/scripts/release_local.sh');
+      // 必须剥 shell 注释：一句"当初这里是 bash release_emulator.sh"的注释
+      // 能让两条判据都为真，而脚本其实已经不跑闸门（同类事故见下条 trap 的反证 2）。
+      final src = stripShellComments(read('.github/scripts/release_local.sh'));
       expect(
         src.contains('bash .github/scripts/release_emulator.sh'),
         isTrue,
@@ -32,6 +34,57 @@ void main() {
         ).hasMatch(src),
         isTrue,
         reason: '闸门结果没有 ok/fail 两个分支 ⇒ 可能出现"红了但发版继续"',
+      );
+    });
+
+    test('发版脚本必须重打 T09 证据矩阵的欠账（绿了也要看得见缺什么）', () {
+      final src = stripShellComments(read('.github/scripts/release_local.sh'));
+      expect(
+        src,
+        contains('channel_evidence_matrix_test.dart'),
+        reason:
+            '矩阵守卫的打印被全量 flutter test 的几百行输出淹没 ⇒ '
+            '"15/15 没盖过章"这件事在交付报告里看不见，绿就等于没人欠账了',
+      );
+      expect(
+        src,
+        contains('T09 待人工盖章'),
+        reason: '重打的那行必须来自守卫的打印口径；改了打印名要同步这里，否则只剩静默',
+      );
+    });
+
+    test('闸门起跑前必须清掉被测应用的残留数据', () {
+      // AVD 的 /data 跨启动保留，`flutter test` 只是覆盖安装 ⇒ 上一轮（或被掐断的那一轮）
+      // 留下的通道还在库里。两面都坏：本轮"仅测试不许落库"会**假红**，
+      // 而靠上一轮残留才点得动的分节会**假绿**（闸门测的已经不是这份代码）。
+      final src = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
+      final clearAt = src.indexOf('pm clear com.fnthink.notice');
+      expect(
+        clearAt,
+        greaterThan(0),
+        reason: '没有清数据这一步：闸门的结论取决于上一轮跑没跑完（2026-09-26 实测假红过一次）',
+      );
+      expect(
+        clearAt,
+        lessThan(src.indexOf('flutter test')),
+        reason: '清数据必须发生在跑测试之前，晚一步等于没清',
+      );
+      expect(
+        src.lastIndexOf('emulator-*)', clearAt),
+        greaterThan(0),
+        reason: '这条 pm clear 必须落在 emulator-* 分支里：serial 不是模拟器就不许执行',
+      );
+      expect(
+        src,
+        contains('禁止对真机执行'),
+        reason: 'default 分支必须显式 fail —— serial 为空/异常时宁可停，不能清到真机',
+      );
+      expect(
+        src,
+        matches(RegExp(r'pm clear com\.fnthink\.notice[\s\S]{0,220}?exit 1')),
+        reason: '装过却清不掉必须**停下来**：只 warn 一句继续跑，等于把"本轮结论可能来自上一轮残留"咽下去',
       );
     });
 
