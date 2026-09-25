@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/active_channels.dart';
+import '../services/backup_mode.dart';
 import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
@@ -32,6 +33,10 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   /// 首次进入提示（只弹一次，落 prefs）。键名与 `rule_engine_guide_seen` 同一套写法。
   bool _showGuide = false;
 
+  /// 原生是否已降级到备用通道（T12）。锁存不会自动解除（防抖动），
+  /// 所以这一页既要显示"当前在走备用"，也要给一个手动切回。
+  bool _backupEngaged = false;
+
   /// 分组的固定顺序（首页卡是按"应用→webhook→邮件"的观感排的，这里按族的常用度排）。
   static const _familyOrder = ['webhook', 'email', 'app'];
 
@@ -39,18 +44,71 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   void initState() {
     super.initState();
     _checkFirstTime();
+    _loadBackupMode();
+  }
+
+  Future<void> _loadBackupMode() async {
+    final engaged = await BackupMode.isEngaged();
+    if (!mounted) return;
+    setState(() => _backupEngaged = engaged);
   }
 
   Future<void> _checkFirstTime() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('channel_status_guide_seen') ?? false) return;
     await prefs.setBool('channel_status_guide_seen', true);
-    if (mounted) setState(() => _showGuide = true);
+    if (!mounted) return;
+    setState(() => _showGuide = true);
   }
 
   Future<void> _open(String family) async {
     await widget.onOpenChannel(family);
-    if (mounted) setState(() {});
+    // 备用模式可能在离开这一页期间被原生锁存，回来要重读一次
+    await _loadBackupMode();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  /// 备用模式横幅（T12）：降级是自动的、恢复是手动的。不写清楚，用户的观感就是
+  /// 「我明明修好了主通道，为什么还在推备用」。
+  Widget _backupBanner(BuildContext context, AppLocalizations l10n) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: AppColors.orange.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 16,
+            color: AppColors.orange,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l10n.backupModeBanner,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ),
+          TextButton(
+            key: const ValueKey('backup-mode-switch-back'),
+            onPressed: () async {
+              await BackupMode.reset();
+              await _loadBackupMode();
+            },
+            child: Text(l10n.backupModeSwitchBack),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -83,6 +141,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
+                if (_backupEngaged) _backupBanner(context, l10n),
                 if (_showGuide) _guideCard(context, l10n),
                 for (final family in _familyOrder)
                   ..._familySection(context, l10n, family, [

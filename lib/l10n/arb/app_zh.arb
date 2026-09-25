@@ -42,6 +42,8 @@
   "roleNone": "不参与",
   "mainBackupExcluded": "标记为「不参与」的通道保留配置但不推送，随时可归队。",
   "mainBackupChannelGone": "通道已不存在，本次设置未保存。",
+  "backupModeBanner": "当前正在按备用通道推送：主通道连续不可用时系统会自动降级，且不会自动切回。确认主通道已恢复后点「切回主通道」。",
+  "backupModeSwitchBack": "切回主通道",
   "permSettings": "权限设置",
   "permSettingsDesc": "配置通知、电池、后台运行等权限",
   "pushHistory": "推送历史",

@@ -62,8 +62,12 @@ class AppChannelSender(private val context: Context) {
     }
 
     /** 指定 force 的发送（延迟补推 / 手动现在推送 / 合并 flush） */
-    fun sendOnly(info: NotificationInfo, force: Boolean = false) {
-        for (cfg in channelConfigs) {
+    fun sendOnly(
+        info: NotificationInfo,
+        force: Boolean = false,
+        configs: List<AppChannelConfig>? = null,
+    ) {
+        for (cfg in configs ?: channelConfigs) {
             sendSafely(cfg, info, force = force)
         }
     }
@@ -74,7 +78,13 @@ class AppChannelSender(private val context: Context) {
      */
     private fun sendSafely(cfg: AppChannelConfig, info: NotificationInfo, force: Boolean) {
         try {
-            sendToSingle(cfg, info, force = force, onResultDone = null)
+            sendToSingle(cfg, info, force = force) { result ->
+                // 可用性记账（T12）；此前这里恒传 null = 结果就地丢弃
+                ChannelAvailability.noteResult(
+                    context, "app", cfg.id,
+                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                )
+            }
         } catch (e: Exception) {
             Log.e(TAG, "应用通道发送异常 type=${cfg.type} id=${cfg.id}", e)
         }

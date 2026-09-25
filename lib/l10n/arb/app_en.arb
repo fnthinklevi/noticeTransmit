@@ -42,6 +42,8 @@
   "roleNone": "Excluded",
   "mainBackupExcluded": "Excluded channels keep their configuration but receive nothing until re-assigned.",
   "mainBackupChannelGone": "That channel is gone; the change was not saved.",
+  "backupModeBanner": "Pushing via backup channels: the app fell back automatically and will not switch back by itself. Confirm the primary channels are healthy, then tap \"Switch to primary\".",
+  "backupModeSwitchBack": "Switch to primary",
   "permSettings": "Permissions",
   "permSettingsDesc": "Configure notification, battery, background permissions",
   "pushHistory": "Push History",

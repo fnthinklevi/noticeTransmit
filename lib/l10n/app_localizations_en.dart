@@ -143,6 +143,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'That channel is gone; the change was not saved.';
 
   @override
+  String get backupModeBanner =>
+      'Pushing via backup channels: the app fell back automatically and will not switch back by itself. Confirm the primary channels are healthy, then tap \"Switch to primary\".';
+
+  @override
+  String get backupModeSwitchBack => 'Switch to primary';
+
+  @override
   String get permSettings => 'Permissions';
 
   @override

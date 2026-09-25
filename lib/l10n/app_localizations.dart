@@ -356,6 +356,18 @@ abstract class AppLocalizations {
   /// **'通道已不存在，本次设置未保存。'**
   String get mainBackupChannelGone;
 
+  /// No description provided for @backupModeBanner.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前正在按备用通道推送：主通道连续不可用时系统会自动降级，且不会自动切回。确认主通道已恢复后点「切回主通道」。'**
+  String get backupModeBanner;
+
+  /// No description provided for @backupModeSwitchBack.
+  ///
+  /// In zh, this message translates to:
+  /// **'切回主通道'**
+  String get backupModeSwitchBack;
+
   /// No description provided for @permSettings.
   ///
   /// In zh, this message translates to:

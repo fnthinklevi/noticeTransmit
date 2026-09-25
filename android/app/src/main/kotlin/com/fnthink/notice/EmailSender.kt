@@ -15,6 +15,8 @@ object EmailSender {
     private const val TAG = "EmailSender"
 
     data class EmailConfig(
+        /** 可用性记账与主备路由的键（与 Dart 侧 `channel_health_email_<id>` 同源） */
+        val id: String = "",
         val smtpHost: String,
         val smtpPort: Int,
         val username: String,

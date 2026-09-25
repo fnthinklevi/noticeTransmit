@@ -1,6 +1,7 @@
 package com.fnthink.notice.channels
 
 import com.fnthink.notice.AppChannelRegistry
+import com.fnthink.notice.BackupModeStore
 import com.fnthink.notice.ChannelRegistry
 import com.fnthink.notice.DiagLog
 import com.fnthink.notice.EmailManager
@@ -114,6 +115,18 @@ internal class ConfigChannelHandler(activity: MainActivity) : ChannelHandler(act
                 val key = call.argument<String>("key") ?: ""
                 val value = call.argument<Boolean>("value") ?: false
                 activity.setTemperatureSetting(key, value)
+                result.success(true)
+            }
+            // ── 备用模式锁存（T12）────────────────────────────────────────
+            // 读：状态页要告诉用户"现在其实在推备用通道"；
+            // 写：只有"手动切回"这一个入口 —— 路由不自动解除锁存（防抖动）。
+            "getBackupMode" -> {
+                result.success(
+                    mapOf("engaged" to BackupModeStore.isEngaged(activity.applicationContext))
+                )
+            }
+            "resetBackupMode" -> {
+                BackupModeStore.release(activity.applicationContext)
                 result.success(true)
             }
             "setSmsSetting" -> {

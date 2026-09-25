@@ -138,11 +138,22 @@ class ChannelRoutingContractTest {
         // （不透传 = 聚合成员又回到"写死成功"的老缺陷）。
         val funnel = svc.substringAfter("private fun dispatchToChannels(")
             .substringBefore("private fun dispatchEmail(")
-        assertTrue(funnel.contains("sendWebhooksOnly(info, force = force, onAllComplete = onWebhooksComplete)"),
-            "收口函数没把 force / onAllComplete 透传给 webhook：暂停开关或聚合真实结果会失效")
-        assertTrue(funnel.contains("appChannelSender.sendOnly(info, force = force)"),
+        // 具名参数各占一行是格式化器的结果，所以按"参数逐个在场"断言，
+        // 不按整行文本匹配（整行匹配会随排版静默失效）。
+        for (arg in listOf(
+            "info,",
+            "force = force,",
+            "onAllComplete = onWebhooksComplete,",
+            "configs = routed.webhooks,",
+        )) {
+            assertTrue(
+                funnel.contains(arg),
+                "收口函数调 webhook 时少了参数 $arg（暂停开关、聚合真实结果或路由子集任一条断了都会静默失效）"
+            )
+        }
+        assertTrue(funnel.contains("appChannelSender.sendOnly(info, force = force, configs = routed.apps)"),
             "收口函数里自建应用没带 force")
-        assertTrue(funnel.contains("dispatchEmail(info, force = force)"),
+        assertTrue(funnel.contains("dispatchEmail(info, force = force, configs = routed.emails)"),
             "收口函数里邮件没带 force ⇒ 暂停时手动补推推不出邮件")
         // 历史记录只在主链路写一次（补推/flush/手动都不得再播）
         assertTrue(funnel.contains("if (alsoBroadcastRecord) webhookSender.sendBroadcast(info)"),

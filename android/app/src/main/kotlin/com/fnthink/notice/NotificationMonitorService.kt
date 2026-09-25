@@ -1163,16 +1163,81 @@ class NotificationMonitorService : NotificationListenerService() {
         force: Boolean = false,
         onWebhooksComplete: ((WebhookResponseParser.ParseResult) -> Unit)? = null,
     ) {
+        val routed = routeChannels()
+
         if (alsoBroadcastRecord) webhookSender.sendBroadcast(info)
-        webhookSender.sendWebhooksOnly(info, force = force, onAllComplete = onWebhooksComplete)
-        appChannelSender.sendOnly(info, force = force)
-        dispatchEmail(info, force = force)
+        webhookSender.sendWebhooksOnly(
+            info,
+            force = force,
+            onAllComplete = onWebhooksComplete,
+            configs = routed.webhooks,
+        )
+        appChannelSender.sendOnly(info, force = force, configs = routed.apps)
+        dispatchEmail(info, force = force, configs = routed.emails)
     }
 
-    private fun dispatchEmail(info: NotificationInfo, force: Boolean = false) {
+    /** 一次扇出对应的三族目标集合（路由后的结果，可能比配置里少） */
+    private class RoutedChannels(
+        val webhooks: List<ConfigManager.WebhookChannelConfig>,
+        val apps: List<AppChannelConfig>,
+        val emails: List<EmailSender.EmailConfig>,
+    )
+
+    /**
+     * 主备路由（T12）：三族候选合成**一次**决策。
+     *
+     * 分开按族决策会出现「webhook 已经走备用、邮件还在推主通道」的半吊子状态 ——
+     * 而「主通道是否全不可用」本来就是设备级判断。
+     *
+     * 每次现读配置与健康记录（不在进程内缓存）：角色、健康度、锁存都会变，
+     * 缓存就得再定一条「谁负责让它失效」的契约，代价大于每次解析几个通道。
+     */
+    private fun routeChannels(): RoutedChannels {
+        val webhooks = configManager.getWebhookChannelConfigs()
+        val apps = configManager.getAppChannelConfigs()
+        val emails = EmailManager.getEnabledConfigs(this)
+        val now = System.currentTimeMillis()
+
+        fun available(family: String, id: String): Boolean = ChannelAvailability.reasonOf(
+            fails = ChannelAvailability.failsOf(this, family, id),
+            record = ChannelAvailability.readHealth(this, family, id),
+            nowMs = now,
+        ).isAvailable
+
+        val members = ArrayList<ChannelRouting.Member>()
+        webhooks.forEach {
+            members.add(ChannelRouting.Member("webhook:" + it.id, it.role, available("webhook", it.id)))
+        }
+        apps.forEach {
+            members.add(ChannelRouting.Member("app:" + it.id, it.role, available("app", it.id)))
+        }
+        emails.forEach {
+            members.add(ChannelRouting.Member("email:" + it.id, it.role, available("email", it.id)))
+        }
+
+        val engaged = BackupModeStore.isEngaged(this)
+        val decision = ChannelRouting.route(members, engaged)
+        // 只在真的发生降级时锁存；已经锁着就不重复写盘
+        if (decision.engagedBackup && !engaged) BackupModeStore.engage(this)
+
+        val want = decision.keys.toHashSet()
+        return RoutedChannels(
+            webhooks.filter { ("webhook:" + it.id) in want },
+            apps.filter { ("app:" + it.id) in want },
+            emails.filter { ("email:" + it.id) in want },
+        )
+    }
+
+    private fun dispatchEmail(
+        info: NotificationInfo,
+        force: Boolean = false,
+        configs: List<EmailSender.EmailConfig>? = null,
+    ) {
         try {
-            val configs = EmailManager.getEnabledConfigs(this)
-            if (configs.isEmpty()) return
+            // 路由后可能为空（本轮不该推邮件）：与「没配邮件通道」走同一条早退路径。
+            // 局部量另起名：与同名参数在嵌套作用域里重名会触发 name-shadowed 警告。
+            val selected = configs ?: EmailManager.getEnabledConfigs(this)
+            if (selected.isEmpty()) return
 
             // 推送暂停：邮件同样不发送，回传 paused 状态（与 webhook 行为一致）
             if (!force && !PushToggleManager.isPushActive()) {
@@ -1184,7 +1249,7 @@ class NotificationMonitorService : NotificationListenerService() {
                 return
             }
 
-            EmailSender.sendNotification(configs, info, serviceScope) { success, msg ->
+            EmailSender.sendNotification(selected, info, serviceScope) { success, msg ->
                 val result = if (success) {
                     WebhookResponseParser.ParseResult(
                         WebhookResponseParser.DeliveryStatus.SUCCESS, 0, msg, false

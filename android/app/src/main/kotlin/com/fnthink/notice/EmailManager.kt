@@ -120,6 +120,7 @@ object EmailManager {
                 val role = ChannelRole.parse(obj.optString("role", ""))
                 if (role == ChannelRole.NONE) continue
                 configs.add(EmailSender.EmailConfig(
+                    id = id,
                     smtpHost = obj.optString("smtpHost", ""),
                     smtpPort = obj.optInt("smtpPort", 465),
                     username = obj.optString("username", ""),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
@@ -82,13 +83,30 @@ void main() {
     ];
   }
 
+  /// 备用模式的状态住在原生，测试里可翻转（默认未锁存）。
+  bool backupEngaged = false;
+  final resetCalls = <String>[];
+
+  Future<Object?> onChannelCall(MethodCall call) async {
+    switch (call.method) {
+      case 'getBackupMode':
+        return {'engaged': backupEngaged};
+      case 'resetBackupMode':
+        resetCalls.add(call.method);
+        backupEngaged = false;
+        return true;
+      default:
+        return null;
+    }
+  }
+
   setUp(() async {
     opened.clear();
     await GetIt.instance.reset();
     SharedPreferences.setMockInitialValues({});
     // 见 base.md（53）（54）：testWidgets 里不接住原生通道，服务侧那一句
     // `await invokeMethod(...)` 永远不返回 ⇒ 整批用例 did not complete。
-    stubNativeChannels();
+    stubNativeChannels(onCall: onChannelCall);
     appService = AppChannelService(store: _FakeAppStore());
     webhookService = WebhookService(store: _FakeWebhookStore());
     emailService = EmailService(store: _FakeEmailStore());
@@ -272,6 +290,32 @@ void main() {
 
       expect(find.text('备'), findsOneWidget);
       expect(find.text('主'), findsNWidgets(2));
+    });
+
+    testWidgets('备用模式横幅：锁存时出现，点「切回主通道」调原生并消失', (tester) async {
+      tester.view.physicalSize = const Size(1200, 2800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+      backupEngaged = true;
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('当前正在按备用通道推送'),
+        findsOneWidget,
+        reason: '降级是自动的，界面不说清楚，用户只会觉得修好了还在走备用',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('backup-mode-switch-back')));
+      await tester.pumpAndSettle();
+
+      expect(resetCalls, ['resetBackupMode']);
+      expect(
+        find.textContaining('当前正在按备用通道推送'),
+        findsNothing,
+        reason: '切回后横幅要跟着消失，否则按钮像是没生效',
+      );
     });
 
     testWidgets('主通道超过 5 条只提示、不阻止保存', (tester) async {

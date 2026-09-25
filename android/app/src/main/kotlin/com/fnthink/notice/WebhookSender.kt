@@ -47,7 +47,11 @@ class WebhookSender(private val context: Context) {
      */
     fun updateUrls(urls: List<String>) {
         channelConfigs = urls.filter { it.isNotEmpty() }.map {
-            ConfigManager.WebhookChannelConfig(it, null, WebhookPayloadBuilder.detectType(it))
+            // 旧接口只有 URL：id 用 URL 自己兜底（与 ConfigManager 同一条规则）
+            ConfigManager.WebhookChannelConfig(
+                url = it, id = it, secret = null,
+                type = WebhookPayloadBuilder.detectType(it),
+            )
         }
         Log.d(TAG, "Webhook URLs updated: ${channelConfigs.size} URLs (legacy mode, no signing)")
     }
@@ -79,16 +83,19 @@ class WebhookSender(private val context: Context) {
     fun sendWebhooksOnly(
         info: NotificationInfo,
         force: Boolean = false,
-        onAllComplete: ((WebhookResponseParser.ParseResult) -> Unit)? = null
+        onAllComplete: ((WebhookResponseParser.ParseResult) -> Unit)? = null,
+        configs: List<ConfigManager.WebhookChannelConfig>? = null,
     ) {
-        if (channelConfigs.isEmpty()) {
+        // 主备路由（T12）会传入本次该推的那批；不传 = 全部启用的通道都推
+        val targets = configs ?: channelConfigs
+        if (targets.isEmpty()) {
             onAllComplete?.invoke(noChannelResult())
             return
         }
 
         // 单通道（最常见）直接透传，不做计数包装
-        if (channelConfigs.size == 1) {
-            sendToSingleUrl(channelConfigs[0], info, force, onAllComplete)
+        if (targets.size == 1) {
+            sendToSingleUrl(targets[0], info, force, onAllComplete)
             return
         }
 
@@ -99,12 +106,18 @@ class WebhookSender(private val context: Context) {
         // synchronizedList + 独立 lock 两把锁保护同一批状态，虽逻辑正确但易被后人改错）；
         // 且用 AtomicBoolean 保证汇总回调**至多触发一次**——某通道的 onResult 若因异常
         // 路径被调用两次，计数会提前达到 total，导致在结果不全时就汇总（可能选出非最差者）。
-        val total = channelConfigs.size
+        val total = targets.size
         val results = ArrayList<WebhookResponseParser.ParseResult>(total)
         val lock = Any()
         val aggregated = java.util.concurrent.atomic.AtomicBoolean(false)
-        for (cfg in channelConfigs) {
+        for (cfg in targets) {
             sendToSingleUrl(cfg, info, force) { result ->
+                // 可用性记账（T12）：只有真实发送结果会进这张表，测试按钮不记账，
+                // 否则"手动能通"会掩盖"实际一直在失败"。
+                ChannelAvailability.noteResult(
+                    context, "webhook", cfg.id,
+                    success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                )
                 val done = synchronized(lock) {
                     results.add(result)
                     // 多调用防御：同一通道重复回结果时，计数不超过 total，避免提前汇总

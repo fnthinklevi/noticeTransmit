@@ -11,7 +11,8 @@ import java.io.FileInputStream
 class ConfigManager(private val context: Context) {
     companion object {
         private const val TAG = "ConfigManager"
-        private const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
+        /** Dart 侧 SharedPreferences 的文件名（[ChannelAvailability] 读健康记录也要用）*/
+        const val FLUTTER_PREFS_NAME = "FlutterSharedPreferences"
         private const val KEY_WEBHOOK_URLS = "flutter.webhook_channels"
         private const val KEY_ENABLED_PACKAGES = "flutter.enabled_packages"
         private const val KEY_APP_FILTER_MODE = "flutter.app_filter_mode"
@@ -36,6 +37,9 @@ class ConfigManager(private val context: Context) {
      */
     data class WebhookChannelConfig(
         val url: String,
+        /** 可用性记账与主备路由的键（与 Dart 侧 `channel_health_webhook_<id>` 同源）。
+         *  老配置没带 id 时用 url 兜底：同一 URL 的多份配置共享可用性，可接受。 */
+        val id: String = "",
         val secret: String?,
         val type: WebhookPayloadBuilder.WebhookType,
         val messageFormat: String = "default",
@@ -96,13 +100,20 @@ class ConfigManager(private val context: Context) {
                 val messageFormat = obj.optString("message_format", "default").ifEmpty { "default" }
                 val messageTemplate = obj.optString("message_template", "")
                     .takeIf { it.isNotEmpty() && it != "null" }
+                val rawId = obj.optString("id", "")
                 val role = ChannelRole.parse(obj.optString("role", ""))
                 // 「不参与」：保留配置但一条都不推（与"关掉启用开关"的区别是随时可归队）
                 if (role == ChannelRole.NONE) continue
                 // extra_config 不再解析（roadmap D4 / ㊷），见 WebhookChannelConfig 上的说明
                 list.add(
                     WebhookChannelConfig(
-                        url, secret, type, messageFormat, messageTemplate, role
+                        url = url,
+                        id = rawId.ifEmpty { url },
+                        secret = secret,
+                        type = type,
+                        messageFormat = messageFormat,
+                        messageTemplate = messageTemplate,
+                        role = role,
                     )
                 )
             }
@@ -111,7 +122,11 @@ class ConfigManager(private val context: Context) {
             Log.e(TAG, "Failed to parse webhook channel configs", e)
             // 兜底：用 URL 列表，无签名
             getWebhookUrls().map {
-                WebhookChannelConfig(it, null, WebhookPayloadBuilder.detectType(it))
+                // 兜底路径没有 id 可用：用 URL 自己当键（与上面 ifEmpty 同一条规则）
+                WebhookChannelConfig(
+                    url = it, id = it, secret = null,
+                    type = WebhookPayloadBuilder.detectType(it),
+                )
             }
         }
     }
