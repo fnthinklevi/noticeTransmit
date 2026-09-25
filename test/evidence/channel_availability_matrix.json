@@ -1,0 +1,137 @@
+{
+  "_comment": [
+    "通道可用性证据矩阵（roadmap T09）。每一行 = 一个通道类型（key 与原生描述符同一口径），",
+    "记录『这一类的可用性结论各自是谁给的』，不是给人看的表格而是给守卫读的清单。",
+    "列的语义：",
+    "  payloadEvidence —— 构造载荷的证据来源。golden = channel_behavior_golden.json 的四个场景",
+    "    （notify/sms/test/call）齐备；jvm:<类名> = JVM 直测；todo:<说明> = **还没有证据**（收缩棘轮计数）。",
+    "  statusEvidence —— 首页/列表/通道状态页把这一类画出来的证据（widget 测试 + 阶段 6 闸门）。",
+    "  backupEvidence —— 备份导出→篡改→导入后这一类仍在的证据（阶段 6 闸门第 7/8 节）。",
+    "  realSend —— 「真发一次」只有人眼能盖章：state=verified 必须带 date/build/note，",
+    "    并且盖章总数由守卫按 ratchet 核对（只许升，升的时候要显式改数字）。"
+  ],
+  "pendingPayloadEvidence": 1,
+  "verifiedRatchet": 0,
+  "types": [
+    {
+      "type": "wechat_work",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "dingtalk",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "feishu",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "telegram",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "bark",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "server_chan",
+      "family": "webhook",
+      "payloadEvidence": "golden+bodyOverride",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "push_plus",
+      "family": "webhook",
+      "payloadEvidence": "golden+bodyOverride",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "ntfy",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "gotify",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "slack",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "discord",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "generic",
+      "family": "webhook",
+      "payloadEvidence": "golden",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "wecom_app",
+      "family": "app",
+      "payloadEvidence": "jvm:AppChannelSpecTest",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "feishu_app",
+      "family": "app",
+      "payloadEvidence": "jvm:AppChannelSpecTest",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    },
+    {
+      "type": "email",
+      "family": "email",
+      "payloadEvidence": "todo:邮件主题/正文渲染目前零证据（EmailSender 的 applyTemplate 与 %subTextLine 删行都是 private，没有任何测试）",
+      "statusEvidence": "widget+gate",
+      "backupEvidence": "gate",
+      "realSend": { "state": "unverified" }
+    }
+  ]
+}
