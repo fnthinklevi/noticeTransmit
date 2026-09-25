@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/device_snapshot.dart';
 import 'platform_channel.dart';
 
 class DeviceInfoService {
@@ -43,5 +44,25 @@ class DeviceInfoService {
     try {
       await _channel.invokeMethod('setDeviceName', {'name': name});
     } catch (_) {}
+  }
+
+  /// T17：设备快照，**一次**调用读全（型号/版本/网络/电量与温度/存储/内存/亮度/运行时长）。
+  ///
+  /// 之前这些要发四五次 invokeMethod（`getDeviceModel` / `getManufacturer` /
+  /// `getBatteryStatus` …），每次都是一个跨进程往返、各自 catch、还凑不出"同一时刻的
+  /// 设备状态"。T18 的详情页要一次显示 10 项，逐条读会明显闪烁。
+  ///
+  /// 返回 null 只代表**这次调用失败**（通道异常），字段级"读不到"由
+  /// [DeviceSnapshot.unavailable] 表达 —— 所以调用方不能把 null 当成"全是 0"。
+  Future<DeviceSnapshot?> getDeviceSnapshot() async {
+    try {
+      final raw = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'getDeviceSnapshot',
+      );
+      return raw == null ? null : DeviceSnapshot.fromMap(raw);
+    } catch (e) {
+      debugPrint('获取设备快照失败: $e');
+      return null;
+    }
   }
 }

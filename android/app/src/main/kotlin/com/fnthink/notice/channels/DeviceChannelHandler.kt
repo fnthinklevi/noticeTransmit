@@ -1,11 +1,13 @@
 package com.fnthink.notice.channels
 
 import android.os.Build
+import com.fnthink.notice.DeviceSnapshot
 import com.fnthink.notice.MainActivity
 import com.fnthink.notice.NotificationMonitorService
 import com.fnthink.notice.PrefsHelper
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import kotlinx.coroutines.launch
 
 /**
  * 设备与桌面域：设备名/型号/厂商/SIM 数/ABI/应用版本、电池状态、监听服务运行态、
@@ -70,6 +72,18 @@ internal class DeviceChannelHandler(activity: MainActivity) : ChannelHandler(act
             }
             "getBatteryStatus" -> {
                 result.success(activity.getBatteryStatus())
+            }
+            "getDeviceSnapshot" -> {
+                // T17：一次调用读全（型号/版本/网络/电量与温度/存储/内存/亮度/运行时长）。
+                // StatFs、ActivityManager、Settings 都是跨进程或 syscall ⇒ 不能在平台线程读
+                // （handle 跑在主线程，这是本 handler 里唯一会卡 UI 的方法）。
+                ioScope.launch {
+                    val raw = DeviceSnapshot.readRaw(activity.applicationContext)
+                    postSuccess(
+                        result,
+                        DeviceSnapshot.normalize(raw, System.currentTimeMillis()),
+                    )
+                }
             }
             "changeLauncherIcon" -> {
                 val icon = call.argument<String>("icon") ?: "default"
