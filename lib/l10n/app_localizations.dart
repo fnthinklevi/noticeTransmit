@@ -1328,11 +1328,11 @@ abstract class AppLocalizations {
   /// **'必填'**
   String get fieldRequired;
 
-  /// No description provided for @fillRequiredFields.
+  /// No description provided for @fillRequiredFieldsNamed.
   ///
   /// In zh, this message translates to:
-  /// **'请填写所有必填项'**
-  String get fillRequiredFields;
+  /// **'保存失败：请填写 {fields}'**
+  String fillRequiredFieldsNamed(String fields);
 
   /// No description provided for @channelName.
   ///
@@ -1627,6 +1627,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'保存失败：第 {n} 行的 URL 必须是 http(s):// 开头'**
   String webhookUrlInvalid(int n);
+
+  /// No description provided for @webhookUrlMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：第 {n} 行没填 Webhook 地址（这一行填过的名字与密钥会一起被丢掉）'**
+  String webhookUrlMissing(int n);
+
+  /// No description provided for @webhookSecretMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：第 {n} 行缺这个平台必需的凭据（签名密钥或 Token），缺了会被服务端直接拒收'**
+  String webhookSecretMissing(int n);
 
   /// No description provided for @feishuMarkdownDowngradeHint.
   ///

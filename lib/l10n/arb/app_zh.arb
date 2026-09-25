@@ -301,7 +301,14 @@
   "turnOn": "开启",
   "turnOff": "停用",
   "fieldRequired": "必填",
-  "fillRequiredFields": "请填写所有必填项",
+  "fillRequiredFieldsNamed": "保存失败：请填写 {fields}",
+  "@fillRequiredFieldsNamed": {
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
   "channelName": "通道名称",
   "deleteEmailChannelConfirm": "确定删除邮件通道「{name}」吗？",
   "@deleteEmailChannelConfirm": {
@@ -373,6 +380,22 @@
   "webhookFormatLabel": "消息格式",
   "webhookUrlInvalid": "保存失败：第 {n} 行的 URL 必须是 http(s):// 开头",
   "@webhookUrlInvalid": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "webhookUrlMissing": "保存失败：第 {n} 行没填 Webhook 地址（这一行填过的名字与密钥会一起被丢掉）",
+  "@webhookUrlMissing": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "webhookSecretMissing": "保存失败：第 {n} 行缺这个平台必需的凭据（签名密钥或 Token），缺了会被服务端直接拒收",
+  "@webhookSecretMissing": {
     "placeholders": {
       "n": {
         "type": "int"

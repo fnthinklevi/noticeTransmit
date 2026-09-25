@@ -486,4 +486,91 @@ void main() {
       expect(find.byType(TextField), findsWidgets);
     });
   });
+
+  // T03：必填缺失一律"点名 + 阻止保存"。判据不在本页另立：
+  // 空 URL 的行原本会在保存时被静默丢弃（原生也 filter 掉它），用户敲过的名字与
+  // 密钥跟着没了；`secretRequired` 平台缺凭据则要到发送时才被服务端拒收。
+  group('WebhookSettingsPage – 必填缺失要点名（T03）', () {
+    Future<void> openWith(
+      WidgetTester tester,
+      List<Map<String, dynamic>> rows,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, rows);
+    }
+
+    testWidgets('填了名字却没填 URL ⇒ 点名这一行，且不许 pop（否则用户的编辑会被丢掉）', (tester) async {
+      await openWith(tester, const []);
+      // 卡片里第一个输入框是「通道名称」，第二个才是 URL
+      await tester.enterText(find.byType(TextField).at(0), '告警群');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.textContaining('第 1 行没填 Webhook 地址'),
+        findsOneWidget,
+        reason: '只说"保存失败"等于让用户自己找是哪一行、缺什么',
+      );
+      expect(find.byType(WebhookSettingsPage), findsOneWidget);
+    });
+
+    testWidgets('整行确实空白 ⇒ 仍按原行为放弃这行，不算错误', (tester) async {
+      await openWith(tester, const []);
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(WebhookSettingsPage), findsNothing);
+    });
+
+    testWidgets('Gotify 缺应用 Token ⇒ 阻止并点名；补上后放行', (tester) async {
+      await openWith(tester, [
+        {
+          'id': 'gt',
+          'name': '本机 Gotify',
+          'url': 'http://push.example.com/message',
+          'channelType': 'gotify',
+          'type': 'gotify',
+          'enabled': true,
+          'message_format': 'default',
+        },
+      ]);
+      await tester.tap(find.text('保存'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.textContaining('第 1 行缺这个平台必需的凭据'), findsOneWidget);
+      expect(find.byType(WebhookSettingsPage), findsOneWidget);
+
+      // 第三个输入框是签名密钥/Token（前两个是名称与 URL）
+      await tester.enterText(find.byType(TextField).at(2), 'A1B2C3D4E5');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      expect(find.byType(WebhookSettingsPage), findsNothing);
+    });
+
+    testWidgets('描述符拉不到时不得凭猜测拦保存（没有元数据就放行）', (tester) async {
+      serveDescriptors = false;
+      await openWith(tester, [
+        {
+          'id': 'gt',
+          'name': '本机 Gotify',
+          'url': 'http://push.example.com/message',
+          'channelType': 'gotify',
+          'type': 'gotify',
+          'enabled': true,
+          'message_format': 'default',
+        },
+      ]);
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(WebhookSettingsPage),
+        findsNothing,
+        reason: 'URL 合法、只是读不到描述符 ⇒ 这时拦人保存是无据可依的猜测',
+      );
+    });
+  });
 }

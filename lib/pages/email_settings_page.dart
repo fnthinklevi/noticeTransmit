@@ -9,6 +9,43 @@ import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
+/// 邮件通道的必填项清单（T03）。
+///
+/// 为什么单列成函数：这条规则原先埋在弹窗的闭包里，测不到 ⇒ 只能靠人记住
+/// "新增一个字段要同时加校验"。键的顺序 = 表单从上到下的顺序 = 提示里点名的顺序。
+///
+/// ⚠ 邮件表单还没有描述符（那是要接描述符的活儿），所以这份清单是页面本地的
+/// 单一来源：新增字段时改这里 + 给 `labelOf` 加一个同名分支，
+/// `email_required_field_test` 会钉住"每个必填键都得有标签"（漏了就把裸键名甩给用户）。
+const List<String> kEmailRequiredKeys = <String>[
+  'name',
+  'host',
+  'port',
+  'username',
+  'password',
+  'from',
+  'to',
+];
+
+/// 编辑场景下授权码的"已生效值"：**留空 = 沿用旧值**（表单从不回显明文）。
+/// 单列成函数是为了让这条规则能被直测 —— 页面只负责把输入文本与旧值传进来。
+String effectiveEmailPassword({
+  required String typed,
+  String? existingPassword,
+}) => typed.trim().isNotEmpty ? typed : (existingPassword ?? '');
+
+/// [effective] = 各键的**已生效值**（授权码需先经 [effectiveEmailPassword]）。
+/// 返回缺失/非法的键；`port` 必须是正整数，其余非空即可。
+List<String> missingEmailRequiredFields(Map<String, String> effective) {
+  return <String>[
+    for (final key in kEmailRequiredKeys)
+      if (key == 'port'
+          ? (int.tryParse((effective[key] ?? '').trim()) ?? 0) <= 0
+          : (effective[key] ?? '').trim().isEmpty)
+        key,
+  ];
+}
+
 /// 邮件通道设置页
 ///
 /// 管理 SMTP 邮件转发配置：新增 / 编辑 / 删除 / 启停 / 测试邮件通道。
@@ -362,28 +399,41 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     var invalidFields = <String, String>{};
 
     // SMTP 通道关键信息必填：名称/服务器/端口/账号/授权码/发件人/收件人。
-    // 授权码允许留空沿用已有通道的旧值（编辑场景不回显明文）。
-    Map<String, String> collectInvalid() {
-      final invalid = <String, String>{};
-      void check(String key, String? value) {
-        if (value == null || value.isEmpty) invalid[key] = l10n.fieldRequired;
-      }
+    // 授权码允许留空沿用已有通道的旧值（编辑场景不回显明文）⇒ 传"已生效值"进判定，
+    // 规则本体在 `missingEmailRequiredFields`（可测）。
+    Map<String, String> effectiveValues() => <String, String>{
+      'name': nameCtrl.text,
+      'host': hostCtrl.text,
+      'port': portCtrl.text,
+      'username': usernameCtrl.text,
+      'password': effectiveEmailPassword(
+        typed: passwordCtrl.text,
+        existingPassword: existing?.password,
+      ),
+      'from': fromCtrl.text,
+      'to': toCtrl.text,
+    };
 
-      check('name', nameCtrl.text.trim());
-      check('host', hostCtrl.text.trim());
-      final port = int.tryParse(portCtrl.text.trim());
-      if (port == null || port <= 0) {
-        invalid['port'] = l10n.fieldRequired;
-      }
-      check('username', usernameCtrl.text.trim());
-      final effectivePassword = passwordCtrl.text.trim().isNotEmpty
-          ? passwordCtrl.text.trim()
-          : existing?.password;
-      check('password', effectivePassword);
-      check('from', fromCtrl.text.trim());
-      check('to', toCtrl.text.trim());
-      return invalid;
+    Map<String, String> collectInvalid() {
+      return <String, String>{
+        for (final key in missingEmailRequiredFields(effectiveValues()))
+          key: l10n.fieldRequired,
+      };
     }
+
+    // T03：标红之外，提示里还要**点名缺了哪几项**。"请填写所有必填项"等于让用户自己
+    // 在 7 个输入框里找漏了哪个；这张表单没有描述符（T08 才接），所以键→标签的
+    // 对照表就住在本页，与 collectInvalid 的键集合一一对应（漏一个会露出裸键名）。
+    String labelOf(String key) => switch (key) {
+      'name' => l10n.channelName,
+      'host' => l10n.smtpHost,
+      'port' => l10n.smtpPort,
+      'username' => l10n.smtpAccount,
+      'password' => l10n.smtpPassword,
+      'from' => l10n.fromEmail,
+      'to' => l10n.toEmail,
+      _ => key,
+    };
 
     Navigator.push(
       context,
@@ -448,7 +498,11 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
                         ..hideCurrentSnackBar()
                         ..showSnackBar(
                           SnackBar(
-                            content: Text(l10n.fillRequiredFields),
+                            content: Text(
+                              l10n.fillRequiredFieldsNamed(
+                                invalid.keys.map(labelOf).join('、'),
+                              ),
+                            ),
                             duration: const Duration(seconds: 2),
                           ),
                         );

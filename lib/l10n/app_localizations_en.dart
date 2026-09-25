@@ -685,7 +685,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldRequired => 'Required';
 
   @override
-  String get fillRequiredFields => 'Please fill in all required fields';
+  String fillRequiredFieldsNamed(String fields) {
+    return 'Save failed: please fill in $fields';
+  }
 
   @override
   String get channelName => 'Channel Name';
@@ -843,6 +845,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String webhookUrlInvalid(int n) {
     return 'Save failed: row $n URL must start with http(s)://';
+  }
+
+  @override
+  String webhookUrlMissing(int n) {
+    return 'Save failed: row $n has no Webhook URL (the name and secret typed there would be discarded too)';
+  }
+
+  @override
+  String webhookSecretMissing(int n) {
+    return 'Save failed: row $n is missing the credential this platform requires (signing secret or token) — requests would be rejected';
   }
 
   @override

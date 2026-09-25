@@ -447,28 +447,62 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     });
   }
 
+  /// 校验不通过：收起"保存中"状态、点名问题、停在页面上让用户改。
+  ///
+  /// 三条必填/合法性检查共用它，避免每处再抄一遍"翻回按钮状态 + 弹条 + return"
+  /// （以前各抄一份，结果有一处忘了复位按钮 ⇒ 按钮永久禁用）。
+  void _saveBlocked(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message, style: const TextStyle(color: Colors.white)),
+          backgroundColor: AppColors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    setState(() => _isSaving = false);
+  }
+
   Future<void> _saveAndBack() async {
+    final l10n = AppLocalizations.of(context);
     setState(() {
       _isSaving = true;
     });
-    // 保存前一次性校验：URL 必须过 [ChannelUrlPolicy]（与原生、备份恢复同一规则）。
-    // 以前只查「非空」⇒ 少写 scheme 的串（`ntfy.sh/topic`）会静默存进 DB，
-    // 原生侧把它当非法 URL 跳过，用户看到的是「配了却永远收不到」。
+    // 保存前一次性校验（T03）：必填缺失/非法一律**点名到哪一行、缺什么**并阻止保存。
+    // 为什么必须挡在保存前，而不是"让它存进去、发的时候再说"：
+    //  - 空 URL 的行会在落库后被原生 filter 掉（`WebhookSender.updateChannelConfigs`），
+    //    而本页保存时也只收 `url.isNotEmpty` 的行 ⇒ 用户在这一行敲过的名字与密钥
+    //    会**静默消失**，表现为"我明明填了，怎么又空了"；
+    //  - `secretRequired` 的平台缺密钥时签名算不出来，服务端直接拒收（钉钉 31000），
+    //    用户看到的是"配好了却永远收不到"。
+    // 判据不在本页另立：URL 规则用 `ChannelUrlPolicy`（与原生、备份恢复同一份），
+    // "必须要密钥"读描述符能力位 `secretRequired`（原生表派生）。描述符没拉到就跳过
+    // （拿不到元数据时不许凭猜测拦人保存）。
     for (int i = 0; i < _webhookControllers.length; i++) {
       final url = _webhookControllers[i].text.trim();
-      if (url.isNotEmpty && !ChannelUrlPolicy.isHttpUrl(url)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context).webhookUrlInvalid(i + 1),
-              style: const TextStyle(color: Colors.white),
-            ),
-            backgroundColor: AppColors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        setState(() => _isSaving = false);
+      if (url.isEmpty) {
+        final typedSomething =
+            _nameControllers[i].text.trim().isNotEmpty ||
+            _secretControllers[i].text.trim().isNotEmpty ||
+            _templateControllers[i].text.trim().isNotEmpty;
+        // 整行空白 = 加了行又放弃，按原行为丢掉，不算错误
+        if (typedSomething) {
+          _saveBlocked(l10n.webhookUrlMissing(i + 1));
+          return;
+        }
+        continue;
+      }
+      if (!ChannelUrlPolicy.isHttpUrl(url)) {
+        _saveBlocked(l10n.webhookUrlInvalid(i + 1));
+        return;
+      }
+      final descriptor = _descriptorFor(i);
+      if (descriptor != null &&
+          descriptor.requiresSecret &&
+          _secretControllers[i].text.trim().isEmpty) {
+        _saveBlocked(l10n.webhookSecretMissing(i + 1));
         return;
       }
     }

@@ -658,7 +658,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fieldRequired => '必填';
 
   @override
-  String get fillRequiredFields => '请填写所有必填项';
+  String fillRequiredFieldsNamed(String fields) {
+    return '保存失败：请填写 $fields';
+  }
 
   @override
   String get channelName => '通道名称';
@@ -814,6 +816,16 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String webhookUrlInvalid(int n) {
     return '保存失败：第 $n 行的 URL 必须是 http(s):// 开头';
+  }
+
+  @override
+  String webhookUrlMissing(int n) {
+    return '保存失败：第 $n 行没填 Webhook 地址（这一行填过的名字与密钥会一起被丢掉）';
+  }
+
+  @override
+  String webhookSecretMissing(int n) {
+    return '保存失败：第 $n 行缺这个平台必需的凭据（签名密钥或 Token），缺了会被服务端直接拒收';
   }
 
   @override

@@ -301,7 +301,14 @@
   "turnOn": "Turn On",
   "turnOff": "Turn Off",
   "fieldRequired": "Required",
-  "fillRequiredFields": "Please fill in all required fields",
+  "fillRequiredFieldsNamed": "Save failed: please fill in {fields}",
+  "@fillRequiredFieldsNamed": {
+    "placeholders": {
+      "fields": {
+        "type": "String"
+      }
+    }
+  },
   "channelName": "Channel Name",
   "deleteEmailChannelConfirm": "Delete email channel \"{name}\"?",
   "autoSavePath": "Auto-save Path",
@@ -366,6 +373,22 @@
   "webhookFormatLabel": "Message Format",
   "webhookUrlInvalid": "Save failed: row {n} URL must start with http(s)://",
   "@webhookUrlInvalid": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "webhookUrlMissing": "Save failed: row {n} has no Webhook URL (the name and secret typed there would be discarded too)",
+  "@webhookUrlMissing": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "webhookSecretMissing": "Save failed: row {n} is missing the credential this platform requires (signing secret or token) — requests would be rejected",
+  "@webhookSecretMissing": {
     "placeholders": {
       "n": {
         "type": "int"

@@ -74,6 +74,10 @@ class ChannelDescriptor {
   /// 原生已把这条判断从"UI 平台黑名单"变成能力位，UI 只读结果。
   bool get usesSecretField => can('secretUsed');
 
+  /// secret 是否**必填**（缺了原生直接早失败，服务端会拒收）。
+  /// 与 [usesSecretField] 是两件事：显示输入框 ≠ 非填不可（Bark 显示 key 但可以留空）。
+  bool get requiresSecret => can('secretRequired');
+
   /// 自定义消息格式/模板对该通道是否生效（不生效时 UI 不该给入口）
   bool get supportsCustomTemplate => can('customTemplate');
 
