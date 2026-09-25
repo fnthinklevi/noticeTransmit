@@ -14,6 +14,8 @@ import '../widgets/app_text_selection_menu.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
+import '../widgets/ios_dialog_actions.dart';
+import '../services/channel_display.dart';
 
 // R3 拆分：通道卡片构建巨型方法迁出（extension 共享 State 私有成员）
 part 'webhook_settings_item.dart';
@@ -408,7 +410,27 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
     });
   }
 
-  void _removeWebhookField(int index) {
+  /// 删除一行通道。**确认写在执行删除的这个函数里**（T06 的单一咽喉）：卡片上的红叉
+  /// 与长按菜单都走它，以后再加删除入口也不可能绕开二次确认。
+  ///
+  /// 为什么这一族以前没有确认：以前删除只是"收起一行表单"，要等右上角保存才落库，
+  /// 所以点错可以不改数据。现在不成立了（webhook 页的删除按钮就在那一行上，手滑即丢），
+  /// 而凭据（钉钉 secret / Server酱 key）是用户从别处复制来的，重填一次的成本远高于确认一次。
+  Future<void> _removeWebhookField(int index) async {
+    final l10n = AppLocalizations.of(context);
+    final id = index < _channelIds.length ? (_channelIds[index] ?? '') : '';
+    final typed = _nameControllers[index].text.trim();
+    final host = channelTargetLabel(_webhookControllers[index].text.trim());
+    final name = typed.isNotEmpty
+        ? typed
+        : (host.isNotEmpty ? host : l10n.channelN(index + 1));
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmDelete,
+      message: l10n.deleteChannelConfirm(name),
+      confirmText: l10n.delete,
+    );
+    if (!confirmed || !mounted) return;
     setState(() {
       _webhookControllers[index].dispose();
       _nameControllers[index].dispose();
@@ -435,6 +457,9 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
         _channelIds.add(null);
       }
     });
+    // 健康缓存一起清：留着它，日后 id 复用（例如从旧备份恢复）时徽标会复活成
+    // 上一条通道的状态（email 族同一条规则，见 T04）。
+    await _health.remove('webhook', id);
   }
 
   /// T05 长按菜单（共用组件见 [CardActionSheet]）。

@@ -14,6 +14,7 @@ import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 /// 自建应用通道设置页（应用通道体系，管理完善度与 Webhook 通道对齐）。
 ///
@@ -383,9 +384,8 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
-              onPressed: () {
-                setState(() => _channels.removeAt(index));
-              },
+              // 与长按菜单共用同一条（那里也只有这一条路可走）：确认 + 释放控制器
+              onPressed: () => _removeChannel(index),
               icon: const Icon(Icons.delete_outline, size: 16),
               label: Text(l10n.delete, style: const TextStyle(fontSize: 13)),
             ),
@@ -431,9 +431,40 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
     );
   }
 
-  /// 卡片右下角的删除按钮与长按菜单共用这一条（此前两处各写一遍 `removeAt`）。
-  void _removeChannel(int index) {
+  /// 删除一条通道 —— **卡片红叉与长按菜单共用这一条**（T06 的单一咽喉：确认写在
+  /// 执行删除的函数里，而不是写在每个调用点，否则新增入口必然漏一条）。
+  Future<void> _removeChannel(int index) async {
+    final l10n = AppLocalizations.of(context);
+    final c = _channels[index];
+    final id = ChannelConfigCodec.nullableText(c['id']) ?? '';
+    final name = (_controllers['$id.name']?.text ?? '').trim();
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmDelete,
+      message: l10n.deleteChannelConfirm(
+        name.isEmpty ? l10n.appChannelN(index + 1) : name,
+      ),
+      confirmText: l10n.delete,
+    );
+    if (!confirmed || !mounted) return;
+    // 控制器按 `<id>.<字段>` 存在 map 里，只删 `_channels` 那一条会让它们整批留在
+    // map 中（页面关闭前不会回收）。今天它们已经不可达（新通道拿新 id），但留着
+    // 就是下一次"id 复用即串台"的现成弹药，所以删。
+    _releaseControllers(id);
     setState(() => _channels.removeAt(index));
+    await _health.remove('app', id);
+  }
+
+  /// 释放某条通道的全部控制器（名称/地址/密钥 + 描述符声明的扩展参数）。
+  void _releaseControllers(String id) {
+    if (id.isEmpty) return;
+    final prefix = '$id.';
+    for (final key
+        in _controllers.keys
+            .where((k) => k.startsWith(prefix))
+            .toList(growable: false)) {
+      _controllers.remove(key)?.dispose();
+    }
   }
 
   /// 复制出一条同配置通道：**新 id** ⇒ 健康记录不跟着复制（刚复制的那条没测过，

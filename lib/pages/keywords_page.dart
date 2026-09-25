@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
 class KeywordsPage extends StatefulWidget {
@@ -56,12 +57,26 @@ class _KeywordsPageState extends State<KeywordsPage>
     });
   }
 
-  void _removeKeyword(int index) {
+  /// 删除一个关键词。**以前点一下红叉就没了** —— 关键词是过滤规则的实体，
+  /// 静默删掉一条黑名单词的表现是"那个应用的通知又开始吵我了"，而用户已经想不起
+  /// 自己删过什么（T06：删除一律二次确认）。
+  /// 确认框是模态的 ⇒ 期间列表不会被别的手势改动，下标仍然安全。
+  Future<void> _removeKeyword(int index) async {
+    final l10n = AppLocalizations.of(context);
+    final whitelist = _tabController.index == 0;
+    final keyword = (whitelist ? _whitelist : _blacklist)[index];
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmDelete,
+      message: l10n.deleteKeywordConfirm(keyword),
+      confirmText: l10n.delete,
+    );
+    if (!confirmed || !mounted) return;
     setState(() {
       if (_tabController.index == 0) {
-        _whitelist.removeAt(index);
+        _whitelist.remove(keyword);
       } else {
-        _blacklist.removeAt(index);
+        _blacklist.remove(keyword);
       }
     });
   }

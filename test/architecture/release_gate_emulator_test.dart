@@ -275,6 +275,24 @@ void main() {
       );
     });
 
+    test('删除的二次确认在闸门里被走通（T06）', () {
+      final flat = src.replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        flat,
+        contains("_confirmDelete(tester, 'Webhook 行')"),
+        reason: 'webhook 那条删除不再走确认框 ⇒ T06 的咽喉在闸门上失去覆盖（红的是"没弹框"）',
+      );
+      final helper = blockAfter(
+        stripComments(src),
+        'Future<void> _confirmDelete(',
+      );
+      expect(
+        helper,
+        contains('_must('),
+        reason: '确认框缺失时必须当场红；静默继续 = 把"删除没有确认"这件事测不出来',
+      );
+    });
+
     test('两条测试动作都被真点过：仅测试 与 测试并保存（T04）', () {
       // 「仅测试」与「测试并保存」是两个按钮、两条不同路径（一条落库、一条不落库）。
       // 只钉字面量不够（文案可以只活在注释里），也不许被 dart format 的换行打断 ⇒

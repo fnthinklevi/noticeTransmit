@@ -701,8 +701,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelName => 'Channel Name';
 
   @override
-  String deleteEmailChannelConfirm(String name) {
-    return 'Delete email channel \"$name\"?';
+  String get confirmDelete => 'Confirm delete';
+
+  @override
+  String deleteChannelConfirm(String name) {
+    return 'Delete channel \"$name\"? Its credentials and health record are removed; records already pushed are unaffected.';
+  }
+
+  @override
+  String deleteKeywordConfirm(String keyword) {
+    return 'Delete keyword \"$keyword\"? It stops taking part in filtering right away.';
   }
 
   @override
@@ -1224,12 +1232,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get batteryReminder => 'Battery Reminder';
-
-  @override
-  String get deleteRule => 'Delete Rule';
-
-  @override
-  String get confirmDeleteThisRule => 'Delete this notification rule?';
 
   @override
   String get setDeviceName => 'Set Device Name';

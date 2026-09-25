@@ -362,33 +362,15 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   Future<void> _deleteChannel(int index) async {
     final l10n = AppLocalizations.of(context);
     final channel = _channels[index];
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        title: Text(
-          l10n.delete,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: Text(
-          l10n.deleteEmailChannelConfirm(channel.name),
-          style: TextStyle(color: AppColors.primaryLabel(ctx)),
-        ),
-        actions: IosDialogActions.confirm(
-          ctx,
-          cancelText: l10n.cancel,
-          confirmText: l10n.delete,
-          onConfirm: () => Navigator.pop(ctx, true),
-          destructive: true,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+    // 确认写在**执行删除的这个函数里**（单一咽喉）：卡片按钮与长按菜单都走它，
+    // 以后再加入口也不可能绕开二次确认（T06）。
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmDelete,
+      message: l10n.deleteChannelConfirm(channel.name),
+      confirmText: l10n.delete,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     // 先取 id 再移除：删除最后一条时 _channels[index] 已越界，
     // 旧实现访问 _channels[index].id 抛 RangeError 导致 _save() 永不执行，
     // 表现为「删除按钮无效、重进页面通道复活」

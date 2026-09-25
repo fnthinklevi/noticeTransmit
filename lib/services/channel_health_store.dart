@@ -126,15 +126,23 @@ class ChannelHealthStore {
   }
 
   /// 通道被删除后清掉它的缓存条目（否则 id 复用时徽标会复活成上一条的状态）。
+  ///
+  /// 两个键都要清：新格式 `channel_health_<family>:<id>`，以及第 6 步之前留下的
+  /// 旧格式 `channel_health_<id>`（[of] 会读穿它 ⇒ 只清新键的话，删掉的通道在界面上
+  /// 仍然带着上一次的徽标，这条是 webhook 删除用例实测出来的）。
   Future<void> remove(String family, String id) async {
     if (id.isEmpty) return;
-    final key = keyOf(family, id);
-    _entries.remove(key);
+    final keys = [keyOf(family, id), '$keyPrefix$id'];
+    for (final key in keys) {
+      _entries.remove(key);
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(key);
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
     } catch (e) {
-      debugPrint('ChannelHealthStore: 删除 $key 失败: $e');
+      debugPrint('ChannelHealthStore: 删除 $keys 失败: $e');
     }
   }
 

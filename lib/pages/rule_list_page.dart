@@ -102,43 +102,20 @@ class _RuleListPageState extends State<RuleListPage> {
     _saveRules();
   }
 
-  void _deleteRule(NotificationRule rule) {
+  Future<void> _deleteRule(NotificationRule rule) async {
     final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.confirmDeleteRule,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        content: Text(
-          l10n.ruleDeleteMsg(rule.name),
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        actions: IosDialogActions.confirm(
-          context,
-          cancelText: l10n.cancel,
-          confirmText: l10n.delete,
-          onConfirm: () {
-            setState(() {
-              _rules.removeWhere((r) => r.id == rule.id);
-            });
-            _saveRules();
-            Navigator.pop(context);
-          },
-          destructive: true,
-        ),
-      ),
+    // T06：确认写在执行删除的函数里（见 [IosDialogActions.askConfirm]）。
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmDeleteRule,
+      message: l10n.ruleDeleteMsg(rule.name),
+      confirmText: l10n.delete,
     );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _rules.removeWhere((r) => r.id == rule.id);
+    });
+    _saveRules();
   }
 
   void _saveRules() {

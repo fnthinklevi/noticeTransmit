@@ -163,4 +163,37 @@ void main() {
     );
     expect(rules[1]['value'], rules[0]['value'], reason: '复制要带走阈值，否则用户得再拖一次滑块');
   });
+
+  // T06：这一族以前"点一下就没了"，而且滑出与长按两条路都没有确认。
+  testWidgets('长按删除先弹确认；取消不留痕，确认才真删', (tester) async {
+    await service.addRule(rule());
+    await tester.pumpWidget(buildApp());
+    await tester.pumpAndSettle();
+
+    Finder inSheet(String label) => find.descendant(
+      of: find.byType(CardActionSheet),
+      matching: find.text(label),
+    );
+    await tester.longPress(find.text('电池过热'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('删除'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.widgetWithText(TextButton, '删除'),
+      findsWidgets,
+      reason: '菜单里点删除就直接删 ⇒ 确认被绕开',
+    );
+    await tester.tap(find.widgetWithText(TextButton, '取消').last);
+    await tester.pumpAndSettle();
+    expect(service.rules, hasLength(1), reason: '取消不许改数据');
+
+    await tester.longPress(find.text('电池过热'));
+    await tester.pumpAndSettle();
+    await tester.tap(inSheet('删除'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '删除').last);
+    await tester.pumpAndSettle();
+    expect(service.rules, isEmpty, reason: '确认之后必须真的删掉（并落盘）');
+  });
 }

@@ -674,8 +674,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelName => '通道名称';
 
   @override
-  String deleteEmailChannelConfirm(String name) {
-    return '确定删除邮件通道「$name」吗？';
+  String get confirmDelete => '确认删除';
+
+  @override
+  String deleteChannelConfirm(String name) {
+    return '确定删除通道「$name」吗？它的凭据与健康记录会一起清除；已推送出去的历史记录不受影响。';
+  }
+
+  @override
+  String deleteKeywordConfirm(String keyword) {
+    return '确定删除关键词「$keyword」吗？它当前不再参与过滤。';
   }
 
   @override
@@ -1177,12 +1185,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get batteryReminder => '电量提醒';
-
-  @override
-  String get deleteRule => '删除规则';
-
-  @override
-  String get confirmDeleteThisRule => '确定要删除这条通知规则吗？';
 
   @override
   String get setDeviceName => '设置设备名称';

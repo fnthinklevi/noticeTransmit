@@ -1352,11 +1352,23 @@ abstract class AppLocalizations {
   /// **'通道名称'**
   String get channelName;
 
-  /// No description provided for @deleteEmailChannelConfirm.
+  /// No description provided for @confirmDelete.
   ///
   /// In zh, this message translates to:
-  /// **'确定删除邮件通道「{name}」吗？'**
-  String deleteEmailChannelConfirm(String name);
+  /// **'确认删除'**
+  String get confirmDelete;
+
+  /// No description provided for @deleteChannelConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除通道「{name}」吗？它的凭据与健康记录会一起清除；已推送出去的历史记录不受影响。'**
+  String deleteChannelConfirm(String name);
+
+  /// No description provided for @deleteKeywordConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除关键词「{keyword}」吗？它当前不再参与过滤。'**
+  String deleteKeywordConfirm(String keyword);
 
   /// No description provided for @autoSavePath.
   ///
@@ -2311,18 +2323,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'电量提醒'**
   String get batteryReminder;
-
-  /// No description provided for @deleteRule.
-  ///
-  /// In zh, this message translates to:
-  /// **'删除规则'**
-  String get deleteRule;
-
-  /// No description provided for @confirmDeleteThisRule.
-  ///
-  /// In zh, this message translates to:
-  /// **'确定要删除这条通知规则吗？'**
-  String get confirmDeleteThisRule;
 
   /// No description provided for @setDeviceName.
   ///

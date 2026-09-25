@@ -319,7 +319,23 @@
     }
   },
   "channelName": "Channel Name",
-  "deleteEmailChannelConfirm": "Delete email channel \"{name}\"?",
+  "confirmDelete": "Confirm delete",
+  "deleteChannelConfirm": "Delete channel \"{name}\"? Its credentials and health record are removed; records already pushed are unaffected.",
+  "@deleteChannelConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteKeywordConfirm": "Delete keyword \"{keyword}\"? It stops taking part in filtering right away.",
+  "@deleteKeywordConfirm": {
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
   "autoSavePath": "Auto-save Path",
   "autoSavePathDesc": "Where daily archived notification history JSON files are saved",
   "archivePathDefault": "Default (app-private directory)",
@@ -549,8 +565,6 @@
   "customTitle": "Custom Title (optional)",
   "customTitleHint": "Leave empty for default title",
   "batteryReminder": "Battery Reminder",
-  "deleteRule": "Delete Rule",
-  "confirmDeleteThisRule": "Delete this notification rule?",
   "setDeviceName": "Set Device Name",
   "deviceNameLabel": "Device Name",
   "aboutDialogTitle": "About",

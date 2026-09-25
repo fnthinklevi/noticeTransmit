@@ -77,6 +77,25 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('channel_health_app:app_1'), isNull);
     });
+
+    test('remove 也要清掉旧格式的键（[of] 会读穿它）', () async {
+      // 只清新键的话，删掉的通道在界面上仍然带着上一次的徽标 —— 实测于 webhook
+      // 删除用例（第 6 步之前的老设备留的就是这种键）。
+      SharedPreferences.setMockInitialValues({
+        'channel_health_app_1': jsonEncode({
+          'reachable': false,
+          'latencyMs': 0,
+          'probedAt': 1767223200000,
+        }),
+      });
+      final store = ChannelHealthStore();
+      await store.load();
+      expect(store.of('app', 'app_1'), isNotNull, reason: '前提：旧格式键读得穿');
+      await store.remove('app', 'app_1');
+      expect(store.of('app', 'app_1'), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('channel_health_app_1'), isNull);
+    });
   });
 
   group('旧数据读穿（不换键、不丢徽标）', () {

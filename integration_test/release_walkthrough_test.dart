@@ -432,7 +432,7 @@ void main() {
       _in(WebhookSettingsPage, find.byIcon(Icons.delete_outline)),
       'Webhook→删除第一行',
     );
-    await _settle(tester);
+    await _confirmDelete(tester, 'Webhook 行');
     await _tap(tester, _appBarText('保存'), 'Webhook→保存(删后)');
     await _settle(tester, seconds: 2);
     await _backToHome(tester);
@@ -1373,6 +1373,17 @@ Future<void> _longPress(WidgetTester t, Finder f, String why) async {
   await Scrollable.ensureVisible(t.element(f.first), alignment: 0.5);
   await _settle(t);
   await t.longPress(f.first);
+  await _settle(t);
+}
+
+/// 删除的二次确认（T06）。**这条 helper 本身就是守卫**：没有确认框它当场红，
+/// 于是"某条删除路径偷偷绕开了咽喉"在闸门上就是可见的，而不是靠人记住。
+Future<void> _confirmDelete(WidgetTester t, String why) async {
+  await _settle(t);
+  final confirm = find.widgetWithText(TextButton, '删除');
+  await _must(t, confirm.evaluate().isNotEmpty, '删除确认框 $why', confirm);
+  // 对话框永远在页面控件之后 ⇒ .last 是确认框里那颗，不是页面上的删除按钮
+  await t.tap(confirm.last);
   await _settle(t);
 }
 

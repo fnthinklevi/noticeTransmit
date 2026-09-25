@@ -172,6 +172,20 @@ void main() {
         .setMockMethodCallHandler(const MethodChannel(methodChannelName), null);
   });
 
+  /// 删除一律先二次确认（T06 的单一咽喉在执行删除的那个函数里）。
+  /// 这条 helper 本身就是守卫：没有确认框 ⇒ 它当场红。
+  Future<void> confirmDelete(WidgetTester t) async {
+    await t.pumpAndSettle();
+    final dialog = find.widgetWithText(TextButton, '删除');
+    expect(
+      dialog,
+      findsWidgets,
+      reason: '点红叉就直接删 ⇒ T06 的二次确认被绕开（凭据重填一次的成本远高于确认一下）',
+    );
+    await t.tap(dialog.last);
+    await t.pumpAndSettle();
+  }
+
   group('WebhookSettingsPage – 行与通道的对应', () {
     testWidgets('零通道进入不崩溃（补出来的空行没有可对应的输入通道）', (tester) async {
       await openDirectly(tester, const []);
@@ -207,7 +221,7 @@ void main() {
     testWidgets('删掉首行后，徽标跟着自己的通道走（不继承被删通道的状态）', (tester) async {
       await openDirectly(tester, twoChannels());
       await tester.tap(find.byIcon(Icons.delete_outline).first);
-      await tester.pumpAndSettle();
+      await confirmDelete(tester);
       expect(tester.takeException(), isNull);
 
       // 剩下的这一行是通道 B：可达 7ms；A 的"连接失败"不得出现在它头上
@@ -236,7 +250,7 @@ void main() {
         twoChannels(),
         interact: (t) async {
           await t.tap(find.byIcon(Icons.delete_outline).first);
-          await t.pumpAndSettle();
+          await confirmDelete(t);
         },
       );
       expect(saved, hasLength(1));
@@ -493,6 +507,48 @@ void main() {
   // T03：必填缺失一律"点名 + 阻止保存"。判据不在本页另立：
   // 空 URL 的行原本会在保存时被静默丢弃（原生也 filter 掉它），用户敲过的名字与
   // 密钥跟着没了；`secretRequired` 平台缺凭据则要到发送时才被服务端拒收。
+  // T06：删除一律二次确认，且确认之后要把健康记录一起清掉。
+  group('WebhookSettingsPage – 删除要确认（T06）', () {
+    testWidgets('点「取消」⇒ 行与徽标都还在（确认框不许顺手改数据）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, twoChannels());
+      expect(find.text('连通 · 7 ms'), findsOneWidget, reason: '前提：通道 B 有徽标');
+
+      await tester.tap(find.byIcon(Icons.delete_outline).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, '取消').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        GetIt.instance<ChannelHealthStore>().of('webhook', 'a'),
+        isNotNull,
+        reason: '取消却清了缓存 ⇒ 用户反悔了，首页的异常标记却回不来',
+      );
+      expect(find.byIcon(Icons.delete_outline), findsNWidgets(2));
+    });
+
+    testWidgets('确认后除了收起这一行，还要清掉它的健康记录', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await openDirectly(tester, twoChannels());
+      final health = GetIt.instance<ChannelHealthStore>();
+      expect(health.of('webhook', 'a'), isNotNull, reason: '前提：a 有"连接失败"记录');
+
+      await tester.tap(find.byIcon(Icons.delete_outline).first);
+      await confirmDelete(tester);
+
+      expect(
+        health.of('webhook', 'a'),
+        isNull,
+        reason: '记录留着，日后 id 复用（从旧备份恢复）时徽标会复活成上一条通道的状态',
+      );
+      expect(health.of('webhook', 'b'), isNotNull, reason: '只能清被删那条');
+    });
+  });
+
   group('WebhookSettingsPage – 必填缺失要点名（T03）', () {
     Future<void> openWith(
       WidgetTester tester,

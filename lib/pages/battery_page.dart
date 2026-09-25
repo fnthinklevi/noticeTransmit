@@ -305,28 +305,7 @@ class _BatteryPageState extends State<BatteryPage> {
         extentRatio: 0.28,
         children: [
           SlidableAction(
-            onPressed: (_) async {
-              if (!_service.notifyEnabled) return;
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  backgroundColor: AppColors.cardBg(ctx),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  title: Text(l10n.confirmDeleteRule),
-                  content: Text(l10n.confirmDeleteRuleMsg(title)),
-                  actions: IosDialogActions.confirm(
-                    ctx,
-                    cancelText: l10n.cancel,
-                    confirmText: l10n.delete,
-                    onConfirm: () => Navigator.of(ctx).pop(true),
-                    destructive: true,
-                  ),
-                ),
-              );
-              if (confirmed == true) _service.deleteRule(ruleId);
-            },
+            onPressed: (_) => _confirmDeleteRule(ruleId, title),
             backgroundColor: AppColors.red,
             foregroundColor: Colors.white,
             icon: Icons.delete_outline,
@@ -402,7 +381,7 @@ class _BatteryPageState extends State<BatteryPage> {
           icon: Icons.delete_outline,
           label: l10n.delete,
           danger: true,
-          onTap: () => _showDeleteConfirmDialog(ruleId),
+          onTap: () => _confirmDeleteRule(ruleId, title),
         ),
       ],
     );
@@ -734,44 +713,21 @@ class _BatteryPageState extends State<BatteryPage> {
     }
   }
 
-  void _showDeleteConfirmDialog(String id) {
+  /// 删除规则 —— **滑出按钮与长按菜单共用这一条**（T06 的单一咽喉）。
+  ///
+  /// 以前这里是两份确认框，而且**措辞不同**：滑出的那条会点名是哪条规则，长按那条只说
+  /// "确定删除此规则吗"。合并成一条，并取信息量大的那份（点名规则名）。
+  Future<void> _confirmDeleteRule(String id, String title) async {
+    if (!_service.notifyEnabled) return;
     final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppColors.cardBg(context),
-          title: Text(
-            l10n.deleteRule,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryLabel(context),
-            ),
-          ),
-          content: Text(
-            l10n.confirmDeleteThisRule,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          actions: IosDialogActions.confirm(
-            context,
-            cancelText: l10n.cancel,
-            confirmText: l10n.delete,
-            onConfirm: () {
-              _service.deleteRule(id);
-              Navigator.pop(context);
-            },
-            destructive: true,
-          ),
-        );
-      },
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmDeleteRule,
+      message: l10n.confirmDeleteRuleMsg(title),
+      confirmText: l10n.delete,
     );
+    if (!confirmed) return;
+    await _service.deleteRule(id);
   }
 
   Widget _buildSectionHeader(String title, BuildContext context) {

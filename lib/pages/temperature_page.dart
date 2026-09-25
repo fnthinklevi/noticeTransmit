@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/card_action_sheet.dart';
 
@@ -94,7 +95,8 @@ class _TemperaturePageState extends State<TemperaturePage> {
         motion: const DrawerMotion(),
         children: [
           SlidableAction(
-            onPressed: (_) => _service.deleteRule(id),
+            onPressed: (_) =>
+                _confirmDeleteRule(id, title.isNotEmpty ? title : dimLabel),
             backgroundColor: AppColors.red,
             foregroundColor: Colors.white,
             icon: Icons.delete_outline,
@@ -140,19 +142,18 @@ class _TemperaturePageState extends State<TemperaturePage> {
   }
 
   /// T05 长按菜单：修改 / 复制 / 暂停|恢复 / 删除（任务书里"温度规则再加暂停"那条）。
-  ///
-  /// ⚠ 「删除」走的是与滑出按钮同一条 service 调用，**都还没有二次确认**；
-  /// 把两类通道的删除统一成"一律二次确认"是 T06（届时这两个入口一起改，不留半成品）。
   Future<void> _showRuleActions(Map<String, dynamic> rule) async {
     final l10n = AppLocalizations.of(context);
     final id = rule['id']?.toString() ?? '';
     final enabled = rule['enabled'] == true;
     final title = rule['title']?.toString() ?? '';
+    // 确认框与弹层标题都点名"是哪一条"：规则名可以留空（默认按维度显示）
+    final label = title.isNotEmpty
+        ? title
+        : _dimLabel(rule['type']?.toString() ?? '', l10n);
     await CardActionSheet.show(
       context,
-      title: title.isEmpty
-          ? _dimLabel(rule['type']?.toString() ?? '', l10n)
-          : title,
+      title: label,
       actions: [
         CardAction(
           icon: Icons.settings_outlined,
@@ -174,10 +175,24 @@ class _TemperaturePageState extends State<TemperaturePage> {
           icon: Icons.delete_outline,
           label: l10n.delete,
           danger: true,
-          onTap: () => _service.deleteRule(id),
+          onTap: () => _confirmDeleteRule(id, label),
         ),
       ],
     );
+  }
+
+  /// 删除规则 —— **滑出按钮与长按菜单共用这一条**（T06 的单一咽喉）。
+  /// 这一族以前两条路都是"点一下就没了"，而阈值规则是拖滑块调出来的，重建一次并不便宜。
+  Future<void> _confirmDeleteRule(String id, String title) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.confirmDeleteRule,
+      message: l10n.confirmDeleteRuleMsg(title),
+      confirmText: l10n.delete,
+    );
+    if (!confirmed) return;
+    await _service.deleteRule(id);
   }
 
   /// 复制规则：**换新 id**（`updateRule`/`deleteRule` 都按 id 找，两条同 id 会一次改中两条）。
