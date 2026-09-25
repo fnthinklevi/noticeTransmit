@@ -64,27 +64,30 @@ class WebhookSender(private val context: Context) {
         Log.d(TAG, "Webhook channels updated: ${channelConfigs.size} channels (with signing)")
     }
 
-    fun sendNotification(info: NotificationInfo) {
-        sendBroadcast(info)
-
-        sendWebhooksOnly(info)
-    }
-
     /**
      * 仅推送 webhook（不广播记录）。用于延迟推送到点后的补推：
      * 记录已在通知到达时通过 sendBroadcast 立即写入历史。
+     *
+     * ⚠ 调用方应是 `NotificationMonitorService.dispatchToChannels`（三族扇出的唯一入口）。
+     * 本类原先另有一个 `sendNotification`（广播 + 全通道直推）已无调用者并删除 —— 留着
+     * 就是"绕过主备路由"的后门：T12 的角色判定、备用标记都只挂在唯一入口上。
      *
      * @param force 强制发送：为 true 时忽略"推送暂停"开关（历史记录"现在推送"手动补推）
      * @param onAllComplete 全部通道发送结束后的汇总回调（含单通道/无通道两种短路情形）。
      *   供聚合推送（[MergePushManager]）把**真实结果**回传给每个成员记录使用——
      *   该链路只有一条聚合 HTTP 结果，无法逐成员映射，必须靠本回调拿到结果，
      *   否则成员记录的送达状态只能写死成功（历史缺陷，见 MergePushManager 头注释 3）。
+     * @param configs 主备路由（T12）筛出的本轮目标；为 null 时退回全部已配置通道
+     * @param viaBackup 本轮是**降级后走备用通道**（[ChannelRouting] 的决策）。逐通道送达
+     *   结果都要带上它：备用模式是设备级判断，但历史记录是逐条的，标记落在结果上才
+     *   不会与结果的时序脱节（Activity 被销毁时由 DeliveryResultStore 兜底补传）。
      */
     fun sendWebhooksOnly(
         info: NotificationInfo,
         force: Boolean = false,
         onAllComplete: ((WebhookResponseParser.ParseResult) -> Unit)? = null,
         configs: List<ConfigManager.WebhookChannelConfig>? = null,
+        viaBackup: Boolean = false,
     ) {
         // 主备路由（T12）会传入本次该推的那批；不传 = 全部启用的通道都推
         val targets = configs ?: channelConfigs
@@ -95,7 +98,13 @@ class WebhookSender(private val context: Context) {
 
         // 单通道（最常见）直接透传，不做计数包装
         if (targets.size == 1) {
-            sendToSingleUrl(targets[0], info, force, onAllComplete)
+            sendToSingleUrl(
+                targets[0],
+                info,
+                force,
+                viaBackup = viaBackup,
+                onResultDone = onAllComplete,
+            )
             return
         }
 
@@ -111,7 +120,7 @@ class WebhookSender(private val context: Context) {
         val lock = Any()
         val aggregated = java.util.concurrent.atomic.AtomicBoolean(false)
         for (cfg in targets) {
-            sendToSingleUrl(cfg, info, force) { result ->
+            sendToSingleUrl(cfg, info, force, viaBackup = viaBackup) { result ->
                 // 可用性记账（T12）：只有真实发送结果会进这张表，测试按钮不记账，
                 // 否则"手动能通"会掩盖"实际一直在失败"。
                 ChannelAvailability.noteResult(
@@ -221,6 +230,7 @@ class WebhookSender(private val context: Context) {
         cfg: ConfigManager.WebhookChannelConfig,
         info: NotificationInfo,
         force: Boolean = false,
+        viaBackup: Boolean = false,
         onResultDone: ((WebhookResponseParser.ParseResult) -> Unit)? = null
     ) {
         val spec = ChannelRegistry.spec(cfg.type)
@@ -303,7 +313,7 @@ class WebhookSender(private val context: Context) {
                 WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
                 0, missingReason, false
             )
-            notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url)
+            notifyDeliveryResult(info.id, cfg.type, earlyFail, cfg.url, viaBackup)
             onResultDone?.invoke(earlyFail)
             return
         }
@@ -325,7 +335,7 @@ class WebhookSender(private val context: Context) {
                         "\u2192 status=${result.status} msg=${result.message}"
                 )
                 // 送达结果回传 Flutter 后由 updateDelivery 统一写入 webhook_delivery_log（DB v5）
-                notifyDeliveryResult(info.id, cfg.type, result, cfg.url)
+                notifyDeliveryResult(info.id, cfg.type, result, cfg.url, viaBackup)
                 onResultDone?.invoke(result)
             }
         )
@@ -339,8 +349,9 @@ class WebhookSender(private val context: Context) {
         notificationId: String,
         type: WebhookPayloadBuilder.WebhookType,
         result: WebhookResponseParser.ParseResult,
-        channelUrl: String
+        channelUrl: String,
+        viaBackup: Boolean
     ) {
-        DeliveryNotifier.notify(context, notificationId, type, result, channelUrl)
+        DeliveryNotifier.notify(context, notificationId, type, result, channelUrl, viaBackup)
     }
 }

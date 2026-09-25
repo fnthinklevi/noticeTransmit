@@ -33,7 +33,8 @@ object DeliveryResultStore {
         status: String,
         message: String,
         httpCode: Int,
-        channelUrl: String = ""
+        channelUrl: String = "",
+        viaBackup: Boolean = false
     ) {
         if (notificationId.isEmpty() || type.isEmpty()) return
         val p = prefs(context)
@@ -45,6 +46,7 @@ object DeliveryResultStore {
             put("message", message)
             put("httpCode", httpCode)
             put("channelUrl", channelUrl)
+            put("viaBackup", viaBackup)
         }
         var replaced = false
         for (i in 0 until arr.length()) {
@@ -80,6 +82,7 @@ object DeliveryResultStore {
                     "message" to item.optString("message"),
                     "httpCode" to item.optInt("httpCode", 0),
                     "channelUrl" to item.optString("channelUrl"),
+                    "viaBackup" to item.optBoolean("viaBackup", false),
                 )
             )
         }

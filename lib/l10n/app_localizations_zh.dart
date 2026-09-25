@@ -1854,6 +1854,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deliveryIntercepted => '已拦截';
 
   @override
+  String get deliveryViaBackupTag => '备用';
+
+  @override
   String get pushNow => '现在推送';
 
   @override

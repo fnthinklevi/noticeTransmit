@@ -882,6 +882,7 @@
   "deliveryPending": "发送中",
   "pushPausedByUser": "已暂停",
   "deliveryIntercepted": "已拦截",
+  "deliveryViaBackupTag": "备用",
   "pushNow": "现在推送",
   "privacyOverviewTitle": "隐私政策概述",
   "privacyOverviewContent": "通知推送助手（以下简称\"本应用\"）由幻念团队开发并运营。本应用高度重视您的个人信息与隐私保护，在您使用本应用前，请仔细阅读本隐私政策，了解我们如何收集、使用、存储和保护您的信息。\n\n本政策适用于本应用提供的所有服务。当您安装并使用本应用时，即表示您已阅读、理解并同意本政策的全部内容。",

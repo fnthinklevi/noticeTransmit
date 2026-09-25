@@ -139,6 +139,7 @@ class MainActivity : FlutterActivity() {
                     "message" to (intent.getStringExtra("message") ?: ""),
                     "httpCode" to (intent.getIntExtra("http_code", 0)),
                     "channelUrl" to (intent.getStringExtra("channel_url") ?: ""),
+                    "viaBackup" to intent.getBooleanExtra("via_backup", false),
                 )
                 try {
                     methodChannel?.invokeMethod("onDeliveryResult", data)

@@ -3596,6 +3596,12 @@ abstract class AppLocalizations {
   /// **'已拦截'**
   String get deliveryIntercepted;
 
+  /// No description provided for @deliveryViaBackupTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'备用'**
+  String get deliveryViaBackupTag;
+
   /// No description provided for @pushNow.
   ///
   /// In zh, this message translates to:

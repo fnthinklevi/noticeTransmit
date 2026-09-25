@@ -54,21 +54,21 @@ class AppChannelSender(private val context: Context) {
         Log.d(TAG, "App channels updated: ${channelConfigs.size} channels")
     }
 
-    /** 推送一条通知到全部启用的自建应用通道（通知到达 / 电量提醒主链路） */
-    fun sendNotification(info: NotificationInfo) {
-        for (cfg in channelConfigs) {
-            sendSafely(cfg, info, force = false)
-        }
-    }
-
-    /** 指定 force 的发送（延迟补推 / 手动现在推送 / 合并 flush） */
+    /**
+     * 推送一条通知到自建应用通道。
+     *
+     * @param configs 主备路由（T12）筛出的本轮目标；为 null 时退回全部启用通道
+     * @param viaBackup 本轮为降级走备用（见 [ChannelRouting.Decision.engagedBackup]），
+     *   随送达结果回传，历史页据此标出"这条是备用通道发的"
+     */
     fun sendOnly(
         info: NotificationInfo,
         force: Boolean = false,
         configs: List<AppChannelConfig>? = null,
+        viaBackup: Boolean = false,
     ) {
         for (cfg in configs ?: channelConfigs) {
-            sendSafely(cfg, info, force = force)
+            sendSafely(cfg, info, force = force, viaBackup = viaBackup)
         }
     }
 
@@ -76,9 +76,14 @@ class AppChannelSender(private val context: Context) {
      * 单通道发送隔离：任一通道的意外异常不得影响其他通道，更不得冒泡导致
      * Service/进程崩溃（多通道场景下「一个通道有问题 = 全部通道失效」不可接受）。
      */
-    private fun sendSafely(cfg: AppChannelConfig, info: NotificationInfo, force: Boolean) {
+    private fun sendSafely(
+        cfg: AppChannelConfig,
+        info: NotificationInfo,
+        force: Boolean,
+        viaBackup: Boolean = false,
+    ) {
         try {
-            sendToSingle(cfg, info, force = force) { result ->
+            sendToSingle(cfg, info, force = force, viaBackup = viaBackup) { result ->
                 // 可用性记账（T12）；此前这里恒传 null = 结果就地丢弃
                 ChannelAvailability.noteResult(
                     context, "app", cfg.id,
@@ -94,6 +99,7 @@ class AppChannelSender(private val context: Context) {
         cfg: AppChannelConfig,
         info: NotificationInfo,
         force: Boolean,
+        viaBackup: Boolean = false,
         onResultDone: ((WebhookResponseParser.ParseResult) -> Unit)?,
     ) {
         val spec = AppChannelRegistry.spec(cfg.type)
@@ -103,7 +109,7 @@ class AppChannelSender(private val context: Context) {
                 WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, "未知应用通道类型", false
             )
             // 与其他失败分支一致：回传终态，避免记录停留在「发送中」且无痕迹
-            notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl)
+            notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl, viaBackup)
             onResultDone?.invoke(fail)
             return
         }
@@ -113,7 +119,7 @@ class AppChannelSender(private val context: Context) {
             val fail = WebhookResponseParser.ParseResult(
                 WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: "地址无效", false
             )
-            notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl)
+            notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl, viaBackup)
             onResultDone?.invoke(fail)
             return
         }
@@ -135,7 +141,7 @@ class AppChannelSender(private val context: Context) {
             val fail = WebhookResponseParser.ParseResult(
                 WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, e.message ?: "载荷构造失败", false
             )
-            notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl)
+            notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl, viaBackup)
             onResultDone?.invoke(fail)
             return
         }
@@ -157,7 +163,7 @@ class AppChannelSender(private val context: Context) {
                 val fail = WebhookResponseParser.ParseResult(
                     WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, msg, false
                 )
-                notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl)
+                notifyDeliveryResult(info.id, cfg.type, fail, cfg.baseUrl, viaBackup)
                 onResultDone?.invoke(fail)
                 return
             }
@@ -183,7 +189,7 @@ class AppChannelSender(private val context: Context) {
                         deliver(1)
                         return@sendWithRetry
                     }
-                    notifyDeliveryResult(info.id, cfg.type, result, cfg.baseUrl)
+                    notifyDeliveryResult(info.id, cfg.type, result, cfg.baseUrl, viaBackup)
                     onResultDone?.invoke(result)
                 }
             )
@@ -262,8 +268,9 @@ class AppChannelSender(private val context: Context) {
         type: String,
         result: WebhookResponseParser.ParseResult,
         channelUrl: String,
+        viaBackup: Boolean = false,
     ) {
-        DeliveryNotifier.notify(context, notificationId, type, result, channelUrl)
+        DeliveryNotifier.notify(context, notificationId, type, result, channelUrl, viaBackup)
     }
 }
 

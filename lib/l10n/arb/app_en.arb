@@ -875,6 +875,7 @@
   "deliveryPending": "Sending",
   "pushPausedByUser": "Paused by user",
   "deliveryIntercepted": "Blocked",
+  "deliveryViaBackupTag": "Backup",
   "pushNow": "Push Now",
   "privacyOverviewTitle": "Privacy Policy Overview",
   "privacyOverviewContent": "NoticeTransmit (hereinafter referred to as \"this App\") is developed and operated by the Fnthink team. This App takes your privacy seriously. Please read this Privacy Policy carefully before using this App to understand how we collect, use, store, and protect your information.\n\nThis Policy applies to all services provided by this App. By installing and using this App, you acknowledge that you have read, understood, and agreed to this Policy.",

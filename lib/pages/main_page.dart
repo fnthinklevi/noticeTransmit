@@ -298,6 +298,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           data['message']?.toString() ?? '',
           httpCode: (data['httpCode'] as num?)?.toInt() ?? 0,
           channelUrl: data['channelUrl']?.toString() ?? '',
+          viaBackup: data['viaBackup'] == true,
         );
         setState(() {});
       } else if (call.method == 'onBatteryChanged') {

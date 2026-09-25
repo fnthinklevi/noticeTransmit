@@ -15,21 +15,27 @@ object DeliveryNotifier {
         notificationId: String,
         type: WebhookPayloadBuilder.WebhookType,
         result: WebhookResponseParser.ParseResult,
-        channelUrl: String = ""
+        channelUrl: String = "",
+        viaBackup: Boolean = false
     ) {
-        notify(context, notificationId, type.name, result, channelUrl)
+        notify(context, notificationId, type.name, result, channelUrl, viaBackup)
     }
 
     /**
      * 支持任意通道标识（如 "EMAIL"），邮件链路与 webhook 共用同一回传链路。
      * channelUrl 用于 webhook_delivery_log 落库（Flutter 侧 updateDelivery 写入），无 URL 的链路传空。
+     *
+     * @param viaBackup 本轮该通道是**降级后**被选中的（主通道全不可用或已锁存备用模式），
+     *   由 [ChannelRouting] 的决策给出，不在这里重新判断。Flutter 侧把它记到该通道的送达
+     *   条目上，历史页据此显示「备用」标记 —— 用户需要知道这条消息走的是平时不看的通道。
      */
     fun notify(
         context: Context,
         notificationId: String,
         type: String,
         result: WebhookResponseParser.ParseResult,
-        channelUrl: String = ""
+        channelUrl: String = "",
+        viaBackup: Boolean = false
     ) {
         try {
             // 双写：广播走实时链路（MainActivity 存活时），持久化队列兜底
@@ -41,7 +47,8 @@ object DeliveryNotifier {
                 result.status.name,
                 result.message,
                 result.httpCode,
-                channelUrl
+                channelUrl,
+                viaBackup
             )
             val intent = Intent(MainActivity.ACTION_DELIVERY_RESULT).apply {
                 setPackage(context.packageName)
@@ -51,6 +58,7 @@ object DeliveryNotifier {
                 putExtra("message", result.message)
                 putExtra("http_code", result.httpCode)
                 putExtra("channel_url", channelUrl)
+                putExtra("via_backup", viaBackup)
             }
             context.sendBroadcast(intent)
         } catch (e: Exception) {

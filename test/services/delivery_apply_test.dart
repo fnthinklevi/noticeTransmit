@@ -145,4 +145,94 @@ void main() {
       expect(out['chan:merge'], {'status': 'failed', 'message': '无可用通道'});
     });
   });
+
+  // T12 补充：主备路由降级时，历史记录要看得出"这条是备用通道发的"。
+  // 标记写在**单个通道条目**上（不是记录级布尔），因为送达结果是逐通道回来的。
+  group('applyDelivery – 备用标记（T12 降级投递）', () {
+    test('降级轮次的结果只给该通道打标记', () {
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'EMAIL',
+        existing: pending(),
+        normalized: 'success',
+        message: 'ok',
+        viaBackup: true,
+      );
+      expect(out['chan:email'], {
+        'status': 'success',
+        'message': 'ok',
+        'viaBackup': true,
+      });
+      // 未被本轮触及的通道不得被顺带标上备用
+      expect(out['chan:dingtalk'], {'status': 'pending', 'message': ''});
+    });
+
+    test('未降级的轮次不写这个键（不给多数记录存一个 false）', () {
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'EMAIL',
+        existing: pending(),
+        normalized: 'success',
+        message: 'ok',
+      );
+      expect(
+        out['chan:email'],
+        isNot(contains('viaBackup')),
+        reason: '缺键即"没走备用"；写 false 会让历史 JSON 每行多一个字段',
+      );
+    });
+
+    test('标记粘滞：后到的成功结果不得抹掉「当时走过备用」', () {
+      // 真实时序：备用通道首发失败 → 重放队列稍后补一次成功，
+      // 重放结果不带轮次上下文（viaBackup=false）。若允许覆盖，
+      // 用户回看历史就看不出这条消息当初是降级发的。
+      final first = NotificationService.applyDelivery(
+        kotlinType: 'EMAIL',
+        existing: pending(),
+        normalized: 'failed',
+        message: '超时',
+        viaBackup: true,
+      );
+      final again = NotificationService.applyDelivery(
+        kotlinType: 'EMAIL',
+        existing: first,
+        normalized: 'success',
+        message: '重放成功',
+      );
+      expect(again['chan:email'], {
+        'status': 'success',
+        'message': '重放成功',
+        'viaBackup': true,
+      });
+    });
+
+    test('聚合伪通道展开时，逐通道保留各自已有的标记', () {
+      final existing = <String, dynamic>{
+        'chan:dingtalk': {'status': 'pending', 'message': ''},
+        'chan:email': {'status': 'pending', 'message': '', 'viaBackup': true},
+      };
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'MERGE',
+        existing: existing,
+        normalized: 'success',
+        message: '已合并推送',
+      );
+      expect(out['chan:dingtalk'], {'status': 'success', 'message': '已合并推送'});
+      expect(out['chan:email'], {
+        'status': 'success',
+        'message': '已合并推送',
+        'viaBackup': true,
+      });
+    });
+
+    test('聚合轮次本身走了备用时，成员的全部通道一起标上', () {
+      final out = NotificationService.applyDelivery(
+        kotlinType: 'MERGE',
+        existing: pending(),
+        normalized: 'success',
+        message: '已合并推送',
+        viaBackup: true,
+      );
+      expect(out['chan:dingtalk']['viaBackup'], true);
+      expect(out['chan:email']['viaBackup'], true);
+    });
+  });
 }

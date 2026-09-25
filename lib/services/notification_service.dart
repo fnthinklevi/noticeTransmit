@@ -125,6 +125,7 @@ class NotificationService {
           map['message']?.toString() ?? '',
           httpCode: (map['httpCode'] as num?)?.toInt() ?? 0,
           channelUrl: map['channelUrl']?.toString() ?? '',
+          viaBackup: map['viaBackup'] == true,
         );
       }
       debugPrint('[DeliveryResultStore] 补更新 ${results.length} 条送达结果');
@@ -277,23 +278,59 @@ class NotificationService {
   ///   `MergePushManager.markMembersDelivered`）。
   /// - 其余为普通通道结果：只更新自己那条键，保留其他通道状态，否则 webhook 的
   ///   结果会误覆盖邮件等通道的真实状态。
+  /// - [viaBackup]：本轮是主备路由（T12）降级走备用通道的投递。**一旦标过就不再清掉**
+  ///   （粘滞）：一条通知可能先后收到多个结果（失败 → 重放队列补一次成功），
+  ///   后到的结果不带轮次上下文，若允许覆盖会把"当时确实走了备用"这段历史抹掉。
+  ///   会清掉标记的只有手动补推那种**整表重建**（`_buildInitialDeliveries`）—— 那是新的一轮。
   static Map<String, dynamic> applyDelivery({
     required String kotlinType,
     required Map<String, dynamic> existing,
     required String normalized,
     required String message,
+    bool viaBackup = false,
   }) {
     final key = channelDeliveryKey(kotlinType);
     final slug = channelKey(kotlinType);
     if (slug == kBlockedChannelKey) {
-      return _fanOutToAllChannels(existing, key, 'intercepted', message);
+      return _fanOutToAllChannels(
+        existing,
+        key,
+        'intercepted',
+        message,
+        viaBackup,
+      );
     }
     if (slug == kMergedChannelKey) {
-      return _fanOutToAllChannels(existing, key, normalized, message);
+      return _fanOutToAllChannels(
+        existing,
+        key,
+        normalized,
+        message,
+        viaBackup,
+      );
     }
     final updated = Map<String, dynamic>.from(existing);
-    updated[key] = {'status': normalized, 'message': message};
+    updated[key] = _entry(normalized, message, existing[key], viaBackup);
     return updated;
+  }
+
+  /// 单个通道的送达条目：`{status, message}`（+ 粘滞的 `viaBackup`）。
+  ///
+  /// `viaBackup` 只在为真时写入、且优先保留旧值：键少一个，历史 JSON 就小一点，
+  /// 也不必为「绝大多数通知没降级」这件事在每行里存一个 false。
+  static Map<String, dynamic> _entry(
+    String status,
+    String message,
+    Object? previous,
+    bool viaBackup,
+  ) {
+    final marked =
+        viaBackup || (previous is Map && previous['viaBackup'] == true);
+    return <String, dynamic>{
+      'status': status,
+      'message': message,
+      if (marked) 'viaBackup': true,
+    };
   }
 
   /// 伪通道回传的展开：已有通道全部置同一终态；无已有通道时以 [key] 建一条占位。
@@ -302,19 +339,21 @@ class NotificationService {
     String key,
     String status,
     String message,
+    bool viaBackup,
   ) {
     if (existing.isEmpty) {
-      return <String, dynamic>{
-        key: {'status': status, 'message': message},
-      };
+      return <String, dynamic>{key: _entry(status, message, null, viaBackup)};
     }
     return <String, dynamic>{
-      for (final k in existing.keys) k: {'status': status, 'message': message},
+      for (final k in existing.keys)
+        k: _entry(status, message, existing[k], viaBackup),
     };
   }
 
   /// 更新单条记录的送达状态（Kotlin 端 onDeliveryResult 回传），
   /// 终态（success/failed）同时写入 webhook_delivery_log 送达日志。
+  ///
+  /// [viaBackup]：原生本轮主备路由（T12）降级走了备用通道，标在该通道的送达条目上。
   Future<void> updateDelivery(
     String notificationId,
     String kotlinType,
@@ -322,6 +361,7 @@ class NotificationService {
     String message, {
     int httpCode = 0,
     String channelUrl = '',
+    bool viaBackup = false,
   }) async {
     if (notificationId.isEmpty) return;
     final idx = _records.indexWhere((r) => r.id == notificationId);
@@ -342,6 +382,7 @@ class NotificationService {
         existing: _records[idx].deliveryStatus,
         normalized: normalized,
         message: message,
+        viaBackup: viaBackup,
       );
       final newRecord = _records[idx].copyWith(deliveryStatus: updated);
       _records[idx] = newRecord;
@@ -369,6 +410,7 @@ class NotificationService {
             existing: rec.deliveryStatus,
             normalized: normalized,
             message: message,
+            viaBackup: viaBackup,
           );
           await DatabaseHelper().updateNotificationDelivery(
             notificationId,

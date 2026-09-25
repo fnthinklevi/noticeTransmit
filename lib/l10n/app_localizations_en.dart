@@ -1927,6 +1927,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deliveryIntercepted => 'Blocked';
 
   @override
+  String get deliveryViaBackupTag => 'Backup';
+
+  @override
   String get pushNow => 'Push Now';
 
   @override

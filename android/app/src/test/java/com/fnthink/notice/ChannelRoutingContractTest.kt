@@ -1,8 +1,8 @@
 package com.fnthink.notice
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.json.JSONObject
 import java.io.File
 
 /**
@@ -137,26 +137,90 @@ class ChannelRoutingContractTest {
         // 收口函数自己必须把三族都发出去，并且把 webhook 的汇总回调透传给聚合链路
         // （不透传 = 聚合成员又回到"写死成功"的老缺陷）。
         val funnel = svc.substringAfter("private fun dispatchToChannels(")
-            .substringBefore("private fun dispatchEmail(")
-        // 具名参数各占一行是格式化器的结果，所以按"参数逐个在场"断言，
+            .substringBefore("private class RoutedChannels(")
+        // 具名参数各占一行是格式化器的结果，所以按"每个参数在三族调用里各出现一次"断言，
         // 不按整行文本匹配（整行匹配会随排版静默失效）。
-        for (arg in listOf(
-            "info,",
-            "force = force,",
-            "onAllComplete = onWebhooksComplete,",
-            "configs = routed.webhooks,",
+        for ((pattern, why) in listOf(
+            """force = force,""" to "暂停开关断了：暂停时手动补推推不出东西",
+            """configs = routed\.\w+,""" to "路由子集断了：不参与本轮的通道照收通知",
+            """viaBackup = routed\.viaBackup,""" to
+                "降级标记断了：那一族的历史记录永远不会标「备用」，用户看不出消息换了出口",
         )) {
-            assertTrue(
-                funnel.contains(arg),
-                "收口函数调 webhook 时少了参数 $arg（暂停开关、聚合真实结果或路由子集任一条断了都会静默失效）"
+            assertEquals(
+                3,
+                Regex(pattern).findAll(funnel).count(),
+                "收口函数调三族时 `$pattern` 不是恰好 3 处 —— $why"
             )
         }
-        assertTrue(funnel.contains("appChannelSender.sendOnly(info, force = force, configs = routed.apps)"),
-            "收口函数里自建应用没带 force")
-        assertTrue(funnel.contains("dispatchEmail(info, force = force, configs = routed.emails)"),
-            "收口函数里邮件没带 force ⇒ 暂停时手动补推推不出邮件")
+        assertTrue(
+            funnel.contains("onAllComplete = webhookCallback"),
+            "收口函数没把汇总回调接上 webhook ⇒ 聚合成员回到「写死成功」"
+        )
+        assertTrue(
+            funnel.contains("outer(r, routed.viaBackup)"),
+            "webhook 汇总回调没带上降级标记 ⇒ 聚合链路的成员记录永远不标备用"
+        )
         // 历史记录只在主链路写一次（补推/flush/手动都不得再播）
         assertTrue(funnel.contains("if (alsoBroadcastRecord) webhookSender.sendBroadcast(info)"),
             "写历史的条件没了 ⇒ 延迟补推会多出一条历史记录")
+    }
+
+    @Test
+    fun `备用标记贯穿到送达回传的每一步`() {
+        // 降级事实只有一份来源（路由决策），但要在**每一条**出口链路上传到底：
+        // 广播 → MainActivity、持久化队列 → drain、以及扇出的三族。任何一环漏掉，
+        // 表现都是"有时标有时不标"——比全不标更难排查，因为看起来像随机丢。
+        val notifier = native("DeliveryNotifier.kt")
+        assertTrue(
+            notifier.contains("""putExtra("via_backup", viaBackup)"""),
+            "实时广播链路没带 via_backup"
+        )
+        assertTrue(
+            notifier.contains("DeliveryResultStore.push(") && notifier.contains("viaBackup"),
+            "持久化兜底队列没写 via_backup ⇒ Activity 被杀期间的结果丢标记"
+        )
+        val store = native("DeliveryResultStore.kt")
+        assertTrue(
+            store.contains("""put("viaBackup", viaBackup)""") &&
+                store.contains(""""viaBackup" to item.optBoolean("viaBackup", false)"""),
+            "兜底队列的入队/出队字段不成对 ⇒ drain 回来永远是 false"
+        )
+        val main = native("MainActivity.kt")
+        assertTrue(
+            main.contains(""""viaBackup" to intent.getBooleanExtra("via_backup", false)"""),
+            "MainActivity 转发时丢了 via_backup ⇒ 实时链路的历史记录不标备用"
+        )
+        // 聚合成员走 MERGE 伪通道，必须逐成员透传（否则聚合是唯一不标降级的路径）
+        val merge = native("MergePushManager.kt")
+        assertTrue(
+            merge.contains("fun markMembersDelivered(") &&
+                Regex("""notify\([\s\S]{0,120}viaBackup = viaBackup""").containsMatchIn(merge),
+            "markMembersDelivered 没把降级标记传给每个成员"
+        )
+        // 暂停分支**不该**带标记（根本没投递），其余真实结果分支必须带
+        val svc = native("NotificationMonitorService.kt")
+        val email = svc.substringAfter("private fun dispatchEmail(")
+        assertEquals(
+            1,
+            Regex("""notify\(this, info\.id, "EMAIL", \w+, viaBackup = viaBackup\)""").findAll(email).count(),
+            "邮件真实结果没带降级标记（paused 分支应保持不带：那条消息没发出去）"
+        )
+        assertEquals(
+            0,
+            Regex("""paused, viaBackup""").findAll(email).count(),
+            "邮件 paused 分支带了降级标记 ⇒ 未投递的记录被标成走了备用"
+        )
+        // Dart 侧：标记必须落到送达条目并粘滞（后到的结果不得抹掉已发生过的降级）
+        val dart = stripComments(
+            repoFile("lib/services/notification_service.dart").readText(Charsets.UTF_8)
+        )
+        assertTrue(
+            dart.contains("viaBackup: map['viaBackup'] == true"),
+            "Dart 兜底 drain 没读 viaBackup ⇒ 补偿路径不标备用"
+        )
+        assertTrue(
+            dart.contains("""if (marked) 'viaBackup': true"""),
+            "Dart 送达条目没有粘滞的 viaBackup 字段"
+        )
     }
 }

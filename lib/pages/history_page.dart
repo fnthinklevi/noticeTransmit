@@ -541,13 +541,18 @@ class _HistoryPageState extends State<HistoryPage> {
   ///
   /// [channel] 传送达键（`chan:<slug>`）：界面显示名在此统一换算，调用方不必再
   /// 关心"这条是键还是名字"。
+  ///
+  /// [viaBackup]：该通道是主备路由（T12）降级后选中的备用通道 → chip 上追加「备用」。
+  /// 备用通道通常是用户平时不盯的那条（邮件、另一个群），不标出来就等于"消息悄悄换了
+  /// 出口"，与"不静默丢失"冲突；但也不额外弹提示 —— 这只是一次降级投递，不是错误。
   Widget _buildChannelChip(
     String channel,
     Color chipColor,
     String status,
     String message,
-    AppLocalizations l10n,
-  ) {
+    AppLocalizations l10n, {
+    bool viaBackup = false,
+  }) {
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
@@ -561,6 +566,13 @@ class _HistoryPageState extends State<HistoryPage> {
             channelTypeDisplayName(channel),
             style: TextStyle(fontSize: 10, color: chipColor),
           ),
+          if (viaBackup) ...[
+            const SizedBox(width: 3),
+            Text(
+              l10n.deliveryViaBackupTag,
+              style: const TextStyle(fontSize: 9, color: AppColors.orange),
+            ),
+          ],
           if (status.isNotEmpty) ...[
             const SizedBox(width: 3),
             Container(
@@ -1785,7 +1797,14 @@ class _HistoryPageState extends State<HistoryPage> {
             final message = statusInfo is Map
                 ? (statusInfo['message']?.toString() ?? '')
                 : '';
-            return _buildChannelChip(c, chipColor, status, message, l10n);
+            return _buildChannelChip(
+              c,
+              chipColor,
+              status,
+              message,
+              l10n,
+              viaBackup: statusInfo is Map && statusInfo['viaBackup'] == true,
+            );
           }).toList(),
         ),
       );

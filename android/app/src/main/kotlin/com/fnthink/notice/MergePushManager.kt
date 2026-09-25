@@ -290,10 +290,15 @@ class MergePushManager(private val context: Context) {
      *
      * 多通道时 [WebhookSender.sendWebhooksOnly] 已按「最差优先」汇总（任一通道失败即失败）——
      * 宁可多报一次失败，也不要让失败被某个成功通道掩盖、静默成"已合并推送"。
+     *
+     * @param viaBackup 本轮聚合推送是否降级走了备用通道（来自 `dispatchToChannels` 的路由
+     *   决策）。必须逐成员透传：成员记录同样要显示"这条是备用通道发的"，否则聚合链路
+     *   成了唯一不标降级的路径。
      */
     fun markMembersDelivered(
         group: MergeGroup,
-        result: WebhookResponseParser.ParseResult
+        result: WebhookResponseParser.ParseResult,
+        viaBackup: Boolean = false
     ) {
         val success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS
         val forwarded = if (success) {
@@ -302,7 +307,7 @@ class MergePushManager(private val context: Context) {
             result
         }
         for (member in group.items) {
-            DeliveryNotifier.notify(context, member.id, "MERGE", forwarded)
+            DeliveryNotifier.notify(context, member.id, "MERGE", forwarded, viaBackup = viaBackup)
         }
         DiagLog.w(
             TAG,

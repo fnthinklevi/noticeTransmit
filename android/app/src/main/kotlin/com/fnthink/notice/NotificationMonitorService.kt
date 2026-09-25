@@ -784,8 +784,8 @@ class NotificationMonitorService : NotificationListenerService() {
             checkDailyReset()
             // 计数语义（风险标注 4）：按聚合组 +1，而非成员逐条 +N
             pushCount++
-            dispatchToChannels(merged, alsoBroadcastRecord = false) { result ->
-                mergePushManager.markMembersDelivered(group, result)
+            dispatchToChannels(merged, alsoBroadcastRecord = false) { result, viaBackup ->
+                mergePushManager.markMembersDelivered(group, result, viaBackup)
                 if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
                     DiagLog.w(TAG, "Merged push sent: ${group.key} (${group.items.size} 条) id=${merged.id}")
                 } else {
@@ -1154,26 +1154,44 @@ class NotificationMonitorService : NotificationListenerService() {
      * @param alsoBroadcastRecord 是否把这条通知写进历史记录。通知到达的主链路要写；
      *   延迟补推 / 聚合 flush / 手动「现在推送」的记录在到达时已经写过，再播一次就多一条历史。
      * @param force 忽略「推送暂停」开关（只给手动补推用）。
-     * @param onWebhooksComplete webhook 全部通道结束后的汇总回调（聚合推送要用真实结果
-     *   逐成员回写，见 [MergePushManager] 头注释 3）。
+     * @param onWebhooksComplete webhook 全部通道结束后的汇总回调，第二个参数是**本轮是否
+     *   降级走了备用通道**（聚合推送要用真实结果逐成员回写，见 [MergePushManager] 头注释 3，
+     *   备用标记同理 —— 成员记录也得知道自己是通过备用通道补发的）。
      */
     private fun dispatchToChannels(
         info: NotificationInfo,
         alsoBroadcastRecord: Boolean = true,
         force: Boolean = false,
-        onWebhooksComplete: ((WebhookResponseParser.ParseResult) -> Unit)? = null,
+        onWebhooksComplete: ((WebhookResponseParser.ParseResult, Boolean) -> Unit)? = null,
     ) {
         val routed = routeChannels()
+        // 降级标记必须**逐结果**传给三个发送器，不能只在服务里记一笔：
+        // 一次扇出的结果会经广播/持久化队列异步落到不同记录（如聚合成员），
+        // 事后已经没有「哪一轮」的上下文可对。
+        val webhookCallback = onWebhooksComplete?.let { outer ->
+            { r: WebhookResponseParser.ParseResult -> outer(r, routed.viaBackup) }
+        }
 
         if (alsoBroadcastRecord) webhookSender.sendBroadcast(info)
         webhookSender.sendWebhooksOnly(
             info,
             force = force,
-            onAllComplete = onWebhooksComplete,
+            onAllComplete = webhookCallback,
             configs = routed.webhooks,
+            viaBackup = routed.viaBackup,
         )
-        appChannelSender.sendOnly(info, force = force, configs = routed.apps)
-        dispatchEmail(info, force = force, configs = routed.emails)
+        appChannelSender.sendOnly(
+            info,
+            force = force,
+            configs = routed.apps,
+            viaBackup = routed.viaBackup,
+        )
+        dispatchEmail(
+            info,
+            force = force,
+            configs = routed.emails,
+            viaBackup = routed.viaBackup,
+        )
     }
 
     /** 一次扇出对应的三族目标集合（路由后的结果，可能比配置里少） */
@@ -1181,6 +1199,8 @@ class NotificationMonitorService : NotificationListenerService() {
         val webhooks: List<ConfigManager.WebhookChannelConfig>,
         val apps: List<AppChannelConfig>,
         val emails: List<EmailSender.EmailConfig>,
+        /** 本轮为「降级走备用」：直接取 [ChannelRouting.Decision.engagedBackup]，不自行推断 */
+        val viaBackup: Boolean,
     )
 
     /**
@@ -1225,6 +1245,7 @@ class NotificationMonitorService : NotificationListenerService() {
             webhooks.filter { ("webhook:" + it.id) in want },
             apps.filter { ("app:" + it.id) in want },
             emails.filter { ("email:" + it.id) in want },
+            viaBackup = decision.engagedBackup,
         )
     }
 
@@ -1232,6 +1253,7 @@ class NotificationMonitorService : NotificationListenerService() {
         info: NotificationInfo,
         force: Boolean = false,
         configs: List<EmailSender.EmailConfig>? = null,
+        viaBackup: Boolean = false,
     ) {
         try {
             // 路由后可能为空（本轮不该推邮件）：与「没配邮件通道」走同一条早退路径。
@@ -1239,7 +1261,8 @@ class NotificationMonitorService : NotificationListenerService() {
             val selected = configs ?: EmailManager.getEnabledConfigs(this)
             if (selected.isEmpty()) return
 
-            // 推送暂停：邮件同样不发送，回传 paused 状态（与 webhook 行为一致）
+            // 推送暂停：邮件同样不发送，回传 paused 状态（与 webhook 行为一致）。
+            // paused 分支**不带**备用标记：这条消息根本没投递出去，标"走了备用"只会误导。
             if (!force && !PushToggleManager.isPushActive()) {
                 val paused = WebhookResponseParser.ParseResult(
                     WebhookResponseParser.DeliveryStatus.PAUSED,
@@ -1259,7 +1282,7 @@ class NotificationMonitorService : NotificationListenerService() {
                         WebhookResponseParser.DeliveryStatus.BIZ_FAIL, 0, msg, false
                     )
                 }
-                DeliveryNotifier.notify(this, info.id, "EMAIL", result)
+                DeliveryNotifier.notify(this, info.id, "EMAIL", result, viaBackup = viaBackup)
             }
         } catch (e: Exception) {
             Log.e(TAG, "邮件分发异常: ${e.message}", e)

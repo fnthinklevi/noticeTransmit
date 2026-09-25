@@ -129,7 +129,7 @@ class MergeFailureContractTest {
         val flush = functionBody(service, "private fun flushMergedGroup(")
         assertTrue(
             "无论成功失败都必须回传结果给成员（markMembersDelivered 在回调里无条件调用）",
-            flush.contains("markMembersDelivered(group, result)")
+            flush.contains("markMembersDelivered(group, result, viaBackup)")
         )
         // markMembersDelivered 不能因失败而 return（必须逐成员回传）
         val mark = functionBody(mergeManager, "fun markMembersDelivered(")

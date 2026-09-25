@@ -82,6 +82,40 @@ void main() {
       expect(delivery['message'], 'ok');
     });
 
+    test('T12：viaBackup 随结果落到该通道的送达条目', () async {
+      // 纯函数侧已有用例，这里补的是**最后一米**：updateDelivery 收到原生字段后
+      // 有没有把它转给 applyDelivery。漏转发不会报错，只会让历史页永远不标「备用」。
+      final service = NotificationService();
+      service.addRecord({
+        'id': 'log_backup',
+        'type': 'notification',
+        'title': 't',
+        'content': 'c',
+        'packageName': 'com.a.b',
+        'appName': 'app',
+        'postTime': 1700000000000,
+        'time': '2024-01-01 12:00:00',
+      });
+
+      await service.updateDelivery(
+        'log_backup',
+        'EMAIL',
+        'SUCCESS',
+        'ok',
+        viaBackup: true,
+      );
+
+      final delivery = service.records.first.deliveryStatus['chan:email'];
+      expect(delivery['status'], 'success');
+      expect(delivery['viaBackup'], true);
+      // 只有本轮回执的那条通道该被标：其他通道不得被顺带标成备用
+      final marked = service.records.first.deliveryStatus.entries
+          .where((e) => e.value is Map && e.value['viaBackup'] == true)
+          .map((e) => e.key)
+          .toList();
+      expect(marked, ['chan:email']);
+    });
+
     test('PAUSED（暂停未发送）仅更新状态为 paused', () async {
       final service = NotificationService();
       service.addRecord({
