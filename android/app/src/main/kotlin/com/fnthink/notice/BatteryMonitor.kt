@@ -15,43 +15,31 @@ import java.util.*
 class BatteryMonitor(private val context: Context) {
     private var batteryRules = emptyList<BatteryRule>()
     @Volatile private var _enabled = true
-    @Volatile private var prevLevel = -1
-    @Volatile private var prevIsCharging = false
-    @Volatile private var initialized = false
     @Volatile private var deviceName: String = ""
     private var notificationCallback: ((NotificationInfo) -> Unit)? = null
 
-    // v1.59 温度维度状态：各维度上次温度（crossing 判定）+ 触发冷却期（防温度波动重复推送）
-    private val prevTemps = mutableMapOf<String, Double>()
-    private val tempCooldownUntil = mutableMapOf<String, Long>()
+    /** v1.59：温度规则（独立于电量规则，由 TemperatureService 经通道同步） */
     private var temperatureRules = emptyList<BatteryRule>()
+
+    /**
+     * T19：判据（阈值 / crossing 迟滞 / 冷却 / 顺序）全在 [NotificationEngine]。
+     * 本类只余"读数 + 渲染 + 投递"三件事，状态（prevLevel / prevTemps / 冷却截止）
+     * 由引擎自持 —— 两处各存一份迟早一份松一份紧，表现是"某类告警永远不来"。
+     */
+    private val engine = NotificationEngine()
 
     companion object {
         private const val TAG = "BatteryMonitor"
         private const val POLLING_INTERVAL_MS = 60000L
-
-        /** 温度规则触发后的冷却期（毫秒）：温度在阈值附近波动，需冷却防抖 */
-        const val TEMP_COOLDOWN_MS = 30 * 60 * 1000L
-
-        /** 温度规则类型集合（与 Dart battery_service 的规则类型契约一致） */
-        val TEMP_RULE_TYPES = setOf(
-            "battery_temp_above", // 电池温度（BatteryManager，最可靠）
-            "device_temp_above", // 设备整体温度（thermal_zone 最热温区）
-            "screen_temp_above", // 屏幕温度（display/lcd 温区，部分机型不可得）
-        )
-
-        /** 温度 crossing：由低于阈值变为达到阈值（纯函数，JVM 可测） */
-        fun isTempCrossing(prev: Double?, current: Double, threshold: Int): Boolean =
-            prev != null && prev < threshold && current >= threshold
-
-        /** 冷却期是否生效中（纯函数） */
-        fun isCooldownActive(cooldownUntil: Long, now: Long): Boolean = cooldownUntil > now
     }
+
+    /** 两族任一配了规则才值得花一次电池 syscall（原先只看电量规则，温度族被静默饿死） */
+    fun hasRules(): Boolean = engine.hasRules(batteryRules, temperatureRules)
 
     private val handler = Handler(Looper.getMainLooper())
     private val pollingRunnable = object : Runnable {
         override fun run() {
-            if (batteryRules.isNotEmpty()) {
+            if (hasRules()) {
                 val batteryInfo = checkBatteryAndNotify()
                 if (batteryInfo != null) {
                     notificationCallback?.invoke(batteryInfo)
@@ -101,76 +89,52 @@ class BatteryMonitor(private val context: Context) {
         return intent?.let { parseBatteryIntent(it) }
     }
 
+    /**
+     * 采一次样并交给引擎；命中就把结论渲染成通知，否则返回 null。
+     *
+     * 分工是 T19 的重点：**读数是 Android 的，判据是纯 Kotlin 的**。判据搬进
+     * [NotificationEngine] 之后，阈值 / crossing 迟滞 / 冷却 / 顺序都能在 JVM 上逐条钉住，
+     * 不必再造 Robolectric，也不必靠真机"等一次温度波动"来验证。
+     *
+     * ⚠ 先判 `_enabled` / `hasRules()` 再读电池：与现状一致，总开关关掉或两族都没配规则时
+     * 不该每 60s 还去做一次 `registerReceiver` syscall（引擎内部也会判，这里只是不白读）。
+     */
     fun checkBatteryAndNotify(): NotificationInfo? {
-        if (!_enabled || batteryRules.isEmpty()) return null
-
+        if (!_enabled || !hasRules()) return null
         val batteryInfo = getBatteryInfo() ?: return null
-        val currentLevel = batteryInfo.level
-        val isCharging = batteryInfo.isCharging
+        val reading = EngineReading(
+            level = batteryInfo.level,
+            charging = batteryInfo.isCharging,
 
-        // v1.59：温度维度读数（与电量同一次 ACTION_BATTERY_CHANGED 采样）
-        val currentTemps = readCurrentTemps(batteryInfo.temperatureC)
+            // 温度与电量同源（一次 ACTION_BATTERY_CHANGED 同时取，避免重复唤醒设备）
+            temperatures = readCurrentTemps(batteryInfo.temperatureC),
+        )
+        return when (
+            val decision = engine.evaluate(
+                enabled = _enabled,
+                batteryRules = batteryRules,
+                temperatureRules = temperatureRules,
+                reading = reading,
+                now = System.currentTimeMillis(),
+            )
+        ) {
+            is EngineDecision.BatteryFire ->
+                buildBatteryNotification(decision.rule, decision.level, decision.charging)
 
-        // 首次调用只记录基准状态，避免服务启动/重启时因当前已满足条件而误报
-        if (!initialized) {
-            prevLevel = currentLevel
-            prevIsCharging = isCharging
-            initialized = true
-            return null
-        }
+            is EngineDecision.TemperatureFire ->
+                buildTemperatureNotification(decision.rule, decision.temperatureC)
 
-        // v1.59 温度维度先行判定（与电量规则同循环、状态独立，互不干扰）：
-        // 每个温度规则一条独立状态（prevTemps）+ 独立冷却期，避免互相挤占
-        for (rule in batteryRules + temperatureRules) {
-            if (rule.type in TEMP_RULE_TYPES) {
-                val dimValue = currentTemps[rule.type] ?: continue // 该维度读不到 → 规则不触发
-                val prevTemp = prevTemps[rule.type]
-                prevTemps[rule.type] = dimValue
-
-                val triggered = dimValue >= rule.threshold
-                // crossing：由不满足变为满足（与电量规则同语义）
-                val isCrossing = isTempCrossing(prevTemp, dimValue, rule.threshold)
-                // 冷却：触发后 TEMP_COOLDOWN_MS 内不重复推送（温度在阈值附近波动属正常）
-                val cooling = isCooldownActive(
-                    tempCooldownUntil[rule.type] ?: 0L,
-                    System.currentTimeMillis(),
-                )
-
-                if (triggered && isCrossing && !cooling) {
-                    tempCooldownUntil[rule.type] =
-                        System.currentTimeMillis() + TEMP_COOLDOWN_MS
-                    return buildTemperatureNotification(rule, dimValue)
+            is EngineDecision.Silent -> {
+                // 「未满足」与「首轮基准」是常态，不刷日志；其余（冷却中、未 crossing、
+                // 读不到）才是"规则在但没响"的现场，T21 的影子比对也要靠这些原因分诊。
+                if (decision.reason != Silence.NOT_TRIGGERED &&
+                    decision.reason != Silence.BASELINE
+                ) {
+                    Log.d(TAG, "引擎本轮不推：${decision.reason}")
                 }
-                continue
-            }
-
-            val triggered = when (rule.type) {
-                "level_below" -> currentLevel <= rule.threshold && !isCharging
-                "level_above" -> currentLevel >= rule.threshold && isCharging
-                "level_equals" -> currentLevel == rule.threshold
-                "charging" -> isCharging && !prevIsCharging
-                "discharging" -> !isCharging && prevIsCharging
-                else -> false
-            }
-            // 仅“由不满足变为满足”的瞬间触发，避免轮询/广播重复推送
-            val isCrossing = when (rule.type) {
-                "level_below" -> prevLevel > rule.threshold
-                "level_above" -> prevLevel < rule.threshold
-                "level_equals" -> prevLevel != rule.threshold
-                "charging", "discharging" -> true
-                else -> false
-            }
-
-            if (triggered && isCrossing) {
-                prevLevel = currentLevel
-                prevIsCharging = isCharging
-                return buildBatteryNotification(rule, currentLevel, isCharging)
+                null
             }
         }
-
-        prevLevel = currentLevel
-        prevIsCharging = isCharging
-        return null
     }
 
     /**
@@ -185,7 +149,7 @@ class BatteryMonitor(private val context: Context) {
     ): NotificationInfo {
         val dimLabel = I18n.temperatureDimLabel(rule.type)
         val defaultTitle = I18n.temperatureRuleTitle(dimLabel, rule.threshold)
-        val title = if (rule.title.isNotBlank()) rule.title else defaultTitle
+        val title = NotificationEngine.titleOf(rule, defaultTitle)
         val content = I18n.temperatureContent(dimLabel, currentTempC)
         return NotificationInfo(
             id = "battery_${System.currentTimeMillis()}",
@@ -231,7 +195,7 @@ class BatteryMonitor(private val context: Context) {
     ): NotificationInfo {
         // 中英双语（跟随应用语言设置），避免英文模式下推送内容仍为中文
         val defaultTitle = I18n.batteryRuleTitle(rule.type, rule.threshold)
-        val title = if (rule.title.isNotBlank()) rule.title else defaultTitle
+        val title = NotificationEngine.titleOf(rule, defaultTitle)
         val content = I18n.batteryLevelText(currentLevel, isCharging)
         return NotificationInfo(
             id = "battery_${System.currentTimeMillis()}",
@@ -271,28 +235,25 @@ class BatteryMonitor(private val context: Context) {
         val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN)
         val voltage = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
-        // v1.59：电池温度（EXTRA_TEMPERATURE 单位 0.1℃，如 265 = 26.5℃）
-        val temperatureC = intent.getIntExtra(
-            BatteryManager.EXTRA_TEMPERATURE,
-            Int.MIN_VALUE,
-        ).takeIf { it != Int.MIN_VALUE }?.let { it / 10.0 }
+        // v1.59：电池温度。换算规则只此一份 —— 复用 `DeviceSnapshot.temperatureC`，
+        // 与设备快照那条链共用"缺失 / ≤0 一律算读不到"的口径（0℃ 是合法读数，
+        // 但传感器给 0 时是"不可用"，两者在 EXTRA_TEMPERATURE 上无法区分，宁可判缺失）。
+        val temperatureC = DeviceSnapshot.temperatureC(
+            intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1).takeIf { it > 0 },
+        )
 
         return BatteryInfo(
             level = (level * 100 / scale).coerceIn(0, 100),
             isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                 status == BatteryManager.BATTERY_STATUS_FULL,
-            voltage = voltage
+            voltage = voltage,
+            // T19 修掉的缺陷：这个值原先算出来了却没塞进 BatteryInfo ⇒
+            // `readCurrentTemps(null)` 里永没有 battery_temp_above，
+            // 用户配的「电池温度高于 X」规则**永远不响**，而界面上看不出任何异常。
+            temperatureC = temperatureC,
         )
     }
 }
-
-data class BatteryRule(
-    val id: String,
-    val type: String,
-    val threshold: Int,
-    val enabled: Boolean,
-    val title: String = ""
-)
 
 data class BatteryInfo(
     val level: Int,

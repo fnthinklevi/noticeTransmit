@@ -24,20 +24,21 @@ void main() {
         });
   });
 
-  /// 从 Kotlin 源码里取 `val TEMP_RULE_TYPES = setOf(...)` 的字符串字面量集合。
+  /// 从 Kotlin 源码里取 `val <name> = setOf(...)` 的字符串字面量集合。
+  /// T19 起两个集合都住在 `NotificationEngine.kt`（判据的单点），不再是 BatteryMonitor。
   /// ⚠ 两侧都要剥注释：一句"TEMP_RULE_TYPES = setOf(...) 已改名"的注释，
   ///   或页面里一行提到某类型字面量的注释，都能让判据为真而代码其实什么都没做。
-  Set<String> kotlinTempRuleTypes() {
+  Set<String> kotlinRuleTypes(String name) {
     final src = stripComments(
       File(
-        'android/app/src/main/kotlin/com/fnthink/notice/BatteryMonitor.kt',
+        'android/app/src/main/kotlin/com/fnthink/notice/NotificationEngine.kt',
       ).readAsStringSync(),
     );
-    final start = src.indexOf('TEMP_RULE_TYPES = setOf(');
+    final start = src.indexOf('$name = setOf(');
     expect(
       start,
       greaterThanOrEqualTo(0),
-      reason: '原生 TEMP_RULE_TYPES 定义被改名/删除',
+      reason: '原生 $name 定义被改名/删除/挪走（T19 后判据只在 NotificationEngine 一处）',
     );
     final end = src.indexOf(')', start);
     final block = RegExp(
@@ -47,6 +48,8 @@ void main() {
     return block;
   }
 
+  Set<String> kotlinTempRuleTypes() => kotlinRuleTypes('TEMP_RULE_TYPES');
+
   group('温度规则类型 – 双端契约', () {
     test('Dart tempRuleTypes 与 Kotlin TEMP_RULE_TYPES 逐字一致', () {
       expect(
@@ -55,6 +58,24 @@ void main() {
         reason:
             '两端类型字面量不一致 → 原生 when/contains 静默失配，'
             '用户配的温度规则永远不触发且无任何报错',
+      );
+    });
+
+    /// T19 的引擎接缝：界面能配的每个类型，引擎都必须认识。
+    /// 不钉这条的话，T24 加亮度/网络时很容易先让 Dart 能配、原生后认识 ——
+    /// 表现是"规则保存成功、永不触发"（引擎对未知类型一律不触发）。
+    test('电量页能配的类型 == 原生 BATTERY_RULE_TYPES（引擎不认识的类型不得出现在界面）', () {
+      final chips = stripComments(
+        File('lib/pages/battery_page.dart').readAsStringSync(),
+      );
+      final dartTypes = RegExp(
+        r"_buildTypeChip\(\s*'([a-z_]+)'",
+      ).allMatches(chips).map((m) => m.group(1)!).toSet();
+      expect(dartTypes, isNotEmpty, reason: '没解析到任何类型芯片 ⇒ 页面写法变了，本条已失效');
+      expect(
+        dartTypes,
+        kotlinRuleTypes('BATTERY_RULE_TYPES'),
+        reason: '界面能配的电量类型与引擎认识的集合分叉',
       );
     });
 
