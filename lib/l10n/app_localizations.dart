@@ -4322,6 +4322,252 @@ abstract class AppLocalizations {
   /// **'暂无设备状态规则，点右上角 + 添加'**
   String get noDeviceStateRules;
 
+  /// No description provided for @deviceStatusEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备状态'**
+  String get deviceStatusEntry;
+
+  /// No description provided for @deviceStatusBrief.
+  ///
+  /// In zh, this message translates to:
+  /// **'{model} · 电量 {level}%'**
+  String deviceStatusBrief(String model, int level);
+
+  /// No description provided for @deviceStatusBriefCharging.
+  ///
+  /// In zh, this message translates to:
+  /// **'{model} · 电量 {level}% · 充电中'**
+  String deviceStatusBriefCharging(String model, int level);
+
+  /// No description provided for @deviceStatusBriefNoReading.
+  ///
+  /// In zh, this message translates to:
+  /// **'{model} · 电量读数还没到'**
+  String deviceStatusBriefNoReading(String model);
+
+  /// No description provided for @deviceStatusDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'下面每一项都来自**同一次**读取。显示「这台设备读不到」表示这个系统接口在本机不可用，不等于数值是 0。'**
+  String get deviceStatusDesc;
+
+  /// No description provided for @deviceStatusSnapshotFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没读到设备快照（原生通道没有回话）'**
+  String get deviceStatusSnapshotFailed;
+
+  /// No description provided for @deviceStatusRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新读取'**
+  String get deviceStatusRefresh;
+
+  /// No description provided for @snapshotCapturedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'读取于 {time}'**
+  String snapshotCapturedAt(String time);
+
+  /// No description provided for @snapshotModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'型号'**
+  String get snapshotModel;
+
+  /// No description provided for @snapshotManufacturer.
+  ///
+  /// In zh, this message translates to:
+  /// **'厂商'**
+  String get snapshotManufacturer;
+
+  /// No description provided for @snapshotBrand.
+  ///
+  /// In zh, this message translates to:
+  /// **'品牌'**
+  String get snapshotBrand;
+
+  /// No description provided for @snapshotSystemVersion.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统版本'**
+  String get snapshotSystemVersion;
+
+  /// No description provided for @snapshotSystemVersionValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android {version}（API {sdk}）'**
+  String snapshotSystemVersionValue(String version, int sdk);
+
+  /// No description provided for @snapshotNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络'**
+  String get snapshotNetwork;
+
+  /// No description provided for @netWifi.
+  ///
+  /// In zh, this message translates to:
+  /// **'Wi-Fi'**
+  String get netWifi;
+
+  /// No description provided for @netCellular.
+  ///
+  /// In zh, this message translates to:
+  /// **'蜂窝数据'**
+  String get netCellular;
+
+  /// No description provided for @netVpn.
+  ///
+  /// In zh, this message translates to:
+  /// **'VPN'**
+  String get netVpn;
+
+  /// No description provided for @netEthernet.
+  ///
+  /// In zh, this message translates to:
+  /// **'以太网'**
+  String get netEthernet;
+
+  /// No description provided for @netNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'未联网'**
+  String get netNone;
+
+  /// No description provided for @netOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他网络'**
+  String get netOther;
+
+  /// No description provided for @snapshotBattery.
+  ///
+  /// In zh, this message translates to:
+  /// **'电量'**
+  String get snapshotBattery;
+
+  /// No description provided for @snapshotBatteryValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{level}%（{state}）'**
+  String snapshotBatteryValue(int level, String state);
+
+  /// No description provided for @batteryChargingState.
+  ///
+  /// In zh, this message translates to:
+  /// **'充电中'**
+  String get batteryChargingState;
+
+  /// No description provided for @batteryDischargingState.
+  ///
+  /// In zh, this message translates to:
+  /// **'未充电'**
+  String get batteryDischargingState;
+
+  /// No description provided for @snapshotBatteryTemp.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池温度'**
+  String get snapshotBatteryTemp;
+
+  /// No description provided for @snapshotBatteryTempValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{value}℃'**
+  String snapshotBatteryTempValue(String value);
+
+  /// No description provided for @snapshotStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储'**
+  String get snapshotStorage;
+
+  /// No description provided for @snapshotStorageValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'已用 {used} GB / 共 {total} GB'**
+  String snapshotStorageValue(String used, String total);
+
+  /// No description provided for @snapshotMemory.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存'**
+  String get snapshotMemory;
+
+  /// No description provided for @snapshotMemoryValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'可用 {available} GB / 共 {total} GB'**
+  String snapshotMemoryValue(String available, String total);
+
+  /// No description provided for @snapshotBrightness.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏幕亮度'**
+  String get snapshotBrightness;
+
+  /// No description provided for @snapshotBrightnessValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{percent}%（{mode}）'**
+  String snapshotBrightnessValue(int percent, String mode);
+
+  /// No description provided for @brightnessModeAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动'**
+  String get brightnessModeAuto;
+
+  /// No description provided for @brightnessModeManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动'**
+  String get brightnessModeManual;
+
+  /// No description provided for @snapshotUptime.
+  ///
+  /// In zh, this message translates to:
+  /// **'已运行'**
+  String get snapshotUptime;
+
+  /// No description provided for @snapshotUptimeValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'{days} 天 {hours} 小时 {minutes} 分'**
+  String snapshotUptimeValue(int days, int hours, int minutes);
+
+  /// No description provided for @unreadableField.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备读不到'**
+  String get unreadableField;
+
+  /// No description provided for @pushDeviceInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'推送设备信息'**
+  String get pushDeviceInfo;
+
+  /// No description provided for @pushDeviceInfoDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'把上面这份快照作为一条通知推到你启用的通道；走的是与告警同一条推送链，送达结果在推送历史里看。'**
+  String get pushDeviceInfoDesc;
+
+  /// No description provided for @pushDeviceInfoSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'已交给通道推送，结果见推送历史'**
+  String get pushDeviceInfoSent;
+
+  /// No description provided for @pushDeviceInfoBusy.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在推送…'**
+  String get pushDeviceInfoBusy;
+
   /// No description provided for @testerSrcBlacklist.
   ///
   /// In zh, this message translates to:

@@ -109,6 +109,14 @@ void main() {
       await tester.tap(find.text('温度告警'));
       await tester.pumpAndSettle();
       expect(find.byType(TemperaturePage), findsOneWidget);
+
+      Navigator.of(tester.element(find.byType(TemperaturePage))).pop();
+      await tester.pumpAndSettle();
+
+      // T24 的第三个入口：不点这一条，"入口画出来了但推不到页"这种形状测不出来
+      await tester.tap(find.text('设备状态告警'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DeviceStatePage), findsOneWidget);
     });
 
     testWidgets('开关关掉 → 入口副标题出现「已暂停」（不重建父树）', (tester) async {

@@ -2332,6 +2332,154 @@ class AppLocalizationsEn extends AppLocalizations {
       'No device state rules yet — tap + to add one';
 
   @override
+  String get deviceStatusEntry => 'Device status';
+
+  @override
+  String deviceStatusBrief(String model, int level) {
+    return '$model · battery $level%';
+  }
+
+  @override
+  String deviceStatusBriefCharging(String model, int level) {
+    return '$model · battery $level% · charging';
+  }
+
+  @override
+  String deviceStatusBriefNoReading(String model) {
+    return '$model · no battery reading yet';
+  }
+
+  @override
+  String get deviceStatusDesc =>
+      'Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here — it is not a value of 0.';
+
+  @override
+  String get deviceStatusSnapshotFailed =>
+      'No device snapshot (the native channel did not reply)';
+
+  @override
+  String get deviceStatusRefresh => 'Read again';
+
+  @override
+  String snapshotCapturedAt(String time) {
+    return 'Read at $time';
+  }
+
+  @override
+  String get snapshotModel => 'Model';
+
+  @override
+  String get snapshotManufacturer => 'Manufacturer';
+
+  @override
+  String get snapshotBrand => 'Brand';
+
+  @override
+  String get snapshotSystemVersion => 'System version';
+
+  @override
+  String snapshotSystemVersionValue(String version, int sdk) {
+    return 'Android $version (API $sdk)';
+  }
+
+  @override
+  String get snapshotNetwork => 'Network';
+
+  @override
+  String get netWifi => 'Wi-Fi';
+
+  @override
+  String get netCellular => 'Cellular';
+
+  @override
+  String get netVpn => 'VPN';
+
+  @override
+  String get netEthernet => 'Ethernet';
+
+  @override
+  String get netNone => 'Offline';
+
+  @override
+  String get netOther => 'Other network';
+
+  @override
+  String get snapshotBattery => 'Battery';
+
+  @override
+  String snapshotBatteryValue(int level, String state) {
+    return '$level% ($state)';
+  }
+
+  @override
+  String get batteryChargingState => 'charging';
+
+  @override
+  String get batteryDischargingState => 'not charging';
+
+  @override
+  String get snapshotBatteryTemp => 'Battery temperature';
+
+  @override
+  String snapshotBatteryTempValue(String value) {
+    return '$value°C';
+  }
+
+  @override
+  String get snapshotStorage => 'Storage';
+
+  @override
+  String snapshotStorageValue(String used, String total) {
+    return '$used GB used of $total GB';
+  }
+
+  @override
+  String get snapshotMemory => 'Memory';
+
+  @override
+  String snapshotMemoryValue(String available, String total) {
+    return '$available GB free of $total GB';
+  }
+
+  @override
+  String get snapshotBrightness => 'Screen brightness';
+
+  @override
+  String snapshotBrightnessValue(int percent, String mode) {
+    return '$percent% ($mode)';
+  }
+
+  @override
+  String get brightnessModeAuto => 'auto';
+
+  @override
+  String get brightnessModeManual => 'manual';
+
+  @override
+  String get snapshotUptime => 'Uptime';
+
+  @override
+  String snapshotUptimeValue(int days, int hours, int minutes) {
+    return '$days d $hours h $minutes m';
+  }
+
+  @override
+  String get unreadableField => 'Not readable on this device';
+
+  @override
+  String get pushDeviceInfo => 'Push device info';
+
+  @override
+  String get pushDeviceInfoDesc =>
+      'Sends this snapshot to your enabled channels as one notification. It goes through the same delivery chain as alerts, so results show up in push history.';
+
+  @override
+  String get pushDeviceInfoSent => 'Handed to your channels — see push history';
+
+  @override
+  String get pushDeviceInfoBusy => 'Pushing…';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return 'Blacklist keyword hit: $kw';
   }

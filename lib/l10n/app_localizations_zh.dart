@@ -2241,6 +2241,153 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noDeviceStateRules => '暂无设备状态规则，点右上角 + 添加';
 
   @override
+  String get deviceStatusEntry => '设备状态';
+
+  @override
+  String deviceStatusBrief(String model, int level) {
+    return '$model · 电量 $level%';
+  }
+
+  @override
+  String deviceStatusBriefCharging(String model, int level) {
+    return '$model · 电量 $level% · 充电中';
+  }
+
+  @override
+  String deviceStatusBriefNoReading(String model) {
+    return '$model · 电量读数还没到';
+  }
+
+  @override
+  String get deviceStatusDesc =>
+      '下面每一项都来自**同一次**读取。显示「这台设备读不到」表示这个系统接口在本机不可用，不等于数值是 0。';
+
+  @override
+  String get deviceStatusSnapshotFailed => '没读到设备快照（原生通道没有回话）';
+
+  @override
+  String get deviceStatusRefresh => '重新读取';
+
+  @override
+  String snapshotCapturedAt(String time) {
+    return '读取于 $time';
+  }
+
+  @override
+  String get snapshotModel => '型号';
+
+  @override
+  String get snapshotManufacturer => '厂商';
+
+  @override
+  String get snapshotBrand => '品牌';
+
+  @override
+  String get snapshotSystemVersion => '系统版本';
+
+  @override
+  String snapshotSystemVersionValue(String version, int sdk) {
+    return 'Android $version（API $sdk）';
+  }
+
+  @override
+  String get snapshotNetwork => '网络';
+
+  @override
+  String get netWifi => 'Wi-Fi';
+
+  @override
+  String get netCellular => '蜂窝数据';
+
+  @override
+  String get netVpn => 'VPN';
+
+  @override
+  String get netEthernet => '以太网';
+
+  @override
+  String get netNone => '未联网';
+
+  @override
+  String get netOther => '其他网络';
+
+  @override
+  String get snapshotBattery => '电量';
+
+  @override
+  String snapshotBatteryValue(int level, String state) {
+    return '$level%（$state）';
+  }
+
+  @override
+  String get batteryChargingState => '充电中';
+
+  @override
+  String get batteryDischargingState => '未充电';
+
+  @override
+  String get snapshotBatteryTemp => '电池温度';
+
+  @override
+  String snapshotBatteryTempValue(String value) {
+    return '$value℃';
+  }
+
+  @override
+  String get snapshotStorage => '存储';
+
+  @override
+  String snapshotStorageValue(String used, String total) {
+    return '已用 $used GB / 共 $total GB';
+  }
+
+  @override
+  String get snapshotMemory => '内存';
+
+  @override
+  String snapshotMemoryValue(String available, String total) {
+    return '可用 $available GB / 共 $total GB';
+  }
+
+  @override
+  String get snapshotBrightness => '屏幕亮度';
+
+  @override
+  String snapshotBrightnessValue(int percent, String mode) {
+    return '$percent%（$mode）';
+  }
+
+  @override
+  String get brightnessModeAuto => '自动';
+
+  @override
+  String get brightnessModeManual => '手动';
+
+  @override
+  String get snapshotUptime => '已运行';
+
+  @override
+  String snapshotUptimeValue(int days, int hours, int minutes) {
+    return '$days 天 $hours 小时 $minutes 分';
+  }
+
+  @override
+  String get unreadableField => '这台设备读不到';
+
+  @override
+  String get pushDeviceInfo => '推送设备信息';
+
+  @override
+  String get pushDeviceInfoDesc =>
+      '把上面这份快照作为一条通知推到你启用的通道；走的是与告警同一条推送链，送达结果在推送历史里看。';
+
+  @override
+  String get pushDeviceInfoSent => '已交给通道推送，结果见推送历史';
+
+  @override
+  String get pushDeviceInfoBusy => '正在推送…';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return '黑名单关键词命中：$kw';
   }

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/battery_service.dart';
 import '../services/update_service.dart';
 import '../services/locale_service.dart';
 import '../services/platform_channel.dart';
@@ -11,6 +12,7 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'backup_restore_page.dart';
+import 'device_snapshot_page.dart';
 import 'stats_page.dart';
 import 'widget_guide_page.dart';
 
@@ -186,6 +188,21 @@ class MorePage extends StatelessWidget {
               title: l10n.deviceName,
               subtitle: deviceName.isEmpty ? l10n.notSet : deviceName,
               onTap: onShowDeviceNameDialog,
+              context: context,
+            ),
+            _buildDivider(context),
+            // T18：设备状态一行简要，点进是 T17 那份快照的十一项
+            _buildNavTile(
+              icon: Icons.speed,
+              iconColor: AppColors.teal,
+              title: l10n.deviceStatusEntry,
+              subtitle: _deviceStatusSubtitle(l10n),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DeviceSnapshotPage(),
+                ),
+              ),
               context: context,
             ),
             _buildDivider(context),
@@ -605,6 +622,22 @@ class MorePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// T18「设备状态」行的简要文案。
+  ///
+  /// 只读电量服务**当前已知**的那一份（广播 + 30 秒轮询刷新，同步可得），
+  /// 不在这里现调 `getDeviceSnapshot`：那是一次异步跨进程读取，而更多页会随主题
+  /// 切换整页重建 ⇒ 每次改设置项都可能白读一遍设备。完整快照在详情页里。
+  String _deviceStatusSubtitle(AppLocalizations l10n) {
+    final model = GetIt.instance<DeviceInfoService>().deviceModel;
+    final label = model.isEmpty ? l10n.notSet : model;
+    final battery = GetIt.instance<BatteryService>();
+    final level = battery.currentLevel;
+    if (level < 0) return l10n.deviceStatusBriefNoReading(label);
+    return battery.currentIsCharging
+        ? l10n.deviceStatusBriefCharging(label, level)
+        : l10n.deviceStatusBrief(label, level);
   }
 
   Widget _buildNavTile({

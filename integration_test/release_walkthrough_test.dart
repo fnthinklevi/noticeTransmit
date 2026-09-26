@@ -19,6 +19,7 @@ import 'package:notice_transmit/pages/app_filter_page.dart';
 import 'package:notice_transmit/pages/backup_restore_page.dart';
 import 'package:notice_transmit/pages/battery_page.dart';
 import 'package:notice_transmit/pages/device_state_page.dart';
+import 'package:notice_transmit/pages/device_snapshot_page.dart';
 import 'package:notice_transmit/pages/email_settings_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/pages/keywords_page.dart';
@@ -135,6 +136,28 @@ void main() {
       'getManufacturer': 'Google',
       'getAppVersion': {'versionName': '1.5.74', 'versionCode': 113},
       'getBatteryStatus': {'level': 77, 'isCharging': false, 'status': 3},
+      // T18：设备状态页的数据源。**故意留一个读不到的维度**（电池温度），
+      // 让"这台设备读不到"那条分支在设备上真走一遍 —— 缺桩=整页显示"没读到"，
+      // 那一节就退化成只检查了失败分支。
+      'getDeviceSnapshot': {
+        'model': 'GateModel',
+        'brand': 'GateBrand',
+        'manufacturer': 'Google',
+        'osVersion': '14',
+        'sdkInt': 34,
+        'network': 'wifi',
+        'batteryLevel': 77,
+        'batteryCharging': false,
+        'storageTotalMb': 120000.0,
+        'storageFreeMb': 40000.0,
+        'memoryTotalMb': 8192.0,
+        'memoryAvailableMb': 3072.0,
+        'brightnessPercent': 45,
+        'brightnessMode': 'auto',
+        'uptimeSeconds': 90000,
+        'capturedAtMs': 1767223200000,
+        'unavailable': ['batteryTemperatureC'],
+      },
       'getDownloadDirectory': '/data/local/tmp',
       // 测试类动作：全部返回成功，覆盖 UI 的成功分支（不联网、不真发）
       'testWebhook': {'success': true, 'message': '闸门通过', 'signed': false},
@@ -1283,6 +1306,67 @@ void main() {
       await _backToHomeQuietly(tester);
     });
 
+    // ── 5.14 设备状态页（T18）：更多 → 点进 → 快照逐项 → 推一条设备信息
+    // ⚠ 编号接在 5.13 后面：5.10/5.11 已被「设备名称」「深色模式」占用
+    await _step(tester, gateFailures, '── 5.14 设备状态页：快照与「推送设备信息」', () async {
+      await _backToHomeQuietly(tester);
+      await _openMoreRow(tester, '设备状态');
+      await _onPage(tester, DeviceSnapshotPage, '设备状态页');
+      // 值本身按机器不同（模拟器多半读不到温区），所以这里钉的是**结构**：
+      // 一项一行、标签都在。数值级断言会绿在一次写死的桩上，这里不给桩。
+      final texts = tester
+          .widgetList<Text>(_in(DeviceSnapshotPage, find.byType(Text)))
+          .map((t) => t.data ?? '')
+          .join(' | ');
+      for (final label in [
+        '型号',
+        '品牌',
+        '厂商',
+        '系统版本',
+        '网络',
+        '电量',
+        '电池温度',
+        '存储',
+        '内存',
+        '屏幕亮度',
+        '已运行',
+      ]) {
+        expect(
+          texts,
+          contains(label),
+          reason: '设备状态页少了「$label」这一项 ⇒ 快照那页的形状变了，用户看不见这一族读数',
+        );
+      }
+      // 至少有实值（电量/亮度带 %），或者明写读不到 —— 两者都没有就是整片空白
+      final hasAnyValue =
+          texts.contains('%') ||
+          texts.contains('这台设备读不到') ||
+          texts.contains('没读到设备快照');
+      expect(
+        hasAnyValue,
+        isTrue,
+        reason: '页面画了标签却一个值都没有 ⇒ 快照没读上来，而界面看起来是"正常的一页"',
+      );
+
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('device-status-push')),
+        '设备状态→推送设备信息',
+      );
+      await _settle(tester, seconds: 3);
+      expect(
+        GetIt.instance<NotificationService>().records.any(
+          (r) => r.title == '设备状态',
+        ),
+        isTrue,
+        reason: '点了没落历史记录 ⇒ 送达结果没有落点（原生回传按 id 更新）',
+      );
+      expect(find.text('已交给通道推送，结果见推送历史'), findsOneWidget);
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
+
     // ── 6. 通知引擎 tab → 电量告警：加规则 → 切开关（骨架页 T15 落地后，电量页是 push 出来的子页）
     await _step(tester, gateFailures, '── 6. 通知引擎→电量告警：加规则 → 切开关', () async {
       await _backToHomeQuietly(tester);
@@ -1951,6 +2035,10 @@ Future<void> _step(
   String name,
   Future<void> Function() body,
 ) async {
+  // 每一节开头也留一行：整轮挂住时（无超时 await、死循环），日志里最后一条 BEGIN
+  // 就是嫌疑节。只有 FAIL 一条打印的话，挂住的运行留下的只有启动日志，什么都指不出来
+  // —— T25 与 T18 各烧掉一轮 28 分钟才知道这件事。
+  debugPrint('GATE-STEP-BEGIN ▸ $name');
   try {
     await body();
   } catch (e) {

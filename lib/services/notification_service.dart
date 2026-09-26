@@ -441,6 +441,41 @@ class NotificationService {
     }
   }
 
+  /// 本机自己造一条信息并立刻送进推送链（T18「推送设备信息」）。
+  ///
+  /// 顺序必须是**先建记录、再补推**：`pushRecordNow` 只把送达状态重置成 pending 并通知
+  /// 原生，它假定这条记录已经在历史里 —— 没有记录，原生回传的送达结果就没有落点，
+  /// 历史里会留下一条永远不更新的记录（或干脆什么都看不到）。
+  ///
+  /// 这里**不选通道**：走哪些通道、主备怎么切，只有原生 `dispatchToChannels` 那一份判据
+  /// （T12 的结论）。Dart 再算一遍就会漂出第二套路由。
+  Future<NotificationRecord> pushSynthesizedRecord({
+    required String title,
+    required String content,
+    required String deviceName,
+  }) async {
+    final now = DateTime.now();
+    final record = NotificationRecord(
+      id: 'devinfo_${now.microsecondsSinceEpoch}',
+      title: title,
+      content: content,
+      subText: '',
+      packageName: '',
+      appName: title,
+      type: 'normal',
+      postTime: now.millisecondsSinceEpoch,
+      time:
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+      deviceName: deviceName,
+    );
+    addRecord(record.toMap());
+    // addRecord 会在插入时补上 channels / deliveryStatus 两份快照，取列表里那条推出去的
+    // 才是与历史页同一条（自己新造的那份这两项还是空的）。
+    final stored = _records.first;
+    await pushRecordNow(stored);
+    return stored;
+  }
+
   /// 手动"现在推送"：把该记录状态重置为发送中，并通知原生立即补推当前所有启用通道。
   /// 用于历史记录中"用户暂停推送"状态下未实际发送的消息。
   Future<void> pushRecordNow(NotificationRecord record) async {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -300,6 +301,7 @@ void main() {
         '关键词过滤',
         '规则约束',
         '设备名称',
+        '设备状态',
         '深色模式',
         '语言',
         '推送开关',
@@ -434,6 +436,82 @@ void main() {
         isTrue,
         reason: '页面里没有闸门用的那个行 key ⇒ 两边各写各的，定位断言成了摆设',
       );
+    });
+
+    test('T18 设备状态页：入口被点开、每一项都被核对、推送按钮被真按', () {
+      final src = walkSrc();
+      final flat = src.replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        RegExp("_openMoreRow\\(tester, '设备状态'\\)").hasMatch(src),
+        isTrue,
+        reason: '「设备状态」入口不再被点开 ⇒ T17 那份快照没有消费者，闸门也管不到这一页',
+      );
+      expect(
+        flat,
+        contains('_onPage(tester, DeviceSnapshotPage,'),
+        reason: '点了没确认落到哪一页 ⇒ "进去是空白也算过"',
+      );
+      expect(
+        flat,
+        contains("find.byKey(const ValueKey('device-status-push'))"),
+        reason: '不点「推送设备信息」⇒ 先落库再补推那条链在设备上从没被走过',
+      );
+      expect(
+        flat,
+        contains("r.title == '设备状态'"),
+        reason: '点了不看历史里真有一条 ⇒ 送达结果没有落点也照样绿',
+      );
+
+      // **每一项**都要被核对：页面加了新行而闸门没跟上时，这一条红（不靠人记得）
+      final page = stripComments(
+        File(
+          '${projectRoot()}/lib/pages/device_snapshot_page.dart',
+        ).readAsStringSync(),
+      );
+      final labelGetters = RegExp(
+        r"\(\s*'[a-zA-Z]+',\s*l10n\.(\w+),",
+      ).allMatches(page).map((m) => m.group(1)!).toSet();
+      expect(
+        labelGetters.length,
+        greaterThanOrEqualTo(10),
+        reason: '提取失效 = 空守卫',
+      );
+      final arb =
+          jsonDecode(
+                File(
+                  '${projectRoot()}/lib/l10n/arb/app_zh.arb',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      // ⚠ 只在 5.14 那一节的源码里找标签：`'电池温度'` 在温度页那几步里也是 chip 文案，
+      // 全文搜索会让"这一项不再核对"绿着过关（反证 G1 实测撞到的）。
+      final sectionStart = src.indexOf('5.14 设备状态页');
+      final sectionEnd = src.indexOf('── 6. 通知引擎', sectionStart);
+      expect(sectionStart, greaterThan(-1), reason: '闸门里没有 5.14 设备状态页那一节');
+      expect(sectionEnd, greaterThan(sectionStart), reason: '取不到那一节的结尾');
+      final section = src.substring(sectionStart, sectionEnd);
+      for (final getter in labelGetters) {
+        final zh = arb[getter];
+        expect(zh, isA<String>(), reason: 'ARB 里没有 $getter ⇒ 提取或词条命名漂了');
+        expect(
+          section,
+          contains("'${(zh as String).split(RegExp('[：:{（(]')).first}'"),
+          reason: '页面有「$zh」这一项，而 5.14 不核对它 ⇒ 项目丢了也测不出来',
+        );
+      }
+    });
+
+    test('每一节都留下开始与失败两行痕迹（挂住的运行也要能定位）', () {
+      final src = walkSrc();
+      final helper = blockAfter(src, 'Future<void> _step(');
+      expect(
+        helper,
+        contains("GATE-STEP-BEGIN"),
+        reason:
+            '只有 FAIL 一行时，"卡在某一节"在日志里长得和"还没跑到"一模一样 —— '
+            '两轮 GATE_RC=124 都是这么浪费掉的',
+      );
+      expect(helper, contains('GATE-STEP-FAIL'));
     });
 
     test('备份往返真的擦掉并恢复了引擎规则两族（#95）', () {

@@ -1031,6 +1031,111 @@
   "deviceStateValueLabel": "Brightness threshold (%)",
   "deviceStateNoValue": "Network triggers need no threshold",
   "noDeviceStateRules": "No device state rules yet — tap + to add one",
+  "deviceStatusEntry": "Device status",
+  "deviceStatusBrief": "{model} · battery {level}%",
+  "@deviceStatusBrief": {
+    "placeholders": {
+      "model": { "type": "String" },
+      "level": { "type": "int" }
+    }
+  },
+  "deviceStatusBriefCharging": "{model} · battery {level}% · charging",
+  "@deviceStatusBriefCharging": {
+    "placeholders": {
+      "model": { "type": "String" },
+      "level": { "type": "int" }
+    }
+  },
+  "deviceStatusBriefNoReading": "{model} · no battery reading yet",
+  "@deviceStatusBriefNoReading": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "deviceStatusDesc": "Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here — it is not a value of 0.",
+  "deviceStatusSnapshotFailed": "No device snapshot (the native channel did not reply)",
+  "deviceStatusRefresh": "Read again",
+  "snapshotCapturedAt": "Read at {time}",
+  "@snapshotCapturedAt": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "snapshotModel": "Model",
+  "snapshotManufacturer": "Manufacturer",
+  "snapshotBrand": "Brand",
+  "snapshotSystemVersion": "System version",
+  "snapshotSystemVersionValue": "Android {version} (API {sdk})",
+  "@snapshotSystemVersionValue": {
+    "placeholders": {
+      "version": { "type": "String" },
+      "sdk": { "type": "int" }
+    }
+  },
+  "snapshotNetwork": "Network",
+  "netWifi": "Wi-Fi",
+  "netCellular": "Cellular",
+  "netVpn": "VPN",
+  "netEthernet": "Ethernet",
+  "netNone": "Offline",
+  "netOther": "Other network",
+  "snapshotBattery": "Battery",
+  "snapshotBatteryValue": "{level}% ({state})",
+  "@snapshotBatteryValue": {
+    "placeholders": {
+      "level": { "type": "int" },
+      "state": { "type": "String" }
+    }
+  },
+  "batteryChargingState": "charging",
+  "batteryDischargingState": "not charging",
+  "snapshotBatteryTemp": "Battery temperature",
+  "snapshotBatteryTempValue": "{value}°C",
+  "@snapshotBatteryTempValue": {
+    "placeholders": {
+      "value": { "type": "String" }
+    }
+  },
+  "snapshotStorage": "Storage",
+  "snapshotStorageValue": "{used} GB used of {total} GB",
+  "@snapshotStorageValue": {
+    "placeholders": {
+      "used": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "snapshotMemory": "Memory",
+  "snapshotMemoryValue": "{available} GB free of {total} GB",
+  "@snapshotMemoryValue": {
+    "placeholders": {
+      "available": { "type": "String" },
+      "total": { "type": "String" }
+    }
+  },
+  "snapshotBrightness": "Screen brightness",
+  "snapshotBrightnessValue": "{percent}% ({mode})",
+  "@snapshotBrightnessValue": {
+    "placeholders": {
+      "percent": { "type": "int" },
+      "mode": { "type": "String" }
+    }
+  },
+  "brightnessModeAuto": "auto",
+  "brightnessModeManual": "manual",
+  "snapshotUptime": "Uptime",
+  "snapshotUptimeValue": "{days} d {hours} h {minutes} m",
+  "@snapshotUptimeValue": {
+    "placeholders": {
+      "days": { "type": "int" },
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" }
+    }
+  },
+  "unreadableField": "Not readable on this device",
+  "pushDeviceInfo": "Push device info",
+  "pushDeviceInfoDesc": "Sends this snapshot to your enabled channels as one notification. It goes through the same delivery chain as alerts, so results show up in push history.",
+  "pushDeviceInfoSent": "Handed to your channels — see push history",
+  "pushDeviceInfoBusy": "Pushing…",
   "testerSrcBlacklist": "Blacklist keyword hit: {kw}",
   "@testerSrcBlacklist": {
     "placeholders": {
