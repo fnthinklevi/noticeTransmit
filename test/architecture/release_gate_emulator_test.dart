@@ -501,7 +501,64 @@ void main() {
       }
     });
 
-    test('每一节都留下开始与失败两行痕迹（挂住的运行也要能定位）', () {
+    test('影子差异出口：闸门打一行，发版脚本接住它（T72 第一步）', () {
+      // ① 闸门末尾必须打这一行，且**无条件**（n=0 也是一种答复；缺行才说明出口坏了）
+      final src = walkSrc();
+      final at = src.indexOf("EngineRuleDiffLog().read()");
+      expect(at, greaterThan(-1), reason: '闸门不再读影子差异环 ⇒ 「差异清零才切主路径」又变成一句空话');
+      final between = src.substring(at, at + 400);
+      // 标记名从"闸门实际打出来的那个字符串"里取，不在下面重打一遍字面量：
+      // 两侧各写一份、朝同一个方向写错，正是本项目撞过的那类"守卫自己成了第二份拷贝"。
+      final printed = RegExp(
+        r"'(GATE-DIFF-[A-Z]+)",
+      ).firstMatch(between)?.group(1);
+      expect(
+        printed,
+        isNotNull,
+        reason: '读了环，却没打出以 GATE-DIFF-* 开头的字符串 ⇒ 报告里看不见这一行',
+      );
+      expect(
+        RegExp(
+          r'\bif\s*\(',
+        ).hasMatch(between.substring(0, between.indexOf(printed!))),
+        isFalse,
+        reason: '打印被 if 包住（典型是"有差异才打"）⇒ 清零与出口失效在报告里长得一样',
+      );
+
+      // ② 发版脚本必须 grep 的正是 ① 打出来的那个标记，并且"缺行"要判红
+      final sh = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
+      expect(
+        sh.contains('grep -a "$printed"'),
+        isTrue,
+        reason: '闸门打 $printed，脚本却 grep 别的字面量 ⇒ 两边对不上，等于没有出口',
+      );
+      expect(
+        RegExp('fail "闸门没有打印 $printed').hasMatch(sh),
+        isTrue,
+        reason: '缺这一行必须是红：静默放行就等于把"没人打印"当成"清零了"',
+      );
+      expect(
+        sh.contains(r'${N:-0}'),
+        isTrue,
+        reason: 'n>0 要单独提示（那是切换门槛未满足的证据），且必须带 :- 兜底防 set -u',
+      );
+      expect(
+        RegExp("sed -n 's/.*$printed").hasMatch(sh),
+        isTrue,
+        reason:
+            '取 n 必须锚在这个标记上。写成贪婪的 .*n= 会抓到差异明细里的 '
+            '"库=n=55 镜像=3" —— 报告里的 n 与真实差异条数对不上，而人看不出来',
+      );
+      expect(
+        sh.indexOf('grep -a "$printed"') < sh.indexOf(r'exit $RC'),
+        isTrue,
+        reason: '出口写在 exit 之后 ⇒ 报告里永远不会出现这一行',
+      );
+    });
+
+    test('每一节都留下痕迹，且痕迹要覆盖到裸段（挂住的运行也要能定位）', () {
       final src = walkSrc();
       final helper = blockAfter(src, 'Future<void> _step(');
       expect(
@@ -512,6 +569,90 @@ void main() {
             '两轮 GATE_RC=124 都是这么浪费掉的',
       );
       expect(helper, contains('GATE-STEP-FAIL'));
+      // 有 BEGIN/FAIL 两行还不够：整轮挂住时这两行都证明"能留痕"，却没人给挂住的那节兜底。
+      // 三轮 GATE_RC=124 的代价是 28 分钟换一个"不知道卡在哪"。
+      expect(
+        helper,
+        contains('.timeout('),
+        reason: '没有节内预算 ⇒ 一节挂住就是整轮 124，其余几十节的红一个都拿不回来',
+      );
+      expect(
+        helper,
+        contains('_stepBudget'),
+        reason: '预算必须是同一个常量；别处再写一个数字就是两份口径，改一处漏一处',
+      );
+      final tryAt = helper.indexOf('try {');
+      final toAt = helper.indexOf('.timeout(');
+      final catchAt = helper.indexOf('} catch');
+      expect(
+        tryAt > -1 && tryAt < toAt && toAt < catchAt,
+        isTrue,
+        reason: '超时若落在 try 之外 ⇒ 它掀掉的是整轮，而不是记成"这一节红"',
+      );
+      // 「谁先说话」是契约而不是巧合：㊼ 把用例级超时从 18 放宽到 30 的时候，节内预算还不存在。
+      final whole = read('integration_test/release_walkthrough_test.dart');
+      final budget = RegExp(
+        r'const _stepBudget = Duration\(minutes: (\d+)\)',
+      ).firstMatch(whole);
+      final caseTimeout = RegExp(
+        r'timeout: const Timeout\(Duration\(minutes: (\d+)\)\)',
+      ).firstMatch(whole);
+      expect(budget, isNotNull, reason: '节内预算的形状变了 ⇒ 这条判据要跟着改，别让它静默失效');
+      expect(
+        caseTimeout,
+        isNotNull,
+        reason: '主用例不再有用例级超时 ⇒ 挂住时只剩外层 timeout 掐整轮',
+      );
+      expect(
+        int.parse(caseTimeout!.group(1)!) >= int.parse(budget!.group(1)!) * 4,
+        isTrue,
+        reason:
+            '用例级超时若不远大于节内预算，先说话的就不是"哪一节挂住"而是"整轮超时" —— '
+            '今天四轮 GATE_RC=124 就是这么来的（外层 1750s < 用例 30 分钟，用例级永远轮不到）',
+      );
+      expect(
+        blockAfter(src, 'void _mark('),
+        contains('GATE-MARK'),
+        reason: '_mark 是给"没被 _step 包住的裸段"用的里程碑，它自己不打印就等于没有',
+      );
+
+      // 上一条只证明"_step 里会打两行"，**不证明每一段都被 _step 包住**。
+      // 实测就栽在这里：主用例从 testWidgets 起有 500 多行裸代码（5.1 webhook 两百多行、
+      // 5.2 邮件、5.3 自建应用都没进 _step），连着三轮 GATE_RC=124 日志里一个 BEGIN 都没有
+      // —— 存在性守卫全绿，定位能力却为零。所以判据必须是**覆盖**：任意一段连续裸代码不许超过 60 行。
+      final lines = src.split('\n');
+      final start = lines.indexWhere((l) => l.contains("testWidgets('全功能点击"));
+      expect(start, greaterThan(-1), reason: '主用例首行改了 ⇒ 这条判据要跟着改，别让它静默失效');
+      final firstStep = lines.indexWhere(
+        (l) => l.contains('await _step('),
+        start,
+      );
+      expect(
+        firstStep,
+        greaterThan(start),
+        reason: '主用例里一个 _step 都没有 ⇒ 无从判断覆盖',
+      );
+      const maxBlind = 60;
+      final marks = <int>[start];
+      for (var i = start; i <= firstStep; i++) {
+        if (lines[i].contains('_mark(') || lines[i].contains('await _step(')) {
+          marks.add(i);
+        }
+      }
+      final blindSpans = <String>[];
+      for (var k = 1; k < marks.length; k++) {
+        final gap = marks[k] - marks[k - 1];
+        if (gap > maxBlind) {
+          blindSpans.add('第 ${marks[k - 1] + 1}–${marks[k]} 行（空 ${gap - 1} 行）');
+        }
+      }
+      expect(
+        blindSpans,
+        isEmpty,
+        reason:
+            '这些区段没有任何痕迹 ⇒ 挂在这里时日志里一个线索都没有，整轮只能重跑赌运气。'
+            '补一行 _mark(\'几.几 在做什么\') 即可（判据：连续裸代码不超 $maxBlind 行）',
+      );
     });
 
     test('备份往返真的擦掉并恢复了引擎规则两族（#95）', () {

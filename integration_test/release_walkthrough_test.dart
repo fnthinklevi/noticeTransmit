@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -42,6 +43,7 @@ import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:notice_transmit/services/device_state_service.dart';
+import 'package:notice_transmit/services/engine_rule_diff.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/filter_service.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
@@ -265,6 +267,7 @@ void main() {
     );
 
     final gateFailures = <String, String>{};
+    _mark('装配完成：主界面起来、描述符拉通、起点数据已擦干净');
     // ── 1. 通知页：服务启停（真实控件是圆形按钮，不是文案）──────────────
     await _tap(
       tester,
@@ -288,11 +291,13 @@ void main() {
     );
 
     // ── 2. 权限设置页：进入即读三态权限，页面必须渲染且不抛 ──────────────
+    _mark('2 权限设置页：进页读三态');
     await _tap(tester, find.text('权限设置'), '通知页→权限设置');
     await _onPage(tester, PermissionSettingsPage, '权限设置页');
     await _backToHome(tester);
 
     // ── 3. 短信监听页：两个开关 + SIM 卡选择 ────────────────────────────
+    _mark('3 短信监听页：两个开关 + SIM 选择');
     await _tap(tester, find.text('短信监听'), '通知页→短信监听');
     await _onPage(tester, SmsMonitorSettingsPage, '短信监听页');
     final smsSwitches = _in(
@@ -313,6 +318,7 @@ void main() {
     await _backToHome(tester);
 
     // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
+    _mark('4 推送历史页：进页 + 溢出菜单导出 JSON（真落盘）');
     await _tap(tester, find.text('推送历史'), '通知页→推送历史');
     await _settle(tester, seconds: 2);
     expect(
@@ -361,6 +367,7 @@ void main() {
     await _backToHome(tester);
 
     // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
+    _mark('5 更多 tab：以下入口逐个进页');
     await _tap(
       tester,
       find.descendant(
@@ -372,6 +379,7 @@ void main() {
     await _onPage(tester, MorePage, '更多页');
 
     // 5.1 Webhook 通道（T07-B 起是「列表页 → 单通道详情页」两页形状）：
+    _mark('5.1 webhook：列表页→单通道详情页，建两条改一条删两条');
     //     FAB 建第一条 → 仅测试（不许写库）→ 测试并保存 → 回列表 → 建第二条 →
     //     点第一条行进详情改一处 → 断言第二条原样 → 长按复制 → 长按删除并确认。
     //     删完必须断言"活下来的是哪一条"：删一行后其余行继承错位 id 是这个页面
@@ -428,6 +436,7 @@ void main() {
     );
 
     // 第二条：一次只改一件事，红的时候能点名
+    _mark('5.1 建第二条（一次只改一件事）');
     await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增第二条');
     await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(第二条)');
     await _fillWebhookUrl(tester, wecomUrl);
@@ -480,6 +489,7 @@ void main() {
     await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(改后)');
 
     // 列表页的整族动作：长按复制 / 长按删除（T05 + T06）
+    _mark('5.1 列表页整族动作：长按复制 / 长按删除');
     final row = find.byKey(ValueKey('webhook-channel-row-$webhookFirstId'));
     await _longPress(tester, row, 'Webhook 列表行');
     await _must(
@@ -512,6 +522,7 @@ void main() {
     );
 
     // 删两条（复制的那条 + 钉钉那条），只留企微那条给后面的备份与状态页用。
+    _mark('5.1 删两条：企微那条留给后面的备份与状态页');
     //
     // ⚠ 第二条的删除**先退出列表页再重新进来**：T07-B 的 8 轮闸门里反复出现同一个
     // 现象 —— 用弹层删掉一行之后，在同一页上再长按另一行，行区域的手势全部无效
@@ -552,6 +563,7 @@ void main() {
     expect(afterCopyDelete, hasLength(2));
 
     // 退出列表页 → 重新进来（全新的一页），再删原本那条
+    _mark('5.1 删第二条：先退出列表页再重进（弹层删完本页手势失灵那条遗留）');
     _nav(tester).pop();
     await _settle(tester, seconds: 2);
     await _openMoreRow(tester, 'Webhook 推送通道');
@@ -587,6 +599,7 @@ void main() {
     await _backToHome(tester);
 
     // 5.2 邮件通道：新建 → 填表 → 保存 → 重进改一处 → 保存
+    _mark('5.2 邮件通道：新建→填表→保存→重进改一处');
     await _openMoreRow(tester, '邮件转发通道');
     await _onPage(tester, EmailSettingsPage, '邮件设置页');
     await _tap(
@@ -628,6 +641,7 @@ void main() {
     expect(mail.single.toEmail, 'target@qq.com', reason: '邮件字段错位（to）');
 
     // 5.3 自建应用通道：FAB → 类型弹层 → 必填校验 → 填 → 保存 → 测试
+    _mark('5.3 自建应用：FAB→类型弹层→必填校验→填→保存');
     await _openMoreRow(tester, '自建应用通道');
     await _onPage(tester, AppChannelListPage, '自建应用通道列表');
     await _tap(
@@ -686,6 +700,7 @@ void main() {
       reason: '自建应用通道未保存（必填校验/字段键名链路）',
     );
     // T04「仅测试」：与「测试并保存」是两个动作 ⇒ 它不写库，但结论同样要落单点。
+    _mark('5.3 仅测试：不写库，但结论照样落单点');
     await _tap(tester, _appBarText('仅测试'), '应用通道→仅测试');
     await _settle(tester, seconds: 2);
     expect(
@@ -704,6 +719,7 @@ void main() {
       reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
     );
     // T07：回到列表页做"整族级"的动作（复制 / 启停 / 删除）。详情页只管一条。
+    _mark('5.3 回列表页做整族动作（复制/启停/删除）');
     // ⚠ 不用 `tester.pageBack()`：它找的是 Cupertino 返回键 / 本地化 tooltip，
     // 本应用的页头是自己搭的 Material AppBar ⇒ 当场 "One back button expected"（实测红）。
     _nav(tester).pop();
@@ -748,6 +764,7 @@ void main() {
     );
 
     // T06：删除要二次确认，且这一族的咽喉在列表页。
+    _mark('5.3 删除走二次确认咽喉');
     final copyId = appChannels.last['id'].toString();
     final copyRow = find.byKey(ValueKey('app-channel-row-$copyId'));
     await _longPress(tester, copyRow, '复制出来的那条');
@@ -1608,6 +1625,24 @@ void main() {
       },
     );
 
+    // ── 8b. 影子差异出口（T72 的第一步）────────────────────────────────────
+    // 「差异清零才切主路径」是 T21 定的门槛，可今天没有任何地方回答得出"清零了没有"：
+    // 那个环住在设备 prefs 里，只有它的单测与 T22 自检读它。所以这里**无条件**打一行 ——
+    // `n=0` 是一种答复，**缺这一行**才说明出口自己坏了（release_emulator.sh 据此判红）。
+    // 环有上限 20，`n=20/20` 要看得见"可能已经挤掉了更早的差异"；最新一条逐字段打，
+    // 默认的 `EngineRuleDiff#3f2a1c` 写在发版报告里等于没写。
+    final ring = await EngineRuleDiffLog().read();
+    final byKind = <String, int>{};
+    for (final d in ring) {
+      byKind[d.kind] = (byKind[d.kind] ?? 0) + 1;
+    }
+    final newest = ring.isEmpty ? null : ring.last;
+    debugPrint(
+      'GATE-DIFF-RING ▸ n=${ring.length}/${EngineRuleDiffLog.maxEntries} '
+      'kinds=$byKind families=${ring.map((d) => d.family).toSet().toList()} '
+      'newest=${newest == null ? '-' : '${newest.family}/${newest.kind}#${newest.index} ${newest.detail}'}',
+    );
+
     // ── 9. 全程不得有任何未捕获异常 ──────────────────────────────────────
     expect(tester.takeException(), isNull, reason: '闸门过程中出现了未捕获异常（上面各节已定位到页面）');
     // 一节一报：上面被 _step 收下的失败在这里统一判红，不吞任何一个
@@ -1618,10 +1653,15 @@ void main() {
           '以下闸门步骤失败：\n'
           '${gateFailures.entries.map((e) => "  \u25b8 ${e.key} \u2192 ${e.value}").join("\n")}',
     );
-    // 预算说明（㊼）：本机 5:23，但 CI 的 job 用 `-gpu swiftshader_indirect` 软件渲染，
-    // 比本机 `-gpu auto` 慢数倍。原来钉 18 分钟 ⇒ 超时先于功能失败，报出来的是
-    // "闸门超时红"，会被误读成功能回归。放宽到 30，配套 job 预算 45 分钟。
-  }, timeout: const Timeout(Duration(minutes: 30)));
+    // 预算说明（㊼ → 本次）：CI 的 job 用 `-gpu swiftshader_indirect` 软件渲染，比本机 `-gpu auto`
+    // 慢数倍。㊼ 当年钉 18 分钟时，超时先于功能失败，报出来的是"闸门超时红"，会被误读成
+    // 功能回归 ⇒ 放宽到 30，配套 job 预算 45 分钟。
+    // ⚠ 30 今天反而是错的：本机整轮只给 1750s（扣掉构建约 28 分钟）**小于** 30 分钟 ⇒ 真挂住时
+    // 外层 timeout 先掐，这一条永远轮不到说话，留下的只有一个 `GATE_RC=124` 和一片启动日志
+    //（今天四轮 124 全是这个形状）。而有了 `_step` 的 3 分钟节内预算之后，"挂住"会在 3 分钟内
+    // 变成一条**点名到节**的 TimeoutException 写进失败清单 —— ㊼ 担心的"被误读成功能红"不成立了，
+    // 因为报出来的已经是"哪一节没跑完"。18 = 实测正常轮 8:42 的两倍，够三节各挂一次还有余量。
+  }, timeout: const Timeout(Duration(minutes: 18)));
 }
 
 /// 假 FilePicker：把「选文件」变成返回测试自己写出来的那个备份文件路径。
@@ -2027,6 +2067,28 @@ Future<void> _fillWebhookUrl(WidgetTester t, String url) async {
   await _settle(t);
 }
 
+/// 一节最多给这么长时间。**挂住的某一节不该吃掉整轮**：此前每一轮 GATE_RC=124 都是
+/// 一整轮 28 分钟什么结论都没有换回来，日志里连"卡在哪"都指不出来。
+/// 超时按"该节失败"记账，然后继续跑后面的节 —— 于是报告里留下的是"某一节 3 分钟没动"，
+/// 而不是一片空白；一轮仍然能把其余所有节的红一起带回来。
+/// 3 分钟的余量按最重的 5.1（webhook 建两条改一条删两条）实测的十倍给。
+/// 一节最多给这么长时间。**挂住的某一节不该吃掉整轮**：此前每一轮 GATE_RC=124 都是
+/// 一整轮 28 分钟什么结论都没有换回来，日志里连"卡在哪"都指不出来。
+/// 超时按"该节失败"记账并继续往下走，于是报告里留下的是"某一节 3 分钟没动"，而不是一片空白。
+///
+/// ⚠ 实测局限（用 1ms 预算逼出来的，记录见 base.md（87））：被打断的 body **取消不掉**，它之后会
+/// 带着 pending 的 await 与后面每一节抢同一套测试操作 ⇒ 后续各节全部变成
+/// `Guarded function conflict.`。所以本预算**只保证点名挂住的那一节，本轮其余节的结论作废**
+/// —— 真要"一节挂掉其余照跑"，得把各节拆成独立 testWidgets（㊼ 对 smoke 做过的那种）。
+/// 3 分钟按最重的 5.1（webhook 建两条改一条删两条）实测约 40 秒的十倍给。
+const _stepBudget = Duration(minutes: 3);
+
+/// 给**没被 `_step` 包住的裸段**留一行里程碑：5.1 webhook / 5.2 邮件 / 5.3 自建应用各自
+/// 两百行左右，都是"整轮挂住"最可能发生的地方，而挂住的运行永远走不到 FAIL 那条打印。
+/// 没有这些痕迹，日志里留下的只有启动那几行 —— 三轮 GATE_RC=124 就是这么白烧的。
+/// 覆盖判据（连续裸代码不许超过 60 行）见 `test/architecture/release_gate_emulator_test.dart`。
+void _mark(String name) => debugPrint('GATE-MARK ▸ $name');
+
 /// 一节红掉不影响后面的节继续跑：模拟器一轮要 4 分钟，一节一轮试不起。
 /// 失败**照样让闸门红**（末尾统一 expect），只是把"这一轮能看见多少问题"放大。
 Future<void> _step(
@@ -2040,7 +2102,11 @@ Future<void> _step(
   // —— T25 与 T18 各烧掉一轮 28 分钟才知道这件事。
   debugPrint('GATE-STEP-BEGIN ▸ $name');
   try {
-    await body();
+    await body().timeout(
+      _stepBudget,
+      onTimeout: () =>
+          throw TimeoutException('本节在 $_stepBudget 内没跑完 ⇒ 挂住，不是断言失败'),
+    );
   } catch (e) {
     failures[name] = e.toString().split('\n').first;
     debugPrint('GATE-STEP-FAIL ▸ $name ▸ $e');
