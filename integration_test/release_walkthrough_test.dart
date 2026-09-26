@@ -758,6 +758,27 @@ void main() {
         isNotEmpty,
         reason: '温度规则没建成（对话框确认链路或存储断链）',
       );
+      // T25：页右上的「试一次」必须真出结果 —— 求值在原生（判据只有一份），
+      // 模拟器上读不读得到温区都可能，但"点了什么都不知道"就是这一节的失败。
+      await _tap(
+        tester,
+        _in(TemperaturePage, find.byIcon(Icons.science_outlined)),
+        '温度→试一次',
+      );
+      await _settle(tester);
+      final previewBody = find.byKey(const ValueKey('temp-preview-body'));
+      await _waitUntil(tester, previewBody, '温度试跑结果弹层');
+      expect(
+        tester.widget<Text>(previewBody).data,
+        isNotEmpty,
+        reason: '弹层是空的 ⇒ 原生回了载荷而 Dart 没渲染出来（三种结局都会看不见）',
+      );
+      await _tap(
+        tester,
+        _in(AlertDialog, find.text('关闭')),
+        '温度试跑→关闭',
+      );
+      await _settle(tester);
       await _backToHome(tester);
 
       await _backToHomeQuietly(tester);

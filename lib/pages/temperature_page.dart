@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../models/temperature_preview.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -53,6 +54,12 @@ class _TemperaturePageState extends State<TemperaturePage> {
       appBar: AppBar(
         title: Text(l10n.temperatureTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.science_outlined),
+            tooltip: l10n.tempTestEntry,
+            // 空列表也允许点：原生会回 NO_RULES，界面就能说清"为什么一条都不会响"
+            onPressed: () => _runPreview(_service.rules),
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             tooltip: l10n.addRule,
@@ -161,6 +168,12 @@ class _TemperaturePageState extends State<TemperaturePage> {
           onTap: () => _showEditRuleDialog(rule),
         ),
         CardAction(
+          // T25：单条试跑 —— 判据在原生那一份里跑，这里只渲染结果。
+          icon: Icons.science_outlined,
+          label: l10n.tempTestEntry,
+          onTap: () => _runPreview([rule]),
+        ),
+        CardAction(
           icon: Icons.copy,
           label: l10n.duplicate,
           onTap: () => _duplicateRule(rule, title),
@@ -180,6 +193,89 @@ class _TemperaturePageState extends State<TemperaturePage> {
       ],
     );
   }
+
+  /// T25：把这一组规则交给原生试跑一次，结果显示在一个只读弹层里。
+  Future<void> _runPreview(List<Map<String, dynamic>> rules) async {
+    final l10n = AppLocalizations.of(context);
+    final preview = await _service.previewTest(rules);
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg(context),
+        title: Text(l10n.tempTestTitle),
+        content: SingleChildScrollView(
+          child: Text(
+            _previewBody(l10n, preview),
+            key: const ValueKey('temp-preview-body'),
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.primaryLabel(context),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.close),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 结果正文。三种结局**必须分得开**：会触发 / 不会触发（附原因）/ 没测成。
+  /// 把"没测成"显示成"不会触发"是这里最坏的一种错法 —— 用户会去改阈值，而问题在传感器。
+  String _previewBody(AppLocalizations l10n, TemperaturePreview? preview) {
+    if (preview == null || preview.failed) {
+      final error = preview?.error;
+      return error == null
+          ? l10n.tempTestFailed
+          : '${l10n.tempTestFailed}\n$error';
+    }
+    final lines = <String>[];
+    if (preview.temps.isEmpty) {
+      lines.add(l10n.tempTestNoDims);
+    } else {
+      final dims = preview.temps.entries
+          .map(
+            (e) => '${_dimLabel(e.key, l10n)} ${e.value.toStringAsFixed(1)}℃',
+          )
+          .join('、');
+      lines.add('${l10n.tempTestReadings}$dims');
+    }
+    if (preview.steps.isNotEmpty) {
+      lines.add(
+        '${l10n.tempTestSteps}${preview.steps.map((s) => _outcomeLabel(s.outcome, l10n)).join(' → ')}',
+      );
+    }
+    if (preview.fired) {
+      lines.add('${l10n.tempTestFired}${preview.title ?? ''}');
+      final content = preview.content;
+      if (content != null && content.isNotEmpty) lines.add(content);
+    } else {
+      lines.add(
+        '${l10n.tempTestSilent}${_outcomeLabel(preview.silence ?? '', l10n)}',
+      );
+    }
+    return lines.join('\n');
+  }
+
+  /// 原生 `Silence` 枚举名 / `FIRE` → 本地化说明。**必须覆盖原生那侧的全部枚举值**：
+  /// 原生新增原因而这里没跟上时，界面会退回显示原始枚举名（用户读不懂），
+  /// 由 test/architecture/temperature_preview_contract_test.dart 钉成红。
+  String _outcomeLabel(String outcome, AppLocalizations l10n) =>
+      switch (outcome) {
+        'FIRE' => l10n.tempOutcomeFire,
+        'NO_RULES' => l10n.tempSilenceNoRules,
+        'NO_READING' => l10n.tempSilenceNoReading,
+        'NOT_TRIGGERED' => l10n.tempSilenceNotTriggered,
+        'NOT_CROSSING' => l10n.tempSilenceNotCrossing,
+        'BASELINE' => l10n.tempSilenceBaseline,
+        'IN_COOLDOWN' => l10n.tempSilenceInCooldown,
+        'DISABLED' => l10n.tempSilenceDisabled,
+        _ => outcome,
+      };
 
   /// 删除规则 —— **滑出按钮与长按菜单共用这一条**（T06 的单一咽喉）。
   /// 这一族以前两条路都是"点一下就没了"，而阈值规则是拖滑块调出来的，重建一次并不便宜。

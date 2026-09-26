@@ -2248,6 +2248,58 @@ class AppLocalizationsEn extends AppLocalizations {
       'When on, battery/temperature alerts also pass the keyword allow/block lists before sending; app filtering does not apply (these alerts originate on this device). Suppressed alerts are recorded in push history with the reason.';
 
   @override
+  String get tempTestEntry => 'Test once';
+
+  @override
+  String get tempTestTitle => 'Temperature alert preview';
+
+  @override
+  String get tempTestReadings => 'Current readings: ';
+
+  @override
+  String get tempTestSteps => 'Walk: ';
+
+  @override
+  String get tempTestFired => 'Would fire: ';
+
+  @override
+  String get tempTestSilent => 'Would not fire: ';
+
+  @override
+  String get tempTestFailed =>
+      'Preview failed (not measured — does not mean it would not fire)';
+
+  @override
+  String get tempTestNoDims =>
+      'No temperature dimension is readable on this device';
+
+  @override
+  String get tempOutcomeFire => 'fire';
+
+  @override
+  String get tempSilenceNoRules => 'no enabled temperature rules';
+
+  @override
+  String get tempSilenceNoReading =>
+      'this dimension has no reading on this device';
+
+  @override
+  String get tempSilenceNotTriggered => 'threshold not reached';
+
+  @override
+  String get tempSilenceNotCrossing =>
+      'no crossing (previous sample was already above the threshold)';
+
+  @override
+  String get tempSilenceBaseline => 'first sample only records the baseline';
+
+  @override
+  String get tempSilenceInCooldown => 'in cooldown';
+
+  @override
+  String get tempSilenceDisabled => 'temperature alerts are off';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return 'Blacklist keyword hit: $kw';
   }

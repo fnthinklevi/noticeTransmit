@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
+import '../models/temperature_preview.dart';
 import 'engine_rule_codec.dart';
 import 'engine_rule_repository.dart';
 import 'platform_channel.dart';
@@ -66,6 +68,41 @@ class TemperatureService extends ChangeNotifier {
       });
     } catch (e) {
       debugPrint('TemperatureService: 设置推送开关失败: $e');
+    }
+  }
+
+  /// T25：把一组温度规则（**可以是还没保存的草稿**）交给原生试跑一次。
+  ///
+  /// 求值放在原生是因为判据只有一份（`NotificationEngine`）；预览用的是一个**新引擎实例**，
+  /// 所以不会吃掉真实告警的冷却，也不会挪动 baseline。文案也是原生那条渲染抄本，
+  /// 预览里看到的标题/正文就是真会推出去的那一份。
+  ///
+  /// 返回 null 只有一种含义：通道没通/回的形状不是 Map。这与"不会触发"必须分开显示 ——
+  /// 后者是答案，前者是没测成。
+  Future<TemperaturePreview?> previewTest(
+    List<Map<String, dynamic>> rules,
+  ) async {
+    final encoded = EngineRuleCodec.normalizeAll(
+      rules,
+      EngineRuleCodec.familyTemperature,
+    );
+    try {
+      // ⚠ 必须带超时：平台通道没有"永不回复"这个选项。原生那侧一旦不回话，
+      //   没有 timeout 的 await 会永远挂着 —— 界面停在按钮上，测试也不会报错，
+      //   只表现为"整轮跑不完"（闸门第一次复跑 T25 就是这么停住的）。
+      final res = await _channel
+          .invokeMethod<Map<Object?, Object?>>('previewTemperatureRule', {
+            'rulesJson': jsonEncode(encoded),
+          })
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () => throw TimeoutException('原生 8s 未回复'),
+          );
+      if (res == null) return null;
+      return TemperaturePreview.fromMap(res);
+    } catch (e) {
+      debugPrint('TemperatureService: 温度试跑失败: $e');
+      return null;
     }
   }
 

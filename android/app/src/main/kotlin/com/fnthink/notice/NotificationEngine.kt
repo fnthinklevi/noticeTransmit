@@ -36,6 +36,19 @@ enum class Silence {
 }
 
 /**
+ * T25 试跑结果（[NotificationEngine.previewTemperature] 的返回）。
+ *
+ * [steps] 逐步回传而不是只回最终结论：用户问的经常是"我配了 45℃ 为什么现在 50℃ 还不响"，
+ * 答案在**过程**里（首轮基准 / 没有跨越 / 读不到该维度），只回"不响"就等于让人去猜。
+ */
+data class TemperaturePreview(
+    val rule: BatteryRule?,
+    val temperatureC: Double?,
+    val silence: Silence?,
+    val steps: List<Pair<String, String>>,
+)
+
+/**
  * 通知引擎（roadmap T19）：**阈值 / 迟滞(crossing) / 冷却 / 去重**的唯一判据处。
  *
  * 为什么值得单独一个类：这两条判定链原先逐条写死在 `BatteryMonitor.checkBatteryAndNotify`
@@ -102,6 +115,78 @@ class NotificationEngine(private val cooldownMs: Long = DEFAULT_COOLDOWN_MS) {
          */
         fun titleOf(rule: BatteryRule, defaultTitle: String): String =
             if (rule.title.isNotBlank()) rule.title else defaultTitle
+
+        /**
+         * 试跑第二步用的"压到阈值之下"的哨兵温度：滑块范围 30–90℃，任何合理阈值都不命中。
+         * 它**不是**一次真实读数，只出现在 [previewTemperature] 里。
+         */
+        const val BELOW_ANY_THRESHOLD_C = -100.0
+
+        /**
+         * T25：温度规则的**只读试跑**（页右上与规则动作菜单的「试一次」）。
+         *
+         * 为什么在引擎这边而不是 Dart 那边：阈值/迟滞/冷却的判据只有一份，在 Dart 再实现
+         * 一遍"会不会响"就是 T21 花一整批清掉的那种抄本（表现是测试器说不响、设备照样推）。
+         *
+         * 为什么必须走**三步**：引擎只认跨越（上一次还在阈值下、这次到阈值上），而一个全新
+         * 实例第一次调用必定返回 `BASELINE` 且不播种温度 ⇒ 单喂一次真实读数永远得不到答案。
+         * 于是 ① 真实读数建立基线 → ② 各维度压到阈值之下（播种"还没到"）→ ③ 再喂真实读数，
+         * **第三步才是用户要的答案**。三步的判定都回传，界面才能说清"为什么没响"。
+         *
+         * 求值用的是**新建的引擎实例**：借服务那份试跑一次，就会真的吃掉 30 分钟冷却或挪动
+         * baseline，表现成"我试了一下，之后真告警反而不响了"。
+         */
+        fun previewTemperature(
+            rules: List<BatteryRule>,
+            temps: Map<String, Double>,
+            now: Long = System.currentTimeMillis(),
+        ): TemperaturePreview {
+            val previewEngine = NotificationEngine()
+            val below = temps.keys.associateWith { BELOW_ANY_THRESHOLD_C }
+            val steps = mutableListOf<Pair<String, String>>()
+            var last: EngineDecision = EngineDecision.Silent(Silence.NO_RULES)
+            for ((phase, reading) in listOf(
+                "baseline" to temps,
+                "below" to below,
+                "current" to temps,
+            )) {
+                last = previewEngine.evaluate(
+                    enabled = true,
+                    batteryRules = emptyList(),
+                    temperatureRules = rules,
+                    reading = EngineReading(
+                        level = 50,
+                        charging = false,
+                        temperatures = reading,
+                    ),
+                    now = now,
+                )
+                steps.add(
+                    phase to when (last) {
+                        is EngineDecision.TemperatureFire -> "FIRE"
+                        is EngineDecision.BatteryFire -> "FIRE"
+                        is EngineDecision.Silent -> last.reason.name
+                    },
+                )
+            }
+            val fire = last as? EngineDecision.TemperatureFire
+            val reason = (last as? EngineDecision.Silent)?.reason
+            return TemperaturePreview(
+                rule = fire?.rule,
+                temperatureC = fire?.temperatureC,
+                silence = reason?.let {
+                    // 引擎里"这台设备没有这个温区"会落成 NOT_TRIGGERED（不判定就等于没满足）。
+                    // 真实告警那条路不区分（都不推，行为不变），但**试跑要给用户看**：
+                    // 读不到该去查传感器，没到阈值该去调阈值 —— 混成一句会把人支使去改配置。
+                    if (it == Silence.NOT_TRIGGERED && rules.none { r -> r.type in temps }) {
+                        Silence.NO_READING
+                    } else {
+                        it
+                    }
+                },
+                steps = steps,
+            )
+        }
 
         /**
          * 单条电量规则"此刻是否满足条件"（不含 crossing）。

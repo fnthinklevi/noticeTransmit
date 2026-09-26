@@ -4166,6 +4166,102 @@ abstract class AppLocalizations {
   /// **'开启后，电量/温度告警在推送前也要过一遍关键词黑白名单；应用黑白名单不适用（这类告警由本机自己产生）。被拦下的告警会写入推送历史并标注原因。'**
   String get engineConstraintDesc;
 
+  /// No description provided for @tempTestEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'试一次'**
+  String get tempTestEntry;
+
+  /// No description provided for @tempTestTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度告警试跑'**
+  String get tempTestTitle;
+
+  /// No description provided for @tempTestReadings.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前读数：'**
+  String get tempTestReadings;
+
+  /// No description provided for @tempTestSteps.
+  ///
+  /// In zh, this message translates to:
+  /// **'走查：'**
+  String get tempTestSteps;
+
+  /// No description provided for @tempTestFired.
+  ///
+  /// In zh, this message translates to:
+  /// **'会触发：'**
+  String get tempTestFired;
+
+  /// No description provided for @tempTestSilent.
+  ///
+  /// In zh, this message translates to:
+  /// **'不会触发：'**
+  String get tempTestSilent;
+
+  /// No description provided for @tempTestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'试跑失败（没测成，不代表不会触发）'**
+  String get tempTestFailed;
+
+  /// No description provided for @tempTestNoDims.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备一个温度维度都读不到'**
+  String get tempTestNoDims;
+
+  /// No description provided for @tempOutcomeFire.
+  ///
+  /// In zh, this message translates to:
+  /// **'触发'**
+  String get tempOutcomeFire;
+
+  /// No description provided for @tempSilenceNoRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有启用中的温度规则'**
+  String get tempSilenceNoRules;
+
+  /// No description provided for @tempSilenceNoReading.
+  ///
+  /// In zh, this message translates to:
+  /// **'该维度本机读不到'**
+  String get tempSilenceNoReading;
+
+  /// No description provided for @tempSilenceNotTriggered.
+  ///
+  /// In zh, this message translates to:
+  /// **'未达到阈值'**
+  String get tempSilenceNotTriggered;
+
+  /// No description provided for @tempSilenceNotCrossing.
+  ///
+  /// In zh, this message translates to:
+  /// **'未发生跨越（上一次已在阈值之上）'**
+  String get tempSilenceNotCrossing;
+
+  /// No description provided for @tempSilenceBaseline.
+  ///
+  /// In zh, this message translates to:
+  /// **'首轮只记录基准，不触发'**
+  String get tempSilenceBaseline;
+
+  /// No description provided for @tempSilenceInCooldown.
+  ///
+  /// In zh, this message translates to:
+  /// **'冷却中'**
+  String get tempSilenceInCooldown;
+
+  /// No description provided for @tempSilenceDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'温度告警总开关已关闭'**
+  String get tempSilenceDisabled;
+
   /// No description provided for @testerSrcBlacklist.
   ///
   /// In zh, this message translates to:

@@ -2162,6 +2162,54 @@ class AppLocalizationsZh extends AppLocalizations {
       '开启后，电量/温度告警在推送前也要过一遍关键词黑白名单；应用黑白名单不适用（这类告警由本机自己产生）。被拦下的告警会写入推送历史并标注原因。';
 
   @override
+  String get tempTestEntry => '试一次';
+
+  @override
+  String get tempTestTitle => '温度告警试跑';
+
+  @override
+  String get tempTestReadings => '当前读数：';
+
+  @override
+  String get tempTestSteps => '走查：';
+
+  @override
+  String get tempTestFired => '会触发：';
+
+  @override
+  String get tempTestSilent => '不会触发：';
+
+  @override
+  String get tempTestFailed => '试跑失败（没测成，不代表不会触发）';
+
+  @override
+  String get tempTestNoDims => '这台设备一个温度维度都读不到';
+
+  @override
+  String get tempOutcomeFire => '触发';
+
+  @override
+  String get tempSilenceNoRules => '没有启用中的温度规则';
+
+  @override
+  String get tempSilenceNoReading => '该维度本机读不到';
+
+  @override
+  String get tempSilenceNotTriggered => '未达到阈值';
+
+  @override
+  String get tempSilenceNotCrossing => '未发生跨越（上一次已在阈值之上）';
+
+  @override
+  String get tempSilenceBaseline => '首轮只记录基准，不触发';
+
+  @override
+  String get tempSilenceInCooldown => '冷却中';
+
+  @override
+  String get tempSilenceDisabled => '温度告警总开关已关闭';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return '黑名单关键词命中：$kw';
   }

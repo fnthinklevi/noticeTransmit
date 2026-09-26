@@ -165,15 +165,53 @@ class BatteryMonitor(private val context: Context) {
         )
     }
 
-    /** v1.59：更新温度规则列表（独立于电量规则，由 TemperatureService 写 prefs 镜像同步） */
-    fun updateTemperatureRules(rulesJson: String) {
-        try {
-            val jsonArray = org.json.JSONArray(rulesJson)
-            temperatureRules = parseBatteryRules(jsonArray)
-            Log.d(TAG, "Temperature rules updated: ${temperatureRules.size} rules")
+    /**
+     * T25：温度规则的**只读试跑**（页右上与规则动作菜单里的「试一次」）。
+     *
+     * 判据不在 Dart 复制第二份（T21 的结论就是"抄两份迟早分叉"），所以整次求值在原生跑，
+     * 走的是 [NotificationEngine.previewTemperature] 那三步；本函数只负责两件这里才做的事：
+     * **读当前三锥温度**（sysfs + 电池粘性广播）与**渲染**（[buildTemperatureNotification]
+     * 同一条抄本 ⇒ 预览里看到的标题/正文就是真会推出去的那一份）。
+     *
+     * ⚠ 不发送、不落历史、不写任何 prefs。
+     */
+    fun previewTemperatureRules(rulesJson: String): Map<String, Any?> {
+        val rules = try {
+            parseBatteryRules(JSONArray(rulesJson))
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse temperature rules", e)
+            Log.w(TAG, "温度试跑：规则解析失败", e)
+            emptyList()
         }
+        val temps = readCurrentTemps(getBatteryInfo()?.temperatureC)
+        val preview = NotificationEngine.previewTemperature(rules, temps)
+        val fired = preview.rule
+        val rendered = fired?.let { buildTemperatureNotification(it, preview.temperatureC ?: 0.0) }
+        return mapOf(
+            "ok" to true,
+            "temps" to temps,
+            "steps" to preview.steps.map {
+                mapOf("phase" to it.first, "outcome" to it.second)
+            },
+            "ruleCount" to rules.size,
+            "fired" to (fired != null),
+            "ruleId" to fired?.id,
+            "type" to fired?.type,
+            "threshold" to fired?.threshold,
+            "temperatureC" to preview.temperatureC,
+            "title" to rendered?.title,
+            "content" to rendered?.content,
+            "silence" to preview.silence?.name,
+        )
+    }
+
+    /** v1.59：更新温度规则列表（独立于电量规则，由 TemperatureService 写 prefs 镜像同步） */
+    fun updateTemperatureRules(rulesJson: String) { try {
+        val jsonArray = org.json.JSONArray(rulesJson)
+        temperatureRules = parseBatteryRules(jsonArray)
+        Log.d(TAG, "Temperature rules updated: ${temperatureRules.size} rules")
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to parse temperature rules", e)
+    }
     }
 
     private fun readCurrentTemps(batteryTempC: Double?): Map<String, Double> {

@@ -219,4 +219,103 @@ void main() {
       'r1',
     ], reason: '写操作只改内存列表的话，这条必红');
   });
+
+  group('T25：温度试跑入口', () {
+    const channel = MethodChannel('com.fnthink.notice/notification');
+
+    /// 装一个只回这份载荷的通道桩（原生那侧的求值结果，这里不重跑判据）。
+    Future<void> stubPreview(
+      WidgetTester tester,
+      Map<Object?, Object?>? payload,
+    ) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            if (call.method == 'previewTemperatureRule') return payload;
+            return null;
+          });
+    }
+
+    testWidgets('命中：弹层给出原生渲染的标题，并列出三步走查', (tester) async {
+      await stubPreview(tester, {
+        'ok': true,
+        'fired': true,
+        'temps': {'battery_temp_above': 52.0},
+        'steps': [
+          {'phase': 'baseline', 'outcome': 'BASELINE'},
+          {'phase': 'below', 'outcome': 'NOT_TRIGGERED'},
+          {'phase': 'current', 'outcome': 'FIRE'},
+        ],
+        'ruleCount': 1,
+        'ruleId': 'r1',
+        'type': 'battery_temp_above',
+        'threshold': 45,
+        'temperatureC': 52.0,
+        'title': '电池过热',
+        'content': '电池温度 52.0℃',
+      });
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.science_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.text('温度告警试跑'), findsOneWidget);
+      // 标题/正文来自原生那条渲染抄本，Dart 不参与拼判据。
+      expect(find.textContaining('会触发：电池过热'), findsOneWidget);
+      expect(find.textContaining('首轮只记录基准，不触发'), findsOneWidget);
+      expect(find.textContaining('52.0℃'), findsOneWidget);
+    });
+
+    testWidgets('读不到温区 ≠ 没到阈值：两种说法必须分开', (tester) async {
+      await stubPreview(tester, {
+        'ok': true,
+        'fired': false,
+        'temps': <String, double>{},
+        'steps': [
+          {'phase': 'current', 'outcome': 'NO_READING'},
+        ],
+        'ruleCount': 1,
+        'silence': 'NO_READING',
+      });
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.science_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('该维度本机读不到'), findsOneWidget);
+      expect(
+        find.textContaining('未达到阈值'),
+        findsNothing,
+        reason: '把"读不到"说成"没到阈值"会把用户支使去调阈值，而问题在传感器',
+      );
+    });
+
+    testWidgets('通道没通 = 没测成，不许显示成"不会触发"', (tester) async {
+      await stubPreview(tester, null);
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.science_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('试跑失败'), findsOneWidget);
+      expect(find.textContaining('不会触发：'), findsNothing);
+    });
+
+    testWidgets('长按菜单里也有单条试跑', (tester) async {
+      await service.addRule(rule());
+      await stubPreview(tester, {
+        'ok': true,
+        'fired': false,
+        'silence': 'NO_RULES',
+      });
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('电池过热'));
+      await tester.pumpAndSettle();
+      expect(find.text('试一次'), findsOneWidget);
+    });
+  });
 }

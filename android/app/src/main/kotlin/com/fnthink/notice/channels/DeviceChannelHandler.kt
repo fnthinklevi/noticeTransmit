@@ -1,6 +1,7 @@
 package com.fnthink.notice.channels
 
 import android.os.Build
+import com.fnthink.notice.BatteryMonitor
 import com.fnthink.notice.DeviceSnapshot
 import com.fnthink.notice.MainActivity
 import com.fnthink.notice.NotificationMonitorService
@@ -82,6 +83,25 @@ internal class DeviceChannelHandler(activity: MainActivity) : ChannelHandler(act
                     postSuccess(
                         result,
                         DeviceSnapshot.normalize(raw, System.currentTimeMillis()),
+                    )
+                }
+            }
+            "previewTemperatureRule" -> {
+                // T25：温度规则试跑。三锥读数要 registerReceiver + 读 thermal_zone sysfs，
+                // 与 getDeviceSnapshot 同一条理由 ⇒ 放 ioScope，且整次求值不发送、不落历史。
+                val rulesJson = call.argument<String>("rulesJson") ?: "[]"
+                val monitor = BatteryMonitor(activity.applicationContext)
+                ioScope.launch {
+                    postSuccess(
+                        result,
+                        try {
+                            monitor.previewTemperatureRules(rulesJson)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            // 求值出错必须回一个明确形状：回 null 会让界面停在"转圈"，
+                            // 用户分不清是设备读不到还是代码坏了。
+                            mapOf("ok" to false, "error" to (e.message ?: e.javaClass.simpleName))
+                        },
                     )
                 }
             }

@@ -409,4 +409,71 @@ class NotificationEngineTest {
                 .isEmpty()
         )
     }
+
+    // ── T25：只读试跑 ────────────────────────────────────────────────
+
+    @Test
+    fun `试跑必须走三步，第三步才是答案`() {
+        val out = NotificationEngine.previewTemperature(
+            listOf(temp),
+            mapOf("battery_temp_above" to 50.0),
+            now = t0,
+        )
+        assertEquals(
+            "三步顺序变了就不是跨越（引擎只认 prev 在阈值下、这次在阈值上）",
+            listOf("baseline", "below", "current"),
+            out.steps.map { it.first },
+        )
+        assertEquals(listOf("BASELINE", "NOT_TRIGGERED", "FIRE"), out.steps.map { it.second })
+        assertEquals(temp, out.rule)
+        assertEquals(50.0, out.temperatureC!!, 0.0001)
+        assertEquals(null, out.silence)
+    }
+
+    @Test
+    fun `没到阈值不许谎报触发`() {
+        val out = NotificationEngine.previewTemperature(
+            listOf(temp),
+            mapOf("battery_temp_above" to 30.0),
+            now = t0,
+        )
+        assertEquals(null, out.rule)
+        assertEquals(Silence.NOT_TRIGGERED, out.silence)
+    }
+
+    @Test
+    fun `读不到温区必须说读不到，不许混成没到阈值`() {
+        // 引擎本体里这两种都落 NOT_TRIGGERED（真实告警行为不变），但试跑要给用户分诊：
+        // 前者该去查传感器，后者该去调阈值。
+        val out = NotificationEngine.previewTemperature(
+            listOf(temp),
+            mapOf("device_temp_above" to 99.0), // 有读数，但不是这条规则的维度
+            now = t0,
+        )
+        assertEquals(null, out.rule)
+        assertEquals(Silence.NO_READING, out.silence)
+    }
+
+    @Test
+    fun `试跑反复跑结果一致：它不吃真实冷却`() {
+        // 借服务那份引擎试跑，第一次会把 tempCooldownUntil 写成 now+30min ⇒ 第二次就会是
+        // IN_COOLDOWN。用户看到的是"我试了一下，之后真告警反而不响了"。
+        val temps = mapOf("battery_temp_above" to 50.0)
+        val first = NotificationEngine.previewTemperature(listOf(temp), temps, now = t0)
+        val second = NotificationEngine.previewTemperature(listOf(temp), temps, now = t0 + 1000)
+        assertEquals(first.rule, second.rule)
+        assertEquals(first.steps.map { it.second }, second.steps.map { it.second })
+        assertTrue("两次都必须仍然触发", second.rule != null)
+    }
+
+    @Test
+    fun `没有启用规则时试跑答 NO_RULES 而不是崩溃`() {
+        val out = NotificationEngine.previewTemperature(
+            emptyList(),
+            mapOf("battery_temp_above" to 50.0),
+            now = t0,
+        )
+        assertEquals(null, out.rule)
+        assertEquals(Silence.NO_RULES, out.silence)
+    }
 }

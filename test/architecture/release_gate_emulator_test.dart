@@ -352,6 +352,19 @@ void main() {
         ),
         reason: '闸门不再点 T23 的约束开关 ⇒ 那一节静默退出闸门覆盖面',
       );
+      // T25：温度「试一次」也必须被真点过，并断言弹层有内容。
+      // 这一步特别值得钉：求值在原生，Dart 只是渲染 —— 两侧键名/形状脱钩时，
+      // 页面不会崩，只会弹一个空框，人眼看才发现。
+      expect(
+        flatEngine,
+        contains("_in(TemperaturePage, find.byIcon(Icons.science_outlined))"),
+        reason: '闸门不再点温度页右上的「试一次」⇒ 试跑这条链退出闸门',
+      );
+      expect(
+        flatEngine,
+        contains("ValueKey('temp-preview-body')"),
+        reason: '点了却没看结果 ⇒ "空弹层"这种失败仍然看不见',
+      );
       expect(
         RegExp('deviceAlertsRespectConstraints').allMatches(src).length,
         greaterThanOrEqualTo(3),
