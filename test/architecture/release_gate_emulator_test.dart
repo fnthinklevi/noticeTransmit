@@ -418,6 +418,30 @@ void main() {
       );
     });
   });
+  group('盖章测试不进闸门', () {
+    test('闸门默认清单必须排除 t09_stamp_test.dart（它会真发消息）', () {
+      final src = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
+      expect(
+        File('$root/integration_test/t09_stamp_test.dart').existsSync(),
+        isTrue,
+        reason: '被排除的文件已经不在了 —— 下面那条"排除"就成了空断言',
+      );
+      final filesLine = RegExp(r'FILES=\$\{GATE_FILES:.*').firstMatch(src);
+      expect(filesLine, isNotNull, reason: '闸门默认清单写法变了，守卫要重新指向');
+      expect(
+        filesLine!.group(0),
+        contains('t09_stamp_test'),
+        reason: '盖章测试被默认清单收进来 = 每次发版往用户的真实群/邮箱发一轮消息',
+      );
+      expect(
+        filesLine.group(0),
+        contains('grep -v'),
+        reason: '"提到但没排除"不算排除：必须真的从清单里减掉',
+      );
+    });
+  });
 }
 
 /// 判断 workflow 文本里两个偏移量是否落在**不同 job** 下。

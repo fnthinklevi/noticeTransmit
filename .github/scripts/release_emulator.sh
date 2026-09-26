@@ -154,7 +154,11 @@ esac
 
 # ── 跑集成测试 ────────────────────────────────────────────────────────────
 # 默认跑 integration_test/ 下全部文件；调试单个文件时可设 GATE_FILES 覆盖。
-FILES=${GATE_FILES:-$(ls integration_test/*_test.dart 2>/dev/null | tr '\n' ' ')}
+# ⚠ 但 t09_stamp_test.dart **必须**排除在默认清单外：它一个原生方法都不 mock，
+#   被闸门跑起来就等于"每次发版往用户配置的真实群 / 邮箱发一轮测试消息"，而且它的
+#   结论要人在收件端看一眼才有意义（闸门里没人能替它答）。盖章走：
+#   dart tools/t09_stamp.dart send
+FILES=${GATE_FILES:-$(ls integration_test/*_test.dart 2>/dev/null | grep -v 't09_stamp_test\.dart' | tr '\n' ' ')}
 [ -n "$FILES" ] || { fail "integration_test/ 下没有测试文件"; exit 1; }
 ok "待跑：$FILES"
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy 2>/dev/null || true
