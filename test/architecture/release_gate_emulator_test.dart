@@ -569,6 +569,24 @@ void main() {
             '两轮 GATE_RC=124 都是这么浪费掉的',
       );
       expect(helper, contains('GATE-STEP-FAIL'));
+      // 挂住之后同一用例剩下的节必须**记账跳过**（第 21 轮实测：它们一节节吃满用例级 7 分钟，
+      // 把"挂住才重试一次"的资格都挤掉了），而"跳过"不许长得像"通过" ⇒ 必须写进同一本账。
+      expect(
+        helper,
+        contains('GATE-STEP-SKIP'),
+        reason: '挂住之后还在一节一节跑 ⇒ 用例级超时先说话，重试机会被吃掉',
+      );
+      expect(
+        RegExp(r"failures\[name\] =\s*'已跳过[^\n]*").hasMatch(helper),
+        isTrue,
+        reason: '跳过只打印不记账 ⇒ 报告里那一节看着像绿了（本仓库反复撞过的"静默通过"）',
+      );
+      expect(
+        helper.indexOf('GATE-STEP-SKIP') <
+            helper.indexOf("debugPrint('GATE-STEP-BEGIN"),
+        isTrue,
+        reason: '跳过判断必须**在 BEGIN 之前**：先打 BEGIN 再跳过，日志里就分不清"跑过"与"没跑"',
+      );
       // 有 BEGIN/FAIL 两行还不够：整轮挂住时这两行都证明"能留痕"，却没人给挂住的那节兜底。
       // 三轮 GATE_RC=124 的代价是 28 分钟换一个"不知道卡在哪"。
       expect(
@@ -629,7 +647,9 @@ void main() {
         reason: '整轮超时没写进脚本 ⇒ 它只存在于某人手敲的命令行里，每次都要重新猜一遍',
       );
       expect(
-        sh2.contains('--plain-name'),
+        RegExp(
+          r'run_case "\$case_name" "\$WALK" --plain-name "\$case_name"',
+        ).hasMatch(sh2),
         isTrue,
         reason:
             '闸门不再逐条用例独立调用 ⇒ 回到"一个进程跑完四条"：那条挂住之后，'
@@ -901,6 +921,98 @@ void main() {
         outletAt,
         greaterThan(src.lastIndexOf('testWidgets(')),
         reason: '出口不在最后一条用例里 ⇒ 前面某条挂满超时就可能永远走不到它',
+      );
+    });
+
+    test('挂住可以重试一次，功能红永远不重试；重试前必须先清设备', () {
+      // 口径由维护者 2026-09-27 定：本机每轮总有一两处 `TimeoutException`（不是断言失败），
+      // 拆成独立用例之后允许"只把挂住的那一条重跑一次"，换取一轮里四条用例都有结论。
+      // 这条判据同时是最危险的一处：判据写歪一面的方向是**把真功能红洗成绿**。
+      // 所以这里只钉形状，真正的方向性检查在行为探针 `outputs/_retry_probe.sh`
+      // （五组假日志 + 两条把判据改坏的反证）。
+      final sh = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
+      expect(
+        RegExp(r'case_hang_only\(\)').hasMatch(sh),
+        isTrue,
+        reason: '重试判据必须是**一个函数**：散在循环里就没法喂假日志做行为探针（本仓库的 bash 判据老毛病）',
+      );
+      expect(
+        sh.contains('TimeoutException\\|Guarded function conflict'),
+        isTrue,
+        reason:
+            '挂住的两种形状都要算挂住：`TimeoutException` 是那节自己超时，'
+            '`Guarded function conflict.` 是它留下的 body 抢后面各节 —— 后者不是功能红',
+      );
+      expect(
+        RegExp(r'\[ "\$\{funcs:-0\}" -eq 0 \]').hasMatch(sh),
+        isTrue,
+        reason: '"这条用例里没有别的红"那一半判据不在了 ⇒ 真功能红也会被重跑洗成绿',
+      );
+      // "跳过"（挂住的连带后果）既不算功能红，也不该被当成挂住本身：两个 grep 都只数
+      // `GATE-STEP-FAIL` 行 ⇒ 写成宽松的 `GATE-STEP` 就会把 SKIP/别的行卷进来，判据走形。
+      expect(
+        RegExp("grep -a 'GATE-STEP-FAIL'").hasMatch(sh),
+        isTrue,
+        reason:
+            '功能红计数必须锚在 `GATE-STEP-FAIL` 上。锚点放宽到 `GATE-STEP` 就把「跳过」「BEGIN」'
+            '一起算成红 ⇒ 挂住永远不许重试，重试机制形同不存在',
+      );
+      expect(
+        RegExp(r'\[ "\$case_rc" -ne 0 \] && case_hang_only').hasMatch(sh),
+        isTrue,
+        reason: '重试只能发生在"已经红了"之后；绿的那条重跑等于把一轮时长白翻倍',
+      );
+      expect(
+        RegExp(
+          r'run_case "\$case_name 重跑" "\$WALK" --plain-name "\$case_name"',
+        ).hasMatch(sh),
+        isTrue,
+        reason: '重跑必须跑**同一条**用例（换成正则或整档，等于用别的覆盖顶掉这一条的结论）',
+      );
+      expect(
+        sh.contains('重跑这一条一次'),
+        isTrue,
+        reason: '重试必须在报告里看得见一条 warn —— 悄悄重跑等于把"这一条跑了几次"藏起来',
+      );
+      // 重试前必须清设备：挂住的那条是在跑的中途被打断的，它已建好的规则留在库里，
+      // 而 `_assemble` 只擦三族通道与历史记录 ⇒ 重跑 3/4 时 5.4a 的 `hasLength(2)`
+      // 会数到上一趟留下的两条，报出一条**假的"功能红"**（比不重试更坏：它会挡住洗红判据）。
+      final runCase = blockAfter(sh, 'run_case() {');
+      expect(
+        runCase,
+        contains('clear_app_data'),
+        reason: '每次独立调用之前都要 `pm clear`（重试尤其需要，否则重跑面对的是半成品数据）',
+      );
+      expect(
+        runCase.indexOf('clear_app_data'),
+        lessThan(runCase.indexOf('flutter test')),
+        reason: '清数据晚一步等于没清',
+      );
+      // ⚠ `< /dev/null` 是被实测逼出来的：`adb shell` 与 `flutter test` 都从 stdin 读，
+      // 而用例循环是 `while read` —— 第 20 轮它们把循环剩下的三个用例名吃掉了，
+      // 整轮"成功地跑完"却只执行了 1/4，看起来像全绿。
+      expect(
+        runCase,
+        contains('< /dev/null'),
+        reason: 'run_case 不重定向 stdin ⇒ 它一跑就把后面几条用例从循环的输入里抹掉',
+      );
+      expect(
+        blockAfter(sh, 'clear_app_data() {'),
+        contains('< /dev/null'),
+        reason: '同上：`adb shell` 也会吃 stdin',
+      );
+      // 光有重定向还不够：还要**数**跑了几条。少一条就是少一份覆盖，而红/绿看不出来。
+      expect(
+        sh.contains("grep -av '重跑'"),
+        isTrue,
+        reason: '数覆盖时必须排掉重跑那一次，否则"1/4 没跑 + 3/4 跑两遍"会凑成四条',
+      );
+      expect(
+        RegExp(r'只跑了 \$ran/\$planned 条用例').hasMatch(sh),
+        isTrue,
+        reason: '用例没跑全必须判红：那种轮次的"绿"是循环提前退出给的，不是被测代码给的',
       );
     });
 

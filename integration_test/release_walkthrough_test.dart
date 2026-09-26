@@ -2286,6 +2286,16 @@ Future<void> _step(
   // 每一节开头也留一行：整轮挂住时（无超时 await、死循环），日志里最后一条 BEGIN
   // 就是嫌疑节。只有 FAIL 一条打印的话，挂住的运行留下的只有启动日志，什么都指不出来
   // —— T25 与 T18 各烧掉一轮 28 分钟才知道这件事。
+  // 前面已经有一节挂住 ⇒ 这一节不再跑：跑它只会拿到 `Guarded function conflict.`
+  //（挂住的 body 没死，还在抢同一套测试操作），而每节收尾的 `_backToHomeQuietly` 还要花时间。
+  // 第 21 轮实测：3/4 一节挂住之后其余 14 节把用例级 7 分钟吃满，**连"挂住才重试一次"的
+  // 资格都被用例超时挤掉了**。跳过仍记进同一本账 ⇒ 该条用例照样红，不吞任何一个：
+  // "没有可信结论"与"通过"不许长得一样。
+  if (failures.values.any((m) => m.contains('TimeoutException'))) {
+    failures[name] = '已跳过：本条用例前面有一节挂住 ⇒ 这一节没有可信结论（不是通过）';
+    debugPrint('GATE-STEP-SKIP ▸ $name');
+    return;
+  }
   debugPrint('GATE-STEP-BEGIN ▸ $name');
   try {
     await body().timeout(

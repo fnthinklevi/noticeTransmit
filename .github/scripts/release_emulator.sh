@@ -200,15 +200,63 @@ if [ -z "${GATE_FILES:-}" ] && [ -f "$WALK" ]; then
 fi
 RC=0
 : > "$LOG"
+
+# 每次独立调用之前都清一遍设备数据。⚠ 这条是"重试"能不能成立的前提：
+# 挂住的那条用例是在**跑的中途**被打断的 —— 它已经建好的规则/通道留在了库里，
+# 而 `_assemble` 只擦三族通道与历史记录（引擎规则与关键词没擦，拆前后都一样）。
+# 于是重跑 3/4 时，5.4a 那条 `hasLength(2)` 会数到上一趟留下的两条 ⇒ **假的"功能红"**。
+# ⚠ `< /dev/null` 不是装饰：这两条命令都跑在 `while read` 循环里，而 `adb shell` 与
+# `flutter test` 都会从 stdin 读 —— 第 20 轮实测它们把循环剩下的三个用例名**吃掉**了，
+# 整轮只跑了 1/4 就退出（是靠"缺 GATE-DIFF-RING 判红"当场逮住的，不是靠人看）。
+clear_app_data() {
+    "$ADB" -s "$SERIAL" shell pm clear com.fnthink.notice < /dev/null > /dev/null 2>&1 \
+        || true   # 第一次调用时应用还没装上（flutter test 会自己装），清不到不算错
+}
+
+run_case() {  # $1=日志标签，其余=flutter test 的文件与参数
+    local label="$1"
+    shift
+    echo "──── 独立调用：$label" >> "$LOG"
+    clear_app_data
+    timeout "$GATE_CASE_TIMEOUT" flutter test "$@" -d "$SERIAL" \
+        < /dev/null >> "$LOG" 2>&1
+    local rc=$?
+    echo "──── 结束：$label rc=$rc" >> "$LOG"
+    return $rc
+}
+
+# 这条用例这段日志里，是不是**只有挂住**（没有功能红）？只有挂住才允许重跑一次。
+# 判据用 `GATE-STEP-FAIL` 那行的异常名，不用"有没有 Expected:"：`_verdict` 把挂住也
+# 汇总成一条 `Expected: empty`，看 Expected 会把挂住误判成功能红 ⇒ 永远不重试。
+# 反向也一样：只看"非挂住"的 GATE-STEP-FAIL，一条断言失败就把重试的门关掉。
+case_hang_only() {  # $1=日志标签
+    local seg hangs funcs
+    seg=$(awk -v n="──── 独立调用：$1" '
+        index($0, n) == 1 { f = 1 }
+        f { print }
+        f && /^──── 结束：/ { exit }
+    ' "$LOG")
+    hangs=$(printf '%s' "$seg" | grep -ac \
+        'GATE-STEP-FAIL.*\(TimeoutException\|Guarded function conflict\)')
+    funcs=$(printf '%s' "$seg" | grep -a 'GATE-STEP-FAIL' | grep -avc \
+        'TimeoutException\|Guarded function conflict')
+    [ "${hangs:-0}" -gt 0 ] && [ "${funcs:-0}" -eq 0 ]
+}
+
 if [ -n "$GATE_CASES" ]; then
     # 其余测试文件（smoke 等）仍一次跑完；walkthrough 按用例名拆开跑
     OTHERS=$(printf '%s\n' $FILES | grep -v "^$WALK\$" | tr '\n' ' ')
     while IFS= read -r case_name; do
         [ -n "$case_name" ] || continue
-        echo "──── 独立调用：$case_name" >> "$LOG"
-        timeout "$GATE_CASE_TIMEOUT" flutter test "$WALK" -d "$SERIAL" \
-            --plain-name "$case_name" >> "$LOG" 2>&1
+        run_case "$case_name" "$WALK" --plain-name "$case_name"
         case_rc=$?
+        if [ "$case_rc" -ne 0 ] && case_hang_only "$case_name"; then
+            warn "$case_name 首次是**挂住**（无功能红）⇒ 按口径重跑这一条一次"
+            run_case "$case_name 重跑" "$WALK" --plain-name "$case_name"
+            case_rc=$?
+            [ "$case_rc" -eq 0 ] && \
+                ok "$case_name 重跑通过（首次挂住的位置见上面 GATE-STEP-FAIL）"
+        fi
         # RC 只记"有没有红"（0/1）：某条被回退上限掐掉时 124 已经逐条说过了，
         # 再把它当"整轮超时"复述一遍会在报告里出现两个互相矛盾的结论。
         [ "$case_rc" -eq 0 ] || RC=1
@@ -216,8 +264,23 @@ if [ -n "$GATE_CASES" ]; then
             fail "$case_name 跑满单次回退上限（${GATE_CASE_TIMEOUT}s）被 timeout 掐掉 ⇒ 不是功能红，是没返回"
         fi
     done <<< "$GATE_CASES"
+    # 跑没跑到，比跑成什么颜色更基本：数一下每条用例的收尾行。
+    # （第 20 轮实测：`while read` 的循环体里 `adb shell` / `flutter test` 从 stdin 把
+    #  剩下的三个用例名吃掉了，循环"成功地跑完"却只执行了 1/4 —— 那种轮次看起来全绿。）
+    # 数的是**去重之后的用例名**（重跑那一次不算第二条）：否则"1/4 没跑、3/4 跑了两遍"
+    # 也会凑够四条，这条检查就成了摆设。
+    ran=$(grep -a '^──── 结束：' "$LOG" | grep -av '重跑' \
+        | sed 's/^──── 结束：//; s/ rc=[0-9]*$//' | sort -u | grep -c '闸门 [0-9]*/[0-9]*$')
+    planned=$(printf '%s\n' "$GATE_CASES" | grep -c .)
+    if [ "$ran" -lt "$planned" ]; then
+        fail "闸门只跑了 $ran/$planned 条用例 ⇒ 有用例**根本没执行**（循环被循环体读走 stdin 就是这个形状）"
+        RC=1
+    else
+        ok "四条用例都跑到了（$ran/$planned 条独立调用有收尾行）"
+    fi
     if [ -n "${OTHERS// /}" ]; then
         echo "──── 独立调用：$OTHERS" >> "$LOG"
+        clear_app_data
         timeout "$GATE_TEST_TIMEOUT" flutter test $OTHERS -d "$SERIAL" >> "$LOG" 2>&1
         [ "$?" -eq 0 ] || RC=1
     fi
