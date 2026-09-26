@@ -365,6 +365,60 @@ void main() {
       expect(run(clamped).mergeWindowSeconds, 5);
     });
 
+    test('文件值形状（Double / 数字串 / "true"）与 int/bool 读出同一个结论', () async {
+      // 备份或别的工具导出的规则里，params 常常是 `30.0`、`"30"`、`"true"`。
+      // 设备侧 optInt/optBoolean 认这些形状，影子链路若不认就会给出与真机不同的追踪结论
+      // （旧写法 `is int` 正是如此：窗口退回默认 60、分组退回 false）。
+      Future<(int, int, bool)> traceOf(Map<String, dynamic> params) async {
+        final filter = await buildFilter(
+          rules: [
+            rule(
+              actions: [
+                {'type': 'merge', 'params': params},
+              ],
+            ),
+          ],
+        );
+        final t = run(filter);
+        return (
+          t.mergeWindowSeconds ?? -1,
+          t.mergeMaxItems,
+          t.mergeGroupByTitle,
+        );
+      }
+
+      final asInt = await traceOf({
+        'windowSeconds': 30,
+        'maxItems': 5,
+        'groupByTitle': true,
+      });
+      expect(asInt, (30, 5, true));
+      expect(
+        await traceOf({
+          'windowSeconds': 30.0,
+          'maxItems': 5.0,
+          'groupByTitle': 'true',
+        }),
+        asInt,
+        reason: '同一份规则，影子链路读成另一个数 = 测试器的结论是假的',
+      );
+      expect(
+        await traceOf({
+          'windowSeconds': '30',
+          'maxItems': '5',
+          'groupByTitle': 'TRUE',
+        }),
+        asInt,
+        reason: '数字串也要落回同一个值',
+      );
+      // 垃圾值仍然按"没配"处理（不许顺手当真）。
+      expect(await traceOf({'windowSeconds': 'abc', 'groupByTitle': 1}), (
+        60,
+        0,
+        false,
+      ));
+    });
+
     test('F3：maxItems 与 groupByTitle 被解析并透出（镜像原生 params）', () async {
       final filter = await buildFilter(
         rules: [

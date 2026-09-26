@@ -624,19 +624,19 @@ class _RuleEditPageState extends State<RuleEditPage> {
 
   /// 当前聚合等待秒数（未配置时与原生 DEFAULT_MERGE_WINDOW_MS=60 对应）
   int get _mergeWindowSeconds {
-    final params = _mergeAction?.params;
-    final v = params?['windowSeconds'];
-    return v is int && v > 0 ? v : 60;
+    final v = ruleParamInt(_mergeAction?.params['windowSeconds']) ?? 0;
+    return v > 0 ? v : 60;
   }
 
   /// F3：满 N 条提前触发（0 = 关闭，等窗口到点）
   int get _mergeMaxItems {
-    final v = _mergeAction?.params['maxItems'];
-    return v is int && v > 0 ? v : 0;
+    final v = ruleParamInt(_mergeAction?.params['maxItems']) ?? 0;
+    return v > 0 ? v : 0;
   }
 
   /// F3：按会话分组（同应用不同标题分开聚合）
-  bool get _mergeGroupByTitle => _mergeAction?.params['groupByTitle'] == true;
+  bool get _mergeGroupByTitle =>
+      ruleParamBool(_mergeAction?.params['groupByTitle']);
 
   /// F3：聚合参数摘要（等待秒数 · 满 N 条提前 · 按会话分组）
   String _mergeSummaryText(AppLocalizations l10n) {

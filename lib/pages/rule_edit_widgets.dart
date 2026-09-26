@@ -258,8 +258,8 @@ class _ActionItem extends StatelessWidget {
   String _delayParamsText(BuildContext context, RuleAction action) {
     final l10n = AppLocalizations.of(context);
     final parts = <String>[];
-    final delaySeconds = action.params['delaySeconds'];
-    if (delaySeconds is int && delaySeconds > 0) {
+    final delaySeconds = ruleParamInt(action.params['delaySeconds']);
+    if (delaySeconds != null && delaySeconds > 0) {
       if (delaySeconds % 60 == 0) {
         parts.add(l10n.ruleDelayMinute(delaySeconds ~/ 60));
       } else {
@@ -277,18 +277,18 @@ class _ActionItem extends StatelessWidget {
   String _mergeParamsText(BuildContext context, RuleAction action) {
     final l10n = AppLocalizations.of(context);
     final parts = <String>[];
-    final windowSeconds = action.params['windowSeconds'];
+    final windowSeconds = ruleParamInt(action.params['windowSeconds']);
     // 未配置窗口时与原生 DEFAULT_MERGE_WINDOW_MS=60s 对应
     parts.add(
       l10n.ruleMergeWindowSummary(
-        (windowSeconds is int && windowSeconds > 0) ? windowSeconds : 60,
+        (windowSeconds != null && windowSeconds > 0) ? windowSeconds : 60,
       ),
     );
-    final maxItems = action.params['maxItems'];
-    if (maxItems is int && maxItems > 0) {
+    final maxItems = ruleParamInt(action.params['maxItems']);
+    if (maxItems != null && maxItems > 0) {
       parts.add(l10n.ruleMergeMaxItemsSummary(maxItems));
     }
-    if (action.params['groupByTitle'] == true) {
+    if (ruleParamBool(action.params['groupByTitle'])) {
       parts.add(l10n.ruleMergeGroupByTitleSummary);
     }
     return parts.join(' · ');
@@ -895,23 +895,27 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
     super.initState();
     _type = widget.action.type;
     final params = widget.action.params;
-    final delaySeconds = params['delaySeconds'];
-    if (delaySeconds is int && delaySeconds > 0) {
+    // ⚠ 这里的取值口径直接关系到**会不会丢数据**：`5.0`（别的工具导出的备份）若不认，
+    //   输入框就是空的，而保存时又从这个空框回写 ⇒ 用户只是打开看了一眼并保存，
+    //   设备上原本生效的延迟/聚合配置就被抹掉了。取值走 ruleParamInt/ruleParamBool，
+    //   与原生 optInt/optBoolean 同口径（详见 notification_rule.dart 的注释）。
+    final delaySeconds = ruleParamInt(params['delaySeconds']) ?? 0;
+    if (delaySeconds > 0) {
       _delaySecondsController.text = delaySeconds.toString();
     }
     final scheduleTime = params['scheduleTime']?.toString() ?? '';
     if (scheduleTime.isNotEmpty) {
       _scheduleTimeController.text = scheduleTime;
     }
-    final windowSeconds = params['windowSeconds'];
-    if (windowSeconds is int && windowSeconds > 0) {
+    final windowSeconds = ruleParamInt(params['windowSeconds']) ?? 0;
+    if (windowSeconds > 0) {
       _mergeWindowController.text = windowSeconds.toString();
     }
-    final maxItems = params['maxItems'];
-    if (maxItems is int && maxItems > 0) {
+    final maxItems = ruleParamInt(params['maxItems']) ?? 0;
+    if (maxItems > 0) {
       _mergeMaxItemsController.text = maxItems.toString();
     }
-    _mergeGroupByTitle = params['groupByTitle'] == true;
+    _mergeGroupByTitle = ruleParamBool(params['groupByTitle']);
   }
 
   @override

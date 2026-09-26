@@ -1,9 +1,36 @@
 import 'package:flutter/foundation.dart';
 
-/// 宽松取整数：文件里的 `priority` 可能是 int、可能是手改的 "100"，也可能是
-/// 别的工具导出的 100.0。取不到就回 0（最低优先级），不抛。
-int _intValue(Object? value) =>
-    value is num ? value.round() : int.tryParse(value?.toString() ?? '') ?? 0;
+/// 规则里数值型 JSON 取值的**唯一口径**，与设备侧 `JSONObject.optInt` 必须一致。
+///
+/// 为什么单独收成一处：页面与影子链路原先各写各的 `v is int`，于是
+/// `5.0`（别的工具导出的备份、手改的 JSON、模板里的实数）在界面上等于没配，
+/// 设备上却照常用 —— 原生读的是 JSON，任何 `Number` 一律**截断**取整，数字串也认
+/// （Android 的 org.json 会强制转换）。两侧对同一个文件值取到不同的数，表现就是
+/// "我没设过延迟，它却延后推了"。旧写法还顺手用 `round()`，`100.7` 在 Dart 是 101、
+/// 在设备是 100 —— 优先级排序因此也可能不同。
+///
+/// 这里只回答"这个值是多少"，不回答"没配时取什么默认"（缺省归调用方，两侧各自保留
+/// 原有的 fallback 语义）。与 [ChannelConfigCodec.flag] 的区别是刻意的：那个是 DB 行
+/// 读取器，故意不认字符串，以免脏数据混进 UI。
+int? ruleParamInt(Object? value) {
+  if (value is num) return value.toInt();
+  if (value is! String) return null;
+  final text = value.trim();
+  if (text.isEmpty) return null;
+  return int.tryParse(text) ?? double.tryParse(text)?.toInt();
+}
+
+/// 同上，布尔口径：只认 `Boolean` 与 `"true"/"false"`（大小写无关），
+/// 与原生 `optBoolean` 一致 —— **数字不当真**（两侧都不把 1  coerce 成 true）。
+bool ruleParamBool(Object? value, {bool fallback = false}) {
+  if (value is bool) return value;
+  if (value is String) {
+    final text = value.trim().toLowerCase();
+    if (text == 'true') return true;
+    if (text == 'false') return false;
+  }
+  return fallback;
+}
 
 enum ConditionType {
   packageName,
@@ -270,8 +297,13 @@ class NotificationRule {
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
       description: map['description']?.toString() ?? '',
+      // ⚠ 这里**故意不用** ruleParamBool：原生 `optBoolean("enabled", true)` 对 `0` 这种
+      // 形状没有布尔可转，会退回默认值"启用"，而那意味着"用户关掉的规则被一份文件读成开着"
+      // —— 方向不可接受的错法。留着按值判（0/false 都算关），两侧到底怎么读 `0`
+      // 需要一次真机实测才能定（JVM 侧用的是 org.json 参考实现，不是设备那份）。
+      // 详见 base.md 的覆盖升级/恢复待核实清单。
       enabled: map['enabled'] != false && map['enabled'] != 0,
-      priority: _intValue(map['priority']),
+      priority: ruleParamInt(map['priority']) ?? 0,
       conditions: asMaps(map['conditions']).map(Condition.fromMap).toList(),
       actions: asMaps(map['actions']).map(RuleAction.fromMap).toList(),
       excludedPackages: asTexts(map['excludedPackages']),

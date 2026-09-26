@@ -238,16 +238,17 @@ class RuleTracer {
             break;
           case ActionType.merge:
             if (mergeWindowSeconds == null) {
-              final seconds = a.params['windowSeconds'];
-              final s = seconds is int ? seconds : -1;
+              // 取值一律走 ruleParamInt/ruleParamBool（与原生 optInt/optBoolean 同口径）：
+              // 这里是"影子链路"，与设备不一致就等于测试器给出的结论是假的。
+              final s = ruleParamInt(a.params['windowSeconds']) ?? -1;
               mergeWindowSeconds = s > 0
                   ? ((s * 1000) < minMergeWindowMs ? 5 : s)
                   : defaultMergeWindowMs ~/ 1000;
               // F3：满 N 条提前触发（镜像原生 params.maxItems，>0 才有效）
-              final maxItems = a.params['maxItems'];
-              mergeMaxItems = (maxItems is int && maxItems > 0) ? maxItems : 0;
+              final maxItems = ruleParamInt(a.params['maxItems']) ?? 0;
+              mergeMaxItems = maxItems > 0 ? maxItems : 0;
               // F3：按会话分组（镜像原生 params.groupByTitle）
-              mergeGroupByTitle = a.params['groupByTitle'] == true;
+              mergeGroupByTitle = ruleParamBool(a.params['groupByTitle']);
             }
             break;
           case ActionType.push:
@@ -301,8 +302,8 @@ class RuleTracer {
   /// 镜像 `RuleEngine.computeFireAt`：delaySeconds > 0 → now+n；否则 scheduleTime "HH:mm"
   /// （当日该时刻，已过顺延次日）；均未配置 → null
   static int? _computeFireAt(Map<String, dynamic> params, int nowMs) {
-    final delaySeconds = params['delaySeconds'];
-    if (delaySeconds is int && delaySeconds > 0) {
+    final delaySeconds = ruleParamInt(params['delaySeconds']) ?? 0;
+    if (delaySeconds > 0) {
       return nowMs + delaySeconds * 1000;
     }
     final scheduleTime = (params['scheduleTime']?.toString() ?? '').trim();
