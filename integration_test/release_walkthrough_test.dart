@@ -177,18 +177,18 @@ void main() {
       'requestPinAppWidget': true,
       'drainOfflineCache': {
         'records': <Map<String, dynamic>>[
-        {
-          'id': 'gate_note_1',
-          'title': '闸门通知一',
-          'content': '闸门集成测试注入的通知内容',
-          'subText': '',
-          'packageName': 'com.gate.app1',
-          'appName': '闸门应用一',
-          'postTime': 1767223200000,
-          'time': '2026-01-01 10:00:00',
-          'type': 'notification',
-          'priority': 1,
-        },
+          {
+            'id': 'gate_note_1',
+            'title': '闸门通知一',
+            'content': '闸门集成测试注入的通知内容',
+            'subText': '',
+            'packageName': 'com.gate.app1',
+            'appName': '闸门应用一',
+            'postTime': 1767223200000,
+            'time': '2026-01-01 10:00:00',
+            'type': 'notification',
+            'priority': 1,
+          },
         ],
         'dropped': 0,
       },
@@ -271,523 +271,554 @@ void main() {
 
     final gateFailures = <String, String>{};
     _mark('装配完成：主界面起来、描述符拉通、起点数据已擦干净');
-    // ── 1. 通知页：服务启停（真实控件是圆形按钮，不是文案）──────────────
-    await _tap(
-      tester,
-      find.byKey(const ValueKey<String>('service-toggle')),
-      '通知页服务开关',
-    );
-    expect(
-      captured['startNotificationListener'],
-      isNotNull,
-      reason: '点服务开关没有下发 startNotificationListener',
-    );
-    await _tap(
-      tester,
-      find.byKey(const ValueKey<String>('service-toggle')),
-      '通知页服务开关(关)',
-    );
-    expect(
-      captured['stopNotificationListener'],
-      isNotNull,
-      reason: '再点一次应下发 stopNotificationListener',
-    );
-
-    // ── 2. 权限设置页：进入即读三态权限，页面必须渲染且不抛 ──────────────
-    _mark('2 权限设置页：进页读三态');
-    await _tap(tester, find.text('权限设置'), '通知页→权限设置');
-    await _onPage(tester, PermissionSettingsPage, '权限设置页');
-    await _backToHome(tester);
-
-    // ── 3. 短信监听页：两个开关 + SIM 卡选择 ────────────────────────────
-    _mark('3 短信监听页：两个开关 + SIM 选择');
-    await _tap(tester, find.text('短信监听'), '通知页→短信监听');
-    await _onPage(tester, SmsMonitorSettingsPage, '短信监听页');
-    final smsSwitches = _in(
-      SmsMonitorSettingsPage,
-      find.byType(CupertinoSwitch),
-    );
-    expect(smsSwitches, findsNWidgets(2), reason: '短信监听页应有两个开关');
-    await _tap(tester, smsSwitches.at(1), '监听验证码开关');
-    await _tap(tester, find.text('仅卡1'), 'SIM 卡选择「仅卡1」');
-    final smsSets = (captured['setSmsSetting'] ?? const [])
-        .map((a) => (a.first as Map)['key'])
-        .toList();
-    expect(
-      smsSets,
-      containsAll(<String>['sms_code_monitor_enabled', 'sms_sim_filter']),
-      reason: '开关与卡选择都必须回写原生，否则后台读不到新配置',
-    );
-    await _backToHome(tester);
-
-    // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
-    _mark('4 推送历史页：进页 + 溢出菜单导出 JSON（真落盘）');
-    await _tap(tester, find.text('推送历史'), '通知页→推送历史');
-    await _settle(tester, seconds: 2);
-    expect(
-      find.text('闸门通知一'),
-      findsWidgets,
-      reason: '注入的历史记录没出现在列表里（loadRecords/DB 链路）',
-    );
-    await _tap(
-      tester,
-      _in(HistoryPage, find.byIcon(Icons.more_horiz)),
-      '历史页溢出菜单',
-    );
-    await _settle(tester);
-    await _tap(tester, find.text('导出 JSON'), '历史页→导出 JSON');
-    await _settle(tester);
-    // 导出前有一步确认弹层（main_page_actions 的 exportBtn），不点它 saveFile 不会发生
-    await _tap(tester, find.text('确定导出'), '历史页导出→确定导出');
-    await _settle(tester, seconds: 3);
-    expect(
-      writtenFiles.keys.any((n) => n.endsWith('.json')),
-      isTrue,
-      reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
-    );
-    // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
-    // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
-    // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
-    await _longPress(tester, find.text('闸门通知一'), '历史记录行');
-    // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
-    // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
-    final blockAppItem = find.descendant(
-      of: find.byType(CardActionSheet),
-      matching: find.text('屏蔽该应用的通知'),
-    );
-    expect(
-      blockAppItem,
-      findsOneWidget,
-      reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
-    );
-    await tester.tapAt(const Offset(10, 10));
-    await _settle(tester);
-    expect(
-      find.byType(CardActionSheet),
-      findsNothing,
-      reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
-    );
-    await _backToHome(tester);
-
-    // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
-    _mark('5 更多 tab：以下入口逐个进页');
-    await _tap(
-      tester,
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('更多'),
-      ),
-      '底部 tab→更多',
-    );
-    await _onPage(tester, MorePage, '更多页');
-
-    // 5.1 Webhook 通道（T07-B 起是「列表页 → 单通道详情页」两页形状）：
-    _mark('5.1 webhook：列表页→单通道详情页，建两条改一条删两条');
-    //     FAB 建第一条 → 仅测试（不许写库）→ 测试并保存 → 回列表 → 建第二条 →
-    //     点第一条行进详情改一处 → 断言第二条原样 → 长按复制 → 长按删除并确认。
-    //     删完必须断言"活下来的是哪一条"：删一行后其余行继承错位 id 是这个页面
-    //     真实发生过的缺陷类别（平铺页保存走整表 delete+insert）。
-    await _openMoreRow(tester, 'Webhook 推送通道');
-    await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页');
-    const dingUrl = 'https://oapi.dingtalk.com/robot/send?access_token=gate';
-    const wecomUrl =
-        'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=gate';
-
-    await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增');
-    await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(新增)');
-    await _fillWebhookUrl(tester, dingUrl);
-    // URL 填完 ⇒ 类型选择器应显出「自动识别·钉钉」：描述符与 host 识别表都在工作
-    expect(
-      find.textContaining('自动识别'),
-      findsWidgets,
-      reason: '填完 URL 后类型选择器没有按 host 识别 ⇒ 描述符/识别表断链',
-    );
-    // T04「仅测试」：与「测试并保存」是两条路径 ⇒ 它**不写库**（这一条还没 id，
-    // 更没有归属，健康单点也不该被写）。
-    await _tap(tester, _appBarText('仅测试'), 'Webhook→仅测试');
-    await _settle(tester, seconds: 2);
-    expect(
-      find.byType(WebhookSettingsPage),
-      findsOneWidget,
-      reason: '「仅测试」把用户弹出详情页 = 它偷偷走了保存那条路',
-    );
-    expect(
-      GetIt.instance<WebhookService>().channels,
-      isEmpty,
-      reason: '「仅测试」按定义不落库',
-    );
-    await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第一条)');
-    await _settle(tester, seconds: 2);
-    final firstRow = GetIt.instance<WebhookService>().channels;
-    expect(firstRow, hasLength(1), reason: '第一条通道没存进去');
-    final webhookFirstId = firstRow.first['id'].toString();
-    expect(
-      GetIt.instance<ChannelHealthStore>()
-          .of('webhook', webhookFirstId)
-          ?.reachable,
-      isTrue,
-      reason: '「测试并保存」的结论没落单点 ⇒ 配置异常冒不到首页（T04 的链路断在这）',
-    );
-
-    _nav(tester).pop();
-    await _settle(tester, seconds: 2);
-    await _onPage(tester, WebhookChannelListPage, '返回 Webhook 列表页');
-    expect(
-      find.textContaining('oapi.dingtalk.com'),
-      findsOneWidget,
-      reason: '列表行没显示这条通道的目标主机 ⇒ 用户分不清自己有几条同名通道',
-    );
-
-    // 第二条：一次只改一件事，红的时候能点名
-    _mark('5.1 建第二条（一次只改一件事）');
-    await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增第二条');
-    await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(第二条)');
-    await _fillWebhookUrl(tester, wecomUrl);
-    await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第二条)');
-    await _settle(tester, seconds: 2);
-    _nav(tester).pop();
-    await _settle(tester, seconds: 2);
-    expect(
-      GetIt.instance<WebhookService>().channels.map((c) => c['url']),
-      containsAll(<String>[dingUrl, wecomUrl]),
-      reason: '两条通道没能都存进去（保存时把已有那条丢了 = 整表快照还没拆干净）',
-    );
-
-    // T07-B 的核心不变量：改一条，另一条一个字节都不许动
-    await _tap(
-      tester,
-      find.byKey(ValueKey('webhook-channel-row-$webhookFirstId')),
-      'Webhook→点第一条行进详情',
-    );
-    await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(改第一条)');
-    expect(
-      find.text(dingUrl),
-      findsOneWidget,
-      reason: '详情页打开的不是被点那条 ⇒ channelId 传丢了',
-    );
-    await _type(
-      tester,
-      find.byWidgetPredicate(
-        (w) =>
-            w is TextField && (w.decoration?.hintText ?? '').startsWith('通道名称'),
-      ),
-      '闸门钉钉',
-      'Webhook 名称输入框',
-    );
-    await _tap(tester, _appBarText('测试并保存'), 'Webhook→保存(改名)');
-    await _settle(tester, seconds: 2);
-    final renamed = GetIt.instance<WebhookService>().channels;
-    expect(
-      renamed.firstWhere((c) => c['id'] == webhookFirstId)['name'],
-      '闸门钉钉',
-      reason: '改的那条没生效',
-    );
-    expect(
-      renamed.firstWhere((c) => c['url'] == wecomUrl)['name'],
-      '',
-      reason: '改一条把另一条的名字也写了 ⇒ 页面还在攥整表快照',
-    );
-    _nav(tester).pop();
-    await _settle(tester, seconds: 2);
-    await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(改后)');
-
-    // 列表页的整族动作：长按复制 / 长按删除（T05 + T06）
-    _mark('5.1 列表页整族动作：长按复制 / 长按删除');
-    final row = find.byKey(ValueKey('webhook-channel-row-$webhookFirstId'));
-    await _longPress(tester, row, 'Webhook 列表行');
-    await _must(
-      tester,
-      find.byType(CardActionSheet).evaluate().isNotEmpty,
-      'Webhook 行长按弹层（打不中=手势静默丢失）',
-      row,
-    );
-    await _tap(
-      tester,
-      find.descendant(
-        of: find.byType(CardActionSheet),
-        matching: find.text('复制'),
-      ),
-      'Webhook→长按→复制',
-    );
-    await _settle(tester, seconds: 2);
-    final tripled = GetIt.instance<WebhookService>().channels;
-    expect(tripled, hasLength(3), reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状');
-    expect(
-      tripled.map((c) => c['id']).toSet(),
-      hasLength(3),
-      reason: '三条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中三条',
-    );
-    final webhookCopyId = tripled.last['id'].toString();
-    expect(
-      GetIt.instance<ChannelHealthStore>().of('webhook', webhookCopyId),
-      isNull,
-      reason: '复制出来的那条没测过，却把原那条的健康记录一起复制了',
-    );
-
-    // 删两条（复制的那条 + 钉钉那条），只留企微那条给后面的备份与状态页用。
-    _mark('5.1 删两条：企微那条留给后面的备份与状态页');
-    //
-    // ⚠ 第二条的删除**先退出列表页再重新进来**：T07-B 的 8 轮闸门里反复出现同一个
-    // 现象 —— 用弹层删掉一行之后，在同一页上再长按另一行，行区域的手势全部无效
-    // （三种按法都没反应、同点 tap 也无效，但右下角 FAB 仍能点开详情页），树上留着
-    // 一片 `ModalBarrier(dismissible=false, color=null)`（那是**页面路由**的屏障形状）。
-    // widget 测试与手机尺寸复现都抓不到它。到底是"删完一条后本页失灵"的真缺陷，
-    // 还是 Integration Test 注入手势 + 模态路由退场的产物，**静态判不出来**，
-    // 已登记为 base.md ㉚ 的真机复验项（人手长按一次即有结论）。
-    // 这里不把它当已证伪的产品缺陷掩盖掉，也不让整条闸门永远红：改成重进页面后再删，
-    // 覆盖不变（两条都走同一个确认咽喉），只是不在"疑似失灵的那一页"上做第二次长按。
-    await _longPress(
-      tester,
-      find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
-      'Webhook 复制出来的那条',
-    );
-    await _must(
-      tester,
-      find.byType(CardActionSheet).evaluate().isNotEmpty,
-      '副本那行的长按弹层（打不中=手势静默丢失）',
-      find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
-    );
-    await _tap(
-      tester,
-      find.descendant(
-        of: find.byType(CardActionSheet),
-        matching: find.text('删除'),
-      ),
-      'Webhook→长按→删除(副本)',
-    );
-    await _confirmDelete(tester, 'Webhook 行');
-    await _settle(tester, seconds: 2);
-    final afterCopyDelete = GetIt.instance<WebhookService>().channels;
-    expect(
-      afterCopyDelete.map((c) => c['id']),
-      containsAll(<String>[webhookFirstId]),
-      reason: '删副本把原本那条一起删了 = 按 id 删除没走对',
-    );
-    expect(afterCopyDelete, hasLength(2));
-
-    // 退出列表页 → 重新进来（全新的一页），再删原本那条
-    _mark('5.1 删第二条：先退出列表页再重进（弹层删完本页手势失灵那条遗留）');
-    _nav(tester).pop();
-    await _settle(tester, seconds: 2);
-    await _openMoreRow(tester, 'Webhook 推送通道');
-    await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(重进删第二条)');
-    final dingRow = find.byKey(ValueKey('webhook-channel-row-$webhookFirstId'));
-    await _longPress(tester, dingRow, 'Webhook 钉钉那条（重进后）');
-    await _must(
-      tester,
-      find.byType(CardActionSheet).evaluate().isNotEmpty,
-      '钉钉那行的长按弹层（打不中=手势静默丢失）',
-      dingRow,
-    );
-    await _tap(
-      tester,
-      find.descendant(
-        of: find.byType(CardActionSheet),
-        matching: find.text('删除'),
-      ),
-      'Webhook→长按→删除(原本)',
-    );
-    await _confirmDelete(tester, 'Webhook 行');
-    await _settle(tester, seconds: 2);
-    final kept = GetIt.instance<WebhookService>().channels;
-    expect(kept, hasLength(1), reason: '删两条后应该只剩 1 条通道');
-    expect(kept.single['url'], wecomUrl, reason: '删错条 = 行与通道错位（备份与恢复都会跟着错）');
-    expect(
-      kept.single['channelType'],
-      'wechat_work',
-      reason: '按 URL 识别出来的类型没落库（也是后面备份往返的基准）',
-    );
-    // 本节自己 push 过页面（详情 / 重进的列表页），收尾必须回主界面：
-    // 5.2 的 _openMoreRow 是直接点底部 tab 的，不还回去就在别人的页面上找按钮。
-    await _backToHome(tester);
-
-    // 5.2 邮件通道：新建 → 填表 → 保存 → 重进改一处 → 保存
-    _mark('5.2 邮件通道：新建→填表→保存→重进改一处');
-    await _openMoreRow(tester, '邮件转发通道');
-    await _onPage(tester, EmailSettingsPage, '邮件设置页');
-    await _tap(
-      tester,
-      _in(EmailSettingsPage, find.text('添加邮件通道')),
-      '邮件→添加邮件通道',
-    );
-    await _settle(tester, seconds: 1);
-    // 编辑器是 Navigator.push 出来的**裸 Scaffold 路由**（EmailSettingsPage 不在这棵子树里），
-    // 所以输入框只能按整棵树的顺序取：名称、host、端口、账号、授权码、发件人、收件人。
-    final emailFields = find.byType(TextField);
-    await _waitUntil(tester, _appBarText('测试并保存'), '邮件编辑器（AppBar 的「测试并保存」）');
-    expect(
-      emailFields.evaluate().length,
-      greaterThanOrEqualTo(7),
-      reason: '邮件表单字段数不对（名称/host/port/账号/授权码/发件/收件）',
-    );
-    const emailValues = [
-      '闸门邮箱', // name
-      'smtp.qq.com', // host
-      '465', // port
-      'gate@qq.com', // username
-      'authcode123', // password
-      'gate@qq.com', // from
-      'target@qq.com', // to
-    ];
-    for (var i = 0; i < emailValues.length; i++) {
-      await _type(tester, emailFields.at(i), emailValues[i], '邮件字段 #$i');
-    }
-    await _tap(tester, _appBarText('测试并保存'), '邮件→测试并保存');
-    await _settle(tester, seconds: 2);
-    await _backToHome(tester);
-    final mail = GetIt.instance<EmailService>().cachedChannels;
-    expect(mail, hasLength(1), reason: '邮件通道没保存成功');
-    // 逐字段回读：只断言条数的话，字段错位（host 里存了端口）也是绿的
-    expect(mail.single.smtpHost, 'smtp.qq.com', reason: '邮件字段错位（host）');
-    expect(mail.single.smtpPort, 465, reason: '邮件字段错位（port 的字符串→int 转换）');
-    expect(mail.single.fromEmail, 'gate@qq.com', reason: '邮件字段错位（from）');
-    expect(mail.single.toEmail, 'target@qq.com', reason: '邮件字段错位（to）');
-
-    // 5.3 自建应用通道：FAB → 类型弹层 → 必填校验 → 填 → 保存 → 测试
-    _mark('5.3 自建应用：FAB→类型弹层→必填校验→填→保存');
-    await _openMoreRow(tester, '自建应用通道');
-    await _onPage(tester, AppChannelListPage, '自建应用通道列表');
-    await _tap(
-      tester,
-      _in(AppChannelListPage, find.byIcon(Icons.add)),
-      '应用通道→添加(FAB)',
-    );
-    await _settle(tester, seconds: 1);
-    // T07：新增从列表页发起 ⇒ FAB 先开类型弹层（列表来自原生描述符），选完才进详情页
-    await _tap(tester, find.text('企业微信自建应用'), '应用通道→类型弹层选企微');
-    await _settle(tester, seconds: 1);
-    await _onPage(tester, AppChannelSettingsPage, '应用通道详情页（单条）');
-    // 必填校验：空表点保存必须**点名缺哪个字段**并拒绝写入（第 5 步表单收口的承课）
-    await _tap(tester, _appBarText('测试并保存'), '应用通道→空表保存(应被拦)');
-    await _settle(tester, seconds: 1);
-    expect(
-      find.text('保存失败：通道名称不能为空'),
-      findsWidgets,
-      reason: '必填项缺失没有点名提示 = 用户只会看到"保存失败"四个字',
-    );
-    expect(
-      GetIt.instance<AppChannelService>().channels,
-      isEmpty,
-      reason: '必填没填却保存成功了 = 校验被绕过',
-    );
-    // 名称 + API 地址（校验要求 HTTPS）+ 描述符声明的必填扩展参数（corpid/agentid）。
-    // 扩展参数按"仍为空的输入框"逐个填：字段集合由描述符决定，写死下标会随类型漂移。
-    await _type(
-      tester,
-      _in(AppChannelSettingsPage, find.byType(TextField)),
-      '闸门自建应用',
-      '应用通道名称',
-    );
-    await _type(
-      tester,
-      find.byWidgetPredicate(
-        (w) =>
-            w is TextField &&
-            (w.decoration?.hintText ?? '').startsWith('API 地址'),
-      ),
-      'https://qyapi.weixin.qq.com',
-      '应用通道 API 地址',
-    );
-    for (var i = 0; i < 6; i++) {
-      final empty = find.byWidgetPredicate(
-        (w) => w is TextField && (w.controller?.text ?? '').isEmpty,
+    await _step(tester, gateFailures, '1 通知页：服务启停', () async {
+      // ── 1. 通知页：服务启停（真实控件是圆形按钮，不是文案）──────────────
+      await _tap(
+        tester,
+        find.byKey(const ValueKey<String>('service-toggle')),
+        '通知页服务开关',
       );
-      if (empty.evaluate().isEmpty) break;
-      await _type(tester, empty, '闸门扩展$i', '应用通道扩展参数 #$i');
-    }
-    await _tap(tester, _appBarText('测试并保存'), '应用通道→测试并保存');
-    await _settle(tester, seconds: 2);
-    expect(
-      GetIt.instance<AppChannelService>().channels,
-      hasLength(1),
-      reason: '自建应用通道未保存（必填校验/字段键名链路）',
-    );
-    // T04「仅测试」：与「测试并保存」是两个动作 ⇒ 它不写库，但结论同样要落单点。
-    _mark('5.3 仅测试：不写库，但结论照样落单点');
-    await _tap(tester, _appBarText('仅测试'), '应用通道→仅测试');
-    await _settle(tester, seconds: 2);
-    expect(
-      find.byType(AppChannelSettingsPage),
-      findsOneWidget,
-      reason: '「仅测试」按定义不保存，不该把用户弹出编辑页',
-    );
-    expect(
-      GetIt.instance<ChannelHealthStore>()
-          .of(
-            'app',
-            GetIt.instance<AppChannelService>().channels.first['id'].toString(),
-          )
-          ?.reachable,
-      isTrue,
-      reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
-    );
-    // T07：回到列表页做"整族级"的动作（复制 / 启停 / 删除）。详情页只管一条。
-    _mark('5.3 回列表页做整族动作（复制/启停/删除）');
-    // ⚠ 不用 `tester.pageBack()`：它找的是 Cupertino 返回键 / 本地化 tooltip，
-    // 本应用的页头是自己搭的 Material AppBar ⇒ 当场 "One back button expected"（实测红）。
-    _nav(tester).pop();
-    await _settle(tester, seconds: 2);
-    await _onPage(tester, AppChannelListPage, '返回列表页');
-    final firstId = GetIt.instance<AppChannelService>().channels.first['id']
-        .toString();
-    // ⚠ key 挂在**通道 id** 上（不是下标）：复制/删除会改变顺序，按下标挂 key 会让
-    // 控件状态跟着错位。行在真机上可能刚被滚出视口 ⇒ 走 _longPress（居中对齐 + 不 pumpAndSettle）。
-    final appRow = find.byKey(ValueKey('app-channel-row-$firstId'));
-    await _longPress(tester, appRow, '应用通道列表行');
-    await _must(
-      tester,
-      find.byType(CardActionSheet).evaluate().isNotEmpty,
-      '应用通道行长按弹层（打不中=手势静默丢失）',
-      appRow,
-    );
-    await _tap(
-      tester,
-      find.descendant(
+      expect(
+        captured['startNotificationListener'],
+        isNotNull,
+        reason: '点服务开关没有下发 startNotificationListener',
+      );
+      await _tap(
+        tester,
+        find.byKey(const ValueKey<String>('service-toggle')),
+        '通知页服务开关(关)',
+      );
+      expect(
+        captured['stopNotificationListener'],
+        isNotNull,
+        reason: '再点一次应下发 stopNotificationListener',
+      );
+    });
+
+    await _step(tester, gateFailures, '2 权限设置页：进页读三态', () async {
+      // ── 2. 权限设置页：进入即读三态权限，页面必须渲染且不抛 ──────────────
+      await _tap(tester, find.text('权限设置'), '通知页→权限设置');
+      await _onPage(tester, PermissionSettingsPage, '权限设置页');
+      await _backToHome(tester);
+    });
+
+    await _step(tester, gateFailures, '3 短信监听页：两个开关 + SIM 选择', () async {
+      // ── 3. 短信监听页：两个开关 + SIM 卡选择 ────────────────────────────
+      await _tap(tester, find.text('短信监听'), '通知页→短信监听');
+      await _onPage(tester, SmsMonitorSettingsPage, '短信监听页');
+      final smsSwitches = _in(
+        SmsMonitorSettingsPage,
+        find.byType(CupertinoSwitch),
+      );
+      expect(smsSwitches, findsNWidgets(2), reason: '短信监听页应有两个开关');
+      await _tap(tester, smsSwitches.at(1), '监听验证码开关');
+      await _tap(tester, find.text('仅卡1'), 'SIM 卡选择「仅卡1」');
+      final smsSets = (captured['setSmsSetting'] ?? const [])
+          .map((a) => (a.first as Map)['key'])
+          .toList();
+      expect(
+        smsSets,
+        containsAll(<String>['sms_code_monitor_enabled', 'sms_sim_filter']),
+        reason: '开关与卡选择都必须回写原生，否则后台读不到新配置',
+      );
+      await _backToHome(tester);
+    });
+
+    await _step(tester, gateFailures, '4 推送历史页：进页 + 导出 JSON（真落盘）', () async {
+      // ── 4. 推送历史页：进入 + 溢出菜单里的导出 JSON（真落盘）─────────────
+      await _tap(tester, find.text('推送历史'), '通知页→推送历史');
+      await _settle(tester, seconds: 2);
+      expect(
+        find.text('闸门通知一'),
+        findsWidgets,
+        reason: '注入的历史记录没出现在列表里（loadRecords/DB 链路）',
+      );
+      await _tap(
+        tester,
+        _in(HistoryPage, find.byIcon(Icons.more_horiz)),
+        '历史页溢出菜单',
+      );
+      await _settle(tester);
+      await _tap(tester, find.text('导出 JSON'), '历史页→导出 JSON');
+      await _settle(tester);
+      // 导出前有一步确认弹层（main_page_actions 的 exportBtn），不点它 saveFile 不会发生
+      await _tap(tester, find.text('确定导出'), '历史页导出→确定导出');
+      await _settle(tester, seconds: 3);
+      expect(
+        writtenFiles.keys.any((n) => n.endsWith('.json')),
+        isTrue,
+        reason: '导出生成没有真的走 saveFile？（历史 JSON 导出是运维取数唯一出口）',
+      );
+      // T05：历史记录卡的长按动作表。本批把它就地写的整份弹层搬进了共用组件，
+      // 所以这里必须真展开一次 —— 只展开再收起，不点「屏蔽」，
+      // 那会改掉后面各节依赖的过滤配置（闸门要可重复）。
+      await _longPress(tester, find.text('闸门通知一'), '历史记录行');
+      // 限定在弹层里 + 精确文本：这一项的**副标题**也含"屏蔽该应用"五个字
+      // （闸门第一轮就是被这条 loose 断言打红的：textContaining 一次数到两个）。
+      final blockAppItem = find.descendant(
         of: find.byType(CardActionSheet),
-        matching: find.text('复制'),
-      ),
-      '应用通道→长按→复制',
-    );
-    await _settle(tester, seconds: 2);
-    final appChannels = GetIt.instance<AppChannelService>().channels;
-    expect(
-      appChannels,
-      hasLength(2),
-      reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
-    );
-    expect(
-      appChannels.map((c) => c['id']).toSet(),
-      hasLength(2),
-      reason: '两条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中两条',
-    );
-    expect(
-      appChannels.last['baseUrl'],
-      'https://qyapi.weixin.qq.com',
-      reason: '复制不到 API 地址的"复制"等于让用户重填一遍',
+        matching: find.text('屏蔽该应用的通知'),
+      );
+      expect(
+        blockAppItem,
+        findsOneWidget,
+        reason: '长按弹层没出来 ⇒ CardActionSheet 在真机手势区上不可用',
+      );
+      await tester.tapAt(const Offset(10, 10));
+      await _settle(tester);
+      expect(
+        find.byType(CardActionSheet),
+        findsNothing,
+        reason: '点遮罩关不掉弹层 ⇒ 用户被卡在动作表里',
+      );
+      await _backToHome(tester);
+    });
+
+    await _step(
+      tester,
+      gateFailures,
+      '5.1 更多 tab 入口 + webhook 列表/详情两页形状',
+      () async {
+        // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(NavigationBar),
+            matching: find.text('更多'),
+          ),
+          '底部 tab→更多',
+        );
+        await _onPage(tester, MorePage, '更多页');
+
+        // 5.1 Webhook 通道（T07-B 起是「列表页 → 单通道详情页」两页形状）：
+        //     FAB 建第一条 → 仅测试（不许写库）→ 测试并保存 → 回列表 → 建第二条 →
+        //     点第一条行进详情改一处 → 断言第二条原样 → 长按复制 → 长按删除并确认。
+        //     删完必须断言"活下来的是哪一条"：删一行后其余行继承错位 id 是这个页面
+        //     真实发生过的缺陷类别（平铺页保存走整表 delete+insert）。
+        await _openMoreRow(tester, 'Webhook 推送通道');
+        await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页');
+        const dingUrl =
+            'https://oapi.dingtalk.com/robot/send?access_token=gate';
+        const wecomUrl =
+            'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=gate';
+
+        await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增');
+        await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(新增)');
+        await _fillWebhookUrl(tester, dingUrl);
+        // URL 填完 ⇒ 类型选择器应显出「自动识别·钉钉」：描述符与 host 识别表都在工作
+        expect(
+          find.textContaining('自动识别'),
+          findsWidgets,
+          reason: '填完 URL 后类型选择器没有按 host 识别 ⇒ 描述符/识别表断链',
+        );
+        // T04「仅测试」：与「测试并保存」是两条路径 ⇒ 它**不写库**（这一条还没 id，
+        // 更没有归属，健康单点也不该被写）。
+        await _tap(tester, _appBarText('仅测试'), 'Webhook→仅测试');
+        await _settle(tester, seconds: 2);
+        expect(
+          find.byType(WebhookSettingsPage),
+          findsOneWidget,
+          reason: '「仅测试」把用户弹出详情页 = 它偷偷走了保存那条路',
+        );
+        expect(
+          GetIt.instance<WebhookService>().channels,
+          isEmpty,
+          reason: '「仅测试」按定义不落库',
+        );
+        await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第一条)');
+        await _settle(tester, seconds: 2);
+        final firstRow = GetIt.instance<WebhookService>().channels;
+        expect(firstRow, hasLength(1), reason: '第一条通道没存进去');
+        final webhookFirstId = firstRow.first['id'].toString();
+        expect(
+          GetIt.instance<ChannelHealthStore>()
+              .of('webhook', webhookFirstId)
+              ?.reachable,
+          isTrue,
+          reason: '「测试并保存」的结论没落单点 ⇒ 配置异常冒不到首页（T04 的链路断在这）',
+        );
+
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _onPage(tester, WebhookChannelListPage, '返回 Webhook 列表页');
+        expect(
+          find.textContaining('oapi.dingtalk.com'),
+          findsOneWidget,
+          reason: '列表行没显示这条通道的目标主机 ⇒ 用户分不清自己有几条同名通道',
+        );
+
+        // 第二条：一次只改一件事，红的时候能点名
+        _mark('5.1 建第二条（一次只改一件事）');
+        await _tap(tester, find.byType(FloatingActionButton), 'Webhook→新增第二条');
+        await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(第二条)');
+        await _fillWebhookUrl(tester, wecomUrl);
+        await _tap(tester, _appBarText('测试并保存'), 'Webhook→测试并保存(第二条)');
+        await _settle(tester, seconds: 2);
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        expect(
+          GetIt.instance<WebhookService>().channels.map((c) => c['url']),
+          containsAll(<String>[dingUrl, wecomUrl]),
+          reason: '两条通道没能都存进去（保存时把已有那条丢了 = 整表快照还没拆干净）',
+        );
+
+        // T07-B 的核心不变量：改一条，另一条一个字节都不许动
+        await _tap(
+          tester,
+          find.byKey(ValueKey('webhook-channel-row-$webhookFirstId')),
+          'Webhook→点第一条行进详情',
+        );
+        await _onPage(tester, WebhookSettingsPage, 'Webhook 详情页(改第一条)');
+        expect(
+          find.text(dingUrl),
+          findsOneWidget,
+          reason: '详情页打开的不是被点那条 ⇒ channelId 传丢了',
+        );
+        await _type(
+          tester,
+          find.byWidgetPredicate(
+            (w) =>
+                w is TextField &&
+                (w.decoration?.hintText ?? '').startsWith('通道名称'),
+          ),
+          '闸门钉钉',
+          'Webhook 名称输入框',
+        );
+        await _tap(tester, _appBarText('测试并保存'), 'Webhook→保存(改名)');
+        await _settle(tester, seconds: 2);
+        final renamed = GetIt.instance<WebhookService>().channels;
+        expect(
+          renamed.firstWhere((c) => c['id'] == webhookFirstId)['name'],
+          '闸门钉钉',
+          reason: '改的那条没生效',
+        );
+        expect(
+          renamed.firstWhere((c) => c['url'] == wecomUrl)['name'],
+          '',
+          reason: '改一条把另一条的名字也写了 ⇒ 页面还在攥整表快照',
+        );
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(改后)');
+
+        // 列表页的整族动作：长按复制 / 长按删除（T05 + T06）
+        _mark('5.1 列表页整族动作：长按复制 / 长按删除');
+        final row = find.byKey(ValueKey('webhook-channel-row-$webhookFirstId'));
+        await _longPress(tester, row, 'Webhook 列表行');
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          'Webhook 行长按弹层（打不中=手势静默丢失）',
+          row,
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('复制'),
+          ),
+          'Webhook→长按→复制',
+        );
+        await _settle(tester, seconds: 2);
+        final tripled = GetIt.instance<WebhookService>().channels;
+        expect(
+          tripled,
+          hasLength(3),
+          reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
+        );
+        expect(
+          tripled.map((c) => c['id']).toSet(),
+          hasLength(3),
+          reason: '三条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中三条',
+        );
+        final webhookCopyId = tripled.last['id'].toString();
+        expect(
+          GetIt.instance<ChannelHealthStore>().of('webhook', webhookCopyId),
+          isNull,
+          reason: '复制出来的那条没测过，却把原那条的健康记录一起复制了',
+        );
+
+        // 删两条（复制的那条 + 钉钉那条），只留企微那条给后面的备份与状态页用。
+        _mark('5.1 删两条：企微那条留给后面的备份与状态页');
+        //
+        // ⚠ 第二条的删除**先退出列表页再重新进来**：T07-B 的 8 轮闸门里反复出现同一个
+        // 现象 —— 用弹层删掉一行之后，在同一页上再长按另一行，行区域的手势全部无效
+        // （三种按法都没反应、同点 tap 也无效，但右下角 FAB 仍能点开详情页），树上留着
+        // 一片 `ModalBarrier(dismissible=false, color=null)`（那是**页面路由**的屏障形状）。
+        // widget 测试与手机尺寸复现都抓不到它。到底是"删完一条后本页失灵"的真缺陷，
+        // 还是 Integration Test 注入手势 + 模态路由退场的产物，**静态判不出来**，
+        // 已登记为 base.md ㉚ 的真机复验项（人手长按一次即有结论）。
+        // 这里不把它当已证伪的产品缺陷掩盖掉，也不让整条闸门永远红：改成重进页面后再删，
+        // 覆盖不变（两条都走同一个确认咽喉），只是不在"疑似失灵的那一页"上做第二次长按。
+        await _longPress(
+          tester,
+          find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
+          'Webhook 复制出来的那条',
+        );
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          '副本那行的长按弹层（打不中=手势静默丢失）',
+          find.byKey(ValueKey('webhook-channel-row-$webhookCopyId')),
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
+          ),
+          'Webhook→长按→删除(副本)',
+        );
+        await _confirmDelete(tester, 'Webhook 行');
+        await _settle(tester, seconds: 2);
+        final afterCopyDelete = GetIt.instance<WebhookService>().channels;
+        expect(
+          afterCopyDelete.map((c) => c['id']),
+          containsAll(<String>[webhookFirstId]),
+          reason: '删副本把原本那条一起删了 = 按 id 删除没走对',
+        );
+        expect(afterCopyDelete, hasLength(2));
+
+        // 退出列表页 → 重新进来（全新的一页），再删原本那条
+        _mark('5.1 删第二条：先退出列表页再重进（弹层删完本页手势失灵那条遗留）');
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _openMoreRow(tester, 'Webhook 推送通道');
+        await _onPage(tester, WebhookChannelListPage, 'Webhook 列表页(重进删第二条)');
+        final dingRow = find.byKey(
+          ValueKey('webhook-channel-row-$webhookFirstId'),
+        );
+        await _longPress(tester, dingRow, 'Webhook 钉钉那条（重进后）');
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          '钉钉那行的长按弹层（打不中=手势静默丢失）',
+          dingRow,
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
+          ),
+          'Webhook→长按→删除(原本)',
+        );
+        await _confirmDelete(tester, 'Webhook 行');
+        await _settle(tester, seconds: 2);
+        final kept = GetIt.instance<WebhookService>().channels;
+        expect(kept, hasLength(1), reason: '删两条后应该只剩 1 条通道');
+        expect(
+          kept.single['url'],
+          wecomUrl,
+          reason: '删错条 = 行与通道错位（备份与恢复都会跟着错）',
+        );
+        expect(
+          kept.single['channelType'],
+          'wechat_work',
+          reason: '按 URL 识别出来的类型没落库（也是后面备份往返的基准）',
+        );
+        // 本节自己 push 过页面（详情 / 重进的列表页），收尾必须回主界面：
+        // 5.2 的 _openMoreRow 是直接点底部 tab 的，不还回去就在别人的页面上找按钮。
+        await _backToHome(tester);
+      },
     );
 
-    // T06：删除要二次确认，且这一族的咽喉在列表页。
-    _mark('5.3 删除走二次确认咽喉');
-    final copyId = appChannels.last['id'].toString();
-    final copyRow = find.byKey(ValueKey('app-channel-row-$copyId'));
-    await _longPress(tester, copyRow, '复制出来的那条');
-    await _tap(
-      tester,
-      find.descendant(
-        of: find.byType(CardActionSheet),
-        matching: find.text('删除'),
-      ),
-      '应用通道→长按→删除',
-    );
-    await _confirmDelete(tester, '应用通道行');
-    expect(
-      GetIt.instance<AppChannelService>().channels.map((c) => c['id']),
-      [firstId],
-      reason: '确认之后必须真的删掉那一条，且不动另一条',
-    );
-    await _backToHome(tester);
+    await _step(tester, gateFailures, '5.2 邮件通道：新建→填表→保存→重进改一处', () async {
+      // 5.2 邮件通道：新建 → 填表 → 保存 → 重进改一处 → 保存
+      await _openMoreRow(tester, '邮件转发通道');
+      await _onPage(tester, EmailSettingsPage, '邮件设置页');
+      await _tap(
+        tester,
+        _in(EmailSettingsPage, find.text('添加邮件通道')),
+        '邮件→添加邮件通道',
+      );
+      await _settle(tester, seconds: 1);
+      // 编辑器是 Navigator.push 出来的**裸 Scaffold 路由**（EmailSettingsPage 不在这棵子树里），
+      // 所以输入框只能按整棵树的顺序取：名称、host、端口、账号、授权码、发件人、收件人。
+      final emailFields = find.byType(TextField);
+      await _waitUntil(tester, _appBarText('测试并保存'), '邮件编辑器（AppBar 的「测试并保存」）');
+      expect(
+        emailFields.evaluate().length,
+        greaterThanOrEqualTo(7),
+        reason: '邮件表单字段数不对（名称/host/port/账号/授权码/发件/收件）',
+      );
+      const emailValues = [
+        '闸门邮箱', // name
+        'smtp.qq.com', // host
+        '465', // port
+        'gate@qq.com', // username
+        'authcode123', // password
+        'gate@qq.com', // from
+        'target@qq.com', // to
+      ];
+      for (var i = 0; i < emailValues.length; i++) {
+        await _type(tester, emailFields.at(i), emailValues[i], '邮件字段 #$i');
+      }
+      await _tap(tester, _appBarText('测试并保存'), '邮件→测试并保存');
+      await _settle(tester, seconds: 2);
+      await _backToHome(tester);
+      final mail = GetIt.instance<EmailService>().cachedChannels;
+      expect(mail, hasLength(1), reason: '邮件通道没保存成功');
+      // 逐字段回读：只断言条数的话，字段错位（host 里存了端口）也是绿的
+      expect(mail.single.smtpHost, 'smtp.qq.com', reason: '邮件字段错位（host）');
+      expect(mail.single.smtpPort, 465, reason: '邮件字段错位（port 的字符串→int 转换）');
+      expect(mail.single.fromEmail, 'gate@qq.com', reason: '邮件字段错位（from）');
+      expect(mail.single.toEmail, 'target@qq.com', reason: '邮件字段错位（to）');
+    });
 
-    // 5.4 温度告警（通知引擎 tab 的入口，T15 起不在「更多」）：加一条规则 → 开关切一次
+    await _step(
+      tester,
+      gateFailures,
+      '5.3 自建应用：FAB→类型弹层→必填校验→填→保存→整族动作',
+      () async {
+        // 5.3 自建应用通道：FAB → 类型弹层 → 必填校验 → 填 → 保存 → 测试
+        await _openMoreRow(tester, '自建应用通道');
+        await _onPage(tester, AppChannelListPage, '自建应用通道列表');
+        await _tap(
+          tester,
+          _in(AppChannelListPage, find.byIcon(Icons.add)),
+          '应用通道→添加(FAB)',
+        );
+        await _settle(tester, seconds: 1);
+        // T07：新增从列表页发起 ⇒ FAB 先开类型弹层（列表来自原生描述符），选完才进详情页
+        await _tap(tester, find.text('企业微信自建应用'), '应用通道→类型弹层选企微');
+        await _settle(tester, seconds: 1);
+        await _onPage(tester, AppChannelSettingsPage, '应用通道详情页（单条）');
+        // 必填校验：空表点保存必须**点名缺哪个字段**并拒绝写入（第 5 步表单收口的承课）
+        await _tap(tester, _appBarText('测试并保存'), '应用通道→空表保存(应被拦)');
+        await _settle(tester, seconds: 1);
+        expect(
+          find.text('保存失败：通道名称不能为空'),
+          findsWidgets,
+          reason: '必填项缺失没有点名提示 = 用户只会看到"保存失败"四个字',
+        );
+        expect(
+          GetIt.instance<AppChannelService>().channels,
+          isEmpty,
+          reason: '必填没填却保存成功了 = 校验被绕过',
+        );
+        // 名称 + API 地址（校验要求 HTTPS）+ 描述符声明的必填扩展参数（corpid/agentid）。
+        // 扩展参数按"仍为空的输入框"逐个填：字段集合由描述符决定，写死下标会随类型漂移。
+        await _type(
+          tester,
+          _in(AppChannelSettingsPage, find.byType(TextField)),
+          '闸门自建应用',
+          '应用通道名称',
+        );
+        await _type(
+          tester,
+          find.byWidgetPredicate(
+            (w) =>
+                w is TextField &&
+                (w.decoration?.hintText ?? '').startsWith('API 地址'),
+          ),
+          'https://qyapi.weixin.qq.com',
+          '应用通道 API 地址',
+        );
+        for (var i = 0; i < 6; i++) {
+          final empty = find.byWidgetPredicate(
+            (w) => w is TextField && (w.controller?.text ?? '').isEmpty,
+          );
+          if (empty.evaluate().isEmpty) break;
+          await _type(tester, empty, '闸门扩展$i', '应用通道扩展参数 #$i');
+        }
+        await _tap(tester, _appBarText('测试并保存'), '应用通道→测试并保存');
+        await _settle(tester, seconds: 2);
+        expect(
+          GetIt.instance<AppChannelService>().channels,
+          hasLength(1),
+          reason: '自建应用通道未保存（必填校验/字段键名链路）',
+        );
+        // T04「仅测试」：与「测试并保存」是两个动作 ⇒ 它不写库，但结论同样要落单点。
+        _mark('5.3 仅测试：不写库，但结论照样落单点');
+        await _tap(tester, _appBarText('仅测试'), '应用通道→仅测试');
+        await _settle(tester, seconds: 2);
+        expect(
+          find.byType(AppChannelSettingsPage),
+          findsOneWidget,
+          reason: '「仅测试」按定义不保存，不该把用户弹出编辑页',
+        );
+        expect(
+          GetIt.instance<ChannelHealthStore>()
+              .of(
+                'app',
+                GetIt.instance<AppChannelService>().channels.first['id']
+                    .toString(),
+              )
+              ?.reachable,
+          isTrue,
+          reason: '自建应用通道的测试结论没落单点 = 三族里只有它冒不到首页',
+        );
+        // T07：回到列表页做"整族级"的动作（复制 / 启停 / 删除）。详情页只管一条。
+        _mark('5.3 回列表页做整族动作（复制/启停/删除）');
+        // ⚠ 不用 `tester.pageBack()`：它找的是 Cupertino 返回键 / 本地化 tooltip，
+        // 本应用的页头是自己搭的 Material AppBar ⇒ 当场 "One back button expected"（实测红）。
+        _nav(tester).pop();
+        await _settle(tester, seconds: 2);
+        await _onPage(tester, AppChannelListPage, '返回列表页');
+        final firstId = GetIt.instance<AppChannelService>().channels.first['id']
+            .toString();
+        // ⚠ key 挂在**通道 id** 上（不是下标）：复制/删除会改变顺序，按下标挂 key 会让
+        // 控件状态跟着错位。行在真机上可能刚被滚出视口 ⇒ 走 _longPress（居中对齐 + 不 pumpAndSettle）。
+        final appRow = find.byKey(ValueKey('app-channel-row-$firstId'));
+        await _longPress(tester, appRow, '应用通道列表行');
+        await _must(
+          tester,
+          find.byType(CardActionSheet).evaluate().isNotEmpty,
+          '应用通道行长按弹层（打不中=手势静默丢失）',
+          appRow,
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('复制'),
+          ),
+          '应用通道→长按→复制',
+        );
+        await _settle(tester, seconds: 2);
+        final appChannels = GetIt.instance<AppChannelService>().channels;
+        expect(
+          appChannels,
+          hasLength(2),
+          reason: '复制没立刻落库 = 列表页还在用"整表快照 + 保存时才写"的旧形状',
+        );
+        expect(
+          appChannels.map((c) => c['id']).toSet(),
+          hasLength(2),
+          reason: '两条同 id ⇒ 徽标与送达归属互相顶掉，删一条会一次中两条',
+        );
+        expect(
+          appChannels.last['baseUrl'],
+          'https://qyapi.weixin.qq.com',
+          reason: '复制不到 API 地址的"复制"等于让用户重填一遍',
+        );
+
+        // T06：删除要二次确认，且这一族的咽喉在列表页。
+        _mark('5.3 删除走二次确认咽喉');
+        final copyId = appChannels.last['id'].toString();
+        final copyRow = find.byKey(ValueKey('app-channel-row-$copyId'));
+        await _longPress(tester, copyRow, '复制出来的那条');
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
+          ),
+          '应用通道→长按→删除',
+        );
+        await _confirmDelete(tester, '应用通道行');
+        expect(
+          GetIt.instance<AppChannelService>().channels.map((c) => c['id']),
+          [firstId],
+          reason: '确认之后必须真的删掉那一条，且不动另一条',
+        );
+        await _backToHome(tester);
+
+        // 5.4 温度告警（通知引擎 tab 的入口，T15 起不在「更多」）：加一条规则 → 开关切一次
+      },
+    );
+
     await _step(tester, gateFailures, '5.4 温度告警：加一条规则 → 开关切一次', () async {
       await _backToHomeQuietly(tester);
       await _openEngineRow(tester, '温度告警');

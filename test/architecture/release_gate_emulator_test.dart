@@ -671,6 +671,37 @@ void main() {
             '这些区段没有任何痕迹 ⇒ 挂在这里时日志里一个线索都没有，整轮只能重跑赌运气。'
             '补一行 _mark(\'几.几 在做什么\') 即可（判据：连续裸代码不超 $maxBlind 行）',
       );
+      // 光有"盲区间 ≤60 行"还是太弱：mark 能给出位置，却给不出**预算保护**。
+      // 第 10 轮实测：挂在裸段时节内 3 分钟预算完全用不上，只能等 18 分钟用例超时，
+      // 且其余各节结论全废。所以每个分节都必须是一个 `_step`（有 BEGIN 痕迹 + 节内预算
+      // + 一节红不吞其余），这件事只能直接钉节名。
+      const requiredSections = [
+        '1 通知页',
+        '2 权限设置页',
+        '3 短信监听页',
+        '4 推送历史页',
+        '5.1',
+        '5.2 邮件通道',
+        '5.3 自建应用',
+      ];
+      final stepNames = RegExp(
+        r"await _step\(\s*tester,\s*gateFailures,\s*'([^']+)'",
+      ).allMatches(src).map((m) => m.group(1)!).toList();
+      final naked = requiredSections
+          .where((s) => !stepNames.any((n) => n.startsWith(s)))
+          .toList();
+      expect(
+        naked,
+        isEmpty,
+        reason:
+            '这些分节没有被任何 _step 包住 ⇒ 挂在那里时没有节内预算、也不会单独记红：'
+            '$naked（第 10 轮就是挂在 5.1 的裸段里，白等 18 分钟）',
+      );
+      expect(
+        firstStep - start,
+        lessThanOrEqualTo(60),
+        reason: '第一个 _step 之前应当只剩"装配"那一小段 ⇒ 再长就说明有新代码绕开了预算',
+      );
     });
 
     test('备份往返真的擦掉并恢复了引擎规则两族（#95）', () {
