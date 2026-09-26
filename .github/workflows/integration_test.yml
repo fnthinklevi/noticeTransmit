@@ -116,9 +116,11 @@ jobs:
   walkthrough:
     name: 发版全功能点击闸门
     runs-on: ubuntu-24.04
-    # 单独预算：这条链路本机 5:23，而 CI 用 swiftshader 软件渲染（比本机 -gpu auto 慢），
-    # 按 3 倍估也要留到 30 分钟以上 —— 顶格的话报的是「闸门超时红」，会被误读成功能回归。
-    timeout-minutes: 45
+    # 单独预算：闸门按用例分**独立调用**跑（一条挂住会带走同 isolate 里后面的用例，
+    # 见 release_emulator.sh 第 16 轮的说明），所以这里的算式是
+    #   Σ(四条用例超时)=25′ + 每次调用的重装/启动 4×4′ + smoke + 构建
+    # 顶格 45′ 会被"四条同时挂满"这种病态形状先掐掉 ⇒ 提到 60′（正常轮实测 ~12′）。
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 

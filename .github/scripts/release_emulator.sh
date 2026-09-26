@@ -171,14 +171,60 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy 2>/dev/null || tru
 #   base.md 步骤 6.6 与 ㉚ 的真机人工自检，别把本闸门当成 release 验证。
 LOG=/tmp/release_emulator_test.log
 # ── 三层时间口径必须成序（2026-09-26 一天四轮 GATE_RC=124 逼出来的）──────────
-#   节内预算 3′ ×4  ≤  用例级超时 18′  <  这里整轮 27′  ≤  CI job 45′
+#   节内预算 3′ ×2 ≤ 每条用例超时（walkthrough 四条：6/6/7/6 ⇒ Σ=25′）
+#   ≤ 单次调用回退上限 GATE_CASE_TIMEOUT（最重的 7′ + 装机/splash 4′）
+#   ≤ 整轮（四条 + smoke）+ 构建 ≤ CI job 60′
 # 谁掉链子都会把"功能红"和"超时红"混成一团：
 #   整轮 > 用例 ⇒ 用例级那条永远轮不到说话，挂住只剩一个 124（四轮都是这个形状）；
 #   整轮 < 用例 + smoke ⇒ 挂住的那条被超时判掉后，smoke 还没跑完就被掐（第 6 轮实测 24:22 +3 −1）。
-# timeout 的 124 单独说一句，别让它在报告里长得像功能回归。
-GATE_TEST_TIMEOUT=${GATE_TEST_TIMEOUT:-1620}
-timeout "$GATE_TEST_TIMEOUT" flutter test $FILES -d "$SERIAL" > "$LOG" 2>&1
-RC=$?
+GATE_TEST_TIMEOUT=${GATE_TEST_TIMEOUT:-900}
+GATE_CASE_TIMEOUT=${GATE_CASE_TIMEOUT:-660}
+# ── 逐条用例分**独立调用**跑（第 16 轮实测出来的）─────────────────────────────
+# 为什么四条用例不能在一个进程里跑完：某一节的 body 挂住之后**取消不掉**（`_step` 的超时
+# 只能把它记成红，不能让它停下来），它继续占着 flutter_test binding 的 test zone ⇒ 同一文件
+# 里**后面的用例**一秒都跑不了，全死在 `binding.dart 3056 '!inTest': is not true`。
+# 第 16 轮实测：2/4 挂住并被点名之后，3/4 与 4/4 连一条断言都没执行就一起红了 —— 那两条正是
+# "规则与更多页"和"备份往返"（1.5.74 事故那一类）的覆盖。isolate 之间不共享这个 zone，
+# 所以按用例名分几次调用才是真隔离；代价是每次多一分钟左右的重装与启动。
+# 用例名从测试文件里**派生**，不在脚本里再抄一份 ⇒ 两边各写各的、朝同一方向写错，
+# 就是本项目反复撞过的"守卫自己成了第二份拷贝"。数不到名字时**判红**而不是退回整档一次。
+WALK=integration_test/release_walkthrough_test.dart
+GATE_CASES=""
+if [ -z "${GATE_FILES:-}" ] && [ -f "$WALK" ]; then
+    GATE_CASES=$(grep -oE "'闸门 [0-9]+/[0-9]+" "$WALK" | tr -d "'" | sort -u)
+    [ -n "$GATE_CASES" ] || {
+        fail "从 $WALK 里数不到「闸门 n/4」用例名 ⇒ 用例改名或合回去了：逐条隔离会静默退化成整档一次"
+        exit 1
+    }
+    ok "逐条隔离：$(echo "$GATE_CASES" | tr '\n' ' ')"
+fi
+RC=0
+: > "$LOG"
+if [ -n "$GATE_CASES" ]; then
+    # 其余测试文件（smoke 等）仍一次跑完；walkthrough 按用例名拆开跑
+    OTHERS=$(printf '%s\n' $FILES | grep -v "^$WALK\$" | tr '\n' ' ')
+    while IFS= read -r case_name; do
+        [ -n "$case_name" ] || continue
+        echo "──── 独立调用：$case_name" >> "$LOG"
+        timeout "$GATE_CASE_TIMEOUT" flutter test "$WALK" -d "$SERIAL" \
+            --plain-name "$case_name" >> "$LOG" 2>&1
+        case_rc=$?
+        # RC 只记"有没有红"（0/1）：某条被回退上限掐掉时 124 已经逐条说过了，
+        # 再把它当"整轮超时"复述一遍会在报告里出现两个互相矛盾的结论。
+        [ "$case_rc" -eq 0 ] || RC=1
+        if [ "$case_rc" -eq 124 ]; then
+            fail "$case_name 跑满单次回退上限（${GATE_CASE_TIMEOUT}s）被 timeout 掐掉 ⇒ 不是功能红，是没返回"
+        fi
+    done <<< "$GATE_CASES"
+    if [ -n "${OTHERS// /}" ]; then
+        echo "──── 独立调用：$OTHERS" >> "$LOG"
+        timeout "$GATE_TEST_TIMEOUT" flutter test $OTHERS -d "$SERIAL" >> "$LOG" 2>&1
+        [ "$?" -eq 0 ] || RC=1
+    fi
+else
+    timeout "$GATE_TEST_TIMEOUT" flutter test $FILES -d "$SERIAL" > "$LOG" 2>&1
+    RC=$?
+fi
 if [ $RC -eq 124 ]; then
     tail -25 "$LOG"
     fail "整轮超时（${GATE_TEST_TIMEOUT}s）被 timeout 掐掉 ⇒ 这不是功能红，是某一节没返回"

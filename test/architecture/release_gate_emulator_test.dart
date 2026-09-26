@@ -590,28 +590,36 @@ void main() {
         reason: '超时若落在 try 之外 ⇒ 它掀掉的是整轮，而不是记成"这一节红"',
       );
       // 「谁先说话」是契约而不是巧合：㊼ 把用例级超时从 18 放宽到 30 的时候，节内预算还不存在。
+      // 拆开之后"用例级超时"有**四条**（每条用例一个），所以判据取逐条比较而不是抓第一条：
+      // 任何一条短到兜不住两次节内挂住，先说话的就不是"哪一节挂住"而是"这条用例没结论"。
       final whole = read('integration_test/release_walkthrough_test.dart');
       final budget = RegExp(
         r'const _stepBudget = Duration\(minutes: (\d+)\)',
       ).firstMatch(whole);
-      final caseTimeout = RegExp(
-        r'timeout: const Timeout\(Duration\(minutes: (\d+)\)\)',
-      ).firstMatch(whole);
       expect(budget, isNotNull, reason: '节内预算的形状变了 ⇒ 这条判据要跟着改，别让它静默失效');
+      final caseBudgets = RegExp(
+        r'const _case([A-Z])Budget = Duration\(minutes: (\d+)\)',
+      ).allMatches(whole);
+      final stepMinutes = int.parse(budget!.group(1)!);
       expect(
-        caseTimeout,
-        isNotNull,
-        reason: '主用例不再有用例级超时 ⇒ 挂住时只剩外层 timeout 掐整轮',
-      );
-      expect(
-        int.parse(caseTimeout!.group(1)!) >= int.parse(budget!.group(1)!) * 4,
-        isTrue,
+        caseBudgets.length,
+        greaterThanOrEqualTo(4),
         reason:
-            '用例级超时若不远大于节内预算，先说话的就不是"哪一节挂住"而是"整轮超时" —— '
-            '今天四轮 GATE_RC=124 就是这么来的（外层 1750s < 用例 30 分钟，用例级永远轮不到）',
+            '取不到四条用例各自的超时常量 ⇒ "谁先说话"这条契约无从计算。'
+            '常量名 `_case<X>Budget` 本身就是契约的一部分（写死数字就是两份口径）',
       );
-      // 同一串顺序的最后一环：整轮预算必须容得下"用例超时 + smoke"，否则挂住那条刚被判掉，
-      // smoke 还没跑完就被掐（第 6 轮实测：外层 25 分钟 < 用例 18 分钟 + smoke ⇒ 24:22 时 +3 −1）。
+      for (final m in caseBudgets) {
+        expect(
+          int.parse(m.group(2)!),
+          greaterThanOrEqualTo(stepMinutes * 2),
+          reason:
+              '用例 ${m.group(1)} 的超时兜不住"两节各挂一次" ⇒ 那条用例里的挂住只会报'
+              '"整条超时"，节内预算的点名能力白给（第 10 轮之前就是这个形状）',
+        );
+      }
+      // ── 同一串顺序的下面几环：闸门现在按用例**分独立调用**跑（第 16 轮实测：一条挂住
+      // 会带走同一 isolate 里后面的用例，它们全死在 `binding.dart '!inTest'`）。
+      // 于是口径多了一层"单次调用的回退上限"，而它必须由测试文件派生出的用例名驱动。
       final sh2 = stripShellComments(
         read('.github/scripts/release_emulator.sh'),
       );
@@ -620,13 +628,73 @@ void main() {
         isTrue,
         reason: '整轮超时没写进脚本 ⇒ 它只存在于某人手敲的命令行里，每次都要重新猜一遍',
       );
-      final wholeRun = RegExp(r'GATE_TEST_TIMEOUT:-(\d+)').firstMatch(sh2);
-      expect(wholeRun, isNotNull, reason: '取不到整轮超时的默认值 ⇒ 这条顺序契约失效');
       expect(
-        int.parse(wholeRun!.group(1)!) >=
-            int.parse(caseTimeout.group(1)!) * 60 + 300,
+        sh2.contains('--plain-name'),
         isTrue,
-        reason: '整轮必须容得下"用例超时 + smoke 全长 + 余量"，否则挂住判掉后 smoke 跑不完',
+        reason:
+            '闸门不再逐条用例独立调用 ⇒ 回到"一个进程跑完四条"：那条挂住之后，'
+            '后面的用例连一条断言都执行不到（第 16 轮的 3/4、4/4 就是这个形状）',
+      );
+      expect(
+        sh2.contains('grep -oE'),
+        isTrue,
+        reason: '用例清单必须由测试文件 grep 派生，不许在脚本里再抄一份写死的名字',
+      );
+      expect(
+        sh2.contains('闸门 [0-9]+/[0-9]+'),
+        isTrue,
+        reason: '派生用的模式不在了 ⇒ 数出来的可能是别的东西，逐条隔离就没有对齐测试文件',
+      );
+      expect(
+        RegExp(r'--plain-name "闸门 \d/\d"').hasMatch(sh2),
+        isFalse,
+        reason: '脚本里出现写死的某一条用例名 ⇒ 改名之后那一档会静默跑空（--plain-name 匹配不到 = 0 条）',
+      );
+      expect(
+        RegExp(r'数不到.{0,12}用例名').hasMatch(sh2),
+        isTrue,
+        reason:
+            '派生不到用例名时必须判红。静默退回"整档一次"是假绿：脚本照样绿，'
+            '隔离却已经没了，而下一次挂住又会带走一整段',
+      );
+      final wholeRun = RegExp(r'GATE_TEST_TIMEOUT:-(\d+)').firstMatch(sh2);
+      expect(wholeRun, isNotNull, reason: '取不到 smoke 那档的超时 ⇒ 这条顺序契约失效');
+      final caseRun = RegExp(r'GATE_CASE_TIMEOUT:-(\d+)').firstMatch(sh2);
+      expect(
+        caseRun,
+        isNotNull,
+        reason: '取不到单次调用的回退上限 ⇒ "谁先说话"少了一环（它兜的是"连 test zone 都没了"）',
+      );
+      final caseRunSec = int.parse(caseRun!.group(1)!);
+      final maxCase = caseBudgets.fold<int>(
+        0,
+        (m, e) => int.parse(e.group(2)!) > m ? int.parse(e.group(2)!) : m,
+      );
+      expect(
+        caseRunSec,
+        greaterThanOrEqualTo(maxCase * 60 + 240),
+        reason:
+            '单次回退上限兜不住"最重那条用例挂满自己的超时（$maxCase′）+ 重装与启动" ⇒ '
+            '说话的是 timeout 124 而不是用例级超时，报告里又只剩一个数字',
+      );
+      // 最上面一环：闸门 job 的预算。钉的是**现实形状**（正常一轮 + 一条挂满 + 构建），
+      // 不是"四条同时挂满"那种病态叠加 —— 那种情况 job 会先掐，这是**已知并被接受的**：
+      // 每条调用的结论都已逐条写进 LOG，且 test_report 步骤 `if: always()` 照样上传，
+      // 所以不再退化成"一个 124 换一片空白"。
+      final gateJob = RegExp(
+        r'name: 发版全功能点击闸门[\s\S]*?timeout-minutes:\s*(\d+)',
+      ).firstMatch(read('.github/workflows/integration_test.yml'));
+      expect(
+        gateJob,
+        isNotNull,
+        reason: '找不到闸门 job 的 timeout-minutes ⇒ job 改名了，这条顺序契约要跟着改',
+      );
+      expect(
+        int.parse(gateJob!.group(1)!) * 60,
+        greaterThanOrEqualTo(caseRunSec + 900 + 900),
+        reason:
+            'job 容不下"一条挂满单次回退 + 正常一轮 + 构建/装机" ⇒ 说话的是 job 而不是'
+            '用例级超时，日志连"哪一条用例"都不会留下',
       );
       expect(
         blockAfter(src, 'void _mark('),
@@ -637,41 +705,91 @@ void main() {
       // 上一条只证明"_step 里会打两行"，**不证明每一段都被 _step 包住**。
       // 实测就栽在这里：主用例从 testWidgets 起有 500 多行裸代码（5.1 webhook 两百多行、
       // 5.2 邮件、5.3 自建应用都没进 _step），连着三轮 GATE_RC=124 日志里一个 BEGIN 都没有
-      // —— 存在性守卫全绿，定位能力却为零。所以判据必须是**覆盖**：任意一段连续裸代码不许超过 60 行。
+      // —— 存在性守卫全绿，定位能力却为零。所以判据必须是**覆盖**：任意一段"平级裸码"都不许超过 20 条语句。
+      // 拆成四条用例之后这件事按**每一条**算：装配、种子、出口都是各条自己的裸代码，
+      // 挂住的运行同样会停在那些地方（"整轮只有一条用例"时那种"挂在第一条后面就全瞎"不成立了）。
       final lines = src.split('\n');
-      final start = lines.indexWhere((l) => l.contains("testWidgets('全功能点击"));
-      expect(start, greaterThan(-1), reason: '主用例首行改了 ⇒ 这条判据要跟着改，别让它静默失效');
-      final firstStep = lines.indexWhere(
-        (l) => l.contains('await _step('),
-        start,
-      );
+      final headers = <int>[];
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].contains('testWidgets(')) headers.add(i);
+      }
       expect(
-        firstStep,
-        greaterThan(start),
-        reason: '主用例里一个 _step 都没有 ⇒ 无从判断覆盖',
+        headers.length,
+        greaterThanOrEqualTo(4),
+        reason: '闸门又被合回一条用例 ⇒ 一次挂住吃掉整轮，其余各节的结论全废（㊻ 拆分的理由）',
       );
-      const maxBlind = 60;
-      final marks = <int>[start];
-      for (var i = start; i <= firstStep; i++) {
-        if (lines[i].contains('_mark(') || lines[i].contains('await _step(')) {
-          marks.add(i);
-        }
-      }
+      const maxBlind = 20; // 单位：平级语句条数（不是行距，见下面循环里的说明）
+      // 会打印痕迹的东西：节内 BEGIN/FAIL、裸段的 _mark、装配与种子（各自末尾都有一行 _mark）、
+      // 以及影子差异出口那行 debugPrint。少认一种 = 把有痕迹的区段误判成盲区（假红），
+      // 多认一种（比如把普通 debugPrint 也算上）= 真盲区被放过（假绿），所以逐个点名。
+      bool leavesMark(String l) =>
+          l.contains('_mark(') ||
+          l.contains('await _step(') ||
+          l.contains('await _assemble(tester') ||
+          l.contains('await _seed') ||
+          l.contains("'GATE-DIFF-RING");
+      // 盲区的度量单位是**用例自己那一层的语句**，不是文件行数：`_step` 的函数体本来就几百行
+      // 长（5.1 两百多行），但它整段在预算保护里 ⇒ 不是盲区。缩进比 `_step(` 调用更深的行
+      // 一律算"在某一节里面"，只有平级的那些行才是"没人管的裸码"。
+      // （为什么不数括号：闸门里的 reason 文案有半角括号不配对的（实测 `'…只点不改)"'`），
+      // 数括号会把守卫自己带偏 —— 这是本项目撞过的那类"守卫比被测代码更脆"。）
+      final mainEnd = lines.indexOf('}', headers.first);
       final blindSpans = <String>[];
-      for (var k = 1; k < marks.length; k++) {
-        final gap = marks[k] - marks[k - 1];
-        if (gap > maxBlind) {
-          blindSpans.add('第 ${marks[k - 1] + 1}–${marks[k]} 行（空 ${gap - 1} 行）');
+      final noStep = <int>[];
+      for (var c = 0; c < headers.length; c++) {
+        final from = headers[c];
+        final to = c + 1 < headers.length
+            ? headers[c + 1]
+            : (mainEnd > from ? mainEnd : lines.length);
+        final firstCall = lines.indexWhere(
+          (l) => l.contains('await _step('),
+          from,
+        );
+        final callIndent = firstCall < 0 || firstCall >= to
+            ? 4
+            : lines[firstCall].length - lines[firstCall].trimLeft().length;
+        var blind = 0;
+        var runStart = from;
+        for (var i = from; i < to; i++) {
+          final trimmed = lines[i].trim();
+          if (trimmed.isEmpty) continue;
+          final indent = lines[i].length - trimmed.length;
+          if (indent > callIndent) continue; // 在某一节里面 ⇒ 整段受节内预算保护，不计
+          if (leavesMark(lines[i])) {
+            blind = 0;
+            runStart = i;
+            continue;
+          }
+          // 数的是**平级语句条数**，不是行距：`_step(...)` 那一条调用与它的收尾 `);`
+          // 之间隔着两百行函数体，行距会把整节误判成盲区（第一版就是这么红的）。
+          if (blind == 0) runStart = i;
+          blind++;
+          if (blind > maxBlind) {
+            blindSpans.add(
+              '第 ${runStart + 1}–${i + 1} 行（连续 $blind 条平级语句没有任何痕迹）',
+            );
+            blind = 0; // 一段长裸码只报一次
+          }
         }
+        final firstStep = lines.indexWhere(
+          (l) => l.contains('await _step('),
+          from,
+        );
+        if (firstStep < 0 || firstStep >= to) noStep.add(c + 1);
       }
+      expect(
+        noStep,
+        isEmpty,
+        reason: '第 ${noStep.join("/")} 条用例里一个 `_step` 都没有 ⇒ 它那些节既没有节内预算也不会单独记红',
+      );
       expect(
         blindSpans,
         isEmpty,
         reason:
             '这些区段没有任何痕迹 ⇒ 挂在这里时日志里一个线索都没有，整轮只能重跑赌运气。'
-            '补一行 _mark(\'几.几 在做什么\') 即可（判据：连续裸代码不超 $maxBlind 行）',
+            '补一行 _mark(\'几.几 在做什么\') 即可（判据：每条用例内连续平级裸码不超 $maxBlind 条）',
       );
-      // 光有"盲区间 ≤60 行"还是太弱：mark 能给出位置，却给不出**预算保护**。
+      // 光有"盲区不超 20 条"还是太弱：mark 能给出位置，却给不出**预算保护**。
       // 第 10 轮实测：挂在裸段时节内 3 分钟预算完全用不上，只能等 18 分钟用例超时，
       // 且其余各节结论全废。所以每个分节都必须是一个 `_step`（有 BEGIN 痕迹 + 节内预算
       // + 一节红不吞其余），这件事只能直接钉节名。
@@ -697,10 +815,92 @@ void main() {
             '这些分节没有被任何 _step 包住 ⇒ 挂在那里时没有节内预算、也不会单独记红：'
             '$naked（第 10 轮就是挂在 5.1 的裸段里，白等 18 分钟）',
       );
+      // 24 节一条不许少：拆用例时最容易"搬着搬着某一节没了"，而上面那七条只钉得住
+      // 我事先点名的几节。所以再加一条计数下限（拆完之后是 24，历史上最少的那几轮也是 24）。
       expect(
-        firstStep - start,
-        lessThanOrEqualTo(60),
-        reason: '第一个 _step 之前应当只剩"装配"那一小段 ⇒ 再长就说明有新代码绕开了预算',
+        stepNames.length,
+        greaterThanOrEqualTo(24),
+        reason:
+            '闸门分节数掉到 ${stepNames.length} ⇒ 有分节在搬迁中丢了。'
+            '每一条都对应"一个页面/一条 CRUD 在真机上点过一遍"，掉一条就是那一类永远没测',
+      );
+    });
+
+    test('闸门拆成的每条用例都能自己跑（不共享上一步留下的现场）', () {
+      // ㊼ 对 smoke 做过的同一判据。只把"用例边界"切开不算拆分：真正的前提是每条用例
+      // 自己装配、自己灌数据 —— 否则 `--plain-name "闸门 3/4"` 单跑必然假红，而 2/4 挂住时
+      // 3/4 也会在没有 webhook 的现场上找按钮（4/4 更是会在"备份里没有那一族"的机器上测恢复）。
+      final src = walkSrc();
+      expect(
+        RegExp(r"testWidgets\(\s*'闸门 \d/4").allMatches(src).length,
+        greaterThanOrEqualTo(4),
+        reason: '用例名不再是一、二、三、四编号 ⇒ 拆分结构被合回去了：红的时候又只剩"那条用例失败"',
+      );
+      expect(
+        RegExp(r"await _assemble\(tester").allMatches(src).length,
+        greaterThanOrEqualTo(4),
+        reason: '有用例不自己装配 ⇒ 它跑的是上一条留下的现场（挂住/超时之后单跑它没有意义）',
+      );
+      expect(
+        RegExp(r'await _verdict\(tester, gateFailures').allMatches(src).length,
+        greaterThanOrEqualTo(4),
+        reason: '有用例不结自己的账 ⇒ 它那些节的失败被 `_step` 收进 Map 却没人判红（静默放行）',
+      );
+      final assemble = blockAfter(src, 'Future<void> _assemble(');
+      expect(
+        RegExp(r'await GetIt\.instance\.reset\(\);').hasMatch(assemble),
+        isTrue,
+        reason:
+            '不 await reset ⇒ 注册还落在上一条用例的 Service 实例上（本项目的 Windows 备忘里'
+            '记着"GetIt.reset() 必须 await"这一条，装配是每次都要过的）',
+      );
+      expect(
+        assemble.indexOf('allowReassignment'),
+        lessThan(assemble.indexOf('setupLocator()')),
+        reason:
+            'allowReassignment 必须开在 setupLocator **之前** ⇒ 第二次装配当场抛 already registered',
+      );
+      // 需要现场的用例必须自己灌，而且灌的必须是断言读的那几样
+      expect(
+        RegExp(r'await _assemble\(tester, _seed').allMatches(src).length,
+        greaterThanOrEqualTo(2),
+        reason:
+            '3/4（通道状态页）与 4/4（备份往返）不再把现场交给 `_assemble` 在 pump **之前**灌 ⇒ '
+            '单跑必然假红（拆开之前这份现场是 2/4 建出来的）',
+      );
+      // 灌的**时机**也是契约：pump 之后再改配置，等于在装配中途动用户设置 ——
+      // 页面重建与通道探测会掺进来（第 17 轮两处挂住都紧跟在"装配完 + 种子写完"之后）。
+      expect(
+        assemble.indexOf('await seed()'),
+        lessThan(assemble.indexOf('pumpWidget')),
+        reason: '种子改到 pump 之后灌 ⇒ 闸门跑的是"启动中途被改了配置"那条路径，不是"带着配置启动"',
+      );
+      final seed = blockAfter(src, 'Future<void> _seedBackupFixtures(');
+      for (final needed in [
+        '_seedWebhookChannel()',
+        'saveWhitelistKeywords',
+        'TemperatureService>().restoreSettings',
+        'DeviceStateService>().restoreSettings',
+      ]) {
+        expect(
+          seed,
+          contains(needed),
+          reason: '4/4 的种子不再包含「$needed」这一项 ⇒ 备份往返是在测残留现场，不是测恢复',
+        );
+      }
+      // 出口的位置：**最后一条**用例里，且只有一处。放在中间某条 ⇒ 那条被用例级超时掐掉时
+      // 出口跟着一起消失，脚本的"缺行判红"会把"没跑到出口"说成"出口自己坏了"。
+      final outletAt = src.indexOf("'GATE-DIFF-RING");
+      expect(outletAt, greaterThan(-1), reason: '闸门不再打印差异出口 ⇒ 见上一条测试的说明');
+      expect(
+        RegExp(r"'GATE-DIFF-RING").allMatches(src).length,
+        1,
+        reason: '出口打了多处 ⇒ 报告里 `tail -1` 取到的那一条不再确定是谁打的',
+      );
+      expect(
+        outletAt,
+        greaterThan(src.lastIndexOf('testWidgets(')),
+        reason: '出口不在最后一条用例里 ⇒ 前面某条挂满超时就可能永远走不到它',
       );
     });
 
