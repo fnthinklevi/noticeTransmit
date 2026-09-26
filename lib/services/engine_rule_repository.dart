@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_helper.dart';
 import 'engine_rule_codec.dart';
+import 'engine_rule_diff.dart';
 import 'platform_channel.dart';
 
 /// 通知引擎规则（电量族 / 温度族）的读写咽喉（T20）。
@@ -17,15 +18,19 @@ import 'platform_channel.dart';
 ///   按自己那套默认值再写一遍，两处写同一个键迟早漂出一个"永远不触发"的规则。
 ///   现在镜像只有 Dart 这一个写入者，原生侧只读。
 ///
-/// 写入顺序固定为 **DB → 镜像 → 通知原生重载**。
+/// 写入顺序固定为 **DB → 镜像 → 通知原生重载**；T21 起在每次读写之后还做一次
+/// **影子比对**（DB 那份规则 vs 镜像那份），不一致就记进 [EngineRuleDiffLog] ——
+/// 只记账，不改行为、不改返回值（理由见该文件开头）。
 class EngineRuleRepository {
   EngineRuleRepository({
     required this.family,
     required this.prefsKey,
     EngineRuleStore? store,
     MethodChannel? channel,
+    EngineRuleDiffLog? diffLog,
   }) : _store = store ?? DatabaseHelper(),
-       _channel = channel ?? AppChannels.notification;
+       _channel = channel ?? AppChannels.notification,
+       _diffs = diffLog ?? EngineRuleDiffLog();
 
   /// `battery` / `temperature`（[EngineRuleCodec.familyBattery] 等常量）
   final String family;
@@ -38,6 +43,33 @@ class EngineRuleRepository {
 
   final EngineRuleStore _store;
   final MethodChannel _channel;
+  final EngineRuleDiffLog _diffs;
+
+  /// 影子比对（T21）：**只记账**。不改返回值、不改写入顺序、不改任何判定 ——
+  /// 它是探针，不是链路的一环，所以它自己出错也只打日志，绝不让规则读写跟着失败。
+  Future<void> _shadowCheck(
+    SharedPreferences prefs,
+    List<Map<String, dynamic>> dbRows,
+  ) async {
+    try {
+      final raw = prefs.getString(prefsKey);
+      final diffs = compareEngineRuleSets(
+        family: family,
+        db: dbRows,
+        mirrorRaw: raw,
+        mirror: EngineRuleCodec.parseLegacyJson(raw, family),
+        at: DateTime.now().millisecondsSinceEpoch,
+      );
+      if (diffs.isEmpty) return;
+      await _diffs.record(diffs);
+      // 同时走 debugPrint：T22 在设备上跑自检时，日志与环两份都能看。
+      debugPrint(
+        'EngineRuleRepository($family): 影子差异 ${diffs.length} 条 → $diffs',
+      );
+    } catch (e) {
+      debugPrint('EngineRuleRepository($family): 影子比对失败（不影响规则读写）: $e');
+    }
+  }
 
   /// 读规则。[seed] 只在**这台设备从没配过该族规则**时用来播种默认值。
   ///
@@ -68,6 +100,8 @@ class EngineRuleRepository {
       // 残余风险：删掉最后一条规则时若镜像写失败，这里会把刚删的那条读回来 ——
       // 两害相权：复活一条规则可见、可再删；丢一族的规则无声无息。
       debugPrint('EngineRuleRepository($family): 旧键有规则而库里没有，补导入');
+      // 先记账再补导入：这条"库是空的而原生还在按旧键推"正是 T22 要看见的事件。
+      await _shadowCheck(prefs, rows);
       try {
         await save(legacy);
       } catch (e) {
@@ -87,12 +121,14 @@ class EngineRuleRepository {
       return current;
     }
 
+    await _shadowCheck(prefs, current);
     await _repairMirror(prefs, current);
     await _notifyNative();
     return current;
   }
 
-  /// 整族保存：写库 → 写镜像 → 让原生重载。
+  /// 整族保存：写库 → 写镜像 → 让原生重载；影子比对读的是**写完之后的镜像**
+  /// （T21）—— 它抓的正是"以为写成了、其实没落/落成了别的形状"这类静默分叉。
   Future<void> save(List<Map<String, dynamic>> rules) async {
     final normalized = EngineRuleCodec.normalizeAll(rules, family);
     final prefs = await SharedPreferences.getInstance();
@@ -103,10 +139,12 @@ class EngineRuleRepository {
       // 唯一的活路（重启后 load() 走回退分支照样读得回来）。
       debugPrint('EngineRuleRepository($family): 规则入库失败，退回只写镜像: $e');
       await _writeMirror(prefs, normalized);
+      await _shadowCheck(prefs, normalized);
       await _notifyNative();
       rethrow;
     }
     await _writeMirror(prefs, normalized);
+    await _shadowCheck(prefs, normalized);
     await _notifyNative();
   }
 
