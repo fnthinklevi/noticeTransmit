@@ -43,9 +43,15 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
                 // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
                 // drainAll 会解析最多 500 条 JSON 并读写 prefs —— 留在平台线程会卡首帧
                 ioScope.launch {
+                    val drained = HistoryCache.drainAll(activity.applicationContext)
+                    // #94-A：记录与"因缓存满而丢弃的条数"必须一次交付（分开读会漏计），
+                    // 所以这里回的是 Map 而不是裸 List。
                     postSuccess(
                         result,
-                        HistoryCache.drainAll(activity.applicationContext),
+                        mapOf(
+                            "records" to drained.records,
+                            "dropped" to drained.dropped,
+                        ),
                     )
                 }
             }

@@ -53,6 +53,10 @@ class _HistoryPageState extends State<HistoryPage> {
   String _filterDelivery = 'all';
   // 非 null 时为 DB 搜索模式（全量历史分页加载），null 为常规模式（内存 records）
   List<NotificationRecord>? _searchResults;
+
+  /// 原生离线缓存溢出过的条数（#94-A）。>0 时页顶提示一次，关掉即清 ——
+  /// 原生在交付时就清零了，所以它天然只报一次，不需要"已读"状态。
+  int _offlineDrops = 0;
   bool _hasMore = false;
   bool _loadingMore = false;
   Timer? _debounce;
@@ -330,6 +334,54 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // 取一次溢出计数：loadRecords() 在 app 启动时已经跑过 drainOfflineCache
+    _offlineDrops = GetIt.instance<NotificationService>().pendingOfflineDrops;
+  }
+
+  /// 离线缓存溢出提示条（#94-A）。
+  ///
+  /// 它**不是**一条历史记录：不进列表、不进送达统计、不参与导出 —— 那些地方都有"按记录算"的
+  /// 口径，混进一条没有通道的假记录会让统计悄悄错掉。
+  Widget _buildOfflineDropNotice(BuildContext context, AppLocalizations l10n) {
+    return Container(
+      key: const ValueKey<String>('history-offline-dropped'),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: AppColors.inputBg(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.systemOrange(context).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.priority_high,
+            size: 18,
+            color: AppColors.systemOrange(context),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l10n.offlineCacheDropped(_offlineDrops),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            tooltip: l10n.close,
+            onPressed: () {
+              GetIt.instance<NotificationService>().ackOfflineDrops();
+              setState(() => _offlineDrops = 0);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   List<NotificationRecord> get _filteredRecords {
@@ -2064,6 +2116,8 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       body: Column(
         children: [
+          // #94-A：原生离线缓存满过就必须在历史里看得见一次（不静默丢失这条不变量的落点）
+          if (_offlineDrops > 0) _buildOfflineDropNotice(context, l10n),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Container(

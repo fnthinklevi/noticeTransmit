@@ -175,7 +175,8 @@ void main() {
       },
       'verifySmtp': {'reachable': true, 'latencyMs': 24, 'reason': ''},
       'requestPinAppWidget': true,
-      'drainOfflineCache': <Map<String, dynamic>>[
+      'drainOfflineCache': {
+        'records': <Map<String, dynamic>>[
         {
           'id': 'gate_note_1',
           'title': '闸门通知一',
@@ -188,7 +189,9 @@ void main() {
           'type': 'notification',
           'priority': 1,
         },
-      ],
+        ],
+        'dropped': 0,
+      },
       'drainDeliveryResults': <Map<String, dynamic>>[
         {
           'notificationId': 'gate_note_1',

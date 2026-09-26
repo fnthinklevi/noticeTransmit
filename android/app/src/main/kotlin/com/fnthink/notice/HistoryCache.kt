@@ -23,6 +23,12 @@ object HistoryCache {
     private const val TAG = "HistoryCache"
     private const val PREFS_NAME = "notification_offline_cache"
     private const val KEY_RECORDS = "records"
+
+    /**
+     * 累计"因缓存满而丢弃最旧"的条数（#94-A）。它是一次性的：`drainAll` 把它随记录一起交给
+     * Flutter 之后就清零 —— 提示过一次就不该每次开机再提示一遍。
+     */
+    private const val KEY_DROPPED = "dropped_total"
     private const val MAX_RECORDS = 500
 
     private val lock = ReentrantLock()
@@ -71,12 +77,14 @@ object HistoryCache {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val arr = readArray(prefs)
             val dropped = mergeIntoArray(arr, data, MAX_RECORDS)
-            // 只到日志为止：用户侧要不要看见"丢了几条"是 #94 要定的事（留痕进 DB / 进历史提示 /
-            // 只写文案），这里先把"完全无声"改成"能查"，不改任何数据形状。
+            // 溢出计数与数组**同一次 commit 落盘**：分两次写就会出现"数组写成功、计数没写"
+            // 的那种半状态，而 #94 要的正是一条都不能记漏。
+            var total = prefs.getInt(KEY_DROPPED, 0)
             if (dropped > 0) {
+                total += dropped
                 Log.w(TAG, "离线缓存已满 $MAX_RECORDS 条，丢弃最旧 $dropped 条（未送达 Flutter）")
             }
-            writeArray(prefs, arr)
+            writeArray(prefs, arr, total)
         } catch (e: Exception) {
             Log.e(TAG, "append failed", e)
         } finally {
@@ -101,7 +109,9 @@ object HistoryCache {
                     changed = true
                 }
             }
-            if (changed) writeArray(prefs, arr)
+            // 确认送达只动记录，**不动溢出计数** ⇒ 原值带回。否则"消费掉一条离线通知"
+            // 会顺手把还没报给用户的"期间丢了 N 条"清零，那条提示就永远不出现了。
+            if (changed) writeArray(prefs, arr, prefs.getInt(KEY_DROPPED, 0))
         } catch (e: Exception) {
             Log.e(TAG, "remove failed", e)
         } finally {
@@ -111,13 +121,16 @@ object HistoryCache {
 
     /**
      * 拉取全部缓存并清空（Flutter 启动时调用）。
-     * 返回 List<Map<String, Any?>>，每个元素是一条通知 JSON。
+     *
+     * 返回 [OfflineDrain]：记录 + **本次一并交付的丢弃条数**（#94-A）。两个键必须一起清：
+     * 记录清了而计数没清，下次启动就会把同一批"丢了 N 条"再报一遍。
      */
-    fun drainAll(context: Context): List<Map<String, Any?>> {
+    fun drainAll(context: Context): OfflineDrain {
         lock.lock()
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val arr = readArray(prefs)
+            val dropped = prefs.getInt(KEY_DROPPED, 0)
             val list = mutableListOf<Map<String, Any?>>()
             for (i in 0 until arr.length()) {
                 try {
@@ -131,13 +144,14 @@ object HistoryCache {
                     list.add(map)
                 } catch (_: Exception) {}
             }
-            // 清空缓存
-            prefs.edit().remove(KEY_RECORDS).apply()
-            Log.i(TAG, "Drained ${list.size} cached records")
-            return list
+            // 清空缓存与计数：同步 commit —— 异步清会在进程被杀时留下"记录已空、计数还在"，
+            // 于是那句提示每次冷启动都重复出现一遍。
+            prefs.edit().remove(KEY_RECORDS).remove(KEY_DROPPED).commit()
+            Log.i(TAG, "Drained ${list.size} cached records, dropped=$dropped")
+            return OfflineDrain(list, dropped)
         } catch (e: Exception) {
             Log.e(TAG, "drainAll failed", e)
-            return emptyList()
+            return OfflineDrain(emptyList(), 0)
         } finally {
             lock.unlock()
         }
@@ -163,7 +177,23 @@ object HistoryCache {
         // 另一处抛出去"）
         parseArray(prefs.getString(KEY_RECORDS, "[]"))
 
-    private fun writeArray(prefs: android.content.SharedPreferences, arr: JSONArray) {
-        prefs.edit().putString(KEY_RECORDS, arr.toString()).commit()
+    private fun writeArray(
+        prefs: android.content.SharedPreferences,
+        arr: JSONArray,
+        droppedTotal: Int,
+    ) {
+        // 记录与溢出计数**同一次 commit**：分两次写就会漂出"数组落了、计数没落"的半状态
+        prefs.edit()
+            .putString(KEY_RECORDS, arr.toString())
+            .putInt(KEY_DROPPED, droppedTotal)
+            .commit()
     }
 }
+
+/**
+ * `drainAll` 的一次性交付：缓存里的记录 + 此前累计因满而丢弃的条数（#94-A）。
+ *
+ * 为什么不新开一个"读丢弃数"的方法：那样要么多一个 MethodChannel 方法（本仓库的规矩是
+ * 方法数只降不升），要么让 Flutter 分两次读 —— 两次读之间原生可能又丢了新的，计数就漏了。
+ */
+data class OfflineDrain(val records: List<Map<String, Any?>>, val dropped: Int)

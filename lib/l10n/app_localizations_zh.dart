@@ -3161,4 +3161,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get textMenuShare => '分享';
+
+  @override
+  String offlineCacheDropped(int n) {
+    return '离线期间缓存已满，$n 条最旧通知没能进历史记录';
+  }
 }

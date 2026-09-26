@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/pages/history_page.dart';
+import 'package:notice_transmit/services/notification_service.dart';
 
 import '../test_setup.dart';
 
@@ -15,7 +17,18 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   initTestDatabase();
   stubNativeChannels();
-  tearDown(clearNativeChannelStubs);
+
+  setUp(() async {
+    // #94-A 之后 HistoryPage 在 initState 里就要读 NotificationService 的溢出计数 ⇒
+    // 任何 pump 它的测试都得提供这个单例（不是防御，是页面新增的前置条件）。
+    await GetIt.instance.reset();
+    GetIt.instance.registerSingleton<NotificationService>(NotificationService());
+  });
+
+  tearDown(() async {
+    await GetIt.instance.reset();
+    clearNativeChannelStubs();
+  });
 
   NotificationRecord recordWith(Map<String, dynamic> delivery) {
     return NotificationRecord.fromMap({

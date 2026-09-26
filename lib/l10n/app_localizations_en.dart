@@ -3289,4 +3289,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get textMenuShare => 'Share';
+
+  @override
+  String offlineCacheDropped(int n) {
+    return 'Offline cache was full — $n oldest notifications never reached history';
+  }
 }

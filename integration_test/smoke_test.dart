@@ -95,7 +95,8 @@ void main() {
       'getDownloadDirectory': '/tmp/smoke',
       // 每条用例的 launchApp 都会重新读这两个键并入库（按 id 幂等合并），
       // 所以四条用例彼此独立 —— 这是拆分的前提，否则只有 1/4 能自己跑。
-      'drainOfflineCache': <Map<String, dynamic>>[
+      'drainOfflineCache': {
+        'records': <Map<String, dynamic>>[
         {
           'id': 'smoke_offline_1',
           'title': '冒烟离线通知',
@@ -108,7 +109,9 @@ void main() {
           'type': 'notification',
           'priority': 1,
         },
-      ],
+        ],
+        'dropped': 0,
+      },
       'drainDeliveryResults': <Map<String, dynamic>>[
         {
           'notificationId': 'smoke_offline_1',

@@ -21,6 +21,18 @@ class NotificationService {
   bool get serviceRunning => _serviceRunning;
   bool get serviceManuallyStopped => _serviceManuallyStopped;
 
+  /// 本次启动从原生带来的「离线期间因缓存已满被丢弃」条数（#94-A）。
+  ///
+  /// 原生在交付时已把计数清零 ⇒ 它天然只会报一次，不需要"已读"状态。历史页显示后调
+  /// [ackOfflineDrops] 清掉内存值；进程若在此之前被杀，下次启动也不会重复（原生已清）。
+  int pendingOfflineDrops = 0;
+
+  /// 历史页收下调 ⇒ 清内存值（不动原生，那边已经清过）。
+  /// 不 notifyListeners：历史页是自己持有这份读数的（它本来就不监听本服务）。
+  void ackOfflineDrops() {
+    pendingOfflineDrops = 0;
+  }
+
   Future<void> loadRecords() async {
     try {
       await DatabaseHelper().migrateFromSharedPreferences();
@@ -136,11 +148,24 @@ class NotificationService {
 
   /// 拉取原生 HistoryCache 缓存的离线通知，按 id 去重后入库。
   /// 修复"软件关闭重开后推送历史记录消失"问题。
+  ///
+  /// #94-A：原生回的是 `{records: [...], dropped: N}` 而不是裸数组 —— 记录与"因缓存满而
+  /// 丢弃最旧"的条数必须**一次交付**（分两次读之间原生可能又丢了新的，计数就漏了）。
   Future<void> _drainOfflineCache() async {
     try {
-      final cached = await _channel.invokeMethod<List<dynamic>>(
-        'drainOfflineCache',
-      );
+      final raw = await _channel.invokeMethod<Object?>('drainOfflineCache');
+      if (raw != null && raw is! Map) {
+        // 不静默跳过：原生侧改了形状而这里没跟上时，"离线通知再也不进来"是最难查的症状
+        debugPrint('[HistoryCache] drainOfflineCache 形状不对：${raw.runtimeType}');
+        return;
+      }
+      final payload = raw is Map ? raw : const <Object?, Object?>{};
+      final cached = payload['records'] as List<dynamic>?;
+      final dropped = (payload['dropped'] as num?)?.toInt() ?? 0;
+      if (dropped > 0) {
+        pendingOfflineDrops = dropped;
+        debugPrint('[HistoryCache] 离线期间缓存已满（$dropped 条最旧记录被丢弃）');
+      }
       if (cached == null || cached.isEmpty) return;
 
       // 获取现有 id 集合，避免重复入库

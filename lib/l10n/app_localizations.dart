@@ -5935,6 +5935,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分享'**
   String get textMenuShare;
+
+  /// No description provided for @offlineCacheDropped.
+  ///
+  /// In zh, this message translates to:
+  /// **'离线期间缓存已满，{n} 条最旧通知没能进历史记录'**
+  String offlineCacheDropped(int n);
 }
 
 class _AppLocalizationsDelegate
