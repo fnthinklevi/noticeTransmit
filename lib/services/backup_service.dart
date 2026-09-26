@@ -10,12 +10,14 @@ import '../models/email_channel.dart';
 import '../models/notification_rule.dart';
 import 'battery_service.dart';
 import 'device_info_service.dart';
+import 'device_state_service.dart';
 import 'email_service.dart';
 import 'filter_service.dart';
 import 'channel_config_codec.dart';
 import 'channel_url_policy.dart';
 import 'locale_service.dart';
 import 'sms_service.dart';
+import 'temperature_service.dart';
 import 'theme_service.dart';
 import 'app_channel_service.dart';
 import 'webhook_service.dart';
@@ -24,9 +26,10 @@ import 'webhook_service.dart';
 ///
 /// 容器格式（.nbackup，JSON 文本）：文件头携带版本号与 KDF 参数（盐/迭代次数），
 /// 密文为 AES-256-GCM（口令经 PBKDF2-HMAC-SHA256 派生，210000 次迭代）。
-/// 备份内容（v1.59 起 **12 类**，对齐 base.md §10.2「升级设置保留要求」）：
+/// 备份内容（**14 类**，对齐 base.md §10.2「升级设置保留要求」）：
 /// Webhook/邮件通道（含凭据）、通知规则、短信监听设置、应用过滤与黑白名单关键词、
-/// 电池规则与电量通知开关、主题/语言、设备名、**自建应用通道（含凭据，v1.59 新增）**；
+/// **引擎规则三族各自一类**（电量 `battery` / 温度 `temperature` / 设备状态 `deviceState`，
+/// 每类都带该族的通知开关）、主题/语言、设备名、**自建应用通道（含凭据，v1.59 新增）**；
 /// 不含通知历史与送达日志。
 class BackupService {
   static const formatId = 'notice-backup';
@@ -63,6 +66,12 @@ class BackupService {
     // N5 新增三类：电池规则/电量开关、设备名、主题/语言
     final battery = GetIt.instance<BatteryService>();
     await battery.loadSettings();
+    // 引擎规则另外两族与电量族同住 engine_rules 表，但**各是一个服务、各一把镜像键**：
+    // 少收一族就等于换机后那族的规则与开关全丢（界面显示"备份成功"，谁也不知道）。
+    final temperature = GetIt.instance<TemperatureService>();
+    await temperature.loadSettings();
+    final deviceState = GetIt.instance<DeviceStateService>();
+    await deviceState.loadSettings();
     final device = GetIt.instance<DeviceInfoService>();
     await device.loadDeviceInfo();
     final theme = GetIt.instance<ThemeService>();
@@ -88,10 +97,15 @@ class BackupService {
       },
       'blacklistKeywords': filter.blacklistKeywords,
       'whitelistKeywords': filter.whitelistKeywords,
-      'battery': {
-        'notify_enabled': battery.notifyEnabled,
-        'rules': battery.rules,
-      },
+      'battery': _engineCategory(battery.notifyEnabled, battery.rules),
+      'temperature': _engineCategory(
+        temperature.notifyEnabled,
+        temperature.rules,
+      ),
+      'deviceState': _engineCategory(
+        deviceState.notifyEnabled,
+        deviceState.rules,
+      ),
       'deviceName': device.deviceName,
       'preferences': {
         'theme_mode': theme.themeMode.name,
@@ -261,15 +275,17 @@ class BackupService {
       };
     }
 
-    final battery = payload['battery'];
-    if (battery is Map) {
-      final notify = battery['notify_enabled'];
-      fixed['battery'] = {
-        ...Map<String, dynamic>.from(battery),
+    // 引擎规则三族同形状，所以同一条归一化：开关认 0/1/"true"（文件是外部输入），
+    // rules 非列表 → null（服务的 restoreSettings 把 null 解释为"保持当前规则"），
+    // 归一化成 [] 会删掉本机整族规则。
+    for (final key in ['battery', 'temperature', 'deviceState']) {
+      final raw = payload[key];
+      if (raw is! Map) continue;
+      final notify = raw['notify_enabled'];
+      fixed[key] = {
+        ...Map<String, dynamic>.from(raw),
         'notify_enabled': notify == null ? null : _bool(notify, true),
-        // 非列表 → null（BatteryService.restoreSettings 把 null 解释为"保持当前规则"）；
-        // 归一化成 [] 会删掉本机全部电量规则。
-        'rules': battery['rules'] is List ? _mapList(battery['rules']) : null,
+        'rules': raw['rules'] is List ? _mapList(raw['rules']) : null,
       };
     }
 
@@ -277,6 +293,32 @@ class BackupService {
   }
 
   // ── 形状兜底（只服务于"文件里的值类型不受控"这一件事）───────────────
+
+  /// 引擎规则三族在备份里共用一个形状 `{notify_enabled, rules}`。
+  /// 三族共用 `engine_rules` 表、`EngineRuleCodec` 与各服务自己的 `restoreSettings`，
+  /// 备份侧再各写一份就会漂出第二套缺省值（T20 清掉的正是这类分叉）。
+  static Map<String, dynamic> _engineCategory(
+    bool notifyEnabled,
+    List<Map<String, dynamic>> rules,
+  ) => {'notify_enabled': notifyEnabled, 'rules': rules};
+
+  /// 读一个引擎规则类别。**缺值一律返回 null**，由服务的 `restoreSettings` 解释成
+  /// "这一项保持本机当前值" —— 归一化成 `[]` / `false` 会删掉用户本机整族规则。
+  static ({bool? notify, List<Map<String, dynamic>>? rules}) _engineFields(
+    Map raw,
+  ) {
+    final notify = raw['notify_enabled'];
+    final rules = raw['rules'];
+    return (
+      notify: notify is bool ? notify : null,
+      rules: rules is List
+          ? rules
+                .whereType<Map>()
+                .map((m) => Map<String, dynamic>.from(m))
+                .toList()
+          : null,
+    );
+  }
 
   static String _text(Object? value, String fallback) =>
       ChannelConfigCodec.nullableText(value) ?? fallback;
@@ -324,6 +366,10 @@ class BackupService {
     await filter.loadSettings();
     final battery = GetIt.instance<BatteryService>();
     await battery.loadSettings();
+    final temperature = GetIt.instance<TemperatureService>();
+    await temperature.loadSettings();
+    final deviceState = GetIt.instance<DeviceStateService>();
+    await deviceState.loadSettings();
     final device = GetIt.instance<DeviceInfoService>();
     await device.loadDeviceInfo();
     final theme = GetIt.instance<ThemeService>();
@@ -343,6 +389,8 @@ class BackupService {
       // N5：电池 = 有自定义规则即视为已有配置；设备名 = 非空；
       // 偏好 = 主题或语言存在非默认（非 system）值
       'battery': battery.rules.isNotEmpty,
+      'temperature': temperature.rules.isNotEmpty,
+      'deviceState': deviceState.rules.isNotEmpty,
       'deviceName': device.deviceName.isNotEmpty,
       'preferences':
           theme.themeMode != ThemeMode.system ||
@@ -487,15 +535,35 @@ class BackupService {
 
     final battery = payload['battery'];
     if (battery is Map) {
+      final f = _engineFields(battery);
       await restore('battery', () async {
-        final rules = (battery['rules'] as List?)
-            ?.whereType<Map>()
-            .map((m) => Map<String, dynamic>.from(m))
-            .toList();
-        final notify = battery['notify_enabled'];
         await GetIt.instance<BatteryService>().restoreSettings(
-          notifyEnabled: notify is bool ? notify : null,
-          rules: rules,
+          notifyEnabled: f.notify,
+          rules: f.rules,
+        );
+        return true;
+      });
+    }
+
+    final temperature = payload['temperature'];
+    if (temperature is Map) {
+      final f = _engineFields(temperature);
+      await restore('temperature', () async {
+        await GetIt.instance<TemperatureService>().restoreSettings(
+          notifyEnabled: f.notify,
+          rules: f.rules,
+        );
+        return true;
+      });
+    }
+
+    final deviceState = payload['deviceState'];
+    if (deviceState is Map) {
+      final f = _engineFields(deviceState);
+      await restore('deviceState', () async {
+        await GetIt.instance<DeviceStateService>().restoreSettings(
+          notifyEnabled: f.notify,
+          rules: f.rules,
         );
         return true;
       });

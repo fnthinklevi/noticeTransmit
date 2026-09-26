@@ -12,11 +12,13 @@ import 'package:notice_transmit/services/backup_service.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/channel_config_codec.dart';
 import 'package:notice_transmit/services/device_info_service.dart';
+import 'package:notice_transmit/services/device_state_service.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/filter_service.dart';
 import 'package:notice_transmit/services/locale_service.dart';
 import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/sms_service.dart';
+import 'package:notice_transmit/services/temperature_service.dart';
 import 'package:notice_transmit/services/theme_service.dart';
 import 'package:notice_transmit/services/engine_rule_codec.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
@@ -160,9 +162,10 @@ void main() {
   late BackupService backup;
   late List<MethodCall> nativeCalls;
 
-  /// 电量规则的内存存储（T20 起住 engine_rules 表）：备份的 battery 类别要钉的是
-  /// "**库里**那一族真的被换了"，而不是内存列表换了个引用。
-  late MemoryRuleStore batteryStore;
+  /// 引擎规则三族共用的内存存储（T20 起同住 engine_rules 表，按 family 分列）：
+  /// 备份要钉的是"**库里**那一族真的被换了"，而不是内存列表换了个引用 ——
+  /// 所以三族注册的是**同一个** store 实例，写错族会当场看得见。
+  late MemoryRuleStore ruleStore;
 
   /// 伪原生：写方法记账，读方法回读同一份 —— 否则 loadSettings 永远读到空，
   /// 「本机已有配置」这类判定就测不出来。
@@ -191,7 +194,7 @@ void main() {
   }
 
   setUp(() async {
-    batteryStore = MemoryRuleStore();
+    ruleStore = MemoryRuleStore();
     webhookStore = _FakeWebhookStore();
     appChannelStore = _FakeAppChannelStore();
     emailStore = _FakeEmailStore();
@@ -211,7 +214,13 @@ void main() {
       ..registerSingleton<EmailService>(EmailService(store: emailStore))
       ..registerSingleton<FilterService>(FilterService())
       ..registerSingleton<SmsService>(SmsService())
-      ..registerSingleton<BatteryService>(BatteryService(store: batteryStore))
+      ..registerSingleton<BatteryService>(BatteryService(store: ruleStore))
+      ..registerSingleton<TemperatureService>(
+        TemperatureService(store: ruleStore),
+      )
+      ..registerSingleton<DeviceStateService>(
+        DeviceStateService(store: ruleStore),
+      )
       ..registerSingleton<DeviceInfoService>(DeviceInfoService())
       ..registerSingleton<ThemeService>(ThemeService())
       ..registerSingleton<LocaleService>(LocaleService());
@@ -502,7 +511,7 @@ void main() {
       });
       expect(battery.rules, hasLength(1));
       expect(
-        batteryStore.rows[EngineRuleCodec.familyBattery],
+        ruleStore.rows[EngineRuleCodec.familyBattery],
         hasLength(1),
         reason: '只改内存不写存储 = 备份恢复"看起来成功"，重启又回到旧规则',
       );
@@ -528,6 +537,189 @@ void main() {
       expect(filter.enabledPackages, isEmpty);
       expect(filter.appFilterMode, 'block');
       expect(filter.blacklistKeywords, ['ok', '7']);
+    });
+  });
+
+  group('#95 引擎规则三族都进备份（温度族与设备状态族此前整族丢失）', () {
+    Future<void> seedThreeFamilies() async {
+      await GetIt.instance<BatteryService>().restoreSettings(
+        notifyEnabled: true,
+        rules: [
+          {'id': 'b1', 'type': 'level_below', 'value': 20, 'enabled': true},
+        ],
+      );
+      await GetIt.instance<TemperatureService>().restoreSettings(
+        notifyEnabled: false,
+        rules: [
+          {
+            'id': 't1',
+            'type': 'battery_temp_above',
+            'value': 45,
+            'enabled': true,
+          },
+        ],
+      );
+      await GetIt.instance<DeviceStateService>().restoreSettings(
+        notifyEnabled: true,
+        rules: [
+          {
+            'id': 'd1',
+            'type': 'brightness_below',
+            'value': 10,
+            'enabled': true,
+          },
+          {
+            'id': 'd2',
+            'type': 'network_disconnected',
+            'value': 0,
+            'enabled': false,
+          },
+        ],
+      );
+    }
+
+    /// 换机/重装的等价形状：备份已在手，本机这三族是空的。
+    Future<void> wipeThreeFamilies() async {
+      await GetIt.instance<BatteryService>().restoreSettings(rules: []);
+      await GetIt.instance<TemperatureService>().restoreSettings(rules: []);
+      await GetIt.instance<DeviceStateService>().restoreSettings(rules: []);
+    }
+
+    test('导出把三族都带上：键、开关、条数逐族对得上', () async {
+      await seedThreeFamilies();
+      final data = await backup.collectBackupData();
+      expect(
+        data.keys,
+        containsAll(<String>['battery', 'temperature', 'deviceState']),
+        reason: '少一类就等于换机后那一族整族丢失，而界面只会显示"备份成功"',
+      );
+      expect(
+        (data['temperature']! as Map)['rules'],
+        hasLength(1),
+        reason: '温度规则没进备份（T24 之前它压根不在 12 类里）',
+      );
+      expect(
+        (data['deviceState']! as Map)['rules'],
+        hasLength(2),
+        reason: '设备状态（亮度/网络）规则没进备份',
+      );
+      expect((data['temperature']! as Map)['notify_enabled'], isFalse);
+      expect((data['deviceState']! as Map)['notify_enabled'], isTrue);
+    });
+
+    test('换机恢复：三族逐条回来，且落对族', () async {
+      await seedThreeFamilies();
+      final data = await backup.collectBackupData();
+      await wipeThreeFamilies();
+      expect(
+        GetIt.instance<DeviceStateService>().rules,
+        isEmpty,
+        reason: '本机没清空就测不出"是否真的从备份回来了"',
+      );
+
+      await restore(data);
+
+      final temp = GetIt.instance<TemperatureService>();
+      final state = GetIt.instance<DeviceStateService>();
+      expect(temp.rules.map((r) => r['id']), ['t1']);
+      expect(state.rules.map((r) => r['id']), [
+        'd1',
+        'd2',
+      ], reason: '条数或**顺序**变了 = 引擎的优先级顺序被备份改写');
+      expect(state.rules.last['enabled'], isFalse, reason: '暂停状态没跟着回来');
+      expect(temp.notifyEnabled, isFalse, reason: '族开关没跟着回来（关掉的又开了）');
+      // 三族共用一个 store ⇒ 写错族当场可见（备份把温度规则塞进设备状态族是灾难性的）
+      expect(
+        ruleStore.rows[EngineRuleCodec.familyDeviceState]!
+            .map((r) => r['id'])
+            .toList(),
+        ['d1', 'd2'],
+        reason: '设备状态规则没落进 device_state 族',
+      );
+      expect(
+        ruleStore.rows[EngineRuleCodec.familyTemperature]!.single['id'],
+        't1',
+        reason: '温度规则没落进 temperature 族',
+      );
+    });
+
+    test('v1 备份（没有这两族）：本机两族原样不动，也不报错', () async {
+      await seedThreeFamilies();
+      final report = await restore({
+        'webhookChannels': const <Object>[],
+        'battery': {
+          'notify_enabled': true,
+          'rules': [
+            {'id': 'b1', 'type': 'level_below', 'value': 30},
+          ],
+        },
+      });
+      expect(report.failedCategories, isEmpty);
+      expect(
+        GetIt.instance<TemperatureService>().rules.map((r) => r['id']),
+        ['t1'],
+        reason: '备份里没写这一族 ≠ 本机该清空（缺键必须当"不涉及"）',
+      );
+      expect(GetIt.instance<DeviceStateService>().rules, hasLength(2));
+      expect(
+        GetIt.instance<BatteryService>().rules.single['value'],
+        30,
+        reason: 'v1 里有的 battery 类照常恢复',
+      );
+    });
+
+    test('仅导入空缺项：本机已有的族不被覆盖，空缺的族才补', () async {
+      await seedThreeFamilies();
+      final data = await backup.collectBackupData();
+      // 本机：温度族另有一条、设备状态族是空的
+      await GetIt.instance<TemperatureService>().restoreSettings(
+        rules: [
+          {
+            'id': 'local_t',
+            'type': 'screen_temp_above',
+            'value': 60,
+            'enabled': true,
+          },
+        ],
+      );
+      await GetIt.instance<DeviceStateService>().restoreSettings(rules: []);
+
+      final report = await restore(data, overwrite: false);
+
+      expect(
+        report.skippedCategories,
+        containsAll(<String>['battery', 'temperature']),
+        reason: '这两族本机已有配置 ⇒ 空缺模式下必须跳过',
+      );
+      expect(
+        GetIt.instance<TemperatureService>().rules.single['id'],
+        'local_t',
+        reason: '跳过判定失效会把用户本机的温度规则整族换掉',
+      );
+      expect(
+        GetIt.instance<DeviceStateService>().rules.map((r) => r['id']),
+        ['d1', 'd2'],
+        reason: '本机空缺的族必须补上',
+      );
+    });
+
+    test('temperature/deviceState 的 rules 不是列表：保持本机而不是写空', () async {
+      await seedThreeFamilies();
+      await restore({
+        'temperature': {
+          'notify_enabled': true,
+          'rules': {'garbage': true},
+        },
+        'deviceState': {'notify_enabled': false, 'rules': 'not-a-list'},
+      });
+      expect(
+        GetIt.instance<TemperatureService>().rules,
+        hasLength(1),
+        reason: '归一化成 [] 会删掉本机整族规则（battery 那条的同一家族版本）',
+      );
+      expect(GetIt.instance<DeviceStateService>().rules, hasLength(2));
+      // 开关是独立一项：形状坏在 rules 上不该把开关一起带走
+      expect(GetIt.instance<TemperatureService>().notifyEnabled, isTrue);
     });
   });
 

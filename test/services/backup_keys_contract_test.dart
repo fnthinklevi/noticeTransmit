@@ -73,6 +73,73 @@ void main() {
       );
     });
   });
+
+  group('引擎规则每一族都在备份里（#95 的棘轮）', () {
+    /// 族名只认 `EngineRuleCodec` 那份登记表：新增一族（T24 的 device_state 就是这么来的）
+    /// 备份侧漏了会当场红，而不是等用户换机后发现那一族没了。
+    final codec = stripComments(
+      File('$root/lib/services/engine_rule_codec.dart').readAsStringSync(),
+    );
+    final families = RegExp(
+      r"static const family\w+ = '([a-z_]+)';",
+    ).allMatches(codec).map((m) => m.group(1)!).toSet();
+
+    /// payload 类别键是 camelCase（`device_state` → `deviceState`），与其余键同风格。
+    String categoryOf(String family) => family.replaceAllMapped(
+      RegExp(r'_[a-z]'),
+      (m) => m.group(0)!.toUpperCase().substring(1),
+    );
+
+    test('族清单取到了（提取失效不得让本组静默通过）', () {
+      expect(
+        families.length,
+        greaterThanOrEqualTo(3),
+        reason: '从 EngineRuleCodec 没提出族名 = 提取式失效，本组断言全是空转',
+      );
+    });
+
+    test('每一族在 collect / restore / detectExisting 三处都在场', () {
+      for (final family in families) {
+        final key = categoryOf(family);
+        expect(
+          collectKeys,
+          contains(key),
+          reason: '族「$family」没进备份（collectBackupData 缺 $key）⇒ 换机整族丢失',
+        );
+        expect(
+          restoreKeys,
+          contains(key),
+          reason: '族「$family」打包了但没恢复分支 ⇒ 备份里的规则回不来',
+        );
+        expect(
+          detectKeys,
+          contains(key),
+          reason: '冲突判定缺族「$family」⇒「仅导入空缺项」会把本机那一族整族换掉',
+        );
+      }
+    });
+
+    test('形状归一化按同一份族清单循环', () {
+      // validatePayload 里三族共用一条归一化（开关认 0/1、rules 非列表 ⇒ null）。
+      // 少一族就等于那一族的坏形状文件会把整族规则写空 —— 正是 battery 当初单写一份的原因。
+      final loops = RegExp(r"for\s*\(final key in \[([^\]]*)\]")
+          .allMatches(source)
+          .map((m) {
+            return m
+                .group(1)!
+                .split(',')
+                .map((e) => e.trim().replaceAll(RegExp("^'|'\$"), ''))
+                .toSet();
+          })
+          .toList();
+      final wanted = families.map(categoryOf).toSet();
+      expect(
+        loops.any((l) => l.containsAll(wanted)),
+        isTrue,
+        reason: '归一化的族清单不含 $wanted ⇒ 那一族的 rules/开关形状没人兜（写空风险）',
+      );
+    });
+  });
 }
 
 /// 提取指定方法体内 `return { ... }` 的**顶层键**集合。

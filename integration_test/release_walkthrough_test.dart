@@ -1374,6 +1374,26 @@ void main() {
         ]);
         expect(svc.channels, hasLength(2), reason: '篡改步骤本身没生效');
 
+        // #95：把温度族与设备状态族在本机清空，模拟"换机后拿这份备份恢复"。
+        // 不擦就测不出区别：备份里缺这一族时恢复是"缺键 ⇒ 不动本机"，规则条数照样对，
+        // 于是这一节会绿着放行"备份根本不包含这两族"（上一版闸门的空转形状正是这样）。
+        await GetIt.instance<TemperatureService>().restoreSettings(
+          rules: const [],
+        );
+        await GetIt.instance<DeviceStateService>().restoreSettings(
+          rules: const [],
+        );
+        expect(
+          GetIt.instance<TemperatureService>().rules,
+          isEmpty,
+          reason: '没擦干净 = 下面的断言只是在测本机残留',
+        );
+        expect(
+          GetIt.instance<DeviceStateService>().rules,
+          isEmpty,
+          reason: '没擦干净 = 下面的断言只是在测本机残留',
+        );
+
         // 导入：FilePicker 返回刚才那个文件 ⇒ 页面真实 readAsString + 解密 + 恢复
         pickedPathForNextCall = backupPath;
         await _tap(tester, find.text('选择备份文件恢复'), '备份→选择备份文件恢复');
@@ -1415,6 +1435,25 @@ void main() {
           filterSvc.blacklistKeywords,
           isNot(contains('闸门备份后新增')),
           reason: '关键词没被恢复回备份时的集合',
+        );
+        // #95：擦掉的两族必须从备份里回来（温度规则在 5.4 建、断网规则在 5.4a 建）
+        expect(
+          GetIt.instance<TemperatureService>().rules.map((r) => r['type']),
+          contains('battery_temp_above'),
+          reason: '温度族没进备份/恢复 ⇒ 换机后这条规则静默没了',
+        );
+        final restoredState = GetIt.instance<DeviceStateService>().rules;
+        expect(
+          restoredState.map((r) => r['title']),
+          contains('闸门断网规则'),
+          reason: '设备状态族（亮度/网络）没进备份/恢复',
+        );
+        expect(
+          restoredState.any(
+            (r) => (r['type'] ?? '').toString().contains('temp'),
+          ),
+          isFalse,
+          reason: '恢复把温度规则落进设备状态族 = 族名写错，原生按族取列表时那一族永远空',
         );
         await _backToHome(tester);
 

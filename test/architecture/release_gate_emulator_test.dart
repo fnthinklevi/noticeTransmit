@@ -436,6 +436,35 @@ void main() {
       );
     });
 
+    test('备份往返真的擦掉并恢复了引擎规则两族（#95）', () {
+      final flat = walkSrc().replaceAll(RegExp(r'\s+'), ' ');
+      // 只断言"恢复后规则还在"是不够的：备份缺这一族时，恢复走"缺键 ⇒ 不动本机"，
+      // 数量照样对 ⇒ 绿着放行。必须钉"导出之后、导入之前确实被擦过"。
+      for (final svc in ['TemperatureService', 'DeviceStateService']) {
+        expect(
+          RegExp(
+            r"GetIt\.instance<" +
+                svc +
+                r">\(\)\s*\.\s*restoreSettings\(\s*rules:\s*const \[\]",
+          ).hasMatch(walkSrc()),
+          isTrue,
+          reason: '闸门不再擦除 $svc 的本机规则 ⇒ 这一节的断言退化成"测本机残留"',
+        );
+      }
+      expect(
+        flat,
+        contains("contains('battery_temp_above')"),
+        reason: '恢复后不再核对温度规则回来了 ⇒ 温度族退出备份覆盖面',
+      );
+      // ⚠ 锚点必须带上"这一条属于恢复后的核对"：`contains('闸门断网规则')` 在 5.4a 的
+      // 镜像核对里也出现一次，光看字面量会绿着放行"第 7 节那条被删了"（反证 F 实测撞到）。
+      expect(
+        flat,
+        contains("restoredState.map((r) => r['title']), contains('闸门断网规则')"),
+        reason: '恢复后不再核对设备状态规则回来了 ⇒ 设备状态族退出备份覆盖面',
+      );
+    });
+
     test('删除的二次确认在闸门里被走通（T06）', () {
       final src = walkSrc();
       final flat = src.replaceAll(RegExp(r'\s+'), ' ');
