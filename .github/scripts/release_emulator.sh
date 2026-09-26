@@ -158,7 +158,9 @@ esac
 #   被闸门跑起来就等于"每次发版往用户配置的真实群 / 邮箱发一轮测试消息"，而且它的
 #   结论要人在收件端看一眼才有意义（闸门里没人能替它答）。盖章走：
 #   dart tools/t09_stamp.dart send
-FILES=${GATE_FILES:-$(ls integration_test/*_test.dart 2>/dev/null | grep -v 't09_stamp_test\.dart' | tr '\n' ' ')}
+#   t22_upgrade_test.dart 同理排除：它会卸载应用、灌旧形状数据（那是覆盖升级自检，不是
+#   一次回归），而本闸门起跑前刚 pm clear 过 —— 两者互相拆台，各跑各的。
+FILES=${GATE_FILES:-$(ls integration_test/*_test.dart 2>/dev/null | grep -vE '(t09_stamp_test|t22_upgrade_test)\.dart' | tr '\n' ' ')}
 [ -n "$FILES" ] || { fail "integration_test/ 下没有测试文件"; exit 1; }
 ok "待跑：$FILES"
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy 2>/dev/null || true
