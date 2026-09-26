@@ -186,12 +186,23 @@ class MergeFailureContractTest {
             writeArray.contains(".apply()")
         )
 
-        // append() 的两条写入路径（更新已存在 / 追加新记录）都必须走 writeArray，
-        // 否则会出现「某条分支只在内存里改了数组、没落盘」的静默丢失。
+        // append() 的落盘必须是**单一出口**。原契约数的是"writeArray 至少两次"（去重路径 +
+        // 追加路径各自写盘），那只是在近似"两条分支都别漏写"。#94 取证时把去重/追加合并成
+        // 纯函数 mergeIntoArray + 末尾统一落盘 —— 漏写的可能从"两个分支"归零成"没有分支"，
+        // 此时"≥2"既满足不了也表达不了这件事。改钉形状：**恰好一个落盘点，且它之前不许有 return**
+        // （落盘之前的 return 就是"某条路径只在内存里改了数组"的那个静默丢失）。
         val append = functionBody(cache, "fun append(")
+        val writes = Regex("writeArray\\(").findAll(append).count()
+        assertEquals(
+            "append 必须恰好一个 writeArray 落盘点（多条路径各自写盘，迟早漂出一条忘记落盘）",
+            1,
+            writes
+        )
+        val firstWrite = append.indexOf("writeArray(")
+        val lastReturn = append.lastIndexOf("return")
         assertTrue(
-            "append 内必须至少两次 writeArray 调用（id 去重更新路径 + 追加新记录路径）",
-            Regex("writeArray\\(").findAll(append).count() >= 2
+            "落盘之前不许出现 return：那条分支改的是内存里的数组，进程一杀就静默丢失",
+            lastReturn < 0 || lastReturn > firstWrite
         )
         assertFalse(
             "append 内不得自行裸调 prefs.edit()（绕过 writeArray 即绕过 commit 保证）",

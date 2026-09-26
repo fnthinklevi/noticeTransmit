@@ -31,29 +31,50 @@ object HistoryCache {
      * 追加一条缓存。同步写盘，确保即使进程被杀也不丢数据。
      * 同 id 重复追加会去重（更新而非插入），避免 MainActivity 在线时缓存重复。
      */
+    /**
+     * 把一条记录并进缓存数组 —— **纯函数，不碰磁盘**（#94 的取证入口）。
+     *
+     * 规则：同 id 就地更新（不追加），无 id 或新 id 追加到尾部；超过 [maxRecords] 从**头部**
+     * 丢最旧。返回本次丢弃的条数 —— 这个数字此前根本拿不到（`while` 里悄悄 remove），
+     * 而"离线缓存满过没有、丢了几条"正是 #94 三种改法共同需要的量。
+     */
+    internal fun mergeIntoArray(arr: JSONArray, data: JSONObject, maxRecords: Int): Int {
+        val id = data.optString("id", "")
+        if (id.isNotEmpty()) {
+            for (i in 0 until arr.length()) {
+                val existing = arr.optJSONObject(i)
+                if (existing != null && existing.optString("id", "") == id) {
+                    arr.put(i, data)
+                    return 0
+                }
+            }
+        }
+        arr.put(data)
+        var dropped = 0
+        while (arr.length() > maxRecords) {
+            arr.remove(0)
+            dropped++
+        }
+        return dropped
+    }
+
+    /** 读缓存数组；坏 JSON / 缺键一律退化成空数组（不抛，因为抛在这里等于离线兜底整个失效）。 */
+    internal fun parseArray(raw: String?): JSONArray = try {
+        JSONArray(raw ?: "[]")
+    } catch (_: Exception) {
+        JSONArray()
+    }
+
     fun append(context: Context, data: JSONObject) {
         lock.lock()
         try {
-            val id = data.optString("id", "")
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val arr = readArray(prefs)
-
-            // id 去重：已存在则更新原位置
-            if (id.isNotEmpty()) {
-                for (i in 0 until arr.length()) {
-                    val existing = arr.optJSONObject(i)
-                    if (existing != null && existing.optString("id", "") == id) {
-                        arr.put(i, data)
-                        writeArray(prefs, arr)
-                        return
-                    }
-                }
-            }
-
-            arr.put(data)
-            // 上限保护：丢弃最旧
-            while (arr.length() > MAX_RECORDS) {
-                arr.remove(0)
+            val dropped = mergeIntoArray(arr, data, MAX_RECORDS)
+            // 只到日志为止：用户侧要不要看见"丢了几条"是 #94 要定的事（留痕进 DB / 进历史提示 /
+            // 只写文案），这里先把"完全无声"改成"能查"，不改任何数据形状。
+            if (dropped > 0) {
+                Log.w(TAG, "离线缓存已满 $MAX_RECORDS 条，丢弃最旧 $dropped 条（未送达 Flutter）")
             }
             writeArray(prefs, arr)
         } catch (e: Exception) {
@@ -137,14 +158,10 @@ object HistoryCache {
         }
     }
 
-    private fun readArray(prefs: android.content.SharedPreferences): JSONArray {
-        return try {
-            val json = prefs.getString(KEY_RECORDS, "[]") ?: "[]"
-            JSONArray(json)
-        } catch (e: Exception) {
-            JSONArray()
-        }
-    }
+    private fun readArray(prefs: android.content.SharedPreferences): JSONArray =
+        // 解析逻辑只留 parseArray 一份（两处各写一个 try/catch 迟早漂出"一处退化成空数组、
+        // 另一处抛出去"）
+        parseArray(prefs.getString(KEY_RECORDS, "[]"))
 
     private fun writeArray(prefs: android.content.SharedPreferences, arr: JSONArray) {
         prefs.edit().putString(KEY_RECORDS, arr.toString()).commit()
