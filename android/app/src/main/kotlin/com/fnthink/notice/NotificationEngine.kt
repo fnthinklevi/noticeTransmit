@@ -6,11 +6,17 @@ package com.fnthink.notice
  * ⚠ `temperatures` 的**缺键表示"这个维度本机读不到"**，不是 0、也不是"没超阈值"：
  * 屏幕/设备温区在多数机型上拿不到，拿不到就不判定，绝不能把缺失当低值参与比较
  * （与 `DeviceSnapshot` 的"读不到 = 缺字段，绝不是 0"是同一条不变量）。
+ *
+ * T24 起 `brightnessPercent` / `networkType` 同理用 **null 表达读不到**（亮度在部分 ROM
+ * 的自动模式下拿不到；ConnectivityManager 不可用时没有网络类型可谈）。
+ * 两者都有默认值 ⇒ 老的调用点（T25 的试跑）不会因为没有这两个维度就改变结论。
  */
 data class EngineReading(
     val level: Int,
     val charging: Boolean,
     val temperatures: Map<String, Double>,
+    val brightnessPercent: Int? = null,
+    val networkType: String? = null,
 )
 
 /** 判定结论。`Silent` 也带原因，为的是 T21 的影子求值能逐条比对，而不是只比"推/没推"。 */
@@ -18,6 +24,16 @@ sealed class EngineDecision {
     data class BatteryFire(val rule: BatteryRule, val level: Int, val charging: Boolean) : EngineDecision()
 
     data class TemperatureFire(val rule: BatteryRule, val temperatureC: Double) : EngineDecision()
+
+    /**
+     * T24：亮度 / 网络触发。两个字段按类型只有一个非空 —— 渲染方不需要再判一次 type
+     * 去猜"该把哪个值写进正文"，缺失的那一项就是这一族没有的那个维度。
+     */
+    data class DeviceStateFire(
+        val rule: BatteryRule,
+        val brightnessPercent: Int?,
+        val networkType: String?,
+    ) : EngineDecision()
 
     data class Silent(val reason: Silence) : EngineDecision()
 }
@@ -98,6 +114,44 @@ class NotificationEngine(private val cooldownMs: Long = DEFAULT_COOLDOWN_MS) {
             "discharging",
         )
 
+        /**
+         * T24：亮度与网络触发源。**路由只看 type**，所以两族可以放在同一条规则列表里
+         * （存储侧就是一个 `device_state` 族，不再为"两个族还是一族"多开一份表与一份镜像键）。
+         */
+        val BRIGHTNESS_RULE_TYPES = setOf("brightness_below", "brightness_above")
+        val NETWORK_RULE_TYPES = setOf("network_connected", "network_disconnected")
+        val DEVICE_STATE_RULE_TYPES = BRIGHTNESS_RULE_TYPES + NETWORK_RULE_TYPES
+
+        /**
+         * 亮度"向下跨越"：上一次还在阈值之上、这次掉到阈值之下才算一次事件。
+         * 与温度的 crossing 同一条理由 —— 只要"满足就推"会让用户每 60s 被吵一次。
+         */
+        fun isBrightnessDownCrossing(
+            prev: Int?,
+            current: Int?,
+            threshold: Int,
+        ): Boolean = prev != null && current != null && prev >= threshold && current < threshold
+
+        /** 亮度"向上跨越"（上一次不高于阈值，这次高于） */
+        fun isBrightnessUpCrossing(
+            prev: Int?,
+            current: Int?,
+            threshold: Int,
+        ): Boolean = prev != null && current != null && prev <= threshold && current > threshold
+
+        /**
+         * 网络"断网"事件：上一次还有网、这次没了。
+         *
+         * ⚠ 只看"当前没网"不判"跨过去"是刻意的错法：断网期间每轮采样都会再推一次，
+         * 而"没网"恰恰是用户最不需要被反复告知的那件事。
+         */
+        fun isNetworkLost(prev: String?, current: String?): Boolean =
+            prev != null && current != null && prev != "none" && current == "none"
+
+        /** 网络"恢复"事件：上一次没网、这次有了（恢复到哪种网络写进正文） */
+        fun isNetworkRestored(prev: String?, current: String?): Boolean =
+            prev != null && current != null && prev == "none" && current != "none"
+
         /** 温度 crossing：由低于阈值变为达到阈值（首次读数 prev=null 不算 crossing） */
         fun isTempCrossing(prev: Double?, current: Double, threshold: Int): Boolean =
             prev != null && prev < threshold && current >= threshold
@@ -165,6 +219,7 @@ class NotificationEngine(private val cooldownMs: Long = DEFAULT_COOLDOWN_MS) {
                     phase to when (last) {
                         is EngineDecision.TemperatureFire -> "FIRE"
                         is EngineDecision.BatteryFire -> "FIRE"
+                        is EngineDecision.DeviceStateFire -> "FIRE"
                         is EngineDecision.Silent -> last.reason.name
                     },
                 )
@@ -224,13 +279,30 @@ class NotificationEngine(private val cooldownMs: Long = DEFAULT_COOLDOWN_MS) {
     private var prevLevel = -1
     private var prevCharging = false
     private val prevTemps = mutableMapOf<String, Double>()
-    private val tempCooldownUntil = mutableMapOf<String, Long>()
 
-    /** 两族规则是否至少配了一条（调用方据此省掉一次电池 syscall，见 `BatteryMonitor`）。 */
+    /**
+     * 冷却截止，按 `rule.type` 分格。原先叫 `tempCooldownUntil`（只有温度用），
+     * T24 起亮度/网络也走同一张表：**冷却是"每条规则类型一份"的语义，与族无关**，
+     * 再开一张新表就会有两套"多久之内不重复吵"各自漂移。
+     */
+    private val cooldownUntil = mutableMapOf<String, Long>()
+
+    /** T24：亮度与网络的"上一次"。null = 还没有上一次（首轮不判定） */
+    private var prevBrightness: Int? = null
+    private var prevNetwork: String? = null
+
+    /**
+     * 各族规则是否至少配了一条（调用方据此省掉一次电池 syscall，见 `BatteryMonitor`）。
+     *
+     * ⚠ 每加一族都必须加进来：T19 修的就是"只看电量规则 ⇒ 只配温度的用户永远不响"，
+     * 漏掉一族就是同一个缺陷换个族重演一次。
+     */
     fun hasRules(
         batteryRules: List<BatteryRule>,
         temperatureRules: List<BatteryRule>,
-    ): Boolean = batteryRules.isNotEmpty() || temperatureRules.isNotEmpty()
+        deviceStateRules: List<BatteryRule> = emptyList(),
+    ): Boolean = batteryRules.isNotEmpty() || temperatureRules.isNotEmpty() ||
+        deviceStateRules.isNotEmpty()
 
     /**
      * 一次求值。[now] 显式注入（不读墙上时钟），这样冷却期/crossing 能在 JVM 上逐条钉测。
@@ -244,13 +316,23 @@ class NotificationEngine(private val cooldownMs: Long = DEFAULT_COOLDOWN_MS) {
         temperatureRules: List<BatteryRule>,
         reading: EngineReading?,
         now: Long,
+        deviceStateRules: List<BatteryRule> = emptyList(),
     ): EngineDecision {
         if (!enabled) return EngineDecision.Silent(Silence.DISABLED)
         // ⚠ 本行是 T19 唯一的行为修复：原先只看 batteryRules，只配温度规则的用户永远不响。
-        if (!hasRules(batteryRules, temperatureRules)) {
+        // 同一件事对 T24 的亮度/网络族也必须成立 ⇒ 三族一起判。
+        if (!hasRules(batteryRules, temperatureRules, deviceStateRules)) {
             return EngineDecision.Silent(Silence.NO_RULES)
         }
         if (reading == null) return EngineDecision.Silent(Silence.NO_READING)
+
+        // 上一轮的读数先取出来（判定要用"上一次"），随后立刻更新 —— 与温度的
+        // "判定之前就更新"同一条顺序：不管是触发还是各种不满足提前 return，
+        // 这一轮的观测都必须留下一例，否则"断网"会在下一轮又被当成新事件。
+        val prevBrightness = this.prevBrightness
+        val prevNetwork = this.prevNetwork
+        this.prevBrightness = reading.brightnessPercent
+        this.prevNetwork = reading.networkType
 
         if (!initialized) {
             // 首轮只记基准：服务启动/重启时当前往往已满足条件，直接推就是"开机即告警"。
@@ -263,7 +345,7 @@ class NotificationEngine(private val cooldownMs: Long = DEFAULT_COOLDOWN_MS) {
         // 记录"本轮最接近触发"的阻塞原因，供影子比对与日志（不影响是否推送）
         var closest = Silence.NOT_TRIGGERED
 
-        for (rule in batteryRules + temperatureRules) {
+        for (rule in batteryRules + temperatureRules + deviceStateRules) {
             if (rule.type in TEMP_RULE_TYPES) {
                 val value = reading.temperatures[rule.type] ?: continue // 读不到 → 不判定
                 val prev = prevTemps[rule.type]
@@ -274,12 +356,44 @@ class NotificationEngine(private val cooldownMs: Long = DEFAULT_COOLDOWN_MS) {
                     closest = worse(closest, Silence.NOT_CROSSING)
                     continue
                 }
-                if (isCooldownActive(tempCooldownUntil[rule.type] ?: 0L, now)) {
+                if (isCooldownActive(cooldownUntil[rule.type] ?: 0L, now)) {
                     closest = worse(closest, Silence.IN_COOLDOWN)
                     continue
                 }
-                tempCooldownUntil[rule.type] = now + cooldownMs
+                cooldownUntil[rule.type] = now + cooldownMs
                 return EngineDecision.TemperatureFire(rule, value)
+            }
+
+            if (rule.type in BRIGHTNESS_RULE_TYPES) {
+                val value = reading.brightnessPercent ?: continue // 读不到 → 不判定
+                val crossed = if (rule.type == "brightness_below") {
+                    isBrightnessDownCrossing(prevBrightness, value, rule.threshold)
+                } else {
+                    isBrightnessUpCrossing(prevBrightness, value, rule.threshold)
+                }
+                if (!crossed) continue
+                if (isCooldownActive(cooldownUntil[rule.type] ?: 0L, now)) {
+                    closest = worse(closest, Silence.IN_COOLDOWN)
+                    continue
+                }
+                cooldownUntil[rule.type] = now + cooldownMs
+                return EngineDecision.DeviceStateFire(rule, value, null)
+            }
+
+            if (rule.type in NETWORK_RULE_TYPES) {
+                val value = reading.networkType ?: continue
+                val crossed = if (rule.type == "network_disconnected") {
+                    isNetworkLost(prevNetwork, value)
+                } else {
+                    isNetworkRestored(prevNetwork, value)
+                }
+                if (!crossed) continue
+                if (isCooldownActive(cooldownUntil[rule.type] ?: 0L, now)) {
+                    closest = worse(closest, Silence.IN_COOLDOWN)
+                    continue
+                }
+                cooldownUntil[rule.type] = now + cooldownMs
+                return EngineDecision.DeviceStateFire(rule, null, value)
             }
 
             if (!batteryMatches(rule, reading.level, reading.charging, prevCharging)) {

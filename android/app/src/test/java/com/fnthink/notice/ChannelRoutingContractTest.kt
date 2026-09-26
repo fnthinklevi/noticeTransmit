@@ -134,12 +134,20 @@ class ChannelRoutingContractTest {
             Regex("""dispatchToChannels\(""").findAll(svc).count() >= 7,
             "收口后的调用点数量异常（应至少 7 处：1 个定义 + 6 个调用）",
         )
-        // T23：两条设备态路不再直接扇出，改走带约束判定的 dispatchDeviceAlert。
+        // T23：设备态路不再直接扇出，改走带约束判定的 dispatchDeviceAlert。
         // 这层间接只允许有一个入口 —— 漏一条路 = 开关只管一半，而看起来仍然生效。
+        // ⚠ 只认调用形状（带参数名）：定义行与注释里写的 `dispatchDeviceAlert()` 都不算 ——
+        //   "注释里提一句"就能把裸计数做真，是本仓库反复踩过的那类假守卫。
         assertEquals(
-            "设备态告警的出站口必须是 1 个定义 + 2 个调用（轮询回调 + 电量广播）",
+            "设备态告警的出站调用必须是 3 处" +
+                "（电量轮询、电量广播、T24 亮度/网络监听）",
             3,
-            Regex("""dispatchDeviceAlert\(""").findAll(svc).count(),
+            Regex("""dispatchDeviceAlert\(\w+\)""").findAll(svc).count(),
+        )
+        assertEquals(
+            "出口函数只能有一个定义",
+            1,
+            Regex("""fun dispatchDeviceAlert\(""").findAll(svc).count(),
         )
 
         // 收口函数自己必须把三族都发出去，并且把 webhook 的汇总回调透传给聚合链路

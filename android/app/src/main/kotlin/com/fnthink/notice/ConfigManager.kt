@@ -24,6 +24,8 @@ class ConfigManager(private val context: Context) {
         // 这份镜像喂 BatteryMonitor —— T21/T22 切主路径之前不许撤，撤了就是"改了规则不生效"。
         private const val KEY_BATTERY_RULES = "flutter.battery_rules"
         private const val KEY_TEMPERATURE_RULES = "flutter.temperature_rules"
+        /** T24：亮度 + 网络规则同族（引擎按 type 路由，不再为分组多开一份镜像键） */
+        private const val KEY_DEVICE_STATE_RULES = "flutter.device_state_rules"
         private const val KEY_BATTERY_NOTIFY_ENABLED = "flutter.battery_notify_enabled"
         private const val KEY_NOTIFICATION_RULES = "flutter.notification_rules"
         private const val KEY_SMS_MONITOR_ENABLED = "flutter.sms_monitor_enabled"
@@ -269,6 +271,11 @@ class ConfigManager(private val context: Context) {
 
     fun getTemperatureRules(): String {
         return prefs.getString(KEY_TEMPERATURE_RULES, "[]") ?: "[]"
+    }
+
+    /** T24：亮度/网络规则（唯一写入者是 Dart 的 `EngineRuleRepository`，原生只读） */
+    fun getDeviceStateRules(): String {
+        return prefs.getString(KEY_DEVICE_STATE_RULES, "[]") ?: "[]"
     }
 
     fun getBatteryRules(): String {

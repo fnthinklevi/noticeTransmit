@@ -274,6 +274,46 @@ object I18n {
         }°C"
         else "当前${dimLabel}温度：${String.format(java.util.Locale.US, "%.1f", currentC)}℃"
 
+    /**
+     * T24：亮度与网络触发源的文案。
+     *
+     * 网络类型标签必须在这里有一份**给人看的**名字：`DeviceSnapshot` 那侧的
+     * `wifi/cellular/vpn/...` 是协议值（跨端比较、存库都用它），把它们直接写进推送正文
+     * 等于让用户读英文小写黑话。两边的一致性由 Kotlin 侧这条 when 的 `else` 兜底 ——
+     * 出现没登记的新类型时显示原值，不猜、不吞。
+     */
+    fun brightnessBelowTitle(threshold: Int): String =
+        if (isEn) "Screen brightness below $threshold%" else "屏幕亮度低于$threshold%"
+
+    fun brightnessAboveTitle(threshold: Int): String =
+        if (isEn) "Screen brightness above $threshold%" else "屏幕亮度高于$threshold%"
+
+    fun brightnessContent(percent: Int): String =
+        if (isEn) "Current brightness: $percent%" else "当前亮度：$percent%"
+
+    fun networkLostTitle(): String =
+        if (isEn) "Network disconnected" else "设备已断网"
+
+    fun networkRestoredTitle(): String =
+        if (isEn) "Network restored" else "网络已恢复"
+
+    fun networkLostContent(): String =
+        if (isEn) "The device is offline" else "当前无可用网络"
+
+    fun networkRestoredContent(networkType: String): String =
+        if (isEn) "Back online via ${networkTypeLabel(networkType)}"
+        else "已重新联网：${networkTypeLabel(networkType)}"
+
+    fun networkTypeLabel(networkType: String): String = when (networkType) {
+        "wifi" -> if (isEn) "Wi-Fi" else "Wi-Fi"
+        "cellular" -> if (isEn) "mobile data" else "移动数据"
+        "ethernet" -> if (isEn) "ethernet" else "有线网络"
+        "vpn" -> if (isEn) "VPN" else "VPN"
+        "none" -> if (isEn) "no network" else "无网络"
+        "other" -> if (isEn) "other" else "其它网络"
+        else -> if (networkType.isEmpty()) "—" else networkType
+    }
+
     fun serviceListenerDisconnected(): String = if (isEn)
         "Notification read permission not granted · listening paused. Enable Notification Access to resume"
     else "未授予通知读取权限，通知监听已暂停"

@@ -99,14 +99,20 @@ class DeviceAlertConstraintContractTest {
     }
 
     @Test
-    fun bothBatteryPathsGoThroughTheGate() {
+    fun everyDeviceStatePathGoesThroughTheGate() {
         val src = source(servicePath)
-        // 两条路：轮询回调（setNotificationCallback）与电量广播 receiver。
-        // 计数含定义那一处，所以是 3 = 1 个定义 + 2 个调用。
+        // 三条路：轮询回调（setNotificationCallback）、电量广播 receiver、T24 的亮度/网络监听。
+        // ⚠ 计数只认**调用形状** `dispatchDeviceAlert(x)`：定义那行带类型标注、注释里写的是
+        //   空括号，都不该算进来（本仓库反复踩过"注释里的字符串把判据做真"，这里连撞一次）。
         assertEquals(
-            "设备态告警的出站必须只有 dispatchDeviceAlert 一个口（1 定义 + 轮询、广播两处调用）",
+            "设备态告警的出站必须只有 dispatchDeviceAlert 一个口（轮询、广播、监听三处调用）",
             3,
-            Regex("""dispatchDeviceAlert\(""").findAll(src).count(),
+            Regex("""dispatchDeviceAlert\(\w+\)""").findAll(src).count(),
+        )
+        assertEquals(
+            "出口函数只能有一个定义",
+            1,
+            Regex("""fun dispatchDeviceAlert\(""").findAll(src).count(),
         )
         assertFalse(
             "还有一条路直接 dispatchToChannels(batteryInfo) ⇒ 开关只管一半，看起来却像生效了",

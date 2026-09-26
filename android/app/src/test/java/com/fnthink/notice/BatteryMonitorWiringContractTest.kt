@@ -89,7 +89,12 @@ class BatteryMonitorWiringContractTest {
             copies
         )
         val uses = Regex("""NotificationEngine\.titleOf\(""").findAll(src).count()
-        assertEquals("电量与温度两个渲染函数都要走 titleOf", 2, uses)
+        assertEquals(
+            "电量、温度、设备状态（T24 亮度/网络）三个渲染函数都要走 titleOf ⇒ " +
+                "多一个渲染函数而没走它，就是给「用户写了标题却被忽略」开出第三个现场",
+            3,
+            uses,
+        )
     }
 
     @Test

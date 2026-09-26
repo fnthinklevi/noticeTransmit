@@ -216,17 +216,36 @@ object RetryQueue {
             return
         }
         try {
-            cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+            val callback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
                     Log.i(TAG, "网络恢复，重放失败队列")
                     replayIfEligible()
                 }
-            })
+            }
+            cm.registerDefaultNetworkCallback(callback)
+            // 留住引用才关得掉。原先是 `registerDefaultNetworkCallback(object : …)` 直接把
+            // 匿名对象交给系统、进程内再无句柄 ⇒ 服务销毁也撤不掉它，系统因此一直持有
+            // 这个回调（连带外围类）。T24 补上 stopWatching 收口。
+            networkCallback = callback
             Log.i(TAG, "重试队列网络监视已注册")
         } catch (e: Exception) {
             Log.e(TAG, "注册网络回调失败（仅保留启动重放）", e)
         }
     }
+
+    /** 服务 onDestroy 调用：撤掉重放监视（幂等，未注册时是空操作） */
+    fun stopWatching() {
+        val callback = networkCallback ?: return
+        networkCallback = null
+        runCatching {
+            (
+                appContext?.getSystemService(Context.CONNECTIVITY_SERVICE)
+                    as? ConnectivityManager
+                )?.unregisterNetworkCallback(callback)
+        }.onFailure { Log.w(TAG, "注销网络回调失败: ${it.message}") }
+    }
+
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     /** 重放所有可重放条目：推送暂停时保持队列不动（与「用户主动暂停」语义一致） */
     fun replayIfEligible() {

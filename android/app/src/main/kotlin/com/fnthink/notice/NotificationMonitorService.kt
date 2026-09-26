@@ -164,6 +164,10 @@ class NotificationMonitorService : NotificationListenerService() {
 
         loadConfig()
         applyMonitoringState()
+        // T24：亮度与网络是事件，不监听就只能靠 60s 轮询看见（用户已经把屏幕点亮了
+        // 才收到"亮度低"）。变化时只做一件事：叫同一条采集判定链再跑一次 ——
+        // 与电量广播同构，不另起一套"设备态触发"。
+        startDeviceStateWatchers()
         // v1.59：初始化后统一显隐决策（覆盖「通知权限被撤后服务重启」的场景：
         // 权限缺失时这里会撤掉刚 startForeground 的通知，保证显示状态与权限一致）
         refreshForegroundVisibility()
@@ -180,6 +184,62 @@ class NotificationMonitorService : NotificationListenerService() {
 
     // —— 短信库兜底监听：SMS_RECEIVED 广播丢失时，改从短信库捕获并补推 ——
     private var smsObserver: SmsObserver? = null
+
+    /** T24：亮度 / 网络变化监听（与短信观察器同一套生命周期纪律：成对、幂等、必撤） */
+    private var brightnessWatcher: BrightnessWatcher? = null
+    private var networkWatcher: NetworkWatcher? = null
+
+    /**
+     * 启动两个触发源监听。幂等（重复调用不重复注册）。
+     *
+     * ⚠ 注册失败只降级不致命：亮度/网络触发源这一次不可用，电量与温度照旧 ——
+     * 但不能静默，日志必须留下（用户在界面上看不到"这一族今天不工作"）。
+     */
+    private fun startDeviceStateWatchers() {
+        if (brightnessWatcher == null) {
+            val w = BrightnessWatcher(applicationContext) { onDeviceStateChanged() }
+            w.start()
+            brightnessWatcher = w.takeIf { it.isWatching() }
+        }
+        if (networkWatcher == null) {
+            val w = NetworkWatcher(applicationContext) { onDeviceStateChanged() }
+            w.start()
+            networkWatcher = w.takeIf { it.isWatching() }
+        }
+    }
+
+    private fun stopDeviceStateWatchers() {
+        brightnessWatcher?.stop()
+        brightnessWatcher = null
+        networkWatcher?.stop()
+        networkWatcher = null
+    }
+
+    /**
+     * 亮度/网络变了 ⇒ 再采一次并判定。走的是与电量广播**完全同一条**路：
+     * `checkBatteryAndNotify()`（唯一读数构造点）+ `dispatchDeviceAlert()`
+     * （唯一的设备态出站口，T23 的约束判定就在里面）。
+     *
+     * onCapabilitiesChanged 可能连发多次（网络切换过程里系统会回调好几轮），而引擎的
+     * 跨越判定自带"上一轮已记录就不算事件"，因此重复触发是幂等的；这里再加一层
+     * 单飞：一轮判定没跑完时后来的变化直接丢弃，避免在 IO 协程里排队跑好几遍。
+     */
+    private fun onDeviceStateChanged() {
+        if (!monitoringEnabled) return
+        if (!deviceStateEvaluating.compareAndSet(false, true)) return
+        serviceScope.launch {
+            try {
+                val info = batteryMonitor.checkBatteryAndNotify() ?: return@launch
+                dispatchDeviceAlert(info)
+            } catch (e: Exception) {
+                Log.e(TAG, "Device state alert dispatch failed", e)
+            } finally {
+                deviceStateEvaluating.set(false)
+            }
+        }
+    }
+
+    private val deviceStateEvaluating = java.util.concurrent.atomic.AtomicBoolean(false)
 
     private fun registerSmsObserver() {
         if (ContextCompat.checkSelfPermission(
@@ -426,6 +486,10 @@ class NotificationMonitorService : NotificationListenerService() {
         webhookSender.destroy()
         appChannelSender.destroy()
         unregisterSmsObserver()
+        // T24：两个触发源监听必须撤 —— 系统持有回调对象就等于持有整个 Service
+        // （连带 NotificationProcessor / Handler），"只注册不注销"这条本仓库已付过学费。
+        stopDeviceStateWatchers()
+        RetryQueue.stopWatching()
         serviceScope.cancel()
         // v1.59：服务销毁时显式撤掉常驻通知（场景「进程终止不得残留」）。
         // 系统在服务销毁时会自动移除 FGS 通知，此处显式 cancel 双保险，
@@ -617,6 +681,8 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor.setEnabled(configManager.getBatteryNotifyEnabled())
         batteryMonitor.updateRules(configManager.getBatteryRules())
         batteryMonitor.updateTemperatureRules(configManager.getTemperatureRules())
+        // T24：亮度/网络规则（同一族镜像键）
+        batteryMonitor.updateDeviceStateRules(configManager.getDeviceStateRules())
 
         cachedConfig = ConfigSnapshot()
         // 服务重启后恢复未到期的延迟推送闹钟（进程被杀 → START_STICKY 重建场景）

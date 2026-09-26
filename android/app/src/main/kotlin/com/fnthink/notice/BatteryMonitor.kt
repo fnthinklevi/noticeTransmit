@@ -22,6 +22,12 @@ class BatteryMonitor(private val context: Context) {
     private var temperatureRules = emptyList<BatteryRule>()
 
     /**
+     * T24：亮度与网络规则。两族**共用一条列表**（引擎按 type 路由，不为分组多开一份表、
+     * 一份镜像键、一条更新链路）；同样由 Dart 写 prefs 镜像（`device_state_rules`）。
+     */
+    private var deviceStateRules = emptyList<BatteryRule>()
+
+    /**
      * T19：判据（阈值 / crossing 迟滞 / 冷却 / 顺序）全在 [NotificationEngine]。
      * 本类只余"读数 + 渲染 + 投递"三件事，状态（prevLevel / prevTemps / 冷却截止）
      * 由引擎自持 —— 两处各存一份迟早一份松一份紧，表现是"某类告警永远不来"。
@@ -34,7 +40,8 @@ class BatteryMonitor(private val context: Context) {
     }
 
     /** 两族任一配了规则才值得花一次电池 syscall（原先只看电量规则，温度族被静默饿死） */
-    fun hasRules(): Boolean = engine.hasRules(batteryRules, temperatureRules)
+    fun hasRules(): Boolean =
+        engine.hasRules(batteryRules, temperatureRules, deviceStateRules)
 
     private val handler = Handler(Looper.getMainLooper())
     private val pollingRunnable = object : Runnable {
@@ -102,12 +109,25 @@ class BatteryMonitor(private val context: Context) {
     fun checkBatteryAndNotify(): NotificationInfo? {
         if (!_enabled || !hasRules()) return null
         val batteryInfo = getBatteryInfo() ?: return null
+        // T24：亮度/网络只在**配了这两类规则时**才读。没配的用户不该因此多出两次
+        // Settings/ConnectivityManager 调用（这条链每 60s 跑一次，白读就是白耗电）。
+        val wantsDeviceState = deviceStateRules.isNotEmpty()
         val reading = EngineReading(
             level = batteryInfo.level,
             charging = batteryInfo.isCharging,
 
             // 温度与电量同源（一次 ACTION_BATTERY_CHANGED 同时取，避免重复唤醒设备）
             temperatures = readCurrentTemps(batteryInfo.temperatureC),
+            brightnessPercent = if (wantsDeviceState) {
+                DeviceSnapshot.readBrightnessPercent(context)
+            } else {
+                null
+            },
+            networkType = if (wantsDeviceState) {
+                DeviceSnapshot.readNetworkType(context)
+            } else {
+                null
+            },
         )
         return when (
             val decision = engine.evaluate(
@@ -116,6 +136,7 @@ class BatteryMonitor(private val context: Context) {
                 temperatureRules = temperatureRules,
                 reading = reading,
                 now = System.currentTimeMillis(),
+                deviceStateRules = deviceStateRules,
             )
         ) {
             is EngineDecision.BatteryFire ->
@@ -123,6 +144,12 @@ class BatteryMonitor(private val context: Context) {
 
             is EngineDecision.TemperatureFire ->
                 buildTemperatureNotification(decision.rule, decision.temperatureC)
+
+            is EngineDecision.DeviceStateFire -> buildDeviceStateNotification(
+                decision.rule,
+                decision.brightnessPercent,
+                decision.networkType,
+            )
 
             is EngineDecision.Silent -> {
                 // 「未满足」与「首轮基准」是常态，不刷日志；其余（冷却中、未 crossing、
@@ -214,8 +241,61 @@ class BatteryMonitor(private val context: Context) {
     }
     }
 
-    private fun readCurrentTemps(batteryTempC: Double?): Map<String, Double> {
-        val temps = mutableMapOf<String, Double>()
+    /**
+     * T24：更新亮度/网络规则（同一族 `device_state`，由 Dart 的 DeviceStateService 写镜像）。
+     *
+     * ⚠ 解析失败**保持旧值**不置空：这是监听服务里的一份内存态，把它清空等于"用户配过
+     * 的告警在界面上还在、实际全不生效"（镜像与内存分叉，界面上完全看不出来）。
+     */
+    fun updateDeviceStateRules(rulesJson: String) {
+        try {
+            val jsonArray = org.json.JSONArray(rulesJson)
+            deviceStateRules = parseBatteryRules(jsonArray)
+            Log.d(TAG, "Device-state rules updated: ${deviceStateRules.size} rules")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse device-state rules", e)
+        }
+    }
+
+    /**
+     * T24：亮度 / 网络告警的渲染。放在本类而不是新起一个 builder，是因为历史上"设备态告警"
+     * 只有 [NotificationInfo] 这一个形状 —— 多开一种结构，历史记录、已读标记、手动重推
+     * 每条链都要再判一次"这是哪一种告警"（同 T19 判据分叉那一类错法）。
+     */
+    private fun buildDeviceStateNotification(
+        rule: BatteryRule,
+        brightnessPercent: Int?,
+        networkType: String?,
+    ): NotificationInfo {
+        val defaultTitle = when (rule.type) {
+            "brightness_below" -> I18n.brightnessBelowTitle(rule.threshold)
+            "brightness_above" -> I18n.brightnessAboveTitle(rule.threshold)
+            "network_disconnected" -> I18n.networkLostTitle()
+            else -> I18n.networkRestoredTitle()
+        }
+        val title = NotificationEngine.titleOf(rule, defaultTitle)
+        val content = if (brightnessPercent != null) {
+            I18n.brightnessContent(brightnessPercent)
+        } else if (networkType == "none") {
+            I18n.networkLostContent()
+        } else {
+            I18n.networkRestoredContent(networkType.orEmpty())
+        }
+        return NotificationInfo(
+            id = "device_${System.currentTimeMillis()}",
+            title = title,
+            content = content,
+            subText = "",
+            packageName = "com.fnthink.notice",
+            appName = I18n.appName(),
+            postTime = System.currentTimeMillis(),
+            time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
+            type = "battery",
+            deviceName = deviceName,
+        )
+    }
+
+    private fun readCurrentTemps(batteryTempC: Double?): Map<String, Double> { val temps = mutableMapOf<String, Double>()
         if (batteryTempC != null) temps["battery_temp_above"] = batteryTempC
         val zones = DeviceThermalReader.readZones()
         // 设备整体：取最热温区（CPU/GPU/电池等温区中的最高者，代表整机热状态）

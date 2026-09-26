@@ -192,9 +192,7 @@ object DeviceSnapshot {
         grab(KEY_MEM_TOTAL) { mem?.totalMem }
         grab(KEY_MEM_AVAILABLE) { mem?.availMem }
 
-        grab(KEY_BRIGHTNESS) {
-            Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-        }
+        grab(KEY_BRIGHTNESS) { readBrightnessRaw(context) }
         grab(KEY_BRIGHTNESS_MODE) {
             Settings.System.getInt(
                 context.contentResolver,
@@ -218,7 +216,22 @@ object DeviceSnapshot {
         return ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
     }
 
-    private fun readNetworkType(context: Context): String? {
+    /** 系统亮度原值（0-255 或 0-100，随 ROM）；读不到返回 null，交给 [brightnessPercent] 归一。 */
+    private fun readBrightnessRaw(context: Context): Int? = try {
+        Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * T24：只读亮度（百分比）。给**变化监听**用 —— 监听器只负责"变了"这件事，
+     * 值仍从这一处取，避免换算口径出现第二份（0-255 / 0-100 / 自动亮度 -1 那套）。
+     */
+    fun readBrightnessPercent(context: Context): Int? =
+        brightnessPercent(readBrightnessRaw(context))
+
+    /** T24：只读当前网络类型（wifi/cellular/vpn/ethernet/other/none；null=拿不到系统服务）。 */
+    fun readNetworkType(context: Context): String? {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             ?: return null
         val network = cm.activeNetwork ?: return networkTypeOf(false, emptySet())

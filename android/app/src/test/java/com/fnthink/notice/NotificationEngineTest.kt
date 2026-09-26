@@ -392,22 +392,134 @@ class NotificationEngineTest {
     }
 
     @Test
-    fun `未知规则类型永不触发，两族类型集合就是引擎认识的全部`() {
+    fun `未知规则类型永不触发，各族类型集合就是引擎认识的全部`() {
         val engine = NotificationEngine()
-        val unknown = rule("brightness_below", 10)
+        // T24 之前用的是 brightness_below —— 那时它是"不认识"的例子；现在它已登记成
+        // 触发源，所以换一个真正没人认识的类型。**这个例子必须一直存在**：
+        // "界面能配、原生不认识"的族会静默不触发（任务书原文点过这条）。
+        val unknown = rule("lid_closed", 10)
         engine.evaluate(true, listOf(unknown), emptyList(), reading(50), t0)
         val out = engine.evaluate(true, listOf(unknown), emptyList(), reading(5), t0 + 1)
         assertTrue(
-            "引擎不认识的类型必须静默不触发：T24 加亮度/网络触发源时要在这里登记，" +
+            "引擎不认识的类型必须静默不触发：新触发源要先在引擎登记，" +
                 "不能先让 Dart 页面能配、原生后认识",
             out is EngineDecision.Silent,
         )
         assertEquals(3, NotificationEngine.TEMP_RULE_TYPES.size)
         assertEquals(5, NotificationEngine.BATTERY_RULE_TYPES.size)
-        assertTrue(
-            NotificationEngine.TEMP_RULE_TYPES.intersect(NotificationEngine.BATTERY_RULE_TYPES)
-                .isEmpty()
+        assertEquals(2, NotificationEngine.BRIGHTNESS_RULE_TYPES.size)
+        assertEquals(2, NotificationEngine.NETWORK_RULE_TYPES.size)
+        assertEquals(
+            "设备状态族必须正好是亮度 + 网络两族（存储侧只有一个 device_state 族，靠 type 路由）",
+            4,
+            NotificationEngine.DEVICE_STATE_RULE_TYPES.size,
         )
+        val all = NotificationEngine.TEMP_RULE_TYPES +
+            NotificationEngine.BATTERY_RULE_TYPES +
+            NotificationEngine.DEVICE_STATE_RULE_TYPES
+        assertEquals(
+            "各族之间不许有重叠类型：重叠 = 同一条规则被两条分支各判一次，" +
+                "结果取决于循环顺序",
+            all.size,
+            all.toSet().size,
+        )
+    }
+
+    @Test
+    fun `亮度只在向下跨越时触发一次，重复同一读数不再吵`() {
+        val engine = NotificationEngine()
+        val r = rule("brightness_below", 20)
+        // 首轮只建基准（prevBrightness 还没值）
+        assertTrue(
+            engine.evaluate(
+                true, emptyList(), emptyList(),
+                reading(50).copy(brightnessPercent = 60), t0, listOf(r),
+            ) is EngineDecision.Silent,
+        )
+        // 第二轮：仍高于阈值 ⇒ 不触发，但把"上一轮 60"记下来
+        assertTrue(
+            engine.evaluate(
+                true, emptyList(), emptyList(),
+                reading(50).copy(brightnessPercent = 55), t0 + 1, listOf(r),
+            ) is EngineDecision.Silent,
+        )
+        // 第三轮：跨到阈值下 ⇒ 触发一次
+        val fire = engine.evaluate(
+            true, emptyList(), emptyList(),
+            reading(50).copy(brightnessPercent = 12), t0 + 2, listOf(r),
+        )
+        assertTrue("60 → 12 必须算一次向下跨越", fire is EngineDecision.DeviceStateFire)
+        fire as EngineDecision.DeviceStateFire
+        assertEquals(12, fire.brightnessPercent)
+        assertEquals(null, fire.networkType)
+        // 还停在 12 ⇒ 不是新事件（"每 60s 提醒一次屏幕很暗"是本批要避免的形状）
+        assertTrue(
+            engine.evaluate(
+                true, emptyList(), emptyList(),
+                reading(50).copy(brightnessPercent = 12), t0 + 3, listOf(r),
+            ) is EngineDecision.Silent,
+        )
+    }
+
+    @Test
+    fun `亮度读不到就不判定，绝不按零亮度触发`() {
+        val engine = NotificationEngine()
+        val r = rule("brightness_below", 20)
+        engine.evaluate(true, emptyList(), emptyList(), reading(50), t0, listOf(r))
+        val out = engine.evaluate(
+            true, emptyList(), emptyList(),
+            reading(50).copy(brightnessPercent = null), t0 + 1, listOf(r),
+        )
+        assertTrue(
+            "null 是「读不到」，当成 0% 会让每次判定都误报「屏幕全黑」",
+            out is EngineDecision.Silent,
+        )
+    }
+
+    @Test
+    fun `断网与恢复各自只在翻转那一刻算一次事件`() {
+        val engine = NotificationEngine()
+        val lost = rule("network_disconnected", 0)
+        val back = rule("network_connected", 0)
+        val rules = listOf(lost, back)
+        fun feed(net: String?, at: Long) = engine.evaluate(
+            true, emptyList(), emptyList(),
+            reading(50).copy(networkType = net), at, rules,
+        )
+
+        assertTrue(feed("wifi", t0) is EngineDecision.Silent) // 基准轮
+        assertTrue(
+            "同一状态里持续 wifi 不是事件",
+            feed("wifi", t0 + 1) is EngineDecision.Silent,
+        )
+        val lostFire = feed("none", t0 + 2)
+        assertTrue("wifi → none 必须算断网", lostFire is EngineDecision.DeviceStateFire)
+        assertEquals("network_disconnected", (lostFire as EngineDecision.DeviceStateFire).rule.type)
+        assertTrue(
+            "断网期间反复判定不许反复吵",
+            feed("none", t0 + 3) is EngineDecision.Silent,
+        )
+        val backFire = feed("cellular", t0 + 4)
+        assertTrue(
+            "恢复到蜂窝也要出事件（正文要写清恢复到哪种网络）",
+            backFire is EngineDecision.DeviceStateFire,
+        )
+        assertEquals(
+            "cellular",
+            (backFire as EngineDecision.DeviceStateFire).networkType,
+        )
+    }
+
+    @Test
+    fun `只配亮度或网络一族的用户也必须被判定到`() {
+        // T19 修过"只配温度被电量规则饿死"，同一件事对 T24 两族也必须不成立 ⇒
+        // hasRules 漏掉一族就会在调用层直接早退，引擎里再对也没用。
+        val engine = NotificationEngine()
+        assertTrue(engine.hasRules(emptyList(), emptyList(), listOf(rule("brightness_above", 90))))
+        assertTrue(engine.hasRules(emptyList(), emptyList(), listOf(rule("network_connected", 0))))
+        assertFalse(engine.hasRules(emptyList(), emptyList(), emptyList()))
+        // 旧的两参调用还在（默认空列表）：不能因为加了参数就让它静默返回 true
+        assertTrue(engine.hasRules(listOf(rule("level_below", 20)), emptyList()))
     }
 
     // ── T25：只读试跑 ────────────────────────────────────────────────
