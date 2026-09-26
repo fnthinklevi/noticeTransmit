@@ -820,15 +820,15 @@ void main() {
       },
     );
 
-    // 5.7 规则引擎：编辑预制规则(加一个条件) → 新建 → 删除新建的
+    // 5.7 规则约束：编辑预制规则(加一个条件) → 新建 → 删除新建的
     await _step(
       tester,
       gateFailures,
-      '5.7 规则引擎：编辑预制规则(加一个条件) → 新建 → 删除新建的',
+      '5.7 规则约束：编辑预制规则(加一个条件) → 新建 → 删除新建的',
       () async {
         await _backToHomeQuietly(tester);
-        await _openMoreRow(tester, '规则引擎');
-        await _onPage(tester, RuleListPage, '规则引擎列表');
+        await _openMoreRow(tester, '规则约束');
+        await _onPage(tester, RuleListPage, '规则约束列表');
         await _tap(tester, _in(RuleListPage, find.text('编辑')), '规则→编辑第一条');
         await _onPage(tester, RuleEditPage, '规则编辑页');
         // 「添加条件」是分组**标题**，按钮是它旁边那个 TextButton('添加') ⇒
@@ -895,11 +895,11 @@ void main() {
     // 5.8 规则测试器：填一条模拟通知，断言实时链路结果出现
     await _step(tester, gateFailures, '5.8 规则测试器：填一条模拟通知，断言实时链路结果出现', () async {
       await _backToHomeQuietly(tester);
-      await _openMoreRow(tester, '规则引擎');
+      await _openMoreRow(tester, '规则约束');
       await _tap(
         tester,
         _in(RuleListPage, find.byIcon(Icons.science_outlined)),
-        '规则引擎→规则测试器',
+        '规则约束→规则测试器',
       );
       await _onPage(tester, RuleTesterPage, '规则测试器页');
       final testerFields = _in(RuleTesterPage, find.byType(TextField));
@@ -921,11 +921,11 @@ void main() {
       gateFailures,
       '5.9 规则模板库：打开工作表再关掉（导出/导入按钮在页内，点它会被真弹层打断）',
       () async {
-        await _openMoreRow(tester, '规则引擎');
+        await _openMoreRow(tester, '规则约束');
         await _tap(
           tester,
           _in(RuleListPage, find.byIcon(Icons.playlist_add_check_outlined)),
-          '规则引擎→规则模板库',
+          '规则约束→规则模板库',
         );
         await _settle(tester);
         expect(find.text('从文件导入'), findsWidgets, reason: '模板库工作表没打开');

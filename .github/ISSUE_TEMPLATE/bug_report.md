@@ -32,7 +32,7 @@ A clear and concise description of what you expected to happen.
 
 **受影响的功能面 / Affected area**
 - [ ] 通知监听与转发 / Notification listening & forwarding
-- [ ] 规则引擎（关键词/聚合/延迟等） / Rule engine (keywords, merge, delay, …)
+- [ ] 规则约束（关键词/聚合/延迟等） / Rule constraints (keywords, merge, delay, …)
 - [ ] 短信识别 / SMS verification-code parsing
 - [ ] 通道配置（Webhook / 邮件 / 自建应用） / Channels (Webhook / email / app channels)
 - [ ] 温度与电量监控 / Temperature & battery monitoring

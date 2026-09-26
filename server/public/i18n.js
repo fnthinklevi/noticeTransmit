@@ -44,7 +44,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['常见问题'] = 'FAQ';
   D['全量通知监听'] = 'Full Notification Listening';
   D['监听系统所有应用的通知栏消息，自动识别微信、QQ、短信、来电、支付宝、微博、抖音、系统通知等 20 类通知来源，并以 %notifyType% 变量随推送下发。'] = 'Monitors notification-bar messages from every app and classifies the source into 20 buckets — WeChat, QQ, SMS, calls, Alipay, Weibo, Douyin, system, etc. — carried along as the %notifyType% push variable.';
-  D['可视化规则引擎'] = 'Visual Rule Engine';
+  D['可视化规则约束'] = 'Visual Rule Constraints';
   D['IF 条件组合 + THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。'] = 'IF condition + THEN action, tiered by notification priority (high/medium/low) — silent ignore / record only / scheduled & delayed push / push now / same-app merged push (configurable window). Built-in rules for OTP priority, ad blocking, nighttime DND — ready out of the box.';
   D['关键词过滤'] = 'Keyword Filtering';
   D['白名单 + 黑名单双模式关键词过滤，精准控制哪些内容推送、哪些内容拦截。'] = 'Whitelist + blacklist dual-mode keyword filtering for precise push control.';
@@ -63,7 +63,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['通知本地处理'] = 'Local Processing';
   D['多语言国际化'] = 'Multi-language i18n';
   D['全应用中英双语支持（850+ 词条，中英键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Full-app Chinese/English bilingual support (850+ strings, both key sets enforced equal by CI), one-tap language switch in settings; launcher icons come in 17 variants with separate Chinese/English aliases.';
-  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email — with app filtering, keyword filtering, a visual rule engine (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and custom battery alerts.';
+  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email — with app filtering, keyword filtering, a visual rule constraints (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and custom battery alerts.';
   D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / custom — ntfy and Gotify support self-hosted servers) + SMTP email (SSL/STARTTLS). Independent switch per channel; subject/body support template variables.';
   // feature cards — updated v1.5.48
   D['Webhook + 邮件多通道'] = 'Webhook + Email Multi-channel';
@@ -78,7 +78,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['下载 x86_64'] = 'Download x86_64';
   D['下载 全平台'] = 'Download All';
   // hero — updated v1.5.56
-  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'An Android notification listener & push tool. Forward any notification via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) or SMTP email in real time. App filtering, keyword filtering, visual rule engine (priority levels, scheduled/delayed push), one-tap pause widget & custom battery alerts included.';
+  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'An Android notification listener & push tool. Forward any notification via Webhook (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus) or SMTP email in real time. App filtering, keyword filtering, visual rule constraints (priority levels, scheduled/delayed push), one-tap pause widget & custom battery alerts included.';
   // FAQ — updated v1.5.48
   D['它会不会上传我的通知或短信内容？'] = 'Does it upload my notifications or SMS?';
   D['不会。所有通知、短信、通讯录仅在本地监听、处理与推送，不会上传到任何服务器。推送只通过你自行配置的 Webhook 或 SMTP 邮件通道发出，开发者不存储任何推送内容。仅崩溃统计（腾讯 Bugly）会采集崩溃堆栈用于修复问题。'] = 'No. All notifications, SMS, contacts stay on-device. Push goes only through your configured Webhook or SMTP email. The developer stores nothing. Only crash logs (Tencent Bugly) are collected for bugfixing.';
@@ -95,7 +95,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['识别分类'] = 'Identify';
   D['解析来源应用与类型，标记微信、短信、来电等'] = 'Parse source app and type, tag WeChat, SMS, calls, etc.';
   D['规则过滤'] = 'Filter';
-  D['经规则引擎 + 关键词 + 应用筛选层层判定'] = 'Processed through rule engine + keywords + app filter';
+  D['经规则约束 + 关键词 + 应用筛选层层判定'] = 'Processed through rule constraints + keywords + app filter';
   D['多通道推送'] = 'Push';
   D['按格式封装，并行推送至各 Webhook 通道'] = 'Packaged per format, pushed in parallel to all Webhook channels';
   D['送达确认'] = 'Confirm';
@@ -192,7 +192,7 @@ D['通知推送助手'] = 'NoticeTransmit';
 
   // ── v1.5.73 官网内容（通道扩展收尾 + 模板库 + 送达健康 + 健康探测）──
   D['Webhook 推送通道'] = 'Webhook Channels';
-  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、自建应用通道（企业微信 / 飞书）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与电量/温度提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord), self-built app channels (WeCom / Feishu) or SMTP email — with app filtering, keyword filtering, a visual rule engine (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and battery / temperature alerts.';
+  D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、自建应用通道（企业微信 / 飞书）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与电量/温度提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord), self-built app channels (WeCom / Feishu) or SMTP email — with app filtering, keyword filtering, a visual rule constraints (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and battery / temperature alerts.';
   D['12 种 Webhook 通道类型（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（465 SSL / 587 STARTTLS），每个通道独立开关，主题与正文支持模板变量。'] = '12 Webhook channel types (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / custom — ntfy and Gotify support self-hosted servers) + SMTP email (465 SSL / 587 STARTTLS). Independent switch per channel; subject and body support template variables.';
   D['规则模板库'] = 'Rule Template Library';
   D['内置验证码优先、营销拦截、夜间免打扰、社交消息聚合等 5 套预设模板一键导入；自定义规则可「存为模板」复用，支持导出分享（可选口令 AES-256 加密）与文件导入。'] = 'Five built-in presets (OTP priority, marketing block, night DND, social aggregation) import in one tap; save custom rules as reusable templates; export for sharing with optional AES-256 password protection, or import from file.';
@@ -332,8 +332,8 @@ D['通知推送助手'] = 'NoticeTransmit';
     var metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.content = l === 'zh'
-        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义）、自建应用通道（企业微信自建应用 / 飞书自建应用，两阶段 token API，支持私有化部署）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎（通知优先级分级 / 静默忽略 / 定时与延迟推送）、规则测试器、桌面小部件一键启停、电量与温度提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。'
-        : 'NoticeTransmit — Android notification listener & push tool. Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / Custom), self-built app channels (WeCom App / Feishu App, two-phase token API, private deployment supported) and SMTP email multi-channel. App filtering, keyword filtering, visual rule engine (priority tiers / silent ignore / scheduled & delayed push), rule tester, one-tap pause widget, battery and temperature alerts. Open source, free. Crash reporting is off by default and only enabled with your consent.';
+        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义）、自建应用通道（企业微信自建应用 / 飞书自建应用，两阶段 token API，支持私有化部署）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则约束（通知优先级分级 / 静默忽略 / 定时与延迟推送）、规则测试器、桌面小部件一键启停、电量与温度提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。'
+        : 'NoticeTransmit — Android notification listener & push tool. Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / Custom), self-built app channels (WeCom App / Feishu App, two-phase token API, private deployment supported) and SMTP email multi-channel. App filtering, keyword filtering, visual rule constraints (priority tiers / silent ignore / scheduled & delayed push), rule tester, one-tap pause widget, battery and temperature alerts. Open source, free. Crash reporting is off by default and only enabled with your consent.';
     }
   }
 

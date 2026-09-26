@@ -119,7 +119,7 @@
       }
     }
   },
-  "ruleEngine": "规则引擎",
+  "ruleEngine": "规则约束",
   "ruleCount": "{n} 条规则",
   "@ruleCount": {
     "placeholders": {
@@ -574,7 +574,7 @@
       }
     }
   },
-  "ruleGuideTitle": "规则引擎介绍",
+  "ruleGuideTitle": "规则约束介绍",
   "ruleGuideAdd": "添加规则",
   "ruleGuideAddDesc": "点击右上角「+」或右下角浮动按钮创建新规则",
   "ruleGuideCondition": "设置条件",
@@ -629,7 +629,7 @@
   "ruleAppPickTitle": "选择适用应用",
   "ruleAppPinnedSms": "系统短信",
   "ruleAppPinnedCall": "电话",
-  "ruleAppPinnedNote": "系统短信与电话由独立链路转发，不经过规则引擎，此处列出仅便于统一管理。",
+  "ruleAppPinnedNote": "系统短信与电话由独立链路转发，不经过规则约束判定，此处列出仅便于统一管理。",
   "ruleAppNoPermission": "无应用列表读取权限，无法加载应用列表",
   "ruleMergeWindowRow": "聚合等待时长",
   "ruleMergeWindowSummary": "等待 {n} 秒",
@@ -919,7 +919,7 @@
   "privacyOverviewTitle": "隐私政策概述",
   "privacyOverviewContent": "通知推送助手（以下简称\"本应用\"）由幻念团队开发并运营。本应用高度重视您的个人信息与隐私保护，在您使用本应用前，请仔细阅读本隐私政策，了解我们如何收集、使用、存储和保护您的信息。\n\n本政策适用于本应用提供的所有服务。当您安装并使用本应用时，即表示您已阅读、理解并同意本政策的全部内容。",
   "privacyInfoTitle": "我们收集的信息",
-  "privacyInfoContent": "本应用遵循\"最小必要\"原则，仅收集实现核心功能所必需的信息：\n\n1. 通知内容（本地处理）\n   - 应用通过系统通知监听服务读取通知内容\n   - 所有通知内容仅在设备本地完成规则匹配、关键词过滤，并按您自行配置的 Webhook 或邮件地址转发\n   - 通知内容不会上传至除您指定目标以外的任何服务器\n\n2. 崩溃统计信息（腾讯 Bugly，默认关闭）\n   - 仅当你在「更多 → 崩溃上报」主动开启后，才收集应用崩溃时的堆栈信息、设备型号、系统版本、应用版本号、CPU 架构\n   - 未开启时 SDK 不初始化、数据不出网；开启后仅用于定位和修复崩溃问题，提升应用稳定性\n\n3. 推送统计与历史记录（本地存储）\n   - 通知记录、推送状态、每日统计等数据使用 AES-256 加密存储在本地数据库\n   - 这些数据仅保存在您的设备上，不会对外发送\n\n4. 延迟推送队列（本地存储）\n   - 规则引擎产生的延迟/定时推送任务持久化保存在本机，重启后不丢失\n\n5. 电池状态（本地监控）\n   - 电量及充电状态监控仅在本机采集，用于首页展示，不对外发送\n\n6. 已安装应用列表（本地使用）\n   - 用于规则引擎条件配置与应用过滤，仅在本机使用",
+  "privacyInfoContent": "本应用遵循\"最小必要\"原则，仅收集实现核心功能所必需的信息：\n\n1. 通知内容（本地处理）\n   - 应用通过系统通知监听服务读取通知内容\n   - 所有通知内容仅在设备本地完成规则匹配、关键词过滤，并按您自行配置的 Webhook 或邮件地址转发\n   - 通知内容不会上传至除您指定目标以外的任何服务器\n\n2. 崩溃统计信息（腾讯 Bugly，默认关闭）\n   - 仅当你在「更多 → 崩溃上报」主动开启后，才收集应用崩溃时的堆栈信息、设备型号、系统版本、应用版本号、CPU 架构\n   - 未开启时 SDK 不初始化、数据不出网；开启后仅用于定位和修复崩溃问题，提升应用稳定性\n\n3. 推送统计与历史记录（本地存储）\n   - 通知记录、推送状态、每日统计等数据使用 AES-256 加密存储在本地数据库\n   - 这些数据仅保存在您的设备上，不会对外发送\n\n4. 延迟推送队列（本地存储）\n   - 规则约束产生的延迟/定时推送任务持久化保存在本机，重启后不丢失\n\n5. 电池状态（本地监控）\n   - 电量及充电状态监控仅在本机采集，用于首页展示，不对外发送\n\n6. 已安装应用列表（本地使用）\n   - 用于规则约束的条件配置与应用过滤，仅在本机使用",
   "privacyNoCollectTitle": "我们不收集的信息",
   "privacyNoCollectContent": "本应用不会收集以下个人隐私信息：\n\n• 通讯录、短信内容（除非您主动授权用于短信通知识别）\n• 位置信息\n• 通话记录\n• 相册、文件内容\n• 麦克风、摄像头数据\n• 个人身份信息（姓名、身份证号、手机号等）\n\n当您不同意授权时，本应用的相关可选功能将不可用，但核心通知转发功能不受影响。",
   "privacyShareTitle": "信息共享与披露",
@@ -929,7 +929,7 @@
   "privacyThirdPartyTitle": "第三方服务",
   "privacyThirdPartyContent": "本应用使用以下第三方服务：\n\n腾讯 Bugly（崩溃统计，默认关闭）\n• 服务商：深圳市腾讯计算机系统有限公司\n• 用途：需你在「更多 → 崩溃上报」主动开启后才收集应用崩溃信息，帮助定位和修复问题；关闭后下次启动不再初始化\n• 隐私政策：https://privacy.qq.com/\n• 采集数据：崩溃堆栈、设备型号、系统版本、应用版本、CPU 架构\n\n用户主动配置的推送目标（非 SDK）\n• 企业微信、钉钉、飞书、Telegram、Bark、Server酱、PushPlus、SMTP 邮件服务器\n• 本应用仅向您自行配置的地址发送您选择转发的通知内容，不对第三方平台的数据处理行为负责\n• 涉及上述平台的隐私政策，请查阅对应平台官方文档",
   "privacyPermTitle": "权限说明",
-  "privacyPermContent": "本应用遵循最小权限原则，以下为完整权限清单及用途说明：\n\n核心权限（必需）：\n• 通知使用权（Notification Listener）：读取通知内容，实现转发与规则引擎功能\n• 网络访问（INTERNET）：Webhook/邮件推送与版本更新检查\n• 前台服务（FOREGROUND_SERVICE 等）：保持通知监听服务常驻，确保消息及时推送\n• 开机自启动（RECEIVE_BOOT_COMPLETED）：设备重启后自动恢复通知监听服务\n• 通知发送（POST_NOTIFICATIONS）：发送本地通知提示\n• 唤醒锁（WAKE_LOCK）：延迟/定时推送到点唤醒设备\n\n辅助权限（可选）：\n• 电量优化白名单（REQUEST_IGNORE_BATTERY_OPTIMIZATIONS）：避免系统限制后台服务\n• 短信（RECEIVE_SMS/READ_SMS）：可选，用于短信通知识别与转发\n• 电话状态（READ_PHONE_STATE）：可选，用于来电通知识别\n• 存储（READ/WRITE_EXTERNAL_STORAGE）：导出推送历史 JSON、保存更新 APK\n• 安装未知应用（REQUEST_INSTALL_PACKAGES）：应用内在线更新时安装 APK\n• 查询已安装应用（QUERY_ALL_PACKAGES）：规则引擎条件配置与应用过滤\n• 振动（VIBRATE）：推送提示振动\n• 网络状态（ACCESS_NETWORK_STATE）：检测网络连接状态\n\n以上辅助权限均在您主动授权后使用，可随时在系统设置中关闭。",
+  "privacyPermContent": "本应用遵循最小权限原则，以下为完整权限清单及用途说明：\n\n核心权限（必需）：\n• 通知使用权（Notification Listener）：读取通知内容，实现转发与规则约束功能\n• 网络访问（INTERNET）：Webhook/邮件推送与版本更新检查\n• 前台服务（FOREGROUND_SERVICE 等）：保持通知监听服务常驻，确保消息及时推送\n• 开机自启动（RECEIVE_BOOT_COMPLETED）：设备重启后自动恢复通知监听服务\n• 通知发送（POST_NOTIFICATIONS）：发送本地通知提示\n• 唤醒锁（WAKE_LOCK）：延迟/定时推送到点唤醒设备\n\n辅助权限（可选）：\n• 电量优化白名单（REQUEST_IGNORE_BATTERY_OPTIMIZATIONS）：避免系统限制后台服务\n• 短信（RECEIVE_SMS/READ_SMS）：可选，用于短信通知识别与转发\n• 电话状态（READ_PHONE_STATE）：可选，用于来电通知识别\n• 存储（READ/WRITE_EXTERNAL_STORAGE）：导出推送历史 JSON、保存更新 APK\n• 安装未知应用（REQUEST_INSTALL_PACKAGES）：应用内在线更新时安装 APK\n• 查询已安装应用（QUERY_ALL_PACKAGES）：规则约束的条件配置与应用过滤\n• 振动（VIBRATE）：推送提示振动\n• 网络状态（ACCESS_NETWORK_STATE）：检测网络连接状态\n\n以上辅助权限均在您主动授权后使用，可随时在系统设置中关闭。",
   "privacyChildTitle": "儿童隐私",
   "privacyChildContent": "本应用面向一般用户，不针对 14 周岁以下儿童设计，也不会故意收集儿童的个人信息。若您是未成年人，请在监护人陪同下阅读本政策，并在监护人同意后使用本应用。",
   "privacyRightsTitle": "您的权利",
@@ -1002,7 +1002,7 @@
   "testerActionPush": "立即推送",
   "testerActionSilent": "静默忽略",
   "testerActionRecord": "仅记录（不推送）",
-  "testerFilteredNote": "该通知会被过滤掉，不会进入规则引擎与推送链路",
+  "testerFilteredNote": "该通知会被过滤掉，不会进入规则约束判定与推送链路",
   "testerSrcBlacklist": "黑名单关键词命中：{kw}",
   "@testerSrcBlacklist": {
     "placeholders": {

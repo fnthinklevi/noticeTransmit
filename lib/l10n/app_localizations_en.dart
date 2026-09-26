@@ -246,7 +246,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get ruleEngine => 'Rule Engine';
+  String get ruleEngine => 'Rule Constraints';
 
   @override
   String ruleCount(int n) {
@@ -1281,7 +1281,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get ruleGuideTitle => 'Rule Engine Intro';
+  String get ruleGuideTitle => 'Rule Constraints Intro';
 
   @override
   String get ruleGuideAdd => 'Add Rule';
@@ -1415,7 +1415,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleAppPinnedNote =>
-      'System SMS and call notifications are forwarded via separate pipelines and never reach the rule engine; listed here for unified management.';
+      'System SMS and call notifications are forwarded via separate pipelines and never reach the rule constraints; listed here for unified management.';
 
   @override
   String get ruleAppNoPermission => 'No permission to read the app list';
@@ -1985,7 +1985,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyInfoContent =>
-      'This App follows the principle of \"minimum necessary\" and only collects information required for core functionality:\n\n1. Notification Content (Local Processing)\n   - The app reads notification content through the system notification listener service\n   - All notification content is matched against rules, filtered by keywords, and forwarded to Webhook or email addresses you configure, all on-device\n   - Notification content is never uploaded to any server other than the targets you specify\n\n2. Crash Statistics (Tencent Bugly, off by default)\n   - Collected only after you explicitly enable \"Crash Reporting\" under More → settings\n   - The SDK is not initialized and no data leaves the device until enabled; used solely to locate and fix crash issues and improve app stability\n\n3. Push Statistics & History (Local Storage)\n   - Notification records, delivery status, and daily statistics are AES-256 encrypted and stored in a local database\n   - These data stay on your device and are never transmitted externally\n\n4. Delayed Push Queue (Local Storage)\n   - Delay/scheduled push tasks from the rule engine are persisted locally and survive reboots\n\n5. Battery Status (Local Monitoring)\n   - Battery level and charging status are monitored locally for the home page display only\n\n6. Installed App List (Local Use)\n   - Used for rule engine condition configuration and app filtering, on-device only';
+      'This App follows the principle of \"minimum necessary\" and only collects information required for core functionality:\n\n1. Notification Content (Local Processing)\n   - The app reads notification content through the system notification listener service\n   - All notification content is matched against rules, filtered by keywords, and forwarded to Webhook or email addresses you configure, all on-device\n   - Notification content is never uploaded to any server other than the targets you specify\n\n2. Crash Statistics (Tencent Bugly, off by default)\n   - Collected only after you explicitly enable \"Crash Reporting\" under More → settings\n   - The SDK is not initialized and no data leaves the device until enabled; used solely to locate and fix crash issues and improve app stability\n\n3. Push Statistics & History (Local Storage)\n   - Notification records, delivery status, and daily statistics are AES-256 encrypted and stored in a local database\n   - These data stay on your device and are never transmitted externally\n\n4. Delayed Push Queue (Local Storage)\n   - Delay/scheduled push tasks from the rule constraints are persisted locally and survive reboots\n\n5. Battery Status (Local Monitoring)\n   - Battery level and charging status are monitored locally for the home page display only\n\n6. Installed App List (Local Use)\n   - Used for rule constraint condition configuration and app filtering, on-device only';
 
   @override
   String get privacyNoCollectTitle => 'Information We Do Not Collect';
@@ -2020,7 +2020,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privacyPermContent =>
-      'This App follows the principle of least privilege. The complete permission list and purposes are as follows:\n\nCore Permissions (Required):\n• Notification Listener: Read notification content for forwarding and the rule engine\n• Internet (INTERNET): Webhook/email push and update checks\n• Foreground Service (FOREGROUND_SERVICE, etc.): Keeps the notification listener alive for timely delivery\n• Boot Completed (RECEIVE_BOOT_COMPLETED): Automatically restores the listener after reboot\n• Post Notifications (POST_NOTIFICATIONS): Sends local notification prompts\n• Wake Lock (WAKE_LOCK): Wakes the device for delayed/scheduled pushes\n\nAuxiliary Permissions (Optional):\n• Battery Optimization Whitelist (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS): Prevents the system from restricting background services\n• SMS (RECEIVE_SMS/READ_SMS): Optional, for SMS notification recognition and forwarding\n• Phone State (READ_PHONE_STATE): Optional, for incoming call notification recognition\n• Storage (READ/WRITE_EXTERNAL_STORAGE): Export push history JSON and save update APKs\n• Install Unknown Apps (REQUEST_INSTALL_PACKAGES): Installs APKs for in-app updates\n• Query All Packages (QUERY_ALL_PACKAGES): Rule engine condition configuration and app filtering\n• Vibrate (VIBRATE): Vibration for push prompts\n• Network State (ACCESS_NETWORK_STATE): Detects network connectivity\n\nAuxiliary permissions are only used after your explicit authorization and can be revoked anytime in system settings.';
+      'This App follows the principle of least privilege. The complete permission list and purposes are as follows:\n\nCore Permissions (Required):\n• Notification Listener: Read notification content for forwarding and the rule constraints\n• Internet (INTERNET): Webhook/email push and update checks\n• Foreground Service (FOREGROUND_SERVICE, etc.): Keeps the notification listener alive for timely delivery\n• Boot Completed (RECEIVE_BOOT_COMPLETED): Automatically restores the listener after reboot\n• Post Notifications (POST_NOTIFICATIONS): Sends local notification prompts\n• Wake Lock (WAKE_LOCK): Wakes the device for delayed/scheduled pushes\n\nAuxiliary Permissions (Optional):\n• Battery Optimization Whitelist (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS): Prevents the system from restricting background services\n• SMS (RECEIVE_SMS/READ_SMS): Optional, for SMS notification recognition and forwarding\n• Phone State (READ_PHONE_STATE): Optional, for incoming call notification recognition\n• Storage (READ/WRITE_EXTERNAL_STORAGE): Export push history JSON and save update APKs\n• Install Unknown Apps (REQUEST_INSTALL_PACKAGES): Installs APKs for in-app updates\n• Query All Packages (QUERY_ALL_PACKAGES): Rule constraint condition configuration and app filtering\n• Vibrate (VIBRATE): Vibration for push prompts\n• Network State (ACCESS_NETWORK_STATE): Detects network connectivity\n\nAuxiliary permissions are only used after your explicit authorization and can be revoked anytime in system settings.';
 
   @override
   String get privacyChildTitle => 'Children\'s Privacy';
@@ -2237,7 +2237,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get testerFilteredNote =>
-      'This notification is filtered out before the rule engine';
+      'This notification is filtered out before the rule constraints';
 
   @override
   String testerSrcBlacklist(String kw) {

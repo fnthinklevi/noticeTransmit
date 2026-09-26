@@ -13,7 +13,7 @@ assignees: ''
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
 **希望的功能落点 / Where the feature should live**
-- [ ] 规则引擎与推送链路 / Rule engine & push pipeline
+- [ ] 规则约束与推送链路 / Rule constraints & push pipeline
 - [ ] 通道类型（Webhook / 邮件 / 企业微信、飞书等自建应用） / Channel types (Webhook / email / WeCom, Feishu app channels)
 - [ ] 短信与验证码识别 / SMS & verification-code parsing
 - [ ] 温度、电量等系统监控 / Temperature, battery and other system monitoring

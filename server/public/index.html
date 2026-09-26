@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="favicon.ico?v=20260719">
 <link rel="apple-touch-icon" href="app_icon.png?v=20260719">
 <title>NoticeTransmit · 通知推送助手</title>
-<meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义）、自建应用通道（企业微信自建应用 / 飞书自建应用，两阶段 token API，支持私有化部署）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则引擎（通知优先级分级 / 静默忽略 / 定时与延迟推送）、规则测试器、桌面小部件一键启停、电量与温度提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。" />
+<meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义）、自建应用通道（企业微信自建应用 / 飞书自建应用，两阶段 token API，支持私有化部署）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则约束（通知优先级分级 / 静默忽略 / 定时与延迟推送）、规则测试器、桌面小部件一键启停、电量与温度提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23467CFD' d='M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z'/%3E%3Cpath fill='%238BAEF7' d='M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.cn" />
 <link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin />
@@ -410,7 +410,7 @@
     <div class="hero-copy">
       <span class="badge"><span class="dot"></span> <span data-i18n="hero.badge">开源免费 · 本地处理</span></span>
       <h1>让每条通知，<br><span class="grad">抵达每个平台</span></h1>
-      <p class="sub">通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、自建应用通道（企业微信 / 飞书）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则引擎（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与电量/温度提醒。</p>
+      <p class="sub">通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、自建应用通道（企业微信 / 飞书）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与电量/温度提醒。</p>
       <div class="hero-actions">
         <a class="btn btn-primary btn-lg" href="#download">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
@@ -479,7 +479,7 @@
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🔔</div><h3>全量通知监听</h3><p>监听系统所有应用的通知栏消息，自动识别微信、QQ、短信、来电、支付宝、微博、抖音、系统通知等 20 类通知来源，并以 %notifyType% 变量随推送下发。</p></div>
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🔗</div><h3>Webhook + 邮件多通道</h3><p>12 种 Webhook 通道类型（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（465 SSL / 587 STARTTLS），每个通道独立开关，主题与正文支持模板变量。</p></div>
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🏗️</div><h3>自建应用通道</h3><p>与 Webhook 并行的独立通道体系：企业微信自建应用 / 飞书自建应用，走「凭据换 token → 调用消息端点」两阶段 API，按 corpid/agentid 或 app_id/receive_id 定向推送；官方端点可替换为你自己的私有化部署地址，凭据加密存储，送达回传与失败重试同 Webhook 通道。</p></div>
-      <div class="card reveal"><span class="tag">Core</span><div class="fi">🧠</div><h3>可视化规则引擎</h3><p>IF 条件组合（包名 / 标题与正文的含或不含关键词 / 优先级 / 时间段 / 正则，共 8 类条件）+ THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期，支持满 N 条提前触发与按会话分组）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。</p></div>
+      <div class="card reveal"><span class="tag">Core</span><div class="fi">🧠</div><h3>可视化规则约束</h3><p>IF 条件组合（包名 / 标题与正文的含或不含关键词 / 优先级 / 时间段 / 正则，共 8 类条件）+ THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期，支持满 N 条提前触发与按会话分组）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">🏷️</div><h3>关键词过滤</h3><p>白名单 + 黑名单双模式关键词过滤，精准控制哪些内容推送、哪些内容拦截。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📱</div><h3>应用筛选</h3><p>自定义选择需要推送的应用，支持「通知 / 不通知」双模式与一键全选、反选。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">🔋</div><h3>自定义电量提醒</h3><p>充电 / 断开 / 指定电量阈值全自定义规则，息屏 Doze 下依然可靠推送，可增删改。</p></div>
@@ -510,7 +510,7 @@
     <div class="flow reveal">
       <div class="step"><div class="n">01</div><div class="si">📲</div><h4>捕获通知</h4><p>系统通知栏产生消息，监听服务实时捕获</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
       <div class="step"><div class="n">02</div><div class="si">🔍</div><h4>识别分类</h4><p>解析来源应用与类型，标记微信、短信、来电等</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
-      <div class="step"><div class="n">03</div><div class="si">⚙️</div><h4>规则过滤</h4><p>经规则引擎 + 关键词 + 应用筛选层层判定</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="step"><div class="n">03</div><div class="si">⚙️</div><h4>规则过滤</h4><p>经规则约束 + 关键词 + 应用筛选层层判定</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
       <div class="step"><div class="n">04</div><div class="si">🚀</div><h4>多通道推送</h4><p>按格式封装，并行推送至 Webhook / 邮件通道</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
       <div class="step"><div class="n">05</div><div class="si">✅</div><h4>送达确认</h4><p>推送结果记入历史，成功失败一目了然</p></div>
     </div>
