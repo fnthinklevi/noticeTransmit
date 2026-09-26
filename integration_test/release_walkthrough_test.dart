@@ -763,7 +763,54 @@ void main() {
       await _backToHomeQuietly(tester);
     });
 
-    // 5.5 应用筛选：切模式 → 勾一个应用 → 完成
+    // 5.4b 设备态告警约束开关（T23）：来回切一次。
+    // 只验"点了会跟着变、再点回得去"，不验推送结果 —— 那要真机等一次电量跨越阈值。
+    await _step(tester, gateFailures, '5.4b 设备态告警约束开关：来回切一次', () async {
+      await _backToHomeQuietly(tester);
+      await _tap(
+        tester,
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('通知引擎'),
+        ),
+        '底部 tab→通知引擎(约束开关)',
+      );
+      await _waitUntil(
+        tester,
+        find.byType(NotificationEnginePage),
+        '通知引擎页(约束开关)',
+      );
+      final sw = find.descendant(
+        of: find.byType(NotificationEnginePage),
+        matching: find.byType(CupertinoSwitch),
+      );
+      await _scrollUntil(tester, sw);
+      expect(
+        sw,
+        findsOneWidget,
+        reason: '骨架页上没有那枚开关 ⇒ T23 的入口被挪走或改了形状（本步会静默跳过的话，'
+            '闸门就再也管不到"设备态告警受不受约束"这件事）',
+      );
+      final before = GetIt.instance<BatteryService>()
+          .deviceAlertsRespectConstraints;
+      await _tap(tester, sw, '设备态告警约束开关');
+      await _settle(tester);
+      expect(
+        GetIt.instance<BatteryService>().deviceAlertsRespectConstraints,
+        isNot(before),
+        reason: '切了不跟着变 = 开关只画了个样子',
+      );
+      await _tap(tester, sw, '设备态告警约束开关(还原)');
+      await _settle(tester);
+      expect(
+        GetIt.instance<BatteryService>().deviceAlertsRespectConstraints,
+        before,
+        reason: '闸门不许把用户的设定留在改过的状态（切回去才算"只点不改")',
+      );
+      await _backToHome(tester);
+
+      await _backToHomeQuietly(tester);
+    });
     await _step(tester, gateFailures, '5.5 应用筛选：切模式 → 勾一个应用 → 完成', () async {
       await _backToHomeQuietly(tester);
       await _openMoreRow(tester, '应用筛选');

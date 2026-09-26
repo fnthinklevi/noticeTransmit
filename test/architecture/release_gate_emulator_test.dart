@@ -341,6 +341,22 @@ void main() {
         isTrue,
         reason: '入口没有"限定在骨架页里找" ⇒ 首页卡片上的同名字样会被误点',
       );
+      // T23：骨架页上那枚「设备态告警也接受约束」开关也要被真点过。
+      // 不钉这条的话，开关被挪走/改形状时闸门只会"找不到就跳过"，绿着失去覆盖面。
+      final flatEngine = src.replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        flatEngine,
+        contains(
+          "of: find.byType(NotificationEnginePage), "
+          "matching: find.byType(CupertinoSwitch)",
+        ),
+        reason: '闸门不再点 T23 的约束开关 ⇒ 那一节静默退出闸门覆盖面',
+      );
+      expect(
+        RegExp('deviceAlertsRespectConstraints').allMatches(src).length,
+        greaterThanOrEqualTo(3),
+        reason: '点了还要看服务跟不跟、并且切回去还原（少于 3 处 = 只点不验或留在改过的状态）',
+      );
     });
 
     test('删除的二次确认在闸门里被走通（T06）', () {

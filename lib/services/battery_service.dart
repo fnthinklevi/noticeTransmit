@@ -26,6 +26,7 @@ class BatteryService extends ChangeNotifier {
   final EngineRuleRepository _ruleStore;
 
   bool _notifyEnabled = true;
+  bool _deviceAlertsRespectConstraints = false;
   List<Map<String, dynamic>> _rules = [];
   int _currentLevel = -1;
   bool _currentIsCharging = false;
@@ -33,6 +34,9 @@ class BatteryService extends ChangeNotifier {
   bool _isDisposed = false;
 
   bool get notifyEnabled => _notifyEnabled;
+
+  /// T23：设备态告警（电量 + 温度）是否也过一遍关键词约束。**默认关**。
+  bool get deviceAlertsRespectConstraints => _deviceAlertsRespectConstraints;
   List<Map<String, dynamic>> get rules => _rules;
   int get currentLevel => _currentLevel;
   bool get currentIsCharging => _currentIsCharging;
@@ -40,8 +44,30 @@ class BatteryService extends ChangeNotifier {
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _notifyEnabled = prefs.getBool('battery_notify_enabled') ?? true;
+    _deviceAlertsRespectConstraints =
+        prefs.getBool('device_alert_constraint_enabled') ?? false;
     _rules = await _ruleStore.load(seed: _defaultRules);
     notifyListeners();
+  }
+
+  /// 写开关并让服务重载。
+  ///
+  /// 通道仍走 `setBatterySetting` 那枚通用布尔写（它顺带 `notifyServiceConfigChanged`）：
+  /// 约束判定只有原生 `FilterEngine` 那一个点，这里递过去的只是"要不要用它"，
+  /// 不为一个布尔新增通道方法（方法数只降不升）。
+  Future<void> saveDeviceAlertsRespectConstraints(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('device_alert_constraint_enabled', value);
+    _deviceAlertsRespectConstraints = value;
+    notifyListeners();
+    try {
+      await _channel.invokeMethod('setBatterySetting', {
+        'key': 'device_alert_constraint_enabled',
+        'value': value,
+      });
+    } catch (e) {
+      debugPrint('BatteryService: 设备态告警约束开关下发失败: $e');
+    }
   }
 
   Future<void> saveNotifyEnabled(bool value) async {

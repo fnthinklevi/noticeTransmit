@@ -109,24 +109,26 @@ class MainThreadAndApiGuardContractTest {
 
     // ———— 2. 主线程不得做同步网络 ————
 
-    private fun assertSendersInsideLaunch(block: String, label: String) {
+    private fun assertSendersInsideLaunch(
+        block: String,
+        label: String,
+        callee: String,
+    ) {
         val launch = blockAfter(block, 0, "serviceScope.launch")
         val outsideLaunch = block.replace(launch, "")
         // T12 起三族扇出收进 dispatchToChannels()，所以"发送体在协程内"这条判据
         // 跟着指向收口函数本身（判据强度不变：仍要求 launch 内有、外部无裸调）。
-        for (callee in listOf(
-            "dispatchToChannels(",
-        )) {
-            assertTrue(
-                "$label：$callee 必须包在 serviceScope.launch 内（onReceive/轮询回调在主线程，" +
-                    "AppChannelSender 内有 runBlocking + 同步 HTTP，会 ANR）",
-                launch.contains(callee),
-            )
-            assertTrue(
-                "$label：$callee 在 serviceScope.launch 之外仍有裸调用（只修一半即为本守卫要拦的形态）",
-                !outsideLaunch.contains(callee),
-            )
-        }
+        // T23 起设备态告警再多一层 dispatchDeviceAlert()（要过约束），callee 随之指向
+        // 那一个入口 —— 主线程的约束判断本身是纯函数，重活（取 token + HTTP）还在协程里。
+        assertTrue(
+            "$label：$callee 必须包在 serviceScope.launch 内（onReceive/轮询回调在主线程，" +
+                "AppChannelSender 内有 runBlocking + 同步 HTTP，会 ANR）",
+            launch.contains(callee),
+        )
+        assertTrue(
+            "$label：$callee 在 serviceScope.launch 之外仍有裸调用（只修一半即为本守卫要拦的形态）",
+            !outsideLaunch.contains(callee),
+        )
     }
 
     @Test
@@ -136,7 +138,11 @@ class MainThreadAndApiGuardContractTest {
             0,
             "batteryMonitor.setNotificationCallback",
         )
-        assertSendersInsideLaunch(callback, "BatteryMonitor 轮询回调")
+        assertSendersInsideLaunch(
+            callback,
+            "BatteryMonitor 轮询回调",
+            callee = "dispatchDeviceAlert(",
+        )
     }
 
     @Test
@@ -145,6 +151,10 @@ class MainThreadAndApiGuardContractTest {
         assertTrue("未找到 batteryChangedReceiver 声明", decl >= 0)
         // 文件里有三处同名 onReceive 签名，必须从本接收器声明之后向后找
         val receiver = blockAfter(serviceSource, decl, "override fun onReceive(")
-        assertSendersInsideLaunch(receiver, "batteryChangedReceiver.onReceive")
+        assertSendersInsideLaunch(
+            receiver,
+            "batteryChangedReceiver.onReceive",
+            callee = "dispatchDeviceAlert(",
+        )
     }
 }

@@ -151,4 +151,33 @@ void main() {
       expect(battery.rules.single['enabled'], isTrue);
     });
   });
+
+  group('T23：设备态告警也接受约束（默认关）', () {
+    testWidgets('页面上只有一枚，且默认是关的', (tester) async {
+      await pumpHome(tester, const NotificationEnginePage());
+
+      expect(find.text('设备态告警也接受约束'), findsOneWidget);
+      // 一次作用于两族的开关只放一枚：两处各一枚迟早一个开一个关，
+      // 而"设备态告警受不受约束"不可能同时有两个答案。
+      expect(find.byType(CupertinoSwitch), findsOneWidget);
+      expect(
+        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+        isFalse,
+        reason: '默认开 = 升级之后本来必推的电量告警可能被关键词拦掉',
+      );
+    });
+
+    testWidgets('点一下：服务、prefs、开关三处同步，且不弹回', (tester) async {
+      await pumpHome(tester, const NotificationEnginePage());
+      final sw = find.byType(CupertinoSwitch);
+
+      await tester.tap(sw);
+      await tester.pumpAndSettle();
+
+      expect(battery.deviceAlertsRespectConstraints, isTrue);
+      expect(tester.widget<CupertinoSwitch>(sw).value, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('device_alert_constraint_enabled'), isTrue);
+    });
+  });
 }

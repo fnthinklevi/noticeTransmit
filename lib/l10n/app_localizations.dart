@@ -4154,6 +4154,18 @@ abstract class AppLocalizations {
   /// **'该通知会被过滤掉，不会进入规则约束判定与推送链路'**
   String get testerFilteredNote;
 
+  /// No description provided for @engineConstraintEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备态告警也接受约束'**
+  String get engineConstraintEntry;
+
+  /// No description provided for @engineConstraintDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启后，电量/温度告警在推送前也要过一遍关键词黑白名单；应用黑白名单不适用（这类告警由本机自己产生）。被拦下的告警会写入推送历史并标注原因。'**
+  String get engineConstraintDesc;
+
   /// No description provided for @testerSrcBlacklist.
   ///
   /// In zh, this message translates to:

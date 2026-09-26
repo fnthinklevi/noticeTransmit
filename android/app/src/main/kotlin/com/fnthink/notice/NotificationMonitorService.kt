@@ -154,7 +154,7 @@ class NotificationMonitorService : NotificationListenerService() {
         batteryMonitor.setNotificationCallback { batteryInfo ->
             serviceScope.launch {
                 try {
-                    dispatchToChannels(batteryInfo)
+                    dispatchDeviceAlert(batteryInfo)
                     Log.d(TAG, "Battery notification via polling sent: ${batteryInfo.title}")
                 } catch (e: Exception) {
                     Log.e(TAG, "Battery polling dispatch failed", e)
@@ -877,7 +877,7 @@ class NotificationMonitorService : NotificationListenerService() {
                         // runBlocking 取 token 后再同步发 HTTP，留在主线程会 ANR。
                         serviceScope.launch {
                             try {
-                                dispatchToChannels(batteryInfo)
+                                dispatchDeviceAlert(batteryInfo)
                                 Log.d(TAG, "Battery notification sent: ${batteryInfo.title}")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Battery alert dispatch failed", e)
@@ -1120,6 +1120,58 @@ class NotificationMonitorService : NotificationListenerService() {
         val deviceName = configManager.getDeviceName()
         val appFilterMode = configManager.getAppFilterMode()
         val rulesJson = configManager.getNotificationRules()
+        /** T23：设备态告警是否也过关键词约束（默认关） */
+        val deviceAlertConstraint = configManager.getDeviceAlertConstraintEnabled()
+    }
+
+    /**
+     * 设备态告警（电量 / 温度）的**唯一**出站口。
+     *
+     * 为什么要有这一处：这两条路原先各自直接 `dispatchToChannels`，把「已到达的通知要不要转」
+     * 那套约束整个绕过了 —— 用户拉黑了某个关键词，电量告警里出现照样照推。
+     * 判定不重写一份：走的就是 [NotificationProcessor.filter] → `FilterEngine` 那一个点。
+     *
+     * `sourceType = "device"` 是刻意的：应用黑白名单只作用于 `notification`（设备态告警是
+     * 本机自己产生的，"只转发这些应用"对它没有意义），关键词黑白名单照常生效。
+     *
+     * 开关默认关 ⇒ 行为与今天逐字节一致；拦下时必须留痕（历史 + 送达状态），
+     * 否则用户只会看到"今天没响"，分不清是没触发还是被约束拦了。
+     */
+    private fun dispatchDeviceAlert(info: NotificationInfo) {
+        val config = cachedConfig ?: ConfigSnapshot()
+        if (config.deviceAlertConstraint) {
+            val result = notificationProcessor.filter(
+                info.packageName,
+                info.title,
+                info.content,
+                info.subText,
+                config.whitelistKeywords,
+                config.enabledPackages,
+                config.blacklistKeywords,
+                config.appFilterMode,
+                sourceType = "device",
+            )
+            if (!result.allowed) {
+                Log.d(
+                    TAG,
+                    "Device alert filtered (${result.source.name}): ${info.appName}",
+                )
+                webhookSender.sendBroadcast(info)
+                DeliveryNotifier.notify(
+                    this,
+                    info.id,
+                    "FILTER",
+                    WebhookResponseParser.ParseResult(
+                        WebhookResponseParser.DeliveryStatus.BIZ_FAIL,
+                        0,
+                        result.blockReason(),
+                        false,
+                    ),
+                )
+                return
+            }
+        }
+        dispatchToChannels(info)
     }
 
     /**

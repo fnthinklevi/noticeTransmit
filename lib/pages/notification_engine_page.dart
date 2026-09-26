@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
@@ -113,6 +114,55 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+          _constraintCard(l10n),
+        ],
+      ),
+    );
+  }
+
+  /// T23：设备态告警要不要也过一遍关键词约束。
+  ///
+  /// 放在这一页而不是电量页/温度页各一枚：它一次作用于**两族**，两处开关迟早会出现
+  /// 一个开一个关，而"设备态告警受不受约束"不可能同时有两个答案。
+  /// 描述文案里明写了"应用黑白名单不适用"—— 这类告警是本机自己产生的，
+  /// 让它受"只转发这些应用"管辖只会得到"配了白名单之后电量告警永远不来"。
+  Widget _constraintCard(AppLocalizations l10n) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.separator(context)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.engineConstraintEntry,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.engineConstraintDesc,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          CupertinoSwitch(
+            key: const ValueKey('engine-device-constraint'),
+            value: _battery.deviceAlertsRespectConstraints,
+            onChanged: (v) => _battery.saveDeviceAlertsRespectConstraints(v),
           ),
         ],
       ),

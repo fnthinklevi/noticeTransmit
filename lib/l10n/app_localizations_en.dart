@@ -2240,6 +2240,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'This notification is filtered out before the rule constraints';
 
   @override
+  String get engineConstraintEntry =>
+      'Apply keyword constraints to device alerts';
+
+  @override
+  String get engineConstraintDesc =>
+      'When on, battery/temperature alerts also pass the keyword allow/block lists before sending; app filtering does not apply (these alerts originate on this device). Suppressed alerts are recorded in push history with the reason.';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return 'Blacklist keyword hit: $kw';
   }

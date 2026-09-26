@@ -289,7 +289,8 @@ class NotificationProcessor(private val context: Context) {
         whitelistKeywords: List<String>,
         enabledPackages: Set<String>,
         blacklistKeywords: List<String>,
-        filterMode: String = "allow"
+        filterMode: String = "allow",
+        sourceType: String = "notification",
     ): FilterResult {
         // 委托给统一过滤引擎，与 SMS / Call 链路共用同一套规则
         // 修复点：黑名单优先级最高（原代码白名单命中后短路 return true，会跳过黑名单检查）
@@ -302,7 +303,7 @@ class NotificationProcessor(private val context: Context) {
             enabledPackages = enabledPackages,
             blacklistKeywords = blacklistKeywords,
             filterMode = filterMode,
-            sourceType = "notification"
+            sourceType = sourceType,
         )
     }
 

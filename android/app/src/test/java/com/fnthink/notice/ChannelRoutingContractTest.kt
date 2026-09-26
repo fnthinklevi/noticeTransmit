@@ -128,10 +128,18 @@ class ChannelRoutingContractTest {
             Regex("""webhookSender\.sendNotification\(""").findAll(svc).count(),
             "还在用绕过收口函数的旧写法"
         )
-        // 定义 1 处 + 调用 ≥6 处（通知到达 / 延迟 / 聚合单条 / 聚合 flush / 电量轮询 / 电量告警 / 手动）
+        // 定义 1 处 + 调用 ≥6 处（通知到达 / 延迟 / 聚合单条 / 聚合 flush / 手动 /
+        // 设备态告警收口 dispatchDeviceAlert 内部那一处）
         assertTrue(
-            Regex("""dispatchToChannels\(""").findAll(svc).count() >= 8,
-            "收口后的调用点数量异常（应至少 8 处：1 个定义 + 7 个调用）"
+            Regex("""dispatchToChannels\(""").findAll(svc).count() >= 7,
+            "收口后的调用点数量异常（应至少 7 处：1 个定义 + 6 个调用）",
+        )
+        // T23：两条设备态路不再直接扇出，改走带约束判定的 dispatchDeviceAlert。
+        // 这层间接只允许有一个入口 —— 漏一条路 = 开关只管一半，而看起来仍然生效。
+        assertEquals(
+            "设备态告警的出站口必须是 1 个定义 + 2 个调用（轮询回调 + 电量广播）",
+            3,
+            Regex("""dispatchDeviceAlert\(""").findAll(svc).count(),
         )
 
         // 收口函数自己必须把三族都发出去，并且把 webhook 的汇总回调透传给聚合链路

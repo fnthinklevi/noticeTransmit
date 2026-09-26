@@ -29,6 +29,9 @@ class ConfigManager(private val context: Context) {
         private const val KEY_SMS_MONITOR_ENABLED = "flutter.sms_monitor_enabled"
         private const val KEY_SMS_SIM_FILTER = "flutter.sms_sim_filter"
         private const val KEY_SMS_CODE_MONITOR_ENABLED = "flutter.sms_code_monitor_enabled"
+        // T23：设备态告警（电量/温度）要不要也过一遍关键词约束。**唯一写入者是 Dart**
+        // （BatteryService.saveDeviceAlertsRespectConstraints 走 setBatterySetting 那枚通用布尔写）。
+        private const val KEY_DEVICE_ALERT_CONSTRAINT = "flutter.device_alert_constraint_enabled"
     }
 
     private val prefs: SharedPreferences by lazy {
@@ -274,6 +277,14 @@ class ConfigManager(private val context: Context) {
 
     fun getBatteryNotifyEnabled(): Boolean {
         return prefs.getBoolean(KEY_BATTERY_NOTIFY_ENABLED, true)
+    }
+
+    /**
+     * T23：设备态告警是否也接受关键词约束。**默认关** —— 开了会改变已有设备的告警行为，
+     * 所以只有用户明确勾选才生效（"升级不改用户设置"这条不变量在这里的字面意思）。
+     */
+    fun getDeviceAlertConstraintEnabled(): Boolean {
+        return prefs.getBoolean(KEY_DEVICE_ALERT_CONSTRAINT, false)
     }
 
     /** 短信监听总开关（首页「监听短信」，默认开） */

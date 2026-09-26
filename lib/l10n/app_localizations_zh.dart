@@ -2155,6 +2155,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get testerFilteredNote => '该通知会被过滤掉，不会进入规则约束判定与推送链路';
 
   @override
+  String get engineConstraintEntry => '设备态告警也接受约束';
+
+  @override
+  String get engineConstraintDesc =>
+      '开启后，电量/温度告警在推送前也要过一遍关键词黑白名单；应用黑白名单不适用（这类告警由本机自己产生）。被拦下的告警会写入推送历史并标注原因。';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return '黑名单关键词命中：$kw';
   }
