@@ -6,8 +6,10 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/battery_page.dart';
 import 'package:notice_transmit/pages/notification_engine_page.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
+import 'package:notice_transmit/pages/device_state_page.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
+import 'package:notice_transmit/services/device_state_service.dart';
 
 import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +28,7 @@ void main() {
 
   late BatteryService battery;
   late TemperatureService temperature;
+  late DeviceStateService deviceState;
   late MemoryRuleStore store;
 
   setUp(() async {
@@ -37,16 +40,21 @@ void main() {
     store = MemoryRuleStore();
     battery = BatteryService(store: store);
     temperature = TemperatureService(store: store);
+    // T24：骨架页现在订阅三个服务，少注册一个就是 GetIt 找不到实例（整文件红）。
+    deviceState = DeviceStateService(store: store);
     GetIt.instance
       ..registerSingleton<BatteryService>(battery)
-      ..registerSingleton<TemperatureService>(temperature);
+      ..registerSingleton<TemperatureService>(temperature)
+      ..registerSingleton<DeviceStateService>(deviceState);
     await battery.loadSettings();
     await temperature.loadSettings();
+    await deviceState.loadSettings();
   });
 
   tearDown(() async {
     battery.dispose();
     temperature.dispose();
+    deviceState.dispose();
     await GetIt.instance.reset();
     clearNativeChannelStubs();
   });
@@ -81,8 +89,10 @@ void main() {
 
       expect(find.text('电量告警'), findsOneWidget);
       expect(find.text('温度告警'), findsOneWidget);
-      // 温度服务初始没有规则：提示"点击添加规则"，而不是硬凑一个"0 条规则"
-      expect(find.text('点击添加规则'), findsOneWidget);
+      // T24：亮度/网络第三行必须在同一张卡里（二分口径：都是"设备自己到了某个状态"）
+      expect(find.text('设备状态告警'), findsOneWidget);
+      // 温度与设备状态两族初始都没有规则：各自提示"点击添加规则"，而不是硬凑一个"0 条规则"
+      expect(find.text('点击添加规则'), findsNWidgets(2));
       expect(find.textContaining('0 条规则'), findsNothing);
     });
 

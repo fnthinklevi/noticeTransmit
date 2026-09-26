@@ -26,6 +26,10 @@ class ConfigManager(private val context: Context) {
         private const val KEY_TEMPERATURE_RULES = "flutter.temperature_rules"
         /** T24：亮度 + 网络规则同族（引擎按 type 路由，不再为分组多开一份镜像键） */
         private const val KEY_DEVICE_STATE_RULES = "flutter.device_state_rules"
+
+        /** T24：各族自己的总开关（键名与 Dart 那侧的 setTemperatureSetting / setBatterySetting 同串） */
+        private const val KEY_TEMPERATURE_NOTIFY_ENABLED = "flutter.temperature_notify_enabled"
+        private const val KEY_DEVICE_STATE_NOTIFY_ENABLED = "flutter.device_state_notify_enabled"
         private const val KEY_BATTERY_NOTIFY_ENABLED = "flutter.battery_notify_enabled"
         private const val KEY_NOTIFICATION_RULES = "flutter.notification_rules"
         private const val KEY_SMS_MONITOR_ENABLED = "flutter.sms_monitor_enabled"
@@ -284,6 +288,21 @@ class ConfigManager(private val context: Context) {
 
     fun getBatteryNotifyEnabled(): Boolean {
         return prefs.getBoolean(KEY_BATTERY_NOTIFY_ENABLED, true)
+    }
+
+    /**
+     * T24：温度族与设备状态族（亮度/网络）各自的总开关。
+     *
+     * ⚠ 温度这一枚是**修 bug**：`TemperatureService` 一直在写 `flutter.temperature_notify_enabled`，
+     * 而原生从没有人读它 ⇒ 用户在页面上关掉开关，温度告警照旧推。默认 true 保证
+     * 没动过这枚开关的老用户行为不变（"升级不改用户设置"）。
+     */
+    fun getTemperatureNotifyEnabled(): Boolean {
+        return prefs.getBoolean(KEY_TEMPERATURE_NOTIFY_ENABLED, true)
+    }
+
+    fun getDeviceStateNotifyEnabled(): Boolean {
+        return prefs.getBoolean(KEY_DEVICE_STATE_NOTIFY_ENABLED, true)
     }
 
     /**

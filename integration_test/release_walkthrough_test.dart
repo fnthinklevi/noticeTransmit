@@ -18,6 +18,7 @@ import 'package:notice_transmit/pages/app_channel_settings_page.dart';
 import 'package:notice_transmit/pages/app_filter_page.dart';
 import 'package:notice_transmit/pages/backup_restore_page.dart';
 import 'package:notice_transmit/pages/battery_page.dart';
+import 'package:notice_transmit/pages/device_state_page.dart';
 import 'package:notice_transmit/pages/email_settings_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/pages/keywords_page.dart';
@@ -39,6 +40,7 @@ import 'package:notice_transmit/services/channel_descriptor_service.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/services/device_info_service.dart';
+import 'package:notice_transmit/services/device_state_service.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/filter_service.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
@@ -141,7 +143,11 @@ void main() {
       'probeChannelHealth': {'reachable': true, 'latencyMs': 12},
       // 6e 非侵入探测：应用族只换 token、邮件族只握手，都不投递。给"通"的桩，
       // 让设备侧真走完「进页 → 探测 → 落健康单点 → 徽标刷新」那一段（缺桩=静默跳过）。
-      'probeAppChannelToken': {'reachable': true, 'latencyMs': 31, 'reason': ''},
+      'probeAppChannelToken': {
+        'reachable': true,
+        'latencyMs': 31,
+        'reason': '',
+      },
       'verifySmtp': {'reachable': true, 'latencyMs': 24, 'reason': ''},
       'requestPinAppWidget': true,
       'drainOfflineCache': <Map<String, dynamic>>[
@@ -773,16 +779,143 @@ void main() {
         isNotEmpty,
         reason: '弹层是空的 ⇒ 原生回了载荷而 Dart 没渲染出来（三种结局都会看不见）',
       );
-      await _tap(
-        tester,
-        _in(AlertDialog, find.text('关闭')),
-        '温度试跑→关闭',
-      );
+      await _tap(tester, _in(AlertDialog, find.text('关闭')), '温度试跑→关闭');
       await _settle(tester);
       await _backToHome(tester);
 
       await _backToHomeQuietly(tester);
     });
+
+    // 5.4a 设备状态告警（T24）：亮度与网络各加一条 → 关一条 → 删一条。
+    // 这一节钉的是**新触发源那条链有没有真的接上**：页面 → DeviceStateService →
+    // engine_rules 表（族 device_state）→ prefs 镜像 → refreshEngineRules。
+    // 链上任一环断了，用户在界面上配好的规则永远不推，而界面上一切正常。
+    await _step(
+      tester,
+      gateFailures,
+      '5.4a 设备状态告警：加亮度+网络各一条 → 停 → 删',
+      () async {
+        Map<String, dynamic>? ruleByTitle(String title) {
+          for (final r in GetIt.instance<DeviceStateService>().rules) {
+            if (r['title'] == title) return r;
+          }
+          return null;
+        }
+
+        await _backToHomeQuietly(tester);
+        await _openEngineRow(tester, '设备状态告警');
+        await _onPage(tester, DeviceStatePage, '设备状态页');
+
+        // 亮度型：默认选中的就是「亮度低于」，点它既验 chip 可打中，也验形状不靠运气
+        await _tap(
+          tester,
+          _in(DeviceStatePage, find.byIcon(Icons.add)),
+          '设备状态→添加(亮度)',
+        );
+        await _settle(tester);
+        await _tap(tester, _in(AlertDialog, find.text('亮度低于')), '亮度规则类型 chip');
+        await _type(
+          tester,
+          _in(AlertDialog, find.byType(TextField)),
+          '闸门亮度规则',
+          '亮度规则标题输入框',
+        );
+        await _tap(tester, _in(AlertDialog, find.text('确定')), '设备状态→确定(亮度)');
+        await _settle(tester, seconds: 1);
+
+        // 网络型：没有阈值可填 ⇒ 这一条专测"没有滑杆也要能存下来"
+        await _tap(
+          tester,
+          _in(DeviceStatePage, find.byIcon(Icons.add)),
+          '设备状态→添加(网络)',
+        );
+        await _settle(tester);
+        await _tap(tester, _in(AlertDialog, find.text('断网时')), '网络规则类型 chip');
+        // 标题留空 → 列表按类型名显示，就找不回这一条了 ⇒ 给它一个可定位的标题
+        await _type(
+          tester,
+          _in(AlertDialog, find.byType(TextField)),
+          '闸门断网规则',
+          '断网规则标题输入框',
+        );
+        await _tap(tester, _in(AlertDialog, find.text('确定')), '设备状态→确定(网络)');
+        await _settle(tester, seconds: 1);
+
+        expect(
+          GetIt.instance<DeviceStateService>().rules,
+          hasLength(2),
+          reason: '两条里有一条没建成（对话框确认链路或落库断链）',
+        );
+        final brightness = ruleByTitle('闸门亮度规则');
+        expect(brightness, isNotNull, reason: '亮度那条没按标题存下来');
+        expect(
+          (brightness!['value'] as num).toInt(),
+          greaterThan(0),
+          reason: '亮度阈值为 0 ⇒ 滑杆的值没进规则（这一条永远不触发）',
+        );
+        final network = ruleByTitle('闸门断网规则');
+        expect(network, isNotNull, reason: '断网那条没按标题存下来');
+        expect(
+          network!['value'],
+          0,
+          reason: '网络型没有阈值概念，恒 0；存成别的值说明两型共用了一条取值路径',
+        );
+        // 落对族：三族同存 engine_rules 一张表、按 family 分列。写错族 = 界面上三条都在，
+        // 而原生那一侧按族取列表，这条永远取不到。
+        for (final other in [
+          GetIt.instance<BatteryService>().rules,
+          GetIt.instance<TemperatureService>().rules,
+        ]) {
+          expect(
+            other.map((r) => r['title']),
+            isNot(contains('闸门亮度规则')),
+            reason: '设备状态规则出现在别的族里 = 族名写错，原生永远读不到它',
+          );
+        }
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getString('device_state_rules'),
+          allOf(contains('闸门亮度规则'), contains('闸门断网规则')),
+          reason: 'DB 写了而镜像没写 = 原生读的还是旧列表，新规则永远不推',
+        );
+
+        // 每条规则一行的启停开关：点下去要回写得见
+        final brightnessSwitch = find.descendant(
+          of: find.byKey(ValueKey('device-state-row-${brightness['id']}')),
+          matching: find.byType(CupertinoSwitch),
+        );
+        await _tap(tester, brightnessSwitch, '设备状态→亮度规则开关');
+        await _settle(tester);
+        expect(
+          ruleByTitle('闸门亮度规则')!['enabled'],
+          isFalse,
+          reason: '开关点了不回写 = 界面上停着，用户以为已经关了',
+        );
+
+        await _longPress(
+          tester,
+          find.byKey(ValueKey('device-state-row-${brightness['id']}')),
+          '设备状态规则行',
+        );
+        await _tap(
+          tester,
+          find.descendant(
+            of: find.byType(CardActionSheet),
+            matching: find.text('删除'),
+          ),
+          '设备状态→长按→删除',
+        );
+        await _confirmDelete(tester, '设备状态规则行');
+        expect(
+          GetIt.instance<DeviceStateService>().rules.map((r) => r['title']),
+          ['闸门断网规则'],
+          reason: '删一条顺带没了另一条 = 两条同 id，或删除没走单条咽喉',
+        );
+
+        await _backToHome(tester);
+        await _backToHomeQuietly(tester);
+      },
+    );
 
     // 5.4b 设备态告警约束开关（T23）：来回切一次。
     // 只验"点了会跟着变、再点回得去"，不验推送结果 —— 那要真机等一次电量跨越阈值。
@@ -809,11 +942,12 @@ void main() {
       expect(
         sw,
         findsOneWidget,
-        reason: '骨架页上没有那枚开关 ⇒ T23 的入口被挪走或改了形状（本步会静默跳过的话，'
+        reason:
+            '骨架页上没有那枚开关 ⇒ T23 的入口被挪走或改了形状（本步会静默跳过的话，'
             '闸门就再也管不到"设备态告警受不受约束"这件事）',
       );
-      final before = GetIt.instance<BatteryService>()
-          .deviceAlertsRespectConstraints;
+      final before =
+          GetIt.instance<BatteryService>().deviceAlertsRespectConstraints;
       await _tap(tester, sw, '设备态告警约束开关');
       await _settle(tester);
       expect(

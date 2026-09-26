@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/battery_service.dart';
+import '../services/device_state_service.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import 'battery_page.dart';
+import 'device_state_page.dart';
 import 'temperature_page.dart';
 
 /// 「通知引擎」tab 的骨架页（T15）。
@@ -30,19 +32,22 @@ class NotificationEnginePage extends StatefulWidget {
 class _NotificationEnginePageState extends State<NotificationEnginePage> {
   final BatteryService _battery = GetIt.instance<BatteryService>();
   final TemperatureService _temperature = GetIt.instance<TemperatureService>();
+  final DeviceStateService _deviceState = GetIt.instance<DeviceStateService>();
 
   @override
   void initState() {
     super.initState();
     _battery.addListener(_onServiceChanged);
     _temperature.addListener(_onServiceChanged);
+    _deviceState.addListener(_onServiceChanged);
   }
 
   @override
   void dispose() {
-    // 两个服务都是 GetIt 里的长生命周期单例：只摘监听，不 dispose
+    // 三个服务都是 GetIt 里的长生命周期单例：只摘监听，不 dispose
     _battery.removeListener(_onServiceChanged);
     _temperature.removeListener(_onServiceChanged);
+    _deviceState.removeListener(_onServiceChanged);
     super.dispose();
   }
 
@@ -111,6 +116,20 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
                     !_temperature.notifyEnabled,
                   ),
                   page: const TemperaturePage(),
+                ),
+                _divider(),
+                // T24：亮度与网络（同一族 device_state，引擎按 type 路由）
+                _entry(
+                  key: const ValueKey('engine-device-state'),
+                  icon: Icons.brightness_medium,
+                  iconColor: AppColors.orange,
+                  title: l10n.deviceStateEntry,
+                  subtitle: _summary(
+                    l10n,
+                    _deviceState.rules,
+                    !_deviceState.notifyEnabled,
+                  ),
+                  page: const DeviceStatePage(),
                 ),
               ],
             ),

@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import '../services/webhook_service.dart';
 import '../services/battery_service.dart';
 import '../services/temperature_service.dart';
+import '../services/device_state_service.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
 import '../services/filter_service.dart';
@@ -24,6 +25,8 @@ void setupLocator() {
   getIt.registerLazySingleton<BatteryService>(() => BatteryService());
   getIt.registerLazySingleton<NotificationService>(() => NotificationService());
   getIt.registerLazySingleton<TemperatureService>(() => TemperatureService());
+  // T24：设备状态告警（亮度 + 网络），与电量/温度同族同形（规则住 engine_rules 表）
+  getIt.registerLazySingleton<DeviceStateService>(() => DeviceStateService());
   getIt.registerLazySingleton<PermissionService>(() => PermissionService());
   getIt.registerLazySingleton<FilterService>(() => FilterService());
   getIt.registerLazySingleton<UpdateService>(() => UpdateService());

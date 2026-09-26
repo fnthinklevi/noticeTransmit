@@ -680,8 +680,10 @@ class NotificationMonitorService : NotificationListenerService() {
 
         batteryMonitor.setEnabled(configManager.getBatteryNotifyEnabled())
         batteryMonitor.updateRules(configManager.getBatteryRules())
+        batteryMonitor.setTemperatureEnabled(configManager.getTemperatureNotifyEnabled())
         batteryMonitor.updateTemperatureRules(configManager.getTemperatureRules())
-        // T24：亮度/网络规则（同一族镜像键）
+        // T24：亮度/网络规则与族开关（同一族镜像键）
+        batteryMonitor.setDeviceStateEnabled(configManager.getDeviceStateNotifyEnabled())
         batteryMonitor.updateDeviceStateRules(configManager.getDeviceStateRules())
 
         cachedConfig = ConfigSnapshot()

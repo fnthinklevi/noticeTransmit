@@ -17,6 +17,9 @@ class EngineRuleCodec {
   static const familyBattery = 'battery';
   static const familyTemperature = 'temperature';
 
+  /// T24：亮度与网络**共用一族**（引擎按 `type` 路由，不为分组多开一份镜像键与一条更新链路）。
+  static const familyDeviceState = 'device_state';
+
   /// 引擎规则一共就这五族（`position` 与 `updated_at` 是存储侧的，不进 UI map）。
   static const uiKeys = ['id', 'type', 'value', 'enabled', 'title', 'content'];
 
@@ -25,8 +28,13 @@ class EngineRuleCodec {
   static const _defaultType = {
     familyBattery: 'level_below',
     familyTemperature: 'battery_temp_above',
+    familyDeviceState: 'brightness_below',
   };
-  static const _defaultValue = {familyBattery: 20, familyTemperature: 45};
+  static const _defaultValue = {
+    familyBattery: 20,
+    familyTemperature: 45,
+    familyDeviceState: 20,
+  };
 
   /// 归一单条规则：认不出的形状（null、非 Map）由调用方丢弃，**不**在这里塞默认值 ——
   /// 凭空造出一条用户没配过的规则比少一条更糟。

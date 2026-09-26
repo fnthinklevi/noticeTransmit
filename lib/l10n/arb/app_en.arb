@@ -1021,6 +1021,16 @@
   "tempSilenceBaseline": "first sample only records the baseline",
   "tempSilenceInCooldown": "in cooldown",
   "tempSilenceDisabled": "temperature alerts are off",
+  "deviceStateEntry": "Device state alerts",
+  "deviceStateDesc": "Screen brightness and network changes can also trigger alerts. Only the moment of crossing counts (staying below the threshold will not repeat), and the same kind will not alert again within 30 minutes.",
+  "deviceStateNotifyEnabled": "Device state alert push",
+  "brightnessBelow": "Brightness below",
+  "brightnessAbove": "Brightness above",
+  "networkConnected": "When back online",
+  "networkDisconnected": "When offline",
+  "deviceStateValueLabel": "Brightness threshold (%)",
+  "deviceStateNoValue": "Network triggers need no threshold",
+  "noDeviceStateRules": "No device state rules yet — tap + to add one",
   "testerSrcBlacklist": "Blacklist keyword hit: {kw}",
   "@testerSrcBlacklist": {
     "placeholders": {

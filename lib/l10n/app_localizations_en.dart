@@ -2300,6 +2300,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tempSilenceDisabled => 'temperature alerts are off';
 
   @override
+  String get deviceStateEntry => 'Device state alerts';
+
+  @override
+  String get deviceStateDesc =>
+      'Screen brightness and network changes can also trigger alerts. Only the moment of crossing counts (staying below the threshold will not repeat), and the same kind will not alert again within 30 minutes.';
+
+  @override
+  String get deviceStateNotifyEnabled => 'Device state alert push';
+
+  @override
+  String get brightnessBelow => 'Brightness below';
+
+  @override
+  String get brightnessAbove => 'Brightness above';
+
+  @override
+  String get networkConnected => 'When back online';
+
+  @override
+  String get networkDisconnected => 'When offline';
+
+  @override
+  String get deviceStateValueLabel => 'Brightness threshold (%)';
+
+  @override
+  String get deviceStateNoValue => 'Network triggers need no threshold';
+
+  @override
+  String get noDeviceStateRules =>
+      'No device state rules yet — tap + to add one';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return 'Blacklist keyword hit: $kw';
   }

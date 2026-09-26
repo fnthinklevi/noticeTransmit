@@ -2210,6 +2210,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tempSilenceDisabled => '温度告警总开关已关闭';
 
   @override
+  String get deviceStateEntry => '设备状态告警';
+
+  @override
+  String get deviceStateDesc =>
+      '屏幕亮度与网络状态的变化也能触发提醒。只有「跨越」的那一刻算一次事件（一直在阈值之下不会反复提醒），触发后 30 分钟内同一类不再重复提醒。';
+
+  @override
+  String get deviceStateNotifyEnabled => '设备状态告警推送';
+
+  @override
+  String get brightnessBelow => '亮度低于';
+
+  @override
+  String get brightnessAbove => '亮度高于';
+
+  @override
+  String get networkConnected => '恢复联网时';
+
+  @override
+  String get networkDisconnected => '断网时';
+
+  @override
+  String get deviceStateValueLabel => '亮度阈值（%）';
+
+  @override
+  String get deviceStateNoValue => '网络触发不需要阈值';
+
+  @override
+  String get noDeviceStateRules => '暂无设备状态规则，点右上角 + 添加';
+
+  @override
   String testerSrcBlacklist(String kw) {
     return '黑名单关键词命中：$kw';
   }

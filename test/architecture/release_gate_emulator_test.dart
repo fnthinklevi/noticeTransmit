@@ -372,6 +372,70 @@ void main() {
       );
     });
 
+    test('T24 设备状态告警那一节：加两条 → 验族 → 停 → 删 都在闸门里', () {
+      final src = walkSrc();
+      final flat = src.replaceAll(RegExp(r'\s+'), ' ');
+      expect(
+        RegExp("_openEngineRow\\(tester, '设备状态告警'\\)").hasMatch(src),
+        isTrue,
+        reason: '「设备状态告警」入口不再被点开 ⇒ T24 这一族静默退出闸门覆盖面',
+      );
+      // 两种触发源都得真点过：亮度型带滑杆、网络型没有 —— 只测一种，另一种的
+      // "值/无值"分支就从闸门上消失了，而它正是最容易被顺手写成同一条路径的地方。
+      for (final chip in const ['亮度低于', '断网时']) {
+        expect(
+          flat,
+          contains("_in(AlertDialog, find.text('$chip'))"),
+          reason: '规则类型「$chip」不再被选 ⇒ 只测了另一半，形状分叉看不见',
+        );
+      }
+      // 三族的落点是一张表按 family 分列：写错族 = 界面上一切正常而原生永远取不到。
+      expect(
+        flat,
+        contains("isNot(contains('闸门亮度规则'))"),
+        reason: '不再核对"设备状态规则没串到别的族里" ⇒ 族名写错这一类静默失效失去唯一现场',
+      );
+      // 镜像键**从服务源码里取**，再要求闸门读同一把。写死字面量的守卫会连自己写错的前缀
+      // 一起钉住 —— 闸门第一轮就红在这：Dart 侧 SharedPreferences 用逻辑键，
+      // `flutter.` 前缀是插件写原生 XML 时才加的，照着文件名写就会永远读到 null。
+      final svc = stripComments(read('lib/services/device_state_service.dart'));
+      final mirrorKey = RegExp(
+        "prefsKey:\\s*'([^']+)'",
+      ).firstMatch(svc)!.group(1);
+      expect(
+        flat,
+        contains("prefs.getString('$mirrorKey')"),
+        reason: '不再核对 prefs 镜像 ⇒ DB 写了而镜像没写（原生读的还是旧列表）测不出来',
+      );
+      expect(
+        flat,
+        isNot(contains("prefs.getString('flutter.")),
+        reason:
+            "闸门按带 `flutter.` 前缀的键读 prefs：读到的恒为 null，"
+            '断言会红在"镜像没写"上而真因是键名',
+      );
+      // 尾控件的开关与长按删除都要按**那一行**的 key 定位（按标题找在改名/同名时会打中两个）
+      expect(
+        RegExp(
+          r"find\.byKey\(ValueKey\('device-state-row-\$\{brightness\['id'\]\}'\)\)",
+        ).allMatches(flat).length,
+        greaterThanOrEqualTo(2),
+        reason: '开关与长按删除不再各自定位到那一行 ⇒ "删一条顺带没了另一条"这类缺陷看不见',
+      );
+      expect(
+        flat,
+        contains("_confirmDelete(tester, '设备状态规则行')"),
+        reason: '这一族的删除绕开了 T06 的确认咽喉 ⇒ 点一下就没',
+      );
+      // 闸门钉的 key 必须真是页面里的形状，否则两边一起改错也照样绿
+      final page = stripComments(read('lib/pages/device_state_page.dart'));
+      expect(
+        RegExp(r"ValueKey\('device-state-row-\$id'\)").hasMatch(page),
+        isTrue,
+        reason: '页面里没有闸门用的那个行 key ⇒ 两边各写各的，定位断言成了摆设',
+      );
+    });
+
     test('删除的二次确认在闸门里被走通（T06）', () {
       final src = walkSrc();
       final flat = src.replaceAll(RegExp(r'\s+'), ' ');

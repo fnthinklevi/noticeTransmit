@@ -4262,6 +4262,66 @@ abstract class AppLocalizations {
   /// **'温度告警总开关已关闭'**
   String get tempSilenceDisabled;
 
+  /// No description provided for @deviceStateEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备状态告警'**
+  String get deviceStateEntry;
+
+  /// No description provided for @deviceStateDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏幕亮度与网络状态的变化也能触发提醒。只有「跨越」的那一刻算一次事件（一直在阈值之下不会反复提醒），触发后 30 分钟内同一类不再重复提醒。'**
+  String get deviceStateDesc;
+
+  /// No description provided for @deviceStateNotifyEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备状态告警推送'**
+  String get deviceStateNotifyEnabled;
+
+  /// No description provided for @brightnessBelow.
+  ///
+  /// In zh, this message translates to:
+  /// **'亮度低于'**
+  String get brightnessBelow;
+
+  /// No description provided for @brightnessAbove.
+  ///
+  /// In zh, this message translates to:
+  /// **'亮度高于'**
+  String get brightnessAbove;
+
+  /// No description provided for @networkConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复联网时'**
+  String get networkConnected;
+
+  /// No description provided for @networkDisconnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'断网时'**
+  String get networkDisconnected;
+
+  /// No description provided for @deviceStateValueLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'亮度阈值（%）'**
+  String get deviceStateValueLabel;
+
+  /// No description provided for @deviceStateNoValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络触发不需要阈值'**
+  String get deviceStateNoValue;
+
+  /// No description provided for @noDeviceStateRules.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无设备状态规则，点右上角 + 添加'**
+  String get noDeviceStateRules;
+
   /// No description provided for @testerSrcBlacklist.
   ///
   /// In zh, this message translates to:

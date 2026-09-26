@@ -28,6 +28,22 @@ class BatteryMonitor(private val context: Context) {
     private var deviceStateRules = emptyList<BatteryRule>()
 
     /**
+     * 各族自己的总开关（T24 补上真正的生效点）。温度那一枚此前只有 Dart 写 prefs、
+     * 原生从不读它 ⇒ 用户在页面上关掉开关，温度告警照旧推。默认 true：
+     * 没动过这枚开关的老用户行为不变（"升级不改用户设置"）。
+     */
+    @Volatile private var temperatureEnabled = true
+    @Volatile private var deviceStateEnabled = true
+
+    fun setTemperatureEnabled(enabled: Boolean) {
+        temperatureEnabled = enabled
+    }
+
+    fun setDeviceStateEnabled(enabled: Boolean) {
+        deviceStateEnabled = enabled
+    }
+
+    /**
      * T19：判据（阈值 / crossing 迟滞 / 冷却 / 顺序）全在 [NotificationEngine]。
      * 本类只余"读数 + 渲染 + 投递"三件事，状态（prevLevel / prevTemps / 冷却截止）
      * 由引擎自持 —— 两处各存一份迟早一份松一份紧，表现是"某类告警永远不来"。
@@ -39,9 +55,12 @@ class BatteryMonitor(private val context: Context) {
         private const val POLLING_INTERVAL_MS = 60000L
     }
 
-    /** 两族任一配了规则才值得花一次电池 syscall（原先只看电量规则，温度族被静默饿死） */
-    fun hasRules(): Boolean =
-        engine.hasRules(batteryRules, temperatureRules, deviceStateRules)
+    /** 任一族还有启用中的规则才值得花一次电池 syscall（原先只看电量规则，温度族被静默饿死） */
+    fun hasRules(): Boolean = engine.hasRules(
+        batteryRules,
+        if (temperatureEnabled) temperatureRules else emptyList(),
+        if (deviceStateEnabled) deviceStateRules else emptyList(),
+    )
 
     private val handler = Handler(Looper.getMainLooper())
     private val pollingRunnable = object : Runnable {
@@ -107,11 +126,20 @@ class BatteryMonitor(private val context: Context) {
      * 不该每 60s 还去做一次 `registerReceiver` syscall（引擎内部也会判，这里只是不白读）。
      */
     fun checkBatteryAndNotify(): NotificationInfo? {
-        if (!_enabled || !hasRules()) return null
+        if (!_enabled) return null
+        // T24：各族的总开关在**这里**生效（不是在页面里藏按钮）。
+        // 之前 `temperature_notify_enabled` 只有 Dart 侧写 prefs、原生从没有人读它 ⇒
+        // 用户在温度页关掉开关，温度告警照旧推 —— 一枚会撒谎的开关比没有开关更糟。
+        // 关掉一族 = 那一族的规则本轮不参与判定（规则本身与库里都还在，打开就恢复）。
+        val effectiveTemperatureRules = if (temperatureEnabled) temperatureRules else emptyList()
+        val effectiveDeviceStateRules = if (deviceStateEnabled) deviceStateRules else emptyList()
+        if (!engine.hasRules(batteryRules, effectiveTemperatureRules, effectiveDeviceStateRules)) {
+            return null
+        }
         val batteryInfo = getBatteryInfo() ?: return null
-        // T24：亮度/网络只在**配了这两类规则时**才读。没配的用户不该因此多出两次
+        // T24：亮度/网络只在**配了且开着这两类规则时**才读。没配的用户不该因此多出两次
         // Settings/ConnectivityManager 调用（这条链每 60s 跑一次，白读就是白耗电）。
-        val wantsDeviceState = deviceStateRules.isNotEmpty()
+        val wantsDeviceState = effectiveDeviceStateRules.isNotEmpty()
         val reading = EngineReading(
             level = batteryInfo.level,
             charging = batteryInfo.isCharging,
@@ -133,10 +161,10 @@ class BatteryMonitor(private val context: Context) {
             val decision = engine.evaluate(
                 enabled = _enabled,
                 batteryRules = batteryRules,
-                temperatureRules = temperatureRules,
+                temperatureRules = effectiveTemperatureRules,
                 reading = reading,
                 now = System.currentTimeMillis(),
-                deviceStateRules = deviceStateRules,
+                deviceStateRules = effectiveDeviceStateRules,
             )
         ) {
             is EngineDecision.BatteryFire ->
