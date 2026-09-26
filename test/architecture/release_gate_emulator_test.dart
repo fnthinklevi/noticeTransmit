@@ -610,6 +610,24 @@ void main() {
             '用例级超时若不远大于节内预算，先说话的就不是"哪一节挂住"而是"整轮超时" —— '
             '今天四轮 GATE_RC=124 就是这么来的（外层 1750s < 用例 30 分钟，用例级永远轮不到）',
       );
+      // 同一串顺序的最后一环：整轮预算必须容得下"用例超时 + smoke"，否则挂住那条刚被判掉，
+      // smoke 还没跑完就被掐（第 6 轮实测：外层 25 分钟 < 用例 18 分钟 + smoke ⇒ 24:22 时 +3 −1）。
+      final sh2 = stripShellComments(
+        read('.github/scripts/release_emulator.sh'),
+      );
+      expect(
+        sh2.contains('timeout "\$GATE_TEST_TIMEOUT" flutter test'),
+        isTrue,
+        reason: '整轮超时没写进脚本 ⇒ 它只存在于某人手敲的命令行里，每次都要重新猜一遍',
+      );
+      final wholeRun = RegExp(r'GATE_TEST_TIMEOUT:-(\d+)').firstMatch(sh2);
+      expect(wholeRun, isNotNull, reason: '取不到整轮超时的默认值 ⇒ 这条顺序契约失效');
+      expect(
+        int.parse(wholeRun!.group(1)!) >=
+            int.parse(caseTimeout.group(1)!) * 60 + 300,
+        isTrue,
+        reason: '整轮必须容得下"用例超时 + smoke 全长 + 余量"，否则挂住判掉后 smoke 跑不完',
+      );
       expect(
         blockAfter(src, 'void _mark('),
         contains('GATE-MARK'),

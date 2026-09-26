@@ -170,9 +170,23 @@ unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy 2>/dev/null || tru
 #   release 包特有的问题（混淆、tree-shaking、签名、kReleaseMode 分支）仍靠
 #   base.md 步骤 6.6 与 ㉚ 的真机人工自检，别把本闸门当成 release 验证。
 LOG=/tmp/release_emulator_test.log
-flutter test $FILES -d "$SERIAL" > "$LOG" 2>&1
+# ── 三层时间口径必须成序（2026-09-26 一天四轮 GATE_RC=124 逼出来的）──────────
+#   节内预算 3′ ×4  ≤  用例级超时 18′  <  这里整轮 27′  ≤  CI job 45′
+# 谁掉链子都会把"功能红"和"超时红"混成一团：
+#   整轮 > 用例 ⇒ 用例级那条永远轮不到说话，挂住只剩一个 124（四轮都是这个形状）；
+#   整轮 < 用例 + smoke ⇒ 挂住的那条被超时判掉后，smoke 还没跑完就被掐（第 6 轮实测 24:22 +3 −1）。
+# timeout 的 124 单独说一句，别让它在报告里长得像功能回归。
+GATE_TEST_TIMEOUT=${GATE_TEST_TIMEOUT:-1620}
+timeout "$GATE_TEST_TIMEOUT" flutter test $FILES -d "$SERIAL" > "$LOG" 2>&1
 RC=$?
-tail -25 "$LOG"
+if [ $RC -eq 124 ]; then
+    tail -25 "$LOG"
+    fail "整轮超时（${GATE_TEST_TIMEOUT}s）被 timeout 掐掉 ⇒ 这不是功能红，是某一节没返回"
+    echo "    先看上面的 GATE-STEP-FAIL / GATE-MARK：节内预算会把挂住的那节点名出来"
+    echo "    若一条 FAIL 都没有，说明挂在没被 _step 包住的裸段（见 walkthrough 的 _mark 痕迹）"
+else
+    tail -25 "$LOG"
+fi
 if [ $RC -eq 0 ]; then
     ok "模拟器全功能点击 + 导入导出往返：通过"
 else
