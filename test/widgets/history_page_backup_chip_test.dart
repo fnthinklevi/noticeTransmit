@@ -22,7 +22,9 @@ void main() {
     // #94-A 之后 HistoryPage 在 initState 里就要读 NotificationService 的溢出计数 ⇒
     // 任何 pump 它的测试都得提供这个单例（不是防御，是页面新增的前置条件）。
     await GetIt.instance.reset();
-    GetIt.instance.registerSingleton<NotificationService>(NotificationService());
+    GetIt.instance.registerSingleton<NotificationService>(
+      NotificationService(),
+    );
   });
 
   tearDown(() async {
