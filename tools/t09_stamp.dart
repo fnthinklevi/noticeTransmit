@@ -44,7 +44,16 @@ class Stamp {
 
 Future<void> main(List<String> args) async {
   final mode = args.isEmpty ? 'help' : args.first;
-  final opt = _Options(args.skip(1).toList());
+  final opt = Options(args.skip(1).toList());
+  if (opt.unknown.isNotEmpty) {
+    stderr.writeln(
+      '不认识的参数：${opt.unknown.join(' ')} —— 拼错的开关若被静默丢掉，'
+      '下一步就是"自动挑设备"，而这正是最不能静默回退的地方。',
+    );
+    _usage();
+    exitCode = 2;
+    return;
+  }
   switch (mode) {
     case 'list':
       _list(opt);
@@ -69,6 +78,7 @@ T09「真发一次」盖章工具
          [--device=<serial>] 缺省时自动挑唯一的 emulator-* 序列；非 emulator-* 一律拒绝
          [--avd=<name>]      没有跑着的模拟器时，用这个 AVD 起一个（跑完默认关掉）
          [--keep-emulator]   跑完别关（连着 confirm 一起调试时用）
+         [--allow-real-device]  明知是测试机、接受被清数据时才加；默认拒绝非 emulator-*
   confirm [--manifest=<f>]   按清单逐条问你"收件端看到那条了吗"，只把 y 的写进矩阵
   manual --types=a,b [--build=115]
                              没有清单时的人工盖章（你在设备界面手点「仅测试」）。
@@ -81,7 +91,7 @@ T09「真发一次」盖章工具
   );
 }
 
-void _list(_Options opt) {
+void _list(Options opt) {
   final matrix = File(opt.matrix);
   if (!matrix.existsSync()) {
     stderr.writeln('找不到矩阵：${opt.matrix}');
@@ -117,7 +127,7 @@ void _list(_Options opt) {
   }
 }
 
-Future<void> _send(_Options opt) async {
+Future<void> _send(Options opt) async {
   final adb = _tool(opt.adb, 'adb');
   final flutter = _tool(opt.flutter, 'flutter');
   if (adb == null) {
@@ -147,13 +157,20 @@ Future<void> _send(_Options opt) async {
       return;
     }
   }
-  // ⚠ 这条判定是整个工具唯一挡住"往维护者手机上打一通骚扰消息"的东西。
-  if (!serial.startsWith('emulator-')) {
+  // ⚠ 这条判定是整个工具唯一挡住"往别人的设备上真发"的东西。默认拒绝；只有显式
+  //   --allow-real-device 才放行，放行时也要把两件事念一遍：消息是真的、
+  //   `flutter test` 会先装 debug 包 ⇒ 签名不合就 adb uninstall ⇒ 该设备上的
+  //   通道配置与通知历史一起没（本仓库 2026-09-23 就在维护者的手机上撞过一次）。
+  if (!serial.startsWith('emulator-') && !opt.allowRealDevice) {
     stderr.writeln(
-      '拒绝在非模拟器设备（$serial）上真发。这里发的不是测试桩，是真消息。',
+      '拒绝在非模拟器设备（$serial）上真发。确认这是测试机、且接受"数据被清 + '
+      '真消息发出去"，再加 --allow-real-device。',
     );
     exitCode = 2;
     return;
+  }
+  if (!serial.startsWith('emulator-')) {
+    stderr.writeln('⚠ 真机模式（$serial）：这一步可能卸载设备上的现有安装，且发出的消息收得到。');
   }
   if (flutter == null) {
     stderr.writeln('找不到 flutter：用 --flutter=<路径> 或把它放进 PATH');
@@ -169,7 +186,7 @@ Future<void> _send(_Options opt) async {
   try {
     final defines = <String>['T09_TYPES=${opt.types ?? ''}'];
     stdout.writeln('开始逐类真发（这一步会真的把消息发出去）…');
-    final r = Process.runSync(
+    final run = wrap(
       flutter,
       <String>[
         'test',
@@ -179,6 +196,7 @@ Future<void> _send(_Options opt) async {
         for (final d in defines) '--dart-define=$d',
       ],
     );
+    final r = Process.runSync(run.$1, run.$2);
     final out = '${r.stdout}\n${r.stderr}';
     final manifest = _parseManifest(out);
     if (manifest == null) {
@@ -219,7 +237,7 @@ void _printChecklist(Map<String, dynamic> manifest) {
   stdout.writeln('请到这些收件端各找一条【设备名写着 T09-${manifest['nonce']}】的测试消息。');
 }
 
-void _confirm(_Options opt) {
+void _confirm(Options opt) {
   final file = File(opt.manifest);
   if (!file.existsSync()) {
     stderr.writeln('找不到清单 ${file.path}：先跑 dart tools/t09_stamp.dart send');
@@ -242,7 +260,7 @@ void _confirm(_Options opt) {
 /// ⚠ 这条路比 send/confirm 更弱：nonce 没有了，自动侧连"发过一次"都没有记录，
 /// 章的出处**完全**来自你此刻的回答。所以 `--build` 必须填你实际点的那个构建号
 /// （缺省读 pubspec，读错就等于给一个没验过的构建盖章）。
-void _manual(_Options opt) {
+void _manual(Options opt) {
   final types = (opt.types ?? '')
       .split(',')
       .map((e) => e.trim())
@@ -270,7 +288,7 @@ void _manual(_Options opt) {
 
 /// 两条路共用同一个提问 + 写入咽喉：只有答 y 的行会变成章。
 void _collectAndWrite(
-  _Options opt,
+  Options opt,
   List<Map<String, dynamic>> rows, {
   required String build,
   String? nonce,
@@ -419,7 +437,7 @@ List<String> _emulatorSerials(String adb) {
       .toList();
 }
 
-Future<String?> _bootEmulator(String adb, _Options opt) async {
+Future<String?> _bootEmulator(String adb, Options opt) async {
   final avd = opt.avd;
   if (avd == null) {
     stderr.writeln(
@@ -469,8 +487,17 @@ Future<String?> _bootEmulator(String adb, _Options opt) async {
   return null;
 }
 
+/// Windows 上 `flutter` 常是 .bat / .cmd，`Process.run*` 不能直接执行它们
+/// （CreateProcess 只认 PE 文件）⇒ 必须经 `cmd /c` 包一层。
+/// 与仓库里"直调 dart.exe + flutter_tools.snapshot"是同一条平台事实。
+(String, List<String>) wrap(String exe, List<String> args) {
+  if (exe.endsWith('.bat') || exe.endsWith('.cmd')) {
+    return ('cmd', <String>['/c', exe, ...args]);
+  }
+  return (exe, args);
+}
+
 /// adb / flutter 的路径解析：命令行给的优先，其次 PATH。
-/// Windows 上 `flutter` 是 .bat，必须交 shell ⇒ 调用方给绝对路径时也用 bash 包装。
 String? _tool(String? explicit, String name) {
   if (explicit != null && explicit.isNotEmpty) return explicit;
   final which = Process.runSync('bash', <String>['-lc', 'command -v $name || true']);
@@ -483,13 +510,25 @@ String _tail(String s, int lines) {
   return all.length <= lines ? s : all.sublist(all.length - lines).join('\n');
 }
 
-class _Options {
-  _Options(List<String> args) {
+/// 命令行参数。公开（而不是 `_Options`）是为了让守卫能**直接喂参数**：
+/// 在 `flutter test` 里 `Platform.resolvedExecutable` 指向 flutter_tester（引擎），
+/// 拿它起子进程会挂住，所以"崩在参数解析"这类错法只能这样测。
+class Options {
+  Options(List<String> args) {
     for (final a in args) {
-      final i = a.indexOf('=');
+      // 布尔开关**必须**在找 `=` 之前单独处理并 continue：首版把 `--allow-real-device`
+      // 一路带到 substring(0, -1)，直接 RangeError 崩在解析阶段（真机那一步根本没执行）。
       if (a == '--keep-emulator') {
         keepEmulator = true;
-      } else if (i < 0) {
+        continue;
+      }
+      if (a == '--allow-real-device') {
+        allowRealDevice = true;
+        continue;
+      }
+      final i = a.indexOf('=');
+      if (i < 0) {
+        unknown.add(a);
         continue;
       }
       final k = a.substring(0, i).replaceAll('--', '');
@@ -513,6 +552,10 @@ class _Options {
           gpu = v;
         case 'build':
           build = v;
+        default:
+          // 打错一个字母的 `--devcie=` 若被静默丢掉，下一步就是"自动挑设备"——
+          // 那正是最不该发生静默回退的地方。
+          unknown.add(a);
       }
     }
   }
@@ -523,7 +566,11 @@ class _Options {
   String? flutter;
   String? gpu;
   String? build;
+
+  /// 默认 false：真机路线必须显式写出来（见 _send 里那段注释）。
   bool keepEmulator = false;
+  bool allowRealDevice = false;
+  final List<String> unknown = [];
   String manifest = _defaultManifest;
   String matrix = _defaultMatrix;
 }

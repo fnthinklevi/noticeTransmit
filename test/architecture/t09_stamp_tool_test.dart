@@ -65,17 +65,24 @@ void main() {
       //   在只问存在性的版本下**照样绿** —— 那正是"守卫看着有、其实什么都不拦"。
       expect(
         RegExp(
-          r"if\s*\(\s*!serial\.startsWith\('emulator-'\)\s*\)\s*\{",
+          r"if\s*\(\s*!serial\.startsWith\('emulator-'\)\s*&&\s*!opt\.allowRealDevice\s*\)\s*\{",
         ).hasMatch(src),
         isTrue,
-        reason: '少了这道判定，"下一个设备"就可能是在维护者手机上真发',
+        reason: '少了这道判定（或放行条件不再要求显式开关），"下一个设备"可能就是别人的手机',
       );
       final refusal = RegExp(
-        r"if\s*\(\s*!serial\.startsWith\('emulator-'\)\s*\)\s*\{([\s\S]{0,260}?)\n  \}",
+        r"if\s*\(\s*!serial\.startsWith\('emulator-'\)\s*&&\s*!opt\.allowRealDevice"
+        r"\s*\)\s*\{([\s\S]{0,260}?)\n  \}",
       ).firstMatch(src);
       expect(refusal, isNotNull, reason: '拒绝分支的形状变了（守卫要重新指向）');
       expect(refusal!.group(1), contains('拒绝'));
       expect(refusal.group(1), contains('exitCode = 2'), reason: '拒绝必须以非零码退出');
+      // 放行开关必须是**默认关闭**的：一旦默认打开，上面那道判定就等于没有。
+      expect(
+        RegExp(r'bool allowRealDevice = false;').hasMatch(src),
+        isTrue,
+        reason: 'allowRealDevice 不再默认 false ⇒ 真机路线变成随手可达',
+      );
       final noTarget = RegExp(
         r"Process\.runSync\(\s*adb,\s*<String>\[[^\]]*\]",
       ).allMatches(src).where((m) => !m.group(0)!.contains("'-s'")).toList();
@@ -235,7 +242,7 @@ void main() {
     test('manual 模式必须自报"没有自动证据"', () {
       // 这条路没有 nonce、也没有设备侧的发送记录：章的出处只剩"人这么说"。
       // 如果哪天它不提醒这一点，就会被当成与 send/confirm 等价的证据用。
-      final manual = blockAfter(tool, 'void _manual(_Options opt) {');
+      final manual = blockAfter(tool, 'void _manual(Options opt) {');
       expect(manual, isNotEmpty, reason: 'manual 模式被删除或改名');
       expect(manual, contains('build'), reason: '必须显式记 build 出处');
       expect(
@@ -247,6 +254,40 @@ void main() {
         tool,
         contains('人工在设备界面点「仅测试」'),
         reason: '无 nonce 的默认备注必须写清"出处为本人回答"（否则 manual 会被当成自动证据）',
+      );
+    });
+  });
+
+  group('命令行本身（真机路线第一次就是这么死的）', () {
+    test('不带 = 的布尔开关不得走进 substring(0, -1)', () {
+      // 首版 `--allow-real-device` 一路落到 substring(0, i) 且 i = -1 ⇒ RangeError
+      // 崩在解析阶段：真机那一步根本没执行，看起来却像"跑了没结果"。
+      final o = stamp_tool.Options([
+        '--allow-real-device',
+        '--keep-emulator',
+        '--types=dingtalk,email',
+      ]);
+      expect(o.allowRealDevice, isTrue);
+      expect(o.keepEmulator, isTrue);
+      expect(o.types, 'dingtalk,email');
+      expect(o.unknown, isEmpty);
+    });
+
+    test('认不出的参数记进 unknown，由 main 大声拒绝而不是静默回退', () {
+      final o = stamp_tool.Options(['--devcie=emulator-5554', '--yes-i-think']);
+      expect(o.unknown, ['--devcie=emulator-5554', '--yes-i-think']);
+      final src = stripComments(f('tools/t09_stamp.dart').readAsStringSync());
+      expect(
+        RegExp(
+          r'if \(opt\.unknown\.isNotEmpty\) \{[\s\S]{0,200}?exitCode = 2',
+        ).hasMatch(src),
+        isTrue,
+        reason: '拼错的 --device 若被丢掉，下一步就是"自动挑设备"——最不该静默的地方',
+      );
+      expect(
+        RegExp(r'bool allowRealDevice = false;').hasMatch(src),
+        isTrue,
+        reason: '真机放行开关必须默认关闭',
       );
     });
   });
