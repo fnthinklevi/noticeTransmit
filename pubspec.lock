@@ -258,6 +258,13 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  fnthink_push:
+    dependency: "direct main"
+    description:
+      path: "packages/fnthink_push"
+      relative: true
+    source: path
+    version: "0.1.0"
   fuchsia_remote_debug_protocol:
     dependency: transitive
     description: flutter

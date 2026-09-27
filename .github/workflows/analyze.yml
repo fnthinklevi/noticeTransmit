@@ -41,6 +41,15 @@ jobs:
           fi
           echo "✅ analyze 无 error / warning / info"
 
+      # 幻念推送包（T71，path 依赖）。主 App 的 `flutter analyze` / `flutter test` 都不会
+      # 跨进包里 ⇒ 不单独跑，这个包等于没有门禁。
+      - name: fnthink_push package analyze & test
+        working-directory: packages/fnthink_push
+        run: |
+          dart pub get
+          dart analyze --fatal-infos
+          dart test
+
       - name: Version consistency check
         run: bash .github/scripts/check_version_consistency.sh
 

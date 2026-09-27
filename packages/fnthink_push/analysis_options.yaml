@@ -1,0 +1,14 @@
+# 纯 Dart 包（不依赖 flutter），所以不能 include flutter_lints；这里显式挑一组与主仓一致的规则。
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_print
+    - prefer_final_locals
+    - require_trailing_commas
+    - unawaited_futures
+    - use_super_parameters

@@ -1,0 +1,160 @@
+{
+  "protocol": "fnthink-v1",
+  "contractVersion": 1,
+  "_comment": "幻念推送的单一协议契约（T71）。Dart 与 Node 两侧各自读这一份文件跑契约测试：任何一侧偷偷改自己的常量都会红。规则来源见 docs/roadmap.md 的 W3a–W3g（T26–T60）与 §2 实现红线。",
+
+  "identity": {
+    "addressCode": {
+      "length": 18,
+      "alphabet": "crockford-base32",
+      "excludedChars": "ILOU",
+      "public": true,
+      "shareable": true
+    },
+    "pairingCode": {
+      "length": 20,
+      "ttlSeconds": 300,
+      "singleUse": true,
+      "derivedFromDeviceIdentity": false,
+      "resettable": true
+    },
+    "identityKey": {
+      "algorithm": "Ed25519",
+      "privateKeyExportable": false,
+      "privateKeyStorage": "AndroidKeyStore",
+      "neverIn": ["url", "log", "qrPayload", "serverRequestBody"],
+      "rebuildRequiresRepair": true
+    },
+    "generator": "csprng"
+  },
+
+  "signature": {
+    "canonicalOrder": ["version", "type", "target", "ts", "nonce", "body"],
+    "encoding": "utf8",
+    "separator": "\u0000",
+    "timestampSource": "serverTime",
+    "trustLocalClock": false,
+    "clockSkewSeconds": 120,
+    "nonceDedupe": true,
+    "verifyOnlyForWhitelistedKeys": true,
+    "onFailure": { "receipt": "rejected_unsigned", "count": true }
+  },
+
+  "statusCodes": {
+    "queued": 202,
+    "unauthorized": 401,
+    "forbidden": 403,
+    "duplicate": 409,
+    "expired": 410,
+    "rateLimited": 429,
+    "indistinguishable": ["unauthorized", "notFoundEndpoint"],
+    "_indistinguishable": "不存在的端点与口令错误必须返回同一形状：否则可以用返回码枚举哪些端点存在"
+  },
+
+  "receipts": [
+    "delivered",
+    "displayed",
+    "waiting_online",
+    "expired",
+    "dropped",
+    "rejected_unsigned",
+    "rejected_capability",
+    "failed_action"
+  ],
+
+  "fieldTolerance": {
+    "title": ["title", "message", "text", "msg"],
+    "body": ["body", "content", "description"],
+    "rule": "first-non-empty",
+    "ignoreUnknownFields": true,
+    "_why": "每接一个第三方平台都要改服务端是不可接受的；别名表就是这份契约的一部分"
+  },
+
+  "presence": {
+    "heartbeatSource": "poll",
+    "separateHeartbeatProtocol": false,
+    "pollIntervalSeconds": { "default": 20, "min": 15, "max": 30 },
+    "onlineThresholdMultiplier": 3,
+    "states": ["online", "offline", "unknown"],
+    "unknownMeans": "从未上线（与离线在界面上必须是两件事）",
+    "burstWhenPending": { "intervalSeconds": 5, "durationSeconds": 120 }
+  },
+
+  "retention": {
+    "pendingPerDeviceMax": 200,
+    "overflowAction": "drop_oldest",
+    "overflowReceipt": "dropped",
+    "maxRetentionDays": 7,
+    "whilePending": "static_encrypted",
+    "deleteBodyOn": ["delivered", "expired"],
+    "storeOnlyNecessaryFields": true
+  },
+
+  "limits": {
+    "endpointPerMinute": 15,
+    "endpointPerDay": 500,
+    "groupSendMax": 20,
+    "deliveryRetryTotal": 2,
+    "backupReplayMax": 2
+  },
+
+  "capabilities": {
+    "levels": ["L1", "L2", "L3"],
+    "levelMeaning": {
+      "L1": "消息（配对即有）",
+      "L2": "应用动作（逐条勾选）",
+      "L3": "系统设置（默认全关、逐条单独开、每次必须确认）"
+    },
+    "endpointMaxLevel": "L1",
+    "endpointActionReceipt": "rejected_capability",
+    "grantSource": "配对时下发并随签名校验，之后变更需重新确认",
+    "l3": {
+      "default": "off",
+      "perItem": true,
+      "confirmEveryTime": true,
+      "allowSkipConfirm": false,
+      "enableRequiresLocalAuth": ["lockScreen", "biometric"],
+      "circuitBreaker": { "failuresPerMinute": 5, "downgradeTo": "L1" },
+      "unknownAction": "reject",
+      "noKeyValueGenericWrite": true
+    }
+  },
+
+  "waitingOnline": {
+    "withBackupChannel": "backup_replay",
+    "withoutBackupChannel": "queue_resend",
+    "mutuallyExclusive": true,
+    "notifySenderProactively": false,
+    "backupReplayIdempotencyKey": "message_id",
+    "backupReplayLabel": "备用补推"
+  },
+
+  "delivery": {
+    "ackIsOnlyProof": true,
+    "ackFields": ["messageId", "result"],
+    "resultReturnedAsMessage": true,
+    "senderPollsStatusEndpoint": false,
+    "channelKey": "chan:fnthink"
+  },
+
+  "transport": {
+    "httpsOnly": true,
+    "secretPlacement": "path_segment",
+    "accessLogRedactPathPattern": "/api/fnthink/p/",
+    "postOnlySwitch": true,
+    "endpoints": {
+      "international": "push.fnthink.top",
+      "mainland": "pushfnthink.com",
+      "default": "push.fnthink.top",
+      "suggestSwitchOnMainlandNetwork": true
+    }
+  },
+
+  "privacy": {
+    "serverStoresBodyPlaintext": false,
+    "auditStoresMetadataOnly": true,
+    "credentialsNeverIn": ["url", "log"],
+    "messageLevelDedupe": "dedupe_id",
+    "dedupeRefreshSemantics": "同 dedupe_id 覆盖而非新增"
+  }
+}

@@ -30,6 +30,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # 幻念推送（roadmap T71 起）：同仓独立包，本仓库第一个 path 依赖。
+  # 协议表只有一份（protocol/fnthink-v1.json），Dart 与服务端各自读它跑契约测试；
+  # 将来出现第二个消费者或独立发版节奏时，整包平移成独立仓库。
+  fnthink_push:
+    path: packages/fnthink_push
   # gen-l10n 生成代码的运行时依赖（见 l10n.yaml）
   intl: any
 

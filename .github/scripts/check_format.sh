@@ -49,13 +49,13 @@ rc=0
 # ---- 1) Dart ----
 echo "── Dart: dart format"
 if [[ "$MODE" == "fix" ]]; then
-  "$DART_BIN" format lib test >/dev/null
+  "$DART_BIN" format lib test packages/fnthink_push >/dev/null
   echo "   已格式化"
 else
-  if "$DART_BIN" format --output=none --set-exit-if-changed lib test; then
+  if "$DART_BIN" format --output=none --set-exit-if-changed lib test packages/fnthink_push; then
     echo "   OK"
   else
-    echo "   ✗ 有文件未格式化（跑 dart format lib test 或本脚本 --fix）"; rc=1
+    echo "   ✗ 有文件未格式化（跑 dart format lib test packages/fnthink_push 或本脚本 --fix）"; rc=1
   fi
 fi
 

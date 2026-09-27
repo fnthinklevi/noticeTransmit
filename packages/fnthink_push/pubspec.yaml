@@ -1,0 +1,10 @@
+name: fnthink_push
+description: 幻念推送（fnthink push）的协议与凭证实现，随主 App 以 path 依赖引入；将来要开放可整包平移成独立仓库。
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+
+dev_dependencies:
+  test: ^1.25.0

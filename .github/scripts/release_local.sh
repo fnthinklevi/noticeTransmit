@@ -138,6 +138,13 @@ dart format lib/ test/ > /dev/null 2>&1
 if dart format --set-exit-if-changed lib/ > /dev/null 2>&1; then ok "dart format 幂等"; else fail "dart format 未收敛"; fi
 A=$(flutter analyze 2>&1 | tail -1)
 if [[ "$A" == *"No issues found"* ]]; then ok "flutter analyze: $A"; else fail "flutter analyze: $A"; fi
+# 幻念推送包（T71，path 依赖）：flutter analyze / flutter test 都不会跨进包里，
+# 不显式跑就等于这个包没有门禁。
+if (cd packages/fnthink_push && dart analyze --fatal-infos > /dev/null 2>&1); then
+    ok "fnthink_push analyze（包内）"
+else
+    fail "fnthink_push analyze（包内）—— 主 App 的 analyze 看不见这个目录"
+fi
 
 # ── 阶段 2：构建 4 个 Release APK（步骤 6，逐构建前停 daemon 防环境残留）──
 hr; echo "── 阶段 2：构建 4 个 Release APK ──"
@@ -267,6 +274,12 @@ fi
 dart format --set-exit-if-changed lib/ > /dev/null 2>&1 && ok "dart format 幂等" || fail "dart format"
 A2=$(flutter analyze 2>&1 | tail -1)
 [[ "$A2" == *"No issues found"* ]] && ok "flutter analyze" || fail "flutter analyze: $A2"
+# 双端契约测试的 Dart 那一半（服务端那一半随 npm test 跑）
+if (cd packages/fnthink_push && dart test > /tmp/fnthink_push_test.log 2>&1); then
+    ok "fnthink_push 契约测试（$(tail -1 /tmp/fnthink_push_test.log | cut -c1-40)）"
+else
+    fail "fnthink_push 契约测试（见 /tmp/fnthink_push_test.log）"
+fi
 NT=$(cd server && npm test 2>&1 | grep "Tests:")
 [[ "$NT" == *"passed"* ]] && ok "npm test: $NT" || fail "npm test: $NT"
 
