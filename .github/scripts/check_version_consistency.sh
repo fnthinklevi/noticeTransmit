@@ -113,6 +113,21 @@ EOF
     fi
 fi
 
+# ===== N3 续：sha256 与磁盘上的包按字节交叉校验 =====
+# 上一段只验形状（64 位小写十六进制）⇒ "哈希属于另一次构建"照不出来：v1.5.76 第一趟 x86_64
+# 构建失败后重跑，四包字节全变了，而当时已提交的 version.json 留的是上一趟的哈希 —— 形状检查
+# 一路绿。客户端装包前正是拿这个值校验下载的，发错哈希等于让用户装不上。
+# 本机有归档/构建产物才按字节比；CI 上没有，工具自己打印"未交叉校验"（不静默、也不判红）。
+if [ -n "$PY" ] && [ -f server/data/version.json ]; then
+    if [ ! -f tools/check_apk_sha.py ]; then
+        echo -e "${RED}❌ 缺 tools/check_apk_sha.py ⇒ sha256 字节级交叉校验没跑（不是通过，是没跑）${NC}"
+        errors=$((errors+1))
+    elif ! PYTHONIOENCODING=utf-8 "$PY" tools/check_apk_sha.py; then
+        echo -e "${RED}❌ version.json 的 sha256 与磁盘上的包不一致 ⇒ 重新回填（release_local.sh 阶段 3）${NC}"
+        errors=$((errors+1))
+    fi
+fi
+
 # 官网 i18n 覆盖检查：index.html 所有含中文的文本节点/属性，必须能被 i18n.js
 # 字典在英文模式下完整翻译（最长 key 优先子串替换模拟）；否则英文用户看到中英混排。
 # 官网新增中文内容时必须同步在 i18n.js 登记英文词条（tools/check_site_i18n.py 模拟替换逻辑）。

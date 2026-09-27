@@ -67,6 +67,41 @@ check "latestBuild 滞后 → 红" 1 "version.json 为" check_version_json_sync 
 printf '{"latestVersion": "1.5.73", "latestBuild": 113}\n' > server/data/version.json
 check "latestVersion 滞后 → 红" 1 "version.json 为" check_version_json_sync 1.5.74 113
 
+echo "── 发布说明取自哪一版（check_release_notes）──"
+# 更新弹窗里那段说明读的是 version.json 的 changelog。它整段沿用上一版文案时阶段 0–5 全绿也
+# 照不出来 —— v1.5.76 实际发生过：四包重构建、sha256 回填都对了，说明还是 1.5.75 那一批的话。
+cat > update.md <<'EOF'
+# 版本更新记录
+
+### v1.5.74+113 - 2026-09-21
+
+**送达状态判定修正 + 备份恢复兼容**
+
+- 正文
+EOF
+notes_json() { # $1 = changelog 首行（"-" 表示压根不给这个字段）
+    if [ "$1" = "-" ]; then
+        printf '{"latestVersion":"1.5.74","latestBuild":113}\n' > server/data/version.json
+    else
+        printf '{"latestVersion":"1.5.74","latestBuild":113,"changelog":"%s\\n\\n正文"}\n' \
+            "$1" > server/data/version.json
+    fi
+}
+notes_json "送达状态判定修正 + 备份恢复兼容"
+check "首行取自本次标题行 → 通过" 0 "" check_release_notes 1.5.74 113
+notes_json "送达状态判定修正 + 备份恢复兼容 与表单统一"
+check "首行与标题行差几个字 → 红并点名不符" 1 "与本次条目不符" check_release_notes 1.5.74 113
+notes_json "-"
+check "压根没有 changelog 字段 → 红" 1 "没有 changelog" check_release_notes 1.5.74 113
+notes_json "送达状态判定修正 + 备份恢复兼容"
+check "update.md 没有本次条目 → 红并说无从核对" 1 "无从核对" check_release_notes 1.5.99 113
+cat > update.md <<'EOF'
+### v1.5.74+113 - 2026-09-21
+
+- 正文直接开始，没有加粗标题
+EOF
+check "条目第一行不是加粗标题 → 红并说没有可对照的标题行" 1 "不是加粗标题" check_release_notes 1.5.74 113
+
 # 反向自检：闸门表达式本身不能退化成「永远返回 0」的空壳。
 if printf '%s' "$BLOCK" | grep -q 'return 1'; then
     echo "ok   提取到的块含失败分支（不是空壳）"

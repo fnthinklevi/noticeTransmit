@@ -46,6 +46,57 @@ check_version_json_sync() { # $1=VER $2=BUILD
     fail "version.json 为 $vj+$vjb ≠ 本次 $ver+$build（回填未生效：客户端会拿到旧包/旧 sha256）"
     return 1
 }
+# 下载弹窗里那段说明（version.json 的 changelog）必须是**本次版本**的文案。
+# 钉"changelog 首行 == update.md 本次条目的标题行"：只要求"与上一版不同"会放过"抄自别的版本"，
+# 而正文有意比 update.md 短，所以逐字比标题行是最便宜又不含糊的判据。
+# 为什么要有它：v1.5.76 那一趟四包构建、sha256 回填、阶段 0–5 全绿，而 changelog 整段还是
+# 1.5.75 的文案 —— 没有任何一处机器检查读得懂"这是哪一版的说明"。
+check_release_notes() { # $1=VER $2=BUILD
+    local py out
+    py="${PY:-}"
+    [ -n "$py" ] || py=$(command -v python 2>/dev/null || command -v python3 2>/dev/null)
+    if [ -z "$py" ]; then fail "没找到 python ⇒ 发布说明交叉检查没跑（不是通过，是没跑）"; return 1; fi
+    out=$(RELEASE_VER="$1" RELEASE_BUILD="$2" PYTHONIOENCODING=utf-8 "$py" - <<'PYEOF'
+import json, os, re, sys
+
+ver = os.environ.get("RELEASE_VER", "")
+build = os.environ.get("RELEASE_BUILD", "")
+
+try:
+    lines = open("update.md", encoding="utf-8").read().splitlines()
+except OSError as e:
+    print("RED update.md 读不出来：%s" % e); sys.exit(0)
+head_pat = re.compile(r"^###\s+v%s\+%s(\D|$)" % (re.escape(ver), re.escape(build)))
+at = next((n for n, l in enumerate(lines) if head_pat.match(l.strip())), None)
+if at is None:
+    print("RED update.md 没有 v%s+%s 条目 ⇒ 无从核对下载弹窗该写哪一版" % (ver, build)); sys.exit(0)
+title = next((l.strip() for l in lines[at + 1:] if l.strip()), "")
+if not (title.startswith("**") and title.endswith("**") and len(title) > 4):
+    print("RED update.md v%s+%s 条目的第一行不是加粗标题 ⇒ 没有可对照的标题行（发布说明的口径就是这个标题行）"
+          % (ver, build)); sys.exit(0)
+title = title.strip("*").strip()
+
+try:
+    data = json.load(open("server/data/version.json", encoding="utf-8"))
+except (OSError, ValueError) as e:
+    print("RED version.json 读不出来：%s" % e); sys.exit(0)
+notes = (data.get("changelog") or "").strip()
+first = notes.splitlines()[0].strip() if notes else ""
+if not first:
+    print("RED version.json 没有 changelog（更新弹窗会是空白）"); sys.exit(0)
+if first != title:
+    print("RED version.json 的 changelog 首行与本次条目不符：实得「%s」，应为 update.md "
+          "v%s+%s 的标题行「%s」" % (first, ver, build, title)); sys.exit(0)
+print("OK")
+PYEOF
+)
+    if [ "$out" = "OK" ]; then return 0; fi
+    case "$out" in
+        "RED "*) fail "${out#RED }" ;;
+        *) fail "发布说明交叉检查没有输出（python 报错？）：${out:-<空>}" ;;
+    esac
+    return 1
+}
 # <<< E1 闸门
 
 [ -d "$ROOT/.git" ] || { echo "请在仓库根目录运行"; exit 2; }
@@ -192,6 +243,7 @@ if [ $? -eq 0 ]; then ok "version.json 与 server/public/apks/$VER 同步"; else
 hr; echo "── 阶段 4：文档缺项检查 ──"
 check_update_entry "$VER" "$BUILD" && ok "update.md 条目存在（v$VER_FULL）"
 check_version_json_sync "$VER" "$BUILD" && ok "version.json latestVersion/latestBuild == v$VER_FULL"
+check_release_notes "$VER" "$BUILD" && ok "下载弹窗说明取自本次条目（version.json changelog 首行 == update.md 标题行）"
 grep -q "badge/Version/$VER/" README.md && grep -q "badge/Version/$VER/" README-en.md && ok "README 双语徽章已同步" || fail "README 徽章未同步"
 warn "人工确认项：官网 index.html 是否需要内容/文案更新（版本号已动态化，常规发版免更新）；base.md 审计条目与技术栈校准；隐私政策（如涉数据采集变更）"
 
