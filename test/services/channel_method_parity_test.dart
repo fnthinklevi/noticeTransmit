@@ -24,9 +24,8 @@ import 'package:flutter_test/flutter_test.dart';
 ///     换成一枚无载荷的 `refreshEngineRules`：93 → 92；
 ///     T26 B 半给幻念推送身份开了一个**新域** `FnthinkChannelHandler`，加
 ///     `getFnthinkIdentity` / `signFnthinkBytes`：93 → 95。
-///     ⚠ 这两枚目前**只有 Kotlin 侧与被仪器测试调用，Dart 侧还没有调用方** ——
-///     "只降不升"防的是无人认领的分支，这里是有意先落原生半边（Dart 半边随 T28/T42 落地）。
-///     方向 1 仍要求：Dart 一旦调用，原生必须先有分支。）
+///     这两枚的 Dart 半边随后落在 `lib/services/fnthink_identity_service.dart`（T29 入口），
+///     所以方向 1 现在真的守着它们：改名或删掉原生分支 ⇒ 立刻红，不是"将来也许会红"。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
