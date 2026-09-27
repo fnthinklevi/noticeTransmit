@@ -237,6 +237,10 @@ dependencies {
     // 原生端加密存储（C2）：与 flutter_secure_storage 9.2.4 同源同版本，
     // 保证 EncryptedSharedPreferences 主密钥（AndroidKeyStore 同一 alias）与算法一致，可跨端读写
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    // 幻念推送身份密钥（T26）：Android 平台的 Ed25519 要 API 30+，而 minSdk 是 24。
+    // 30 以下用这把纯 Java 实现签名/验签，私钥仍由 KeyStore 里不可导出的 AES-GCM 密钥包裹后落盘。
+    // 只依赖它做曲线算术，不引整套 provider（BouncyCastle 为数 MB，为一个算法不值得）。
+    implementation("net.i2p.crypto:eddsa:0.3.0")
     // 原生侧单元测试（如验证码提取 SmsDispatcher.extractCode）
     testImplementation("junit:junit:4.13.2")
     // JVM 单测无 Android 的 org.json 桩可用，引入真实实现供 RuleEngine/WebhookPayloadBuilder 测试

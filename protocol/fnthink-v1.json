@@ -31,7 +31,12 @@
       "privateKeyExportable": false,
       "privateKeyStorage": "AndroidKeyStore",
       "neverIn": ["url", "log", "qrPayload", "serverRequestBody"],
-      "rebuildRequiresRepair": true
+      "rebuildRequiresRepair": true,
+      "nativeMinSdkVersion": 30,
+      "belowNativeSdk": "keystoreWrappedSoftwareKey",
+      "belowNativeSdkComment": "Android 平台的 Ed25519 自 API 30 起，minSdk 是 24 ⇒ 30 以下用 KeyStore 里一把不可导出的 AES-GCM 密钥包裹软件生成的 Ed25519 私钥（落盘的是密文，运行时解密到内存）。这条路径的 keystoreBacked=false：不可导出的其实是包裹密钥，不是私钥本体。绝不许写成 softwarePlaintext：那等于把任务书里的红线改成注释",
+      "softwareLibrary": "net.i2p.crypto:eddsa:0.3.0",
+      "keystoreBackedCapability": true
     },
     "generator": "csprng"
   },

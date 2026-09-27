@@ -191,6 +191,36 @@ void main() {
       expectProblem(broken, 'burstWhenPending.intervalSeconds', '提频必须真的更快');
     });
 
+    test('30 以下改成"软件明文存私钥" ⇒ 报（红线被改成注释也不行）', () {
+      final broken = mutate((raw) {
+        ((raw['identity'] as Map)['identityKey'] as Map)['belowNativeSdk'] =
+            'softwarePlaintext';
+      });
+      expectProblem(broken, 'belowNativeSdk', '私钥不可导出是任务书原文');
+    });
+
+    test('平台门槛写歪（改成 API 24 就有原生 Ed25519）⇒ 报', () {
+      final broken = mutate((raw) {
+        ((raw['identity'] as Map)['identityKey']
+                as Map)['nativeMinSdkVersion'] =
+            24;
+      });
+      expectProblem(
+        broken,
+        'nativeMinSdkVersion',
+        'KeyStore 的 EdDSA 自 API 30 起',
+      );
+    });
+
+    test('不上报 keystoreBacked 能力位 ⇒ 报（两条路径强度不同，用户有权知道）', () {
+      final broken = mutate((raw) {
+        ((raw['identity'] as Map)['identityKey']
+                as Map)['keystoreBackedCapability'] =
+            false;
+      });
+      expectProblem(broken, 'keystoreBacked', '能力位必须上报');
+    });
+
     test('口令改成可复用 ⇒ 报', () {
       final broken = mutate((raw) {
         ((raw['identity'] as Map)['pairingCode'] as Map)['singleUse'] = false;

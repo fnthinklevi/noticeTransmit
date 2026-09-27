@@ -489,6 +489,23 @@ class FnthinkContract {
       str(const ['identity', 'identityKey', 'algorithm']) == 'Ed25519',
       '身份密钥算法固定 Ed25519',
     );
+    // 平台门槛（T26 第三片）：AndroidKeyStore 的 Ed25519 自 API 30 起，而 minSdk 是 24。
+    // 这两个键把"30 以下怎么办"写进协议，而不是留给某个 Kotlin 文件里的注释。
+    need(
+      intOf(const ['identity', 'identityKey', 'nativeMinSdkVersion']) == 30,
+      'identityKey.nativeMinSdkVersion 必须是 30：KeyStore 的 EdDSA 自 Android 11 起才有',
+    );
+    need(
+      str(const ['identity', 'identityKey', 'belowNativeSdk']) ==
+          'keystoreWrappedSoftwareKey',
+      'identityKey.belowNativeSdk 必须是 keystoreWrappedSoftwareKey：'
+      '写成 softwarePlaintext 就等于把"私钥不可导出"这条红线改成注释',
+    );
+    need(
+      boolOf(const ['identity', 'identityKey', 'keystoreBackedCapability']) ==
+          true,
+      '必须上报 keystoreBacked 能力位：两条路径的强度不同，对端与用户都有权知道',
+    );
     final neverIn = strings(const ['identity', 'identityKey', 'neverIn']);
     for (final place in const ['url', 'log']) {
       need(neverIn.contains(place), '私钥的 neverIn 必须包含 $place');
