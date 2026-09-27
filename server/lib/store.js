@@ -68,6 +68,30 @@ function readJsonFile(filePath, defaultValue) {
   return defaultValue;
 }
 
+/// Windows 上 rename 覆盖"刚被读过 / 被杀软占用"的文件会偶发 EPERM：
+/// 实测原行为（不带任何 mode/chmod）600 次写入失败 3 次，且**立刻重试就能成** ——
+/// 是瞬时占用，不是权限配错（Linux 部署机上走不到这条）。
+/// 只认这一类错误码、次数有上限：真写不进去仍然要抛给调用方，
+/// 不许把"没落盘"咽成"写好了" —— 那正是本仓库反复拦的那类假成功。
+const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY']);
+const RENAME_ATTEMPTS = 5;
+
+function sleepMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function renameIntoPlace(tmp, filePath) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      fs.renameSync(tmp, filePath);
+      return;
+    } catch (e) {
+      if (!TRANSIENT_RENAME_CODES.has(e && e.code) || attempt >= RENAME_ATTEMPTS) throw e;
+      sleepMs(20 * attempt);
+    }
+  }
+}
+
 function writeJsonFile(filePath, data, options) {
   const mode = options && options.mode;
   try {
@@ -85,7 +109,7 @@ function writeJsonFile(filePath, data, options) {
     // mode 只在**创建**时生效且会被 umask 削掉几位，所以显式 chmod；
     // rename 保留 tmp 的权限，落盘文件因此与 tmp 一致（含"文件已存在被替换"的情况）。
     if (mode !== undefined) fs.chmodSync(tmp, mode);
-    fs.renameSync(tmp, filePath);
+    renameIntoPlace(tmp, filePath);
     return true;
   } catch (e) {
     console.error('写入文件失败:', filePath, e.message);
