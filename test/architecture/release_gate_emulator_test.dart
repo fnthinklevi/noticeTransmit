@@ -648,12 +648,27 @@ void main() {
       );
       expect(
         RegExp(
-          r'run_case "\$case_name" "\$WALK" --plain-name "\$case_name"',
+          r'run_case "\$case_name" "\$walk_file" --plain-name "\$case_name"',
         ).hasMatch(sh2),
         isTrue,
         reason:
             '闸门不再逐条用例独立调用 ⇒ 回到"一个进程跑完四条"：那条挂住之后，'
             '后面的用例连一条断言都执行不到（第 16 轮的 3/4、4/4 就是这个形状）',
+      );
+      // 8.14：拆开跑的范围从"只有 walkthrough"扩到**每个文件**。第 27 轮的红正是这个差别：
+      // smoke 四个 case 一次调用，3/4 挂住把 4/4 一起带走了，而逐条重试根本覆盖不到它。
+      expect(
+        sh2.contains(r'for gate_file in $FILES'),
+        isTrue,
+        reason: '逐条隔离又只服务某一个文件了 ⇒ 其它文件的挂住照样污染整档（第 27 轮的形状）',
+      );
+      expect(
+        sh2.contains(r'gate_declared=$(grep -c "testWidgets("') &&
+            sh2.contains(r'[ "$gate_found" -eq "$gate_declared" ]'),
+        isTrue,
+        reason:
+            '防退化守卫不在了 ⇒ 用例改名/漏了编号前缀时，"从测试文件派生用例名"会安静地少数几条，'
+            '脚本看起来照常跑完，实际退化成整档一次（这正是本文件反复拦的那类空转）',
       );
       expect(
         sh2.contains('grep -oE'),
@@ -661,9 +676,13 @@ void main() {
         reason: '用例清单必须由测试文件 grep 派生，不许在脚本里再抄一份写死的名字',
       );
       expect(
-        sh2.contains('闸门 [0-9]+/[0-9]+'),
+        sh2.contains(r'[0-9]+/[0-9]+') &&
+            sh2.contains('闸门') &&
+            sh2.contains('冒烟'),
         isTrue,
-        reason: '派生用的模式不在了 ⇒ 数出来的可能是别的东西，逐条隔离就没有对齐测试文件',
+        reason:
+            '派生用的模式不在了 ⇒ 数出来的可能是别的东西，逐条隔离就没有对齐测试文件'
+            '（8.14 起两个前缀都要在：闸门 与 冒烟）',
       );
       expect(
         RegExp(r'--plain-name "闸门 \d/\d"').hasMatch(sh2),
@@ -671,14 +690,19 @@ void main() {
         reason: '脚本里出现写死的某一条用例名 ⇒ 改名之后那一档会静默跑空（--plain-name 匹配不到 = 0 条）',
       );
       expect(
-        RegExp(r'数不到.{0,12}用例名').hasMatch(sh2),
+        RegExp(r'(数不到|只数到)[\s\S]{0,140}?用例名[\s\S]{0,220}?exit 1').hasMatch(sh2),
         isTrue,
         reason:
-            '派生不到用例名时必须判红。静默退回"整档一次"是假绿：脚本照样绿，'
+            '派生不到用例名时必须判红（"数不到"与"只数到 k/n"两种说法都算，但紧跟的必须是 exit 1）。'
+            '静默退回"整档一次"是假绿：脚本照样绿，'
             '隔离却已经没了，而下一次挂住又会带走一整段',
       );
       final wholeRun = RegExp(r'GATE_TEST_TIMEOUT:-(\d+)').firstMatch(sh2);
-      expect(wholeRun, isNotNull, reason: '取不到 smoke 那档的超时 ⇒ 这条顺序契约失效');
+      expect(
+        wholeRun,
+        isNotNull,
+        reason: '取不到整档兜底那档的超时 ⇒ 这条顺序契约失效（8.14 起它只在 GATE_FILES 调试路径上用）',
+      );
       final caseRun = RegExp(r'GATE_CASE_TIMEOUT:-(\d+)').firstMatch(sh2);
       expect(
         caseRun,
@@ -973,7 +997,7 @@ void main() {
       );
       expect(
         RegExp(
-          r'run_case "\$case_name 重跑\$attempt" "\$WALK" --plain-name "\$case_name"',
+          r'run_case "\$case_name 重跑\$attempt" "\$walk_file" --plain-name "\$case_name"',
         ).hasMatch(sh),
         isTrue,
         reason: '重跑必须跑**同一条**用例（换成正则或整档，等于用别的覆盖顶掉这一条的结论）',
@@ -1011,9 +1035,11 @@ void main() {
         reason: 'clear_app_data 不区分"没装"与"清不掉" ⇒ 干净起点是否成立无人知道，报告里也看不见',
       );
       expect(
-        RegExp(r'if clear_app_data; then').hasMatch(sh),
+        RegExp(r'clear_app_data \|\| return 1').hasMatch(sh),
         isTrue,
-        reason: 'smoke 那一档也要清完才跑；清不掉就跳过它 = 让"没跑"长得像"跑了且绿"',
+        reason:
+            '每一次独立调用前都要清得下来。8.14 起没有"整档 smoke"那一支了：清不掉时这条'
+            '**不写收尾行**，于是被上面的「跑没跑到」计数逮住 —— 而不是"没跑"长得像"跑了且绿"',
       );
       // ⚠ `< /dev/null` 是被实测逼出来的：`adb shell` 与 `flutter test` 都从 stdin 读，
       // 而用例循环是 `while read` —— 第 20 轮它们把循环剩下的三个用例名吃掉了，
