@@ -18,7 +18,12 @@ process.env.ADMIN_TOKEN_HASH = bcrypt.hashSync('test-admin-token-for-caps', 10);
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-fnthink-caps-'));
 
 const { loadContract, assertSupported, isReceipt } = require('../lib/fnthink/contract');
-const { decideCapability, grantFromNode, grantFromRecord } = require('../lib/fnthink/capabilities');
+const {
+  decideCapability,
+  endpointGrant,
+  grantFromNode,
+  grantFromRecord,
+} = require('../lib/fnthink/capabilities');
 
 const contract = assertSupported(loadContract());
 const vectors = JSON.parse(
@@ -29,6 +34,7 @@ const REASON_FORMS = ['unknown-type:', 'level:L', 'item:', 'missing-item', 'conf
 
 function decide(given) {
   return decideCapability(contract, {
+    stage: given.stage, // 两段之一；不给就抛（"忘了说自己是哪一段"不许有个默认答案）
     grant: grantFromNode(contract, given.grant),
     type: given.type,
     item: given.item === null || given.item === undefined ? undefined : given.item,
@@ -41,7 +47,12 @@ describe('能力清单向量（Node 侧，T30-A）', () => {
     expect(CAPS.length).toBeGreaterThan(0);
     for (const c of CAPS) {
       const got = decide(c.given);
-      expect([c.id, got.allowed, got.reason]).toEqual([c.id, c.expect.allowed, c.expect.reason]);
+      expect([c.id, got.allowed, got.reason, got.requiresLocalConfirm]).toEqual([
+        c.id,
+        c.expect.allowed,
+        c.expect.reason,
+        c.expect.requiresLocalConfirm,
+      ]);
     }
   });
 
@@ -93,6 +104,32 @@ describe('能力清单向量（Node 侧，T30-A）', () => {
     expect(got.revision).toBe(3);
   });
 
+  test('stage 不许有默认值：没说哪一段就抛', () => {
+    expect(() =>
+      decideCapability(contract, { grant: { maxLevel: 'L3', items: [] }, type: 'notice' }),
+    ).toThrow(/哪一段/);
+    expect(() =>
+      decideCapability(contract, {
+        stage: 'whatever',
+        grant: { maxLevel: 'L3', items: [] },
+        type: 'notice',
+      }),
+    ).toThrow(/哪一段/);
+  });
+
+  test('端点走同一个裁决函数：契约说它只能产 L1，动作就归到 rejected_capability 那一类', () => {
+    const g = endpointGrant(contract);
+    expect(g.maxLevel).toBe(contract.capabilities.endpointMaxLevel);
+    expect(g.items).toEqual([]);
+    expect(
+      decideCapability(contract, { stage: 'intake', grant: g, type: 'action', item: 'app:a/b' })
+        .reason,
+    ).toBe('level:L2');
+    expect(decideCapability(contract, { stage: 'intake', grant: g, type: 'notice' }).allowed).toBe(
+      true,
+    );
+  });
+
   test('裁决不吃"外部传来的 maxLevel"：只有记录里的 grant 能放大权限', () => {
     // 攻击面：请求体里塞一个 grant。decideCapability 只认调用方递进来的那个，
     // 而调用方（verify）递的是**设备表里读出来的**那一份。
@@ -100,6 +137,7 @@ describe('能力清单向量（Node 侧，T30-A）', () => {
     const stored = grantFromRecord(contract, {}); // 表里没授权 ⇒ 缺省 L1
     expect(
       decideCapability(contract, {
+        stage: 'apply',
         grant: stored,
         type: 'setting',
         item: 'setting:whatever',

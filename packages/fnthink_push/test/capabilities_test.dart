@@ -32,6 +32,10 @@ void main() {
 
   CapabilityDecision _decide(Map<String, Object?> given) => decideCapability(
     contract,
+    // stage 没有默认值：两段判的不完全是同一件事，逼调用方说清自己是哪一段
+    stage: given['stage'] == 'intake'
+        ? CapabilityStage.intake
+        : CapabilityStage.apply,
     grant: FnthinkGrant.fromNode(contract, given['grant']),
     type: given['type'] as String,
     item: given['item'] as String?,
@@ -50,6 +54,11 @@ void main() {
           reason: '${c['id']} allowed',
         );
         expect(got.reason, want['reason'], reason: '${c['id']} reason');
+        expect(
+          got.requiresLocalConfirm,
+          want['requiresLocalConfirm'] == true,
+          reason: '${c['id']} requiresLocalConfirm',
+        );
       }
     });
 
@@ -90,6 +99,33 @@ void main() {
       for (final ghost in ['teleport', 'Notice']) {
         expect(declared.contains(ghost), isFalse);
       }
+    });
+
+    test('两段各覆盖到，且 apply 段必须显式传 stage（编译期就拦）', () {
+      final stages = caps
+          .map((c) => (c['given'] as Map)['stage'] as String)
+          .toSet();
+      expect(stages, {'intake', 'apply'});
+      // 收单段永远不判确认：自称已确认与没确认，两次的结果必须一模一样
+      final selfClaim = caps.firstWhere(
+        (c) => c['id'] == 'c-intake-ignores-self-claim',
+      );
+      final asIfNotConfirmed = decideCapability(
+        contract,
+        stage: CapabilityStage.intake,
+        grant: FnthinkGrant.fromNode(
+          contract,
+          (selfClaim['given'] as Map)['grant'],
+        ),
+        type: 'setting',
+        item: 'setting:battery_saver',
+        confirmedThisTime: false,
+      );
+      expect(
+        asIfNotConfirmed.allowed,
+        (selfClaim['expect'] as Map)['allowed'] == true,
+        reason: '请求里那个自称的 confirmed 在收单段根本不参与判决',
+      );
     });
 
     test('缺省档就是最窄那一档，且授权变更必须重新确认（两条红线）', () {

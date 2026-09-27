@@ -129,10 +129,13 @@ function acceptIncoming(contract, state, input) {
     return denied('rejected_capability', 'unsigned-item');
   }
   const cap = decideCapability(contract, {
+    // 收单这一段判不了"每次本地确认"：那是设备上的一次用户动作。
+    // ⚠ 这里**故意不读** `input.confirmedThisTime` —— 从请求里取那个值，
+    // 等于让发送方替接收方点"我确认了"，而 L3 那条红线写的正是"不许远端悄悄执行本地动作"。
+    stage: 'intake',
     grant: grantFromRecord(contract, device),
     type: String(input.fields.type),
     item,
-    confirmedThisTime: !!input.confirmedThisTime,
   });
   if (!cap.allowed) return denied('rejected_capability', 'capability:' + cap.reason);
 

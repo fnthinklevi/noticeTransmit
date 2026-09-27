@@ -64,23 +64,40 @@ class FnthinkGrant {
   };
 }
 
+/// 裁决走哪一段。**没有默认值**：两条路径判的不完全是同一件事，
+/// 让调用方不必说清自己是哪一段，就等于允许服务端拿"对端自称已确认"当确认用。
+enum CapabilityStage {
+  /// 服务端收单：只判 词表 / 档位 / 逐条清单。判不了"每次本地确认"（那发生在设备上），
+  /// 到最高档时放行并带 [CapabilityDecision.requiresLocalConfirm]。
+  intake,
+
+  /// 设备落地之前：四条全判，其中确认取自**本机**那一次用户动作。
+  apply,
+}
+
 /// 裁决结果。**原因只进日志与留痕，不改变对外形状**（能力拒绝发生在身份已证明之后，
 /// 所以它可以被说清楚 —— 与 T27/T28 那条"预授权失败只有一句话"是两回事）。
 class CapabilityDecision {
-  const CapabilityDecision._(this.reason);
+  const CapabilityDecision._(this.reason, this.requiresLocalConfirm);
 
-  static const CapabilityDecision allow = CapabilityDecision._(null);
+  static const CapabilityDecision allow = CapabilityDecision._(null, false);
+  static const CapabilityDecision allowNeedConfirm = CapabilityDecision._(
+    null,
+    true,
+  );
   static CapabilityDecision unknownType(String type) =>
-      CapabilityDecision._('unknown-type:$type');
+      CapabilityDecision._('unknown-type:$type', false);
   static CapabilityDecision levelNotGranted(String need) =>
-      CapabilityDecision._('level:$need');
+      CapabilityDecision._('level:$need', false);
   static CapabilityDecision itemNotGranted(String item) =>
-      CapabilityDecision._('item:$item');
+      CapabilityDecision._('item:$item', false);
   static const CapabilityDecision itemMissing = CapabilityDecision._(
     'missing-item',
+    false,
   );
   static const CapabilityDecision confirmRequired = CapabilityDecision._(
     'confirm-required',
+    true,
   );
 
   /// 闭集：向量的期望值只能取这些形状（新增一种却不补向量 ⇒ 守卫红）。
@@ -90,15 +107,26 @@ class CapabilityDecision {
 
   final String? reason;
 
+  /// 这一条要不要在落到用户眼前时**再确认一次**（契约 `capabilities.l3.confirmEveryTime`）。
+  /// intake 那一段它只是"提醒"，apply 那一段它是判据。
+  final bool requiresLocalConfirm;
+
   bool get allowed => reason == null;
 }
 
+/// 端点（长期口令、无签名）那一侧的授权：**只有档位，没有逐条清单**。
+/// 走同一个裁决函数，不在别处再写一份"端点不许发动作"。
+FnthinkGrant endpointGrant(FnthinkContract contract) =>
+    FnthinkGrant(maxLevel: contract.endpointMaxLevel);
+
 /// 能不能发这一条。纯函数：不查库、不弹框、不猜时钟。
 ///
-/// [item] 由载荷带（如 `app:<包名>/<动作>`、`setting:<键>`）。契约里
-/// `itemRequiredFromLevel` 那一档及以上才要求它。
+/// [item] 由载荷带（如 `app:<包名>/<动作>`、`setting:<键>`），且**必须来自签过名的部分**
+/// （服务端那道 `unsigned-item` 检查钉的就是这个）。契约里 `itemRequiredFromLevel`
+/// 那一档及以上才要求它。
 CapabilityDecision decideCapability(
   FnthinkContract contract, {
+  required CapabilityStage stage,
   FnthinkGrant? grant,
   required String type,
   String? item,
@@ -124,14 +152,17 @@ CapabilityDecision decideCapability(
     }
   }
   // "每次都要本地确认"绑的是**最高那一档**（契约里那块就叫 l3，且 validate 保证
-  // levels 按权限升序）。这里不写死 'L3' 三个字面量：哪天加一档，写死的会静默失效。
+  // levels 按权限升序）。这里不写死 'L3'：哪天加一档，写死的会静默失效。
   final levels = contract.capabilityLevels;
   final topLevel = levels.isEmpty ? '' : levels.last;
-  if (need == topLevel &&
-      contract.boolOf(const ['capabilities', 'l3', 'confirmEveryTime']) ==
-          true &&
-      !confirmedThisTime) {
-    return CapabilityDecision.confirmRequired;
+  final needsConfirm =
+      need == topLevel &&
+      contract.boolOf(const ['capabilities', 'l3', 'confirmEveryTime']) == true;
+  if (!needsConfirm) return CapabilityDecision.allow;
+  if (stage == CapabilityStage.intake) {
+    // 收单这段判不了确认，也**不许拿请求里那个自称的标志替设备判** —— 交给 apply。
+    return CapabilityDecision.allowNeedConfirm;
   }
-  return CapabilityDecision.allow;
+  if (!confirmedThisTime) return CapabilityDecision.confirmRequired;
+  return CapabilityDecision.allowNeedConfirm;
 }

@@ -178,6 +178,16 @@ class FnthinkContract {
   List<String> get capabilityLevels =>
       strings(const ['capabilities', 'levels']);
 
+  /// 端点（长期口令、无签名）被允许产的最高档。缺键直接抛：补一个默认值
+  /// 就是"哪天契约把端点关掉，代码还按 L1 收"。
+  String get endpointMaxLevel {
+    final value = str(const ['capabilities', 'endpointMaxLevel']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 capabilities.endpointMaxLevel（不补默认值）');
+    }
+    return value;
+  }
+
   /// 签名载荷里 `type` 的取值表：`type → 最低级别`。**这张表就是词表**，
   /// 认不出的 type 一律拒（见 [rejectsUnknownMessageTypes]），不许"先收下再说"。
   Map<String, String> get messageTypeLevels {

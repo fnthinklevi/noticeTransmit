@@ -409,6 +409,28 @@ describe('fnthink 验签与裁决（T29-B）', () => {
     expect(out.receipt).toBe('rejected_capability');
   });
 
+  test('L3 设置：收单段放行（确认留给设备），请求自称"已确认"不改变结果', () => {
+    const state = deviceState({ maxLevel: 'L3', items: ['setting:x'] });
+    const results = [false, true].map((claim) => {
+      const pack = signable(
+        kp,
+        fields({ type: 'setting', body: '改 setting:x', nonce: claim ? 's-2' : 's-1' }),
+      );
+      return verify.acceptIncoming(contract, state, {
+        senderAddress: SENDER,
+        signature: pack.signature,
+        fields: pack.fields,
+        item: 'setting:x',
+        now: pack.now,
+        confirmedThisTime: claim, // 未来路由若把它从请求里取出来，这里也必须毫无反应
+      });
+    });
+    expect(results).toEqual([
+      { ok: true, status: 202, receipt: 'queued' },
+      { ok: true, status: 202, receipt: 'queued' },
+    ]);
+  });
+
   test('契约自己把这组关系钉住了（dedupe ≥ 2×skew）', () => {
     expect(contract.signature.nonceDedupeSeconds).toBeGreaterThanOrEqual(
       contract.signature.maxSkewSeconds * 2,
