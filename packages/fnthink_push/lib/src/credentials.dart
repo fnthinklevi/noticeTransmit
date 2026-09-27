@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
+
+import 'package:crypto/crypto.dart';
 
 import 'contract.dart';
 import 'crockford.dart';
@@ -122,6 +125,30 @@ CrockfordBase32 _alphabet(FnthinkContract contract) =>
         'excludedChars',
       ]),
     );
+
+/// 凭证摘要：sha256(归一化值) 的十六进制小写 —— 与服务端 `credentialDigest` 同一套字节。
+///
+/// 两端算出不同摘要的表现不是报错，而是"设备显示口令、服务端说没这条记录"，
+/// 所以这条由 `protocol/fnthink-vectors-v1.json` 双端各断言一遍。
+///
+/// [which] 就是契约 `identity` 下的键名，这里**先完整校验再算**：不合法一律抛。
+/// 放过空串会算出一个稳定的摘要，于是"没填"和"填了个空"命中同一条记录。
+String fnthinkCredentialDigest(
+  FnthinkContract contract,
+  String which,
+  String raw,
+) {
+  final normalized = _alphabet(contract).normalize(raw);
+  final length = contract.identityLength(which);
+  if (normalized == null || normalized.length != length) {
+    throw ArgumentError(
+      '不是合法的 identity.$which（应为 $length 位 Crockford base32），拒绝计算摘要',
+    );
+  }
+  // Digest.toString() 就是小写十六进制（package:crypto 的既定行为）；
+  // 万一哪天不是了，向量测试会立刻红，不会静默换成另一种摘要。
+  return sha256.convert(utf8.encode(normalized)).toString();
+}
 
 String _group(String value, int size) {
   final parts = <String>[];

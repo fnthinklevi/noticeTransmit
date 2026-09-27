@@ -1,0 +1,212 @@
+{
+  "_purpose": "跨端一致性向量（T26）。同一份文件，Dart（packages/fnthink_push）与 Node（server）各自断言。它钉的是'同一串输入两端必须得出同一个归一化值与同一个摘要' —— 两端理解不同时表现不是报错，而是'设备生成的码服务端永远判非法'。",
+  "_generatedBy": "outputs/_fnthink_vectors_gen.py（期望值手写，摘要由期望值算出，不从实现生成）",
+  "_kindMatchesContract": "kind 就是 identity.<kind> 的键名，位数从契约读，这里不重复定义",
+  "_normalizedMeaning": "expect.normalized 是**归一化函数**的输出（只处理大小写与空格/连字符），与合法性无关；null 只代表含字母表以外的字符。位数不符的串仍要有归一化结果 —— 把归一化和校验混成一件事，两端就会在'改了位数'的那一刻分叉。",
+  "digest": {
+    "algorithm": "sha256",
+    "encoding": "hex-lowercase",
+    "input": "归一化后（大写、去空格与连字符）的 ASCII 字节",
+    "whyPlainSha256": "口令 20 位 × 5 bit = 100 bit 熵，离线暴破不成立，不必再加服务端盐；且口令 5 分钟过期 + 一次性，可暴破窗口本就极短。地址码是公开标识，摘要只用于比对。"
+  },
+  "cases": [
+    {
+      "id": "addr-plain",
+      "kind": "addressCode",
+      "input": "8K3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": "8K3FJ6QPTM9WZ4VHNS",
+        "valid": true,
+        "digest": "7783fc7ba0dbe81baf1851e17dcde68789dde4e50d53d375c8d617ab251ea6be"
+      },
+      "note": "标准形态：大写、18 位、无分隔符"
+    },
+    {
+      "id": "addr-lower",
+      "kind": "addressCode",
+      "input": "8k3fj6qptm9wz4vhns",
+      "expect": {
+        "normalized": "8K3FJ6QPTM9WZ4VHNS",
+        "valid": true,
+        "digest": "7783fc7ba0dbe81baf1851e17dcde68789dde4e50d53d375c8d617ab251ea6be"
+      },
+      "note": "Crockford 不区分大小写"
+    },
+    {
+      "id": "addr-hyphen",
+      "kind": "addressCode",
+      "input": "8K3FJ6-QPTM9W-Z4VHNS",
+      "expect": {
+        "normalized": "8K3FJ6QPTM9WZ4VHNS",
+        "valid": true,
+        "digest": "7783fc7ba0dbe81baf1851e17dcde68789dde4e50d53d375c8d617ab251ea6be"
+      },
+      "note": "UI 分组显示的形式可以再被吃掉（复制带连字符不算错）"
+    },
+    {
+      "id": "addr-space",
+      "kind": "addressCode",
+      "input": "8K3FJ6 QPTM9W Z4VHNS ",
+      "expect": {
+        "normalized": "8K3FJ6QPTM9WZ4VHNS",
+        "valid": true,
+        "digest": "7783fc7ba0dbe81baf1851e17dcde68789dde4e50d53d375c8d617ab251ea6be"
+      },
+      "note": "首尾与中间的空格都不算内容"
+    },
+    {
+      "id": "addr-i",
+      "kind": "addressCode",
+      "input": "IK3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": null,
+        "valid": false,
+        "digest": null
+      },
+      "note": "排除集 I（与 1 混）"
+    },
+    {
+      "id": "addr-l",
+      "kind": "addressCode",
+      "input": "LK3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": null,
+        "valid": false,
+        "digest": null
+      },
+      "note": "排除集 L（与 1 混）"
+    },
+    {
+      "id": "addr-o",
+      "kind": "addressCode",
+      "input": "OK3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": null,
+        "valid": false,
+        "digest": null
+      },
+      "note": "排除集 O（与 0 混）"
+    },
+    {
+      "id": "addr-u",
+      "kind": "addressCode",
+      "input": "UK3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": null,
+        "valid": false,
+        "digest": null
+      },
+      "note": "排除集 U（与 V 混）"
+    },
+    {
+      "id": "addr-bang",
+      "kind": "addressCode",
+      "input": "!K3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": null,
+        "valid": false,
+        "digest": null
+      },
+      "note": "字母表以外的符号"
+    },
+    {
+      "id": "addr-fullwidth",
+      "kind": "addressCode",
+      "input": "１K3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": null,
+        "valid": false,
+        "digest": null
+      },
+      "note": "全角数字：形状像但不是"
+    },
+    {
+      "id": "addr-short",
+      "kind": "addressCode",
+      "input": "8K3FJ6QPTM9WZ4VHN",
+      "expect": {
+        "normalized": "8K3FJ6QPTM9WZ4VHN",
+        "valid": false,
+        "digest": null
+      },
+      "note": "少一位：归一化成功，校验拦下"
+    },
+    {
+      "id": "addr-long",
+      "kind": "addressCode",
+      "input": "8K3FJ6QPTM9WZ4VHNSS",
+      "expect": {
+        "normalized": "8K3FJ6QPTM9WZ4VHNSS",
+        "valid": false,
+        "digest": null
+      },
+      "note": "多一位：同上"
+    },
+    {
+      "id": "addr-empty",
+      "kind": "addressCode",
+      "input": "",
+      "expect": {
+        "normalized": "",
+        "valid": false,
+        "digest": null
+      },
+      "note": "空串归一化成空串，不是 null"
+    },
+    {
+      "id": "pair-plain",
+      "kind": "pairingCode",
+      "input": "7YD4RKQPBM8XZ3VHNT6J",
+      "expect": {
+        "normalized": "7YD4RKQPBM8XZ3VHNT6J",
+        "valid": true,
+        "digest": "cc4a2173c70aa00fa1c5f2813a2ea2deb77feb8d20b93343341ae78a1510e074"
+      },
+      "note": "标准形态：20 位"
+    },
+    {
+      "id": "pair-lower-grouped",
+      "kind": "pairingCode",
+      "input": "7yd4r kqpbm 8xz3v hnt6j",
+      "expect": {
+        "normalized": "7YD4RKQPBM8XZ3VHNT6J",
+        "valid": true,
+        "digest": "cc4a2173c70aa00fa1c5f2813a2ea2deb77feb8d20b93343341ae78a1510e074"
+      },
+      "note": "小写 + 5 位一组，归一化后与标准形态同一把摘要"
+    },
+    {
+      "id": "pair-is-address-len",
+      "kind": "pairingCode",
+      "input": "8K3FJ6QPTM9WZ4VHNS",
+      "expect": {
+        "normalized": "8K3FJ6QPTM9WZ4VHNS",
+        "valid": false,
+        "digest": null
+      },
+      "note": "18 位是地址码的形状，不是口令"
+    },
+    {
+      "id": "addr-is-pair-len",
+      "kind": "addressCode",
+      "input": "7YD4RKQPBM8XZ3VHNT6J",
+      "expect": {
+        "normalized": "7YD4RKQPBM8XZ3VHNT6J",
+        "valid": false,
+        "digest": null
+      },
+      "note": "20 位是口令的形状，不是地址码"
+    },
+    {
+      "id": "pair-u",
+      "kind": "pairingCode",
+      "input": "UYD4RKQPBM8XZ3VHNT6J",
+      "expect": {
+        "normalized": null,
+        "valid": false,
+        "digest": null
+      },
+      "note": "口令同样不容排除集"
+    }
+  ]
+}

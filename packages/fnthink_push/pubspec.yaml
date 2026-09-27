@@ -6,5 +6,9 @@ version: 0.1.0
 environment:
   sdk: '>=3.12.0 <4.0.0'
 
+dependencies:
+  # 只用来算凭证摘要（sha256）。主 App 已依赖同一个包，这里不引入新的解析压力。
+  crypto: ^3.0.3
+
 dev_dependencies:
   test: ^1.25.0

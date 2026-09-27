@@ -8,24 +8,31 @@ const int fnthinkProtocolMajor = 1;
 /// 契约文件的默认路径（相对仓库根）。
 const String fnthinkContractPath = 'protocol/fnthink-v1.json';
 
-/// 找到契约文件的真实路径：从 [from] 逐级向上找 `protocol/fnthink-v1.json`。
-///
-/// 为什么要向上找而不是直接拼相对路径：`dart test` 在包目录里跑、`flutter test` 在仓库根跑、
-/// CI 又是另一个 cwd。写死相对路径的测试结果会随运行位置变，那类"换个地方就红/就绿"的
-/// 测试比没有测试更糟。
-String fnthinkContractFile({String? from}) {
+/// 跨端一致性向量的路径（T26：凭证的归一化与摘要，Dart 与 Node 各断言一遍同一份文件）。
+const String fnthinkVectorsPath = 'protocol/fnthink-vectors-v1.json';
+
+String _findUp(String relativePath, String? from) {
   var dir = Directory(from ?? Directory.current.path);
   for (var i = 0; i < 6; i++) {
-    final candidate = '${dir.path}/$fnthinkContractPath';
+    final candidate = '${dir.path}/$relativePath';
     if (File(candidate).existsSync()) return candidate;
     final parent = dir.parent;
     if (parent.path == dir.path) break;
     dir = parent;
   }
-  throw StateError(
-    '找不到协议契约文件 $fnthinkContractPath（从 ${Directory.current.path} 向上找 6 级）',
-  );
+  throw StateError('找不到 $relativePath（从 ${Directory.current.path} 向上找 6 级）');
 }
+
+/// 找到契约文件的真实路径：从 [from] 逐级向上找 `protocol/fnthink-v1.json`。
+///
+/// 为什么要向上找而不是直接拼相对路径：`dart test` 在包目录里跑、`flutter test` 在仓库根跑、
+/// CI 又是另一个 cwd。写死相对路径的测试结果会随运行位置变，那类"换个地方就红/就绿"的
+/// 测试比没有测试更糟。
+String fnthinkContractFile({String? from}) =>
+    _findUp(fnthinkContractPath, from);
+
+/// 向量文件的真实路径（同 [fnthinkContractFile] 的定位规则）。
+String fnthinkVectorsFile({String? from}) => _findUp(fnthinkVectorsPath, from);
 
 /// 单一协议契约（T71）。
 ///
