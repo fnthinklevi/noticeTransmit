@@ -1124,7 +1124,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get batteryNotifToggle => '电量通知总开关';
 
   @override
-  String get batteryNotifToggleDesc => '开启后以下提醒才会生效';
+  String get notifToggleDesc => '开启后以下提醒才会生效';
 
   @override
   String get notifRules => '通知规则';
@@ -2236,6 +2236,29 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get deviceStateDesc =>
       '屏幕亮度与网络状态的变化也能触发提醒。只有「跨越」的那一刻算一次事件（一直在阈值之下不会反复提醒），触发后 30 分钟内同一类不再重复提醒。';
+
+  @override
+  String brightnessPercentOnly(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String networkCaption(Object network) {
+    return '网络：$network';
+  }
+
+  @override
+  String get temperatureNotes1 => '阈值 30–90℃：只有「跨越」的那一刻算一次事件，已经在阈值之上不会反复提醒。';
+
+  @override
+  String get temperatureNotes2 => '触发后 30 分钟内同一维度不再重复提醒。';
+
+  @override
+  String get temperatureNotes3 =>
+      '电池温度 / 设备温度 / 屏幕温度三个维度各自判定；本机读不到的维度会在「试一次」里明写。';
+
+  @override
+  String get deviceStateNotes2 => '亮度按百分比判定；网络类触发只看「断网」与「联网」这两件事，不需要阈值。';
 
   @override
   String get deviceStateNotifyEnabled => '设备状态告警推送';

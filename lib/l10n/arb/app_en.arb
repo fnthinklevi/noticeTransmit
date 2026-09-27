@@ -510,7 +510,7 @@
   "notCharging": "Not Charging",
   "reminderSettings": "Reminder Settings",
   "batteryNotifToggle": "Battery Notification Master Switch",
-  "batteryNotifToggleDesc": "Reminders below only work when enabled",
+  "notifToggleDesc": "Reminders below only work when enabled",
   "notifRules": "Notification Rules",
   "batteryNotes1": "Low battery alerts only trigger when not charging",
   "batteryNotes2": "Alert resets when battery rises above threshold",
@@ -1034,6 +1034,24 @@
   "tempSilenceDisabled": "temperature alerts are off",
   "deviceStateEntry": "Device state alerts",
   "deviceStateDesc": "Screen brightness and network changes can also trigger alerts. Only the moment of crossing counts (staying below the threshold will not repeat), and the same kind will not alert again within 30 minutes.",
+  "brightnessPercentOnly": "{percent}%",
+  "@brightnessPercentOnly": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "networkCaption": "Network: {network}",
+  "@networkCaption": {
+    "placeholders": {
+      "network": {}
+    }
+  },
+  "temperatureNotes1": "Thresholds run 30-90C: only the moment a threshold is crossed counts, so staying above it does not re-alert.",
+  "temperatureNotes2": "After an alert fires, the same dimension stays silent for 30 minutes.",
+  "temperatureNotes3": "Battery / device / screen temperature are judged independently; a dimension this device cannot read is stated plainly in \"Try once\".",
+  "deviceStateNotes2": "Brightness is judged by percentage; network rules only react to \"lost\" and \"reconnected\" and need no threshold.",
   "deviceStateNotifyEnabled": "Device state alert push",
   "brightnessBelow": "Brightness below",
   "brightnessAbove": "Brightness above",

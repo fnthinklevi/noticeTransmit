@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../models/device_snapshot.dart';
 import '../services/device_info_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/engine_page_sections.dart';
 import '../theme/app_colors.dart';
 
 /// 设备状态页（T18）：T17 那份 `getDeviceSnapshot` 的第一个消费方。
@@ -80,7 +81,7 @@ class _DeviceSnapshotPageState extends State<DeviceSnapshotPage> {
                   ? 'Android ${s.osVersion}'
                   : l10n.snapshotSystemVersionValue(s.osVersion!, s.sdkInt!)),
       ),
-      ('network', l10n.snapshotNetwork, _networkLabel(s.network, l10n)),
+      ('network', l10n.snapshotNetwork, engineNetworkLabel(s.network, l10n)),
       (
         'batteryLevel',
         l10n.snapshotBattery,
@@ -162,18 +163,6 @@ class _DeviceSnapshotPageState extends State<DeviceSnapshotPage> {
   }
 
   static String _gb(double mb) => (mb / 1024).toStringAsFixed(1);
-
-  static String? _networkLabel(String? type, AppLocalizations l10n) =>
-      switch (type) {
-        'wifi' => l10n.netWifi,
-        'cellular' => l10n.netCellular,
-        'vpn' => l10n.netVpn,
-        'ethernet' => l10n.netEthernet,
-        'none' => l10n.netNone,
-        // 未知枚举原样显示：宁可看见生词，也不要把它翻译成"其他"再让人以为已经归类
-        'other' || null => type == null ? null : l10n.netOther,
-        _ => type,
-      };
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -9,6 +8,7 @@ import '../services/platform_channel.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
+import '../widgets/engine_page_sections.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -70,87 +70,63 @@ class _BatteryPageState extends State<BatteryPage> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             const SizedBox(height: 16),
-            Center(
-              child: Column(
-                children: [
-                  Icon(
-                    _service.currentIsCharging
-                        ? Icons.battery_charging_full
-                        : Icons.battery_full,
-                    size: 80,
-                    color: batteryColor,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _service.currentLevel < 0
-                        ? l10n.unknown
-                        : '${_service.currentLevel}%',
-                    style: TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w300,
-                      color: batteryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _service.currentIsCharging
-                        ? l10n.charging
-                        : l10n.notCharging,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppColors.secondaryLabel(context),
-                    ),
-                  ),
-                ],
-              ),
+            EngineReadoutHeader(
+              icon: _service.currentIsCharging
+                  ? Icons.battery_charging_full
+                  : Icons.battery_full,
+              iconColor: batteryColor,
+              value: _service.currentLevel < 0
+                  ? l10n.unknown
+                  : '${_service.currentLevel}%',
+              caption: _service.currentIsCharging
+                  ? l10n.charging
+                  : l10n.notCharging,
             ),
             const SizedBox(height: 32),
-            _buildSectionHeader(l10n.reminderSettings, context),
-            _buildGroup([
-              _buildSwitchRow(
-                icon: Icons.power_settings_new,
-                iconColor: AppColors.blue,
-                title: l10n.batteryNotifToggle,
-                subtitle: l10n.batteryNotifToggleDesc,
-                value: _service.notifyEnabled,
-                onChanged: _handleToggleNotify,
-                context: context,
-              ),
-            ], context),
-            const SizedBox(height: 24),
-            _buildSectionHeader(l10n.notifRules, context),
-            _buildGroup(
-              _service.rules.asMap().entries.map((entry) {
-                final index = entry.key;
-                final rule = entry.value;
-                return Column(
-                  children: [
-                    if (index > 0) _buildDivider(context),
-                    _buildRuleTile(rule, context),
-                  ],
-                );
-              }).toList(),
-              context,
+            EngineSection(
+              title: l10n.reminderSettings,
+              children: [
+                EngineSwitchRow(
+                  icon: Icons.power_settings_new,
+                  iconColor: AppColors.blue,
+                  title: l10n.batteryNotifToggle,
+                  subtitle: l10n.notifToggleDesc,
+                  value: _service.notifyEnabled,
+                  onChanged: _handleToggleNotify,
+                  context: context,
+                ),
+              ],
             ),
             const SizedBox(height: 24),
-            _buildSectionHeader(l10n.notes, context),
-            _buildGroup([
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _DescRow(text: l10n.batteryNotes1, context: context),
-                    const SizedBox(height: 8),
-                    _DescRow(text: l10n.batteryNotes2, context: context),
-                    const SizedBox(height: 8),
-                    _DescRow(text: l10n.batteryNotes3, context: context),
-                    const SizedBox(height: 8),
-                    _DescRow(text: l10n.batteryNotes4, context: context),
-                  ],
+            EngineSection(
+              title: l10n.notifRules,
+              divided: true,
+              children: [
+                for (final rule in _service.rules)
+                  _buildRuleTile(rule, context),
+              ],
+            ),
+            const SizedBox(height: 24),
+            EngineSection(
+              title: l10n.notes,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      EngineNoteRow(text: l10n.batteryNotes1, context: context),
+                      const SizedBox(height: 8),
+                      EngineNoteRow(text: l10n.batteryNotes2, context: context),
+                      const SizedBox(height: 8),
+                      EngineNoteRow(text: l10n.batteryNotes3, context: context),
+                      const SizedBox(height: 8),
+                      EngineNoteRow(text: l10n.batteryNotes4, context: context),
+                    ],
+                  ),
                 ),
-              ),
-            ], context),
+              ],
+            ),
           ],
         ),
       ),
@@ -322,7 +298,7 @@ class _BatteryPageState extends State<BatteryPage> {
           onLongPress: _service.notifyEnabled
               ? () => _showRuleActions(rule, ruleId, title, enabled)
               : null,
-          child: _buildSwitchRow(
+          child: EngineSwitchRow(
             icon: icon,
             iconColor: iconColor,
             title: title,
@@ -332,7 +308,6 @@ class _BatteryPageState extends State<BatteryPage> {
                 ? (v) => _handleToggleRule(ruleId, v)
                 : null,
             context: context,
-            trailing: null,
           ),
         ),
       ),
@@ -730,128 +705,6 @@ class _BatteryPageState extends State<BatteryPage> {
     await _service.deleteRule(id);
   }
 
-  Widget _buildSectionHeader(String title, BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: AppColors.secondaryLabel(context),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGroup(List<Widget> children, BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardBg(context),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
-      ),
-    );
-  }
-
-  Widget _buildDivider(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 52),
-      child: Divider(
-        height: 0.5,
-        thickness: 0.5,
-        color: AppColors.separator(context),
-      ),
-    );
-  }
-
-  Widget _buildSwitchRow({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool>? onChanged,
-    required BuildContext context,
-    Widget? trailing,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: iconColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 18, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          trailing ?? const SizedBox.shrink(),
-          CupertinoSwitch(value: value, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-class _DescRow extends StatelessWidget {
-  final String text;
-  final BuildContext context;
-  const _DescRow({required this.text, required this.context});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          margin: const EdgeInsets.only(top: 4),
-          width: 5,
-          height: 5,
-          decoration: BoxDecoration(
-            color: AppColors.tertiaryLabel(this.context),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: AppColors.secondaryLabel(this.context),
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // 版式（顶部大读数 / 分区标题 / 卡片分组 / 开关行 / 说明条目）已抽到
+  // `widgets/engine_page_sections.dart`，由电量 / 温度 / 设备状态三页共用。
 }

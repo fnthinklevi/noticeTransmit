@@ -510,7 +510,7 @@
   "notCharging": "未充电",
   "reminderSettings": "提醒设置",
   "batteryNotifToggle": "电量通知总开关",
-  "batteryNotifToggleDesc": "开启后以下提醒才会生效",
+  "notifToggleDesc": "开启后以下提醒才会生效",
   "notifRules": "通知规则",
   "batteryNotes1": "低电量提醒仅在非充电状态下触发",
   "batteryNotes2": "电量回升到阈值以上才会重置提醒状态",
@@ -1034,6 +1034,24 @@
   "tempSilenceDisabled": "温度告警总开关已关闭",
   "deviceStateEntry": "设备状态告警",
   "deviceStateDesc": "屏幕亮度与网络状态的变化也能触发提醒。只有「跨越」的那一刻算一次事件（一直在阈值之下不会反复提醒），触发后 30 分钟内同一类不再重复提醒。",
+  "brightnessPercentOnly": "{percent}%",
+  "@brightnessPercentOnly": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "networkCaption": "网络：{network}",
+  "@networkCaption": {
+    "placeholders": {
+      "network": {}
+    }
+  },
+  "temperatureNotes1": "阈值 30–90℃：只有「跨越」的那一刻算一次事件，已经在阈值之上不会反复提醒。",
+  "temperatureNotes2": "触发后 30 分钟内同一维度不再重复提醒。",
+  "temperatureNotes3": "电池温度 / 设备温度 / 屏幕温度三个维度各自判定；本机读不到的维度会在「试一次」里明写。",
+  "deviceStateNotes2": "亮度按百分比判定；网络类触发只看「断网」与「联网」这两件事，不需要阈值。",
   "deviceStateNotifyEnabled": "设备状态告警推送",
   "brightnessBelow": "亮度低于",
   "brightnessAbove": "亮度高于",

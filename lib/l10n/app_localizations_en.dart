@@ -1169,7 +1169,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get batteryNotifToggle => 'Battery Notification Master Switch';
 
   @override
-  String get batteryNotifToggleDesc => 'Reminders below only work when enabled';
+  String get notifToggleDesc => 'Reminders below only work when enabled';
 
   @override
   String get notifRules => 'Notification Rules';
@@ -2326,6 +2326,32 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deviceStateDesc =>
       'Screen brightness and network changes can also trigger alerts. Only the moment of crossing counts (staying below the threshold will not repeat), and the same kind will not alert again within 30 minutes.';
+
+  @override
+  String brightnessPercentOnly(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String networkCaption(Object network) {
+    return 'Network: $network';
+  }
+
+  @override
+  String get temperatureNotes1 =>
+      'Thresholds run 30-90C: only the moment a threshold is crossed counts, so staying above it does not re-alert.';
+
+  @override
+  String get temperatureNotes2 =>
+      'After an alert fires, the same dimension stays silent for 30 minutes.';
+
+  @override
+  String get temperatureNotes3 =>
+      'Battery / device / screen temperature are judged independently; a dimension this device cannot read is stated plainly in \"Try once\".';
+
+  @override
+  String get deviceStateNotes2 =>
+      'Brightness is judged by percentage; network rules only react to \"lost\" and \"reconnected\" and need no threshold.';
 
   @override
   String get deviceStateNotifyEnabled => 'Device state alert push';

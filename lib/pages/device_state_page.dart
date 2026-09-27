@@ -2,9 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../models/device_snapshot.dart';
+import '../services/device_info_service.dart';
 import '../services/device_state_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
+import '../widgets/engine_page_sections.dart';
 import '../widgets/ios_dialog_actions.dart';
 
 /// 设备状态告警页（T24）：亮度与网络两类**设备态触发源**的规则都在这里。
@@ -25,11 +28,23 @@ class DeviceStatePage extends StatefulWidget {
 
 class _DeviceStatePageState extends State<DeviceStatePage> {
   final DeviceStateService _service = GetIt.instance<DeviceStateService>();
+  final DeviceInfoService _device = GetIt.instance<DeviceInfoService>();
+
+  /// 顶部读数（亮度百分比 + 网络类型）。null = 这次没读到 ⇒ 明写"这台设备读不到"，
+  /// 不许画 0% 或空着，那会被读成"屏幕真的全黑"。
+  DeviceSnapshot? _snap;
 
   @override
   void initState() {
     super.initState();
     _service.addListener(_onServiceChanged);
+    _loadReading();
+  }
+
+  Future<void> _loadReading() async {
+    final snap = await _device.getDeviceSnapshot();
+    if (!mounted || snap == null) return;
+    setState(() => _snap = snap);
   }
 
   @override
@@ -47,6 +62,8 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final rules = _service.rules;
+    final bright = _snap?.brightnessPercent;
+    final network = engineNetworkLabel(_snap?.network, l10n);
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.deviceStateEntry),
@@ -60,36 +77,86 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
           ),
         ],
       ),
-      body: rules.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  // 不用 `noRules` —— 那条文案明写"暂无温度规则"，借过来会告诉用户
-                  // 他们在温度页上没配过东西（本页是亮度与网络）。
-                  l10n.noDeviceStateRules,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      // 版式与电量页同构（顶部读数 → 提醒设置 → 通知规则 → 说明）。
+      body: RefreshIndicator(
+        onRefresh: _loadReading,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            const SizedBox(height: 16),
+            EngineReadoutHeader(
+              icon: Icons.smartphone,
+              iconColor: AppColors.blue,
+              value: bright == null
+                  ? l10n.unreadableField
+                  : l10n.brightnessPercentOnly(bright),
+              caption: l10n.snapshotBrightness,
+              // 本页两类触发（亮度、网络）各占一行：读数放大的那个是亮度，网络放下面一行。
+              detail: network == null ? null : l10n.networkCaption(network),
+            ),
+            const SizedBox(height: 32),
+            EngineSection(
+              title: l10n.reminderSettings,
               children: [
-                Text(
-                  l10n.deviceStateDesc,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(context),
-                  ),
+                EngineSwitchRow(
+                  icon: Icons.power_settings_new,
+                  iconColor: AppColors.blue,
+                  title: l10n.deviceStateNotifyEnabled,
+                  subtitle: l10n.notifToggleDesc,
+                  value: _service.notifyEnabled,
+                  onChanged: (v) => _service.saveNotifyEnabled(v),
+                  context: context,
                 ),
-                const SizedBox(height: 12),
+              ],
+            ),
+            const SizedBox(height: 24),
+            EngineSection(
+              title: l10n.notifRules,
+              divided: rules.isNotEmpty,
+              children: [
+                if (rules.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      // 不用 `noRules` —— 那条明写"暂无温度规则"，借过来会让用户以为
+                      // 走错了页（本页是亮度与网络）。
+                      l10n.noDeviceStateRules,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.secondaryLabel(context),
+                      ),
+                    ),
+                  ),
                 for (final rule in rules) _ruleCard(l10n, rule),
               ],
             ),
+            const SizedBox(height: 24),
+            EngineSection(
+              title: l10n.notes,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      EngineNoteRow(
+                        text: l10n.deviceStateDesc,
+                        context: context,
+                      ),
+                      const SizedBox(height: 8),
+                      EngineNoteRow(
+                        text: l10n.deviceStateNotes2,
+                        context: context,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -103,49 +170,40 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
     // 副标题只放"这一条还带什么信息"：亮度型是阈值，网络型没有第二个数字可写。
     // 拿类型名当副标题会让同一句话在一张卡里出现两遍（列表里就是两行同样的字）。
     final subtitle = isBrightness ? '阈值 ${rule['value'] ?? 0}%' : null;
-    return Container(
+    return Material(
+      // 底色由 [EngineSection] 的分组卡统一提供，这里只保证每行自己是 Material：
+      // ListTile 的 ink 只画在最近的**不透明 Material** 上（本仓库撞过两次，
+      // 见 [CardActionSheet] 与 app_channel_settings_page）。
+      type: MaterialType.transparency,
       // 按标题定位控件在"改了名"或"两条同名"时会一次打中两个 ⇒ 每行给一个稳定 key。
       key: ValueKey('device-state-row-$id'),
-      margin: const EdgeInsets.only(bottom: 8),
-      // 底色与边框必须挂在 **Material 自己**身上，不能放在外层 Container 的
-      // BoxDecoration 里：ListTile 的 ink 只画在最近的**不透明 Material** 上，
-      // 中间夹一层带色 DecoratedBox 就是把水波纹画到背景之下
-      // （本仓库撞过两次，见 [CardActionSheet] 与 app_channel_settings_page）。
-      child: Material(
-        color: AppColors.cardBg(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.separator(context)),
+      child: ListTile(
+        onTap: () => _showRuleDialog(rule),
+        onLongPress: () => _showRuleActions(rule, id, label, enabled),
+        // 亮度/网络是**设备态**触发，没有"某个应用"的图标可显示 ⇒ 用类型图标代替。
+        leading: Icon(_icon(type), color: _iconColor(type)),
+        title: Text(
+          label,
+          style: TextStyle(
+            fontSize: 15,
+            color: enabled
+                ? AppColors.primaryLabel(context)
+                : AppColors.secondaryLabel(context),
+          ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          onTap: () => _showRuleDialog(rule),
-          onLongPress: () => _showRuleActions(rule, id, label, enabled),
-          // 亮度/网络是**设备态**触发，没有"某个应用"的图标可显示 ⇒ 用类型图标代替。
-          leading: Icon(_icon(type), color: _iconColor(type)),
-          title: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              color: enabled
-                  ? AppColors.primaryLabel(context)
-                  : AppColors.secondaryLabel(context),
-            ),
-          ),
-          subtitle: subtitle == null
-              ? null
-              : Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel(context),
-                  ),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryLabel(context),
                 ),
-          trailing: CupertinoSwitch(
-            value: enabled,
-            activeTrackColor: AppColors.blue,
-            onChanged: (v) => _service.toggleRule(id, v),
-          ),
+              ),
+        trailing: CupertinoSwitch(
+          value: enabled,
+          activeTrackColor: AppColors.blue,
+          onChanged: (v) => _service.toggleRule(id, v),
         ),
       ),
     );

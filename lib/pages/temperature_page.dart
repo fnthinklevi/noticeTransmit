@@ -4,11 +4,14 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/temperature_preview.dart';
+import '../models/device_snapshot.dart';
+import '../services/device_info_service.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/card_action_sheet.dart';
+import '../widgets/engine_page_sections.dart';
 
 /// 自建应用通道体系的温度规则设置页（与 BatteryPage 同级独立入口）。
 ///
@@ -27,11 +30,25 @@ class TemperaturePage extends StatefulWidget {
 
 class _TemperaturePageState extends State<TemperaturePage> {
   final TemperatureService _service = GetIt.instance<TemperatureService>();
+  final DeviceInfoService _device = GetIt.instance<DeviceInfoService>();
+
+  /// 顶部那块实时读数（T17 的 `getDeviceSnapshot`，**一次调用**拿全）。
+  /// null = 这次没读到（通道失败/超时）⇒ 界面必须明说"读不到"，不许画 0℃。
+  DeviceSnapshot? _snap;
 
   @override
   void initState() {
     super.initState();
     _service.addListener(_onServiceChanged);
+    _loadReading();
+  }
+
+  /// 读数只服务于一行显示：拿不到就把旧值留着（下拉刷新与进页都各算一次尝试），
+  /// 失败本身由 `unreadableField` 那句话表达，不额外弹窗。
+  Future<void> _loadReading() async {
+    final snap = await _device.getDeviceSnapshot();
+    if (!mounted || snap == null) return;
+    setState(() => _snap = snap);
   }
 
   @override
@@ -49,6 +66,7 @@ class _TemperaturePageState extends State<TemperaturePage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final rules = _service.rules;
+    final temp = _snap?.batteryTemperatureC;
 
     return Scaffold(
       appBar: AppBar(
@@ -67,22 +85,100 @@ class _TemperaturePageState extends State<TemperaturePage> {
           ),
         ],
       ),
-      body: rules.isEmpty
-          ? Center(
-              child: Text(
-                l10n.noRules,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            )
-          : ListView.builder(
-              itemCount: rules.length,
-              itemBuilder: (context, index) =>
-                  _buildRuleTile(context, rules[index], l10n),
+      // 版式与电量页同构（顶部大读数 → 提醒设置 → 通知规则 → 说明）：
+      // 三页本来各长各的，看着像三个产品。共用组件见 `widgets/engine_page_sections.dart`。
+      body: RefreshIndicator(
+        onRefresh: _loadReading,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            const SizedBox(height: 16),
+            EngineReadoutHeader(
+              icon: Icons.thermostat,
+              iconColor: _readingColor(context, temp),
+              value: temp == null
+                  ? l10n.unreadableField
+                  : l10n.snapshotBatteryTempValue(temp.toStringAsFixed(1)),
+              // 明写是**电池温度**：本页规则有三个维度，而快照只给得出这一路的实时值。
+              // 顶着一个"当前温度"的名号显示别的传感器的数，比不显示更容易骗人。
+              caption: l10n.snapshotBatteryTemp,
             ),
+            const SizedBox(height: 32),
+            EngineSection(
+              title: l10n.reminderSettings,
+              children: [
+                EngineSwitchRow(
+                  icon: Icons.power_settings_new,
+                  iconColor: AppColors.blue,
+                  title: l10n.temperatureNotifyEnabled,
+                  subtitle: l10n.notifToggleDesc,
+                  value: _service.notifyEnabled,
+                  onChanged: (v) => _service.saveNotifyEnabled(v),
+                  context: context,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            EngineSection(
+              title: l10n.notifRules,
+              divided: rules.isNotEmpty,
+              children: [
+                if (rules.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      l10n.noRules,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.secondaryLabel(context),
+                      ),
+                    ),
+                  ),
+                for (final rule in rules) _buildRuleTile(context, rule, l10n),
+              ],
+            ),
+            const SizedBox(height: 24),
+            EngineSection(
+              title: l10n.notes,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      EngineNoteRow(
+                        text: l10n.temperatureNotes1,
+                        context: context,
+                      ),
+                      const SizedBox(height: 8),
+                      EngineNoteRow(
+                        text: l10n.temperatureNotes2,
+                        context: context,
+                      ),
+                      const SizedBox(height: 8),
+                      EngineNoteRow(
+                        text: l10n.temperatureNotes3,
+                        context: context,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  /// 读数颜色只表达"热不热"，不重复规则的判据（阈值是用户自己配的）。
+  /// 读不到时给中性色：红/绿都会把一个"没有数"的格子说成"安全"或"超限"。
+  static Color _readingColor(BuildContext context, double? c) {
+    if (c == null) return AppColors.tertiaryLabel(context);
+    if (c >= 45) return AppColors.red;
+    if (c >= 40) return AppColors.orange;
+    return AppColors.green;
   }
 
   Widget _buildRuleTile(

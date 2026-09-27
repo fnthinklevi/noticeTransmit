@@ -1,3 +1,4 @@
+import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,7 +46,10 @@ void main() {
     GetIt.instance
       ..registerSingleton<BatteryService>(battery)
       ..registerSingleton<TemperatureService>(temperature)
-      ..registerSingleton<DeviceStateService>(deviceState);
+      ..registerSingleton<DeviceStateService>(deviceState)
+      // 温度页/设备状态页的顶部读数走 T17 快照：push 进这两页时页面构造函数要取它，
+      // 少注册一个就是整文件红（与上面那条注释同一个坑）。
+      ..registerSingleton<DeviceInfoService>(DeviceInfoService());
     await battery.loadSettings();
     await temperature.loadSettings();
     await deviceState.loadSettings();

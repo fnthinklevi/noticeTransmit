@@ -2216,11 +2216,11 @@ abstract class AppLocalizations {
   /// **'电量通知总开关'**
   String get batteryNotifToggle;
 
-  /// No description provided for @batteryNotifToggleDesc.
+  /// No description provided for @notifToggleDesc.
   ///
   /// In zh, this message translates to:
   /// **'开启后以下提醒才会生效'**
-  String get batteryNotifToggleDesc;
+  String get notifToggleDesc;
 
   /// No description provided for @notifRules.
   ///
@@ -4309,6 +4309,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'屏幕亮度与网络状态的变化也能触发提醒。只有「跨越」的那一刻算一次事件（一直在阈值之下不会反复提醒），触发后 30 分钟内同一类不再重复提醒。'**
   String get deviceStateDesc;
+
+  /// No description provided for @brightnessPercentOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'{percent}%'**
+  String brightnessPercentOnly(int percent);
+
+  /// No description provided for @networkCaption.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络：{network}'**
+  String networkCaption(Object network);
+
+  /// No description provided for @temperatureNotes1.
+  ///
+  /// In zh, this message translates to:
+  /// **'阈值 30–90℃：只有「跨越」的那一刻算一次事件，已经在阈值之上不会反复提醒。'**
+  String get temperatureNotes1;
+
+  /// No description provided for @temperatureNotes2.
+  ///
+  /// In zh, this message translates to:
+  /// **'触发后 30 分钟内同一维度不再重复提醒。'**
+  String get temperatureNotes2;
+
+  /// No description provided for @temperatureNotes3.
+  ///
+  /// In zh, this message translates to:
+  /// **'电池温度 / 设备温度 / 屏幕温度三个维度各自判定；本机读不到的维度会在「试一次」里明写。'**
+  String get temperatureNotes3;
+
+  /// No description provided for @deviceStateNotes2.
+  ///
+  /// In zh, this message translates to:
+  /// **'亮度按百分比判定；网络类触发只看「断网」与「联网」这两件事，不需要阈值。'**
+  String get deviceStateNotes2;
 
   /// No description provided for @deviceStateNotifyEnabled.
   ///

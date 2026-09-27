@@ -1,4 +1,8 @@
+import 'package:notice_transmit/services/device_info_service.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:notice_transmit/widgets/engine_page_sections.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
@@ -48,6 +52,9 @@ void main() {
     store = MemoryRuleStore();
     service = DeviceStateService(store: store);
     GetIt.instance.registerSingleton<DeviceStateService>(service);
+    // 顶部实时读数要读 T17 的快照：注册真的 DeviceInfoService 就够 —— 通道 mock 回 null，
+    // 页面必须显示「这台设备读不到」，而不是 0℃ / 0%（那一格本来就有的判据）。
+    GetIt.instance.registerSingleton<DeviceInfoService>(DeviceInfoService());
     await service.loadSettings();
   });
 
@@ -142,6 +149,58 @@ void main() {
       await service.addRule(rule(id: 'b2', type: 'network_connected'));
       await tester.pumpAndSettle();
       expect(find.text('恢复联网时'), findsOneWidget);
+    });
+  });
+
+  // 版式对齐电量页之后新增：顶部读数（亮度 + 网络）与总开关行。
+  group('顶部读数与总开关（与电量页同构）', () {
+    void stubSnapshot(Map<String, Object?>? snap) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.fnthink.notice/notification'),
+            (call) async => call.method == 'getDeviceSnapshot' ? snap : null,
+          );
+    }
+
+    testWidgets('读不到 ⇒ 明写读不到，不画 0%', (tester) async {
+      stubSnapshot(null);
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('这台设备读不到'), findsOneWidget);
+      expect(find.text('屏幕亮度'), findsOneWidget);
+      expect(find.text('0%'), findsNothing, reason: '0% 会被读成"屏幕真的全黑"');
+    });
+
+    testWidgets('亮度和网络都显示出来（本页两类触发各有各的读数）', (tester) async {
+      stubSnapshot({'brightnessPercent': 62, 'network': 'wifi'});
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('62%'), findsOneWidget);
+      expect(find.text('网络：Wi-Fi'), findsOneWidget);
+    });
+
+    testWidgets('总开关那一行真的落到服务', (tester) async {
+      stubSnapshot({'brightnessPercent': 10, 'network': 'none'});
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(service.notifyEnabled, isTrue);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(EngineSwitchRow),
+          matching: find.byType(CupertinoSwitch),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(service.notifyEnabled, isFalse);
+      expect(
+        find.text('网络：未联网'),
+        findsOneWidget,
+        reason: 'none 那一档要说"未联网"，不是空着',
+      );
     });
   });
 }

@@ -1,6 +1,9 @@
+import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:notice_transmit/widgets/engine_page_sections.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
@@ -61,6 +64,9 @@ void main() {
     store = MemoryRuleStore();
     service = TemperatureService(store: store);
     GetIt.instance.registerSingleton<TemperatureService>(service);
+    // 顶部实时读数要读 T17 的快照：注册真的 DeviceInfoService 就够 —— 通道 mock 回 null，
+    // 页面必须显示「这台设备读不到」，而不是 0℃ / 0%（那一格本来就有的判据）。
+    GetIt.instance.registerSingleton<DeviceInfoService>(DeviceInfoService());
     await service.loadSettings();
   });
 
@@ -103,7 +109,13 @@ void main() {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
-    final sw = find.byType(CupertinoSwitch);
+    // 页里现在有两个开关：分组的"温度推送通知"总开关 + 每条规则自己的开关。
+    // 这条测的是**规则**开关弹不弹回 ⇒ 必须限定在规则行（Slidable）里找，
+    // 用位置（.last）会在分区顺序调整时悄悄测到总开关。
+    final sw = find.descendant(
+      of: find.byType(Slidable),
+      matching: find.byType(CupertinoSwitch),
+    );
     expect(tester.widget<CupertinoSwitch>(sw).value, isFalse);
 
     await tester.tap(sw);
@@ -316,6 +328,61 @@ void main() {
       await tester.longPress(find.text('电池过热'));
       await tester.pumpAndSettle();
       expect(find.text('试一次'), findsOneWidget);
+    });
+  });
+
+  // 版式对齐电量页之后新增的三格（顶部读数 + 总开关行）此前无人测：
+  // 读不到时画 0℃ 与"添加按钮没变灰"都是会静默骗人的形状。
+  group('顶部读数与总开关（与电量页同构）', () {
+    void stubSnapshot(Map<String, Object?>? snap) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.fnthink.notice/notification'),
+            (call) async => call.method == 'getDeviceSnapshot' ? snap : null,
+          );
+    }
+
+    Finder masterSwitch() => find.descendant(
+      of: find.byType(EngineSwitchRow),
+      matching: find.byType(CupertinoSwitch),
+    );
+
+    testWidgets('快照读不到 ⇒ 明写"这台设备读不到"，不许画 0℃', (tester) async {
+      stubSnapshot(null);
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('这台设备读不到'), findsOneWidget);
+      expect(find.text('电池温度'), findsOneWidget, reason: '要说清这个"读不到"是谁的读数');
+      expect(find.textContaining('0.0℃'), findsNothing);
+    });
+
+    testWidgets('快照给得出 ⇒ 显示实际读数，不再显示读不到', (tester) async {
+      stubSnapshot({'batteryTemperatureC': 41.3});
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('41.3℃'), findsOneWidget);
+      expect(find.text('这台设备读不到'), findsNothing);
+    });
+
+    testWidgets('总开关那一行真的落到服务，且关掉后加号变灰', (tester) async {
+      stubSnapshot({'batteryTemperatureC': 30.0});
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      expect(service.notifyEnabled, isTrue);
+
+      await tester.tap(masterSwitch());
+      await tester.pumpAndSettle();
+
+      expect(service.notifyEnabled, isFalse, reason: '只改界面不落服务 = 重启就弹回');
+      expect(
+        tester
+            .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.add))
+            .onPressed,
+        isNull,
+        reason: '总开关关了还不让加规则，才是这行开关存在的意义',
+      );
     });
   });
 }
