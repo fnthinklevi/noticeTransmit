@@ -252,6 +252,14 @@ case_hang_only() {  # $1=日志标签
     [ "${hangs:-0}" -gt 0 ] && [ "${funcs:-0}" -eq 0 ]
 }
 
+# 一节挂住之后，同一用例剩下的节会被跳过（见 walkthrough 的 `_step`），所以一条用例挂住
+# 大约只花 3′ —— 重跑它是划算的。**默认只重试一次**（这是 2026-09-27 定下的口径），
+# 想多给一次机会就显式设 `GATE_HANG_RETRIES=2`：本机今天实测四处挂住分布在 5.3/5.4a/5.5/
+# 5.8/第 6 节/第 7 节上。同一节连挂两次出现过一次（第 23 轮的 5.8 首次与重试都挂），
+# 但定向实验里同一节第二次就绿了（第 24 轮：先挂 5.5、再跑整条通过）⇒ 挂住不是确定性的，
+# 多给一次机会的边际收益是真的，只是每多一次就多 3–4 分钟。
+GATE_HANG_RETRIES=${GATE_HANG_RETRIES:-1}
+
 if [ -n "$GATE_CASES" ]; then
     # 其余测试文件（smoke 等）仍一次跑完；walkthrough 按用例名拆开跑
     OTHERS=$(printf '%s\n' $FILES | grep -v "^$WALK\$" | tr '\n' ' ')
@@ -259,13 +267,15 @@ if [ -n "$GATE_CASES" ]; then
         [ -n "$case_name" ] || continue
         run_case "$case_name" "$WALK" --plain-name "$case_name"
         case_rc=$?
-        if [ "$case_rc" -ne 0 ] && case_hang_only "$case_name"; then
-            warn "$case_name 首次是**挂住**（无功能红）⇒ 按口径重跑这一条一次"
-            run_case "$case_name 重跑" "$WALK" --plain-name "$case_name"
+        attempt=0
+        while [ "$case_rc" -ne 0 ] && [ "$attempt" -lt "$GATE_HANG_RETRIES" ] \
+                && case_hang_only "$case_name"; do
+            attempt=$((attempt + 1))
+            warn "$case_name 首次是**挂住**（无功能红）⇒ 按口径重跑这一条一次（第 $attempt/$GATE_HANG_RETRIES 次重试）"
+            run_case "$case_name 重跑$attempt" "$WALK" --plain-name "$case_name"
             case_rc=$?
-            [ "$case_rc" -eq 0 ] && \
-                ok "$case_name 重跑通过（首次挂住的位置见上面 GATE-STEP-FAIL）"
-        fi
+            [ "$case_rc" -eq 0 ] && ok "$case_name 第 $attempt 次重试通过（挂点见上面的 GATE-STEP-FAIL）"
+        done
         # RC 只记"有没有红"（0/1）：某条被回退上限掐掉时 124 已经逐条说过了，
         # 再把它当"整轮超时"复述一遍会在报告里出现两个互相矛盾的结论。
         [ "$case_rc" -eq 0 ] || RC=1

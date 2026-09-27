@@ -959,17 +959,29 @@ void main() {
             '功能红计数必须锚在 `GATE-STEP-FAIL` 上。锚点放宽到 `GATE-STEP` 就把「跳过」「BEGIN」'
             '一起算成红 ⇒ 挂住永远不许重试，重试机制形同不存在',
       );
+      // 重试的门必须同时是三件事：已经红了、还没用尽次数、且**只有挂住**。
+      // 少任一件就会出现"绿的重跑"或"功能红被洗掉"。分三条 substring 断言：
+      // 这条 while 在脚本里是折行的，用一条正则去捏它只会让守卫比被测代码更脆。
       expect(
-        RegExp(r'\[ "\$case_rc" -ne 0 \] && case_hang_only').hasMatch(sh),
-        isTrue,
-        reason: '重试只能发生在"已经红了"之后；绿的那条重跑等于把一轮时长白翻倍',
+        sh,
+        allOf(
+          contains(r'[ "$case_rc" -ne 0 ]'),
+          contains(r'"$attempt" -lt "$GATE_HANG_RETRIES"'),
+          contains(r'&& case_hang_only "$case_name"'),
+        ),
+        reason: '重试的门缺了任意一半（红过 / 次数未用尽 / 只有挂住）⇒ 行为会漂移到不可信',
       );
       expect(
         RegExp(
-          r'run_case "\$case_name 重跑" "\$WALK" --plain-name "\$case_name"',
+          r'run_case "\$case_name 重跑\$attempt" "\$WALK" --plain-name "\$case_name"',
         ).hasMatch(sh),
         isTrue,
         reason: '重跑必须跑**同一条**用例（换成正则或整档，等于用别的覆盖顶掉这一条的结论）',
+      );
+      expect(
+        RegExp(r'GATE_HANG_RETRIES=\$\{GATE_HANG_RETRIES:-1\}').hasMatch(sh),
+        isTrue,
+        reason: '重试次数要显式可读、默认为 1（这是定下的口径）；偷偷改成 2 等于把一轮时长再翻一倍',
       );
       expect(
         sh.contains('重跑这一条一次'),
