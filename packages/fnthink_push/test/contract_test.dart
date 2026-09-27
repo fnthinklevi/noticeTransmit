@@ -127,6 +127,22 @@ void main() {
       expectProblem(broken, 'endpointMaxLevel', '端点只能产 L1 是红线');
     });
 
+    test('又冒出第二个 skew 数值键（T71 那个 clockSkewSeconds 复活）⇒ 报', () {
+      // 这一条守的是"删掉的键别再回来"：两处数值并排，改一处忘一处不会报错，
+      // 只会表现成某一端偶尔把合法包判成过期。
+      final broken = mutate((raw) {
+        (raw['signature'] as Map)['clockSkewSeconds'] = 120;
+      });
+      expectProblem(broken, 'skew 类的键', '一根轴只许一个 skew 旋钮');
+    });
+
+    test('验签失败不计数 ⇒ 报（T29 任务书那句「并计数」）', () {
+      final broken = mutate((raw) {
+        ((raw['signature'] as Map)['onFailure'] as Map)['count'] = false;
+      });
+      expectProblem(broken, 'onFailure.count', '拒了不留数就是静默丢弃');
+    });
+
     test('私钥改成可导出 ⇒ 报', () {
       final broken = mutate((raw) {
         ((raw['identity'] as Map)['identityKey']

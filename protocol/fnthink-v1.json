@@ -69,7 +69,6 @@
     "separator": "\u0000",
     "timestampSource": "serverTime",
     "trustLocalClock": false,
-    "clockSkewSeconds": 120,
     "nonceDedupe": true,
     "verifyOnlyForWhitelistedKeys": true,
       "publicKeyEncoding": {

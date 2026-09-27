@@ -282,6 +282,27 @@ class FnthinkContract {
       'publicKeyEncoding.rawLength 必须是 32：Ed25519 公钥就这个长度',
     );
 
+    // 一根轴只许有一个旋钮。T71 那版留了个 `clockSkewSeconds: 120`（谁都没读），
+    // T29-B 判过期用的是 `maxSkewSeconds: 300` —— 两份数值并排放着，漂了不会报错，
+    // 只会表现成"一端严一端松"，而现场看到的是偶发 410。
+    // 判据是"数值"：`maxSkewWhy` 那种解释性字符串不算第二个旋钮。
+    final skewKeys =
+        (map(const ['signature']) ?? const <String, Object?>{}).entries
+            .where(
+              (e) => e.key.toLowerCase().contains('skew') && e.value is num,
+            )
+            .map((e) => e.key)
+            .toList()
+          ..sort();
+    need(
+      skewKeys.length == 1 && skewKeys.first == 'maxSkewSeconds',
+      'signature 段里 skew 类的键必须只有 maxSkewSeconds 一个，实为 $skewKeys',
+    );
+    need(
+      boolOf(const ['signature', 'onFailure', 'count']) == true,
+      'signature.onFailure.count 必须是 true：拒了不留数就是静默丢弃（T29 任务书那句"并计数"）',
+    );
+
     // ── 状态码 ──
     final codes = statusCodes;
     need(codes.containsValue(202), 'statusCodes 里没有 202（queued 是异步投递的同步答复）');
