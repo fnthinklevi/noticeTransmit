@@ -18,10 +18,15 @@ import 'package:flutter_test/flutter_test.dart';
 ///    被点到时才炸，常规回归测试（走 mock 通道）根本发现不了。
 ///    这是本文件存在的首要原因，不允许为通过而放宽。
 ///
-/// 2. **总数 == 92**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+/// 2. **总数 == 95**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
 ///    （6e 加了两个非侵入探测 `probeAppChannelToken` / `verifySmtp`：91 → 93；
 ///     T20 引擎规则入 DB，删掉两处原生镜像写 `setBatteryRules` / `setTemperatureRules`、
-///     换成一枚无载荷的 `refreshEngineRules`：93 → 92。**只降不升**是这条的验收口径。）
+///     换成一枚无载荷的 `refreshEngineRules`：93 → 92；
+///     T26 B 半给幻念推送身份开了一个**新域** `FnthinkChannelHandler`，加
+///     `getFnthinkIdentity` / `signFnthinkBytes`：93 → 95。
+///     ⚠ 这两枚目前**只有 Kotlin 侧与被仪器测试调用，Dart 侧还没有调用方** ——
+///     "只降不升"防的是无人认领的分支，这里是有意先落原生半边（Dart 半边随 T28/T42 落地）。
+///     方向 1 仍要求：Dart 一旦调用，原生必须先有分支。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -69,10 +74,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 93（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 95（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        93,
+        95,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -88,6 +93,7 @@ void main() {
         'DeviceChannelHandler': 15,
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
+        'FnthinkChannelHandler': 2,
       });
     });
 
@@ -110,7 +116,7 @@ void main() {
         dart.length,
         greaterThanOrEqualTo(70),
         reason:
-            'Dart 侧只解析出 ${dart.length} 个方法名，远低于原生 92 个里的实际调用面：'
+            'Dart 侧只解析出 ${dart.length} 个方法名，远低于原生这一面的实际调用量：'
             '要么 _dartChannelMethods 的正则退化了，要么调用写法又多了第五种',
       );
       // 三种书写形态各钉一枚代表：少一种 = 对应的解析分支已经不再命中。

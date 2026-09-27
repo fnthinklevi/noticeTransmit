@@ -6,7 +6,7 @@ import java.io.ByteArrayOutputStream
  * 幻念推送身份密钥（T26 第三片）里**不依赖 Context 与 KeyStore** 的那一层。
  *
  * 放在这里的东西都是"两端各写一遍就会出静默事故"的部分：
- *  - 平台门槛（API 30 才有 KeyStore 原生 Ed25519，而 minSdk 是 24）——判错的表现是
+ *  - 平台门槛（KeyStore 能用的原生 Ed25519 要 API 33，而 minSdk 是 24）——判错的表现是
  *    老设备上直接抛 NoSuchAlgorithmException，用户看到的是"这 app 一开就崩"；
  *  - DER 头与裸公钥字节的互换——图省事"切最后 32 字节"的话，任何一把形状相近的别的密钥
  *    都会被当成 Ed25519 公钥发出去，而它永远验不过，现场却一切正常；
@@ -17,18 +17,25 @@ import java.io.ByteArrayOutputStream
 
 /** 私钥走哪条路。契约 `identity.identityKey.belowNativeSdk` 写的就是 [KEYSTORE_WRAPPED] 那个字符串。 */
 enum class IdentityKeyPlan(val contractValue: String) {
-    /** API 30+：KeyStore 原生 Ed25519，私钥本体从不离开 KeyStore。 */
+    /** API 33+：KeyStore 原生 Ed25519，私钥本体从不离开 KeyStore。 */
     NATIVE("androidKeyStoreEd25519"),
 
-    /** API 24–29：软件生成的 Ed25519 私钥，用 KeyStore 里一把**不可导出的** AES-GCM 密钥包裹后落盘。 */
+    /** API 24–32：软件生成的 Ed25519 私钥，用 KeyStore 里一把**不可导出的** AES-GCM 密钥包裹后落盘。 */
     KEYSTORE_WRAPPED("keystoreWrappedSoftwareKey"),
 }
 
 object FnthinkIdentityPolicy {
 
-    /** KeyStore 支持 EdDSA 的最低系统版本。**与契约 `identity.identityKey.nativeMinSdkVersion` 必须一致**，
-     *  由 `test/architecture/fnthink_identity_contract_test.dart` 跨语言钉住。 */
-    const val NATIVE_MIN_SDK_VERSION = 30
+    /** 能在 KeyStore 里**用** Ed25519 的最低系统版本。**与契约 `identity.identityKey.nativeMinSdkVersion`
+     *  必须一致**，由 `test/architecture/fnthink_identity_contract_test.dart` 跨语言钉住。
+     *
+     * ⚠ 是 33 不是 30：KeyStore 自 API 30 起可以**生成** Ed25519，但签名要往
+     * `Signature("NONEwithEdEC")` 里塞 `EdECParameterSpec(EdECPoint(...))`，而
+     * `EdECPoint` / `EdECPublicKey` / `NamedParameterSpec` 在本地 SDK 的 api-versions.xml 里全是 `since=33`。
+     * 门槛写成 30 的后果不是编译不过，而是 30–32 那批设备**建得出钥、拿不到公钥点**，
+     * 第一次签名就抛 —— 而那时地址码已经印在用户屏幕上了。
+     */
+    const val NATIVE_MIN_SDK_VERSION = 33
 
     fun planFor(sdkInt: Int): IdentityKeyPlan =
         if (sdkInt >= NATIVE_MIN_SDK_VERSION) IdentityKeyPlan.NATIVE else IdentityKeyPlan.KEYSTORE_WRAPPED
@@ -97,6 +104,13 @@ object Ed25519Encoding {
         strip(PKCS8_PREFIX, encoded, "私钥(PKCS#8)")
 
     fun pkcs8FromRawPrivate(raw: ByteArray): ByteArray = wrap(PKCS8_PREFIX, raw, "裸私钥种子")
+
+    // ⚠ 这里**故意不**提供"从 KeyStore 的 EdECPoint 拼裸公钥"的函数。
+    // 那样要把 `point.y` 的字节序当成 RFC 8032 的小端编码来用，而它在 Java 侧的表示并不由我保证；
+    // 拼错的表现不是报错，是"导出一把对端永远不认的公钥"。
+    // 设备侧改走 `publicKey.encoded`（SubjectPublicKeyInfo DER）→ [rawPublicFromSpki]：
+    // X.509 里 Ed25519 的 BIT STRING 内容就是那 32 字节，端序由标准定死，而这条路径已被上面的
+    // 逐字节头校验 + 往返测试钉住。签名参数仍直接用 KeyStore 给的 point 对象，不做任何往返。
 
     // ⚠ base64 的编解码**不在这里**：设备侧要 API 24 可用就只能用 android.util.Base64，
     // 而它在 JVM 单测里是"返回默认值"的桩（`isReturnDefaultValues = true`）—— 放进来只会得到

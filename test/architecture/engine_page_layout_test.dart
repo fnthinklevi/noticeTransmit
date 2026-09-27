@@ -79,7 +79,7 @@ void main() {
         expect(
           src,
           isNot(contains('AppChannels.notification.invokeMethod')),
-          reason: '页面不碰通道：读数经由 DeviceInfoService，方法总数只降不升（93）',
+          reason: '页面不碰通道：读数经由 DeviceInfoService，方法总数只降不升（当前 95）',
         );
       }
     });

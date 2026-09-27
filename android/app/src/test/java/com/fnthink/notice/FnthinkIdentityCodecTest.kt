@@ -26,10 +26,11 @@ class FnthinkIdentityCodecTest {
     // ── 平台门槛 ──
 
     @Test
-    fun `门槛边界是 30 —— 29 走包裹，30 走原生`() {
-        assertEquals(30, FnthinkIdentityPolicy.NATIVE_MIN_SDK_VERSION)
-        assertEquals(IdentityKeyPlan.KEYSTORE_WRAPPED, FnthinkIdentityPolicy.planFor(29))
-        assertEquals(IdentityKeyPlan.NATIVE, FnthinkIdentityPolicy.planFor(30))
+    fun `门槛边界是 33 —— 32 走包裹，33 走原生`() {
+        // 30 是"能生成"，33 才是"能签名"；这条边界钉的是后者。
+        assertEquals(33, FnthinkIdentityPolicy.NATIVE_MIN_SDK_VERSION)
+        assertEquals(IdentityKeyPlan.KEYSTORE_WRAPPED, FnthinkIdentityPolicy.planFor(32))
+        assertEquals(IdentityKeyPlan.NATIVE, FnthinkIdentityPolicy.planFor(33))
         assertEquals(IdentityKeyPlan.NATIVE, FnthinkIdentityPolicy.planFor(34))
         assertEquals(IdentityKeyPlan.KEYSTORE_WRAPPED, FnthinkIdentityPolicy.planFor(24))
     }

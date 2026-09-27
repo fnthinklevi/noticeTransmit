@@ -492,8 +492,9 @@ class FnthinkContract {
     // 平台门槛（T26 第三片）：AndroidKeyStore 的 Ed25519 自 API 30 起，而 minSdk 是 24。
     // 这两个键把"30 以下怎么办"写进协议，而不是留给某个 Kotlin 文件里的注释。
     need(
-      intOf(const ['identity', 'identityKey', 'nativeMinSdkVersion']) == 30,
-      'identityKey.nativeMinSdkVersion 必须是 30：KeyStore 的 EdDSA 自 Android 11 起才有',
+      intOf(const ['identity', 'identityKey', 'nativeMinSdkVersion']) == 33,
+      'identityKey.nativeMinSdkVersion 必须是 33：KeyStore 30 起能【生成】Ed25519，'
+      '但签名要的 EdECPoint / EdECPublicKey / NamedParameterSpec 自 Android 13 才有',
     );
     need(
       str(const ['identity', 'identityKey', 'belowNativeSdk']) ==

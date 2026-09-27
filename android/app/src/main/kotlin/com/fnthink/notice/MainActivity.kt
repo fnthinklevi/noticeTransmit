@@ -31,6 +31,7 @@ import com.fnthink.notice.channels.ChannelDispatcher
 import com.fnthink.notice.channels.ConfigChannelHandler
 import com.fnthink.notice.channels.DeviceChannelHandler
 import com.fnthink.notice.channels.FileChannelHandler
+import com.fnthink.notice.channels.FnthinkChannelHandler
 import com.fnthink.notice.channels.PermissionChannelHandler
 import com.fnthink.notice.channels.StatsChannelHandler
 import com.tencent.bugly.crashreport.CrashReport
@@ -332,8 +333,8 @@ class MainActivity : FlutterActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel)
         // 旧单 when（74 分支）已按域拆分至 channels/ 包，由 ChannelDispatcher 依序分发：
         // Permission（权限与系统跳转）→ Config（通道/规则/过滤/服务开关）→ Device（设备与桌面）
-        // → File（导出/下载/安装）→ Stats（历史/计数/应用列表）。未消费方法回 notImplemented，
-        // 与拆分前 else 分支行为一致。
+        // → File（导出/下载/安装）→ Stats（历史/计数/应用列表）→ Fnthink（幻念推送身份）。
+        // 未消费方法回 notImplemented，与拆分前 else 分支行为一致。
         val dispatcher = ChannelDispatcher(
             listOf(
                 PermissionChannelHandler(this),
@@ -341,6 +342,7 @@ class MainActivity : FlutterActivity() {
                 DeviceChannelHandler(this),
                 FileChannelHandler(this),
                 StatsChannelHandler(this),
+                FnthinkChannelHandler(this),
             )
         )
         methodChannel?.setMethodCallHandler { call, result ->

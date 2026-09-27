@@ -199,11 +199,11 @@ void main() {
       expectProblem(broken, 'belowNativeSdk', '私钥不可导出是任务书原文');
     });
 
-    test('平台门槛写歪（改成 API 24 就有原生 Ed25519）⇒ 报', () {
+    test('平台门槛写回 30（能生成 ≠ 能签名）⇒ 报', () {
       final broken = mutate((raw) {
         ((raw['identity'] as Map)['identityKey']
                 as Map)['nativeMinSdkVersion'] =
-            24;
+            30;
       });
       expectProblem(
         broken,
