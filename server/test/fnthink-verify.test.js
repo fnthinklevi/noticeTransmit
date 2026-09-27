@@ -25,6 +25,8 @@ const contract = assertSupported(loadContract());
 const NOW = 1_800_000_000_000; // 毫秒；字段里的 ts 是秒
 const SENDER = '8K3FJ6QPTM9WZ4VHNS';
 const OTHER = '7YD4RKQPBM8XZ3VHNT';
+const PUBKEY = Buffer.alloc(32, 7).toString('base64');
+const PUBKEY2 = Buffer.alloc(32, 8).toString('base64');
 
 function keypair() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
@@ -167,8 +169,10 @@ describe('fnthink 验签与裁决（T29-B）', () => {
       seen[label] = entries[0].lastReason;
     }
     // 这四类必须各有自己的原因；把它塌成一个"reject"是退步（现场就看不出是被人枚举还是在重放旧包）
+    // 状态那一类的原因带上了状态名（`status:frozen`）：判定是白名单式的，
+    // 新状态自动有一条自己的留痕原因，不必再改这段代码。
     expect(new Set(Object.values(seen))).toEqual(
-      new Set(['fields', 'unknown_device', 'signature', 'frozen']),
+      new Set(['fields', 'unknown_device', 'signature', 'status:frozen']),
     );
     expect(seen.未知设备).not.toBe(seen.已冻结);
     expect(seen.未知设备).not.toBe(seen.签名是别人签的);
@@ -429,6 +433,70 @@ describe('fnthink 验签与裁决（T29-B）', () => {
       { ok: true, status: 202, receipt: 'queued' },
       { ok: true, status: 202, receipt: 'queued' },
     ]);
+  });
+
+  test('⚠ 状态判定是白名单式的：表里任何一个非 active 状态都拒，且与"未知设备"同形', () => {
+    const statuses = Object.keys(contract.revocation.deviceStatuses).filter((s) => s !== 'active');
+    expect(statuses.length).toBeGreaterThan(0);
+    // 将来有人往 deviceStatuses 里加一档而忘了投递判定 —— 这条用例会自动把它算进来，
+    // 因为这里读的是契约，不是代码里的一份枚举表。
+    const good = signable(kp, fields());
+    expect(contract.revocation.deliveryAllowedStatuses).toEqual(['active']);
+    for (const status of statuses.concat(['一个契约里根本没有的状态名'])) {
+      const state = stateFor(kp, {
+        devices: { [SENDER]: { publicKey: kp.rawBase64, status } },
+      });
+      const out = verify.acceptIncoming(contract, state, {
+        senderAddress: SENDER,
+        signature: good.signature,
+        fields: good.fields,
+        now: good.now,
+      });
+      expect([status, out]).toEqual([
+        status,
+        { ok: false, status: 403, receipt: 'rejected_unsigned' },
+      ]);
+    }
+  });
+
+  test('吊销/冻结/重建身份各有自己的入口，且都不删记录', () => {
+    const devices = {};
+    store.registerDevice(contract, devices, { addressCode: SENDER, publicKey: PUBKEY }, NOW);
+    store.registerDevice(contract, devices, { addressCode: OTHER, publicKey: PUBKEY2 }, NOW);
+    expect(Object.keys(devices)).toHaveLength(2);
+
+    expect(store.revokeDevice(contract, devices, SENDER, NOW).status).toBe('revoked');
+    expect(devices[SENDER].revokedAt).toBe(NOW);
+    expect(store.freezeDevice(contract, devices, OTHER, NOW).status).toBe('frozen');
+    // 一键全部失效：只动还没吊销的那台（返回台数，按纽的人要能知道影响了谁）
+    expect(store.revokeAllDevices(contract, devices, NOW + 1)).toBe(1);
+    expect(devices[SENDER].revokedAt).toBe(NOW); // 旧的 revokedAt 没被覆盖
+    // 三件事都不删历史：记录与公钥仍在册
+    expect(Object.keys(devices)).toHaveLength(2);
+    expect(devices[SENDER].publicKey).toBe(PUBKEY);
+  });
+
+  test('身份重建：只有当时 active 的发送方被置为待重配，已吊销的不动', () => {
+    const devices = {};
+    store.registerDevice(contract, devices, { addressCode: SENDER, publicKey: PUBKEY }, NOW);
+    store.registerDevice(contract, devices, { addressCode: OTHER, publicKey: PUBKEY2 }, NOW);
+    store.revokeDevice(contract, devices, OTHER, NOW);
+    expect(store.invalidatePeersAfterRebuild(contract, devices, NOW + 5)).toBe(1);
+    expect(devices[SENDER].status).toBe('awaitingRepair');
+    expect(devices[OTHER].status).toBe('revoked');
+    expect(devices[OTHER].revokedAt).toBe(NOW);
+  });
+
+  test('状态名打错字 ⇒ 抛并点名可取的状态（写进去以后没人认得才是真麻烦）', () => {
+    const devices = {};
+    store.registerDevice(contract, devices, { addressCode: SENDER, publicKey: PUBKEY }, NOW);
+    expect(() => store.setDeviceStatus(contract, devices, SENDER, 'actve', NOW)).toThrow(
+      /不在契约的 revocation.deviceStatuses/,
+    );
+    expect(() =>
+      store.setDeviceStatus(contract, devices, '8K3FJ6QPTM9WZ4VHR0', 'frozen', NOW),
+    ).toThrow(/未登记/);
+    expect(devices[SENDER].status).toBe('active'); // 抛之前不落盘
   });
 
   test('契约自己把这组关系钉住了（dedupe ≥ 2×skew）', () => {

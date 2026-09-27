@@ -175,6 +175,25 @@ class FnthinkContract {
   String get pairingMaxRequestableLevel =>
       str(const ['pairing', 'maxRequestableLevelWithoutLocalAuth']) ?? '';
 
+  /// 设备状态表：状态名 → 含义。**投递只认白名单里那几个状态**。
+  Map<String, String> get deviceStatuses {
+    final table = map(const ['revocation', 'deviceStatuses']) ?? const {};
+    return {for (final e in table.entries) e.key: '${e.value}'};
+  }
+
+  /// 允许投递的状态（预期就是 `[active]`）。缺键抛而不是补默认值：
+  /// 默认值就是"哪天契约把白名单删了，代码还照旧放行"。
+  List<String> get deliveryAllowedStatuses {
+    final list = strings(const ['revocation', 'deliveryAllowedStatuses']);
+    if (list.isEmpty) {
+      throw StateError('契约缺 revocation.deliveryAllowedStatuses（不补默认状态）');
+    }
+    return list;
+  }
+
+  bool get revokeKeepsHistory =>
+      boolOf(const ['revocation', 'dataNeverDeletedByRevoke']) == true;
+
   List<String> get capabilityLevels =>
       strings(const ['capabilities', 'levels']);
 
@@ -575,6 +594,44 @@ class FnthinkContract {
       levels.every(covered.contains),
       'levels 里有档位没有任何 type 能进：$levels vs $covered',
     );
+
+    // ── 吊销与生命周期（T31）──
+    final statuses = deviceStatuses.keys.toSet();
+    need(
+      statuses.isNotEmpty,
+      'revocation.deviceStatuses 不能为空：设备状态没有词表就等于谁都能编一个',
+    );
+    need(
+      statuses.contains('active'),
+      'revocation.deviceStatuses 必须有 active（在册可投递那一档）：$statuses',
+    );
+    final allowed = strings(const ['revocation', 'deliveryAllowedStatuses']);
+    need(
+      allowed.isNotEmpty,
+      'revocation.deliveryAllowedStatuses 不能缺省或为空（判投递时不许补默认状态）',
+    );
+    need(
+      statuses.containsAll(allowed),
+      'deliveryAllowedStatuses 里有不在 deviceStatuses 里的状态：$allowed vs $statuses',
+    );
+    // 白名单必须只有 active：多一个就是"某个被停用的状态仍能被投递"
+    need(
+      allowed.length == 1 && allowed.first == 'active',
+      'revocation.deliveryAllowedStatuses 只能是 [active]：投递判定必须是白名单式，'
+      '枚举"被停用的状态"会让将来新增的状态默认放行',
+    );
+    for (final key in const [
+      'resetPairingCodeInvalidatesOutstanding',
+      'identityRebuildInvalidatesAllPeers',
+      'massRevokeSupported',
+      'dataNeverDeletedByRevoke',
+    ]) {
+      need(
+        boolOf(['revocation', key]) == true,
+        'revocation.$key 必须为 true（重置即让旧配对失效、重建即让所有发送方重配、'
+        '支持一键全部失效、吊销不删历史）',
+      );
+    }
 
     // ── 身份与凭证（红线）──
     need(

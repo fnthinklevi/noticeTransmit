@@ -127,6 +127,41 @@ void main() {
       expectProblem(broken, 'endpointMaxLevel', '端点只能产 L1 是红线');
     });
 
+    test('把 revoked 也加进"允许投递"的白名单 ⇒ 报（吊销了还能收到，等于没吊销）', () {
+      final broken = mutate((raw) {
+        ((raw['revocation'] as Map)['deliveryAllowedStatuses'] as List).add(
+          'revoked',
+        );
+      });
+      expectProblem(broken, 'deliveryAllowedStatuses', '白名单只能有 active');
+    });
+
+    test('白名单里写一个状态表里没有的名字 ⇒ 报（打错字的方向必须是"判不过"）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map)['deliveryAllowedStatuses'] = ['actve'];
+      });
+      expectProblem(broken, '不在 deviceStatuses', '状态名要拼错就先报错');
+    });
+
+    test('吊销顺手清历史 ⇒ 报（破坏性动作不塞进安全动作的副作用里）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map)['dataNeverDeletedByRevoke'] = false;
+      });
+      expectProblem(broken, 'dataNeverDeletedByRevoke', '吊销只停投递，历史要单独一次显式操作');
+    });
+
+    test('重建身份不再让所有发送方重配 ⇒ 报（换手机不能悄悄续上旧信任）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map)['identityRebuildInvalidatesAllPeers'] =
+            false;
+      });
+      expectProblem(
+        broken,
+        'identityRebuildInvalidatesAllPeers',
+        '重建身份必须作废全部配对',
+      );
+    });
+
     test('又冒出第二个 skew 数值键（T71 那个 clockSkewSeconds 复活）⇒ 报', () {
       // 这一条守的是"删掉的键别再回来"：两处数值并排，改一处忘一处不会报错，
       // 只会表现成某一端偶尔把合法包判成过期。

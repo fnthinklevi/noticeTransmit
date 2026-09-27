@@ -172,7 +172,68 @@ function registerDevice(contract, devices, input, now) {
   return record;
 }
 
-/// 挂上一枚一次性配对口令：明文只在这一次调用里经过，落盘的只有摘要。
+// ── 状态与吊销（T31）──────────────────────────────────────────
+// 三条判据写在这里：① 状态名只认契约那张表（打错字的方向必须是"抛"，不是"写进去以后没人认得"）；
+// ② 吊销**只停投递、不删历史**（`dataNeverDeletedByRevoke`）—— 清历史要单独一次显式操作；
+// ③ 变更都走这一个咽喉，别处不许再写 `record.status = ...`。
+
+function assertDeviceStatus(contract, status) {
+  const table = (contract.revocation || {}).deviceStatuses || {};
+  if (!Object.prototype.hasOwnProperty.call(table, status)) {
+    throw new Error(
+      `设备状态 "${status}" 不在契约的 revocation.deviceStatuses 里（可取：${Object.keys(table).join(' / ')}）`,
+    );
+  }
+  return status;
+}
+
+function setDeviceStatus(contract, devices, addressCode, status, now) {
+  assertDeviceStatus(contract, status);
+  const key = keyOf(contract, addressCode);
+  const record = devices[key];
+  if (!record) throw new Error('设备未登记（状态不能挂在没有记录的设备上）');
+  record.status = status;
+  record.statusChangedAt = now;
+  if (status === 'revoked') record.revokedAt = now;
+  saveDevices(devices);
+  return record;
+}
+
+function revokeDevice(contract, devices, addressCode, now) {
+  return setDeviceStatus(contract, devices, addressCode, 'revoked', now);
+}
+
+function freezeDevice(contract, devices, addressCode, now) {
+  return setDeviceStatus(contract, devices, addressCode, 'frozen', now);
+}
+
+/// 一键全部失效。返回**被改动的台数**：按这个钮的人要能回答"它到底影响了谁"，
+/// 而"0 台"与"没这个钮"在现场看起来是一样的。
+function revokeAllDevices(contract, devices, now) {
+  const keys = Object.keys(devices).filter((k) => devices[k].status !== 'revoked');
+  for (const k of keys) {
+    devices[k].status = 'revoked';
+    devices[k].statusChangedAt = now;
+    devices[k].revokedAt = now;
+  }
+  if (keys.length) saveDevices(devices);
+  return keys.length;
+}
+
+/// 本机身份重建之后：所有已配对的发送方都要重新配对。
+/// ⚠ 这里**不删记录**（公钥、名称、授权都留着）—— 重建后要看得见"曾经是谁"，
+/// 也要能重新配对回去；变的只是"谁的签名都不算"这一件事。
+function invalidatePeersAfterRebuild(contract, devices, now) {
+  const changed = Object.keys(devices).filter((k) => devices[k].status === 'active');
+  for (const k of changed) {
+    devices[k].status = 'awaitingRepair';
+    devices[k].statusChangedAt = now;
+  }
+  if (changed.length) saveDevices(devices);
+  return changed.length;
+}
+
+/// 挂上一枚一次性配对口令：明文只在这一次调用里经过，落盘的只有摘要。/// 挂上一枚一次性配对口令：明文只在这一次调用里经过，落盘的只有摘要。
 function armPairingCode(contract, devices, addressCode, pairingCode, now) {
   const record = devices[keyOf(contract, addressCode)];
   if (!record) throw new Error('设备未登记（口令不能挂在不存在的设备上）');
@@ -352,6 +413,12 @@ module.exports = {
   saveDevices,
   saveEndpoints,
   registerDevice,
+  assertDeviceStatus,
+  freezeDevice,
+  invalidatePeersAfterRebuild,
+  revokeAllDevices,
+  revokeDevice,
+  setDeviceStatus,
   armPairingCode,
   verifyPairingCode,
   touchDevice,

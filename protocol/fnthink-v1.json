@@ -126,6 +126,21 @@
     "burstWhenPending": { "intervalSeconds": 5, "durationSeconds": 120 }
   },
 
+  "revocation": {
+    "_why": "设备生命周期的状态表与三件事（重置配对口令、重建身份、一键全部失效）。这一段有一条判据最容易被写反：投递时该问「这台设备是不是在**允许**的状态里」，而不是「它是不是某个被停用的状态」。按后者写，将来新加一个状态就会静默地变成「没被枚举到 = 继续投递」。",
+    "deliveryAllowedStatuses": ["active"],
+    "deviceStatuses": {
+      "active": "正常：在册、可投递",
+      "frozen": "暂停：记录与公钥都留着，一条都不投，随时可解",
+      "revoked": "已吊销：不再投递，记录留着（审计、以及重新配对时看得见曾经是谁）",
+      "awaitingRepair": "本机身份已重建，等所有发送方重新配对：在此之前谁的签名都不算"
+    },
+    "resetPairingCodeInvalidatesOutstanding": true,
+    "identityRebuildInvalidatesAllPeers": true,
+    "massRevokeSupported": true,
+    "dataNeverDeletedByRevoke": true,
+    "_dataNeverDeletedWhy": "吊销的是「还能不能收到我的消息」，不是「这台设备的历史」。清历史要单独一次显式操作 —— 用户可撤销的那类破坏性动作不塞进安全动作的副作用里"
+  },
   "retention": {
     "pendingPerDeviceMax": 200,
     "overflowAction": "drop_oldest",

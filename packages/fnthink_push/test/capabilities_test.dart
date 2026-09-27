@@ -132,6 +132,13 @@ void main() {
       expect(contract.grantDefaultMaxLevel, contract.capabilityLevels.first);
       expect(contract.rejectsUnknownMessageTypes, isTrue);
       expect(contract.grantChangeRequiresConfirmation, isTrue);
+      // 吊销与生命周期（T31）：白名单只有 active，且吊销不删历史
+      expect(contract.deliveryAllowedStatuses, ['active']);
+      expect(
+        contract.deviceStatuses.keys,
+        containsAll(['active', 'frozen', 'revoked', 'awaitingRepair']),
+      );
+      expect(contract.revokeKeepsHistory, isTrue);
       expect(contract.validate(), isEmpty);
     });
 

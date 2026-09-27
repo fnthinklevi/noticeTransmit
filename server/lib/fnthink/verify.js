@@ -106,9 +106,12 @@ function acceptIncoming(contract, state, input) {
     return forbidden('fields');
   }
 
-  // ① + ②：没有记录、被冻结、公钥形状不对、验签失败 —— 四种都长同一个样
+  // ① + ②：没有记录、状态不在白名单里、公钥形状不对、验签失败 —— 这几种都长同一个样。
+  // ⚠ 判定问的是"这台设备的状态在不在**允许投递**那张表里"，不是"它是不是 frozen"：
+  // 后者是黑名单，将来契约新增一个状态（如 awaitingRepair）会静默地"没被枚举到 = 继续投递"。
+  const allowedStatuses = (contract.revocation || {}).deliveryAllowedStatuses || [];
   if (!device) return forbidden('unknown_device');
-  if (device.status === 'frozen') return forbidden('frozen');
+  if (!allowedStatuses.includes(device.status)) return forbidden('status:' + device.status);
   if (!verifySignature(contract, device.publicKey, canonical, input.signature))
     return forbidden('signature');
 

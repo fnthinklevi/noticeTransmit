@@ -171,6 +171,19 @@ describe('fnthink 服务端存储（T27）', () => {
     );
   });
 
+  test('重置配对口令 = 覆盖那一条摘要：旧口令立刻算不出匹配（契约 resetPairingCodeInvalidatesOutstanding）', () => {
+    const devices = {};
+    store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+    store.armPairingCode(contract, devices, ADDR, PAIR, NOW);
+    const rotated = store.armPairingCode(contract, devices, ADDR, 'K'.repeat(20), NOW + 1);
+    expect(rotated.rotatedAt).toBe(NOW + 1);
+    expect(devices[ADDR].pairing.consumedAt).toBeNull(); // 重置顺带把"已消耗"清掉
+    expect(store.verifyPairingCode(contract, devices, ADDR, PAIR, NOW + 2).ok).toBe(false);
+    expect(store.verifyPairingCode(contract, devices, ADDR, 'K'.repeat(20), NOW + 2).ok).toBe(true);
+    // 契约那条旗标不是装饰：实现靠的是"只存一条摘要"这个结构，改不成"存一份历史"
+    expect(contract.revocation.resetPairingCodeInvalidatesOutstanding).toBe(true);
+  });
+
   test('⚠ 同形规则：没有这台设备 / 口令错 / 形状不对，三者返回完全一样的东西', () => {
     const devices = {};
     store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
