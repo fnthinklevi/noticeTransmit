@@ -144,6 +144,36 @@ void main() {
       expect(calls, isEmpty, reason: '规范化失败不该让原生去兜');
     });
 
+    test('递给原生签的字节 = 契约拼出的那一串，两条入口拼出同一串', () async {
+      // 钉的是"入口拼的字节 = 对端将来重算的字节"。服务端（Node）按契约顺序重算一遍再验签，
+      // 所以顺序 / 分隔符 / 少拼一个字段任何一处歪了，双端就永远对不上签名，
+      // 而两边各自跑测试都还是绿的（各测各的拼接）。真正的密码学互操作在别处钉：
+      // Kotlin 仪器测试里用 eddsa 独立实现自验一次（T26-B），服务端用 Node 原生 Ed25519 验（T29-B）。
+      final given = fields();
+      final canonical = Uint8List.fromList(
+        CanonicalMessage.bytes(contract, given),
+      );
+      expect(
+        utf8.decode(canonical).split(String.fromCharCode(0)),
+        contract.canonicalOrder.map((k) => '${given[k]}').toList(),
+        reason: '按契约分隔符切开，必须正好是契约那一串字段值（顺序也是契约的顺序）',
+      );
+      mock((_) => null);
+      final service = FnthinkIdentityService();
+      expect(
+        await service.signCanonicalBytes(canonical),
+        isNull,
+        reason: '原生返回空签名 ⇒ 如实算失败（下一条用例细说）',
+      );
+      expect(await service.signFields(contract, given), isNull);
+      expect(calls, hasLength(2), reason: '两条入口各递给原生签一次');
+      Uint8List handed(int i) => base64Decode(
+        (calls[i].arguments as Map)['canonicalBase64'] as String,
+      );
+      expect(handed(0), canonical, reason: '拿着现成字节的那条入口不许自己再拼一套');
+      expect(handed(1), canonical, reason: '按字段拼的那条入口必须拼出**同一串**，否则同一句话会有两个签名');
+    });
+
     test('原生返回空签名算失败（否则会把 null 当签名发出去）', () async {
       for (final junk in <Object?>[null, '']) {
         calls.clear();

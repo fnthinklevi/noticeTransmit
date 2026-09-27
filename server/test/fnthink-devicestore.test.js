@@ -54,13 +54,57 @@ describe('fnthink 服务端存储（T27）', () => {
       NOW,
     );
     expect(Object.keys(rec).sort()).toEqual(
-      ['createdAt', 'lastSeenAt', 'level', 'name', 'owner', 'publicKey', 'status'].sort(),
+      ['createdAt', 'grant', 'lastSeenAt', 'name', 'owner', 'publicKey', 'status'].sort(),
     );
     expect(rec.owner).toBeNull();
     expect(rec.lastSeenAt).toBeNull();
     expect(rec.createdAt).toBe(NOW);
     expect(rec.status).toBe('active');
-    expect(rec.level).toBe('L2');
+    // 能力清单是**一个对象**而不是一个 level 字符串：T30 要的是"哪一档 + 勾了哪几条"，
+    // 而"逐条"这件事没法塞进一个字符串里（塞进去就是两端各拆一次）。
+    expect(rec.grant).toEqual({ maxLevel: 'L2', items: [], revision: 1, grantedAt: NOW });
+  });
+
+  test('登记是幂等的，但授权不是可改的：级别不同就抛，指向重新确认那条路', () => {
+    const devices = {};
+    store.registerDevice(
+      contract,
+      devices,
+      { addressCode: ADDR, publicKey: PUB, level: 'L2' },
+      NOW,
+    );
+    // 同样的级别再来一次：不报错、也不把 revision/grantedAt 动掉（幂等）
+    const again = store.registerDevice(
+      contract,
+      devices,
+      { addressCode: ADDR, publicKey: PUB, level: 'L2' },
+      NOW + 1000,
+    );
+    expect(again.grant).toEqual({ maxLevel: 'L2', items: [], revision: 1, grantedAt: NOW });
+    expect(() =>
+      store.registerDevice(
+        contract,
+        devices,
+        { addressCode: ADDR, publicKey: PUB, level: 'L1' },
+        NOW,
+      ),
+    ).toThrow(/重新确认/);
+    // ⚠ 降低也不行：一次 re-register 不该让"这台设备还能做什么"这个问题换答案
+    expect(() =>
+      store.registerDevice(
+        contract,
+        devices,
+        { addressCode: ADDR, publicKey: PUB, level: 'L3' },
+        NOW,
+      ),
+    ).toThrow(/重新确认/);
+  });
+
+  test('不写 level 时按契约缺省档登记（代码里没有第二个 L1）', () => {
+    const devices = {};
+    const rec = store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+    expect(rec.grant.maxLevel).toBe(contract.capabilities.grantDefaults.maxLevel);
+    expect(rec.grant.items).toEqual([]);
   });
 
   test('重复登记同一把公钥是幂等，换公钥必须拒绝（换身份要走 T31）', () => {

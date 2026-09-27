@@ -178,6 +178,49 @@ class FnthinkContract {
   List<String> get capabilityLevels =>
       strings(const ['capabilities', 'levels']);
 
+  /// 签名载荷里 `type` 的取值表：`type → 最低级别`。**这张表就是词表**，
+  /// 认不出的 type 一律拒（见 [rejectsUnknownMessageTypes]），不许"先收下再说"。
+  Map<String, String> get messageTypeLevels {
+    final table = map(const ['capabilities', 'messageTypes']) ?? const {};
+    return {
+      for (final entry in table.entries)
+        if (entry.value is Map)
+          entry.key: '${(entry.value as Map)['minLevel'] ?? ''}',
+    };
+  }
+
+  bool get rejectsUnknownMessageTypes =>
+      str(const ['capabilities', 'unknownMessageType']) == 'reject';
+
+  /// 从哪一档起"光有级别不够，还要逐条勾选"。缺键直接抛：这决定 L2 是否要求 item，
+  /// 补一个默认值就是两端各写一份规则。
+  String get itemRequiredFromLevel {
+    final value = str(const ['capabilities', 'itemRequiredFromLevel']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 capabilities.itemRequiredFromLevel（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 查不到授权清单时按哪一档判。fail-closed：缺键直接抛，不静默按"全给"或"全不给"。
+  String get grantDefaultMaxLevel {
+    final value = str(const ['capabilities', 'grantDefaults', 'maxLevel']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 capabilities.grantDefaults.maxLevel（不补默认值）');
+    }
+    return value;
+  }
+
+  bool get grantChangeRequiresConfirmation =>
+      boolOf(const ['capabilities', 'grantChangeRequiresConfirmation']) == true;
+
+  /// 级别序：**直接取 `capabilities.levels` 里的位置**（validate 已保证它按权限升序）。
+  /// 这里不写 `switch (level) { 'L1' => 1 ... }`：那等于在代码里存第二份档位表，
+  /// 契约加一档时它不会报错，只会让比较结果静默错位。
+  /// 不在词表里 ⇒ -1（任何真实档位都比它大 ⇒ 判不过），而不是抛 —— 调用方要的是
+  /// "未知的那一侧一律不赢"。
+  int levelRank(String level) => capabilityLevels.indexOf(level);
+
   /// 在线判定的秒数：`3 × 拉取间隔`（不另设心跳协议）。
   int? onlineThresholdSeconds({int? pollIntervalSeconds}) {
     final poll =
@@ -479,6 +522,48 @@ class FnthinkContract {
     need(
       str(const ['capabilities', 'l3', 'unknownAction']) == 'reject',
       'capabilities.l3.unknownAction 必须是 reject：两边不认识的 action 一律拒',
+    );
+
+    // ── 能力清单（T30）：type 词表与授权缺省 ──
+    // 这张表是"同一把已配对的钥匙能做什么"的唯一出处。它松一格，
+    // 表现不是报错，而是对端用一条本来只该是通知的消息触发了一个动作。
+    final typeTable = messageTypeLevels;
+    need(
+      typeTable.isNotEmpty,
+      'capabilities.messageTypes 不能为空：为空等于签名载荷里的 type 没有合法取值',
+    );
+    need(
+      typeTable.values.every(levels.contains),
+      'messageTypes 里有 minLevel 不在 levels 里：$typeTable',
+    );
+    need(
+      typeTable.values.every((l) => l.isNotEmpty),
+      'messageTypes 每项都必须写 minLevel（空串会被判成"级别不存在"而静默放行到最窄档）：$typeTable',
+    );
+    need(
+      rejectsUnknownMessageTypes,
+      'capabilities.unknownMessageType 必须是 reject：认不出的 type 不许"先收下、能做什么做什么"',
+    );
+    final itemFrom = str(const ['capabilities', 'itemRequiredFromLevel']) ?? '';
+    need(
+      levels.contains(itemFrom),
+      'capabilities.itemRequiredFromLevel 必须是 levels 里的一档，实为 $itemFrom',
+    );
+    final grantDefault =
+        str(const ['capabilities', 'grantDefaults', 'maxLevel']) ?? '';
+    need(
+      grantDefault == levels.first,
+      'capabilities.grantDefaults.maxLevel 必须是最低档（查不到授权清单时要 fail-closed），实为 $grantDefault',
+    );
+    need(
+      boolOf(const ['capabilities', 'grantChangeRequiresConfirmation']) == true,
+      'capabilities.grantChangeRequiresConfirmation 必须为 true：授权变更要重新确认，不许远端悄悄升自己的权限',
+    );
+    // 每一档都得有能进它的 type，否则那档就是死档（配对了却什么都发不出来）。
+    final covered = typeTable.values.toSet();
+    need(
+      levels.every(covered.contains),
+      'levels 里有档位没有任何 type 能进：$levels vs $covered',
     );
 
     // ── 身份与凭证（红线）──

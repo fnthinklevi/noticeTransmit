@@ -145,17 +145,27 @@ function registerDevice(contract, devices, input, now) {
   }
   const key = keyOf(contract, input.addressCode);
   const publicKey = assertPublicKey(input.publicKey);
-  const level = assertLevel(contract, input.level || 'L1');
+  // 缺省档从契约读（不在这里再写一个 'L1'：两处各存一份"默认给多少"，
+  // 哪天改契约那一处，这里会静默地比契约宽）。
+  const defaultLevel = ((contract.capabilities || {}).grantDefaults || {}).maxLevel;
+  const level = assertLevel(contract, input.level || defaultLevel);
   const existing = devices[key];
   if (existing && existing.publicKey !== publicKey) {
     // 换公钥 = 换身份：走 T31 的重建 + 重新配对，让所有已配对发送方明确看到，
     // 不是在这里悄悄覆盖（那等于给劫持者一次不留痕迹的换手机会）。
     throw new Error(`地址码 ${key} 已绑定另一把公钥，拒绝静默替换`);
   }
+  if (existing && existing.grant && existing.grant.maxLevel !== level) {
+    // 登记是幂等的，但**授权不是可改的**：提高或降低一个已配对发送方的级别
+    // 必须走"重新确认"那条路（T31），不能让一次 re-register 顺手改掉。
+    throw new Error(
+      `地址码 ${key} 的授权是 ${existing.grant.maxLevel}，不能在登记里改成 ${level}（要变更请走重新确认）`,
+    );
+  }
   const record = existing || { createdAt: now, status: 'active', lastSeenAt: null, owner: null };
   record.publicKey = publicKey;
   record.name = typeof input.name === 'string' ? input.name.slice(0, 60) : '';
-  record.level = level;
+  if (!record.grant) record.grant = { maxLevel: level, items: [], revision: 1, grantedAt: now };
   if (input.owner !== undefined) record.owner = input.owner;
   devices[key] = record;
   saveDevices(devices);

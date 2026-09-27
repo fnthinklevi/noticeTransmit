@@ -151,6 +151,31 @@
       "L2": "应用动作（逐条勾选）",
       "L3": "系统设置（默认全关、逐条单独开、每次必须确认）"
     },
+    "messageTypes": {
+      "notice": {
+        "minLevel": "L1",
+        "_comment": "纯文本通知：配对即有，不逐条勾选"
+      },
+      "action": {
+        "minLevel": "L2",
+        "_comment": "应用动作：逐条勾选，没勾的那条就是没那条"
+      },
+      "setting": {
+        "minLevel": "L3",
+        "_comment": "系统设置：默认全关，逐条单独开，每次都要本地确认"
+      }
+    },
+    "messageTypesWhy": "签名载荷里 type 的取值必须在这张表上闭合。不闭合的后果不是报错，而是「多写一个 if 就多一档权限」——同一把已配对的钥匙既能发通知又能改设置。两端都从这张表读最低级别，谁都不在代码里另写一份映射",
+    "unknownMessageType": "reject",
+    "unknownMessageTypeWhy": "认不出的 type 一律拒，不许「先收下、能做什么做什么」：那等于把词表的解释权交给对端",
+    "itemRequiredFromLevel": "L2",
+    "itemRequiredFromLevelWhy": "从这一档起，光有级别不够，还要 signed 载荷里的 item 在这台设备逐条勾选过的清单里（levelMeaning 里那句「逐条勾选」的可执行形式）",
+    "grantDefaults": {
+      "maxLevel": "L1",
+      "items": []
+    },
+    "grantDefaultsWhy": "设备记录里查不到授权清单时按这一档判（fail-closed）：缺字段只能往窄的那一侧缺省，不能往「没写就等于全给」那一侧",
+    "grantChangeRequiresConfirmation": true,
     "endpointMaxLevel": "L1",
     "endpointActionReceipt": "rejected_capability",
     "grantSource": "配对时下发并随签名校验，之后变更需重新确认",

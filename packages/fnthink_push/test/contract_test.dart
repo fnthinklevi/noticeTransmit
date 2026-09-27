@@ -136,6 +136,44 @@ void main() {
       expectProblem(broken, 'skew 类的键', '一根轴只许一个 skew 旋钮');
     });
 
+    test('认不出的 type 改成"先收下" ⇒ 报（词表的解释权不许交给对端）', () {
+      final broken = mutate((raw) {
+        (raw['capabilities'] as Map)['unknownMessageType'] = 'accept';
+      });
+      expectProblem(broken, 'unknownMessageType', '未知 type 一律拒是红线');
+    });
+
+    test('缺省授权档放宽到 L3 ⇒ 报（查不到清单时必须 fail-closed）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['grantDefaults'] as Map)['maxLevel'] =
+            'L3';
+      });
+      expectProblem(broken, 'grantDefaults', '缺省只能是最窄那档');
+    });
+
+    test('逐条勾选的起始档写成契约里没有的档 ⇒ 报', () {
+      final broken = mutate((raw) {
+        (raw['capabilities'] as Map)['itemRequiredFromLevel'] = 'L0';
+      });
+      expectProblem(broken, 'itemRequiredFromLevel', '那一档必须真的存在于 levels');
+    });
+
+    test('某个 type 不写 minLevel ⇒ 报（空串会被判成"级别不存在"而静默放行到最窄档）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['messageTypes'] as Map)['action'] = {
+          '_comment': '忘了写 minLevel',
+        };
+      });
+      expectProblem(broken, 'minLevel', '每项都要写明最低级别');
+    });
+
+    test('把 notice 整档删掉 ⇒ 报（那一档没有任何 type 能进 = 死档）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['messageTypes'] as Map).remove('notice');
+      });
+      expectProblem(broken, '没有任何 type 能进', 'L1 变成发不出东西的死档');
+    });
+
     test('验签失败不计数 ⇒ 报（T29 任务书那句「并计数」）', () {
       final broken = mutate((raw) {
         ((raw['signature'] as Map)['onFailure'] as Map)['count'] = false;

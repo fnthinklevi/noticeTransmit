@@ -311,6 +311,104 @@ describe('fnthink 验签与裁决（T29-B）', () => {
     expect(() => store.rememberNonce(map, 'a|n4', NOW, 0)).toThrow(/正数/);
   });
 
+  // ── T30-A：验签通过之后，还要按这台设备的授权判一次 ──
+  function deviceState(grant) {
+    const devices = { [SENDER]: { publicKey: kp.rawBase64, status: 'active' } };
+    if (grant) devices[SENDER].grant = grant;
+    return stateFor(kp, { devices });
+  }
+
+  test('记录里没写授权 ⇒ 按契约缺省档（L1）：通知收，动作拒', () => {
+    const notice = signable(kp, fields());
+    expect(
+      verify.acceptIncoming(contract, deviceState(null), {
+        senderAddress: SENDER,
+        signature: notice.signature,
+        fields: notice.fields,
+        now: notice.now,
+      }).ok,
+    ).toBe(true);
+
+    const action = signable(kp, fields({ type: 'action', body: '执行 app:a/b' }));
+    const state = deviceState(null);
+    const out = verify.acceptIncoming(contract, state, {
+      senderAddress: SENDER,
+      signature: action.signature,
+      fields: action.fields,
+      item: 'app:a/b',
+      now: action.now,
+    });
+    expect(out).toEqual({ ok: false, status: 403, receipt: 'rejected_capability' });
+    // 拒了一定要留痕（契约 signature.onFailure.count = true），且记的是**差在哪一档**
+    expect(state.rejects[SENDER].lastReason).toBe('capability:level:L2');
+  });
+
+  test('勾过的那条才放行；没勾的点名是哪条', () => {
+    const state = deviceState({ maxLevel: 'L2', items: ['app:a/b'] });
+    const pack = signable(kp, fields({ type: 'action', body: '执行 app:a/b' }));
+    const base = {
+      senderAddress: SENDER,
+      signature: pack.signature,
+      fields: pack.fields,
+      now: pack.now,
+    };
+    expect(
+      verify.acceptIncoming(contract, state, Object.assign({ item: 'app:a/b' }, base)).ok,
+    ).toBe(true);
+    const other = signable(kp, fields({ type: 'action', body: '执行 app:a/c' }));
+    expect(
+      verify.acceptIncoming(contract, state, {
+        senderAddress: SENDER,
+        signature: other.signature,
+        fields: other.fields,
+        item: 'app:a/c',
+        now: other.now,
+      }),
+    ).toEqual({ ok: false, status: 403, receipt: 'rejected_capability' });
+    expect(state.rejects[SENDER].lastReason).toBe('capability:item:app:a/c');
+  });
+
+  test('⚠ item 必须出现在**已签字节**里：不然是借一条已签通知去触发一个没签过的动作', () => {
+    const state = deviceState({ maxLevel: 'L2', items: ['app:a/b', 'app:a/evil'] });
+    const pack = signable(kp, fields({ type: 'action', body: '执行 app:a/b' }));
+    // 载荷签的是 app:a/b，调用方却递进一个清单里也存在的 app:a/evil
+    const out = verify.acceptIncoming(contract, state, {
+      senderAddress: SENDER,
+      signature: pack.signature,
+      fields: pack.fields,
+      item: 'app:a/evil',
+      now: pack.now,
+    });
+    expect(out).toEqual({ ok: false, status: 403, receipt: 'rejected_capability' });
+    expect(state.rejects[SENDER].lastReason).toBe('unsigned-item');
+    // 同一条包，item 与签过的一致就能过（证明拦的不是"action 一律拒"）
+    const again = verify.acceptIncoming(contract, state, {
+      senderAddress: SENDER,
+      signature: pack.signature,
+      fields: pack.fields,
+      item: 'app:a/b',
+      now: pack.now,
+    });
+    expect([again, state.rejects[SENDER].count]).toEqual([
+      { ok: true, status: 202, receipt: 'queued' },
+      1, // 只留过那一次痕：放行不算拒收
+    ]);
+  });
+
+  test('能力裁决排在时间/重放之前：一条越权的老包报"越权"，不是报"过期"', () => {
+    const skew = contract.signature.maxSkewSeconds;
+    const state = deviceState(null);
+    const pack = signable(kp, fields({ type: 'setting', body: '改设置 setting:x' }));
+    const out = verify.acceptIncoming(contract, state, {
+      senderAddress: SENDER,
+      signature: pack.signature,
+      fields: pack.fields,
+      item: 'setting:x',
+      now: pack.now + (skew + 10) * 1000,
+    });
+    expect(out.receipt).toBe('rejected_capability');
+  });
+
   test('契约自己把这组关系钉住了（dedupe ≥ 2×skew）', () => {
     expect(contract.signature.nonceDedupeSeconds).toBeGreaterThanOrEqual(
       contract.signature.maxSkewSeconds * 2,

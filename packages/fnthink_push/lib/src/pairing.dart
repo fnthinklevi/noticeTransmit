@@ -183,8 +183,8 @@ PairingVerdict decidePairing(
   // 那是 T27 同形那条的翻版。
   if (payload == null || !payload.ok) return PairingVerdict.rejectPayload;
   if (!pairingCodeVerified) return PairingVerdict.rejectCredential;
-  if (_levelRank(payload.request!.level) >
-      _levelRank(contract.pairingMaxRequestableLevel)) {
+  if (contract.levelRank(payload.request!.level) >
+      contract.levelRank(contract.pairingMaxRequestableLevel)) {
     return PairingVerdict.rejectLevelTooHigh;
   }
   if (!hasSenderSignature || !signatureValid) {
@@ -199,10 +199,3 @@ PairingVerdict decidePairing(
   if (!userConfirmed) return PairingVerdict.awaitingConfirmation;
   return PairingVerdict.approve;
 }
-
-int _levelRank(String level) => switch (level) {
-  'L1' => 1,
-  'L2' => 2,
-  'L3' => 3,
-  _ => 0,
-};

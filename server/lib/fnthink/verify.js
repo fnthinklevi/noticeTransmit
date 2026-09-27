@@ -16,6 +16,7 @@ const crypto = require('crypto');
 
 const { statusCode } = require('./contract');
 const { normalize, alphabetFromContract } = require('./credentials');
+const { decideCapability, grantFromRecord } = require('./capabilities');
 const {
   rememberNonce,
   rememberReject,
@@ -111,7 +112,31 @@ function acceptIncoming(contract, state, input) {
   if (!verifySignature(contract, device.publicKey, canonical, input.signature))
     return forbidden('signature');
 
-  // 以下都在"身份已被证明"之后，可以照实说
+  // ── 以下是"身份已被证明"的区域，可以照实说（T27/T28 那条同形规则到此为止）──
+  const denied = (receipt, reason) =>
+    counted(
+      contract,
+      state,
+      input,
+      { ok: false, status: statusCode(contract, 'forbidden'), receipt },
+      reason,
+    );
+  // 授权判定要用的 item 必须**出现在已签字节里**：签名覆盖的是 body，
+  // 从一个没签过的字段里读"要执行哪个动作"，等于给中间人（或给服务端自己的一次误接）
+  // 留一个"借一条已签通知触发一个没签过的动作"的口子。
+  const item = typeof input.item === 'string' ? input.item : '';
+  if (item !== '' && canonical.toString('utf8').indexOf(item) < 0) {
+    return denied('rejected_capability', 'unsigned-item');
+  }
+  const cap = decideCapability(contract, {
+    grant: grantFromRecord(contract, device),
+    type: String(input.fields.type),
+    item,
+    confirmedThisTime: !!input.confirmedThisTime,
+  });
+  if (!cap.allowed) return denied('rejected_capability', 'capability:' + cap.reason);
+
+  // 时间容差与重放
   const skew = Number((contract.signature || {}).maxSkewSeconds || 0);
   const ts = Number(input.fields.ts);
   if (!Number.isFinite(ts) || Math.abs(input.now - ts * 1000) > skew * 1000) {

@@ -10,6 +10,8 @@
     "input": "归一化后（大写、去空格与连字符）的 ASCII 字节",
     "whyPlainSha256": "口令 20 位 × 5 bit = 100 bit 熵，离线暴破不成立，不必再加服务端盐；且口令 5 分钟过期 + 一次性，可暴破窗口本就极短。地址码是公开标识，摘要只用于比对。"
   },
+  "_capabilityReasonVocabulary": "capabilities[].expect.reason 的全部取值：词表外的 type ⇒ unknown-type:<t>；授权档位低于该 type 的 minLevel ⇒ level:<需要的那档>；该档要逐条勾选而载荷没带 item ⇒ missing-item（空串同此）；带了但不在清单里 ⇒ item:<id>；最高档且本次没本地确认 ⇒ confirm-required。放行时 reason 为 null。它是内部诊断与留痕用的，不是用户文案。",
+  "_capabilityOrderMatters": "四步的顺序是判据的一部分：type 词表 → 档位 → 逐条清单 → 每次确认。把「确认」提到「清单」前面，用户会得到一条『去确认吧』而那条根本没勾 —— 点了还是失败。所以 c-setting-item-missing-before-confirm 那条不是凑数的用例。",
   "cases": [
     {
       "id": "addr-plain",
@@ -410,6 +412,316 @@
         "request": null
       },
       "note": ""
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "c-notice-l1",
+      "given": {
+        "grant": {
+          "maxLevel": "L1",
+          "items": []
+        },
+        "type": "notice",
+        "item": null,
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": true,
+        "reason": null
+      },
+      "note": "纯文本通知：配对即有，不需要 item、不需要确认"
+    },
+    {
+      "id": "c-action-on-l1",
+      "given": {
+        "grant": {
+          "maxLevel": "L1",
+          "items": []
+        },
+        "type": "action",
+        "item": "app:com.example.demo/notify",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "level:L2"
+      },
+      "note": "只有 L1 的授权发不了动作 —— 报的是**差在哪一档**，不是含糊的「没权限」"
+    },
+    {
+      "id": "c-action-no-item",
+      "given": {
+        "grant": {
+          "maxLevel": "L2",
+          "items": [
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "action",
+        "item": null,
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "missing-item"
+      },
+      "note": "从 itemRequiredFromLevel 起，载荷必须带 item"
+    },
+    {
+      "id": "c-action-empty-item",
+      "given": {
+        "grant": {
+          "maxLevel": "L2",
+          "items": [
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "action",
+        "item": "",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "missing-item"
+      },
+      "note": "空串按「没带」处理，不按「带了一个空 id」处理"
+    },
+    {
+      "id": "c-action-item-not-granted",
+      "given": {
+        "grant": {
+          "maxLevel": "L2",
+          "items": [
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "action",
+        "item": "app:com.other/sms",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "item:app:com.other/sms"
+      },
+      "note": "同级但没勾过的那条就是没那条（items 里没有通配）"
+    },
+    {
+      "id": "c-action-item-granted",
+      "given": {
+        "grant": {
+          "maxLevel": "L2",
+          "items": [
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "action",
+        "item": "app:com.example.demo/notify",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": true,
+        "reason": null
+      },
+      "note": "勾过的才放行；L2 不要求每次确认"
+    },
+    {
+      "id": "c-setting-on-l2",
+      "given": {
+        "grant": {
+          "maxLevel": "L2",
+          "items": [
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "setting",
+        "item": "setting:battery_saver",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "level:L3"
+      },
+      "note": "L2 授权发不了系统设置"
+    },
+    {
+      "id": "c-setting-item-missing-before-confirm",
+      "given": {
+        "grant": {
+          "maxLevel": "L3",
+          "items": [
+            "setting:battery_saver"
+          ]
+        },
+        "type": "setting",
+        "item": "setting:other",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "item:setting:other"
+      },
+      "note": "⚠ 顺序钉死：先查清单再查确认 —— 没勾过的那条，提示「没这条」比提示「要点确认」准"
+    },
+    {
+      "id": "c-setting-no-confirm",
+      "given": {
+        "grant": {
+          "maxLevel": "L3",
+          "items": [
+            "setting:battery_saver"
+          ]
+        },
+        "type": "setting",
+        "item": "setting:battery_saver",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "confirm-required"
+      },
+      "note": "L3 每次都要本地确认"
+    },
+    {
+      "id": "c-setting-confirmed",
+      "given": {
+        "grant": {
+          "maxLevel": "L3",
+          "items": [
+            "setting:battery_saver"
+          ]
+        },
+        "type": "setting",
+        "item": "setting:battery_saver",
+        "confirmedThisTime": true
+      },
+      "expect": {
+        "allowed": true,
+        "reason": null
+      },
+      "note": "确认了才放行"
+    },
+    {
+      "id": "c-action-with-l3-grant",
+      "given": {
+        "grant": {
+          "maxLevel": "L3",
+          "items": [
+            "setting:battery_saver",
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "action",
+        "item": "app:com.example.demo/notify",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": true,
+        "reason": null
+      },
+      "note": "高档授权包含低档能力（不要求 item 之外的确认）"
+    },
+    {
+      "id": "c-unknown-type",
+      "given": {
+        "grant": {
+          "maxLevel": "L3",
+          "items": [
+            "setting:battery_saver",
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "teleport",
+        "item": null,
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "unknown-type:teleport"
+      },
+      "note": "词表外的 type 一律拒，不「先收下、能做什么做什么」"
+    },
+    {
+      "id": "c-type-case-sensitive",
+      "given": {
+        "grant": {
+          "maxLevel": "L3",
+          "items": [
+            "setting:battery_saver",
+            "app:com.example.demo/notify"
+          ]
+        },
+        "type": "Notice",
+        "item": null,
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "unknown-type:Notice"
+      },
+      "note": "type 不做大小写归一化：归一化是凭证那一层的事，词表在这里必须严格"
+    },
+    {
+      "id": "c-no-grant-notice",
+      "given": {
+        "grant": null,
+        "type": "notice",
+        "item": null,
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": true,
+        "reason": null
+      },
+      "note": "记录里没有授权 ⇒ 按契约缺省档（L1）判，通知仍可发"
+    },
+    {
+      "id": "c-no-grant-action",
+      "given": {
+        "grant": null,
+        "type": "action",
+        "item": "app:com.example.demo/notify",
+        "confirmedThisTime": true
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "level:L2"
+      },
+      "note": "缺授权时 fail-closed：确认也救不了级别不够"
+    },
+    {
+      "id": "c-unknown-max-level",
+      "given": {
+        "grant": {
+          "maxLevel": "L9",
+          "items": []
+        },
+        "type": "notice",
+        "item": null,
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "level:L1"
+      },
+      "note": "授权写了个契约里不存在的档位 ⇒ 它谁都比不过（连 L1 都赢不了），不是「未知=最大」"
+    },
+    {
+      "id": "c-empty-items",
+      "given": {
+        "grant": {
+          "maxLevel": "L2",
+          "items": null
+        },
+        "type": "action",
+        "item": "app:a/b",
+        "confirmedThisTime": false
+      },
+      "expect": {
+        "allowed": false,
+        "reason": "item:app:a/b"
+      },
+      "note": "items 不是数组 ⇒ 按空清单算（往窄的那一侧缺省）；而载荷确实带了 item，所以报的是「这条没勾过」不是「没带 item」——两者是不同的话，不能混"
     }
   ]
 }
