@@ -152,68 +152,6 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
           !_isVivo &&
           !_isSamsung;
 
-  void _showAppListPermissionDialog() {
-    final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.apps, size: 44, color: AppColors.blue),
-            const SizedBox(height: 14),
-            Text(
-              l10n.appListPermTitle,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(ctx),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              l10n.appListPermMsg,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: AppColors.primaryLabel(ctx),
-              ),
-            ),
-          ],
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              l10n.reject,
-              style: TextStyle(
-                color: AppColors.secondaryLabel(ctx),
-                fontSize: 15,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              widget.onRequestAppListPermission();
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(l10n.allow, style: const TextStyle(fontSize: 15)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -411,9 +349,12 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                   AppListPermission.unknown => l10n.appListPermUnknown,
                 },
                 isOn: _appListPermissionGranted,
+                // 点下去**直接发起申请**（链路见 PermissionService.requestAppListPermission）。
+                // 这里原先先弹一层应用内说明框、再点「允许」才跳系统页 —— 维护者 1.5.76
+                // 反馈 #3 要的就是少这一层：申请动作本身就是这一行的语义。
                 onTap: _appListPermissionGranted
                     ? null
-                    : _showAppListPermissionDialog,
+                    : widget.onRequestAppListPermission,
                 context: context,
               ),
               Padding(

@@ -95,4 +95,78 @@ void main() {
       expect(AppListPermission.fromWire('yes'), AppListPermission.unknown);
     });
   });
+
+  // 维护者 1.5.76 反馈 #3：这一行点下去要直接向系统申请，不要先弹一层应用内说明框。
+  // 但"运行时弹系统框"这件事对 QUERY_ALL_PACKAGES 不存在（安装期权限、AOSP 无 AppOps 映射、
+  // permission_handler 里也没有对应的一枚 Permission）⇒ 真能让系统弹框的只有国产 ROM 在
+  // **第一次真实枚举应用列表**时弹自己的框。所以"枚举 → 复查 → 必要时跳详情页"这个顺序
+  // 本身就是这条反馈的实现，必须钉住。
+  group('应用列表权限：点击即发起申请的三步顺序', () {
+    List<String> pathOf() => calls
+        .map((c) => c.method)
+        .where(
+          (m) =>
+              m == 'enumerateApps' ||
+              m == 'getAppListPermissionState' ||
+              m == 'requestQueryAllPackagesPermission',
+        )
+        .toList();
+
+    test('读不到明确状态 ⇒ 先枚举、再复查、最后才跳系统详情页', () async {
+      mockWith((_) => true, appListState: 'unknown');
+      var enumerated = 0;
+      final service = PermissionService(
+        appListEnumerator: () async {
+          enumerated++;
+          calls.add(const MethodCall('enumerateApps'));
+        },
+      );
+
+      await service.requestAppListPermission();
+
+      expect(enumerated, 1, reason: '不给 ROM 弹框的机会，这一步就白做');
+      expect(pathOf(), [
+        'enumerateApps',
+        'getAppListPermissionState',
+        'requestQueryAllPackagesPermission',
+      ], reason: '顺序就是这条反馈的全部内容');
+    });
+
+    test('枚举后系统已给出 granted ⇒ 不再多跳一次系统页', () async {
+      mockWith((_) => true, appListState: 'granted');
+      final service = PermissionService(
+        appListEnumerator: () async {
+          calls.add(const MethodCall('enumerateApps'));
+        },
+      );
+
+      await service.requestAppListPermission();
+
+      expect(service.appListGranted, isTrue);
+      expect(
+        calls.map((c) => c.method),
+        isNot(contains('requestQueryAllPackagesPermission')),
+        reason: '已经读得到了还把人踢到系统设置页，就是白打扰',
+      );
+    });
+
+    test('枚举本身抛错 ⇒ 照样复查 + 跳详情页，不许点了没反应', () async {
+      mockWith((_) => true, appListState: 'denied');
+      final service = PermissionService(
+        appListEnumerator: () async {
+          calls.add(const MethodCall('enumerateApps'));
+          throw Exception('scan failed');
+        },
+      );
+
+      await service.requestAppListPermission();
+
+      expect(pathOf(), [
+        'enumerateApps',
+        'getAppListPermissionState',
+        'requestQueryAllPackagesPermission',
+      ], reason: '枚举失败不是终止条件');
+      expect(service.appListGranted, isFalse, reason: 'denied 不许被读成已授予');
+    });
+  });
 }

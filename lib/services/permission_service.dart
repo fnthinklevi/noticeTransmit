@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'installed_apps_service.dart';
 import 'platform_channel.dart';
 
 /// 「读取已安装应用列表」的可见性状态，与原生 `AppListState` 一一对应（跨端契约）。
@@ -25,6 +27,17 @@ enum AppListPermission {
 
 class PermissionService {
   static const _channel = AppChannels.notification;
+
+  /// [appListEnumerator] 供测试替换；默认实现延迟到调用时才取容器，
+  /// 这样构造期不依赖服务注册顺序（PermissionService 注册得很早）。
+  PermissionService({Future<void> Function()? appListEnumerator})
+    : _enumerateApps = appListEnumerator ?? _enumerateInstalledApps;
+
+  final Future<void> Function() _enumerateApps;
+
+  static Future<void> _enumerateInstalledApps() async {
+    await GetIt.instance<InstalledAppsService>().load(force: true);
+  }
 
   bool _notificationListenerGranted = false;
   bool _postNotificationGranted = false;
@@ -155,6 +168,30 @@ class PermissionService {
     }
   }
 
-  Future<void> requestAppListPermission() =>
-      _requestPermission('requestQueryAllPackagesPermission');
+  /// 向系统申请「读取已安装应用列表」（维护者 1.5.76 反馈 #3：点这一行就该直接申请，
+  /// 不要先挡一层应用内说明框）。
+  ///
+  /// 为什么不照抄短信那行的 `Permission.sms.request()`：`QUERY_ALL_PACKAGES` 是**安装期**
+  /// 权限，AOSP 没给它建 AppOps 映射（真机实测 `permissionToOp == null`），
+  /// `permission_handler` 里也没有对应的一枚 Permission ⇒ 原生层压根没有"运行时弹框"这件事；
+  /// 硬调 `requestPermissions` 只会立刻回 GRANTED，那是撒谎。
+  ///
+  /// 但**国产 ROM（MIUI / 澎湃 / Flyme）是在"第一次真的去枚举应用列表"的那一刻弹自己的框**。
+  /// 所以顺序是：① 按用户这一次点击发起一次真枚举（给 ROM 弹框的机会）→ ② 枚举完复查三态
+  /// （用户在 ROM 框里点了允许，只有这一步才看得见）→ ③ 仍读不到明确结论才退到那个固定的
+  /// 系统详情页。反过来先跳详情页，就永远只是"让用户自己去设置里找开关"。
+  ///
+  /// 枚举走 [InstalledAppsService] 而不是裸通道：原生那道 `shouldScan` 闸门会在系统已经
+  /// 明确拒绝时直接返空（不再骚扰拒绝过的用户），widget 层的通道棘轮也不因此涨数。
+  Future<void> requestAppListPermission() async {
+    try {
+      await _enumerateApps();
+    } catch (e) {
+      // 枚举失败（含 ROM 框被拒后原生返错）不是终止条件：后面照样复查 + 必要时跳详情页
+      debugPrint('申请应用列表权限：主动枚举未成功（$e），继续复查状态');
+    }
+    await checkAllPermissions();
+    if (_appList == AppListPermission.granted) return;
+    await _requestPermission('requestQueryAllPackagesPermission');
+  }
 }
