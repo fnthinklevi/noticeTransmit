@@ -18,6 +18,14 @@
       "derivedFromDeviceIdentity": false,
       "resettable": true
     },
+    "endpointSecret": {
+      "length": 32,
+      "public": false,
+      "singleUse": false,
+      "rotatable": true,
+      "derivedFromDeviceIdentity": false,
+      "_comment": "接入端点的长期口令（T38/T40）：放路径段、不进 query、access log 对该路径脱敏；服务端只存摘要。字母表与地址码共用（那是协议级属性，不在此重复）。长期凭证反而比 5 分钟一次的配对口令短，是配反了方向"
+    },
     "identityKey": {
       "algorithm": "Ed25519",
       "privateKeyExportable": false,

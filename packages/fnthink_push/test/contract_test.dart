@@ -136,6 +136,13 @@ void main() {
       expectProblem(broken, '不可导出', '私钥进 AndroidKeyStore 不可导出是红线');
     });
 
+    test('端点长期口令比配对口令还短 ⇒ 报（长期凭证要更长，不是更短）', () {
+      final broken = mutate((raw) {
+        ((raw['identity'] as Map)['endpointSecret'] as Map)['length'] = 12;
+      });
+      expectProblem(broken, 'endpointSecret', '配反方向的安全参数');
+    });
+
     test('正文在 expired 时不删 ⇒ 报', () {
       final broken = mutate((raw) {
         (raw['retention'] as Map<String, Object?>)['deleteBodyOn'] = [

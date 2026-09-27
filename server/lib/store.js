@@ -68,7 +68,8 @@ function readJsonFile(filePath, defaultValue) {
   return defaultValue;
 }
 
-function writeJsonFile(filePath, data) {
+function writeJsonFile(filePath, data, options) {
+  const mode = options && options.mode;
   try {
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
@@ -76,7 +77,14 @@ function writeJsonFile(filePath, data) {
     }
     // 原子写入：先写 .tmp 再 rename，防止崩溃产生截断文件
     const tmp = filePath + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(
+      tmp,
+      JSON.stringify(data, null, 2),
+      mode === undefined ? 'utf8' : { encoding: 'utf8', mode },
+    );
+    // mode 只在**创建**时生效且会被 umask 削掉几位，所以显式 chmod；
+    // rename 保留 tmp 的权限，落盘文件因此与 tmp 一致（含"文件已存在被替换"的情况）。
+    if (mode !== undefined) fs.chmodSync(tmp, mode);
     fs.renameSync(tmp, filePath);
     return true;
   } catch (e) {

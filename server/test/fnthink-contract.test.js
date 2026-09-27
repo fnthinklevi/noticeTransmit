@@ -117,6 +117,15 @@ describe('fnthink 协议契约（服务端侧）', () => {
     expect(c.identity.pairingCode.derivedFromDeviceIdentity).toBe(false);
   });
 
+  test('红线：端点长期口令是秘密、可比配对口令更长、可轮换（T27 存储按此校验）', () => {
+    const ep = c.identity.endpointSecret;
+    expect(ep.public).toBe(false);
+    expect(ep.singleUse).toBe(false);
+    expect(ep.rotatable).toBe(true);
+    expect(ep.derivedFromDeviceIdentity).toBe(false);
+    expect(ep.length).toBeGreaterThanOrEqual(c.identity.pairingCode.length);
+  });
+
   test('留存与投递：delivered 与 expired 都删正文；ack 是唯一送达依据', () => {
     expect(c.retention.deleteBodyOn).toEqual(expect.arrayContaining(['delivered', 'expired']));
     expect(c.retention.whilePending).toBe('static_encrypted');

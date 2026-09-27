@@ -415,6 +415,22 @@ class FnthinkContract {
       boolOf(const ['identity', 'pairingCode', 'singleUse']) == true,
       '配对口令必须是一次性的（配对即消耗）',
     );
+    // 端点长期口令（T27/T38）：形状与配对口令同族，但它是长期凭证，所以两条方向相反的规则
+    // 必须同时钉住 —— 长期凭证反而比 5 分钟一次的东西短，是配反了方向。
+    need(
+      (intOf(const ['identity', 'endpointSecret', 'length']) ?? 0) >=
+          (intOf(const ['identity', 'pairingCode', 'length']) ?? 99),
+      'identity.endpointSecret.length 不得短于配对口令位数',
+    );
+    need(
+      boolOf(const ['identity', 'endpointSecret', 'public']) == false,
+      'identity.endpointSecret.public 必须是 false（它是秘密，不像地址码那样可分享）',
+    );
+    need(
+      boolOf(const ['identity', 'endpointSecret', 'singleUse']) == false &&
+          boolOf(const ['identity', 'endpointSecret', 'rotatable']) == true,
+      '端点口令是"长期有效直到轮换"：singleUse 必须 false、rotatable 必须 true',
+    );
     need(
       boolOf(const ['identity', 'pairingCode', 'derivedFromDeviceIdentity']) ==
           false,
