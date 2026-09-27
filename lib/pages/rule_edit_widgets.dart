@@ -105,8 +105,12 @@ class _IosSelectField<T> extends StatelessWidget {
                   final selected = option.value == value;
                   return ListTile(
                     onTap: () {
-                      onChanged(option.value);
+                      // 顺序不能反：先关 picker，再回调。优先级那一档的 onChanged 会
+                      // **同步**压入自定义输入框，而 `Navigator.pop(dialogContext)` 弹的是
+                      // 栈顶路由 —— 先回调时栈顶已经是那个新框，于是它同一帧被压入又弹出，
+                      // 用户看到的是"点自定义没反应"（picker 还留在原地）。
                       Navigator.pop(dialogContext);
+                      onChanged(option.value);
                     },
                     dense: true,
                     title: Column(
