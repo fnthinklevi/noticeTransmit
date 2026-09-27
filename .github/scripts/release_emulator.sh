@@ -209,9 +209,12 @@ RC=0
 # `flutter test` 都会从 stdin 读 —— 第 20 轮实测它们把循环剩下的三个用例名**吃掉**了，
 # 整轮只跑了 1/4 就退出（是靠"缺 GATE-DIFF-RING 判红"当场逮住的，不是靠人看）。
 clear_app_data() {
-    # 装过就必须清得掉：只 `|| true` 咽掉失败，等于让下一档测试在上一档的残留上跑
-    #（v1.5.76 发版第一趟正是这个形状：smoke 2/4 找不到「共 1 条记录」，因为计数里还混着
-    #  闸门 4/4 留下的历史 —— 而清数据那一步当时是静默失败的，报告里什么都看不见）。
+    # 装过就必须清得掉：`|| true` 会把"这一步没做成"咽掉 —— 报告里看不见，而下一档测试的
+    # 干净起点是否成立就没人核对过。
+    # ⚠ 别把它读成"曾因此跑出过假红"：v1.5.76 第一趟 smoke 2/4 找不到「共 1 条记录」时，
+    #   这里写的归因是"闸门 4/4 留下的历史没清掉"，**那个归因已被否证** —— 第 24/25 轮每次调用
+    #   前 `pm list packages` 都报"尚未安装"（`flutter test` 跑完会卸载应用，历史就在应用自己的
+    #   库里 ⇒ 跨档残留没有通道）。那次失败的原因因此回到未知（同码在别的轮次四条全绿）。
     if "$ADB" -s "$SERIAL" shell pm list packages com.fnthink.notice < /dev/null 2>&1 \
             | tr -d '\r' | grep -q com.fnthink.notice; then
         "$ADB" -s "$SERIAL" shell pm clear com.fnthink.notice < /dev/null > /dev/null 2>&1 \
@@ -299,13 +302,13 @@ if [ -n "$GATE_CASES" ]; then
     fi
     if [ -n "${OTHERS// /}" ]; then
         echo "──── 独立调用：$OTHERS" >> "$LOG"
-        # 清不掉就不跑：让 smoke 在闸门的残留上跑，报出来的是**假的**"共 1 条记录"缺失
+        # 清不掉就不跑：这一档的干净起点没人核对过，跑出来的结论不能算数
         if clear_app_data; then
             timeout "$GATE_TEST_TIMEOUT" flutter test $OTHERS -d "$SERIAL" \
                 < /dev/null >> "$LOG" 2>&1
             [ "$?" -eq 0 ] || RC=1
         else
-            fail "smoke 这一档没有跑：清数据失败 ⇒ 它会看到上一档留下的残留"
+            fail "smoke 这一档没有跑：清数据失败 ⇒ 它的干净起点无人核对，宁可不跑"
             RC=1
         fi
     fi

@@ -1002,12 +1002,13 @@ void main() {
         lessThan(runCase.indexOf('flutter test')),
         reason: '清数据晚一步等于没清',
       );
-      // 清不掉必须**上抛**，不许 `|| true`：v1.5.76 发版第一趟它就是静默失败的，
-      // smoke 于是跑在闸门档留下的残留上，报出一条并不存在的"功能回归"（共 1 条记录找不到）。
+      // 清不掉必须**上抛**，不许 `|| true`：静默失败等于"这一步没做成"而报告里看不见。
+      //（曾把 v1.5.76 第一趟 smoke 的红归因成"上一档残留没清"，那条归因已被否证 ——
+      //  `flutter test` 每次跑完会卸载应用 ⇒ 跨档残留没有通道，见发版脚本同处的注释。）
       expect(
         RegExp(r'clear_app_data\(\) \{[\s\S]{0,900}?return 9').hasMatch(sh),
         isTrue,
-        reason: 'clear_app_data 不区分"没装"与"清不掉" ⇒ 残留污染下一档，而报告里什么都看不见',
+        reason: 'clear_app_data 不区分"没装"与"清不掉" ⇒ 干净起点是否成立无人知道，报告里也看不见',
       );
       expect(
         RegExp(r'if clear_app_data; then').hasMatch(sh),
