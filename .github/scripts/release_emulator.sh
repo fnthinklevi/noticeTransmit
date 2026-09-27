@@ -188,15 +188,27 @@ GATE_CASE_TIMEOUT=${GATE_CASE_TIMEOUT:-660}
 # 所以按用例名分几次调用才是真隔离；代价是每次多一分钟左右的重装与启动。
 # 用例名从测试文件里**派生**，不在脚本里再抄一份 ⇒ 两边各写各的、朝同一方向写错，
 # 就是本项目反复撞过的"守卫自己成了第二份拷贝"。数不到名字时**判红**而不是退回整档一次。
-WALK=integration_test/release_walkthrough_test.dart
-GATE_CASES=""
-if [ -z "${GATE_FILES:-}" ] && [ -f "$WALK" ]; then
-    GATE_CASES=$(grep -oE "'闸门 [0-9]+/[0-9]+" "$WALK" | tr -d "'" | sort -u)
-    [ -n "$GATE_CASES" ] || {
-        fail "从 $WALK 里数不到「闸门 n/4」用例名 ⇒ 用例改名或合回去了：逐条隔离会静默退化成整档一次"
-        exit 1
-    }
-    ok "逐条隔离：$(echo "$GATE_CASES" | tr '\n' ' ')"
+# 8.14 起这条不只服务 walkthrough：第 27 轮里 `smoke_test.dart` 的 3/4 撞了自己的 5 分钟用例超时，
+# 同一次调用里的 4/4 立刻报 `!inTest` / `!_expectingFrame` —— 上一条没收尾的异步把 binding 状态带走了。
+# 污染面差一档只是因为 walkthrough 拆了、smoke 没拆 ⇒ 现在**每个文件都按用例拆开跑**。
+GATE_PLAN=""          # 每行「文件|用例名」；用例名里没有竖线，所以竖线是安全分隔符
+if [ -z "${GATE_FILES:-}" ]; then
+    for gate_file in $FILES; do
+        [ -f "$gate_file" ] || { fail "$gate_file 不存在 ⇒ 清单与现实不符，不跑"; exit 1; }
+        gate_names=$(grep -oE "(闸门|冒烟) [0-9]+/[0-9]+" "$gate_file" | tr -d "'" | sort -u)
+        gate_declared=$(grep -c "testWidgets(" "$gate_file")
+        gate_found=$(printf '%s\n' "$gate_names" | grep -c .)
+        [ "$gate_found" -eq "$gate_declared" ] || {
+            fail "$gate_file 只数到 $gate_found/$gate_declared 个用例名 ⇒ 用例改名、合并或漏了编号前缀：逐条隔离会静默退化成整档一次"
+            exit 1
+        }
+        while IFS= read -r gate_case; do
+            [ -n "$gate_case" ] || continue
+            GATE_PLAN="${GATE_PLAN}${gate_file}|${gate_case}
+"
+        done <<< "$gate_names"
+    done
+    ok "逐条隔离：$(printf '%s\n' "$GATE_PLAN" | awk -F'|' 'NF>1 {printf "%s ", $2}')"
 fi
 RC=0
 : > "$LOG"
@@ -263,19 +275,17 @@ case_hang_only() {  # $1=日志标签
 # 多给一次机会的边际收益是真的，只是每多一次就多 3–4 分钟。
 GATE_HANG_RETRIES=${GATE_HANG_RETRIES:-1}
 
-if [ -n "$GATE_CASES" ]; then
-    # 其余测试文件（smoke 等）仍一次跑完；walkthrough 按用例名拆开跑
-    OTHERS=$(printf '%s\n' $FILES | grep -v "^$WALK\$" | tr '\n' ' ')
-    while IFS= read -r case_name; do
+if [ -n "$GATE_PLAN" ]; then
+    while IFS='|' read -r walk_file case_name; do
         [ -n "$case_name" ] || continue
-        run_case "$case_name" "$WALK" --plain-name "$case_name"
+        run_case "$case_name" "$walk_file" --plain-name "$case_name"
         case_rc=$?
         attempt=0
         while [ "$case_rc" -ne 0 ] && [ "$attempt" -lt "$GATE_HANG_RETRIES" ] \
                 && case_hang_only "$case_name"; do
             attempt=$((attempt + 1))
             warn "$case_name 首次是**挂住**（无功能红）⇒ 按口径重跑这一条一次（第 $attempt/$GATE_HANG_RETRIES 次重试）"
-            run_case "$case_name 重跑$attempt" "$WALK" --plain-name "$case_name"
+            run_case "$case_name 重跑$attempt" "$walk_file" --plain-name "$case_name"
             case_rc=$?
             [ "$case_rc" -eq 0 ] && ok "$case_name 第 $attempt 次重试通过（挂点见上面的 GATE-STEP-FAIL）"
         done
@@ -285,32 +295,21 @@ if [ -n "$GATE_CASES" ]; then
         if [ "$case_rc" -eq 124 ]; then
             fail "$case_name 跑满单次回退上限（${GATE_CASE_TIMEOUT}s）被 timeout 掐掉 ⇒ 不是功能红，是没返回"
         fi
-    done <<< "$GATE_CASES"
+    done <<< "$GATE_PLAN"
     # 跑没跑到，比跑成什么颜色更基本：数一下每条用例的收尾行。
     # （第 20 轮实测：`while read` 的循环体里 `adb shell` / `flutter test` 从 stdin 把
     #  剩下的三个用例名吃掉了，循环"成功地跑完"却只执行了 1/4 —— 那种轮次看起来全绿。）
     # 数的是**去重之后的用例名**（重跑那一次不算第二条）：否则"1/4 没跑、3/4 跑了两遍"
     # 也会凑够四条，这条检查就成了摆设。
     ran=$(grep -a '^──── 结束：' "$LOG" | grep -av '重跑' \
-        | sed 's/^──── 结束：//; s/ rc=[0-9]*$//' | sort -u | grep -c '闸门 [0-9]*/[0-9]*$')
-    planned=$(printf '%s\n' "$GATE_CASES" | grep -c .)
+        | sed 's/^──── 结束：//; s/ rc=[0-9]*$//' | sort -u \
+        | grep -cE '(闸门|冒烟) [0-9]*/[0-9]*$')
+    planned=$(printf '%s\n' "$GATE_PLAN" | grep -c .)
     if [ "$ran" -lt "$planned" ]; then
         fail "闸门只跑了 $ran/$planned 条用例 ⇒ 有用例**根本没执行**（循环被循环体读走 stdin 就是这个形状）"
         RC=1
     else
-        ok "四条用例都跑到了（$ran/$planned 条独立调用有收尾行）"
-    fi
-    if [ -n "${OTHERS// /}" ]; then
-        echo "──── 独立调用：$OTHERS" >> "$LOG"
-        # 清不掉就不跑：这一档的干净起点没人核对过，跑出来的结论不能算数
-        if clear_app_data; then
-            timeout "$GATE_TEST_TIMEOUT" flutter test $OTHERS -d "$SERIAL" \
-                < /dev/null >> "$LOG" 2>&1
-            [ "$?" -eq 0 ] || RC=1
-        else
-            fail "smoke 这一档没有跑：清数据失败 ⇒ 它的干净起点无人核对，宁可不跑"
-            RC=1
-        fi
+        ok "$planned 条用例都跑到了（$ran/$planned 条独立调用有收尾行）"
     fi
 else
     timeout "$GATE_TEST_TIMEOUT" flutter test $FILES -d "$SERIAL" > "$LOG" 2>&1
