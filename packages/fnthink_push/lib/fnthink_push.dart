@@ -9,4 +9,5 @@ library;
 export 'src/canonical_bytes.dart';
 export 'src/contract.dart';
 export 'src/credentials.dart';
+export 'src/pairing.dart';
 export 'src/crockford.dart';

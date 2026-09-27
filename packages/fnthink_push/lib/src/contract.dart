@@ -138,6 +138,46 @@ class FnthinkContract {
   bool? identityBool(String which, String key) =>
       boolOf(['identity', which, key]);
 
+  // ── 配对（T28）──
+
+  /// 二维码/一次性链接的前缀。两端各写一个前缀 = 互相解不开对方的码。
+  String get pairingQrPrefix {
+    final value = str(const ['pairing', 'qrPrefix']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 pairing.qrPrefix（不补默认前缀）');
+    }
+    return value;
+  }
+
+  List<String> get pairingPayloadFields =>
+      strings(const ['pairing', 'payloadFields']);
+
+  /// 载荷里一律禁止出现的字段（私钥、签名、端点长期口令、口令摘要）。
+  List<String> get pairingNeverCarry =>
+      strings(const ['pairing', 'neverCarry']);
+
+  /// 未知字段是否拒绝。缺键直接抛而不是"默认拒绝"——默认值本身就是第二份实现，
+  /// 而且哪天有人把契约改成 false，这里必须跟着显式改代码才会生效。
+  bool get pairingRejectUnknownFields {
+    final value = boolOf(const ['pairing', 'rejectUnknownFields']);
+    if (value == null) {
+      throw StateError('契约缺 pairing.rejectUnknownFields（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 必须有点头这一步：`confirmRequired` 为真 **且** `autoApprove` 为假。
+  bool get pairingRequiresHumanConfirmation =>
+      boolOf(const ['pairing', 'confirmRequired']) == true &&
+      boolOf(const ['pairing', 'autoApprove']) == false;
+
+  /// 配对阶段可请求的最高级别（免本地确认）。L3 不在这条路上。
+  String get pairingMaxRequestableLevel =>
+      str(const ['pairing', 'maxRequestableLevelWithoutLocalAuth']) ?? '';
+
+  List<String> get capabilityLevels =>
+      strings(const ['capabilities', 'levels']);
+
   /// 在线判定的秒数：`3 × 拉取间隔`（不另设心跳协议）。
   int? onlineThresholdSeconds({int? pollIntervalSeconds}) {
     final poll =
@@ -504,6 +544,50 @@ class FnthinkContract {
     need(
       (str(const ['transport', 'accessLogRedactPathPattern']) ?? '').isNotEmpty,
       'transport.accessLogRedactPathPattern 不能为空',
+    );
+
+    // ── 配对（T28）──
+    need(
+      (str(const ['pairing', 'qrPrefix']) ?? '').isNotEmpty,
+      'pairing.qrPrefix 不能缺省：两端各写一个前缀就互相解不开对方的二维码',
+    );
+    need(
+      boolOf(const ['pairing', 'confirmRequired']) == true &&
+          boolOf(const ['pairing', 'autoApprove']) == false,
+      'pairing 必须"要人确认、不自动批准"：扫码即入白名单 = 谁捡到二维码谁就是可信发送方',
+    );
+    for (final required in ['v', 'to', 'code', 'level']) {
+      need(
+        strings(const ['pairing', 'payloadFields']).contains(required),
+        '配对载荷缺字段 $required：${strings(const ['pairing', 'payloadFields'])}',
+      );
+    }
+    need(
+      boolOf(const ['pairing', 'rejectUnknownFields']) == true,
+      'pairing.rejectUnknownFields 必须为 true：配对载荷上的"容错"就是往身份交换里塞料的口子',
+    );
+    for (final secret in ['privateKey', 'signature', 'pairingCodeDigest']) {
+      need(
+        strings(const ['pairing', 'neverCarry']).contains(secret),
+        '配对载荷必须禁止携带 $secret：${strings(const ['pairing', 'neverCarry'])}',
+      );
+    }
+    need(
+      str(const ['pairing', 'failureMessageShape']) == 'single-generic',
+      '配对失败必须只有一种提示：文案能分辨"没这台设备"与"口令错"，服务端就成了地址码枚举器',
+    );
+    need(
+      str(const ['pairing', 'clockAuthority']) == 'server',
+      '配对口令的计时以服务端为准（设备本机时钟不参与判定）',
+    );
+    final requestable = str(const [
+      'pairing',
+      'maxRequestableLevelWithoutLocalAuth',
+    ]);
+    need(
+      strings(const ['capabilities', 'levels']).contains(requestable) &&
+          requestable != 'L3',
+      '配对时可请求的最高级别必须是契约已定义的级别且不得是 L3（L3 要本地锁屏/生物认证）',
     );
 
     return problems;

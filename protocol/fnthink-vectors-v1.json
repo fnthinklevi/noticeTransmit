@@ -1,8 +1,9 @@
 {
-  "_purpose": "跨端一致性向量（T26）。同一份文件，Dart（packages/fnthink_push）与 Node（server）各自断言。它钉的是'同一串输入两端必须得出同一个归一化值与同一个摘要' —— 两端理解不同时表现不是报错，而是'设备生成的码服务端永远判非法'。",
+  "_purpose": "跨端一致性向量（T26 / T28）。同一份文件，Dart（packages/fnthink_push）与 Node（server）各自断言。它钉的是'同一串输入两端必须得出同一个归一化值、同一个摘要、同一个 reason' —— 两端理解不同时表现不是报错，而是'设备生成的码服务端永远判非法'。",
   "_generatedBy": "outputs/_fnthink_vectors_gen.py（期望值手写，摘要由期望值算出，不从实现生成）",
   "_kindMatchesContract": "kind 就是 identity.<kind> 的键名，位数从契约读，这里不重复定义",
   "_normalizedMeaning": "expect.normalized 是**归一化函数**的输出（只处理大小写与空格/连字符），与合法性无关；null 只代表含字母表以外的字符。位数不符的串仍要有归一化结果 —— 把归一化和校验混成一件事，两端就会在'改了位数'的那一刻分叉。",
+  "_payloadReasonVocabulary": "payloads[].expect.reason 就是两端 reason 字符串的**全部**取值（前缀不对 prefix、空载荷 empty、键重复 repeat:<k>、禁带秘密 carries-secret:<k>、未知字段 unknown:<k>、缺字段 missing:<k>、版本非数字 version-unparseable、版本不符 version:<n>、地址码不合法 address-code、口令不合法 pairing-code、级别越界 level:<l>）。它是内部诊断用的，不是用户文案：用户侧所有预授权失败塌成同一句话。",
   "digest": {
     "algorithm": "sha256",
     "encoding": "hex-lowercase",
@@ -207,6 +208,208 @@
         "digest": null
       },
       "note": "口令同样不容排除集"
+    }
+  ],
+  "payloads": [
+    {
+      "id": "p-basic",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L1",
+      "expect": {
+        "ok": true,
+        "reason": null,
+        "request": {
+          "v": 1,
+          "to": "8K3FJ6QPTM9WZ4VHNS",
+          "code": "7YD4RKQPBM8XZ3VHNT6J",
+          "level": "L1"
+        }
+      },
+      "note": "标准形态"
+    },
+    {
+      "id": "p-lower",
+      "payload": "fnthink-push://pair?v=1&to=8k3fj6qptm9wz4vhns&code=7yd4rkqpbm8xz3vhnt6j&level=L1",
+      "expect": {
+        "ok": true,
+        "reason": null,
+        "request": {
+          "v": 1,
+          "to": "8K3FJ6QPTM9WZ4VHNS",
+          "code": "7YD4RKQPBM8XZ3VHNT6J",
+          "level": "L1"
+        }
+      },
+      "note": "大小写不敏感，产出归一化后的值"
+    },
+    {
+      "id": "p-level-l2",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L2",
+      "expect": {
+        "ok": true,
+        "reason": null,
+        "request": {
+          "v": 1,
+          "to": "8K3FJ6QPTM9WZ4VHNS",
+          "code": "7YD4RKQPBM8XZ3VHNT6J",
+          "level": "L2"
+        }
+      },
+      "note": "免本地确认可请求的上限"
+    },
+    {
+      "id": "p-level-l3",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L3",
+      "expect": {
+        "ok": true,
+        "reason": null,
+        "request": {
+          "v": 1,
+          "to": "8K3FJ6QPTM9WZ4VHNS",
+          "code": "7YD4RKQPBM8XZ3VHNT6J",
+          "level": "L3"
+        }
+      },
+      "note": "载荷只判「是不是契约定义的级别」；能不能给是裁决层的事（上限只写一处）"
+    },
+    {
+      "id": "p-level-l9",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L9",
+      "expect": {
+        "ok": false,
+        "reason": "level:L9",
+        "request": null
+      },
+      "note": "契约里根本没有的级别"
+    },
+    {
+      "id": "p-prefix",
+      "payload": "other://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L1",
+      "expect": {
+        "ok": false,
+        "reason": "prefix",
+        "request": null
+      },
+      "note": "别人的码不是我们的码"
+    },
+    {
+      "id": "p-empty",
+      "payload": "fnthink-push://pair?",
+      "expect": {
+        "ok": false,
+        "reason": "empty",
+        "request": null
+      },
+      "note": ""
+    },
+    {
+      "id": "p-no-question",
+      "payload": "fnthink-push://pair",
+      "expect": {
+        "ok": false,
+        "reason": "prefix",
+        "request": null
+      },
+      "note": "连问号都没有"
+    },
+    {
+      "id": "p-shape",
+      "payload": "fnthink-push://pair?v=1&to",
+      "expect": {
+        "ok": false,
+        "reason": "shape:to",
+        "request": null
+      },
+      "note": "没有 = 的裸键"
+    },
+    {
+      "id": "p-repeat",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&code=7YD4RKQPBM8XZ3VHNT6J&level=L1",
+      "expect": {
+        "ok": false,
+        "reason": "repeat:code",
+        "request": null
+      },
+      "note": "同一个键出现两次 = 被人拼过，不是取哪个的问题"
+    },
+    {
+      "id": "p-unknown",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L1&foo=1",
+      "expect": {
+        "ok": false,
+        "reason": "unknown:foo",
+        "request": null
+      },
+      "note": "配对载荷不容错（与第三方正文的 ignoreUnknownFields 是两回事）"
+    },
+    {
+      "id": "p-secret",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L1&signature=AAA",
+      "expect": {
+        "ok": false,
+        "reason": "carries-secret:signature",
+        "request": null
+      },
+      "note": "禁带清单优先于未知字段：日志要看见的是前者"
+    },
+    {
+      "id": "p-private-key",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L1&privateKey=zzz",
+      "expect": {
+        "ok": false,
+        "reason": "carries-secret:privateKey",
+        "request": null
+      },
+      "note": ""
+    },
+    {
+      "id": "p-missing",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&level=L1",
+      "expect": {
+        "ok": false,
+        "reason": "missing:code",
+        "request": null
+      },
+      "note": ""
+    },
+    {
+      "id": "p-v2",
+      "payload": "fnthink-push://pair?v=2&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L1",
+      "expect": {
+        "ok": false,
+        "reason": "version:2",
+        "request": null
+      },
+      "note": "版本不符就拒，不'能读多少算多少'"
+    },
+    {
+      "id": "p-v-garbage",
+      "payload": "fnthink-push://pair?v=x&to=8K3FJ6QPTM9WZ4VHNS&code=7YD4RKQPBM8XZ3VHNT6J&level=L1",
+      "expect": {
+        "ok": false,
+        "reason": "version-unparseable",
+        "request": null
+      },
+      "note": ""
+    },
+    {
+      "id": "p-bad-address",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHN&code=7YD4RKQPBM8XZ3VHNT6J&level=L1",
+      "expect": {
+        "ok": false,
+        "reason": "address-code",
+        "request": null
+      },
+      "note": ""
+    },
+    {
+      "id": "p-bad-code",
+      "payload": "fnthink-push://pair?v=1&to=8K3FJ6QPTM9WZ4VHNS&code=IYD4RKQPBM8XZ3VHNT6J&level=L1",
+      "expect": {
+        "ok": false,
+        "reason": "pairing-code",
+        "request": null
+      },
+      "note": ""
     }
   ]
 }

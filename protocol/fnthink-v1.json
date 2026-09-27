@@ -36,6 +36,27 @@
     "generator": "csprng"
   },
 
+  "pairing": {
+    "_comment": "配对流程（T28）：A 出二维码/一次性链接（地址码 + 短期口令），B 扫码后用自己的身份私钥签一条握手回执，A 本地确认才把 B 的公钥写进白名单。⚠ 配对口令是整条链路上唯一被允许出现在配对载荷里的秘密：5 分钟过期、配对即消耗、UI 必须明示「此链接等同密码」。它只走 POST 正文（TLS），不进 path/query —— URL 会被访问日志、浏览器历史与代理留下副本，那是 `privacy.credentialsNeverIn` 里那条 url 的真正含义（与 transport.accessLogRedactPathPattern 为端点长期口令做的脱敏是同一类事）。",
+    "qrPrefix": "fnthink-push://pair",
+    "payloadFields": ["v", "to", "code", "level"],
+    "payloadFieldMeaning": {
+      "v": "contractVersion（对不上就拒，不「能读多少算多少」）",
+      "to": "接收方地址码（公开标识）",
+      "code": "一次性配对口令",
+      "level": "请求的能力级别"
+    },
+    "rejectUnknownFields": true,
+    "rejectUnknownFieldsWhy": "配对载荷不是外部消息正文：这里的「容错」等于给对方一个往身份交换里塞料口。与 fieldTolerance.ignoreUnknownFields=true 不矛盾（那条只管第三方推送正文的 title/body 别名）",
+    "codeMayAppearIn": ["qrCode", "oneTimeShareLink", "postBody"],
+    "neverCarry": ["privateKey", "signature", "endpointSecret", "pairingCodeDigest"],
+    "confirmRequired": true,
+    "autoApprove": false,
+    "maxRequestableLevelWithoutLocalAuth": "L2",
+    "failureMessageShape": "single-generic",
+    "clockAuthority": "server"
+  },
+
   "signature": {
     "canonicalOrder": ["version", "type", "target", "ts", "nonce", "body"],
     "encoding": "utf8",
