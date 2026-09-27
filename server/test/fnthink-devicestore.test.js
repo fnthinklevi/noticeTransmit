@@ -171,6 +171,24 @@ describe('fnthink 服务端存储（T27）', () => {
     );
   });
 
+  test('⚠ 在线三态：从未上线 ≠ 掉线（显示层不许拿 isOnline 的 false 猜）', () => {
+    const devices = {};
+    store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+    expect(store.devicePresence(contract, devices[ADDR], NOW)).toBe('unknown');
+    // isOnline 对同一件事答 false —— 这正是"两个概念被压成一个"的地方，用例把差异钉住
+    expect(store.isOnline(contract, devices[ADDR], NOW)).toBe(false);
+    const threshold =
+      contract.presence.pollIntervalSeconds.default *
+      contract.presence.onlineThresholdMultiplier *
+      1000; // lastSeenAt 是毫秒，阈值也得换成毫秒再比
+    store.touchDevice(contract, devices, ADDR, NOW);
+    expect(store.devicePresence(contract, devices[ADDR], NOW + threshold)).toBe('online');
+    expect(store.devicePresence(contract, devices[ADDR], NOW + threshold + 1)).toBe('offline');
+    expect(store.devicePresence(contract, undefined, NOW)).toBe('unknown');
+    // 状态表本身是契约读来的，不是这里写死的
+    expect(contract.presence.states).toEqual(['online', 'offline', 'unknown']);
+  });
+
   test('重置配对口令 = 覆盖那一条摘要：旧口令立刻算不出匹配（契约 resetPairingCodeInvalidatesOutstanding）', () => {
     const devices = {};
     store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);

@@ -250,6 +250,10 @@ class FnthinkContract {
   /// "未知的那一侧一律不赢"。
   int levelRank(String level) => capabilityLevels.indexOf(level);
 
+  /// 设备在线态的**三个**取值。少了 `unknown` 的那一份，界面上就会把"从未配过"
+  /// 显示成"设备掉线了"—— 这是两件事，契约里 `unknownMeans` 写的就是这条。
+  List<String> get presenceStates => strings(const ['presence', 'states']);
+
   /// 在线判定的秒数：`3 × 拉取间隔`（不另设心跳协议）。
   int? onlineThresholdSeconds({int? pollIntervalSeconds}) {
     final poll =
@@ -445,6 +449,7 @@ class FnthinkContract {
     );
 
     // ── presence ──
+    final presenceList = strings(const ['presence', 'states']);
     final poll = map(const ['presence', 'pollIntervalSeconds']);
     need(
       boolOf(const ['presence', 'separateHeartbeatProtocol']) == false,
@@ -453,6 +458,18 @@ class FnthinkContract {
     need(
       (intOf(const ['presence', 'onlineThresholdMultiplier']) ?? 0) >= 2,
       'presence.onlineThresholdMultiplier 至少 2（否则抖动一次就判离线）',
+    );
+    need(
+      presenceList.length == 3 &&
+          Set<String>.from(
+            presenceList,
+          ).containsAll(const {'online', 'offline', 'unknown'}),
+      'presence.states 必须正好是 online / offline / unknown 三态：$presenceList '
+      '（少 unknown 就是把"从未上线"显示成"掉线"）',
+    );
+    need(
+      (str(const ['presence', 'unknownMeans']) ?? '').isNotEmpty,
+      'presence.unknownMeans 不能缺省：三态里那个 unknown 的解释必须写在契约上，不留在注释里',
     );
     if (poll != null) {
       final min = (poll['min'] as num).toInt();

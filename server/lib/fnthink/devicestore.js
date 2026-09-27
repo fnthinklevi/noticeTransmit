@@ -298,7 +298,18 @@ function isOnline(contract, record, now, pollIntervalSeconds) {
   return now - record.lastSeenAt <= poll * multiplier * 1000;
 }
 
-/// 端点：长期口令同样只存摘要；"仅允许 POST"的默认值取契约 `transport.postOnlySwitch`。
+/// 在线**三态**。`isOnline` 只回答"现在算不算在线"，它把"从未上线"与"掉线"都答 false ——
+/// 而这两件在界面上必须是两件事（契约 `presence.unknownMeans`），把它们合成一个是把
+/// "还没配过这台设备"显示成"那台设备离线了"。所以显示层调这个，别自己猜。
+function devicePresence(contract, record, now, pollIntervalSeconds) {
+  const states = (contract.presence || {}).states || [];
+  if (!record || record.lastSeenAt === null || record.lastSeenAt === undefined) {
+    return states.includes('unknown') ? 'unknown' : 'offline';
+  }
+  return isOnline(contract, record, now, pollIntervalSeconds) ? 'online' : 'offline';
+}
+
+/// 端点：长期口令同样只存摘要；/// 端点：长期口令同样只存摘要；"仅允许 POST"的默认值取契约 `transport.postOnlySwitch`。
 function putEndpoint(contract, endpoints, input, now) {
   const id = typeof input.id === 'string' && input.id ? input.id : newEndpointId();
   const existing = endpoints[id];
@@ -423,6 +434,7 @@ module.exports = {
   verifyPairingCode,
   touchDevice,
   isOnline,
+  devicePresence,
   putEndpoint,
   findEndpointBySecret,
   NONCE_FILE,

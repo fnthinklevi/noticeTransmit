@@ -127,6 +127,13 @@ void main() {
       expectProblem(broken, 'endpointMaxLevel', '端点只能产 L1 是红线');
     });
 
+    test('presence 少了 unknown 那一态 ⇒ 报（"从未配过"会被显示成"掉线"）', () {
+      final broken = mutate((raw) {
+        (raw['presence'] as Map)['states'] = ['online', 'offline'];
+      });
+      expectProblem(broken, 'presence.states', '三态缺一态就是让显示层去猜');
+    });
+
     test('把 revoked 也加进"允许投递"的白名单 ⇒ 报（吊销了还能收到，等于没吊销）', () {
       final broken = mutate((raw) {
         ((raw['revocation'] as Map)['deliveryAllowedStatuses'] as List).add(
