@@ -5,4 +5,7 @@
 /// 依次落在这个包裡，主 App 以 path 依赖引入。
 library;
 
+export 'src/canonical_bytes.dart';
 export 'src/contract.dart';
+export 'src/credentials.dart';
+export 'src/crockford.dart';

@@ -76,6 +76,16 @@ class FnthinkContract {
 
   int get contractVersion => intOf(const ['contractVersion']) ?? -1;
 
+  /// 签名拼接用的分隔符。缺键直接抛：两处各写一个"默认 U+0000"就是第二份实现，
+  /// 而分隔符不一致的两端会签出对不上、又看不出问题的字节串。
+  String get signatureSeparator {
+    final value = str(const ['signature', 'separator']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 signature.separator（不补默认分隔符）');
+    }
+    return value;
+  }
+
   /// 签名规范化的字段顺序（**顺序本身就是协议**：换序即换签名）。
   List<String> get canonicalOrder =>
       strings(const ['signature', 'canonicalOrder']);
@@ -104,6 +114,22 @@ class FnthinkContract {
     'title': strings(const ['fieldTolerance', 'title']),
     'body': strings(const ['fieldTolerance', 'body']),
   };
+
+  /// `identity.<which>.length`。缺键直接抛而不是补个默认位数 —— 位数错生成出来的是
+  /// 一把对端永远不认的凭证，而"默认 18"会让这个错误静默通过。
+  int identityLength(String which) {
+    final value = intOf(['identity', which, 'length']);
+    if (value == null || value <= 0) {
+      throw StateError('契约缺 identity.$which.length（不补默认值：默认位数等于换协议）');
+    }
+    return value;
+  }
+
+  int? identityTtlSeconds(String which) =>
+      intOf(['identity', which, 'ttlSeconds']);
+
+  bool? identityBool(String which, String key) =>
+      boolOf(['identity', which, key]);
 
   /// 在线判定的秒数：`3 × 拉取间隔`（不另设心跳协议）。
   int? onlineThresholdSeconds({int? pollIntervalSeconds}) {
@@ -166,6 +192,10 @@ class FnthinkContract {
     ]) {
       need(order.contains(required), '签名规范化顺序缺了 $required：$order');
     }
+    need(
+      (str(const ['signature', 'separator']) ?? '').isNotEmpty,
+      'signature.separator 不能缺省或空串：两端各补一个默认值就是第二份实现',
+    );
     need(
       boolOf(const ['signature', 'trustLocalClock']) == false,
       'signature.trustLocalClock 必须是 false：设备自算偏移，不信本机时钟',
