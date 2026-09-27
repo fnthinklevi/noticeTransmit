@@ -24,7 +24,7 @@ const verify = require('../lib/fnthink/verify');
 const contract = assertSupported(loadContract());
 const NOW = 1_800_000_000_000; // 毫秒；字段里的 ts 是秒
 const SENDER = '8K3FJ6QPTM9WZ4VHNS';
-const OTHER = '7YD4RKQPBM8XZ3VHNT6J';
+const OTHER = '7YD4RKQPBM8XZ3VHNT';
 
 function keypair() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
@@ -70,6 +70,42 @@ function stateFor(kp, over) {
   );
 }
 
+/// 「身份没被证明」的几条走法。同一条表既用来断"对外一模一样"，也用来断
+/// "对内每一类都留了自己的原因" —— 两处判据共用一份输入，才不会一边改了另一边还绿。
+function preAuthRejections(kp) {
+  const good = signable(kp, fields());
+  const forged = keypair();
+  const broken = (() => {
+    const p = signable(kp, fields());
+    const copy = Object.assign({}, p.fields);
+    delete copy[canonicalOrder(contract)[0]];
+    return { senderAddress: SENDER, signature: p.signature, fields: copy, now: NOW };
+  })();
+  const byForged = (() => {
+    const p = signable(forged, fields());
+    return { senderAddress: SENDER, signature: p.signature, fields: p.fields, now: NOW };
+  })();
+  return [
+    [
+      '未知设备',
+      stateFor(kp, { devices: {} }),
+      { senderAddress: OTHER, signature: good.signature, fields: good.fields, now: NOW },
+    ],
+    [
+      '已冻结',
+      stateFor(kp, { devices: { [SENDER]: { publicKey: kp.rawBase64, status: 'frozen' } } }),
+      { senderAddress: SENDER, signature: good.signature, fields: good.fields, now: NOW },
+    ],
+    [
+      '公钥形状不对',
+      stateFor(kp, { devices: { [SENDER]: { publicKey: 'aGk=', status: 'active' } } }),
+      { senderAddress: SENDER, signature: good.signature, fields: good.fields, now: NOW },
+    ],
+    ['签名是别人签的', stateFor(kp), byForged],
+    ['字段缺一整项', stateFor(kp), broken],
+  ];
+}
+
 describe('fnthink 验签与裁决（T29-B）', () => {
   const kp = keypair();
 
@@ -104,48 +140,85 @@ describe('fnthink 验签与裁决（T29-B）', () => {
     expect(out).toEqual({ ok: true, status: 202, receipt: 'queued' });
   });
 
-  test('⚠ 四种"身份没被证明"的失败返回完全一样的东西', () => {
-    const good = signable(kp, fields());
-    const forged = keypair();
-    const cases = {
-      未知设备: [
-        stateFor(kp, { devices: {} }),
-        { senderAddress: OTHER, signature: good.signature, fields: good.fields, now: NOW },
-      ],
-      已冻结: [
-        stateFor(kp, { devices: { [SENDER]: { publicKey: kp.rawBase64, status: 'frozen' } } }),
-        { senderAddress: SENDER, signature: good.signature, fields: good.fields, now: NOW },
-      ],
-      公钥形状不对: [
-        stateFor(kp, { devices: { [SENDER]: { publicKey: 'aGk=', status: 'active' } } }),
-        { senderAddress: SENDER, signature: good.signature, fields: good.fields, now: NOW },
-      ],
-      签名是别人签的: [
-        stateFor(kp),
-        (() => {
-          const p = signable(forged, fields());
-          return { senderAddress: SENDER, signature: p.signature, fields: p.fields, now: NOW };
-        })(),
-      ],
-      字段缺一整项: [
-        stateFor(kp),
-        (() => {
-          const p = signable(kp, fields());
-          const broken = Object.assign({}, p.fields);
-          delete broken[canonicalOrder(contract)[0]];
-          return { senderAddress: SENDER, signature: p.signature, fields: broken, now: NOW };
-        })(),
-      ],
-    };
-    const shapes = Object.entries(cases).map(([label, [state, input]]) => {
+  test('⚠ 五种"身份没被证明"的失败返回完全一样的东西', () => {
+    const shapes = preAuthRejections(kp).map(([label, state, input]) => {
       const got = verify.acceptIncoming(contract, state, input);
       expect([label, got]).toEqual([
         label,
         { ok: false, status: 403, receipt: 'rejected_unsigned' },
       ]);
+      // 响应里不许夹带任何"为什么被拒"或"拒了几次"的东西
+      expect(Object.keys(got).sort()).toEqual(['ok', 'receipt', 'status']);
       return JSON.stringify(got);
     });
     expect(new Set(shapes).size).toBe(1);
+    expect(shapes).toHaveLength(5);
+  });
+
+  test('对外同形，对内必须可分辨：每类拒绝各留一个原因并计一次数', () => {
+    const seen = {};
+    for (const [label, state, input] of preAuthRejections(kp)) {
+      verify.acceptIncoming(contract, state, input);
+      verify.acceptIncoming(contract, state, Object.assign({}, input, { now: input.now + 1000 }));
+      const entries = Object.values(state.rejects);
+      // 每一条都记在**指名的那个地址码**下（合法形状的），且计了两次
+      expect(entries).toHaveLength(1);
+      expect(entries[0].count).toBe(2);
+      seen[label] = entries[0].lastReason;
+    }
+    // 这四类必须各有自己的原因；把它塌成一个"reject"是退步（现场就看不出是被人枚举还是在重放旧包）
+    expect(new Set(Object.values(seen))).toEqual(
+      new Set(['fields', 'unknown_device', 'signature', 'frozen']),
+    );
+    expect(seen.未知设备).not.toBe(seen.已冻结);
+    expect(seen.未知设备).not.toBe(seen.签名是别人签的);
+    // 公钥形状不对与签名不对**故意**同一个原因：两者都只说明"这把钥匙签不出这一条"，
+    // 分成两类等于把"表里存了把坏钥匙"这种服务端自伤信息递给探测者。
+    expect(seen.公钥形状不对).toBe(seen.签名是别人签的);
+  });
+
+  test('留痕只写内存：来路不明的包不许变成"一个请求 ⇒ 一次磁盘写"', () => {
+    const state = stateFor(kp);
+    const pack = signable(kp, fields());
+    for (let i = 0; i < 30; i += 1) {
+      verify.acceptIncoming(contract, state, {
+        senderAddress: 'NOT-A-CODE-' + i,
+        signature: pack.signature,
+        fields: pack.fields,
+        now: NOW + i,
+      });
+    }
+    // 30 次乱造的形状不对的输入 ⇒ 只挤进一个桶，不是一本 30 行的名册
+    expect(Object.keys(state.rejects)).toEqual([store.REJECT_INVALID_KEY]);
+    expect(state.rejects[store.REJECT_INVALID_KEY].count).toBe(30);
+    expect(fs.readdirSync(process.env.DATA_DIR).some((f) => /reject/i.test(f))).toBe(false);
+  });
+
+  test('留痕键数封顶（不封顶=拿随机地址码免费涨内存）', () => {
+    const map = {};
+    const cap = store.REJECT_KEY_CAP;
+    for (let i = 0; i < cap + 5; i += 1)
+      store.rememberReject(map, 'k' + i, NOW + i * 1000, 'signature');
+    expect(Object.keys(map)).toHaveLength(cap);
+    // 丢的是最久没动静的，留下的是最近那批
+    expect(map['k' + (cap - 1)]).toBeDefined();
+    expect(map.k0).toBeUndefined();
+    expect(map['k' + (cap + 4)]).toBeDefined();
+  });
+
+  test('过期与重放也各计一次（这两类已经证明身份，原因照实记）', () => {
+    const state = stateFor(kp);
+    const pack = signable(kp, fields());
+    const base = { senderAddress: SENDER, signature: pack.signature, fields: pack.fields };
+    expect(
+      verify.acceptIncoming(contract, state, Object.assign({ now: NOW + 900_000 }, base)).status,
+    ).toBe(410);
+    expect(state.rejects[SENDER].lastReason).toBe('expired');
+    verify.acceptIncoming(contract, state, Object.assign({ now: NOW }, base));
+    verify.acceptIncoming(contract, state, Object.assign({ now: NOW + 1000 }, base));
+    expect(state.rejects[SENDER].lastReason).toBe('duplicate');
+    // 1 次过期 + 1 次重放；中间那条成功的不计数（成功不是"拒收"）
+    expect(state.rejects[SENDER].count).toBe(2);
   });
 
   test('请求自带公钥一概不信：只认设备表里那把', () => {

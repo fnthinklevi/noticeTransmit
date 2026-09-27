@@ -291,6 +291,41 @@ function rememberNonce(map, key, nowMs, ttlSeconds) {
   return map[key];
 }
 
+// ── 拒收留痕（T29-B）───────────────────────────────────────────
+// 任务书那句"失败即丢并计数"：光丢不计数，被假签名打就是**静默**地丢，现场什么都看不出来。
+// 这份计数是给显示层（"最近有 N 次冒充你的尝试"）用的。
+// 故意**不落盘**：这条路径的输入是不用认证的垃圾包，每来一条写一次盘等于免费送攻击者
+// 一个"发一个包 ⇒ 服务端一次磁盘写"的放大器。重启清零可接受 —— 它的价值在"正在被打的
+// 当下能看见"，不是长期审计（真要审计是 T40 的配额与日志）。
+const REJECT_KEY_CAP = 512;
+// 冲刷足够久会把"被指名冒充"那条也挤掉 —— 这份是**当下的可见性**，不是长期审计账本。
+// 要账本去 T40（配额 + 日志），别在这里加持久化：那等于把写盘代价转给未认证流量。
+const REJECT_INVALID_KEY = '<不是合法地址码>';
+
+/// 只有"形似某个真地址码"的尝试才单独记 —— 被指名冒充才有信号价值；
+/// 长度/字符不对的输入统一进一个桶，免得给随机串留一份免费的名册。
+function rejectKeyFor(contract, senderAddress) {
+  if (!isValidAddressCode(contract, senderAddress || '')) return REJECT_INVALID_KEY;
+  return normalize(alphabetFromContract(contract), senderAddress);
+}
+
+/// 记一笔并返回该键的最新计数。键数封顶（用常量而不是参数：让测试能绕过封顶，
+/// 等于没测）：不封顶就是拿随机地址码免费涨内存。
+function rememberReject(map, key, nowMs, reason) {
+  const prev = map[key];
+  map[key] = {
+    count: (Number(prev && prev.count) || 0) + 1,
+    lastAt: nowMs,
+    lastReason: reason,
+  };
+  const keys = Object.keys(map);
+  if (keys.length > REJECT_KEY_CAP) {
+    keys.sort((a, b) => Number(map[a].lastAt) - Number(map[b].lastAt));
+    for (const drop of keys.slice(0, keys.length - REJECT_KEY_CAP)) delete map[drop];
+  }
+  return map[key];
+}
+
 function newEndpointId() {
   return 'ep_' + crypto.randomBytes(9).toString('hex');
 }
@@ -318,4 +353,8 @@ module.exports = {
   saveNonces,
   seenNonce,
   rememberNonce,
+  REJECT_INVALID_KEY,
+  REJECT_KEY_CAP,
+  rejectKeyFor,
+  rememberReject,
 };

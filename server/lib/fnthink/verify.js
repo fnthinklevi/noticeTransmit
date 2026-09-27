@@ -16,7 +16,13 @@ const crypto = require('crypto');
 
 const { statusCode } = require('./contract');
 const { normalize, alphabetFromContract } = require('./credentials');
-const { rememberNonce, seenNonce, saveNonces } = require('./devicestore');
+const {
+  rememberNonce,
+  rememberReject,
+  rejectKeyFor,
+  seenNonce,
+  saveNonces,
+} = require('./devicestore');
 
 /// 裸 32 字节 base64 → KeyObject。DER 头来自契约（Kotlin 那份由跨语言守卫对表）。
 function publicKeyFromRaw(contract, publicKeyB64) {
@@ -75,11 +81,19 @@ function verifySignature(contract, publicKeyB64, canonical, signatureB64) {
 
 /// 一次入站消息的完整裁决。`now` 由调用方注入（服务端时间，且测试要能把时钟拧动）。
 function acceptIncoming(contract, state, input) {
-  const forbidden = {
-    ok: false,
-    status: statusCode(contract, 'forbidden'),
-    receipt: 'rejected_unsigned',
-  };
+  // 每次现造一个对象：同形那条判据要真的比"两份各自造出来的东西"，
+  // 复用同一个实例会让断言在"其实两条走法形状不同"被改坏的那一天也照样绿。
+  const forbidden = (reason) =>
+    counted(
+      contract,
+      state,
+      input,
+      { ok: false, status: statusCode(contract, 'forbidden'), receipt: 'rejected_unsigned' },
+      reason,
+    );
+  // 留痕与对外形状是两件事：`reason` 只进 state.rejects，**绝不出现在响应里**，
+  // 所以"未知设备"和"签名不对"在服务端内部可分辨（将来显示"有 N 次冒充你的尝试"），
+  // 在网络上看仍是同一个包。
   const sender = normalize(alphabetFromContract(contract), input.senderAddress || '');
   const device = sender === null ? undefined : state.devices[sender];
 
@@ -88,22 +102,36 @@ function acceptIncoming(contract, state, input) {
     canonical = canonicalBytes(contract, input.fields || {});
   } catch (e) {
     // 客户端算的串我们不用；字段不齐是它的错，但**先不透露设备存不存在**，所以同形返回
-    return forbidden;
+    return forbidden('fields');
   }
 
   // ① + ②：没有记录、被冻结、公钥形状不对、验签失败 —— 四种都长同一个样
-  if (!device || device.status === 'frozen') return forbidden;
-  if (!verifySignature(contract, device.publicKey, canonical, input.signature)) return forbidden;
+  if (!device) return forbidden('unknown_device');
+  if (device.status === 'frozen') return forbidden('frozen');
+  if (!verifySignature(contract, device.publicKey, canonical, input.signature))
+    return forbidden('signature');
 
   // 以下都在"身份已被证明"之后，可以照实说
   const skew = Number((contract.signature || {}).maxSkewSeconds || 0);
   const ts = Number(input.fields.ts);
   if (!Number.isFinite(ts) || Math.abs(input.now - ts * 1000) > skew * 1000) {
-    return { ok: false, status: statusCode(contract, 'expired'), receipt: 'expired' };
+    return counted(
+      contract,
+      state,
+      input,
+      { ok: false, status: statusCode(contract, 'expired'), receipt: 'expired' },
+      'expired',
+    );
   }
   const nonceKey = `${sender}|${input.fields.nonce}`;
   if (seenNonce(state.nonces, nonceKey, input.now)) {
-    return { ok: false, status: statusCode(contract, 'duplicate'), receipt: 'duplicate' };
+    return counted(
+      contract,
+      state,
+      input,
+      { ok: false, status: statusCode(contract, 'duplicate'), receipt: 'duplicate' },
+      'duplicate',
+    );
   }
   rememberNonce(
     state.nonces,
@@ -116,6 +144,13 @@ function acceptIncoming(contract, state, input) {
   if (typeof state.persist === 'function') state.persist();
   else saveNonces(state.nonces);
   return { ok: true, status: statusCode(contract, 'queued'), receipt: 'queued' };
+}
+
+/// 拒收都要计一次数（任务书"失败即丢并计数"那条）。只写内存，理由见 devicestore 那段注释。
+function counted(contract, state, input, outcome, reason) {
+  const rejects = state.rejects || (state.rejects = {});
+  rememberReject(rejects, rejectKeyFor(contract, input.senderAddress), input.now, reason);
+  return outcome;
 }
 
 module.exports = {
