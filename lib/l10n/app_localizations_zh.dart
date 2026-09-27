@@ -157,6 +157,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mainBackupExcluded => '标记为「不参与」的通道保留配置但不推送，随时可归队。';
 
   @override
+  String get roleUnset => '未设置';
+
+  @override
+  String get mainBackupUnsetNotice =>
+      '「未设置」是新加通道的起点：它不会跟着主通道重复推送，只有你一条主通道都没设时才会被用到。把常用的那条设成「主」更准。';
+
+  @override
+  String get roleGuideTitle => '要不要分一下主备通道';
+
+  @override
+  String roleGuideBody(Object n) {
+    return '你有 $n 条通道需要确认一下主备角色。全部标在「主」档时，同一条通知会重复推送 $n 次；把不常用的改成「备」，它就只在所有主通道都不可用时才接手。';
+  }
+
+  @override
+  String get roleGuideAction => '去设置';
+
+  @override
+  String get roleGuideLater => '以后再说';
+
+  @override
   String get mainBackupChannelGone => '通道已不存在，本次设置未保存。';
 
   @override

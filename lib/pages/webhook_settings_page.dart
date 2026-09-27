@@ -46,6 +46,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
   // ── 单通道形态：一行一套字段，标量而不是列表 ──
   /// 已落库的通道 id；null = 还没保存过的新通道（保存时当场发号）
   String? _channelId;
+
+  /// 本页装载的那条通道**库里已有的角色值**；null 表示这是新建（库里还没有它）。
+  /// ⚠ 不能拿 `_channelId == null` 当"新建"的判据：`_saveAll` 会在写库前给新通道发号。
+  String? _existingRole;
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _secretController = TextEditingController();
@@ -95,6 +99,11 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
 
   void _loadFrom(Map<String, dynamic> c) {
     _channelId = ChannelConfigCodec.nullableText(c['id']);
+    // 库里读到的角色原样收下（webhookFromDb 一定带 role；万一没有，按老语义当主 ——
+    // 在这里"顺手补一个 unset"等于把用户已有的主通道悄悄降级）。
+    _existingRole =
+        ChannelConfigCodec.nullableText(c['role']) ??
+        ChannelConfigCodec.rolePrimary;
     _urlController.text = ChannelConfigCodec.nullableText(c['url']) ?? '';
     _nameController.text = ChannelConfigCodec.nullableText(c['name']) ?? '';
     _secretController.text = ChannelConfigCodec.nullableText(c['secret']) ?? '';
@@ -207,6 +216,10 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
           ? WebhookChannel.detectTypeFromUrl(url).value
           : manual,
       'enabled': _enabled,
+      // 新建通道**不再默认「主」**（维护者 1.5.76 反馈 #2）：起点是「未设置」，由用户去通道
+      // 状态页显式指定。编辑时不发这个键 —— 服务层的 `{...已有行, ...载荷}` 合并会保住库里的
+      // 原值（P7 的老教训：编辑一条不得顺手重置启停与主备角色）。
+      if (_existingRole == null) 'role': ChannelConfigCodec.roleUnset,
       if (_supportsSigning) 'secret': _orNull(_secretController.text),
       if (_supportsCustomTemplate) ...{
         'message_format': _messageFormat,

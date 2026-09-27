@@ -160,6 +160,27 @@ class AppLocalizationsEn extends AppLocalizations {
       'Excluded channels keep their configuration but receive nothing until re-assigned.';
 
   @override
+  String get roleUnset => 'Unset';
+
+  @override
+  String get mainBackupUnsetNotice =>
+      '\"Unset\" is where a newly added channel starts: it never duplicates a primary send, and it is used only when no channel is marked Primary. Set your everyday channel to \"Primary\".';
+
+  @override
+  String get roleGuideTitle => 'Split channels into primary and backup';
+
+  @override
+  String roleGuideBody(Object n) {
+    return '$n of your channels need a primary/backup role. While all of them stay Primary, one notification is sent $n times; mark the less critical ones as Backup and they only take over when every Primary channel is unavailable.';
+  }
+
+  @override
+  String get roleGuideAction => 'Set up';
+
+  @override
+  String get roleGuideLater => 'Later';
+
+  @override
   String get mainBackupChannelGone =>
       'That channel is gone; the change was not saved.';
 

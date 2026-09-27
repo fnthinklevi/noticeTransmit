@@ -54,6 +54,17 @@
   "roleBackup": "备",
   "roleNone": "不参与",
   "mainBackupExcluded": "标记为「不参与」的通道保留配置但不推送，随时可归队。",
+  "roleUnset": "未设置",
+  "mainBackupUnsetNotice": "「未设置」是新加通道的起点：它不会跟着主通道重复推送，只有你一条主通道都没设时才会被用到。把常用的那条设成「主」更准。",
+  "roleGuideTitle": "要不要分一下主备通道",
+  "roleGuideBody": "你有 {n} 条通道需要确认一下主备角色。全部标在「主」档时，同一条通知会重复推送 {n} 次；把不常用的改成「备」，它就只在所有主通道都不可用时才接手。",
+  "@roleGuideBody": {
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "roleGuideAction": "去设置",
+  "roleGuideLater": "以后再说",
   "mainBackupChannelGone": "通道已不存在，本次设置未保存。",
   "backupModeBanner": "当前正在按备用通道推送：主通道连续不可用时系统会自动降级，且不会自动切回。确认主通道已恢复后点「切回主通道」。",
   "backupModeSwitchBack": "切回主通道",

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -14,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 
+import '../support/source_guards.dart';
 import '../test_setup.dart';
 
 /// T11 主备角色：列的存在性、缺省语义、以及"改一条"的写回链路。
@@ -242,9 +244,13 @@ void main() {
     tearDown(() async => GetIt.instance.reset());
 
     test('三族都能改，且改完 collectActiveChannels 读得到', () async {
-      expect(collectActiveChannels().map((c) => c.role).toSet(), {
-        'primary',
-      }, reason: '新建通道默认主通道');
+      expect(
+        collectActiveChannels().map((c) => c.role).toSet(),
+        {'primary'},
+        reason:
+            '本用例种的是**没写 role 的老形状行** ⇒ 缺省仍归 primary（老语义=全量推）。'
+            '新建通道的起点不在这儿，它由三个创建页各自决定，见下面那条守卫。',
+      );
 
       expect(await updateChannelRole('webhook', 'wh-1', 'backup'), isTrue);
       expect(await updateChannelRole('app', 'app-1', 'none'), isTrue);
@@ -272,6 +278,76 @@ void main() {
         webhookService.channels.first['role'],
         isNot('backup'),
         reason: '失败的那次不得顺手改掉别的通道',
+      );
+    });
+  });
+
+  // 新建通道的**起点角色**由三个创建页各自决定（维护者 1.5.76 反馈 #2：不许默认成「主」）。
+  // 这三处都是页面里的私有表单构造器，没有"走完新建流程"的现成夹具，所以这里钉源文本；
+  // 真正会丢通知的那一层（unset 怎么参与路由）钉在原生 ChannelRoutingDecisionTest 里。
+  group('三族新建路径的起点是「未设置」', () {
+    String codeOf(String path) =>
+        stripComments(File(join(projectRoot(), path)).readAsStringSync());
+
+    test('webhook：只在"库里还没有它"时发 roleUnset，编辑不发这个键', () {
+      final src = codeOf('lib/pages/webhook_settings_page.dart');
+      expect(
+        src,
+        contains(
+          "if (_existingRole == null) 'role': ChannelConfigCodec.roleUnset",
+        ),
+      );
+      expect(
+        src,
+        contains('_existingRole ='),
+        reason: '装载时必须记住库里的原值，否则编辑一条会把主通道悄悄降成未设置',
+      );
+    });
+
+    test('自建应用：_addChannel 造出来的每一条都带起点角色', () {
+      final src = codeOf('lib/pages/app_channel_settings_page.dart');
+      expect(
+        blockAfter(src, 'void _addChannel(String appType)'),
+        contains("'role': ChannelConfigCodec.roleUnset"),
+      );
+    });
+
+    test('邮件：没有 existing 时落 roleUnset，页面里不留第二份 primary 字面量', () {
+      final src = codeOf('lib/pages/email_settings_page.dart');
+      expect(src, contains('ChannelConfigCodec.roleUnset'));
+      expect(
+        src,
+        isNot(contains("?? 'primary'")),
+        reason: '取值口径只有 ChannelConfigCodec 一处；页面里再写一份就会漂移',
+      );
+    });
+
+    test('通道状态页：徽标认得「未设置」，且选择器故意不给它一档', () {
+      final src = codeOf('lib/pages/channel_status_page.dart');
+      expect(
+        blockAfter(src, 'class _RoleBadge extends StatelessWidget'),
+        contains('ChannelConfigCodec.roleUnset => (l10n.roleUnset, false)'),
+        reason: '落到 default 分支就画成「主」，等于替用户做了一个他没做过的决定',
+      );
+      expect(
+        src,
+        contains('mainBackupUnsetNotice'),
+        reason: '三段都不选中时，必须有一句话说清为什么（否则看着像控件坏了）',
+      );
+    });
+
+    test('主页：升级引导真的被挂进启动链，而不是写了没人调用', () {
+      final src = codeOf('lib/pages/main_page.dart');
+      expect(
+        blockAfter(src, 'Future<void> _checkFirstLaunch()'),
+        contains('await _maybeShowRoleGuide()'),
+      );
+      final actions = codeOf('lib/pages/main_page_actions.dart');
+      expect(actions, contains('ChannelRoleGuide.decide('));
+      expect(
+        actions,
+        contains('prefs.setString(ChannelRoleGuide.seenVersionKey, version)'),
+        reason: '弹过一次就要记账，否则每次启动都拦一遍',
       );
     });
   });

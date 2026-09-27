@@ -297,6 +297,9 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
           final primaryCount = channels
               .where((c) => c.role == ChannelConfigCodec.rolePrimary)
               .length;
+          final unsetCount = channels
+              .where((c) => c.role == ChannelConfigCodec.roleUnset)
+              .length;
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -326,6 +329,19 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         l10n.mainBackupRecommend,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.orange,
+                        ),
+                      ),
+                    ),
+                  // 「未设置」是新加通道的起点（1.5.76 反馈 #2）。不解释一句，用户看到那一行
+                  // 三段都没选中，只会以为"这控件坏了"。
+                  if (unsetCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        l10n.mainBackupUnsetNotice,
                         style: const TextStyle(
                           fontSize: 12.5,
                           color: AppColors.orange,
@@ -371,6 +387,9 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
       (ChannelConfigCodec.roleBackup, l10n.roleBackup),
       (ChannelConfigCodec.roleNone, l10n.roleNone),
     ];
+    // ⚠ 这里**故意没有**「未设置」这一档：它是新建通道的起点，不是一个可以被选回去的决定。
+    // role == unset 时三段都不选中（由上面的 mainBackupUnsetNotice 说明为什么），用户点任意
+    // 一段就离开该状态。徽标那侧（_RoleBadge）才需要认得 unset。
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -448,8 +467,11 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   }
 }
 
-/// 角色徽标：主 / 备 / 不参与。三族共用一种形状，颜色只在"主"上实心，
+/// 角色徽标：主 / 备 / 未设置 / 不参与。三族共用一种形状，颜色只在"主"上实心，
 /// 避免首页那页出现三种彩色抢占注意力。
+///
+/// ⚠ 「未设置」必须单独占一格：它的存在就是"用户还没选过"。落到 default 分支会画成「主」，
+/// 等于在界面上替用户做了一个他没做过的决定（新建通道不再默认主，见 1.5.76 反馈 #2）。
 class _RoleBadge extends StatelessWidget {
   final String role;
   const _RoleBadge({required this.role});
@@ -459,6 +481,7 @@ class _RoleBadge extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final (label, filled) = switch (role) {
       ChannelConfigCodec.roleBackup => (l10n.roleBackup, false),
+      ChannelConfigCodec.roleUnset => (l10n.roleUnset, false),
       ChannelConfigCodec.roleNone => (l10n.roleNone, false),
       _ => (l10n.rolePrimary, true),
     };

@@ -10,6 +10,7 @@ import '../services/theme_service.dart';
 import '../services/email_service.dart';
 import '../services/locale_service.dart';
 import '../services/active_channels.dart';
+import '../services/channel_role_guide.dart';
 import '../services/app_channel_service.dart';
 import '../services/sms_service.dart';
 import '../update_manager.dart';
@@ -227,6 +228,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     if (!hasLaunched) {
       await prefs.setBool('has_launched', true);
     }
+    await _maybeShowRoleGuide();
   }
 
   @override

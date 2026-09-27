@@ -52,10 +52,23 @@ class ChannelConfigCodec {
   /// 不参与推送：保留配置但不推（与"关掉启用开关"不同，这里是为了主备编排时排除它）。
   static const String roleNone = 'none';
 
+  /// **未设置**：新建通道的起点（维护者 1.5.76 反馈 #2 —— 新建的不再默认算主，
+  /// 否则同一条通知会跟着全量重复推给每条新通道）。
+  ///
+  /// 它与 [roleBackup] 同为"非主"，区别就是这条反馈要的全部内容：
+  ///  - 有可用主通道时**不推**它；
+  ///  - 一条主都没设时**照样推**它（`ChannelRouting.route` 的兜底，绝不静默不发）；
+  ///  - 界面上显示成「未设置」而不是「主」，引导弹窗才指得出"这几条你还没设过"。
+  /// ⚠ 只有**新建路径**写这个值。缺列/脏值仍归 [rolePrimary]：认不出来就少推，
+  ///   比多推严重得多（老库、老备份、手改文件都走那条路）。
+  static const String roleUnset = 'unset';
+
   /// 任意形状的角色值 → 规范值。
   static String normalizeRole(Object? value) {
     final text = nullableText(value)?.trim().toLowerCase();
-    if (text == roleBackup || text == roleNone) return text!;
+    if (text == roleBackup || text == roleNone || text == roleUnset) {
+      return text!;
+    }
     return rolePrimary;
   }
 

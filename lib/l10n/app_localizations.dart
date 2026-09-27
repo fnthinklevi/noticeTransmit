@@ -386,6 +386,42 @@ abstract class AppLocalizations {
   /// **'标记为「不参与」的通道保留配置但不推送，随时可归队。'**
   String get mainBackupExcluded;
 
+  /// No description provided for @roleUnset.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get roleUnset;
+
+  /// No description provided for @mainBackupUnsetNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'「未设置」是新加通道的起点：它不会跟着主通道重复推送，只有你一条主通道都没设时才会被用到。把常用的那条设成「主」更准。'**
+  String get mainBackupUnsetNotice;
+
+  /// No description provided for @roleGuideTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'要不要分一下主备通道'**
+  String get roleGuideTitle;
+
+  /// No description provided for @roleGuideBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'你有 {n} 条通道需要确认一下主备角色。全部标在「主」档时，同一条通知会重复推送 {n} 次；把不常用的改成「备」，它就只在所有主通道都不可用时才接手。'**
+  String roleGuideBody(Object n);
+
+  /// No description provided for @roleGuideAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'去设置'**
+  String get roleGuideAction;
+
+  /// No description provided for @roleGuideLater.
+  ///
+  /// In zh, this message translates to:
+  /// **'以后再说'**
+  String get roleGuideLater;
+
   /// No description provided for @mainBackupChannelGone.
   ///
   /// In zh, this message translates to:

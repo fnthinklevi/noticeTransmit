@@ -292,6 +292,60 @@ extension _MainPageActions on _MainPageState {
     }
   }
 
+  /// 升级后的一次性「主备通道」引导（维护者 1.5.76 反馈 #2 的第二半）。
+  ///
+  /// 判据全在 [ChannelRoleGuide]（纯函数，可脱离界面逐分支测）；这里只负责"弹一次 + 记一次"。
+  /// 记的是**应用版本号**而不是布尔：每个新版本还能再提醒一次，而不是这辈子只提醒一次。
+  /// ⚠ 版本号取的是 `AppUpdateManager.currentVersion`，原生读数没回来之前是编译期回退值 ——
+  ///   两者不一致时最多多提醒一次（不会漏），所以这里不为它加等待。
+  /// 「去设置」直接复用首页那条入口（[_openChannelStatusPage]），不另开一条导航路径。
+  Future<void> _maybeShowRoleGuide() async {
+    final prefs = await SharedPreferences.getInstance();
+    final version = AppUpdateManager.instance.currentVersion;
+    final decision = ChannelRoleGuide.decide(
+      seenVersion: prefs.getString(ChannelRoleGuide.seenVersionKey),
+      currentVersion: version,
+      channels: collectActiveChannels(),
+    );
+    if (!decision.prompt || !mounted) return;
+
+    final l10n = AppLocalizations.of(context);
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg(ctx),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.roleGuideTitle,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(ctx),
+          ),
+        ),
+        content: Text(
+          l10n.roleGuideBody(decision.count),
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.5,
+            color: AppColors.primaryLabel(ctx),
+          ),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: IosDialogActions.confirm(
+          ctx,
+          cancelText: l10n.roleGuideLater,
+          confirmText: l10n.roleGuideAction,
+          onCancel: () => Navigator.pop(ctx, false),
+          onConfirm: () => Navigator.pop(ctx, true),
+        ),
+      ),
+    );
+    // 点「以后再说」也算提示过 —— 它的字面意思就是"以后不要再弹"。
+    await prefs.setString(ChannelRoleGuide.seenVersionKey, version);
+    if (go == true) await _openChannelStatusPage();
+  }
+
   /// 通道状态页（T10）：从首页「当前推送通道」那张卡点进来。
   /// 点某一行按族进对应配置页 —— 直接复用上面三个开页方法：
   /// webhook / email 都是"先把数据取进来、退出时把结果存回去"的形态，

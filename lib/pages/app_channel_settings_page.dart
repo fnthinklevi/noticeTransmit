@@ -165,6 +165,8 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       'config': <String, dynamic>{},
       'message_format': 'default',
       'enabled': true,
+      // 新建不默认「主」（维护者 1.5.76 反馈 #2）：起点「未设置」，由用户去通道状态页指定。
+      'role': ChannelConfigCodec.roleUnset,
     });
     _bindControllers(_channels.last);
     setState(() {});

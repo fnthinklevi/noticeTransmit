@@ -54,6 +54,17 @@
   "roleBackup": "Backup",
   "roleNone": "Excluded",
   "mainBackupExcluded": "Excluded channels keep their configuration but receive nothing until re-assigned.",
+  "roleUnset": "Unset",
+  "mainBackupUnsetNotice": "\"Unset\" is where a newly added channel starts: it never duplicates a primary send, and it is used only when no channel is marked Primary. Set your everyday channel to \"Primary\".",
+  "roleGuideTitle": "Split channels into primary and backup",
+  "roleGuideBody": "{n} of your channels need a primary/backup role. While all of them stay Primary, one notification is sent {n} times; mark the less critical ones as Backup and they only take over when every Primary channel is unavailable.",
+  "@roleGuideBody": {
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "roleGuideAction": "Set up",
+  "roleGuideLater": "Later",
   "mainBackupChannelGone": "That channel is gone; the change was not saved.",
   "backupModeBanner": "Pushing via backup channels: the app fell back automatically and will not switch back by itself. Confirm the primary channels are healthy, then tap \"Switch to primary\".",
   "backupModeSwitchBack": "Switch to primary",

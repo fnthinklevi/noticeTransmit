@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../models/email_channel.dart';
 import '../services/active_channels.dart';
+import '../services/channel_config_codec.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_health_store.dart';
 import '../services/channel_probe_service.dart';
@@ -630,9 +631,10 @@ class _EmailEditorPageState extends State<_EmailEditorPage> {
           widget.existing?.id ??
           'email_${DateTime.now().millisecondsSinceEpoch}',
       'name': _text('name'),
-      // 启停与主备角色由列表页管，编辑一条不得顺手重置（P7 的教训）
+      // 启停与主备角色由列表页管，编辑一条不得顺手重置（P7 的教训）。
       'enabled': widget.existing?.enabled ?? true,
-      'role': widget.existing?.role ?? 'primary',
+      // 新建的起点是「未设置」而不是「主」—— 维护者 1.5.76 反馈 #2。
+      'role': widget.existing?.role ?? ChannelConfigCodec.roleUnset,
       for (final f in widget.descriptor.fields)
         f.key: f.isSwitch
             ? (_switches[f.key] ?? false)

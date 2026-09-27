@@ -155,4 +155,71 @@ class ChannelRoutingDecisionTest {
         )
         assertTrue("全都不参与时返回空是正确行为（用户就是这么设的）", allNone.keys.isEmpty())
     }
+
+    // ── 「未设置」：新建通道的起点（1.5.76 反馈 #2）──────────────────────
+    // 这条改动唯一会丢通知的方式，是把 UNSET 处理成"跟 none 一样被摘掉"或"谁都不推"。
+    // 下面四条把它的三种落点全部钉住，`route()` 因此不需要为 UNSET 改一行代码。
+
+    @Test
+    fun `有可用主通道时，未设置的通道不跟着全量推`() {
+        val d = ChannelRouting.route(
+            listOf(
+                m("webhook:wh-1", ChannelRole.PRIMARY, true),
+                m("app:app-new", ChannelRole.UNSET, true),
+            ),
+            backupEngaged = false,
+        )
+        assertEquals(
+            "新建那条不再默认算主 ⇒ 同一条通知不该再重复推两次",
+            listOf("webhook:wh-1"),
+            d.keys,
+        )
+        assertFalse(d.engagedBackup)
+    }
+
+    @Test
+    fun `一条主都没设时，未设置的通道照推，绝不空转`() {
+        val d = ChannelRouting.route(
+            listOf(
+                m("app:app-1", ChannelRole.UNSET, true),
+                m("webhook:wh-2", ChannelRole.UNSET, true),
+            ),
+            backupEngaged = false,
+        )
+        assertEquals(
+            "只有未设置的通道时一条都不发 = 静默丢失，这是最坏结果",
+            listOf("app:app-1", "webhook:wh-2"),
+            d.keys,
+        )
+        assertFalse("没人设主不构成「降级」，不该锁存备用模式", d.engagedBackup)
+    }
+
+    @Test
+    fun `主与备都不可用时，未设置的通道随兜底一起接住`() {
+        val d = ChannelRouting.route(
+            listOf(
+                m("webhook:wh-1", ChannelRole.PRIMARY, false),
+                m("email:e-1", ChannelRole.BACKUP, false),
+                m("app:app-new", ChannelRole.UNSET, true),
+            ),
+            backupEngaged = false,
+        )
+        assertTrue(
+            "刚加的通道不该因为「还没设过角色」而在主备都不可用时被丢掉",
+            d.keys.contains("app:app-new"),
+        )
+    }
+
+    @Test
+    fun `锁存期间未设置的通道既不被推，也不把锁存解除`() {
+        val d = ChannelRouting.route(
+            listOf(
+                m("webhook:wh-1", ChannelRole.PRIMARY, true),
+                m("app:app-new", ChannelRole.UNSET, true),
+            ),
+            backupEngaged = true,
+        )
+        assertEquals(listOf("webhook:wh-1"), d.keys)
+        assertTrue("锁存只由调用方解除：本函数在锁存期绝不自己切回", d.engagedBackup)
+    }
 }

@@ -2,6 +2,7 @@ package com.fnthink.notice
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.io.File
 
@@ -11,7 +12,7 @@ import java.io.File
  * 钉四件事，每件都对应一个"错了不会报错、只是行为不对"的静默故障：
  * 1. [ChannelRole.parse] 的取值矩阵 —— **认不出的一律 PRIMARY**。归成 NONE 的代价是
  *    某条通道从此静默收不到通知，归错方向不可接受。
- * 2. 跨语言的线值（`primary`/`backup`/`none`）与 Dart 侧 `ChannelConfigCodec` 一致。
+ * 2. 跨语言的线值（`primary`/`backup`/`none`/`unset`）与 Dart 侧 `ChannelConfigCodec` 一致。
  *    两边各写一份字符串，改一侧不会有编译期报错 —— 表现就是"设了备用，原生当主通道推"。
  * 3. 三个配置源（webhook / 自建应用 / 邮件）都排除 NONE；但「按 id 找通道」不排除，
  *    否则"不参与推送"的通道连手动测试都做不了。
@@ -43,12 +44,16 @@ class ChannelRoutingContractTest {
     )
 
     @Test
-    fun `角色解析：只有 backup 与 none 是例外，其余全是主通道`() {
+    fun `角色解析：backup none unset 是显式例外，其余全是主通道`() {
         assertEquals(ChannelRole.BACKUP, ChannelRole.parse("backup"))
         assertEquals(ChannelRole.BACKUP, ChannelRole.parse("  BACKUP  "))
         assertEquals(ChannelRole.NONE, ChannelRole.parse("none"))
         assertEquals(ChannelRole.NONE, ChannelRole.parse("None"))
-        // 缺省方向：缺列（老配置）、空串、认不出的值都必须是 PRIMARY
+        assertEquals(ChannelRole.UNSET, ChannelRole.parse("unset"))
+        assertEquals(ChannelRole.UNSET, ChannelRole.parse(" UNSET "))
+        // 缺省方向：缺列（老配置）、空串、认不出的值都必须是 PRIMARY。
+        // ⚠ UNSET **不在**这里 —— 它只由"新建一条通道"那条路径显式写入（1.5.76 反馈 #2）。
+        // 把缺省也改成 UNSET 会让所有老配置一夜之间变成"没人设过"，界面上再也读不出用户的意思。
         assertEquals(ChannelRole.PRIMARY, ChannelRole.parse(null))
         assertEquals(ChannelRole.PRIMARY, ChannelRole.parse(""))
         assertEquals(ChannelRole.PRIMARY, ChannelRole.parse("tertiary"))
@@ -59,10 +64,28 @@ class ChannelRoutingContractTest {
     fun `线值与 Dart 侧 ChannelConfigCodec 一致`() {
         val codec = repoFile("lib/services/channel_config_codec.dart")
             .readText(Charsets.UTF_8)
-        for (wire in listOf(ChannelRole.WIRE_PRIMARY, ChannelRole.WIRE_BACKUP, ChannelRole.WIRE_NONE)) {
+        for (wire in listOf(
+            ChannelRole.WIRE_PRIMARY,
+            ChannelRole.WIRE_BACKUP,
+            ChannelRole.WIRE_NONE,
+            ChannelRole.WIRE_UNSET,
+        )) {
             assertTrue(
                 Regex("""'$wire'""").containsMatchIn(codec),
                 "Dart 侧没有 '$wire'：跨端线值漂移，原生会把这一档读成主通道"
+            )
+        }
+    }
+
+    @Test
+    fun `未设置不被配置解析阶段过滤：只有 none 会被摘掉`() {
+        // UNSET 一旦被当成"不参与"，新建的通道就会在解析阶段消失 —— 一条通知都发不出去，
+        // 而界面上什么都看不出来。所以这一条钉的是"排除条件里只有 NONE"。
+        for (rel in listOf("ConfigManager.kt", "EmailManager.kt")) {
+            val src = native(rel)
+            assertFalse(
+                "配置源 $rel 里出现了按 UNSET 过滤的写法",
+                src.contains("ChannelRole.UNSET) continue") || src.contains("!= ChannelRole.UNSET"),
             )
         }
     }
