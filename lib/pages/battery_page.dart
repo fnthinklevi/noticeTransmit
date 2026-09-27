@@ -17,6 +17,20 @@ import '../widgets/app_text_selection_menu.dart';
 /// ⚠ 数据源是 [BatteryService] 本身（订阅），**不是构造时传进来的快照**：
 /// 本页现在是骨架页 push 出去的子页，父页 setState 重建不到它，而服务的写操作是
 /// 整体换新列表 —— 传快照的结果就是"保存后不刷新、开关点完弹回"（T16 的病灶）。
+/// 电量读数的色调档位。**纯函数**：色调是"这一眼该让人看出什么"，与界面无关，
+/// 所以要能脱离 widget 树测（三页统一版式时立下的判据：读不到 ≠ 危险）。
+enum BatteryTone { unknown, good, warn, critical }
+
+/// `level < 0` 是"这台设备读不到电量"，必须走 [BatteryTone.unknown]。
+/// 以前它顺着 `>= 20` 一路掉进红色档 ⇒ 顶部写着「未知」、图标与数字却是"电量已低于阈值"的红，
+/// 等于把"没有数"报成"出事了"（1.5.76 实拍三页时发现的，温度页当时已按中性色改）。
+BatteryTone batteryToneOf(int level) {
+  if (level < 0) return BatteryTone.unknown;
+  if (level >= 50) return BatteryTone.good;
+  if (level >= 20) return BatteryTone.warn;
+  return BatteryTone.critical;
+}
+
 class BatteryPage extends StatefulWidget {
   const BatteryPage({super.key});
 
@@ -47,11 +61,12 @@ class _BatteryPageState extends State<BatteryPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final batteryColor = _service.currentLevel >= 50
-        ? AppColors.green
-        : _service.currentLevel >= 20
-        ? const Color(0xFFFF9500)
-        : AppColors.red;
+    final batteryColor = switch (batteryToneOf(_service.currentLevel)) {
+      BatteryTone.unknown => AppColors.tertiaryLabel(context),
+      BatteryTone.good => AppColors.green,
+      BatteryTone.warn => AppColors.orange,
+      BatteryTone.critical => AppColors.red,
+    };
 
     return Scaffold(
       appBar: AppBar(
