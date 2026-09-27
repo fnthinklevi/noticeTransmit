@@ -209,15 +209,24 @@ RC=0
 # `flutter test` 都会从 stdin 读 —— 第 20 轮实测它们把循环剩下的三个用例名**吃掉**了，
 # 整轮只跑了 1/4 就退出（是靠"缺 GATE-DIFF-RING 判红"当场逮住的，不是靠人看）。
 clear_app_data() {
-    "$ADB" -s "$SERIAL" shell pm clear com.fnthink.notice < /dev/null > /dev/null 2>&1 \
-        || true   # 第一次调用时应用还没装上（flutter test 会自己装），清不到不算错
+    # 装过就必须清得掉：只 `|| true` 咽掉失败，等于让下一档测试在上一档的残留上跑
+    #（v1.5.76 发版第一趟正是这个形状：smoke 2/4 找不到「共 1 条记录」，因为计数里还混着
+    #  闸门 4/4 留下的历史 —— 而清数据那一步当时是静默失败的，报告里什么都看不见）。
+    if "$ADB" -s "$SERIAL" shell pm list packages com.fnthink.notice < /dev/null 2>&1 \
+            | tr -d '\r' | grep -q com.fnthink.notice; then
+        "$ADB" -s "$SERIAL" shell pm clear com.fnthink.notice < /dev/null > /dev/null 2>&1 \
+            || { fail "pm clear 失败：残留会让本轮结论失真（可能是上一轮建的通道帮它点过去的）"; return 9; }
+        ok "已清空被测应用数据（本次独立调用之前）"
+    else
+        ok "被测应用尚未安装：无残留可清"
+    fi
 }
 
 run_case() {  # $1=日志标签，其余=flutter test 的文件与参数
     local label="$1"
     shift
     echo "──── 独立调用：$label" >> "$LOG"
-    clear_app_data
+    clear_app_data || return 1
     timeout "$GATE_CASE_TIMEOUT" flutter test "$@" -d "$SERIAL" \
         < /dev/null >> "$LOG" 2>&1
     local rc=$?
@@ -280,9 +289,15 @@ if [ -n "$GATE_CASES" ]; then
     fi
     if [ -n "${OTHERS// /}" ]; then
         echo "──── 独立调用：$OTHERS" >> "$LOG"
-        clear_app_data
-        timeout "$GATE_TEST_TIMEOUT" flutter test $OTHERS -d "$SERIAL" >> "$LOG" 2>&1
-        [ "$?" -eq 0 ] || RC=1
+        # 清不掉就不跑：让 smoke 在闸门的残留上跑，报出来的是**假的**"共 1 条记录"缺失
+        if clear_app_data; then
+            timeout "$GATE_TEST_TIMEOUT" flutter test $OTHERS -d "$SERIAL" \
+                < /dev/null >> "$LOG" 2>&1
+            [ "$?" -eq 0 ] || RC=1
+        else
+            fail "smoke 这一档没有跑：清数据失败 ⇒ 它会看到上一档留下的残留"
+            RC=1
+        fi
     fi
 else
     timeout "$GATE_TEST_TIMEOUT" flutter test $FILES -d "$SERIAL" > "$LOG" 2>&1

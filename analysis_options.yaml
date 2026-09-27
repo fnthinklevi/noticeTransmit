@@ -1,5 +1,13 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # `outputs/` 是本地工装与备份目录（已 gitignore），里面的 `*.dart` 是**旧代码的副本**。
+    # 不排除时它们会混进 `flutter analyze`：v1.5.76 发版跑到这一步一次报出 1987 条，
+    # 全部来自这里 —— 而闸门与 CI 只看 lib/test，等于发版脚本自己有一处永远红。
+    - "outputs/**"
+    - "build/**"
+
 linter:
   rules:
     # avoid_print 保持启用：统一使用 debugPrint（release 可移除），print 禁用

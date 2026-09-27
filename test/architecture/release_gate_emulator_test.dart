@@ -990,6 +990,18 @@ void main() {
         lessThan(runCase.indexOf('flutter test')),
         reason: '清数据晚一步等于没清',
       );
+      // 清不掉必须**上抛**，不许 `|| true`：v1.5.76 发版第一趟它就是静默失败的，
+      // smoke 于是跑在闸门档留下的残留上，报出一条并不存在的"功能回归"（共 1 条记录找不到）。
+      expect(
+        RegExp(r'clear_app_data\(\) \{[\s\S]{0,900}?return 9').hasMatch(sh),
+        isTrue,
+        reason: 'clear_app_data 不区分"没装"与"清不掉" ⇒ 残留污染下一档，而报告里什么都看不见',
+      );
+      expect(
+        RegExp(r'if clear_app_data; then').hasMatch(sh),
+        isTrue,
+        reason: 'smoke 那一档也要清完才跑；清不掉就跳过它 = 让"没跑"长得像"跑了且绿"',
+      );
       // ⚠ `< /dev/null` 是被实测逼出来的：`adb shell` 与 `flutter test` 都从 stdin 读，
       // 而用例循环是 `while read` —— 第 20 轮它们把循环剩下的三个用例名吃掉了，
       // 整轮"成功地跑完"却只执行了 1/4，看起来像全绿。
