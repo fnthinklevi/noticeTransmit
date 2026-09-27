@@ -65,6 +65,31 @@ void main() {
         reason: 'Kotlin 里不许出现 softwarePlaintext 字面量：有它就能返回 true，红线名存实亡',
       );
     });
+    test('SPKI 的 12 字节 DER 头：Kotlin 那份必须等于契约声明的那份', () {
+      // 两份各写各的时的表现：客户端导出的公钥服务端永远解不开（拼出来的 DER 头不同），
+      // 而 Kotlin 与 JS 各自的单元测试都还是绿的 —— 因为两边都只比自己那份。
+      final inKotlin = RegExp(
+        r'SPKI_PREFIX\s*=\s*byteArrayOf\(([^)]*)\)',
+      ).firstMatch(_withoutComments(source))?.group(1);
+      expect(inKotlin, isNotNull, reason: 'Kotlin 里找不到 SPKI_PREFIX 常量');
+      final bytes = inKotlin!
+          .split(',')
+          .map((t) => t.trim())
+          .where((t) => t.isNotEmpty)
+          .map((t) => int.parse(t.replaceFirst('0x', ''), radix: 16))
+          .toList();
+      final inContract = RegExp(
+        r'"spkiPrefixHex"\s*:\s*"([0-9a-f]+)"',
+      ).firstMatch(contract)?.group(1);
+      expect(
+        inContract,
+        isNotNull,
+        reason: '契约里找不到 publicKeyEncoding.spkiPrefixHex',
+      );
+      final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      expect(hex, inContract, reason: 'Kotlin=$hex 契约=$inContract');
+      expect(bytes.length, 12);
+    });
   });
 
   group('契约 ↔ 构建', () {

@@ -72,6 +72,18 @@
     "clockSkewSeconds": 120,
     "nonceDedupe": true,
     "verifyOnlyForWhitelistedKeys": true,
+      "publicKeyEncoding": {
+        "algorithm": "Ed25519",
+        "wireFormat": "raw-32-bytes-base64",
+        "spkiPrefixHex": "302a300506032b6570032100",
+        "rawLength": 32,
+        "_comment": "对端传来的是裸 32 字节，Node 要验签就得自己拼回 SubjectPublicKeyInfo。那 12 字节 DER 头在此唯一：Kotlin 侧那份由 test/architecture/fnthink_identity_contract_test.dart 对表。漂了的表现是「客户端导出的公钥服务端永远解不开」，而两边各自测试都还是绿的"
+      },
+      "maxSkewSeconds": 300,
+      "maxSkewWhy": "ts 用服务端时间判定，容差只覆盖网络抖动与合理重放窗口；再大就等于把「过期」这条 410 变成摆设",
+      "nonceDedupeSeconds": 900,
+      "nonceDedupeWhy": "去重窗口必须大于容差窗口的两倍（一端提前、一端滞后各算一次），否则一条迟到足够久的重放刚好落在记忆之外",
+
     "onFailure": { "receipt": "rejected_unsigned", "count": true }
   },
 

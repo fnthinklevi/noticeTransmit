@@ -26,6 +26,7 @@ const {
 } = require('./credentials');
 
 const DEVICE_FILE = path.join(DATA_DIR, 'fnthink_devices.json');
+const NONCE_FILE = path.join(DATA_DIR, 'fnthink_nonces.json');
 const ENDPOINT_FILE = path.join(DATA_DIR, 'fnthink_endpoints.json');
 const FILE_MODE = 0o600;
 const TABLE_VERSION = 1;
@@ -261,6 +262,35 @@ function findEndpointBySecret(contract, endpoints, secret) {
   return hit ? Object.assign({ id: hit[0] }, hit[1]) : null;
 }
 
+// ── nonce 去重（T29-B）─────────────────────────────────────────────
+// 只存「发送方地址码|nonce → 到期时间」：地址码是公开标识，nonce 本身不是秘密。
+// 去重表必须能活过重启 —— 只在内存里记一遍，等于每次进程重启就开一次重放窗口。
+
+function loadNonces() {
+  const raw = readJsonFile(NONCE_FILE, null);
+  if (!raw || typeof raw !== 'object' || !raw.nonces || typeof raw.nonces !== 'object') return {};
+  return raw.nonces;
+}
+
+function saveNonces(map) {
+  return saveTable(NONCE_FILE, 'nonces', map);
+}
+
+function seenNonce(map, key, nowMs) {
+  const entry = map[key];
+  return !!entry && Number(entry.expiresAt) > nowMs;
+}
+
+/// 记住一枚 nonce 并顺手剪掉已到期的（表只会因重启而膨胀，不剪就是给未来留一次 OOM）。
+function rememberNonce(map, key, nowMs, ttlSeconds) {
+  if (!(ttlSeconds > 0)) throw new Error('nonceDedupeSeconds 必须是正数，实为 ' + ttlSeconds);
+  for (const [k, entry] of Object.entries(map)) {
+    if (Number(entry.expiresAt) <= nowMs) delete map[k];
+  }
+  map[key] = { expiresAt: nowMs + ttlSeconds * 1000, seenAt: nowMs };
+  return map[key];
+}
+
 function newEndpointId() {
   return 'ep_' + crypto.randomBytes(9).toString('hex');
 }
@@ -283,4 +313,9 @@ module.exports = {
   isOnline,
   putEndpoint,
   findEndpointBySecret,
+  NONCE_FILE,
+  loadNonces,
+  saveNonces,
+  seenNonce,
+  rememberNonce,
 };

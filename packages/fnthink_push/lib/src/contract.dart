@@ -259,6 +259,28 @@ class FnthinkContract {
       boolOf(const ['signature', 'verifyOnlyForWhitelistedKeys']) == true,
       'signature.verifyOnlyForWhitelistedKeys 必须为 true：只对白名单内公钥验签',
     );
+    // 验签的三个参数彼此有**关系**，不是三个孤立的数字。写歪一个不会报错，
+    // 只会让"过期"和"重放"这两条在某个巧合下互相抵消。
+    final skew = intOf(const ['signature', 'maxSkewSeconds']) ?? 0;
+    final dedupe = intOf(const ['signature', 'nonceDedupeSeconds']) ?? 0;
+    need(skew > 0, 'signature.maxSkewSeconds 必须是正数：为 0 等于要求两端时钟完全一致');
+    need(
+      dedupe >= skew * 2,
+      'signature.nonceDedupeSeconds（$dedupe）必须不小于 2 × maxSkewSeconds（$skew）：'
+      '否则一条"迟到在容差外、但仍在去重窗口内"的重放会两边都不管',
+    );
+    final encoding = map(const ['signature', 'publicKeyEncoding']);
+    need(
+      (encoding?['spkiPrefixHex'] as String? ?? '').length == 24 &&
+          RegExp(
+            r'^302a',
+          ).hasMatch(encoding?['spkiPrefixHex'] as String? ?? ''),
+      'publicKeyEncoding.spkiPrefixHex 必须是 12 字节的 Ed25519 SPKI 头（以 302a 开头）',
+    );
+    need(
+      (encoding?['rawLength'] as num?)?.toInt() == 32,
+      'publicKeyEncoding.rawLength 必须是 32：Ed25519 公钥就这个长度',
+    );
 
     // ── 状态码 ──
     final codes = statusCodes;
