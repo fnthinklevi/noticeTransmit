@@ -203,4 +203,37 @@ void main() {
       );
     });
   });
+
+  // 同上：设备状态页顶部是**两个**读数（亮度 + 网络），最容易被挤，锁竖屏 360 宽。
+  group('手机竖屏（360×780 逻辑像素）', () {
+    setUp(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.fnthink.notice/notification'),
+            (call) async => call.method == 'getDeviceSnapshot'
+                ? {'brightnessPercent': 62, 'network': 'wifi'}
+                : null,
+          );
+    });
+
+    testWidgets('亮度与网络两行都显示，且没有溢出', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('62%'), findsOneWidget);
+      expect(
+        find.text('网络：Wi-Fi'),
+        findsOneWidget,
+        reason: 'detail 那行被挤掉就等于本页只剩一半读数',
+      );
+      final row = tester.getRect(find.text('网络：Wi-Fi'));
+      expect(row.right, lessThanOrEqualTo(360));
+    });
+  });
 }

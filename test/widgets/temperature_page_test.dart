@@ -385,4 +385,35 @@ void main() {
       );
     });
   });
+
+  // 反馈"三页统一版式"的可验部分：手机竖屏下顶部那块不能挤到换行/溢出。
+  // RenderFlex 溢出会抛异常 ⇒ testWidgets 自动红；再加一条"确实渲染出来了"的断言，
+  // 防空页冒充通过。
+  group('手机竖屏（360×780 逻辑像素）', () {
+    setUp(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.fnthink.notice/notification'),
+            (call) async => call.method == 'getDeviceSnapshot'
+                ? {'batteryTemperatureC': 41.3}
+                : null,
+          );
+    });
+
+    testWidgets('温度页顶部读数与总开关都在，且没有溢出', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull, reason: '溢出/换行挤破布局都会从这里冒出来');
+      expect(find.text('41.3℃'), findsOneWidget);
+      expect(find.text('温度推送通知'), findsOneWidget);
+      final header = tester.getRect(find.text('41.3℃'));
+      expect(header.right, lessThanOrEqualTo(360), reason: '读数被推到屏幕外就是溢出');
+    });
+  });
 }
