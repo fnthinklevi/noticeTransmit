@@ -176,12 +176,6 @@ abstract class AppLocalizations {
   /// **'好的'**
   String get ok;
 
-  /// No description provided for @later.
-  ///
-  /// In zh, this message translates to:
-  /// **'稍后'**
-  String get later;
-
   /// No description provided for @goSettings.
   ///
   /// In zh, this message translates to:
@@ -469,12 +463,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'通知读取权限未开启'**
   String get notificationPermissionTitle;
-
-  /// No description provided for @notificationPermissionMsg.
-  ///
-  /// In zh, this message translates to:
-  /// **'通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。'**
-  String get notificationPermissionMsg;
 
   /// No description provided for @appearance.
   ///
@@ -974,53 +962,11 @@ abstract class AppLocalizations {
   /// **'检查更新失败：{e}'**
   String checkUpdateFailed(String e);
 
-  /// No description provided for @checkUpdateNetworkError.
-  ///
-  /// In zh, this message translates to:
-  /// **'检查更新失败，请检查网络连接'**
-  String get checkUpdateNetworkError;
-
-  /// No description provided for @importantUpdate.
-  ///
-  /// In zh, this message translates to:
-  /// **'重要更新'**
-  String get importantUpdate;
-
-  /// No description provided for @mustUpdate.
-  ///
-  /// In zh, this message translates to:
-  /// **'必须更新才能继续使用'**
-  String get mustUpdate;
-
-  /// No description provided for @newVersionFound.
-  ///
-  /// In zh, this message translates to:
-  /// **'发现新版本'**
-  String get newVersionFound;
-
-  /// No description provided for @latestVer.
-  ///
-  /// In zh, this message translates to:
-  /// **'最新版本：'**
-  String get latestVer;
-
-  /// No description provided for @currentVer.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前版本：'**
-  String get currentVer;
-
   /// No description provided for @fileSize.
   ///
   /// In zh, this message translates to:
   /// **'文件大小：'**
   String get fileSize;
-
-  /// No description provided for @updateContent.
-  ///
-  /// In zh, this message translates to:
-  /// **'更新内容'**
-  String get updateContent;
 
   /// No description provided for @updateNow.
   ///
@@ -1039,12 +985,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'更新'**
   String get update;
-
-  /// No description provided for @downloading.
-  ///
-  /// In zh, this message translates to:
-  /// **'正在下载更新'**
-  String get downloading;
 
   /// No description provided for @downloadFailed.
   ///
@@ -2390,12 +2330,6 @@ abstract class AppLocalizations {
   /// **'设备名称'**
   String get deviceNameLabel;
 
-  /// No description provided for @aboutDialogTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'关于'**
-  String get aboutDialogTitle;
-
   /// No description provided for @author.
   ///
   /// In zh, this message translates to:
@@ -2695,12 +2629,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'系统短信'**
   String get ruleAppPinnedSms;
-
-  /// No description provided for @ruleAppPinnedCall.
-  ///
-  /// In zh, this message translates to:
-  /// **'电话'**
-  String get ruleAppPinnedCall;
 
   /// No description provided for @ruleAppPinnedNote.
   ///
@@ -3260,18 +3188,6 @@ abstract class AppLocalizations {
   /// **'页面初始化失败: {e}'**
   String pageInitFailed(String e);
 
-  /// No description provided for @webhookSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'Webhook 配置已保存'**
-  String get webhookSaved;
-
-  /// No description provided for @emailSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'邮件通道配置已保存'**
-  String get emailSaved;
-
   /// No description provided for @unknownError.
   ///
   /// In zh, this message translates to:
@@ -3283,12 +3199,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'测试失败: {e}'**
   String testFailedMsg(String e);
-
-  /// No description provided for @unknownResult.
-  ///
-  /// In zh, this message translates to:
-  /// **'未知结果'**
-  String get unknownResult;
 
   /// No description provided for @iconDefault.
   ///
@@ -3931,12 +3841,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'备份已生成并保存'**
   String get backupOk;
-
-  /// No description provided for @backupCancelled.
-  ///
-  /// In zh, this message translates to:
-  /// **'已取消'**
-  String get backupCancelled;
 
   /// No description provided for @backupFailed.
   ///
@@ -5125,18 +5029,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'企业微信自建应用参数'**
   String get wecomAppExtraTitle;
-
-  /// No description provided for @wecomAppCorpidHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'企业 ID（corpid）'**
-  String get wecomAppCorpidHint;
-
-  /// No description provided for @wecomAppAgentidHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'应用 agentid（纯数字）'**
-  String get wecomAppAgentidHint;
 
   /// No description provided for @wecomAppTouserHint.
   ///

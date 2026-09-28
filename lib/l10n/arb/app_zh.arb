@@ -19,7 +19,6 @@
   "send": "发送",
   "close": "关闭",
   "ok": "好的",
-  "later": "稍后",
   "goSettings": "去设置",
   "loading": "加载中...",
   "unknown": "未知",
@@ -80,7 +79,6 @@
     }
   },
   "notificationPermissionTitle": "通知读取权限未开启",
-  "notificationPermissionMsg": "通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。",
   "appearance": "外观设置",
   "pushSettings": "推送设置",
   "pushChannels": "推送通道",
@@ -219,18 +217,10 @@
       }
     }
   },
-  "checkUpdateNetworkError": "检查更新失败，请检查网络连接",
-  "importantUpdate": "重要更新",
-  "mustUpdate": "必须更新才能继续使用",
-  "newVersionFound": "发现新版本",
-  "latestVer": "最新版本：",
-  "currentVer": "当前版本：",
   "fileSize": "文件大小：",
-  "updateContent": "更新内容",
   "updateNow": "立即更新",
   "ignore": "忽略",
   "update": "更新",
-  "downloading": "正在下载更新",
   "downloadFailed": "下载失败：{e}",
   "@downloadFailed": {
     "placeholders": {
@@ -567,7 +557,6 @@
   "batteryReminder": "电量提醒",
   "setDeviceName": "设置设备名称",
   "deviceNameLabel": "设备名称",
-  "aboutDialogTitle": "关于",
   "author": "作者：幻念团队 fnthinklevi",
   "appDesc": "监听通知栏所有通知并推送到 Webhook",
   "appFeatures": "支持：微信 / QQ / 短信 / 来电 / 电量提醒",
@@ -639,7 +628,6 @@
   "ruleAppScopeDesc": "被排除的应用不再适用本规则",
   "ruleAppPickTitle": "选择适用应用",
   "ruleAppPinnedSms": "系统短信",
-  "ruleAppPinnedCall": "电话",
   "ruleAppPinnedNote": "系统短信与电话由独立链路转发，不经过规则约束判定，此处列出仅便于统一管理。",
   "ruleAppNoPermission": "无应用列表读取权限，无法加载应用列表",
   "ruleMergeWindowRow": "聚合等待时长",
@@ -796,8 +784,6 @@
       }
     }
   },
-  "webhookSaved": "Webhook 配置已保存",
-  "emailSaved": "邮件通道配置已保存",
   "unknownError": "未知错误",
   "testFailedMsg": "测试失败: {e}",
   "@testFailedMsg": {
@@ -807,7 +793,6 @@
       }
     }
   },
-  "unknownResult": "未知结果",
   "iconDefault": "默认图标",
   "iconBlue": "蓝色",
   "iconCyan": "天蓝",
@@ -964,7 +949,6 @@
   "restorePasswordTitle": "输入备份口令",
   "backupTooShort": "口令至少 8 位",
   "backupOk": "备份已生成并保存",
-  "backupCancelled": "已取消",
   "backupFailed": "备份失败：",
   "restoreWrongPassword": "口令错误或文件已损坏",
   "restoreInvalidFile": "不是有效的备份文件",
@@ -1361,8 +1345,6 @@
   "platformWecomAppDesc": "企业微信自建应用推送（需 corpid/agentid/corpsecret），支持指定接收人，正文上限 2048 字节",
   "signingHintWecomApp": "必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid",
   "wecomAppExtraTitle": "企业微信自建应用参数",
-  "wecomAppCorpidHint": "企业 ID（corpid）",
-  "wecomAppAgentidHint": "应用 agentid（纯数字）",
   "wecomAppTouserHint": "接收人 touser（可选，默认 @all，多人间隔 |）",
   "ruleTemplateTitle": "规则模板库",
   "ruleTemplatePreset": "预设模板",

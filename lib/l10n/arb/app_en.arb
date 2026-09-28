@@ -19,7 +19,6 @@
   "send": "Send",
   "close": "Close",
   "ok": "OK",
-  "later": "Later",
   "goSettings": "Settings",
   "loading": "Loading...",
   "unknown": "Unknown",
@@ -80,7 +79,6 @@
     }
   },
   "notificationPermissionTitle": "Notification Access Not Enabled",
-  "notificationPermissionMsg": "Notification access is not enabled. The app cannot read device notifications.\n\nPlease go to Permissions and enable notification access before starting the service.",
   "appearance": "Appearance",
   "pushSettings": "Push Settings",
   "pushChannels": "Push Channels",
@@ -219,18 +217,10 @@
       }
     }
   },
-  "checkUpdateNetworkError": "Update check failed, please check your network",
-  "importantUpdate": "Important Update",
-  "mustUpdate": "You must update to continue using this app",
-  "newVersionFound": "New Version Available",
-  "latestVer": "Latest version: ",
-  "currentVer": "Current version: ",
   "fileSize": "File size: ",
-  "updateContent": "Changelog",
   "updateNow": "Update now",
   "ignore": "Ignore",
   "update": "Update",
-  "downloading": "Downloading update",
   "downloadFailed": "Download failed: {e}",
   "@downloadFailed": {
     "placeholders": {
@@ -567,7 +557,6 @@
   "batteryReminder": "Battery Reminder",
   "setDeviceName": "Set Device Name",
   "deviceNameLabel": "Device Name",
-  "aboutDialogTitle": "About",
   "author": "Author: fnthinklevi",
   "appDesc": "Listen to all notifications and push to Webhook",
   "appFeatures": "Supports: WeChat / QQ / SMS / Call / Battery",
@@ -639,7 +628,6 @@
   "ruleAppScopeDesc": "Excluded apps won't match this rule",
   "ruleAppPickTitle": "Select Applicable Apps",
   "ruleAppPinnedSms": "System SMS",
-  "ruleAppPinnedCall": "Phone",
   "ruleAppPinnedNote": "System SMS and call notifications are forwarded via separate pipelines and never reach the rule constraints; listed here for unified management.",
   "ruleAppNoPermission": "No permission to read the app list",
   "ruleMergeWindowRow": "Merge wait duration",
@@ -796,8 +784,6 @@
       }
     }
   },
-  "webhookSaved": "Webhook config saved",
-  "emailSaved": "Email channel config saved",
   "unknownError": "Unknown error",
   "testFailedMsg": "Test failed: {e}",
   "@testFailedMsg": {
@@ -807,7 +793,6 @@
       }
     }
   },
-  "unknownResult": "Unknown result",
   "iconDefault": "Default",
   "iconBlue": "Blue",
   "iconCyan": "Cyan",
@@ -964,7 +949,6 @@
   "restorePasswordTitle": "Enter Backup Password",
   "backupTooShort": "Password must be at least 8 characters",
   "backupOk": "Backup created and saved",
-  "backupCancelled": "Cancelled",
   "backupFailed": "Backup failed: ",
   "restoreWrongPassword": "Wrong password or corrupted file",
   "restoreInvalidFile": "Not a valid backup file",
@@ -1361,8 +1345,6 @@
   "platformWecomAppDesc": "WeCom self-built app push (requires corpid/agentid/corpsecret), supports targeting users; content limited to 2048 bytes",
   "signingHintWecomApp": "Required: corpsecret (exchanges for access_token); also fill in corpid and agentid",
   "wecomAppExtraTitle": "WeCom App Parameters",
-  "wecomAppCorpidHint": "Corp ID (corpid)",
-  "wecomAppAgentidHint": "App agentid (numeric)",
   "wecomAppTouserHint": "Receiver touser (optional, default @all; separate users with |)",
   "ruleTemplateTitle": "Rule Templates",
   "ruleTemplatePreset": "Preset Templates",

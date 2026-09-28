@@ -50,9 +50,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ok => '好的';
 
   @override
-  String get later => '稍后';
-
-  @override
   String get goSettings => '去设置';
 
   @override
@@ -203,10 +200,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notificationPermissionTitle => '通知读取权限未开启';
-
-  @override
-  String get notificationPermissionMsg =>
-      '通知读取权限未开启，软件无法读取设备通知内容。\n\n请先前往「权限设置」开启通知读取权限后再启动服务。';
 
   @override
   String get appearance => '外观设置';
@@ -475,28 +468,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get checkUpdateNetworkError => '检查更新失败，请检查网络连接';
-
-  @override
-  String get importantUpdate => '重要更新';
-
-  @override
-  String get mustUpdate => '必须更新才能继续使用';
-
-  @override
-  String get newVersionFound => '发现新版本';
-
-  @override
-  String get latestVer => '最新版本：';
-
-  @override
-  String get currentVer => '当前版本：';
-
-  @override
   String get fileSize => '文件大小：';
-
-  @override
-  String get updateContent => '更新内容';
 
   @override
   String get updateNow => '立即更新';
@@ -506,9 +478,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get update => '更新';
-
-  @override
-  String get downloading => '正在下载更新';
 
   @override
   String downloadFailed(String e) {
@@ -1219,9 +1188,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deviceNameLabel => '设备名称';
 
   @override
-  String get aboutDialogTitle => '关于';
-
-  @override
   String get author => '作者：幻念团队 fnthinklevi';
 
   @override
@@ -1376,9 +1342,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get ruleAppPinnedSms => '系统短信';
-
-  @override
-  String get ruleAppPinnedCall => '电话';
 
   @override
   String get ruleAppPinnedNote => '系统短信与电话由独立链路转发，不经过规则约束判定，此处列出仅便于统一管理。';
@@ -1678,21 +1641,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get webhookSaved => 'Webhook 配置已保存';
-
-  @override
-  String get emailSaved => '邮件通道配置已保存';
-
-  @override
   String get unknownError => '未知错误';
 
   @override
   String testFailedMsg(String e) {
     return '测试失败: $e';
   }
-
-  @override
-  String get unknownResult => '未知结果';
 
   @override
   String get iconDefault => '默认图标';
@@ -2043,9 +1997,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupOk => '备份已生成并保存';
-
-  @override
-  String get backupCancelled => '已取消';
 
   @override
   String get backupFailed => '备份失败：';
@@ -2716,12 +2667,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get wecomAppExtraTitle => '企业微信自建应用参数';
-
-  @override
-  String get wecomAppCorpidHint => '企业 ID（corpid）';
-
-  @override
-  String get wecomAppAgentidHint => '应用 agentid（纯数字）';
 
   @override
   String get wecomAppTouserHint => '接收人 touser（可选，默认 @all，多人间隔 |）';

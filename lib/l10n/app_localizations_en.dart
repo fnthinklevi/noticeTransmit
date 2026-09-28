@@ -50,9 +50,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ok => 'OK';
 
   @override
-  String get later => 'Later';
-
-  @override
   String get goSettings => 'Settings';
 
   @override
@@ -208,10 +205,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationPermissionTitle => 'Notification Access Not Enabled';
-
-  @override
-  String get notificationPermissionMsg =>
-      'Notification access is not enabled. The app cannot read device notifications.\n\nPlease go to Permissions and enable notification access before starting the service.';
 
   @override
   String get appearance => 'Appearance';
@@ -499,29 +492,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get checkUpdateNetworkError =>
-      'Update check failed, please check your network';
-
-  @override
-  String get importantUpdate => 'Important Update';
-
-  @override
-  String get mustUpdate => 'You must update to continue using this app';
-
-  @override
-  String get newVersionFound => 'New Version Available';
-
-  @override
-  String get latestVer => 'Latest version: ';
-
-  @override
-  String get currentVer => 'Current version: ';
-
-  @override
   String get fileSize => 'File size: ';
-
-  @override
-  String get updateContent => 'Changelog';
 
   @override
   String get updateNow => 'Update now';
@@ -531,9 +502,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get update => 'Update';
-
-  @override
-  String get downloading => 'Downloading update';
 
   @override
   String downloadFailed(String e) {
@@ -1267,9 +1235,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deviceNameLabel => 'Device Name';
 
   @override
-  String get aboutDialogTitle => 'About';
-
-  @override
   String get author => 'Author: fnthinklevi';
 
   @override
@@ -1430,9 +1395,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ruleAppPinnedSms => 'System SMS';
-
-  @override
-  String get ruleAppPinnedCall => 'Phone';
 
   @override
   String get ruleAppPinnedNote =>
@@ -1745,21 +1707,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get webhookSaved => 'Webhook config saved';
-
-  @override
-  String get emailSaved => 'Email channel config saved';
-
-  @override
   String get unknownError => 'Unknown error';
 
   @override
   String testFailedMsg(String e) {
     return 'Test failed: $e';
   }
-
-  @override
-  String get unknownResult => 'Unknown result';
 
   @override
   String get iconDefault => 'Default';
@@ -2119,9 +2072,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupOk => 'Backup created and saved';
-
-  @override
-  String get backupCancelled => 'Cancelled';
 
   @override
   String get backupFailed => 'Backup failed: ';
@@ -2828,12 +2778,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get wecomAppExtraTitle => 'WeCom App Parameters';
-
-  @override
-  String get wecomAppCorpidHint => 'Corp ID (corpid)';
-
-  @override
-  String get wecomAppAgentidHint => 'App agentid (numeric)';
 
   @override
   String get wecomAppTouserHint =>
