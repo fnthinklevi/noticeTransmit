@@ -882,6 +882,15 @@ matter most — three steps:
    keeps putting the slash back, **delete those two proxy entries and write the locations by hand in the site
    config file** (Option 2 in this README shows the native form; the `proxy_pass` spelling is the same).
 
+   > 🔧 **BT Panel's generated proxy block has two lines to fix** (it is a template — don't trust the panel UI alone):
+   > ```nginx
+   > proxy_pass http://127.0.0.1:3456/;        # ← drop the trailing `/`
+   > proxy_set_header Host 127.0.0.1;          # ← make it $host (the panel calls this "sent domain")
+   > ```
+   > The first decides how the path is joined (table above); the second decides the Host the upstream sees — the
+   > server does not depend on it today, but logs and any future per-hostname logic will, and `127.0.0.1` there
+   > is a silent trap.
+
    > 🔎 **Tell-tale sign (one command settles it)**: `https://<push-host>/api/fnthink/poll` answers with
    > **Express's error page** and a wrong path — `Cannot POST /poll` (prefix eaten) or `Cannot POST //poll`
    > (extra slash).
