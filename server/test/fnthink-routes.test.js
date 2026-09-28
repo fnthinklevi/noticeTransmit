@@ -36,7 +36,7 @@ const {
   statusCode,
 } = require('../lib/fnthink/contract');
 const verify = require('../lib/fnthink/verify');
-const { windowsFor } = require('../lib/fnthink/ratelimit');
+const { windowsFor, endpointKindOf } = require('../lib/fnthink/ratelimit');
 const devicestore = require('../lib/fnthink/devicestore');
 const messagestore = require('../lib/fnthink/messagestore');
 
@@ -947,5 +947,42 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
     expect(code(routesSrc)).not.toMatch(/grantsBy\s*=/);
     expect(code(pairSrc)).not.toMatch(/grantsBy\s*\[/);
     expect(code(pairSrc)).toMatch(/approvePeer\(/);
+  });
+});
+
+// #126 第二片把"客户端发到哪个 URL"收进契约 `transport.apiPaths`，这一组就是把那张表钉回事实。
+// 它必须双向：只查"声明的都挂了"会漏掉挂了两条声明一条；只查"挂了的都声明了"则漏掉
+// 声明了却没挂的那条（客户端照着 404 敲一年）。
+describe('契约声明的路径 == 实际挂载的路径', () => {
+  const mountedPaths = () => [
+    ...new Set((app.get('fnthinkEndpoints') || []).map((line) => line.replace(/^[A-Z,]+ /, ''))),
+  ];
+  const declaredPaths = () => [
+    ...Object.entries(contract.transport.apiPaths)
+      .filter(([kind]) => !kind.startsWith('_'))
+      .map(([, path]) => path),
+    contract.endpoint.ingress.pathPattern,
+    contract.endpoint.ingress.postBearerPath,
+  ];
+
+  test('不多不少：挂载清单与契约声明逐条对得上（改任一边都必须同时改另一边）', () => {
+    expect(mountedPaths().sort()).toEqual(declaredPaths().sort());
+  });
+
+  test('每条设备面路径都能被限流那一层认回它的事件种类（尾段 ↔ 驼峰名的映射不许断）', () => {
+    // 认不回来的后果不是报错，是"这个端点被当成未登记 ⇒ 按最紧的一档拦下"，
+    // 而那正好是 A1 加这条兜底的初衷 —— 前提是 kind 得算对。
+    for (const [kind, path] of Object.entries(contract.transport.apiPaths)) {
+      if (kind.startsWith('_') || kind === 'message') continue; // /message 不是 clientEvents 事件
+      expect(endpointKindOf(path)).toBe(kind);
+    }
+  });
+
+  test('路由文件里不出现带前缀的全路径字面量（前缀只由 app.js 挂一次）', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../lib/fnthink/routes.js'), 'utf8');
+    // 挂了前缀的路由等于绕开 app.js 那一次挂载 —— 契约 apiPaths 里的全路径就再没人核对了。
+    expect(src).not.toMatch(/router\.(get|post)\(\s*['"]\/api\/fnthink/);
+    // 端点收单那两条的形状在契约里声明，代码只挂参数化的相对路径
+    expect(src).toMatch(/'\/p\/:endpointId\/:secret'/);
   });
 });

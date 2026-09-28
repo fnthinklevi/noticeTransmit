@@ -1658,6 +1658,100 @@ void main() {
       expectProblem(broken, '必须是 receipts 里的一个词', '两个出处指同一个拒绝时，必须逐字节同名');
     });
 
+    // ── transport.apiPaths（#126 第二片：客户端发到哪个 URL 的唯一出处）──
+    test('apiPaths 整段缺失 ⇒ 报（路径不能两边各拼一份）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>).remove('apiPaths');
+      });
+      expectProblem(
+        broken,
+        'transport.apiPaths 必须非空',
+        '设备面路径没有第二个来源，缺段就是让两份实现各猜一次',
+      );
+    });
+
+    test('少一种事件的路径 ⇒ 报（漏的那个客户端发不出去）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['apiPaths'] = {
+          ...(raw['transport'] as Map<String, Object?>)['apiPaths']
+              as Map<String, Object?>,
+        }..remove('ack');
+      });
+      expectProblem(broken, '必须覆盖每一种设备签名事件', '少一行配置在两边各拼一份的实现里是完全看不见的');
+    });
+
+    test('apiPaths 里多一个不是事件种类的键 ⇒ 报（这条路径没人挂）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['apiPaths'] = {
+          ...(raw['transport'] as Map<String, Object?>)['apiPaths']
+              as Map<String, Object?>,
+          'debugPeek': '/api/fnthink/debug-peek',
+        };
+      });
+      expectProblem(
+        broken,
+        '不属于 clientEvents 的键',
+        '声明了一条没人挂的路径，比少一条更容易被当成"服务端还支持这个"',
+      );
+    });
+
+    test('路径不在 /api/fnthink/ 前缀之下 ⇒ 报（前缀是反代与脱敏都依赖的那一段）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['apiPaths'] = {
+          ...(raw['transport'] as Map<String, Object?>)['apiPaths']
+              as Map<String, Object?>,
+          'poll': '/fnthink/poll',
+        };
+      });
+      expectProblem(
+        broken,
+        '必须是 /api/fnthink/ 下的纯路径',
+        '换了前缀就是换了门，而两边各拼一份时没人会发现',
+      );
+    });
+
+    test('路径写成带 query ⇒ 报（口令类参数进 query 正是本协议禁的事）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['apiPaths'] = {
+          ...(raw['transport'] as Map<String, Object?>)['apiPaths']
+              as Map<String, Object?>,
+          'poll': '/api/fnthink/poll?source=app',
+        };
+      });
+      expectProblem(broken, '必须是 /api/fnthink/ 下的纯路径', '带 query 等于把参数写进协议路径');
+    });
+
+    test('两条事件共用一条路径 ⇒ 报（服务端只能按其中一种裁决）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['apiPaths'] = {
+          ...(raw['transport'] as Map<String, Object?>)['apiPaths']
+              as Map<String, Object?>,
+          'ack': '/api/fnthink/poll',
+        };
+      });
+      expectProblem(broken, '值有重复', '两个事件同一条路径时，限流与裁决都会静默偏向一边');
+    });
+
+    test('端点收单的路径混进 apiPaths ⇒ 报（那张表是设备面，不携带口令）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['apiPaths'] = {
+          ...(raw['transport'] as Map<String, Object?>)['apiPaths']
+              as Map<String, Object?>,
+          'message':
+              ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                  as Map<String, Object?>)['postBearerPath'],
+        };
+      });
+      expectProblem(broken, '出现了端点收单的路径', '混表的下一个人会以为设备面也能携带口令');
+    });
+
+    test('仓库里这份契约的 apiPaths 与 clientEvents 对得上（正向证据）', () {
+      expect(c.apiPaths.containsKey('poll'), isTrue);
+      expect(c.apiPaths['ack'], '/api/fnthink/ack');
+      expect(c.apiPath('poll'), startsWith('/api/fnthink/'));
+      expect(() => c.apiPath('nope'), throwsStateError);
+    });
+
     test('仓库里这份契约的收单段读得出来（正向证据）', () {
       final perMinute = c.intOf(const [
         'endpoint',

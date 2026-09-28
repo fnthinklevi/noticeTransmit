@@ -525,6 +525,17 @@
     "secretPlacement": "path_segment",
     "accessLogRedactPathPattern": "/api/fnthink/p/",
     "postOnlySwitch": true,
+    "apiPaths": {
+      "_why": "设备面那七条的路径，唯一出处在这里。它不是注释性的描述：客户端要把请求发到哪个 URL、服务端实际挂的又是哪个，两边必须读同一份 —— 否则改路径的那一刀会变成「服务端换了门、客户端还在敲旧门」，而这一层在身份证明之前一律同形，排查的人看不到区别。写死在两份代码里就是第二个真值来源，这一批客户端接线时把它收进契约。",
+      "register": "/api/fnthink/register",
+      "pairArm": "/api/fnthink/pair-arm",
+      "pair": "/api/fnthink/pair",
+      "pairConfirm": "/api/fnthink/pair-confirm",
+      "message": "/api/fnthink/message",
+      "poll": "/api/fnthink/poll",
+      "ack": "/api/fnthink/ack",
+      "_endpointPathsApartWhy": "端点收单的两条不在这张表里，也不许进来：那是另一类鉴权（共享长期口令在路径段里），而且它们已由 endpoint.ingress.pathPattern / postBearerPath 钉住必须落在脱敏前缀之内。混在一张表里，下一个读它的人会以为设备面路径也可以携带口令。"
+    },
     "endpoints": {
       "international": "push.fnthink.top",
       "mainland": "push.fnthink.com",

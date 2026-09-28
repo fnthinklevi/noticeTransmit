@@ -364,6 +364,28 @@ class FnthinkContract {
     return value;
   }
 
+  /// 某一类设备面事件要发到的路径（`transport.apiPaths.<kind>`）。
+  ///
+  /// 客户端不许自己拼 `'/api/fnthink/poll'`：服务端挂在哪儿由同一份契约说，两边各写一份的话，
+  /// 改路径那一刀会变成"服务端换了门、客户端还在敲旧门" —— 而这一层在身份证明之前一律同形，
+  /// 出问题时排查的人看不到任何区别。
+  String apiPath(String kind) {
+    final value = str(['transport', 'apiPaths', kind]);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 transport.apiPaths.$kind（不补默认值：拼出来的路径没人核对）');
+    }
+    return value;
+  }
+
+  /// 设备面路径全表（去掉解释性的 `_` 键）。给"声明的 = 实际挂的"那种双向守卫用。
+  Map<String, String> get apiPaths {
+    final table = map(const ['transport', 'apiPaths']) ?? const {};
+    return {
+      for (final entry in table.entries)
+        if (!entry.key.startsWith('_')) entry.key: '${entry.value}',
+    };
+  }
+
   /// 这份契约能不能被本包解释。返回 null = 可以；否则是不兼容的原因。
   String? unsupportedReason() {
     final declared = _protocolMajorOf(protocol);
@@ -1958,6 +1980,54 @@ class FnthinkContract {
     need(
       (str(const ['transport', 'accessLogRedactPathPattern']) ?? '').isNotEmpty,
       'transport.accessLogRedactPathPattern 不能为空',
+    );
+    // ── 设备面的路径（transport.apiPaths）──
+    // 为什么值得进契约：客户端要知道往哪个 URL 发，服务端知道自己挂在哪儿。两边各写一份字面量
+    // 时，改路径的那一刀不会报错，只会变成「服务端换了门、客户端还在敲旧门」—— 而这一层在身份
+    // 证明之前一律同形（防枚举），所以排查的人从响应里看不出"敲错门"和"口令错"的区别。
+    final declaredPaths = apiPaths;
+    final missingPathFor = eventKinds.keys
+        .where((k) => !declaredPaths.containsKey(k))
+        .join(', ');
+    final unknownPathKeys = declaredPaths.keys
+        .where((k) => !eventKinds.containsKey(k) && k != 'message')
+        .join(', ');
+    need(
+      declaredPaths.isNotEmpty,
+      'transport.apiPaths 必须非空：设备面路径没有第二个来源，缺段就是让两份实现各拼一次',
+    );
+    need(
+      missingPathFor.isEmpty,
+      'transport.apiPaths 必须覆盖每一种设备签名事件（缺：$missingPathFor）：'
+      '漏掉的那个客户端发不出去，而它看起来只是"少了一行配置"',
+    );
+    need(
+      unknownPathKeys.isEmpty,
+      'transport.apiPaths 里有不属于 clientEvents 的键：$unknownPathKeys'
+      '（/message 是投递面、可以单独声明；其余键必须真是一种事件，否则这条路径没人挂）',
+    );
+    for (final entry in declaredPaths.entries) {
+      need(
+        entry.value.startsWith('/api/fnthink/') &&
+            !entry.value.contains('?') &&
+            !entry.value.contains('//'),
+        'transport.apiPaths.${entry.key} 必须是 /api/fnthink/ 下的纯路径（实为「${entry.value}」）：'
+        '带 query 就等于把参数写进协议路径，而口令类参数进 query 正是这个协议禁止的那件事',
+      );
+    }
+    need(
+      declaredPaths.values.toSet().length == declaredPaths.length,
+      'transport.apiPaths 的值有重复：两个事件共用一条路径时，服务端只能按其中一种裁决',
+    );
+    // 端点收单那两条**不许**混进这张表（它们走共享口令，鉴权方式完全不同一类）。
+    final ingressPaths = {
+      str(const ['endpoint', 'ingress', 'pathPattern']) ?? '',
+      str(const ['endpoint', 'ingress', 'postBearerPath']) ?? '',
+    };
+    need(
+      declaredPaths.values.every((p) => !ingressPaths.contains(p)),
+      'transport.apiPaths 里出现了端点收单的路径：那张表是设备面（签名鉴权），'
+      '混在一起下一个人会以为设备面也能携带口令',
     );
     // 域名是**部署形态**而不是注释：客户端要拼成 `https://<host>/api/...`，而大陆那条
     // 从 pushfnthink.com 改成 push.fnthink.com 时，契约里那行没有任何读者与校验，

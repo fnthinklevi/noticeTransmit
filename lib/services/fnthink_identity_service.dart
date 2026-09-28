@@ -91,4 +91,13 @@ class FnthinkIdentityService {
     final canonical = CanonicalMessage.bytes(contract, fields);
     return signCanonicalBytes(canonical);
   }
+
+  /// 这台机器现在能不能签名（#126 接线层用）。做成**一次性**判定：取不到身份是稳定事实
+  /// （没建钥、Keystore 被拒），每次轮询都问一遍会把一条 MethodChannel 变成周期性开销。
+  Future<bool> canSign() async {
+    final id = await identity();
+    // 公钥为空就算失败：宁可以说"这台还没身份"，也不要下面 signFields 里那条
+    // "公钥为空算失败"的分支被绕过来发一个空签名的包。
+    return id != null && id.publicKey.isNotEmpty;
+  }
 }
