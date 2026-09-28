@@ -106,6 +106,9 @@ flutter:
   assets:
     - assets/app_icon.png
     - assets/icons/
+    # 幻念推送的单一协议契约要随包上机：设备上没有一个"仓库根"可以去向上找文件，
+    # 而"两端读同一份"这个承诺只有在包里有它才算数（读法见 lib/services/fnthink_contract_loader.dart）。
+    - protocol/fnthink-v1.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
