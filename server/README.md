@@ -626,12 +626,37 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 | 创建 / 轮换 / 吊销 / 改策略的**存储层函数**（含轮换宽限期） | ✅ 已有 | — |
 | 运维看端点：`GET /api/admin/fnthink/endpoints` | ✅ 已有 | 响应里没有口令也没有摘要 |
 | 运维吊销：`POST /api/admin/fnthink/endpoints/revoke`（要 `confirm`） | ✅ 已有 | — |
-| 接收端**自己**建端点的入口（App 内「我的端点」） | ⬜ 还没有 | 与设备侧客户端同批 |
-| 第三方真正能推的两条入口：`GET /api/fnthink/p/<id>/<口令>` 与 `POST /api/fnthink/p/<id>` + `Authorization: Bearer` | ✅ 已有 | — |
+| 运维铸口令：`POST /api/admin/fnthink/endpoints/create` / `/rotate` / `/policy` | ✅ 已有 | — |
+| 第三方能推的两条入口：`GET /api/fnthink/p/<id>/<口令>` 与 `POST /api/fnthink/p/<id>` + `Authorization: Bearer` | ✅ 已有 | — |
 | 字段别名容错、按端点的配额、只产 L1、HTTPS-only、口令不进日志与 kind | ✅ 已有 | — |
+| 接收端**自己**建端点的入口（App 内「我的端点」） | ⬜ 还没有 | 与设备侧客户端同批 |
 
-所以现在的真相是：**运维能建端点、第三方也能推，但接收端还没地方自助创建**（口令由运维在管理面给）。
-下面三小节是给"手上已经有一条口令"的人看的。
+所以现在的真相是：**运维能铸口令、第三方能推，但接收端还没地方自助创建**。
+下面第一小节给运维，后三节给"手上已经有一条口令"的人。
+
+#### 运维怎么铸一条口令（这三个口为什么必须存在）
+
+收单入口挂上公网之后，如果管理面仍然只能"列"与"吊销"，那部署好的实例上就**没有任何办法铸出口令** ——
+"第三方能推"会只是一句文档话。所以这一组写入口与那两条入口是同一件事的两半：
+
+```bash
+# 铸一条：owner 必须是**已经登记过**的设备地址码
+curl -sS -X POST "https://push.example.com/api/admin/fnthink/endpoints/create" \
+  -H "x-session-id: <会话>" -H "Content-Type: application/json" \
+  -d '{"owner":"8K3FJ6QPTM9WZ4VHNS","name":"家里 NAS"}'
+# → {"code":0,"data":{"action":"createEndpoint","endpoint":{...},"secret":"…","secretShownOnce":true}}
+```
+
+- ⚠ **`secret` 只在这一次响应里出现**。表里存的是摘要，列表口拿不到明文，也没有任何接口能把它再取回来
+  —— 忘了就只有一条路：`/rotate` 换一把新的（旧的那把在宽限期内还能用，所以别慌，但要去第三方把那份改掉）。
+  这三个口的日志留痕只打 id，不打返回体。
+- 要求 owner 先登记，是因为对着一个还不存在的收件人铸入口，表现是第三方拿到 `202`、屏幕上什么都不出现，
+  而消息一直排到过期 —— 那比"现在就报错"难解释得多。
+- `ipAllowlist` 每一项必须是一整个 IPv4/IPv6 地址，**不收 CIDR**（`10.0.0.0/24` 会被 400 拒掉）。
+  理由不在这条规则好不好写，而在写进去也白写：白名单为空才是"不限来源"，而抄错一项的表现是"口令明明对却一律 401"，
+  那条与口令错同形，排查的人只会怀疑口令、不会怀疑自己抄错的那一行。
+- `/rotate` **不需要** `confirm`（`/revoke` 需要）：判据是"误点能不能原地撤销" —— 轮换后旧口令在宽限期内照样能推，
+  而吊销要对方重新配对。
 
 #### 两条入口怎么选
 

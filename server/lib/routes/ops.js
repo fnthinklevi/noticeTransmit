@@ -25,6 +25,7 @@
 //    "缺陷伪装成操作没生效"）。
 
 const express = require('express');
+const net = require('net');
 
 const { asyncHandler, authMiddleware } = require('../middleware');
 const {
@@ -277,6 +278,181 @@ router.post(
       message: 'success',
       // affected 与设备那一组同一个口径：已经吊销过再按一次是 0，不是"没反应"。
       data: { action: 'revokeEndpoint', affected: out.revoked ? 1 : 0, endpoint: out.endpoint },
+    });
+  }),
+);
+
+// ── 端点的写入口（创建 / 轮换 / 改策略）────────────────────────────
+// 为什么这三个口现在就要有：T39–T41 把两条收单入口挂上了公网，而管理面只能**列**与**吊销**
+// ⇒ 部署好的实例上没有任何办法铸出一条口令，"第三方能推"就只是一句文档话。
+//
+// ⚠ **明文口令只在这两个口的响应里出现一次**（创建与轮换各一次）。表里存的是摘要，列表口拿不到明文，
+//   也没有任何接口能把它再取回来 —— 忘了就只能再轮换一次。所以这两个口**不许把响应体写进日志**：
+//   "顺手 console 一行返回体"是最常见的一行代码，而它恰好把这一面唯一的秘密送进日志文件。
+//
+// 到上限、不在表里、参数不对都是**用户输入**那一类（400 / 404），不许冒成 500 —— 既是管理面的
+// 既有口径（A5 判据⑤），也因为运维看到 500 会去查进程，而不是改自己抄错的那一行。
+
+/// 轮换与改策略共用的前置：先认出这一行，再把"没这条"与"有但已经不能用"分清楚说。
+/// 判定是白名单式的（必须是契约 `usableStatus`），与收单那一侧同一条规则。
+function usableRow(epc, res, id) {
+  if (!id) {
+    res.status(400).json({ code: -1, message: 'endpointId 不能为空' });
+    return null;
+  }
+  const endpoints = ds.loadEndpoints();
+  const record = endpoints[id];
+  if (!record) {
+    res.status(404).json({ code: -1, message: `这个端点不在表里：${id}` });
+    return null;
+  }
+  if (record.status !== epc.usableStatus) {
+    // 不答 404：这一行确实在表里，答"不在"是把事实说反。也不许顺手把它改回可用 ——
+    // 吊销是"这个入口从此不再存在"，要恢复就该新建一条（旧的调用日志与创建时间属于那一条记录）。
+    res.status(400).json({
+      code: -1,
+      message: `这个端点已经是「${record.status}」那一档：轮换与设置只挂在还能用的端点上，要恢复请新建`,
+    });
+    return null;
+  }
+  return endpoints;
+}
+
+/// IP 白名单的每一项都得真的是个 IP。空数组按契约是"不限来源"（`ipAllowlistEmptyMeans=any`），
+/// 而抄进一个 `10.0.0.0/24` 或带空格的东西，表现是"口令明明对，却一律 401" —— 那条与口令错同形，
+/// 排查的人只会怀疑口令，不会怀疑自己抄错的那一行。
+function ipAllowlistFrom(body, res) {
+  if (body.ipAllowlist === undefined) return { ok: true, value: undefined };
+  if (!Array.isArray(body.ipAllowlist)) {
+    res.status(400).json({ code: -1, message: 'ipAllowlist 必须是数组（空数组 = 不限来源）' });
+    return { ok: false };
+  }
+  const bad = body.ipAllowlist.filter((one) => net.isIP(String(one).trim()) === 0);
+  if (bad.length) {
+    res.status(400).json({
+      code: -1,
+      message:
+        `ipAllowlist 里有不是 IP 的项：${bad.join(' / ')}（每一项必须是一整个 IPv4 或 IPv6 地址；` +
+        '要放一台网段就先把来源固定成那个地址，这里不做 CIDR 匹配 —— 匹配规则一旦写进管理面，收单那一侧就得再写一份）',
+    });
+    return { ok: false };
+  }
+  return { ok: true, value: body.ipAllowlist.map((one) => String(one).trim()) };
+}
+
+router.post(
+  '/fnthink/endpoints/create',
+  authMiddleware,
+  withContext((ctx, req, res) => {
+    const epc = endpointConfigOf(ctx);
+    if (!epc) return res.status(503).json({ error: 'fnthink_protocol_unavailable' });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const owner = String(body.owner || '');
+    if (!isValidAddressCode(ctx.contract, owner)) {
+      return res
+        .status(400)
+        .json({ code: -1, message: 'owner 必须是一个合法的地址码（按契约字母表与位数）' });
+    }
+    // 先要这台设备登记过：对着一个还不存在的收件人铸入口，表现是第三方拿到 202、屏幕上什么都不出现，
+    // 而消息一直排到过期 —— 那比"现在就报错"难解释得多。
+    if (!ds.loadDevices()[owner]) {
+      return res.status(400).json({
+        code: -1,
+        message: `这台设备还没登记：${owner}（端点只能投给它所属的那台设备，先在 App 里连上这台实例再建）`,
+      });
+    }
+    const allow = ipAllowlistFrom(body, res);
+    if (!allow.ok) return;
+    const endpoints = ds.loadEndpoints();
+    let out;
+    try {
+      out = ds.createEndpoint(
+        ctx.contract,
+        endpoints,
+        { owner, name: body.name, postOnly: body.postOnly, ipAllowlist: allow.value },
+        Date.now(),
+        epc,
+      );
+    } catch (e) {
+      // 到上限（每台 / 全局）是"这次没建成"，不是服务端坏了：只拒新的，绝不挤掉已有端点。
+      if (e.code === ds.ENDPOINT_CAP_CODE) {
+        return res.status(400).json({ code: -1, message: e.message });
+      }
+      throw e;
+    }
+    console.log(`[fnthink:ops] createEndpoint ${out.id} owner=${owner}`);
+    return res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        action: 'createEndpoint',
+        affected: 1,
+        endpoint: out.endpoint,
+        // 明文口令只在这里出现这一次（表里只有摘要，列表口拿不到）。
+        secret: out.secret,
+        secretShownOnce: true,
+      },
+    });
+  }),
+);
+
+router.post(
+  '/fnthink/endpoints/rotate',
+  authMiddleware,
+  withContext((ctx, req, res) => {
+    const epc = endpointConfigOf(ctx);
+    if (!epc) return res.status(503).json({ error: 'fnthink_protocol_unavailable' });
+    const id = String((req.body || {}).endpointId || '');
+    const endpoints = usableRow(epc, res, id);
+    if (!endpoints) return;
+    const out = ds.rotateEndpoint(ctx.contract, endpoints, id, Date.now(), epc);
+    // 轮换**不要** confirm：旧口令在宽限期内照样能推（契约 `endpoint.rotation.graceSeconds`），
+    // 误点的代价是"多铸了一把新的"，那是能原地处理的 —— 与"要对方重新配对"那一类不是一回事。
+    console.log(`[fnthink:ops] rotateEndpoint ${id}`);
+    return res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        action: 'rotateEndpoint',
+        affected: 1,
+        endpoint: out.endpoint,
+        secret: out.secret,
+        secretShownOnce: true,
+        // 旧口令还能用到什么时候：运维要么现在就去换第三方那一份，要么知道自己还有个窗口。
+        oldSecretValidUntil: out.endpoint.rotatingUntil,
+        graceSeconds: epc.graceSeconds,
+      },
+    });
+  }),
+);
+
+router.post(
+  '/fnthink/endpoints/policy',
+  authMiddleware,
+  withContext((ctx, req, res) => {
+    const epc = endpointConfigOf(ctx);
+    if (!epc) return res.status(503).json({ error: 'fnthink_protocol_unavailable' });
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const id = String(body.endpointId || '');
+    const endpoints = usableRow(epc, res, id);
+    if (!endpoints) return;
+    const allow = ipAllowlistFrom(body, res);
+    if (!allow.ok) return;
+    if (body.name !== undefined && typeof body.name !== 'string') {
+      return res.status(400).json({ code: -1, message: 'name 要是一串文本' });
+    }
+    const endpoint = ds.setEndpointPolicy(
+      ctx.contract,
+      endpoints,
+      id,
+      { name: body.name, postOnly: body.postOnly, ipAllowlist: allow.value },
+      epc,
+    );
+    console.log(`[fnthink:ops] setEndpointPolicy ${id}`);
+    return res.json({
+      code: 0,
+      message: 'success',
+      data: { action: 'setEndpointPolicy', affected: 1, endpoint },
     });
   }),
 );

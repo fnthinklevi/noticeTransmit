@@ -10,11 +10,15 @@
 //  ⑤ IP 白名单的空名单 = 不限（缺省必须朝"没配也能跑"那一侧）；不匹配的对外结论与口令错同形，
 //     否则这个入口是一台"哪个来源被允许"的探针；
 //  ⑥ 数字与档位名一律从契约 `endpoint` 段读；取不到抛的是**可降级**的 SHAPE。
+//
+// 最后那组（写入口）多守一条：**明文口令只出现在创建/轮换那一次的响应里** —— 表里、列表口、
+// console 留痕三处都必须搜不到它。
 'use strict';
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 process.env.NODE_ENV = 'test';
@@ -25,6 +29,9 @@ process.env.ADMIN_TOKEN_HASH = bcrypt.hashSync(ADMIN_TOKEN, 10);
 process.env.ENCRYPTION_KEY = 'f'.repeat(64);
 process.env.RATE_LIMIT_AUTH_MAX = '100000';
 process.env.RATE_LIMIT_GENERAL_MAX = '100000';
+// 有几条用例要经真实入口推一发（supertest 是明文 http），所以开逃生阀。
+// "没开时拒不拒"由 fnthink-endpoint-intake.test.js 单独钉。
+process.env.FNTHINK_ALLOW_INSECURE_ENDPOINT = '1';
 
 const request = require('supertest');
 const app = require('../lib/app');
@@ -33,6 +40,7 @@ const {
   assertSupported,
   isContractAvailabilityError,
   CONTRACT_SHAPE,
+  statusCode,
 } = require('../lib/fnthink/contract');
 const ds = require('../lib/fnthink/devicestore');
 
@@ -371,5 +379,239 @@ describe('端点的管理面（T38）', () => {
     });
     expect(res.status).toBe(404);
     expect(res.body.message).toMatch(/e_missing/);
+  });
+});
+
+// T38 的运维那一半补齐：创建 / 轮换 / 改策略。为什么必须凑齐 —— T39–T41 已经把两条收单入口
+// 挂上公网，而管理面只能列与吊销 ⇒ 部署好的实例上没法铸出一条口令，"第三方能推"就只是文档话。
+describe('端点的写入口（创建 / 轮换 / 改策略）', () => {
+  const publicKey = () => {
+    const { publicKey: key } = crypto.generateKeyPairSync('ed25519');
+    const der = key.export({ type: 'spki', format: 'der' });
+    return der.subarray(der.length - 32).toString('base64');
+  };
+
+  beforeAll(async () => {
+    const login = await request(app).post('/api/admin/login').send({ token: ADMIN_TOKEN });
+    expect(login.status).toBe(200);
+    sessionId = login.body.sessionId;
+    // 端点必须挂在**已登记**的设备上（见下面那条用例），所以先把这台注册出来。
+    const devices = ds.loadDevices();
+    ds.registerDevice(
+      contract,
+      devices,
+      { addressCode: OWNER, publicKey: publicKey(), name: '本机' },
+      Date.now(),
+    );
+    ds.saveDevices(devices);
+  });
+
+  test('未登录铸不出口令：这三个口都是写操作，不能是开放口', async () => {
+    for (const url of [
+      '/api/admin/fnthink/endpoints/create',
+      '/api/admin/fnthink/endpoints/rotate',
+      '/api/admin/fnthink/endpoints/policy',
+    ]) {
+      const res = await request(app).post(url).send({ owner: OWNER, endpointId: 'e_any' });
+      expect(res.status).toBe(401);
+    }
+  });
+
+  test('创建：口令只在这一次回显，表里与列表口都搜不到它', async () => {
+    const res = await adminPost('/api/admin/fnthink/endpoints/create', {
+      owner: OWNER,
+      name: 'NAS 值班',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.action).toBe('createEndpoint');
+    expect(res.body.data.affected).toBe(1);
+    const secret = res.body.data.secret;
+    expect(secret).toMatch(/^[0-9A-Z]+$/);
+    expect(res.body.data.secretShownOnce).toBe(true);
+    // 缺省方向来自契约（postOnlySwitch=true ⇒ 新建就是"只收 POST"），不是代码里写的一个 true
+    expect(res.body.data.endpoint.postOnly).toBe(contract.transport.postOnlySwitch === true);
+
+    const flatFile = fs.readFileSync(ds.ENDPOINT_FILE, 'utf8');
+    expect(flatFile).not.toContain(secret);
+    const read = await request(app)
+      .get('/api/admin/fnthink/endpoints')
+      .set('x-session-id', sessionId);
+    expect(read.status).toBe(200);
+    expect(JSON.stringify(read.body)).not.toContain(secret);
+    expect(JSON.stringify(read.body)).not.toContain('secretDigest');
+  });
+
+  test('创建的 owner 必须是合法地址码，而且这台设备得真的登记过', async () => {
+    const badShape = await adminPost('/api/admin/fnthink/endpoints/create', {
+      owner: 'not-a-code!!',
+    });
+    expect(badShape.status).toBe(400);
+    expect(badShape.body.message).toMatch(/地址码/);
+
+    // 形状合法但从没登记过：对着一个不存在的收件人铸入口，表现是第三方拿到 202 而屏幕上什么都没有
+    const before = Object.keys(ds.loadEndpoints()).length;
+    const unknown = await adminPost('/api/admin/fnthink/endpoints/create', {
+      owner: '7YD4RKQPBM8XZ3VHNT',
+    });
+    expect(unknown.status).toBe(400);
+    expect(unknown.body.message).toMatch(/还没登记/);
+    expect(Object.keys(ds.loadEndpoints()).length).toBe(before);
+  });
+
+  test('IP 白名单里不收 CIDR 与垃圾项：400 且表一个字节不动', async () => {
+    const created = await adminPost('/api/admin/fnthink/endpoints/create', {
+      owner: OWNER,
+      name: '白名单试验',
+    });
+    expect(created.status).toBe(200);
+    const id = created.body.data.endpoint.id;
+    const endpoints = ds.loadEndpoints();
+    const snapshot = JSON.stringify(endpoints[id]);
+
+    for (const bad of [['10.0.0.0/24'], ['  '], ['localhost'], ['1.2.3.4', 'nope']]) {
+      const res = await adminPost('/api/admin/fnthink/endpoints/policy', {
+        endpointId: id,
+        ipAllowlist: bad,
+      });
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(ds.loadEndpoints()[id])).toBe(snapshot);
+    }
+    // 空数组是"不限来源"（契约 ipAllowlistEmptyMeans=any），不是"谁都拒"
+    const cleared = await adminPost('/api/admin/fnthink/endpoints/policy', {
+      endpointId: id,
+      ipAllowlist: [],
+    });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data.endpoint.ipAllowlist).toEqual([]);
+  });
+
+  test('到每台上限 ⇒ 400 点名上限，已有的一个都没被挤掉（拒新的不等于清旧的）', async () => {
+    const owner = '8TQVWZ3XKR5B6YD4HM';
+    const devices = ds.loadDevices();
+    ds.registerDevice(
+      contract,
+      devices,
+      { addressCode: owner, publicKey: publicKey(), name: '第二台' },
+      Date.now(),
+    );
+    ds.saveDevices(devices);
+    for (let i = 0; i < epc.perDeviceMax; i += 1) {
+      const res = await adminPost('/api/admin/fnthink/endpoints/create', {
+        owner,
+        name: `第 ${i} 条`,
+      });
+      expect(res.status).toBe(200);
+    }
+    const over = await adminPost('/api/admin/fnthink/endpoints/create', { owner, name: '多一条' });
+    expect(over.status).toBe(400);
+    expect(over.body.message).toMatch(String(epc.perDeviceMax));
+    const still = Object.values(ds.loadEndpoints()).filter((r) => r.owner === owner);
+    expect(still.length).toBe(epc.perDeviceMax);
+    expect(still.every((r) => r.status === epc.usableStatus)).toBe(true);
+  });
+
+  test('轮换不要 confirm（旧口令还在宽限期内能推 ⇒ 误点能原地处理）', async () => {
+    const created = await adminPost('/api/admin/fnthink/endpoints/create', {
+      owner: OWNER,
+      name: '要换钥匙的',
+    });
+    const id = created.body.data.endpoint.id;
+    const oldSecret = created.body.data.secret;
+
+    const rotated = await adminPost('/api/admin/fnthink/endpoints/rotate', { endpointId: id });
+    expect(rotated.status).toBe(200);
+    expect(rotated.body.data.action).toBe('rotateEndpoint');
+    const newSecret = rotated.body.data.secret;
+    expect(newSecret).not.toBe(oldSecret);
+    expect(rotated.body.data.graceSeconds).toBe(epc.graceSeconds);
+    // 旧口令还能用到什么时候必须说出口：运维要么现在去改第三方那一份，要么知道自己还有个窗口
+    expect(rotated.body.data.oldSecretValidUntil).toBeGreaterThan(Date.now());
+
+    // 两把都能在真实入口上推过去（宽限期的意义就在这儿）
+    for (const secret of [oldSecret, newSecret]) {
+      const pushed = await request(app)
+        .post(`/api/fnthink/p/${id}`)
+        .set({ Authorization: `Bearer ${secret}` })
+        .send({ title: '换钥匙前后', body: '都该收到' });
+      expect(pushed.status).toBe(statusCode(contract, 'queued'));
+    }
+    // 而旧摘要不能当新口令用：表里只有一行，rotatedFrom 记的是旧摘要
+    const row = ds.loadEndpoints()[id];
+    expect(row.rotatedFrom.secretDigest).not.toBe(row.secretDigest);
+  });
+
+  test('改 postOnly 立刻反映到入口上：打开之后 GET 被拒成契约给的那个码', async () => {
+    const created = await adminPost('/api/admin/fnthink/endpoints/create', {
+      owner: OWNER,
+      name: '只收 POST',
+      postOnly: false,
+    });
+    const { id, secret } = { id: created.body.data.endpoint.id, secret: created.body.data.secret };
+    const before = await request(app).get(`/api/fnthink/p/${id}/${secret}?title=a&body=b`);
+    expect(before.status).toBe(statusCode(contract, 'queued'));
+
+    const patched = await adminPost('/api/admin/fnthink/endpoints/policy', {
+      endpointId: id,
+      postOnly: true,
+      name: '只收 POST（改过名）',
+    });
+    expect(patched.status).toBe(200);
+    expect(patched.body.data.endpoint.name).toBe('只收 POST（改过名）');
+    const after = await request(app).get(`/api/fnthink/p/${id}/${secret}?title=a&body=b`);
+    expect(after.status).toBe(epc.methodStatus);
+    expect(JSON.stringify(after.body)).toBe('{}');
+  });
+
+  test('已吊销的端点不能轮换也不能改设置：400 点名是哪一档（不答 404，那行确实在表里）', async () => {
+    const created = await adminPost('/api/admin/fnthink/endpoints/create', {
+      owner: OWNER,
+      name: '先建后吊销',
+    });
+    const id = created.body.data.endpoint.id;
+    const revoked = await adminPost('/api/admin/fnthink/endpoints/revoke', {
+      endpointId: id,
+      confirm: true,
+    });
+    expect(revoked.status).toBe(200);
+
+    for (const url of ['/rotate', '/policy']) {
+      const res = await adminPost(`/api/admin/fnthink/endpoints${url}`, {
+        endpointId: id,
+        postOnly: true,
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(epc.revokedStatus);
+    }
+    // 表里那一行还是吊销那一档 —— "恢复请新建"不是一句空话，也不许被顺手改回可用
+    expect(ds.loadEndpoints()[id].status).toBe(epc.revokedStatus);
+
+    const missing = await adminPost('/api/admin/fnthink/endpoints/rotate', {
+      endpointId: 'e_never',
+    });
+    expect(missing.status).toBe(404);
+  });
+
+  test('口令不进日志：三个口的 console 留痕只许有 id', async () => {
+    const warn = jest.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const created = await adminPost('/api/admin/fnthink/endpoints/create', {
+        owner: OWNER,
+        name: '日志检查',
+      });
+      const secret = created.body.data.secret;
+      await adminPost('/api/admin/fnthink/endpoints/rotate', {
+        endpointId: created.body.data.endpoint.id,
+      });
+      await adminPost('/api/admin/fnthink/endpoints/policy', {
+        endpointId: created.body.data.endpoint.id,
+        name: '日志检查改名',
+      });
+      const flat = warn.mock.calls.map((args) => args.join(' ')).join('\n');
+      expect(flat).toContain('createEndpoint');
+      expect(flat).not.toContain(secret);
+      expect(flat).not.toContain(created.body.data.secret); // 轮换后响应里那把新的也在同一个 mock 之外
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

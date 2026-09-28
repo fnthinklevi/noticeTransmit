@@ -642,6 +642,37 @@ useful than a document that looks complete:
 | Storage functions for create / rotate / revoke / policy (incl. the rotation grace window) | ✅ done | — |
 | Operator view: `GET /api/admin/fnthink/endpoints` | ✅ done | response carries neither secret nor digest |
 | Operator revocation: `POST /api/admin/fnthink/endpoints/revoke` (needs `confirm`) | ✅ done | — |
+| Operator minting: `POST /api/admin/fnthink/endpoints/create` / `/rotate` / `/policy` | ✅ done | — |
+
+#### How an operator mints a secret (and why these ports had to exist)
+
+With the intake URLs public but the admin side only able to *list* and *revoke*, a deployed instance
+would have **no way to mint a secret** — "third parties can push" would stay a documentation claim. These
+write ports are the other half of the same feature:
+
+```bash
+# mint one: `owner` must be a device that has ALREADY registered
+curl -sS -X POST "https://push.example.com/api/admin/fnthink/endpoints/create" \
+  -H "x-session-id: <session>" -H "Content-Type: application/json" \
+  -d '{"owner":"8K3FJ6QPTM9WZ4VHNS","name":"home NAS"}'
+# → {"code":0,"data":{"action":"createEndpoint","endpoint":{...},"secret":"…","secretShownOnce":true}}
+```
+
+- ⚠ **`secret` appears in this response exactly once.** The table stores a digest, the list port cannot read
+  plaintext, and no port can hand it back later — if it is lost there is one route: `/rotate` (the old
+  secret keeps working inside the grace window, so nothing breaks immediately, but the third party must be
+  updated). These ports log only the id, never the response body.
+- Requiring a registered owner is deliberate: minting an entry point for a recipient that does not exist
+  looks like `202` to the caller and *nothing on any screen*, with the message sitting in the queue until
+  it expires — far harder to explain than an error today.
+- Every `ipAllowlist` item must be a whole IPv4/IPv6 address; **CIDR is not accepted** (`10.0.0.0/24` gets
+  a 400). The reason is not that range matching is hard, it is that it would be dead code: an empty list is
+  already "any source", and a mistyped item shows up as "the secret is clearly right, yet everything 401s"
+  — a response byte-identical to a wrong secret, so the debugger suspects the secret instead of their own
+  pasted line.
+- `/rotate` does **not** need `confirm` (`/revoke` does). The criterion is "can a misclick be undone in
+  place": after rotation the old secret still works inside the grace window, while revocation forces the
+  other side to pair again.
 | The two intake URLs: `GET /api/fnthink/p/<id>/<secret>` and `POST /api/fnthink/p/<id>` + `Authorization: Bearer` | ✅ done | — |
 | Field aliases, per-endpoint quota, L1-only, HTTPS-only, secret kept out of logs and out of the rate-limit "kind" | ✅ done | — |
 | The receiving device creating its own endpoint (in-app "My endpoints") | ⬜ not yet | ships with the device-side client |
