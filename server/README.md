@@ -33,6 +33,12 @@ npm -v
 
 将 `server` 文件夹上传到你的服务器，例如 `/opt/update-server/` 目录。
 
+> ⚠️ **契约文件不在 `server/` 里，必须一起上传**：幻念推送（fnthink-v1）的公网面读的是**仓库根**的 `protocol/fnthink-v1.json`。只传 `server/` 时协议面会在启动时**降级为 503**，日志第一屏是 `[fnthink] 协议入口没有起来` 加上缺哪份文件（管理后台与升级通道不受影响）。
+>
+> 那个降级是**故意的**：一份读不出来的契约绝不能被当成"不限流 / 不校验"，所以宁可整段关掉。但你若指望 `/api/fnthink/*` 能用，就得把 `protocol/fnthink-v1.json` 放到服务器上 `server/` 的**上一级** `protocol/` 目录里（与本地仓库同形状），或用 `FNTHINK_CONTRACT=/绝对路径/fnthink-v1.json` 指过去。
+>
+> **每次契约有改动（新增字段 / 改名）都要重传这一份**：新代码配上旧契约会在启动时直接抛（例如读不到 `limits.unauthenticatedPerMinute`），协议面照旧降级 503 —— 错误信息会点名缺哪个键。
+
 > ⚠️ **上传红线（本项目按「上传 server 目录」部署，不是 `git pull`）**：一次上传**绝不能覆盖或删除**以下内容，丢了就要重来一遍配置甚至把管理员锁在后台外：
 >
 > - `server/data/` —— `totp.json`（TOTP secret + 恢复码哈希）、`sessions.json`、`blocked_ips.json`、`failed_attempts.json`、`rate_limit.json`、`version.json` 全在这里，仓库里的 `data/` 只有 `version.json`，其余是**运行期产物**；
@@ -195,6 +201,8 @@ server/
 | `DATA_DIR`                   | 运行期状态目录（`version.json` / `totp.json` / `sessions.json` / …），测试隔离用 | `<server>/data` |
 | `RATE_LIMIT_GENERAL_MAX`     | 全局限流：每 IP 每「路由桶」每 60 秒的最大请求数 | `60` |
 | `RATE_LIMIT_AUTH_MAX`        | `/api/admin` 认证类限流：每 IP 每分钟最大请求数 | `5` |
+| `RATE_LIMIT_FNTHINK_MAX`     | 公网面（`/api/fnthink/*`）**整个面**每 IP 每分钟的上限，只当洪水闸用。各端点真正的额度（按 IP 的 `register`＝30/分·3000/天；按设备地址的配对三步与 `/message`＝60/分·5000/天；`poll`/`ack` 从 `presence` 节奏推导＝14/分、无日档）全部从契约 `limits` 段读，**不在这里配** —— 想调它们改契约，改这一项只影响"一个 IP 扇出打全部端点"的兜底 | `300` |
+| `FNTHINK_CONTRACT`           | 契约文件路径覆盖。默认 = `server/` 上一级的 `protocol/fnthink-v1.json`（即仓库根那份）；部署时放在别处才需要设 | 自动定位 |
 | `DISABLE_IP_BLOCKING`        | `1` / `true` / `yes` 时关闭 IP 封锁（仍统计失败次数，不执行拦截），用于 NAT 出口误封时应急 | 关闭 |
 
 生成两个密钥（先 `npm install`，占位符自行替换为真实值，**不要写进任何文档或提交**）：
@@ -429,6 +437,10 @@ GET /health
 # 1) 只覆盖代码：server.js、lib/、public/、package.json、package-lock.json、*.md
 #    ⚠️ 绝不带 --delete（rsync --delete / SFTP「镜像目录」都会删掉 data/ 与 .env）
 rsync -av --exclude 'data/' --exclude '.env' --exclude 'node_modules/' ./server/ user@host:/opt/update-server/
+# 1b) 契约：公网面（/api/fnthink/*）读的是仓库根的 protocol/fnthink-v1.json，
+#     它**不在 server/ 里** ⇒ 单独上传一次。默认查找位置 = server/ 的上一级 protocol/
+#     （即 /opt/update-server/protocol/fnthink-v1.json）；放别处就设 FNTHINK_CONTRACT
+rsync -av ./protocol/fnthink-v1.json user@host:/opt/update-server/protocol/
 
 # 2) 安装/更新依赖（按 lock 精确复现；不动 data/ 与 .env）
 cd /opt/update-server && npm ci        # 必要时 npm rebuild
@@ -441,8 +453,11 @@ pm2 restart update-server && pm2 logs update-server --lines 20
 > - 上传**不得覆盖或删除** `server/data/`：`totp.json` 存的是 TOTP secret 密文 + 恢复码 bcrypt 哈希，丢了 owner 就无法通过二步验证（只能按后文重置二步验证、重新绑定认证器）；`sessions.json` / `blocked_ips.json` / `failed_attempts.json` / `rate_limit.json` 是运行期状态。仓库里的 `data/` 只有 `version.json`，用仓库那份整体覆盖会**把线上 `version.json` 一起回滚**。
 > - 上传**不得覆盖** `server/.env`（真实密钥；仓库只有 `.env.example`）。
 > - 上传**不得删除** `node_modules/`（除非紧接着 `npm ci`），且不要上传本地的 `node_modules/`。
+> - **契约那份 JSON 要跟着代码走**：它是协议面的唯一真值（限流档位、状态码、体积上限都从它读）。忘了传的表现是 `/api/fnthink/*` 全部 503 而其余一切正常，日志里那行 `[fnthink] 协议入口没有起来` 会点名缺哪份文件或哪个键。
 > - 使用 `--delete` 的同步工具 = 删掉 `data/totp.json` = 把管理员锁在后台外。**禁止**。
 > - 重启会重新加载 `data/` 下的持久化状态（会话/封锁/限流计数），已登录的会话在 24h TTL 内继续有效。
+>
+> 重启后**核对启动横幅**：它现在逐条打印每个端点受哪一档限流（按 IP / 按设备地址 / 从 presence 推导），以及公网面的请求体上限字节数。若看到 `⚠ 请求体上限没挂上` 或 `（协议面没有起来…）`，就是上面第 1b 步没做或路径不对。
 
 ### 方案一：PM2 守护进程（推荐中小型项目）
 

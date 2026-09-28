@@ -31,6 +31,12 @@ The version must be `v24.x` or higher. If you see `v18.x` / `v20.x`, upgrade to 
 
 Upload the `server` folder to your server, e.g. to `/opt/update-server/`.
 
+> ⚠️ **The protocol contract is *not* inside `server/` — upload it too**: the public face of fnthink push (`/api/fnthink/*`) reads the repository-root file `protocol/fnthink-v1.json`. Uploading only `server/` makes that face **degrade to 503 at startup**, with `[fnthink] 协议入口没有起来` plus the missing file named on the first screen of the log (the admin console and the update channel are unaffected).
+>
+> That degradation is **deliberate**: a contract that cannot be read must never be treated as "no limits / no checks", so the whole segment is switched off instead. If you want `/api/fnthink/*` to work, put `protocol/fnthink-v1.json` one level **above** `server/` (the same shape as the repo), or point `FNTHINK_CONTRACT` at an absolute path.
+>
+> **Re-upload it whenever the contract changes** (new or renamed fields): new code against an old contract throws at startup (e.g. `limits.unauthenticatedPerMinute` missing) and the face degrades to 503 — the error names the missing key.
+
 > ⚠️ **Upload red lines (this project is deployed by *uploading the `server/` folder*, not by `git pull`)**: an upload must **never overwrite or delete** the following — losing them means redoing configuration, or locking the admin out of the console:
 >
 > - `server/data/` — holds `totp.json` (TOTP secret + recovery-code hashes), `sessions.json`, `blocked_ips.json`, `failed_attempts.json`, `rate_limit.json`, `version.json`. The repository's `data/` contains **only** `version.json`; everything else is runtime state produced on the server.
@@ -195,6 +201,8 @@ Provided via `.env` (template: `server/.env.example`) or real environment variab
 | `DATA_DIR` | Runtime state directory (`version.json` / `totp.json` / `sessions.json` / …), used for test isolation | `<server>/data` |
 | `RATE_LIMIT_GENERAL_MAX` | Global limit: max requests per IP per **route bucket** per 60 s | `60` |
 | `RATE_LIMIT_AUTH_MAX` | Extra limit for `/api/admin`: max requests per IP per minute | `5` |
+| `RATE_LIMIT_FNTHINK_MAX` | Rate limit for the **whole** public face (`/api/fnthink/*`), per IP per minute — a flood brake only. The per-endpoint quotas (per IP: `register` = 30/min · 3000/day; per device address: the three pairing steps and `/message` = 60/min · 5000/day; `poll`/`ack` derived from `presence` = 14/min, no daily cap) all come from the contract's `limits` section and are **not** configured here — tune the contract for those; this knob only bounds "one IP fanning out across every endpoint" | `300` |
+| `FNTHINK_CONTRACT` | Override for the contract file path. Default = `protocol/fnthink-v1.json` one level above `server/` (the repo-root copy); only needed when you place it elsewhere | auto-detected |
 | `DISABLE_IP_BLOCKING` | `1` / `true` / `yes` disables IP blocking (failures are still counted, nothing is rejected) — emergency escape hatch for a wrongly blocked NAT egress | off |
 
 Generate the two secrets (after `npm install`; substitute real values, **never paste them into a doc or commit them**):
@@ -429,6 +437,10 @@ This service is updated by **uploading the `server/` folder and overwriting the 
 # 1) Overwrite code only: server.js, lib/, public/, package.json, package-lock.json, *.md
 #    ⚠️ Never with --delete (rsync --delete / SFTP "mirror directory" wipes data/ and .env)
 rsync -av --exclude 'data/' --exclude '.env' --exclude 'node_modules/' ./server/ user@host:/opt/update-server/
+# 1b) Contract: the public face (/api/fnthink/*) reads protocol/fnthink-v1.json from the repo root,
+#     which is NOT inside server/ ⇒ upload it separately. Default lookup = one level above server/
+#     (i.e. /opt/update-server/protocol/fnthink-v1.json); set FNTHINK_CONTRACT to relocate it.
+rsync -av ./protocol/fnthink-v1.json user@host:/opt/update-server/protocol/
 
 # 2) Install/update dependencies exactly from the lock file (leaves data/ and .env alone)
 cd /opt/update-server && npm ci        # npm rebuild if a dependency needs it
@@ -441,8 +453,11 @@ pm2 restart update-server && pm2 logs update-server --lines 20
 > - An upload must **never overwrite or delete `server/data/`**: `totp.json` holds the encrypted TOTP secret plus the recovery-code bcrypt hashes — lose it and the owner cannot pass 2FA (the only recovery is resetting 2FA and re-binding the authenticator). `sessions.json` / `blocked_ips.json` / `failed_attempts.json` / `rate_limit.json` are runtime state. The repository's `data/` contains only `version.json`, so bulk-overwriting from a checkout also rolls the live `version.json` back.
 > - An upload must **never overwrite `server/.env`** (live keys; the repo ships only `.env.example`).
 > - An upload must **never delete `node_modules/`** (unless you immediately run `npm ci`), and don't upload your local `node_modules/`.
+> - **Ship the contract JSON together with the code**: it is the single source of truth for the protocol face (rate-limit tiers, status codes and the body-size cap are all read from it). Forgetting it shows up as every `/api/fnthink/*` call returning 503 while everything else works; the `[fnthink] 协议入口没有起来` line names the missing file or key.
 > - Using a `--delete` sync = deleting `data/totp.json` = locking the admin out of the console. **Forbidden.**
 > - A restart re-reads the persisted state under `data/` (sessions / blocks / counters); sessions logged in beforehand stay valid within their 24h TTL.
+>
+> After a restart, **check the startup banner**: it now prints, per endpoint, which rate-limit tier applies (per IP / per device address / derived from `presence`), plus the public face's request-body cap in bytes. Seeing `⚠ 请求体上限没挂上` (body cap not mounted) or `（协议面没有起来…）` means step 1b was skipped or the path is wrong.
 
 ### Option 1: PM2 Process Manager (Recommended for small/medium projects)
 
