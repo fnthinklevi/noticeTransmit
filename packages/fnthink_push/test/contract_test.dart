@@ -1306,14 +1306,14 @@ void main() {
 
     test('列状态没有上限 ⇒ 报（管理面成了"一次拉走整张设备表"的机器）', () {
       final broken = mutate((raw) {
-        (raw['ops'] as Map<String, Object?>)['deviceListMax'] = 0;
+        (raw['ops'] as Map<String, Object?>)['listMaxRows'] = 0;
       });
-      expectProblem(broken, 'deviceListMax 必须是正整数', '0 不是"不限"，是配错了');
+      expectProblem(broken, 'listMaxRows 必须是正整数', '0 不是"不限"，是配错了');
     });
 
     test('列状态上限大过设备表上限 ⇒ 报（那条限制本身没意义，还会骗人列表是全的）', () {
       final broken = mutate((raw) {
-        (raw['ops'] as Map<String, Object?>)['deviceListMax'] = 999999;
+        (raw['ops'] as Map<String, Object?>)['listMaxRows'] = 999999;
       });
       expectProblem(broken, '不许大于 limits.devicesMax', '超过表上限的上限只会造成误读');
     });
@@ -1330,7 +1330,159 @@ void main() {
         c.strings(const ['ops', 'confirmationRequiredFor']),
         contains('revokeAll'),
       );
-      expect(c.intOf(const ['ops', 'deviceListMax']), greaterThan(0));
+      expect(c.intOf(const ['ops', 'listMaxRows']), greaterThan(0));
+    });
+
+    // T38：接入端点。这一段最值得钉的是"缺省值朝哪个方向"与"日志字段里有什么"。
+    test('endpoint 段整段缺失 ⇒ 报（上限与日志形状没有第二个来源）', () {
+      final broken = mutate((raw) {
+        raw.remove('endpoint');
+      });
+      expectProblem(
+        broken,
+        'endpoint.statuses 必须正好是 active 与 revoked',
+        '整段不在时，第一条读不到的判据必须点名，而不是让实现各写一份缺省',
+      );
+    });
+
+    test('usableStatus 与 revokedStatus 同名 ⇒ 报（"能不能用"这个判定失去两个取值）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['revokedStatus'] = 'active';
+      });
+      expectProblem(broken, '必须都在 statuses 上且互不相同', '同名等于吊销与在册长成一行');
+    });
+
+    test('usableStatus 不在 statuses 上 ⇒ 报（名字漂在表外，没有任何代码认得它）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['usableStatus'] = 'pending';
+      });
+      expectProblem(broken, '必须都在 statuses 上且互不相同', '映射到不存在的东西上＝静默放行');
+    });
+
+    test('端点状态多出第三档 ⇒ 报（多一档就多一次「被吊销的端点还在收信」）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['statuses'] = [
+          'active',
+          'revoked',
+          'snoozed',
+        ];
+      });
+      expectProblem(
+        broken,
+        'endpoint.statuses 必须正好是 active 与 revoked',
+        '第三档没有定义"算不算能用"',
+      );
+    });
+
+    test('端点上限为 0 ⇒ 报（一个都创建不了与"没配"在现场看起来一样）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['perDeviceMax'] = 0;
+      });
+      expectProblem(broken, '必须是正整数', '0 不是"不限"');
+    });
+
+    test('每台上限大过全局上限 ⇒ 报（那条限制永远不会生效，却让人以为它管着什么）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['perDeviceMax'] = 900;
+        (raw['endpoint'] as Map<String, Object?>)['globalMax'] = 500;
+      });
+      expectProblem(broken, '不许大于 globalMax', '永不生效的上限是假的安全感');
+    });
+
+    test('轮换宽限为 0 ⇒ 报（换钥匙那一刻所有集成同时 401，从此没人换口令）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['rotation'] = {
+          'graceSeconds': 0,
+        };
+      });
+      expectProblem(broken, '至少 60 秒', '短于一次运维操作的宽限等于没有宽限');
+    });
+
+    test('轮换宽限超过一天 ⇒ 报（宽限越长，被拖走的旧口令还能用的窗口也越长）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['rotation'] = {
+          'graceSeconds': 86401,
+        };
+      });
+      expectProblem(broken, '不许超过一天', '这是取舍，不是可以无限给的好事');
+    });
+
+    test('空 IP 名单意味着"谁都拒" ⇒ 报（缺省必须朝"没配也能跑"那一侧）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['ipAllowlistEmptyMeans'] =
+            'none';
+      });
+      expectProblem(broken, '只能是 any', '否则表现是"口令对却全 401"，看起来像服务端坏了');
+    });
+
+    test('IP 不匹配给出不同结论 ⇒ 报（这个入口就成了"哪个 IP 被允许"的探针）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['ipMismatchOutcome'] =
+            'distinct';
+      });
+      expectProblem(broken, '必须是 same-as-bad-secret', '同形在这里是防枚举，不是洁癖');
+    });
+
+    test('postOnly 的拒绝码不是 4xx ⇒ 报（500 会让客户端以为可以重试）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['postOnlyMethodStatus'] = 500;
+      });
+      expectProblem(broken, '必须是 4xx', '方式不对是请求的问题，不是服务端的');
+    });
+
+    test('postOnly 的码与既有状态码撞车 ⇒ 报（两个结论共用一个码＝等于没有结论）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['postOnlyMethodStatus'] = 429;
+      });
+      expectProblem(broken, '与 statusCodes 里的某个码重复', '客户端只能猜');
+    });
+
+    test('调用日志上限为 0 ⇒ 报（无界日志就是攻击者驱动的存储）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['callLog'] = {
+          'maxPerEndpoint': 0,
+          'fields': ['at', 'ip', 'outcome'],
+        };
+      });
+      expectProblem(broken, '必须是 1–1000 的整数', '日志是洪水最容易打到的那一项');
+    });
+
+    test('调用日志字段里有正文 ⇒ 报（auditStoresMetadataOnly 直接成空话）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['callLog'] = {
+          'maxPerEndpoint': 50,
+          'fields': ['at', 'ip', 'body'],
+        };
+      });
+      expectProblem(broken, 'endpoint.callLog.fields 里出现了 body', '中转服务器不留正文');
+    });
+
+    test('调用日志字段里有 url ⇒ 报（端点口令就在路径段里）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>)['callLog'] = {
+          'maxPerEndpoint': 50,
+          'fields': ['at', 'url'],
+        };
+      });
+      expectProblem(
+        broken,
+        'endpoint.callLog.fields 里出现了 url',
+        '记 url 等于把口令写进日志',
+      );
+    });
+
+    test('仓库里这份契约的端点段读得出来（正向证据）', () {
+      expect(c.strings(const ['endpoint', 'statuses']).length, 2);
+      expect(c.str(const ['endpoint', 'usableStatus']), isNotNull);
+      expect(c.str(const ['endpoint', 'ipAllowlistEmptyMeans']), 'any');
+      expect(
+        c.intOf(const ['endpoint', 'rotation', 'graceSeconds']),
+        greaterThanOrEqualTo(60),
+      );
+      expect(
+        c.strings(const ['endpoint', 'callLog', 'fields']),
+        contains('outcome'),
+      );
     });
   });
 }

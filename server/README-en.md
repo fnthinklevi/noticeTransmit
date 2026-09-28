@@ -616,7 +616,7 @@ What to read out of it:
   The list lives in the contract: `ops.confirmationRequiredFor`.
 - **Revoking never deletes the record** (`revocation.dataNeverDeletedByRevoke`): revocation answers "can it still
   receive me", clearing history is a separate explicit action. So you can still see who it used to be, and re-pair.
-- The list cap comes from `ops.deviceListMax` (a larger `?limit=` gets clamped), and `truncated` says out loud
+- The list cap comes from `ops.listMaxRows` (a larger `?limit=` gets clamped), and `truncated` says out loud
   whether the list is complete — "not everything" and "that's all of them" read as opposite conclusions.
 - An address that is not in the table is a 404 naming which one (this endpoint is already authenticated; the
   indistinguishable-shape rule exists for the unauthenticated face). A malformed code is a 400 — no garbage
@@ -629,6 +629,25 @@ handing the server a new signing key.
 ⚠ The device state names (deliverable / frozen / revoked / awaiting rebuild) all come from the four
 `revocation` keys (`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`). Renaming a state
 means shipping the contract with it — the implementation keeps no hidden default.
+
+### Endpoints: how far this batch actually got (T38)
+
+An endpoint is a long-lived shared-secret entry point for "something else pushes notifications into this
+instance" (a NAS, a cron job, a monitoring platform). **This batch landed the storage layer and operator
+visibility, not the intake URL** — separating the two is more useful than a document that looks complete:
+
+| Capability | Now | What is missing |
+| --- | --- | --- |
+| Endpoint table (digest only, name, owning device, `postOnly`, IP allowlist, bounded call log) | ✅ done | — |
+| Storage functions for create / rotate / revoke / policy (incl. the rotation grace window) | ✅ done | — |
+| Operator view: `GET /api/admin/fnthink/endpoints` | ✅ done | response carries neither secret nor digest |
+| Operator revocation: `POST /api/admin/fnthink/endpoints/revoke` (needs `confirm`) | ✅ done | — |
+| The receiving device creating its own endpoint (in-app "My endpoints") | ⬜ not yet | ships with the device-side client |
+| The intake forms third parties actually call: `GET /api/fnthink/p/<id>/<secret>` and POST + Bearer | ⬜ not yet | next batch (field tolerance + quota + L1-only) |
+
+So **no public URL reads the endpoint table yet**: this is not the stage where "creating an endpoint" means
+"you can push". Once the next batch wires the intake forms and quota, the whitelist-style check in this layer
+(`status` must equal the contract's `endpoint.usableStatus`) starts to take effect for real.
 
 ***
 

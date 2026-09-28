@@ -42,7 +42,8 @@ const ENDPOINT_FILE = path.join(DATA_DIR, 'fnthink_endpoints.json');
 /// 设备表到上限时抛的那枚 code：路由靠它决定"回 429（实例满了）"还是"往上抛（代码坏了）"。
 /// 与 contract.js 那三类契约错误同一套理由 —— 按种类判，不比对错误文案。
 const DEVICE_CAP_CODE = 'FNTHINK_DEVICE_CAP';
-/// 登记这一步的两种**业务拒绝**（换公钥 / 顺手改授权）也各自带 code：
+/// 端点数量到上限（每台 / 全局）。与设备上限同一个处理方向：只拒新的，绝不挤掉已有端点。
+const ENDPOINT_CAP_CODE = 'FNTHINK_ENDPOINT_CAP'; /// 登记这一步的两种**业务拒绝**（换公钥 / 顺手改授权）也各自带 code：
 /// 它们的消息文本里有地址码，是给运维日志看的；一路冒到 errorMiddleware 就会变成
 /// 一次 500 + "这个地址码已经绑过另一把钥匙"，而 /register 是公网面 —— 那就是枚举器。
 const DEVICE_KEY_SWAP_CODE = 'FNTHINK_DEVICE_KEY_SWAP';
@@ -263,10 +264,10 @@ function opsConfigFromContract(contract) {
   if (!src || typeof src !== 'object') {
     throw shapeError('契约缺 ops 段：运维入口的确认名单与列表上限没有第二个来源');
   }
-  const deviceListMax = Number(src.deviceListMax);
-  if (!Number.isInteger(deviceListMax) || deviceListMax <= 0) {
+  const listMaxRows = Number(src.listMaxRows);
+  if (!Number.isInteger(listMaxRows) || listMaxRows <= 0) {
     throw shapeError(
-      `ops.deviceListMax 必须是正整数（实际 ${src.deviceListMax}）：列状态没有上限，` +
+      `ops.listMaxRows 必须是正整数（实际 ${src.listMaxRows}）：列状态没有上限，` +
         '就是把管理面做成一台一次拉走整张设备表的机器',
     );
   }
@@ -279,7 +280,7 @@ function opsConfigFromContract(contract) {
         '（吊销要重配、一键全部失效要整片重配）挂在一次误点上',
     );
   }
-  return { deviceListMax, confirmationRequired: new Set(list) };
+  return { listMaxRows, confirmationRequired: new Set(list) };
 }
 
 function setDeviceStatus(contract, devices, addressCode, status, now) {
@@ -419,39 +420,253 @@ function devicePresence(contract, record, now, pollIntervalSeconds) {
   return isOnline(contract, record, now, pollIntervalSeconds) ? 'online' : 'offline';
 }
 
-/// 端点：长期口令同样只存摘要；/// 端点：长期口令同样只存摘要；"仅允许 POST"的默认值取契约 `transport.postOnlySwitch`。
-function putEndpoint(contract, endpoints, input, now) {
-  const id = typeof input.id === 'string' && input.id ? input.id : newEndpointId();
-  const existing = endpoints[id];
-  if (!input.secret && !existing) throw new Error('新建端点必须带口令（服务端只存它的摘要）');
-  const record = existing || { createdAt: now, revokedAt: null };
-  record.name = typeof input.name === 'string' ? input.name.slice(0, 60) : '';
-  if (input.secret)
-    record.secretDigest = credentialDigest(contract, 'endpointSecret', input.secret);
-  const defaultPostOnly = !contract.transport || contract.transport.postOnlySwitch !== false;
-  record.postOnly =
-    input.postOnly === undefined
-      ? existing
-        ? record.postOnly
-        : defaultPostOnly
-      : !!input.postOnly;
-  if (input.revoked === true) record.revokedAt = now;
-  endpoints[id] = record;
-  saveEndpoints(endpoints);
-  return Object.assign({ id }, record);
+/// 端点段（T38）：数字与语义一律从契约读，取不到就抛可降级的 SHAPE。
+function endpointConfigFromContract(contract) {
+  const src = (contract || {}).endpoint;
+  if (!src || typeof src !== 'object') {
+    throw shapeError('契约缺 endpoint 段：端点的上限、轮换宽限与调用日志形状没有第二个来源');
+  }
+  const intOf = (value, name, max) => {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n <= 0 || (max !== undefined && n > max)) {
+      throw shapeError(
+        `endpoint.${name} 必须是正整数${max !== undefined ? `且 ≤ ${max}` : ''}（实际 ${value}）`,
+      );
+    }
+    return n;
+  };
+  const statuses = Array.isArray(src.statuses) ? src.statuses.map(String) : [];
+  if (
+    statuses.length !== 2 ||
+    !statuses.includes(String(src.usableStatus)) ||
+    !statuses.includes(String(src.revokedStatus)) ||
+    String(src.usableStatus) === String(src.revokedStatus)
+  ) {
+    throw shapeError(
+      `endpoint.statuses / usableStatus / revokedStatus 不自洽（${statuses.join(', ')} | ` +
+        `${src.usableStatus} | ${src.revokedStatus}）：判定"还能不能用"必须是白名单式`,
+    );
+  }
+  if (src.ipAllowlistEmptyMeans !== 'any') {
+    throw shapeError(
+      'endpoint.ipAllowlistEmptyMeans 只能是 any：空名单若谁都拒，表现是"口令对却全 401"，' +
+        '看起来像服务端坏了；配置项的缺省必须是"没配也能跑"那个方向',
+    );
+  }
+  if (src.ipMismatchOutcome !== 'same-as-bad-secret') {
+    throw shapeError(
+      'endpoint.ipMismatchOutcome 必须是 same-as-bad-secret：给出不同结论的入口就是一台' +
+        '"哪个来源 IP 被哪个端点允许"的探针',
+    );
+  }
+  const methodStatus = Number(src.postOnlyMethodStatus);
+  if (!(methodStatus >= 400 && methodStatus < 500)) {
+    throw shapeError(
+      `endpoint.postOnlyMethodStatus 必须是 4xx（实际 ${src.postOnlyMethodStatus}）`,
+    );
+  }
+  const log = src.callLog || {};
+  const fields = Array.isArray(log.fields) ? log.fields.map(String) : [];
+  const forbidden = ['body', 'title', 'secret', 'path', 'url', 'signature', 'pairingCode'];
+  const dirty = fields.filter((f) => forbidden.includes(f));
+  if (!fields.length || dirty.length) {
+    throw shapeError(
+      `endpoint.callLog.fields 只能存元数据（时间/来源/结论）：${
+        dirty.length ? `出现了 ${dirty.join(', ')}` : '名单为空'
+      } —— 正文一旦进日志，auditStoresMetadataOnly 就是空话`,
+    );
+  }
+  return {
+    usableStatus: String(src.usableStatus),
+    revokedStatus: String(src.revokedStatus),
+    perDeviceMax: intOf(src.perDeviceMax, 'perDeviceMax'),
+    globalMax: intOf(src.globalMax, 'globalMax'),
+    graceSeconds: intOf((src.rotation || {}).graceSeconds, 'rotation.graceSeconds', 86400),
+    methodStatus,
+    callLogMax: intOf(log.maxPerEndpoint, 'callLog.maxPerEndpoint', 1000),
+    callLogFields: fields,
+  };
 }
 
-function findEndpointBySecret(contract, endpoints, secret) {
+/// 生成一把端点口令：字母表与位数都取契约 identity.endpointSecret。
+/// ⚠ 用 crypto.randomInt 而不是"取模随机字节"：Crockford 字母表长 31，不整除 256，
+///   取模会让某些字符更常见 —— 口令分布的偏置正是这类"看起来是随机"的实现最容易漏掉的。
+function newEndpointSecret(contract) {
+  const alphabet = alphabetFromContract(contract);
+  const length = lengthFromContract(contract, 'endpointSecret');
+  let out = '';
+  for (let i = 0; i < length; i += 1) out += alphabet[crypto.randomInt(alphabet.length)];
+  return out;
+}
+
+/// 端点的对外形状。**secretDigest 一律不带**：摘要是"可离线爆破的靶子"，
+/// 而口令本身服务端从头到尾没存过 —— 把靶子端出去，等于把一次泄露的代价从"要猜"降成"能验"。
+function publicEndpoint(id, record) {
+  return {
+    id,
+    name: record.name || '',
+    owner: record.owner || null,
+    status: record.status,
+    postOnly: record.postOnly === true,
+    ipAllowlist: Array.isArray(record.ipAllowlist) ? [...record.ipAllowlist] : [],
+    createdAt: record.createdAt === undefined ? null : record.createdAt,
+    lastUsedAt: record.lastUsedAt === undefined ? null : record.lastUsedAt,
+    revokedAt: record.revokedAt === undefined ? null : record.revokedAt,
+    // 只报"旧口令还能用到什么时候"，不报旧摘要本身。
+    rotatingUntil: record.rotatedFrom ? record.rotatedFrom.validUntil : null,
+    calls: Array.isArray(record.calls) ? record.calls.map((entry) => ({ ...entry })) : [],
+  };
+}
+
+/// 创建一个端点。⚠ 明文口令只在这一次返回（调用方必须当场转交，不留副本）。
+function createEndpoint(contract, endpoints, input = {}, now, cfg) {
+  const epc = cfg || endpointConfigFromContract(contract);
+  const usable = (record) => !!record && record.status === epc.usableStatus;
+  const owner = typeof input.owner === 'string' && input.owner ? input.owner : null;
+  // 到上限**只拒新的**：挤掉一个已有端点等于让某台 NAS 的定时任务从此静默失效，
+  // 而那正是"设备表到上限也不覆盖已有记录"同一条红线。
+  if (
+    Object.values(endpoints).filter((r) => usable(r) && (r.owner || null) === owner).length >=
+    epc.perDeviceMax
+  ) {
+    const err = new Error(`这台设备的可用端点已达上限 ${epc.perDeviceMax}`);
+    err.code = ENDPOINT_CAP_CODE;
+    throw err;
+  }
+  if (Object.values(endpoints).filter(usable).length >= epc.globalMax) {
+    const err = new Error(`端点总数已达全局上限 ${epc.globalMax}`);
+    err.code = ENDPOINT_CAP_CODE;
+    throw err;
+  }
+  const alphabet = alphabetFromContract(contract);
+  const length = lengthFromContract(contract, 'endpointSecret');
+  let secret;
+  if (typeof input.secret === 'string' && input.secret) {
+    secret = normalize(alphabet, input.secret);
+    if (secret === null || secret.length !== length) {
+      throw new Error('端点口令形状不符（按契约 identity.endpointSecret 的字母表与位数）');
+    }
+  } else {
+    secret = newEndpointSecret(contract);
+  }
+  const id = newEndpointId();
+  const defaultPostOnly = !contract.transport || contract.transport.postOnlySwitch !== false;
+  const record = {
+    name: typeof input.name === 'string' ? input.name.slice(0, 60) : '',
+    owner,
+    status: epc.usableStatus,
+    postOnly: input.postOnly === undefined ? defaultPostOnly : !!input.postOnly,
+    ipAllowlist: Array.isArray(input.ipAllowlist) ? input.ipAllowlist.map(String) : [],
+    secretDigest: credentialDigest(contract, 'endpointSecret', secret),
+    rotatedFrom: null,
+    createdAt: now,
+    lastUsedAt: null,
+    revokedAt: null,
+    calls: [],
+  };
+  endpoints[id] = record;
+  saveEndpoints(endpoints);
+  return { id, secret, endpoint: publicEndpoint(id, record) };
+}
+
+/// 轮换：新口令立刻生效，旧口令在 graceSeconds 内仍可验证。
+/// 没有宽限期的后果不是不便，是"从此没人换口令" —— 第三方平台里的口令是抄进去的，
+/// 换一次要人挨个改，而改不动的那一处就成了永远不换的长期凭证。
+function rotateEndpoint(contract, endpoints, id, now, cfg) {
+  const epc = cfg || endpointConfigFromContract(contract);
+  const record = endpoints[id];
+  if (!record || record.status !== epc.usableStatus) {
+    throw new Error('端点不存在或已吊销（轮换不许让一个已吊销的端点复活）');
+  }
+  const secret = newEndpointSecret(contract);
+  record.rotatedFrom = {
+    secretDigest: record.secretDigest,
+    rotatedAt: now,
+    validUntil: now + epc.graceSeconds * 1000,
+  };
+  record.secretDigest = credentialDigest(contract, 'endpointSecret', secret);
+  saveEndpoints(endpoints);
+  return { id, secret, endpoint: publicEndpoint(id, record) };
+}
+
+function revokeEndpoint(contract, endpoints, id, now, cfg) {
+  const epc = cfg || endpointConfigFromContract(contract);
+  const record = endpoints[id];
+  if (!record) return null;
+  const wasUsable = record.status === epc.usableStatus;
+  if (wasUsable) {
+    record.status = epc.revokedStatus;
+    record.revokedAt = now;
+    // 宽限期里的旧摘要一起清掉：留着它，"已吊销"就仍然可能被验过 —— 这正是黑名单式判定的漏法。
+    record.rotatedFrom = null;
+    saveEndpoints(endpoints);
+  }
+  return { revoked: wasUsable, endpoint: publicEndpoint(id, record) };
+}
+
+/// 接收端的自管设置：命名、IP 白名单、仅允许 POST。口令本身不在这里动（那是 rotate 的事）。
+function setEndpointPolicy(contract, endpoints, id, patch = {}, cfg) {
+  const epc = cfg || endpointConfigFromContract(contract);
+  const record = endpoints[id];
+  if (!record || record.status !== epc.usableStatus) {
+    throw new Error('端点不存在或已吊销（设置不能挂在一个已经不存在的入口上）');
+  }
+  if (typeof patch.name === 'string') record.name = patch.name.slice(0, 60);
+  if (patch.postOnly !== undefined) record.postOnly = !!patch.postOnly;
+  if (Array.isArray(patch.ipAllowlist)) record.ipAllowlist = patch.ipAllowlist.map(String);
+  saveEndpoints(endpoints);
+  return publicEndpoint(id, record);
+}
+
+/// 空名单 = 不限来源（契约 ipAllowlistEmptyMeans=any）。CIDR 不在这一片，留 T40 与配额同批。
+function endpointIpAllowed(record, ip) {
+  const list = Array.isArray(record && record.ipAllowlist) ? record.ipAllowlist : [];
+  if (!list.length) return true;
+  return list.map(String).includes(String(ip));
+}
+
+/// 按口令找端点：当前摘要或**宽限期内的旧摘要**都算命中。
+/// 返回 usedRotated 给上层留痕（"还在用旧口令"这件事运维应当看得见，但它不改变对外结论）。
+function findEndpointBySecret(contract, endpoints, secret, now, cfg) {
+  const epc = cfg || endpointConfigFromContract(contract);
   let digest;
   try {
     digest = credentialDigest(contract, 'endpointSecret', secret);
   } catch (e) {
     return null;
   }
-  const hit = Object.entries(endpoints).find(
-    ([, record]) => !record.revokedAt && record.secretDigest === digest,
+  const when = now === undefined ? Date.now() : now;
+  for (const [id, record] of Object.entries(endpoints)) {
+    if (!record || record.status !== epc.usableStatus) continue;
+    if (record.secretDigest === digest) {
+      return Object.assign({ id, usedRotated: false }, record);
+    }
+    const rotated = record.rotatedFrom;
+    if (rotated && rotated.secretDigest === digest && Number(rotated.validUntil) > when) {
+      return Object.assign({ id, usedRotated: true }, record);
+    }
+  }
+  return null;
+}
+
+/// 最近调用日志：只按契约白名单挑字段（多余的键一概不记也不回显），并按上限保新截尾。
+/// 没有上限的那份"最近调用"就是攻击者驱动的存储 —— 而它是洪水最容易打到的那一项。
+function recordEndpointCall(contract, endpoints, id, entry = {}, now, cfg) {
+  const epc = cfg || endpointConfigFromContract(contract);
+  const record = endpoints[id];
+  if (!record) return null;
+  const at = entry.at === undefined ? now : entry.at;
+  const logged = { at };
+  for (const field of epc.callLogFields) {
+    if (field === 'at') continue;
+    logged[field] = entry[field] === undefined ? null : entry[field];
+  }
+  record.calls = [...(Array.isArray(record.calls) ? record.calls : []), logged].slice(
+    -epc.callLogMax,
   );
-  return hit ? Object.assign({ id: hit[0] }, hit[1]) : null;
+  record.lastUsedAt = at;
+  saveEndpoints(endpoints);
+  return record.calls.length;
 }
 
 // ── nonce 去重（T29-B）─────────────────────────────────────────────
@@ -557,7 +772,16 @@ module.exports = {
   touchDevice,
   isOnline,
   devicePresence,
-  putEndpoint,
+  endpointConfigFromContract,
+  newEndpointSecret,
+  publicEndpoint,
+  createEndpoint,
+  rotateEndpoint,
+  revokeEndpoint,
+  setEndpointPolicy,
+  endpointIpAllowed,
+  recordEndpointCall,
+  ENDPOINT_CAP_CODE,
   findEndpointBySecret,
   NONCE_FILE,
   loadNonces,

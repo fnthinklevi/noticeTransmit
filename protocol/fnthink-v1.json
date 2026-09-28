@@ -167,11 +167,37 @@
     "_dataNeverDeletedWhy": "吊销的是「还能不能收到我的消息」，不是「这台设备的历史」。清历史要单独一次显式操作 —— 用户可撤销的那类破坏性动作不塞进安全动作的副作用里"
   },
 
+  "endpoint": {
+    "_why": "接入端点（T38）：接收端自建自管的长期口令入口，供 NAS / 脚本 / 第三方平台往这台实例推通知。它与设备身份的区别决定了两处的规则：设备是**签名**（服务端永远拿不到私钥），端点是**共享口令**（服务端只存摘要，但一次泄露就能被冒充）。所以这一段的重心不是'怎么方便'，而是'一把口令能被拿去做什么、以及它出现在哪儿'。⚠ 本段的数字只能从这里读，实现里不许写字面量（与 limits / alerts / ops 同规矩）。",
+    "statuses": ["active", "revoked"],
+    "usableStatus": "active",
+    "revokedStatus": "revoked",
+    "_usableStatusWhy": "与 revocation 那四个键同一个教训：状态名一旦写死在实现里，契约加一档时它不报错，只会让「这一档没人认得，而端点照旧收信」。判定一律问「是不是 usableStatus」（白名单式），不许问「是不是 revoked」（黑名单式）。",
+    "perDeviceMax": 10,
+    "globalMax": 500,
+    "_maxWhy": "两条都是写放大防线：创建一个端点=表里多一行 + 一把可用的长期口令。没有 perDeviceMax，一台设备就能造出五百个入口；没有 globalMax，全局表随未认证侧的意愿增长。到上限只拒新的，绝不挤掉已有端点（挤掉一次 = 某个 NAS 的定时任务从此静默失效）。",
+    "rotation": {
+      "graceSeconds": 3600,
+      "_why": "轮换时旧口令的宽限期。**没有宽限期，换钥匙的那一刻所有集成同时 401** —— 而第三方平台里的口令是抄进去的，改一处要人再去改一次，于是运维学会'先不换了'，那比弱口令更糟。上限由 validate 钉住（不许超过一天）：宽限期越长，被拖走的旧口令还能用的窗口也越长，这是直接的取舍。"
+    },
+    "ipAllowlistEmptyMeans": "any",
+    "_ipAllowlistEmptyMeansWhy": "只能是 any（空名单 = 不限来源）。若空名单意味着'谁都拒'，表现是'我建了端点、口令也对，却全 401'，而那看起来像服务端坏了 —— 配置项的缺省值必须是那个'没配也能跑'的方向。",
+    "ipMismatchOutcome": "same-as-bad-secret",
+    "_ipMismatchWhy": "IP 不在白名单时的对外结论必须与'口令不对'**逐字节同形**：否则这个入口就是一台探针，专门回答'这个来源 IP 被哪个端点允许'。内部留痕照旧带原因，同形是给外的，不是给运维的。",
+    "postOnlyMethodStatus": 405,
+    "_postOnlyWhy": "postOnly=true 的端点收到 GET 时回 405。GET 形态把口令放在路径段里（URL 会被 access log、浏览器历史、代理留副本），所以这个开关是在'方便抄一行 curl 进脚本'与'口令出现在别人的日志里'之间做选择；开关本身归接收端，服务端只如实执行。",
+    "callLog": {
+      "maxPerEndpoint": 50,
+      "fields": ["at", "ip", "outcome"],
+      "_why": "最近调用日志（时间/来源/结论），**不含正文也不含标题**：端点侧最常见的求助是'为什么那条没到'，没有一份调用记录就只能靠猜；而中转服务器的日志里一旦出现正文，就与 privacy.auditStoresMetadataOnly 那句话直接矛盾。maxPerEndpoint 是有界环：否则一次洪水会把每端点的日志撑成攻击者驱动的存储。⚠ 名单里出现 body/title/secret/path/url 任一个都该由 validate 拦下 —— 日志字段是会被复制粘贴的，第二个人不会再去查它允许到什么程度。"
+    }
+  },
+
   "ops": {
     "_why": "运维入口（#130-A5：冻结 / 解冻 / 单台吊销 / 一键全部失效）。这一段管的是「人按下去之后会发生什么」，最容易写歪的不是权限而是**确认**：契约既然声明支持一键全部失效（massRevokeSupported），那一次误点的代价就是一整个设备群同时失联，而这类动作在界面上和一个普通按钮长得一模一样。",
-    "deviceListMax": 100,
-    "_deviceListMaxWhy": "列状态一次最多返回多少台。设备表上限是 limits.devicesMax（5000），一次全端出去既不可读，也把管理面响应做成一个大对象。响应里同时给 total，运维才分得清「没列全」与「就只有这些」—— 少了 total 的那份列表会直接把人引向「这台服务器上没几台设备」的错误结论。",
-    "confirmationRequiredFor": ["revoke", "revokeAll", "rebuildInvalidation"],
+    "listMaxRows": 100,
+    "_listMaxRowsWhy": "运维列表一次最多返回多少行（**设备与端点共用这一把尺**，名字故意不叫 deviceListMax：它量的是\"一页列表\"，不是某一张表）。设备表上限是 limits.devicesMax（5000），一次全端出去既不可读，也把管理面响应做成一个大对象。响应里同时给 total 与 truncated，运维才分得清「没列全」与「就只有这些」—— 少了这两个字段的那份列表会直接把人引向「这台服务器上没几台设备」的错误结论。",
+    "confirmationRequiredFor": ["revoke", "revokeAll", "rebuildInvalidation", "revokeEndpoint"],
     "_confirmationWhy": "这些动作要 body 里带显式 confirm:true 才执行，缺了就 400 且不产生任何写入。**freeze / resume 不在此列**：冻结记录与公钥都留着、随时可解、一条都不投（契约 deviceStatuses.frozen 那句），误点的代价是一台设备暂停收信；而吊销要重新配对、全部失效要整片重配，回不去的那一类才需要一次确认。名单与 massRevokeSupported 由 validate 交叉钉住：支持一键全部失效却不要求确认，是把「整片失联」挂在一次点击上。",
     "_notPublicFaceWhy": "这一组只在管理面（已鉴权），**不进协议面**：设备侧自己那套入口（重置口令、重建身份、划掉某个发送方）走的是它自己签过名的 clientEvents，不由这里的 HTTP 口代做。两边各写各的动作名会迟早分叉，所以这份名单只管运维侧。"
   },

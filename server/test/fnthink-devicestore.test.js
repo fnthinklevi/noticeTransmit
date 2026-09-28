@@ -324,27 +324,36 @@ describe('fnthink 服务端存储（T27）', () => {
 
   test('端点表：只存摘要，口令对得上才给记录；吊销后不再命中', () => {
     const endpoints = {};
-    const created = store.putEndpoint(
+    const created = store.createEndpoint(
       contract,
       endpoints,
       { name: 'NAS 告警', secret: SECRET },
       NOW,
     );
-    expect(created.secretDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(created.endpoint.name).toBe('NAS 告警');
+    // 明文口令只在那一次返回值里出现；表里从头到尾只有摘要
+    expect(endpoints[created.id].secretDigest).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(endpoints)).not.toContain(SECRET);
-    expect(store.findEndpointBySecret(contract, endpoints, SECRET).id).toBe(created.id);
-    expect(store.findEndpointBySecret(contract, endpoints, 'K'.repeat(20))).toBeNull();
-    store.putEndpoint(contract, endpoints, { id: created.id, revoked: true }, NOW + 5);
-    expect(store.findEndpointBySecret(contract, endpoints, SECRET)).toBeNull();
+    // ⚠ 对外的形状里连摘要都不许有：可爆破的靶子不该端出去（T38）
+    expect(JSON.stringify(created.endpoint)).not.toContain('secretDigest');
+    expect(store.findEndpointBySecret(contract, endpoints, SECRET, NOW).id).toBe(created.id);
+    expect(store.findEndpointBySecret(contract, endpoints, 'K'.repeat(32), NOW)).toBeNull();
+    store.revokeEndpoint(contract, endpoints, created.id, NOW + 5);
+    expect(store.findEndpointBySecret(contract, endpoints, SECRET, NOW + 5)).toBeNull();
   });
 
-  test('新建端点必须带口令；postOnly 默认取契约 transport.postOnlySwitch', () => {
+  test('端点：口令形状不符就拒；postOnly 默认取契约 transport.postOnlySwitch；缺口令时服务端生成的那把符合契约位数', () => {
     const endpoints = {};
-    expect(() => store.putEndpoint(contract, endpoints, { name: '空的' }, NOW)).toThrow(
-      /必须带口令/,
-    );
-    const one = store.putEndpoint(contract, endpoints, { name: 'a', secret: SECRET }, NOW);
-    expect(one.postOnly).toBe(contract.transport.postOnlySwitch === true);
+    // 创建方自带口令是留给"迁移已有部署"的，但它不能是任意串 —— 形状不符直接拒，
+    // 否则表里会躺着一把 findEndpointBySecret 永远算不出匹配的摘要（静默失效的入口）。
+    expect(() =>
+      store.createEndpoint(contract, endpoints, { name: '坏的', secret: 'not*valid' }, NOW),
+    ).toThrow(/形状不符/);
+    const one = store.createEndpoint(contract, endpoints, { name: 'a', secret: SECRET }, NOW);
+    expect(one.endpoint.postOnly).toBe(contract.transport.postOnlySwitch !== false);
+    const gen = store.createEndpoint(contract, endpoints, { name: 'b' }, NOW);
+    expect(gen.secret).toHaveLength(contract.identity.endpointSecret.length);
+    expect(store.findEndpointBySecret(contract, endpoints, gen.secret, NOW).id).toBe(gen.id);
   });
 
   test('读写往返：saveDevices 之后 loadDevices 拿回同一份，且文件里没有明文口令', () => {

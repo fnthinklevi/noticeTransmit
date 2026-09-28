@@ -716,20 +716,116 @@ class FnthinkContract {
       '把确认压在可即时撤销的动作上，代价是运维很快就学会不看那个框直接点，'
       '而那才是真正危险的漂移（要确认的应该是回不去的那一类）',
     );
-    final deviceListMax = intOf(const ['ops', 'deviceListMax']);
+    final listMaxRows = intOf(const ['ops', 'listMaxRows']);
     need(
-      (deviceListMax ?? 0) > 0,
-      'ops.deviceListMax 必须是正整数（实际 $deviceListMax）：列状态没有上限，'
+      (listMaxRows ?? 0) > 0,
+      'ops.listMaxRows 必须是正整数（实际 $listMaxRows）：列状态没有上限，'
       '就是把管理面做成一台「一次拉走整张设备表」的机器',
     );
     final devicesMaxForOps = intOf(const ['limits', 'devicesMax']);
     need(
-      deviceListMax == null ||
+      listMaxRows == null ||
           devicesMaxForOps == null ||
-          deviceListMax <= devicesMaxForOps,
-      'ops.deviceListMax 不许大于 limits.devicesMax：超过表上限的上限本身没有意义，'
+          listMaxRows <= devicesMaxForOps,
+      'ops.listMaxRows 不许大于 limits.devicesMax：超过表上限的上限本身没有意义，'
       '只会让人以为「列表一定是全的」',
     );
+    // #138 T38：接入端点。这一段最容易写歪的不是数字大小，而是「缺省值朝哪个方向」
+    // 与「日志里到底有什么」。
+    final epStatuses = strings(const ['endpoint', 'statuses']);
+    need(
+      epStatuses.length == 2 &&
+          epStatuses.contains('active') &&
+          epStatuses.contains('revoked'),
+      'endpoint.statuses 必须正好是 active 与 revoked（实际 ${epStatuses.join(', ')}）：'
+      '端点状态回答的是「这把口令还能不能用」，多一档就有一次「被吊销的端点还在收信」的余地',
+    );
+    final epUsable = str(const ['endpoint', 'usableStatus']);
+    final epRevoked = str(const ['endpoint', 'revokedStatus']);
+    need(
+      epUsable != null &&
+          epStatuses.contains(epUsable) &&
+          epRevoked != null &&
+          epStatuses.contains(epRevoked) &&
+          epUsable != epRevoked,
+      'endpoint.usableStatus / revokedStatus 必须都在 statuses 上且互不相同'
+      '（实际 $epUsable / $epRevoked）：判定"这个端点还能不能用"必须是白名单式（是不是 usable），'
+      '枚举「被停用的状态」就是 T31 那次写反的那个形状 —— 加一档时它静默放行',
+    );
+    final perDeviceMax = intOf(const ['endpoint', 'perDeviceMax']);
+    final endpointGlobalMax = intOf(const ['endpoint', 'globalMax']);
+    need(
+      (perDeviceMax ?? 0) > 0 && (endpointGlobalMax ?? 0) > 0,
+      'endpoint.perDeviceMax / globalMax 必须是正整数：创建一个端点就是表里多一行加一把长期口令，'
+      '没有上限等于让未认证侧按自己的意愿增长存储',
+    );
+    need(
+      perDeviceMax == null ||
+          endpointGlobalMax == null ||
+          perDeviceMax <= endpointGlobalMax,
+      'endpoint.perDeviceMax 不许大于 globalMax：单台上限超过全局上限的那条限制永远不会生效，'
+      '而读契约的人会以为它管着些什么',
+    );
+    final graceSeconds = intOf(const ['endpoint', 'rotation', 'graceSeconds']);
+    need(
+      (graceSeconds ?? 0) >= 60,
+      'endpoint.rotation.graceSeconds 至少 60 秒（实际 $graceSeconds）：宽限短于一次正常的运维操作，'
+      '结果就是「换钥匙那一刻所有集成同时 401」—— 而那会让人从此不再换口令',
+    );
+    need(
+      graceSeconds == null || graceSeconds <= 24 * 3600,
+      'endpoint.rotation.graceSeconds 不许超过一天：宽限期越长，被拖走的旧口令还能用的窗口也越长，'
+      '这是直接的取舍，不是可以无限给的好事',
+    );
+    need(
+      str(const ['endpoint', 'ipAllowlistEmptyMeans']) == 'any',
+      'endpoint.ipAllowlistEmptyMeans 只能是 any：空名单若意味着「谁都拒」，表现是「我建了端点、'
+      '口令也对，却全 401」，而那看起来像服务端坏了。配置项的缺省必须是「没配也能跑」那个方向',
+    );
+    need(
+      str(const ['endpoint', 'ipMismatchOutcome']) == 'same-as-bad-secret',
+      'endpoint.ipMismatchOutcome 必须是 same-as-bad-secret：IP 不在白名单时若给出不同的结论，'
+      '这个入口就成了一台专门回答「哪个来源 IP 被哪个端点允许」的探针',
+    );
+    final methodStatus = intOf(const ['endpoint', 'postOnlyMethodStatus']);
+    need(
+      methodStatus != null && methodStatus >= 400 && methodStatus < 500,
+      'endpoint.postOnlyMethodStatus 必须是 4xx（实际 $methodStatus）：postOnly 拒绝 GET 是请求方式的问题，'
+      '不是服务端故障，也不是身份问题',
+    );
+    need(
+      methodStatus == null || !codes.containsValue(methodStatus),
+      'endpoint.postOnlyMethodStatus 与 statusCodes 里的某个码重复（$methodStatus）：'
+      '两个不同结论共用一个码 ⇒ 客户端只能猜，与 413/429 撞码是同一类错误',
+    );
+    final logMax = intOf(const ['endpoint', 'callLog', 'maxPerEndpoint']);
+    need(
+      logMax != null && logMax > 0 && logMax <= 1000,
+      'endpoint.callLog.maxPerEndpoint 必须是 1–1000 的整数（实际 $logMax）：'
+      '无界的「最近调用日志」就是攻击者驱动的存储，而它正是洪水最容易打到的那一项',
+    );
+    final logFields = strings(const ['endpoint', 'callLog', 'fields']);
+    need(
+      logFields.isNotEmpty && logFields.toSet().length == logFields.length,
+      'endpoint.callLog.fields 必须非空且无重复：${logFields.join(', ')}',
+    );
+    for (final field in logFields) {
+      need(
+        const [
+              'body',
+              'title',
+              'secret',
+              'path',
+              'url',
+              'signature',
+              'pairingCode',
+            ].contains(field) ==
+            false,
+        'endpoint.callLog.fields 里出现了 $field：调用日志只许存元数据（时间/来源/结论）。'
+        '正文一旦进了日志，privacy.auditStoresMetadataOnly 那句话就成空话 —— '
+        '而日志字段是最容易被复制粘贴的东西，写下它的人不会再去查允许到什么程度',
+      );
+    }
 
     // ── 投递状态机（T34）──
     // 这里查的是"这张表本身能不能跑"，不是"实现对不对"（那由双端共读的向量查）。

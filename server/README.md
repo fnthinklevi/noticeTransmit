@@ -603,7 +603,7 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
   `revoke / revokeAll / rebuildInvalidation` 要（对方必须重新配对）。名单在契约 `ops.confirmationRequiredFor`。
 - **吊销不删记录**（契约 `revocation.dataNeverDeletedByRevoke`）：吊销回答的是"还能不能收到我"，
   清历史是另一次显式操作。所以吊销后仍然看得见"曾经是谁"，也能重新配对回去。
-- 列状态的上限取契约 `ops.deviceListMax`（请求里给更大的数会被夹住），响应里 `truncated` 会明确说
+- 列状态的上限取契约 `ops.listMaxRows`（请求里给更大的数会被夹住），响应里 `truncated` 会明确说
   有没有列全 —— 一份"没列全"的列表和一份"就只有这些"的列表，读起来是相反的两个结论。
 - 不在表里的地址码是 404 并点名是哪台（这个口已经鉴过权，同形规则是给未认证面的）；
   地址码形状不对是 400，不会拿着一串垃圾去查表。
@@ -614,6 +614,24 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 ⚠ 设备状态的名字（可投递 / 冻结 / 吊销 / 待重建）全部来自契约 `revocation` 那四个键
 （`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`）。改档位名要连同契约一起改，
 实现里没有一份"看不见的缺省"。
+
+### 接入端点：这一批做到哪儿了（T38）
+
+端点是"第三方往这台实例推通知"的长期口令入口（NAS、脚本、监控平台）。**这一批落的是存储层与运维可见性，
+不是接入 URL** —— 把已做的和没做的分清楚，比写一份"看起来完整"的文档有用：
+
+| 能力 | 现在 | 差什么 |
+| --- | --- | --- |
+| 端点表（只存摘要、命名、所属设备、`postOnly`、IP 白名单、有界调用日志） | ✅ 已有 | — |
+| 创建 / 轮换 / 吊销 / 改策略的**存储层函数**（含轮换宽限期） | ✅ 已有 | — |
+| 运维看端点：`GET /api/admin/fnthink/endpoints` | ✅ 已有 | 响应里没有口令也没有摘要 |
+| 运维吊销：`POST /api/admin/fnthink/endpoints/revoke`（要 `confirm`） | ✅ 已有 | — |
+| 接收端**自己**建端点的入口（App 内「我的端点」） | ⬜ 还没有 | 与设备侧客户端同批 |
+| 第三方真正能推的形态 `GET /api/fnthink/p/<id>/<secret>` 与 `POST` + Bearer | ⬜ 还没有 | 下一批（字段容错 + 配额 + 只产 L1） |
+
+所以**现在还没有任何公网 URL 会读端点表**：这不是"配了端点就能推"的阶段。等下一批把形态与配额接上，
+这一层的白名单式判定（`status` 必须是契约 `endpoint.usableStatus`）才真正开始生效。
+
 
 ***
 

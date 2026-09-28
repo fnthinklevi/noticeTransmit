@@ -127,7 +127,7 @@ function bulkAction(action, write) {
   });
 }
 
-// 列设备状态：可按状态筛，上限取契约 ops.deviceListMax（不给"一次拉走整张表"的口）
+// 列设备状态：可按状态筛，上限取契约 ops.listMaxRows（不给"一次拉走整张表"的口）
 router.get(
   '/fnthink/devices',
   authMiddleware,
@@ -143,8 +143,8 @@ router.get(
     const requested = Number(req.query.limit);
     const limit =
       Number.isInteger(requested) && requested > 0
-        ? Math.min(requested, ctx.ops.deviceListMax)
-        : ctx.ops.deviceListMax;
+        ? Math.min(requested, ctx.ops.listMaxRows)
+        : ctx.ops.listMaxRows;
     const devices = ds.loadDevices();
     const statuses = {};
     for (const key of Object.keys(table)) statuses[key] = 0;
@@ -212,6 +212,73 @@ router.post(
   bulkAction('rebuildInvalidation', (contract, devices, now) =>
     ds.invalidatePeersAfterRebuild(contract, devices, now),
   ),
+);
+
+// ── 端点（T38）：只读列表 + 吊销 ────────────────────────────────────
+// 端点段（`endpoint`）缺失时**只有这两个口**答 503：设备那一组读的是 revocation + ops 段，
+// 不该因为端点段没读到而一起挂 —— 与 A4/A5 定下的"各自只依赖自己要读的那一段"同一条。
+function endpointConfigOf(ctx) {
+  try {
+    return ds.endpointConfigFromContract(ctx.contract);
+  } catch (e) {
+    if (!isContractAvailabilityError(e)) throw e;
+    return null;
+  }
+}
+
+router.get(
+  '/fnthink/endpoints',
+  authMiddleware,
+  withContext((ctx, req, res) => {
+    const epc = endpointConfigOf(ctx);
+    if (!epc) return res.status(503).json({ error: 'fnthink_protocol_unavailable' });
+    const endpoints = ds.loadEndpoints();
+    const rows = Object.entries(endpoints).map(([id, record]) => ds.publicEndpoint(id, record));
+    const statuses = {};
+    for (const name of [epc.usableStatus, epc.revokedStatus]) statuses[name] = 0;
+    for (const row of rows) if (statuses[row.status] !== undefined) statuses[row.status] += 1;
+    const limit = ctx.ops.listMaxRows;
+    const total = rows.length;
+    return res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        limit,
+        total,
+        returned: Math.min(total, limit),
+        truncated: total > limit,
+        statuses,
+        // ⚠ 这里没有 secretDigest：摘要是可离线爆破的靶子，而明文口令只在创建/轮换那一次出现过。
+        endpoints: rows.slice(0, limit),
+      },
+    });
+  }),
+);
+
+// 端点单独吊销（补 T31 记的 ②）。现在它有真实的读者：端点鉴权按 status 白名单判，
+// 不再是"写了一个状态而没人读"。
+router.post(
+  '/fnthink/endpoints/revoke',
+  authMiddleware,
+  withContext((ctx, req, res) => {
+    const epc = endpointConfigOf(ctx);
+    if (!epc) return res.status(503).json({ error: 'fnthink_protocol_unavailable' });
+    if (!ensureConfirmed(ctx, req, res, 'revokeEndpoint')) return;
+    const id = String((req.body || {}).endpointId || '');
+    if (!id) return res.status(400).json({ code: -1, message: 'endpointId 不能为空' });
+    const endpoints = ds.loadEndpoints();
+    const out = ds.revokeEndpoint(ctx.contract, endpoints, id, Date.now(), epc);
+    if (!out) {
+      return res.status(404).json({ code: -1, message: `这个端点不在表里：${id}` });
+    }
+    console.log(`[fnthink:ops] revokeEndpoint ${id}`);
+    return res.json({
+      code: 0,
+      message: 'success',
+      // affected 与设备那一组同一个口径：已经吊销过再按一次是 0，不是"没反应"。
+      data: { action: 'revokeEndpoint', affected: out.revoked ? 1 : 0, endpoint: out.endpoint },
+    });
+  }),
 );
 
 module.exports = router;
