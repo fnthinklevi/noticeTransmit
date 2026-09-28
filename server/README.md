@@ -498,6 +498,8 @@ pm2 restart update-server && pm2 logs update-server --lines 40
   POST /api/fnthink/register  - 按 IP 30/分钟 · 3000/天（身份未证明，只能按 IP）
   POST /api/fnthink/poll      - 按设备地址 14/分钟（数字从 presence 节奏推导，验签后计）
   请求体上限（公网面，取自契约 limits.requestBodyMaxBytes）：65536 字节
+  突增告警：near 线 = 额度的 50%，同一主体同一结论 300s 内合并，内存环上限 200 条
+    ⚠ 告警不落盘（契约 alerts.persistToDisk=false）：列表为空只代表"本进程起来以后没触发"
 ```
 
 **第 5 步：验收（5 条，含"更新通道没被弄坏"的回归）**
@@ -506,7 +508,7 @@ pm2 restart update-server && pm2 logs update-server --lines 40
 curl -s  https://notice.example.com/health                                   # {"status":"ok",...}
 curl -s "https://notice.example.com/api/version/check?version=1.5.76&build=116&platform=android"   # {"code":0,...}  ← 回归
 curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d '{}'
-#   期望 403 {"receipt":"rejected_unsigned"}；503 = 契约没找到；404 = server_name 漏了推送域名
+#   期望 403 {"receipt":"rejected_unsigned"}；503 = 契约不可用（见下方"503 的两种原因"）；404 = server_name 漏了推送域名
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/admin/login    # 期望 404（管理面不从这里进）
 curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d "{\"pad\":\"$(head -c 70000 /dev/zero | tr '\0' 'x')\"}"
 #   期望 413 且 body 是 {}（协议形状）；若是 Nginx 的 HTML 413 ⇒ client_max_body_size 比 64 KiB 小
@@ -514,6 +516,55 @@ curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: appl
 
 **第 6 步：不想用了怎么退。** 删掉第 3 步那个 server block、`reload`，再把契约文件移走（或删 `.env` 里那两行）后重启 ——
 推送面回到"503 = 没装"，更新通道全程不受影响。
+
+**503 的两种原因，日志点名的是不同的一句话。** 别把它们当成同一件事去修：
+
+| 启动日志 | 原因 | 处置 |
+| --- | --- | --- |
+| `读不到契约文件 …` | 文件真的不在（`FNTHINK_CONTRACT` 没指对，或只上传了 `server/`） | 把仓库根 `protocol/fnthink-v1.json` 传上去，或把那个变量指向它 |
+| `契约文件在、也能解析，但内容缺这台服务端要读的数` | **代码是本批、契约是上一批**（每次服务端读新增的契约键都会撞到） | 把**本批**那份契约一起上传后重启；不用管 `.env` |
+
+两种都只降级 `/api/fnthink/*` 这一段，`/api/version` 与管理后台照常 —— 这是设计行为，不是"整台坏了"。
+
+### 第 7 步：上线之后怎么知道"有人在被拦住"（突增告警）
+
+限流与配额拦下一条请求之后，默认**什么都不留**：计数器在内存里，一次 429 之后没有任何一处能回答
+"是谁、受哪一档管、从什么时候开始的"。而现场症状永远是"我朋友的推送进不来了"，不是"有人被限流了"。
+所以这一层专门管"说出来"：
+
+```bash
+# 登录拿 sessionId（用的就是管理后台那个口令 + 二步验证；未启用 2FA 时这一步直接返回 sessionId）
+SESSION=$(curl -s -X POST https://notice.example.com/api/admin/login -H 'Content-Type: application/json' \
+  -d '{"token":"<管理口令>"}' | sed -n 's/.*"sessionId":"\([^"]*\)".*/\1/p')
+curl -s https://notice.example.com/api/admin/fnthink/alerts -H "x-session-id: $SESSION"
+```
+
+期望输出（形状，不是内容）：
+
+```json
+{"code":0,"message":"success","data":{"generatedAt":1760000000000,"persisted":false,
+ "nearQuotaRatio":0.5,"cooldownSeconds":300,"maxActiveAlerts":200,"count":1,
+ "alerts":[{"subjectKind":"device","subject":"<18 位地址码>","kind":"message","window":"minute",
+            "outcome":"near","count":32,"limit":60,"times":4,"firstAt":…,"lastAt":…}]}}
+```
+
+读法与三条边界：
+
+- **两种结论**：`near` = 计数已经到达该档额度的 `nearQuotaRatio`（还没被拒，值得看一眼）；
+  `denied` = 已经被 429 拒过。两者对同一主体各记一条，因为"快满了"与"正在拒人"的处置不同。
+- **`persisted:false` 是关键**：告警只在当前进程内存里，**重启即空**。所以 `count:0` 的含义是
+  "这个进程起来以后没触发过"，**不是**"没有异常"。这条不是疏忽：公网未认证面上每一次写盘都是一个
+  请求换一次磁盘写的放大器（本仓在拒收计数那处已做过同一条取舍），而告警的用途是"现在去看一眼"，
+  审计账本是另一件事。
+- **`times` 而不是重复条目**：同一主体、同一档、同一结论在 `cooldownSeconds` 内合并，总数照加。
+  没有这条，告警的输出速率与请求速率成正比 ⇒ 它自己就是第二种洪水。
+- 反代/CDN 之后 `subjectKind:"ip"` 那批条目的 `subject` 会是代理的地址（可能成片的 CDN 段）。
+  那不是告警的问题，是"源站看不到真实客户端 IP"的问题 —— 修法见下一节 Nginx 里的 XFF 两条。
+
+阈值只有一份来源：契约 `alerts` 段（`nearQuotaRatio` / `cooldownSeconds` / `maxActiveAlerts` /
+`persistToDisk`）。改环境变量不管用，改它要连同那份 JSON 一起上传。
+这个口**只读**：解除冻结、吊销设备是另一组动作（见「🛡️ IP 封锁机制」与运维入口），
+两件事不混在一个口里 —— 误点一次"全部失效"的代价是一整个设备群失联。
 
 ***
 
@@ -893,7 +944,8 @@ journalctl -u update-server -f
 
    > 🔎 **识别特征（照响应一眼判死）**：
    > - **Express 的错误页**、路径不对 ⇒ **反代配错**：`Cannot POST /poll`（前缀被吃）或 `Cannot POST //poll`（多一个斜杠）；
-   > - **503 + `{"error":"fnthink_protocol_unavailable"}`** ⇒ **反代已经通了**，只是服务器上**没有契约文件**
+   > - **503 + `{"error":"fnthink_protocol_unavailable"}`** ⇒ **反代已经通了**，只是**契约这一层不可用**
+   >   （两种原因：文件不在，或文件在但内容是上一批、缺这台服务端要读的键 —— 启动日志那两行分别点名）
    >   （默认位置是代码目录上一级的 `protocol/`，或用 `FNTHINK_CONTRACT` 指过去）；
    > - **403 + `{"receipt":"rejected_unsigned"}`** ⇒ 协议面活着（这一步就是要的结果）。
    > ```bash

@@ -1100,6 +1100,100 @@ void main() {
       expectProblem(broken, '同步状态码有重复值', '两个不同结论共用一个码＝等于没有结论');
     });
 
+    // #130-A4：突增告警。这一段真正会写歪的不是数字大小，而是"它管谁"和"它持不持久"。
+    test('alerts 段整段缺失 ⇒ 报（实现只剩两种走法：自己写一份缺省，或者静默不告警）', () {
+      final broken = mutate((raw) {
+        raw.remove('alerts');
+      });
+      expectProblem(broken, 'alerts 段缺失', '读不到就该判红，不是当作"没这回事"');
+    });
+
+    test('nearQuotaRatio=1 ⇒ 报（那就是 denied 的另一种写法，near 的意义是"还没拒"）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['nearQuotaRatio'] = 1;
+      });
+      expectProblem(broken, 'nearQuotaRatio 必须在', '开区间外的阈值让 near 失去存在意义');
+    });
+
+    test('nearQuotaRatio=0 ⇒ 报（每一发都算告警＝洪水替攻击者把列表刷满）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['nearQuotaRatio'] = 0;
+      });
+      expectProblem(broken, 'nearQuotaRatio 必须在', '零阈值等于不设阈值，而设了个看起来有值的数更糟');
+    });
+
+    test('冷却短于一分钟 ⇒ 报（告警的输出速率与请求速率成正比＝第二种洪水）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['cooldownSeconds'] = 5;
+      });
+      expectProblem(broken, 'cooldownSeconds 必须 ≥ 60', '没冷却的告警会自己变成攻击面');
+    });
+
+    test('内存环上限为 0 ⇒ 报（主体来自外部输入，无界＝挂在公网上的一段内存）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['maxActiveAlerts'] = 0;
+      });
+      expectProblem(broken, 'maxActiveAlerts 必须是正整数', '无界内存是这批限流要防的东西之一');
+    });
+
+    test('persistToDisk=true ⇒ 报（公网面每次写盘都是一个请求换一次磁盘写的放大器）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['persistToDisk'] = true;
+      });
+      expectProblem(broken, 'persistToDisk 必须是 false', '本仓两处已对同一形状做过同一条取舍');
+    });
+
+    test('subjectKinds 少了 device ⇒ 报（按设备计额那两档的告警会被安静丢掉）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['subjectKinds'] = ['ip'];
+      });
+      expectProblem(broken, '必须含 device', '最容易把正常用户拦住的正是这一类');
+    });
+
+    test('subjectKinds 少了 ip ⇒ 报（身份未证明那一档只能按 IP 计，看不见它就没有洪水证据）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['subjectKinds'] = ['device'];
+      });
+      expectProblem(broken, '必须含 ip', '反代后"同一个出口后面有多少台"全靠这一类');
+    });
+
+    test('subjectKinds 重叠 ⇒ 报（同一类主体两个名字＝两份计数器）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['subjectKinds'] = [
+          'device',
+          'device',
+        ];
+      });
+      expectProblem(broken, '不许重叠', '重叠名单是本仓反复判红的那一类');
+    });
+
+    test('subjectKinds 写了实现不产出的名字 ⇒ 报（名单看着齐全，告警永远少一类）', () {
+      final broken = mutate((raw) {
+        (raw['alerts'] as Map<String, Object?>)['subjectKinds'] = [
+          'device',
+          'ip',
+          'sender',
+        ];
+      });
+      expectProblem(broken, '不是服务端认识的种类', '名字写错的方向是静默，不是报错');
+    });
+
+    test('仓库里这份契约的 alerts 四个数读得出来（两端同一口径的正向证据）', () {
+      expect(c.at(const ['alerts', 'nearQuotaRatio']), isA<num>());
+      expect((c.at(const ['alerts', 'nearQuotaRatio']) as num) > 0, isTrue);
+      expect((c.at(const ['alerts', 'nearQuotaRatio']) as num) < 1, isTrue);
+      expect(
+        c.intOf(const ['alerts', 'cooldownSeconds']),
+        greaterThanOrEqualTo(60),
+      );
+      expect(c.intOf(const ['alerts', 'maxActiveAlerts']), greaterThan(0));
+      expect(c.boolOf(const ['alerts', 'persistToDisk']), isFalse);
+      expect(
+        c.strings(const ['alerts', 'subjectKinds']),
+        containsAll(['device', 'ip']),
+      );
+    });
+
     // #130-A2：按发送方计的那一档。两条判据都是这一片真正在守的东西。
     test('已证明身份的端点漏出"按设备计"的名单 ⇒ 报（它只能被按 IP 计＝共用一份配额）', () {
       final broken = mutate((raw) {

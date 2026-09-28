@@ -1257,6 +1257,68 @@ class FnthinkContract {
       '在验签之前就要付成本的维度 —— 没有它，一发大请求花的只是攻击者的带宽，'
       '花的却是服务端的内存与 CPU；而小于一页正文的闸，症状会是「合法长通知永远 413」',
     );
+    // #130-A4 突增告警。这一段最容易写歪的不是数字，而是「它管谁」—— 下面与 limits 三档
+    // principal 的交叉判据就是为这个写的（A1 那次"两个数只写了大小、没写量谁"的同一个错）。
+    need(
+      map(const ['alerts']) != null,
+      'alerts 段缺失：告警的四个数没有第二个来源。缺它时实现只有两种走法 —— 在自己代码里写一份'
+      '缺省（第二份真值），或者静默不告警（更糟：一台什么都不报告的防护层）',
+    );
+    final nearRatio = at(const ['alerts', 'nearQuotaRatio']);
+    need(
+      nearRatio is num && nearRatio > 0 && nearRatio < 1,
+      'alerts.nearQuotaRatio 必须在 (0,1) 开区间（实际 $nearRatio）：等于 1 时 near 只是 denied 的'
+      '另一种写法，而 near 存在的全部意义是「还没拒就已经不对劲」；太小则把每台正常设备都报成告警，'
+      '而第一次误报的代价不是多一行日志，是之后没人再看这个列表',
+    );
+    final alertCooldown = intOf(const ['alerts', 'cooldownSeconds']);
+    need(
+      (alertCooldown ?? 0) >= 60,
+      'alerts.cooldownSeconds 必须 ≥ 60（实际 $alertCooldown）：没有冷却（或比一分钟还短）时告警的输出'
+      '速率与请求速率成正比 ⇒ 它自己成为第二种洪水，还会挤满那个有界内存环、把真正的异常从最旧端'
+      '淘汰掉 —— 等于洪水替攻击者清场',
+    );
+    final maxActiveAlerts = intOf(const ['alerts', 'maxActiveAlerts']);
+    need(
+      (maxActiveAlerts ?? 0) > 0,
+      'alerts.maxActiveAlerts 必须是正整数（实际 $maxActiveAlerts）：告警主体来自外部输入'
+      '（设备地址码、对端 IP），没有上限等于把一段无界内存挂在公网上，而那正是这批限流要防的东西',
+    );
+    need(
+      boolOf(const ['alerts', 'persistToDisk']) == false,
+      'alerts.persistToDisk 必须是 false：公网未认证面上每一次写盘都是「一个请求换一次磁盘写」的'
+      '放大器（本仓 T29-B 的拒收计数同此取舍）。要改成 true，就得同时把写盘限频与上限写进本段、'
+      '并让实现跟着读那两个数 —— 否则改的是文档，不是行为',
+    );
+    final alertKinds = strings(const ['alerts', 'subjectKinds']);
+    need(
+      alertKinds.isNotEmpty && alertKinds.toSet().length == alertKinds.length,
+      'alerts.subjectKinds 必须非空且不许重叠：${alertKinds.join(', ')}',
+    );
+    // 这两条是本段真正的不变量：**名单必须与 limits 的三档 principal 对齐**。
+    // 少一类 = 那一类主体的超额在告警里永远不出现（"看着什么都管，其实不吭声"）；
+    // 多一类 = 契约声明了一个实现不产出的种类，它会让人以为已经覆盖。两个方向都要钉，
+    // 因为它们是同一类错误的两面。
+    need(
+      (perSenderOnly.isEmpty && cadenceGoverned.isEmpty) ||
+          alertKinds.contains('device'),
+      'limits.perSenderOnly / cadenceGoverned 非空时 alerts.subjectKinds 必须含 device：'
+      '按设备地址计额的那两档恰恰最会把正常用户拦住（跑飞的设备、提频中的轮询），'
+      '名单里没有 device 就等于这一整类告警被丢掉',
+    );
+    need(
+      perEndpoint.isEmpty || alertKinds.contains('ip'),
+      'limits.perEndpoint 非空时 alerts.subjectKinds 必须含 ip：那一档的身份还没证明、只能按 IP 计，'
+      '少了 ip 就看不见「同一个出口后面有多少台在被打」—— 而 #140 已经实测到反代后那个出口是 CDN',
+    );
+    const knownSubjectKinds = ['device', 'ip', 'endpoint'];
+    for (final kind in alertKinds) {
+      need(
+        knownSubjectKinds.contains(kind),
+        'alerts.subjectKinds 里的 $kind 不是服务端认识的种类（只允许 '
+        '${knownSubjectKinds.join(' / ')}）：写一个实现不产出的名字，表现是名单看着齐全而告警永远少一类',
+      );
+    }
     // 自带公钥的那一种事件（目前只有 register）字段规则与其它种类相反：必须带公钥
     // （否则无从证明私钥持有）、必须带不上任何秘密。按 `carriesOwnPublicKey` 旗标挑出来判，
     // 不按名字 —— 判据里写死 'register'，下一片再来一种自带公钥的事件时它不报错，

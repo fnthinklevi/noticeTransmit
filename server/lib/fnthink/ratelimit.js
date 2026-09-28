@@ -33,7 +33,8 @@
 
 'use strict';
 
-const { statusCode, loadContract, assertSupported } = require('./contract');
+const { statusCode, loadContract, assertSupported, shapeError } = require('./contract');
+const { sharedTracker, FACE_KIND } = require('./anomaly');
 const store = require('../store');
 
 const contract = assertSupported(loadContract());
@@ -65,14 +66,14 @@ function windowsFor(src) {
   const intOf = (path) => {
     const v = pickAt(src, path);
     if (!Number.isInteger(v) || v <= 0) {
-      throw new Error(`限流推导取不到正整数：${path.join('.')}（实际 ${v}）`);
+      throw shapeError(`限流推导取不到正整数：${path.join('.')}（实际 ${v}）`);
     }
     return v;
   };
   const listOf = (path) => {
     const v = pickAt(src, path);
     if (!Array.isArray(v)) {
-      throw new Error(`${path.join('.')} 必须是数组：限流不知道"量谁"就会各自猜`);
+      throw shapeError(`${path.join('.')} 必须是数组：限流不知道"量谁"就会各自猜`);
     }
     return v.map(String);
   };
@@ -80,7 +81,7 @@ function windowsFor(src) {
   const cadence = listOf(['limits', 'cadenceGoverned']);
   const senderOnly = listOf(['limits', 'perSenderOnly']);
   if (!control.length) {
-    throw new Error('limits.perEndpoint 不能为空：那两个数字总得有一组端点归它管');
+    throw shapeError('limits.perEndpoint 不能为空：那两个数字总得有一组端点归它管');
   }
   const seen = new Map();
   const clash = [];
@@ -95,7 +96,7 @@ function windowsFor(src) {
     }
   }
   if (clash.length) {
-    throw new Error(
+    throw shapeError(
       `limits 的端点名单重叠：${clash.join('、')} ⇒ 同一个端点两把尺子，` +
         '谁先响取决于实现顺序，那是"看起来更严其实更宽"的形状',
     );
@@ -105,7 +106,7 @@ function windowsFor(src) {
   const senderPerMinute = intOf(['limits', 'perSenderPerMinute']);
   const senderPerDay = intOf(['limits', 'perSenderPerDay']);
   if (senderPerMinute < perMinute) {
-    throw new Error(
+    throw shapeError(
       `limits.perSenderPerMinute=${senderPerMinute} 比按 IP 的 unauthenticatedPerMinute=${perMinute} 还紧：` +
         '已证明身份的端点按设备地址计，这一档的意义是"跑飞保护"而不是反垃圾 —— 比匿名档还紧，' +
         '先被卡住的只会是自己人（A1 那次 7 条配对用例就是替这种用户红的）',
@@ -117,7 +118,7 @@ function windowsFor(src) {
   // 再加 pollBurstSlack 份余量（提频与常态切换的那一分钟里，两种节奏会重叠计数）。
   const pollPerMinute = Math.ceil(60 / burst) + slack;
   if (perMinute < pollPerMinute) {
-    throw new Error(
+    throw shapeError(
       `limits.unauthenticatedPerMinute=${perMinute} 严于轮询推导额度（${pollPerMinute}）：` +
         '按 IP 计的端点额度只能当洪水闸 —— 卡紧它误伤的是「家里一次装四台设备」的诚实用户，' +
         '而攻击者换一个 IP 的成本是零。未认证写入的兜底是 limits.devicesMax 与面的总量闸门',
@@ -141,13 +142,19 @@ function windowsFor(src) {
 
 const contractWindows = windowsFor(contract);
 
-function createFnthinkRateLimiter(maxRequests, overrideWindows) {
+function createFnthinkRateLimiter(maxRequests, overrideWindows, options = {}) {
   const max = Number(maxRequests);
   if (!Number.isFinite(max) || max <= 0) {
     throw new Error(
       'RATE_LIMIT_FNTHINK_MAX 必须是正整数（限流上限不许缺省成"不限"，也不许静默按 0 全拒）',
     );
   }
+  // ⚠ [observe] 只给测试注入，缺省就是进程内那份告警环（A4）：告警与闸门必须读**同一个**计数器，
+  //   另开一份计数就是第二份真值，表现是"已经超额了而告警说没事"。
+  // ⚠ 同样在**构造期**取单例（与 senderquota.js 那条同因）：契约缺 alerts 段必须在这里抛，
+  //   才能被 lib/app.js 的降级 catch 接住，而不是让每条请求变成 500。
+  const tracker = sharedTracker();
+  const observe = options.observe || ((event) => tracker.observe(event));
   // 第二份窗口只给测试注入用（日档 500 次不可能在单测里真打满）。
   // ⚠ 缺省仍然是**契约推导的那一份**：留一个"测试专用"的入口不等于生产能绕过它。
   const windows = overrideWindows || contractWindows;
@@ -198,7 +205,20 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows) {
     const face = windowEntry(faceKey, now, WINDOW_MS);
     if (face) {
       face.count += 1;
-      if (face.count > max) return deny(res, now, face, WINDOW_MS);
+      const overFace = face.count > max;
+      // 层 1 的数字来自环境变量而不是契约，所以这里给它一个明确的 kind（FACE_KIND）：
+      // 否则"一个 IP 扇出打一万个端点"与"某个端点被玩坏"在告警里长成同一个样子。
+      observe({
+        subjectKind: 'ip',
+        subject: ip,
+        kind: FACE_KIND,
+        window: 'minute',
+        count: face.count,
+        limit: max,
+        denied: overFace,
+        at: now,
+      });
+      if (overFace) return deny(res, now, face, WINDOW_MS);
     }
 
     // 已证明身份的端点（poll / ack / 配对三步 / message）一律**不在这层按 IP 记**：
@@ -215,7 +235,18 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows) {
     const minute = windowEntry(minuteKey, now, WINDOW_MS);
     if (minute) {
       minute.count += 1;
-      if (minute.count > window.perMinute) return deny(res, now, minute, WINDOW_MS, note);
+      const overMinute = minute.count > window.perMinute;
+      observe({
+        subjectKind: 'ip',
+        subject: ip,
+        kind,
+        window: 'minute',
+        count: minute.count,
+        limit: window.perMinute,
+        denied: overMinute,
+        at: now,
+      });
+      if (overMinute) return deny(res, now, minute, WINDOW_MS, note);
     }
     if (isControl) {
       // 日档把日期编进键里，换日自然换新计数器（旧键由过期清扫回收）。
@@ -223,7 +254,18 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows) {
       const day = windowEntry(dayKey, now, DAY_MS);
       if (day) {
         day.count += 1;
-        if (day.count > window.perDay) return deny(res, now, day, DAY_MS);
+        const overDay = day.count > window.perDay;
+        observe({
+          subjectKind: 'ip',
+          subject: ip,
+          kind,
+          window: 'day',
+          count: day.count,
+          limit: window.perDay,
+          denied: overDay,
+          at: now,
+        });
+        if (overDay) return deny(res, now, day, DAY_MS);
       }
     }
     next();

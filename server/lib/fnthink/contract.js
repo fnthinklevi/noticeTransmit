@@ -25,23 +25,41 @@ const CONTRACT_FILE = process.env.FNTHINK_CONTRACT
   : path.resolve(__dirname, '..', '..', '..', 'protocol', 'fnthink-v1.json');
 
 // 契约层面的失败必须能被调用方**按种类**判断，而不是靠比对错误文案（文案一改，判断就瞎）。
-// code 只可能是这三种：MISSING（文件读不到）/ UNPARSEABLE（不是合法 JSON 或顶层不是对象）/
-// UNSUPPORTED（协议名形状或主版本这台实现不认识）。
+// code 只可能是这四种：MISSING（文件读不到）/ UNPARSEABLE（不是合法 JSON 或顶层不是对象）/
+// UNSUPPORTED（协议名形状或主版本这台实现不认识）/ SHAPE（文件在、能解析、版本也认识，但
+// **内容缺这台实现要读的那些数** —— 典型形状就是只上传了 server/ 而契约仍是上一批次那份）。
 // 除此之外冒出来的异常一律是代码 bug —— 挂载方（lib/app.js）不许把它们咽成"协议不可用"：
 // 本片就实测过一次 app.js 漏 `require('./store')` 抛 ReferenceError，被那道降级 catch 吞掉，
 // 日志上一句"请把契约文件放到 protocol/"就把 bug 伪装成了部署问题。
+// ⚠ SHAPE 只许由取数处**显式**用 shapeError() 打，绝不在 catch 里按"异常从哪个文件来"判断 ——
+//   那样任何 TypeError 都会被抓成"契约不可用"，上面那条教训就白记了。
+//   为什么这一类必须能降级而不是崩在启动：它与 MISSING 是同一族部署问题，而崩掉的爆炸半径是
+//   整台风服务，其中包括与幻念推送毫无关系的 `/api/version`（所有设备的更新通道）与管理后台。
+//   A1 那次的部署口径写的是"新代码配旧契约 ⇒ 协议面降级 503"，而当时代码走的是崩启动 ——
+//   #130-A4 加 alerts 段时把这条不一致逼了出来，按口径修正了代码。
 const CONTRACT_MISSING = 'FNTHINK_CONTRACT_MISSING';
 const CONTRACT_UNPARSEABLE = 'FNTHINK_CONTRACT_UNPARSEABLE';
 const CONTRACT_UNSUPPORTED = 'FNTHINK_CONTRACT_UNSUPPORTED';
+const CONTRACT_SHAPE = 'FNTHINK_CONTRACT_SHAPE';
 
 function tagged(code, cause) {
   cause.code = code;
   return cause;
 }
 
-/// 只有这三类契约层面的失败可以降级；其它异常必须继续往上抛。
+/// 契约内容不达标（缺键、非正数、名单为空、两份名单重叠⋯⋯）都由这里打，取数函数自己不造种类。
+function shapeError(message) {
+  return tagged(CONTRACT_SHAPE, new Error(message));
+}
+
+/// 只有这四类契约层面的失败可以降级；其它异常必须继续往上抛。
 function isContractAvailabilityError(err) {
-  return err && [CONTRACT_MISSING, CONTRACT_UNPARSEABLE, CONTRACT_UNSUPPORTED].includes(err.code);
+  return (
+    err &&
+    [CONTRACT_MISSING, CONTRACT_UNPARSEABLE, CONTRACT_UNSUPPORTED, CONTRACT_SHAPE].includes(
+      err.code,
+    )
+  );
 }
 
 function loadContract() {
@@ -192,6 +210,8 @@ module.exports = {
   CONTRACT_MISSING,
   CONTRACT_UNPARSEABLE,
   CONTRACT_UNSUPPORTED,
+  CONTRACT_SHAPE,
+  shapeError,
   isContractAvailabilityError,
   loadContract,
   assertSupported,

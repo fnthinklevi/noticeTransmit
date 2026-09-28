@@ -19,14 +19,14 @@
 
 const express = require('express');
 
-const { statusCode, loadContract, assertSupported } = require('./contract');
+const { statusCode, loadContract, assertSupported, shapeError } = require('./contract');
 
 /// 从契约取公网面的字节上限。取不到就抛 —— 与 windowsFor 同一个口径：
 /// 一份读不出数字的契约表，正确行为是这一档**不挂**并被 app.js 明说，而不是缺省成"不限"。
 function bodyMaxBytes(src) {
   const v = src && src.limits ? src.limits.requestBodyMaxBytes : undefined;
   if (!Number.isInteger(v) || v < 4096) {
-    throw new Error(
+    throw shapeError(
       `limits.requestBodyMaxBytes 必须是 ≥4096 的整数（实际 ${v}）：` +
         '公网面没有体积上限时，攻击者花的只是带宽，花服务端的是内存与 CPU',
     );

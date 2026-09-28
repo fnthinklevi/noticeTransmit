@@ -501,7 +501,10 @@ Expect these lines (do not continue if any is missing):
   POST /api/fnthink/register  - 按 IP 30/分钟 · 3000/天（身份未证明，只能按 IP）
   POST /api/fnthink/poll      - 按设备地址 14/分钟（数字从 presence 节奏推导，验签后计）
   请求体上限（公网面，取自契约 limits.requestBodyMaxBytes）：65536 字节
+  突增告警：near 线 = 额度的 50%，同一主体同一结论 300s 内合并，内存环上限 200 条
+    ⚠ 告警不落盘（契约 alerts.persistToDisk=false）：列表为空只代表"本进程起来以后没触发"
 ```
+(last two lines are the anomaly-report banner; the log is Chinese-only by design)
 
 **Step 5 — acceptance (5 curls, including the "update channel still works" regression)**
 
@@ -509,7 +512,7 @@ Expect these lines (do not continue if any is missing):
 curl -s  https://notice.example.com/health                                   # {"status":"ok",...}
 curl -s "https://notice.example.com/api/version/check?version=1.5.76&build=116&platform=android"   # {"code":0,...}  ← regression
 curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d '{}'
-#   403 {"receipt":"rejected_unsigned"} expected; 503 = contract not found; 404 = push hostname missing from server_name
+#   403 {"receipt":"rejected_unsigned"} expected; 503 = contract unavailable (two causes, see below); 404 = push hostname missing from server_name
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/admin/login    # 404 expected (admin stays on the update host)
 curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d "{\"pad\":\"$(head -c 70000 /dev/zero | tr '\0' 'x')\"}"
 #   413 with body {} expected (protocol shape); an HTML 413 means client_max_body_size is below 64 KiB
@@ -518,6 +521,61 @@ curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: appl
 **Step 6 — how to remove it.** Delete the server block from step 3, reload, move the contract away (or drop the
 two `.env` lines) and restart: the face goes back to "503 = not installed", with the update channel untouched
 throughout.
+
+**A 503 has two different causes, and the log names which one.** Don't fix the wrong thing:
+
+| Boot log line | Cause | Fix |
+| --- | --- | --- |
+| `读不到契约文件 …` (contract file unreadable) | The file really is missing (`FNTHINK_CONTRACT` points nowhere, or only `server/` was uploaded) | Upload `protocol/fnthink-v1.json` from the repo root, or point that variable at it |
+| `契约文件在、也能解析，但内容缺这台服务端要读的数` (present, parses, but missing keys) | **Code is from this batch, contract is from the previous one** — this happens every time the server starts reading a new contract key | Upload **this batch's** contract file and restart. `.env` is not the problem |
+
+Either way only `/api/fnthink/*` degrades; `/api/version` and the admin UI keep working. That is the design,
+not "the whole box is down".
+
+### Step 7: how you find out that someone is being throttled (anomaly report)
+
+A rate limiter that rejects a request normally leaves **no trace**: the counters live in memory, and after a
+429 nothing anywhere answers "whom, against which limit, since when". The field symptom is always "my friend's
+push stopped arriving", never "someone is being throttled". This layer exists purely to say it out loud.
+
+```bash
+# Log in to get a sessionId (same token + 2FA as the admin UI; with 2FA disabled this returns one directly)
+SESSION=$(curl -s -X POST https://notice.example.com/api/admin/login -H 'Content-Type: application/json' \
+  -d '{"token":"<admin token>"}' | sed -n 's/.*"sessionId":"\([^"]*\)".*/\1/p')
+curl -s https://notice.example.com/api/admin/fnthink/alerts -H "x-session-id: $SESSION"
+```
+
+Expected shape (not content):
+
+```json
+{"code":0,"message":"success","data":{"generatedAt":1760000000000,"persisted":false,
+ "nearQuotaRatio":0.5,"cooldownSeconds":300,"maxActiveAlerts":200,"count":1,
+ "alerts":[{"subjectKind":"device","subject":"<18-char address>","kind":"message","window":"minute",
+            "outcome":"near","count":32,"limit":60,"times":4,"firstAt":…,"lastAt":…}]}}
+```
+
+How to read it, and the three limits of that reading:
+
+- **Two outcomes.** `near` = the counter reached `nearQuotaRatio` of that window's quota (not rejected yet —
+  worth a look). `denied` = already rejected with 429. Each subject gets one row per outcome, because
+  "almost full" and "currently refusing" call for different actions.
+- **`persisted:false` is the part people get wrong.** Alerts live in the current process only and are **gone on
+  restart**. So `count:0` means "nothing tripped since this process started", **not** "nothing happened".
+  That is a deliberate trade, not an oversight: every disk write on an unauthenticated public face is one
+  request bought with one write amplification (this repo already made the same call for reject counters),
+  alerts are a "look now" signal, and the audit ledger is a separate feature.
+- **`times`, not repeated rows.** Same subject + same window + same outcome merge inside `cooldownSeconds` while
+  the total keeps counting. Without that, the alert output rate is proportional to the request rate — the
+  report would be the second flood.
+- Behind a reverse proxy / CDN, rows with `subjectKind:"ip"` carry the **proxy's** address (often whole CDN
+  ranges). That is the "origin can't see the real client IP" problem, not an alert bug — see the two XFF
+  options in the Nginx section below.
+
+The thresholds have exactly one source: the contract's `alerts` section (`nearQuotaRatio` / `cooldownSeconds` /
+`maxActiveAlerts` / `persistToDisk`). Environment variables do not change them; changing them means shipping
+that JSON along with the code.
+This endpoint is **read-only**: unfreezing and revoking are a different set of actions, and the two do not
+share one endpoint — one accidental click on "revoke everything" costs an entire fleet of devices.
 
 ***
 
@@ -916,7 +974,8 @@ matter most — three steps:
    > - **403 with `{"receipt":"rejected_unsigned"}`** ⇒ the face is alive (this is the goal).
    > ```bash
    > curl -s -X POST https://<push-host>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}'
-   > # 404 <pre>Cannot POST /poll</pre> → proxy wrong; 503 {"error":"fnthink_protocol_unavailable"} → contract missing;
+   > # 404 <pre>Cannot POST /poll</pre> → proxy wrong; 503 {"error":"fnthink_protocol_unavailable"} → contract layer
+   > unavailable (file missing, **or** present but from a previous batch and missing keys this code reads);
    > # 403 {"receipt":"rejected_unsigned"} → ✅
    > ```
 3. In the site's config file, change two things and verify the proxy block:

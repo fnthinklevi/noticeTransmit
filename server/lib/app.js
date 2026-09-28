@@ -11,9 +11,10 @@ const cors = require('cors');
 const path = require('path');
 
 const store = require('./store');
-const { isContractAvailabilityError } = require('./fnthink/contract');
+const { isContractAvailabilityError, CONTRACT_SHAPE } = require('./fnthink/contract');
 const middleware = require('./middleware');
 const authRoutes = require('./routes/auth');
+const alertRoutes = require('./routes/alerts');
 const versionRoutes = require('./routes/version');
 
 const app = express();
@@ -77,6 +78,9 @@ app.use('/api/admin', middleware.authRateLimiter);
 
 // 路由挂载
 app.use('/api/admin', authRoutes);
+// 突增告警的读取口（A4）。挂在 authRoutes 之后：那条链上有登录/2FA，而这个口只读不写，
+// 两条路径共用同一套鉴权与 `/api/admin` 的认证限流，不另建信任根。
+app.use('/api/admin', alertRoutes);
 app.use('/', versionRoutes);
 // 幻念推送（fnthink-v1）的公网入口。⚠ 这一段必须"坏了也不连累别的端点"：
 // 契约文件默认在仓库根的 protocol/，而部署历来只上传 server/ —— 那种情况下 require 链会直接抛
@@ -112,8 +116,15 @@ try {
   if (!isContractAvailabilityError(e)) throw e;
   app.set('fnthinkEndpoints', []);
   console.error('[fnthink] 协议入口没有起来，这段路由已降级为 503：', e.message);
+  // ⚠ 两种原因的修法完全不同，所以分开打：文件不在（去传文件）vs 文件在但内容缺这台服务端
+  //   要读的数（去把**本批**那份契约一起传 —— 只更新代码不更新契约正是这一类的成因，
+  //   #130-A4 加 alerts 段时把它逼了出来：那时它走的还是"崩在启动"，拖死的是 /api/version）。
   console.error(
-    '[fnthink] 需要把契约文件放到 protocol/fnthink-v1.json，或用 FNTHINK_CONTRACT 指向它',
+    e.code === CONTRACT_SHAPE
+      ? '[fnthink] 契约文件在、也能解析，但内容缺这台服务端要读的数 ⇒ 把本批的 ' +
+          'protocol/fnthink-v1.json 与代码一起上传（或用 FNTHINK_CONTRACT 指过去）后重启；' +
+          '更新服务与管理后台不受影响'
+      : '[fnthink] 需要把契约文件放到 protocol/fnthink-v1.json，或用 FNTHINK_CONTRACT 指向它',
   );
   app.use('/api/fnthink', (req, res) =>
     res.status(503).json({ error: 'fnthink_protocol_unavailable' }),

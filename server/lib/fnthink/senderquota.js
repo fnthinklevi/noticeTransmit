@@ -19,6 +19,7 @@
 
 const { statusCode, loadContract, assertSupported } = require('./contract');
 const { windowsFor } = require('./ratelimit');
+const { sharedTracker } = require('./anomaly');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -26,10 +27,18 @@ const MINUTE_MS = 60 * 1000;
 /// 键基数兜底：`sender`s 理论上被 devicesMax 框住，但"记录数不随请求数增长"这条得自己守住。
 const MAX_KEYS = 20000;
 
-function createSenderQuota(overrideWindows) {
+/// ⚠ [observe] 只给测试注入用，缺省就是进程内那份告警环（anomaly.js）：留一个"测试专用"的
+///   入口不等于生产能绕过它 —— 与 overrideWindows 同一个道理。
+function createSenderQuota(overrideWindows, options = {}) {
   const contract = assertSupported(loadContract());
   const windows = overrideWindows || windowsFor(contract);
   const code = statusCode(contract, 'rateLimited');
+  // ⚠ **构造期**就取单例，而不是等第一条请求：契约缺 alerts 段时 alertsFromContract 抛的是
+  //   "可降级"的 SHAPE，只有让它发生在 lib/app.js 那段 try 里，结果才是"只降级这一段 + 横幅
+  //   说破原因"。留到运行期就变成每条请求一个 500 —— 而 500 在设备端看起来像"服务器坏了"，
+  //   会把一个永远不可能成功的请求重试三遍（A3 刚为同一个形状付过代价）。
+  const tracker = sharedTracker();
+  const observe = options.observe || ((event) => tracker.observe(event));
   const counters = new Map();
 
   function windowEntry(key, now, windowMs) {
@@ -60,7 +69,20 @@ function createSenderQuota(overrideWindows) {
     const minute = windowEntry(`${sender}:${kind}:m`, when, MINUTE_MS);
     if (minute) {
       minute.count += 1;
-      if (minute.count > window.perMinute) {
+      const overMinute = minute.count > window.perMinute;
+      // 告警与拦截读**同一个计数器**：拦下时记 denied，跨过契约那条 near 线时记 near。
+      // 另开一份计数就是第二份真值，而它的表现是"日志里已经超额了，告警却说没事"。
+      observe({
+        subjectKind: 'device',
+        subject: sender,
+        kind,
+        window: 'minute',
+        count: minute.count,
+        limit: window.perMinute,
+        denied: overMinute,
+        at: when,
+      });
+      if (overMinute) {
         return {
           status: code,
           retryAfter: Math.ceil((MINUTE_MS - (when - minute.windowStart)) / 1000),
@@ -72,7 +94,18 @@ function createSenderQuota(overrideWindows) {
       const day = windowEntry(`${sender}:${kind}:d:${Math.floor(when / DAY_MS)}`, when, DAY_MS);
       if (day) {
         day.count += 1;
-        if (day.count > window.perDay) {
+        const overDay = day.count > window.perDay;
+        observe({
+          subjectKind: 'device',
+          subject: sender,
+          kind,
+          window: 'day',
+          count: day.count,
+          limit: window.perDay,
+          denied: overDay,
+          at: when,
+        });
+        if (overDay) {
           return {
             status: code,
             retryAfter: Math.ceil((DAY_MS - (when - day.windowStart)) / 1000),

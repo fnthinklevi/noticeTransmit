@@ -68,6 +68,23 @@ app.listen(PORT, () => {
     console.log(`  ${line}  - ${which}`);
   }
   console.log(`  面的总量闸门（层 1，防单 IP 扇出）：${store.RATE_LIMIT_FNTHINK_MAX}/分钟/每 IP`);
+  // 告警口径也要打（A4）：这一段的四个数同样只从契约读，而它决定"运维什么时候才会看到一条 near"。
+  // 更要紧的是把"不落盘"打在启动第一屏 —— 空列表的含义是"这个进程起来以后没发生过"，
+  // 不是"没有异常"；这句话只在文档里写着，早晚有人拿它当结论去判断"服务端没问题"。
+  try {
+    const { sharedTracker } = require('./lib/fnthink/anomaly');
+    const a = sharedTracker().alerts;
+    console.log(
+      `  突增告警：near 线 = 额度的 ${a.nearQuotaRatio * 100}%，同一主体同一结论 ` +
+        `${a.cooldownMs / 1000}s 内合并，内存环上限 ${a.maxActiveAlerts} 条`,
+    );
+    console.log(
+      '    ⚠ 告警不落盘（契约 alerts.persistToDisk=false）：列表为空只代表"本进程起来以后没触发"，' +
+        '不代表"没有异常"。读取：GET /api/admin/fnthink/alerts（需登录）',
+    );
+  } catch (e) {
+    console.log(`  ⚠ 突增告警没有起来：${e.message}`);
+  }
   // 体积闸挂没挂上必须看得见：没挂上时公网面静默吃管理面那把 1 MB，而"公网面有上限"这件事
   // 只在日志里存在过，没人会去验证它。
   const bodyMax = app.get('fnthinkBodyMaxBytes');
