@@ -44,6 +44,16 @@ app.listen(PORT, () => {
   console.log(`  时间: ${new Date().toLocaleString()}`);
   console.log('==============================');
   console.log('');
+  console.log('协议面（fnthink-v1，公网可达）:');
+  console.log(
+    `  POST /api/fnthink/{message,poll,ack}  - 限流 ${store.RATE_LIMIT_FNTHINK_MAX}/分钟/每 IP`,
+  );
+  console.log(
+    `  trust proxy = ${process.env.TRUST_PROXY || '0（未设）'} — 反代部署必须按真实跳数设置，`,
+  );
+  console.log(
+    '    否则所有设备都算作同一个 IP，上面那份额度会被整片设备共同消耗（旧教训：限流变成整站自 DoS）',
+  );
   console.log('API 接口:');
   console.log('  GET  /api/version/check           - 检查版本更新');
   console.log('  POST /api/admin/login             - 管理员登录');

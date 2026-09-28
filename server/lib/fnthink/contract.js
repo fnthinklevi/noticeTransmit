@@ -24,24 +24,70 @@ const CONTRACT_FILE = process.env.FNTHINK_CONTRACT
   ? path.resolve(process.env.FNTHINK_CONTRACT)
   : path.resolve(__dirname, '..', '..', '..', 'protocol', 'fnthink-v1.json');
 
+// 契约层面的失败必须能被调用方**按种类**判断，而不是靠比对错误文案（文案一改，判断就瞎）。
+// code 只可能是这三种：MISSING（文件读不到）/ UNPARSEABLE（不是合法 JSON 或顶层不是对象）/
+// UNSUPPORTED（协议名形状或主版本这台实现不认识）。
+// 除此之外冒出来的异常一律是代码 bug —— 挂载方（lib/app.js）不许把它们咽成"协议不可用"：
+// 本片就实测过一次 app.js 漏 `require('./store')` 抛 ReferenceError，被那道降级 catch 吞掉，
+// 日志上一句"请把契约文件放到 protocol/"就把 bug 伪装成了部署问题。
+const CONTRACT_MISSING = 'FNTHINK_CONTRACT_MISSING';
+const CONTRACT_UNPARSEABLE = 'FNTHINK_CONTRACT_UNPARSEABLE';
+const CONTRACT_UNSUPPORTED = 'FNTHINK_CONTRACT_UNSUPPORTED';
+
+function tagged(code, cause) {
+  cause.code = code;
+  return cause;
+}
+
+/// 只有这三类契约层面的失败可以降级；其它异常必须继续往上抛。
+function isContractAvailabilityError(err) {
+  return err && [CONTRACT_MISSING, CONTRACT_UNPARSEABLE, CONTRACT_UNSUPPORTED].includes(err.code);
+}
+
 function loadContract() {
-  return JSON.parse(fs.readFileSync(CONTRACT_FILE, 'utf8'));
+  let text;
+  try {
+    text = fs.readFileSync(CONTRACT_FILE, 'utf8');
+  } catch (e) {
+    throw tagged(CONTRACT_MISSING, new Error(`读不到契约文件 ${CONTRACT_FILE}：${e.message}`));
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    throw tagged(CONTRACT_UNPARSEABLE, new Error(`契约文件不是合法 JSON：${e.message}`));
+  }
+  // JSON 数组也是 object —— 但 `contract.protocol` 在数组上是 undefined，
+  // 于是"顶层不是对象"这种形状错误会以"协议名不合法"的面目报出来，把排查方向带偏。
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw tagged(CONTRACT_UNPARSEABLE, new Error(`契约文件顶层必须是对象：${CONTRACT_FILE}`));
+  }
+  return parsed;
 }
 
 /// 版本闸门：不兼容时抛错（调用方在启动时跑一次，运行期不再判）。
 function assertSupported(contract) {
   const declared = /^fnthink-v(\d+)$/.exec(contract.protocol);
   if (!declared) {
-    throw new Error(`protocol 名不是 fnthink-v<N> 的形状：${contract.protocol}`);
+    throw tagged(
+      CONTRACT_UNSUPPORTED,
+      new Error(`protocol 名不是 fnthink-v<N> 的形状：${contract.protocol}`),
+    );
   }
   if (Number(declared[1]) !== contract.contractVersion) {
-    throw new Error(
-      `protocol 名里的版本（v${declared[1]}）与 contractVersion（${contract.contractVersion}）不一致`,
+    throw tagged(
+      CONTRACT_UNSUPPORTED,
+      new Error(
+        `protocol 名里的版本（v${declared[1]}）与 contractVersion（${contract.contractVersion}）不一致`,
+      ),
     );
   }
   if (contract.contractVersion !== SUPPORTED_MAJOR) {
-    throw new Error(
-      `契约 contractVersion=${contract.contractVersion}，服务端只实现到 v${SUPPORTED_MAJOR}`,
+    throw tagged(
+      CONTRACT_UNSUPPORTED,
+      new Error(
+        `契约 contractVersion=${contract.contractVersion}，服务端只实现到 v${SUPPORTED_MAJOR}`,
+      ),
     );
   }
   return contract;
@@ -113,6 +159,10 @@ function onlineThresholdMs(contract, pollIntervalSeconds) {
 module.exports = {
   SUPPORTED_MAJOR,
   CONTRACT_FILE,
+  CONTRACT_MISSING,
+  CONTRACT_UNPARSEABLE,
+  CONTRACT_UNSUPPORTED,
+  isContractAvailabilityError,
   loadContract,
   assertSupported,
   statusCodes,

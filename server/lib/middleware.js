@@ -42,6 +42,8 @@ const RATE_LIMIT_MAX_KEYS = 20000;
 
 function createRateLimitMiddleware(maxRequests, windowMs, message) {
   return (req, res, next) => {
+    // 已有专职限流器的路径不再吃全局那份额度（否则拆桶等于白拆：两把闸门里紧的那把先响）
+    if (store.dedicatedRateLimitCovers(req.path)) return next();
     const ip = store.getClientIp(req);
     // 键里的 path 由请求者控制：原实现按 `ip:精确路径` 记账，而任意路径（含 404、
     // 带随机 query 的探测串）都会新建一条记录并整体落盘 → 内存与 rate_limit.json

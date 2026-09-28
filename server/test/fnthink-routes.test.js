@@ -440,6 +440,28 @@ describe('源码守卫', () => {
     expect(code).toContain('statusCode(contract,');
   });
 
+  test('降级 catch 只咽契约类错误，代码 bug 必须继续抛', () => {
+    const appSrc = fs.readFileSync(path.join(__dirname, '../lib/app.js'), 'utf8');
+    // 这一条是被实测逼出来的：app.js 漏了 `require('./store')` 时抛 ReferenceError，
+    // 当时的 catch 把它吞成 503 + 一句"请把契约文件放到 protocol/"，
+    // 于是**代码 bug 伪装成部署问题**，测试里只看到一串莫名 503。
+    expect(appSrc).toContain('isContractAvailabilityError(e)');
+    expect(appSrc).toContain('throw e;');
+    const {
+      isContractAvailabilityError,
+      CONTRACT_MISSING,
+      CONTRACT_UNSUPPORTED,
+    } = require('../lib/fnthink/contract');
+    expect(
+      isContractAvailabilityError(Object.assign(new Error('x'), { code: CONTRACT_MISSING })),
+    ).toBe(true);
+    expect(
+      isContractAvailabilityError(Object.assign(new Error('x'), { code: CONTRACT_UNSUPPORTED })),
+    ).toBe(true);
+    expect(isContractAvailabilityError(new ReferenceError('store is not defined'))).toBe(false);
+    expect(isContractAvailabilityError(new SyntaxError('bad js'))).toBe(false);
+  });
+
   test('IP 封锁豁免只有一处白名单（中间件不许再抄一份前缀）', () => {
     const middleware = fs.readFileSync(path.join(__dirname, '../lib/middleware.js'), 'utf8');
     const storeSrc = fs.readFileSync(path.join(__dirname, '../lib/store.js'), 'utf8');

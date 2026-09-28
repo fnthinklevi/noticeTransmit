@@ -22,6 +22,11 @@ const RATE_LIMIT_FILE = path.join(DATA_DIR, 'rate_limit.json');
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_GENERAL_MAX = Number(process.env.RATE_LIMIT_GENERAL_MAX || 60);
 const RATE_LIMIT_AUTH_MAX = Number(process.env.RATE_LIMIT_AUTH_MAX || 5);
+// fnthink 面单独一份额度（默认 300/分钟/每 IP）。为什么不复用 GENERAL 那 60：
+// 一台设备上"pending 提频 poll"就要 12 次/分钟，家里四五台设备共用一个出口 IP 时
+// 60 会天天撞线；而 429 在协议面上是可自愈的（设备按 Retry-After 退避），撞了也不丢消息。
+// 真正的按端点/按发送方配额要等 T39/T40 的端点主体存在，那是另一层（见 roadmap #130）。
+const RATE_LIMIT_FNTHINK_MAX = Number(process.env.RATE_LIMIT_FNTHINK_MAX || 300);
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -186,6 +191,16 @@ function getClientIp(req) {
 //    网关层的滥用控制留给按发送方/端点/IP 的四层限流（#130、T58）。
 const IP_BLOCK_EXEMPT_PREFIXES = ['/health', '/api/version', '/api/fnthink'];
 
+// 已经有**专职限流器**的路径前缀：全局那层必须跳过它们，否则同一个请求被两把闸门
+// 各记一遍数，而其中较紧的那把（GENERAL 60）先响 —— 那正是"拆了桶却仍然整站 429"的形状。
+// ⚠ /api/admin 故意不列在这里：它历史上就同时吃 GENERAL 与 AUTH 两道，
+//   本任务不动它的既有行为（改了会顺手放宽管理面，那不是本片该做的事）。
+const DEDICATED_RATE_LIMIT_PREFIXES = ['/api/fnthink'];
+
+function dedicatedRateLimitCovers(path) {
+  const p = String(path || '');
+  return DEDICATED_RATE_LIMIT_PREFIXES.some((prefix) => p.startsWith(prefix));
+}
 function ipBlockExempt(path) {
   const p = String(path || '');
   // 必须是"整段相等"或"前缀 + /"：只写 startsWith(prefix) 的话，
@@ -197,6 +212,7 @@ function ipBlockExempt(path) {
 function rateLimitBucket(path) {
   const p = String(path || '');
   if (p.startsWith('/api/admin')) return 'api-admin';
+  if (p.startsWith('/api/fnthink')) return 'api-fnthink';
   if (p.startsWith('/api/')) return 'api';
   return 'static';
 }
@@ -547,6 +563,9 @@ module.exports = {
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_GENERAL_MAX,
   RATE_LIMIT_AUTH_MAX,
+  RATE_LIMIT_FNTHINK_MAX,
+  DEDICATED_RATE_LIMIT_PREFIXES,
+  dedicatedRateLimitCovers,
   SESSION_TTL_MS,
   MAX_FAILED_ATTEMPTS,
   FAILURE_WINDOW_MINUTES,

@@ -10,6 +10,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+const store = require('./store');
+const { isContractAvailabilityError } = require('./fnthink/contract');
 const middleware = require('./middleware');
 const authRoutes = require('./routes/auth');
 const versionRoutes = require('./routes/version');
@@ -69,9 +71,18 @@ app.use('/', versionRoutes);
 // 而它们和幻念推送一点关系都没有。所以这里接住，降级成"明确 503 + 启动日志说清缺哪份文件"，
 // 并让运维在日志第一屏就看到（不是等用户反馈"推送连不上"）。
 try {
+  // 限流器挂在路由之前：协议面上的洪水应该先被闸门挡住，再谈验签（验签比计数贵得多）。
+  const { createFnthinkRateLimiter } = require('./fnthink/ratelimit');
+  const fnthinkLimiter = createFnthinkRateLimiter(store.RATE_LIMIT_FNTHINK_MAX);
+  app.use('/api/fnthink', fnthinkLimiter);
   const fnthink = require('./fnthink/routes');
   app.use('/api/fnthink', fnthink.router);
 } catch (e) {
+  // ⚠ 只咽"契约这一层真的不可用"：文件不在 / 不是合法 JSON / 协议主版本不认识。
+  //   其它异常一律往上抛 —— 本片实测踩过：这里漏了 `require('./store')`，抛的是
+  //   ReferenceError，被这道 catch 吞成 503，日志变成"请把契约文件放到 protocol/"，
+  //   于是一个代码 bug 伪装成了部署问题（而且测试里只看到一串 503）。
+  if (!isContractAvailabilityError(e)) throw e;
   console.error('[fnthink] 协议入口没有起来，这段路由已降级为 503：', e.message);
   console.error(
     '[fnthink] 需要把契约文件放到 protocol/fnthink-v1.json，或用 FNTHINK_CONTRACT 指向它',
