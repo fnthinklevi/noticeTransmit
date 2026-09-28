@@ -553,5 +553,72 @@ void main() {
       });
       expectProblem(broken, '双域名必须不同', '同域就没有"大陆/国际可达性不同"这回事，T57 落空');
     });
+
+    test('poll 的事件类型改用 notice ⇒ 报（一次 poll 的签名就能冒充一条已授权通知）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['poll']
+                as Map<String, Object?>)['messageType'] =
+            'notice';
+      });
+      expectProblem(
+        broken,
+        '不得出现在 capabilities.messageTypes',
+        '事件与消息共用签字节，type 撞车就是同一把签名两个接口都能用',
+      );
+    });
+
+    test('poll 允许 target 填别人的地址码 ⇒ 报（一台设备能读走别人的队列）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['poll']
+                as Map<String, Object?>)['targetMustEqualSender'] =
+            false;
+      });
+      expectProblem(
+        broken,
+        'targetMustEqualSender 必须为 true',
+        '不钉这条，任何已配对设备都能拿到别人的标题与正文',
+      );
+    });
+
+    test('ack.fields 与 delivery.ackFields 分叉 ⇒ 报（两张表早晚各改一份）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['ack']
+            as Map<String, Object?>)['fields'] = [
+          'messageId',
+        ];
+      });
+      expectProblem(
+        broken,
+        '必须与 delivery.ackFields 逐字相同',
+        '字段名分叉的表现是 ack 静默读不到 result',
+      );
+    });
+
+    test('poll 响应里没有 serverTime ⇒ 报（ts 以服务端时间判定就没有承载处）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['poll']
+            as Map<String, Object?>)['returns'] = [
+          'messages',
+          'pending',
+        ];
+      });
+      expectProblem(
+        broken,
+        '必须含 serverTime',
+        '设备自算偏移只能在拿到响应之后进行，缺这字段 T29 那半条永远落不了地',
+      );
+    });
+
+    test('回执改成另开一个状态接口 ⇒ 报（与 senderPollsStatusEndpoint=false 矛盾）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['receiptDelivery'] =
+            'status_endpoint';
+      });
+      expectProblem(
+        broken,
+        'receiptDelivery 必须是 poll_response',
+        '两条并存的路会让发送端去轮一个契约没定义的入口',
+      );
+    });
   });
 }

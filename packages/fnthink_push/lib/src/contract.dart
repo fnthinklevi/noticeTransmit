@@ -784,6 +784,75 @@ class FnthinkContract {
       'privacy.dedupeRefreshWhile 必须是一个投递状态：'
       '${str(const ['privacy', 'dedupeRefreshWhile'])}',
     );
+    // 回执只走 poll 响应，且与「发送端不轮询状态接口」必须同向 ——
+    // 一个说 poll_response、一个说 senderPollsStatusEndpoint=true，就是两条并存的路。
+    need(
+      str(const ['delivery', 'receiptDelivery']) == 'poll_response' &&
+          boolOf(const ['delivery', 'senderPollsStatusEndpoint']) == false,
+      'delivery.receiptDelivery 必须是 poll_response 且 senderPollsStatusEndpoint 必须为 false：'
+      '回执另开一个状态接口，等于让发送端去轮一个契约没定义的入口',
+    );
+
+    // ── 设备侧签名事件（poll / ack）──
+    // 这一段的存在理由只有一条：**事件不是消息**。poll 与 ack 复用同一套签字节、时间容差和
+    // nonce 去重（不然就是给这两条路各开一个免检入口），但它们的 type 绝不能出现在
+    // capabilities.messageTypes 里 —— 一台设备若能拿一次 poll 的签名冒充一条已授权的通知，
+    // 前面整条验签链就白做了。下面每条判据都对应一种"看起来只是配置"的破坏方式。
+    final pollType = str(const ['clientEvents', 'poll', 'messageType']) ?? '';
+    final ackType = str(const ['clientEvents', 'ack', 'messageType']) ?? '';
+    final vocabulary = messageTypeLevels.keys.toSet();
+    need(
+      pollType.isNotEmpty && ackType.isNotEmpty && pollType != ackType,
+      'clientEvents.poll/ack.messageType 必须都非空且互不相同：$pollType / $ackType',
+    );
+    need(
+      !vocabulary.contains(pollType) && !vocabulary.contains(ackType),
+      'clientEvents 的事件类型不得出现在 capabilities.messageTypes 里'
+      '（出现就等于一次设备事件的签名可以当一条用户消息用）：'
+      '$pollType / $ackType vs $vocabulary',
+    );
+    need(
+      boolOf(const ['clientEvents', 'notInCapabilitiesVocabulary']) == true,
+      'clientEvents.notInCapabilitiesVocabulary 必须为 true（上面那条判据的声明处）',
+    );
+    need(
+      boolOf(const ['clientEvents', 'poll', 'targetMustEqualSender']) == true,
+      'clientEvents.poll.targetMustEqualSender 必须为 true：'
+      '否则一台已配对设备能读走别人队列里的标题与正文（验证码常常就在正文里）',
+    );
+    need(
+      boolOf(const ['clientEvents', 'ack', 'onlyForOwnMessages']) == true,
+      'clientEvents.ack.onlyForOwnMessages 必须为 true：'
+      '否则可以把别人队列里的消息逐个 ack 成 delivered，而正文按契约在 delivered 时立即删除 —— '
+      '那等于替别人把消息销毁',
+    );
+    need(
+      boolOf(const ['clientEvents', 'ack', 'resultMustBeReceipt']) == true,
+      'clientEvents.ack.resultMustBeReceipt 必须为 true：ack 的 result 必须是回执词表里的值',
+    );
+    need(
+      strings(const ['clientEvents', 'ack', 'fields']).join('|') ==
+          strings(const ['delivery', 'ackFields']).join('|'),
+      'clientEvents.ack.fields 必须与 delivery.ackFields 逐字相同（两张表各写一份，'
+      '早晚一张改了另一张没改，那时 ack 会静默地读不到 result）',
+    );
+    need(
+      strings(const ['clientEvents', 'poll', 'returns']).contains('serverTime'),
+      'clientEvents.poll.returns 必须含 serverTime：'
+      '「ts 以服务端时间判定」要有承载处，设备自算偏移只能在拿到响应之后进行',
+    );
+    final maxBatch =
+        intOf(const ['clientEvents', 'poll', 'maxBatchPerPoll']) ?? 0;
+    need(
+      maxBatch > 0 &&
+          maxBatch <= (intOf(const ['retention', 'pendingPerDeviceMax']) ?? 0),
+      'clientEvents.poll.maxBatchPerPoll 必须是正整数且不超过 pendingPerDeviceMax：$maxBatch',
+    );
+    need(
+      boolOf(const ['clientEvents', 'nonceSpaceSharedWithMessages']) == true,
+      'clientEvents.nonceSpaceSharedWithMessages 必须为 true：'
+      '事件与消息共用同一个 nonce 空间，抓到一个已签的 poll 就不能换个接口再放一次',
+    );
 
     // ── 存储侧的"必要字段"与正文静态加密（T34-B）──
     final storedFields = strings(const ['retention', 'storedFields']);

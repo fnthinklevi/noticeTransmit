@@ -81,39 +81,15 @@ function verifySignature(contract, publicKeyB64, canonical, signatureB64) {
 }
 
 /// 一次入站消息的完整裁决。`now` 由调用方注入（服务端时间，且测试要能把时钟拧动）。
+///
+/// ⚠ 身份段与重放段是**从这里抽出去共用的**（`verifyIdentity` / `checkFresh`），因为
+/// poll 与 ack 是同一把钥匙签的另两类事件（契约 `clientEvents`）。留在两处各写一遍的话，
+/// 下一批改动的表现是"消息入口加了状态白名单，poll 入口没加" —— 吊销了的设备仍能从
+/// poll 里读走自己的队列，而那不会有任何一条用例报错。
 function acceptIncoming(contract, state, input) {
-  // 每次现造一个对象：同形那条判据要真的比"两份各自造出来的东西"，
-  // 复用同一个实例会让断言在"其实两条走法形状不同"被改坏的那一天也照样绿。
-  const forbidden = (reason) =>
-    counted(
-      contract,
-      state,
-      input,
-      { ok: false, status: statusCode(contract, 'forbidden'), receipt: 'rejected_unsigned' },
-      reason,
-    );
-  // 留痕与对外形状是两件事：`reason` 只进 state.rejects，**绝不出现在响应里**，
-  // 所以"未知设备"和"签名不对"在服务端内部可分辨（将来显示"有 N 次冒充你的尝试"），
-  // 在网络上看仍是同一个包。
-  const sender = normalize(alphabetFromContract(contract), input.senderAddress || '');
-  const device = sender === null ? undefined : state.devices[sender];
-
-  let canonical;
-  try {
-    canonical = canonicalBytes(contract, input.fields || {});
-  } catch (e) {
-    // 客户端算的串我们不用；字段不齐是它的错，但**先不透露设备存不存在**，所以同形返回
-    return forbidden('fields');
-  }
-
-  // ① + ②：没有记录、状态不在白名单里、公钥形状不对、验签失败 —— 这几种都长同一个样。
-  // ⚠ 判定问的是"这台设备的状态在不在**允许投递**那张表里"，不是"它是不是 frozen"：
-  // 后者是黑名单，将来契约新增一个状态（如 awaitingRepair）会静默地"没被枚举到 = 继续投递"。
-  const allowedStatuses = (contract.revocation || {}).deliveryAllowedStatuses || [];
-  if (!device) return forbidden('unknown_device');
-  if (!allowedStatuses.includes(device.status)) return forbidden('status:' + device.status);
-  if (!verifySignature(contract, device.publicKey, canonical, input.signature))
-    return forbidden('signature');
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const { sender, device, canonical } = id;
 
   // ── 以下是"身份已被证明"的区域，可以照实说（T27/T28 那条同形规则到此为止）──
   const denied = (receipt, reason) =>
@@ -142,27 +118,78 @@ function acceptIncoming(contract, state, input) {
   });
   if (!cap.allowed) return denied('rejected_capability', 'capability:' + cap.reason);
 
-  // 时间容差与重放
+  const fresh = checkFresh(contract, state, input, sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, status: statusCode(contract, 'queued'), receipt: 'queued' };
+}
+
+/// 身份段：地址码形状 → 设备表 → 状态白名单 → 验签。
+/// 这四种失败对外**逐字节同形**（否则本接口就成了"哪些地址码有效"的枚举器），
+/// 内部仍留 reason 供"有 N 次冒充你的尝试"那类展示用。
+function verifyIdentity(contract, state, input) {
+  // 留痕与对外形状是两件事：`reason` 只进 state.rejects，**绝不出现在响应里**，
+  // 所以"未知设备"和"签名不对"在服务端内部可分辨（将来显示"有 N 次冒充你的尝试"），
+  // 在网络上看仍是同一个包。
+  // 每次现造一个对象：同形那条判据要真的比"两份各自造出来的东西"，
+  // 复用同一个实例会让断言在"其实两条走法形状不同"被改坏的那一天也照样绿。
+  const forbidden = (reason) =>
+    counted(
+      contract,
+      state,
+      input,
+      { ok: false, status: statusCode(contract, 'forbidden'), receipt: 'rejected_unsigned' },
+      reason,
+    );
+  const sender = normalize(alphabetFromContract(contract), input.senderAddress || '');
+  const device = sender === null ? undefined : state.devices[sender];
+
+  let canonical;
+  try {
+    canonical = canonicalBytes(contract, input.fields || {});
+  } catch (e) {
+    // 客户端算的串我们不用；字段不齐是它的错，但**先不透露设备存不存在**，所以同形返回
+    return { outcome: forbidden('fields') };
+  }
+
+  // ⚠ 判定问的是"这台设备的状态在不在**允许投递**那张表里"，不是"它是不是 frozen"：
+  // 后者是黑名单，将来契约新增一个状态（如 awaitingRepair）会静默地"没被枚举到 = 继续投递"。
+  const allowedStatuses = (contract.revocation || {}).deliveryAllowedStatuses || [];
+  if (!device) return { outcome: forbidden('unknown_device') };
+  if (!allowedStatuses.includes(device.status))
+    return { outcome: forbidden('status:' + device.status) };
+  if (!verifySignature(contract, device.publicKey, canonical, input.signature)) {
+    return { outcome: forbidden('signature') };
+  }
+  return { sender, device, canonical };
+}
+
+/// 时间容差与重放，**必须排在身份之后**：顺序决定哪些失败可以对外说清楚。
+/// 去重表要落盘 —— 只在内存里记一遍，等于每次重启就重开一次重放窗口。
+function checkFresh(contract, state, input, senderKey) {
   const skew = Number((contract.signature || {}).maxSkewSeconds || 0);
   const ts = Number(input.fields.ts);
   if (!Number.isFinite(ts) || Math.abs(input.now - ts * 1000) > skew * 1000) {
-    return counted(
-      contract,
-      state,
-      input,
-      { ok: false, status: statusCode(contract, 'expired'), receipt: 'expired' },
-      'expired',
-    );
+    return {
+      outcome: counted(
+        contract,
+        state,
+        input,
+        { ok: false, status: statusCode(contract, 'expired'), receipt: 'expired' },
+        'expired',
+      ),
+    };
   }
-  const nonceKey = `${sender}|${input.fields.nonce}`;
+  const nonceKey = `${senderKey}|${input.fields.nonce}`;
   if (seenNonce(state.nonces, nonceKey, input.now)) {
-    return counted(
-      contract,
-      state,
-      input,
-      { ok: false, status: statusCode(contract, 'duplicate'), receipt: 'duplicate' },
-      'duplicate',
-    );
+    return {
+      outcome: counted(
+        contract,
+        state,
+        input,
+        { ok: false, status: statusCode(contract, 'duplicate'), receipt: 'duplicate' },
+        'duplicate',
+      ),
+    };
   }
   rememberNonce(
     state.nonces,
@@ -170,11 +197,10 @@ function acceptIncoming(contract, state, input) {
     input.now,
     Number((contract.signature || {}).nonceDedupeSeconds || 0),
   );
-  // 去重表必须落盘：只在内存里记一遍，等于每次重启就重开一次重放窗口。
   // 传了 saveNonces 却不落盘 = "记住了"和"重启还记得"是两件事，这里把后者也接上。
   if (typeof state.persist === 'function') state.persist();
   else saveNonces(state.nonces);
-  return { ok: true, status: statusCode(contract, 'queued'), receipt: 'queued' };
+  return { ok: true };
 }
 
 /// 拒收都要计一次数（任务书"失败即丢并计数"那条）。只写内存，理由见 devicestore 那段注释。
@@ -189,4 +215,9 @@ module.exports = {
   canonicalBytes,
   verifySignature,
   acceptIncoming,
+  // 给 clientEvents（poll / ack）共用的两段：身份段与重放段。
+  // ⚠ 它们不是"对外可随便拼的半个裁决"：路由侧只许按 events.js 里那个顺序用，
+  //   顺序本身是判据（身份之前同形、之后照实说）。
+  verifyIdentity,
+  checkFresh,
 };
