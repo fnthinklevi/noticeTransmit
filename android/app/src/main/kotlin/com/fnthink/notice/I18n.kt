@@ -354,23 +354,28 @@ object I18n {
         if (isEn) "push in ${seconds}s" else "${seconds}s 后推送"
 
     // ========== 桌面小部件 ==========
-    fun widgetActiveText(): String = if (isEn) "PUSHING" else "推送中"
-    fun widgetPausedText(): String = if (isEn) "PAUSED" else "已暂停"
-    fun widgetTapPause(): String = if (isEn) "Tap to pause push" else "点击暂停推送"
-    fun widgetTapResume(): String = if (isEn) "Tap to resume push" else "点击恢复推送"
-    fun widgetDailyPushed(): String = if (isEn) "Pushed today" else "当日已推送"
-    // 「已关闭」必须同时给出**下一步**，不能只甩两个字：小部件没有解释机会，
-    // 而这一态的两种成因（被清理 / 在应用里关了监听）指向两个不同的动作。
-    fun widgetClosedText(): String = if (isEn) "OFF" else "已关闭"
-    fun widgetClosedKilled(): String = if (isEn)
-        "App was closed · tap to reopen"
-    else "应用已被清理 · 点击重新打开"
-    fun widgetClosedListenerOff(): String = if (isEn)
-        "Listener off · tap to open app"
-    else "监听未开启 · 点击打开应用"
-    fun widgetClosedNeverStarted(): String = if (isEn)
-        "Not started · tap to open app"
-    else "尚未启动 · 点击打开应用"
+    // ⚠ 这一族的文案长度是**版式定的**，不是风格：2×2 卡片去掉内边距只剩 78dp 宽，
+    // 24sp 粗体英文一个字母约 19dp（⇒ 大字 ≤4 个字母），12sp 小字约 6dp（⇒ ≤13 个字母 / 6 个汉字）。
+    // 中文按这个写正好，英文一写成就溢出被省略号截掉 —— 而且只有渲染出来才看得见。
+    // 所以这几条字符串的宽度由 WidgetRenderSnapshotTest（zh + en × 2 主题 × 2 规格 × 3 态）逐张核对，
+    // 改文案前后请重跑它，别只看中文。
+    fun widgetActiveText(): String = if (isEn) "Live" else "推送中"
+    fun widgetPausedText(): String = if (isEn) "Idle" else "已暂停"
+    fun widgetTapPause(): String = if (isEn) "Tap to pause" else "点击暂停推送"
+    fun widgetTapResume(): String = if (isEn) "Tap to resume" else "点击恢复推送"
+    fun widgetDailyPushed(): String = if (isEn) "Sent today" else "当日已推送"
+    // 「已关闭」的副文案按**四种成因**分叉：一律写"已被清理"就有几条是错的
+    // （STOPPED 是自己停的、KILLED 是被系统杀的、LISTENER_DISABLED 是在应用里关的、
+    // NEVER_STARTED 是还没跑过）。四种处境对应的下一步不同，所以这一行说的是"为什么"
+    // 而不是"怎么办" —— 大字已经说了"已关闭"，桌面上唯一取不到的信息就是原因；
+    // 而"点小部件能重开"由另外两态的「点击…」教会用户（4×2 与 2×2 同为两格高，塞不下第四行）。
+    // 每句都必须短到一行放得下：加长一个字就会被省略号截断，
+    // 渲染取证 WidgetRenderSnapshotTest 的 collectClipped 正是钉这一点的。
+    fun widgetClosedText(): String = if (isEn) "Off" else "已关闭"
+    fun widgetClosedKilled(): String = if (isEn) "App closed" else "应用已被清理"
+    fun widgetClosedStopped(): String = if (isEn) "Service off" else "服务已停止"
+    fun widgetClosedListenerOff(): String = if (isEn) "Listener off" else "监听未开启"
+    fun widgetClosedNeverStarted(): String = if (isEn) "Not started" else "尚未启动过"
     fun widgetAddTitle(): String = if (isEn) "Add widget" else "添加桌面小部件"
     fun widgetAddDesc(): String = if (isEn)
         "Tap below, then confirm in the system dialog to place the 2×2 push toggle widget on your home screen."

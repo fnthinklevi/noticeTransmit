@@ -30,10 +30,10 @@
     <color name="widget_paused_on">#6B0E14</color>
     <color name="widget_paused_accent">#D93A40</color>
     <color name="widget_paused_outline">#F0A0A5</color>
-    <color name="widget_closed_container">#E7EDF3</color>
+    <color name="widget_closed_container">#C4D2E4</color>
     <color name="widget_closed_on">#26333F</color>
-    <color name="widget_closed_accent">#6C7F91</color>
-    <color name="widget_closed_outline">#B4C2CE</color>
+    <color name="widget_closed_accent">#3F566B</color>
+    <color name="widget_closed_outline">#9DB0C4</color>
     <!-- 卡片上的浮层（计数面板、提示胶囊）：用半透明黑叠加，三态容器上都成立，
          不必再为每一态配一个白色 -->
     <color name="widget_overlay_soft">#14000000</color>

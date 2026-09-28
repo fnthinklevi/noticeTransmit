@@ -20,14 +20,18 @@ class WidgetProviderSourceGuardTest {
 
     @Test
     fun providerJudgesByLivenessNotByPushSwitch() {
-        val block = extractFunction(providerSource, "fun updateWidget(")
+        val block = extractFunction(providerSource, "fun buildRemoteViews(")
         assertTrue(
             "没找到 updateWidget 函数体 —— 守卫本身失效了",
             block.isNotEmpty(),
         )
         assertTrue(
-            "updateWidget 必须走 WidgetLiveness.resolveState —— 单看 isPushActive 会让被清理后的桌面继续显示绿色「推送中」",
+            "渲染路径必须走 WidgetLiveness.resolveState —— 单看 isPushActive 会让被清理后的桌面继续显示绿色「推送中」",
             block.contains("resolveState(context)"),
+        )
+        assertTrue(
+            "updateWidget 必须只是「取尺寸 + 委托」：视图构造只有一处",
+            extractFunction(providerSource, "fun updateWidget(").contains("buildRemoteViews(context,"),
         )
         // 判据范围：只禁"渲染路径"里用它。onReceive 里 toggle 之后拿它打日志是合法的
         // （缓存刚被自己写过），全文件一律禁掉会让这条守卫变成谁也过不了的门。
@@ -39,7 +43,7 @@ class WidgetProviderSourceGuardTest {
 
     @Test
     fun closedStateTapsIntoAppNotBackgroundServiceStart() {
-        val block = extractFunction(providerSource, "fun updateWidget(")
+        val block = extractFunction(providerSource, "fun buildRemoteViews(")
         assertTrue(
             "CLOSED 态点击必须挂 PendingIntent.getActivity（打开应用由既有重绑链路拉起）",
             block.contains("PendingIntent.getActivity"),
@@ -102,10 +106,10 @@ class WidgetProviderSourceGuardTest {
             "不要蹭精确闹钟权限（那是给延迟/聚合推送用的）",
             !alarm.contains("setExactAndAllowWhileIdle"),
         )
-        val render = extractFunction(providerSource, "fun updateWidget(")
+        val render = extractFunction(providerSource, "fun buildRemoteViews(")
         assertTrue(
             "渲染路径末尾必须按状态排/撤闹钟，且 CLOSED 传 alive=false",
-            render.contains("scheduleLivenessRefresh(context, alive = state != WidgetLiveness.State.CLOSED)"),
+            render.contains("scheduleLivenessRefresh(context, alive = !closed)"),
         )
     }
 

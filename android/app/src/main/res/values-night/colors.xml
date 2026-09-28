@@ -18,10 +18,10 @@
     <color name="ic_launcher_graphite_bg">#2c2c2e</color>
     <color name="ic_launcher_black_bg">#0a0a0c</color>
     <!-- 桌面小部件三态（深色桌面）：容器压暗、文字提亮，语义与浅色一致 -->
-    <color name="widget_pushing_container">#123D21</color>
+    <color name="widget_pushing_container">#1B5A2C</color>
     <color name="widget_pushing_on">#CFF3D9</color>
     <color name="widget_pushing_accent">#5BD381</color>
-    <color name="widget_pushing_outline">#1E5C31</color>
+    <color name="widget_pushing_outline">#2E7D43</color>
     <color name="widget_paused_container">#48141A</color>
     <color name="widget_paused_on">#FFDAD9</color>
     <color name="widget_paused_accent">#FF7A7A</color>

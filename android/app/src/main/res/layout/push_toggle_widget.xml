@@ -3,9 +3,10 @@
   桌面小部件 2×2 紧凑布局（推送状态 + 一键暂停/恢复）
 
   版式取自成熟小组件的共同做法：**一张纯色容器 + 三段层级**
-    ① 顶部 图标 + 应用名（弱色、小字，回答"这是谁"）
-    ② 中段 状态大字（强色，一眼可读，22sp 在桌面距离下才认得出）
-    ③ 底部 一行动作提示（弱色，回答"我能干什么 / 发生了什么事"）
+    ① 顶部 状态图标（弱色底上的形状通道；**2×2 不放应用名** —— 86dp 的内容宽度装不下
+       "通知推送助手"六个字 + 图标，截成"通知…"既读不出品牌也白占一行，见 provider）
+    ② 中段 状态大字（强色，一眼可读，24sp 在桌面距离下才认得出）
+    ③ 底部 一行小字（弱色，CLOSED 时给"为什么"，其余给"怎么办"）
   原先是"浅绿卡片 + 中间一个 56dp 圆塞 11sp 字"：圆里的字太小看不清，
   颜色又是近乎白的浅绿 —— 桌上一扫而过等于没有状态。现在整张卡片就是状态色。
 
@@ -58,14 +59,17 @@
         android:textStyle="bold"
         tools:ignore="HardcodedText" />
 
-    <!-- ③ 动作提示 / 已关闭时说明原因与下一步 -->
+    <!-- ③ 底部小字。CLOSED 这一行给"为什么"（四种成因四种处境，一律写"已被清理"就有错的）。
+         maxLines=1 是刻意的：110dp 高的卡片去掉上下内边距只剩 82dp，两行小字会把 24sp 的
+         状态大字顶出边界（渲染取证实拍到"已关闭"下沿被裁）。4×2 也一样只一行 ——
+         它多出来的是宽度，不是高度。 -->
     <TextView
         android:id="@+id/widget_hint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:includeFontPadding="false"
-        android:maxLines="2"
+        android:maxLines="1"
         android:text="点击暂停推送"
         android:textSize="12sp"
         tools:ignore="HardcodedText" />

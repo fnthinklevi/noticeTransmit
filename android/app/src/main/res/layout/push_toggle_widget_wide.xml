@@ -35,7 +35,6 @@
             android:ellipsize="end"
             android:gravity="center_vertical"
             android:includeFontPadding="false"
-            android:letterSpacing="0.04"
             android:maxLines="1"
             android:text="通知推送助手"
             android:textSize="12sp"
@@ -55,6 +54,8 @@
             android:textStyle="bold"
             tools:ignore="HardcodedText" />
 
+        <!-- maxLines=1：4×2 与 2×2 同为两格高，多出来的只有宽度 —— 第四行放不下，
+             硬塞会把状态大字顶出卡片下沿（渲染取证的 collectClipped 会点名）。 -->
         <TextView
             android:id="@+id/widget_hint"
             android:layout_width="match_parent"
@@ -62,7 +63,7 @@
             android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:includeFontPadding="false"
-            android:maxLines="2"
+            android:maxLines="1"
             android:text="点击暂停推送"
             android:textSize="12sp"
             tools:ignore="HardcodedText" />
@@ -74,7 +75,7 @@
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_marginStart="12dp"
-        android:layout_weight="0.85"
+        android:layout_weight="0.7"
         android:background="@drawable/widget_panel_count"
         android:baselineAligned="false"
         android:gravity="center"
@@ -88,7 +89,6 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:includeFontPadding="false"
-            android:letterSpacing="0.06"
             android:maxLines="1"
             android:text="当日已推送"
             android:textSize="11sp"

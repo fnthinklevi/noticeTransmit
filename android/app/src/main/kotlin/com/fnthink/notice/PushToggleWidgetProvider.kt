@@ -126,14 +126,32 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             manager: AppWidgetManager,
             widgetId: Int,
         ) {
-            val verdict = resolveState(context)
-            val state = verdict.state
-            val closed = state == WidgetLiveness.State.CLOSED
-
             // 自适应尺寸：根据当前宽度选择布局（2×2 紧凑 / 4×2 宽）
             val options = manager.getAppWidgetOptions(widgetId)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-            val useWide = minWidth >= WIDE_LAYOUT_MIN_WIDTH_DP
+            buildRemoteViews(context, minWidth >= WIDE_LAYOUT_MIN_WIDTH_DP)
+                .also { manager.updateAppWidget(widgetId, it) }
+        }
+
+        /**
+         * 只负责"把当前状态画成一份 RemoteViews"，不碰 AppWidgetManager。
+         *
+         * 分开不为好看：小组件的真面目只有桌面渲染时看得见，而桌面不能自动化 ——
+         * 拆出这个函数后，仪器测试可以把同一份 RemoteViews `apply()` 出来画到 Bitmap，
+         * 于是"三态 × 两规格"的视觉效果变成可反复核对的证据（见 WidgetRenderSnapshotTest），
+         * 而不是"等某个人某一天瞄一眼"。
+         */
+        @JvmStatic
+        internal fun buildRemoteViews(
+            context: Context,
+            useWide: Boolean,
+            verdictOverride: WidgetLiveness.Verdict? = null,
+        ): RemoteViews {
+            // 判定在函数体里，不放在默认参数上：一是渲染取证要能指定某一态，
+            // 二是「谁在算状态」这件事得在函数体内看得见（源码守卫就是按函数体查的）。
+            val verdict = verdictOverride ?: resolveState(context)
+            val state = verdict.state
+            val closed = state == WidgetLiveness.State.CLOSED
             val layoutRes = if (useWide) R.layout.push_toggle_widget_wide else R.layout.push_toggle_widget
             val views = RemoteViews(context.packageName, layoutRes)
 
@@ -143,8 +161,10 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
                 backgroundFor(state),
             )
 
-            // 左上角标题（跟随语言切换）
-            views.setTextViewText(R.id.widget_title, I18n.appName())
+            // 左上角标题（跟随语言切换）。**2×2 只留图标不留字**：应用名 6 个汉字 + 图标在
+            // 86dp 的内容宽度里放不下，被截成「通知…」既读不出品牌也白占一行（渲染取证实拍到的样子）。
+            // 空 TextView 仍然按复合 drawable 撑出图标那一行，所以第二条通道（形状）没丢。
+            views.setTextViewText(R.id.widget_title, if (useWide) I18n.appName() else "")
             views.setTextColor(R.id.widget_title, context.getColor(onColorFor(state)))
 
             // 图标与文字都跟着状态走：颜色之外必须有第二条通道（色盲用户、低对比环境）。
@@ -157,7 +177,9 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_status, statusText(state))
             views.setTextColor(R.id.widget_status, strong)
 
-            // 底部提示：CLOSED 要说清"为什么"并给出下一步，不能只写"已关闭"三个字
+            // 底部小字。CLOSED 给「为什么」而不是「怎么办」：大字已经说了"已关闭"，
+            // 桌面上唯一取不到的信息是原因；而"点小部件能重开"由另外两态的「点击…」教会用户，
+            // 4×2 也塞不下第四行（它与 2×2 同为两格高，多出来的只有宽度）。
             views.setTextViewText(R.id.widget_hint, hintText(verdict))
             views.setTextColor(R.id.widget_hint, weak)
 
@@ -195,9 +217,9 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             // 兜底刷新：只有"卡片此刻显示的是活着的状态"才需要闹钟去发现它什么时候死的；
             // 已经显示「已关闭」就撤掉闹钟 —— 不然桌面上一张永远灰的卡片会每 15 分钟
             // 白叫一次这个进程。
-            scheduleLivenessRefresh(context, alive = state != WidgetLiveness.State.CLOSED)
+            scheduleLivenessRefresh(context, alive = !closed)
 
-            manager.updateAppWidget(widgetId, views)
+            return views
         }
 
         /**
@@ -273,13 +295,21 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             WidgetLiveness.State.CLOSED -> I18n.widgetClosedText()
         }
 
-        /** CLOSED 的副文案按原因分叉：「去应用里打开监听」与「被清理了，点我打开应用」不是一回事。 */
+        /**
+         * 底部那一行小字。
+         *
+         * CLOSED 必须按成因分叉：STOPPED（自己停的）与 KILLED（被系统杀的）是两种不同的处境，
+         * 一律写"已被清理"就有几条是错的。四种成因各给一句"为什么"（不是"怎么办"，
+         * 理由见 [buildRemoteViews] 里那段注释），且**每句都短到 2×2 一行放得下** ——
+         * 加长一个字就会被省略号截掉，而渲染取证的 `collectClipped` 正是钉这一点的。
+         */
         private fun hintText(verdict: WidgetLiveness.Verdict): String = when (verdict.state) {
             WidgetLiveness.State.PUSHING -> I18n.widgetTapPause()
             WidgetLiveness.State.PAUSED -> I18n.widgetTapResume()
             WidgetLiveness.State.CLOSED -> when (verdict.reason) {
                 WidgetLiveness.Reason.LISTENER_DISABLED -> I18n.widgetClosedListenerOff()
                 WidgetLiveness.Reason.NEVER_STARTED -> I18n.widgetClosedNeverStarted()
+                WidgetLiveness.Reason.STOPPED -> I18n.widgetClosedStopped()
                 else -> I18n.widgetClosedKilled()
             }
         }
