@@ -30,7 +30,7 @@ class WidgetProviderSourceGuardTest {
             block.contains("resolveState(context)"),
         )
         // 判据范围：只禁"渲染路径"里用它。onReceive 里 toggle 之后拿它打日志是合法的
-        //（缓存刚被自己写过），全文件一律禁掉会让这条守卫变成谁也过不了的门。
+        // （缓存刚被自己写过），全文件一律禁掉会让这条守卫变成谁也过不了的门。
         assertFalse(
             "渲染路径里不许出现 isPushActive()：那是「用户暂停了没有」，不是「进程还在不在」",
             block.contains("isPushActive()"),
@@ -85,6 +85,27 @@ class WidgetProviderSourceGuardTest {
         assertTrue(
             "节拍心跳必须走 IO 协程而不是主线程同步写盘（本仓库为热路径上的同步磁盘 IO 付过 ANR 学费）",
             Regex("""writeLiveness\(running = true, sync = false\)""").containsMatchIn(serviceSource),
+        )
+    }
+
+    /** 兜底闹钟必须自己收口：灰卡片不该每 15 分钟叫醒一次进程却看不出任何变化。 */
+    @Test
+    fun livenessAlarmIsSelfLimiting() {
+        val alarm = extractFunction(providerSource, "internal fun scheduleLivenessRefresh(")
+        assertTrue("没找到 scheduleLivenessRefresh", alarm.isNotEmpty())
+        assertTrue("活着才排闹钟（setAndAllowWhileIdle）", alarm.contains("setAndAllowWhileIdle"))
+        assertTrue(
+            "撤销必须用 FLAG_NO_CREATE，不能为了 cancel 凭空造一个 PendingIntent",
+            alarm.contains("FLAG_NO_CREATE"),
+        )
+        assertTrue(
+            "不要蹭精确闹钟权限（那是给延迟/聚合推送用的）",
+            !alarm.contains("setExactAndAllowWhileIdle"),
+        )
+        val render = extractFunction(providerSource, "fun updateWidget(")
+        assertTrue(
+            "渲染路径末尾必须按状态排/撤闹钟，且 CLOSED 传 alive=false",
+            render.contains("scheduleLivenessRefresh(context, alive = state != WidgetLiveness.State.CLOSED)"),
         )
     }
 

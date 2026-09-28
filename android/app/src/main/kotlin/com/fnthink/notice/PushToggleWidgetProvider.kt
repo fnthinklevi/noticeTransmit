@@ -1,5 +1,6 @@
 package com.fnthink.notice
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -53,6 +54,17 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
         /** PendingIntent 请求码：切换=0，打开应用=1（同一 requestCode 会让两套意图互相覆盖） */
         private const val REQ_TOGGLE = 0
         private const val REQ_OPEN_APP = 1
+
+        /** 兜底自刷新闹钟的请求码（本仓库已用 0/1/2001/3001/3002/9001/9002，这里避开） */
+        private const val REQ_LIVENESS_ALARM = 3101
+
+        /**
+         * 兜底刷新间隔。取 15 分钟不是随手写的：`setAndAllowWhileIdle` 在 Doze 下的
+         * 实际最小频率就在 ~15 分钟，写 5 分钟只会让系统在维护窗口里把它合并成同一次唤醒 ——
+         * 白排一次，却不会更早触发。正常路径（划掉任务）走 onDestroy/onTaskRemoved 的即时重绘，
+         * 这条闹钟只兜"没来得及写就被强杀"那种情况。
+         */
+        private const val LIVENESS_ALARM_INTERVAL_MS = 15 * 60 * 1000L
 
         /**
          * 小部件该显示哪一态。**不再单看 [PushToggleManager.isPushActive]** ——
@@ -180,7 +192,52 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             }
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
+            // 兜底刷新：只有"卡片此刻显示的是活着的状态"才需要闹钟去发现它什么时候死的；
+            // 已经显示「已关闭」就撤掉闹钟 —— 不然桌面上一张永远灰的卡片会每 15 分钟
+            // 白叫一次这个进程。
+            scheduleLivenessRefresh(context, alive = state != WidgetLiveness.State.CLOSED)
+
             manager.updateAppWidget(widgetId, views)
+        }
+
+        /**
+         * 排 / 撤那枚兜底闹钟。
+         *
+         * 用 `setAndAllowWhileIdle` 而不是精确闹钟：它不需要 SCHEDULE_EXACT_ALARM 权限，
+         * 也不去蹭用户给的"精确闹钟"能力（那是给延迟/聚合推送用的）。
+         * 触发时发的是**指向自己的显式广播**，因此不需要在 Manifest 里为这个 action 加过滤器。
+         */
+        internal fun scheduleLivenessRefresh(context: Context, alive: Boolean) {
+            try {
+                val am = context.getSystemService(AlarmManager::class.java) ?: return
+                val intent = Intent(context, PushToggleWidgetProvider::class.java)
+                    .setAction(ACTION_UPDATE_WIDGET)
+                if (alive) {
+                    val pi = PendingIntent.getBroadcast(
+                        context,
+                        REQ_LIVENESS_ALARM,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    am.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        System.currentTimeMillis() + LIVENESS_ALARM_INTERVAL_MS,
+                        pi,
+                    )
+                } else {
+                    // FLAG_NO_CREATE：不为"撤销"这件事凭空造一个 PendingIntent 出来
+                    val pi = PendingIntent.getBroadcast(
+                        context,
+                        REQ_LIVENESS_ALARM,
+                        intent,
+                        PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+                    ) ?: return
+                    am.cancel(pi)
+                    pi.cancel()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "liveness alarm update failed: ${e.message}")
+            }
         }
 
         private fun backgroundFor(state: WidgetLiveness.State): Int = when (state) {
