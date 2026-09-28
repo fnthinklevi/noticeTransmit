@@ -473,3 +473,214 @@ describe('源码守卫', () => {
     expect(storeSrc).toContain('IP_BLOCK_EXEMPT_PREFIXES');
   });
 });
+
+// ── #131 第二片 2B：把公网面开到"还没有配对关系"的那一侧 ──
+// 这三条入口与上面三条的差别只有一点：签名者**可能还不在设备表里**（register），
+// 或者这一步的结果不该变成任何授权（pair）。所以这里的用例几乎全围着"同形"与"什么都没给出去"写。
+describe('POST /api/fnthink/register、/pair-arm、/pair', () => {
+  const CODE = 'ABCDEFGHJKMNPQRSTVWX'; // 20 位 Crockford（不含 I L O U），合法形状
+  const CODE2 = 'BDEFGHJKMNPQRSTVWX23'; // 第二枚（20 位）：另一条用例自己挂、自己消耗
+  const NEW = '2CF4GHJKMNPQRSTVWX'; // 18 位，本轮没登记过的新设备
+  const newKey = keypair();
+  const requesterKey = keypair();
+  const requesterCode = '7J8KMPQRSTVWX99966'; // ⚠ 不能含 I L O U —— 上一版这里写了 "KL M"，
+  // 结果 /register 直接判非法地址码，后面三条用例全都红在"身份没证明"那一步（403 而不是 401）。
+
+  function registerBody(addressCode, kp, over) {
+    const fields = Object.assign(
+      {
+        version: '1',
+        type: contract.clientEvents.register.messageType,
+        target: addressCode,
+        ts: String(Math.floor(Date.now() / 1000)),
+        nonce: 'rg-' + crypto.randomBytes(6).toString('hex'),
+        body: '',
+      },
+      over || {},
+    );
+    const signed = sign(kp, fields);
+    return {
+      sender: addressCode,
+      publicKey: kp.rawBase64,
+      name: '测试机',
+      signature: signed.signature,
+      fields: signed.map,
+    };
+  }
+
+  function armBody(kp, addressCode, code) {
+    const fields = {
+      version: '1',
+      type: contract.clientEvents.pairArm.messageType,
+      target: addressCode,
+      ts: String(Math.floor(Date.now() / 1000)),
+      nonce: 'pa-' + crypto.randomBytes(6).toString('hex'),
+      body: JSON.stringify({ pairingCode: code }),
+    };
+    const signed = sign(kp, fields);
+    return { sender: addressCode, signature: signed.signature, fields: signed.map };
+  }
+
+  function pairBody(kp, requester, target, code, level) {
+    const fields = {
+      version: '1',
+      type: contract.clientEvents.pair.messageType,
+      target,
+      ts: String(Math.floor(Date.now() / 1000)),
+      nonce: 'pc-' + crypto.randomBytes(6).toString('hex'),
+      body: JSON.stringify({ pairingCode: code, level }),
+    };
+    const signed = sign(kp, fields);
+    return { sender: requester, signature: signed.signature, fields: signed.map };
+  }
+
+  test('/register 新设备：200，档位来自契约 grantDefaults，盘上真有一行', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/register')
+      .send(registerBody(NEW, newKey))
+      .expect(200);
+    expect(res.body.addressCode).toBe(NEW);
+    expect(res.body.level).toBe(contract.capabilities.grantDefaults.maxLevel);
+    // 不回显公钥、不回显任何摘要：设备要确认的只是"这行记上了"。
+    expect(JSON.stringify(res.body)).not.toContain(newKey.rawBase64);
+    expect(devicestore.loadDevices()[NEW]).toBeDefined();
+  });
+
+  test('/register 的三种身份前失败逐字节同形，且正文里不出现地址码', async () => {
+    const wrongKeyShape = registerBody('3D4GHJKMNPQRSTVWX9', keypair());
+    wrongKeyShape.publicKey = '不是合法的-base64';
+    const a = await request(app).post('/api/fnthink/register').send(wrongKeyShape);
+
+    const badSignature = registerBody('4E5GHJKMNPQRSTVWX9', keypair());
+    badSignature.signature = crypto
+      .sign(null, Buffer.from('别的'), keypair().privateKey)
+      .toString('base64');
+    const b = await request(app).post('/api/fnthink/register').send(badSignature);
+
+    // 已经绑过另一把钥匙的地址码：registerDevice 抛的那条错误**带着地址码文本**，
+    // 冒到 errorMiddleware 就成了"这个码存在且绑过别人"—— 必须塌回同一句话。
+    const swap = registerBody(SENDER, keypair());
+    const c = await request(app).post('/api/fnthink/register').send(swap);
+
+    for (const r of [a, b, c]) {
+      expect(r.status).toBe(statusCode(contract, 'forbidden'));
+      expect(r.body).toEqual({ receipt: 'rejected_unsigned' });
+      expect(JSON.stringify(r.body)).not.toContain(SENDER);
+    }
+  });
+
+  test('/register 顶层带 privateKey：连"是谁"都不必回答，同形丢弃', async () => {
+    const body = registerBody('5F6GHJKMNPQRSTVWX9', keypair());
+    body.privateKey = crypto.randomBytes(32).toString('base64');
+    const res = await request(app).post('/api/fnthink/register').send(body);
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_unsigned' });
+  });
+
+  test('/pair-arm：200 只回过期时间，盘上只有摘要（明文口令一个字节都不落）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/pair-arm')
+      .send(armBody(targetKey, TARGET, CODE))
+      .expect(200);
+    expect(res.body.armed).toBe(true);
+    expect(res.body.ttlSeconds).toBe(contract.identity.pairingCode.ttlSeconds);
+    expect(JSON.stringify(res.body)).not.toContain(CODE);
+    const raw = fs.readFileSync(devicestore.DEVICE_FILE, 'utf8');
+    expect(raw).not.toContain(CODE);
+    expect(raw).toContain('digest');
+  });
+
+  test('/pair-arm 未登记的地址码 ⇒ 与签名不对同形（这条入口不许是枚举器）', async () => {
+    const unknown = await request(app)
+      .post('/api/fnthink/pair-arm')
+      .send(armBody(keypair(), '6G7HJKMNPQRSTVWX99', CODE));
+    const badSig = armBody(targetKey, TARGET, CODE);
+    badSig.signature = crypto
+      .sign(null, Buffer.from('别的'), keypair().privateKey)
+      .toString('base64');
+    const wrong = await request(app).post('/api/fnthink/pair-arm').send(badSig);
+    expect(unknown.status).toBe(statusCode(contract, 'forbidden'));
+    expect(JSON.stringify(unknown.body)).toBe(JSON.stringify(wrong.body));
+  });
+
+  test('/pair 走完：202 只留一条待确认请求，TARGET 的授权一点没变', async () => {
+    // 请求方也要先登记（这一步的钥匙从设备表取）。
+    await request(app)
+      .post('/api/fnthink/register')
+      .send(registerBody(requesterCode, requesterKey))
+      .expect(200);
+    await request(app)
+      .post('/api/fnthink/pair-arm')
+      .send(armBody(targetKey, TARGET, CODE));
+
+    const before = devicestore.loadDevices()[TARGET].grant;
+    const res = await request(app)
+      .post('/api/fnthink/pair')
+      .send(pairBody(requesterKey, requesterCode, TARGET, CODE, 'L1'))
+      .expect(statusCode(contract, 'queued'));
+    expect(res.body.requestId).toMatch(/^pr_/);
+    expect(res.body.status).toBe(contract.pairRequest.initialStatus);
+    expect(JSON.stringify(res.body)).not.toContain(CODE);
+
+    // 服务端从不批准：授权与配对前逐字相同（autoApprove=false 的执行处）。
+    const after = devicestore.loadDevices()[TARGET].grant;
+    expect(JSON.stringify(after)).toBe(JSON.stringify(before));
+
+    // A 下一次 poll 能看见它（键名来自契约 pairRequest.pollKey）。
+    const poll = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', targetKey, TARGET))
+      .expect(200);
+    expect(poll.body.pairRequests).toHaveLength(1);
+    expect(poll.body.pairRequests[0].requester).toBe(requesterCode);
+    expect(poll.body.pairRequests[0].requesterPublicKey).toBe(requesterKey.rawBase64);
+    // 旧的四个键一个都不能少（新增响应键不许挤掉既有的那条契约承诺）。
+    expect(Object.keys(poll.body).sort()).toEqual(
+      ['messages', 'pairRequests', 'pending', 'receipts', 'serverTime'].sort(),
+    );
+  });
+
+  test('/pair 消耗即失效：口令只能用一次，且"没挂过"与"已消耗"逐字节同形', async () => {
+    const asker = keypair();
+    const askerCode = '8KMNPQRSTVWX999777';
+    await request(app)
+      .post('/api/fnthink/register')
+      .send(registerBody(askerCode, asker))
+      .expect(200);
+
+    // ① 一台从未挂过口令的设备（OTHER 在 beforeAll 里登记过，但没 arm）：
+    //    上一版这里误用了 TARGET —— 它在前一条用例里已经挂上口令，于是这条测的是"配对成功"。
+    const neverArmed = await request(app)
+      .post('/api/fnthink/pair')
+      .send(pairBody(asker, askerCode, OTHER, CODE, 'L1'));
+    expect(neverArmed.status).toBe(statusCode(contract, 'unauthorized'));
+
+    // ② 挂一枚新的、成功配掉它，再用同一枚配第二次 ⇒ 必须与①同一个形状。
+    await request(app)
+      .post('/api/fnthink/pair-arm')
+      .send(armBody(targetKey, TARGET, CODE2))
+      .expect(200);
+    const first = await request(app)
+      .post('/api/fnthink/pair')
+      .send(pairBody(asker, askerCode, TARGET, CODE2, 'L1'));
+    expect(first.status).toBe(statusCode(contract, 'queued'));
+    const second = await request(app)
+      .post('/api/fnthink/pair')
+      .send(pairBody(asker, askerCode, TARGET, CODE2, 'L1'));
+
+    expect(second.status).toBe(statusCode(contract, 'unauthorized'));
+    expect(JSON.stringify(second.body)).toBe(JSON.stringify(neverArmed.body));
+    expect(neverArmed.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('/pair 想直接要 L3 ⇒ 拒（免本地确认的上限从契约引用，不是这里写死的）', async () => {
+    await request(app)
+      .post('/api/fnthink/pair-arm')
+      .send(armBody(targetKey, TARGET, CODE2));
+    const res = await request(app)
+      .post('/api/fnthink/pair')
+      .send(pairBody(requesterKey, requesterCode, TARGET, CODE2, 'L3'));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+});

@@ -36,6 +36,15 @@ const DEVICE_FILE = path.join(DATA_DIR, 'fnthink_devices.json');
 const NONCE_FILE = path.join(DATA_DIR, 'fnthink_nonces.json');
 const ENDPOINT_FILE = path.join(DATA_DIR, 'fnthink_endpoints.json');
 
+/// 设备表到上限时抛的那枚 code：路由靠它决定"回 429（实例满了）"还是"往上抛（代码坏了）"。
+/// 与 contract.js 那三类契约错误同一套理由 —— 按种类判，不比对错误文案。
+const DEVICE_CAP_CODE = 'FNTHINK_DEVICE_CAP';
+/// 登记这一步的两种**业务拒绝**（换公钥 / 顺手改授权）也各自带 code：
+/// 它们的消息文本里有地址码，是给运维日志看的；一路冒到 errorMiddleware 就会变成
+/// 一次 500 + "这个地址码已经绑过另一把钥匙"，而 /register 是公网面 —— 那就是枚举器。
+const DEVICE_KEY_SWAP_CODE = 'FNTHINK_DEVICE_KEY_SWAP';
+const DEVICE_GRANT_LOCK_CODE = 'FNTHINK_DEVICE_GRANT_LOCK';
+
 function loadDevices() {
   return loadTable(DEVICE_FILE, 'devices');
 }
@@ -87,17 +96,41 @@ function registerDevice(contract, devices, input, now) {
   const defaultLevel = ((contract.capabilities || {}).grantDefaults || {}).maxLevel;
   const level = assertLevel(contract, input.level || defaultLevel);
   const existing = devices[key];
+  // 设备表上限（契约 limits.devicesMax）。/register 是全协议唯一一类「提交者还没有身份」的
+  // 写入面：攻击者做一次的成本是生成一把 Ed25519 密钥，服务端做一次的成本是一行记录加一次磁盘写。
+  // 到上限一律**拒绝新的**，绝不覆盖任何已有记录（覆盖一次就是一次静默换身份）。
+  // 已存在的设备再登记一次不受这条影响 —— 否则表一满，现网设备连"刷新名字"都做不了。
+  const cap = Number((contract.limits || {}).devicesMax);
+  if (!Number.isInteger(cap) || cap <= 0) {
+    throw new Error(
+      '契约缺 limits.devicesMax（不补默认上限：没有上限就是给未认证流量送一台无限增长的存储）',
+    );
+  }
+  if (!existing && Object.keys(devices).length >= cap) {
+    // 带 code 抛，让调用方能把它与"代码 bug"分辨开（与 contract.js 那三类同一套路）：
+    // 路由要靠它决定"回 429"还是"往上抛"，靠比对错误文案一旦改文案就瞎了。
+    const err = new Error(`设备表已到上限 ${cap} 台，新登记暂缓（不覆盖任何已有记录）`);
+    err.code = DEVICE_CAP_CODE;
+    throw err;
+  }
   if (existing && existing.publicKey !== publicKey) {
     // 换公钥 = 换身份：走 T31 的重建 + 重新配对，让所有已配对发送方明确看到，
     // 不是在这里悄悄覆盖（那等于给劫持者一次不留痕迹的换手机会）。
-    throw new Error(`地址码 ${key} 已绑定另一把公钥，拒绝静默替换`);
+    // ⚠ 带 code 抛，而且文案里的地址码是给运维看的、**不是给响应体看的**：
+    //   这条走法若冒到 HTTP 层，回出去的 500 就把"这个地址码已经绑过另一把钥匙"说出去了 ——
+    //   那正是 T27 立"同形"那条时要防的枚举器。路由按 code 把它咽成与其它身份失败同一句话。
+    const err = new Error(`地址码 ${key} 已绑定另一把公钥，拒绝静默替换`);
+    err.code = DEVICE_KEY_SWAP_CODE;
+    throw err;
   }
   if (existing && existing.grant && existing.grant.maxLevel !== level) {
     // 登记是幂等的，但**授权不是可改的**：提高或降低一个已配对发送方的级别
     // 必须走"重新确认"那条路（T31），不能让一次 re-register 顺手改掉。
-    throw new Error(
+    const err = new Error(
       `地址码 ${key} 的授权是 ${existing.grant.maxLevel}，不能在登记里改成 ${level}（要变更请走重新确认）`,
     );
+    err.code = DEVICE_GRANT_LOCK_CODE;
+    throw err;
   }
   const record = existing || { createdAt: now, status: 'active', lastSeenAt: null, owner: null };
   record.publicKey = publicKey;
@@ -350,6 +383,9 @@ function newEndpointId() {
 }
 
 module.exports = {
+  DEVICE_CAP_CODE,
+  DEVICE_GRANT_LOCK_CODE,
+  DEVICE_KEY_SWAP_CODE,
   DEVICE_FILE,
   ENDPOINT_FILE,
   FILE_MODE,

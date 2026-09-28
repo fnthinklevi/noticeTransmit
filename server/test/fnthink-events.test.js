@@ -534,4 +534,247 @@ describe('clientEvents（poll / ack）裁决', () => {
       );
     });
   });
+
+  // ── 配对链的两步（#131 第二片 2B）：A 把自己那枚口令挂上，B 带着它来握手 ──
+  describe('authorizePairArm 与 authorizePair', () => {
+    const CODE = 'ABCDEFGHJKMNPQRSTVWX'; // 20 位 Crockford（不含 I L O U）
+    const kpArm = keypair();
+    const peerKey = keypair();
+
+    /// 握手这一侧要看的表比 poll/ack 多：签名者必须在表里，**对方**也得在表里且挂着口令。
+    /// 挂口令用的是 `devicestore.armPairingCode` 本尊（不是手搓一个形状），
+    /// 所以这条链测的是"生产里那两个纯函数真被串起来了"。
+    function stateArmed() {
+      const devices = {
+        [SELF]: { publicKey: kpArm.rawBase64, status: 'active' },
+        [OTHER]: { publicKey: peerKey.rawBase64, status: 'active' },
+      };
+      require('../lib/fnthink/devicestore').armPairingCode(contract, devices, OTHER, CODE, NOW);
+      return { devices, nonces: {}, persist() {} };
+    }
+
+    const armFields = (over) =>
+      fields(
+        Object.assign(
+          {
+            type: contract.clientEvents.pairArm.messageType,
+            body: JSON.stringify({ pairingCode: CODE }),
+            nonce: 'arm-1',
+          },
+          over || {},
+        ),
+      );
+    const pairFields = (over) =>
+      fields(
+        Object.assign(
+          {
+            type: contract.clientEvents.pair.messageType,
+            target: OTHER,
+            body: JSON.stringify({ pairingCode: CODE, level: 'L1' }),
+            nonce: 'pr-1',
+          },
+          over || {},
+        ),
+      );
+
+    test('A 挂口令：签一条 pairArm 就通过，口令原样交给路由去落摘要', () => {
+      const out = events.authorizePairArm(contract, stateArmed(), signable(kpArm, armFields()));
+      expect(out.ok).toBe(true);
+      expect(out.addressCode).toBe(SELF);
+      expect(out.pairingCode).toBe(CODE);
+    });
+
+    test('载荷键集多一个少一个都判：那是一枚口令的位置，不许由实现猜', () => {
+      const extra = events.authorizePairArm(
+        contract,
+        stateArmed(),
+        signable(kpArm, armFields({ body: JSON.stringify({ pairingCode: CODE, level: 'L3' }) })),
+      );
+      expect(extra.ok).toBe(false);
+      expect(extra.reason).toMatch(/^pairArm-fields:/);
+      const missing = events.authorizePairArm(
+        contract,
+        stateArmed(),
+        signable(kpArm, armFields({ body: JSON.stringify({ level: 'L1' }) })),
+      );
+      expect(missing.reason).toMatch(/^pairArm-fields:/);
+    });
+
+    test('body 不是 JSON ⇒ malformed-pairArm（与 ack 同一套 reason 形状）', () => {
+      const out = events.authorizePairArm(
+        contract,
+        stateArmed(),
+        signable(kpArm, armFields({ body: '不是 JSON' })),
+      );
+      expect(out.reason).toBe('malformed-pairArm');
+    });
+
+    test('口令形状不对 ⇒ 拒，且与"口令不对"用同一句话（不许成为口令格式探针）', () => {
+      const out = events.authorizePairArm(
+        contract,
+        stateArmed(),
+        signable(kpArm, armFields({ body: JSON.stringify({ pairingCode: '短' }) })),
+      );
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe('pairing-code');
+      expect(out.status).toBe(statusCode(contract, 'forbidden'));
+    });
+
+    test('pairArm 的 target 填别人 ⇒ 拒：挂口令只能关于自己', () => {
+      const out = events.authorizePairArm(
+        contract,
+        stateArmed(),
+        signable(kpArm, armFields({ target: OTHER })),
+      );
+      expect(out.reason).toBe('target-not-self');
+    });
+
+    test('拿 poll 的签名来挂口令 ⇒ 拒（三种事件共用签字节，type 必须各走各的门）', () => {
+      const out = events.authorizePairArm(
+        contract,
+        stateArmed(),
+        signable(kpArm, armFields({ type: contract.clientEvents.poll.messageType })),
+      );
+      expect(out.reason).toMatch(/^wrong-event-type:/);
+    });
+
+    test('B 握手成功：口令被消耗，返回的是"谁向谁请求了什么"，**没有任何授权**', () => {
+      const state = stateArmed();
+      const out = events.authorizePair(contract, state, signable(kpArm, pairFields()));
+      expect(out.ok).toBe(true);
+      expect(out.target).toBe(OTHER);
+      expect(out.requester).toBe(SELF);
+      expect(out.requesterPublicKey).toBe(kpArm.rawBase64);
+      expect(out.level).toBe('L1');
+      // 摘要而不是明文：这条就是"表会跟着备份走"那一条红线的落点。
+      expect(out.codeDigest).toMatch(/^[0-9a-f]{64}$/);
+      expect(JSON.stringify(out)).not.toContain(CODE);
+      // 一次配对只配一台：口令已消耗，第二次同码必须不再成立。
+      const again = events.authorizePair(
+        contract,
+        state,
+        signable(kpArm, pairFields({ nonce: 'pr-2' })),
+      );
+      expect(again.ok).toBe(false);
+    });
+
+    test('target 填自己 ⇒ 拒（自己跟自己配对就是没有落在任何人屏幕上的那次确认）', () => {
+      const out = events.authorizePair(
+        contract,
+        stateArmed(),
+        signable(kpArm, pairFields({ target: SELF })),
+      );
+      expect(out.reason).toBe('counterpart-is-self');
+    });
+
+    test('免本地确认的档位上限从契约引用：L3 来了 ⇒ 拒', () => {
+      const ceiling = contract.pairing.maxRequestableLevelWithoutLocalAuth;
+      const rank = (l) => contract.capabilities.levels.indexOf(l);
+      expect(rank(ceiling)).toBeLessThan(rank('L3'));
+      const out = events.authorizePair(
+        contract,
+        stateArmed(),
+        signable(kpArm, pairFields({ body: JSON.stringify({ pairingCode: CODE, level: 'L3' }) })),
+      );
+      expect(out.ok).toBe(false);
+      expect(out.reason).toMatch(/^level-too-high:/);
+    });
+
+    test('引用被改歪 ⇒ 抛（拿不到上限时不许"那就不限"）', () => {
+      const broken = JSON.parse(JSON.stringify(contract));
+      broken.clientEvents.pair.levelCeilingFrom = 'pairing.notThere';
+      expect(() =>
+        events.authorizePair(broken, stateArmed(), signable(kpArm, pairFields())),
+      ).toThrow(/levelCeilingFrom/);
+    });
+
+    test('四种"口令没过"对外同一个形状（服务端不许是"谁挂着口令"的枚举器）', () => {
+      const shape = (out) => JSON.stringify([out.ok, out.status, out.reason]);
+      const unknownTarget = events.authorizePair(
+        contract,
+        (() => {
+          const devices = { [SELF]: { publicKey: kpArm.rawBase64, status: 'active' } };
+          return { devices, nonces: {}, persist() {} };
+        })(),
+        // 一个**合法但表里没有**的地址码（18 位）：这条与"口令错"必须同形，
+        // 否则 /pair 就是一台"哪些地址码挂着口令"的枚举器。
+        signable(kpArm, pairFields({ target: 'ABCDEFGHJKMNPQRSTV' })),
+      );
+      const notArmed = events.authorizePair(
+        contract,
+        (() => {
+          const devices = {
+            [SELF]: { publicKey: kpArm.rawBase64, status: 'active' },
+            [OTHER]: { publicKey: peerKey.rawBase64, status: 'active' },
+          };
+          return { devices, nonces: {}, persist() {} };
+        })(),
+        signable(kpArm, pairFields({ nonce: 'pr-3' })),
+      );
+      const wrongState = stateArmed();
+      const wrongCode = events.authorizePair(
+        contract,
+        wrongState,
+        signable(
+          kpArm,
+          pairFields({
+            body: JSON.stringify({ pairingCode: 'ZZZZZZZZZZZZZZZZZZZZ', level: 'L1' }),
+          }),
+        ),
+      );
+      const late = NOW + contract.identity.pairingCode.ttlSeconds * 1000 + 1000;
+      const expiredState = stateArmed();
+      const expired = events.authorizePair(
+        contract,
+        expiredState,
+        signable(kpArm, pairFields({ nonce: 'pr-4', ts: String(Math.floor(late / 1000)) }), late),
+      );
+      const shapes = [unknownTarget, notArmed, wrongCode, expired].map(shape);
+      expect(shapes[0]).toBe(shapes[1]);
+      expect(shapes[1]).toBe(shapes[2]);
+      expect(shapes[2]).toBe(shapes[3]);
+      expect(notArmed.status).toBe(statusCode(contract, 'unauthorized'));
+    });
+
+    test('一次过期不烧口令：消耗排在全部判据之后', () => {
+      const state = stateArmed();
+      // ts 落在容差之外，而服务端时间就是 NOW —— 这条必须被判"过期"。
+      // ⚠ 反过来写（把 input.now 也一起拧到过去）判据是过不了的，那样测的其实是"时钟一致"。
+      const stale = NOW - (contract.signature.maxSkewSeconds + 30) * 1000;
+      const out = events.authorizePair(
+        contract,
+        state,
+        signable(kpArm, pairFields({ ts: String(Math.floor(stale / 1000)) })),
+      );
+      expect(out.receipt).toBe('expired');
+      // 口令还该能用：拿它再走一次正常握手（另一个 nonce）必须成功。
+      // 这条就是"顺序即判据"的证据 —— 消耗如果提前，一次网络重试就白烧一枚有效口令，
+      // 而 A 屏幕上那张二维码还没被人扫过，现场看起来与"配对失败"一模一样。
+      const ok = events.authorizePair(
+        contract,
+        state,
+        signable(kpArm, pairFields({ nonce: 'pr-5' })),
+      );
+      expect(ok.ok).toBe(true);
+    });
+
+    test('两步串起来：挂上之后才配得上，没挂之前一条都配不成', () => {
+      const armed = stateArmed();
+      const fresh = (() => {
+        const devices = {
+          [SELF]: { publicKey: kpArm.rawBase64, status: 'active' },
+          [OTHER]: { publicKey: peerKey.rawBase64, status: 'active' },
+        };
+        return { devices, nonces: {}, persist() {} };
+      })();
+      const before = events.authorizePair(contract, fresh, signable(kpArm, pairFields()));
+      expect(before.ok).toBe(false);
+      const after = events.authorizePair(
+        contract,
+        armed,
+        signable(kpArm, pairFields({ nonce: 'pr-6' })),
+      );
+      expect(after.ok).toBe(true);
+    });
+  });
 });

@@ -760,6 +760,105 @@ void main() {
       expectProblem(broken, '地址码来自客户端', '拿设备表去验一个还不存在的身份，只能验出"不认识"——整条链在第一步就断');
     });
 
+    // ── 配对链两步的判据（#131 第二片 2B）：挂的人、消耗的人、以及那张请求表自己 ──
+    Map<String, Object?> ceOf(Map<String, Object?> raw) =>
+        raw['clientEvents'] as Map<String, Object?>;
+    Map<String, Object?> kindOf(Map<String, Object?> raw, String kind) =>
+        ceOf(raw)[kind] as Map<String, Object?>;
+
+    test('pair 消耗的字段没被自己签上 ⇒ 报（口令不在被签字节里就是可换的）', () {
+      final broken = mutate((raw) {
+        (kindOf(raw, 'pair')['fields'] as List<Object?>).remove('pairingCode');
+      });
+      expectProblem(
+        broken,
+        '不在它自己的 fields 清单里',
+        'consumes 指向一个没进签名字节的键 = 挂上去的和消耗掉的不是同一样东西',
+      );
+    });
+
+    test('只有消耗、没人挂 ⇒ 报（服务端手上根本没有可对照的摘要）', () {
+      final broken = mutate((raw) {
+        kindOf(raw, 'pairArm').remove('arms');
+      });
+      expectProblem(broken, '一一对应', '配对口令永远不过期地挂着，或永远没人挂：都是半条链');
+    });
+
+    test('同一个事件自己挂自己消耗 ⇒ 报（配对必须有两个参与者）', () {
+      final broken = mutate((raw) {
+        kindOf(raw, 'pair')['arms'] = 'pairingCode';
+      });
+      expectProblem(broken, '自己挂自己消耗', '一步之内自挂自消 = 中间没有"对方确认"那一环');
+    });
+
+    test('pairRequest.neverStored 放开 pairingCode ⇒ 报（明文口令会跟着备份走）', () {
+      final broken = mutate((raw) {
+        ((raw['pairRequest'] as Map<String, Object?>)['neverStored']
+                as List<Object?>)
+            .remove('pairingCode');
+      });
+      expectProblem(
+        broken,
+        'neverStored 必须含 pairingCode',
+        '那 20 位被抄过、印在二维码里、可能被拍过照',
+      );
+    });
+
+    test('pairRequest.storedFields 少 requester ⇒ 报（不知道是谁请求的）', () {
+      final broken = mutate((raw) {
+        ((raw['pairRequest'] as Map<String, Object?>)['storedFields']
+                as List<Object?>)
+            .remove('requester');
+      });
+      expectProblem(broken, '必须同时有 target', '一条没人认领的请求没法显示给任何人');
+    });
+
+    test('poll.returns 里没有 pairRequest.pollKey ⇒ 报（创建了东西却没人取得它）', () {
+      final broken = mutate((raw) {
+        (kindOf(raw, 'poll')['returns'] as List<Object?>).remove(
+          'pairRequests',
+        );
+      });
+      expectProblem(broken, '不在那份清单上', '请求躺在表里、A 屏幕上永远显示"等待配对"，那是最难的静默之一');
+    });
+
+    test('ttlSecondsFrom 指到一个不存在的键 ⇒ 报（不补默认 TTL）', () {
+      final broken = mutate((raw) {
+        (raw['pairRequest'] as Map<String, Object?>)['ttlSecondsFrom'] =
+            'identity.pairingCode.notThere';
+      });
+      expectProblem(broken, '必须指向契约里一个真实存在的秒数', '另设一个 TTL 会出现"口令还活着而请求已消失"');
+    });
+
+    test('每台的上限高过全局上限 ⇒ 报（两条数反了方向）', () {
+      final broken = mutate((raw) {
+        final pr = raw['pairRequest'] as Map<String, Object?>;
+        pr['perDeviceLimit'] = 500;
+        pr['globalLimit'] = 100;
+      });
+      expectProblem(broken, '两条上限不成样子', 'perDevice 只能 ≤ global，否则那条永远不生效');
+    });
+
+    test('删掉 limits.devicesMax ⇒ 报（未认证流量面前不许有无限增长的表）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>).remove('devicesMax');
+      });
+      expectProblem(
+        broken,
+        'limits.devicesMax 必须是正整数',
+        '/register 的代价对攻击者是一把密钥、对服务端是一行记录加一次磁盘写',
+      );
+    });
+
+    test('名单里的规则没人用 ⇒ 报（2A 欠的那条现在能判了）', () {
+      final broken = mutate((raw) {
+        final pair = kindOf(raw, 'pair');
+        pair.remove('mustContainCounterpartAddress');
+        pair['targetMustEqualSender'] = true;
+      });
+      expectProblem(broken, '没有任何事件声明它', '写了却没人用的那条早晚被当成注释，而它下次被真用时多半没有实现分支');
+    });
+
     test('storedFields 去掉 sender ⇒ 报（回执通道没有收件人）', () {
       final broken = mutate((raw) {
         final keep =

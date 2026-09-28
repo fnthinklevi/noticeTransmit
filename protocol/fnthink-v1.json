@@ -185,7 +185,9 @@
     "endpointPerDay": 500,
     "groupSendMax": 20,
     "deliveryRetryTotal": 2,
-    "backupReplayMax": 2
+    "backupReplayMax": 2,
+    "devicesMax": 5000,
+    "_devicesMaxWhy": "POST /register 是全协议唯一一类「提交者还没有身份」的写入面：攻击者做一次的成本是生成一把 Ed25519 密钥（微秒级），服务端的成本是一行记录加一次磁盘写。设备表没有上限就等于给未认证流量送一台无限增长的存储。到上限后新登记一律回 rateLimited 并把原因写进留痕，**绝不覆盖任何已有记录**——覆盖一次就是一次静默换身份，与「公钥不可静默替换」是同一条红线。"
   },
 
   "capabilities": {
@@ -315,7 +317,13 @@
       "targetMustEqualSender": true,
       "maxBatchPerPoll": 50,
       "_maxBatchPerPollWhy": "一次 poll 最多取走这么多条：设备离线七天积压到 200 条上限时，不设上限等于让它一次把整段历史拉下来（响应体大小与设备侧渲染都会出问题）。",
-      "returns": ["messages", "receipts", "pending", "serverTime"],
+      "returns": [
+        "messages",
+        "receipts",
+        "pending",
+        "serverTime",
+        "pairRequests"
+      ],
       "_serverTimeWhy": "响应必须带服务端时间：T29 的「ts 以服务端时间判定」要有承载处，设备自算偏移只能在拿到响应之后进行。"
     },
     "ack": {
@@ -333,9 +341,60 @@
       },
       "_onlyForOwnMessagesWhy": "设备只能 ack 下发给它自己的那条消息。不钉这条，一台设备可以把别人队列里的消息逐个 ack 成 delivered，而正文按契约在 delivered 时立即删除——等于替别人把消息销毁。"
     },
+    "pairArm": {
+      "messageType": "pairArm",
+      "verifyAgainst": "device-table-public-key",
+      "targetMustEqualSender": true,
+      "fields": ["pairingCode"],
+      "arms": "pairingCode",
+      "_fieldsWhy": "只带口令，不带级别：级别在二维码里由 A 写下、由 B 在 pair 那一步带上来（A 屏幕上那串才是它的出处）。armPairingCode 这个纯函数从不读级别，这里塞一个 level 进去就是让它落进一份没人读的载荷——那正是「两边各自以为对方读了」那一类缺陷的起点。",
+      "_why": "A 把自己刚生成的那枚一次性配对口令挂到自己的设备记录上（服务端只存摘要，T27 那条红线走的是 devicestore.armPairingCode——它与 registerDevice 一样，此前没有任何调用方）。这一步不是可选的装饰：不挂，B 拿着 A 的码来找服务端时服务端没有任何东西可以对表，配对在服务端这一侧就只剩一条没人听的广播。",
+      "_codeMustBeSignedWhy": "口令放在被签的 body 里而不是旁路字段：不签，中间人可以在转发时换一枚自己造的口令而签名照旧，于是 A 屏幕上那串与实际挂上去的那串不是同一串——而配对口令是整条链路上唯一的那个秘密。",
+      "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
+    "pair": {
+      "messageType": "pair",
+      "verifyAgainst": "device-table-public-key",
+      "mustContainCounterpartAddress": true,
+      "fields": ["pairingCode", "level"],
+      "consumes": "pairingCode",
+      "creates": "pairRequest",
+      "levelCeilingFrom": "pairing.maxRequestableLevelWithoutLocalAuth",
+      "_counterpartWhy": "B 签的 target 是 A 的地址码——全协议唯一一个「关于别人」的签名，所以它走 selfOnlyRules 的第三条而不是前两条。为什么必须有「且不等于自己」那一半：允许 target 等于自己，一台设备就能自己跟自己配对、把登记时那一档默认级别往上调，而全程没有落在任何人的屏幕上。",
+      "_why": "B 扫了 A 的码，签一条握手交给服务端。服务端在这里只记一条「待 A 确认的请求」，绝不写授权：pairing.confirmRequired=true 且 autoApprove=false，白名单只能由 A 自己那一次本机确认进来。口令成功即消耗（identity.pairingCode.singleUse），一次扫码只配一台。",
+      "_levelCeilingFromWhy": "免本地确认的档位上限从 pairing 段读，不在这里再写一个 L2：两处各存一份「最多给到哪儿」，改一处时另一处不会报错，而它错的那一侧正是 L3 免确认那道门。",
+      "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,
     "_nonceSpaceWhy": "事件与消息共用 sender|nonce 这一个去重空间：抓到一个已签的 poll，不能换个接口再放一次。"
+  },
+  "pairRequest": {
+    "_why": "pair 这一步在服务端留下的东西：一条「B 请求与 A 配对，等 A 本机确认」的记录。它不是消息（不进 messagestore、不过 capabilities 的 type 词表——那里每条记录都要回答「投给谁的什么内容」，而配对请求没有正文，把 body 塞进去只会顺手多落一份口令），也不是授权（授权只能由 A 自己的确认签名带来：pairing.confirmRequired=true、autoApprove=false）。",
+    "storedFields": [
+      "id",
+      "target",
+      "requester",
+      "requesterPublicKey",
+      "level",
+      "codeDigest",
+      "createdAt",
+      "expiresAt",
+      "status"
+    ],
+    "neverStored": ["pairingCode", "privateKey", "endpointSecret"],
+    "_neverStoredWhy": "配对口令即使已经消耗也不存明文：那 20 位是用户抄过、印在二维码里、可能被拍过照的东西，而设备表会跟着备份走。存摘要已经够用——A poll 到这条请求时，拿自己手上那枚口令算一次摘要比一下就能确认「这就是我刚挂出去的那枚」。",
+    "statuses": ["pending", "approved", "denied", "expired"],
+    "initialStatus": "pending",
+    "terminalStatuses": ["approved", "denied", "expired"],
+    "ttlSecondsFrom": "identity.pairingCode.ttlSeconds",
+    "_ttlSecondsFromWhy": "请求的存活期直接引用口令的存活期，不另设一个旋钮：两个各自独立的 TTL 早晚会出现「口令还活着而请求已消失」或反过来，而后者的表现是用户重扫一次码却被告知口令已消耗。",
+    "visibleVia": "poll",
+    "pollKey": "pairRequests",
+    "_pollKeyWhy": "A 只能靠 poll 看见它：这里显式写出响应键名，是为了让「创建了东西却没人取得它」能被判出来——少这一行，validate 就只能在代码里猜那个键叫什么，而猜错的表现是请求静静地躺在表里，A 屏幕上永远显示「等待配对」。",
+    "perDeviceLimit": 3,
+    "globalLimit": 2000,
+    "_limitsWhy": "两条都是写放大防线，不是配额：pair 的入口要求一把已登记的合法身份与一枚正确口令，本来就打不进来；这两条防的是「一台设备反复挂口令反复扫」把请求表撑到无界。超上限时新请求不落地并回带原因，绝不静默挤掉已经挂在 A 屏幕上的那一条（那等于让 A 确认一个自己没见过的请求）。"
   },
   "transport": {
     "httpsOnly": true,

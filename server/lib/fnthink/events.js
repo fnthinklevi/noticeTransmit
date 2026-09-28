@@ -14,13 +14,25 @@
 
 'use strict';
 
-const { statusCode, isReceipt, selfOnlyRules } = require('./contract');
-const { rememberReject, rejectKeyFor, assertPublicKey } = require('./devicestore');
+const { statusCode, isReceipt, resolvePath, selfOnlyRules } = require('./contract');
+const {
+  rememberReject,
+  rejectKeyFor,
+  assertPublicKey,
+  verifyPairingCode,
+} = require('./devicestore');
 const { canonicalBytes, verifyIdentity, verifySignature, checkFresh } = require('./verify');
-const { alphabetFromContract, isValidAddressCode, normalize } = require('./credentials');
+const { levelRank } = require('./capabilities');
+const {
+  alphabetFromContract,
+  credentialDigest,
+  isValidAddressCode,
+  isValidPairingCode,
+  normalize,
+} = require('./credentials');
 
 /// 身份证明之后的拒绝：状态码照实给，`reason` 只进留痕、绝不进响应体。
-function denied(contract, state, input, reason) {
+function deniedWith(contract, state, input, status, reason) {
   const rejects = state.rejects || (state.rejects = {});
   rememberReject(
     rejects,
@@ -28,7 +40,33 @@ function denied(contract, state, input, reason) {
     input.now,
     'event:' + reason,
   );
-  return { ok: false, status: statusCode(contract, 'forbidden'), reason };
+  return { ok: false, status, reason };
+}
+
+function denied(contract, state, input, reason) {
+  return deniedWith(contract, state, input, statusCode(contract, 'forbidden'), reason);
+}
+
+/// ack / pairArm / pair 都把载荷放进**被签的** `body`（canonicalOrder 只有那六个字段，
+/// 不为某一种事件加一位 —— 加一位等于换协议）。键集必须与契约声明的那份逐字相同：
+/// 少一个键读不到，多一个键就是对方往签名载荷里塞料的口子。
+/// 返回 `{reason}` 或 `{payload}`，不自己造拒绝对象 —— 三处的状态码不同，
+/// 在这里合成一个"通用拒绝"就等于把那个差异抹掉（而差异正是路由选状态码的依据）。
+function readPayload(spec, body, kind) {
+  const malformed = `malformed-${kind}`;
+  let payload;
+  try {
+    payload = JSON.parse(String(body));
+  } catch (e) {
+    return { reason: malformed };
+  }
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { reason: malformed };
+  }
+  const want = (spec.fields || []).slice().sort().join('|');
+  const got = Object.keys(payload).sort().join('|');
+  if (got !== want) return { reason: `${kind}-fields:期望 [${want}] 实到 [${got}]` };
+  return { payload };
 }
 
 /// 「这一步能作用于谁」——按契约 `clientEvents.selfOnlyRules` 的名单分派。
@@ -77,6 +115,12 @@ function selfOnlyReason(contract, spec, sender, fields) {
   }
 }
 
+/// 顶层禁带字段（register / pairArm / pair 共用）：带私钥来的包，
+/// 连"是谁"都不必回答就该被丢掉 —— 所以它排在身份与形状之前。
+function bannedTopLevel(spec, input) {
+  return (spec.mayNotCarry || []).filter((f) => Object.prototype.hasOwnProperty.call(input, f));
+}
+
 /**
  * 一次设备事件的裁决。`kind` 只认契约 clientEvents 里声明过的那几种。
  *
@@ -119,19 +163,9 @@ function authorizeClientEvent(contract, state, input, kind) {
       );
     }
     let payload;
-    try {
-      payload = JSON.parse(String(fields.body));
-    } catch (e) {
-      return denied(contract, state, input, 'malformed-ack');
-    }
-    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
-      return denied(contract, state, input, 'malformed-ack');
-    }
-    const want = (spec.fields || []).slice().sort().join('|');
-    const got = Object.keys(payload).slice().sort().join('|');
-    if (got !== want) {
-      return denied(contract, state, input, `ack-fields:期望 [${want}] 实到 [${got}]`);
-    }
+    const read = readPayload(spec, fields.body, 'ack');
+    if (read.reason) return denied(contract, state, input, read.reason);
+    payload = read.payload;
     if (!isReceipt(contract, payload.result)) {
       return denied(contract, state, input, 'unknown-result:' + String(payload.result));
     }
@@ -143,8 +177,12 @@ function authorizeClientEvent(contract, state, input, kind) {
       result: String(payload.result),
     };
   }
-  // 契约加了第三种事件而这里没实现：**必须抛**，不能 fall through 到"当成 poll 放行"。
-  throw new Error(`events.js 没有实现事件类型 "${kind}"（契约声明了它，代码没判它）`);
+  // 契约加了新的事件种类而这里没实现：**必须抛**，不能 fall through 到"当成 poll 放行"。
+  // 需要专用入口的那几种（自带公钥 / 要查表）在各自的文件级函数里判，不在这里。
+  throw new Error(
+    `events.js 没有实现事件类型 "${kind}"（契约声明了它，代码没判它；` +
+      '自带公钥或要查表的种类走 authorizeRegister / authorizePairArm / authorizePair）',
+  );
 }
 
 /**
@@ -183,9 +221,7 @@ function authorizeRegister(contract, state, input) {
   };
 
   // 禁带字段先判：带私钥来的包，连"是谁"都不必回答就该被丢掉。
-  const banned = (spec.mayNotCarry || []).filter((f) =>
-    Object.prototype.hasOwnProperty.call(input, f),
-  );
+  const banned = bannedTopLevel(spec, input);
   if (banned.length) return forbidden(`carries-secret:${banned.join(',')}`);
 
   const sender = normalize(alphabetFromContract(contract), input.senderAddress || '');
@@ -217,4 +253,123 @@ function authorizeRegister(contract, state, input) {
   return { ok: true, kind: 'register', addressCode: sender, publicKey, name };
 }
 
-module.exports = { authorizeClientEvent, authorizeRegister };
+/**
+ * A 挂出口令（契约 `clientEvents.pairArm`）：把 A 自己刚生成的那枚一次性配对口令交给服务端，
+ * 服务端只存它的摘要。`devicestore.armPairingCode` 从 T27 起就在等这个调用方。
+ *
+ * 这一步的签名者**已经在设备表里**（A 必须先 /register），所以钥匙从表里取，
+ * 与 register 那一步正好相反；口令在这里不证明身份，它证明的是"屏幕上那串是我挂的"
+ * —— 而它被放在**被签的** body 里，就是为了中间人换不了它。
+ */
+function authorizePairArm(contract, state, input) {
+  const spec = (contract.clientEvents || {}).pairArm;
+  if (!spec) {
+    throw new Error('契约没有 clientEvents.pairArm（不补默认值：补了等于在代码里发明一种事件）');
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  // 带秘密来的包连"是谁"都不必回答：与 authorizeRegister 同一条顺序纪律。
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'pairArm');
+  if (read.reason) return fail(read.reason);
+  const pairingCode = String(
+    read.payload.pairingCode === undefined ? '' : read.payload.pairingCode,
+  );
+  // 形状不对**不**在这里单独分辨：口令是一枚秘密，"这枚口令形状不对"与"口令不对"
+  // 在网络上是同一句话（pairing.failureMessageShape），本层连 reason 都只进留痕。
+  if (!isValidPairingCode(contract, pairingCode)) return fail('pairing-code');
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, kind: 'pairArm', addressCode: id.sender, pairingCode };
+}
+
+/**
+ * B 带着 A 的口令来配对（契约 `clientEvents.pair`）：全协议唯一一个「关于别人」的签名。
+ *
+ * 顺序与 poll/ack 一致（身份 → 种类 → 作用范围 → 形状 → 档位 → 时间/重放），
+ * ⚠ 而**消耗口令排在最后**：把它放到时间/重放之前，一次重放就会白烧掉一枚还有效的口令，
+ * 而 A 屏幕上那张二维码还没被人扫就用不了了 —— 那副样子与"配对失败"完全一样，查不出来。
+ *
+ * 成功之后这里**什么都不授权**：授权只能由 A 自己的确认签名带进来（第三片）。
+ * 本函数只回答"这一趟握手成不成立"，把成不成立交给路由去落一条待确认请求。
+ */
+function authorizePair(contract, state, input) {
+  const spec = (contract.clientEvents || {}).pair;
+  if (!spec) {
+    throw new Error('契约没有 clientEvents.pair（不补默认值：补了等于在代码里发明一种事件）');
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  // counterpart 那条规则（target 必须是**别人**的合法地址码）由同一个分派函数判 ——
+  // 这一种事件的存在就是那条规则被加进契约的理由，这里不另写一遍。
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+  const target = normalize(alphabetFromContract(contract), String(fields.target));
+
+  const read = readPayload(spec, fields.body, 'pair');
+  if (read.reason) return fail(read.reason);
+  const pairingCode = String(
+    read.payload.pairingCode === undefined ? '' : read.payload.pairingCode,
+  );
+  const level = String(read.payload.level === undefined ? '' : read.payload.level);
+  const levels = (contract.capabilities || {}).levels || [];
+  if (!levels.includes(level)) return fail(`level:${level}`);
+  // 免本地确认的档位上限从契约引用（pairing.maxRequestableLevelWithoutLocalAuth）：
+  // 在这里再写一个 'L2'，改契约那一处时这行不会报错，而它错的一侧正是"L3 免确认"那道门。
+  const ceiling = resolvePath(contract, spec.levelCeilingFrom);
+  if (!levels.includes(ceiling)) {
+    throw new Error(
+      `clientEvents.pair.levelCeilingFrom=${JSON.stringify(spec.levelCeilingFrom)} ` +
+        `取到的「${ceiling}」不是 capabilities.levels 里的一档`,
+    );
+  }
+  if (levelRank(levels, level) > levelRank(levels, ceiling)) {
+    return fail(`level-too-high:${level}>${ceiling}`);
+  }
+  if (!isValidPairingCode(contract, pairingCode)) return fail('pairing-code');
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+
+  // 消耗口令排在全部判据之后（见上面那段 ⚠）。四种失败（没这台设备 / 没挂口令 /
+  // 口令错 / 已过期或已消耗）在 devicestore 里塌成同一个形状，这里原样传出去：
+  // 地址码是可分享的公开标识，能分辨就是把它变成枚举器。
+  const code = verifyPairingCode(contract, state.devices, target, pairingCode, input.now);
+  if (!code.ok) {
+    return { ok: false, status: code.status, reason: 'pairing-code-unverified' };
+  }
+  return {
+    ok: true,
+    kind: 'pair',
+    target,
+    requester: id.sender,
+    requesterPublicKey: id.device.publicKey,
+    level,
+    // 落盘的是摘要：那 20 位被抄过、印在二维码里、可能被拍过照，而这张表会跟着备份走。
+    codeDigest: credentialDigest(contract, 'pairingCode', pairingCode),
+  };
+}
+
+module.exports = {
+  authorizeClientEvent,
+  authorizeRegister,
+  authorizePairArm,
+  authorizePair,
+};

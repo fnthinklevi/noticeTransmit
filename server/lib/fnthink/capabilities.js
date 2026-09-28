@@ -94,4 +94,12 @@ function endpointGrant(contract) {
   };
 }
 
-module.exports = { decideCapability, endpointGrant, grantFromNode, grantFromRecord };
+module.exports = {
+  decideCapability,
+  endpointGrant,
+  grantFromNode,
+  grantFromRecord,
+  // 档位比较开给配对（#131）：级别顺序的出处只能有一个（capabilities.levels 的位置）。
+  // 各写一份 rank 表，改档位顺序时只会红一边 —— T30-A 就是为了删掉 pairing.dart 里那份私有表。
+  levelRank,
+};

@@ -14,8 +14,15 @@
 // ⚠ 这几个端点豁免 IP 封锁（豁免表在 `store.ipBlockExempt`，与 `/api/version` 同一处）：
 //    封锁按 IP 记账，NAT / 反代后的共享出口会让一次误封把一整片设备集体失联，
 //    而这里的凭证本来是签名与短期配对口令，不靠封 IP 保护。
-// ⚠ **还没有 `/pair`**：握手签名的**被签内容**在契约里没定义。我不在路由里发明它 ——
-//    那要先改契约（roadmap #131），所以公网面目前只开到"已配对的设备/发送方"这一层。
+// ⚠ **公网面的开口从这个文件起分成两层**：`/message`、`/poll`、`/ack` 只接受**已在设备表里**的
+//    签名者，而 `/register`、`/pair-arm`、`/pair` 这三条把口子开到了"还没有配对关系"的那一侧。
+//    其中 `/register` 是全协议唯一一类**提交者还没有身份**的写入面（它自带公钥，证明的是私钥持有），
+//    所以它多带了三道别处没有的闸门：按 IP 的独立额度（在 app.js 那层）、
+//    设备表上限（契约 `limits.devicesMax`，到顶只拒新的、绝不覆盖已有记录）、
+//    以及"公钥形状不对"与"签名不对"同形（否则这条入口就是一台枚举器）。
+// ⚠ **配对在这里只到"待确认"为止**：`/pair` 成功 = 表里多一条 pending 请求，A 下一次 poll 能看见它。
+//    服务端从不把任何设备写进任何人的白名单（契约 `pairing.autoApprove=false`），
+//    确认那一步要 A 自己签一条 pairConfirm —— 那是第三片，没有它之前配不上对是**预期行为**，不是坏了。
 
 'use strict';
 
@@ -25,8 +32,31 @@ const { asyncHandler } = require('../middleware');
 const { loadContract, assertSupported, statusCode, canonicalOrder } = require('./contract');
 const { alphabetFromContract, normalize } = require('./credentials');
 const { acceptIncoming } = require('./verify');
-const { authorizeClientEvent } = require('./events');
-const { loadDevices, loadNonces, saveNonces, touchDevice } = require('./devicestore');
+const {
+  authorizeClientEvent,
+  authorizeRegister,
+  authorizePairArm,
+  authorizePair,
+} = require('./events');
+const {
+  DEVICE_CAP_CODE,
+  DEVICE_GRANT_LOCK_CODE,
+  DEVICE_KEY_SWAP_CODE,
+  armPairingCode,
+  loadDevices,
+  loadNonces,
+  registerDevice,
+  saveNonces,
+  touchDevice,
+} = require('./devicestore');
+const {
+  createRequest,
+  initialStatus,
+  loadRequests,
+  pendingFor,
+  pollKey,
+  requestSpec,
+} = require('./pairstore');
 const {
   advanceMessage,
   decryptBodyFor,
@@ -85,6 +115,20 @@ function eventInput(body, now) {
     signature: text(body.signature),
     now,
   };
+}
+
+/// 身份还没被证明那一段的对外回执**取自契约**（`signature.onFailure.receipt`）：
+/// 本文件不写 receipt 字面量，与"状态码一律从契约读"是同一条纪律。
+const unsignedReceipt = String(((contract.signature || {}).onFailure || {}).receipt);
+
+/// register 的入参：`fields` 里仍是契约那六个键，顶层多带的是 publicKey 与 name ——
+/// 只有"自带公钥"的那一种事件才有这两个键，所以它单独一个构造函数，不塞进 eventInput 里
+/// 让 poll/ack 也顺手带上（那两个会一路同形地把别人的公钥当成发送者的）。
+function registerInput(body, now) {
+  return Object.assign({}, eventInput(body, now), {
+    publicKey: text(body.publicKey),
+    name: text(body.name),
+  });
 }
 
 // ── POST /message：投递收单（发送方签名的一条消息）──
@@ -192,6 +236,10 @@ router.post(
       messages: out,
       receipts,
       pending: pendingCountFor(contract, messages, auth.sender),
+      // 配对请求走的是另一张表（它不是消息：没有正文、不过 type 词表），
+      // 但它的可见性与消息一样只有一条路 —— 设备来取。键名取自契约 pairRequest.pollKey，
+      // 少这一行的表现是"请求躺在表里，A 屏幕上永远显示等待配对"。
+      [pollKey(contract)]: pendingFor(contract, loadRequests(), auth.sender, now),
       // T29 的「ts 以服务端时间判定」到这里才有承载处：设备用它算自己的时钟偏移，
       // 之后签出去的 ts 才是服务端认的那个时间。
       serverTime: now,
@@ -232,6 +280,141 @@ router.post(
     const { step } = advanceMessage(contract, messages, auth.messageId, event, { now });
     saveMessages(messages);
     res.status(200).json({ receipt: step.receipt || null, state: step.state });
+  }),
+);
+
+/// 契约声明「这一步不许带」的字段（privateKey / endpointSecret 这类顶层形态）。
+/// 只判"带没带"：值一概不读、不转存、不回显。
+/// ⚠ 为什么必须在**路由**这里也判一次：裁决层（events.js）拿到的 input 是本文件组装出来的，
+///   没抄进来的键它永远看不见 —— 那一层的 mayNotCarry 只保护直接调用方，HTTP 上是空转的
+///   （这条是本片用例抓出来的：带私钥来的包曾经回了 200）。
+///   两处读同一份契约名单不是第二份真值，是同一个规矩的两个执行点。
+function carriesForbidden(body, spec) {
+  return (spec.mayNotCarry || []).filter((f) => Object.prototype.hasOwnProperty.call(body, f));
+}
+
+// ── POST /register：设备自登记（#131 第一片那个函数在这里第一次有调用方）──
+// 唯一一类"表里还没有他"的事件：公钥随请求来、签名证明的是私钥持有。
+// ⚠ 三条闸门都在下面：上限只拒新的（绝不覆盖已有记录）、形状不对与签名不对同形、
+//    按 IP 的独立额度在 app.js 那一层（本文件不重复判，判两遍就会出现两份额度表）。
+router.post(
+  '/register',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    // 带着不该带的秘密来的包，连"是谁"都不必回答就丢掉，且回的是与"没签上"同一句话
+    //（否则这条入口多了一种可分辨的失败形状）。
+    if (carriesForbidden(body, contract.clientEvents.register).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizeRegister(contract, state, registerInput(body, now));
+    if (!auth.ok) {
+      // 这一段的失败全在身份证明之前 ⇒ 对外只有那一枚契约规定的"没签上"回执。
+      return sendFailure(res, auth.status, auth.receipt || unsignedReceipt);
+    }
+    let record;
+    try {
+      record = registerDevice(
+        contract,
+        state.devices,
+        { addressCode: auth.addressCode, publicKey: auth.publicKey, name: auth.name },
+        now,
+      );
+    } catch (e) {
+      const code = e && e.code;
+      // 只有"实例满了"这一种可以说出去（429 不透露任何身份信息，且本来就带 Retry-After）。
+      if (code === DEVICE_CAP_CODE) {
+        return res.status(statusCode(contract, 'rateLimited')).json({});
+      }
+      // 换公钥 / 顺手改授权：业务拒绝，但**必须与"签名不对"逐字节同形**。
+      // 让它们冒成 500 的话，errorMiddleware 的日志与（development 下的）正文里就带着地址码，
+      // /register 从此是一台"哪些地址码已绑过钥匙"的枚举器 —— 见 devicestore 那三枚 code。
+      if (code === DEVICE_KEY_SWAP_CODE || code === DEVICE_GRANT_LOCK_CODE) {
+        return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+      }
+      // 其余异常一律继续往上抛：把代码 bug 咽成一次 4xx，
+      // 就是 app.js 那次 503 降级同样的错法（缺陷伪装成部署问题）。
+      throw e;
+    }
+    // 不回显公钥（它本来就是设备自己带来的），也不回显任何摘要：
+    // 设备要确认的是"我这行记上了、档位是多少"，别的它无从核对也不需要核对。
+    res.status(200).json({
+      addressCode: auth.addressCode,
+      name: record.name,
+      level: record.grant.maxLevel,
+      serverTime: now,
+    });
+  }),
+);
+
+// ── POST /pair-arm：A 把自己那枚一次性配对口令挂上服务端（只存摘要）──
+router.post(
+  '/pair-arm',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.pairArm).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizePairArm(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    const pairing = armPairingCode(
+      contract,
+      state.devices,
+      auth.addressCode,
+      auth.pairingCode,
+      now,
+    );
+    // 回的是过期时间与"已消耗=null"这类元信息，**口令与摘要都不回显**：
+    // A 自己生成的那串它已经知道了，复述一遍只是多一次泄露机会。
+    res.status(200).json({
+      armed: true,
+      expiresAt: pairing.expiresAt,
+      ttlSeconds: Math.round((pairing.expiresAt - now) / 1000),
+      serverTime: now,
+    });
+  }),
+);
+
+// ── POST /pair：B 带着 A 的口令来握手 ⇒ 表里多一条**待 A 确认**的请求 ──
+// ⚠ 这一步不授权任何东西：`pairing.autoApprove=false`，白名单只能由 A 自己的确认签名进来（第三片）。
+router.post(
+  '/pair',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.pair).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizePair(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    const requests = loadRequests();
+    const created = createRequest(contract, requests, auth, now);
+    if (!created.ok) {
+      // 容量类拒绝：与"这条请求没通过判据"是两个世界，但对外仍只有同一句话
+      //（配对不许成为"哪些地址码挂着口令"的探针）。状态码取契约，别写 429 字面量。
+      return res.status(statusCode(contract, 'rateLimited')).json({});
+    }
+    res.status(statusCode(contract, 'queued')).json({
+      requestId: created.request.id,
+      // 状态名取自契约那张表，路由里不出现 'pending' 字面量：
+      // 哪天初始态改名，写死的那份不会报错，只会让设备侧读到一个不认识的状态。
+      status: initialStatus(contract, requestSpec(contract)),
+      expiresAt: created.request.expiresAt,
+      serverTime: now,
+    });
   }),
 );
 

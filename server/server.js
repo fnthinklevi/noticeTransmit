@@ -45,9 +45,16 @@ app.listen(PORT, () => {
   console.log('==============================');
   console.log('');
   console.log('协议面（fnthink-v1，公网可达）:');
-  console.log(
-    `  POST /api/fnthink/{message,poll,ack}  - 限流 ${store.RATE_LIMIT_FNTHINK_MAX}/分钟/每 IP`,
-  );
+  // 清单来自 app.js 挂路由时那份（路由本身数出来的），这里不再抄一遍路径。
+  // 空清单不是"没开"的委婉说法，而是**契约不可用、这段已降级 503** —— 必须当场说破，
+  // 否则运维会在日志里读到一句"没有端点"，然后去查防火墙。
+  const fnthinkEndpoints = app.get('fnthinkEndpoints') || [];
+  if (fnthinkEndpoints.length === 0) {
+    console.log('  （协议面没有起来：契约不可用，见上面的 [fnthink] 错误行）');
+  }
+  for (const line of fnthinkEndpoints) {
+    console.log(`  ${line}  - 限流 ${store.RATE_LIMIT_FNTHINK_MAX}/分钟/每 IP`);
+  }
   console.log(
     `  trust proxy = ${process.env.TRUST_PROXY || '0（未设）'} — 反代部署必须按真实跳数设置，`,
   );

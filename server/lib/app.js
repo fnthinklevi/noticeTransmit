@@ -77,12 +77,27 @@ try {
   app.use('/api/fnthink', fnthinkLimiter);
   const fnthink = require('./fnthink/routes');
   app.use('/api/fnthink', fnthink.router);
+  // 启动日志要报"公网面上到底开了哪几条"。这份清单**从路由本身取**，不在 server.js 里再抄一串：
+  // 抄的那份早晚少一个，而少的表现是"运维以为没开，其实开着"（或反过来，去加固错的那一侧）。
+  app.set(
+    'fnthinkEndpoints',
+    fnthink.router.stack
+      .filter((layer) => layer.route)
+      .map(
+        (layer) =>
+          `${Object.keys(layer.route.methods)
+            .sort()
+            .join(',')
+            .toUpperCase()} /api/fnthink${layer.route.path}`,
+      ),
+  );
 } catch (e) {
   // ⚠ 只咽"契约这一层真的不可用"：文件不在 / 不是合法 JSON / 协议主版本不认识。
   //   其它异常一律往上抛 —— 本片实测踩过：这里漏了 `require('./store')`，抛的是
   //   ReferenceError，被这道 catch 吞成 503，日志变成"请把契约文件放到 protocol/"，
   //   于是一个代码 bug 伪装成了部署问题（而且测试里只看到一串 503）。
   if (!isContractAvailabilityError(e)) throw e;
+  app.set('fnthinkEndpoints', []);
   console.error('[fnthink] 协议入口没有起来，这段路由已降级为 503：', e.message);
   console.error(
     '[fnthink] 需要把契约文件放到 protocol/fnthink-v1.json，或用 FNTHINK_CONTRACT 指向它',

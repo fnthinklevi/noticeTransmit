@@ -155,6 +155,23 @@ function pickField(contract, field, source) {
   return '';
 }
 
+/// 按点分路径取契约里的值：`pairRequest.ttlSecondsFrom`、`pair.levelCeilingFrom` 这类
+/// 「一个键引用另一个键」的关系就靠它解析，省得在代码里再写一份秒数或档位。
+/// 取不到返回 undefined —— 调用方必须自己判并抛，这里**不补默认值**：
+/// "引用没解析到就按一个常用值办"正是本仓反复见过的那类静默（skew 那两个旋钮就是它）。
+/// 用 hasOwnProperty 而不是 `in`：契约文件是部署侧可以被人手改的，
+/// `ttlSecondsFrom: "constructor"` 这种输入不该顺着原型链拿到东西。
+function resolvePath(contract, dotted) {
+  let node = contract;
+  for (const key of String(dotted === undefined ? '' : dotted).split('.')) {
+    if (!node || typeof node !== 'object' || !Object.prototype.hasOwnProperty.call(node, key)) {
+      return undefined;
+    }
+    node = node[key];
+  }
+  return node;
+}
+
 /// 在线阈值 = 倍数 × 拉取间隔（毫秒）。不另设心跳协议：poll 即心跳。
 function onlineThresholdMs(contract, pollIntervalSeconds) {
   const presence = contract.presence || {};
@@ -183,6 +200,7 @@ module.exports = {
   isReceipt,
   canonicalOrder,
   selfOnlyRules,
+  resolvePath,
   aliasesFor,
   pickField,
   onlineThresholdMs,

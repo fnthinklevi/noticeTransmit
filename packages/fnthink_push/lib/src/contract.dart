@@ -892,6 +892,154 @@ class FnthinkContract {
       boolOf(const ['clientEvents', 'notInCapabilitiesVocabulary']) == true,
       'clientEvents.notInCapabilitiesVocabulary 必须为 true（上面那条判据的声明处）',
     );
+    // ── 规则名单与事件之间、事件与事件之间的对应关系（2B）──
+    // 2A 故意欠着"每条规则都有人用"这一条：那时 counterpart 还没有使用者，判了就是自我矛盾。
+    // 现在 pair 用它了，这条可以补上：名单里挂一条没人声明的规则，早晚被当成注释，
+    // 而它下一次被真的用起来时，多半是"实现里没有那个分支"的那一种。
+    final usedSelfOnlyRules = <String>{};
+    for (final entry in eventKinds.entries) {
+      final hit = selfOnlyRules.where((r) => entry.value[r] == true).toList();
+      if (hit.length == 1) usedSelfOnlyRules.add(hit.single);
+    }
+    for (final rule in selfOnlyRules) {
+      need(
+        usedSelfOnlyRules.contains(rule),
+        'clientEvents.selfOnlyRules 里的「$rule」没有任何事件声明它：'
+        '名单上每条规则都得有对应的事件、实现分支与用例',
+      );
+    }
+    // 挂口令的那一步与消耗口令的那一步必须共用同一个字段名，且必须是两个不同的事件种类：
+    // 字段名各写一份的表现是"A 挂了口令、B 永远配不上"，而两边用例各自都还是绿的；
+    // 同一个事件自挂自消，则是把配对做成了一步、里面没有对方。
+    final armers = <String, String>{};
+    final consumers = <String, String>{};
+    for (final entry in eventKinds.entries) {
+      final kind = entry.key;
+      final fields = (entry.value['fields'] as List<Object?>? ?? const [])
+          .map((e) => '$e')
+          .toList();
+      for (final pair in [('arms', armers), ('consumes', consumers)]) {
+        final name = '${entry.value[pair.$1] ?? ''}';
+        if (name.isEmpty) continue;
+        need(
+          fields.contains(name),
+          'clientEvents.$kind.${pair.$1} = $name 不在它自己的 fields 清单里：'
+          '那个值没进被签的载荷，等于挂出去/消耗掉的不是同一样东西',
+        );
+        pair.$2[name] = kind;
+      }
+    }
+    need(
+      armers.keys.toSet().containsAll(consumers.keys) &&
+          consumers.keys.toSet().containsAll(armers.keys),
+      '挂上来的东西与消耗掉的东西必须一一对应：实为 arms=${armers.keys.toList()} / '
+      'consumes=${consumers.keys.toList()}（只有 arms 没人消耗 = 口令永远不过期地挂着；'
+      '只有 consumes 没人挂 = 服务端手上根本没有可对照的摘要）',
+    );
+    for (final name in consumers.keys) {
+      need(
+        armers.containsKey(name) && armers[name] != consumers[name],
+        'clientEvents.${consumers[name]} 自己挂自己消耗（$name）：配对必须有两个参与者，'
+        '一步之内自挂自消就没有"对方确认"这一环了',
+      );
+    }
+    // 事件"创建"的那段必须在契约顶层有定义，且那条记录自己得守规矩。
+    for (final entry in eventKinds.entries) {
+      final created = '${entry.value['creates'] ?? ''}';
+      if (created.isEmpty) continue;
+      final kind = entry.key;
+      final section = map([created]);
+      need(
+        section != null,
+        'clientEvents.$kind.creates = $created，但契约顶层没有 $created 这一段：'
+        '创建了东西却没定义它长什么样，实现就只能自己发明一份',
+      );
+      final stored = strings([created, 'storedFields']);
+      final never = strings([created, 'neverStored']);
+      final statuses = strings([created, 'statuses']);
+      final terminal = strings([created, 'terminalStatuses']);
+      need(
+        stored.isNotEmpty && stored.toSet().length == stored.length,
+        '$created.storedFields 必须非空且无重复（实为 $stored）：'
+        '空清单等于"什么都能存"，重复项会让下面那条交集判据看不出真正被存的那一份',
+      );
+      need(
+        stored.toSet().intersection(never.toSet()).isEmpty,
+        '$created 的字段表自相矛盾：${stored.toSet().intersection(never.toSet())} '
+        '既"存"又"禁存"',
+      );
+      need(
+        stored.contains('target') && stored.contains('requester'),
+        '$created.storedFields 必须同时有 target（等谁确认）与 requester（谁发起）：'
+        '少一个，这条请求就不知道是谁的、也不知道该显示给谁',
+      );
+      // 促成这条记录的那个秘密，不许以明文进这条记录（走的是摘要，见 neverStoredWhy）。
+      for (final name
+          in consumers.entries
+              .where((e) => e.value == kind)
+              .map((e) => e.key)) {
+        need(
+          never.contains(name),
+          '$created.neverStored 必须含 $name（它由 ${armers[name] ?? '?'} 挂上、被 $kind 消耗）：'
+          '那是用户抄过、印在二维码里、可能被拍过照的秘密，而这张表会跟着备份走',
+        );
+      }
+      need(
+        statuses.isNotEmpty &&
+            terminal.toSet().difference(statuses.toSet()).isEmpty,
+        '$created 的状态表不闭合：statuses=$statuses 而 terminalStatuses=$terminal',
+      );
+      final initial = str([created, 'initialStatus']) ?? '';
+      need(
+        statuses.contains(initial) && !terminal.contains(initial),
+        '$created.initialStatus 必须是 statuses 里那个**非终态**的初始态，实为「$initial」：'
+        '路由建新记录时照它写，没有它就只能自己猜一个',
+      );
+      final ttlPath = str([created, 'ttlSecondsFrom']) ?? '';
+      need(
+        ttlPath.isNotEmpty && intOf(ttlPath.split('.')) != null,
+        '$created.ttlSecondsFrom 必须指向契约里一个真实存在的秒数，实为「$ttlPath」：'
+        '另设一个 TTL 就会出现「口令还活着而请求已消失」，那的表现是重扫一次码被拒',
+      );
+      final perDevice = intOf([created, 'perDeviceLimit']);
+      final globalLimit = intOf([created, 'globalLimit']);
+      need(
+        perDevice != null &&
+            perDevice > 0 &&
+            globalLimit != null &&
+            globalLimit > 0 &&
+            perDevice <= globalLimit,
+        '$created 的两条上限不成样子：perDeviceLimit=$perDevice / globalLimit=$globalLimit'
+        '（都要是正数，且每台不得超过全局）',
+      );
+      if (str([created, 'visibleVia']) == 'poll') {
+        final pollKey = str([created, 'pollKey']) ?? '';
+        need(
+          pollKey.isNotEmpty &&
+              strings(const [
+                'clientEvents',
+                'poll',
+                'returns',
+              ]).contains(pollKey),
+          'poll 取走什么必须写在 clientEvents.poll.returns 里：$created.pollKey=「$pollKey」'
+          '不在那份清单上（创建了东西却没人取得它，A 屏幕上就永远显示"等待配对"）',
+        );
+      }
+      final ceiling = '${entry.value['levelCeilingFrom'] ?? ''}';
+      if (ceiling.isNotEmpty) {
+        final value = at(ceiling.split('.'));
+        need(
+          value != null && capabilityLevels.contains('$value'),
+          'clientEvents.$kind.levelCeilingFrom=$ceiling 取到的值「$value」不是 capabilities.levels '
+          '里的一档：那道上限必须是一档真实存在的级别，否则它挡不住任何东西',
+        );
+      }
+    }
+    need(
+      (intOf(const ['limits', 'devicesMax']) ?? 0) > 0,
+      'limits.devicesMax 必须是正整数：POST /register 是唯一一类"提交者还没有身份"的写入面，'
+      '设备表没有上限就等于给未认证流量送一台无限增长的存储',
+    );
     // 自带公钥的那一种事件（目前只有 register）字段规则与其它种类相反：必须带公钥
     // （否则无从证明私钥持有）、必须带不上任何秘密。按 `carriesOwnPublicKey` 旗标挑出来判，
     // 不按名字 —— 判据里写死 'register'，下一片再来一种自带公钥的事件时它不报错，
