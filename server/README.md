@@ -897,11 +897,25 @@ journalctl -u update-server -f
 3. 站点「配置文件」里改两处，并核对反代段：
 
    ```nginx
-   location / { return 404; }      # 把宝塔默认那个 location / 整段换成这一行：
-                                   # 其余路径一律挡掉，管理后台只从更新域名进
+   location / { return 404; }      # ⚠ 这一行是**必须**，不是可选加固：宝塔建站默认把「网站目录」
+                                   # 当静态根，而公网面站点的目录就是**代码目录** ⇒
+                                   # /server.js、/lib/**、/data/totp.json、/data/sessions.json
+                                   # 会变成**可直接下载**的静态文件（本仓实测过，见下）。
+                                   # 换成这一行之后：其余路径一律 404，管理后台只从更新域名进，
+                                   # 裸 /health 也不再被"目录补斜杠"逻辑 301。
    client_max_body_size 64k;       # 与服务端一致：公网面协议闸也是 64 KiB，
                                    # 这里设小了会先被 Nginx 挡掉、回的是 HTML 而不是协议形状
    ```
+
+   > 🔴 **为什么这行必须**：公网面站点的"网站目录"通常指向代码目录，而代码目录里有 `server.js`、
+   > `lib/**`、`data/**`。不写 `return 404` 时，Nginx 会把这些**当静态资源直出** ——
+   > 实测可下载的包括 `server.js`、`lib/store.js`、`lib/routes/auth.js`、
+   > **`data/totp.json`（TOTP 材料）与 `data/sessions.json`（活跃会话表）**。
+   > 验证一条命令就够：
+   > ```bash
+   > curl -s -o /dev/null -w '%{http_code}\n' https://<推送域名>/server.js     # 必须 404
+   > curl -s -o /dev/null -w '%{http_code}\n' https://<推送域名>/data/totp.json # 必须 404
+   > ```
 
    ```nginx
    # 核对（宝塔模板有时只带前两行，缺第三行必须补 —— 否则 .env 里 TRUST_PROXY=1 拿不到真实 IP）

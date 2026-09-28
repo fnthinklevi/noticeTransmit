@@ -913,11 +913,25 @@ matter most — three steps:
 3. In the site's config file, change two things and verify the proxy block:
 
    ```nginx
-   location / { return 404; }      # replace the panel's default location / with this line:
-                                   # everything else is refused, so the admin console stays on the update host
+   location / { return 404; }      # ⚠ this line is **mandatory**, not optional hardening: BT Panel makes the
+                                   # site's "website directory" the static root, and for the public-face site that
+                                   # directory is the **code directory** ⇒ /server.js, /lib/**, /data/totp.json and
+                                   # /data/sessions.json become **downloadable static files** (measured in this
+                                   # repo). With this line everything else is refused, the admin console stays on
+                                   # the update host, and a bare /health is no longer 301'd by directory logic.
    client_max_body_size 64k;       # match the server: the public face enforces 64 KiB itself,
                                    # smaller here means Nginx rejects first with HTML instead of the protocol shape
    ```
+
+   > 🔴 **Why it is mandatory**: the public-face site's "website directory" usually points at the code directory,
+   > which contains `server.js`, `lib/**` and `data/**`. Without `return 404`, Nginx serves those as static files —
+   > measured as downloadable: `server.js`, `lib/store.js`, `lib/routes/auth.js`,
+   > **`data/totp.json` (TOTP material) and `data/sessions.json` (the live session table)**.
+   > Two commands tell you whether you are exposed:
+   > ```bash
+   > curl -s -o /dev/null -w '%{http_code}\n' https://<push-host>/server.js      # must be 404
+   > curl -s -o /dev/null -w '%{http_code}\n' https://<push-host>/data/totp.json # must be 404
+   > ```
 
    ```nginx
    # verify (the panel template sometimes ships only the first two lines; the third is required —
