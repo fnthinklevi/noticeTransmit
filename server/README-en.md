@@ -932,6 +932,13 @@ matter most — three steps:
    > curl -s -o /dev/null -w '%{http_code}\n' https://<push-host>/server.js      # must be 404
    > curl -s -o /dev/null -w '%{http_code}\n' https://<push-host>/data/totp.json # must be 404
    > ```
+   >
+   > ⚠️ **Companion fix**: if the site config has `error_page 404 /404.html;`, comment it out **together with**
+   > adding `location / { return 404; }` — otherwise the 404 internally redirects to `/404.html`, falls back into
+   > `location /`, 404s again, and Nginx answers **500** after detecting an internal redirection cycle (so the
+   > symptom becomes "500 instead of 404", which is harder to read).
+   > Belt and braces (recommended): point that site's **website directory** at an empty directory instead of the
+   > code directory — then even a missing `location /` cannot leak source or data.
 
    ```nginx
    # verify (the panel template sometimes ships only the first two lines; the third is required —

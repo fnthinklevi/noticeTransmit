@@ -916,6 +916,12 @@ journalctl -u update-server -f
    > curl -s -o /dev/null -w '%{http_code}\n' https://<推送域名>/server.js     # 必须 404
    > curl -s -o /dev/null -w '%{http_code}\n' https://<推送域名>/data/totp.json # 必须 404
    > ```
+   >
+   > ⚠️ **配套**：如果站点配置里有 `error_page 404 /404.html;`，加 `location / { return 404; }` 时要把它
+   > **一起注释掉** —— 否则 404 会内部重定向到 `/404.html`、又落回 `location /` 再 404，Nginx 判定
+   > 内部重定向循环后返回 **500**（推送到此就变成"500 而不是 404"，更难判读）。
+   > 双保险（推荐）：把该站点的**网站目录**改成一个空目录，别指向代码目录 —— 这样即便 `location /`
+   > 漏写，静态直出也拿不到任何源码或数据。
 
    ```nginx
    # 核对（宝塔模板有时只带前两行，缺第三行必须补 —— 否则 .env 里 TRUST_PROXY=1 拿不到真实 IP）
