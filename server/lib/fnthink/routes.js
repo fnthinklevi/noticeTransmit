@@ -37,10 +37,10 @@ const {
   authorizeRegister,
   authorizePairArm,
   authorizePair,
+  authorizePairConfirm,
 } = require('./events');
 const {
   DEVICE_CAP_CODE,
-  DEVICE_GRANT_LOCK_CODE,
   DEVICE_KEY_SWAP_CODE,
   armPairingCode,
   loadDevices,
@@ -51,6 +51,7 @@ const {
 } = require('./devicestore');
 const {
   createRequest,
+  decideRequest,
   initialStatus,
   loadRequests,
   pendingFor,
@@ -328,10 +329,10 @@ router.post(
       if (code === DEVICE_CAP_CODE) {
         return res.status(statusCode(contract, 'rateLimited')).json({});
       }
-      // 换公钥 / 顺手改授权：业务拒绝，但**必须与"签名不对"逐字节同形**。
+      // 换公钥：业务拒绝，但**必须与"签名不对"逐字节同形**。
       // 让它们冒成 500 的话，errorMiddleware 的日志与（development 下的）正文里就带着地址码，
       // /register 从此是一台"哪些地址码已绑过钥匙"的枚举器 —— 见 devicestore 那三枚 code。
-      if (code === DEVICE_KEY_SWAP_CODE || code === DEVICE_GRANT_LOCK_CODE) {
+      if (code === DEVICE_KEY_SWAP_CODE) {
         return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
       }
       // 其余异常一律继续往上抛：把代码 bug 咽成一次 4xx，
@@ -341,9 +342,11 @@ router.post(
     // 不回显公钥（它本来就是设备自己带来的），也不回显任何摘要：
     // 设备要确认的是"我这行记上了、档位是多少"，别的它无从核对也不需要核对。
     res.status(200).json({
+      // 登记**不给任何授权**，所以这里没有 level 可回（第三片把 grant 从发送方记录上撤了）：
+      // 回一个空的 grantsBy 长度，让设备知道"你得先被谁配对"，而不是误以为已经能发。
       addressCode: auth.addressCode,
       name: record.name,
-      level: record.grant.maxLevel,
+      peersGrantingMe: Object.keys(record.grantsBy || {}).length,
       serverTime: now,
     });
   }),
@@ -413,6 +416,42 @@ router.post(
       // 哪天初始态改名，写死的那份不会报错，只会让设备侧读到一个不认识的状态。
       status: initialStatus(contract, requestSpec(contract)),
       expiresAt: created.request.expiresAt,
+      serverTime: now,
+    });
+  }),
+);
+
+// ── POST /pair-confirm：A 处理自己的一条配对请求（唯一一次授权写入）──
+// 这一条是 #131 的收口：前两片只证明"B 知道那枚口令"并挂起请求，授权一直是空的。
+// ⚠ 授权写在**被投那台**的 grantsBy 上（契约 pairing.relationshipStoredOn）；
+//   归属与"只能处理一次"由 pairstore 拿着两张表判，本文件只串顺序。
+router.post(
+  '/pair-confirm',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.pairConfirm).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizePairConfirm(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    const requests = loadRequests();
+    const decided = decideRequest(contract, requests, state.devices, auth, now);
+    if (!decided.ok) {
+      // 三种走法（没这条 / 不是你的 / 已处理过）对外同一句话：
+      // 一个能被分辨的 requestId 就等于把"谁的配对请求还在等"这件事说出去了。
+      return sendFailure(res, statusCode(contract, 'forbidden'), 'rejected_capability');
+    }
+    res.status(200).json({
+      requestId: decided.request.id,
+      status: decided.request.status,
+      // 同意才有的东西；拒绝时是 null —— 让设备能分清"我刚才划掉了"与"我刚才同意了"。
+      grantedLevel: decided.grant ? decided.grant.maxLevel : null,
       serverTime: now,
     });
   }),

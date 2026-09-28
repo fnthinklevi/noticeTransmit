@@ -43,7 +43,6 @@ const DEVICE_CAP_CODE = 'FNTHINK_DEVICE_CAP';
 /// 它们的消息文本里有地址码，是给运维日志看的；一路冒到 errorMiddleware 就会变成
 /// 一次 500 + "这个地址码已经绑过另一把钥匙"，而 /register 是公网面 —— 那就是枚举器。
 const DEVICE_KEY_SWAP_CODE = 'FNTHINK_DEVICE_KEY_SWAP';
-const DEVICE_GRANT_LOCK_CODE = 'FNTHINK_DEVICE_GRANT_LOCK';
 
 function loadDevices() {
   return loadTable(DEVICE_FILE, 'devices');
@@ -85,16 +84,19 @@ function assertLevel(contract, level) {
 }
 
 /// 登记设备。幂等 upsert，但**公钥不许静默替换**。
+///
+/// ⚠ 登记**不产生任何授权**（#131 第三片改的就是这一件）：旧版在这里往发送方自己那一行写
+///   `grant`，而收单读的就是那份 —— 效果是"谁登记过就能给任何人投"。授权的内容是
+///   「A 允许 B 投给我」，做决定的是被投的那台，所以它存在 A 的 `grantsBy` 里（契约
+///   `pairing.relationshipStoredOn`），由 A 自己的 pairConfirm 签名带进来。
+///   这里顺手把老行里那份 `grant` 清掉：留着它不会放行任何东西，但它会一直骗读代码的人
+///   —— "看着权威、其实没人读"的字段比缺字段更贵。
 function registerDevice(contract, devices, input, now) {
   if (!isValidAddressCode(contract, input.addressCode)) {
     throw new Error(`不是合法的地址码（应为 ${lengthFromContract(contract, 'addressCode')} 位）`);
   }
   const key = keyOf(contract, input.addressCode);
   const publicKey = assertPublicKey(input.publicKey);
-  // 缺省档从契约读（不在这里再写一个 'L1'：两处各存一份"默认给多少"，
-  // 哪天改契约那一处，这里会静默地比契约宽）。
-  const defaultLevel = ((contract.capabilities || {}).grantDefaults || {}).maxLevel;
-  const level = assertLevel(contract, input.level || defaultLevel);
   const existing = devices[key];
   // 设备表上限（契约 limits.devicesMax）。/register 是全协议唯一一类「提交者还没有身份」的
   // 写入面：攻击者做一次的成本是生成一把 Ed25519 密钥，服务端做一次的成本是一行记录加一次磁盘写。
@@ -123,24 +125,88 @@ function registerDevice(contract, devices, input, now) {
     err.code = DEVICE_KEY_SWAP_CODE;
     throw err;
   }
-  if (existing && existing.grant && existing.grant.maxLevel !== level) {
-    // 登记是幂等的，但**授权不是可改的**：提高或降低一个已配对发送方的级别
-    // 必须走"重新确认"那条路（T31），不能让一次 re-register 顺手改掉。
-    const err = new Error(
-      `地址码 ${key} 的授权是 ${existing.grant.maxLevel}，不能在登记里改成 ${level}（要变更请走重新确认）`,
-    );
-    err.code = DEVICE_GRANT_LOCK_CODE;
-    throw err;
-  }
-  const record = existing || { createdAt: now, status: 'active', lastSeenAt: null, owner: null };
+  const record = existing || {
+    createdAt: now,
+    status: 'active',
+    lastSeenAt: null,
+    owner: null,
+    grantsBy: {},
+  };
   record.publicKey = publicKey;
   record.name = typeof input.name === 'string' ? input.name.slice(0, 60) : '';
-  if (!record.grant) record.grant = { maxLevel: level, items: [], revision: 1, grantedAt: now };
+  if (
+    !record[relationshipField(contract)] ||
+    typeof record[relationshipField(contract)] !== 'object'
+  ) {
+    record[relationshipField(contract)] = {};
+  }
+  delete record.grant; // 见函数头：那份授权已经换地方了，留着一份没人读的 grant 比缺一份更贵
   if (input.owner !== undefined) record.owner = input.owner;
   devices[key] = record;
   saveDevices(devices);
   return record;
 }
+
+/// 契约里那一列叫什么。**不在代码里写死**：列名换了而代码不动，表现是关系读不到 ⇒
+/// 所有已配对发送方一夜之间全被拒（而每条拒收日志都写着"没配对"，看着像数据被人清了）。
+function relationshipField(contract) {
+  const field = (contract.pairing || {}).relationshipField;
+  if (typeof field !== 'string' || field === '') {
+    throw new Error(
+      '契约缺 pairing.relationshipField（不补默认列名：补了就是在代码里发明一份表结构）',
+    );
+  }
+  return field;
+}
+
+/// 读「A 允许 B 投到哪一档」这一条关系。**读不到就返回 null** —— 由调用方按
+/// `pairing.relationshipRequiredForIntake` 决定"拒"，这里不回落成缺省档：
+/// 缺省档防的是"有授权记录但字段缺"，把它当成"谁都没配过对"的默认放行方向就是 fail-open。
+function peerGrant(contract, record, peerCode) {
+  const by = record ? record[relationshipField(contract)] : null;
+  if (!by || typeof by !== 'object' || Array.isArray(by)) return null;
+  const peerKey = keyOf(contract, peerCode);
+  if (peerKey === null) return null;
+  // 用 hasOwnProperty：普通对象上 `by['constructor']` 会取到 Object.prototype 那个真值，
+  // 于是"任何一个能 normalize 成合法地址码的输入"之外又多了一条不走的路（本仓在会话表上栽过）。
+  const entry = Object.prototype.hasOwnProperty.call(by, peerKey) ? by[peerKey] : null;
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return null;
+  return entry;
+}
+
+/// A 确认把 B 写进自己的白名单 —— 授权写入的**唯一咽喉**，别处不许再写 `grantsBy[...]`。
+/// 只有 A 自己的签名能走到这里（routes 的 /pair-confirm 先过 authorizePairConfirm）。
+/// ⚠ 每次确认都把 `items` 重置成空清单：重新配对不继承旧的逐条勾选 —— L2/L3 那些
+///   "每一次都要人看一眼"的条目，不该因为重新扫一次码就自动回来（契约 itemRequiredFromLevel 的方向）。
+function approvePeer(contract, devices, addressCode, peerCode, level, now) {
+  const record = devices[keyOf(contract, addressCode)];
+  if (!record) throw new Error('设备未登记（授权不能挂在没有记录的设备上）');
+  const peerKey = keyOf(contract, peerCode);
+  if (peerKey === null || !isValidAddressCode(contract, peerKey)) {
+    throw new Error('对方地址码不合法（授权不能写给一个不像地址码的东西）');
+  }
+  assertLevel(contract, level);
+  const field = relationshipField(contract);
+  if (!record[field] || typeof record[field] !== 'object' || Array.isArray(record[field])) {
+    record[field] = {};
+  }
+  const prev = Object.prototype.hasOwnProperty.call(record[field], peerKey)
+    ? record[field][peerKey]
+    : null;
+  record[field][peerKey] = {
+    maxLevel: level,
+    items: [],
+    revision: (Number(prev && prev.revision) || 0) + 1,
+    grantedAt: now,
+  };
+  saveDevices(devices);
+  return record[field][peerKey];
+}
+
+/// 本机身份重建后：A 给出去的关系要一起作废（契约 revocation.identityRebuildInvalidatesAllPeers）。
+/// ⚠ 这里只回答"A 自己的那份关系表怎么变"，撤销的入口（单条划掉 / 一键冻结）在 T31 与 #130；
+///   两片共用 `invalidatePeersAfterRebuild` 这个名字会串味，所以本片**不提供**它 ——
+///   没有调用方的清理函数，就是下一个"registerDevice 没有调用方"。
 
 // ── 状态与吊销（T31）──────────────────────────────────────────
 // 三条判据写在这里：① 状态名只认契约那张表（打错字的方向必须是"抛"，不是"写进去以后没人认得"）；
@@ -384,8 +450,9 @@ function newEndpointId() {
 
 module.exports = {
   DEVICE_CAP_CODE,
-  DEVICE_GRANT_LOCK_CODE,
   DEVICE_KEY_SWAP_CODE,
+  approvePeer,
+  peerGrant,
   DEVICE_FILE,
   ENDPOINT_FILE,
   FILE_MODE,
@@ -397,6 +464,7 @@ module.exports = {
   saveDevices,
   saveEndpoints,
   registerDevice,
+  relationshipField,
   assertDeviceStatus,
   freezeDevice,
   invalidatePeersAfterRebuild,

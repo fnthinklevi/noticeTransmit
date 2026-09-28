@@ -851,12 +851,133 @@ void main() {
     });
 
     test('名单里的规则没人用 ⇒ 报（2A 欠的那条现在能判了）', () {
+      // 第三片之后 counterpart 这条规则有**两个**使用者（pair 与 pairConfirm），
+      // 所以只改一个不会被判出来 —— 这条用例要一起摘掉，才是真的"没人用"。
       final broken = mutate((raw) {
-        final pair = kindOf(raw, 'pair');
-        pair.remove('mustContainCounterpartAddress');
-        pair['targetMustEqualSender'] = true;
+        for (final kind in ['pair', 'pairConfirm']) {
+          final spec =
+              (raw['clientEvents'] as Map<String, Object?>)[kind]
+                  as Map<String, Object?>;
+          spec.remove('mustContainCounterpartAddress');
+          spec['targetMustEqualSender'] = true;
+        }
       });
       expectProblem(broken, '没有任何事件声明它', '写了却没人用的那条早晚被当成注释，而它下次被真用时多半没有实现分支');
+    });
+
+    // ── 配对关系存在哪张表、由哪一端判，以及 A 那次确认（#131 第三片）──
+    Map<String, Object?> pairOf(Map<String, Object?> raw) =>
+        ((raw['clientEvents'] as Map<String, Object?>)['pairConfirm']
+            as Map<String, Object?>);
+
+    test('关系改回存在发送方记录上 ⇒ 报（登记即许可就是那样）', () {
+      final broken = mutate((raw) {
+        (raw['pairing'] as Map<String, Object?>)['relationshipStoredOn'] =
+            'sender-device-record';
+      });
+      expectProblem(
+        broken,
+        'relationshipStoredOn 只能是 target-device-record',
+        '存在发送方那一行时，"逐条勾选/每次本地确认/重建后重配"三条都执行不了',
+      );
+    });
+
+    test('关系列名缺了 ⇒ 报（收单不知道去哪读）', () {
+      final broken = mutate((raw) {
+        (raw['pairing'] as Map<String, Object?>).remove('relationshipField');
+      });
+      expectProblem(broken, 'relationshipField 不能缺', '缺了这道判据就是没有的');
+    });
+
+    test('执行点写成设备侧判 ⇒ 报（本实现没有那条路径，声明了就是装饰）', () {
+      final broken = mutate((raw) {
+        (raw['pairing'] as Map<String, Object?>)['enforcedAt'] = 'device-only';
+      });
+      expectProblem(broken, 'enforcedAt 只能是 server-intake', '声明一条没人执行的闸比没有更危险');
+    });
+
+    test('查不到关系时允许回落缺省档 ⇒ 报（那正是 fail-open）', () {
+      final broken = mutate((raw) {
+        (raw['pairing']
+                as Map<String, Object?>)['relationshipRequiredForIntake'] =
+            false;
+      });
+      expectProblem(
+        broken,
+        'relationshipRequiredForIntake 不为 true',
+        '"谁都没配过对"变成默认放行，方向正好反了',
+      );
+    });
+
+    test('关系项少 maxLevel ⇒ 报（缺省档补不进这份节点，配对过的设备反被自己卡住）', () {
+      final broken = mutate((raw) {
+        ((raw['pairing'] as Map<String, Object?>)['relationshipEntryFields']
+                as List<Object?>)
+            .remove('maxLevel');
+      });
+      expectProblem(
+        broken,
+        'relationshipEntryFields 缺 maxLevel',
+        '两处形状必须一致才只有一份规则',
+      );
+    });
+
+    test('确认的某个状态不是终态 ⇒ 报（那条请求永远处理不完）', () {
+      final broken = mutate((raw) {
+        (pairOf(raw)['decisions'] as List<Object?>).add('pending');
+      });
+      expectProblem(
+        broken,
+        '不属于 pairRequest.terminalStatuses',
+        '把非终态写回去等于请求不会结束',
+      );
+    });
+
+    test('没声明哪个词算"同意" ⇒ 报（不敢猜：猜错的方向是关掉请求却不给授权）', () {
+      final broken = mutate((raw) {
+        pairOf(raw).remove('approveDecision');
+      });
+      expectProblem(
+        broken,
+        'approveDecision 必须是 decisions 里那一个',
+        '让实现自己认这个词，状态改名就会把同意当拒绝',
+      );
+    });
+
+    test('decisions 有了但载荷里没有 decision ⇒ 报（那张表没人能推进）', () {
+      final broken = mutate((raw) {
+        (pairOf(raw)['fields'] as List<Object?>).remove('decision');
+      });
+      expectProblem(broken, '却不在 fields 里带 decision', '声明了状态却没有承载它的字段');
+    });
+
+    test('去掉"只能处理关于自己的"那条 ⇒ 报（别人的 requestId 就能替别人答应）', () {
+      final broken = mutate((raw) {
+        pairOf(raw)['requestMustBelongToTarget'] = false;
+      });
+      expectProblem(
+        broken,
+        '必须同时声明 requestMustBelongToTarget 与 consumesRequest',
+        '一次点头变成可反复使用的凭证，或替别人点头',
+      );
+    });
+
+    test('载荷带 level 却没有上限引用 ⇒ 报（那道上限闸没人读）', () {
+      final broken = mutate((raw) {
+        pairOf(raw).remove('levelCeilingFrom');
+      });
+      expectProblem(
+        broken,
+        '档位与它的上限必须同进同出',
+        '只有 L2 以下能从这里进来，靠的是这个引用而不是实现里的字面量',
+      );
+    });
+
+    test('decides 指向一个不存在的段 ⇒ 报（在处理一张没定义过的表）', () {
+      final broken = mutate((raw) {
+        pairOf(raw)['decides'] = 'pairRequestV2';
+      });
+      expectProblem(broken, '但契约顶层没有 pairRequestV2 这一段', '创建了/处理了东西却没定义它长什么样');
     });
 
     test('storedFields 去掉 sender ⇒ 报（回执通道没有收件人）', () {

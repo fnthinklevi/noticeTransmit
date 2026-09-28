@@ -18,12 +18,7 @@ process.env.ADMIN_TOKEN_HASH = bcrypt.hashSync('test-admin-token-for-caps', 10);
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-fnthink-caps-'));
 
 const { loadContract, assertSupported, isReceipt } = require('../lib/fnthink/contract');
-const {
-  decideCapability,
-  endpointGrant,
-  grantFromNode,
-  grantFromRecord,
-} = require('../lib/fnthink/capabilities');
+const { decideCapability, endpointGrant, grantFromNode } = require('../lib/fnthink/capabilities');
 
 const contract = assertSupported(loadContract());
 const vectors = JSON.parse(
@@ -92,13 +87,15 @@ describe('能力清单向量（Node 侧，T30-A）', () => {
     expect(isReceipt(contract, 'rejected_capability')).toBe(true);
   });
 
-  test('grantFromRecord：记录里没有 grant ⇒ 按缺省档；有 grant ⇒ 逐项读', () => {
-    expect(grantFromRecord(contract, {}).maxLevel).toBe(
+  // #131 第三片：授权住在被投那台的 grantsBy 里，每一项**就是**这份节点
+  //（旧版还有一层 `grantFromRecord(record)` 去读 `record.grant`，那既是第二份形状也是死路）。
+  test('grantFromNode：节点里没有 maxLevel ⇒ 按缺省档；有 ⇒ 逐项读', () => {
+    expect(grantFromNode(contract, null).maxLevel).toBe(
       contract.capabilities.grantDefaults.maxLevel,
     );
-    expect(grantFromRecord(contract, null).items).toEqual([]);
-    const rec = { grant: { maxLevel: 'L2', items: ['app:a/b', ''], revision: '3' } };
-    const got = grantFromRecord(contract, rec);
+    expect(grantFromNode(contract, null).items).toEqual([]);
+    const rec = { maxLevel: 'L2', items: ['app:a/b', ''], revision: '3' };
+    const got = grantFromNode(contract, rec);
     expect(got.maxLevel).toBe('L2');
     expect(got.items).toEqual(['app:a/b']); // 空串不算一项
     expect(got.revision).toBe(3);
@@ -134,7 +131,7 @@ describe('能力清单向量（Node 侧，T30-A）', () => {
     // 攻击面：请求体里塞一个 grant。decideCapability 只认调用方递进来的那个，
     // 而调用方（verify）递的是**设备表里读出来的**那一份。
     const smuggled = { maxLevel: 'L3', items: ['setting:whatever'] };
-    const stored = grantFromRecord(contract, {}); // 表里没授权 ⇒ 缺省 L1
+    const stored = grantFromNode(contract, null); // 关系里没写档位 ⇒ 缺省 L1
     expect(
       decideCapability(contract, {
         stage: 'apply',

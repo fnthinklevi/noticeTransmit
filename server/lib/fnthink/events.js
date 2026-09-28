@@ -367,9 +367,77 @@ function authorizePair(contract, state, input) {
   };
 }
 
+/**
+ * A 处理一条关于自己的配对请求（契约 `clientEvents.pairConfirm`）—— 整条链上唯一一次
+ * "A 亲手把 B 写进自己的白名单"，也因此是全协议第二类「关于别人」的签名。
+ *
+ * 与 pair 一样走 counterpart 那条作用范围规则：target 必须是**别人**的合法地址码。
+ * 少这一半（允许等于自己）就等于 A 可以自己确认自己给到自己，而那是唯一一条能写授权的入口。
+ *
+ * ⚠ 这里只判事件本身；**请求归属与"只能处理一次"要拿着两张表才能判**（pairstore.decideRequest），
+ * 与 ack 的"只能 ack 下发给自己的那一条"是同一类分工，别以为这里已经判全了。
+ */
+function authorizePairConfirm(contract, state, input) {
+  const spec = (contract.clientEvents || {}).pairConfirm;
+  if (!spec) {
+    throw new Error(
+      '契约没有 clientEvents.pairConfirm（不补默认值：补了等于在代码里发明一种事件）',
+    );
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'pairConfirm');
+  if (read.reason) return fail(read.reason);
+  const requestId = String(read.payload.requestId === undefined ? '' : read.payload.requestId);
+  const decision = String(read.payload.decision === undefined ? '' : read.payload.decision);
+  const level = String(read.payload.level === undefined ? '' : read.payload.level);
+  const decisions = spec.decisions || [];
+  if (!decisions.includes(decision)) {
+    return fail(`unknown-decision:${decision}`);
+  }
+  const levels = (contract.capabilities || {}).levels || [];
+  if (!levels.includes(level)) return fail(`level:${level}`);
+  const ceiling = resolvePath(contract, spec.levelCeilingFrom);
+  if (!levels.includes(ceiling)) {
+    throw new Error(
+      `clientEvents.pairConfirm.levelCeilingFrom=${JSON.stringify(spec.levelCeilingFrom)} ` +
+        `取到的「${ceiling}」不是 capabilities.levels 里的一档`,
+    );
+  }
+  // 确认时能给的上限与请求时是同一道闸：服务端看不见锁屏与生物认证，所以 L3 不许从这里进来
+  //（与 T30 那次同一条红线：不许拿"请求里自称已确认"当本地认证）。
+  if (levelRank(levels, level) > levelRank(levels, ceiling)) {
+    return fail(`level-too-high:${level}>${ceiling}`);
+  }
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return {
+    ok: true,
+    kind: 'pairConfirm',
+    // A 是自己（请求的收件人）；B 是签名里那个"别人"的地址码（请求的发起人）。
+    target: id.sender,
+    requester: normalize(alphabetFromContract(contract), String(fields.target)),
+    requestId,
+    decision,
+    level,
+  };
+}
+
 module.exports = {
   authorizeClientEvent,
   authorizeRegister,
   authorizePairArm,
   authorizePair,
+  authorizePairConfirm,
 };

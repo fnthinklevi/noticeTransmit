@@ -22,6 +22,9 @@ const path = require('path');
 const { DATA_DIR } = require('../store');
 const { resolvePath } = require('./contract');
 const { alphabetFromContract, normalize } = require('./credentials');
+// 写授权只有一条咽喉，就在设备表那一侧：本文件不自己碰 `grantsBy`（两处写 = 两份规则）。
+// 方向上不成环：devicestore 不认识 pairstore。
+const { approvePeer } = require('./devicestore');
 const { loadTable, saveTable } = require('./table');
 
 const REQUEST_FILE = path.join(DATA_DIR, 'fnthink_pair_requests.json');
@@ -184,10 +187,63 @@ function pendingFor(contract, requests, addressCode, now) {
     }));
 }
 
+/// A 处理自己的一条配对请求（#131 第三片）。`devices` 传进来是因为同意要写授权，
+/// 而写授权只有一条咽喉：`devicestore.approvePeer`（本文件不自己碰 `grantsBy`）。
+///
+/// 三条顺序上的取舍，都写在代码旁边：
+///  ① 先查归属再查状态：把"不是你的请求"和"已经处理过"分开报，是给运维看的；
+///     对外两者同形（路由那边只看一个 reason）。
+///  ② 过期先落地（expireDue）：一条早已过期的请求不该还能被"同意"。
+///  ③ **先写授权、后关请求**：反过来做的话，一次 approvePeer 落盘失败会留下
+///     "请求显示已同意、B 却一条都发不进来"——A 看见自己点了同意而对面没反应，
+///     那是最难查的一种静默。现在的顺序最坏只到"授权写了、请求还挂着"，
+///     A 再确认一次即可（revision +1，方向仍然由 A 决定）。
+function decideRequest(contract, requests, devices, input, now) {
+  const spec = requestSpec(contract);
+  const pending = initialStatus(contract, spec);
+  expireDue(contract, requests, now);
+  const record = Object.prototype.hasOwnProperty.call(requests, String(input.requestId))
+    ? requests[String(input.requestId)]
+    : null;
+  if (!record) return { ok: false, reason: 'unknown-request' };
+  if (
+    String(record.target) !== String(input.target) ||
+    String(record.requester) !== String(input.requester)
+  ) {
+    // 契约 pairConfirm.requestMustBelongToTarget 的执行处：requestId 是随机串，但"猜不到"不是判据。
+    return { ok: false, reason: 'not-yours' };
+  }
+  if (record.status !== pending) return { ok: false, reason: 'already-decided' };
+  const confirm = (contract.clientEvents || {}).pairConfirm || {};
+  const decisions = confirm.decisions || [];
+  // ⚠ 这条必须排在"哪个词算同意"的比较**之前**：写在比较里面的话，approveDecision 一旦被删，
+  //   比较就恒不等 ⇒ 同意被静默当成不同意（请求关掉、授权没写），而那正是最像"配对失败"的缺陷。
+  if (!confirm.approveDecision || !decisions.includes(confirm.approveDecision)) {
+    throw new Error(
+      `契约 pairConfirm.approveDecision=${JSON.stringify(confirm.approveDecision)} 必须存在且在 ` +
+        `decisions（${decisions.join('/')}）里：不知道哪个词算同意，就不敢动这张表`,
+    );
+  }
+  if (!decisions.includes(input.decision)) {
+    throw new Error(
+      `pairConfirm.decisions 里没有 ${JSON.stringify(input.decision)}（可取：${decisions.join('/')}）`,
+    );
+  }
+  let grant = null;
+  if (input.decision === confirm.approveDecision) {
+    grant = approvePeer(contract, devices, input.target, input.requester, input.level, now);
+  }
+  record.status = input.decision;
+  record.decidedAt = now;
+  saveRequests(requests);
+  return { ok: true, request: record, grant };
+}
+
 module.exports = {
   ID_BYTES,
   REQUEST_FILE,
   createRequest,
+  decideRequest,
   expireDue,
   initialStatus,
   loadRequests,

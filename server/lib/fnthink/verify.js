@@ -16,7 +16,8 @@ const crypto = require('crypto');
 
 const { statusCode } = require('./contract');
 const { normalize, alphabetFromContract } = require('./credentials');
-const { decideCapability, grantFromRecord } = require('./capabilities');
+const { decideCapability, grantFromNode } = require('./capabilities');
+const { peerGrant } = require('./devicestore');
 const {
   rememberNonce,
   rememberReject,
@@ -89,7 +90,9 @@ function verifySignature(contract, publicKeyB64, canonical, signatureB64) {
 function acceptIncoming(contract, state, input) {
   const id = verifyIdentity(contract, state, input);
   if (id.outcome) return id.outcome;
-  const { sender, device, canonical } = id;
+  // `device`（发送方自己那一行）在这里**不再参与授权**：过去那行上的 grant 是收单唯一的依据，
+  // 于是登记本身就是许可。现在授权读的是被投那台的 grantsBy（见下面那段配对关系）。
+  const { sender, canonical } = id;
 
   // ── 以下是"身份已被证明"的区域，可以照实说（T27/T28 那条同形规则到此为止）──
   const denied = (receipt, reason) =>
@@ -107,12 +110,31 @@ function acceptIncoming(contract, state, input) {
   if (item !== '' && canonical.toString('utf8').indexOf(item) < 0) {
     return denied('rejected_capability', 'unsigned-item');
   }
+  // ── 配对关系（#131 第三片）：被投那台允许这台发送方吗 ──
+  // 判在 **target 的 grantsBy** 上（契约 pairing.relationshipStoredOn / enforcedAt）。
+  // 旧版没有这一段：收单读的是发送方自己那一行的 grant ⇒ "谁登记过就能给任何人投"，
+  // 而 A 侧只能靠 poll 拿到什么才决定显示什么，没有第二次拦截的机会。
+  const enforcedAt = String((contract.pairing || {}).enforcedAt || '');
+  if (enforcedAt !== 'server-intake') {
+    // 不"照旧放行"：契约声明了一条本实现不会执行的闸，必须红，不能静默按另一条路走。
+    throw new Error(
+      `pairing.enforcedAt=${JSON.stringify(enforcedAt)}：本实现只在服务端收单这一处判配对关系`,
+    );
+  }
+  const targetKey = normalize(alphabetFromContract(contract), String(input.fields.target));
+  const target = targetKey === null ? undefined : state.devices[targetKey];
+  const peer = target ? peerGrant(contract, target, sender) : null;
+  // 「目标设备不存在」与「存在但没配过对」**同形同码**：分辨它们就等于把地址码表递出去
+  //（地址码本来就是要印在二维码上给人抄的公开标识，而登记一把密钥只要几微秒）。
+  if (!peer) return denied('rejected_capability', 'not-paired');
   const cap = decideCapability(contract, {
     // 收单这一段判不了"每次本地确认"：那是设备上的一次用户动作。
     // ⚠ 这里**故意不读** `input.confirmedThisTime` —— 从请求里取那个值，
     // 等于让发送方替接收方点"我确认了"，而 L3 那条红线写的正是"不许远端悄悄执行本地动作"。
     stage: 'intake',
-    grant: grantFromRecord(contract, device),
+    // 档位与逐条清单读的是**这一段关系**（A 给 B 的那一份），不是 B 自己的记录：
+    // 一份授权两个读处就会分叉，所以发送方记录上那份 grant 已经退役（见 devicestore）。
+    grant: grantFromNode(contract, peer),
     type: String(input.fields.type),
     item,
   });

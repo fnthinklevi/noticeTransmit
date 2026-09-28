@@ -119,9 +119,14 @@ function eventBody(kind, kp, addressCode, over) {
 }
 
 beforeAll(() => {
-  register(SENDER, senderKey, { level: 'L1' });
-  register(TARGET, targetKey, { level: 'L1' });
-  register(OTHER, keypair(), { level: 'L1' });
+  register(SENDER, senderKey);
+  register(TARGET, targetKey);
+  register(OTHER, keypair());
+  // ⚠ #131 第三片起，登记**不再等于可以互投**：收单判的是被投那台的 grantsBy。
+  // 这几条用例讲的是收单/取货/回执，所以先把关系摆好（关系本身那条闸另有一组用例）。
+  const devices = devicestore.loadDevices();
+  devicestore.approvePeer(contract, devices, TARGET, SENDER, 'L1', T0);
+  devicestore.approvePeer(contract, devices, SENDER, TARGET, 'L1', T0);
 });
 
 describe('POST /api/fnthink/message', () => {
@@ -329,6 +334,9 @@ describe('POST /api/fnthink/ack', () => {
 
   test('device 与 target 不是同一台 ⇒ 拒绝（表里那条是发给别人的）', async () => {
     // 先造一条"发给 OTHER"的消息，再用 TARGET 去 ack 它
+    // 这条测的是 ack 的归属，不是配对闸 ⇒ 把关系摆好（OTHER 允许 SENDER 投它）。
+    const devices = devicestore.loadDevices();
+    devicestore.approvePeer(contract, devices, OTHER, SENDER, 'L1', Date.now());
     const fields = {
       version: '1',
       type: 'notice',
@@ -534,16 +542,21 @@ describe('POST /api/fnthink/register、/pair-arm、/pair', () => {
     return { sender: requester, signature: signed.signature, fields: signed.map };
   }
 
-  test('/register 新设备：200，档位来自契约 grantDefaults，盘上真有一行', async () => {
+  test('/register 新设备：200，但登记不给任何授权（没有 level 可回，关系表是空的）', async () => {
     const res = await request(app)
       .post('/api/fnthink/register')
       .send(registerBody(NEW, newKey))
       .expect(200);
     expect(res.body.addressCode).toBe(NEW);
-    expect(res.body.level).toBe(contract.capabilities.grantDefaults.maxLevel);
+    // 旧版这里回 `level`（取自发送方自己那行），那就是"登记即许可"的接口面孔。
+    expect(res.body.level).toBeUndefined();
+    expect(res.body.peersGrantingMe).toBe(0);
     // 不回显公钥、不回显任何摘要：设备要确认的只是"这行记上了"。
     expect(JSON.stringify(res.body)).not.toContain(newKey.rawBase64);
-    expect(devicestore.loadDevices()[NEW]).toBeDefined();
+    const rec = devicestore.loadDevices()[NEW];
+    expect(rec).toBeDefined();
+    expect(rec.grant).toBeUndefined();
+    expect(rec.grantsBy).toEqual({});
   });
 
   test('/register 的三种身份前失败逐字节同形，且正文里不出现地址码', async () => {
@@ -682,5 +695,218 @@ describe('POST /api/fnthink/register、/pair-arm、/pair', () => {
       .send(pairBody(requesterKey, requesterCode, TARGET, CODE2, 'L3'));
     expect(res.status).toBe(statusCode(contract, 'forbidden'));
     expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+});
+
+// ── #131 第三片：配对关系真的能拦住收单，而 pairConfirm 是唯一一次授权写入 ──
+// 前两片的"链"其实没有授权出口，收单读的是发送方自己那一行 ⇒ 登记即许可。这一组钉的是"关系才是许可"。
+describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
+  const CODE = 'DEFGHJKMNPQRSTVWX234';
+  const ALICE = 'ADFGHJKMNPQRSTVWX9'; // A：被投的那台，做决定的人
+  const BOB = 'BEFGHJKMNPQRSTVWX2'; // B：想投给 A 的那台
+  const MALLORY = 'CEFGHJKMNPQRSTVWX3'; // 第三台：想替 A 答应这次配对
+  const aliceKey = keypair();
+  const bobKey = keypair();
+  const malloryKey = keypair();
+
+  function regBody(addressCode, kp) {
+    const fields = {
+      version: '1',
+      type: contract.clientEvents.register.messageType,
+      target: addressCode,
+      ts: String(Math.floor(Date.now() / 1000)),
+      nonce: 'rc-' + crypto.randomBytes(6).toString('hex'),
+      body: '',
+    };
+    const signed = sign(kp, fields);
+    return {
+      sender: addressCode,
+      publicKey: kp.rawBase64,
+      name: '第三片用例',
+      signature: signed.signature,
+      fields: signed.map,
+    };
+  }
+
+  function evBody(kind, kp, sender, target, payloadObj) {
+    const spec = contract.clientEvents[kind];
+    const fields = {
+      version: '1',
+      type: spec.messageType,
+      target,
+      ts: String(Math.floor(Date.now() / 1000)),
+      nonce: 'e3-' + crypto.randomBytes(6).toString('hex'),
+      body: payloadObj === undefined ? '' : JSON.stringify(payloadObj),
+    };
+    const signed = sign(kp, fields);
+    return { sender, signature: signed.signature, fields: signed.map };
+  }
+
+  function msgBody(fromKp, from, to, text) {
+    const fields = {
+      version: '1',
+      type: 'notice',
+      target: to,
+      ts: String(Math.floor(Date.now() / 1000)),
+      nonce: 'm3-' + crypto.randomBytes(6).toString('hex'),
+      body: text,
+    };
+    const signed = sign(fromKp, fields);
+    return { sender: from, signature: signed.signature, fields: signed.map };
+  }
+
+  /// 挂口令 + 配对，返回 requestId（每条用例自己走一遍，别共用一条已消耗的关系）。
+  async function pairUp(armCode, askerKp, askerCode, level) {
+    await request(app)
+      .post('/api/fnthink/pair-arm')
+      .send(evBody('pairArm', aliceKey, ALICE, ALICE, { pairingCode: armCode }))
+      .expect(200);
+    const res = await request(app)
+      .post('/api/fnthink/pair')
+      .send(evBody('pair', askerKp, askerCode, ALICE, { pairingCode: armCode, level }))
+      .expect(statusCode(contract, 'queued'));
+    expect(res.body.requestId).toMatch(/^pr_/);
+    return res.body.requestId;
+  }
+
+  beforeAll(async () => {
+    for (const [c, kp] of [
+      [ALICE, aliceKey],
+      [BOB, bobKey],
+      [MALLORY, malloryKey],
+    ]) {
+      await request(app).post('/api/fnthink/register').send(regBody(c, kp)).expect(200);
+    }
+  });
+
+  test('没配对 ⇒ 收单 403，而且消息表里不会多出一条（不静默丢，也不无谓留）', async () => {
+    const before = Object.keys(messagestore.loadMessages()).length;
+    const res = await request(app)
+      .post('/api/fnthink/message')
+      .send(msgBody(bobKey, BOB, ALICE, '验证码 481902'));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+    // 旧版这里是 202 + 一条永远没人能取走的记录（target 不在任何关系里），
+    // 七天之后 ttl_elapsed —— 那是"无谓留"，不是"收下待投"。
+    expect(Object.keys(messagestore.loadMessages()).length).toBe(before);
+  });
+
+  test('A 确认 ⇒ 同一条消息立刻能投进去，且关系写在 A 那一行上', async () => {
+    const requestId = await pairUp(CODE, bobKey, BOB, 'L1');
+
+    // 别人拿同一个 requestId 替 A 答应 ⇒ 拒（requestId 猜不到不是判据，归属才是）。
+    const impostor = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', malloryKey, MALLORY, ALICE, {
+          requestId,
+          decision: 'approved',
+          level: 'L1',
+        }),
+      );
+    expect(impostor.status).toBe(statusCode(contract, 'forbidden'));
+    expect(impostor.body).toEqual({ receipt: 'rejected_capability' });
+
+    const ok = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          requestId,
+          decision: 'approved',
+          level: 'L1',
+        }),
+      )
+      .expect(200);
+    // 状态名取自契约（路由与测试都不写 'approved' 字面量）。
+    expect(ok.body.status).toBe(contract.clientEvents.pairConfirm.approveDecision);
+    expect(ok.body.grantedLevel).toBe('L1');
+
+    const devices = devicestore.loadDevices();
+    expect(devices[ALICE].grantsBy[BOB].maxLevel).toBe('L1');
+    // 反向没有：B 没授权自己，A 也没给 B"投给 A 之外的人"的许可。
+    expect(devices[BOB].grantsBy[ALICE]).toBeUndefined();
+
+    await request(app)
+      .post('/api/fnthink/message')
+      .send(msgBody(bobKey, BOB, ALICE, '验证码 481902'))
+      .expect(202);
+  });
+
+  test('同一条请求只能被处理一次，第二次不改写授权（revision 仍为 1）', async () => {
+    const CODE2 = 'EFGHJKMNPQRSTVWX2345';
+    const requestId = await pairUp(CODE2, bobKey, BOB, 'L1');
+    const first = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          requestId,
+          decision: 'approved',
+          level: 'L1',
+        }),
+      )
+      .expect(200);
+    expect(first.body.grantedLevel).toBe('L1');
+    const before = JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy[BOB]);
+
+    const second = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          requestId,
+          decision: 'approved',
+          level: 'L2',
+        }),
+      );
+    expect(second.status).toBe(statusCode(contract, 'forbidden'));
+    // ⚠ 这条断的是"一次点头不能反复用"：第二次若还生效，A 早已划掉的发送方会被请回来。
+    expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy[BOB])).toBe(before);
+  });
+
+  test('A 说不 ⇒ 请求关掉、关系不写，B 仍然投不进去', async () => {
+    const CODE3 = 'FGHJKMNPQRSTVWX23456';
+    const requestId = await pairUp(CODE3, malloryKey, MALLORY, 'L1');
+    const res = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, MALLORY, {
+          requestId,
+          decision: 'denied',
+          level: 'L1',
+        }),
+      )
+      .expect(200);
+    expect(res.body.status).toBe('denied');
+    expect(res.body.grantedLevel).toBeNull();
+    expect(devicestore.loadDevices()[ALICE].grantsBy[MALLORY]).toBeUndefined();
+    const blocked = await request(app)
+      .post('/api/fnthink/message')
+      .send(msgBody(malloryKey, MALLORY, ALICE, '借过一次'));
+    expect(blocked.status).toBe(statusCode(contract, 'forbidden'));
+  });
+
+  test('确认时想直接给 L3 ⇒ 拒，且不留下任何授权变化', async () => {
+    const CODE4 = 'GHJKMNPQRSTVWX234567';
+    const requestId = await pairUp(CODE4, bobKey, BOB, 'L1');
+    const before = JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy);
+    const res = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          requestId,
+          decision: 'approved',
+          level: 'L3',
+        }),
+      );
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+  });
+
+  test('授权写入只有 approvePeer 一条咽喉：路由与 pairstore 都不自己碰 grantsBy', () => {
+    const routesSrc = fs.readFileSync(path.join(__dirname, '../lib/fnthink/routes.js'), 'utf8');
+    const pairSrc = fs.readFileSync(path.join(__dirname, '../lib/fnthink/pairstore.js'), 'utf8');
+    const code = (s) => s.replace(/\/\/[^\n]*/g, '');
+    expect(code(routesSrc)).not.toMatch(/grantsBy\s*=/);
+    expect(code(pairSrc)).not.toMatch(/grantsBy\s*\[/);
+    expect(code(pairSrc)).toMatch(/approvePeer\(/);
   });
 });

@@ -14,11 +14,6 @@ function levelRank(levels, level) {
   return levels.indexOf(level);
 }
 
-/// 从设备/端点记录里读（记录形如 `{grant: {...}}`）。
-function grantFromRecord(contract, record) {
-  return grantFromNode(contract, record ? record.grant : null);
-}
-
 /// 从**授权节点本身**读。读不到就按契约缺省档（fail-closed）——
 /// "没写"永远不等于"全给"，而 `items` 不是数组也按空清单算，同样不放开。
 function grantFromNode(contract, node) {
@@ -98,7 +93,6 @@ module.exports = {
   decideCapability,
   endpointGrant,
   grantFromNode,
-  grantFromRecord,
   // 档位比较开给配对（#131）：级别顺序的出处只能有一个（capabilities.levels 的位置）。
   // 各写一份 rank 表，改档位顺序时只会红一边 —— T30-A 就是为了删掉 pairing.dart 里那份私有表。
   levelRank,

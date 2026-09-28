@@ -65,7 +65,18 @@
     "autoApprove": false,
     "maxRequestableLevelWithoutLocalAuth": "L2",
     "failureMessageShape": "single-generic",
-    "clockAuthority": "server"
+    "clockAuthority": "server",
+    "relationshipStoredOn": "target-device-record",
+    "_relationshipStoredOnWhy": "授权的内容是「A 允许 B 投给我」，做决定的是被投的那台：存在 A 的行里，A 才能自己划掉（撤销不需要问 B）。契约里「逐条勾选」「每次本地确认」「重建身份后所有发送方重配」说的全是接收端的动作——挂在发送方记录上时，这三处没有一处执行得了。#131 前两片把关系建起来了才发现：收单时读的是发送方自己那一行的 grant，等于谁登记过就能给任何人投。",
+    "relationshipField": "grantsBy",
+    "relationshipEntryFields": ["maxLevel", "items", "revision", "grantedAt"],
+    "_relationshipEntryFieldsWhy": "每一项就是 capabilities 那份授权节点（同形 ⇒ 双端裁决函数原样可用，grantFromNode 不必再认一种新形状）。另立一套字段名的下场是「配对给的级别」与「能力裁决读的级别」变成两个数，而改一个不动另一个不会报错。",
+    "enforcedAt": "server-intake",
+    "_enforcedAtWhy": "配对关系必须在服务端收单时就判：设备看不见别人的队列，A 只能靠 poll 拿到什么才显示什么——这里不判，陌生设备只要登记过就能把标题与正文投进 A 的队列（验证码常常就在正文里），而 A 侧没有第二次拦截的机会。",
+    "relationshipRequiredForIntake": true,
+    "_relationshipRequiredForIntakeWhy": "查不到这一条关系 ⇒ 直接拒，**不许**落到 capabilities.grantDefaults 那一档：缺省档防的是「有授权记录但字段缺」，把它当成「谁都没配过对」的默认放行方向就是 fail-open。",
+    "revocableBy": "target-device",
+    "_revocableByWhy": "能授权的人才能撤销：A 划掉 B 之后，B 的签名再对也进不了 A 的队列。撤销的入口（单条划掉 / 一键冻结）挂在 T31 与 #130，这一段只声明数据形状与判定方向。"
   },
 
   "signature": {
@@ -76,6 +87,7 @@
     "trustLocalClock": false,
     "nonceDedupe": true,
     "verifyOnlyForWhitelistedKeys": true,
+    "_verifyOnlyForWhitelistedKeysWhy": "「白名单」指的是**被投那台**给过这台发送方的关系（pairing.relationshipField），不是「这台设备在设备表里」。这两种过去被混用过，而它们差一整条安全边界：表里有一行只证明它能签名，不证明任何人愿意收它的消息。",
     "publicKeyEncoding": {
       "algorithm": "Ed25519",
       "wireFormat": "raw-32-bytes-base64",
@@ -224,7 +236,7 @@
     "grantChangeRequiresConfirmation": true,
     "endpointMaxLevel": "L1",
     "endpointActionReceipt": "rejected_capability",
-    "grantSource": "配对时下发并随签名校验，之后变更需重新确认",
+    "grantSource": "配对时由**接收端**确认并写进它自己的 grantsBy（pairing.relationshipField），随签名校验；之后变更要接收端再确认一次（grantChangeRequiresConfirmation）。这条不是注释：收单读的就是这一份，发送方记录上没有授权可读。",
     "l3": {
       "default": "off",
       "perItem": true,
@@ -364,6 +376,25 @@
       "_why": "B 扫了 A 的码，签一条握手交给服务端。服务端在这里只记一条「待 A 确认的请求」，绝不写授权：pairing.confirmRequired=true 且 autoApprove=false，白名单只能由 A 自己那一次本机确认进来。口令成功即消耗（identity.pairingCode.singleUse），一次扫码只配一台。",
       "_levelCeilingFromWhy": "免本地确认的档位上限从 pairing 段读，不在这里再写一个 L2：两处各存一份「最多给到哪儿」，改一处时另一处不会报错，而它错的那一侧正是 L3 免确认那道门。",
       "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
+    "pairConfirm": {
+      "messageType": "pairConfirm",
+      "verifyAgainst": "device-table-public-key",
+      "mustContainCounterpartAddress": true,
+      "fields": ["requestId", "decision", "level"],
+      "decides": "pairRequest",
+      "decisions": ["approved", "denied"],
+      "approveDecision": "approved",
+      "_approveDecisionWhy": "哪一个词代表「同意」必须由契约说：JS 与 Dart 都从这一行读。让实现自己认 'approved' 这个词，哪天状态改名成 'granted' 时服务端仍会照旧把它当成一次拒绝而没有任何一条报错 —— 而 A 那边明明点了同意。",
+      "_decisionsMirrorWhy": "这两个词必须逐字出现在 pairRequest.statuses 的**终态**里：一套状态名两个来源，早晚一张改了另一张没改——那时 A 点了「拒绝」而服务端写进一个谁都不认的字符串，请求就永远挂在待处理里。",
+      "requestMustBelongToTarget": true,
+      "_requestMustBelongToTargetWhy": "requestId 是随机串、猜不到，但「猜不到」不是判据：A 只能处理**关于自己**的那一条（请求的收件人是自己、请求的发起人是自己签的那个 target）。否则任何一台设备拿到别人的 id 就能替别人答应一个配对请求。",
+      "consumesRequest": true,
+      "_consumesRequestWhy": "一条请求只能被处理一次。第二次同名确认若还能改授权，等于把一次点头变成可反复使用的凭证——包括把早已划掉的发送方再请回来。",
+      "levelCeilingFrom": "pairing.maxRequestableLevelWithoutLocalAuth",
+      "_levelCeilingWhy": "确认时能给的上限与请求时是同一道闸（同一个契约引用，不是两份数值）：服务端看不见锁屏与生物认证，L3 的那次本地认证只能在设备侧发生（capabilities.l3.enableRequiresLocalAuth），所以这里最多接到 L2。这一条宁可窄，也不许用「请求里自称已经确认过」来放宽——与 T30 那次同一处红线。",
+      "mayNotCarry": ["privateKey", "endpointSecret"],
+      "_why": "整条链上唯一一次「A 亲手把 B 写进自己的白名单」。前两片只做到证明 B 知道那枚口令、挂起一条请求，授权一直是空的；这一片第一次往表里写关系，也因此第一次暴露出旧实现把「在设备表里」当成了「被谁允许」——见 pairing.relationshipStoredOnWhy。"
     },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,

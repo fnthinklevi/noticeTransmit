@@ -223,3 +223,121 @@ describe('pairRequest 表（#131 2B）', () => {
     }
   });
 });
+
+// ── A 处理这条请求（#131 第三片）：pairstore 是"归属 + 只能一次"的执行处，授权交给 approvePeer ──
+describe('decideRequest（#131 第三片）', () => {
+  const devicestore = require('../lib/fnthink/devicestore');
+
+  function seeded() {
+    const devices = {};
+    devicestore.registerDevice(
+      contract,
+      devices,
+      { addressCode: A, publicKey: Buffer.alloc(32, 5).toString('base64') },
+      NOW,
+    );
+    devicestore.registerDevice(
+      contract,
+      devices,
+      { addressCode: B, publicKey: Buffer.alloc(32, 6).toString('base64') },
+      NOW,
+    );
+    const requests = {};
+    const created = pairstore.createRequest(contract, requests, input(), NOW);
+    expect(created.ok).toBe(true);
+    return { devices, requests, id: created.request.id };
+  }
+
+  const decide = (over) =>
+    Object.assign(
+      { requestId: null, target: A, requester: B, decision: 'approved', level: 'L1' },
+      over || {},
+    );
+
+  test('未知 requestId / 不是你的 / 已处理过：三种走法各有各的原因，对外由路由塌成同一句话', () => {
+    const { devices, requests, id } = seeded();
+    expect(
+      pairstore.decideRequest(contract, requests, devices, decide({ requestId: 'pr_nope' }), NOW)
+        .reason,
+    ).toBe('unknown-request');
+    // 别人拿着真 id 来替 A 答应（契约 pairConfirm.requestMustBelongToTarget 的执行处）。
+    expect(
+      pairstore.decideRequest(
+        contract,
+        requests,
+        devices,
+        decide({ requestId: id, target: B, requester: A }),
+        NOW,
+      ).reason,
+    ).toBe('not-yours');
+    const ok = pairstore.decideRequest(contract, requests, devices, decide({ requestId: id }), NOW);
+    expect(ok.ok).toBe(true);
+    expect(
+      pairstore.decideRequest(contract, requests, devices, decide({ requestId: id }), NOW).reason,
+    ).toBe('already-decided');
+  });
+
+  test('同意：关系写到 A 那一行、请求进终态；拒绝：什么都不写', () => {
+    const s1 = seeded();
+    const ok = pairstore.decideRequest(
+      contract,
+      s1.requests,
+      s1.devices,
+      decide({ requestId: s1.id }),
+      NOW,
+    );
+    expect(ok.grant.maxLevel).toBe('L1');
+    expect(devicestore.peerGrant(contract, s1.devices[A], B).maxLevel).toBe('L1');
+    // B 那一行上没有给 A 的授权 —— 方向错了就是"B 自己允许自己"。
+    expect(devicestore.peerGrant(contract, s1.devices[B], A)).toBeNull();
+    expect(s1.requests[s1.id].status).toBe(contract.clientEvents.pairConfirm.approveDecision);
+
+    const s2 = seeded();
+    const denied = pairstore.decideRequest(
+      contract,
+      s2.requests,
+      s2.devices,
+      decide({ requestId: s2.id, decision: 'denied' }),
+      NOW,
+    );
+    expect(denied.ok).toBe(true);
+    expect(denied.grant).toBeNull();
+    expect(devicestore.peerGrant(contract, s2.devices[A], B)).toBeNull();
+    expect(s2.requests[s2.id].status).toBe('denied');
+  });
+
+  test('早已过期的请求不能被"同意"：expireDue 排在判定之前', () => {
+    const { devices, requests, id } = seeded();
+    const late = NOW + contract.identity.pairingCode.ttlSeconds * 1000 + 1000;
+    const out = pairstore.decideRequest(
+      contract,
+      requests,
+      devices,
+      decide({ requestId: id }),
+      late,
+    );
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('already-decided');
+    expect(devicestore.peerGrant(contract, devices[A], B)).toBeNull();
+  });
+
+  test('契约说不清哪个词算同意 ⇒ 抛（不敢猜：猜错的方向是把请求关掉又不给授权）', () => {
+    const { devices, requests, id } = seeded();
+    const broken = JSON.parse(JSON.stringify(contract));
+    delete broken.clientEvents.pairConfirm.approveDecision;
+    expect(() =>
+      pairstore.decideRequest(broken, requests, devices, decide({ requestId: id }), NOW),
+    ).toThrow(/approveDecision/);
+    const bogus = JSON.parse(JSON.stringify(contract));
+    bogus.clientEvents.pairConfirm.decisions = ['approved'];
+    expect(() =>
+      pairstore.decideRequest(
+        bogus,
+        requests,
+        devices,
+        decide({ requestId: id, decision: 'denied' }),
+        NOW,
+      ),
+    ).toThrow(/decisions/);
+  });
+});

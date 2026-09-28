@@ -27,7 +27,9 @@ const store = require('../lib/fnthink/devicestore');
 const contract = loadContract();
 const NOW = 1_800_000_000_000;
 const ADDR = '8K3FJ6QPTM9WZ4VHNS'; // 18 位合法地址码
+const PEER = '7YD4RKQPBM8XZ3VHNT'; // 另一台（关系是写给它的，所以不能复用 ADDR）
 const PUB = Buffer.alloc(32, 7).toString('base64'); // 32 字节公钥
+const PUB2 = Buffer.alloc(32, 11).toString('base64');
 const PAIR = '7YD4RKQPBM8XZ3VHNT6J'; // 20 位配对口令
 const SECRET = '7YD4RKQPBM8XZ3VHNT6JKMNPQRSTVWXY'; // 32 位端点口令
 
@@ -45,66 +47,76 @@ describe('fnthink 服务端存储（T27）', () => {
     expect(fs.statSync(store.DEVICE_FILE).mode & 0o777).toBe(0o600);
   });
 
-  test('设备表形状就是任务书那一行：公钥/名称/状态/last_seen/能力/创建时间/owner', () => {
+  test('设备表形状就是任务书那一行：公钥/名称/状态/last_seen/关系表/创建时间/owner', () => {
     const devices = {};
     const rec = store.registerDevice(
       contract,
       devices,
-      { addressCode: ADDR, publicKey: PUB, name: 'NAS', level: 'L2' },
+      { addressCode: ADDR, publicKey: PUB, name: 'NAS' },
       NOW,
     );
     expect(Object.keys(rec).sort()).toEqual(
-      ['createdAt', 'grant', 'lastSeenAt', 'name', 'owner', 'publicKey', 'status'].sort(),
+      ['createdAt', 'grantsBy', 'lastSeenAt', 'name', 'owner', 'publicKey', 'status'].sort(),
     );
     expect(rec.owner).toBeNull();
     expect(rec.lastSeenAt).toBeNull();
     expect(rec.createdAt).toBe(NOW);
     expect(rec.status).toBe('active');
-    // 能力清单是**一个对象**而不是一个 level 字符串：T30 要的是"哪一档 + 勾了哪几条"，
-    // 而"逐条"这件事没法塞进一个字符串里（塞进去就是两端各拆一次）。
-    expect(rec.grant).toEqual({ maxLevel: 'L2', items: [], revision: 1, grantedAt: NOW });
+    // ⚠ 授权不在这张表的这一行上（#131 第三片）：登记只是"这台设备能签名"，
+    //   而「谁能投给我」住在**被投那台**的 grantsBy 里。过去这里写一份 grant 并被收单读取，
+    //   效果就是"登记即许可"。
+    expect(rec.grantsBy).toEqual({});
+    expect(rec.grant).toBeUndefined();
   });
 
-  test('登记是幂等的，但授权不是可改的：级别不同就抛，指向重新确认那条路', () => {
+  test('登记改不了任何授权：re-register 带 level 也不写，已有关系逐字不动', () => {
     const devices = {};
-    store.registerDevice(
-      contract,
-      devices,
-      { addressCode: ADDR, publicKey: PUB, level: 'L2' },
-      NOW,
-    );
-    // 同样的级别再来一次：不报错、也不把 revision/grantedAt 动掉（幂等）
+    store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+    store.approvePeer(contract, devices, ADDR, PEER, 'L2', NOW);
+    const before = JSON.stringify(devices[ADDR].grantsBy);
+    // 老客户端还会带 level 上来 —— 现在它不再有任何作用：既不改关系，也不新增关系。
     const again = store.registerDevice(
       contract,
       devices,
-      { addressCode: ADDR, publicKey: PUB, level: 'L2' },
+      { addressCode: ADDR, publicKey: PUB, level: 'L3' },
       NOW + 1000,
     );
-    expect(again.grant).toEqual({ maxLevel: 'L2', items: [], revision: 1, grantedAt: NOW });
-    expect(() =>
-      store.registerDevice(
-        contract,
-        devices,
-        { addressCode: ADDR, publicKey: PUB, level: 'L1' },
-        NOW,
-      ),
-    ).toThrow(/重新确认/);
-    // ⚠ 降低也不行：一次 re-register 不该让"这台设备还能做什么"这个问题换答案
-    expect(() =>
-      store.registerDevice(
-        contract,
-        devices,
-        { addressCode: ADDR, publicKey: PUB, level: 'L3' },
-        NOW,
-      ),
-    ).toThrow(/重新确认/);
+    expect(JSON.stringify(again.grantsBy)).toBe(before);
+    expect(again.grant).toBeUndefined();
+    // 一个新地址码带着 level 来登记，也不该在**别人**的表上长出关系来。
+    const stranger = store.registerDevice(
+      contract,
+      devices,
+      { addressCode: PEER, publicKey: PUB2, level: 'L3' },
+      NOW,
+    );
+    expect(stranger.grantsBy).toEqual({});
   });
 
-  test('不写 level 时按契约缺省档登记（代码里没有第二个 L1）', () => {
-    const devices = {};
-    const rec = store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
-    expect(rec.grant.maxLevel).toBe(contract.capabilities.grantDefaults.maxLevel);
-    expect(rec.grant.items).toEqual([]);
+  test('覆盖升级：老行里那份 grant 被清掉，补上空的 grantsBy（不留一份没人读的授权）', () => {
+    const devices = {
+      [ADDR]: {
+        createdAt: NOW,
+        status: 'active',
+        lastSeenAt: null,
+        owner: null,
+        publicKey: PUB,
+        grant: { maxLevel: 'L3', items: ['app:a/b'], revision: 4, grantedAt: NOW },
+      },
+    };
+    const rec = store.registerDevice(
+      contract,
+      devices,
+      { addressCode: ADDR, publicKey: PUB },
+      NOW + 1,
+    );
+    expect(rec.grant).toBeUndefined();
+    expect(rec.grantsBy).toEqual({});
+    // 落盘的也真是这个形状（内存里删了、盘上还留一份 = 下次读回来又是一份假权威）：
+    // 走一次真读盘才算数。
+    const reloaded = store.loadDevices();
+    expect(reloaded[ADDR].grant).toBeUndefined();
+    expect(reloaded[ADDR].grantsBy).toEqual({});
   });
 
   test('重复登记同一把公钥是幂等，换公钥必须拒绝（换身份要走 T31）', () => {
@@ -134,16 +146,70 @@ describe('fnthink 服务端存储（T27）', () => {
     ).toThrow(/32 字节/);
   });
 
-  test('能力级别只认契约那一列', () => {
+  test('档位只认契约那一列 —— 现在这条守在授权写入处（approvePeer），登记已经碰不到授权', () => {
     const devices = {};
-    expect(() =>
-      store.registerDevice(
-        contract,
-        devices,
-        { addressCode: ADDR, publicKey: PUB, level: 'L9' },
-        NOW,
-      ),
-    ).toThrow(/不在契约/);
+    store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+    expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L9', NOW)).toThrow(/不在契约/);
+    expect(devices[ADDR].grantsBy).toEqual({});
+  });
+
+  // ── 授权写入的唯一咽喉（#131 第三片）──
+  describe('approvePeer / peerGrant', () => {
+    test('确认一次就写下关系：档位照输入、revision 递增、逐条勾选清零', () => {
+      const devices = {};
+      store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+      const first = store.approvePeer(contract, devices, ADDR, PEER, 'L2', NOW);
+      expect(first).toEqual({ maxLevel: 'L2', items: [], revision: 1, grantedAt: NOW });
+      // 手工把 items 填上（模拟 A 在本机勾过几条 L2 动作），再确认一次：
+      // ⚠ 重新配对**不继承**旧的逐条勾选 —— L2/L3 那些"每次都要看一眼"的条目，
+      //   不该因为重新扫一次码就自动回来（契约 itemRequiredFromLevel 的方向）。
+      devices[ADDR].grantsBy[PEER].items = ['app:a/b'];
+      const second = store.approvePeer(contract, devices, ADDR, PEER, 'L1', NOW + 1000);
+      expect(second.revision).toBe(2);
+      expect(second.items).toEqual([]);
+      expect(second.maxLevel).toBe('L1');
+      // 真落盘：重启后关系还在。
+      expect(store.loadDevices()[ADDR].grantsBy[PEER].revision).toBe(2);
+    });
+
+    test('授权不能挂在没有记录的设备上，也不能写给一个不像地址码的东西', () => {
+      const devices = {};
+      expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L1', NOW)).toThrow(/未登记/);
+      store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+      expect(() => store.approvePeer(contract, devices, ADDR, '短', 'L1', NOW)).toThrow(
+        /对方地址码/,
+      );
+    });
+
+    test('peerGrant 读不到就返回 null（不回落成缺省档 —— 那是 fail-open）', () => {
+      const devices = {};
+      store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+      expect(store.peerGrant(contract, devices[ADDR], PEER)).toBeNull();
+      store.approvePeer(contract, devices, ADDR, PEER, 'L2', NOW);
+      expect(store.peerGrant(contract, devices[ADDR], PEER).maxLevel).toBe('L2');
+      // 列名从契约读：换了名字就读不到（而不是读到别的东西）
+      const renamed = JSON.parse(JSON.stringify(contract));
+      renamed.pairing.relationshipField = 'grantsTo';
+      expect(store.peerGrant(renamed, devices[ADDR], PEER)).toBeNull();
+      expect(() => {
+        const broken = JSON.parse(JSON.stringify(contract));
+        broken.pairing.relationshipField = '';
+        store.relationshipField(broken);
+      }).toThrow(/relationshipField/);
+    });
+
+    test('关系查的是这一列自己的键，不是原型链上的东西（纵深防御）', () => {
+      const record = { grantsBy: {} };
+      // 把一个"看起来像合法地址码"的键挂到 Object.prototype 上：
+      // 用 `by[key]` 直接取就会命中它，于是没人授权过的设备凭空有了一份授权。
+      Object.prototype[PEER] = { maxLevel: 'L3', items: ['app:a/b'] };
+      try {
+        expect(store.peerGrant(contract, record, PEER)).toBeNull();
+      } finally {
+        delete Object.prototype[PEER];
+      }
+      expect(store.peerGrant(contract, record, PEER)).toBeNull();
+    });
   });
 
   test('口令成功一次即消耗（singleUse 来自契约），第二次同样失败', () => {

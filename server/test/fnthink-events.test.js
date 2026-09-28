@@ -777,4 +777,110 @@ describe('clientEvents（poll / ack）裁决', () => {
       expect(after.ok).toBe(true);
     });
   });
+
+  // ── A 确认这次配对（#131 第三片）：全协议唯一一次授权写入的入口 ──
+  describe('authorizePairConfirm', () => {
+    const kpA = keypair();
+    const confirmFields = (over) =>
+      fields(
+        Object.assign(
+          {
+            type: contract.clientEvents.pairConfirm.messageType,
+            target: OTHER, // A 签的那条"关于别人"：B 的地址码
+            body: JSON.stringify({ requestId: 'pr_0a1b', decision: 'approved', level: 'L1' }),
+            nonce: 'cf-1',
+          },
+          over || {},
+        ),
+      );
+
+    test('A 同意 ⇒ 返回"谁确认了谁的哪一条"，本层不写授权', () => {
+      const out = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(kpA, confirmFields()),
+      );
+      expect(out.ok).toBe(true);
+      expect(out.target).toBe(SELF);
+      expect(out.requester).toBe(OTHER);
+      expect(out.requestId).toBe('pr_0a1b');
+      expect(out.decision).toBe(contract.clientEvents.pairConfirm.approveDecision);
+      // 这一层没有任何 grantsBy 的痕迹：写授权是 pairstore + devicestore 的事。
+      expect(JSON.stringify(out)).not.toContain('grantsBy');
+    });
+
+    test('A 确认"关于自己"的一条 ⇒ 拒（唯一能写授权的入口，尤其不许自签自用）', () => {
+      const out = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(kpA, confirmFields({ target: SELF })),
+      );
+      expect(out.reason).toBe('counterpart-is-self');
+    });
+
+    test('decision 不在契约那两个词里 ⇒ 拒（不许"认不出的当拒绝"也不许当同意）', () => {
+      const out = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({ requestId: 'pr_0a1b', decision: 'maybe', level: 'L1' }),
+          }),
+        ),
+      );
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe('unknown-decision:maybe');
+    });
+
+    test('确认时给 L3 ⇒ 拒（上限与请求时同一个契约引用，服务端看不见本地认证）', () => {
+      const out = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({ requestId: 'pr_0a1b', decision: 'approved', level: 'L3' }),
+          }),
+        ),
+      );
+      expect(out.reason).toMatch(/^level-too-high:/);
+    });
+
+    test('载荷键多一个少一个都判；不是 JSON ⇒ malformed-pairConfirm', () => {
+      const extra = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: 'approved',
+              level: 'L1',
+              grantAll: true,
+            }),
+          }),
+        ),
+      );
+      expect(extra.reason).toMatch(/^pairConfirm-fields:/);
+      const broken = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(kpA, confirmFields({ body: 'not json' })),
+      );
+      expect(broken.reason).toBe('malformed-pairConfirm');
+    });
+
+    test('没登记的那台来确认 ⇒ 与签名不对同形（这条入口也不许枚举地址码）', () => {
+      const stranger = keypair();
+      const out = events.authorizePairConfirm(
+        contract,
+        { devices: {}, nonces: {}, persist() {} },
+        signable(stranger, confirmFields()),
+      );
+      expect(out.status).toBe(statusCode(contract, 'forbidden'));
+      expect(out.receipt).toBe('rejected_unsigned');
+    });
+  });
 });

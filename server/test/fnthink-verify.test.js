@@ -62,10 +62,25 @@ function signable(kp, f, nowMs) {
   return { fields: map, signature, canonical, now: nowMs === undefined ? NOW : nowMs };
 }
 
+/// 收单要过的两道：① 签名者是谁（设备表 + 状态 + 验签）② **被投那台允许它吗**（grantsBy）。
+/// 这份夹具把两道都摆好：本文件的 target 就是 SENDER 自己，所以那一行既是发送方也是收件方，
+/// 关系写在它自己的 grantsBy 里（契约 pairing.relationshipStoredOn=target-device-record）。
 function stateFor(kp, over) {
+  const defaultGrant = {
+    maxLevel: contract.capabilities.grantDefaults.maxLevel,
+    items: [],
+    revision: 1,
+    grantedAt: NOW,
+  };
   return Object.assign(
     {
-      devices: { [SENDER]: { publicKey: kp.rawBase64, status: 'active' } },
+      devices: {
+        [SENDER]: {
+          publicKey: kp.rawBase64,
+          status: 'active',
+          grantsBy: { [SENDER]: defaultGrant },
+        },
+      },
       nonces: {},
     },
     over || {},
@@ -315,10 +330,15 @@ describe('fnthink 验签与裁决（T29-B）', () => {
     expect(() => store.rememberNonce(map, 'a|n4', NOW, 0)).toThrow(/正数/);
   });
 
-  // ── T30-A：验签通过之后，还要按这台设备的授权判一次 ──
+  // ── T30-A：验签通过之后，还要按"这台设备被允许到哪一档"判一次（#131 第三片：那份授权
+  //    住在**被投那台**的 grantsBy 里，不再在发送方自己那一行上）──
   function deviceState(grant) {
-    const devices = { [SENDER]: { publicKey: kp.rawBase64, status: 'active' } };
-    if (grant) devices[SENDER].grant = grant;
+    const devices = {
+      [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} },
+    };
+    // 有 grant ⇒ 关系存在且按它判；grant=null ⇒ 关系存在但**项是空的**（测缺省档那条），
+    // 与"根本没配过对"是两种世界（后者见下面那组 not-paired 用例）。
+    devices[SENDER].grantsBy[SENDER] = grant || {};
     return stateFor(kp, { devices });
   }
 
@@ -504,5 +524,109 @@ describe('fnthink 验签与裁决（T29-B）', () => {
       contract.signature.maxSkewSeconds * 2,
     );
     expect(contract.signature.verifyOnlyForWhitelistedKeys).toBe(true);
+  });
+});
+
+// ── 配对关系这道闸（#131 第三片）──
+// 这片之前的世界是"登记即许可"：任何一台自登记成功的设备都能把消息投给任何地址码，
+// 而收件端只能靠 poll 拿到什么才看得见什么。下面这几条钉的是"关系才是许可"。
+describe('收单要判配对关系（不是判"这台设备存不存在"）', () => {
+  const kp = keypair();
+  const TARGET_OF_MSG = SENDER; // 本文件的夹具里 target 就是 SENDER 自己
+
+  const send = (state, over) => {
+    const pack = signable(kp, fields(over));
+    return verify.acceptIncoming(contract, state, {
+      senderAddress: SENDER,
+      signature: pack.signature,
+      fields: pack.fields,
+      now: pack.now,
+    });
+  };
+
+  test('没配对 ⇒ 拒（回执 rejected_capability，原因只进留痕）', () => {
+    const state = stateFor(kp, {
+      devices: { [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} } },
+    });
+    const out = send(state);
+    expect(out).toEqual({ ok: false, status: 403, receipt: 'rejected_capability' });
+    expect(state.rejects[SENDER].lastReason).toBe('not-paired');
+  });
+
+  test('目标设备不存在 ⇒ 与"没配对"逐字节同形（收单不许是地址码枚举器）', () => {
+    // 夹具里发送方必须在册（否则先撞"未知设备"那条同形），差别只放在**目标**那一侧：
+    // ① 目标那台压根不在表里；② 目标在册但没给这段关系。
+    const stateA = stateFor(kp, {
+      devices: { [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} } },
+    });
+    const stateB = stateFor(kp, {
+      devices: { [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} } },
+    });
+    const a = send(stateA, { target: '3D4GHJKMNPQRSTVWX9' }); // 表里没有这台
+    const b = send(stateB); // 有这台（就是 SENDER 自己），但 grantsBy 是空的
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    expect(a).toEqual({ ok: false, status: 403, receipt: 'rejected_capability' });
+    // 内部留痕两者都是 not-paired：这里**故意不留**"那台存不存在"的差别，
+    // 因为登记一把密钥只要几微秒，能分辨就是送出一台地址码枚举器。
+    expect(stateA.rejects[SENDER].lastReason).toBe('not-paired');
+    expect(stateB.rejects[SENDER].lastReason).toBe('not-paired');
+  });
+
+  test('A 只给到 L1 时，B 的动作档进不来 —— 档位读的是这一段关系', () => {
+    const state = stateFor(kp, {
+      devices: {
+        [SENDER]: {
+          publicKey: kp.rawBase64,
+          status: 'active',
+          grantsBy: { [SENDER]: { maxLevel: 'L1', items: ['app:a/b'], revision: 1 } },
+        },
+      },
+    });
+    // items 里有那条，但档位只到 L1 ⇒ 卡的是 level 不是 item（顺序即判据，见 capabilities.js）。
+    const out = send(state, { type: 'action', body: '执行 app:a/b' });
+    expect(out.receipt).toBe('rejected_capability');
+    expect(state.rejects[SENDER].lastReason).toBe('capability:level:L2');
+    expect(out.ok).toBe(false);
+  });
+
+  test('确认过一次就能投；把关系划掉之后签名再对也进不来', () => {
+    const devices = { [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} } };
+    expect(send(stateFor(kp, { devices })).ok).toBe(false);
+    const store = require('../lib/fnthink/devicestore');
+    store.approvePeer(contract, devices, TARGET_OF_MSG, SENDER, 'L1', NOW);
+    const granted = stateFor(kp, { devices });
+    expect(send(granted).ok).toBe(true);
+    delete devices[SENDER].grantsBy[SENDER];
+    expect(send(stateFor(kp, { devices })).ok).toBe(false);
+  });
+
+  test('契约把执行点改成设备侧判 ⇒ 抛，不"照旧放行"（声明了没人执行的闸必须红）', () => {
+    const broken = JSON.parse(JSON.stringify(contract));
+    broken.pairing.enforcedAt = 'device-only';
+    const state = stateFor(kp);
+    const pack = signable(kp, fields());
+    expect(() =>
+      verify.acceptIncoming(broken, state, {
+        senderAddress: SENDER,
+        signature: pack.signature,
+        fields: pack.fields,
+        now: pack.now,
+      }),
+    ).toThrow(/enforcedAt/);
+  });
+
+  test('关系列的名字来自契约：换个列名就找不到关系，而不是回落到"全都允许"', () => {
+    const renamed = JSON.parse(JSON.stringify(contract));
+    renamed.pairing.relationshipField = 'grantsTo';
+    const devices = { [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} } };
+    const store = require('../lib/fnthink/devicestore');
+    // 用真契约把关系写进 grantsBy，再用"列名改了"的契约去读：读不到 ⇒ 拒。
+    store.approvePeer(contract, devices, TARGET_OF_MSG, SENDER, 'L1', NOW);
+    const out = verify.acceptIncoming(renamed, stateFor(kp, { devices }), {
+      senderAddress: SENDER,
+      ...signable(kp, fields()),
+    });
+    expect(out.ok).toBe(false);
+    expect(out.receipt).toBe('rejected_capability');
   });
 });

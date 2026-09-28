@@ -879,6 +879,69 @@ class FnthinkContract {
           '「对方地址码」不在已签字节里，就等于谁都能在转发时换一个收件人',
         );
       }
+      // 档位与它的上限必须同进同出：载荷里有 level 却没有 levelCeilingFrom，
+      // 那道上限就没人读（表现为"配对能直接要 L3"）；反之声明了上限而不带 level，那是空转的闸。
+      final hasLevelField =
+          (entry.value['fields'] as List<Object?>? ?? const [])
+              .map((e) => '$e')
+              .contains('level');
+      final hasCeiling = '${entry.value['levelCeilingFrom'] ?? ''}'.isNotEmpty;
+      need(
+        hasLevelField == hasCeiling,
+        'clientEvents.$kind 的档位与它的上限必须同进同出：fields 里有 level=$hasLevelField，'
+        'levelCeilingFrom=$hasCeiling —— 只有一半时那道闸要么没人读，要么在读一个不存在的值',
+      );
+      if (hasCeiling) {
+        final ceilingValue = at(
+          '${entry.value['levelCeilingFrom'] ?? ''}'.split('.'),
+        );
+        need(
+          capabilityLevels.contains('$ceilingValue'),
+          'clientEvents.$kind.levelCeilingFrom=${entry.value['levelCeilingFrom']} '
+          '取到的值「$ceilingValue」不是 capabilities.levels 里的一档：那道上限必须是一档真实存在的级别',
+        );
+      }
+      // 「处理一张表里的记录」这类事件（pairConfirm）：它决定的那张表必须存在，
+      // 状态名必须取自那张表的终态，两条红线（只能处理关于自己的、只能处理一次）都要在契约上 ——
+      // 少任一条，第二次同名确认或别人手里的 requestId 都能改授权。
+      final decided = '${entry.value['decides'] ?? ''}';
+      if (decided.isNotEmpty) {
+        need(
+          map([decided]) != null,
+          'clientEvents.$kind.decides = $decided，但契约顶层没有 $decided 这一段：'
+          '它在处理一张没定义过的表',
+        );
+        // 路径从契约根算起：事件种类在 clientEvents 底下，不能直接拼 kind。
+        final decisions = strings(['clientEvents', kind, 'decisions']);
+        need(
+          decisions.isNotEmpty && decisions.toSet().length == decisions.length,
+          'clientEvents.$kind.decisions 必须非空且无重复，实为 $decisions',
+        );
+        final terminal = strings([decided, 'terminalStatuses']);
+        need(
+          terminal.toSet().containsAll(decisions),
+          'clientEvents.$kind.decisions 里有不属于 $decided.terminalStatuses 的状态：'
+          '$decisions vs $terminal（把一个非终态写回去，那条请求就永远处理不完）',
+        );
+        need(
+          (entry.value['fields'] as List<Object?>? ?? const [])
+              .map((e) => '$e')
+              .contains('decision'),
+          'clientEvents.$kind 声明了 decisions 却不在 fields 里带 decision：那这张表没人能推进',
+        );
+        need(
+          decisions.contains(str(['clientEvents', kind, 'approveDecision'])),
+          'clientEvents.$kind.approveDecision 必须是 decisions 里那一个「同意」的词，'
+          '实为「${str(['clientEvents', kind, 'approveDecision'])}」：'
+          '让实现自己认哪个词算同意，状态一改名字服务端就会把「同意」当「拒绝」执行，而不报错',
+        );
+        need(
+          entry.value['requestMustBelongToTarget'] == true &&
+              entry.value['consumesRequest'] == true,
+          'clientEvents.$kind 必须同时声明 requestMustBelongToTarget 与 consumesRequest 为 true：'
+          '前者丢了 = 谁能拿到 requestId 就能替别人答应配对；后者丢了 = 一次点头变成可反复使用的凭证',
+        );
+      }
     }
     // 规则名单本身也是判据的一部分：空的或带重复的名单会让上面那条「恰好一条」恒真。
     need(
@@ -1027,11 +1090,11 @@ class FnthinkContract {
       }
       final ceiling = '${entry.value['levelCeilingFrom'] ?? ''}';
       if (ceiling.isNotEmpty) {
-        final value = at(ceiling.split('.'));
+        // 这条的判据本体已经上移到事件主循环里（那里对**所有**声明了上限的事件生效：
+        // pairConfirm 有上限但没有 creates，写在下面这一段里它就永远跑不到）。
         need(
-          value != null && capabilityLevels.contains('$value'),
-          'clientEvents.$kind.levelCeilingFrom=$ceiling 取到的值「$value」不是 capabilities.levels '
-          '里的一档：那道上限必须是一档真实存在的级别，否则它挡不住任何东西',
+          at(ceiling.split('.')) != null,
+          'clientEvents.$kind.levelCeilingFrom=$ceiling 在契约里取不到值',
         );
       }
     }
@@ -1367,6 +1430,49 @@ class FnthinkContract {
     need(
       boolOf(const ['pairing', 'rejectUnknownFields']) == true,
       'pairing.rejectUnknownFields 必须为 true：配对载荷上的"容错"就是往身份交换里塞料的口子',
+    );
+    // ── 配对关系存在哪张表、由哪一端判（#131 第三片）──
+    // 这一段的存在理由：前两片把"关系"建起来了，收单却还在读发送方自己那一行的 grant ——
+    // 那等于"谁登记过就能给任何人投"。判据写下来之后，把关系挪回发送方、或者收单不再判，
+    // 都会在契约自洽这一步就报，而不是等到某台设备的队列里出现陌生人的验证码。
+    need(
+      str(const ['pairing', 'relationshipStoredOn']) == 'target-device-record',
+      'pairing.relationshipStoredOn 只能是 target-device-record（授权是"被投那台"做的决定，'
+      '存在发送方记录上时，"逐条勾选 / 每次本地确认 / 重建后所有发送方重配"这三条都执行不了）',
+    );
+    need(
+      (str(const ['pairing', 'relationshipField']) ?? '').isNotEmpty,
+      'pairing.relationshipField 不能缺：收单要知道去哪一列读这段关系，缺了就等于没有这道判据',
+    );
+    need(
+      str(const ['pairing', 'enforcedAt']) == 'server-intake',
+      'pairing.enforcedAt 只能是 server-intake（实为「${str(const ['pairing', 'enforcedAt'])}」）：'
+      '本实现只有服务端收单那一条执行路径，写成 device-only 就是声明了一条没人执行的闸',
+    );
+    // 上面那条已把执行点钉成 server-intake，所以这里不再套 if：条件恒真就是噪音。
+    need(
+      boolOf(const ['pairing', 'relationshipRequiredForIntake']) == true,
+      '关系在服务端判而 relationshipRequiredForIntake 不为 true ⇒ 报：'
+      '查不到关系就落到 capabilities.grantDefaults 那一档，等于"谁都没配过对"默认放行（fail-open）',
+    );
+    final entryFields = strings(const ['pairing', 'relationshipEntryFields']);
+    need(
+      entryFields.isNotEmpty,
+      'pairing.relationshipEntryFields 不能为空：那张表里每一项至少要能读出一个档位',
+    );
+    // 每一项必须能当作 capabilities 的那份授权节点来读：两处形状一致才只有一份规则。
+    for (final key
+        in (map(const ['capabilities', 'grantDefaults']) ?? const {}).keys) {
+      need(
+        entryFields.contains(key),
+        'pairing.relationshipEntryFields 缺 $key：grantDefaults 用的就是这份节点形状，'
+        '关系项少这个键时缺省档根本补不进去（表现为"配过对的设备反而被自己的档位卡住"）',
+      );
+    }
+    need(
+      (str(const ['pairing', 'revocableBy']) ?? '').isNotEmpty,
+      'pairing.revocableBy 必须写明谁能撤销：能授权的人才能撤销，'
+      '否则 A 划掉 B 之后 B 的签名仍进得来，那道"划掉"是装饰',
     );
     for (final secret in ['privateKey', 'signature', 'pairingCodeDigest']) {
       need(
