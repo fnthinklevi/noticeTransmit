@@ -874,9 +874,13 @@ matter most — three steps:
    | `/api/fnthink` | `http://127.0.0.1:3456/api/fnthink/` | `/api/fnthink//poll` | ❌ sides not equal |
 
    ⇒ **Safest form**: proxy directory `/api/fnthink/` (trailing slash) with the target URL ending at the port
-   (`http://127.0.0.1:3456`). ⚠️ What a panel shows you is **not necessarily** what lands in the config file
-   (BT Panel quietly appends a `/` to the target URL) — after saving, open the site's **config file** and check
-   the actual `proxy_pass` line.
+   (`http://127.0.0.1:3456`). ⚠️ What a panel shows is **not necessarily** what lands in the config file, and
+   **editing that field in the panel may not stick** (BT Panel appends a `/` back to the target URL: depending on
+   whether your proxy directory has a trailing slash, the *visible* symptom changes, but the root cause is always
+   that one slash). After saving, open the site's **config file** and check the real `proxy_pass` line — the
+   correct shape is `proxy_pass http://127.0.0.1:3456;` (nothing but a semicolon after the port). If the panel
+   keeps putting the slash back, **delete those two proxy entries and write the locations by hand in the site
+   config file** (Option 2 in this README shows the native form; the `proxy_pass` spelling is the same).
 
    > 🔎 **Tell-tale sign (one command settles it)**: `https://<push-host>/api/fnthink/poll` answers with
    > **Express's error page** and a wrong path — `Cannot POST /poll` (prefix eaten) or `Cannot POST //poll`
