@@ -36,12 +36,15 @@ const {
   statusCode,
 } = require('../lib/fnthink/contract');
 const verify = require('../lib/fnthink/verify');
+const { windowsFor } = require('../lib/fnthink/ratelimit');
 const devicestore = require('../lib/fnthink/devicestore');
 const messagestore = require('../lib/fnthink/messagestore');
 
 const contract = assertSupported(loadContract());
 const SEP = String(contract.signature.separator);
 const T0 = Date.now();
+// #130-A2：配额窗口也从契约推导，测试里不另写数字（同一条「数字只有一个出处」的规矩）
+const windows = windowsFor(contract);
 
 const SENDER = '8K3FJ6QPTM9WZ4VHNS'; // 发送方设备
 const TARGET = '7YD4RKQPBM8XZ3VHNT'; // 接收方设备（取货的那台）
@@ -357,6 +360,42 @@ describe('POST /api/fnthink/ack', () => {
     const res = await request(app).post('/api/fnthink/ack').send(ack);
     expect(res.status).toBe(statusCode(contract, 'forbidden'));
     expect(messagestore.loadMessages()[posted.body.messageId].state).toBe('queued');
+  });
+
+  describe('按发送方计的配额（#130-A2）', () => {
+    // 本 describe 用一台**专属设备**：配额计数是按地址累计的，借用别的用例用过的地址，
+    // 结果就取决于用例执行顺序 —— 那种"有时候红"的守卫比没有守卫更糟。
+    const FRESH = '9ZQ4RKQPBM8XZ3VHNF';
+    const freshKey = keypair();
+    // 隔离性用**另一台专属设备**验：TARGET 在本文件前面的用例里已经 poll 过若干次，
+    // 借它的计数就等于让这条断言依赖用例顺序。
+    const FRESH2 = '9BM8XZ3VHNF4RKQPZQ';
+    const fresh2Key = keypair();
+
+    test('同一台设备超了轮询额度 ⇒ 429（契约给的码 + 空 body），另一台不受牵连', async () => {
+      register(FRESH, freshKey);
+      const per = windows.pollPerMinute; // 从 presence 推导出来的那个数（不是这里另写的）
+      for (let i = 0; i < per; i++) {
+        const ok = await request(app)
+          .post('/api/fnthink/poll')
+          .send(eventBody('poll', freshKey, FRESH));
+        expect(ok.status).toBe(200);
+      }
+      const over = await request(app)
+        .post('/api/fnthink/poll')
+        .send(eventBody('poll', freshKey, FRESH));
+      expect(over.status).toBe(statusCode(contract, 'rateLimited'));
+      expect(over.body).toEqual({});
+      expect(Number(over.headers['retry-after'])).toBeGreaterThan(0);
+
+      // ⚠ 要害在这一条：**同一时刻、同一个源 IP** 的另一台设备照常取货。
+      // 按 IP 计的实现会在这里一起 429 —— 那正是 A1 收成 6/分时 7 条用例红的形状。
+      register(FRESH2, fresh2Key);
+      const other = await request(app)
+        .post('/api/fnthink/poll')
+        .send(eventBody('poll', fresh2Key, FRESH2));
+      expect(other.status).toBe(200);
+    });
   });
 
   test('设备报 expired（服务端自己的决定）⇒ 拒绝', async () => {

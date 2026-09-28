@@ -32,6 +32,7 @@ const { asyncHandler } = require('../middleware');
 const { loadContract, assertSupported, statusCode, canonicalOrder } = require('./contract');
 const { alphabetFromContract, normalize } = require('./credentials');
 const { acceptIncoming } = require('./verify');
+const { createSenderQuota } = require('./senderquota');
 const {
   authorizeClientEvent,
   authorizeRegister,
@@ -72,6 +73,11 @@ const {
 
 const contract = assertSupported(loadContract());
 const router = express.Router();
+// 按**已证明的发送方地址**计的配额（#130-A2）：计额点只能在验签之后 ——
+// 请求体里那个 sender 在验签之前只是字符串，按它计额的后果是 DoS 转移（攻击者拿别人的地址
+// 把受害者顶到 429）。所以它出现在下面每条路由的 `auth.ok` 之后、业务副作用之前。
+// 数字与名单全部来自契约（经 ratelimit.windowsFor），这里不写第二个数。
+const rejectIfOverQuota = createSenderQuota();
 
 /// 只取契约 `signature.canonicalOrder` 承认的那几个键。
 /// 少一个键 ⇒ 下游 `canonicalBytes` 抛（"没填"与"填了空值"必须签出不同的字节）；
@@ -151,6 +157,7 @@ router.post(
     if (!outcome.ok) return sendFailure(res, outcome.status, outcome.receipt);
 
     const sender = normalize(alphabetFromContract(contract), text(body.sender));
+    if (rejectIfOverQuota(res, 'message', sender)) return;
     // title 只在**出现在已签字节里**时才收下（与 item 同一条规则）。标题是屏幕上最显眼的一行，
     // 未签名的标题等于给中间人一次"借真消息挂假标题"的机会。
     const signedText = canonicalOrder(contract)
@@ -206,6 +213,7 @@ router.post(
       return sendFailure(res, failure.status, failure.receipt);
     }
 
+    if (rejectIfOverQuota(res, 'poll', auth.sender)) return;
     touchDevice(contract, state.devices, auth.sender, now);
     const messages = loadMessages();
     // 到期扫描放在取货之前：过期的那条不该再被当成"待投"下发（正文也按契约已释放）。
@@ -262,6 +270,7 @@ router.post(
       return sendFailure(res, failure.status, failure.receipt);
     }
 
+    if (rejectIfOverQuota(res, 'ack', auth.sender)) return;
     const messages = loadMessages();
     // `clientEvents.ack.onlyForOwnMessages` 分两半：前半段（target 必须是本机）在 events.js，
     // 后半段（那条消息确实下发给我）要拿表来查。这里必须用 hasOwnProperty ——
@@ -368,6 +377,7 @@ router.post(
       const failure = eventFailure(auth);
       return sendFailure(res, failure.status, failure.receipt);
     }
+    if (rejectIfOverQuota(res, 'pairArm', auth.addressCode)) return;
     const pairing = armPairingCode(
       contract,
       state.devices,
@@ -403,6 +413,7 @@ router.post(
       const failure = eventFailure(auth);
       return sendFailure(res, failure.status, failure.receipt);
     }
+    if (rejectIfOverQuota(res, 'pair', auth.requester)) return;
     const requests = loadRequests();
     const created = createRequest(contract, requests, auth, now);
     if (!created.ok) {
@@ -440,6 +451,7 @@ router.post(
       const failure = eventFailure(auth);
       return sendFailure(res, failure.status, failure.receipt);
     }
+    if (rejectIfOverQuota(res, 'pairConfirm', auth.target)) return;
     const requests = loadRequests();
     const decided = decideRequest(contract, requests, state.devices, auth, now);
     if (!decided.ok) {

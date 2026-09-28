@@ -194,11 +194,17 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
   test('启动横幅必须逐条说清"这个端点受哪一档"，不许再打一句笼统的每 IP', () => {
     const { describeKind } = require('../lib/fnthink/ratelimit');
     const serverSrc = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+    // 身份未证明的那一类：按 IP（这是唯一只能按 IP 计的一档）
+    expect(describeKind('register')).toContain('按 IP');
     expect(describeKind('register')).toContain(String(contract.limits.unauthenticatedPerMinute));
-    expect(describeKind('register')).toContain('/天');
+    // 已证明身份的两类：按设备地址，主键与数字来源都要写在同一行里（#130-A2）
+    expect(describeKind('poll')).toContain('按设备地址');
     expect(describeKind('poll')).toContain(String(windows.pollPerMinute));
+    expect(describeKind('poll')).toContain('presence');
     expect(describeKind('poll')).toContain('无日档');
-    expect(describeKind('message')).toContain('按发送方');
+    expect(describeKind('message')).toContain('按设备地址');
+    expect(describeKind('message')).toContain(String(contract.limits.perSenderPerMinute));
+    expect(describeKind('message')).toContain(String(contract.limits.perSenderPerDay));
     expect(describeKind('brandNewThing')).toContain('未登记');
     // 旧的形状：一行里给所有端点打同一个"每 IP N/分钟" ⇒ 数出来了就红，逼改的人看见为什么
     expect(serverSrc).not.toMatch(/限流 \$\{store\.RATE_LIMIT_FNTHINK_MAX\}\/分钟\/每 IP/);

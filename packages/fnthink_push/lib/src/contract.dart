@@ -1223,6 +1223,34 @@ class FnthinkContract {
       '（本仓 7 条配对路由用例就是这么红的），而攻击者换一个 IP 的成本是零 —— '
       '未认证写入真正的兜底是 limits.devicesMax 与整个面的总量闸门',
     );
+    // #130-A2：按发送方计的那一档。主键是**已证明身份的设备地址**，不是 IP。
+    final senderMinute = intOf(const ['limits', 'perSenderPerMinute']);
+    final senderDay = intOf(const ['limits', 'perSenderPerDay']);
+    need(
+      senderMinute != null && senderDay != null && senderDay > senderMinute,
+      'limits.perSenderPerDay 必须大于 perSenderPerMinute：白天额度不该比分钟额度还小',
+    );
+    need(
+      senderMinute == null ||
+          controlPerMinute == null ||
+          senderMinute >= controlPerMinute,
+      'limits.perSenderPerMinute 不许比按 IP 的 unauthenticatedPerMinute 还紧：'
+      '这一档的意义是"跑飞保护"而不是反垃圾 —— 比匿名档还紧，先被卡住的只会是已经证明过身份的自己人',
+    );
+    // 这一片真正的不变量：**凡是签名已经能证明身份的端点，都必须有一份按设备地址计的额度**。
+    // 漏一个的表现不是报错，而是那条端点静默地只剩"按 IP 的总量闸门"管 —— 反代之后
+    // 就是一个出口后面的所有设备共享一辈子额度（A1 收成 6/分那次 7 条用例红的形状）。
+    for (final entry in eventKinds.entries) {
+      final event = entry.value;
+      if (event['verifyAgainst'] != 'device-table-public-key') continue;
+      final kind = entry.key;
+      need(
+        perSenderOnly.contains(kind) || cadenceGoverned.contains(kind),
+        'clientEvents.$kind 的签名已经能证明身份（verifyAgainst=device-table-public-key），'
+        '却不在 limits.perSenderOnly / cadenceGoverned 任何一份名单里 ⇒ 它只能被按 IP 计额度，'
+        '等于让同一出口后面的几台设备共用一份配额',
+      );
+    }
     need(
       (intOf(const ['limits', 'requestBodyMaxBytes']) ?? 0) >= 4096,
       'limits.requestBodyMaxBytes 必须是一个说得出口的字节数（≥ 4096）：它是公网面上唯一'

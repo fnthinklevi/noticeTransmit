@@ -102,6 +102,15 @@ function windowsFor(src) {
   }
   const perMinute = intOf(['limits', 'unauthenticatedPerMinute']);
   const perDay = intOf(['limits', 'unauthenticatedPerDay']);
+  const senderPerMinute = intOf(['limits', 'perSenderPerMinute']);
+  const senderPerDay = intOf(['limits', 'perSenderPerDay']);
+  if (senderPerMinute < perMinute) {
+    throw new Error(
+      `limits.perSenderPerMinute=${senderPerMinute} 比按 IP 的 unauthenticatedPerMinute=${perMinute} 还紧：` +
+        '已证明身份的端点按设备地址计，这一档的意义是"跑飞保护"而不是反垃圾 —— 比匿名档还紧，' +
+        '先被卡住的只会是自己人（A1 那次 7 条配对用例就是替这种用户红的）',
+    );
+  }
   const burst = intOf(['presence', 'burstWhenPending', 'intervalSeconds']);
   const slack = intOf(['limits', 'pollBurstSlack']);
   // 轮询侧额度是**推导**出来的，不是第四个凭空的数：提频 5 秒一次 ⇒ 12 次/分，
@@ -121,6 +130,12 @@ function windowsFor(src) {
     controlWindow: { perMinute, perDay },
     cadenceWindow: { perMinute: pollPerMinute },
     pollPerMinute,
+    // A2：按**发送方设备地址**计的那两档（验签之后才记，见 senderquota.js）。
+    // perSenderOnly 用契约里固定的一对数；cadenceGoverned 用从 presence 推导的数、日档不设。
+    senderWindows: new Map([
+      ...senderOnly.map((k) => [k, { perMinute: senderPerMinute, perDay: senderPerDay }]),
+      ...cadence.map((k) => [k, { perMinute: pollPerMinute, perDay: null }]),
+    ]),
   };
 }
 
@@ -186,14 +201,15 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows) {
       if (face.count > max) return deny(res, now, face, WINDOW_MS);
     }
 
-    // 按发送方计的端点（/message）：这层跳过，等 A2 用设备地址做主键。
-    if (windows.senderOnlyKinds.has(kind)) return next();
+    // 已证明身份的端点（poll / ack / 配对三步 / message）一律**不在这层按 IP 记**：
+    // 它们的主键是设备地址，计额点在验签之后（senderquota.js）。留在这里按 IP 记，
+    // 反代之后"手机 + 手表 + 家里三台"共用一个源时先被卡住的是自己人 —— A1 那次 7 条红就是这个形状。
+    if (windows.senderWindows.has(kind)) return next();
 
     const isControl = windows.controlKinds.has(kind);
-    const isCadence = windows.cadenceKinds.has(kind);
     // 未登记的种类 ⇒ 按控制类量（宁可限紧），并留痕。
-    const window = isCadence ? windows.cadenceWindow : windows.controlWindow;
-    const note = isControl || isCadence ? null : kind;
+    const window = windows.controlWindow;
+    const note = isControl ? null : kind;
 
     const minuteKey = `${ip}:${kind}:m`;
     const minute = windowEntry(minuteKey, now, WINDOW_MS);
@@ -223,14 +239,14 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows) {
 /// 而不是在 server.js 里再抄一句"限流 N/分钟/每 IP" —— 三档各管不同端点之后，
 /// 那句笼统的话对 /poll 和 /register 都是错的，而运维照着错的日志去调 env 只会更糟。
 function describeKind(kind) {
-  if (contractWindows.senderOnlyKinds.has(kind)) {
-    return '按发送方设备地址计（A2 之前只受面的总量闸门兜底）';
-  }
-  if (contractWindows.cadenceKinds.has(kind)) {
-    return `按 IP ${contractWindows.cadenceWindow.perMinute}/分钟（从 presence 的节奏推导，无日档）`;
+  const sender = contractWindows.senderWindows.get(kind);
+  if (sender) {
+    const day = sender.perDay ? ` · ${sender.perDay}/天` : '（无日档）';
+    const from = contractWindows.cadenceKinds.has(kind) ? '数字从 presence 节奏推导' : '契约固定值';
+    return `按设备地址 ${sender.perMinute}/分钟${day}（${from}，验签后计）`;
   }
   if (contractWindows.controlKinds.has(kind)) {
-    return `按 IP ${contractWindows.controlWindow.perMinute}/分钟 · ${contractWindows.controlWindow.perDay}/天`;
+    return `按 IP ${contractWindows.controlWindow.perMinute}/分钟 · ${contractWindows.controlWindow.perDay}/天（身份未证明，只能按 IP）`;
   }
   return `未登记 ⇒ 按最紧的一档（${contractWindows.controlWindow.perMinute}/分钟）拦下并留痕点名`;
 }

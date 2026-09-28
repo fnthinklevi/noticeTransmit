@@ -1099,5 +1099,32 @@ void main() {
       });
       expectProblem(broken, '同步状态码有重复值', '两个不同结论共用一个码＝等于没有结论');
     });
+
+    // #130-A2：按发送方计的那一档。两条判据都是这一片真正在守的东西。
+    test('已证明身份的端点漏出"按设备计"的名单 ⇒ 报（它只能被按 IP 计＝共用一份配额）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['perSenderOnly'] = [
+          'pairArm',
+          'pair',
+          'message',
+        ];
+      });
+      expectProblem(
+        broken,
+        'clientEvents.pairConfirm',
+        'pairConfirm 的签名已经能证明是谁，按 IP 计等于让同一出口后面的设备共用配额',
+      );
+    });
+
+    test('按设备那档被收到比匿名那档还紧 ⇒ 报（先卡住的是自己人）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['perSenderPerMinute'] = 5;
+      });
+      expectProblem(
+        broken,
+        '不许比按 IP 的',
+        '这一档是"跑飞保护"不是反垃圾；比匿名档紧，第一个挨打的是已证明身份的设备',
+      );
+    });
   });
 }
