@@ -83,6 +83,28 @@ class FnthinkContract {
 
   int get contractVersion => intOf(const ['contractVersion']) ?? -1;
 
+  /// 签名字节里 `version` 那一段的取值（向量与两端实现都用它，例如 `fnthink-v1` ⇒ `'1'`）。
+  ///
+  /// ⚠ 服务端**不读这个值的内容**（它按契约顺序重算整串再验签），所以这里错了不会当场报错，
+  /// 而是让两端的规范化字节不同 ⇒ "签名永远失败"。正因为如此，它只能从契约推出来，
+  /// 不许在客户端写一个 `'1'`：协议升 major 时那个字面量是最容易被忘掉的一处。
+  String get protocolVersionForSignature {
+    final declared = _protocolMajorOf(protocol);
+    final version = contractVersion;
+    if (declared == null || version <= 0) {
+      throw StateError(
+        '协议版本推不出来（protocol=$protocol, contractVersion=$version）',
+      );
+    }
+    if (declared != version) {
+      throw StateError(
+        'protocol 名里的版本（v$declared）与 contractVersion（$version）不一致：'
+        '签名字节里的 version 该用哪一个没有答案，先报错比猜一个强',
+      );
+    }
+    return '$version';
+  }
+
   /// 签名拼接用的分隔符。缺键直接抛：两处各写一个"默认 U+0000"就是第二份实现，
   /// 而分隔符不一致的两端会签出对不上、又看不出问题的字节串。
   String get signatureSeparator {
@@ -262,6 +284,84 @@ class FnthinkContract {
     final multiplier = intOf(const ['presence', 'onlineThresholdMultiplier']);
     if (poll == null || multiplier == null) return null;
     return poll * multiplier;
+  }
+
+  // ── 设备侧收货内核要读的那几个数（#126）──
+  // 一律"缺就抛"而不是给默认值：这台设备多久问一次、有货时问到多密、时间能漂多少，
+  // 都是**协议承诺**而不是客户端偏好。在 Dart 里写一个 20 当缺省，契约改成 30 时
+  // 表现是"服务端按 30 判在线、设备按 20 问"，而那不会报错，只会让在线态一直慢半拍。
+
+  /// 常态拉取间隔（秒）。
+  int get pollIntervalSeconds {
+    final value = intOf(const ['presence', 'pollIntervalSeconds', 'default']);
+    if (value == null || value <= 0) {
+      throw StateError('契约缺 presence.pollIntervalSeconds.default（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 有货时的提频间隔与持续时长。`pending == 0` 时不该用它（省电，且契约语义是"有货才提频"）。
+  ({int intervalSeconds, int durationSeconds}) get burstWhenPending {
+    final burst = map(const ['presence', 'burstWhenPending']) ?? const {};
+    final interval = burst['intervalSeconds'];
+    final duration = burst['durationSeconds'];
+    if (interval is! int ||
+        interval <= 0 ||
+        duration is! int ||
+        duration <= 0) {
+      throw StateError(
+        '契约的 presence.burstWhenPending 缺 intervalSeconds/durationSeconds（不补默认值）',
+      );
+    }
+    return (intervalSeconds: interval, durationSeconds: duration);
+  }
+
+  /// `ts` 允许的偏移上限（秒）。超过它，服务端会把这条判过期，而对外只有一句同形的话。
+  int get maxSkewSeconds {
+    final value = intOf(const ['signature', 'maxSkewSeconds']);
+    if (value == null || value <= 0) {
+      throw StateError('契约缺 signature.maxSkewSeconds（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 一次 poll 最多取回多少条（服务端已按它截断，设备侧用它判"还有货没取完"）。
+  int get maxBatchPerPoll {
+    final value = intOf(const ['clientEvents', 'poll', 'maxBatchPerPoll']);
+    if (value == null || value <= 0) {
+      throw StateError('契约缺 clientEvents.poll.maxBatchPerPoll（不补默认值）');
+    }
+    return value;
+  }
+
+  /// poll 响应里"配对请求"那一项的键名（键名进契约是因为服务端就是从契约拼的）。
+  String get pairRequestPollKey {
+    final value = str(const ['pairRequest', 'pollKey']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 pairRequest.pollKey（不补默认值）');
+    }
+    return value;
+  }
+
+  /// ack 载荷的字段名单（服务端逐字节比过这份名单，多一个键都会被拒）。
+  List<String> get ackFields =>
+      strings(const ['clientEvents', 'ack', 'fields']);
+
+  /// 设备能报的 `result` → 状态机事件。**这张表是封闭的**：不在表里的结果
+  /// 设备不许自报（`expired` / `dropped` 是服务端自己的决定，让设备报就等于让它替服务端宣布结局）。
+  Map<String, String> get ackResultToEvent {
+    final table =
+        map(const ['clientEvents', 'ack', 'resultToEvent']) ?? const {};
+    return {for (final entry in table.entries) entry.key: '${entry.value}'};
+  }
+
+  /// 身份没证明之前那一句对外回执（`signature.onFailure.receipt`）。
+  String get unsignedReceipt {
+    final value = str(const ['signature', 'onFailure', 'receipt']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 signature.onFailure.receipt（不补默认值）');
+    }
+    return value;
   }
 
   /// 这份契约能不能被本包解释。返回 null = 可以；否则是不兼容的原因。

@@ -13,4 +13,5 @@ export 'src/contract.dart';
 export 'src/credentials.dart';
 export 'src/delivery.dart';
 export 'src/pairing.dart';
+export 'src/receive_kernel.dart';
 export 'src/crockford.dart';
