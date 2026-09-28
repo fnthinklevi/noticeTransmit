@@ -853,13 +853,24 @@ journalctl -u update-server -f
    | `fnthink` | `/api/fnthink/` | `http://127.0.0.1:3456` | `$host` |
    | `health` | `/health` | `http://127.0.0.1:3456` | `$host` |
 
-   ⚠️ **目标 URL 不要带路径、不要以 `/` 结尾**。`proxy_pass` 尾部带不带 `/` 决定路径怎么拼：带尾斜杠时
-   Nginx 会把 location 前缀**替换**掉 ⇒ 上游收到的是 `/poll` 而不是 `/api/fnthink/poll` ⇒ 整面 404，
-   而你在服务器上直连上游却是好的（最难自查的一类）。宝塔输入框里就填 `http://127.0.0.1:3456`。
+   ⚠️ **代理目录与目标 URL 必须"成对"**：`proxy_pass` 里**只要出现 URI**（哪怕只是一个 `/`），Nginx 就会用
+   它**替换** location 匹配到的那一段前缀。请求 `/api/fnthink/poll` 时：
+
+   | 代理目录（location） | 目标 URL（proxy_pass） | 上游实际收到 | |
+   | --- | --- | --- | --- |
+   | `/api/fnthink/` | `http://127.0.0.1:3456`（**不写 URI**） | `/api/fnthink/poll` | ✅ 推荐 |
+   | `/api/fnthink/` | `http://127.0.0.1:3456/api/fnthink/`（与前缀等长） | `/api/fnthink/poll` | ✅ |
+   | `/api/fnthink/` | `http://127.0.0.1:3456/` | `/poll` | ❌ 前缀被吃 |
+   | `/api/fnthink` | `http://127.0.0.1:3456/` | `//poll` | ❌ 多一个斜杠 |
+   | `/api/fnthink` | `http://127.0.0.1:3456/api/fnthink/` | `/api/fnthink//poll` | ❌ 两侧不等长 |
+
+   ⇒ **最稳的写法**：代理目录带尾斜杠 `/api/fnthink/`，目标 URL **只写到端口**（`http://127.0.0.1:3456`）。
+   ⚠️ 面板输入框显示的值**不一定等于**写进配置文件的值（宝塔就会给目标 URL 悄悄补 `/`）—— 改完请点
+   **【配置文件】/【配置】核对真实的 `proxy_pass` 那一行**：
 
    > 🔎 **识别特征（一次就能判死）**：访问 `https://<推送域名>/api/fnthink/poll` 得到的是
-   > **Express 的错误页** `Cannot POST /poll`（或 `Cannot GET /poll`）—— 注意路径里**没有 `/api/fnthink`**。
-   > 那说明请求确实到了上游，只是前缀被削掉了。命令：
+   > **Express 的错误页**，且路径不对 —— `Cannot POST /poll`（前缀被吃）或 `Cannot POST //poll`（多一个斜杠）。
+   > 命令：
    > ```bash
    > curl -s -X POST https://<推送域名>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}' | head -3
    > # 错：<pre>Cannot POST /poll</pre>      对：{"receipt":"rejected_unsigned"}（HTTP 403）

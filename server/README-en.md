@@ -861,14 +861,26 @@ matter most — three steps:
    | `fnthink` | `/api/fnthink/` | `http://127.0.0.1:3456` | `$host` |
    | `health` | `/health` | `http://127.0.0.1:3456` | `$host` |
 
-   ⚠️ **The target URL must not contain a path and must not end with `/`.** A trailing slash on `proxy_pass`
-   makes Nginx **replace** the matched location prefix, so the upstream receives `/poll` instead of
-   `/api/fnthink/poll` — the whole face then 404s while a direct call to the upstream works, which is the
-   hardest kind of problem to self-diagnose. Type `http://127.0.0.1:3456` in the panel field.
+   ⚠️ **The proxy directory and the target URL must be a matching pair**: as soon as `proxy_pass` carries a URI
+   (even just a single `/`), Nginx **replaces** the part of the path matched by the location with it. For a
+   request to `/api/fnthink/poll`:
+
+   | Proxy directory (location) | Target URL (proxy_pass) | Upstream actually receives | |
+   | --- | --- | --- | --- |
+   | `/api/fnthink/` | `http://127.0.0.1:3456` (**no URI**) | `/api/fnthink/poll` | ✅ recommended |
+   | `/api/fnthink/` | `http://127.0.0.1:3456/api/fnthink/` (same length as the prefix) | `/api/fnthink/poll` | ✅ |
+   | `/api/fnthink/` | `http://127.0.0.1:3456/` | `/poll` | ❌ prefix eaten |
+   | `/api/fnthink` | `http://127.0.0.1:3456/` | `//poll` | ❌ extra slash |
+   | `/api/fnthink` | `http://127.0.0.1:3456/api/fnthink/` | `/api/fnthink//poll` | ❌ sides not equal |
+
+   ⇒ **Safest form**: proxy directory `/api/fnthink/` (trailing slash) with the target URL ending at the port
+   (`http://127.0.0.1:3456`). ⚠️ What a panel shows you is **not necessarily** what lands in the config file
+   (BT Panel quietly appends a `/` to the target URL) — after saving, open the site's **config file** and check
+   the actual `proxy_pass` line.
 
    > 🔎 **Tell-tale sign (one command settles it)**: `https://<push-host>/api/fnthink/poll` answers with
-   > **Express's error page** `Cannot POST /poll` (or `Cannot GET /poll`) — note the path has **no
-   > `/api/fnthink`** in it. The request does reach the upstream; the prefix was stripped on the way.
+   > **Express's error page** and a wrong path — `Cannot POST /poll` (prefix eaten) or `Cannot POST //poll`
+   > (extra slash).
    > ```bash
    > curl -s -X POST https://<push-host>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}' | head -3
    > # wrong: <pre>Cannot POST /poll</pre>      right: {"receipt":"rejected_unsigned"} (HTTP 403)
