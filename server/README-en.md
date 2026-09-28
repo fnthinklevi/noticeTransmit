@@ -890,6 +890,13 @@ matter most — three steps:
    > The first decides how the path is joined (table above); the second decides the Host the upstream sees — the
    > server does not depend on it today, but logs and any future per-hostname logic will, and `127.0.0.1` there
    > is a silent trap.
+   >
+   > 🔧 **And the location's trailing slash**: BT Panel normalises the "proxy directory" into a trailing-slash form —
+   > you type `/health`, it generates `location ^~ /health/`. Harmless for `/api/fnthink/` (which already ends in a
+   > slash), harmful for **single-word paths**: `^~ /health/` does **not** match a bare `/health`, so that request
+   > falls through to the site's static logic and gets **301-redirected to `/health/`** (when a directory of that
+   > name happens to exist under the site root) or just 404s. To make the bare path work directly, drop the slash on
+   > that line: `location ^~ /health { … }`.
 
    > 🔎 **Read the response and you know which layer is wrong**:
    > - **Express's error page**, wrong path ⇒ **proxy misconfigured**: `Cannot POST /poll` (prefix eaten) or
