@@ -939,6 +939,42 @@ class FnthinkContract {
       (str(const ['transport', 'accessLogRedactPathPattern']) ?? '').isNotEmpty,
       'transport.accessLogRedactPathPattern 不能为空',
     );
+    // 域名是**部署形态**而不是注释：客户端要拼成 `https://<host>/api/...`，而大陆那条
+    // 从 pushfnthink.com 改成 push.fnthink.com 时，契约里那行没有任何读者与校验，
+    // 于是错的串一直"看起来是配置"。钉三件事：两个都非空、两个必须不同（同域就没有
+    // 双域名部署这回事了）、默认值必须是两者之一（默认值指向一个不存在的域名，
+    // 表现是"装了 App 检查更新能通、推送全连不上"）。不钉"默认=国际那条"：那是
+    // 可以随产品改的选择，钉死了就变成每次换默认值都要动协议。
+    final endpointHosts = <String, String>{
+      for (final k in const ['international', 'mainland', 'default'])
+        k: str(['transport', 'endpoints', k]) ?? '',
+    };
+    // 点分隔的标签，每段首尾是字母数字、中间可有连字符，且至少两段
+    final hostPattern = RegExp(
+      r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?'
+      r'(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$',
+    );
+    for (final entry in endpointHosts.entries) {
+      need(entry.value.isNotEmpty, 'transport.endpoints.${entry.key} 不能为空');
+      // 只许裸主机名：带 scheme 或路径会被拼成 https://https//… 这种没人报错的 URL
+      // ⚠ 不能用 Uri.tryParse(...).host 判 —— 不带 scheme 的串会被当成 path，host 恒空，
+      //   于是**正确值也会被判红**（我第一版就是这么写错的）。
+      need(
+        hostPattern.hasMatch(entry.value),
+        'transport.endpoints.${entry.key} 必须是裸主机名（不含 scheme/路径/空格），'
+        '客户端按 https://<host>/api/… 拼接，当前值「${entry.value}」不合形状',
+      );
+    }
+    need(
+      endpointHosts['international'] != endpointHosts['mainland'],
+      '双域名必须不同，否则 T57 的「能力等价、可互相切换」落空',
+    );
+    need(
+      endpointHosts['default'] == endpointHosts['international'] ||
+          endpointHosts['default'] == endpointHosts['mainland'],
+      'transport.endpoints.default 必须是两个域名之一，'
+      '当前值「${endpointHosts['default']}」指向了没声明过的域名',
+    );
 
     // ── 配对（T28）──
     need(

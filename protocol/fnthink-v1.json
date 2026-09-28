@@ -286,7 +286,7 @@
     "postOnlySwitch": true,
     "endpoints": {
       "international": "push.fnthink.top",
-      "mainland": "pushfnthink.com",
+      "mainland": "push.fnthink.com",
       "default": "push.fnthink.top",
       "suggestSwitchOnMainlandNetwork": true
     }

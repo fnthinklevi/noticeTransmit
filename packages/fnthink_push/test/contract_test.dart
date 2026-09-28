@@ -84,6 +84,26 @@ void main() {
         isEmpty,
       );
     });
+
+    test('双域名都在 fnthink 的注册域下（钉的是"归属"，不是整串主机名）', () {
+      // 为什么这样钉：大陆那条曾经写成 `pushfnthink.com`（少一个点，是**另一个域**），
+      // 而契约里这行此前没人读也没人校验，错串就一直挂着。断言 endsWith('.fnthink.<tld>')
+      // 既能抓住这种"少一个点"的写法（它落到了别人的注册域上），又不必把 push 这个
+      // 子域标签写死 —— 换子域是实现细节，换注册域是新买了一个域名。
+      final endpoints = c.map(const ['transport', 'endpoints'])!;
+      expect(endpoints['international'], isNotEmpty);
+      expect(endpoints['mainland'], isNotEmpty);
+      expect(
+        endpoints['international'].toString().endsWith('.fnthink.top'),
+        isTrue,
+        reason: '国际域名必须挂在 fnthink.top 下，实际 ${endpoints['international']}',
+      );
+      expect(
+        endpoints['mainland'].toString().endsWith('.fnthink.com'),
+        isTrue,
+        reason: '大陆域名必须挂在 fnthink.com 下，实际 ${endpoints['mainland']}',
+      );
+    });
   });
 
   test('契约表自洽（validate 必须为空；不空就把全部问题打出来）', () {
@@ -495,6 +515,43 @@ void main() {
             'fresh';
       });
       expectProblem(broken, 'dedupeRefreshWhile 必须是一个投递状态', '覆盖条件必须落在状态表里');
+    });
+
+    test('域名写成带 scheme 的整 URL ⇒ 报（客户端还要拼 https:// 前缀）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['endpoints'] = {
+          ...(raw['transport'] as Map<String, Object?>)['endpoints']
+              as Map<String, Object?>,
+          'international': 'https://push.fnthink.top',
+        };
+      });
+      expectProblem(
+        broken,
+        '必须是裸主机名',
+        '带 scheme 会拼成 https://https//…，而这条错要到用户点推送才现形',
+      );
+    });
+
+    test('默认域名指向没声明过的第三条 ⇒ 报（装了 App 检查更新正常、推送全连不上）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['endpoints'] = {
+          ...(raw['transport'] as Map<String, Object?>)['endpoints']
+              as Map<String, Object?>,
+          'default': 'push.fnthink.cn',
+        };
+      });
+      expectProblem(broken, '必须是两个域名之一', 'default 不在表里 = 客户端连一个协议没声明的域名');
+    });
+
+    test('两个域名写成同一条 ⇒ 报（双域名部署退化成一条）', () {
+      final broken = mutate((raw) {
+        (raw['transport'] as Map<String, Object?>)['endpoints'] = {
+          ...(raw['transport'] as Map<String, Object?>)['endpoints']
+              as Map<String, Object?>,
+          'mainland': 'push.fnthink.top',
+        };
+      });
+      expectProblem(broken, '双域名必须不同', '同域就没有"大陆/国际可达性不同"这回事，T57 落空');
     });
   });
 }
