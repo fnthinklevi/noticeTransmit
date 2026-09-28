@@ -31,8 +31,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Flutter pub get
-        run: flutter pub get
+      # 与 PR 门禁同一份脚本：根包 + 每一个嵌套包都要在 analyze 之前解析
+      # （根 pub get 不替嵌套包生成 .dart_tool，漏掉的表现就是下面 analyze 一整屏
+      # "Target of URI doesn't exist"）
+      - name: Flutter pub get（根 + 每一个嵌套包）
+        run: bash .github/scripts/pub_get_all_packages.sh
 
       - name: Dart format check
         run: $FLUTTER_ROOT/bin/cache/dart-sdk/bin/dart format --set-exit-if-changed lib/
@@ -55,18 +58,23 @@ jobs:
           fi
           echo "✅ Android单元测试通过"
 
+      # ⚠ 这一步原本是**结构性假绿**：判据写的是 `grep -E "^ +error •"`，而 flutter 3.44 的
+      # analyze 输出形如 `  error - <消息> - <文件>:<行>:<列> - <规则>`，没有 `•` 也没有 `error •`
+      # ⇒ grep 恒不命中，永远打印"✅ 无致命代码错误"；`EXIT_CODE` 取了出来却没读。
+      # 也就是说发版路径上这道门禁一道都没判过红（与已删的 dart_code_metrics 步同一族）。
+      # 现在与 PR 门禁同口径：--fatal-infos + 按退出码判红。
       - name: Flutter analyze
         run: |
           set +e
-          flutter analyze --no-pub > analyze_output.log 2>&1
+          flutter analyze --no-pub --fatal-infos > analyze_output.log 2>&1
           EXIT_CODE=$?
           set -e
           cat analyze_output.log
-          if grep -E "^ +error •" analyze_output.log; then
-            echo "❌ 存在代码错误，CI失败"
+          if [ "$EXIT_CODE" -ne 0 ]; then
+            echo "❌ flutter analyze --fatal-infos 退出码 $EXIT_CODE，发版中止"
             exit 1
           fi
-          echo "✅ 无致命代码错误，仅风格提示已忽略 "
+          echo "✅ analyze 无 error / warning / info"
 
       - name: Modify gradle repositories to official source
         run: |

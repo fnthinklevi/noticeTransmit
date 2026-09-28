@@ -22,15 +22,20 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Flutter pub get
-        run: flutter pub get
+      # 嵌套包必须**在 analyze 之前**解析自己的 dev_dependencies，理由见脚本头部注释
+      # （一句话版：`flutter analyze` 不带路径会走进 packages/**，包没解析就是一整屏
+      # "Target of URI doesn't exist"，而根 pub get 不替嵌套包生成 .dart_tool）。
+      - name: Flutter pub get（根 + 每一个嵌套包）
+        run: bash .github/scripts/pub_get_all_packages.sh
 
       - name: Flutter analyze
         run: |
           set +e
           # --fatal-infos：以前这步只 grep `error •`，warning 与 info 全放过（"仅风格提示已忽略"），
           # 于是 analysis_options.yaml 里那批 lint 规则实际上没有门禁。现在按退出码判红。
-          # 本机基线实测：dart analyze --fatal-infos lib test integration_test → No issues found（exit 0）。
+          # 本机基线实测（与 CI 同命令、同画像：不带路径 ⇒ 连 packages/** 一起分析）：
+          #   嵌套包未解析 → exit 1、286 条问题（首条即 packages\fnthink_push\test\… uri_does_not_exist）
+          #   跑过上一步 pub get 脚本 → "No issues found!"、exit 0
           flutter analyze --no-pub --fatal-infos > analyze_output.log 2>&1
           EXIT_CODE=$?
           set -e
@@ -41,8 +46,10 @@ jobs:
           fi
           echo "✅ analyze 无 error / warning / info"
 
-      # 幻念推送包（T71，path 依赖）。主 App 的 `flutter analyze` / `flutter test` 都不会
-      # 跨进包里 ⇒ 不单独跑，这个包等于没有门禁。
+      # 幻念推送包（T71，path 依赖）：这一跑是它自己的门禁（包级 analyze + dart test）。
+      # ⚠ 上一版这里的注释写着"主 App 的 flutter analyze 不会跨进包里"—— 那句话是错的，
+      # 也正是 CI 报错的根因（根 analyze 确实会分析 packages/** 的 test 文件）。
+      # 这里的 `dart pub get` 现在是重复动作（上面脚本已解析过），留着是为了本步不依赖步骤顺序。
       - name: fnthink_push package analyze & test
         working-directory: packages/fnthink_push
         run: |
