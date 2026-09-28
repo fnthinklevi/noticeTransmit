@@ -523,13 +523,16 @@ Benefits of using Nginx as a reverse proxy:
 ```nginx
 server {
     listen 80;
-    server_name notice.fnthink.top;
+    # All three names belong here: notice.* serves the website/admin console; push.* is the
+    # public face of fnthink push (the contract's transport.endpoints names these hosts,
+    # and the app dials them directly — leaving them out makes that face unreachable).
+    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
-    server_name notice.fnthink.top;
+    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
 
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/private.key;
@@ -558,8 +561,35 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    # ⚠ Request-body cap: this layer must be **no smaller** than the largest body the server
+    #   accepts, otherwise Nginx rejects first and the client gets Nginx's HTML 413 instead of the
+    #   protocol/admin error shape. The server has two caps: admin (backup import) 1 MB, and the
+    #   public face /api/fnthink/* 64 KiB (the app answers those with the protocol's own 413).
+    #   The default 1m is exactly enough for admin; only ever raise it.
+    client_max_body_size 2m;
 }
 ```
+
+> ⚠ **Redact the pairing-secret path in the access log**: the contract declares
+> `transport.secretPlacement = path_segment`, so the pairing code travels as a path segment
+> (`/api/fnthink/p/<code>`) — and the contract also declares the prefix to redact,
+> `transport.accessLogRedactPathPattern = /api/fnthink/p/`. The default `combined` log would write that
+> one-time credential into `access.log` verbatim, i.e. keep a recoverable copy of it. Simplest fix is a
+> dedicated log_format for this site:
+>
+> ```nginx
+> map $request_uri $safe_uri {
+>     default            $request_uri;
+>     ~^/api/fnthink/p/  "/api/fnthink/p/[redacted]";
+> }
+> log_format safe '$remote_addr - $remote_user [$time_local] "$request_method $safe_uri $server_protocol" '
+>                 '$status $body_bytes_sent "$http_referer" "$http_user_agent"';
+> access_log /var/log/nginx/notice.access.log safe;
+> ```
+>
+> Moving the secret out of the path would mean changing the contract (`secretPlacement`) — not now:
+> relocating the secret is a protocol change.
 
 > ⚠️ **Reverse-proxy deployments must set `TRUST_PROXY`**: `app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0))` defaults to **0 = trust no proxy headers** (the fail-safe default for direct deployments). Behind Nginx without it, IP blocking and rate limiting see only `127.0.0.1` (the proxy IP) — one false block shuts the admin API for everyone. Conversely, setting it with no proxy lets attackers spoof `X-Forwarded-For` and evade blocks.
 > Single Nginx layer: `TRUST_PROXY=1`; Nginx + CDN: one per hop (e.g. `2`). Requires a service restart to take effect.

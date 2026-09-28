@@ -522,7 +522,9 @@ pm2 startup
 ```nginx
 server {
     listen 80;
-    server_name notice.fnthink.top;
+    # 三个域名都写在这里：notice.* 是官网/管理后台；push.* 是幻念推送的公网面
+    #（契约 transport.endpoints 声明了这两个域名，App 按它们拨号 —— 漏了它们等于公网面不可达）
+    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
 
     # 重定向到 HTTPS
     return 301 https://$host$request_uri;
@@ -530,7 +532,7 @@ server {
 
 server {
     listen 443 ssl;
-    server_name notice.fnthink.top;
+    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
 
     # SSL 证书配置（使用你的证书路径）
     ssl_certificate /path/to/your/cert.pem;
@@ -559,8 +561,32 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    # ⚠ 请求体上限：Nginx 这一层必须**不小于**服务端会收的最大 body，
+    #   否则先被 Nginx 挡掉，客户端收到的是 Nginx 的 HTML 413 而不是协议/管理接口的形状。
+    #   服务端两个口径：管理面（备份导入）1 MB；公网面 /api/fnthink/* 64 KiB（由应用自己按契约回 413）。
+    #   默认值 1m 刚好够管理面；要动它请只往上调。
+    client_max_body_size 2m;
 }
 ```
+
+> ⚠️ **访问日志必须给配对口令那条路径脱敏**：契约 `transport.secretPlacement = path_segment`，
+> 配对口令是**路径段**（`/api/fnthink/p/<口令>`），而契约同时声明了要脱敏的前缀
+> `transport.accessLogRedactPathPattern = /api/fnthink/p/`。默认的 `combined` 日志会把口令原样写进
+> `access.log` —— 那是一枚一次性凭证，写进日志就等于留了一份可被翻出来的副本。最省事的做法是给
+> 这个站点单独用一份 log_format（把 URI 换成脱敏后的）：
+>
+> ```nginx
+> map $request_uri $safe_uri {
+>     default            $request_uri;
+>     ~^/api/fnthink/p/  "/api/fnthink/p/[redacted]";
+> }
+> log_format safe '$remote_addr - $remote_user [$time_local] "$request_method $safe_uri $server_protocol" '
+>                 '$status $body_bytes_sent "$http_referer" "$http_user_agent"';
+> access_log /var/log/nginx/notice.access.log safe;
+> ```
+>
+> 另一条路是让应用完全不把口令放在路径里 —— 那要改契约（`secretPlacement`），当前**不改**：改口令位置等于改协议。
 
 > ⚠️ **反代部署必须设 `TRUST_PROXY`**：`app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0))` 默认 **0 = 不信任任何代理头**（直连部署的 fail-safe 默认值）。挂在 Nginx 后面却不设置，IP 封锁与限流看到的就全是 `127.0.0.1`（代理 IP）——误封一次即全站管理接口对所有人关闭；反过来，没挂反代却设了 `TRUST_PROXY`，攻击者伪造 `X-Forwarded-For` 就能绕过封锁。
 > 单层 Nginx：`TRUST_PROXY=1`；Nginx + CDN 多级：按跳数递增（如 `2`）。修改后需重启服务生效。
