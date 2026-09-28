@@ -196,6 +196,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _checkUpdateOnStartup();
     } catch (e) {
       debugPrint('页面初始化失败: $e');
+      // 这条 catch 吞掉的不是"一点小毛病"，而是**整条装配链的后半段**：首启引导、
+      // 延迟启动前台服务、更新检查都在 catch 之前，异常一抛它们全部没跑（㊽ 的那次实测
+      // 就是这个形状）。所以必须让用户看见"这一步没成"，而不是只在日志里留一行。
+      // ⚠ 只在 mounted 时说：页面已销毁时 context 不可用，这正是 ㊽ 的原始病灶。
+      if (mounted) {
+        _showInfo(AppLocalizations.of(context).pageInitFailed('$e'));
+      }
     }
   }
 
