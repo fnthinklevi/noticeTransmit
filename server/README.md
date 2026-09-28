@@ -35,9 +35,9 @@ npm -v
 
 > ⚠️ **契约文件不在 `server/` 里，必须一起上传**：幻念推送（fnthink-v1）的公网面读的是**仓库根**的 `protocol/fnthink-v1.json`。只传 `server/` 时协议面会在启动时**降级为 503**，日志第一屏是 `[fnthink] 协议入口没有起来` 加上缺哪份文件（管理后台与升级通道不受影响）。
 >
-> 那个降级是**故意的**：一份读不出来的契约绝不能被当成"不限流 / 不校验"，所以宁可整段关掉。但你若指望 `/api/fnthink/*` 能用，就得把 `protocol/fnthink-v1.json` 放到服务器上（默认查找位置由代码位置算出：`lib/fnthink` 往上三级再进 `protocol/` —— 代码内容直放在 `/opt/update-server/` 时就是 `/opt/protocol/fnthink-v1.json`）。
+> 那个降级是**故意的**：一份读不出来的契约绝不能被当成"不限流 / 不校验"，所以宁可整段关掉。但你若指望 `/api/fnthink/*` 能用，就得把 `protocol/fnthink-v1.json` 也放到服务器上 —— **放哪由你定**，代码只按规则去找：`lib/fnthink` 往上三级再进 `protocol/`，也就是「与代码目录同级」（本地仓库里 `server/` 与 `protocol/` 正是兄弟关系）。
 >
-> ⚠️ **这一步容易算错，建议直接显式指定**：在 `.env` 里写 `FNTHINK_CONTRACT=/opt/update-server/protocol/fnthink-v1.json`（路径按你实际放的位置），部署形态怎么变都不会失效。
+> ⚠️ **这一步容易算错，建议直接显式指定**：在 `.env` 里写 `FNTHINK_CONTRACT=<你放契约的绝对路径>/fnthink-v1.json`，部署布局怎么变都不会失效。
 >
 > **每次契约有改动（新增字段 / 改名）都要重传这一份**：新代码配上旧契约会在启动时直接抛（例如读不到 `limits.unauthenticatedPerMinute`），协议面照旧降级 503 —— 错误信息会点名缺哪个键。
 
@@ -440,12 +440,12 @@ GET /health
 #    ⚠️ 绝不带 --delete（rsync --delete / SFTP「镜像目录」都会删掉 data/ 与 .env）
 rsync -av --exclude 'data/' --exclude '.env' --exclude 'node_modules/' ./server/ user@host:/opt/update-server/
 # 1b) 契约：公网面（/api/fnthink/*）读的是仓库根的 protocol/fnthink-v1.json，它**不在 server/ 里**
-#     ⇒ 单独上传一次。默认查找位置从代码位置算出（lib/fnthink 往上三级进 protocol/）：
-#     下面这条 rsync 把内容直放到 /opt/update-server/ ⇒ 默认就是 /opt/protocol/fnthink-v1.json。
+#     ⇒ 单独上传一次。**放哪由你定**，默认查找规则是"与代码目录同级"（lib/fnthink 往上三级
+#     再进 protocol/）。
 #     ⚠ 这个位置容易算错，**推荐在服务器 .env 里显式写 FNTHINK_CONTRACT**（见 .env.example）。
-rsync -av ./protocol/fnthink-v1.json user@host:/opt/protocol/
-# 服务器 /opt/update-server/.env 里加一行：
-#   FNTHINK_CONTRACT=/opt/protocol/fnthink-v1.json
+rsync -av ./protocol/fnthink-v1.json user@host:<放契约的目录>/
+# 服务器 .env 里加一行（路径换成你实际放的位置）：
+#   FNTHINK_CONTRACT=<放契约的目录>/fnthink-v1.json
 
 # 2) 安装/更新依赖（按 lock 精确复现；不动 data/ 与 .env）
 cd /opt/update-server && npm ci        # 必要时 npm rebuild
@@ -591,6 +591,25 @@ server {
 > ⚠️ **反代部署必须设 `TRUST_PROXY`**：`app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0))` 默认 **0 = 不信任任何代理头**（直连部署的 fail-safe 默认值）。挂在 Nginx 后面却不设置，IP 封锁与限流看到的就全是 `127.0.0.1`（代理 IP）——误封一次即全站管理接口对所有人关闭；反过来，没挂反代却设了 `TRUST_PROXY`，攻击者伪造 `X-Forwarded-For` 就能绕过封锁。
 > 单层 Nginx：`TRUST_PROXY=1`；Nginx + CDN 多级：按跳数递增（如 `2`）。修改后需重启服务生效。
 > 若链路上还有 Cloudflare，请把回源 IP 收敛到 CF 的 IP 段并在 Nginx 层处理，`TRUST_PROXY` 只按**你自己的**代理跳数计。
+
+> ⚠️ **`notice.fnthink.top` 已经在线跑着软件更新，别把它卷进来**。三个域名的分工是固定的：
+> `notice.fnthink.top` = App 检查更新 / 下载 APK / 管理后台（App 里是编译期常量 `_updateServerUrl`，换地址要重新出包）；
+> `push.fnthink.top` 与 `push.fnthink.com` = 幻念推送的公网面（契约 `transport.endpoints` 声明，App 按它们拨号）。
+> 两条链路**共用同一个 Node 进程与同一份 `data/`**，所以改这一层时守住三条：
+>
+> 1. **最小改动**：只在既有 server block 的 `server_name` 里加名字，或**新增**一个 server block；
+>    不要重写线上那个块。改完 `nginx -t` 通过再 `systemctl reload nginx`（**reload，不是 restart**）。
+> 2. **改完立刻回归验证更新通道**（它才是现在有真实用户的那条）：
+>    `curl -s "https://notice.fnthink.top/api/version/check?version=1.5.76&build=116&platform=android"`
+>    仍应返回 `{"code":0,...}`；顺手看一眼 `/health`。
+> 3. **流量层不会互相拖累**（这是 #130 特意做的隔离）：幻念面的洪水走独立限流桶 `api-fnthink`，
+>    而全局那层对专职路径直接跳过 —— 所以 fnthink 被打满时升级通道照常，有用例钉着
+>    （`server/test/fnthink-ratelimit.test.js` 里那条「fnthink 被打满之后，升级通道照常」）。
+>
+> 另外：如果你不想让管理后台多出一个入口域名，可以在 `push.*` 那个 server block 里**只放**
+> `/api/fnthink/`、`/health` 与 `/apks/`，其余一律 `return 404;` —— 这样两个域名在配置上就彻底分开了，
+> 不靠人记。
+
 
 **免费 HTTPS 证书：**
 推荐使用 Let's Encrypt 免费证书，配合 certbot 自动续期。证书轮换与固定策略见 `../docs/cert_rotation_runbook.md`。

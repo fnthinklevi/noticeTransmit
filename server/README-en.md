@@ -33,9 +33,9 @@ Upload the `server` folder to your server, e.g. to `/opt/update-server/`.
 
 > ⚠️ **The protocol contract is *not* inside `server/` — upload it too**: the public face of fnthink push (`/api/fnthink/*`) reads the repository-root file `protocol/fnthink-v1.json`. Uploading only `server/` makes that face **degrade to 503 at startup**, with `[fnthink] 协议入口没有起来` plus the missing file named on the first screen of the log (the admin console and the update channel are unaffected).
 >
-> That degradation is **deliberate**: a contract that cannot be read must never be treated as "no limits / no checks", so the whole segment is switched off instead. If you want `/api/fnthink/*` to work, upload `protocol/fnthink-v1.json` too. The default lookup is derived from the code location (`lib/fnthink`, three levels up, then `protocol/`) — with the layout below the code lands in `/opt/update-server/`, so the default is `/opt/protocol/fnthink-v1.json`.
+> That degradation is **deliberate**: a contract that cannot be read must never be treated as "no limits / no checks", so the whole segment is switched off instead. If you want `/api/fnthink/*` to work, upload `protocol/fnthink-v1.json` too — **where you put it is your call**; the code only follows a rule: three levels up from `lib/fnthink`, then `protocol/`, i.e. "a sibling of the code directory" (in the repository, `server/` and `protocol/` are exactly that).
 >
-> ⚠ **That path is easy to get wrong — set it explicitly**: put `FNTHINK_CONTRACT=/opt/update-server/protocol/fnthink-v1.json` in `.env` (adjust to wherever you actually place it) and the layout stops mattering.
+> ⚠ **That path is easy to get wrong — set it explicitly**: put `FNTHINK_CONTRACT=<absolute path to your contract>/fnthink-v1.json` in `.env` and the layout stops mattering.
 >
 > **Re-upload it whenever the contract changes** (new or renamed fields): new code against an old contract throws at startup (e.g. `limits.unauthenticatedPerMinute` missing) and the face degrades to 503 — the error names the missing key.
 
@@ -440,13 +440,12 @@ This service is updated by **uploading the `server/` folder and overwriting the 
 #    ⚠️ Never with --delete (rsync --delete / SFTP "mirror directory" wipes data/ and .env)
 rsync -av --exclude 'data/' --exclude '.env' --exclude 'node_modules/' ./server/ user@host:/opt/update-server/
 # 1b) Contract: the public face (/api/fnthink/*) reads protocol/fnthink-v1.json from the repo root,
-#     which is NOT inside server/ ⇒ upload it separately. Default lookup is derived from the code
-#     location (lib/fnthink, three levels up, then protocol/): with this rsync (contents placed
-#     directly into /opt/update-server/) the default is /opt/protocol/fnthink-v1.json. It is easy to
-#     get wrong — **set FNTHINK_CONTRACT explicitly in the server .env instead**.
-rsync -av ./protocol/fnthink-v1.json user@host:/opt/protocol/
-# server /opt/update-server/.env:
-#   FNTHINK_CONTRACT=/opt/protocol/fnthink-v1.json
+#     which is NOT inside server/ ⇒ upload it separately. **Where you put it is your call**; the
+#     default rule is "a sibling of the code directory" (lib/fnthink, three levels up, then protocol/).
+#     It is easy to get wrong — **set FNTHINK_CONTRACT explicitly in the server .env instead**.
+rsync -av ./protocol/fnthink-v1.json user@host:<contract-dir>/
+# server .env (path adjusted to where you put it):
+#   FNTHINK_CONTRACT=<contract-dir>/fnthink-v1.json
 
 # 2) Install/update dependencies exactly from the lock file (leaves data/ and .env alone)
 cd /opt/update-server && npm ci        # npm rebuild if a dependency needs it
@@ -594,6 +593,20 @@ server {
 > ⚠️ **Reverse-proxy deployments must set `TRUST_PROXY`**: `app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0))` defaults to **0 = trust no proxy headers** (the fail-safe default for direct deployments). Behind Nginx without it, IP blocking and rate limiting see only `127.0.0.1` (the proxy IP) — one false block shuts the admin API for everyone. Conversely, setting it with no proxy lets attackers spoof `X-Forwarded-For` and evade blocks.
 > Single Nginx layer: `TRUST_PROXY=1`; Nginx + CDN: one per hop (e.g. `2`). Requires a service restart to take effect.
 > If Cloudflare is in front, restrict the origin to CF's IP ranges at the Nginx layer and keep `TRUST_PROXY` counting **your own** hops.
+
+> ⚠️ **`notice.fnthink.top` is already live serving app updates — do not entangle it.** The division is fixed:
+> `notice.fnthink.top` = update check / APK download / admin console (a compile-time constant `_updateServerUrl` in the app; changing it means shipping a new APK);
+> `push.fnthink.top` and `push.fnthink.com` = the fnthink push public face (declared in the contract's `transport.endpoints`; the app dials them directly).
+> Both chains **share one Node process and one `data/`**, so three rules when touching this layer:
+>
+> 1. **Smallest change**: add a name to the existing `server_name`, or add a *new* server block — never rewrite the live one. Then `nginx -t` and `systemctl reload nginx` (**reload, not restart**).
+> 2. **Verify the update channel right after** (that is the one with real users today):
+>    `curl -s "https://notice.fnthink.top/api/version/check?version=1.5.76&build=116&platform=android"` must still return `{"code":0,...}`; glance at `/health` too.
+> 3. **Traffic does not bleed either way** (a deliberate #130 isolation): fnthink floods go into their own rate-limit bucket `api-fnthink`, and the global layer skips dedicated prefixes entirely — so hammering the public face leaves the update channel alone. There is a test pinning exactly that (`server/test/fnthink-ratelimit.test.js`, the case named "fnthink flooded, update channel still fine").
+>
+> Also: if you would rather not expose the admin console on a second hostname, put **only** `/api/fnthink/`,
+> `/health` and `/apks/` in the `push.*` server block and `return 404;` for everything else — then the two
+> domains are separated by configuration instead of by memory.
 
 **Free HTTPS certificate:**
 Recommended Let's Encrypt with certbot for auto-renewal. Certificate rotation and pinning policy: `../docs/cert_rotation_runbook.md`.
