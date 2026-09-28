@@ -615,10 +615,10 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 （`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`）。改档位名要连同契约一起改，
 实现里没有一份"看不见的缺省"。
 
-### 接入端点：这一批做到哪儿了（T38）
+### 接入端点：这一批做到哪儿了（T38–T41）
 
-端点是"第三方往这台实例推通知"的长期口令入口（NAS、脚本、监控平台）。**这一批落的是存储层与运维可见性，
-不是接入 URL** —— 把已做的和没做的分清楚，比写一份"看起来完整"的文档有用：
+端点是"第三方往这台实例推通知"的长期口令入口（NAS、脚本、监控平台）。把已做的和没做的分清楚，
+比写一份"看起来完整"的文档有用：
 
 | 能力 | 现在 | 差什么 |
 | --- | --- | --- |
@@ -627,10 +627,61 @@ curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all 
 | 运维看端点：`GET /api/admin/fnthink/endpoints` | ✅ 已有 | 响应里没有口令也没有摘要 |
 | 运维吊销：`POST /api/admin/fnthink/endpoints/revoke`（要 `confirm`） | ✅ 已有 | — |
 | 接收端**自己**建端点的入口（App 内「我的端点」） | ⬜ 还没有 | 与设备侧客户端同批 |
-| 第三方真正能推的形态 `GET /api/fnthink/p/<id>/<secret>` 与 `POST` + Bearer | ⬜ 还没有 | 下一批（字段容错 + 配额 + 只产 L1） |
+| 第三方真正能推的两条入口：`GET /api/fnthink/p/<id>/<口令>` 与 `POST /api/fnthink/p/<id>` + `Authorization: Bearer` | ✅ 已有 | — |
+| 字段别名容错、按端点的配额、只产 L1、HTTPS-only、口令不进日志与 kind | ✅ 已有 | — |
 
-所以**现在还没有任何公网 URL 会读端点表**：这不是"配了端点就能推"的阶段。等下一批把形态与配额接上，
-这一层的白名单式判定（`status` 必须是契约 `endpoint.usableStatus`）才真正开始生效。
+所以现在的真相是：**运维能建端点、第三方也能推，但接收端还没地方自助创建**（口令由运维在管理面给）。
+下面三小节是给"手上已经有一条口令"的人看的。
+
+#### 两条入口怎么选
+
+```bash
+# ① 口令在路径段里：方便抄一行 curl，代价是整条 URL 会被 access log / 浏览器历史 / 中间代理各留一份副本
+curl -sS "https://push.example.com/api/fnthink/p/ep_xxxxxxxx/<口令>?title=机箱&body=温度%2063%20度"
+
+# ② 口令在 Authorization 里（推荐）：新建端点默认 postOnly=true，①那条会被拒成 405
+curl -sS -X POST "https://push.example.com/api/fnthink/p/ep_xxxxxxxx" \
+  -H "Authorization: Bearer <口令>" -H "Content-Type: application/json" \
+  -d '{"title":"备份","body":"第 3 盘完成了"}'
+```
+
+字段别名由契约 `fieldTolerance` 管，按顺序取**第一个非空**：标题 `title|message|text|msg`，
+正文 `body|content|description`；纯空白不算非空。别名表之外的键一概不看、也不回显。
+POST 正文覆盖同名的 query 参数。投递目标**不能**由请求指定：只能投到这条端点所属的那台设备。
+
+#### 结论怎么读（这一面不是探针）
+
+| 结论 | 含义 | 响应体 |
+| --- | --- | --- |
+| `202` | 已排队。回 `{messageId, action, evicted}`；`action` 是 `new` / `refreshed`（同 `dedupe` 那条还在排队 ⇒ 换正文，不新增）/ `duplicate`（已经发出去了 ⇒ 判重，一个字都不改） | 有 |
+| `401` | **端点不存在 / 口令不对 / 来源 IP 不在白名单**，三者逐字节同形 | `{}` |
+| `403` | 明文 http 且没开逃生阀；或超出能力边界；或端点没绑到一台合法设备 | 能力那条是 `{"receipt":"rejected_capability"}`，其余 `{}` |
+| `405` | 这条端点关了 GET 形态（`postOnly`） | `{}` |
+| `400` | 标题与正文都空；或超过 `maxTitleChars` / `maxBodyChars`（**不截断后收下**） | `{}` |
+| `429` | 配额到顶，带 `Retry-After` | `{}` |
+
+`401` 那三者同形是有意的 —— 能分辨就等于一台"哪些端点存在 / 哪个来源被允许"的枚举器。
+所以**排查不要看响应体，看端点的调用日志**：`GET /api/admin/fnthink/endpoints` 里每条端点带
+`calls`，只有 `at` / `ip` / `outcome` 三个键。`outcome` 是内部词（不进对外响应，也不在契约
+`receipts` 里）：`queued`、`duplicate`、`rate_limited`、`rejected_ip`、`rejected_method`、
+`rejected_capability`、`rejected_transport`、`empty_payload`、`payload_too_large`、
+`unbound_endpoint`，以及口令错那一支的 `unknown_endpoint`。**日志里没有正文、没有标题、没有口令、没有路径。**
+
+#### 配额、能力边界与明文
+
+- 配额**按端点**计（契约 `endpoint.ingress.quota`，当前 15/分 · 500/天），且只在口令验完之后记一发。
+  按 IP 计会让"一个 NAS 出口后面挂三个端点"互相挤额度；按**未验证**的 `endpointId` 计更糟 ——
+  那是 DoS 转移：拿别人的端点 id 发洪水，被 429 的是那个受害者。启动横幅里这一档写作
+  `按端点 15/分钟 · 500/天（口令验完后由端点收单计，不占 IP 那三档）`，它不在 `limits` 那三份名单里。
+- 端点只能产 **L1 通知**：`type=action`、外部自称的 `level` 高于 L1、带 `item`（设备侧的动作钩子）
+  一律 `403 + rejected_capability`，且**一条消息都不产生**。`item` 那一支值得单独说一句：
+  档位裁决只在需要逐条清单的那一档才查它，所以 L1 这条路不会自动拦 —— 收下再擦掉就是静默丢，
+  写集成的人会以为钩子生效了。
+- HTTPS-only 默认生效，明文 http 直接被拒。本地或内网直连要显式开 `FNTHINK_ALLOW_INSECURE_ENDPOINT=1`
+  —— 这个开关放在环境变量而不是契约里，因为它是**部署事实**不是协议事实。
+- 口令轮换后有宽限期（`endpoint.rotation.graceSeconds`，当前 3600 秒）：旧口令在宽限期内仍能推，
+  不至于"换钥匙那一刻所有集成同时 401"，从而让运维学会"先不换了"。
+
 
 
 ***

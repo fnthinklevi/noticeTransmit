@@ -630,11 +630,11 @@ handing the server a new signing key.
 `revocation` keys (`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`). Renaming a state
 means shipping the contract with it — the implementation keeps no hidden default.
 
-### Endpoints: how far this batch actually got (T38)
+### Endpoints: how far this actually got (T38–T41)
 
 An endpoint is a long-lived shared-secret entry point for "something else pushes notifications into this
-instance" (a NAS, a cron job, a monitoring platform). **This batch landed the storage layer and operator
-visibility, not the intake URL** — separating the two is more useful than a document that looks complete:
+instance" (a NAS, a cron job, a monitoring platform). Separating what exists from what doesn't is more
+useful than a document that looks complete:
 
 | Capability | Now | What is missing |
 | --- | --- | --- |
@@ -642,12 +642,70 @@ visibility, not the intake URL** — separating the two is more useful than a do
 | Storage functions for create / rotate / revoke / policy (incl. the rotation grace window) | ✅ done | — |
 | Operator view: `GET /api/admin/fnthink/endpoints` | ✅ done | response carries neither secret nor digest |
 | Operator revocation: `POST /api/admin/fnthink/endpoints/revoke` (needs `confirm`) | ✅ done | — |
+| The two intake URLs: `GET /api/fnthink/p/<id>/<secret>` and `POST /api/fnthink/p/<id>` + `Authorization: Bearer` | ✅ done | — |
+| Field aliases, per-endpoint quota, L1-only, HTTPS-only, secret kept out of logs and out of the rate-limit "kind" | ✅ done | — |
 | The receiving device creating its own endpoint (in-app "My endpoints") | ⬜ not yet | ships with the device-side client |
-| The intake forms third parties actually call: `GET /api/fnthink/p/<id>/<secret>` and POST + Bearer | ⬜ not yet | next batch (field tolerance + quota + L1-only) |
 
-So **no public URL reads the endpoint table yet**: this is not the stage where "creating an endpoint" means
-"you can push". Once the next batch wires the intake forms and quota, the whitelist-style check in this layer
-(`status` must equal the contract's `endpoint.usableStatus`) starts to take effect for real.
+So the honest state is: **operators can mint endpoints and third parties can push, but the receiving device
+still has no self-service screen** (the secret is handed out from the admin side).
+
+#### Choosing between the two intake forms
+
+```bash
+# 1) secret in the path segment: easiest to paste into a curl line, and the whole URL then gets copied
+#    into access logs, browser history and intermediate proxies
+curl -sS "https://push.example.com/api/fnthink/p/ep_xxxxxxxx/<secret>?title=NAS&body=63%C2%B0C"
+
+# 2) secret in Authorization (preferred). New endpoints default to postOnly=true, so form 1 answers 405.
+curl -sS -X POST "https://push.example.com/api/fnthink/p/ep_xxxxxxxx" \
+  -H "Authorization: Bearer <secret>" -H "Content-Type: application/json" \
+  -d '{"title":"backup","body":"disk 3 finished"}'
+```
+
+Field names follow the contract's `fieldTolerance`, first non-empty wins: title
+`title|message|text|msg`, body `body|content|description` (whitespace does not count as non-empty).
+Keys outside that list are neither read nor echoed back. A POST body field overrides a query parameter of
+the same name. The delivery target cannot be chosen by the request — it is always the endpoint's own device.
+
+#### Reading the outcome (this surface is not a probe)
+
+| Outcome | Meaning | Body |
+| --- | --- | --- |
+| `202` | queued; `{messageId, action, evicted}` where `action` is `new` / `refreshed` (same `dedupe`, still queued ⇒ body replaced, no new record) / `duplicate` (already dispatched ⇒ nothing changes) | yes |
+| `401` | **endpoint missing / wrong secret / source IP not allowlisted** — byte-for-byte identical | `{}` |
+| `403` | plain http without the escape hatch; or outside the capability boundary; or the endpoint is not bound to a valid device | `{"receipt":"rejected_capability"}` for the capability case, `{}` otherwise |
+| `405` | this endpoint has GET disabled (`postOnly`) | `{}` |
+| `400` | title and body both empty; or over `maxTitleChars` / `maxBodyChars` (**rejected, not truncated**) | `{}` |
+| `429` | quota exhausted, with `Retry-After` | `{}` |
+
+The three-way `401` identity is deliberate: anything distinguishable would turn this surface into a probe
+for "which endpoints exist / which sources are allowed". So **debug from the call log, not the response
+body**: `GET /api/admin/fnthink/endpoints` returns per-endpoint `calls` with exactly `at` / `ip` / `outcome`.
+`outcome` is an operator word (never in a response, never in the contract's `receipts`): `queued`,
+`duplicate`, `rate_limited`, `rejected_ip`, `rejected_method`, `rejected_capability`,
+`rejected_transport`, `empty_payload`, `payload_too_large`, `unbound_endpoint`, `unknown_endpoint`.
+**No body, no title, no secret, no path in there.**
+
+#### Quota, capability boundary, plaintext
+
+- Quota is counted **per endpoint** (contract `endpoint.ingress.quota`, currently 15/min · 500/day) and a
+  request is only charged **after** the secret checks out. Counting by IP makes endpoints behind one NAS
+  squeeze each other; counting by an *unverified* `endpointId` is worse — that is DoS deflection: an
+  attacker floods someone else's id and that someone else gets the 429. The startup banner says
+  `按端点 15/分钟 · 500/天（口令验完后由端点收单计，不占 IP 那三档）`; this fourth class is deliberately
+  absent from the three `limits` lists.
+- Endpoints can only produce **L1 notifications**: `type=action`, a self-declared `level` above L1, or a
+  non-empty `item` (a device-side action hook) all answer `403 + rejected_capability` and **create no
+  message at all**. The `item` branch deserves a note: the capability table only consults `item` at the
+  level where a per-item allowlist exists, so L1 would not catch it by itself — storing it and blanking
+  it later would be a silent drop, and the integrator would believe the hook fired.
+- HTTPS-only is on by default; plain http is refused. Local or intranet setups must opt in with
+  `FNTHINK_ALLOW_INSECURE_ENDPOINT=1` — an environment variable rather than a contract field, because it
+  is a deployment fact, not a protocol fact.
+- A rotated secret keeps working for `endpoint.rotation.graceSeconds` (currently 3600): without a grace
+  window every integration 401s at the moment of rotation, so operators learn to "not rotate yet", which
+  is worse than a weak secret.
+
 
 ***
 

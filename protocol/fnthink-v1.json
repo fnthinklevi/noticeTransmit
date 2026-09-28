@@ -190,6 +190,28 @@
       "maxPerEndpoint": 50,
       "fields": ["at", "ip", "outcome"],
       "_why": "最近调用日志（时间/来源/结论），**不含正文也不含标题**：端点侧最常见的求助是'为什么那条没到'，没有一份调用记录就只能靠猜；而中转服务器的日志里一旦出现正文，就与 privacy.auditStoresMetadataOnly 那句话直接矛盾。maxPerEndpoint 是有界环：否则一次洪水会把每端点的日志撑成攻击者驱动的存储。⚠ 名单里出现 body/title/secret/path/url 任一个都该由 validate 拦下 —— 日志字段是会被复制粘贴的，第二个人不会再去查它允许到什么程度。"
+    },
+
+    "ingress": {
+      "_why": "第三方真正推进来的那两条入口（T39/T40/T41）。它与签名面（/message）的区别决定了这里几乎所有规则：那边的发送方是**设备**（有身份、有私钥、能被 poll 认出来），这边只是一把**共享长期口令**（服务端只有摘要，泄露无法归因，也没有'重放窗口只有 5 分钟'那层保护）。所以三条特有的东西：口令只进路径段、配额按端点计、能力只到 L1。",
+      "pathPattern": "/api/fnthink/p/:endpointId/:secret",
+      "postBearerPath": "/api/fnthink/p/:endpointId",
+      "_pathWhy": "口令放在哪儿由 transport.secretPlacement（协议级那一句）管，这里不另写一份 —— 两处各写、一处改动，「口令到底放哪儿」就变成两个答案。这里的两条形状必须都落在 transport.accessLogRedactPathPattern 之内，且口令只出现在 pathPattern 的**最后一段**：URL 会被 access log、浏览器历史与中间代理各留一份副本，而 query 常常**不在**脱敏范围内。GET 形态本身就是「方便抄一行 curl」的代价，所以才同时提供 postOnly 开关与 POST + Bearer 形态。",
+      "targetSource": "owner-device-record",
+      "maySpecifyTarget": false,
+      "_maySpecifyTargetWhy": "端点只能投给它自己所属的那台设备。允许外部指定 target，等于'拿到一把 NAS 的口令就能给这台实例上所有设备发通知' —— 那是把一次口令泄露从'骚扰一台'放大成'骚扰全部'。",
+      "quota": {
+        "perMinute": 15,
+        "perDay": 500,
+        "_why": "15/分与 500/天是任务书给的产品档（不是推演出来的），而它的**主键必须是端点而不是 IP**：反代之后一个出口 IP 后面常常挂着好几个端点（家里的 NAS + 公司的监控），按 IP 计会让它们互相挤额度 —— 这正是 A1 那次 7 条配对用例红在 429 上的同一个形状。⚠ 计额点只能在口令验完之后：按未验证的 endpointId 计额是**DoS 转移**（攻击者拿别人的端点 id 发洪水，被 429 的是那个受害者）。"
+      },
+      "maxTitleChars": 200,
+      "maxBodyChars": 4000,
+      "_sizeWhy": "超了是 400 明确拒，**不是静默截断** —— 通知正文被剪掉一半而发送方以为发出去了，比拒收更难排查（这条是产品不变量里「不静默丢」那一半）。两个数都不许大于 limits.requestBodyMaxBytes：字符数上限比字节闸还宽等于没有这条限制。",
+      "insecureTransport": "reject",
+      "_insecureTransportWhy": "明文传输时口令就裸奔在路径段里（谁在链路上都能看到），HTTPS-only 因此是协议承诺而不是运维建议，默认 reject。本地或内网直连 http 的部署要显式打开 `FNTHINK_ALLOW_INSECURE_ENDPOINT=1` —— 开关放在环境变量而不是契约里，因为它是**部署事实**，不是协议事实（把部署事实写进协议文件，就会出现「改了协议文件才能连本机」这种荒谬）。",
+      "rejectedCapabilityReceipt": "rejected_capability",
+      "_levelWhy": "端点只能产 L1（capabilities.endpointMaxLevel）：type 非 notice、level 高于 L1、带 item 的一律 403 + rejected_capability。走 capabilities.endpointGrant 那份裁决，**不在这里再写一份档位表**。"
     }
   },
 
@@ -269,8 +291,8 @@
     "_maxActiveAlertsWhy": "内存环的条目上限。告警的主体来自外部输入（设备地址码、对端 IP），没有上限就等于在公网上挂一段无界内存，而那正是这批限流要防的东西。到上限按最旧的合并项淘汰。",
     "persistToDisk": false,
     "_persistToDiskWhy": "刻意不落盘。本仓已经有一处同样的取舍（T29-B 的拒收计数只写内存）：公网未认证面上每一次写盘都是一个「一个请求换一次磁盘写」的放大器。告警的用途是「提示运维现在去看一眼」，不是审计账本——账本另有一片专门管（T53）。所以重启丢告警是可接受的，而丢审计不可。⚠ 这条要改成 true 的话，必须同时给写盘加限频与上限，并把这两样写进本段。",
-    "subjectKinds": ["device", "ip"],
-    "_subjectKindsWhy": "⚠ 这里只列**现在真有生产者**的主体种类。端点（endpoint）那一档要等 W3c 的端点流量入口起来再接：把一个没有生产者的种类写进名单，validate 与守卫都查不出它是摆设，但它会让人以为已经覆盖——这正是本仓反复躲开的那类「没人读的键」。名单与 limits 的三档 principal 由 validate 交叉钉住：按设备计的那两档非空就必须有 device，按 IP 计的那档非空就必须有 ip。"
+    "subjectKinds": ["device", "ip", "endpoint"],
+    "_subjectKindsWhy": "⚠ 这里只列**现在真有生产者**的主体种类，且名单与 limits / endpoint.ingress.quota 由 validate 交叉钉住：按设备计的那两档非空就必须有 device，按 IP 计的那档非空就必须有 ip，端点有自己的配额就必须有 endpoint。在没有生产者的种类写进名单，validate 与守卫都查不出它是摆设，但它会让人以为已经覆盖 —— 这正是本仓反复躲开的那类「没人读的键」。端点那一档等的是 T40（配额按端点计）：入口没接之前先列上，就是一份看着齐全其实不响的名单。"
   },
 
   "capabilities": {

@@ -45,10 +45,22 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /// 的判据 —— 限流表本身不能变成"一个请求换一条内存记录"的攻击面。
 const MAX_KEYS = 20000;
 
+/// 端点形态（T39）在限流这里是一个单独的种类：它既不是"身份还没证明"（register 那一档），
+/// 也不是"签名已证明的设备"（按设备地址那一档）—— 它是一把共享口令，配额按**端点**计，
+/// 而那件事在 endpointintake 里做。所以这里只让它过层 1 那道洪水闸，不进三档专项。
+const ENDPOINT_KIND = 'endpoint';
+
 /// URL 段 → 契约里的事件种类：端点用短横线，契约键用驼峰（`pair-arm` ↔ `pairArm`）。
-/// ⚠ 不另列一份端点清单：守卫拿路由真实挂载的路径来对这张名单（见 fnthink-ratelimit.test.js）。
+/// ⚠ 端点形态（`/p/<endpointId>/<secret>`）必须**先**被单独认出来：它的最后一段就是长期口令，
+///   照通用规则取尾段会把口令当成 kind —— 而 kind 会进告警事件与"未登记端点"那条 warn 日志，
+///   等于把口令写进 pm2/access 日志。那正是契约把口令放在路径段 + 要求脱敏想避免的事。
+/// 认的是**任意位置的 `p` 段**而不是首段：中间件看到的 `req.path` 已经被 Express 剥掉挂载前缀
+/// （`/p/e_x/secret`），而启动横幅与守卫喂进来的是完整清单行（`GET /api/fnthink/p/:id/:secret`）。
+/// 只认首段的话，这两处会算出两个 kind —— 运维照着横幅那条"未登记"去调 env，而实际生效的是另一套。
 function endpointKindOf(path) {
-  const tail = String(path).split('?')[0].split('/').filter(Boolean).pop();
+  const parts = String(path).split('?')[0].split('/').filter(Boolean);
+  if (parts.includes('p')) return ENDPOINT_KIND;
+  const tail = parts.pop();
   if (!tail) return '';
   return tail.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
@@ -225,6 +237,9 @@ function createFnthinkRateLimiter(maxRequests, overrideWindows, options = {}) {
     // 它们的主键是设备地址，计额点在验签之后（senderquota.js）。留在这里按 IP 记，
     // 反代之后"手机 + 手表 + 家里三台"共用一个源时先被卡住的是自己人 —— A1 那次 7 条红就是这个形状。
     if (windows.senderWindows.has(kind)) return next();
+    // 端点形态同上，只是它连"设备地址"都没有：口令验完之后由 endpointintake 按端点计额度。
+    // 在这里给它加一档 IP 专项限制，会把"一个 NAS 出口后面挂了三个端点"判成一个攻击者。
+    if (kind === ENDPOINT_KIND) return next();
 
     const isControl = windows.controlKinds.has(kind);
     // 未登记的种类 ⇒ 按控制类量（宁可限紧），并留痕。
@@ -289,6 +304,16 @@ function describeKind(kind) {
   }
   if (contractWindows.controlKinds.has(kind)) {
     return `按 IP ${contractWindows.controlWindow.perMinute}/分钟 · ${contractWindows.controlWindow.perDay}/天（身份未证明，只能按 IP）`;
+  }
+  // 第四类：端点形态。它不在上面任何一份名单里，因为"量谁"这件事对它来说是**端点**（一把口令），
+  // 而计额的活归 endpointintake（验完口令之后）。横幅必须这么说，否则运维看到"未登记"会以为
+  // 这一面漏配了，去动那个本该只管洪水的 RATE_LIMIT_FNTHINK_MAX。
+  if (kind === ENDPOINT_KIND) {
+    const quota = ((contract.endpoint || {}).ingress || {}).quota || {};
+    if (!Number.isInteger(quota.perMinute) || !Number.isInteger(quota.perDay)) {
+      return '按端点计（但契约没有 endpoint.ingress.quota ⇒ 端点收单那两条入口不会起来）';
+    }
+    return `按端点 ${quota.perMinute}/分钟 · ${quota.perDay}/天（口令验完后由端点收单计，不占 IP 那三档）`;
   }
   return `未登记 ⇒ 按最紧的一档（${contractWindows.controlWindow.perMinute}/分钟）拦下并留痕点名`;
 }

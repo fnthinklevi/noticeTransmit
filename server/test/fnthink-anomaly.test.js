@@ -215,8 +215,10 @@ describe('突增告警（#130-A4）', () => {
 
   test('主体种类不在契约名单 ⇒ 抛，而不是"这条告警安静地没了"', () => {
     const t = trackerOf({});
-    // 契约里现在只有 device/ip；endpoint 要等 W3c 的端点流量入口起来才同时加进名单。
-    expect(() => t.observe(ev({ subjectKind: 'endpoint', count: 5 }))).toThrow(/subjectKinds/);
+    // 名单里现在是 device / ip / endpoint（endpoint 随 W3c 端点收单进来）。探针要挑一个**名单外**的，
+    // 所以取 sender：按发送方计额度那一档确实存在，但它的告警主体一直是设备地址，不是"sender"这个词。
+    expect(contract.alerts.subjectKinds).toContain('endpoint');
+    expect(() => t.observe(ev({ subjectKind: 'sender', count: 5 }))).toThrow(/subjectKinds/);
   });
 
   test('不同 IP、不同端点种类、不同窗口各算一条（否则"谁在被打"看不出来）', () => {

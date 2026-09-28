@@ -172,8 +172,27 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
       ...windows.cadenceKinds,
       ...windows.senderOnlyKinds,
     ]);
-    const missing = mounted.filter((entry) => !listed.has(endpointKindOf(entry.path || entry)));
+    // 端点形态是**第四类**，故意不进上面那三份名单：它既不是"身份还没证明"（register 那一档按 IP
+    // 量），也没有"设备地址"可当主键（按设备量），额度写在 endpoint.ingress.quota 里、由收单
+    // 在口令验完之后按**端点**计。把它塞进 perEndpoint 就变成"按 IP 给一把口令计额度" ——
+    // 一个 NAS 出口后面挂三个端点会互相挤，那正是 A1 那 7 条配对用例红在 429 上的形状。
+    const fourthKind = endpointKindOf('/p/e_1/s_1');
+    expect(listed.has(fourthKind)).toBe(false); // 第四类确实是名单之外，不是被顺手列进去了
+    const missing = mounted.filter((entry) => {
+      const kind = endpointKindOf(entry);
+      return kind !== fourthKind && !listed.has(kind);
+    });
     expect(missing).toEqual([]);
+    // 放过第四类不等于放过"任何带 p 段的路由"：这几条路径必须逐条对得上契约声明的两条形状。
+    // 否则将来在 /p/ 底下加一条没登记的形状（比如口令进 query 的那种），这里会一起放行。
+    const shapes = new Set(
+      mounted
+        .filter((entry) => endpointKindOf(entry) === fourthKind)
+        .map((entry) => entry.replace(/^[A-Z,]+ /, '')),
+    );
+    expect([...shapes].sort()).toEqual(
+      [contract.endpoint.ingress.pathPattern, contract.endpoint.ingress.postBearerPath].sort(),
+    );
   });
 
   test('名单与 verifyAgainst 必须一致：能证明是谁的，不许按 IP 计', () => {
@@ -205,6 +224,15 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     expect(describeKind('message')).toContain('按设备地址');
     expect(describeKind('message')).toContain(String(contract.limits.perSenderPerMinute));
     expect(describeKind('message')).toContain(String(contract.limits.perSenderPerDay));
+    // 第四类（端点形态）也要说清主键与数字出处，不许落在"未登记"那一支：
+    // 运维照着"未登记"去抬 RATE_LIMIT_FNTHINK_MAX，抬的是洪水闸那一层，而真正管着这把口令的
+    // 是端点配额 —— 两头都对不上号，比不打印更糟。
+    const endpointLine = describeKind(endpointKindOf('/p/e_1/s_1'));
+    expect(endpointLine).toContain('按端点');
+    expect(endpointLine).toContain('口令验完');
+    expect(endpointLine).toContain(String(contract.endpoint.ingress.quota.perMinute));
+    expect(endpointLine).toContain(String(contract.endpoint.ingress.quota.perDay));
+    expect(endpointLine).not.toContain('未登记');
     expect(describeKind('brandNewThing')).toContain('未登记');
     // 旧的形状：一行里给所有端点打同一个"每 IP N/分钟" ⇒ 数出来了就红，逼改的人看见为什么
     expect(serverSrc).not.toMatch(/限流 \$\{store\.RATE_LIMIT_FNTHINK_MAX\}\/分钟\/每 IP/);

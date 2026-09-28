@@ -1484,5 +1484,209 @@ void main() {
         contains('outcome'),
       );
     });
+
+    // T39/T40/T41：端点收单那两条入口。这一段的方向性判据一条都不能少 —— 它们拦的不是
+    // "键在不在"，而是"缺省朝哪一侧"（口令放 query、允许外部指定 target、明文默认允许，
+    // 三个写反了都不报错，只是把长期口令与整台实例的安静交出去）。
+    test('ingress 整段缺失 ⇒ 报（配额与长度上限没有第二个来源）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>).remove('ingress');
+      });
+      expectProblem(broken, 'endpoint.ingress 必须存在', '缺段时两份实现会各猜一套配额与放法');
+    });
+
+    test('日额度不大于分钟额度 ⇒ 报（正常用一天会被自己的配额拦住）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+            as Map<String, Object?>)['quota'] = {
+          'perMinute': 15,
+          'perDay': 5,
+        };
+      });
+      expectProblem(broken, '日额度必须大于分钟额度', '次序反了的那条限制永远在拦自己人');
+    });
+
+    test('配额里有一个数不是正整数 ⇒ 报（0 与"没配"在现场看起来一样）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+            as Map<String, Object?>)['quota'] = {
+          'perMinute': 0,
+          'perDay': 500,
+        };
+      });
+      expectProblem(broken, 'quota 两个数必须是正整数', '没有配额的收单入口就是公网上的无闸机');
+    });
+
+    test('正文字符上限大过字节闸 ⇒ 报（那条限制本身不存在）', () {
+      final broken = mutate((raw) {
+        final byteMax =
+            (raw['limits'] as Map<String, Object?>)['requestBodyMaxBytes']
+                as int;
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['maxBodyChars'] =
+            byteMax + 1;
+      });
+      expectProblem(
+        broken,
+        'maxBodyChars',
+        '字符数上限比字节闸还宽＝这道限制不生效，而读契约的人以为它管着什么',
+      );
+    });
+
+    test('口令不在 pathPattern 的最后一段 ⇒ 报（放法一旦有两种，脱敏就只盖住那一种）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['pathPattern'] =
+            '/api/fnthink/p/:secret/:endpointId';
+      });
+      expectProblem(
+        broken,
+        '必须以 :secret 作最后一段',
+        '口令的位置只由 transport.secretPlacement 说一次，这里查的是形状：尾段之外都会多出一种放法',
+      );
+    });
+
+    test('允许外部指定投递目标 ⇒ 报（一把口令泄露换成骚扰全部设备）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['maySpecifyTarget'] =
+            true;
+      });
+      expectProblem(broken, '必须把投递目标锁在', 'target 只能来自端点记录所属那台设备');
+    });
+
+    test('投递目标换了出处 ⇒ 报（同一条判据的另一半：从请求里读 target）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['targetSource'] =
+            'request-field';
+      });
+      expectProblem(
+        broken,
+        '必须把投递目标锁在',
+        'targetSource 与 maySpecifyTarget 是一个决定的两面，只查一半会漏',
+      );
+    });
+
+    test('明文传输默认允许 ⇒ 报（HTTPS-only 是承诺不是建议）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['insecureTransport'] =
+            'allow';
+      });
+      expectProblem(broken, 'insecureTransport 只能是 reject', '逃生阀在环境变量里，不在契约里');
+    });
+
+    test('收单路径落在脱敏规则之外 ⇒ 报（口令进 access log）', () {
+      final broken = mutate((raw) {
+        final ingress =
+            (raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>;
+        ingress['pathPattern'] = '/api/fnthink/endpoint/:endpointId/:secret';
+        ingress['postBearerPath'] = '/api/fnthink/endpoint/:endpointId';
+      });
+      expectProblem(
+        broken,
+        '必须落在 transport.accessLogRedactPathPattern',
+        '脱敏规则盖不住这个路径，口令就进了别人的日志',
+      );
+    });
+
+    test('只有 GET 形态那条落在脱敏前缀之外 ⇒ 报（口令在路径段的那条）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['pathPattern'] =
+            '/api/fnthink/endpoint/:endpointId/:secret';
+      });
+      expectProblem(
+        broken,
+        '必须落在 transport.accessLogRedactPathPattern',
+        '两个项各拦一条形状：只查 postBearerPath 等于 GET 那条没人管，而它才是口令真在 URL 里的那条',
+      );
+    });
+
+    test('只有 POST 形态那条落在脱敏前缀之外 ⇒ 报（两条都要盖住）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['postBearerPath'] =
+            '/api/fnthink/endpoint/:endpointId';
+      });
+      expectProblem(
+        broken,
+        '必须落在 transport.accessLogRedactPathPattern',
+        '一条判据管两条形状：只查 pathPattern 等于另一半没人管，而泄露的是 Bearer 那条的口令',
+      );
+    });
+
+    test('POST 形态的路径里也带 :secret ⇒ 报（一种放法说成两种）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['postBearerPath'] =
+            '/api/fnthink/p/:endpointId/:secret';
+      });
+      expectProblem(
+        broken,
+        'postBearerPath 不许带它',
+        '那条形状的口令在 Authorization 里，写进路径就等于同时支持两种放法',
+      );
+    });
+
+    test('路径里出现 query ⇒ 报（"只进路径段"当场失效）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['pathPattern'] =
+            '/api/fnthink/p/:endpointId?secret=:secret';
+      });
+      expectProblem(broken, '不许出现 query', '口令一旦能进 query，脱敏与路径段这两句都作废');
+    });
+
+    test('能力拒绝的词不在回执表里 ⇒ 报（对外发明第九个词）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['rejectedCapabilityReceipt'] =
+            'nope_not_a_receipt';
+      });
+      expectProblem(broken, '必须是 receipts 里的一个词', '回执词表只有一份，实现里不许再造');
+    });
+
+    test('能力拒绝的词合法但与 capabilities 那边不同名 ⇒ 报（同一个拒绝两种说法）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['rejectedCapabilityReceipt'] =
+            'failed_action';
+      });
+      expectProblem(broken, '必须是 receipts 里的一个词', '两个出处指同一个拒绝时，必须逐字节同名');
+    });
+
+    test('仓库里这份契约的收单段读得出来（正向证据）', () {
+      final perMinute = c.intOf(const [
+        'endpoint',
+        'ingress',
+        'quota',
+        'perMinute',
+      ])!;
+      final perDay = c.intOf(const ['endpoint', 'ingress', 'quota', 'perDay'])!;
+      expect(perDay, greaterThan(perMinute));
+      expect(
+        c.str(const ['endpoint', 'ingress', 'targetSource']),
+        'owner-device-record',
+      );
+      expect(
+        c.boolOf(const ['endpoint', 'ingress', 'maySpecifyTarget']),
+        false,
+      );
+      expect(
+        c.str(const ['endpoint', 'ingress', 'insecureTransport']),
+        'reject',
+      );
+      expect(
+        c.str(const ['endpoint', 'ingress', 'pathPattern'])!,
+        startsWith(c.str(const ['transport', 'accessLogRedactPathPattern'])!),
+      );
+      expect(
+        c.str(const ['endpoint', 'ingress', 'rejectedCapabilityReceipt']),
+        c.str(const ['capabilities', 'endpointActionReceipt']),
+      );
+    });
   });
 }

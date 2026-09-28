@@ -827,6 +827,90 @@ class FnthinkContract {
       );
     }
 
+    // ── 端点收单的两条入口（T39 / T40 / T41）──
+    // 服务端（endpointintake.ingressFromContract）读到不达标就抛可降级的 SHAPE；客户端在这里
+    // 拦下的是「一份看着齐全、其实会把长期口令送给别人日志」的契约。两侧读的是同一批数，
+    // 所以这里的每一条都必须是方向性的（谁大谁小、只能取某个值），而不只是"键在不在"。
+    final ingress = map(const ['endpoint', 'ingress']);
+    need(
+      ingress != null,
+      'endpoint.ingress 必须存在：配额、长度上限、口令放在哪一段、能不能指定投递目标 —— '
+      '这些都没有第二个来源，缺段就等于让两份实现各猜一次',
+    );
+    final inMinute = intOf(const ['endpoint', 'ingress', 'quota', 'perMinute']);
+    final inDay = intOf(const ['endpoint', 'ingress', 'quota', 'perDay']);
+    need(
+      inMinute != null && inMinute > 0 && inDay != null && inDay > 0,
+      'endpoint.ingress.quota 两个数必须是正整数（实际 分钟=$inMinute 日=$inDay）：'
+      '没有配额的入口就是挂在公网上的无闸收单机',
+    );
+    need(
+      inMinute == null || inDay == null || inDay > inMinute,
+      'endpoint.ingress.quota 的日额度必须大于分钟额度（$inDay ≤ $inMinute）：'
+      '日额度比分钟额度还小，正常用一天就会被自己的配额拦住，而那看起来像「服务端坏了」',
+    );
+    final inTitle = intOf(const ['endpoint', 'ingress', 'maxTitleChars']);
+    final inBody = intOf(const ['endpoint', 'ingress', 'maxBodyChars']);
+    final byteCap = intOf(const ['limits', 'requestBodyMaxBytes']);
+    need(
+      inTitle != null && inTitle > 0 && inBody != null && inBody > 0,
+      'endpoint.ingress.maxTitleChars / maxBodyChars 必须是正整数（实际 $inTitle / $inBody）：'
+      '超限是 400 明确拒，没有这两个数就没有"拒"的判据',
+    );
+    need(
+      inBody == null || byteCap == null || inBody <= byteCap,
+      'endpoint.ingress.maxBodyChars（$inBody）不许大于 limits.requestBodyMaxBytes（$byteCap）：'
+      '字符数上限比字节闸还宽等于这条限制不存在，而读契约的人会以为它管着什么',
+    );
+    need(
+      str(const ['endpoint', 'ingress', 'targetSource']) ==
+              'owner-device-record' &&
+          boolOf(const ['endpoint', 'ingress', 'maySpecifyTarget']) == false,
+      'endpoint.ingress 必须把投递目标锁在「端点所属那台设备」上'
+      '（targetSource=owner-device-record 且 maySpecifyTarget=false）：'
+      '允许外部指定 target，等于一把口令泄露就能骚扰这台实例上的全部设备',
+    );
+    need(
+      str(const ['endpoint', 'ingress', 'insecureTransport']) == 'reject',
+      'endpoint.ingress.insecureTransport 只能是 reject：明文传输时口令裸奔在路径段里，'
+      '「默认允许 + 偶尔提醒」不是这条承诺的表达方式（本地 http 走环境变量开关，不走契约）',
+    );
+    final redact = str(const ['transport', 'accessLogRedactPathPattern']) ?? '';
+    final inPath = str(const ['endpoint', 'ingress', 'pathPattern']) ?? '';
+    final inPostPath =
+        str(const ['endpoint', 'ingress', 'postBearerPath']) ?? '';
+    need(
+      redact.isNotEmpty &&
+          inPath.startsWith(redact) &&
+          inPostPath.startsWith(redact),
+      'endpoint.ingress 的两条路径都必须落在 transport.accessLogRedactPathPattern（$redact）之内：'
+      '脱敏规则盖不住这个路径，就等于把长期口令写进别人的 access log',
+    );
+    need(
+      inPath.endsWith(':secret') && !inPostPath.contains(':secret'),
+      'pathPattern 必须以 :secret 作最后一段承载口令，而 postBearerPath 不许带它'
+      '（那条是 Authorization: Bearer）：两条形状各自只说一种放法，'
+      '否则实现会同时支持「口令在路径」与「口令在 query」，而后一种正是 transport.secretPlacement 禁的',
+    );
+    need(
+      !inPath.contains('?') && !inPostPath.contains('?'),
+      'endpoint.ingress 的两条路径里不许出现 query（?）：口令一旦能放进 query，'
+      '脱敏与「只进路径段」这两句就同时失效，而且日志副本不止一份',
+    );
+    final capReceipt = str(const [
+      'endpoint',
+      'ingress',
+      'rejectedCapabilityReceipt',
+    ]);
+    need(
+      capReceipt != null &&
+          strings(const ['receipts']).contains(capReceipt) &&
+          capReceipt == str(const ['capabilities', 'endpointActionReceipt']),
+      'endpoint.ingress.rejectedCapabilityReceipt（$capReceipt）必须是 receipts 里的一个词，'
+      '且与 capabilities.endpointActionReceipt 同名：端点被能力边界拦住时对外只有一句话，'
+      '两处各写一个词就变成了"同一个拒绝有两种说法"',
+    );
+
     // ── 投递状态机（T34）──
     // 这里查的是"这张表本身能不能跑"，不是"实现对不对"（那由双端共读的向量查）。
     // 一张少边的迁移表不会报错，只会让消息停在中间态 —— 而中间态 = 正文一直被留着。
@@ -1487,6 +1571,14 @@ class FnthinkContract {
       perEndpoint.isEmpty || alertKinds.contains('ip'),
       'limits.perEndpoint 非空时 alerts.subjectKinds 必须含 ip：那一档的身份还没证明、只能按 IP 计，'
       '少了 ip 就看不见「同一个出口后面有多少台在被打」—— 而 #140 已经实测到反代后那个出口是 CDN',
+    );
+    // 端点有配额（endpoint.ingress.quota）却没有 endpoint 主体 ⇒ 那一整类超额在告警里永不出现。
+    // 反过来也成立：先列上 endpoint 而没有配额与流量，就是一份看着齐全其实不响的名单。
+    need(
+      intOf(const ['endpoint', 'ingress', 'quota', 'perMinute']) == null ||
+          alertKinds.contains('endpoint'),
+      'endpoint.ingress.quota 存在时 alerts.subjectKinds 必须含 endpoint：'
+      '按端点计的那一档被拦住时，运维只能从告警里看见它 —— 少了这一类，端点洪水就是无声的',
     );
     const knownSubjectKinds = ['device', 'ip', 'endpoint'];
     for (final kind in alertKinds) {

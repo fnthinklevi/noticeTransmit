@@ -45,6 +45,8 @@ const {
   DEVICE_KEY_SWAP_CODE,
   armPairingCode,
   loadDevices,
+  loadEndpoints,
+  recordEndpointCall,
   loadNonces,
   registerDevice,
   saveNonces,
@@ -70,6 +72,7 @@ const {
   receiptsForSender,
   saveMessages,
 } = require('./messagestore');
+const { createEndpointIngress, readIngress } = require('./endpointintake');
 
 const contract = assertSupported(loadContract());
 const router = express.Router();
@@ -467,6 +470,122 @@ router.post(
       serverTime: now,
     });
   }),
+);
+
+// ── 端点收单（T39 + T40 + T41）：口令鉴权的那两条入口 ─────────────────
+//
+// 与上面那七条签名路由的根本差别：这里的发送方不是设备，是一把共享长期口令（服务端只有摘要）。
+// 所以它不产 nonce 台账、不走 acceptIncoming，而是自己一条裁决链（endpointintake.decideIngress）；
+// 但**裁完就共用同一个状态机**（enqueue）—— 排队、补发、到期删正文那些事不该有两套实现。
+//
+// ⚠ 装配在**模块顶层**读契约是安全的、也是刻意的：本文件被 lib/app.js 那段 try require 进来，
+//   契约不达标时抛的是可降级的 SHAPE ⇒ 启动日志当场说破原因，而不是等第一条请求才冒 500
+//   （A5 那次实测踩过：新模块在顶层读契约本身没问题，怕的是它在 try 之外）。
+const endpointIngress = createEndpointIngress(contract);
+
+/// POST 形态的口令在 Authorization: Bearer 里。两种形态都不许把口令放进 query ——
+/// URL 的 query 会被 access log、浏览器历史与中间代理各留一份副本，而脱敏规则只管路径段。
+function bearerSecret(req) {
+  const raw = String(
+    req.headers && req.headers.authorization ? req.headers.authorization : '',
+  ).trim();
+  const match = /^Bearer\s+(\S+)$/i.exec(raw);
+  return match ? match[1] : '';
+}
+
+function handleEndpointIngress(req, res, endpointId, secret, method) {
+  const now = Date.now();
+  const ip = req.ip || 'unknown';
+  const message = readIngress(contract, req.query, req.body);
+  const endpoints = loadEndpoints();
+  const secure =
+    req.secure === true || String(req.headers['x-forwarded-proto'] || '').toLowerCase() === 'https';
+  const verdict = endpointIngress.decide({
+    endpoints,
+    endpointId,
+    secret,
+    message,
+    secure,
+    ip,
+    method,
+    now,
+  });
+  if (!verdict.ok) {
+    if (verdict.logEndpointId) {
+      recordEndpointCall(
+        contract,
+        endpoints,
+        verdict.logEndpointId,
+        { at: now, ip, outcome: verdict.logOutcome },
+        now,
+        endpointIngress.state.endpointCfg,
+      );
+    }
+    if (verdict.retryAfter) res.set('Retry-After', String(verdict.retryAfter));
+    // 失败响应最多一个 receipt（能力被拒那种"对方必须知道该改什么"的），其余空 body：
+    // 这一面同时开着"这把口令对不对"的探测面，能少说一个字就少说一个字。
+    return res.status(verdict.status).json(verdict.receipt ? { receipt: verdict.receipt } : {});
+  }
+  const messages = loadMessages();
+  // ⚠ sender 用一个**明显不是设备地址**的形状：端点没有取货通道，这条 202 就是它的回执。
+  //   填一个地址码形状会怎样？receiptsForSender 会往一个不存在的人身上堆回执，
+  //   而那堆东西永远不会被取走，也没有任何 poll 能看见 —— 存储被无声占着。
+  const result = enqueue(
+    contract,
+    messages,
+    {
+      sender: `endpoint:${verdict.endpointId}`,
+      device: verdict.target,
+      type: 'notice',
+      item: '',
+      title: message.title,
+      body: message.body,
+      dedupeId: message.dedupeId,
+    },
+    now,
+    process.env.ENCRYPTION_KEY,
+  );
+  saveMessages(messages);
+  // 调用日志只在**认出了端点**时记（随机 id 不该能凭空造出条目），且只记元数据：
+  // 正文与标题一个字节都不进日志（契约 endpoint.callLog.fields 钉着这一点）。
+  recordEndpointCall(
+    contract,
+    endpoints,
+    verdict.logEndpointId,
+    {
+      at: now,
+      ip,
+      outcome: result.action === 'duplicate' ? 'duplicate' : 'queued',
+    },
+    now,
+    endpointIngress.state.endpointCfg,
+  );
+  return res.status(verdict.status).json({
+    messageId: result.message.messageId,
+    action: result.action,
+    evicted: result.evicted.map((e) => e.messageId),
+  });
+}
+
+router.get(
+  '/p/:endpointId/:secret',
+  asyncHandler(async (req, res) =>
+    handleEndpointIngress(req, res, req.params.endpointId, req.params.secret, 'GET'),
+  ),
+);
+
+router.post(
+  '/p/:endpointId/:secret',
+  asyncHandler(async (req, res) =>
+    handleEndpointIngress(req, res, req.params.endpointId, req.params.secret, 'POST'),
+  ),
+);
+
+router.post(
+  '/p/:endpointId',
+  asyncHandler(async (req, res) =>
+    handleEndpointIngress(req, res, req.params.endpointId, bearerSecret(req), 'POST'),
+  ),
 );
 
 module.exports = { router, contract };

@@ -33,7 +33,7 @@ const SECOND_MS = 1000;
 /// 实现真的会产出的主体种类。契约必须覆盖它：少一个 ⇒ **启动就抛**，而不是运行到那一类
 /// 请求被拦时才事后发现"这类告警从来没有出现过"。契约里多出来的种类属于"没有生产者的摆设"，
 /// 由 Dart `validate()` 那条交叉判据管（`alerts.subjectKinds` ↔ `limits` 的三档 principal）。
-const REQUIRED_SUBJECT_KINDS = Object.freeze(['device', 'ip']);
+const REQUIRED_SUBJECT_KINDS = Object.freeze(['device', 'ip', 'endpoint']);
 
 /// 层 1 那个"整个面按 IP 的总量闸门"没有对应的 `clientEvents` 名字，所以既不许伪装成某个
 /// 端点种类，也不许在日志里省掉 —— 否则"洪水"与"某个端点被玩坏"在告警里长成同一个样子。
