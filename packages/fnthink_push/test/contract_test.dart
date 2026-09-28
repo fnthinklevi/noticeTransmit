@@ -562,7 +562,7 @@ void main() {
       });
       expectProblem(
         broken,
-        '不得出现在 capabilities.messageTypes',
+        '出现在 capabilities.messageTypes',
         '事件与消息共用签字节，type 撞车就是同一把签名两个接口都能用',
       );
     });
@@ -644,6 +644,46 @@ void main() {
         };
       });
       expectProblem(broken, 'ack_ok', 'displayed 必须推进到 ack_ok，改成没定义的事件必须报');
+    });
+
+    // ── 泛化后的事件种类判据：新增一种必须同样被三条规则覆盖（写死 poll/ack 的旧版做不到这点）──
+    test('新增第四种事件却不写 messageType ⇒ 报', () {
+      final broken = mutate((raw) {
+        final ce = raw['clientEvents'] as Map<String, Object?>;
+        ce['unsubscribe'] = {
+          'verifyAgainst': 'device-table-public-key',
+          'targetMustEqualSender': true,
+        };
+      });
+      expectProblem(broken, '缺 messageType', '「这一步是哪种事件」不许由实现猜');
+    });
+
+    test('两种事件共用同一个 messageType ⇒ 报（一次签名两个接口都能用）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['register']
+                as Map<String, Object?>)['messageType'] =
+            'poll';
+      });
+      expectProblem(broken, '与已声明的事件种类重复', 'type 撞车 = poll 的签名可以当登记用');
+    });
+
+    test('register 的字段表自相矛盾（publicKey 既必带又禁带）⇒ 报', () {
+      final broken = mutate((raw) {
+        final reg =
+            ((raw['clientEvents'] as Map<String, Object?>)['register']
+                as Map<String, Object?>);
+        (reg['mayNotCarry'] as List<Object?>).add('publicKey');
+      });
+      expectProblem(broken, '既"必带"又"禁带"', '这种键写进契约后实现选哪边都不对');
+    });
+
+    test('register 被改成按设备表验签 ⇒ 报（表里还没有他这一行，无从验起）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['register']
+                as Map<String, Object?>)['verifyAgainst'] =
+            'device-table-public-key';
+      });
+      expectProblem(broken, '只能按"请求自带公钥"验', '这条私钥证明的豁免必须锁死在 register 一种事件上');
     });
 
     test('storedFields 去掉 sender ⇒ 报（回执通道没有收件人）', () {

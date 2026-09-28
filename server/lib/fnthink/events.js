@@ -13,8 +13,9 @@
 'use strict';
 
 const { statusCode, isReceipt } = require('./contract');
-const { rememberReject, rejectKeyFor } = require('./devicestore');
-const { verifyIdentity, checkFresh } = require('./verify');
+const { rememberReject, rejectKeyFor, assertPublicKey } = require('./devicestore');
+const { canonicalBytes, verifyIdentity, verifySignature, checkFresh } = require('./verify');
+const { alphabetFromContract, normalize } = require('./credentials');
 
 /// 身份证明之后的拒绝：状态码照实给，`reason` 只进留痕、绝不进响应体。
 function denied(contract, state, input, reason) {
@@ -100,4 +101,73 @@ function authorizeClientEvent(contract, state, input, kind) {
   throw new Error(`events.js 没有实现事件类型 "${kind}"（契约声明了它，代码没判它）`);
 }
 
-module.exports = { authorizeClientEvent };
+/**
+ * 设备自登记（契约 `clientEvents.register`）：唯一一类"表里还没有他"的事件。
+ *
+ * 与 poll/ack 唯一的区别是**用哪把钥匙验签**，而这件事由契约的 `verifyAgainst` 说，
+ * 不由这里写死（写死的下一种事件类型会默认落到"查表"那条分支上，然后静默拒绝所有新设备）。
+ * 用请求自带的公钥验，证明的是「提交者持有这把私钥」，不是「他是白名单里的谁」——
+ * 此刻还没有任何名单。地址码由设备自己生成（`identity.generator=csprng`，不从公钥推导），
+ * 所以这里不校验两者的绑定关系；真正的绑定发生在第二次同码登记时：
+ * `devicestore.registerDevice` 遇到"同一地址码换公钥"必须抛，而不是覆盖。
+ */
+function authorizeRegister(contract, state, input) {
+  const spec = (contract.clientEvents || {}).register;
+  if (!spec) {
+    throw new Error('契约没有 clientEvents.register（不补默认值：补了就等于在代码里发明一种事件）');
+  }
+  // 契约说这把钥匙从哪来，这里就照它做；对不上直接抛，而不是「照旧走一遍」——
+  // 静默按另一条路验，等于契约那行变成了注释，而这一步的强度完全取决于用哪把钥匙。
+  if (spec.verifyAgainst !== 'presented-public-key') {
+    throw new Error(
+      `clientEvents.register.verifyAgainst = ${spec.verifyAgainst}：自登记时表里还没有这个设备，` +
+        '只能按请求自带的公钥验（私钥持有证明）。要改成查表验，先想清新设备怎么进来。',
+    );
+  }
+  const fields = input.fields || {};
+  const forbidden = (reason) => {
+    const rejects = state.rejects || (state.rejects = {});
+    rememberReject(
+      rejects,
+      rejectKeyFor(contract, input.senderAddress),
+      input.now,
+      `register:${reason}`,
+    );
+    return { ok: false, status: statusCode(contract, 'forbidden'), reason };
+  };
+
+  // 禁带字段先判：带私钥来的包，连"是谁"都不必回答就该被丢掉。
+  const banned = (spec.mayNotCarry || []).filter((f) =>
+    Object.prototype.hasOwnProperty.call(input, f),
+  );
+  if (banned.length) return forbidden(`carries-secret:${banned.join(',')}`);
+
+  const sender = normalize(alphabetFromContract(contract), input.senderAddress || '');
+  if (sender === null) return forbidden('address-code');
+  if (String(fields.type) !== spec.messageType) {
+    return forbidden(`wrong-event-type:${String(fields.type)}`);
+  }
+  if (spec.targetMustEqualSender === true && String(fields.target) !== sender) {
+    return forbidden('target-not-self');
+  }
+  const publicKey = typeof input.publicKey === 'string' ? input.publicKey : '';
+  let canonical;
+  try {
+    canonical = canonicalBytes(contract, fields);
+    assertPublicKey(publicKey);
+    if (!verifySignature(contract, publicKey, canonical, input.signature)) {
+      return forbidden('signature');
+    }
+  } catch (e) {
+    // 公钥形状不对与签名不对同形：都不该被分辨（分辨 = 一台服务器在替人枚举"哪种钥匙存在"）
+    return forbidden('key-or-signature');
+  }
+
+  const fresh = checkFresh(contract, state, input, sender);
+  if (fresh.outcome) return fresh.outcome;
+
+  const name = typeof input.name === 'string' ? input.name.slice(0, 60) : '';
+  return { ok: true, kind: 'register', addressCode: sender, publicKey, name };
+}
+
+module.exports = { authorizeClientEvent, authorizeRegister };

@@ -285,8 +285,20 @@
 
   "clientEvents": {
     "_why": "poll 与 ack 是设备自己签的事件，不是用户消息。它们必须复用同一套签字节 / 时间容差 / nonce 去重（否则等于给这两条路各开一个免检入口），又绝不能落进 capabilities 的 type 词表——一台设备若能拿一次 poll 的签名冒充一条已授权的通知，前面整条验签链就白做了。",
+    "_verifyAgainstWhy": "同一个签字节可以用两把不同的钥匙验。poll / ack 的签名者已经在设备表里，公钥只能从表里取（请求自带的一概不信）；而自登记这一步表里还没有他这一行，签名能证明的只是「提交者持有这把公钥对应的私钥」（私钥持有证明），不是「他是谁」。两类必须分开声明——否则实现里就会出现「为了统一代码，这里偶尔信一下请求里的公钥」那种一步走错就全线失效的分支。",
+    "register": {
+      "messageType": "register",
+      "verifyAgainst": "presented-public-key",
+      "targetMustEqualSender": true,
+      "_why": "设备自登记是配对、poll、ack 的共同前提：#131 排查时发现 registerDevice 与 armPairingCode 两个纯函数没有任何调用方——表里一行都没有的时候，配对码挂不到设备上、白名单里也没有可验的公钥，整条链在第一步就断了。本片补的就是这个缺口。",
+      "addressCodeSource": "client-generated",
+      "_addressCodeSourceWhy": "地址码由设备自己 CSPRNG 生成（不从公钥推导，见 identity.generator）。服务端在这里只守一件事：同一地址码带另一把公钥来登记必须抛，而不是覆盖——这与「公钥不可静默替换」是同一条规则，走的是 devicestore.registerDevice 里已有的那道分支。",
+      "requiredTopLevelFields": ["publicKey", "name"],
+      "mayNotCarry": ["privateKey", "pairingCode", "endpointSecret"]
+    },
     "poll": {
       "messageType": "poll",
+      "verifyAgainst": "device-table-public-key",
       "_targetMustEqualSenderWhy": "poll 的 target 必须是自己的地址码。放开这条，任何一台已配对的设备都能读走别人队列里的标题与正文，而验证码常常就在正文里。",
       "targetMustEqualSender": true,
       "maxBatchPerPoll": 50,
@@ -296,6 +308,7 @@
     },
     "ack": {
       "messageType": "ack",
+      "verifyAgainst": "device-table-public-key",
       "fields": ["messageId", "result"],
       "_fieldsMirrorWhy": "这两个字段名必须与 delivery.ackFields 逐字相同。两张表各写一份，早晚一张改了另一张没改，那时 ack 会静默地读不到 result。",
       "resultMustBeReceipt": true,

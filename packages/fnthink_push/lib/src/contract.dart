@@ -798,23 +798,87 @@ class FnthinkContract {
     // nonce 去重（不然就是给这两条路各开一个免检入口），但它们的 type 绝不能出现在
     // capabilities.messageTypes 里 —— 一台设备若能拿一次 poll 的签名冒充一条已授权的通知，
     // 前面整条验签链就白做了。下面每条判据都对应一种"看起来只是配置"的破坏方式。
-    final pollType = str(const ['clientEvents', 'poll', 'messageType']) ?? '';
-    final ackType = str(const ['clientEvents', 'ack', 'messageType']) ?? '';
+    // 事件种类**遍历判定**，不写死 poll/ack：本仓刚加了第三种（register）。
+    // 硬编码版本的后果不是报错，而是"新增的事件种类悄悄逃过全部三条判据"——正是这套判据要防的那类失效。
+    final eventKinds = <String, Map<String, Object?>>{
+      for (final entry
+          in (map(const ['clientEvents']) ?? const <String, Object?>{}).entries)
+        if (!entry.key.startsWith('_') && entry.value is Map)
+          entry.key: Map<String, Object?>.from(entry.value as Map),
+    };
     final vocabulary = messageTypeLevels.keys.toSet();
-    need(
-      pollType.isNotEmpty && ackType.isNotEmpty && pollType != ackType,
-      'clientEvents.poll/ack.messageType 必须都非空且互不相同：$pollType / $ackType',
-    );
-    need(
-      !vocabulary.contains(pollType) && !vocabulary.contains(ackType),
-      'clientEvents 的事件类型不得出现在 capabilities.messageTypes 里'
-      '（出现就等于一次设备事件的签名可以当一条用户消息用）：'
-      '$pollType / $ackType vs $vocabulary',
-    );
+    final declaredTypes = <String>[];
+    for (final entry in eventKinds.entries) {
+      final kind = entry.key;
+      final type = '${entry.value['messageType'] ?? ''}';
+      need(
+        type.isNotEmpty,
+        'clientEvents.$kind 缺 messageType：「这一步是哪种事件」必须由契约说，不能由实现猜',
+      );
+      need(
+        !declaredTypes.contains(type),
+        'clientEvents.$kind.messageType 与已声明的事件种类重复（$type）：'
+        '两种事件共用一个 type，一次签名就能在两个接口之间互相冒用',
+      );
+      declaredTypes.add(type);
+      need(
+        !vocabulary.contains(type),
+        'clientEvents.$kind 的 messageType「$type」出现在 capabilities.messageTypes 词表里'
+        '（出现就等于一次设备事件的签名可以当一条用户消息用）：$vocabulary',
+      );
+      final verifyAgainst = '${entry.value['verifyAgainst'] ?? ''}';
+      need(
+        verifyAgainst == 'presented-public-key' ||
+            verifyAgainst == 'device-table-public-key',
+        'clientEvents.$kind.verifyAgainst 只能是 presented-public-key 或 '
+        'device-table-public-key，实为「$verifyAgainst」：'
+        '「为了统一代码偶尔信一下请求里的公钥」正是身份模型的塌方点',
+      );
+      // "只能关于本机"有两种写法：poll/register 靠 target，ack 靠 onlyForOwnMessages。
+      // 这里要的是"至少声明了一条"，两种都没声明的那一种事件就能作用于别人。
+      need(
+        entry.value['targetMustEqualSender'] == true ||
+            entry.value['onlyForOwnMessages'] == true,
+        'clientEvents.$kind 必须声明 targetMustEqualSender 或 onlyForOwnMessages 之一：'
+        '不钉这条，任何已配对设备都能拿它去作用于别人的消息（标题与正文里常有验证码）',
+      );
+    }
+    need(eventKinds.isNotEmpty, 'clientEvents 至少要声明一种设备签名事件（路由侧要靠它分流）');
     need(
       boolOf(const ['clientEvents', 'notInCapabilitiesVocabulary']) == true,
       'clientEvents.notInCapabilitiesVocabulary 必须为 true（上面那条判据的声明处）',
     );
+    // register 是唯一"表里还没有他"的事件，字段规则与其它种类相反，所以单独钉：
+    // 必须带公钥（否则无从证明私钥持有），且必须带不上任何秘密。
+    final register = eventKinds['register'];
+    if (register != null) {
+      final required =
+          (register['requiredTopLevelFields'] as List<Object?>? ?? const [])
+              .map((e) => '$e')
+              .toList();
+      final mayNot = (register['mayNotCarry'] as List<Object?>? ?? const [])
+          .map((e) => '$e')
+          .toList();
+      need(
+        required.contains('publicKey'),
+        'clientEvents.register.requiredTopLevelFields 必须含 publicKey：'
+        '这一步没有别的东西能证明私钥持有',
+      );
+      need(
+        mayNot.contains('privateKey'),
+        'clientEvents.register.mayNotCarry 必须含 privateKey（红线：私钥永不出设备）',
+      );
+      need(
+        required.toSet().intersection(mayNot.toSet()).isEmpty,
+        'clientEvents.register 的字段表自相矛盾：${required.toSet().intersection(mayNot.toSet())} '
+        '既"必带"又"禁带" —— 这种键写进契约之后，实现选哪一边都不对',
+      );
+      need(
+        register['verifyAgainst'] == 'presented-public-key',
+        'register 只能按"请求自带公钥"验（此刻表里还没有他这一行），'
+        '这条豁免的适用范围必须锁死在它一种事件上',
+      );
+    }
     need(
       boolOf(const ['clientEvents', 'poll', 'targetMustEqualSender']) == true,
       'clientEvents.poll.targetMustEqualSender 必须为 true：'

@@ -347,4 +347,97 @@ describe('clientEvents（poll / ack）裁决', () => {
     );
     expect(stillChecked.ok).toBe(false);
   });
+  // ── 设备自登记（#131 第一片）：唯一一类"表里还没有他"的事件 ──
+  describe('authorizeRegister（私钥持有证明）', () => {
+    const kp = keypair();
+    const regFields = (over) =>
+      fields(
+        Object.assign(
+          { type: contract.clientEvents.register.messageType, nonce: 'reg-1', body: '' },
+          over || {},
+        ),
+      );
+    function regInput(over) {
+      const f = regFields(over && over.fields);
+      const signed = signable(kp, f);
+      return Object.assign(
+        { senderAddress: SELF, publicKey: kp.rawBase64, name: '我的手机', now: NOW },
+        { fields: signed.fields, signature: signed.signature },
+        over && over.extra ? over.extra : {},
+      );
+    }
+
+    test('合法自登记：放行，并带回地址码与公钥', () => {
+      const out = events.authorizeRegister(contract, stateFor(kp), regInput());
+      expect(out.ok).toBe(true);
+      expect(out.addressCode).toBe(SELF);
+      expect(out.publicKey).toBe(kp.rawBase64);
+      expect(out.name).toBe('我的手机');
+    });
+
+    test('公钥形状不对与签名不匹配同形（登记入口不许当枚举器）', () => {
+      const badShape = events.authorizeRegister(
+        contract,
+        stateFor(kp),
+        Object.assign(regInput(), { publicKey: 'not-a-key' }),
+      );
+      const otherKey = keypair();
+      const mismatchFields = regFields();
+      const signedByOther = signable(otherKey, mismatchFields);
+      const badSig = events.authorizeRegister(
+        contract,
+        stateFor(kp),
+        Object.assign(regInput(), {
+          fields: signedByOther.fields,
+          signature: signedByOther.signature,
+        }),
+      );
+      expect(badShape.ok).toBe(false);
+      expect(badSig.ok).toBe(false);
+      expect(badShape.status).toBe(badSig.status);
+      expect(badShape.status).toBe(statusCode(contract, 'forbidden'));
+      // 内部仍分得开（将来要能显示"有 N 次拿着别人的钥匙来登记"）
+      expect(badShape.reason).not.toBe(badSig.reason);
+    });
+
+    test('带私钥来的包连验签都不进 ⇒ 拒绝', () => {
+      const out = events.authorizeRegister(
+        contract,
+        stateFor(kp),
+        Object.assign(regInput(), { privateKey: 'MFIB私钥' }),
+      );
+      expect(out.ok).toBe(false);
+      expect(out.reason).toMatch(/^carries-secret:privateKey/);
+    });
+
+    test('拿 poll 的签名来登记 ⇒ 事件类型不对（跨接口冒用同样被挡）', () => {
+      const signed = signable(kp, fields({ nonce: 'cross-1' })); // type = poll
+      const out = events.authorizeRegister(
+        contract,
+        stateFor(kp),
+        Object.assign(regInput(), { fields: signed.fields, signature: signed.signature }),
+      );
+      expect(out.ok).toBe(false);
+      expect(out.reason).toMatch(/^wrong-event-type:/);
+    });
+
+    test('target 填别人的地址码 ⇒ 拒（登记只能关于自己）', () => {
+      const signed = signable(kp, regFields({ target: OTHER }));
+      const out = events.authorizeRegister(
+        contract,
+        stateFor(kp),
+        Object.assign(regInput(), { fields: signed.fields, signature: signed.signature }),
+      );
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe('target-not-self');
+    });
+
+    test('契约把 verifyAgainst 改错 ⇒ 抛，不是静默按另一把钥匙验', () => {
+      const broken = JSON.parse(JSON.stringify(contract));
+      broken.clientEvents.register.verifyAgainst = 'device-table-public-key';
+      expect(() => events.authorizeRegister(broken, stateFor(kp), regInput())).toThrow(
+        /verifyAgainst/,
+      );
+    });
+  });
 });
