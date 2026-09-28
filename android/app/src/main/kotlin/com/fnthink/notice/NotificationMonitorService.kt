@@ -25,6 +25,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.fnthink.notice.BuildConfig
 import kotlinx.coroutines.*
 
@@ -43,6 +44,11 @@ class NotificationMonitorService : NotificationListenerService() {
         // 只有落盘才能判定「服务中断过 → 期间事件可能丢失 → 需补扫」）
         const val PREF_LAST_ALIVE = "flutter.notif_last_alive_at"
         const val PREF_LAST_SCAN = "flutter.notif_last_scan_at"
+        // 桌面小部件的存活判据（与上面那枚心跳**分开**：那枚的语义是「补扫水位」，
+        // 只在监听连接/来通知/补扫时写，通知稀疏时它天然陈旧 —— 拿它判活会误报「已关闭」。
+        // 这一枚由固定节拍写，只代表「服务进程此刻还活着」。）
+        const val PREF_SERVICE_RUNNING = "flutter.notif_service_running"
+        const val PREF_HEARTBEAT_AT = "flutter.notif_heartbeat_at"
         const val ACTION_BATTERY_CHANGED_NOTIFY = "com.fnthink.notice.BATTERY_CHANGED_NOTIFY"
         const val EXTRA_BATTERY_LEVEL = "battery_level"
         const val EXTRA_BATTERY_CHARGING = "battery_charging"
@@ -138,6 +144,11 @@ class NotificationMonitorService : NotificationListenerService() {
         createNotificationChannel()
         // 先进入前台，满足 startForegroundService 的 5s 内必须 startForeground 的约束
         startForegroundService()
+        // 小部件存活证据：一进入前台就落盘，并把节拍跑起来。
+        // ⚠ 顺序要紧：划掉应用后服务会被 1s 闹钟拉起，若这里不写，重绘的小部件仍停在「已关闭」。
+        writeLiveness(running = true, sync = true)
+        mainHandler.removeCallbacks(heartbeatRunnable)
+        mainHandler.postDelayed(heartbeatRunnable, WidgetLiveness.HEARTBEAT_INTERVAL_MS)
 
         notificationProcessor = NotificationProcessor(this)
         batteryMonitor = BatteryMonitor(this)
@@ -288,6 +299,9 @@ class NotificationMonitorService : NotificationListenerService() {
         isConnected = true
         listenerConnected = true
         touchAlive()
+        // 监听真的接上了才认为"在转发"：写心跳并让小部件重绘（幂等，一秒内多次也无害）
+        writeLiveness(running = true, sync = false)
+        refreshWidgetsQuietly()
         cancelRebindRetry()
         // 恢复连接后立即刷新前台通知，撤掉"监听已断开"警告
         try { refreshForegroundVisibility() } catch (_: Exception) {}
@@ -424,6 +438,55 @@ class NotificationMonitorService : NotificationListenerService() {
         } catch (_: Exception) {}
     }
 
+    // ── 桌面小部件的存活证据 ─────────────────────────────────────
+    // 只信落盘的东西：小部件很可能跑在一个被广播冷启动的进程里，那时内存字段是默认值。
+    @Volatile private var lastHeartbeatWritten: Long = 0L
+    private val heartbeatRunnable = object : Runnable {
+        override fun run() {
+            touchHeartbeat()
+            mainHandler.postDelayed(this, WidgetLiveness.HEARTBEAT_INTERVAL_MS)
+        }
+    }
+
+    /**
+     * 心跳写盘。同步 `commit()` 但**只在生命周期点**（启动/连接/销毁/划任务）调用，
+     * 节拍版走 IO 协程 —— 热路径上的同步磁盘 IO 本仓库付过 ANR 的学费。
+     */
+    private fun writeLiveness(running: Boolean, sync: Boolean) {
+        val now = System.currentTimeMillis()
+        lastHeartbeatWritten = now
+        val write = Runnable {
+            try {
+                // KTX 的 edit(commit = true)：链式 .edit().putX().commit() 会被 lint 记 UseKtx 新账
+                getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit(commit = true) {
+                    putBoolean(PREF_SERVICE_RUNNING, running)
+                    putLong(PREF_HEARTBEAT_AT, now)
+                }
+            } catch (_: Exception) {}
+        }
+        if (sync) {
+            write.run()
+        } else {
+            serviceScope.launch { write.run() }
+        }
+    }
+
+    /** 节拍心跳：不改变 running 标记，只刷新时间戳。 */
+    private fun touchHeartbeat() {
+        val now = System.currentTimeMillis()
+        if (now - lastHeartbeatWritten < WidgetLiveness.HEARTBEAT_INTERVAL_MS / 2) return
+        writeLiveness(running = true, sync = false)
+    }
+
+    /** 状态可能变了 → 让已存在的小部件重绘（没有小部件时零开销）。 */
+    private fun refreshWidgetsQuietly() {
+        try {
+            PushToggleWidgetProvider.updateAllWidgetsIfExists(applicationContext)
+        } catch (e: Exception) {
+            Log.w(TAG, "widget refresh failed: ${e.message}")
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent != null) {
             when (intent.action) {
@@ -490,6 +553,14 @@ class NotificationMonitorService : NotificationListenerService() {
         // （连带 NotificationProcessor / Handler），"只注册不注销"这条本仓库已付过学费。
         stopDeviceStateWatchers()
         RetryQueue.stopWatching()
+        // 小部件存活证据：进程还在的最后一刻把"我停了"写下去并重绘 —— 这是划掉应用后
+        // 能**立刻**变灰的唯一时机（serviceScope 已 cancel，故走同步 commit）。
+        try {
+            writeLiveness(running = false, sync = true)
+        } catch (_: Exception) {}
+        try {
+            PushToggleWidgetProvider.updateAllWidgetsIfExists(applicationContext)
+        } catch (_: Exception) {}
         serviceScope.cancel()
         // v1.59：服务销毁时显式撤掉常驻通知（场景「进程终止不得残留」）。
         // 系统在服务销毁时会自动移除 FGS 通知，此处显式 cancel 双保险，
@@ -657,6 +728,10 @@ class NotificationMonitorService : NotificationListenerService() {
                 System.currentTimeMillis() + 1000L,
                 pi
             )
+            // 划掉任务：先按"已停止"落盘并重绘小部件，让用户立刻看到真实状态；
+            // 若 1s 后服务真的被拉起，onCreate 会把它翻回「推送中」—— 反馈跟着事实走，不粉饰。
+            writeLiveness(running = false, sync = true)
+            refreshWidgetsQuietly()
             Log.i(TAG, "Task removed: service restart scheduled in 1s")
         } catch (e: Exception) {
             Log.w(TAG, "onTaskRemoved: restart scheduling failed", e)
@@ -713,6 +788,8 @@ class NotificationMonitorService : NotificationListenerService() {
                 startBatteryMonitoring()
             }
             batteryMonitor.startPolling()
+            writeLiveness(running = true, sync = true)
+            refreshWidgetsQuietly()
             Log.i(TAG, "Monitoring enabled")
         } else {
             batteryMonitor.stopPolling()
@@ -724,6 +801,7 @@ class NotificationMonitorService : NotificationListenerService() {
             }
             batteryChangedReceiver = null
             stopForegroundCompat()
+            refreshWidgetsQuietly()
             Log.i(TAG, "Monitoring disabled")
         }
     }

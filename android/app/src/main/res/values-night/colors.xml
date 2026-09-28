@@ -17,4 +17,11 @@
     <color name="ic_launcher_gray_bg">#5c5c5e</color>
     <color name="ic_launcher_graphite_bg">#2c2c2e</color>
     <color name="ic_launcher_black_bg">#0a0a0c</color>
+    <!-- 桌面小部件「已关闭」态（深色桌面）：与浅色同语义、不同明度 -->
+    <color name="widget_closed_bg_start">#2C2C2E</color>
+    <color name="widget_closed_bg_end">#1C1C1E</color>
+    <color name="widget_closed_stroke">#48484A</color>
+    <color name="widget_closed_dot">#98989F</color>
+    <color name="widget_closed_circle_start">#5A6B7A</color>
+    <color name="widget_closed_circle_end">#3A4653</color>
 </resources>

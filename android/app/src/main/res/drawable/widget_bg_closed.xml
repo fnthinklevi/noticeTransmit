@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「已关闭」态背景：中性石板灰卡片 + 右上角**空心**状态点。
+  两处刻意与另两态不同：
+   1) 不用绿也不用红 —— 绿=在转发、红=我自己暂停，都被清理是第三件事，颜色上不能复用；
+   2) 状态点画成空心环（不是实心点）—— 实心点在两态里都表示"灯亮着"，
+      熄灭的样子得像个熄灭的样子（灰度对比在深色桌面上另有 values-night 一套）。
+  颜色全部走 @color（values / values-night 各一份），不在这里写死 hex。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <solid android:color="#22000000" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="2dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <gradient
+                android:angle="315"
+                android:endColor="@color/widget_closed_bg_end"
+                android:startColor="@color/widget_closed_bg_start"
+                android:type="linear" />
+            <stroke
+                android:width="1dp"
+                android:color="@color/widget_closed_stroke" />
+        </shape>
+    </item>
+
+    <!-- 空心状态环：外圈实色、内圈挖成卡片底色，读作"灯灭了" -->
+    <item
+        android:gravity="top|end"
+        android:right="10dp"
+        android:top="10dp">
+        <shape android:shape="oval">
+            <size
+                android:width="10dp"
+                android:height="10dp" />
+            <solid android:color="@color/widget_closed_dot" />
+        </shape>
+    </item>
+    <item
+        android:gravity="top|end"
+        android:right="12dp"
+        android:top="12dp">
+        <shape android:shape="oval">
+            <size
+                android:width="6dp"
+                android:height="6dp" />
+            <solid android:color="@color/widget_closed_bg_start" />
+        </shape>
+    </item>
+</layer-list>

@@ -22,4 +22,11 @@
     <!-- 桌面小部件：推送开关 -->
     <color name="widget_active_text">#007AFF</color>
     <color name="widget_paused_text">#8E8E93</color>
+    <!-- 桌面小部件「已关闭」态：中性石板灰 —— 与「暂停=红」「推送=绿」都必须可辨：用户要能一眼分清「我自己暂停的」与「它被打掉了」。 -->
+    <color name="widget_closed_bg_start">#F2F2F7</color>
+    <color name="widget_closed_bg_end">#E5E5EA</color>
+    <color name="widget_closed_stroke">#C7C7CC</color>
+    <color name="widget_closed_dot">#8E8E93</color>
+    <color name="widget_closed_circle_start">#AEC0D0</color>
+    <color name="widget_closed_circle_end">#6B7C8C</color>
 </resources>

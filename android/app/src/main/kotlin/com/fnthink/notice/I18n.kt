@@ -359,6 +359,18 @@ object I18n {
     fun widgetTapPause(): String = if (isEn) "Tap to pause push" else "点击暂停推送"
     fun widgetTapResume(): String = if (isEn) "Tap to resume push" else "点击恢复推送"
     fun widgetDailyPushed(): String = if (isEn) "Pushed today" else "当日已推送"
+    // 「已关闭」必须同时给出**下一步**，不能只甩两个字：小部件没有解释机会，
+    // 而这一态的两种成因（被清理 / 在应用里关了监听）指向两个不同的动作。
+    fun widgetClosedText(): String = if (isEn) "OFF" else "已关闭"
+    fun widgetClosedKilled(): String = if (isEn)
+        "App was closed · tap to reopen"
+    else "应用已被清理 · 点击重新打开"
+    fun widgetClosedListenerOff(): String = if (isEn)
+        "Listener off · tap to open app"
+    else "监听未开启 · 点击打开应用"
+    fun widgetClosedNeverStarted(): String = if (isEn)
+        "Not started · tap to open app"
+    else "尚未启动 · 点击打开应用"
     fun widgetAddTitle(): String = if (isEn) "Add widget" else "添加桌面小部件"
     fun widgetAddDesc(): String = if (isEn)
         "Tap below, then confirm in the system dialog to place the 2×2 push toggle widget on your home screen."

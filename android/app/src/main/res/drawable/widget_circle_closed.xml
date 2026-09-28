@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「已关闭」态中央圆：石板灰渐变，**没有**顶部玻璃高光。
+  另两态的高光是"活着、在运转"的视觉语言；这一态故意去掉，
+  让它在扫一眼时就比另两态"沉" —— 状态除了颜色还有质感这第二通道
+  （单靠颜色对色盲用户不可靠，这也是状态文字始终保留的原因）。
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp">
+        <shape android:shape="oval">
+            <solid android:color="#226B7C8C" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="3dp"
+        android:left="3dp"
+        android:right="3dp"
+        android:top="3dp">
+        <shape android:shape="oval">
+            <solid android:color="#66FFFFFF" />
+        </shape>
+    </item>
+
+    <item
+        android:bottom="6dp"
+        android:left="6dp"
+        android:right="6dp"
+        android:top="6dp">
+        <shape android:shape="oval">
+            <gradient
+                android:angle="315"
+                android:endColor="@color/widget_closed_circle_end"
+                android:startColor="@color/widget_closed_circle_start"
+                android:type="linear" />
+        </shape>
+    </item>
+</layer-list>

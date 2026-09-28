@@ -41,6 +41,37 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
         /** 宽布局阈值（dp）：宽度 >= 该值使用 4×2 宽布局，否则使用 2×2 紧凑布局 */
         const val WIDE_LAYOUT_MIN_WIDTH_DP = 220
 
+        /** 状态判定的盘源：与 Dart/服务共用同一份 prefs（读盘不读内存缓存，见 [WidgetLiveness]） */
+        private const val PREFS_FLUTTER = "FlutterSharedPreferences"
+        private const val PREFS_TOGGLE = "push_toggle_state"
+        private const val KEY_MONITORING = "flutter.monitoring_enabled"
+        private const val KEY_SERVICE_RUNNING = "flutter.notif_service_running"
+        private const val KEY_HEARTBEAT = "flutter.notif_heartbeat_at"
+        private const val KEY_PUSH_ACTIVE = "push_active"
+
+        /** PendingIntent 请求码：切换=0，打开应用=1（同一 requestCode 会让两套意图互相覆盖） */
+        private const val REQ_TOGGLE = 0
+        private const val REQ_OPEN_APP = 1
+
+        /**
+         * 小部件该显示哪一态。**不再单看 [PushToggleManager.isPushActive]** ——
+         * 那是"用户暂停了没有"，与"进程还在不在"是两件事，且未初始化时兜底 true，
+         * 会让被清理后的桌面继续显示绿色「推送中」。
+         */
+        @JvmStatic
+        internal fun resolveState(context: Context): WidgetLiveness.Verdict {
+            val flutter = context.getSharedPreferences(PREFS_FLUTTER, Context.MODE_PRIVATE)
+            val toggle = context.getSharedPreferences(PREFS_TOGGLE, Context.MODE_PRIVATE)
+            return WidgetLiveness.resolve(
+                monitoringEnabled = flutter.getBoolean(KEY_MONITORING, true),
+                pushActive = toggle.getBoolean(KEY_PUSH_ACTIVE, true),
+                // 缺省 false：从没写过 = 无从断定活着，宁可显示「已关闭」让用户点一下确认
+                serviceRunning = flutter.getBoolean(KEY_SERVICE_RUNNING, false),
+                heartbeatAt = flutter.getLong(KEY_HEARTBEAT, 0L),
+                now = System.currentTimeMillis(),
+            )
+        }
+
         /** 刷新所有已添加的小部件（2×2 与 4×2 两种规格）。 */
         @JvmStatic
         fun updateAllWidgets(context: Context) {
@@ -82,7 +113,9 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             manager: AppWidgetManager,
             widgetId: Int,
         ) {
-            val active = PushToggleManager.isPushActive()
+            val verdict = resolveState(context)
+            val state = verdict.state
+            val closed = state == WidgetLiveness.State.CLOSED
 
             // 自适应尺寸：根据当前宽度选择布局（2×2 紧凑 / 4×2 宽）
             val options = manager.getAppWidgetOptions(widgetId)
@@ -94,27 +127,18 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             views.setInt(
                 R.id.widget_root,
                 "setBackgroundResource",
-                if (active) R.drawable.widget_bg_active else R.drawable.widget_bg_paused,
+                backgroundFor(state),
             )
 
             // 左上角标题（跟随语言切换）
             views.setTextViewText(R.id.widget_title, I18n.appName())
 
-            // 中央圆形：状态 + 颜色（推送=绿 / 暂停=红）
-            val circleText = if (active)
-                I18n.widgetActiveText() else I18n.widgetPausedText()
-            views.setTextViewText(R.id.widget_circle, circleText)
-            views.setInt(
-                R.id.widget_circle,
-                "setBackgroundResource",
-                if (active) R.drawable.widget_circle_active else R.drawable.widget_circle_paused,
-            )
+            // 中央圆形：状态 + 颜色（推送=绿 / 暂停=红 / 已关闭=中性灰）
+            views.setTextViewText(R.id.widget_circle, statusText(state))
+            views.setInt(R.id.widget_circle, "setBackgroundResource", circleFor(state))
 
-            // 底部提示
-            views.setTextViewText(
-                R.id.widget_hint,
-                if (active) I18n.widgetTapPause() else I18n.widgetTapResume(),
-            )
+            // 底部提示：CLOSED 要说清"为什么"并给出下一步，不能只写"已关闭"三个字
+            views.setTextViewText(R.id.widget_hint, hintText(verdict))
 
             // 宽布局：右侧当日已推送通知数量
             if (useWide) {
@@ -123,16 +147,58 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_daily_label, I18n.widgetDailyPushed())
             }
 
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                0,
-                Intent(context, PushToggleWidgetProvider::class.java)
-                    .setAction(ACTION_TOGGLE_PUSH),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
+            val pendingIntent = if (closed) {
+                // 服务不在，点组件"恢复转发"是骗人的：后台 startService 会被系统拒（原实现
+                // 就是把它塞进 startService 的 try/catch 里静默失败）。所以这一态直接打开应用，
+                // 由应用侧既有的重绑链路（MainActivity 的强制重绑）把服务带回前台。
+                PendingIntent.getActivity(
+                    context,
+                    REQ_OPEN_APP,
+                    Intent(context, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+            } else {
+                PendingIntent.getBroadcast(
+                    context,
+                    REQ_TOGGLE,
+                    Intent(context, PushToggleWidgetProvider::class.java)
+                        .setAction(ACTION_TOGGLE_PUSH),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+            }
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
             manager.updateAppWidget(widgetId, views)
+        }
+
+        private fun backgroundFor(state: WidgetLiveness.State): Int = when (state) {
+            WidgetLiveness.State.PUSHING -> R.drawable.widget_bg_active
+            WidgetLiveness.State.PAUSED -> R.drawable.widget_bg_paused
+            WidgetLiveness.State.CLOSED -> R.drawable.widget_bg_closed
+        }
+
+        private fun circleFor(state: WidgetLiveness.State): Int = when (state) {
+            WidgetLiveness.State.PUSHING -> R.drawable.widget_circle_active
+            WidgetLiveness.State.PAUSED -> R.drawable.widget_circle_paused
+            WidgetLiveness.State.CLOSED -> R.drawable.widget_circle_closed
+        }
+
+        private fun statusText(state: WidgetLiveness.State): String = when (state) {
+            WidgetLiveness.State.PUSHING -> I18n.widgetActiveText()
+            WidgetLiveness.State.PAUSED -> I18n.widgetPausedText()
+            WidgetLiveness.State.CLOSED -> I18n.widgetClosedText()
+        }
+
+        /** CLOSED 的副文案按原因分叉：「去应用里打开监听」与「被清理了，点我打开应用」不是一回事。 */
+        private fun hintText(verdict: WidgetLiveness.Verdict): String = when (verdict.state) {
+            WidgetLiveness.State.PUSHING -> I18n.widgetTapPause()
+            WidgetLiveness.State.PAUSED -> I18n.widgetTapResume()
+            WidgetLiveness.State.CLOSED -> when (verdict.reason) {
+                WidgetLiveness.Reason.LISTENER_DISABLED -> I18n.widgetClosedListenerOff()
+                WidgetLiveness.Reason.NEVER_STARTED -> I18n.widgetClosedNeverStarted()
+                else -> I18n.widgetClosedKilled()
+            }
         }
     }
 
