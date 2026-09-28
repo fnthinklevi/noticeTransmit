@@ -879,12 +879,15 @@ journalctl -u update-server -f
    > 第一行决定路径怎么拼（见上表），第二行决定上游看到的 Host（服务端目前不依赖它，但日志与将来
    > 按域名分流的实现会依赖；默认写成 `127.0.0.1` 是个静默的坑）。
 
-   > 🔎 **识别特征（一次就能判死）**：访问 `https://<推送域名>/api/fnthink/poll` 得到的是
-   > **Express 的错误页**，且路径不对 —— `Cannot POST /poll`（前缀被吃）或 `Cannot POST //poll`（多一个斜杠）。
-   > 命令：
+   > 🔎 **识别特征（照响应一眼判死）**：
+   > - **Express 的错误页**、路径不对 ⇒ **反代配错**：`Cannot POST /poll`（前缀被吃）或 `Cannot POST //poll`（多一个斜杠）；
+   > - **503 + `{"error":"fnthink_protocol_unavailable"}`** ⇒ **反代已经通了**，只是服务器上**没有契约文件**
+   >   （默认位置是代码目录上一级的 `protocol/`，或用 `FNTHINK_CONTRACT` 指过去）；
+   > - **403 + `{"receipt":"rejected_unsigned"}`** ⇒ 协议面活着（这一步就是要的结果）。
    > ```bash
-   > curl -s -X POST https://<推送域名>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}' | head -3
-   > # 错：<pre>Cannot POST /poll</pre>      对：{"receipt":"rejected_unsigned"}（HTTP 403）
+   > curl -s -X POST https://<推送域名>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}'
+   > # 404 <pre>Cannot POST /poll</pre> → 反代错；503 {"error":"fnthink_protocol_unavailable"} → 缺契约；
+   > # 403 {"receipt":"rejected_unsigned"} → ✅
    > ```
 3. 站点「配置文件」里改两处，并核对反代段：
 

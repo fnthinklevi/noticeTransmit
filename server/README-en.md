@@ -891,12 +891,17 @@ matter most — three steps:
    > server does not depend on it today, but logs and any future per-hostname logic will, and `127.0.0.1` there
    > is a silent trap.
 
-   > 🔎 **Tell-tale sign (one command settles it)**: `https://<push-host>/api/fnthink/poll` answers with
-   > **Express's error page** and a wrong path — `Cannot POST /poll` (prefix eaten) or `Cannot POST //poll`
-   > (extra slash).
+   > 🔎 **Read the response and you know which layer is wrong**:
+   > - **Express's error page**, wrong path ⇒ **proxy misconfigured**: `Cannot POST /poll` (prefix eaten) or
+   >   `Cannot POST //poll` (extra slash);
+   > - **503 with `{"error":"fnthink_protocol_unavailable"}`** ⇒ **the proxy works**; the server simply has **no
+   >   contract file** (default location: `protocol/` one level above the code directory, or point
+   >   `FNTHINK_CONTRACT` at it);
+   > - **403 with `{"receipt":"rejected_unsigned"}`** ⇒ the face is alive (this is the goal).
    > ```bash
-   > curl -s -X POST https://<push-host>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}' | head -3
-   > # wrong: <pre>Cannot POST /poll</pre>      right: {"receipt":"rejected_unsigned"} (HTTP 403)
+   > curl -s -X POST https://<push-host>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}'
+   > # 404 <pre>Cannot POST /poll</pre> → proxy wrong; 503 {"error":"fnthink_protocol_unavailable"} → contract missing;
+   > # 403 {"receipt":"rejected_unsigned"} → ✅
    > ```
 3. In the site's config file, change two things and verify the proxy block:
 
