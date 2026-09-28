@@ -681,6 +681,13 @@ server {
 > ⚠️ **反代部署必须设 `TRUST_PROXY`**：`app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0))` 默认 **0 = 不信任任何代理头**（直连部署的 fail-safe 默认值）。挂在 Nginx 后面却不设置，IP 封锁与限流看到的就全是 `127.0.0.1`（代理 IP）——误封一次即全站管理接口对所有人关闭；反过来，没挂反代却设了 `TRUST_PROXY`，攻击者伪造 `X-Forwarded-For` 就能绕过封锁。
 > 单层 Nginx：`TRUST_PROXY=1`；Nginx + CDN 多级：按跳数递增（如 `2`）。修改后需重启服务生效。
 > 若链路上还有 Cloudflare，请把回源 IP 收敛到 CF 的 IP 段并在 Nginx 层处理，`TRUST_PROXY` 只按**你自己的**代理跳数计。
+> ⚠️ **不处理的表现不止是日志失真**：源站看到的对端是 CF，而 CF 会用它自己的**多个** IP 回源 ⇒ **按 IP 的限流与封锁会被打散到好几个桶里** —— 该限的限不住（实测：外网连发 31 次 `/register`，契约额度是 30/分/IP，却一次 429 都没出现）、该封的封不准。
+> 修法（二选一，在源站站点/反代段里）：
+> ```nginx
+> proxy_set_header X-Forwarded-For $http_cf_connecting_ip;   # ① 用 CF 给的头覆盖 XFF（与 TRUST_PROXY=1 配套）
+> # ② 或 http 段 set_real_ip_from <CF 各段>; real_ip_header CF-Connecting-IP; 再把 XFF 设成 $remote_addr
+> ```
+> 验证要**绕开 CF**：在服务器上直连上游连发 31 次，看第 31 次是不是 429（见 `server/README.md` 的部署验收一节）。
 
 > ⚠️ **别把你已经上线的更新域名卷进来**（下文示例统一写作 `notice.example.com`）。三个域名的分工是固定的：
 > `notice.example.com` = App 检查更新 / 下载 APK / 管理后台（App 里是编译期常量 `_updateServerUrl`，换地址要重新出包）；

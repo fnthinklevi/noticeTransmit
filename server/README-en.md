@@ -687,6 +687,15 @@ server {
 > ⚠️ **Reverse-proxy deployments must set `TRUST_PROXY`**: `app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 0))` defaults to **0 = trust no proxy headers** (the fail-safe default for direct deployments). Behind Nginx without it, IP blocking and rate limiting see only `127.0.0.1` (the proxy IP) — one false block shuts the admin API for everyone. Conversely, setting it with no proxy lets attackers spoof `X-Forwarded-For` and evade blocks.
 > Single Nginx layer: `TRUST_PROXY=1`; Nginx + CDN: one per hop (e.g. `2`). Requires a service restart to take effect.
 > If Cloudflare is in front, restrict the origin to CF's IP ranges at the Nginx layer and keep `TRUST_PROXY` counting **your own** hops.
+> ⚠️ **Leaving it unhandled costs more than log fidelity**: the origin sees CF as the peer, and CF returns from **several** of its own
+> addresses ⇒ **per-IP rate limiting and IP blocking get scattered across buckets** — what should be throttled is not (measured:
+> 31 consecutive `/register` calls from outside, contract quota 30/min/IP, not a single 429), and what should be blocked is not precise.
+> Fix it in the origin's site/proxy block (either one):
+> ```nginx
+> proxy_set_header X-Forwarded-For $http_cf_connecting_ip;   # (1) overwrite XFF with CF's header (pairs with TRUST_PROXY=1)
+> # (2) or in the http block: set_real_ip_from <CF ranges>; real_ip_header CF-Connecting-IP; then set XFF to $remote_addr
+> ```
+> Verify it **bypassing CF**: on the server, hit the upstream 31 times in a row and check whether the 31st is a 429 (see the acceptance section in `server/README.md`).
 
 > ⚠️ **Do not entangle the update hostname you already run in production** (written `notice.example.com` throughout below). The division is fixed:
 > `notice.example.com` = update check / APK download / admin console (a compile-time constant `_updateServerUrl` in the app; changing it means shipping a new APK);
