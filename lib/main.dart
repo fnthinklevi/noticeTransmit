@@ -139,12 +139,14 @@ class MyAppState extends State<MyApp> {
     await GetIt.instance<ThemeService>().init();
     final prefs = await SharedPreferences.getInstance();
     _privacyAccepted = prefs.getBool(_privacyAcceptedKey) ?? false;
+    if (!mounted) return;
     setState(() => _themeInitialized = true);
   }
 
   Future<void> _acceptPrivacy() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_privacyAcceptedKey, true);
+    if (!mounted) return;
     setState(() => _privacyAccepted = true);
   }
 

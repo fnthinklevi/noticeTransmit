@@ -66,6 +66,7 @@ class _RuleListPageState extends State<RuleListPage> {
       context,
       MaterialPageRoute(builder: (context) => RuleEditPage(rule: newRule)),
     );
+    if (!mounted) return;
 
     if (result != null) {
       setState(() {
@@ -80,6 +81,7 @@ class _RuleListPageState extends State<RuleListPage> {
       context,
       MaterialPageRoute(builder: (context) => RuleEditPage(rule: rule)),
     );
+    if (!mounted) return;
 
     if (result != null) {
       setState(() {

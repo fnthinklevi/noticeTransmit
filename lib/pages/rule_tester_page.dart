@@ -78,6 +78,7 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
       builder: (_) => const _AppPickDialog(apps: []),
     );
     if (selected == null) return;
+    if (!mounted) return;
     setState(() {
       _pkgController.text = selected['packageName']?.toString() ?? '';
       _appNameController.text = selected['appName']?.toString() ?? '';

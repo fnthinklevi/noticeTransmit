@@ -9,7 +9,8 @@ extension _MainPageActions on _MainPageState {
   Future<void> _onChangeLanguage(AppLanguage lang) async {
     final localeService = GetIt.instance<LocaleService>();
     await localeService.setLanguage(lang);
-    setState(() {});
+    // 只守卫 rebuild：后面的原生标签同步与父页回调**不该因为本页已销毁而被跳过**
+    if (mounted) setState(() {});
     // 同步原生端桌面应用名（最近任务页）为当前实际语言
     AppChannels.notification.invokeMethod(
       'setLocaleLabel',
@@ -24,11 +25,13 @@ extension _MainPageActions on _MainPageState {
   // 那六层包装等于没有效果的错觉代码。
   Future<void> _checkPermissions() async {
     await _permissionService.checkAllPermissions();
+    if (!mounted) return;
     setState(() {});
   }
 
   Future<void> _getDeviceInfo() async {
     await _deviceInfoService.loadDeviceInfo();
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -40,11 +43,13 @@ extension _MainPageActions on _MainPageState {
       return;
     }
     await _notificationService.startService();
+    if (!mounted) return;
     setState(() {});
   }
 
   Future<void> _stopForegroundService() async {
     await _notificationService.stopService();
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -54,7 +59,7 @@ extension _MainPageActions on _MainPageState {
         rules: _filterService.notificationRules,
         onSave: (rules) {
           _filterService.saveNotificationRules(rules);
-          setState(() {});
+          if (mounted) setState(() {});
         },
       ),
     );
@@ -72,7 +77,7 @@ extension _MainPageActions on _MainPageState {
           await _notificationService.clearRecords();
           await _refreshTotalCount();
           await _notificationService.syncDailyCountToNative();
-          setState(() {});
+          if (mounted) setState(() {});
         },
         onExport: () async {
           // 安全确认：导出前弹出对话框验证用户意图（UI 统一：iOS 分割线双按钮）
@@ -161,20 +166,20 @@ extension _MainPageActions on _MainPageState {
           final count = await _notificationService.clearToday();
           await _refreshTotalCount();
           await _notificationService.syncDailyCountToNative();
-          setState(() {});
+          if (mounted) setState(() {});
           return count;
         },
         onClearLastN: (int n) async {
           final count = await _notificationService.clearLastN(n);
           await _refreshTotalCount();
           await _notificationService.syncDailyCountToNative();
-          setState(() {});
+          if (mounted) setState(() {});
           return count;
         },
         // 历史记录"现在推送"：暂停期间未发送的消息手动补推
         onPushNow: (record) async {
           await _notificationService.pushRecordNow(record);
-          setState(() {});
+          if (mounted) setState(() {});
         },
       ),
     );
@@ -211,12 +216,14 @@ extension _MainPageActions on _MainPageState {
     );
     await _checkPermissions();
     await _notificationService.loadServiceState();
+    if (!mounted) return;
     setState(() {});
   }
 
   /// 打开短信/来电监听设置页
   void _openSmsMonitorSettingsPage() async {
     await _pushPage(SmsMonitorSettingsPage(smsService: _smsService));
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -232,6 +239,7 @@ extension _MainPageActions on _MainPageState {
       final mode = result['mode'] as String? ?? 'allow';
       final packages = List<String>.from(result['packages'] ?? []);
       await _filterService.saveAppFilter(mode, packages);
+      if (!mounted) return;
       setState(() {});
     }
   }
@@ -248,6 +256,7 @@ extension _MainPageActions on _MainPageState {
       final whitelist = result['whitelist'] ?? [];
       await _filterService.saveBlacklistKeywords(blacklist);
       await _filterService.saveWhitelistKeywords(whitelist);
+      if (!mounted) return;
       setState(() {});
     }
   }
@@ -265,6 +274,7 @@ extension _MainPageActions on _MainPageState {
   /// 打开自建应用通道设置页
   Future<void> _openAppChannelsSettingsPage() async {
     await _pushPage(const AppChannelListPage());
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -287,6 +297,7 @@ extension _MainPageActions on _MainPageState {
           .map((m) => EmailChannel.fromMap(m))
           .toList();
       await emailService.saveChannels(updatedChannels);
+      if (!mounted) return;
       setState(() {});
       _showInfo(l10n.emailConfigSaved);
     }

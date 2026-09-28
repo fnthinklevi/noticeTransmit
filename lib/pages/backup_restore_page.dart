@@ -230,6 +230,9 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
         strategy = await _promptConflictStrategy();
       }
       if (strategy == null) return;
+      // 冲突策略那个对话框也是 await 出来的：用户可能在弹窗期间退出本页，
+      // 而下面整段 restore 全程读 context 与 _busy。
+      if (!mounted) return;
 
       setState(() => _busy = true);
       final report = await _backup.restorePayload(

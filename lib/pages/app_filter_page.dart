@@ -194,6 +194,7 @@ class _AppFilterPageState extends State<AppFilterPage>
 
   Future<void> _loadCachedApps() async {
     final cached = await _apps.loadCached();
+    if (!mounted) return;
     if (cached.isNotEmpty) {
       setState(() {
         _allApps = cached;
