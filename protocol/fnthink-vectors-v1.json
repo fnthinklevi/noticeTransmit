@@ -903,7 +903,7 @@
       "note": "只有设备 ack 算送达；进终态必须立刻释放正文"
     },
     {
-      "id": "d-retry-self-loop",
+      "id": "d-retry-back-to-queued",
       "given": {
         "state": "delivering",
         "event": "ack_fail",
@@ -911,14 +911,14 @@
         "hasBackupChannel": false
       },
       "expect": {
-        "state": "delivering",
+        "state": "queued",
         "attempts": 1,
         "receipt": null,
         "deleteBody": false,
         "resend": null,
         "ignored": null
       },
-      "note": "还有重试预算：留在 delivering 等下一次 dispatch，不发回执"
+      "note": "还有重试预算 ⇒ 回到 queued 等下一次 poll（服务端不能主动推，留在 delivering 自环就是卡死）"
     },
     {
       "id": "d-wait-no-backup",

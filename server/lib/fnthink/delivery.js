@@ -128,8 +128,9 @@ function advance(contract, input) {
     case 'no_ack':
       if (state !== 'delivering') return ignore();
       if (attempts >= budget) return toWaiting();
-      // 还有重试预算：留在 delivering（迁移表里的自环），等下一次 dispatch。
-      return step('delivering');
+      // 还有重试预算 ⇒ **回到 queued 等下一次 poll**。服务端不能主动推，
+      // 留在 delivering 自环等于卡住：没有任何事件能再从 delivering 触发一次投递。
+      return step('queued');
     case 'ttl_elapsed':
       if (isTerminal(contract, state)) return ignore();
       return step('expired', { receipt: 'expired' });

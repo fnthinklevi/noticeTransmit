@@ -431,5 +431,70 @@ void main() {
       });
       expectProblem(broken, 'delivery.resendDecisionFrom', '补发路向必须来自契约里那一段');
     });
+
+    // ── 存储侧（T34-B）：「只保留必要字段」与「正文静态加密」要能被实现，得有名单与参数 ──
+    test('storedFields 里去掉 body ⇒ 报（正文没地方放，等于"不存正文"这条被悄悄改掉）', () {
+      final broken = mutate((raw) {
+        (raw['retention'] as Map<String, Object?>)['storedFields'] =
+            ((raw['retention'] as Map<String, Object?>)['storedFields']
+                    as List<Object?>)
+                .where((e) => e != 'body')
+                .toList();
+      });
+      expectProblem(broken, 'retention.storedFields 少了 body', '正文必须有存放字段');
+    });
+
+    test('只留必要字段=true 却不给名单 ⇒ 报（没有名单，那句话就只是愿望）', () {
+      final broken = mutate((raw) {
+        (raw['retention'] as Map<String, Object?>).remove('storedFields');
+      });
+      expectProblem(broken, '必须给出一份 storedFields', '白名单必须存在');
+    });
+
+    test('GCM 的 IV 长度改成 16 ⇒ 报（那是 CBC 的习惯，GCM 用 12）', () {
+      final broken = mutate((raw) {
+        ((raw['retention'] as Map<String, Object?>)['bodyAtRest']
+                as Map<String, Object?>)['ivBytes'] =
+            16;
+      });
+      expectProblem(broken, 'ivBytes 必须是 12', 'IV 长度写错会削弱 GCM');
+    });
+
+    test('没有密钥时允许退回明文 ⇒ 报（正文这条不允许，TOTP 那条取舍不外溢）', () {
+      final broken = mutate((raw) {
+        ((raw['retention'] as Map<String, Object?>)['bodyAtRest']
+                as Map<String, Object?>)['refuseWithoutKey'] =
+            false;
+      });
+      expectProblem(broken, 'refuseWithoutKey 必须为 true', '缺密钥只能拒绝入队');
+    });
+
+    test('把终态列进 pollableStates ⇒ 报（终态已经没有正文可发）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['pollableStates'] = [
+          ...((raw['delivery'] as Map<String, Object?>)['pollableStates']
+              as List<Object?>),
+          'delivered',
+        ];
+      });
+      expectProblem(broken, 'pollableStates 里有终态', '终态不可投递');
+    });
+
+    test('初态不在 pollableStates 里 ⇒ 报（新消息永远不会被取走）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['pollableStates'] = [
+          'waiting_online',
+        ];
+      });
+      expectProblem(broken, '必须含初态', 'poll 取不到新消息');
+    });
+
+    test('dedupeRefreshWhile 写成一个不存在的状态 ⇒ 报（"什么时候可以覆盖"也是状态机的事）', () {
+      final broken = mutate((raw) {
+        (raw['privacy'] as Map<String, Object?>)['dedupeRefreshWhile'] =
+            'fresh';
+      });
+      expectProblem(broken, 'dedupeRefreshWhile 必须是一个投递状态', '覆盖条件必须落在状态表里');
+    });
   });
 }

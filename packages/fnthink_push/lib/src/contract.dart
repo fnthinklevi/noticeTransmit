@@ -760,6 +760,59 @@ class FnthinkContract {
           waiting['withBackupChannel'] != waiting['withoutBackupChannel'],
       '$resendFrom 的 withBackupChannel / withoutBackupChannel 必须都存在且互不相同：$waiting',
     );
+    // poll 能取走哪些状态也是契约事实：代码里写 `state === 'queued'` 就是第二份状态表。
+    final pollable = strings(const ['delivery', 'pollableStates']);
+    need(
+      pollable.isNotEmpty && pollable.toSet().length == pollable.length,
+      'delivery.pollableStates 必须非空且不重复：$pollable',
+    );
+    need(
+      dStates.toSet().containsAll(pollable),
+      'delivery.pollableStates 里有不存在的状态：$pollable vs $dStates',
+    );
+    need(
+      dInitial == null || pollable.contains(dInitial),
+      'delivery.pollableStates 必须含初态（新消息就是从这里被取走的）：$pollable',
+    );
+    need(
+      pollable.every((s) => !dTerminals.contains(s)),
+      'delivery.pollableStates 里有终态（终态已经没有正文可发）：$pollable vs $dTerminals',
+    );
+    need(
+      str(const ['privacy', 'dedupeRefreshWhile']) != null &&
+          dStates.contains(str(const ['privacy', 'dedupeRefreshWhile'])),
+      'privacy.dedupeRefreshWhile 必须是一个投递状态：'
+      '${str(const ['privacy', 'dedupeRefreshWhile'])}',
+    );
+
+    // ── 存储侧的"必要字段"与正文静态加密（T34-B）──
+    final storedFields = strings(const ['retention', 'storedFields']);
+    need(
+      storedFields.isNotEmpty &&
+          storedFields.toSet().length == storedFields.length,
+      'retention.storeOnlyNecessaryFields=true 就必须给出一份 storedFields 名单（非空不重复）：$storedFields',
+    );
+    for (final required in const ['messageId', 'state', 'queuedAt', 'body']) {
+      need(
+        storedFields.contains(required),
+        'retention.storedFields 少了 $required —— 没有它就跑不了状态机或正文释放',
+      );
+    }
+    final atRest = map(const ['retention', 'bodyAtRest']) ?? const {};
+    need(
+      atRest['algorithm'] == 'aes-256-gcm',
+      'retention.bodyAtRest.algorithm 必须是 aes-256-gcm（换算法=换协议）：${atRest['algorithm']}',
+    );
+    need(
+      (atRest['ivBytes'] as num?)?.toInt() == 12,
+      'retention.bodyAtRest.ivBytes 必须是 12（GCM 的标准 IV 长度）：${atRest['ivBytes']}',
+    );
+    need(
+      atRest['refuseWithoutKey'] == true &&
+          boolOf(const ['privacy', 'serverStoresBodyPlaintext']) == false,
+      'retention.bodyAtRest.refuseWithoutKey 必须为 true：没有密钥时**拒绝入队**，'
+      '不许像 TOTP 那样退回明文存储（那会当场违反 serverStoresBodyPlaintext=false）',
+    );
 
     // ── 身份与凭证（红线）──
     need(

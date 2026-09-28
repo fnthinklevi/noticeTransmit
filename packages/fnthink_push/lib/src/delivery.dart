@@ -177,8 +177,9 @@ DeliveryStep advanceDelivery(
           resend: waitingResend(),
         );
       }
-      // 还有重试预算：留在 delivering（契约迁移表里的自环），等下一次 dispatch。
-      return to('delivering');
+      // 还有重试预算 ⇒ **回到 queued 等下一次 poll**。服务端不能主动推，
+      // 留在 delivering 自环等于卡住：没有任何事件能再从 delivering 触发一次投递。
+      return to('queued');
     case 'ttl_elapsed':
       if (isDeliveryTerminal(contract, state)) return ignore();
       return to('expired', receipt: 'expired');

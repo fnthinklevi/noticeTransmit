@@ -149,7 +149,29 @@
     "whilePending": "static_encrypted",
     "deleteBodyOn": ["delivered", "expired", "dropped"],
     "_deleteBodyOnWhy": "必须是**每一个终态**，一个都不能漏。T34 第一次写这条时只列了 delivered 与 expired，而「被 200 条上限挤掉」的 dropped 也是终态——漏它的后果是：那条消息永远不会再被投递，正文却按契约合法地留到 7 天。这正是「不静默丢、也不无谓留」里后一半的反面。",
-    "storeOnlyNecessaryFields": true
+    "storeOnlyNecessaryFields": true,
+    "_titleWhere": "名单里**没有 title**：标题与正文一起装进 `body` 那个密信封（见 bodyAtRest）。分开存就是把标题留在盘上明文可读 —— 而验证码、金额、姓名这类东西常常就在标题里 —— 「正文加密了」不等于「内容没泄露」。",
+    "_digestSuffixWhy": "名单里是 `dedupeIdDigest` 而不是 `dedupeId`：落盘闸门按值的形状拦「像口令的东西」，而发送方给的 dedupe_id 是任意串（UUID 去掉连字符就正好 32 位 = 端点口令位数）。存摘要既留得住幂等匹配，也不会让一条正常消息被自己的闸门拒写。",
+    "_storedFieldsWhy": "T34-B：这条布尔值要能被实现和检查，就得有一份字段名单 —— 没有名单，「只保留必要字段」就只能靠写代码的人自觉，而多存一个字段不会报错，只会到某天被发现存了不该存的东西。名单之外的入参一律丢弃（不是拒绝整条请求）。",
+    "storedFields": [
+      "messageId",
+      "device",
+      "type",
+      "item",
+      "body",
+      "dedupeIdDigest",
+      "state",
+      "attempts",
+      "queuedAt",
+      "updatedAt"
+    ],
+    "bodyAtRest": {
+      "algorithm": "aes-256-gcm",
+      "keyInfo": "fnthink-body-v1",
+      "ivBytes": 12,
+      "refuseWithoutKey": true,
+      "_why": "GCM 的 IV 标准长度就是 12 字节；`refuseWithoutKey=true` 是刻意的：本仓既有的 TOTP 加密在没有 ENCRYPTION_KEY 时**退回明文**（那是运维不能因为少配一个环境变量就被锁在门外的取舍），而正文不行 —— 契约写着 serverStoresBodyPlaintext=false，退回明文就是当场违反协议。宁可拒绝入队并回 500，也不静默留明文。"
+    }
   },
 
   "limits": {
@@ -235,7 +257,7 @@
     "terminalStates": ["delivered", "expired", "dropped"],
     "transitions": {
       "queued": ["delivering", "expired", "dropped"],
-      "delivering": ["delivered", "delivering", "waiting_online", "expired"],
+      "delivering": ["queued", "delivered", "waiting_online", "expired"],
       "waiting_online": ["delivering", "expired"],
       "delivered": [],
       "expired": [],
@@ -250,8 +272,11 @@
       "ttl_elapsed",
       "evicted"
     ],
+    "_retryEdgeWhy": "失败后是**回到 queued 等下一次 poll**，不是在 delivering 里自环：服务端不能主动推，只有设备来取才有第二次机会。自环看着像「还在重试」，实际没有任何事件能再触发它（dispatch 只认 queued），消息就卡在那儿直到 7 天到期。",
     "_retryTotalMeans": "limits.deliveryRetryTotal 是**首次投递之外**的重试次数，所以总尝试数 = 1 + deliveryRetryTotal。这句不写清就会一边按 2 次、另一边按 3 次发，而它的表现是「偶尔多推一条」——最难查的那种。",
-    "resendDecisionFrom": "waitingOnline"
+    "resendDecisionFrom": "waitingOnline",
+    "_pollableStatesWhy": "poll 能取走哪些状态，也必须写在契约里：代码里出现 `if (state === 'queued')` 就是第二份状态表，将来加一个可重发态时它不报错，只会让那条状态永远取不到。终态不得出现在这里（终态没有正文可发了）。",
+    "pollableStates": ["queued", "waiting_online"]
   },
 
   "transport": {
@@ -272,6 +297,8 @@
     "auditStoresMetadataOnly": true,
     "credentialsNeverIn": ["url", "log"],
     "messageLevelDedupe": "dedupe_id",
-    "dedupeRefreshSemantics": "同 dedupe_id 覆盖而非新增"
+    "dedupeRefreshSemantics": "同 dedupe_id 覆盖而非新增",
+    "_dedupeRefreshWhileWhy": "「覆盖」只在消息**还没发出去**时成立（同一事件重复上报，换一份新正文而已）。已经在飞或已终态时再来一条同 dedupe_id 的，判 duplicate 而不是重发 —— 否则用户会为同一条通知被提醒两次，而 dedupe 存在的意义就是防这个。",
+    "dedupeRefreshWhile": "queued"
   }
 }
