@@ -856,6 +856,14 @@ journalctl -u update-server -f
    ⚠️ **目标 URL 不要带路径、不要以 `/` 结尾**。`proxy_pass` 尾部带不带 `/` 决定路径怎么拼：带尾斜杠时
    Nginx 会把 location 前缀**替换**掉 ⇒ 上游收到的是 `/poll` 而不是 `/api/fnthink/poll` ⇒ 整面 404，
    而你在服务器上直连上游却是好的（最难自查的一类）。宝塔输入框里就填 `http://127.0.0.1:3456`。
+
+   > 🔎 **识别特征（一次就能判死）**：访问 `https://<推送域名>/api/fnthink/poll` 得到的是
+   > **Express 的错误页** `Cannot POST /poll`（或 `Cannot GET /poll`）—— 注意路径里**没有 `/api/fnthink`**。
+   > 那说明请求确实到了上游，只是前缀被削掉了。命令：
+   > ```bash
+   > curl -s -X POST https://<推送域名>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}' | head -3
+   > # 错：<pre>Cannot POST /poll</pre>      对：{"receipt":"rejected_unsigned"}（HTTP 403）
+   > ```
 3. 站点「配置文件」里改两处，并核对反代段：
 
    ```nginx

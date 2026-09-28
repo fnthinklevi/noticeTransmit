@@ -865,6 +865,14 @@ matter most — three steps:
    makes Nginx **replace** the matched location prefix, so the upstream receives `/poll` instead of
    `/api/fnthink/poll` — the whole face then 404s while a direct call to the upstream works, which is the
    hardest kind of problem to self-diagnose. Type `http://127.0.0.1:3456` in the panel field.
+
+   > 🔎 **Tell-tale sign (one command settles it)**: `https://<push-host>/api/fnthink/poll` answers with
+   > **Express's error page** `Cannot POST /poll` (or `Cannot GET /poll`) — note the path has **no
+   > `/api/fnthink`** in it. The request does reach the upstream; the prefix was stripped on the way.
+   > ```bash
+   > curl -s -X POST https://<push-host>/api/fnthink/poll -H 'Content-Type: application/json' -d '{}' | head -3
+   > # wrong: <pre>Cannot POST /poll</pre>      right: {"receipt":"rejected_unsigned"} (HTTP 403)
+   > ```
 3. In the site's config file, change two things and verify the proxy block:
 
    ```nginx
