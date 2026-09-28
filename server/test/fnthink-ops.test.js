@@ -201,11 +201,11 @@ describe('运维入口（#130-A5）', () => {
     for (const status of Object.keys(revocation.deviceStatuses)) {
       expect(Object.keys(data.statuses)).toContain(status);
     }
-    expect(data.limit).toBe(contract.ops.deviceListMax);
+    expect(data.limit).toBe(contract.ops.listMaxRows);
     expect(data.returned).toBe(Math.min(data.total, data.limit));
     expect(data.truncated).toBe(data.total > data.limit);
     const over = await adminGet('/api/admin/fnthink/devices?limit=999999');
-    expect(over.body.data.limit).toBe(contract.ops.deviceListMax);
+    expect(over.body.data.limit).toBe(contract.ops.listMaxRows);
   });
 
   test('列状态的 status 参数只认契约里的档位（拼错不许静默返回空列表）', async () => {

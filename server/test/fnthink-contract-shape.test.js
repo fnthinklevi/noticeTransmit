@@ -76,7 +76,7 @@ describe('旧契约配新代码（只降级那一段）', () => {
       .get('/api/admin/fnthink/devices')
       .set('x-session-id', sessionId);
     expect(devices.status).toBe(200);
-    expect(devices.body.data.limit).toBe(repoContract.ops.deviceListMax);
+    expect(devices.body.data.limit).toBe(repoContract.ops.listMaxRows);
     // 更新面在这两次之后仍然活着（降级只影响幻念推送那一段）
     const health = await request(app).get('/health');
     expect(health.status).toBe(200);
