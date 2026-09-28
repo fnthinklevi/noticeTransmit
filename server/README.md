@@ -917,9 +917,10 @@ journalctl -u update-server -f
    > curl -s -o /dev/null -w '%{http_code}\n' https://<推送域名>/data/totp.json # 必须 404
    > ```
    >
-   > ⚠️ **配套**：如果站点配置里有 `error_page 404 /404.html;`，加 `location / { return 404; }` 时要把它
-   > **一起注释掉** —— 否则 404 会内部重定向到 `/404.html`、又落回 `location /` 再 404，Nginx 判定
-   > 内部重定向循环后返回 **500**（推送到此就变成"500 而不是 404"，更难判读）。
+   > ⚠️ **配套**：若站点配置里有 `error_page 404 /404.html;`，`return 404` 仍会正常返回 404（实测；`error_page`
+   > 只把这一次响应内部改成去取 `/404.html`），但那样会多一次无意义的内部跳转、且 `/404.html` 一旦真的存在
+   > 就会把站点里的那个页面端出去 —— 所以**建议把它注释掉**。若你看到的是 **500**（`rewrite or internal
+   > redirection cycle`），那说明这个组合在你的 Nginx 上进了内部重定向循环，注释掉 `error_page 404` 即可。
    > 双保险（推荐）：把该站点的**网站目录**改成一个空目录，别指向代码目录 —— 这样即便 `location /`
    > 漏写，静态直出也拿不到任何源码或数据。
    >

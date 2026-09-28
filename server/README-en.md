@@ -933,10 +933,11 @@ matter most — three steps:
    > curl -s -o /dev/null -w '%{http_code}\n' https://<push-host>/data/totp.json # must be 404
    > ```
    >
-   > ⚠️ **Companion fix**: if the site config has `error_page 404 /404.html;`, comment it out **together with**
-   > adding `location / { return 404; }` — otherwise the 404 internally redirects to `/404.html`, falls back into
-   > `location /`, 404s again, and Nginx answers **500** after detecting an internal redirection cycle (so the
-   > symptom becomes "500 instead of 404", which is harder to read).
+   > ⚠️ **Companion note**: with `error_page 404 /404.html;` still enabled, `return 404` still answers **404**
+   > correctly (measured — `error_page` only rewrites that one response to fetch `/404.html`), but it costs a
+   > pointless internal redirect and will serve that page the moment a real `/404.html` exists — so **comment it
+   > out**. If you instead see **500** (`rewrite or internal redirection cycle`), this combination entered an
+   > internal redirect loop on your Nginx; commenting out `error_page 404` fixes it.
    > Belt and braces (recommended): point that site's **website directory** at an empty directory instead of the
    > code directory — then even a missing `location /` cannot leak source or data.
    >
