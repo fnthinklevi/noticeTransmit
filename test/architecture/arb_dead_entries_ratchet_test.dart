@@ -47,11 +47,11 @@ import '../support/source_guards.dart';
 /// 所以这一步之后**不再用数字当棘轮**：`_reserved` 是唯一允许存在的死词条名单，每一条都要写下
 /// 它属于哪个任务（写不出任务号的，这次一律删）。数字会漂、名字不会 —— 而且接完了忘删登记行
 /// 也会红（名单与实测集合双向比对），登记表变垃圾场这条路是堵住的。
-const Map<String, String> _reserved = {
-  'mainBackupExcluded':
-      'T11 遗留 → #136：主备弹层里「不参与」档只有徽标（channel_status_page.dart:388/485）、'
-      '没有解释行，而对称的「未设置」分支有 mainBackupUnsetNotice（:344）。接完删本行。',
-};
+///
+/// 登记表现在是**空的**：唯一预留的那条 `mainBackupExcluded` 已经接上（#136，通道状态弹层里
+/// 「不参与」档的解释行，与「未设置」的 `mainBackupUnsetNotice` 对称）。空表意味着从这一刻起
+/// 零容忍 —— 新增一个没人用的词条，要么接上、要么删掉，没有第三种走法。
+const Map<String, String> _reserved = {};
 
 /// 这些词出现在代码里时**只可能是语法**，不可能是 l10n 调用点（`try {} on X catch`、
 /// `for (x in y)`、`void main()`）。裸标识符判据对它们无效，必须看到 `.key` 才算用过。
@@ -137,6 +137,27 @@ List<String> deadEntries(Iterable<String> arbKeys, String sourceText) {
   return arbKeys.where((k) => !used(k)).toList()..sort();
 }
 
+/// 登记表与实测死集合的比对（判据本体，独立成函数是为了能被合成样本反证）。
+/// 空表 + 空死集合是今天的实际状态，"理由没任务号""名单漂了"这两条在真实数据上**点不着** ——
+/// 只能靠合成样本证明它们不是装饰。
+List<String> registryGaps({
+  required Iterable<String> dead,
+  required Map<String, String> reserved,
+  required Iterable<String> arbKeys,
+}) {
+  final deadSet = dead.toSet();
+  final arbSet = arbKeys.toSet();
+  return [
+    for (final k in dead.where((k) => !reserved.containsKey(k))) '未登记：$k',
+    for (final k in reserved.keys.where((k) => !deadSet.contains(k)))
+      '登记已过期（接上了就删那一行）：$k',
+    for (final e in reserved.entries)
+      if (!RegExp(r'(T\d+|#\d+)').hasMatch(e.value)) '理由没任务号：${e.key}',
+    for (final k in reserved.keys)
+      if (!arbSet.contains(k)) '名单漂了：$k',
+  ]..sort();
+}
+
 /// 只数真正的词条键：元数据（`@name`、`@@localeName`）与占位符描述不算。
 Iterable<String> messageKeys(Map<String, Object?> arb) =>
     arb.keys.where((k) => !k.startsWith('@') && k != 'placeholder');
@@ -193,6 +214,9 @@ void main() {
       // 它曾经是死的：ARB 里备好"页面初始化失败: {e}"，而 main_page 的装配链 catch
       // 只 debugPrint 了一行 —— 用户看到的是一个半初始化的应用和一句解释都没有。
       expect(dead, isNot(contains('pageInitFailed')));
+      // #136 同一形状的第二例：主备弹层里「不参与」有档位有徽标却没有解释行（对称的
+      // 「未设置」有 mainBackupUnsetNotice）。文案早就在字典里，缺的从来不是字。
+      expect(dead, isNot(contains('mainBackupExcluded')));
     });
 
     test('只被手写扩展 app_localizations_enum_helpers 用到的键 ⇒ 不算死词条', () {
@@ -247,35 +271,62 @@ void main() {
       );
     });
 
-    test('死词条必须逐条写在登记表里，且登记表现在只剩这一条', () {
-      // 数字棘轮（`_ratchet`）已被这个名字登记表取代：数字会漂，名字不会，
-      // 而且"接完了忘删登记行"也会红（下面第二个断言）。
+    test('登记比对着真实数据必须一条问题都没有（空表 + 空死集合）', () {
+      // 数字棘轮（`_ratchet`）已被这个名字登记表取代：数字会漂，名字不会。
+      // #136 接上最后一条预留之后，"空"就是字面意思：**没有任何**词条可以
+      // "先备着以后再说" —— 要么接上、要么删、要么写下它属于哪个还没做的任务号。
       expect(
-        dead.where((k) => !_reserved.containsKey(k)),
+        registryGaps(
+          dead: dead,
+          reserved: _reserved,
+          arbKeys: messageKeys(arb),
+        ),
         isEmpty,
-        reason:
-            '这些词条没人用又没登记（当前 ${dead.length} 条死词条）：'
-            '${dead.where((k) => !_reserved.containsKey(k)).join(", ")}\n'
-            '要么接上它，要么删掉；确实要为以后的页面预留，就在 _reserved 里'
-            '写下它属于哪个任务号 —— 写不出任务号的那类，就是该删的那一类。',
+        reason: '当前死集合：${dead.join(", ")}；登记表：${_reserved.keys.join(", ")}',
+      );
+    });
+
+    test('登记表比对的四种问题都点得着（真实数据上点不着，只能合成）', () {
+      // 今天的真实数据是"零死词条 + 空登记表"，下面四类问题**一条都触发不了**。
+      // 不在这里用合成样本钉住，它们就会在无人察觉的情况下变成装饰 ——
+      // "接完了忘删登记行"恰恰是最容易长期存在、又最没人看的那一类。
+      const arbKeys = ['wired', 'leftover', 'ghost', 'noTask'];
+      expect(registryGaps(dead: ['leftover'], reserved: {}, arbKeys: arbKeys), [
+        '未登记：leftover',
+      ]);
+      expect(
+        registryGaps(
+          dead: [],
+          reserved: {'wired': 'T63 已接上'},
+          arbKeys: arbKeys,
+        ),
+        contains('登记已过期（接上了就删那一行）：wired'),
       );
       expect(
-        dead.where((k) => _reserved.containsKey(k)),
-        _reserved.keys.toList(),
-        reason: '登记表里这些键已经不是死词条了（接上了就删那一行，别让它变垃圾场）',
+        registryGaps(
+          dead: ['noTask'],
+          reserved: {'noTask': '以后某个页面要用'},
+          arbKeys: arbKeys,
+        ),
+        contains('理由没任务号：noTask'),
       );
-      for (final entry in _reserved.entries) {
-        expect(
-          RegExp(r'(T\d+|#\d+)').hasMatch(entry.value),
-          isTrue,
-          reason: '${entry.key} 的登记理由里没有任务号：${entry.value}',
-        );
-        expect(
-          arb.containsKey(entry.key),
-          isTrue,
-          reason: '${entry.key} 登记着，但 ARB 里已经没有这条键了 ⇒ 名单漂了',
-        );
-      }
+      expect(
+        registryGaps(
+          dead: ['ghost'],
+          reserved: {'ghost': 'T99 预留'},
+          arbKeys: ['wired'],
+        ),
+        contains('名单漂了：ghost'),
+      );
+      // 反面对手：合法登记必须一条问题都不报，否则上面四条只是"总能红"的摆设。
+      expect(
+        registryGaps(
+          dead: ['leftover'],
+          reserved: {'leftover': 'W4 → #137：那一页还没接线'},
+          arbKeys: arbKeys,
+        ),
+        isEmpty,
+      );
     });
 
     test('T63-B 第二刀删掉的必须回不来（同名键再出现就红）', () {

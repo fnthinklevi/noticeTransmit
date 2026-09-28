@@ -300,6 +300,9 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
           final unsetCount = channels
               .where((c) => c.role == ChannelConfigCodec.roleUnset)
               .length;
+          final excludedCount = channels
+              .where((c) => c.role == ChannelConfigCodec.roleNone)
+              .length;
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -345,6 +348,21 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
                         style: const TextStyle(
                           fontSize: 12.5,
                           color: AppColors.orange,
+                        ),
+                      ),
+                    ),
+                  // 对称的那一格：「不参与」有档位、有徽标，却一句话都没有。用户把一条通道
+                  // 点成"不参与"之后看到的是它仍躺在列表里但不推送 —— 不解释一句，
+                  // "保留配置随时归队"和"这条已经废了"在界面上长得一模一样。
+                  if (excludedCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        l10n.mainBackupExcluded,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.4,
+                          color: AppColors.secondaryLabel(context),
                         ),
                       ),
                     ),

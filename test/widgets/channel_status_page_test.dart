@@ -292,6 +292,46 @@ void main() {
       expect(find.text('主'), findsNWidgets(2));
     });
 
+    testWidgets('「不参与」也有一句解释：保留配置但不推送（#136 接上 mainBackupExcluded）', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 2800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      final whId = webhookService.channels.first['id'] as String;
+
+      await tester.tap(find.byKey(const ValueKey('channel-status-open-roles')));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('随时可归队'),
+        findsNothing,
+        reason: '一条都没标"不参与"时不该凭空冒出一句解释',
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ValueKey('role-picker-webhook-$whId')),
+          matching: find.text('不参与'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        webhookService.channels.first['role'],
+        'none',
+        reason: '选了没落库 = 关掉弹层就复原，用户以为点了没反应',
+      );
+      expect(
+        find.textContaining('随时可归队'),
+        findsOneWidget,
+        reason: '「未设置」有解释行而「不参与」没有 ⇒ 用户分不清"保留配置随时归队"和"这条已经废了"',
+      );
+    });
+
     testWidgets('备用模式横幅：锁存时出现，点「切回主通道」调原生并消失', (tester) async {
       tester.view.physicalSize = const Size(1200, 2800);
       tester.view.devicePixelRatio = 1.0;
