@@ -1176,16 +1176,26 @@ class FnthinkContract {
         '按上面的分界它该受按 IP 或按发送方的额度管',
       );
     }
-    final burstInterval = intOf(
-      const ['presence', 'burstWhenPending', 'intervalSeconds'],
-    );
-    final burstDuration = intOf(const ['presence', 'burstWhenPending', 'durationSeconds']);
+    final burstInterval = intOf(const [
+      'presence',
+      'burstWhenPending',
+      'intervalSeconds',
+    ]);
+    final burstDuration = intOf(const [
+      'presence',
+      'burstWhenPending',
+      'durationSeconds',
+    ]);
     need(
       (burstInterval ?? 0) > 0 && (burstDuration ?? 0) > 0,
       'presence.burstWhenPending 的 intervalSeconds / durationSeconds 必须是正整数：'
       '轮询侧的分钟额度是**从它推导**的，这里缺一个数推导就只能猜',
     );
-    final steadyInterval = intOf(const ['presence', 'pollIntervalSeconds', 'min']);
+    final steadyInterval = intOf(const [
+      'presence',
+      'pollIntervalSeconds',
+      'min',
+    ]);
     need(
       (steadyInterval ?? 0) > 0 && (burstInterval ?? 0) < (steadyInterval ?? 0),
       'burstWhenPending.intervalSeconds 必须小于 pollIntervalSeconds.min：'
@@ -1200,7 +1210,10 @@ class FnthinkContract {
     final burstPerMinute = burstInterval == null || burstInterval <= 0
         ? null
         : (60 / burstInterval).ceil();
-    final controlPerMinute = intOf(const ['limits', 'unauthenticatedPerMinute']);
+    final controlPerMinute = intOf(const [
+      'limits',
+      'unauthenticatedPerMinute',
+    ]);
     need(
       burstPerMinute == null ||
           controlPerMinute == null ||

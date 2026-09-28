@@ -1039,7 +1039,11 @@ void main() {
           'pairConfirm',
         ];
       });
-      expectProblem(broken, '不能按 IP 计', 'verifyAgainst=device-table-public-key ⇒ 该按发送方计');
+      expectProblem(
+        broken,
+        '不能按 IP 计',
+        'verifyAgainst=device-table-public-key ⇒ 该按发送方计',
+      );
     });
 
     test('反过来把 register 放进按发送方那一档 ⇒ 报（它还没有身份可计）', () {
@@ -1059,11 +1063,7 @@ void main() {
       final broken = mutate((raw) {
         (raw['limits'] as Map<String, Object?>)['unauthenticatedPerMinute'] = 6;
       });
-      expectProblem(
-        broken,
-        '不许严于轮询侧的推导额度',
-        '按 IP 计的端点额度只能当洪水闸，卡紧了误伤的是诚实用户',
-      );
+      expectProblem(broken, '不许严于轮询侧的推导额度', '按 IP 计的端点额度只能当洪水闸，卡紧了误伤的是诚实用户');
     });
 
     test('提频与常态之间的重叠余量被抹成零 ⇒ 报（切换那一分钟会被判成攻击）', () {
@@ -1076,7 +1076,8 @@ void main() {
     test('提频间隔不比常态间隔快 ⇒ 报（推导所依据的那组参数本身自相矛盾）', () {
       final broken = mutate((raw) {
         ((raw['presence'] as Map<String, Object?>)['burstWhenPending']
-                as Map<String, Object?>)['intervalSeconds'] = 25;
+                as Map<String, Object?>)['intervalSeconds'] =
+            25;
       });
       expectProblem(broken, '必须小于 pollIntervalSeconds.min', '比常态还慢的"提频"没有意义');
     });
