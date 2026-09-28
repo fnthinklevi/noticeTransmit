@@ -93,7 +93,10 @@ void main() {
         File('$root/lib/services/active_channels.dart').readAsStringSync(),
       );
       final home = stripComments(
-        File('$root/lib/pages/main_page.dart').readAsStringSync(),
+        // 首页那一族有 3 个 part（R3 拆分），而下面这条是**负向**断言
+        // （"首页不许自己算标签"）—— 只读 main_page.dart 的话，把标签代码写进
+        // main_page_actions.dart 就看不见（T65 盘点时发现，见 base.md 116）。
+        librarySource(root, 'lib/pages/main_page.dart'),
       );
       final snapshot = stripComments(
         File('$root/lib/services/notification_service.dart').readAsStringSync(),

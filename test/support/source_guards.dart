@@ -124,3 +124,31 @@ String blockAfter(String source, String signature) {
   }
   return source.substring(start);
 }
+
+/// 读**整个 library** 的源码：入口文件 + 它声明的全部 `part '...'`。
+///
+/// 为什么需要它：`R3` 那类拆分把实现从 `main_page.dart` 搬进 `main_page_actions.dart`
+/// （同一个 library 的 part），而大量守卫是"读那一个文件 + 断言里面没有 X"。
+/// 于是**负向断言从拆分那天起就瞎了** —— 把 X 写进 part 文件，守卫照样绿。
+/// （T65 盘点 mounted 棘轮时发现的，见 base.md 116。）
+///
+/// 用法：负向断言（"这里不许长出第二份实现"）一律用本函数；
+/// 正向断言盯的是"某个具体文件确实调了它"，那种时候按需要单独读某个 part。
+String librarySource(String root, String entryRelative) {
+  final entry = File('$root/$entryRelative');
+  final entryText = entry.readAsStringSync();
+  final parts = <String>[entryText];
+  final dir = entry.parent.path;
+  final declared = RegExp(
+    r"^part\s+'([^']+)'",
+    multiLine: true,
+  ).allMatches(entryText).map((m) => m.group(1)!).toList();
+  for (final rel in declared) {
+    final f = File('$dir${Platform.pathSeparator}$rel');
+    if (!f.existsSync()) {
+      throw StateError('$entryRelative 声明了 part $rel 但文件不存在');
+    }
+    parts.add(f.readAsStringSync());
+  }
+  return parts.join('\n');
+}
