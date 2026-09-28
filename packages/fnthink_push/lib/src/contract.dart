@@ -867,6 +867,17 @@ class FnthinkContract {
         'retention.storedFields 少了 $required —— 没有它就跑不了状态机或正文释放',
       );
     }
+    // 投递要有目标，回执要有来源。这两个字段是 T35「把投递结果推回发送端」的前提：
+    // 消息表里只记 device 的话，一条已终态的消息**无法回答"该把它的回执送给谁"**，
+    // 而回执是发送端唯一能看见"消息没有送达"的通道（不送达就悄悄烂在库里，
+    // 正是产品不变量「不许静默丢」的反面）。#126 第一片写 poll 时就是被这点卡住的。
+    for (final side in const ['device', 'sender']) {
+      need(
+        storedFields.contains(side),
+        'retention.storedFields 少了 $side：投递/回执少了归属，'
+        '终态消息就没法回答"该通知谁"（回执通道从此没有收件人）',
+      );
+    }
     final atRest = map(const ['retention', 'bodyAtRest']) ?? const {};
     need(
       atRest['algorithm'] == 'aes-256-gcm',

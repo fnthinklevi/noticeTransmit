@@ -620,5 +620,21 @@ void main() {
         '两条并存的路会让发送端去轮一个契约没定义的入口',
       );
     });
+
+    test('storedFields 去掉 sender ⇒ 报（回执通道没有收件人）', () {
+      final broken = mutate((raw) {
+        final keep =
+            ((raw['retention'] as Map<String, Object?>)['storedFields']
+                    as List<Object?>)
+                .where((f) => '$f' != 'sender')
+                .toList();
+        (raw['retention'] as Map<String, Object?>)['storedFields'] = keep;
+      });
+      expectProblem(
+        broken,
+        '投递/回执少了归属',
+        '只记 device 不记 sender，"到终态后告诉发送端"就无从实现（#126 写 poll 时撞上的）',
+      );
+    });
   });
 }

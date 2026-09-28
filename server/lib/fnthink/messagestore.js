@@ -71,6 +71,10 @@ const MACHINE_OWNED = [
   'updatedAt',
   'body',
   'dedupeIdDigest',
+  // 这两个也是机器写的：回执由状态机在哪一步产生、报没报过给发送端，都不是调用方能声明的。
+  // 让调用方给 `receipt`，等于让它替服务端宣布"这条已经 dropped/delivered"。
+  'receipt',
+  'receiptSentAt',
 ];
 
 /// 这两个是**输入**而不是存储字段：标题被装进密信封、dedupe_id 被折成摘要。
@@ -103,6 +107,13 @@ function pendingCountFor(contract, messages, device) {
 function applyStep(messages, message, step, now) {
   message.state = step.state;
   message.attempts = step.attempts;
+  // 回执由**状态机**产生并留在这里（不是由路由另写一份 state→receipt 映射）。
+  // 忽略步不覆盖：`ignored` 意味着什么都没发生，把上一次的回执擦掉就是丢账。
+  if (step.receipt) message.receipt = step.receipt;
+  if (step.ignored) {
+    messages[message.messageId] = message;
+    return step;
+  }
   if (step.deleteBody) {
     // 记录本身留着（审计只要元数据：privacy.auditStoresMetadataOnly），正文必须走。
     delete message.body;
@@ -110,6 +121,33 @@ function applyStep(messages, message, step, now) {
   message.updatedAt = now;
   messages[message.messageId] = message;
   return step;
+}
+
+/// 回执账：把"我发出去、且已经到了终态"的消息回给发送端。
+///
+/// 三条判据都得在这里，而不是在路由里：
+///  ① 只回**终态**（非终态还没有结论，回出去就是谎报）；
+///  ② 只回**没报过**的（`receiptSentAt` 一置，同一条回执不会每次 poll 重复刷屏）；
+///  ③ 正文已经按契约删掉了，回执照样发得出 ——「送达了没有」是元数据，不是内容。
+function receiptsForSender(contract, messages, sender, now, limit) {
+  if (!sender) return [];
+  const mine = Object.values(messages)
+    .filter(
+      (m) =>
+        m.sender === sender &&
+        delivery.isTerminal(contract, m.state) &&
+        m.receipt &&
+        !m.receiptSentAt,
+    )
+    .sort(
+      (a, b) => (a.updatedAt || 0) - (b.updatedAt || 0) || (a.messageId < b.messageId ? -1 : 1),
+    );
+  const out = mine.slice(0, Math.max(0, Number(limit) || 0));
+  for (const m of out) {
+    m.receiptSentAt = now;
+    messages[m.messageId] = m;
+  }
+  return out.map((m) => ({ messageId: m.messageId, target: m.device, receipt: m.receipt }));
 }
 
 /**
@@ -279,5 +317,6 @@ module.exports = {
   expireDueMessages,
   loadMessages,
   pendingCountFor,
+  receiptsForSender,
   saveMessages,
 };

@@ -373,3 +373,190 @@ describe('重试与 poll 取货', () => {
     expect(store.expireDueMessages(contract, messages, later + DAY).expired).toEqual([]);
   });
 });
+
+// ── 回执账（T35 的前提）──
+// 写 poll 路由时才发现的缺口：消息表只记 device（投给谁），没记 sender（谁发的），
+// 于是"到了终态之后把结果告诉发送端"这句话**根本没有收件人可查** —— 回执通道不是没实现，
+// 是无从实现。契约 storedFields 因此加了 sender，这几条用例钉的就是它的下游三件事。
+describe('回执账（T35）', () => {
+  const SENDER = '8K3FJ6QPTM9WZ4VHNS';
+  const OTHER_SENDER = '7YD4RKQPBM8XZ3VHNT';
+
+  function putFrom(messages, sender, device, seq, now) {
+    return store.enqueue(
+      contract,
+      messages,
+      {
+        sender,
+        device,
+        type: 'notice',
+        item: 'app:a',
+        title: '标题' + seq,
+        body: '正文' + seq + '-MARKER-' + seq,
+        dedupeId: 'rd-' + seq,
+      },
+      now === undefined ? T0 + seq : now,
+      KEY,
+    );
+  }
+
+  test('sender 落盘；receipt / receiptSentAt 是机器自持字段，调用方给不进去', () => {
+    const messages = {};
+    const r = store.enqueue(
+      contract,
+      messages,
+      {
+        sender: SENDER,
+        device: 'DEV-1',
+        type: 'notice',
+        body: 'b',
+        // 这两个字段一旦被调用方能写，就等于让发送端自己宣布"这条已经 dropped/delivered"
+        receipt: 'delivered',
+        receiptSentAt: 1,
+        messageId: 'attacker-chosen-id',
+      },
+      T0,
+      KEY,
+    );
+    expect(r.message.sender).toBe(SENDER);
+    expect(r.message.receipt).toBeUndefined();
+    expect(r.message.receiptSentAt).toBeUndefined();
+    expect(r.message.messageId).not.toBe('attacker-chosen-id');
+    expect(r.droppedFields).toEqual(expect.arrayContaining(['receipt', 'receiptSentAt']));
+  });
+
+  test('ack_ok 进 delivered ⇒ 状态机把回执留档，同时正文按契约释放', () => {
+    const messages = {};
+    const { message } = putFrom(messages, SENDER, 'DEV-1', 1);
+    store.advanceMessage(contract, messages, message.messageId, 'dispatch', { now: T0 + 10 });
+    const step = store.advanceMessage(contract, messages, message.messageId, 'ack_ok', {
+      now: T0 + 20,
+    });
+    expect(step.message.receipt).toBe('delivered');
+    expect(step.message.body).toBeUndefined();
+  });
+
+  test('回执只报一次：第二次取是空的（同一条结果每次 poll 刷屏不是"送达可见"）', () => {
+    const messages = {};
+    const { message } = putFrom(messages, SENDER, 'DEV-1', 2);
+    store.advanceMessage(contract, messages, message.messageId, 'dispatch', { now: T0 + 10 });
+    store.advanceMessage(contract, messages, message.messageId, 'ack_ok', { now: T0 + 20 });
+
+    const first = store.receiptsForSender(contract, messages, SENDER, T0 + 30, 50);
+    expect(first).toEqual([
+      { messageId: message.messageId, target: 'DEV-1', receipt: 'delivered' },
+    ]);
+    // ⚠ 返回对象里**没有 body**：正文早已删除，回执是元数据（契约 auditStoresMetadataOnly）
+    expect(Object.keys(first[0]).sort()).toEqual(['messageId', 'receipt', 'target']);
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 40, 50)).toEqual([]);
+  });
+
+  test('别人发的消息不进我的回执账', () => {
+    const messages = {};
+    const { message } = putFrom(messages, OTHER_SENDER, 'DEV-1', 3);
+    store.advanceMessage(contract, messages, message.messageId, 'dispatch', { now: T0 + 10 });
+    store.advanceMessage(contract, messages, message.messageId, 'ack_ok', { now: T0 + 20 });
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 30, 50)).toEqual([]);
+    expect(store.receiptsForSender(contract, messages, '', T0 + 30, 50)).toEqual([]);
+  });
+
+  test('非终态不回回执；迟到的重复 ack 也不会把已落的回执擦掉', () => {
+    const messages = {};
+    const { message } = putFrom(messages, SENDER, 'DEV-1', 4);
+    // 还在排队：没有任何结论可报
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 30, 50)).toEqual([]);
+    store.advanceMessage(contract, messages, message.messageId, 'dispatch', { now: T0 + 10 });
+    store.advanceMessage(contract, messages, message.messageId, 'ack_ok', { now: T0 + 20 });
+    // 第二次 ack_ok 是"ignored"步：状态、回执、时间都不能动（擦掉回执就是丢账）
+    const late = store.advanceMessage(contract, messages, message.messageId, 'ack_ok', {
+      now: T0 + 99,
+    });
+    expect(late.step.ignored).toBeTruthy();
+    expect(messages[message.messageId].receipt).toBe('delivered');
+    expect(messages[message.messageId].updatedAt).toBe(T0 + 20);
+  });
+
+  test('被上限挤位的那些，发送端也会收到一条 dropped 回执（不许静默丢）', () => {
+    const messages = {};
+    const max = contract.retention.pendingPerDeviceMax;
+    const putMany = (sender, seqBase, count) => {
+      for (let i = 0; i < count; i++) putFrom(messages, sender, 'DEV-BULK', seqBase + i);
+    };
+    putMany(SENDER, 1000, max);
+    putMany(SENDER, 2000, 3); // 超出的三条把最旧的挤掉
+    const receipts = store.receiptsForSender(contract, messages, SENDER, T0 + 5000, 50);
+    const dropped = receipts.filter((r) => r.receipt === 'dropped');
+    expect(dropped.length).toBe(3);
+    // 挤位回执是**元数据**：这三条的正文必须已经不在表里
+    for (const r of dropped) expect(messages[r.messageId].body).toBeUndefined();
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 5001, 50).length).toBe(0);
+  });
+
+  test('回执上限跟着参数走，不会一次把整段历史倒出来', () => {
+    const messages = {};
+    for (let i = 0; i < 5; i++) {
+      const { message } = putFrom(messages, SENDER, 'DEV-N', 3000 + i);
+      store.advanceMessage(contract, messages, message.messageId, 'ttl_elapsed', { now: T0 });
+    }
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 1, 2).length).toBe(2);
+  });
+
+  test('就算有人把 receipt 写进契约的 storedFields，MACHINE_OWNED 仍是第二道闸', () => {
+    // 这条是被自己的反证逼出来的：把 'receipt' 从 MACHINE_OWNED 里删掉时**没有一顶用例变红**
+    // —— 因为 storedFields 本来就不含 receipt，白名单先把它拦下了，于是那道闸今天不可观察。
+    // 不可观察不等于没用：它防的是"将来有人往 storedFields 里加一个 receipt"，
+    // 那一次改动的后果是发送端可以自己宣布 delivered（正文随之被契约判成可释放）。
+    // 所以这里在 mutate 出来的契约副本上证明第二道闸真的独立生效。
+    const loose = JSON.parse(JSON.stringify(contract));
+    loose.retention.storedFields.push('receipt', 'receiptSentAt');
+    const messages = {};
+    const r = store.enqueue(
+      loose,
+      messages,
+      {
+        sender: SENDER,
+        device: 'DEV-1',
+        type: 'notice',
+        body: 'b',
+        receipt: 'delivered',
+        receiptSentAt: 1,
+      },
+      T0,
+      KEY,
+    );
+    expect(r.message.receipt).toBeUndefined();
+    expect(r.message.receiptSentAt).toBeUndefined();
+    expect(r.message.state).toBe(contract.delivery.initialState);
+  });
+  // 这条是被反证 G3 逼出来的：把过滤里的 isTerminal 去掉，原先**没有任何用例变红**。
+  // 原因不在实现，在判据组合 —— waiting_online 也带一个 receipt 字符串（状态机在那一步就发了它），
+  // 光看"有没有 receipt"会把**还没送达**的东西报出去，违反已定决策「进入 waiting_online 不主动通知发送端」。
+  test('waiting_online 带得回回执字符串，但不能当成结论报给发送端', () => {
+    const messages = {};
+    const { message } = putFrom(messages, SENDER, 'DEV-W', 4000);
+    const budget = 1 + contract.limits.deliveryRetryTotal;
+    for (let i = 0; i < budget; i++) {
+      store.advanceMessage(contract, messages, message.messageId, 'dispatch', {
+        now: T0 + i * 10,
+      });
+      store.advanceMessage(
+        contract,
+        messages,
+        message.messageId,
+        i + 1 < budget ? 'ack_fail' : 'no_ack',
+        { now: T0 + i * 10 + 5 },
+      );
+    }
+    expect(messages[message.messageId].state).toBe('waiting_online');
+    expect(messages[message.messageId].receipt).toBe('waiting_online');
+    // 仍在等对端上线 ⇒ 没有结论可报；等它真送达了再报那一条 delivered
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 1000, 50)).toEqual([]);
+    store.advanceMessage(contract, messages, message.messageId, 'peer_online', {
+      now: T0 + 2000,
+    });
+    store.advanceMessage(contract, messages, message.messageId, 'ack_ok', { now: T0 + 2001 });
+    expect(store.receiptsForSender(contract, messages, SENDER, T0 + 3000, 50)).toEqual([
+      { messageId: message.messageId, target: 'DEV-W', receipt: 'delivered' },
+    ]);
+  });
+});
