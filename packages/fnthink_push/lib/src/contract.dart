@@ -830,6 +830,44 @@ class FnthinkContract {
       boolOf(const ['clientEvents', 'ack', 'resultMustBeReceipt']) == true,
       'clientEvents.ack.resultMustBeReceipt 必须为 true：ack 的 result 必须是回执词表里的值',
     );
+    // 设备报上来的 result 要翻成状态机事件才能推进 —— 这张表必须在契约上。
+    // 写在路由里的那个 switch 就是第二份状态机，而它下一次改动多半只改一边：
+    // 于是"设备说 failed_action"还在把消息往 delivered 推。
+    final resultToEvent =
+        map(const ['clientEvents', 'ack', 'resultToEvent']) ?? const {};
+    need(
+      resultToEvent.isNotEmpty,
+      'clientEvents.ack.resultToEvent 不能为空：没有它，设备的 ack 无法推进状态机',
+    );
+    for (final entry in resultToEvent.entries) {
+      need(
+        receipts.contains('${entry.key}'),
+        'clientEvents.ack.resultToEvent 的键 ${entry.key} 不在 receipts 词表里',
+      );
+      need(
+        dEvents.contains('${entry.value}'),
+        'clientEvents.ack.resultToEvent 的值 ${entry.value} 不是 delivery.events 里的事件',
+      );
+    }
+    need(
+      resultToEvent['displayed'] == 'ack_ok' &&
+          resultToEvent['failed_action'] == 'ack_fail',
+      'displayed 必须推进到 ack_ok、failed_action 必须推进到 ack_fail'
+      '（这两条是"设备真看到了"与"设备做失败了"的唯一锚点）',
+    );
+    for (final serverOnly in const [
+      'waiting_online',
+      'expired',
+      'dropped',
+      'rejected_unsigned',
+      'rejected_capability',
+    ]) {
+      need(
+        !resultToEvent.containsKey(serverOnly),
+        'resultToEvent 里有 $serverOnly：那是服务端自己的决定，设备证明不了它 —— '
+        '允许设备这么报，等于让它替服务端下结论',
+      );
+    }
     need(
       strings(const ['clientEvents', 'ack', 'fields']).join('|') ==
           strings(const ['delivery', 'ackFields']).join('|'),

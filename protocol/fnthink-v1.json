@@ -300,6 +300,12 @@
       "_fieldsMirrorWhy": "这两个字段名必须与 delivery.ackFields 逐字相同。两张表各写一份，早晚一张改了另一张没改，那时 ack 会静默地读不到 result。",
       "resultMustBeReceipt": true,
       "onlyForOwnMessages": true,
+      "_resultToEventWhy": "设备报上来的 result 要翻成状态机事件才能推进。这张表必须在契约上：路由里自己写一份 switch，就是第二份状态机，而它下一次改动多半只改一边。",
+      "resultToEvent": {
+        "delivered": "ack_ok",
+        "displayed": "ack_ok",
+        "failed_action": "ack_fail"
+      },
       "_onlyForOwnMessagesWhy": "设备只能 ack 下发给它自己的那条消息。不钉这条，一台设备可以把别人队列里的消息逐个 ack 成 delivered，而正文按契约在 delivered 时立即删除——等于替别人把消息销毁。"
     },
     "notInCapabilitiesVocabulary": true,

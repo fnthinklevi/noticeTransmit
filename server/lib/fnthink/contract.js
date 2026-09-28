@@ -17,7 +17,12 @@ const path = require('path');
 /// 而不是"能读多少算多少"——半懂不懂地解释一个新协议比直接报错危险得多。
 const SUPPORTED_MAJOR = 1;
 
-const CONTRACT_FILE = path.resolve(__dirname, '..', '..', '..', 'protocol', 'fnthink-v1.json');
+/// 契约文件位置：默认取仓库根的 `protocol/`；部署侧（本仓的规矩是"只上传 server/"）
+/// 可以用 `FNTHINK_CONTRACT` 把它指过去。为什么留这个口子，而不是把 JSON 复制进 server/：
+/// 复制一份协议文件就是第二份真值，而它的表现永远是"改了没生效"。
+const CONTRACT_FILE = process.env.FNTHINK_CONTRACT
+  ? path.resolve(process.env.FNTHINK_CONTRACT)
+  : path.resolve(__dirname, '..', '..', '..', 'protocol', 'fnthink-v1.json');
 
 function loadContract() {
   return JSON.parse(fs.readFileSync(CONTRACT_FILE, 'utf8'));

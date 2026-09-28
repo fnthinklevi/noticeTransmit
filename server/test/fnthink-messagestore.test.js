@@ -559,4 +559,27 @@ describe('回执账（T35）', () => {
       { messageId: message.messageId, target: 'DEV-W', receipt: 'delivered' },
     ]);
   });
+
+  // 这条是 #126 把路由接上之后才暴露的：修复前**任何不带 dedupe_id 的消息都存不进盘**
+  // （`dedupeDigest('')` 返回空串，而落盘闸门要求任何 `*Digest` 都是 64 位十六进制 ⇒ 抛）。
+  // 此前 20 多条用例每条都自带 dedupeId，于是最常见的形状一条没测到，而 jest 全绿。
+  describe('不带 dedupe_id 的形状（#126 暴露的回归）', () => {
+    test('缺 dedupeId 也能收单、落盘、重读，且表里不留一个空串的 *Digest', () => {
+      const messages = {};
+      const r = store.enqueue(
+        contract,
+        messages,
+        { sender: 'SENDERSITE', device: 'DEV-NODEDUPE', type: 'notice', body: '没有去重号的正文' },
+        T0,
+        KEY,
+      );
+      expect(r.message.dedupeIdDigest).toBeUndefined();
+      store.saveMessages(messages);
+      const back = store.loadMessages();
+      expect(back[r.message.messageId].device).toBe('DEV-NODEDUPE');
+      const raw = fs.readFileSync(store.MESSAGE_FILE, 'utf8');
+      expect(raw).not.toContain('"dedupeIdDigest":""');
+      expect(raw).not.toContain('没有去重号的正文');
+    });
+  });
 });

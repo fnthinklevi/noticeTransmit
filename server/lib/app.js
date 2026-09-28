@@ -63,6 +63,23 @@ app.use('/api/admin', middleware.authRateLimiter);
 // 路由挂载
 app.use('/api/admin', authRoutes);
 app.use('/', versionRoutes);
+// 幻念推送（fnthink-v1）的公网入口。⚠ 这一段必须"坏了也不连累别的端点"：
+// 契约文件默认在仓库根的 protocol/，而部署历来只上传 server/ —— 那种情况下 require 链会直接抛
+// ENOENT，冒到顶层被拖死的是 /api/version 与管理后台（所有设备的更新检查），
+// 而它们和幻念推送一点关系都没有。所以这里接住，降级成"明确 503 + 启动日志说清缺哪份文件"，
+// 并让运维在日志第一屏就看到（不是等用户反馈"推送连不上"）。
+try {
+  const fnthink = require('./fnthink/routes');
+  app.use('/api/fnthink', fnthink.router);
+} catch (e) {
+  console.error('[fnthink] 协议入口没有起来，这段路由已降级为 503：', e.message);
+  console.error(
+    '[fnthink] 需要把契约文件放到 protocol/fnthink-v1.json，或用 FNTHINK_CONTRACT 指向它',
+  );
+  app.use('/api/fnthink', (req, res) =>
+    res.status(503).json({ error: 'fnthink_protocol_unavailable' }),
+  );
+}
 
 // 全局错误处理中间件（放在所有路由之后）
 app.use(middleware.errorMiddleware);

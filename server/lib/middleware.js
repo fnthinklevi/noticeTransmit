@@ -98,9 +98,10 @@ const authRateLimiter = createRateLimitMiddleware(
 // ========== IP 封锁 ==========
 
 function ipBlockMiddleware(req, res, next) {
-  // 公开接口（健康检查/版本检查）不受 IP 封锁影响：
-  // 封锁按 IP 维度生效，NAT 共享出口下误封会殃及所有 App 设备的版本更新检查
-  if (req.path === '/health' || req.path.startsWith('/api/version')) {
+  // 豁免表在 store.IP_BLOCK_EXEMPT_PREFIXES（唯一一处，理由写在那儿）：
+  // 这里只读，不再自己抄一份前缀 —— 之前正是这两份各写各的，让新增的公网路由
+  // 一上线就落在封锁面里，而它看起来像"推送功能坏了"而不是"配置分叉了"。
+  if (store.ipBlockExempt(req.path)) {
     return next();
   }
 

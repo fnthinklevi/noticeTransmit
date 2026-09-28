@@ -621,6 +621,31 @@ void main() {
       );
     });
 
+    test('ack 的 resultToEvent 允许设备自报 expired ⇒ 报（服务端自己的决定）', () {
+      final broken = mutate((raw) {
+        final map =
+            ((raw['clientEvents'] as Map<String, Object?>)['ack']
+                    as Map<String, Object?>)['resultToEvent']
+                as Map<String, Object?>;
+        map['expired'] = 'ttl_elapsed';
+      });
+      expectProblem(
+        broken,
+        '那是服务端自己的决定',
+        '设备能报 expired，就等于替服务端下"这条已过期"的结论并提前释放正文',
+      );
+    });
+
+    test('resultToEvent 的值指向一个不存在的事件 ⇒ 报（路由会照表推进到 nowhere）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['ack']
+            as Map<String, Object?>)['resultToEvent'] = {
+          'displayed': 'ack_yes',
+        };
+      });
+      expectProblem(broken, 'ack_ok', 'displayed 必须推进到 ack_ok，改成没定义的事件必须报');
+    });
+
     test('storedFields 去掉 sender ⇒ 报（回执通道没有收件人）', () {
       final broken = mutate((raw) {
         final keep =

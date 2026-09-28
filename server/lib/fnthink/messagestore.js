@@ -196,7 +196,11 @@ function enqueue(contract, messages, input, now, envKey) {
     // 等于端点口令的 32 位，会被自己的闸门拦下（这条是被测试逮到的）。
     messageId: 'm_' + crypto.randomBytes(12).toString('hex'),
     device,
-    dedupeIdDigest: dedupeDigest(dedupeId),
+    // 没有 dedupe_id 就**不写这个键**，而不是写一个空串：落盘那道闸门要求任何 `*Digest` 都是
+    // 64 位十六进制摘要，空串过不去 ⇒ "不带 dedupe_id 的消息根本存不进来"。
+    // 这个缺陷是 #126 接上 HTTP 才现形的：此前的用例每条都带了 dedupeId，于是 161 例全绿
+    // 却一条也没测到最常见的形状。
+    ...(dedupeId ? { dedupeIdDigest: dedupeDigest(dedupeId) } : {}),
     state: contract.delivery.initialState,
     attempts: 0,
     queuedAt: now,

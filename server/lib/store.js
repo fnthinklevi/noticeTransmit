@@ -175,6 +175,25 @@ function getClientIp(req) {
  * 限流键的路由桶：把请求者可控的任意路径收敛为固定少数几类，
  * 否则每个探测路径都会新建一条记录并整体落盘（内存/文件无上限增长）。
  */
+// IP 封锁的豁免路径（**唯一一处**白名单，中间件只读这里 —— 两处各写一份的话，
+// 早晚一边加了路由、另一边还在封它）。
+//
+// 三条豁免的理由各不相同：
+//  · /health、/api/version：NAT 共享出口下一次误封会殃及所有设备的版本检查与更新，
+//    而它们本身不携带任何凭证；
+//  · /api/fnthink：凭证是 Ed25519 签名 + 5 分钟一次性配对口令 + nonce 去重，本来就不靠封 IP 保护；
+//    反过来，一次误封会把**已经在跑的设备集群**整片挡在门外，而那看起来像"推送功能坏了"。
+//    网关层的滥用控制留给按发送方/端点/IP 的四层限流（#130、T58）。
+const IP_BLOCK_EXEMPT_PREFIXES = ['/health', '/api/version', '/api/fnthink'];
+
+function ipBlockExempt(path) {
+  const p = String(path || '');
+  // 必须是"整段相等"或"前缀 + /"：只写 startsWith(prefix) 的话，
+  // /api/fnthinkx/… 这种**前缀相似**的路径也会被免掉封锁（豁免面悄悄变大，而且没人报错）。
+  return IP_BLOCK_EXEMPT_PREFIXES.some(
+    (prefix) => p === prefix || p.startsWith(prefix.endsWith('/') ? prefix : prefix + '/'),
+  );
+}
 function rateLimitBucket(path) {
   const p = String(path || '');
   if (p.startsWith('/api/admin')) return 'api-admin';
@@ -517,6 +536,8 @@ async function generateRecoveryCodes() {
 
 module.exports = {
   DATA_DIR,
+  IP_BLOCK_EXEMPT_PREFIXES,
+  ipBlockExempt,
   VERSION_FILE,
   TOTP_FILE,
   BLOCK_FILE,
