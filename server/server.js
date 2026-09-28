@@ -52,9 +52,22 @@ app.listen(PORT, () => {
   if (fnthinkEndpoints.length === 0) {
     console.log('  （协议面没有起来：契约不可用，见上面的 [fnthink] 错误行）');
   }
-  for (const line of fnthinkEndpoints) {
-    console.log(`  ${line}  - 限流 ${store.RATE_LIMIT_FNTHINK_MAX}/分钟/每 IP`);
+  // 每个端点受**哪一档**管，必须逐条打出来。以前这里只印一句"限流 N/分钟/每 IP"，
+  // 而三档各管不同端点之后，那句话对 /poll 和 /register 都是错的 —— 运维照着错的日志
+  // 去调 env，只会把不该卡的卡死、该卡的没卡住。
+  let limitView = null;
+  try {
+    limitView = require('./lib/fnthink/ratelimit');
+  } catch (e) {
+    console.log(`  （读不到限流档位：${e.message}；下面只报面的总量闸门）`);
   }
+  for (const line of fnthinkEndpoints) {
+    const which = limitView
+      ? limitView.describeKind(limitView.endpointKindOf(line))
+      : '未知（限流模块没起来）';
+    console.log(`  ${line}  - ${which}`);
+  }
+  console.log(`  面的总量闸门（层 1，防单 IP 扇出）：${store.RATE_LIMIT_FNTHINK_MAX}/分钟/每 IP`);
   console.log(
     `  trust proxy = ${process.env.TRUST_PROXY || '0（未设）'} — 反代部署必须按真实跳数设置，`,
   );

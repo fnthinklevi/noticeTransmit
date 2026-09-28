@@ -514,11 +514,11 @@ class FnthinkContract {
     );
     final limits = map(const ['limits']);
     if (limits != null) {
-      final perMinute = (limits['endpointPerMinute'] as num).toInt();
-      final perDay = (limits['endpointPerDay'] as num).toInt();
+      final perMinute = (limits['unauthenticatedPerMinute'] as num).toInt();
+      final perDay = (limits['unauthenticatedPerDay'] as num).toInt();
       need(
         perMinute > 0 && perDay > perMinute,
-        'limits.endpointPerDay 必须大于 endpointPerMinute',
+        'limits.unauthenticatedPerDay 必须大于 unauthenticatedPerMinute',
       );
       need(
         (limits['groupSendMax'] as num).toInt() >= 1,
@@ -1102,6 +1102,113 @@ class FnthinkContract {
       (intOf(const ['limits', 'devicesMax']) ?? 0) > 0,
       'limits.devicesMax 必须是正整数：POST /register 是唯一一类"提交者还没有身份"的写入面，'
       '设备表没有上限就等于给未认证流量送一台无限增长的存储',
+    );
+    // #130-A1：那两个数字光有大小没有"量谁" —— 那副形状的下场是实现绕开它自己定一个数
+    // （本仓的 JS 侧正是这么长的），两端各一份真值。更要紧的是这两把尺子对**轮询**根本不成立：
+    // presence 说常态 20 秒一次、提频 5 秒一次，而日额度 500 比正常一天的轮询量小一个数量级
+    // ⇒ 照字面实现的结果是"上线即把每台设备卡死"。定名也跟着改：endpointPerMinute →
+    // unauthenticatedPerMinute，因为"所有端点共用一把尺"这个读法本身就是错的。
+    final perEndpoint = strings(const ['limits', 'perEndpoint']);
+    final cadenceGoverned = strings(const ['limits', 'cadenceGoverned']);
+    final perSenderOnly = strings(const ['limits', 'perSenderOnly']);
+    need(
+      perEndpoint.isNotEmpty,
+      'limits.perEndpoint 不能为空：那两个数字总得有一组端点归它们管，'
+      '只写数字不写适用面的限流，等于让每个实现自己猜该拿它量谁',
+    );
+    for (final entry in {
+      'limits.perEndpoint': perEndpoint,
+      'limits.cadenceGoverned': cadenceGoverned,
+    }.entries) {
+      for (final kind in entry.value) {
+        need(
+          eventKinds.containsKey(kind),
+          '${entry.key} 里的 "$kind" 不是 clientEvents 里的事件种类：限流按 URL 段映射到事件种类，'
+          '映射到一个不存在的东西上就是静默不限流',
+        );
+      }
+    }
+    need(
+      perEndpoint.toSet().intersection(cadenceGoverned.toSet()).isEmpty &&
+          perEndpoint.toSet().intersection(perSenderOnly.toSet()).isEmpty &&
+          cadenceGoverned.toSet().intersection(perSenderOnly.toSet()).isEmpty,
+      'limits 的三份端点名单不许重叠：同一个端点两把尺子时，谁先响取决于实现顺序 —— '
+      '那是"看起来更严其实更宽"的形状',
+    );
+    for (final kind in const ['poll', 'ack']) {
+      need(
+        cadenceGoverned.contains(kind),
+        'limits.cadenceGoverned 必须含 $kind：轮询与回执的量由 presence 的节奏参数决定，'
+        '把它们塞进控制类额度（实测 4320 次/天 vs 500 次/天）等于上线即把所有设备卡死',
+      );
+    }
+    // 名单不能是随手写的名字列表 —— 那从下一次改动起就会漂。钉住它的是一条 **principal 事实**：
+    // 只有"签名还证明不了他是谁"的请求才该按 IP 计额度；已经能证明是谁的操作按 IP 计，
+    // 等于让 NAT 后面几台设备共用一份配对额度（本仓 7 条配对路由用例第一次跑就是这么红的）。
+    for (final kind in perEndpoint) {
+      final event = eventKinds[kind];
+      need(
+        event != null && event['verifyAgainst'] == 'presented-public-key',
+        'limits.perEndpoint 里的 "$kind" 不能按 IP 计：它的签名已经能证明是谁'
+        '（verifyAgainst=${event?['verifyAgainst']}）⇒ 该进 perSenderOnly，'
+        '按发送方设备地址计额度',
+      );
+    }
+    for (final kind in perSenderOnly) {
+      final event = eventKinds[kind];
+      if (event == null) continue; // /message 这类不是 clientEvents 事件的投递面，允许列在这里
+      need(
+        event['verifyAgainst'] == 'device-table-public-key',
+        'limits.perSenderOnly 里的 "$kind" 是按"请求自带公钥"验的：那它还没有身份可计，'
+        '只能按 IP 计 ⇒ 该进 perEndpoint',
+      );
+      need(
+        (event['mayNotCarry'] as List<Object?>?) != null,
+        'limits.perSenderOnly 里的 "$kind" 没有 mayNotCarry：纯游标类请求属轮询，'
+        '该由 cadenceGoverned 按推导额度管',
+      );
+    }
+    for (final kind in cadenceGoverned) {
+      final event = eventKinds[kind];
+      need(
+        event != null && event['mayNotCarry'] == null,
+        'limits.cadenceGoverned 里的 "$kind" 带 mayNotCarry：它已经不是纯轮询类请求，'
+        '按上面的分界它该受按 IP 或按发送方的额度管',
+      );
+    }
+    final burstInterval = intOf(
+      const ['presence', 'burstWhenPending', 'intervalSeconds'],
+    );
+    final burstDuration = intOf(const ['presence', 'burstWhenPending', 'durationSeconds']);
+    need(
+      (burstInterval ?? 0) > 0 && (burstDuration ?? 0) > 0,
+      'presence.burstWhenPending 的 intervalSeconds / durationSeconds 必须是正整数：'
+      '轮询侧的分钟额度是**从它推导**的，这里缺一个数推导就只能猜',
+    );
+    final steadyInterval = intOf(const ['presence', 'pollIntervalSeconds', 'min']);
+    need(
+      (steadyInterval ?? 0) > 0 && (burstInterval ?? 0) < (steadyInterval ?? 0),
+      'burstWhenPending.intervalSeconds 必须小于 pollIntervalSeconds.min：'
+      '提频比常态还慢，那这档参数本身就是矛盾的，推导出来的额度也没有意义',
+    );
+    final slack = intOf(const ['limits', 'pollBurstSlack']) ?? -1;
+    need(
+      slack >= 1,
+      'limits.pollBurstSlack 必须 ≥ 1：设备在提频与常态之间切换的那一分钟里两种节奏会重叠计数，'
+      '零余量会把"用户刚点了一条通知"判成攻击',
+    );
+    final burstPerMinute = burstInterval == null || burstInterval <= 0
+        ? null
+        : (60 / burstInterval).ceil();
+    final controlPerMinute = intOf(const ['limits', 'unauthenticatedPerMinute']);
+    need(
+      burstPerMinute == null ||
+          controlPerMinute == null ||
+          controlPerMinute >= burstPerMinute + slack,
+      'limits.unauthenticatedPerMinute 不许严于轮询侧的推导额度（burstPerMinute + pollBurstSlack）：'
+      '按 IP 计的端点额度只能当洪水闸，卡紧它误伤的是"家里一次装四台设备"的诚实用户'
+      '（本仓 7 条配对路由用例就是这么红的），而攻击者换一个 IP 的成本是零 —— '
+      '未认证写入真正的兜底是 limits.devicesMax 与整个面的总量闸门',
     );
     // 自带公钥的那一种事件（目前只有 register）字段规则与其它种类相反：必须带公钥
     // （否则无从证明私钥持有）、必须带不上任何秘密。按 `carriesOwnPublicKey` 旗标挑出来判，

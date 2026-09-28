@@ -193,8 +193,16 @@
   },
 
   "limits": {
-    "endpointPerMinute": 15,
-    "endpointPerDay": 500,
+    "unauthenticatedPerMinute": 30,
+    "_unauthenticatedPerMinuteWhy": "30 而不是我第一版的 6：那版理由是「validate 算出轮询推导额度 60÷5+2=14，身份未证明的那一类不该比轮询宽松」。7 条配对路由用例当场把它证伪了 —— 它们从同一个 IP 在一分钟里登记 5 台设备，那正是「家里一次装手机 + 手表 + 平板 + PC」的形状，而部署文档里 TRUST_PROXY 默认不开 ⇒ 反代之后所有设备都是同一个源。**按 IP 的端点级额度只能当洪水闸，不能当公平额度**：卡紧它误伤的是诚实用户，而攻击者换一个 IP 的成本是零。真正的兜底是 limits.devicesMax（全局上限）加层 1 那个总量闸门。⇒ 这一档必须**不严于**轮询推导额度（validate 与 JS 都拦反方向的数），下一片要把配额主键换成已证明身份的设备地址。",
+    "unauthenticatedPerDay": 3000,
+    "perEndpoint": ["register"],
+    "cadenceGoverned": ["poll", "ack"],
+    "perSenderOnly": ["pairArm", "pair", "pairConfirm", "message"],
+    "_perSenderOnlyWhy": "这一组按 IP 计会误伤真实设备：手机 + 手表 + 家里三台在 Nginx 之后是同一个源，共用 6 次/分意味着「同时配对两台」被当成攻击 —— 这不是推演，本仓 7 条配对路由用例第一次跑就是这么红的。/message 同属这一类（正常发送方一天投几千条，按 IP 卡它等于把整栋楼判成一个攻击者）。真正的按发送方（已证明身份的设备地址）配额是后续片的活；在那之前这一组只受「整个面按 IP 的总量闸门」管。为什么列成名单而不是在实现里写 if (path === '/message')：漏登记的端点会被按最紧的一档拦下并留痕点名，而写死的分支只会静默地不受任何专项限流。",
+    "pollBurstSlack": 2,
+    "_endpointScopeWhy": "这两个数原先只写了大小，没写「量谁」，实现于是整个绕开它们改用环境变量 ⇒ 两份真值。现在把三档 principal 写明：perEndpoint＝**提交者还没有身份**的那一类（目前只有 register），只能按 IP 计，取 unauthenticatedPerMinute / unauthenticatedPerDay；cadenceGoverned＝轮询与回执，分钟额度**从 presence 的节奏参数推导**，日额度故意不设；perSenderOnly＝签名已能证明是谁的操作与产品主路径，必须按发送方设备地址计。⚠ 定名跟着改了：原先叫 endpointPerMinute，读起来像「所有端点共用一把尺」，而那正是错的读法 —— 名字错了的下场是下一个人照错的读法实现。",
+    "_pollBurstSlackWhy": "轮询侧的分钟额度 = 60 ÷ burstWhenPending.intervalSeconds + 这份余量。余量不是慷慨：设备在提频与常态之间切换的那一分钟里，两种节奏会重叠计数，零余量的实现会把「用户刚点了一条通知」判成攻击。⚠ 日额度对轮询故意不设 —— 常态 20 秒一次就是 4320 次/天，那恰是设计值，给节奏类端点配日额度只会把「今天用得多」判成洪水。",
     "groupSendMax": 20,
     "deliveryRetryTotal": 2,
     "backupReplayMax": 2,

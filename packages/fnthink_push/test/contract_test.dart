@@ -995,5 +995,90 @@ void main() {
         '只记 device 不记 sender，"到终态后告诉发送端"就无从实现（#126 写 poll 时撞上的）',
       );
     });
+
+    // #130-A1：那两个数字原先只写了大小没写"量谁"，实现于是绕开它们自己定了一个 ⇒ 两份真值。
+    // 下面每条都对应一次真实发生过的错（最后两条是这一片自己改错了才发现的那一类）。
+    test('perEndpoint 里写了一个不存在的事件种类 ⇒ 报（映射到不存在的东西上＝静默不限流）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['perEndpoint'] = [
+          'register',
+          'teleport',
+        ];
+      });
+      expectProblem(
+        broken,
+        '不是 clientEvents 里的事件种类',
+        '限流按 URL 段映射到事件种类，映射到一个不存在的东西上就是静默不限流',
+      );
+    });
+
+    test('cadenceGoverned 漏掉 poll ⇒ 报（把 4320 次/天的正常轮询塞进按 IP 那一档）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['cadenceGoverned'] = ['ack'];
+      });
+      expectProblem(broken, 'cadenceGoverned 必须含 poll', '轮询属节奏类，不能按登记额度卡');
+    });
+
+    test('两份名单重叠 ⇒ 报（同一端点两把尺子，谁先响取决于实现顺序）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['perEndpoint'] = [
+          'register',
+          'poll',
+        ];
+      });
+      expectProblem(broken, '不许重叠', '两把尺子同时量一个端点时，OR 判出来的不是更严而是更宽');
+    });
+
+    test('把"已经能证明是谁"的操作放进按 IP 计的那一档 ⇒ 报（这一片真的犯过）', () {
+      // 第一版 perEndpoint 里列了 register + 配对三步，结果 7 条配对路由用例全红：
+      // 手机、手表、家里三台在 Nginx 之后是同一个源，共用 6 次/分＝「同时配对两台」被判成攻击。
+      // 分界不是"哪种请求少见"，而是"签名能不能证明他是谁"。
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['perEndpoint'] = [
+          'register',
+          'pairConfirm',
+        ];
+      });
+      expectProblem(broken, '不能按 IP 计', 'verifyAgainst=device-table-public-key ⇒ 该按发送方计');
+    });
+
+    test('反过来把 register 放进按发送方那一档 ⇒ 报（它还没有身份可计）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['perSenderOnly'] = [
+          'message',
+          'register',
+        ];
+        (raw['limits'] as Map<String, Object?>)['perEndpoint'] = <String>[];
+      });
+      expectProblem(broken, '只能按 IP 计', '自带公钥的那一类没有"发送方"可计，按 IP 是唯一选择');
+    });
+
+    test('按 IP 那一档被收到比轮询推导额度还紧 ⇒ 报（7 条路由用例的真实教训）', () {
+      // 我第一版就把方向搞反了：收成 6 看似"最紧的尺子对着未认证流量"，实际是
+      // "家里一次装四台设备"先被 429 —— 反代之后所有设备都是同一个源。
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['unauthenticatedPerMinute'] = 6;
+      });
+      expectProblem(
+        broken,
+        '不许严于轮询侧的推导额度',
+        '按 IP 计的端点额度只能当洪水闸，卡紧了误伤的是诚实用户',
+      );
+    });
+
+    test('提频与常态之间的重叠余量被抹成零 ⇒ 报（切换那一分钟会被判成攻击）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['pollBurstSlack'] = 0;
+      });
+      expectProblem(broken, 'pollBurstSlack 必须 ≥ 1', '两种节奏在同一分钟里会重叠计数');
+    });
+
+    test('提频间隔不比常态间隔快 ⇒ 报（推导所依据的那组参数本身自相矛盾）', () {
+      final broken = mutate((raw) {
+        ((raw['presence'] as Map<String, Object?>)['burstWhenPending']
+                as Map<String, Object?>)['intervalSeconds'] = 25;
+      });
+      expectProblem(broken, '必须小于 pollIntervalSeconds.min', '比常态还慢的"提频"没有意义');
+    });
   });
 }
