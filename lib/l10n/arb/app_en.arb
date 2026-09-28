@@ -20,13 +20,10 @@
   "close": "Close",
   "ok": "OK",
   "goSettings": "Settings",
-  "loading": "Loading...",
   "unknown": "Unknown",
   "notSet": "Not Set",
   "enabled": "Enabled",
   "disabled": "Disabled",
-  "on": "On",
-  "off": "Off",
   "tabHome": "Home",
   "tabNotificationEngine": "Alerts",
   "tabMore": "More",
@@ -78,9 +75,7 @@
       }
     }
   },
-  "notificationPermissionTitle": "Notification Access Not Enabled",
   "appearance": "Appearance",
-  "pushSettings": "Push Settings",
   "pushChannels": "Push Channels",
   "filterRules": "Filter Rules",
   "webhookChannel": "Webhook Channels",
@@ -140,7 +135,6 @@
   "ruleEmpty": "Tap to add rule",
   "device": "Device",
   "deviceName": "Device Name",
-  "widgetSection": "Desktop Widget",
   "widgetGuide": "Push Toggle",
   "widgetGuideDesc": "One-tap start/pause push from home screen",
   "widgetGuideIntro": "After adding the \"Push Toggle\" widget to your home screen, you can start or pause push with one tap without opening the app.",
@@ -209,32 +203,12 @@
   "returnAgree": "Go Back",
   "confirmExit": "Exit",
   "latestVersion": "You are on the latest version",
-  "checkUpdateFailed": "Update check failed: {e}",
-  "@checkUpdateFailed": {
-    "placeholders": {
-      "e": {
-        "type": "String"
-      }
-    }
-  },
   "fileSize": "File size: ",
   "updateNow": "Update now",
   "ignore": "Ignore",
   "update": "Update",
-  "downloadFailed": "Download failed: {e}",
-  "@downloadFailed": {
-    "placeholders": {
-      "e": {
-        "type": "String"
-      }
-    }
-  },
-  "storagePermissionRequired": "Storage Permission Required",
-  "storagePermissionMsg": "Storage permission is needed to save the APK file. Please go to Settings to enable it.",
-  "noStoragePermission": "Storage permission not granted, cannot download update",
   "enable": "Enable",
   "confirmExport": "Confirm Export",
-  "exportMsg": "Notification records will be exported as a JSON file containing notification content and device info.\n\nChoose a save location. Please keep the file safe or delete it after use.\n\nExport now?",
   "exportBtn": "Export",
   "exportCancelled": "Cancelled",
   "exportError": "Export error",
@@ -396,14 +370,6 @@
   "webhookDesc1": "Support multiple Webhook channels with independent switches",
   "webhookDesc2": "Auto-detect WeCom, DingTalk, Feishu formats",
   "webhookDesc3": "Newly added channels are enabled by default",
-  "channelN": "Channel {n}",
-  "@channelN": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "channelNameOptional": "Channel name (optional)",
   "webhookUrlPlaceholder": "https://example.com/webhook",
   "webhookSecretLabel": "Signing Secret (optional)",
@@ -412,8 +378,6 @@
   "webhookFormatLabel": "Message Format",
   "feishuMarkdownDowngradeHint": "Feishu custom bots do not support markdown. It will be sent as plain text (markdown symbols shown as-is). Consider using text format.",
   "webhookTemplateHint": "Leave empty to use preset; supported variables:",
-  "webhookTemplateInsertVar": "Insert Variable",
-  "webhookTemplatePreview": "Preview",
   "platformWechat": "WeCom",
   "platformDingtalk": "DingTalk",
   "platformFeishu": "Feishu",
@@ -484,7 +448,6 @@
   "exactAlarmDesc": "Delayed/scheduled pushes fire on time; requires system grant on Android 12+",
   "exactAlarmGranted": "Granted",
   "exactAlarmNeedGrant": "Tap to grant",
-  "exactAlarmUnsupported": "Requires Android 12+",
   "keepAliveGuideTitle": "Keep-alive Guide",
   "keepAliveGuideDesc": "Some systems restrict background services and may miss notifications. Follow these steps:",
   "keepAliveStep1": "Set battery optimization to Unrestricted",
@@ -558,8 +521,6 @@
   "setDeviceName": "Set Device Name",
   "deviceNameLabel": "Device Name",
   "author": "Author: fnthinklevi",
-  "appDesc": "Listen to all notifications and push to Webhook",
-  "appFeatures": "Supports: WeChat / QQ / SMS / Call / Battery",
   "ruleListTitle": "Rule Management",
   "ruleNew": "New Rule",
   "ruleNoCondition": "No conditions",
@@ -627,8 +588,6 @@
   },
   "ruleAppScopeDesc": "Excluded apps won't match this rule",
   "ruleAppPickTitle": "Select Applicable Apps",
-  "ruleAppPinnedSms": "System SMS",
-  "ruleAppPinnedNote": "System SMS and call notifications are forwarded via separate pipelines and never reach the rule constraints; listed here for unified management.",
   "ruleAppNoPermission": "No permission to read the app list",
   "ruleMergeWindowRow": "Merge wait duration",
   "ruleMergeWindowSummary": "Wait {n}s",
@@ -663,14 +622,6 @@
   },
   "historyBlockAppAdded": "Added \"{app}\" to the blocked list",
   "@historyBlockAppAdded": {
-    "placeholders": {
-      "app": {
-        "type": "String"
-      }
-    }
-  },
-  "historyBlockAppAlreadyExcluded": "\"{app}\" is already excluded from pushes",
-  "@historyBlockAppAlreadyExcluded": {
     "placeholders": {
       "app": {
         "type": "String"
@@ -771,7 +722,6 @@
   "loadRecords": "Loading notification records...",
   "loadFilter": "Loading filter config...",
   "initUpdate": "Initializing update service...",
-  "initRetry": "Initializing retry service...",
   "initComplete": "Initialization complete",
   "initFailed": "App startup failed",
   "initFailedMsg": "DI initialization failed, please restart the app",
@@ -850,9 +800,6 @@
   },
   "filterNotifyApps": "Notify Apps",
   "filterBlockApps": "Block Apps",
-  "appListPermDesc2": "To filter apps for push notifications, please grant permission to read installed apps.",
-  "goEnablePermission": "Go to Enable Permission",
-  "refreshRetry": "Refresh & Retry",
   "searchAppHint": "Search app name or package",
   "showSystemApps": "Show System Apps",
   "selectAll": "Select All",
@@ -1244,12 +1191,9 @@
     }
   },
   "historyActionBlockAppDescSelf": "This app's own notifications (battery alerts) are governed by battery rules — app blocking does not apply",
-  "historyActionBlockAppDescAllowWhitelist": "Already blocked by app filter, but whitelist keyword hits will still push — no action needed",
   "historyBlockAppSelfToast": "This app's own notifications are governed by battery rules — adjust them in battery settings",
-  "historyBlockAppAllowWhitelistToast": "Already blocked by app filter, but whitelist keyword hits will still push",
   "exportConfirmDesc": "Records will be exported as a JSON file containing notification content and device info. Choose a save location and keep the file safe or delete it promptly.",
   "historyMoreActions": "More actions",
-  "ruleAppPickScanEmpty": "No apps were scanned. Go back and retry; if still empty, make sure \"Query all packages\" is allowed in system settings.",
   "updateAlreadyLatest": "You're on the latest version",
   "updateCheckFailed": "Update check failed. Check your network connection.",
   "updateCheckFailedWithError": "Update check failed: {error}",
@@ -1342,10 +1286,6 @@
     }
   },
   "channelTypeWecomApp": "WeCom App (self-built)",
-  "platformWecomAppDesc": "WeCom self-built app push (requires corpid/agentid/corpsecret), supports targeting users; content limited to 2048 bytes",
-  "signingHintWecomApp": "Required: corpsecret (exchanges for access_token); also fill in corpid and agentid",
-  "wecomAppExtraTitle": "WeCom App Parameters",
-  "wecomAppTouserHint": "Receiver touser (optional, default @all; separate users with |)",
   "ruleTemplateTitle": "Rule Templates",
   "ruleTemplatePreset": "Preset Templates",
   "ruleTemplateMine": "My Templates",
@@ -1425,14 +1365,6 @@
     }
   },
   "appChannelNotConfigured": "Not configured",
-  "appChannelN": "App Channel {n}",
-  "@appChannelN": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "appChannelNameLabel": "Channel name",
   "appChannelBaseUrlHint": "API base URL (leave empty for the official endpoint; self-hosted deployments supported — must be HTTPS with a system-trusted certificate)",
   "appChannelSecretWecomHint": "corpsecret (exchanges for access_token)",
@@ -1446,8 +1378,6 @@
   "appChannelDeleteHint": "Deletions take effect after tapping Save.",
   "appChannelTestFailed": "Test failed: ",
   "appChannelSaveOk": "App channels saved and synced",
-  "channelStateEnabled": "Enabled",
-  "channelStateDisabled": "Disabled",
   "appChannelErrNameRequired": "Save failed: channel name is required",
   "appChannelErrBaseUrlRequired": "Save failed: API address is required",
   "appChannelErrFieldsRequired": "Save failed: required fields are empty ({fields})",

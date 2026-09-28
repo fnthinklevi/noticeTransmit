@@ -53,9 +53,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goSettings => 'Settings';
 
   @override
-  String get loading => 'Loading...';
-
-  @override
   String get unknown => 'Unknown';
 
   @override
@@ -66,12 +63,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get disabled => 'Disabled';
-
-  @override
-  String get on => 'On';
-
-  @override
-  String get off => 'Off';
 
   @override
   String get tabHome => 'Home';
@@ -204,13 +195,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get notificationPermissionTitle => 'Notification Access Not Enabled';
-
-  @override
   String get appearance => 'Appearance';
-
-  @override
-  String get pushSettings => 'Push Settings';
 
   @override
   String get pushChannels => 'Push Channels';
@@ -275,9 +260,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deviceName => 'Device Name';
-
-  @override
-  String get widgetSection => 'Desktop Widget';
 
   @override
   String get widgetGuide => 'Push Toggle';
@@ -487,11 +469,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get latestVersion => 'You are on the latest version';
 
   @override
-  String checkUpdateFailed(String e) {
-    return 'Update check failed: $e';
-  }
-
-  @override
   String get fileSize => 'File size: ';
 
   @override
@@ -504,30 +481,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get update => 'Update';
 
   @override
-  String downloadFailed(String e) {
-    return 'Download failed: $e';
-  }
-
-  @override
-  String get storagePermissionRequired => 'Storage Permission Required';
-
-  @override
-  String get storagePermissionMsg =>
-      'Storage permission is needed to save the APK file. Please go to Settings to enable it.';
-
-  @override
-  String get noStoragePermission =>
-      'Storage permission not granted, cannot download update';
-
-  @override
   String get enable => 'Enable';
 
   @override
   String get confirmExport => 'Confirm Export';
-
-  @override
-  String get exportMsg =>
-      'Notification records will be exported as a JSON file containing notification content and device info.\n\nChoose a save location. Please keep the file safe or delete it after use.\n\nExport now?';
 
   @override
   String get exportBtn => 'Export';
@@ -846,11 +803,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webhookDesc3 => 'Newly added channels are enabled by default';
 
   @override
-  String channelN(int n) {
-    return 'Channel $n';
-  }
-
-  @override
   String get channelNameOptional => 'Channel name (optional)';
 
   @override
@@ -875,12 +827,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get webhookTemplateHint =>
       'Leave empty to use preset; supported variables:';
-
-  @override
-  String get webhookTemplateInsertVar => 'Insert Variable';
-
-  @override
-  String get webhookTemplatePreview => 'Preview';
 
   @override
   String get platformWechat => 'WeCom';
@@ -1088,9 +1034,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exactAlarmNeedGrant => 'Tap to grant';
 
   @override
-  String get exactAlarmUnsupported => 'Requires Android 12+';
-
-  @override
   String get keepAliveGuideTitle => 'Keep-alive Guide';
 
   @override
@@ -1236,12 +1179,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get author => 'Author: fnthinklevi';
-
-  @override
-  String get appDesc => 'Listen to all notifications and push to Webhook';
-
-  @override
-  String get appFeatures => 'Supports: WeChat / QQ / SMS / Call / Battery';
 
   @override
   String get ruleListTitle => 'Rule Management';
@@ -1394,13 +1331,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ruleAppPickTitle => 'Select Applicable Apps';
 
   @override
-  String get ruleAppPinnedSms => 'System SMS';
-
-  @override
-  String get ruleAppPinnedNote =>
-      'System SMS and call notifications are forwarded via separate pipelines and never reach the rule constraints; listed here for unified management.';
-
-  @override
   String get ruleAppNoPermission => 'No permission to read the app list';
 
   @override
@@ -1468,11 +1398,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String historyBlockAppAdded(String app) {
     return 'Added \"$app\" to the blocked list';
-  }
-
-  @override
-  String historyBlockAppAlreadyExcluded(String app) {
-    return '\"$app\" is already excluded from pushes';
   }
 
   @override
@@ -1686,9 +1611,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get initUpdate => 'Initializing update service...';
 
   @override
-  String get initRetry => 'Initializing retry service...';
-
-  @override
   String get initComplete => 'Initialization complete';
 
   @override
@@ -1810,16 +1732,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get filterBlockApps => 'Block Apps';
-
-  @override
-  String get appListPermDesc2 =>
-      'To filter apps for push notifications, please grant permission to read installed apps.';
-
-  @override
-  String get goEnablePermission => 'Go to Enable Permission';
-
-  @override
-  String get refreshRetry => 'Refresh & Retry';
 
   @override
   String get searchAppHint => 'Search app name or package';
@@ -2567,16 +2479,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'This app\'s own notifications (battery alerts) are governed by battery rules — app blocking does not apply';
 
   @override
-  String get historyActionBlockAppDescAllowWhitelist =>
-      'Already blocked by app filter, but whitelist keyword hits will still push — no action needed';
-
-  @override
   String get historyBlockAppSelfToast =>
       'This app\'s own notifications are governed by battery rules — adjust them in battery settings';
-
-  @override
-  String get historyBlockAppAllowWhitelistToast =>
-      'Already blocked by app filter, but whitelist keyword hits will still push';
 
   @override
   String get exportConfirmDesc =>
@@ -2584,10 +2488,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyMoreActions => 'More actions';
-
-  @override
-  String get ruleAppPickScanEmpty =>
-      'No apps were scanned. Go back and retry; if still empty, make sure \"Query all packages\" is allowed in system settings.';
 
   @override
   String get updateAlreadyLatest => 'You\'re on the latest version';
@@ -2769,21 +2669,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelTypeWecomApp => 'WeCom App (self-built)';
 
   @override
-  String get platformWecomAppDesc =>
-      'WeCom self-built app push (requires corpid/agentid/corpsecret), supports targeting users; content limited to 2048 bytes';
-
-  @override
-  String get signingHintWecomApp =>
-      'Required: corpsecret (exchanges for access_token); also fill in corpid and agentid';
-
-  @override
-  String get wecomAppExtraTitle => 'WeCom App Parameters';
-
-  @override
-  String get wecomAppTouserHint =>
-      'Receiver touser (optional, default @all; separate users with |)';
-
-  @override
   String get ruleTemplateTitle => 'Rule Templates';
 
   @override
@@ -2902,11 +2787,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appChannelNotConfigured => 'Not configured';
 
   @override
-  String appChannelN(int n) {
-    return 'App Channel $n';
-  }
-
-  @override
   String get appChannelNameLabel => 'Channel name';
 
   @override
@@ -2950,12 +2830,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appChannelSaveOk => 'App channels saved and synced';
-
-  @override
-  String get channelStateEnabled => 'Enabled';
-
-  @override
-  String get channelStateDisabled => 'Disabled';
 
   @override
   String get appChannelErrNameRequired =>

@@ -20,13 +20,10 @@
   "close": "关闭",
   "ok": "好的",
   "goSettings": "去设置",
-  "loading": "加载中...",
   "unknown": "未知",
   "notSet": "未设置",
   "enabled": "已开启",
   "disabled": "未开启",
-  "on": "开",
-  "off": "关",
   "tabHome": "首页",
   "tabNotificationEngine": "通知引擎",
   "tabMore": "更多",
@@ -78,9 +75,7 @@
       }
     }
   },
-  "notificationPermissionTitle": "通知读取权限未开启",
   "appearance": "外观设置",
-  "pushSettings": "推送设置",
   "pushChannels": "推送通道",
   "filterRules": "过滤规则",
   "webhookChannel": "Webhook 推送通道",
@@ -140,7 +135,6 @@
   "ruleEmpty": "点击添加规则",
   "device": "设备",
   "deviceName": "设备名称",
-  "widgetSection": "桌面小部件",
   "widgetGuide": "推送开关",
   "widgetGuideDesc": "桌面一键开启/暂停推送服务",
   "widgetGuideIntro": "将「推送开关」小部件添加到桌面后，无需打开应用即可一键开启或暂停推送。",
@@ -209,32 +203,12 @@
   "returnAgree": "返回同意",
   "confirmExit": "确定退出",
   "latestVersion": "当前已是最新版本",
-  "checkUpdateFailed": "检查更新失败：{e}",
-  "@checkUpdateFailed": {
-    "placeholders": {
-      "e": {
-        "type": "String"
-      }
-    }
-  },
   "fileSize": "文件大小：",
   "updateNow": "立即更新",
   "ignore": "忽略",
   "update": "更新",
-  "downloadFailed": "下载失败：{e}",
-  "@downloadFailed": {
-    "placeholders": {
-      "e": {
-        "type": "String"
-      }
-    }
-  },
-  "storagePermissionRequired": "需要存储权限",
-  "storagePermissionMsg": "在线更新需要存储权限来保存 APK 文件，请前往设置开启。",
-  "noStoragePermission": "未获得存储权限，无法下载更新",
   "enable": "启用",
   "confirmExport": "确认导出",
-  "exportMsg": "通知记录将导出为 JSON 文件，包含通知内容和设备信息。\n\n请选择保存位置，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？",
   "exportBtn": "确定导出",
   "exportCancelled": "已取消",
   "exportError": "导出异常",
@@ -396,14 +370,6 @@
   "webhookDesc1": "支持同时配置多个 Webhook 通道，每个通道独立开关",
   "webhookDesc2": "自动识别企业微信、钉钉、飞书等平台格式",
   "webhookDesc3": "新添加的通道默认启用",
-  "channelN": "通道 {n}",
-  "@channelN": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "channelNameOptional": "通道名称（可选，如 企业微信·通知）",
   "webhookUrlPlaceholder": "https://example.com/webhook",
   "webhookSecretLabel": "签名密钥（可选）",
@@ -412,8 +378,6 @@
   "webhookFormatLabel": "消息格式",
   "feishuMarkdownDowngradeHint": "飞书自定义机器人不支持 markdown，将降级为纯文本发送（markdown 符号原样显示）。建议使用 text 格式。",
   "webhookTemplateHint": "留空则使用预置模板；支持变量：",
-  "webhookTemplateInsertVar": "插入变量",
-  "webhookTemplatePreview": "预览",
   "platformWechat": "WeCom",
   "platformDingtalk": "DingTalk",
   "platformFeishu": "Feishu",
@@ -484,7 +448,6 @@
   "exactAlarmDesc": "延迟/定时推送到点更准时；Android 12+ 需系统授权",
   "exactAlarmGranted": "已授权",
   "exactAlarmNeedGrant": "点击授权",
-  "exactAlarmUnsupported": "需 Android 12+",
   "keepAliveGuideTitle": "后台保活引导",
   "keepAliveGuideDesc": "部分系统会限制后台服务，可能导致收不到通知。按以下步骤设置可提高稳定性：",
   "keepAliveStep1": "省电策略设为不限制",
@@ -558,8 +521,6 @@
   "setDeviceName": "设置设备名称",
   "deviceNameLabel": "设备名称",
   "author": "作者：幻念团队 fnthinklevi",
-  "appDesc": "监听通知栏所有通知并推送到 Webhook",
-  "appFeatures": "支持：微信 / QQ / 短信 / 来电 / 电量提醒",
   "ruleListTitle": "规则管理",
   "ruleNew": "新规则",
   "ruleNoCondition": "无条件",
@@ -627,8 +588,6 @@
   },
   "ruleAppScopeDesc": "被排除的应用不再适用本规则",
   "ruleAppPickTitle": "选择适用应用",
-  "ruleAppPinnedSms": "系统短信",
-  "ruleAppPinnedNote": "系统短信与电话由独立链路转发，不经过规则约束判定，此处列出仅便于统一管理。",
   "ruleAppNoPermission": "无应用列表读取权限，无法加载应用列表",
   "ruleMergeWindowRow": "聚合等待时长",
   "ruleMergeWindowSummary": "等待 {n} 秒",
@@ -663,14 +622,6 @@
   },
   "historyBlockAppAdded": "已将「{app}」加入屏蔽名单",
   "@historyBlockAppAdded": {
-    "placeholders": {
-      "app": {
-        "type": "String"
-      }
-    }
-  },
-  "historyBlockAppAlreadyExcluded": "「{app}」已不在推送范围内",
-  "@historyBlockAppAlreadyExcluded": {
     "placeholders": {
       "app": {
         "type": "String"
@@ -771,7 +722,6 @@
   "loadRecords": "加载通知记录...",
   "loadFilter": "加载过滤配置...",
   "initUpdate": "初始化更新服务...",
-  "initRetry": "初始化重试服务...",
   "initComplete": "初始化完成",
   "initFailed": "应用启动失败",
   "initFailedMsg": "依赖注入初始化失败，请重启应用",
@@ -850,9 +800,6 @@
   },
   "filterNotifyApps": "通知应用",
   "filterBlockApps": "不通知应用",
-  "appListPermDesc2": "为了能够筛选需要推送通知的应用，请授予应用读取已安装应用列表的权限。",
-  "goEnablePermission": "前往开启权限",
-  "refreshRetry": "刷新重试",
   "searchAppHint": "搜索应用名称或包名",
   "showSystemApps": "显示系统应用",
   "selectAll": "全选",
@@ -1244,12 +1191,9 @@
     }
   },
   "historyActionBlockAppDescSelf": "本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽",
-  "historyActionBlockAppDescAllowWhitelist": "该应用已被应用过滤拦截，但白名单关键词命中仍会推送，无需操作",
   "historyBlockAppSelfToast": "本应用自身的通知由电量规则控制，请在电量设置中调整",
-  "historyBlockAppAllowWhitelistToast": "该应用已被应用过滤拦截，但白名单关键词命中仍会推送",
   "exportConfirmDesc": "通知记录将导出为 JSON 文件，包含通知内容和设备信息。请选择保存位置，建议在导出后妥善保管或及时删除。",
   "historyMoreActions": "更多操作",
-  "ruleAppPickScanEmpty": "未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。",
   "updateAlreadyLatest": "当前已是最新版本",
   "updateCheckFailed": "检查更新失败，请检查网络连接",
   "updateCheckFailedWithError": "检查更新失败：{error}",
@@ -1342,10 +1286,6 @@
     }
   },
   "channelTypeWecomApp": "企业微信自建应用",
-  "platformWecomAppDesc": "企业微信自建应用推送（需 corpid/agentid/corpsecret），支持指定接收人，正文上限 2048 字节",
-  "signingHintWecomApp": "必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid",
-  "wecomAppExtraTitle": "企业微信自建应用参数",
-  "wecomAppTouserHint": "接收人 touser（可选，默认 @all，多人间隔 |）",
   "ruleTemplateTitle": "规则模板库",
   "ruleTemplatePreset": "预设模板",
   "ruleTemplateMine": "我的模板",
@@ -1425,14 +1365,6 @@
     }
   },
   "appChannelNotConfigured": "未配置",
-  "appChannelN": "自建应用 {n}",
-  "@appChannelN": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "appChannelNameLabel": "通道名称",
   "appChannelBaseUrlHint": "API 地址（留空使用官方地址；支持私有化部署，须为 HTTPS 且证书受系统信任）",
   "appChannelSecretWecomHint": "corpsecret（用于获取 access_token）",
@@ -1446,8 +1378,6 @@
   "appChannelDeleteHint": "删除后需点右上角保存生效。",
   "appChannelTestFailed": "测试失败：",
   "appChannelSaveOk": "自建应用通道已保存并同步",
-  "channelStateEnabled": "已启用",
-  "channelStateDisabled": "已停用",
   "appChannelErrNameRequired": "保存失败：通道名称不能为空",
   "appChannelErrBaseUrlRequired": "保存失败：API 地址不能为空",
   "appChannelErrFieldsRequired": "保存失败：必填项未填写（{fields}）",

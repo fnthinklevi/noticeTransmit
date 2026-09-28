@@ -182,12 +182,6 @@ abstract class AppLocalizations {
   /// **'去设置'**
   String get goSettings;
 
-  /// No description provided for @loading.
-  ///
-  /// In zh, this message translates to:
-  /// **'加载中...'**
-  String get loading;
-
   /// No description provided for @unknown.
   ///
   /// In zh, this message translates to:
@@ -211,18 +205,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未开启'**
   String get disabled;
-
-  /// No description provided for @on.
-  ///
-  /// In zh, this message translates to:
-  /// **'开'**
-  String get on;
-
-  /// No description provided for @off.
-  ///
-  /// In zh, this message translates to:
-  /// **'关'**
-  String get off;
 
   /// No description provided for @tabHome.
   ///
@@ -458,23 +440,11 @@ abstract class AppLocalizations {
   /// **'共 {n} 条记录'**
   String recordCount(int n);
 
-  /// No description provided for @notificationPermissionTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'通知读取权限未开启'**
-  String get notificationPermissionTitle;
-
   /// No description provided for @appearance.
   ///
   /// In zh, this message translates to:
   /// **'外观设置'**
   String get appearance;
-
-  /// No description provided for @pushSettings.
-  ///
-  /// In zh, this message translates to:
-  /// **'推送设置'**
-  String get pushSettings;
 
   /// No description provided for @pushChannels.
   ///
@@ -583,12 +553,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'设备名称'**
   String get deviceName;
-
-  /// No description provided for @widgetSection.
-  ///
-  /// In zh, this message translates to:
-  /// **'桌面小部件'**
-  String get widgetSection;
 
   /// No description provided for @widgetGuide.
   ///
@@ -956,12 +920,6 @@ abstract class AppLocalizations {
   /// **'当前已是最新版本'**
   String get latestVersion;
 
-  /// No description provided for @checkUpdateFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'检查更新失败：{e}'**
-  String checkUpdateFailed(String e);
-
   /// No description provided for @fileSize.
   ///
   /// In zh, this message translates to:
@@ -986,30 +944,6 @@ abstract class AppLocalizations {
   /// **'更新'**
   String get update;
 
-  /// No description provided for @downloadFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'下载失败：{e}'**
-  String downloadFailed(String e);
-
-  /// No description provided for @storagePermissionRequired.
-  ///
-  /// In zh, this message translates to:
-  /// **'需要存储权限'**
-  String get storagePermissionRequired;
-
-  /// No description provided for @storagePermissionMsg.
-  ///
-  /// In zh, this message translates to:
-  /// **'在线更新需要存储权限来保存 APK 文件，请前往设置开启。'**
-  String get storagePermissionMsg;
-
-  /// No description provided for @noStoragePermission.
-  ///
-  /// In zh, this message translates to:
-  /// **'未获得存储权限，无法下载更新'**
-  String get noStoragePermission;
-
   /// No description provided for @enable.
   ///
   /// In zh, this message translates to:
@@ -1021,12 +955,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'确认导出'**
   String get confirmExport;
-
-  /// No description provided for @exportMsg.
-  ///
-  /// In zh, this message translates to:
-  /// **'通知记录将导出为 JSON 文件，包含通知内容和设备信息。\n\n请选择保存位置，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？'**
-  String get exportMsg;
 
   /// No description provided for @exportBtn.
   ///
@@ -1616,12 +1544,6 @@ abstract class AppLocalizations {
   /// **'新添加的通道默认启用'**
   String get webhookDesc3;
 
-  /// No description provided for @channelN.
-  ///
-  /// In zh, this message translates to:
-  /// **'通道 {n}'**
-  String channelN(int n);
-
   /// No description provided for @channelNameOptional.
   ///
   /// In zh, this message translates to:
@@ -1669,18 +1591,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'留空则使用预置模板；支持变量：'**
   String get webhookTemplateHint;
-
-  /// No description provided for @webhookTemplateInsertVar.
-  ///
-  /// In zh, this message translates to:
-  /// **'插入变量'**
-  String get webhookTemplateInsertVar;
-
-  /// No description provided for @webhookTemplatePreview.
-  ///
-  /// In zh, this message translates to:
-  /// **'预览'**
-  String get webhookTemplatePreview;
 
   /// No description provided for @platformWechat.
   ///
@@ -2060,12 +1970,6 @@ abstract class AppLocalizations {
   /// **'点击授权'**
   String get exactAlarmNeedGrant;
 
-  /// No description provided for @exactAlarmUnsupported.
-  ///
-  /// In zh, this message translates to:
-  /// **'需 Android 12+'**
-  String get exactAlarmUnsupported;
-
   /// No description provided for @keepAliveGuideTitle.
   ///
   /// In zh, this message translates to:
@@ -2335,18 +2239,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'作者：幻念团队 fnthinklevi'**
   String get author;
-
-  /// No description provided for @appDesc.
-  ///
-  /// In zh, this message translates to:
-  /// **'监听通知栏所有通知并推送到 Webhook'**
-  String get appDesc;
-
-  /// No description provided for @appFeatures.
-  ///
-  /// In zh, this message translates to:
-  /// **'支持：微信 / QQ / 短信 / 来电 / 电量提醒'**
-  String get appFeatures;
 
   /// No description provided for @ruleListTitle.
   ///
@@ -2624,18 +2516,6 @@ abstract class AppLocalizations {
   /// **'选择适用应用'**
   String get ruleAppPickTitle;
 
-  /// No description provided for @ruleAppPinnedSms.
-  ///
-  /// In zh, this message translates to:
-  /// **'系统短信'**
-  String get ruleAppPinnedSms;
-
-  /// No description provided for @ruleAppPinnedNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'系统短信与电话由独立链路转发，不经过规则约束判定，此处列出仅便于统一管理。'**
-  String get ruleAppPinnedNote;
-
   /// No description provided for @ruleAppNoPermission.
   ///
   /// In zh, this message translates to:
@@ -2749,12 +2629,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已将「{app}」加入屏蔽名单'**
   String historyBlockAppAdded(String app);
-
-  /// No description provided for @historyBlockAppAlreadyExcluded.
-  ///
-  /// In zh, this message translates to:
-  /// **'「{app}」已不在推送范围内'**
-  String historyBlockAppAlreadyExcluded(String app);
 
   /// No description provided for @historyBlockAppAlreadyBlocked.
   ///
@@ -3152,12 +3026,6 @@ abstract class AppLocalizations {
   /// **'初始化更新服务...'**
   String get initUpdate;
 
-  /// No description provided for @initRetry.
-  ///
-  /// In zh, this message translates to:
-  /// **'初始化重试服务...'**
-  String get initRetry;
-
   /// No description provided for @initComplete.
   ///
   /// In zh, this message translates to:
@@ -3373,24 +3241,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'不通知应用'**
   String get filterBlockApps;
-
-  /// No description provided for @appListPermDesc2.
-  ///
-  /// In zh, this message translates to:
-  /// **'为了能够筛选需要推送通知的应用，请授予应用读取已安装应用列表的权限。'**
-  String get appListPermDesc2;
-
-  /// No description provided for @goEnablePermission.
-  ///
-  /// In zh, this message translates to:
-  /// **'前往开启权限'**
-  String get goEnablePermission;
-
-  /// No description provided for @refreshRetry.
-  ///
-  /// In zh, this message translates to:
-  /// **'刷新重试'**
-  String get refreshRetry;
 
   /// No description provided for @searchAppHint.
   ///
@@ -4676,23 +4526,11 @@ abstract class AppLocalizations {
   /// **'本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽'**
   String get historyActionBlockAppDescSelf;
 
-  /// No description provided for @historyActionBlockAppDescAllowWhitelist.
-  ///
-  /// In zh, this message translates to:
-  /// **'该应用已被应用过滤拦截，但白名单关键词命中仍会推送，无需操作'**
-  String get historyActionBlockAppDescAllowWhitelist;
-
   /// No description provided for @historyBlockAppSelfToast.
   ///
   /// In zh, this message translates to:
   /// **'本应用自身的通知由电量规则控制，请在电量设置中调整'**
   String get historyBlockAppSelfToast;
-
-  /// No description provided for @historyBlockAppAllowWhitelistToast.
-  ///
-  /// In zh, this message translates to:
-  /// **'该应用已被应用过滤拦截，但白名单关键词命中仍会推送'**
-  String get historyBlockAppAllowWhitelistToast;
 
   /// No description provided for @exportConfirmDesc.
   ///
@@ -4705,12 +4543,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'更多操作'**
   String get historyMoreActions;
-
-  /// No description provided for @ruleAppPickScanEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。'**
-  String get ruleAppPickScanEmpty;
 
   /// No description provided for @updateAlreadyLatest.
   ///
@@ -5012,30 +4844,6 @@ abstract class AppLocalizations {
   /// **'企业微信自建应用'**
   String get channelTypeWecomApp;
 
-  /// No description provided for @platformWecomAppDesc.
-  ///
-  /// In zh, this message translates to:
-  /// **'企业微信自建应用推送（需 corpid/agentid/corpsecret），支持指定接收人，正文上限 2048 字节'**
-  String get platformWecomAppDesc;
-
-  /// No description provided for @signingHintWecomApp.
-  ///
-  /// In zh, this message translates to:
-  /// **'必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid'**
-  String get signingHintWecomApp;
-
-  /// No description provided for @wecomAppExtraTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'企业微信自建应用参数'**
-  String get wecomAppExtraTitle;
-
-  /// No description provided for @wecomAppTouserHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'接收人 touser（可选，默认 @all，多人间隔 |）'**
-  String get wecomAppTouserHint;
-
   /// No description provided for @ruleTemplateTitle.
   ///
   /// In zh, this message translates to:
@@ -5240,12 +5048,6 @@ abstract class AppLocalizations {
   /// **'未配置'**
   String get appChannelNotConfigured;
 
-  /// No description provided for @appChannelN.
-  ///
-  /// In zh, this message translates to:
-  /// **'自建应用 {n}'**
-  String appChannelN(int n);
-
   /// No description provided for @appChannelNameLabel.
   ///
   /// In zh, this message translates to:
@@ -5323,18 +5125,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'自建应用通道已保存并同步'**
   String get appChannelSaveOk;
-
-  /// No description provided for @channelStateEnabled.
-  ///
-  /// In zh, this message translates to:
-  /// **'已启用'**
-  String get channelStateEnabled;
-
-  /// No description provided for @channelStateDisabled.
-  ///
-  /// In zh, this message translates to:
-  /// **'已停用'**
-  String get channelStateDisabled;
 
   /// No description provided for @appChannelErrNameRequired.
   ///

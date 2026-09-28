@@ -12,30 +12,107 @@ import '../support/source_guards.dart';
 /// `checkUpdateFailed` / `updateCheckFailed`、`latestVer` / `updateLatestVersionLabel`
 /// 同时存在，改文案的人只会改到自己搜到的那一个上，另一个继续躺在字典里当"看起来是配置"的暗雷。
 ///
-/// 判据说的是"有没有被用"，不是"该不该存在"：有些词条是给还没做的 W3 页面预留的，
-/// 删掉它们会把规划删掉。所以这里立棘轮而不是清零 —— 新增一个没人用的词条就会红，
-/// 清掉存量请把 `_ratchet` 一起改小，并在 commit 里说明那批词条是真的不需要了。
+/// 判据说的是"有没有被用"，不是"该不该存在"：有些词条是给还没做的页面预留的，
+/// 删掉它们会把规划删掉。所以这里立的是**具名登记表**（`_reserved`）而不是清零 ——
+/// 新增一个没人用的词条就会红；要留，就得写下它属于哪个任务号。清掉存量请把登记表那一行删掉。
 ///
 /// 计数只认**剥掉注释之后**的代码：词条名字出现在注释里不算用过
 /// （否则"我在 TODO 里提了一下"就能让它永久免检）。
 ///
-/// ## 存量怎么往下走（T63-B 第一刀：77 这个数里，24 条是守卫自己看错的）
-/// 先把数摆正：修掉下面的排除规则之后，同一份 ARB 的真实死词条数是 **53**，不是 77 ——
-/// 那 24 条一直活着，只是活在被整个 `lib/l10n/` 一起排除掉的**手写**扩展里
-/// （`app_localizations_enum_helpers.dart`：枚举 → 词条的映射，gen-l10n 不碰它）。
-/// 判据"说没人用而实际在用"比多留 24 条贵得多：下一只手就会照着清单去删。
-/// 这一刀的第一版就是这么删掉了 `condPackage` / `condPriority` / `actionSilent`，
-/// 重生成生成物之后编译当场红 —— 而本地不重生成时它是绿的（隔了一道的假绿）。
+/// ## 存量怎么往下走（T63-B 第二刀：数字换成名字）
+/// 第一刀（`756ec9d`）修掉了"手写扩展被目录级排除打死"这个盲点，删了 18 条机械可证的改名孪生，
+/// 存量 77 → 53（真实）→ 35。这一刀要处理的是剩下的 35 条 —— 它们**不能按"有没有调用点"判**，
+/// 所以先把清单逐条取证（谁取代了它 / 取代它的那次提交是哪个），再决定删还是留。
 ///
-/// 真正删掉的 18 条是**机械可证**的那一批：同一个中文文案在字典里有两把键，一把有调用点、
-/// 另一把没有 —— 改名留下的孪生（`latestVer` / `updateLatestVersionLabel` 这种）。留着它们的
-/// 下场不是脏，是改文案的人只改到自己搜到的那一把，另一把继续当"看起来是配置"的暗雷。
+/// 35 条全部有罪，但罪名分四种，都不是"看着没人用"能看出来的：
+/// - **改名孪生**（`checkUpdateFailed` vs 活的 `updateCheckFailedWithError`、`downloadFailed` vs
+///   `updateDownloadFailed`、`exportMsg` vs `exportConfirmDesc`）—— 第一刀那批的余下部分。
+/// - **被别的功能形状取代**：`on`/`off` 输给 `enabled`/`disabled`；`appChannelN`/`channelN`
+///   是"整表平铺页"时代的默认名，T07 拆成列表页 + 详情页后默认名换了三级来源；
+///   `channelStateEnabled/Disabled` 被 `ChannelHealthBadge` 取代；`ruleAppPinned*` 被"快速选择"取代；
+///   企业微信那四条被 `appChannel*` 一族 + 原生描述符取代；`webhookTemplate*` 被 ActionChip 取代。
+/// - **暗示一个已经不申请的权限**（`storagePermissionRequired` / `storagePermissionMsg` /
+///   `noStoragePermission`）：下载早就改走 DownloadManager + 应用私有目录，全仓只申请
+///   `REQUEST_INSTALL_PACKAGES`。留着不是脏，是让用户以为我们要读他的存储。
+/// - **调用点被删干净后的正文残留**（`appListPermDesc2`、`goEnablePermission`、`initRetry`、
+///   `refreshRetry`、`loading`、`ruleAppPickScanEmpty`…）—— git log -S 能查到当年那行代码。
 ///
-/// ⚠ 剩下 35 条**不能这样一刀切**：里头既有"W3 那几页还没接线所以暂时没人用"（真该留着），
-/// 也有"Dart 侧文案已经换成原生导出描述符所以再没人用"（该删）。这两种从"有没有调用点"上
-/// 看不出来，只能逐条对着路线图问"哪一页要用它"。所以下一步不是降数字，而是把这张清单
-/// 变成**带任务号的登记表**：每条预留都要写下它属于哪个任务，写不出来的就是该删的那一类。
-const int _ratchet = 35;
+/// 判据自己也有第三个盲点，这次顺手修掉：**`on` 是被 Dart 关键字判活的**。`try {} on X catch`
+/// 里的 `on` 是语法，不是成员访问，而"键名当标识符出现过就算用过"对它同样成立 ⇒ 这条键**永远**
+/// 判活。全仓 968 条里撞关键字的只有它一条（别的短键都至少有一次 `.key` 访问），但"只有 1 条"
+/// 是量出来的，不是假设的：关键字族现在必须有 `.key` 形式的访问才算用过。
+/// ⚠ 仍然存在的边界：像 `id`、`name` 这类既非关键字、又恰好和局部变量重名的键，裸标识符判据会
+/// 把它判活而实际没人用。要堵住只能上 AST，那是另一个任务的量 —— 今天的兜底是"登记表必须具名"。
+///
+/// 所以这一步之后**不再用数字当棘轮**：`_reserved` 是唯一允许存在的死词条名单，每一条都要写下
+/// 它属于哪个任务（写不出任务号的，这次一律删）。数字会漂、名字不会 —— 而且接完了忘删登记行
+/// 也会红（名单与实测集合双向比对），登记表变垃圾场这条路是堵住的。
+const Map<String, String> _reserved = {
+  'mainBackupExcluded':
+      'T11 遗留 → #136：主备弹层里「不参与」档只有徽标（channel_status_page.dart:388/485）、'
+      '没有解释行，而对称的「未设置」分支有 mainBackupUnsetNotice（:344）。接完删本行。',
+};
+
+/// 这些词出现在代码里时**只可能是语法**，不可能是 l10n 调用点（`try {} on X catch`、
+/// `for (x in y)`、`void main()`）。裸标识符判据对它们无效，必须看到 `.key` 才算用过。
+const Set<String> _dartReservedWords = {
+  'abstract',
+  'as',
+  'assert',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'default',
+  'deferred',
+  'do',
+  'else',
+  'enum',
+  'export',
+  'extends',
+  'extension',
+  'external',
+  'factory',
+  'false',
+  'final',
+  'finally',
+  'for',
+  'get',
+  'hide',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'interface',
+  'is',
+  'library',
+  'new',
+  'null',
+  'on',
+  'operator',
+  'part',
+  'required',
+  'rethrow',
+  'return',
+  'set',
+  'show',
+  'static',
+  'super',
+  'switch',
+  'sync',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typedef',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+};
 
 /// gen-l10n 会覆盖的那三个文件 —— 排除的**只有这些**，`lib/l10n/` 下别的 .dart 一律算代码。
 const List<String> _generatedL10n = [
@@ -47,10 +124,17 @@ const List<String> _generatedL10n = [
 /// 判据本体（独立成函数是为了能被合成样本反证）。
 /// [arbKeys] ARB 里的键集合；[sourceText] 已剥注释的全部 lib/ 代码。
 List<String> deadEntries(Iterable<String> arbKeys, String sourceText) {
-  final used = RegExp(
+  final bare = RegExp(
     r'[A-Za-z_][A-Za-z0-9_]*',
   ).allMatches(sourceText).map((m) => m.group(0)!).toSet();
-  return arbKeys.where((k) => !used.contains(k)).toList()..sort();
+  // 关键字族只认成员访问：`try {} on X catch` 里的 `on` 不是"用过了词条 on"。
+  final memberAccessed = RegExp(
+    r'\.([A-Za-z_][A-Za-z0-9_]*)',
+  ).allMatches(sourceText).map((m) => m.group(1)!).toSet();
+  bool used(String k) => _dartReservedWords.contains(k)
+      ? memberAccessed.contains(k)
+      : bare.contains(k);
+  return arbKeys.where((k) => !used(k)).toList()..sort();
 }
 
 /// 只数真正的词条键：元数据（`@name`、`@@localeName`）与占位符描述不算。
@@ -145,15 +229,73 @@ void main() {
       );
     });
 
-    test('死词条数 <= 棘轮值 $_ratchet', () {
+    test('关键字族的裸标识符命中不算用过（`on` 那类假绿）', () {
+      // `try {} on X catch` 里的 on 是语法。裸 token 判据对它失效 ⇒ 必须看到 `.on`。
       expect(
-        dead.length,
-        lessThanOrEqualTo(_ratchet),
-        reason:
-            '新增了没人用的 ARB 词条（当前 ${dead.length}，上限 $_ratchet）。'
-            '要么接上它，要么把它删掉；\n'
-            '当前清单（按字母序）：\n${dead.join("\n")}',
+        deadEntries([
+          'on',
+        ], 'void f() { try { g(); } on Exception catch (_) {} }'),
+        ['on'],
       );
+      expect(deadEntries(['on'], 'void f() { print(l10n.on); }'), <String>[]);
+      // 反向：非关键字**仍然**认裸标识符 —— 那个手写扩展就是靠裸名字用词条的
+      // （`ConditionType.packageName => condPackage`）。收紧到"只认成员访问"
+      // 会把第一刀修掉的盲点原样带回来。
+      expect(
+        deadEntries(['condPackage'], 'String m() => condPackage;'),
+        <String>[],
+      );
+    });
+
+    test('死词条必须逐条写在登记表里，且登记表现在只剩这一条', () {
+      // 数字棘轮（`_ratchet`）已被这个名字登记表取代：数字会漂，名字不会，
+      // 而且"接完了忘删登记行"也会红（下面第二个断言）。
+      expect(
+        dead.where((k) => !_reserved.containsKey(k)),
+        isEmpty,
+        reason:
+            '这些词条没人用又没登记（当前 ${dead.length} 条死词条）：'
+            '${dead.where((k) => !_reserved.containsKey(k)).join(", ")}\n'
+            '要么接上它，要么删掉；确实要为以后的页面预留，就在 _reserved 里'
+            '写下它属于哪个任务号 —— 写不出任务号的那类，就是该删的那一类。',
+      );
+      expect(
+        dead.where((k) => _reserved.containsKey(k)),
+        _reserved.keys.toList(),
+        reason: '登记表里这些键已经不是死词条了（接上了就删那一行，别让它变垃圾场）',
+      );
+      for (final entry in _reserved.entries) {
+        expect(
+          RegExp(r'(T\d+|#\d+)').hasMatch(entry.value),
+          isTrue,
+          reason: '${entry.key} 的登记理由里没有任务号：${entry.value}',
+        );
+        expect(
+          arb.containsKey(entry.key),
+          isTrue,
+          reason: '${entry.key} 登记着，但 ARB 里已经没有这条键了 ⇒ 名单漂了',
+        );
+      }
+    });
+
+    test('T63-B 第二刀删掉的必须回不来（同名键再出现就红）', () {
+      // 这批不是"改天再接"，是**已被取代**：留着只会让下个改文案的人改到错的那一把。
+      // 如果有人把某条加回来，这条断言要求他先回答"取代它的那个UI去哪了"。
+      for (final key in const [
+        'on',
+        'off',
+        'loading',
+        'checkUpdateFailed',
+        'downloadFailed',
+        'storagePermissionRequired',
+        'appChannelN',
+        'channelStateEnabled',
+        'wecomAppTouserHint',
+        'ruleAppPinnedNote',
+      ]) {
+        expect(arb.containsKey(key), isFalse, reason: '$key 是被取代的旧文案，不该回字典');
+        expect(dead, isNot(contains(key)));
+      }
     });
   });
 }

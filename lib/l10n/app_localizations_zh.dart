@@ -53,9 +53,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goSettings => '去设置';
 
   @override
-  String get loading => '加载中...';
-
-  @override
   String get unknown => '未知';
 
   @override
@@ -66,12 +63,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get disabled => '未开启';
-
-  @override
-  String get on => '开';
-
-  @override
-  String get off => '关';
 
   @override
   String get tabHome => '首页';
@@ -199,13 +190,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get notificationPermissionTitle => '通知读取权限未开启';
-
-  @override
   String get appearance => '外观设置';
-
-  @override
-  String get pushSettings => '推送设置';
 
   @override
   String get pushChannels => '推送通道';
@@ -270,9 +255,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get deviceName => '设备名称';
-
-  @override
-  String get widgetSection => '桌面小部件';
 
   @override
   String get widgetGuide => '推送开关';
@@ -463,11 +445,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get latestVersion => '当前已是最新版本';
 
   @override
-  String checkUpdateFailed(String e) {
-    return '检查更新失败：$e';
-  }
-
-  @override
   String get fileSize => '文件大小：';
 
   @override
@@ -480,28 +457,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get update => '更新';
 
   @override
-  String downloadFailed(String e) {
-    return '下载失败：$e';
-  }
-
-  @override
-  String get storagePermissionRequired => '需要存储权限';
-
-  @override
-  String get storagePermissionMsg => '在线更新需要存储权限来保存 APK 文件，请前往设置开启。';
-
-  @override
-  String get noStoragePermission => '未获得存储权限，无法下载更新';
-
-  @override
   String get enable => '启用';
 
   @override
   String get confirmExport => '确认导出';
-
-  @override
-  String get exportMsg =>
-      '通知记录将导出为 JSON 文件，包含通知内容和设备信息。\n\n请选择保存位置，建议在导出后妥善保管或及时删除。\n\n确定要导出吗？';
 
   @override
   String get exportBtn => '确定导出';
@@ -817,11 +776,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookDesc3 => '新添加的通道默认启用';
 
   @override
-  String channelN(int n) {
-    return '通道 $n';
-  }
-
-  @override
   String get channelNameOptional => '通道名称（可选，如 企业微信·通知）';
 
   @override
@@ -845,12 +799,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webhookTemplateHint => '留空则使用预置模板；支持变量：';
-
-  @override
-  String get webhookTemplateInsertVar => '插入变量';
-
-  @override
-  String get webhookTemplatePreview => '预览';
 
   @override
   String get platformWechat => 'WeCom';
@@ -1045,9 +993,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exactAlarmNeedGrant => '点击授权';
 
   @override
-  String get exactAlarmUnsupported => '需 Android 12+';
-
-  @override
   String get keepAliveGuideTitle => '后台保活引导';
 
   @override
@@ -1189,12 +1134,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get author => '作者：幻念团队 fnthinklevi';
-
-  @override
-  String get appDesc => '监听通知栏所有通知并推送到 Webhook';
-
-  @override
-  String get appFeatures => '支持：微信 / QQ / 短信 / 来电 / 电量提醒';
 
   @override
   String get ruleListTitle => '规则管理';
@@ -1341,12 +1280,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ruleAppPickTitle => '选择适用应用';
 
   @override
-  String get ruleAppPinnedSms => '系统短信';
-
-  @override
-  String get ruleAppPinnedNote => '系统短信与电话由独立链路转发，不经过规则约束判定，此处列出仅便于统一管理。';
-
-  @override
   String get ruleAppNoPermission => '无应用列表读取权限，无法加载应用列表';
 
   @override
@@ -1407,11 +1340,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String historyBlockAppAdded(String app) {
     return '已将「$app」加入屏蔽名单';
-  }
-
-  @override
-  String historyBlockAppAlreadyExcluded(String app) {
-    return '「$app」已不在推送范围内';
   }
 
   @override
@@ -1621,9 +1549,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get initUpdate => '初始化更新服务...';
 
   @override
-  String get initRetry => '初始化重试服务...';
-
-  @override
   String get initComplete => '初始化完成';
 
   @override
@@ -1742,15 +1667,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get filterBlockApps => '不通知应用';
-
-  @override
-  String get appListPermDesc2 => '为了能够筛选需要推送通知的应用，请授予应用读取已安装应用列表的权限。';
-
-  @override
-  String get goEnablePermission => '前往开启权限';
-
-  @override
-  String get refreshRetry => '刷新重试';
 
   @override
   String get searchAppHint => '搜索应用名称或包名';
@@ -2469,14 +2385,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historyActionBlockAppDescSelf => '本应用自身的通知（电量提醒等）由电量规则控制，不适用应用屏蔽';
 
   @override
-  String get historyActionBlockAppDescAllowWhitelist =>
-      '该应用已被应用过滤拦截，但白名单关键词命中仍会推送，无需操作';
-
-  @override
   String get historyBlockAppSelfToast => '本应用自身的通知由电量规则控制，请在电量设置中调整';
-
-  @override
-  String get historyBlockAppAllowWhitelistToast => '该应用已被应用过滤拦截，但白名单关键词命中仍会推送';
 
   @override
   String get exportConfirmDesc =>
@@ -2484,10 +2393,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get historyMoreActions => '更多操作';
-
-  @override
-  String get ruleAppPickScanEmpty =>
-      '未能扫描到应用列表。请返回重试；若仍为空，请在系统设置中确认已允许「读取应用列表」权限。';
 
   @override
   String get updateAlreadyLatest => '当前已是最新版本';
@@ -2658,20 +2563,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelTypeWecomApp => '企业微信自建应用';
 
   @override
-  String get platformWecomAppDesc =>
-      '企业微信自建应用推送（需 corpid/agentid/corpsecret），支持指定接收人，正文上限 2048 字节';
-
-  @override
-  String get signingHintWecomApp =>
-      '必填：corpsecret（用于获取 access_token）；另需填写 corpid 与 agentid';
-
-  @override
-  String get wecomAppExtraTitle => '企业微信自建应用参数';
-
-  @override
-  String get wecomAppTouserHint => '接收人 touser（可选，默认 @all，多人间隔 |）';
-
-  @override
   String get ruleTemplateTitle => '规则模板库';
 
   @override
@@ -2788,11 +2679,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appChannelNotConfigured => '未配置';
 
   @override
-  String appChannelN(int n) {
-    return '自建应用 $n';
-  }
-
-  @override
   String get appChannelNameLabel => '通道名称';
 
   @override
@@ -2832,12 +2718,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appChannelSaveOk => '自建应用通道已保存并同步';
-
-  @override
-  String get channelStateEnabled => '已启用';
-
-  @override
-  String get channelStateDisabled => '已停用';
 
   @override
   String get appChannelErrNameRequired => '保存失败：通道名称不能为空';

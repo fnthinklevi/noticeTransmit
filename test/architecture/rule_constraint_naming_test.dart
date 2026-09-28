@@ -55,9 +55,17 @@ void main() {
         for (final key in const [
           'ruleEngine',
           'ruleGuideTitle',
-          'ruleAppPinnedNote',
           'testerFilteredNote',
         ]) {
+          // 名单里的键被删掉时也要点名，而不是让 `data[key]!` 抛一个空检查异常：
+          // T63-B 第二刀删 `ruleAppPinnedNote`（置顶分组已被"快速选择"取代）就是这种时刻。
+          expect(
+            data.containsKey(key),
+            isTrue,
+            reason:
+                '$key 已经不在 $locale 的 ARB 里了 ⇒ 这条同步名单要一起清，'
+                '否则守卫只是在替一个不存在的词条把关',
+          );
           final value = data[key]! as String;
           expect(
             generated,
