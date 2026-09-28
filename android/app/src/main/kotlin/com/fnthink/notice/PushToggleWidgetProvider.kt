@@ -19,8 +19,9 @@ import android.widget.RemoteViews
  *   并 updateAllWidgets 刷新所有小部件 UI。
  *
  * 支持两种规格（自适应尺寸）：
- * - 2×2 紧凑布局（R.layout.push_toggle_widget）：左上角标题 + 中央圆形状态 + 底部提示
- * - 4×2 宽布局（R.layout.push_toggle_widget_wide）：左上角标题 + 左半圆形 + 右半当日推送计数
+ * - 2×2 紧凑布局（R.layout.push_toggle_widget）：图标 + 应用名 / 状态大字 / 一行提示
+ * - 4×2 宽布局（R.layout.push_toggle_widget_wide）：左同上（窄一号），右半是当日推送计数面板
+ * 整张卡片的容器色就是状态本身：绿=在转发，红=我按了暂停，石板灰=进程不在了。
  * 通过 AppWidgetManager.getAppWidgetOptions 读取 OPTION_APPWIDGET_MIN_WIDTH，
  * 宽度 >= 220dp 使用宽布局，否则使用紧凑布局；用户拉伸尺寸时自动切换。
  *
@@ -132,19 +133,29 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
 
             // 左上角标题（跟随语言切换）
             views.setTextViewText(R.id.widget_title, I18n.appName())
+            views.setTextColor(R.id.widget_title, context.getColor(onColorFor(state)))
 
-            // 中央圆形：状态 + 颜色（推送=绿 / 暂停=红 / 已关闭=中性灰）
-            views.setTextViewText(R.id.widget_circle, statusText(state))
-            views.setInt(R.id.widget_circle, "setBackgroundResource", circleFor(state))
+            // 图标与文字都跟着状态走：颜色之外必须有第二条通道（色盲用户、低对比环境）。
+            // 图标挂在标题的**复合 drawable** 上而不是单独的 ImageView —— 小组件每多一个 view
+            // 就多一次远程 inflation，lint 的 UseCompoundDrawables 说的就是这件事。
+            views.setTextViewCompoundDrawablesRelative(R.id.widget_title, iconFor(state), 0, 0, 0)
+            val strong = context.getColor(onColorFor(state)) // 主信息：状态字、大数字
+            val weak = context.getColor(accentColorFor(state)) // 辅助：提示行、面板标签
+
+            views.setTextViewText(R.id.widget_status, statusText(state))
+            views.setTextColor(R.id.widget_status, strong)
 
             // 底部提示：CLOSED 要说清"为什么"并给出下一步，不能只写"已关闭"三个字
             views.setTextViewText(R.id.widget_hint, hintText(verdict))
+            views.setTextColor(R.id.widget_hint, weak)
 
             // 宽布局：右侧当日已推送通知数量
             if (useWide) {
                 val todayCount = WidgetDailyCounter.getTodayCount(context)
                 views.setTextViewText(R.id.widget_daily_count, todayCount.toString())
+                views.setTextColor(R.id.widget_daily_count, strong)
                 views.setTextViewText(R.id.widget_daily_label, I18n.widgetDailyPushed())
+                views.setTextColor(R.id.widget_daily_label, weak)
             }
 
             val pendingIntent = if (closed) {
@@ -178,10 +189,25 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             WidgetLiveness.State.CLOSED -> R.drawable.widget_bg_closed
         }
 
-        private fun circleFor(state: WidgetLiveness.State): Int = when (state) {
-            WidgetLiveness.State.PUSHING -> R.drawable.widget_circle_active
-            WidgetLiveness.State.PAUSED -> R.drawable.widget_circle_paused
-            WidgetLiveness.State.CLOSED -> R.drawable.widget_circle_closed
+        /** 三态各一枚图标：勾 / 双竖条 / 电源符号。 */
+        private fun iconFor(state: WidgetLiveness.State): Int = when (state) {
+            WidgetLiveness.State.PUSHING -> R.drawable.widget_ic_pushing
+            WidgetLiveness.State.PAUSED -> R.drawable.widget_ic_paused
+            WidgetLiveness.State.CLOSED -> R.drawable.widget_ic_closed
+        }
+
+        /** 主信息色（状态字、大数字）。 */
+        private fun onColorFor(state: WidgetLiveness.State): Int = when (state) {
+            WidgetLiveness.State.PUSHING -> R.color.widget_pushing_on
+            WidgetLiveness.State.PAUSED -> R.color.widget_paused_on
+            WidgetLiveness.State.CLOSED -> R.color.widget_closed_on
+        }
+
+        /** 辅助信息色（提示行、面板标签）：同一色系的弱调，保持一张卡内只有一个音高。 */
+        private fun accentColorFor(state: WidgetLiveness.State): Int = when (state) {
+            WidgetLiveness.State.PUSHING -> R.color.widget_pushing_accent
+            WidgetLiveness.State.PAUSED -> R.color.widget_paused_accent
+            WidgetLiveness.State.CLOSED -> R.color.widget_closed_accent
         }
 
         private fun statusText(state: WidgetLiveness.State): String = when (state) {

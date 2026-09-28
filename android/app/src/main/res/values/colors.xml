@@ -19,14 +19,23 @@
     <color name="ic_launcher_graphite_bg">#48484A</color>
     <color name="ic_launcher_black_bg">#1C1C1E</color>
 
-    <!-- 桌面小部件：推送开关 -->
-    <color name="widget_active_text">#007AFF</color>
-    <color name="widget_paused_text">#8E8E93</color>
-    <!-- 桌面小部件「已关闭」态：中性石板灰 —— 与「暂停=红」「推送=绿」都必须可辨：用户要能一眼分清「我自己暂停的」与「它被打掉了」。 -->
-    <color name="widget_closed_bg_start">#F2F2F7</color>
-    <color name="widget_closed_bg_end">#E5E5EA</color>
-    <color name="widget_closed_stroke">#C7C7CC</color>
-    <color name="widget_closed_dot">#8E8E93</color>
-    <color name="widget_closed_circle_start">#AEC0D0</color>
-    <color name="widget_closed_circle_end">#6B7C8C</color>
+    <!-- 桌面小部件三态配色（Material 3「有色容器」做法：整张卡片就是状态色，
+         文字用 onContainer 而非通用深灰 —— 远看是一整块绿/红/灰，近看文字仍够对比度）。
+         推送中 = 绿；暂停 = 红；已关闭 = 石板灰。三态都各配一套深色桌面值。 -->
+    <color name="widget_pushing_container">#B6F0C7</color>
+    <color name="widget_pushing_on">#0B3D1A</color>
+    <color name="widget_pushing_accent">#128A3D</color>
+    <color name="widget_pushing_outline">#69C98A</color>
+    <color name="widget_paused_container">#FFD9DC</color>
+    <color name="widget_paused_on">#6B0E14</color>
+    <color name="widget_paused_accent">#D93A40</color>
+    <color name="widget_paused_outline">#F0A0A5</color>
+    <color name="widget_closed_container">#E7EDF3</color>
+    <color name="widget_closed_on">#26333F</color>
+    <color name="widget_closed_accent">#6C7F91</color>
+    <color name="widget_closed_outline">#B4C2CE</color>
+    <!-- 卡片上的浮层（计数面板、提示胶囊）：用半透明黑叠加，三态容器上都成立，
+         不必再为每一态配一个白色 -->
+    <color name="widget_overlay_soft">#14000000</color>
+    <color name="widget_overlay_line">#1F000000</color>
 </resources>

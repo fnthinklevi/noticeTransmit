@@ -1,58 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 推送中背景：浅绿柔和渐变卡片 + 细边框 + 底部投影 + 右上角绿色状态点（iOS 风格） -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 投影层：模拟卡片浮起（右侧/底部略重） -->
-    <item>
-        <shape android:shape="rectangle">
-            <corners android:radius="20dp" />
-            <solid android:color="#2E2BAE60" />
-        </shape>
-    </item>
-
-    <!-- 主卡片：浅绿渐变 + 细边框 -->
-    <item
-        android:bottom="2dp"
-        android:left="1dp"
-        android:right="1dp"
-        android:top="1dp">
-        <shape android:shape="rectangle">
-            <corners android:radius="20dp" />
-            <gradient
-                android:angle="315"
-                android:startColor="#F4FBF6"
-                android:endColor="#E2F5E9"
-                android:type="linear" />
-            <stroke
-                android:width="1dp"
-                android:color="#C5E9D2" />
-        </shape>
-    </item>
-
-    <!-- 右上角状态指示点（推送中 = 绿色，白色描边） -->
-    <item
-        android:gravity="top|end"
-        android:right="10dp"
-        android:top="10dp">
-        <shape android:shape="oval">
-            <size
-                android:width="10dp"
-                android:height="10dp" />
-            <solid android:color="#FFFFFF" />
-        </shape>
-    </item>
-    <item
-        android:gravity="top|end"
-        android:right="12dp"
-        android:top="12dp">
-        <shape android:shape="oval">
-            <size
-                android:width="6dp"
-                android:height="6dp" />
-            <gradient
-                android:angle="315"
-                android:startColor="#4CD964"
-                android:endColor="#2FB652"
-                android:type="linear" />
-        </shape>
-    </item>
-</layer-list>
+<!-- 推送中：整张卡片是绿色容器（Material 3 有色容器做法），描边收边、无投影。
+     状态不再靠"右上角一个小圆点"表达 —— 桌面图标旁边那点像素在真实使用里看不见，
+     颜色本身就是状态，配合文字与图标三通道一起说同一件事。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="24dp" />
+    <solid android:color="@color/widget_pushing_container" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/widget_pushing_outline" />
+</shape>

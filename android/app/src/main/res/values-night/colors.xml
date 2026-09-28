@@ -17,11 +17,19 @@
     <color name="ic_launcher_gray_bg">#5c5c5e</color>
     <color name="ic_launcher_graphite_bg">#2c2c2e</color>
     <color name="ic_launcher_black_bg">#0a0a0c</color>
-    <!-- 桌面小部件「已关闭」态（深色桌面）：与浅色同语义、不同明度 -->
-    <color name="widget_closed_bg_start">#2C2C2E</color>
-    <color name="widget_closed_bg_end">#1C1C1E</color>
-    <color name="widget_closed_stroke">#48484A</color>
-    <color name="widget_closed_dot">#98989F</color>
-    <color name="widget_closed_circle_start">#5A6B7A</color>
-    <color name="widget_closed_circle_end">#3A4653</color>
+    <!-- 桌面小部件三态（深色桌面）：容器压暗、文字提亮，语义与浅色一致 -->
+    <color name="widget_pushing_container">#123D21</color>
+    <color name="widget_pushing_on">#CFF3D9</color>
+    <color name="widget_pushing_accent">#5BD381</color>
+    <color name="widget_pushing_outline">#1E5C31</color>
+    <color name="widget_paused_container">#48141A</color>
+    <color name="widget_paused_on">#FFDAD9</color>
+    <color name="widget_paused_accent">#FF7A7A</color>
+    <color name="widget_paused_outline">#7A2E33</color>
+    <color name="widget_closed_container">#232E39</color>
+    <color name="widget_closed_on">#D5DEE7</color>
+    <color name="widget_closed_accent">#93A6B7</color>
+    <color name="widget_closed_outline">#3A4855</color>
+    <color name="widget_overlay_soft">#1FFFFFFF</color>
+    <color name="widget_overlay_line">#2EFFFFFF</color>
 </resources>

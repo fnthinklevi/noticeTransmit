@@ -1,109 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  4×2 小部件选择器预览图（Android 11 及以下系统选择器使用 previewImage 显示）
-  模拟运行时外观：绿色卡片 + 左侧状态圆 + 右侧当日计数面板 + 底部提示胶囊（无文字）
--->
+<!-- 选择器预览（4×2）：左=三段层级，右=计数面板。与运行时同一套语言，不放真实文案。 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 卡片背景（绿色渐变 + 边框） -->
-    <item
-        android:bottom="2dp"
-        android:left="1dp"
-        android:right="1dp"
-        android:top="1dp">
+    <item>
         <shape android:shape="rectangle">
-            <corners android:radius="20dp" />
-            <gradient
-                android:angle="315"
-                android:startColor="#F4FBF6"
-                android:endColor="#E2F5E9"
-                android:type="linear" />
+            <corners android:radius="24dp" />
+            <solid android:color="@color/widget_pushing_container" />
             <stroke
                 android:width="1dp"
-                android:color="#C5E9D2" />
+                android:color="@color/widget_pushing_outline" />
         </shape>
     </item>
 
-    <!-- 右上角绿色状态点（白底 + 绿心） -->
+    <!-- 左：品牌行 -->
     <item
-        android:width="12dp"
-        android:height="12dp"
-        android:gravity="top|end"
-        android:right="16dp"
-        android:top="12dp">
+        android:left="16dp"
+        android:top="16dp"
+        android:width="14dp"
+        android:height="14dp">
         <shape android:shape="oval">
-            <solid android:color="#FFFFFF" />
+            <solid android:color="@color/widget_pushing_on" />
         </shape>
     </item>
     <item
-        android:width="8dp"
-        android:height="8dp"
-        android:gravity="top|end"
-        android:right="18dp"
-        android:top="14dp">
-        <shape android:shape="oval">
-            <gradient
-                android:angle="315"
-                android:startColor="#4CD964"
-                android:endColor="#2FB652"
-                android:type="linear" />
+        android:left="36dp"
+        android:top="19dp"
+        android:width="58dp"
+        android:height="8dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="4dp" />
+            <solid android:color="#590B3D1A" />
         </shape>
     </item>
-
-    <!-- 左侧状态圆（白色描边环 + 绿色渐变主体） -->
+    <!-- 左：状态大字 -->
     <item
+        android:left="16dp"
+        android:top="42dp"
+        android:width="78dp"
+        android:height="20dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="6dp" />
+            <solid android:color="@color/widget_pushing_on" />
+        </shape>
+    </item>
+    <!-- 左：提示行 -->
+    <item
+        android:left="16dp"
+        android:top="70dp"
         android:width="62dp"
-        android:height="62dp"
-        android:gravity="start|center_vertical"
-        android:left="40dp">
-        <shape android:shape="oval">
-            <solid android:color="#FFFFFF" />
-        </shape>
-    </item>
-    <item
-        android:width="54dp"
-        android:height="54dp"
-        android:gravity="start|center_vertical"
-        android:left="44dp">
-        <shape android:shape="oval">
-            <gradient
-                android:angle="315"
-                android:startColor="#61E284"
-                android:endColor="#2FB652"
-                android:type="linear" />
+        android:height="9dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="5dp" />
+            <solid android:color="#590B3D1A" />
         </shape>
     </item>
 
-    <!-- 右侧计数面板 -->
+    <!-- 右：计数面板 -->
     <item
-        android:width="130dp"
-        android:height="60dp"
-        android:gravity="end|center_vertical"
-        android:right="36dp">
+        android:right="16dp"
+        android:top="16dp"
+        android:bottom="16dp"
+        android:width="86dp">
         <shape android:shape="rectangle">
-            <corners android:radius="16dp" />
-            <gradient
-                android:angle="270"
-                android:startColor="#66FFFFFF"
-                android:endColor="#40FFFFFF"
-                android:type="linear" />
+            <corners android:radius="18dp" />
+            <solid android:color="@color/widget_overlay_soft" />
             <stroke
                 android:width="1dp"
-                android:color="#2E8E8E93" />
+                android:color="@color/widget_overlay_line" />
         </shape>
     </item>
-
-    <!-- 底部提示胶囊 -->
     <item
-        android:width="140dp"
-        android:height="18dp"
-        android:gravity="bottom|center_horizontal"
-        android:bottom="12dp">
+        android:right="52dp"
+        android:top="34dp"
+        android:width="30dp"
+        android:height="8dp">
         <shape android:shape="rectangle">
-            <corners android:radius="9dp" />
-            <solid android:color="#A6FFFFFF" />
-            <stroke
-                android:width="1dp"
-                android:color="#1F3C3C43" />
+            <corners android:radius="4dp" />
+            <solid android:color="#590B3D1A" />
+        </shape>
+    </item>
+    <item
+        android:right="44dp"
+        android:top="50dp"
+        android:width="46dp"
+        android:height="24dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="7dp" />
+            <solid android:color="@color/widget_pushing_on" />
         </shape>
     </item>
 </layer-list>
