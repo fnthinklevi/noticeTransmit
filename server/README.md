@@ -922,6 +922,18 @@ journalctl -u update-server -f
    > 内部重定向循环后返回 **500**（推送到此就变成"500 而不是 404"，更难判读）。
    > 双保险（推荐）：把该站点的**网站目录**改成一个空目录，别指向代码目录 —— 这样即便 `location /`
    > 漏写，静态直出也拿不到任何源码或数据。
+   >
+   > 💡 **想让根路径有点内容（介绍页/跳主站）也可以，且不必放开静态目录**：用**精确匹配**单独放行根路径，
+   > 其余仍然是 404：
+   > ```nginx
+   > location = / { return 302 https://<你的主站域名>/; }              # 想了解的人送去官网（零静态文件）
+   > # 或：location = / { default_type text/plain; return 200 "fnthink push endpoint\n"; }
+   > location / { return 404; }                                         # 其余一律 404（含 /index.html）
+   > ```
+   > `location = /` 是精确匹配、优先级最高，不会被 `location /` 抢走；`^~ /api/fnthink/` 与 `^~ /health`
+   > 也照常。真要放静态介绍页，就把该站点网站目录指向**一个新的空目录**（不要是代码目录），再补
+   > `location = /index.html { root <新目录>; }` —— 注意 `location = /` 里的 `index index.html` 会内部跳到
+   > `/index.html`，那一条必须显式放行，否则它又落回 `location /` 变 404。
 
    ```nginx
    # 核对（宝塔模板有时只带前两行，缺第三行必须补 —— 否则 .env 里 TRUST_PROXY=1 拿不到真实 IP）

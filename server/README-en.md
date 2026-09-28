@@ -939,6 +939,19 @@ matter most — three steps:
    > symptom becomes "500 instead of 404", which is harder to read).
    > Belt and braces (recommended): point that site's **website directory** at an empty directory instead of the
    > code directory — then even a missing `location /` cannot leak source or data.
+   >
+   > 💡 **Want something at the root path (a landing page or a redirect)? You still don't need to open a static
+   > directory** — allow the root with an *exact* match and keep everything else at 404:
+   > ```nginx
+   > location = / { return 302 https://<your main site>/; }             # send curious visitors to the website
+   > # or: location = / { default_type text/plain; return 200 "fnthink push endpoint\n"; }
+   > location / { return 404; }                                         # everything else (incl. /index.html)
+   > ```
+   > `location = /` is an exact match with the highest priority, so `location /` cannot take it over, and
+   > `^~ /api/fnthink/` / `^~ /health` keep working. For a real static landing page, point the site directory at a
+   > **new empty directory** (never the code directory) and add `location = /index.html { root <new dir>; }` —
+   > because `index index.html` inside `location = /` internally redirects to `/index.html`, that line must be
+   > allowed explicitly or it falls back into `location /` and 404s.
 
    ```nginx
    # verify (the panel template sometimes ships only the first two lines; the third is required —
