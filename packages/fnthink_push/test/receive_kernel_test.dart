@@ -50,6 +50,7 @@ class _Harness {
 }
 
 const _self = '8K3FJ6QPTM9WZ4VHNS';
+const _peer = '8KMNPQRSTVWX999777';
 
 void main() {
   late FnthinkContract contract;
@@ -77,6 +78,7 @@ void main() {
             'item': '',
             'title': '机箱',
             'body': '温度 63 度 $i',
+            'sender': _peer,
           },
       ],
       'receipts': receipts,
@@ -425,6 +427,37 @@ void main() {
       });
       expect(one!.messageId, 'm_1');
       expect(one.item, '');
+    });
+
+    test('取到的那条带发件人；旧服务端不给这一列时留空而不是把消息丢掉', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(status: 200, body: okPoll(messages: 2));
+      final result = await harness.kernel().poll();
+      expect(result.messages.map((m) => m.sender).toSet(), {_peer});
+      // 这一列的名字与"必须有"都由契约说：把它从名单里摘掉，Dart 侧 validate 先红
+      expect(contract.pollMessageFields, contains('sender'));
+
+      // 对端是旧版（名单里还没有 sender）：消息照旧收下、sender 留空，界面显示"未知来源"。
+      // 反过来（因为缺归属就丢）才是违规 —— 正文已经到手，丢掉就是「不静默丢」的反面。
+      final legacy = _Harness(contract, 1_800_000_000_000);
+      legacy.reply = FnthinkReply(
+        status: 200,
+        body: {
+          'messages': [
+            {
+              'messageId': 'm_old',
+              'type': 'notice',
+              'title': '旧版',
+              'body': '没有 sender',
+            },
+          ],
+          'pending': 0,
+          'serverTime': 1_800_000_000_000,
+        },
+      );
+      final old = await legacy.kernel().poll();
+      expect(old.messages, hasLength(1));
+      expect(old.messages.single.sender, '');
     });
 
     test('回执词表外的结论被丢（两端对"结论"的理解漂了就要能看出来）', () {

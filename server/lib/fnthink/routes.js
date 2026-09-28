@@ -29,7 +29,13 @@
 const express = require('express');
 
 const { asyncHandler } = require('../middleware');
-const { loadContract, assertSupported, statusCode, canonicalOrder } = require('./contract');
+const {
+  loadContract,
+  assertSupported,
+  statusCode,
+  canonicalOrder,
+  shapeError,
+} = require('./contract');
 const { alphabetFromContract, normalize } = require('./credentials');
 const { acceptIncoming } = require('./verify');
 const { createSenderQuota } = require('./senderquota');
@@ -91,6 +97,48 @@ function signedFields(raw) {
   for (const key of canonicalOrder(contract)) {
     if (Object.prototype.hasOwnProperty.call(source, key)) out[key] = source[key];
   }
+  return out;
+}
+
+/// poll 每条消息回哪些字段：名单取自契约 `clientEvents.poll.messageFields`。
+///
+/// 为什么按名单投影而不是写一个对象字面量：设备侧的收件表（T47）与这条响应之间只有这一份
+/// 共同出处。`sender` 就是这么补进来的 —— 此前的字面量只回 messageId/type/item/title/body，
+/// 于是"列设计到一半发现无处取发件人"。名单留在代码里，下一次缺口仍是同样的现形方式。
+/// ⚠ 校验放在**装载时**而不是请求里：名单与这台实现对不上，属契约内容不达标（SHAPE），
+///   按 #130-A4 定的口径只该降级幻念推送那一段并让启动横幅说破原因；放到请求里就变成
+///   "第一条带货的 poll 冒 500"，而投影不出来的那一列本来会**静默地空着**。
+const POLL_PROJECTABLE = ['messageId', 'type', 'item', 'title', 'body', 'sender'];
+
+function pollMessageFields(c) {
+  const declared =
+    c.clientEvents && c.clientEvents.poll ? c.clientEvents.poll.messageFields : undefined;
+  if (!Array.isArray(declared) || declared.length === 0) {
+    throw shapeError('契约缺 clientEvents.poll.messageFields：poll 回哪些字段必须有共同出处');
+  }
+  const bogus = declared.filter((f) => !POLL_PROJECTABLE.includes(f));
+  if (bogus.length > 0) {
+    throw shapeError(
+      `clientEvents.poll.messageFields 里的「${bogus.join('」「')}」投影不出来` +
+        `（可投影面只有 ${POLL_PROJECTABLE.join(', ')}：消息表的身份列 + 密信封里的 title/body）`,
+    );
+  }
+  return declared;
+}
+
+const POLL_FIELDS = pollMessageFields(contract);
+
+function projectForPoll(record, content) {
+  const source = {
+    messageId: record.messageId,
+    type: record.type,
+    item: record.item || '',
+    sender: record.sender || '',
+    title: content.title,
+    body: content.body,
+  };
+  const out = {};
+  for (const field of POLL_FIELDS) out[field] = source[field];
   return out;
 }
 
@@ -227,13 +275,7 @@ router.post(
     for (const taken of dispatched.taken) {
       const record = messages[taken.messageId];
       const content = decryptBodyFor(contract, process.env.ENCRYPTION_KEY, record.body);
-      out.push({
-        messageId: record.messageId,
-        type: record.type,
-        item: record.item || '',
-        title: content.title,
-        body: content.body,
-      });
+      out.push(projectForPoll(record, content));
     }
     const receipts = receiptsForSender(
       contract,

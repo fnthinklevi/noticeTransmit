@@ -85,6 +85,23 @@ void main() {
       );
     });
 
+    test('poll 每条消息的名单：主键与归属都在，且每个名字都投影得出来', () {
+      expect(c.pollMessageFields, containsAll(['messageId', 'sender']));
+      expect(c.pollMessageFields.toSet().length, c.pollMessageFields.length);
+      final projectable = {
+        'messageId',
+        'type',
+        'item',
+        'sender',
+        ...c.aliases.keys,
+      };
+      expect(
+        projectable.containsAll(c.pollMessageFields),
+        isTrue,
+        reason: '可投影面只有 $projectable，名单里多一个名字就是让服务端回一个空值',
+      );
+    });
+
     test('双域名都在 fnthink 的注册域下（钉的是"归属"，不是整串主机名）', () {
       // 为什么这样钉：大陆那条曾经写成 `pushfnthink.com`（少一个点，是**另一个域**），
       // 而契约里这行此前没人读也没人校验，错串就一直挂着。断言 endsWith('.fnthink.<tld>')
@@ -820,6 +837,48 @@ void main() {
         );
       });
       expectProblem(broken, '不在那份清单上', '请求躺在表里、A 屏幕上永远显示"等待配对"，那是最难的静默之一');
+    });
+
+    test('poll 名单里没有 sender ⇒ 报（收件表那一行无处归属）', () {
+      final broken = mutate((raw) {
+        (kindOf(raw, 'poll')['messageFields'] as List<Object?>).remove(
+          'sender',
+        );
+      });
+      expectProblem(broken, '少了 sender', '「是谁发的」只有这一个数据源');
+    });
+
+    test('poll 名单里没有 messageId ⇒ 报（没有主键那条永远 ack 不了）', () {
+      final broken = mutate((raw) {
+        (kindOf(raw, 'poll')['messageFields'] as List<Object?>).remove(
+          'messageId',
+        );
+      });
+      expectProblem(broken, '少了 messageId', '设备手上没有 id 就无法对那一条表态');
+    });
+
+    test('poll 名单里写一个投影不出来的名字 ⇒ 报（服务端会静默回一个空值）', () {
+      final broken = mutate((raw) {
+        // dedupeIdDigest 是盘上的摘要，设备拿它做不了任何事；把它抄进名单正是
+        // "看起来名单里本该有这一个"的那类错 —— 后果不是报错，是那列永远为空。
+        kindOf(raw, 'poll')['messageFields'] = [
+          'messageId',
+          'type',
+          'item',
+          'title',
+          'body',
+          'sender',
+          'dedupeIdDigest',
+        ];
+      });
+      expectProblem(broken, '投影不出来', '名单是投影的唯一依据，错一个名字就少一列');
+    });
+
+    test('poll 名单为空 ⇒ 报（"回一个空对象"不是名单为空的意思）', () {
+      final broken = mutate((raw) {
+        kindOf(raw, 'poll')['messageFields'] = <Object?>[];
+      });
+      expectProblem(broken, '必须非空且无重复', '空名单会让每条消息变成 {}');
     });
 
     test('ttlSecondsFrom 指到一个不存在的键 ⇒ 报（不补默认 TTL）', () {

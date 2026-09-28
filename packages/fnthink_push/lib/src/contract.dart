@@ -334,6 +334,11 @@ class FnthinkContract {
     return value;
   }
 
+  /// poll 每条消息带回哪些字段。服务端按它投影响应、收件表（T47）按它设计列，
+  /// 两边只有这一份共同出处 —— 名单不在契约里时，缺口只会以"动手到一半发现少一列"的形式现形。
+  List<String> get pollMessageFields =>
+      strings(const ['clientEvents', 'poll', 'messageFields']);
+
   /// poll 响应里"配对请求"那一项的键名（键名进契约是因为服务端就是从契约拼的）。
   String get pairRequestPollKey {
     final value = str(const ['pairRequest', 'pollKey']);
@@ -1809,6 +1814,47 @@ class FnthinkContract {
       maxBatch > 0 &&
           maxBatch <= (intOf(const ['retention', 'pendingPerDeviceMax']) ?? 0),
       'clientEvents.poll.maxBatchPerPoll 必须是正整数且不超过 pendingPerDeviceMax：$maxBatch',
+    );
+    // poll 每条消息回哪些字段：这份名单是「服务端投影」与「收件表列设计」的唯一共同出处。
+    final messageFields = strings(const [
+      'clientEvents',
+      'poll',
+      'messageFields',
+    ]);
+    need(
+      messageFields.isNotEmpty &&
+          messageFields.toSet().length == messageFields.length,
+      'clientEvents.poll.messageFields 必须非空且无重复，实为 $messageFields：'
+      '空名单 = poll 回一堆空对象，有重复 = 「投影出的键数」与名单长度不再相等',
+    );
+    need(
+      messageFields.contains('messageId'),
+      'clientEvents.poll.messageFields 少了 messageId：设备手上没有主键就 ack 不了那一条，'
+      '收件表也失去去重水位线（message_id 就是它的主键）',
+    );
+    need(
+      messageFields.contains('sender'),
+      'clientEvents.poll.messageFields 少了 sender：收件表里那一行无处归属 —— '
+      '「是谁发的」只有这一个数据源，这条缺口是 T47 设计表列时才现形的（当时 sender 列无值可灌）',
+    );
+    // 能投影出来的只有两处：消息表里的身份列，和解开密信封后的那两个键（封里就是 title/body，
+    // 见 retention 那段「名单里没有 title」）。名单里多写一个别的名字不会让服务端报错，
+    // 只会让它回一个空值 ⇒ 收件箱从此有一列永远为空，而没人会去查一个「看起来正常」的空字段。
+    // `state`/`attempts`/`queuedAt` 这些存盘元数据同样一律不在名单里：delivery.ackIsOnlyProof
+    // 说投递状态只由服务端推进，顺手回给设备就是让两端各算一份事实。
+    final contentKeys =
+        (map(const ['fieldTolerance']) ?? const <String, Object?>{}).entries
+            .where((e) => e.value is List)
+            .map((e) => e.key)
+            .toSet();
+    final projectable = {'messageId', 'type', 'item', 'sender', ...contentKeys};
+    final undeliverable = messageFields
+        .where((f) => !projectable.contains(f))
+        .toList();
+    need(
+      undeliverable.isEmpty,
+      'clientEvents.poll.messageFields 里有投影不出来的名字：$undeliverable；'
+      '可投影面只有 $projectable（消息表的身份列 + 密信封里的 $contentKeys）',
     );
     need(
       boolOf(const ['clientEvents', 'nonceSpaceSharedWithMessages']) == true,

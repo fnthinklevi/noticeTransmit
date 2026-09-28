@@ -421,6 +421,9 @@
       "_targetMustEqualSenderWhy": "poll 的 target 必须是自己的地址码。放开这条，任何一台已配对的设备都能读走别人队列里的标题与正文，而验证码常常就在正文里。",
       "targetMustEqualSender": true,
       "maxBatchPerPoll": 50,
+      "messageFields": ["messageId", "type", "item", "title", "body", "sender"],
+      "_messageFieldsWhy": "poll 带回的每条消息必须自带发件人：客户端要落收件表（T47）、要显示\"是谁发的\"（T45/T48），而它手上只有标题与正文的话，那一行就没有主键可归属 —— 服务端 receiptsForSender 已经知道 sender，poll 这边此前却只回 messageId/type/item/title/body。这条是 T47 动手时才暴露的：列设计到一半发现没数据可灌，比写一个永远为空的列诚实。",
+
       "_maxBatchPerPollWhy": "一次 poll 最多取走这么多条：设备离线七天积压到 200 条上限时，不设上限等于让它一次把整段历史拉下来（响应体大小与设备侧渲染都会出问题）。",
       "returns": [
         "messages",

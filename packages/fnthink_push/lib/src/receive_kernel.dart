@@ -398,6 +398,7 @@ class FnthinkDelivered {
     required this.item,
     required this.title,
     required this.body,
+    required this.sender,
   });
 
   final String messageId;
@@ -406,20 +407,28 @@ class FnthinkDelivered {
   final String title;
   final String body;
 
+  /// 谁发的（配对设备是它的地址码，端点是 `endpoint:<id>`）。
+  /// 收件表那一行要有归属，界面要显示「是谁发的」，都只读这一列。
+  /// 缺值时留空串而不是丢弃这条：正文已经到手了，因为少一个归属就把消息扔掉是
+  /// 「不静默丢」的反面 —— 旧服务端不回 sender 时，那一条显示成未知来源，但看得见。
+  final String sender;
+
   /// 形状不对 ⇒ null（**不猜**）。一条缺 messageId 的记录没法 ack，而猜一个 id 去 ack
   /// 就是在替另一条消息宣布结局。
   static FnthinkDelivered? tryFrom(FnthinkContract contract, Object? raw) {
     if (raw is! Map) return null;
     final id = raw['messageId'];
     final type = raw['type'];
-    if (id is! String || id.isEmpty || type is! String || type.isEmpty)
+    if (id is! String || id.isEmpty || type is! String || type.isEmpty) {
       return null;
+    }
     return FnthinkDelivered(
       messageId: id,
       type: type,
       item: raw['item'] is String ? raw['item'] as String : '',
       title: raw['title'] is String ? raw['title'] as String : '',
       body: raw['body'] is String ? raw['body'] as String : '',
+      sender: raw['sender'] is String ? raw['sender'] as String : '',
     );
   }
 }

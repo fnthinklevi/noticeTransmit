@@ -242,6 +242,21 @@ describe('POST /api/fnthink/poll', () => {
     expect(messages[posted.body.messageId].attempts).toBe(1);
   });
 
+  test('poll 回的每条消息，键恰好是契约 messageFields 那份名单，且 sender 真有值', async () => {
+    const base = messageBody();
+    const posted = await request(app).post('/api/fnthink/message').send(base).expect(202);
+
+    const res = await request(app)
+      .post('/api/fnthink/poll')
+      .send(eventBody('poll', targetKey, TARGET))
+      .expect(200);
+    const mine = res.body.messages.find((m) => m.messageId === posted.body.messageId);
+    // 逐字节比名单，不是"包含"：多回一列（存盘元数据）与少回一列（收件表没数据可灌）
+    // 在这里都是同一种红 —— 而 T47 那张表读的就是这一份形状。
+    expect(Object.keys(mine).sort()).toEqual([...contract.clientEvents.poll.messageFields].sort());
+    expect(mine.sender).toBe(SENDER);
+  });
+
   test('poll 别人的队列 ⇒ 拒绝，且响应里没有任何一条别人的消息', async () => {
     const fields = {
       version: '1',
