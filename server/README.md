@@ -840,8 +840,56 @@ journalctl -u update-server -f
 5. SSL：站点设置 → SSL → Let's Encrypt 申请（勾自动续期）。**申请完回去再看一眼第 3 步那三行** ——
    面板改 443 段时可能重排配置。
 
-**推送域名单独建一个站点**（`push.example.com`）：只保留 `/api/fnthink/` 与 `/health` 两个反代位置，其余
-`return 404` —— 让「管理后台只从更新域名进」由配置保证（理由见方案二那节）。
+**推送域名单独建一个站点**（`push.example.com`）。这一节是反代的重点，分三步：
+
+1. 网站 → 添加站点：域名填推送域名（多个用换行分隔，宝塔支持一站多域名），**不勾** FTP / 数据库，根目录留默认（不放文件）。
+2. 反向代理 → 添加**两条**（面板一次只能加一条）：
+
+   | 名称 | 代理目录 | 目标 URL | 发送域名 |
+   | --- | --- | --- | --- |
+   | `fnthink` | `/api/fnthink/` | `http://127.0.0.1:3456` | `$host` |
+   | `health` | `/health` | `http://127.0.0.1:3456` | `$host` |
+
+   ⚠️ **目标 URL 不要带路径、不要以 `/` 结尾**。`proxy_pass` 尾部带不带 `/` 决定路径怎么拼：带尾斜杠时
+   Nginx 会把 location 前缀**替换**掉 ⇒ 上游收到的是 `/poll` 而不是 `/api/fnthink/poll` ⇒ 整面 404，
+   而你在服务器上直连上游却是好的（最难自查的一类）。宝塔输入框里就填 `http://127.0.0.1:3456`。
+3. 站点「配置文件」里改两处，并核对反代段：
+
+   ```nginx
+   location / { return 404; }      # 把宝塔默认那个 location / 整段换成这一行：
+                                   # 其余路径一律挡掉，管理后台只从更新域名进
+   client_max_body_size 64k;       # 与服务端一致：公网面协议闸也是 64 KiB，
+                                   # 这里设小了会先被 Nginx 挡掉、回的是 HTML 而不是协议形状
+   ```
+
+   ```nginx
+   # 核对（宝塔模板有时只带前两行，缺第三行必须补 —— 否则 .env 里 TRUST_PROXY=1 拿不到真实 IP）
+   proxy_set_header Host $host;
+   proxy_set_header X-Real-IP $remote_addr;
+   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   ```
+
+> 💡 **推送面不需要配的**：WebSocket / 长连接（`/poll` 是立即返回的短请求）、任何静态目录、PHP、
+> `proxy_read_timeout` 之类的调优。反代块越朴素越好。
+>
+> ⚠️ **反代是 HTTPS 的唯一出口**：服务端自己不判 scheme（契约里的 `transport.httpsOnly=true` 是声明，
+> 服务端不读它），而它监听 `0.0.0.0` —— 所以 3456 一旦对公网开放，明文 HTTP 也能投递。这也是第 6 步
+> 「只放行 80 / 443」的原因。
+
+**配对自检（三条，能把"哪一层的 404 / 502"分开）**
+
+```bash
+# ① 直连上游（绕开 Nginx）：应 403
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3456/api/fnthink/poll \
+     -H 'Content-Type: application/json' -d '{}'
+# ② 经 Nginx：也应 403
+curl -sk -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/fnthink/poll \
+     -H 'Content-Type: application/json' -d '{}'
+# ③ 管理面不该从这里进：应 404
+curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/admin.html
+```
+
+① 403 而 ② 404 ⇒ 反代配错（多半是目标 URL 带了尾斜杠）；② 502 ⇒ 上游没起 / 端口不对。
 
 **第 5 步：启动进程**
 - 面板：网站 → **Node 项目** → 添加（启动文件 `server.js`、端口 `3456`、运行目录 = 代码目录、用户 `www`）；

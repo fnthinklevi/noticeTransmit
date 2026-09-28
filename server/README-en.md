@@ -845,9 +845,61 @@ installed in the App Store. **Do not install PHP / MySQL / phpMyAdmin.**
 5. SSL: site settings → SSL → Let's Encrypt (enable auto-renew). **Check those three lines again afterwards** —
    applying a certificate rewrites the 443 block and may reorder it.
 
-**Give the push hostnames their own site** (`push.example.com`): keep only `/api/fnthink/` and `/health` as
-proxied locations and `return 404` for everything else, so "the admin console lives only on the update hostname"
-is guaranteed by configuration (rationale in Option 2).
+**Give the push hostnames their own site** (`push.example.com`). This is the part where reverse-proxy details
+matter most — three steps:
+
+1. Websites → Add site: put the push hostnames in the domain field (one per line; the panel supports several
+   domains per site), **uncheck** FTP / database, leave the root directory at its default (no files in it).
+2. Reverse Proxy → add **two entries** (the panel adds one at a time):
+
+   | Name | Proxy directory | Target URL | Sent domain |
+   | --- | --- | --- | --- |
+   | `fnthink` | `/api/fnthink/` | `http://127.0.0.1:3456` | `$host` |
+   | `health` | `/health` | `http://127.0.0.1:3456` | `$host` |
+
+   ⚠️ **The target URL must not contain a path and must not end with `/`.** A trailing slash on `proxy_pass`
+   makes Nginx **replace** the matched location prefix, so the upstream receives `/poll` instead of
+   `/api/fnthink/poll` — the whole face then 404s while a direct call to the upstream works, which is the
+   hardest kind of problem to self-diagnose. Type `http://127.0.0.1:3456` in the panel field.
+3. In the site's config file, change two things and verify the proxy block:
+
+   ```nginx
+   location / { return 404; }      # replace the panel's default location / with this line:
+                                   # everything else is refused, so the admin console stays on the update host
+   client_max_body_size 64k;       # match the server: the public face enforces 64 KiB itself,
+                                   # smaller here means Nginx rejects first with HTML instead of the protocol shape
+   ```
+
+   ```nginx
+   # verify (the panel template sometimes ships only the first two lines; the third is required —
+   # without it, .env's TRUST_PROXY=1 cannot see real client IPs)
+   proxy_set_header Host $host;
+   proxy_set_header X-Real-IP $remote_addr;
+   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   ```
+
+> 💡 **What the push face does not need**: WebSocket / long-lived connections (`/poll` returns immediately),
+> any static directory, PHP, or `proxy_read_timeout`-style tuning. The plainer the block, the better.
+>
+> ⚠️ **The reverse proxy is the only HTTPS exit**: the server does not check the scheme itself (the contract's
+> `transport.httpsOnly=true` is a declaration it never reads), and it listens on `0.0.0.0` — so if port 3456 is
+> reachable publicly, plain HTTP delivery works too. That is why step 6 says "open 80 / 443 only".
+
+**Pairing self-check (three calls that separate "which layer answered 404 / 502")**
+
+```bash
+# 1) straight to the upstream (bypassing Nginx): expect 403
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:3456/api/fnthink/poll \
+     -H 'Content-Type: application/json' -d '{}'
+# 2) through Nginx: expect 403 as well
+curl -sk -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/fnthink/poll \
+     -H 'Content-Type: application/json' -d '{}'
+# 3) the admin console must not be reachable here: expect 404
+curl -sk -o /dev/null -w '%{http_code}\n' https://push.example.com/admin.html
+```
+
+403 on ① but 404 on ② ⇒ the proxy is misconfigured (almost always the trailing slash on the target URL);
+502 on ② ⇒ upstream not running / wrong port.
 
 **Step 5 — start the process.**
 - Panel: Websites → **Node Project** → Add (startup file `server.js`, port `3456`, run directory = code
