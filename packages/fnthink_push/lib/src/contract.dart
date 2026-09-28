@@ -807,6 +807,8 @@ class FnthinkContract {
           entry.key: Map<String, Object?>.from(entry.value as Map),
     };
     final vocabulary = messageTypeLevels.keys.toSet();
+    // 「能作用于谁」的三条规则名也来自契约：判据里再硬写一遍名单，就是第二份真值。
+    final selfOnlyRules = strings(const ['clientEvents', 'selfOnlyRules']);
     final declaredTypes = <String>[];
     for (final entry in eventKinds.entries) {
       final kind = entry.key;
@@ -834,49 +836,89 @@ class FnthinkContract {
         'device-table-public-key，实为「$verifyAgainst」：'
         '「为了统一代码偶尔信一下请求里的公钥」正是身份模型的塌方点',
       );
-      // "只能关于本机"有两种写法：poll/register 靠 target，ack 靠 onlyForOwnMessages。
-      // 这里要的是"至少声明了一条"，两种都没声明的那一种事件就能作用于别人。
+      // 「用请求自带的公钥验」与「这一步自带公钥」互为充要（契约 _carriesOwnPublicKeyWhy）。
+      // 单向检查是不够的：只查「presented ⇒ 带钥匙」，那么带钥匙却声明查表验的那一种，
+      // 那把随请求来的公钥就成了没人读的摆设 —— 而它的下一次使用多半是「顺手拿它验一下」。
       need(
-        entry.value['targetMustEqualSender'] == true ||
-            entry.value['onlyForOwnMessages'] == true,
-        'clientEvents.$kind 必须声明 targetMustEqualSender 或 onlyForOwnMessages 之一：'
-        '不钉这条，任何已配对设备都能拿它去作用于别人的消息（标题与正文里常有验证码）',
+        (verifyAgainst == 'presented-public-key') ==
+            (entry.value['carriesOwnPublicKey'] == true),
+        'clientEvents.$kind 的钥匙来源与公钥字段自相矛盾：'
+        'verifyAgainst=$verifyAgainst，carriesOwnPublicKey=${entry.value['carriesOwnPublicKey']}：'
+        '两者必须同真同假',
       );
+      // 「地址码由客户端带来」⟹「只能按请求自带的公钥验」：带码来的这一步，表里还没有他这一行，
+      // 拿设备表去验一个还不存在的身份，只能验出"不认识"。这条写成蕴含式而不是点名 register，
+      // 因为点名那条在本片泛化后会退化 —— 按旗标判，下一片再来一种自带地址码的事件时它照样管得住。
+      need(
+        '${entry.value['addressCodeSource'] ?? ''}' != 'client-generated' ||
+            verifyAgainst == 'presented-public-key',
+        'clientEvents.$kind 的地址码来自客户端（addressCodeSource=client-generated），'
+        'verifyAgainst 却写的是 $verifyAgainst：表里还没有他这一行，无从查起',
+      );
+      // 「这一步能作用于谁」：三条里**恰好一条**为真。零条 = 可以作用于别人的消息；
+      // 两条 = 实现按 OR 判时比一条更宽（既能关于自己又能关于别人），不是更严。
+      final declaredSelfOnly = selfOnlyRules
+          .where((rule) => entry.value[rule] == true)
+          .toList();
+      need(
+        declaredSelfOnly.length == 1,
+        'clientEvents.$kind 必须声明 selfOnlyRules 里恰好一条为 true（可取：'
+        '${selfOnlyRules.join(' / ')}，实为 $declaredSelfOnly）：'
+        '不声明，任何已配对设备都能拿它作用于别人的消息（标题与正文里常有验证码）；'
+        '声明两条，OR 判断下等于放宽而不是收紧',
+      );
+      // ⚠ 下面这条只在"恰好一条"成立时才读那条规则名：直接 `.single` 的话，
+      // 0 条或 2 条会让 validate() **抛**而不是报 —— 契约不自洽应当是一条能读出来的问题，
+      // 不是一次把加载方打挂的异常（这条在本片自己的 mutate 反证里冒出来的）。
+      final rule = declaredSelfOnly.length == 1 ? declaredSelfOnly.first : null;
+      if (rule == 'mustContainCounterpartAddress') {
+        need(
+          canonicalOrder.contains('target'),
+          'clientEvents.$kind 靠 mustContainCounterpartAddress 划定作用范围，'
+          '但 signature.canonicalOrder 里没有 target 这个被签字段：'
+          '「对方地址码」不在已签字节里，就等于谁都能在转发时换一个收件人',
+        );
+      }
     }
+    // 规则名单本身也是判据的一部分：空的或带重复的名单会让上面那条「恰好一条」恒真。
+    need(
+      selfOnlyRules.isNotEmpty &&
+          selfOnlyRules.toSet().length == selfOnlyRules.length,
+      'clientEvents.selfOnlyRules 必须是非空且无重复的名单，实为 $selfOnlyRules：'
+      '名单空 ⇒ 每种事件都判不出 self-only；有重复 ⇒ 「恰好一条」在两条同名规则上恒真',
+    );
     need(eventKinds.isNotEmpty, 'clientEvents 至少要声明一种设备签名事件（路由侧要靠它分流）');
     need(
       boolOf(const ['clientEvents', 'notInCapabilitiesVocabulary']) == true,
       'clientEvents.notInCapabilitiesVocabulary 必须为 true（上面那条判据的声明处）',
     );
-    // register 是唯一"表里还没有他"的事件，字段规则与其它种类相反，所以单独钉：
-    // 必须带公钥（否则无从证明私钥持有），且必须带不上任何秘密。
-    final register = eventKinds['register'];
-    if (register != null) {
+    // 自带公钥的那一种事件（目前只有 register）字段规则与其它种类相反：必须带公钥
+    // （否则无从证明私钥持有）、必须带不上任何秘密。按 `carriesOwnPublicKey` 旗标挑出来判，
+    // 不按名字 —— 判据里写死 'register'，下一片再来一种自带公钥的事件时它不报错，
+    // 只会静默地不受这三条管，而"必带"与"禁带"撞车正是这类事件最容易写歪的地方。
+    for (final entry in eventKinds.entries) {
+      if (entry.value['carriesOwnPublicKey'] != true) continue;
+      final kind = entry.key;
       final required =
-          (register['requiredTopLevelFields'] as List<Object?>? ?? const [])
+          (entry.value['requiredTopLevelFields'] as List<Object?>? ?? const [])
               .map((e) => '$e')
               .toList();
-      final mayNot = (register['mayNotCarry'] as List<Object?>? ?? const [])
+      final mayNot = (entry.value['mayNotCarry'] as List<Object?>? ?? const [])
           .map((e) => '$e')
           .toList();
       need(
         required.contains('publicKey'),
-        'clientEvents.register.requiredTopLevelFields 必须含 publicKey：'
-        '这一步没有别的东西能证明私钥持有',
+        'clientEvents.$kind.requiredTopLevelFields 必须含 publicKey：'
+        '声明了自带公钥，这一步却没有别的东西能证明私钥持有',
       );
       need(
         mayNot.contains('privateKey'),
-        'clientEvents.register.mayNotCarry 必须含 privateKey（红线：私钥永不出设备）',
+        'clientEvents.$kind.mayNotCarry 必须含 privateKey（红线：私钥永不出设备）',
       );
       need(
         required.toSet().intersection(mayNot.toSet()).isEmpty,
-        'clientEvents.register 的字段表自相矛盾：${required.toSet().intersection(mayNot.toSet())} '
+        'clientEvents.$kind 的字段表自相矛盾：${required.toSet().intersection(mayNot.toSet())} '
         '既"必带"又"禁带" —— 这种键写进契约之后，实现选哪一边都不对',
-      );
-      need(
-        register['verifyAgainst'] == 'presented-public-key',
-        'register 只能按"请求自带公钥"验（此刻表里还没有他这一行），'
-        '这条豁免的适用范围必须锁死在它一种事件上',
       );
     }
     need(

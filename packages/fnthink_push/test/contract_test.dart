@@ -677,13 +677,87 @@ void main() {
       expectProblem(broken, '既"必带"又"禁带"', '这种键写进契约后实现选哪边都不对');
     });
 
+    // ── 三选一的作用范围判据（#131 第二片 2A）──
+    test('poll 不声明任何 self-only 规则 ⇒ 报（那它就既能关于自己也能关于别人）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['poll']
+                as Map<String, Object?>)
+            .remove('targetMustEqualSender');
+      });
+      expectProblem(broken, '恰好一条', '零条 = 一台已配对设备能读走别人队列里的标题与正文');
+    });
+
+    test('poll 同时声明两条规则 ⇒ 报（OR 判下是放宽，不是收紧）', () {
+      final broken = mutate((raw) {
+        ((raw['clientEvents'] as Map<String, Object?>)['poll']
+                as Map<String, Object?>)['mustContainCounterpartAddress'] =
+            true;
+      });
+      expectProblem(broken, '恰好一条', '两条都为真 + 实现按 OR 判 = 一个接口既能关于自己又能关于别人');
+    });
+
+    test('selfOnlyRules 名单被清空 ⇒ 报（名单空时「恰好一条」恒假，整套判据一起瞎）', () {
+      final broken = mutate((raw) {
+        (raw['clientEvents'] as Map<String, Object?>)['selfOnlyRules'] = [];
+      });
+      expectProblem(broken, '非空且无重复', '名单本身就是判据的一部分，不是注释');
+    });
+
+    test('自带公钥却声明查表验 ⇒ 报（那把随请求来的钥匙成了没人读的摆设）', () {
+      final broken = mutate((raw) {
+        final reg =
+            ((raw['clientEvents'] as Map<String, Object?>)['register']
+                as Map<String, Object?>);
+        reg['verifyAgainst'] = 'device-table-public-key';
+      });
+      expectProblem(broken, '自相矛盾', '「用哪把钥匙验」与「这一步带不带公钥」必须互为充要，单向查会留下摆设');
+    });
+
+    test('对方地址码不在被签字节里却声明了 counterpart 规则 ⇒ 报', () {
+      final broken = mutate((raw) {
+        final ce = raw['clientEvents'] as Map<String, Object?>;
+        final poll = ce['poll'] as Map<String, Object?>;
+        poll.remove('targetMustEqualSender');
+        poll['mustContainCounterpartAddress'] = true;
+        (raw['signature'] as Map<String, Object?>)['canonicalOrder'] = [
+          'version',
+          'type',
+          'ts',
+          'nonce',
+          'body',
+        ];
+      });
+      expectProblem(
+        broken,
+        'canonicalOrder 里没有 target',
+        '对方地址码没被签，等于谁都能在转发时换一个收件人',
+      );
+    });
+
     test('register 被改成按设备表验签 ⇒ 报（表里还没有他这一行，无从验起）', () {
       final broken = mutate((raw) {
         ((raw['clientEvents'] as Map<String, Object?>)['register']
                 as Map<String, Object?>)['verifyAgainst'] =
             'device-table-public-key';
       });
-      expectProblem(broken, '只能按"请求自带公钥"验', '这条私钥证明的豁免必须锁死在 register 一种事件上');
+      expectProblem(
+        broken,
+        '钥匙来源与公钥字段自相矛盾',
+        '这条私钥证明的豁免必须与"自带公钥"同真同假，锁死在带钥匙的那一种事件上',
+      );
+    });
+
+    test('register 被改成查表验且不再自带公钥 ⇒ 报（地址码是客户端带来的，表里没有他）', () {
+      // 上面那条走的是充要判据；这一条把两个旗标一起删掉，充要判据就"自洽"了 ——
+      // 抓它的是 addressCodeSource 那条蕴含式（泛化版，不点名 register）。
+      final broken = mutate((raw) {
+        final reg =
+            ((raw['clientEvents'] as Map<String, Object?>)['register']
+                as Map<String, Object?>);
+        reg['verifyAgainst'] = 'device-table-public-key';
+        reg.remove('carriesOwnPublicKey');
+      });
+      expectProblem(broken, '地址码来自客户端', '拿设备表去验一个还不存在的身份，只能验出"不认识"——整条链在第一步就断');
     });
 
     test('storedFields 去掉 sender ⇒ 报（回执通道没有收件人）', () {

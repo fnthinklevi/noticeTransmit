@@ -323,29 +323,123 @@ describe('clientEvents（poll / ack）裁决', () => {
     ).toThrow(/clientEvents\.sneaky/);
   });
 
-  test('关掉契约那条开关，行为立刻跟着变（证明判据没在本层存第二份）', () => {
-    // ⚠ 这条断言的是**一份 mutate 出来的副本**上的行为，不是被放宽的真实协议：
-    // 真实契约里 targetMustEqualSender 必须为 true，由 fnthink_push 的 validate() 钉着
-    // （有一条 mutate 反证专抓它被改成 false）。这里要的只是「代码读契约、不读自己的常量」
-    // 这一件事被证明 —— 否则改契约不会改变行为，那张表就是装饰。
-    const relaxed = JSON.parse(JSON.stringify(contract));
-    relaxed.clientEvents.poll.targetMustEqualSender = false;
+  // ── 三选一的作用范围判据（#131 第二片 2A）──
+  // 下面这几条断言的都是**mutate 出来的契约副本**上的行为，不是被放宽的真实协议：
+  // 真实契约里每种事件声明哪条规则由 fnthink_push 的 validate() 钉住（有 mutate 反证）。
+  // 这里要证明的只有一件事：events.js 读的是契约名单，不是自己那份常量。
+  const counterpartPoll = () => {
+    const c = JSON.parse(JSON.stringify(contract));
+    delete c.clientEvents.poll.targetMustEqualSender;
+    c.clientEvents.poll.mustContainCounterpartAddress = true;
+    return c;
+  };
+
+  test('把 poll 换成 mustContainCounterpartAddress ⇒ 行为立刻跟着变（关于别人合法了）', () => {
+    const c = counterpartPoll();
     const out = events.authorizeClientEvent(
-      relaxed,
+      c,
       stateFor(kp),
       signable(kp, fields({ nonce: 'q-1', target: OTHER })),
       'poll',
     );
     expect(out.ok).toBe(true);
-    // 同一份放宽后的表上，另一条判据仍然生效（不是"整层放行"）：
-    // 事件类型不能冒用，ack 的 result 仍须落在回执词表里。
+    // 同一份副本上其它判据仍然生效（不是"整层放行"）：事件类型不许冒用。
     const stillChecked = events.authorizeClientEvent(
-      relaxed,
+      c,
       stateFor(kp),
       signable(kp, fields({ nonce: 'q-2' })),
       'ack',
     );
     expect(stillChecked.ok).toBe(false);
+  });
+
+  test('mustContainCounterpartAddress 下 target 填自己 ⇒ 拒（"自己跟自己配对"就是没人确认的那一条）', () => {
+    const out = events.authorizeClientEvent(
+      counterpartPoll(),
+      stateFor(kp),
+      signable(kp, fields({ nonce: 'q-3', target: SELF })),
+      'poll',
+    );
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('counterpart-is-self');
+  });
+
+  test('mustContainCounterpartAddress 下 target 不是合法地址码 ⇒ 拒，不是"当成没有对方"放行', () => {
+    const out = events.authorizeClientEvent(
+      counterpartPoll(),
+      stateFor(kp),
+      signable(kp, fields({ nonce: 'q-4', target: 'NOPE' })),
+      'poll',
+    );
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('counterpart-address-code');
+  });
+
+  test('声明两条规则 ⇒ 抛：OR 判下比一条更宽，不是更严', () => {
+    const two = JSON.parse(JSON.stringify(contract));
+    two.clientEvents.poll.mustContainCounterpartAddress = true; // targetMustEqualSender 仍在
+    expect(() =>
+      events.authorizeClientEvent(
+        two,
+        stateFor(kp),
+        signable(kp, fields({ nonce: 'q-5' })),
+        'poll',
+      ),
+    ).toThrow(/恰好一条/);
+  });
+
+  test('一条规则都不声明 ⇒ 抛，而不是"没有这条判据"放行', () => {
+    const none = JSON.parse(JSON.stringify(contract));
+    delete none.clientEvents.poll.targetMustEqualSender;
+    expect(() =>
+      events.authorizeClientEvent(
+        none,
+        stateFor(kp),
+        signable(kp, fields({ nonce: 'q-6', target: OTHER })),
+        'poll',
+      ),
+    ).toThrow(/恰好一条/);
+  });
+
+  test('契约名单里加一条本文件不认识的规则 ⇒ 抛（咽成"当成关于本机"就是替契约猜权限）', () => {
+    const weird = JSON.parse(JSON.stringify(contract));
+    delete weird.clientEvents.poll.targetMustEqualSender;
+    weird.clientEvents.selfOnlyRules.push('mayTargetAnyone');
+    weird.clientEvents.poll.mayTargetAnyone = true;
+    expect(() =>
+      events.authorizeClientEvent(
+        weird,
+        stateFor(kp),
+        signable(kp, fields({ nonce: 'q-7' })),
+        'poll',
+      ),
+    ).toThrow(/没有实现作用范围规则/);
+  });
+
+  test('契约名单被清空 ⇒ 抛（读不到名单不等于这条判据不存在）', () => {
+    const empty = JSON.parse(JSON.stringify(contract));
+    empty.clientEvents.selfOnlyRules = [];
+    expect(() =>
+      events.authorizeClientEvent(
+        empty,
+        stateFor(kp),
+        signable(kp, fields({ nonce: 'q-8' })),
+        'poll',
+      ),
+    ).toThrow(/selfOnlyRules/);
+  });
+
+  test('target 的大小写与连字符不是权限：归一化后仍是本机 ⇒ 放行', () => {
+    // 签名覆盖的是客户端写下的原始串（这里就是小写带连字符那一串），
+    // 而"能不能读这条队列"判的是归一化之后的同一个地址码。
+    const mixed = SELF.slice(0, 9).toLowerCase() + '-' + SELF.slice(9).toLowerCase();
+    const out = events.authorizeClientEvent(
+      contract,
+      stateFor(kp),
+      signable(kp, fields({ nonce: 'q-9', target: mixed })),
+      'poll',
+    );
+    expect(out.ok).toBe(true);
   });
   // ── 设备自登记（#131 第一片）：唯一一类"表里还没有他"的事件 ──
   describe('authorizeRegister（私钥持有证明）', () => {

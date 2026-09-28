@@ -55,7 +55,12 @@
     "rejectUnknownFields": true,
     "rejectUnknownFieldsWhy": "配对载荷不是外部消息正文：这里的「容错」等于给对方一个往身份交换里塞料口。与 fieldTolerance.ignoreUnknownFields=true 不矛盾（那条只管第三方推送正文的 title/body 别名）",
     "codeMayAppearIn": ["qrCode", "oneTimeShareLink", "postBody"],
-    "neverCarry": ["privateKey", "signature", "endpointSecret", "pairingCodeDigest"],
+    "neverCarry": [
+      "privateKey",
+      "signature",
+      "endpointSecret",
+      "pairingCodeDigest"
+    ],
     "confirmRequired": true,
     "autoApprove": false,
     "maxRequestableLevelWithoutLocalAuth": "L2",
@@ -71,17 +76,17 @@
     "trustLocalClock": false,
     "nonceDedupe": true,
     "verifyOnlyForWhitelistedKeys": true,
-      "publicKeyEncoding": {
-        "algorithm": "Ed25519",
-        "wireFormat": "raw-32-bytes-base64",
-        "spkiPrefixHex": "302a300506032b6570032100",
-        "rawLength": 32,
-        "_comment": "对端传来的是裸 32 字节，Node 要验签就得自己拼回 SubjectPublicKeyInfo。那 12 字节 DER 头在此唯一：Kotlin 侧那份由 test/architecture/fnthink_identity_contract_test.dart 对表。漂了的表现是「客户端导出的公钥服务端永远解不开」，而两边各自测试都还是绿的"
-      },
-      "maxSkewSeconds": 300,
-      "maxSkewWhy": "ts 用服务端时间判定，容差只覆盖网络抖动与合理重放窗口；再大就等于把「过期」这条 410 变成摆设",
-      "nonceDedupeSeconds": 900,
-      "nonceDedupeWhy": "去重窗口必须大于容差窗口的两倍（一端提前、一端滞后各算一次），否则一条迟到足够久的重放刚好落在记忆之外",
+    "publicKeyEncoding": {
+      "algorithm": "Ed25519",
+      "wireFormat": "raw-32-bytes-base64",
+      "spkiPrefixHex": "302a300506032b6570032100",
+      "rawLength": 32,
+      "_comment": "对端传来的是裸 32 字节，Node 要验签就得自己拼回 SubjectPublicKeyInfo。那 12 字节 DER 头在此唯一：Kotlin 侧那份由 test/architecture/fnthink_identity_contract_test.dart 对表。漂了的表现是「客户端导出的公钥服务端永远解不开」，而两边各自测试都还是绿的"
+    },
+    "maxSkewSeconds": 300,
+    "maxSkewWhy": "ts 用服务端时间判定，容差只覆盖网络抖动与合理重放窗口；再大就等于把「过期」这条 410 变成摆设",
+    "nonceDedupeSeconds": 900,
+    "nonceDedupeWhy": "去重窗口必须大于容差窗口的两倍（一端提前、一端滞后各算一次），否则一条迟到足够久的重放刚好落在记忆之外",
 
     "onFailure": { "receipt": "rejected_unsigned", "count": true }
   },
@@ -282,13 +287,20 @@
     "_receiptDeliveryWhy": "投递结果放在设备 poll 的响应里（receipts 数组），不另开状态接口，也不做成「一条签好名的消息」。做成消息就要问「谁签它」：服务端没有设备身份私钥，自造一把服务端签名钥匙等于在契约里悄悄新增一个信任根；放 poll 响应里则复用同一条拉取链路与同一个 TLS 通道，而 senderPollsStatusEndpoint=false 说的正是这件事。"
   },
 
-
   "clientEvents": {
     "_why": "poll 与 ack 是设备自己签的事件，不是用户消息。它们必须复用同一套签字节 / 时间容差 / nonce 去重（否则等于给这两条路各开一个免检入口），又绝不能落进 capabilities 的 type 词表——一台设备若能拿一次 poll 的签名冒充一条已授权的通知，前面整条验签链就白做了。",
     "_verifyAgainstWhy": "同一个签字节可以用两把不同的钥匙验。poll / ack 的签名者已经在设备表里，公钥只能从表里取（请求自带的一概不信）；而自登记这一步表里还没有他这一行，签名能证明的只是「提交者持有这把公钥对应的私钥」（私钥持有证明），不是「他是谁」。两类必须分开声明——否则实现里就会出现「为了统一代码，这里偶尔信一下请求里的公钥」那种一步走错就全线失效的分支。",
+    "selfOnlyRules": [
+      "targetMustEqualSender",
+      "onlyForOwnMessages",
+      "mustContainCounterpartAddress"
+    ],
+    "_selfOnlyRulesWhy": "每种设备签名事件都必须声明这三条里**恰好一条**，它回答的是「这一步能作用于谁」。targetMustEqualSender＝只能关于本机；onlyForOwnMessages＝只能作用于下发给本机的那条消息；mustContainCounterpartAddress＝这是唯一一个「关于别人」的合法形状：被签字节里的 target 必须是另一个合法地址码。为什么「另一个」那一半是重点：允许 target 等于自己，一台设备就能自己跟自己配对，把登记时默认的 L1 抬上去而全程没有落在任何人的屏幕上。为什么是「恰好一条」而不是「至少一条」：两条同时为真、实现里又按 OR 判，得到的不是更严而是更宽（一个接口既能关于自己又能关于别人）；零条则任何已配对设备都能拿它去作用于别人的消息。规则名单必须写在契约上、由两端各读这一份——第一片的判据里硬写了 poll/ack 两个名字，第四种事件进来时的表现是「静默不受这三条管」，而不是报错。",
     "register": {
       "messageType": "register",
       "verifyAgainst": "presented-public-key",
+      "carriesOwnPublicKey": true,
+      "_carriesOwnPublicKeyWhy": "「用请求自带的公钥验」与「这一步自带公钥」必须互为充要，由契约钉住而不是靠两处各自诚实：只声明 verifyAgainst 而不带公钥，实现就只能去表里查（那正是它禁止的）；只带公钥却声明查表验，那把自带的钥匙就成了没人读的摆设，而哪天有人「顺手用它验一下」没人拦得住。",
       "targetMustEqualSender": true,
       "_why": "设备自登记是配对、poll、ack 的共同前提：#131 排查时发现 registerDevice 与 armPairingCode 两个纯函数没有任何调用方——表里一行都没有的时候，配对码挂不到设备上、白名单里也没有可验的公钥，整条链在第一步就断了。本片补的就是这个缺口。",
       "addressCodeSource": "client-generated",

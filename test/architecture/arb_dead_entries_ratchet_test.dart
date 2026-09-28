@@ -58,7 +58,7 @@ void main() {
       expect(
         deadEntries([
           'onlyInComment',
-        ], stripComments('// onlyInComment 以后要用' + '\n' + 'void f() {}')),
+        ], stripComments('// onlyInComment 以后要用\nvoid f() {}')),
         ['onlyInComment'],
       );
       // 反面对手：把键名写进字符串字面量也不该被当成"用过"？

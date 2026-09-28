@@ -1,4 +1,6 @@
-// 设备自己签的两类事件（T32 的 poll、T35 的 ack）：契约 clientEvents 段的执行处。
+// 设备自己签的事件（T32 的 poll、T35 的 ack、#131 的 register，下一片加 pair）：
+// 契约 clientEvents 段的执行处。种类不写死在这里 —— 名单、钥匙来源、作用范围三件事全从契约读，
+// 本文件只保证"没实现分支就抛"，不保证"多加一种事件时代码已经跟上"（那是这里要红，不是要静默）。
 //
 // 为什么不塞进 verify.js：verify.js 判的是「一条消息能不能收」，这里判的是「一台设备能不能问
 // 它自己该问的事」。两者**共用身份段与重放段**（从 verify.js 引过来），不共用中间那层裁决 ——
@@ -12,10 +14,10 @@
 
 'use strict';
 
-const { statusCode, isReceipt } = require('./contract');
+const { statusCode, isReceipt, selfOnlyRules } = require('./contract');
 const { rememberReject, rejectKeyFor, assertPublicKey } = require('./devicestore');
 const { canonicalBytes, verifyIdentity, verifySignature, checkFresh } = require('./verify');
-const { alphabetFromContract, normalize } = require('./credentials');
+const { alphabetFromContract, isValidAddressCode, normalize } = require('./credentials');
 
 /// 身份证明之后的拒绝：状态码照实给，`reason` 只进留痕、绝不进响应体。
 function denied(contract, state, input, reason) {
@@ -27,6 +29,52 @@ function denied(contract, state, input, reason) {
     'event:' + reason,
   );
   return { ok: false, status: statusCode(contract, 'forbidden'), reason };
+}
+
+/// 「这一步能作用于谁」——按契约 `clientEvents.selfOnlyRules` 的名单分派。
+/// authorizeClientEvent 与 authorizeRegister **共用这一个函数**：后者原先自己写了一遍
+/// `spec.targetMustEqualSender === true`，那就是第二份判据，契约加第三条规则时它不报错，
+/// 只会让 register 永远判不到新规则（与第一片修掉的「判据里硬写 poll/ack」同一类瞎）。
+/// 返回 null 表示放行；否则返回一个只进 state.rejects 的 reason（对外形状由路由按状态码决定）。
+function selfOnlyReason(contract, spec, sender, fields) {
+  const declared = selfOnlyRules(contract).filter((rule) => spec[rule] === true);
+  // 「恰好一条」：0 条 = 这种事件能作用于任何人；2 条 = 按 OR 判时比一条**更宽**，不是更严。
+  // 这里必须抛，而不是挑一条"看起来合适"的：契约被改成这样时，选一条就是替契约选了一次权限。
+  if (declared.length !== 1) {
+    throw new Error(
+      `事件必须声明 clientEvents.selfOnlyRules 里恰好一条为 true，` +
+        `可取 [${selfOnlyRules(contract).join(' / ')}]，实为 [${declared.join(' / ')}]`,
+    );
+  }
+  // 比较前先归一化：签名覆盖的是客户端写下的原始串，而大小写与连字符不是两种权限。
+  // normalize 只做转大写与去空格/连字符（不删字母表外的字符，那种输入直接得 null），
+  // 所以归一化后的相等关系与原串一致。
+  const target = normalize(
+    alphabetFromContract(contract),
+    String(fields.target === undefined ? '' : fields.target),
+  );
+  switch (declared[0]) {
+    case 'targetMustEqualSender':
+    // ack 那一条有两半：这一半（target 必须是本机）在这里判，另一半（那条消息确实下发给我）
+    // 要拿消息表来查，在路由判。两种规则在这里的判法相同，但**契约上必须各写各的**：
+    // 把 ack 写成 targetMustEqualSender，读代码的人就看不到"还要查归属"那半条。
+    case 'onlyForOwnMessages':
+      return target === sender ? null : 'target-not-self';
+    case 'mustContainCounterpartAddress':
+      // 唯一一个「关于别人」的合法形状：对方得是个合法地址码，而且**不能是自己**。
+      // 后一半不是洁癖：允许 target 等于自己，一台设备就能自己跟自己配对，把登记时那一档
+      // 默认级别往上调，而全程没有落在任何人的屏幕上 —— 那正是配对红线要防的形状。
+      if (target === null || !isValidAddressCode(contract, target)) {
+        return 'counterpart-address-code';
+      }
+      return target === sender ? 'counterpart-is-self' : null;
+    default:
+      // 名单里出现本文件不认识的规则名：**必须抛**。咽成"当成关于本机"或直接放行，
+      // 都是替契约猜意思，而这里猜错的代价是权限。
+      throw new Error(
+        `events.js 没有实现作用范围规则「${declared[0]}」（契约声明了它，代码判不了它）`,
+      );
+  }
 }
 
 /**
@@ -54,11 +102,9 @@ function authorizeClientEvent(contract, state, input, kind) {
   if (String(fields.type) !== spec.messageType) {
     return denied(contract, state, input, 'wrong-event-type:' + String(fields.type));
   }
-  // 两类事件都只能关于**自己**：poll 靠 targetMustEqualSender，ack 靠 onlyForOwnMessages 的前半段。
-  const selfOnly = spec.targetMustEqualSender === true || spec.onlyForOwnMessages === true;
-  if (selfOnly && String(fields.target) !== id.sender) {
-    return denied(contract, state, input, 'target-not-self');
-  }
+  // 「只能关于自己」的三种写法在这里统一分派（见 selfOnlyReason 那段）。
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return denied(contract, state, input, blocked);
 
   const fresh = checkFresh(contract, state, input, id.sender);
   if (fresh.outcome) return fresh.outcome;
@@ -147,9 +193,10 @@ function authorizeRegister(contract, state, input) {
   if (String(fields.type) !== spec.messageType) {
     return forbidden(`wrong-event-type:${String(fields.type)}`);
   }
-  if (spec.targetMustEqualSender === true && String(fields.target) !== sender) {
-    return forbidden('target-not-self');
-  }
+  // 与 poll/ack 走同一个分派函数：这里原先自己写了一遍 targetMustEqualSender，
+  // 那是第二份判据（契约加第三条规则时它不报错，只是永远判不到）。
+  const notSelf = selfOnlyReason(contract, spec, sender, fields);
+  if (notSelf) return forbidden(notSelf);
   const publicKey = typeof input.publicKey === 'string' ? input.publicKey : '';
   let canonical;
   try {

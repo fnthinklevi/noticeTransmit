@@ -121,6 +121,19 @@ function canonicalOrder(contract) {
   return (contract.signature && contract.signature.canonicalOrder) || [];
 }
 
+/// 「这一步能作用于谁」的规则名单（契约 `clientEvents.selfOnlyRules`）。
+/// 名单从契约读、代码里不写第二份：写死了，将来契约新增一条规则时的表现是
+/// 「名单上有、实现里没分支」，而那不会报错 —— 第一片的判据就是这么瞎的。
+function selfOnlyRules(contract) {
+  const rules = (contract.clientEvents || {}).selfOnlyRules;
+  if (!Array.isArray(rules) || rules.length === 0) {
+    throw new Error(
+      '契约缺 clientEvents.selfOnlyRules（不补默认名单：补了就等于在代码里发明一种作用范围）',
+    );
+  }
+  return rules.slice();
+}
+
 /// 字段容错的别名表（title / body）。首项就是规范名。
 function aliasesFor(contract, field) {
   const list = (contract.fieldTolerance || {})[field] || [];
@@ -169,6 +182,7 @@ module.exports = {
   statusCode,
   isReceipt,
   canonicalOrder,
+  selfOnlyRules,
   aliasesFor,
   pickField,
   onlineThresholdMs,
