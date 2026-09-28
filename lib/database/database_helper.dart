@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/email_channel.dart';
+import '../models/fnthink_inbox_message.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/channel_display.dart';
@@ -64,7 +65,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 13;
+  static const int dbVersion = 14;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -398,6 +399,7 @@ class DatabaseHelper
     ''');
 
     await _createEngineRules(db);
+    await _createFnthinkInbox(db);
   }
 
   /// v13 / T20：通知引擎规则表（电量族 + 温度族）。
@@ -462,6 +464,43 @@ class DatabaseHelper
     } catch (e) {
       debugPrint('引擎规则入 DB 迁移失败（旧键仍在，读取侧可回退）: $e');
     }
+  }
+
+  /// v14 / T47：幻念推送的收件表（别人推给本机的消息）。
+  ///
+  /// 两处建表（`_onCreate` 与 `oldVersion < 14`）共用本方法，列必须一致 ——
+  /// 由 `test/database/fnthink_inbox_test.dart` 用 PRAGMA 实测比对（engine_rules 同一条纪律）。
+  ///
+  /// ⚠ 这张表**故意**没有的列，每一条都是因为此刻没有数据可灌，而不是没想到：
+  /// - `sender_name`（对端自报的展示名）：poll 的回信里没有这一项，要它得先协议层带上；
+  /// - `dedupe_id`：服务端只存它的**摘要**（落盘闸门要求任何 `*Digest` 都是 64 位十六进制），
+  ///   原值不回传给设备；"刷新覆盖"那套语义现在靠 `message_id` 主键已够（同一条来两次就是它）；
+  /// - `on_island`（有没有上过岛）：生产者是 T59/T60 的上岛链路，没做之前它永远是 0。
+  /// 等有出处时加列（`_addColumnIfMissing`），别建一列空着让界面去猜"没上岛"。
+  Future<void> _createFnthinkInbox(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${FnthinkInboxMessage.table} (
+        message_id TEXT PRIMARY KEY,
+        sender TEXT NOT NULL DEFAULT '',
+        type TEXT NOT NULL DEFAULT '',
+        item TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL DEFAULT '',
+        received_at INTEGER NOT NULL,
+        read INTEGER NOT NULL DEFAULT 0,
+        ack_result TEXT NOT NULL DEFAULT '',
+        acked_at INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    // 收件列表按时间倒序翻页；未读数是首页那张入口卡每次都要算的。
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_fnthink_messages_received
+      ON ${FnthinkInboxMessage.table}(received_at DESC)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_fnthink_messages_read
+      ON ${FnthinkInboxMessage.table}(read)
+    ''');
   }
 
   /// 仅供测试：在 sqflite_common_ffi 下直接跑建表 / 升级逻辑，验证迁移幂等。
@@ -659,6 +698,11 @@ class DatabaseHelper
     if (oldVersion < 13) {
       // v13: 通知引擎规则入 DB（T20）。建表 + 把 prefs 里的旧规则灌进来。
       await _createEngineRules(db);
+    }
+    if (oldVersion < 14) {
+      // v14: 幻念推送收件表（T47）。只建表，不动任何既有行 —— 收件是新增的一面，
+      // 与 `notifications`（本机转发出去的历史）互不改写。
+      await _createFnthinkInbox(db);
     }
   }
 
@@ -1037,6 +1081,146 @@ class DatabaseHelper
           EngineRuleCodec.toDbRow(rules[i], family, i, now),
         );
       }
+    });
+  }
+
+  // ── 幻念推送收件（T47，表 `fnthink_messages`）──────────────────────────────
+  //
+  // 这一族方法的返回值**不是**装饰：`insert` 回"是不是新的一条"、`markRead`/`recordAck`
+  // 回"有没有命中"、`prune` 回"删了几条"。理由是投递语义 —— 服务端 at-least-once
+  // （收到 ack 之前不删正文），所以同一条会来第二次；而"收件计入推送统计 + 首页未读卡"
+  // 都要能区分**新到**与**重发**。把这些计数咽掉，表现就是未读数把同一条数两遍、
+  // 或者裁掉的上限没人知道（#94 那条纪律）。
+
+  /// 收件入库。**幂等且不覆盖**：同一 `message_id` 再来 ⇒ 返回 false，原行一个字节都不动。
+  ///
+  /// 为什么不是 replace：重发是常态，replace 会把用户已经「已读 / 已处理」的那一行洗回
+  /// 未读（表现是看过的消息又跳红点），还会把 `ack_result` 抹空 —— 设备对自己报过什么
+  /// 失去记忆，于是同一条结果报第二遍，服务端的回执计数跟着翻倍。
+  Future<bool> insertFnthinkInbox(FnthinkInboxMessage message) async {
+    final db = await database;
+    return await db.transaction((txn) async {
+      await txn.insert(
+        FnthinkInboxMessage.table,
+        message.toDbRow(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      // "被忽略"时 insert 的返回值在不同后端不可信（0 或上一次的 rowid），
+      // 所以问 changes() —— 它数的是本连接上刚跑完那条语句真改了几行。
+      final changed = Sqflite.firstIntValue(
+        await txn.rawQuery('SELECT changes()'),
+      );
+      return (changed ?? 0) > 0;
+    });
+  }
+
+  /// 收件列表，新到的在前。
+  ///
+  /// ⚠ 排序带 `message_id` 当 tie-breaker：同一毫秒到的两条若没有次序保证，
+  /// 翻页会出现"第一页末尾那条在第二页再来一遍"。
+  Future<List<FnthinkInboxMessage>> loadFnthinkInbox({
+    int limit = 50,
+    int offset = 0,
+    bool unreadOnly = false,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkInboxMessage.table,
+      where: unreadOnly ? 'read = 0' : null,
+      orderBy: 'received_at DESC, message_id ASC',
+      limit: limit,
+      offset: offset,
+    );
+    return rows.map(FnthinkInboxMessage.fromDbRow).toList();
+  }
+
+  /// 未读数（首页「幻念收件」入口卡每次都要算的那个数）。
+  Future<int> countFnthinkInboxUnread() async {
+    final db = await database;
+    return Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM ${FnthinkInboxMessage.table} WHERE read = 0',
+          ),
+        ) ??
+        0;
+  }
+
+  /// 标已读。返回**有没有命中**那一行 —— false 表示这个 id 不在收件表里。
+  /// 调用方是"点开一条 ⇒ 未读数减一"，不告诉它没命中就会把未读数减成负的。
+  Future<bool> markFnthinkInboxRead(String messageId) async {
+    final db = await database;
+    final affected = await db.update(
+      FnthinkInboxMessage.table,
+      {'read': 1},
+      where: 'message_id = ?',
+      whereArgs: [messageId],
+    );
+    return affected > 0;
+  }
+
+  /// 记下本机对这一条报过的结果（T45 状态视图与"我报过没有"都读它）。
+  Future<bool> recordFnthinkInboxAck({
+    required String messageId,
+    required String result,
+    required int at,
+  }) async {
+    final db = await database;
+    final affected = await db.update(
+      FnthinkInboxMessage.table,
+      {'ack_result': result, 'acked_at': at},
+      where: 'message_id = ?',
+      whereArgs: [messageId],
+    );
+    return affected > 0;
+  }
+
+  /// 保留与清理：先删掉早于 [olderThanDays] 天的，再把剩下的裁到 [maxRows] 条（删最旧）。
+  ///
+  /// 返回删掉的条数（`byAge` / `byCap` 分开）：**裁上限不是"删几行"，是一次要让人看见的事件**
+  /// —— #94 那次 HistoryCache 静默丢最旧，界面上什么都没发生，用户以为历史都在。
+  /// 两个数都必填且必须为正：`0` 在这里的字面意思是"一条都别留"，而它长得太像"没配"。
+  Future<({int byAge, int byCap})> pruneFnthinkInbox({
+    required int olderThanDays,
+    required int maxRows,
+    int? now,
+  }) async {
+    if (olderThanDays <= 0 || maxRows <= 0) {
+      throw ArgumentError(
+        'pruneFnthinkInbox 不接受非正数（olderThanDays=$olderThanDays, maxRows=$maxRows）：'
+        '按 0 执行等于清空收件表，而那绝不是一个"没配"的默认值',
+      );
+    }
+    final cutoff =
+        (now ?? DateTime.now().millisecondsSinceEpoch) -
+        olderThanDays * 86400000;
+    final db = await database;
+    return await db.transaction((txn) async {
+      final byAge = await txn.delete(
+        FnthinkInboxMessage.table,
+        where: 'received_at < ?',
+        whereArgs: [cutoff],
+      );
+      // `LIMIT -1 OFFSET n` = 跳过最新的那 n 条、其余都要：SQLite 里没有"删掉超出上限的部分"
+      // 这种语句，只能先把这批 id 圈出来。先数再删是因为删完就数不着了。
+      final doomed =
+          Sqflite.firstIntValue(
+            await txn.rawQuery(
+              'SELECT COUNT(*) FROM ('
+              ' SELECT message_id FROM ${FnthinkInboxMessage.table}'
+              ' ORDER BY received_at DESC, message_id ASC LIMIT -1 OFFSET ?)',
+              [maxRows],
+            ),
+          ) ??
+          0;
+      if (doomed > 0) {
+        await txn.rawDelete(
+          'DELETE FROM ${FnthinkInboxMessage.table} WHERE message_id IN ('
+          ' SELECT message_id FROM ${FnthinkInboxMessage.table}'
+          ' ORDER BY received_at DESC, message_id ASC LIMIT -1 OFFSET ?)',
+          [maxRows],
+        );
+      }
+      return (byAge: byAge, byCap: doomed);
     });
   }
 
