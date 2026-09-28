@@ -805,6 +805,82 @@ journalctl -u update-server -f
 
 ***
 
+### Option 5: BT Panel (宝塔面板)
+
+> BT Panel is essentially "Nginx plus a pile of visual managers", so **everything in Option 2 (Nginx) and
+> Option 1 (PM2) applies here**; this section only covers the panel-specific traps. **This project needs no
+> PHP and no database** — choose the minimal install and ignore the recommended-app list.
+
+**Step 1 — install the panel + Nginx.** Take the **current** install command from the BT Panel official site
+(commands change between versions; don't copy them from third-party blog posts). Then confirm **Nginx** is
+installed in the App Store. **Do not install PHP / MySQL / phpMyAdmin.**
+
+**Step 2 — Node and a process manager.**
+- App Store → search `Node` → install **Node.js Version Manager** (or **PM2 Manager**) → install **24 LTS**;
+- Equivalent if the panel UI fights you: use the panel's Terminal, install Node 24 per the NodeSource
+  instructions, then `npm i -g pm2`.
+
+**Step 3 — upload the code.**
+- Panel way: zip `server/` locally (**excluding `data/`, `.env`, `node_modules/`**) → upload via **Files** to the
+  code directory → extract over it. The panel's extract overwrites same-named files and deletes nothing else
+  (safer than `--delete`), but **never include your local `data/` or `.env` in the archive**.
+- Terminal way: the same two `rsync` commands as Option 0 (code + contract).
+- **Put the contract separately**: `protocol/fnthink-v1.json` goes into a `protocol/` **sibling of the code
+  directory** (the default location), or point `FNTHINK_CONTRACT` at any absolute path.
+
+**Step 4 — site + reverse proxy.**
+1. Websites → Add site: domain `notice.example.com` (**uncheck** FTP / database creation);
+2. That site → Reverse Proxy → Add: target URL `http://127.0.0.1:3456`, sent domain `$host`;
+3. Open the site's **config file** and verify these three lines — a missing `X-Forwarded-For` **must** be added,
+   otherwise `.env`'s `TRUST_PROXY=1` cannot see real client IPs and rate limiting plus IP blocking will all
+   count the proxy address:
+
+   ```nginx
+   proxy_set_header Host $host;
+   proxy_set_header X-Real-IP $remote_addr;
+   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   ```
+4. In the same file set `client_max_body_size 2m;` (admin needs ≥1 MB; the public face enforces 64 KiB itself
+   and answers in the protocol shape — too small here means Nginx rejects first with an HTML page);
+5. SSL: site settings → SSL → Let's Encrypt (enable auto-renew). **Check those three lines again afterwards** —
+   applying a certificate rewrites the 443 block and may reorder it.
+
+**Give the push hostnames their own site** (`push.example.com`): keep only `/api/fnthink/` and `/health` as
+proxied locations and `return 404` for everything else, so "the admin console lives only on the update hostname"
+is guaranteed by configuration (rationale in Option 2).
+
+**Step 5 — start the process.**
+- Panel: Websites → **Node Project** → Add (startup file `server.js`, port `3456`, run directory = code
+  directory, user `www`);
+- Equivalent: terminal `cd <code dir> && pm2 start server.js --name update-server && pm2 save`;
+- ⚠️ **The run directory must be the code directory**: `.env` is read by `dotenv` relative to the process
+  working directory, so a wrong directory means `ADMIN_TOKEN_HASH` is missing and the process exits immediately;
+- Autostart: tick it in the Node Project / PM2 Manager, or use `pm2 startup` from the terminal.
+
+**Step 6 — panel-specific security (do not skip).**
+- **Do not open port 3456**: the service listens on `0.0.0.0`, so opening it under Security bypasses Nginx's
+  HTTPS and rate limiting entirely (`curl http://<your-ip>:3456/admin.html` would reach the admin console).
+  Open **80 / 443** only.
+- The panel itself: change its default entry path/port and enable two-factor authentication.
+- Backups: use Scheduled Tasks to archive **`data/` under the code directory** daily (`totp.json` and the five
+  fnthink tables live there). The panel's "site backup" covers the whole site directory — **when restoring,
+  restore code only, never `data/`**, or the device table and pairing grants roll back to an old revision.
+
+**Step 7 — acceptance**: the same five `curl`s as the previous section (with your domains), the update-channel
+regression included.
+
+**Troubleshooting (panel environments)**
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| 502 Bad Gateway | Node not running / wrong port | Node Project logs; `pm2 logs update-server` |
+| 404 from the site | no reverse proxy, or the domain is not bound to that site | Step 4 |
+| Process keeps restarting, log says the key is unset | wrong run directory ⇒ `.env` not read | the ⚠ in Step 5 |
+| Let's Encrypt fails | domain not resolving here / port 80 taken | check DNS and ports |
+| Every device gets 429 | shared egress behind a proxy and `TRUST_PROXY` unset | set `TRUST_PROXY=1` and restart |
+
+***
+
 ## 🧪 Local Development & Self-check
 
 Scripts from `package.json` (run inside `server/`, Node 24 required):
