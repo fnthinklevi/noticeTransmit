@@ -39,7 +39,7 @@ Upload the `server` folder to your server, e.g. to `/opt/update-server/`.
 
 > ⚠️ **Upload red lines (this project is deployed by *uploading the `server/` folder*, not by `git pull`)**: an upload must **never overwrite or delete** the following — losing them means redoing configuration, or locking the admin out of the console:
 >
-> - `server/data/` — holds `totp.json` (TOTP secret + recovery-code hashes), `sessions.json`, `blocked_ips.json`, `failed_attempts.json`, `rate_limit.json`, `version.json`. The repository's `data/` contains **only** `version.json`; everything else is runtime state produced on the server.
+> - `server/data/` — holds `totp.json` (TOTP secret + recovery-code hashes), `sessions.json`, `blocked_ips.json`, `failed_attempts.json`, `rate_limit.json`, `version.json`. The repository's `data/` contains **only** `version.json`; everything else is runtime state produced on the server. The five fnthink tables (`fnthink_devices.json` / `fnthink_pair_requests.json` / `fnthink_endpoints.json` / `fnthink_nonces.json` / `fnthink_messages.json`) are **identity data** too: losing the device table means every device re-registers, losing the pairing table means every established grant is gone (devices must re-pair by QR code).
 > - `server/.env` — live secrets (`ADMIN_TOKEN_HASH` / `ENCRYPTION_KEY`); only `.env.example` is committed.
 > - `server/node_modules/` and `package-lock.json` (`.gitignore` excludes `server/node_modules/`).
 >
@@ -451,6 +451,7 @@ pm2 restart update-server && pm2 logs update-server --lines 20
 
 > ⚠️ **Red lines restated (highest-incident operational pitfall)**
 > - An upload must **never overwrite or delete `server/data/`**: `totp.json` holds the encrypted TOTP secret plus the recovery-code bcrypt hashes — lose it and the owner cannot pass 2FA (the only recovery is resetting 2FA and re-binding the authenticator). `sessions.json` / `blocked_ips.json` / `failed_attempts.json` / `rate_limit.json` are runtime state. The repository's `data/` contains only `version.json`, so bulk-overwriting from a checkout also rolls the live `version.json` back.
+> - The same applies to the five **fnthink tables** under `data/`, which are identity data rather than settings: `fnthink_devices.json` (address code → public key), `fnthink_pair_requests.json` (pending pairing requests), `fnthink_endpoints.json`, `fnthink_nonces.json`, and `fnthink_messages.json` (pending messages with encrypted bodies). Losing the device table means every device has to register again; losing the pairing table means every established grant is gone and devices must re-pair by QR code. They are written 0600 and atomically by `table.js`, are not tracked in git, and **must never be overwritten by a deployment upload**.
 > - An upload must **never overwrite `server/.env`** (live keys; the repo ships only `.env.example`).
 > - An upload must **never delete `node_modules/`** (unless you immediately run `npm ci`), and don't upload your local `node_modules/`.
 > - **Ship the contract JSON together with the code**: it is the single source of truth for the protocol face (rate-limit tiers, status codes and the body-size cap are all read from it). Forgetting it shows up as every `/api/fnthink/*` call returning 503 while everything else works; the `[fnthink] 协议入口没有起来` line names the missing file or key.

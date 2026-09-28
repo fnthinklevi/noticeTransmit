@@ -41,7 +41,7 @@ npm -v
 
 > ⚠️ **上传红线（本项目按「上传 server 目录」部署，不是 `git pull`）**：一次上传**绝不能覆盖或删除**以下内容，丢了就要重来一遍配置甚至把管理员锁在后台外：
 >
-> - `server/data/` —— `totp.json`（TOTP secret + 恢复码哈希）、`sessions.json`、`blocked_ips.json`、`failed_attempts.json`、`rate_limit.json`、`version.json` 全在这里，仓库里的 `data/` 只有 `version.json`，其余是**运行期产物**；
+> - `server/data/` —— `totp.json`（TOTP secret + 恢复码哈希）、`sessions.json`、`blocked_ips.json`、`failed_attempts.json`、`rate_limit.json`、`version.json` 全在这里，仓库里的 `data/` 只有 `version.json`，其余是**运行期产物**；幻念推送的五张表（`fnthink_devices.json` / `fnthink_pair_requests.json` / `fnthink_endpoints.json` / `fnthink_nonces.json` / `fnthink_messages.json`）也是**身份数据**：删掉设备表每台设备都要重新登记，删掉配对表等于已建立的授权关系全丢（要重新扫码配对）；
 > - `server/.env` —— 真实密钥（`ADMIN_TOKEN_HASH` / `ENCRYPTION_KEY`），仓库只提交 `.env.example`；
 > - `server/node_modules/` 与 `package-lock.json`（`.gitignore` 忽略 `server/node_modules/`）。
 >
@@ -451,6 +451,7 @@ pm2 restart update-server && pm2 logs update-server --lines 20
 
 > ⚠️ **红线复述（运维事故高发点）**
 > - 上传**不得覆盖或删除** `server/data/`：`totp.json` 存的是 TOTP secret 密文 + 恢复码 bcrypt 哈希，丢了 owner 就无法通过二步验证（只能按后文重置二步验证、重新绑定认证器）；`sessions.json` / `blocked_ips.json` / `failed_attempts.json` / `rate_limit.json` 是运行期状态。仓库里的 `data/` 只有 `version.json`，用仓库那份整体覆盖会**把线上 `version.json` 一起回滚**。
+> - 同上，`data/` 下那五张**幻念推送的表也是身份数据**，丢了的代价不是"重配一下"：`fnthink_devices.json`（设备地址码 → 公钥）、`fnthink_pair_requests.json`（待确认的配对请求）、`fnthink_endpoints.json`、`fnthink_nonces.json`、`fnthink_messages.json`（待投消息与正文密文）。删掉设备表 = 每台设备都要重新登记，删掉配对表 = 已建立的授权关系全没了（要重新扫码配对）。它们由 `table.js` 以 0600 原子写入，**不进仓库、不可被部署覆盖**。
 > - 上传**不得覆盖** `server/.env`（真实密钥；仓库只有 `.env.example`）。
 > - 上传**不得删除** `node_modules/`（除非紧接着 `npm ci`），且不要上传本地的 `node_modules/`。
 > - **契约那份 JSON 要跟着代码走**：它是协议面的唯一真值（限流档位、状态码、体积上限都从它读）。忘了传的表现是 `/api/fnthink/*` 全部 503 而其余一切正常，日志里那行 `[fnthink] 协议入口没有起来` 会点名缺哪份文件或哪个键。
