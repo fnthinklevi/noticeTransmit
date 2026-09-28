@@ -862,5 +862,315 @@
       },
       "note": "词表那道在两段都先判（顺序即规则）"
     }
+  ],
+  "_deliveryVocabulary": "delivery[].given 的 state / event 与 expect.state 只能取契约 delivery.states / delivery.events 里的值；expect.receipt 只能取契约 receipts 里的值。expect.ignored 的形状固定是 ignored:<state>+<event>，非空表示这一步什么都不做 —— 乱序与迟到是网络常态，抛错只会让调用方在错误处理里再造一个状态机。",
+  "_deliveryCoverage": "expect 里出现的每条**迁移边**（state → 新 state，含自环）都必须覆盖契约 delivery.transitions 的全部允许边，一条不许少。少一条边的后果不是报错，而是那条状态在实现里没人测过 —— 而中间态意味着正文一直删不掉。",
+  "delivery": [
+    {
+      "id": "d-dispatch",
+      "given": {
+        "state": "queued",
+        "event": "dispatch",
+        "attempts": 0,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "delivering",
+        "attempts": 1,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "poll 取走：首次投递，尝试数 +1"
+    },
+    {
+      "id": "d-ack-ok",
+      "given": {
+        "state": "delivering",
+        "event": "ack_ok",
+        "attempts": 1,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "delivered",
+        "attempts": 1,
+        "receipt": "delivered",
+        "deleteBody": true,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "只有设备 ack 算送达；进终态必须立刻释放正文"
+    },
+    {
+      "id": "d-retry-self-loop",
+      "given": {
+        "state": "delivering",
+        "event": "ack_fail",
+        "attempts": 1,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "delivering",
+        "attempts": 1,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "还有重试预算：留在 delivering 等下一次 dispatch，不发回执"
+    },
+    {
+      "id": "d-wait-no-backup",
+      "given": {
+        "state": "delivering",
+        "event": "ack_fail",
+        "attempts": 3,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "waiting_online",
+        "attempts": 3,
+        "receipt": "waiting_online",
+        "deleteBody": false,
+        "resend": "queue_resend",
+        "ignored": null
+      },
+      "note": "预算用满（1 次首投 + 2 次重试）⇒ waiting_online；没配备用渠道才由服务端排队补发"
+    },
+    {
+      "id": "d-wait-with-backup",
+      "given": {
+        "state": "delivering",
+        "event": "no_ack",
+        "attempts": 3,
+        "hasBackupChannel": true
+      },
+      "expect": {
+        "state": "waiting_online",
+        "attempts": 3,
+        "receipt": "waiting_online",
+        "deleteBody": false,
+        "resend": "backup_replay",
+        "ignored": null
+      },
+      "note": "同一件事的另一半：配了备用渠道就走备用补推，**绝不**两条并存（并存=提醒两次）"
+    },
+    {
+      "id": "d-resend-on-online",
+      "given": {
+        "state": "waiting_online",
+        "event": "peer_online",
+        "attempts": 3,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "delivering",
+        "attempts": 1,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "poll 即心跳：检测到上线立刻补发。**尝试数按「投递轮次」算** —— 转 waiting_online 已经结束了上一轮，补发是新一轮，所以这里回到 1；若把预算算成全局的，waiting_online 就成了死路（永远发不出去），与 §1 那张图直接矛盾"
+    },
+    {
+      "id": "d-expired-queued",
+      "given": {
+        "state": "queued",
+        "event": "ttl_elapsed",
+        "attempts": 0,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "expired",
+        "attempts": 0,
+        "receipt": "expired",
+        "deleteBody": true,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "排队超 7 天 ⇒ expired，正文与状态一起走"
+    },
+    {
+      "id": "d-expired-delivering",
+      "given": {
+        "state": "delivering",
+        "event": "ttl_elapsed",
+        "attempts": 2,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "expired",
+        "attempts": 2,
+        "receipt": "expired",
+        "deleteBody": true,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "在飞的那条也会到期（否则它永远停在 delivering）"
+    },
+    {
+      "id": "d-expired-waiting",
+      "given": {
+        "state": "waiting_online",
+        "event": "ttl_elapsed",
+        "attempts": 3,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "expired",
+        "attempts": 3,
+        "receipt": "expired",
+        "deleteBody": true,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "补发等到期 ⇒ 告知发送端 + 删正文"
+    },
+    {
+      "id": "d-evicted",
+      "given": {
+        "state": "queued",
+        "event": "evicted",
+        "attempts": 0,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "dropped",
+        "attempts": 0,
+        "receipt": "dropped",
+        "deleteBody": true,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "被 200 条上限挤位：dropped 也是终态，**必须**同样释放正文（契约第一版漏的就是这一条）"
+    },
+    {
+      "id": "d-dispatch-budget-spent",
+      "given": {
+        "state": "queued",
+        "event": "dispatch",
+        "attempts": 3,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "waiting_online",
+        "attempts": 3,
+        "receipt": "waiting_online",
+        "deleteBody": false,
+        "resend": "queue_resend",
+        "ignored": null
+      },
+      "note": "尝试数已用满时 poll 取走不该再投一次，直接转 waiting_online"
+    },
+    {
+      "id": "d-dispatch-last-attempt",
+      "given": {
+        "state": "queued",
+        "event": "dispatch",
+        "attempts": 2,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "delivering",
+        "attempts": 3,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": null
+      },
+      "note": "契约的 deliveryRetryTotal=2 指的是**首次之外**再试 2 次 ⇒ 总共 3 次尝试；这一例把「第 3 次还允许发」钉住，两边若把 2 当成总次数，这里就分叉"
+    },
+    {
+      "id": "d-ack-before-dispatch",
+      "given": {
+        "state": "queued",
+        "event": "ack_ok",
+        "attempts": 0,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "queued",
+        "attempts": 0,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": "ignored:queued+ack_ok"
+      },
+      "note": "迟到的 ack（这条还没发出去）⇒ 忽略，状态不动"
+    },
+    {
+      "id": "d-terminal-ack",
+      "given": {
+        "state": "delivered",
+        "event": "ack_ok",
+        "attempts": 1,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "delivered",
+        "attempts": 1,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": "ignored:delivered+ack_ok"
+      },
+      "note": "终态收到重复 ack ⇒ 忽略（终态没有出边，迁移表与实现同一口径）"
+    },
+    {
+      "id": "d-terminal-ttl",
+      "given": {
+        "state": "dropped",
+        "event": "ttl_elapsed",
+        "attempts": 0,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "dropped",
+        "attempts": 0,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": "ignored:dropped+ttl_elapsed"
+      },
+      "note": "终态不会被到期改写（否则正文释放条件会被绕开）"
+    },
+    {
+      "id": "d-dispatch-while-waiting",
+      "given": {
+        "state": "waiting_online",
+        "event": "dispatch",
+        "attempts": 2,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "waiting_online",
+        "attempts": 2,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": "ignored:waiting_online+dispatch"
+      },
+      "note": "waiting_online 只能由 peer_online 重发：poll 取走这条路不该走通"
+    },
+    {
+      "id": "d-evicted-inflight",
+      "given": {
+        "state": "delivering",
+        "event": "evicted",
+        "attempts": 1,
+        "hasBackupChannel": false
+      },
+      "expect": {
+        "state": "delivering",
+        "attempts": 1,
+        "receipt": null,
+        "deleteBody": false,
+        "resend": null,
+        "ignored": "ignored:delivering+evicted"
+      },
+      "note": "已经在飞的那条不挤位（挤它等于丢一条用户可能已经看到的消息）"
+    }
   ]
 }

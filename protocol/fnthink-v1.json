@@ -147,7 +147,8 @@
     "overflowReceipt": "dropped",
     "maxRetentionDays": 7,
     "whilePending": "static_encrypted",
-    "deleteBodyOn": ["delivered", "expired"],
+    "deleteBodyOn": ["delivered", "expired", "dropped"],
+    "_deleteBodyOnWhy": "必须是**每一个终态**，一个都不能漏。T34 第一次写这条时只列了 delivered 与 expired，而「被 200 条上限挤掉」的 dropped 也是终态——漏它的后果是：那条消息永远不会再被投递，正文却按契约合法地留到 7 天。这正是「不静默丢、也不无谓留」里后一半的反面。",
     "storeOnlyNecessaryFields": true
   },
 
@@ -220,7 +221,37 @@
     "ackFields": ["messageId", "result"],
     "resultReturnedAsMessage": true,
     "senderPollsStatusEndpoint": false,
-    "channelKey": "chan:fnthink"
+    "channelKey": "chan:fnthink",
+    "_statesWhy": "T34：投递状态机的状态名与迁移表写在这里，服务端与设备各实现一份纯函数、共读这一张表。迁移表少一条边不会报错，只会让某条消息永远停在中间态——而中间态意味着正文一直留着，所以这张表必须由契约定，不许两边各写一份。",
+    "states": [
+      "queued",
+      "delivering",
+      "delivered",
+      "waiting_online",
+      "expired",
+      "dropped"
+    ],
+    "initialState": "queued",
+    "terminalStates": ["delivered", "expired", "dropped"],
+    "transitions": {
+      "queued": ["delivering", "expired", "dropped"],
+      "delivering": ["delivered", "delivering", "waiting_online", "expired"],
+      "waiting_online": ["delivering", "expired"],
+      "delivered": [],
+      "expired": [],
+      "dropped": []
+    },
+    "events": [
+      "dispatch",
+      "ack_ok",
+      "ack_fail",
+      "no_ack",
+      "peer_online",
+      "ttl_elapsed",
+      "evicted"
+    ],
+    "_retryTotalMeans": "limits.deliveryRetryTotal 是**首次投递之外**的重试次数，所以总尝试数 = 1 + deliveryRetryTotal。这句不写清就会一边按 2 次、另一边按 3 次发，而它的表现是「偶尔多推一条」——最难查的那种。",
+    "resendDecisionFrom": "waitingOnline"
   },
 
   "transport": {

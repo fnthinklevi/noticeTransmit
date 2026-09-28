@@ -331,5 +331,105 @@ void main() {
       });
       expectProblem(broken, 'mutuallyExclusive', '两条路径不可并存');
     });
+
+    // ── 投递状态机（T34-A）：这张表少一条边不会报错，只会让消息停在中间态 = 正文删不掉 ──
+    test('dropped 从 deleteBodyOn 里去掉 ⇒ 报（本批第一次就漏了这条）', () {
+      final broken = mutate((raw) {
+        (raw['retention'] as Map<String, Object?>)['deleteBodyOn'] = [
+          'delivered',
+          'expired',
+        ];
+      });
+      expectProblem(
+        broken,
+        'retention.deleteBodyOn 必须覆盖全部终态',
+        '被挤位那条消息永远不会再投，正文却按契约合法地留到 7 天',
+      );
+    });
+
+    test('终态被加了一条出边 ⇒ 报（"有出边的终态"说明它不是终点）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['transitions'] = {
+          ...((raw['delivery'] as Map<String, Object?>)['transitions']
+              as Map<String, Object?>),
+          'delivered': ['queued'],
+        };
+      });
+      expectProblem(broken, '终态不许有出边', '终态必须没有出边');
+    });
+
+    test('waiting_online 两条出边都清空 ⇒ 报（非终态没有出边 = 消息卡死）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['transitions'] = {
+          ...((raw['delivery'] as Map<String, Object?>)['transitions']
+              as Map<String, Object?>),
+          'waiting_online': const <Object?>[],
+        };
+      });
+      expectProblem(broken, '非终态必须有出边', 'waiting_online 变黑洞');
+    });
+
+    test('加一个从初态走不到的状态 ⇒ 报（写出来却到不了，早晚被两边按不同方式处理）', () {
+      final broken = mutate((raw) {
+        final d = raw['delivery'] as Map<String, Object?>;
+        d['states'] = [...(d['states'] as List<Object?>), 'zombie'];
+        d['transitions'] = {
+          ...(d['transitions'] as Map<String, Object?>),
+          'zombie': const <Object?>[],
+        };
+        d['terminalStates'] = [
+          ...(d['terminalStates'] as List<Object?>),
+          'zombie',
+        ];
+        (raw['retention'] as Map<String, Object?>)['deleteBodyOn'] = [
+          ...((raw['retention'] as Map<String, Object?>)['deleteBodyOn']
+              as List<Object?>),
+          'zombie',
+        ];
+      });
+      expectProblem(broken, '走不到的状态', '不可达状态必须报');
+    });
+
+    test('迁移表指向一个不存在的状态 ⇒ 报', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['transitions'] = {
+          ...((raw['delivery'] as Map<String, Object?>)['transitions']
+              as Map<String, Object?>),
+          'queued': ['teleporting'],
+        };
+      });
+      expectProblem(broken, '指向不存在的状态', '迁移表的目标必须在 states 里');
+    });
+
+    test('事件表清空 ⇒ 报（没有事件表，两边就只能各编一套触发条件）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['events'] = const [];
+      });
+      expectProblem(broken, 'delivery.events 必须非空', '事件表不能缺');
+    });
+
+    test('把重试次数改成 -1 ⇒ 报（它是重试次数，不是"总次数减一"的任意整数）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['deliveryRetryTotal'] = -1;
+      });
+      expectProblem(broken, 'limits.deliveryRetryTotal', '重试预算必须 ≥ 0');
+    });
+
+    test('状态机要发的回执不在回执词表里 ⇒ 报（两张表必须同源）', () {
+      final broken = mutate((raw) {
+        raw['receipts'] = (raw['receipts'] as List<Object?>)
+            .where((e) => e != 'dropped')
+            .toList();
+      });
+      expectProblem(broken, '不在 receipts 里', '挤位回执必须在词表里');
+    });
+
+    test('resendDecisionFrom 指向一个没有的段 ⇒ 报（补发路向不许在别处再抄一份）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['resendDecisionFrom'] =
+            'somewhereElse';
+      });
+      expectProblem(broken, 'delivery.resendDecisionFrom', '补发路向必须来自契约里那一段');
+    });
   });
 }

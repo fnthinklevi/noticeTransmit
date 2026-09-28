@@ -650,6 +650,117 @@ class FnthinkContract {
       );
     }
 
+    // ── 投递状态机（T34）──
+    // 这里查的是"这张表本身能不能跑"，不是"实现对不对"（那由双端共读的向量查）。
+    // 一张少边的迁移表不会报错，只会让消息停在中间态 —— 而中间态 = 正文一直被留着。
+    final dStates = strings(const ['delivery', 'states']);
+    need(dStates.isNotEmpty, 'delivery.states 不能为空：状态机没有状态表，两边就只能各编一套');
+    need(
+      dStates.toSet().length == dStates.length,
+      'delivery.states 有重复：$dStates',
+    );
+    final dInitial = str(const ['delivery', 'initialState']);
+    need(
+      dInitial != null && dStates.contains(dInitial),
+      'delivery.initialState 必须是 states 里的一个：$dInitial vs $dStates',
+    );
+    final dTerminals = strings(const ['delivery', 'terminalStates']);
+    need(
+      dStates.toSet().containsAll(dTerminals),
+      'delivery.terminalStates 里有不存在的状态：$dTerminals vs $dStates',
+    );
+    final dTransitions = map(const ['delivery', 'transitions']) ?? const {};
+    need(
+      dStates.every((s) => dTransitions.containsKey(s)),
+      'delivery.transitions 必须给**每个**状态一条边（终态给空表）：缺的就是"走到那儿就不知道怎么办"：$dStates vs ${dTransitions.keys.toList()}',
+    );
+    need(
+      dTransitions.keys.every((s) => dStates.contains(s)),
+      'delivery.transitions 的键里有不在 states 里的状态：${dTransitions.keys.toList()}',
+    );
+    for (final entry in dTransitions.entries) {
+      final targets = (entry.value as List<Object?>? ?? const [])
+          .map((e) => '$e')
+          .toList();
+      need(
+        dStates.toSet().containsAll(targets),
+        'delivery.transitions.${entry.key} 指向不存在的状态：$targets',
+      );
+      need(
+        dTerminals.contains(entry.key) ? targets.isEmpty : targets.isNotEmpty,
+        'delivery.transitions.${entry.key}：终态不许有出边、非终态必须有出边（有出边的"终态"说明它不是终点，'
+        '而没出边的非终态会让消息卡死）',
+      );
+    }
+    // 从初态走不到某个状态 ⇒ 那条状态是死的：要么写错，要么实现永远不会进它。
+    if (dInitial != null && dStates.isNotEmpty) {
+      final reached = <String>{dInitial};
+      var frontier = <String>[dInitial];
+      while (frontier.isNotEmpty) {
+        frontier = [
+          for (final s in frontier)
+            for (final t in (dTransitions[s] as List<Object?>? ?? const []).map(
+              (e) => '$e',
+            ))
+              if (!reached.contains(t)) t,
+        ].toSet().toList();
+        reached.addAll(frontier);
+      }
+      need(
+        reached.length == dStates.length,
+        'delivery.states 里有从 initialState 走不到的状态：${dStates.where((s) => !reached.contains(s)).toList()}'
+        '（写出来却到不了的状态，早晚会被两边按不同方式处理）',
+      );
+    }
+    final dEvents = strings(const ['delivery', 'events']);
+    need(
+      dEvents.isNotEmpty && dEvents.toSet().length == dEvents.length,
+      'delivery.events 必须非空且不重复：$dEvents',
+    );
+    // 正文释放条件必须**覆盖每一个终态**：漏一个（T34 第一次就漏了 dropped）等于
+    // "这条消息永远不会再投了，而它的正文按契约合法地留到 7 天"。
+    final deleteBodyOn = strings(const ['retention', 'deleteBodyOn']);
+    need(
+      dStates.toSet().containsAll(deleteBodyOn),
+      'retention.deleteBodyOn 里有不是投递状态的值：$deleteBodyOn vs $dStates',
+    );
+    need(
+      deleteBodyOn.toSet().containsAll(dTerminals),
+      'retention.deleteBodyOn 必须覆盖全部终态 $dTerminals，实为 $deleteBodyOn —— '
+      '漏掉的那个终态会永远留着正文，而它已经不会再被投递了',
+    );
+    final retryTotal = intOf(const ['limits', 'deliveryRetryTotal']);
+    need(
+      retryTotal != null && retryTotal >= 0 && retryTotal < 10,
+      'limits.deliveryRetryTotal 必须是 0..9 的整数（它是重试次数，不是尝试总数）：$retryTotal',
+    );
+    for (final r in const [
+      'delivered',
+      'waiting_online',
+      'expired',
+      'dropped',
+    ]) {
+      need(
+        (raw['receipts'] as List<Object?>? ?? const []).contains(r),
+        '状态机要发的回执 $r 不在 receipts 里：回执词表与状态机必须同源',
+      );
+    }
+    // 补发走哪条路，取自 waitingOnline 段（不许在 delivery 里再抄一份）。
+    final resendFrom = str(const ['delivery', 'resendDecisionFrom']);
+    final waiting = map([resendFrom ?? '']) ?? const {};
+    need(
+      waiting.isNotEmpty &&
+          boolOf([resendFrom ?? '', 'mutuallyExclusive']) == true,
+      'delivery.resendDecisionFrom 必须指向一个 mutuallyExclusive=true 的段'
+      '（备用补推与排队补发二选一，绝不并存 —— 并存就是同一条消息提醒两次）：$resendFrom',
+    );
+    need(
+      waiting['withBackupChannel'] != null &&
+          waiting['withoutBackupChannel'] != null &&
+          waiting['withBackupChannel'] != waiting['withoutBackupChannel'],
+      '$resendFrom 的 withBackupChannel / withoutBackupChannel 必须都存在且互不相同：$waiting',
+    );
+
     // ── 身份与凭证（红线）──
     need(
       intOf(const ['identity', 'addressCode', 'length']) == 18,
