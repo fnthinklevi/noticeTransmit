@@ -58,6 +58,30 @@ describe('旧契约配新代码（只降级那一段）', () => {
     expect(res.status).toBe(401);
   });
 
+  test('两个运维口各自只依赖自己要读的那一段（缺 alerts ⇒ 告警 503，冻结仍然可用）', async () => {
+    // 这份夹具只缺 alerts 段。正确的结论不是"所有 fnthink 相关的口一起挂"，而是：
+    // 告警口读的是 alerts 段 ⇒ 它 503；列状态/冻结读的是 revocation + ops 段 ⇒ 它们照旧能用。
+    // 运维在"协议面因为一份旧契约起不来"的时刻，最需要的恰恰是还能把某台设备冻住。
+    const login = await request(app)
+      .post('/api/admin/login')
+      .send({ token: 'test-admin-token-for-stale' });
+    expect(login.status).toBe(200);
+    const sessionId = login.body.sessionId;
+    const alerts = await request(app)
+      .get('/api/admin/fnthink/alerts')
+      .set('x-session-id', sessionId);
+    expect(alerts.status).toBe(503);
+    expect(alerts.body.error).toBe('fnthink_protocol_unavailable');
+    const devices = await request(app)
+      .get('/api/admin/fnthink/devices')
+      .set('x-session-id', sessionId);
+    expect(devices.status).toBe(200);
+    expect(devices.body.data.limit).toBe(repoContract.ops.deviceListMax);
+    // 更新面在这两次之后仍然活着（降级只影响幻念推送那一段）
+    const health = await request(app).get('/health');
+    expect(health.status).toBe(200);
+  });
+
   test('启动清单里一条幻念端点都没有：横幅不许报"开了"而其实没开', () => {
     expect(app.get('fnthinkEndpoints')).toEqual([]);
   });

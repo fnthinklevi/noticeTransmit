@@ -15,6 +15,7 @@ const { isContractAvailabilityError, CONTRACT_SHAPE } = require('./fnthink/contr
 const middleware = require('./middleware');
 const authRoutes = require('./routes/auth');
 const alertRoutes = require('./routes/alerts');
+const opsRoutes = require('./routes/ops');
 const versionRoutes = require('./routes/version');
 
 const app = express();
@@ -81,6 +82,9 @@ app.use('/api/admin', authRoutes);
 // 突增告警的读取口（A4）。挂在 authRoutes 之后：那条链上有登录/2FA，而这个口只读不写，
 // 两条路径共用同一套鉴权与 `/api/admin` 的认证限流，不另建信任根。
 app.use('/api/admin', alertRoutes);
+// 运维入口（A5：列状态 / 冻结 / 解冻 / 吊销 / 一键全部失效）。放在同一条鉴权 + 认证限流链之后：
+// 这些是会动的写操作，而"一键全部失效"的误点代价是一整个设备群失联。
+app.use('/api/admin', opsRoutes);
 app.use('/', versionRoutes);
 // 幻念推送（fnthink-v1）的公网入口。⚠ 这一段必须"坏了也不连累别的端点"：
 // 契约文件默认在仓库根的 protocol/，而部署历来只上传 server/ —— 那种情况下 require 链会直接抛

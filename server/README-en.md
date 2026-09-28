@@ -577,6 +577,59 @@ that JSON along with the code.
 This endpoint is **read-only**: unfreezing and revoking are a different set of actions, and the two do not
 share one endpoint — one accidental click on "revoke everything" costs an entire fleet of devices.
 
+### Step 8: acting on what the report showed (ops endpoints)
+
+The alert says "this device is throttling itself". The usual next moves are: freeze it, unfreeze it, or revoke it.
+
+```bash
+# What is in what state (statuses covers every contract state, even with a zero count)
+curl -s https://notice.example.com/api/admin/fnthink/devices -H "x-session-id: $SESSION"
+
+# Freeze one (record and public key stay, nothing is delivered, reversible — hence no confirm needed)
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/freeze \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' \
+  -d '{"addressCode":"<18-char address>"}'
+
+# Unfreeze
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/resume \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' \
+  -d '{"addressCode":"<18-char address>"}'
+
+# Revoke one / revoke everything: these two classes require confirm:true, else 400 and the table is untouched
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' \
+  -d '{"addressCode":"<18-char address>","confirm":true}'
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' -d '{"confirm":true}'
+```
+
+What to read out of it:
+
+- Every success is `{"code":0,…,"data":{"action":"…","affected":N,…}}`. **`affected` counts rows that were
+  changed**, not rows in the table: clicking `revoke-all` a second time should give `affected: 0` with `total`
+  unchanged — that is "nothing left to act on", as opposed to "this button does nothing".
+- Single-device actions return `data.device` with exactly six keys:
+  `addressCode / name / status / createdAt / lastSeenAt / statusChangedAt`. **No public key, no pairing-code
+  digest, no grant list** — the address code is a public identifier, "which senders this device has accepted" is not.
+- Which actions need confirmation is decided by "can a misclick be undone in place": `freeze / resume` do not
+  (reversible, nothing lost), while `revoke / revokeAll / rebuildInvalidation` do (the peer must pair again).
+  The list lives in the contract: `ops.confirmationRequiredFor`.
+- **Revoking never deletes the record** (`revocation.dataNeverDeletedByRevoke`): revocation answers "can it still
+  receive me", clearing history is a separate explicit action. So you can still see who it used to be, and re-pair.
+- The list cap comes from `ops.deviceListMax` (a larger `?limit=` gets clamped), and `truncated` says out loud
+  whether the list is complete — "not everything" and "that's all of them" read as opposite conclusions.
+- An address that is not in the table is a 404 naming which one (this endpoint is already authenticated; the
+  indistinguishable-shape rule exists for the unauthenticated face). A malformed code is a 400 — no garbage
+  gets used as a lookup key.
+
+⚠ These are admin-face only. The device's own actions (reset the pairing code, rebuild the identity key, drop a
+sender) travel as device-signed protocol events; doing them from the server on someone's behalf would mean
+handing the server a new signing key.
+
+⚠ The device state names (deliverable / frozen / revoked / awaiting rebuild) all come from the four
+`revocation` keys (`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`). Renaming a state
+means shipping the contract with it — the implementation keeps no hidden default.
+
 ***
 
 ## 🔥 Production Deployment (Ops Guide)

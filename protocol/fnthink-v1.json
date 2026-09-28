@@ -159,7 +159,21 @@
     "identityRebuildInvalidatesAllPeers": true,
     "massRevokeSupported": true,
     "dataNeverDeletedByRevoke": true,
+    "revokedStatus": "revoked",
+    "frozenStatus": "frozen",
+    "resumableStatus": "active",
+    "afterRebuildStatus": "awaitingRepair",
+    "_statusNamesWhy": "这三个名字以前散在实现里（setDeviceStatus 写死 'revoked'、invalidatePeersAfterRebuild 写死 'active'、revokeAllDevices 写死 'revoked'），那是典型的第二份真值：契约新加一档而代码里那串字符没跟上，表现不是报错，而是「这一档谁都不认得，但记录照端在那儿」。现在三处一律从本段读，validate 钉住它们必须都在 deviceStatuses 表上、resumableStatus 必须就是投递白名单里那一个、revokedStatus 与 afterRebuildStatus 必须在白名单之外且互不相同（两个动作写进同一档，「一键全部失效」与「本机重建身份」在记录上就分不开了）。",
     "_dataNeverDeletedWhy": "吊销的是「还能不能收到我的消息」，不是「这台设备的历史」。清历史要单独一次显式操作 —— 用户可撤销的那类破坏性动作不塞进安全动作的副作用里"
+  },
+
+  "ops": {
+    "_why": "运维入口（#130-A5：冻结 / 解冻 / 单台吊销 / 一键全部失效）。这一段管的是「人按下去之后会发生什么」，最容易写歪的不是权限而是**确认**：契约既然声明支持一键全部失效（massRevokeSupported），那一次误点的代价就是一整个设备群同时失联，而这类动作在界面上和一个普通按钮长得一模一样。",
+    "deviceListMax": 100,
+    "_deviceListMaxWhy": "列状态一次最多返回多少台。设备表上限是 limits.devicesMax（5000），一次全端出去既不可读，也把管理面响应做成一个大对象。响应里同时给 total，运维才分得清「没列全」与「就只有这些」—— 少了 total 的那份列表会直接把人引向「这台服务器上没几台设备」的错误结论。",
+    "confirmationRequiredFor": ["revoke", "revokeAll", "rebuildInvalidation"],
+    "_confirmationWhy": "这些动作要 body 里带显式 confirm:true 才执行，缺了就 400 且不产生任何写入。**freeze / resume 不在此列**：冻结记录与公钥都留着、随时可解、一条都不投（契约 deviceStatuses.frozen 那句），误点的代价是一台设备暂停收信；而吊销要重新配对、全部失效要整片重配，回不去的那一类才需要一次确认。名单与 massRevokeSupported 由 validate 交叉钉住：支持一键全部失效却不要求确认，是把「整片失联」挂在一次点击上。",
+    "_notPublicFaceWhy": "这一组只在管理面（已鉴权），**不进协议面**：设备侧自己那套入口（重置口令、重建身份、划掉某个发送方）走的是它自己签过名的 clientEvents，不由这里的 HTTP 口代做。两边各写各的动作名会迟早分叉，所以这份名单只管运维侧。"
   },
   "retention": {
     "pendingPerDeviceMax": 200,

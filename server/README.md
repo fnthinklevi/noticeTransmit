@@ -563,8 +563,57 @@ curl -s https://notice.example.com/api/admin/fnthink/alerts -H "x-session-id: $S
 
 阈值只有一份来源：契约 `alerts` 段（`nearQuotaRatio` / `cooldownSeconds` / `maxActiveAlerts` /
 `persistToDisk`）。改环境变量不管用，改它要连同那份 JSON 一起上传。
-这个口**只读**：解除冻结、吊销设备是另一组动作（见「🛡️ IP 封锁机制」与运维入口），
+这个口**只读**：解除冻结、吊销设备是另一组动作（见下一节），
 两件事不混在一个口里 —— 误点一次"全部失效"的代价是一整个设备群失联。
+
+### 第 8 步：看过之后要动手（运维处置口）
+
+上面那条告警告诉你"某台设备正在被自己拦住"，接下来通常是三种处置：先冻住它、解开、或者吊销它。
+
+```bash
+# 先看现在都是什么状态（statuses 覆盖契约里的每一档，哪怕计数是 0）
+curl -s https://notice.example.com/api/admin/fnthink/devices -H "x-session-id: $SESSION"
+
+# 冻住一台（记录与公钥都留着，一条都不投，随时可解 —— 所以它不要确认）
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/freeze \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' \
+  -d '{"addressCode":"<18 位地址码>"}'
+
+# 解开
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/resume \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' \
+  -d '{"addressCode":"<18 位地址码>"}'
+
+# 吊销一台 / 一键全部失效：这两类必须带 confirm:true，否则 400 且表一个字节都不动
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' \
+  -d '{"addressCode":"<18 位地址码>","confirm":true}'
+curl -s -X POST https://notice.example.com/api/admin/fnthink/devices/revoke-all \
+  -H "x-session-id: $SESSION" -H 'Content-Type: application/json' -d '{"confirm":true}'
+```
+
+期望与判读：
+
+- 每条成功都是 `{"code":0,…,"data":{"action":"…","affected":N,…}}`。**`affected` 是"被改动的台数"**，
+  不是表里的台数：`revoke-all` 再按一次应当是 `affected: 0` 而 `total` 不变 —— 那才是"没有可动的了"，
+  而不是"这个钮没反应"。
+- 单台动作回 `data.device`，只有 `addressCode / name / status / createdAt / lastSeenAt / statusChangedAt`
+  六个键。**公钥、配对口令摘要、授权表都不在这里**（地址码是公开标识，"这台设备收了谁的授权"不是）。
+- 哪些动作要确认，判据是"误点之后能不能原地撤销"：`freeze / resume` 不要（随时可解、不丢数据），
+  `revoke / revokeAll / rebuildInvalidation` 要（对方必须重新配对）。名单在契约 `ops.confirmationRequiredFor`。
+- **吊销不删记录**（契约 `revocation.dataNeverDeletedByRevoke`）：吊销回答的是"还能不能收到我"，
+  清历史是另一次显式操作。所以吊销后仍然看得见"曾经是谁"，也能重新配对回去。
+- 列状态的上限取契约 `ops.deviceListMax`（请求里给更大的数会被夹住），响应里 `truncated` 会明确说
+  有没有列全 —— 一份"没列全"的列表和一份"就只有这些"的列表，读起来是相反的两个结论。
+- 不在表里的地址码是 404 并点名是哪台（这个口已经鉴过权，同形规则是给未认证面的）；
+  地址码形状不对是 400，不会拿着一串垃圾去查表。
+
+⚠ 这一组只在管理面。设备侧自己要的动作（重置配对口令、重建身份密钥、划掉某个发送方）走的是
+设备签名的协议事件，不是这几个 HTTP 口 —— 让它们从服务端代做，等于给服务端添一把新的签名钥匙。
+
+⚠ 设备状态的名字（可投递 / 冻结 / 吊销 / 待重建）全部来自契约 `revocation` 那四个键
+（`resumableStatus` / `frozenStatus` / `revokedStatus` / `afterRebuildStatus`）。改档位名要连同契约一起改，
+实现里没有一份"看不见的缺省"。
 
 ***
 

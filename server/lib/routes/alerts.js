@@ -15,6 +15,7 @@
 const express = require('express');
 
 const { asyncHandler, authMiddleware } = require('../middleware');
+const { isContractAvailabilityError } = require('../fnthink/contract');
 const { sharedTracker } = require('../fnthink/anomaly');
 
 const router = express.Router();
@@ -24,8 +25,17 @@ router.get(
   '/fnthink/alerts',
   authMiddleware,
   asyncHandler(async (req, res) => {
-    const tracker = sharedTracker();
-    res.json({
+    // ⚠ 告警环要读契约（四个数只从那里来），所以它是**首请求**才建的：契约文件不在、或内容不达标时
+    //   这里必须答成与协议面同一套 503，而不是冒到 errorMiddleware 变成 500 —— 诊断口在"协议面
+    //   起不来"的时刻恰恰最有用，它自己不能再变成一种新的看不懂。
+    let tracker;
+    try {
+      tracker = sharedTracker();
+    } catch (e) {
+      if (!isContractAvailabilityError(e)) throw e;
+      return res.status(503).json({ error: 'fnthink_protocol_unavailable' });
+    }
+    return res.json({
       code: 0,
       message: 'success',
       data: {

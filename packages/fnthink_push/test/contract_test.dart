@@ -1220,5 +1220,117 @@ void main() {
         '这一档是"跑飞保护"不是反垃圾；比匿名档紧，第一个挨打的是已证明身份的设备',
       );
     });
+
+    // #130-A5：运维入口。这一段真正会写歪的是"档位名的第二份真值"和"确认压在哪一类动作上"。
+    test('档位名指向状态表外的一档 ⇒ 报（写进去没人认得，比写不进去更难查）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map<String, Object?>)['revokedStatus'] =
+            'deleted';
+      });
+      expectProblem(broken, '必须是 deviceStatuses 表上的一个', '状态词汇表外的名字是一条静默的孤儿');
+    });
+
+    test('缺 frozenStatus ⇒ 报（冻结与解冻成对，少一个就有一侧只能靠猜）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map<String, Object?>).remove('frozenStatus');
+      });
+      expectProblem(broken, '必须是 deviceStatuses 表上的一个', '缺的名字必须点名，不许默默落进某个缺省');
+    });
+
+    test('两个动作写进同一档 ⇒ 报（吊销与"待重建"在记录上分不开）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map<String, Object?>)['revokedStatus'] =
+            'awaitingRepair';
+      });
+      expectProblem(broken, '互不相同', '后续完全相反的两件事不许长成同一行');
+    });
+
+    test('解冻的去处不在投递白名单里 ⇒ 报（解完冻仍然一条都投不进去）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map<String, Object?>)['resumableStatus'] =
+            'frozen';
+      });
+      expectProblem(broken, '必须就是 deliveryAllowedStatuses', '解冻必须回到允许投递那一档');
+    });
+
+    test('已吊销那一档出现在投递白名单里 ⇒ 报（吊销了却还收得到）', () {
+      final broken = mutate((raw) {
+        (raw['revocation'] as Map<String, Object?>)['deliveryAllowedStatuses'] =
+            ['active', 'revoked'];
+      });
+      expectProblem(broken, '不许出现在 deliveryAllowedStatuses', '白名单里混进被停用的档位');
+    });
+
+    test('确认名单为空 ⇒ 报（回不去的那一类动作挂在一次误点上）', () {
+      final broken = mutate((raw) {
+        (raw['ops'] as Map<String, Object?>)['confirmationRequiredFor'] = [];
+      });
+      expectProblem(broken, '必须非空且无重复', '一个都不要求确认就是没有确认这回事');
+    });
+
+    test('确认名单里有重复项 ⇒ 报（同一个动作两条判据，谁生效取决于实现顺序）', () {
+      final broken = mutate((raw) {
+        (raw['ops'] as Map<String, Object?>)['confirmationRequiredFor'] = [
+          'revoke',
+          'revoke',
+          'revokeAll',
+        ];
+      });
+      expectProblem(broken, '必须非空且无重复', '重叠名单在本仓反复判红，这里不能因为它"看起来只是多写一遍"就放过');
+    });
+
+    test('支持一键全部失效却不要求确认 ⇒ 报（这条交叉判据是本片真正的收获）', () {
+      final broken = mutate((raw) {
+        (raw['ops'] as Map<String, Object?>)['confirmationRequiredFor'] = [
+          'revoke',
+          'rebuildInvalidation',
+        ];
+      });
+      expectProblem(
+        broken,
+        '就必须把它列进 confirmationRequiredFor',
+        'massRevokeSupported 与确认名单必须对得上',
+      );
+    });
+
+    test('把 freeze 也压进确认名单 ⇒ 报（可即时撤销的动作不该消耗注意力）', () {
+      final broken = mutate((raw) {
+        (raw['ops'] as Map<String, Object?>)['confirmationRequiredFor'] = [
+          'freeze',
+          'revoke',
+          'revokeAll',
+        ];
+      });
+      expectProblem(broken, 'freeze / resume 不许要求确认', '确认疲劳会让人连该确认的那一下也一并点掉');
+    });
+
+    test('列状态没有上限 ⇒ 报（管理面成了"一次拉走整张设备表"的机器）', () {
+      final broken = mutate((raw) {
+        (raw['ops'] as Map<String, Object?>)['deviceListMax'] = 0;
+      });
+      expectProblem(broken, 'deviceListMax 必须是正整数', '0 不是"不限"，是配错了');
+    });
+
+    test('列状态上限大过设备表上限 ⇒ 报（那条限制本身没意义，还会骗人列表是全的）', () {
+      final broken = mutate((raw) {
+        (raw['ops'] as Map<String, Object?>)['deviceListMax'] = 999999;
+      });
+      expectProblem(broken, '不许大于 limits.devicesMax', '超过表上限的上限只会造成误读');
+    });
+
+    test('仓库里这份契约的运维段读得出来，且四个档位名互不相同', () {
+      final names = [
+        c.str(const ['revocation', 'revokedStatus']),
+        c.str(const ['revocation', 'frozenStatus']),
+        c.str(const ['revocation', 'resumableStatus']),
+        c.str(const ['revocation', 'afterRebuildStatus']),
+      ];
+      expect(names.toSet().length, names.length);
+      expect(
+        c.strings(const ['ops', 'confirmationRequiredFor']),
+        contains('revokeAll'),
+      );
+      expect(c.intOf(const ['ops', 'deviceListMax']), greaterThan(0));
+    });
   });
 }

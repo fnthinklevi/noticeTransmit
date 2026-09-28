@@ -649,6 +649,87 @@ class FnthinkContract {
         '支持一键全部失效、吊销不删历史）',
       );
     }
+    // #130-A5：状态词汇表 + 运维确认。这一段查两件事 ——「实现里那三个写死的状态字符串是不是
+    // 还在跟契约各写一份」，以及「运维入口会不会把一整个设备群弄失联」。
+    final revokedStatus = str(const ['revocation', 'revokedStatus']);
+    final frozenStatus = str(const ['revocation', 'frozenStatus']);
+    final resumableStatus = str(const ['revocation', 'resumableStatus']);
+    final afterRebuildStatus = str(const ['revocation', 'afterRebuildStatus']);
+    final statusNames = {
+      'revokedStatus': revokedStatus,
+      'frozenStatus': frozenStatus,
+      'resumableStatus': resumableStatus,
+      'afterRebuildStatus': afterRebuildStatus,
+    };
+    for (final entry in statusNames.entries) {
+      need(
+        entry.value != null && statuses.contains(entry.value),
+        'revocation.${entry.key} 必须是 deviceStatuses 表上的一个（实际 ${entry.value}）：'
+        '名字漂在表外的一档，表现不是报错，而是「这台设备的状态看着正常，但没有任何代码认得它」',
+      );
+    }
+    // 四个动作各指向一档，且互不相同：两个动作写进同一档，记录上就分不出"是谁把它停在这里的"，
+    // 而运维要回答的是"我刚才那一下动了什么"。
+    final named = statusNames.values.whereType<String>().toSet();
+    need(
+      named.length == statusNames.length,
+      'revocation 的四个状态名互不相同（吊销 / 冻结 / 允许投递 / 待重建）：实际 $statusNames —— '
+      '其中两个相同就等于「两种后续完全相反的动作在记录上长成同一行」',
+    );
+    need(
+      resumableStatus != null &&
+          allowed.isNotEmpty &&
+          resumableStatus == allowed.first,
+      'revocation.resumableStatus 必须就是 deliveryAllowedStatuses 里那一个：'
+      '「解冻」的去处必须是允许投递的那档，否则解完冻仍然一条都投不进去 —— '
+      '而这在界面上看起来是成功的',
+    );
+    for (final name in [revokedStatus, afterRebuildStatus]) {
+      need(
+        name == null || !allowed.contains(name),
+        'revocation 的「$name」不许出现在 deliveryAllowedStatuses 里：那等于「已吊销/待重建」仍算可投递',
+      );
+    }
+    need(
+      revokedStatus == null ||
+          afterRebuildStatus == null ||
+          revokedStatus != afterRebuildStatus,
+      'revokedStatus 与 afterRebuildStatus 不许是同一档：两个动作写进同一个状态，'
+      '「一键全部失效」与「本机重建身份」在记录上就分不开了，而它们的后续完全相反'
+      '（前者是这台设备被踢掉，后者是等所有发送方重配）',
+    );
+    final confirmActions = strings(const ['ops', 'confirmationRequiredFor']);
+    need(
+      confirmActions.isNotEmpty &&
+          confirmActions.toSet().length == confirmActions.length,
+      'ops.confirmationRequiredFor 必须非空且无重复：${confirmActions.join(', ')}',
+    );
+    need(
+      boolOf(const ['revocation', 'massRevokeSupported']) != true ||
+          confirmActions.contains('revokeAll'),
+      '支持一键全部失效（massRevokeSupported=true）就必须把它列进 confirmationRequiredFor：'
+      '一次误点的代价是一整个设备群同时失联，而它在界面上和一个普通按钮长得一模一样',
+    );
+    need(
+      !confirmActions.contains('freeze') && !confirmActions.contains('resume'),
+      'freeze / resume 不许要求确认：冻结留着记录与公钥、随时可解、一条都不投 —— '
+      '把确认压在可即时撤销的动作上，代价是运维很快就学会不看那个框直接点，'
+      '而那才是真正危险的漂移（要确认的应该是回不去的那一类）',
+    );
+    final deviceListMax = intOf(const ['ops', 'deviceListMax']);
+    need(
+      (deviceListMax ?? 0) > 0,
+      'ops.deviceListMax 必须是正整数（实际 $deviceListMax）：列状态没有上限，'
+      '就是把管理面做成一台「一次拉走整张设备表」的机器',
+    );
+    final devicesMaxForOps = intOf(const ['limits', 'devicesMax']);
+    need(
+      deviceListMax == null ||
+          devicesMaxForOps == null ||
+          deviceListMax <= devicesMaxForOps,
+      'ops.deviceListMax 不许大于 limits.devicesMax：超过表上限的上限本身没有意义，'
+      '只会让人以为「列表一定是全的」',
+    );
 
     // ── 投递状态机（T34）──
     // 这里查的是"这张表本身能不能跑"，不是"实现对不对"（那由双端共读的向量查）。

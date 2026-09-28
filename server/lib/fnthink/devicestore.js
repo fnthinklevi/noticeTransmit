@@ -16,6 +16,9 @@ const crypto = require('crypto');
 const path = require('path');
 
 const { DATA_DIR, readJsonFile } = require('../store');
+// 只要"契约内容缺这台实现要读的数"就必须打这个标记（#130-A4 那条）：让它冒成普通 Error 的话，
+// 挂载方分不清这是部署问题还是代码 bug，而错的修法是把 catch 放宽。
+const { shapeError } = require('./contract');
 const {
   alphabetFromContract,
   credentialDigest,
@@ -127,7 +130,9 @@ function registerDevice(contract, devices, input, now) {
   }
   const record = existing || {
     createdAt: now,
-    status: 'active',
+    // 新登记的记录落在"允许投递"那一档，与解冻是同一个来源（以前这里写死一个字符串，
+    // 那是第四处第二份真值：契约改档位名时它不会报错，只会让新设备一登记就没人认得它的状态）。
+    status: resumableStatus(contract),
     lastSeenAt: null,
     owner: null,
     grantsBy: {},
@@ -223,6 +228,60 @@ function assertDeviceStatus(contract, status) {
   return status;
 }
 
+/// 状态名一律从契约的词汇表读（#130-A5）。以前这里是三处写死的字符串
+/// （吊销那一档、允许投递那一档、待重建那一档），那是典型的第二份真值：契约哪天加一档而
+/// 代码里那串没跟上，表现不是报错，而是"这台设备的状态看着正常，但没有任何代码认得它"。
+function statusNameOf(contract, key) {
+  const revocation = (contract || {}).revocation || {};
+  const table = revocation.deviceStatuses || {};
+  const value = revocation[key];
+  if (typeof value !== 'string' || !value) {
+    throw shapeError(
+      `revocation.${key} 缺失或非字符串：状态名只能从契约读，实现里不许留一份"看不见的缺省"`,
+    );
+  }
+  // 这里**不调 assertDeviceStatus**：那个函数管的是"外部（运维）给了一个不认识的档位"，
+  // 那是用户输入错误（该 400）；而这里错的是契约文件本身 —— 它是"内容缺这台实现要读的数"那一类，
+  // 必须打成可降级的 SHAPE，让启动横幅说破原因，而不是在某个请求里冒成一次输入错误。
+  if (!Object.prototype.hasOwnProperty.call(table, value)) {
+    throw shapeError(
+      `revocation.${key} 指向状态表外的一档（实际 ${value}，可取：${Object.keys(table).join(' / ')}）：` +
+        '名字漂在表外不会报错，只会让这台设备的状态没有任何代码认得',
+    );
+  }
+  return value;
+}
+
+const revokedStatus = (contract) => statusNameOf(contract, 'revokedStatus');
+const frozenStatus = (contract) => statusNameOf(contract, 'frozenStatus');
+const resumableStatus = (contract) => statusNameOf(contract, 'resumableStatus');
+const afterRebuildStatus = (contract) => statusNameOf(contract, 'afterRebuildStatus');
+
+/// 运维入口的口径（同样只从契约读）：列状态的上限与"哪些动作要先确认"。
+function opsConfigFromContract(contract) {
+  const src = (contract || {}).ops;
+  if (!src || typeof src !== 'object') {
+    throw shapeError('契约缺 ops 段：运维入口的确认名单与列表上限没有第二个来源');
+  }
+  const deviceListMax = Number(src.deviceListMax);
+  if (!Number.isInteger(deviceListMax) || deviceListMax <= 0) {
+    throw shapeError(
+      `ops.deviceListMax 必须是正整数（实际 ${src.deviceListMax}）：列状态没有上限，` +
+        '就是把管理面做成一台一次拉走整张设备表的机器',
+    );
+  }
+  const list = Array.isArray(src.confirmationRequiredFor)
+    ? src.confirmationRequiredFor.map(String)
+    : null;
+  if (!list || !list.length) {
+    throw shapeError(
+      'ops.confirmationRequiredFor 必须是非空数组：一个都不要求确认，等于把"回不去的那类动作"' +
+        '（吊销要重配、一键全部失效要整片重配）挂在一次误点上',
+    );
+  }
+  return { deviceListMax, confirmationRequired: new Set(list) };
+}
+
 function setDeviceStatus(contract, devices, addressCode, status, now) {
   assertDeviceStatus(contract, status);
   const key = keyOf(contract, addressCode);
@@ -230,25 +289,31 @@ function setDeviceStatus(contract, devices, addressCode, status, now) {
   if (!record) throw new Error('设备未登记（状态不能挂在没有记录的设备上）');
   record.status = status;
   record.statusChangedAt = now;
-  if (status === 'revoked') record.revokedAt = now;
+  if (status === revokedStatus(contract)) record.revokedAt = now;
   saveDevices(devices);
   return record;
 }
 
 function revokeDevice(contract, devices, addressCode, now) {
-  return setDeviceStatus(contract, devices, addressCode, 'revoked', now);
+  return setDeviceStatus(contract, devices, addressCode, revokedStatus(contract), now);
 }
 
 function freezeDevice(contract, devices, addressCode, now) {
-  return setDeviceStatus(contract, devices, addressCode, 'frozen', now);
+  return setDeviceStatus(contract, devices, addressCode, frozenStatus(contract), now);
+}
+
+/// 解冻：去处是契约里"允许投递"的那一档（resumableStatus），不是在代码里写回某个状态字符串。
+function resumeDevice(contract, devices, addressCode, now) {
+  return setDeviceStatus(contract, devices, addressCode, resumableStatus(contract), now);
 }
 
 /// 一键全部失效。返回**被改动的台数**：按这个钮的人要能回答"它到底影响了谁"，
 /// 而"0 台"与"没这个钮"在现场看起来是一样的。
 function revokeAllDevices(contract, devices, now) {
-  const keys = Object.keys(devices).filter((k) => devices[k].status !== 'revoked');
+  const revoked = revokedStatus(contract);
+  const keys = Object.keys(devices).filter((k) => devices[k].status !== revoked);
   for (const k of keys) {
-    devices[k].status = 'revoked';
+    devices[k].status = revoked;
     devices[k].statusChangedAt = now;
     devices[k].revokedAt = now;
   }
@@ -260,16 +325,25 @@ function revokeAllDevices(contract, devices, now) {
 /// ⚠ 这里**不删记录**（公钥、名称、授权都留着）—— 重建后要看得见"曾经是谁"，
 /// 也要能重新配对回去；变的只是"谁的签名都不算"这一件事。
 function invalidatePeersAfterRebuild(contract, devices, now) {
-  const changed = Object.keys(devices).filter((k) => devices[k].status === 'active');
+  const active = resumableStatus(contract);
+  const next = afterRebuildStatus(contract);
+  const changed = Object.keys(devices).filter((k) => devices[k].status === active);
   for (const k of changed) {
-    devices[k].status = 'awaitingRepair';
+    devices[k].status = next;
     devices[k].statusChangedAt = now;
   }
   if (changed.length) saveDevices(devices);
   return changed.length;
 }
 
-/// 挂上一枚一次性配对口令：明文只在这一次调用里经过，落盘的只有摘要。/// 挂上一枚一次性配对口令：明文只在这一次调用里经过，落盘的只有摘要。
+/// 按状态挑设备（运维列状态用）。返回**表里的原对象**，端出去之前必须过 ops.js 的白名单取字段。
+function devicesInStatus(devices, status) {
+  return Object.keys(devices)
+    .filter((k) => devices[k].status === status)
+    .map((k) => ({ addressCode: k, ...devices[k] }));
+}
+
+/// 挂上一枚一次性配对口令：明文只在这一次调用里经过，落盘的只有摘要。
 function armPairingCode(contract, devices, addressCode, pairingCode, now) {
   const record = devices[keyOf(contract, addressCode)];
   if (!record) throw new Error('设备未登记（口令不能挂在不存在的设备上）');
@@ -466,7 +540,14 @@ module.exports = {
   registerDevice,
   relationshipField,
   assertDeviceStatus,
+  revokedStatus,
+  frozenStatus,
+  resumableStatus,
+  afterRebuildStatus,
+  opsConfigFromContract,
+  devicesInStatus,
   freezeDevice,
+  resumeDevice,
   invalidatePeersAfterRebuild,
   revokeAllDevices,
   revokeDevice,
