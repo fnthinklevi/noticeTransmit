@@ -13,7 +13,7 @@
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
 [![Version](https://badgen.net/badge/Version/1.5.76/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
-[![License](https://badgen.net/badge/License/MIT/green)](#许可证)
+[![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
 
 🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
 
@@ -23,7 +23,7 @@
 
 ## 简介
 
-通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 12 类 Webhook 通道（通用 / 企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、企业微信/飞书自建应用通道或 SMTP 邮件实时推送至目标平台，桌面小部件一键启停推送。全链路本地处理，数据零上传（崩溃上报默认关闭，开启后才向腾讯 Bugly 上报崩溃日志）。全应用中英双语国际化。开源 MIT，免费无广告。
+通知推送助手是一款隐私优先的 Android 通知转发工具（Flutter + Kotlin）。核心能力：监听通知栏消息，通过 12 类 Webhook 通道（通用 / 企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、企业微信/飞书自建应用通道或 SMTP 邮件实时推送至目标平台，桌面小部件一键启停推送。全链路本地处理，数据零上传（崩溃上报默认关闭，开启后才向腾讯 Bugly 上报崩溃日志）。全应用中英双语国际化。采用 Apache License 2.0 开源，免费无广告。
 
 ## 功能特性
 
@@ -361,4 +361,4 @@ flutter test integration_test/smoke_test.dart
 
 ## 许可证
 
-本项目基于 [MIT License](LICENSE) 开源。
+本项目基于 [Apache License 2.0](LICENSE) 开源，并附带 [NOTICE](NOTICE)（第三方组件声明）。由 MIT 改为 Apache-2.0 的生效日期与范围见 [LICENSE_CHANGE.md](LICENSE_CHANGE.md)。

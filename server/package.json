@@ -1,6 +1,7 @@
 {
   "name": "notification-update-server",
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "description": "通知推送助手 - 版本更新服务端",
   "engines": {
     "node": ">=24"

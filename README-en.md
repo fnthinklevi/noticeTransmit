@@ -13,7 +13,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![Gradle](https://badgen.net/badge/Gradle/9.5.0/02303A?icon=gradle)](https://gradle.org/)
 [![Platform](https://badgen.net/badge/Platform/Android/3DDC84?icon=android)](#)
 [![Version](https://badgen.net/badge/Version/1.5.76/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
-[![License](https://badgen.net/badge/License/MIT/green)](#license)
+[![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
 🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) — intro, client download & admin console
 
@@ -23,7 +23,7 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 
 ## Introduction
 
-NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via 12 Webhook channel types (Generic / WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord), WeCom/Feishu self-built app channels or SMTP email, with one-tap pause/resume via home-screen widget. Fully on-device processing — zero data upload (crash reporting is off by default; crash logs are uploaded to Tencent Bugly only after being enabled). Full-app Chinese/English i18n. Open source MIT, free, no ads.
+NoticeTransmit is a privacy-first Android notification forwarder (Flutter + Kotlin). It captures system notifications and pushes them via 12 Webhook channel types (Generic / WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord), WeCom/Feishu self-built app channels or SMTP email, with one-tap pause/resume via home-screen widget. Fully on-device processing — zero data upload (crash reporting is off by default; crash logs are uploaded to Tencent Bugly only after being enabled). Full-app Chinese/English i18n. Licensed under the Apache License 2.0, free, no ads.
 
 ## Features
 
@@ -361,4 +361,4 @@ This app includes sensitive permissions such as `RECEIVE_SMS` / `READ_SMS` / `RE
 
 ## License
 
-This project is open source under the [MIT License](LICENSE).
+This project is open source under the [Apache License 2.0](LICENSE), with a companion [NOTICE](NOTICE) file for third-party attributions. See [LICENSE_CHANGE-en.md](LICENSE_CHANGE-en.md) for when this took effect and its scope.

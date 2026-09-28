@@ -1,0 +1,11 @@
+NoticeTransmit（通知推送助手）/ fnthink push（幻念推送）
+Copyright 2026 fnthinklevi
+
+本产品在分发时会包含第三方开源组件。各组件的版权归属与许可证以随包
+元数据为准，可在此处核对：pubspec.lock（Dart/Flutter 依赖）、
+server/package-lock.json（服务端 npm 依赖）、android/ 下的 Gradle 依赖树
+（`gradlew :app:dependencies`）。
+
+协议规范文件 protocol/fnthink-v1.json 与 protocol/fnthink-v1.md 是本项目的
+组成部分，同样按 Apache License 2.0 授权（见 LICENSE）。
+

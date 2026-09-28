@@ -11,7 +11,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['开源免费 · 本地处理'] = 'Open Source · Local Processing';
   D['立即下载'] = 'Download Now';
   D['在 GitHub 查看源码'] = 'View on GitHub';
-  D['MIT 开源'] = 'MIT Open Source';
+  D['Apache-2.0 开源'] = 'Apache-2.0 Open Source';
   D['Flutter 构建'] = 'Built with Flutter';
   D['无广告 · 无需注册账号'] = 'No Ads · No Account Required';
   D['通知推送'] = 'Notification Push';
@@ -150,7 +150,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['需要 root 或特殊权限吗？'] = 'Does it require root?';
   D['无需 root。仅需授予通知监听权限，并按需开启短信 / 来电识别、忽略电池优化、开机自启等常规权限即可稳定运行。'] = 'No root needed. Only notification listener permission is required, plus optional SMS/call permissions, battery optimization ignore, and auto-start for stable operation.';
   D['是免费的吗？开源吗？'] = 'Is it free? Open source?';
-  D['完全免费，且在 GitHub 开源（MIT 许可，供学习交流使用）。欢迎提交 Issue 与 Pull Request 参与共建。'] = 'Completely free and open source on GitHub (MIT License). Issues and Pull Requests welcome!';
+  D['完全免费，且在 GitHub 开源（Apache-2.0 许可，供学习交流使用）。欢迎提交 Issue 与 Pull Request 参与共建。'] = 'Completely free and open source on GitHub (Apache-2.0 License). Issues and Pull Requests welcome!';
 
   // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
   // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换

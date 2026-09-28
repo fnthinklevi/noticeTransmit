@@ -439,7 +439,8 @@ diagnostic-log switch state). Complete Issues get priority.
 
 ## 12. License
 
-This project is open source under the **MIT License** (see [LICENSE](LICENSE)). By contributing, you agree to release your contribution under this license.
+This project is open source under the **Apache License 2.0** (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). By contributing, you agree to release your contribution under this license.
+See [LICENSE_CHANGE-en.md](LICENSE_CHANGE-en.md) for the scope of this change and the caveat that it is not retroactive.
 
 ---
 

@@ -422,7 +422,8 @@ Android 版本、设备与厂商、以及诊断日志开关状态）。信息完
 
 ## 12. 许可证
 
-本项目以 **MIT License** 开源（见 [LICENSE](LICENSE)）。提交即表示你同意以该许可证发布你的贡献。
+本项目以 **Apache License 2.0** 开源（见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)）。提交即表示你同意以该许可证发布你的贡献（Apache-2.0 同时授予了明确的专利授权，对贡献者与使用者都是可核查的条款）。
+许可证的变更范围与"不追及既往"这条限制见 [LICENSE_CHANGE.md](LICENSE_CHANGE.md)。
 
 ---
 
