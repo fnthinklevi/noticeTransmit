@@ -1081,5 +1081,23 @@ void main() {
       });
       expectProblem(broken, '必须小于 pollIntervalSeconds.min', '比常态还慢的"提频"没有意义');
     });
+
+    test('请求体上限写成一页纸大小 ⇒ 报（闸比正文还小＝合法通知永远 413）', () {
+      final broken = mutate((raw) {
+        (raw['limits'] as Map<String, Object?>)['requestBodyMaxBytes'] = 1024;
+      });
+      expectProblem(
+        broken,
+        'requestBodyMaxBytes',
+        '公网面没有可信的体积闸，或闸小到收不下一条正常通知，都是配错了',
+      );
+    });
+
+    test('413 与 429 撞成同一个码 ⇒ 报（客户端分不清该退避还是该缩正文）', () {
+      final broken = mutate((raw) {
+        (raw['statusCodes'] as Map<String, Object?>)['requestTooLarge'] = 429;
+      });
+      expectProblem(broken, '同步状态码有重复值', '两个不同结论共用一个码＝等于没有结论');
+    });
   });
 }

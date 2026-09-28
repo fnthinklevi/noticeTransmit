@@ -110,6 +110,9 @@
     "duplicate": 409,
     "expired": 410,
     "rateLimited": 429,
+    "requestTooLarge": 413,
+    "badRequest": 400,
+    "_badRequestWhy": "解析失败（畸形 JSON、不支持的编码）在公网面上必须回协议自己的形状。改造前它冒到应用级错误处理，回的是管理面那套 {code:-5, message:Internal server error} —— 同一份协议面上出现两套错误契约，客户端只能靠猜；而 500 还会让设备端的退避逻辑以为是自己这边坏了。不带 receipt：那是投递结论，这一步连载荷都没读出来。",
     "indistinguishable": ["unauthorized", "notFoundEndpoint"],
     "_indistinguishable": "不存在的端点与口令错误必须返回同一形状：否则可以用返回码枚举哪些端点存在"
   },
@@ -203,6 +206,8 @@
     "pollBurstSlack": 2,
     "_endpointScopeWhy": "这两个数原先只写了大小，没写「量谁」，实现于是整个绕开它们改用环境变量 ⇒ 两份真值。现在把三档 principal 写明：perEndpoint＝**提交者还没有身份**的那一类（目前只有 register），只能按 IP 计，取 unauthenticatedPerMinute / unauthenticatedPerDay；cadenceGoverned＝轮询与回执，分钟额度**从 presence 的节奏参数推导**，日额度故意不设；perSenderOnly＝签名已能证明是谁的操作与产品主路径，必须按发送方设备地址计。⚠ 定名跟着改了：原先叫 endpointPerMinute，读起来像「所有端点共用一把尺」，而那正是错的读法 —— 名字错了的下场是下一个人照错的读法实现。",
     "_pollBurstSlackWhy": "轮询侧的分钟额度 = 60 ÷ burstWhenPending.intervalSeconds + 这份余量。余量不是慷慨：设备在提频与常态之间切换的那一分钟里，两种节奏会重叠计数，零余量的实现会把「用户刚点了一条通知」判成攻击。⚠ 日额度对轮询故意不设 —— 常态 20 秒一次就是 4320 次/天，那恰是设计值，给节奏类端点配日额度只会把「今天用得多」判成洪水。",
+    "requestBodyMaxBytes": 65536,
+    "_requestBodyMaxBytesWhy": "公网未认证面上唯一在**验签之前**就要付成本的维度就是字节：解析 JSON 比验签便宜，但没有上限时「一发 100 MB 的请求」花的攻击者只是带宽，花服务端的是内存与 CPU。64 KiB 不是随手取的：原生侧最宽的单条正文上限是 ChannelLimits.TELEGRAM_CHARS = 4096 字符，ASCII 转义（\\uXXXX）最坏 6 字节/字符 ≈ 24 KiB，再加标题与别名字段、groupSendMax 个目标地址码、签名与信封余量。⚠ 这条「体积闸 ≥ 最宽正文上限 × 转义最坏」的关系由 test/architecture/fnthink_body_size_guard_test.dart 跨语言盯着（读 Kotlin 的常量表），不是一句注释 —— 原生把上限调到 40960 而这里还是 65536 时，症状是「合法长通知永远 413」，而那在真机上看起来像推送丢了。今天管着这条的是管理面那把 1 MB：对公网面松了 16 倍，对管理面（备份导入）又必须留着，所以两把尺子分开挂。",
     "groupSendMax": 20,
     "deliveryRetryTotal": 2,
     "backupReplayMax": 2,

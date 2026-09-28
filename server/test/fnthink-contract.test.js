@@ -59,6 +59,9 @@ describe('fnthink 协议契约（服务端侧）', () => {
       duplicate: 409,
       expired: 410,
       rateLimited: 429,
+      // #130-A3：载荷读不出来时的两种协议形状（太大 / 畸形），都是空 body、都不带 receipt
+      requestTooLarge: 413,
+      badRequest: 400,
     });
     expect(statusCode(c, 'queued')).toBe(202);
     expect(() => statusCode(c, 'teapot')).toThrow(/契约文件/);

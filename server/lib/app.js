@@ -45,6 +45,19 @@ app.use(
     },
   }),
 );
+// 公网面（fnthink）的请求体上限**必须挂在这把管理面的 1 MB 之前**：body-parser 见到已解析的
+// `req._body` 就跳过，所以谁先注册谁说了算 —— 顺序错了不报错，只是公网面静默地继续吃 1 MB。
+// 两把尺子量的是方向不同的东西：公网面 1 MB 松了 16 倍，而管理面（备份导入）就是要 1 MB 以上。
+try {
+  const { createFnthinkBodyLimit } = require('./fnthink/bodylimit');
+  const fnthinkBody = createFnthinkBodyLimit();
+  app.set('fnthinkBodyMaxBytes', fnthinkBody.max);
+  app.use('/api/fnthink', fnthinkBody.middlewares);
+} catch (e) {
+  // 契约读不到 ⇒ 这一档挂不上。不静默：下面那把 1 MB 会接管公网面，而路由本身也会降级 503，
+  // 但日志必须说破"体积闸没挂上"，否则运维以为公网面已经有上限了。
+  console.error('[fnthink] 请求体上限没挂上，公网面暂时吃管理面的 1 MB：', e.message);
+}
 app.use(express.json({ limit: '1mb' }));
 
 // 安全 HTTP 头（含管理后台 CSP / API 缓存禁用）

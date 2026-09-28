@@ -68,6 +68,14 @@ app.listen(PORT, () => {
     console.log(`  ${line}  - ${which}`);
   }
   console.log(`  面的总量闸门（层 1，防单 IP 扇出）：${store.RATE_LIMIT_FNTHINK_MAX}/分钟/每 IP`);
+  // 体积闸挂没挂上必须看得见：没挂上时公网面静默吃管理面那把 1 MB，而"公网面有上限"这件事
+  // 只在日志里存在过，没人会去验证它。
+  const bodyMax = app.get('fnthinkBodyMaxBytes');
+  console.log(
+    bodyMax
+      ? `  请求体上限（公网面，取自契约 limits.requestBodyMaxBytes）：${bodyMax} 字节`
+      : '  ⚠ 请求体上限没挂上：公网面暂时吃管理面的 1 MB，原因见上面的 [fnthink] 错误行',
+  );
   console.log(
     `  trust proxy = ${process.env.TRUST_PROXY || '0（未设）'} — 反代部署必须按真实跳数设置，`,
   );
