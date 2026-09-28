@@ -72,9 +72,9 @@ Manual trigger: **Actions** → **Deploy to GitHub Pages** → **Run workflow**.
 https://<username>.github.io/<repository>/
 ```
 
-Example: `https://fnthinklevi.github.io/noticeTransmit/`
+Example: `https://your-org.github.io/noticeTransmit/`
 
-For the client to read the static config, `_updateServerUrl` must include the repository-name prefix (the fallback request is `$_updateServerUrl/api/version.json`), i.e. `https://fnthinklevi.github.io/noticeTransmit`.
+For the client to read the static config, `_updateServerUrl` must include the repository-name prefix (the fallback request is `$_updateServerUrl/api/version.json`), i.e. `https://your-org.github.io/noticeTransmit`.
 
 ## Static File Structure
 
@@ -112,8 +112,8 @@ The `_pages/` directory assembled by the workflow (i.e. the Pages site root):
 
 ## Hybrid Deployment (Recommended — the current setup)
 
-- **GitHub Pages** as the static marketing site (`fnthinklevi.github.io/noticeTransmit`)
-- **Node.js server** for the API and the admin console (`notice.fnthink.top`)
+- **GitHub Pages** as the static marketing site (`your-org.github.io/noticeTransmit`)
+- **Node.js server** for the API and the admin console (`notice.example.com`)
 - The client's `_updateServerUrl` points at the Node server: API results when available, Pages static mode as the fallback path
 
 If the Node server / CDN is unreachable, point `_updateServerUrl` at the Pages address and ship a new build (it is a compile-time constant, not an in-app setting).

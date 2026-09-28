@@ -73,9 +73,9 @@ Pages 站由 `.github/workflows/deploy-pages.yml`（workflow 名 `Deploy to GitH
 https://<用户名>.github.io/<仓库名>/
 ```
 
-例如：`https://fnthinklevi.github.io/noticeTransmit/`
+例如：`https://your-org.github.io/noticeTransmit/`
 
-客户端要读静态配置，`_updateServerUrl` 就得指到**含仓库名前缀**的那一层（回退请求是 `$_updateServerUrl/api/version.json`）：`https://fnthinklevi.github.io/noticeTransmit`。
+客户端要读静态配置，`_updateServerUrl` 就得指到**含仓库名前缀**的那一层（回退请求是 `$_updateServerUrl/api/version.json`）：`https://your-org.github.io/noticeTransmit`。
 
 ## 静态文件目录结构
 
@@ -113,8 +113,8 @@ https://<用户名>.github.io/<仓库名>/
 
 ## 混合部署（推荐，本项目现状）
 
-- **GitHub Pages** 作为官网静态主站（`fnthinklevi.github.io/noticeTransmit`）
-- **Node.js 服务器** 承担 API 与管理后台（`notice.fnthink.top`）
+- **GitHub Pages** 作为官网静态主站（`your-org.github.io/noticeTransmit`）
+- **Node.js 服务器** 承担 API 与管理后台（`notice.example.com`）
 - 客户端 `_updateServerUrl` 指向 Node 服务器：API 正常时用 API，Pages 场景由静态回退兜底
 
 如果 Node 服务器 / CDN 不可用（被墙等），把 `_updateServerUrl` 指向 Pages 地址重新出包即可（这是编译期常量，不能应用内改）。

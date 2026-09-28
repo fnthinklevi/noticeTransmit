@@ -118,10 +118,10 @@ The service is running normally! 🎉
   "forceUpdateBuild": 1,
   "changelog": "1. New feature\n2. Bug fixes",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_all_1.2.0.apk"
+    "arm64": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
+    "arm32": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
+    "x86_64": "https://cdn.example.com/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
+    "all": "https://cdn.example.com/app/notice/update/1.2.0/notice_all_1.2.0.apk"
   },
   "fileSizes": {
     "arm64": 27711096,
@@ -254,7 +254,7 @@ PORT=8080 npm start
 | `fileSizes` | object | Per-arch file sizes in bytes (non-negative integers) | `{"arm64":27711096,...}` |
 | `sha256` | object | Per-arch APK sha256 (64 **lowercase** hex chars; empty/absent = that arch skips verification). The app compares it after download, before install (N3 transport-layer check). **The console form has no such field, but the existing value is preserved on save** — sha256 is written by the release script | `{"arm64":"<64 lowercase hex chars>",...}` |
 | `minSupportedVersion` | string | Minimum supported version (passed through to the client) | `"1.0.0"` |
-| `downloadUrl` | string | (legacy compat, only validated when `downloads` is absent) single download URL, must be absolute `https://` | `"https://cdn2.fnthink.top/..."` |
+| `downloadUrl` | string | (legacy compat, only validated when `downloads` is absent) single download URL, must be absolute `https://` | `"https://cdn.example.com/..."` |
 | `fileSize` | number | (legacy compat) file size in bytes, non-negative | `56623104` |
 
 > Deprecated field: `platform`. The server neither reads nor accepts it (not in the whitelist) and the client never consumes it — stop writing it.
@@ -315,13 +315,13 @@ GET /api/version/check
     "latestBuild": 19,
     "forceUpdate": false,
     "changelog": "1. New feature\n2. Bug fix",
-    "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
+    "downloadUrl": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
     "fileSize": 27711096,
     "downloads": {
-      "arm64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
-      "arm32": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
-      "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
-      "all": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_all_1.2.0.apk"
+      "arm64": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
+      "arm32": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
+      "x86_64": "https://cdn.example.com/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
+      "all": "https://cdn.example.com/app/notice/update/1.2.0/notice_all_1.2.0.apk"
     },
     "fileSizes": {
       "arm64": 27711096,
@@ -414,7 +414,7 @@ Whatever `version.json`'s `downloads` says is where the client goes:
 
 - Self-hosted: put them under `server/public/apks/<version>/`, served from the web root as `https://your-domain/apks/<version>/xxx.apk` (this directory is git-ignored, it exists only on the server — **deployment uploads must not overwrite or delete it**)
 - Repo archive: keep a copy in `server/public/apks/<version>/` for the release script and local verification
-- The live config points at the CDN (`https://cdn2.fnthink.top/app/notice/update/<version>/…`); the app also has GitHub Release mirrors as fallback (`xget.fnthink.top` / `github.com`, same `notice_<flavour>_<version>.apk` naming)
+- The live config points at the CDN (`https://cdn.example.com/app/notice/update/<version>/…`); the app also has GitHub Release mirrors as fallback (`xget.example.com` / `github.com`, same `notice_<flavour>_<version>.apk` naming)
 
 **Step 4: Update the config**
 
@@ -426,6 +426,100 @@ Two equivalent paths:
 **Step 5: Save — done!**
 
 The file takes effect immediately after saving, no service restart needed (it is read per request). Once `version.json` changes are committed, `bash .github/scripts/check_version_consistency.sh` verifies version/build consistency and `sha256` completeness (the same gate runs in CI).
+
+## 🧭 Decide first: how much are you installing?
+
+| Form | What you do | What you get | What it costs you to skip |
+| --- | --- | --- | --- |
+| **A. Update service only** (default, most people) | The six Quick-Start steps | Website + admin console + `/api/version/check` + APK downloads | Nothing. `/api/fnthink/*` answers **503**, and the log carries `[fnthink] 协议入口没有起来` |
+| **B. Update service + fnthink push public face** | A, plus the "Adding fnthink push" chapter | All of the above plus `/api/fnthink/{register,poll,ack,message,pair-arm,pair,pair-confirm}` | Nothing. The two halves do not interfere |
+
+> ⚠️ **If you are on form A**: `/api/fnthink/*` returning 503 and that log line mean **"this segment is not
+> installed"**, not "the server is broken". You do not need the protocol contract and you do not need
+> `FNTHINK_CONTRACT`. Do **not** copy the contract JSON into `server/`: it is a *live source of truth*, and a
+> copy inside the server folder will silently be the one being read (edits to the repo copy then do nothing).
+
+***
+
+## 🧩 Adding the fnthink push public face (to an already-running update service)
+
+This chapter is **incremental**: steps 1–3 can be done online without touching the update channel; only step 4
+restarts the process (a second or two).
+
+**Step 1 — upload the protocol contract.** It is `protocol/fnthink-v1.json` at the repository root and it is
+**not inside `server/`**. Where you put it is your call; the code only follows a rule — three levels up from
+`lib/fnthink`, then `protocol/`, i.e. "a sibling of the code directory":
+
+```bash
+# e.g. a sibling of the code directory, so FNTHINK_CONTRACT is not even needed
+rsync -av ./protocol/fnthink-v1.json user@host:<parent of the code directory>/protocol/
+```
+
+> ⚠️ That location is easy to get wrong (it depends on how deep you place the server code). **Set it
+> explicitly** in the next step; a hard-coded absolute path survives any layout change.
+
+**Step 2 — two lines in `.env`** (both optional; the first is recommended)
+
+```ini
+FNTHINK_CONTRACT=<absolute path to your contract>/fnthink-v1.json   # state the location explicitly
+#RATE_LIMIT_FNTHINK_MAX=300                                         # whole-face flood brake per IP, default 300/min
+```
+
+**Step 3 — a separate server block for the push hostnames.** Do not squeeze the push hostnames into the update
+site's block and then edit that block — add a **new** one that serves only what the public face needs, so the
+two hostnames are separated by configuration rather than memory:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name push.example.com push-cn.example.com;      # your actual push hostnames
+    ssl_certificate     /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
+
+    client_max_body_size 64k;        # the protocol face enforces 64 KiB itself; smaller here means Nginx rejects first
+
+    location /api/fnthink/ { proxy_pass http://127.0.0.1:3456; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; }
+    location /health       { proxy_pass http://127.0.0.1:3456; }
+    location /             { return 404; }                   # website/admin console stay on the update hostname
+}
+```
+
+```bash
+nginx -t && systemctl reload nginx      # reload, not restart
+```
+
+**Step 4 — restart and read the banner**
+
+```bash
+pm2 restart update-server && pm2 logs update-server --lines 40
+```
+
+Expect these lines (do not continue if any is missing):
+
+```
+协议面（fnthink-v1，公网可达）:
+  POST /api/fnthink/register  - 按 IP 30/分钟 · 3000/天（身份未证明，只能按 IP）
+  POST /api/fnthink/poll      - 按设备地址 14/分钟（数字从 presence 节奏推导，验签后计）
+  请求体上限（公网面，取自契约 limits.requestBodyMaxBytes）：65536 字节
+```
+
+**Step 5 — acceptance (5 curls, including the "update channel still works" regression)**
+
+```bash
+curl -s  https://notice.example.com/health                                   # {"status":"ok",...}
+curl -s "https://notice.example.com/api/version/check?version=1.5.76&build=116&platform=android"   # {"code":0,...}  ← regression
+curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d '{}'
+#   403 {"receipt":"rejected_unsigned"} expected; 503 = contract not found; 404 = push hostname missing from server_name
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/admin/login    # 404 expected (admin stays on the update host)
+curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d "{\"pad\":\"$(head -c 70000 /dev/zero | tr '\0' 'x')\"}"
+#   413 with body {} expected (protocol shape); an HTML 413 means client_max_body_size is below 64 KiB
+```
+
+**Step 6 — how to remove it.** Delete the server block from step 3, reload, move the contract away (or drop the
+two `.env` lines) and restart: the face goes back to "503 = not installed", with the update channel untouched
+throughout.
+
+***
 
 ## 🔥 Production Deployment (Ops Guide)
 
@@ -525,13 +619,13 @@ server {
     # All three names belong here: notice.* serves the website/admin console; push.* is the
     # public face of fnthink push (the contract's transport.endpoints names these hosts,
     # and the app dials them directly — leaving them out makes that face unreachable).
-    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
+    server_name notice.example.com push.example.com push-cn.example.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
-    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
+    server_name notice.example.com push.example.com push-cn.example.com;
 
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/private.key;
@@ -594,14 +688,14 @@ server {
 > Single Nginx layer: `TRUST_PROXY=1`; Nginx + CDN: one per hop (e.g. `2`). Requires a service restart to take effect.
 > If Cloudflare is in front, restrict the origin to CF's IP ranges at the Nginx layer and keep `TRUST_PROXY` counting **your own** hops.
 
-> ⚠️ **`notice.fnthink.top` is already live serving app updates — do not entangle it.** The division is fixed:
-> `notice.fnthink.top` = update check / APK download / admin console (a compile-time constant `_updateServerUrl` in the app; changing it means shipping a new APK);
-> `push.fnthink.top` and `push.fnthink.com` = the fnthink push public face (declared in the contract's `transport.endpoints`; the app dials them directly).
+> ⚠️ **Do not entangle the update hostname you already run in production** (written `notice.example.com` throughout below). The division is fixed:
+> `notice.example.com` = update check / APK download / admin console (a compile-time constant `_updateServerUrl` in the app; changing it means shipping a new APK);
+> `push.example.com` and `push-cn.example.com` = the fnthink push public face (declared in the contract's `transport.endpoints`; the app dials them directly).
 > Both chains **share one Node process and one `data/`**, so three rules when touching this layer:
 >
 > 1. **Smallest change**: add a name to the existing `server_name`, or add a *new* server block — never rewrite the live one. Then `nginx -t` and `systemctl reload nginx` (**reload, not restart**).
 > 2. **Verify the update channel right after** (that is the one with real users today):
->    `curl -s "https://notice.fnthink.top/api/version/check?version=1.5.76&build=116&platform=android"` must still return `{"code":0,...}`; glance at `/health` too.
+>    `curl -s "https://notice.example.com/api/version/check?version=1.5.76&build=116&platform=android"` must still return `{"code":0,...}`; glance at `/health` too.
 > 3. **Traffic does not bleed either way** (a deliberate #130 isolation): fnthink floods go into their own rate-limit bucket `api-fnthink`, and the global layer skips dedicated prefixes entirely — so hammering the public face leaves the update channel alone. There is a test pinning exactly that (`server/test/fnthink-ratelimit.test.js`, the case named "fnthink flooded, update channel still fine").
 >
 > Also: if you would rather not expose the admin console on a second hostname, put **only** `/api/fnthink/`,
@@ -772,14 +866,14 @@ Still on the operator:
 
 ## 📱 Client Configuration
 
-The app's update server URL is the compile-time constant `AppUpdateManager._updateServerUrl` in `lib/update_manager.dart` (currently `https://notice.fnthink.top`). **There is no in-app setting to change it**; pointing the app elsewhere means editing that constant and shipping a new build, or switching to [GitHub Pages static deployment](GITHUB_PAGES-en.md) and pointing the constant there.
+The app's update server URL is the compile-time constant `AppUpdateManager._updateServerUrl` in `lib/update_manager.dart` (currently `https://notice.example.com`). **There is no in-app setting to change it**; pointing the app elsewhere means editing that constant and shipping a new build, or switching to [GitHub Pages static deployment](GITHUB_PAGES-en.md) and pointing the constant there.
 
 The app appends these paths automatically:
 
 - Version check (API mode): `/api/version/check?version=…&build=…&platform=android`
 - Static fallback (Pages / static hosting): `/api/version.json` (raw file, compared on the device)
 - Relative download URLs: resolved as "server URL + relative path" (so `/apks/...` works, but the admin API only accepts absolute `https://`)
-- Download fallbacks: after the CDN, the GitHub accelerator mirror (`xget.fnthink.top`) and the official GitHub Release direct link are tried (same `notice_<flavour>_<version>.apk` naming)
+- Download fallbacks: after the CDN, the GitHub accelerator mirror (`xget.example.com`) and the official GitHub Release direct link are tried (same `notice_<flavour>_<version>.apk` naming)
 
 **Note:** With HTTPS on the server side, ensure the certificate is valid. The app performs standard TLS validation by default; certificate pinning is off unless `CERT_PINS` is injected (see `../docs/cert_rotation_runbook.md`).
 

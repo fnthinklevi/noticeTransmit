@@ -118,10 +118,10 @@ http://你的服务器IP:3456/health
   "forceUpdateBuild": 1,
   "changelog": "1. 新增在线更新功能\n2. 修复若干bug",
   "downloads": {
-    "arm64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
-    "arm32": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
-    "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
-    "all": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_all_1.2.0.apk"
+    "arm64": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
+    "arm32": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
+    "x86_64": "https://cdn.example.com/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
+    "all": "https://cdn.example.com/app/notice/update/1.2.0/notice_all_1.2.0.apk"
   },
   "fileSizes": {
     "arm64": 27711096,
@@ -254,7 +254,7 @@ PORT=8080 npm start
 | `fileSizes`           | object  | 各架构文件大小（字节，非负整数） | `{"arm64":27711096,...}`         |
 | `sha256`              | object  | 各架构安装包 sha256（64 位**小写**十六进制；空串/缺失 = 该架构跳过校验）。App 下载后、安装前比对（N3 传输层校验）。**管理后台表单不含此字段，但保存时会自动沿用 `version.json` 里的既有值**——sha256 由发版脚本回填文件 | `{"arm64":"<64位小写十六进制>",...}` |
 | `minSupportedVersion` | string  | 最低支持版本（原样透传给客户端） | `"1.0.0"`                        |
-| `downloadUrl`         | string  | （旧契约兼容，仅未提供 `downloads` 时校验）单一下载地址，须为 `https://` 绝对地址 | `"https://cdn2.fnthink.top/..."` |
+| `downloadUrl`         | string  | （旧契约兼容，仅未提供 `downloads` 时校验）单一下载地址，须为 `https://` 绝对地址 | `"https://cdn.example.com/..."` |
 | `fileSize`            | number  | （旧契约兼容）文件大小（字节，非负） | `56623104`                       |
 
 > 已废弃字段：`platform`。服务端既不读取也不接受（不在白名单内），客户端也从不消费——请勿再写入。
@@ -315,13 +315,13 @@ GET /api/version/check
     "latestBuild": 19,
     "forceUpdate": false,
     "changelog": "1. 新增功能\n2. 修复bug",
-    "downloadUrl": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
+    "downloadUrl": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
     "fileSize": 27711096,
     "downloads": {
-      "arm64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
-      "arm32": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
-      "x86_64": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
-      "all": "https://cdn2.fnthink.top/app/notice/update/1.2.0/notice_all_1.2.0.apk"
+      "arm64": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm64_1.2.0.apk",
+      "arm32": "https://cdn.example.com/app/notice/update/1.2.0/notice_arm32_1.2.0.apk",
+      "x86_64": "https://cdn.example.com/app/notice/update/1.2.0/notice_x86_1.2.0.apk",
+      "all": "https://cdn.example.com/app/notice/update/1.2.0/notice_all_1.2.0.apk"
     },
     "fileSizes": {
       "arm64": 27711096,
@@ -414,7 +414,7 @@ GET /health
 
 - 自托管：上传到服务器 `server/public/apks/<版本号>/`，经根路径直出 `https://你的域名/apks/<版本号>/xxx.apk`（该目录已被 `.gitignore` 忽略，只存在于服务器上，**上传部署时不得覆盖/删除**）
 - 仓库归档：同步一份到 `server/public/apks/<版本号>/` 供发版脚本与本地验证使用
-- 现有线上配置指向 CDN（`https://cdn2.fnthink.top/app/notice/update/<版本号>/…`），App 另有 GitHub Releases 镜像兜底（`xget.fnthink.top` / `github.com`，同一 `notice_<平台>_<版本号>.apk` 命名）
+- 现有线上配置指向 CDN（`https://cdn.example.com/app/notice/update/<版本号>/…`），App 另有 GitHub Releases 镜像兜底（`xget.example.com` / `github.com`，同一 `notice_<平台>_<版本号>.apk` 命名）
 
 **步骤 4：更新配置**
 
@@ -426,6 +426,96 @@ GET /health
 **步骤 5：保存，完成！**
 
 配置文件保存后立即生效，无需重启服务（每次请求实时读取）。提交进仓库的 `version.json` 变更后，`bash .github/scripts/check_version_consistency.sh` 会校验版本号/构建号一致性与 `sha256` 字段完备性（CI 同一道闸）。
+
+## 🧭 先决定装到什么程度：两种部署形态
+
+| 形态 | 你要做 | 你会得到 | 不做会怎样 |
+| --- | --- | --- | --- |
+| **A. 只装更新服务**（默认，多数人） | 按「快速开始」六步 | 官网 + 管理后台 + 版本检查 `/api/version/check` + APK 下载 | 无。`/api/fnthink/*` 一律回 **503**，启动日志有 `[fnthink] 协议入口没有起来` |
+| **B. 更新服务 + 幻念推送公网面** | A 之外，再加「加装幻念推送」那一章 | 上面全部，另加 `/api/fnthink/{register,poll,ack,message,pair-arm,pair,pair-confirm}` | 无。两部分互不影响 |
+
+> ⚠️ **形态 A 的读者**：`/api/fnthink/*` 回 503 与日志里那行 `[fnthink] 协议入口没有起来` 是**正常现象** ——
+> 它说的是"你没装这一段"，不是"服务坏了"。你不必上传协议契约、也不必设 `FNTHINK_CONTRACT`。
+> **不要**把契约 JSON 复制进 `server/` 目录：那是一份会被读的**真值**，复制进来之后你改仓库那份不会生效
+> （协议面会安静地用着服务器上那份旧副本）。
+
+***
+
+## 🧩 加装幻念推送公网面（在已经跑起来的更新服务上）
+
+这一章是**增量**的：1~3 步可以在线做完（不影响正在服务的更新通道），只有第 4 步会重启进程（1~2 秒）。
+
+**第 1 步：把协议契约传上去。** 契约是仓库根的 `protocol/fnthink-v1.json`，它**不在 `server/` 里**。
+放在哪由你定，代码只按规则找：`lib/fnthink` 往上三级进 `protocol/`（即"与代码目录同级"）。
+
+```bash
+# 例：放到与代码目录同级的 protocol/ 下（这样连 FNTHINK_CONTRACT 都不用设）
+rsync -av ./protocol/fnthink-v1.json user@host:<代码目录的上一级>/protocol/
+```
+
+> ⚠️ 这个位置容易算错（取决于你把 `server/` 的内容放在哪一级）。**推荐显式指定**（下一步的 `.env`），
+> 写死一个绝对路径，部署布局怎么变都不会失效。
+
+**第 2 步：`.env` 加两行**（都可以不设，但推荐第一行）
+
+```ini
+FNTHINK_CONTRACT=<放契约的绝对路径>/fnthink-v1.json   # 显式指定契约位置
+#RATE_LIMIT_FNTHINK_MAX=300                          # 公网面整面的每 IP 洪水闸，默认 300/分钟
+```
+
+**第 3 步：给推送域名加一个 server block。** 不要把推送域名塞进更新服务那个块里再改它 ——
+**新增**一个块、只放两个 location，两个域名的暴露面就靠配置分开了：
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name push.example.com push-cn.example.com;      # 按你实际的推送域名改
+    ssl_certificate     /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
+
+    client_max_body_size 64k;        # 公网面自己也有 64 KiB 的协议闸；这里设得比它小会先被 Nginx 挡掉
+
+    location /api/fnthink/ { proxy_pass http://127.0.0.1:3456; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; }
+    location /health       { proxy_pass http://127.0.0.1:3456; }
+    location /             { return 404; }                   # 管理后台/官网只走更新那个域名
+}
+```
+
+```bash
+nginx -t && systemctl reload nginx      # reload，不是 restart
+```
+
+**第 4 步：重启并核对启动横幅**
+
+```bash
+pm2 restart update-server && pm2 logs update-server --lines 40
+```
+
+期望看到（少任何一行都别往下走）：
+
+```
+协议面（fnthink-v1，公网可达）:
+  POST /api/fnthink/register  - 按 IP 30/分钟 · 3000/天（身份未证明，只能按 IP）
+  POST /api/fnthink/poll      - 按设备地址 14/分钟（数字从 presence 节奏推导，验签后计）
+  请求体上限（公网面，取自契约 limits.requestBodyMaxBytes）：65536 字节
+```
+
+**第 5 步：验收（5 条，含"更新通道没被弄坏"的回归）**
+
+```bash
+curl -s  https://notice.example.com/health                                   # {"status":"ok",...}
+curl -s "https://notice.example.com/api/version/check?version=1.5.76&build=116&platform=android"   # {"code":0,...}  ← 回归
+curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d '{}'
+#   期望 403 {"receipt":"rejected_unsigned"}；503 = 契约没找到；404 = server_name 漏了推送域名
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://push.example.com/api/admin/login    # 期望 404（管理面不从这里进）
+curl -s -X POST https://push.example.com/api/fnthink/poll -H 'Content-Type: application/json' -d "{\"pad\":\"$(head -c 70000 /dev/zero | tr '\0' 'x')\"}"
+#   期望 413 且 body 是 {}（协议形状）；若是 Nginx 的 HTML 413 ⇒ client_max_body_size 比 64 KiB 小
+```
+
+**第 6 步：不想用了怎么退。** 删掉第 3 步那个 server block、`reload`，再把契约文件移走（或删 `.env` 里那两行）后重启 ——
+推送面回到"503 = 没装"，更新通道全程不受影响。
+
+***
 
 ## 🔥 生产环境部署（专业运维指南）
 
@@ -524,7 +614,7 @@ server {
     listen 80;
     # 三个域名都写在这里：notice.* 是官网/管理后台；push.* 是幻念推送的公网面
     #（契约 transport.endpoints 声明了这两个域名，App 按它们拨号 —— 漏了它们等于公网面不可达）
-    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
+    server_name notice.example.com push.example.com push-cn.example.com;
 
     # 重定向到 HTTPS
     return 301 https://$host$request_uri;
@@ -532,7 +622,7 @@ server {
 
 server {
     listen 443 ssl;
-    server_name notice.fnthink.top push.fnthink.top push.fnthink.com;
+    server_name notice.example.com push.example.com push-cn.example.com;
 
     # SSL 证书配置（使用你的证书路径）
     ssl_certificate /path/to/your/cert.pem;
@@ -592,15 +682,15 @@ server {
 > 单层 Nginx：`TRUST_PROXY=1`；Nginx + CDN 多级：按跳数递增（如 `2`）。修改后需重启服务生效。
 > 若链路上还有 Cloudflare，请把回源 IP 收敛到 CF 的 IP 段并在 Nginx 层处理，`TRUST_PROXY` 只按**你自己的**代理跳数计。
 
-> ⚠️ **`notice.fnthink.top` 已经在线跑着软件更新，别把它卷进来**。三个域名的分工是固定的：
-> `notice.fnthink.top` = App 检查更新 / 下载 APK / 管理后台（App 里是编译期常量 `_updateServerUrl`，换地址要重新出包）；
-> `push.fnthink.top` 与 `push.fnthink.com` = 幻念推送的公网面（契约 `transport.endpoints` 声明，App 按它们拨号）。
+> ⚠️ **别把你已经上线的更新域名卷进来**（下文示例统一写作 `notice.example.com`）。三个域名的分工是固定的：
+> `notice.example.com` = App 检查更新 / 下载 APK / 管理后台（App 里是编译期常量 `_updateServerUrl`，换地址要重新出包）；
+> `push.example.com` 与 `push-cn.example.com` = 幻念推送的公网面（契约 `transport.endpoints` 声明，App 按它们拨号）。
 > 两条链路**共用同一个 Node 进程与同一份 `data/`**，所以改这一层时守住三条：
 >
 > 1. **最小改动**：只在既有 server block 的 `server_name` 里加名字，或**新增**一个 server block；
 >    不要重写线上那个块。改完 `nginx -t` 通过再 `systemctl reload nginx`（**reload，不是 restart**）。
 > 2. **改完立刻回归验证更新通道**（它才是现在有真实用户的那条）：
->    `curl -s "https://notice.fnthink.top/api/version/check?version=1.5.76&build=116&platform=android"`
+>    `curl -s "https://notice.example.com/api/version/check?version=1.5.76&build=116&platform=android"`
 >    仍应返回 `{"code":0,...}`；顺手看一眼 `/health`。
 > 3. **流量层不会互相拖累**（这是 #130 特意做的隔离）：幻念面的洪水走独立限流桶 `api-fnthink`，
 >    而全局那层对专职路径直接跳过 —— 所以 fnthink 被打满时升级通道照常，有用例钉着
@@ -775,9 +865,9 @@ CI 侧同源：`.github/workflows/analyze.yml` 在 Node 24 上跑 `npm ci --no-a
 
 ## 📱 客户端配置
 
-APP 默认服务器地址：`https://notice.fnthink.top`
+APP 默认服务器地址：`https://notice.example.com`
 
-APP 的更新服务器地址是 `lib/update_manager.dart` 里的编译期常量 `AppUpdateManager._updateServerUrl`（当前值 `https://notice.fnthink.top`），**应用内不提供修改入口**；换地址要改代码重新出包，或走 [GitHub Pages 静态部署](GITHUB_PAGES.md)（把该常量指向 Pages 地址）。
+APP 的更新服务器地址是 `lib/update_manager.dart` 里的编译期常量 `AppUpdateManager._updateServerUrl`（当前值 `https://notice.example.com`），**应用内不提供修改入口**；换地址要改代码重新出包，或走 [GitHub Pages 静态部署](GITHUB_PAGES.md)（把该常量指向 Pages 地址）。
 
 APP 会自动拼接以下路径：
 

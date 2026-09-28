@@ -15,9 +15,9 @@
 [![Version](https://badgen.net/badge/Version/1.5.76/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#许可证)
 
-🌐 **官方网站**：[notice.fnthink.top](https://notice.fnthink.top) — 软件介绍、客户端下载与后台管理入口
+🌐 **官方网站**：[notice.example.com](https://notice.example.com) — 软件介绍、客户端下载与后台管理入口
 
-🌐 **GitHub Pages**：[fnthinklevi.github.io/noticeTransmit](https://fnthinklevi.github.io/noticeTransmit/) — 零运维静态部署（自动同步版本配置）
+🌐 **GitHub Pages**：[your-org.github.io/noticeTransmit](https://your-org.github.io/noticeTransmit/) — 零运维静态部署（自动同步版本配置）
 
 </div>
 
