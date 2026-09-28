@@ -33,7 +33,9 @@ Upload the `server` folder to your server, e.g. to `/opt/update-server/`.
 
 > ⚠️ **The protocol contract is *not* inside `server/` — upload it too**: the public face of fnthink push (`/api/fnthink/*`) reads the repository-root file `protocol/fnthink-v1.json`. Uploading only `server/` makes that face **degrade to 503 at startup**, with `[fnthink] 协议入口没有起来` plus the missing file named on the first screen of the log (the admin console and the update channel are unaffected).
 >
-> That degradation is **deliberate**: a contract that cannot be read must never be treated as "no limits / no checks", so the whole segment is switched off instead. If you want `/api/fnthink/*` to work, put `protocol/fnthink-v1.json` one level **above** `server/` (the same shape as the repo), or point `FNTHINK_CONTRACT` at an absolute path.
+> That degradation is **deliberate**: a contract that cannot be read must never be treated as "no limits / no checks", so the whole segment is switched off instead. If you want `/api/fnthink/*` to work, upload `protocol/fnthink-v1.json` too. The default lookup is derived from the code location (`lib/fnthink`, three levels up, then `protocol/`) — with the layout below the code lands in `/opt/update-server/`, so the default is `/opt/protocol/fnthink-v1.json`.
+>
+> ⚠ **That path is easy to get wrong — set it explicitly**: put `FNTHINK_CONTRACT=/opt/update-server/protocol/fnthink-v1.json` in `.env` (adjust to wherever you actually place it) and the layout stops mattering.
 >
 > **Re-upload it whenever the contract changes** (new or renamed fields): new code against an old contract throws at startup (e.g. `limits.unauthenticatedPerMinute` missing) and the face degrades to 503 — the error names the missing key.
 
@@ -202,7 +204,7 @@ Provided via `.env` (template: `server/.env.example`) or real environment variab
 | `RATE_LIMIT_GENERAL_MAX` | Global limit: max requests per IP per **route bucket** per 60 s | `60` |
 | `RATE_LIMIT_AUTH_MAX` | Extra limit for `/api/admin`: max requests per IP per minute | `5` |
 | `RATE_LIMIT_FNTHINK_MAX` | Rate limit for the **whole** public face (`/api/fnthink/*`), per IP per minute — a flood brake only. The per-endpoint quotas (per IP: `register` = 30/min · 3000/day; per device address: the three pairing steps and `/message` = 60/min · 5000/day; `poll`/`ack` derived from `presence` = 14/min, no daily cap) all come from the contract's `limits` section and are **not** configured here — tune the contract for those; this knob only bounds "one IP fanning out across every endpoint" | `300` |
-| `FNTHINK_CONTRACT` | Override for the contract file path. Default = `protocol/fnthink-v1.json` one level above `server/` (the repo-root copy); only needed when you place it elsewhere | auto-detected |
+| `FNTHINK_CONTRACT` | Override for the contract file path. The default is derived from the code location (`lib/fnthink`, three levels up, then `protocol/fnthink-v1.json` — the repo-root copy in the repository). **Set an absolute path explicitly when deploying**: the derived location changes with how deep you place the server code | auto-detected |
 | `DISABLE_IP_BLOCKING` | `1` / `true` / `yes` disables IP blocking (failures are still counted, nothing is rejected) — emergency escape hatch for a wrongly blocked NAT egress | off |
 
 Generate the two secrets (after `npm install`; substitute real values, **never paste them into a doc or commit them**):
@@ -438,9 +440,13 @@ This service is updated by **uploading the `server/` folder and overwriting the 
 #    ⚠️ Never with --delete (rsync --delete / SFTP "mirror directory" wipes data/ and .env)
 rsync -av --exclude 'data/' --exclude '.env' --exclude 'node_modules/' ./server/ user@host:/opt/update-server/
 # 1b) Contract: the public face (/api/fnthink/*) reads protocol/fnthink-v1.json from the repo root,
-#     which is NOT inside server/ ⇒ upload it separately. Default lookup = one level above server/
-#     (i.e. /opt/update-server/protocol/fnthink-v1.json); set FNTHINK_CONTRACT to relocate it.
-rsync -av ./protocol/fnthink-v1.json user@host:/opt/update-server/protocol/
+#     which is NOT inside server/ ⇒ upload it separately. Default lookup is derived from the code
+#     location (lib/fnthink, three levels up, then protocol/): with this rsync (contents placed
+#     directly into /opt/update-server/) the default is /opt/protocol/fnthink-v1.json. It is easy to
+#     get wrong — **set FNTHINK_CONTRACT explicitly in the server .env instead**.
+rsync -av ./protocol/fnthink-v1.json user@host:/opt/protocol/
+# server /opt/update-server/.env:
+#   FNTHINK_CONTRACT=/opt/protocol/fnthink-v1.json
 
 # 2) Install/update dependencies exactly from the lock file (leaves data/ and .env alone)
 cd /opt/update-server && npm ci        # npm rebuild if a dependency needs it

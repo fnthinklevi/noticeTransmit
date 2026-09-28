@@ -35,7 +35,9 @@ npm -v
 
 > ⚠️ **契约文件不在 `server/` 里，必须一起上传**：幻念推送（fnthink-v1）的公网面读的是**仓库根**的 `protocol/fnthink-v1.json`。只传 `server/` 时协议面会在启动时**降级为 503**，日志第一屏是 `[fnthink] 协议入口没有起来` 加上缺哪份文件（管理后台与升级通道不受影响）。
 >
-> 那个降级是**故意的**：一份读不出来的契约绝不能被当成"不限流 / 不校验"，所以宁可整段关掉。但你若指望 `/api/fnthink/*` 能用，就得把 `protocol/fnthink-v1.json` 放到服务器上 `server/` 的**上一级** `protocol/` 目录里（与本地仓库同形状），或用 `FNTHINK_CONTRACT=/绝对路径/fnthink-v1.json` 指过去。
+> 那个降级是**故意的**：一份读不出来的契约绝不能被当成"不限流 / 不校验"，所以宁可整段关掉。但你若指望 `/api/fnthink/*` 能用，就得把 `protocol/fnthink-v1.json` 放到服务器上（默认查找位置由代码位置算出：`lib/fnthink` 往上三级再进 `protocol/` —— 代码内容直放在 `/opt/update-server/` 时就是 `/opt/protocol/fnthink-v1.json`）。
+>
+> ⚠️ **这一步容易算错，建议直接显式指定**：在 `.env` 里写 `FNTHINK_CONTRACT=/opt/update-server/protocol/fnthink-v1.json`（路径按你实际放的位置），部署形态怎么变都不会失效。
 >
 > **每次契约有改动（新增字段 / 改名）都要重传这一份**：新代码配上旧契约会在启动时直接抛（例如读不到 `limits.unauthenticatedPerMinute`），协议面照旧降级 503 —— 错误信息会点名缺哪个键。
 
@@ -202,7 +204,7 @@ server/
 | `RATE_LIMIT_GENERAL_MAX`     | 全局限流：每 IP 每「路由桶」每 60 秒的最大请求数 | `60` |
 | `RATE_LIMIT_AUTH_MAX`        | `/api/admin` 认证类限流：每 IP 每分钟最大请求数 | `5` |
 | `RATE_LIMIT_FNTHINK_MAX`     | 公网面（`/api/fnthink/*`）**整个面**每 IP 每分钟的上限，只当洪水闸用。各端点真正的额度（按 IP 的 `register`＝30/分·3000/天；按设备地址的配对三步与 `/message`＝60/分·5000/天；`poll`/`ack` 从 `presence` 节奏推导＝14/分、无日档）全部从契约 `limits` 段读，**不在这里配** —— 想调它们改契约，改这一项只影响"一个 IP 扇出打全部端点"的兜底 | `300` |
-| `FNTHINK_CONTRACT`           | 契约文件路径覆盖。默认 = `server/` 上一级的 `protocol/fnthink-v1.json`（即仓库根那份）；部署时放在别处才需要设 | 自动定位 |
+| `FNTHINK_CONTRACT`           | 契约文件路径覆盖。默认从代码位置算：`lib/fnthink` 往上三级进 `protocol/fnthink-v1.json`（仓库里就是根目录那份）。**部署时建议显式写死一个绝对路径** —— 算出来的位置随"server 的内容放在哪一级"而变，写死最不容易错 | 自动定位 |
 | `DISABLE_IP_BLOCKING`        | `1` / `true` / `yes` 时关闭 IP 封锁（仍统计失败次数，不执行拦截），用于 NAT 出口误封时应急 | 关闭 |
 
 生成两个密钥（先 `npm install`，占位符自行替换为真实值，**不要写进任何文档或提交**）：
@@ -437,10 +439,13 @@ GET /health
 # 1) 只覆盖代码：server.js、lib/、public/、package.json、package-lock.json、*.md
 #    ⚠️ 绝不带 --delete（rsync --delete / SFTP「镜像目录」都会删掉 data/ 与 .env）
 rsync -av --exclude 'data/' --exclude '.env' --exclude 'node_modules/' ./server/ user@host:/opt/update-server/
-# 1b) 契约：公网面（/api/fnthink/*）读的是仓库根的 protocol/fnthink-v1.json，
-#     它**不在 server/ 里** ⇒ 单独上传一次。默认查找位置 = server/ 的上一级 protocol/
-#     （即 /opt/update-server/protocol/fnthink-v1.json）；放别处就设 FNTHINK_CONTRACT
-rsync -av ./protocol/fnthink-v1.json user@host:/opt/update-server/protocol/
+# 1b) 契约：公网面（/api/fnthink/*）读的是仓库根的 protocol/fnthink-v1.json，它**不在 server/ 里**
+#     ⇒ 单独上传一次。默认查找位置从代码位置算出（lib/fnthink 往上三级进 protocol/）：
+#     下面这条 rsync 把内容直放到 /opt/update-server/ ⇒ 默认就是 /opt/protocol/fnthink-v1.json。
+#     ⚠ 这个位置容易算错，**推荐在服务器 .env 里显式写 FNTHINK_CONTRACT**（见 .env.example）。
+rsync -av ./protocol/fnthink-v1.json user@host:/opt/protocol/
+# 服务器 /opt/update-server/.env 里加一行：
+#   FNTHINK_CONTRACT=/opt/protocol/fnthink-v1.json
 
 # 2) 安装/更新依赖（按 lock 精确复现；不动 data/ 与 .env）
 cd /opt/update-server && npm ci        # 必要时 npm rebuild
