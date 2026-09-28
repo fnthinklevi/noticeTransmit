@@ -690,7 +690,7 @@ server {
 
 > ⚠️ **Do not entangle the update hostname you already run in production** (written `notice.example.com` throughout below). The division is fixed:
 > `notice.example.com` = update check / APK download / admin console (a compile-time constant `_updateServerUrl` in the app; changing it means shipping a new APK);
-> `push.example.com` and `push-cn.example.com` = the fnthink push public face (declared in the contract's `transport.endpoints`; the app dials them directly).
+> `push.example.com` (plus an optional second mainland hostname) = the fnthink push public face (declared in the contract's `transport.endpoints`; the app dials them directly).
 > Both chains **share one Node process and one `data/`**, so three rules when touching this layer:
 >
 > 1. **Smallest change**: add a name to the existing `server_name`, or add a *new* server block — never rewrite the live one. Then `nginx -t` and `systemctl reload nginx` (**reload, not restart**).
@@ -848,8 +848,12 @@ installed in the App Store. **Do not install PHP / MySQL / phpMyAdmin.**
 **Give the push hostnames their own site** (`push.example.com`). This is the part where reverse-proxy details
 matter most — three steps:
 
-1. Websites → Add site: put the push hostnames in the domain field (one per line; the panel supports several
-   domains per site), **uncheck** FTP / database, leave the root directory at its default (no files in it).
+1. Websites → Add site: put the push hostname(s) in the domain field. **If you deploy only one, write only that
+   one** (e.g. `push.example.com`); when a second hostname arrives, add it to `server_name` **and re-issue a
+   certificate covering both** (SAN) before reloading.
+   ⚠️ Never put a hostname into `server_name` that neither resolves here nor is covered by the certificate: that
+   reads as a certificate mismatch the moment DNS starts resolving, and stays invisible until then — keep the
+   config equal to reality. **Uncheck** FTP / database, leave the root directory at its default (no files).
 2. Reverse Proxy → add **two entries** (the panel adds one at a time):
 
    | Name | Proxy directory | Target URL | Sent domain |

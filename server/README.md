@@ -684,7 +684,7 @@ server {
 
 > ⚠️ **别把你已经上线的更新域名卷进来**（下文示例统一写作 `notice.example.com`）。三个域名的分工是固定的：
 > `notice.example.com` = App 检查更新 / 下载 APK / 管理后台（App 里是编译期常量 `_updateServerUrl`，换地址要重新出包）；
-> `push.example.com` 与 `push-cn.example.com` = 幻念推送的公网面（契约 `transport.endpoints` 声明，App 按它们拨号）。
+> `push.example.com`（以及可选的第二个大陆域名）= 幻念推送的公网面（契约 `transport.endpoints` 声明，App 按它们拨号）。
 > 两条链路**共用同一个 Node 进程与同一份 `data/`**，所以改这一层时守住三条：
 >
 > 1. **最小改动**：只在既有 server block 的 `server_name` 里加名字，或**新增**一个 server block；
@@ -842,7 +842,10 @@ journalctl -u update-server -f
 
 **推送域名单独建一个站点**（`push.example.com`）。这一节是反代的重点，分三步：
 
-1. 网站 → 添加站点：域名填推送域名（多个用换行分隔，宝塔支持一站多域名），**不勾** FTP / 数据库，根目录留默认（不放文件）。
+1. 网站 → 添加站点：域名填推送域名。**只部署一个就只写那一个**（例：`push.example.com`）；以后要加第二个域名，
+   回来把它加进 `server_name` 并**重新签一张覆盖两个域名的证书**（SAN）再 `reload`。
+   ⚠️ 别把还没解析、也没进证书的域名写进 `server_name`：那种配置在浏览器/客户端看来是"证书不匹配"，
+   而 DNS 没解析时又完全看不出问题 —— 配置要与事实一致。**不勾** FTP / 数据库，根目录留默认（不放文件）。
 2. 反向代理 → 添加**两条**（面板一次只能加一条）：
 
    | 名称 | 代理目录 | 目标 URL | 发送域名 |
