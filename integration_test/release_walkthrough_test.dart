@@ -1271,7 +1271,16 @@ void main() {
             findsWidgets,
             reason: '语言对话框没列出当前语言 = 这层弹层结构变了',
           );
-          await _tap(tester, find.text('中文'), '语言弹窗→选当前语言（关闭）');
+          // ⚠ 点的是**那一行的 ListTile**，不是行里的 Text：`more_page.dart` 把这个弹层做成
+          // `AlertDialog.content = Column(ListTile...)`，手势归 ListTile 管。直接点 Text 时
+          // flutter_test 的严格命中判据会抱怨"打在 RenderParagraph 上而不在目标里"（2026-09-30
+          // 那条 `GATE-MISSED-TAP ▸ 语言弹窗→选当前语言（关闭）` 就是这么来的：效果有（弹层关了），
+          // 但"点中了什么"没有出处）。改点行之后，找不到那一行会当场红，而不是静默空点。
+          await _tap(
+            tester,
+            find.ancestor(of: find.text('中文'), matching: find.byType(ListTile)),
+            '语言弹窗→选当前语言（关闭）',
+          );
           await _settle(tester, seconds: 1);
           expect(
             _modalUp(tester),
