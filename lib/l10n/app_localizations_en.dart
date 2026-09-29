@@ -3369,4 +3369,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkPeerWriteFailed =>
       'The server accepted this one but writing the local list failed ⇒ nothing written';
+
+  @override
+  String get fnthinkPeersTitle => 'Paired devices';
+
+  @override
+  String fnthinkPeerLine(String peer, String level, String at) {
+    return '$peer · granted $level · $at';
+  }
+
+  @override
+  String get fnthinkPeersEmpty => 'Nothing has been paired yet';
+
+  @override
+  String fnthinkPeersError(String reason) {
+    return 'The list could not be read ($reason) — an unreadable cell is not the same as no devices';
+  }
+
+  @override
+  String get fnthinkPeersBoundary =>
+      'This cell records who this device has approved. Whether a peer can still push is decided by the grant stored on the server; really revoking it needs server-side revocation (not wired yet) — deleting a row here does not stop pushes.';
 }

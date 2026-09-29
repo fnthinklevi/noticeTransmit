@@ -6037,6 +6037,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写'**
   String get fnthinkPeerWriteFailed;
+
+  /// No description provided for @fnthinkPeersTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配对的设备'**
+  String get fnthinkPeersTitle;
+
+  /// No description provided for @fnthinkPeerLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'{peer} · 授到 {level} · {at}'**
+  String fnthinkPeerLine(String peer, String level, String at);
+
+  /// No description provided for @fnthinkPeersEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有配对过任何设备'**
+  String get fnthinkPeersEmpty;
+
+  /// No description provided for @fnthinkPeersError.
+  ///
+  /// In zh, this message translates to:
+  /// **'名单读不出来（{reason}）—— 这一格显示不了不等于「没有」'**
+  String fnthinkPeersError(String reason);
+
+  /// No description provided for @fnthinkPeersBoundary.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一格记的是「本机同意过谁」。对面还能不能推进来由服务器那份授权决定，真要撤销得先让服务器吊销（还没接）—— 在这里删掉一行不会让推送停下来。'**
+  String get fnthinkPeersBoundary;
 }
 
 class _AppLocalizationsDelegate

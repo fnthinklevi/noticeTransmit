@@ -11,6 +11,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_inbox_display.dart';
 import '../services/fnthink_inbox_service.dart';
+import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_receiver_service.dart';
 import '../services/update_service.dart';
@@ -86,4 +87,8 @@ void setupLocator() {
   // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。
   // 不注册时那些入口会各自 new 一份或直连表 —— 全场测试仍然绿，只有未读数和列表行数开始对不上。
   getIt.registerLazySingleton<FnthinkInboxService>(() => FnthinkInboxService());
+  // 本机配对名单的读咽喉（T42「配对名单」那一格）。它**只有读**：`removeFnthinkPeer` 故意不包，
+  // 因为"从这里划掉"今天做不出它承诺的事（能不能推由服务端 grantsBy 决定，撤销属于 T31 的吊销）。
+  // 不注册时页面会退回去直连表 —— 全场仍然绿，只有排序/时间口径开始分叉时会露出来。
+  getIt.registerLazySingleton<FnthinkPeerService>(() => FnthinkPeerService());
 }

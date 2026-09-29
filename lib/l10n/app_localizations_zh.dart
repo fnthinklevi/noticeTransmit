@@ -3231,4 +3231,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPeerWriteFailed => '服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写';
+
+  @override
+  String get fnthinkPeersTitle => '已配对的设备';
+
+  @override
+  String fnthinkPeerLine(String peer, String level, String at) {
+    return '$peer · 授到 $level · $at';
+  }
+
+  @override
+  String get fnthinkPeersEmpty => '还没有配对过任何设备';
+
+  @override
+  String fnthinkPeersError(String reason) {
+    return '名单读不出来（$reason）—— 这一格显示不了不等于「没有」';
+  }
+
+  @override
+  String get fnthinkPeersBoundary =>
+      '这一格记的是「本机同意过谁」。对面还能不能推进来由服务器那份授权决定，真要撤销得先让服务器吊销（还没接）—— 在这里删掉一行不会让推送停下来。';
 }

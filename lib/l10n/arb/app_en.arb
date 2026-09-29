@@ -1643,5 +1643,30 @@
   },
   "fnthinkPairNoGrantedLevel": "The server accepted this one but did not say which level it recorded ⇒ nothing written to the local list",
   "fnthinkPeerStoreUnavailable": "The server accepted this one but no peer store is wired on this device ⇒ nothing written to the local list",
-  "fnthinkPeerWriteFailed": "The server accepted this one but writing the local list failed ⇒ nothing written"
+  "fnthinkPeerWriteFailed": "The server accepted this one but writing the local list failed ⇒ nothing written",
+  "fnthinkPeersTitle": "Paired devices",
+  "fnthinkPeerLine": "{peer} · granted {level} · {at}",
+  "@fnthinkPeerLine": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      },
+      "at": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeersEmpty": "Nothing has been paired yet",
+  "fnthinkPeersError": "The list could not be read ({reason}) — an unreadable cell is not the same as no devices",
+  "@fnthinkPeersError": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeersBoundary": "This cell records who this device has approved. Whether a peer can still push is decided by the grant stored on the server; really revoking it needs server-side revocation (not wired yet) — deleting a row here does not stop pushes."
 }

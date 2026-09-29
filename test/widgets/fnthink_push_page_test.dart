@@ -93,6 +93,8 @@ void main() {
         '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
         '"serverTime":1800000000000}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
+    List<FnthinkPeer> peers = const [],
+    bool peersFail = false,
   }) {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
@@ -103,16 +105,21 @@ void main() {
     final armAsked = <http.Request>[];
     final confirmAsked = <http.Request>[];
     final peerRows = <FnthinkPeer>[];
+    final peersShown = <FnthinkPeer>[...peers];
+    var peerReads = 0;
     var builds = 0;
     final coordinator = FnthinkReceiveCoordinator(
       contracts: loader,
       signer: _StubSigner(canSign),
       persist: (_) async => true,
       // 名单落库的替身：页面测试里不碰 sqflite，但要数得到"到底写没写、写的是哪一档"。
+      // 写进去的那一行同时进 `peersShown`（= 下一次读名单就能读到它），这样"同意之后
+      // 名单要重读一次"这条能被观察到，而不是只能靠数读取次数。
       recordPeer:
           recordPeer ??
           (peer) async {
             peerRows.add(peer);
+            peersShown.add(peer);
             return FnthinkPeerWrite.created;
           },
       serviceFactory: (spec) => FnthinkReceiverService(
@@ -171,6 +178,13 @@ void main() {
           contracts: loader,
           coordinator: coordinator,
           identity: FnthinkIdentityService(),
+          // 名单的读替身：页面只能经由这一个入口读到对端（守卫钉住它不许直连表）。
+          // `peerReads` 数得到被读了几次 —— "点完同意之后那一格还是旧的"就是这么抓的。
+          loadPeers: () async {
+            peerReads++;
+            if (peersFail) throw StateError('库打不开');
+            return List<FnthinkPeer>.unmodifiable(peersShown);
+          },
         ),
       ),
       coordinator: coordinator,
@@ -178,6 +192,8 @@ void main() {
       armAsked: () => armAsked,
       confirmAsked: () => confirmAsked,
       peerRows: () => peerRows,
+      peersShown: () => peersShown,
+      peerReads: () => peerReads,
     );
   }
 
@@ -515,8 +531,10 @@ void main() {
       final l10n = await pump(tester, h.page);
       final before = contract.str(const ['transport', 'endpoints', 'default']);
       // 这一格在 ListView 的折叠线以下：不先滚进视口，tap 打在一个够不着的坐标上。
+      // ⚠ 必须用 `revealTo`（滚到它被 build 出来）而不是 `ensureVisible`：名单那一格加进来之后
+      //    服务地址卡已经落在 cacheExtent 之外，`ensureVisible` 拿到的是空 finder。
       final edit = find.widgetWithText(TextButton, l10n.edit);
-      await tester.ensureVisible(edit);
+      await revealTo(tester, edit);
       await tester.pumpAndSettle();
       await tester.tap(edit);
       await tester.pumpAndSettle();
@@ -540,8 +558,9 @@ void main() {
       final h = harness();
       final l10n = await pump(tester, h.page);
       // 这一格在 ListView 的折叠线以下：不先滚进视口，tap 打在一个够不着的坐标上。
+      // 同上一条：这一格已经在 cacheExtent 之外。
       final edit = find.widgetWithText(TextButton, l10n.edit);
-      await tester.ensureVisible(edit);
+      await revealTo(tester, edit);
       await tester.pumpAndSettle();
       await tester.tap(edit);
       await tester.pumpAndSettle();
@@ -554,7 +573,7 @@ void main() {
       expect(find.text('push.example:8443'), findsOneWidget);
       expect(find.byKey(const ValueKey('fnthink-host-error')), findsNothing);
       final resetDefault = find.byKey(const ValueKey('fnthink-host-default'));
-      await tester.ensureVisible(resetDefault);
+      await revealTo(tester, resetDefault);
       await tester.pumpAndSettle();
       await tester.tap(resetDefault);
       await tester.pumpAndSettle();
@@ -794,6 +813,158 @@ void main() {
       );
     });
   });
+
+  group('本机配对名单（T42「配对名单」那一格）', () {
+    FnthinkPeer row(
+      String address, {
+      String level = 'L1',
+      int at = 1780000111000,
+    }) => FnthinkPeer(
+      peerAddress: address,
+      publicKey: 'AAAA',
+      level: level,
+      grantedAt: at,
+      requestId: 'pr_9',
+    );
+
+    testWidgets('名单里有两台 ⇒ 两行都画出来，档位与时刻跟着名单走，边界那句在场', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: [
+          row('AAAAAAAAAAAAAAAAAAAA', level: 'L2', at: 1780000111000),
+          row('BBBBBBBBBBBBBBBBBBBB'),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+      final first = find.byKey(
+        const ValueKey('fnthink-peer-AAAAAAAAAAAAAAAAAAAA'),
+      );
+      await revealTo(tester, first);
+      expect(first, findsOneWidget);
+      final line = tester.widget<Text>(first).data!;
+      expect(line, contains('AAAAAAAAAAAAAAAAAAAA'));
+      expect(
+        line,
+        contains('L2'),
+        reason: '档位显示的是名单里那一列（= 服务端当初回的那一档），不是页面上另算的一份',
+      );
+      expect(
+        line,
+        matches(RegExp(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}')),
+        reason:
+            '时刻按本机时区格式化。用例里**不许**写死一个绝对时刻字符串 —— '
+            '那种断言换台机器就红，而红的不是任何一条判据',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-BBBBBBBBBBBBBBBBBBBB')),
+        findsOneWidget,
+      );
+      final boundary = find.byKey(const ValueKey('fnthink-peers-boundary'));
+      await revealTo(tester, boundary);
+      expect(
+        tester.widget<Text>(boundary).data,
+        l10n.fnthinkPeersBoundary,
+        reason:
+            '"这里删掉一行不会让推送停下来"必须与名单同屏，而且必须是**这一句**：'
+            '少了它，这一格就会被读成撤销的入口',
+      );
+      expect(h.peerReads(), greaterThanOrEqualTo(1));
+    });
+
+    testWidgets('名单真的是空的 ⇒ 说"还没有配对过任何设备"', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-empty')));
+      expect(
+        find.text(l10n.fnthinkPeersEmpty),
+        findsOneWidget,
+        reason: '写入者已经有了（第五片），此时"没有"是一句真话 —— 前提是没有读失败',
+      );
+      expect(find.byKey(const ValueKey('fnthink-peers-error')), findsNothing);
+    });
+
+    testWidgets('名单读不出来 ⇒ 贴原话，不许显示成"还没有配对过任何设备"', (tester) async {
+      stubChannels();
+      final h = harness(peersFail: true);
+      final l10n = await pump(tester, h.page);
+      await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-error')));
+      expect(
+        find.byKey(const ValueKey('fnthink-peers-error')),
+        findsOneWidget,
+        reason:
+            '把"读不出来"显示成"一个都没有"，是这一格能做出的最坏的一件事：'
+            '用户会以为自己没配过任何设备，然后重新挂口令',
+      );
+      expect(find.text(l10n.fnthinkPeersEmpty), findsNothing);
+      expect(find.textContaining('库打不开'), findsOneWidget);
+    });
+
+    testWidgets('同意之后名单重读一次：新那一条不点别处就出现在格子里', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final h = harness(
+        pairRequests: const [
+          FnthinkPairRequest(
+            requestId: 'pr_9',
+            requester: '8KMNPQRSTVWX999777',
+            requesterPublicKey: 'AAAA',
+            level: 'L1',
+          ),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+      await h.coordinator.startIfEnabled();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      final before = h.peerReads();
+      await _tapPair(tester, l10n, approve: true);
+      await revealTo(
+        tester,
+        find.byKey(const ValueKey('fnthink-peer-8KMNPQRSTVWX999777')),
+      );
+      expect(
+        h.peerReads(),
+        greaterThan(before),
+        reason: '名单是"同意"那一发的后果。不重读，用户点完同意，下面那格还是旧的',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-8KMNPQRSTVWX999777')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('grantedAt 是 0 ⇒ 那一行写"—"，不写成 1970 年', (tester) async {
+      stubChannels();
+      final h = harness(peers: [row('CCCCCCCCCCCCCCCCCCCC', at: 0)]);
+      await pump(tester, h.page);
+      final target = find.byKey(
+        const ValueKey('fnthink-peer-CCCCCCCCCCCCCCCCCCCC'),
+      );
+      await revealTo(tester, target);
+      final line = tester.widget<Text>(target).data!;
+      expect(
+        line,
+        isNot(contains('1970')),
+        reason: '1970-01-01 把"这一行没有时间"伪装成"很久以前同意过"—— 那是两个不同的结论',
+      );
+      expect(line, contains('—'));
+    });
+  });
+}
+
+/// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，
+/// 不滚就先 `findsNothing` —— 报出来像"那一格没画"，实际只是还没滚到）。
+Future<void> revealTo(WidgetTester tester, Finder target) async {
+  if (target.evaluate().isNotEmpty) return;
+  await tester.scrollUntilVisible(
+    target,
+    200,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
 }
 
 /// 走完"点那一下 → （同意时）弹层确认"（列表里的按钮在折叠线以下，先滚进视口）。
@@ -842,6 +1013,8 @@ class _Harness {
     required this.armAsked,
     required this.confirmAsked,
     required this.peerRows,
+    required this.peersShown,
+    required this.peerReads,
   });
 
   final FnthinkPushPage page;
@@ -856,4 +1029,10 @@ class _Harness {
 
   /// 写进本机名单的那几行（替身记下来的，所以能问出"记的是哪一档"）。
   final List<FnthinkPeer> Function() peerRows;
+
+  /// 名单读咽喉那一份"表里现在有什么"（替身里的数据）。
+  final List<FnthinkPeer> Function() peersShown;
+
+  /// 名单被读了几次（页面只在进页面与答复之后各读一次，别处不许自己数）。
+  final int Function() peerReads;
 }

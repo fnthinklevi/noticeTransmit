@@ -1664,5 +1664,30 @@
   },
   "fnthinkPairNoGrantedLevel": "服务端认了这条，但没回它记到哪一档 ⇒ 本机名单没写",
   "fnthinkPeerStoreUnavailable": "服务端认了这条，但这台设备没接名单落库 ⇒ 本机名单没写",
-  "fnthinkPeerWriteFailed": "服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写"
+  "fnthinkPeerWriteFailed": "服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写",
+  "fnthinkPeersTitle": "已配对的设备",
+  "fnthinkPeerLine": "{peer} · 授到 {level} · {at}",
+  "@fnthinkPeerLine": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      },
+      "at": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeersEmpty": "还没有配对过任何设备",
+  "fnthinkPeersError": "名单读不出来（{reason}）—— 这一格显示不了不等于「没有」",
+  "@fnthinkPeersError": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPeersBoundary": "这一格记的是「本机同意过谁」。对面还能不能推进来由服务器那份授权决定，真要撤销得先让服务器吊销（还没接）—— 在这里删掉一行不会让推送停下来。"
 }

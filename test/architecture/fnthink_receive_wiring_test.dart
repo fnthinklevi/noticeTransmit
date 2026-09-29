@@ -332,6 +332,61 @@ void main() {
         );
       }
     });
+
+    test('配对名单的读只有一个咽喉，而页面不许长出"撤销"的假入口', () {
+      // 名单的读法（`granted_at DESC, peer_address ASC`）只在 `DatabaseHelper` 那一处；
+      // 页面绕过读咽喉就会自己排一次序 —— 同一份数据在两个入口排出两个顺序，是本仓反复出现过的形状。
+      var reads = 0;
+      for (final entity in Directory('$root/lib').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        reads +=
+            stripComments(
+              entity.readAsStringSync(),
+            ).split('.loadFnthinkPeers').length -
+            1;
+      }
+      expect(
+        reads,
+        1,
+        reason: '`fnthink_peers` 多了一个读者 ⇒ 排序/时间口径开始分叉（那一处应当是读咽喉）',
+      );
+
+      final service = read('lib/services/fnthink_peer_service.dart');
+      for (final sql in ['db.query', 'orderBy', 'FnthinkPeer.table']) {
+        expect(
+          service,
+          isNot(contains(sql)),
+          reason: '读咽喉里出现了 $sql：查询口径长出第二份，表那一层改了它不会跟着改',
+        );
+      }
+      expect(
+        service,
+        isNot(contains('.removeFnthinkPeer')),
+        reason:
+            '撤销那一发属于服务端吊销（T31）。在这一层加个"只删本机行"的方法，'
+            '下一个调用方就会把它当撤销接上去 —— 而那件事它做不到',
+      );
+
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      expect(
+        page,
+        contains('FnthinkPeerService'),
+        reason: '页面的名单不再经服务层取：本条守卫已经在空跑',
+      );
+      for (final direct in [
+        'loadFnthinkPeers',
+        'removeFnthinkPeer',
+        'upsertFnthinkPeer',
+      ]) {
+        expect(
+          page,
+          isNot(contains(direct)),
+          reason: '页面里出现了 $direct：名单的读写从此有两本账',
+        );
+      }
+    });
   });
 }
 

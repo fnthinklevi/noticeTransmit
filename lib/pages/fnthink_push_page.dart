@@ -9,6 +9,7 @@ import '../models/fnthink_peer.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_identity_service.dart';
+import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
@@ -24,17 +25,22 @@ class FnthinkPushDeps {
     required this.contracts,
     required this.coordinator,
     required this.identity,
+    required this.loadPeers,
   });
 
   factory FnthinkPushDeps.fromLocator() => FnthinkPushDeps(
     contracts: GetIt.instance<FnthinkContractLoader>(),
     coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
     identity: FnthinkIdentityService(),
+    // 名单只从读咽喉取。退回 `DatabaseHelper().loadFnthinkPeers` 的话，页面就会自己长出一份
+    // 排序/时间口径，而 `history_page` 那批守卫已经证明过这种分叉是怎么开始的。
+    loadPeers: GetIt.instance<FnthinkPeerService>().list,
   );
 
   final FnthinkContractLoader contracts;
   final FnthinkReceiveCoordinator coordinator;
   final FnthinkIdentityService identity;
+  final Future<List<FnthinkPeer>> Function() loadPeers;
 }
 
 /// 幻念推送页（T44 的②③ + T42 的入口那半）。
@@ -45,10 +51,11 @@ class FnthinkPushDeps {
 /// 第一次显示给人看：在此之前它们只在日志与测试里出现过。
 ///
 /// ⚠ 页面上刻意没有的东西，都不是忘了：
-///  - **"已配对名单"那一格**：待确认的请求这一页现在摆出来了（T42 第五片），但"我给过谁哪一档"
-///    还没画 —— poll 的回信里没有对端名字，`fnthink_peers` 也故意没有那一列（见 `FnthinkPeer`
-///    的注释：等有出处了再加列）。一张只有 18 位地址码的列表能画，但"取消配对"那个入口
-///    要先把服务端的 grantsBy 也撤了才成立（那是 T31 的吊销，还没接）。
+///  - **名单上的"取消配对"按钮**：那一格现在只读。本机删行**不会**让对面推不进来 ——
+///    能不能推是服务端那份 `grantsBy` 决定的（契约 `pairing.relationshipStoredOn`），
+///    撤销那一发属于 T31 的吊销。放一个只做本机删行的按钮，就是承诺一件它做不到的事。
+///  - **对端的名字**：`fnthink_peers` 故意没有这一列（见 `FnthinkPeer` 的注释：poll 的回信里
+///    从没带过它，等有出处了再加列）。所以名单只能显示 18 位地址码 —— 难看，但是有出处的难看。
 ///  - **大陆那台预设地址**：`transport.endpoints.mainland` 今天**已部署**（#137 走"先把它部署起来"收口，
 ///    两个域名的能力等价有外网实测），但这一页仍然不给那一档 —— 缺的已经不是地址，而是
 ///    **"什么时候该建议切"的判据**：契约的 `suggestSwitchOnMainlandNetwork` 要靠网络测量，
@@ -118,6 +125,14 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   ({FnthinkPairRequest request, bool approve, FnthinkPairAnswer answer})?
   _pairAnswer;
 
+  /// 本机配对名单（`fnthink_peers`）。**null = 还不知道**（还没读到，或读失败），
+  /// 空列表 = 真的一个都没配对过。两者不许合并成同一句"还没有配对过任何设备"：
+  /// 读失败时那句是假话，而这一格存在的意义恰恰是"我同意过谁"。
+  List<FnthinkPeer>? _peers;
+
+  /// 读名单失败时的原话（与 `_startNote` 同一条纪律：不折叠成"出错了"）。
+  String? _peersError;
+
   FnthinkDeviceIdentity? _identity;
   bool _identityUnavailable = false;
 
@@ -177,7 +192,28 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     });
     // 开关的真值**只**从 prefs 读：它是用户做过的那个决定。契约那边没有任何一项能替代它
     // （契约管的是节奏与档位，不是"这台设备同不同意被中转"）。
-    await _readEnabled();
+    // 两件读事互不依赖，一起发出去（`_loadPeers` 之后在 `_answer` 里还要被单独调一次，
+    // 所以这里不写成一句 `await _loadPeers();`，免得两处的形状看不出谁是谁）。
+    await Future.wait<void>([_readEnabled(), _loadPeers()]);
+  }
+
+  /// 读本机配对名单。**只有读咽喉那一个入口**（`FnthinkPushDeps.loadPeers`）。
+  /// 失败时不退回空表：那一格会把"读不出来"显示成"一个都没配过"，而后者是可行动的真话、
+  /// 前者不是（这里没得可点，界面上只能让用户去查权限/存储）。
+  Future<void> _loadPeers() async {
+    List<FnthinkPeer>? rows;
+    String? error;
+    try {
+      rows = await _deps.loadPeers();
+    } catch (e) {
+      error = '$e';
+      rows = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _peers = rows;
+      _peersError = error;
+    });
   }
 
   Future<void> _readEnabled() async {
@@ -369,6 +405,9 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       _busy = false;
       _pairAnswer = (request: request, approve: approve, answer: answer);
     });
+    // 名单是这一发的**后果**：不重读一次，用户点完同意，下面那格还是旧的（而它的存在意义
+    // 正是"我同意过谁"）。重读走的是同一个读咽喉，不是页面自己数一遍。
+    await _loadPeers();
   }
 
   /// 最近一次答复的结论。⚠ 档位那一格用的是**服务端回的** `grantedLevel`，不是用户点的那一档：
@@ -483,6 +522,66 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     ];
   }
 
+  /// 本机配对名单那一格（T42「配对名单」）。
+  ///
+  /// 与待确认列表不同，**这一格总是画**：待确认那张表在没有作者时永远是空的（所以不摆），
+  /// 而名单已经有人写了（第五片），此时"还没有配对过任何设备"是一句可行动的真话。
+  /// 但"读不出来"与"一条都没有"必须是两句不同的话（见 `_peers` 的注释）。
+  ///
+  /// ⚠ 底下那句边界不是客套：这一格记的是**本机同意过谁**，而"对面还能不能推进来"由服务端
+  /// 那份 `grantsBy` 决定（契约 `pairing.relationshipStoredOn`）。撤销要等 T31 的吊销 ——
+  /// 在那之前这里连一个"划掉"的按钮都不许有：只做本机删行的按钮，承诺的是它做不到的事。
+  ///
+  /// 这一格被砸过什么（报告在本地 `outputs/_peers_falsify.report.txt`，按约定不入库；
+  /// R1/R2/R3/R5 全部 named + restored）：
+  ///  - 渲染层把"读失败"当成空表 ⇒ 红在「名单读不出来 ⇒ 贴原话，不许显示成"还没有配对过任何设备"」；
+  ///  - 读失败时 `_loadPeers` 退回 `const []` ⇒ 红在同一条（两处都能把假话说圆，所以都钉）；
+  ///  - 答复之后不重读名单 ⇒ 红在「同意之后名单重读一次」；
+  ///  - 边界那句被换成另一句话 ⇒ 红在「边界那句在场」（那条断言比的是**这一句**，不是"有个非空 Text"）；
+  ///  - `grantedAt=0` 被格式化 ⇒ 红在「那一行写"—"，不写成 1970 年」。
+  /// ⚠ R1 的第一版植入（`if (rows == null)` 改成 `if (false)`）**编译不过**：摘掉那个分支后
+  ///    `rows.isEmpty` 的空接收者就是错误。那属于"植入本身无效"，不能算这条判据没效果 ——
+  ///    换成 `_peers ?? const <FnthinkPeer>[]` 才是它的合法植入。
+  Widget _buildPeersCard(AppLocalizations l10n) {
+    final rows = _peers;
+    return _Card(
+      title: l10n.fnthinkPeersTitle,
+      children: [
+        if (rows == null)
+          _Note(
+            keyName: 'fnthink-peers-error',
+            text: l10n.fnthinkPeersError(_peersError ?? ''),
+          )
+        else if (rows.isEmpty)
+          _Note(keyName: 'fnthink-peers-empty', text: l10n.fnthinkPeersEmpty)
+        else
+          for (final peer in rows)
+            _Note(
+              keyName: 'fnthink-peer-${peer.peerAddress}',
+              text: l10n.fnthinkPeerLine(
+                peer.peerAddress,
+                peer.level,
+                _formatTime(peer.grantedAt),
+              ),
+            ),
+        const SizedBox(height: 8),
+        _Note(
+          keyName: 'fnthink-peers-boundary',
+          text: l10n.fnthinkPeersBoundary,
+        ),
+      ],
+    );
+  }
+
+  /// 名单上那一行的时刻。`grantedAt` 是本机写下的那一刻（服务端另有一份，不回给设备）。
+  /// 0/负数 ⇒ '—'：显示 1970-01-01 会把"这一行没有时间"伪装成"很久以前同意过"。
+  String _formatTime(int ms) {
+    if (ms <= 0) return '—';
+    final t = DateTime.fromMillisecondsSinceEpoch(ms);
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
+  }
+
   Future<void> _clearPairingCode() async {
     final credentials = _credentials;
     if (credentials == null) return;
@@ -566,6 +665,8 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             _buildIdentityCard(l10n),
             // 待确认的配对请求（画不画由它自己按协调者那份账判，见 `_buildPairRequests`）。
             _buildPairRequests(l10n),
+            const SizedBox(height: 12),
+            _buildPeersCard(l10n),
             const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 12),
