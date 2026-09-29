@@ -62,6 +62,34 @@ void main() {
   }
 
   group('版本戳一致性', () {
+    test('dbVersion 与最靠后的那条 oldVersion 分支同号（新表只加分支不抬版本 = 白建）', () {
+      // 这条为什么不写成 `contains('dbVersion = 14')`：那种字面量每加一张表就要改一次，
+      // 而漏改的表现是"守卫红在一件本来正确的事上"（v15 加进来时就把收件表那条测试打红过）。
+      // 真正长期成立的不变量是**两个数必须相等**，所以把它推出来而不是抄下来。
+      final src = stripComments(
+        File(
+          '${projectRoot()}/lib/database/database_helper.dart',
+        ).readAsStringSync(),
+      );
+      final branches = RegExp(
+        r'if \(oldVersion < (\d+)\)',
+      ).allMatches(src).map((m) => int.parse(m.group(1)!)).toList();
+      expect(branches, isNotEmpty);
+      expect(
+        branches.reduce((a, b) => a > b ? a : b),
+        DatabaseHelper.dbVersion,
+        reason:
+            '最大分支 ${branches.reduce((a, b) => a > b ? a : b)} 与 dbVersion ${DatabaseHelper.dbVersion} 不同号',
+      );
+      expect(
+        src.contains(
+          'static const int dbVersion = ${DatabaseHelper.dbVersion};',
+        ),
+        isTrue,
+        reason: 'dbVersion 这一行被写成了别的形状（上面那条推不出号来了）',
+      );
+    });
+
     test('dbVersion 与建表 SQL 的最新增量（v10 app_channels）一致', () async {
       final db = await openAt(
         DatabaseHelper.dbVersion,

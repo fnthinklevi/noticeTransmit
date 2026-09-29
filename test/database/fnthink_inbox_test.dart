@@ -124,7 +124,6 @@ void main() {
         hasLength(1),
         reason: 'v14 那条升级分支不在了',
       );
-      expect(src, contains('static const int dbVersion = 14'));
     });
 
     test('新建库的列就是模型声明那十列，一个不多一个不少', () async {

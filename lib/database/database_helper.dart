@@ -6,6 +6,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/email_channel.dart';
 import '../models/fnthink_inbox_message.dart';
+import '../models/fnthink_peer.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/channel_display.dart';
@@ -65,7 +66,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 14;
+  static const int dbVersion = 15;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -400,6 +401,7 @@ class DatabaseHelper
 
     await _createEngineRules(db);
     await _createFnthinkInbox(db);
+    await _createFnthinkPeers(db);
   }
 
   /// v13 / T20：通知引擎规则表（电量族 + 温度族）。
@@ -500,6 +502,29 @@ class DatabaseHelper
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_fnthink_messages_read
       ON ${FnthinkInboxMessage.table}(read)
+    ''');
+  }
+
+  /// v15 / T42 前置：本机配对名单（我允许了谁、给到哪一档）。
+  ///
+  /// 授权本体在服务端的 `grantsBy` 里，这张表是**本机那一份"我记得我同意过什么"**：
+  /// 没有它，T42 那页要显示的"可信发送方列表"没有数据源，而"撤掉一个授权"在界面上也无从点起。
+  /// ⚠ 故意没有 `peer_name`（对端名字从没流到本机，见模型的注释）；
+  /// 也故意没有 `revoked_at`：吊销是服务端那一步（T31），本机这份跟着删除走，
+  /// 留一个"已撤销但还在表里"的状态位会让两端各判一次"这个人还算不算数"。
+  Future<void> _createFnthinkPeers(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${FnthinkPeer.table} (
+        peer_address TEXT PRIMARY KEY,
+        public_key TEXT NOT NULL,
+        level TEXT NOT NULL,
+        granted_at INTEGER NOT NULL,
+        request_id TEXT NOT NULL DEFAULT ''
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_fnthink_peers_granted
+      ON ${FnthinkPeer.table}(granted_at DESC)
     ''');
   }
 
@@ -703,6 +728,10 @@ class DatabaseHelper
       // v14: 幻念推送收件表（T47）。只建表，不动任何既有行 —— 收件是新增的一面，
       // 与 `notifications`（本机转发出去的历史）互不改写。
       await _createFnthinkInbox(db);
+    }
+    if (oldVersion < 15) {
+      // v15: 本机配对名单（T42 前置）。同样是"只建表、不碰既有行"。
+      await _createFnthinkPeers(db);
     }
   }
 
@@ -1222,6 +1251,74 @@ class DatabaseHelper
       }
       return (byAge: byAge, byCap: doomed);
     });
+  }
+
+  // ── 本机配对名单（T42 前置，表 `fnthink_peers`）────────────────────────────
+
+  /// 写一条授权。⚠ 同码**不同公钥** ⇒ 一行都不改、只回 `keySwapped`：
+  /// 静默覆盖的语义是"我把信任给了另一把钥匙"，而那正是契约在自登记那一步拦的事
+  /// （`clientEvents.register`：同一地址码带另一把公钥来登记必须抛，不覆盖）。
+  /// 本机这份如果悄悄跟着换，就等于设备侧替用户点了"同意换钥"。
+  Future<FnthinkPeerWrite> upsertFnthinkPeer(FnthinkPeer peer) async {
+    final db = await database;
+    return await db.transaction((txn) async {
+      final existing = await txn.query(
+        FnthinkPeer.table,
+        columns: ['public_key'],
+        where: 'peer_address = ?',
+        whereArgs: [peer.peerAddress],
+        limit: 1,
+      );
+      if (existing.isEmpty) {
+        await txn.insert(FnthinkPeer.table, peer.toDbRow());
+        return FnthinkPeerWrite.created;
+      }
+      if ('${existing.first['public_key'] ?? ''}' != peer.publicKey) {
+        return FnthinkPeerWrite.keySwapped;
+      }
+      await txn.update(
+        FnthinkPeer.table,
+        peer.toDbRow(),
+        where: 'peer_address = ?',
+        whereArgs: [peer.peerAddress],
+      );
+      return FnthinkPeerWrite.refreshed;
+    });
+  }
+
+  /// 名单页要显示的全部条目，最近同意的在前。
+  Future<List<FnthinkPeer>> loadFnthinkPeers() async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkPeer.table,
+      orderBy: 'granted_at DESC, peer_address ASC',
+    );
+    return rows.map(FnthinkPeer.fromDbRow).toList();
+  }
+
+  Future<bool> hasFnthinkPeer(String peerAddress) async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkPeer.table,
+      columns: ['peer_address'],
+      where: 'peer_address = ?',
+      whereArgs: [peerAddress],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// 取消配对：删掉本机这一行。**服务端那份授权不在这里**（那是 T31 的吊销），
+  /// 所以删除的返回值要说清有没有命中 —— 界面上"删掉了"而其实没有这一行，
+  /// 用户会以为对面已经推不进来了，而对面还能推。
+  Future<bool> removeFnthinkPeer(String peerAddress) async {
+    final db = await database;
+    final n = await db.delete(
+      FnthinkPeer.table,
+      where: 'peer_address = ?',
+      whereArgs: [peerAddress],
+    );
+    return n > 0;
   }
 
   /// 送达健康统计：N 天内各通道 推送数/成功数（webhook_delivery_log 聚合）
