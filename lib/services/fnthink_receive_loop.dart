@@ -9,7 +9,7 @@ import 'fnthink_receiver_service.dart';
 /// 收货循环（#126 第三片）：把**取货 → 落库 → 回一条 ack → 排下一轮**这个顺序钉死。
 ///
 /// 节奏的出处不在这里 —— 间隔与提频都在契约（`presence.*`）与内核（[FnthinkReceiveKernel]）里，
-/// 这里只负责"顺序与后果"。四件事各有一个具体的"写反了会怎样"：
+/// 这里只负责"顺序与后果"。五件事各有一个具体的"写反了会怎样"：
 ///
 /// ① **落库失败的那条绝不 ack。** ack 会让服务端**立刻删正文**（`retention.deleteBodyOn` 含
 ///    delivered），先报成功再把消息弄丢，就是产品不变量「不静默丢」最坏的一种实现方式。
@@ -20,20 +20,23 @@ import 'fnthink_receiver_service.dart';
 ///    —— 把 429 当成"这条没送达"去重试，等于用一台设备的积压去敲服务端的闸门。
 /// ④ **一轮只跑一轮。** 一次往返慢过一个间隔时，不拦住就会有两个循环同时在读同一条队列；
 ///    表现是重复 ack、以及"未读数一会儿 3 一会儿 1"。
+/// ⑤ **显示成功才报 `displayed`，否则报 `delivered`。** 一条没进通知栏的消息被报成"已显示"，
+///    服务端就按契约删了正文，而用户两头都没见过它 —— 与 ① 是同一件事的两面（① 管"没落库别说收到了"，
+///    ⑤ 管"没显示别说看过了"）。内核一轮只认一条 ack，所以这里是**二选一**，不是先 delivered 再 displayed。
 ///
-/// ⚠ ack 用的是 `delivered`（本机已收到并落库），不是 `displayed`：现在还没有把收件显示成
-/// 通知的链路（W3d/T48）。内核**一轮只认一条 ack**（`duplicateSuppressed`），所以
-/// "落库就报 delivered、显示后再报 displayed"这条路本来就不通 —— 等显示链路落地时，
-/// 这里的取值要改成"显示成功报 displayed，否则报 delivered"，两处不能并存。
+/// ⚠ [display] 不接（null）时一律报 `delivered` —— 那是"这台设备还没有显示链路"的显式表达，
+/// 不是"显示了但没算数"。接上之后走的也是 ⑤ 那条二选一，不会先 delivered 再 displayed：
+/// 内核一轮只认一条 ack（`duplicateSuppressed`）。
 class FnthinkReceiveLoop {
   /// [poll] / [ack] 传 [FnthinkReceiverService.pollOnce] 与它的 `ack` 即可（签名逐一对得上）。
-  /// 之所以写成两个函数而不是收一个服务对象：循环的四条判据不该被 HTTP 层的形状牵着走，
+  /// 之所以写成两个函数而不是收一个服务对象：循环的那几条判据不该被 HTTP 层的形状牵着走，
   /// 绑在一起之后，换一次 transport 就得把节奏与后果全部重测一遍。
   /// [persist] 回 true = 新增，false = 这条已经在表里，抛异常 = 没落到盘上。
   FnthinkReceiveLoop({
     required this.poll,
     required this.ack,
     required this.persist,
+    this.display,
     int Function()? nowMs,
     Timer Function(Duration delay, void Function() callback)? schedule,
     this.onRound,
@@ -48,6 +51,11 @@ class FnthinkReceiveLoop {
 
   /// 落一条收件：true = 新增，false = 表里已经有，抛异常 = 没落到盘上。
   final Future<bool> Function(FnthinkInboxMessage message) persist;
+
+  /// 显示一条收件（通知栏）。null = 这台设备还没有显示链路 ⇒ 一律按 `delivered` 报。
+  /// ⚠ 顺序在 persist **之后**：用户点通知时要能落到一条已经在表里的事实，
+  ///   先显示后落库会在"显示完就崩"的那次里留下一条点不开的通知。
+  final Future<bool> Function(FnthinkInboxMessage message)? display;
 
   final int Function() nowMs;
   final Timer Function(Duration delay, void Function() callback) schedule;
@@ -128,26 +136,35 @@ class FnthinkReceiveLoop {
     }
 
     final at = nowMs();
-    final deliverable = <String>[];
-    var inserted = 0, duplicate = 0, persistedFailed = 0;
+    // 一条消息 → 这一轮该报的结论。LinkedHashMap 的迭代顺序就是取货顺序（翻页与计数都对得上）。
+    final toAck = <String, String>{};
+    var inserted = 0, duplicate = 0, persistedFailed = 0, shown = 0;
     for (final message in outcome.messages) {
-      final fresh = await _persistRow(message, at);
+      // 落库与显示用的是同一份行：两处各映射一次，就会在两处各抄一次字段清单（而 sender
+      // 那个缺口正是这么漏掉的）。
+      final row = _toRow(message, at);
+      final fresh = await _persistRow(row);
       if (fresh == _Persisted.fresh) {
         inserted++;
-        deliverable.add(message.messageId);
       } else if (fresh == _Persisted.known) {
         // 已经在表里 = 服务端还在重发 = 我上一次 ack 没送到。必须再报一次。
         duplicate++;
-        deliverable.add(message.messageId);
       } else {
         persistedFailed++;
+        continue; // ① 没落到盘上的这条**不显示也不 ack**：ack 会让服务端删正文
       }
+      // ⑤ 显示成功才报 displayed。报错了那条结论就是替服务端宣布"用户看过了"，
+      //    而它下一秒就会把正文删掉 —— 用户两头都没见到。
+      final displayed = await _displayRow(row);
+      if (displayed) shown++;
+      toAck[row.messageId] = displayed ? 'displayed' : 'delivered';
     }
 
     var acked = 0, ackFailed = 0, ackSkipped = 0;
     var nextDelay = outcome.nextDelay;
-    for (var i = 0; i < deliverable.length; i++) {
-      final result = await ack(deliverable[i], 'delivered');
+    final ids = toAck.keys.toList();
+    for (var i = 0; i < ids.length; i++) {
+      final result = await ack(ids[i], toAck[ids[i]]!);
       if (result.status == FnthinkPollStatus.ok) {
         acked++;
         continue;
@@ -155,7 +172,7 @@ class FnthinkReceiveLoop {
       if (result.status == FnthinkPollStatus.rateLimited) {
         // 闸门就是闸门：剩下的这轮不发，按服务端给的等待时间重来。
         nextDelay = result.nextDelay;
-        ackSkipped = deliverable.length - i - 1;
+        ackSkipped = ids.length - i - 1;
         break;
       }
       ackFailed++;
@@ -167,6 +184,7 @@ class FnthinkReceiveLoop {
       inserted: inserted,
       duplicate: duplicate,
       persistedFailed: persistedFailed,
+      displayed: shown,
       acked: acked,
       ackFailed: ackFailed,
       ackSkipped: ackSkipped,
@@ -176,22 +194,38 @@ class FnthinkReceiveLoop {
     );
   }
 
-  Future<_Persisted> _persistRow(FnthinkDelivered message, int at) async {
+  /// 显示这条收件。没接链路 = 没显示；抛异常 = 没显示（两种都退回 delivered）。
+  Future<bool> _displayRow(FnthinkInboxMessage message) async {
+    final show = display;
+    if (show == null) return false;
     try {
-      final fresh = await persist(
-        FnthinkInboxMessage(
-          messageId: message.messageId,
-          sender: message.sender,
-          type: message.type,
-          item: message.item,
-          title: message.title,
-          body: message.body,
-          receivedAt: at,
-        ),
+      return await show(message);
+    } catch (e) {
+      debugPrint(
+        '[fnthink] 收件显示异常（按未显示处理，ack 退回 delivered）: ${message.messageId} $e',
       );
+      return false;
+    }
+  }
+
+  /// poll 带回来的那条 → 收件表那一行。**这份映射只有一处**。
+  static FnthinkInboxMessage _toRow(FnthinkDelivered message, int at) =>
+      FnthinkInboxMessage(
+        messageId: message.messageId,
+        sender: message.sender,
+        type: message.type,
+        item: message.item,
+        title: message.title,
+        body: message.body,
+        receivedAt: at,
+      );
+
+  Future<_Persisted> _persistRow(FnthinkInboxMessage row) async {
+    try {
+      final fresh = await persist(row);
       return fresh ? _Persisted.fresh : _Persisted.known;
     } catch (e) {
-      debugPrint('[fnthink] 收件落库失败（这条不 ack）: ${message.messageId} $e');
+      debugPrint('[fnthink] 收件落库失败（这条不 ack）: ${row.messageId} $e');
       return _Persisted.failed;
     }
   }
@@ -212,6 +246,7 @@ class FnthinkLoopReport {
     this.inserted = 0,
     this.duplicate = 0,
     this.persistedFailed = 0,
+    this.displayed = 0,
     this.acked = 0,
     this.ackFailed = 0,
     this.ackSkipped = 0,
@@ -236,6 +271,9 @@ class FnthinkLoopReport {
   /// 没落到盘上的条数 —— 这些条**没有 ack**（①），服务端会再送一次
   final int persistedFailed;
 
+  /// 真的显示进通知栏的条数（决定那几条 ack 报的是 displayed 还是 delivered）
+  final int displayed;
+
   final int acked;
   final int ackFailed;
 
@@ -256,6 +294,7 @@ class FnthinkLoopReport {
 
   String get summary =>
       '取 $taken · 新 $inserted · 重发 $duplicate · 落库失败 $persistedFailed · '
+      '显示 $displayed · '
       'ack $acked/${ackFailed}_skip$ackSkipped · 待取 $pending · '
       '下轮 ${nextDelay.inSeconds}s${reason == null ? '' : ' · $reason'}';
 }

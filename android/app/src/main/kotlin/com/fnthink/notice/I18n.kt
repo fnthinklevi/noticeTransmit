@@ -253,6 +253,15 @@ object I18n {
     fun servicePushPaused(count: Int): String =
         if (isEn) "Push paused · $count pushed today"
         else "推送已暂停 · 当日已推送 $count 条"
+
+    // ========== 幻念推送 · 收件通知渠道（T48 前置）==========
+    // 渠道名要能一眼看出"这是别人推给我的消息"，与前台服务那条常驻通知（"通知推送助手"）分开：
+    // 用户在系统设置里是按渠道关通知的，名字混了就关错那一个。
+    fun fnthinkInboxChannelName(): String =
+        if (isEn) "Fnthink messages" else "幻念推送 · 收件"
+    fun fnthinkInboxChannelDescription(): String =
+        if (isEn) "Messages pushed to this device by paired devices and endpoints"
+        else "由已配对设备与接入端点推给本机的消息"
     // ========== v1.59 温度维度（自建应用通道体系的电池域扩展） ==========
 
 /** 温度维度显示名（电池/设备/屏幕） */

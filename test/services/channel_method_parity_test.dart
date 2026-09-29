@@ -18,14 +18,17 @@ import 'package:flutter_test/flutter_test.dart';
 ///    被点到时才炸，常规回归测试（走 mock 通道）根本发现不了。
 ///    这是本文件存在的首要原因，不允许为通过而放宽。
 ///
-/// 2. **总数 == 95**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+/// 2. **总数 == 96**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
 ///    （6e 加了两个非侵入探测 `probeAppChannelToken` / `verifySmtp`：91 → 93；
 ///     T20 引擎规则入 DB，删掉两处原生镜像写 `setBatteryRules` / `setTemperatureRules`、
 ///     换成一枚无载荷的 `refreshEngineRules`：93 → 92；
 ///     T26 B 半给幻念推送身份开了一个**新域** `FnthinkChannelHandler`，加
 ///     `getFnthinkIdentity` / `signFnthinkBytes`：93 → 95。
 ///     这两枚的 Dart 半边随后落在 `lib/services/fnthink_identity_service.dart`（T29 入口），
-///     所以方向 1 现在真的守着它们：改名或删掉原生分支 ⇒ 立刻红，不是"将来也许会红"。）
+///     所以方向 1 现在真的守着它们：改名或删掉原生分支 ⇒ 立刻红，不是"将来也许会红"。
+///     T48 前置在同一域加 `showFnthinkInbox`：95 → 96。它的 Dart 半边是
+///     `lib/services/fnthink_inbox_display.dart` —— 这条链路的返回值直接决定 ack 报
+///     `displayed` 还是 `delivered`，所以改它的一端绝不会无人知晓。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -73,10 +76,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 95（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 96（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        95,
+        96,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -92,7 +95,7 @@ void main() {
         'DeviceChannelHandler': 15,
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
-        'FnthinkChannelHandler': 2,
+        'FnthinkChannelHandler': 3,
       });
     });
 

@@ -1,0 +1,105 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/models/fnthink_inbox_message.dart';
+import 'package:notice_transmit/services/fnthink_inbox_display.dart';
+import 'package:notice_transmit/services/platform_channel.dart';
+
+/// 收件 → 系统通知那一枚通道调用（T48 的前置）。
+///
+/// 这里盯的是**键名**和**不许抛**：
+///  ① 键名是字符串契约，改一端另一端不会红 —— 而 Kotlin 侧读不到就 `.orEmpty()`，
+///     表现是"通知显示出来了但标题、正文、发件人全空"，一条错误都不会留。
+///     所以断言的是**实际发出去的那份 map**，不是方法名。
+///  ② 这个返回值直接决定 ack 报 `displayed` 还是 `delivered`（收货循环判据 ⑤）：
+///     把"没显示"报成"已显示"，服务端下一秒就按契约删正文，而用户两头都没见过这条。
+///     因此通道缺失 / 返回 null / 原生抛异常，三种都必须落到 false，而不是往上抛。
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  const messageId = 'm_01EXAMPLE';
+  FnthinkInboxMessage row({
+    String id = messageId,
+    String sender = 'endpoint:ep_7',
+    String title = '机箱温度',
+    String body = '温度 63 度',
+  }) => FnthinkInboxMessage(
+    messageId: id,
+    sender: sender,
+    type: 'notice',
+    item: '',
+    title: title,
+    body: body,
+    receivedAt: 1780000000000,
+  );
+
+  late List<MethodCall> calls;
+  final display = FnthinkInboxDisplay();
+
+  void mock(Object? Function(MethodCall) handler) {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AppChannels.notification, (call) async {
+          calls.add(call);
+          return handler(call);
+        });
+  }
+
+  setUp(() => calls = <MethodCall>[]);
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(AppChannels.notification, null);
+  });
+
+  test('发出去的键名与取值：messageId / sender / title / body 一枚不多一枚不少', () async {
+    mock((_) => true);
+    expect(await display.show(row()), isTrue);
+
+    expect(calls, hasLength(1));
+    expect(calls.single.method, 'showFnthinkInbox');
+    final args = calls.single.arguments as Map<Object?, Object?>;
+    expect(args.keys.toSet(), {
+      'messageId',
+      'sender',
+      'title',
+      'body',
+    }, reason: '多传 = 原生不读的那一份会误导后人；少传 = 通知里那一栏静默变空');
+    expect(args['messageId'], messageId);
+    expect(args['sender'], 'endpoint:ep_7');
+    expect(args['title'], '机箱温度');
+    expect(args['body'], '温度 63 度');
+  });
+
+  test('messageId 为空 ⇒ 直接回 false，连通道都不碰', () async {
+    mock((_) => true);
+    expect(await display.show(row(id: '')), isFalse);
+    expect(calls, isEmpty, reason: '空 id 不是一次显示请求：让原生去处理"没有 id"，撤回与标已读都会按空串说话');
+  });
+
+  test('原生回 false（通知权限被关）⇒ 原样回 false，不改写成"成功"', () async {
+    mock((_) => false);
+    expect(await display.show(row()), isFalse);
+  });
+
+  test('通道返回 null ⇒ 按未显示处理', () async {
+    mock((_) => null);
+    expect(
+      await display.show(row()),
+      isFalse,
+      reason: '`invokeMethod<bool>` 回 null 与回 false 是同一件事：没显示',
+    );
+  });
+
+  test('通道抛（MissingPluginException / 原生 error）⇒ 回 false 而不往上抛', () async {
+    mock((_) => throw MissingPluginException('没有接原生'));
+    expect(
+      await display.show(row()),
+      isFalse,
+      reason: '显示失败不是收货失败：这条已经安全落库，往上抛会让整轮 ack 停摆',
+    );
+
+    mock(
+      (_) =>
+          throw PlatformException(code: 'notification_failed', message: '渠道炸了'),
+    );
+    expect(await display.show(row()), isFalse);
+  });
+}

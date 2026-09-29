@@ -231,6 +231,95 @@ void main() {
     });
   });
 
+  group('⑤ 显示与 ack 的取值', () {
+    /// 三条一轮：落库都成功，display 的行为决定每条报的是 displayed 还是 delivered。
+    Future<
+      (
+        List<(String, String)> acks,
+        FnthinkLoopReport report,
+        List<String> order,
+      )
+    >
+    roundWith({
+      Future<bool> Function(String messageId)? display,
+      List<String> failPersistFor = const [],
+    }) async {
+      final acks = <(String, String)>[];
+      final order = <String>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async =>
+            _ok([_msg('m_1'), _msg('m_2', sender: 'endpoint:ep_7')]),
+        ack: (id, result) async {
+          acks.add((id, result));
+          return const FnthinkAckResult(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 20),
+          );
+        },
+        persist: (message) async {
+          order.add('persist:${message.messageId}');
+          if (failPersistFor.contains(message.messageId)) {
+            throw StateError('盘满');
+          }
+          return true;
+        },
+        display: display == null
+            ? null
+            : (message) async {
+                order.add('display:${message.messageId}');
+                return await display(message.messageId);
+              },
+        schedule: (delay, callback) => Timer(Duration.zero, () {}),
+      );
+      return (acks, await loop.runOnce(), order);
+    }
+
+    test('显示成功 ⇒ 报 displayed；一条消息一轮只 ack 一次', () async {
+      final (acks, report, _) = await roundWith(display: (_) async => true);
+      expect(acks, [('m_1', 'displayed'), ('m_2', 'displayed')]);
+      expect(report.displayed, 2);
+      expect(report.acked, 2);
+    });
+
+    test('显示失败（权限被关）⇒ 退回 delivered，仍然 ack', () async {
+      final (acks, report, _) = await roundWith(
+        display: (id) async => id != 'm_2',
+      );
+      expect(acks, [('m_1', 'displayed'), ('m_2', 'delivered')]);
+      expect(report.displayed, 1);
+      expect(report.acked, 2, reason: '没显示不等于没收到：这条确实已经在本机表里了');
+    });
+
+    test('display 抛异常 ⇒ 按未显示处理，不把整轮带崩', () async {
+      final (acks, report, _) = await roundWith(
+        display: (id) async => throw StateError('渠道炸了'),
+      );
+      expect(acks.map((a) => a.$2).toSet(), {'delivered'});
+      expect(report.acked, 2);
+      expect(report.displayed, 0);
+    });
+
+    test('没接显示链路（null）⇒ 一律 delivered（这就是 T48 之前的形状）', () async {
+      final (acks, report, order) = await roundWith();
+      expect(acks.map((a) => a.$2).toSet(), {'delivered'});
+      expect(report.displayed, 0);
+      expect(
+        order.where((o) => o.startsWith('display:')),
+        isEmpty,
+        reason: '没有链路就不该假装调用过',
+      );
+    });
+
+    test('顺序：先落库再显示；落库失败的那条既不显示也不 ack', () async {
+      final (acks, _, order) = await roundWith(
+        display: (_) async => true,
+        failPersistFor: ['m_2'],
+      );
+      expect(order, ['persist:m_1', 'display:m_1', 'persist:m_2']);
+      expect(acks, [('m_1', 'displayed')], reason: 'm_2 没落到盘上，连显示都不许发生');
+    });
+  });
+
   group('账目可见但不泄露内容', () {
     test('summary 里有各档计数，却没有标题与正文', () async {
       final h = _Harness();

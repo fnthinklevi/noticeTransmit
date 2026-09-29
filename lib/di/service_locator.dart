@@ -9,6 +9,7 @@ import '../services/permission_service.dart';
 import '../services/filter_service.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_identity_service.dart';
+import '../services/fnthink_inbox_display.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_receiver_service.dart';
 import '../services/update_service.dart';
@@ -66,6 +67,11 @@ void setupLocator() {
       contracts: getIt<FnthinkContractLoader>(),
       signer: FnthinkKeystoreSigner(FnthinkIdentityService()),
       persist: DatabaseHelper().insertFnthinkInbox,
+      // 收件显示（通知栏）。这一行与上面那行是"能不能报 displayed"的两半：只接 persist，
+      // 消息会安全落到表里但永远不进通知栏，而 ack 一律报 delivered —— 服务端据此留着正文重发，
+      // 于是"能慢不能丢"做成了"能存不能见"。装配点的那条守卫在
+      // `test/architecture/fnthink_receive_wiring_test.dart`。
+      display: FnthinkInboxDisplay().show,
     ),
   );
 }

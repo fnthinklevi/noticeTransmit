@@ -21,6 +21,7 @@ class FnthinkLoopSpec {
     required this.addressCode,
     required this.signer,
     required this.persist,
+    this.display,
     this.client,
   });
 
@@ -29,6 +30,10 @@ class FnthinkLoopSpec {
   final String addressCode;
   final FnthinkIdentitySigner signer;
   final Future<bool> Function(FnthinkInboxMessage message) persist;
+
+  /// 把这条收件显示进通知栏；null = 这台设备还没有显示链路（循环会一律按 delivered 报）。
+  final Future<bool> Function(FnthinkInboxMessage message)? display;
+
   final http.Client? client;
 }
 
@@ -51,6 +56,7 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
     ack: (messageId, result) =>
         service.ack(messageId: messageId, result: result),
     persist: spec.persist,
+    display: spec.display,
   );
 }
 
@@ -75,6 +81,7 @@ class FnthinkReceiveCoordinator {
     required this.contracts,
     required this.signer,
     required this.persist,
+    this.display,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -88,6 +95,9 @@ class FnthinkReceiveCoordinator {
   final FnthinkContractLoader contracts;
   final FnthinkIdentitySigner signer;
   final Future<bool> Function(FnthinkInboxMessage) persist;
+
+  /// 收件显示（通知栏）。与 persist 一样是"能不能报 displayed"的唯一依据，见 [FnthinkReceiveLoop] 的 ⑤。
+  final Future<bool> Function(FnthinkInboxMessage)? display;
   final FnthinkSettings Function(FnthinkContract) _buildSettings;
   final FnthinkCredentialStore Function(FnthinkContract) _buildCredentials;
   final FnthinkLoopFactory _loopFactory;
@@ -139,6 +149,7 @@ class FnthinkReceiveCoordinator {
         addressCode: addressCode,
         signer: signer,
         persist: persist,
+        display: display,
       ),
     );
     _loop = loop;

@@ -1,13 +1,16 @@
 package com.fnthink.notice.channels
 
 import com.fnthink.notice.FnthinkIdentityStore
+import com.fnthink.notice.FnthinkInboxDisplay
 import com.fnthink.notice.MainActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.launch
 
 /**
- * 幻念推送身份域（T26 B 半）：把设备身份公钥与"给一段规范化字节签名"暴露给 Flutter。
+ * 幻念推送域（T26 B 半 + T48 前置）：设备身份公钥、规范化字节签名，以及"把一条收件显示成通知"。
+ *
+ * 三件事放在同一个 handler 里是因为它们同属"只有幻念推送会用"的那一族，而都只出**非敏感**的入参出参。
  *
  * ⚠ 这里**只出公钥与签名**：私钥既不进返回值，也不进日志与错误消息 —— 契约
  * `identity.identityKey.neverIn` 列的是 url/log/qrPayload/serverRequestBody，通道返回值
@@ -53,6 +56,22 @@ internal class FnthinkChannelHandler(activity: MainActivity) : ChannelHandler(ac
                         postError(result, "sign_failed", e.message ?: "签名失败")
                     }
                 }
+            }
+            "showFnthinkInbox" -> {
+                val messageId = call.argument<String>("messageId").orEmpty()
+                if (messageId.isBlank()) {
+                    // 没有 id 就没有可撤回/可标记的东西，直接回"没显示"而不是报错：
+                    // 调用方（收货循环）只需要一个布尔来决定 ack 的取值。
+                    result.success(false)
+                    return true
+                }
+                val spec = FnthinkInboxDisplay.specFor(
+                    messageId = messageId,
+                    sender = call.argument<String>("sender").orEmpty(),
+                    title = call.argument<String>("title").orEmpty(),
+                    body = call.argument<String>("body").orEmpty(),
+                )
+                result.success(FnthinkInboxDisplay.show(activity, spec))
             }
             else -> return false
         }
