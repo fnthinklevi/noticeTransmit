@@ -1553,5 +1553,15 @@
         "type": "int"
       }
     }
-  }
+  },
+  "fnthinkPairingAcked": "The server took this code — a peer can pair with it now",
+  "fnthinkPairingLocalOnly": "Only this device stored the code; the server has not taken it ({reason}). A peer pairing now will fail",
+  "@fnthinkPairingLocalOnly": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairingAckUnknown": "This device never asked the server — re-arm the code to confirm"
 }

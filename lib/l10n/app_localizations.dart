@@ -5929,6 +5929,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未读 {n} 条'**
   String fnthinkInboxUnread(int n);
+
+  /// No description provided for @fnthinkPairingAcked.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器已收到这枚口令，对端现在可以拿它来配'**
+  String get fnthinkPairingAcked;
+
+  /// No description provided for @fnthinkPairingLocalOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只有这台设备记下了它，服务器还没收到（{reason}）。对端现在扫这串会失败'**
+  String fnthinkPairingLocalOnly(String reason);
+
+  /// No description provided for @fnthinkPairingAckUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台没有问过服务器收没收到 —— 重新挂一枚才能确认'**
+  String get fnthinkPairingAckUnknown;
 }
 
 class _AppLocalizationsDelegate

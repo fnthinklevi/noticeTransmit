@@ -5,6 +5,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
@@ -70,13 +72,19 @@ void main() {
   final validAddress = FnthinkAddressCode.generate(contract).value;
   final validPairing = FnthinkPairingCode.generate(contract).value;
 
-  /// 一套装配：可控的签名能力 + 只记账不碰网络的循环 + 数得到"循环被建了几次"。
+  /// 一套装配：可控的签名能力 + 只记账不碰网络的循环 + 数得到"循环被建了几次"，
+  /// 外加**挂口令那一发的假服务器**（`armBody` / `armStatus`）—— 页面现在会真发那一发，
+  /// 不打个假服务器进去，测试就是在依赖"flutter test 把真实 HTTP 挡掉了"这件事。
   _Harness harness({
     bool canSign = true,
     List<String> messages = const [],
     int pending = 0,
     Future<void> Function()? gate,
     bool contractOk = true,
+    int armStatus = 200,
+    String armBody =
+        '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,'
+        '"serverTime":1800000000000}',
   }) {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
@@ -84,11 +92,22 @@ void main() {
         return File('protocol/fnthink-v1.json').readAsStringSync();
       },
     );
+    final armAsked = <http.Request>[];
     var builds = 0;
     final coordinator = FnthinkReceiveCoordinator(
       contracts: loader,
       signer: _StubSigner(canSign),
       persist: (_) async => true,
+      serviceFactory: (spec) => FnthinkReceiverService(
+        contract: spec.contract,
+        baseUri: spec.baseUri,
+        signer: spec.signer,
+        addressCode: spec.addressCode,
+        client: MockClient((req) async {
+          armAsked.add(req);
+          return http.Response(armBody, armStatus);
+        }),
+      ),
       loopFactory: (spec) {
         builds++;
         return FnthinkReceiveLoop(
@@ -130,6 +149,7 @@ void main() {
       ),
       coordinator: coordinator,
       builds: () => builds,
+      armAsked: () => armAsked,
     );
   }
 
@@ -338,6 +358,96 @@ void main() {
       expect(text, isNot(contains('0')));
     });
 
+    // ── 挂口令那一发：界面必须分得清"本机记下了"与"服务器收下了" ──
+    // 这三条各对一个"写歪了用户怎么被骗"：把两件事说成一件，对端扫码只会拿到"口令不存在"，
+    // 而这一台上写着"已挂出 5 分钟"；反过来把"不知道"演成"没挂上"会清空一串仍然有效的码。
+
+    testWidgets('服务器回了过期时间 ⇒ 明说"服务器已收到"，口令与倒计时同时在场', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await tester.tap(find.byKey(const ValueKey('fnthink-arm-pairing')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('fnthink-pairing-acked')),
+        findsOneWidget,
+        reason: l10n.fnthinkPairingAcked,
+      );
+      expect(find.byKey(const ValueKey('fnthink-pairing-age')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('fnthink-pairing-local-only')),
+        findsNothing,
+      );
+      expect(h.armAsked(), hasLength(1));
+      expect(
+        h.armAsked().single.url.path,
+        contract.apiPath('pairArm'),
+        reason: '那一发要打到契约声明的门上，而不是页面自己拼的某条路径',
+      );
+    });
+
+    testWidgets('服务器没确认 ⇒ 说"只有这台记下了"，且**不清空那串仍然有效的码**', (tester) async {
+      stubChannels();
+      final h = harness(armBody: '{"serverTime":1800000000000}');
+      await pump(tester, h.page);
+      await tester.tap(find.byKey(const ValueKey('fnthink-arm-pairing')));
+      await tester.pumpAndSettle();
+      final code = disk[FnthinkCredentialStore.pairingCodeKey]!;
+      expect(
+        find.text(code),
+        findsOneWidget,
+        reason: '它在本机确实还有效（倒计时也在走）；抹掉它是替服务器撒第二次谎',
+      );
+      expect(find.byKey(const ValueKey('fnthink-pairing-acked')), findsNothing);
+      final note = tester
+          .widget<Text>(
+            find.byKey(const ValueKey('fnthink-pairing-local-only')),
+          )
+          .data!;
+      expect(
+        note,
+        isNot(contains('signing-unavailable')),
+        reason: '这一条的原因是"服务器没给过期时间"，别套上身份问题的原话',
+      );
+      expect(note, isNotEmpty);
+    });
+
+    testWidgets('签不出来 ⇒ 一个字节都不发，但把原话贴在界面上', (tester) async {
+      stubChannels();
+      final h = harness(canSign: false);
+      await pump(tester, h.page);
+      await tester.tap(find.byKey(const ValueKey('fnthink-arm-pairing')));
+      await tester.pumpAndSettle();
+      expect(h.armAsked(), isEmpty);
+      final note = tester
+          .widget<Text>(
+            find.byKey(const ValueKey('fnthink-pairing-local-only')),
+          )
+          .data!;
+      expect(
+        note,
+        contains('signing-unavailable'),
+        reason: '身份问题被折叠成"出错了"，用户就会去检查一直好好的网络',
+      );
+    });
+
+    testWidgets('进页面读到本机存着一枚 ⇒ 说"没问过服务器"，且不替用户重发那一发', (tester) async {
+      stubChannels();
+      disk[FnthinkCredentialStore.pairingCodeKey] = validPairing;
+      final h = harness();
+      await pump(tester, h.page);
+      expect(
+        find.byKey(const ValueKey('fnthink-pairing-unknown')),
+        findsOneWidget,
+        reason: '这一台没发过那一发；显示成"已收到"或"没收到"都是在编',
+      );
+      expect(
+        h.armAsked(),
+        isEmpty,
+        reason: '加载时顺手重发 = 页面自己造了一次用户没要求的网络请求（还会把口令消耗掉）',
+      );
+    });
+
     testWidgets('重置地址码：取消 ⇒ 码一个字都不动', (tester) async {
       stubChannels();
       disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
@@ -445,9 +555,13 @@ class _Harness {
     required this.page,
     required this.coordinator,
     required this.builds,
+    required this.armAsked,
   });
 
   final FnthinkPushPage page;
   final FnthinkReceiveCoordinator coordinator;
   final int Function() builds;
+
+  /// 挂口令那一发真实发出去的请求（假服务器记下来的）。
+  final List<http.Request> Function() armAsked;
 }

@@ -3159,4 +3159,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkInboxUnread(int n) {
     return '未读 $n 条';
   }
+
+  @override
+  String get fnthinkPairingAcked => '服务器已收到这枚口令，对端现在可以拿它来配';
+
+  @override
+  String fnthinkPairingLocalOnly(String reason) {
+    return '只有这台设备记下了它，服务器还没收到（$reason）。对端现在扫这串会失败';
+  }
+
+  @override
+  String get fnthinkPairingAckUnknown => '这台没有问过服务器收没收到 —— 重新挂一枚才能确认';
 }

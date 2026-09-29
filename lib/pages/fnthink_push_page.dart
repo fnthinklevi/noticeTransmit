@@ -88,6 +88,17 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   String? _addressCode;
   FnthinkArmedPairingCode? _pairing;
 
+  /// 挂出口令那一发，服务器**有没有**收下。三态各有各的话，不许合并：
+  ///  - `true` 服务器回了过期时间 ⇒ 对端现在拿这串能配上；
+  ///  - `false` 本机写成了但那一发没成 ⇒ 必须当面说，否则界面就是在替一件没发生的事作保
+  ///    （对端扫码只会收到"口令不存在"，而这一台写着"已挂出 5 分钟"）；
+  ///  - `null` 只是进页面时读到本机存着一枚 ⇒ 这一台没发过那一发，**不知道**。
+  /// 剩余时间那一行说的是本机倒计时，所以三态下都可以显示 —— 但必须和这一行一起读。
+  bool? _pairingAcked;
+
+  /// `_pairingAcked == false` 时服务器/前置给的原话（与状态行同一条纪律：不折叠成"出错了"）。
+  String? _pairingPublishNote;
+
   /// 本机凭证存量与契约对不上。这是**要人来处理**的状态，不是可自愈的状态，
   /// 所以它留在页面上直到用户重置，而不是悄悄换一枚然后显示一片绿。
   String? _credentialError;
@@ -281,7 +292,24 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       _pairing = armed;
       _addressCode = code.value;
       _credentialError = null;
+      // 刚挂的那一发还没问过服务器：先按"不知道"显示，别沿用上一枚的确认状态。
+      _pairingAcked = null;
+      _pairingPublishNote = null;
       _busy = false;
+    });
+    // 本机写完了，还要服务器也认这枚口令 —— 那才是对端能不能配上唯一取决于的东西。
+    await _publishPairingCode(armed.code.value);
+  }
+
+  /// 把刚挂好的那枚口令发到服务器，并把结论**如实**落成三态之一。
+  /// 失败时不清空口令、不回弹：那串码在本机确实还有效（倒计时也在走），用户看到的
+  /// 应该是"只有这台知道它"，而不是"什么都没发生过"。
+  Future<void> _publishPairingCode(String pairingCode) async {
+    final result = await _coordinator.publishPairingCode(pairingCode);
+    if (!mounted) return;
+    setState(() {
+      _pairingAcked = result.ok;
+      _pairingPublishNote = result.ok ? null : (result.reason ?? 'no-answer');
     });
   }
 
@@ -290,7 +318,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     if (credentials == null) return;
     await credentials.clearPairingCode();
     if (!mounted) return;
-    setState(() => _pairing = null);
+    setState(() {
+      _pairing = null;
+      // 撤掉之后再进这一页，"服务器收没收"又回到"不知道"：留着上一次的确认会变成假信息。
+      _pairingAcked = null;
+      _pairingPublishNote = null;
+    });
   }
 
   Future<void> _editHost() async {
@@ -491,6 +524,23 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           _Note(
             keyName: 'fnthink-pairing-age',
             text: l10n.fnthinkPairingHeld(_heldSeconds(pairing)),
+          ),
+        // 「已挂出」那一句说的是本机的倒计时；这一句才回答"对端能不能拿它来配"。
+        // 三态分开写：没问过服务器与问过但没成，是两种完全不同的用户动作（等一等 vs 重来一次）。
+        if (pairing != null && _pairingAcked == true)
+          _Note(
+            keyName: 'fnthink-pairing-acked',
+            text: l10n.fnthinkPairingAcked,
+          ),
+        if (pairing != null && _pairingAcked == false)
+          _Note(
+            keyName: 'fnthink-pairing-local-only',
+            text: l10n.fnthinkPairingLocalOnly(_pairingPublishNote ?? ''),
+          ),
+        if (pairing != null && _pairingAcked == null)
+          _Note(
+            keyName: 'fnthink-pairing-unknown',
+            text: l10n.fnthinkPairingAckUnknown,
           ),
         if (pairing != null)
           Align(

@@ -3292,4 +3292,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkInboxUnread(int n) {
     return '$n unread';
   }
+
+  @override
+  String get fnthinkPairingAcked =>
+      'The server took this code — a peer can pair with it now';
+
+  @override
+  String fnthinkPairingLocalOnly(String reason) {
+    return 'Only this device stored the code; the server has not taken it ($reason). A peer pairing now will fail';
+  }
+
+  @override
+  String get fnthinkPairingAckUnknown =>
+      'This device never asked the server — re-arm the code to confirm';
 }
