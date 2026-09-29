@@ -3,6 +3,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/fnthink_inbox_message.dart';
+import '../models/fnthink_peer.dart';
 import 'fnthink_contract_loader.dart';
 import 'fnthink_credential_store.dart';
 import 'fnthink_receive_loop.dart';
@@ -12,6 +13,41 @@ import 'fnthink_settings.dart';
 /// 一次启动请求的结论。**reason 总是有值**：started 之外每一种都要能被界面原样说给用户 ——
 /// "为什么没在收货"是这类后台功能最常被问的一句，而答案是"不知道"就等于没做。
 typedef FnthinkStartResult = ({bool started, String reason});
+
+/// 服务器认了这条授权，但**本机名单那一行没写成**的三种原因。各对应一种用户动作，
+/// 所以不用一个 `bool` 折叠（"没写成"与"写成了但没落盘"在用户那里是完全不同的两句）。
+enum FnthinkPeerSkip {
+  /// 服务端回了 200 却没有可用的档位（缺 `grantedLevel`，或那个词不在契约的档位表里）。
+  /// 本机不知道该记哪一档 ⇒ 宁可不记。
+  grantedLevelUnusable,
+
+  /// 这台设备没装配落库链路（`recordPeer` 为 null）。表现是"服务器那边配好了，
+  /// 本机名单里没有"，而这一格将来是取消配对的入口。
+  storeUnavailable,
+
+  /// 写的时候抛了（表被锁、磁盘满）。服务端那边**已经**结了，所以这不是"配对失败"。
+  writeFailed,
+}
+
+/// 答复一条配对请求的**完整**结论：服务器那一头 + 本机名单这一行。
+///
+/// 分成两个字段是因为它们会各自失败：服务端收下并记到 L2、本机写名单时抛了 ⇒
+/// 用户要看到的是"配好了，但这一台的名单没更新"，而不是一个笼统的"失败"（后者会让人
+/// 再点一次同意，而第二次同意换回的是一句与"口令错"同形的 403）。
+class FnthinkPairAnswer {
+  const FnthinkPairAnswer({required this.result, this.wrote, this.skipped});
+
+  final FnthinkPairConfirmResult result;
+
+  /// 本机名单那一行的写法（`created` / `refreshed` / `keySwapped`）。null = 这一步没做。
+  final FnthinkPeerWrite? wrote;
+
+  /// 没做的原因（与 [wrote] 互斥）。
+  final FnthinkPeerSkip? skipped;
+
+  bool get ok => result.ok;
+  String? get reason => result.reason;
+}
 
 /// 装配一次收货循环需要的东西（也是生产构造函数的入参形状）。
 class FnthinkLoopSpec {
@@ -23,6 +59,7 @@ class FnthinkLoopSpec {
     required this.persist,
     this.display,
     this.recordAck,
+    this.onRound,
     this.client,
   });
 
@@ -42,6 +79,10 @@ class FnthinkLoopSpec {
     required int at,
   })?
   recordAck;
+
+  /// 每轮结束后的账（**只**用来把这一轮 poll 到的配对请求交给协调者，见 [FnthinkReceiveLoop.onRound]）。
+  /// 由协调者在 `_resolveSpec` 里填 `_noteRound`，所以这里带着它出去、`buildFnthinkReceiveLoop` 再把它接上。
+  final void Function(FnthinkLoopReport report)? onRound;
 
   final http.Client? client;
 }
@@ -77,6 +118,7 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
     persist: spec.persist,
     display: spec.display,
     recordAck: spec.recordAck,
+    onRound: spec.onRound,
   );
 }
 
@@ -103,6 +145,7 @@ class FnthinkReceiveCoordinator {
     required this.persist,
     this.display,
     this.recordAck,
+    this.recordPeer,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -129,12 +172,49 @@ class FnthinkReceiveCoordinator {
     required int at,
   })?
   recordAck;
+
+  /// 服务端**认了**一条授权之后，把这一条写进本机配对名单（`fnthink_peers`）。
+  /// null = 这台设备没装配落库链路 ⇒ 名单不写，而结论里会带着 [FnthinkPeerSkip.storeUnavailable]
+  /// 说破这件事（"服务器配好了、本机名单是空的"必须能被区分出来，否则下一片那个取消配对的
+  /// 入口会让人以为对面已经推不进来了）。
+  ///
+  /// ⚠ 这一行是 `fnthink_peers` 在**生产代码里的第一个写入者**（表与 `upsertFnthinkPeer` 早就有了，
+  /// 但没有作者时它只是一张空表）。装配点漏接的表现为"点了同意、名单里没有"，
+  /// 而全场测试仍然绿 —— 所以守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
+  final Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer;
+
   final FnthinkSettings Function(FnthinkContract) _buildSettings;
   final FnthinkCredentialStore Function(FnthinkContract) _buildCredentials;
   final FnthinkLoopFactory _loopFactory;
   final FnthinkServiceFactory _serviceFactory;
 
   FnthinkReceiveLoop? _loop;
+
+  /// 最近一轮 poll 看到的、**还在等本机答复**的配对请求。
+  ///
+  /// 只在真跑成的那一轮更新（[FnthinkLoopReport.pairRequests]）：失败的取货不产生判断，
+  /// 把它当成"清空"会在一次网络抖动之后藏掉一条真在等的请求，而用户分不出它是被撤了、
+  /// 过期了、还是这一台根本没看见。
+  ///
+  /// 为什么是 `ValueNotifier` 而不是一个普通字段：用户挂出口令之后是**盯着屏幕等对面来配**的，
+  /// 后台每 20s 一轮的账要能自己上界面。留成字段的话页面就得自己定个定时器去翻它 ——
+  /// 那份"什么时候该看"的口径就长到界面里去了（而它一漏，表现是列表看着看着不再更新）。
+  final ValueNotifier<List<FnthinkPairRequest>> _pairRequests =
+      ValueNotifier<List<FnthinkPairRequest>>(const []);
+
+  /// 待确认列表的数据源（页面 `ListenableBuilder` 挂它，不自己 poll、也不自己数）。
+  Listenable get pairRequestsListenable => _pairRequests;
+
+  /// 页面上那张待确认列表的数据源（不在这里判断过期：过期由服务端裁，下一轮 poll 就不带回来了）。
+  List<FnthinkPairRequest> get pendingPairRequests => _pairRequests.value;
+
+  /// 一轮的账 → 本机状态。**唯一的一处实现**：后台循环走 `onRound`，页面上"立即收取"那一下
+  /// 走 [receiveOnce]（它调的是 `runOnce`，不经过 `_tick`，所以不会自己响）。两条路共用这一个
+  /// 函数，是因为"待确认列表什么时候变"这件事只能有一个口径。
+  void _noteRound(FnthinkLoopReport report) {
+    if (report.status != FnthinkPollStatus.ok) return;
+    _pairRequests.value = List.unmodifiable(report.pairRequests);
+  }
 
   bool get isRunning => _loop?.isRunning ?? false;
 
@@ -207,6 +287,9 @@ class FnthinkReceiveCoordinator {
         persist: persist,
         display: display,
         recordAck: recordAck,
+        // 后台那几轮也要有人记账：只有页面"立即收取"那一条接了 `_noteRound`，
+        // 待确认列表就会变成"点了按钮才有人来"，而开关开着时它本来就是自动在收的。
+        onRound: _noteRound,
       ),
       reason: null,
     );
@@ -243,24 +326,48 @@ class FnthinkReceiveCoordinator {
     }
   }
 
-  /// 答复一条配对请求（页面上"同意 / 拒绝"那两下）。
+  /// 答复一条配对请求（页面上"同意 / 拒绝"那两下），并把结果落到本机名单。
   ///
-  /// 两个答复词都**从契约取**（`pairConfirm.decisions` / `approveDecision`），页面只交一个 bool：
-  /// 让 UI 传字符串，等于把"同意"这个词抄进界面 —— 契约改词之后设备会签出一个服务端不认识的答复，
-  /// 而两边都只看得见一句同形的 403。名单里若冒出第三个词，这里直接抛，而不是猜哪个算"拒绝"。
+  /// 三个决定都在这里做，**都不交给页面**，理由是同一条：让 UI 传字符串等于把协议词表抄进界面。
+  ///  - **答复词**从契约取（`pairConfirm.decisions` / `approveDecision`）。名单里若冒出第三个词，
+  ///    这里直接抛，而不是猜哪个算"拒绝"。
+  ///  - **档位**也从契约取：`grantableLevel(对方要的那一档)` —— 高于封顶（今日 L2）就压到封顶，
+  ///    因为 L3 要锁屏/生物认证，而这一发来自远程、服务端看不见屏幕前的人。发一个必被拒的档位
+  ///    只换回一句与"口令错"同形的 403；压完由界面把两个值都说出来（显示的是服务端回的
+  ///    `grantedLevel`，不是用户点的那一档）。对方报的档位不在词表里 ⇒ 同意**不发**（那等于给一个
+  ///    没人请求过的档位）；拒绝照发封顶那一档 —— 拒绝不写任何授权，服务端只是要求这个键存在，
+  ///    而一条消不掉的畸形请求会一直挂在待确认栏里。
+  ///  - **本机名单那一行**只在"同意 + 服务端认了 + 服务端说了记到哪一档"之后才写。
   ///
   /// 与挂口令同样：**不要求总开关开着**（配对是接收的前置，不是它的后果）。
-  Future<FnthinkPairConfirmResult> confirmPairing({
+  ///
+  /// 这一片被砸过什么（报告在本地 `outputs/_pairui_falsify.report.txt`，按约定不入库；
+  /// P1–P14 全 named + restored）：
+  ///  - 封顶不压（`grantableLevel` 原样把 L3 发出去）⇒ 红在「对方要 L3 ⇒ 发出去的是封顶那一档」；
+  ///  - 词表外的档位被当成可用 ⇒ 红在「对方报的档位不在词表里」（包内那条红在「词表里没有的档位」）；
+  ///  - 名单记成"本机发出去的那一档"⇒ 红在「名单里那一行记的是服务端回的档位」；
+  ///  - 失败轮也清空列表 ⇒ 红在「失败的那一轮不清空待确认列表」；
+  ///  - `receiveOnce` 里那句记账摘掉 ⇒ 红在「循环已在跑时，手动那一轮带回来的请求也会上账」。
+  ///    ⚠ 这条**第一版是假绿**：用例没起循环就点手动收取，走的其实是 `start` 那条会响
+  ///    `onRound` 的路，摘掉那句照样全绿 —— 是反证抓出来的，不是读代码读出来的；
+  ///  - `onRound: _noteRound` 摘掉 ⇒ 红在「后台那一轮看到的请求会被接住」；
+  ///  - `if (!result.ok)` 摘掉 ⇒ 红在「答复没成 ⇒ 那一条还留着」。⚠ 它**证不到"不写名单"**那一半：
+  ///    未成的那一发本来就没有可用档位，下面的 `grantedLevel` 检查会先拦 —— 两道闸各管一道，
+  ///    所以两条用例各自点名，别把它们合成一条"失败时什么都不做"；
+  ///  - DI 漏接 `recordPeer` ⇒ 只有装配守卫「三条副作用都在」红，其余 30 多条全绿
+  ///    （"漏接时没人喊"那一族，与 `display`/`recordAck` 同形）。
+  Future<FnthinkPairAnswer> confirmPairing({
     required FnthinkPairRequest request,
     required bool approve,
-    required String level,
   }) async {
     final resolved = await _resolveSpec(requireEnabled: false);
     if (resolved.reason != null) {
-      return FnthinkPairConfirmResult(
-        status: FnthinkPollStatus.failed,
-        reason: resolved.reason,
-        signedWhileUncalibrated: false,
+      return FnthinkPairAnswer(
+        result: FnthinkPairConfirmResult(
+          status: FnthinkPollStatus.failed,
+          reason: resolved.reason,
+          signedWhileUncalibrated: false,
+        ),
       );
     }
     final spec = resolved.spec!;
@@ -276,17 +383,78 @@ class FnthinkReceiveCoordinator {
         '哪个算"拒绝"必须由契约明说',
       );
     }
+    final ceiling = contract.pairConfirmLevelCeiling;
+    final wanted = contract.grantableLevel(request.level);
+    if (approve && wanted == null) {
+      return FnthinkPairAnswer(
+        result: FnthinkPairConfirmResult(
+          status: FnthinkPollStatus.failed,
+          reason: 'unknown-level:${request.level}',
+          signedWhileUncalibrated: false,
+        ),
+      );
+    }
     final service = _serviceFactory(spec);
+    final FnthinkPairConfirmResult result;
     try {
-      return await service.pairConfirm(
+      result = await service.pairConfirm(
         requestId: request.requestId,
         decision: approve ? approved : others.single,
-        level: level,
+        level: wanted ?? ceiling,
         // 全协议唯一一发 target 不是自己：授权给谁，就写给谁。
         counterpart: request.requester,
       );
     } finally {
       service.dispose();
+    }
+    if (!result.ok) {
+      // 没结成 ⇒ 本机一份都不动，列表里那条还留着（可以再答一次，或等它过期）。
+      return FnthinkPairAnswer(result: result);
+    }
+    // 服务端 `consumesRequest`：一条请求只会被答复一次。它已经结掉，这一台就把它从待确认
+    // 列表里摘掉 —— 留着那一行等于邀请用户点第二下，而第二下换回的是同形的那句 403。
+    _pairRequests.value = [
+      for (final r in _pairRequests.value)
+        if (r.requestId != request.requestId) r,
+    ];
+    if (!approve) return FnthinkPairAnswer(result: result);
+
+    // 写进名单的那一档**必须是服务端回的那一档**，不是本机发出去的那一档：两端哪天对封顶的
+    // 理解漂了，本机这份要跟着服务端走，否则名单显示 L2 而对面实际被限在 L1。
+    final granted = result.grantedLevel;
+    if (granted == null || !contract.capabilityLevels.contains(granted)) {
+      return FnthinkPairAnswer(
+        result: result,
+        skipped: FnthinkPeerSkip.grantedLevelUnusable,
+      );
+    }
+    final write = recordPeer;
+    if (write == null) {
+      return FnthinkPairAnswer(
+        result: result,
+        skipped: FnthinkPeerSkip.storeUnavailable,
+      );
+    }
+    try {
+      final wrote = await write(
+        FnthinkPeer(
+          peerAddress: request.requester,
+          publicKey: request.requesterPublicKey,
+          level: granted,
+          // 本机看到的时刻（服务端另有一份 grantedAt，不回给设备）。名单按它排序，
+          // 而"什么时候在这台设备上同意的"本来就以这一台为准。
+          grantedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
+          requestId: request.requestId,
+        ),
+      );
+      return FnthinkPairAnswer(result: result, wrote: wrote);
+    } catch (e) {
+      // 服务端那边已经结了，这不是"配对失败"：报成失败会让人再点一次同意，而那一下会被拒。
+      debugPrint('[fnthink] 配对名单落库失败（服务端已认，本机没记）: ${request.requester} $e');
+      return FnthinkPairAnswer(
+        result: result,
+        skipped: FnthinkPeerSkip.writeFailed,
+      );
     }
   }
 
@@ -308,6 +476,11 @@ class FnthinkReceiveCoordinator {
         return null;
       }
     }
-    return await loop.runOnce();
+    final report = await loop.runOnce();
+    // 手动那一轮不经过 `_tick`，所以 `onRound` 不会响 —— 这里补上同一个口径。
+    // 少这一行时的表现很具体：开关开着、后台一直在收，而"有人请求配对"那一栏要等下一次
+    // 定时器才更新，用户点了"立即收取"却看见空栏。
+    _noteRound(report);
+    return report;
   }
 }

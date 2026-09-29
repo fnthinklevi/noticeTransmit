@@ -76,6 +76,11 @@ void setupLocator() {
       // 回执那一列的作者。缺它 ⇒ `ack_result`/`acked_at` 永远空着，而 T48 的收件详情
       // 一旦显示这一列就是在猜（任务 #155 那条"只有漏接才现形"的形状）。
       recordAck: DatabaseHelper().recordFnthinkInboxAck,
+      // 本机配对名单的作者。T42 第五片之前这张表**一个生产写入者都没有**（表与 upsert 在
+      // 前置那片就落好了，但没人调用），缺这一行的后果是：同意之后服务端那边配通了，
+      // 而这一台的名单是空的 —— 下一片那个"取消配对"的入口就没有东西可取消。
+      // 这条漏接全场测试仍然绿，守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
+      recordPeer: DatabaseHelper().upsertFnthinkPeer,
     ),
   );
   // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。

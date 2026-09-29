@@ -79,6 +79,9 @@ class FnthinkReceiveLoop {
   final Timer Function(Duration delay, void Function() callback) schedule;
 
   /// 每轮结束后的一句账（页面/日志读它；**不含任何标题与正文**）。
+  ///
+  /// 它也是"有人请求配对你"那一栏的唯一进水口：后台那几轮不经过任何调用方，
+  /// 不接这一行，待确认列表就只在"手动收取"那一下才更新。
   final void Function(FnthinkLoopReport report)? onRound;
 
   Timer? _timer;
@@ -208,6 +211,9 @@ class FnthinkReceiveLoop {
       ackFailed: ackFailed,
       ackSkipped: ackSkipped,
       pending: outcome.pending,
+      // 配对请求也要过这一层：循环是"服务端有什么要本机答复"的唯一读者。留在这里没人接，
+      // 页面就只能自己去 poll 一次（那是第二个读法，也是第一条会让未读数与列表打架的路）。
+      pairRequests: outcome.pairRequests,
       nextDelay: nextDelay,
       signedWhileUncalibrated: outcome.signedWhileUncalibrated,
     );
@@ -289,6 +295,7 @@ class FnthinkLoopReport {
     this.ackFailed = 0,
     this.ackSkipped = 0,
     this.pending = 0,
+    this.pairRequests = const [],
     this.nextDelay = Duration.zero,
     this.reason,
     this.signedWhileUncalibrated = false,
@@ -321,6 +328,13 @@ class FnthinkLoopReport {
   /// 服务端报的"还排着几条"（内核用它判提频）
   final int pending;
 
+  /// 这一轮 poll 带回来、**等本机答复**的配对请求（T42 的待确认列表就来自这里）。
+  ///
+  /// ⚠ 只有 `status == ok` 时"空列表"才等于"现在没有人请求配对"。失败的取货**不产生判断**：
+  /// 把失败轮也算成"清空"，界面就会在一次网络抖动之后把一条真在等的请求藏起来，
+  /// 而用户看不出它是被撤了、过期了、还是根本没看见。
+  final List<FnthinkPairRequest> pairRequests;
+
   final Duration nextDelay;
   final String? reason;
 
@@ -333,6 +347,7 @@ class FnthinkLoopReport {
   String get summary =>
       '取 $taken · 新 $inserted · 重发 $duplicate · 落库失败 $persistedFailed · '
       '显示 $displayed · '
-      'ack $acked/${ackFailed}_skip$ackSkipped · 待取 $pending · '
+      'ack $acked/${ackFailed}_skip$ackSkipped · 待取 $pending'
+      '${pairRequests.isEmpty ? '' : ' · 待配对 ${pairRequests.length}'} · '
       '下轮 ${nextDelay.inSeconds}s${reason == null ? '' : ' · $reason'}';
 }

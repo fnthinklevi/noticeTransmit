@@ -5,6 +5,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/fnthink_peer.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_identity_service.dart';
@@ -44,8 +45,10 @@ class FnthinkPushDeps {
 /// 第一次显示给人看：在此之前它们只在日志与测试里出现过。
 ///
 /// ⚠ 页面上刻意没有的东西，都不是忘了：
-///  - **配对名单**：poll 的回信里没有对端名字，而"添加设备"那一步（pairArm/pairConfirm 的客户端半）
-///    还没接 —— 先放一张永远空的列表等于让界面猜。
+///  - **"已配对名单"那一格**：待确认的请求这一页现在摆出来了（T42 第五片），但"我给过谁哪一档"
+///    还没画 —— poll 的回信里没有对端名字，`fnthink_peers` 也故意没有那一列（见 `FnthinkPeer`
+///    的注释：等有出处了再加列）。一张只有 18 位地址码的列表能画，但"取消配对"那个入口
+///    要先把服务端的 grantsBy 也撤了才成立（那是 T31 的吊销，还没接）。
 ///  - **大陆那台预设地址**：`transport.endpoints.mainland` 今天**已部署**（#137 走"先把它部署起来"收口，
 ///    两个域名的能力等价有外网实测），但这一页仍然不给那一档 —— 缺的已经不是地址，而是
 ///    **"什么时候该建议切"的判据**：契约的 `suggestSwitchOnMainlandNetwork` 要靠网络测量，
@@ -103,6 +106,18 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 所以它留在页面上直到用户重置，而不是悄悄换一枚然后显示一片绿。
   String? _credentialError;
 
+  /// 契约那一页读到的那一份（读不到时整页已经只显示错误了，所以这里可空）。
+  /// 待确认列表要拿它算"这一发实际会给到哪一档"——**算法在契约层**（`grantableLevel`），
+  /// 页面只是把结果念出来；页面自己写一份 min(L?) 的话，封顶换档时界面还在说旧的。
+  FnthinkContract? _contract;
+
+  /// 最近一次答复的结论（null = 这一页还没答过）。留着它而不是弹个 toast 就消失：
+  /// "服务端认了但本机名单没写"那一态必须经得起用户回去再看一眼。
+  ///
+  /// 待确认列表本身**不在页面里存一份**：它挂在协调者的 `pairRequestsListenable` 上（见下）。
+  ({FnthinkPairRequest request, bool approve, FnthinkPairAnswer answer})?
+  _pairAnswer;
+
   FnthinkDeviceIdentity? _identity;
   bool _identityUnavailable = false;
 
@@ -152,6 +167,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     setState(() {
       _settings = settings;
       _credentials = credentials;
+      _contract = contract;
       _host = host;
       _addressCode = addressCode;
       _pairing = pairing;
@@ -319,6 +335,154 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     });
   }
 
+  /// 答复一条待确认的配对请求。**同意那一下一定过二次确认** —— 契约把这一步定为
+  /// `confirmRequired=true / autoApprove=false`，它存在的意义就是有人看过并点过一次。
+  ///
+  /// 页面交给协调者的**只有一个布尔**：答复词与档位都由协调者从契约取。弹层上写的那一档是
+  /// 契约算出来的（`grantableLevel`），不是对方请求的那一档 —— 让用户在他以为的档位上按下同意，
+  /// 而实际授出去的是另一档，那一下点得就没有意义。
+  ///
+  /// ⚠ 参数写成位置式是给 T06 那条守卫留一个不带 `{` 的签名锚点：`blockAfter` 会停在
+  ///    命名参数表那个花括号上，取到的是参数表而不是函数体（这条在收件守卫上砸过一次）。
+  Future<void> _answer(FnthinkPairRequest request, bool approve) async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final willGrant = _contract?.grantableLevel(request.level) ?? request.level;
+    if (approve) {
+      final ok = await IosDialogActions.askConfirm(
+        context,
+        title: l10n.fnthinkPairAskTitle,
+        message: l10n.fnthinkPairAskMsg(request.requester, willGrant),
+        // 确认键不复用列表里那句"同意"：弹层内外两句一模一样，用户分不清自己点的是哪一个，
+        // 而 `find.text` 会一次抓到两个。
+        confirmText: l10n.confirm,
+      );
+      if (!ok || !mounted) return;
+    }
+    setState(() => _busy = true);
+    final answer = await _coordinator.confirmPairing(
+      request: request,
+      approve: approve,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _pairAnswer = (request: request, approve: approve, answer: answer);
+    });
+  }
+
+  /// 最近一次答复的结论。⚠ 档位那一格用的是**服务端回的** `grantedLevel`，不是用户点的那一档：
+  /// 封顶（`pairConfirm.levelCeilingFrom`）在服务端那侧也判一次，本机以为给到了而对面记低了
+  /// 是完全可能的，而名单以后就是按这一列显示"我给过谁哪一档"的。
+  String _pairAnswerText(
+    AppLocalizations l10n,
+    ({FnthinkPairRequest request, bool approve, FnthinkPairAnswer answer})
+    entry,
+  ) {
+    final answer = entry.answer;
+    if (!answer.ok) return l10n.fnthinkPairFailed(answer.reason ?? 'no-answer');
+    final peer = entry.request.requester;
+    if (!entry.approve) return l10n.fnthinkPairDenied(peer);
+    final skipped = answer.skipped;
+    if (skipped == FnthinkPeerSkip.grantedLevelUnusable) {
+      return l10n.fnthinkPairNoGrantedLevel;
+    }
+    if (skipped == FnthinkPeerSkip.storeUnavailable) {
+      return l10n.fnthinkPeerStoreUnavailable;
+    }
+    if (skipped == FnthinkPeerSkip.writeFailed) {
+      return l10n.fnthinkPeerWriteFailed;
+    }
+    if (answer.wrote == FnthinkPeerWrite.keySwapped) {
+      return l10n.fnthinkPairKeySwapped(peer);
+    }
+    final granted = answer.result.grantedLevel;
+    if (granted == null) return l10n.fnthinkPairNoGrantedLevel;
+    return l10n.fnthinkPairApproved(peer, granted);
+  }
+
+  /// 待确认的配对请求那一格。
+  ///
+  /// 列表**跟着协调者那份账走**（`pairRequestsListenable`）：用户挂出口令之后是盯着屏幕等对面来配的，
+  /// 后台每轮带回来的东西要自己上界面。页面不重新 poll（那会长出第二个"这一轮有没有货"的读法），
+  /// 也不自己定定时器去翻（那种"什么时候该看"的口径一漏，表现就是列表看着看着不再更新）。
+  /// 空列表**不画这一格** —— 一张永远空的表等于让界面猜；但答过一条之后要留着：那一条已经
+  /// 从列表里摘掉了，如果连结论一起消失，用户回头就看不出自己刚才到底是同意还是被拒了。
+  Widget _buildPairRequests(AppLocalizations l10n) {
+    return ListenableBuilder(
+      listenable: _coordinator.pairRequestsListenable,
+      builder: (context, _) {
+        final requests = _coordinator.pendingPairRequests;
+        final answer = _pairAnswer;
+        if (requests.isEmpty && answer == null) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: _Card(
+            title: l10n.fnthinkPairRequests,
+            children: [
+              for (final request in requests)
+                ..._pairRequestRows(l10n, request),
+              if (answer != null)
+                _Note(
+                  keyName: 'fnthink-pair-answer',
+                  text: _pairAnswerText(l10n, answer),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _pairRequestRows(
+    AppLocalizations l10n,
+    FnthinkPairRequest request,
+  ) {
+    // 这一档是不是本机够得着的：`grantableLevel` 回 null 就是词表里没有那个词。
+    // 词表里没有 ⇒ **同意不许点**（协调者那一发也不会发出去，但把按钮灰掉比让用户点下去
+    // 再读一句 `unknown-level:xxx` 诚实），拒绝仍然可以 —— 划掉一条看不懂的请求不需要档位。
+    final grantable = _contract?.grantableLevel(request.level);
+    final capped = grantable != null && grantable != request.level;
+    return [
+      _Note(
+        keyName: 'fnthink-pair-request-${request.requestId}',
+        text: l10n.fnthinkPairRequestLine(request.requester, request.level),
+      ),
+      if (capped)
+        _Note(
+          keyName: 'fnthink-pair-will-grant-${request.requestId}',
+          text: l10n.fnthinkPairWillGrant(grantable),
+        ),
+      if (grantable == null)
+        _Note(
+          keyName: 'fnthink-pair-unknown-level-${request.requestId}',
+          text: l10n.fnthinkPairUnknownLevel(request.level),
+        ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              key: ValueKey('fnthink-pair-approve-${request.requestId}'),
+              onPressed: grantable == null || _busy
+                  ? null
+                  : () => _answer(request, true),
+              child: Text(l10n.fnthinkPairApprove),
+            ),
+            TextButton(
+              key: ValueKey('fnthink-pair-deny-${request.requestId}'),
+              onPressed: _busy ? null : () => _answer(request, false),
+              child: Text(l10n.fnthinkPairDeny),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
   Future<void> _clearPairingCode() async {
     final credentials = _credentials;
     if (credentials == null) return;
@@ -400,6 +564,8 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             _buildReceiveCard(l10n),
             const SizedBox(height: 12),
             _buildIdentityCard(l10n),
+            // 待确认的配对请求（画不画由它自己按协调者那份账判，见 `_buildPairRequests`）。
+            _buildPairRequests(l10n),
             const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 12),

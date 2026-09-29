@@ -1563,5 +1563,85 @@
       }
     }
   },
-  "fnthinkPairingAckUnknown": "This device never asked the server — re-arm the code to confirm"
+  "fnthinkPairingAckUnknown": "This device never asked the server — re-arm the code to confirm",
+  "fnthinkPairRequests": "Pairing requests waiting for you",
+  "fnthinkPairRequestLine": "{peer} asks to pair with you, requesting {level}",
+  "@fnthinkPairRequestLine": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairWillGrant": "This device can only grant {level}: anything higher must be confirmed locally on it",
+  "@fnthinkPairWillGrant": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairUnknownLevel": "The level \"{level}\" is not in the table this device knows ⇒ approving is not possible, only denying",
+  "@fnthinkPairUnknownLevel": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairApprove": "Approve",
+  "fnthinkPairDeny": "Deny",
+  "fnthinkPairAskTitle": "Approve this pairing?",
+  "fnthinkPairAskMsg": "Adds {peer} to this device's list and grants {level}. Once approved it can push notifications to this device.",
+  "@fnthinkPairAskMsg": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairApproved": "Approved {peer}; the server recorded it at {level}",
+  "@fnthinkPairApproved": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairDenied": "Denied {peer}",
+  "@fnthinkPairDenied": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairKeySwapped": "{peer} presented a different public key for the same address code; nothing was changed — either it rebuilt its identity or someone is spoofing that code",
+  "@fnthinkPairKeySwapped": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairFailed": "Not approved: {reason}",
+  "@fnthinkPairFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairNoGrantedLevel": "The server accepted this one but did not say which level it recorded ⇒ nothing written to the local list",
+  "fnthinkPeerStoreUnavailable": "The server accepted this one but no peer store is wired on this device ⇒ nothing written to the local list",
+  "fnthinkPeerWriteFailed": "The server accepted this one but writing the local list failed ⇒ nothing written"
 }

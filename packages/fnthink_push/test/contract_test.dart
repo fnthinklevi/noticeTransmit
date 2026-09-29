@@ -123,6 +123,58 @@ void main() {
     });
   });
 
+  group('答复配对请求时能答应到哪一档（T42 第五片）', () {
+    test('封顶是从契约那条**路径**读出来的，不是代码里写死的一档', () {
+      expect(c.pairConfirmLevelCeiling, 'L2');
+      expect(
+        c.pairConfirmLevelCeiling,
+        c.str(const ['pairing', 'maxRequestableLevelWithoutLocalAuth']),
+        reason:
+            '服务端 authorizePairConfirm 读的是同一条路径：两端共用一个旋钮。'
+            '这里写死 L2 的话，改契约不会报错，只会变成"本机发得出去、服务端整条拒"',
+      );
+      expect(c.capabilityLevels, contains(c.pairConfirmLevelCeiling));
+    });
+
+    test('请求不高于封顶 ⇒ 原样答应；高于封顶 ⇒ 压到封顶', () {
+      expect(c.grantableLevel('L1'), 'L1');
+      expect(c.grantableLevel('L2'), 'L2');
+      expect(
+        c.grantableLevel('L3'),
+        'L2',
+        reason:
+            'L3 要在这台设备上本地确认（锁屏/生物认证），远程这一发给不出去；'
+            '原样发过去只换回一句与"口令错"同形的 403',
+      );
+    });
+
+    test('词表里没有的档位 ⇒ null（调用方据此**不发**，而不是猜一个）', () {
+      expect(c.grantableLevel('L9'), isNull);
+      expect(c.grantableLevel(''), isNull);
+      expect(c.grantableLevel('l1'), isNull, reason: '档位词是大小写敏感的，不是"差不多就行"');
+    });
+
+    test('契约没写那条路径 ⇒ 抛，不补一个默认档位', () {
+      final copy = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+      ((copy['clientEvents']! as Map)['pairConfirm']! as Map).remove(
+        'levelCeilingFrom',
+      );
+      final broken = FnthinkContract(copy);
+      expect(
+        () => broken.grantableLevel('L1'),
+        throwsStateError,
+        reason: '补一个默认档位 = 在代码里发明一种授权',
+      );
+    });
+
+    test('路径取到的不是档位 ⇒ 抛（那道闸在读一个不存在的值）', () {
+      final copy = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+      (copy['pairing']! as Map)['maxRequestableLevelWithoutLocalAuth'] = 'L9';
+      final broken = FnthinkContract(copy);
+      expect(() => broken.pairConfirmLevelCeiling, throwsStateError);
+    });
+  });
+
   test('契约表自洽（validate 必须为空；不空就把全部问题打出来）', () {
     expect(c.validate(), isEmpty);
   });

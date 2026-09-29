@@ -31,7 +31,7 @@ void main() {
   tearDown(() => getIt.reset());
 
   group('装配点', () {
-    test('DI 起来的 coordinator 两条副作用都在（display 被漏掉时全场仍绿，所以只能靠这条）', () {
+    test('DI 起来的 coordinator 三条副作用都在（recordPeer 被漏掉时全场仍绿，所以只能靠这条）', () {
       setupLocator();
       final c = getIt<FnthinkReceiveCoordinator>();
       expect(c.persist, isNotNull);
@@ -46,6 +46,14 @@ void main() {
         reason:
             'DI 漏接这一行时全场测试仍然绿，而 `ack_result`/`acked_at` 永远空着 —— '
             '收件详情那一带"回执状态"的界面就会开始显示猜出来的东西',
+      );
+      expect(
+        c.recordPeer,
+        isNotNull,
+        reason:
+            '`fnthink_peers` 在生产代码里**只有这一个作者**。漏接时同意照样成功、'
+            '服务端照样投得进来，而本机名单一直是空的 —— 下一片那个"取消配对"的入口'
+            '就没有东西可取消，而这时候已经查不出是从哪一片开始空的',
       );
     });
 
@@ -214,6 +222,115 @@ void main() {
         reason: 'coordinator 里又多了一处直接构造服务：请经 buildFnthinkReceiveService 拿',
       );
       expect(src, contains('buildFnthinkReceiveService(spec)'));
+    });
+  });
+
+  group('配对答复与待确认列表只有一个作者（T42 第五片）', () {
+    // 这一组钉的全是"漏接时全场仍绿"那一类：判据住在服务层，接它的人漏了一行，
+    // 现象要等下一片（那一格界面）才看得见，而那时已经查不出是从哪一片开始断的。
+    test('spec 里的 onRound 会传到循环上（后台那几轮的账不是只存在 spec 里）', () {
+      final loop = buildFnthinkReceiveLoop(
+        FnthinkLoopSpec(
+          contract: contract,
+          baseUri: Uri.https('push.example', ''),
+          addressCode: 'AAAABBBBCCCCDDDDEEEE',
+          signer: _StubSigner(),
+          persist: (_) async => true,
+          onRound: (_) {},
+        ),
+      );
+      expect(
+        loop.onRound,
+        isNotNull,
+        reason:
+            '"有人请求配对你"的进水口就在 onRound 上。这里不接，页面就只能自己 poll 一次'
+            '（第二个读法）或者只在按钮点下去时才更新 —— 而用户是盯着屏幕等对面来配的',
+      );
+    });
+
+    test('待确认列表只有一个更新处，而它同时接住了后台轮次与手动那一轮', () {
+      final src = read('lib/services/fnthink_receive_coordinator.dart');
+      // 两个时刻都得接住：后台循环走 `onRound`，页面上"立即收取"那一下走 `runOnce`
+      // （不经过 `_tick`，所以 onRound 不会响）。只接一个时的现象各不相同，
+      // 但都是"某一轮带回来的请求看不见"。
+      expect(
+        src,
+        contains('onRound: _noteRound'),
+        reason:
+            '后台那几轮的账不再进协调者 ⇒ 待确认栏只在点按钮时才动，'
+            '而开关开着时它本来就是自动在收的',
+      );
+      expect(
+        src,
+        contains('_noteRound(report)'),
+        reason: '手动那一轮不再记账 ⇒ 用户按了"立即收取"，那一栏还是旧的',
+      );
+      // 替身循环也得接：测试里那张假循环不接 `spec.onRound` 时，"这一格自己出现"那条
+      // 会红在装配上而不是红在产品代码上 —— 但那正是它该有的行为，所以这里也钉一次。
+      final pageTest = read('test/widgets/fnthink_push_page_test.dart');
+      expect(
+        pageTest,
+        contains('onRound: spec.onRound'),
+        reason: '页面测试里的假循环不再把账交给协调者 ⇒ 那条用例从此只能靠运气绿',
+      );
+    });
+
+    test('配对名单在生产代码里只有一个作者，而那一处就是 DI', () {
+      var calls = 0;
+      for (final entity in Directory('$root/lib').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        calls +=
+            stripComments(
+              entity.readAsStringSync(),
+            ).split('.upsertFnthinkPeer').length -
+            1;
+      }
+      expect(
+        calls,
+        1,
+        reason:
+            '`fnthink_peers` 多了一个调用点 ⇒ "我同意过谁"开始有两本账，'
+            '而同码不同钥不许覆盖那条判据只会有一处写着',
+      );
+      expect(
+        read('lib/di/service_locator.dart'),
+        contains('.upsertFnthinkPeer'),
+        reason: '名单的作者搬走了？那要么接进 DI，要么把这条一起搬走，别删',
+      );
+    });
+
+    test('页面不自己取货、不自己开表，也不把答复词与档位抄成字面量', () {
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      expect(
+        page,
+        contains('pairRequestsListenable'),
+        reason: '页面不再从协调者那份账读了：本条守卫已经在空跑',
+      );
+      expect(
+        page,
+        contains('grantableLevel'),
+        reason: '"这一发实际给到哪一档"的算法在契约层，页面只是把它念出来',
+      );
+      for (final direct in [
+        'pollOnce',
+        'DatabaseHelper',
+        'FnthinkReceiverService(',
+      ]) {
+        expect(
+          page,
+          isNot(contains(direct)),
+          reason: '页面里出现了 $direct：取货口径或名单的写法开始有第二份',
+        );
+      }
+      for (final word in ["'approved'", "'denied'", "'L1'", "'L2'", "'L3'"]) {
+        expect(
+          page,
+          isNot(contains(word)),
+          reason: '$word 被抄进界面：契约换词或换封顶之后，这一台会签出一个服务端不认识的答复',
+        );
+      }
     });
   });
 }

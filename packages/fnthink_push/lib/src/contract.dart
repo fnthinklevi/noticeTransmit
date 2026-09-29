@@ -387,6 +387,44 @@ class FnthinkContract {
   List<String> get pairRequestStatuses =>
       strings(const ['pairRequest', 'statuses']);
 
+  /// 本机答复一条配对请求时**能写进载荷的最高一档**。
+  ///
+  /// `levelCeilingFrom` 存的是**路径**（今日 = `pairing.maxRequestableLevelWithoutLocalAuth`），
+  /// 不是档位字面量：服务端 `authorizePairConfirm` 读的就是这条路径，两端因此共用一个旋钮。
+  /// 在这里写死 `'L2'` 的话，改契约的那一刀不会报错，只会变成"本机发得出去、服务端整条拒"，
+  /// 而拒信是一句与"口令错"同形的 403。
+  ///
+  /// L3 不在这一发够得着的范围里：那一档要锁屏或生物认证（`capabilities.l3.enableRequiresLocalAuth`），
+  /// 而服务端看不见屏幕前的那个人 —— 所以它也不许从远程事件里被批准（T30 那条红线）。
+  String get pairConfirmLevelCeiling {
+    final path = str(['clientEvents', 'pairConfirm', 'levelCeilingFrom']);
+    if (path == null || path.isEmpty) {
+      throw StateError(
+        '契约缺 clientEvents.pairConfirm.levelCeilingFrom（不补默认档位：补了就是在代码里发明一档授权）',
+      );
+    }
+    final value = str(path.split('.'));
+    if (value == null || !capabilityLevels.contains(value)) {
+      throw StateError(
+        'clientEvents.pairConfirm.levelCeilingFrom=$path 取到的「$value」'
+        '不是 capabilities.levels（${capabilityLevels.join('/')}）里的一档',
+      );
+    }
+    return value;
+  }
+
+  /// 对方请求的那一档 → 本机实际能答应的那一档。
+  ///
+  /// 高于封顶 ⇒ **压到封顶**而不是原样发出去：发一个服务端必拒的档位换回的是一句同形的 403，
+  /// 用户既不知道自己要的是 L3、也不知道是这一步被拦的。压完由界面把两个值都说出来
+  /// （显示的是服务端回的 `grantedLevel`，不是用户点的那个）。
+  /// 不在词表里的档位 ⇒ null：那一发**不该离机**，调用方据此不发并解释是哪个词。
+  String? grantableLevel(String requested) {
+    if (!capabilityLevels.contains(requested)) return null;
+    final ceiling = pairConfirmLevelCeiling;
+    return levelRank(requested) <= levelRank(ceiling) ? requested : ceiling;
+  }
+
   /// 挂出去的口令在这一步**不许带**的那一项：契约说它 arms 什么，实现就只发什么。
   String get pairArmPayloadField {
     final value = str(['clientEvents', 'pairArm', 'arms']);

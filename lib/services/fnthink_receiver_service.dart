@@ -244,7 +244,11 @@ class FnthinkReceiveOutcome {
   final List<FnthinkDelivered> messages;
   final List<FnthinkReceipt> receipts;
   final int pending;
-  final List<Object?> pairRequests;
+
+  /// 这一轮 poll 带回来的**等本机答复的配对请求**（`pairRequest.pollKey` 那一项）。
+  /// 类型是内核解析过的那一种，不是 `Object?`：留成 `Object?` 的话，"少一个键"这件事
+  /// 要等到页面动手到一半才发现，而它的表现是那一栏永远是空的。
+  final List<FnthinkPairRequest> pairRequests;
   final Duration nextDelay;
 
   /// 还没学到服务端时间就签了这一发 —— 值得让 UI 说一次"请先校准设备时钟"，
@@ -260,6 +264,9 @@ class FnthinkReceiveOutcome {
     final parts = <String>['取到 ${messages.length} 条'];
     if (receipts.isNotEmpty) parts.add('回执 ${receipts.length} 条');
     if (pending > 0) parts.add('队列还有 $pending 条');
+    if (pairRequests.isNotEmpty) {
+      parts.add('待本机答复的配对请求 ${pairRequests.length} 条');
+    }
     if (signedWhileUncalibrated) parts.add('时间未校准');
     return parts.join('，');
   }

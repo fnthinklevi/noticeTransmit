@@ -8,6 +8,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
+import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
@@ -80,10 +81,12 @@ void main() {
     FnthinkContractLoader? contracts,
     FnthinkIdentitySigner? signerOverride,
     FnthinkServiceFactory? serviceFactory,
+    Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
     persist: persist,
+    recordPeer: recordPeer,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
   );
@@ -395,11 +398,7 @@ void main() {
           body: ackBody(contract.pairConfirmApproveDecision),
         ),
       );
-      final result = await c.confirmPairing(
-        request: request,
-        approve: true,
-        level: 'L1',
-      );
+      final result = await c.confirmPairing(request: request, approve: true);
       expect(result.ok, isTrue);
       final fields = jsonDecode(asked.single.body)['fields']! as Map;
       expect(
@@ -426,7 +425,6 @@ void main() {
         (await cannotSign.confirmPairing(
           request: request,
           approve: false,
-          level: 'L1',
         )).reason,
         'signing-unavailable',
       );
@@ -456,11 +454,349 @@ void main() {
       final result = await ambiguous.confirmPairing(
         request: request,
         approve: false,
-        level: 'L1',
       );
       expect(asked, isEmpty);
       expect(result.ok, isFalse);
       expect(result.reason, isNotNull);
+    });
+  });
+
+  group('待确认列表与本机名单（T42 第五片）', () {
+    FnthinkPairRequest req(String level, {String id = 'pr_9'}) =>
+        FnthinkPairRequest(
+          requestId: id,
+          requester: '8KMNPQRSTVWX999777',
+          requesterPublicKey: 'AAAA',
+          level: level,
+        );
+
+    String confirmBody({String? decision, String? grantedLevel}) =>
+        '{"requestId":"pr_9",'
+        '"status":"${decision ?? contract.pairConfirmApproveDecision}",'
+        '"grantedLevel":${grantedLevel == null ? 'null' : '"$grantedLevel"'},'
+        '"serverTime":1800000000000}';
+
+    /// 从签出去的那一发里把**载荷**取回来（`fields.body` 是 json 字符串，套两层）。
+    Map<String, Object?> sentPayload(http.Request request) =>
+        jsonDecode(
+              (jsonDecode(request.body)['fields']! as Map)['body']! as String,
+            )
+            as Map<String, Object?>;
+
+    test('名单里那一行记的是服务端回的档位，不是本机刚发出去的那一档', () async {
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      final rows = <FnthinkPeer>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        // 本机发的是 L2（对方就要 L2），服务端那侧还有一道自己的封顶，回的是 L1。
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: 'L1'),
+        ),
+        recordPeer: (peer) async {
+          rows.add(peer);
+          return FnthinkPeerWrite.created;
+        },
+      );
+      final answer = await c.confirmPairing(request: req('L2'), approve: true);
+      expect(answer.ok, isTrue);
+      expect(answer.wrote, FnthinkPeerWrite.created);
+      expect(
+        rows.single.level,
+        'L1',
+        reason:
+            '两端哪天对封顶的理解漂了，本机这份要跟着服务端走：'
+            '名单写 L2 而对面实际被限在 L1，下一片那一格显示的就是本机的一厢情愿',
+      );
+      expect(rows.single.peerAddress, '8KMNPQRSTVWX999777');
+      expect(rows.single.publicKey, 'AAAA');
+      expect(rows.single.requestId, 'pr_9');
+      expect(rows.single.grantedAt, greaterThan(0));
+    });
+
+    test('对方要 L3 ⇒ 发出去的是封顶那一档，不是 L3', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: contract.pairConfirmLevelCeiling),
+        ),
+      );
+      final answer = await c.confirmPairing(request: req('L3'), approve: true);
+      expect(
+        sentPayload(asked.single)['level'],
+        contract.pairConfirmLevelCeiling,
+        reason:
+            'L3 要在这台设备上本地确认（锁屏/生物认证），远程这一发给不出去；'
+            '原样发过去只会换回一句与"口令错"同形的 403',
+      );
+      expect(answer.ok, isTrue);
+    });
+
+    test('对方报的档位不在词表里 ⇒ 同意一个字节都不发，原因带着那个词', () async {
+      final asked = <http.Request>[];
+      final rows = <FnthinkPeer>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+        recordPeer: (peer) async {
+          rows.add(peer);
+          return FnthinkPeerWrite.created;
+        },
+      );
+      final answer = await c.confirmPairing(request: req('L9'), approve: true);
+      expect(asked, isEmpty, reason: '给一个没人请求过的档位，是替对方做决定');
+      expect(rows, isEmpty);
+      expect(answer.reason, 'unknown-level:L9');
+    });
+
+    test('同一条畸形请求仍然可以拒绝（划掉它不需要档位）', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(
+            decision: contract.pairConfirmDecisions.firstWhere(
+              (d) => d != contract.pairConfirmApproveDecision,
+            ),
+          ),
+        ),
+      );
+      final answer = await c.confirmPairing(request: req('L9'), approve: false);
+      expect(asked, hasLength(1));
+      expect(
+        sentPayload(asked.single)['level'],
+        contract.pairConfirmLevelCeiling,
+        reason:
+            '拒绝不写任何授权，服务端只要求这一键是个合法档位；'
+            '因为档位读不懂就连划掉都做不到，那条请求会一直挂在待确认栏里',
+      );
+      expect(answer.ok, isTrue);
+    });
+
+    test('服务端没认下来 ⇒ 本机名单一行都不写', () async {
+      final asked = <http.Request>[];
+      final rows = <FnthinkPeer>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          status: 403,
+          body: '{"receipt":"${contract.unsignedReceipt}"}',
+        ),
+        recordPeer: (peer) async {
+          rows.add(peer);
+          return FnthinkPeerWrite.created;
+        },
+      );
+      final answer = await c.confirmPairing(request: req('L1'), approve: true);
+      expect(answer.ok, isFalse);
+      expect(rows, isEmpty, reason: '服务端那边没结成，本机先记一条"已授权"就是自己给自己造白名单');
+    });
+
+    test('同意且服务端认了、但没回档位 ⇒ 不写名单，并把这一态单独说清', () async {
+      final asked = <http.Request>[];
+      final rows = <FnthinkPeer>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: null),
+        ),
+        recordPeer: (peer) async {
+          rows.add(peer);
+          return FnthinkPeerWrite.created;
+        },
+      );
+      final answer = await c.confirmPairing(request: req('L1'), approve: true);
+      expect(answer.ok, isTrue, reason: '配对**成了**，是本机不知道该记哪一档 —— 两件事不许混');
+      expect(answer.skipped, FnthinkPeerSkip.grantedLevelUnusable);
+      expect(rows, isEmpty);
+    });
+
+    test('这台设备没装配名单落库 ⇒ 结论是 storeUnavailable', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: 'L1'),
+        ),
+      );
+      final answer = await c.confirmPairing(request: req('L1'), approve: true);
+      expect(
+        answer.skipped,
+        FnthinkPeerSkip.storeUnavailable,
+        reason: '装配点漏接时全场仍绿，只有这一格会说谎：界面必须能显示"服务器认了而本机名单是空的"',
+      );
+    });
+
+    test('换钥那一次：`keySwapped` 原样交回，不改口成"已同意"', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: 'L1'),
+        ),
+        recordPeer: (_) async => FnthinkPeerWrite.keySwapped,
+      );
+      final answer = await c.confirmPairing(request: req('L1'), approve: true);
+      expect(
+        answer.wrote,
+        FnthinkPeerWrite.keySwapped,
+        reason: '同一个地址码带着另一把公钥来，本机一行都没改 —— 报成"已同意"就是替用户点了"同意换钥"',
+      );
+    });
+
+    test('写名单时抛了 ⇒ 结论是 writeFailed，而不是让这一发答复炸在页面上', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: 'L1'),
+        ),
+        recordPeer: (_) async => throw StateError('表被锁'),
+      );
+      final answer = await c.confirmPairing(request: req('L1'), approve: true);
+      expect(answer.ok, isTrue);
+      expect(answer.skipped, FnthinkPeerSkip.writeFailed);
+    });
+
+    test('拒绝 ⇒ 不发之外也不写名单', () async {
+      final asked = <http.Request>[];
+      final rows = <FnthinkPeer>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(
+            decision: contract.pairConfirmDecisions.firstWhere(
+              (d) => d != contract.pairConfirmApproveDecision,
+            ),
+            grantedLevel: null,
+          ),
+        ),
+        recordPeer: (peer) async {
+          rows.add(peer);
+          return FnthinkPeerWrite.created;
+        },
+      );
+      final answer = await c.confirmPairing(request: req('L1'), approve: false);
+      expect(answer.ok, isTrue);
+      expect(rows, isEmpty, reason: '拒绝不产生任何授权');
+      expect(
+        sentPayload(asked.single)['decision'],
+        isNot(contract.pairConfirmApproveDecision),
+      );
+    });
+
+    test('循环已在跑时，手动那一轮带回来的请求也会上账（页面点的就是这条路）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final rec = _LoopRecorder();
+      final c = coordinator(recorder: rec);
+      // 先把循环起起来：`receiveOnce` 在**没起过**时会顺手 start，那条路走 `_tick`，
+      // `onRound` 自己就响了 —— 拿它来证"手动那一轮也记账"是证不出来的
+      // （反证 P5 把 `receiveOnce` 里那句记账摘掉后全场仍绿，就是这么被抓出来的）。
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      expect(c.pendingPairRequests, isEmpty);
+
+      rec.pollPairRequests = [req('L1')];
+      await c.receiveOnce();
+      expect(
+        c.pendingPairRequests,
+        hasLength(1),
+        reason:
+            '已在跑的循环里 `receiveOnce` 调的是 `runOnce`，不经过 `_tick` ⇒ `onRound` '
+            '不会响。这条路不单独记账，用户按了"立即收取"，那一栏还是旧的',
+      );
+    });
+
+    test('后台那一轮看到的请求会被接住（不点"立即收取"也看得见）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
+      final c = coordinator(recorder: rec);
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      expect(
+        c.pendingPairRequests,
+        hasLength(1),
+        reason:
+            '开关开着时收货本来就是自动的：只有"立即收取"那一下才更新，'
+            '界面就会在两次手动之间空着一条真在等的请求',
+      );
+    });
+
+    test('失败的那一轮不清空待确认列表', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
+      final c = coordinator(recorder: rec);
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      rec.pollStatus = FnthinkPollStatus.transportError;
+      rec.pollPairRequests = const [];
+      await c.receiveOnce();
+      expect(
+        c.pendingPairRequests,
+        hasLength(1),
+        reason: '一次网络抖动之后把请求藏起来，用户分不出它是被撤了、过期了、还是这台根本没看见',
+      );
+    });
+
+    test('答复成功 ⇒ 那一条立刻从待确认列表里摘掉', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: rec,
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: 'L1'),
+        ),
+        recordPeer: (_) async => FnthinkPeerWrite.created,
+      );
+      await c.receiveOnce();
+      expect(c.pendingPairRequests, hasLength(1));
+      await c.confirmPairing(request: req('L1'), approve: true);
+      expect(
+        c.pendingPairRequests,
+        isEmpty,
+        reason:
+            '服务端 consumesRequest：一行只答一次。留着它等于请用户再点一下，'
+            '而第二下只会换回一句同形的 403',
+      );
+    });
+
+    test('答复没成 ⇒ 那一条还留着（可以再试，或等它过期）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: rec,
+        serviceFactory: armFactory(
+          sink: asked,
+          status: 403,
+          body: '{"receipt":"${contract.unsignedReceipt}"}',
+        ),
+      );
+      await c.receiveOnce();
+      await c.confirmPairing(request: req('L1'), approve: true);
+      expect(c.pendingPairRequests, hasLength(1));
     });
   });
 }
@@ -513,14 +849,21 @@ class _LoopRecorder {
   final List<FnthinkLoopSpec> specs = [];
   int polls = 0;
 
+  /// 假的那一轮"取回"什么。第五片用它把后台轮次里的配对请求喂进来 ——
+  /// 这一片要钉的正是"那一轮看到的请求，有没有人接住"。
+  FnthinkPollStatus pollStatus = FnthinkPollStatus.ok;
+  List<FnthinkPairRequest> pollPairRequests = const [];
+
   FnthinkReceiveLoop build(FnthinkLoopSpec spec) {
     specs.add(spec);
     return FnthinkReceiveLoop(
       poll: () async {
         polls++;
-        return const FnthinkReceiveOutcome(
-          status: FnthinkPollStatus.ok,
-          nextDelay: Duration(seconds: 20),
+        return FnthinkReceiveOutcome(
+          status: pollStatus,
+          pairRequests: pollPairRequests,
+          nextDelay: const Duration(seconds: 20),
+          reason: pollStatus == FnthinkPollStatus.ok ? null : 'simulated',
         );
       },
       ack: (id, result) async => const FnthinkAckResult(
@@ -528,6 +871,9 @@ class _LoopRecorder {
         nextDelay: Duration.zero,
       ),
       persist: (_) async => true,
+      // 协调者塞进 spec 的那一行必须接上：不接，"后台那几轮的账"这件事在测试里就永远不发生，
+      // 那条用例只会红在别处（或者谁也不红）。
+      onRound: spec.onRound,
       schedule: (delay, callback) {
         final t = Timer(delay, callback);
         _timers.add(t);

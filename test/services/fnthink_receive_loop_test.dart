@@ -456,6 +456,58 @@ void main() {
       expect(text, isNot(contains('温度 63 度')));
     });
   });
+
+  group('等本机答复的配对请求要过循环这一层', () {
+    test('这一轮 poll 带回的那一条，会出现在这一轮的账里', () async {
+      final h = _Harness();
+      final report = await h
+          .loop(
+            pollScript: [
+              _ok(
+                const [],
+                pairRequests: const [
+                  FnthinkPairRequest(
+                    requestId: 'pr_9',
+                    requester: '8KMNPQRSTVWX999777',
+                    requesterPublicKey: 'AAAA',
+                    level: 'L1',
+                  ),
+                ],
+              ),
+            ],
+          )
+          .runOnce();
+      expect(
+        report.pairRequests.map((r) => r.requestId),
+        ['pr_9'],
+        reason:
+            '循环是"服务端有什么要本机答复"的唯一读者。这里把它丢了，'
+            '页面就只能自己去 poll 一次 —— 那是第二个读法',
+      );
+      expect(report.summary, contains('待配对 1'));
+    });
+
+    test('取货失败的那一轮不带回任何请求（账里是空的，由调用方决定不改口）', () async {
+      final h = _Harness();
+      final report = await h
+          .loop(
+            pollScript: [
+              const FnthinkReceiveOutcome(
+                status: FnthinkPollStatus.transportError,
+                nextDelay: Duration(seconds: 30),
+                reason: 'transport',
+              ),
+            ],
+          )
+          .runOnce();
+      expect(
+        report.status,
+        isNot(FnthinkPollStatus.ok),
+        reason: '"这轮没看到"必须能被分辨出来 —— 空的 pairRequests 在 ok 与失败两种轮里是两件事',
+      );
+      expect(report.pairRequests, isEmpty);
+    });
+  });
 }
 
 FnthinkDelivered _msg(String id, {String sender = '8K3FJ6QPTM9WZ4VHNS'}) =>
@@ -468,13 +520,17 @@ FnthinkDelivered _msg(String id, {String sender = '8K3FJ6QPTM9WZ4VHNS'}) =>
       sender: sender,
     );
 
-FnthinkReceiveOutcome _ok(List<FnthinkDelivered> messages, {int pending = 0}) =>
-    FnthinkReceiveOutcome(
-      status: FnthinkPollStatus.ok,
-      messages: messages,
-      pending: pending,
-      nextDelay: const Duration(seconds: 20),
-    );
+FnthinkReceiveOutcome _ok(
+  List<FnthinkDelivered> messages, {
+  int pending = 0,
+  List<FnthinkPairRequest> pairRequests = const [],
+}) => FnthinkReceiveOutcome(
+  status: FnthinkPollStatus.ok,
+  messages: messages,
+  pending: pending,
+  pairRequests: pairRequests,
+  nextDelay: const Duration(seconds: 20),
+);
 
 /// 三个依赖的程序化替身 + 排期捕获。
 class _Harness {

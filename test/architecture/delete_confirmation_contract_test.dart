@@ -19,40 +19,55 @@ void main() {
   String read(String rel) =>
       stripComments(File('$root/$rel').readAsStringSync());
 
+  /// 页面 → **会改状态的那几条路径的执行处**。一页多条是正常的（推送页既要换地址码、
+  /// 也要答复配对请求），所以这里登记的是清单而不是"每页恰好一个"：
+  /// 新增一条路径必须在这里登记，否则第二条的计数断言就会红。
   const chokes = {
-    'lib/pages/webhook_channel_list_page.dart':
-        'Future<void> _confirmDeleteChannel(',
-    'lib/pages/app_channel_list_page.dart':
-        'Future<void> _confirmDeleteChannel(',
-    'lib/pages/email_settings_page.dart': 'Future<void> _deleteChannel(',
-    'lib/pages/battery_page.dart': 'Future<void> _confirmDeleteRule(',
-    'lib/pages/temperature_page.dart': 'Future<void> _confirmDeleteRule(',
-    'lib/pages/rule_list_page.dart': 'Future<void> _deleteRule(',
-    'lib/pages/keywords_page.dart': 'Future<void> _removeKeyword(',
+    'lib/pages/webhook_channel_list_page.dart': [
+      'Future<void> _confirmDeleteChannel(',
+    ],
+    'lib/pages/app_channel_list_page.dart': [
+      'Future<void> _confirmDeleteChannel(',
+    ],
+    'lib/pages/email_settings_page.dart': ['Future<void> _deleteChannel('],
+    'lib/pages/battery_page.dart': ['Future<void> _confirmDeleteRule('],
+    'lib/pages/temperature_page.dart': ['Future<void> _confirmDeleteRule('],
+    'lib/pages/rule_list_page.dart': ['Future<void> _deleteRule('],
+    'lib/pages/keywords_page.dart': ['Future<void> _removeKeyword('],
     // 幻念推送页：换一枚地址码 = 这台设备在所有对端白名单里那一串当场作废，
     // 后果与删一条通道同级（而更不可逆：对面不会报错，只是再也推不进来）。
-    'lib/pages/fnthink_push_page.dart': 'Future<void> _resetAddressCode(',
+    // 第二条是 T42 第五片：同意一条配对请求 = 把一台陌生设备写进本机名单并授一档，
+    // 对面从此能往这台设备推正文 —— 契约把这一步定为 `confirmRequired`，不是可省的仪式。
+    'lib/pages/fnthink_push_page.dart': [
+      'Future<void> _resetAddressCode(',
+      'Future<void> _answer(',
+    ],
   };
 
-  group('删除的二次确认只有一个咽喉（T06）', () {
-    test('每条删除路径的执行处都 askConfirm', () {
+  group('会改状态的路径只有一个咽喉（T06 + T42 授权那一下）', () {
+    test('每条路径的执行处都 askConfirm', () {
       for (final entry in chokes.entries) {
-        final body = blockAfter(read(entry.key), entry.value);
-        expect(
-          body,
-          contains('askConfirm('),
-          reason: '${entry.key} :: ${entry.value} 不再确认 ⇒ 手滑即丢凭据/规则',
-        );
+        for (final signature in entry.value) {
+          final body = blockAfter(read(entry.key), signature);
+          expect(
+            body,
+            contains('askConfirm('),
+            reason: '${entry.key} :: $signature 不再确认 ⇒ 手滑即丢凭据/规则/授权',
+          );
+        }
       }
     });
 
-    test('每个页面恰好一个咽喉，且不再手搭确认框', () {
-      for (final rel in chokes.keys) {
+    test('每个页面的 askConfirm 恰好等于登记的那几条，且不再手搭确认框', () {
+      for (final entry in chokes.entries) {
+        final rel = entry.key;
         final src = read(rel);
         expect(
           'askConfirm('.allMatches(src).length,
-          1,
-          reason: '$rel 的 askConfirm 数量变了 ⇒ 要么漏了一条路径，要么又开了一份抄本',
+          entry.value.length,
+          reason:
+              '$rel 的 askConfirm 数量与登记的路径数（${entry.value.length}）不符 ⇒ '
+              '要么漏了一条路径，要么又开了一份抄本',
         );
         expect(
           'showDialog<bool>'.allMatches(src).length,
@@ -64,22 +79,27 @@ void main() {
 
     test('真正改掉数据的那一句只出现在咽喉里', () {
       const mutators = {
-        'lib/pages/webhook_channel_list_page.dart': '_service.deleteChannel(',
-        'lib/pages/app_channel_list_page.dart': '_service.deleteChannel(',
+        'lib/pages/webhook_channel_list_page.dart': ['_service.deleteChannel('],
+        'lib/pages/app_channel_list_page.dart': ['_service.deleteChannel('],
         // T08-C2：邮件页不再改本地列表，删除走服务层单条咽喉
-        'lib/pages/email_settings_page.dart': '_emailService.deleteChannel(',
-        'lib/pages/battery_page.dart': '_service.deleteRule(',
-        'lib/pages/temperature_page.dart': '_service.deleteRule(',
-        'lib/pages/rule_list_page.dart': '_rules.removeWhere(',
-        'lib/pages/keywords_page.dart': '_blacklist.remove(',
-        'lib/pages/fnthink_push_page.dart': 'credentials.resetAddressCode(',
+        'lib/pages/email_settings_page.dart': ['_emailService.deleteChannel('],
+        'lib/pages/battery_page.dart': ['_service.deleteRule('],
+        'lib/pages/temperature_page.dart': ['_service.deleteRule('],
+        'lib/pages/rule_list_page.dart': ['_rules.removeWhere('],
+        'lib/pages/keywords_page.dart': ['_blacklist.remove('],
+        'lib/pages/fnthink_push_page.dart': [
+          'credentials.resetAddressCode(',
+          '_coordinator.confirmPairing(',
+        ],
       };
       for (final entry in mutators.entries) {
-        expect(
-          entry.value.allMatches(read(entry.key)).length,
-          1,
-          reason: '${entry.key} 里 `${entry.value}` 出现多次 ⇒ 有第二条绕过确认的删除路径',
-        );
+        for (final mutator in entry.value) {
+          expect(
+            mutator.allMatches(read(entry.key)).length,
+            1,
+            reason: '${entry.key} 里 `$mutator` 出现多次 ⇒ 有第二条绕过确认的改动路径',
+          );
+        }
       }
     });
 
@@ -127,7 +147,7 @@ void main() {
         'lib/pages/app_channel_list_page.dart': 'app',
         'lib/pages/email_settings_page.dart': 'email',
       }.entries) {
-        final body = blockAfter(read(entry.key), chokes[entry.key]!);
+        final body = blockAfter(read(entry.key), chokes[entry.key]!.single);
         expect(
           body,
           contains("_health.remove('${entry.value}'"),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
@@ -8,6 +9,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
@@ -73,18 +75,24 @@ void main() {
   final validPairing = FnthinkPairingCode.generate(contract).value;
 
   /// 一套装配：可控的签名能力 + 只记账不碰网络的循环 + 数得到"循环被建了几次"，
-  /// 外加**挂口令那一发的假服务器**（`armBody` / `armStatus`）—— 页面现在会真发那一发，
-  /// 不打个假服务器进去，测试就是在依赖"flutter test 把真实 HTTP 挡掉了"这件事。
+  /// 外加**配对那一发的假服务器**（`armBody` / `armStatus` / `confirmBody`）—— 页面现在会真发
+  /// 那一发，不打个假服务器进去，测试就是在依赖"flutter test 把真实 HTTP 挡掉了"这件事。
   _Harness harness({
     bool canSign = true,
     List<String> messages = const [],
     int pending = 0,
+    List<FnthinkPairRequest> pairRequests = const [],
     Future<void> Function()? gate,
     bool contractOk = true,
     int armStatus = 200,
     String armBody =
         '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,'
         '"serverTime":1800000000000}',
+    int confirmStatus = 200,
+    String confirmBody =
+        '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
+        '"serverTime":1800000000000}',
+    Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
   }) {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
@@ -93,17 +101,30 @@ void main() {
       },
     );
     final armAsked = <http.Request>[];
+    final confirmAsked = <http.Request>[];
+    final peerRows = <FnthinkPeer>[];
     var builds = 0;
     final coordinator = FnthinkReceiveCoordinator(
       contracts: loader,
       signer: _StubSigner(canSign),
       persist: (_) async => true,
+      // 名单落库的替身：页面测试里不碰 sqflite，但要数得到"到底写没写、写的是哪一档"。
+      recordPeer:
+          recordPeer ??
+          (peer) async {
+            peerRows.add(peer);
+            return FnthinkPeerWrite.created;
+          },
       serviceFactory: (spec) => FnthinkReceiverService(
         contract: spec.contract,
         baseUri: spec.baseUri,
         signer: spec.signer,
         addressCode: spec.addressCode,
         client: MockClient((req) async {
+          if (req.url.path == contract.apiPath('pairConfirm')) {
+            confirmAsked.add(req);
+            return http.Response(confirmBody, confirmStatus);
+          }
           armAsked.add(req);
           return http.Response(armBody, armStatus);
         }),
@@ -127,6 +148,7 @@ void main() {
                   ),
               ],
               pending: pending,
+              pairRequests: pairRequests,
               nextDelay: const Duration(seconds: 20),
             );
           },
@@ -135,6 +157,10 @@ void main() {
             nextDelay: Duration(seconds: 20),
           ),
           persist: (_) async => true,
+          // 协调者塞进 spec 的那一行必须在这里接上：不接，测试里的"后台那一轮"就永远不会
+          // 把账交给协调者（生产那一条链路由 `buildFnthinkReceiveLoop` 的守卫钉，
+          // 而替身这边漏接时，红的是"这一格自己出现"那条 —— 它确实该红）。
+          onRound: spec.onRound,
           schedule: (delay, callback) => Timer(Duration.zero, () {}),
         );
       },
@@ -150,6 +176,8 @@ void main() {
       coordinator: coordinator,
       builds: () => builds,
       armAsked: () => armAsked,
+      confirmAsked: () => confirmAsked,
+      peerRows: () => peerRows,
     );
   }
 
@@ -536,7 +564,263 @@ void main() {
       );
     });
   });
+
+  group('待确认的配对请求（T42 第五片）', () {
+    FnthinkPairRequest request(String level) => FnthinkPairRequest(
+      requestId: 'pr_9',
+      requester: '8KMNPQRSTVWX999777',
+      requesterPublicKey: 'AAAA',
+      level: level,
+    );
+
+    /// 把"后台那一轮带回一条请求"这件事装好，再把页面盖上去。
+    ///
+    /// ⚠ 顺序是**先盖页面、后起循环**，然后靠 `tester.pump()` 推进那一轮：
+    /// `testWidgets` 跑在 fake-async 时区里，`pumpEventQueue()` 那种"等真实事件队列"的写法
+    /// 在这里不会自己走（`Future.delayed` 只有 pump 才推进），整个用例会挂死在
+    /// `pumpAndSettle` 上 —— 第一版就在这里停了十分钟。
+    /// 这个顺序恰好钉的是本片真正要的东西：页面开着的时候，后台那一轮带回来的请求**自己上界面**。
+    Future<({AppLocalizations l10n, _Harness h})> openWith(
+      WidgetTester tester, {
+      required List<FnthinkPairRequest> requests,
+      int confirmStatus = 200,
+      String? confirmBody,
+      Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
+    }) async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final h = harness(
+        pairRequests: requests,
+        confirmStatus: confirmStatus,
+        confirmBody:
+            confirmBody ??
+            '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
+                '"serverTime":1800000000000}',
+        recordPeer: recordPeer,
+      );
+      final l10n = await pump(tester, h.page);
+      await h.coordinator.startIfEnabled();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      return (l10n: l10n, h: h);
+    }
+
+    testWidgets('有人请求配对 ⇒ 这一格自己出现，两下都在', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L1')]);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-request-pr_9')),
+        findsOneWidget,
+        reason: '后台每轮带回来的东西要能自己上界面：用户挂出口令之后是盯着屏幕等的',
+      );
+      expect(
+        find.text(ctx.l10n.fnthinkPairRequestLine('8KMNPQRSTVWX999777', 'L1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-approve-pr_9')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-deny-pr_9')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('没有人请求 ⇒ 这一格根本不存在', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: const []);
+      expect(
+        find.text(ctx.l10n.fnthinkPairRequests),
+        findsNothing,
+        reason: '一张永远空的表等于让界面猜',
+      );
+      expect(find.byKey(const ValueKey('fnthink-pair-answer')), findsNothing);
+    });
+
+    testWidgets('同意之前要二次确认，弹层上写的是本机实际会给到的那一档', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L3')]);
+      final approve = find.byKey(const ValueKey('fnthink-pair-approve-pr_9'));
+      await tester.ensureVisible(approve);
+      await tester.pumpAndSettle();
+      await tester.tap(approve);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(ctx.l10n.fnthinkPairAskMsg('8KMNPQRSTVWX999777', 'L2')),
+        findsOneWidget,
+        reason: '让用户在他以为的档位上按下同意，而实际授出去的是另一档，那一下点得就没有意义',
+      );
+      expect(ctx.h.confirmAsked(), isEmpty, reason: '弹层还没点确认，那一发不该已经出去');
+    });
+
+    testWidgets('界面上那一句说的是服务端回的档位，不是用户点的那一档', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L2')],
+        // 服务端那侧还有一道自己的封顶：本机发 L2，它记的是 L1。
+        confirmBody:
+            '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
+            '"serverTime":1800000000000}',
+      );
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(
+        find.text(ctx.l10n.fnthinkPairApproved('8KMNPQRSTVWX999777', 'L1')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(ctx.l10n.fnthinkPairApproved('8KMNPQRSTVWX999777', 'L2')),
+        findsNothing,
+        reason: '名单与界面要跟着服务端那一份走，否则显示 L2 而对面被限在 L1',
+      );
+      expect(ctx.h.peerRows().single.level, 'L1');
+    });
+
+    testWidgets('答复过的那一条不再出现（服务端一条只答一次）', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L1')]);
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-request-pr_9')),
+        findsNothing,
+        reason: '留着那一行等于请用户再点一下，而第二下只会换回一句同形的 403',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-answer')),
+        findsOneWidget,
+        reason: '行消失了但结论要留得住：回头看不出自己同意还是被拒，等于没记账',
+      );
+    });
+
+    testWidgets('服务端认了却没回档位 ⇒ 说"本机名单没写"，不说"已同意"', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L1')],
+        confirmBody:
+            '{"requestId":"pr_9","status":"approved","grantedLevel":null,'
+            '"serverTime":1800000000000}',
+      );
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(find.text(ctx.l10n.fnthinkPairNoGrantedLevel), findsOneWidget);
+      expect(
+        find.text(ctx.l10n.fnthinkPairApproved('8KMNPQRSTVWX999777', 'L1')),
+        findsNothing,
+        reason: '不知道记到哪一档就不能写成"已同意"—— 那一格后面是给"取消配对"用的',
+      );
+      expect(ctx.h.peerRows(), isEmpty);
+    });
+
+    testWidgets('同一个地址码换了公钥 ⇒ 明说"一行都没改"', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L1')],
+        recordPeer: (_) async => FnthinkPeerWrite.keySwapped,
+      );
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(
+        find.text(ctx.l10n.fnthinkPairKeySwapped('8KMNPQRSTVWX999777')),
+        findsOneWidget,
+        reason: '报成"已同意"就是这台设备替用户点了"同意换钥"',
+      );
+    });
+
+    testWidgets('档位读不懂的那一条 ⇒ 同意是灰的，拒绝还能点', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L9')]);
+      expect(
+        tester
+            .widget<ButtonStyleButton>(
+              find.byKey(const ValueKey('fnthink-pair-approve-pr_9')),
+            )
+            .onPressed,
+        isNull,
+        reason:
+            '给一个没人请求过的档位，是替对方做决定；协调者那一发也不会发出去，'
+            '把按钮点亮就是请用户来验证一条死路',
+      );
+      expect(
+        tester
+            .widget<TextButton>(
+              find.byKey(const ValueKey('fnthink-pair-deny-pr_9')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-unknown-level-pr_9')),
+        findsOneWidget,
+      );
+      expect(ctx.h.confirmAsked(), isEmpty);
+    });
+
+    testWidgets('看不懂的请求还能划掉：拒绝那一发照发，档位是封顶那一档', (tester) async {
+      stubChannels();
+      final ctx = await openWith(tester, requests: [request('L9')]);
+      await _tapPair(tester, ctx.l10n, approve: false);
+      final body = sentPayload(ctx.h.confirmAsked().single);
+      expect(
+        body['decision'],
+        isNot(contract.pairConfirmApproveDecision),
+        reason:
+            '拒绝不写任何授权，服务端只要求这一键是个合法档位；'
+            '连划掉都做不到，那条畸形请求就会一直挂在待确认栏里',
+      );
+      expect(body['level'], contract.pairConfirmLevelCeiling);
+      expect(ctx.h.peerRows(), isEmpty);
+    });
+
+    testWidgets('服务端拒了 ⇒ 名单没写、那一行还留着、原话贴出来', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L1')],
+        confirmStatus: 403,
+        confirmBody: '{"receipt":"${contract.unsignedReceipt}"}',
+      );
+      await _tapPair(tester, ctx.l10n, approve: true);
+      expect(ctx.h.peerRows(), isEmpty);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-request-pr_9')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-answer')),
+        findsOneWidget,
+        reason: '"没答应"这句要能被看见，而不是让那一行默默还在',
+      );
+    });
+  });
 }
+
+/// 走完"点那一下 → （同意时）弹层确认"（列表里的按钮在折叠线以下，先滚进视口）。
+/// 拒绝没有二次确认：它是安全的那一个方向，而每一次多点一下都是用户在替自己判断值不值。
+Future<void> _tapPair(
+  WidgetTester tester,
+  AppLocalizations l10n, {
+  required bool approve,
+}) async {
+  final button = find.byKey(
+    ValueKey(approve ? 'fnthink-pair-approve-pr_9' : 'fnthink-pair-deny-pr_9'),
+  );
+  await tester.ensureVisible(button);
+  await tester.pumpAndSettle();
+  await tester.tap(button);
+  await tester.pumpAndSettle();
+  if (!approve) return;
+  await tester.tap(find.text(l10n.confirm));
+  await tester.pumpAndSettle();
+}
+
+/// 签出去那一发的**载荷**（`fields.body` 是 json 字符串，套两层）。
+/// 断言要落在载荷上：只看整串 body 的话，`contains('L2')` 会被签名、地址码里碰巧的
+/// 那两个字符满足，用例就变成一条永远绿的东西。
+Map<String, Object?> sentPayload(http.Request request) =>
+    jsonDecode((jsonDecode(request.body)['fields']! as Map)['body']! as String)
+        as Map<String, Object?>;
 
 class _StubSigner implements FnthinkIdentitySigner {
   _StubSigner(this.canSign);
@@ -556,6 +840,8 @@ class _Harness {
     required this.coordinator,
     required this.builds,
     required this.armAsked,
+    required this.confirmAsked,
+    required this.peerRows,
   });
 
   final FnthinkPushPage page;
@@ -564,4 +850,10 @@ class _Harness {
 
   /// 挂口令那一发真实发出去的请求（假服务器记下来的）。
   final List<http.Request> Function() armAsked;
+
+  /// 答复配对请求那一发。
+  final List<http.Request> Function() confirmAsked;
+
+  /// 写进本机名单的那几行（替身记下来的，所以能问出"记的是哪一档"）。
+  final List<FnthinkPeer> Function() peerRows;
 }

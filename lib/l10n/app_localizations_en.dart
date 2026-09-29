@@ -3305,4 +3305,68 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkPairingAckUnknown =>
       'This device never asked the server — re-arm the code to confirm';
+
+  @override
+  String get fnthinkPairRequests => 'Pairing requests waiting for you';
+
+  @override
+  String fnthinkPairRequestLine(String peer, String level) {
+    return '$peer asks to pair with you, requesting $level';
+  }
+
+  @override
+  String fnthinkPairWillGrant(String level) {
+    return 'This device can only grant $level: anything higher must be confirmed locally on it';
+  }
+
+  @override
+  String fnthinkPairUnknownLevel(String level) {
+    return 'The level \"$level\" is not in the table this device knows ⇒ approving is not possible, only denying';
+  }
+
+  @override
+  String get fnthinkPairApprove => 'Approve';
+
+  @override
+  String get fnthinkPairDeny => 'Deny';
+
+  @override
+  String get fnthinkPairAskTitle => 'Approve this pairing?';
+
+  @override
+  String fnthinkPairAskMsg(String peer, String level) {
+    return 'Adds $peer to this device\'s list and grants $level. Once approved it can push notifications to this device.';
+  }
+
+  @override
+  String fnthinkPairApproved(String peer, String level) {
+    return 'Approved $peer; the server recorded it at $level';
+  }
+
+  @override
+  String fnthinkPairDenied(String peer) {
+    return 'Denied $peer';
+  }
+
+  @override
+  String fnthinkPairKeySwapped(String peer) {
+    return '$peer presented a different public key for the same address code; nothing was changed — either it rebuilt its identity or someone is spoofing that code';
+  }
+
+  @override
+  String fnthinkPairFailed(String reason) {
+    return 'Not approved: $reason';
+  }
+
+  @override
+  String get fnthinkPairNoGrantedLevel =>
+      'The server accepted this one but did not say which level it recorded ⇒ nothing written to the local list';
+
+  @override
+  String get fnthinkPeerStoreUnavailable =>
+      'The server accepted this one but no peer store is wired on this device ⇒ nothing written to the local list';
+
+  @override
+  String get fnthinkPeerWriteFailed =>
+      'The server accepted this one but writing the local list failed ⇒ nothing written';
 }

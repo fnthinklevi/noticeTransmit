@@ -1584,5 +1584,85 @@
       }
     }
   },
-  "fnthinkPairingAckUnknown": "这台没有问过服务器收没收到 —— 重新挂一枚才能确认"
+  "fnthinkPairingAckUnknown": "这台没有问过服务器收没收到 —— 重新挂一枚才能确认",
+  "fnthinkPairRequests": "等你答复的配对请求",
+  "fnthinkPairRequestLine": "{peer} 请求配对你，要的是 {level}",
+  "@fnthinkPairRequestLine": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairWillGrant": "本机这次只能给到 {level}：更高那一档要在这台设备上本地确认",
+  "@fnthinkPairWillGrant": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairUnknownLevel": "对方报的档位「{level}」不在本机认识的档位表里 ⇒ 不能同意，只能拒绝",
+  "@fnthinkPairUnknownLevel": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairApprove": "同意",
+  "fnthinkPairDeny": "拒绝",
+  "fnthinkPairAskTitle": "同意配对？",
+  "fnthinkPairAskMsg": "把 {peer} 记进本机名单并授到 {level}。同意之后它就能往这台设备推消息。",
+  "@fnthinkPairAskMsg": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairApproved": "已同意 {peer}，服务端把它记到 {level}",
+  "@fnthinkPairApproved": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairDenied": "已拒绝 {peer}",
+  "@fnthinkPairDenied": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairKeySwapped": "{peer} 这个地址码上次用的是另一把公钥，本机一行都没改 —— 要么它重建过身份，要么有人在冒用地址码",
+  "@fnthinkPairKeySwapped": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairFailed": "没答应：{reason}",
+  "@fnthinkPairFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairNoGrantedLevel": "服务端认了这条，但没回它记到哪一档 ⇒ 本机名单没写",
+  "fnthinkPeerStoreUnavailable": "服务端认了这条，但这台设备没接名单落库 ⇒ 本机名单没写",
+  "fnthinkPeerWriteFailed": "服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写"
 }

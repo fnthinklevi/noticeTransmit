@@ -5947,6 +5947,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这台没有问过服务器收没收到 —— 重新挂一枚才能确认'**
   String get fnthinkPairingAckUnknown;
+
+  /// No description provided for @fnthinkPairRequests.
+  ///
+  /// In zh, this message translates to:
+  /// **'等你答复的配对请求'**
+  String get fnthinkPairRequests;
+
+  /// No description provided for @fnthinkPairRequestLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'{peer} 请求配对你，要的是 {level}'**
+  String fnthinkPairRequestLine(String peer, String level);
+
+  /// No description provided for @fnthinkPairWillGrant.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机这次只能给到 {level}：更高那一档要在这台设备上本地确认'**
+  String fnthinkPairWillGrant(String level);
+
+  /// No description provided for @fnthinkPairUnknownLevel.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方报的档位「{level}」不在本机认识的档位表里 ⇒ 不能同意，只能拒绝'**
+  String fnthinkPairUnknownLevel(String level);
+
+  /// No description provided for @fnthinkPairApprove.
+  ///
+  /// In zh, this message translates to:
+  /// **'同意'**
+  String get fnthinkPairApprove;
+
+  /// No description provided for @fnthinkPairDeny.
+  ///
+  /// In zh, this message translates to:
+  /// **'拒绝'**
+  String get fnthinkPairDeny;
+
+  /// No description provided for @fnthinkPairAskTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'同意配对？'**
+  String get fnthinkPairAskTitle;
+
+  /// No description provided for @fnthinkPairAskMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'把 {peer} 记进本机名单并授到 {level}。同意之后它就能往这台设备推消息。'**
+  String fnthinkPairAskMsg(String peer, String level);
+
+  /// No description provided for @fnthinkPairApproved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已同意 {peer}，服务端把它记到 {level}'**
+  String fnthinkPairApproved(String peer, String level);
+
+  /// No description provided for @fnthinkPairDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已拒绝 {peer}'**
+  String fnthinkPairDenied(String peer);
+
+  /// No description provided for @fnthinkPairKeySwapped.
+  ///
+  /// In zh, this message translates to:
+  /// **'{peer} 这个地址码上次用的是另一把公钥，本机一行都没改 —— 要么它重建过身份，要么有人在冒用地址码'**
+  String fnthinkPairKeySwapped(String peer);
+
+  /// No description provided for @fnthinkPairFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没答应：{reason}'**
+  String fnthinkPairFailed(String reason);
+
+  /// No description provided for @fnthinkPairNoGrantedLevel.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端认了这条，但没回它记到哪一档 ⇒ 本机名单没写'**
+  String get fnthinkPairNoGrantedLevel;
+
+  /// No description provided for @fnthinkPeerStoreUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端认了这条，但这台设备没接名单落库 ⇒ 本机名单没写'**
+  String get fnthinkPeerStoreUnavailable;
+
+  /// No description provided for @fnthinkPeerWriteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写'**
+  String get fnthinkPeerWriteFailed;
 }
 
 class _AppLocalizationsDelegate
