@@ -497,6 +497,15 @@ function authorizePairRevoke(contract, state, input) {
  *    而服务端只会照单收下。口令一律由 `devicestore.createEndpoint` 生成、只落摘要。
  *  ③ 这里**看不到任何口令**，所以留痕里也不可能带出它：`name` 是唯一进内部的东西，
  *    而它是用户自己起的外号（管理面那列本来就给人看的）。
+ *
+ * 这一发被砸过什么（报告在本地 `outputs/_endpnt.report.txt`，按约定不入库；W1–W6 全 named+restored）：
+ *  - **W1** 契约把 `targetMustEqualSender` 关掉 ⇒ 红在「替别人建 ⇒ 拒」（连带 6 条一起红：
+ *    self-only 一关，签名者自己的地址码也不再被认，正常的建入口全被拒）；
+ *  - **W4** 摘掉载荷键名单（`readPayload` 换成一个空名单）⇒ 红在「口令不许设备自带」与
+ *    「owner 只能从签名来」—— 那两条判据其实是同一道闸的两个键；
+ *  - **W6** 路由那道 `carriesForbidden` 摘掉 ⇒ 红在「顶层带 privateKey ⇒ 与'是谁都没答出来'同形」：
+ *    事件层那道仍然拦，但对外那个词从 `rejected_unsigned` 变成 `rejected_capability`。
+ *    ⚠ 这一条证的是"哪一层给出那个词"，两道闸各有一处写着，别把它们并成一条断言。
  */
 function authorizeEndpointCreate(contract, state, input) {
   const spec = (contract.clientEvents || {}).endpointCreate;
