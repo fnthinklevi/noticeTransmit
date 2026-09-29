@@ -31,31 +31,41 @@ void main() {
   tearDown(() => getIt.reset());
 
   group('装配点', () {
-    test('DI 起来的 coordinator 三条副作用都在（recordPeer 被漏掉时全场仍绿，所以只能靠这条）', () {
-      setupLocator();
-      final c = getIt<FnthinkReceiveCoordinator>();
-      expect(c.persist, isNotNull);
-      expect(
-        c.display,
-        isNotNull,
-        reason: '收货链路只落库不显示 ⇒ 用户看不见，而服务端按 delivered 之外的那档留着正文',
-      );
-      expect(
-        c.recordAck,
-        isNotNull,
-        reason:
-            'DI 漏接这一行时全场测试仍然绿，而 `ack_result`/`acked_at` 永远空着 —— '
-            '收件详情那一带"回执状态"的界面就会开始显示猜出来的东西',
-      );
-      expect(
-        c.recordPeer,
-        isNotNull,
-        reason:
-            '`fnthink_peers` 在生产代码里**只有这一个作者**。漏接时同意照样成功、'
-            '服务端照样投得进来，而本机名单一直是空的 —— 下一片那个"取消配对"的入口'
-            '就没有东西可取消，而这时候已经查不出是从哪一片开始空的',
-      );
-    });
+    test(
+      'DI 起来的 coordinator 四条副作用都在（recordPeer/removePeer 被漏掉时全场仍绿，所以只能靠这条）',
+      () {
+        setupLocator();
+        final c = getIt<FnthinkReceiveCoordinator>();
+        expect(c.persist, isNotNull);
+        expect(
+          c.display,
+          isNotNull,
+          reason: '收货链路只落库不显示 ⇒ 用户看不见，而服务端按 delivered 之外的那档留着正文',
+        );
+        expect(
+          c.recordAck,
+          isNotNull,
+          reason:
+              'DI 漏接这一行时全场测试仍然绿，而 `ack_result`/`acked_at` 永远空着 —— '
+              '收件详情那一带"回执状态"的界面就会开始显示猜出来的东西',
+        );
+        expect(
+          c.recordPeer,
+          isNotNull,
+          reason:
+              '`fnthink_peers` 在生产代码里**只有这一个写入者**。漏接时同意照样成功、'
+              '服务端照样投得进来，而本机名单一直是空的',
+        );
+        expect(
+          c.removePeer,
+          isNotNull,
+          reason:
+              '撤销那一发在服务端生效之后要靠它删本机那一行。漏接时的表现不是报错，'
+              '是"点了撤销而那一行一直在"——用户会以为撤销没成而再点一次，'
+              '而第二次换来的是一句幂等的成功（对面其实早就推不进来了）',
+        );
+      },
+    );
 
     test('spec 里的 display 会传到循环上（不是只存在 spec 里）', () async {
       final loop = buildFnthinkReceiveLoop(
@@ -333,22 +343,28 @@ void main() {
       }
     });
 
-    test('配对名单的读只有一个咽喉，而页面不许长出"撤销"的假入口', () {
+    test('配对名单的读与删各只有一个咽喉，而页面不许自己碰表', () {
       // 名单的读法（`granted_at DESC, peer_address ASC`）只在 `DatabaseHelper` 那一处；
       // 页面绕过读咽喉就会自己排一次序 —— 同一份数据在两个入口排出两个顺序，是本仓反复出现过的形状。
       var reads = 0;
+      var deletes = 0;
       for (final entity in Directory('$root/lib').listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
-        reads +=
-            stripComments(
-              entity.readAsStringSync(),
-            ).split('.loadFnthinkPeers').length -
-            1;
+        final code = stripComments(entity.readAsStringSync());
+        reads += code.split('.loadFnthinkPeers').length - 1;
+        deletes += code.split('.removeFnthinkPeer').length - 1;
       }
       expect(
         reads,
         1,
         reason: '`fnthink_peers` 多了一个读者 ⇒ 排序/时间口径开始分叉（那一处应当是读咽喉）',
+      );
+      expect(
+        deletes,
+        1,
+        reason:
+            '删行也只有咽喉那一处。今天它唯一的调用方是协调者（撤销成功之后），'
+            '再多一处就直接绕过了"先撤服务端再删本机行"那条顺序',
       );
 
       final service = read('lib/services/fnthink_peer_service.dart');
@@ -356,15 +372,25 @@ void main() {
         expect(
           service,
           isNot(contains(sql)),
-          reason: '读咽喉里出现了 $sql：查询口径长出第二份，表那一层改了它不会跟着改',
+          reason: '咽喉里出现了 $sql：查询口径长出第二份，表那一层改了它不会跟着改',
         );
       }
       expect(
         service,
-        isNot(contains('.removeFnthinkPeer')),
+        contains('.removeFnthinkPeer'),
+        reason: '删行的咽喉被搬走了？那要么接进服务层，要么把这条一起搬走，别删',
+      );
+      expect(
+        read('lib/di/service_locator.dart'),
+        contains('removePeer: FnthinkPeerService().remove'),
         reason:
-            '撤销那一发属于服务端吊销（T31）。在这一层加个"只删本机行"的方法，'
-            '下一个调用方就会把它当撤销接上去 —— 而那件事它做不到',
+            'DI 若改成直接摸 `DatabaseHelper().removeFnthinkPeer`，这一层就又变回"只有读"，'
+            '而撤销那条路上没人管删行的口径（漏接时全场仍绿，只有名单开始留着已经撤掉的行）',
+      );
+      expect(
+        read('lib/services/fnthink_receive_coordinator.dart'),
+        contains('removePeer'),
+        reason: '协调者不再经咽喉删行 ⇒ 上面那条"删只有一处"就只是在数空跑',
       );
 
       final page = stripComments(
@@ -374,6 +400,11 @@ void main() {
         page,
         contains('FnthinkPeerService'),
         reason: '页面的名单不再经服务层取：本条守卫已经在空跑',
+      );
+      expect(
+        page,
+        contains('_coordinator.revokePeer'),
+        reason: '撤销那一下改为自己发请求或自己删行 ⇒ 顺序与失败态两份口径',
       );
       for (final direct in [
         'loadFnthinkPeers',

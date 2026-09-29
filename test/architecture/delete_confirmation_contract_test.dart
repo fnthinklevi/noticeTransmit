@@ -38,9 +38,12 @@ void main() {
     // 后果与删一条通道同级（而更不可逆：对面不会报错，只是再也推不进来）。
     // 第二条是 T42 第五片：同意一条配对请求 = 把一台陌生设备写进本机名单并授一档，
     // 对面从此能往这台设备推正文 —— 契约把这一步定为 `confirmRequired`，不是可省的仪式。
+    // 第三条是 T31 B 片：撤销 = 让对面从此推不进来。它比"同意"更需要看一眼：
+    // 点错的代价不是本地能回滚的，对面要重新扫码配对才能再推。
     'lib/pages/fnthink_push_page.dart': [
       'Future<void> _resetAddressCode(',
       'Future<void> _answer(',
+      'Future<void> _revoke(',
     ],
   };
 
@@ -90,6 +93,7 @@ void main() {
         'lib/pages/fnthink_push_page.dart': [
           'credentials.resetAddressCode(',
           '_coordinator.confirmPairing(',
+          '_coordinator.revokePeer(',
         ],
       };
       for (final entry in mutators.entries) {

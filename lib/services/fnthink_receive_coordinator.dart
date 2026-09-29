@@ -49,6 +49,42 @@ class FnthinkPairAnswer {
   String? get reason => result.reason;
 }
 
+/// 服务端**认了**这次撤销，但**本机名单那一行没删掉**的两种原因。
+/// 与 [FnthinkPeerSkip] 同一族：这两件事各自会失败，折叠成一个 bool 就说不清"现在到底什么样"。
+enum FnthinkPeerRemoveSkip {
+  /// 这台设备没装配删行链路（`removePeer` 为 null）。表现是"对面已经推不进来了，
+  /// 而这一台的名单里还留着它"——界面必须能说出来，否则用户会以为撤销没成而再点一次。
+  storeUnavailable,
+
+  /// 删的时候抛了（表被锁、磁盘满）。服务端那边**已经**撤了，所以这不是"撤销失败"。
+  removeFailed,
+}
+
+/// 撤销那一发的**完整**结论：服务器那一头 + 本机名单那一行。
+///
+/// ⚠ 两件事的先后是判据，不是实现细节：**先撤服务端，再删本机行**。反过来（先删行）的话，
+/// 服务端那一发一旦失败，本机就再也不显示这一行，而授权还留着 —— 对面照样能推进来，
+/// 而屏幕上没有任何一行解释它从哪来。那正是"推送静默丢失"那一类，本仓把它列为产品不变量。
+class FnthinkPeerRevoke {
+  const FnthinkPeerRevoke({
+    required this.result,
+    this.rowRemoved,
+    this.skipped,
+  });
+
+  final FnthinkPairRevokeResult result;
+
+  /// 本机那一行**被删掉了**没有。`true` = 删掉了；`false` = 名单里本来就没有这一行
+  /// （不是失败：那边撤了、这里也没东西可留）；null = 没走到这一步。
+  final bool? rowRemoved;
+
+  /// 没删的原因（与 [rowRemoved] 互斥）。
+  final FnthinkPeerRemoveSkip? skipped;
+
+  bool get ok => result.ok;
+  String? get reason => result.reason;
+}
+
 /// 装配一次收货循环需要的东西（也是生产构造函数的入参形状）。
 class FnthinkLoopSpec {
   const FnthinkLoopSpec({
@@ -146,6 +182,7 @@ class FnthinkReceiveCoordinator {
     this.display,
     this.recordAck,
     this.recordPeer,
+    this.removePeer,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -182,6 +219,15 @@ class FnthinkReceiveCoordinator {
   /// 但没有作者时它只是一张空表）。装配点漏接的表现为"点了同意、名单里没有"，
   /// 而全场测试仍然绿 —— 所以守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
   final Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer;
+
+  /// 服务端**撤了**一条授权之后，把本机名单里那一行删掉（`fnthink_peers`）。
+  /// 返回"这一行本来在不在"。null = 这台设备没装配删行链路 ⇒ 结论里带
+  /// [FnthinkPeerRemoveSkip.storeUnavailable]，而不是悄悄留着那一行。
+  ///
+  /// ⚠ 装配点漏接时的表现与 [recordPeer] 同族：撤销在服务端生效了，本机名单却还留着那一行，
+  /// 而用户看到的是"点了没反应"——所以守卫在 `test/architecture/fnthink_receive_wiring_test.dart`，
+  /// 反证在 `outputs/_revokepeer.report.txt`。
+  final Future<bool> Function(String peerAddress)? removePeer;
 
   final FnthinkSettings Function(FnthinkContract) _buildSettings;
   final FnthinkCredentialStore Function(FnthinkContract) _buildCredentials;
@@ -470,6 +516,71 @@ class FnthinkReceiveCoordinator {
       return FnthinkPairAnswer(
         result: result,
         skipped: FnthinkPeerSkip.writeFailed,
+      );
+    }
+  }
+
+  /// 把一个发送方从自己的名单里划掉（T31 B 片那一发）。
+  ///
+  /// 与 [confirmPairing] 同一条前置口径：**不要求总开关开着**。"关掉收货"是这一台不去取，
+  /// 而"别再推给我"是另一件事，它在关着的时候也必须能生效 —— 否则用户只能在打开收货的情况下
+  /// 才能撤回自己的许可。
+  ///
+  /// ⚠ 顺序：先撤服务端，服务端认了之后才删本机那一行。反过来做的话，服务端那一发一旦失败，
+  /// 本机就再也不显示这一行而授权还在 —— 对面照样推得进来，而屏幕上没有一行解释来源，
+  /// 那是"推送静默丢失"里最难发现的一种。
+  ///
+  /// 这一发被砸过什么（报告在本地 `outputs/_revokepeer.report.txt`，按约定不入库）：
+  ///  - **U2** 摘掉 `if (!result.ok)`（撤失败也删行）⇒ 红在「服务端没撤成 ⇒ 本机那一行一个字都不动」；
+  ///  - **U3** 把 `ok` 改成要求 `revoked == true`（幂等那半被读成失败）⇒ 红在「revoked:false 也算成」；
+  ///  - **U5** 把 `storeUnavailable` 换成 `removeFailed`（两种后果一句话）⇒ 红在「这台没装配删行 ⇒
+  ///    storeUnavailable」；
+  ///  - **U7** DI 漏接 `removePeer` ⇒ 红在装配守卫「四条副作用都在」与「读与删各只有一个咽喉」；
+  ///  - **U6** 服务层那道"签不出来就不发"摘掉 ⇒ **全场仍绿**：协调者的 `_resolveSpec` 先拦住了。
+  ///    它是纵深防御，按规矩登记成纵深防御，不登记成"已验证"（同一句话也写在服务层那边）；
+  ///  - ⚠ **顺序**（先撤服务端再删行）今日只有行为用例（`steps` 记 `'request'→'remove'`），
+  ///    没有单独的植入：把它反过来不是一行能改坏的形状，而 U2 已经从另一侧钉住了同一个事故
+  ///    ——「授权还在而来源从屏幕上消失」。
+  Future<FnthinkPeerRevoke> revokePeer(FnthinkPeer peer) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkPeerRevoke(
+        result: FnthinkPairRevokeResult(
+          status: FnthinkPollStatus.failed,
+          reason: resolved.reason,
+          signedWhileUncalibrated: false,
+        ),
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    final FnthinkPairRevokeResult result;
+    try {
+      result = await service.pairRevoke(peer: peer.peerAddress);
+    } finally {
+      service.dispose();
+    }
+    if (!result.ok) {
+      // 服务端那一头没撤成 ⇒ 本机一份都不动：留着那一行才是此刻的真话（它还在名单里）。
+      return FnthinkPeerRevoke(result: result);
+    }
+    final remove = removePeer;
+    if (remove == null) {
+      return FnthinkPeerRevoke(
+        result: result,
+        skipped: FnthinkPeerRemoveSkip.storeUnavailable,
+      );
+    }
+    try {
+      // `revoked:false` 走到这里同样是"已达成"：那边本来没有这一条，而本机这一行该删。
+      final gone = await remove(peer.peerAddress);
+      return FnthinkPeerRevoke(result: result, rowRemoved: gone);
+    } catch (e) {
+      // 服务端已经撤了，这不是"撤销失败"：报成失败会让人再点一次，而那一下换回的是幂等的 200
+      // —— 用户看到的是点了两下都"没成"，而名单里那一行一直留着。
+      debugPrint('[fnthink] 配对名单删行失败（服务端已撤，本机还留着）: ${peer.peerAddress} $e');
+      return FnthinkPeerRevoke(
+        result: result,
+        skipped: FnthinkPeerRemoveSkip.removeFailed,
       );
     }
   }

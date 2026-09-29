@@ -580,6 +580,94 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 pairRevoke 的签名字段（把某个发送方从本机白名单里划掉，T31 B 片）。
+  ///
+  /// ⚠ 这一发与 pairConfirm 同属「关于别人」那一类（`mustContainCounterpartAddress`）：
+  /// 签名里的 `target` 是**被划掉那台**，不是本机。
+  /// 这里刻意**只有一个参数**：服务端判的是「载荷里那个地址必须逐字等于签名里的 target」，
+  /// 也就是同一件事的两个来源。做成两个参数等于把"能不能不一致"留给调用方去负责，
+  /// 而不一致的那一发换回来的只是一句同形的 403 —— 让它在本机就不可能被写错，比事后拦更便宜。
+  Map<String, Object?> pairRevokeFields({
+    required String peer,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.pairRevokeFields;
+    if (declared.length != 1) {
+      // 名单一旦多出一个键，"两个来源合一"这个前提就没了：那时载荷里写谁、签名里针对谁
+      // 是两件事，必须由契约明说哪个算数，而不是让这里继续只收一个参数。
+      throw StateError(
+        'pairRevoke 的载荷应当只有一个键（契约 fields=$declared）：'
+        '这里把签名的 target 与载荷里那个地址合成一个入参，靠的就是名单里就一个键',
+      );
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('pairRevoke'),
+      'target': peer,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode({declared.single: peer}),
+    };
+  }
+
+  /// 划掉一个发送方。失败不抛，状态→后果那张表仍只有 [interpret] 一份。
+  ///
+  /// ⚠ `revoked == false` **不是失败**：撤销是幂等的（目标状态「它不在我的名单里」已达成）。
+  /// 把它当失败的那一端会留着本机那一行不再删，从此两边各说一段——
+  /// 所以 [FnthinkPairRevokeResult.ok] 只要求"看得懂回的是什么"，不要求它说删掉过。
+  Future<FnthinkPairRevokeResult> pairRevoke({required String peer}) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: pairRevokeFields(peer: peer, nonce: nonce),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkPairRevokeResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkPairRevokeResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'pair-revoke-http:${reply.status}',
+      );
+    }
+    final revoked = reply.body['revoked'];
+    if (revoked is! bool) {
+      // 200 但看不懂：宁可报失败。把它当"撤好了"，本机就删了一行而对面其实还在名单里。
+      _lastReason = 'pair-revoke-unparsable-ack';
+      return FnthinkPairRevokeResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    return FnthinkPairRevokeResult(
+      status: FnthinkPollStatus.ok,
+      revoked: revoked,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   int _nonceCounter = 0;
   String _fallbackNonce() {
     // 进程内唯一（时间戳 + 计数）。跨重启的唯一性由调用方保证 —— 这也是
@@ -848,4 +936,25 @@ class FnthinkPairConfirmResult {
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok && requestStatus != null;
+}
+
+/// 划掉一个发送方的结论（T31 B 片）。
+class FnthinkPairRevokeResult {
+  const FnthinkPairRevokeResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.revoked,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+
+  /// 服务端**那边本来有没有**这一条关系。⚠ `false` 是一次成功，不是失败：
+  /// 撤销的目标状态是「它不在我的名单里」，已经不在就是已达成（契约 `clientEvents.pairRevoke._why`）。
+  /// 这一份只用来把"对面本来就没有"说给用户听，不用来判成没成。
+  final bool? revoked;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok && revoked != null;
 }

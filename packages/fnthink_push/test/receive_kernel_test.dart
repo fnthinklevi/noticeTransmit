@@ -899,4 +899,121 @@ void main() {
       expect(harness.sent, hasLength(1));
     });
   });
+
+  group('划掉一个发送方 pairRevoke（T31 B 片）', () {
+    Map<String, Object?> sentFields(_Harness harness) =>
+        harness.sent.single['fields']! as Map<String, Object?>;
+
+    Future<FnthinkPairRevokeResult> revoke(_Harness harness) =>
+        harness.kernel().pairRevoke(peer: _peer);
+
+    test('target 是被划掉那台，载荷里也是同一个地址（一个入参喂给两处）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'revoked': true, 'serverTime': 1800000000000},
+      );
+      final result = await revoke(harness);
+      expect(result.ok, isTrue);
+      final fields = sentFields(harness);
+      expect(fields['target'], _peer);
+      expect(
+        fields['target'],
+        isNot(_self),
+        reason: '写成自己的地址码就是替别人撤销他自己的授权，而拒信与"口令错"同形',
+      );
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body.keys.toList(), contract.pairRevokeFields);
+      expect(
+        body.values.single,
+        _peer,
+        reason:
+            '服务端判「载荷里那个地址逐字等于签名里的 target」。这里从一开始就只有一个入参，'
+            '于是"两处能不能不一致"不是调用方要负责的事',
+      );
+    });
+
+    test('type 用 pairRevoke 自己的那个词（不借 pairConfirm 的）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(status: 200, body: {'revoked': true});
+      await revoke(harness);
+      expect(
+        sentFields(harness)['type'],
+        contract.str(['clientEvents', 'pairRevoke', 'messageType']),
+      );
+      expect(
+        sentFields(harness)['type'],
+        isNot(contract.str(['clientEvents', 'pairConfirm', 'messageType'])),
+        reason: '一个内核跑多种事件时，借词的那一发会落到别人的入口上，而服务端只回一句同形 403',
+      );
+    });
+
+    test('revoked:false 是一次**成功**（撤销是幂等的，不是失败）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'revoked': false, 'serverTime': 1800000000000},
+      );
+      final result = await revoke(harness);
+      expect(
+        result.ok,
+        isTrue,
+        reason:
+            '目标状态是「它不在我的名单里」，已经不在就是已达成。'
+            '把它读成失败，本机就留着那一行不再删 —— 两边从此各说一段',
+      );
+      expect(result.revoked, isFalse);
+    });
+
+    test('200 而 revoked 不是布尔 ⇒ 不算撤成（宁可那一行留着）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(status: 200, body: {'revoked': 'yes'});
+      final result = await revoke(harness);
+      expect(result.ok, isFalse);
+      expect(
+        result.reason,
+        'pair-revoke-unparsable-ack',
+        reason: '看不懂的 200 当成"撤好了"，本机删了一行而对面其实还在名单里',
+      );
+    });
+
+    test('403 ⇒ 没成、revoked 是空的（本机一行都不许动）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: code('forbidden'),
+        body: const {'receipt': 'rejected_capability'},
+      );
+      final result = await revoke(harness);
+      expect(result.status, FnthinkPollStatus.rejectedUnsigned);
+      expect(result.ok, isFalse);
+      expect(result.revoked, isNull);
+    });
+
+    test('契约名单里多出第二个键 ⇒ 当场抛、不签出去', () async {
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final revoked = events['pairRevoke'] as Map<String, Object?>;
+      final widened = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'pairRevoke': {
+            ...revoked,
+            'fields': ['peerAddress', 'level'],
+          },
+        },
+      });
+      final harness = _Harness(widened, 1_800_000_000_000);
+      expect(
+        () => harness.kernel().pairRevokeFields(peer: _peer, nonce: 'n1'),
+        throwsStateError,
+      );
+      expect(
+        harness.sent,
+        isEmpty,
+        reason:
+            '"两个来源合一"靠的就是名单里就一个键。多一个键时哪个算数必须由契约明说，'
+            '而不是让实现继续只收一个参数去猜',
+      );
+    });
+  });
 }

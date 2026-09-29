@@ -6065,8 +6065,56 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeersBoundary.
   ///
   /// In zh, this message translates to:
-  /// **'这一格记的是「本机同意过谁」。对面还能不能推进来由服务器那份授权决定，真要撤销得先让服务器吊销（还没接）—— 在这里删掉一行不会让推送停下来。'**
+  /// **'这一格记的是「本机同意过谁」。点「撤销」是先让服务器收回那份授权，本机这一行随之消失；已经收到的通知不会被删掉。对面那台给你的许可，要由它自己去撤。'**
   String get fnthinkPeersBoundary;
+
+  /// No description provided for @fnthinkPeerRevoke.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销'**
+  String get fnthinkPeerRevoke;
+
+  /// No description provided for @fnthinkRevokeAskTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销这台设备的推送许可？'**
+  String get fnthinkRevokeAskTitle;
+
+  /// No description provided for @fnthinkRevokeAskMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销之后 {peer} 再也推不进本机；已经收到的通知留着。这一步要先让服务器收回授权，所以离线时做不成。'**
+  String fnthinkRevokeAskMsg(String peer);
+
+  /// No description provided for @fnthinkRevoked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销 {peer}：它以后推不进本机了'**
+  String fnthinkRevoked(String peer);
+
+  /// No description provided for @fnthinkRevokeAlreadyGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器那边已经没有 {peer} 这份授权（撤销是幂等的：目标已达成）'**
+  String fnthinkRevokeAlreadyGone(String peer);
+
+  /// No description provided for @fnthinkRevokeStoreUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器已经撤销，但这台设备没接名单删行 ⇒ 这一行还留着'**
+  String get fnthinkRevokeStoreUnavailable;
+
+  /// No description provided for @fnthinkRevokeRowRemains.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器已经撤销，本机删这一行时失败了 ⇒ 这一行还留着'**
+  String get fnthinkRevokeRowRemains;
+
+  /// No description provided for @fnthinkRevokeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销没成（{reason}）—— 名单里那一行留着，那才是此刻的真话'**
+  String fnthinkRevokeFailed(String reason);
 }
 
 class _AppLocalizationsDelegate

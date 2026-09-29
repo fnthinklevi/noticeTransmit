@@ -10,7 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../test_setup.dart';
 
-/// 配对名单的读咽喉（T42「配对名单」那一格的数据源）。
+/// 配对名单的读写咽喉（T42「配对名单」那一格的数据源 + T31 B 片那一下撤销的落点）。
 ///
 /// 这一层存在的唯一理由与收件咽喉同一条：**同一件事只许有一处算法**。排序口径（`granted_at DESC,
 /// peer_address ASC`）如果被页面再抄一份，两处各自都"对"，但同一次同意之后谁在前会不一样；
@@ -108,6 +108,35 @@ void main() {
       expect(one.publicKey, 'BBCC');
       expect(one.grantedAt, 1780000111000);
       expect(one.requestId, 'pr_9');
+    });
+  });
+
+  group('删行也只转发（T31 B 片第二片）', () {
+    test('删得掉 ⇒ 回 true，再读一次名单里就没那一行了', () async {
+      await helper.upsertFnthinkPeer(peer('EEEEEEEEEEEEEEEEEEEE'));
+      expect(await service.remove('EEEEEEEEEEEEEEEEEEEE'), isTrue);
+      expect(await service.list(), isEmpty);
+    });
+
+    test('删一条本来没有的 ⇒ 回 false，不抛（撤销是幂等的那一半）', () async {
+      expect(
+        await service.remove('FFFFFFFFFFFFFFFFFFFF'),
+        isFalse,
+        reason:
+            '这一层分不清"没撤成"与"那边本来就没有"，那是协调者与页面的事；'
+            '这里若抛，页面就只能把一次幂等的撤销显示成失败',
+      );
+    });
+
+    test('只删点到的那一行，别的原样留着', () async {
+      await helper.upsertFnthinkPeer(peer('GGGGGGGGGGGGGGGGGG'));
+      await helper.upsertFnthinkPeer(peer('HHHHHHHHHHHHHHHHHH'));
+      await service.remove('GGGGGGGGGGGGGGGGGG');
+      expect(
+        (await service.list()).map((p) => p.peerAddress).toList(),
+        ['HHHHHHHHHHHHHHHHHH'],
+        reason: '一次撤销影响 N 台，就是"一键全部失效"那一档（T31），不是这一发',
+      );
     });
   });
 

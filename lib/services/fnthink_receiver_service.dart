@@ -35,7 +35,13 @@ class FnthinkReceiverService {
     // 装配期就把"能不能发出第一发"判掉，而不是等第一次轮询：https 与 apiPaths 都是
     // **配置事实**，不是运行时状态。留到第一次发送才炸，会被内核的 catch 归成"传输异常"
     // —— 那是把契约与实现不匹配伪装成网络抖动（我这条就是被用例逼出来的）。
-    for (final kind in ['poll', 'ack', 'pairArm', 'pairConfirm']) {
+    for (final kind in [
+      'poll',
+      'ack',
+      'pairArm',
+      'pairConfirm',
+      'pairRevoke',
+    ]) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
           '契约的 transport.apiPaths 少了 $kind：收货与配对要发这几种请求，缺一种就是整条链断在那一步',
@@ -198,6 +204,26 @@ class FnthinkReceiverService {
       level: level,
       counterpart: counterpart,
     );
+  }
+
+  /// 把一个发送方从本机白名单里划掉（`/pair-revoke`，T31 B 片）。
+  ///
+  /// 与 [pairConfirm] 共用那两道闸：**签不出来就不发**、URL 从契约反查。
+  /// `peer` 同时是签名的 `target` 与载荷里那个地址 —— 这一发在本机就只有一个参数，
+  /// 所以"两处写岔"不是调用方要负责的事（服务端判的是两者必须逐字相等）。
+  ///
+  /// ⚠ 这道 `_canSign()` 短路今日**不可单独观察**：协调者的 `_resolveSpec` 在它之前已经
+  ///   探过一次签名能力（反证 U6 把这里摘掉，全场仍绿，报告在 `outputs/_revokepeer.report.txt`）。
+  ///   按规矩登记成纵深防御（防的是以后有人从别处直接调这一发），不登记成"已验证"。
+  Future<FnthinkPairRevokeResult> pairRevoke({required String peer}) async {
+    if (!await _canSign()) {
+      return FnthinkPairRevokeResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.pairRevoke(peer: peer);
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

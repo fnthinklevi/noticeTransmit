@@ -3250,5 +3250,37 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPeersBoundary =>
-      '这一格记的是「本机同意过谁」。对面还能不能推进来由服务器那份授权决定，真要撤销得先让服务器吊销（还没接）—— 在这里删掉一行不会让推送停下来。';
+      '这一格记的是「本机同意过谁」。点「撤销」是先让服务器收回那份授权，本机这一行随之消失；已经收到的通知不会被删掉。对面那台给你的许可，要由它自己去撤。';
+
+  @override
+  String get fnthinkPeerRevoke => '撤销';
+
+  @override
+  String get fnthinkRevokeAskTitle => '撤销这台设备的推送许可？';
+
+  @override
+  String fnthinkRevokeAskMsg(String peer) {
+    return '撤销之后 $peer 再也推不进本机；已经收到的通知留着。这一步要先让服务器收回授权，所以离线时做不成。';
+  }
+
+  @override
+  String fnthinkRevoked(String peer) {
+    return '已撤销 $peer：它以后推不进本机了';
+  }
+
+  @override
+  String fnthinkRevokeAlreadyGone(String peer) {
+    return '服务器那边已经没有 $peer 这份授权（撤销是幂等的：目标已达成）';
+  }
+
+  @override
+  String get fnthinkRevokeStoreUnavailable => '服务器已经撤销，但这台设备没接名单删行 ⇒ 这一行还留着';
+
+  @override
+  String get fnthinkRevokeRowRemains => '服务器已经撤销，本机删这一行时失败了 ⇒ 这一行还留着';
+
+  @override
+  String fnthinkRevokeFailed(String reason) {
+    return '撤销没成（$reason）—— 名单里那一行留着，那才是此刻的真话';
+  }
 }

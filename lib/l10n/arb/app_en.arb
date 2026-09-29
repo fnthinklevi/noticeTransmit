@@ -1668,5 +1668,41 @@
       }
     }
   },
-  "fnthinkPeersBoundary": "This cell records who this device has approved. Whether a peer can still push is decided by the grant stored on the server; really revoking it needs server-side revocation (not wired yet) — deleting a row here does not stop pushes."
+  "fnthinkPeersBoundary": "This cell records who this device has approved. Revoking first takes the grant back on the server, then this row disappears here; notifications already received are not deleted. The grant the other device gave you is its own to revoke.",
+  "fnthinkPeerRevoke": "Revoke",
+  "fnthinkRevokeAskTitle": "Revoke this device's push permission?",
+  "fnthinkRevokeAskMsg": "After revoking, {peer} can no longer push to this device; notifications already received stay. This step needs the server, so it cannot be done offline.",
+  "@fnthinkRevokeAskMsg": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkRevoked": "Revoked {peer}: it can no longer push to this device",
+  "@fnthinkRevoked": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkRevokeAlreadyGone": "The server no longer holds a grant for {peer} (revoking is idempotent: the goal is already met)",
+  "@fnthinkRevokeAlreadyGone": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkRevokeStoreUnavailable": "The server revoked it, but this device has no row-deletion wiring, so this row stays",
+  "fnthinkRevokeRowRemains": "The server revoked it, but deleting this row failed, so the row stays",
+  "fnthinkRevokeFailed": "Revoking failed ({reason}) — the row stays in the list, which is the truth right now",
+  "@fnthinkRevokeFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  }
 }

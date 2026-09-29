@@ -364,6 +364,13 @@ class FnthinkContract {
   /// pairConfirm 载荷的字段名单（今日 = `["requestId","decision","level"]`）。
   List<String> get pairConfirmFields => clientEventFields('pairConfirm');
 
+  /// pairRevoke 载荷的字段名单（今日 = `["peerAddress"]`）。
+  ///
+  /// 这一发就一个键，但键名仍只从契约读：内核拿这份名单当**唯一**的载荷形状，
+  /// 于是"给那个键改名"那一刀只在契约里落一次。写死在两份实现里的下场本仓撞过三次
+  /// （`type` 词表、`pairingCode`、`decision`），每一次的表现都是同一句同形的 403。
+  List<String> get pairRevokeFields => clientEventFields('pairRevoke');
+
   /// 本机在这一发上能做的**那两种**决定（封闭集合：第三种取值服务端会整条拒）。
   List<String> get pairConfirmDecisions =>
       strings(['clientEvents', 'pairConfirm', 'decisions']);

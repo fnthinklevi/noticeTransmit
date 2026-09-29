@@ -51,9 +51,10 @@ class FnthinkPushDeps {
 /// 第一次显示给人看：在此之前它们只在日志与测试里出现过。
 ///
 /// ⚠ 页面上刻意没有的东西，都不是忘了：
-///  - **名单上的"取消配对"按钮**：那一格现在只读。本机删行**不会**让对面推不进来 ——
-///    能不能推是服务端那份 `grantsBy` 决定的（契约 `pairing.relationshipStoredOn`），
-///    撤销那一发属于 T31 的吊销。放一个只做本机删行的按钮，就是承诺一件它做不到的事。
+///  - **一键"全部撤销"**：名单上有的只是**逐行那一下**「撤销」（T31 B 片第二片），它撤的是
+///    服务端那份授权，而已经收到的通知不在这一发的范围里（撤销只停投递、不删历史）。
+///    "把这台设备上所有许可一次收回"需要另一套二次确认（它得先说清"这会切断 N 台"），
+///    那是 T31 的另一档，不在这一格顺手加一个按钮的范围里。
 ///  - **对端的名字**：`fnthink_peers` 故意没有这一列（见 `FnthinkPeer` 的注释：poll 的回信里
 ///    从没带过它，等有出处了再加列）。所以名单只能显示 18 位地址码 —— 难看，但是有出处的难看。
 ///  - **大陆那台预设地址**：`transport.endpoints.mainland` 今天**已部署**（#137 走"先把它部署起来"收口，
@@ -132,6 +133,10 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
 
   /// 读名单失败时的原话（与 `_startNote` 同一条纪律：不折叠成"出错了"）。
   String? _peersError;
+
+  /// 最近一次撤销的结论（null = 这一页还没撤过）。与 `_pairAnswer` 同一条理由：
+  /// "服务器撤了而本机那一行没删掉"必须经得起回去再看一眼，不能弹个 toast 就消失。
+  ({FnthinkPeer peer, FnthinkPeerRevoke revoke})? _peerRevoke;
 
   FnthinkDeviceIdentity? _identity;
   bool _identityUnavailable = false;
@@ -440,6 +445,60 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     return l10n.fnthinkPairApproved(peer, granted);
   }
 
+  /// 划掉名单里的一台（T31 B 片那一发的入口）。
+  ///
+  /// ⚠ 参数写成位置式，与 [_answer] 同一条理由：T06 那条守卫的锚点要不带 `{` 的签名
+  ///    （`blockAfter` 会停在命名参数表那个花括号上，取到的是参数表而不是函数体）。
+  /// ⚠ 页面**只交一个 bool 之外的东西都没有**：撤谁、先后怎么做、`revoked:false` 算不算成，
+  ///    全在协调者那一处。页面自己先删行再发请求的话，"授权还在而来源消失"那一种就长在界面里了。
+  Future<void> _revoke(FnthinkPeer peer) async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final ok = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.fnthinkRevokeAskTitle,
+      message: l10n.fnthinkRevokeAskMsg(peer.peerAddress),
+      // 弹层里的确认键不写"撤销"：那与列表里那个按钮同词，`find.text` 一次抓到两个，
+      // 而用户也分不清自己点的是"要撤"还是"只是打开了弹层"。
+      confirmText: l10n.confirm,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    final revoke = await _coordinator.revokePeer(peer);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _peerRevoke = (peer: peer, revoke: revoke);
+    });
+    // 撤成了那一行就不该再显示；没撤成也要重读一次，因为界面那句结论说的是"此刻名单什么样"。
+    // 重读走同一个读咽喉，不是页面自己数一遍（那会长出第二个排序/时间口径）。
+    await _loadPeers();
+  }
+
+  /// 撤销那一发的结论。⚠ `revoked:false` 走的是**成功**那一路：撤销是幂等的
+  /// （契约 `clientEvents.pairRevoke._why`），把它显示成失败会让人再点一次，而那一行一直在。
+  String _peerRevokeText(
+    AppLocalizations l10n,
+    ({FnthinkPeer peer, FnthinkPeerRevoke revoke}) entry,
+  ) {
+    final revoke = entry.revoke;
+    if (!revoke.ok) {
+      return l10n.fnthinkRevokeFailed(revoke.reason ?? 'no-revoke');
+    }
+    final skipped = revoke.skipped;
+    if (skipped == FnthinkPeerRemoveSkip.storeUnavailable) {
+      return l10n.fnthinkRevokeStoreUnavailable;
+    }
+    if (skipped == FnthinkPeerRemoveSkip.removeFailed) {
+      return l10n.fnthinkRevokeRowRemains;
+    }
+    final peer = entry.peer.peerAddress;
+    if (revoke.result.revoked != true) {
+      return l10n.fnthinkRevokeAlreadyGone(peer);
+    }
+    return l10n.fnthinkRevoked(peer);
+  }
+
   /// 待确认的配对请求那一格。
   ///
   /// 列表**跟着协调者那份账走**（`pairRequestsListenable`）：用户挂出口令之后是盯着屏幕等对面来配的，
@@ -528,22 +587,29 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 而名单已经有人写了（第五片），此时"还没有配对过任何设备"是一句可行动的真话。
   /// 但"读不出来"与"一条都没有"必须是两句不同的话（见 `_peers` 的注释）。
   ///
-  /// ⚠ 底下那句边界不是客套：这一格记的是**本机同意过谁**，而"对面还能不能推进来"由服务端
-  /// 那份 `grantsBy` 决定（契约 `pairing.relationshipStoredOn`）。撤销要等 T31 的吊销 ——
-  /// 在那之前这里连一个"划掉"的按钮都不许有：只做本机删行的按钮，承诺的是它做不到的事。
+  /// ⚠ 底下那句边界不是客套：这一格记的是**本机同意过谁**，而「撤销」撤的是服务端那份授权
+  /// （契约 `pairing.relationshipStoredOn`）。顺序是**先撤服务端、再删本机这一行**，反过来做
+  /// 会出现"授权还在而来源从屏幕上消失"那一种最难发现的静默；已经收到的通知不在这一发的范围里
+  /// （契约 revocation 那一节：撤销只停投递，不删历史）；而对面那台给本机的许可，只有它自己能撤。
   ///
-  /// 这一格被砸过什么（报告在本地 `outputs/_peers_falsify.report.txt`，按约定不入库；
-  /// R1/R2/R3/R5 全部 named + restored）：
+  /// 这一格被砸过什么（读那一半的报告在 `outputs/_peers_falsify.report.txt`，撤销那一半在
+  /// `outputs/_revokepeer.report.txt`，按约定不入库）：
   ///  - 渲染层把"读失败"当成空表 ⇒ 红在「名单读不出来 ⇒ 贴原话，不许显示成"还没有配对过任何设备"」；
   ///  - 读失败时 `_loadPeers` 退回 `const []` ⇒ 红在同一条（两处都能把假话说圆，所以都钉）；
   ///  - 答复之后不重读名单 ⇒ 红在「同意之后名单重读一次」；
   ///  - 边界那句被换成另一句话 ⇒ 红在「边界那句在场」（那条断言比的是**这一句**，不是"有个非空 Text"）；
   ///  - `grantedAt=0` 被格式化 ⇒ 红在「那一行写"—"，不写成 1970 年」。
+  /// 撤销那两下被砸过什么（`outputs/_revokepeer.report.txt`）：
+  ///  - **U1** 撤成之后不重读名单 ⇒ 红在「撤成 ⇒ 那一行从格子里消失」；
+  ///  - **U4** 把 `askConfirm` 那一段整个摘掉 ⇒ 红在「点了不等于撤了」（第一版植入只改条件
+  ///    `if (!ok …)` ⇒ 全场仍绿，因为 `await askConfirm` 还在那儿挡着：弹层仍然会开，
+  ///    用例点确认后一切照旧。植入要改的是**调用本身**，不是它的返回值）。
   /// ⚠ R1 的第一版植入（`if (rows == null)` 改成 `if (false)`）**编译不过**：摘掉那个分支后
   ///    `rows.isEmpty` 的空接收者就是错误。那属于"植入本身无效"，不能算这条判据没效果 ——
   ///    换成 `_peers ?? const <FnthinkPeer>[]` 才是它的合法植入。
   Widget _buildPeersCard(AppLocalizations l10n) {
     final rows = _peers;
+    final revokeEntry = _peerRevoke;
     return _Card(
       title: l10n.fnthinkPeersTitle,
       children: [
@@ -555,7 +621,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
         else if (rows.isEmpty)
           _Note(keyName: 'fnthink-peers-empty', text: l10n.fnthinkPeersEmpty)
         else
-          for (final peer in rows)
+          for (final peer in rows) ...[
             _Note(
               keyName: 'fnthink-peer-${peer.peerAddress}',
               text: l10n.fnthinkPeerLine(
@@ -564,6 +630,22 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
                 _formatTime(peer.grantedAt),
               ),
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: ValueKey('fnthink-peer-revoke-${peer.peerAddress}'),
+                // 撤销那一发要能连点两下都不出事（服务端幂等），但 `_busy` 仍然拦：
+                // 拦的不是"撤两次"，是"两次删行撞在一起"——那种时候界面显示的是哪一次？
+                onPressed: _busy ? null : () => _revoke(peer),
+                child: Text(l10n.fnthinkPeerRevoke),
+              ),
+            ),
+          ],
+        if (revokeEntry != null)
+          _Note(
+            keyName: 'fnthink-peer-revoke-note',
+            text: _peerRevokeText(l10n, revokeEntry),
+          ),
         const SizedBox(height: 8),
         _Note(
           keyName: 'fnthink-peers-boundary',

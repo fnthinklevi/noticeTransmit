@@ -82,11 +82,13 @@ void main() {
     FnthinkIdentitySigner? signerOverride,
     FnthinkServiceFactory? serviceFactory,
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
+    Future<bool> Function(String peerAddress)? removePeer,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
     persist: persist,
     recordPeer: recordPeer,
+    removePeer: removePeer,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
   );
@@ -97,6 +99,7 @@ void main() {
     String body =
         '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,"serverTime":1800000000000}',
     required List<http.Request> sink,
+    List<String>? steps,
   }) =>
       (spec) => FnthinkReceiverService(
         contract: spec.contract,
@@ -105,6 +108,7 @@ void main() {
         addressCode: spec.addressCode,
         client: MockClient((req) async {
           sink.add(req);
+          steps?.add('request');
           return http.Response(body, status);
         }),
       );
@@ -824,6 +828,189 @@ void main() {
       await c.receiveOnce();
       await c.confirmPairing(request: req('L1'), approve: true);
       expect(c.pendingPairRequests, hasLength(1));
+    });
+  });
+
+  group('撤销那一发 revokePeer（T31 B 片第二片）', () {
+    FnthinkPeer peerRow() => const FnthinkPeer(
+      peerAddress: '8KMNPQRSTVWX999777',
+      publicKey: 'AAAA',
+      level: 'L1',
+      grantedAt: 1700000000000,
+    );
+
+    String revokeBody({required bool revoked}) =>
+        '{"revoked":$revoked,"serverTime":1800000000000}';
+
+    /// 从签出去的那一发里把**载荷**取回来（`fields.body` 是 json 字符串，套两层）。
+    Map<String, Object?> revokePayload(http.Request request) =>
+        jsonDecode(
+              (jsonDecode(request.body)['fields']! as Map)['body']! as String,
+            )
+            as Map<String, Object?>;
+
+    test('撤的是契约声明的那条路径，而载荷里那个地址就是签名针对的那台', () async {
+      final asked = <http.Request>[];
+      final deleted = <String>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: revokeBody(revoked: true),
+        ),
+        removePeer: (addr) async {
+          deleted.add(addr);
+          return true;
+        },
+      );
+      final result = await c.revokePeer(peerRow());
+      expect(result.ok, isTrue);
+      expect(asked.single.url.path, contract.apiPath('pairRevoke'));
+      expect(
+        revokePayload(asked.single).keys.toList(),
+        contract.pairRevokeFields,
+      );
+      expect(revokePayload(asked.single).values.single, '8KMNPQRSTVWX999777');
+      expect(deleted, ['8KMNPQRSTVWX999777']);
+      expect(result.rowRemoved, isTrue);
+    });
+
+    test('那一行不许先于服务端消失：删行只发生在请求回来之后', () async {
+      // 顺序是这一发的**判据**，不是实现细节：先删行的话，服务端那一发一旦失败，
+      // 本机就再也不显示这一行而授权还留着 —— 对面照样推得进来，而屏幕上没有一行解释来源。
+      final steps = <String>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body: revokeBody(revoked: true),
+          steps: steps,
+        ),
+        removePeer: (_) async {
+          steps.add('remove');
+          return true;
+        },
+      );
+      await c.revokePeer(peerRow());
+      expect(steps, ['request', 'remove']);
+    });
+
+    test('服务端没撤成 ⇒ 本机那一行一个字都不动', () async {
+      final asked = <http.Request>[];
+      final deleted = <String>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          status: 403,
+          body: '{"receipt":"${contract.unsignedReceipt}"}',
+        ),
+        removePeer: (addr) async {
+          deleted.add(addr);
+          return true;
+        },
+      );
+      final result = await c.revokePeer(peerRow());
+      expect(result.ok, isFalse);
+      expect(deleted, isEmpty, reason: '撤失败却删了行＝"授权还在而来源消失"那一种静默');
+      expect(result.rowRemoved, isNull);
+      expect(result.skipped, isNull);
+    });
+
+    test('revoked:false 也算成 ⇒ 本机那一行照样删（幂等那半）', () async {
+      final deleted = <String>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body: revokeBody(revoked: false),
+        ),
+        removePeer: (addr) async {
+          deleted.add(addr);
+          return true;
+        },
+      );
+      final result = await c.revokePeer(peerRow());
+      expect(
+        result.ok,
+        isTrue,
+        reason:
+            '目标状态是「它不在我的名单里」，那边本来没有就是已达成；'
+            '把它当失败，用户看到的是一句"撤销没成"而对面其实推不进来',
+      );
+      expect(result.result.revoked, isFalse);
+      expect(deleted, hasLength(1));
+    });
+
+    test('服务器撤了而本机删行抛 ⇒ 结论说得出"那一行还留着"', () async {
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body: revokeBody(revoked: true),
+        ),
+        removePeer: (_) async => throw StateError('表被锁'),
+      );
+      final result = await c.revokePeer(peerRow());
+      expect(result.ok, isTrue, reason: '撤销这件事本身成了，失败的是本机那一行');
+      expect(result.skipped, FnthinkPeerRemoveSkip.removeFailed);
+    });
+
+    test('这台没装配删行 ⇒ storeUnavailable，而不是悄悄留着那一行', () async {
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body: revokeBody(revoked: true),
+        ),
+      );
+      final result = await c.revokePeer(peerRow());
+      expect(result.ok, isTrue);
+      expect(result.skipped, FnthinkPeerRemoveSkip.storeUnavailable);
+      expect(result.rowRemoved, isNull);
+    });
+
+    test('总开关关着也能撤：撤销不是"收货"的一部分', () async {
+      SharedPreferences.setMockInitialValues({}); // 默认关
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: revokeBody(revoked: true),
+        ),
+        removePeer: (_) async => true,
+      );
+      final result = await c.revokePeer(peerRow());
+      expect(
+        asked,
+        hasLength(1),
+        reason:
+            '「关掉收货」是这一台不去取，「别再推给我」是另一件事 —— '
+            '后者被前者拦住，等于要用户先打开他刚说不想要的东西才能撤回许可',
+      );
+      expect(result.ok, isTrue);
+    });
+
+    test('签不出来 ⇒ 那一发不发、那一行不动（与答复那一路同一道闸）', () async {
+      final asked = <http.Request>[];
+      final deleted = <String>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: revokeBody(revoked: true),
+        ),
+        removePeer: (addr) async {
+          deleted.add(addr);
+          return true;
+        },
+      );
+      final result = await c.revokePeer(peerRow());
+      expect(asked, isEmpty);
+      expect(deleted, isEmpty);
+      expect(result.reason, 'signing-unavailable');
     });
   });
 }

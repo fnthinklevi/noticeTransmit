@@ -92,7 +92,10 @@ void main() {
     String confirmBody =
         '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
         '"serverTime":1800000000000}',
+    int revokeStatus = 200,
+    String revokeBody = '{"revoked":true,"serverTime":1800000000000}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
+    Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
     bool peersFail = false,
   }) {
@@ -104,6 +107,8 @@ void main() {
     );
     final armAsked = <http.Request>[];
     final confirmAsked = <http.Request>[];
+    final revokeAsked = <http.Request>[];
+    final removed = <String>[];
     final peerRows = <FnthinkPeer>[];
     final peersShown = <FnthinkPeer>[...peers];
     var peerReads = 0;
@@ -122,6 +127,16 @@ void main() {
             peersShown.add(peer);
             return FnthinkPeerWrite.created;
           },
+      // 删行的替身：同样把 `peersShown` 改掉，于是"撤成之后那一行自己消失"是**读回来**的，
+      // 不是页面自己把那一行从列表里剪掉的（那种实现当场看不出来，只会让守卫无处可钉）。
+      removePeer:
+          removePeer ??
+          (addr) async {
+            removed.add(addr);
+            final before = peersShown.length;
+            peersShown.removeWhere((p) => p.peerAddress == addr);
+            return peersShown.length < before;
+          },
       serviceFactory: (spec) => FnthinkReceiverService(
         contract: spec.contract,
         baseUri: spec.baseUri,
@@ -131,6 +146,10 @@ void main() {
           if (req.url.path == contract.apiPath('pairConfirm')) {
             confirmAsked.add(req);
             return http.Response(confirmBody, confirmStatus);
+          }
+          if (req.url.path == contract.apiPath('pairRevoke')) {
+            revokeAsked.add(req);
+            return http.Response(revokeBody, revokeStatus);
           }
           armAsked.add(req);
           return http.Response(armBody, armStatus);
@@ -194,6 +213,8 @@ void main() {
       peerRows: () => peerRows,
       peersShown: () => peersShown,
       peerReads: () => peerReads,
+      revokeAsked: () => revokeAsked,
+      removed: () => removed,
     );
   }
 
@@ -865,8 +886,8 @@ void main() {
         tester.widget<Text>(boundary).data,
         l10n.fnthinkPeersBoundary,
         reason:
-            '"这里删掉一行不会让推送停下来"必须与名单同屏，而且必须是**这一句**：'
-            '少了它，这一格就会被读成撤销的入口',
+            '"撤销撤的是服务器那份授权、已收到的通知不删"必须与名单同屏，而且必须是**这一句**：'
+            '少了它，那一行下面的按钮就会被读成"把这条记录删掉"，而屏幕上再没有别的出处',
       );
       expect(h.peerReads(), greaterThanOrEqualTo(1));
     });
@@ -953,6 +974,163 @@ void main() {
       expect(line, contains('—'));
     });
   });
+
+  group('名单上那一下「撤销」（T31 B 片第二片）', () {
+    FnthinkPeer peerRow(
+      String address, {
+      String level = 'L1',
+      int at = 1780000111000,
+    }) => FnthinkPeer(
+      peerAddress: address,
+      publicKey: 'AAAA',
+      level: level,
+      grantedAt: at,
+      requestId: 'pr_9',
+    );
+
+    /// 走完「撤销 → 二次确认」。
+    /// ⚠ 这里要 `revealTo`（滚到被 build 出来）**再** `ensureVisible`（把它滚进视口）：
+    ///   `ListView` 懒建，`revealTo` 在"已经 build 但在屏幕外"时直接返回，此时 `tap` 会
+    ///   打到一个 hit-test 打不中的坐标（点了等于没点，弹层永远不出现）。
+    Future<void> tapRevoke(
+      WidgetTester tester,
+      AppLocalizations l10n,
+      String address,
+    ) async {
+      final button = find.byKey(ValueKey('fnthink-peer-revoke-$address'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('点了不等于撤了：那一发要先过二次确认', (tester) async {
+      stubChannels();
+      final h = harness(peers: [peerRow('AAAAAAAAAAAAAAAAAAAA')]);
+      final l10n = await pump(tester, h.page);
+      await tapRevoke(tester, l10n, 'AAAAAAAAAAAAAAAAAAAA');
+      expect(
+        find.text(l10n.fnthinkRevokeAskTitle),
+        findsOneWidget,
+        reason:
+            'T06：删除一律二次确认。撤销删的是"别人还能不能推给我"这件事，'
+            '点错一下的代价是对方要重新扫码，而界面上一句都看不见',
+      );
+      expect(h.revokeAsked(), isEmpty);
+      expect(h.removed(), isEmpty, reason: '弹层还在时本机一行都不该动');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(h.revokeAsked(), hasLength(1));
+    });
+
+    testWidgets('撤成 ⇒ 那一行从格子里消失，而结论说的是服务端的事实', (tester) async {
+      stubChannels();
+      final h = harness(peers: [peerRow('BBBBBBBBBBBBBBBBBBBB')]);
+      final l10n = await pump(tester, h.page);
+      final before = h.peerReads();
+      await tapRevoke(tester, l10n, 'BBBBBBBBBBBBBBBBBBBB');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(h.removed(), [
+        'BBBBBBBBBBBBBBBBBBBB',
+      ], reason: '删行由协调者在服务端认了之后调，页面不自己动表');
+      expect(h.peerReads(), greaterThan(before), reason: '名单是这一发的后果，不重读就是旧的');
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-BBBBBBBBBBBBBBBBBBBB')),
+        findsNothing,
+      );
+      final note = find.byKey(const ValueKey('fnthink-peer-revoke-note'));
+      await revealTo(tester, note);
+      expect(tester.widget<Text>(note).data, isNot(contains('撤销没成')));
+    });
+
+    testWidgets('那边本来没有这一条（revoked:false）⇒ 那一行也消失，而且不当成失败', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: [peerRow('CCCCCCCCCCCCCCCCCCCC')],
+        revokeBody: '{"revoked":false,"serverTime":1800000000000}',
+      );
+      final l10n = await pump(tester, h.page);
+      await tapRevoke(tester, l10n, 'CCCCCCCCCCCCCCCCCCCC');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(h.removed(), hasLength(1), reason: '撤销是幂等的：目标状态已达成就是成功');
+      final note = find.byKey(const ValueKey('fnthink-peer-revoke-note'));
+      await revealTo(tester, note);
+      expect(tester.widget<Text>(note).data, contains('幂等'));
+      expect(find.text(l10n.fnthinkPeersEmpty), findsOneWidget);
+    });
+
+    testWidgets('服务端拒了 ⇒ 那一行必须还留着，而那句说的不是"已撤销"', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: [peerRow('DDDDDDDDDDDDDDDDDD')],
+        revokeStatus: 403,
+        revokeBody: '{"receipt":"rejected_capability"}',
+      );
+      final l10n = await pump(tester, h.page);
+      await tapRevoke(tester, l10n, 'DDDDDDDDDDDDDDDDDD');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(h.revokeAsked(), hasLength(1));
+      expect(
+        h.removed(),
+        isEmpty,
+        reason:
+            '撤失败却删了行＝"授权还在而来源从屏幕上消失"：对面照样推得进来，'
+            '而这一台再也看不见它是谁 —— 那是最难发现的一种静默',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-DDDDDDDDDDDDDDDDDD')),
+        findsOneWidget,
+      );
+      final note = find.byKey(const ValueKey('fnthink-peer-revoke-note'));
+      await revealTo(tester, note);
+      expect(tester.widget<Text>(note).data, contains('撤销没成'));
+    });
+
+    testWidgets('服务器撤了而本机删行抛 ⇒ 说得出"那一行还留着"，不说成撤销失败', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: [peerRow('EEEEEEEEEEEEEEEEEEEE')],
+        removePeer: (_) async => throw StateError('表被锁'),
+      );
+      final l10n = await pump(tester, h.page);
+      await tapRevoke(tester, l10n, 'EEEEEEEEEEEEEEEEEEEE');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      final note = find.byKey(const ValueKey('fnthink-peer-revoke-note'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        l10n.fnthinkRevokeRowRemains,
+        reason: '报成"撤销没成"会请用户再点一次，而那一次换来的是一句幂等的成功',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-EEEEEEEEEEEEEEEEEEEE')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('签不出来 ⇒ 那一发不发、那一行留着（与答复那一路同一道闸）', (tester) async {
+      stubChannels();
+      final h = harness(
+        canSign: false,
+        peers: [peerRow('FFFFFFFFFFFFFFFFFFFF')],
+      );
+      final l10n = await pump(tester, h.page);
+      await tapRevoke(tester, l10n, 'FFFFFFFFFFFFFFFFFFFF');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(h.revokeAsked(), isEmpty);
+      expect(h.removed(), isEmpty);
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-FFFFFFFFFFFFFFFFFFFF')),
+        findsOneWidget,
+      );
+    });
+  });
 }
 
 /// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，
@@ -1015,6 +1193,8 @@ class _Harness {
     required this.peerRows,
     required this.peersShown,
     required this.peerReads,
+    required this.revokeAsked,
+    required this.removed,
   });
 
   final FnthinkPushPage page;
@@ -1035,4 +1215,10 @@ class _Harness {
 
   /// 名单被读了几次（页面只在进页面与答复之后各读一次，别处不许自己数）。
   final int Function() peerReads;
+
+  /// 撤销那一发真实发出去的请求（假服务器记下来的）。
+  final List<http.Request> Function() revokeAsked;
+
+  /// 本机删行被调用时点到的地址码（替身记下来的）。
+  final List<String> Function() removed;
 }

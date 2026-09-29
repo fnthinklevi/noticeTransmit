@@ -3388,5 +3388,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPeersBoundary =>
-      'This cell records who this device has approved. Whether a peer can still push is decided by the grant stored on the server; really revoking it needs server-side revocation (not wired yet) — deleting a row here does not stop pushes.';
+      'This cell records who this device has approved. Revoking first takes the grant back on the server, then this row disappears here; notifications already received are not deleted. The grant the other device gave you is its own to revoke.';
+
+  @override
+  String get fnthinkPeerRevoke => 'Revoke';
+
+  @override
+  String get fnthinkRevokeAskTitle => 'Revoke this device\'s push permission?';
+
+  @override
+  String fnthinkRevokeAskMsg(String peer) {
+    return 'After revoking, $peer can no longer push to this device; notifications already received stay. This step needs the server, so it cannot be done offline.';
+  }
+
+  @override
+  String fnthinkRevoked(String peer) {
+    return 'Revoked $peer: it can no longer push to this device';
+  }
+
+  @override
+  String fnthinkRevokeAlreadyGone(String peer) {
+    return 'The server no longer holds a grant for $peer (revoking is idempotent: the goal is already met)';
+  }
+
+  @override
+  String get fnthinkRevokeStoreUnavailable =>
+      'The server revoked it, but this device has no row-deletion wiring, so this row stays';
+
+  @override
+  String get fnthinkRevokeRowRemains =>
+      'The server revoked it, but deleting this row failed, so the row stays';
+
+  @override
+  String fnthinkRevokeFailed(String reason) {
+    return 'Revoking failed ($reason) — the row stays in the list, which is the truth right now';
+  }
 }
