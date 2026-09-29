@@ -348,9 +348,27 @@ class FnthinkContract {
     return value;
   }
 
-  /// ack 载荷的字段名单（服务端逐字节比过这份名单，多一个键都会被拒）。
-  List<String> get ackFields =>
-      strings(const ['clientEvents', 'ack', 'fields']);
+  /// 某一类客户端事件的载荷字段名单（服务端按名单逐字节比，多一个键都会被拒）。
+  ///
+  /// 名单**只许从这一处读**：加一类事件就在实现里抄一份字面量的话，契约改名的那一半
+  /// 永远不会跟着改，而两端的表现是同一句同形的 403（本仓在 `type` 词表上撞过一次）。
+  List<String> clientEventFields(String kind) =>
+      strings(['clientEvents', kind, 'fields']);
+
+  /// ack 载荷的字段名单。
+  List<String> get ackFields => clientEventFields('ack');
+
+  /// pairArm 载荷的字段名单（今日 = `["pairingCode"]`；档位不在这里，见 `pairing` 段）。
+  List<String> get pairArmFields => clientEventFields('pairArm');
+
+  /// 挂出去的口令在这一步**不许带**的那一项：契约说它 arms 什么，实现就只发什么。
+  String get pairArmPayloadField {
+    final value = str(['clientEvents', 'pairArm', 'arms']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 clientEvents.pairArm.arms（不补默认值）');
+    }
+    return value;
+  }
 
   /// 设备能报的 `result` → 状态机事件。**这张表是封闭的**：不在表里的结果
   /// 设备不许自报（`expired` / `dropped` 是服务端自己的决定，让设备报就等于让它替服务端宣布结局）。

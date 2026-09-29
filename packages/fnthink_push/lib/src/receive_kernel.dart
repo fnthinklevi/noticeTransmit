@@ -351,6 +351,116 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 pairArm 的签名字段（T42「添加设备」的第一跳：把这枚一次性口令挂到服务器上）。
+  ///
+  /// 载荷的键名单**从契约读**（`clientEvents.pairArm.fields` / `arms`），不是在这里抄一份字面量：
+  /// 多塞一个键（比如顺手带上 `level`）在服务端是整条拒，而拒信只有一句同形的 403 ——
+  /// 看不出是"我多带了一样东西"。所以名单对不上时这里**当场抛**，把编程错误留在它发生的地方。
+  Map<String, Object?> pairArmFields({
+    required Map<String, Object?> payload,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.pairArmFields;
+    if (declared.isEmpty) {
+      throw StateError('契约没写 clientEvents.pairArm.fields：这一发不知道该带什么，不猜');
+    }
+    if (payload.length != declared.length ||
+        !declared.every(payload.containsKey)) {
+      throw ArgumentError(
+        'pairArm 的载荷键必须与契约名单一致（期望 $declared，实到 '
+        '${(payload.keys.toList()..sort())}）',
+      );
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('pairArm'),
+      // selfOnlyRules：pairArm 的 target 必须是本机自己（挂口令的人是 A，不是别人）。
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      // 按契约顺序编码：规范化字节是逐字节比的，键序不同就签成另一封信。
+      'body': jsonEncode({for (final key in declared) key: payload[key]}),
+    };
+  }
+
+  /// 挂出口令并**问服务器收到没有**。
+  ///
+  /// 为什么这一步值得单独存在：本机 prefs 里写过口令 ≠ 服务器认得它。B 扫了 A 屏幕上那串去
+  /// `/pair`，服务器只会回"口令不存在"，而 A 的界面上还挂着"已挂出 5 分钟"——
+  /// 那是让界面替一件没发生的事作保。返回值就是那条分界线的证据。
+  ///
+  /// 失败不抛（同 poll）：429 要按 `Retry-After` 等、410 要先校准时间、403 是身份问题不是网络问题。
+  /// 状态→后果这张表**只有 [interpret] 一份**，这里借用它，不再写第二个"如果状态是 429 就…"。
+  ///
+  /// 这一片被砸过什么（报告在本地 outputs/_pairarm_falsify.report.txt，按约定不入库）：
+  ///  - 名单校验改成恒不触发 ⇒ 红在「多带一个 level 当场抛」；
+  ///  - `type` 借 poll 的那个词 ⇒ 红在「type 用 pairArm 自己的那个词」；
+  ///  - `target` 填成对端地址码 ⇒ 红在「target 必须是本机地址码」；
+  ///  - `ts` 签成毫秒 ⇒ 红在「ts 是秒」；
+  ///  - ⚠ [FnthinkPairArmResult.ok] 里那道"没有过期时间就不算成功"的二次判定**今日不可单独观察**：
+  ///    上面那个分支先拦住了，把它摘掉全场仍绿。它是纵深防御（防的是"以后有人把分支改了却留着 ok"），
+  ///    按规矩登记成纵深防御，不登记成"已验证"。
+  Future<FnthinkPairArmResult> pairArm({required String pairingCode}) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      // 键名也来自契约（arms），所以"契约说这步挂的是口令"这句在实现里落到了实处：
+      // 契约把 arms 改成别的词，这一发会因名单不匹配当场抛，而不是悄悄发出一封带错键的信。
+      fields: pairArmFields(
+        payload: {contract.pairArmPayloadField: pairingCode},
+        nonce: nonce,
+      ),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkPairArmResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkPairArmResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'pair-arm-http:${reply.status}',
+      );
+    }
+    final expiresAt = reply.body['expiresAt'];
+    if (reply.body['armed'] != true || expiresAt is! int) {
+      // 200 但没给出过期时间 = 服务器没有承认它收下这枚口令。宁可让用户重试一次，
+      // 也不能让界面说"已挂出"而服务器那边根本没有这条记录。
+      _lastReason = 'pair-arm-acked-without-expiry';
+      return FnthinkPairArmResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    final ttl = reply.body['ttlSeconds'];
+    return FnthinkPairArmResult(
+      status: FnthinkPollStatus.ok,
+      expiresAtMs: expiresAt,
+      ttlSeconds: ttl is int ? ttl : null,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   int _nonceCounter = 0;
   String _fallbackNonce() {
     // 进程内唯一（时间戳 + 计数）。跨重启的唯一性由调用方保证 —— 这也是
@@ -498,4 +608,30 @@ class FnthinkAckResult {
 
   /// 本地就把重复的渲染回调挡掉了（没发出去）。
   final bool duplicateSuppressed;
+}
+
+/// 挂口令那一发的结论。
+///
+/// `expiresAtMs` 只有**服务器确实收下并回给了过期时间**才有值 —— 界面上"已挂出"那一句
+/// 必须挂在这个字段上，而不是挂在"我本地写成功"上：那两件事差一次网络往返，而用户看不出差别。
+class FnthinkPairArmResult {
+  const FnthinkPairArmResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.expiresAtMs,
+    this.ttlSeconds,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+
+  /// 服务端算好的过期时刻（**毫秒 epoch**，与它回显的 `serverTime` 同一单位）。
+  final int? expiresAtMs;
+
+  /// 服务端给的剩余秒数。没回就是 null —— 界面上不显示"还剩 X 秒"，而不是自己估。
+  final int? ttlSeconds;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok && expiresAtMs != null;
 }

@@ -554,6 +554,9 @@ void main() {
       // 200 是 HTTP 层的"这一发有 body"，不是协议结论，所以它允许出现（且只允许那一处）
       expect(RegExp(r'!= 200').hasMatch(stripped), isTrue);
       expect(stripped.split('200').length - 1, lessThanOrEqualTo(2));
+      // pairArm 的载荷键名同样只许来自契约：内核里出现 'pairingCode' 字面量 = 名单被抄了第二份，
+      // 契约把那一栏改名的那天，这一发会照旧签出老键 —— 换回来的还是一句同形的 403。
+      expect(stripped.contains("'pairingCode'"), isFalse);
     });
 
     test('签名的 version 取自协议名，且与 contractVersion 不一致时立刻抛（不猜一个）', () {
@@ -566,6 +569,148 @@ void main() {
         'protocol': 'fnthink-v9',
       });
       expect(() => broken.protocolVersionForSignature, throwsStateError);
+    });
+  });
+
+  group('挂口令 pairArm（T42「添加设备」的第一跳）', () {
+    // 20 位 Crockford Base32（契约 identity.pairingCode.length）。这里不做校验——
+    // 校验住口令形状是 credential_store 那一层的事，内核只管"按契约名单发出去"。
+    const pairingCode = '7A9QKM3PTVWXRBNSFGH4';
+
+    Map<String, Object?> armOk({int? serverTime}) {
+      final server =
+          serverTime ?? DateTime.now().toUtc().millisecondsSinceEpoch;
+      return {
+        'armed': true,
+        'expiresAt': server + 300_000,
+        'ttlSeconds': 300,
+        'serverTime': server,
+      };
+    }
+
+    test('载荷键名单来自契约：多带一个 level 当场抛，且不先把信封发出去', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      final poll = harness.kernel();
+      expect(
+        () => poll.pairArmFields(
+          payload: {contract.pairArmPayloadField: pairingCode, 'level': 'L1'},
+          nonce: 'n1',
+        ),
+        throwsA(isA<ArgumentError>()),
+        reason:
+            '服务端按契约名单逐字节比，多一个键就整条拒 —— 而拒信只有一句同形的 403，'
+            '把"我多塞了东西"伪装成"身份有问题"是最难查的那类失败',
+      );
+      expect(harness.sent, isEmpty, reason: '抛在发出去之前，不该已经留下一封必然被拒的信');
+    });
+
+    /// 一发 pairArm，返回它签出去的那个 `fields`。
+    /// 形状检查拆成"每件事一条用例"：反证要的是**一条植入红一条用例**，
+    /// 四个断言同住一条用例时，红了哪一句只能靠读日志猜。
+    Future<Map<String, Object?>> armOnce(_Harness harness) async {
+      harness.reply = FnthinkReply(status: 200, body: armOk());
+      await harness.kernel().pairArm(pairingCode: pairingCode);
+      return harness.sent.single['fields'] as Map<String, Object?>;
+    }
+
+    test('type 用 pairArm 自己的那个词，不是借来的 poll', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      final fields = await armOnce(harness);
+      expect(
+        fields['type'],
+        contract.str(const ['clientEvents', 'pairArm', 'messageType']),
+        reason: '一个内核跑多种事件时，type 借错词只会换回一句同形的 403',
+      );
+    });
+
+    test('target 必须是本机地址码（selfOnly：挂口令的人是自己）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      final fields = await armOnce(harness);
+      expect(
+        fields['target'],
+        _self,
+        reason: 'target 填别人 = 替别人挂出口令，那枚口令之后会认到别人身上',
+      );
+    });
+
+    test('body 里就契约那一个键，键序也按契约', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      final fields = await armOnce(harness);
+      final body = jsonDecode(fields['body'] as String) as Map<String, Object?>;
+      expect(body.keys.toList(), contract.pairArmFields);
+      expect(body[contract.pairArmPayloadField], pairingCode);
+    });
+
+    test('ts 是秒（写成毫秒不报错，只会每一发都超出容差）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      final fields = await armOnce(harness);
+      expect(fields['ts'], '${1_800_000_000_000 ~/ 1000}');
+    });
+
+    test('200 带回 expiresAt ⇒ 挂成功，并从这一发学到服务端时间', () async {
+      final local = 1_800_000_000_000;
+      final harness = _Harness(contract, local);
+      final server = local + 600_000;
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: armOk(serverTime: server),
+      );
+      final poll = harness.kernel();
+      final result = await poll.pairArm(pairingCode: pairingCode);
+      expect(result.ok, isTrue);
+      expect(result.expiresAtMs, server + 300_000);
+      expect(result.ttlSeconds, 300);
+      expect(
+        poll.calibrated,
+        isTrue,
+        reason: '任何带 serverTime 的响应都是校准机会；这一发是用户主动点的，比后台轮询更早发生',
+      );
+    });
+
+    test('200 但没给过期时间 ⇒ 不算挂成功（界面不许说"已挂出"）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: {'serverTime': 1_800_000_000_000},
+      );
+      final result = await harness.kernel().pairArm(pairingCode: pairingCode);
+      expect(
+        result.ok,
+        isFalse,
+        reason:
+            '"本机记下了"与"服务器收下了"差一次网络往返，而用户看不出差别：'
+            '把前者说成后者，对端扫码只会得到"口令不存在"',
+      );
+      expect(result.expiresAtMs, isNull);
+    });
+
+    test('限流那一发按 Retry-After 说成"要等"，不是"挂失败"', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: code('rateLimited'),
+        retryAfterSeconds: 30,
+        body: {},
+      );
+      final result = await harness.kernel().pairArm(pairingCode: pairingCode);
+      expect(
+        result.status,
+        FnthinkPollStatus.rateLimited,
+        reason: '429 不是这一发的结论；让它落成 failed 会诱导用户连点，而连点只会更限流',
+      );
+    });
+
+    test('传输异常不发任何结论，也不改校准状态', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.throws = const SocketException('dns down');
+      final poll = harness.kernel();
+      final result = await poll.pairArm(pairingCode: pairingCode);
+      expect(result.status, FnthinkPollStatus.transportError);
+      expect(poll.calibrated, isFalse);
+      expect(
+        poll.lastReason,
+        startsWith('transport:'),
+        reason: '一次连不上不说明任何关于服务端的 anything，改了状态就把抖动放大成错误判断',
+      );
     });
   });
 }
