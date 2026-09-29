@@ -576,6 +576,58 @@ function authorizeEndpointList(contract, state, input) {
   return { ok: true, kind: 'endpointList', addressCode: id.sender };
 }
 
+/**
+ * 接收端关掉自己名下一条接入端点（契约 `clientEvents.endpointRevoke`）。
+ *
+ * 判序与这一族其余几条同一条（禁带字段 → 验身份 → 事件种类 → self-only → 载荷键名 → 时间/重放），
+ * 两条是这一发特有的：
+ *  ① **它改变的是"别人还能不能往这台设备推"** —— 所以 self-only 只完成一半：`target` 是签名者自己，
+ *    而真正被关的那一把由载荷里的 `endpointId` 指名。**owner 那道核查不在这里，也不该在这里**：
+ *    裁决层看不到端点表（`state` 是设备台账与 nonce 台账），把它伸进来就会有第二份"谁拥有什么"的账。
+ *    核查在路由那一处，紧跟在读表之后 —— 见 `routes.js` 的 `/endpoint-revoke`。
+ *  ② 载荷只有一个键、且**不许带口令**：`secret` / `endpointSecret` 都在 `mayNotCarry` 上。
+ *    带口令来"证明你有这把入口"是最想当然的一种写法，而这一发要证明的是**你签过名**，
+ *    顺便把要关的那一把的 id 说出来 —— id 不是秘密，口令才是。
+ *
+ * 「不存在」与「不是你的」必须在**出口同形**（同一句 403、同一个 receipt）。这一条判据今天
+ * 在本函数里看不到，所以它的反证落在路由那一边（`outputs/_eprv.report.txt`，RV1/RV2 点名那条用例）。
+ * 本函数自己的三道，各有一条砸上去（同一份报告，全部 named+restored）：
+ *  - **RV5** 契约给 `fields` 加第二个键（`secret`）⇒ 红在「载荷名单只认 endpointId：多带一个键就拒」。
+ *    ⚠ 这一刀是从**契约**那侧落的：实现里改 `readPayload` 的调用参数不会红（它照着 spec 判），
+ *    所以能砸动的只有 spec 本身 —— 这正是"名单在契约、判据在实现"这套分工的代价与收益。
+ *  - **RV6** 契约关掉 `targetMustEqualSender` ⇒ 红 8 条（含「target 写成别人 ⇒ 拒」；可达集合整个变了，
+ *    所以连带红了一片，按 loose 记）。
+ *  - **RV7** 契约清空 `mayNotCarry` ⇒ 红在「顶层带 privateKey ⇒ 与"是谁都没答出来"同形」。
+ */
+function authorizeEndpointRevoke(contract, state, input) {
+  const spec = (contract.clientEvents || {}).endpointRevoke;
+  if (!spec) {
+    throw new Error(
+      '契约没有 clientEvents.endpointRevoke（不补默认值：补了等于在代码里发明一种事件）',
+    );
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'endpointRevoke');
+  if (read.reason) return fail(read.reason);
+  const endpointId = String(read.payload.endpointId === undefined ? '' : read.payload.endpointId);
+  if (!endpointId) return fail('endpoint-id-missing');
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, kind: 'endpointRevoke', addressCode: id.sender, endpointId };
+}
+
 module.exports = {
   authorizeClientEvent,
   authorizeRegister,
@@ -585,4 +637,5 @@ module.exports = {
   authorizePairRevoke,
   authorizeEndpointCreate,
   authorizeEndpointList,
+  authorizeEndpointRevoke,
 };

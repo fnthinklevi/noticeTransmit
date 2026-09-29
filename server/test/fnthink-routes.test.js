@@ -1442,6 +1442,157 @@ describe('POST /api/fnthink/endpoint-list（只读，且按 owner 过滤）', ()
   });
 });
 
+describe('POST /api/fnthink/endpoint-revoke（接收端关掉自己名下的一条入口）', () => {
+  const RVA = 'KSTE7RABQKPZ3STVWX';
+  const RVB = 'KSTF7RABQKPZ3STVWX';
+  const keyA = keypair();
+  const keyB = keypair();
+
+  function revokeBody(kp, sender, target, payloadObj) {
+    return eventBody('endpointRevoke', kp, sender, {
+      target,
+      body: payloadObj === undefined ? '{}' : JSON.stringify(payloadObj),
+    });
+  }
+
+  async function makeEndpoint(kp, code, name) {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(eventBody('endpointCreate', kp, code, { body: JSON.stringify({ name }) }))
+      .expect(200);
+    return res.body;
+  }
+
+  beforeAll(() => {
+    register(RVA, keyA);
+    register(RVB, keyB);
+  });
+
+  test('关掉自己那把 ⇒ revoked:true，而那一行还在表里（只是不再收信）', async () => {
+    const made = await makeEndpoint(keyA, RVA, '要关掉的那把');
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: made.endpointId }))
+      .expect(200);
+    expect(res.body.revoked).toBe(true);
+    expect(res.body.endpointId).toBe(made.endpointId);
+    const record = devicestore.loadEndpoints()[made.endpointId];
+    // 吊销是翻状态，不是删行：删掉那一行，"我什么时候关的、关的是哪个"就没人答得上了，
+    // 而 /endpoint-list 也再列不出它（用户看到的会是"凭空少了一把"）。
+    expect(record.status).toBe(contract.endpoint.revokedStatus);
+    expect(record.revokedAt).toBeGreaterThan(0);
+  });
+
+  test('再关一次是幂等的：revoked:false + 200，不是失败', async () => {
+    const made = await makeEndpoint(keyA, RVA, '关两次的');
+    await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: made.endpointId }))
+      .expect(200);
+    const again = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: made.endpointId }))
+      .expect(200);
+    expect(again.body.revoked).toBe(false);
+    expect(devicestore.loadEndpoints()[made.endpointId].status).toBe(
+      contract.endpoint.revokedStatus,
+    );
+  });
+
+  test('别人的那把与"根本没这个 id"逐字节同形，而别人的那把没被关掉', async () => {
+    const theirs = await makeEndpoint(keyB, RVB, 'B 的那把');
+    const notYours = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: theirs.endpointId }));
+    const notExist = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: 'ep_does_not_exist' }));
+    expect(notYours.status).toBe(statusCode(contract, 'forbidden'));
+    expect(notYours.status).toBe(notExist.status);
+    expect(notYours.body).toEqual(notExist.body);
+    // 同形之外还要问一句"那把还好吗"：探测器不只靠响应形状，也靠副作用有没有发生。
+    expect(devicestore.loadEndpoints()[theirs.endpointId].status).toBe(
+      contract.endpoint.usableStatus,
+    );
+  });
+
+  test('载荷名单只认 endpointId：多带一个键就拒（"顺手把口令带来证明"是最想当然的写法）', async () => {
+    const made = await makeEndpoint(keyA, RVA, '多带键的');
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(
+        revokeBody(keyA, RVA, RVA, {
+          endpointId: made.endpointId,
+          secret: made.secret,
+        }),
+      );
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+    expect(devicestore.loadEndpoints()[made.endpointId].status).toBe(
+      contract.endpoint.usableStatus,
+    );
+  });
+
+  test('顶层带 privateKey ⇒ 与"是谁都没答出来"同形（禁带字段排第一，连身份都不必回答）', async () => {
+    const body = revokeBody(keyA, RVA, RVA, { endpointId: 'ep_any' });
+    body.privateKey = crypto.randomBytes(32).toString('base64');
+    const res = await request(app).post('/api/fnthink/endpoint-revoke').send(body);
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_unsigned' });
+  });
+
+  test('target 写成别人 ⇒ 拒（这一发关的是自己的入口，不是替别人关闸）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVB, { endpointId: 'ep_any' }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('endpointId 是空串 ⇒ 拒，且表一行都不动', async () => {
+    const before = Object.keys(devicestore.loadEndpoints()).length;
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: '' }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+    expect(Object.keys(devicestore.loadEndpoints()).length).toBe(before);
+  });
+
+  test('响应里没有口令、也没有摘要（连刚关掉那把的都不给）', async () => {
+    const made = await makeEndpoint(keyA, RVA, '看响应的');
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: made.endpointId }))
+      .expect(200);
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toContain(made.secret);
+    expect(raw).not.toContain('secretDigest');
+    expect(raw).not.toContain('rotatedFrom');
+    expect(Object.keys(res.body).sort()).toEqual(['endpointId', 'revoked', 'serverTime']);
+  });
+
+  test('吊销之后 /endpoint-list 继续把它列出来（写口与读口说的是同一件事）', async () => {
+    const made = await makeEndpoint(keyA, RVA, '关完要看得见的');
+    await request(app)
+      .post('/api/fnthink/endpoint-revoke')
+      .send(revokeBody(keyA, RVA, RVA, { endpointId: made.endpointId }))
+      .expect(200);
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(
+        eventBody('endpointList', keyA, RVA, {
+          target: RVA,
+          body: '{}',
+        }),
+      )
+      .expect(200);
+    const row = res.body.endpoints.find((e) => e.id === made.endpointId);
+    expect(row).toBeTruthy();
+    expect(row.status).toBe(contract.endpoint.revokedStatus);
+  });
+});
+
 // #126 第二片把"客户端发到哪个 URL"收进契约 `transport.apiPaths`，这一组就是把那张表钉回事实。
 // 它必须双向：只查"声明的都挂了"会漏掉挂了两条声明一条；只查"挂了的都声明了"则漏掉
 // 声明了却没挂的那条（客户端照着 404 敲一年）。

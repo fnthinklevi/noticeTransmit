@@ -48,6 +48,7 @@ const {
   authorizePairRevoke,
   authorizeEndpointCreate,
   authorizeEndpointList,
+  authorizeEndpointRevoke,
 } = require('./events');
 const {
   DEVICE_CAP_CODE,
@@ -62,6 +63,7 @@ const {
   loadNonces,
   registerDevice,
   relationshipField,
+  revokeEndpoint,
   revokePeer,
   saveNonces,
   touchDevice,
@@ -651,6 +653,57 @@ router.post(
       .map(([id, record]) => endpointSummary(id, record))
       .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
     res.status(200).json({ endpoints: mine, serverTime: now });
+  }),
+);
+
+// ── POST /endpoint-revoke：接收端关掉自己名下的一条入口 ────────────────
+// 这一发改的是"别人还能不能往这台设备推"，所以它比读那一条多一道核查，也少一样东西：不回口令。
+// 四条口径：
+//  ① **owner 在这里核**（裁决层看不到端点表，那里也不该长出一份"谁拥有什么"的账）。
+//  ② 「不存在」与「不是你的」**同形**：同一句 403、同一个 receipt（`rejected_capability`，
+//    与 /pair-confirm 那三种走法同一个手法）。分开回等于送一台端点 id 探测器
+//    —— 拿别人的 id 试一次，404 就是"没有"、403 就是"有且属于别人"，两句话都是 leaks。
+//  ③ 幂等：已吊销的那一把 ⇒ `revoked:false` + 200。撤销的目标状态是"它不再收信"，本来就不收信
+//    就是已达成；报成失败会让人再点一次，而第二次拿到的还是 200（与 pair-revoke 同一条论证）。
+//  ④ 吊销**不删行**：`devicestore.revokeEndpoint` 只把 status 翻成 revoked（清掉宽限期里的旧摘要），
+//    那行还在，`/endpoint-list` 才会继续把它列出来 —— 悄悄少一行的表现是"我什么时候关的？关的是哪个？"
+//    响应里也只回 `endpointId` + `revoked`，**不端整条记录**：能端出去的那份投影只服务读口。
+// 反证（`outputs/_eprv.report.txt`，RV1–RV8 全 named+restored，基线先验过绿）：
+//   RV1 owner 那道核查整条摘掉 / RV2 「根本没这个 id」不再与「不是你的」同形 /
+//   RV3 幂等翻掉（第二次也说 revoked:true）/ RV4 顺手把整条记录端出去 /
+//   RV5 契约给载荷加第二个键（secret 进签名载荷）/ RV6 契约关掉 targetMustEqualSender（红 8 条，loose）/
+//   RV7 契约清空 mayNotCarry / RV8 契约不声明这条路径（红在装配守卫「声明 == 挂载」）。
+//   ⚠ RV1 与 RV2 红在**同一条用例**上不是巧合：那条用例同时断"别人的关不掉"与"两种失败同形"，
+//   而这两件事本来就是同一道核查的两面 —— 摘掉它和写歪它，症状都从这里冒。
+router.post(
+  '/endpoint-revoke',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.endpointRevoke).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizeEndpointRevoke(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'endpointRevoke', auth.addressCode)) return;
+    const endpoints = loadEndpoints();
+    const record = endpoints[auth.endpointId];
+    // ② 那一句：两种"不该由你关"对外同一句话（与 /pair-confirm 那三种走法同一个手法）——
+    //   能被分辨的 endpointId 就是一台端点探测器。
+    if (!record || (record.owner || null) !== auth.addressCode) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), 'rejected_capability');
+    }
+    const revoked = revokeEndpoint(contract, endpoints, auth.endpointId, now);
+    res.status(200).json({
+      endpointId: auth.endpointId,
+      revoked: revoked.revoked,
+      serverTime: now,
+    });
   }),
 );
 

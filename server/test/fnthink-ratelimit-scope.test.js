@@ -207,7 +207,8 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
     // 本片改掉的那个真实错误：配对三步曾被列进按 IP 的那一档 ⇒ NAT 后面几台设备共用一份额度
     // （撤销那一发同属这一类：一次划名单被当成攻击而拦住，用户看到的是"点了没反应"；
     //   自建端点也一样 —— 一个人给自家 NAS、群晖、监控各建一把入口，那是三次正常操作；
-    //   翻自己那几把入口更一样 —— 打开推送页就是一次读，把它按 IP 计，两台设备同屋就会有一台看不到列表）
+    //   翻自己那几把入口更一样 —— 打开推送页就是一次读，把它按 IP 计，两台设备同屋就会有一台看不到列表；
+    //   关掉一把入口是同一族的动作 —— 给三块屏各关一把，会被数成"一分钟三次攻击"，而那三次全是正常操作）
     for (const kind of [
       'pairArm',
       'pair',
@@ -215,6 +216,7 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
       'pairRevoke',
       'endpointCreate',
       'endpointList',
+      'endpointRevoke',
     ]) {
       expect(contract.limits.perEndpoint).not.toContain(kind);
     }

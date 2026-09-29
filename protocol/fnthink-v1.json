@@ -275,6 +275,7 @@
       "pairRevoke",
       "endpointCreate",
       "endpointList",
+      "endpointRevoke",
       "message"
     ],
     "perSenderPerMinute": 60,
@@ -532,6 +533,16 @@
       "_neverReturnsSecretWhy": "⚠ 这一发的响应里永远不许出现口令或它的摘要：明文只在创建那一次给过（给完就没人再知道），而摘要是\"能拿去比对的东西\" —— 一份能比对的摘要配上这一发就是离线猜口令的入口。投影走 `devicestore.endpointSummary`（管理面那份 `publicEndpoint` 的窄版：去掉逐条调用日志），别处不许自己拼字段。",
       "mayNotCarry": ["privateKey", "endpointSecret"]
     },
+    "endpointRevoke": {
+      "messageType": "endpointRevoke",
+      "verifyAgainst": "device-table-public-key",
+      "targetMustEqualSender": true,
+      "fields": ["endpointId"],
+      "_why": "接收端关掉自己名下一条接入端点（`/endpoint-list` 那一眼之后要能做的事）。它与 pairRevoke 同族而不与 endpointCreate 同族：这一发改变的是**别人还能不能往这台设备推**，所以判据比创建那一条更严 —— 除了 self-only，还要在路由里核一次「这条端点的 owner 就是签名者」。⚠ 「不存在」与「不是你的」必须**同形**（同一句 403、同一个 receipt `rejected_capability`）：分开回，等于给任何一台登记过的设备送一台端点 id 探测器（拿别人的 id 试一次，回 404 就是没有、回 403 就是有且属于别人）。幂等：已经吊销过的那一把 ⇒ 回 `revoked:false` 与 200，那是一次达成而不是失败（撤销的目标状态是「它不再收信」，本来就不收信就是已达成）。吊销**不删行**：留着那行带 `status`/`revokedAt`，`/endpoint-list` 才会继续把它列出来 —— 悄悄少一行会让用户看不出自己什么时候关掉了哪一个。",
+      "_targetMustEqualSenderWhy": "target 必须是本机地址码。这一发真正改的东西由载荷里的 endpointId 指名，所以 owner 那一道核查不能省 —— target 对上了而端点属于别人，同样是替别人关闸。",
+      "_neverReturnsSecretWhy": "这一发的响应里没有口令、也没有摘要，连刚被吊销那把的都不给：明文只在创建那一次给过，而摘要是能拿去比对的东西。吊销之后设备要知道的只有「这一条不再收信」，那一句由 `revoked` 与列表那一次读就够。",
+      "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,
     "_nonceSpaceWhy": "事件与消息共用 sender|nonce 这一个去重空间：抓到一个已签的 poll，不能换个接口再放一次。"
@@ -577,6 +588,7 @@
       "pairRevoke": "/api/fnthink/pair-revoke",
       "endpointCreate": "/api/fnthink/endpoint-create",
       "endpointList": "/api/fnthink/endpoint-list",
+      "endpointRevoke": "/api/fnthink/endpoint-revoke",
       "message": "/api/fnthink/message",
       "poll": "/api/fnthink/poll",
       "ack": "/api/fnthink/ack",
