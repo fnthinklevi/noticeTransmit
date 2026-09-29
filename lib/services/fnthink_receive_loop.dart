@@ -63,6 +63,11 @@ class FnthinkReceiveLoop {
   ///
   /// ⚠ 只在 `status == ok` 之后调：429 与验签失败都**没报成**，记下来就是本机对自己撒谎
   /// （表现是收件详情写着"我报过 displayed"而服务端那边根本没收到，于是这条永远在重发）。
+  ///
+  /// 反证登记（`e4251b5`，四条全 named+restored；报告在本地 `outputs/`，按约定不入库）：
+  /// 去掉这道门槛 ⇒ 红在「撞 429 不记」与「验签失败不记」这两条正是该红的；
+  /// `at` 写死 0 ⇒ 红在「记的是报出去那一刻的时钟」；catch 改 rethrow ⇒ 红在「抛异常不断链」；
+  /// DI 漏接那一行 ⇒ 红在装配守卫（"装配点漏接"那一类，全场测试仍然绿、只有守卫会红）。
   final Future<bool> Function({
     required String messageId,
     required String result,
