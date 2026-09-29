@@ -35,10 +35,10 @@ class FnthinkReceiverService {
     // 装配期就把"能不能发出第一发"判掉，而不是等第一次轮询：https 与 apiPaths 都是
     // **配置事实**，不是运行时状态。留到第一次发送才炸，会被内核的 catch 归成"传输异常"
     // —— 那是把契约与实现不匹配伪装成网络抖动（我这条就是被用例逼出来的）。
-    for (final kind in ['poll', 'ack']) {
+    for (final kind in ['poll', 'ack', 'pairArm']) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
-          '契约的 transport.apiPaths 少了 $kind：收货要发两种请求，缺一种就是整条链接不上',
+          '契约的 transport.apiPaths 少了 $kind：收货要发这三种请求，缺一种就是整条链接不上',
         );
       }
     }
@@ -160,6 +160,21 @@ class FnthinkReceiverService {
       );
     }
     return kernel.ack(messageId: messageId, result: result);
+  }
+
+  /// 把这枚一次性配对口令发到服务器（`/pair-arm`，T42「添加设备」那一跳）。
+  ///
+  /// 与 pollOnce / ack 同一道闸：**签名拿不出来就不发**。那既不是网络问题，也不该被记成
+  /// "服务器拒了" —— 否则界面会去提示用户检查网络，而网络一直是好的。
+  Future<FnthinkPairArmResult> pairArm({required String pairingCode}) async {
+    if (!await _canSign()) {
+      return FnthinkPairArmResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.pairArm(pairingCode: pairingCode);
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

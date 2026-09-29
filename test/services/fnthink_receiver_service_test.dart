@@ -217,6 +217,57 @@ void main() {
       expect(driftSeconds, lessThan(3700));
     });
   });
+
+  group('pairArm 那一发（T42「添加设备」）', () {
+    const pairingCode = '7A9QKM3PTVWXRBNSFGH4';
+
+    test('发到自己声明的那条路径，载荷里就契约那一个键', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,'
+              '"serverTime":1800000000000}',
+        ],
+      );
+      final service = build(contract, rec, _Signer());
+      final result = await service.pairArm(pairingCode: pairingCode);
+
+      expect(
+        rec.requests.single.url.path,
+        contract.apiPath('pairArm'),
+        reason: '路径只由契约说一次：写死一份的话，服务端换门时客户端还在敲旧门',
+      );
+      final fields = jsonDecode(rec.requests.single.body)['fields']! as Map;
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body.keys.toList(), contract.pairArmFields);
+      expect(result.ok, isTrue);
+      expect(result.expiresAtMs, 1800000300000);
+    });
+
+    test('200 但服务器没给过期时间 ⇒ 不算挂成功', () async {
+      final rec = _Recorder(scripts: ['{"serverTime":1800000000000}']);
+      final service = build(contract, rec, _Signer());
+      final result = await service.pairArm(pairingCode: pairingCode);
+      expect(
+        result.ok,
+        isFalse,
+        reason:
+            '这一发的全部意义是"服务器确实收下了"。把它说成成功，对端扫码只会拿到'
+            '"口令不存在"，而这台界面上还写着已挂出',
+      );
+    });
+
+    test('签名出不来时一个字节都不离机，且不谎报成网络故障', () async {
+      final rec = _Recorder();
+      final service = build(contract, rec, _Signer(available: false));
+      final result = await service.pairArm(pairingCode: pairingCode);
+      expect(rec.requests, isEmpty);
+      expect(
+        result.reason,
+        'signing-unavailable',
+        reason: '这是身份问题；说成"连接失败"会让用户去检查一直好好的网络',
+      );
+    });
+  });
 }
 
 /// 记下每一次请求，并按脚本回响应。

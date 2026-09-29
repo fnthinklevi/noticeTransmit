@@ -202,6 +202,19 @@ void main() {
         reason: 'resumed 时不再重取 ⇒ 后台新到的消息要等用户翻一次历史页才反映到首页',
       );
     });
+
+    test('收货服务的构造只有一个出处（循环与挂口令共用同一道装配判定）', () {
+      // 循环那一发与挂口令那一发都要一个 `FnthinkReceiverService`。两处各 new 一份时，
+      // 装配期那三道判定（apiPaths / httpsOnly / 签名）就有了两套口径 ——
+      // 表现是"循环起不来而挂口令却能发出去"，看起来像两个不相关的 bug。
+      final src = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(
+        RegExp(r'FnthinkReceiverService\(').allMatches(src).length,
+        1,
+        reason: 'coordinator 里又多了一处直接构造服务：请经 buildFnthinkReceiveService 拿',
+      );
+      expect(src, contains('buildFnthinkReceiveService(spec)'));
+    });
   });
 }
 

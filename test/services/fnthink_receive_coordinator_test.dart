@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
@@ -78,12 +79,32 @@ void main() {
     required _LoopRecorder recorder,
     FnthinkContractLoader? contracts,
     FnthinkIdentitySigner? signerOverride,
+    FnthinkServiceFactory? serviceFactory,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
     persist: persist,
     loopFactory: recorder.build,
+    serviceFactory: serviceFactory,
   );
+
+  /// 挂口令那一发的假服务器：只记请求、按脚本回话（真接线由服务层那片的两条用例保证）。
+  FnthinkServiceFactory armFactory({
+    int status = 200,
+    String body =
+        '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,"serverTime":1800000000000}',
+    required List<http.Request> sink,
+  }) =>
+      (spec) => FnthinkReceiverService(
+        contract: spec.contract,
+        baseUri: spec.baseUri,
+        signer: spec.signer,
+        addressCode: spec.addressCode,
+        client: MockClient((req) async {
+          sink.add(req);
+          return http.Response(body, status);
+        }),
+      );
 
   setUp(() {
     disk = {};
@@ -268,6 +289,87 @@ void main() {
       expect(asked, [
         'https://$defaultHost${contract.apiPath('poll')}',
       ], reason: '路径的唯一出处是契约 transport.apiPaths，这里没有第二份可拼');
+    });
+  });
+
+  group('挂口令那一发 publishPairingCode（T42 第二片）', () {
+    const pairingCode = '7A9QKM3PTVWXRBNSFGH4';
+
+    test('开关关着也挂得出去：配对是接收的前置，不是它的后果', () async {
+      SharedPreferences.setMockInitialValues({}); // 没有 receive_enabled ⇒ 默认关
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+      );
+      final result = await c.publishPairingCode(pairingCode);
+      expect(result.ok, isTrue, reason: '用开关挡住挂口令，用户就没有第二条路把两台设备连起来了');
+      expect(asked.single.url.path, contract.apiPath('pairArm'));
+      // 挂口令不该顺手把收货循环也起来 —— 那是替用户点了"开始接收"。
+      expect(c.isRunning, isFalse);
+    });
+
+    test('前置不满足时一句都没离机，且各有各的原话', () async {
+      final asked = <http.Request>[];
+
+      final noContract = coordinator(
+        recorder: _LoopRecorder(),
+        contracts: FnthinkContractLoader(readAsset: (_) async => '{ 坏 JSON'),
+        serviceFactory: armFactory(sink: asked),
+      );
+      expect(
+        (await noContract.publishPairingCode(pairingCode)).reason,
+        startsWith('contract-unavailable'),
+      );
+
+      SharedPreferences.setMockInitialValues({
+        FnthinkSettings.keyHost: 'a b/c',
+      });
+      final badHost = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+      );
+      expect(
+        (await badHost.publishPairingCode(pairingCode)).reason,
+        startsWith('settings-invalid'),
+      );
+
+      // 把服务地址放回好值：判定顺序本身就是判据（设置先于签名探测），
+      // 上一小步留下的坏值会把 signing-unavailable 遮成 settings-invalid。
+      SharedPreferences.setMockInitialValues({});
+      final cannotSign = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(sink: asked),
+      );
+      expect(
+        (await cannotSign.publishPairingCode(pairingCode)).reason,
+        'signing-unavailable',
+        reason: '身份问题被说成"连接失败"，用户就会去检查一直好好的网络',
+      );
+
+      expect(asked, isEmpty, reason: '这几种都不该发出一个字节：前置判定没过时发出去只会换回一句同形的 403');
+    });
+
+    test('服务器没回过期时间 ⇒ 结果不 ok（界面据此不许说"已挂出"）', () async {
+      SharedPreferences.setMockInitialValues({
+        FnthinkSettings.keyReceiveEnabled: true,
+      });
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: '{"serverTime":1800000000000}',
+        ),
+      );
+      expect(
+        (await c.publishPairingCode(pairingCode)).ok,
+        isFalse,
+        reason:
+            '"本机记下了"与"服务器收下了"是两件事；把前者说成后者，'
+            '对端扫码只会拿到"口令不存在"，而这一台界面上写着已挂出',
+      );
     });
   });
 }
