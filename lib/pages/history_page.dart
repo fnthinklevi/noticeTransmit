@@ -12,6 +12,7 @@ import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
+import '../models/fnthink_inbox_message.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
@@ -25,6 +26,14 @@ class HistoryPage extends StatefulWidget {
   // 历史记录"现在推送"：暂停状态下未实际发送的消息可手动补推
   final Future<void> Function(NotificationRecord record)? onPushNow;
 
+  /// 收件（幻念）那一档的数据来源。默认走真库，测试注入内存列表 ——
+  /// 让 widget 测试**不必去开 sqlite**：那条路在 flutter_test 绑定下要向平台通道要真实库路径，
+  /// 桩答 null 就永远等不到（实测整份用例卡死在 00:00，与页面逻辑无关）。
+  final Future<List<FnthinkInboxMessage>> Function()? inboxLoader;
+
+  /// 标已读的那一斧子。同上：默认真库，测试注入替身。
+  final Future<bool> Function(String messageId)? inboxMarkRead;
+
   const HistoryPage({
     super.key,
     required this.records,
@@ -33,6 +42,8 @@ class HistoryPage extends StatefulWidget {
     required this.onClearToday,
     required this.onClearLastN,
     this.onPushNow,
+    this.inboxLoader,
+    this.inboxMarkRead,
   });
 
   @override
@@ -1495,6 +1506,178 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
+  // ── T48 收件档（表 `fnthink_messages`，别人推给本机的消息）──
+  //
+  // ⚠ "方向"是**数据源切换**，不是又一个筛选条件：转发记录与收件行来自两张表、分页口径不同，
+  //   拼进同一条时间线会出现"翻页时同一条出现两次、或整条一次都不出现"。所以整档换列表。
+  String _direction = 'forwarded';
+  List<FnthinkInboxMessage> _inbox = const [];
+  bool _inboxLoaded = false;
+
+  Future<void> _loadInbox() async {
+    final rows =
+        await (widget.inboxLoader ??
+            () => _dbHelper.loadFnthinkInbox(limit: 100))();
+
+    if (!mounted) return;
+    setState(() {
+      _inbox = rows;
+      _inboxLoaded = true;
+    });
+  }
+
+  void _setDirection(String value) {
+    if (_direction == value) return;
+    setState(() => _direction = value);
+    if (value == 'received' && !_inboxLoaded) _loadInbox();
+  }
+
+  Widget _directionBar(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          _filterChip(
+            l10n.fnthinkDirForwarded,
+            _direction == 'forwarded',
+            () => _setDirection('forwarded'),
+          ),
+          const SizedBox(width: 8),
+          _filterChip(
+            l10n.fnthinkDirInbox,
+            _direction == 'received',
+            () => _setDirection('received'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInboxView(AppLocalizations l10n) {
+    if (!_inboxLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_inbox.isEmpty) {
+      return Center(
+        child: Text(
+          l10n.fnthinkInboxEmpty,
+          style: TextStyle(
+            color: AppColors.secondaryLabel(context),
+            fontSize: 15,
+          ),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _inbox.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final m = _inbox[index];
+        return ListTile(
+          key: ValueKey('fnthink-inbox-row-${m.messageId}'),
+          title: Text(
+            m.title.isEmpty ? m.body : m.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            '${m.sender.isEmpty ? l10n.unknown : m.sender} · '
+            '${_formatTime(m.receivedAt)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
+          leading: m.read
+              ? null
+              : Container(
+                  width: 8,
+                  height: 8,
+                  key: ValueKey('fnthink-inbox-unread-${m.messageId}'),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.blue,
+                  ),
+                ),
+          trailing: m.ackResult.isEmpty
+              ? null
+              : Text(m.ackResult, style: const TextStyle(fontSize: 11)),
+          onTap: () => _showInboxDetail(m),
+        );
+      },
+    );
+  }
+
+  Future<void> _showInboxDetail(FnthinkInboxMessage message) async {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.cardBg(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true,
+      builder: (sheetContext) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.title.isEmpty ? message.body : message.title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryLabel(sheetContext),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      message.body,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        color: AppColors.primaryLabel(sheetContext),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
+                  '${_formatTime(message.receivedAt)}'
+                  '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(sheetContext),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    // 点开即已读。写完之后**重新读表**，不在这个页面自己维护第二份"看没看过"：
+    // 没命中（那条已被保留策略裁掉）与命中变已读，两种结果都由这一次读表如实反映出来。
+    final mark = widget.inboxMarkRead ?? _dbHelper.markFnthinkInboxRead;
+    final hit = await mark(message.messageId);
+
+    if (!hit) {
+      debugPrint('[fnthink] 标已读没命中那一行（可能已被裁掉）: ${message.messageId}');
+    }
+    if (!mounted) return;
+    await _loadInbox();
+  }
+
   Future<void> _showRecordDetail(NotificationRecord record) async {
     final l10n = AppLocalizations.of(context);
     final appName = record.appName.isNotEmpty
@@ -2212,8 +2395,11 @@ class _HistoryPageState extends State<HistoryPage> {
                 ],
               ),
             ),
+          _directionBar(l10n),
           Expanded(
-            child: records.isEmpty
+            child: _direction == 'received'
+                ? _buildInboxView(l10n)
+                : records.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,

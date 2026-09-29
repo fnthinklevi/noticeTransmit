@@ -1562,5 +1562,8 @@
         "type": "String"
       }
     }
-  }
+  },
+  "fnthinkDirForwarded": "转发",
+  "fnthinkDirInbox": "收件（幻念）",
+  "fnthinkInboxEmpty": "还没有收到过消息"
 }

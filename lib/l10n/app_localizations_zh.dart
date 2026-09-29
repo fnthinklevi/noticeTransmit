@@ -3142,4 +3142,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkContractUnavailable(String reason) {
     return '随包的协议契约读不到，这一页暂时什么都改不了：$reason';
   }
+
+  @override
+  String get fnthinkDirForwarded => '转发';
+
+  @override
+  String get fnthinkDirInbox => '收件（幻念）';
+
+  @override
+  String get fnthinkInboxEmpty => '还没有收到过消息';
 }

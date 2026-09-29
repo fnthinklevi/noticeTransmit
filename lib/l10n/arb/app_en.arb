@@ -1541,5 +1541,8 @@
         "type": "String"
       }
     }
-  }
+  },
+  "fnthinkDirForwarded": "Forwarded",
+  "fnthinkDirInbox": "Received (Fnthink)",
+  "fnthinkInboxEmpty": "No messages received yet"
 }

@@ -3275,4 +3275,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkContractUnavailable(String reason) {
     return 'The bundled protocol contract cannot be read, so nothing here can be changed yet: $reason';
   }
+
+  @override
+  String get fnthinkDirForwarded => 'Forwarded';
+
+  @override
+  String get fnthinkDirInbox => 'Received (Fnthink)';
+
+  @override
+  String get fnthinkInboxEmpty => 'No messages received yet';
 }

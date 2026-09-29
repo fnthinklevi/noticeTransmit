@@ -5899,6 +5899,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'随包的协议契约读不到，这一页暂时什么都改不了：{reason}'**
   String fnthinkContractUnavailable(String reason);
+
+  /// No description provided for @fnthinkDirForwarded.
+  ///
+  /// In zh, this message translates to:
+  /// **'转发'**
+  String get fnthinkDirForwarded;
+
+  /// No description provided for @fnthinkDirInbox.
+  ///
+  /// In zh, this message translates to:
+  /// **'收件（幻念）'**
+  String get fnthinkDirInbox;
+
+  /// No description provided for @fnthinkInboxEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有收到过消息'**
+  String get fnthinkInboxEmpty;
 }
 
 class _AppLocalizationsDelegate
