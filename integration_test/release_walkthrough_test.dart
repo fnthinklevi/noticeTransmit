@@ -495,7 +495,80 @@ void main() {
     '闸门 2/4 三族通道 CRUD：webhook 两页形状 / 邮件 / 自建应用',
     (tester) async {
       final gateFailures = <String, String>{};
-      await _assemble(tester);
+      await _assemble(tester, () async {
+        // 4.3 要看的是首页那张未读卡，而它的数只在 `_postInit`（主界面起来那一次）与
+        // `resumed` 时取 ⇒ 必须在 `pumpWidget` **之前**灌好，`_assemble` 的 seed 就是这个位置。
+        final helper = DatabaseHelper();
+        for (final (id, wasRead) in const [
+          ('gate_home_1', false),
+          ('gate_home_2', true),
+          ('gate_home_3', true),
+        ]) {
+          await helper.insertFnthinkInbox(
+            FnthinkInboxMessage(
+              messageId: id,
+              sender: '8KMNPQRSTVWX999777',
+              type: 'notice',
+              item: '',
+              title: '闸门首页卡 $id',
+              body: '闸门注入：证首页未读数的来源',
+              receivedAt: 1767223200000,
+              read: wasRead,
+            ),
+          );
+        }
+      });
+      await _step(
+        tester,
+        gateFailures,
+        '4.3 首页「幻念收件」入口卡：数只数未读，点进去就是那一档',
+        () async {
+          // 三条注入里只有一条未读 ⇒ 这一格钉的不是"卡有没有"，而是**那个数是从表里算的**：
+          // 写死、或把已读也数进去，都会在这里红（"未读 3 条"与"未读 1 条"在用户眼里是两件事）。
+          const entry = '幻念收件';
+          final card = find.text(entry);
+          // ⚠ 先滚到那一格再收文字：首页是 ListView，视口外的卡根本没 build
+          //（5.15 第一轮就是这么红的，本仓记过几次的同一类假红）。
+          await _scrollUntil(tester, card);
+          await _settle(tester, seconds: 1);
+          expect(
+            card,
+            findsOneWidget,
+            reason: '有未读而首页没有入口卡 ⇒ 收件只能靠用户自己想起去历史页找',
+          );
+          expect(
+            find.text('未读 1 条'),
+            findsOneWidget,
+            reason: '入口卡的数不对：三条里两条已读，只该说 1（这一格是"数从表里算"的唯一现场证据）',
+          );
+          await _tap(tester, card, '首页→幻念收件入口卡');
+          await _settle(tester, seconds: 2);
+          for (final id in ['gate_home_1', 'gate_home_2', 'gate_home_3']) {
+            expect(
+              find.byKey(ValueKey('fnthink-inbox-row-$id')),
+              findsOneWidget,
+              reason: '入口卡点进来少了一行（$id）⇒ 两处读的不是同一张表',
+            );
+          }
+          expect(
+            find.byKey(const ValueKey('fnthink-inbox-unread-gate_home_1')),
+            findsOneWidget,
+            reason: '未读那条没点 ⇒ 用户找不到"哪条没看"',
+          );
+          expect(
+            find.byKey(const ValueKey('fnthink-inbox-unread-gate_home_2')),
+            findsNothing,
+            reason: '已读那条还画着未读点 ⇒ 点在骗人（它只该跟着 read 那一列）',
+          );
+          final db = await DatabaseHelper().database;
+          await db.delete(
+            FnthinkInboxMessage.table,
+            where: 'message_id LIKE ?',
+            whereArgs: ['gate_home_%'],
+          );
+          await _backToHome(tester);
+        },
+      );
       await _step(
         tester,
         gateFailures,
@@ -2458,6 +2531,9 @@ Future<void> _assemble(
   await db.saveAppChannels([]);
   await db.saveEmailChannels([]);
   await GetIt.instance<NotificationService>().clearRecords();
+  // 收件表也要擦，否则上面那句"起点数据已擦干净"对幻念收件是虚的：4.1 的"空态"会变成
+  // "恰好是空的"，而上一轮如果中途红过、注入行留在库里，下一轮就是莫名其妙地红。
+  await (await db.database).delete(FnthinkInboxMessage.table);
 
   // 现场灌在 pump **之前**：应用一来就带着这份配置启动，走的是"读已有配置"那条真实路径；灌在 pump 之后则等于在装配中途改配置 —— 会触发页面重建与通道探测。
   // 第 17 轮两处挂住（3/4 的 5.4a、4/4 的第 7 节）都紧跟在"装配完 + 种子写完"之后，这条顺序改动同时是一次否证实验。
