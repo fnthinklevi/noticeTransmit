@@ -47,6 +47,7 @@ const {
   authorizePairConfirm,
   authorizePairRevoke,
   authorizeEndpointCreate,
+  authorizeEndpointList,
 } = require('./events');
 const {
   DEVICE_CAP_CODE,
@@ -54,6 +55,7 @@ const {
   ENDPOINT_CAP_CODE,
   armPairingCode,
   createEndpoint,
+  endpointSummary,
   loadDevices,
   loadEndpoints,
   recordEndpointCall,
@@ -610,6 +612,45 @@ router.post(
       postOnly: created.endpoint.postOnly,
       serverTime: now,
     });
+  }),
+);
+
+// ── POST /endpoint-list：接收端看自己有哪些入口（只读、按 owner 过滤、不回任何口令）──
+// 与 /endpoint-create 是一对：只会建、看不见，等于把用户关在"点了但不知道有什么"的界面外面。
+// 三条口径：
+//  ① 字段只从 `devicestore.endpointSummary` 出（那里已经去了 `secretDigest` 与逐条调用日志）。
+//    这一发若自己 `pick` 一遍就有第二份"哪些字段能端出去"，而两份名单的差别永远出现在
+//    最糟的一侧：加列的那份在存储层，忘了改的那份在出口。
+//  ② 已吊销的也列出来（带 `status`）。只列可用那些的话，用户看不见"有一条已经停了但还在表里"，
+//    而那正是他要不要重新建一把的判断依据 —— 这一发不删东西，所以没有"列出来会不会误删"的风险。
+//  ③ 排序在**这里**定一次（新的在前），设备侧照这一份显示，不再自己排（两条排序口径早晚分叉）。
+// 反证（`outputs/_eplist.report.txt`，Y1–Y8 全 named+restored）：Y1 owner 过滤摘掉 /
+// Y2 顺手把逐条调用日志端出去 / Y3 连摘要一起端出去 / Y4 只列可用的（看不见停了哪条）/
+// Y5 排序反过来 / Y6 载荷键名单不判 / Y7 self-only 关掉（红 6 条，因为这一发的可达集合整个变了）/
+// Y8 契约不声明这条路径。Y2 与 Y3 各钉一半：`calls` 是"读口悄悄变大"，`secretDigest` 是
+// "能离线验猜测的靶子出门" —— 两者都不在字段名单里，所以断言的是**不存在**，而不是"值对"。
+router.post(
+  '/endpoint-list',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.endpointList).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizeEndpointList(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'endpointList', auth.addressCode)) return;
+    const endpoints = loadEndpoints();
+    const mine = Object.entries(endpoints)
+      .filter(([, record]) => record && (record.owner || null) === auth.addressCode)
+      .map(([id, record]) => endpointSummary(id, record))
+      .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+    res.status(200).json({ endpoints: mine, serverTime: now });
   }),
 );
 

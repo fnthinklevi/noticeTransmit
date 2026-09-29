@@ -535,6 +535,47 @@ function authorizeEndpointCreate(contract, state, input) {
   return { ok: true, kind: 'endpointCreate', addressCode: id.sender, name };
 }
 
+/**
+ * 接收端看自己有哪些接入端点（契约 `clientEvents.endpointList`，T42「我的端点」那一格的读口）。
+ *
+ * 它是这一发族里最窄的一条：不改变任何东西、载荷为空（`fields: []` ⇒ 带键就拒）、
+ * 结果按**签名者**过滤。三条各有一个"写反了会怎样"：
+ *  ① self-only：`target` 必须是本机。写成别人的地址码 + 不过滤，就是"替别人列他的入口"；
+ *  ② 载荷为空这件事由键名单判，而不是"看一眼 body 是不是空串"：以后有人给这一发加一个
+ *    可选参数（最典型的是"连调用日志一起给"），那就是一条新读口悄悄上线，而契约没说；
+ *  ③ 这里**不投影也不裁剪**字段 —— 投影只有一个出处（`devicestore.endpointSummary`）。
+ *    本函数若顺手 `pick` 一遍，就有了第二份"哪些字段可以端出去"的名单，而两份名单的差别
+ *    永远出现在最糟的那一侧：加了列的那份在存储层，忘了改的那份在出口。
+ * 反证：Y6 摘掉载荷键名单 ⇒ 红在「这一发的载荷必须为空」；Y7 契约里把
+ * `targetMustEqualSender` 关掉 ⇒ 红 6 条（可达集合整个变了，这一发从此能替别人列入口）。
+ */
+function authorizeEndpointList(contract, state, input) {
+  const spec = (contract.clientEvents || {}).endpointList;
+  if (!spec) {
+    throw new Error(
+      '契约没有 clientEvents.endpointList（不补默认值：补了等于在代码里发明一种事件）',
+    );
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'endpointList');
+  if (read.reason) return fail(read.reason);
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, kind: 'endpointList', addressCode: id.sender };
+}
+
 module.exports = {
   authorizeClientEvent,
   authorizeRegister,
@@ -543,4 +584,5 @@ module.exports = {
   authorizePairConfirm,
   authorizePairRevoke,
   authorizeEndpointCreate,
+  authorizeEndpointList,
 };

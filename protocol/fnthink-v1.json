@@ -274,6 +274,7 @@
       "pairConfirm",
       "pairRevoke",
       "endpointCreate",
+      "endpointList",
       "message"
     ],
     "perSenderPerMinute": 60,
@@ -522,6 +523,15 @@
       "_targetMustEqualSenderWhy": "target 必须是本机地址码。放开这一条，任何一台登记过的设备都能替别人建端点、拿到别人那条入口的明文口令 —— 而它拿到的那句口令可以直接用来冒充那台设备。",
       "mayNotCarry": ["privateKey", "endpointSecret"]
     },
+    "endpointList": {
+      "messageType": "endpointList",
+      "verifyAgainst": "device-table-public-key",
+      "targetMustEqualSender": true,
+      "fields": [],
+      "_why": "接收端看自己有哪些接入端点（T42「我的端点」那一格的读口）。它与 `/endpoint-create` 是一对：只会建、看不见，等于把用户关在一个\"点了但不知道有什么\"的界面外面。self-only + **按 owner 过滤**：查的主键永远是签名者自己名下那些行，所以这一发不需要防试探 —— 别人名下的东西根本不在它的可达集合里（与 pairRevoke 同一条论证）。载荷是空的（`fields: []` ⇒ 带任何键都拒），因为它不改变任何东西：多一个可选参数（比如\"连调用日志一起给\"）就会长出第二个读口，而那份日志是运维面看的。",
+      "_neverReturnsSecretWhy": "⚠ 这一发的响应里永远不许出现口令或它的摘要：明文只在创建那一次给过（给完就没人再知道），而摘要是\"能拿去比对的东西\" —— 一份能比对的摘要配上这一发就是离线猜口令的入口。投影走 `devicestore.endpointSummary`（管理面那份 `publicEndpoint` 的窄版：去掉逐条调用日志），别处不许自己拼字段。",
+      "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,
     "_nonceSpaceWhy": "事件与消息共用 sender|nonce 这一个去重空间：抓到一个已签的 poll，不能换个接口再放一次。"
@@ -566,6 +576,7 @@
       "pairConfirm": "/api/fnthink/pair-confirm",
       "pairRevoke": "/api/fnthink/pair-revoke",
       "endpointCreate": "/api/fnthink/endpoint-create",
+      "endpointList": "/api/fnthink/endpoint-list",
       "message": "/api/fnthink/message",
       "poll": "/api/fnthink/poll",
       "ack": "/api/fnthink/ack",

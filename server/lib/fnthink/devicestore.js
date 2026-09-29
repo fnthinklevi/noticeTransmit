@@ -604,6 +604,16 @@ function createEndpoint(contract, endpoints, input = {}, now, cfg) {
   return { id, secret, endpoint: publicEndpoint(id, record) };
 }
 
+/// 设备面那份更窄的投影：管理面要看的逐条调用日志（`calls`）不给设备。
+///
+/// 为什么单独一个函数而不是在路由里 `delete out.calls`：那等于"字段名单有两处定义"，
+/// 以后 `publicEndpoint` 加一列（尤其加一列本不该端出去的东西）时，路由那份减法不会跟着改 ——
+/// 它默认放行，而默认放行正是这套投影唯一不许出现的失败方向。
+function endpointSummary(id, record) {
+  const { calls, ...rest } = publicEndpoint(id, record);
+  return rest;
+}
+
 /// 轮换：新口令立刻生效，旧口令在 graceSeconds 内仍可验证。
 /// 没有宽限期的后果不是不便，是"从此没人换口令" —— 第三方平台里的口令是抄进去的，
 /// 换一次要人挨个改，而改不动的那一处就成了永远不换的长期凭证。
@@ -811,6 +821,7 @@ module.exports = {
   endpointConfigFromContract,
   newEndpointSecret,
   publicEndpoint,
+  endpointSummary,
   createEndpoint,
   rotateEndpoint,
   revokeEndpoint,

@@ -1310,6 +1310,138 @@ describe('POST /api/fnthink/endpoint-create（接收端给自己建一条入口�
   });
 });
 
+// ── T42 第七片的读口那一发：只看自己的入口 ─────────────────────────────
+describe('POST /api/fnthink/endpoint-list（只读，且按 owner 过滤）', () => {
+  const LISTA = 'KSTA7RABQKPZ3STVWX';
+  const LISTB = 'KSTB7RABQKPZ3STVWX';
+  const keyA = keypair();
+  const keyB = keypair();
+
+  function listBody(kp, sender, target, payloadObj) {
+    return eventBody('endpointList', kp, sender, {
+      target,
+      body: payloadObj === undefined ? '{}' : JSON.stringify(payloadObj),
+    });
+  }
+
+  beforeAll(() => {
+    register(LISTA, keyA);
+    register(LISTB, keyB);
+  });
+
+  test('列自己的 ⇒ 公览字段都在，而口令、摘要、逐条调用日志一个都不在', async () => {
+    const made = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(
+        eventBody('endpointCreate', keyA, LISTA, { body: JSON.stringify({ name: '要看的那把' }) }),
+      )
+      .expect(200);
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(listBody(keyA, LISTA, LISTA))
+      .expect(200);
+    const mine = res.body.endpoints.find((e) => e.id === made.body.endpointId);
+    expect(mine).toBeTruthy();
+    expect(mine.name).toBe('要看的那把');
+    expect(mine.status).toBe(contract.endpoint.usableStatus);
+    expect(mine.owner).toBe(LISTA);
+    // ⚠ 这三样是这一发最要紧的负向断言：明文口令只出现过一次（给了就该没人再知道），
+    //   摘要是"能离线验猜测的靶子"，而逐条调用日志是运维面看的（带上它这一发就变成日志读口）。
+    expect(res.body.endpoints.every((e) => e.calls === undefined)).toBe(true);
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toContain(made.body.secret);
+    expect(raw).not.toContain('secretDigest');
+    expect(raw).not.toContain('rotatedFrom');
+  });
+
+  test('别人名下的一条都不出现（这一发不是入口枚举器）', async () => {
+    await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(
+        eventBody('endpointCreate', keyB, LISTB, { body: JSON.stringify({ name: 'B 自己的' }) }),
+      )
+      .expect(200);
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(listBody(keyA, LISTA, LISTA))
+      .expect(200);
+    expect(res.body.endpoints.map((e) => e.owner).every((o) => o === LISTA)).toBe(true);
+    expect(JSON.stringify(res.body)).not.toContain('B 自己的');
+  });
+
+  test('已吊销的也在名单里，带 status（看不见停了哪条，就没法决定要不要重建）', async () => {
+    const made = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(
+        eventBody('endpointCreate', keyA, LISTA, { body: JSON.stringify({ name: '要停的那把' }) }),
+      )
+      .expect(200);
+    const endpoints = devicestore.loadEndpoints();
+    devicestore.revokeEndpoint(contract, endpoints, made.body.endpointId, Date.now());
+    devicestore.saveEndpoints(endpoints);
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(listBody(keyA, LISTA, LISTA))
+      .expect(200);
+    const row = res.body.endpoints.find((e) => e.id === made.body.endpointId);
+    expect(row.status).toBe(contract.endpoint.revokedStatus);
+  });
+
+  test('顺序在这一处定一次：新的在前，设备照着这份显示', async () => {
+    const first = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(
+        eventBody('endpointCreate', keyA, LISTA, { body: JSON.stringify({ name: '先建的那把' }) }),
+      )
+      .expect(200);
+    // 5ms 的间隔不是等异步，是让两行的 `createdAt` 真的不一样 —— 不然这条断言在两个
+    // 相同时间戳上永远绿，而"永远绿"在那种场合就是"没测"。
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const second = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(
+        eventBody('endpointCreate', keyA, LISTA, { body: JSON.stringify({ name: '后建的那把' }) }),
+      )
+      .expect(200);
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(listBody(keyA, LISTA, LISTA))
+      .expect(200);
+    const ids = res.body.endpoints.map((e) => e.id);
+    // 设备侧不再自己排第二次：两条排序口径早晚分叉，而分叉那天没人报错。
+    expect(ids.indexOf(second.body.endpointId)).toBeLessThan(ids.indexOf(first.body.endpointId));
+  });
+
+  test('这一发的载荷必须为空：带 name 就拒（不靠"看一眼 body 是不是空串"）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(listBody(keyA, LISTA, LISTA, { name: '多带的' }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('target 写成别人 ⇒ 拒（列的是自己的入口，不是替别人查）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(listBody(keyA, LISTA, LISTB));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('未登记与签名不对逐字节同形', async () => {
+    const unknown = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(listBody(keypair(), 'YYY7RABQKPZ3STVWXQ', 'YYY7RABQKPZ3STVWXQ'));
+    const badSig = listBody(keyA, LISTA, LISTA);
+    badSig.signature = crypto
+      .sign(null, Buffer.from('别的'), keypair().privateKey)
+      .toString('base64');
+    const forged = await request(app).post('/api/fnthink/endpoint-list').send(badSig);
+    expect(unknown.status).toBe(forged.status);
+    expect(unknown.body).toEqual(forged.body);
+  });
+});
+
 // #126 第二片把"客户端发到哪个 URL"收进契约 `transport.apiPaths`，这一组就是把那张表钉回事实。
 // 它必须双向：只查"声明的都挂了"会漏掉挂了两条声明一条；只查"挂了的都声明了"则漏掉
 // 声明了却没挂的那条（客户端照着 404 敲一年）。
