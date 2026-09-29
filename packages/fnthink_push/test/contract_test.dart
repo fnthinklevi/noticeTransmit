@@ -962,10 +962,12 @@ void main() {
     });
 
     test('名单里的规则没人用 ⇒ 报（2A 欠的那条现在能判了）', () {
-      // 第三片之后 counterpart 这条规则有**两个**使用者（pair 与 pairConfirm），
-      // 所以只改一个不会被判出来 —— 这条用例要一起摘掉，才是真的"没人用"。
+      // counterpart 这条规则现在有**三个**使用者（pair / pairConfirm / pairRevoke），
+      // 所以只摘一两个不会被判出来 —— 这条用例要一起摘掉，才是真的"没人用"。
+      // ⚠ 新增一个声明它的事件种类时必须同时加进这个名单：漏了它，这条反证就会一直在
+      //    "还有一个使用者"上假过，而名单与实现的分叉从此没人看门。
       final broken = mutate((raw) {
-        for (final kind in ['pair', 'pairConfirm']) {
+        for (final kind in ['pair', 'pairConfirm', 'pairRevoke']) {
           final spec =
               (raw['clientEvents'] as Map<String, Object?>)[kind]
                   as Map<String, Object?>;

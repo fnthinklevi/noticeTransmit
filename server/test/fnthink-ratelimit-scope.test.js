@@ -205,7 +205,8 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
       expect(contract.clientEvents[kind].verifyAgainst).toBe('device-table-public-key');
     }
     // 本片改掉的那个真实错误：配对三步曾被列进按 IP 的那一档 ⇒ NAT 后面几台设备共用一份额度
-    for (const kind of ['pairArm', 'pair', 'pairConfirm']) {
+    // （撤销那一发同属这一类：一次划名单被当成攻击而拦住，用户看到的是"点了没反应"）
+    for (const kind of ['pairArm', 'pair', 'pairConfirm', 'pairRevoke']) {
       expect(contract.limits.perEndpoint).not.toContain(kind);
     }
   });

@@ -219,7 +219,12 @@
     "_why": "运维入口（#130-A5：冻结 / 解冻 / 单台吊销 / 一键全部失效）。这一段管的是「人按下去之后会发生什么」，最容易写歪的不是权限而是**确认**：契约既然声明支持一键全部失效（massRevokeSupported），那一次误点的代价就是一整个设备群同时失联，而这类动作在界面上和一个普通按钮长得一模一样。",
     "listMaxRows": 100,
     "_listMaxRowsWhy": "运维列表一次最多返回多少行（**设备与端点共用这一把尺**，名字故意不叫 deviceListMax：它量的是\"一页列表\"，不是某一张表）。设备表上限是 limits.devicesMax（5000），一次全端出去既不可读，也把管理面响应做成一个大对象。响应里同时给 total 与 truncated，运维才分得清「没列全」与「就只有这些」—— 少了这两个字段的那份列表会直接把人引向「这台服务器上没几台设备」的错误结论。",
-    "confirmationRequiredFor": ["revoke", "revokeAll", "rebuildInvalidation", "revokeEndpoint"],
+    "confirmationRequiredFor": [
+      "revoke",
+      "revokeAll",
+      "rebuildInvalidation",
+      "revokeEndpoint"
+    ],
     "_confirmationWhy": "这些动作要 body 里带显式 confirm:true 才执行，缺了就 400 且不产生任何写入。**freeze / resume 不在此列**：冻结记录与公钥都留着、随时可解、一条都不投（契约 deviceStatuses.frozen 那句），误点的代价是一台设备暂停收信；而吊销要重新配对、全部失效要整片重配，回不去的那一类才需要一次确认。名单与 massRevokeSupported 由 validate 交叉钉住：支持一键全部失效却不要求确认，是把「整片失联」挂在一次点击上。",
     "_notPublicFaceWhy": "这一组只在管理面（已鉴权），**不进协议面**：设备侧自己那套入口（重置口令、重建身份、划掉某个发送方）走的是它自己签过名的 clientEvents，不由这里的 HTTP 口代做。两边各写各的动作名会迟早分叉，所以这份名单只管运维侧。"
   },
@@ -263,7 +268,13 @@
     "unauthenticatedPerDay": 3000,
     "perEndpoint": ["register"],
     "cadenceGoverned": ["poll", "ack"],
-    "perSenderOnly": ["pairArm", "pair", "pairConfirm", "message"],
+    "perSenderOnly": [
+      "pairArm",
+      "pair",
+      "pairConfirm",
+      "pairRevoke",
+      "message"
+    ],
     "perSenderPerMinute": 60,
     "_perSenderPerMinuteWhy": "这一档的主键**不是 IP，而是已证明身份的发送方地址**——按 IP 计会误伤真实设备（手机 + 手表 + 家里三台在 Nginx 之后是同一个源），而按一个**未验签**就从请求里读来的地址计更糟：攻击者拿别人的地址发洪水，被 429 的是那个受害者。所以计额点只有一处合法位置：验签通过之后。60/分是「跑飞保护」（一台设备卡进死循环时别把整台服务器拖下水），不是反垃圾 —— 反垃圾靠 devicesMax 与能力闸，那两样才是真正需要拦的东西。⚠ 方向判据同 A1：这一档不许严于按 IP 的 `unauthenticatedPerMinute`，否则先被卡住的是已经证明过身份的自己人。",
     "perSenderPerDay": 5000,
@@ -492,6 +503,15 @@
       "mayNotCarry": ["privateKey", "endpointSecret"],
       "_why": "整条链上唯一一次「A 亲手把 B 写进自己的白名单」。前两片只做到证明 B 知道那枚口令、挂起一条请求，授权一直是空的；这一片第一次往表里写关系，也因此第一次暴露出旧实现把「在设备表里」当成了「被谁允许」——见 pairing.relationshipStoredOnWhy。"
     },
+    "pairRevoke": {
+      "messageType": "pairRevoke",
+      "verifyAgainst": "device-table-public-key",
+      "mustContainCounterpartAddress": true,
+      "fields": ["peerAddress"],
+      "_why": "A 亲手把 B 从自己的白名单里划掉 —— 与 pairConfirm 对称的那一发：那边第一次往 grantsBy 里写，这一发第一次删。两条红线钉在这里：① 撤销只停投递、不删历史（与 revocation.dataNeverDeletedByRevoke 同一条），A 撤的是「以后别再推过来」，不是「把我们共事过的痕迹抹掉」；② 撤销是**幂等**的：目标状态是「B 不在 A 的名单里」，已经不在就是目标已达成 ⇒ 回 200 并带 revoked=false。回 403/404 的表现很具体：客户端把「服务器那边本来就没有」当成一次失败，于是留着本机那一行不再删 —— 两边从此各说一段。⚠ 这里不防「试探谁和谁配过对」，因为无从试探：查询主键永远是签名者自己的 grantsBy，A 问得出的只有 A 自己的关系（与 pairConfirm 那「三种走法同一句话」不同，那边要防的是替你答复了你的请求）。",
+      "_counterpartWhy": "签名里的 target 是**被划掉的那台**（B），不是本机：与 pairConfirm 同属「关于别人」那一类，所以走 selfOnlyRules 的第三条（且不许等于自己）。写成本机地址就是替别人撤销他自己的授权 —— 而服务端拒回来的那句与「口令错」同形，排查的人分不出是哪种。",
+      "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,
     "_nonceSpaceWhy": "事件与消息共用 sender|nonce 这一个去重空间：抓到一个已签的 poll，不能换个接口再放一次。"
@@ -534,6 +554,7 @@
       "pairArm": "/api/fnthink/pair-arm",
       "pair": "/api/fnthink/pair",
       "pairConfirm": "/api/fnthink/pair-confirm",
+      "pairRevoke": "/api/fnthink/pair-revoke",
       "message": "/api/fnthink/message",
       "poll": "/api/fnthink/poll",
       "ack": "/api/fnthink/ack",

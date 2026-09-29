@@ -136,8 +136,9 @@ function registerDevice(contract, devices, input, now) {
     status: resumableStatus(contract),
     lastSeenAt: null,
     owner: null,
-    grantsBy: {},
   };
+  // 关系那一列**只由契约命名**（下面那一段），这里不许写一遍列名当种子：
+  // 写了就是第二份真值，列名换了会多出一个谁都不读的空调用，而正确的那一列照样能建起来 —— 没人报错。
   record.publicKey = publicKey;
   record.name = typeof input.name === 'string' ? input.name.slice(0, 60) : '';
   if (
@@ -207,6 +208,38 @@ function approvePeer(contract, devices, addressCode, peerCode, level, now) {
   };
   saveDevices(devices);
   return record[field][peerKey];
+}
+
+/// A 撤销对 B 的授权 —— **全服务端唯一一处**从 `grantsBy` 里删条目的地方（与 `approvePeer` 对称：
+/// 那边是唯一写入者，这边是唯一删除者；别处再写一次 `delete by[...]` 就等于多一本账）。
+///
+/// ⚠ 三条：
+///  ① 只删 A 自己那一份关系。设备表里不存"B 允许 A"——`pairing.relationshipStoredOn` 说的是
+///    授权存在**被投那台**的记录上，所以双向配对里"我撤了我的"从来不等于"对面撤了对面的"；
+///  ② 撤一条本来就不存在的关系：**不改表、不抛、回 `removed:false`**。撤销是幂等的 —— 目标状态是
+///    「这个 peer 不在我的名单里」，已经不在就是已达成；抛错或回 404 只会让客户端把"本来没有"
+///    当成一次失败，从而留着本机那一行不再删（两边从此各说一段）；
+///  ③ 这里**不留墓碑字段**（`grantsBy[peer]` 直接删）。留一条 `revoked:true` 的记录就得让入站
+///    判定多读一个分支，而忘了读那一支就是 fail-open：撤过的对面还能推进来。
+///    "曾经给过谁、什么时候撤的"要看得见，靠的是留痕与备份里的那份表，不是靠在这一行留个记号。
+function revokePeer(contract, devices, addressCode, peerCode, now) {
+  const record = devices[keyOf(contract, addressCode)];
+  if (!record) throw new Error('设备未登记（撤销不能挂在没有记录的设备上）');
+  const peerKey = keyOf(contract, peerCode);
+  if (peerKey === null || !isValidAddressCode(contract, peerKey)) {
+    throw new Error('对方地址码不合法（撤销不能指向一个不像地址码的东西）');
+  }
+  const field = relationshipField(contract);
+  const by = record[field];
+  const had =
+    !!by &&
+    typeof by === 'object' &&
+    !Array.isArray(by) &&
+    Object.prototype.hasOwnProperty.call(by, peerKey);
+  if (!had) return { removed: false, at: now };
+  delete by[peerKey];
+  saveDevices(devices);
+  return { removed: true, at: now };
 }
 
 /// 本机身份重建后：所有在册发送方都要重新配对 —— 实现在下面那一节的
@@ -743,6 +776,7 @@ module.exports = {
   DEVICE_CAP_CODE,
   DEVICE_KEY_SWAP_CODE,
   approvePeer,
+  revokePeer,
   peerGrant,
   DEVICE_FILE,
   ENDPOINT_FILE,

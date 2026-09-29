@@ -45,6 +45,7 @@ const {
   authorizePairArm,
   authorizePair,
   authorizePairConfirm,
+  authorizePairRevoke,
 } = require('./events');
 const {
   DEVICE_CAP_CODE,
@@ -55,6 +56,8 @@ const {
   recordEndpointCall,
   loadNonces,
   registerDevice,
+  relationshipField,
+  revokePeer,
   saveNonces,
   touchDevice,
 } = require('./devicestore');
@@ -397,10 +400,12 @@ router.post(
     // 设备要确认的是"我这行记上了、档位是多少"，别的它无从核对也不需要核对。
     res.status(200).json({
       // 登记**不给任何授权**，所以这里没有 level 可回（第三片把 grant 从发送方记录上撤了）：
-      // 回一个空的 grantsBy 长度，让设备知道"你得先被谁配对"，而不是误以为已经能发。
+      // 回一个「谁允许我投过去」的条数，让设备知道"你得先被谁配对"，而不是误以为已经能发。
+      // ⚠ 列名从契约取（pairing.relationshipField）：这里曾写死 `record.grantsBy`，那是第二份真值 ——
+      //   列名换了它不报错，只会永远回 0，而设备侧照这句提示去解释"还没人配对"。
       addressCode: auth.addressCode,
       name: record.name,
-      peersGrantingMe: Object.keys(record.grantsBy || {}).length,
+      peersGrantingMe: Object.keys(record[relationshipField(contract)] || {}).length,
       serverTime: now,
     });
   }),
@@ -509,6 +514,38 @@ router.post(
       status: decided.request.status,
       // 同意才有的东西；拒绝时是 null —— 让设备能分清"我刚才划掉了"与"我刚才同意了"。
       grantedLevel: decided.grant ? decided.grant.maxLevel : null,
+      serverTime: now,
+    });
+  }),
+);
+
+// ── POST /pair-revoke：A 把 B 从自己的白名单里划掉（唯一一次授权删除）──────
+// 与 /pair-confirm 对称的那一发（#131 写了 grantsBy，这一发才第一次删）。三条口径写在这里：
+//  ① 设备面**只有这一处**能动 `grantsBy`（实现收在 `devicestore.revokePeer`，本文件只串顺序）；
+//  ② 撤销只停投递、不删历史：不动 messagestore、不改设备状态，B 那边给 A 的授权也不在这一点上
+//    （`pairing.relationshipStoredOn` 说的是"存在被投那台"，所以双向关系要各撤各的）；
+//  ③ **撤一条不存在的关系也回 200**（`revoked:false`）：撤销是幂等的，目标状态已达成就是成功。
+//    回 403/404 会让客户端把"服务器本来没有"当成失败，于是本机那一行留着不删 —— 两边各说一段。
+//    ⚠ 这一发不防试探：能查到的只有签名者自己的 grantsBy，与 /pair-confirm 那句"同一句话"不是一回事。
+router.post(
+  '/pair-revoke',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.pairRevoke).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizePairRevoke(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'pairRevoke', auth.addressCode)) return;
+    const revoked = revokePeer(contract, state.devices, auth.addressCode, auth.peerCode, now);
+    res.status(200).json({
+      revoked: revoked.removed,
       serverTime: now,
     });
   }),

@@ -534,6 +534,59 @@ describe('源码守卫', () => {
     expect(middleware).not.toMatch(/'\/health'/);
     expect(storeSrc).toContain('IP_BLOCK_EXEMPT_PREFIXES');
   });
+
+  test('配对授权的两把咽喉各只有一处，而关系列名在 lib 下一次都不出现', () => {
+    // 三件事一起钉：① 写授权只有 approvePeer、删授权只有 revokePeer，且各自的**调用点**只有一个文件；
+    // ② 那一列叫什么**只从契约来**（pairing.relationshipField）；③ 名单在 lib 下没有第四处写法。
+    // 为什么是源码守卫而不是行为用例：今天列名就是 `grantsBy`，写死的读法与契约的读法**回一样的数**，
+    // 行为上分不出来 —— 只有把契约那一列改名时才见分晓，而那一次改名在真机上表现为
+    // "所有已配对发送方一夜之间全被拒"（见 relationshipField 函数头）。
+    const files = [];
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(p);
+        else if (entry.name.endsWith('.js')) files.push(p);
+      }
+    };
+    const libRoot = path.join(__dirname, '..', 'lib');
+    walk(libRoot);
+    const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const rel = (p) => path.relative(libRoot, p).replace(/\\/g, '/');
+    const reads = new Map(files.map((p) => [rel(p), strip(fs.readFileSync(p, 'utf8'))]));
+
+    // 列名字面量：一处都不许有（含 routes 那句 peersGrantingMe、devicestore 建记录那一段）
+    const column = contract.pairing.relationshipField;
+    const offenders = [...reads.entries()]
+      .filter(([, c]) => c.includes(column))
+      .map(([name]) => name);
+    expect(offenders).toEqual([]);
+
+    // 咽喉的调用点：定义都在 devicestore，写入被 pairstore 调，删除被 routes 调，别处一处都没有
+    const callSites = (fn) =>
+      [...reads.entries()]
+        .filter(([, c]) => c.includes(`function ${fn}(`) || new RegExp(`\\b${fn}\\(`).test(c))
+        .map(([name, c]) => [name, (c.match(new RegExp(`\\b${fn}\\(`, 'g')) || []).length])
+        .sort();
+    expect(callSites('approvePeer')).toEqual([
+      ['fnthink/devicestore.js', 1],
+      ['fnthink/pairstore.js', 1],
+    ]);
+    expect(callSites('revokePeer')).toEqual([
+      ['fnthink/devicestore.js', 1],
+      ['fnthink/routes.js', 1],
+    ]);
+    // 授权列的直接写法（`<对象>[列名] = …` 这类）只存在于 devicestore 那两个咽喉里：
+    // 列名从契约取，所以这里查的是**形状**，不是列名。
+    const writers = [...reads.entries()]
+      .filter(
+        ([name, c]) =>
+          name !== 'fnthink/devicestore.js' &&
+          /\bgrantsBy\b|\[relationshipField\(contract\)\]\s*=/.test(c),
+      )
+      .map(([name]) => name);
+    expect(writers).toEqual([]);
+  });
 });
 
 // ── #131 第二片 2B：把公网面开到"还没有配对关系"的那一侧 ──
@@ -962,6 +1015,171 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
     expect(code(routesSrc)).not.toMatch(/grantsBy\s*=/);
     expect(code(pairSrc)).not.toMatch(/grantsBy\s*\[/);
     expect(code(pairSrc)).toMatch(/approvePeer\(/);
+  });
+
+  // ── #156 T31 B 片第一片：撤销那一发 ────────────────────────────────
+  // 嵌套在本块里而不是另起一个 describe：设备登记、一次性口令与 pairUp/evBody/msgBody 这套夹具
+  // 都在这里，抄第二份的代价是两份夹具从下一次改动起各自漂。
+  describe('POST /api/fnthink/pair-revoke：A 把 B 从自己的名单里划掉', () => {
+    // 同意那一个词从契约读（路由认的就是它，测试写死字面量会在状态改名时假绿）。
+    const APPROVE = contract.clientEvents.pairConfirm.approveDecision;
+    const CR5 = 'HJKMNPQRSTVWX2345678';
+    const CR6 = 'JKMNPQRSTVWX23456789';
+    const CR7 = 'KMNPQRSTVWX234567890';
+    const CR8 = 'MNPQRSTVWX2345678901';
+
+    /// 把 A→B 摆回"已授权 L1"：上面每条用例各消耗一枚口令，撤销那条用例又把它划掉了。
+    async function pairAtoB(code) {
+      const requestId = await pairUp(code, bobKey, BOB, 'L1');
+      await request(app)
+        .post('/api/fnthink/pair-confirm')
+        .send(
+          evBody('pairConfirm', aliceKey, ALICE, BOB, {
+            requestId,
+            decision: APPROVE,
+            level: 'L1',
+          }),
+        )
+        .expect(200);
+    }
+
+    test('A 撤销 ⇒ B 立刻投不进来，而 A 已经收下的那条一条不少（只停投递，不删历史）', async () => {
+      await pairAtoB(CR5);
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(msgBody(bobKey, BOB, ALICE, '撤销前那条'))
+        .expect(202);
+      const kept = Object.keys(messagestore.loadMessages()).length;
+
+      const res = await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', aliceKey, ALICE, BOB, { peerAddress: BOB }))
+        .expect(200);
+      expect(res.body.revoked).toBe(true);
+      expect(res.body.serverTime).toBeGreaterThan(0);
+      expect(devicestore.loadDevices()[ALICE].grantsBy[BOB]).toBeUndefined();
+
+      const blocked = await request(app)
+        .post('/api/fnthink/message')
+        .send(msgBody(bobKey, BOB, ALICE, '撤销后那条'));
+      expect(blocked.status).toBe(statusCode(contract, 'forbidden'));
+      expect(blocked.body).toEqual({ receipt: 'rejected_capability' });
+      // ⚠ 撤销改的是"以后还让不让投"，不是"以前投过的东西"。在这里顺手清队列的表现很具体：
+      //   A 点下撤销的那一瞬间，他屏幕上正看着的那条详情就没了 —— 而 revocation 那一节说的不是这个。
+      expect(Object.keys(messagestore.loadMessages()).length).toBe(kept);
+    });
+
+    test('撤销只动 A 那一份：B 给 A 的授权原样留着（双向关系各撤各的）', async () => {
+      await pairAtoB(CR6);
+      // 反向来一遍：B 挂口令、A 去握手、B 自己确认 ⇒ B 的名单里也有一条 A
+      await request(app)
+        .post('/api/fnthink/pair-arm')
+        .send(evBody('pairArm', bobKey, BOB, BOB, { pairingCode: CR8 }))
+        .expect(200);
+      const asked = await request(app)
+        .post('/api/fnthink/pair')
+        .send(evBody('pair', aliceKey, ALICE, BOB, { pairingCode: CR8, level: 'L1' }))
+        .expect(statusCode(contract, 'queued'));
+      await request(app)
+        .post('/api/fnthink/pair-confirm')
+        .send(
+          evBody('pairConfirm', bobKey, BOB, ALICE, {
+            requestId: asked.body.requestId,
+            decision: APPROVE,
+            level: 'L1',
+          }),
+        )
+        .expect(200);
+      expect(devicestore.loadDevices()[BOB].grantsBy[ALICE].maxLevel).toBe('L1');
+
+      const otherSide = JSON.stringify(devicestore.loadDevices()[BOB].grantsBy);
+      const res = await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', aliceKey, ALICE, BOB, { peerAddress: BOB }))
+        .expect(200);
+      expect(res.body.revoked).toBe(true);
+      expect(devicestore.loadDevices()[ALICE].grantsBy[BOB]).toBeUndefined();
+      expect(JSON.stringify(devicestore.loadDevices()[BOB].grantsBy)).toBe(otherSide);
+      // 于是 A→B 这一发照样收单：撤销若把两头一起断开，等于替 B 改了他自己的名单，
+      // 而 B 从未签过任何东西。
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(msgBody(aliceKey, ALICE, BOB, '我投给 B 仍然能进'))
+        .expect(202);
+    });
+
+    test('载荷里的 peerAddress 与签名的 target 不一致 ⇒ 拒，名单分毫不动（两个来源只能有一个算数）', async () => {
+      await pairAtoB(CR7);
+      const before = JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy);
+
+      // 签的是 B，载荷写 M：若取载荷，A 划掉的就是那个**没被签名覆盖**的地址
+      const one = await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', aliceKey, ALICE, BOB, { peerAddress: MALLORY }));
+      expect(one.status).toBe(statusCode(contract, 'forbidden'));
+      expect(one.body).toEqual({ receipt: 'rejected_capability' });
+      expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+
+      // 反方向也一样：签的是 M，载荷写 B ⇒ 同样拒。若这里"取载荷"能成，
+      // 一次关于第三方的签名就变成了划掉 B 的凭证 —— 而验签验的是那个第三方。
+      const two = await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', aliceKey, ALICE, MALLORY, { peerAddress: BOB }));
+      expect(two.status).toBe(statusCode(contract, 'forbidden'));
+      expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+      expect(devicestore.loadDevices()[ALICE].grantsBy[BOB].maxLevel).toBe('L1');
+    });
+
+    test('MALLORY 替不了 A：它的撤销只落在自己名单上，而撤一条本来没有的回 200 revoked:false', async () => {
+      // 上一条件的最后一次"拒"留下了 A→B，这里用它当被保护的样本。
+      const before = JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy);
+      const res = await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', malloryKey, MALLORY, BOB, { peerAddress: BOB }))
+        .expect(200);
+      // 幂等：MALLORY 的名单里本来就没有 BOB ⇒ 目标状态已达成，不是失败。
+      // 回 403/404 的话，设备侧把"服务器那边本来没有"当成撤销没成，于是本机那一行留着不删 —— 两边各说一段。
+      expect(res.body.revoked).toBe(false);
+      expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+      expect(devicestore.loadDevices()[ALICE].grantsBy[BOB].maxLevel).toBe('L1');
+      // ⚠ 这一条判的是"被删那份名单的主键从哪来"：永远是**签名者**，不是载荷里那个地址。
+      //   改成载荷当主键，这台服务就多了一个"替别人划名单"的口，而它对外与一次正常撤销同一句话。
+    });
+
+    test('撤销"我自己" ⇒ 拒：target 必须是对端，且不许等于本机', async () => {
+      const res = await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', aliceKey, ALICE, ALICE, { peerAddress: ALICE }));
+      expect(res.status).toBe(statusCode(contract, 'forbidden'));
+      expect(res.body).toEqual({ receipt: 'rejected_capability' });
+      // 这条与上一条是一对：peerAddress==target 时载荷那关是过的，拦住它的只有
+      // selfOnlyRules 里"且不许等于自己"那一半 —— 少了它，一台设备能给自己挂一条
+      // 永远撤不掉的"名单"，而界面上看着像配了人。
+    });
+
+    test('顶层带 privateKey：与"是谁都没答出来"同形（mayNotCarry 这一发也管）', async () => {
+      await pairAtoB(CR7);
+      const body = evBody('pairRevoke', aliceKey, ALICE, BOB, { peerAddress: BOB });
+      body.privateKey = crypto.randomBytes(32).toString('base64');
+      const res = await request(app).post('/api/fnthink/pair-revoke').send(body);
+      expect(res.status).toBe(statusCode(contract, 'forbidden'));
+      expect(res.body).toEqual({ receipt: 'rejected_unsigned' });
+      expect(devicestore.loadDevices()[ALICE].grantsBy[BOB].maxLevel).toBe('L1');
+    });
+
+    test('未登记的那台来撤销 ⇒ 与签名不对同形（这一发不是地址码枚举器）', async () => {
+      const stranger = keypair();
+      const unknown = await request(app)
+        .post('/api/fnthink/pair-revoke')
+        .send(evBody('pairRevoke', stranger, '9MNPQRSTVWX2345678', BOB, { peerAddress: BOB }));
+      const badSig = evBody('pairRevoke', aliceKey, ALICE, BOB, { peerAddress: BOB });
+      badSig.signature = crypto
+        .sign(null, Buffer.from('别的'), keypair().privateKey)
+        .toString('base64');
+      const forged = await request(app).post('/api/fnthink/pair-revoke').send(badSig);
+      expect(unknown.status).toBe(forged.status);
+      expect(unknown.body).toEqual(forged.body);
+    });
   });
 });
 

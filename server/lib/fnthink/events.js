@@ -434,10 +434,61 @@ function authorizePairConfirm(contract, state, input) {
   };
 }
 
+/**
+ * A 亲手把 B 从自己的白名单里划掉（契约 `clientEvents.pairRevoke`）—— 与 pairConfirm 对称的那一发：
+ * 那边第一次往 `grantsBy` 里写，这一发第一次删。
+ *
+ * 四条判据各有一个"写反了会怎样"：
+ *  ① `target` 是**对端**（`selfOnlyReason` 那一支已判过：必须是合法地址码且不许等于自己）。
+ *     写成本机地址就是替别人撤销他自己的授权，而换来的拒信与"口令错"同形，看不出是这一步错了；
+ *  ② 载荷里的 `peerAddress` **必须等于签名里的 `target`**。同一件事有两个来源时，"哪个算数"
+ *     必须有一句明话：算数的是签名，载荷那一份只是客户端自证（不一致 = 客户端有 bug 或路上被人动过）；
+ *  ③ 撤销只停投递、**不删历史**（与 `revocation.dataNeverDeletedByRevoke` 同一条），所以这里
+ *     不碰 messagestore、也不动设备记录 —— 那些各有各的入口；
+ *  ④ 撤销是**幂等**的：目标状态是「B 不在 A 的名单里」，本来就不在 ⇒ 目标已达成，走同一条成功路径
+ *     并回 `revoked:false`。回 403/404 的表现很具体：客户端把「服务器那边本来没有」当成一次失败，
+ *     于是本机那一行留着不删 —— 两边各说一段。⚠ 这里**不需要**防试探：查询主键永远是签名者自己的
+ *     `grantsBy`，A 问得出的只有 A 自己的关系（与 pairConfirm 那「三种走法同一句话」不同，
+ *     那边要防的是替你答复了你收到的请求）。
+ */
+function authorizePairRevoke(contract, state, input) {
+  const spec = (contract.clientEvents || {}).pairRevoke;
+  if (!spec) {
+    throw new Error('契约没有 clientEvents.pairRevoke（不补默认值：补了等于在代码里发明一种事件）');
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  // 带秘密来的包连"是谁"都不必回答：与 register / pairArm 同一条顺序纪律。
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'pairRevoke');
+  if (read.reason) return fail(read.reason);
+  const alphabet = alphabetFromContract(contract);
+  const target = normalize(alphabet, String(fields.target === undefined ? '' : fields.target));
+  const peer = normalize(
+    alphabet,
+    String(read.payload.peerAddress === undefined ? '' : read.payload.peerAddress),
+  );
+  if (peer === null || peer !== target) return fail('peer-target-mismatch');
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, kind: 'pairRevoke', addressCode: id.sender, peerCode: target };
+}
+
 module.exports = {
   authorizeClientEvent,
   authorizeRegister,
   authorizePairArm,
   authorizePair,
   authorizePairConfirm,
+  authorizePairRevoke,
 };
