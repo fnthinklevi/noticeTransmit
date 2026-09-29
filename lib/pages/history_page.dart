@@ -1588,6 +1588,10 @@ class _HistoryPageState extends State<HistoryPage> {
             overflow: TextOverflow.ellipsis,
           ),
           // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
+          //
+          // 反证登记（`8b5c8ad`，三条全 named+restored；报告在本地 outputs/，不入库）：
+          //   无脑画点 ⇒ 红在「已读那行根本不画点」；标完不重新读表 ⇒ 红在「写表 + 重新读表」
+          //   与「不留点不开的幽灵行」；收件档不切数据源 ⇒ 红在整组收件用例。
           leading: m.read
               ? null
               : Container(
