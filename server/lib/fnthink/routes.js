@@ -46,11 +46,14 @@ const {
   authorizePair,
   authorizePairConfirm,
   authorizePairRevoke,
+  authorizeEndpointCreate,
 } = require('./events');
 const {
   DEVICE_CAP_CODE,
   DEVICE_KEY_SWAP_CODE,
+  ENDPOINT_CAP_CODE,
   armPairingCode,
+  createEndpoint,
   loadDevices,
   loadEndpoints,
   recordEndpointCall,
@@ -546,6 +549,61 @@ router.post(
     const revoked = revokePeer(contract, state.devices, auth.addressCode, auth.peerCode, now);
     res.status(200).json({
       revoked: revoked.removed,
+      serverTime: now,
+    });
+  }),
+);
+
+// ── POST /endpoint-create：接收端给自己建一条接入端点（口令只回这一次）──────
+// T42「接收端自己建端点」那一格的服务端那一半：以前只有管理面能建（`/api/admin/fnthink/endpoints/create`），
+// 于是自部署的用户要拿 admin token 才能给自己的 NAS 铸一把入口 —— 那一把 token 能做的事比这多得多。
+// 四条口径：
+//  ① owner **只从签名来**（`auth.addressCode`），载荷里没有 owner 这个键：替别人建端点等于
+//    拿到别人那条入口的明文口令，而拿着它就能冒充那台设备。
+//  ② 口令由 `createEndpoint` 生成、表里只落摘要；明文**只出现在下面这一次响应里**，
+//    本文件不在任何地方留它的副本（也不打日志：这一条与 access log 脱敏是两回事，
+//    日志里连路径段都不该出现口令，而这里是响应体）。
+//  ③ 到上限（每台 / 全局）走 `rateLimited` 那一档且**空 body**：与 /pair 的容量类拒绝同一形状，
+//    对外不提供"这台有几个端点、上限是多少"的可分辨信号（那是运维从管理面看的事）。
+//    绝不挤掉已有端点 —— 挤掉一次 = 某台 NAS 的定时任务从此静默失效。
+//  ④ 建完不会有任何投递发生：端点是一条**入口**，第三方推过来才走 endpointintake 那条链。
+router.post(
+  '/endpoint-create',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.endpointCreate).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizeEndpointCreate(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'endpointCreate', auth.addressCode)) return;
+    const endpoints = loadEndpoints();
+    let created;
+    try {
+      created = createEndpoint(
+        contract,
+        endpoints,
+        { owner: auth.addressCode, name: auth.name },
+        now,
+      );
+    } catch (e) {
+      if (e && e.code === ENDPOINT_CAP_CODE) {
+        return res.status(statusCode(contract, 'rateLimited')).json({});
+      }
+      // 其余异常继续往上抛：把代码 bug 咽成一次 4xx 是 app.js 那次 503 降级同样的错法。
+      throw e;
+    }
+    res.status(200).json({
+      endpointId: created.id,
+      // ⚠ 明文口令只在这里出现这一次（表里只有摘要，之后任何口都拿不到它）。
+      secret: created.secret,
+      postOnly: created.endpoint.postOnly,
       serverTime: now,
     });
   }),

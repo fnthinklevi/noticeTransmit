@@ -273,6 +273,7 @@
       "pair",
       "pairConfirm",
       "pairRevoke",
+      "endpointCreate",
       "message"
     ],
     "perSenderPerMinute": 60,
@@ -512,6 +513,15 @@
       "_counterpartWhy": "签名里的 target 是**被划掉的那台**（B），不是本机：与 pairConfirm 同属「关于别人」那一类，所以走 selfOnlyRules 的第三条（且不许等于自己）。写成本机地址就是替别人撤销他自己的授权 —— 而服务端拒回来的那句与「口令错」同形，排查的人分不出是哪种。",
       "mayNotCarry": ["privateKey", "endpointSecret"]
     },
+    "endpointCreate": {
+      "messageType": "endpointCreate",
+      "verifyAgainst": "device-table-public-key",
+      "targetMustEqualSender": true,
+      "fields": ["name"],
+      "_why": "接收端给自己建一个接入端点（T42 那一格；端点语义见 endpoint 段）：NAS / 脚本 / 第三方平台往这台设备推东西时用的长期口令入口。这一发是**self-only**（建的是自己的端点，不是替别人建），载荷**只有 name**。⚠ 口令不在这里，也不许在这里：设备自带口令等于把「选一把多强的口令」这件事交给最不方便负责它的一端 —— 一旦有人抄了一把弱口令或复用过的口令，泄露的是这台实例，而服务端只会照单收下。口令一律服务端生成、只有摘要落盘、明文**只在这一次的响应里出现**（错过就得重建，不留副本）。上限从 `endpoint.perDeviceMax` / `globalMax` 读，到上限只拒新的、不挤掉已有端点（挤掉一次 = 某台 NAS 的定时任务从此静默失效）。",
+      "_targetMustEqualSenderWhy": "target 必须是本机地址码。放开这一条，任何一台登记过的设备都能替别人建端点、拿到别人那条入口的明文口令 —— 而它拿到的那句口令可以直接用来冒充那台设备。",
+      "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,
     "_nonceSpaceWhy": "事件与消息共用 sender|nonce 这一个去重空间：抓到一个已签的 poll，不能换个接口再放一次。"
@@ -555,6 +565,7 @@
       "pair": "/api/fnthink/pair",
       "pairConfirm": "/api/fnthink/pair-confirm",
       "pairRevoke": "/api/fnthink/pair-revoke",
+      "endpointCreate": "/api/fnthink/endpoint-create",
       "message": "/api/fnthink/message",
       "poll": "/api/fnthink/poll",
       "ack": "/api/fnthink/ack",

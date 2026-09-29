@@ -484,6 +484,48 @@ function authorizePairRevoke(contract, state, input) {
   return { ok: true, kind: 'pairRevoke', addressCode: id.sender, peerCode: target };
 }
 
+/**
+ * 接收端给自己建一个接入端点（契约 `clientEvents.endpointCreate`，T42 那一格的服务端那一半）。
+ *
+ * 判序与 pairArm 同一条（禁带字段 → 验身份 → 事件种类 → self-only → 载荷键名 → 时间/重放），
+ * 三条这一发特有的口径写在这里而不是路由里：
+ *  ① **self-only**（`targetMustEqualSender`）：建的是自己的端点。放开这条，任何登记过的设备
+ *    都能替别人建一个入口，而且**拿到那条入口的明文口令** —— 拿着它就可以冒充那台设备。
+ *    这一发与 pairConfirm/pairRevoke 相反，走的是 selfOnlyRules 的第一条而不是第三条。
+ *  ② **口令不许设备自带**：载荷键名单里就没有 `secret`（只有 `name`）。自带等于把"选一把
+ *    多强的口令"交给最不方便负责它的一端 —— 有人抄一把复用过的口令进来，泄露的是这台实例，
+ *    而服务端只会照单收下。口令一律由 `devicestore.createEndpoint` 生成、只落摘要。
+ *  ③ 这里**看不到任何口令**，所以留痕里也不可能带出它：`name` 是唯一进内部的东西，
+ *    而它是用户自己起的外号（管理面那列本来就给人看的）。
+ */
+function authorizeEndpointCreate(contract, state, input) {
+  const spec = (contract.clientEvents || {}).endpointCreate;
+  if (!spec) {
+    throw new Error(
+      '契约没有 clientEvents.endpointCreate（不补默认值：补了等于在代码里发明一种事件）',
+    );
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'endpointCreate');
+  if (read.reason) return fail(read.reason);
+  const name = String(read.payload.name === undefined ? '' : read.payload.name);
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, kind: 'endpointCreate', addressCode: id.sender, name };
+}
+
 module.exports = {
   authorizeClientEvent,
   authorizeRegister,
@@ -491,4 +533,5 @@ module.exports = {
   authorizePair,
   authorizePairConfirm,
   authorizePairRevoke,
+  authorizeEndpointCreate,
 };

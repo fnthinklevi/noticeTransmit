@@ -1183,6 +1183,133 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
   });
 });
 
+// ── T42「接收端自己建端点」那一格的服务端那一半 ──────────────────────
+// 以前只有管理面能铸一条入口（要 admin token），而自部署的用户拿 token 做的事比"给自家 NAS
+// 建一把口令"多得多。这一发把这件事收到设备面：**只从签名认 owner、口令服务端生成、明文只回一次**。
+describe('POST /api/fnthink/endpoint-create（接收端给自己建一条入口）', () => {
+  const ENDER = 'ENDE7RABQKPZ3STVWX'; // 自己建端点的那台
+  const NEIGHBOR = 'MNPQRSTVWX2KJH4G7D'; // 另一台：它的名下不该多出任何东西
+  const endKey = keypair();
+  const otherKey = keypair();
+
+  function createBody(kp, sender, target, payloadObj) {
+    return eventBody('endpointCreate', kp, sender, {
+      target,
+      body: payloadObj === undefined ? '' : JSON.stringify(payloadObj),
+    });
+  }
+
+  beforeAll(() => {
+    register(ENDER, endKey);
+    register(NEIGHBOR, otherKey);
+  });
+
+  test('建一个 ⇒ 200 回 id 与一把口令，而盘上只有摘要（明文不留副本）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(createBody(endKey, ENDER, ENDER, { name: '自家 NAS' }))
+      .expect(200);
+    expect(res.body.endpointId).toMatch(/^ep_/);
+    expect(res.body.secret).toHaveLength(contract.identity.endpointSecret.length);
+    const row = devicestore.loadEndpoints()[res.body.endpointId];
+    expect(row.owner).toBe(ENDER);
+    expect(row.name).toBe('自家 NAS');
+    expect(row.secretDigest).toBeTruthy();
+    expect(JSON.stringify(row)).not.toContain(res.body.secret);
+    // 落盘那份也不许有明文：这一张表会跟着备份走。
+    const raw = fs.readFileSync(devicestore.ENDPOINT_FILE, 'utf8');
+    expect(raw).not.toContain(res.body.secret);
+  });
+
+  test('回的那把口令是真能用的：拿它走那条入口 ⇒ 收单进队列', async () => {
+    const created = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(createBody(endKey, ENDER, ENDER, { name: '能用的那把' }))
+      .expect(200);
+    const pushed = await request(app)
+      .post(`/api/fnthink/p/${created.body.endpointId}`)
+      .set({ Authorization: `Bearer ${created.body.secret}` })
+      // 那一发标成走 https：口令类入口对明文是**先拒不给细节**（endpointintake ①），
+      // 这里要证的是"回出去的这把口令能用"，不是把那根红线在本文件里关掉。
+      .set({ 'x-forwarded-proto': 'https' })
+      .send({ title: '机箱温度', body: '63℃' });
+    expect(pushed.status).toBe(statusCode(contract, 'queued'));
+  });
+
+  test('owner 只能从签名来：载荷里塞 owner 不认（键名单只有 name）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(createBody(endKey, ENDER, ENDER, { name: 'x', owner: NEIGHBOR }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('口令不许设备自带：载荷里带 secret ⇒ 拒，且一个端点都没多出来', async () => {
+    const before = Object.keys(devicestore.loadEndpoints()).length;
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(createBody(endKey, ENDER, ENDER, { name: 'x', secret: 'A'.repeat(32) }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+    // 这一条不是洁癖：设备自带口令等于把"选一把多强的口令"交给最不方便负责它的一端，
+    // 而服务端只会照单收下 —— 泄露的是这台实例。
+    expect(Object.keys(devicestore.loadEndpoints()).length).toBe(before);
+  });
+
+  test('替别人建 ⇒ 拒：target 必须是本机（建的是自己的入口，不是别人的）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(createBody(endKey, ENDER, NEIGHBOR, { name: '替别人' }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    const owners = Object.values(devicestore.loadEndpoints()).map((r) => r.owner);
+    expect(owners).not.toContain(NEIGHBOR);
+  });
+
+  test('到每台上限 ⇒ 契约给的那一档 + 空 body，而已有的端点一条没被挤掉', async () => {
+    const max = contract.endpoint.perDeviceMax;
+    const before = Object.values(devicestore.loadEndpoints()).filter(
+      (r) => r.owner === NEIGHBOR && r.status === contract.endpoint.usableStatus,
+    ).length;
+    for (let i = 0; i < max - before; i += 1) {
+      await request(app)
+        .post('/api/fnthink/endpoint-create')
+        .send(createBody(otherKey, NEIGHBOR, NEIGHBOR, { name: `第 ${i} 把` }))
+        .expect(200);
+    }
+    const over = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(createBody(otherKey, NEIGHBOR, NEIGHBOR, { name: '多出来的那把' }));
+    expect(over.status).toBe(statusCode(contract, 'rateLimited'));
+    expect(over.body).toEqual({});
+    const after = Object.values(devicestore.loadEndpoints()).filter(
+      (r) => r.owner === NEIGHBOR && r.status === contract.endpoint.usableStatus,
+    ).length;
+    // 挤掉一次 = 某台 NAS 的定时任务从此静默失效（与设备表到上限不覆盖同一条红线）。
+    expect(after).toBe(max);
+  });
+
+  test('顶层带 privateKey ⇒ 与"是谁都没答出来"同形（mayNotCarry 这一发也管）', async () => {
+    const body = createBody(endKey, ENDER, ENDER, { name: '带钥匙来' });
+    body.privateKey = crypto.randomBytes(32).toString('base64');
+    const res = await request(app).post('/api/fnthink/endpoint-create').send(body);
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_unsigned' });
+  });
+
+  test('未登记的那台 ⇒ 与签名不对逐字节同形（这一发不许是地址码枚举器）', async () => {
+    const unknown = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(createBody(keypair(), 'ZZZ7RABQKPZ3STVWXQ', 'ZZZ7RABQKPZ3STVWXQ', { name: '没登记' }));
+    const badSig = createBody(endKey, ENDER, ENDER, { name: '真设备' });
+    badSig.signature = crypto
+      .sign(null, Buffer.from('别的'), keypair().privateKey)
+      .toString('base64');
+    const forged = await request(app).post('/api/fnthink/endpoint-create').send(badSig);
+    expect(unknown.status).toBe(forged.status);
+    expect(unknown.body).toEqual(forged.body);
+  });
+});
+
 // #126 第二片把"客户端发到哪个 URL"收进契约 `transport.apiPaths`，这一组就是把那张表钉回事实。
 // 它必须双向：只查"声明的都挂了"会漏掉挂了两条声明一条；只查"挂了的都声明了"则漏掉
 // 声明了却没挂的那条（客户端照着 404 敲一年）。
