@@ -12,10 +12,15 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 process.env.NODE_ENV = 'test';
 process.env.PORT = '0';
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-fnthink-ing-'));
+// `lib/store.js` 在没有 ADMIN_TOKEN_HASH 时直接 `process.exit(1)`，而 `lib/app.js` 会 dotenv 吃到本机
+// `.env` ⇒ 只在"没有 .env 的机器上"（CI）才炸，且炸的是整个 worker（jest 只报 child process exceptions）。
+// 与其余 15 个套件一致：自带一份哈希，不吃环境。
+process.env.ADMIN_TOKEN_HASH = bcrypt.hashSync('test-admin-token-for-intake', 10);
 // 正文是加密落盘的，用例要解密回来断言 ⇒ 密钥必须固定（不吃本机 .env，否则这条用例在
 // 别人机器上解不开，看起来像"产品缺陷"而不是"桩没配好"）。
 process.env.ENCRYPTION_KEY = 'b'.repeat(64);
