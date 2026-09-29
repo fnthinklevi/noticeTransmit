@@ -11,6 +11,13 @@ import '../models/fnthink_inbox_message.dart';
 ///
 /// 这层**只转发、不加判断**：幂等入库、prune 的两条计数、`read` 只能 0/1 这些语义都留在
 /// `DatabaseHelper` 与 `FnthinkInboxMessage` 那边（一处一层，不是两处）。
+///
+/// 这一片被砸过什么（反证报告在本地 outputs/_inbox_svc_falsify.report.txt，按约定不入库；
+/// 四条全部 named + restored，逐条点名）：
+///  - 把 DI 里那行注册摘掉 ⇒ 只有装配守卫「DI 里真的注册了它」红，其余 13 条全绿 ——
+///    这就是"漏接时没人喊"的形状，所以那条守卫留着，别当成冗余删掉。
+///  - 页面读侧退回直连表 ⇒ 红在「历史页的收件档走服务层」；写侧退回 ⇒ 红在同一条。
+///  - 在这层里加一枚自己的排序常量（= 口径长出第二份）⇒ 红在「服务层只转发，没把查询自己抄一份」。
 class FnthinkInboxService {
   FnthinkInboxService({DatabaseHelper? db}) : _db = db ?? DatabaseHelper();
 
