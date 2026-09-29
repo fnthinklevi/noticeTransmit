@@ -276,6 +276,7 @@
       "endpointCreate",
       "endpointList",
       "endpointRevoke",
+      "endpointRotate",
       "message"
     ],
     "perSenderPerMinute": 60,
@@ -543,6 +544,15 @@
       "_neverReturnsSecretWhy": "这一发的响应里没有口令、也没有摘要，连刚被吊销那把的都不给：明文只在创建那一次给过，而摘要是能拿去比对的东西。吊销之后设备要知道的只有「这一条不再收信」，那一句由 `revoked` 与列表那一次读就够。",
       "mayNotCarry": ["privateKey", "endpointSecret"]
     },
+    "endpointRotate": {
+      "messageType": "endpointRotate",
+      "verifyAgainst": "device-table-public-key",
+      "targetMustEqualSender": true,
+      "fields": ["endpointId"],
+      "_why": "换一把入口的长期口令（同一条入口、同一个 id，旧口令进宽限期）。它比吊销更需要说清楚：`endpoint.rotation.graceSeconds` 那一段里**两把口令同时有效** —— 那正是这一发存在的理由（第三方平台里的口令是抄进去的，没有宽限期就等于逼着人在\"换钥匙那一刻所有集成同时 401\"和\"先不换了\"之间选第二个）。⚠ 所以这一发的返回里有**一把明文口令**，那是协议里唯一一处\"换了之后还要再给一次明文\"的地方：它同样只出现这一次、同样不落盘，而 `rotatingUntil` 一起给出去，因为\"旧的那把什么时候算死\"是用户要不要现在去改 NAS 的唯一依据。判据与吊销同一条：self-only + 路由里核 owner，「不存在」与「不是你的」同形。已吊销的那一把 ⇒ `rotated:false` + 200，**不复活**（`devicestore.rotateEndpoint` 对不工作的端点是抛的，所以路由必须先判状态再调用）。⚠ 这一句与吊销那条不同，是可以分辨的：能走到这一支的只有 owner 自己，可达集合已经被圈住了，说清楚比同形更有价值（与 endpointList 同一条论证）。",
+      "_neverReturnsSecretWhy": "响应里只许出现**这一次新生成的那把明文**与 `rotatingUntil`：旧口令的明文（服务端本来就没有）、任何一方的摘要（那是能离线验猜测的靶子）、`rotatedFrom` 整个对象（它挂着旧摘要）都不许出门。投影仍走 `devicestore.endpointSummary` 那一份窄的。",
+      "mayNotCarry": ["privateKey", "endpointSecret"]
+    },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,
     "_nonceSpaceWhy": "事件与消息共用 sender|nonce 这一个去重空间：抓到一个已签的 poll，不能换个接口再放一次。"
@@ -589,6 +599,7 @@
       "endpointCreate": "/api/fnthink/endpoint-create",
       "endpointList": "/api/fnthink/endpoint-list",
       "endpointRevoke": "/api/fnthink/endpoint-revoke",
+      "endpointRotate": "/api/fnthink/endpoint-rotate",
       "message": "/api/fnthink/message",
       "poll": "/api/fnthink/poll",
       "ack": "/api/fnthink/ack",

@@ -1593,6 +1593,163 @@ describe('POST /api/fnthink/endpoint-revoke（接收端关掉自己名下的一�
   });
 });
 
+describe('POST /api/fnthink/endpoint-rotate（换那把入口的口令，旧口令进宽限期）', () => {
+  const RTA = 'KSTG7RABQKPZ3STVWX';
+  const RTB = 'KSTH7RABQKPZ3STVWX';
+  const keyA = keypair();
+  const keyB = keypair();
+
+  function rotateBody(kp, sender, target, payloadObj) {
+    return eventBody('endpointRotate', kp, sender, {
+      target,
+      body: payloadObj === undefined ? '{}' : JSON.stringify(payloadObj),
+    });
+  }
+
+  async function makeEndpoint(kp, code, name) {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-create')
+      .send(eventBody('endpointCreate', kp, code, { body: JSON.stringify({ name }) }))
+      .expect(200);
+    return res.body;
+  }
+
+  beforeAll(() => {
+    register(RTA, keyA);
+    register(RTB, keyB);
+  });
+
+  test('换成功 ⇒ 新明文只在这一次给出，而旧那把的摘要进宽限期', async () => {
+    const made = await makeEndpoint(keyA, RTA, '要换的那把');
+    const before = devicestore.loadEndpoints()[made.endpointId].secretDigest;
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(rotateBody(keyA, RTA, RTA, { endpointId: made.endpointId }))
+      .expect(200);
+    const graceMs = contract.endpoint.rotation.graceSeconds * 1000;
+    expect(res.body.rotated).toBe(true);
+    expect(res.body.endpointId).toBe(made.endpointId);
+    expect(res.body.secret).toBeTruthy();
+    expect(res.body.secret).not.toBe(made.secret);
+    expect(res.body.secret).toHaveLength(contract.identity.endpointSecret.length);
+    // 旧的那把什么时候算死 —— 用户决定"现在就去改 NAS 还是等一等"的唯一依据。
+    expect(Math.abs(res.body.rotatingUntil - (Date.now() + graceMs))).toBeLessThan(10_000);
+    const after = devicestore.loadEndpoints()[made.endpointId];
+    expect(after.secretDigest).not.toBe(before);
+    expect(after.rotatedFrom.secretDigest).toBe(before);
+    expect(after.rotatedFrom.validUntil).toBe(res.body.rotatingUntil);
+    // 而响应里除那把新明文之外没有第二份可比对的东西。
+    const raw = JSON.stringify(res.body);
+    expect(raw).not.toContain('secretDigest');
+    expect(raw).not.toContain('rotatedFrom');
+    expect(raw).not.toContain('calls');
+    expect(raw).not.toContain(made.secret);
+  });
+
+  test('别人名下那把与"根本没这个 id"同形，而别人的摘要没被动过', async () => {
+    const theirs = await makeEndpoint(keyB, RTB, 'B 的那把');
+    const beforeDigest = devicestore.loadEndpoints()[theirs.endpointId].secretDigest;
+    const notYours = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(rotateBody(keyA, RTA, RTA, { endpointId: theirs.endpointId }));
+    const notExist = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(rotateBody(keyA, RTA, RTA, { endpointId: 'ep_nope_not_here' }));
+    expect(notYours.status).toBe(statusCode(contract, 'forbidden'));
+    expect(notYours.status).toBe(notExist.status);
+    expect(notYours.body).toEqual(notExist.body);
+    expect(devicestore.loadEndpoints()[theirs.endpointId].secretDigest).toBe(beforeDigest);
+  });
+
+  test('已吊销的那一把 ⇒ rotated:false + 200，不复活也不冒 500', async () => {
+    const made = await makeEndpoint(keyA, RTA, '关过又想买');
+    const endpoints = devicestore.loadEndpoints();
+    devicestore.revokeEndpoint(contract, endpoints, made.endpointId, Date.now());
+    devicestore.saveEndpoints(endpoints);
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(rotateBody(keyA, RTA, RTA, { endpointId: made.endpointId }))
+      .expect(200);
+    expect(res.body.rotated).toBe(false);
+    expect(res.body.secret).toBeUndefined();
+    const row = devicestore.loadEndpoints()[made.endpointId];
+    expect(row.status).toBe(contract.endpoint.revokedStatus);
+    expect(row.rotatedFrom).toBeNull();
+  });
+
+  test('轮换之后列表里那把仍可用，而 rotatingUntil 跟着出来（旧口令什么时候死要看得见）', async () => {
+    const made = await makeEndpoint(keyA, RTA, '看完截止的');
+    const rotated = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(rotateBody(keyA, RTA, RTA, { endpointId: made.endpointId }))
+      .expect(200);
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-list')
+      .send(eventBody('endpointList', keyA, RTA, { target: RTA, body: '{}' }))
+      .expect(200);
+    const row = res.body.endpoints.find((e) => e.id === made.endpointId);
+    expect(row.rotatingUntil).toBe(rotated.body.rotatingUntil);
+    expect(row.status).toBe(contract.endpoint.usableStatus);
+    expect(JSON.stringify(res.body)).not.toContain('secretDigest');
+  });
+
+  test('载荷名单只认 endpointId：宽限期不许由客户端改（带 graceSeconds / secret 都拒）', async () => {
+    const made = await makeEndpoint(keyA, RTA, '想自带参数的');
+    const before = devicestore.loadEndpoints()[made.endpointId].secretDigest;
+    for (const extra of [{ graceSeconds: 0 }, { secret: 'ABCDEFGHIJKLMNOP2345678901' }]) {
+      const res = await request(app)
+        .post('/api/fnthink/endpoint-rotate')
+        .send(rotateBody(keyA, RTA, RTA, { endpointId: made.endpointId, ...extra }));
+      expect(res.status).toBe(statusCode(contract, 'forbidden'));
+      expect(res.body).toEqual({ receipt: 'rejected_capability' });
+    }
+    // 那把还是原来那把：两次尝试都没换掉任何东西（"多带的键我先看一眼再忽略"就是这里要防的）。
+    expect(devicestore.loadEndpoints()[made.endpointId].secretDigest).toBe(before);
+  });
+
+  test('target 写成别人 ⇒ 拒（换的是自己的入口）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(rotateBody(keyA, RTA, RTB, { endpointId: 'ep_any' }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('endpointId 是空串 ⇒ 拒，且一张表都不动', async () => {
+    const before = JSON.stringify(devicestore.loadEndpoints());
+    const res = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(rotateBody(keyA, RTA, RTA, { endpointId: '' }));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(JSON.stringify(devicestore.loadEndpoints())).toBe(before);
+  });
+
+  test('顶层带 privateKey ⇒ 与"是谁都没答出来"同形（禁带字段排第一）', async () => {
+    const body = rotateBody(keyA, RTA, RTA, { endpointId: 'ep_any' });
+    body.privateKey = crypto.randomBytes(32).toString('base64');
+    const res = await request(app).post('/api/fnthink/endpoint-rotate').send(body);
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_unsigned' });
+  });
+
+  test('未登记与签名不对逐字节同形（这一发不是端点 id 枚举器）', async () => {
+    const unknown = await request(app)
+      .post('/api/fnthink/endpoint-rotate')
+      .send(
+        rotateBody(keypair(), 'YYY7RABQKPZ3STVWXQ', 'YYY7RABQKPZ3STVWXQ', {
+          endpointId: 'ep_any',
+        }),
+      );
+    const badSig = rotateBody(keyA, RTA, RTA, { endpointId: 'ep_any' });
+    badSig.signature = crypto
+      .sign(null, Buffer.from('别的'), keypair().privateKey)
+      .toString('base64');
+    const forged = await request(app).post('/api/fnthink/endpoint-rotate').send(badSig);
+    expect(unknown.status).toBe(forged.status);
+    expect(unknown.body).toEqual(forged.body);
+  });
+});
+
 // #126 第二片把"客户端发到哪个 URL"收进契约 `transport.apiPaths`，这一组就是把那张表钉回事实。
 // 它必须双向：只查"声明的都挂了"会漏掉挂了两条声明一条；只查"挂了的都声明了"则漏掉
 // 声明了却没挂的那条（客户端照着 404 敲一年）。

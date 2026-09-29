@@ -217,6 +217,7 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
       'endpointCreate',
       'endpointList',
       'endpointRevoke',
+      'endpointRotate',
     ]) {
       expect(contract.limits.perEndpoint).not.toContain(kind);
     }

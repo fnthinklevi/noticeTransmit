@@ -49,6 +49,7 @@ const {
   authorizeEndpointCreate,
   authorizeEndpointList,
   authorizeEndpointRevoke,
+  authorizeEndpointRotate,
 } = require('./events');
 const {
   DEVICE_CAP_CODE,
@@ -56,6 +57,7 @@ const {
   ENDPOINT_CAP_CODE,
   armPairingCode,
   createEndpoint,
+  endpointConfigFromContract,
   endpointSummary,
   loadDevices,
   loadEndpoints,
@@ -65,6 +67,7 @@ const {
   relationshipField,
   revokeEndpoint,
   revokePeer,
+  rotateEndpoint,
   saveNonces,
   touchDevice,
 } = require('./devicestore');
@@ -707,9 +710,69 @@ router.post(
   }),
 );
 
+// ── POST /endpoint-rotate：换一把入口的长期口令（旧的那把进宽限期）────────
+// 与 /endpoint-revoke 同一条判序（self-only → 配额 → owner 同形），三条是这一发特有的：
+//  ① **宽限期不由这一发决定**：载荷里没有"旧口令立刻失效"那个开关 —— 那个开关一存在，
+//    安全属性就变成客户端可以随口关掉的东西。时长只由契约 `endpoint.rotation.graceSeconds` 给。
+//  ② 响应**带着新生成的那把明文口令**（协议里唯一一处"换了之后还要再给一次明文"），
+//    和 `rotatingUntil` 一起给：旧的那把什么时候算死，是用户要不要现在去改 NAS 的唯一依据。
+//    除这两样之外不端任何东西 —— 旧口令的明文本来就没有，两把的摘要、挂着旧摘要的
+//    `rotatedFrom` 都不出门（摘要是能离线验猜测的靶子）。
+//  ③ **已吊销的那一把不许复活**：`devicestore.rotateEndpoint` 对不工作的端点是抛的，
+//    所以这里**先判状态再调用**（而不是 try/catch 把抛咽成一次 4xx —— 那是 app.js 那次
+//    "代码 bug 伪装成部署问题"同一个错法）。这一支对外是 `rotated:false` + 200，
+//    与吊销不同形：能走到这里的只有 owner 自己，可达集合已被圈住，说清楚比同形有用。
+// 反证（`outputs/_erot.report.txt`，RB1–RB8 全 named+restored、基线先验过绿）：
+//   RB1 owner 那道核查摘掉 / RB2 「根本没这个 id」不再与「不是你的」同形 / RB3 「已吊销不复活」那道闸摘掉 /
+//   RB4 那一支也说 `rotated:true`（没换却说换了）/ RB5 顺手把整条记录端出去（旧摘要跟着 `rotatedFrom` 出门）/
+//   RB6 契约给载荷加第二个键（宽限期变成客户端可传的参数）/ RB7 契约关掉 self-only（红 7 条，loose）/
+//   RB8 契约不声明这条路径（红在装配守卫「声明 == 挂载」）。
+//   ⚠ RB1 与 RB2 红在同一条用例上不是巧合：那条同时断"别人的换不掉"与"两种失败同形"，
+//   而这两件事本来就是同一道核查的两面 —— 与 RV1/RV2 同一形状。
+router.post(
+  '/endpoint-rotate',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.endpointRotate).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizeEndpointRotate(contract, state, eventInput(body, now));
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'endpointRotate', auth.addressCode)) return;
+    const endpoints = loadEndpoints();
+    const record = endpoints[auth.endpointId];
+    if (!record || (record.owner || null) !== auth.addressCode) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), 'rejected_capability');
+    }
+    if (record.status !== endpointConfigFromContract(contract).usableStatus) {
+      res.status(200).json({
+        endpointId: auth.endpointId,
+        rotated: false,
+        serverTime: now,
+      });
+      return;
+    }
+    const rotated = rotateEndpoint(contract, endpoints, auth.endpointId, now);
+    res.status(200).json({
+      endpointId: rotated.id,
+      rotated: true,
+      // ⚠ 这把明文口令只在这里出现这一次（表里只有新摘要，旧那把进宽限期后到期即死）。
+      secret: rotated.secret,
+      rotatingUntil: rotated.endpoint.rotatingUntil,
+      serverTime: now,
+    });
+  }),
+);
+
 // ── 端点收单（T39 + T40 + T41）：口令鉴权的那两条入口 ─────────────────
 //
-// 与上面那七条签名路由的根本差别：这里的发送方不是设备，是一把共享长期口令（服务端只有摘要）。
+// 与上面那一批签名路由的根本差别：这里的发送方不是设备，是一把共享长期口令（服务端只有摘要）。
 // 所以它不产 nonce 台账、不走 acceptIncoming，而是自己一条裁决链（endpointintake.decideIngress）；
 // 但**裁完就共用同一个状态机**（enqueue）—— 排队、补发、到期删正文那些事不该有两套实现。
 //

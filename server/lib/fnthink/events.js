@@ -628,6 +628,55 @@ function authorizeEndpointRevoke(contract, state, input) {
   return { ok: true, kind: 'endpointRevoke', addressCode: id.sender, endpointId };
 }
 
+/**
+ * 接收端换一把入口的长期口令（契约 `clientEvents.endpointRotate`）。
+ *
+ * 判序与本族其余几条同一条（禁带字段 → 验身份 → 事件种类 → self-only → 载荷键名 → 时间/重放），
+ * 载荷形状也与吊销**逐字相同**（只有 `endpointId`）—— 这是刻意的：两件事都是"动我自己名下
+ * 那一条入口"，多一个可选参数（比如"旧的那把立刻失效"）就会把宽限期这个安全属性变成
+ * 客户端可以随口关掉的东西。所以：
+ *  ① 宽限期不由这一发决定，只由契约 `endpoint.rotation.graceSeconds` 决定；
+ *  ② 旧口令还能用到什么时候，由**响应**里的 `rotatingUntil` 说（裁决层不看端点表，判不了）；
+ *  ③ owner 那道核查同 revoke 一样在路由里，这里不伸手动表。
+ * 唯一比 revoke 多出来的红线：这一发的响应里**带一把新的明文口令**，而它是协议里唯一一处
+ * "换了之后还要再给一次明文"。所以留痕里不许出现它（`denied()` 只记 reason，不记响应），
+ * 而 `mayNotCarry` 仍然禁着 `endpointSecret` —— 设备可以把**新**口令从响应里读走，
+ * 不可以把任何口令**送进来**。
+ * 反证（同一份报告 `outputs/_erot.report.txt`）：**RB6** 契约给 `fields` 加第二个键
+ * （`graceSeconds`）⇒ 红在「宽限期不许由客户端改」；**RB7** 契约关掉 `targetMustEqualSender`
+ * ⇒ 红 7 条（loose）；**RB8** 契约不声明这条路径 ⇒ 红在装配守卫「声明 == 挂载」。
+ * 三刀都从**契约**那侧落：本函数只照着 spec 判，实现里没有可砸的字面量 —— 这正是
+ * "名单在契约、判据在实现"这套分工的代价与收益。
+ */
+function authorizeEndpointRotate(contract, state, input) {
+  const spec = (contract.clientEvents || {}).endpointRotate;
+  if (!spec) {
+    throw new Error(
+      '契约没有 clientEvents.endpointRotate（不补默认值：补了等于在代码里发明一种事件）',
+    );
+  }
+  const banned = bannedTopLevel(spec, input);
+  const id = verifyIdentity(contract, state, input);
+  if (id.outcome) return id.outcome;
+  const fields = input.fields || {};
+  const fail = (reason) => denied(contract, state, input, reason);
+  if (banned.length) return fail(`carries-secret:${banned.join(',')}`);
+  if (String(fields.type) !== spec.messageType) {
+    return fail('wrong-event-type:' + String(fields.type));
+  }
+  const blocked = selfOnlyReason(contract, spec, id.sender, fields);
+  if (blocked) return fail(blocked);
+
+  const read = readPayload(spec, fields.body, 'endpointRotate');
+  if (read.reason) return fail(read.reason);
+  const endpointId = String(read.payload.endpointId === undefined ? '' : read.payload.endpointId);
+  if (!endpointId) return fail('endpoint-id-missing');
+
+  const fresh = checkFresh(contract, state, input, id.sender);
+  if (fresh.outcome) return fresh.outcome;
+  return { ok: true, kind: 'endpointRotate', addressCode: id.sender, endpointId };
+}
+
 module.exports = {
   authorizeClientEvent,
   authorizeRegister,
@@ -638,4 +687,5 @@ module.exports = {
   authorizeEndpointCreate,
   authorizeEndpointList,
   authorizeEndpointRevoke,
+  authorizeEndpointRotate,
 };
