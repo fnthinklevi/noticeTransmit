@@ -22,6 +22,7 @@ import 'package:notice_transmit/pages/battery_page.dart';
 import 'package:notice_transmit/pages/device_state_page.dart';
 import 'package:notice_transmit/pages/device_snapshot_page.dart';
 import 'package:notice_transmit/pages/email_settings_page.dart';
+import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/pages/keywords_page.dart';
 import 'package:notice_transmit/pages/more_page.dart';
@@ -1423,6 +1424,96 @@ void main() {
         expect(find.text('已交给通道推送，结果见推送历史'), findsOneWidget);
         await _backToHome(tester);
 
+        await _backToHomeQuietly(tester);
+      });
+      // ── 5.15 幻念推送页（T42）：那一格的四件事在设备上长什么样 ─────────────
+      // 为什么这一节值得加：#157 那六片（建 / 读 / 关 / 换）每一片都改了这个页面，
+      // 而闸门此前一次都没进去过 —— 别的设置页都被点了一遍，唯独这一格是盲区。
+      // 断言只钉**结构**与**此刻该说什么话**，刻意不按那四把按钮：
+      // 按下去就是真网络请求（打的是线上那台服务器），而这一节的价值恰在于
+      // "什么都还没做过时，界面有没有替用户编一份列表"。
+      await _step(tester, gateFailures, '── 5.15 幻念推送页：端点那一格的形状', () async {
+        await _backToHomeQuietly(tester);
+        await _openMoreRow(tester, '幻念推送');
+        await _onPage(tester, FnthinkPushPage, '幻念推送页');
+
+        final inPage = find.descendant(
+          of: find.byType(FnthinkPushPage),
+          matching: find.byType(Text),
+        );
+        // ⚠ 先滚到那一格再收文字：本页是 ListView（懒加载），端点格在视口外时**根本没被 build**，
+        // 于是"页面里找不到那句话"既可能是文案改了，也可能是它还没出生 —— 第一次红就是这么来的。
+        final endpointCard = find.descendant(
+          of: find.byType(FnthinkPushPage),
+          matching: find.text('接入端点（给 NAS / 脚本用）'),
+        );
+        await _scrollUntil(tester, endpointCard);
+        await _settle(tester);
+        final texts = tester
+            .widgetList<Text>(inPage)
+            .map((t) => t.data ?? '')
+            .join(' | ');
+        expect(
+          texts,
+          contains('接入端点（给 NAS / 脚本用）'),
+          reason: '端点那一格没渲染 ⇒ 这一页最重要的入口又回到只能去管理面',
+        );
+        // 上限那句里的数是**从契约读的**：它在设备上出现，才证明契约 asset 真被加载了
+        // （而不是"页面上写死一个 10" —— 那条在 widget 用例里已经被 X5 钉过，这里钉设备上能读到）。
+        expect(
+          texts,
+          contains('这台设备最多建'),
+          reason: '端点格没有"最多建几把"那句 ⇒ 契约在设备上没读起来，那一格的所有解释都在说谎',
+        );
+
+        final create = find.byKey(const ValueKey('fnthink-endpoint-create'));
+        final read = find.byKey(const ValueKey('fnthink-endpoint-read'));
+        await _scrollUntil(tester, read);
+        for (final pair in [
+          ['建一个端点', create],
+          ['读一次我建过的入口', read],
+        ]) {
+          expect(
+            pair[1],
+            findsOneWidget,
+            reason: '${pair[0]} 那一下不在 ⇒ 这一格又只剩"看不见"那一半',
+          );
+          final button = tester.widget<TextButton>(pair[1] as Finder);
+          expect(
+            button.onPressed,
+            isNotNull,
+            reason: '${pair[0]} 是灰的 ⇒ 首屏就被判成不可用（要么 _busy 卡住，要么前置判据写歪）',
+          );
+        }
+
+        // 还没读过 ⇒ 只能出现"还没读过"那一句；出现"没有端点"就是替用户编了一份列表。
+        expect(
+          find.byKey(const ValueKey('fnthink-endpoint-list-pending')),
+          findsOneWidget,
+          reason: '没读过就该说"还没看过"（空白会被读成"你没有"，那是这一格最容易说的假话）',
+        );
+        expect(
+          find.byKey(const ValueKey('fnthink-endpoint-list-none')),
+          findsNothing,
+          reason: '一次都没读过就说"没有端点"：用户会当着一次没发生的事去重建入口',
+        );
+        // 没有列表行 ⇒ 没有"关掉这把 / 换一把口令"那两下（此刻连 id 都还不知道）。
+        for (final prefix in [
+          'fnthink-endpoint-revoke-',
+          'fnthink-endpoint-rotate-',
+        ]) {
+          final rowButtons = find.byWidgetPredicate(
+            (w) =>
+                w.key is ValueKey &&
+                '${(w.key as ValueKey).value}'.startsWith(prefix),
+          );
+          expect(
+            rowButtons,
+            findsNothing,
+            reason: '$prefix 那一下在没有列表的情况下出现了 ⇒ 按钮指向的是一个还不存在的对象',
+          );
+        }
+        await _backToHome(tester);
         await _backToHomeQuietly(tester);
       });
       // ── 6. 通知引擎 tab → 电量告警：加规则 → 切开关（骨架页 T15 落地后，电量页是 push 出来的子页）
