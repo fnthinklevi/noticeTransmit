@@ -268,6 +268,53 @@ void main() {
       );
     });
   });
+
+  group('答复配对请求 pairConfirm（T42 第四片）', () {
+    // 另一台设备的地址码：这一发的 target 就是它（不是本机）。
+    const peer = '8KMNPQRSTVWX999777';
+
+    Map<String, Object?> confirmBody(String decision) => {
+      'requestId': 'pr_9',
+      'status': decision,
+      'grantedLevel': 'L1',
+      'serverTime': 1800000000000,
+    };
+
+    test('打到契约声明的那扇门，target 是对端而不是本机', () async {
+      final approved = contract.pairConfirmApproveDecision;
+      final rec = _Recorder(scripts: [jsonEncode(confirmBody(approved))]);
+      final service = build(contract, rec, _Signer());
+      final result = await service.pairConfirm(
+        requestId: 'pr_9',
+        decision: approved,
+        level: 'L1',
+        counterpart: peer,
+      );
+      expect(rec.requests.single.url.path, contract.apiPath('pairConfirm'));
+      final fields = jsonDecode(rec.requests.single.body)['fields']! as Map;
+      expect(
+        fields['target'],
+        peer,
+        reason: '全协议唯一一发 target 不是自己：写成本机就换回一句与"不该由我管"同形的 403',
+      );
+      expect(fields['target'], isNot(address));
+      expect(result.ok, isTrue);
+      expect(result.grantedLevel, 'L1');
+    });
+
+    test('签不出来时不发出答复（授权这一发尤其不能"试试看"）', () async {
+      final rec = _Recorder();
+      final service = build(contract, rec, _Signer(available: false));
+      final result = await service.pairConfirm(
+        requestId: 'pr_9',
+        decision: contract.pairConfirmApproveDecision,
+        level: 'L1',
+        counterpart: peer,
+      );
+      expect(rec.requests, isEmpty);
+      expect(result.reason, 'signing-unavailable');
+    });
+  });
 }
 
 /// 记下每一次请求，并按脚本回响应。

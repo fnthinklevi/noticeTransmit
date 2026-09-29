@@ -243,6 +243,53 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 答复一条配对请求（页面上"同意 / 拒绝"那两下）。
+  ///
+  /// 两个答复词都**从契约取**（`pairConfirm.decisions` / `approveDecision`），页面只交一个 bool：
+  /// 让 UI 传字符串，等于把"同意"这个词抄进界面 —— 契约改词之后设备会签出一个服务端不认识的答复，
+  /// 而两边都只看得见一句同形的 403。名单里若冒出第三个词，这里直接抛，而不是猜哪个算"拒绝"。
+  ///
+  /// 与挂口令同样：**不要求总开关开着**（配对是接收的前置，不是它的后果）。
+  Future<FnthinkPairConfirmResult> confirmPairing({
+    required FnthinkPairRequest request,
+    required bool approve,
+    required String level,
+  }) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkPairConfirmResult(
+        status: FnthinkPollStatus.failed,
+        reason: resolved.reason,
+        signedWhileUncalibrated: false,
+      );
+    }
+    final spec = resolved.spec!;
+    final contract = spec.contract;
+    final approved = contract.pairConfirmApproveDecision;
+    final others = contract.pairConfirmDecisions
+        .where((d) => d != approved)
+        .toList();
+    if (others.length != 1) {
+      // 契约哪天给出第三个答复词时，"拒绝"就不再是一个能猜的东西。宁可炸在这里。
+      throw StateError(
+        '契约 decisions 里除 "$approved" 之外有 ${others.length} 个词（$others）：'
+        '哪个算"拒绝"必须由契约明说',
+      );
+    }
+    final service = _serviceFactory(spec);
+    try {
+      return await service.pairConfirm(
+        requestId: request.requestId,
+        decision: approve ? approved : others.single,
+        level: level,
+        // 全协议唯一一发 target 不是自己：授权给谁，就写给谁。
+        counterpart: request.requester,
+      );
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
   void stop() {
     _loop?.stop();

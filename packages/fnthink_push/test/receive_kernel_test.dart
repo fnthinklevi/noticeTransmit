@@ -713,4 +713,190 @@ void main() {
       );
     });
   });
+
+  group('poll 带回的配对请求：解析成类型（T42 第四片）', () {
+    Map<String, Object?> okPollWith(List<Object?> reqs) => {
+      'messages': const [],
+      'receipts': const [],
+      'pending': 0,
+      contract.pairRequestPollKey: reqs,
+      'serverTime': 1800000000000,
+    };
+
+    FnthinkPairRequest? parse(Object? raw) => FnthinkPairRequest.tryFrom(raw);
+
+    test('一条完整的请求被解析出来，答复要用的 id 与对端地址都在', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: okPollWith([
+          {
+            'id': 'pr_1',
+            'requester': _peer,
+            'requesterPublicKey': 'AAAA',
+            'level': 'L1',
+            'createdAt': 1780000000000,
+            'expiresAt': 1780000060000,
+          },
+        ]),
+      );
+      final result = await harness.kernel().poll();
+      final req = result.pairRequests.single;
+      expect(req.requestId, 'pr_1');
+      expect(
+        req.requester,
+        _peer,
+        reason: '这一发 pairConfirm 的 target 就是它 —— 认错了人等于把白名单开给别台设备',
+      );
+      expect(req.level, 'L1');
+      expect(req.expiresAt, 1780000060000);
+    });
+
+    test('键缺或为空的请求被丢掉，不被画成"某台设备请求配对你"', () {
+      expect(
+        parse({
+          'id': '',
+          'requester': _peer,
+          'requesterPublicKey': 'A',
+          'level': 'L1',
+        }),
+        isNull,
+      );
+      expect(
+        parse({
+          'id': 'x',
+          'requester': '',
+          'requesterPublicKey': 'A',
+          'level': 'L1',
+        }),
+        isNull,
+      );
+      expect(parse({'id': 'x', 'requester': _peer, 'level': 'L1'}), isNull);
+      expect(parse('not a map'), isNull);
+    });
+
+    test('target 与 status 缺席不影响（服务端今日不回它们）', () {
+      final one = parse({
+        'id': 'x',
+        'requester': _peer,
+        'requesterPublicKey': 'A',
+        'level': 'L2',
+      });
+      expect(one, isNotNull);
+      expect(one!.createdAt, isNull, reason: '没有就显示未知，不拿 0 当成"1970 年请求的"');
+    });
+  });
+
+  group('答复一条请求 pairConfirm（T42 第四片）', () {
+    // 两个答复词也从契约读，不在测试里抄一份：抄了的那份，契约改词时会红成"测试坏了"，
+    // 而不是"实现跟着词走了"—— 分不清是哪一种。
+    String approvedWord() => contract.pairConfirmApproveDecision;
+    String deniedWord() =>
+        contract.pairConfirmDecisions.firstWhere((d) => d != approvedWord());
+
+    Future<FnthinkPairConfirmResult> confirm(
+      _Harness harness,
+      String decision, {
+      String level = 'L1',
+    }) => harness.kernel().pairConfirm(
+      requestId: 'pr_9',
+      decision: decision,
+      level: level,
+      counterpart: _peer,
+    );
+
+    test('target 写的是对端，不是本机（全协议唯一一发）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: {
+          'requestId': 'pr_9',
+          'status': approvedWord(),
+          'grantedLevel': 'L1',
+          'serverTime': 1800000000000,
+        },
+      );
+      await confirm(harness, approvedWord());
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      expect(fields['target'], _peer);
+      expect(fields['target'], isNot(_self));
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body.keys.toList(), contract.pairConfirmFields);
+    });
+
+    test('答应的词与档位都必须在契约的封闭集合里，否则当场抛、不签出去', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      expect(
+        () => harness.kernel().pairConfirm(
+          requestId: 'pr_9',
+          decision: 'granted',
+          level: 'L1',
+          counterpart: _peer,
+        ),
+        throwsArgumentError,
+        reason: '把界面上任意字符串签出去，换回来的只是一句与"这个词不存在"同形的 403',
+      );
+      expect(
+        () => harness.kernel().pairConfirm(
+          requestId: 'pr_9',
+          decision: approvedWord(),
+          level: 'L9',
+          counterpart: _peer,
+        ),
+        throwsArgumentError,
+      );
+      expect(harness.sent, isEmpty);
+    });
+
+    test('200 但状态词看不懂 ⇒ 不算已答复（两端的理解已经漂了）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: {'requestId': 'pr_9', 'status': 'granted', 'serverTime': 1},
+      );
+      final result = await confirm(harness, approvedWord());
+      expect(result.ok, isFalse);
+      expect(
+        result.reason,
+        'pair-confirm-unparsable-ack',
+        reason: '"granted" 不在 pairRequest.statuses 里；把它当成功，本机就会记下一条其实没成立的授权',
+      );
+    });
+
+    test('服务端给的档位可能低于答应的：回什么就记什么', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: {
+          'requestId': 'pr_9',
+          'status': approvedWord(),
+          'grantedLevel': 'L1',
+          'serverTime': 1800000000000,
+        },
+      );
+      final result = await confirm(harness, approvedWord(), level: 'L2');
+      expect(result.ok, isTrue);
+      expect(
+        result.grantedLevel,
+        'L1',
+        reason:
+            '契约 pairing.maxRequestableLevelWithoutLocalAuth 那道封顶由服务端落，界面要显示的是这一格',
+      );
+    });
+
+    test('拒绝那一路同样要发出去（不是一句本地状态）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: {
+          'requestId': 'pr_9',
+          'status': deniedWord(),
+          'serverTime': 1800000000000,
+        },
+      );
+      final result = await confirm(harness, deniedWord());
+      expect(result.ok, isTrue);
+      expect(harness.sent, hasLength(1));
+    });
+  });
 }

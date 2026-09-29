@@ -372,6 +372,97 @@ void main() {
       );
     });
   });
+
+  group('答复一条配对请求 confirmPairing（T42 第四片）', () {
+    const request = FnthinkPairRequest(
+      requestId: 'pr_9',
+      requester: '8KMNPQRSTVWX999777',
+      requesterPublicKey: 'AAAA',
+      level: 'L1',
+    );
+
+    String ackBody(String decision) =>
+        '{"requestId":"pr_9","status":"$decision","grantedLevel":"L1",'
+        '"serverTime":1800000000000}';
+
+    test('同意那一发写给对端，且总开关关着也能答复', () async {
+      SharedPreferences.setMockInitialValues({}); // 接收开关 = 默认关
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: asked,
+          body: ackBody(contract.pairConfirmApproveDecision),
+        ),
+      );
+      final result = await c.confirmPairing(
+        request: request,
+        approve: true,
+        level: 'L1',
+      );
+      expect(result.ok, isTrue);
+      final fields = jsonDecode(asked.single.body)['fields']! as Map;
+      expect(
+        fields['target'],
+        request.requester,
+        reason: '授权给谁就写给谁；写成本机等于替别人答复，服务端只会拦下来',
+      );
+      expect(asked.single.url.path, contract.apiPath('pairConfirm'));
+      expect(
+        c.isRunning,
+        isFalse,
+        reason: '答复一条请求不该顺手把收货循环起开 —— 那是替用户点了"开始接收"',
+      );
+    });
+
+    test('前置不满足时一句都不发', () async {
+      final asked = <http.Request>[];
+      final cannotSign = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(sink: asked),
+      );
+      expect(
+        (await cannotSign.confirmPairing(
+          request: request,
+          approve: false,
+          level: 'L1',
+        )).reason,
+        'signing-unavailable',
+      );
+      expect(asked, isEmpty);
+    });
+
+    test('契约给出第三个答复词 ⇒ 那一发不会带着猜出来的"拒绝"离机', () async {
+      final threeWay = FnthinkContractLoader(
+        readAsset: (_) async {
+          final raw = jsonDecode(contractText) as Map<String, Object?>;
+          (raw['clientEvents']! as Map)['pairConfirm'] = {
+            ...((raw['clientEvents']! as Map)['pairConfirm']! as Map),
+            'decisions': ['approved', 'denied', 'maybe'],
+          };
+          return jsonEncode(raw);
+        },
+      );
+      final asked = <http.Request>[];
+      final ambiguous = coordinator(
+        recorder: _LoopRecorder(),
+        contracts: threeWay,
+        serviceFactory: armFactory(sink: asked),
+      );
+      // 这里有**两道**闸：契约 validate 先拒绝这份改过的契约（今日就是它挡住的，
+      // reason 是 contract-unavailable）；真走到 confirmPairing 也会因"拒绝是哪一个词"
+      // 有二义而抛。两道都不许变成"随便挑一个签出去" ⇒ 断言的是**没发出去 + 说得出原因**。
+      final result = await ambiguous.confirmPairing(
+        request: request,
+        approve: false,
+        level: 'L1',
+      );
+      expect(asked, isEmpty);
+      expect(result.ok, isFalse);
+      expect(result.reason, isNotNull);
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {

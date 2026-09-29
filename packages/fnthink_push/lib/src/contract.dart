@@ -361,6 +361,32 @@ class FnthinkContract {
   /// pairArm 载荷的字段名单（今日 = `["pairingCode"]`；档位不在这里，见 `pairing` 段）。
   List<String> get pairArmFields => clientEventFields('pairArm');
 
+  /// pairConfirm 载荷的字段名单（今日 = `["requestId","decision","level"]`）。
+  List<String> get pairConfirmFields => clientEventFields('pairConfirm');
+
+  /// 本机在这一发上能做的**那两种**决定（封闭集合：第三种取值服务端会整条拒）。
+  List<String> get pairConfirmDecisions =>
+      strings(['clientEvents', 'pairConfirm', 'decisions']);
+
+  /// 名单里"同意"那一个词。**不写死 `'approved'`**：两端都从契约读，
+  /// 词换了（比如改成 `granted`）时这里跟着走，而不是让新词一路 403。
+  String get pairConfirmApproveDecision {
+    final value = str(['clientEvents', 'pairConfirm', 'approveDecision']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 clientEvents.pairConfirm.approveDecision（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 配对请求在 poll 响应里带回来的那些字段。
+  List<String> get pairRequestStoredFields =>
+      strings(const ['pairRequest', 'storedFields']);
+
+  /// 一条配对请求能处于哪些状态（封闭集合）。设备侧判断"服务端有没有把这件事结掉"
+  /// 只认这张表 —— 词漂了要当场报，不能被读成"没有结果"。
+  List<String> get pairRequestStatuses =>
+      strings(const ['pairRequest', 'statuses']);
+
   /// 挂出去的口令在这一步**不许带**的那一项：契约说它 arms 什么，实现就只发什么。
   String get pairArmPayloadField {
     final value = str(['clientEvents', 'pairArm', 'arms']);

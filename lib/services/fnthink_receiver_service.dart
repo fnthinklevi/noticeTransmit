@@ -35,10 +35,10 @@ class FnthinkReceiverService {
     // 装配期就把"能不能发出第一发"判掉，而不是等第一次轮询：https 与 apiPaths 都是
     // **配置事实**，不是运行时状态。留到第一次发送才炸，会被内核的 catch 归成"传输异常"
     // —— 那是把契约与实现不匹配伪装成网络抖动（我这条就是被用例逼出来的）。
-    for (final kind in ['poll', 'ack', 'pairArm']) {
+    for (final kind in ['poll', 'ack', 'pairArm', 'pairConfirm']) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
-          '契约的 transport.apiPaths 少了 $kind：收货要发这三种请求，缺一种就是整条链接不上',
+          '契约的 transport.apiPaths 少了 $kind：收货与配对要发这几种请求，缺一种就是整条链断在那一步',
         );
       }
     }
@@ -175,6 +175,29 @@ class FnthinkReceiverService {
       );
     }
     return kernel.pairArm(pairingCode: pairingCode);
+  }
+
+  /// 答复一条配对请求（同意或拒绝）。`counterpart` 是**对端**的地址码：
+  /// 这一发的 `target` 不是本机（全协议唯一一处），写错了就换回一句同形的 403。
+  Future<FnthinkPairConfirmResult> pairConfirm({
+    required String requestId,
+    required String decision,
+    required String level,
+    required String counterpart,
+  }) async {
+    if (!await _canSign()) {
+      return FnthinkPairConfirmResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.pairConfirm(
+      requestId: requestId,
+      decision: decision,
+      level: level,
+      counterpart: counterpart,
+    );
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

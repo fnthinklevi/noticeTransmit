@@ -256,9 +256,9 @@ class FnthinkReceiveKernel {
       receipts: receipts,
       pending: pending,
       nextDelay: currentDelay,
-      pairRequests: reply.body[contract.pairRequestPollKey] is List
-          ? reply.body[contract.pairRequestPollKey] as List<Object?>
-          : const [],
+      pairRequests: FnthinkPairRequest.parseList(
+        reply.body[contract.pairRequestPollKey],
+      ),
       signedWhileUncalibrated: signedWhileUncalibrated,
     );
   }
@@ -461,6 +461,125 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 pairConfirm 的签名字段。
+  ///
+  /// ⚠ 这是全协议里**唯一一发 `target` 不是自己**的事件（`mustContainCounterpartAddress`）：
+  /// 同意的是"让那个人配上我"，所以要写给对端。把它写成 `addressCode`（本机）不会报错，
+  /// 只会换回一句与"我不该管这件事"同形的 403 —— 而 self-only 那几条恰恰禁止反过来，
+  /// 所以两端的判据都在这一个键上，不许在实现里各写一份。
+  Map<String, Object?> pairConfirmFields({
+    required Map<String, Object?> payload,
+    required String counterpart,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.pairConfirmFields;
+    if (payload.length != declared.length ||
+        !declared.every(payload.containsKey)) {
+      throw ArgumentError(
+        'pairConfirm 的载荷键必须与契约名单一致（期望 $declared，实到 '
+        '${(payload.keys.toList()..sort())}）',
+      );
+    }
+    // 决定与档位都在契约给的封闭集合里：把界面上任意一个字符串签出去，
+    // 换回来的只是同一句 403，而"被拒"与"这个词根本不存在"在设备侧长得一样。
+    if (!contract.pairConfirmDecisions.contains(payload['decision'])) {
+      throw ArgumentError(
+        'decision「${payload['decision']}」不在契约 decisions '
+        '${contract.pairConfirmDecisions} 里：这台不许自创第三种答复',
+      );
+    }
+    if (!contract.capabilityLevels.contains(payload['level'])) {
+      throw ArgumentError(
+        'level「${payload['level']}」不在契约 capabilities.levels '
+        '${contract.capabilityLevels} 里：档位词表两端同源',
+      );
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('pairConfirm'),
+      'target': counterpart,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode({for (final key in declared) key: payload[key]}),
+    };
+  }
+
+  /// 答复一条配对请求（同意或拒绝）。
+  ///
+  /// 与 [pairArm] 一样：失败不抛，状态→后果那张表仍只有 [interpret] 一份。
+  /// `ok` 要求服务端回一个**认识的状态词**（契约 `pairRequest.statuses`）——
+  /// 200 而状态词看不懂时宁可报失败：那意味着两端对"这件事结束了没有"的理解已经漂了。
+  /// 这一条被砸过什么（报告在本地 outputs/_pairconfirm_falsify.report.txt，按约定不入库）：
+  ///  - `target` 写成本机 ⇒ 红在「target 写的是对端，不是本机」；
+  ///  - 摘掉答复词与档位的封闭集合校验 ⇒ 红在「答应的词与档位都必须在契约的封闭集合里」；
+  ///  - 状态词看不懂也算已答复 ⇒ 红在「200 但状态词看不懂 ⇒ 不算已答复」；
+  ///  - [FnthinkPairRequest.tryFrom] 不再拒收缺键那行 ⇒ 红在「键缺或为空的请求被丢掉」；
+  ///  - 服务层摘掉"签不出来就不发"那道闸 ⇒ 红在「签不出来时不发出答复」。
+  /// 五条各自点名一条用例，且逐字节还原。
+  Future<FnthinkPairConfirmResult> pairConfirm({
+    required String requestId,
+    required String decision,
+    required String level,
+    required String counterpart,
+  }) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: pairConfirmFields(
+        payload: {'requestId': requestId, 'decision': decision, 'level': level},
+        counterpart: counterpart,
+        nonce: nonce,
+      ),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkPairConfirmResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkPairConfirmResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'pair-confirm-http:${reply.status}',
+      );
+    }
+    final returned = reply.body['status'];
+    if (reply.body['requestId'] != requestId ||
+        !contract.pairRequestStatuses.contains(returned)) {
+      _lastReason = 'pair-confirm-unparsable-ack';
+      return FnthinkPairConfirmResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    final granted = reply.body['grantedLevel'];
+    return FnthinkPairConfirmResult(
+      status: FnthinkPollStatus.ok,
+      requestStatus: '$returned',
+      grantedLevel: granted is String ? granted : null,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   int _nonceCounter = 0;
   String _fallbackNonce() {
     // 进程内唯一（时间戳 + 计数）。跨重启的唯一性由调用方保证 —— 这也是
@@ -577,7 +696,10 @@ class FnthinkPollResult {
   final List<FnthinkDelivered> messages;
   final List<FnthinkReceipt> receipts;
   final int pending;
-  final List<Object?> pairRequests;
+
+  /// 等着本机答复的配对请求。**解析不出来的那几条被丢掉**（见 [FnthinkPairRequest.tryFrom]）：
+  /// 宁可少显示一条，也不把一条键不对的请求画成"某人请求配对你"再让人去同意。
+  final List<FnthinkPairRequest> pairRequests;
 
   /// 下一轮该等多久。**由内核算，不由调用方猜**：提频窗口与 `Retry-After` 都在这里。
   final Duration nextDelay;
@@ -634,4 +756,96 @@ class FnthinkPairArmResult {
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok && expiresAtMs != null;
+}
+
+/// 一条等本机答复的配对请求（poll 的 `pairRequests` 那一项）。
+///
+/// 只解析"要拿去答复与要显示"的那几个键：`target` 与 `status` 服务端不必回（这一发是发给
+/// 本机的、状态今日只有 pending），所以**不拿 storedFields 的全表当解析必填**——
+/// 那会让每一条请求都被判成不合法，表现是"有人配你"那一栏永远是空的。
+class FnthinkPairRequest {
+  const FnthinkPairRequest({
+    required this.requestId,
+    required this.requester,
+    required this.requesterPublicKey,
+    required this.level,
+    this.createdAt,
+    this.expiresAt,
+  });
+
+  /// 答复它时要带回给服务端的那个 id（`pairConfirm.fields.requestId`）。
+  final String requestId;
+
+  /// 谁在请求 —— 也是 pairConfirm 那一发的 `target`（全协议唯一一发 target 不是自己）。
+  final String requester;
+  final String requesterPublicKey;
+
+  /// 对方要的那一档（词表来自契约 `capabilities.levels`，显示与封顶都在消费方判）。
+  final String level;
+  final int? createdAt;
+  final int? expiresAt;
+
+  static List<FnthinkPairRequest> parseList(Object? raw) {
+    if (raw is! List) return const [];
+    final out = <FnthinkPairRequest>[];
+    for (final item in raw) {
+      final parsed = tryFrom(item);
+      if (parsed != null) out.add(parsed);
+    }
+    return out;
+  }
+
+  /// 键缺或类型不对 ⇒ null（这条被丢掉）。"读成空字符串"是最坏的一种宽容：
+  /// 那条请求会画成"某台设备请求配对你"，而它的 `requester` 是空的 —— 用户点同意时
+  /// 连要授权给谁都不知道。
+  static FnthinkPairRequest? tryFrom(Object? raw) {
+    if (raw is! Map) return null;
+    String req(String key) {
+      final v = raw[key];
+      return v is String && v.isNotEmpty ? v : '';
+    }
+
+    final id = req('id');
+    final requester = req('requester');
+    final publicKey = req('requesterPublicKey');
+    final level = req('level');
+    if (id.isEmpty || requester.isEmpty || publicKey.isEmpty || level.isEmpty) {
+      return null;
+    }
+    final created = raw['createdAt'];
+    final expires = raw['expiresAt'];
+    return FnthinkPairRequest(
+      requestId: id,
+      requester: requester,
+      requesterPublicKey: publicKey,
+      level: level,
+      createdAt: created is int ? created : null,
+      expiresAt: expires is int ? expires : null,
+    );
+  }
+}
+
+/// 答复一条配对请求的结论。
+///
+/// `requestStatus` 只在服务端回了一个**契约认识的状态词**时才有值（`pairRequest.statuses`）：
+/// 200 而词看不懂 = 两端对"这件事结了没有"的理解已经漂了，宁可报失败也不报成功。
+class FnthinkPairConfirmResult {
+  const FnthinkPairConfirmResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.requestStatus,
+    this.grantedLevel,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+  final String? requestStatus;
+
+  /// 服务端实际记下的档位。⚠ 它**可能低于本机答应的**（`levelCeilingFrom` 那道封顶，
+  /// L2 以上必须在设备本地确认），所以界面要显示的是这个值，而不是用户刚才点的那个。
+  final String? grantedLevel;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok && requestStatus != null;
 }
