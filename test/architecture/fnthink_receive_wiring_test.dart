@@ -70,6 +70,56 @@ void main() {
       },
     );
 
+    test('收货循环的启动点不许只有页面（T33 第一片）', () {
+      // 这一条存在的理由是一段已经上线的行为：`startIfEnabled()` 全仓只有 `fnthink_push_page`
+      // 那两处调用 —— 于是"总开关开着"只在用户**停留在那一页时**成立，退回首页、切 tab、
+      // 把 App 划进后台（进程还活着）都不再取货。用户翻开关时读到的承诺是"这台设备会去收"。
+      // 这类漏接在任何功能测试里都不会红（页面测试总是自己点开关），只能靠装配点钉。
+      //
+      // 反证（2026-09-30，WB1–WB5 全 exit≠0 + named + restored，基线先验过绿；
+      // `outputs/_wake.report.txt`）：WB1 启动点摘掉 / WB2 装配处出现"自己拼循环"的形状 /
+      // WB3 改了地址不重启 / WB4 校验没过也白重启 / WB5 恢复默认不重启。
+      // ⚠ 顺带测出来的一件**不该写成断言**的事：同一回调里把启动调用复制两遍 **不红**，
+      //    因为 `startIfEnabled()` 对已在跑的循环返回 already-running（幂等）——
+      //    所以这里判的是"有没有启动点"，不是"是不是恰好一处"。
+      final main = read('lib/main.dart');
+      expect(
+        occurrences(main, '.startIfEnabled()'),
+        greaterThanOrEqualTo(1),
+        reason:
+            'App 启动链里必须有一处按开关起循环；0 处就是回到"只由页面拉起"。'
+            '（多处不判红：`startIfEnabled` 对已在跑的循环返回 already-running，'
+            '起两遍不出两遍货 —— 这是植入实测出来的，别把它写成会红的事）',
+      );
+      final from = main.indexOf('void _onServicesInitialized()');
+      expect(from, isNonNegative, reason: '启动点挂在 splash 装配完成那个回调上');
+      final body = main.substring(from);
+      expect(
+        body.substring(0, body.indexOf('\n  }')),
+        contains('_startFnthinkReceive()'),
+        reason: '必须在这一格里，而不是 initState / main() 顶层 —— 那里隐私还没同意',
+      );
+    });
+
+    test('装配处不许自己拼循环：循环的规格只有一个作者（T33 第一片）', () {
+      // 启动点"有"不等于"接对"：在装配处就地拼一个 loop，编译过、页面测试全绿，
+      // 而那一份不认总开关、不带启动那一刻定型的地址码与服务地址。
+      final main = read('lib/main.dart');
+      for (final bypass in [
+        'buildFnthinkReceiveLoop',
+        'FnthinkReceiveLoop(',
+        'FnthinkReceiverService(',
+      ]) {
+        expect(
+          main,
+          isNot(contains(bypass)),
+          reason:
+              '装配处不许出现 $bypass：循环的规格只有一个作者 = 协调者，'
+              '就地拼出来的那一份没人替它裁决开关与凭证。',
+        );
+      }
+    });
+
     test('spec 里的 display 会传到循环上（不是只存在 spec 里）', () async {
       final loop = buildFnthinkReceiveLoop(
         FnthinkLoopSpec(

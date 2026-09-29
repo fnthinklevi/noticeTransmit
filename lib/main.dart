@@ -15,6 +15,7 @@ import 'theme/app_colors.dart';
 import 'services/theme_service.dart';
 import 'services/locale_service.dart';
 import 'services/archive_worker.dart';
+import 'services/fnthink_receive_coordinator.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -320,6 +321,34 @@ class MyAppState extends State<MyApp> {
         }
       });
     } catch (_) {}
+    unawaited(_startFnthinkReceive());
+  }
+
+  /// T33 第一片：收货循环的启动点**不能只有页面**。
+  ///
+  /// 在这一行之前，全仓只有 `fnthink_push_page` 那两处调 `startIfEnabled()` ——
+  /// 于是"总开关开着"这件事只在用户停留在幻念推送页时成立：他退回首页、切到别的 tab、
+  /// 或直接把 App 划进后台（进程还活着），服务器那头的消息就不再有人来取。
+  /// 用户翻那个开关时看到的说明是"这台设备会去收"，不是"停在这一页时才会收"。
+  ///
+  /// 起在这里而不是 `main()`：这里在 SplashPage 装配完成之后，也在隐私同意之后
+  /// （`_privacyAccepted` 没通过时 App 什么都不该往网络发）；`setupLocator()` 里起是另一回事 ——
+  /// 那里连 SharedPreferences 都还没读。
+  ///
+  /// ⚠ 这一片覆盖的是**进程活着而页面关了**那一段。进程被 ROM 杀掉之后的复起是第二片
+  ///   （原生闹钟 + BootReceiver，照 T74-C 那套），别把这里当成"被杀也能收"。
+  Future<void> _startFnthinkReceive() async {
+    try {
+      final result = await GetIt.instance<FnthinkReceiveCoordinator>()
+          .startIfEnabled();
+      // 'disabled' 是绝大多数人此刻的状态（默认关），不值得往日志里灌；其余的没起来都要留痕。
+      if (!result.started && result.reason != 'disabled') {
+        log('[fnthink] 收货循环没起来：${result.reason}');
+      }
+    } catch (e) {
+      // 起不来不许挡启动链：这一页后面还有别的装配（与 DI 那处"坏了也不连累别的端点"同一条）。
+      log('[fnthink] 收货循环启动异常：$e');
+    }
   }
 
   bool get _initialized => _themeInitialized && _servicesInitialized;

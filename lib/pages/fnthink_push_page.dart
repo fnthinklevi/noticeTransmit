@@ -1019,10 +1019,19 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       await settings.setHost(input);
       // 界面上显示的是**读回来**的那一份，不是用户敲进去的那一份（setHost 会归一小写）。
       final stored = await settings.host;
+      // ⚠ 换了地址必须重启循环 —— 与上面"重置地址码"那一条同一个理由：循环握的是**启动那一刻
+      //   定型的 baseUri**，不重启就是"屏幕上写着新地址，而货还在从旧地址取"（症状是"地址明明改了
+      //   却连不上"，而改回来的那一下又"没反应"）。排在 mounted 判断之前：值已经改了，
+      //   页面关没关都不该把循环留在旧地址上。
+      if (_running) {
+        _coordinator.stop();
+        await _coordinator.startIfEnabled();
+      }
       if (!mounted) return;
       setState(() {
         _host = stored;
         _hostError = null;
+        _running = _coordinator.isRunning;
       });
     } on FnthinkSettingsInvalid catch (e) {
       // 不改值、只把那句话贴出来：校验的唯一出处在 FnthinkSettings，这里不自己判一遍。
@@ -1037,6 +1046,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     try {
       await settings.setHost(settings.defaultHost);
       final stored = await settings.host;
+      // 恢复默认也是换地址 ⇒ 同一个重启（理由见上面 `_editHost` 那一段）
+      if (_running) {
+        _coordinator.stop();
+        await _coordinator.startIfEnabled();
+      }
       if (!mounted) return;
       setState(() {
         _host = stored;

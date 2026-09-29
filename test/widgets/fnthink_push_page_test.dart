@@ -661,6 +661,62 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('换地址与恢复默认都重启循环：屏幕上写的那个地址，就是正在取货的那个', (tester) async {
+      // 理由与"重置地址码必须重启"是同一条：循环手里握的是**启动那一刻定型的 spec**
+      // （baseUri 就在里面）。不重启的表现是"地址明明改了，货还是从旧地址取"，
+      // 而用户下一个动作是把地址改回来 —— 那一改同样"没反应"，两下叠起来就是"这页坏了"。
+      stubChannels();
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.pumpAndSettle();
+      expect(h.builds(), 1, reason: '先把循环弄成"正在跑"，下面才有"该不该重启"可问');
+
+      final edit = find.widgetWithText(TextButton, l10n.edit);
+      await revealTo(tester, edit);
+      await tester.pumpAndSettle();
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('fnthink-host-input')),
+        'push.example:8443',
+      );
+      await tester.tap(find.widgetWithText(TextButton, l10n.save));
+      await tester.pumpAndSettle();
+      expect(find.text('push.example:8443'), findsOneWidget);
+      expect(h.builds(), 2, reason: '改了地址而循环没重启 ⇒ 界面与在跑的那一份各说一段');
+
+      final resetDefault = find.byKey(const ValueKey('fnthink-host-default'));
+      await revealTo(tester, resetDefault);
+      await tester.pumpAndSettle();
+      await tester.tap(resetDefault);
+      await tester.pumpAndSettle();
+      expect(h.builds(), 3, reason: '恢复默认也是换地址，同一记重启');
+    });
+
+    testWidgets('校验没过（值没改）⇒ 不该白重启一次循环', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await tester.tap(find.byType(CupertinoSwitch));
+      await tester.pumpAndSettle();
+      expect(h.builds(), 1);
+
+      final edit = find.widgetWithText(TextButton, l10n.edit);
+      await revealTo(tester, edit);
+      await tester.pumpAndSettle();
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('fnthink-host-input')),
+        'https://push.example.com',
+      );
+      await tester.tap(find.widgetWithText(TextButton, l10n.save));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('fnthink-host-error')), findsOneWidget);
+      expect(h.builds(), 1, reason: '值都没落库就重启，等于把"改了没反应"做成"每改一次断一次线"');
+    });
   });
 
   group('待确认的配对请求（T42 第五片）', () {
