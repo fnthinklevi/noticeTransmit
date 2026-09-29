@@ -209,10 +209,12 @@ function approvePeer(contract, devices, addressCode, peerCode, level, now) {
   return record[field][peerKey];
 }
 
-/// 本机身份重建后：A 给出去的关系要一起作废（契约 revocation.identityRebuildInvalidatesAllPeers）。
-/// ⚠ 这里只回答"A 自己的那份关系表怎么变"，撤销的入口（单条划掉 / 一键冻结）在 T31 与 #130；
-///   两片共用 `invalidatePeersAfterRebuild` 这个名字会串味，所以本片**不提供**它 ——
-///   没有调用方的清理函数，就是下一个"registerDevice 没有调用方"。
+/// 本机身份重建后：所有在册发送方都要重新配对 —— 实现在下面那一节的
+/// `invalidatePeersAfterRebuild`（T31② 落的，调用方是 ops.js 的 `POST /fnthink/devices/rebuild-invalidation`）。
+/// ⚠ 它改的是**在册设备自己的状态**（active → 重建后那一档），既不删记录也不动任何人的 `grantsBy`。
+///   而"A 单条划掉 B"那一发至今**没有入口**：设备面没有对应的签名事件，管理面也只有按台的 revoke
+///   与一键冻结。所以幻念推送页的名单今日是只读的 —— 那半边理由写在
+///   `lib/services/fnthink_peer_service.dart`（本机删行 ≠ 对面推不进来）。
 
 // ── 状态与吊销（T31）──────────────────────────────────────────
 // 三条判据写在这里：① 状态名只认契约那张表（打错字的方向必须是"抛"，不是"写进去以后没人认得"）；
