@@ -99,6 +99,9 @@ void main() {
     String endpointBody =
         '{"endpointId":"ep_7","secret":"ABCDEFGHIJKLMNOP2345678901",'
         '"postOnly":true,"serverTime":1800000000000}',
+    int endpointListStatus = 200,
+    // 默认"读到了，确实一把都没有"—— 这是最常见也最容易与"没读到"混为一谈的那一支。
+    String endpointListBody = '{"endpoints":[],"serverTime":1800000000000}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
@@ -117,6 +120,7 @@ void main() {
     final confirmAsked = <http.Request>[];
     final revokeAsked = <http.Request>[];
     final endpointAsked = <http.Request>[];
+    final endpointListAsked = <http.Request>[];
     final removed = <String>[];
     final peerRows = <FnthinkPeer>[];
     final peersShown = <FnthinkPeer>[...peers];
@@ -163,6 +167,19 @@ void main() {
           if (req.url.path == contract.apiPath('endpointCreate')) {
             endpointAsked.add(req);
             return http.Response(endpointBody, endpointStatus);
+          }
+          if (req.url.path == contract.apiPath('endpointList')) {
+            endpointListAsked.add(req);
+            // 带 content-type：那份载荷里可能有中文端点名（用户自己起的），而
+            // `http.Response(body, code)` 在没有 content-type 时按 latin-1 编码，中文会在
+            // 假服务器里就抛 ArgumentError —— 那是测试替身的形状问题，不是被测代码的问题。
+            return http.Response(
+              endpointListBody,
+              endpointListStatus,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8',
+              },
+            );
           }
           armAsked.add(req);
           return http.Response(armBody, armStatus);
@@ -228,6 +245,7 @@ void main() {
       peerReads: () => peerReads,
       revokeAsked: () => revokeAsked,
       endpointAsked: () => endpointAsked,
+      endpointListAsked: () => endpointListAsked,
       removed: () => removed,
     );
   }
@@ -1268,6 +1286,177 @@ void main() {
       expect(find.byKey(const ValueKey('fnthink-endpoint-id')), findsNothing);
     });
   });
+
+  group('接入端点那一格的"读"（#157 第二片）', () {
+    Future<void> tapRead(WidgetTester tester) async {
+      final button = find.byKey(const ValueKey('fnthink-endpoint-read'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('只是翻开页面 ⇒ 那一发没发出去，而界面说的是"还没读过"', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      expect(
+        h.endpointListAsked(),
+        isEmpty,
+        reason: '进页面那一刻服务地址与身份还没就位，发出去读回的失败会被当成第一句话',
+      );
+      final note = find.byKey(const ValueKey('fnthink-endpoint-list-pending'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        l10n.fnthinkEndpointListPending,
+        reason: '"没有"与"还没看"必须是两句话 —— 空格子会被读成前者',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-list-none')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('点那一下 ⇒ 一行一条，已吊销那条也带出来并说它不收信了', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(
+        // 这里不带 `owner` 字段：owner 那一刀（别人名下一行也不进结果）钉在包内用例
+        // （receive_kernel_test 的「别人名下一行漏出来」），这一组测的是"读回来的怎么画"。
+        endpointListBody:
+            '{"endpoints":['
+            '{"id":"ep_new","name":"自家 NAS","status":"active","postOnly":true,'
+            '"createdAt":1700000000000},'
+            '{"id":"ep_old","name":"","status":"revoked","createdAt":1600000000000}'
+            '],"serverTime":1800000000000}',
+      );
+      final l10n = await pump(tester, h.page);
+      await tapRead(tester);
+      expect(h.endpointListAsked(), hasLength(1));
+
+      final named = find.byKey(const ValueKey('fnthink-endpoint-row-ep_new'));
+      await revealTo(tester, named);
+      expect(
+        tester.widget<Text>(named).data,
+        '${l10n.fnthinkEndpointRowNamed('自家 NAS', 'ep_new')} · '
+        '${l10n.fnthinkEndpointUsable}',
+        reason: '那一行要的是**这一把**的 id 与名字，不是"你有几把"这种代词',
+      );
+      final revoked = find.byKey(const ValueKey('fnthink-endpoint-row-ep_old'));
+      await revealTo(tester, revoked);
+      expect(
+        tester.widget<Text>(revoked).data,
+        '${l10n.fnthinkEndpointRowUnnamed('ep_old')} · '
+        '${l10n.fnthinkEndpointNotUsable('revoked')}',
+        reason: '没起名要说"未命名"；已吊销的那行不能消失，否则"我明明建过"变成"界面说没有"',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-list-none')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('读到确实一把都没有 ⇒ 说"没有"，而不是"没读到"', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      await pump(tester, h.page);
+      await tapRead(tester);
+      final none = find.byKey(const ValueKey('fnthink-endpoint-list-none'));
+      await revealTo(tester, none);
+      expect(none, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-list-failed')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('读失败 ⇒ 说"这一次没读到"并贴原话，绝不冒出"你没有端点"那句', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListStatus: 403, endpointListBody: '{}');
+      await pump(tester, h.page);
+      await tapRead(tester);
+      final failed = find.byKey(const ValueKey('fnthink-endpoint-list-failed'));
+      await revealTo(tester, failed);
+      expect(failed, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-list-none')),
+        findsNothing,
+        reason: '把失败画成"没有"，用户就会当着一次失败的面去配 NAS，或把还在收信的入口当成不存在',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-list-pending')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('已经读过再建一把 ⇒ 立刻重读，界面上不留在"2 把"', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      await pump(tester, h.page);
+      await tapRead(tester);
+      expect(h.endpointListAsked(), hasLength(1));
+      final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(
+        h.endpointListAsked(),
+        hasLength(2),
+        reason: '刚建完还写着"没有"，与写着"有 3 把"而实际 2 把是同一句假话，只是方向反了',
+      );
+    });
+
+    testWidgets('还没读过就建一把 ⇒ 不凭空开始读（第一句还是口令那一行）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      await pump(tester, h.page);
+      final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(
+        h.endpointListAsked(),
+        isEmpty,
+        reason: '用户没要求过这一次读；替他在界面上凭空生成一份列表，是把"还没看过"换成了"我造的"',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-list-pending')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('签不出来 ⇒ 那一发不发，说的是"这一次没读到"再加那一句原话', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(canSign: false);
+      await pump(tester, h.page);
+      await tapRead(tester);
+      expect(h.endpointListAsked(), isEmpty);
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-list-none')),
+        findsNothing,
+        reason: '签不出来与"名下没有"是两件事：冒成后者，用户会去新建一把而旧的那把还在收信',
+      );
+      final failed = find.byKey(const ValueKey('fnthink-endpoint-list-failed'));
+      await revealTo(tester, failed);
+      expect(
+        tester.widget<Text>(failed).data,
+        contains('signing-unavailable'),
+        reason: '用户点了那一下，就要听到**这一次**为什么没成，而不是继续一句"还没读过"',
+      );
+    });
+  });
 }
 
 /// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，
@@ -1332,6 +1521,7 @@ class _Harness {
     required this.peerReads,
     required this.revokeAsked,
     required this.endpointAsked,
+    required this.endpointListAsked,
     required this.removed,
   });
 
@@ -1359,6 +1549,11 @@ class _Harness {
 
   /// 建端点那一发（同一套假服务器，按契约声明的路径分流）。
   final List<http.Request> Function() endpointAsked;
+
+  /// 读端点列表那一发（同一套假服务器）。数得到被发了几次，是为了能断言
+  /// 「翻开页面不该自己发这一发」—— 那一刻服务地址与身份还没就位，发出去只会把
+  /// "还没法读"画成屏幕上的第一句话。
+  final List<http.Request> Function() endpointListAsked;
 
   /// 本机删行被调用时点到的地址码（替身记下来的）。
   final List<String> Function() removed;

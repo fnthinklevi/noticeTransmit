@@ -42,10 +42,11 @@ class FnthinkReceiverService {
       'pairConfirm',
       'pairRevoke',
       'endpointCreate',
+      'endpointList',
     ]) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
-          '契约的 transport.apiPaths 少了 $kind：收货与配对要发这几种请求，缺一种就是整条链断在那一步',
+          '契约的 transport.apiPaths 少了 $kind：收货、配对与端点那几发要发这几种请求，缺一种就是整条链断在那一步',
         );
       }
     }
@@ -243,6 +244,29 @@ class FnthinkReceiverService {
       );
     }
     return kernel.endpointCreate(name: name);
+  }
+
+  /// 读自己名下那几把接入端点（`/endpoint-list`，#157 第二片）。
+  ///
+  /// 它是这一格里**唯一会往界面上画别人名下的东西**的那一发 —— 所以两道 `_canSign()` 之外的
+  /// 判据都在内核里（owner 必须是自己、状态必须在词表上），这一层只负责"签不出来就不发"。
+  /// ⚠ 读回来的那份**不落盘**：端点表在服务端，本机存一份就是一本会漂的账（在服务端吊销之后，
+  ///   本机那本还会说"你还在用"）。每次要显示就重新读。
+  ///
+  /// 反证 **Z9**（`outputs/_eplist2.report.txt`）：把装配期判定名单里的 `endpointList` 删掉 ⇒
+  /// 红在装配守卫「服务层装配判定里含 endpointList」。⚠ 它与 U6 不同，这一条今天能单独观察到：
+  /// 摘掉之后构造期不再核对那条路径，而 `_pathForEnvelope` 是**运行时**按 messageType 反查的，
+  /// 所以守卫抓到的是"这个判定漏了一类"，不是"发不出去"。
+  /// 同理，这一层那道 `_canSign()` 短路仍按 U6 的登记看待（协调者先拦，今日不可单独观察）。
+  Future<FnthinkEndpointListResult> endpointList() async {
+    if (!await _canSign()) {
+      return FnthinkEndpointListResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.endpointList();
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

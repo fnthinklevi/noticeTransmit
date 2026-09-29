@@ -1097,6 +1097,67 @@ void main() {
       expect(result.reason, 'signing-unavailable');
     });
   });
+
+  group('读自己名下那几把入口 listEndpoints（#157 第二片）', () {
+    const listBody =
+        '{"endpoints":[{"id":"ep_7","name":"nas","status":"active",'
+        '"createdAt":1700000000000}],"serverTime":1800000000000}';
+
+    test('走的是契约声明的那条路径，而读回来的那份不在 prefs 里', () async {
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: listBody),
+      );
+      final result = await c.listEndpoints();
+      expect(asked.single.url.path, contract.apiPath('endpointList'));
+      expect(result.ok, isTrue);
+      expect(result.endpoints!.single.id, 'ep_7');
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getKeys().where((k) => '${prefs.get(k)}'.contains('ep_7')),
+        isEmpty,
+        reason: '端点表的真值在服务端：本机存一份就是一本会漂的账 —— 那边吊销了，这本还写着"在用"',
+      );
+    });
+
+    test('总开关关着也读得到：我有哪些入口与"这台现在去不去取货"是两件事', () async {
+      SharedPreferences.setMockInitialValues({}); // 默认关
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: listBody),
+      );
+      final result = await c.listEndpoints();
+      expect(asked, hasLength(1));
+      expect(
+        result.ok,
+        isTrue,
+        reason:
+            '把它绑到总开关上的下场：用户关接收省电，页面随之说"还没有端点"，'
+            '而他挂在 NAS 上那把还在收信',
+      );
+    });
+
+    test('签不出来 ⇒ 那一发不发，reason 是那句原话而不是空列表', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(sink: asked, body: listBody),
+      );
+      final result = await c.listEndpoints();
+      expect(asked, isEmpty);
+      expect(result.ok, isFalse);
+      expect(
+        result.endpoints,
+        isNull,
+        reason: '冒成空列表就是当着用户的面说"你没有端点"，而这次连一发都没出去',
+      );
+      expect(result.reason, 'signing-unavailable');
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {

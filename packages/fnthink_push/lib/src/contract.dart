@@ -376,7 +376,8 @@ class FnthinkContract {
   /// pairConfirm 载荷的字段名单（今日 = `["requestId","decision","level"]`）。
   List<String> get pairConfirmFields => clientEventFields('pairConfirm');
 
-  /// pairRevoke 载荷的字段名单（今日 = `["peerAddress"]`）。  ///
+  /// pairRevoke 载荷的字段名单（今日 = `["peerAddress"]`）。
+  ///
   /// 这一发就一个键，但键名仍只从契约读：内核拿这份名单当**唯一**的载荷形状，
   /// 于是"给那个键改名"那一刀只在契约里落一次。写死在两份实现里的下场本仓撞过三次
   /// （`type` 词表、`pairingCode`、`decision`），每一次的表现都是同一句同形的 403。
@@ -387,6 +388,31 @@ class FnthinkContract {
   /// 名单里**没有也不该有** `secret`：口令由服务端生成，设备自带等于把"选一把多强的口令"
   /// 交给最不方便负责它的一端。这一条是设备侧唯一能判它的地方 —— 服务端只会照单收下形状对的键。
   List<String> get endpointCreateFields => clientEventFields('endpointCreate');
+
+  /// endpointList 载荷的字段名单（今日 = `[]`，一条都不许带）。
+  ///
+  /// 空名单不是"这里忘了写"，它就是这一发的全部形状：读自己名下那几把入口不需要任何输入。
+  /// 所以"多带一个键"不可能是便利，只能是有人在把这一发变成别的什么（比如按别人的地址列、
+  /// 或"连调用日志一起给"）—— 那会长出第二个读口。名单为空 ⇒ 内核组出来的 `body` 就是 `{}`，
+  /// 与服务端逐字节比名单的那一刀对得上。
+  /// ⚠ 缺键时 `strings()` 抛，不许退化成空名单：契约没声明这条读口，设备就不该发这一发。
+  List<String> get endpointListFields => clientEventFields('endpointList');
+
+  /// 端点状态的**封闭**词表（今日 = `["active","revoked"]`）。
+  List<String> get endpointStatuses => strings(const ['endpoint', 'statuses']);
+
+  /// "这一把入口还收信"的那个状态词。**不写死 `'active'`**。
+  ///
+  /// 判一律走白名单（问"是不是 usableStatus"），不许问"是不是 revoked"：契约加第三档
+  /// （比如 `frozen`）时黑名单式判定会把它当成可用的显示，而那正是本仓在 revocation
+  /// 四个键上记过代价的那类错 —— 状态名写死在实现里，加档时不报错，只让没人认得的那一档照旧收信。
+  String get endpointUsableStatus {
+    final value = str(const ['endpoint', 'usableStatus']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 endpoint.usableStatus（或是空串）：设备侧没法判"这一把还收不收信"');
+    }
+    return value;
+  }
 
   /// 本机在这一发上能做的**那两种**决定（封闭集合：第三种取值服务端会整条拒）。
   List<String> get pairConfirmDecisions =>

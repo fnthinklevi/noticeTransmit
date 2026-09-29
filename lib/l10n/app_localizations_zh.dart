@@ -3319,4 +3319,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkEndpointFailed(String reason) {
     return '端点没建成（$reason）—— 也没回口令，所以不存在「建好了但抄不到」这种状态。';
   }
+
+  @override
+  String get fnthinkEndpointListPending =>
+      '还没读过这台设备名下有几把入口。「没有」与「还没看」是两句话，所以这里不列任何东西，也不说你没有。';
+
+  @override
+  String get fnthinkEndpointListRead => '读一次我建过的入口';
+
+  @override
+  String fnthinkEndpointRowNamed(String name, String id) {
+    return '「$name」· $id';
+  }
+
+  @override
+  String fnthinkEndpointRowUnnamed(String id) {
+    return '未命名 · $id';
+  }
+
+  @override
+  String get fnthinkEndpointUsable => '还在收信';
+
+  @override
+  String fnthinkEndpointNotUsable(String status) {
+    return '已不收信（服务器上那一份写着「$status」）';
+  }
+
+  @override
+  String get fnthinkEndpointNone => '读到了：这台设备名下没有接入端点。要用的话点上面那一下建一把。';
+
+  @override
+  String fnthinkEndpointListFailed(String reason) {
+    return '这一次没读到（$reason）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。';
+  }
 }

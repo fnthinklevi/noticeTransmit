@@ -764,7 +764,164 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 endpointList 的签名字段（读自己名下那几把接入端点，#157 第二片）。
+  ///
+  /// 载荷名单今日为空 ⇒ `body` 就是 `{}`。这一发的入参**刻意一个都没有**（连"只看可用的"、
+  /// "连调用日志一起"都不给）：一旦允许客户端提要求，服务端就得照它过滤，"哪几把属于我"
+  /// 的判据从此有两本账，而多出来的那半个读口正是运维面那份调用日志 —— 它不该从设备面出。
+  ///
+  /// ⚠ 名单哪天不再是空的 ⇒ 这里抛，而不是照旧发一份 `{}` 换一句同形 403：
+  /// 那说明契约给这一发加了输入，而加进去的每一个输入都要先想清楚"谁能填"。
+  Map<String, Object?> endpointListFields({required String nonce, String? ts}) {
+    final declared = contract.endpointListFields;
+    if (declared.isNotEmpty) {
+      throw ArgumentError(
+        'endpointList 的载荷名单必须是空的（实到 $declared）：这一发不改变任何东西，'
+        '带键就说明有人在把它变成第二个读口',
+      );
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('endpointList'),
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode(const <String, Object?>{}),
+    };
+  }
+
+  /// 读自己名下那几把入口。
+  ///
+  /// **整读失败，绝不回一份少了行的列表**：「我有 2 把」与「我其实有 3 把，其中一行没解析出来」
+  /// 在用户眼里是同一句话，而后者会让人把一把还在收信的入口当成不存在 —— 那正是本仓
+  /// 「推送不因通道故障静默丢失，也不因界面少画而无声少一份」那条不变量在这格的形状。
+  ///
+  /// 两道额外判据（都朝"更保守"的方向，所以不会误伤诚实用户）：
+  ///  - `status` 必须落在契约 `endpoint.statuses` 的词表上，不认识的那一档**不当成可用的**；
+  ///  - 每一行的 `owner` 必须就是本机地址码。这一发按定义是 self-only，服务端已经按 owner 过滤过；
+  ///    这里再判一次是**第二道咽喉**：万一那半挂了、别人名下一行漏出来，本机不会把它画进"我的端点"。
+  ///
+  /// 这一发被砸过什么（报告在本地 `outputs/_eplist2.report.txt` 与 `_eplist2b.report.txt`，
+  /// 按约定不入库；11 条全部 named+restored）：
+  ///  - **Z1** 载荷名单不空也照发（`if (declared.isNotEmpty)` 摘掉）⇒ 红在「契约名单一旦不空 ⇒ 当场抛」；
+  ///  - **Z2** owner 那一道咽喉摘掉 ⇒ 红在「别人名下一行漏出来」；
+  ///  - **Z3** 状态词表那一道摘掉 ⇒ 红在「状态不在契约词表上」—— 这一条与 **Z4** 是一对：
+  ///    Z3 关掉"不认识的不许进"，Z4 把"认识的算哪一档"换成黑名单；
+  ///  - **Z4** `usable` 改成 `status != 'revoked'` ⇒ 红在「usable 判的是契约那一个词」。
+  ///    ⚠ 这一条今天能红，靠的是用例**喂了一份改了 `usableStatus` 的契约副本**：
+  ///    拿原契约去断，两种写法给出同样的答案，用例就永远是绿的（同一类假绿本仓撞过两次）；
+  ///  - **Z5** 缺 `endpoints` 键时默认成空列表 ⇒ 红在「服务端没回 endpoints ⇒ 失败」。
+  ///    这一条是这一发最容易被"好心"改坏的地方：一个 `?? []` 就把"没读到"变成了"你没有"。
+  Future<FnthinkEndpointListResult> endpointList() async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: endpointListFields(nonce: nonce),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkEndpointListResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkEndpointListResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'endpoint-list-http:${reply.status}',
+      );
+    }
+    final raw = reply.body['endpoints'];
+    if (raw is! List) {
+      _lastReason = 'endpoint-list-unparsable';
+      return FnthinkEndpointListResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final vocabulary = contract.endpointStatuses;
+    final rows = <FnthinkEndpointSummary>[];
+    for (var i = 0; i < raw.length; i += 1) {
+      final entry = raw[i];
+      if (entry is! Map) {
+        _lastReason = 'endpoint-list-unparsable:row=$i';
+        return FnthinkEndpointListResult(
+          status: FnthinkPollStatus.failed,
+          signedWhileUncalibrated: signedWhileUncalibrated,
+          reason: _lastReason,
+        );
+      }
+      final id = entry['id'];
+      final status = entry['status'];
+      if (id is! String || id.isEmpty || status is! String) {
+        _lastReason = 'endpoint-list-unparsable:row=$i';
+        return FnthinkEndpointListResult(
+          status: FnthinkPollStatus.failed,
+          signedWhileUncalibrated: signedWhileUncalibrated,
+          reason: _lastReason,
+        );
+      }
+      if (!vocabulary.contains(status)) {
+        _lastReason = 'endpoint-list-unknown-status:row=$i';
+        return FnthinkEndpointListResult(
+          status: FnthinkPollStatus.failed,
+          signedWhileUncalibrated: signedWhileUncalibrated,
+          reason: _lastReason,
+        );
+      }
+      final owner = entry['owner'];
+      if (owner is String && owner.isNotEmpty && owner != addressCode) {
+        _lastReason = 'endpoint-list-not-mine:row=$i';
+        return FnthinkEndpointListResult(
+          status: FnthinkPollStatus.failed,
+          signedWhileUncalibrated: signedWhileUncalibrated,
+          reason: _lastReason,
+        );
+      }
+      rows.add(
+        FnthinkEndpointSummary(
+          id: id,
+          name: entry['name'] is String ? entry['name'] as String : '',
+          status: status,
+          usable: status == contract.endpointUsableStatus,
+          postOnly: entry['postOnly'] is bool
+              ? entry['postOnly'] as bool
+              : null,
+          createdAt: entry['createdAt'] is int
+              ? entry['createdAt'] as int
+              : null,
+          lastUsedAt: entry['lastUsedAt'] is int
+              ? entry['lastUsedAt'] as int
+              : null,
+        ),
+      );
+    }
+    _lastReason = null;
+    return FnthinkEndpointListResult(
+      status: FnthinkPollStatus.ok,
+      endpoints: rows,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   int _nonceCounter = 0;
+
   String _fallbackNonce() {
     // 进程内唯一（时间戳 + 计数）。跨重启的唯一性由调用方保证 —— 这也是
     // `signature.nonceDedupeSeconds` 那个窗口的意思：重启后旧 nonce 还在别人的台账里。
@@ -1087,4 +1244,67 @@ class FnthinkEndpointCreateResult {
       endpointId != null &&
       secret != null &&
       secret!.isNotEmpty;
+}
+
+/// 名下的一条接入端点（#157 第二片，`POST /endpoint-list` 的一行）。
+///
+/// ⚠ 这个形状里没有、也**不该有** `secret`：明文口令只在创建那一次给过，给完就没人再知道它；
+/// 而摘要是一份"能拿去比对的东西"，配上这样一条读口就成了离线猜口令的入口。
+/// 字段取自服务端唯一那份投影 `devicestore.endpointSummary`（管理面 `publicEndpoint` 的窄版，
+/// 去掉逐条调用日志）—— 别处不许自己拼。
+///
+/// 反证 **Z11**（`outputs/_eplist2b.report.txt`）：往这个类体里加一个 `secret`（getter 形状）
+/// ⇒ 红在装配守卫「摘要那一行没有口令」。这条守卫断的是**这个类里没有那个概念**，
+/// 而不是"某个值等于什么" —— 值对了而字段多一个，正是这类读口漂坏的第一步。
+class FnthinkEndpointSummary {
+  const FnthinkEndpointSummary({
+    required this.id,
+    required this.name,
+    required this.status,
+    required this.usable,
+    this.postOnly,
+    this.createdAt,
+    this.lastUsedAt,
+  });
+
+  final String id;
+
+  /// 建的时候自己起的名，没起就是空串（空串是"没起名"，不是"名字读不出来"）。
+  final String name;
+
+  /// 契约 `endpoint.statuses` 词表上的那一个词，原样留着：界面上要说"这一档"，
+  /// 而"这一档到底叫什么"是契约的事，不是这里的常量。
+  final String status;
+
+  /// 还收不收信。⚠ 判据是**白名单**（`status == endpointUsableStatus`），不是"不是 revoked"：
+  /// 契约加第三档（比如 `frozen`）时黑名单式判定会把它画成可用的，而那一把其实早就不收了。
+  final bool usable;
+
+  /// null = 服务端没回这一项 ⇒ 界面说"没回就不猜"，不许默认成"只收 POST"或"什么都收"。
+  final bool? postOnly;
+  final int? createdAt;
+  final int? lastUsedAt;
+}
+
+/// 读自己名下那几把入口的结论（#157 第二片）。
+///
+/// [endpoints] 为空列表是一次**成功**：名下确实一把都没有。之所以要能区分"空"与"没读到"，
+/// 是因为这两句话在界面上长得一样而后果不同 —— 前者提示"要不要建一把"，
+/// 后者必须说"这次没读到，别按没有来处理"，否则用户会当着一次失败的面把 NAS 配到别的入口上。
+class FnthinkEndpointListResult {
+  const FnthinkEndpointListResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.endpoints,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+
+  /// null = 没读出来（失败/传输错/整读被那两道额外判据拦下）。
+  final List<FnthinkEndpointSummary>? endpoints;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok && endpoints != null;
 }

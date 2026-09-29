@@ -612,6 +612,35 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 读自己名下那几把接入端点（#157 第二片）。
+  ///
+  /// 与 [createEndpoint] 同一条前置口径（不要求总开关开着）：**"我有哪些入口"与"这台现在
+  /// 去不去取货"是两件事**。把它绑到总开关上的那天下场是：用户关掉接收来省电，页面随之说
+  /// "还没有端点"，而他挂在 NAS 上那把还在收信 —— 界面把一件没发生的事说成了另一件。
+  ///
+  /// 这里**不缓存**结果，也没有 `ValueNotifier` 记账：那份表在服务端，本机存一份就是一本
+  /// 会漂的账（服务端吊销之后本机还写着"在用"）。每次翻开这一格重新读一次。
+  ///
+  /// 反证 **Z10**（`outputs/_eplist2.report.txt`）：`requireEnabled: false` 改成 `true` ⇒
+  /// 三条一起红，其中点名的是「总开关关着也读得到」。这条判据与 `createEndpoint` 那一条
+  /// 同族，所以值得单独钉一次：入口是**在别人那一边**还在收信的东西，与本机的开关无关。
+  Future<FnthinkEndpointListResult> listEndpoints() async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkEndpointListResult(
+        status: FnthinkPollStatus.failed,
+        reason: resolved.reason,
+        signedWhileUncalibrated: false,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.endpointList();
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
   void stop() {
     _loop?.stop();

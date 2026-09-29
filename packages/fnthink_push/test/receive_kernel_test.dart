@@ -1119,4 +1119,216 @@ void main() {
       expect(harness.sent, isEmpty);
     });
   });
+
+  group('读自己名下那几把入口 endpointList（#157 第二片）', () {
+    Future<FnthinkEndpointListResult> read(_Harness harness) =>
+        harness.kernel().endpointList();
+
+    test('target 是**本机**地址码，载荷是空的（一个键都不带）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(status: 200, body: {'endpoints': []});
+      await read(harness);
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      expect(
+        fields['target'],
+        _self,
+        reason: '这一发按 owner 过滤，主键就是签名者自己。target 换成别人 ⇒ 列的是别人的入口',
+      );
+      expect(
+        fields['type'],
+        contract.str(['clientEvents', 'endpointList', 'messageType']),
+      );
+      expect(
+        jsonDecode(fields['body']! as String),
+        isEmpty,
+        reason: '契约给这一发的名单是空的。带键不叫方便，叫长出第二个读口',
+      );
+    });
+
+    test('契约名单一旦不空 ⇒ 当场抛、不发出去', () async {
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final listed = events['endpointList'] as Map<String, Object?>;
+      final widened = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'endpointList': {
+            ...listed,
+            'fields': ['includeCalls'],
+          },
+        },
+      });
+      final harness = _Harness(widened, 1_800_000_000_000);
+      expect(
+        () => harness.kernel().endpointListFields(nonce: 'n1'),
+        throwsArgumentError,
+        reason: '有人给这一发加了输入 ⇒ 必须先想清楚"谁能填"，而不是照旧发一份空载荷换一句同形 403',
+      );
+      expect(harness.sent, isEmpty);
+    });
+
+    test('两行都进来：已吊销的那行也在，而 usable 跟着契约说', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpoints': [
+            {
+              'id': 'ep_new',
+              'name': '自家 NAS',
+              'owner': _self,
+              'status': 'active',
+              'postOnly': true,
+              'createdAt': 1_700_000_000_000,
+              'lastUsedAt': 1_700_000_900_000,
+            },
+            {
+              'id': 'ep_old',
+              'name': '',
+              'owner': _self,
+              'status': 'revoked',
+              'createdAt': 1_600_000_000_000,
+            },
+          ],
+        },
+      );
+      final result = await read(harness);
+      expect(result.ok, isTrue);
+      expect(result.endpoints!.map((e) => e.id), ['ep_new', 'ep_old']);
+      expect(result.endpoints!.first.name, '自家 NAS');
+      expect(result.endpoints!.first.postOnly, isTrue);
+      expect(result.endpoints!.first.createdAt, 1_700_000_000_000);
+      expect(result.endpoints!.first.usable, isTrue);
+      expect(
+        result.endpoints!.last.usable,
+        isFalse,
+        reason:
+            '已吊销的那行要能说出来：用户问的是"我建过哪些、哪把还不收信"，'
+            '只列可用的会把"我明明建过"变成"界面说没有"',
+      );
+      expect(result.endpoints!.last.status, 'revoked');
+      expect(
+        result.endpoints!.last.postOnly,
+        isNull,
+        reason: '服务端没回的项不许本机替它选一个方向',
+      );
+    });
+
+    test('usable 判的是契约那一个词，不是"不是 revoked"', () async {
+      // 喂一份改过数的契约：可用的那一档换名字。黑名单式（`!= 'revoked'`）在这里会说谎，
+      // 而它今日的表现正是 `_usableStatusWhy` 记过的那一类错 —— 没人认得的那一档照旧收信。
+      final ep = contract.raw['endpoint'] as Map<String, Object?>;
+      final renamed = FnthinkContract({
+        ...contract.raw,
+        'endpoint': {
+          ...ep,
+          'statuses': ['active', 'revoked', 'live_v2'],
+          'usableStatus': 'live_v2',
+        },
+      });
+      final harness = _Harness(renamed, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpoints': [
+            {'id': 'ep_a', 'status': 'live_v2'},
+            {'id': 'ep_b', 'status': 'active'},
+          ],
+        },
+      );
+      final result = await read(harness);
+      expect(result.ok, isTrue);
+      expect(result.endpoints!.first.usable, isTrue);
+      expect(
+        result.endpoints!.last.usable,
+        isFalse,
+        reason: '换了名之后，旧词 active 不再是"还收信"—— 跟着契约走，不跟着字面量走',
+      );
+    });
+
+    test('空列表是一次**成功**，与"没读到"分得开', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(status: 200, body: {'endpoints': []});
+      final result = await read(harness);
+      expect(result.ok, isTrue);
+      expect(result.endpoints, isEmpty);
+      expect(result.reason, isNull);
+    });
+
+    test('服务端没回 endpoints ⇒ 失败，绝不冒成"你没有"', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(status: 200, body: {'serverTime': 1});
+      final result = await read(harness);
+      expect(result.ok, isFalse, reason: '少了这个键与"列表是空的"是两件事：前者是读失败，后者是"确实没有"');
+      expect(result.endpoints, isNull);
+      expect(result.reason, 'endpoint-list-unparsable');
+    });
+
+    test('某一行缺 id ⇒ 整读失败，不许悄悄少画一行', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpoints': [
+            {'id': 'ep_ok', 'status': 'active'},
+            {'status': 'active'},
+          ],
+        },
+      );
+      final result = await read(harness);
+      expect(result.ok, isFalse);
+      expect(result.endpoints, isNull);
+      expect(
+        result.reason,
+        'endpoint-list-unparsable:row=1',
+        reason: '"我有 2 把"与"我其实有 3 把，其中一行没解析出来"在用户眼里是同一句话',
+      );
+    });
+
+    test('状态不在契约词表上 ⇒ 整读失败，不认识的那一档不当成可用的', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpoints': [
+            {'id': 'ep_x', 'status': 'frozen'},
+          ],
+        },
+      );
+      final result = await read(harness);
+      expect(result.ok, isFalse);
+      expect(result.reason, 'endpoint-list-unknown-status:row=0');
+    });
+
+    test('别人名下一行漏出来 ⇒ 整读失败（服务端已过滤，这里是第二道咽喉）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpoints': [
+            {'id': 'ep_mine', 'status': 'active', 'owner': _self},
+            {'id': 'ep_theirs', 'status': 'active', 'owner': _peer},
+          ],
+        },
+      );
+      final result = await read(harness);
+      expect(result.ok, isFalse);
+      expect(
+        result.endpoints,
+        isNull,
+        reason: '这一发按定义是 self-only。万一过滤那半挂了，本机也不把别人的入口画进"我的端点"',
+      );
+      expect(result.reason, 'endpoint-list-not-mine:row=1');
+    });
+
+    test('403 / 429 ⇒ 报那一句，不冒充一份空列表', () async {
+      for (final status in [code('forbidden'), code('rateLimited')]) {
+        final harness = _Harness(contract, 1_800_000_000_000);
+        harness.reply = FnthinkReply(status: status, body: const {});
+        final result = await read(harness);
+        expect(result.ok, isFalse);
+        expect(result.endpoints, isNull);
+      }
+    });
+  });
 }

@@ -144,6 +144,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   ///  一个会跟着备份走、又不加密的地方，而服务端那边只存了摘要，谁都不知道丢了什么。）
   FnthinkEndpointCreateResult? _endpoint;
 
+  /// 「我建过哪些入口」那一次读的结论（null = 这一页还没读过）。
+  /// ⚠ 这一份**不持久化**，也不与 `_endpoint` 合成一个东西：口令是一次性的、这份是每次读重来的，
+  /// 两者放一起的下场是"重新读一次把刚拿到的口令覆盖掉"，而那份口令本来就只有这一次。
+  /// 端点表在服务端，本机不留副本 —— 留了就是一本会漂的账（那边吊销了，这本还写着在用）。
+  FnthinkEndpointListResult? _endpointList;
+
   FnthinkDeviceIdentity? _identity;
   bool _identityUnavailable = false;
 
@@ -520,6 +526,26 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       _busy = false;
       _endpoint = result;
     });
+    // 建成之后，这一格**已经读过**的话立刻重读：留着"2 把"显示而实际是 3 把，与留着"3 把"
+    // 而实际是 2 把说的是同一句假话，只是方向反了。还没读过就**不凭空开始读** ——
+    // 那一支的界面该说的是"还没看过"，不是刚编出来的一份列表。
+    if (result.ok && _endpointList != null) await _readEndpoints();
+  }
+
+  /// 读一次"这台设备名下有哪几把入口"（`/endpoint-list`，#157 第二片）。
+  ///
+  /// 只有按这一下才读：**不在 `initState` 里读**。那一刻服务地址与本机身份还没就位，
+  /// 读回来的多半是一句失败，而界面会把"还没法读"画成屏幕上第一句话 —— 用户第一次翻开
+  /// 这一格看到的反而是错误。空着并写着"还没看过"才是那一刻的真话。
+  Future<void> _readEndpoints() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final result = await _coordinator.listEndpoints();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _endpointList = result;
+    });
   }
 
   /// 待确认的配对请求那一格。
@@ -678,14 +704,16 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     );
   }
 
-  /// 接入端点那一格（T42 第七片：接收端自己建一条入口）。
+  /// 接入端点那一格（T42 第七片建、#157 第二片读）。
   ///
   /// 为什么这一格值得存在：以前只有管理面能建端点，自部署的用户要给自家 NAS 铸一把入口，
   /// 得先拿出那把能做远多于这件事的 admin token。
-  /// ⚠ 这一格刻意**只有"建"，没有"列表 / 轮换 / 吊销"**：那三样要读服务端的端点表，而设备面
-  /// 没有对应的读口（管理面有）。摆一个"我的端点"列表而它其实看不见服务器上有几条，
-  /// 就是让界面猜 —— 与「配对名单」那一格当初不做只读按钮是同一条判断的反面。
+  /// 现在这一格是**建 + 读**：读口 `endpointList` 是设备面签名事件（self-only），
+  /// 所以"我建过哪些、哪把还不收信"这句终于能从本机问出来，而不是靠界面猜。
+  /// ⚠ **轮换 / 吊销仍然没有**：那是两个会改变别人能不能往这台设备推东西的动作，
+  /// 要先把"改完旧口令活多久""吊销之后那一行的账怎么留"想清楚，不在这格顺手加按钮。
   /// ⚠ 口令那一行只在这次 `setState` 之后存在：不写 prefs、不写表、不进日志（见 `_endpoint`）。
+  /// 读回来的那份也不写：端点表的真值在服务端，本机留副本就是一本会漂的账。
   ///
   /// 这一格被砸过什么（`outputs/_endpntpeer.report.txt`）：
   ///  - **X4** 把"成功那一支"的判定从 `created.ok` 换成 `created != null` ⇒ 红在
@@ -693,8 +721,16 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   ///  - **X5** 上限那句写死 `10` ⇒ 红在「上限那句里的数来自契约」。⚠ 这条用例第一版是**假绿**的：
   ///    它拿 `contract.endpointMaxPerDevice` 去比界面 —— 两边读同一个数，写死与读契约当场分不出来。
   ///    改成"喂一份 `perDeviceMax: 3` 的契约进去，断言界面说 3"，才是真的在断"读过"。
+  ///  - 读那半被砸过什么（`outputs/_eplist2.report.txt`、`_eplist2b.report.txt`）：
+  ///    **Z6** 建成之后不看"有没有读过"就重读 ⇒ 红在「还没读过就建一把 ⇒ 不凭空开始读」；
+  ///    **Z7** `else if (!listing.ok)` 反了 ⇒ 三条一起红（"确实没有"与"这次没读到"是同一支的
+  ///    两面，翻倒之后两头都在说谎）；
+  ///    **Z8** 把"还没读过"那一支的 keyName 换掉 ⇒ 红在「只是翻开页面 ⇒ ...而界面说的是"还没读过"」。
+  ///    ⚠ Z8 第一次的写法是 `if (false)`，那是**语法不过**（`listing` 没被提升成非空，
+  ///    后面的 `listing.ok` 报 receiver 可为 null），不能读成"这条断言没覆盖"。
   Widget _buildEndpointCard(AppLocalizations l10n) {
     final created = _endpoint;
+    final listing = _endpointList;
     // 上限那个数从契约读（页面不写 10）：它改小的时候这句解释不能跟着说谎。
     final cap = _contract?.endpointMaxPerDevice;
     return _Card(
@@ -732,6 +768,42 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             _Note(
               keyName: 'fnthink-endpoint-error',
               text: l10n.fnthinkEndpointFailed(created.reason ?? 'no-endpoint'),
+            ),
+        // ↓↓↓ 读的那半。三种"没有列表"必须分开说：还没读、读了但没读到、读到了确实没有。
+        // 把它们合成一句"你还没有端点"，用户就会在第一次读失败那天下 NAS 的定时任务。
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-endpoint-read'),
+            onPressed: _busy ? null : _readEndpoints,
+            child: Text(l10n.fnthinkEndpointListRead),
+          ),
+        ),
+        if (listing == null)
+          _Note(
+            keyName: 'fnthink-endpoint-list-pending',
+            text: l10n.fnthinkEndpointListPending,
+          )
+        else if (!listing.ok)
+          _Note(
+            keyName: 'fnthink-endpoint-list-failed',
+            text: l10n.fnthinkEndpointListFailed(
+              listing.reason ?? 'no-endpoint-list',
+            ),
+          )
+        else if (listing.endpoints!.isEmpty)
+          _Note(
+            keyName: 'fnthink-endpoint-list-none',
+            text: l10n.fnthinkEndpointNone,
+          )
+        else
+          for (final row in listing.endpoints!)
+            _Note(
+              keyName: 'fnthink-endpoint-row-${row.id}',
+              text:
+                  '${row.name.isEmpty ? l10n.fnthinkEndpointRowUnnamed(row.id) : l10n.fnthinkEndpointRowNamed(row.name, row.id)}'
+                  ' · '
+                  '${row.usable ? l10n.fnthinkEndpointUsable : l10n.fnthinkEndpointNotUsable(row.status)}',
             ),
       ],
     );

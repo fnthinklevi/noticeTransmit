@@ -3460,4 +3460,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkEndpointFailed(String reason) {
     return 'Endpoint not created ($reason) — no token came back either, so there is no \'created but uncopiable\' state.';
   }
+
+  @override
+  String get fnthinkEndpointListPending =>
+      'This device has not been asked which endpoints it owns. \'None\' and \'haven\'t looked\' are different sentences, so nothing is listed here and no claim is made.';
+
+  @override
+  String get fnthinkEndpointListRead => 'Read the endpoints I created';
+
+  @override
+  String fnthinkEndpointRowNamed(String name, String id) {
+    return '\"$name\" · $id';
+  }
+
+  @override
+  String fnthinkEndpointRowUnnamed(String id) {
+    return 'Unnamed · $id';
+  }
+
+  @override
+  String get fnthinkEndpointUsable => 'still accepting pushes';
+
+  @override
+  String fnthinkEndpointNotUsable(String status) {
+    return 'no longer accepting pushes (the server records it as \"$status\")';
+  }
+
+  @override
+  String get fnthinkEndpointNone =>
+      'Read successfully: this device owns no endpoints. Use the button above to create one.';
+
+  @override
+  String fnthinkEndpointListFailed(String reason) {
+    return 'Could not read this time ($reason) — \'could not read\' is not \'none\', so nothing is listed and no claim is made.';
+  }
 }

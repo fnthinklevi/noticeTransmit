@@ -1741,5 +1741,44 @@
         "type": "String"
       }
     }
+  },
+  "fnthinkEndpointListPending": "This device has not been asked which endpoints it owns. 'None' and 'haven't looked' are different sentences, so nothing is listed here and no claim is made.",
+  "fnthinkEndpointListRead": "Read the endpoints I created",
+  "fnthinkEndpointRowNamed": "\"{name}\" · {id}",
+  "@fnthinkEndpointRowNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRowUnnamed": "Unnamed · {id}",
+  "@fnthinkEndpointRowUnnamed": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointUsable": "still accepting pushes",
+  "fnthinkEndpointNotUsable": "no longer accepting pushes (the server records it as \"{status}\")",
+  "@fnthinkEndpointNotUsable": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointNone": "Read successfully: this device owns no endpoints. Use the button above to create one.",
+  "fnthinkEndpointListFailed": "Could not read this time ({reason}) — 'could not read' is not 'none', so nothing is listed and no claim is made.",
+  "@fnthinkEndpointListFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

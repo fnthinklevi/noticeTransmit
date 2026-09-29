@@ -28,6 +28,9 @@ void main() {
   String read(String rel) =>
       stripComments(File('$root/$rel').readAsStringSync());
 
+  int occurrences(String haystack, String needle) =>
+      RegExp(RegExp.escape(needle)).allMatches(haystack).length;
+
   tearDown(() => getIt.reset());
 
   group('装配点', () {
@@ -456,6 +459,81 @@ void main() {
           reason: '页面里出现了 $write：口令那一行从此有了第二份去处，而没人负责清掉它',
         );
       }
+    });
+  });
+
+  group('端点那份列表的读口（#157 第二片）', () {
+    test('服务层装配判定里含 endpointList，内核那一发只有一个调用点', () {
+      final src = read('lib/services/fnthink_receiver_service.dart');
+      expect(
+        src,
+        contains("'endpointList',"),
+        reason:
+            '这一发也要从契约反查 URL。判定名单漏它 ⇒ 装配期不报错，第一次点"读一次我建过的入口"'
+            '才在 transport 里抛，看起来像网络抖动',
+      );
+      expect(src, contains('kernel.endpointList('));
+    });
+
+    test('读口只有一个作者：页面走协调者，不许自己直连服务层', () {
+      final coordinator = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(
+        occurrences(coordinator, 'service.endpointList()'),
+        1,
+        reason: '两处就两本账：一处负责 dispose、一处不负责',
+      );
+      expect(
+        occurrences(
+          coordinator,
+          'Future<FnthinkEndpointListResult> listEndpoints',
+        ),
+        1,
+      );
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      expect(
+        page,
+        contains('_coordinator.listEndpoints()'),
+        reason: '页面上那一下必须走协调者（前置判定与 service 的生命周期都在那里）',
+      );
+      expect(
+        occurrences(page, 'endpointList('),
+        0,
+        reason: '页面里出现 endpointList( ⇒ 它绕过协调者自己造了一份服务，dispose 谁负责？',
+      );
+    });
+
+    test('摘要那一行没有口令：类体里 secret 这个概念根本不存在', () {
+      // 读口的红线是"口令与它的摘要都不出门"。服务端那份投影已经去掉了这两样，
+      // 设备侧一旦给 `FnthinkEndpointSummary` 加回一个 secret 字段，就等于在进程里
+      // 常驻一份长期凭证 —— 而这条读口是每次翻开界面都会走的。
+      final kernel = stripComments(
+        librarySource(
+          root,
+          'packages/fnthink_push/lib/src/receive_kernel.dart',
+        ),
+      );
+      final start = kernel.indexOf('class FnthinkEndpointSummary');
+      expect(start, greaterThanOrEqualTo(0), reason: '内核里没有这个类：那一读的返回值换了地方');
+      final end = kernel.indexOf('\n}', start);
+      expect(end, greaterThan(start));
+      final body = kernel.substring(start, end).toLowerCase();
+      expect(
+        body,
+        isNot(contains('secret')),
+        reason: '摘要类里出现 secret：读口从此带凭证，而"只出现一次"那句就成了假话',
+      );
+      // 解析那一段也不许读它（服务端多回一个键都不该被接住）。
+      final parse = kernel.substring(
+        kernel.indexOf('Future<FnthinkEndpointListResult> endpointList'),
+        kernel.indexOf('int _nonceCounter'),
+      );
+      expect(
+        parse.toLowerCase(),
+        isNot(contains('secret')),
+        reason: '解析里出现 secret ⇒ 有人在把服务端可能多回的那个键接住，而它不该出现在这台设备上',
+      );
     });
   });
 }

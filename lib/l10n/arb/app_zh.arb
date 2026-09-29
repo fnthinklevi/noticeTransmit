@@ -1762,5 +1762,44 @@
         "type": "String"
       }
     }
+  },
+  "fnthinkEndpointListPending": "还没读过这台设备名下有几把入口。「没有」与「还没看」是两句话，所以这里不列任何东西，也不说你没有。",
+  "fnthinkEndpointListRead": "读一次我建过的入口",
+  "fnthinkEndpointRowNamed": "「{name}」· {id}",
+  "@fnthinkEndpointRowNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRowUnnamed": "未命名 · {id}",
+  "@fnthinkEndpointRowUnnamed": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointUsable": "还在收信",
+  "fnthinkEndpointNotUsable": "已不收信（服务器上那一份写着「{status}」）",
+  "@fnthinkEndpointNotUsable": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointNone": "读到了：这台设备名下没有接入端点。要用的话点上面那一下建一把。",
+  "fnthinkEndpointListFailed": "这一次没读到（{reason}）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。",
+  "@fnthinkEndpointListFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

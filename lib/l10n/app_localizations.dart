@@ -6169,6 +6169,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'端点没建成（{reason}）—— 也没回口令，所以不存在「建好了但抄不到」这种状态。'**
   String fnthinkEndpointFailed(String reason);
+
+  /// No description provided for @fnthinkEndpointListPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没读过这台设备名下有几把入口。「没有」与「还没看」是两句话，所以这里不列任何东西，也不说你没有。'**
+  String get fnthinkEndpointListPending;
+
+  /// No description provided for @fnthinkEndpointListRead.
+  ///
+  /// In zh, this message translates to:
+  /// **'读一次我建过的入口'**
+  String get fnthinkEndpointListRead;
+
+  /// No description provided for @fnthinkEndpointRowNamed.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{name}」· {id}'**
+  String fnthinkEndpointRowNamed(String name, String id);
+
+  /// No description provided for @fnthinkEndpointRowUnnamed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命名 · {id}'**
+  String fnthinkEndpointRowUnnamed(String id);
+
+  /// No description provided for @fnthinkEndpointUsable.
+  ///
+  /// In zh, this message translates to:
+  /// **'还在收信'**
+  String get fnthinkEndpointUsable;
+
+  /// No description provided for @fnthinkEndpointNotUsable.
+  ///
+  /// In zh, this message translates to:
+  /// **'已不收信（服务器上那一份写着「{status}」）'**
+  String fnthinkEndpointNotUsable(String status);
+
+  /// No description provided for @fnthinkEndpointNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'读到了：这台设备名下没有接入端点。要用的话点上面那一下建一把。'**
+  String get fnthinkEndpointNone;
+
+  /// No description provided for @fnthinkEndpointListFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一次没读到（{reason}）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。'**
+  String fnthinkEndpointListFailed(String reason);
 }
 
 class _AppLocalizationsDelegate
