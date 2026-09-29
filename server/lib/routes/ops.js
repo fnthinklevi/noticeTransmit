@@ -1,4 +1,5 @@
-// 幻念推送的运维入口（#130-A5）：列状态 / 冻结 / 解冻 / 吊销 / 一键全部失效 / 重建后废所有发送方。
+// 幻念推送的运维入口（#130-A5）：列状态 / 冻结 / 解冻 / 吊销 / 一键全部失效 / 重建后废所有发送方
+// / 列投递状态（T45 第一片，只读）。
 //
 // 为什么这一组只在管理面：这里做的是"人决定停掉某台设备"，而协议面动作的凭证是**设备自己签的名**。
 // 把这套能力挂到公网面就得给服务端造一把签名钥匙 —— 那是往协议里悄悄新增一个信任根（T35 已经
@@ -35,6 +36,7 @@ const {
 } = require('../fnthink/contract');
 const { alphabetFromContract, isValidAddressCode, normalize } = require('../fnthink/credentials');
 const ds = require('../fnthink/devicestore');
+const ms = require('../fnthink/messagestore');
 
 const router = express.Router();
 
@@ -213,6 +215,85 @@ router.post(
   bulkAction('rebuildInvalidation', (contract, devices, now) =>
     ds.invalidatePeersAfterRebuild(contract, devices, now),
   ),
+);
+
+// ── 投递状态（T45 第一片）：只读列表 ─────────────────────────────────
+// 为什么在管理面而不在协议面：这条视图回答的是"这条到底死在哪一步"，而协议面**没有这个角色** ——
+// `delivery.senderPollsStatusEndpoint` 明写 false（T35 定的口径：回执由状态机当作一条消息推回发送端，
+// 不让发送端轮询状态接口）。挂到协议面就得给"谁可以看别人的投递"再造一套判据，那是第二个信任根。
+// 现在这一片只有运维在读，所以数据出处只有 messagestore 一张表，读口也只此一处。
+//
+// ⚠ 表里的 `body`（密信封）与 `dedupeIdDigest` 一律不端出去，逐字段挑见 `ms.publicMessage`。
+// ⚠ 今日给不出**完整时间线**：行里只有当前态 + queuedAt/updatedAt/attempts/receipt。
+//    "几点下发过、几点 ack 的"要等推进留痕那一片，现在编出来就是让运维把猜的当日志读。
+router.get(
+  '/fnthink/messages',
+  authMiddleware,
+  withContext((ctx, req, res) => {
+    const states = (ctx.contract.delivery || {}).states || [];
+    const wanted = req.query.state === undefined ? null : String(req.query.state);
+    if (wanted !== null && !states.includes(wanted)) {
+      return res.status(400).json({
+        code: -1,
+        message: `state 必须是契约里的投递状态之一：${states.join(' / ')}`,
+      });
+    }
+    // 地址码先验形状再查表（与 targetAddress 同一条）：拿一串垃圾当键去筛，
+    // 空列表会被读成"这台没发过消息"，而真实原因是筛错了键。
+    let target = null;
+    if (req.query.device !== undefined) {
+      const raw = String(req.query.device);
+      if (!isValidAddressCode(ctx.contract, raw)) {
+        return res
+          .status(400)
+          .json({ code: -1, message: 'device 不是一个合法地址码（按契约字母表与长度）' });
+      }
+      target = normalize(alphabetFromContract(ctx.contract), raw);
+    }
+    const requested = Number(req.query.limit);
+    const limit =
+      Number.isInteger(requested) && requested > 0
+        ? Math.min(requested, ctx.ops.listMaxRows)
+        : ctx.ops.listMaxRows;
+
+    const messages = ms.loadMessages();
+    const devices = ds.loadDevices();
+    // 档位计数**不受筛选影响**（先数后筛）：筛选后的那份计数会让运维把"这一档 3 条"
+    // 读成"整张表 3 条"，而这两句话在"要不要冻结"上是相反的决定。
+    const tally = {};
+    for (const name of states) tally[name] = 0;
+    const rows = [];
+    for (const message of Object.values(messages)) {
+      if (tally[message.state] !== undefined) tally[message.state] += 1;
+      if (wanted && message.state !== wanted) continue;
+      if (target && message.device !== target) continue;
+      const row = ms.publicMessage(ctx.contract, message);
+      // "已排队，最后在线 X" 里的那个 X：设备表有就带，没有就 null（这台从没登记过）。
+      const device = devices[row.device];
+      row.targetLastSeenAt = device ? device.lastSeenAt || null : null;
+      rows.push(row);
+    }
+    // 排序定在这一处（最近有动静的在前）：不在这里定，下一个读口就会按 queuedAt 排，
+    // 而"我刚发的那条怎么不见了"的现场正是 updatedAt 很新、queuedAt 很旧。
+    rows.sort(
+      (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || (a.messageId < b.messageId ? -1 : 1),
+    );
+    const total = rows.length;
+    return res.json({
+      code: 0,
+      message: 'success',
+      data: {
+        limit,
+        total,
+        returned: Math.min(total, limit),
+        // truncated 必须显式给出（与列设备同一条）：一份"没列全"与一份"就只有这些"，
+        // 在运维读起来是完全相反的两个结论。
+        truncated: total > limit,
+        states: tally,
+        messages: rows.slice(0, limit),
+      },
+    });
+  }),
 );
 
 // ── 端点（T38）：只读列表 + 吊销 ────────────────────────────────────

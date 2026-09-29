@@ -60,6 +60,37 @@ function openContent(contract, envKey, envelope) {
   return { title: parsed.t || '', body: parsed.b || '' };
 }
 
+/// 管理面（T45 投递状态视图）能看到的一行。**逐字段挑，不许 spread**：
+/// 一行的旁边就躺着 `body`（密信封）与 `dedupeIdDigest`（发送方给的任意串折成的摘要，
+/// 是可离线爆破的靶子），一个 spread 就把 `privacy.auditStoresMetadataOnly` 从承诺变成运气。
+/// 这也是端点那侧定过的同一条口径：摘要与明文都不出门。
+///
+/// `hasBody` 是**给运维看的体检项**，不是给协议用的字段：按契约每个终态都该已释放正文，
+/// 所以"终态却有正文"就是那条不变量在真实数据上坏了的痕迹（单测证不了生产盘上没漏）。
+///
+/// ⚠ 今日这一份**没有完整时间线**：表里只有当前态 + `queuedAt` / `updatedAt` / `attempts` /
+/// `receipt`。"什么时候下发、什么时候 ack"要等推进留痕（第二片）才有出处，
+/// 现在编一条出来就是让运维把猜的当成日志读。
+function publicMessage(contract, message) {
+  return {
+    messageId: message.messageId,
+    sender: message.sender || '',
+    device: message.device || '',
+    type: message.type || '',
+    item: message.item || '',
+    state: message.state,
+    terminal: delivery.isTerminal(contract, message.state),
+    attempts: message.attempts,
+    queuedAt: message.queuedAt,
+    updatedAt: message.updatedAt,
+    // 到期的那一刻：视图上那句"最长保留 7 天"要么给时刻要么不给，不许只给天数让人自己加。
+    expiresAt: delivery.retentionDeadline(contract, message.queuedAt),
+    receipt: message.receipt || null,
+    receiptSentAt: message.receiptSentAt || null,
+    hasBody: message.body !== undefined,
+  };
+}
+
 /// 这几个字段只能由状态机与本层写。调用方递进来的一律当"名单之外"丢掉 ——
 /// 否则 `enqueue({... state: 'delivered'})` 就能绕过整张迁移表，而那条消息的正文
 /// 会因为它"自称终态"而被立刻删掉：一个字段换来一次静默丢消息。
@@ -321,6 +352,7 @@ module.exports = {
   expireDueMessages,
   loadMessages,
   pendingCountFor,
+  publicMessage,
   receiptsForSender,
   saveMessages,
 };

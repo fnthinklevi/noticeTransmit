@@ -51,11 +51,18 @@ function canTransition(contract, from, to) {
   return targets.includes(to);
 }
 
-/// 排队中的消息是否已过最长保留期。
+/// 排队中的消息是否已过最长保留期。**到期时刻只有一个算式**（下面那一行），
+/// 判"过没过"和给人看"还剩多久"必须是同一个数 —— 分成两处写，视图就能显示"还有 6 天"
+/// 而状态机已经把这条判成过期。
+function retentionDeadline(contract, queuedAtMs) {
+  const days = ((contract.retention || {}).maxRetentionDays || 0) + 0;
+  return queuedAtMs + days * DAY_MS;
+}
+
 function isExpired(contract, queuedAtMs, nowMs) {
   const days = ((contract.retention || {}).maxRetentionDays || 0) + 0;
   if (days <= 0) return true;
-  return nowMs - queuedAtMs >= days * DAY_MS;
+  return nowMs >= retentionDeadline(contract, queuedAtMs);
 }
 
 function requireKnown(contract, state, event) {
@@ -173,4 +180,5 @@ module.exports = {
   isTerminal,
   maxAttempts,
   releasesBody,
+  retentionDeadline,
 };
