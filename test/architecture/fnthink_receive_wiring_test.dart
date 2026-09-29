@@ -32,6 +32,13 @@ void main() {
         isNotNull,
         reason: '收货链路只落库不显示 ⇒ 用户看不见，而服务端按 delivered 之外的那档留着正文',
       );
+      expect(
+        c.recordAck,
+        isNotNull,
+        reason:
+            'DI 漏接这一行时全场测试仍然绿，而 `ack_result`/`acked_at` 永远空着 —— '
+            '收件详情那一带"回执状态"的界面就会开始显示猜出来的东西',
+      );
     });
 
     test('spec 里的 display 会传到循环上（不是只存在 spec 里）', () async {

@@ -37,6 +37,7 @@ class FnthinkReceiveLoop {
     required this.ack,
     required this.persist,
     this.display,
+    this.recordAck,
     int Function()? nowMs,
     Timer Function(Duration delay, void Function() callback)? schedule,
     this.onRound,
@@ -56,6 +57,18 @@ class FnthinkReceiveLoop {
   /// ⚠ 顺序在 persist **之后**：用户点通知时要能落到一条已经在表里的事实，
   ///   先显示后落库会在"显示完就崩"的那次里留下一条点不开的通知。
   final Future<bool> Function(FnthinkInboxMessage message)? display;
+
+  /// 服务端**收下**这条 ack 之后，把本机报过的结论记进收件表（`ack_result`/`acked_at`）。
+  /// null = 这台设备不记账 ⇒ 那一列一直空着，而空的含义是"没报过"，不是"报失败"。
+  ///
+  /// ⚠ 只在 `status == ok` 之后调：429 与验签失败都**没报成**，记下来就是本机对自己撒谎
+  /// （表现是收件详情写着"我报过 displayed"而服务端那边根本没收到，于是这条永远在重发）。
+  final Future<bool> Function({
+    required String messageId,
+    required String result,
+    required int at,
+  })?
+  recordAck;
 
   final int Function() nowMs;
   final Timer Function(Duration delay, void Function() callback) schedule;
@@ -167,6 +180,7 @@ class FnthinkReceiveLoop {
       final result = await ack(ids[i], toAck[ids[i]]!);
       if (result.status == FnthinkPollStatus.ok) {
         acked++;
+        await _recordAck(ids[i], toAck[ids[i]]!);
         continue;
       }
       if (result.status == FnthinkPollStatus.rateLimited) {
@@ -205,6 +219,25 @@ class FnthinkReceiveLoop {
         '[fnthink] 收件显示异常（按未显示处理，ack 退回 delivered）: ${message.messageId} $e',
       );
       return false;
+    }
+  }
+
+  /// 把这一条报过的结论记进收件表。没接链路就不记；抛异常只记日志 —— 账已经报出去了，
+  /// 本机这份记忆丢了不值得让整轮停（下一轮那条还会重发，届时再记一次）。
+  Future<void> _recordAck(String messageId, String result) async {
+    final write = recordAck;
+    if (write == null) return;
+    try {
+      final hit = await write(
+        messageId: messageId,
+        result: result,
+        at: nowMs(),
+      );
+      if (!hit) {
+        debugPrint('[fnthink] ack 记账没命中那一行（可能已被保留策略裁掉）: $messageId');
+      }
+    } catch (e) {
+      debugPrint('[fnthink] ack 记账失败（不影响本轮）: $messageId $e');
     }
   }
 

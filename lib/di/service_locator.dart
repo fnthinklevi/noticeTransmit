@@ -72,6 +72,9 @@ void setupLocator() {
       // 于是"能慢不能丢"做成了"能存不能见"。装配点的那条守卫在
       // `test/architecture/fnthink_receive_wiring_test.dart`。
       display: FnthinkInboxDisplay().show,
+      // 回执那一列的作者。缺它 ⇒ `ack_result`/`acked_at` 永远空着，而 T48 的收件详情
+      // 一旦显示这一列就是在猜（任务 #155 那条"只有漏接才现形"的形状）。
+      recordAck: DatabaseHelper().recordFnthinkInboxAck,
     ),
   );
 }

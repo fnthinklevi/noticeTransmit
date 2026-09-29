@@ -320,6 +320,125 @@ void main() {
     });
   });
 
+  group('⑥ ack 记账只在服务端收下之后', () {
+    /// 三条一轮，ack 结果可编程；记到账上的 (id, result, at) 全收回 `writes`。
+    Future<(List<(String, String, int)> writes, FnthinkLoopReport report)>
+    roundWithAck({
+      Map<String, FnthinkAckResult> ackByMessage = const {},
+      int? at,
+      bool Function()? noHook,
+    }) async {
+      final writes = <(String, String, int)>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1'), _msg('m_2')]),
+        ack: (id, result) async =>
+            ackByMessage[id] ??
+            const FnthinkAckResult(
+              status: FnthinkPollStatus.ok,
+              nextDelay: Duration(seconds: 20),
+            ),
+        persist: (_) async => true,
+        recordAck: (noHook?.call() ?? false)
+            ? null
+            : ({required messageId, required result, required at}) async {
+                writes.add((messageId, result, at));
+                return true;
+              },
+        nowMs: () => at ?? 1700000000000,
+        schedule: (delay, callback) => Timer(Duration.zero, () {}),
+      );
+      return (writes, await loop.runOnce());
+    }
+
+    const rateLimited = FnthinkAckResult(
+      status: FnthinkPollStatus.rateLimited,
+      nextDelay: Duration(seconds: 30),
+      serverReceipt: 'queued',
+    );
+    const rejected = FnthinkAckResult(
+      status: FnthinkPollStatus.rejectedUnsigned,
+      nextDelay: Duration(seconds: 20),
+      reason: 'rejected-unsigned',
+    );
+
+    test('服务端收下 ⇒ 记上，且记的是这一条该报的那个结论', () async {
+      final (writes, report) = await roundWithAck();
+      expect(writes, [
+        ('m_1', 'delivered', 1700000000000),
+        ('m_2', 'delivered', 1700000000000),
+      ]);
+      expect(report.acked, 2);
+    });
+
+    test('撞 429 的那条不记 ⇒ 本机不许以为自己报过了', () async {
+      final (writes, report) = await roundWithAck(
+        ackByMessage: {'m_1': rateLimited},
+      );
+      expect(
+        writes,
+        isEmpty,
+        reason: '429 没报成。记下来就是详情写"我报过 delivered"而服务端没收到，于是这条永远重发',
+      );
+      expect(report.acked, 0);
+    });
+
+    test('验签失败那条不记（与 429 同一条道理：没报成 ≠ 报过了）', () async {
+      final (writes, _) = await roundWithAck(ackByMessage: {'m_2': rejected});
+      expect(writes.map((w) => w.$1), ['m_1']);
+    });
+
+    test('记的是**报出去那一刻**的时钟，不是本轮开始那一刻', () async {
+      var tick = 1700000000000;
+      final writes = <(String, String, int)>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1')]),
+        ack: (id, result) async {
+          tick = 1700000012345; // 一次往返之后
+          return const FnthinkAckResult(
+            status: FnthinkPollStatus.ok,
+            nextDelay: Duration(seconds: 20),
+          );
+        },
+        persist: (_) async => true,
+        recordAck: ({required messageId, required result, required at}) async {
+          writes.add((messageId, result, at));
+          return true;
+        },
+        nowMs: () => tick,
+        schedule: (delay, callback) => Timer(Duration.zero, () {}),
+      );
+      await loop.runOnce();
+      expect(writes.single.$3, 1700000012345);
+    });
+
+    test('记账钩子抛异常不断链：账照记、本轮照收', () async {
+      final writes = <(String, String, int)>[];
+      final loop = FnthinkReceiveLoop(
+        poll: () async => _ok([_msg('m_1'), _msg('m_2')]),
+        ack: (id, result) async => const FnthinkAckResult(
+          status: FnthinkPollStatus.ok,
+          nextDelay: Duration(seconds: 20),
+        ),
+        persist: (_) async => true,
+        recordAck: ({required messageId, required result, required at}) async {
+          if (messageId == 'm_1') throw StateError('表被占着');
+          writes.add((messageId, result, at));
+          return true;
+        },
+        schedule: (delay, callback) => Timer(Duration.zero, () {}),
+      );
+      final report = await loop.runOnce();
+      expect(report.acked, 2, reason: '本机记忆丢了不等于 ack 没成功');
+      expect(writes.map((w) => w.$1), ['m_2']);
+    });
+
+    test('没接记账钩子 ⇒ 一次都不写（那一列的空是"没人写"，不是"写失败"）', () async {
+      final (writes, report) = await roundWithAck(noHook: () => true);
+      expect(writes, isEmpty);
+      expect(report.acked, 2);
+    });
+  });
+
   group('账目可见但不泄露内容', () {
     test('summary 里有各档计数，却没有标题与正文', () async {
       final h = _Harness();

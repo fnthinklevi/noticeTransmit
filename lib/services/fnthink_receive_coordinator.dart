@@ -22,6 +22,7 @@ class FnthinkLoopSpec {
     required this.signer,
     required this.persist,
     this.display,
+    this.recordAck,
     this.client,
   });
 
@@ -33,6 +34,14 @@ class FnthinkLoopSpec {
 
   /// 把这条收件显示进通知栏；null = 这台设备还没有显示链路（循环会一律按 delivered 报）。
   final Future<bool> Function(FnthinkInboxMessage message)? display;
+
+  /// 服务端收下 ack 之后，把结论记进收件表（`ack_result` / `acked_at`）。
+  final Future<bool> Function({
+    required String messageId,
+    required String result,
+    required int at,
+  })?
+  recordAck;
 
   final http.Client? client;
 }
@@ -57,6 +66,7 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
         service.ack(messageId: messageId, result: result),
     persist: spec.persist,
     display: spec.display,
+    recordAck: spec.recordAck,
   );
 }
 
@@ -82,6 +92,7 @@ class FnthinkReceiveCoordinator {
     required this.signer,
     required this.persist,
     this.display,
+    this.recordAck,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -98,6 +109,14 @@ class FnthinkReceiveCoordinator {
 
   /// 收件显示（通知栏）。与 persist 一样是"能不能报 displayed"的唯一依据，见 [FnthinkReceiveLoop] 的 ⑤。
   final Future<bool> Function(FnthinkInboxMessage)? display;
+
+  /// 服务端收下 ack 后写进收件表的那一列（与 [display] 同理：不接就是没人写，别显示）。
+  final Future<bool> Function({
+    required String messageId,
+    required String result,
+    required int at,
+  })?
+  recordAck;
   final FnthinkSettings Function(FnthinkContract) _buildSettings;
   final FnthinkCredentialStore Function(FnthinkContract) _buildCredentials;
   final FnthinkLoopFactory _loopFactory;
@@ -150,6 +169,7 @@ class FnthinkReceiveCoordinator {
         signer: signer,
         persist: persist,
         display: display,
+        recordAck: recordAck,
       ),
     );
     _loop = loop;
