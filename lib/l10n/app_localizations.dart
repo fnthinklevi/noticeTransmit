@@ -5695,6 +5695,210 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'离线期间缓存已满，{n} 条最旧通知没能进历史记录'**
   String offlineCacheDropped(int n);
+
+  /// No description provided for @fnthinkPush.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念推送'**
+  String get fnthinkPush;
+
+  /// No description provided for @fnthinkPushDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'让别的设备与端点把消息推给这台手机'**
+  String get fnthinkPushDesc;
+
+  /// No description provided for @fnthinkReceive.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收推送'**
+  String get fnthinkReceive;
+
+  /// No description provided for @fnthinkReceiveDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'开着才会去服务器取货；关掉则既不发送也不接收'**
+  String get fnthinkReceiveDesc;
+
+  /// No description provided for @fnthinkStatusRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在收取'**
+  String get fnthinkStatusRunning;
+
+  /// No description provided for @fnthinkStatusIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没在跑'**
+  String get fnthinkStatusIdle;
+
+  /// No description provided for @fnthinkReceiveNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即收取'**
+  String get fnthinkReceiveNow;
+
+  /// No description provided for @fnthinkReceiveDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收没开，所以这一发什么都没做'**
+  String get fnthinkReceiveDisabled;
+
+  /// No description provided for @fnthinkReceiveSkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一轮还在途，这一轮的结局马上见'**
+  String get fnthinkReceiveSkipped;
+
+  /// No description provided for @fnthinkIdentitySection.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机身份'**
+  String get fnthinkIdentitySection;
+
+  /// No description provided for @fnthinkAddressCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机地址码'**
+  String get fnthinkAddressCode;
+
+  /// No description provided for @fnthinkAddressCodeNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没生成（第一次挂口令或开始接收时生成）'**
+  String get fnthinkAddressCodeNone;
+
+  /// No description provided for @fnthinkCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get fnthinkCopy;
+
+  /// No description provided for @fnthinkCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制到剪贴板'**
+  String get fnthinkCopied;
+
+  /// No description provided for @fnthinkResetCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置地址码'**
+  String get fnthinkResetCode;
+
+  /// No description provided for @fnthinkResetCodeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一枚新地址码？'**
+  String get fnthinkResetCodeTitle;
+
+  /// No description provided for @fnthinkResetCodeMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备在所有对端白名单里的那一串会当场作废，之前配好的关系全部失效，需要重新配对。'**
+  String get fnthinkResetCodeMsg;
+
+  /// No description provided for @fnthinkPairingCode.
+  ///
+  /// In zh, this message translates to:
+  /// **'配对口令'**
+  String get fnthinkPairingCode;
+
+  /// No description provided for @fnthinkPairingNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在没挂出口令'**
+  String get fnthinkPairingNone;
+
+  /// No description provided for @fnthinkRevokePairing.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤掉口令'**
+  String get fnthinkRevokePairing;
+
+  /// No description provided for @fnthinkArmPairing.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂出一枚新口令'**
+  String get fnthinkArmPairing;
+
+  /// No description provided for @fnthinkPairingHeld.
+  ///
+  /// In zh, this message translates to:
+  /// **'已挂出 {n}'**
+  String fnthinkPairingHeld(String n);
+
+  /// No description provided for @fnthinkPairingExpireNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来'**
+  String get fnthinkPairingExpireNote;
+
+  /// No description provided for @fnthinkIdentityKey.
+  ///
+  /// In zh, this message translates to:
+  /// **'身份密钥'**
+  String get fnthinkIdentityKey;
+
+  /// No description provided for @fnthinkKeystoreOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'由系统密钥库保管'**
+  String get fnthinkKeystoreOn;
+
+  /// No description provided for @fnthinkKeystoreOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'只存在本机文件（这台设备没有可用的密钥库）'**
+  String get fnthinkKeystoreOff;
+
+  /// No description provided for @fnthinkKeystoreUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'取不到身份 —— 这是身份问题，不是网络问题'**
+  String get fnthinkKeystoreUnknown;
+
+  /// No description provided for @fnthinkServerSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器'**
+  String get fnthinkServerSection;
+
+  /// No description provided for @fnthinkHost.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务地址'**
+  String get fnthinkHost;
+
+  /// No description provided for @fnthinkHostEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'改服务地址'**
+  String get fnthinkHostEditTitle;
+
+  /// No description provided for @fnthinkHostDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'只填主机名（可带端口）；scheme 由协议决定，不用写 https://'**
+  String get fnthinkHostDesc;
+
+  /// No description provided for @fnthinkHostReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get fnthinkHostReset;
+
+  /// No description provided for @fnthinkBoundary.
+  ///
+  /// In zh, this message translates to:
+  /// **'开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。'**
+  String get fnthinkBoundary;
+
+  /// No description provided for @fnthinkContractUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'随包的协议契约读不到，这一页暂时什么都改不了：{reason}'**
+  String fnthinkContractUnavailable(String reason);
 }
 
 class _AppLocalizationsDelegate

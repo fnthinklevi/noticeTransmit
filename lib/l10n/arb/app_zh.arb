@@ -1514,5 +1514,53 @@
         "type": "int"
       }
     }
+  },
+  "fnthinkPush": "幻念推送",
+  "fnthinkPushDesc": "让别的设备与端点把消息推给这台手机",
+  "fnthinkReceive": "接收推送",
+  "fnthinkReceiveDesc": "开着才会去服务器取货；关掉则既不发送也不接收",
+  "fnthinkStatusRunning": "正在收取",
+  "fnthinkStatusIdle": "当前没在跑",
+  "fnthinkReceiveNow": "立即收取",
+  "fnthinkReceiveDisabled": "接收没开，所以这一发什么都没做",
+  "fnthinkReceiveSkipped": "上一轮还在途，这一轮的结局马上见",
+  "fnthinkIdentitySection": "本机身份",
+  "fnthinkAddressCode": "本机地址码",
+  "fnthinkAddressCodeNone": "还没生成（第一次挂口令或开始接收时生成）",
+  "fnthinkCopy": "复制",
+  "fnthinkCopied": "已复制到剪贴板",
+  "fnthinkResetCode": "重置地址码",
+  "fnthinkResetCodeTitle": "换一枚新地址码？",
+  "fnthinkResetCodeMsg": "这台设备在所有对端白名单里的那一串会当场作废，之前配好的关系全部失效，需要重新配对。",
+  "fnthinkPairingCode": "配对口令",
+  "fnthinkPairingNone": "现在没挂出口令",
+  "fnthinkRevokePairing": "撤掉口令",
+  "fnthinkArmPairing": "挂出一枚新口令",
+  "fnthinkPairingHeld": "已挂出 {n}",
+  "@fnthinkPairingHeld": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairingExpireNote": "是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来",
+  "fnthinkIdentityKey": "身份密钥",
+  "fnthinkKeystoreOn": "由系统密钥库保管",
+  "fnthinkKeystoreOff": "只存在本机文件（这台设备没有可用的密钥库）",
+  "fnthinkKeystoreUnknown": "取不到身份 —— 这是身份问题，不是网络问题",
+  "fnthinkServerSection": "服务器",
+  "fnthinkHost": "服务地址",
+  "fnthinkHostEditTitle": "改服务地址",
+  "fnthinkHostDesc": "只填主机名（可带端口）；scheme 由协议决定，不用写 https://",
+  "fnthinkHostReset": "恢复默认",
+  "fnthinkBoundary": "开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。",
+  "fnthinkContractUnavailable": "随包的协议契约读不到，这一页暂时什么都改不了：{reason}",
+  "@fnthinkContractUnavailable": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

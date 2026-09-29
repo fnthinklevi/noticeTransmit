@@ -29,6 +29,9 @@ void main() {
     'lib/pages/temperature_page.dart': 'Future<void> _confirmDeleteRule(',
     'lib/pages/rule_list_page.dart': 'Future<void> _deleteRule(',
     'lib/pages/keywords_page.dart': 'Future<void> _removeKeyword(',
+    // 幻念推送页：换一枚地址码 = 这台设备在所有对端白名单里那一串当场作废，
+    // 后果与删一条通道同级（而更不可逆：对面不会报错，只是再也推不进来）。
+    'lib/pages/fnthink_push_page.dart': 'Future<void> _resetAddressCode(',
   };
 
   group('删除的二次确认只有一个咽喉（T06）', () {
@@ -69,6 +72,7 @@ void main() {
         'lib/pages/temperature_page.dart': '_service.deleteRule(',
         'lib/pages/rule_list_page.dart': '_rules.removeWhere(',
         'lib/pages/keywords_page.dart': '_blacklist.remove(',
+        'lib/pages/fnthink_push_page.dart': 'credentials.resetAddressCode(',
       };
       for (final entry in mutators.entries) {
         expect(

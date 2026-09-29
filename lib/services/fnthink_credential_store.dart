@@ -49,6 +49,25 @@ class FnthinkCredentialStore {
     return parsed;
   }
 
+  /// 只看一眼存量的地址码：**没有就回 null，绝不顺手生成一枚**。
+  ///
+  /// 界面一进页面就该看得见"这台设备是谁"，但"看得见"不等于"该落盘"：
+  /// 一个从没打开过接收功能的用户，只因为点进这一页就凭空多出一枚凭证、并被写进
+  /// EncryptedSharedPreferences，那是"悄悄做让用户意外的事"的又一种写法。
+  /// 生成仍然只有两扇门 —— [ensureAddressCode]（第一次真要收货时）与 [resetAddressCode]（用户确认过）。
+  Future<FnthinkAddressCode?> storedAddressCode() async {
+    final stored = await _storage.read(addressCodeKey);
+    if (stored == null || stored.isEmpty) return null;
+    final parsed = FnthinkAddressCode.parse(contract, stored);
+    if (parsed == null) {
+      throw const FnthinkCredentialCorrupted(
+        '存下来的地址码过不了契约的校验（位数或字母表对不上）：'
+        '这里不许自动换一枚 —— 换码会让别人白名单里那一条指向一台不再存在的设备',
+      );
+    }
+    return parsed;
+  }
+
   /// 换一枚新地址码。⚠ 调用方必须先拿到用户的二次确认：这台设备在**所有对端**白名单里
   /// 那一串会当场作废，之前配好的关系全部失效，需要重新配对。
   Future<FnthinkAddressCode> resetAddressCode() async {

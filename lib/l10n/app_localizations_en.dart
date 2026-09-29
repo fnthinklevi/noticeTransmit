@@ -3159,4 +3159,120 @@ class AppLocalizationsEn extends AppLocalizations {
   String offlineCacheDropped(int n) {
     return 'Offline cache was full — $n oldest notifications never reached history';
   }
+
+  @override
+  String get fnthinkPush => 'Fnthink Push';
+
+  @override
+  String get fnthinkPushDesc =>
+      'Let other devices and endpoints push messages to this phone';
+
+  @override
+  String get fnthinkReceive => 'Receive pushes';
+
+  @override
+  String get fnthinkReceiveDesc =>
+      'Messages are only fetched while this is on; off means neither sending nor receiving';
+
+  @override
+  String get fnthinkStatusRunning => 'Receiving';
+
+  @override
+  String get fnthinkStatusIdle => 'Not running';
+
+  @override
+  String get fnthinkReceiveNow => 'Receive now';
+
+  @override
+  String get fnthinkReceiveDisabled => 'Receiving is off, so this did nothing';
+
+  @override
+  String get fnthinkReceiveSkipped =>
+      'A round is still in flight - its result shows up shortly';
+
+  @override
+  String get fnthinkIdentitySection => 'This device';
+
+  @override
+  String get fnthinkAddressCode => 'Address code';
+
+  @override
+  String get fnthinkAddressCodeNone =>
+      'Not created yet (created on first pairing code or when receiving starts)';
+
+  @override
+  String get fnthinkCopy => 'Copy';
+
+  @override
+  String get fnthinkCopied => 'Copied to clipboard';
+
+  @override
+  String get fnthinkResetCode => 'Reset address code';
+
+  @override
+  String get fnthinkResetCodeTitle => 'Replace the address code?';
+
+  @override
+  String get fnthinkResetCodeMsg =>
+      'The code in every peer\'s allowlist stops pointing at this device right away. All pairings must be redone.';
+
+  @override
+  String get fnthinkPairingCode => 'Pairing code';
+
+  @override
+  String get fnthinkPairingNone => 'No pairing code is issued';
+
+  @override
+  String get fnthinkRevokePairing => 'Revoke code';
+
+  @override
+  String get fnthinkArmPairing => 'Issue a new code';
+
+  @override
+  String fnthinkPairingHeld(String n) {
+    return 'Issued $n ago';
+  }
+
+  @override
+  String get fnthinkPairingExpireNote =>
+      'The server decides expiry and whether it was used; this phone only puts it out there';
+
+  @override
+  String get fnthinkIdentityKey => 'Identity key';
+
+  @override
+  String get fnthinkKeystoreOn => 'Held by the system keystore';
+
+  @override
+  String get fnthinkKeystoreOff =>
+      'Stored in app files only (no keystore on this device)';
+
+  @override
+  String get fnthinkKeystoreUnknown =>
+      'Identity unavailable - an identity problem, not the network';
+
+  @override
+  String get fnthinkServerSection => 'Server';
+
+  @override
+  String get fnthinkHost => 'Server address';
+
+  @override
+  String get fnthinkHostEditTitle => 'Change server address';
+
+  @override
+  String get fnthinkHostDesc =>
+      'Host name only (port allowed); the scheme comes from the protocol, do not type https://';
+
+  @override
+  String get fnthinkHostReset => 'Restore default';
+
+  @override
+  String get fnthinkBoundary =>
+      'With receiving on, message content passes through the server, which can then read the body and metadata.';
+
+  @override
+  String fnthinkContractUnavailable(String reason) {
+    return 'The bundled protocol contract cannot be read, so nothing here can be changed yet: $reason';
+  }
 }

@@ -1493,5 +1493,53 @@
         "type": "int"
       }
     }
+  },
+  "fnthinkPush": "Fnthink Push",
+  "fnthinkPushDesc": "Let other devices and endpoints push messages to this phone",
+  "fnthinkReceive": "Receive pushes",
+  "fnthinkReceiveDesc": "Messages are only fetched while this is on; off means neither sending nor receiving",
+  "fnthinkStatusRunning": "Receiving",
+  "fnthinkStatusIdle": "Not running",
+  "fnthinkReceiveNow": "Receive now",
+  "fnthinkReceiveDisabled": "Receiving is off, so this did nothing",
+  "fnthinkReceiveSkipped": "A round is still in flight - its result shows up shortly",
+  "fnthinkIdentitySection": "This device",
+  "fnthinkAddressCode": "Address code",
+  "fnthinkAddressCodeNone": "Not created yet (created on first pairing code or when receiving starts)",
+  "fnthinkCopy": "Copy",
+  "fnthinkCopied": "Copied to clipboard",
+  "fnthinkResetCode": "Reset address code",
+  "fnthinkResetCodeTitle": "Replace the address code?",
+  "fnthinkResetCodeMsg": "The code in every peer's allowlist stops pointing at this device right away. All pairings must be redone.",
+  "fnthinkPairingCode": "Pairing code",
+  "fnthinkPairingNone": "No pairing code is issued",
+  "fnthinkRevokePairing": "Revoke code",
+  "fnthinkArmPairing": "Issue a new code",
+  "fnthinkPairingHeld": "Issued {n} ago",
+  "@fnthinkPairingHeld": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairingExpireNote": "The server decides expiry and whether it was used; this phone only puts it out there",
+  "fnthinkIdentityKey": "Identity key",
+  "fnthinkKeystoreOn": "Held by the system keystore",
+  "fnthinkKeystoreOff": "Stored in app files only (no keystore on this device)",
+  "fnthinkKeystoreUnknown": "Identity unavailable - an identity problem, not the network",
+  "fnthinkServerSection": "Server",
+  "fnthinkHost": "Server address",
+  "fnthinkHostEditTitle": "Change server address",
+  "fnthinkHostDesc": "Host name only (port allowed); the scheme comes from the protocol, do not type https://",
+  "fnthinkHostReset": "Restore default",
+  "fnthinkBoundary": "With receiving on, message content passes through the server, which can then read the body and metadata.",
+  "fnthinkContractUnavailable": "The bundled protocol contract cannot be read, so nothing here can be changed yet: {reason}",
+  "@fnthinkContractUnavailable": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

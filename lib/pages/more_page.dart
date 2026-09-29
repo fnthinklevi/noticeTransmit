@@ -13,6 +13,7 @@ import '../theme/app_colors.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'backup_restore_page.dart';
 import 'device_snapshot_page.dart';
+import 'fnthink_push_page.dart';
 import 'stats_page.dart';
 import 'widget_guide_page.dart';
 
@@ -141,6 +142,22 @@ class MorePage extends StatelessWidget {
                       appEnabledCount,
                     ),
               onTap: onOpenAppChannels,
+              context: context,
+            ),
+            _buildDivider(context),
+            // 幻念推送：这一条是整条收货链路**唯一**的用户入口 —— 总开关默认关，
+            // 而这个开关此前没有任何界面能翻开，于是链路对真实用户不可达。
+            _buildNavTile(
+              icon: Icons.inbox,
+              iconColor: AppColors.purple,
+              title: l10n.fnthinkPush,
+              subtitle: l10n.fnthinkPushDesc,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const FnthinkPushPage(),
+                ),
+              ),
               context: context,
             ),
           ], context),

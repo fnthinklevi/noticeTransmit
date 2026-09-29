@@ -3035,4 +3035,111 @@ class AppLocalizationsZh extends AppLocalizations {
   String offlineCacheDropped(int n) {
     return '离线期间缓存已满，$n 条最旧通知没能进历史记录';
   }
+
+  @override
+  String get fnthinkPush => '幻念推送';
+
+  @override
+  String get fnthinkPushDesc => '让别的设备与端点把消息推给这台手机';
+
+  @override
+  String get fnthinkReceive => '接收推送';
+
+  @override
+  String get fnthinkReceiveDesc => '开着才会去服务器取货；关掉则既不发送也不接收';
+
+  @override
+  String get fnthinkStatusRunning => '正在收取';
+
+  @override
+  String get fnthinkStatusIdle => '当前没在跑';
+
+  @override
+  String get fnthinkReceiveNow => '立即收取';
+
+  @override
+  String get fnthinkReceiveDisabled => '接收没开，所以这一发什么都没做';
+
+  @override
+  String get fnthinkReceiveSkipped => '上一轮还在途，这一轮的结局马上见';
+
+  @override
+  String get fnthinkIdentitySection => '本机身份';
+
+  @override
+  String get fnthinkAddressCode => '本机地址码';
+
+  @override
+  String get fnthinkAddressCodeNone => '还没生成（第一次挂口令或开始接收时生成）';
+
+  @override
+  String get fnthinkCopy => '复制';
+
+  @override
+  String get fnthinkCopied => '已复制到剪贴板';
+
+  @override
+  String get fnthinkResetCode => '重置地址码';
+
+  @override
+  String get fnthinkResetCodeTitle => '换一枚新地址码？';
+
+  @override
+  String get fnthinkResetCodeMsg =>
+      '这台设备在所有对端白名单里的那一串会当场作废，之前配好的关系全部失效，需要重新配对。';
+
+  @override
+  String get fnthinkPairingCode => '配对口令';
+
+  @override
+  String get fnthinkPairingNone => '现在没挂出口令';
+
+  @override
+  String get fnthinkRevokePairing => '撤掉口令';
+
+  @override
+  String get fnthinkArmPairing => '挂出一枚新口令';
+
+  @override
+  String fnthinkPairingHeld(String n) {
+    return '已挂出 $n';
+  }
+
+  @override
+  String get fnthinkPairingExpireNote => '是否过期、有没有被用掉都由服务器判，这台手机只负责把它挂出来';
+
+  @override
+  String get fnthinkIdentityKey => '身份密钥';
+
+  @override
+  String get fnthinkKeystoreOn => '由系统密钥库保管';
+
+  @override
+  String get fnthinkKeystoreOff => '只存在本机文件（这台设备没有可用的密钥库）';
+
+  @override
+  String get fnthinkKeystoreUnknown => '取不到身份 —— 这是身份问题，不是网络问题';
+
+  @override
+  String get fnthinkServerSection => '服务器';
+
+  @override
+  String get fnthinkHost => '服务地址';
+
+  @override
+  String get fnthinkHostEditTitle => '改服务地址';
+
+  @override
+  String get fnthinkHostDesc => '只填主机名（可带端口）；scheme 由协议决定，不用写 https://';
+
+  @override
+  String get fnthinkHostReset => '恢复默认';
+
+  @override
+  String get fnthinkBoundary => '开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。';
+
+  @override
+  String fnthinkContractUnavailable(String reason) {
+    return '随包的协议契约读不到，这一页暂时什么都改不了：$reason';
+  }
 }
