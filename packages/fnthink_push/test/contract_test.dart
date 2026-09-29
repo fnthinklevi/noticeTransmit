@@ -540,6 +540,73 @@ void main() {
       expectProblem(broken, '必须给出一份 storedFields', '白名单必须存在');
     });
 
+    // ── 投递留痕（T45 第二片）：时间线必须有界，而且必须有地方放 ──
+    test('auditTrail 整段拿掉 ⇒ 报（没界就别记，服务端那一侧是抛不是退回默认值）', () {
+      final broken = mutate((raw) {
+        (raw['retention'] as Map<String, Object?>).remove('auditTrail');
+      });
+      expectProblem(
+        broken,
+        'retention.auditTrail.maxPerMessage 必须是正整数',
+        '投递时间线要么有界，要么就别记',
+      );
+    });
+
+    test('maxPerMessage 改成 0 ⇒ 报（0 读起来像"不记"，实现却会当成"记了再全裁掉"）', () {
+      final broken = mutate((raw) {
+        ((raw['retention'] as Map<String, Object?>)['auditTrail']
+                as Map<String, Object?>)['maxPerMessage'] =
+            0;
+      });
+      expectProblem(broken, 'maxPerMessage 必须是正整数', '上限必须为正');
+    });
+
+    test('留痕字段名单空着 ⇒ 报（没有名单就等于允许往时间线里塞正文）', () {
+      final broken = mutate((raw) {
+        ((raw['retention'] as Map<String, Object?>)['auditTrail']
+                as Map<String, Object?>)['fields'] =
+            <Object?>[];
+      });
+      expectProblem(broken, 'retention.auditTrail.fields 必须非空且不重复', '留痕的键要有名单');
+    });
+
+    test('留痕字段名单重复 ⇒ 报（同一格出现两次说明这份名单是抄的，不是定的）', () {
+      final broken = mutate((raw) {
+        ((raw['retention'] as Map<String, Object?>)['auditTrail']
+            as Map<String, Object?>)['fields'] = <Object?>[
+          'state',
+          'state',
+        ];
+      });
+      expectProblem(broken, 'retention.auditTrail.fields 必须非空且不重复', '名单不许有重复');
+    });
+
+    test('storedFields 少了 trail ⇒ 报（有留痕却没有存放它的字段，症状是时间线永远是空的）', () {
+      final broken = mutate((raw) {
+        (raw['retention'] as Map<String, Object?>)['storedFields'] =
+            ((raw['retention'] as Map<String, Object?>)['storedFields']
+                    as List<Object?>)
+                .where((e) => e != 'trail')
+                .toList();
+      });
+      expectProblem(broken, 'retention.storedFields 少了 trail', '留痕必须有存放字段');
+    });
+
+    test('storedFields 少了 trailDropped ⇒ 报（裁掉多少没有地方记，就成了悄悄丢）', () {
+      final broken = mutate((raw) {
+        (raw['retention'] as Map<String, Object?>)['storedFields'] =
+            ((raw['retention'] as Map<String, Object?>)['storedFields']
+                    as List<Object?>)
+                .where((e) => e != 'trailDropped')
+                .toList();
+      });
+      expectProblem(
+        broken,
+        'retention.storedFields 少了 trailDropped',
+        '裁掉的条数要留得下',
+      );
+    });
+
     test('GCM 的 IV 长度改成 16 ⇒ 报（那是 CBC 的习惯，GCM 用 12）', () {
       final broken = mutate((raw) {
         ((raw['retention'] as Map<String, Object?>)['bodyAtRest']

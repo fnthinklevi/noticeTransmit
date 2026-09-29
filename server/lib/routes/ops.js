@@ -224,8 +224,9 @@ router.post(
 // 现在这一片只有运维在读，所以数据出处只有 messagestore 一张表，读口也只此一处。
 //
 // ⚠ 表里的 `body`（密信封）与 `dedupeIdDigest` 一律不端出去，逐字段挑见 `ms.publicMessage`。
-// ⚠ 今日给不出**完整时间线**：行里只有当前态 + queuedAt/updatedAt/attempts/receipt。
-//    "几点下发过、几点 ack 的"要等推进留痕那一片，现在编出来就是让运维把猜的当日志读。
+// ⚠ 时间线（`trail`）记的是**状态机真的走过的那一步**：被忽略的事件不入列，入队与正文刷新不入列，
+//    超过契约 `retention.auditTrail.maxPerMessage` 的从头部裁、裁掉几条记在 `trailDropped` 里。
+//    所以"时间线短"与"没有历史"是两句话，而 `trail:null` 说的是第三种：这一行比留痕那一列更早。
 router.get(
   '/fnthink/messages',
   authMiddleware,

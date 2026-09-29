@@ -251,8 +251,15 @@
       "state",
       "attempts",
       "queuedAt",
-      "updatedAt"
+      "updatedAt",
+      "trail",
+      "trailDropped"
     ],
+    "auditTrail": {
+      "maxPerMessage": 40,
+      "fields": ["state", "at", "event"],
+      "_why": "T45 的投递视图要能回答「这条死在哪一步」，而那必须有**留痕**：行里只有当前态 + 两个时间戳时，「几点下发过、ack 了几次」今日没有任何出处，界面编一条出来就是让运维把猜的当日志读。但留痕必须有界 —— 一条 waiting_online 的消息每次 poll 都会被推进一次，7 天保留期 ÷ 15 秒 ≈ 四万条，而无界的日志就是攻击者驱动的存储（端点调用日志那条同样成立）。所以按条数裁，**且裁掉多少要留下计数**（`trailDropped`）：悄悄裁与悄悄丢在运维眼里是同一个错。名单里带 trail/trailDropped 是因为这条白名单管的是「行里能出现什么键」，机器写的字段照样要在名单里 —— 它们同时被 MACHINE_OWNED 挡在输入之外。"
+    },
     "bodyAtRest": {
       "algorithm": "aes-256-gcm",
       "keyInfo": "fnthink-body-v1",

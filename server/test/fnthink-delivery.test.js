@@ -39,6 +39,10 @@ describe('投递状态机向量（Node 侧，T34-A）', () => {
     const got = delivery.advance(contract, c.given);
     expect(got).toEqual({
       state: c.expect.state,
+      // 步里带回是哪一个事件推进的（T45 第二片的留痕读这一格）。它**不进共享向量表**：
+      // 向量表说的是"哪个状态遇哪个事件走到哪"，而事件名本来就是 given 的一部分，
+      // 写进 expect 那份就是把同一个数抄两遍。
+      event: c.given.event,
       attempts: c.expect.attempts,
       receipt: c.expect.receipt,
       deleteBody: c.expect.deleteBody,

@@ -2048,6 +2048,35 @@ class FnthinkContract {
       '不许像 TOTP 那样退回明文存储（那会当场违反 serverStoresBodyPlaintext=false）',
     );
 
+    // ── 投递留痕（T45 第二片）──
+    // 时间线必须**有界**：一条 waiting_online 的消息每次 poll 都会被推进一次，7 天保留期
+    // ÷ 15 秒 ≈ 四万条，而无界的日志就是攻击者驱动的存储（端点调用日志那处算过同一笔账）。
+    // 服务端读这一档时是**抛**而不是退回默认值，所以这里缺了必须报，不能让它在第一次推进时才炸。
+    final auditTrail = map(const ['retention', 'auditTrail']) ?? const {};
+    final trailMax = (auditTrail['maxPerMessage'] as num?)?.toInt();
+    need(
+      trailMax != null && trailMax > 0,
+      'retention.auditTrail.maxPerMessage 必须是正整数（实为 ${auditTrail['maxPerMessage']}）：'
+      '投递时间线要么有界，要么就别记',
+    );
+    final trailFields = strings(const ['retention', 'auditTrail', 'fields']);
+    need(
+      trailFields.isNotEmpty &&
+          trailFields.toSet().length == trailFields.length,
+      'retention.auditTrail.fields 必须非空且不重复（实为 $trailFields）：它是"一条留痕能有哪些键"'
+      '的名单 —— 没有名单就等于允许往时间线里塞正文',
+    );
+    // 这条交叉检查才是这一片最容易写错的地方：留痕是新列，而那道"只保留必要字段"的白名单
+    // 会把手写的与机器写的**一视同仁地丢掉**。少了它，症状是"时间线永远是空的"，
+    // 而不是任何一处报错。
+    for (final column in const ['trail', 'trailDropped']) {
+      need(
+        storedFields.contains(column),
+        'retention.storedFields 少了 $column：有 auditTrail 却没有存放它的字段 ⇒ '
+        '白名单会把它当场丢掉，时间线永远是空的',
+      );
+    }
+
     // ── 身份与凭证（红线）──
     need(
       intOf(const ['identity', 'addressCode', 'length']) == 18,

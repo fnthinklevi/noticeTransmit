@@ -68,9 +68,9 @@ function openContent(contract, envKey, envelope) {
 /// `hasBody` 是**给运维看的体检项**，不是给协议用的字段：按契约每个终态都该已释放正文，
 /// 所以"终态却有正文"就是那条不变量在真实数据上坏了的痕迹（单测证不了生产盘上没漏）。
 ///
-/// ⚠ 今日这一份**没有完整时间线**：表里只有当前态 + `queuedAt` / `updatedAt` / `attempts` /
-/// `receipt`。"什么时候下发、什么时候 ack"要等推进留痕（第二片）才有出处，
-/// 现在编一条出来就是让运维把猜的当成日志读。
+/// `trail` 是投递时间线（T45 第二片）：`[]` 表示"这条什么都没走过"（一直在初态），
+/// **`null` 表示这一行比留痕那一列更早** —— 两者在运维眼里不是同一句话，
+/// 前者可以说"没重试过"，后者只能说"没有记录"。`trailDropped` 同理：悄悄裁与悄悄丢是同一个错。
 function publicMessage(contract, message) {
   return {
     messageId: message.messageId,
@@ -88,6 +88,8 @@ function publicMessage(contract, message) {
     receipt: message.receipt || null,
     receiptSentAt: message.receiptSentAt || null,
     hasBody: message.body !== undefined,
+    trail: Array.isArray(message.trail) ? message.trail : null,
+    trailDropped: Number.isInteger(message.trailDropped) ? message.trailDropped : null,
   };
 }
 
@@ -106,7 +108,39 @@ const MACHINE_OWNED = [
   // 让调用方给 `receipt`，等于让它替服务端宣布"这条已经 dropped/delivered"。
   'receipt',
   'receiptSentAt',
+  // 时间线同理：它记的是"状态机真的这么走过"，调用方能塞一条进去，视图就成了一台可写的话术。
+  'trail',
+  'trailDropped',
 ];
+
+/// 留痕的界只能从契约读（写死一个数 = 改契约不动它，而那正是这条判据存在的理由）。
+/// 缺这一档是**抛**而不是退回默认值：没界就是这条消息每 15 秒长一条，7 天四万条 ——
+/// 无界的日志是攻击者驱动的存储（端点调用日志那处已经算过这笔账）。
+function auditTrailConfig(contract) {
+  const trail = ((contract || {}).retention || {}).auditTrail;
+  const max = Number(trail && trail.maxPerMessage);
+  if (!Number.isInteger(max) || max <= 0) {
+    throw new Error(
+      `retention.auditTrail.maxPerMessage 必须是正整数（实际 ${trail && trail.maxPerMessage}）：` +
+        '投递时间线要么有界，要么就别记',
+    );
+  }
+  return max;
+}
+
+/// 落一条留痕。**只有真的推进了才记**（ignored 的那一步什么都没发生，记进去就是把网络噪声
+/// 写成历史）；裁的是最旧的、留的是最近的，而**裁掉几条要留下计数** —— 悄悄裁与悄悄丢
+/// 在运维眼里是同一个错。
+function appendTrail(contract, message, step, now) {
+  const max = auditTrailConfig(contract);
+  const entries = Array.isArray(message.trail) ? message.trail.slice() : [];
+  entries.push({ state: step.state, at: now, event: step.event });
+  const overflow = entries.length - max;
+  message.trailDropped =
+    (Number.isInteger(message.trailDropped) ? message.trailDropped : 0) +
+    (overflow > 0 ? overflow : 0);
+  message.trail = overflow > 0 ? entries.slice(overflow) : entries;
+}
 
 /// 这两个是**输入**而不是存储字段：标题被装进密信封、dedupe_id 被折成摘要。
 /// 把它们算进 droppedFields 会让调用方以为"我给的字段被扔了"，其实是被换了个形式存。
@@ -135,16 +169,22 @@ function pendingCountFor(contract, messages, device) {
 }
 
 /// 落一条状态机推进的结果。**删正文这件事只在这里发生**，判据取自契约表（advance 带回来的）。
-function applyStep(messages, message, step, now) {
+function applyStep(contract, messages, message, step, now) {
   message.state = step.state;
   message.attempts = step.attempts;
   // 回执由**状态机**产生并留在这里（不是由路由另写一份 state→receipt 映射）。
   // 忽略步不覆盖：`ignored` 意味着什么都没发生，把上一次的回执擦掉就是丢账。
   if (step.receipt) message.receipt = step.receipt;
   if (step.ignored) {
+    // ⚠ 这一支对**时间线**是纵深防御，不是唯一那道闸：ack 那一路的忽略步在 `advanceMessage`
+    //   开头就返回了，根本到不了这里（反证 TL1 因此红不了，2026-09-29 实测）。
+    //   今日真能走到这一支的只有 `evictOverflow` 里"在飞的那条挤不掉"那一次。
+    //   留痕不记 ignored 步这条判据由 `advanceMessage` 那条返回钉住（用例：被忽略的那一步不进时间线）。
     messages[message.messageId] = message;
     return step;
   }
+  // 留痕排在擦正文之前：记的是"这一步发生了什么"，与正文走不走无关
+  appendTrail(contract, message, step, now);
   if (step.deleteBody) {
     // 记录本身留着（审计只要元数据：privacy.auditStoresMetadataOnly），正文必须走。
     delete message.body;
@@ -236,6 +276,12 @@ function enqueue(contract, messages, input, now, envKey) {
     attempts: 0,
     queuedAt: now,
     updatedAt: now,
+    // 空白时间线，不是一条"已排队"的留痕：留痕记的是**状态机走过的那一步**，
+    // 而刚入队的这条什么都没走过（"排队中"这件事由 `state` + `queuedAt` 说，不必再记一遍）。
+    // 反过来，早于这一片的旧行**没有这个键** ⇒ 读口给出 null，视图就能说清"这条没有留痕"
+    // 与"这条留痕是空的"是两件事。
+    trail: [],
+    trailDropped: 0,
     body: sealContent(contract, envKey, input.title, input.body),
   };
 
@@ -261,7 +307,7 @@ function evictOverflow(contract, messages, device, now) {
       event: 'evicted',
       attempts: oldest.attempts,
     });
-    applyStep(messages, oldest, step, now);
+    applyStep(contract, messages, oldest, step, now);
     evicted.push({ messageId: oldest.messageId, receipt: step.receipt || receipts[0] });
     over -= 1;
   }
@@ -283,7 +329,7 @@ function advanceMessage(contract, messages, messageId, event, options) {
     // 迟到的 ack / 重复的事件：什么都不动（连 updatedAt 都不动，否则审计时间线会被噪声填满）
     return { step, message };
   }
-  applyStep(messages, message, step, opts.now || Date.now());
+  applyStep(contract, messages, message, step, opts.now || Date.now());
   return { step, message };
 }
 
@@ -313,7 +359,7 @@ function dispatchForDevice(contract, messages, device, now) {
       event,
       attempts: message.attempts,
     });
-    applyStep(messages, message, step, now);
+    applyStep(contract, messages, message, step, now);
     if (step.ignored || step.attempts === before) {
       skipped.push({ messageId: message.messageId, reason: step.ignored || 'not-dispatched' });
       continue;
@@ -335,7 +381,7 @@ function expireDueMessages(contract, messages, now) {
       event: 'ttl_elapsed',
       attempts: message.attempts,
     });
-    applyStep(messages, message, step, now);
+    applyStep(contract, messages, message, step, now);
     if (!step.ignored) expired.push({ messageId: message.messageId, receipt: step.receipt });
   }
   return { expired };

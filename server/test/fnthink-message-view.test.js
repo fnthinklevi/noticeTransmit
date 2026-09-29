@@ -12,8 +12,8 @@
 //     明写 false，回执由状态机当作一条消息推回发送端）。挂到协议面就要为"谁能看别人的投递"
 //     再造一套判据 —— 那是第二个信任根。
 //
-// ⚠ 刻意**没有**时间线相关的用例：表里今日只有当前态 + queuedAt/updatedAt/attempts/receipt，
-//    "几点下发、几点 ack"要等推进留痕那片才有出处。为它写断言就是逼实现编一份日志出来。
+// ⚠ 时间线（第二片）在的是**投递那一步的留痕**，不是"这条消息的所有历史"：入队与正文刷新
+//    不记（那是 `queuedAt` 的事），被忽略的事件不记（什么都没发生），裁掉的条数只给计数不给内容。
 //
 // 反证（2026-09-29，十条全 named + restored，基线先验过绿；报告 `outputs/_msgview.report.txt`）：
 // MD1 投影多带一个 body 字段 / MD2 先筛后数 / MD3 上限不夹 / MD4 排序反向 / MD5 非法档位不拒 /
@@ -21,6 +21,16 @@
 // MD9 expiresAt 写死 7 天 / MD10 路由自己拼一行。
 // MD9 与本文件那条"喂改过数值的契约副本"是同一件事的两面：**没有那份副本，写死与读契约红不出来**
 // （X5/Z4/SA1/RC1 四次撞的同一个坑，这是第五次，只是这次在第一片就避开了）。
+//
+// 反证（第二片，2026-09-29，`outputs/_trail.report.txt` + `outputs/_trail_dart.report.txt`，
+// 两边基线都先验过绿）：TL2 留痕不裁 / TL3 裁了不计数 / TL4 裁反方向 / TL5 缺上限时退回默认值 /
+// TL6 老行报成空时间线 / TL7 时间线不再机器专属 / TL8 步里不带事件名 ⇒ 全部 exit≠0 + named + restored；
+// DA1–DA5 改弱 `contract.dart` 里新写的那几条 validate ⇒ 全部由对应那条「反证」用例点名红。
+// ⚠ **TL1 是 NO FAILURE，按假绿登记**：把 `applyStep` 的 ignored 分支改成"也记一笔"，
+//    本文件那条「被忽略的那一步不进时间线」看不出来 —— ack 那一路的忽略步在 `advanceMessage`
+//    开头就返回了，根本到不了 applyStep。今日真能走到那一支的只有 `evictOverflow` 挤不动
+//    waiting_online 那一次，而那一处另有问题（已单独挂待办），不是本片能顺手修的。
+//    ⇒ 这条判据今日由 `advanceMessage` 那条返回守住（有用例），applyStep 里那一支属纵深防御。
 'use strict';
 
 const fs = require('fs');
@@ -172,6 +182,8 @@ describe('投递状态读口（T45 第一片）', () => {
         'state',
         'targetLastSeenAt',
         'terminal',
+        'trail',
+        'trailDropped',
         'type',
         'updatedAt',
       ].sort(),
@@ -325,6 +337,121 @@ describe('投影本身（纯函数，喂的是改过数值的契约副本）', (
     expect(row.receipt).toBeNull();
     expect(row.receiptSentAt).toBeNull();
     expect(Object.values(row).some((v) => v === undefined)).toBe(false);
+  });
+});
+
+describe('投递时间线（T45 第二片：留痕才有出处）', () => {
+  beforeEach(() => clearTable());
+
+  test('走一遍 dispatch → ack_ok：时间线两条，状态与事件都取自契约词表', async () => {
+    put({ seq: 21, events: TO_DELIVERED });
+    const res = await get();
+    const trail = res.body.data.messages[0].trail;
+    expect(trail).toHaveLength(2);
+    expect(trail.map((e) => e.event)).toEqual(['dispatch', 'ack_ok']);
+    expect(trail.map((e) => e.state)).toEqual(['delivering', 'delivered']);
+    for (const entry of trail) {
+      expect(contract.delivery.events).toContain(entry.event);
+      expect(contract.delivery.states).toContain(entry.state);
+      // 一条留痕能有的键**只有契约说的那几个**：多出来的那一格迟早是正文
+      expect(Object.keys(entry).sort()).toEqual([...contract.retention.auditTrail.fields].sort());
+    }
+  });
+
+  test('被忽略的那一步不进时间线（迟到的 ack 不该被写成一次历史）', async () => {
+    const id = put({ seq: 22, events: TO_DELIVERED });
+    const before = store.loadMessages()[id];
+    const messages = store.loadMessages();
+    store.advanceMessage(contract, messages, id, 'ack_ok', { now: before.updatedAt + 5000 });
+    store.saveMessages(messages);
+    const res = await get();
+    const row = res.body.data.messages[0];
+    expect(row.trail).toHaveLength(2);
+    expect(row.updatedAt).toBe(before.updatedAt);
+  });
+
+  test('上限从契约读：喂一份 maxPerMessage:3 的契约，留下的就是最近 3 条 + 裁掉几条要能看见', () => {
+    const messages = store.loadMessages();
+    const { message } = store.enqueue(
+      contract,
+      messages,
+      { device: CODES.A, sender: CODES.B, type: 'notice', item: 'i', title: 't', body: 'b' },
+      T0,
+      KEY,
+    );
+    store.saveMessages(messages);
+    // 只有留痕的界被改小：状态机吃的是同一份契约，推进行为必须一模一样
+    const small = JSON.parse(JSON.stringify(contract));
+    small.retention.auditTrail.maxPerMessage = 3;
+    const table = store.loadMessages();
+    let at = T0;
+    for (const event of ['dispatch', 'ack_fail', 'dispatch', 'ack_fail', 'dispatch']) {
+      at += 1000;
+      store.advanceMessage(small, table, message.messageId, event, { now: at });
+    }
+    store.saveMessages(table);
+    const row = store.publicMessage(small, store.loadMessages()[message.messageId]);
+    expect(row.trail).toHaveLength(3);
+    expect(row.trailDropped).toBe(2);
+    // 裁的是最旧的：留下的最后一条就是刚刚那一步
+    expect(row.trail[2]).toEqual({ state: 'delivering', at, event: 'dispatch' });
+  });
+
+  test('调用方递进来的 trail 一律丢弃：时间线不是能写进去的话术', () => {
+    const messages = store.loadMessages();
+    const result = store.enqueue(
+      contract,
+      messages,
+      {
+        device: CODES.A,
+        sender: CODES.B,
+        type: 'notice',
+        item: 'i',
+        title: 't',
+        body: 'b',
+        trail: [{ state: 'delivered', at: T0, event: 'ack_ok' }],
+      },
+      T0,
+      KEY,
+    );
+    expect(result.droppedFields).toContain('trail');
+    expect(result.message.trail).toEqual([]);
+    expect(result.message.trailDropped).toBe(0);
+  });
+
+  test('契约没给 maxPerMessage ⇒ 抛，不退回默认值（没界就是每 poll 长一条）', () => {
+    const messages = store.loadMessages();
+    const { message } = store.enqueue(
+      contract,
+      messages,
+      { device: CODES.A, sender: CODES.B, type: 'notice', item: 'i', title: 't', body: 'b' },
+      T0,
+      KEY,
+    );
+    const unbounded = JSON.parse(JSON.stringify(contract));
+    delete unbounded.retention.auditTrail;
+    expect(() =>
+      store.advanceMessage(unbounded, messages, message.messageId, 'dispatch', { now: T0 + 1 }),
+    ).toThrow(/maxPerMessage/);
+  });
+
+  test('早于这一列的老行：trail 是 null，不是"空的时间线"', () => {
+    // 手搓一行**只为纯函数**：不落盘（绕过落盘闸门的行不能当真数据）
+    const legacy = {
+      messageId: 'm_legacy',
+      device: CODES.A,
+      state: contract.delivery.states[0],
+      attempts: 0,
+      queuedAt: T0,
+      updatedAt: T0,
+    };
+    const row = store.publicMessage(contract, legacy);
+    expect(row.trail).toBeNull();
+    expect(row.trailDropped).toBeNull();
+    // 而新行是 []：这两句在运维眼里不是同一个意思
+    expect(store.publicMessage(contract, { ...legacy, trail: [], trailDropped: 0 }).trail).toEqual(
+      [],
+    );
   });
 });
 

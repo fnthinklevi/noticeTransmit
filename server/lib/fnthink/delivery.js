@@ -101,6 +101,9 @@ function advance(contract, input) {
     Object.assign(
       {
         state: next,
+        // 步里带上**是哪个事件**推进的：留痕要能回答"这条是被什么挪走的"，
+        // 而让调用方把 event 再传一遍给 applyStep，就会有第四处传错标签的机会。
+        event,
         attempts,
         receipt: null,
         // 被忽略的那一步什么都不该发生（见 Dart 侧同一处注释）。
