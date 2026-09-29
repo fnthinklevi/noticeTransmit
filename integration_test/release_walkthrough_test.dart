@@ -2132,7 +2132,33 @@ Future<void> _tap(WidgetTester t, Finder f, String why) async {
   } catch (_) {}
   await t.pump(const Duration(milliseconds: 120));
   await _must(t, f.evaluate().isNotEmpty, '可见化后 $why', f);
-  await t.tap(f.first);
+  // ⚠⚠ **把"打不中"从静默变成一行具名痕迹**：`tester.tap()` 未命中时只走 `debugPrint` 抛警告、
+  // 不抛异常 ⇒ 那一下是空点而用例照报绿。2026-09-30 那次全量闸门的日志里就躺着一条
+  // （5.11「深色模式 + 语言」，`_tap` 打在 RenderParagraph 上），而那一轮报的是 8/8 全绿。
+  // 这里**先不判红**：历史上到底还有几处没人知道，一次性改成硬失败只会让整轮红而没有清单。
+  // 先数出来（`grep GATE-MISSED-TAP`），再决定逐条修还是直接变闸门红线。
+  // ⚠ 只覆盖 `_tap`：`_type`/`_longPress` 里那些自己调 `t.tap` 的地方还没有这张网。
+  final previousPrint = debugPrint;
+  final missed = <String>[];
+  debugPrint = (String? message, {int? wrapWidth}) {
+    if (message != null &&
+        message.contains('would not hit test on the specified widget')) {
+      missed.add(message);
+      return; // 整段警告含 hit test 明细与栈，几十 KB，吞掉后只留一行结论
+    }
+    previousPrint(message, wrapWidth: wrapWidth);
+  };
+  try {
+    await t.tap(f.first);
+  } finally {
+    debugPrint = previousPrint;
+  }
+  for (final m in missed) {
+    final one = m.split('\n').first;
+    debugPrint(
+      'GATE-MISSED-TAP ▸ $why :: ${one.length > 220 ? "${one.substring(0, 220)}..." : one}',
+    );
+  }
   await _settle(t);
 }
 
