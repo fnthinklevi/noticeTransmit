@@ -350,6 +350,49 @@ void main() {
       );
       await _backToHome(tester);
     });
+    await _step(
+      tester,
+      gateFailures,
+      '4.1 推送历史页的方向切换：切到「收件（幻念）」再切回来',
+      () async {
+        // 为什么单开一步：T48 第一片把方向做成**数据源切换**（两张表分页口径不同，拼进同一条时间线
+        // 的表现是翻页时同一条出现两次或整条不出现），而闸门此前只进过这一页的"转发"那一侧 ——
+        // 收件那一档在设备上从没被点开过，与"幻念推送页整页是闸门盲区"是同一类洞。
+        await _tap(tester, find.text('推送历史'), '通知页→推送历史（方向切换）');
+        await _settle(tester, seconds: 2);
+        await _tap(tester, _in(HistoryPage, find.text('收件（幻念）')), '历史页→收件（幻念）');
+        await _settle(tester, seconds: 2);
+        // 这台模拟器上没有幻念收件 ⇒ 只允许说"还没有收到过消息"那一句。
+        // 出现转发那一侧的行 = 两份数据源串了；一句都不说 = 读不到与没有货同一张脸。
+        expect(
+          find.text('还没有收到过消息'),
+          findsOneWidget,
+          reason: '收件档没有自己的空态 ⇒ "没读过"与"没有货"在屏幕上分不出来',
+        );
+        expect(
+          find.text('闸门通知一'),
+          findsNothing,
+          reason: '切到收件档还看得见转发的行 ⇒ 方向只是换了个高亮，没换数据源',
+        );
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w.key is ValueKey &&
+                '${(w.key as ValueKey).value}'.startsWith('fnthink-inbox-row-'),
+          ),
+          findsNothing,
+          reason: '空态下不该有收件行',
+        );
+        await _tap(tester, _in(HistoryPage, find.text('转发')), '历史页→切回转发');
+        await _settle(tester, seconds: 2);
+        expect(
+          find.text('闸门通知一'),
+          findsWidgets,
+          reason: '切回来列表空了 ⇒ 两个方向共用一份 state（切回去时没重读自己的那一份）',
+        );
+        await _backToHome(tester);
+      },
+    );
     await _verdict(tester, gateFailures, '闸门 1/4');
   }, timeout: const Timeout(_caseABudget));
 
