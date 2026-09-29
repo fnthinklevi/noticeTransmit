@@ -46,8 +46,11 @@ class FnthinkPushDeps {
 /// ⚠ 页面上刻意没有的东西，都不是忘了：
 ///  - **配对名单**：poll 的回信里没有对端名字，而"添加设备"那一步（pairArm/pairConfirm 的客户端半）
 ///    还没接 —— 先放一张永远空的列表等于让界面猜。
-///  - **大陆那台预设地址**：`transport.endpoints.mainland` 在契约里声明了，但那台今天没部署
-///    （#137 等他定）；摆一个按下去就一路 403/超时的选项，比不摆更坏。
+///  - **大陆那台预设地址**：`transport.endpoints.mainland` 今天**已部署**（#137 走"先把它部署起来"收口，
+///    两个域名的能力等价有外网实测），但这一页仍然不给那一档 —— 缺的已经不是地址，而是
+///    **"什么时候该建议切"的判据**：契约的 `suggestSwitchOnMainlandNetwork` 要靠网络测量，
+///    而设备侧没有任何测量口径（那半属于 T44 ①，未做）。摆两个都能用的地址却不给选择的依据，
+///    等于把决策甩回给用户，而且他一旦选错，症状是"网络好好的却连不上"。
 ///  - **收件未读数**：它属于 T48 那张入口卡与历史页筛选，不是这一页的责任。
 class FnthinkPushPage extends StatefulWidget {
   const FnthinkPushPage({super.key, this.deps});
