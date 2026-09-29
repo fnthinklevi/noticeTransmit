@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
+import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/main.dart' show MyApp;
 import 'package:notice_transmit/pages/app_channel_list_page.dart';
@@ -390,6 +391,100 @@ void main() {
           findsWidgets,
           reason: '切回来列表空了 ⇒ 两个方向共用一份 state（切回去时没重读自己的那一份）',
         );
+        await _backToHome(tester);
+      },
+    );
+    await _step(
+      tester,
+      gateFailures,
+      '4.2 收件档"有货"的那一半：列表行 → 详情 → 点开即已读',
+      () async {
+        // 4.1 只能证"空态说人话"。这一格证的是**有货的时候**：这台模拟器没有服务端可连，
+        // 而闸门用的是真实加密库（不是替身），所以直接往 `fnthink_messages` 塞一行，
+        // 让"列表里那一行 / 未读点 / 详情里的标题与正文 / 点开即已读"这四件事在设备上各留一次证据。
+        // ⚠ 首页那张未读卡**不在这里断言**：它的数只在服务启动与 resumed 时重取
+        //    （`main_page.dart:184/283`），而注入发生在页面装配之后 —— 在这儿断"卡该出现"
+        //    要么是假红、要么得写成软断言（更糟）。那一格由 widget 用例证。
+        const gateId = 'gate_inbox_1';
+        final helper = DatabaseHelper();
+        final db = await helper.database;
+        Future<void> drop() async {
+          await db.delete(
+            FnthinkInboxMessage.table,
+            where: 'message_id = ?',
+            whereArgs: [gateId],
+          );
+        }
+
+        // 先清一次：上一轮没收干净的话，幂等插入会返回 false，那条断言就说不清是谁的错
+        await drop();
+        final inserted = await helper.insertFnthinkInbox(
+          const FnthinkInboxMessage(
+            messageId: gateId,
+            sender: '8KMNPQRSTVWX999777',
+            type: 'notice',
+            item: '',
+            title: '闸门收件一',
+            body: '闸门注入的收件正文',
+            receivedAt: 1767223200000,
+          ),
+        );
+        expect(inserted, isTrue, reason: '注入没落库 ⇒ 后面每一条断言都是在演一场空');
+
+        await _tap(tester, find.text('推送历史'), '通知页→推送历史（注入之后）');
+        await _settle(tester, seconds: 2);
+        await _tap(
+          tester,
+          _in(HistoryPage, find.text('收件（幻念）')),
+          '历史页→收件（幻念）（有货）',
+        );
+        await _settle(tester, seconds: 2);
+        final row = find.byKey(const ValueKey('fnthink-inbox-row-$gateId'));
+        expect(
+          row,
+          findsOneWidget,
+          reason: '表里有一条而列表不列 ⇒ 这一档读的不是那张表（或被 read 那一列滤掉）',
+        );
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
+          findsOneWidget,
+          reason: '未读点不在 ⇒ 用户没法区分"看过没有"（它只该跟着 read 那一列走）',
+        );
+        expect(
+          find.text('还没有收到过消息'),
+          findsNothing,
+          reason: '有货还报空态 ⇒ 4.1 那条空态断言此刻是反的',
+        );
+
+        await _tap(tester, row, '收件行→详情');
+        await _settle(tester, seconds: 1);
+        final sheet = find.byType(BottomSheet);
+        expect(
+          find.descendant(of: sheet, matching: find.text('闸门收件一')),
+          findsOneWidget,
+          reason: '详情弹层没起来，或起来了而没有标题',
+        );
+        expect(
+          find.descendant(of: sheet, matching: find.text('闸门注入的收件正文')),
+          findsOneWidget,
+          reason: '详情里没有正文 ⇒ 只给标题的那一格不算"看过"',
+        );
+        // "点开即已读"写在 `await showModalBottomSheet(...)` **之后** ⇒ 必须先把弹层关掉，
+        // 才轮到那一次 markRead + 重读表（点遮罩关，与第 4 步收长按弹层同一个动作）。
+        await tester.tapAt(const Offset(10, 10));
+        await _settle(tester, seconds: 2);
+        expect(
+          find.byKey(const ValueKey('fnthink-inbox-unread-$gateId')),
+          findsNothing,
+          reason: '关掉详情还在标未读 ⇒ 点开即已读那一刀没接上（或页面自己留了份状态没重读表）',
+        );
+        expect(row, findsOneWidget, reason: '已读不该把那一行从历史里抹掉（它只是变成"看过的"）');
+        expect(
+          await helper.countFnthinkInboxUnread(),
+          0,
+          reason: '库里那一行的 read 没翻过去',
+        );
+        await drop(); // 闸门要可重复跑：留着它，下一轮的 4.1 就不再是空态
         await _backToHome(tester);
       },
     );
