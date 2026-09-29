@@ -97,18 +97,18 @@ void main() {
       // 所以四条用例彼此独立 —— 这是拆分的前提，否则只有 1/4 能自己跑。
       'drainOfflineCache': {
         'records': <Map<String, dynamic>>[
-        {
-          'id': 'smoke_offline_1',
-          'title': '冒烟离线通知',
-          'content': '集成冒烟测试注入的离线通知内容',
-          'subText': '',
-          'packageName': 'com.smoke.app',
-          'appName': '冒烟应用',
-          'postTime': 1767223200000,
-          'time': '2026-01-01 10:00:00',
-          'type': 'notification',
-          'priority': 1,
-        },
+          {
+            'id': 'smoke_offline_1',
+            'title': '冒烟离线通知',
+            'content': '集成冒烟测试注入的离线通知内容',
+            'subText': '',
+            'packageName': 'com.smoke.app',
+            'appName': '冒烟应用',
+            'postTime': 1767223200000,
+            'time': '2026-01-01 10:00:00',
+            'type': 'notification',
+            'priority': 1,
+          },
         ],
         'dropped': 0,
       },
@@ -227,9 +227,41 @@ void main() {
     timeout: const Timeout(Duration(minutes: 5)),
   );
 
+  /// 把首页里的某张卡滚进视口，之后才允许断言或点击。
+  ///
+  /// 为什么这两条冒烟需要它（第 26 轮实测：冒烟 2/3 红而 walkthrough 全绿）：
+  /// 首页是 `ListView`，**视口外的行根本没被 build 出来**，于是 `find.text('推送历史')`
+  /// 命中 0 个 —— 报出来像"仪表盘链路断了"，实际只是"还没滚到"。walkthrough 的 `_tap`
+  /// 早就先滚动再 `ensureVisible`（它记着另一坑：`tap()` 打不中时只打印 Warning 不抛异常，
+  /// 于是变成点击静默丢失），而这两条用的是裸 finder —— 换一台可用高度更矮的 AVD 就露出来。
+  /// ⚠ 按**下标**重新解析 Scrollable：一次 drag 之后旧实例会被重建，
+  ///    拿 `find.byWidget(旧实例)` 去 drag 会一次也滚不动（walkthrough 的同一笔账）。
+  Future<bool> revealOnHome(WidgetTester t, Finder target) async {
+    if (target.evaluate().isNotEmpty) return true;
+    final count = t.widgetList(find.byType(Scrollable)).length;
+    for (var i = count - 1; i >= 0; i--) {
+      final scrollable = find.byType(Scrollable).at(i);
+      for (var k = 0; k < 12 && target.evaluate().isEmpty; k++) {
+        try {
+          await t.drag(scrollable, const Offset(0, -320), warnIfMissed: false);
+        } catch (_) {
+          break; // 这个容器不可滚动（或已不在屏幕上），换下一个
+        }
+        await t.pump(const Duration(milliseconds: 120));
+      }
+      if (target.evaluate().isNotEmpty) return true;
+    }
+    return false;
+  }
+
   testWidgets('冒烟 2/4 数据注入：离线通知合并 + 仪表盘反映条数', (tester) async {
     final svc = await launchApp(tester);
     await waitInjected(tester, svc);
+    // 先滚到那张卡（标题与条数在同一张卡里，标题必定在 ⇒ 用它当滚动目标）。
+    // ⚠ 找不到要在这里点名，别让下面那句"共 1 条记录"超时去替它背锅：
+    //    "这张卡不存在"与"这张卡的数字不对"是两种缺陷，界面上一句话看不出来。
+    final revealed = await revealOnHome(tester, find.text('推送历史'));
+    expect(revealed, isTrue, reason: '滚动之后仍找不到「推送历史」这张入口卡 ⇒ 首页真的少了这个入口（不是没滚到）');
     // 仪表盘重算条数也是异步的（notifyListeners → 下一帧），先等再断（同上）
     await waitUntil(tester, find.text('共 1 条记录'));
     // recordCount = 共 N 条记录
@@ -269,7 +301,17 @@ void main() {
       reason: '出现非 chan: 前缀的送达键 = 键又长回了本地化显示名',
     );
 
-    await tester.tap(find.text('推送历史'));
+    // 与冒烟 2 同一手：先滚到那张卡，再 ensureVisible 后点。
+    // 裸 `tap(find.text('推送历史'))` 在这台 AVD 上会命中 0 个（视口外没被 build），
+    // 而即便命中了，未 ensureVisible 的 tap 打不中时只打印 Warning 不抛 ⇒ 静默丢失。
+    expect(
+      await revealOnHome(tester, find.text('推送历史')),
+      isTrue,
+      reason: '滚动之后仍找不到「推送历史」这张入口卡 ⇒ 历史页根本进不去（不是没滚到）',
+    );
+    await tester.ensureVisible(find.text('推送历史').first);
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.tap(find.text('推送历史').first);
     await pumpFor(tester, const Duration(seconds: 2));
     await waitUntil(tester, find.text('冒烟离线通知'));
     // 徽标与行是分两帧渲染的（行先出、状态后算），同样先等再断
