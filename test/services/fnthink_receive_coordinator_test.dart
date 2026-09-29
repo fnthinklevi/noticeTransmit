@@ -780,6 +780,33 @@ void main() {
       );
     });
 
+    test('在途那一轮的旧回信，不会把已答复的那条画回来（幽灵行）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: rec,
+        serviceFactory: armFactory(
+          sink: asked,
+          body: confirmBody(grantedLevel: 'L1'),
+        ),
+        recordPeer: (_) async => FnthinkPeerWrite.created,
+      );
+      await c.receiveOnce();
+      await c.confirmPairing(request: req('L1'), approve: true);
+      expect(c.pendingPairRequests, isEmpty);
+      // 一次 poll 的往返可以晚于用户那一下点击：这一轮出发时那条还没被答过，
+      // 落地时它已经结掉了 —— 旧回信不许把它画回来。
+      await c.receiveOnce();
+      expect(
+        c.pendingPairRequests,
+        isEmpty,
+        reason: '那是一条点不开的幽灵行：再点一次换来的是一句与"口令错"同形的 403',
+      );
+    });
+
     test('答复没成 ⇒ 那一条还留着（可以再试，或等它过期）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,

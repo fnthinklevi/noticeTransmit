@@ -208,12 +208,30 @@ class FnthinkReceiveCoordinator {
   /// 页面上那张待确认列表的数据源（不在这里判断过期：过期由服务端裁，下一轮 poll 就不带回来了）。
   List<FnthinkPairRequest> get pendingPairRequests => _pairRequests.value;
 
+  /// 这一台**已经答复过、且服务端已经结掉**的请求 id。
+  ///
+  /// 为什么需要它：一次 poll 可能在用户点下同意**之前**就出发了，它的回信里那条还在 ——
+  /// 落地的时刻晚于答复，`_noteRound` 就会把已经答复的那一条重新画回去（幽灵行）。
+  /// 用户对着一条看不见的旧账再点一次，换来的是一句与"口令错"同形的 403。
+  /// 这份名单只挡"本机答过的这一条"，不改服务端那份真相：下一轮如果没有它，本来就不该有它。
+  ///
+  /// 这一条被砸过什么（反证 P15）：`_noteRound` 里那层过滤摘掉 ⇒ 红在
+  /// 「在途那一轮的旧回信，不会把已答复的那条画回来」；只红那一条，其余照绿 ——
+  /// 因为这个形状只在"点击与一次 poll 的往返撞车"时才出现，用例是把那一轮重放出来的。
+  final Set<String> _answeredRequestIds = <String>{};
+
+  List<FnthinkPairRequest> _withoutAnswered(
+    Iterable<FnthinkPairRequest> incoming,
+  ) => List.unmodifiable(
+    incoming.where((r) => !_answeredRequestIds.contains(r.requestId)),
+  );
+
   /// 一轮的账 → 本机状态。**唯一的一处实现**：后台循环走 `onRound`，页面上"立即收取"那一下
   /// 走 [receiveOnce]（它调的是 `runOnce`，不经过 `_tick`，所以不会自己响）。两条路共用这一个
   /// 函数，是因为"待确认列表什么时候变"这件事只能有一个口径。
   void _noteRound(FnthinkLoopReport report) {
     if (report.status != FnthinkPollStatus.ok) return;
-    _pairRequests.value = List.unmodifiable(report.pairRequests);
+    _pairRequests.value = _withoutAnswered(report.pairRequests);
   }
 
   bool get isRunning => _loop?.isRunning ?? false;
@@ -413,10 +431,8 @@ class FnthinkReceiveCoordinator {
     }
     // 服务端 `consumesRequest`：一条请求只会被答复一次。它已经结掉，这一台就把它从待确认
     // 列表里摘掉 —— 留着那一行等于邀请用户点第二下，而第二下换回的是同形的那句 403。
-    _pairRequests.value = [
-      for (final r in _pairRequests.value)
-        if (r.requestId != request.requestId) r,
-    ];
+    _answeredRequestIds.add(request.requestId);
+    _pairRequests.value = _withoutAnswered(_pairRequests.value);
     if (!approve) return FnthinkPairAnswer(result: result);
 
     // 写进名单的那一档**必须是服务端回的那一档**，不是本机发出去的那一档：两端哪天对封顶的
