@@ -43,6 +43,7 @@ class FnthinkReceiverService {
       'pairRevoke',
       'endpointCreate',
       'endpointList',
+      'endpointRevoke',
     ]) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
@@ -267,6 +268,31 @@ class FnthinkReceiverService {
       );
     }
     return kernel.endpointList();
+  }
+
+  /// 关掉自己名下一条接入端点（`/endpoint-revoke`，#157 第四片）。
+  ///
+  /// 这一发**只有一个参数、也不带回任何凭证形状的东西**，所以本层没有新的红线要守；
+  /// 真正的判据（owner 核查、两种失败同形、幂等）都在服务端那一边，那里已反证过（RV1–RV8）。
+  /// 与其余几发同样：签不出来就不发（那道短路与 U6 同案 —— 协调者先拦，今日不可单独观察，
+  /// 按纵深防御登记，不登记成"已验证"）。
+  ///
+  /// 反证 **SA4**（`outputs/_eprv2.report.txt`）：装配判定名单里删掉 `endpointRevoke` ⇒
+  /// 红在装配守卫「服务层装配判定里含 endpointRevoke」。摘掉之后行为上暂时还是通的
+  /// （路径靠 messageType 反查），所以这一条只能由守卫看着那张名单本身 —— 它防的是
+  /// "以后有人把反查换成查表，而这一类从来没登记过"。
+  Future<FnthinkEndpointRevokeResult> endpointRevoke({
+    required String endpointId,
+  }) async {
+    if (!await _canSign()) {
+      return FnthinkEndpointRevokeResult(
+        status: FnthinkPollStatus.failed,
+        endpointId: endpointId,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.endpointRevoke(endpointId: endpointId);
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

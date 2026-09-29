@@ -150,6 +150,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 端点表在服务端，本机不留副本 —— 留了就是一本会漂的账（那边吊销了，这本还写着在用）。
   FnthinkEndpointListResult? _endpointList;
 
+  /// 最近一次"关掉一把入口"的结论（null = 这一页还没关过）。
+  /// 与名单那一格同一个道理：结论必须经得起回去再看一眼，不能弹个 toast 就消失 ——
+  /// 而这里更需要，因为**关掉之后列表里那一行还在**（只是不再收信），
+  /// 没有这句结论，用户看不出那一行是自己刚关的还是一早就停的。
+  FnthinkEndpointRevokeResult? _endpointRevoked;
+
   FnthinkDeviceIdentity? _identity;
   bool _identityUnavailable = false;
 
@@ -548,6 +554,61 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     });
   }
 
+  /// 关掉一把入口（`/endpoint-revoke`，#157 第四片）。
+  ///
+  /// 按 T06 那条规矩：**关掉一个东西一律二次确认**，而弹层释放之后才发那一发。
+  /// 确认之后要做的事只有一件 —— 把结论记下来，然后**重新读一次列表**：
+  /// 屏幕跟上服务端，而不是自己把那一行就地画灰（本机若有一份"我把它标成停了"的账，
+  /// 下一次读之前它就是唯一的一份真值，而那份真值可能是错的）。
+  /// 还没读过就不重读：没看过的东西不凭空生成一份列表（与 `_createEndpoint` 同一条口径）。
+  ///
+  /// 这一格被砸过什么（`outputs/_eprv2.report.txt` + `_eprv2b.report.txt`）：
+  ///  - **SA6** `if (!ok || !mounted) return;` 摘掉（= 取消也发）⇒ 红在「弹层上点取消 ⇒ 那一发不发」。
+  ///    ⚠ 这条第一次跑是 **NO FAILURE**：原来那两条只走"确定"那一支，而 `askConfirm` 本身是
+  ///    await 的，摘掉早退在它们身上完全看不出来 —— 二次确认这道闸的可观察点在**取消那一路**，
+  ///    于是补了这条用例再反证（不是把植入改巧一点就算完）；
+  ///  - **SA7** 已停的那一行也给"关掉"按钮（`if (row.usable)` 摘掉）⇒ 红在「已经停了的那一把不再给」；
+  ///  - **SA8** 关掉之后不重读 ⇒ 红在「关掉之后重读一次列表」；
+  ///  - **SA9** 幂等那一句倒向"没关掉"（`if (result.revoked == false)` 摘掉）⇒
+  ///    红在「那边本来就不收了 ⇒ 走成功那一路」。
+  Future<void> _revokeEndpoint(FnthinkEndpointSummary row) async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final ok = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.fnthinkEndpointRevokeAskTitle,
+      message: l10n.fnthinkEndpointRevokeAskMsg(row.id),
+      // 弹层里的确认键不写"关掉"：与列表里那个按钮同词时，`find.text` 一次抓到两个，
+      // 而用户也分不清自己点的是"要关"还是"只是打开了弹层"。
+      confirmText: l10n.confirm,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    final result = await _coordinator.revokeEndpoint(endpointId: row.id);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _endpointRevoked = result;
+    });
+    if (_endpointList != null) await _readEndpoints();
+  }
+
+  /// 吊销那一发的结论。⚠ `revoked:false` 走**成功**那一路（幂等：那把本来就不收了）——
+  /// 报成失败会让人再点一次，而第二次换来的还是一句 200。
+  String _endpointRevokeText(AppLocalizations l10n) {
+    final result = _endpointRevoked;
+    if (result == null) return '';
+    if (!result.ok) {
+      return l10n.fnthinkEndpointRevokeFailed(
+        result.reason ?? 'no-endpoint-revoke',
+      );
+    }
+    if (result.revoked == false) {
+      return l10n.fnthinkEndpointRevokeAlreadyGone(result.endpointId);
+    }
+    return l10n.fnthinkEndpointRevoked(result.endpointId);
+  }
+
   /// 待确认的配对请求那一格。
   ///
   /// 列表**跟着协调者那份账走**（`pairRequestsListenable`）：用户挂出口令之后是盯着屏幕等对面来配的，
@@ -708,10 +769,10 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   ///
   /// 为什么这一格值得存在：以前只有管理面能建端点，自部署的用户要给自家 NAS 铸一把入口，
   /// 得先拿出那把能做远多于这件事的 admin token。
-  /// 现在这一格是**建 + 读**：读口 `endpointList` 是设备面签名事件（self-only），
-  /// 所以"我建过哪些、哪把还不收信"这句终于能从本机问出来，而不是靠界面猜。
-  /// ⚠ **轮换 / 吊销仍然没有**：那是两个会改变别人能不能往这台设备推东西的动作，
-  /// 要先把"改完旧口令活多久""吊销之后那一行的账怎么留"想清楚，不在这格顺手加按钮。
+  /// 现在这一格是**建 + 读 + 关**：读口与关闸都是设备面签名事件（self-only），
+  /// 所以"我建过哪些、哪把还不收信、这把我要关掉"三句话都能在手机上说完，不必碰管理面。
+  /// ⚠ **轮换仍然没有**：它会留下一段"旧口令还能用"的宽限期（契约 `endpoint.rotation.graceSeconds`），
+  /// 那段时间里两把口令同时有效 —— 那是与"关掉"不同的一类动作，界面要说的话也不同，单独一片做。
   /// ⚠ 口令那一行只在这次 `setState` 之后存在：不写 prefs、不写表、不进日志（见 `_endpoint`）。
   /// 读回来的那份也不写：端点表的真值在服务端，本机留副本就是一本会漂的账。
   ///
@@ -797,7 +858,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             text: l10n.fnthinkEndpointNone,
           )
         else
-          for (final row in listing.endpoints!)
+          for (final row in listing.endpoints!) ...[
             _Note(
               keyName: 'fnthink-endpoint-row-${row.id}',
               text:
@@ -805,6 +866,24 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
                   ' · '
                   '${row.usable ? l10n.fnthinkEndpointUsable : l10n.fnthinkEndpointNotUsable(row.status)}',
             ),
+            // 已经不收信的那一把**不再给"关掉"按钮**：那一行没有可关的东西了，
+            // 而给它一个按下去只会拿到一句幂等成功的按钮，等于在界面上摆一个假动作。
+            // （真要再对外提供一个入口，正确动作是上面那一下"建一个端点"。）
+            if (row.usable)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  key: ValueKey('fnthink-endpoint-revoke-${row.id}'),
+                  onPressed: _busy ? null : () => _revokeEndpoint(row),
+                  child: Text(l10n.fnthinkEndpointRevoke),
+                ),
+              ),
+          ],
+        if (_endpointRevoked != null)
+          _Note(
+            keyName: 'fnthink-endpoint-revoke-note',
+            text: _endpointRevokeText(l10n),
+          ),
       ],
     );
   }

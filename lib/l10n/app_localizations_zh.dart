@@ -3352,4 +3352,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkEndpointListFailed(String reason) {
     return '这一次没读到（$reason）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。';
   }
+
+  @override
+  String get fnthinkEndpointRevoke => '关掉这把';
+
+  @override
+  String get fnthinkEndpointRevokeAskTitle => '关掉这把入口？';
+
+  @override
+  String fnthinkEndpointRevokeAskMsg(String id) {
+    return '关掉「$id」之后，拿着那把口令的地方会立刻开始被拒。口令找不回来：服务端只存摘要，要再用得重新建一把。';
+  }
+
+  @override
+  String fnthinkEndpointRevoked(String id) {
+    return '已关掉「$id」：那一把不再收信。记录还在，列表里看得见它停了。';
+  }
+
+  @override
+  String fnthinkEndpointRevokeAlreadyGone(String id) {
+    return '「$id」本来就已经不收信了 —— 这是一次达成，不是失败。';
+  }
+
+  @override
+  String fnthinkEndpointRevokeFailed(String reason) {
+    return '这把没关掉（$reason）—— 它还在收信，列表按服务端那一份显示。';
+  }
 }

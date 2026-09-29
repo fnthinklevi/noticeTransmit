@@ -102,6 +102,9 @@ void main() {
     int endpointListStatus = 200,
     // 默认"读到了，确实一把都没有"—— 这是最常见也最容易与"没读到"混为一谈的那一支。
     String endpointListBody = '{"endpoints":[],"serverTime":1800000000000}',
+    int endpointRevokeStatus = 200,
+    String endpointRevokeBody =
+        '{"endpointId":"ep_new","revoked":true,"serverTime":1800000000000}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
@@ -121,6 +124,7 @@ void main() {
     final revokeAsked = <http.Request>[];
     final endpointAsked = <http.Request>[];
     final endpointListAsked = <http.Request>[];
+    final endpointRevokeAsked = <http.Request>[];
     final removed = <String>[];
     final peerRows = <FnthinkPeer>[];
     final peersShown = <FnthinkPeer>[...peers];
@@ -180,6 +184,10 @@ void main() {
                 'content-type': 'application/json; charset=utf-8',
               },
             );
+          }
+          if (req.url.path == contract.apiPath('endpointRevoke')) {
+            endpointRevokeAsked.add(req);
+            return http.Response(endpointRevokeBody, endpointRevokeStatus);
           }
           armAsked.add(req);
           return http.Response(armBody, armStatus);
@@ -246,6 +254,7 @@ void main() {
       revokeAsked: () => revokeAsked,
       endpointAsked: () => endpointAsked,
       endpointListAsked: () => endpointListAsked,
+      endpointRevokeAsked: () => endpointRevokeAsked,
       removed: () => removed,
     );
   }
@@ -1457,6 +1466,199 @@ void main() {
       );
     });
   });
+
+  group('关掉一把入口（#157 第四片）', () {
+    // 一把还在收信 + 一把已经停了：后者**不该**再有"关掉"那一下（点了只会拿到一句幂等成功，
+    // 而界面上摆一个没有后果的按钮，就是教用户以为按钮都是这么回事）。
+    const twoRows =
+        '{"endpoints":['
+        '{"id":"ep_live","name":"nas","status":"active","postOnly":true},'
+        '{"id":"ep_dead","name":"","status":"revoked"}'
+        '],"serverTime":1800000000000}';
+
+    Future<void> readList(WidgetTester tester) async {
+      final button = find.byKey(const ValueKey('fnthink-endpoint-read'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tapClose(WidgetTester tester, String id) async {
+      final button = find.byKey(ValueKey('fnthink-endpoint-revoke-$id'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('列表里那一下先过二次确认；确认之前一发都不出去', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListBody: twoRows);
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapClose(tester, 'ep_live');
+      expect(
+        h.endpointRevokeAsked(),
+        isEmpty,
+        reason: '关掉一把入口改的是"别人还能不能往这台设备推"，手滑的代价在另一台机器上',
+      );
+      expect(
+        find.text(l10n.fnthinkEndpointRevokeAskMsg('ep_live')),
+        findsOneWidget,
+        reason: '弹层上写的必须是**这一把**的 id：一句"确定吗"关不掉任何问责',
+      );
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(h.endpointRevokeAsked(), hasLength(1));
+      final note = find.byKey(const ValueKey('fnthink-endpoint-revoke-note'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        l10n.fnthinkEndpointRevoked('ep_live'),
+      );
+    });
+
+    testWidgets('弹层上点取消 ⇒ 那一发不发，也不留下任何结论行', (tester) async {
+      // 这一条与上一条是**一对**：上一条只走"确定"那一支，摘掉 `if (!ok || !mounted) return;`
+      // 在它身上完全看不出来（askConfirm 本身是 await 的，取消没被取消也不影响时序）。
+      // 反证 SA6 第一次就是在这里 NO FAILURE 的 —— 补了这一条，那一道闸才真的可观察。
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListBody: twoRows);
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapClose(tester, 'ep_live');
+      expect(
+        find.text(l10n.fnthinkEndpointRevokeAskMsg('ep_live')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text(l10n.cancel));
+      await tester.pumpAndSettle();
+      expect(h.endpointRevokeAsked(), isEmpty, reason: '取消就是取消：一个字节都不该离机');
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-revoke-note')),
+        findsNothing,
+        reason: '没做过的事不在界面上留结论',
+      );
+    });
+
+    testWidgets('关掉之后重读一次列表（屏幕跟上服务端，而不是自己把那行画灰）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListBody: twoRows);
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      expect(h.endpointListAsked(), hasLength(1));
+      await tapClose(tester, 'ep_live');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(
+        h.endpointListAsked(),
+        hasLength(2),
+        reason:
+            '那一行还在列表里（服务端不删行）；界面若自己把它涂成灰，'
+            '下一次读之前那份灰就是唯一的真值',
+      );
+    });
+
+    testWidgets('已经停了的那一把不再给"关掉"那一下', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListBody: twoRows);
+      await pump(tester, h.page);
+      await readList(tester);
+      final live = find.byKey(
+        const ValueKey('fnthink-endpoint-revoke-ep_live'),
+      );
+      await revealTo(tester, live);
+      expect(live, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-revoke-ep_dead')),
+        findsNothing,
+        reason: '那一行没有可关的东西了；给它一个按下去只拿到幂等成功的按钮，是摆一个假动作',
+      );
+    });
+
+    testWidgets('服务端拒了 ⇒ 说的是"这把没关掉"，而那一行还挂着', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(
+        endpointListBody: twoRows,
+        endpointRevokeStatus: 403,
+        endpointRevokeBody: '{}',
+      );
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapClose(tester, 'ep_live');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      final note = find.byKey(const ValueKey('fnthink-endpoint-revoke-note'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        isNot(l10n.fnthinkEndpointRevoked('ep_live')),
+        reason: '"已关闭"说错一次的代价是：用户不再去管那把，而 NAS 还在往它推',
+      );
+      expect(
+        tester.widget<Text>(note).data,
+        isNot(contains('ep_live')),
+        reason: '那一句说的是"这次没关掉"，不去复述 id：复述会诱导出"按 id 找行"的假断言',
+      );
+      final row = find.byKey(const ValueKey('fnthink-endpoint-row-ep_live'));
+      await revealTo(tester, row);
+      expect(row, findsOneWidget, reason: '没关掉 ⇒ 服务端那一份还是原来的样子，列表按它显示（不自己删行）');
+    });
+
+    testWidgets('那边本来就不收了（revoked:false）⇒ 走成功那一路，不说失败', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(
+        endpointListBody: twoRows,
+        endpointRevokeBody:
+            '{"endpointId":"ep_live","revoked":false,"serverTime":1800000000000}',
+      );
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapClose(tester, 'ep_live');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      final note = find.byKey(const ValueKey('fnthink-endpoint-revoke-note'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        l10n.fnthinkEndpointRevokeAlreadyGone('ep_live'),
+        reason:
+            '撤销的目标状态是"它不再收信"，本来就不收信就是已达成 —— '
+            '报成失败会让人再点一次，而第二次换来的还是一句 200',
+      );
+    });
+
+    testWidgets('签不出来 ⇒ 那一发不发，而**按不到那一下**（读不成功就没有列表行）', (tester) async {
+      // 这一条今天只能断到"读不成功 ⇒ 页面没有任何可点的行"：那一发的守卫
+      // （签不出来 ⇒ 不发 + 原话）在协调者用例里钉（`revokeEndpoint（#157 第四片）` 那一组）。
+      // 与其在这里造一个页面根本不会出现的按钮，不如把"为什么这里断不了"写下来。
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(canSign: false, endpointListBody: twoRows);
+      await pump(tester, h.page);
+      await readList(tester);
+      expect(
+        h.endpointListAsked(),
+        isEmpty,
+        reason: '签不出来 ⇒ 一个字节都不离机（读那一发也不例外）：那一刻连"有几把"都无从知道',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-revoke-ep_live')),
+        findsNothing,
+        reason: '读都没读到，就不该有"关掉某一行的具体哪一把"那一下 —— 那一刻连 id 都没有',
+      );
+      expect(h.endpointRevokeAsked(), isEmpty);
+    });
+  });
 }
 
 /// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，
@@ -1522,6 +1724,7 @@ class _Harness {
     required this.revokeAsked,
     required this.endpointAsked,
     required this.endpointListAsked,
+    required this.endpointRevokeAsked,
     required this.removed,
   });
 
@@ -1554,6 +1757,10 @@ class _Harness {
   /// 「翻开页面不该自己发这一发」—— 那一刻服务地址与身份还没就位，发出去只会把
   /// "还没法读"画成屏幕上的第一句话。
   final List<http.Request> Function() endpointListAsked;
+
+  /// 关掉一把入口那一发（同一套假服务器）。数得到它被发了几次，是为了能断言
+  /// "点了列表里那一下之前，一发都不该出去"（二次确认那一刀必须先过）。
+  final List<http.Request> Function() endpointRevokeAsked;
 
   /// 本机删行被调用时点到的地址码（替身记下来的）。
   final List<String> Function() removed;

@@ -1801,5 +1801,39 @@
         "type": "String"
       }
     }
+  },
+  "fnthinkEndpointRevoke": "关掉这把",
+  "fnthinkEndpointRevokeAskTitle": "关掉这把入口？",
+  "fnthinkEndpointRevokeAskMsg": "关掉「{id}」之后，拿着那把口令的地方会立刻开始被拒。口令找不回来：服务端只存摘要，要再用得重新建一把。",
+  "@fnthinkEndpointRevokeAskMsg": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRevoked": "已关掉「{id}」：那一把不再收信。记录还在，列表里看得见它停了。",
+  "@fnthinkEndpointRevoked": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRevokeAlreadyGone": "「{id}」本来就已经不收信了 —— 这是一次达成，不是失败。",
+  "@fnthinkEndpointRevokeAlreadyGone": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRevokeFailed": "这把没关掉（{reason}）—— 它还在收信，列表按服务端那一份显示。",
+  "@fnthinkEndpointRevokeFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

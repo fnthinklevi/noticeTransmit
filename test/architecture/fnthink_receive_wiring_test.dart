@@ -536,6 +536,36 @@ void main() {
       );
     });
   });
+
+  group('关掉一把入口那一反（#157 第四片）', () {
+    test('服务层装配判定里含 endpointRevoke，内核那一发只有一个调用点', () {
+      final src = read('lib/services/fnthink_receiver_service.dart');
+      expect(
+        src,
+        contains("'endpointRevoke',"),
+        reason: '漏登记 ⇒ 装配期不报错，第一次点"关掉这把"才在 transport 里抛',
+      );
+      expect(src, contains('kernel.endpointRevoke('));
+    });
+
+    test('那一发在 lib/ 只有一个作者：页面走协调者，不直连服务层', () {
+      final coordinator = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(
+        occurrences(coordinator, 'service.endpointRevoke('),
+        1,
+        reason: '两处就两本账：一处负责 dispose、一处不负责',
+      );
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      expect(
+        page,
+        contains('_coordinator.revokeEndpoint('),
+        reason: '页面上那一行按钮必须走协调者（前置判定与 service 生命周期都在那里）',
+      );
+      expect(occurrences(page, 'endpointRevoke('), 0);
+    });
+  });
 }
 
 class _StubSigner implements FnthinkIdentitySigner {

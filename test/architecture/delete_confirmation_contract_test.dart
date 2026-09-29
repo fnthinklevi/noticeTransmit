@@ -44,6 +44,8 @@ void main() {
       'Future<void> _resetAddressCode(',
       'Future<void> _answer(',
       'Future<void> _revoke(',
+      // T42/#157：关掉一把入口 = 关掉一个别人能写进来的门，手滑的代价是 NAS 从此 401
+      'Future<void> _revokeEndpoint(',
     ],
   };
 
@@ -94,6 +96,7 @@ void main() {
           'credentials.resetAddressCode(',
           '_coordinator.confirmPairing(',
           '_coordinator.revokePeer(',
+          '_coordinator.revokeEndpoint(',
         ],
       };
       for (final entry in mutators.entries) {

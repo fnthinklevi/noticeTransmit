@@ -641,6 +641,38 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 关掉自己名下一条接入端点（#157 第四片）。
+  ///
+  /// 与 [listEndpoints] 同一条前置口径（不要求总开关开着）：**关一把入口与这台现在去不去取货无关** ——
+  /// 关着接收的时候恰恰最可能需要关掉一把还在收信的入口。
+  ///
+  /// 这一发**只发请求，不动本机任何东西**：端点表没有本机副本（见 [listEndpoints] 那段），
+  /// 所以没有"先撤服务端再删本机行"那一步（那是配对名单的形状）。页面在拿到结果之后
+  /// 重新读一次列表即可 —— 让屏幕跟上服务端，而不是自己把那一行画成灰色。
+  ///
+  /// 反证 **SA5**（`outputs/_eprv2.report.txt`）：`requireEnabled: false` 改成 `true` ⇒
+  /// 红在「总开关关着也关得掉」。它与读那一条的 Z10 同族但后果不同档：
+  /// 读错了只是看不见，关错了是**关着接收的时候，想关掉一把还在收信的入口却关不掉**。
+  Future<FnthinkEndpointRevokeResult> revokeEndpoint({
+    required String endpointId,
+  }) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkEndpointRevokeResult(
+        status: FnthinkPollStatus.failed,
+        endpointId: endpointId,
+        reason: resolved.reason,
+        signedWhileUncalibrated: false,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.endpointRevoke(endpointId: endpointId);
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
   void stop() {
     _loop?.stop();

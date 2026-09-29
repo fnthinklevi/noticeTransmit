@@ -1158,6 +1158,59 @@ void main() {
       expect(result.reason, 'signing-unavailable');
     });
   });
+
+  group('关掉一条入口 revokeEndpoint（#157 第四片）', () {
+    const revokeBody =
+        '{"endpointId":"ep_7","revoked":true,"serverTime":1800000000000}';
+
+    test('走的是契约声明的那条路径，而载荷里是那把 id', () async {
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: revokeBody),
+      );
+      final result = await c.revokeEndpoint(endpointId: 'ep_7');
+      expect(asked.single.url.path, contract.apiPath('endpointRevoke'));
+      expect(result.ok, isTrue);
+      expect(result.revoked, isTrue);
+      expect(result.endpointId, 'ep_7');
+    });
+
+    test('总开关关着也关得掉：关一把入口与"这台现在去不去取货"无关', () async {
+      SharedPreferences.setMockInitialValues({}); // 默认关
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: revokeBody),
+      );
+      final result = await c.revokeEndpoint(endpointId: 'ep_7');
+      expect(asked, hasLength(1));
+      expect(
+        result.ok,
+        isTrue,
+        reason: '关着接收的时候恰恰最可能需要关掉一把还在收信的入口 —— 绑到开关上就是那时候不给关',
+      );
+    });
+
+    test('签不出来 ⇒ 那一发不发，reason 是那句原话（不说"已关闭"）', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(sink: asked, body: revokeBody),
+      );
+      final result = await c.revokeEndpoint(endpointId: 'ep_7');
+      expect(asked, isEmpty);
+      expect(result.ok, isFalse);
+      expect(
+        result.revoked,
+        isNull,
+        reason: '一句"已关闭"说错，用户就不再去管理面关，而 NAS 还在往那把入口推',
+      );
+      expect(result.reason, 'signing-unavailable');
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {

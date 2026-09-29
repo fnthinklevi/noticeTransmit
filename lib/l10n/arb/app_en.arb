@@ -1780,5 +1780,39 @@
         "type": "String"
       }
     }
+  },
+  "fnthinkEndpointRevoke": "Close this one",
+  "fnthinkEndpointRevokeAskTitle": "Close this endpoint?",
+  "fnthinkEndpointRevokeAskMsg": "After {id} is closed, whatever holds that token starts getting refused immediately. The token cannot be recovered: the server stores only a digest, so reuse means creating a new one.",
+  "@fnthinkEndpointRevokeAskMsg": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRevoked": "Closed {id}: that one no longer accepts pushes. The record stays, and the list shows it stopped.",
+  "@fnthinkEndpointRevoked": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRevokeAlreadyGone": "{id} was already not accepting pushes — that is a goal reached, not a failure.",
+  "@fnthinkEndpointRevokeAlreadyGone": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRevokeFailed": "This one was not closed ({reason}) — it still accepts pushes, and the list shows the server's copy.",
+  "@fnthinkEndpointRevokeFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

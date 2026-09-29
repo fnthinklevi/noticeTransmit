@@ -6217,6 +6217,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这一次没读到（{reason}）—— 「没读到」不等于「没有」，所以这里仍然不列任何东西，也不说你没有。'**
   String fnthinkEndpointListFailed(String reason);
+
+  /// No description provided for @fnthinkEndpointRevoke.
+  ///
+  /// In zh, this message translates to:
+  /// **'关掉这把'**
+  String get fnthinkEndpointRevoke;
+
+  /// No description provided for @fnthinkEndpointRevokeAskTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'关掉这把入口？'**
+  String get fnthinkEndpointRevokeAskTitle;
+
+  /// No description provided for @fnthinkEndpointRevokeAskMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'关掉「{id}」之后，拿着那把口令的地方会立刻开始被拒。口令找不回来：服务端只存摘要，要再用得重新建一把。'**
+  String fnthinkEndpointRevokeAskMsg(String id);
+
+  /// No description provided for @fnthinkEndpointRevoked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关掉「{id}」：那一把不再收信。记录还在，列表里看得见它停了。'**
+  String fnthinkEndpointRevoked(String id);
+
+  /// No description provided for @fnthinkEndpointRevokeAlreadyGone.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{id}」本来就已经不收信了 —— 这是一次达成，不是失败。'**
+  String fnthinkEndpointRevokeAlreadyGone(String id);
+
+  /// No description provided for @fnthinkEndpointRevokeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这把没关掉（{reason}）—— 它还在收信，列表按服务端那一份显示。'**
+  String fnthinkEndpointRevokeFailed(String reason);
 }
 
 class _AppLocalizationsDelegate

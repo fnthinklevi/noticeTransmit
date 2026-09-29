@@ -398,6 +398,13 @@ class FnthinkContract {
   /// ⚠ 缺键时 `strings()` 抛，不许退化成空名单：契约没声明这条读口，设备就不该发这一发。
   List<String> get endpointListFields => clientEventFields('endpointList');
 
+  /// endpointRevoke 载荷的字段名单（今日 = `["endpointId"]`）。
+  ///
+  /// 名单里**没有也不该有** `secret`：吊销要证明的是"你签过名 + 你说得清要关哪一把"，
+  /// 而不是"你手里有那把口令"。带口令来证明是最想当然的一种写法，而它一旦成立，
+  /// 这一发就成了"泄露过的口令还能用来关掉别人的入口"的第二条通道。
+  List<String> get endpointRevokeFields => clientEventFields('endpointRevoke');
+
   /// 端点状态的**封闭**词表（今日 = `["active","revoked"]`）。
   List<String> get endpointStatuses => strings(const ['endpoint', 'statuses']);
 

@@ -920,6 +920,105 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 endpointRevoke 的签名字段（关掉自己名下一条接入端点，#157 第四片）。
+  ///
+  /// 与 `endpointListFields` 不同，这一发的载荷名单不是空的而是**恰好一个键**：那一个键就是
+  /// 要关的那一把。名单哪天多出第二个键，这里必须抛 —— 因为"关哪一把"与"这一发替谁关"
+  /// 就会变成两件事（pairRevoke 同一个论证），而本内核只收一个 `endpointId` 参数。
+  Map<String, Object?> endpointRevokeFields({
+    required String endpointId,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.endpointRevokeFields;
+    if (declared.length != 1) {
+      throw StateError(
+        'endpointRevoke 的载荷应当只有一个键（契约 fields=$declared）：这里把要关的那一把'
+        '同时当 target 与载荷值用，靠的就是名单里就一个键',
+      );
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('endpointRevoke'),
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode({declared.single: endpointId}),
+    };
+  }
+
+  /// 关掉自己名下一条入口。
+  ///
+  /// ⚠ `revoked == false` 是一次**成功**（那把本来就不收了）：把它当失败，界面上就会出现
+  /// "点了两下都说没成，而那把其实第一次就关掉了" —— 与 pairRevoke 同一条幂等论证。
+  /// 判"成没成"因此只看"看得懂回的是什么"（`revoked` 是个布尔），不看它说没说"关掉过"。
+  /// 失败时**什么表都不动**：本机没有端点表可动（那份真值在服务端），所以这一发唯一要小心的
+  /// 是"把 403 说成已关闭" —— 那用户就不会去重建，而 NAS 那头还在往一把还收信的入口推。
+  ///
+  /// 这一发被砸过什么（`outputs/_eprv2.report.txt`，SA1–SA9 全 named+restored、基线先验过绿）：
+  ///  - **SA1** 载荷里那个键名写死成 `'endpointId'`（不跟着契约走）⇒ 红在「载荷里那个键名跟着契约走」。
+  ///    ⚠ 那条用例是**先反证、发现 NO FAILURE 再补**的：原来只有"形状对时键值是那把 id"那一条，
+  ///    两边拿同一份契约比，写死与读契约当场分不出来 —— 与 X5、Z4 同一类假绿；
+  ///  - **SA2** `revoked` 不是布尔时当成 true ⇒ 红在「200 而 revoked 不是布尔 ⇒ 不算关掉」；
+  ///  - **SA3** 结论里的 id 改成跟着服务端回的那一个 ⇒ 红在「结论里带的是**调用方给的那一把**」。
+  ///    这条看着像洁癖：服务端多回一个键就能把话说反 —— 而"要关的是哪一把"只有用户点的那一下知道。
+  Future<FnthinkEndpointRevokeResult> endpointRevoke({
+    required String endpointId,
+  }) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: endpointRevokeFields(endpointId: endpointId, nonce: nonce),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkEndpointRevokeResult(
+        status: FnthinkPollStatus.transportError,
+        endpointId: endpointId,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkEndpointRevokeResult(
+        status: verdict.status,
+        endpointId: endpointId,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'endpoint-revoke-http:${reply.status}',
+      );
+    }
+    final revoked = reply.body['revoked'];
+    if (revoked is! bool) {
+      _lastReason = 'endpoint-revoke-unparsable-ack';
+      return FnthinkEndpointRevokeResult(
+        status: FnthinkPollStatus.failed,
+        endpointId: endpointId,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    return FnthinkEndpointRevokeResult(
+      status: FnthinkPollStatus.ok,
+      endpointId: endpointId,
+      revoked: revoked,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   int _nonceCounter = 0;
 
   String _fallbackNonce() {
@@ -1307,4 +1406,28 @@ class FnthinkEndpointListResult {
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok && endpoints != null;
+}
+
+/// 关掉一条接入端点的结论（#157 第四片）。
+///
+/// [endpointId] 是**调用方给的那一个**，原样带回：界面要说"你关掉了 ep_x"，而不是
+/// 拿服务端回了什么再猜（这一发的响应刻意只有 `revoked`，不端整条记录）。
+class FnthinkEndpointRevokeResult {
+  const FnthinkEndpointRevokeResult({
+    required this.status,
+    required this.endpointId,
+    required this.signedWhileUncalibrated,
+    this.revoked,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+  final String endpointId;
+
+  /// 服务端**那边本来是不是还在收信**。⚠ `false` 是一次成功，不是失败（幂等）。
+  final bool? revoked;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok && revoked != null;
 }

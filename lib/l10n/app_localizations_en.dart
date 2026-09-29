@@ -3494,4 +3494,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkEndpointListFailed(String reason) {
     return 'Could not read this time ($reason) — \'could not read\' is not \'none\', so nothing is listed and no claim is made.';
   }
+
+  @override
+  String get fnthinkEndpointRevoke => 'Close this one';
+
+  @override
+  String get fnthinkEndpointRevokeAskTitle => 'Close this endpoint?';
+
+  @override
+  String fnthinkEndpointRevokeAskMsg(String id) {
+    return 'After $id is closed, whatever holds that token starts getting refused immediately. The token cannot be recovered: the server stores only a digest, so reuse means creating a new one.';
+  }
+
+  @override
+  String fnthinkEndpointRevoked(String id) {
+    return 'Closed $id: that one no longer accepts pushes. The record stays, and the list shows it stopped.';
+  }
+
+  @override
+  String fnthinkEndpointRevokeAlreadyGone(String id) {
+    return '$id was already not accepting pushes — that is a goal reached, not a failure.';
+  }
+
+  @override
+  String fnthinkEndpointRevokeFailed(String reason) {
+    return 'This one was not closed ($reason) — it still accepts pushes, and the list shows the server\'s copy.';
+  }
 }

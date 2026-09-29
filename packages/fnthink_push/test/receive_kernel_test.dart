@@ -1331,4 +1331,136 @@ void main() {
       }
     });
   });
+
+  group('关掉一条接入端点 endpointRevoke（#157 第四片）', () {
+    Future<FnthinkEndpointRevokeResult> close(
+      _Harness harness, {
+      String id = 'ep_7',
+    }) => harness.kernel().endpointRevoke(endpointId: id);
+
+    test('target 是**本机**地址码，载荷里是那一把 id（名单只有那一个键）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_7', 'revoked': true},
+      );
+      await close(harness);
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      expect(fields['target'], _self, reason: '关闸那一发替的是自己：target 填别人 = 替别人关闸');
+      expect(
+        fields['type'],
+        contract.str(['clientEvents', 'endpointRevoke', 'messageType']),
+      );
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body.keys.toList(), contract.endpointRevokeFields);
+      expect(
+        contract.endpointRevokeFields,
+        isNot(contains('secret')),
+        reason: '吊销要证明的是"你签过名 + 你说得清关哪一把"，不是"你手里有那把口令"',
+      );
+      expect(body['endpointId'], 'ep_7');
+    });
+
+    test('载荷里那个键名跟着契约走（不写死 endpointId）', () async {
+      // 与上一条是一对：上一条断"形状对的时候键值是那把 id"，这一条断"键名本身是从契约读的"。
+      // 只喂同一份契约去比，写死与读契约当场分不出来（本仓在这类断言上砸过两次：X5、Z4）。
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final revoked = events['endpointRevoke'] as Map<String, Object?>;
+      final renamed = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'endpointRevoke': {
+            ...revoked,
+            'fields': ['whichEndpoint'],
+          },
+        },
+      });
+      final harness = _Harness(renamed, 1_800_000_000_000);
+      final fields = harness.kernel().endpointRevokeFields(
+        endpointId: 'ep_7',
+        nonce: 'n1',
+      );
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body.keys.toList(), [
+        'whichEndpoint',
+      ], reason: '服务端逐字节比那份名单：键名写死在这里，契约改名那天这一发就只剩一句同形 403');
+      expect(body['whichEndpoint'], 'ep_7');
+    });
+
+    test('revoked:false 是一次**成功**（那把本来就不收了，幂等）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_7', 'revoked': false},
+      );
+      final result = await close(harness);
+      expect(result.ok, isTrue);
+      expect(result.revoked, isFalse);
+    });
+
+    test('200 而 revoked 不是布尔 ⇒ 不算关掉（宁可界面上还说"没关掉"）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_7', 'revoked': 'yes'},
+      );
+      final result = await close(harness);
+      expect(
+        result.ok,
+        isFalse,
+        reason: '"已关闭"说错一次的代价是 NAS 还在往一把仍然收信的入口推，而用户以为停了',
+      );
+      expect(result.reason, 'endpoint-revoke-unparsable-ack');
+    });
+
+    test('结论里带的是**调用方给的那一把**，不是服务端回的那一个', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_other', 'revoked': true},
+      );
+      final result = await close(harness, id: 'ep_7');
+      expect(
+        result.endpointId,
+        'ep_7',
+        reason:
+            '界面那句"你关掉了 ep_7"必须跟着用户点的那一行；跟着响应走，'
+            '一句回错 id 就能把另一把说成已关',
+      );
+    });
+
+    test('403 ⇒ 没关掉、revoked 是空的（本机一份列表都不改）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(status: code('forbidden'), body: const {});
+      final result = await close(harness);
+      expect(result.ok, isFalse);
+      expect(result.revoked, isNull);
+    });
+
+    test('契约名单一旦多出第二个键 ⇒ 当场抛、不签出去', () async {
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final revoked = events['endpointRevoke'] as Map<String, Object?>;
+      final widened = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'endpointRevoke': {
+            ...revoked,
+            'fields': ['endpointId', 'note'],
+          },
+        },
+      });
+      final harness = _Harness(widened, 1_800_000_000_000);
+      expect(
+        () => harness.kernel().endpointRevokeFields(
+          endpointId: 'ep_7',
+          nonce: 'n1',
+        ),
+        throwsStateError,
+        reason: '名单多一键时，"关哪一把"与"替谁关"就成两件事 —— 必须由契约明说哪个算数',
+      );
+      expect(harness.sent, isEmpty);
+    });
+  });
 }
