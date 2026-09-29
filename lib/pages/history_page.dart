@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../services/archive_worker.dart' show kArchiveDirModeKey;
 import '../services/channel_display.dart';
 import '../services/filter_service.dart';
+import '../services/fnthink_inbox_service.dart';
 import '../services/notification_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
@@ -26,12 +27,12 @@ class HistoryPage extends StatefulWidget {
   // 历史记录"现在推送"：暂停状态下未实际发送的消息可手动补推
   final Future<void> Function(NotificationRecord record)? onPushNow;
 
-  /// 收件（幻念）那一档的数据来源。默认走真库，测试注入内存列表 ——
+  /// 收件（幻念）那一档的数据来源。默认走 `FnthinkInboxService`，测试注入内存列表 ——
   /// 让 widget 测试**不必去开 sqlite**：那条路在 flutter_test 绑定下要向平台通道要真实库路径，
   /// 桩答 null 就永远等不到（实测整份用例卡死在 00:00，与页面逻辑无关）。
   final Future<List<FnthinkInboxMessage>> Function()? inboxLoader;
 
-  /// 标已读的那一斧子。同上：默认真库，测试注入替身。
+  /// 标已读的那一斧子。同上：默认走收件服务，测试注入替身。
   final Future<bool> Function(String messageId)? inboxMarkRead;
 
   const HistoryPage({
@@ -1276,6 +1277,12 @@ class _HistoryPageState extends State<HistoryPage> {
 
   FilterService get _filterService => GetIt.instance<FilterService>();
 
+  /// 收件的读写一律从这一层走。页面上那句 `_dbHelper.loadFnthinkInbox(...)` 更短，代价是
+  /// **排序口径与「标已读命中没有」各长一份** —— 首页入口卡的未读数与这里的行数迟早对不上。
+  /// 写成 getter 而不是字段：注入替身的 widget 测试从不注册它，解析只能发生在默认分支上。
+  FnthinkInboxService get _inboxService =>
+      GetIt.instance<FnthinkInboxService>();
+
   void _showToast(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1515,9 +1522,9 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _inboxLoaded = false;
 
   Future<void> _loadInbox() async {
-    final rows =
-        await (widget.inboxLoader ??
-            () => _dbHelper.loadFnthinkInbox(limit: 100))();
+    // 显式写 100：这一档没有翻页，跟服务的默认 50 会悄悄少列一半收件。
+    final load = widget.inboxLoader ?? () => _inboxService.list(limit: 100);
+    final rows = await load();
 
     if (!mounted) return;
     setState(() {
@@ -1672,7 +1679,7 @@ class _HistoryPageState extends State<HistoryPage> {
     );
     // 点开即已读。写完之后**重新读表**，不在这个页面自己维护第二份"看没看过"：
     // 没命中（那条已被保留策略裁掉）与命中变已读，两种结果都由这一次读表如实反映出来。
-    final mark = widget.inboxMarkRead ?? _dbHelper.markFnthinkInboxRead;
+    final mark = widget.inboxMarkRead ?? _inboxService.markRead;
     final hit = await mark(message.messageId);
 
     if (!hit) {

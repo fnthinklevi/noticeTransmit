@@ -10,6 +10,7 @@ import '../services/filter_service.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_inbox_display.dart';
+import '../services/fnthink_inbox_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_receiver_service.dart';
 import '../services/update_service.dart';
@@ -77,4 +78,7 @@ void setupLocator() {
       recordAck: DatabaseHelper().recordFnthinkInboxAck,
     ),
   );
+  // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。
+  // 不注册时那些入口会各自 new 一份或直连表 —— 全场测试仍然绿，只有未读数和列表行数开始对不上。
+  getIt.registerLazySingleton<FnthinkInboxService>(() => FnthinkInboxService());
 }
