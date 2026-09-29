@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import '../database/database_helper.dart';
 import '../services/webhook_service.dart';
 import '../services/battery_service.dart';
 import '../services/temperature_service.dart';
@@ -6,6 +7,10 @@ import '../services/device_state_service.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
 import '../services/filter_service.dart';
+import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_identity_service.dart';
+import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_receiver_service.dart';
 import '../services/update_service.dart';
 import '../services/device_info_service.dart';
 import '../services/theme_service.dart';
@@ -47,4 +52,20 @@ void setupLocator() {
   );
   // 6e：三族「进页刷新通道状态」的非侵入探测调度（依赖上面的健康单点，注册顺序要紧）
   getIt.registerLazySingleton<ChannelProbeService>(() => ChannelProbeService());
+
+  // ── 幻念推送 · 收货链路（#126 第四片）──
+  // ⚠ 注册的是"能启停的对象"，**不是"已经在跑的循环"**：起不起由总开关决定，而开关默认是关的
+  //    （这台设备从没同意过"通知内容经服务器中转"，T44 与 T56 的一次性同意没接上之前不该被翻开）。
+  // 都是 lazy：注册本身不做 IO —— 契约要读随包资源、地址码要读 EncryptedSharedPreferences，
+  // 那两件事发生在第一次 startIfEnabled 里，不在 setupLocator 里。
+  getIt.registerLazySingleton<FnthinkContractLoader>(
+    () => FnthinkContractLoader(),
+  );
+  getIt.registerLazySingleton<FnthinkReceiveCoordinator>(
+    () => FnthinkReceiveCoordinator(
+      contracts: getIt<FnthinkContractLoader>(),
+      signer: FnthinkKeystoreSigner(FnthinkIdentityService()),
+      persist: DatabaseHelper().insertFnthinkInbox,
+    ),
+  );
 }
