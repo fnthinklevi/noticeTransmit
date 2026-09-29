@@ -419,6 +419,45 @@ void main() {
       }
     });
   });
+
+  group('接入端点那一发（T42 第七片）', () {
+    test('服务层构造期的 apiPaths 判定里含 endpointCreate（缺路径要在装配期就炸）', () {
+      final src = stripComments(
+        read('lib/services/fnthink_receiver_service.dart'),
+      );
+      expect(
+        src,
+        contains("'endpointCreate',"),
+        reason:
+            '这一发要从契约反查 URL。缺了那一项判定的表现：装配期不报错，第一次点"建一个端点"'
+            '才在 transport 里抛 —— 那是把契约与实现不匹配伪装成网络抖动',
+      );
+      expect(src, contains('kernel.endpointCreate('));
+    });
+
+    test('口令没有去处：设置存储里没这个概念，页面也不直接碰 prefs', () {
+      // 这把口令的设计前提是"只出现一次"。本机一旦留副本，它就变成一份跟着备份走的明文长期凭证，
+      // 而服务端那边只存了摘要 —— 谁都不知道丢了什么，包括留副本的那个人。
+      final settings = stripComments(
+        read('lib/services/fnthink_settings.dart'),
+      );
+      expect(
+        settings.toLowerCase(),
+        isNot(contains('secret')),
+        reason: '设置项里出现了 secret：那等于给"顺手存一下"开一个正式的键',
+      );
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      for (final write in ['setString', 'SharedPreferences']) {
+        expect(
+          page,
+          isNot(contains(write)),
+          reason: '页面里出现了 $write：口令那一行从此有了第二份去处，而没人负责清掉它',
+        );
+      }
+    });
+  });
 }
 
 class _StubSigner implements FnthinkIdentitySigner {

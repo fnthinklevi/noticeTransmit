@@ -1013,6 +1013,90 @@ void main() {
       expect(result.reason, 'signing-unavailable');
     });
   });
+
+  group('建一条接入端点 createEndpoint（T42 第七片）', () {
+    String endpointBody({
+      String? endpointId = 'ep_7',
+      String? secret = 'ABCDEFGHIJKLMNOP2345678901',
+      bool postOnly = true,
+    }) =>
+        '{"endpointId":${endpointId == null ? 'null' : '"$endpointId"'},'
+        '"secret":${secret == null ? 'null' : '"$secret"'},'
+        '"postOnly":$postOnly,"serverTime":1800000000000}';
+
+    test('走的是契约声明的那条路径，而口令只在返回值里（prefs 一个键都没多）', () async {
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: endpointBody()),
+      );
+      final result = await c.createEndpoint(name: '自家 NAS');
+      expect(asked.single.url.path, contract.apiPath('endpointCreate'));
+      expect(result.ok, isTrue);
+      expect(result.secret, 'ABCDEFGHIJKLMNOP2345678901');
+      // 长期凭证不进 prefs：这一条断的是"这件事根本没发生"，不是"值对"——
+      // 写进 prefs 的那一份会跟着备份走，而服务端只存了摘要，谁都不知道丢了什么。
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getKeys().where((k) => k.toLowerCase().contains('secret')),
+        isEmpty,
+        reason: '口令只出现一次是这件事的全部设计；本机留一份副本就等于把它变成一份明文备份',
+      );
+    });
+
+    test('总开关关着也能建：入口这件事与"现在去不去取货"无关', () async {
+      SharedPreferences.setMockInitialValues({}); // 默认关
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: endpointBody()),
+      );
+      final result = await c.createEndpoint(name: 'x');
+      expect(asked, hasLength(1));
+      expect(result.ok, isTrue);
+    });
+
+    test('服务端认了而读不出口令 ⇒ 不算建成（界面无从显示"已创建"）', () async {
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body: endpointBody(secret: null),
+        ),
+      );
+      final result = await c.createEndpoint(name: 'x');
+      expect(result.ok, isFalse);
+      expect(result.reason, 'endpoint-create-unparsable-ack');
+    });
+
+    test('429（到上限）⇒ 失败原话带回来，且没冒成成功', () async {
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          status: 429,
+          body: '{}',
+        ),
+      );
+      final result = await c.createEndpoint(name: 'x');
+      expect(result.ok, isFalse);
+      expect(result.status, FnthinkPollStatus.rateLimited);
+    });
+
+    test('签不出来 ⇒ 那一发不发（与其余几发同一道闸）', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(sink: asked, body: endpointBody()),
+      );
+      final result = await c.createEndpoint(name: 'x');
+      expect(asked, isEmpty);
+      expect(result.ok, isFalse);
+      expect(result.reason, 'signing-unavailable');
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {

@@ -1725,5 +1725,42 @@
         "type": "String"
       }
     }
+  },
+  "fnthinkEndpointTitle": "接入端点（给 NAS / 脚本用）",
+  "fnthinkEndpointWhy": "第三方平台往这台设备推通知用的长期口令。服务端只存摘要；下面这把口令只在这次显示，关掉页面就再也看不到。",
+  "fnthinkEndpointCap": "这台设备最多建 {max} 把；到数了只拒新的，不会挤掉已经在用的那把。",
+  "@fnthinkEndpointCap": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkEndpointCreate": "建一个端点",
+  "fnthinkEndpointDefaultName": "App 里建的",
+  "fnthinkEndpointId": "入口 id：{id}",
+  "@fnthinkEndpointId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointSecret": "口令：{secret}",
+  "@fnthinkEndpointSecret": {
+    "placeholders": {
+      "secret": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointOnce": "这一把只出现这一次 —— 现在抄走；之后只能重新建一把（旧的那把谁也拿不回来）。",
+  "fnthinkEndpointFailed": "端点没建成（{reason}）—— 也没回口令，所以不存在「建好了但抄不到」这种状态。",
+  "@fnthinkEndpointFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

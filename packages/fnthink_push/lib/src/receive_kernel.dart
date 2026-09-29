@@ -668,6 +668,102 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 endpointCreate 的签名字段（给自己建一条接入端点，T42 第七片）。
+  ///
+  /// self-only：`target` 就是本机地址码（与 pairArm 同一类）。契约的载荷名单里**没有** `secret`
+  /// 也不许有 —— 口令由服务端生成，设备自带等于把"选一把多强的口令"交出去。所以这一发的入参只有
+  /// `name`：多带一个键在内核这里就当场抛，而不是签出去换一句同形的 403。
+  Map<String, Object?> endpointCreateFields({
+    required String name,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.endpointCreateFields;
+    final payload = {'name': name};
+    if (payload.length != declared.length ||
+        !declared.every(payload.containsKey)) {
+      throw ArgumentError(
+        'endpointCreate 的载荷键必须与契约名单一致（期望 $declared，实到 '
+        '${(payload.keys.toList()..sort())}）：名单里没有 secret，也不该有',
+      );
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('endpointCreate'),
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode({for (final key in declared) key: payload[key]}),
+    };
+  }
+
+  /// 建一条接入端点。**口令只在这一次的响应里出现**，所以 `ok` 的判据比别的发更严：
+  /// 200 而读不出 `endpointId` 或 `secret` ⇒ 算失败，绝不回一个"看着成了但口令没了"的结果 ——
+  /// 那种结果的表现是：表里多了一把他不知道的入口，而界面上写着"已创建"，NAS 永远配不通。
+  /// 本内核**不存**这个结果（也没有地方存）：口令的唯一去处是返回值，交给调用方当场展示一次。
+  ///
+  /// 这一发被砸过什么（报告在本地 `outputs/_endpntpeer.report.txt`，按约定不入库）：
+  ///  - **X1** 把"空串也算读不到"那半摘掉 ⇒ 红在「口令是空串也算读不到」；
+  ///  - **X2** 把 `target` 从本机地址码改成别的 ⇒ 红在「target 是**本机**地址码」
+  ///    （替别人建入口 = 拿到别人那条入口的明文口令，拿着它就能冒充那台设备）。
+  Future<FnthinkEndpointCreateResult> endpointCreate({
+    required String name,
+  }) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: endpointCreateFields(name: name, nonce: nonce),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkEndpointCreateResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkEndpointCreateResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'endpoint-create-http:${reply.status}',
+      );
+    }
+    final id = reply.body['endpointId'];
+    final secret = reply.body['secret'];
+    if (id is! String || id.isEmpty || secret is! String || secret.isEmpty) {
+      _lastReason = 'endpoint-create-unparsable-ack';
+      return FnthinkEndpointCreateResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    return FnthinkEndpointCreateResult(
+      status: FnthinkPollStatus.ok,
+      endpointId: id,
+      secret: secret,
+      postOnly: reply.body['postOnly'] is bool
+          ? reply.body['postOnly'] as bool
+          : null,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   int _nonceCounter = 0;
   String _fallbackNonce() {
     // 进程内唯一（时间戳 + 计数）。跨重启的唯一性由调用方保证 —— 这也是
@@ -957,4 +1053,38 @@ class FnthinkPairRevokeResult {
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok && revoked != null;
+}
+
+/// 建一条接入端点的结论（T42 第七片）。
+///
+/// ⚠ [secret] 是**只出现一次**的那把明文口令：内核与调用方都不许把它写进任何持久处
+/// （表、prefs、日志、崩溃上报）。它的唯一合法去处是"当场显示一次，让用户抄走"。
+/// 之所以把这条写在这里而不是页面注释里：下一个接这件事的人读的是这一层的签名。
+class FnthinkEndpointCreateResult {
+  const FnthinkEndpointCreateResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.endpointId,
+    this.secret,
+    this.postOnly,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+  final String? endpointId;
+  final String? secret;
+
+  /// 这条入口是不是只收 POST（契约 `transport.postOnlySwitch` / 端点策略）。
+  /// null = 服务端没回这一项 —— 界面要据此说一句"没回就不猜"，而不是默认成某种。
+  final bool? postOnly;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  /// 建成 = 拿得到 id **且**拿得到口令。缺任何一个都不算成：那意味着表里多了一行而
+  /// 用户手上什么都没有，而那行东西此后谁也打不开它。
+  bool get ok =>
+      status == FnthinkPollStatus.ok &&
+      endpointId != null &&
+      secret != null &&
+      secret!.isNotEmpty;
 }

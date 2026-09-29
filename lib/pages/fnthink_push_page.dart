@@ -138,6 +138,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// "服务器撤了而本机那一行没删掉"必须经得起回去再看一眼，不能弹个 toast 就消失。
   ({FnthinkPeer peer, FnthinkPeerRevoke revoke})? _peerRevoke;
 
+  /// 刚建好的那条接入端点。**口令只在这里活这么长**：页面不把它写进 prefs、不写进表、
+  /// 不拼进任何日志 —— 这一格存在的目的就是让用户当场抄走，抄不到就重新建一把。
+  /// （留一份"方便回去再看"的副本是这个功能最容易做错的形状：那等于把长期凭证存进
+  ///  一个会跟着备份走、又不加密的地方，而服务端那边只存了摘要，谁都不知道丢了什么。）
+  FnthinkEndpointCreateResult? _endpoint;
+
   FnthinkDeviceIdentity? _identity;
   bool _identityUnavailable = false;
 
@@ -499,6 +505,23 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     return l10n.fnthinkRevoked(peer);
   }
 
+  /// 建一条接入端点（T42 第七片那一发）。名字用本地化里那句默认外号，这里**不给输入框**：
+  /// 这一发的价值全在"回一把只出现一次的口令"，外号是管理面那列可以以后改的东西，
+  /// 而为一个非关键输入开一个弹层，就把这个页面变成了表单生命周期那类事故的发生地。
+  Future<void> _createEndpoint() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    final result = await _coordinator.createEndpoint(
+      name: l10n.fnthinkEndpointDefaultName,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _endpoint = result;
+    });
+  }
+
   /// 待确认的配对请求那一格。
   ///
   /// 列表**跟着协调者那份账走**（`pairRequestsListenable`）：用户挂出口令之后是盯着屏幕等对面来配的，
@@ -655,6 +678,65 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     );
   }
 
+  /// 接入端点那一格（T42 第七片：接收端自己建一条入口）。
+  ///
+  /// 为什么这一格值得存在：以前只有管理面能建端点，自部署的用户要给自家 NAS 铸一把入口，
+  /// 得先拿出那把能做远多于这件事的 admin token。
+  /// ⚠ 这一格刻意**只有"建"，没有"列表 / 轮换 / 吊销"**：那三样要读服务端的端点表，而设备面
+  /// 没有对应的读口（管理面有）。摆一个"我的端点"列表而它其实看不见服务器上有几条，
+  /// 就是让界面猜 —— 与「配对名单」那一格当初不做只读按钮是同一条判断的反面。
+  /// ⚠ 口令那一行只在这次 `setState` 之后存在：不写 prefs、不写表、不进日志（见 `_endpoint`）。
+  ///
+  /// 这一格被砸过什么（`outputs/_endpntpeer.report.txt`）：
+  ///  - **X4** 把"成功那一支"的判定从 `created.ok` 换成 `created != null` ⇒ 红在
+  ///    「没建成 ⇒ 贴原话，且不出现口令行」（两支各红一条，另一支是"读不出口令"那一条）；
+  ///  - **X5** 上限那句写死 `10` ⇒ 红在「上限那句里的数来自契约」。⚠ 这条用例第一版是**假绿**的：
+  ///    它拿 `contract.endpointMaxPerDevice` 去比界面 —— 两边读同一个数，写死与读契约当场分不出来。
+  ///    改成"喂一份 `perDeviceMax: 3` 的契约进去，断言界面说 3"，才是真的在断"读过"。
+  Widget _buildEndpointCard(AppLocalizations l10n) {
+    final created = _endpoint;
+    // 上限那个数从契约读（页面不写 10）：它改小的时候这句解释不能跟着说谎。
+    final cap = _contract?.endpointMaxPerDevice;
+    return _Card(
+      title: l10n.fnthinkEndpointTitle,
+      children: [
+        _Note(keyName: 'fnthink-endpoint-why', text: l10n.fnthinkEndpointWhy),
+        if (cap != null)
+          _Note(
+            keyName: 'fnthink-endpoint-cap',
+            text: l10n.fnthinkEndpointCap(cap),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-endpoint-create'),
+            onPressed: _busy ? null : () => _createEndpoint(),
+            child: Text(l10n.fnthinkEndpointCreate),
+          ),
+        ),
+        if (created != null)
+          if (created.ok) ...[
+            _Note(
+              keyName: 'fnthink-endpoint-id',
+              text: l10n.fnthinkEndpointId(created.endpointId!),
+            ),
+            SelectableText(
+              l10n.fnthinkEndpointSecret(created.secret!),
+              key: const ValueKey('fnthink-endpoint-secret'),
+            ),
+            _Note(
+              keyName: 'fnthink-endpoint-once',
+              text: l10n.fnthinkEndpointOnce,
+            ),
+          ] else
+            _Note(
+              keyName: 'fnthink-endpoint-error',
+              text: l10n.fnthinkEndpointFailed(created.reason ?? 'no-endpoint'),
+            ),
+      ],
+    );
+  }
+
   /// 名单上那一行的时刻。`grantedAt` 是本机写下的那一刻（服务端另有一份，不回给设备）。
   /// 0/负数 ⇒ '—'：显示 1970-01-01 会把"这一行没有时间"伪装成"很久以前同意过"。
   String _formatTime(int ms) {
@@ -749,6 +831,8 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             _buildPairRequests(l10n),
             const SizedBox(height: 12),
             _buildPeersCard(l10n),
+            const SizedBox(height: 12),
+            _buildEndpointCard(l10n),
             const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 12),

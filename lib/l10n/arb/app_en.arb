@@ -1704,5 +1704,42 @@
         "type": "String"
       }
     }
+  },
+  "fnthinkEndpointTitle": "Ingress endpoints (for NAS / scripts)",
+  "fnthinkEndpointWhy": "A long-lived token third-party platforms use to push to this device. The server stores only a digest; the token below is shown this once — close the page and it is gone.",
+  "fnthinkEndpointCap": "This device can hold up to {max}; at the cap new ones are refused and none in use is displaced.",
+  "@fnthinkEndpointCap": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkEndpointCreate": "Create an endpoint",
+  "fnthinkEndpointDefaultName": "Created in-app",
+  "fnthinkEndpointId": "Ingress id: {id}",
+  "@fnthinkEndpointId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointSecret": "Token: {secret}",
+  "@fnthinkEndpointSecret": {
+    "placeholders": {
+      "secret": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointOnce": "This token appears only once — copy it now; afterwards you can only create a new one (nobody can hand back the old).",
+  "fnthinkEndpointFailed": "Endpoint not created ({reason}) — no token came back either, so there is no 'created but uncopiable' state.",
+  "@fnthinkEndpointFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

@@ -1016,4 +1016,107 @@ void main() {
       );
     });
   });
+
+  group('建一条接入端点 endpointCreate（T42 第七片）', () {
+    Future<FnthinkEndpointCreateResult> create(_Harness harness) =>
+        harness.kernel().endpointCreate(name: '自家 NAS');
+
+    test('target 是**本机**地址码，载荷只有 name（名单里没有 secret 也不该有）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpointId': 'ep_1',
+          'secret': 'ABCDEFGHIJKLMNOP2345678901',
+          'postOnly': true,
+        },
+      );
+      await create(harness);
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      expect(fields['target'], _self);
+      expect(
+        fields['type'],
+        contract.str(['clientEvents', 'endpointCreate', 'messageType']),
+      );
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body.keys.toList(), contract.endpointCreateFields);
+      expect(
+        contract.endpointCreateFields,
+        isNot(contains('secret')),
+        reason: '口令由服务端生成：设备自带等于把"选一把多强的口令"交给最不方便负责它的一端',
+      );
+      expect(body['name'], '自家 NAS');
+    });
+
+    test('建成 ⇒ id 与口令都在；postOnly 没回就是 null，不默认成某一种', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_1', 'secret': 'ABCDEFGHIJKLMNOP2345678901'},
+      );
+      final result = await create(harness);
+      expect(result.ok, isTrue);
+      expect(result.endpointId, 'ep_1');
+      expect(result.secret, 'ABCDEFGHIJKLMNOP2345678901');
+      expect(
+        result.postOnly,
+        isNull,
+        reason: '界面那句"只收 POST"要么跟着服务端说，要么不说；猜一个方向就是替用户配错 NAS',
+      );
+    });
+
+    test('200 而读不出口令 ⇒ 不算建成（不许有"建好了但抄不到"那种状态）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_1'},
+      );
+      final result = await create(harness);
+      expect(result.ok, isFalse, reason: '表里已经多了一行而用户手上什么都没有 —— 那行东西此后谁也打不开它');
+      expect(result.reason, 'endpoint-create-unparsable-ack');
+      expect(result.secret, isNull);
+    });
+
+    test('口令是空串也算读不到（形状对、内容空 ⇒ 一样不认）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_1', 'secret': ''},
+      );
+      final result = await create(harness);
+      expect(result.ok, isFalse);
+      expect(result.reason, 'endpoint-create-unparsable-ack');
+    });
+
+    test('429（到上限）⇒ 报失败而不是冒成"建好了"', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(status: code('rateLimited'), body: const {});
+      final result = await create(harness);
+      expect(result.status, FnthinkPollStatus.rateLimited);
+      expect(result.ok, isFalse);
+      expect(result.secret, isNull);
+    });
+
+    test('契约名单一旦出现 secret ⇒ 当场抛、不发出去', () async {
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final created = events['endpointCreate'] as Map<String, Object?>;
+      final widened = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'endpointCreate': {
+            ...created,
+            'fields': ['name', 'secret'],
+          },
+        },
+      });
+      final harness = _Harness(widened, 1_800_000_000_000);
+      expect(
+        () => harness.kernel().endpointCreateFields(name: 'x', nonce: 'n1'),
+        throwsArgumentError,
+        reason: '名单里一旦出现 secret，"设备不许自带口令"这条判据在实现里就没有分支了 —— 宁可炸在这里',
+      );
+      expect(harness.sent, isEmpty);
+    });
+  });
 }

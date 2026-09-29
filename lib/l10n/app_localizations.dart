@@ -6115,6 +6115,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'撤销没成（{reason}）—— 名单里那一行留着，那才是此刻的真话'**
   String fnthinkRevokeFailed(String reason);
+
+  /// No description provided for @fnthinkEndpointTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'接入端点（给 NAS / 脚本用）'**
+  String get fnthinkEndpointTitle;
+
+  /// No description provided for @fnthinkEndpointWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三方平台往这台设备推通知用的长期口令。服务端只存摘要；下面这把口令只在这次显示，关掉页面就再也看不到。'**
+  String get fnthinkEndpointWhy;
+
+  /// No description provided for @fnthinkEndpointCap.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备最多建 {max} 把；到数了只拒新的，不会挤掉已经在用的那把。'**
+  String fnthinkEndpointCap(int max);
+
+  /// No description provided for @fnthinkEndpointCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'建一个端点'**
+  String get fnthinkEndpointCreate;
+
+  /// No description provided for @fnthinkEndpointDefaultName.
+  ///
+  /// In zh, this message translates to:
+  /// **'App 里建的'**
+  String get fnthinkEndpointDefaultName;
+
+  /// No description provided for @fnthinkEndpointId.
+  ///
+  /// In zh, this message translates to:
+  /// **'入口 id：{id}'**
+  String fnthinkEndpointId(String id);
+
+  /// No description provided for @fnthinkEndpointSecret.
+  ///
+  /// In zh, this message translates to:
+  /// **'口令：{secret}'**
+  String fnthinkEndpointSecret(String secret);
+
+  /// No description provided for @fnthinkEndpointOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一把只出现这一次 —— 现在抄走；之后只能重新建一把（旧的那把谁也拿不回来）。'**
+  String get fnthinkEndpointOnce;
+
+  /// No description provided for @fnthinkEndpointFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'端点没建成（{reason}）—— 也没回口令，所以不存在「建好了但抄不到」这种状态。'**
+  String fnthinkEndpointFailed(String reason);
 }
 
 class _AppLocalizationsDelegate

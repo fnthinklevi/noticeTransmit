@@ -585,6 +585,33 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 给自己建一条接入端点（T42 第七片那一发）。
+  ///
+  /// 与 [publishPairingCode] / [revokePeer] 同一条前置口径：**不要求总开关开着** —— 端点是一条
+  /// 入口，"建入口"这件事与"这一台现在去不去取货"无关。
+  ///
+  /// ⚠ 返回的那一段里带着**只出现一次的明文口令**：这里不落盘、不进日志、不缓存，
+  /// 也不把它塞进任何 `ValueNotifier`（那等于把长期凭证留在进程里一份没人负责清掉的东西）。
+  /// 页面对它的处理只有一个合法去处：当场显示一次，让用户抄走。
+  Future<FnthinkEndpointCreateResult> createEndpoint({
+    required String name,
+  }) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkEndpointCreateResult(
+        status: FnthinkPollStatus.failed,
+        reason: resolved.reason,
+        signedWhileUncalibrated: false,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.endpointCreate(name: name);
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
   void stop() {
     _loop?.stop();

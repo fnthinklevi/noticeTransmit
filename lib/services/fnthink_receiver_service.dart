@@ -41,6 +41,7 @@ class FnthinkReceiverService {
       'pairArm',
       'pairConfirm',
       'pairRevoke',
+      'endpointCreate',
     ]) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
@@ -224,6 +225,24 @@ class FnthinkReceiverService {
       );
     }
     return kernel.pairRevoke(peer: peer);
+  }
+
+  /// 给自己建一条接入端点（`/endpoint-create`，T42 第七片）。
+  ///
+  /// 与其余几发共用那两道闸（签不出来就不发、URL 从契约反查）。⚠ 这一发的**返回值里带着
+  /// 一把明文口令**，而它只在这一次出现：本层不落盘、不日志、不缓存，转交就完了
+  /// （把"顺手存一下方便显示"做进来，等于把这把长期口令写进 prefs —— 而 prefs 会跟着备份走）。
+  Future<FnthinkEndpointCreateResult> endpointCreate({
+    required String name,
+  }) async {
+    if (!await _canSign()) {
+      return FnthinkEndpointCreateResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.endpointCreate(name: name);
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

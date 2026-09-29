@@ -84,6 +84,7 @@ void main() {
     List<FnthinkPairRequest> pairRequests = const [],
     Future<void> Function()? gate,
     bool contractOk = true,
+    String? contractText,
     int armStatus = 200,
     String armBody =
         '{"armed":true,"expiresAt":1800000300000,"ttlSeconds":300,'
@@ -94,6 +95,10 @@ void main() {
         '"serverTime":1800000000000}',
     int revokeStatus = 200,
     String revokeBody = '{"revoked":true,"serverTime":1800000000000}',
+    int endpointStatus = 200,
+    String endpointBody =
+        '{"endpointId":"ep_7","secret":"ABCDEFGHIJKLMNOP2345678901",'
+        '"postOnly":true,"serverTime":1800000000000}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
@@ -102,12 +107,16 @@ void main() {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
         if (!contractOk) return '{ 这不是合法 JSON';
+        // 少数用例要的是"契约里那个数改了，界面跟着改"——这时传一份改过的进来，
+        // 而不是拿同一份契约去断言实现（那样写出来的断言永远绿：两边读的是同一个数）。
+        if (contractText != null) return contractText;
         return File('protocol/fnthink-v1.json').readAsStringSync();
       },
     );
     final armAsked = <http.Request>[];
     final confirmAsked = <http.Request>[];
     final revokeAsked = <http.Request>[];
+    final endpointAsked = <http.Request>[];
     final removed = <String>[];
     final peerRows = <FnthinkPeer>[];
     final peersShown = <FnthinkPeer>[...peers];
@@ -150,6 +159,10 @@ void main() {
           if (req.url.path == contract.apiPath('pairRevoke')) {
             revokeAsked.add(req);
             return http.Response(revokeBody, revokeStatus);
+          }
+          if (req.url.path == contract.apiPath('endpointCreate')) {
+            endpointAsked.add(req);
+            return http.Response(endpointBody, endpointStatus);
           }
           armAsked.add(req);
           return http.Response(armBody, armStatus);
@@ -214,6 +227,7 @@ void main() {
       peersShown: () => peersShown,
       peerReads: () => peerReads,
       revokeAsked: () => revokeAsked,
+      endpointAsked: () => endpointAsked,
       removed: () => removed,
     );
   }
@@ -1131,6 +1145,129 @@ void main() {
       );
     });
   });
+
+  group('接入端点那一格（T42 第七片）', () {
+    testWidgets('点一下 ⇒ 出现 id、那把口令，和"只出现这一次"那句', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(h.endpointAsked(), hasLength(1));
+      for (final key in [
+        'fnthink-endpoint-id',
+        'fnthink-endpoint-secret',
+        'fnthink-endpoint-once',
+      ]) {
+        final target = find.byKey(ValueKey(key));
+        await revealTo(tester, target);
+        expect(target, findsOneWidget, reason: '$key 缺席：口令只显示这一次，少一行就等于没给');
+      }
+      expect(
+        find.text(l10n.fnthinkEndpointSecret('ABCDEFGHIJKLMNOP2345678901')),
+        findsOneWidget,
+        reason: '那一行必须是**这一把**口令本身，不是"已生成"这种代词 —— 用户要抄的就是这串字符',
+      );
+    });
+
+    testWidgets('口令不落盘：prefs 里没有它，键名里也没有它', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      await pump(tester, h.page);
+      final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      final prefs = await SharedPreferences.getInstance();
+      const secret = 'ABCDEFGHIJKLMNOP2345678901';
+      expect(
+        prefs.getKeys().where((k) => '${prefs.get(k)}'.contains(secret)),
+        isEmpty,
+        reason: '服务端只存摘要，本机若存明文那一份，泄露的就是这台设备而不是那把口令的摘要',
+      );
+      expect(
+        prefs.getKeys().where((k) => k.toLowerCase().contains('secret')),
+        isEmpty,
+        reason: '连"存了一个口令"这件事都不该出现在本机设置里',
+      );
+    });
+
+    testWidgets('上限那句里的数来自契约（把契约那一位改掉，界面跟着改）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final raw =
+          jsonDecode(File('protocol/fnthink-v1.json').readAsStringSync())
+              as Map<String, Object?>;
+      final shrunk = {
+        ...raw,
+        'endpoint': {
+          ...(raw['endpoint']! as Map<String, Object?>),
+          'perDeviceMax': 3,
+        },
+      };
+      final h = harness(contractText: jsonEncode(shrunk));
+      final l10n = await pump(tester, h.page);
+      final cap = find.byKey(const ValueKey('fnthink-endpoint-cap'));
+      await revealTo(tester, cap);
+      expect(
+        tester.widget<Text>(cap).data,
+        l10n.fnthinkEndpointCap(3),
+        reason:
+            '断言不能拿同一份契约去比实现（那样"写死 10"与"读契约"当场分不出来）；'
+            '这里改的是契约那一位，界面要是跟着它走才算读过',
+      );
+    });
+
+    testWidgets('没建成 ⇒ 贴原话，且不出现口令行', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointStatus: 429, endpointBody: '{}');
+      await pump(tester, h.page);
+      final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      final note = find.byKey(const ValueKey('fnthink-endpoint-error'));
+      await revealTo(tester, note);
+      expect(note, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-secret')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('服务端认了但读不出口令 ⇒ 走"没建成"那一句，不显示一把抄不到的入口', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointBody: '{"endpointId":"ep_7","serverTime":1}');
+      await pump(tester, h.page);
+      final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      final note = find.byKey(const ValueKey('fnthink-endpoint-error'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        contains('endpoint-create-unparsable-ack'),
+        reason: '"建好了但抄不到"是最坏的一种显示：表里多了一行，而用户以为自己有',
+      );
+      expect(find.byKey(const ValueKey('fnthink-endpoint-id')), findsNothing);
+    });
+  });
 }
 
 /// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，
@@ -1194,6 +1331,7 @@ class _Harness {
     required this.peersShown,
     required this.peerReads,
     required this.revokeAsked,
+    required this.endpointAsked,
     required this.removed,
   });
 
@@ -1218,6 +1356,9 @@ class _Harness {
 
   /// 撤销那一发真实发出去的请求（假服务器记下来的）。
   final List<http.Request> Function() revokeAsked;
+
+  /// 建端点那一发（同一套假服务器，按契约声明的路径分流）。
+  final List<http.Request> Function() endpointAsked;
 
   /// 本机删行被调用时点到的地址码（替身记下来的）。
   final List<String> Function() removed;

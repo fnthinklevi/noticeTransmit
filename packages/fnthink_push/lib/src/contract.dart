@@ -229,6 +229,18 @@ class FnthinkContract {
     return value;
   }
 
+  /// 一台设备最多能建几条接入端点（界面要说的那句"到数了只拒新的"里的这个数）。
+  ///
+  /// 页面不许写 `10`：那一位改小的时候界面上的解释会跟着说谎（而这一句正是用户决定
+  /// "要不要再建一把"的唯一依据）。
+  int get endpointMaxPerDevice {
+    final value = intOf(const ['endpoint', 'perDeviceMax']);
+    if (value == null || value <= 0) {
+      throw StateError('契约缺 endpoint.perDeviceMax（或它不是正整数，实际「$value」）');
+    }
+    return value;
+  }
+
   /// 签名载荷里 `type` 的取值表：`type → 最低级别`。**这张表就是词表**，
   /// 认不出的 type 一律拒（见 [rejectsUnknownMessageTypes]），不许"先收下再说"。
   Map<String, String> get messageTypeLevels {
@@ -364,12 +376,17 @@ class FnthinkContract {
   /// pairConfirm 载荷的字段名单（今日 = `["requestId","decision","level"]`）。
   List<String> get pairConfirmFields => clientEventFields('pairConfirm');
 
-  /// pairRevoke 载荷的字段名单（今日 = `["peerAddress"]`）。
-  ///
+  /// pairRevoke 载荷的字段名单（今日 = `["peerAddress"]`）。  ///
   /// 这一发就一个键，但键名仍只从契约读：内核拿这份名单当**唯一**的载荷形状，
   /// 于是"给那个键改名"那一刀只在契约里落一次。写死在两份实现里的下场本仓撞过三次
   /// （`type` 词表、`pairingCode`、`decision`），每一次的表现都是同一句同形的 403。
   List<String> get pairRevokeFields => clientEventFields('pairRevoke');
+
+  /// endpointCreate 载荷的字段名单（今日 = `["name"]`）。
+  ///
+  /// 名单里**没有也不该有** `secret`：口令由服务端生成，设备自带等于把"选一把多强的口令"
+  /// 交给最不方便负责它的一端。这一条是设备侧唯一能判它的地方 —— 服务端只会照单收下形状对的键。
+  List<String> get endpointCreateFields => clientEventFields('endpointCreate');
 
   /// 本机在这一发上能做的**那两种**决定（封闭集合：第三种取值服务端会整条拒）。
   List<String> get pairConfirmDecisions =>

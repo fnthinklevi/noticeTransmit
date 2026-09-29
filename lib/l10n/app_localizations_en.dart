@@ -3423,4 +3423,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkRevokeFailed(String reason) {
     return 'Revoking failed ($reason) — the row stays in the list, which is the truth right now';
   }
+
+  @override
+  String get fnthinkEndpointTitle => 'Ingress endpoints (for NAS / scripts)';
+
+  @override
+  String get fnthinkEndpointWhy =>
+      'A long-lived token third-party platforms use to push to this device. The server stores only a digest; the token below is shown this once — close the page and it is gone.';
+
+  @override
+  String fnthinkEndpointCap(int max) {
+    return 'This device can hold up to $max; at the cap new ones are refused and none in use is displaced.';
+  }
+
+  @override
+  String get fnthinkEndpointCreate => 'Create an endpoint';
+
+  @override
+  String get fnthinkEndpointDefaultName => 'Created in-app';
+
+  @override
+  String fnthinkEndpointId(String id) {
+    return 'Ingress id: $id';
+  }
+
+  @override
+  String fnthinkEndpointSecret(String secret) {
+    return 'Token: $secret';
+  }
+
+  @override
+  String get fnthinkEndpointOnce =>
+      'This token appears only once — copy it now; afterwards you can only create a new one (nobody can hand back the old).';
+
+  @override
+  String fnthinkEndpointFailed(String reason) {
+    return 'Endpoint not created ($reason) — no token came back either, so there is no \'created but uncopiable\' state.';
+  }
 }
