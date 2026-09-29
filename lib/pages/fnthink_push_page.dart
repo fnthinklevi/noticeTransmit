@@ -304,6 +304,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 把刚挂好的那枚口令发到服务器，并把结论**如实**落成三态之一。
   /// 失败时不清空口令、不回弹：那串码在本机确实还有效（倒计时也在走），用户看到的
   /// 应该是"只有这台知道它"，而不是"什么都没发生过"。
+  ///
+  /// 这一条被砸过什么（报告在本地 outputs/_page_publish_falsify.report.txt，按约定不入库）：
+  ///  - 不发出那一发 ⇒ 红在「服务器回了过期时间 ⇒ 明说"服务器已收到"」；
+  ///  - 不问结果、一律 `_pairingAcked = true` ⇒ 红在「服务器没确认 ⇒ 说"只有这台记下了"」；
+  ///  - 把"不知道"那一态去掉 ⇒ 红在「进页面读到本机存着一枚 ⇒ 说'没问过服务器'」。
+  /// 三条各自点名、逐字节还原。
   Future<void> _publishPairingCode(String pairingCode) async {
     final result = await _coordinator.publishPairingCode(pairingCode);
     if (!mounted) return;
