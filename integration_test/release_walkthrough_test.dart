@@ -1999,7 +1999,7 @@ Future<void> _longPress(WidgetTester t, Finder f, String why) async {
   // 不带 duration ⇒ 瞬移，不留滚动动画（动画 + 已聚焦的输入框 = pumpAndSettle 永不收敛）
   await Scrollable.ensureVisible(t.element(f.first), alignment: 0.5);
   await _settle(t);
-  await t.longPress(f.first);
+  await _withMissNet(t, '$why（长按第一下）', () => t.longPress(f.first));
   await _settle(t);
   if (_menuUp(t)) return;
   // ⚠ 走到这里说明"手势命中了控件但动作表没出现"（`longPress()` 打不中才会打 warning，
@@ -2117,6 +2117,45 @@ Future<void> _confirmDelete(WidgetTester t, String why) async {
   await _settle(t, seconds: 2);
 }
 
+/// 罩住一次手势，把**"打不中"从静默警告变成一行具名痕迹**。
+///
+/// `tester.tap()` / `longPress()` 未命中目标时只走 `debugPrint` 抛一条警告、**不抛异常**，
+/// 于是那一下可能整个没发生而用例照报绿。2026-09-30 那次全量闸门报的是 8/8 rc=0，
+/// 同一份日志里就躺着一条 "would not hit test on the specified widget"（5.11 语言弹层那一行）。
+///
+/// 这里**刻意先不判红**：先把清单数出来（`grep GATE-MISSED-TAP`），再决定逐条修还是升成闸门红线 ——
+/// 一次性硬失败只会让整轮红而拿不到"到底几处"。⚠ 清单目前只覆盖**经过这三个 helper 的手势**
+/// （`_tap` / `_type` 聚焦那一下 / `_longPress` 第一下），不是"全闸门只有 1 条"。
+///
+/// 那一段警告本身含 hit test 明细 + 栈（几十 KB），吞掉，只留第一行结论。
+Future<void> _withMissNet(
+  WidgetTester t,
+  String why,
+  Future<void> Function() gesture,
+) async {
+  final previousPrint = debugPrint;
+  final missed = <String>[];
+  debugPrint = (String? message, {int? wrapWidth}) {
+    if (message != null &&
+        message.contains('would not hit test on the specified widget')) {
+      missed.add(message);
+      return;
+    }
+    previousPrint(message, wrapWidth: wrapWidth);
+  };
+  try {
+    await gesture();
+  } finally {
+    debugPrint = previousPrint;
+  }
+  for (final m in missed) {
+    final one = m.split('\n').first;
+    debugPrint(
+      'GATE-MISSED-TAP ▸ $why :: ${one.length > 220 ? "${one.substring(0, 220)}..." : one}',
+    );
+  }
+}
+
 Future<void> _tap(WidgetTester t, Finder f, String why) async {
   await _scrollUntil(t, f);
   await _must(t, f.evaluate().isNotEmpty, '可点控件 $why', f);
@@ -2132,33 +2171,7 @@ Future<void> _tap(WidgetTester t, Finder f, String why) async {
   } catch (_) {}
   await t.pump(const Duration(milliseconds: 120));
   await _must(t, f.evaluate().isNotEmpty, '可见化后 $why', f);
-  // ⚠⚠ **把"打不中"从静默变成一行具名痕迹**：`tester.tap()` 未命中时只走 `debugPrint` 抛警告、
-  // 不抛异常 ⇒ 那一下是空点而用例照报绿。2026-09-30 那次全量闸门的日志里就躺着一条
-  // （5.11「深色模式 + 语言」，`_tap` 打在 RenderParagraph 上），而那一轮报的是 8/8 全绿。
-  // 这里**先不判红**：历史上到底还有几处没人知道，一次性改成硬失败只会让整轮红而没有清单。
-  // 先数出来（`grep GATE-MISSED-TAP`），再决定逐条修还是直接变闸门红线。
-  // ⚠ 只覆盖 `_tap`：`_type`/`_longPress` 里那些自己调 `t.tap` 的地方还没有这张网。
-  final previousPrint = debugPrint;
-  final missed = <String>[];
-  debugPrint = (String? message, {int? wrapWidth}) {
-    if (message != null &&
-        message.contains('would not hit test on the specified widget')) {
-      missed.add(message);
-      return; // 整段警告含 hit test 明细与栈，几十 KB，吞掉后只留一行结论
-    }
-    previousPrint(message, wrapWidth: wrapWidth);
-  };
-  try {
-    await t.tap(f.first);
-  } finally {
-    debugPrint = previousPrint;
-  }
-  for (final m in missed) {
-    final one = m.split('\n').first;
-    debugPrint(
-      'GATE-MISSED-TAP ▸ $why :: ${one.length > 220 ? "${one.substring(0, 220)}..." : one}',
-    );
-  }
+  await _withMissNet(t, why, () => t.tap(f.first));
   await _settle(t);
 }
 
@@ -2170,7 +2183,7 @@ Future<void> _type(WidgetTester t, Finder f, String text, String why) async {
   } catch (_) {}
   await t.pump(const Duration(milliseconds: 120));
   final obscured = (t.widget(f.first) as TextField).obscureText;
-  await t.tap(f.first);
+  await _withMissNet(t, '$why（聚焦那一下）', () => t.tap(f.first));
   await _settle(t);
   await t.enterText(f.first, text);
   await _settle(t);
