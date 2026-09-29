@@ -97,6 +97,24 @@ void main() {
         reason: '给不存在的那行记已读 = 未读数被凭空减掉',
       );
     });
+
+    test('unreadCount 数的是未读那几行，且与 list(unreadOnly) 同一个口径', () async {
+      await helper.insertFnthinkInbox(row('m_1'));
+      await helper.insertFnthinkInbox(row('m_2'));
+      await helper.insertFnthinkInbox(row('m_3'));
+      await service.markRead('m_2');
+      expect(
+        await service.unreadCount(),
+        2,
+        reason: '读掉一条就少一条 —— 首页那一格与收件档必须报同一个数',
+      );
+      final unreadRows = await service.list(unreadOnly: true);
+      expect(unreadRows.length, await service.unreadCount());
+    });
+
+    test('空表 ⇒ 未读数 0（不是 null、不抛）', () async {
+      expect(await service.unreadCount(), 0);
+    });
   });
 
   group('装配点', () {

@@ -49,8 +49,12 @@ void main() {
   /// 这样"页面重新读表"在测试里是一次真的读表，而不是对写死期望的附和。
   late List<FnthinkInboxMessage> table;
   late List<String> marked;
+  late int loads;
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    String initialDirection = 'forwarded',
+  }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -60,12 +64,16 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: HistoryPage(
+          initialDirection: initialDirection,
           records: const [],
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
           onClearToday: () async => 0,
           onClearLastN: (_) async => 0,
-          inboxLoader: () async => List.of(table),
+          inboxLoader: () async {
+            loads++;
+            return List.of(table);
+          },
           inboxMarkRead: (id) async {
             marked.add(id);
             final at = table.indexWhere((m) => m.messageId == id);
@@ -90,6 +98,7 @@ void main() {
   setUp(() {
     table = [row('m_unread'), row('m_read', read: true)];
     marked = <String>[];
+    loads = 0;
   });
 
   testWidgets('默认停在「转发」档：表里有收件也不混进这张列表', (tester) async {
@@ -157,5 +166,20 @@ void main() {
       findsNothing,
       reason: '表里没有了还挂在界面上，等于让用户去点一条不存在的东西',
     );
+  });
+
+  testWidgets('首页那张未读卡把人直接放进收件档：一进来就读表，不等那一次「切」', (tester) async {
+    await pump(tester, initialDirection: 'received');
+    expect(
+      find.text('机箱温度'),
+      findsNWidgets(2),
+      reason: '没点过方向条就看见收件行 —— 预置档真的生效了',
+    );
+    expect(loads, 1, reason: 'initState 里读一次。少了这一次读，预置档就是一张永远的空表');
+  });
+
+  testWidgets('默认档不预读收件表：进历史页不该顺手查另一张表', (tester) async {
+    await pump(tester);
+    expect(loads, 0);
   });
 }

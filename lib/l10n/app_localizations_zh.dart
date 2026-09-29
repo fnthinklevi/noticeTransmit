@@ -3151,4 +3151,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkInboxEmpty => '还没有收到过消息';
+
+  @override
+  String get fnthinkInboxEntry => '幻念收件';
+
+  @override
+  String fnthinkInboxUnread(int n) {
+    return '未读 $n 条';
+  }
 }

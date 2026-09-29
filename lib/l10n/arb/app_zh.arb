@@ -1565,5 +1565,14 @@
   },
   "fnthinkDirForwarded": "转发",
   "fnthinkDirInbox": "收件（幻念）",
-  "fnthinkInboxEmpty": "还没有收到过消息"
+  "fnthinkInboxEmpty": "还没有收到过消息",
+  "fnthinkInboxEntry": "幻念收件",
+  "fnthinkInboxUnread": "未读 {n} 条",
+  "@fnthinkInboxUnread": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

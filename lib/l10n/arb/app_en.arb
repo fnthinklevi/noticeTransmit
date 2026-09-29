@@ -1544,5 +1544,14 @@
   },
   "fnthinkDirForwarded": "Forwarded",
   "fnthinkDirInbox": "Received (Fnthink)",
-  "fnthinkInboxEmpty": "No messages received yet"
+  "fnthinkInboxEmpty": "No messages received yet",
+  "fnthinkInboxEntry": "Fnthink inbox",
+  "fnthinkInboxUnread": "{n} unread",
+  "@fnthinkInboxUnread": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  }
 }

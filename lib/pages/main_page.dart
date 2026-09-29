@@ -12,6 +12,7 @@ import '../services/locale_service.dart';
 import '../services/active_channels.dart';
 import '../services/channel_role_guide.dart';
 import '../services/app_channel_service.dart';
+import '../services/fnthink_inbox_service.dart';
 import '../services/sms_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
@@ -58,6 +59,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   // 首页推送记录总数（统一以 DB 为准，与更多页统计/状态栏统计共用同一数据源）
   int _notificationTotalCount = 0;
 
+  /// 首页「幻念收件」那一格的未读数。**这一页不数**，只从收件咽喉取（`FnthinkInboxService`），
+  /// 于是它与历史页收件档、详情里那个未读点是同一个数。
+  int _fnthinkInboxUnread = 0;
+
   final WebhookService _webhookService = GetIt.instance<WebhookService>();
   final BatteryService _batteryService = GetIt.instance<BatteryService>();
   final NotificationService _notificationService =
@@ -70,6 +75,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       GetIt.instance<DeviceInfoService>();
   final ThemeService _themeService = GetIt.instance<ThemeService>();
   final SmsService _smsService = GetIt.instance<SmsService>();
+  final FnthinkInboxService _fnthinkInbox =
+      GetIt.instance<FnthinkInboxService>();
 
   /// 首页「当前推送通道」：条目、健康态与显示格式都来自 [collectActiveChannels]（第 6 步单点），
   /// 与历史记录入库时的送达键快照同源。这里只做显示形状。
@@ -105,6 +112,8 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
           setState(() {});
         },
         onOpenSmsMonitorSettings: _openSmsMonitorSettingsPage,
+        fnthinkInboxUnread: _fnthinkInboxUnread,
+        onOpenInbox: _openFnthinkInboxPage,
       ),
       // 中间那一格＝通知引擎骨架页（T15）：电量/温度两类设备侧告警的入口。
       // 电量页原先直接挂在这里、由本页逐个包回调，现在它订阅自己的服务并由骨架页 push。
@@ -170,6 +179,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // 首页/更多页/状态栏统计统一：刷新首页总计数 + 同步原生今日计数基数
       await _refreshTotalCount();
       await _notificationService.syncDailyCountToNative();
+      // 收件未读数与推送总数同一批取：两个都是"首页那两张计数卡"的数字，分两批读就会出现
+      // 一格是新的、一格是旧的。
+      await _refreshFnthinkInboxUnread();
 
       // 加载推送通道配置 + 启动每日归档定时器
       await _webhookService.loadChannels();
@@ -229,6 +241,22 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
+  /// 刷新首页「幻念收件」那一格的未读数。
+  ///
+  /// ⚠ 取失败时**保留上一次的数**，不回落成 0：0 在这张卡上的意思是"没有未读"，
+  /// 而"没读到"与"没有"是两件事 —— 把它画成 0 等于当着用户的面宣布消息没了（本仓那条
+  /// "不静默丢失"的不变量也包括不悄悄把待读说成已读）。首帧本来就是 0，那时还没有过承诺。
+  Future<void> _refreshFnthinkInboxUnread() async {
+    try {
+      final n = await _fnthinkInbox.unreadCount();
+      if (mounted && n != _fnthinkInboxUnread) {
+        setState(() => _fnthinkInboxUnread = n);
+      }
+    } catch (e) {
+      debugPrint('[fnthink] 收件未读数没取到，沿用上一个数: $e');
+    }
+  }
+
   Future<void> _checkFirstLaunch() async {
     final prefs = await SharedPreferences.getInstance();
     final hasLaunched = prefs.getBool('has_launched') ?? false;
@@ -250,6 +278,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // 回到前台时补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
       unawaited(_notificationService.drainPendingDeliveries());
+      // 收件未读数也在这里重取：收货循环在后台跑，它落库的那几条不会往 UI 推事件。
+      // 不接实时事件总闸的理由是这一格的时效要求是"回到前台就该对"，而不是"秒级跳变"。
+      unawaited(_refreshFnthinkInboxUnread());
       final localeService = GetIt.instance<LocaleService>();
       if (localeService.shouldPromptSwitch) {
         await _showLanguageSwitchDialog(localeService);

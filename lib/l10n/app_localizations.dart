@@ -5917,6 +5917,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'还没有收到过消息'**
   String get fnthinkInboxEmpty;
+
+  /// No description provided for @fnthinkInboxEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念收件'**
+  String get fnthinkInboxEntry;
+
+  /// No description provided for @fnthinkInboxUnread.
+  ///
+  /// In zh, this message translates to:
+  /// **'未读 {n} 条'**
+  String fnthinkInboxUnread(int n);
 }
 
 class _AppLocalizationsDelegate

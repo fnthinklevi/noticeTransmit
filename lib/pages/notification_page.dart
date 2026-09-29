@@ -18,6 +18,14 @@ class NotificationPage extends StatelessWidget {
   final ValueChanged<bool> onToggleSmsMonitor;
   final VoidCallback onOpenSmsMonitorSettings;
 
+  /// 首页「幻念收件」入口卡：未读数由外层注入，**页面不数**（数法只有一处，
+  /// `FnthinkInboxService.unreadCount`）。这一格与历史页收件档、详情里那个点必须是同一个数，
+  /// 否则表现是"首页说还有 3 条，点进去只有 2 条"。
+  final int fnthinkInboxUnread;
+
+  /// 这一格的去处（打开历史页的收件档）。没接上时**整格不画** —— 见 build 里那段注释。
+  final VoidCallback? onOpenInbox;
+
   const NotificationPage({
     super.key,
     required this.notificationPermissionGranted,
@@ -33,6 +41,8 @@ class NotificationPage extends StatelessWidget {
     required this.onOpenChannelStatus,
     required this.onToggleSmsMonitor,
     required this.onOpenSmsMonitorSettings,
+    this.fnthinkInboxUnread = 0,
+    this.onOpenInbox,
   });
 
   @override
@@ -246,6 +256,21 @@ class NotificationPage extends StatelessWidget {
               onTap: onOpenHistory,
               context: context,
             ),
+            // 「幻念收件」这一格**只在有货的时候出现**：这台从没接收过、或都读完了，首页就不该多出
+            // 一格跟他无关的入口（"新功能不许改变用户看到的默认界面"那条不变量）。读完了想再翻收件档，
+            // 走「推送历史」那一格切过去 —— 门一直开着，这一格只是短的那条路。
+            // 出口没接上时同样不画：画一个点不动的入口比不画更糟（与幻念推送页那条"死路按钮"同族）。
+            if (onOpenInbox != null && fnthinkInboxUnread > 0) ...[
+              const SizedBox(height: 12),
+              _buildQuickAction(
+                icon: Icons.mark_email_unread_outlined,
+                iconColor: AppColors.purple,
+                title: l10n.fnthinkInboxEntry,
+                subtitle: l10n.fnthinkInboxUnread(fnthinkInboxUnread),
+                onTap: onOpenInbox!,
+                context: context,
+              ),
+            ],
           ],
         ),
       ),

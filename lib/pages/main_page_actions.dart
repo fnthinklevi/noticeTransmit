@@ -69,9 +69,10 @@ extension _MainPageActions on _MainPageState {
     _pushPage(const PrivacyPolicyPage());
   }
 
-  void _openHistoryPage() {
+  void _openHistoryPage({String direction = 'forwarded'}) {
     _pushPage(
       HistoryPage(
+        initialDirection: direction,
         records: _notificationService.records,
         onClear: () async {
           await _notificationService.clearRecords();
@@ -182,8 +183,15 @@ extension _MainPageActions on _MainPageState {
           if (mounted) setState(() {});
         },
       ),
-    );
+      // 返回时重取未读数：在收件档里点开读过的那几条，未读数必须跟着下来，
+      // 否则首页那一格会一直举着一个已经不存在的数字（"3 条未读"点进去一条都没有）。
+    ).then((_) => _refreshFnthinkInboxUnread());
   }
+
+  /// 首页「幻念收件」那一格的去处：**同一个历史页**，但一进来就停在收件档。
+  /// 不另开一页的理由与历史页把"方向"做成数据源切换同源：收件行与转发行是两张表，
+  /// 分两页会让用户要记住"哪一类在哪一页"。
+  void _openFnthinkInboxPage() => _openHistoryPage(direction: 'received');
 
   void _openPermissionSettingsPage() async {
     await _pushPage(

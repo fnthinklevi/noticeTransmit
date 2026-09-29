@@ -35,6 +35,11 @@ class HistoryPage extends StatefulWidget {
   /// 标已读的那一斧子。同上：默认走收件服务，测试注入替身。
   final Future<bool> Function(String messageId)? inboxMarkRead;
 
+  /// 打开时停在哪一档。首页那张「幻念收件」卡靠它把人**直接放到收件档**：
+  /// 这一档是数据源切换而不是筛选条件，进来还要再手动切一次的话，"原来还有第二个抽屉"这件事
+  /// 就藏在一次不显眼的点击里了。其余入口（推送历史卡）留默认值 'forwarded'。
+  final String initialDirection;
+
   const HistoryPage({
     super.key,
     required this.records,
@@ -45,6 +50,7 @@ class HistoryPage extends StatefulWidget {
     this.onPushNow,
     this.inboxLoader,
     this.inboxMarkRead,
+    this.initialDirection = 'forwarded',
   });
 
   @override
@@ -345,9 +351,13 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     super.initState();
+    _direction = widget.initialDirection;
     _scrollController.addListener(_onScroll);
     // 取一次溢出计数：loadRecords() 在 app 启动时已经跑过 drainOfflineCache
     _offlineDrops = GetIt.instance<NotificationService>().pendingOfflineDrops;
+    // 一进来就停在收件档 ⇒ 这一档的数据得当场取。平时它是"切过去才读"的，
+    // 而首页那张未读卡进来时并没有一次"切"可以等。
+    if (_direction == 'received') _loadInbox();
   }
 
   /// 离线缓存溢出提示条（#94-A）。
@@ -1517,7 +1527,8 @@ class _HistoryPageState extends State<HistoryPage> {
   //
   // ⚠ "方向"是**数据源切换**，不是又一个筛选条件：转发记录与收件行来自两张表、分页口径不同，
   //   拼进同一条时间线会出现"翻页时同一条出现两次、或整条一次都不出现"。所以整档换列表。
-  String _direction = 'forwarded';
+  // late 而非写死默认值：进来停在哪一档由 widget.initialDirection 定（首页那张未读卡要它=收件）。
+  late String _direction;
   List<FnthinkInboxMessage> _inbox = const [];
   bool _inboxLoaded = false;
 

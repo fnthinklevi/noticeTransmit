@@ -131,6 +131,67 @@ void main() {
         reason: '收件档的数据来源不是服务层：本条守卫已经在空跑',
       );
     });
+
+    test('首页那一格的数是取来的，不是页面自己数的', () {
+      // 负向：首页拿到一个 int 就画。它若自己数（`list(unreadOnly: true).length` 那种），
+      // 列表带着 limit ⇒ 收到第 51 条起这一格开始少报，而少报的样子和"真的没有未读"一模一样。
+      final home = stripComments(
+        librarySource(root, 'lib/pages/notification_page.dart'),
+      );
+      for (final counting in [
+        'unreadCount',
+        'countFnthinkInboxUnread',
+        'loadFnthinkInbox',
+      ]) {
+        expect(
+          home,
+          isNot(contains(counting)),
+          reason: '首页自己长出一份数法（$counting）⇒ 它和历史页收件档迟早报两个数',
+        );
+      }
+      expect(
+        home,
+        contains('fnthinkInboxUnread'),
+        reason: '首页不再收这个注入值了：本条守卫已经在空跑',
+      );
+
+      final main = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      expect(
+        main,
+        allOf(contains('FnthinkInboxService'), contains('unreadCount(')),
+        reason: '首页的未读数不是从收件咽喉取的（漏接时全场仍绿，只有这一格静默消失）',
+      );
+    });
+
+    test('从收件档返回时会重取未读数（不然首页一直举着一个已经不存在的数）', () {
+      // 这一条只盯**两个时刻**：从历史页弹回来、以及回到前台。取数的来源与画数的位置都在别处钉过了。
+      // 少弹回来那一步的现象很具体：首页写「未读 3 条」，点进去把三条都读过，退回首页还写 3 条。
+      //
+      // ⚠ 锚点按**文件**取，不按函数体取：`blockAfter(lib, 'void _openHistoryPage(')` 会停在
+      //    命名参数表那个 `{`（`({String direction = 'forwarded'})`）上，返回的是参数表而不是函数体 ——
+      //    本条第一版就这么写错过，靠反证第一轮报出"基线本来就红"才发现（植入没动它它也红）。
+      final actions = stripComments(
+        File('$root/lib/pages/main_page_actions.dart').readAsStringSync(),
+      );
+      expect(
+        actions,
+        contains('_refreshFnthinkInboxUnread'),
+        reason:
+            '导航那一族里不再重取未读数 ⇒ 那一格的数从此不再跟着表走。'
+            '如果 `_openHistoryPage` 搬去了别的文件，把这条一起搬过去，别删。',
+      );
+      // 收货循环在后台跑，它落库的那几条不会往 UI 推事件 ⇒ 回到前台是唯一的补偿时刻。
+      final lib = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      expect(
+        lib,
+        contains('unawaited(_refreshFnthinkInboxUnread())'),
+        reason: 'resumed 时不再重取 ⇒ 后台新到的消息要等用户翻一次历史页才反映到首页',
+      );
+    });
   });
 }
 

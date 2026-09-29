@@ -34,6 +34,11 @@ class FnthinkInboxService {
     unreadOnly: unreadOnly,
   );
 
+  /// 未读数。首页那张入口卡、历史页收件档、推送页的状态行说的是**同一个数**，所以数法只留一处。
+  /// ⚠ 别让调用方自己 `list(unreadOnly: true).length` 去数：列表有 `limit`，
+  /// 收到第 51 条时那条口径就会开始少报，而它少报的样子和"真的没有未读"一模一样。
+  Future<int> unreadCount() => _db.countFnthinkInboxUnread();
+
   /// 标已读，回**有没有命中**那一行。false 的意思是"这条已经不在了"（被保留策略裁掉），
   /// 调用方要据此让界面消失一行，而不是把它显示成"已读" —— 给不存在的东西记已读，
   /// 表现就是未读数被凭空减掉。

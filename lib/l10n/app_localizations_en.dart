@@ -3284,4 +3284,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkInboxEmpty => 'No messages received yet';
+
+  @override
+  String get fnthinkInboxEntry => 'Fnthink inbox';
+
+  @override
+  String fnthinkInboxUnread(int n) {
+    return '$n unread';
+  }
 }
