@@ -156,6 +156,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 没有这句结论，用户看不出那一行是自己刚关的还是一早就停的。
   FnthinkEndpointRevokeResult? _endpointRevoked;
 
+  /// 最近一次"换口令"的结论（null = 这一页还没换过）。
+  /// ⚠ 与 `_endpoint` 同一条红线：它带着**只出现一次的新明文口令**，所以不落盘、不进日志；
+  /// 页面关掉这一格就是它消失的时候（换过一次而没抄走，只能再换一次 —— 旧那把会跟着进宽限期）。
+  FnthinkEndpointRotateResult? _endpointRotated;
+
   FnthinkDeviceIdentity? _identity;
   bool _identityUnavailable = false;
 
@@ -609,6 +614,57 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     return l10n.fnthinkEndpointRevoked(result.endpointId);
   }
 
+  /// 换那把入口的口令（`/endpoint-rotate`，#157 第六片）。
+  ///
+  /// 也走二次确认（T06 那条规矩的另一种情形：这一发不删东西，但它**会让一把别人正在用的口令
+  /// 开始倒计时** —— 手滑的代价在 NAS 那头，与删一条通道同级）。
+  /// 换完之后同样重新读一次列表：`rotatingUntil` 那一行是服务端的事实，不在本机留副本。
+  ///
+  /// 这一格被砸过什么（`outputs/_erot2.report.txt`，RC6–RC10 全 named+restored）：
+  ///  - **RC6** 二次确认那道早退摘掉（取消也发）⇒ 红在「弹层上点取消 ⇒ 那一发不发」。
+  ///    ⚠ 与 SA6 同一条教训：这条用例**必须先有"取消"那一支**才谈得上可观察，
+  ///    只走"确定"的用例对 `askConfirm` 的 await 是无感的；
+  ///  - **RC7** 换成那一支不再显示新口令 ⇒ 红在「新口令那一行就是这一把」；
+  ///  - **RC8** `rotatingUntil` 没回也硬显示 ⇒ 红在「那一行根本不出现（不编一个截止时间）」；
+  ///  - **RC9** 三档文案合一（那把已停也说成失败）⇒ 红在「说"没给它换"，不出现口令行」；
+  ///  - **RC10** 已停的那一行也给两下按钮 ⇒ 红在「"关掉"与"换一把"两下都不给」。
+  Future<void> _rotateEndpoint(FnthinkEndpointSummary row) async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final ok = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.fnthinkEndpointRotateAskTitle,
+      message: l10n.fnthinkEndpointRotateAskMsg,
+      confirmText: l10n.confirm,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    final result = await _coordinator.rotateEndpoint(endpointId: row.id);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _endpointRotated = result;
+    });
+    if (_endpointList != null) await _readEndpoints();
+  }
+
+  /// 换口令那一发的结论。**三档必须分开说**：换成了（新口令在上面）、那一把已经不收信了
+  /// （所以没换，这不是失败）、以及真失败。把第二档并进"没换成"，用户会去再点一次，
+  /// 而那一发换来的是"给一个已经不工作的端点换口令" —— 一句体面的 no-op。
+  String _endpointRotateText(AppLocalizations l10n) {
+    final result = _endpointRotated;
+    if (result == null) return '';
+    if (!result.ok) {
+      return l10n.fnthinkEndpointRotateFailed(
+        result.reason ?? 'no-endpoint-rotate',
+      );
+    }
+    if (result.rotated == false) {
+      return l10n.fnthinkEndpointRotateNotRotated(result.endpointId);
+    }
+    return l10n.fnthinkEndpointRotated(result.endpointId);
+  }
+
   /// 待确认的配对请求那一格。
   ///
   /// 列表**跟着协调者那份账走**（`pairRequestsListenable`）：用户挂出口令之后是盯着屏幕等对面来配的，
@@ -769,10 +825,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   ///
   /// 为什么这一格值得存在：以前只有管理面能建端点，自部署的用户要给自家 NAS 铸一把入口，
   /// 得先拿出那把能做远多于这件事的 admin token。
-  /// 现在这一格是**建 + 读 + 关**：读口与关闸都是设备面签名事件（self-only），
-  /// 所以"我建过哪些、哪把还不收信、这把我要关掉"三句话都能在手机上说完，不必碰管理面。
-  /// ⚠ **轮换仍然没有**：它会留下一段"旧口令还能用"的宽限期（契约 `endpoint.rotation.graceSeconds`），
-  /// 那段时间里两把口令同时有效 —— 那是与"关掉"不同的一类动作，界面要说的话也不同，单独一片做。
+  /// 现在这一格是**建 + 读 + 关 + 换**：四件事全走设备面签名事件（self-only），
+  /// 所以"我建过哪些、哪把还不收信、这把我要关掉、这把口令要换"都能在手机上说完，不必碰管理面。
+  /// ⚠ 「换」与其余三件有一处根本不同：它**留下一段两把口令同时有效的时间**
+  /// （契约 `endpoint.rotation.graceSeconds`）。所以界面必须把"旧的那把到什么时候算死"一起说清楚 ——
+  /// 只报新口令不报截止日期，等于让人在不知道后果的情况下排自己的活儿。那一行只在服务端回了
+  /// `rotatingUntil` 时出现；没回就不编。
   /// ⚠ 口令那一行只在这次 `setState` 之后存在：不写 prefs、不写表、不进日志（见 `_endpoint`）。
   /// 读回来的那份也不写：端点表的真值在服务端，本机留副本就是一本会漂的账。
   ///
@@ -792,6 +850,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   Widget _buildEndpointCard(AppLocalizations l10n) {
     final created = _endpoint;
     final listing = _endpointList;
+    final rotated = _endpointRotated;
     // 上限那个数从契约读（页面不写 10）：它改小的时候这句解释不能跟着说谎。
     final cap = _contract?.endpointMaxPerDevice;
     return _Card(
@@ -866,10 +925,10 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
                   ' · '
                   '${row.usable ? l10n.fnthinkEndpointUsable : l10n.fnthinkEndpointNotUsable(row.status)}',
             ),
-            // 已经不收信的那一把**不再给"关掉"按钮**：那一行没有可关的东西了，
-            // 而给它一个按下去只会拿到一句幂等成功的按钮，等于在界面上摆一个假动作。
+            // 已经不收信的那一把**不再给"关掉"或"换一把"那两下**：那一行没有可操作的东西了，
+            // 而给它一个按下去只会拿到一句幂等答复的按钮，等于在界面上摆一个假动作。
             // （真要再对外提供一个入口，正确动作是上面那一下"建一个端点"。）
-            if (row.usable)
+            if (row.usable) ...[
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
@@ -878,12 +937,47 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
                   child: Text(l10n.fnthinkEndpointRevoke),
                 ),
               ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  key: ValueKey('fnthink-endpoint-rotate-${row.id}'),
+                  onPressed: _busy ? null : () => _rotateEndpoint(row),
+                  child: Text(l10n.fnthinkEndpointRotate),
+                ),
+              ),
+            ],
           ],
         if (_endpointRevoked != null)
           _Note(
             keyName: 'fnthink-endpoint-revoke-note',
             text: _endpointRevokeText(l10n),
           ),
+        if (rotated != null) ...[
+          // ⚠ 这两行是这一格第二处"明文只出现一次"：口令不落盘、不缓存，这一格翻过去就没了。
+          // 键名刻意与创建那一次的分开（同一份 children 里两个同值 ValueKey 会直接抛）。
+          if (rotated.exchanged) ...[
+            SelectableText(
+              l10n.fnthinkEndpointSecret(rotated.secret!),
+              key: const ValueKey('fnthink-endpoint-rotated-secret'),
+            ),
+            _Note(
+              keyName: 'fnthink-endpoint-rotated-once',
+              text: l10n.fnthinkEndpointOnce,
+            ),
+            // "旧的那把什么时候算死"：没回就不猜 —— 编一个时间会让人按错的节奏去改 NAS。
+            if (rotated.rotatingUntil != null)
+              _Note(
+                keyName: 'fnthink-endpoint-rotate-grace',
+                text: l10n.fnthinkEndpointRotateGrace(
+                  _formatTime(rotated.rotatingUntil!),
+                ),
+              ),
+          ],
+          _Note(
+            keyName: 'fnthink-endpoint-rotate-note',
+            text: _endpointRotateText(l10n),
+          ),
+        ],
       ],
     );
   }

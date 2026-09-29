@@ -405,6 +405,13 @@ class FnthinkContract {
   /// 这一发就成了"泄露过的口令还能用来关掉别人的入口"的第二条通道。
   List<String> get endpointRevokeFields => clientEventFields('endpointRevoke');
 
+  /// endpointRotate 载荷的字段名单（今日 = `["endpointId"]`，与吊销逐字相同）。
+  ///
+  /// 名单里**没有** `graceSeconds`：宽限期是安全属性，不是客户端可传的偏好参数 ——
+  /// 那个开关一存在，"旧口令还能用多久"就变成谁手快谁说了算。时长只读
+  /// `endpoint.rotation.graceSeconds`，而设备侧连读都不必读：响应直接给 `rotatingUntil`。
+  List<String> get endpointRotateFields => clientEventFields('endpointRotate');
+
   /// 端点状态的**封闭**词表（今日 = `["active","revoked"]`）。
   List<String> get endpointStatuses => strings(const ['endpoint', 'statuses']);
 

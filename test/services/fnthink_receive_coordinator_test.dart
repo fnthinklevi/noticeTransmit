@@ -1211,6 +1211,66 @@ void main() {
       expect(result.reason, 'signing-unavailable');
     });
   });
+
+  group('换一条端点的口令 rotateEndpoint（#157 第六片）', () {
+    const rotateBody =
+        '{"endpointId":"ep_7","rotated":true,"secret":"ZZZ7RABQKPZ3STVWX234",'
+        '"rotatingUntil":1800003600000,"serverTime":1800000000000}';
+
+    test('走的是契约声明的那条路径，而新口令与截止日期都在返回值里', () async {
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: rotateBody),
+      );
+      final result = await c.rotateEndpoint(endpointId: 'ep_7');
+      expect(asked.single.url.path, contract.apiPath('endpointRotate'));
+      expect(result.exchanged, isTrue);
+      expect(result.secret, 'ZZZ7RABQKPZ3STVWX234');
+      expect(result.rotatingUntil, 1800003600000);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getKeys().where(
+          (k) => '${prefs.get(k)}'.contains('ZZZ7RABQKPZ3STVWX234'),
+        ),
+        isEmpty,
+        reason:
+            '新口令只在这一次出现：写进 prefs 的那一份会跟着备份走，'
+            '而服务端只有摘要 —— 谁都不知道丢了什么',
+      );
+    });
+
+    test('总开关关着也换得动：口令泄露了而接收正关着，恰恰是要换的那一回', () async {
+      SharedPreferences.setMockInitialValues({}); // 默认关
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, body: rotateBody),
+      );
+      final result = await c.rotateEndpoint(endpointId: 'ep_7');
+      expect(asked, hasLength(1));
+      expect(result.exchanged, isTrue);
+    });
+
+    test('签不出来 ⇒ 那一发不发，reason 是那句原话（不说"已换过"）', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(sink: asked, body: rotateBody),
+      );
+      final result = await c.rotateEndpoint(endpointId: 'ep_7');
+      expect(asked, isEmpty);
+      expect(result.ok, isFalse);
+      expect(
+        result.secret,
+        isNull,
+        reason: '一句"已换过"而手上没有新口令，是这一发最坏的假象：旧的那把已经在倒计时了',
+      );
+      expect(result.reason, 'signing-unavailable');
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {

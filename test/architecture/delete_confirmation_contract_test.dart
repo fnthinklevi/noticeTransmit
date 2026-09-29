@@ -46,6 +46,8 @@ void main() {
       'Future<void> _revoke(',
       // T42/#157：关掉一把入口 = 关掉一个别人能写进来的门，手滑的代价是 NAS 从此 401
       'Future<void> _revokeEndpoint(',
+      // 换口令不留"撤销"那么明显的后果，却更狠：旧那把当场开始倒计时，而 NAS 还在用它
+      'Future<void> _rotateEndpoint(',
     ],
   };
 
@@ -97,6 +99,7 @@ void main() {
           '_coordinator.confirmPairing(',
           '_coordinator.revokePeer(',
           '_coordinator.revokeEndpoint(',
+          '_coordinator.rotateEndpoint(',
         ],
       };
       for (final entry in mutators.entries) {

@@ -1814,5 +1814,40 @@
         "type": "String"
       }
     }
+  },
+  "fnthinkEndpointRotate": "Rotate this token",
+  "fnthinkEndpointRotateAskTitle": "Rotate this endpoint's token?",
+  "fnthinkEndpointRotateAskMsg": "Rotating gives you a new token, shown exactly once. The old one keeps working until the grace period ends (the line below says when); after that, whatever holds it starts getting refused.",
+  "fnthinkEndpointRotated": "Rotated the token of {id} — the new one is shown above exactly once.",
+  "@fnthinkEndpointRotated": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRotateGrace": "The old token keeps working until {until}.",
+  "@fnthinkEndpointRotateGrace": {
+    "placeholders": {
+      "until": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRotateNotRotated": "{id} already accepts no pushes, so no token was rotated — rotating does not resurrect an endpoint; create a new one instead.",
+  "@fnthinkEndpointRotateNotRotated": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointRotateFailed": "Token not rotated ({reason})",
+  "@fnthinkEndpointRotateFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

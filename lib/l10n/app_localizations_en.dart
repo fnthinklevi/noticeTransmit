@@ -3520,4 +3520,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkEndpointRevokeFailed(String reason) {
     return 'This one was not closed ($reason) — it still accepts pushes, and the list shows the server\'s copy.';
   }
+
+  @override
+  String get fnthinkEndpointRotate => 'Rotate this token';
+
+  @override
+  String get fnthinkEndpointRotateAskTitle => 'Rotate this endpoint\'s token?';
+
+  @override
+  String get fnthinkEndpointRotateAskMsg =>
+      'Rotating gives you a new token, shown exactly once. The old one keeps working until the grace period ends (the line below says when); after that, whatever holds it starts getting refused.';
+
+  @override
+  String fnthinkEndpointRotated(String id) {
+    return 'Rotated the token of $id — the new one is shown above exactly once.';
+  }
+
+  @override
+  String fnthinkEndpointRotateGrace(String until) {
+    return 'The old token keeps working until $until.';
+  }
+
+  @override
+  String fnthinkEndpointRotateNotRotated(String id) {
+    return '$id already accepts no pushes, so no token was rotated — rotating does not resurrect an endpoint; create a new one instead.';
+  }
+
+  @override
+  String fnthinkEndpointRotateFailed(String reason) {
+    return 'Token not rotated ($reason)';
+  }
 }

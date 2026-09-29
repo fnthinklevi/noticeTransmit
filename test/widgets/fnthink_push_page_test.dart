@@ -105,6 +105,11 @@ void main() {
     int endpointRevokeStatus = 200,
     String endpointRevokeBody =
         '{"endpointId":"ep_new","revoked":true,"serverTime":1800000000000}',
+    int endpointRotateStatus = 200,
+    // 默认那把新口令是 Z 开头：断言"界面上出现的就是这一把"时不会与创建那一次的口令混。
+    String endpointRotateBody =
+        '{"endpointId":"ep_live","rotated":true,"secret":"ZZZ7RABQKPZ3STVWX234",'
+        '"rotatingUntil":1800003600000,"serverTime":1800000000000}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
@@ -125,6 +130,7 @@ void main() {
     final endpointAsked = <http.Request>[];
     final endpointListAsked = <http.Request>[];
     final endpointRevokeAsked = <http.Request>[];
+    final endpointRotateAsked = <http.Request>[];
     final removed = <String>[];
     final peerRows = <FnthinkPeer>[];
     final peersShown = <FnthinkPeer>[...peers];
@@ -188,6 +194,16 @@ void main() {
           if (req.url.path == contract.apiPath('endpointRevoke')) {
             endpointRevokeAsked.add(req);
             return http.Response(endpointRevokeBody, endpointRevokeStatus);
+          }
+          if (req.url.path == contract.apiPath('endpointRotate')) {
+            endpointRotateAsked.add(req);
+            return http.Response(
+              endpointRotateBody,
+              endpointRotateStatus,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8',
+              },
+            );
           }
           armAsked.add(req);
           return http.Response(armBody, armStatus);
@@ -255,6 +271,7 @@ void main() {
       endpointAsked: () => endpointAsked,
       endpointListAsked: () => endpointListAsked,
       endpointRevokeAsked: () => endpointRevokeAsked,
+      endpointRotateAsked: () => endpointRotateAsked,
       removed: () => removed,
     );
   }
@@ -1659,6 +1676,195 @@ void main() {
       expect(h.endpointRevokeAsked(), isEmpty);
     });
   });
+
+  group('换一把入口的口令（#157 第六片）', () {
+    const oneLive =
+        '{"endpoints":[{"id":"ep_live","name":"nas","status":"active"}],'
+        '"serverTime":1800000000000}';
+    const oneDead =
+        '{"endpoints":[{"id":"ep_dead","name":"nas","status":"revoked"}],'
+        '"serverTime":1800000000000}';
+
+    Future<void> readList(WidgetTester tester) async {
+      final button = find.byKey(const ValueKey('fnthink-endpoint-read'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tapRotate(WidgetTester tester, String id) async {
+      final button = find.byKey(ValueKey('fnthink-endpoint-rotate-$id'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('换成功 ⇒ 新口令那一行就是这一把，宽限期那一行跟着服务端回的时刻', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(
+        endpointListBody: oneLive,
+        // rotatingUntil 给 0：这一支要断的是"时刻是服务端给的、不是本机算的"，
+        // 而 `_formatTime(0)` 的那一个 '—' 是"这一刻不可用"的既有表示 —— 不用碰时钟就能断。
+        endpointRotateBody:
+            '{"endpointId":"ep_live","rotated":true,'
+            '"secret":"ZZZ7RABQKPZ3STVWX234","rotatingUntil":0}',
+      );
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapRotate(tester, 'ep_live');
+      expect(find.text(l10n.fnthinkEndpointRotateAskMsg), findsOneWidget);
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(h.endpointRotateAsked(), hasLength(1));
+      final secret = find.byKey(
+        const ValueKey('fnthink-endpoint-rotated-secret'),
+      );
+      await revealTo(tester, secret);
+      // `SelectableText.text` 在这个 Flutter 版本上没有 getter ⇒ 断"界面上有这一串字符"（与创建那一次同一写法）。
+      expect(
+        find.text(l10n.fnthinkEndpointSecret('ZZZ7RABQKPZ3STVWX234')),
+        findsOneWidget,
+        reason: '那一行必须是**这一把**新口令：换过一次而抄不到，等于旧那把在倒计时而没人有新口令',
+      );
+      final grace = find.byKey(const ValueKey('fnthink-endpoint-rotate-grace'));
+      await revealTo(tester, grace);
+      expect(tester.widget<Text>(grace).data, isNotNull);
+    });
+
+    testWidgets('服务端没回 rotatingUntil ⇒ 那一行根本不出现（不编一个截止时间）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(
+        endpointListBody: oneLive,
+        endpointRotateBody:
+            '{"endpointId":"ep_live","rotated":true,'
+            '"secret":"ZZZ7RABQKPZ3STVWX234"}',
+      );
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapRotate(tester, 'ep_live');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-rotate-grace')),
+        findsNothing,
+        reason: '说一句"还能用到 X"而 X 是猜的，比不说更糟：用户会按那个钟去改 NAS',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-rotated-secret')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('换完重读一次列表：旧那把的截止日期以服务端那一份为准', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListBody: oneLive);
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      expect(h.endpointListAsked(), hasLength(1));
+      await tapRotate(tester, 'ep_live');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      expect(
+        h.endpointListAsked(),
+        hasLength(2),
+        reason: '本机不留一份"我换过了"的账：那份表在服务端，重读才是此刻的真话',
+      );
+    });
+
+    testWidgets('弹层上点取消 ⇒ 那一发不发（旧口令不该开始倒计时）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListBody: oneLive);
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapRotate(tester, 'ep_live');
+      expect(find.text(l10n.fnthinkEndpointRotateAskMsg), findsOneWidget);
+      await tester.tap(find.text(l10n.cancel));
+      await tester.pumpAndSettle();
+      expect(
+        h.endpointRotateAsked(),
+        isEmpty,
+        reason: '换一把会让正在用的那把开始倒计时 —— 没确认之前一个字节都不出去',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-rotate-note')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('那把本来就不收了（rotated:false）⇒ 说"没给它换"，不出现口令行', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(
+        endpointListBody: oneLive,
+        endpointRotateBody:
+            '{"endpointId":"ep_live","rotated":false,"serverTime":1800000000000}',
+      );
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapRotate(tester, 'ep_live');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      final note = find.byKey(const ValueKey('fnthink-endpoint-rotate-note'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        l10n.fnthinkEndpointRotateNotRotated('ep_live'),
+        reason: '这不是失败：报成失败会让人再点一次，而每次都是给一个不工作的端点换口令',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-rotated-secret')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('服务端说换了却没口令 ⇒ 走"没换成"，reason 单独那一句要看得见', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(
+        endpointListBody: oneLive,
+        endpointRotateBody: '{"endpointId":"ep_live","rotated":true}',
+      );
+      final l10n = await pump(tester, h.page);
+      await readList(tester);
+      await tapRotate(tester, 'ep_live');
+      await tester.tap(find.text(l10n.confirm));
+      await tester.pumpAndSettle();
+      final note = find.byKey(const ValueKey('fnthink-endpoint-rotate-note'));
+      await revealTo(tester, note);
+      expect(
+        tester.widget<Text>(note).data,
+        contains('endpoint-rotate-missing-new-secret'),
+        reason: '这一档表里真换掉了：说成"没换成"会让人以为旧的还能用，而那正是 NAS 401 的那一刻',
+      );
+    });
+
+    testWidgets('已经停了的那一把，"关掉"与"换一把"两下都不给', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness(endpointListBody: oneDead);
+      await pump(tester, h.page);
+      await readList(tester);
+      final row = find.byKey(const ValueKey('fnthink-endpoint-row-ep_dead'));
+      await revealTo(tester, row);
+      expect(row, findsOneWidget, reason: '那一行要看得见（它记录了停过），但不给可点的假动作');
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-revoke-ep_dead')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-endpoint-rotate-ep_dead')),
+        findsNothing,
+      );
+    });
+  });
 }
 
 /// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，
@@ -1725,6 +1931,7 @@ class _Harness {
     required this.endpointAsked,
     required this.endpointListAsked,
     required this.endpointRevokeAsked,
+    required this.endpointRotateAsked,
     required this.removed,
   });
 
@@ -1761,6 +1968,10 @@ class _Harness {
   /// 关掉一把入口那一发（同一套假服务器）。数得到它被发了几次，是为了能断言
   /// "点了列表里那一下之前，一发都不该出去"（二次确认那一刀必须先过）。
   final List<http.Request> Function() endpointRevokeAsked;
+
+  /// 换口令那一发（同一套假服务器）。数得到它被发了几次，是为了断"确认之前不发"与
+  /// "换完只发这一发"—— 那一发会立刻让旧口令开始倒计时，多点一下就是再倒一次。
+  final List<http.Request> Function() endpointRotateAsked;
 
   /// 本机删行被调用时点到的地址码（替身记下来的）。
   final List<String> Function() removed;

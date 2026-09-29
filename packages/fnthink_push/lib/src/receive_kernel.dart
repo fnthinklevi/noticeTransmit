@@ -1019,8 +1019,132 @@ class FnthinkReceiveKernel {
     );
   }
 
-  int _nonceCounter = 0;
+  /// 组 endpointRotate 的签名字段（换那把入口的长期口令，#157 第六片）。
+  ///
+  /// 载荷形状与 `endpointRevokeFields` **逐字相同**（只有那一把的 id）：宽限期不由这一发决定，
+  /// 所以这里连一个可选参数都不收 —— 多一个"旧口令立刻失效"的开关，就把一个安全属性
+  /// 变成了客户端可以随口关掉的东西。
+  Map<String, Object?> endpointRotateFields({
+    required String endpointId,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.endpointRotateFields;
+    if (declared.length != 1) {
+      throw StateError(
+        'endpointRotate 的载荷应当只有一个键（契约 fields=$declared）：多一个键那天，'
+        '"换哪一把"与"换成什么规矩"就成两件事，必须由契约明说哪个算数',
+      );
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('endpointRotate'),
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode({declared.single: endpointId}),
+    };
+  }
 
+  /// 换那把入口的口令。**这一发的结果里带一把新的明文口令**，与创建那一次同样的红线：
+  /// 只在这里出现，内核不存、不落盘、不进日志（长期凭证进 prefs 会跟着备份走）。
+  ///
+  /// 两条判据比"读得懂"更严：
+  ///  - `rotated:true` 而读不出非空 `secret` ⇒ **不算换成**（`endpoint-rotate-missing-new-secret`）：
+  ///    那种场合表里的摘要已经换掉了，而用户手上什么都没有 —— NAS 从这一刻开始 401，
+  ///    而没有任何人能说清新口令是什么。这比"没换成"更糟，所以要单独一个 reason 说清；
+  ///  - `rotated:false`（那一把本来就不收了）是一次**看得懂的答复**：`ok` 为真、`secret` 为空，
+  ///    界面对应的那句话是"没给它换，因为换口令不会把它复活"，不是失败。
+  ///
+  /// 这一发被砸过什么（`outputs/_erot2.report.txt` + `_erot2b.report.txt`，RC1–RC10 全 named+restored）：
+  ///  - **RC1** 载荷键名写死成 `'endpointId'` ⇒ 红在「载荷里那个键名跟着契约走」。
+  ///    ⚠ 这一条**第一次是 NO FAILURE**：轮换这组是照着吊销那组写的，连那条弱断言一起抄了
+  ///    —— `expect(body.keys, contract.endpointRotateFields)` 两边读同一份契约，写死与读契约
+  ///    当场分不出来。补了"喂一份改了键名的契约副本"那条用例才抓得住（同类的第三次：X5、Z4、SA1）；
+  ///  - **RC2** `rotated:true` 而没口令时把空串当口令 ⇒ 红在「而读不出口令 ⇒ 不算换成」；
+  ///  - **RC3** `rotated:false` 那一支摘掉 ⇒ 红在「是一次**看得懂的答复**」。
+  Future<FnthinkEndpointRotateResult> endpointRotate({
+    required String endpointId,
+  }) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: endpointRotateFields(endpointId: endpointId, nonce: nonce),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkEndpointRotateResult(
+        status: FnthinkPollStatus.transportError,
+        endpointId: endpointId,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkEndpointRotateResult(
+        status: verdict.status,
+        endpointId: endpointId,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'endpoint-rotate-http:${reply.status}',
+      );
+    }
+    final rotated = reply.body['rotated'];
+    if (rotated is! bool) {
+      _lastReason = 'endpoint-rotate-unparsable-ack';
+      return FnthinkEndpointRotateResult(
+        status: FnthinkPollStatus.failed,
+        endpointId: endpointId,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    if (!rotated) {
+      _lastReason = null;
+      return FnthinkEndpointRotateResult(
+        status: FnthinkPollStatus.ok,
+        endpointId: endpointId,
+        rotated: false,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+      );
+    }
+    final secret = reply.body['secret'];
+    if (secret is! String || secret.isEmpty) {
+      _lastReason = 'endpoint-rotate-missing-new-secret';
+      return FnthinkEndpointRotateResult(
+        status: FnthinkPollStatus.failed,
+        endpointId: endpointId,
+        rotated: true,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    return FnthinkEndpointRotateResult(
+      status: FnthinkPollStatus.ok,
+      endpointId: endpointId,
+      rotated: true,
+      secret: secret,
+      rotatingUntil: reply.body['rotatingUntil'] is int
+          ? reply.body['rotatingUntil'] as int
+          : null,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
+  int _nonceCounter = 0;
   String _fallbackNonce() {
     // 进程内唯一（时间戳 + 计数）。跨重启的唯一性由调用方保证 —— 这也是
     // `signature.nonceDedupeSeconds` 那个窗口的意思：重启后旧 nonce 还在别人的台账里。
@@ -1430,4 +1554,37 @@ class FnthinkEndpointRevokeResult {
   final String? reason;
 
   bool get ok => status == FnthinkPollStatus.ok && revoked != null;
+}
+
+/// 换一条接入端点口令的结论（#157 第六片）。
+///
+/// ⚠ [secret] 与创建那一次同样：**新口令只在这一次出现**，之后谁也拿不回来（服务端只有摘要）。
+/// 它唯一的合法去处是"当场显示一次，让用户抄走"—— 不落盘、不进日志、不进任何 `ValueNotifier`。
+/// [rotatingUntil] 是旧那把的死刑日期（毫秒）：这一发不给"立刻失效"那个开关，
+/// 所以宽限期只能被告知、不能被讨价。
+class FnthinkEndpointRotateResult {
+  const FnthinkEndpointRotateResult({
+    required this.status,
+    required this.endpointId,
+    required this.signedWhileUncalibrated,
+    this.rotated,
+    this.secret,
+    this.rotatingUntil,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+  final String endpointId;
+
+  /// null = 看不懂回的是什么；`false` = 那一把本来就不收了（没换，但也不是失败）。
+  final bool? rotated;
+  final String? secret;
+  final int? rotatingUntil;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok && rotated != null;
+
+  /// 真的换过了（并且手上那把新口令读得出来）。界面只有在这一档才许说"新的那把是 …"。
+  bool get exchanged => ok && rotated == true && secret != null;
 }

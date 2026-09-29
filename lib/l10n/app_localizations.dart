@@ -6253,6 +6253,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这把没关掉（{reason}）—— 它还在收信，列表按服务端那一份显示。'**
   String fnthinkEndpointRevokeFailed(String reason);
+
+  /// No description provided for @fnthinkEndpointRotate.
+  ///
+  /// In zh, this message translates to:
+  /// **'换一把口令'**
+  String get fnthinkEndpointRotate;
+
+  /// No description provided for @fnthinkEndpointRotateAskTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'换这把入口的口令？'**
+  String get fnthinkEndpointRotateAskTitle;
+
+  /// No description provided for @fnthinkEndpointRotateAskMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'换完会给你一把新口令，只显示这一次。旧的那把还能用到宽限期结束（下面那行会写到什么时候），之后拿着它的地方开始被拒。'**
+  String get fnthinkEndpointRotateAskMsg;
+
+  /// No description provided for @fnthinkEndpointRotated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已换过「{id}」的口令 —— 新的那把只在上面显示这一次。'**
+  String fnthinkEndpointRotated(String id);
+
+  /// No description provided for @fnthinkEndpointRotateGrace.
+  ///
+  /// In zh, this message translates to:
+  /// **'旧的那把还能用到 {until}。'**
+  String fnthinkEndpointRotateGrace(String until);
+
+  /// No description provided for @fnthinkEndpointRotateNotRotated.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{id}」已经不收信了，所以没给它换口令 —— 换口令不会把它复活；要再用请重新建一把。'**
+  String fnthinkEndpointRotateNotRotated(String id);
+
+  /// No description provided for @fnthinkEndpointRotateFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'口令没换成（{reason}）'**
+  String fnthinkEndpointRotateFailed(String reason);
 }
 
 class _AppLocalizationsDelegate

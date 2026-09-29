@@ -524,11 +524,18 @@ void main() {
         isNot(contains('secret')),
         reason: '摘要类里出现 secret：读口从此带凭证，而"只出现一次"那句就成了假话',
       );
-      // 解析那一段也不许读它（服务端多回一个键都不该被接住）。
-      final parse = kernel.substring(
-        kernel.indexOf('Future<FnthinkEndpointListResult> endpointList'),
-        kernel.indexOf('int _nonceCounter'),
+      // 解析那一段也不许读它（服务端多回一个键都不该被接住）。⚠ 边界必须量到**下一个方法的签名**
+      // 而不是到 `_nonceCounter`：吊销/轮换那两个方法住在中间，而轮换**本来就要读**新口令
+      // （`reply.body['secret']`）—— 拿一大段一起断言，红的是别人的合法代码，这条守卫就成了假红。
+      final parseEnd = kernel.indexOf(
+        'Future<FnthinkEndpointRevokeResult> endpointRevoke',
       );
+      final parseStart = kernel.indexOf(
+        'Future<FnthinkEndpointListResult> endpointList',
+      );
+      expect(parseStart, greaterThanOrEqualTo(0));
+      expect(parseEnd, greaterThan(parseStart));
+      final parse = kernel.substring(parseStart, parseEnd);
       expect(
         parse.toLowerCase(),
         isNot(contains('secret')),
@@ -564,6 +571,44 @@ void main() {
         reason: '页面上那一行按钮必须走协调者（前置判定与 service 生命周期都在那里）',
       );
       expect(occurrences(page, 'endpointRevoke('), 0);
+    });
+  });
+
+  group('换一把入口的口令那一反（#157 第六片）', () {
+    test('服务层装配判定里含 endpointRotate，内核那一发只有一个调用点', () {
+      final src = read('lib/services/fnthink_receiver_service.dart');
+      expect(
+        src,
+        contains("'endpointRotate',"),
+        reason: '漏登记 ⇒ 装配期不报错，第一次点"换一把口令"才在 transport 里抛',
+      );
+      expect(src, contains('kernel.endpointRotate('));
+    });
+
+    test('那一发在 lib/ 只有一个作者，而新口令只有一条去处 = 返回值', () {
+      final coordinator = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(
+        occurrences(coordinator, 'service.endpointRotate('),
+        1,
+        reason: '两处就两本账：一处负责 dispose、一处不负责',
+      );
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      expect(
+        page,
+        contains('_coordinator.rotateEndpoint('),
+        reason: '页面上那一行按钮必须走协调者（前置判定与 service 生命周期都在那里）',
+      );
+      expect(occurrences(page, 'endpointRotate('), 0);
+      // 新口令与创建那一次同一红线：本机不留副本（prefs 里出现它 = 长期凭证跟着备份走）。
+      for (final write in ['setString', 'SharedPreferences']) {
+        expect(
+          page,
+          isNot(contains(write)),
+          reason: '页面里出现了 $write：换出来的那把口令有了第二份去处，而没人负责清掉它',
+        );
+      }
     });
   });
 }

@@ -44,6 +44,7 @@ class FnthinkReceiverService {
       'endpointCreate',
       'endpointList',
       'endpointRevoke',
+      'endpointRotate',
     ]) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
@@ -293,6 +294,31 @@ class FnthinkReceiverService {
       );
     }
     return kernel.endpointRevoke(endpointId: endpointId);
+  }
+
+  /// 换那把入口的长期口令（`/endpoint-rotate`，#157 第六片）。
+  ///
+  /// ⚠ 这一发的**返回值里带一把新的明文口令**，与 [endpointCreate] 同一条红线：本层不落盘、
+  /// 不日志、不缓存，转交就完了。差别只有一句：创建那一次错过是"没有这把入口"，
+  /// 轮换这一次错过是"原来那把已经不能用了而新的没人知道" —— 后者更糟，所以内核把
+  /// "`rotated:true` 而读不出口令"单独报成一个 reason，不并回"没换成"。
+  ///
+  /// 反证 **RC4**（`outputs/_erot2.report.txt`）：装配判定名单里删掉 `endpointRotate` ⇒
+  /// 红在装配守卫「服务层装配判定里含 endpointRotate」。与 SA4 同一族：摘掉之后行为仍走得通
+  /// （路径是按 messageType 反查的），所以这条守卫看着的是那张名单本身 —— 它防的是
+  /// "以后有人把反查换成查表，而这一类从来没登记过"。
+  Future<FnthinkEndpointRotateResult> endpointRotate({
+    required String endpointId,
+  }) async {
+    if (!await _canSign()) {
+      return FnthinkEndpointRotateResult(
+        status: FnthinkPollStatus.failed,
+        endpointId: endpointId,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.endpointRotate(endpointId: endpointId);
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

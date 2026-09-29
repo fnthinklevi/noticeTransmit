@@ -673,6 +673,36 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 换那把入口的口令（#157 第六片）。前置口径与 [revokeEndpoint] 同一条
+  /// （不要求总开关开着：口令泄露了而接收正关着，恰恰是要换的那一回）。
+  ///
+  /// ⚠ 返回值里的新口令**只在这里过一下**：不落盘、不进 `ValueNotifier`、不写日志。
+  /// 也不缓存"换过了"这件事 —— 换没换、旧那把还能用到什么时候，都以服务端那一份为准，
+  /// 页面在拿到结果之后重新读一次列表。
+  ///
+  /// 反证 **RC5**（`outputs/_erot2.report.txt`）：`requireEnabled: false` 改成 `true` ⇒
+  /// 红在「总开关关着也换得动」这一条（连带另两条一起红，因为它们都靠这一发发得出去）。
+  /// 与 Z10/SA5 同一族，但这里后果更具体：**口令泄露了而接收正关着**，那正是最需要换的一回。
+  Future<FnthinkEndpointRotateResult> rotateEndpoint({
+    required String endpointId,
+  }) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkEndpointRotateResult(
+        status: FnthinkPollStatus.failed,
+        endpointId: endpointId,
+        reason: resolved.reason,
+        signedWhileUncalibrated: false,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.endpointRotate(endpointId: endpointId);
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
   void stop() {
     _loop?.stop();

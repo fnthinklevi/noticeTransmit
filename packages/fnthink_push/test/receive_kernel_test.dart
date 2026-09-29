@@ -1463,4 +1463,166 @@ void main() {
       expect(harness.sent, isEmpty);
     });
   });
+
+  group('换一条端点的口令 endpointRotate（#157 第六片）', () {
+    Future<FnthinkEndpointRotateResult> swap(
+      _Harness harness, {
+      String id = 'ep_7',
+    }) => harness.kernel().endpointRotate(endpointId: id);
+
+    test('target 是**本机**地址码，载荷只有那一把 id（宽限期不在此参数化）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpointId': 'ep_7',
+          'rotated': true,
+          'secret': 'ZZZ7RABQKPZ3STVWX234',
+          'rotatingUntil': 1800003600000,
+        },
+      );
+      await swap(harness);
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      expect(
+        fields['target'],
+        _self,
+        reason: '替别人换口令 = 拿到别人那条入口的新明文，拿着它就能冒充那台设备',
+      );
+      expect(
+        fields['type'],
+        contract.str(['clientEvents', 'endpointRotate', 'messageType']),
+      );
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(
+        body.keys.toList(),
+        contract.endpointRotateFields,
+        reason: '键名从契约读：写死那天就是"契约改名而设备照旧发一份旧键"的开始',
+      );
+      expect(body.length, 1, reason: '载荷里一旦能传 graceSeconds，宽限期就从安全属性变成客户端偏好');
+      expect(body['endpointId'], 'ep_7');
+    });
+
+    test('载荷里那个键名跟着契约走（不写死 endpointId）', () async {
+      // 与 revoke 那一组同一条：断言不能拿同一份契约比实现（写死与读契约当场分不出来）。
+      // RC1 第一次就是在这里 NO FAILURE 的 —— 轮换这组当初照抄了 revoke 的弱断言。
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final rotated = events['endpointRotate'] as Map<String, Object?>;
+      final renamed = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'endpointRotate': {
+            ...rotated,
+            'fields': ['whichEndpoint'],
+          },
+        },
+      });
+      final harness = _Harness(renamed, 1_800_000_000_000);
+      final fields = harness.kernel().endpointRotateFields(
+        endpointId: 'ep_7',
+        nonce: 'n1',
+      );
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(body.keys.toList(), [
+        'whichEndpoint',
+      ], reason: '服务端逐字节比那份名单：键名写死在这里，契约改名那天这一发只剩一句同形 403');
+      expect(body['whichEndpoint'], 'ep_7');
+    });
+
+    test('换成 ⇒ 新口令与旧口令的死刑日期都在', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpointId': 'ep_7',
+          'rotated': true,
+          'secret': 'ZZZ7RABQKPZ3STVWX234',
+          'rotatingUntil': 1800003600000,
+        },
+      );
+      final result = await swap(harness);
+      expect(result.ok, isTrue);
+      expect(result.exchanged, isTrue);
+      expect(result.secret, 'ZZZ7RABQKPZ3STVWX234');
+      expect(result.rotatingUntil, 1800003600000);
+      expect(result.endpointId, 'ep_7');
+    });
+
+    test('rotated:true 而读不出口令 ⇒ 不算换成，且 reason 单独一个', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_7', 'rotated': true},
+      );
+      final result = await swap(harness);
+      expect(
+        result.exchanged,
+        isFalse,
+        reason:
+            '这一档表里已经换掉了而用户手上什么都没有：NAS 从此 401，'
+            '而没人能说出新口令 —— 比"没换成"更糟，所以要单独一个 reason 说清',
+      );
+      expect(result.ok, isFalse);
+      expect(result.reason, 'endpoint-rotate-missing-new-secret');
+      expect(result.rotated, isTrue, reason: '但"服务端说换了"这件事要原样带回去，不许抹平');
+    });
+
+    test('rotated:false 是一次**看得懂的答复**（那把已停，换口令不会复活它）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_7', 'rotated': false},
+      );
+      final result = await swap(harness);
+      expect(result.ok, isTrue);
+      expect(result.exchanged, isFalse);
+      expect(result.secret, isNull);
+      expect(result.reason, isNull);
+    });
+
+    test('200 而 rotated 不是布尔 ⇒ 什么都没说（宁可报看不懂）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {'endpointId': 'ep_7', 'rotated': 'ok'},
+      );
+      final result = await swap(harness);
+      expect(result.ok, isFalse);
+      expect(result.reason, 'endpoint-rotate-unparsable-ack');
+    });
+
+    test('403 ⇒ 没换成（本机一份列表都不改）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(status: code('forbidden'), body: const {});
+      final result = await swap(harness);
+      expect(result.ok, isFalse);
+      expect(result.rotated, isNull);
+      expect(result.secret, isNull);
+    });
+
+    test('契约名单一旦多出第二个键 ⇒ 当场抛、不签出去', () async {
+      final events = contract.raw['clientEvents'] as Map<String, Object?>;
+      final rotated = events['endpointRotate'] as Map<String, Object?>;
+      final widened = FnthinkContract({
+        ...contract.raw,
+        'clientEvents': {
+          ...events,
+          'endpointRotate': {
+            ...rotated,
+            'fields': ['endpointId', 'graceSeconds'],
+          },
+        },
+      });
+      final harness = _Harness(widened, 1_800_000_000_000);
+      expect(
+        () => harness.kernel().endpointRotateFields(
+          endpointId: 'ep_7',
+          nonce: 'n1',
+        ),
+        throwsStateError,
+        reason: '名单多一键那天，"换哪一把"与"换成什么规矩"就成两件事 —— 必须由契约先明说哪个算数',
+      );
+      expect(harness.sent, isEmpty);
+    });
+  });
 }

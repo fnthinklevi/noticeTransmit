@@ -3378,4 +3378,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkEndpointRevokeFailed(String reason) {
     return '这把没关掉（$reason）—— 它还在收信，列表按服务端那一份显示。';
   }
+
+  @override
+  String get fnthinkEndpointRotate => '换一把口令';
+
+  @override
+  String get fnthinkEndpointRotateAskTitle => '换这把入口的口令？';
+
+  @override
+  String get fnthinkEndpointRotateAskMsg =>
+      '换完会给你一把新口令，只显示这一次。旧的那把还能用到宽限期结束（下面那行会写到什么时候），之后拿着它的地方开始被拒。';
+
+  @override
+  String fnthinkEndpointRotated(String id) {
+    return '已换过「$id」的口令 —— 新的那把只在上面显示这一次。';
+  }
+
+  @override
+  String fnthinkEndpointRotateGrace(String until) {
+    return '旧的那把还能用到 $until。';
+  }
+
+  @override
+  String fnthinkEndpointRotateNotRotated(String id) {
+    return '「$id」已经不收信了，所以没给它换口令 —— 换口令不会把它复活；要再用请重新建一把。';
+  }
+
+  @override
+  String fnthinkEndpointRotateFailed(String reason) {
+    return '口令没换成（$reason）';
+  }
 }
