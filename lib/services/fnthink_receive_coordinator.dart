@@ -327,8 +327,11 @@ class FnthinkReceiveCoordinator {
     final String addressCode;
     try {
       baseUri = await settings.baseUrl;
-      // 地址码在这里定一次型：循环带着它跑，半途换码（resetAddressCode）必须重启才生效 ——
-      // 否则刚签出去的那一发 target 与本轮要 ack 的那条不是同一台设备。
+      // spec 是**启动那一刻的快照**：`baseUri` 与 `addressCode` 都在这里定一次型，之后循环就带着它跑。
+      // 所以半途改这两样都必须重启才生效（页面上那两处改动的调用点都按这条写了重启）：
+      // 换码不重启 ⇒ 刚签出去的那一发 target 与本轮要 ack 的那条不是同一台设备；
+      // 换地址不重启 ⇒ 屏幕上写着新地址，而货还在从旧地址取（两边都"看起来没反应"）。
+      // 这里刻意不做"监听设置变化自动重启"：那会把"谁改了它"这件事从页面上抹掉。
       addressCode = (await _buildCredentials(
         contract,
       ).ensureAddressCode()).value;
