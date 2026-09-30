@@ -391,7 +391,7 @@ void main() {
       expect(find.text(l10n.fnthinkStatusIdle), findsOneWidget);
       expect(
         tester
-            .widget<ButtonStyleButton>(
+            .widget<CupertinoButton>(
               find.byKey(const ValueKey('fnthink-receive-now')),
             )
             .onPressed,

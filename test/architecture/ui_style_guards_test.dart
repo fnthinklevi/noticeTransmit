@@ -30,6 +30,14 @@ void main() {
           .toList()
         ..sort();
 
+  /// 按正则扫 —— `AlertDialog(` 必须带词边界：`CupertinoAlertDialog(` 里也含这三词。
+  List<String> hittingRe(RegExp re) =>
+      codeByPath.entries
+          .where((e) => re.hasMatch(e.value))
+          .map((e) => e.key)
+          .toList()
+        ..sort();
+
   group('根组件', () {
     test('lib/ 里不得出现 MaterialApp(', () {
       expect(
@@ -133,6 +141,34 @@ void main() {
       );
     });
   });
+
+  group('确认框台账（Material AlertDialog）', () {
+    // 不是一条「禁止」，而是一本**只许变薄的账**：这三条强约束之外，历史页面上的
+    // Material 对话框还很多（22 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
+    // 换完一屏就在台账里划掉一屏（#184 逐屏推进的可核对进度）。
+    final materialDialogs = RegExp(r'(^|[^A-Za-z0-9_])AlertDialog\(');
+
+    test('没有文件在台账之外新增长对话框', () {
+      expect(
+        hittingRe(
+          materialDialogs,
+        ).toSet().difference(kPendingMaterialDialogSites),
+        isEmpty,
+        reason:
+            '新一处 Material AlertDialog ⇒ 与 Cupertino 风格不一致；确认框请用 IosDialogActions',
+      );
+    });
+
+    test('台账里的文件都还长着一枚（划掉之前先真换掉）', () {
+      expect(
+        kPendingMaterialDialogSites.difference(
+          hittingRe(materialDialogs).toSet(),
+        ),
+        isEmpty,
+        reason: '台账与实际不符 ⇒ 这本账不能再当作剩余工作量',
+      );
+    });
+  });
 }
 
 /// 还没换成 `CupertinoSliverRefreshControl` 的历史落点（T83/#182 逐屏清）。
@@ -143,6 +179,32 @@ const Set<String> kPendingRefreshIndicatorSites = <String>{
   'lib/pages/notification_page.dart',
   'lib/pages/permission_settings_page.dart',
   'lib/pages/temperature_page.dart',
+};
+
+/// 还长着 Material `AlertDialog` 的文件（T83 逐屏换的台账，同上只许缩短）。
+const Set<String> kPendingMaterialDialogSites = <String>{
+  'lib/pages/app_filter_page.dart',
+  'lib/pages/backup_restore_page.dart',
+  'lib/pages/battery_page.dart',
+  'lib/pages/device_state_page.dart',
+  'lib/pages/fnthink_push_page.dart',
+  'lib/pages/history_page.dart',
+  'lib/pages/main_page_actions.dart',
+  'lib/pages/main_page_dialogs.dart',
+  'lib/pages/main_page_update.dart',
+  'lib/pages/more_page.dart',
+  'lib/pages/rule_edit_page.dart',
+  'lib/pages/rule_edit_widgets.dart',
+  'lib/pages/rule_list_page.dart',
+  'lib/pages/rule_tester_page.dart',
+  'lib/pages/sms_monitor_settings_page.dart',
+  'lib/pages/temperature_page.dart',
+  'lib/pages/webhook_settings_item.dart',
+  'lib/pages/widget_guide_page.dart',
+  'lib/widgets/fnthink_send_dialog.dart',
+  'lib/widgets/icon_picker_tile.dart',
+  'lib/widgets/ios_dialog_actions.dart',
+  'lib/widgets/rule_template_sheet.dart',
 };
 
 List<File> _dartFiles(String root) => Directory('$root/lib')

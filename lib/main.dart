@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -86,21 +87,29 @@ class _DIErrorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Scaffold(
-      body: Center(
+    return CupertinoPageScaffold(
+      backgroundColor: AppColors.bgColor(context),
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const Icon(
+              CupertinoIcons.exclamationmark_circle_fill,
+              size: 56,
+              color: AppColors.red,
+            ),
             const SizedBox(height: 16),
             Text(
               l10n.initFailed,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(l10n.initFailedMsg),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(l10n.initFailedMsg, textAlign: TextAlign.center),
+            ),
             const SizedBox(height: 24),
-            ElevatedButton(
+            CupertinoButton.filled(
               onPressed: () => runApp(const MyApp()),
               child: Text(l10n.retry),
             ),
@@ -193,72 +202,50 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _onDisagreeFirst(BuildContext dialogCtx) {
-    showDialog(
+    showCupertinoDialog(
       context: dialogCtx,
       barrierDismissible: false,
       builder: (ctx) {
         final l10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          backgroundColor: AppColors.cardBg(ctx),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+        return CupertinoAlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.warning_amber_rounded,
-                size: 44,
+                CupertinoIcons.exclamationmark_triangle_fill,
+                size: 22,
                 color: AppColors.orange,
               ),
-              const SizedBox(height: 14),
-              Text(
-                l10n.privacyWarnTitle,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.privacyWarnBody,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
+              const SizedBox(width: 8),
+              Flexible(child: Text(l10n.privacyWarnTitle)),
             ],
           ),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(
-                l10n.returnAgree,
-                style: TextStyle(
-                  color: AppColors.secondaryLabel(ctx),
-                  fontSize: 15,
-                ),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              l10n.privacyWarnBody,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.secondaryLabel(ctx),
               ),
             ),
-            FilledButton(
+          ),
+          actions: [
+            // 「返回并同意」不是确认，走次要档；退出这条才是破坏性动作。
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.returnAgree),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
               onPressed: () {
                 Navigator.of(ctx).popUntil((route) => route.isFirst);
                 _rejectPrivacy();
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.red,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                l10n.confirmExit,
-                style: const TextStyle(fontSize: 15),
-              ),
+              child: Text(l10n.confirmExit),
             ),
           ],
         );
@@ -269,71 +256,47 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void _showPrivacyDialog() {
     final navContext = _navigatorKey.currentState?.overlay?.context;
     if (navContext == null) return;
-    showDialog(
+    showCupertinoDialog(
       context: navContext,
       barrierDismissible: false,
       builder: (ctx) {
         final l10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          backgroundColor: AppColors.cardBg(ctx),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          title: null,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+        return CupertinoAlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.shield_outlined,
-                size: 44,
+                CupertinoIcons.checkmark_shield_fill,
+                size: 22,
                 color: AppColors.blue,
               ),
-              const SizedBox(height: 14),
-              Text(
-                l10n.privacyTitle,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '${l10n.privacyWelcome}\n\n${l10n.privacyBody}',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
+              const SizedBox(width: 8),
+              Flexible(child: Text(l10n.privacyTitle)),
             ],
           ),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actions: [
-            TextButton(
-              onPressed: () => _onDisagreeFirst(ctx),
-              child: Text(
-                l10n.disagree,
-                style: TextStyle(
-                  color: AppColors.secondaryLabel(ctx),
-                  fontSize: 15,
-                ),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              '${l10n.privacyWelcome}\n\n${l10n.privacyBody}',
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.secondaryLabel(ctx),
               ),
             ),
-            FilledButton(
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => _onDisagreeFirst(ctx),
+              child: Text(l10n.disagree),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
               onPressed: () {
                 _acceptPrivacy();
                 Navigator.of(ctx).pop();
               },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.blue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(l10n.agree, style: const TextStyle(fontSize: 15)),
+              child: Text(l10n.agree),
             ),
           ],
         );

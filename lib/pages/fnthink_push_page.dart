@@ -1349,7 +1349,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           ),
           Align(
             alignment: Alignment.centerLeft,
-            child: FilledButton(
+            child: CupertinoButton.filled(
               key: const ValueKey('fnthink-consent-agree'),
               onPressed: _busy ? null : _grantConsent,
               child: Text(l10n.fnthinkConsentTitle),
@@ -1381,7 +1381,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           _Note(keyName: 'fnthink-last-round', text: _lastRound!),
         Align(
           alignment: Alignment.centerLeft,
-          child: FilledButton.tonal(
+          child: CupertinoButton(
             key: const ValueKey('fnthink-receive-now'),
             onPressed: _enabled && !_busy ? _receiveNow : null,
             child: Text(l10n.fnthinkReceiveNow),
