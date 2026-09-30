@@ -5,6 +5,7 @@ import 'app_channel_service.dart';
 import 'channel_config_codec.dart';
 import 'channel_health_store.dart';
 import 'channel_display.dart';
+import 'channel_probe_service.dart';
 import 'email_service.dart';
 import 'webhook_service.dart';
 
@@ -237,4 +238,51 @@ List<Map<String, dynamic>> _rows(List<Map<String, dynamic>> Function() read) {
   } catch (_) {
     return const [];
   }
+}
+
+/// 把**全族过期的通道**各探一遍（#174）。
+///
+/// 为什么需要它：别处（三个族页的进页刷新）只在"用户走到那一页"时才检查过期，而用户看
+/// 状态的地方是首页那张卡与通道状态页 —— [channelHealthState] 把"成功但超过 6h"判成
+/// `unknown`，于是 6h 一过它们只会显示「未知」，**没有任何一处会自己去重探**。
+/// 这两处入口（通道状态页进页、App 回前台）走这一发把它补上。
+///
+/// ⚠ 读的是三个服务的**内存列表**（启动链 `main_page` 已装载），这里不做装载 IO：
+/// 回前台要快，而且 `loadChannels()` 会连带写原生（secure storage），不该被一次"顺手检查"触发。
+/// ⚠ 仍然是 **stale-only**：真正发请求的只有超过 [ChannelHealthStore.staleness] 的那几条 ——
+/// 进页/回前台不是"必发一轮请求"的借口。三条不变量（只探启用 / 只探过期 / 调用异常不写不可达）
+/// 全在 [ChannelProbeService] 里。
+Future<int> probeStaleChannelsAcrossFamilies({
+  void Function()? onUpdated,
+}) async {
+  // 探测链路没装配（早期启动阶段 / 测试环境）⇒ 当"无事可做"返回，与 [collectActiveChannels]
+  // 对三个服务的兜底同一条纪律：这一发是**顺手检查**，不该把一个没注册的 GetIt 变成页面崩。
+  final ChannelProbeService prober;
+  try {
+    prober = GetIt.instance<ChannelProbeService>();
+  } catch (_) {
+    return 0;
+  }
+  final byFamily = <String, List<ChannelProbeTarget>>{};
+  void add(String family, List<ChannelProbeTarget> Function() build) {
+    try {
+      byFamily[family] = build();
+    } catch (_) {
+      // 这一族没注册 ⇒ 跳过这一族，别的两族照探
+    }
+  }
+
+  add('webhook', () => GetIt.instance<WebhookService>().probeTargets);
+  add('app', () => GetIt.instance<AppChannelService>().probeTargets);
+  add('email', () => GetIt.instance<EmailService>().probeTargets);
+
+  var probed = 0;
+  for (final entry in byFamily.entries) {
+    probed += await prober.probeStale(
+      entry.key,
+      entry.value,
+      onUpdated: onUpdated,
+    );
+  }
+  return probed;
 }

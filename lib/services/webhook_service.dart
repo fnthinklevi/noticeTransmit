@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import 'channel_config_codec.dart';
+import 'channel_probe_service.dart';
 import 'platform_channel.dart';
 import 'secure_storage_service.dart';
 
@@ -20,6 +21,23 @@ class WebhookService {
 
   List<Map<String, dynamic>> _channels = [];
   List<Map<String, dynamic>> get channels => _channels;
+
+  /// 这一族**该探哪些**（6e 的口径：URL 为空的通道不给探测目标 —— 让它去探会把徽标钉成
+  /// "不可达"，而那其实是"配置没填完"，缺失字段有 T04 的标记负责）。
+  ///
+  /// ⚠ 构造只在这一处：族页的进页刷新与"全族扫一遍"（#174：状态页进页 / 回前台）读同一份 ——
+  /// 抄第二份的下场是两条路探的东西不一样（一条探三条、另一条探两条，而谁也不报错）。
+  /// 它读的是**内存列表**（不做 IO）：调用方要保证 `loadChannels()` 已经跑过（启动链跑过）。
+  List<ChannelProbeTarget> get probeTargets => [
+    for (final c in _channels)
+      if ((c['url']?.toString() ?? '').isNotEmpty)
+        ChannelProbeTarget(
+          id: ChannelConfigCodec.nullableText(c['id']) ?? '',
+          enabled: c['enabled'] == true,
+          method: 'probeChannelHealth',
+          args: {'url': c['url'].toString()},
+        ),
+  ];
 
   /// 从加密数据库加载 Webhook 通道，若无数据则从旧存储迁移
   Future<void> loadChannels() async {

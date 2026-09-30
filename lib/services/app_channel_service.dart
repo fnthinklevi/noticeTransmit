@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../database/database_helper.dart';
 import 'channel_config_codec.dart';
+import 'channel_probe_service.dart';
 import 'platform_channel.dart';
 
 /// 自建应用通道服务（应用通道体系，与 WebhookService 并列）。
@@ -19,6 +20,18 @@ class AppChannelService {
 
   List<Map<String, dynamic>> _channels = [];
   List<Map<String, dynamic>> get channels => _channels;
+
+  /// 这一族**该探哪些**（6e：走只换 token 的非侵入探测，不是真发消息）。
+  /// 构造只在这一处：族页的进页刷新与"全族扫一遍"（#174）读同一份。读内存列表、不做 IO。
+  List<ChannelProbeTarget> get probeTargets => [
+    for (final c in _channels)
+      ChannelProbeTarget(
+        id: c['id']?.toString() ?? '',
+        enabled: c['enabled'] == true,
+        method: 'probeAppChannelToken',
+        args: ChannelConfigCodec.appProbePayload(c),
+      ),
+  ];
 
   int get enabledCount => _channels.where((c) => c['enabled'] == true).length;
 

@@ -56,10 +56,19 @@ void main() {
 
   /// 6e：`probe` 这个种类 = "这一族有非侵入探测，并且页面真的会自动跑它"。
   /// 两半都必须查：只探测不接线，状态列照样永远空白。
+  ///
+  /// ⚠ #174 起那一发方法名的**住处**变了：目标怎么构造按族收进各服务（`probeTargets`，
+  /// 一处作者），页面那一半的证据换成"它真的把这一族的探测跑起来了"（`_prober.probeStale(`）。
+  /// 两半仍然分开查：只探不接（或只接不探）都还是会被这条抓住。
   const probePageByFamily = <String, String>{
     'webhook': 'lib/pages/webhook_channel_list_page.dart',
     'app': 'lib/pages/app_channel_list_page.dart',
     'email': 'lib/pages/email_settings_page.dart',
+  };
+  const probeMethodOwnerByFamily = <String, String>{
+    'webhook': 'lib/services/webhook_service.dart',
+    'app': 'lib/services/app_channel_service.dart',
+    'email': 'lib/services/email_service.dart',
   };
   const probeMethodByFamily = <String, String>{
     'webhook': 'probeChannelHealth',
@@ -137,10 +146,19 @@ void main() {
           final src = stripComments(File('$root/$page').readAsStringSync());
           expect(
             src,
+            contains('_prober.probeStale('),
+            reason:
+                '${r["type"]} 声称状态由非侵入探测自动刷新，但 $page 没有跑那一发 ⇒ '
+                '矩阵在谎报（6e 的接线被移走时会红在这里）',
+          );
+          final owner = probeMethodOwnerByFamily[r['family']];
+          expect(owner, isNotNull, reason: '${r["family"]} 族没有登记探测方法的作者');
+          expect(
+            stripComments(File('$root/$owner').readAsStringSync()),
             contains("'${probeMethodByFamily[r['family']]}'"),
             reason:
-                '${r["type"]} 声称状态由非侵入探测自动刷新，但 $page 里没有那次调用 ⇒ '
-                '矩阵在谎报（6e 的接线被移走时会红在这里）',
+                '${r["type"]} 那一发的方法名不在 $owner 里了：#174 起它只许住在各服务的 '
+                '`probeTargets` 里（页面与"全族扫一遍"读同一份）',
           );
         }
         if (status.contains('widget')) {

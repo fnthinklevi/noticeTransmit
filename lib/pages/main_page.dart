@@ -281,6 +281,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // 收件未读数也在这里重取：收货循环在后台跑，它落库的那几条不会往 UI 推事件。
       // 不接实时事件总闸的理由是这一格的时效要求是"回到前台就该对"，而不是"秒级跳变"。
       unawaited(_refreshFnthinkInboxUnread());
+      // 通道健康度同理（#174）：6h 时效一过，"上次成功"会被判成「未知」，而此前只有
+      // 进那三个族页才会重探 —— 首页这张卡/状态页会一直挂着"未知"没人管。
+      // 仍是 stale-only：真发请求的只有过期的那几条。
+      unawaited(probeStaleChannelsAcrossFamilies());
       final localeService = GetIt.instance<LocaleService>();
       if (localeService.shouldPromptSwitch) {
         await _showLanguageSwitchDialog(localeService);

@@ -4,7 +4,6 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/app_channel_service.dart';
-import '../services/channel_config_codec.dart';
 import '../services/channel_descriptor_service.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
@@ -65,18 +64,12 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
 
   /// 6e：应用通道的进页自动刷新。此前这一族**没有**自动探测，因为它只有
   /// `testAppChannel` 这种"真发一条测试消息"的手段 ⇒ 自动跑等于每 6 小时骚扰一次
-  /// 企业微信/飞书群。现在走只换 token 的非侵入探测（同一份载荷口径见 codec）。
-  Future<void> _probeStaleChannels() => _prober.probeStale(
+  /// 企业微信/飞书群。现在走只换 token 的非侵入探测。
+  /// ⚠ 目标怎么构造已收进 `AppChannelService.probeTargets`（#174）：族页与"全族扫一遍"
+  /// （状态页进页 / 回前台）读同一份，免得两条路探的东西不一样。
+  Future<int> _probeStaleChannels() => _prober.probeStale(
     'app',
-    [
-      for (final c in _channels)
-        ChannelProbeTarget(
-          id: _idOf(c),
-          enabled: c['enabled'] == true,
-          method: 'probeAppChannelToken',
-          args: ChannelConfigCodec.appProbePayload(c),
-        ),
-    ],
+    _service.probeTargets,
     onUpdated: () {
       if (mounted) setState(() {});
     },

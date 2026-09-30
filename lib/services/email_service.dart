@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/email_channel.dart';
 import 'channel_health_store.dart';
+import 'channel_probe_service.dart';
 import 'platform_channel.dart';
 
 /// 邮件通道持久化服务
@@ -19,6 +20,28 @@ class EmailService {
   EmailService({EmailChannelStore? store}) : _db = store ?? DatabaseHelper();
 
   List<EmailChannel> cachedChannels = [];
+
+  /// 这一族**该探哪些**（6e：只握手，不真寄信）。凭据不完整的通道**不给探测目标** ——
+  /// 握手必然失败，把那记成"不可达"会把"还没填完"糊弄成"配置坏了"（缺失字段有 T04 的标记）。
+  ///
+  /// ⚠ 构造只在这一处：族页的进页刷新与"全族扫一遍"（#174）读同一份；读内存列表、不做 IO。
+  /// 参数化那一版：族页手上的 `_channels` 与这里的 `cachedChannels` 在编辑态可能不同，
+  /// 所以「给哪一批」由调用方决定，而「怎么探」仍只在这一处（方法名与载荷的单一作者）。
+  List<ChannelProbeTarget> get probeTargets => probeTargetsFor(cachedChannels);
+
+  List<ChannelProbeTarget> probeTargetsFor(Iterable<EmailChannel> channels) => [
+    for (final c in channels)
+      if (c.smtpHost.isNotEmpty &&
+          c.username.isNotEmpty &&
+          (c.password?.isNotEmpty ?? false))
+        ChannelProbeTarget(
+          id: c.id,
+          enabled: c.enabled,
+          method: 'verifySmtp',
+          // 与 testEmail 同一份载荷（模型自己序列化，含密码）：两条路必须读同一组凭据
+          args: c.toMap(includePassword: true),
+        ),
+  ];
 
   /// 测试结果落**健康度单点**（第 6 步）。此前这里是自己一个 `email_test_results`
   /// JSON Map：没有时间戳（说不出「多久以前」）也没有耗时，于是首页的邮件状态与

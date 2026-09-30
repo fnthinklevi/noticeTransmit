@@ -78,21 +78,12 @@ class _WebhookChannelListPageState extends State<WebhookChannelListPage> {
   /// 平铺页时代这件事发生在 initState，用户在页面上删过一行之后，探测循环还在
   /// 按那份不收缩的旧列表跑 ⇒ 结论写到已删除的 id 上，还会把过期徽标算回单点。
   ///
-  /// 判据与写回都在 [ChannelProbeService]（三族共用），这里只负责"这条通道怎么探"：
-  /// URL 为空的通道**不给探测目标** —— 让它去探测会把徽标钉成"不可达"，
-  /// 而那其实是"配置没填完"（T04 的缺失字段标记才是这件事的正确出口）。
-  Future<void> _probeStaleChannels() => _prober.probeStale(
+  /// 判据与写回都在 [ChannelProbeService]（三族共用）。
+  /// ⚠ 目标怎么构造已收进 `WebhookService.probeTargets`（#174）：族页与"全族扫一遍"
+  /// （状态页进页 / 回前台）读同一份，免得两条路探的东西不一样。
+  Future<int> _probeStaleChannels() => _prober.probeStale(
     'webhook',
-    [
-      for (final c in _channels)
-        if ((c['url']?.toString() ?? '').isNotEmpty)
-          ChannelProbeTarget(
-            id: _idOf(c),
-            enabled: c['enabled'] == true,
-            method: 'probeChannelHealth',
-            args: {'url': c['url'].toString()},
-          ),
-    ],
+    _service.probeTargets,
     onUpdated: () {
       if (mounted) setState(() {});
     },

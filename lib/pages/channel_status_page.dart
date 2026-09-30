@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,6 +47,16 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     super.initState();
     _checkFirstTime();
     _loadBackupMode();
+    // 6h 时效一过，"上次探测成功"会被判成「未知」—— 而这一页正是用户看那个"未知"的地方。
+    // 所以进页顺手把**过期的**探一遍（#174）：stale-only，不是每进必发请求；
+    // 探完 setState 让这张表按新结论重画。
+    unawaited(
+      probeStaleChannelsAcrossFamilies(
+        onUpdated: () {
+          if (mounted) setState(() {});
+        },
+      ),
+    );
   }
 
   Future<void> _loadBackupMode() async {

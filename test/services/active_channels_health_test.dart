@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
@@ -7,7 +8,9 @@ import 'package:notice_transmit/models/email_channel.dart';
 import 'package:notice_transmit/services/active_channels.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
+import 'package:notice_transmit/services/channel_probe_service.dart';
 import 'package:notice_transmit/services/email_service.dart';
+import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -212,6 +215,122 @@ void main() {
     test('通道名为空时只显示到子类型（T02 之前新建通道就是空名）', () async {
       await seedChannels(apps: [appRow(name: '')]);
       expect(entry('app')!.displayLine, '自建应用：企业微信应用');
+    });
+  });
+  group('#174 过期之后有人重探：目标构造 + 全族扫一遍', () {
+    // 能探的邮件通道：凭据要**齐**（探测目标的门槛里含密码）—— `enabledEmail()` 不带密码，
+    // 拿它来断言会把"门槛生效"错读成"这条链路没接上"。
+    EmailChannel probeableEmail() => const EmailChannel(
+      id: 'e1',
+      name: '主邮箱',
+      enabled: true,
+      smtpHost: 'smtp.example.com',
+      smtpPort: 465,
+      username: 'u@example.com',
+      password: 'pw',
+      fromEmail: 'u@example.com',
+      toEmail: 'to@example.com',
+    );
+
+    late List<MethodCall> calls;
+
+    setUp(() {
+      calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(AppChannels.notification, (call) async {
+            calls.add(call);
+            return <String, Object?>{'reachable': true, 'latencyMs': 5};
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(AppChannels.notification, null);
+    });
+
+    test('目标构造：能探才给（url 空的不给、凭据没填完的不给）', () async {
+      await seedChannels(
+        hooks: [
+          hookRow(),
+          {...hookRow(name: '没填 url'), 'id': 'wh-empty', 'url': ''},
+        ],
+        apps: [appRow()],
+        emails: [
+          probeableEmail(),
+          const EmailChannel(
+            id: 'e-incomplete',
+            name: '凭据没填完',
+            enabled: true,
+            smtpHost: '',
+            smtpPort: 465,
+            username: '',
+            fromEmail: '',
+            toEmail: '',
+          ),
+        ],
+      );
+
+      expect(
+        webhookService.probeTargets.length,
+        1,
+        reason: 'url 为空的通道不给目标：探它只会把徽标钉成"不可达"，而那其实是"配置没填完"',
+      );
+      expect(appService.probeTargets.single.method, 'probeAppChannelToken');
+      expect(
+        emailService.probeTargets.map((t) => t.id),
+        ['e1'],
+        reason: '凭据不完整的通道不给目标（T04 的缺失字段标记负责说那件事）',
+      );
+    });
+
+    test('全族扫一遍：只探过期的那条，刚探过的一个字节都不发', () async {
+      final health = GetIt.instance<ChannelHealthStore>();
+      await seedChannels(
+        hooks: [
+          hookRow(),
+          {
+            ...hookRow(name: '第二条'),
+            'id': 'wh-2',
+            // 两条的 url 必须不同：断言「探的是哪一条」靠它 —— 同 url 时这条判据分不出对象
+            'url': 'https://oapi.dingtalk.com/robot/send?access_token=second',
+          },
+        ],
+        apps: [appRow()],
+        emails: [probeableEmail()],
+      );
+      // id 取自服务侧（保存链路会归一化），不硬抄：抄错了这条用例只是"没记录 ⇒ unknown"。
+      final rows = webhookService.channels;
+      final freshId = rows.first['id'] as String;
+      final freshUrl = rows.first['url'] as String;
+      await health.record('webhook', freshId, reachable: true, latencyMs: 3);
+
+      final prober = ChannelProbeService(
+        health: health,
+        channel: AppChannels.notification,
+      );
+      GetIt.instance.registerSingleton<ChannelProbeService>(prober);
+
+      await probeStaleChannelsAcrossFamilies();
+
+      final probedHooks = calls
+          .where((c) => c.method == 'probeChannelHealth')
+          .toList();
+      expect(
+        probedHooks.length,
+        1,
+        reason: '刚探过的那一条（6h 内）不该被重探 —— 进页/回前台不是"必发一轮请求"的借口',
+      );
+      final probedArgs = probedHooks.single.arguments as Map;
+      expect(
+        probedArgs['url'],
+        isNot(freshUrl),
+        reason: '探错对象：重探应当落在**过期**的那一条上',
+      );
+      expect(
+        calls.map((c) => c.method),
+        containsAll(['probeAppChannelToken', 'verifySmtp']),
+        reason: '三族都要扫到：只探 webhook 一族，应用/邮件那两族的"未知"就永远没人管',
+      );
     });
   });
 }

@@ -105,21 +105,10 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
   ///
   /// 凭据不完整的通道**不给探测目标**：握手必然失败，把那记成"不可达"会把
   /// "还没填完"糊弄成"配置坏了"（缺失字段有 T04 的标记负责，徽标不该替它说话）。
-  Future<void> _probeStaleChannels() => _prober.probeStale(
+  /// ⚠ 目标怎么构造已收进 `EmailService.probeTargets`（#174）：族页与"全族扫一遍"读同一份。
+  Future<int> _probeStaleChannels() => _prober.probeStale(
     'email',
-    [
-      for (final c in _channels)
-        if (c.smtpHost.isNotEmpty &&
-            c.username.isNotEmpty &&
-            (c.password?.isNotEmpty ?? false))
-          ChannelProbeTarget(
-            id: c.id,
-            enabled: c.enabled,
-            method: 'verifySmtp',
-            // 与 testEmail 同一份载荷（模型自己序列化，含密码）：两条路必须读同一组凭据
-            args: c.toMap(includePassword: true),
-          ),
-    ],
+    GetIt.instance<EmailService>().probeTargetsFor(_channels),
     onUpdated: () {
       if (mounted) setState(() {});
     },
