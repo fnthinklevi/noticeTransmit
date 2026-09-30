@@ -47,3 +47,10 @@
 
 -keepattributes Signature
 -keepattributes *Annotation*
+
+# net.i2p.crypto:eddsa（幻念推送的 Ed25519 签名，T26-B 引入）在 `EdDSAEngine.engineInitVerify`
+# 里引用了 JDK 内部的 `sun.security.x509.X509Key` —— 那个类在 Android 上不存在，release 的 R8
+# 会因此直接失败（`Missing classes detected while running R8`，这条是第一趟带该依赖的发版构建才现形的）。
+# 我们只用它的 Ed25519 引擎、密钥来自 Keystore（不经 X509 那条路），所以按"这个包装类不在"放行：
+# 加 -keep 反而会把一个 Android 上不存在的类固化进 dex，正确的处置就是 -dontwarn。
+-dontwarn sun.security.x509.X509Key
