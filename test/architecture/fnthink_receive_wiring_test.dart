@@ -714,6 +714,90 @@ void main() {
       );
     });
   });
+
+  group('自登记那一发（#177 —— 其余每一发的共同前置）', () {
+    test('DI 把自登记接上了，且它走的是同一个服务构造', () {
+      final locator = read('lib/di/service_locator.dart');
+      expect(
+        locator,
+        contains('registerDevice:'),
+        reason:
+            '漏接这一行 ⇒ 全场 Dart 测试仍然绿，而真机上所有请求都换回同形的 403 '
+            'rejected_unsigned（用户报的「建立端点：端点没建成」就是这条）',
+      );
+      expect(
+        locator,
+        contains('buildFnthinkReceiveService(spec)'),
+        reason: '自登记那一发也得过同一个服务构造：自己 new 一份就把装配期那三道判定劈成两份口径',
+      );
+      expect(locator, contains('service.register('));
+      expect(
+        locator,
+        contains('DeviceInfoService>().deviceName'),
+        reason: '名字取设备信息服务那一份；随手写个空串，管理面上就认不出这是哪台',
+      );
+    });
+
+    test('协调者把自登记夹在"就绪"与"交出 spec"之间（每个入口都过那里）', () {
+      final src = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(src, contains('registerDevice'));
+      expect(
+        src,
+        contains('final registerReason = await _ensureRegistered(spec);'),
+        reason:
+            '自登记的落点必须在 `_resolveSpec` 里（开始循环、挂口令、答复、撤销、端点四种、'
+            '发一条都先过它）；挪到调用方那一侧就变成"谁记得谁接"',
+      );
+      expect(
+        src,
+        contains(
+          'if (registerReason != null) return (spec: null, reason: registerReason);',
+        ),
+        reason: '登记没成还不早退 ⇒ 后面每一发都白换一句同形的 403，界面上看不出是为什么',
+      );
+    });
+
+    test('服务层的自登记有两道本地闸：签不出来、或没有公钥，都不发', () {
+      final src = read('lib/services/fnthink_receiver_service.dart');
+      expect(
+        src,
+        contains("'register',"),
+        reason:
+            '装配期的 apiPaths 判定里缺 register ⇒ 不报错，第一次要登记时在 transport 里抛'
+            '（把契约与实现不匹配伪装成网络抖动）',
+      );
+      expect(src, contains('kernel.register('));
+      expect(
+        src,
+        contains('await signer.publicKey()'),
+        reason: '交出去的公钥只能来自签名口 —— 那是"与私钥成对"的唯一来源',
+      );
+      expect(src, contains("'no-public-key'"));
+    });
+
+    test('自登记在全仓只有一个作者（每一发都过协调者，不需要第二处）', () {
+      final hits =
+          Directory('$root/lib')
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((f) => f.path.endsWith('.dart'))
+              .map(
+                (f) => f.path
+                    .replaceAll('\\', '/')
+                    .replaceFirst(RegExp(r'^\./'), ''),
+              )
+              .where((p) => read(p).contains('service.register('))
+              .toList()
+            ..sort();
+      expect(
+        hits,
+        ['lib/di/service_locator.dart'],
+        reason:
+            '多一处调用 = 多一份"什么时候该登记"的口径，而其中一份会在换地址/换码之后'
+            '悄悄不成立；页面尤其不许直接碰它',
+      );
+    });
+  });
 }
 
 class _StubSigner implements FnthinkIdentitySigner {
@@ -723,4 +807,7 @@ class _StubSigner implements FnthinkIdentitySigner {
 
   @override
   Future<bool> probe() async => true;
+
+  @override
+  Future<String?> publicKey() async => base64Encode(Uint8List(32));
 }

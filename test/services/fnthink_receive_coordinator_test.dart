@@ -86,6 +86,8 @@ void main() {
     Future<bool> Function(String peerAddress)? removePeer,
     Future<void> Function({required bool keepAwake})? presenceNotice,
     Future<bool> Function(FnthinkInboxMessage message)? recordSent,
+    Future<FnthinkRegisterResult> Function(FnthinkLoopSpec spec)?
+    registerDevice,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
@@ -94,6 +96,7 @@ void main() {
     removePeer: removePeer,
     presenceNotice: presenceNotice,
     recordSent: recordSent,
+    registerDevice: registerDevice,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
   );
@@ -1549,6 +1552,164 @@ void main() {
       );
     });
   });
+
+  group('自登记（#177：其余每一发的共同前置）', () {
+    /// 打开的开关 + 一份"登记成功"的答复。
+    void enable() => SharedPreferences.setMockInitialValues({
+      'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+    });
+
+    FnthinkRegisterResult okRegister() => const FnthinkRegisterResult(
+      status: FnthinkPollStatus.ok,
+      addressCode: '8K3FJ6QPTM9WZ4VHNS',
+      name: '测试机',
+      signedWhileUncalibrated: false,
+    );
+
+    test('就绪之后先自登记再起循环：登记的那一发与循环拿到的是同一个 spec', () async {
+      enable();
+      final rec = _LoopRecorder();
+      final registered = <FnthinkLoopSpec>[];
+      final c = coordinator(
+        recorder: rec,
+        registerDevice: (spec) async {
+          registered.add(spec);
+          return okRegister();
+        },
+      );
+
+      final result = await c.startIfEnabled();
+
+      expect(result.started, isTrue);
+      expect(registered, hasLength(1));
+      expect(
+        registered.single.addressCode,
+        rec.specs.single.addressCode,
+        reason:
+            '登记的那台与循环要跑的那台必须是同一个地址码 —— 两处各取一次'
+            '（一个走设置、一个走凭证）会在换码之后劈成两台设备',
+      );
+      expect(registered.single.baseUri, rec.specs.single.baseUri);
+    });
+
+    test('被拒（rejectedUnsigned）⇒ 不起循环，原因原话交出去（用户报的那条的正面）', () async {
+      enable();
+      final rec = _LoopRecorder();
+      final c = coordinator(
+        recorder: rec,
+        registerDevice: (_) async => const FnthinkRegisterResult(
+          status: FnthinkPollStatus.rejectedUnsigned,
+          reason: 'rejected-unsigned',
+          signedWhileUncalibrated: false,
+        ),
+      );
+
+      final result = await c.startIfEnabled();
+
+      expect(result.started, isFalse);
+      expect(result.reason, 'register-failed: rejected-unsigned');
+      expect(rec.builds, 0, reason: '登记没成还起循环 ⇒ 每 20 秒白换回一句同形的 403，而界面上看着一切正常');
+    });
+
+    test('没有登记上就不放行任何入口：挂口令那一发也一样早退（一个字节不离机）', () async {
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+        registerDevice: (_) async => const FnthinkRegisterResult(
+          status: FnthinkPollStatus.rejectedUnsigned,
+          reason: 'rejected-unsigned',
+          signedWhileUncalibrated: false,
+        ),
+      );
+
+      final result = await c.publishPairingCode('ABCDEFGH');
+
+      expect(result.status, FnthinkPollStatus.failed);
+      expect(result.reason, 'register-failed: rejected-unsigned');
+      expect(asked, isEmpty, reason: '这一发本身也不该离机：服务端只会回同一句话');
+    });
+
+    test('同一个（服务器 + 地址码）只登记一次：后面的每一发不再重发', () async {
+      enable();
+      final rec = _LoopRecorder();
+      final asked = <http.Request>[];
+      var calls = 0;
+      final c = coordinator(
+        recorder: rec,
+        serviceFactory: armFactory(sink: asked),
+        registerDevice: (_) async {
+          calls++;
+          return okRegister();
+        },
+      );
+
+      await c.startIfEnabled();
+      await c.publishPairingCode('ABCDEFGH');
+
+      expect(calls, 1, reason: '每个组合只登记一次：那是幂等的"我在这里"，不是每发都要交一遍');
+      expect(asked, hasLength(1), reason: '挂口令那一发照发（登记过之后没有被挡住）');
+    });
+
+    test('网络抖动（transportError）不记也不拦：这一轮放过，下一次还会再试', () async {
+      enable();
+      final asked = <http.Request>[];
+      var calls = 0;
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+        registerDevice: (_) async {
+          calls++;
+          return const FnthinkRegisterResult(
+            status: FnthinkPollStatus.transportError,
+            reason: 'transport:SocketException',
+            signedWhileUncalibrated: true,
+          );
+        },
+      );
+
+      final started = await c.startIfEnabled();
+      expect(
+        started.started,
+        isTrue,
+        reason:
+            '抖动拦住循环 ⇒ 开始循环失败会顺手把闹钟撤了，拿一次网络抖动的代价'
+            '换"这台再也不自己醒"，比它要修的问题更坏',
+      );
+      await c.publishPairingCode('ABCDEFGH');
+      expect(calls, 2, reason: '没成功就不记 latch：下一次还得再试一遍');
+    });
+
+    test('换了服务地址 ⇒ 重新登记一遍（新服务器那边还没有本机这一行）', () async {
+      enable();
+      final asked = <http.Request>[];
+      final registered = <String>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+        registerDevice: (spec) async {
+          registered.add(spec.baseUri.host);
+          return okRegister();
+        },
+      );
+
+      await c.publishPairingCode('ABCDEFGH');
+      expect(registered, hasLength(1));
+
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${FnthinkSettings.keyHost}': 'other.example.com',
+      });
+      await c.publishPairingCode('ABCDEFGH');
+
+      expect(
+        registered,
+        hasLength(2),
+        reason: '换了服务器就是换了那本设备表：不重登记的话这一台在新服务器上永远是"没签上"',
+      );
+      expect(registered.last, 'other.example.com');
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {
@@ -1566,6 +1727,9 @@ class _FakeSigner implements FnthinkIdentitySigner {
     if (onProbe != null) onProbe!();
     return ok;
   }
+
+  @override
+  Future<String?> publicKey() async => 'cHVibGljLWtleQ==';
 }
 
 /// 只记 URL、回一个空队列的假 HTTP。

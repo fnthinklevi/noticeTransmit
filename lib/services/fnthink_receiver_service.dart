@@ -38,6 +38,10 @@ class FnthinkReceiverService {
     for (final kind in [
       'poll',
       'ack',
+      // 自登记（#177）：它是其余每一发的**共同前置** —— 服务端按设备表里那把钥匙验签，
+      // 而表里那一行只能由这一发建。缺它时每一次请求都换回同形的 403，而看的人只会以为
+      // "口令/签名错了"（真机上就是这么现形的）。
+      'register',
       'pairArm',
       'pairConfirm',
       'pairRevoke',
@@ -181,6 +185,32 @@ class FnthinkReceiverService {
       );
     }
     return kernel.ack(messageId: messageId, result: result);
+  }
+
+  /// 设备自登记（#177）。**所有签名请求的共同前置**。
+  ///
+  /// 名字由调用方给（协调者从设备信息服务取），公钥**只从签名口取** —— 那是"与私钥成对"
+  /// 的唯一来源；从别处（比如名单里对端的公钥）拿一把来交，表现与"没登记"同形。
+  ///
+  /// 与其余几发共用那两道闸：**签不出来就不发**（另加"没有公钥就不发"这一道：
+  /// 没有身份的机器去登记，服务端只会回一句与签名不对同形的 403）。
+  Future<FnthinkRegisterResult> register({required String name}) async {
+    if (!await _canSign()) {
+      return FnthinkRegisterResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    final publicKey = await signer.publicKey();
+    if (publicKey == null || publicKey.isEmpty) {
+      return FnthinkRegisterResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'no-public-key',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.register(publicKey: publicKey, name: name);
   }
 
   /// 把这枚一次性配对口令发到服务器（`/pair-arm`，T42「添加设备」那一跳）。
@@ -477,6 +507,12 @@ abstract class FnthinkIdentitySigner {
 
   /// 本机是否具备签名能力（一次性判定）。
   Future<bool> probe();
+
+  /// 本机公钥（base64 裸 32 字节；就是原生那枚 `getFnthinkIdentity` 交出来的那一把）。
+  ///
+  /// 自登记是唯一要把公钥**交出去**的一发，而它必须与签名私钥成对 —— 所以它只能从这里取。
+  /// null = 这台还没有身份（与 `probe()==false` 同一种事实）。
+  Future<String?> publicKey();
 }
 
 /// 用 App 里那个 `FnthinkIdentityService` 实现签名注入点。
@@ -499,4 +535,7 @@ class FnthinkKeystoreSigner implements FnthinkIdentitySigner {
 
   @override
   Future<bool> probe() => _identity.canSign();
+
+  @override
+  Future<String?> publicKey() async => (await _identity.identity())?.publicKey;
 }

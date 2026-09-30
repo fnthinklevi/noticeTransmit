@@ -352,6 +352,103 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组自登记的签名字段（#177）：与 poll 同形的六个键，`type` 从契约取。
+  ///
+  /// ⚠ `publicKey` 与 `name` **不在**这六个键里：契约把「自带公钥」写在这一类事件的顶层
+  /// （`requiredTopLevelFields`），因为服务端要拿它验这一发的签名 —— 此刻设备表里还没有本机。
+  Map<String, Object?> registerFields({required String nonce, String? ts}) {
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('register'),
+      'target': addressCode,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': '',
+    };
+  }
+
+  /// 设备自登记。**全协议唯一一类"表里还没有本机"的写入面**（#177）。
+  ///
+  /// 为什么它必须存在：其余每一发（poll / ack / message / pair* / endpoint*）服务端都按
+  /// **设备表里那把钥匙**验签，而表里那一行只能由这一发建 —— 少了它，真机上所有请求
+  /// 一律换回同形的 403 `rejected_unsigned`，界面上看起来像"口令或签名错了"（用户报的
+  /// 「建立端点：端点没建成（rejected-unsigned）」就是这条）。
+  ///
+  /// `publicKey` 必须是**与签名私钥成对的那一把**（契约 `verifyAgainst=presented-public-key`）：
+  /// 交错了钥匙的表现与"根本没登记"同形；地址码则是本机自己生成的（`addressCodeSource=client-generated`），
+  /// 不从公钥推导 —— 所以这里不校验两者的绑定关系，那是服务端第二次同码登记时的事。
+  ///
+  /// 登记**不给任何授权**（响应里只回"已经有几台答应给我发货"），所以它成功后紧接着的 poll
+  /// 仍然可能一条都取不到 —— 那是"还没人配对"，不是失败。
+  Future<FnthinkRegisterResult> register({
+    required String publicKey,
+    required String name,
+  }) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final fields = registerFields(nonce: nonce);
+    final bytes = CanonicalMessage.bytes(contract, fields);
+    final signature = await _signer(bytes);
+    final envelope = <String, Object?>{
+      'sender': addressCode,
+      'signature': signature,
+      'fields': fields,
+      // 顶层这两件是**这一类的形状**，不塞进 fields：poll/ack 多带一个 publicKey 在服务端
+      // 是明确的禁带项，而少了它服务端就无法验这一发（同形的 403，看不出差别）。
+      'publicKey': publicKey,
+      'name': name,
+    };
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkRegisterResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    // 与 pairArm 共用同一个分类器：状态码那五种失败与"顺手校准"只有一份口径。
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkRegisterResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'register-http:${reply.status}',
+      );
+    }
+    // 200 但没回地址码 = 服务端没有认下这一台（回的是空对象或半个对象）。
+    // 宁可让调用方再试一次，也不能让它以为"登记好了"——那是把后面每一发的 403
+    // 变成"莫名其妙"（与 pairArm 那条"没有过期时间就不算成功"同一条纪律）。
+    final echoed = reply.body['addressCode'];
+    if (echoed is! String || echoed.isEmpty) {
+      _lastReason = 'register-acked-without-address';
+      return FnthinkRegisterResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    final peers = reply.body['peersGrantingMe'];
+    return FnthinkRegisterResult(
+      status: FnthinkPollStatus.ok,
+      addressCode: echoed,
+      name: reply.body['name'] is String ? reply.body['name'] as String : '',
+      peersGrantingMe: peers is num ? peers.toInt() : 0,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   /// 组 pairArm 的签名字段（T42「添加设备」的第一跳：把这枚一次性口令挂到服务器上）。
   ///
   /// 载荷的键名单**从契约读**（`clientEvents.pairArm.fields` / `arms`），不是在这里抄一份字面量：
@@ -1311,6 +1408,36 @@ class FnthinkAckResult {
 ///
 /// `expiresAtMs` 只有**服务器确实收下并回给了过期时间**才有值 —— 界面上"已挂出"那一句
 /// 必须挂在这个字段上，而不是挂在"我本地写成功"上：那两件事差一次网络往返，而用户看不出差别。
+/// 一次自登记的结果（#177）。形状与 [FnthinkPairArmResult] 同一族：状态由内核分类，
+/// 只有 ok 才带"服务端认下来的事实"。
+class FnthinkRegisterResult {
+  const FnthinkRegisterResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.addressCode,
+    this.name = '',
+    this.peersGrantingMe = 0,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+
+  /// 服务端回显的地址码（= 本机的）。只有 ok 时才非空 —— 它是"这一行真的记上了"的依据。
+  final String? addressCode;
+
+  /// 服务端记下的设备名（与本机交上去的那一份对照用；服务端会截断到 60 字符）。
+  final String name;
+
+  /// 服务端账上"已经答应把货发给本机"的台数。**0 是正常值**：登记本身不给任何授权，
+  /// 还没有人配过对时它就是 0（界面该说的是"还没人配对我"，不是"登记失败"）。
+  final int peersGrantingMe;
+
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok => status == FnthinkPollStatus.ok;
+}
+
 class FnthinkPairArmResult {
   const FnthinkPairArmResult({
     required this.status,

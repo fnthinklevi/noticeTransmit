@@ -26,6 +26,10 @@ class _Harness {
   /// 不能在调用之前手动推时钟 —— 那样测出来的是"我预期的算术"，不是内核的取中点。
   int latencyMs = 0;
   final List<Map<String, Object?>> sent = [];
+
+  /// 每次签名收到的规范化字节（解成文本）。用来证"哪些东西**不进**签名载荷"
+  /// —— 那类形状错了不会抛，只会换回一句同形的 403。
+  final List<String> signedBytes = [];
   FnthinkReply reply = const FnthinkReply(status: 200, body: {});
   Object? throws;
 
@@ -42,7 +46,10 @@ class _Harness {
   FnthinkReceiveKernel kernel() => FnthinkReceiveKernel(
     contract: contract,
     addressCode: _self,
-    signer: (bytes) async => 'sig-${bytes.length}',
+    signer: (bytes) async {
+      signedBytes.add(utf8.decode(bytes));
+      return 'sig-${bytes.length}';
+    },
     transport: transport,
     nowMs: nowMs,
     nonceFactory: () => 'n${sent.length + 1}',
@@ -1623,6 +1630,133 @@ void main() {
         reason: '名单多一键那天，"换哪一把"与"换成什么规矩"就成两件事 —— 必须由契约先明说哪个算数',
       );
       expect(harness.sent, isEmpty);
+    });
+  });
+
+  group('register：设备自登记（#177 —— 其余每一发的共同前置）', () {
+    const publicKey = 'cHVibGljLWtleS1vZi10aGlzLWRldmljZQ==';
+
+    Map<String, Object?> okRegister({
+      String address = _self,
+      String name = 'MEIZU 21',
+      int peers = 0,
+    }) => {
+      'addressCode': address,
+      'name': name,
+      'peersGrantingMe': peers,
+      'serverTime': 1800000000000,
+    };
+
+    test('形状：顶层带 publicKey 与 name，被签的仍是契约那六个键（公钥不进签名）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(status: 200, body: okRegister());
+
+      final result = await harness.kernel().register(
+        publicKey: publicKey,
+        name: 'MEIZU 21',
+      );
+
+      expect(result.status, FnthinkPollStatus.ok);
+      expect(result.addressCode, _self);
+      expect(result.name, 'MEIZU 21');
+      expect(result.peersGrantingMe, 0, reason: '登记不给授权：0 是正常值（"还没人配对我"），不是失败');
+
+      final envelope = harness.sent.single;
+      expect(
+        envelope['publicKey'],
+        publicKey,
+        reason: '自带公钥是这一类的形状（verifyAgainst=presented-public-key）：服务端拿它验这一发',
+      );
+      expect(envelope['name'], 'MEIZU 21');
+      final fields = envelope['fields']! as Map<String, Object?>;
+      expect(
+        fields['type'],
+        contract.str(['clientEvents', 'register', 'messageType']),
+      );
+      expect(
+        fields['type'],
+        isNot(contract.str(['clientEvents', 'poll', 'messageType'])),
+        reason: '借 poll 那个词 ⇒ 服务端按 poll 的路子判这一发，换回一句同形的 403',
+      );
+      expect(fields['target'], _self, reason: 'self-only：target 必须是本机自己的地址码');
+      expect(fields['body'], '');
+      // 公钥与名字**不进**被签的字节：服务端拿顶层那把验签、再按契约顺序重算 fields ——
+      // 并进载荷会让服务端算出的字节多出两段，于是每一发都判"签名不对"。
+      expect(
+        harness.signedBytes.single.contains(publicKey),
+        isFalse,
+        reason: '公钥进了签名载荷 ⇒ 服务端重算的字节里没有它 ⇒ 永远换回同形的 403',
+      );
+      expect(
+        harness.signedBytes.single.split('\u0000').length,
+        contract.canonicalOrder.length,
+        reason: '被签的就是契约那六个键，一个不多一个不少',
+      );
+    });
+
+    test('200 但没回地址码 ⇒ 不算登记成功（与 pairArm"没有过期时间就不算"同形）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(status: 200, body: {'name': 'x'});
+
+      final result = await harness.kernel().register(
+        publicKey: publicKey,
+        name: 'n',
+      );
+
+      expect(result.status, FnthinkPollStatus.failed);
+      expect(result.reason, 'register-acked-without-address');
+      expect(
+        result.addressCode,
+        isNull,
+        reason: '服务端没认下这一台就没有地址码可回；当成"成功"会让后面每一发的 403 变得莫名其妙',
+      );
+    });
+
+    test('403 ⇒ rejectedUnsigned：这一档才是"服务端不认本机"的原话', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: code('forbidden'),
+        body: const {'receipt': 'rejected_unsigned'},
+      );
+
+      final result = await harness.kernel().register(
+        publicKey: publicKey,
+        name: 'n',
+      );
+
+      expect(result.status, FnthinkPollStatus.rejectedUnsigned);
+      expect(result.reason, 'rejected-unsigned');
+    });
+
+    test('传输异常 ⇒ transportError，且什么都不改（与 poll 同一条纪律）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000)
+        ..throws = const SocketException('no route');
+      final kernel = harness.kernel();
+
+      final result = await kernel.register(publicKey: publicKey, name: 'n');
+
+      expect(result.status, FnthinkPollStatus.transportError);
+      expect(
+        kernel.calibrated,
+        isFalse,
+        reason: '一次连不上不说明任何关于服务端的事，不该顺手把它当成"校准过"',
+      );
+    });
+
+    test('登记常常是这台机器的第一发 ⇒ 它顺手学一次服务端时间', () async {
+      final harness = _Harness(contract, 1_800_000_000_000)..latencyMs = 200;
+      harness.reply = FnthinkReply(status: 200, body: okRegister());
+      final kernel = harness.kernel();
+      expect(kernel.calibrated, isFalse);
+
+      await kernel.register(publicKey: publicKey, name: 'n');
+
+      expect(kernel.calibrated, isTrue);
+      expect(
+        kernel.offsetMs,
+        -100,
+        reason: '偏移按"发出与收到的中点"学（往返 200ms ⇒ 中点比服务端慢 100ms）',
+      );
     });
   });
 }

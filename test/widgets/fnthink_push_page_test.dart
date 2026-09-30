@@ -2294,6 +2294,9 @@ class _StubSigner implements FnthinkIdentitySigner {
 
   @override
   Future<bool> probe() async => canSign;
+
+  @override
+  Future<String?> publicKey() async => 'cHVibGljLWtleQ==';
 }
 
 class _Harness {

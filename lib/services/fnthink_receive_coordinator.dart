@@ -187,6 +187,7 @@ class FnthinkReceiveCoordinator {
     this.removePeer,
     this.presenceNotice,
     this.recordSent,
+    this.registerDevice,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -250,6 +251,26 @@ class FnthinkReceiveCoordinator {
   /// 只在 `accepted` 时记：被拒的那几种（429/403/签不出来）**没有可记的事实** ——
   /// 记进去等于在界面上写「我发过」，而服务端那边根本没收到过这一条。
   final Future<bool> Function(FnthinkInboxMessage message)? recordSent;
+
+  /// 设备自登记（#177）：把"本机这一行"写到服务端设备表里。
+  ///
+  /// 为什么必须有这一发：其余每一发（poll / ack / message / pair* / endpoint*）服务端都按
+  /// **设备表里那把钥匙**验签，而表里那一行只能由 `/register` 建 —— 少了它，真机上所有请求
+  /// 一律换回同形的 403 `rejected_unsigned`，用户看到的却是「建立端点：端点没建成（rejected-unsigned）」
+  /// 这种像"口令/签名错了"的结论（#177 的真机现形）。
+  ///
+  /// 为什么是钩子、而不是在服务层"每次请求前懒登记"：登记**每个（服务器地址 + 地址码）
+  /// 只该做一次**，而那份"已经登记过哪个组合"的状态放在协调者这一层才看得见（换地址、
+  /// 换码、重装进程各自对应一次真需要重来的场景）。钩子挂在 [_resolveSpec] 里 ——
+  /// 每个入口（开始循环、挂口令、答复、撤销、端点四种、发一条）都先过那里。
+  ///
+  /// ⚠ 漏接时的表现与 [presenceNotice] 同族：**全场 Dart 测试仍然绿**，而真机上每一发都被 403。
+  /// 守卫钉在 `test/architecture/fnthink_receive_wiring_test.dart`。
+  final Future<FnthinkRegisterResult> Function(FnthinkLoopSpec spec)?
+  registerDevice;
+
+  /// 已经登记过的那个组合（`baseUri|addressCode`）。null = 这一次进程里还没成功过。
+  String? _registeredFor;
 
   final FnthinkSettings Function(FnthinkContract) _buildSettings;
   final FnthinkCredentialStore Function(FnthinkContract) _buildCredentials;
@@ -386,21 +407,64 @@ class FnthinkReceiveCoordinator {
       return (spec: null, reason: 'signing-unavailable');
     }
 
-    return (
-      spec: FnthinkLoopSpec(
-        contract: contract,
-        baseUri: baseUri,
-        addressCode: addressCode,
-        signer: signer,
-        persist: persist,
-        display: display,
-        recordAck: recordAck,
-        // 后台那几轮也要有人记账：只有页面"立即收取"那一条接了 `_noteRound`，
-        // 待确认列表就会变成"点了按钮才有人来"，而开关开着时它本来就是自动在收的。
-        onRound: _noteRound,
-      ),
-      reason: null,
+    final spec = FnthinkLoopSpec(
+      contract: contract,
+      baseUri: baseUri,
+      addressCode: addressCode,
+      signer: signer,
+      persist: persist,
+      display: display,
+      recordAck: recordAck,
+      // 后台那几轮也要有人记账：只有页面"立即收取"那一条接了 `_noteRound`，
+      // 待确认列表就会变成"点了按钮才有人来"，而开关开着时它本来就是自动在收的。
+      onRound: _noteRound,
     );
+
+    // 自登记排在**最后一步、且在交出 spec 之前**：它是本机与服务端之间那条关系的开端，
+    // 而这一发之后的每一发都要求它已经成立（#177）。失败要说出原因，不能放行 ——
+    // 放行的表现是"下一发又换回一句同形的 403"，那正是这次要修的东西。
+    final registerReason = await _ensureRegistered(spec);
+    if (registerReason != null) return (spec: null, reason: registerReason);
+
+    return (spec: spec, reason: null);
+  }
+
+  /// 本机在服务端那一行（自登记）。返回 null = 可以继续；否则是要交给界面的一句话原因。
+  ///
+  /// 三档处置（这一档的判据来自"哪一种是暂时的"）：
+  ///  - **成功** ⇒ 记下这个（服务器地址 + 地址码）组合，本进程不再重复登记；
+  ///  - **被拒**（`rejectedUnsigned`，以及限流 429）⇒ **拦住**并原话回报。前者是"服务端
+  ///    不认这台"（地址码换过钥匙、或根本还没登记上），继续发只是白换一句同形的 403；
+  ///    后者是"等一会再来"，此刻继续发是把额度烧掉。
+  ///  - **其余**（传输失败、时间没校准、nonce 撞了、5xx）⇒ **不记、也不拦**：这些下一次
+  ///    会变好，而拦住它们会连带把"被杀之后的复起"链条停掉（开始循环失败会撤闹钟）——
+  ///    拿一次网络抖动的代价去换"这台再也不自己醒"，比它要修的问题更坏。
+  Future<String?> _ensureRegistered(FnthinkLoopSpec spec) async {
+    final hook = registerDevice;
+    // 没装配（钩子留空）：本进程不做这一步。生产装配由守卫看着 —— 这一行不能自己
+    // 变成"静默跳过"，所以守卫钉的是 DI 里那一行在不在。
+    if (hook == null) return null;
+    final key = '${spec.baseUri}|${spec.addressCode}';
+    if (_registeredFor == key) return null;
+
+    final FnthinkRegisterResult result;
+    try {
+      result = await hook(spec);
+    } catch (e) {
+      // 钩子自己抛（真实现里是构造期 / 传输层的异常）：这与"服务端拒了"是两种事实，
+      // 但都不该被咽掉 —— 咽掉的结果是 `_resolveSpec` 交出 spec，而后面每一发都 403。
+      return 'register-failed: ${e.runtimeType}';
+    }
+    if (result.ok) {
+      _registeredFor = key;
+      return null;
+    }
+    const blocking = {
+      FnthinkPollStatus.rejectedUnsigned,
+      FnthinkPollStatus.rateLimited,
+    };
+    if (!blocking.contains(result.status)) return null;
+    return 'register-failed: ${result.reason ?? result.status.name}';
   }
 
   /// 把页面已经在本机挂好的那枚口令**发到服务器**（T42「添加设备」的网络那一半）。

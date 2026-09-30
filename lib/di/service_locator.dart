@@ -103,6 +103,22 @@ void setupLocator() {
       // （方向 out）。漏接时的表现不是崩，是那一档**永远是空的** —— 用户发过的每一条都查不到，
       // 而全场测试仍然绿。守卫在 `test/architecture/fnthink_device_send_guard_test.dart`。
       recordSent: DatabaseHelper().insertFnthinkInbox,
+      // 设备自登记（#177）：本机在服务端设备表里那一行是**其余每一发的共同前置** ——
+      // 服务端按表里那把钥匙验签，而表里的行只能由 /register 建。缺这一行时全场 Dart 测试
+      // 仍然绿，而真机上所有请求都换回同形的 403 `rejected_unsigned`（用户报的「建立端点：
+      // 端点没建成（rejected-unsigned）」就是这条）。守卫在
+      // `test/architecture/fnthink_receive_wiring_test.dart`。
+      // 名字取设备信息服务里那份（原生启动时读过一次；读不到就是空串，服务端会截断到 60）。
+      registerDevice: (spec) async {
+        final service = buildFnthinkReceiveService(spec);
+        try {
+          return await service.register(
+            name: getIt<DeviceInfoService>().deviceName,
+          );
+        } finally {
+          service.dispose();
+        }
+      },
     ),
   );
   // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。

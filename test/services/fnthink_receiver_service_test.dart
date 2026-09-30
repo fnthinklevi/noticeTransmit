@@ -470,6 +470,78 @@ void main() {
       expect(rec.requests, isEmpty);
     });
   });
+
+  group('自登记 register（#177：其余每一发的共同前置）', () {
+    test('URL 从契约反查，顶层带着公钥与名字', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"addressCode":"$address","name":"MEIZU 21","peersGrantingMe":0,'
+              '"serverTime":1800000000000}',
+        ],
+      );
+      final signer = _Signer();
+      final service = build(contract, rec, signer);
+
+      final result = await service.register(name: 'MEIZU 21');
+
+      expect(result.status, FnthinkPollStatus.ok);
+      expect(result.addressCode, address);
+      expect(rec.requests.single.url.path, contract.apiPath('register'));
+      final body = jsonDecode(rec.requests.single.body) as Map<String, Object?>;
+      expect(
+        body['publicKey'],
+        signer.key,
+        reason: '交出去的公钥必须是与签名私钥成对的那一把（从签名口取，不另起一份来源）',
+      );
+      expect(body['name'], 'MEIZU 21');
+      expect(
+        (body['fields']! as Map)['type'],
+        contract.str(['clientEvents', 'register', 'messageType']),
+      );
+    });
+
+    test('签不出来 ⇒ 一个字节都不离机（与其余几发同一道闸）', () async {
+      final rec = _Recorder();
+      final service = build(contract, rec, _Signer(available: false));
+
+      final result = await service.register(name: 'n');
+
+      expect(result.status, FnthinkPollStatus.failed);
+      expect(result.reason, 'signing-unavailable');
+      expect(rec.requests, isEmpty);
+    });
+
+    test('这台还没有身份（取不到公钥）⇒ 不发：发出去只会换回同形的 403', () async {
+      final rec = _Recorder();
+      final result = await build(
+        contract,
+        rec,
+        _Signer(key: null),
+      ).register(name: 'n');
+
+      expect(result.status, FnthinkPollStatus.failed);
+      expect(result.reason, 'no-public-key');
+      expect(rec.requests, isEmpty);
+    });
+
+    test('契约缺 register 那条路径 ⇒ 装配期就抛（不退回一个猜出来的 URL）', () {
+      final mutated = FnthinkContract({
+        ...contract.raw,
+        'transport': {
+          ...(contract.raw['transport']! as Map<String, Object?>),
+          'apiPaths': {
+            ...(contract.raw['transport']! as Map<String, Object?>)['apiPaths']!
+                as Map<String, Object?>,
+          }..remove('register'),
+        },
+      });
+      expect(
+        () => build(mutated, _Recorder(), _Signer()),
+        throwsA(isA<ArgumentError>()),
+        reason: '自登记是每一发的共同前置：它的门牌缺了，整条链都断在那一步',
+      );
+    });
+  });
 }
 
 /// 记下每一次请求，并按脚本回响应。
@@ -497,9 +569,12 @@ class _Recorder {
 
 /// 假的签名注入点：既能演"签得出来"，也能演"这台机器的 Keystore 用不了"。
 class _Signer implements FnthinkIdentitySigner {
-  _Signer({this.available = true});
+  _Signer({this.available = true, this.key = 'cHVibGljLWtleQ=='});
 
   bool available;
+
+  /// 本机公钥（自登记要交出去的那一把）。null = 这台没有身份 ⇒ 测"没有公钥就不发"。
+  final String? key;
   final List<String> signed = [];
 
   @override
@@ -511,4 +586,7 @@ class _Signer implements FnthinkIdentitySigner {
 
   @override
   Future<bool> probe() async => available;
+
+  @override
+  Future<String?> publicKey() async => key;
 }
