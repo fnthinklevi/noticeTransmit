@@ -1426,6 +1426,15 @@ class FnthinkContract {
       'privacy.dedupeRefreshWhile 必须是一个投递状态：'
       '${str(const ['privacy', 'dedupeRefreshWhile'])}',
     );
+    // 同意门（T56）：这一档是"文案变了要重新问一次"的唯一开关，必须存在且是正整数。
+    // 缺了它，同意要么永远算成立（默认当同意 = 替用户做决定），要么永远算不成立
+    // （功能对谁都不可用）—— 两种都不可接受，所以缺省一律判红。
+    final consentVersion = intOf(const ['privacy', 'relayConsentVersion']);
+    need(
+      consentVersion != null && consentVersion > 0,
+      'privacy.relayConsentVersion 必须是正整数（它是"同意过"的判据；缺了要么永远算同意'
+      '、要么永远算没同意）：$consentVersion',
+    );
     // 回执只走 poll 响应，且与「发送端不轮询状态接口」必须同向 ——
     // 一个说 poll_response、一个说 senderPollsStatusEndpoint=true，就是两条并存的路。
     need(

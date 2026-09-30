@@ -667,6 +667,21 @@ void main() {
       );
     });
 
+    test('同意门那一档拿掉或不是正数 ⇒ 报（没有判据就等于替用户做了决定）', () {
+      final missing = mutate((raw) {
+        (raw['privacy'] as Map<String, Object?>)['relayConsentVersion'] = 0;
+      });
+      expectProblem(
+        missing,
+        'relayConsentVersion 必须是正整数',
+        '拿掉它 ⇒ 同意永远算成立，等于替用户点了同意',
+      );
+      final nulled = mutate((raw) {
+        (raw['privacy'] as Map<String, Object?>).remove('relayConsentVersion');
+      });
+      expectProblem(nulled, 'relayConsentVersion', '同意的判据不许缺省');
+    });
+
     test('dedupeRefreshWhile 写成一个不存在的状态 ⇒ 报（"什么时候可以覆盖"也是状态机的事）', () {
       final broken = mutate((raw) {
         (raw['privacy'] as Map<String, Object?>)['dedupeRefreshWhile'] =

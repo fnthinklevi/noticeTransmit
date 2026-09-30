@@ -3175,6 +3175,29 @@ class AppLocalizationsEn extends AppLocalizations {
       'Messages are only fetched while this is on; off means neither sending nor receiving';
 
   @override
+  String get fnthinkConsentTitle =>
+      'Allow notification content to be relayed through the server?';
+
+  @override
+  String get fnthinkConsentMsg =>
+      '① Not using push: everything runs on this device; notification content never touches a server.\n② Only forwarding notifications locally: same — the server collects no notification content at all.\n③ Using push: messages must be relayed through the server to reach this phone. Until delivered, the body is encrypted and stored on the server for at most 7 days and is deleted immediately on delivery or expiry; pairing codes and the identity private key are never uploaded, and audits keep metadata only (no bodies).';
+
+  @override
+  String get fnthinkConsentAgree => 'I understand and agree';
+
+  @override
+  String get fnthinkConsentGranted =>
+      'Content relay through the server is allowed';
+
+  @override
+  String get fnthinkConsentPending =>
+      'Relay not allowed yet — everything that goes through the server stays off';
+
+  @override
+  String get fnthinkConsentNotGranted =>
+      'This device has not allowed relaying content through the server, so nothing was sent';
+
+  @override
   String get fnthinkStatusRunning => 'Receiving';
 
   @override

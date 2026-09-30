@@ -166,8 +166,10 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
 /// 节奏在契约与内核里，顺序在循环里，内容怎么落进收件表由 `persist` 决定 ——
 /// 这里一旦出现第四个"如果状态是 403 就…"，那份判据就有两处了。
 ///
-/// ⚠ 五种"起不来"各有各的成因，必须分开说（它们对应五种不同的用户动作）：
+/// ⚠ 六种"起不来"各有各的成因，必须分开说（它们对应六种不同的用户动作）：
 ///  - `disabled`：总开关关着（默认就是关的，见 [FnthinkSettings]）。关掉 = 既不发送也不接收。
+///  - `not-consented`：这台从没一次性同意过"通知内容经服务器中转"（T56 的同意门）。它排在
+///    `disabled` 之后：开关开着才会撞上，而撞上时用户要听的是"你还没同意中转"而不是一句 403。
 ///  - `contract-unavailable`：随包契约读不到 / 不合法 / 这一包解释不了 ⇒ **整体停手**，不重试成静默降级。
 ///  - `settings-invalid`：服务地址这一项不可用（手填错，或备份恢复灌回来一个坏值）。
 ///  - `credential-corrupted`：本机地址码存量过不了契约校验 ⇒ 抛给人看，**不自动换一枚**。
@@ -401,6 +403,16 @@ class FnthinkReceiveCoordinator {
       return (spec: null, reason: 'settings-invalid: ${e.reason}');
     } on FnthinkCredentialCorrupted catch (e) {
       return (spec: null, reason: 'credential-corrupted: ${e.reason}');
+    }
+
+    // 同意门（T56）：**没有一次性显式同意 ⇒ 一个字节都不许离机**。它排在本地那几件之后、
+    // 签名探测与自登记之前 —— 前面全是本机事实（服务地址对不对、地址码能不能算出来），
+    // 用户该先听到那些可自己修的结论；**第一个真正会离开这台设备的东西是后面那两步**
+    // （注册要发 /register、之后每轮 poll），所以门就按在这前面。
+    // ⚠ 配对/端点那条路 `requireEnabled: false`，但**同样要过这道门** —— 它们全都经服务器，
+    // 「接收关着」只是不收货，不代表同意把内容交给服务器中转。
+    if (!await settings.hasRelayConsent()) {
+      return (spec: null, reason: 'not-consented');
     }
 
     if (!await signer.probe()) {

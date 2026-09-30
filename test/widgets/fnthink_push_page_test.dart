@@ -40,7 +40,9 @@ void main() {
 
   setUp(() {
     disk = {};
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'flutter.${'fnthink.consent_version'}': 1,
+    });
   });
   tearDown(clearNativeChannelStubs);
 
@@ -445,6 +447,67 @@ void main() {
     });
   });
 
+  group('同意门那一格（T56）', () {
+    testWidgets('还没同意 ⇒ 那句话与那一下都在；同意之后换成"已同意"那一句', (tester) async {
+      stubChannels();
+      // ⚠ 刻意**不**种同意键：这一条要观察的就是"从没同意过"那一份世界。
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+
+      expect(
+        find.byKey(const ValueKey('fnthink-consent-pending')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-consent-agree')),
+        findsOneWidget,
+      );
+      expect(find.text(l10n.fnthinkConsentPending), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('fnthink-consent-agree')));
+      await tester.pumpAndSettle();
+      // 确认弹层必须真的开出来：这是"一次性显式同意"里"显式"两个字唯一的落点。
+      expect(find.text(l10n.fnthinkConsentMsg), findsOneWidget);
+      await tester.tap(find.text(l10n.fnthinkConsentAgree).last);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-consent-granted')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-consent-pending')),
+        findsNothing,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(FnthinkSettings.keyConsentVersion),
+        isNotNull,
+        reason: '确认之后必须真的落盘：否则下次进页面又要问一遍，而用户已经答过了',
+      );
+    });
+
+    testWidgets('取消 ⇒ 一个字节都不写（不落半份同意）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({});
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+
+      await tester.tap(find.byKey(const ValueKey('fnthink-consent-agree')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.cancel));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-consent-pending')),
+        findsOneWidget,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(FnthinkSettings.keyConsentVersion), isNull);
+    });
+  });
+
   group('立即收取那一发', () {
     testWidgets('有货 ⇒ 上界面的是那笔账，而账里没有标题与正文', (tester) async {
       stubChannels();
@@ -773,6 +836,7 @@ void main() {
     }) async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(
         pairRequests: requests,
@@ -787,6 +851,17 @@ void main() {
       await h.coordinator.startIfEnabled();
       await tester.pump();
       await tester.pumpAndSettle();
+      // 同意门那一格（T56）加进来之后，待确认列表落到懒建范围之外了 ⇒ 必须**滚到它被
+      // build 出来**再断言，否则「这一格自己出现」看起来像没出现（这正是 5.15 闸门那次
+      // 「首页底部卡片没被构建」的同一族）。
+      // ⚠ 只在真的该有那一行时滚：`revealTo` 找不到目标会一直滚，而「没有人请求」那条
+      // 断言的正是"这一格不存在"—— 对着不存在的目标滚，测试会挂在超时上。
+      if (requests.isNotEmpty) {
+        await revealTo(
+          tester,
+          find.byKey(const ValueKey('fnthink-pair-request-pr_9')),
+        );
+      }
       return (l10n: l10n, h: h);
     }
 
@@ -1069,6 +1144,7 @@ void main() {
       stubChannels();
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(
         pairRequests: const [
@@ -1279,7 +1355,9 @@ void main() {
   group('接入端点那一格（T42 第七片）', () {
     testWidgets('点一下 ⇒ 出现 id、那把口令，和"只出现这一次"那句', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness();
       final l10n = await pump(tester, h.page);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
@@ -1308,7 +1386,9 @@ void main() {
 
     testWidgets('口令不落盘：prefs 里没有它，键名里也没有它', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness();
       await pump(tester, h.page);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
@@ -1333,7 +1413,9 @@ void main() {
 
     testWidgets('上限那句里的数来自契约（把契约那一位改掉，界面跟着改）', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final raw =
           jsonDecode(File('protocol/fnthink-v1.json').readAsStringSync())
               as Map<String, Object?>;
@@ -1359,7 +1441,9 @@ void main() {
 
     testWidgets('没建成 ⇒ 贴原话，且不出现口令行', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointStatus: 429, endpointBody: '{}');
       await pump(tester, h.page);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
@@ -1379,7 +1463,9 @@ void main() {
 
     testWidgets('服务端认了但读不出口令 ⇒ 走"没建成"那一句，不显示一把抄不到的入口', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointBody: '{"endpointId":"ep_7","serverTime":1}');
       await pump(tester, h.page);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
@@ -1411,7 +1497,9 @@ void main() {
 
     testWidgets('只是翻开页面 ⇒ 那一发没发出去，而界面说的是"还没读过"', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness();
       final l10n = await pump(tester, h.page);
       expect(
@@ -1434,7 +1522,9 @@ void main() {
 
     testWidgets('点那一下 ⇒ 一行一条，已吊销那条也带出来并说它不收信了', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(
         // 这里不带 `owner` 字段：owner 那一刀（别人名下一行也不进结果）钉在包内用例
         // （receive_kernel_test 的「别人名下一行漏出来」），这一组测的是"读回来的怎么画"。
@@ -1473,7 +1563,9 @@ void main() {
 
     testWidgets('读到确实一把都没有 ⇒ 说"没有"，而不是"没读到"', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness();
       await pump(tester, h.page);
       await tapRead(tester);
@@ -1488,7 +1580,9 @@ void main() {
 
     testWidgets('读失败 ⇒ 说"这一次没读到"并贴原话，绝不冒出"你没有端点"那句', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListStatus: 403, endpointListBody: '{}');
       await pump(tester, h.page);
       await tapRead(tester);
@@ -1508,7 +1602,9 @@ void main() {
 
     testWidgets('已经读过再建一把 ⇒ 立刻重读，界面上不留在"2 把"', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness();
       await pump(tester, h.page);
       await tapRead(tester);
@@ -1528,7 +1624,9 @@ void main() {
 
     testWidgets('还没读过就建一把 ⇒ 不凭空开始读（第一句还是口令那一行）', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness();
       await pump(tester, h.page);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
@@ -1550,7 +1648,9 @@ void main() {
 
     testWidgets('签不出来 ⇒ 那一发不发，说的是"这一次没读到"再加那一句原话', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(canSign: false);
       await pump(tester, h.page);
       await tapRead(tester);
@@ -1599,7 +1699,9 @@ void main() {
 
     testWidgets('列表里那一下先过二次确认；确认之前一发都不出去', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListBody: twoRows);
       final l10n = await pump(tester, h.page);
       await readList(tester);
@@ -1630,7 +1732,9 @@ void main() {
       // 在它身上完全看不出来（askConfirm 本身是 await 的，取消没被取消也不影响时序）。
       // 反证 SA6 第一次就是在这里 NO FAILURE 的 —— 补了这一条，那一道闸才真的可观察。
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListBody: twoRows);
       final l10n = await pump(tester, h.page);
       await readList(tester);
@@ -1651,7 +1755,9 @@ void main() {
 
     testWidgets('关掉之后重读一次列表（屏幕跟上服务端，而不是自己把那行画灰）', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListBody: twoRows);
       final l10n = await pump(tester, h.page);
       await readList(tester);
@@ -1670,7 +1776,9 @@ void main() {
 
     testWidgets('已经停了的那一把不再给"关掉"那一下', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListBody: twoRows);
       await pump(tester, h.page);
       await readList(tester);
@@ -1688,7 +1796,9 @@ void main() {
 
     testWidgets('服务端拒了 ⇒ 说的是"这把没关掉"，而那一行还挂着', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(
         endpointListBody: twoRows,
         endpointRevokeStatus: 403,
@@ -1718,7 +1828,9 @@ void main() {
 
     testWidgets('那边本来就不收了（revoked:false）⇒ 走成功那一路，不说失败', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(
         endpointListBody: twoRows,
         endpointRevokeBody:
@@ -1745,7 +1857,9 @@ void main() {
       // （签不出来 ⇒ 不发 + 原话）在协调者用例里钉（`revokeEndpoint（#157 第四片）` 那一组）。
       // 与其在这里造一个页面根本不会出现的按钮，不如把"为什么这里断不了"写下来。
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(canSign: false, endpointListBody: twoRows);
       await pump(tester, h.page);
       await readList(tester);
@@ -1791,7 +1905,9 @@ void main() {
 
     testWidgets('换成功 ⇒ 新口令那一行就是这一把，宽限期那一行跟着服务端回的时刻', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(
         endpointListBody: oneLive,
         // rotatingUntil 给 0：这一支要断的是"时刻是服务端给的、不是本机算的"，
@@ -1824,7 +1940,9 @@ void main() {
 
     testWidgets('服务端没回 rotatingUntil ⇒ 那一行根本不出现（不编一个截止时间）', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(
         endpointListBody: oneLive,
         endpointRotateBody:
@@ -1849,7 +1967,9 @@ void main() {
 
     testWidgets('换完重读一次列表：旧那把的截止日期以服务端那一份为准', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListBody: oneLive);
       final l10n = await pump(tester, h.page);
       await readList(tester);
@@ -1866,7 +1986,9 @@ void main() {
 
     testWidgets('弹层上点取消 ⇒ 那一发不发（旧口令不该开始倒计时）', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListBody: oneLive);
       final l10n = await pump(tester, h.page);
       await readList(tester);
@@ -1887,7 +2009,9 @@ void main() {
 
     testWidgets('那把本来就不收了（rotated:false）⇒ 说"没给它换"，不出现口令行', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(
         endpointListBody: oneLive,
         endpointRotateBody:
@@ -1913,7 +2037,9 @@ void main() {
 
     testWidgets('服务端说换了却没口令 ⇒ 走"没换成"，reason 单独那一句要看得见', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(
         endpointListBody: oneLive,
         endpointRotateBody: '{"endpointId":"ep_live","rotated":true}',
@@ -1934,7 +2060,9 @@ void main() {
 
     testWidgets('已经停了的那一把，"关掉"与"换一把"两下都不给', (tester) async {
       stubChannels();
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final h = harness(endpointListBody: oneDead);
       await pump(tester, h.page);
       await readList(tester);
@@ -2268,6 +2396,10 @@ Future<void> _tapPair(
   final button = find.byKey(
     ValueKey(approve ? 'fnthink-pair-approve-pr_9' : 'fnthink-pair-deny-pr_9'),
   );
+  // ⚠ 先 `revealTo`（滚到它被 build 出来）**再** `ensureVisible`（滚进视口）——
+  // 同意门那一格（T56）加进来之后这一行离首屏更远，`ensureVisible` 对还没 build 的
+  // finder 拿到的是空的（文件里 1140 那条注释记的就是这件事）。
+  await revealTo(tester, button);
   await tester.ensureVisible(button);
   await tester.pumpAndSettle();
   await tester.tap(button);

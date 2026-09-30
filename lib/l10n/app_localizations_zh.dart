@@ -3049,6 +3049,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkReceiveDesc => '开着才会去服务器取货；关掉则既不发送也不接收';
 
   @override
+  String get fnthinkConsentTitle => '允许通知内容经服务器中转？';
+
+  @override
+  String get fnthinkConsentMsg =>
+      '① 不用幻念推送：全部逻辑在本机完成，通知内容不经过任何服务器。\n② 只用本软件转发通知：同样不经过服务器，服务器不收集任何通知内容。\n③ 使用幻念推送：消息需经服务器中转才能送到这台手机 —— 未送达期间正文在服务端加密暂存，最长 7 天，送达或到期立即删除；配对口令与身份私钥不上传，审计只保存元数据（不含正文）。';
+
+  @override
+  String get fnthinkConsentAgree => '我已了解并同意';
+
+  @override
+  String get fnthinkConsentGranted => '已同意内容经服务器中转';
+
+  @override
+  String get fnthinkConsentPending => '还没同意中转 —— 经服务器的收发全部停着';
+
+  @override
+  String get fnthinkConsentNotGranted => '这台还没同意内容经服务器中转，所以那一发什么都没做';
+
+  @override
   String get fnthinkStatusRunning => '正在收取';
 
   @override

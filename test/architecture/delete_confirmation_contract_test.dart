@@ -48,6 +48,10 @@ void main() {
       'Future<void> _revokeEndpoint(',
       // 换口令不留"撤销"那么明显的后果，却更狠：旧那把当场开始倒计时，而 NAS 还在用它
       'Future<void> _rotateEndpoint(',
+      // T56 同意门：这一下点下去的后果是**通知内容此后可以经服务器中转**。
+      // 它比"换一枚地址码"更需要先看一眼 —— 而"看一眼"在这里必须是一次显式确认，
+      // 不是开关被翻开时顺带勾上的。
+      'Future<void> _grantConsent(',
     ],
   };
 
@@ -60,6 +64,37 @@ void main() {
             body,
             contains('askConfirm('),
             reason: '${entry.key} :: $signature 不再确认 ⇒ 手滑即丢凭据/规则/授权',
+          );
+          // ⚠ 光有 `askConfirm(` **不够** —— 它可以弹了、拿到 true/false、然后不看结果直接改数据
+          // （反证 C2 当场抓到：我把 `_grantConsent` 里那道 `if (!ok …) return;` 摘掉，
+          // 这条断言照样全绿）。所以这里钉的是**那个结果本身被否定过**：
+          // 先认出结果被存进哪个标识符，再要求块里有一处 `if (!那个标识符`。
+          //
+          // ⚠⚠ 两次踩过的坑，都记在这里免得第三次：
+          //  ① 先写成 `if (!ok` —— 那把**变量名**当成了契约（`_confirmDeleteChannel` 用的是
+          //     `confirmed`，当场被判成缺陷）。守卫断行为不断写法。
+          //  ② 放宽成 `if (!\w+` —— 那又被块里别处的 `if (!mounted)` 顺手满足（C2 假绿）。
+          //     必须是**同一个标识符**，否则这道闸等于没有。
+          final assigned = RegExp(
+            r'=\s*await\s+(?:IosDialogActions\.)?askConfirm\(',
+          ).firstMatch(body);
+          expect(
+            assigned,
+            isNotNull,
+            reason: '${entry.key} :: $signature 连 askConfirm 的结果都没接住',
+          );
+          final resultVar = RegExp(
+            r'final\s+(\w+)\s*=\s*await\s+(?:IosDialogActions\.)?askConfirm\(',
+          ).firstMatch(body)?.group(1);
+          expect(
+            resultVar == null ||
+                RegExp(
+                  'if\\s*\\(\\s*!\\s*${RegExp.escape(resultVar)}\\b',
+                ).hasMatch(body),
+            isTrue,
+            reason:
+                '${entry.key} :: $signature 弹了确认框但没按结果早退 ⇒ '
+                '「取消」与「确定」成了同一件事（弹层只是走个过场）',
           );
         }
       }

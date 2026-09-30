@@ -641,6 +641,8 @@
   "privacy": {
     "serverStoresBodyPlaintext": false,
     "auditStoresMetadataOnly": true,
+    "relayConsentVersion": 1,
+    "_relayConsentVersionWhy": "「用幻念推送 ⇒ 消息经服务器中转」必须由用户**一次性显式同意**（T56），而同意这件事要有版本：文案或边界变了（多一个去向、少一条保留期）就得重新问一次。这个数只做这一件事 —— 本机记住的同意版本 ≥ 契约这一档就算已同意；调高它 ⇒ 升级后的用户重新被问一遍。**不要拿它当协议版本**（协议版本是 protocol.contractVersion），也别拿它编码「同意的是第几份协议」。",
     "credentialsNeverIn": ["url", "log"],
     "messageLevelDedupe": "dedupe_id",
     "dedupeRefreshSemantics": "同 dedupe_id 覆盖而非新增",

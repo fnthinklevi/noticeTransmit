@@ -17,6 +17,42 @@ class FnthinkSettings {
   static const keyReceiveEnabled = 'fnthink.receive_enabled';
   static const keyHost = 'fnthink.host';
 
+  /// 本机记住的「已同意中转」版本号（契约 `privacy.relayConsentVersion` 的那一档）。
+  /// **null = 从没同意过** —— 这是默认值，也是"升级不许悄悄替用户点同意"那条不变量的落点。
+  static const keyConsentVersion = 'fnthink.consent_version';
+
+  /// 契约要求同意的那一档版本。
+  ///
+  /// 取不到就抛：没有这个数，"要不要重新问"就没了判据，而缺省成"当同意过了"正是
+  /// 替用户点同意的那一种（另一种是当没同意过，代价是所有经服务器的功能对谁都不可用）。
+  int get requiredConsentVersion {
+    final value = contract.intOf(const ['privacy', 'relayConsentVersion']);
+    if (value == null || value <= 0) {
+      throw StateError('契约缺 privacy.relayConsentVersion（正整数）');
+    }
+    return value;
+  }
+
+  /// 这台同意过「通知内容经服务器中转」没有（版本够新就算）。
+  Future<bool> hasRelayConsent() async {
+    final prefs = await SharedPreferences.getInstance();
+    final granted = prefs.getInt(keyConsentVersion);
+    return granted != null && granted >= requiredConsentVersion;
+  }
+
+  /// 本机同意过的版本号（null = 从没同意）。给界面上"你同意的是第几版"那一行用。
+  Future<int?> grantedConsentVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(keyConsentVersion);
+  }
+
+  /// 记下这一次同意。**只写契约当前那一档**（页面上那行文案就是按它写的），
+  /// 不接受调用方传一个别的版本进来 —— 那样"同意的文案"与"记下的版本"会分家。
+  Future<void> grantRelayConsent() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(keyConsentVersion, requiredConsentVersion);
+  }
+
   Future<bool> get receiveEnabled async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(keyReceiveEnabled) ?? false;

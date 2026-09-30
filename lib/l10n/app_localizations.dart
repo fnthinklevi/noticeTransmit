@@ -5720,6 +5720,42 @@ abstract class AppLocalizations {
   /// **'开着才会去服务器取货；关掉则既不发送也不接收'**
   String get fnthinkReceiveDesc;
 
+  /// No description provided for @fnthinkConsentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许通知内容经服务器中转？'**
+  String get fnthinkConsentTitle;
+
+  /// No description provided for @fnthinkConsentMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'① 不用幻念推送：全部逻辑在本机完成，通知内容不经过任何服务器。\n② 只用本软件转发通知：同样不经过服务器，服务器不收集任何通知内容。\n③ 使用幻念推送：消息需经服务器中转才能送到这台手机 —— 未送达期间正文在服务端加密暂存，最长 7 天，送达或到期立即删除；配对口令与身份私钥不上传，审计只保存元数据（不含正文）。'**
+  String get fnthinkConsentMsg;
+
+  /// No description provided for @fnthinkConsentAgree.
+  ///
+  /// In zh, this message translates to:
+  /// **'我已了解并同意'**
+  String get fnthinkConsentAgree;
+
+  /// No description provided for @fnthinkConsentGranted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已同意内容经服务器中转'**
+  String get fnthinkConsentGranted;
+
+  /// No description provided for @fnthinkConsentPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没同意中转 —— 经服务器的收发全部停着'**
+  String get fnthinkConsentPending;
+
+  /// No description provided for @fnthinkConsentNotGranted.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台还没同意内容经服务器中转，所以那一发什么都没做'**
+  String get fnthinkConsentNotGranted;
+
   /// No description provided for @fnthinkStatusRunning.
   ///
   /// In zh, this message translates to:

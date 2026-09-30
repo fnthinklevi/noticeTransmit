@@ -96,6 +96,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   bool _enabled = false;
   bool _running = false;
 
+  /// 这台同意过「通知内容经服务器中转」没有（T56 的同意门）。
+  ///
+  /// **它与 [_enabled] 是两件不同的事**：开关是"要不要收"，同意是"允不允许内容离开这台设备"。
+  /// 两格都在接收卡上、都不许替用户点 —— 升级不改任一个。
+  bool _consented = false;
+
   /// 最近一次"起不来"的原话（五种各有各的成因，不许归并成"出错了"）。
   String? _startNote;
 
@@ -305,9 +311,47 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   Future<void> _readEnabled() async {
     final settings = _settings;
     if (settings == null) return;
-    final value = await settings.receiveEnabled;
+    // 两个真值一起读：开关是"要不要收"，同意是"允不允许经服务器中转"（T56）。
+    // 两件事互不派生，合成一个状态字段就会在某一处漏掉重读 —— 而漏掉的那一处
+    // 表现是"界面说已同意，协调者说不认"，用户看不出该点哪一下。
+    final values = await Future.wait<bool>([
+      settings.receiveEnabled,
+      settings.hasRelayConsent(),
+    ]);
     if (!mounted) return;
-    setState(() => _enabled = value);
+    setState(() {
+      _enabled = values[0];
+      _consented = values[1];
+    });
+  }
+
+  /// 一次性同意「通知内容经服务器中转」（T56）。三情形说明放在确认弹层里，确认键才写下同意。
+  ///
+  /// ⚠ **同意是一次显式动作**，所以它走 `askConfirm` 而不是"点一下开关就算"：
+  /// 这一格的后果是"通知内容会离开这台设备、经服务器中转"，那是本产品里最重的一件事，
+  /// 静默发生就是把用户没做过的决定替他做了（"升级/新功能不许悄悄做让用户意外的事"）。
+  /// 取消 ⇒ 一个字节都不写，也不改任一开关（不写半份同意）。
+  Future<void> _grantConsent() async {
+    final settings = _settings;
+    if (settings == null || _busy) return;
+    final l10n = AppLocalizations.of(context);
+    final ok = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.fnthinkConsentTitle,
+      message: l10n.fnthinkConsentMsg,
+      confirmText: l10n.fnthinkConsentAgree,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    await settings.grantRelayConsent();
+    if (!mounted) return;
+    setState(() {
+      _consented = true;
+      _busy = false;
+    });
+    // 同意之前收货循环起不来（协调者 early-return not-consented）；用户刚同意 ⇒ 若开关已开，
+    // 立刻试一次起来，让"同意"这件事当场有可见后果（否则要等下一轮后台闹钟）。
+    if (_enabled) unawaited(_toggleReceive(true));
   }
 
   /// 开关。⚠ 这里有一个必须写下来的取舍：**开关那一格显示的是"用户要的状态"（prefs 真值），
@@ -316,6 +360,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   Future<void> _toggleReceive(bool value) async {
     final settings = _settings;
     if (settings == null || _busy) return;
+    final l10n = AppLocalizations.of(context);
     // 开关那一格跟着**写进 prefs 的那一份**走：先落库再改口，界面与 prefs 不会各说一段。
     setState(() {
       _busy = true;
@@ -327,7 +372,13 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       if (!mounted) return;
       setState(() {
         _running = _coordinator.isRunning;
-        _startNote = result.started ? null : result.reason;
+        // 「没同意中转」是本片新增的那一档，机器理由 `not-consented` 用户读不懂 ⇒ 换成
+        // 人话。其余理由沿用原样（既有那些都已是面向用户的短词）。
+        _startNote = result.started
+            ? null
+            : (result.reason == 'not-consented'
+                  ? l10n.fnthinkConsentNotGranted
+                  : result.reason);
         _busy = false;
       });
       // 开关翻开 ⇒ 协调者刚排过闹钟（或刚因为起不来撤过）：那一行必须跟着重读，
@@ -1244,6 +1295,27 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           dot: _running,
           text: _running ? l10n.fnthinkStatusRunning : l10n.fnthinkStatusIdle,
         ),
+        // 同意门（T56）：**开着开关也不等于同意中转**。这一行在没同意时始终在场，
+        // 并把三情形说明摆在按钮后面 —— 用户要能一眼看出"关掉接收"与"不让人中转内容"
+        // 是两件不同的事，而后者没有任何一处会自动替他做。
+        if (!_consented) ...[
+          _Note(
+            keyName: 'fnthink-consent-pending',
+            text: l10n.fnthinkConsentPending,
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton(
+              key: const ValueKey('fnthink-consent-agree'),
+              onPressed: _busy ? null : _grantConsent,
+              child: Text(l10n.fnthinkConsentTitle),
+            ),
+          ),
+        ] else
+          _Note(
+            keyName: 'fnthink-consent-granted',
+            text: l10n.fnthinkConsentGranted,
+          ),
         // 「被杀之后还有没有人去问一次货」（T33 第二片 / §4-9）：这一行读的是**原生那份排程**。
         // 收货循环活着 ≠ 闹钟排着（进程被杀之后正是"循环没了而闹钟还在"），所以两行必须分开说。
         // 还没有读到（读口抛过、或这一页刚起来）时**不画这一行** —— 画一句"没在醒着"是假话。

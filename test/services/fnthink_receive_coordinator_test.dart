@@ -123,7 +123,9 @@ void main() {
 
   setUp(() {
     disk = {};
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'flutter.${'fnthink.consent_version'}': 1,
+    });
     mockSecureStorage();
   });
 
@@ -144,6 +146,7 @@ void main() {
     test('② 开着且一切就绪 ⇒ started，地址与地址码都按契约与本机来', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final c = coordinator(recorder: rec);
@@ -162,6 +165,7 @@ void main() {
     test('③ 已在跑就是幂等：不会叠出第二个循环', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final c = coordinator(recorder: rec);
@@ -175,6 +179,7 @@ void main() {
     test('stop 之后可以再起（这次是一个新循环）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final c = coordinator(recorder: rec);
@@ -190,6 +195,7 @@ void main() {
     test('契约不可用 ⇒ contract-unavailable，且原话带出来', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final result = await coordinator(
@@ -207,6 +213,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
         'flutter.${FnthinkSettings.keyHost}': 'not a host/',
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final result = await coordinator(recorder: rec).startIfEnabled();
@@ -217,6 +224,7 @@ void main() {
     test('本机地址码存量坏掉 ⇒ credential-corrupted（不自动换一枚）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       disk['fnthink.address_code'] = 'ILOU 不是合法字母表';
       final rec = _LoopRecorder();
@@ -233,6 +241,7 @@ void main() {
     test('签名取不到 ⇒ signing-unavailable（身份问题，不是网络问题）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final result = await coordinator(
@@ -254,6 +263,7 @@ void main() {
     test('开着 ⇒ 交回这一轮的账目；上一轮还在途时交回的是"整轮跳过"', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final c = coordinator(recorder: rec);
@@ -278,6 +288,7 @@ void main() {
     test('没起过就直接手动收取 ⇒ 顺手按开关装配一次（不静默什么都不做）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final report = await coordinator(recorder: rec).receiveOnce();
@@ -293,6 +304,7 @@ void main() {
     test('跑完一轮就续排（失败的那一轮同样要续：一次抖动不该弄丢这台叫醒自己的机会）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final notices = <bool>[];
       final rec = _LoopRecorder();
@@ -346,6 +358,7 @@ void main() {
     test('stop() 同样撤（关掉接收与开关早退是同一个口径）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final notices = <bool>[];
       final rec = _LoopRecorder();
@@ -366,6 +379,7 @@ void main() {
     test('续排那一发失败 ⇒ 不拖累收货，也不静默：日志里必须看得见', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final logs = <String>[];
       final originalPrint = debugPrint;
@@ -403,6 +417,7 @@ void main() {
     test('这台没装配续排链路（hook 为 null）⇒ 收货照常，不崩', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final report = await coordinator(recorder: rec).receiveOnce();
@@ -436,7 +451,9 @@ void main() {
     const pairingCode = '7A9QKM3PTVWXRBNSFGH4';
 
     test('开关关着也挂得出去：配对是接收的前置，不是它的后果', () async {
-      SharedPreferences.setMockInitialValues({}); // 没有 receive_enabled ⇒ 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 没有 receive_enabled ⇒ 默认关
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -464,6 +481,7 @@ void main() {
 
       SharedPreferences.setMockInitialValues({
         FnthinkSettings.keyHost: 'a b/c',
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final badHost = coordinator(
         recorder: _LoopRecorder(),
@@ -476,7 +494,9 @@ void main() {
 
       // 把服务地址放回好值：判定顺序本身就是判据（设置先于签名探测），
       // 上一小步留下的坏值会把 signing-unavailable 遮成 settings-invalid。
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final cannotSign = coordinator(
         recorder: _LoopRecorder(),
         signerOverride: signer(false),
@@ -494,6 +514,7 @@ void main() {
     test('服务器没回过期时间 ⇒ 结果不 ok（界面据此不许说"已挂出"）', () async {
       SharedPreferences.setMockInitialValues({
         FnthinkSettings.keyReceiveEnabled: true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final asked = <http.Request>[];
       final c = coordinator(
@@ -526,7 +547,9 @@ void main() {
         '"serverTime":1800000000000}';
 
     test('同意那一发写给对端，且总开关关着也能答复', () async {
-      SharedPreferences.setMockInitialValues({}); // 接收开关 = 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 接收开关 = 默认关
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -621,7 +644,9 @@ void main() {
             as Map<String, Object?>;
 
     test('名单里那一行记的是服务端回的档位，不是本机刚发出去的那一档', () async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final asked = <http.Request>[];
       final rows = <FnthinkPeer>[];
       final c = coordinator(
@@ -835,6 +860,7 @@ void main() {
     test('循环已在跑时，手动那一轮带回来的请求也会上账（页面点的就是这条路）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder();
       final c = coordinator(recorder: rec);
@@ -859,6 +885,7 @@ void main() {
     test('后台那一轮看到的请求会被接住（不点"立即收取"也看得见）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
       final c = coordinator(recorder: rec);
@@ -876,6 +903,7 @@ void main() {
     test('失败的那一轮不清空待确认列表', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
       final c = coordinator(recorder: rec);
@@ -894,6 +922,7 @@ void main() {
     test('答复成功 ⇒ 那一条立刻从待确认列表里摘掉', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
       final asked = <http.Request>[];
@@ -920,6 +949,7 @@ void main() {
     test('在途那一轮的旧回信，不会把已答复的那条画回来（幽灵行）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
       final asked = <http.Request>[];
@@ -947,6 +977,7 @@ void main() {
     test('答复没成 ⇒ 那一条还留着（可以再试，或等它过期）', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final rec = _LoopRecorder()..pollPairRequests = [req('L1')];
       final asked = <http.Request>[];
@@ -1104,7 +1135,9 @@ void main() {
     });
 
     test('总开关关着也能撤：撤销不是"收货"的一部分', () async {
-      SharedPreferences.setMockInitialValues({}); // 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 默认关
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1158,7 +1191,9 @@ void main() {
         '"postOnly":$postOnly,"serverTime":1800000000000}';
 
     test('走的是契约声明的那条路径，而口令只在返回值里（prefs 一个键都没多）', () async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1179,7 +1214,9 @@ void main() {
     });
 
     test('总开关关着也能建：入口这件事与"现在去不去取货"无关', () async {
-      SharedPreferences.setMockInitialValues({}); // 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 默认关
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1237,7 +1274,9 @@ void main() {
         '"createdAt":1700000000000}],"serverTime":1800000000000}';
 
     test('走的是契约声明的那条路径，而读回来的那份不在 prefs 里', () async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1256,7 +1295,9 @@ void main() {
     });
 
     test('总开关关着也读得到：我有哪些入口与"这台现在去不去取货"是两件事', () async {
-      SharedPreferences.setMockInitialValues({}); // 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 默认关
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1297,7 +1338,9 @@ void main() {
         '{"endpointId":"ep_7","revoked":true,"serverTime":1800000000000}';
 
     test('走的是契约声明的那条路径，而载荷里是那把 id', () async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1311,7 +1354,9 @@ void main() {
     });
 
     test('总开关关着也关得掉：关一把入口与"这台现在去不去取货"无关', () async {
-      SharedPreferences.setMockInitialValues({}); // 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 默认关
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1351,7 +1396,9 @@ void main() {
         '"rotatingUntil":1800003600000,"serverTime":1800000000000}';
 
     test('走的是契约声明的那条路径，而新口令与截止日期都在返回值里', () async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1375,7 +1422,9 @@ void main() {
     });
 
     test('总开关关着也换得动：口令泄露了而接收正关着，恰恰是要换的那一回', () async {
-      SharedPreferences.setMockInitialValues({}); // 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 默认关
       final asked = <http.Request>[];
       final c = coordinator(
         recorder: _LoopRecorder(),
@@ -1410,7 +1459,9 @@ void main() {
         '{"receipt":"queued","messageId":"m_31","action":"new","evicted":[]}';
 
     test('开关关着也发得出去：发这一条与"这台现在去不去取货"是两件事', () async {
-      SharedPreferences.setMockInitialValues({}); // 没有 receive_enabled ⇒ 默认关
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      }); // 没有 receive_enabled ⇒ 默认关
       final asked = <http.Request>[];
       final rec = _LoopRecorder();
       final c = coordinator(
@@ -1452,6 +1503,7 @@ void main() {
 
       SharedPreferences.setMockInitialValues({
         FnthinkSettings.keyHost: 'a b/c',
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final badHost = coordinator(
         recorder: _LoopRecorder(),
@@ -1465,7 +1517,9 @@ void main() {
       expect(r2.status, FnthinkSendStatus.preconditionFailed);
       expect(r2.reason, startsWith('settings-invalid'));
 
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
       final cannotSign = coordinator(
         recorder: _LoopRecorder(),
         signerOverride: signer(false),
@@ -1485,6 +1539,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
         'flutter.${FnthinkSettings.keyHost}': defaultHost,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final recorded = <FnthinkInboxMessage>[];
       final asked = <http.Request>[];
@@ -1522,6 +1577,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
         'flutter.${FnthinkSettings.keyHost}': defaultHost,
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       final recorded = <FnthinkInboxMessage>[];
       final asked = <http.Request>[];
@@ -1557,6 +1613,7 @@ void main() {
     /// 打开的开关 + 一份"登记成功"的答复。
     void enable() => SharedPreferences.setMockInitialValues({
       'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      'flutter.${'fnthink.consent_version'}': 1,
     });
 
     FnthinkRegisterResult okRegister() => const FnthinkRegisterResult(
@@ -1699,6 +1756,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
         'flutter.${FnthinkSettings.keyHost}': 'other.example.com',
+        'flutter.${'fnthink.consent_version'}': 1,
       });
       await c.publishPairingCode('ABCDEFGH');
 
@@ -1708,6 +1766,103 @@ void main() {
         reason: '换了服务器就是换了那本设备表：不重登记的话这一台在新服务器上永远是"没签上"',
       );
       expect(registered.last, 'other.example.com');
+    });
+  });
+
+  group('同意门（T56：没同意 ⇒ 一个字节都不许离机）', () {
+    // 这一组刻意**不**种同意键：它要观察的就是"没同意"那一份世界。
+    void enableReceive() => SharedPreferences.setMockInitialValues({
+      'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+    });
+
+    test('没同意 ⇒ 不起循环，一个字节都不发', () async {
+      enableReceive();
+      final asked = <http.Request>[];
+      final rec = _LoopRecorder();
+      final probes = <bool>[];
+      final c = coordinator(
+        recorder: rec,
+        serviceFactory: armFactory(sink: asked),
+        signerOverride: _FakeSigner(true, onProbe: () => probes.add(true)),
+      );
+
+      final result = await c.startIfEnabled();
+
+      expect(result.started, isFalse);
+      expect(result.reason, 'not-consented');
+      expect(rec.builds, 0, reason: '循环起来了就一定会去 poll，而 poll 就是离机');
+      expect(asked, isEmpty, reason: '一个请求都不许发出去');
+      expect(probes, isEmpty, reason: '没同意就不该去动 KeyStore：那是"这个功能没开"却去碰系统钥匙');
+    });
+
+    test('没同意 ⇒ 挂口令那一发也一样早退（配对同样经服务器）', () async {
+      // ⚠ 必须显式清空：前一条「同意过 ⇒ 门放行」往 mock 里写过同意键，而这一组
+      // 的其他用例默认沿用上一次留下的 prefs —— 不清就是"同意门没生效"的假绿。
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked),
+      );
+
+      final result = await c.publishPairingCode('ABCDEFGH');
+
+      expect(result.status, FnthinkPollStatus.failed);
+      expect(result.reason, 'not-consented');
+      expect(asked, isEmpty);
+    });
+
+    test('本地那几件坏值仍然先说自己的话（同意门排在它们后面）', () async {
+      // 顺序也是判据：用户先听到"服务地址填错了"，而不是被"你还没同意中转"盖住。
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${FnthinkSettings.keyHost}': 'not a host/',
+      });
+      final rec = _LoopRecorder();
+      final result = await coordinator(recorder: rec).startIfEnabled();
+
+      expect(result.reason, startsWith('settings-invalid'));
+      expect(rec.builds, 0);
+    });
+
+    test('同意过 ⇒ 门放行（写进去的是契约当前那一档）', () async {
+      enableReceive();
+      final settings = FnthinkSettings(contract: contract);
+      expect(await settings.hasRelayConsent(), isFalse, reason: '默认是从没同意过');
+
+      await settings.grantRelayConsent();
+
+      expect(await settings.hasRelayConsent(), isTrue);
+      expect(
+        await settings.grantedConsentVersion(),
+        settings.requiredConsentVersion,
+      );
+      final rec = _LoopRecorder();
+      final started = await coordinator(recorder: rec).startIfEnabled();
+      expect(started.started, isTrue, reason: '同意之后这一格就该能用');
+    });
+
+    test('契约要求的那一档被调高 ⇒ 旧的同意不算数（文案变了要重新问）', () async {
+      enableReceive();
+      final bumped0 = contract;
+      final settings = FnthinkSettings(contract: contract);
+      await settings.grantRelayConsent();
+      expect(await settings.hasRelayConsent(), isTrue);
+
+      final bumped = FnthinkSettings(
+        contract: FnthinkContract({
+          ...contract.raw,
+          'privacy': {
+            ...(bumped0.raw['privacy']! as Map<String, Object?>),
+            'relayConsentVersion': settings.requiredConsentVersion + 1,
+          },
+        }),
+      );
+      expect(
+        await bumped.hasRelayConsent(),
+        isFalse,
+        reason: '边界变了而仍然算"已同意" ⇒ 用户同意的是上一版的文案',
+      );
     });
   });
 }
