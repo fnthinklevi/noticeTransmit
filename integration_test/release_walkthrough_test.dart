@@ -12,6 +12,7 @@ import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
+import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/main.dart' show MyApp;
 import 'package:notice_transmit/pages/app_channel_list_page.dart';
@@ -1736,6 +1737,85 @@ void main() {
         await _backToHome(tester);
         await _backToHomeQuietly(tester);
       });
+      // ── 5.16 幻念推送页：名单行上的「发一条」（§4-10 片2b）───────────────
+      // 这一格此前只有 widget 用例里的证据，而它有一个**只有设备上才看得见**的形状：
+      // "名单是空的 ⇒ 连入口都不该有"。这一节钉三件形状，一个字节都不发出去：
+      //   ① 名单里有一行 ⇒ 「发一条」在且可点；② 弹层里正文空着 ⇒ 「发送」是灰的；
+      //   ③ 点「取消」⇒ 弹层关掉、结论行不出现（取消了还发出去，说的与做的就不一致）。
+      // ⚠ 真发一条**不进闸门**：它打的是线上那台服务器，而且"发出去并被对方收到"要有对端
+      //    （#108）—— 闸门只证形状，不证投递。
+      await _step(
+        tester,
+        gateFailures,
+        '── 5.16 幻念推送页：名单行上的「发一条」（只验形状）',
+        () async {
+          // 地址码形状：18 位、Crockford Base32（不含 I/L/O/U），一眼能看出是闸门塞的。
+          const gatePeer = 'GATE000000PEER0001';
+          final helper = DatabaseHelper();
+          // 先清一次：上一轮没收干净的话"名单里有几行"就说不清是谁的错（与 4.2 同一条纪律）。
+          await helper.removeFnthinkPeer(gatePeer);
+          await helper.upsertFnthinkPeer(
+            const FnthinkPeer(
+              peerAddress: gatePeer,
+              publicKey: 'AAAAgatePeerPublicKeyBytes',
+              level: 'L1',
+              grantedAt: 1767223200000,
+              requestId: 'gate_peer_1',
+            ),
+          );
+          try {
+            await _backToHomeQuietly(tester);
+            await _openMoreRow(tester, '幻念推送');
+            await _onPage(tester, FnthinkPushPage, '幻念推送页');
+
+            final sendEntry = find.byKey(
+              const ValueKey('fnthink-peer-send-$gatePeer'),
+            );
+            // ⚠ 先滚到它再断言：本页是 ListView，名单那一格在视口外时根本没被 build
+            // （5.15 第一次红就是这么来的）。
+            await _scrollUntil(tester, sendEntry);
+            await _settle(tester);
+            expect(
+              sendEntry,
+              findsOneWidget,
+              reason: '名单里已经有一行却没有「发一条」入口 ⇒ 那一行只是摆设，用户只能看着对端',
+            );
+            await _tap(tester, sendEntry, '名单行→发一条（开弹层）');
+            await _settle(tester);
+
+            final submit = find.byKey(const ValueKey('fnthink-send-submit'));
+            expect(submit, findsOneWidget, reason: '发送弹层没起来 ⇒ 那一格点不动');
+            expect(
+              tester.widget<TextButton>(submit).onPressed,
+              isNull,
+              reason: '正文空着而「发送」可点 ⇒ 点下去发出去的是一句空话，而对面回执照样算"送达"',
+            );
+
+            // 取消：弹层关掉 + 结论行不出现（后者是"一个字节都没发"在设备上的可观察形状）。
+            final cancel = find.descendant(
+              of: find.byType(AlertDialog),
+              matching: find.widgetWithText(TextButton, '取消'),
+            );
+            await _tap(tester, cancel, '发送弹层→取消');
+            await _settle(tester);
+            expect(
+              find.byKey(const ValueKey('fnthink-send-body')),
+              findsNothing,
+              reason: '点了取消而弹层还开着 ⇒ 用户以为取消了',
+            );
+            expect(
+              find.byKey(const ValueKey('fnthink-send-note')),
+              findsNothing,
+              reason: '取消之后出现结论行 ⇒ 那一发其实发出去了（"取消"说的与做的不一致）',
+            );
+          } finally {
+            // 收尾：下一轮开跑之前名单必须回到"这台没配对过任何一台"（与擦库同一口径）。
+            await helper.removeFnthinkPeer(gatePeer);
+          }
+          await _backToHome(tester);
+          await _backToHomeQuietly(tester);
+        },
+      );
       // ── 6. 通知引擎 tab → 电量告警：加规则 → 切开关（骨架页 T15 落地后，电量页是 push 出来的子页）
       await _step(tester, gateFailures, '── 6. 通知引擎→电量告警：加规则 → 切开关', () async {
         await _backToHomeQuietly(tester);
