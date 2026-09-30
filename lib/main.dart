@@ -10,8 +10,8 @@ import 'l10n/app_localizations.dart';
 import 'pages/main_page.dart';
 import 'pages/splash_page.dart';
 import 'di/service_locator.dart';
-import 'theme/app_theme.dart';
 import 'theme/app_colors.dart';
+import 'widgets/app_root.dart';
 import 'services/theme_service.dart';
 import 'services/locale_service.dart';
 import 'services/archive_worker.dart';
@@ -60,49 +60,51 @@ void main() {
 class DIErrorApp extends StatelessWidget {
   const DIErrorApp({super.key});
 
-  AppLocalizations _l10n(BuildContext context) {
-    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
-    if (l10n != null) return l10n;
-    // 错误回退：DIErrorApp 未配置 delegates，使用当前 locale 兜底
-    Locale locale = const Locale('zh');
-    try {
-      locale = GetIt.instance<LocaleService>().currentLocale;
-    } catch (_) {}
-    return locale.languageCode == 'en'
-        ? lookupAppLocalizations(const Locale('en'))
-        : lookupAppLocalizations(const Locale('zh'));
+  /// DI 崩了 ⇒ 不能依赖 `LocaleService`，只能从平台语言里挑一个受支持档。
+  static Locale _fallbackLocale() {
+    final locales = WidgetsBinding.instance.platformDispatcher.locales;
+    final code = locales.isEmpty ? 'zh' : locales.first.languageCode;
+    return code == 'en' ? const Locale('en') : const Locale('zh');
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = _l10n(context);
-    return MaterialApp(
-      title: l10n.appName,
-      theme: AppTheme.lightTheme(),
-      darkTheme: AppTheme.darkTheme(),
-      home: Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 64, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(
-                l10n.initFailed,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(l10n.initFailedMsg),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => runApp(const MyApp()),
-                child: Text(l10n.retry),
-              ),
-            ],
-          ),
+    return AppRoot(
+      locale: _fallbackLocale(),
+      dark:
+          WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+          Brightness.dark,
+      title: lookupAppLocalizations(_fallbackLocale()).appName,
+      home: const _DIErrorPage(),
+    );
+  }
+}
+
+class _DIErrorPage extends StatelessWidget {
+  const _DIErrorPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              l10n.initFailed,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(l10n.initFailedMsg),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => runApp(const MyApp()),
+              child: Text(l10n.retry),
+            ),
+          ],
         ),
       ),
     );
@@ -120,7 +122,7 @@ class MyApp extends StatefulWidget {
   }
 }
 
-class MyAppState extends State<MyApp> {
+class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   bool _themeInitialized = false;
   bool _servicesInitialized = false;
@@ -128,13 +130,42 @@ class MyAppState extends State<MyApp> {
   bool _privacyDialogShown = false;
   Locale _locale = const Locale('zh');
 
+  /// 「跟随系统」那一档要用的平台亮度。以前由 `MaterialApp.themeMode` 代劳，
+  /// 根组件换成 `CupertinoApp` 之后没人代劳 —— 裁决点挪到这里（见 [_brightnessFor]）。
+  Brightness _platformBrightness =
+      WidgetsBinding.instance.platformDispatcher.platformBrightness;
+
   static const _privacyAcceptedKey = 'privacy_policy_accepted';
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initTheme();
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    super.didChangePlatformBrightness();
+    if (!mounted) return;
+    setState(
+      () => _platformBrightness =
+          WidgetsBinding.instance.platformDispatcher.platformBrightness,
+    );
+  }
+
+  /// 用户档（浅/深/跟随系统）× 平台亮度 ⇒ 实际明暗。全站只有这一处裁决。
+  Brightness _brightnessFor(ThemeMode mode) => switch (mode) {
+    ThemeMode.light => Brightness.light,
+    ThemeMode.dark => Brightness.dark,
+    ThemeMode.system => _platformBrightness,
+  };
 
   Future<void> _initTheme() async {
     await GetIt.instance<ThemeService>().init();
@@ -373,15 +404,10 @@ class MyAppState extends State<MyApp> {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeService.themeModeNotifier,
       builder: (context, themeMode, child) {
-        return MaterialApp(
+        return AppRoot(
           navigatorKey: _navigatorKey,
-          title: 'NoticeTransmit',
           locale: _locale,
-          supportedLocales: const [Locale('zh'), Locale('en')],
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          theme: AppTheme.lightTheme(),
-          darkTheme: AppTheme.darkTheme(),
-          themeMode: themeMode,
+          dark: _brightnessFor(themeMode) == Brightness.dark,
           home: _initialized
               ? MainPage(onLocaleChanged: _onLocaleChanged)
               : SplashPage(onInitCompleted: _onServicesInitialized),
