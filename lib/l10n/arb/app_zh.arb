@@ -1945,5 +1945,15 @@
       }
     }
   },
-  "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没排上）"
+  "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没排上）",
+  "fnthinkReply": "回复",
+  "fnthinkResend": "重发",
+  "fnthinkReplyTitle": "回复：{title}",
+  "@fnthinkReplyTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 }

@@ -145,5 +145,57 @@ void main() {
         reason: '能力词表里的 type 与事件词表撞上了：反查会先把消息认成某种事件',
       );
     });
+
+    test('发送结论那句话只有一个作者（两个入口共用一份，不许各说各的）', () {
+      // T48 收尾：发送这一发现在有两个入口（幻念推送页名单行、历史页收件详情）。
+      // 11 档状态各有各的原话，抄第二份的下场是"同一个状态在两个页面说两句话" ——
+      // 而用户看哪一句，取决于他当时在哪一页。
+      final senders = dartFiles('lib')
+          .where((p) => readCode(p).contains('FnthinkSendStatus.accepted =>'))
+          .toList();
+      expect(
+        senders,
+        ['lib/widgets/fnthink_send_dialog.dart'],
+        reason:
+            '把"状态 → 原话"的 switch 抄进第二个文件 ⇒ 那一档以后只在一边改。'
+            '结论文案的唯一作者是 `fnthinkSendResultText`（两页都调它）',
+      );
+      for (final page in const [
+        'lib/pages/fnthink_push_page.dart',
+        'lib/pages/history_page.dart',
+      ]) {
+        expect(
+          readCode(page),
+          contains('fnthinkSendResultText('),
+          reason: '$page 必须经那一份文案，而不是自己拼句子',
+        );
+      }
+    });
+
+    test('历史页那一发也走同一套发送层（不许自己拼 HTTP、也不许自己读名单表）', () {
+      final history = readCode('lib/pages/history_page.dart');
+      expect(
+        history,
+        contains('GetIt.instance<FnthinkReceiveCoordinator>().sendNotice('),
+        reason: '收件详情里的回复/重发必须调协调者那一发 —— 签约、请求体、状态码全在它后面',
+      );
+      expect(
+        history,
+        contains('GetIt.instance<FnthinkPeerService>().list()'),
+        reason: '找"发送方还在不在名单里"要走名单读咽喉（唯一读口）',
+      );
+      for (final forbidden in const [
+        'fnthink_peers', // 直连名单表
+        'loadFnthinkPeers', // 绕过读咽喉
+        'apiPath(', // 自己拼路径
+        'http.Client(', // 自己拼 HTTP
+      ]) {
+        expect(
+          history,
+          isNot(contains(forbidden)),
+          reason: '历史页里出现 $forbidden ⇒ 这一页长出了第二套发送/名单实现',
+        );
+      }
+    });
   });
 }

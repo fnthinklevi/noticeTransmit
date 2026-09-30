@@ -3493,4 +3493,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPresenceAsleep => '当前没在醒着（开关关着，或还没排上）';
+
+  @override
+  String get fnthinkReply => '回复';
+
+  @override
+  String get fnthinkResend => '重发';
+
+  @override
+  String fnthinkReplyTitle(String title) {
+    return '回复：$title';
+  }
 }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
+import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 
@@ -32,18 +34,21 @@ void main() {
   tearDown(() async => GetIt.instance.reset());
   tearDownAll(clearNativeChannelStubs);
 
-  FnthinkInboxMessage row(String id, {bool read = false}) =>
-      FnthinkInboxMessage(
-        messageId: id,
-        sender: 'endpoint:ep_7',
-        type: 'notice',
-        item: '',
-        title: '机箱温度',
-        body: '温度 63 度（$id）',
-        receivedAt: 1780000000000,
-        read: read,
-        ackResult: 'displayed',
-      );
+  FnthinkInboxMessage row(
+    String id, {
+    bool read = false,
+    String sender = 'endpoint:ep_7',
+  }) => FnthinkInboxMessage(
+    messageId: id,
+    sender: sender,
+    type: 'notice',
+    item: '',
+    title: '机箱温度',
+    body: '温度 63 度（$id）',
+    receivedAt: 1780000000000,
+    read: read,
+    ackResult: 'displayed',
+  );
 
   /// 一张替身"表"：loader 每次被调用都返回当下的状态，标已读就地改它 ——
   /// 这样"页面重新读表"在测试里是一次真的读表，而不是对写死期望的附和。
@@ -51,9 +56,16 @@ void main() {
   late List<String> marked;
   late int loads;
 
+  /// 「回复 / 重发」要用到的两个替身（T48 收尾）：名单里有没有那一台、以及发出去那一下。
+  /// 记账放进 [sent] 是因为这一格的语义全在"发的是谁、标题与正文各是什么"上。
+  late List<({String address, String title, String text})> sent;
+  late FnthinkSendResult Function() sendResult;
+  late List<String> findPeerCalls;
+
   Future<void> pump(
     WidgetTester tester, {
     String initialDirection = 'forwarded',
+    FnthinkPeer? rosterPeer,
   }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -78,8 +90,19 @@ void main() {
             marked.add(id);
             final at = table.indexWhere((m) => m.messageId == id);
             if (at < 0) return false; // 那行已经不在了（被保留策略裁掉）
-            table[at] = row(id, read: true);
+            table[at] = row(id, read: true, sender: table[at].sender);
             return true;
+          },
+          // 名单替身：**只有传了 rosterPeer 才算在册**（生产那边是 `FnthinkPeerService.list`）。
+          inboxFindPeer: (address) async {
+            findPeerCalls.add(address);
+            return rosterPeer != null && rosterPeer.peerAddress == address
+                ? rosterPeer
+                : null;
+          },
+          inboxSendTo: ({required peer, required title, required text}) async {
+            sent.add((address: peer.peerAddress, title: title, text: text));
+            return sendResult();
           },
         ),
       ),
@@ -99,6 +122,12 @@ void main() {
     table = [row('m_unread'), row('m_read', read: true)];
     marked = <String>[];
     loads = 0;
+    sent = [];
+    findPeerCalls = [];
+    sendResult = () => const FnthinkSendResult(
+      status: FnthinkSendStatus.accepted,
+      messageId: 'm_reply_1',
+    );
   });
 
   testWidgets('默认停在「转发」档：表里有收件也不混进这张列表', (tester) async {
@@ -181,5 +210,123 @@ void main() {
   testWidgets('默认档不预读收件表：进历史页不该顺手查另一张表', (tester) async {
     await pump(tester);
     expect(loads, 0);
+  });
+
+  group('收件详情里的「回复 / 重发」（T48 收尾）', () {
+    const peerAddress = 'PEER00000000000001';
+    const peer = FnthinkPeer(
+      peerAddress: peerAddress,
+      publicKey: 'AAAApeerPublicKeyBytes',
+      level: 'L1',
+      grantedAt: 1767223200000,
+    );
+
+    Future<void> openDetail(WidgetTester tester, String id) async {
+      await toInbox(tester);
+      await tester.tap(find.byKey(ValueKey('fnthink-inbox-row-$id')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('发送方在名单里 ⇒ 回复/重发两个入口在；不在名单里 ⇒ 一个都不给', (tester) async {
+      // 在册：那一格才有入口
+      table = [row('m_from_peer', sender: peerAddress)];
+      await pump(tester, rosterPeer: peer);
+      await openDetail(tester, 'm_from_peer');
+      expect(find.byKey(const ValueKey('fnthink-inbox-reply')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('fnthink-inbox-resend')),
+        findsOneWidget,
+      );
+
+      // 不在册：连查都不用查第二次 —— 给一个必然 403 的按钮比不给更坏
+      await tester.tapAt(const Offset(20, 20)); // 收弹层
+      await tester.pumpAndSettle();
+      table = [row('m_from_peer', sender: peerAddress)];
+      await pump(tester); // 这次不传 rosterPeer ⇒ 替身答"不在册"
+      await openDetail(tester, 'm_from_peer');
+      expect(find.byKey(const ValueKey('fnthink-inbox-reply')), findsNothing);
+      expect(find.byKey(const ValueKey('fnthink-inbox-resend')), findsNothing);
+    });
+
+    testWidgets('回复：标题预填「回复：<原标题>」而正文留空 ⇒ 「发送」是灰的', (tester) async {
+      table = [row('m_from_peer', sender: peerAddress)];
+      await pump(tester, rosterPeer: peer);
+      await openDetail(tester, 'm_from_peer');
+
+      await tester.tap(find.byKey(const ValueKey('fnthink-inbox-reply')));
+      await tester.pumpAndSettle();
+      final title = tester.widget<TextField>(
+        find.byKey(const ValueKey('fnthink-send-title')),
+      );
+      expect(title.controller!.text, l10n(tester).fnthinkReplyTitle('机箱温度'));
+      final submit = tester.widget<TextButton>(
+        find.byKey(const ValueKey('fnthink-send-submit')),
+      );
+      expect(
+        submit.onPressed,
+        isNull,
+        reason: '回复的正文是留空的：空正文发出去那边只收到一句空话，而回执照样算"送达"',
+      );
+    });
+
+    testWidgets('取消 ⇒ 一个字节都不发（草稿不回传）', (tester) async {
+      table = [row('m_from_peer', sender: peerAddress)];
+      await pump(tester, rosterPeer: peer);
+      await openDetail(tester, 'm_from_peer');
+
+      await tester.tap(find.byKey(const ValueKey('fnthink-inbox-reply')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-send-body')),
+        findsNothing,
+        reason: '点了取消弹层还开着 ⇒ 用户以为取消了',
+      );
+      expect(sent, isEmpty, reason: '取消之后还是发出去了 ⇒ 「取消」说的与做的不一致');
+    });
+
+    testWidgets('重发：原文预填进弹层，点发送 ⇒ 发的是这条的标题与正文', (tester) async {
+      table = [row('m_from_peer', sender: peerAddress)];
+      await pump(tester, rosterPeer: peer);
+      await openDetail(tester, 'm_from_peer');
+
+      await tester.tap(find.byKey(const ValueKey('fnthink-inbox-resend')));
+      await tester.pumpAndSettle();
+      final title = tester.widget<TextField>(
+        find.byKey(const ValueKey('fnthink-send-title')),
+      );
+      final body = tester.widget<TextField>(
+        find.byKey(const ValueKey('fnthink-send-body')),
+      );
+      expect(title.controller!.text, '机箱温度');
+      expect(body.controller!.text, '温度 63 度（m_from_peer）');
+
+      await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
+      await tester.pumpAndSettle();
+
+      expect(sent, hasLength(1));
+      expect(sent.single.address, peerAddress, reason: '发的是这条的发送方，不是别人');
+      expect(sent.single.title, '机箱温度');
+      expect(sent.single.text, '温度 63 度（m_from_peer）');
+      expect(
+        find.byKey(const ValueKey('fnthink-inbox-send-note')),
+        findsOneWidget,
+        reason: '结论行必须留在弹层里：用户正看着这一条，才知道自己刚回了什么',
+      );
+    });
+
+    testWidgets('发送方为空（收件行没有来源）⇒ 根本不查名单，也不给入口', (tester) async {
+      table = [row('m_no_sender', sender: '')];
+      await pump(tester, rosterPeer: peer);
+      await openDetail(tester, 'm_no_sender');
+      expect(find.byKey(const ValueKey('fnthink-inbox-reply')), findsNothing);
+      expect(
+        findPeerCalls,
+        isEmpty,
+        reason: '没有来源就没有可问的地址：拿空串去查名单是白跑一趟，也说明判据写歪了',
+      );
+    });
   });
 }

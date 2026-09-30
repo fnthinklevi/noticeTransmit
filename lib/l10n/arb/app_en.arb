@@ -1924,5 +1924,15 @@
       }
     }
   },
-  "fnthinkPresenceAsleep": "Not waking on its own right now (switch off, or not armed yet)"
+  "fnthinkPresenceAsleep": "Not waking on its own right now (switch off, or not armed yet)",
+  "fnthinkReply": "Reply",
+  "fnthinkResend": "Resend",
+  "fnthinkReplyTitle": "Reply: {title}",
+  "@fnthinkReplyTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 }

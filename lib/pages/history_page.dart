@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
@@ -8,13 +9,17 @@ import '../services/archive_worker.dart' show kArchiveDirModeKey;
 import '../services/channel_display.dart';
 import '../services/filter_service.dart';
 import '../services/fnthink_inbox_service.dart';
+import '../services/fnthink_peer_service.dart';
+import '../services/fnthink_receive_coordinator.dart';
 import '../services/notification_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../database/database_helper.dart';
 import '../models/notification_record.dart';
 import '../models/fnthink_inbox_message.dart';
+import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
+import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -35,6 +40,19 @@ class HistoryPage extends StatefulWidget {
   /// 标已读的那一斧子。同上：默认走收件服务，测试注入替身。
   final Future<bool> Function(String messageId)? inboxMarkRead;
 
+  /// 「回复 / 重发」要找的那台：这条收件的发送方**还在不在本机名单里**。默认走名单读咽喉
+  /// （`FnthinkPeerService.list`，只此一个读口），测试注入替身 —— 与 `inboxLoader` 同一条理由。
+  final Future<FnthinkPeer?> Function(String peerAddress)? inboxFindPeer;
+
+  /// 「回复 / 重发」真正发出去的那一发。默认走协调者（与幻念推送页名单行上那一下**同一个函数**），
+  /// 于是状态码、结论文案、签不出来那几道闸两处完全同源。测试注入替身，不让这一页的用例碰网络。
+  final Future<FnthinkSendResult> Function({
+    required FnthinkPeer peer,
+    required String title,
+    required String text,
+  })?
+  inboxSendTo;
+
   /// 打开时停在哪一档。首页那张「幻念收件」卡靠它把人**直接放到收件档**：
   /// 这一档是数据源切换而不是筛选条件，进来还要再手动切一次的话，"原来还有第二个抽屉"这件事
   /// 就藏在一次不显眼的点击里了。其余入口（推送历史卡）留默认值 'forwarded'。
@@ -50,6 +68,8 @@ class HistoryPage extends StatefulWidget {
     this.onPushNow,
     this.inboxLoader,
     this.inboxMarkRead,
+    this.inboxFindPeer,
+    this.inboxSendTo,
     this.initialDirection = 'forwarded',
   });
 
@@ -1293,6 +1313,26 @@ class _HistoryPageState extends State<HistoryPage> {
   FnthinkInboxService get _inboxService =>
       GetIt.instance<FnthinkInboxService>();
 
+  /// 名单与发送都是**注入优先、生产默认取 DI 那一份**：页面自己不许拼 HTTP、也不许直连
+  /// `fnthink_peers`（名单只有一个读口，两本账的表现是"名单里删了那一行，这里还能回复"）。
+  Future<FnthinkPeer?> _findPeerInRoster(String address) async {
+    final rows = await GetIt.instance<FnthinkPeerService>().list();
+    for (final peer in rows) {
+      if (peer.peerAddress == address) return peer;
+    }
+    return null;
+  }
+
+  Future<FnthinkSendResult> _sendViaCoordinator({
+    required FnthinkPeer peer,
+    required String title,
+    required String text,
+  }) => GetIt.instance<FnthinkReceiveCoordinator>().sendNotice(
+    peer: peer.peerAddress,
+    title: title,
+    text: text,
+  );
+
   void _showToast(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1632,61 +1672,128 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _showInboxDetail(FnthinkInboxMessage message) async {
     final l10n = AppLocalizations.of(context);
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.cardBg(context),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      isScrollControlled: true,
-      builder: (sheetContext) => Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+    // 「回复 / 重发」只在**这条的发送方还在本机名单里**时给入口：名单是本机唯一一本"同意过谁"的
+    // 账（服务端投递时也按 grantsBy 判），不在册的那台给入口就是一个必然 403 的按钮。
+    // ⚠ 这条判断放在**弹层起来之前**：入口不出现与"点了才知道不行"是两种体验，前者是实话。
+    final peer = message.sender.isEmpty
+        ? null
+        : await (widget.inboxFindPeer ?? _findPeerInRoster)(message.sender);
+    if (!mounted) return;
+    // 这一发的结果只活在这张弹层里：与幻念推送页那条结论行同一纪律（11 档状态各有各的原话），
+    // 而且它不该一弹就走 —— 用户正看着这一条，才知道自己刚回了什么。
+    // 用 ValueNotifier 而不是 StatefulBuilder：发送是在弹层之外 await 的，回来时弹层可能已经被
+    // 划掉，`setState` 打在已 dispose 的 State 上会炸；监听者会随弹层一起消失，这条路径天然安全。
+    var sheetClosed = false;
+    final sent = ValueNotifier<FnthinkSendResult?>(null);
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: AppColors.cardBg(context),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message.title.isEmpty ? message.body : message.title,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryLabel(sheetContext),
+        isScrollControlled: true,
+        builder: (sheetContext) => Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.title.isEmpty ? message.body : message.title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLabel(sheetContext),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      message.body,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.5,
-                        color: AppColors.primaryLabel(sheetContext),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: SelectableText(
+                        message.body,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.5,
+                          color: AppColors.primaryLabel(sheetContext),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
-                  '${_formatTime(message.receivedAt)}'
-                  '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(sheetContext),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
+                    '${_formatTime(message.receivedAt)}'
+                    '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondaryLabel(sheetContext),
+                    ),
                   ),
-                ),
-              ],
+                  if (peer != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        TextButton(
+                          key: const ValueKey('fnthink-inbox-reply'),
+                          onPressed: () => _composeFromInbox(
+                            peer: peer,
+                            // 回复：标题预填「回复：<原标题>」，正文留空让用户自己写；
+                            // 原标题为空（正文即标题那条路）时就用「回复」两字，不拼一个空引用。
+                            title: message.title.isEmpty
+                                ? l10n.fnthinkReply
+                                : l10n.fnthinkReplyTitle(message.title),
+                            text: '',
+                            onResult: (r) {
+                              if (!sheetClosed) sent.value = r;
+                            },
+                          ),
+                          child: Text(l10n.fnthinkReply),
+                        ),
+                        TextButton(
+                          key: const ValueKey('fnthink-inbox-resend'),
+                          onPressed: () => _composeFromInbox(
+                            peer: peer,
+                            // 重发：把这一条的标题与正文原样带进弹层，用户点发送就是"再发一次"。
+                            title: message.title,
+                            text: message.body,
+                            onResult: (r) {
+                              if (!sheetClosed) sent.value = r;
+                            },
+                          ),
+                          child: Text(l10n.fnthinkResend),
+                        ),
+                      ],
+                    ),
+                    ValueListenableBuilder<FnthinkSendResult?>(
+                      valueListenable: sent,
+                      builder: (context, result, _) => result == null
+                          ? const SizedBox.shrink()
+                          : Text(
+                              fnthinkSendResultText(l10n, result),
+                              key: const ValueKey('fnthink-inbox-send-note'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.secondaryLabel(sheetContext),
+                              ),
+                            ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
+      ).whenComplete(() {
+        sheetClosed = true;
+        sent.dispose();
+      }),
     );
     // 点开即已读。写完之后**重新读表**，不在这个页面自己维护第二份"看没看过"：
     // 没命中（那条已被保留策略裁掉）与命中变已读，两种结果都由这一次读表如实反映出来。
@@ -1698,6 +1805,30 @@ class _HistoryPageState extends State<HistoryPage> {
     }
     if (!mounted) return;
     await _loadInbox();
+  }
+
+  /// 「回复 / 重发」共用的一发：同一个弹层（预填不同 ⇒ 两种语义在界面上看得见）、同一个发送函数
+  /// （状态与文案与幻念推送页那一发完全同源）。取消 ⇒ 一个字节都不发（弹层回 null 就早退）。
+  Future<void> _composeFromInbox({
+    required FnthinkPeer peer,
+    required String title,
+    required String text,
+    required void Function(FnthinkSendResult) onResult,
+  }) async {
+    final draft = await showFnthinkSendDialog(
+      context: context,
+      peerAddress: peer.peerAddress,
+      initialTitle: title,
+      initialBody: text,
+    );
+    if (draft == null || !mounted) return;
+    final result = await (widget.inboxSendTo ?? _sendViaCoordinator)(
+      peer: peer,
+      title: draft.title,
+      text: draft.text,
+    );
+    if (!mounted) return;
+    onResult(result);
   }
 
   Future<void> _showRecordDetail(NotificationRecord record) async {

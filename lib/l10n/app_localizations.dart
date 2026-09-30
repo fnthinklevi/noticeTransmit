@@ -6433,6 +6433,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'当前没在醒着（开关关着，或还没排上）'**
   String get fnthinkPresenceAsleep;
+
+  /// No description provided for @fnthinkReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复'**
+  String get fnthinkReply;
+
+  /// No description provided for @fnthinkResend.
+  ///
+  /// In zh, this message translates to:
+  /// **'重发'**
+  String get fnthinkResend;
+
+  /// No description provided for @fnthinkReplyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'回复：{title}'**
+  String fnthinkReplyTitle(String title);
 }
 
 class _AppLocalizationsDelegate

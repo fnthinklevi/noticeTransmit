@@ -3645,4 +3645,15 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkPresenceAsleep =>
       'Not waking on its own right now (switch off, or not armed yet)';
+
+  @override
+  String get fnthinkReply => 'Reply';
+
+  @override
+  String get fnthinkResend => 'Resend';
+
+  @override
+  String fnthinkReplyTitle(String title) {
+    return 'Reply: $title';
+  }
 }
