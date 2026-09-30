@@ -240,4 +240,81 @@ void main() {
       }
     });
   });
+
+  /// 「取走了没等到 ack」的恢复（#178 真机现形的那条路）的 **Dart 侧**断言。
+  /// Node 那一半在 server/test/fnthink-delivery.test.js，两边读契约同一个
+  /// `delivery.ackDeadlineSeconds`。
+  ///
+  /// 为什么这一组不进共享向量：共享向量只覆盖「状态×事件 → 迁移」这一张表，而这一档是
+  /// **时间判据**（超过多少秒算没等到 ack），形状与那张表不同 —— 混进去会让覆盖率校验失真。
+  /// 两边各断言一遍同样的边界（到点即算超时 / 差一点不算），是同一道纪律的两种写法。
+  group('ack 超时判据（Dart 侧，#178）', () {
+    final deadline = deliveryAckDeadlineSeconds(contract);
+    final since = 1000 * 1000;
+    bool overdue(String state, int nowMs) => isDeliveryAckOverdue(
+      contract,
+      state: state,
+      updatedAtMs: since,
+      nowMs: nowMs,
+    );
+
+    test('档位取自契约，且远大于一轮 poll（太紧会把正常往返误判成丢 ack）', () {
+      expect(
+        deadline,
+        contract.intOf(const ['delivery', 'ackDeadlineSeconds']),
+      );
+      expect(deadline, greaterThan(0));
+      final cadenceMax =
+          contract.intOf(const ['presence', 'pollIntervalSeconds', 'max']) ?? 0;
+      expect(deadline, greaterThanOrEqualTo(cadenceMax * 3));
+    });
+
+    test('到点即算超时，差一点不算（边界是"到点即过"）', () {
+      expect(overdue('delivering', since + deadline * 1000 - 1), isFalse);
+      expect(overdue('delivering', since + deadline * 1000), isTrue);
+    });
+
+    test('只有 delivering 才算超时：没发出去的与终态都不该被判成 no_ack', () {
+      final far = since + deadline * 1000 * 10;
+      for (final state in [
+        'queued',
+        'waiting_online',
+        'delivered',
+        'expired',
+        'dropped',
+      ]) {
+        expect(overdue(state, far), isFalse, reason: state);
+      }
+    });
+
+    test('没有进入 delivering 的时刻就不猜（缺 updatedAt 一律不算超时）', () {
+      expect(
+        isDeliveryAckOverdue(
+          contract,
+          state: 'delivering',
+          updatedAtMs: null,
+          nowMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+        isFalse,
+      );
+    });
+
+    test('缺了 ackDeadlineSeconds 就抛（不补默认：不扫就等于永不失联）', () {
+      final broken = FnthinkContract({
+        ...contract.raw,
+        'delivery': Map<String, Object?>.from(
+          (contract.raw['delivery']! as Map).cast<String, Object?>(),
+        )..remove('ackDeadlineSeconds'),
+      });
+      expect(() => deliveryAckDeadlineSeconds(broken), throwsStateError);
+      final zero = FnthinkContract({
+        ...contract.raw,
+        'delivery': {
+          ...(contract.raw['delivery']! as Map),
+          'ackDeadlineSeconds': 0,
+        },
+      });
+      expect(() => deliveryAckDeadlineSeconds(zero), throwsStateError);
+    });
+  });
 }

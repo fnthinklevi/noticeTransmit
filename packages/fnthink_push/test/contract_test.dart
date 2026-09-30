@@ -645,6 +645,28 @@ void main() {
       expectProblem(broken, '必须含初态', 'poll 取不到新消息');
     });
 
+    test('ackDeadlineSeconds 不是一个正数 ⇒ 报（no_ack 就永远没有触发时机）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['ackDeadlineSeconds'] = 0;
+      });
+      expectProblem(
+        broken,
+        'ackDeadlineSeconds 必须是正整数',
+        '没有这一档，被取走却没 ack 的消息静默卡在 delivering',
+      );
+    });
+
+    test('ackDeadlineSeconds 收得比三轮 poll 还紧 ⇒ 报（把正常往返误判成丢 ack）', () {
+      final broken = mutate((raw) {
+        (raw['delivery'] as Map<String, Object?>)['ackDeadlineSeconds'] = 30;
+      });
+      expectProblem(
+        broken,
+        '3× cadence max',
+        '太紧会把一次正常往返判成没收到 ack，设备只是离了一小会儿网就重收',
+      );
+    });
+
     test('dedupeRefreshWhile 写成一个不存在的状态 ⇒ 报（"什么时候可以覆盖"也是状态机的事）', () {
       final broken = mutate((raw) {
         (raw['privacy'] as Map<String, Object?>)['dedupeRefreshWhile'] =

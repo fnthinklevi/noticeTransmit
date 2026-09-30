@@ -91,6 +91,31 @@ bool isDeliveryExpired(
   return nowMs - queuedAtMs >= days * 24 * 60 * 60 * 1000;
 }
 
+/// 「取走了没等到 ack」的超时档，单位秒。取不到就抛，不补默认（与 JS 那半同一道）——
+/// 没这一档时 `no_ack` 那个分支永远没人触发，被取走的消息会静默卡在 `delivering`。
+int deliveryAckDeadlineSeconds(FnthinkContract contract) {
+  final seconds = contract.intOf(const ['delivery', 'ackDeadlineSeconds']);
+  if (seconds == null || seconds <= 0) {
+    throw StateError(
+      '契约缺 delivery.ackDeadlineSeconds（正整数）：没有它就没有 no_ack 的触发时机',
+    );
+  }
+  return seconds;
+}
+
+/// 一条消息是否已过 ack 超时（该被判成 `no_ack`）。只看两件事：现在在不在 `delivering`，
+/// 以及从进入 `delivering` 那一刻（`updatedAt`）到现在过了多久 —— 终态与还没发出去的不算。
+bool isDeliveryAckOverdue(
+  FnthinkContract contract, {
+  required String state,
+  required int? updatedAtMs,
+  required int nowMs,
+}) {
+  if (state != 'delivering') return false;
+  if (updatedAtMs == null) return false;
+  return nowMs - updatedAtMs >= deliveryAckDeadlineSeconds(contract) * 1000;
+}
+
 /// 状态机走一步。
 ///
 /// 事件表（契约 `delivery.events`）：

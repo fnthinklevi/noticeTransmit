@@ -1405,6 +1405,21 @@ class FnthinkContract {
       pollable.every((s) => !dTerminals.contains(s)),
       'delivery.pollableStates 里有终态（终态已经没有正文可发）：$pollable vs $dTerminals',
     );
+    // 「取走了没等到 ack」的超时档必须存在且远大于一轮 poll：小于两三轮就会把一次正常往返
+    // 误判成丢 ack（设备离线/提频时），而没有它 poll 的扫描无事可做、no_ack 永远不触发。
+    final ackDeadline = intOf(const ['delivery', 'ackDeadlineSeconds']);
+    final cadenceMax = intOf(const ['presence', 'pollIntervalSeconds', 'max']);
+    need(
+      ackDeadline != null && ackDeadline > 0,
+      'delivery.ackDeadlineSeconds 必须是正整数（没有它 no_ack 没有触发时机）：$ackDeadline',
+    );
+    if (ackDeadline != null && ackDeadline > 0 && cadenceMax != null) {
+      need(
+        ackDeadline >= cadenceMax * 3,
+        'delivery.ackDeadlineSeconds（$ackDeadline）必须 ≥ 3× cadence max（$cadenceMax）：'
+        '太紧会把一次正常往返误判成丢 ack，太松则卡住窗口变长',
+      );
+    }
     need(
       str(const ['privacy', 'dedupeRefreshWhile']) != null &&
           dStates.contains(str(const ['privacy', 'dedupeRefreshWhile'])),

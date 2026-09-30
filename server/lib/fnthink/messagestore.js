@@ -400,6 +400,34 @@ function dispatchForDevice(contract, messages, device, now) {
   return { taken, skipped };
 }
 
+/// poll 顺带扫一遍「取走了没等到 ack」的那些条：过了契约那一档就按 `no_ack` 推进
+/// （回到 queued 还有预算就重发；预算用完转 waiting_online）。
+///
+/// 必须在 `dispatchForDevice` **之前**调：这条一推回 queued，同一轮的 dispatch 就能把它
+/// 再发出去 —— 晚一步就等于再多等一个 cadence，而"取走了却没人再发"正是这一档要消灭的形状。
+/// 判据（哪一档算超时、是不是在 delivering）全在 delivery.js，两半共读契约那一把尺。
+function requeueUnackedStale(contract, messages, device, now) {
+  const requeued = [];
+  for (const message of Object.values(messages)) {
+    if (message.device !== device) continue;
+    if (!delivery.isAckOverdue(contract, message, now)) continue;
+    // 推进仍走 advanceMessage 这一个咽喉：这一档唯一能做的事就是 no_ack，
+    // 直接调 advance 就等于在这层再造第二个入口。
+    const { step, message: moved } = advanceMessage(
+      contract,
+      messages,
+      message.messageId,
+      'no_ack',
+      {
+        now,
+      },
+    );
+    if (step.ignored) continue;
+    requeued.push({ messageId: moved.messageId, state: step.state, receipt: step.receipt });
+  }
+  return requeued;
+}
+
 /// 到期扫描：非终态且超过 maxRetentionDays 的全部走一遍 `ttl_elapsed`。
 /// 由路由侧在 poll 时顺手跑（服务端不主动探测设备），所以它必须是幂等的。
 function expireDueMessages(contract, messages, now) {
@@ -431,5 +459,6 @@ module.exports = {
   pendingCountFor,
   publicMessage,
   receiptsForSender,
+  requeueUnackedStale,
   saveMessages,
 };

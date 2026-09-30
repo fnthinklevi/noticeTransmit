@@ -141,3 +141,53 @@ describe('正文释放与保留上限（T34-A）', () => {
     }
   });
 });
+
+/// 「取走了没等到 ack」的恢复（#178 真机现形的那条路）。Dart 那一半在
+/// packages/fnthink_push/test/delivery_test.dart，两边读契约同一个 ackDeadlineSeconds。
+///
+/// 为什么这一组不进共享向量：共享向量只覆盖「状态×事件 → 迁移」这一张表，而这一档是
+/// **时间判据**（超过多少秒算没等到 ack），形状与那张表不同 —— 混进去会让覆盖率校验失真。
+/// 两边各断言一遍同样的边界（到点即算超时 / 差一点不算），是同一道纪律的两种写法。
+describe('ack 超时判据（Node 侧，#178）', () => {
+  const deadline = delivery.ackDeadlineSeconds(contract);
+
+  test('档位取自契约，且远大于一轮 poll（太紧会把正常往返误判成丢 ack）', () => {
+    expect(deadline).toBe(contract.delivery.ackDeadlineSeconds);
+    expect(deadline).toBeGreaterThan(0);
+    expect(deadline).toBeGreaterThanOrEqual(contract.presence.pollIntervalSeconds.max * 3);
+  });
+
+  test('到点即算超时，差一点不算（边界是"到点即过"）', () => {
+    const since = 1000 * 1000;
+    const inflight = (state) => ({ state, updatedAt: since });
+    expect(
+      delivery.isAckOverdue(contract, inflight('delivering'), since + deadline * 1000 - 1),
+    ).toBe(false);
+    expect(delivery.isAckOverdue(contract, inflight('delivering'), since + deadline * 1000)).toBe(
+      true,
+    );
+  });
+
+  test('只有 delivering 才算超时：没发出去的（queued）与终态都不该被判成 no_ack', () => {
+    const since = 1000 * 1000;
+    const far = since + deadline * 1000 * 10;
+    for (const state of ['queued', 'waiting_online', 'delivered', 'expired', 'dropped']) {
+      expect(delivery.isAckOverdue(contract, { state, updatedAt: since }, far)).toBe(false);
+    }
+  });
+
+  test('没有进入 delivering 的时刻就不猜（缺 updatedAt 一律不算超时）', () => {
+    expect(delivery.isAckOverdue(contract, { state: 'delivering' }, Date.now())).toBe(false);
+    expect(
+      delivery.isAckOverdue(contract, { state: 'delivering', updatedAt: null }, Date.now()),
+    ).toBe(false);
+  });
+
+  test('缺了 ackDeadlineSeconds 就抛（不补默认：不扫就等于永不失联）', () => {
+    const broken = { ...contract, delivery: { ...contract.delivery } };
+    delete broken.delivery.ackDeadlineSeconds;
+    expect(() => delivery.ackDeadlineSeconds(broken)).toThrow(/ackDeadlineSeconds/);
+    const zero = { ...contract, delivery: { ...contract.delivery, ackDeadlineSeconds: 0 } };
+    expect(() => delivery.ackDeadlineSeconds(zero)).toThrow(/ackDeadlineSeconds/);
+  });
+});

@@ -89,6 +89,7 @@ const {
   loadMessages,
   pendingCountFor,
   receiptsForSender,
+  requeueUnackedStale,
   saveMessages,
 } = require('./messagestore');
 const { createEndpointIngress, readIngress } = require('./endpointintake');
@@ -289,6 +290,10 @@ router.post(
     const messages = loadMessages();
     // 到期扫描放在取货之前：过期的那条不该再被当成"待投"下发（正文也按契约已释放）。
     expireDueMessages(contract, messages, now);
+    // 「取走了没等到 ack」的恢复也必须排在取货**之前**：扫一次把过期的 delivering 推回 queued，
+    // 同一轮 dispatch 就能把它再发出去 —— 晚一步就等于多等一个 cadence，而这一档要消灭的
+    // 正是"取走了却再也没人发"（见 messagestore.requeueUnackedStale 与 delivery.ackDeadlineSeconds）。
+    requeueUnackedStale(contract, messages, auth.sender, now);
     const dispatched = dispatchForDevice(contract, messages, auth.sender, now);
 
     const out = [];

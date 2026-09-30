@@ -65,6 +65,36 @@ function isExpired(contract, queuedAtMs, nowMs) {
   return nowMs >= retentionDeadline(contract, queuedAtMs);
 }
 
+/// 「取走了没等到 ack」的超时档，单位秒。**取不到就抛**而不是回落缺省：
+/// 没这一档 = poll 的扫描什么都不做 = no_ack 那个分支永远没人调 =
+/// 被取走却没 ack 的消息静默卡在 delivering（delivery.js 顶部那串注释就是它）。
+/// Dart 的 delivery.dart 有同一份读法与同一道抛（两个 state-machine 半边不许各补一个默认）。
+function ackDeadlineSeconds(contract) {
+  const seconds = Number(((contract || {}).delivery || {}).ackDeadlineSeconds);
+  if (!Number.isInteger(seconds) || seconds <= 0) {
+    throw new Error(
+      `delivery.ackDeadlineSeconds 必须是正整数（实际 ${((contract || {}).delivery || {}).ackDeadlineSeconds}）：` +
+        '没有它，「发了没等到 ack」的恢复那条路（no_ack）就没有触发条件，' +
+        '取走的消息会永久停在 delivering',
+    );
+  }
+  return seconds;
+}
+
+/// 一条消息是否**已过 ack 超时**（该被 poll 的扫描判成 no_ack）。
+/// 只看两件事：它现在在不在 delivering，以及从**进入 delivering 那一刻**
+/// （`applyStep` 写的 `updatedAt`）到现在过了多久。终态与还没发出去的都不算超时。
+function isAckOverdue(contract, message, nowMs) {
+  if (!message || message.state !== 'delivering') return false;
+  const deadlineMs = ackDeadlineSeconds(contract) * 1000;
+  // ⚠ 先判"有没有那一刻"再看它是不是数：`Number(null) === 0` 而 0 是有限数，
+  // 于是写成 `!Number.isFinite(since)` 会把 null 当成"1970 年" ⇒ 立刻判超时（这条是
+  // 反证 D2 当场抓出来的）。缺 updatedAt 一律**不猜**，当作还没超时。
+  const since = message.updatedAt;
+  if (typeof since !== 'number' || !Number.isFinite(since)) return false;
+  return nowMs - since >= deadlineMs;
+}
+
 function requireKnown(contract, state, event) {
   if (!states(contract).includes(state)) {
     throw new Error(`不是契约里的投递状态：${state}`);
@@ -174,11 +204,13 @@ function evictCount(contract, pendingNow, incoming) {
 }
 
 module.exports = {
+  ackDeadlineSeconds,
   advance,
   canTransition,
   evictionReceipts,
   evictCount,
   initialState,
+  isAckOverdue,
   isExpired,
   isTerminal,
   maxAttempts,

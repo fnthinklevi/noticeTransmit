@@ -687,4 +687,129 @@ describe('回执账（T35）', () => {
       expect(raw).not.toContain('没有去重号的正文');
     });
   });
+
+  /// 「取走了没等到 ack」的恢复扫描（#178 真机现形）。这条路此前**只有测试在跑**：
+  /// `no_ack` 那个分支在 delivery.js 里写好了，可生产代码没有任何地方触发它 ——
+  /// 被 poll 取走却没回 ack 的消息就永远停在 `delivering`（pollableStates 不含它，
+  /// 没有任何事件能把它推回去），正文留满保留期后按过期删掉，**从不补发**。
+  describe('没等到 ack 的那条由 poll 扫回来（#178）', () => {
+    const DEADLINE_MS = delivery.ackDeadlineSeconds(contract) * 1000;
+
+    /// 造一条"被取走了、还没 ack"的消息：enqueue 之后走一次 dispatch。
+    function inflight(messages, device, seq, now) {
+      const { message } = store.enqueue(
+        contract,
+        messages,
+        { device, type: 'notice', body: `正文${seq}`, dedupeId: `d-${seq}` },
+        now,
+        KEY,
+      );
+      store.dispatchForDevice(contract, messages, device, now);
+      expect(messages[message.messageId].state).toBe('delivering');
+      return message;
+    }
+
+    test('过期的 delivering ⇒ 按 no_ack 推回 queued（还有预算就重发）', () => {
+      const messages = fresh();
+      const message = inflight(messages, 'DEV-STALE', 1, T0);
+
+      const moved = store.requeueUnackedStale(contract, messages, 'DEV-STALE', T0 + DEADLINE_MS);
+
+      expect(moved).toHaveLength(1);
+      expect(moved[0].messageId).toBe(message.messageId);
+      expect(messages[message.messageId].state).toBe('queued');
+    });
+
+    test('还没过档的那条一律不动（正常往返不能被当成丢 ack）', () => {
+      const messages = fresh();
+      const message = inflight(messages, 'DEV-FRESH', 1, T0);
+
+      const moved = store.requeueUnackedStale(
+        contract,
+        messages,
+        'DEV-FRESH',
+        T0 + DEADLINE_MS - 1,
+      );
+
+      expect(moved).toEqual([]);
+      expect(messages[message.messageId].state).toBe('delivering');
+    });
+
+    test('预算用完的那条 ⇒ 转 waiting_online 并带上回执（不是静默卡住，也不是静默丢）', () => {
+      const messages = fresh();
+      const message = inflight(messages, 'DEV-SPENT', 1, T0);
+      // 预算按**全局尝试数**消耗，而 ack_fail 之后那条回到 queued —— 所以要
+      // dispatch/ack_fail 成对推进（⚠ 我第一版把它写成"连着 ack_fail"，
+      // 第二次调用打在 queued 上是 ignored 步，用例红得莫名其妙 —— 记在这里免得再犯）。
+      const budget = delivery.maxAttempts(contract);
+      let guard = 0;
+      while (messages[message.messageId].state === 'delivering' && guard++ < budget + 2) {
+        store.advanceMessage(contract, messages, message.messageId, 'ack_fail', {
+          now: T0 + guard,
+        });
+        if (messages[message.messageId].state === 'queued') {
+          store.dispatchForDevice(contract, messages, 'DEV-SPENT', T0 + guard);
+        }
+      }
+      expect(messages[message.messageId].state).toBe('waiting_online');
+      expect(messages[message.messageId].receipt).toBe('waiting_online');
+
+      // 已在 waiting_online 的那条不该被这个扫描再推一次（它等的是 peer_online 事件）。
+      const moved = store.requeueUnackedStale(contract, messages, 'DEV-SPENT', T0 + DEADLINE_MS);
+      expect(moved).toEqual([]);
+      expect(messages[message.messageId].state).toBe('waiting_online');
+    });
+
+    test('别的设备的在飞消息不会被这一轮扫走（按 device 过滤）', () => {
+      const messages = fresh();
+      const mine = inflight(messages, 'DEV-A', 1, T0);
+      const theirs = inflight(messages, 'DEV-B', 2, T0);
+
+      store.requeueUnackedStale(contract, messages, 'DEV-A', T0 + DEADLINE_MS);
+
+      expect(messages[mine.messageId].state).toBe('queued');
+      expect(messages[theirs.messageId].state).toBe('delivering');
+    });
+
+    test('扫描排在 dispatch 之前时，那一轮就能把它重发出去（顺序本身就是判据）', () => {
+      // 这条是本片最要紧的一条：先 dispatch 后扫描，重发要再等一个 cadence，
+      // 而"卡住"这个形状就还在（只是慢了一拍）。所以这个顺序必须有用例钉住。
+      const messages = fresh();
+      const message = inflight(messages, 'DEV-ORDER', 1, T0);
+      const now = T0 + DEADLINE_MS;
+
+      store.requeueUnackedStale(contract, messages, 'DEV-ORDER', now);
+      const dispatched = store.dispatchForDevice(contract, messages, 'DEV-ORDER', now);
+
+      expect(dispatched.taken.map((t) => t.messageId)).toEqual([message.messageId]);
+      expect(messages[message.messageId].state).toBe('delivering');
+      expect(messages[message.messageId].attempts).toBe(2);
+    });
+
+    test('源码守卫：poll 里那一步扫描必须排在取货之前（顺序本身就是判据）', () => {
+      // 为什么这一条不能省：把扫描挪到 dispatch 之后，功能**照样在**（下一轮 poll 就重发），
+      // 运行期用例全绿 —— 变的只是"每条卡住的消息要多等一个 cadence"，症状是"推送时快时慢"。
+      // 顺序错没有任何一条运行期用例能看见，所以钉在源码上。
+      // 用全文件 indexOf 比较是安全的：`requeueUnackedStale` 与 `dispatchForDevice`
+      // 各自**只在 poll 那一个处理器里出现一次**（守卫本身也钉住这一点，见下面两条）。
+      const src = fs.readFileSync(path.join(__dirname, '../lib/fnthink/routes.js'), 'utf8');
+      const scan = src.indexOf('requeueUnackedStale(contract, messages, auth.sender, now);');
+      const take = src.indexOf('dispatchForDevice(contract, messages, auth.sender, now);');
+      expect(scan).toBeGreaterThan(-1);
+      expect(take).toBeGreaterThan(-1);
+      // poll 必须先扫「没等到 ack」的再取货：晚一步那条要多等一个 cadence 才重发
+      // （而症状看起来只是"时快时慢"）。
+      if (scan >= take) {
+        throw new Error(
+          'poll 必须先扫「没等到 ack」的再取货：晚一步那条要多等一个 cadence 才重发' +
+            `（scan=${scan} take=${take}）`,
+        );
+      }
+      // 两处调用各自只许出现一次（import 那行是裸标识符，不带调用括号，所以数不到）。
+      expect(src.split('requeueUnackedStale(contract, messages, auth.sender, now);')).toHaveLength(
+        2,
+      );
+      expect(src.split('dispatchForDevice(contract, messages, auth.sender, now);')).toHaveLength(2);
+    });
+  });
 });
