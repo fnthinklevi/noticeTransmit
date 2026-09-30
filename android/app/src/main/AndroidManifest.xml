@@ -612,6 +612,18 @@
             </intent-filter>
         </receiver>
 
+        <!-- 幻念推送"到点去问一次货"的闹钟接收器（T33 第二片 / §4-9）。
+             exported=false：只接自家 setPackage 的显式 action —— 给外部留一个"催这台设备醒来"的
+             入口，等于把每次唤醒的成本转嫁给用户的电与通知栏。 -->
+        <receiver
+            android:name=".FnthinkPresenceReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fnthink.notice.FNTHINK_ROUND_DUE" />
+            </intent-filter>
+        </receiver>
+
         <!-- 桌面小部件：一键开启/暂停推送服务 -->
         <!-- exported=true：APPWIDGET_UPDATE 等广播由系统 AppWidget 服务（system uid）发送 -->
         <!-- permission（签名级）：TOGGLE_PUSH / UPDATE_WIDGET 仅由本应用显式 Intent 发送

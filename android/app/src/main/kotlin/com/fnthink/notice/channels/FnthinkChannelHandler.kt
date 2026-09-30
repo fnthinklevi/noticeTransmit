@@ -3,6 +3,7 @@ package com.fnthink.notice.channels
 import android.content.Context
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
+import com.fnthink.notice.FnthinkPresenceAlarm
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.launch
@@ -72,6 +73,32 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                     body = call.argument<String>("body").orEmpty(),
                 )
                 result.success(FnthinkInboxDisplay.show(context, spec))
+            }
+            // ── "到点去问一次货"的闹钟（T33 第二片 / §4-9）──
+            // 节奏的唯一读者是 Dart（契约 `presence.pollIntervalSeconds` / `burstWhenPending`）：
+            // 这里**不自己算间隔**，只负责"把这个数交给系统"与"取消"。
+            // 三个方法都是同步的（AlarmManager / prefs.apply 都是内存级），不必下沉到 ioScope。
+            "scheduleFnthinkPresence" -> {
+                val seconds = call.argument<Number>("seconds")?.toLong()
+                    ?: call.argument<String>("seconds")?.toLongOrNull()
+                    ?: 0L
+                FnthinkPresenceAlarm(context).schedule(seconds)
+                result.success(true)
+            }
+            "cancelFnthinkPresence" -> {
+                FnthinkPresenceAlarm(context).cancel()
+                result.success(true)
+            }
+            "fnthinkPresenceStatus" -> {
+                // 界面/日志要能问出"到底还有没有人醒"：只有排上了 / 没排上两个状态是不够的，
+                // 还得说得出下一轮在什么时候、那一档间隔是多少（后者是 Dart 上次交下来的那一份）。
+                val alarm = FnthinkPresenceAlarm(context)
+                result.success(
+                    mapOf(
+                        "nextRoundAt" to alarm.nextRoundAt(),
+                        "cadenceSeconds" to alarm.cadenceSeconds(),
+                    ),
+                )
             }
             else -> return false
         }

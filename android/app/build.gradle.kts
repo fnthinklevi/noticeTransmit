@@ -241,6 +241,10 @@ dependencies {
     // 30 以下用这把纯 Java 实现签名/验签，私钥仍由 KeyStore 里不可导出的 AES-GCM 密钥包裹后落盘。
     // 只依赖它做曲线算术，不引整套 provider（BouncyCastle 为数 MB，为一个算法不值得）。
     implementation("net.i2p.crypto:eddsa:0.3.0")
+    // 幻念推送"被杀之后还有人去问一次"（T33 第二片 / §4-9）：闹钟到点之后交给 WorkManager 执行一轮。
+    // 必须自己声明：pub 插件 workmanager 0.6.0 把它写成 implementation（不外泄给 app 编译类路径），
+    // 版本与它锁在同一档（2.9.0），否则同一个进程里出现两套 androidx.work 就是这个类找不到。
+    implementation("androidx.work:work-runtime:2.9.0")
     // 原生侧单元测试（如验证码提取 SmsDispatcher.extractCode）
     testImplementation("junit:junit:4.13.2")
     // JVM 单测无 Android 的 org.json 桩可用，引入真实实现供 RuleEngine/WebhookPayloadBuilder 测试
