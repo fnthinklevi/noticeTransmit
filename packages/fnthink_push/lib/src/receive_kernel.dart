@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'canonical_bytes.dart';
 import 'contract.dart';
+import 'title_envelope.dart';
 
 /// 设备侧的收货内核（#126 / T28-B 与 T35 的设备那一半）。
 ///
@@ -1215,12 +1216,22 @@ class FnthinkDelivered {
     if (id is! String || id.isEmpty || type is! String || type.isEmpty) {
       return null;
     }
+    final signedTitle = raw['title'] is String ? raw['title'] as String : '';
+    final wireBody = raw['body'] is String ? raw['body'] as String : '';
+    // 设备那一路的标题在**已签的 body 信封**里（§4 第 10 条定稿：签名字节里没有 title，
+    // 顶层那个未签的一定向被丢掉）。这一刀是收件端唯一的一处拆 —— 服务端从不拆，
+    // 所以同一条消息在两台设备上只会有一种表现。已签标题非空时不拆（见 unwrap）。
+    final content = FnthinkTitleEnvelope.unwrap(
+      contract: contract,
+      signedTitle: signedTitle,
+      wireBody: wireBody,
+    );
     return FnthinkDelivered(
       messageId: id,
       type: type,
       item: raw['item'] is String ? raw['item'] as String : '',
-      title: raw['title'] is String ? raw['title'] as String : '',
-      body: raw['body'] is String ? raw['body'] as String : '',
+      title: content.title,
+      body: content.body,
       sender: raw['sender'] is String ? raw['sender'] as String : '',
     );
   }

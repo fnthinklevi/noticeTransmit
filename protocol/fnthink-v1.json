@@ -620,6 +620,22 @@
     }
   },
 
+  "deviceSend": {
+    "_why": "配对设备这一路（逐条 Ed25519 签名投给另一台设备）发一条消息时的入参形状。它和端点收单是两类发送方：端点靠路径段里的长期口令，标题是独立字段；设备靠签名，而 signature.canonicalOrder 里没有 title —— 服务端于是只收「出现在已签字节里」的标题（整段比对，见 routes.js 那段 includes），设备在顶层另附的 title 一定被丢掉。与其让它静默变成一个空标题，不如把标题放进**已签的 body**：能改这段字节的人本来就能改整条消息（标题与正文同一段签名，不多出攻击面），而「未签内容上屏」那个口子仍然不开。",
+    "titleEnvelope": {
+      "prefix": "fnthink-title:v1",
+      "titleKey": "t",
+      "bodyKey": "b",
+      "_prefixWhy": "线上的 body = prefix + jsonEncode({t: 标题, b: 正文})。用换行或长度做分隔的写法会把「标题里本来就有换行」变成丢信息，JSON 不丢。前缀带 v1：将来换形状时旧收件端认不出前缀就整段当正文 —— 表现是标题没了，而不是把别人的正文升级成标题。",
+      "prefixMayNotContainSignatureSeparator": true,
+      "_prefixMayNotContainSignatureSeparatorWhy": "前缀会出现在被签的字段值里，而两端的规范化函数见到 signature.separator 就抛（那是防伪边界：能塞分隔符就能拼出与另一组字段完全相同的字节串）。所以这一条由两端各自校验，不靠约定。",
+      "splitBy": "receiving-client",
+      "_splitByWhy": "只有收件端拆。服务端把 body 当一段不透明正文：按 retention 加密存、按 poll 原样回，从不解标题。服务端也拆的话，同一条消息在两台设备上有两种表现，而「标题其实来自正文」这件事就没有唯一解释了。",
+      "onlyWhenSignedTitleEmpty": true,
+      "_onlyWhenSignedTitleEmptyWhy": "只有 poll 回来的 title 是空串时才拆。将来若协议把 title 签进字节，签过的那一份是权威的 —— 信封不许盖掉它（未签内容覆盖已签内容正是这条协议反复拒的那种事）。"
+    }
+  },
+
   "privacy": {
     "serverStoresBodyPlaintext": false,
     "auditStoresMetadataOnly": true,

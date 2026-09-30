@@ -461,9 +461,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L2",
-          "items": [
-            "app:com.example.demo/notify"
-          ]
+          "items": ["app:com.example.demo/notify"]
         },
         "type": "action",
         "item": null,
@@ -482,9 +480,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L2",
-          "items": [
-            "app:com.example.demo/notify"
-          ]
+          "items": ["app:com.example.demo/notify"]
         },
         "type": "action",
         "item": "",
@@ -503,9 +499,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L2",
-          "items": [
-            "app:com.example.demo/notify"
-          ]
+          "items": ["app:com.example.demo/notify"]
         },
         "type": "action",
         "item": "app:com.other/sms",
@@ -524,9 +518,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L2",
-          "items": [
-            "app:com.example.demo/notify"
-          ]
+          "items": ["app:com.example.demo/notify"]
         },
         "type": "action",
         "item": "app:com.example.demo/notify",
@@ -545,9 +537,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L2",
-          "items": [
-            "app:com.example.demo/notify"
-          ]
+          "items": ["app:com.example.demo/notify"]
         },
         "type": "setting",
         "item": "setting:battery_saver",
@@ -566,9 +556,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver"
-          ]
+          "items": ["setting:battery_saver"]
         },
         "type": "setting",
         "item": "setting:other",
@@ -587,9 +575,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver"
-          ]
+          "items": ["setting:battery_saver"]
         },
         "type": "setting",
         "item": "setting:battery_saver",
@@ -608,9 +594,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver"
-          ]
+          "items": ["setting:battery_saver"]
         },
         "type": "setting",
         "item": "setting:battery_saver",
@@ -629,10 +613,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver",
-            "app:com.example.demo/notify"
-          ]
+          "items": ["setting:battery_saver", "app:com.example.demo/notify"]
         },
         "type": "action",
         "item": "app:com.example.demo/notify",
@@ -651,10 +632,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver",
-            "app:com.example.demo/notify"
-          ]
+          "items": ["setting:battery_saver", "app:com.example.demo/notify"]
         },
         "type": "teleport",
         "item": null,
@@ -673,10 +651,7 @@
         "stage": "apply",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver",
-            "app:com.example.demo/notify"
-          ]
+          "items": ["setting:battery_saver", "app:com.example.demo/notify"]
         },
         "type": "Notice",
         "item": null,
@@ -765,9 +740,7 @@
         "stage": "intake",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver"
-          ]
+          "items": ["setting:battery_saver"]
         },
         "type": "setting",
         "item": "setting:battery_saver",
@@ -786,9 +759,7 @@
         "stage": "intake",
         "grant": {
           "maxLevel": "L3",
-          "items": [
-            "setting:battery_saver"
-          ]
+          "items": ["setting:battery_saver"]
         },
         "type": "setting",
         "item": "setting:battery_saver",
@@ -807,9 +778,7 @@
         "stage": "intake",
         "grant": {
           "maxLevel": "L2",
-          "items": [
-            "app:com.example.demo/notify"
-          ]
+          "items": ["app:com.example.demo/notify"]
         },
         "type": "action",
         "item": "app:com.example.demo/notify",
@@ -828,9 +797,7 @@
         "stage": "intake",
         "grant": {
           "maxLevel": "L2",
-          "items": [
-            "app:com.example.demo/notify"
-          ]
+          "items": ["app:com.example.demo/notify"]
         },
         "type": "setting",
         "item": "setting:battery_saver",
@@ -1172,5 +1139,155 @@
       },
       "note": "已经在飞的那条不挤位（挤它等于丢一条用户可能已经看到的消息）"
     }
-  ]
+  ],
+  "titleEnvelope": {
+    "_why": "设备这一路的标题信封（契约 deviceSend.titleEnvelope）。同一份表，Dart 与 Node 各断自己那一半：Dart 断「这一串是编码规则算出来的」与「收件端拆出来就是 appliedTitle/appliedBody」；Node 断「服务端把 wireBody 当一段不透明正文：存进去什么、poll 回来还是什么，而标题列永远是空的」。",
+    "_serverTitleWhy": "expect.serverTitle 全表都是空串，这不是遗漏：canonicalOrder 里没有 title，而服务端只收出现在已签字节里的标题。哪天它开始自己拆信封，这一列就不再是空的，而同一条消息在两台设备上会有两种表现 —— 那正是 splitBy=receiving-client 要防的。",
+    "_appliedBodyWhy": "expect.appliedBody 是收件端最终显示的那一份正文。拆不出来时它等于整段 wireBody（前缀也留着）：这是刻意的 —— 「猜一个标题出来并把前缀抹掉」与「原样显示」相比，后者至少让用户看得见那串到底是什么。",
+    "rows": [
+      {
+        "id": "te-plain",
+        "given": {
+          "title": "客厅温度",
+          "body": "30℃，请检查空调"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1{\"t\":\"客厅温度\",\"b\":\"30℃，请检查空调\"}",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1{\"t\":\"客厅温度\",\"b\":\"30℃，请检查空调\"}",
+          "split": true,
+          "appliedTitle": "客厅温度",
+          "appliedBody": "30℃，请检查空调"
+        },
+        "note": "最常见的一行：标题与正文各归各位，线上是一串带前缀的紧凑 JSON"
+      },
+      {
+        "id": "te-empty-title",
+        "given": {
+          "title": "",
+          "body": "只有正文一行"
+        },
+        "expect": {
+          "wireBody": "只有正文一行",
+          "serverTitle": "",
+          "serverBody": "只有正文一行",
+          "split": false,
+          "appliedTitle": "",
+          "appliedBody": "只有正文一行"
+        },
+        "note": "没有标题就【不套信封】：套了会留下「有信封而标题为空」这一形状，它与「本来就没有标题」拆完之后不可区分"
+      },
+      {
+        "id": "te-title-with-newline",
+        "given": {
+          "title": "巡检\n第 2 层",
+          "body": "全部正常"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1{\"t\":\"巡检\\n第 2 层\",\"b\":\"全部正常\"}",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1{\"t\":\"巡检\\n第 2 层\",\"b\":\"全部正常\"}",
+          "split": true,
+          "appliedTitle": "巡检\n第 2 层",
+          "appliedBody": "全部正常"
+        },
+        "note": "标题里本来就有换行 —— 这一行就是「为什么不用换行当分隔」的证据：用分隔符会在这一刻丢信息"
+      },
+      {
+        "id": "te-title-with-quote-and-backslash",
+        "given": {
+          "title": "他说\"好\" \\ C:\\temp",
+          "body": "正文里也有\"引号\"与 \\ 反斜杠"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1{\"t\":\"他说\\\"好\\\" \\\\ C:\\\\temp\",\"b\":\"正文里也有\\\"引号\\\"与 \\\\ 反斜杠\"}",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1{\"t\":\"他说\\\"好\\\" \\\\ C:\\\\temp\",\"b\":\"正文里也有\\\"引号\\\"与 \\\\ 反斜杠\"}",
+          "split": true,
+          "appliedTitle": "他说\"好\" \\ C:\\temp",
+          "appliedBody": "正文里也有\"引号\"与 \\ 反斜杠"
+        },
+        "note": "引号与反斜杠：JSON 转义必须原样回来，否则收件端拆出来的是半个标题"
+      },
+      {
+        "id": "te-emoji",
+        "given": {
+          "title": "🔥 高温告警",
+          "body": "机房 80℃ 🧯"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1{\"t\":\"🔥 高温告警\",\"b\":\"机房 80℃ 🧯\"}",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1{\"t\":\"🔥 高温告警\",\"b\":\"机房 80℃ 🧯\"}",
+          "split": true,
+          "appliedTitle": "🔥 高温告警",
+          "appliedBody": "机房 80℃ 🧯"
+        },
+        "note": "非 ASCII 与代理对：两端都不许把它们变成别的字符"
+      },
+      {
+        "id": "te-claimed-top-level-title",
+        "given": {
+          "title": "温度告警",
+          "body": "机箱温度 63℃",
+          "claimedTopLevelTitle": "温度告警"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1{\"t\":\"温度告警\",\"b\":\"机箱温度 63℃\"}",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1{\"t\":\"温度告警\",\"b\":\"机箱温度 63℃\"}",
+          "split": true,
+          "appliedTitle": "温度告警",
+          "appliedBody": "机箱温度 63℃"
+        },
+        "note": "§4-10 那一行：设备在顶层另附一个未签 title，服务端【一定】丢掉它（整段比对），而标题仍然到达收件端 —— 因为它在已签的 body 信封里"
+      },
+      {
+        "id": "te-prefix-but-not-json",
+        "given": {
+          "wireBody": "fnthink-title:v1这不是 JSON"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1这不是 JSON",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1这不是 JSON",
+          "split": false,
+          "appliedTitle": "",
+          "appliedBody": "fnthink-title:v1这不是 JSON"
+        },
+        "note": "前缀后面不是 JSON ⇒ 整段当正文（【不猜】）。表现是标题没了，而不是把别人的正文升级成标题"
+      },
+      {
+        "id": "te-prefix-missing-body-key",
+        "given": {
+          "wireBody": "fnthink-title:v1{\"t\":\"只有标题\"}"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1{\"t\":\"只有标题\"}",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1{\"t\":\"只有标题\"}",
+          "split": false,
+          "appliedTitle": "",
+          "appliedBody": "fnthink-title:v1{\"t\":\"只有标题\"}"
+        },
+        "note": "缺 bodyKey ⇒ 不算合法信封，整段当正文：宁可少一个标题，也不把半截信封显示给用户"
+      },
+      {
+        "id": "te-signed-title-wins",
+        "given": {
+          "wireBody": "fnthink-title:v1{\"t\":\"信封标题\",\"b\":\"信封正文\"}",
+          "signedTitleFromServer": "已签标题"
+        },
+        "expect": {
+          "wireBody": "fnthink-title:v1{\"t\":\"信封标题\",\"b\":\"信封正文\"}",
+          "serverTitle": "",
+          "serverBody": "fnthink-title:v1{\"t\":\"信封标题\",\"b\":\"信封正文\"}",
+          "split": false,
+          "appliedTitle": "已签标题",
+          "appliedBody": "fnthink-title:v1{\"t\":\"信封标题\",\"b\":\"信封正文\"}"
+        },
+        "note": "已签的标题是权威的：非空时信封【不许】盖掉它（未签内容覆盖已签内容是本协议反复拒的那件事）"
+      }
+    ]
+  }
 }

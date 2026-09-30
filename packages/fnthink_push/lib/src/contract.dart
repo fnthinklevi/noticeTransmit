@@ -537,6 +537,39 @@ class FnthinkContract {
     };
   }
 
+  /// 设备这一路的标题信封（`deviceSend.titleEnvelope`）：前缀与两个键名。
+  ///
+  /// 三个值都必须从契约读而不是在代码里写死：写死了就是"第二份协议"—— 换前缀（v1→v2）时
+  /// 发出去的一串与收件端拆的那一串不是同一串，症状是标题静默消失，而不是任何一处报错。
+  String get deviceTitlePrefix {
+    final value = str(const ['deviceSend', 'titleEnvelope', 'prefix']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 deviceSend.titleEnvelope.prefix（不补默认前缀：默认前缀等于换协议）');
+    }
+    return value;
+  }
+
+  /// 信封里"标题"那个键的名字（`titleKey`）。
+  String get deviceTitleKey {
+    final value = str(const ['deviceSend', 'titleEnvelope', 'titleKey']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 deviceSend.titleEnvelope.titleKey（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 信封里"正文"那个键的名字（`bodyKey`）。
+  String get deviceBodyKey {
+    final value = str(const ['deviceSend', 'titleEnvelope', 'bodyKey']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 deviceSend.titleEnvelope.bodyKey（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 这一路要发到的路径（设备面投递面，`transport.apiPaths.message`）。
+  String get deviceSendMessagePath => apiPath('message');
+
   /// 这份契约能不能被本包解释。返回 null = 可以；否则是不兼容的原因。
   String? unsupportedReason() {
     final declared = _protocolMajorOf(protocol);
@@ -650,6 +683,66 @@ class FnthinkContract {
     need(
       boolOf(const ['signature', 'onFailure', 'count']) == true,
       'signature.onFailure.count 必须是 true：拒了不留数就是静默丢弃（T29 任务书那句"并计数"）',
+    );
+
+    // ── 设备这一路的标题信封（deviceSend.titleEnvelope）──
+    // 这一节的四条都不是口味：每一条对应一个"改错了不会有任何东西报错"的现场。
+    final envelope = map(const ['deviceSend', 'titleEnvelope']) ?? const {};
+    need(
+      envelope.isNotEmpty,
+      '契约缺 deviceSend.titleEnvelope：设备发送那一路的标题去哪没有出处，'
+      '两端就会各写一种编码（症状是收件端把整段信封当成正文显示）',
+    );
+    final envelopePrefix =
+        str(const ['deviceSend', 'titleEnvelope', 'prefix']) ?? '';
+    need(
+      envelopePrefix.isNotEmpty,
+      'deviceSend.titleEnvelope.prefix 不能为空：空前缀等于"任何正文都可能是信封"，'
+      '收件端会开始把别人的第一行当标题',
+    );
+    // 前缀是**被签字段值的一部分**。分隔符混进去时 CanonicalMessage 会抛 —— 那是防伪边界，
+    // 但抛在运行期就等于"这一路今天发不出去"，所以在这里判掉。
+    // 这里读原始值而不是 `signatureSeparator` 那个 getter：分隔符本身缺失上面已经报过，
+    // validate 不许把自己抛成一条异常（那会把"少一条问题"读成"契约没法读"）。
+    final envelopeSeparator = str(const ['signature', 'separator']) ?? '';
+    need(
+      envelopePrefix.isEmpty || !envelopePrefix.contains(envelopeSeparator),
+      'deviceSend.titleEnvelope.prefix 含 signature.separator：它出现在被签的 body 值里，'
+      '而规范化函数见到分隔符就抛（能塞分隔符就能拼出与另一组字段相同的字节串）',
+    );
+    final titleKey =
+        str(const ['deviceSend', 'titleEnvelope', 'titleKey']) ?? '';
+    final bodyKeyValue =
+        str(const ['deviceSend', 'titleEnvelope', 'bodyKey']) ?? '';
+    need(
+      titleKey.isNotEmpty &&
+          bodyKeyValue.isNotEmpty &&
+          titleKey != bodyKeyValue,
+      'deviceSend.titleEnvelope 的 titleKey / bodyKey 必须非空且互不相同：'
+      '同名时编码写得进去、拆不出来，标题与正文会互相覆盖',
+    );
+    // 交叉检查：信封挂在**已签的 body** 上。哪天 body 不在签名字节里，这一路发的标题
+    // 就悄悄变成了未签内容 —— 而那条正是本协议反复拒的事，必须在这里红，不许靠人记得。
+    need(
+      order.contains('body'),
+      'signature.canonicalOrder 里没有 body，而 deviceSend 的标题信封正是挂在这个字段上：'
+      '此时的"标题"是未签内容',
+    );
+    need(
+      str(const ['deviceSend', 'titleEnvelope', 'splitBy']) ==
+          'receiving-client',
+      'deviceSend.titleEnvelope.splitBy 必须是 receiving-client：本包只在收件端拆，'
+      '声明成别的（例如服务端拆）就是两份实现各拆一半，同一条消息两种表现',
+    );
+    need(
+      boolOf(const [
+            'deviceSend',
+            'titleEnvelope',
+            'onlyWhenSignedTitleEmpty',
+          ]) ==
+          true,
+      'deviceSend.titleEnvelope.onlyWhenSignedTitleEmpty 必须是 true：'
+      '已签的标题是权威的，信封不许盖掉它',
     );
 
     // ── 状态码 ──

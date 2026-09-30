@@ -75,6 +75,36 @@ void main() {
     );
   });
 
+  test('设备发送那一路的信封（§4-10）最坏体积也塞得进同一把闸', () {
+    final maxBytes = limits['requestBodyMaxBytes']! as int;
+    final envelope =
+        (contract['deviceSend']! as Map<String, Object?>)['titleEnvelope']
+            as Map<String, Object?>;
+    final prefix = envelope['prefix']! as String;
+    final titleKey = envelope['titleKey']! as String;
+    final bodyKey = envelope['bodyKey']! as String;
+    expect(
+      prefix.isNotEmpty && titleKey.isNotEmpty && bodyKey.isNotEmpty,
+      isTrue,
+    );
+    final kotlin = File(kotlinPath).readAsStringSync();
+    final widest = RegExp(r'const val [A-Z_]+_CHARS = (\d+)')
+        .allMatches(kotlin)
+        .map((m) => int.parse(m.group(1)!))
+        .reduce((a, b) => a > b ? a : b);
+    // 最坏编码 ×2 件事叠在一起：标题与正文**都**满（同一条消息有两栏），而 JSON 里一个控制字符
+    // 转义成 `\uXXXX` 是 6 字节。键名与花括号按 64 字节留余量（今天实际用不到那么多）。
+    final worst = widest * 2 * 6 + prefix.length + 64;
+    expect(
+      maxBytes,
+      greaterThanOrEqualTo(worst),
+      reason:
+          '闸（$maxBytes）装不下"带标题的满长正文"($worst) 时，症状是半条路能走：'
+          '同一台设备发的**没有标题**那条能过、**有标题**那条永远 413 —— '
+          '而用户在真机上看到的只是"有些推送丢了"，与体积闸毫无关系的一条线索。',
+    );
+  });
+
   test('公网面那把必须严于管理面的 1 MB（否则收紧没有发生）', () {
     final maxBytes = limits['requestBodyMaxBytes']! as int;
     final appSrc = File(appPath).readAsStringSync();
