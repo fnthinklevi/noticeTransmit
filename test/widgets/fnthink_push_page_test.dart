@@ -14,6 +14,7 @@ import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
+import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
@@ -44,7 +45,15 @@ void main() {
   tearDown(clearNativeChannelStubs);
 
   /// `flutter_secure_storage` 与 `getFnthinkIdentity` 共用一枚桩：`disk` 就是那台机的加密盘。
-  void stubChannels({bool identityOk = true}) {
+  ///
+  /// [presenceStatus] 喂的是「下一次自己醒」那一行读的那份原生状态（§4-9 片1d）：不传就是
+  /// `null` ⇒ Dart 那侧映射成 `{0,0}` ⇒ 界面说「没在醒着」。要观察"开关一关那一行跟着变"，
+  /// 传一个闭包进去，在测试里改它闭住的变量 —— 那一行的值必须**每次都从原生读**，
+  /// 页面自己记一份的实现会在这条用例上露出来。
+  void stubChannels({
+    bool identityOk = true,
+    Map<dynamic, dynamic>? Function()? presenceStatus,
+  }) {
     stubNativeChannels(
       onCall: (call) async {
         switch (call.method) {
@@ -64,6 +73,8 @@ void main() {
               'plan': 'androidKeyStoreEd25519',
               'keystoreBacked': true,
             };
+          case 'fnthinkPresenceStatus':
+            return presenceStatus?.call();
           default:
             return null;
         }
@@ -272,6 +283,10 @@ void main() {
             if (peersFail) throw StateError('库打不开');
             return List<FnthinkPeer>.unmodifiable(peersShown);
           },
+          // 「下一次自己醒」那一行（§4-9 片1d）：真的 scheduler + 被桩住的通道 ——
+          // 页面拿到的就是生产那一份（`status()` 读 `fnthinkPresenceStatus`），
+          // 而通道那头由各条用例自己决定回什么。
+          presence: FnthinkPresenceScheduler(contracts: loader),
         ),
       ),
       coordinator: coordinator,
@@ -2141,6 +2156,92 @@ void main() {
         reason: '把"身份问题"说成"网络失败"，用户就会去检查一直好好的网络',
       );
       expect(find.text(l10n.fnthinkSendTransportError), findsNothing);
+    });
+  });
+
+  group('接收卡那一行「下一次自己醒」（§4-9 片1d）', () {
+    Future<void> tapSwitch(WidgetTester tester) async {
+      final sw = find.byKey(const ValueKey('fnthink-receive-switch'));
+      await revealTo(tester, sw);
+      await tester.tap(sw);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('原生从没排过 ⇒ 说"没在醒着"，而不是一个 0 点的时间', (tester) async {
+      // 默认桩回 null ⇒ Dart 那侧映射成 {0,0}。这一条钉的是"读到了、确实没排"那一支：
+      // 它必须与"读不出来"分得开（后者的用例在下一条）。
+      stubChannels();
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('fnthink-presence-next'));
+      await revealTo(tester, row);
+      expect(row, findsOneWidget);
+      expect(find.text(l10n.fnthinkPresenceAsleep), findsOneWidget);
+      expect(find.textContaining('00:00:00'), findsNothing);
+    });
+
+    testWidgets('排上了 ⇒ 显示的是原生读回来的那个时间点与那一档秒数', (tester) async {
+      // 27 这个数只出现在桩里（原生交下来的那一档）。页面若自己去读契约的默认值（20），
+      // 这条就会红 —— 与 scheduler 那条"间隔只有一个作者"是同一条纪律在界面上的延伸。
+      final fireAt = DateTime(2026, 9, 30, 21, 34, 56).millisecondsSinceEpoch;
+      stubChannels(
+        presenceStatus: () => {'nextRoundAt': fireAt, 'cadenceSeconds': 27},
+      );
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const ValueKey('fnthink-presence-next'));
+      await revealTo(tester, row);
+      expect(
+        find.text(l10n.fnthinkPresenceNext('21:34:56', 27)),
+        findsOneWidget,
+      );
+      expect(find.text(l10n.fnthinkPresenceAsleep), findsNothing);
+    });
+
+    testWidgets('开关开关各一下，那一行每次都跟着变（不是读一次就停在那儿）', (tester) async {
+      // ⚠ 这条用例第一版是**假绿**：只翻一次开关时，"翻开那一支"自己的重读就足以让断言通过，
+      //    于是"关掉那一支忘了重读"这个缺陷测不出来（反证 P1 抓出来的）。
+      //    现在两下都走：翻开之后桩报"排上了"、关掉之后桩报"没排"，两次断言各钉一支。
+      var armed = false;
+      final fireAt = DateTime(2026, 9, 30, 21, 34, 56).millisecondsSinceEpoch;
+      stubChannels(
+        presenceStatus: () => armed
+            ? {'nextRoundAt': fireAt, 'cadenceSeconds': 20}
+            : null, // 没排（或已撤）：nextRoundAt = 0、cadence 也清掉
+      );
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.fnthinkPresenceAsleep), findsOneWidget);
+
+      armed = true;
+      await tapSwitch(tester);
+      expect(
+        find.text(l10n.fnthinkPresenceNext('21:34:56', 20)),
+        findsOneWidget,
+      );
+
+      armed = false;
+      await tapSwitch(tester);
+      expect(find.text(l10n.fnthinkPresenceAsleep), findsOneWidget);
+    });
+
+    testWidgets('读口抛 ⇒ 这一行根本不画（不拿"没在醒着"冒充"读不出来"）', (tester) async {
+      stubChannels(presenceStatus: () => throw StateError('通道那头没人接'));
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('fnthink-presence-next')),
+        findsNothing,
+        reason: '读不出来时画一句"没在醒着"是假话：用户会去翻开关，而真相是这一版问不到原生',
+      );
+      expect(find.text(l10n.fnthinkPresenceAsleep), findsNothing);
     });
   });
 }

@@ -6415,6 +6415,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'口令没换成（{reason}）'**
   String fnthinkEndpointRotateFailed(String reason);
+
+  /// No description provided for @fnthinkPresenceNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一次自己醒：{time}（每 {seconds} 秒）'**
+  String fnthinkPresenceNext(String time, int seconds);
+
+  /// No description provided for @fnthinkPresenceNextNoCadence.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一次自己醒：{time}（间隔未知）'**
+  String fnthinkPresenceNextNoCadence(String time);
+
+  /// No description provided for @fnthinkPresenceAsleep.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没在醒着（开关关着，或还没排上）'**
+  String get fnthinkPresenceAsleep;
 }
 
 class _AppLocalizationsDelegate

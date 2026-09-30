@@ -3480,4 +3480,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkEndpointRotateFailed(String reason) {
     return '口令没换成（$reason）';
   }
+
+  @override
+  String fnthinkPresenceNext(String time, int seconds) {
+    return '下一次自己醒：$time（每 $seconds 秒）';
+  }
+
+  @override
+  String fnthinkPresenceNextNoCadence(String time) {
+    return '下一次自己醒：$time（间隔未知）';
+  }
+
+  @override
+  String get fnthinkPresenceAsleep => '当前没在醒着（开关关着，或还没排上）';
 }

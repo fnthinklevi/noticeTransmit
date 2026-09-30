@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/di/service_locator.dart';
+import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
@@ -59,6 +60,20 @@ void main() {
         reason:
             '协调者那个 hook 是从这里取的，注册顺序写反会在第一次取协调者时抛 —— '
             '这条断言顺便把"注册过"钉住',
+      );
+    });
+
+    test('幻念推送页拿那一行也只走 DI 里那颗 scheduler（§4-9 片1d）', () {
+      setupLocator();
+      final deps = FnthinkPushDeps.fromLocator();
+      expect(
+        identical(deps.presence, getIt<FnthinkPresenceScheduler>()),
+        isTrue,
+        reason:
+            '页面必须拿 DI 那一份（不是自己 new 一个）：自己 new 的时候，'
+            '"排闹钟的"与"读状态的"就成了两个对象 —— 今天它们碰巧读同一份 prefs，'
+            '而这个结构只要有人给其中一处加个缓存/字段就会立刻分叉；'
+            'widget 用例也看不出来（那些用例自己把 deps 装好）',
       );
     });
 
@@ -331,6 +346,38 @@ void main() {
           reason:
               '$name 里出现 pollIntervalSeconds 就是两份节奏作者：'
               'Dart 的契约间隔与 Kotlin 自己的读数会互相追',
+        );
+      }
+    });
+
+    test('页面那一行只读不排：它不许自己算间隔、也不许自己排闹钟（§4-9 片1d）', () {
+      // 负向断言 ⇒ 按整个 library 读并剥注释（页面若被拆出 part，写进 part 的那份也要被看见）。
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      expect(
+        page,
+        contains('_deps.presence.status()'),
+        reason: '那一行的值只从 scheduler 读（原生才是排闹钟的那一方）',
+      );
+      expect(
+        page,
+        contains('cadenceSeconds'),
+        reason: '显示的那一档秒数必须是原生读回来的那一份，不是页面自己拿契约默认值顶上',
+      );
+      for (final forbidden in const [
+        'pollIntervalSeconds', // 页面自己读契约算节奏
+        'scheduleFnthinkPresence', // 页面自己排闹钟
+        'cancelFnthinkPresence', // 页面自己撤闹钟
+        'difference(', // 页面把"下一次"换算成"还有多久"
+      ]) {
+        expect(
+          page,
+          isNot(contains(forbidden)),
+          reason:
+              '页面里出现 $forbidden ⇒ 界面上多了一个"谁来决定多久醒一次"的作者。'
+              '排/撤那两半各有各的属主（协调者按开关裁决、scheduler 按契约读数），'
+              '页面只许把原生那份账显示出来',
         );
       }
     });

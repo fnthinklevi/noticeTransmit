@@ -1904,5 +1904,25 @@
         "type": "String"
       }
     }
-  }
+  },
+  "fnthinkPresenceNext": "Next wake-up: {time} (every {seconds}s)",
+  "@fnthinkPresenceNext": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPresenceNextNoCadence": "Next wake-up: {time} (interval unknown)",
+  "@fnthinkPresenceNextNoCadence": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPresenceAsleep": "Not waking on its own right now (switch off, or not armed yet)"
 }

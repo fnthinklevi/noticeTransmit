@@ -3631,4 +3631,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkEndpointRotateFailed(String reason) {
     return 'Token not rotated ($reason)';
   }
+
+  @override
+  String fnthinkPresenceNext(String time, int seconds) {
+    return 'Next wake-up: $time (every ${seconds}s)';
+  }
+
+  @override
+  String fnthinkPresenceNextNoCadence(String time) {
+    return 'Next wake-up: $time (interval unknown)';
+  }
+
+  @override
+  String get fnthinkPresenceAsleep =>
+      'Not waking on its own right now (switch off, or not armed yet)';
 }

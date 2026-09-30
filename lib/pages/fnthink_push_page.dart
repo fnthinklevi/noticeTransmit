@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_peer_service.dart';
+import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
@@ -26,6 +29,7 @@ class FnthinkPushDeps {
     required this.coordinator,
     required this.identity,
     required this.loadPeers,
+    required this.presence,
   });
 
   factory FnthinkPushDeps.fromLocator() => FnthinkPushDeps(
@@ -35,12 +39,17 @@ class FnthinkPushDeps {
     // 名单只从读咽喉取。退回 `DatabaseHelper().loadFnthinkPeers` 的话，页面就会自己长出一份
     // 排序/时间口径，而 `history_page` 那批守卫已经证明过这种分叉是怎么开始的。
     loadPeers: GetIt.instance<FnthinkPeerService>().list,
+    // 「下一次自己醒」那一行只**读**这一个源（§4-9 片1d）：页面既不自己算间隔、也不自己排闹钟
+    // （排/撤那一半在协调者 + scheduler 里，各只有一处）。DI 漏接时这一行取不到值 —— 守卫在
+    // `test/architecture/fnthink_presence_guard_test.dart`。
+    presence: GetIt.instance<FnthinkPresenceScheduler>(),
   );
 
   final FnthinkContractLoader contracts;
   final FnthinkReceiveCoordinator coordinator;
   final FnthinkIdentityService identity;
   final Future<List<FnthinkPeer>> Function() loadPeers;
+  final FnthinkPresenceScheduler presence;
 }
 
 /// 幻念推送页（T44 的②③ + T42 的入口那半）。
@@ -174,6 +183,13 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 改地址失败的原因（校验在 `FnthinkSettings` 那一处，这里只显示）。
   String? _hostError;
 
+  /// 「下一次自己醒」那一行读回来的那一份（null = 还没读到，或读口抛了）。
+  ///
+  /// ⚠ null 与 `armed == false` 是**两件事**：前者是"不知道"，后者是"确实没排" ——
+  /// 合并成一句话，就是拿"读不出来"冒充"没在醒着"，而这两者的下一步动作完全不同
+  /// （一个要查通道/版本，一个只要把开关打开）。
+  FnthinkPresenceStatus? _presence;
+
   bool _busy = false;
 
   @override
@@ -227,7 +243,43 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     // （契约管的是节奏与档位，不是"这台设备同不同意被中转"）。
     // 两件读事互不依赖，一起发出去（`_loadPeers` 之后在 `_answer` 里还要被单独调一次，
     // 所以这里不写成一句 `await _loadPeers();`，免得两处的形状看不出谁是谁）。
-    await Future.wait<void>([_readEnabled(), _loadPeers()]);
+    await Future.wait<void>([_readEnabled(), _loadPeers(), _readPresence()]);
+  }
+
+  /// 读一次「这台还要不要自己醒、下一次在什么时候」。
+  ///
+  /// 这是**只读**的一发：它不排闹钟、不撤闹钟、也不改任何开关 —— 那三件事各有各的作者
+  /// （协调者按开关裁决、scheduler 按契约读数）。页面拿到的是一个毫秒时间点与一档秒数，
+  /// 于是"到底还有没有人醒"这句话在界面上第一次有了出处，而不是靠用户猜。
+  ///
+  /// 读失败**什么都不改**（保持上一次那份，或者干脆不显示这一行）：通道没接（桌面/老包）时
+  /// 显示 0 会让这一行看起来像"没在醒着"，而真值是"不知道"。
+  Future<void> _readPresence() async {
+    final FnthinkPresenceStatus status;
+    try {
+      status = await _deps.presence.status();
+    } catch (_) {
+      // 保持原样。原生那侧已经会为"排不上/撤不掉"留日志，这一层不重复喊。
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _presence = status);
+  }
+
+  /// `HH:mm:ss`。**只做格式化**：页面不推算"还有多久"（那个数只有排闹钟的那一方知道）。
+  String _presenceClock(int millis) {
+    final at = DateTime.fromMillisecondsSinceEpoch(millis);
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(at.hour)}:${two(at.minute)}:${two(at.second)}';
+  }
+
+  String _presenceText(AppLocalizations l10n) {
+    final status = _presence!;
+    if (!status.armed) return l10n.fnthinkPresenceAsleep;
+    final clock = _presenceClock(status.nextRoundAt);
+    return status.cadenceSeconds > 0
+        ? l10n.fnthinkPresenceNext(clock, status.cadenceSeconds)
+        : l10n.fnthinkPresenceNextNoCadence(clock);
   }
 
   /// 读本机配对名单。**只有读咽喉那一个入口**（`FnthinkPushDeps.loadPeers`）。
@@ -277,6 +329,10 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
         _startNote = result.started ? null : result.reason;
         _busy = false;
       });
+      // 开关翻开 ⇒ 协调者刚排过闹钟（或刚因为起不来撤过）：那一行必须跟着重读，
+      // 否则它会一直显示翻开之前的样子，而这一行的全部意义就是"现在到底醒没醒"。
+      // 不 await：这是显示刷新，开关那一发该做的已经做完了（读口自己吞异常）。
+      unawaited(_readPresence());
       return;
     }
     _coordinator.stop();
@@ -286,6 +342,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       _startNote = null;
       _busy = false;
     });
+    unawaited(_readPresence());
   }
 
   Future<void> _receiveNow() async {
@@ -308,6 +365,8 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       }
       _busy = false;
     });
+    // 手动那一轮跑完也会续排（`_noteRound`）：读回来，别让这一行停在上一轮的时间点上。
+    await _readPresence();
   }
 
   Future<void> _copy(String text) async {
@@ -1215,6 +1274,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           dot: _running,
           text: _running ? l10n.fnthinkStatusRunning : l10n.fnthinkStatusIdle,
         ),
+        // 「被杀之后还有没有人去问一次货」（T33 第二片 / §4-9）：这一行读的是**原生那份排程**。
+        // 收货循环活着 ≠ 闹钟排着（进程被杀之后正是"循环没了而闹钟还在"），所以两行必须分开说。
+        // 还没有读到（读口抛过、或这一页刚起来）时**不画这一行** —— 画一句"没在醒着"是假话。
+        if (_presence != null)
+          _Note(keyName: 'fnthink-presence-next', text: _presenceText(l10n)),
         if (_startNote != null)
           _Note(keyName: 'fnthink-start-note', text: _startNote!),
         if (_roundNote != null)

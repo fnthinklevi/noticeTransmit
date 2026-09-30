@@ -1925,5 +1925,25 @@
         "type": "String"
       }
     }
-  }
+  },
+  "fnthinkPresenceNext": "下一次自己醒：{time}（每 {seconds} 秒）",
+  "@fnthinkPresenceNext": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPresenceNextNoCadence": "下一次自己醒：{time}（间隔未知）",
+  "@fnthinkPresenceNextNoCadence": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没排上）"
 }
