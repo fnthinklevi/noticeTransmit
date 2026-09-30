@@ -104,13 +104,57 @@ class FnthinkPresenceAlarm(private val context: Context) {
         )
     }
 
+    private fun flutterPrefs() =
+        context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+
     /** 精确闹钟开关（设置页写入 `flutter.exact_alarm_enabled`）—— 与延迟推送同一份读法。 */
     private fun exactAllowed(): Boolean {
         return try {
-            context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-                .getBoolean("flutter.exact_alarm_enabled", false)
+            flutterPrefs().getBoolean("flutter.exact_alarm_enabled", false)
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Dart 侧那份收货总开关（`FnthinkSettings.keyReceiveEnabled`，落盘带 `flutter.` 前缀）。
+     *
+     * ⚠ 读不到必须按**关**处理：这个开关的语义是"这台设备从没同意过通知内容经服务器中转"，
+     * 兜底成 true 就等于用户没同意过的东西在开机后自己醒。
+     * ⚠ 键名是两端各写一份的字符串 —— Dart 那边改名，这里永远读到 false，表现是"闹钟从此
+     * 不在开机后重排"，而全场测试仍然绿。那对关系由 `test/architecture/fnthink_presence_guard_test.dart` 钉。
+     */
+    private fun receiveEnabled(): Boolean = try {
+        flutterPrefs().getBoolean("flutter.fnthink.receive_enabled", false)
+    } catch (e: Exception) {
+        false
+    }
+
+    /**
+     * 重启（或系统把进程收走又放回来）之后，把那颗闹钟补回去（§4-9 片1c）。
+     *
+     * AlarmManager 的排程**不跨重启**：关机再开，链条上没有任何一处会自己补 —— 而 Dart 那一侧
+     * 只有用户打开 App（引擎跑起来）才可能重排，那正是这一片要消掉的那段空窗。
+     *
+     * 这里**不自己算间隔**：用的还是 Dart 上次交下来并持久化的那一档（[cadenceSeconds]）。
+     * 两个"不补"各有一条理由，都不是保险丝：
+     *  - `cadence == 0` ⇒ 从来没人交过节奏（这台没开启过接收，或上一次被取消过），无事可做；
+     *  - **开关关着 ⇒ 连那份 cadence 一起清掉**。留着它，下次开机又会重排一颗为"用户已经
+     *    关掉的功能"服务的闹钟；而协调者那一发 `_presence` 在通道不通时是会失败的（它不重试），
+     *    所以这份 prefs 完全可能比用户的开关旧 —— 开关才是真值。
+     */
+    fun armIfWantedAfterBoot() {
+        val cadence = cadenceSeconds()
+        if (cadence <= 0L) {
+            Log.d(TAG, "开机不重排幻念收货闹钟：没有 Dart 交下来的节奏（这台没开启过接收，或已取消）")
+            return
+        }
+        if (!receiveEnabled()) {
+            Log.d(TAG, "开机不重排幻念收货闹钟：总开关是关着的，顺手清掉那份过期的节奏")
+            cancel()
+            return
+        }
+        Log.d(TAG, "开机重排幻念收货闹钟，沿用 Dart 上次交下来的那一档 cadence=$cadence")
+        schedule(cadence)
     }
 }

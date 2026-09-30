@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
+import 'package:notice_transmit/services/fnthink_settings.dart';
 
 import '../support/source_guards.dart';
 
@@ -236,6 +237,29 @@ void main() {
       expect(
         blockAfter(scheduler, 'Future<void> fnthinkPresenceEntrypoint()'),
         contains("'roundDone'"),
+      );
+    });
+
+    test('开机重排读的那个开关键名，与 Dart 写的那一份逐字相同（§4-9 片1c）', () {
+      // 这一条是**跨语言字符串**里最容易被静默弄坏的一条：Dart 那边把 `keyReceiveEnabled`
+      // 改个名，原生这一侧永远读到 false，表现是"重启之后闹钟不再重排" —— 而界面上开关
+      // 明明写着开着，全场测试也都绿。这里读的是 Dart 自己的那个常量（真值在 Dart），
+      // 拿它去比原生源码里那个字面量。
+      expect(
+        kotlin('FnthinkPresenceAlarm.kt'),
+        contains(
+          'getBoolean("flutter.${FnthinkSettings.keyReceiveEnabled}", false)',
+        ),
+        reason:
+            '原生读的键名必须是 `flutter.` + Dart 那份键：对不上时开机重排永远走"开关是关的"'
+            '那一支，而用户在设置页看到的是开着',
+      );
+      expect(
+        kotlin('BootReceiver.kt'),
+        contains('armIfWantedAfterBoot()'),
+        reason:
+            'AlarmManager 的排程不跨重启：BootReceiver 里没有这一行，手机重启一次这台就'
+            '再也不自己醒了（而`重新打开 App`之前没有任何地方会发现）',
       );
     });
   });
