@@ -18,7 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///    被点到时才炸，常规回归测试（走 mock 通道）根本发现不了。
 ///    这是本文件存在的首要原因，不允许为通过而放宽。
 ///
-/// 2. **总数 == 96**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
+/// 2. **总数 == 100**：防止「悄悄删掉一个原生分支」或「新增分支忘记登记」。
 ///    （6e 加了两个非侵入探测 `probeAppChannelToken` / `verifySmtp`：91 → 93；
 ///     T20 引擎规则入 DB，删掉两处原生镜像写 `setBatteryRules` / `setTemperatureRules`、
 ///     换成一枚无载荷的 `refreshEngineRules`：93 → 92；
@@ -28,7 +28,15 @@ import 'package:flutter_test/flutter_test.dart';
 ///     所以方向 1 现在真的守着它们：改名或删掉原生分支 ⇒ 立刻红，不是"将来也许会红"。
 ///     T48 前置在同一域加 `showFnthinkInbox`：95 → 96。它的 Dart 半边是
 ///     `lib/services/fnthink_inbox_display.dart` —— 这条链路的返回值直接决定 ack 报
-///     `displayed` 还是 `delivered`，所以改它的一端绝不会无人知晓。）
+///     `displayed` 还是 `delivered`，所以改它的一端绝不会无人知晓。
+///     T33 第二片（§4-9）在同一域加 `scheduleFnthinkPresence` / `cancelFnthinkPresence` /
+///     `fnthinkPresenceStatus`：96 → 99。⚠ **登记是下一片才补的**：这三枚在 `80bd66f` 当天
+///     就把这两条断言打红了，而那片只跑了 gradle 那三件套（JVM 守卫 / 编译 / lint），
+///     没跑全量 App 套件 —— 守卫喊了，是没去听。教训写进 roadmap 那条动态。
+///     再加 `roundDone`：99 → 100。它不在 `channels/` 那批里，而是 worker 自己
+///     `MethodChannel(PRESENCE_CHANNEL).setMethodCallHandler(this)` 接的那一发回报，
+///     所以扫描器现在必须看得见第二类 handler（见 [_nativeChannelMethods]）——
+///     正确的修法从来不是把名字从 Dart 集合里剔掉，那是把守卫关掉。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -76,10 +84,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 96（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 100（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        96,
+        100,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -95,7 +103,10 @@ void main() {
         'DeviceChannelHandler': 15,
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
-        'FnthinkChannelHandler': 3,
+        'FnthinkChannelHandler': 6,
+        // 不走 ChannelDispatcher 的那一类：worker 自己注册一条 presence 通道，
+        // Dart 那一轮的成与败都只交这一发。它必须**被扫到**才谈得上被守住（见上面的登记）。
+        'FnthinkPresenceWorker': 1,
       });
     });
 
@@ -169,14 +180,25 @@ void main() {
   });
 }
 
-/// 解析 Kotlin ChannelHandler 中的 `"methodName" ->` 分支。
+/// 解析 Kotlin 里**所有** MethodChannel handler 的方法名，两种形态都要看见：
+///
+/// 1. `channels/*.kt` 里按域分发的 `ChannelHandler`：分支写作 `"methodName" ->`，
+///    由 `ChannelDispatcher` 依序交给首个消费者。
+/// 2. **不走分发器**的那一类：某个类自己 `MethodChannel(ch).setMethodCallHandler(this)`，
+///    分支写作 `call.method == "methodName"`。目前只有 `FnthinkPresenceWorker`
+///    （后台那一轮的 `roundDone` 回报口，挂在 `com.fnthink.notice/presence` 上，
+///    与 App 主通道不是一条）。
+///
+/// ⚠ 第 2 类必须被扫到，不能靠"从 Dart 集合里把它剔掉"来放行：那样方向 1 就少了一整个
+/// 通道，改名/删分支从此无人知晓。这一类漏扫时的红长得像"Dart 调了不存在的方法"，
+/// 而真相是扫描器瞎了一半 —— 判据要认得全两种写法。
 ///
 /// 返回 **方法名 → 定义它的 handler 列表**（列表而非单值）：同一方法名被两个
 /// handler 定义时必须能同时看到两者，否则「重名死分支」会被 Map 覆盖而静默消失，
 /// 唯一性断言将永远通过（典型「测试通过 ≠ 有保护」陷阱）。
 ///
-/// 只认 when 分支形态（字符串字面量紧跟箭头），避免把 `call.argument<...>("key")`
-/// 这类参数名误判成方法名。
+/// 只认 when 分支形态（字符串字面量紧跟箭头）与 `call.method ==` 形态，
+/// 避免把 `call.argument<...>("key")` 这类参数名误判成方法名。
 Map<String, List<String>> _nativeChannelMethods(String root) {
   final dir = Directory(
     '$root/android/app/src/main/kotlin/com/fnthink/notice/channels',
@@ -192,14 +214,31 @@ Map<String, List<String>> _nativeChannelMethods(String root) {
     throw StateError('未在 ${dir.path} 找到任何 ChannelHandler');
   }
 
+  final standalone = [
+    '$root/android/app/src/main/kotlin/com/fnthink/notice/'
+        'FnthinkPresenceWorker.kt',
+  ];
+
   final branchPattern = RegExp(r'"([A-Za-z0-9_]+)"\s*->');
+  final equalityPattern = RegExp(r'call\.method\s*==\s*"([A-Za-z0-9_]+)"');
   final result = <String, List<String>>{};
-  for (final f in handlers) {
+  void collect(File f, RegExp pattern) {
     final name = f.uri.pathSegments.last.replaceAll('.kt', '');
     final src = stripComments(f.readAsStringSync());
-    for (final m in branchPattern.allMatches(src)) {
+    for (final m in pattern.allMatches(src)) {
       result.putIfAbsent(m.group(1)!, () => []).add(name);
     }
+  }
+
+  for (final f in handlers) {
+    collect(f, branchPattern);
+  }
+  for (final path in standalone) {
+    final f = File(path);
+    if (!f.existsSync()) {
+      throw StateError('登记的独立 handler 源文件不见了：$path');
+    }
+    collect(f, equalityPattern);
   }
   return result;
 }

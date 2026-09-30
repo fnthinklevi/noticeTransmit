@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
@@ -83,12 +84,14 @@ void main() {
     FnthinkServiceFactory? serviceFactory,
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
+    Future<void> Function({required bool keepAwake})? presenceNotice,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
     persist: persist,
     recordPeer: recordPeer,
     removePeer: removePeer,
+    presenceNotice: presenceNotice,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
   );
@@ -268,6 +271,131 @@ void main() {
     });
 
     test('没起过就直接手动收取 ⇒ 顺手按开关装配一次（不静默什么都不做）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final rec = _LoopRecorder();
+      final report = await coordinator(recorder: rec).receiveOnce();
+      expect(report, isNotNull);
+      expect(rec.builds, 1);
+    });
+  });
+
+  group('续排闹钟 presenceNotice（T33 第二片 / §4-9 片1b）', () {
+    // 这一族只钉**调用形状**：什么时候说"还要醒"、什么时候说"停"、以及它失败时不许拖累主路。
+    // 秒数的作者在 `test/services/fnthink_presence_scheduler_test.dart`（那边喂的是改过数值的
+    // 契约副本），这里一个字都不重复 —— 重复一份断言等于给同一个数找两个作者。
+    test('跑完一轮就续排（失败的那一轮同样要续：一次抖动不该弄丢这台叫醒自己的机会）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final notices = <bool>[];
+      final rec = _LoopRecorder();
+      final c = coordinator(
+        recorder: rec,
+        presenceNotice: ({required bool keepAwake}) async =>
+            notices.add(keepAwake),
+      );
+
+      await c.receiveOnce();
+      await pumpEventQueue();
+      expect(
+        notices,
+        isNotEmpty,
+        reason: '一轮结束却没人续排 ⇒ 这一台从此只靠前台那颗循环；进程被杀就再没人取货',
+      );
+      expect(notices.every((k) => k), isTrue);
+
+      notices.clear();
+      rec.pollStatus = FnthinkPollStatus.transportError;
+      await c.receiveOnce();
+      await pumpEventQueue();
+      expect(
+        notices,
+        isNotEmpty,
+        reason: 'transportError / 429 说明路还活着只是这次没取到；在这里停下等于永久撤闹钟',
+      );
+      expect(notices.every((k) => k), isTrue);
+    });
+
+    test('起不来（开关关着）⇒ 撤掉闹钟，而不是留着一颗会空跑的', () async {
+      final notices = <bool>[];
+      final rec = _LoopRecorder();
+
+      final result = await coordinator(
+        recorder: rec,
+        presenceNotice: ({required bool keepAwake}) async =>
+            notices.add(keepAwake),
+      ).startIfEnabled();
+
+      expect(result.reason, 'disabled');
+      expect(
+        notices,
+        [false],
+        reason:
+            '界面上写着"收货是关着的"而闹钟还在响 —— 被杀之后那一轮会起引擎、什么也不动，'
+            '白耗一次唤醒与流量',
+      );
+    });
+
+    test('stop() 同样撤（关掉接收与开关早退是同一个口径）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final notices = <bool>[];
+      final rec = _LoopRecorder();
+      final c = coordinator(
+        recorder: rec,
+        presenceNotice: ({required bool keepAwake}) async =>
+            notices.add(keepAwake),
+      );
+      await c.startIfEnabled();
+      notices.clear();
+
+      c.stop();
+      await pumpEventQueue();
+
+      expect(notices, [false]);
+    });
+
+    test('续排那一发失败 ⇒ 不拖累收货，也不静默：日志里必须看得见', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+      });
+      final logs = <String>[];
+      final originalPrint = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message != null) logs.add(message);
+      };
+      addTearDown(() => debugPrint = originalPrint);
+
+      final rec = _LoopRecorder();
+      final c = coordinator(
+        recorder: rec,
+        presenceNotice: ({required bool keepAwake}) async =>
+            throw StateError('模拟：通道那头没人接'),
+      );
+
+      final report = await c.receiveOnce();
+      await pumpEventQueue();
+
+      expect(report, isNotNull);
+      expect(
+        rec.polls,
+        greaterThan(0),
+        reason:
+            '旁路失败不许把主路带下去：这是"拿主路给旁路陪葬"那类缺陷的形状。'
+            '这里看的是"那一轮真发出去了"，不看它的账目 —— 账目由循环那片自己钉，'
+            '而且 start 之后手动那一下可能撞上在途的那一轮（skipped），那不是本条要答的题',
+      );
+      expect(
+        logs.where((l) => l.contains('续排闹钟没送到')),
+        isNotEmpty,
+        reason: '不抛是对的，但也不许悄悄吞 —— 排查"闹钟为什么没响"时这一行是唯一的线索',
+      );
+    });
+
+    test('这台没装配续排链路（hook 为 null）⇒ 收货照常，不崩', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
       });

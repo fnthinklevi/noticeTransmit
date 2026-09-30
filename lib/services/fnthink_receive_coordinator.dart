@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
@@ -183,6 +185,7 @@ class FnthinkReceiveCoordinator {
     this.recordAck,
     this.recordPeer,
     this.removePeer,
+    this.presenceNotice,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -228,6 +231,17 @@ class FnthinkReceiveCoordinator {
   /// 而用户看到的是"点了没反应"——所以守卫在 `test/architecture/fnthink_receive_wiring_test.dart`，
   /// 反证在 `outputs/_revokepeer.report.txt`。
   final Future<bool> Function(String peerAddress)? removePeer;
+
+  /// 每一轮之后 / 停下来的那一下，告诉原生"这台还要不要自己醒"（T33 第二片 / §4-9）。
+  ///
+  /// 为什么挂在协调者上而不是页面或循环上：**"这台需不需要继续醒着"的判断依据全在这里**
+  /// （开关、契约、签名能力），而间隔在契约里、发送通道的形状在平台层 ——
+  /// 让页面去排闹钟，等于每个入口都得记得续排一次；让循环去排，循环又不知道开关是不是被关了。
+  /// 这里只说"要不要醒"，**一秒都不在这儿算**。
+  ///
+  /// null = 这台没装配续排链路。后果不是崩溃而是**链条悄悄断**：收货照常、界面照常，
+  /// 只有"被杀掉之后"那一天没人再去问一次货 —— 所以装配点由守卫看着，不靠运行时报错。
+  final Future<void> Function({required bool keepAwake})? presenceNotice;
 
   final FnthinkSettings Function(FnthinkContract) _buildSettings;
   final FnthinkCredentialStore Function(FnthinkContract) _buildCredentials;
@@ -276,8 +290,24 @@ class FnthinkReceiveCoordinator {
   /// 走 [receiveOnce]（它调的是 `runOnce`，不经过 `_tick`，所以不会自己响）。两条路共用这一个
   /// 函数，是因为"待确认列表什么时候变"这件事只能有一个口径。
   void _noteRound(FnthinkLoopReport report) {
-    if (report.status != FnthinkPollStatus.ok) return;
-    _pairRequests.value = _withoutAnswered(report.pairRequests);
+    if (report.status == FnthinkPollStatus.ok) {
+      _pairRequests.value = _withoutAnswered(report.pairRequests);
+    }
+    // 失败的那一轮同样要续排：transportError / 429 说明"这一路还活着，只是这次没取到"，
+    // 停在这儿等于"一次网络抖动就把这台永久叫醒的机会弄没了"。
+    _presence(keepAwake: true);
+  }
+
+  /// 把"要不要醒"交给平台层。**不等、也不抛**：这是每轮的副作用，
+  /// 让它失败把收货循环拖住，是拿主路给旁路陪葬。失败留一行日志，而已排上的那次仍会响。
+  void _presence({required bool keepAwake}) {
+    final hook = presenceNotice;
+    if (hook == null) return;
+    unawaited(
+      hook(keepAwake: keepAwake).catchError((Object e) {
+        debugPrint('[fnthink] 续排闹钟没送到（keepAwake=$keepAwake）：$e');
+      }),
+    );
   }
 
   bool get isRunning => _loop?.isRunning ?? false;
@@ -289,6 +319,9 @@ class FnthinkReceiveCoordinator {
 
     final resolved = await _resolveSpec(requireEnabled: true);
     if (resolved.reason != null) {
+      // 起不来就顺手撤掉闹钟：留着它，被杀之后那一轮会起引擎、签不出名、什么也不动 ——
+      // 白耗一次唤醒与流量，而界面上写着"收货是关着的"。撤掉才是与开关一致的状态。
+      _presence(keepAwake: false);
       return (started: false, reason: resolved.reason!);
     }
 
@@ -739,6 +772,8 @@ class FnthinkReceiveCoordinator {
   void stop() {
     _loop?.stop();
     _loop = null;
+    // 关掉接收 ⇒ 闹钟一起撤（与 `startIfEnabled` 那条早退同一口径：醒着的意义就是去取货）。
+    _presence(keepAwake: false);
   }
 
   /// 页面上"立即收取"那一下。返回 null = 这次没做（没就绪），原因按 `startIfEnabled` 同一套口径记日志。

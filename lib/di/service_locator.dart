@@ -12,6 +12,7 @@ import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_inbox_display.dart';
 import '../services/fnthink_inbox_service.dart';
 import '../services/fnthink_peer_service.dart';
+import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_receiver_service.dart';
 import '../services/update_service.dart';
@@ -64,6 +65,12 @@ void setupLocator() {
   getIt.registerLazySingleton<FnthinkContractLoader>(
     () => FnthinkContractLoader(),
   );
+  // 「被杀之后还有人去问一次货」的那半（T33 第二片 / §4-9）。注册在协调者**之前**：
+  // 协调者 factory 里那行 `getIt<FnthinkPresenceScheduler>()` 在第一次取协调者时才展开，
+  // 顺序写反不会崩，但读代码的人会按这里的样子抄——装配点守卫钉的是"这一行在不在"。
+  getIt.registerLazySingleton<FnthinkPresenceScheduler>(
+    () => FnthinkPresenceScheduler(contracts: getIt<FnthinkContractLoader>()),
+  );
   getIt.registerLazySingleton<FnthinkReceiveCoordinator>(
     () => FnthinkReceiveCoordinator(
       contracts: getIt<FnthinkContractLoader>(),
@@ -87,6 +94,11 @@ void setupLocator() {
       // 缺这一行的后果与上面那行同族：撤销在服务端生效了、对面从此推不进来，而这一台的名单
       // 还留着那一行 —— 用户看到的是"点了撤销没反应"，于是再点一次。守卫在同一个装配点测试里。
       removePeer: FnthinkPeerService().remove,
+      // 续排闹钟（T33 第二片）。漏接的表现不是崩，是**链条悄悄断**：收货照常、界面照常，
+      // 只有"被 ROM 杀掉之后"那一天没人再去问一次货；而全场 Dart 测试仍然绿
+      // （协调者的用例都把 hook 当参数传进来，不经过 DI）。守卫在
+      // `test/architecture/fnthink_presence_guard_test.dart`，反证在 `outputs/_presence1b.report.txt`。
+      presenceNotice: getIt<FnthinkPresenceScheduler>().notice,
     ),
   );
   // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。
@@ -95,4 +107,15 @@ void setupLocator() {
   // 本机配对名单的唯一读写咽喉（T42「配对名单」那一格 + T31 的撤销）。
   // ⚠ 删行只在协调者撤销成功之后被调用，页面从不直接碰它 —— 先删行会让"授权还在而来源消失"。
   getIt.registerLazySingleton<FnthinkPeerService>(() => FnthinkPeerService());
+
+  // ── 幻念推送 · 后台引擎那一轮的装配（T33 第二片 / §4-9 片1b）──
+  // 闹钟到点后 WorkManager 起的是一颗**全新的 isolate**：那里从没跑过 `runApp`，getIt 是空的，
+  // 而原生只认「handle → 顶层函数」这一条路。所以这一行必须在这里，而不是在 main.dart 里 ——
+  // 放在 main 里等于只在正常启动时装配，正好错过唯一会用到它的那种启动。
+  // ⚠ 这条漏接时全场仍然绿：`runFnthinkPresenceRound` 那份占位实现会红，但没有任何 Dart 测试
+  //   跑过那个入口。它红的那一刻在设备上、在被杀之后的第一轮 —— 所以守卫钉的是"这行赋值在不在"。
+  runFnthinkPresenceRound = () async {
+    if (!getIt.isRegistered<FnthinkReceiveCoordinator>()) setupLocator();
+    await getIt<FnthinkReceiveCoordinator>().receiveOnce();
+  };
 }
