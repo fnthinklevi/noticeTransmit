@@ -3504,4 +3504,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String fnthinkReplyTitle(String title) {
     return '回复：$title';
   }
+
+  @override
+  String get fnthinkDirSent => '发出（幻念）';
+
+  @override
+  String get fnthinkSentEmpty => '还没有发过。这一档只记本机发出去的（对方收到与否要看回执）';
+
+  @override
+  String get fnthinkRecipient => '收件人';
 }

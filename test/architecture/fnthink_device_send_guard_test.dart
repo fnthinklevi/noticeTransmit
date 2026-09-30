@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/di/service_locator.dart';
+import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 
 import '../support/source_guards.dart';
 
@@ -170,6 +172,19 @@ void main() {
           reason: '$page 必须经那一份文案，而不是自己拼句子',
         );
       }
+    });
+
+    test('「我发过的」那一档的写入者接在装配点上（漏接时那一档永远是空的）', () {
+      // T43：发送被受理之后由协调者把这一条落进表（方向 out）。DI 漏接时的表现不是崩，
+      // 是**历史页那一档永远是空的** —— 用户发过的每一条都查不到，而全场测试仍然绿
+      // （协调者的用例都把 recordSent 当参数传进来，不经过 DI）。
+      setupLocator();
+      final c = getIt<FnthinkReceiveCoordinator>();
+      expect(
+        c.recordSent,
+        isNotNull,
+        reason: '漏接 `recordSent:` 这一行 ⇒ 「我发过的」那一档没有作者',
+      );
     });
 
     test('历史页那一发也走同一套发送层（不许自己拼 HTTP、也不许自己读名单表）', () {

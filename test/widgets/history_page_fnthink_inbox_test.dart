@@ -38,6 +38,7 @@ void main() {
     String id, {
     bool read = false,
     String sender = 'endpoint:ep_7',
+    String direction = kFnthinkDirectionIn,
   }) => FnthinkInboxMessage(
     messageId: id,
     sender: sender,
@@ -47,14 +48,17 @@ void main() {
     body: '温度 63 度（$id）',
     receivedAt: 1780000000000,
     read: read,
-    ackResult: 'displayed',
+    ackResult: direction == kFnthinkDirectionOut ? '' : 'displayed',
+    direction: direction,
   );
 
   /// 一张替身"表"：loader 每次被调用都返回当下的状态，标已读就地改它 ——
   /// 这样"页面重新读表"在测试里是一次真的读表，而不是对写死期望的附和。
   late List<FnthinkInboxMessage> table;
+  late List<FnthinkInboxMessage> sentTable;
   late List<String> marked;
   late int loads;
+  late int sentLoads;
 
   /// 「回复 / 重发」要用到的两个替身（T48 收尾）：名单里有没有那一台、以及发出去那一下。
   /// 记账放进 [sent] 是因为这一格的语义全在"发的是谁、标题与正文各是什么"上。
@@ -85,6 +89,11 @@ void main() {
           inboxLoader: () async {
             loads++;
             return List.of(table);
+          },
+          // 「我发过的」那一档的替身（T43）：同一张表的另一半，用另一个记账位。
+          sentLoader: () async {
+            sentLoads++;
+            return List.of(sentTable);
           },
           inboxMarkRead: (id) async {
             marked.add(id);
@@ -120,8 +129,10 @@ void main() {
 
   setUp(() {
     table = [row('m_unread'), row('m_read', read: true)];
+    sentTable = [];
     marked = <String>[];
     loads = 0;
+    sentLoads = 0;
     sent = [];
     findPeerCalls = [];
     sendResult = () => const FnthinkSendResult(
@@ -326,6 +337,76 @@ void main() {
         findPeerCalls,
         isEmpty,
         reason: '没有来源就没有可问的地址：拿空串去查名单是白跑一趟，也说明判据写歪了',
+      );
+    });
+  });
+  group('「我发过的」那一档（T43）', () {
+    Future<void> toSent(WidgetTester tester) async {
+      await tester.tap(find.text(l10n(tester).fnthinkDirSent));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('发出档只列发出那半，对端那一列说的是「收件人」', (tester) async {
+      table = [row('m_in')];
+      sentTable = [
+        row(
+          'm_out',
+          direction: kFnthinkDirectionOut,
+          sender: 'PEER00000000000001',
+        ),
+      ];
+      await pump(tester);
+      expect(find.text('机箱温度'), findsNothing, reason: '没切档之前不看幻念那两档');
+
+      await toSent(tester);
+      expect(sentLoads, 1, reason: '切到发出档要读那一本账，而不是拿收件那份顶上');
+      expect(
+        find.byKey(const ValueKey('fnthink-inbox-row-m_out')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-inbox-row-m_in')),
+        findsNothing,
+        reason: '收件那半出现在发出档 ⇒ 两本账混起来了（用户会以为自己也发过这条）',
+      );
+      expect(
+        find.textContaining(l10n(tester).fnthinkRecipient),
+        findsOneWidget,
+        reason: '发出行上的对端是收件人：只说地址码，用户不知道那是谁',
+      );
+    });
+
+    testWidgets('发出档的行不画未读点（发出的一条没有「未读」这回事）', (tester) async {
+      sentTable = [row('m_out', direction: kFnthinkDirectionOut, read: false)];
+      await pump(tester);
+      await toSent(tester);
+      expect(
+        find.byKey(const ValueKey('fnthink-inbox-unread-m_out')),
+        findsNothing,
+        reason: '画了点 ⇒ 用户以为有一条要去看，而那是他自己发出去的',
+      );
+    });
+
+    testWidgets('点开一条发出的：不标已读、也不重读收件表', (tester) async {
+      sentTable = [row('m_out', direction: kFnthinkDirectionOut)];
+      await pump(tester);
+      await toSent(tester);
+      final inboxLoadsBefore = loads;
+      await tester.tap(find.byKey(const ValueKey('fnthink-inbox-row-m_out')));
+      await tester.pumpAndSettle();
+
+      expect(marked, isEmpty, reason: '标了已读 ⇒ 首页未读数会被自己发的消息减掉');
+      expect(loads, inboxLoadsBefore, reason: '发出档不该去重读收件那张表（两本账各有各的读法）');
+    });
+
+    testWidgets('发出的档是空的 ⇒ 说「还没有发过」，不是收件档那句空话', (tester) async {
+      await pump(tester);
+      await toSent(tester);
+      expect(find.text(l10n(tester).fnthinkSentEmpty), findsOneWidget);
+      expect(
+        find.text(l10n(tester).fnthinkInboxEmpty),
+        findsNothing,
+        reason: '两档的空态说同一句话 ⇒ 用户分不清这台是没收到过还是没发过',
       );
     });
   });

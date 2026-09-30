@@ -1955,5 +1955,8 @@
         "type": "String"
       }
     }
-  }
+  },
+  "fnthinkDirSent": "发出（幻念）",
+  "fnthinkSentEmpty": "还没有发过。这一档只记本机发出去的（对方收到与否要看回执）",
+  "fnthinkRecipient": "收件人"
 }

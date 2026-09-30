@@ -99,6 +99,10 @@ void setupLocator() {
       // （协调者的用例都把 hook 当参数传进来，不经过 DI）。守卫在
       // `test/architecture/fnthink_presence_guard_test.dart`，反证在 `outputs/_presence1b.report.txt`。
       presenceNotice: getIt<FnthinkPresenceScheduler>().notice,
+      // 「我发过的」那一档的作者（T43）：发送被受理之后把这一条落进 `fnthink_messages`
+      // （方向 out）。漏接时的表现不是崩，是那一档**永远是空的** —— 用户发过的每一条都查不到，
+      // 而全场测试仍然绿。守卫在 `test/architecture/fnthink_device_send_guard_test.dart`。
+      recordSent: DatabaseHelper().insertFnthinkInbox,
     ),
   );
   // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。

@@ -85,6 +85,7 @@ void main() {
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     Future<void> Function({required bool keepAwake})? presenceNotice,
+    Future<bool> Function(FnthinkInboxMessage message)? recordSent,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
@@ -92,6 +93,7 @@ void main() {
     recordPeer: recordPeer,
     removePeer: removePeer,
     presenceNotice: presenceNotice,
+    recordSent: recordSent,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
   );
@@ -1474,6 +1476,77 @@ void main() {
       expect(r3.status, FnthinkSendStatus.preconditionFailed);
       expect(r3.reason, 'signing-unavailable');
       expect(asked, isEmpty);
+    });
+
+    test('服务端受理之后，这一条要记进本机历史（方向 out、对端是收件人）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${FnthinkSettings.keyHost}': defaultHost,
+      });
+      final recorded = <FnthinkInboxMessage>[];
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        recordSent: (message) async {
+          recorded.add(message);
+          return true;
+        },
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+
+      final result = await c.sendNotice(
+        peer: '8KMNPQRSTVWX999777',
+        title: '闸门标题',
+        text: '闸门正文',
+      );
+
+      expect(result.status, FnthinkSendStatus.accepted);
+      expect(recorded, hasLength(1));
+      final row = recorded.single;
+      expect(row.messageId, 'm_31', reason: '历史那一行的主键就是服务端回执里那个 id');
+      expect(row.direction, kFnthinkDirectionOut);
+      expect(
+        row.sender,
+        '8KMNPQRSTVWX999777',
+        reason: '方向 out 时这一列是**收件人**（历史页那一档要回答"发给谁"）',
+      );
+      expect(row.title, '闸门标题');
+      expect(row.body, '闸门正文');
+      expect(row.type, 'notice', reason: 'type 取自契约词表，与发送那一发同一个词');
+    });
+
+    test('被拒的那一发不记：服务端根本没收到，界面上不许写「我发过」', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${FnthinkSettings.keyHost}': defaultHost,
+      });
+      final recorded = <FnthinkInboxMessage>[];
+      final asked = <http.Request>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        recordSent: (message) async {
+          recorded.add(message);
+          return true;
+        },
+        serviceFactory: armFactory(
+          sink: asked,
+          status: 429,
+          body: '{"error":"rate_limited","retryAfterSeconds":30}',
+        ),
+      );
+
+      final result = await c.sendNotice(
+        peer: '8KMNPQRSTVWX999777',
+        title: '闸门标题',
+        text: '闸门正文',
+      );
+
+      expect(result.status, isNot(FnthinkSendStatus.accepted));
+      expect(
+        recorded,
+        isEmpty,
+        reason: '被 429 拒了还记一行 ⇒ 历史页写着"我发过"，而服务端从没收到过这一条',
+      );
     });
   });
 }

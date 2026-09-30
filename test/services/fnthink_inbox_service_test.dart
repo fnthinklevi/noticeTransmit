@@ -56,15 +56,18 @@ void main() {
     String id, {
     int at = 1780000000000,
     bool read = false,
+    String direction = kFnthinkDirectionIn,
+    String sender = 'endpoint:ep_7',
   }) => FnthinkInboxMessage(
     messageId: id,
-    sender: 'endpoint:ep_7',
+    sender: sender,
     type: 'notice',
     item: '',
     title: '机箱温度',
     body: '温度 63 度（$id）',
     receivedAt: at,
     read: read,
+    direction: direction,
   );
 
   group('转发而非自造', () {
@@ -114,6 +117,49 @@ void main() {
 
     test('空表 ⇒ 未读数 0（不是 null、不抛）', () async {
       expect(await service.unreadCount(), 0);
+    });
+  });
+
+  group('方向两档（T43：收件 / 我发过的）', () {
+    test('listSent 只给发出那半，list 只给收件那半（同一张表两条账）', () async {
+      await helper.insertFnthinkInbox(row('m_in'));
+      await helper.insertFnthinkInbox(
+        row(
+          'm_out',
+          direction: kFnthinkDirectionOut,
+          sender: 'PEER00000000000001',
+        ),
+      );
+
+      final inbox = await service.list();
+      expect(inbox.map((m) => m.messageId), ['m_in']);
+      final sent = await service.listSent();
+      expect(sent.map((m) => m.messageId), ['m_out']);
+      expect(
+        sent.single.sender,
+        'PEER00000000000001',
+        reason: '发出那一行的 sender 是**收件人**（含义随方向变，见模型注释）',
+      );
+    });
+
+    test('未读数只数收件：把发出的一条也数进来，表现是"回一条消息、首页未读多一条"', () async {
+      await helper.insertFnthinkInbox(row('m_in'));
+      await helper.insertFnthinkInbox(
+        row('m_out', direction: kFnthinkDirectionOut, read: false),
+      );
+
+      expect(
+        await service.unreadCount(),
+        1,
+        reason: '发出的一条没有"未读"这回事 —— 未读是别人推给我、我还没看的那个数',
+      );
+    });
+
+    test('未读过滤也分方向：list(unreadOnly) 不会把发出的未读行捞进来', () async {
+      await helper.insertFnthinkInbox(
+        row('m_out', direction: kFnthinkDirectionOut),
+      );
+      expect(await service.list(unreadOnly: true), isEmpty);
     });
   });
 

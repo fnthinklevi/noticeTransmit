@@ -40,6 +40,10 @@ class HistoryPage extends StatefulWidget {
   /// 标已读的那一斧子。同上：默认走收件服务，测试注入替身。
   final Future<bool> Function(String messageId)? inboxMarkRead;
 
+  /// 「我发过的」那一档的数据来源（T43）。默认走 `FnthinkInboxService.listSent`，
+  /// 测试注入内存列表 —— 与 `inboxLoader` 同一条理由（不开真库）。
+  final Future<List<FnthinkInboxMessage>> Function()? sentLoader;
+
   /// 「回复 / 重发」要找的那台：这条收件的发送方**还在不在本机名单里**。默认走名单读咽喉
   /// （`FnthinkPeerService.list`，只此一个读口），测试注入替身 —— 与 `inboxLoader` 同一条理由。
   final Future<FnthinkPeer?> Function(String peerAddress)? inboxFindPeer;
@@ -67,6 +71,7 @@ class HistoryPage extends StatefulWidget {
     required this.onClearLastN,
     this.onPushNow,
     this.inboxLoader,
+    this.sentLoader,
     this.inboxMarkRead,
     this.inboxFindPeer,
     this.inboxSendTo,
@@ -375,9 +380,15 @@ class _HistoryPageState extends State<HistoryPage> {
     _scrollController.addListener(_onScroll);
     // 取一次溢出计数：loadRecords() 在 app 启动时已经跑过 drainOfflineCache
     _offlineDrops = GetIt.instance<NotificationService>().pendingOfflineDrops;
-    // 一进来就停在收件档 ⇒ 这一档的数据得当场取。平时它是"切过去才读"的，
-    // 而首页那张未读卡进来时并没有一次"切"可以等。
-    if (_direction == 'received') _loadInbox();
+    // 一进来就停在幻念那一族 ⇒ 那一档的数据得当场取。平时它是"切过去才读"的，
+    // 而首页那张未读卡进来时并没有一次"切"可以等。**两档都要认**（收件 / 发出）：
+    // 只认收件的话，预置到发出档时那一格会永远停在加载圈上。
+    if (_direction == 'received' || _direction == 'sent') {
+      _inboxDirection = _direction == 'sent'
+          ? kFnthinkDirectionOut
+          : kFnthinkDirectionIn;
+      _loadInbox();
+    }
   }
 
   /// 离线缓存溢出提示条（#94-A）。
@@ -1572,12 +1583,24 @@ class _HistoryPageState extends State<HistoryPage> {
   List<FnthinkInboxMessage> _inbox = const [];
   bool _inboxLoaded = false;
 
+  /// 幻念那一族当前挂在哪一档：`kFnthinkDirectionIn`（收件）或 `kFnthinkDirectionOut`（发出）。
+  /// 转发档不用它。**它和 `_direction` 不是一件事**：`_direction` 是界面上哪一格亮着，
+  /// 这个是"手上这份 `_inbox` 是哪本账"—— 切档时两本账的读法与空态都不一样。
+  String _inboxDirection = kFnthinkDirectionIn;
+
   Future<void> _loadInbox() async {
-    // 显式写 100：这一档没有翻页，跟服务的默认 50 会悄悄少列一半收件。
-    final load = widget.inboxLoader ?? () => _inboxService.list(limit: 100);
+    final direction = _inboxDirection;
+    // 显式写 100：这两档都没有翻页，跟服务的默认 50 会悄悄少列一半。
+    // 两条路都从**注入优先、生产走服务层**那一份取（页面不直连表：这是守卫钉住的那条线）。
+    final load = direction == kFnthinkDirectionOut
+        ? (widget.sentLoader ?? () => _inboxService.listSent(limit: 100))
+        : (widget.inboxLoader ?? () => _inboxService.list(limit: 100));
     final rows = await load();
 
     if (!mounted) return;
+    // 期间用户可能又切了档：只把结果交给它属于的那一档。否则"读回来的是发出、画在收件档上"
+    // —— 那正是两本账混起来的形状，而它看起来就像一条真的收件。
+    if (direction != _inboxDirection) return;
     setState(() {
       _inbox = rows;
       _inboxLoaded = true;
@@ -1586,8 +1609,19 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void _setDirection(String value) {
     if (_direction == value) return;
-    setState(() => _direction = value);
-    if (value == 'received' && !_inboxLoaded) _loadInbox();
+    final nextIsFnthink = value == 'received' || value == 'sent';
+    setState(() {
+      _direction = value;
+      if (nextIsFnthink) {
+        // 换档 = 换账本：把上一档那几行清掉、置回"还没读"，免得旧的一档在新档位上闪一下。
+        _inboxDirection = value == 'sent'
+            ? kFnthinkDirectionOut
+            : kFnthinkDirectionIn;
+        _inbox = const [];
+        _inboxLoaded = false;
+      }
+    });
+    if (nextIsFnthink) unawaited(_loadInbox());
   }
 
   Widget _directionBar(AppLocalizations l10n) {
@@ -1606,6 +1640,12 @@ class _HistoryPageState extends State<HistoryPage> {
             _direction == 'received',
             () => _setDirection('received'),
           ),
+          const SizedBox(width: 8),
+          _filterChip(
+            l10n.fnthinkDirSent,
+            _direction == 'sent',
+            () => _setDirection('sent'),
+          ),
         ],
       ),
     );
@@ -1618,7 +1658,9 @@ class _HistoryPageState extends State<HistoryPage> {
     if (_inbox.isEmpty) {
       return Center(
         child: Text(
-          l10n.fnthinkInboxEmpty,
+          _inboxDirection == kFnthinkDirectionOut
+              ? l10n.fnthinkSentEmpty
+              : l10n.fnthinkInboxEmpty,
           style: TextStyle(
             color: AppColors.secondaryLabel(context),
             fontSize: 15,
@@ -1640,17 +1682,21 @@ class _HistoryPageState extends State<HistoryPage> {
             overflow: TextOverflow.ellipsis,
           ),
           subtitle: Text(
-            '${m.sender.isEmpty ? l10n.unknown : m.sender} · '
-            '${_formatTime(m.receivedAt)}',
+            _inboxDirection == kFnthinkDirectionOut
+                ? '${l10n.fnthinkRecipient}：${m.sender.isEmpty ? l10n.unknown : m.sender} · '
+                      '${_formatTime(m.receivedAt)}'
+                : '${m.sender.isEmpty ? l10n.unknown : m.sender} · '
+                      '${_formatTime(m.receivedAt)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
+          // 发出档更简单：**发出的一条没有"未读"这回事**，一律不画。
           //
           // 反证登记（`8b5c8ad`，三条全 named+restored；报告在本地 outputs/，不入库）：
           //   无脑画点 ⇒ 红在「已读那行根本不画点」；标完不重新读表 ⇒ 红在「写表 + 重新读表」
           //   与「不留点不开的幽灵行」；收件档不切数据源 ⇒ 红在整组收件用例。
-          leading: m.read
+          leading: m.read || _inboxDirection == kFnthinkDirectionOut
               ? null
               : Container(
                   width: 8,
@@ -1661,21 +1707,29 @@ class _HistoryPageState extends State<HistoryPage> {
                     color: AppColors.blue,
                   ),
                 ),
-          trailing: m.ackResult.isEmpty
+          trailing:
+              m.ackResult.isEmpty || _inboxDirection == kFnthinkDirectionOut
               ? null
               : Text(m.ackResult, style: const TextStyle(fontSize: 11)),
-          onTap: () => _showInboxDetail(m),
+          onTap: () => _showInboxDetail(
+            m,
+            outgoing: _inboxDirection == kFnthinkDirectionOut,
+          ),
         );
       },
     );
   }
 
-  Future<void> _showInboxDetail(FnthinkInboxMessage message) async {
+  Future<void> _showInboxDetail(
+    FnthinkInboxMessage message, {
+    bool outgoing = false,
+  }) async {
     final l10n = AppLocalizations.of(context);
     // 「回复 / 重发」只在**这条的发送方还在本机名单里**时给入口：名单是本机唯一一本"同意过谁"的
     // 账（服务端投递时也按 grantsBy 判），不在册的那台给入口就是一个必然 403 的按钮。
     // ⚠ 这条判断放在**弹层起来之前**：入口不出现与"点了才知道不行"是两种体验，前者是实话。
-    final peer = message.sender.isEmpty
+    // ⚠ 发出档不看它：那一档的对端是**收件人**，回复自己发出去的东西不是这一格的事。
+    final peer = outgoing || message.sender.isEmpty
         ? null
         : await (widget.inboxFindPeer ?? _findPeerInRoster)(message.sender);
     if (!mounted) return;
@@ -1728,9 +1782,13 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
-                    '${_formatTime(message.receivedAt)}'
-                    '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
+                    outgoing
+                        ? '${l10n.fnthinkRecipient}：'
+                              '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
+                              '${_formatTime(message.receivedAt)}'
+                        : '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
+                              '${_formatTime(message.receivedAt)}'
+                              '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.secondaryLabel(sheetContext),
@@ -1797,14 +1855,18 @@ class _HistoryPageState extends State<HistoryPage> {
     );
     // 点开即已读。写完之后**重新读表**，不在这个页面自己维护第二份"看没看过"：
     // 没命中（那条已被保留策略裁掉）与命中变已读，两种结果都由这一次读表如实反映出来。
-    final mark = widget.inboxMarkRead ?? _inboxService.markRead;
-    final hit = await mark(message.messageId);
+    // ⚠ 发出档**不标已读**：那是我自己发出去的东西，"未读"这个状态对它不存在 ——
+    // 标它一下，表现是首页的未读数被自己发的消息减掉。
+    if (!outgoing) {
+      final mark = widget.inboxMarkRead ?? _inboxService.markRead;
+      final hit = await mark(message.messageId);
 
-    if (!hit) {
-      debugPrint('[fnthink] 标已读没命中那一行（可能已被裁掉）: ${message.messageId}');
+      if (!hit) {
+        debugPrint('[fnthink] 标已读没命中那一行（可能已被裁掉）: ${message.messageId}');
+      }
+      if (!mounted) return;
+      await _loadInbox();
     }
-    if (!mounted) return;
-    await _loadInbox();
   }
 
   /// 「回复 / 重发」共用的一发：同一个弹层（预填不同 ⇒ 两种语义在界面上看得见）、同一个发送函数
@@ -2550,7 +2612,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           _directionBar(l10n),
           Expanded(
-            child: _direction == 'received'
+            child: _direction == 'received' || _direction == 'sent'
                 ? _buildInboxView(l10n)
                 : records.isEmpty
                 ? Center(

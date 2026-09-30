@@ -66,7 +66,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 15;
+  static const int dbVersion = 16;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -491,7 +491,9 @@ class DatabaseHelper
         received_at INTEGER NOT NULL,
         read INTEGER NOT NULL DEFAULT 0,
         ack_result TEXT NOT NULL DEFAULT '',
-        acked_at INTEGER NOT NULL DEFAULT 0
+        acked_at INTEGER NOT NULL DEFAULT 0,
+        -- T43：收件（in）与「我发过的」（out）同表不同档。老行由 DEFAULT 补成 in。
+        direction TEXT NOT NULL DEFAULT 'in'
       )
     ''');
     // 收件列表按时间倒序翻页；未读数是首页那张入口卡每次都要算的。
@@ -732,6 +734,16 @@ class DatabaseHelper
     if (oldVersion < 15) {
       // v15: 本机配对名单（T42 前置）。同样是"只建表、不碰既有行"。
       await _createFnthinkPeers(db);
+    }
+    if (oldVersion < 16) {
+      // v16: 收件表加方向列（T43）。**只加列、不动任何既有行**：已有的一律是收件（in），由
+      // DEFAULT 补上；`_addColumnIfMissing` 先查 PRAGMA，所以重复跑到这一档也不会二次 ALTER。
+      await _addColumnIfMissing(
+        db,
+        FnthinkInboxMessage.table,
+        'direction',
+        "TEXT NOT NULL DEFAULT 'in'",
+      );
     }
   }
 
@@ -1151,11 +1163,15 @@ class DatabaseHelper
     int limit = 50,
     int offset = 0,
     bool unreadOnly = false,
+    String direction = kFnthinkDirectionIn,
   }) async {
     final db = await database;
     final rows = await db.query(
       FnthinkInboxMessage.table,
-      where: unreadOnly ? 'read = 0' : null,
+      // 方向**永远是 WHERE 的第一项**（不是可选筛）：这一列区分的是"两条不同的账"，
+      // 少了它，收件档会把"我发过的"也列出来 —— 而用户会以为自己收到过。
+      where: unreadOnly ? 'read = 0 AND direction = ?' : 'direction = ?',
+      whereArgs: [direction],
       orderBy: 'received_at DESC, message_id ASC',
       limit: limit,
       offset: offset,
@@ -1168,7 +1184,8 @@ class DatabaseHelper
     final db = await database;
     return Sqflite.firstIntValue(
           await db.rawQuery(
-            'SELECT COUNT(*) FROM ${FnthinkInboxMessage.table} WHERE read = 0',
+            'SELECT COUNT(*) FROM ${FnthinkInboxMessage.table} '
+            "WHERE read = 0 AND direction = '$kFnthinkDirectionIn'",
           ),
         ) ??
         0;

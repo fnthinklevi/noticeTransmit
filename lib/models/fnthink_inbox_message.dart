@@ -6,6 +6,13 @@
 ///
 /// ⚠ 列名只在本文件的 [toDbRow]/[fromDbRow] 里出现 —— 表结构、SQL 与测试都读这一处。
 /// 两端各写一份字符串是本仓反复付过学费的形态（见 `DeviceSnapshot` 开头那段）。
+/// 消息方向（T43 加的那一列）。**这两个串是列值的唯一出处**：表结构、读口、写口都读它。
+///
+/// 为什么不用 bool `isOutgoing`：界面上要说的是「收件 / 发出」两个词，而 `direction` 这一列
+/// 以后还能长出第三档（比如「草稿」）；一个 bool 到那时就得再加一列，两张账。
+const String kFnthinkDirectionIn = 'in';
+const String kFnthinkDirectionOut = 'out';
+
 class FnthinkInboxMessage {
   const FnthinkInboxMessage({
     required this.messageId,
@@ -18,14 +25,20 @@ class FnthinkInboxMessage {
     this.read = false,
     this.ackResult = '',
     this.ackedAt = 0,
+    this.direction = kFnthinkDirectionIn,
   });
 
   /// 服务端给的消息主键（`m_` 前缀那串）。它同时是表主键：投递是 at-least-once
   /// （ack 之前不删正文），同一条会来第二次，而去重与 ack 都只能按这个 id 说话。
   final String messageId;
 
-  /// 谁发的：配对设备是它的地址码，接入端点是 `endpoint:<id>`。
-  /// 空串 = 未知来源（对端是没带 `sender` 那列的旧服务端）—— 未知不等于没有这条消息。
+  /// 对端是谁。**含义随 [direction] 变，这是这张表唯一一处这样的列**：
+  /// `direction == kFnthinkDirectionIn` ⇒ 来源（谁推给本机的，配对设备是地址码、接入端点是 `endpoint:<id>`）；
+  /// `direction == kFnthinkDirectionOut` ⇒ 收件人（本机发给哪一台）。
+  /// 共用一列而不是再加一列，是因为「这条消息的另一端」永远只有一个，而分两列必然有一列恒空。
+  ///
+  /// 空串 = 未知来源（对端是没带 `sender` 那列的旧服务端，或本机自己发的那条还没记下对端）
+  /// —— 未知不等于没有这条消息。
   final String sender;
 
   /// 事件种类（`notice` / `action` / `poll` 之类的词表值，出处是契约 capabilities）。
@@ -52,6 +65,10 @@ class FnthinkInboxMessage {
   /// 报出去的时刻（毫秒），0 = 没报过。
   final int ackedAt;
 
+  /// 这条是本机收到的（`kFnthinkDirectionIn`）还是本机发出去的（`kFnthinkDirectionOut`）。
+  /// 历史页的那两档就按它分：收件档只显示 in、发出档只显示 out；首页未读卡也只数 in。
+  final String direction;
+
   /// 表名（SQL 与测试共用这一处字面量）。
   static const table = 'fnthink_messages';
 
@@ -66,6 +83,7 @@ class FnthinkInboxMessage {
     'read',
     'ack_result',
     'acked_at',
+    'direction',
   ];
 
   Map<String, Object?> toDbRow() => {
@@ -81,10 +99,20 @@ class FnthinkInboxMessage {
     'read': read ? 1 : 0,
     'ack_result': ackResult,
     'acked_at': ackedAt,
+    'direction': direction,
   };
 
   /// 读一行。**不做兜底猜测**：`read` 只认 0/1 两个整数（其它形状说明库里存的不是本表
   /// 该存的东西，宁可抛出来，也别在界面上把"未知"显示成"已读"）。
+  /// 方向列的解析：只认两个词，别的一律抛（与 `read` 只认 0/1 同一条纪律）。
+  static String _directionOf(Object? raw) {
+    final value = '$raw';
+    if (value == kFnthinkDirectionIn || value == kFnthinkDirectionOut) {
+      return value;
+    }
+    throw StateError('fnthink_messages.direction 不是已知方向（实为 $raw）：不猜它是收件还是发出');
+  }
+
   static FnthinkInboxMessage fromDbRow(Map<String, Object?> row) {
     final readRaw = row['read'];
     if (readRaw is! int) {
@@ -101,6 +129,10 @@ class FnthinkInboxMessage {
       read: readRaw != 0,
       ackResult: '${row['ack_result'] ?? ''}',
       ackedAt: (row['acked_at'] as num?)?.toInt() ?? 0,
+      // 老行由迁移的 DEFAULT 补成 'in'（收件表先存在、方向列后加），所以这里不猜：读到别的
+      // 值说明有人没走迁移就往里塞行，宁可抛出，也别把一条方向未知的消息当成收件显示在
+      // 「别人推给我的」那一档里。
+      direction: _directionOf(row['direction']),
     );
   }
 }

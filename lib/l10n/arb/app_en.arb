@@ -1934,5 +1934,8 @@
         "type": "String"
       }
     }
-  }
+  },
+  "fnthinkDirSent": "Sent (fnthink)",
+  "fnthinkSentEmpty": "Nothing sent yet. This tab only lists what this device sent.",
+  "fnthinkRecipient": "Recipient"
 }

@@ -3656,4 +3656,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkReplyTitle(String title) {
     return 'Reply: $title';
   }
+
+  @override
+  String get fnthinkDirSent => 'Sent (fnthink)';
+
+  @override
+  String get fnthinkSentEmpty =>
+      'Nothing sent yet. This tab only lists what this device sent.';
+
+  @override
+  String get fnthinkRecipient => 'Recipient';
 }

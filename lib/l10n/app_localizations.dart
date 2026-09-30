@@ -6451,6 +6451,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'回复：{title}'**
   String fnthinkReplyTitle(String title);
+
+  /// No description provided for @fnthinkDirSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'发出（幻念）'**
+  String get fnthinkDirSent;
+
+  /// No description provided for @fnthinkSentEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有发过。这一档只记本机发出去的（对方收到与否要看回执）'**
+  String get fnthinkSentEmpty;
+
+  /// No description provided for @fnthinkRecipient.
+  ///
+  /// In zh, this message translates to:
+  /// **'收件人'**
+  String get fnthinkRecipient;
 }
 
 class _AppLocalizationsDelegate

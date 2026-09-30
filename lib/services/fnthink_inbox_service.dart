@@ -34,9 +34,22 @@ class FnthinkInboxService {
     unreadOnly: unreadOnly,
   );
 
+  /// 「我发过的」（T43）：同一张表的另一半，按同一个口径排序、同一个 limit。
+  /// 未读与本方法无关 —— **发出的一条没有"未读"这回事**（未读是别人推给我、我还没看的那个数）。
+  Future<List<FnthinkInboxMessage>> listSent({
+    int limit = 50,
+    int offset = 0,
+  }) => _db.loadFnthinkInbox(
+    limit: limit,
+    offset: offset,
+    direction: kFnthinkDirectionOut,
+  );
+
   /// 未读数。首页那张入口卡、历史页收件档、推送页的状态行说的是**同一个数**，所以数法只留一处。
   /// ⚠ 别让调用方自己 `list(unreadOnly: true).length` 去数：列表有 `limit`，
   /// 收到第 51 条时那条口径就会开始少报，而它少报的样子和"真的没有未读"一模一样。
+  /// ⚠ 它只数**收件**（`direction='in'` 那条 WHERE 在 `DatabaseHelper` 里）：把发出的那半也数
+  /// 进来，表现是"回一条消息、首页未读立刻多一条"，而用户根本没收到任何东西。
   Future<int> unreadCount() => _db.countFnthinkInboxUnread();
 
   /// 标已读，回**有没有命中**那一行。false 的意思是"这条已经不在了"（被保留策略裁掉），

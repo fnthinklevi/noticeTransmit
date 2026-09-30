@@ -186,6 +186,7 @@ class FnthinkReceiveCoordinator {
     this.recordPeer,
     this.removePeer,
     this.presenceNotice,
+    this.recordSent,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -242,6 +243,13 @@ class FnthinkReceiveCoordinator {
   /// null = 这台没装配续排链路。后果不是崩溃而是**链条悄悄断**：收货照常、界面照常，
   /// 只有"被杀掉之后"那一天没人再去问一次货 —— 所以装配点由守卫看着，不靠运行时报错。
   final Future<void> Function({required bool keepAwake})? presenceNotice;
+
+  /// 发送被服务端受理之后，把这一条记进本机历史（T43：「我发过的」那一档）。
+  /// null = 这台没装配记历史的链路 ⇒ 发出去的东西在本机不留痕（发送本身照常）。
+  ///
+  /// 只在 `accepted` 时记：被拒的那几种（429/403/签不出来）**没有可记的事实** ——
+  /// 记进去等于在界面上写「我发过」，而服务端那边根本没收到过这一条。
+  final Future<bool> Function(FnthinkInboxMessage message)? recordSent;
 
   final FnthinkSettings Function(FnthinkContract) _buildSettings;
   final FnthinkCredentialStore Function(FnthinkContract) _buildCredentials;
@@ -761,10 +769,61 @@ class FnthinkReceiveCoordinator {
       );
     }
     final service = _serviceFactory(resolved.spec!);
+    final FnthinkSendResult result;
     try {
-      return await service.sendNotice(peer: peer, title: title, text: text);
+      result = await service.sendNotice(peer: peer, title: title, text: text);
     } finally {
       service.dispose();
+    }
+    await _recordSentOut(
+      contract: resolved.spec!.contract,
+      peer: peer,
+      title: title,
+      text: text,
+      result: result,
+    );
+    return result;
+  }
+
+  /// 把「我发出去的这一条」落进本机历史。**失败不改发送的结论**（那边已经成功了），
+  /// 但必须留一行日志：历史那一格从此少一条，而用户正是从那一格往回查的。
+  Future<void> _recordSentOut({
+    required FnthinkContract contract,
+    required String peer,
+    required String title,
+    required String text,
+    required FnthinkSendResult result,
+  }) async {
+    final hook = recordSent;
+    if (hook == null) return;
+    if (result.status != FnthinkSendStatus.accepted) return;
+    final messageId = result.messageId ?? '';
+    if (messageId.isEmpty) {
+      debugPrint('[fnthink] 发送已受理但回执里没有 messageId：这一条不进本机历史');
+      return;
+    }
+    // type 与发送那一发取自同一处词表（这里只差"取不到就不记"，发送那边是抛）：
+    // 历史行上的 type 只用来显示，而发送已经被受理了，不该因为词表读不到就把这一行丢掉。
+    final type = contract.messageTypeLevels.keys.firstWhere(
+      (t) => t == 'notice',
+      orElse: () => '',
+    );
+    try {
+      await hook(
+        FnthinkInboxMessage(
+          messageId: messageId,
+          // 对端：direction=out 时这一列是**收件人**（见模型的注释）。
+          sender: peer,
+          type: type,
+          item: '',
+          title: title,
+          body: text,
+          receivedAt: DateTime.now().millisecondsSinceEpoch,
+          direction: kFnthinkDirectionOut,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[fnthink] 发出的一条没能记进本机历史（发送本身已成功）：$e');
     }
   }
 

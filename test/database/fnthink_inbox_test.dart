@@ -366,8 +366,27 @@ void main() {
         () => FnthinkInboxMessage.fromDbRow({'read': '1'}),
         throwsStateError,
       );
-      expect(FnthinkInboxMessage.fromDbRow({'read': 1}).read, isTrue);
-      expect(FnthinkInboxMessage.fromDbRow({'read': 0}).read, isFalse);
+      expect(
+        FnthinkInboxMessage.fromDbRow({'read': 1, 'direction': 'in'}).read,
+        isTrue,
+      );
+      expect(
+        FnthinkInboxMessage.fromDbRow({'read': 0, 'direction': 'out'}).read,
+        isFalse,
+      );
+    });
+
+    test('方向列只认两个词：别的值一律抛（不把方向未知的当成收件）', () {
+      expect(
+        () => FnthinkInboxMessage.fromDbRow({'read': 0, 'direction': 'draft'}),
+        throwsStateError,
+        reason: '第三档今天还不存在：认下它，收件档就会把它也列出来',
+      );
+      expect(
+        () => FnthinkInboxMessage.fromDbRow({'read': 0}),
+        throwsStateError,
+        reason: '缺这一列说明有人没走 columns/迁移 —— 宁可抛出，也别当成收件显示在别人推给我的那一档',
+      );
     });
 
     test('收件表默认不进备份：backup_service 既不认识这张表，也没有收件类的键', () {
