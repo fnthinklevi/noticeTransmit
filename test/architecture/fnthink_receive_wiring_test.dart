@@ -703,6 +703,11 @@ void main() {
         librarySource(root, 'lib/pages/fnthink_push_page.dart'),
       );
       expect(
+        page,
+        contains('_coordinator.sendNotice('),
+        reason: '页面上那一行「发一条」必须走协调者：前置判定与 service 的生命周期都在那里',
+      );
+      expect(
         occurrences(page, 'FnthinkSendKernel('),
         0,
         reason: '页面自己造内核 = 绕过协调者那三道前置判定，而且没人 dispose 那份 HTTP 客户端',

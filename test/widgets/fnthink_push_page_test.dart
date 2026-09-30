@@ -110,6 +110,9 @@ void main() {
     String endpointRotateBody =
         '{"endpointId":"ep_live","rotated":true,"secret":"ZZZ7RABQKPZ3STVWX234",'
         '"rotatingUntil":1800003600000,"serverTime":1800000000000}',
+    int sendStatus = 202,
+    String sendBody =
+        '{"receipt":"queued","messageId":"m_send_1","action":"new","evicted":[]}',
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
@@ -131,6 +134,7 @@ void main() {
     final endpointListAsked = <http.Request>[];
     final endpointRevokeAsked = <http.Request>[];
     final endpointRotateAsked = <http.Request>[];
+    final sendAsked = <http.Request>[];
     final removed = <String>[];
     final peerRows = <FnthinkPeer>[];
     final peersShown = <FnthinkPeer>[...peers];
@@ -205,6 +209,16 @@ void main() {
               },
             );
           }
+          if (req.url.path == contract.apiPath('message')) {
+            sendAsked.add(req);
+            return http.Response(
+              sendBody,
+              sendStatus,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8',
+              },
+            );
+          }
           armAsked.add(req);
           return http.Response(armBody, armStatus);
         }),
@@ -272,6 +286,7 @@ void main() {
       endpointListAsked: () => endpointListAsked,
       endpointRevokeAsked: () => endpointRevokeAsked,
       endpointRotateAsked: () => endpointRotateAsked,
+      sendAsked: () => sendAsked,
       removed: () => removed,
     );
   }
@@ -1921,6 +1936,213 @@ void main() {
       );
     });
   });
+
+  group('发一条给名单里那台（§4-10 片2b）', () {
+    const peerAddress = 'AAAAAAAAAAAAAAAAAAAA';
+
+    Future<void> tapSend(WidgetTester tester) async {
+      final button = find.byKey(
+        const ValueKey('fnthink-peer-send-$peerAddress'),
+      );
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> fill(
+      WidgetTester tester, {
+      String title = '',
+      String body = '',
+    }) async {
+      await tester.enterText(
+        find.byKey(const ValueKey('fnthink-send-title')),
+        title,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('fnthink-send-body')),
+        body,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('没配对过任何一台 ⇒ 这一格根本没有发送入口', (tester) async {
+      stubChannels();
+      final h = harness();
+      await pump(tester, h.page);
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-send-$peerAddress')),
+        findsNothing,
+        reason: '收件人只能来自本机名单；给一个没有候选的入口，点下去只会换回一句 403',
+      );
+      expect(h.sendAsked(), isEmpty);
+    });
+
+    testWidgets('填上正文点发送 ⇒ 打到契约那扇门，而标题在已签的正文里', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: [
+          const FnthinkPeer(
+            peerAddress: peerAddress,
+            publicKey: 'AAAApublicKeyBytesForTests',
+            level: 'L1',
+            grantedAt: 1800000000000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+      await tapSend(tester);
+      await fill(tester, title: '到家了', body: '门已开');
+      await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
+      await tester.pumpAndSettle();
+
+      final request = h.sendAsked().single;
+      expect(request.url.path, contract.apiPath('message'));
+      final envelope = jsonDecode(request.body) as Map<String, Object?>;
+      expect(envelope.keys.toSet(), {'sender', 'signature', 'fields'});
+      final fields = envelope['fields']! as Map<String, Object?>;
+      expect(fields['target'], peerAddress);
+      expect('${fields['body']}', contains('到家了'));
+      expect(
+        find.text(l10n.fnthinkSendSent('m_send_1')),
+        findsOneWidget,
+        reason: '"已交给服务端排队"与"已送达"是两句话 —— 后者只有那台的回执说得',
+      );
+    });
+
+    testWidgets('正文空着 ⇒ 「发送」是灰的，一个字节都不发', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: [
+          const FnthinkPeer(
+            peerAddress: peerAddress,
+            publicKey: 'AAAApublicKeyBytesForTests',
+            level: 'L1',
+            grantedAt: 1800000000000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      await pump(tester, h.page);
+      await tapSend(tester);
+      await fill(tester, title: '只有标题没有正文');
+      final submit = find.byKey(const ValueKey('fnthink-send-submit'));
+      expect(
+        tester.widget<TextButton>(submit).onPressed,
+        isNull,
+        reason: '空正文发出去那边只会收到一句空话，而回执照样算"送达"',
+      );
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(h.sendAsked(), isEmpty);
+    });
+
+    testWidgets('弹层上点取消 ⇒ 那一发不发', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: [
+          const FnthinkPeer(
+            peerAddress: peerAddress,
+            publicKey: 'AAAApublicKeyBytesForTests',
+            level: 'L1',
+            grantedAt: 1800000000000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+      await tapSend(tester);
+      await fill(tester, body: '本来要发的正文');
+      await tester.tap(find.text(l10n.cancel));
+      await tester.pumpAndSettle();
+      expect(h.sendAsked(), isEmpty, reason: '取消就是取消：这一发不该有个"顺便试一下"');
+      expect(find.byKey(const ValueKey('fnthink-send-note')), findsNothing);
+    });
+
+    testWidgets('403 说成"对方没给这一档权限或还没配对"，不折叠成一句"发送失败"', (tester) async {
+      stubChannels();
+      final h = harness(
+        sendStatus: 403,
+        sendBody: '{"receipt":"rejected_capability"}',
+        peers: [
+          const FnthinkPeer(
+            peerAddress: peerAddress,
+            publicKey: 'AAAApublicKeyBytesForTests',
+            level: 'L1',
+            grantedAt: 1800000000000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+      await tapSend(tester);
+      await fill(tester, body: '发一条试试');
+      await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.fnthinkSendRejectedCapability), findsOneWidget);
+      expect(find.byKey(const ValueKey('fnthink-send-note')), findsOneWidget);
+    });
+
+    testWidgets('被挤掉过几条 ⇒ 那句话当场出现在发送端（不静默丢）', (tester) async {
+      stubChannels();
+      final h = harness(
+        sendBody:
+            '{"receipt":"queued","messageId":"m_send_2","action":"new",'
+            '"evicted":["m_old_1","m_old_2"]}',
+        peers: [
+          const FnthinkPeer(
+            peerAddress: peerAddress,
+            publicKey: 'AAAApublicKeyBytesForTests',
+            level: 'L1',
+            grantedAt: 1800000000000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+      await tapSend(tester);
+      await fill(tester, body: '排队里挤掉了两条');
+      await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(l10n.fnthinkSendEvicted(2)),
+        findsOneWidget,
+        reason:
+            '服务端那边每条已写了 dropped 回执，但要等下一次 poll 才看得见；'
+            '点发送的人当场就该知道自己上一条被挤掉了',
+      );
+    });
+
+    testWidgets('本机签不出来 ⇒ 说的是"还没就绪"，而一个字节都不离机', (tester) async {
+      stubChannels();
+      final h = harness(
+        canSign: false,
+        peers: [
+          const FnthinkPeer(
+            peerAddress: peerAddress,
+            publicKey: 'AAAApublicKeyBytesForTests',
+            level: 'L1',
+            grantedAt: 1800000000000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+      await tapSend(tester);
+      await fill(tester, body: '签不出来也要试');
+      await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
+      await tester.pumpAndSettle();
+      expect(h.sendAsked(), isEmpty);
+      expect(
+        find.byKey(const ValueKey('fnthink-send-note')),
+        findsOneWidget,
+        reason: '把"身份问题"说成"网络失败"，用户就会去检查一直好好的网络',
+      );
+      expect(find.text(l10n.fnthinkSendTransportError), findsNothing);
+    });
+  });
 }
 
 /// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，
@@ -1988,6 +2210,7 @@ class _Harness {
     required this.endpointListAsked,
     required this.endpointRevokeAsked,
     required this.endpointRotateAsked,
+    required this.sendAsked,
     required this.removed,
   });
 
@@ -2028,6 +2251,9 @@ class _Harness {
   /// 换口令那一发（同一套假服务器）。数得到它被发了几次，是为了断"确认之前不发"与
   /// "换完只发这一发"—— 那一发会立刻让旧口令开始倒计时，多点一下就是再倒一次。
   final List<http.Request> Function() endpointRotateAsked;
+
+  /// 「发一条」那一发真实发出去的请求（§4-10 片2b）。
+  final List<http.Request> Function() sendAsked;
 
   /// 本机删行被调用时点到的地址码（替身记下来的）。
   final List<String> Function() removed;

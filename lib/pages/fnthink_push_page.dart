@@ -138,6 +138,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// "服务器撤了而本机那一行没删掉"必须经得起回去再看一眼，不能弹个 toast 就消失。
   ({FnthinkPeer peer, FnthinkPeerRevoke revoke})? _peerRevoke;
 
+  /// 最近一次「发一条」的结论（null = 这一页还没发过）。
+  /// 与撤销那一条同一个理由：只弹一句 toast 的话，用户回头就分不出"没发出去"与
+  /// "发出去了但那台还没回执" —— 而这两件事的下一步动作完全不同。
+  ({FnthinkPeer peer, FnthinkSendResult result})? _sendNote;
+
   /// 刚建好的那条接入端点。**口令只在这里活这么长**：页面不把它写进 prefs、不写进表、
   /// 不拼进任何日志 —— 这一格存在的目的就是让用户当场抄走，抄不到就重新建一把。
   /// （留一份"方便回去再看"的副本是这个功能最容易做错的形状：那等于把长期凭证存进
@@ -522,6 +527,71 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     return l10n.fnthinkRevoked(peer);
   }
 
+  /// 发一条给名单里那一台（§4-10 片2b）。
+  ///
+  /// 两件事按本仓既有纪律摆：
+  ///  - **取消 ⇒ 一个字节都不发**：`showDialog` 返回 null 就早退。这一条不是想当然 ——
+  ///    取消那一路是本格唯一没有"服务器帮我把关"的路径，写错的表现是"我明明点了取消"。
+  ///  - **弹层的 controller 归弹层自己**（与 `_HostDialog` 同一理由）：调用方在 `await` 一返回
+  ///    就 dispose，会打在还在跑退场动画的 TextField 上，而那种错只在"真点过一次"时现形。
+  ///  - 页面**不判协议**：这里只把 `FnthinkSendStatus` 翻成一句人话。授权、配对、去重、
+  ///    时间容差都在内核与服务端判过并反证过；页面再判一遍就是第二份实现。
+  Future<void> _sendTo(FnthinkPeer peer) async {
+    if (_busy) return;
+    final draft = await showDialog<({String title, String text})>(
+      context: context,
+      builder: (context) => _SendDialog(peerAddress: peer.peerAddress),
+    );
+    if (draft == null || !mounted) return;
+    setState(() => _busy = true);
+    final result = await _coordinator.sendNotice(
+      peer: peer.peerAddress,
+      title: draft.title,
+      text: draft.text,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _sendNote = (peer: peer, result: result);
+    });
+  }
+
+  /// 那一句结论。**每一种状态各有各的原话**（与收货链路那五种"起不来"同一条纪律）：
+  /// 折叠成一句"发送失败"，用户唯一的办法是再点一次，而其中几种（没配对、时间没校上、
+  /// 本机签不出来）点一百次都是同一个结果。
+  String _sendText(
+    AppLocalizations l10n,
+    ({FnthinkPeer peer, FnthinkSendResult result})? note,
+  ) {
+    if (note == null) return '';
+    final r = note.result;
+    final base = switch (r.status) {
+      FnthinkSendStatus.accepted => l10n.fnthinkSendSent(r.messageId ?? ''),
+      FnthinkSendStatus.rejectedUnsigned => l10n.fnthinkSendRejectedUnsigned,
+      FnthinkSendStatus.rejectedCapability =>
+        l10n.fnthinkSendRejectedCapability,
+      FnthinkSendStatus.replayed => l10n.fnthinkSendReplayed,
+      FnthinkSendStatus.needsCalibration => l10n.fnthinkSendNeedsCalibration,
+      FnthinkSendStatus.rateLimited => l10n.fnthinkSendRateLimited(
+        r.retryAfterSeconds ?? 0,
+      ),
+      FnthinkSendStatus.transportError => l10n.fnthinkSendTransportError,
+      FnthinkSendStatus.signingUnavailable =>
+        l10n.fnthinkSendSigningUnavailable,
+      FnthinkSendStatus.preconditionFailed => l10n.fnthinkSendPrecondition(
+        r.reason ?? '',
+      ),
+      FnthinkSendStatus.badInput => l10n.fnthinkSendBadInput,
+      FnthinkSendStatus.unparseable => l10n.fnthinkSendUnparseable,
+    };
+    // 挤位那句话只在真挤掉过东西时才出现。发送端是唯一能看见这件事的地方 ——
+    // 服务端那边各条已写了 dropped 回执，但那要等下一次 poll 才看得见。
+    if (r.status == FnthinkSendStatus.accepted && r.evicted.isNotEmpty) {
+      return '$base ${l10n.fnthinkSendEvicted(r.evicted.length)}';
+    }
+    return base;
+  }
+
   /// 建一条接入端点（T42 第七片那一发）。名字用本地化里那句默认外号，这里**不给输入框**：
   /// 这一发的价值全在"回一把只出现一次的口令"，外号是管理面那列可以以后改的东西，
   /// 而为一个非关键输入开一个弹层，就把这个页面变成了表单生命周期那类事故的发生地。
@@ -806,7 +876,20 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
                 child: Text(l10n.fnthinkPeerRevoke),
               ),
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: ValueKey('fnthink-peer-send-${peer.peerAddress}'),
+                // 「发一条」挂在**这一行**上而不是页面顶部一个通用按钮：收件人只能是本机
+                // 同意过的那几台（名单就是候选全集），让人先在行里选中那台再填内容，
+                // 比在弹层里再挑一次少一处可能填错的地址（填错了服务端只会回一句同形的 403）。
+                onPressed: _busy ? null : () => _sendTo(peer),
+                child: Text(l10n.fnthinkPeerSend),
+              ),
+            ),
           ],
+        if (_sendNote != null)
+          _Note(keyName: 'fnthink-send-note', text: _sendText(l10n, _sendNote)),
         if (revokeEntry != null)
           _Note(
             keyName: 'fnthink-peer-revoke-note',
@@ -1551,6 +1634,104 @@ class _HostDialogState extends State<_HostDialog> {
         TextButton(
           onPressed: () => Navigator.pop(context, _controller.text),
           child: Text(l10n.save),
+        ),
+      ],
+    );
+  }
+}
+
+/// 「发一条」那一格的输入弹层（§4-10 片2b）。
+///
+/// controller 与生命周期归它自己（与 `_HostDialog` 同一条理由：调用方在 `await` 返回时
+/// dispose 会打在还在做退场动画的 TextField 上）。
+///
+/// 为什么**这里**就拦空正文：空正文发出去，那边只会收到一句空话，而回执照样是"送达"——
+/// 那正是"不静默丢、也不无谓留"那条不变量不想看到的形状（内容没丢，但这一发本就不该发生）。
+/// 只在弹层里用「发送」按钮的可用性表达，页面不再判一次：两处判同一件事，早晚一处改了另一处没改。
+class _SendDialog extends StatefulWidget {
+  const _SendDialog({required this.peerAddress});
+
+  final String peerAddress;
+
+  @override
+  State<_SendDialog> createState() => _SendDialogState();
+}
+
+class _SendDialogState extends State<_SendDialog> {
+  final TextEditingController _title = TextEditingController();
+  final TextEditingController _body = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      backgroundColor: AppColors.cardBg(context),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: Text(l10n.fnthinkSendSheetTitle(widget.peerAddress)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const ValueKey('fnthink-send-title'),
+            controller: _title,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(hintText: l10n.fnthinkSendTitleHint),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('fnthink-send-body'),
+            controller: _body,
+            minLines: 2,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(hintText: l10n.fnthinkSendBodyHint),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.fnthinkSendEnvelopeNote,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // 与上面那句一起说，而不是等发完再补：这两句讲的是"这一路与端点那一路哪里不一样"，
+          // 用户是在填内容时才需要知道它 —— 发完之后再告诉他，他已经点过发送了。
+          Text(
+            l10n.fnthinkSendBoundary,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        TextButton(
+          key: const ValueKey('fnthink-send-submit'),
+          onPressed: _body.text.trim().isEmpty
+              ? null
+              : () => Navigator.pop(context, (
+                  title: _title.text,
+                  text: _body.text,
+                )),
+          child: Text(
+            _body.text.trim().isEmpty
+                ? l10n.fnthinkSendEmptyBody
+                : l10n.fnthinkSendSubmit,
+          ),
         ),
       ],
     );

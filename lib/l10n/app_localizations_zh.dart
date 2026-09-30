@@ -3256,6 +3256,78 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerRevoke => '撤销';
 
   @override
+  String get fnthinkPeerSend => '发一条';
+
+  @override
+  String fnthinkSendSheetTitle(String peer) {
+    return '发给 $peer';
+  }
+
+  @override
+  String get fnthinkSendTitleHint => '标题（可留空）';
+
+  @override
+  String get fnthinkSendBodyHint => '正文';
+
+  @override
+  String get fnthinkSendEnvelopeNote =>
+      '设备这一路的标题走的是正文信封：签名的字节里没有独立的标题字段，端点那两种形态才有。收件人看到的标题来自这一段正文。';
+
+  @override
+  String get fnthinkSendEmptyBody => '正文空着不发——那边只会收到一句空话';
+
+  @override
+  String get fnthinkSendSubmit => '发送';
+
+  @override
+  String fnthinkSendSent(String id) {
+    return '已交给服务端排队（$id）。送达以那一台的回执为准。';
+  }
+
+  @override
+  String fnthinkSendEvicted(int count) {
+    return '另外 $count 条因为每设备上限被挤掉了。';
+  }
+
+  @override
+  String get fnthinkSendRejectedUnsigned => '签名不被认：这台设备的身份在服务端那侧对不上（可能要重新配对）';
+
+  @override
+  String get fnthinkSendRejectedCapability => '对方没给这一档权限，或你们还没配对';
+
+  @override
+  String get fnthinkSendReplayed => '撞上了去重窗口：等一会儿再发，别连点';
+
+  @override
+  String get fnthinkSendNeedsCalibration => '时间没校上：先点一次「立即收取」再发';
+
+  @override
+  String fnthinkSendRateLimited(int seconds) {
+    return '这一分钟发得太多，$seconds 秒后再试';
+  }
+
+  @override
+  String get fnthinkSendTransportError => '连不上服务端，这一条没发出去';
+
+  @override
+  String get fnthinkSendSigningUnavailable => '本机签名不可用：去上面重置三件套，或重新配对';
+
+  @override
+  String fnthinkSendPrecondition(String reason) {
+    return '本机还没就绪：$reason';
+  }
+
+  @override
+  String get fnthinkSendBadInput => '正文里有不能上屏的字符，这一条发不出去';
+
+  @override
+  String get fnthinkSendUnparseable => '服务端收了但没给编号，这一条追不回来';
+
+  @override
+  String get fnthinkSendBoundary =>
+      '「发一条」走的是设备签名那一路，只能发给名单里那台；它不等等于送达——那台真显示出来并回了执，才算送到。';
+
+  @override
   String get fnthinkRevokeAskTitle => '撤销这台设备的推送许可？';
 
   @override

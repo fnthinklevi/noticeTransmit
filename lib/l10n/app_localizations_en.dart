@@ -3394,6 +3394,87 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPeerRevoke => 'Revoke';
 
   @override
+  String get fnthinkPeerSend => 'Send';
+
+  @override
+  String fnthinkSendSheetTitle(String peer) {
+    return 'Send to $peer';
+  }
+
+  @override
+  String get fnthinkSendTitleHint => 'Title (optional)';
+
+  @override
+  String get fnthinkSendBodyHint => 'Message';
+
+  @override
+  String get fnthinkSendEnvelopeNote =>
+      'On the device path the title travels inside the message envelope: the signed bytes have no separate title field, only the endpoint forms do. What the recipient shows as a title comes from this body.';
+
+  @override
+  String get fnthinkSendEmptyBody =>
+      'Nothing to send — the other side would only get an empty line';
+
+  @override
+  String get fnthinkSendSubmit => 'Send';
+
+  @override
+  String fnthinkSendSent(String id) {
+    return 'Queued on the server ($id). Delivery is proven only by that device\'s ack.';
+  }
+
+  @override
+  String fnthinkSendEvicted(int count) {
+    return '$count older message(s) were dropped to stay under the per-device cap.';
+  }
+
+  @override
+  String get fnthinkSendRejectedUnsigned =>
+      'Signature not recognised: this device\'s identity does not match on the server side (it may need re-pairing)';
+
+  @override
+  String get fnthinkSendRejectedCapability =>
+      'The other side did not grant this level, or you are not paired yet';
+
+  @override
+  String get fnthinkSendReplayed =>
+      'Hit the de-duplication window: wait a moment, don\'t tap twice';
+
+  @override
+  String get fnthinkSendNeedsCalibration =>
+      'Clock not calibrated: tap Receive now once, then send';
+
+  @override
+  String fnthinkSendRateLimited(int seconds) {
+    return 'Too many this minute — try again in $seconds seconds';
+  }
+
+  @override
+  String get fnthinkSendTransportError =>
+      'The server could not be reached; this message was not sent';
+
+  @override
+  String get fnthinkSendSigningUnavailable =>
+      'This device cannot sign: reset the credential triple above, or pair again';
+
+  @override
+  String fnthinkSendPrecondition(String reason) {
+    return 'This device is not ready: $reason';
+  }
+
+  @override
+  String get fnthinkSendBadInput =>
+      'The text contains a character that cannot be sent';
+
+  @override
+  String get fnthinkSendUnparseable =>
+      'The server accepted it without an id, so this message cannot be tracked';
+
+  @override
+  String get fnthinkSendBoundary =>
+      'Send uses the signed device path and only goes to a device on your list; it is not proof of delivery — only that device\'s ack is.';
+
+  @override
   String get fnthinkRevokeAskTitle => 'Revoke this device\'s push permission?';
 
   @override

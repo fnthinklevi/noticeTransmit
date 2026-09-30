@@ -6074,6 +6074,126 @@ abstract class AppLocalizations {
   /// **'撤销'**
   String get fnthinkPeerRevoke;
 
+  /// No description provided for @fnthinkPeerSend.
+  ///
+  /// In zh, this message translates to:
+  /// **'发一条'**
+  String get fnthinkPeerSend;
+
+  /// No description provided for @fnthinkSendSheetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'发给 {peer}'**
+  String fnthinkSendSheetTitle(String peer);
+
+  /// No description provided for @fnthinkSendTitleHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题（可留空）'**
+  String get fnthinkSendTitleHint;
+
+  /// No description provided for @fnthinkSendBodyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get fnthinkSendBodyHint;
+
+  /// No description provided for @fnthinkSendEnvelopeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备这一路的标题走的是正文信封：签名的字节里没有独立的标题字段，端点那两种形态才有。收件人看到的标题来自这一段正文。'**
+  String get fnthinkSendEnvelopeNote;
+
+  /// No description provided for @fnthinkSendEmptyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文空着不发——那边只会收到一句空话'**
+  String get fnthinkSendEmptyBody;
+
+  /// No description provided for @fnthinkSendSubmit.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送'**
+  String get fnthinkSendSubmit;
+
+  /// No description provided for @fnthinkSendSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'已交给服务端排队（{id}）。送达以那一台的回执为准。'**
+  String fnthinkSendSent(String id);
+
+  /// No description provided for @fnthinkSendEvicted.
+  ///
+  /// In zh, this message translates to:
+  /// **'另外 {count} 条因为每设备上限被挤掉了。'**
+  String fnthinkSendEvicted(int count);
+
+  /// No description provided for @fnthinkSendRejectedUnsigned.
+  ///
+  /// In zh, this message translates to:
+  /// **'签名不被认：这台设备的身份在服务端那侧对不上（可能要重新配对）'**
+  String get fnthinkSendRejectedUnsigned;
+
+  /// No description provided for @fnthinkSendRejectedCapability.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方没给这一档权限，或你们还没配对'**
+  String get fnthinkSendRejectedCapability;
+
+  /// No description provided for @fnthinkSendReplayed.
+  ///
+  /// In zh, this message translates to:
+  /// **'撞上了去重窗口：等一会儿再发，别连点'**
+  String get fnthinkSendReplayed;
+
+  /// No description provided for @fnthinkSendNeedsCalibration.
+  ///
+  /// In zh, this message translates to:
+  /// **'时间没校上：先点一次「立即收取」再发'**
+  String get fnthinkSendNeedsCalibration;
+
+  /// No description provided for @fnthinkSendRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一分钟发得太多，{seconds} 秒后再试'**
+  String fnthinkSendRateLimited(int seconds);
+
+  /// No description provided for @fnthinkSendTransportError.
+  ///
+  /// In zh, this message translates to:
+  /// **'连不上服务端，这一条没发出去'**
+  String get fnthinkSendTransportError;
+
+  /// No description provided for @fnthinkSendSigningUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机签名不可用：去上面重置三件套，或重新配对'**
+  String get fnthinkSendSigningUnavailable;
+
+  /// No description provided for @fnthinkSendPrecondition.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机还没就绪：{reason}'**
+  String fnthinkSendPrecondition(String reason);
+
+  /// No description provided for @fnthinkSendBadInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文里有不能上屏的字符，这一条发不出去'**
+  String get fnthinkSendBadInput;
+
+  /// No description provided for @fnthinkSendUnparseable.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端收了但没给编号，这一条追不回来'**
+  String get fnthinkSendUnparseable;
+
+  /// No description provided for @fnthinkSendBoundary.
+  ///
+  /// In zh, this message translates to:
+  /// **'「发一条」走的是设备签名那一路，只能发给名单里那台；它不等等于送达——那台真显示出来并回了执，才算送到。'**
+  String get fnthinkSendBoundary;
+
   /// No description provided for @fnthinkRevokeAskTitle.
   ///
   /// In zh, this message translates to:
