@@ -8,6 +8,8 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
+import '../services/channel_display.dart';
+import '../services/channel_health_store.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_identity_service.dart';
@@ -31,6 +33,7 @@ class FnthinkPushDeps {
     required this.identity,
     required this.loadPeers,
     required this.presence,
+    this.healthOf,
   });
 
   factory FnthinkPushDeps.fromLocator() => FnthinkPushDeps(
@@ -44,6 +47,10 @@ class FnthinkPushDeps {
     // （排/撤那一半在协调者 + scheduler 里，各只有一处）。DI 漏接时这一行取不到值 —— 守卫在
     // `test/architecture/fnthink_presence_guard_test.dart`。
     presence: GetIt.instance<FnthinkPresenceScheduler>(),
+    // T60（approach B）：对着某台服务器的最近一次发送健康度。读源与写源（协调者 recordHealth
+    // 落到 ChannelHealthStore）都认 `kFnthinkChannelSlug` 这一个 family，页面不自己 new 读写实现。
+    healthOf: (host) =>
+        GetIt.instance<ChannelHealthStore>().of(kFnthinkChannelSlug, host),
   );
 
   final FnthinkContractLoader contracts;
@@ -51,6 +58,9 @@ class FnthinkPushDeps {
   final FnthinkIdentityService identity;
   final Future<List<FnthinkPeer>> Function() loadPeers;
   final FnthinkPresenceScheduler presence;
+
+  /// 读某台服务器的健康度（null = 这台没装配健康度链路 ⇒ 那一行不画/显示"从没发过"）。
+  final ChannelHealth? Function(String host)? healthOf;
 }
 
 /// 幻念推送页（T44 的②③ + T42 的入口那半）。
@@ -101,6 +111,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// **它与 [_enabled] 是两件不同的事**：开关是"要不要收"，同意是"允不允许内容离开这台设备"。
   /// 两格都在接收卡上、都不许替用户点 —— 升级不改任一个。
   bool _consented = false;
+
+  /// T60（approach B）：最近一次发送与服务器通话的健康度（family=fnthink、id=服务器 host）。
+  /// null = 这一台对着这个服务器从没发出过一发（或还没读到）⇒ 那一行显示"从没发过"，
+  /// 而不是猜一个"正常"。
+  ChannelHealth? _serverHealth;
 
   /// 最近一次"起不来"的原话（五种各有各的成因，不许归并成"出错了"）。
   String? _startNote;
@@ -323,6 +338,35 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       _enabled = values[0];
       _consented = values[1];
     });
+    // T60（approach B）：对着这个服务器最近一次发送通没通过（读通道健康度）。
+    // 主机名要在 settings 那边现取（发送用的就是它），健康度按 (fnthink, host) 读那一条；
+    // 读不到 = 这台对这个服务器从没发出过一发 ⇒ 那一行说"从没发过"，不猜"正常"。
+    await _readServerHealth();
+  }
+
+  Future<void> _readServerHealth() async {
+    final settings = _settings;
+    if (settings == null) return;
+    final String host;
+    try {
+      host = await settings.host;
+    } catch (_) {
+      // 服务地址本身没配好：这一行留"从没发过"（连该读哪台都不知道，谈不上健康度）。
+      if (!mounted) return;
+      setState(() => _serverHealth = null);
+      return;
+    }
+    final health = _deps.healthOf?.call(host);
+    if (!mounted) return;
+    setState(() => _serverHealth = health);
+  }
+
+  String _serverHealthText(AppLocalizations l10n) {
+    final health = _serverHealth;
+    if (health == null) return l10n.fnthinkHealthNever;
+    return health.reachable
+        ? l10n.fnthinkHealthReachable
+        : l10n.fnthinkHealthUnreachable;
   }
 
   /// 一次性同意「通知内容经服务器中转」（T56）。三情形说明放在确认弹层里，确认键才写下同意。
@@ -1315,6 +1359,14 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           _Note(
             keyName: 'fnthink-consent-granted',
             text: l10n.fnthinkConsentGranted,
+          ),
+        // T60（approach B）：这一台对着当前服务器最近一次发送通没通过。
+        // 只在同意之后画 —— 没同意时任何一发都在本机就被挡下（没有"服务器通不通"这回事），
+        // 画出来只会把"还没同意"错读成"服务器坏了"。
+        if (_consented)
+          _Note(
+            keyName: 'fnthink-server-health',
+            text: _serverHealthText(l10n),
           ),
         // 「被杀之后还有没有人去问一次货」（T33 第二片 / §4-9）：这一行读的是**原生那份排程**。
         // 收货循环活着 ≠ 闹钟排着（进程被杀之后正是"循环没了而闹钟还在"），所以两行必须分开说。

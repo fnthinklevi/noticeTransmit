@@ -19,6 +19,7 @@ import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
+import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test_setup.dart';
@@ -130,6 +131,7 @@ void main() {
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
     bool peersFail = false,
+    ChannelHealth? Function(String host)? healthOf,
   }) {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
@@ -289,6 +291,8 @@ void main() {
           // 页面拿到的就是生产那一份（`status()` 读 `fnthinkPresenceStatus`），
           // 而通道那头由各条用例自己决定回什么。
           presence: FnthinkPresenceScheduler(contracts: loader),
+          // T60：对着服务器的健康度读替身。默认 null ⇒ 那一行"从没发过"。
+          healthOf: healthOf,
         ),
       ),
       coordinator: coordinator,
@@ -505,6 +509,50 @@ void main() {
       );
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(FnthinkSettings.keyConsentVersion), isNull);
+    });
+  });
+
+  group('服务器健康度那一行（T60 approach B）', () {
+    testWidgets('对着服务器有应答 ⇒ 那一行说"服务器有应答"（不是猜的，是从健康度读的）', (tester) async {
+      stubChannels();
+      final h = harness(
+        healthOf: (_) =>
+            const ChannelHealth(reachable: true, latencyMs: 42, probedAt: 1),
+      );
+      final l10n = await pump(tester, h.page);
+      expect(
+        find.byKey(const ValueKey('fnthink-server-health')),
+        findsOneWidget,
+      );
+      expect(find.text(l10n.fnthinkHealthReachable), findsOneWidget);
+    });
+
+    testWidgets('连不上 ⇒ 那一行说"连不上服务器"', (tester) async {
+      stubChannels();
+      final h = harness(
+        healthOf: (_) =>
+            const ChannelHealth(reachable: false, latencyMs: 0, probedAt: 1),
+      );
+      final l10n = await pump(tester, h.page);
+      expect(find.text(l10n.fnthinkHealthUnreachable), findsOneWidget);
+    });
+
+    testWidgets('从没发过 ⇒ 那一行如实说"还没发出去过"，不冒充正常', (tester) async {
+      stubChannels();
+      final h = harness(); // healthOf 默认 null
+      final l10n = await pump(tester, h.page);
+      expect(find.text(l10n.fnthinkHealthNever), findsOneWidget);
+    });
+
+    testWidgets('还没同意中转 ⇒ 那一行根本不画（"还没同意"不该被读成"服务器坏了"）', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({}); // 刻意不种同意
+      final h = harness(
+        healthOf: (_) =>
+            const ChannelHealth(reachable: false, latencyMs: 0, probedAt: 1),
+      );
+      await pump(tester, h.page);
+      expect(find.byKey(const ValueKey('fnthink-server-health')), findsNothing);
     });
   });
 

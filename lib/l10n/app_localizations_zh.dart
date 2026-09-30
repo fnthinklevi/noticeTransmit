@@ -3068,6 +3068,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkConsentNotGranted => '这台还没同意内容经服务器中转，所以那一发什么都没做';
 
   @override
+  String get fnthinkHealthNever => '最近一次发送：这台对这个服务器还没发出去过';
+
+  @override
+  String get fnthinkHealthReachable => '最近一次发送：服务器有应答';
+
+  @override
+  String get fnthinkHealthUnreachable => '最近一次发送：连不上服务器';
+
+  @override
   String get fnthinkStatusRunning => '正在收取';
 
   @override

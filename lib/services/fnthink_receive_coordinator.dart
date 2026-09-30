@@ -178,6 +178,30 @@ FnthinkReceiveLoop buildFnthinkReceiveLoop(FnthinkLoopSpec spec) {
 ///
 /// 顺序也是判据之一：契约先于设置（设置项的默认值要从契约读），设置先于签名探测
 /// （关着的时候不该去向 KeyStore 要一次签名能力 —— 那是把"这个功能没开"变成"系统在后台悄悄动钥匙"）。
+
+/// 服务器有没有答上这一发（通道健康度用），null = 这一发不是健康度信号。
+///
+/// 判据只有一条：**这一发有没有拿到一个来自服务器的真实 HTTP 响应**。`accepted` 与
+/// 各类被拒（`rejectedUnsigned`/`rejectedCapability`/`replayed`/`needsCalibration`/
+/// `rateLimited`/`unparseable`）都拿到过响应 ⇒ `true`（服务器在、答了，哪怕答的是拒绝）；
+/// `transportError` ⇒ `false`（没答上）。而 `signingUnavailable`/`preconditionFailed`/
+/// `badInput` 是本机就没发出去 ⇒ `null`，不能拿它冒充"服务器挂了"。
+bool? fnthinkSendStatusServerReachability(FnthinkSendStatus status) {
+  return switch (status) {
+    FnthinkSendStatus.transportError => false,
+    FnthinkSendStatus.signingUnavailable ||
+    FnthinkSendStatus.preconditionFailed ||
+    FnthinkSendStatus.badInput => null,
+    FnthinkSendStatus.accepted ||
+    FnthinkSendStatus.rejectedUnsigned ||
+    FnthinkSendStatus.rejectedCapability ||
+    FnthinkSendStatus.replayed ||
+    FnthinkSendStatus.needsCalibration ||
+    FnthinkSendStatus.rateLimited ||
+    FnthinkSendStatus.unparseable => true,
+  };
+}
+
 class FnthinkReceiveCoordinator {
   FnthinkReceiveCoordinator({
     required this.contracts,
@@ -190,6 +214,7 @@ class FnthinkReceiveCoordinator {
     this.presenceNotice,
     this.recordSent,
     this.registerDevice,
+    this.recordHealth,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
     FnthinkCredentialStore Function(FnthinkContract contract)? buildCredentials,
     FnthinkLoopFactory? loopFactory,
@@ -270,6 +295,23 @@ class FnthinkReceiveCoordinator {
   /// 守卫钉在 `test/architecture/fnthink_receive_wiring_test.dart`。
   final Future<FnthinkRegisterResult> Function(FnthinkLoopSpec spec)?
   registerDevice;
+
+  /// T60（approach B）：把「这一发有没有真的和服务器通上话」记进通道健康度
+  /// （family=`fnthink`，id=服务器 host）。幻念发送走的是它自己的 Dart 链路、不进原生
+  /// 通道框架，但健康度这套 Dart 数据结构（`ChannelHealthStore`）是共享的 —— 这就是
+  /// "发送侧通道化"在不改原生 RetryQueue 的前提下能复用到的那一块。
+  ///
+  /// ⚠ 只有**服务器给过真实 HTTP 响应**的那些档才算一个健康度信号：`accepted`/各类被拒
+  /// （403/429…）都证明"服务器在、答了"（可达），`transportError` 证明"没答上"（不可达）；
+  /// 而 `signingUnavailable`/`preconditionFailed`/`badInput` **一个字节都没离机**，把它们
+  /// 记成 unreachable 会把"这台没同意/没配好"错报成"服务器挂了"（两种修法完全不同）。
+  /// 这三种 ⇒ [fnthinkSendStatusServerReachability] 返回 null ⇒ 这一发根本不进健康度。
+  final Future<void> Function({
+    required String host,
+    required bool reachable,
+    required int latencyMs,
+  })?
+  recordHealth;
 
   /// 已经登记过的那个组合（`baseUri|addressCode`）。null = 这一次进程里还没成功过。
   String? _registeredFor;
@@ -846,11 +888,13 @@ class FnthinkReceiveCoordinator {
     }
     final service = _serviceFactory(resolved.spec!);
     final FnthinkSendResult result;
+    final watch = Stopwatch()..start();
     try {
       result = await service.sendNotice(peer: peer, title: title, text: text);
     } finally {
       service.dispose();
     }
+    watch.stop();
     await _recordSentOut(
       contract: resolved.spec!.contract,
       peer: peer,
@@ -858,7 +902,33 @@ class FnthinkReceiveCoordinator {
       text: text,
       result: result,
     );
+    await _recordSendHealth(
+      spec: resolved.spec!,
+      result: result,
+      latencyMs: watch.elapsedMilliseconds,
+    );
     return result;
+  }
+
+  /// 把这一发的服务器可达性记进通道健康度（T60 approach B）。
+  ///
+  /// 只在 [fnthinkSendStatusServerReachability] 给出非 null 时记 —— 本机就没发出去的那几种
+  /// （签不出来/前置条件不满足/内容不合法）不是服务器健康度，冒充成 unreachable 会把
+  /// "这台还没同意"错报成"服务器挂了"。hook 为 null（这台没装配健康度）⇒ 什么都不做。
+  Future<void> _recordSendHealth({
+    required FnthinkLoopSpec spec,
+    required FnthinkSendResult result,
+    required int latencyMs,
+  }) async {
+    final hook = recordHealth;
+    if (hook == null) return;
+    final reachable = fnthinkSendStatusServerReachability(result.status);
+    if (reachable == null) return;
+    await hook(
+      host: spec.baseUri.host,
+      reachable: reachable,
+      latencyMs: latencyMs,
+    );
   }
 
   /// 把「我发出去的这一条」落进本机历史。**失败不改发送的结论**（那边已经成功了），

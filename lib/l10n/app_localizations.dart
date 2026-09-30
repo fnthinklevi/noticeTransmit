@@ -5756,6 +5756,24 @@ abstract class AppLocalizations {
   /// **'这台还没同意内容经服务器中转，所以那一发什么都没做'**
   String get fnthinkConsentNotGranted;
 
+  /// No description provided for @fnthinkHealthNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次发送：这台对这个服务器还没发出去过'**
+  String get fnthinkHealthNever;
+
+  /// No description provided for @fnthinkHealthReachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次发送：服务器有应答'**
+  String get fnthinkHealthReachable;
+
+  /// No description provided for @fnthinkHealthUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近一次发送：连不上服务器'**
+  String get fnthinkHealthUnreachable;
+
   /// No description provided for @fnthinkStatusRunning.
   ///
   /// In zh, this message translates to:

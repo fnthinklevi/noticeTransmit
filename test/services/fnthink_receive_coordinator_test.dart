@@ -88,6 +88,12 @@ void main() {
     Future<bool> Function(FnthinkInboxMessage message)? recordSent,
     Future<FnthinkRegisterResult> Function(FnthinkLoopSpec spec)?
     registerDevice,
+    Future<void> Function({
+      required String host,
+      required bool reachable,
+      required int latencyMs,
+    })?
+    recordHealth,
   }) => FnthinkReceiveCoordinator(
     contracts: contracts ?? goodLoader(),
     signer: signerOverride ?? signer(true),
@@ -97,6 +103,7 @@ void main() {
     presenceNotice: presenceNotice,
     recordSent: recordSent,
     registerDevice: registerDevice,
+    recordHealth: recordHealth,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
   );
@@ -1607,6 +1614,159 @@ void main() {
         reason: '被 429 拒了还记一行 ⇒ 历史页写着"我发过"，而服务端从没收到过这一条',
       );
     });
+
+    test('受理的那一发把"服务器有应答"记进健康度（可达=true，host=发送那台）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyHost}': defaultHost,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final asked = <http.Request>[];
+      final healths = <List<Object>>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        recordHealth:
+            ({required host, required reachable, required latencyMs}) async {
+              healths.add([host, reachable, latencyMs >= 0]);
+            },
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+      await c.sendNotice(peer: '8KMNPQRSTVWX999777', title: 't', text: 'b');
+      expect(healths, [
+        [defaultHost, true, true],
+      ], reason: 'accepted ⇒ 服务器答过话（可达），健康度记在发送所用的那台 host 上');
+    });
+
+    test('被拒（429）也算"有应答"⇒ 可达=true：拒话来自服务器，不是网络断了', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyHost}': defaultHost,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final asked = <http.Request>[];
+      final reachables = <bool>[];
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        recordHealth:
+            ({required host, required reachable, required latencyMs}) async {
+              reachables.add(reachable);
+            },
+        serviceFactory: armFactory(
+          sink: asked,
+          status: 429,
+          body: '{"error":"rate_limited","retryAfterSeconds":30}',
+        ),
+      );
+      final r = await c.sendNotice(
+        peer: '8KMNPQRSTVWX999777',
+        title: 't',
+        text: 'b',
+      );
+      expect(r.status, FnthinkSendStatus.rateLimited);
+      expect(reachables, [
+        true,
+      ], reason: '把 429 记成不可达，会把"限流"错报成"服务器挂了"（两种修法完全不同）');
+    });
+
+    test('本机就没发出去的那几种（前置不满足）不进健康度：不是服务器的事', () async {
+      // 没有 consent ⇒ 前置条件挡在离机之前；这一发没有"服务器通不通"这回事。
+      SharedPreferences.setMockInitialValues({});
+      final asked = <http.Request>[];
+      var calls = 0;
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        recordHealth:
+            ({required host, required reachable, required latencyMs}) async {
+              calls++;
+            },
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+      final r = await c.sendNotice(
+        peer: '8KMNPQRSTVWX999777',
+        title: 't',
+        text: 'b',
+      );
+      expect(r.status, FnthinkSendStatus.preconditionFailed);
+      expect(asked, isEmpty);
+      expect(calls, 0, reason: '签都没签出去就记一条"服务器不可达"，是把"这台还没同意"冒充成"服务器坏了"');
+    });
+
+    test('坏内容那一发（spec 过了但 badInput，一个字节没上网）不进健康度', () async {
+      // 这条补的是 H1 假绿：preconditionFailed 在 _resolveSpec 里就短路了，根本走不到
+      // _recordSendHealth，于是"reachable==null ⇒ 不记"那半条判据当时没有任何用例能观察到。
+      // badInput 是**过了 spec、由发送内核在离机前**判出来的那一档 —— 它才真的过那道 null 分支。
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyHost}': defaultHost,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final asked = <http.Request>[];
+      var calls = 0;
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        recordHealth:
+            ({required host, required reachable, required latencyMs}) async {
+              calls++;
+            },
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+      final sep = String.fromCharCode(0); // 签名 canonicalOrder 的分隔符，正文里不许出现
+      final r = await c.sendNotice(
+        peer: '8KMNPQRSTVWX999777',
+        title: '坏$sep标题',
+        text: 'b',
+      );
+      expect(r.status, FnthinkSendStatus.badInput);
+      expect(asked, isEmpty, reason: '坏内容在离机前就被内核拦下');
+      expect(calls, 0, reason: '这一发一个字节都没上网，够不上"服务器可达/不可达"的任何结论');
+    });
+  });
+
+  test('fnthinkSendStatusServerReachability：只有真拿到服务器响应才算健康度信号', () {
+    // 判据一条：这一发有没有拿到来自服务器的真实 HTTP 响应。三个方向都要钉住，
+    // 少一个的症状各不同 —— 把被拒算成不可达 = 把限流谎报成宕机；把没离机算成信号 = 把
+    // "这台还没同意"谎报成宕机；把 transportError 算成可达 = 宕机被记成正常。
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.accepted),
+      isTrue,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.rejectedUnsigned),
+      isTrue,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.rejectedCapability),
+      isTrue,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.replayed),
+      isTrue,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.needsCalibration),
+      isTrue,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.rateLimited),
+      isTrue,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.unparseable),
+      isTrue,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.transportError),
+      isFalse,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.signingUnavailable),
+      isNull,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.preconditionFailed),
+      isNull,
+    );
+    expect(
+      fnthinkSendStatusServerReachability(FnthinkSendStatus.badInput),
+      isNull,
+    );
   });
 
   group('自登记（#177：其余每一发的共同前置）', () {

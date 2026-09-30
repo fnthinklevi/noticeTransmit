@@ -22,6 +22,7 @@ import '../services/email_service.dart';
 import '../services/locale_service.dart';
 import '../services/app_channel_service.dart';
 import '../services/channel_descriptor_service.dart';
+import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../services/channel_probe_service.dart';
 import '../services/installed_apps_service.dart';
@@ -119,6 +120,17 @@ void setupLocator() {
           service.dispose();
         }
       },
+      // T60（approach B）：发送的服务器可达性记进通道健康度，family=fnthink、id=服务器 host。
+      // 协调者只在"拿到过服务器响应/传输失败"时调这里（本机没发出去那几种不进来）。
+      // 守卫在 `test/architecture/fnthink_receive_wiring_test.dart`：漏接时发送与页面照常，
+      // 只有幻念那一行的健康度永远是"没测过"。
+      recordHealth: ({required host, required reachable, required latencyMs}) =>
+          getIt<ChannelHealthStore>().record(
+            kFnthinkChannelSlug,
+            host,
+            reachable: reachable,
+            latencyMs: latencyMs,
+          ),
     ),
   );
   // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。

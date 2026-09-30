@@ -3198,6 +3198,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'This device has not allowed relaying content through the server, so nothing was sent';
 
   @override
+  String get fnthinkHealthNever => 'Nothing has been sent to this server yet';
+
+  @override
+  String get fnthinkHealthReachable => 'The last send reached the server';
+
+  @override
+  String get fnthinkHealthUnreachable =>
+      'The last send could not reach the server';
+
+  @override
   String get fnthinkStatusRunning => 'Receiving';
 
   @override

@@ -715,6 +715,53 @@ void main() {
     });
   });
 
+  group('发送健康度那一接（T60 approach B：复用 Dart 侧健康度，不碰原生 RetryQueue）', () {
+    test('DI 把 recordHealth 接到了 ChannelHealthStore（漏接时发送照常、页面那行永远"从没发过"）', () {
+      final locator = read('lib/di/service_locator.dart');
+      expect(
+        locator,
+        contains('recordHealth:'),
+        reason:
+            '漏接 ⇒ 发送本身照常、协调者测试也能用钩子验到，但生产里没人把可达性落到 '
+            'ChannelHealthStore ⇒ 幻念页那一行永远读不到东西，"通道化"退化成一个空钩子',
+      );
+      expect(
+        locator,
+        contains('getIt<ChannelHealthStore>().record('),
+        reason: '健康度只有 ChannelHealthStore 这一个作者，别在装配点又 new 一份读写',
+      );
+      expect(
+        locator,
+        contains('kFnthinkChannelSlug'),
+        reason:
+            'family 必须用那个具名常量：页面读、协调者写各打一份 "fnthink" 字面量时，'
+            '改一个忘一个的表现是徽标永远"没测过"（读写键不等）',
+      );
+    });
+
+    test('协调者只在 sendNotice 那一发之后记健康度，且经纯函数判可达性', () {
+      final src = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(
+        src,
+        contains('_recordSendHealth('),
+        reason: '健康度落点必须在 sendNotice 之后 —— 收货循环/配对那些发不产"发送可达性"',
+      );
+      expect(
+        src,
+        contains('fnthinkSendStatusServerReachability(result.status)'),
+        reason: '可达与否必须由那张 11 档词表函数判，不在调用点现编（否则"没离机"会被当成不可达）',
+      );
+    });
+
+    test('chan: 字面量仍只在 channel_display.dart，fnthink 走具名 slug', () {
+      // 本条切片给 identity 层加了 fnthink；钉它没有在生产 lib 里散出 'chan:' 字面量，
+      // 也没有把 family 名硬编成第二处。
+      final display = read('lib/services/channel_display.dart');
+      expect(display, contains("kFnthinkChannelSlug = 'fnthink'"));
+      expect(display, contains("'fnthink': ('幻念推送'"));
+    });
+  });
+
   group('自登记那一发（#177 —— 其余每一发的共同前置）', () {
     test('DI 把自登记接上了，且它走的是同一个服务构造', () {
       final locator = read('lib/di/service_locator.dart');

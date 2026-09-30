@@ -27,6 +27,13 @@ const String kDeliveryKeyPrefix = 'chan:';
 /// FILTER 与 SMS 在原生侧是两种回传，语义相同（内容不投递），故归并为同一键。
 const String kBlockedChannelKey = 'blocked';
 
+/// 幻念推送的规范 slug（T60 approach B）。它同时是：
+/// - 送达键 `chan:fnthink` 的那一段（经 [channelDeliveryKey] 拼，别处不手打）；
+/// - [ChannelHealthStore] 里那一族的 family 名（发送可达性记在 `fnthink:<host>`）。
+/// 写成一处常量，是为了让"页面读健康度"与"协调者写健康度"用的是同一个串 —— 两边各打一份
+/// 字面量时，改一个忘一个的表现是徽标永远"没测过"（读到的键与写入的键不等）。
+const String kFnthinkChannelSlug = 'fnthink';
+
 /// 聚合伪通道的规范键（P2 merge 动作：窗口期内成员被合并推送）。
 const String kMergedChannelKey = 'merge';
 
@@ -51,6 +58,9 @@ const Map<String, (String, String)> _channelNames = {
   'wecom_app': ('企业微信应用', 'WeCom App'),
   'feishu_app': ('飞书应用', 'Feishu App'),
   'email': ('邮件', 'Email'),
+  // T60 发送侧通道化（approach B）：幻念推送在 Dart 侧占一个送达键 `chan:fnthink`，
+  // 复用健康度/送达数据；它不进原生 ChannelRegistry 的封闭三族（那是 approach A）。
+  'fnthink': ('幻念推送', 'Fnthink Push'),
   'blocked': ('过滤拦截', 'Blocked'),
   'merge': ('合并推送', 'Merged'),
 };
@@ -94,6 +104,8 @@ const Map<String, String> _slugAliases = {
   'feishu_app': 'feishu_app',
   'feishuapp': 'feishu_app',
   'email': 'email',
+  // 幻念推送（T60 approach B）：规范 slug 自身，大小写/去前缀后都归到它
+  'fnthink': 'fnthink',
   // 拦截/聚合伪通道（原生回传枚举名 SMS/FILTER/MERGE 与旧本地化键）
   'sms': 'blocked',
   'filter': 'blocked',
