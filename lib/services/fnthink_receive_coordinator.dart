@@ -706,6 +706,35 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 发一条通知给名单里那台设备（`/message`，§4-10 片2）。
+  ///
+  /// 前置口径与 `listEndpoints` / `revokeEndpoint` 同一条（`requireEnabled: false`）：
+  /// **发这一条与"这台现在去不去取货"是两件事**。把它绑到总开关上的表现很具体 —— 用户为了省电
+  /// 关掉接收，随之手表上那条"到家了"也发不出去，而屏幕上只会说"发送失败"。
+  ///
+  /// 这里**不查本机名单**（名单在 `fnthink_peers`，由页面负责只让人选里面那一台）。协调者若再判一次，
+  /// 就有了两个地方决定"能不能发给这个人"，而它们判的还不是同一份数据（服务端判的是被投那台的
+  /// `grantsBy`）。本机这一份只是给人挑的候选，不是授权。
+  Future<FnthinkSendResult> sendNotice({
+    required String peer,
+    required String title,
+    required String text,
+  }) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkSendResult(
+        status: FnthinkSendStatus.preconditionFailed,
+        reason: resolved.reason,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.sendNotice(peer: peer, title: title, text: text);
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 停下来。已在途的那一轮跑完为止（强行掐断等于把 ack 停在半路）。
   void stop() {
     _loop?.stop();

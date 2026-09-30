@@ -1271,6 +1271,83 @@ void main() {
       expect(result.reason, 'signing-unavailable');
     });
   });
+
+  group('发一条给名单里那台 sendNotice（§4-10 片2）', () {
+    const sentBody =
+        '{"receipt":"queued","messageId":"m_31","action":"new","evicted":[]}';
+
+    test('开关关着也发得出去：发这一条与"这台现在去不去取货"是两件事', () async {
+      SharedPreferences.setMockInitialValues({}); // 没有 receive_enabled ⇒ 默认关
+      final asked = <http.Request>[];
+      final rec = _LoopRecorder();
+      final c = coordinator(
+        recorder: rec,
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+      final result = await c.sendNotice(
+        peer: '7YD4RKQPBM8XZ3VHNT',
+        title: '到家了',
+        text: '门已开',
+      );
+      expect(
+        result.status,
+        FnthinkSendStatus.accepted,
+        reason:
+            '用接收总开关挡住发送 ⇒ 用户为了省电关掉收货，随之连"发一条"都发不出去，'
+            '而屏幕上只有一句"发送失败"',
+      );
+      expect(asked.single.url.path, contract.apiPath('message'));
+      expect(c.isRunning, isFalse, reason: '发一条不该顺手把收货循环也起来（那是替用户点了"开始接收"）');
+      expect(rec.specs, isEmpty);
+    });
+
+    test('前置不满足时一句都没离机，而说的是"本机还没就绪"而不是"网络不好"', () async {
+      final asked = <http.Request>[];
+
+      final noContract = coordinator(
+        recorder: _LoopRecorder(),
+        contracts: FnthinkContractLoader(readAsset: (_) async => '{ 坏 JSON'),
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+      final r1 = await noContract.sendNotice(
+        peer: '7YD4RKQPBM8XZ3VHNT',
+        title: 't',
+        text: 'b',
+      );
+      expect(r1.status, FnthinkSendStatus.preconditionFailed);
+      expect(r1.reason, startsWith('contract-unavailable'));
+
+      SharedPreferences.setMockInitialValues({
+        FnthinkSettings.keyHost: 'a b/c',
+      });
+      final badHost = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+      final r2 = await badHost.sendNotice(
+        peer: '7YD4RKQPBM8XZ3VHNT',
+        title: 't',
+        text: 'b',
+      );
+      expect(r2.status, FnthinkSendStatus.preconditionFailed);
+      expect(r2.reason, startsWith('settings-invalid'));
+
+      SharedPreferences.setMockInitialValues({});
+      final cannotSign = coordinator(
+        recorder: _LoopRecorder(),
+        signerOverride: signer(false),
+        serviceFactory: armFactory(sink: asked, status: 202, body: sentBody),
+      );
+      final r3 = await cannotSign.sendNotice(
+        peer: '7YD4RKQPBM8XZ3VHNT',
+        title: 't',
+        text: 'b',
+      );
+      expect(r3.status, FnthinkSendStatus.preconditionFailed);
+      expect(r3.reason, 'signing-unavailable');
+      expect(asked, isEmpty);
+    });
+  });
 }
 
 class _FakeSigner implements FnthinkIdentitySigner {

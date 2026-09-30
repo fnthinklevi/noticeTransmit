@@ -315,6 +315,161 @@ void main() {
       expect(result.reason, 'signing-unavailable');
     });
   });
+
+  group('发一条给名单里那台（§4-10 片2）', () {
+    const peer = '8KMNPQRSTVWX999777';
+
+    test('打到契约声明的那扇门，请求体只有三键而标题在**已签的 body** 里', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"receipt":"queued","messageId":"m_7","action":"new","evicted":[]}',
+        ],
+        status: 202,
+      );
+      final signer = _Signer();
+      final service = build(contract, rec, signer);
+      final result = await service.sendNotice(
+        peer: peer,
+        title: '客厅温度',
+        text: '30℃，请检查空调',
+      );
+      expect(result.status, FnthinkSendStatus.accepted);
+      expect(result.messageId, 'm_7');
+      expect(rec.requests.single.url.path, contract.apiPath('message'));
+      final sent = jsonDecode(rec.requests.single.body) as Map<String, Object?>;
+      expect(sent.keys.toSet(), {'sender', 'signature', 'fields'});
+      final fields = sent['fields']! as Map<String, Object?>;
+      expect(fields['target'], peer);
+      expect(fields['type'], 'notice');
+      expect(
+        fields['body'],
+        '${contract.deviceTitlePrefix}{"${contract.deviceTitleKey}":"客厅温度",'
+        '"${contract.deviceBodyKey}":"30℃，请检查空调"}',
+      );
+      // 顶层没有 title：签名字节里没有它，服务端一定丢 —— 带着它只会让下一个人以为有用。
+      expect(sent.containsKey('title'), isFalse);
+    });
+
+    test('九种结果各归各的下一步，而 429 的 Retry-After 传得到', () async {
+      Future<FnthinkSendResult> once(
+        int status,
+        String body, {
+        Map<String, String>? headers,
+      }) async {
+        final rec = _Recorder(
+          scripts: [body],
+          status: status,
+          headers: headers ?? const {'content-type': 'application/json'},
+        );
+        return build(
+          contract,
+          rec,
+          _Signer(),
+        ).sendNotice(peer: peer, title: 't', text: 'b');
+      }
+
+      expect(
+        (await once(403, '{"receipt":"${contract.unsignedReceipt}"}')).status,
+        FnthinkSendStatus.rejectedUnsigned,
+      );
+      expect(
+        (await once(403, '{"receipt":"rejected_capability"}')).status,
+        FnthinkSendStatus.rejectedCapability,
+      );
+      expect(
+        (await once(409, '{"receipt":"duplicate"}')).status,
+        FnthinkSendStatus.replayed,
+      );
+      expect(
+        (await once(410, '{"receipt":"expired"}')).status,
+        FnthinkSendStatus.needsCalibration,
+      );
+      final limited = await once(
+        429,
+        '{"receipt":"rate_limited"}',
+        headers: const {
+          'content-type': 'application/json',
+          'retry-after': '45',
+        },
+      );
+      expect(limited.status, FnthinkSendStatus.rateLimited);
+      expect(limited.retryAfterSeconds, 45);
+      // 没有 messageId 的 202 不算收下：那条从此追不回来，不猜一个 id。
+      expect(
+        (await once(202, '{"receipt":"queued"}')).status,
+        FnthinkSendStatus.unparseable,
+      );
+    });
+
+    test('签不出来时一个字节都不离机（发送也是"未签的包不许出门"那一条）', () async {
+      final rec = _Recorder();
+      final result = await build(
+        contract,
+        rec,
+        _Signer(available: false),
+      ).sendNotice(peer: peer, title: 't', text: 'b');
+      expect(rec.requests, isEmpty);
+      expect(result.status, FnthinkSendStatus.signingUnavailable);
+      expect(result.reason, 'signing-unavailable');
+    });
+
+    test('正文里有签名字段的分隔符 ⇒ 判成本机就没发出去，而不是把 ArgumentError 交给页面', () async {
+      // 内核那条判据是对的（分隔符出现在被签字段的值里 = 能拼出与另一组字段相同的字节串），
+      // 但它的**表达方式**必须是状态 + 原因：让每个调用方自己 try/catch，就会有一处漏 catch，
+      // 而那处的表现是"点发送之后什么都不发生"。
+      final rec = _Recorder();
+      final result = await build(contract, rec, _Signer()).sendNotice(
+        peer: peer,
+        title: 't',
+        text: 'a${contract.signatureSeparator}b',
+      );
+      expect(rec.requests, isEmpty);
+      expect(result.status, FnthinkSendStatus.badInput);
+      expect(result.reason, contains('input:'));
+    });
+
+    test('先学到服务端时间再发：那一发的 ts 用的是校正后的那个（不另起一本时钟账）', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"messages":[],"receipts":[],"pending":0,"serverTime":1900000000000}',
+          '{"receipt":"queued","messageId":"m_8"}',
+        ],
+        status: 200,
+      );
+      final signer = _Signer();
+      final service = build(contract, rec, signer);
+      await service.pollOnce();
+      await service.sendNotice(peer: peer, title: '', text: 'b');
+      // 校正后的毫秒 = 本机 now + (serverTime - 中点)，这里只验"用的是校正值"这一事实：
+      // 它必须与 kernel.timestampMs 同一口径，而不是裸的本机时钟。
+      final sent = signer.signed.last.split(contract.signatureSeparator);
+      final ts = int.parse(sent[contract.canonicalOrder.indexOf('ts')]);
+      expect(ts, (service.kernel.timestampMs / 1000).floor());
+      expect(ts, isNot((DateTime.now().millisecondsSinceEpoch / 1000).floor()));
+    });
+
+    test('契约的能力词表里没有那个词 ⇒ 抛，不许在代码里补一个默认词', () async {
+      final doc =
+          jsonDecode(File(fnthinkContractFile()).readAsStringSync())
+              as Map<String, Object?>;
+      final caps = Map<String, Object?>.from(
+        doc['capabilities']! as Map<String, Object?>,
+      );
+      final types = Map<String, Object?>.from(
+        caps['messageTypes']! as Map<String, Object?>,
+      );
+      types.remove('notice');
+      caps['messageTypes'] = types;
+      doc['capabilities'] = caps;
+      final rec = _Recorder();
+      final service = build(FnthinkContract(doc), rec, _Signer());
+      await expectLater(
+        service.sendNotice(peer: peer, title: 't', text: 'b'),
+        throwsA(isA<StateError>()),
+      );
+      expect(rec.requests, isEmpty);
+    });
+  });
 }
 
 /// 记下每一次请求，并按脚本回响应。

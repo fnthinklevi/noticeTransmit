@@ -16,6 +16,12 @@ import 'title_envelope.dart';
 ///  - [signingUnavailable]：**本机签不出来**（KeyStore 里没有私钥、原生不肯签）。必须与
 ///    [transportError] 分开：前者要的是"去配对 / 去重置三件套"，后者要的是"等网络恢复"，
 ///    合并之后用户会一直等一个不会自己好的东西；
+///  - [preconditionFailed]：**本机还没就绪**（没有三件套、服务地址不合法、契约读不出或不自洽）。
+///    与 [signingUnavailable] 是同一家族，但那一档说的是"身份在而私钥取不到"（重置三件套能修），
+///    这一档说的是"配置层就没配好"（要去页面把地址与开关补上）。合并之后给用户的建议就会错。
+///  - [badInput]：**这一条本身发不出去**（标题或正文里有签名字段的分隔符、type 不在能力词表）。
+///    与 [signingUnavailable] 的分别是"改内容"还是"改本机状态"：这一种重试一百次也是同一个结果，
+///    而界面上如果只说"发送失败"，用户会去点第二下而不是去看正文里那个看不见的字符。
 ///  - [unparseable]：状态码看懂了而载荷看不懂（没有 messageId 的"收下"不能算收下）。
 enum FnthinkSendStatus {
   accepted,
@@ -26,6 +32,8 @@ enum FnthinkSendStatus {
   rateLimited,
   transportError,
   signingUnavailable,
+  preconditionFailed,
+  badInput,
   unparseable,
 }
 

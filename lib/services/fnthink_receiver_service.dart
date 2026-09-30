@@ -45,6 +45,10 @@ class FnthinkReceiverService {
       'endpointList',
       'endpointRevoke',
       'endpointRotate',
+      // 投递面也在这张名单里，但它**不是一种事件**：那一条的签字节 `type` 取自能力词表
+      // （notice / action / setting），所以下面的反查为它单独兜了一档。登记进名单要的是
+      // "装配期就确认这条路存在"——缺它时第一次发送会在运行时炸成一句看起来像网络故障的话。
+      'message',
     ]) {
       if (!contract.apiPaths.containsKey(kind)) {
         throw ArgumentError(
@@ -92,6 +96,13 @@ class FnthinkReceiverService {
       if (contract.str(['clientEvents', kind, 'messageType']) == type) {
         return paths[kind]!;
       }
+    }
+    // 设备自己发一条消息时，被签的那个 `type` 是**能力词表**里的一个（notice / action / setting），
+    // 不是 clientEvents 那个事件词表里的（契约 `clientEvents.notInCapabilitiesVocabulary` 钉的就是
+    // 这两张表不许重合）。所以它按上面那圈反查必然落空 —— 落空之后**不许"随便挑一条路发过去"**，
+    // 只认这一条：投递面那扇门，路径仍从契约读。
+    if (contract.messageTypeLevels.containsKey(type)) {
+      return contract.apiPath('message');
     }
     // 走到这里说明内核要发的事件种类不在 apiPaths 里 —— 契约自己不自洽（validate 会拦），
     // 但这里不许"随便挑一条路径发过去"：那会把事件发到别的种类的入口上。
@@ -319,6 +330,69 @@ class FnthinkReceiverService {
       );
     }
     return kernel.endpointRotate(endpointId: endpointId);
+  }
+
+  FnthinkSendKernel? _sendKernel;
+
+  /// 发送内核（§4-10 片2）。它与收货内核**共用同一把 `ts`**：偏移只能从带 `serverTime` 的
+  /// 响应里学，而那是收货那一侧的事 —— 这里再造一份偏移就是第二个真值，表现是"收货正常、
+  /// 发送一路 410"（或反过来）。nonce 也共用同一个工厂：两类事件在同一个
+  /// `sender|nonce` 去重空间里（契约 `clientEvents.nonceSpaceSharedWithMessages`），
+  /// 各起一个计数器迟早撞一次，而撞的那次被服务端判成重放。
+  FnthinkSendKernel get sendKernel => _sendKernel ??= FnthinkSendKernel(
+    contract: contract,
+    addressCode: addressCode,
+    signer: signer.call,
+    transport: _transport,
+    signedTimestamp: () => kernel.signedTimestamp,
+    nonceFactory: _nonce,
+  );
+
+  /// 发一条给名单里那台设备（`/message`，§4-10 片2 的接线层）。
+  ///
+  /// 这一层只判两件事，其余判据都在内核：
+  ///  ① **签不出来就不发**（与其余几发同一条闸 —— 一个未签名的包都不许离机）；
+  ///  ② **输入形状**（标题/正文里含签名字段的分隔符）翻成一句能显示的话，而不是让页面
+  ///     去 `catch` 一个 `ArgumentError`：内核那条判据是对的（那是防伪边界），
+  ///     但它的表达方式必须是状态与原因，否则每个调用方都会自己写一遍 try/catch，
+  ///     而其中一处漏写就是把崩溃交给用户。
+  ///
+  /// ⚠ `type` 不在这里当参数传：今日这一格只发纯文本通知（`notice`，配对即有的 L1）。
+  /// 做成可选参数就等于允许页面传 `action`/`setting` —— 那两档要逐条勾选的 `item`，
+  /// 而设备这一路今日没有那个东西（服务端会回 403，用户看到的是一句莫名其妙的"没权限"）。
+  Future<FnthinkSendResult> sendNotice({
+    required String peer,
+    required String title,
+    required String text,
+  }) async {
+    if (!await _canSign()) {
+      return FnthinkSendResult(
+        status: FnthinkSendStatus.signingUnavailable,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    final type = contract.messageTypeLevels.keys.firstWhere(
+      (t) => t == 'notice',
+      orElse: () => throw StateError(
+        '契约 capabilities.messageTypes 里没有 notice：这一发要用的那个词不在词表上，'
+        '换词就是换权限，不许在代码里补一个',
+      ),
+    );
+    try {
+      return await sendKernel.send(
+        target: peer,
+        type: type,
+        title: title,
+        text: text,
+      );
+    } on ArgumentError catch (e) {
+      return FnthinkSendResult(
+        status: FnthinkSendStatus.badInput,
+        reason: 'input:${e.message}',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
   }
 
   /// 身份与签名是否可用。**只问一次每进程**：原生那边取不到身份是稳定事实（没建钥、

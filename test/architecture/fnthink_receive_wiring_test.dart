@@ -661,6 +661,54 @@ void main() {
       }
     });
   });
+
+  group('§4-10 片2：设备侧发送那一发的接线', () {
+    test('装配判定里含 message，而投递面那扇门按契约词表反查（没有第二条路径）', () {
+      final src = read('lib/services/fnthink_receiver_service.dart');
+      expect(
+        src,
+        contains("'message',"),
+        reason:
+            '发送那一路的 URL 也从契约读。判定名单漏它 ⇒ 装配期不报错，'
+            '第一次点"发一条"才在 transport 里抛，看起来像网络抖动',
+      );
+      expect(
+        src,
+        contains('contract.messageTypeLevels.containsKey(type)'),
+        reason:
+            '投递面的签字节 `type` 是**能力词表**里的一个，不是 clientEvents 那个事件词表里的；'
+            '反查兜底必须按词表判，写死一个词就是第二个真值来源',
+      );
+      expect(src, contains("contract.apiPath('message')"));
+      expect(
+        src,
+        isNot(contains('/api/fnthink/message')),
+        reason: '出现字面量路径 ⇒ 契约那行声明从此没人读，改路径不会报错',
+      );
+    });
+
+    test('发送只有一个作者：协调者→服务，页面不许直连；ts 与 nonce 都只有一处来源', () {
+      final service = read('lib/services/fnthink_receiver_service.dart');
+      final coordinator = read('lib/services/fnthink_receive_coordinator.dart');
+      expect(occurrences(service, 'sendKernel.send('), 1);
+      expect(occurrences(coordinator, 'service.sendNotice('), 1);
+      expect(
+        occurrences(service, 'signedTimestamp: () => kernel.signedTimestamp'),
+        1,
+        reason:
+            '偏移只在收货那一侧学得会。发送侧自造一份 ⇒ 两端各有一本时钟账，'
+            '表现是"收货正常而发送一路 410"，而 410 那句看起来像服务端坏了',
+      );
+      final page = stripComments(
+        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+      );
+      expect(
+        occurrences(page, 'FnthinkSendKernel('),
+        0,
+        reason: '页面自己造内核 = 绕过协调者那三道前置判定，而且没人 dispose 那份 HTTP 客户端',
+      );
+    });
+  });
 }
 
 class _StubSigner implements FnthinkIdentitySigner {
