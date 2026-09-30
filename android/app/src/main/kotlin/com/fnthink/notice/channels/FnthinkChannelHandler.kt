@@ -1,8 +1,8 @@
 package com.fnthink.notice.channels
 
+import android.content.Context
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
-import com.fnthink.notice.MainActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.launch
@@ -16,13 +16,13 @@ import kotlinx.coroutines.launch
  * `identity.identityKey.neverIn` 列的是 url/log/qrPayload/serverRequestBody，通道返回值
  * 属于同一类"会被顺手打出来看看"的地方，一并按不可导出处理。
  */
-internal class FnthinkChannelHandler(activity: MainActivity) : ChannelHandler(activity) {
+internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "getFnthinkIdentity" -> {
                 ioScope.launch {
                     try {
-                        val identity = FnthinkIdentityStore.identity(activity)
+                        val identity = FnthinkIdentityStore.identity(context)
                         postSuccess(
                             result,
                             mapOf(
@@ -45,7 +45,7 @@ internal class FnthinkChannelHandler(activity: MainActivity) : ChannelHandler(ac
                 ioScope.launch {
                     try {
                         val signature = FnthinkIdentityStore.sign(
-                            activity,
+                            context,
                             android.util.Base64.decode(canonical, android.util.Base64.NO_WRAP),
                         )
                         postSuccess(
@@ -71,7 +71,7 @@ internal class FnthinkChannelHandler(activity: MainActivity) : ChannelHandler(ac
                     title = call.argument<String>("title").orEmpty(),
                     body = call.argument<String>("body").orEmpty(),
                 )
-                result.success(FnthinkInboxDisplay.show(activity, spec))
+                result.success(FnthinkInboxDisplay.show(context, spec))
             }
             else -> return false
         }
