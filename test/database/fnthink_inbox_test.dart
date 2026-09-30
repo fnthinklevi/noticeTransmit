@@ -360,6 +360,112 @@ void main() {
     });
   });
 
+  group('v16 升级路径（T43：老库补方向列）', () {
+    test('v15 的老库升上来：列补上、老行一律是收件、升级后照方向读写', () async {
+      SharedPreferences.setMockInitialValues({});
+      if (await databaseFactory.databaseExists(dbPath)) {
+        await databaseFactory.deleteDatabase(dbPath);
+      }
+      // 1) 手搓一个 v15 形状的库（没有 direction 列），灌一行老数据。
+      //    为什么手搓而不是拿当前 schema 假装：这一段要证的正是"老设备上那份**没有这一列**的
+      //    库"能不能升上来 —— 拿当前 schema 去测，等于测了一个永远不会失败的迁移。
+      final old = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 15,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE ${FnthinkInboxMessage.table} (
+                message_id TEXT PRIMARY KEY,
+                sender TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT '',
+                item TEXT NOT NULL DEFAULT '',
+                title TEXT NOT NULL DEFAULT '',
+                body TEXT NOT NULL DEFAULT '',
+                received_at INTEGER NOT NULL,
+                read INTEGER NOT NULL DEFAULT 0,
+                ack_result TEXT NOT NULL DEFAULT '',
+                acked_at INTEGER NOT NULL DEFAULT 0
+              )
+            ''');
+          },
+        ),
+      );
+      await old.insert(FnthinkInboxMessage.table, {
+        'message_id': 'm_old_1',
+        'sender': 'endpoint:ep_7',
+        'type': 'notice',
+        'item': '',
+        'title': '老标题',
+        'body': '老正文',
+        'received_at': 1780000000000,
+        'read': 0,
+        'ack_result': '',
+        'acked_at': 0,
+      });
+      await old.close();
+
+      // 2) 用 dbVersion 打开 ⇒ 走 onUpgrade(15→16) 那条 ALTER
+      final upgraded = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: DatabaseHelper.dbVersion,
+          onUpgrade: (db, oldV, newV) =>
+              helper.upgradeSchemaForTest(db, oldV, newV),
+        ),
+      );
+      helper.debugDatabase = upgraded;
+      addTearDown(() async {
+        helper.debugDatabase = null;
+        await upgraded.close();
+      });
+
+      expect(await columnsOf(upgraded), contains('direction'));
+      expect(
+        (await allRows(upgraded)).single['direction'],
+        kFnthinkDirectionIn,
+        reason: '老行由 DEFAULT 补成收件：补成别的（或留空）都会让那一行读不出来',
+      );
+
+      // 3) 升级之后的读写都要照方向走
+      final kept = await helper.loadFnthinkInbox();
+      expect(kept.single.messageId, 'm_old_1');
+      expect(kept.single.direction, kFnthinkDirectionIn);
+      expect(
+        await helper.loadFnthinkInbox(direction: kFnthinkDirectionOut),
+        isEmpty,
+      );
+      expect(await helper.countFnthinkInboxUnread(), 1);
+    });
+
+    test('重复跑到 v16 那一档不二次 ALTER（幂等）', () async {
+      final db = await freshDb();
+      await helper.upgradeSchemaForTest(db, 15, DatabaseHelper.dbVersion);
+      expect(await columnsOf(db), contains('direction'));
+    });
+
+    test('建表那条 DDL 与升级那条 ALTER 对同一列口径一致（列名与默认值逐字相同）', () {
+      // 两处口径分家的表现：新库有这一列、老库升上来没有（或默认值不同）——
+      // 而那要等一台真设备升级才现形。这里把两处钉在同一句话上。
+      final src = stripComments(
+        File(
+          '${projectRoot()}/lib/database/database_helper.dart',
+        ).readAsStringSync(),
+      );
+      expect(
+        src.contains("direction TEXT NOT NULL DEFAULT 'in'"),
+        isTrue,
+        reason: '建表那条 DDL 里那一列的写法变了',
+      );
+      expect(src.contains("'direction',"), isTrue, reason: '升级那条 ALTER 少了列名');
+      expect(
+        src.contains("\"TEXT NOT NULL DEFAULT 'in'\""),
+        isTrue,
+        reason: '升级那条 ALTER 给的定义与建表那一份不一致（列名或默认值变了一个字）',
+      );
+    });
+  });
+
   group('边界与不猜', () {
     test('fromDbRow 见到非整数的 read 就抛（不猜成未读/已读）', () {
       expect(
