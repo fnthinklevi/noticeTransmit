@@ -251,6 +251,13 @@ router.post(
       process.env.ENCRYPTION_KEY,
     );
     saveMessages(messages);
+    if (result.evictionBlocked) {
+      // 上限超着但一条都挤不动（都在飞 / 在等对端上线）：这不是错误，是**额度算不到在飞的这些**。
+      // 不写这一行，运维下次看到的就只有"这台怎么堆了这么多条"，而没有任何地方说过为什么。
+      console.warn(
+        `[fnthink:quota] ${sender} 仍超上限 ${result.evictionBlocked} 条（在飞的挤不动，只能等自己的 ack 或到期）`,
+      );
+    }
 
     res.status(outcome.status).json({
       receipt: outcome.receipt,

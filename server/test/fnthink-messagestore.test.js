@@ -296,9 +296,114 @@ describe('每设备 pending 上限：丢最旧并回执，不静默丢', () => {
     const max = contract.retention.pendingPerDeviceMax;
     const messages = fresh();
     for (let i = 0; i < max; i += 1) put(messages, 'DEV-1', i, T0 + i);
-    expect(store.evictOverflow(contract, messages, 'DEV-1', T0).length).toBe(0);
+    expect(store.evictOverflow(contract, messages, 'DEV-1', T0).evicted.length).toBe(0);
     put(messages, 'DEV-2', 0, T0);
     expect(store.pendingCountFor(contract, messages, 'DEV-1')).toBe(max);
+  });
+
+  // ── §4-8：挤位只挤"还没发出去的"那一档（原缺陷：在飞的那条被报成 dropped）────────
+  describe('挤位候选只有初态那一条（在飞的不算、也不白扣预算）', () => {
+    /// 上限压到 1 的**契约副本**（不是同一份真值：拿实现读的那份去断言，写死与读契约分不出来）。
+    const capped = () => {
+      const c = JSON.parse(JSON.stringify(contract));
+      c.retention.pendingPerDeviceMax = 1;
+      return c;
+    };
+
+    /// 把一条推到 waiting_online：dispatch/ack_fail 成对走到迁移表把它送进去。
+    function toWaitingOnline(c, messages, id) {
+      const rounds = (c.limits.deliveryRetryTotal || 0) + 3;
+      for (let i = 0; i < rounds && messages[id].state !== 'waiting_online'; i += 1) {
+        store.advanceMessage(c, messages, id, 'dispatch', { now: T0 + i * 4 });
+        store.advanceMessage(c, messages, id, 'ack_fail', { now: T0 + i * 4 + 2 });
+      }
+      expect(messages[id].state).toBe('waiting_online');
+    }
+
+    test('最旧的那条正在飞 ⇒ 不动它、也不给它回 dropped 回执', () => {
+      const c = capped();
+      const messages = fresh();
+      // 一条排队、一条在飞，然后入队第三行 ⇒ 触发挤位（max=1）
+      const inflight = put(messages, 'DEV-1', 1, T0).message.messageId;
+      toWaitingOnline(c, messages, inflight);
+      const queued = put(messages, 'DEV-1', 2, T0 + 100).message.messageId;
+      const result = store.enqueue(
+        c,
+        messages,
+        { device: 'DEV-1', type: 'notice', body: 'b' },
+        T0 + 200,
+        KEY,
+      );
+
+      const evictedIds = result.evicted.map((e) => e.messageId);
+      // 在飞那条是**最旧**的：老实现按"可投递"挑候选，第一下就挑到它 —— 迁移表判 ignored，
+      // 可它照样进 evicted 并回一条 dropped。
+      expect(evictedIds).toContain(queued);
+      expect(evictedIds).not.toContain(inflight);
+      expect(messages[inflight].state).toBe('waiting_online');
+      expect(messages[inflight].receipt).not.toBe(c.retention.overflowReceipt);
+      expect(messages[inflight].body).toBeDefined();
+    });
+
+    test('挤完之后还超着上限 ⇒ evictionBlocked 说清"还有几条挤不动"', () => {
+      const c = capped();
+      const messages = fresh();
+      const first = put(messages, 'DEV-1', 1, T0).message.messageId;
+      toWaitingOnline(c, messages, first);
+      const second = put(messages, 'DEV-1', 2, T0 + 1).message.messageId;
+      toWaitingOnline(c, messages, second);
+      const result = store.enqueue(
+        c,
+        messages,
+        { device: 'DEV-1', type: 'notice', body: 'b' },
+        T0 + 200,
+        KEY,
+      );
+
+      // 两条都在飞 ⇒ 一条都挤不动；新来的那条是唯一能挤的，挤掉之后仍超着上限
+      const evictedIds = result.evicted.map((e) => e.messageId);
+      expect(evictedIds).not.toContain(first);
+      expect(evictedIds).not.toContain(second);
+      expect(result.evictionBlocked).toBe(1);
+      expect(store.pendingCountFor(c, messages, 'DEV-1')).toBe(2);
+    });
+
+    test('没有挤位时 blocked 是 0，不是 undefined（"没腾出来"与"不用腾"要分得开）', () => {
+      const messages = fresh();
+      put(messages, 'DEV-1', 1, T0);
+      const r = store.enqueue(
+        contract,
+        messages,
+        { device: 'DEV-1', type: 'notice', body: 'b' },
+        T0 + 1,
+        KEY,
+      );
+      expect(r.evicted).toEqual([]);
+      expect(r.evictionBlocked).toBe(0);
+      const dup = store.enqueue(
+        contract,
+        messages,
+        { device: 'DEV-1', type: 'notice', body: 'b2', dedupeId: 'x' },
+        T0 + 2,
+        KEY,
+      );
+      expect(dup.evictionBlocked).toBe(0);
+    });
+
+    test('挤位的候选从契约 initialState 读，不是在代码里写死一档', () => {
+      const c = JSON.parse(JSON.stringify(contract));
+      c.retention.pendingPerDeviceMax = 0;
+      const messages = fresh();
+      put(messages, 'DEV-1', 1, T0);
+      put(messages, 'DEV-1', 2, T0 + 1);
+      const ev = store.evictOverflow(c, messages, 'DEV-1', T0 + 5);
+      // 两条都在初态 ⇒ 两条都该被挤掉（blocked 归 0：没有挤不动的剩着）
+      expect(ev.evicted.length).toBe(2);
+      expect(ev.blocked).toBe(0);
+      for (const id of Object.keys(messages)) {
+        expect(delivery.isTerminal(contract, messages[id].state)).toBe(true);
+      }
+    });
   });
 });
 

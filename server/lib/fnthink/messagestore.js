@@ -247,7 +247,13 @@ function enqueue(contract, messages, input, now, envKey) {
     );
     if (existing) {
       if (existing.state !== refreshWhile) {
-        return { action: 'duplicate', message: existing, evicted: [], droppedFields: [] };
+        return {
+          action: 'duplicate',
+          message: existing,
+          evicted: [],
+          droppedFields: [],
+          evictionBlocked: 0,
+        };
       }
       const { node, dropped } = pickStoredFields(contract, input);
       Object.assign(existing, node);
@@ -255,7 +261,13 @@ function enqueue(contract, messages, input, now, envKey) {
       existing.queuedAt = now;
       existing.updatedAt = now;
       messages[existing.messageId] = existing;
-      return { action: 'refreshed', message: existing, evicted: [], droppedFields: dropped };
+      return {
+        action: 'refreshed',
+        message: existing,
+        evicted: [],
+        droppedFields: dropped,
+        evictionBlocked: 0,
+      };
     }
   }
 
@@ -286,20 +298,32 @@ function enqueue(contract, messages, input, now, envKey) {
   };
 
   messages[message.messageId] = message;
-  const evicted = evictOverflow(contract, messages, device, now);
-  return { action: 'new', message, evicted, droppedFields: dropped };
+  const { evicted, blocked } = evictOverflow(contract, messages, device, now);
+  return { action: 'new', message, evicted, droppedFields: dropped, evictionBlocked: blocked };
 }
 
 /// 每设备 pending 上限：**丢最旧**，每条都走一遍状态机（于是它也按契约释放正文）。
 /// 挤位不是"删一行"，是一次 `evicted` 事件 —— 差别就在于被挤的那条会留下 dropped 回执。
+///
+/// ⚠ 候选**只有"还没发出去的"那一档**（契约 `delivery.initialState`），不是"所有可投递的"：
+///   `waiting_online` 遇 `evicted` 在迁移表里是 ignored（已经在飞的那条等它的 ack），
+///   老实现把两类混在一起挑，于是最旧那条往往正是 in-flight 的 ⇒ 三件坏事同时发生：
+///   ① 它照样被 push 进 `evicted` 并回一条 `dropped` 回执 —— 发送端被告知"已丢"，
+///      而那条其实还挂在表里等着补发，之后同一个 `message_id` 又能收到一条 `delivered`
+///      （一次谎报与一次静默丢，在"不静默丢"这条不变量上是同一个反面）；
+///   ② 这一次 ignored 照样扣掉一个挤位预算 ⇒ 上限根本没腾出来，表可以长期超 `pendingPerDeviceMax`；
+///   ③ 挤位看起来"成功"（evicted 非空），谁都不会去查。
+///   代价要说明白：这样一来上限**管不住**堆了几百条 `waiting_online` 的设备（那些只能等自己的
+///   ack 或 `ttl_elapsed`）。`evictionBlocked` 就是把这件事留在响应里而不是留在猜里。
 function evictOverflow(contract, messages, device, now) {
   const max = contract.retention.pendingPerDeviceMax;
   const receipts = delivery.evictionReceipts(contract);
+  const initial = delivery.initialState(contract);
   const evicted = [];
   let over = pendingCountFor(contract, messages, device) - max;
   while (over > 0) {
     const oldest = Object.values(messages)
-      .filter((m) => m.device === device && isPollable(contract, m.state))
+      .filter((m) => m.device === device && m.state === initial)
       .sort((a, b) => a.queuedAt - b.queuedAt || (a.messageId < b.messageId ? -1 : 1))[0];
     if (!oldest) break;
     const step = delivery.advance(contract, {
@@ -307,11 +331,18 @@ function evictOverflow(contract, messages, device, now) {
       event: 'evicted',
       attempts: oldest.attempts,
     });
+    // 只挤得动"真的动了"的那一条：ignored 一步既不删行也不腾地方，扣预算就是装样子。
+    // ⚠ 这一行今日**不可单独观察**（候选已被上面那道初态筛限定，`evicted` 对初态永远不 ignored）；
+    //    反证 TD2 因此红不了，按假绿登记 —— 它防的是将来往迁移表加一条 `waiting_online → dropped`
+    //    之类的边（那时候选与迁移会各自变化），属纵深防御，不是没用。
+    if (step.ignored) break;
     applyStep(contract, messages, oldest, step, now);
     evicted.push({ messageId: oldest.messageId, receipt: step.receipt || receipts[0] });
     over -= 1;
   }
-  return evicted;
+  // 留在表里的那些"可投递但挤不动"的（在飞 / 等对端上线），按定义就是没腾出来的额度。
+  const blocked = pendingCountFor(contract, messages, device) - max;
+  return { evicted, blocked: blocked > 0 ? blocked : 0 };
 }
 
 /// 状态机推进的唯一入口（ack、超时、到期都走这里）。
