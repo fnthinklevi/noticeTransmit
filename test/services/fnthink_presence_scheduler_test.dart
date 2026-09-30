@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
+import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -236,10 +237,15 @@ void main() {
       expect(presenceSeen, ['roundDone']);
     });
 
-    test('DI 漏接时那份占位必须红（不许静默"跑了但什么都没做"）', () async {
-      // 这一条证的是占位实现本身：装配点漏接时全场其他用例仍绿（守卫见
-      // test/architecture/fnthink_presence_guard_test.dart），而这里保证"漏接"是可红的。
-      await expectLater(runFnthinkPresenceRound(), throwsStateError);
+    test('默认值自带装配：它就是 DI 里那个 bootstrap，不是空实现（#178 真机现形）', () {
+      // 上一版把默认值写成"占位实现会抛"，装配那一行放在 `setupLocator()` 里 ——
+      // 而后台 isolate **永远不跑 `setupLocator()`** ⇒ 变量从头到尾都是占位实现，
+      // 真机日志里每 20 秒一行「后台那一轮失败：没有装配」（那个 lambda 里的
+      // `isRegistered` 救不了它：那个 lambda 压根没被赋上）。
+      // 现在钉的是：默认值**就是**那个 bootstrap 函数本身（它的体内有 receiveOnce + 补装配，
+      // 逐条钉在 test/architecture/fnthink_presence_guard_test.dart）。
+      // 换成 `() async {}` 这种"跑了但什么都没做"的空实现时，这一条红。
+      expect(runFnthinkPresenceRound, same(fnthinkBackgroundRound));
     });
   });
 }

@@ -1,9 +1,10 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../di/service_locator.dart';
 import 'fnthink_contract_loader.dart';
 import 'platform_channel.dart';
 
@@ -119,10 +120,17 @@ Future<bool> publishEntryHandle() async {
 /// 少了这一行 pragma 的表现是 release 包里函数被摇掉，handle 指向一个不存在的符号 ——
 /// 而那条错误要等到第一次"被杀之后"才会现形，正是最难查的那种。
 ///
+/// ⚠ **先 `WidgetsFlutterBinding.ensureInitialized()`**（真机实测的教训，2026-09-30）：
+/// 这是**另一颗 isolate**，没有跑过 `runApp` ⇒ 没有 binding ⇒ `MethodChannel` 拿不到
+/// `defaultBinaryMessenger`，那一发 `roundDone` 会以 `Null check operator used on a null
+/// value` 收场（日志里每 20 秒一行「roundDone 没送到」），而 SharedPreferences /
+/// secure storage 这些插件同理全不可用。顺序也要紧：先建 binding，再注册插件。
+///
 /// `roundDone` 放在 `finally`：**不管这一轮成不成都要交回结果**。不交，worker 只能等到 90 秒
 /// 超时，而 WorkManager 那侧看到的是"任务卡住"，不是"这一轮失败了"。
 @pragma('vm:entry-point')
 Future<void> fnthinkPresenceEntrypoint() async {
+  WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   const channel = MethodChannel(kFnthinkPresenceChannel);
   try {
@@ -139,16 +147,13 @@ Future<void> fnthinkPresenceEntrypoint() async {
   }
 }
 
-/// 一轮收货。默认实现由 `di/service_locator.dart` 注入（走的是与前台同一个协调者）。
+/// 一轮收货。**默认值自带装配**（指向 `di/service_locator.dart` 里那个 bootstrap），
+/// 于是"后台 isolate 里 getIt 是空的"这件事在那一个函数里就地解决，不指望任何人先跑过
+/// `setupLocator()`。
 ///
-/// 为什么是"一个可替换的顶层函数"而不是直接 import 协调者：本 isolate 里没有跑过
-/// `runApp`，getIt 是空的 —— 装配那一半必须有人显式做，而把它写在这里就等于
-/// 让单元测试去依赖真实的 KeyStore 与数据库。守卫钉的是"这一处只有一个定义、DI 必须接上"。
-Future<void> Function() runFnthinkPresenceRound = _presenceRoundUnavailable;
-
-Future<void> _presenceRoundUnavailable() async {
-  throw StateError(
-    '后台那一轮没有装配：runFnthinkPresenceRound 仍是占位实现（DI 漏接时'
-    '闹钟照排、任务照跑，而货一次也上不来 —— 这就是这条占位要红的原因）',
-  );
-}
+/// ⚠ 这一版的形状是被真机改出来的（2026-09-30）：上一版把默认值写成"占位实现会抛"，
+/// 装配那一行放在 `setupLocator()` 里 —— 而后台 isolate **永远不跑 `setupLocator()`**，
+/// 于是变量一直是占位：每一轮都失败，日志里每 20 秒一行「没有装配」。那个 lambda 内部的
+/// `isRegistered` 检查救不了它，因为**变量本身从来没被赋过值**。
+/// 教训记在守卫里：默认值不许是空实现/占位，必须是"自己能装配起来"的那一个。
+Future<void> Function() runFnthinkPresenceRound = fnthinkBackgroundRound;

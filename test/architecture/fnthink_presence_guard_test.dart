@@ -6,6 +6,7 @@ import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/source_guards.dart';
 
@@ -17,8 +18,9 @@ import '../support/source_guards.dart';
 ///
 ///  ① 装配点：`presenceNotice` 没接上时**全场测试仍然绿**（协调者的用例都把 hook 当参数传，
 ///     不经过 DI），表现是"收货照常、界面照常，只有被杀之后那一天没人再取货"；
-///  ② 后台入口的赋值点：漏接时红的是那份占位实现，而占位实现只有在真有人从闹钟那条路进来
-///     才会被调到 —— 所以钉"这行赋值在不在、在的是不是唯一一个作者"；
+///  ② 后台入口那段（真机上唯一会跑到的"被杀之后"路径）：默认值指向的 bootstrap 必须自带装配
+///     （#178 真机现形：旧形状把装配写在 `setupLocator()` 里，而那颗 isolate 永远不跑它 ——
+///     日志里每 20 秒一行「后台那一轮失败：没有装配」），且入口必须先建 binding 再注册插件；
 ///  ③ 三个**跨语言字符串**（通道名、prefs 键名、方法名）：两边各写一份，错一个字符没有任何
 ///     东西报错，最典型的一条是"闹钟响过、任务跑过、而没人说这一轮结束了"（只能等到超时）；
 ///  ④ `@pragma('vm:entry-point')`：没有 Dart 调用点，tree-shaking 只看 pragma，少了它 release
@@ -77,9 +79,12 @@ void main() {
       );
     });
 
-    test('后台那一轮的赋值点只有一个作者，且它跑的就是那个协调者（不许另起一条收货路）', () {
-      // 声明那一份在 scheduler 里（占位实现），赋值那一份只许在 DI 里。
+    test('后台那一轮的"谁去跑"只有一个作者，且它自带装配（#178 真机现形后的形状）', () {
       // 数文件而不是数次数：多一处赋值 = 多一份"这一轮该干什么"，而其中一份永远跑不到。
+      // 更要紧的是这一版**把旧形状反过来**了（2026-09-30 真机日志：每 20 秒一行
+      // 「后台那一轮失败：没有装配」）：旧形状是"默认值=会抛的占位、DI 在 setupLocator()
+      // 里赋真值"，而后台那颗 isolate **永远不跑 setupLocator()** ⇒ 变量一直是占位。
+      // 现在唯一一个作者就是 scheduler 里那行默认值，它指向的 bootstrap 必须自己能装配。
       final writers =
           Directory('$root/lib')
               .listSync(recursive: true)
@@ -99,31 +104,67 @@ void main() {
             ..sort();
 
       expect(writers, [
-        'lib/di/service_locator.dart',
         schedulerRel,
-      ], reason: '除了 scheduler 里那份占位声明，全仓只许 DI 一处给它赋值');
+      ], reason: '全仓只许这一处决定"这一轮跑什么"（DI 不再给它赋值：那条赋值在后台引擎里永远跑不到）');
+      // 声明那一行不是块（`= fnthinkBackgroundRound;` 没有花括号），所以按行取，
+      // 不走 blockAfter（它会抛"签名后无左花括号"）。
+      final declLine = scheduler
+          .split('\n')
+          .firstWhere(
+            (line) => line.contains('runFnthinkPresenceRound ='),
+            orElse: () => '',
+          );
       expect(
-        blockAfter(
-          scheduler,
-          'Future<void> Function() runFnthinkPresenceRound =',
-        ),
-        contains('_presenceRoundUnavailable'),
-        reason: '那份占位得一直在：装配漏了时要红得起来，而不是静默"跑了而什么都没做"',
+        declLine,
+        contains('fnthinkBackgroundRound'),
+        reason:
+            '默认值必须指向那个自带装配的 bootstrap（DI 里的顶层函数）—— '
+            '写成 `() async {}` 这种空实现时，后台那一轮就是"跑了但什么都没做"，'
+            '而全场 Dart 测试仍然绿',
       );
-      final block = blockAfter(locator, 'runFnthinkPresenceRound =');
+      final boot = blockAfter(locator, 'Future<void> fnthinkBackgroundRound()');
       expect(
-        block,
+        boot,
         contains('receiveOnce('),
         reason:
             '后台那一轮与前台"立即收取"必须是同一条路（同一套判据、同一个内核）。'
             '在这儿拼第二个 poll 循环，就等于给同一个协议找第二个作者',
       );
-      expect(block, contains('setupLocator()'));
+      expect(boot, contains('setupLocator()'));
       expect(
-        block,
+        boot,
         contains('isRegistered'),
-        reason: '那颗引擎里 getIt 是空的：不判一次就装配，等于第一轮必红',
+        reason:
+            '那颗引擎里 getIt 是空的：不判一次就装配，等于第一轮必红；'
+            '而前台重复装配会抛（registerLazySingleton 二次注册）',
       );
+    });
+
+    test('后台 bootstrap 在空 getIt 上真的能自己装配（#178 栽的就是这条路）', () async {
+      // 这一条不是源码扫描，而是把"后台那颗引擎"演一遍：**空 getIt + 只有 binding**，
+      // 然后直接进那一轮。总开关=关 ⇒ 这一轮走到 disabled 就回来（不起循环、不碰网络），
+      // 要证的只有一件事：装配是 bootstrap 自己补上的，不指望任何人先跑 setupLocator()。
+      SharedPreferences.setMockInitialValues({});
+      await getIt.reset();
+      expect(
+        getIt.isRegistered<FnthinkReceiveCoordinator>(),
+        isFalse,
+        reason: '这条用例的前提：那颗引擎里 getIt 确实是空的',
+      );
+      try {
+        await fnthinkBackgroundRound();
+      } on Object {
+        // 测试环境里收货本身可以失败（没有真契约/真钥匙）；这一条证的是"装配补上了"。
+      }
+      expect(
+        getIt.isRegistered<FnthinkReceiveCoordinator>(),
+        isTrue,
+        reason:
+            '默认值若被换回空实现、或者装配又被塞回 setupLocator()，这一条就红 —— '
+            '真机上它的原话是「后台那一轮失败：Bad state: 后台那一轮没有装配」，'
+            '而那条日志只在"被杀之后"才有人看得见',
+      );
+      expect(getIt.isRegistered<FnthinkPresenceScheduler>(), isTrue);
     });
   });
 
@@ -290,6 +331,34 @@ void main() {
         reason:
             '少了 pragma ⇒ release 包里这个函数被摇掉，handle 指向一个不存在的符号；'
             '而那条错误要等到第一次"被杀之后"才现形',
+      );
+    });
+
+    test('入口先建 binding 再注册插件（后台 isolate 里没有 runApp 那一份）', () {
+      final body = blockAfter(
+        scheduler,
+        'Future<void> fnthinkPresenceEntrypoint()',
+      );
+      // ⚠ 顺序断言前先各断言"在不在"：indexOf 找不到时是 -1，`-1 < 任何非负数` 恒真，
+      //   直接比位置会把"整行被删掉"测成通过（本仓"断言要能红"的老账）。
+      expect(
+        body,
+        contains('WidgetsFlutterBinding.ensureInitialized()'),
+        reason:
+            '真机实测（2026-09-30）：少了这一行，MethodChannel 拿不到 defaultBinaryMessenger，'
+            '那一发 roundDone 以 `Null check operator used on a null value` 收场'
+            '（日志里每 20 秒一行「roundDone 没送到」），SharedPreferences / secure storage 同理全不可用',
+      );
+      expect(
+        body,
+        contains('DartPluginRegistrant.ensureInitialized()'),
+        reason: '插件注册表也得有人建：没有它，这一轮里的插件方法调用全是 MissingPluginException',
+      );
+      expect(
+        body.indexOf('WidgetsFlutterBinding.ensureInitialized()') <
+            body.indexOf('DartPluginRegistrant.ensureInitialized()'),
+        isTrue,
+        reason: '顺序要紧：先建 binding，再注册插件',
       );
     });
 

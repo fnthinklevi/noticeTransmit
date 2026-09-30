@@ -111,15 +111,22 @@ void setupLocator() {
   // 本机配对名单的唯一读写咽喉（T42「配对名单」那一格 + T31 的撤销）。
   // ⚠ 删行只在协调者撤销成功之后被调用，页面从不直接碰它 —— 先删行会让"授权还在而来源消失"。
   getIt.registerLazySingleton<FnthinkPeerService>(() => FnthinkPeerService());
+}
 
-  // ── 幻念推送 · 后台引擎那一轮的装配（T33 第二片 / §4-9 片1b）──
-  // 闹钟到点后 WorkManager 起的是一颗**全新的 isolate**：那里从没跑过 `runApp`，getIt 是空的，
-  // 而原生只认「handle → 顶层函数」这一条路。所以这一行必须在这里，而不是在 main.dart 里 ——
-  // 放在 main 里等于只在正常启动时装配，正好错过唯一会用到它的那种启动。
-  // ⚠ 这条漏接时全场仍然绿：`runFnthinkPresenceRound` 那份占位实现会红，但没有任何 Dart 测试
-  //   跑过那个入口。它红的那一刻在设备上、在被杀之后的第一轮 —— 所以守卫钉的是"这行赋值在不在"。
-  runFnthinkPresenceRound = () async {
-    if (!getIt.isRegistered<FnthinkReceiveCoordinator>()) setupLocator();
-    await getIt<FnthinkReceiveCoordinator>().receiveOnce();
-  };
+/// 后台引擎里"那一轮到底干什么"的**唯一实现**（T33 第二片 / §4-9 片1b；#178 真机现形后定的形状）。
+///
+/// 为什么是"自带装配的顶层函数"，而不是"在这里给 `runFnthinkPresenceRound` 赋值"：
+/// 后台 isolate 里从没跑过 `runApp` ⇒ 也永远不会有人调 `setupLocator()` ⇒
+/// 上一版那种"赋值写在 setupLocator 里"的形状，变量从头到尾都是占位实现。
+/// 真机日志（2026-09-30）里每 20 秒一行「后台那一轮失败：没有装配」就是这里来的 ——
+/// 而全场 Dart 测试仍然绿（没有任何用例跑过"空 getIt + 直接进这一轮"这条路）。
+/// 现在 `fnthink_presence_scheduler.dart` 里那份默认值直接指向本函数：谁起的那颗引擎都自带装配。
+///
+/// ⚠ 与前台必须是同一条收货路（同一套判据、同一个内核）：在这儿拼第二个 poll 循环，
+///   就等于给同一个协议找第二个作者。守卫钉在 `test/architecture/fnthink_presence_guard_test.dart`。
+Future<void> fnthinkBackgroundRound() async {
+  // 前台进程里整棵树已经装好了（`registerLazySingleton` 二次注册会抛，别重复装）；
+  // 后台 isolate 里 getIt 是空的 —— 那一次由这里补上，且必须在收货之前。
+  if (!getIt.isRegistered<FnthinkReceiveCoordinator>()) setupLocator();
+  await getIt<FnthinkReceiveCoordinator>().receiveOnce();
 }
