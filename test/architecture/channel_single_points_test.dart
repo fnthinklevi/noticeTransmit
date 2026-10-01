@@ -110,7 +110,7 @@ void main() {
         offenders,
         isEmpty,
         reason:
-            '健康度缓存的键格式与 6h 时效只在 ChannelHealthStore 一处定义；'
+            '健康度缓存的键格式与时效只在 ChannelHealthStore 一处定义；'
             '页面自己拼键就会再次分裂成三族不同行为：$offenders',
       );
     });

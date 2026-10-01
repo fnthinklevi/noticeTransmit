@@ -55,8 +55,12 @@ class ChannelHealthStore {
   static const keyPrefix = 'channel_health_';
   static const legacyEmailMapKey = 'email_test_results';
 
-  /// 超过这个时长就算过期，页面进页时后台刷新（webhook 沿用既有 6h 口径）
-  static const staleness = Duration(hours: 6);
+  /// 超过这个时长就算过期：进页/回前台/每 30 分钟那一轮里，只有过了这个时长的会被重探。
+  ///
+  /// #183 按维护者口径从 6h 缩到 30min：徽标上挂着六小时前的"成功"不是状态，是历史。
+  /// ⚠ 这一个数同时是**时效与主动周期**两件事（`main_page` 的定时器读的就是它）——
+  ///    别再长出第二个「30 分钟」字面量，那会让"过期了但还没到下一轮"的空档回来。
+  static const staleness = Duration(minutes: 30);
 
   final Map<String, ChannelHealth> _entries = {};
   bool _loaded = false;

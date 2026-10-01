@@ -59,6 +59,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   // 首页推送记录总数（统一以 DB 为准，与更多页统计/状态栏统计共用同一数据源）
   int _notificationTotalCount = 0;
 
+  /// 通道健康度的主动探测节奏（#183）。只在**前台**跑：退到后台就停 ——
+  /// 后台的网络轮询在 ROM 那里就是"耗电的常驻服务"，被杀之后的那一轮归 §4-9 那颗闹钟管。
+  Timer? _healthProbeTimer;
+
   /// 首页「幻念收件」那一格的未读数。**这一页不数**，只从收件咽喉取（`FnthinkInboxService`），
   /// 于是它与历史页收件档、详情里那个未读点是同一个数。
   int _fnthinkInboxUnread = 0;
@@ -189,6 +193,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       await emailService.loadChannels();
       await _smsService.loadSettings();
       _notificationService.startDailyExport();
+      // 通道健康度的主动节奏（#183）：冷启动立刻探一轮，之后每
+      // [ChannelHealthStore.staleness] 一轮。必须排在三个 loadChannels 之后 ——
+      // 探测目标读的是服务里的内存列表，早一步就是对着空列表交一份"无事可做"。
+      _startHealthProbeCadence();
       // 装配链里前面已有 4 个 await：页面在此期间被销毁时，裸 setState 抛异常会被下面的
       // catch 吞掉，连带**跳过** `_checkFirstLaunch()` 与延迟启动服务那一段（㊽ 实测冒出来的正是它）。
       // 守卫放在这里而不是靠 catch：语义不变（页面没了就不该继续），但不再靠异常控制流。
@@ -270,6 +278,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _batteryService.stopRefreshTimer();
+    _healthProbeTimer?.cancel();
     super.dispose();
   }
 
@@ -283,12 +292,20 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       unawaited(_refreshFnthinkInboxUnread());
       // 通道健康度同理（#174）：6h 时效一过，"上次成功"会被判成「未知」，而此前只有
       // 进那三个族页才会重探 —— 首页这张卡/状态页会一直挂着"未知"没人管。
-      // 仍是 stale-only：真发请求的只有过期的那几条。
-      unawaited(probeChannelsAcrossFamilies());
+      // 通道健康度同理（#174 → #183）：时效一过，"上次成功"会被判成「未知」，而此前只有
+      // 走进那三个族页才会重探 —— 首页这张卡/通道状态页会一直挂着"未知"没人管。
+      // 打开软件（含回前台）立刻探一轮，顺带把定时器重新起起来。
+      // 仍是 stale-only：真发请求的只有过时效的那几条 —— 周期与时效是同一个数，
+      // 所以"最迟一轮"就等于"过期的那条最多撑一轮"。
+      _startHealthProbeCadence();
       final localeService = GetIt.instance<LocaleService>();
       if (localeService.shouldPromptSwitch) {
         await _showLanguageSwitchDialog(localeService);
       }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      // 后台不留网络轮询：ROM 把它算成"耗电的常驻服务"。进程被杀之后的那一轮归 §4-9 那颗闹钟。
+      _healthProbeTimer?.cancel();
     }
   }
 

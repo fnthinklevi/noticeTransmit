@@ -92,7 +92,7 @@ void main() {
         target(id: 'disabled', enabled: false),
         target(id: 'fresh'),
       ]);
-      expect(second, 0, reason: '六小时内有结论就不该再打厂商：探测不是轮询');
+      expect(second, 0, reason: '时效内有结论就不该再打厂商：探测不是轮询');
       expect(calls, isEmpty);
       expect(
         health.of('webhook', 'fresh')?.reachable,

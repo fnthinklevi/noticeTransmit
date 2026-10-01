@@ -47,6 +47,22 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
+  /// 通道健康度的**主动**节奏（#183）：立刻探一轮 + 每 [ChannelHealthStore.staleness] 再一轮。
+  ///
+  /// 三处细节都是刻意的：
+  /// ① 周期读的是那个时效常量，不是另写一个「30 分钟」字面量 —— 周期与时效必须是同一个数，
+  ///    否则「记录已过期但下一轮还没到」的空档会重新出现（#174 修的就是这类空档）；
+  /// ② 每一轮仍是 stale-only：过期的才真发请求，所以一轮的工作量上界就是过期条数；
+  /// ③ 冷启动与每次回前台都重起定时器（先 cancel 再起 ⇒ 反复前后台不会叠出两条轮询）。
+  void _startHealthProbeCadence() {
+    unawaited(probeChannelsAcrossFamilies());
+    _healthProbeTimer?.cancel();
+    _healthProbeTimer = Timer.periodic(
+      ChannelHealthStore.staleness,
+      (_) => unawaited(probeChannelsAcrossFamilies()),
+    );
+  }
+
   Future<void> _getDeviceInfo() async {
     await _deviceInfoService.loadDeviceInfo();
     if (!mounted) return;
