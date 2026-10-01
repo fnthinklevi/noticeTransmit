@@ -1113,6 +1113,16 @@ void main() {
         contains('_must('),
         reason: '确认框缺失时必须当场红；静默继续 = 把"删除没有确认"这件事测不出来',
       );
+      // helper 两类对话框都要认：`askConfirm` 自 T90 片3 起是 `CupertinoDialogAction`，
+      // 而台账里那些历史 Material 确认框仍是 `TextButton`。只认一种 ⇒ 另一种形状的删除
+      // 在闸门上"找不到确认框"，红的是判据自己而不是被漏掉的咽喉。
+      for (final kind in const ['CupertinoDialogAction', 'TextButton']) {
+        expect(
+          helper,
+          contains("widgetWithText($kind, '删除')"),
+          reason: '确认框 helper 少了 $kind 这一类 ⇒ 该形状的删除会被当成"没弹框"',
+        );
+      }
     });
 
     test('两条测试动作都被真点过：仅测试 与 测试并保存（T04）', () {

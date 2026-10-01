@@ -2410,7 +2410,16 @@ bool _menuUp(WidgetTester t) =>
 /// 于是"某条删除路径偷偷绕开了咽喉"在闸门上就是可见的，而不是靠人记住。
 Future<void> _confirmDelete(WidgetTester t, String why) async {
   await _settle(t);
-  final confirm = find.widgetWithText(TextButton, '删除');
+  // 两类都要认：`askConfirm` 自 T90 片3 起是 `CupertinoDialogAction`，而台账里那些历史
+  // Material 对话框（`IosDialogActions.confirm` 搭的 `AlertDialog`）仍是 `TextButton`。
+  // 只认一种的话，另一种形状的删除确认框就"找不到"—— 而这条 helper 的意义恰恰是
+  // "没有确认框当场红"，判据不能跟着本体换一半。（这个 SDK 版本的 `CommonFinders` 没有 anyOf，
+  // 所以按"先认 Cupertino、没有再认 Material"的顺序取其一。）
+  final cupertinoConfirm = find.widgetWithText(CupertinoDialogAction, '删除');
+  final materialConfirm = find.widgetWithText(TextButton, '删除');
+  final confirm = cupertinoConfirm.evaluate().isNotEmpty
+      ? cupertinoConfirm
+      : materialConfirm;
   await _must(t, confirm.evaluate().isNotEmpty, '删除确认框 $why', confirm);
   // 对话框永远在页面控件之后 ⇒ .last 是确认框里那颗，不是页面上的删除按钮
   await t.tap(confirm.last);
