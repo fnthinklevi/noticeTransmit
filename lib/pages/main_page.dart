@@ -100,7 +100,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         smsMonitorEnabled: _smsService.smsMonitorEnabled,
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
-        onRefresh: _checkPermissions,
+        onRefresh: _pullToRefreshHome,
         onOpenHistory: _openHistoryPage,
         onOpenChannelStatus: _openChannelStatusPage,
         onOpenPermissionSettings: _openPermissionSettingsPage,
@@ -284,7 +284,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // 通道健康度同理（#174）：6h 时效一过，"上次成功"会被判成「未知」，而此前只有
       // 进那三个族页才会重探 —— 首页这张卡/状态页会一直挂着"未知"没人管。
       // 仍是 stale-only：真发请求的只有过期的那几条。
-      unawaited(probeStaleChannelsAcrossFamilies());
+      unawaited(probeChannelsAcrossFamilies());
       final localeService = GetIt.instance<LocaleService>();
       if (localeService.shouldPromptSwitch) {
         await _showLanguageSwitchDialog(localeService);

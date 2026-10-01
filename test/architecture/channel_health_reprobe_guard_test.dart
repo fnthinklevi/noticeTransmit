@@ -21,7 +21,7 @@ void main() {
       final page = read('lib/pages/channel_status_page.dart');
       expect(
         page,
-        contains('probeStaleChannelsAcrossFamilies('),
+        contains('probeChannelsAcrossFamilies('),
         reason: '状态页进页不重探 ⇒ 6h 一过这一页永远显示"未知"，而它正是用户看状态的那一页',
       );
       expect(
@@ -41,7 +41,7 @@ void main() {
       );
       expect(
         resume,
-        contains('probeStaleChannelsAcrossFamilies('),
+        contains('probeChannelsAcrossFamilies('),
         reason: '回前台不重探 ⇒ 用户锁屏一晚上再打开，那张卡还是"未知"',
       );
     });

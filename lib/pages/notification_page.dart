@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../widgets/pull_to_refresh_list.dart';
 
 class NotificationPage extends StatelessWidget {
   final bool notificationPermissionGranted;
@@ -50,229 +51,224 @@ class NotificationPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.appName)),
-      body: RefreshIndicator(
+      body: PullToRefreshList(
         onRefresh: onRefresh,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-          children: [
-            const SizedBox(height: 40),
-            Center(
-              child: GestureDetector(
-                onTap: foregroundServiceRunning
-                    ? onStopService
-                    : onStartService,
-                child: Container(
-                  // 冒烟测试的稳定锚点：文案不可点、图标在页内不唯一，
-                  // 只有这个圆形按钮是真正的服务启停控件。
-                  key: const ValueKey<String>('service-toggle'),
-                  width: 180,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: foregroundServiceRunning
-                        ? AppColors.green
-                        : AppColors.red,
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (foregroundServiceRunning
-                                    ? AppColors.green
-                                    : AppColors.red)
-                                .withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        foregroundServiceRunning
-                            ? Icons.notifications_active
-                            : Icons.notifications_off,
-                        size: 48,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        foregroundServiceRunning ? l10n.running : l10n.stopped,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: Text(
-                foregroundServiceRunning
-                    ? l10n.serviceRunning
-                    : l10n.serviceStopped,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-            // 通道卡**常驻**（不再只在监听运行时才显示）：
-            // 「配了哪些通道、最近探到过不通」与"服务此刻在不在跑"是两件事，
-            // 服务停着的时候反而更需要看到这两行；入口也才稳定可点。
-            const SizedBox(height: 16),
-            // 整张卡可点 → 通道状态页（T10）。卡片本身只做"有几条、大致怎样"，
-            // 明细与主备设置都在那一页；不铺开的理由是首页要留给监听状态与快捷入口。
-            InkWell(
-              onTap: onOpenChannelStatus,
-              borderRadius: BorderRadius.circular(12),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+        children: [
+          const SizedBox(height: 40),
+          Center(
+            child: GestureDetector(
+              onTap: foregroundServiceRunning ? onStopService : onStartService,
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(12),
+                // 冒烟测试的稳定锚点：文案不可点、图标在页内不唯一，
+                // 只有这个圆形按钮是真正的服务启停控件。
+                key: const ValueKey<String>('service-toggle'),
+                width: 180,
+                height: 180,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBg(context),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.separator(context)),
+                  shape: BoxShape.circle,
+                  color: foregroundServiceRunning
+                      ? AppColors.green
+                      : AppColors.red,
+                  boxShadow: [
+                    BoxShadow(
+                      color:
+                          (foregroundServiceRunning
+                                  ? AppColors.green
+                                  : AppColors.red)
+                              .withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.router_outlined,
-                          size: 14,
-                          color: AppColors.blue,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          l10n.currentChannels,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.secondaryLabel(context),
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 16,
-                          color: AppColors.tertiaryLabel(context),
-                        ),
-                      ],
+                    Icon(
+                      foregroundServiceRunning
+                          ? Icons.notifications_active
+                          : Icons.notifications_off,
+                      size: 48,
+                      color: Colors.white,
                     ),
-                    const SizedBox(height: 10),
-                    if (activeChannels.isNotEmpty)
-                      ...activeChannels.map((c) {
-                        final label = c['label'] ?? '';
-                        // 三态：正常 / 异常 / 未知（没有新鲜的探测结果）。
-                        // 未知既不是绿灯也不是红灯 —— 之前只有二态，webhook 与应用通道
-                        // 从没探过也被算成"正常"（T01 的病灶）。
-                        final isOk = (c['status'] ?? 'unknown') == 'ok';
-                        final isUnknown =
-                            (c['status'] ?? 'unknown') == 'unknown';
-                        final statusColor = isOk
-                            ? AppColors.green
-                            : isUnknown
-                            ? AppColors.tertiaryLabel(context)
-                            : AppColors.red;
-                        final statusText = isOk
-                            ? l10n.statusOk
-                            : isUnknown
-                            ? l10n.statusUnknown
-                            : l10n.statusError;
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                statusText,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: statusColor,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // 「类型：子类型/通道名」可能很长（自定义通道名），
-                              // 原来用 Spacer + 不定宽 Text 在窄屏会溢出报错
-                              Expanded(
-                                child: Text(
-                                  label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.secondaryLabel(context),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      })
-                    else
-                      Text(
-                        l10n.noChannels,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.tertiaryLabel(context),
-                        ),
+                    const SizedBox(height: 8),
+                    Text(
+                      foregroundServiceRunning ? l10n.running : l10n.stopped,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
+                    ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            _buildSmsMonitorCard(context, l10n),
-            const SizedBox(height: 40),
-            _buildQuickAction(
-              icon: Icons.settings,
-              iconColor: AppColors.blue,
-              title: l10n.permSettings,
-              subtitle: l10n.permSettingsDesc,
-              onTap: onOpenPermissionSettings,
-              context: context,
-            ),
-            const SizedBox(height: 12),
-            _buildQuickAction(
-              icon: Icons.history,
-              iconColor: AppColors.green,
-              title: l10n.pushHistory,
-              subtitle: l10n.recordCount(notificationCount),
-              onTap: onOpenHistory,
-              context: context,
-            ),
-            // 「幻念收件」这一格**只在有货的时候出现**：这台从没接收过、或都读完了，首页就不该多出
-            // 一格跟他无关的入口（"新功能不许改变用户看到的默认界面"那条不变量）。读完了想再翻收件档，
-            // 走「推送历史」那一格切过去 —— 门一直开着，这一格只是短的那条路。
-            // 出口没接上时同样不画：画一个点不动的入口比不画更糟（与幻念推送页那条"死路按钮"同族）。
-            if (onOpenInbox != null && fnthinkInboxUnread > 0) ...[
-              const SizedBox(height: 12),
-              _buildQuickAction(
-                icon: Icons.mark_email_unread_outlined,
-                iconColor: AppColors.purple,
-                title: l10n.fnthinkInboxEntry,
-                subtitle: l10n.fnthinkInboxUnread(fnthinkInboxUnread),
-                onTap: onOpenInbox!,
-                context: context,
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: Text(
+              foregroundServiceRunning
+                  ? l10n.serviceRunning
+                  : l10n.serviceStopped,
+              style: TextStyle(
+                fontSize: 14,
+                color: AppColors.secondaryLabel(context),
               ),
-            ],
+            ),
+          ),
+          // 通道卡**常驻**（不再只在监听运行时才显示）：
+          // 「配了哪些通道、最近探到过不通」与"服务此刻在不在跑"是两件事，
+          // 服务停着的时候反而更需要看到这两行；入口也才稳定可点。
+          const SizedBox(height: 16),
+          // 整张卡可点 → 通道状态页（T10）。卡片本身只做"有几条、大致怎样"，
+          // 明细与主备设置都在那一页；不铺开的理由是首页要留给监听状态与快捷入口。
+          InkWell(
+            onTap: onOpenChannelStatus,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.cardBg(context),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.separator(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.router_outlined,
+                        size: 14,
+                        color: AppColors.blue,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        l10n.currentChannels,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondaryLabel(context),
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppColors.tertiaryLabel(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (activeChannels.isNotEmpty)
+                    ...activeChannels.map((c) {
+                      final label = c['label'] ?? '';
+                      // 三态：正常 / 异常 / 未知（没有新鲜的探测结果）。
+                      // 未知既不是绿灯也不是红灯 —— 之前只有二态，webhook 与应用通道
+                      // 从没探过也被算成"正常"（T01 的病灶）。
+                      final isOk = (c['status'] ?? 'unknown') == 'ok';
+                      final isUnknown = (c['status'] ?? 'unknown') == 'unknown';
+                      final statusColor = isOk
+                          ? AppColors.green
+                          : isUnknown
+                          ? AppColors.tertiaryLabel(context)
+                          : AppColors.red;
+                      final statusText = isOk
+                          ? l10n.statusOk
+                          : isUnknown
+                          ? l10n.statusUnknown
+                          : l10n.statusError;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: statusColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: statusColor,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // 「类型：子类型/通道名」可能很长（自定义通道名），
+                            // 原来用 Spacer + 不定宽 Text 在窄屏会溢出报错
+                            Expanded(
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.secondaryLabel(context),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    })
+                  else
+                    Text(
+                      l10n.noChannels,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.tertiaryLabel(context),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildSmsMonitorCard(context, l10n),
+          const SizedBox(height: 40),
+          _buildQuickAction(
+            icon: Icons.settings,
+            iconColor: AppColors.blue,
+            title: l10n.permSettings,
+            subtitle: l10n.permSettingsDesc,
+            onTap: onOpenPermissionSettings,
+            context: context,
+          ),
+          const SizedBox(height: 12),
+          _buildQuickAction(
+            icon: Icons.history,
+            iconColor: AppColors.green,
+            title: l10n.pushHistory,
+            subtitle: l10n.recordCount(notificationCount),
+            onTap: onOpenHistory,
+            context: context,
+          ),
+          // 「幻念收件」这一格**只在有货的时候出现**：这台从没接收过、或都读完了，首页就不该多出
+          // 一格跟他无关的入口（"新功能不许改变用户看到的默认界面"那条不变量）。读完了想再翻收件档，
+          // 走「推送历史」那一格切过去 —— 门一直开着，这一格只是短的那条路。
+          // 出口没接上时同样不画：画一个点不动的入口比不画更糟（与幻念推送页那条"死路按钮"同族）。
+          if (onOpenInbox != null && fnthinkInboxUnread > 0) ...[
+            const SizedBox(height: 12),
+            _buildQuickAction(
+              icon: Icons.mark_email_unread_outlined,
+              iconColor: AppColors.purple,
+              title: l10n.fnthinkInboxEntry,
+              subtitle: l10n.fnthinkInboxUnread(fnthinkInboxUnread),
+              onTap: onOpenInbox!,
+              context: context,
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

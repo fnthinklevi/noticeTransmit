@@ -140,6 +140,73 @@ void main() {
         reason: '已换掉的落点没从登记表划掉 ⇒ 棘轮自己变陈旧，下一屏会误判为「还在」',
       );
     });
+
+    test('CupertinoSliverRefreshControl 只有一个装配点（PullToRefreshList）', () {
+      expect(
+        hitting('CupertinoSliverRefreshControl('),
+        const <String>['lib/widgets/pull_to_refresh_list.dart'],
+        reason: '各页自己搭 sliver ⇒ 「哪一页用的是哪一件」重新散落（T05/T06 同一条理由）',
+      );
+    });
+
+    test('用户点名的那几页都接了自己的下拉入口', () {
+      // 三个族页 + 状态页自己写处理函数；首页那张卡的 onRefresh 是**注入**的
+      // （由 main_page 传下来），所以它的落点分两处断：页面里有壳、装配处给了作者。
+      for (final page in const [
+        'lib/pages/webhook_channel_list_page.dart',
+        'lib/pages/app_channel_list_page.dart',
+        'lib/pages/email_settings_page.dart',
+        'lib/pages/channel_status_page.dart',
+      ]) {
+        final src = codeByPath[page];
+        expect(src, isNotNull, reason: '$page 不在了 ⇒ 这条断言在空转');
+        expect(
+          src!,
+          contains('onRefresh: _pullToRefresh'),
+          reason: '$page 的下拉没接到 PullToRefreshList 的 onRefresh（手势没作者）',
+        );
+      }
+      expect(
+        codeByPath['lib/pages/notification_page.dart'],
+        contains('onRefresh: onRefresh'),
+        reason: '首页那张卡没接进下拉壳（用户点名的第一项就是这里）',
+      );
+      expect(
+        librarySource(root, 'lib/pages/main_page.dart'),
+        contains('onRefresh: _pullToRefreshHome'),
+        reason: '首页的 onRefresh 仍指向旧作者 ⇒ 下拉只重读权限，不重探通道',
+      );
+    });
+
+    test('下拉那一发是 force，回前台那一轮仍是 stale-only', () {
+      // 两件事不能互相带跑：下拉是用户显式要"现在就重探"，回前台是顺手检查。
+      // 前者不 force ⇒ 刚探过的一个请求都不发（手势成装饰品）；后者被改成 force ⇒
+      // 每次切回 App 都对着三个通道服务商发一轮请求。
+      for (final page in const [
+        'lib/pages/webhook_channel_list_page.dart',
+        'lib/pages/app_channel_list_page.dart',
+        'lib/pages/email_settings_page.dart',
+      ]) {
+        expect(
+          codeByPath[page]!,
+          contains('_prober.probeNow('),
+          reason: '$page 的下拉走的是 stale-only ⇒ 拉了等于没拉',
+        );
+      }
+      final homeAndStatus =
+          '${librarySource(root, 'lib/pages/main_page.dart')}\n'
+          '${codeByPath['lib/pages/channel_status_page.dart']}';
+      expect(
+        homeAndStatus,
+        contains('force: true'),
+        reason: '首页/状态页的下拉没走 force（全族那一发同上）',
+      );
+      expect(
+        homeAndStatus,
+        contains('unawaited(probeChannelsAcrossFamilies());'),
+        reason: '回前台那一轮被改成 force ⇒ 每次切回 App 对三族各发一轮请求',
+      );
+    });
   });
 
   group('确认框台账（Material AlertDialog）', () {
@@ -176,7 +243,6 @@ void main() {
 const Set<String> kPendingRefreshIndicatorSites = <String>{
   'lib/pages/battery_page.dart',
   'lib/pages/device_state_page.dart',
-  'lib/pages/notification_page.dart',
   'lib/pages/permission_settings_page.dart',
   'lib/pages/temperature_page.dart',
 };

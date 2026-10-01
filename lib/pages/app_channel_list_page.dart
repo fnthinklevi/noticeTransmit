@@ -14,6 +14,7 @@ import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/pull_to_refresh_list.dart';
 import 'app_channel_settings_page.dart';
 
 /// 自建应用通道**列表页**（T07：三族通道统一成「列表页 → 单通道详情页」）。
@@ -77,46 +78,69 @@ class _AppChannelListPageState extends State<AppChannelListPage> {
 
   String _idOf(Map<String, dynamic> c) => c['id']?.toString() ?? '';
 
+  /// 下拉刷新（#182）：这一族的通道**现在**重探一遍（force），不等 staleness。
+  /// 与 [_probeStaleChannels] 分开写、也不经 [_refresh]：那一发结尾会起一轮 stale-only，
+  /// 而探测有单飞锁 ⇒ 并发时 force 那一发直接返回 0，用户拉到的是「转了圈但什么都没变」。
+  Future<void> _pullToRefresh() async {
+    await _service.loadChannels();
+    if (!mounted) return;
+    setState(() => _channels = _service.channels);
+    await _health.load();
+    if (!mounted) return;
+    await _prober.probeNow(
+      'app',
+      _service.probeTargets,
+      onUpdated: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Widget _emptyView(AppLocalizations l10n) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.apps_outlined,
+          size: 48,
+          color: AppColors.secondaryLabel(context),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          l10n.noAppChannels,
+          style: TextStyle(
+            fontSize: 16,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.clickToAdd,
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.tertiaryLabel(context),
+          ),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(title: Text(l10n.appChannelTitle)),
-      body: _channels.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.apps_outlined,
-                    size: 48,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.noAppChannels,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.secondaryLabel(context),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.clickToAdd,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.tertiaryLabel(context),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 88),
-              itemCount: _channels.length,
-              itemBuilder: (context, index) => _buildChannelTile(index),
-            ),
+      body: PullToRefreshList(
+        onRefresh: _pullToRefresh,
+        padding: const EdgeInsets.only(bottom: 88),
+        emptyChild: _channels.isEmpty ? _emptyView(l10n) : null,
+        children: [
+          ...List.generate(_channels.length, (i) => _buildChannelTile(i)),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         tooltip: l10n.addChannel,
         onPressed: _addChannel,

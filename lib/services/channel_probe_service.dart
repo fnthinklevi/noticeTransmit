@@ -31,7 +31,8 @@ class ChannelProbeTarget {
 ///
 /// ⚠ 三条不变量（各有对应守卫）：
 /// 1. **只探启用的**：停用通道不该产生对外请求（也不该被徽标算成异常）；
-/// 2. **只探过期的**（[ChannelHealthStore.needsProbe]）：不是进页就发一轮请求；
+/// 2. **进页那一路只探过期的**（[ChannelHealthStore.needsProbe]）：不是进页就发一轮请求。
+///    [probeNow] 是用户显式拉下来那一发，过期判据让位 —— 理由见那里的说明；
 /// 3. **探测调用本身抛异常时不写"不可达"**：那会把徽标钉成红，比"这次没探到"更误导。
 class ChannelProbeService {
   ChannelProbeService({
@@ -49,26 +50,50 @@ class ChannelProbeService {
 
   /// 逐个探测过期通道并把结论写回健康单点；[onUpdated] 每写回一条回调一次（页面 setState）。
   /// 返回本次实际探测的通道数。
+  ///
+  /// 这是**进页 / 回前台那一路**的入口：顺手检查不该变成"每次露脸都发一轮请求"。
   Future<int> probeStale(
     String family,
     List<ChannelProbeTarget> targets, {
     void Function()? onUpdated,
+  }) => _probe(family, targets, force: false, onUpdated: onUpdated);
+
+  /// **用户显式要求"现在就重探"**（列表页下拉刷新那一发）：过期判据让位给这一句显式意图。
+  ///
+  /// 为什么不能复用 [probeStale]：刚探过的通道在 `staleness` 之内，按 stale-only 走
+  /// 下拉刷新会一个请求都不发 ⇒ 用户拉了、转圈结束了、屏幕上什么都没变（"这个手势是装饰品"）。
+  /// 另两条不变量照旧：**只探启用的**、**探测调用本身抛异常时不写不可达**。
+  Future<int> probeNow(
+    String family,
+    List<ChannelProbeTarget> targets, {
+    void Function()? onUpdated,
+  }) => _probe(family, targets, force: true, onUpdated: onUpdated);
+
+  Future<int> _probe(
+    String family,
+    List<ChannelProbeTarget> targets, {
+    required bool force,
+    void Function()? onUpdated,
   }) async {
     if (_running) return 0;
     final now = _clock();
-    final stale = targets
+    final wanted = targets
         .where(
           (t) =>
               t.enabled &&
               t.id.isNotEmpty &&
-              ChannelHealthStore.needsProbe(_health.of(family, t.id), now: now),
+              (force ||
+                  ChannelHealthStore.needsProbe(
+                    _health.of(family, t.id),
+                    now: now,
+                  )),
         )
         .toList();
-    if (stale.isEmpty) return 0;
+    if (wanted.isEmpty) return 0;
     _running = true;
     var probed = 0;
     try {
-      for (final t in stale) {
+      for (final t in wanted) {
         final watch = Stopwatch()..start();
         try {
           final r = await _channel.invokeMethod<Object?>(t.method, t.args);

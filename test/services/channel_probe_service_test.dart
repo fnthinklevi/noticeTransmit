@@ -173,6 +173,49 @@ void main() {
     });
   });
 
+  group('下拉刷新那一发（#182：force 让位过期判据）', () {
+    test('probeNow 对刚探过的通道照样再发一次（否则手势是装饰品）', () async {
+      await service().probeStale('webhook', [target(id: 'fresh')]);
+      expect(calls.length, 1);
+      calls.clear();
+
+      final probed = await service().probeNow('webhook', [target(id: 'fresh')]);
+      expect(probed, 1, reason: 'stale 那一路被 staleness 挡住是对的，但用户显式拉下来这一发不该被挡');
+      expect(calls.length, 1);
+    });
+
+    test('对照：同一批目标 probeStale 仍然挡住（force 只开在下拉那一路）', () async {
+      await service().probeNow('webhook', [target(id: 'fresh')]);
+      calls.clear();
+      expect(await service().probeStale('webhook', [target(id: 'fresh')]), 0);
+      expect(calls, isEmpty, reason: '进页/回前台那一轮不该被下拉的 force 带跑，否则每次露脸都发一轮请求');
+    });
+
+    test('force 也仍然只探启用的（不变量 1 不随 force 松）', () async {
+      final probed = await service().probeNow('webhook', [
+        target(id: 'off', enabled: false),
+      ]);
+      expect(probed, 0);
+      expect(calls, isEmpty);
+    });
+
+    test('force 路径上探测抛异常同样不写"不可达"（不变量 3 不随 force 松）', () async {
+      throwOnCall = true;
+      expect(await service().probeNow('app', [target(id: 'x')]), 0);
+      expect(health.of('app', 'x'), isNull);
+    });
+
+    test('probeNow 的结论写回同一把键（与 stale 那一路共用一份数据）', () async {
+      results = [
+        {'reachable': false, 'latencyMs': 3000, 'httpCode': 500},
+      ];
+      await service().probeNow('webhook', [target(id: 'ch-1')]);
+      final record = health.of('webhook', 'ch-1');
+      expect(record?.reachable, isFalse);
+      expect(record?.latencyMs, 3000);
+    });
+  });
+
   group('探测载荷的跨端键集合', () {
     test('appProbePayload 给得出原生 appChannelTarget 读的每个键', () {
       final produced = ChannelConfigCodec.appProbePayload({

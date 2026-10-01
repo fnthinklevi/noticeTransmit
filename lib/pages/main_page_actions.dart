@@ -29,6 +29,24 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
+  /// 首页下拉那一发（#182）：除了权限，还要**立刻**把三族通道各探一遍 ——
+  /// 用户拉这个手势的动机就是"首页那张卡上的状态到底准不准"。
+  ///
+  /// ⚠ 必须 `force: true`：走 stale-only 的话，刚探过的通道一个请求都不发，
+  /// 圈转完屏幕上什么都没变 ⇒ 这个手势成了装饰品。回前台那一轮（`didChangeAppLifecycleState`）
+  /// 仍是 stale-only，两处不是一件事。
+  Future<void> _pullToRefreshHome() async {
+    await _checkPermissions();
+    await probeChannelsAcrossFamilies(
+      force: true,
+      onUpdated: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
+  }
+
   Future<void> _getDeviceInfo() async {
     await _deviceInfoService.loadDeviceInfo();
     if (!mounted) return;

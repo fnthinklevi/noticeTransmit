@@ -16,6 +16,7 @@ import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_visuals.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/pull_to_refresh_list.dart';
 import '../widgets/app_text_selection_menu.dart';
 
 /// 邮件通道的必填项清单（T03）。
@@ -148,43 +149,12 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.emailSettingsTitle)),
-      body: _channels.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.email_outlined,
-                    size: 48,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.noEmailChannels,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.secondaryLabel(context),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.clickToAdd,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.tertiaryLabel(context),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildAddButton(),
-                ],
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.only(bottom: 88),
-              children: [
-                for (final channel in _channels) _buildChannelTile(channel),
-              ],
-            ),
+      body: PullToRefreshList(
+        onRefresh: _pullToRefresh,
+        padding: const EdgeInsets.only(bottom: 88),
+        emptyChild: _channels.isEmpty ? _emptyView(l10n) : null,
+        children: [for (final channel in _channels) _buildChannelTile(channel)],
+      ),
       floatingActionButton: _channels.isNotEmpty
           ? FloatingActionButton(
               onPressed: _addChannel,
@@ -192,6 +162,57 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
             )
           : null,
     );
+  }
+
+  Widget _emptyView(AppLocalizations l10n) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.email_outlined,
+          size: 48,
+          color: AppColors.secondaryLabel(context),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          l10n.noEmailChannels,
+          style: TextStyle(
+            fontSize: 16,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.clickToAdd,
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.tertiaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 20),
+        _buildAddButton(),
+      ],
+    ),
+  );
+
+  /// 下拉刷新（#182）：这一族**现在**重探一遍（force），不等 staleness。
+  /// 不经 [_refresh]：那一发结尾起的是 stale-only 轮，而探测有单飞锁 ⇒
+  /// 两轮并发时 force 那一发直接返回 0（拉了等于没拉）。
+  Future<void> _pullToRefresh() async {
+    final channels = await _emailService.loadChannels();
+    if (!mounted) return;
+    setState(() => _channels = channels);
+    await _health.load();
+    if (!mounted) return;
+    await _prober.probeNow(
+      'email',
+      _emailService.probeTargetsFor(_channels),
+      onUpdated: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
   }
 
   Widget _buildAddButton() {

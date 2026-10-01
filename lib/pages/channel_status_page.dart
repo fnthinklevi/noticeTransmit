@@ -10,6 +10,7 @@ import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../theme/app_colors.dart';
+import '../widgets/pull_to_refresh_list.dart';
 
 /// 通道状态页（T10）：首页「当前推送通道」那点进来，按三族分组列出**已启用**的通道，
 /// 每行给「通道名 · 类型 · 关键链接 · 最近一次探测」，点一行直接进那条通道的配置页。
@@ -51,7 +52,7 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     // 所以进页顺手把**过期的**探一遍（#174）：stale-only，不是每进必发请求；
     // 探完 setState 让这张表按新结论重画。
     unawaited(
-      probeStaleChannelsAcrossFamilies(
+      probeChannelsAcrossFamilies(
         onUpdated: () {
           if (mounted) setState(() {});
         },
@@ -140,28 +141,44 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
           ),
         ],
       ),
-      body: channels.isEmpty
-          ? Center(
-              child: Text(
-                l10n.noChannels,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.tertiaryLabel(context),
+      body: PullToRefreshList(
+        onRefresh: _pullToRefresh,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        emptyChild: channels.isEmpty
+            ? Center(
+                child: Text(
+                  l10n.noChannels,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.tertiaryLabel(context),
+                  ),
                 ),
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              children: [
-                if (_backupEngaged) _backupBanner(context, l10n),
-                if (_showGuide) _guideCard(context, l10n),
-                for (final family in _familyOrder)
-                  ..._familySection(context, l10n, family, [
-                    ...channels.where((c) => c.family == family),
-                  ]),
-              ],
-            ),
+              )
+            : null,
+        children: [
+          if (_backupEngaged) _backupBanner(context, l10n),
+          if (_showGuide) _guideCard(context, l10n),
+          for (final family in _familyOrder)
+            ..._familySection(context, l10n, family, [
+              ...channels.where((c) => c.family == family),
+            ]),
+        ],
+      ),
     );
+  }
+
+  /// 下拉刷新（#182）：这一页就是"看状态"的那一页，所以拉一下要把三族**现在**探一遍
+  /// （force），顺带重读备用模式。进页那一轮（initState）仍是 stale-only —— 两处不是一件事。
+  Future<void> _pullToRefresh() async {
+    await _loadBackupMode();
+    await probeChannelsAcrossFamilies(
+      force: true,
+      onUpdated: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
   }
 
   Widget _guideCard(BuildContext context, AppLocalizations l10n) {

@@ -14,6 +14,7 @@ import '../widgets/card_action_sheet.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/pull_to_refresh_list.dart';
 import 'webhook_settings_page.dart';
 
 /// Webhook 通道**列表页**（T07-B：三族通道统一成「列表页 → 单通道详情页」）。
@@ -89,49 +90,70 @@ class _WebhookChannelListPageState extends State<WebhookChannelListPage> {
     },
   );
 
+  /// 下拉刷新（#182）= 用户显式要「现在就把这一族重探一遍」，所以走 force 那一档。
+  ///
+  /// ⚠ 不复用 [_refresh]：它结尾会起一轮 stale-only 探测，而探测有单飞锁 ——
+  /// 两轮并发时这一发 `probeNow` 直接返回 0，用户拉到的是「转了圈但什么都没发生」。
+  /// 列表内容仍按库重读（与从详情页回来同一口径），只是探测换成 force。
+  Future<void> _pullToRefresh() async {
+    await _service.loadChannels();
+    if (!mounted) return;
+    setState(() => _channels = _service.channels);
+    await _health.load();
+    if (!mounted) return;
+    await _prober.probeNow(
+      'webhook',
+      _service.probeTargets,
+      onUpdated: () {
+        if (mounted) setState(() {});
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  /// 空态也在这个下拉壳里：没有「上面还有内容」可滚，但下拉重探仍然成立。
+  Widget _emptyView(AppLocalizations l10n) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.link, size: 48, color: AppColors.secondaryLabel(context)),
+        const SizedBox(height: 12),
+        Text(
+          l10n.noWebhookChannels,
+          style: TextStyle(
+            fontSize: 16,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.clickToAdd,
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.tertiaryLabel(context),
+          ),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(title: Text(l10n.webhookSettingsTitle)),
-      body: _channels.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.link,
-                    size: 48,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.noWebhookChannels,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.secondaryLabel(context),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.clickToAdd,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.tertiaryLabel(context),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.only(bottom: 88),
-              children: [
-                ...List.generate(_channels.length, (i) => _buildTile(i)),
-                const SizedBox(height: 12),
-                _buildNotes(context),
-              ],
-            ),
+      body: PullToRefreshList(
+        onRefresh: _pullToRefresh,
+        padding: const EdgeInsets.only(bottom: 88),
+        emptyChild: _channels.isEmpty ? _emptyView(l10n) : null,
+        children: [
+          ...List.generate(_channels.length, (i) => _buildTile(i)),
+          const SizedBox(height: 12),
+          _buildNotes(context),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         tooltip: l10n.addChannel,
         onPressed: () => _openDetail(),

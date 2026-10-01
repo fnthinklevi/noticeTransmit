@@ -240,7 +240,7 @@ List<Map<String, dynamic>> _rows(List<Map<String, dynamic>> Function() read) {
   }
 }
 
-/// 把**全族过期的通道**各探一遍（#174）。
+/// 把**全族通道**各探一遍（#174 / #182）。
 ///
 /// 为什么需要它：别处（三个族页的进页刷新）只在"用户走到那一页"时才检查过期，而用户看
 /// 状态的地方是首页那张卡与通道状态页 —— [channelHealthState] 把"成功但超过 6h"判成
@@ -252,8 +252,9 @@ List<Map<String, dynamic>> _rows(List<Map<String, dynamic>> Function() read) {
 /// ⚠ 仍然是 **stale-only**：真正发请求的只有超过 [ChannelHealthStore.staleness] 的那几条 ——
 /// 进页/回前台不是"必发一轮请求"的借口。三条不变量（只探启用 / 只探过期 / 调用异常不写不可达）
 /// 全在 [ChannelProbeService] 里。
-Future<int> probeStaleChannelsAcrossFamilies({
+Future<int> probeChannelsAcrossFamilies({
   void Function()? onUpdated,
+  bool force = false,
 }) async {
   // 探测链路没装配（早期启动阶段 / 测试环境）⇒ 当"无事可做"返回，与 [collectActiveChannels]
   // 对三个服务的兜底同一条纪律：这一发是**顺手检查**，不该把一个没注册的 GetIt 变成页面崩。
@@ -278,11 +279,9 @@ Future<int> probeStaleChannelsAcrossFamilies({
 
   var probed = 0;
   for (final entry in byFamily.entries) {
-    probed += await prober.probeStale(
-      entry.key,
-      entry.value,
-      onUpdated: onUpdated,
-    );
+    probed += await (force
+        ? prober.probeNow(entry.key, entry.value, onUpdated: onUpdated)
+        : prober.probeStale(entry.key, entry.value, onUpdated: onUpdated));
   }
   return probed;
 }

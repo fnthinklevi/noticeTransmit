@@ -310,7 +310,7 @@ void main() {
       );
       GetIt.instance.registerSingleton<ChannelProbeService>(prober);
 
-      await probeStaleChannelsAcrossFamilies();
+      await probeChannelsAcrossFamilies();
 
       final probedHooks = calls
           .where((c) => c.method == 'probeChannelHealth')
@@ -330,6 +330,38 @@ void main() {
         calls.map((c) => c.method),
         containsAll(['probeAppChannelToken', 'verifySmtp']),
         reason: '三族都要扫到：只探 webhook 一族，应用/邮件那两族的"未知"就永远没人管',
+      );
+    });
+
+    test('全族扫一遍（force）：刚探过的那一条也重探（下拉刷新那一路）', () async {
+      final health = GetIt.instance<ChannelHealthStore>();
+      await seedChannels(
+        hooks: [
+          hookRow(),
+          {
+            ...hookRow(name: '第二条'),
+            'id': 'wh-2',
+            'url': 'https://oapi.dingtalk.com/robot/send?access_token=second',
+          },
+        ],
+        apps: [appRow()],
+        emails: [probeableEmail()],
+      );
+      final freshId = webhookService.channels.first['id'] as String;
+      await health.record('webhook', freshId, reachable: true, latencyMs: 3);
+      GetIt.instance.registerSingleton<ChannelProbeService>(
+        ChannelProbeService(health: health, channel: AppChannels.notification),
+      );
+
+      await probeChannelsAcrossFamilies(force: true);
+
+      final probedHooks = calls
+          .where((c) => c.method == 'probeChannelHealth')
+          .toList();
+      expect(
+        probedHooks.length,
+        2,
+        reason: 'force 那一发若仍被 staleness 挡住 ⇒ 用户拉了圈、转完屏幕上什么都没变（手势成装饰品）',
       );
     });
   });
