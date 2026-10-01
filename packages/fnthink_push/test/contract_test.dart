@@ -67,12 +67,50 @@ void main() {
       );
     });
 
-    test('在线阈值 = 3 × 拉取间隔，且提频必须比常规更短', () {
+    test('在线阈值 = 3 × 拉取间隔，且提频不许比常态下界更慢', () {
       expect(c.onlineThresholdSeconds(), 60, reason: '默认 20s × 3');
       expect(c.onlineThresholdSeconds(pollIntervalSeconds: 30), 90);
       expect(
         c.intOf(const ['presence', 'burstWhenPending', 'intervalSeconds']),
-        lessThan(c.intOf(const ['presence', 'pollIntervalSeconds', 'min'])!),
+        // T88 之后是**不大于**而不是小于：常态下界被压到 5s、与提频档同值，严格小于会让
+        // 这份契约自己判红。这一档真正要拦的是"提频比常态还慢"那个倒挂。
+        lessThanOrEqualTo(
+          c.intOf(const ['presence', 'pollIntervalSeconds', 'min'])!,
+        ),
+        reason: '相等是定稿的结果（下界 5s == 提频 5s），比它大才是自相矛盾',
+      );
+    });
+
+    test('收取间隔的范围只有一份作者：契约的 min/max/default（T88）', () {
+      final range = c.pollIntervalRange;
+      expect(
+        range,
+        (min: 5, max: 60),
+        reason:
+            '维护者 2026-10-01 定稿：下界 5s（服务端额度本来就是按提频 5s 推的）、'
+            '上界 60s（再长就不是慢，是在线状态失真）',
+      );
+      expect(range.min, lessThanOrEqualTo(c.pollIntervalSeconds));
+      expect(c.pollIntervalSeconds, lessThanOrEqualTo(range.max));
+      // 边界本身：两端都在范围内（悄悄夹掉的那一档必须由调用方自己判红）
+      expect(c.checkedPollIntervalSeconds(range.min), range.min);
+      expect(c.checkedPollIntervalSeconds(range.max), range.max);
+      expect(
+        () => c.checkedPollIntervalSeconds(range.min - 1),
+        throwsStateError,
+        reason: '比下界还快 ⇒ 那一档会把按设备地址推的额度打穿，必须报而不是夹',
+      );
+      expect(
+        () => c.checkedPollIntervalSeconds(range.max + 1),
+        throwsStateError,
+      );
+      // 没选过 = 用契约 default；选过 = 用那一档（两处读数都从这里走）
+      expect(c.effectivePollIntervalSeconds(null), c.pollIntervalSeconds);
+      expect(c.effectivePollIntervalSeconds(45), 45);
+      expect(
+        c.validate(),
+        isEmpty,
+        reason: '定稿那对数字必须让整张表自洽（ackDeadline 已与 3×max 一起抬到 180s）',
       );
     });
 
@@ -1296,7 +1334,7 @@ void main() {
                 as Map<String, Object?>)['intervalSeconds'] =
             25;
       });
-      expectProblem(broken, '必须小于 pollIntervalSeconds.min', '比常态还慢的"提频"没有意义');
+      expectProblem(broken, '必须不大于 pollIntervalSeconds.min', '比常态还慢的"提频"没有意义');
     });
 
     test('请求体上限写成一页纸大小 ⇒ 报（闸比正文还小＝合法通知永远 413）', () {

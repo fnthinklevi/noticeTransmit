@@ -37,11 +37,25 @@ class FnthinkReceiveKernel {
     required FnthinkTransport transport,
     this.nonceFactory,
     int Function()? nowMs,
+    int? pollIntervalSeconds,
   }) : _signer = signer,
        _transport = transport,
-       _nowMs = nowMs ?? _systemNowMs;
+       _nowMs = nowMs ?? _systemNowMs,
+       // 越界在这里就抛，而不是到 currentDelay 那一句才算：内核是节奏的**用**处，
+       // 让它带着一档协议不允许的间隔跑起来，代价是这台设备被自己的服务端持续 429。
+       _pollOverrideSeconds = pollIntervalSeconds == null
+           ? null
+           : contract.checkedPollIntervalSeconds(pollIntervalSeconds);
 
   final FnthinkContract contract;
+
+  /// 本机那一档常态间隔（T88 开放给用户选）。null = 用户没选过 ⇒ 用契约的 default。
+  /// 范围判据只有一份：契约的 `presence.pollIntervalSeconds.{min,max}`。
+  final int? _pollOverrideSeconds;
+
+  /// 现在这一档常态间隔是多少秒。
+  int get steadyPollSeconds =>
+      _pollOverrideSeconds ?? contract.pollIntervalSeconds;
 
   /// 本机地址码：poll 与 ack 的 `target` 都必须是它（契约 selfOnlyRules），
   /// 放开就等于任何一台配过对的设备能读走别人的标题与正文。
@@ -86,7 +100,7 @@ class FnthinkReceiveKernel {
     if (_burstUntilMs != null && _nowMs() < _burstUntilMs!) {
       return Duration(seconds: burst.intervalSeconds);
     }
-    return Duration(seconds: contract.pollIntervalSeconds);
+    return Duration(seconds: steadyPollSeconds);
   }
 
   /// 校正到服务端时间之后的"现在"（毫秒）。**没校准时就是本机时间**，同时 [calibrated]
@@ -174,7 +188,7 @@ class FnthinkReceiveKernel {
     if (reply.status == codes['rateLimited']) {
       // 429 不是投递结论，所以这里不产生任何"消息没了"的判断：等 Retry-After，
       // 且**不因此停止提频窗口**（货还在服务端排着）。
-      final wait = reply.retryAfterSeconds ?? contract.pollIntervalSeconds;
+      final wait = reply.retryAfterSeconds ?? steadyPollSeconds;
       _lastReason = 'rate-limited:$wait';
       return FnthinkPollResult(
         status: FnthinkPollStatus.rateLimited,

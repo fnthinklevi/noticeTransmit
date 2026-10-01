@@ -139,11 +139,16 @@
   "presence": {
     "heartbeatSource": "poll",
     "separateHeartbeatProtocol": false,
-    "pollIntervalSeconds": { "default": 20, "min": 15, "max": 30 },
+    "pollIntervalSeconds": { "default": 20, "min": 5, "max": 60 },
+    "_pollIntervalSecondsWhy": "min/max 是**设备侧那格设置的允许范围**（T88：开放给用户选，范围不许在 Dart 里另写一份）。下界 5s 而不是更低：服务端 `/poll` 那格的额度是按 `burstWhenPending.intervalSeconds` 推导的（`ceil(60/5)+pollBurstSlack=14` 次/分），常态 5s 正好是 12 次/分 ⇒ 仍在额度内，不用重算限流；再往下（3s、1s）不仅会常态比提频还快（语义倒挂），还会把按设备地址算的那桶打穿。上界 60s（维护者 2026-10-01 把建议的 180s 收到 60s）：间隔同时决定「对端发现新消息的最坏延迟」与「本机掉线后还被显示在线多久」，60s 两头都还在即时通知的语义里；再长就不是慢而是**在线状态失真**。default 20s 不动 ⇒ 从没设过这一档的设备行为与今天完全一致。",
     "onlineThresholdMultiplier": 3,
     "states": ["online", "offline", "unknown"],
     "unknownMeans": "从未上线（与离线在界面上必须是两件事）",
-    "burstWhenPending": { "intervalSeconds": 5, "durationSeconds": 120 }
+    "burstWhenPending": {
+      "intervalSeconds": 5,
+      "durationSeconds": 120,
+      "_intervalSecondsWhy": "提频档与常态下界同值（5s）是有意的：常态最快那一档**不得比提频更慢**（两侧校验都钉这条，等号放行是 T88 把下界压到 5s 的直接后果）。这一档设在 5s 的用户已经问得和提频一样密，提频对他不再额外提速 —— 这是下界选择的代价，不是缺陷。额度侧没变：`ratelimit.js` 的 `pollPerMinute` 一直是按这一档推出来的。"
+    }
   },
 
   "revocation": {
@@ -412,8 +417,8 @@
     "resendDecisionFrom": "waitingOnline",
     "_pollableStatesWhy": "poll 能取走哪些状态，也必须写在契约里：代码里出现 `if (state === 'queued')` 就是第二份状态表，将来加一个可重发态时它不报错，只会让那条状态永远取不到。终态不得出现在这里（终态没有正文可发了）。",
     "pollableStates": ["queued", "waiting_online"],
-    "ackDeadlineSeconds": 120,
-    "_ackDeadlineSecondsWhy": "一条消息在 poll 里被取走时从 queued 变 delivering；此后只有设备回一条 ack（ack_ok / ack_fail）才会离开 delivering。ack 可能在回来的路上被设备崩溃/网络断开吞掉，于是那条永远停在 delivering —— 而 pollableStates 不含 delivering，没有任何事件能把它推回去（delivery.js 的 no_ack 分支就是为这个准备的，却**没有任何调用方**：没有这一档 = 取走了却没 ack 的消息被静默卡住，正文留满保留期后按过期删掉，永不补发）。所以「发了没等到 ack 算超时、多久算超时」是服务端 poll 的扫描判据，必须写在契约里：数超 cadence 数倍（默认 20s ⇒ 120s=6 轮 poll）—— 小于两三轮 poll 就会把一次正常往返误判成丢 ack（设备离线/提频时），太大则卡住窗口变长。两条实现（Dart delivery.dart / JS delivery.js）都从这里读，不许各写一份。",
+    "ackDeadlineSeconds": 180,
+    "_ackDeadlineSecondsWhy": "一条消息在 poll 里被取走时从 queued 变 delivering；此后只有设备回一条 ack（ack_ok / ack_fail）才会离开 delivering。ack 可能在回来的路上被设备崩溃/网络断开吞掉，于是那条永远停在 delivering —— 而 pollableStates 不含 delivering，没有任何事件能把它推回去（delivery.js 的 no_ack 分支就是为这个准备的，却**没有任何调用方**：没有这一档 = 取走了却没 ack 的消息被静默卡住，正文留满保留期后按过期删掉，永不补发）。所以「发了没等到 ack 算超时、多久算超时」是服务端 poll 的扫描判据，必须写在契约里：**≥ 3 × presence.pollIntervalSeconds.max**（两侧校验都钉这一条；T88 把上界从 30s 抬到 60s ⇒ 这一档随之 120s→180s，不跟着抬就是契约自己不自洽）。钉的是最慢那一档而不是默认那一档：间隔现在由用户选，设在 60s 的设备取走一条之后，正常 ack 也要跨到下一次 poll 才发得出去—— 小于两三轮 poll 就会把一次正常往返误判成丢 ack（设备离线/提频时），太大则卡住窗口变长。两条实现（Dart delivery.dart / JS delivery.js）都从这里读，不许各写一份。",
     "receiptDelivery": "poll_response",
     "_receiptDeliveryWhy": "投递结果放在设备 poll 的响应里（receipts 数组），不另开状态接口，也不做成「一条签好名的消息」。做成消息就要问「谁签它」：服务端没有设备身份私钥，自造一把服务端签名钥匙等于在契约里悄悄新增一个信任根；放 poll 响应里则复用同一条拉取链路与同一个 TLS 通道，而 senderPollsStatusEndpoint=false 说的正是这件事。"
   },

@@ -1955,6 +1955,44 @@
     }
   },
   "fnthinkPresenceAsleep": "当前没在醒着（开关关着，或还没排上）",
+  "fnthinkPollIntervalTitle": "收取间隔",
+  "fnthinkPollIntervalUsingDefault": "现在每 {seconds} 秒问一次（协议默认那一档）",
+  "fnthinkPollIntervalChosen": "现在每 {seconds} 秒问一次（你选的）",
+  "@fnthinkPollIntervalUsingDefault": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "@fnthinkPollIntervalChosen": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPollIntervalRange": "可设范围 {min}–{max} 秒，由协议规定，不是本机偏好",
+  "@fnthinkPollIntervalRange": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkPollIntervalTradeoff": "往短里调：到货更快，但每多问一次都多耗一点电。往长里调：省电，但两头的代价同时来——对方新消息你最坏要等整整一个间隔才发现（服务端提前知道有货时才会临时问密一点，救不了「第一次什么时候发现」），而发送方看到的「你在不在」也按这个数一起变迟钝。省电模式／系统合并唤醒时，这些只是大约值：就算设到协议允许的最短那一档，也不等于每那么久就一定问一次。",
+  "fnthinkPollIntervalReset": "改用协议默认",
+  "fnthinkPollIntervalInvalid": "收取间隔这一档没有生效：{reason}",
+  "@fnthinkPollIntervalInvalid": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkReply": "回复",
   "fnthinkResend": "重发",
   "fnthinkReplyTitle": "回复：{title}",

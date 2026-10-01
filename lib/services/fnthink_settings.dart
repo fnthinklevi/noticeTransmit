@@ -21,6 +21,11 @@ class FnthinkSettings {
   /// **null = 从没同意过** —— 这是默认值，也是"升级不许悄悄替用户点同意"那条不变量的落点。
   static const keyConsentVersion = 'fnthink.consent_version';
 
+  /// 「多久问一次货」用户选的那一档（秒）。没这个键 = 从没选过 ⇒ 用契约的 default（T88）。
+  /// 存"用户选没选过"而不是存"当前生效的那个数"：后者会把协议给的与用户选的抹成同一份，
+  /// 契约哪天调档时这台就跟不上。
+  static const keyPollSeconds = 'fnthink.poll_interval_seconds';
+
   /// 契约要求同意的那一档版本。
   ///
   /// 取不到就抛：没有这个数，"要不要重新问"就没了判据，而缺省成"当同意过了"正是
@@ -102,6 +107,82 @@ class FnthinkSettings {
     return Uri.https(h, '');
   }
 
+  /// 「多久问一次货」这一档（T88）。范围与判据的唯一作者仍是契约
+  /// （`presence.pollIntervalSeconds` 的 min/max/default），这一层只是设备侧设置的门面 ——
+  /// 与 `host` / `baseUrl` 对 `transport` 段的关系一模一样。
+  ///
+  /// 三件事分开做，是因为它们各自的失败方式不同：
+  ///  - [pollSecondsRange]：界面上那格可点的范围。取不到就抛（没有范围就没有可校验的依据，
+  ///    缺省成"随便填"等于把用户送到会被服务端持续 429 的那一档）。
+  ///  - [pollSeconds]：**读的时候也校验**（同 `host` 那次教训 —— 备份恢复会把 prefs 里的值
+  ///    原样灌回来，不校验的那一条路才是漏的那一条）。
+  ///  - [setPollSeconds]：写之前校验，越界**抛**而不是夹 —— 悄悄夹掉的表现是"界面写 60、
+  ///    实际按 30 跑"，而用户唯一的线索就是屏幕上那个数字。
+  ({int min, int max}) get pollSecondsRange {
+    try {
+      return contract.pollIntervalRange;
+    } on StateError catch (e) {
+      throw FnthinkSettingsInvalid(e.message);
+    }
+  }
+
+  /// 本机选的那一档（null = 从没选过 ⇒ 用契约的 default）。
+  Future<int?> get pollSeconds async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getInt(keyPollSeconds);
+    if (stored == null) return null;
+    return _checked(stored);
+  }
+
+  Future<void> setPollSeconds(int seconds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(keyPollSeconds, _checked(seconds));
+  }
+
+  /// 抹掉这一档 = 回到"从没选过"，于是契约的 default 重新生效。
+  /// 做成一件独立的事是因为界面上要能"恢复默认"，而写回 default 那个数会把"用户选的"
+  /// 与"协议给的"这两种来源抹平（下次契约调档时，写死数值的那台就再也跟不上）。
+  Future<void> clearPollSeconds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(keyPollSeconds);
+  }
+
+  /// 现在真正该用的那一档秒数（用户选的那一档，没选过就是契约的 default）。
+  /// 读数处只有这一句 + 契约那一份数，闹钟与收货循环都从这里取值。
+  Future<int> effectivePollSeconds() async =>
+      contract.effectivePollIntervalSeconds(await pollSeconds);
+
+  /// 一次读齐"收取间隔那一格要显示什么"（T88）。
+  ///
+  /// 做成一发而不是三个 getter 让页面自己拼：分三次读就有"某一次抛了、界面只显示半格"那种
+  /// 形状 —— 而这一格里"用户选的"与"协议默认"与"坏值没生效"是三件必须同时说清的事。
+  Future<FnthinkPollSetting> pollSetting() async {
+    final range = pollSecondsRange;
+    String? problem;
+    int? chosen;
+    try {
+      chosen = await pollSeconds;
+    } on FnthinkSettingsInvalid catch (e) {
+      // prefs 里那一档协议不允许（备份恢复灌回来的那一种）：如实报出来，
+      // 并按"没选过"处理 —— 让这一格还能被改，而不是整格消失。
+      problem = e.reason;
+    }
+    return FnthinkPollSetting(
+      range: range,
+      chosen: chosen,
+      effective: contract.effectivePollIntervalSeconds(chosen),
+      problem: problem,
+    );
+  }
+
+  int _checked(int seconds) {
+    try {
+      return contract.checkedPollIntervalSeconds(seconds);
+    } on StateError catch (e) {
+      throw FnthinkSettingsInvalid(e.message);
+    }
+  }
+
   /// 服务地址的唯一校验点（公开：备份恢复那条路也要走它，不许拷第二份）。
   static String validateHost(String raw) {
     final host = raw.trim().toLowerCase();
@@ -130,6 +211,29 @@ class FnthinkSettings {
     }
     return host;
   }
+}
+
+/// 设置里那一格「收取间隔」的完整读数（T88）。
+class FnthinkPollSetting {
+  const FnthinkPollSetting({
+    required this.range,
+    required this.chosen,
+    required this.effective,
+    this.problem,
+  });
+
+  /// 协议允许的范围（界面上滑杆的两端，来自契约，不是本机写的）。
+  final ({int min, int max}) range;
+
+  /// 用户真选过的那一档；null = 从没选过（≠ "选了默认值"，这两件事界面上要分开说）。
+  final int? chosen;
+
+  /// 现在真正生效的那一档秒数。
+  final int effective;
+
+  /// 非 null = prefs 里存着的那一档协议不允许（备份恢复灌回来的那一种），
+  /// 此时 [chosen] 按"没选过"处理 —— 报错要说出来，但那一格仍然要能被改回来。
+  final String? problem;
 }
 
 /// 设置里的值不可用（输入错、或备份恢复灌回来一个坏值）。

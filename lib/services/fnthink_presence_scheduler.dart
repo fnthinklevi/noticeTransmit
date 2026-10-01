@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../di/service_locator.dart';
 import 'fnthink_contract_loader.dart';
+import 'fnthink_settings.dart';
 import 'platform_channel.dart';
 
 /// 幻念推送"被杀之后还有人去问一次货"的 Dart 侧（T33 第二片 / §4-9 片1b）。
@@ -59,11 +60,12 @@ class FnthinkPresenceScheduler {
     });
   }
 
-  /// 下一轮的间隔：**只从契约读**。取不到就抛 ——
-  /// 在这里补一个 `?? 20` 就是"实现里藏了一份节奏"，改契约那一刀不会有任何东西报错。
+  /// 下一轮的间隔：**只从"契约 + 本机那一档设置"读**（T88 之后仍然只有一个作者）。
+  /// 取不到就抛 —— 在这里补一个 `?? 20` 就是"实现里藏了一份节奏"，改契约那一刀不会有任何东西报错。
+  /// 用户没选过那一档时 `effectivePollSeconds()` 落回契约的 default，行为与今天逐字节一致。
   Future<int> _cadenceSeconds() async {
     final contract = await contracts.load();
-    return contract.pollIntervalSeconds;
+    return FnthinkSettings(contract: contract).effectivePollSeconds();
   }
 
   /// 读回原生那份状态（"到底还有没有人醒"）。界面上那一行与排查用的日志都从这里取。

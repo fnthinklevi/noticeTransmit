@@ -21,13 +21,19 @@ void main() {
   final service = code('lib/services/backup_service.dart');
 
   group('幻念推送那一格的白名单', () {
-    test('类别里只允许那三个字段（新增必须显式登记）', () {
+    test('类别里只允许那四个字段（新增必须显式登记）', () {
       final fields = RegExp(
         r"static const field\w+ = '([a-z_]+)';",
       ).allMatches(backup).map((m) => m.group(1)!).toSet();
       expect(
         fields,
-        {'receive_enabled', 'host', 'consent_version'},
+        {
+          'receive_enabled',
+          'host',
+          'consent_version',
+          // T88 之后加进来的第四项：它仍然只是"这台希望多久问一次货"这一句意图。
+          'poll_seconds',
+        },
         reason:
             '多一个字段就要先过"它是意图还是身份/凭证"这一问；'
             '少了字段说明恢复回来的配置不完整（界面仍显示"备份成功"）',

@@ -183,4 +183,88 @@ void main() {
       );
     });
   });
+
+  group('收取间隔那一档（T88 之后也归进「意图」）', () {
+    Future<FnthinkContractLoader> loadedLoader() async {
+      final loader = FnthinkContractLoader(
+        readAsset: (_) async => File(
+          '${projectRoot()}/protocol/fnthink-v1.json',
+        ).readAsStringSync(),
+      );
+      await loader.load();
+      return loader;
+    }
+
+    test('选过 ⇒ 跟着进备份；没选过 ⇒ 不带这个键（"没选过"不是"选了某个数"）', () async {
+      await seed({'flutter.${FnthinkSettings.keyPollSeconds}': 45});
+      expect(
+        await FnthinkBackup().collect(),
+        containsPair(FnthinkBackup.fieldPollSeconds, 45),
+      );
+
+      await seed({});
+      expect(
+        (await FnthinkBackup().collect()).keys,
+        isNot(contains(FnthinkBackup.fieldPollSeconds)),
+      );
+    });
+
+    test('合法那一档恢复得回来', () async {
+      await seed({});
+      final backup = FnthinkBackup(contractLoader: await loadedLoader());
+      expect(
+        await backup.apply({FnthinkBackup.fieldPollSeconds: 45}),
+        isNull,
+        reason: '范围内 ⇒ 该恢复，并回一句"全部按预期"',
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(FnthinkSettings.keyPollSeconds), 45);
+    });
+
+    test('越界那一档不写、并把这句话报出来（范围仍只来自契约）', () async {
+      await seed({});
+      final backup = FnthinkBackup(contractLoader: await loadedLoader());
+      final note = await backup.apply({FnthinkBackup.fieldPollSeconds: 99999});
+      expect(note, isNotNull);
+      expect(note, contains('间隔'), reason: '报告里要能看出少了哪一项');
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getInt(FnthinkSettings.keyPollSeconds),
+        isNull,
+        reason: '写进 prefs 的代价是这台被服务端按额度持续 429，而界面只显示"收不到货"',
+      );
+    });
+
+    test('契约读不到 ⇒ 这一档也不恢复（没有可校验的范围，宁可不写）', () async {
+      await seed({});
+      final backup = FnthinkBackup();
+      final note = await backup.apply({FnthinkBackup.fieldPollSeconds: 30});
+      expect(note, isNotNull, reason: 'fail-closed：读不到范围就不写，而不是"照抄文件里那个数"');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(FnthinkSettings.keyPollSeconds), isNull);
+    });
+
+    test('同意门与间隔同时没恢复 ⇒ 报告里两句话都要在', () async {
+      await seed({});
+      final backup = FnthinkBackup();
+      final note = await backup.apply({
+        FnthinkBackup.fieldConsentVersion: 1,
+        FnthinkBackup.fieldPollSeconds: 30,
+      });
+      expect(note, contains('同意'));
+      expect(note, contains('间隔'), reason: '只报第一条就是替用户把第二件事藏起来了');
+    });
+
+    test('只带那四个意图字段：这一格里不许出现口令/地址码/名单', () async {
+      await seed({'flutter.${FnthinkSettings.keyPollSeconds}': 45});
+      final got = await FnthinkBackup().collect();
+      for (final banned in ['secret', 'passphrase', 'address', 'peer', 'key']) {
+        expect(
+          got.keys.join(',').toLowerCase(),
+          isNot(contains(banned)),
+          reason: '收集结果里出现了 $banned ⇒ 这一格开始携带凭证或身份',
+        );
+      }
+    });
+  });
 }

@@ -102,7 +102,10 @@ describe('fnthink 协议契约（服务端侧）', () => {
     expect(onlineThresholdMs(c)).toBe(60000);
     expect(onlineThresholdMs(c, 30)).toBe(90000);
     expect(c.presence.separateHeartbeatProtocol).toBe(false);
-    expect(c.presence.burstWhenPending.intervalSeconds).toBeLessThan(
+    // T88：常态下界被压到 5s、与提频档同值 ⇒ 这里判的是"不许比常态更慢"，等号放行。
+    // 真正要拦住的是倒挂（提频比常态还快不起来），而不是相等；Dart 侧 contract.dart 的
+    // 两处校验同一口径。
+    expect(c.presence.burstWhenPending.intervalSeconds).toBeLessThanOrEqual(
       c.presence.pollIntervalSeconds.min,
     );
   });

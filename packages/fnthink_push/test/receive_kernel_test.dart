@@ -193,6 +193,95 @@ void main() {
       expect((await other.poll()).nextDelay, Duration(seconds: 27));
     });
 
+    test('本机那一档（T88）：常态跟着用户选的走，提频仍是契约那档', () async {
+      // 内核是节奏的**用**处，不是作者：这里注入的数只能来自契约范围内的一个值，
+      // 而提频档（有货时）仍然是协议给的 —— 用户选得再慢，也不该让已经等在那里的通知
+      // 按慢档去等。
+      final chosen = contract.pollIntervalRange.max;
+      final kernel = FnthinkReceiveKernel(
+        contract: contract,
+        addressCode: _self,
+        signer: (_) async => 'sig',
+        transport: (_) async => const FnthinkReply(
+          status: 200,
+          body: {'messages': [], 'pending': 0},
+        ),
+        pollIntervalSeconds: chosen,
+      );
+      expect(kernel.steadyPollSeconds, chosen);
+      expect(
+        chosen,
+        isNot(contract.pollIntervalSeconds),
+        reason: '锚点：注入的值必须与契约 default 不同，否则这条断不出"谁在起作用"',
+      );
+      expect((await kernel.poll()).nextDelay, Duration(seconds: chosen));
+
+      final burst = contract.burstWhenPending;
+      final withPending = FnthinkReceiveKernel(
+        contract: contract,
+        addressCode: _self,
+        signer: (_) async => 'sig',
+        transport: (_) async => const FnthinkReply(
+          status: 200,
+          body: {'messages': [], 'pending': 2},
+        ),
+        pollIntervalSeconds: chosen,
+      );
+      expect(
+        (await withPending.poll()).nextDelay,
+        Duration(seconds: burst.intervalSeconds),
+        reason: '有货时该回到协议那档提频 —— 用户把常态调慢不等于让待取的东西也等那么久',
+      );
+    });
+
+    test('注入一档协议不允许的间隔 ⇒ 构造就抛，不夹（悄悄夹掉是"屏幕 60 而实际 30"）', () {
+      final tooBig = contract.pollIntervalRange.max + 1;
+      expect(
+        () => FnthinkReceiveKernel(
+          contract: contract,
+          addressCode: _self,
+          signer: (_) async => 'sig',
+          transport: (_) async => const FnthinkReply(status: 200, body: {}),
+          pollIntervalSeconds: tooBig,
+        ),
+        throwsStateError,
+        reason:
+            '越过上限 ⇒ 常态比服务端额度推导还慢/还快都不会报错，只是这台被持续 429；'
+            '宁可在装配期就抛出来',
+      );
+      expect(
+        () => FnthinkReceiveKernel(
+          contract: contract,
+          addressCode: _self,
+          signer: (_) async => 'sig',
+          transport: (_) async => const FnthinkReply(status: 200, body: {}),
+          pollIntervalSeconds: contract.pollIntervalRange.min - 1,
+        ),
+        throwsStateError,
+      );
+    });
+
+    test('429 没带 Retry-After ⇒ 等的是本机那一档，而不是契约 default', () async {
+      final chosen = contract.pollIntervalRange.min;
+      final kernel = FnthinkReceiveKernel(
+        contract: contract,
+        addressCode: _self,
+        signer: (_) async => 'sig',
+        transport: (_) async => FnthinkReply(
+          status: contract.statusCodes['rateLimited']!,
+          body: const {},
+        ),
+        pollIntervalSeconds: chosen,
+      );
+      final result = await kernel.poll();
+      expect(
+        result.status,
+        FnthinkPollStatus.rateLimited,
+        reason: '锚点：先确认真的走到了 429 那一支',
+      );
+      expect(result.nextDelay, Duration(seconds: chosen));
+    });
+
     test('pending>0 ⇒ 提频；用完 durationSeconds 自动回落常态', () async {
       final harness = _Harness(contract, 1_800_000_000_000);
       final burst = contract.burstWhenPending;

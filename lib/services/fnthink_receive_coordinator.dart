@@ -99,6 +99,7 @@ class FnthinkLoopSpec {
     this.recordAck,
     this.onRound,
     this.client,
+    this.pollSeconds,
   });
 
   final FnthinkContract contract;
@@ -123,6 +124,11 @@ class FnthinkLoopSpec {
   final void Function(FnthinkLoopReport report)? onRound;
 
   final http.Client? client;
+
+  /// 本机那一档常态收取间隔（秒，T88）。null = 用户从没选过 ⇒ 内核落回契约的 default。
+  /// 到这里为止它已经过一次范围校验（`FnthinkSettings.pollSeconds` 读的时候也判），
+  /// 内核构造时还会再判一次 —— 两次都只许指向契约里那一对 min/max，不许各写一份数。
+  final int? pollSeconds;
 }
 
 typedef FnthinkLoopFactory = FnthinkReceiveLoop Function(FnthinkLoopSpec spec);
@@ -137,6 +143,7 @@ FnthinkReceiverService buildFnthinkReceiveService(FnthinkLoopSpec spec) {
     signer: spec.signer,
     addressCode: spec.addressCode,
     client: spec.client,
+    pollIntervalSeconds: spec.pollSeconds,
   );
 }
 
@@ -431,8 +438,13 @@ class FnthinkReceiveCoordinator {
 
     final Uri baseUri;
     final String addressCode;
+    final int? pollSeconds;
     try {
       baseUri = await settings.baseUrl;
+      // 收取间隔那一档（T88）与地址同批读：**读的时候也校验**，坏值走同一条 `settings-invalid`
+      // 出口。放在这个 try 里不是顺手 —— 备份恢复可能灌回一档协议不允许的数，
+      // 那样这台设备会被服务端按额度持续 429，而界面上只显示"收不到货"。
+      pollSeconds = await settings.pollSeconds;
       // spec 是**启动那一刻的快照**：`baseUri` 与 `addressCode` 都在这里定一次型，之后循环就带着它跑。
       // 所以半途改这两样都必须重启才生效（页面上那两处改动的调用点都按这条写了重启）：
       // 换码不重启 ⇒ 刚签出去的那一发 target 与本轮要 ack 的那条不是同一台设备；
@@ -472,6 +484,7 @@ class FnthinkReceiveCoordinator {
       // 后台那几轮也要有人记账：只有页面"立即收取"那一条接了 `_noteRound`，
       // 待确认列表就会变成"点了按钮才有人来"，而开关开着时它本来就是自动在收的。
       onRound: _noteRound,
+      pollSeconds: pollSeconds,
     );
 
     // 自登记排在**最后一步、且在交出 spec 之前**：它是本机与服务端之间那条关系的开端，

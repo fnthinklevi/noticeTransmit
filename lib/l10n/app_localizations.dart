@@ -6488,6 +6488,48 @@ abstract class AppLocalizations {
   /// **'当前没在醒着（开关关着，或还没排上）'**
   String get fnthinkPresenceAsleep;
 
+  /// No description provided for @fnthinkPollIntervalTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'收取间隔'**
+  String get fnthinkPollIntervalTitle;
+
+  /// No description provided for @fnthinkPollIntervalUsingDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在每 {seconds} 秒问一次（协议默认那一档）'**
+  String fnthinkPollIntervalUsingDefault(int seconds);
+
+  /// No description provided for @fnthinkPollIntervalChosen.
+  ///
+  /// In zh, this message translates to:
+  /// **'现在每 {seconds} 秒问一次（你选的）'**
+  String fnthinkPollIntervalChosen(int seconds);
+
+  /// No description provided for @fnthinkPollIntervalRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'可设范围 {min}–{max} 秒，由协议规定，不是本机偏好'**
+  String fnthinkPollIntervalRange(int min, int max);
+
+  /// No description provided for @fnthinkPollIntervalTradeoff.
+  ///
+  /// In zh, this message translates to:
+  /// **'往短里调：到货更快，但每多问一次都多耗一点电。往长里调：省电，但两头的代价同时来——对方新消息你最坏要等整整一个间隔才发现（服务端提前知道有货时才会临时问密一点，救不了「第一次什么时候发现」），而发送方看到的「你在不在」也按这个数一起变迟钝。省电模式／系统合并唤醒时，这些只是大约值：就算设到协议允许的最短那一档，也不等于每那么久就一定问一次。'**
+  String get fnthinkPollIntervalTradeoff;
+
+  /// No description provided for @fnthinkPollIntervalReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'改用协议默认'**
+  String get fnthinkPollIntervalReset;
+
+  /// No description provided for @fnthinkPollIntervalInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'收取间隔这一档没有生效：{reason}'**
+  String fnthinkPollIntervalInvalid(String reason);
+
   /// No description provided for @fnthinkReply.
   ///
   /// In zh, this message translates to:

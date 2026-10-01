@@ -29,6 +29,7 @@ class FnthinkReceiverService {
     required this.addressCode,
     http.Client? client,
     String Function()? nonceFactory,
+    this.pollIntervalSeconds,
     this.timeout = const Duration(seconds: 15),
   }) : _client = client ?? http.Client(),
        _nonce = nonceFactory ?? _secureNonce {
@@ -78,6 +79,10 @@ class FnthinkReceiverService {
   final String Function() _nonce;
   final Duration timeout;
 
+  /// 本机那一档常态收取间隔（T88），null = 用户没选过 ⇒ 内核用契约的 default。
+  /// 这里只是将设置里读到的值转交，范围判据在设置层与内核构造处各判一次（同一对 min/max）。
+  final int? pollIntervalSeconds;
+
   FnthinkReceiveKernel? _kernel;
 
   /// 懒建：第一次用到才建，因为建内核会读契约那几个数（缺就抛）。装配期抛与第一次
@@ -88,6 +93,7 @@ class FnthinkReceiverService {
     signer: signer.call,
     transport: _transport,
     nonceFactory: _nonce,
+    pollIntervalSeconds: pollIntervalSeconds,
   );
 
   /// 事件种类 → 契约声明的路径。内核签出来的 `fields.type` 就是契约的 `messageType`，

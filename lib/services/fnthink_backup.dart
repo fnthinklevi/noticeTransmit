@@ -1,3 +1,4 @@
+import 'package:fnthink_push/fnthink_push.dart' show FnthinkContract;
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,7 +11,8 @@ import 'fnthink_settings.dart';
 /// **判据（维护者 2026-10-01 定，覆盖此前口径）：备份恢复的是「意图」，
 /// 不恢复「身份」，也不携带「凭证」。**
 ///
-/// 进这一格的只有三项：接收总开关、所选服务地址、同意门的版本号（第几版中转政策）。
+/// 进这一格的只有四项：接收总开关、所选服务地址、同意门的版本号（第几版中转政策）、
+/// 用户选的那一档收取间隔（T88 之后）。
 /// 能力档位与端点的名字要等 T49 —— 本机此刻还没有"可存的那一份"，与其写一个空键占位，
 /// 不如等真的有值再进（写了就是"备份里有这一类"的假承诺）。
 ///
@@ -51,17 +53,29 @@ class FnthinkBackup {
   static const fieldHost = 'host';
   static const fieldConsentVersion = 'consent_version';
 
+  /// 用户选的那一档收取间隔（T88 之后才有意义；没选过就不写这个键）。
+  /// 归到「意图」而不是「身份」：它说的是"这台希望多久问一次货"，不带任何凭证，
+  /// 越界的那一档由 [apply] 按契约范围判掉（宁可不恢复也不写进 prefs）。
+  static const fieldPollSeconds = 'poll_seconds';
+
+  /// 已装配好的那一份契约（null = 现在读不到）。
+  ///
+  /// 只读 `cached`、不触发一次资产 IO：恢复链上没有"为了问一个版本号/一对范围去读包内文件"
+  /// 的理由，而装配链（收货循环 / 幻念页）本来就会把它读到。
+  FnthinkContract? get _cachedContract {
+    final loader = _injected ?? _fromLocator();
+    return loader?.cached;
+  }
+
   /// 契约取不到时的返回：`null` 表示"没法判断该不该恢复同意" ⇒ 一律**不恢复**（fail-closed）。
   ///
-  /// 只读 `cached`、不触发一次资产 IO：恢复链上没有"为了问一个版本号去读包内文件"的理由，
-  /// 而装配链（收货循环 / 幻念页）本来就会把它读到 —— 没装配时宁可让用户再点一次同意，
-  /// 也不替他点（T56 那条不变量）。
+  /// 没装配时宁可让用户再点一次同意，也不替他点（T56 那条不变量）。
   int? get _requiredConsentVersion {
     if (_required != null) return _required();
-    final loader = _injected ?? _fromLocator();
-    final contract = loader?.cached;
-    if (contract == null) return null;
-    final value = contract.intOf(const ['privacy', 'relayConsentVersion']);
+    final value = _cachedContract?.intOf(const [
+      'privacy',
+      'relayConsentVersion',
+    ]);
     return (value == null || value <= 0) ? null : value;
   }
 
@@ -88,6 +102,8 @@ class FnthinkBackup {
         if (prefs.getInt(FnthinkSettings.keyConsentVersion)
             case final int version)
           fieldConsentVersion: version,
+        if (prefs.getInt(FnthinkSettings.keyPollSeconds) case final int poll)
+          fieldPollSeconds: poll,
       },
     };
   }
@@ -97,7 +113,8 @@ class FnthinkBackup {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(FnthinkSettings.keyReceiveEnabled) == true ||
         prefs.getString(FnthinkSettings.keyHost) != null ||
-        prefs.getInt(FnthinkSettings.keyConsentVersion) != null;
+        prefs.getInt(FnthinkSettings.keyConsentVersion) != null ||
+        prefs.getInt(FnthinkSettings.keyPollSeconds) != null;
   }
 
   /// 形状兜底：文件是外部输入，值类型不受控。缺项一律**不写键**（保持本机现值），
@@ -118,6 +135,11 @@ class FnthinkBackup {
     if (raw[fieldConsentVersion] case final num version) {
       out[fieldConsentVersion] = version.toInt();
     }
+    // 间隔这一档只判类型，范围留给 apply：那一半需要契约（min/max 的唯一作者），
+    // 而 `normalize` 是静态的形状兜底，手里没有契约。
+    if (raw[fieldPollSeconds] case final num seconds) {
+      out[fieldPollSeconds] = seconds.toInt();
+    }
     return out;
   }
 
@@ -136,17 +158,39 @@ class FnthinkBackup {
         FnthinkSettings.validateHost(host),
       );
     }
+    // 两项"可能没恢复"的各自留一句说明，最后并成一行 —— 只报第一条的话，
+    // 用户会以为其余那一项已经回来了。
+    final notes = <String>[];
     if (values[fieldConsentVersion] case final int granted) {
       final required = _requiredConsentVersion;
       if (required != null && granted >= required) {
         await prefs.setInt(FnthinkSettings.keyConsentVersion, granted);
       } else {
-        return '接收开关与服务地址已恢复，但**中转同意没有恢复**：这份备份记的是第 $granted 版，'
-            '而本机现在要求 ${required ?? '读不到契约（装配未完成）'} —— 要重新点一次同意，'
-            '否则服务器那头的每一发都会被本机挡下。';
+        notes.add(
+          '接收开关与服务地址已恢复，但**中转同意没有恢复**：这份备份记的是第 $granted 版，'
+          '而本机现在要求 ${required ?? '读不到契约（装配未完成）'} —— 要重新点一次同意，'
+          '否则服务器那头的每一发都会被本机挡下。',
+        );
       }
     }
-    return null;
+    if (values[fieldPollSeconds] case final int seconds) {
+      // 范围判据来自契约（min/max 的唯一作者）。读不到契约或那一档越界 ⇒ **不写**：
+      // 写进 prefs 的代价是这台被服务端按额度持续 429，而界面上只显示"收不到货"。
+      final contract = _cachedContract;
+      if (contract == null) {
+        notes.add('收取间隔那一档也没有恢复：本机现在读不到契约，没有可校验的范围。');
+      } else {
+        try {
+          await prefs.setInt(
+            FnthinkSettings.keyPollSeconds,
+            contract.checkedPollIntervalSeconds(seconds),
+          );
+        } on StateError catch (e) {
+          notes.add('收取间隔那一档没有恢复：${e.message}');
+        }
+      }
+    }
+    return notes.isEmpty ? null : notes.join('；');
   }
 }
 

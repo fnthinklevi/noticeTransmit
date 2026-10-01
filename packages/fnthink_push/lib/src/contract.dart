@@ -312,6 +312,44 @@ class FnthinkContract {
     return value;
   }
 
+  /// 常态拉取间隔的**允许范围**（T88）。
+  ///
+  /// 这一对数字的作者只有契约：设备侧那格"多久收一次"的设置项读的就是它。在 Dart 里
+  /// 另写一份 `5..60` 的表现是"契约哪天调档，界面上还能选到协议不允许的那一档"——
+  /// 而那一档不会报错，只会让服务端按 `limits` 里推导出来的额度把这台设备持续 429。
+  ({int min, int max}) get pollIntervalRange {
+    final poll = map(const ['presence', 'pollIntervalSeconds']);
+    final min = (poll?['min'] as num?)?.toInt();
+    final max = (poll?['max'] as num?)?.toInt();
+    if (min == null || max == null || min <= 0 || max < min) {
+      throw StateError(
+        '契约缺 presence.pollIntervalSeconds 的 min/max（或范围不合法）：'
+        '设置那一格没有可校验的范围，宁可不开这一档',
+      );
+    }
+    return (min: min, max: max);
+  }
+
+  /// 把一档间隔放进契约的范围里判一判。**越界就抛，不夹** ——
+  /// 悄悄夹掉的表现是"界面写着 60、实际按 30 跑"，而用户唯一的线索就是那个数字。
+  /// 报错里带着范围本身：这句话会原样出现在"这一档协议不允许"那一行上。
+  int checkedPollIntervalSeconds(int seconds) {
+    final range = pollIntervalRange;
+    if (seconds < range.min || seconds > range.max) {
+      throw StateError(
+        '这个收取间隔协议不允许：${seconds}s 不在 [${range.min}, ${range.max}] 内',
+      );
+    }
+    return seconds;
+  }
+
+  /// 用户选的那一档（没选过就是契约的 default）。**读的时候也校验**：
+  /// 写的一路校验过不代表值一定合法 —— 备份恢复会把 prefs 里的值原样灌回来。
+  int effectivePollIntervalSeconds(int? chosen) {
+    if (chosen == null) return pollIntervalSeconds;
+    return checkedPollIntervalSeconds(chosen);
+  }
+
   /// 有货时的提频间隔与持续时长。`pending == 0` 时不该用它（省电，且契约语义是"有货才提频"）。
   ({int intervalSeconds, int durationSeconds}) get burstWhenPending {
     final burst = map(const ['presence', 'burstWhenPending']) ?? const {};
@@ -845,11 +883,10 @@ class FnthinkContract {
         min <= def && def <= max,
         'presence.pollIntervalSeconds 的 default 不在 [min,max] 内',
       );
-      final burst = map(const ['presence', 'burstWhenPending']);
-      need(
-        burst != null && (burst['intervalSeconds'] as num).toInt() < min,
-        'burstWhenPending.intervalSeconds 必须小于常规拉取间隔，否则"提频"是假的',
-      );
+      // 提频与常态的关系只在这里判一次（下面 limits 那一段是同一件事的**唯一作者**，
+      // 因为它手里才有推导所依据的那三个数）。这里曾经有第二条同判据的 need ——
+      // 两条互相掩护，反证 K2 演过：摘掉这条另一位仍然报 ⇒ 全场绿，而那正是"两道闸互相掩护"
+      // 的样本。判据没少，作者只剩一个。
     } else {
       need(false, 'presence.pollIntervalSeconds 缺失');
     }
@@ -1848,8 +1885,10 @@ class FnthinkContract {
       'min',
     ]);
     need(
-      (steadyInterval ?? 0) > 0 && (burstInterval ?? 0) < (steadyInterval ?? 0),
-      'burstWhenPending.intervalSeconds 必须小于 pollIntervalSeconds.min：'
+      // 等号放行同上（T88）：常态下界 5s 与提频档 5s 同值是定稿的结果，不是写错。
+      (steadyInterval ?? 0) > 0 &&
+          (burstInterval ?? 0) <= (steadyInterval ?? 0),
+      'burstWhenPending.intervalSeconds 必须不大于 pollIntervalSeconds.min：'
       '提频比常态还慢，那这档参数本身就是矛盾的，推导出来的额度也没有意义',
     );
     final slack = intOf(const ['limits', 'pollBurstSlack']) ?? -1;

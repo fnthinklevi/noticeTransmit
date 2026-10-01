@@ -434,6 +434,39 @@ void main() {
   });
 
   group('装配的端到端形状', () {
+    test('spec 里那一档收取间隔真的落进了内核（T88 的装配链，断一次就够）', () {
+      // 这一条不测判据（判据在包内与设置层各测一遍），测的是**接线**：
+      // 漏接时全场仍绿 —— 循环会照契约 default 跑，而用户在界面上选的这一档永远不生效，
+      // 屏幕上那个数字就成了装饰。装配点漏一个参数正是这类"没人报错"的错。
+      final chosen = contract.pollIntervalRange.max;
+      final service = buildFnthinkReceiveService(
+        FnthinkLoopSpec(
+          contract: contract,
+          baseUri: Uri.https(defaultHost, ''),
+          addressCode: 'AAAABBBBCCCCDDDDEEEE',
+          signer: signer(true),
+          persist: (_) async => true,
+          pollSeconds: chosen,
+        ),
+      );
+      expect(
+        service.kernel.steadyPollSeconds,
+        chosen,
+        reason: 'spec.pollSeconds 没接进内核 ⇒ 用户那一档被契约 default 悄悄顶掉',
+      );
+      // 没选过（null）时内核必须落回契约 default，而不是 0 或某个写死的数。
+      final unset = buildFnthinkReceiveService(
+        FnthinkLoopSpec(
+          contract: contract,
+          baseUri: Uri.https(defaultHost, ''),
+          addressCode: 'AAAABBBBCCCCDDDDEEEE',
+          signer: signer(true),
+          persist: (_) async => true,
+        ),
+      );
+      expect(unset.kernel.steadyPollSeconds, contract.pollIntervalSeconds);
+    });
+
     test('④ 第一发打到契约说的那扇门上（https + host + apiPaths.poll）', () async {
       final asked = <String>[];
       final loop = buildFnthinkReceiveLoop(

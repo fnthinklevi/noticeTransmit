@@ -3680,6 +3680,36 @@ class AppLocalizationsEn extends AppLocalizations {
       'Not waking on its own right now (switch off, or not armed yet)';
 
   @override
+  String get fnthinkPollIntervalTitle => 'Poll interval';
+
+  @override
+  String fnthinkPollIntervalUsingDefault(int seconds) {
+    return 'Asks every ${seconds}s (the protocol default)';
+  }
+
+  @override
+  String fnthinkPollIntervalChosen(int seconds) {
+    return 'Asks every ${seconds}s (your choice)';
+  }
+
+  @override
+  String fnthinkPollIntervalRange(int min, int max) {
+    return 'Allowed range $min–${max}s, set by the protocol, not a local preference';
+  }
+
+  @override
+  String get fnthinkPollIntervalTradeoff =>
+      'Shorter: messages arrive sooner, but every extra poll costs battery. Longer saves power and pays twice at once — the worst-case delay before you even see a new message is one full interval (the server only polls faster while it already has something queued for you, which does not help the very first discovery), and the \'are you online\' answer other devices see goes stale by the same number. Under battery saver the OS merges wake-ups, so these are approximations: even the shortest interval the protocol allows does not guarantee a poll exactly that often.';
+
+  @override
+  String get fnthinkPollIntervalReset => 'Use the protocol default';
+
+  @override
+  String fnthinkPollIntervalInvalid(String reason) {
+    return 'Poll interval not applied: $reason';
+  }
+
+  @override
   String get fnthinkReply => 'Reply';
 
   @override

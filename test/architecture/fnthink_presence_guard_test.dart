@@ -389,11 +389,41 @@ void main() {
     });
 
     test('间隔不许有第二个作者：Dart 这一层一个数字都不写', () {
+      // T88 之后"用户选的那一档 + 契约的 default"这两件事在一个地方合成：
+      // `FnthinkSettings.effectivePollSeconds()`。调度这一层因此不再自己念契约那个字段名 ——
+      // 这里断的仍是同一件事（只有一个合成处、且不写数），只是换了那个合成处的名字。
       expect(
         scheduler,
-        contains('pollIntervalSeconds'),
-        reason: '唯一的读数处：契约 presence.pollIntervalSeconds',
+        contains('effectivePollSeconds'),
+        reason:
+            '唯一的读数处：契约 presence.pollIntervalSeconds 经 FnthinkSettings 合成之后交下来。'
+            '调度这一层自己再去读一次契约字段 ⇒ 就有了第二个作者',
       );
+      expect(
+        scheduler,
+        isNot(contains('pollIntervalSeconds')),
+        reason: '出现契约字段名就是"这一层自己算了一遍节奏"，与 settings 那一份会互相追',
+      );
+      // 合成处全 lib 只许一处（页面上的滑杆读的是范围，不是这个合成值）
+      final scanned = Directory('$root/lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'));
+      expect(
+        scanned.length,
+        greaterThan(50),
+        reason: '锚点：一个文件都没扫到就该红，而不是"所以全 lib 都干净"',
+      );
+      for (final f in scanned) {
+        if (f.path.endsWith('fnthink_settings.dart')) continue;
+        expect(
+          stripComments(f.readAsStringSync()),
+          isNot(contains('effectivePollIntervalSeconds')),
+          reason:
+              '${f.path} 里也调契约那个合成方法 ⇒ "用户档位 vs 协议默认"变成了两份裁决，'
+              '改哪一份都不会有人报错',
+        );
+      }
       expect(
         RegExp(r'seconds[^0-9A-Za-z_]*[0-9]').hasMatch(scheduler),
         isFalse,
@@ -434,8 +464,23 @@ void main() {
         contains('cadenceSeconds'),
         reason: '显示的那一档秒数必须是原生读回来的那一份，不是页面自己拿契约默认值顶上',
       );
+      // T88 开放了"多久问一次货"这一格 ⇒ 页面确实要能**改**它，但仍然不能**算**它。
+      // 所以这里补的是正向的一半：这一格必须整个走 FnthinkSettings（范围、生效值、写盘、
+      // 越界那句话都在那一层），页面只负责画与提交。
+      expect(
+        page,
+        contains('pollSetting()'),
+        reason: '这一格的数据必须一次从设置层读齐（分三次读就有"某次抛了只画半格"那种形状）',
+      );
+      expect(
+        page,
+        contains('setPollSeconds'),
+        reason: '写入走设置层那一道校验；页面自己 prefs.setInt 就是绕过范围判据',
+      );
       for (final forbidden in const [
         'pollIntervalSeconds', // 页面自己读契约算节奏
+        'pollIntervalRange', // 同上：范围也只许从设置层门面出来
+        'checkedPollIntervalSeconds', // 页面自己校验 = 两份裁决
         'scheduleFnthinkPresence', // 页面自己排闹钟
         'cancelFnthinkPresence', // 页面自己撤闹钟
         'difference(', // 页面把"下一次"换算成"还有多久"

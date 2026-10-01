@@ -143,6 +143,107 @@ void main() {
     });
   });
 
+  group('收取间隔那一档（T88）', () {
+    final range = contract.pollIntervalRange;
+
+    test('范围只有一份作者：契约的 min/max', () {
+      // 这一条断的是"这一格能选到哪几档"完全跟着契约走 —— 换一份改了范围的契约副本，
+      // 设置层报出来的范围就跟着变（Dart 里另写一份 5..60 的话，这里不会红，
+      // 所以下面那条用改过的契约来演）。
+      expect(range.min, 5);
+      expect(range.max, 60);
+      expect(settings.pollSecondsRange, range);
+    });
+
+    test('换一份契约副本改了范围 ⇒ 设置层报出来的跟着变', () {
+      final json =
+          jsonDecode(File(fnthinkContractFile()).readAsStringSync())
+              as Map<String, Object?>;
+      final poll =
+          (json['presence']! as Map<String, Object?>)['pollIntervalSeconds']!
+              as Map<String, Object?>;
+      // 6..40：仍比提频档（5s）宽、仍让 ackDeadline(180) ≥ 3×max，所以这张表还是自洽的
+      poll['min'] = 6;
+      poll['max'] = 40;
+      final other = FnthinkContract.parse(jsonEncode(json));
+      expect(
+        FnthinkSettings(contract: other).pollSecondsRange,
+        (min: 6, max: 40),
+        reason: '设置层里写死过一对数字的话，这一条就会红',
+      );
+    });
+
+    test('没选过 ⇒ 读回 null，生效值就是契约的 default（"没选过"不等于"选了默认值"）', () async {
+      expect(await settings.pollSeconds, isNull);
+      expect(
+        await settings.effectivePollSeconds(),
+        contract.pollIntervalSeconds,
+      );
+      final view = await settings.pollSetting();
+      expect(view.chosen, isNull);
+      expect(view.problem, isNull);
+      expect(view.effective, contract.pollIntervalSeconds);
+    });
+
+    test('选过的值往返一致，且落盘的就是那一档', () async {
+      await settings.setPollSeconds(range.max);
+      expect(await settings.pollSeconds, range.max);
+      expect(await settings.effectivePollSeconds(), range.max);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(FnthinkSettings.keyPollSeconds), range.max);
+    });
+
+    test('两端都在范围内（边界不是"夹到里面"而是"本来就允许"）', () async {
+      await settings.setPollSeconds(range.min);
+      expect(await settings.pollSeconds, range.min);
+      await settings.setPollSeconds(range.max);
+      expect(await settings.pollSeconds, range.max);
+    });
+
+    test('越界那一档不写、并说出范围（悄悄夹掉的表现是界面写 60 而实际跑 30）', () async {
+      await expectLater(
+        settings.setPollSeconds(range.max + 1),
+        throwsA(
+          isA<FnthinkSettingsInvalid>().having(
+            (e) => e.reason,
+            'reason',
+            allOf(contains('${range.max}'), contains('${range.min}')),
+          ),
+        ),
+      );
+      // 关键的一半：** prefs 里没留下那个坏值 **，读回来还是"没选过"
+      expect(await settings.pollSeconds, isNull);
+    });
+
+    test('备份灌回来一个坏值 ⇒ 读的时候也拦（同服务地址那条纪律）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyPollSeconds}': 99999,
+      });
+      await expectLater(
+        settings.pollSeconds,
+        throwsA(isA<FnthinkSettingsInvalid>()),
+      );
+      // 整格不消失：pollSetting 把坏值如实报出来，同时仍然给得出范围与默认生效值，
+      // 用户才"能在这一格上把它改回来"。
+      final view = await settings.pollSetting();
+      expect(view.problem, contains('协议不允许'));
+      expect(view.chosen, isNull);
+      expect(view.effective, contract.pollIntervalSeconds);
+      expect(view.range, range);
+    });
+
+    test('抹掉那一档 ⇒ 回到协议 default（而不是把 default 当成"用户选的"写进去）', () async {
+      await settings.setPollSeconds(range.min);
+      await settings.clearPollSeconds();
+      expect(await settings.pollSeconds, isNull);
+      expect(
+        await settings.effectivePollSeconds(),
+        contract.pollIntervalSeconds,
+      );
+      expect((await settings.pollSetting()).chosen, isNull);
+    });
+  });
+
   group('源码守卫', () {
     test('本文件不出现任何真实域名（真值只在契约与内部手册里）', () {
       final src = stripComments(
