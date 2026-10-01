@@ -402,6 +402,12 @@ class _HistoryPageState extends State<HistoryPage> {
       // 列表还没到手，"要展开的那一行"根本无从找起。
       unawaited(_loadInbox().then((_) => _applyPendingFocus()));
     }
+    if (_direction == 'all') {
+      // 预置到全部档（T84）：读法与"切过去"完全同一条，不另写一份。
+      // ⚠ 这一档**不兑现** focusMessageId：通知只可能由收件那一档产生，跳转的落点也是收件档
+      //   （见 `main_page_actions.dart` 那两路）。在这里兑现就是让"全部"猜一次那一条属于哪本账。
+      unawaited(_loadAll());
+    }
   }
 
   /// 把「进来就该展开的那一条」兑现**一次**（T83）。
@@ -890,8 +896,16 @@ class _HistoryPageState extends State<HistoryPage> {
       a.month == b.month &&
       a.day == b.day;
 
-  Widget _filterChip(String label, bool active, VoidCallback onTap) {
+  Widget _filterChip(
+    String label,
+    bool active,
+    VoidCallback onTap, {
+    Key? key,
+  }) {
+    // key 是给测试与闸门用的抓手：「转发」这两个字在全部档里会出现三次
+    // （档位芯片、段标题、行首来源标识），按文本点会点错一个，而点错的下一幕是"用例莫名其妙地红"。
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -1639,6 +1653,13 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 这个是"手上这份 `_inbox` 是哪本账"—— 切档时两本账的读法与空态都不一样。
   String _inboxDirection = kFnthinkDirectionIn;
 
+  /// 「全部」档手里那两本幻念账（T84）。**不复用 `_inbox`**：`_inbox` 的含义是
+  /// "当前挂在哪本账上的那几行"，而全部档要**同时**拿着收件与发出 ——
+  /// 用一份状态装两本账，就是"切档时把另一本洗成这一本"那类错的新写法。
+  List<FnthinkInboxMessage> _allIn = const [];
+  List<FnthinkInboxMessage> _allOut = const [];
+  bool _allLoaded = false;
+
   Future<void> _loadInbox() async {
     final direction = _inboxDirection;
     // 显式写 100：这两档都没有翻页，跟服务的默认 50 会悄悄少列一半。
@@ -1658,9 +1679,28 @@ class _HistoryPageState extends State<HistoryPage> {
     });
   }
 
+  /// 「全部」档的读法（T84）：**两本账各读各的**，读径与收件档/发出档完全同一条
+  /// （同一对注入点、同样显式 100、同样"注入优先、生产走服务层"）。
+  /// 这里不做任何合并或排序 —— 合起来的口径是假的（见 [_buildAllView] 上面那段）。
+  Future<void> _loadAll() async {
+    final inRows =
+        await (widget.inboxLoader ?? () => _inboxService.list(limit: 100))();
+    final outRows =
+        await (widget.sentLoader ?? () => _inboxService.listSent(limit: 100))();
+    if (!mounted) return;
+    // 期间被切走了档：这两本就是别档的账本了，交出去会画在错的档位上。
+    if (_direction != 'all') return;
+    setState(() {
+      _allIn = inRows;
+      _allOut = outRows;
+      _allLoaded = true;
+    });
+  }
+
   void _setDirection(String value) {
     if (_direction == value) return;
     final nextIsFnthink = value == 'received' || value == 'sent';
+    final nextIsAll = value == 'all';
     setState(() {
       _direction = value;
       if (nextIsFnthink) {
@@ -1671,12 +1711,22 @@ class _HistoryPageState extends State<HistoryPage> {
         _inbox = const [];
         _inboxLoaded = false;
       }
+      if (nextIsAll) {
+        // 同一条纪律：全部档也是"换账本"，只是它一次拿两本（收件 + 发出）。
+        _allIn = const [];
+        _allOut = const [];
+        _allLoaded = false;
+      }
     });
     if (nextIsFnthink) unawaited(_loadInbox());
+    if (nextIsAll) unawaited(_loadAll());
   }
 
   Widget _directionBar(AppLocalizations l10n) {
-    return Padding(
+    // 四格一排，窄屏必然放不下 ⇒ 横着可滚。不是装饰：写死 Row 的下一幕就是
+    // RenderFlex overflow 半条芯片（T84 加第四档时量出来的）。
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
         children: [
@@ -1684,21 +1734,82 @@ class _HistoryPageState extends State<HistoryPage> {
             l10n.fnthinkDirForwarded,
             _direction == 'forwarded',
             () => _setDirection('forwarded'),
+            key: const ValueKey('direction-chip-forwarded'),
           ),
           const SizedBox(width: 8),
           _filterChip(
             l10n.fnthinkDirInbox,
             _direction == 'received',
             () => _setDirection('received'),
+            key: const ValueKey('direction-chip-received'),
           ),
           const SizedBox(width: 8),
           _filterChip(
             l10n.fnthinkDirSent,
             _direction == 'sent',
             () => _setDirection('sent'),
+            key: const ValueKey('direction-chip-sent'),
+          ),
+          const SizedBox(width: 8),
+          // T84：一次同看三张账。每行仍带来源标识，未读数与各档口径一个都不改。
+          _filterChip(
+            l10n.fnthinkDirAll,
+            _direction == 'all',
+            () => _setDirection('all'),
+            key: const ValueKey('direction-chip-all'),
           ),
         ],
       ),
+    );
+  }
+
+  /// 收件 / 发出那一行的**唯一构造点**（T84 起「全部」档也复用同一份形状）。
+  ///
+  /// 抽出来不是为了好看：全部档要列的是同一批行，若在那儿再抄一份，`read` 那一列的读法、
+  /// 未读点画不画、点下去标不标已读就有了**第二份可以朝不同方向写错**的实现。
+  Widget _inboxRow(
+    AppLocalizations l10n,
+    FnthinkInboxMessage m, {
+    required bool outgoing,
+  }) {
+    return ListTile(
+      key: ValueKey('fnthink-inbox-row-${m.messageId}'),
+      title: Text(
+        m.title.isEmpty ? m.body : m.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        outgoing
+            ? '${l10n.fnthinkRecipient}：${m.sender.isEmpty ? l10n.unknown : m.sender} · '
+                  '${_formatTime(m.receivedAt)}'
+            : '${m.sender.isEmpty ? l10n.unknown : m.sender} · '
+                  '${_formatTime(m.receivedAt)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
+      // 发出的那条没有"未读"这回事，一律不画 —— 全部档里这一条同时是判据②的落点：
+      // 转发与发出两类行都没有"标已读"这件事，所以既不给点也不给入口。
+      //
+      // 反证登记（`8b5c8ad`，三条全 named+restored；报告在本地 outputs/，不入库）：
+      //   无脑画点 ⇒ 红在「已读那行根本不画点」；标完不重新读表 ⇒ 红在「写表 + 重新读表」
+      //   与「不留点不开的幽灵行」；收件档不切数据源 ⇒ 红在整组收件用例。
+      leading: m.read || outgoing
+          ? null
+          : Container(
+              width: 8,
+              height: 8,
+              key: ValueKey('fnthink-inbox-unread-${m.messageId}'),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.blue,
+              ),
+            ),
+      trailing: m.ackResult.isEmpty || outgoing
+          ? null
+          : Text(m.ackResult, style: const TextStyle(fontSize: 11)),
+      onTap: () => _showInboxDetail(m, outgoing: outgoing),
     );
   }
 
@@ -1723,51 +1834,146 @@ class _HistoryPageState extends State<HistoryPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _inbox.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
-      itemBuilder: (context, index) {
-        final m = _inbox[index];
-        return ListTile(
-          key: ValueKey('fnthink-inbox-row-${m.messageId}'),
-          title: Text(
-            m.title.isEmpty ? m.body : m.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+      itemBuilder: (context, index) => _inboxRow(
+        l10n,
+        _inbox[index],
+        outgoing: _inboxDirection == kFnthinkDirectionOut,
+      ),
+    );
+  }
+
+  // ── T84「全部」档：三张账**并排**看，不拼成同一条时间线 ────────────────────
+  //
+  // ⚠ 为什么不合并排序：转发那张表是**分页**的（`_onScroll` 按 offset 往后要下一页），而收件 /
+  //   发出各是"一次读满 100 行"的 flat 读法。把三本拼进同一条时间线，表现正是 T48 那条判据点名的
+  //   两件事：翻页时同一条出现两次，或整条一次都不出现。并排的代价只是"不是按时间全序"——
+  //   而那个全序在分页口径下本来就是假的。
+  // ⚠ 判据①：每行前面一枚来源标识。分组标题会被滚出屏幕，"这条属于哪本账"不能只写在标题里。
+  // ⚠ 判据②：只有收件行有未读点与"标已读"那一下（`_inboxRow` 的 `outgoing` 分支已经给了），
+  //   转发行走它自己的详情，发出行不标已读 —— 全部档不给它们长出这个入口。
+  // ⚠ 判据③：**不新增第四种计数**。AppBar 上那个数仍是转发那本账的（与各档同一口径），
+  //   三个分组标题上也不写数字 —— "全部 = 三者之和"这个数在分页口径下当下就不准。
+  Widget _buildAllView(
+    AppLocalizations l10n,
+    List<NotificationRecord> records,
+  ) {
+    if (!_allLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverToBoxAdapter(child: _allScopeNote(l10n)),
+        SliverToBoxAdapter(
+          child: _allSectionHeader('forwarded', l10n.fnthinkDirForwarded),
+        ),
+        if (records.isEmpty)
+          SliverToBoxAdapter(
+            // 与转发档那一屏同一句：搜不到与从来没有，是两件事。
+            child: _allSectionEmpty(
+              _searchResults != null || widget.records.isNotEmpty
+                  ? l10n.noMatchRecords
+                  : l10n.noRecords,
+            ),
+          )
+        else
+          SliverList.builder(
+            itemCount: records.length,
+            itemBuilder: (context, index) => _withSourceTag(
+              l10n.fnthinkTagForwarded,
+              _buildRecordItem(context, records[index], index, records.length),
+            ),
           ),
-          subtitle: Text(
-            _inboxDirection == kFnthinkDirectionOut
-                ? '${l10n.fnthinkRecipient}：${m.sender.isEmpty ? l10n.unknown : m.sender} · '
-                      '${_formatTime(m.receivedAt)}'
-                : '${m.sender.isEmpty ? l10n.unknown : m.sender} · '
-                      '${_formatTime(m.receivedAt)}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        SliverToBoxAdapter(
+          child: _allSectionHeader('inbox', l10n.fnthinkDirInbox),
+        ),
+        if (_allIn.isEmpty)
+          SliverToBoxAdapter(child: _allSectionEmpty(l10n.fnthinkInboxEmpty))
+        else
+          SliverList.builder(
+            itemCount: _allIn.length,
+            itemBuilder: (context, index) => _withSourceTag(
+              l10n.fnthinkTagInbox,
+              _inboxRow(l10n, _allIn[index], outgoing: false),
+            ),
           ),
-          // 未读点只跟着表里的 read 那一列；已读就**不画**这个点（不画 ≠ 画一个透明的占位）。
-          // 发出档更简单：**发出的一条没有"未读"这回事**，一律不画。
-          //
-          // 反证登记（`8b5c8ad`，三条全 named+restored；报告在本地 outputs/，不入库）：
-          //   无脑画点 ⇒ 红在「已读那行根本不画点」；标完不重新读表 ⇒ 红在「写表 + 重新读表」
-          //   与「不留点不开的幽灵行」；收件档不切数据源 ⇒ 红在整组收件用例。
-          leading: m.read || _inboxDirection == kFnthinkDirectionOut
-              ? null
-              : Container(
-                  width: 8,
-                  height: 8,
-                  key: ValueKey('fnthink-inbox-unread-${m.messageId}'),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.blue,
-                  ),
-                ),
-          trailing:
-              m.ackResult.isEmpty || _inboxDirection == kFnthinkDirectionOut
-              ? null
-              : Text(m.ackResult, style: const TextStyle(fontSize: 11)),
-          onTap: () => _showInboxDetail(
-            m,
-            outgoing: _inboxDirection == kFnthinkDirectionOut,
+        SliverToBoxAdapter(
+          child: _allSectionHeader('sent', l10n.fnthinkDirSent),
+        ),
+        if (_allOut.isEmpty)
+          SliverToBoxAdapter(child: _allSectionEmpty(l10n.fnthinkSentEmpty))
+        else
+          SliverList.builder(
+            itemCount: _allOut.length,
+            itemBuilder: (context, index) => _withSourceTag(
+              l10n.fnthinkTagSent,
+              _inboxRow(l10n, _allOut[index], outgoing: true),
+            ),
           ),
-        );
-      },
+      ],
+    );
+  }
+
+  /// 顶部那一行说明：搜索与筛选只作用于「转发」那一段（判据③的另一半 —— 不假装一个筛子能筛三张表）。
+  Widget _allScopeNote(AppLocalizations l10n) {
+    return Padding(
+      key: const ValueKey<String>('history-all-note'),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Text(
+        l10n.fnthinkAllScopeNote,
+        style: TextStyle(fontSize: 12, color: AppColors.tertiaryLabel(context)),
+      ),
+    );
+  }
+
+  /// 分组标题。**刻意不带数字**：判据③要的正是"全部档不新增第四种计数"。
+  Widget _allSectionHeader(String kind, String title) {
+    return Padding(
+      key: ValueKey<String>('history-all-header-$kind'),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppColors.secondaryLabel(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _allSectionEmpty(String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 13, color: AppColors.tertiaryLabel(context)),
+      ),
+    );
+  }
+
+  /// 行首那一枚来源标识（判据①）。宽度固定 ⇒ 三段对得起同一条竖线，扫一眼就分得开类别。
+  Widget _withSourceTag(String tag, Widget row) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 34,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 14, left: 2),
+            child: Text(
+              tag,
+              key: ValueKey<String>('history-all-tag-$tag'),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+          ),
+        ),
+        Expanded(child: row),
+      ],
     );
   }
 
@@ -2663,7 +2869,9 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           _directionBar(l10n),
           Expanded(
-            child: _direction == 'received' || _direction == 'sent'
+            child: _direction == 'all'
+                ? _buildAllView(l10n, records)
+                : _direction == 'received' || _direction == 'sent'
                 ? _buildInboxView(l10n)
                 : records.isEmpty
                 ? Center(

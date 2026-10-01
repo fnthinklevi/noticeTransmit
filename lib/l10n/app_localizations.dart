@@ -6560,6 +6560,36 @@ abstract class AppLocalizations {
   /// **'发出（幻念）'**
   String get fnthinkDirSent;
 
+  /// No description provided for @fnthinkDirAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get fnthinkDirAll;
+
+  /// No description provided for @fnthinkTagForwarded.
+  ///
+  /// In zh, this message translates to:
+  /// **'转发'**
+  String get fnthinkTagForwarded;
+
+  /// No description provided for @fnthinkTagInbox.
+  ///
+  /// In zh, this message translates to:
+  /// **'收'**
+  String get fnthinkTagInbox;
+
+  /// No description provided for @fnthinkTagSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'发'**
+  String get fnthinkTagSent;
+
+  /// No description provided for @fnthinkAllScopeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部档是把三个来源并排看，不是拼成同一条时间线：搜索与筛选只作用于「转发」那一段（收件与发出在另一张表里，翻页口径不同，混排会出现同一条重复或整条不出现）'**
+  String get fnthinkAllScopeNote;
+
   /// No description provided for @fnthinkSentEmpty.
   ///
   /// In zh, this message translates to:

@@ -3728,6 +3728,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkDirSent => 'Sent (fnthink)';
 
   @override
+  String get fnthinkDirAll => 'All';
+
+  @override
+  String get fnthinkTagForwarded => 'Fwd';
+
+  @override
+  String get fnthinkTagInbox => 'In';
+
+  @override
+  String get fnthinkTagSent => 'Out';
+
+  @override
+  String get fnthinkAllScopeNote =>
+      'All lines the three sources up side by side; it does not merge them into one timeline. Search and filters apply to the Forwarded section only — inbox and sent rows live in another table with different paging, so a merged timeline would show a row twice or not at all.';
+
+  @override
   String get fnthinkSentEmpty =>
       'Nothing sent yet. This tab only lists what this device sent.';
 
