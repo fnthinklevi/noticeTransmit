@@ -3419,6 +3419,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkEndpointOnce => '这一把只出现这一次 —— 现在抄走；之后只能重新建一把（旧的那把谁也拿不回来）。';
 
   @override
+  String get fnthinkEndpointTutorial => '怎么调用这一把';
+
+  @override
+  String get fnthinkEndpointPostWhy =>
+      '口令只进请求头，不进网址，因此不会落到反代的访问日志里 —— 这一条可以整行复制。';
+
+  @override
+  String get fnthinkEndpointGetWarning =>
+      'GET 形态只给形状：它把口令写在网址的路径段里，因而会进反代的访问日志（access log）。本站日志脱敏还没配好之前，这一支不给可整行复制的真口令 —— 现在就要能用，请用上面那条 POST。';
+
+  @override
+  String fnthinkEndpointFieldAlias(String title, String body) {
+    return '字段名各家平台不一样，取第一个非空：标题依次看 $title；正文依次看 $body。多余的字段一律忽略。投递目标不能由请求指定 —— 这一把只投这台设备。';
+  }
+
+  @override
+  String get fnthinkEndpointCopyId => '复制端点 id';
+
+  @override
+  String get fnthinkEndpointCopySecret => '复制口令';
+
+  @override
+  String get fnthinkEndpointCopyCommand => '一键复制这条命令';
+
+  @override
+  String get fnthinkEndpointCopyHint =>
+      '「一键复制」只在你刚建完（或刚换完）那一段时间可用：口令只活在这一页的内存里，离开本页再回来就插不进去了 —— 想再复制一次，只能换一把。';
+
+  @override
   String fnthinkEndpointFailed(String reason) {
     return '端点没建成（$reason）—— 也没回口令，所以不存在「建好了但抄不到」这种状态。';
   }

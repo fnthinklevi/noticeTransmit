@@ -1799,6 +1799,24 @@
     }
   },
   "fnthinkEndpointOnce": "This token appears only once — copy it now; afterwards you can only create a new one (nobody can hand back the old).",
+  "fnthinkEndpointTutorial": "How to call this one",
+  "fnthinkEndpointPostWhy": "The token goes into the request header, not the URL, so it never lands in the reverse proxy's access log — this one you can copy whole.",
+  "fnthinkEndpointGetWarning": "The GET form is shown as a shape only: it puts the token in the URL path, so it does land in the reverse proxy's access log. Until log redaction is configured on this server, this branch gives no copyable real token — use the POST above if you need it working now.",
+  "fnthinkEndpointFieldAlias": "Field names differ per platform; the first non-empty one wins. Title: {title}. Body: {body}. Extra fields are ignored. A request cannot pick the delivery target — this endpoint only delivers to this device.",
+  "@fnthinkEndpointFieldAlias": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "body": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointCopyId": "Copy endpoint id",
+  "fnthinkEndpointCopySecret": "Copy token",
+  "fnthinkEndpointCopyCommand": "Copy the whole command",
+  "fnthinkEndpointCopyHint": "One-tap copy works only for a while right after you create (or rotate) one: the token lives just in this page's memory, and once you leave the page it can no longer be filled in — rotate to copy again.",
   "fnthinkEndpointFailed": "Endpoint not created ({reason}) — no token came back either, so there is no 'created but uncopiable' state.",
   "@fnthinkEndpointFailed": {
     "placeholders": {

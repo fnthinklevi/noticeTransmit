@@ -6344,6 +6344,54 @@ abstract class AppLocalizations {
   /// **'这一把只出现这一次 —— 现在抄走；之后只能重新建一把（旧的那把谁也拿不回来）。'**
   String get fnthinkEndpointOnce;
 
+  /// No description provided for @fnthinkEndpointTutorial.
+  ///
+  /// In zh, this message translates to:
+  /// **'怎么调用这一把'**
+  String get fnthinkEndpointTutorial;
+
+  /// No description provided for @fnthinkEndpointPostWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'口令只进请求头，不进网址，因此不会落到反代的访问日志里 —— 这一条可以整行复制。'**
+  String get fnthinkEndpointPostWhy;
+
+  /// No description provided for @fnthinkEndpointGetWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'GET 形态只给形状：它把口令写在网址的路径段里，因而会进反代的访问日志（access log）。本站日志脱敏还没配好之前，这一支不给可整行复制的真口令 —— 现在就要能用，请用上面那条 POST。'**
+  String get fnthinkEndpointGetWarning;
+
+  /// No description provided for @fnthinkEndpointFieldAlias.
+  ///
+  /// In zh, this message translates to:
+  /// **'字段名各家平台不一样，取第一个非空：标题依次看 {title}；正文依次看 {body}。多余的字段一律忽略。投递目标不能由请求指定 —— 这一把只投这台设备。'**
+  String fnthinkEndpointFieldAlias(String title, String body);
+
+  /// No description provided for @fnthinkEndpointCopyId.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制端点 id'**
+  String get fnthinkEndpointCopyId;
+
+  /// No description provided for @fnthinkEndpointCopySecret.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制口令'**
+  String get fnthinkEndpointCopySecret;
+
+  /// No description provided for @fnthinkEndpointCopyCommand.
+  ///
+  /// In zh, this message translates to:
+  /// **'一键复制这条命令'**
+  String get fnthinkEndpointCopyCommand;
+
+  /// No description provided for @fnthinkEndpointCopyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'「一键复制」只在你刚建完（或刚换完）那一段时间可用：口令只活在这一页的内存里，离开本页再回来就插不进去了 —— 想再复制一次，只能换一把。'**
+  String get fnthinkEndpointCopyHint;
+
   /// No description provided for @fnthinkEndpointFailed.
   ///
   /// In zh, this message translates to:

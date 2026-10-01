@@ -12,6 +12,7 @@ import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
+import '../services/fnthink_endpoint_guide.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
@@ -1270,8 +1271,120 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             text: _endpointRotateText(l10n),
           ),
         ],
+        // ── T87：怎么调用这一把（教程 + 三枚复制）──
+        // 出现条件按页面既有三态判：**真用过**才给教程。`listing == null` 是"还没读"，
+        // 不是"没有" —— 把"还没读"当"没有"，这一格就在用户第一次读失败那天安静消失。
+        if (_endpointUsed(created, rotated, listing))
+          ..._buildEndpointTutorial(l10n, created, rotated),
       ],
     );
+  }
+
+  /// 真用过 = 这一页刚建成 / 刚换过一把，或读过列表且名下确实有端点。
+  /// ⚠ 三种"没有列表"里只有"读到且为空"算没用过；"还没读"与"没读到"都不把这一格点亮 ——
+  ///   前者是没发生过，后者是服务器那边刚出过事，两种情况下教程都会误导人去改 NAS。
+  bool _endpointUsed(
+    FnthinkEndpointCreateResult? created,
+    FnthinkEndpointRotateResult? rotated,
+    FnthinkEndpointListResult? listing,
+  ) {
+    if (created?.ok ?? false) return true;
+    if (rotated?.exchanged ?? false) return true;
+    return listing?.ok == true && (listing?.endpoints?.isNotEmpty ?? false);
+  }
+
+  /// 教程那一格的 children（T87）。做成"一串 widget"而不是一个弹层：
+  /// 口令只活在这一页的内存里，把教程挪进弹层就会让人以为"关掉弹层它还在那儿"。
+  ///
+  /// ⚠ 网址、命令、字段别名**一律不在这个文件里拼**：全部出自 `FnthinkEndpointGuide`
+  ///   （路径与别名的唯一作者是契约）。这里重打一遍 `/api/fnthink/p/…`，服务器换前缀时
+  ///   界面会安静地教一条 404 的路径。
+  List<Widget> _buildEndpointTutorial(
+    AppLocalizations l10n,
+    FnthinkEndpointCreateResult? created,
+    FnthinkEndpointRotateResult? rotated,
+  ) {
+    final contract = _contract;
+    // 契约读不到就整格不给（不给半条地址）：路径与别名都只有一份作者，缺了就只剩猜。
+    if (contract == null) return const [];
+    // 手上还有口令明文的只有这两次：创建那一次、轮换那一次。列表那半永远没有。
+    final createdOk = created?.ok ?? false;
+    final rotatedOk = rotated?.exchanged ?? false;
+    final heldId = createdOk
+        ? created!.endpointId
+        : (rotatedOk ? rotated!.endpointId : null);
+    final heldSecret = createdOk
+        ? created!.secret
+        : (rotatedOk ? rotated!.secret : null);
+    final guide = FnthinkEndpointGuide.from(
+      host: _host,
+      endpointId: heldId ?? '',
+      secret: heldSecret,
+      contract: contract,
+    );
+    Widget copyButton(String keyName, String label, String? text) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          key: ValueKey(keyName),
+          // 这一页手上没有那一段东西 ⇒ 置灰，而不是复制一条拼了一半的假命令。
+          onPressed: _busy || text == null ? null : () => _copy(text),
+          child: Text(label),
+        ),
+      );
+    }
+
+    return [
+      _Note(
+        keyName: 'fnthink-endpoint-tutorial-title',
+        text: l10n.fnthinkEndpointTutorial,
+      ),
+      if (guide.postUrl.isNotEmpty)
+        SelectableText(
+          guide.postUrl,
+          key: const ValueKey('fnthink-endpoint-post-url'),
+        ),
+      _Note(
+        keyName: 'fnthink-endpoint-post-why',
+        text: l10n.fnthinkEndpointPostWhy,
+      ),
+      // GET 那一支永远只有形状（口令进 URL ⇒ 进反代 access log；T89 未配之前不给真口令）。
+      if (guide.getShape.isNotEmpty)
+        SelectableText(
+          guide.getShape,
+          key: const ValueKey('fnthink-endpoint-get-shape'),
+        ),
+      _Note(
+        keyName: 'fnthink-endpoint-get-warning',
+        text: l10n.fnthinkEndpointGetWarning,
+      ),
+      _Note(
+        keyName: 'fnthink-endpoint-fields',
+        text: l10n.fnthinkEndpointFieldAlias(
+          guide.titleAliases.join('、'),
+          guide.bodyAliases.join('、'),
+        ),
+      ),
+      copyButton(
+        'fnthink-endpoint-copy-id',
+        l10n.fnthinkEndpointCopyId,
+        heldId,
+      ),
+      copyButton(
+        'fnthink-endpoint-copy-secret',
+        l10n.fnthinkEndpointCopySecret,
+        heldSecret,
+      ),
+      copyButton(
+        'fnthink-endpoint-copy-command',
+        l10n.fnthinkEndpointCopyCommand,
+        guide.canCopyCommand ? guide.copyCommand : null,
+      ),
+      _Note(
+        keyName: 'fnthink-endpoint-copy-hint',
+        text: l10n.fnthinkEndpointCopyHint,
+      ),
+    ];
   }
 
   /// 名单上那一行的时刻。`grantedAt` 是本机写下的那一刻（服务端另有一份，不回给设备）。

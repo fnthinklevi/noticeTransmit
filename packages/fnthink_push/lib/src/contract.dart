@@ -144,6 +144,19 @@ class FnthinkContract {
     'body': strings(const ['fieldTolerance', 'body']),
   };
 
+  /// `endpoint.ingress.<which>` 那两条收单路径之一（T87 教程的唯一出处）。
+  ///
+  /// 缺键或不是以 `/` 开头就抛，不补默认值：教程里写一条服务器上不存在的路径，
+  /// 用户复制下去只会拿到一个 404，而那句 404 看起来完全像"这功能坏了"——
+  /// 与 `identityLength` 同一类：宁可装配期炸，不要在用户那侧静默错。
+  String endpointIngressPath(String which) {
+    final value = str(['endpoint', 'ingress', which]);
+    if (value == null || !value.startsWith('/')) {
+      throw StateError('契约缺 endpoint.ingress.$which（或不以 / 开头）：$value');
+    }
+    return value;
+  }
+
   /// `identity.<which>.length`。缺键直接抛而不是补个默认位数 —— 位数错生成出来的是
   /// 一把对端永远不认的凭证，而"默认 18"会让这个错误静默通过。
   int identityLength(String which) {

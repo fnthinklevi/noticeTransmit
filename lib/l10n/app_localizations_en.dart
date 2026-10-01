@@ -3575,6 +3575,35 @@ class AppLocalizationsEn extends AppLocalizations {
       'This token appears only once — copy it now; afterwards you can only create a new one (nobody can hand back the old).';
 
   @override
+  String get fnthinkEndpointTutorial => 'How to call this one';
+
+  @override
+  String get fnthinkEndpointPostWhy =>
+      'The token goes into the request header, not the URL, so it never lands in the reverse proxy\'s access log — this one you can copy whole.';
+
+  @override
+  String get fnthinkEndpointGetWarning =>
+      'The GET form is shown as a shape only: it puts the token in the URL path, so it does land in the reverse proxy\'s access log. Until log redaction is configured on this server, this branch gives no copyable real token — use the POST above if you need it working now.';
+
+  @override
+  String fnthinkEndpointFieldAlias(String title, String body) {
+    return 'Field names differ per platform; the first non-empty one wins. Title: $title. Body: $body. Extra fields are ignored. A request cannot pick the delivery target — this endpoint only delivers to this device.';
+  }
+
+  @override
+  String get fnthinkEndpointCopyId => 'Copy endpoint id';
+
+  @override
+  String get fnthinkEndpointCopySecret => 'Copy token';
+
+  @override
+  String get fnthinkEndpointCopyCommand => 'Copy the whole command';
+
+  @override
+  String get fnthinkEndpointCopyHint =>
+      'One-tap copy works only for a while right after you create (or rotate) one: the token lives just in this page\'s memory, and once you leave the page it can no longer be filled in — rotate to copy again.';
+
+  @override
   String fnthinkEndpointFailed(String reason) {
     return 'Endpoint not created ($reason) — no token came back either, so there is no \'created but uncopiable\' state.';
   }
