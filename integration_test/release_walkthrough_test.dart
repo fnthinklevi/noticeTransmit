@@ -573,6 +573,110 @@ void main() {
       await _step(
         tester,
         gateFailures,
+        '4.4 历史页「全部」档：三段并排、每行有来源标识、返回不炸',
+        () async {
+          // T84 的形状是"三段各自翻页"，不是拼成一条时间线。闸门要证的恰恰是
+          // **第三段没有安静地消失**：收件与发出这两段此前从没在设备上同过屏（4.1/4.2 只看单档）。
+          // 用真库注入（这台模拟器没有服务端可连），事后清干净 —— 闸门不留余温。
+          const inId = 'gate_all_in';
+          const outId = 'gate_all_out';
+          final helper = DatabaseHelper();
+          final db = await helper.database;
+          await db.delete(
+            FnthinkInboxMessage.table,
+            where: 'message_id LIKE ?',
+            whereArgs: ['gate_all_%'],
+          );
+          for (final (id, title, dir) in const [
+            (inId, '闸门全部档收件一', kFnthinkDirectionIn),
+            (outId, '闸门全部档发出一', kFnthinkDirectionOut),
+          ]) {
+            final inserted = await helper.insertFnthinkInbox(
+              FnthinkInboxMessage(
+                messageId: id,
+                sender: '8KMNPQRSTVWX999777',
+                type: 'notice',
+                item: '',
+                title: title,
+                body: '闸门注入：全部档里属于它的那一段',
+                receivedAt: 1767223200000,
+                direction: dir,
+              ),
+            );
+            expect(
+              inserted,
+              isTrue,
+              reason: '注入没落库（$id）⇒ 后面每一条断言都是在演一场空',
+            );
+          }
+          await _tap(tester, find.text('推送历史'), '首页→推送历史（要看全部档的那一次）');
+          await _settle(tester, seconds: 2);
+          await _tap(
+            tester,
+            _in(HistoryPage, find.byKey(const ValueKey('direction-chip-all'))),
+            '历史页→全部档',
+          );
+          await _settle(tester, seconds: 2);
+          // ⚠ 先滚到那一段再断言：ListView 懒建，视口外的标题根本没 build，
+          //    那时"找不到"是闸门自己的红（5.15 与冒烟 2 各这样红过一次，本仓记过几次）。
+          for (final kind in const ['forwarded', 'inbox', 'sent']) {
+            final header = find.byKey(ValueKey('history-all-header-$kind'));
+            await _scrollUntil(tester, header);
+            expect(
+              header,
+              findsOneWidget,
+              reason:
+                  '全部档少了「$kind」那一段的标题 ⇒ 三段里有一段被安静地吞掉了。'
+                  '少一段与三段都在，用户看到的是同一句"这就是全部"',
+            );
+            // 判据③：段标题**不带数字**（第四种计数会让人以为全部档另有一本账）。
+            // ⚠ 那一枚 key 挂在 Padding 上而不是 Text 上（与 T84 的 widget 用例同一处坑），
+            //    所以这里必须往下找一个 Text 读文字，直接 `widget<Text>(header)` 会当场 cast 炸。
+            final title = tester
+                .widgetList<Text>(
+                  find.descendant(
+                    of: header,
+                    matching: find.byType(Text),
+                  ),
+                )
+                .map((t) => t.data ?? '')
+                .join();
+            expect(
+              RegExp(r'\d').hasMatch(title),
+              isFalse,
+              reason: '段标题里冒出数字 ⇒ 这一档开始自己计数，而它没有那份数据源',
+            );
+          }
+          for (final id in const [inId, outId]) {
+            final row = find.byKey(ValueKey('fnthink-inbox-row-$id'));
+            await _scrollUntil(tester, row);
+            expect(
+              row,
+              findsOneWidget,
+              reason: '切到全部档看不到注入的那一行（$id）⇒ 它读的不是同一张表的那份账',
+            );
+          }
+          for (final tag in const ['收', '发']) {
+            final badge = find.byKey(ValueKey('history-all-tag-$tag'));
+            expect(
+              badge,
+              findsWidgets,
+              reason: '行首没有来源标识 ⇒ 三段并排变成一屏看不出归属的流水账',
+            );
+          }
+          await db.delete(
+            FnthinkInboxMessage.table,
+            where: 'message_id LIKE ?',
+            whereArgs: ['gate_all_%'],
+          );
+          // 「返回不炸」不是废话：这一档是三段叠在一个可滚容器里，返回时若还有在途的一轮读，
+          // 页面销毁之后 setState 就会红在这一发上。
+          await _backToHome(tester);
+        },
+      );
+      await _step(
+        tester,
+        gateFailures,
         '5.1 更多 tab 入口 + webhook 列表/详情两页形状',
         () async {
           // ── 5. 更多 tab：以下每个入口逐个进页，页面级 CRUD 各自走完 ──────────
