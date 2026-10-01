@@ -275,7 +275,14 @@ class AppUpdateManager {
             .timeout(const Duration(seconds: 15));
         debugPrint('检查更新：响应状态码 ${response.statusCode}');
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+          // 只按 UTF-8 解，不走 `response.body`（T85a：实测——没有 charset 时 `text/*`
+          // 与无 content-type 的响应按 latin-1 解，`application/json` 那档才走 UTF-8。
+          // CDN/反代把类型改写成 text/plain 或吃掉那个头，changelog 里的中文就会"解成功"
+          // 成 mojibake 并显示到更新弹窗上）。解不出来就抛给下面那个 catch：
+          // 这一发判成"检查更新异常"，而不是把坏字给用户看。
+          final data = jsonDecode(
+            utf8.decode(response.bodyBytes, allowMalformed: false),
+          );
           if (data['code'] == 0) {
             final result = VersionCheckResult.fromJson(data['data']);
             debugPrint(
@@ -330,7 +337,11 @@ class AppUpdateManager {
         return null;
       }
 
-      final versionData = jsonDecode(response.body) as Map<String, dynamic>;
+      // 静态模式那一发同理（T85a）：GitHub Pages 与中间的任意一层都可能把 content-type
+      // 报成 text/plain 或干脆不给 —— 那时 `.body` 按 latin-1 解，changelog 的中文就坏了。
+      final versionData =
+          jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: false))
+              as Map<String, dynamic>;
       final latestVersion = versionData['latestVersion']?.toString() ?? '0.0.0';
       final latestBuild =
           int.tryParse(versionData['latestBuild']?.toString() ?? '0') ?? 0;

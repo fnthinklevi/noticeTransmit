@@ -94,6 +94,92 @@ void main() {
     });
   });
 
+  group('响应体按 UTF-8 解码（T85a：没有 charset 也不能把中文解坏）', () {
+    test('合法 UTF-8 字节 + 无 charset 头 ⇒ 中文正文原样读回（这一条在改之前必红）', () async {
+      // ⚠ 实测过才这么写的（不是"听说 .body 按 latin-1"）：`package:http` 在没有 charset 时
+      //  只有 **`text/*` 或干脆没有 content-type** 才按 latin-1 解；`application/json` 那一档
+      //  它已经按 UTF-8 解。所以两条都要断：
+      //   - `application/json`（线上此刻的样子）：断的是"换了实现也不许退回去";
+      //   - `text/plain`（反代/CDN 把类型改写掉、或 WAF 直接回一页 text/plain 时）：
+      //     这一条**在改之前必红** —— `.body` 会把 UTF-8 的中文按 latin-1 解成坏字符，
+      //     然后被当成真内容落进收件表、上通知栏（"换设备后第一条推送是乱码"那种报法）。
+      const payload =
+          '{"messages":[{"messageId":"m_1","type":"notice","title":"",'
+          '"body":"您的验证码是 8888，五分钟内的"}],'
+          '"receipts":[],"pending":0}';
+      for (final headers in const [
+        {'content-type': 'application/json'},
+        {'content-type': 'text/plain'},
+      ]) {
+        final rec = _Recorder(
+          headers: headers,
+          rawScripts: [utf8.encode(payload)],
+        );
+        final polled = await build(contract, rec, _Signer()).pollOnce();
+        final message = polled.messages.single;
+        expect(
+          message.body,
+          '您的验证码是 8888，五分钟内的',
+          reason: '${headers['content-type']} 这一档解坏 ⇒ 又走回了按 charset 猜的 .body',
+        );
+        expect(
+          message.body.contains('\uFFFD'),
+          isFalse,
+          reason: '出现替换字符就是 allowMalformed 被改成了 true（静默替换）',
+        );
+      }
+    });
+
+    test('正文里混进一个非法 UTF-8 字节 ⇒ 整发判成读不出，而不是带替换字符的那条被用出去', () async {
+      // 这条钉的是 `allowMalformed: false` 本身。放开成 true 之后的形状不是"报错"，
+      // 而是**一条看起来合法的消息**：那个坏字节变成 U+FFFD 混在正文里，照样落进收件表、
+      // 照样上通知栏 —— 静默替换正是这次要修的乱码形状。
+      final poisoned = <int>[
+        ...utf8.encode(
+          '{"messages":[{"messageId":"m_1","type":"notice","title":"","body":"A',
+        ),
+        0xFF, // 不是任何合法 UTF-8 序列里能出现的字节
+        ...utf8.encode('"}],"receipts":[],"pending":0}'),
+      ];
+      final rec = _Recorder(
+        headers: const {'content-type': 'application/json'},
+        rawScripts: [poisoned],
+      );
+      final polled = await build(contract, rec, _Signer()).pollOnce();
+      expect(
+        polled.status,
+        FnthinkPollStatus.ok,
+        reason: '状态码不依赖正文：服务端确实答了这一发，别把它说成"没通上话"',
+      );
+      expect(
+        polled.messages,
+        isEmpty,
+        reason:
+            '冒出一条带 U+FFFD 的消息 = allowMalformed 被放开 ⇒ 坏字节被静默替换后'
+            '当真内容落库、上通知栏',
+      );
+    });
+
+    test('字节不是合法 UTF-8 ⇒ 内容判成读不出，但状态码照旧分类', () async {
+      // 钉的是"不猜"：坏字节不许被当成合法文本用出去，也不许因为读不出就整发失败。
+      // 403 那一档的结论只依赖状态码，所以这一发仍然要落到 rejectedUnsigned。
+      final rec = _Recorder(
+        status: contract.statusCodes['forbidden']!,
+        headers: const {'content-type': 'application/json'},
+        rawScripts: [
+          const [0xC0, 0xC1, 0xFE, 0xFF, 0x41],
+        ],
+      );
+      final result = await build(contract, rec, _Signer()).pollOnce();
+      expect(
+        result.status,
+        FnthinkPollStatus.rejectedUnsigned,
+        reason: '状态码不依赖正文：正文读不出也要把"服务端拒了这一发"说对',
+      );
+      expect(result.messages, isEmpty);
+    });
+  });
+
   group('装配与失败的分类', () {
     test('契约说 httpsOnly 而 base 是 http ⇒ 装配时就抛（一个请求都不发）', () {
       final rec = _Recorder();
@@ -550,6 +636,7 @@ class _Recorder {
     List<String>? scripts,
     this.status = 200,
     this.headers = const {'content-type': 'application/json'},
+    this.rawScripts,
   }) : scripts = scripts ?? ['{"messages":[],"receipts":[],"pending":0}'];
 
   final List<http.Request> requests = [];
@@ -557,13 +644,22 @@ class _Recorder {
   int status;
   Map<String, String> headers;
 
+  /// 直接给**字节**的回脚本（T85a）。给了它就走 `Response.bytes` —— 这一条是必须的：
+  /// `http.Response(String body, …)` 会按 content-type 的 charset 编码，没有 charset 时
+  /// 用 latin-1，于是"UTF-8 的中文响应"这种现场用字符串脚本根本演不出来。
+  List<List<int>>? rawScripts;
+
   MockClient client() => MockClient((http.Request request) async {
     requests.add(request);
-    return http.Response(
-      scripts[(requests.length - 1) % scripts.length],
-      status,
-      headers: headers,
-    );
+    final index = (requests.length - 1) % scripts.length;
+    if (rawScripts != null) {
+      return http.Response.bytes(
+        rawScripts![index % rawScripts!.length],
+        status,
+        headers: headers,
+      );
+    }
+    return http.Response(scripts[index], status, headers: headers);
   });
 }
 

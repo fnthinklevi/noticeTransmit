@@ -130,8 +130,24 @@ class FnthinkReceiverService {
         )
         .timeout(timeout);
     Map<String, Object?> body = const {};
-    final text = response.body;
-    if (text.isNotEmpty) {
+    // ⚠ 只按 UTF-8 解，**不走 `response.body`**（T85a）。实测过 `package:http` 的行为再写：
+    // 没有 `charset` 时，**`text/*` 与干脆没有 content-type 的响应用 latin-1 解**，
+    // `application/json` 那一档它已经按 UTF-8 解。所以今天线上是好的，坏的路径是
+    // "反代/CDN/WAF 把类型改成 text/plain、或整段吃掉 content-type"那一刻 ——
+    // 那时 UTF-8 的中文会**被"解成功"成 mojibake**，然后被当成真内容落进收件表、上通知栏。
+    // `allowMalformed: false` = 字节不是合法 UTF-8 就抛：宁可不解析，也不替换成 U+FFFD ——
+    // 静默替换才是那条"看起来收到了，但字是坏的"的路。
+    String? text;
+    if (response.bodyBytes.isNotEmpty) {
+      try {
+        text = utf8.decode(response.bodyBytes, allowMalformed: false);
+      } on FormatException {
+        // 内容读不出，但**状态码照旧分类**（403/429 这些不依赖正文）。
+        // 不许在这里"退回按 latin-1 再解一遍"：那等于把上面那条判据反着写。
+        text = null;
+      }
+    }
+    if (text != null) {
       try {
         final decoded = jsonDecode(text);
         // 只认对象。数组或标量塞进 FnthinkReply 会让内核把"看不懂"读成"没有这个键"，
