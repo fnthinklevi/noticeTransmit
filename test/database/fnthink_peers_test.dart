@@ -251,20 +251,29 @@ void main() {
         contains('webhookChannels'),
         reason: '锚点：正则没抓到键就该红，而不是"清单为空所以全过"',
       );
+      // T59 之后有一颗**已登记**的类别键就叫 `fnthink`（只带 receive_enabled / host /
+      // consent_version 三个「意图」字段，字段白名单由
+      // test/architecture/fnthink_backup_privacy_guard_test.dart 钉）。
+      // 所以这条守卫不能写成"键名里没有 fnthink 这个词"——那样钉的是措辞，不是边界。
+      // 真正的边界：名单本身不进备份；且除了那颗登记过的键，任何**别的** fnthink 键
+      // （fnthinkPeers / fnthinkKey / fnthinkInbox…）都要在这里红 —— 想随行先改这里。
+      final registered = RegExp(r'^fnthink$');
       for (final key in exported) {
         final k = key.toLowerCase();
         expect(
           k,
           isNot(
-            anyOf(
-              contains('peer'),
-              contains('inbox'),
-              contains('fnthink'),
-              contains('message'),
-            ),
+            anyOf(contains('peer'), contains('inbox'), contains('message')),
           ),
           reason: '备份键清单里出现了幻念推送那两面的键：$key',
         );
+        if (!registered.hasMatch(k)) {
+          expect(
+            k,
+            isNot(contains('fnthink')),
+            reason: '除已登记的那颗意图类别键，备份键清单里不该再出现 fnthink：$key',
+          );
+        }
       }
     });
   });

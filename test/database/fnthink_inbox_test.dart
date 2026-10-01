@@ -511,14 +511,25 @@ void main() {
         multiLine: true,
       ).allMatches(src).map((m) => m.group(1)!).toList();
       expect(exported, containsAll(['webhookChannels', 'notificationRules']));
+      // T59 之后有一颗**已登记**的类别键就叫 `fnthink`（只带 receive_enabled / host /
+      // consent_version 三个「意图」字段，字段白名单由
+      // test/architecture/fnthink_backup_privacy_guard_test.dart 钉）。这条守卫钉的因此是
+      // "正文/收件不进备份"这个边界，不是"键名里没有 fnthink 这个词"：收件表本身仍不许出现，
+      // 而除那颗登记过的键以外，任何别的 fnthink 键（fnthinkInbox / fnthinkMessage…）都要红。
       for (final key in exported) {
+        final k = key.toLowerCase();
         expect(
-          key.toLowerCase(),
-          isNot(
-            anyOf(contains('inbox'), contains('message'), contains('fnthink')),
-          ),
+          k,
+          isNot(anyOf(contains('inbox'), contains('message'))),
           reason: '备份键清单里出现了收件类的键：$key',
         );
+        if (k != 'fnthink') {
+          expect(
+            k,
+            isNot(contains('fnthink')),
+            reason: '除已登记的那颗意图类别键，备份键清单里不该再出现 fnthink：$key',
+          );
+        }
       }
     });
   });

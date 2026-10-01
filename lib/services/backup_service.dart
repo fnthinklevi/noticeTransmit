@@ -13,6 +13,7 @@ import 'device_info_service.dart';
 import 'device_state_service.dart';
 import 'email_service.dart';
 import 'filter_service.dart';
+import 'fnthink_backup.dart';
 import 'channel_config_codec.dart';
 import 'channel_url_policy.dart';
 import 'locale_service.dart';
@@ -26,11 +27,13 @@ import 'webhook_service.dart';
 ///
 /// 容器格式（.nbackup，JSON 文本）：文件头携带版本号与 KDF 参数（盐/迭代次数），
 /// 密文为 AES-256-GCM（口令经 PBKDF2-HMAC-SHA256 派生，210000 次迭代）。
-/// 备份内容（**14 类**，对齐 base.md §10.2「升级设置保留要求」）：
+/// 备份内容（**15 类**，对齐 base.md §10.2「升级设置保留要求」）：
 /// Webhook/邮件通道（含凭据）、通知规则、短信监听设置、应用过滤与黑白名单关键词、
 /// **引擎规则三族各自一类**（电量 `battery` / 温度 `temperature` / 设备状态 `deviceState`，
-/// 每类都带该族的通知开关）、主题/语言、设备名、**自建应用通道（含凭据，v1.59 新增）**；
-/// 不含通知历史与送达日志。
+/// 每类都带该族的通知开关）、主题/语言、设备名、**自建应用通道（含凭据，v1.59 新增）**、
+/// **幻念推送（T59：只有「意图」三项，不带身份与凭证）**；不含通知历史与送达日志。
+/// ⚠ 通道那三类**带**凭据是历史决定（它们是"这台设备自己要用的密钥"，换机不带就得重填），
+/// 幻念推送那几项**不带**是 2026-10-01 定的边界（理由逐条写在 `fnthink_backup.dart` 文件头）。
 class BackupService {
   static const formatId = 'notice-backup';
   static const formatVersion = 2;
@@ -76,6 +79,10 @@ class BackupService {
     await device.loadDeviceInfo();
     final theme = GetIt.instance<ThemeService>();
     final locale = GetIt.instance<LocaleService>();
+    // 幻念推送那一格（T59）：只带「意图」—— 总开关 / 所选地址 / 同意门的版本号。
+    // 身份私钥与两类口令、可信名单、收件正文、发出记录都不在这里（判据与理由写在
+    // `fnthink_backup.dart` 的文件头）。它只读 SharedPreferences，不碰数据库与随包资产。
+    final fnthink = await FnthinkBackup().collect();
 
     return {
       'webhookChannels': webhook.channels,
@@ -111,6 +118,7 @@ class BackupService {
         'theme_mode': theme.themeMode.name,
         'app_language': locale.language.name,
       },
+      'fnthink': fnthink,
     };
   }
 
@@ -289,6 +297,13 @@ class BackupService {
       };
     }
 
+    // 幻念推送那一格（T59）：坏值宁可不恢复，也不写进 prefs（非法主机名一旦落库，
+    // 表现是收货循环一路 400，而没人会怀疑到"刚恢复的备份"上）。
+    final fnthink = payload[FnthinkBackup.category];
+    if (fnthink is Map) {
+      fixed[FnthinkBackup.category] = FnthinkBackup.normalize(fnthink);
+    }
+
     return (fixed, skipped);
   }
 
@@ -395,6 +410,9 @@ class BackupService {
       'preferences':
           theme.themeMode != ThemeMode.system ||
           locale.language != AppLanguage.system,
+      // 「本机配过幻念推送吗」：从没配过的设备，这一格不算"恢复会盖掉东西"
+      // （否则"仅导入空缺项"策略下，一台没用过幻念推送的机器会被判成"本机已有配置"）。
+      'fnthink': await FnthinkBackup().hasContent(),
     };
   }
 
@@ -597,6 +615,17 @@ class BackupService {
           );
           await GetIt.instance<LocaleService>().setLanguage(language);
         }
+        return true;
+      });
+    }
+    final fnthinkPayload = payload['fnthink'];
+    if (fnthinkPayload is Map) {
+      final values = Map<String, dynamic>.from(fnthinkPayload);
+      await restore('fnthink', () async {
+        final note = await FnthinkBackup().apply(values);
+        // 同意门没跟着恢复是**必须让用户看见**的一件事（其余两项落了，服务器那头
+        // 仍会一律不回话）。这句话原样进 `failedCategories`，UI 那一行就是它。
+        if (note != null) throw FnthinkRestorePartial(note);
         return true;
       });
     }

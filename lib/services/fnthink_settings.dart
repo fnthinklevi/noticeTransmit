@@ -72,20 +72,20 @@ class FnthinkSettings {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(keyHost);
     if (stored == null || stored.isEmpty) return defaultHost;
-    return _validateHost(stored);
+    return validateHost(stored);
   }
 
   /// 存进去之前归一成小写：DNS 大小写不敏感，而 `A.COM` 与 `a.com` 存成两份就会被认成两台服务
   /// （表现是换过一次输入方式之后"原来的端点都不见了"—— 键是按主机名分的）。
   Future<void> setHost(String value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(keyHost, _validateHost(value));
+    await prefs.setString(keyHost, validateHost(value));
   }
 
   /// 契约里默认那一台。取不到就抛：默认地址没有"兜底值"这一说，
   /// 兜底值等于把一个没被协议评审过的域名写进代码。
   String get defaultHost {
-    final value = _validateHost(
+    final value = validateHost(
       contract.str(const ['transport', 'endpoints', 'default']) ?? '',
     );
     return value;
@@ -102,7 +102,8 @@ class FnthinkSettings {
     return Uri.https(h, '');
   }
 
-  static String _validateHost(String raw) {
+  /// 服务地址的唯一校验点（公开：备份恢复那条路也要走它，不许拷第二份）。
+  static String validateHost(String raw) {
     final host = raw.trim().toLowerCase();
     if (host.isEmpty) {
       throw const FnthinkSettingsInvalid('服务地址是空的');
