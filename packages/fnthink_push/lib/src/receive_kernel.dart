@@ -573,6 +573,147 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 组 `pair` 的签名字段（#176 / T28-B：B 带着 A 的地址码与那枚一次性口令去握手）。
+  ///
+  /// ⚠ 这一发的 `target` 是**对端（A）的地址码**，不是本机 —— 它是全协议里唯一一发「关于别人」
+  /// 的签名（契约 `clientEvents.pair.mustContainCounterpartAddress`），因此走 `selfOnlyRules`
+  /// 的第三条而不是前两条。填成自己服务端会拒，而那句拒信与"口令错"同形 —— 所以空串与"等于本机"
+  /// 在这里**当场抛**，把编程错误留在它发生的地方，别让它变成一次用户看不懂的网络失败。
+  /// 载荷名单同样只从契约读（今日 = `pairingCode` + `level`）：多带一项就是整条拒。
+  Map<String, Object?> pairFields({
+    required String pairingCode,
+    required String level,
+    required String targetAddressCode,
+    required String nonce,
+    String? ts,
+  }) {
+    final declared = contract.pairFields;
+    if (declared.isEmpty) {
+      throw StateError('契约没写 clientEvents.pair.fields：这一发不知道该带什么，不猜');
+    }
+    // 两个键名都从契约**派生**，内核里不写任何字面量：口令那一项就是 A 挂出去的那一个
+    // （`pairArm.arms`），剩下那一项即档位。名单长到第三项时当场抛 —— 多带一项是整条拒，
+    // 而拒信与"口令错"同形，谁都看不出来。
+    final codeField = contract.pairArmPayloadField;
+    final levelFields = declared.where((k) => k != codeField).toList();
+    if (declared.length != 2 || levelFields.length != 1) {
+      throw StateError(
+        'clientEvents.pair.fields 必须恰好两项（口令 + 档位），实到 $declared：'
+        '不猜哪一项是口令、哪一项是档位',
+      );
+    }
+    final payload = <String, Object?>{
+      codeField: pairingCode,
+      levelFields.single: level,
+    };
+    if (payload.length != declared.length ||
+        !declared.every(payload.containsKey)) {
+      throw ArgumentError(
+        'pair 的载荷键必须与契约名单一致（期望 $declared，实到 '
+        '${(payload.keys.toList()..sort())}）',
+      );
+    }
+    final target = targetAddressCode.trim();
+    if (target.isEmpty || target == addressCode) {
+      throw ArgumentError('pair 的 target 必须是对端的地址码且不等于本机（本机 = $addressCode）');
+    }
+    return {
+      'version': contract.protocolVersionForSignature,
+      'type': eventType('pair'),
+      'target': target,
+      'ts': ts ?? signedTimestamp,
+      'nonce': nonce,
+      'body': jsonEncode({for (final key in declared) key: payload[key]}),
+    };
+  }
+
+  /// B 侧那一发：把口令交出去，换回一条**等 A 确认**的配对请求。
+  ///
+  /// ⚠ 这一发不授权任何东西（服务端 `pairing.autoApprove=false`）：拿到 202 只意味着
+  /// "A 那边多了一条待确认"，本机此刻还什么都不是。所以调用方（界面）只能说"已提交，
+  /// 等对方确认" —— 说成"配对成功"就是替一件没发生的事作保（与 pairArm 那条
+  /// "挂出口令 ≠ 服务器收到"是同一条纪律的两端）。
+  ///
+  /// 成功判据三样都得在：状态 ok、`requestId` 非空、`status` 是契约
+  /// `pairRequest.statuses` 里的一个词。少任何一样都按失败处理 —— 200 而没给出这条请求，
+  /// 就是服务器没真的记下它，而界面上那句"已提交"会变成假话。
+  /// 状态→后果那张表仍只有 [interpret] 一份作者，这里借用它（429 要等、410 要先校准）。
+  Future<FnthinkPairResult> pair({
+    required String targetAddressCode,
+    required String pairingCode,
+    required String level,
+  }) async {
+    final signedWhileUncalibrated = !calibrated;
+    if (!contract.capabilityLevels.contains(level)) {
+      // 不在词表里的一档**不许离机**：发出去只会换回一句同形的 403，
+      // 而用户完全不知道是这一步被拦的。这里直接给一句能显示的话。
+      return FnthinkPairResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: 'pair-level-unknown:$level',
+      );
+    }
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final envelope = await buildEnvelope(
+      fields: pairFields(
+        pairingCode: pairingCode,
+        level: level,
+        targetAddressCode: targetAddressCode,
+        nonce: nonce,
+      ),
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkPairResult(
+        status: FnthinkPollStatus.transportError,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkPairResult(
+        status: verdict.status,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: verdict.reason ?? 'pair-http:${reply.status}',
+      );
+    }
+    final requestId = reply.body['requestId'];
+    final requestStatus = reply.body['status'];
+    if (requestId is! String ||
+        requestId.isEmpty ||
+        requestStatus is! String ||
+        !contract.pairRequestStatuses.contains(requestStatus)) {
+      _lastReason = 'pair-acked-without-request';
+      return FnthinkPairResult(
+        status: FnthinkPollStatus.failed,
+        signedWhileUncalibrated: signedWhileUncalibrated,
+        reason: _lastReason,
+      );
+    }
+    _lastReason = null;
+    final expiresAt = reply.body['expiresAt'];
+    return FnthinkPairResult(
+      status: FnthinkPollStatus.ok,
+      requestId: requestId,
+      requestStatus: requestStatus,
+      expiresAtMs: expiresAt is int ? expiresAt : null,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   /// 组 pairConfirm 的签名字段。
   ///
   /// ⚠ 这是全协议里**唯一一发 `target` 不是自己**的事件（`mustContainCounterpartAddress`）：
@@ -1539,6 +1680,42 @@ class FnthinkPairRequest {
       expiresAt: expires is int ? expires : null,
     );
   }
+}
+
+/// B 侧交出口令的结论（#176 / T28-B）。
+///
+/// ⚠ `ok` 的含义是"**A 那边多了一条待确认的请求**"，不是"配对成功"：授权只在 A 自己的
+/// `pairConfirm` 那一发写入（服务端 `relationshipStoredOn` = 被投那台）。界面要说的是
+/// [requestStatus] 那句话，别把它翻译成"已连上"。
+class FnthinkPairResult {
+  const FnthinkPairResult({
+    required this.status,
+    required this.signedWhileUncalibrated,
+    this.requestId,
+    this.requestStatus,
+    this.expiresAtMs,
+    this.reason,
+  });
+
+  final FnthinkPollStatus status;
+
+  /// 这条请求的 id —— A 那边在待确认列表里看到的是同一个值，B 这边不需要拿它做任何事，
+  /// 留着只为界面上"已提交"那句能对上号。
+  final String? requestId;
+
+  /// 服务端给的状态词（契约 `pairRequest.statuses` 里的一个）。
+  final String? requestStatus;
+
+  /// 这条待确认请求什么时候作废（服务端说了算，本机不自己判过期）。
+  final int? expiresAtMs;
+  final bool signedWhileUncalibrated;
+  final String? reason;
+
+  bool get ok =>
+      status == FnthinkPollStatus.ok &&
+      requestId != null &&
+      requestId!.isNotEmpty &&
+      requestStatus != null;
 }
 
 /// 答复一条配对请求的结论。

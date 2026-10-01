@@ -427,6 +427,12 @@ class FnthinkContract {
   /// pairConfirm 载荷的字段名单（今日 = `["requestId","decision","level"]`）。
   List<String> get pairConfirmFields => clientEventFields('pairConfirm');
 
+  /// `pair`（B 侧那一发）载荷的字段名单，今日 = `["pairingCode","level"]`。
+  ///
+  /// 与 pairArm 那份分开列：两发的载荷名单**不同**（A 只挂口令，B 还要说自己想要哪一档），
+  /// 合成一个 getter 就会有一边照抄另一边的名单 —— 服务端整条拒，而拒信与"口令错"同形。
+  List<String> get pairFields => clientEventFields('pair');
+
   /// pairRevoke 载荷的字段名单（今日 = `["peerAddress"]`）。
   ///
   /// 这一发就一个键，但键名仍只从契约读：内核拿这份名单当**唯一**的载荷形状，

@@ -810,6 +810,149 @@ void main() {
     });
   });
 
+  // ── #176 / T28-B 的 B 侧：把那枚口令交出去，换回一条**等 A 确认**的请求 ──
+  // 这一组盯的是三件"错了不会报错"的事：
+  //  ① target 填成本机 —— 服务端拒，而拒信与"口令错"同形，用户与开发者都读不出是这一步；
+  //  ② 载荷键名从契约派生（口令那项 = `pairArm.arms`，另一项即档位）—— 内核里写死字面量
+  //     就等于把名单抄成第二份，契约改名那天照旧签出老键；
+  //  ③ 200 不等于"配上了"：没有 requestId、或状态词不认识，都必须落到失败 —— 界面据此
+  //     说"已提交，等对方确认"，而不是"配对成功"（`pairing.autoApprove=false`）。
+  group('交口令 pair（#176 / T28-B 的 B 侧）', () {
+    const code = 'PAIRCODE123456';
+    const wantedLevel = 'L1';
+
+    Map<String, Object?> paired({
+      String? id = 'pr_1',
+      Object? status = 'pending',
+    }) => {
+      'requestId': id,
+      'status': status,
+      'expiresAt': 1800000300000,
+      'serverTime': 1800000000000,
+    };
+
+    Future<Map<String, Object?>> pairOnce(
+      _Harness harness, {
+      String target = _peer,
+      String level = wantedLevel,
+      Map<String, Object?>? body,
+    }) async {
+      harness.reply = FnthinkReply(status: 200, body: body ?? paired());
+      await harness.kernel().pair(
+        targetAddressCode: target,
+        pairingCode: code,
+        level: level,
+      );
+      return harness.sent.single['fields'] as Map<String, Object?>;
+    }
+
+    test('type 用 pair 自己的那个词，target 是对端地址码', () async {
+      final harness = _Harness(contract, 1800000000000);
+      final fields = await pairOnce(harness);
+      expect(
+        fields['type'],
+        contract.str(const ['clientEvents', 'pair', 'messageType']),
+        reason: '借别人的词 = 服务端按另一种事件验签，永远回一句同形的 403',
+      );
+      expect(fields['target'], _peer, reason: 'B 签的是"关于 A"那一封信');
+      expect(
+        fields['target'],
+        isNot(_self),
+        reason: '填成自己就是自配 —— 服务端 selfOnlyRules 的第三条会拒',
+      );
+    });
+
+    test('载荷两项都按契约名单与顺序编进 body（内核不写字面量）', () async {
+      final harness = _Harness(contract, 1800000000000);
+      final fields = await pairOnce(harness);
+      final body = jsonDecode(fields['body'] as String) as Map<String, Object?>;
+      expect(
+        body.keys.toList(),
+        contract.pairFields,
+        reason: '规范化字节逐字节比：键序不同就签成另一封信，而服务端只回一句"验签不过"',
+      );
+      expect(body[contract.pairArmPayloadField], code);
+      expect(
+        body[contract.pairFields.firstWhere(
+          (k) => k != contract.pairArmPayloadField,
+        )],
+        wantedLevel,
+      );
+    });
+
+    test('target 填成本机 ⇒ 抛在发出之前，一封都不留', () async {
+      final harness = _Harness(contract, 1800000000000);
+      expect(
+        () => harness.kernel().pairFields(
+          pairingCode: code,
+          level: wantedLevel,
+          targetAddressCode: _self,
+          nonce: 'n1',
+        ),
+        throwsA(isA<ArgumentError>()),
+        reason: '这一发必被拒，而拒信与"口令错"同形 —— 让它在离机前就炸',
+      );
+      expect(harness.sent, isEmpty);
+    });
+
+    test('档位不在词表里 ⇒ 不离机，并给一句能显示的原因', () async {
+      final harness = _Harness(contract, 1800000000000);
+      final result = await harness.kernel().pair(
+        targetAddressCode: _peer,
+        pairingCode: code,
+        level: 'L9',
+      );
+      expect(harness.sent, isEmpty, reason: '发出去只会换回一句同形的 403');
+      expect(result.ok, isFalse);
+      expect(result.reason, 'pair-level-unknown:L9');
+    });
+
+    test('200 但没给 requestId ⇒ 按失败：那句"已提交"没有证据', () async {
+      final harness = _Harness(contract, 1800000000000);
+      harness.reply = FnthinkReply(status: 200, body: paired(id: null));
+      final result = await harness.kernel().pair(
+        targetAddressCode: _peer,
+        pairingCode: code,
+        level: wantedLevel,
+      );
+      expect(result.ok, isFalse, reason: '服务器没真记下这条请求，界面不能说"已提交，等对方确认"');
+      expect(result.reason, 'pair-acked-without-request');
+    });
+
+    test('状态词不在契约表里 ⇒ 同样按失败（两端对"结了没有"的理解漂了）', () async {
+      final harness = _Harness(contract, 1800000000000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: paired(status: 'waiting'),
+      );
+      final result = await harness.kernel().pair(
+        targetAddressCode: _peer,
+        pairingCode: code,
+        level: wantedLevel,
+      );
+      expect(result.ok, isFalse);
+      expect(contract.pairRequestStatuses, isNotEmpty);
+    });
+
+    test('认下来的那一发：ok 带 requestId 与状态词，口令不进签名载荷', () async {
+      final harness = _Harness(contract, 1800000000000);
+      harness.reply = FnthinkReply(status: 200, body: paired());
+      final result = await harness.kernel().pair(
+        targetAddressCode: _peer,
+        pairingCode: code,
+        level: wantedLevel,
+      );
+      expect(result.ok, isTrue);
+      expect(result.requestId, 'pr_1');
+      expect(result.expiresAtMs, 1800000300000);
+      expect(
+        harness.signedBytes.single,
+        isNot(contains('privateKey')),
+        reason: '契约 mayNotCarry：私钥与端点口令都不许进这一发',
+      );
+    });
+  });
+
   group('poll 带回的配对请求：解析成类型（T42 第四片）', () {
     Map<String, Object?> okPollWith(List<Object?> reqs) => {
       'messages': const [],
