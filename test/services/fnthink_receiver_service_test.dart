@@ -355,6 +355,63 @@ void main() {
     });
   });
 
+  // ── #176 的 B 侧：把那枚口令交出去（`/pair`）──
+  // 服务层这一层要钉的只有两件事：路径仍只由契约说一次，以及"签不出来一个字节都不离机"。
+  // 形状（target 是对端、载荷两项从契约派生、200≠配上）在包内核那组用例里，两处不重复。
+  group('pair 那一发（#176 B 侧交口令）', () {
+    const peer = '8KMNPQRSTVWX999777';
+    const pairingCode = '7A9QKM3PTVWXRBNSFGH4';
+
+    test('发到自己声明的那条路径（apiPaths.pair），不是借 pairArm 的那条', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"requestId":"pr_1","status":"${contract.pairRequestStatuses.first}",'
+              '"expiresAt":1800000300000,"serverTime":1800000000000}',
+        ],
+      );
+      final service = build(contract, rec, _Signer());
+      final result = await service.pair(
+        targetAddressCode: peer,
+        pairingCode: pairingCode,
+        level: 'L1',
+      );
+      expect(
+        rec.requests.single.url.path,
+        contract.apiPath('pair'),
+        reason: '两条路径混用的下一幕是"口令挂到了 A 那台"，而这一发是给对端的',
+      );
+      expect(result.ok, isTrue);
+      expect(result.requestId, 'pr_1');
+    });
+
+    test('状态词不在契约表里 ⇒ 不算提交成功（两端的理解已经漂了）', () async {
+      final rec = _Recorder(
+        scripts: [
+          '{"requestId":"pr_1","status":"unknown-word","serverTime":1}',
+        ],
+      );
+      final service = build(contract, rec, _Signer());
+      final result = await service.pair(
+        targetAddressCode: peer,
+        pairingCode: pairingCode,
+        level: 'L1',
+      );
+      expect(result.ok, isFalse);
+    });
+
+    test('签名出不来时一个字节都不离机，且不谎报成网络故障', () async {
+      final rec = _Recorder();
+      final service = build(contract, rec, _Signer(available: false));
+      final result = await service.pair(
+        targetAddressCode: peer,
+        pairingCode: pairingCode,
+        level: 'L1',
+      );
+      expect(rec.requests, isEmpty);
+      expect(result.reason, 'signing-unavailable');
+    });
+  });
+
   group('答复配对请求 pairConfirm（T42 第四片）', () {
     // 另一台设备的地址码：这一发的 target 就是它（不是本机）。
     const peer = '8KMNPQRSTVWX999777';

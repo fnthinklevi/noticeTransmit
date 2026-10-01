@@ -565,6 +565,40 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 拿对端的地址码 + 那枚一次性口令去配对（#176 的 B 侧，页面上「配对另一台设备」那一格）。
+  ///
+  /// 与 [publishPairingCode] 同一条口径：`requireEnabled: false` —— **接收开关关着的时候
+  /// 恰恰最想把配对做掉**（先把关系建好再翻开开关），把它挡在开关后面等于让用户先去设置里
+  /// 绕一圈。前置失败（没契约 / 地址非法 / 没同意中转 / 签不出来 / 没自登记）一律不早退成
+  /// "服务器拒了"：那五句各有各的原话，而网络一直是好的。
+  ///
+  /// ⚠ 成功也不代表"配上了"：服务端 `pairing.autoApprove=false`，这一发只让**对面那台**多出一条
+  /// 待确认。界面上要说的是结论那句"已提交，等对方确认"，不是"配对成功"。
+  Future<FnthinkPairResult> pairWithDevice({
+    required String targetAddressCode,
+    required String pairingCode,
+    required String level,
+  }) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkPairResult(
+        status: FnthinkPollStatus.failed,
+        reason: resolved.reason,
+        signedWhileUncalibrated: false,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.pair(
+        targetAddressCode: targetAddressCode,
+        pairingCode: pairingCode,
+        level: level,
+      );
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 答复一条配对请求（页面上"同意 / 拒绝"那两下），并把结果落到本机名单。
   ///
   /// 三个决定都在这里做，**都不交给页面**，理由是同一条：让 UI 传字符串等于把协议词表抄进界面。

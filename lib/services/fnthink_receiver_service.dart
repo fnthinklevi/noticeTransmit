@@ -44,6 +44,9 @@ class FnthinkReceiverService {
       // "口令/签名错了"（真机上就是这么现形的）。
       'register',
       'pairArm',
+      // B 侧那一发（#176）：路径与其余每一发同源，缺它时装配期就炸，
+      // 而不是等用户在页面上按下"配对"才拿到一句看起来像网络故障的话。
+      'pair',
       'pairConfirm',
       'pairRevoke',
       'endpointCreate',
@@ -248,6 +251,30 @@ class FnthinkReceiverService {
       );
     }
     return kernel.pairArm(pairingCode: pairingCode);
+  }
+
+  /// 把对端的一次性配对口令交出去（`/pair`，#176 的 B 侧）。
+  ///
+  /// 与 [pairArm] 同一道闸：**签名拿不出来就不发**。这一发还要多一层解释 —— 它签的是
+  /// 「关于别人」的那封信（`target` 是对端地址码），而本机若还没自登记（#177），
+  /// 服务端连验签都过不去，回的是与"口令错"同形的那一句：闸放在这里，用户看到的是原话。
+  Future<FnthinkPairResult> pair({
+    required String targetAddressCode,
+    required String pairingCode,
+    required String level,
+  }) async {
+    if (!await _canSign()) {
+      return FnthinkPairResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+        signedWhileUncalibrated: !kernel.calibrated,
+      );
+    }
+    return kernel.pair(
+      targetAddressCode: targetAddressCode,
+      pairingCode: pairingCode,
+      level: level,
+    );
   }
 
   /// 答复一条配对请求（同意或拒绝）。`counterpart` 是**对端**的地址码：
