@@ -24,33 +24,55 @@ import '../theme/app_colors.dart';
 typedef FnthinkPairInput = ({String target, String code, String level});
 
 /// 打开输入弹层。返回 null = 用户取消 ⇒ 调用方一个字节都不该发出去。
+///
+/// [prefill] 是刚被点开的那条配对链接里读出来的那份请求（#176 片4）。它**只进这一层的内存**：
+/// 地址码是公开标识，口令是 singleUse 的秘密 —— 预填它的唯一理由是"用户不必手抄 20 位"，
+/// 而不是"让它留在界面上等人回来找"。传了 prefill 也不自动发：那一发仍要人点一次。
 Future<FnthinkPairInput?> showFnthinkPairDialog({
   required BuildContext context,
   required FnthinkContract contract,
+  FnthinkPairingRequest? prefill,
 }) {
   return showDialog<FnthinkPairInput>(
     context: context,
-    builder: (context) => _FnthinkPairDialog(contract: contract),
+    builder: (context) =>
+        _FnthinkPairDialog(contract: contract, prefill: prefill),
   );
 }
 
 class _FnthinkPairDialog extends StatefulWidget {
-  const _FnthinkPairDialog({required this.contract});
+  const _FnthinkPairDialog({required this.contract, this.prefill});
 
   final FnthinkContract contract;
+  final FnthinkPairingRequest? prefill;
 
   @override
   State<_FnthinkPairDialog> createState() => _FnthinkPairDialogState();
 }
 
 class _FnthinkPairDialogState extends State<_FnthinkPairDialog> {
-  final TextEditingController _target = TextEditingController();
-  final TextEditingController _code = TextEditingController();
+  late final TextEditingController _target = TextEditingController(
+    text: widget.prefill?.addressCode ?? '',
+  );
+  late final TextEditingController _code = TextEditingController(
+    text: widget.prefill?.pairingCode ?? '',
+  );
 
-  /// 选中那一档。初值取契约名单里的**最低**一档（`capabilities.levels` 按权限升序，
-  /// 所以第一项就是 `grantDefaults` 那一档）：要对方给更高的授权得由用户自己往上点，
+  /// 选中那一档。没带链接时取契约名单里的**最低**一档（`capabilities.levels` 按权限升序，
+  /// 第一项就是 `grantDefaults` 那一档）：要对方给更高的授权得由用户自己往上点，
   /// 而不是界面替他挑一个"通常够用"的。
-  late String _level = widget.contract.pairRequestableLevels.first;
+  late String _level = _initialLevel;
+
+  String get _initialLevel {
+    final levels = widget.contract.pairRequestableLevels;
+    final wanted = widget.prefill?.level;
+    if (wanted == null) return levels.first;
+    if (levels.contains(wanted)) return wanted;
+    // 链接里那一档本机够不着（今日只有 L3 这一种，而 parse 已确认它在词表里）：
+    // 取够得着的**最高**那一档。压到最低会把"对方让你请求 L2"显示成"这台只肯收 L1"，
+    // 那是两个不同的意图，而用户看得见的只有这一排 chip。
+    return levels.last;
+  }
 
   @override
   void dispose() {
@@ -98,6 +120,18 @@ class _FnthinkPairDialogState extends State<_FnthinkPairDialog> {
               color: AppColors.secondaryLabel(context),
             ),
           ),
+          // 预填不是自动填：用户得知道这两格为什么已经满了，否则他会以为"这台自己填的"，
+          // 而下一跳其实是"我刚点开的链接里带来的那台"。少这句，点「发过去」的人不知道发给谁。
+          if (widget.prefill != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              l10n.fnthinkPairPeerPrefilled,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerLeft,

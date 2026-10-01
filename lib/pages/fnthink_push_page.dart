@@ -14,6 +14,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_guide.dart';
 import '../services/fnthink_identity_service.dart';
+import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_receive_coordinator.dart';
@@ -86,7 +87,15 @@ class FnthinkPushDeps {
 ///    等于把决策甩回给用户，而且他一旦选错，症状是"网络好好的却连不上"。
 ///  - **收件未读数**：它属于 T48 那张入口卡与历史页筛选，不是这一页的责任。
 class FnthinkPushPage extends StatefulWidget {
-  const FnthinkPushPage({super.key, this.deps});
+  const FnthinkPushPage({super.key, this.deps, this.pairLink});
+
+  /// 刚被点开的那条配对链接（#176 片4）。null = 这一页不是从链接进来的。
+  ///
+  /// ⚠ 它带着那枚一次性口令，所以**只活在这一次导航的参数里**：页面不把它写进 prefs、
+  /// 不写进名单表、不拼进日志，处理过一次就再不放回（`_pairLinkHandled`）。
+  /// 为什么不在这里自己判格式：判据（载荷名单、`v`、口令形状、档位词表）在包层那份契约
+  /// 读口里，页面再判一遍就是第二个作者。
+  final FnthinkPairLinkOutcome? pairLink;
 
   final FnthinkPushDeps? deps;
 
@@ -183,6 +192,15 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 用户回头再看一次才能确认自己没读错（与 [_peerRevoke]、[_sendNote] 同一条理由）。
   FnthinkPairResult? _pairSubmit;
 
+  /// 那条被点开的链接**这一页已经处理过了**（#176 片4）。口令是 singleUse 的：
+  /// 重放一次不是"再试一次"，而是"把同一枚口令往被人再看一眼的方向推"，所以一次进入只处理一次。
+  bool _pairLinkHandled = false;
+
+  /// 链接判不过（前缀对但载荷不成形 / 契约读不到）。⚠ 这与"没有链接"是两件事：
+  /// 后者什么都不该说，前者必须说一句 —— 用户确实点了一条链接，"点了没反应"就是这次任务要修的缺陷形状。
+  /// 这里只留一个布尔：那句文案是**同一句**（不分辨哪一种不对），原因留在 outcome 里不进界面。
+  bool _pairLinkRejected = false;
+
   /// 刚建好的那条接入端点。**口令只在这里活这么长**：页面不把它写进 prefs、不写进表、
   /// 不拼进任何日志 —— 这一格存在的目的就是让用户当场抄走，抄不到就重新建一把。
   /// （留一份"方便回去再看"的副本是这个功能最容易做错的形状：那等于把长期凭证存进
@@ -238,7 +256,10 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     super.initState();
     _deps = widget.deps ?? FnthinkPushDeps.fromLocator();
     _coordinator = _deps.coordinator;
-    _load();
+    // 链接里带来的那份预填必须**等 `_load` 之后**再处理：弹层的档位来自 `_contract`，
+    // 而 `_contract` 是 `_load` 里异步读到的。早一步开弹层，档位那一排就无处可取（当场抛），
+    // 表现是"点开了链接，页面闪一下就没了"。
+    unawaited(_load().then((_) => _consumePairLink()));
   }
 
   Future<void> _load() async {
@@ -818,13 +839,14 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 与「发一条」不同，这一发**不要求接收开关开着**（配对是接收的前置），那条判据在协调者的
   /// `requireEnabled: false` 上，不在这里 —— 页面若自己加一个"先打开关"的判断，就会把
   /// 唯一那条"关着也能配对"的路径堵回去，而界面上看不出来。
-  Future<void> _pairWithPeer() async {
+  Future<void> _pairWithPeer({FnthinkPairingRequest? prefill}) async {
     if (_busy) return;
     final contract = _contract;
     if (contract == null) return;
     final input = await showFnthinkPairDialog(
       context: context,
       contract: contract,
+      prefill: prefill,
     );
     if (input == null || !mounted) return;
     setState(() => _busy = true);
@@ -841,6 +863,29 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     // 提交成不成都不重读名单：这一发**不会**让本机名单多出任何东西（要等对方点同意，
     // 而那一下由后台那一轮带回来）。在这里 `_loadPeers()` 的话，界面就会把"还没人同意"
     // 显示成刚刷新过的样子，像是这一发已经结了。
+  }
+
+  /// 处理"点开的那条配对链接"带进来的那一份（#176 片4）。
+  ///
+  /// 三条都在这里，理由各不相同：
+  ///  - **一次进入只处理一次**（`_pairLinkHandled`）：口令是 singleUse 的，重放不是"再试一次"，
+  ///    而是把同一枚口令往"被人再看一眼"的方向推；`didUpdateWidget` 因此**不**重放。
+  ///  - **判不过要说一句**（`_pairLinkRejected`），且只说同一句：用户确实点了一条链接，
+  ///    "点了没反应"正是这片要修的那个缺陷的形状；而分辨"是前缀不对还是口令形状不对"，
+  ///    对着一台自己的设备没有风险、对着一份抄来的链接就是枚举器 —— 所以原因不进界面。
+  ///  - **契约没就位就不开弹层**：档位那一排从 `_contract` 读（`pairRequestableLevels`），
+  ///    没契约的弹层只能摆一个猜出来的档位，而那一发是要签出去的。
+  Future<void> _consumePairLink() async {
+    final link = widget.pairLink;
+    if (link == null || _pairLinkHandled) return;
+    _pairLinkHandled = true;
+    final contract = _contract;
+    if (!mounted) return;
+    if (!link.accepted || link.request == null || contract == null) {
+      setState(() => _pairLinkRejected = true);
+      return;
+    }
+    await _pairWithPeer(prefill: link.request);
   }
 
   /// 建一条接入端点（T42 第七片那一发）。名字用本地化里那句默认外号，这里**不给输入框**：
@@ -1150,6 +1195,13 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           _Note(
             keyName: 'fnthink-peer-revoke-note',
             text: _peerRevokeText(l10n, revokeEntry),
+          ),
+        // 点开的那条链接判不过 ⇒ 必须说一句（用户确实点了一下，"没反应"就是这次要修的缺陷形状）。
+        // 只给一句、不分辨原因：分辨"哪种不对"对着抄来的链接就是枚举器。
+        if (_pairLinkRejected)
+          _Note(
+            keyName: 'fnthink-pair-link-rejected',
+            text: l10n.fnthinkPairLinkRejected,
           ),
         // 「配对另一台设备」挂在名单这一格里，而不是身份那一格（本机是自己）或页面顶部
         // 一个通用按钮：这一格讲的正是"我和谁有关系"，而这一发要做的就是把一行新的关系挂进去。

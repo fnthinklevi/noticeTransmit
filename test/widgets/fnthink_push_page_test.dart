@@ -14,6 +14,7 @@ import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
+import 'package:notice_transmit/services/fnthink_pair_link.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
@@ -137,6 +138,8 @@ void main() {
     List<FnthinkPeer> peers = const [],
     bool peersFail = false,
     ChannelHealth? Function(String host)? healthOf,
+    // #176 片4：那条被点开的链接**判过之后的结论**。null = 这一页不是从链接进来的（常态）。
+    FnthinkPairLinkOutcome? pairLink,
   }) {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
@@ -310,6 +313,8 @@ void main() {
           // T60：对着服务器的健康度读替身。默认 null ⇒ 那一行"从没发过"。
           healthOf: healthOf,
         ),
+        // #176 片4：这一页是不是从"点开的配对链接"进来的。
+        pairLink: pairLink,
       ),
       coordinator: coordinator,
       builds: () => builds,
@@ -2611,6 +2616,137 @@ void main() {
         text,
         isNot(l10n.fnthinkPairPeerSubmitted('pr_peer_1', 'pending')),
         reason: '这一发没出去，说"已提交"就是把本机错误报成服务器在等确认',
+      );
+    });
+  });
+
+  group('点开的那条配对链接（#176 片4）', () {
+    final otherDevice = FnthinkAddressCode.generate(contract).value;
+    final armedCode = FnthinkPairingCode.generate(contract).value;
+
+    FnthinkPairLinkOutcome outcome({
+      String level = 'L1',
+      bool accepted = true,
+    }) {
+      final request = FnthinkPairingRequest(
+        addressCode: otherDevice,
+        pairingCode: armedCode,
+        level: level,
+        contractVersion: contract.contractVersion,
+      );
+      // accepted=false 走的是"点了但判不过"那一支：没有 request，只有一个内部原因。
+      return accepted
+          ? FnthinkPairLinkOutcome(request: request)
+          : const FnthinkPairLinkOutcome(reason: 'unknown:signature');
+    }
+
+    String? fieldText(WidgetTester tester, String key) =>
+        tester.widget<TextField>(find.byKey(ValueKey(key))).controller!.text;
+
+    testWidgets('链接判过 ⇒ 页面自己打开预填的弹层，但一个字节都不发', (tester) async {
+      stubChannels();
+      final h = harness(pairLink: outcome());
+      final l10n = await pump(tester, h.page);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-target')),
+        findsOneWidget,
+        reason: '用户点了一条链接，"页面自己开好了输入层"才是这次点击被接住的形状',
+      );
+      expect(fieldText(tester, 'fnthink-pair-peer-target'), otherDevice);
+      expect(fieldText(tester, 'fnthink-pair-peer-code'), armedCode);
+      expect(
+        find.text(l10n.fnthinkPairPeerPrefilled),
+        findsOneWidget,
+        reason: '两格凭什么自己满了必须说：不说，用户以为是自己打的，也不检查那台对不对',
+      );
+      expect(
+        h.pairAsked(),
+        isEmpty,
+        reason: '预填不是代发：那一发要人点一次（配对是"别人同意我"，没有一栏可以省掉那次点击）',
+      );
+    });
+
+    testWidgets('链接里那一档够得着 ⇒ 选中的就是那一档，不回到最低', (tester) async {
+      stubChannels();
+      final h = harness(pairLink: outcome(level: 'L2'));
+      await pump(tester, h.page);
+      expect(
+        tester
+            .widget<ChoiceChip>(
+              find.byKey(const ValueKey('fnthink-pair-peer-level-L2')),
+            )
+            .selected,
+        isTrue,
+        reason: '对方让你请求 L2 却默认选在 L1，等于替用户少要了一档',
+      );
+      expect(h.pairAsked(), isEmpty);
+    });
+
+    testWidgets('链接里那一档够不着（L3）⇒ 落到够得着的最高那一档，不摆一发必被拒的请求', (tester) async {
+      stubChannels();
+      final h = harness(pairLink: outcome(level: 'L3'));
+      await pump(tester, h.page);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-level-L3')),
+        findsNothing,
+        reason: '请求超档在服务端是整条拒（level-too-high），摆出来就是让人点一句必被拒的话',
+      );
+      expect(
+        tester
+            .widget<ChoiceChip>(
+              find.byKey(const ValueKey('fnthink-pair-peer-level-L2')),
+            )
+            .selected,
+        isTrue,
+        reason: '压到最低会把"对方要 L3"显示成"这台只肯收 L1"——那是两个不同的意图',
+      );
+    });
+
+    testWidgets('链接判不过 ⇒ 不开弹层，但那一句要说', (tester) async {
+      stubChannels();
+      final h = harness(pairLink: outcome(accepted: false));
+      final l10n = await pump(tester, h.page);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-target')),
+        findsNothing,
+        reason: '判不过就没有可预填的：开一个空弹层是把"这条链接不对"藏成"你自己填吧"',
+      );
+      // 名单那一格默认在视口外（ListView 懒建）：不滚到它，"找不到那句话"是测试自己的红。
+      await revealTo(
+        tester,
+        find.byKey(const ValueKey('fnthink-pair-link-rejected')),
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-link-rejected')),
+        findsOneWidget,
+        reason: '"点了链接什么都没发生"正是这片要修的缺陷形状',
+      );
+      final note = tester
+          .widget<Text>(
+            find.byKey(const ValueKey('fnthink-pair-link-rejected')),
+          )
+          .data!;
+      expect(note, l10n.fnthinkPairLinkRejected);
+      expect(
+        note.contains('unknown'),
+        isFalse,
+        reason: '原因不进界面：分辨哪种写法能被接受，对着一份抄来的链接就是枚举器',
+      );
+      expect(h.pairAsked(), isEmpty);
+    });
+
+    testWidgets('没有链接（null）⇒ 那一句绝不出现，弹层也不自己开', (tester) async {
+      stubChannels();
+      final h = harness();
+      await pump(tester, h.page);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-link-rejected')),
+        findsNothing,
+        reason: '"没人点过链接"与"点了但用不上"是两句话，合成一句就有一局是假话',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-target')),
+        findsNothing,
       );
     });
   });

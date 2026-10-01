@@ -241,6 +241,8 @@ class MainActivity : FlutterActivity() {
         // 这里**只记不推**：configureFlutterEngine 比 Dart 侧装 handler 早，那一刻 invokeMethod
         // 会掉进"没人接"里静默丢掉 —— 于是冷启动由 Dart 自己来取（`takeFnthinkOpenTarget`）。
         consumeOpenTargetFrom(intent)
+        // #176 片4：冷启动从配对链接进来（点开链接 → 系统直接起这个 Activity）。同一条纪律：只记不推。
+        consumePairLinkFrom(intent)
         maybeInitCrashReport()
         // 修复历史版本可能禁用了监听组件的情况，确保组件启用以便系统能重新绑定通知监听器
         try {
@@ -299,9 +301,32 @@ class MainActivity : FlutterActivity() {
         // 之后任何一次 recreate（配置变化、语言切换）都会重新读到**旧的那枚** id ——
         // 用户看到的就是"点了第二条、展开的第一条"。
         setIntent(intent)
+        // #176 片4：配对链接那一支**先判且先Return**。它不是通知：记成了还继续往下走的话，
+        // 下面那一发讯号会让 Dart 去取一枚从不存在的 messageId，表现是"点开配对链接、
+        // 结果跳到收件列表"——而这正是本片要修的那条链的邻居。
+        if (consumePairLinkFrom(intent)) {
+            // 引擎这时候一定在（Activity 活着），所以这一发是推；冷启动那一路只记不推。
+            methodChannel?.invokeMethod("onFnthinkPairLinkReceived", null)
+            return
+        }
         consumeOpenTargetFrom(intent)
         // 引擎这时候一定在（Activity 活着），所以这一发是推。冷启动那一路不推，见 onCreate 的注释。
         methodChannel?.invokeMethod("onFnthinkNotificationOpened", null)
+    }
+
+    /**
+     * 从 Intent 上接走那条配对链接（#176 片4）。返回**是否记了**。
+     *
+     * 只有真的记了才 `intent.data = null`：Intent 跟着 Activity 实例留下，不清的话下一次
+     * recreate 会把**已经弹过一次的那条链接**再记一遍，而链接里带着一次性口令 ——
+     * 重复弹层的代价不是难看，是把一枚 singleUse 的口令往"被人再看一眼"的方向推。
+     * 判据（载荷名单、版本、口令形状、档位）全在 Dart 侧那一份契约读口里，这里不重判。
+     */
+    private fun consumePairLinkFrom(intent: Intent?): Boolean {
+        val raw = intent?.dataString ?: return false
+        if (!FnthinkPairLink.record(raw)) return false
+        intent.data = null
+        return true
     }
 
     /**

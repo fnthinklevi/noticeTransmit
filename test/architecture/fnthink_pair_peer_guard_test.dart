@@ -25,6 +25,19 @@ void main() {
   const contract = 'packages/fnthink_push/lib/src/contract.dart';
   const coordinator = 'lib/services/fnthink_receive_coordinator.dart';
 
+  /// 切出**一个成员**的正文（从签名那一行到下一个成员的文档注释之前）。
+  ///
+  /// 不用 `blockAfter`：它会停在**命名参数表**那个 `{` 上，取到的是参数表而不是函数体
+  /// （T06 那批守卫砸过一次，页面里 `_answer`/`_revoke` 因此改成位置式签名 ——
+  /// `_pairWithPeer` 这里要的是"可以不预填"那个命名参数，所以换成这种切法）。
+  /// ⚠ 必须读**带注释**的原文来切（`stripComments` 会把 `///` 抹掉，刀口就没了），切完再剥。
+  String sliceFn(String raw, String signature) {
+    final start = raw.indexOf(signature);
+    if (start < 0) throw StateError('未找到签名：$signature');
+    final next = raw.indexOf('\n  ///', start);
+    return stripComments(raw.substring(start, next < 0 ? raw.length : next));
+  }
+
   test('档位词表不许抄进界面：弹层里没有一枚 L? 字面量', () {
     final src = stripComments(read(dialog));
     for (final literal in ["'L1'", "'L2'", "'L3'"]) {
@@ -62,7 +75,8 @@ void main() {
   });
 
   test('那一发只有一个调用点，结论只有一个作者', () {
-    final src = stripComments(read(page));
+    final raw = read(page);
+    final src = stripComments(raw);
     expect(
       RegExp(r'_coordinator\.pairWithDevice\(').allMatches(src).length,
       1,
@@ -73,7 +87,7 @@ void main() {
       1,
       reason: '页面自己 switch 一遍 status ⇒ 同一个状态在两个页面说两句话',
     );
-    final submit = blockAfter(src, 'Future<void> _pairWithPeer()');
+    final submit = sliceFn(raw, 'Future<void> _pairWithPeer({');
     expect(
       submit,
       isNot(anyOf([contains('FnthinkPollStatus'), contains('.status ==')])),
@@ -101,12 +115,13 @@ void main() {
       );
     }
     // 页面留的是结论，不是输入：口令/地址码都必须**就地**交出去。
-    final pageSrc = stripComments(read(page));
-    final submit = blockAfter(pageSrc, 'Future<void> _pairWithPeer()');
+    final raw = read(page);
+    final pageSrc = stripComments(raw);
+    final submit = sliceFn(raw, 'Future<void> _pairWithPeer({');
     expect(submit, contains('pairingCode: input.code'));
     expect(
       RegExp(
-        r'String\w*\s+_pair\w*(Code|Target|Pairing)',
+        r'String\??\s*_pair\w*(Code|Target|Pairing)\s*[=;]',
       ).allMatches(pageSrc).length,
       0,
       reason: '页面里出现"装着口令/地址码的字段"= 那份一次性的东西开始有副本',
@@ -116,7 +131,7 @@ void main() {
   test('弹层自己持有 controller，两枚都在 dispose 里释放', () {
     final src = stripComments(read(dialog));
     expect(
-      RegExp(r'TextEditingController\(\)').allMatches(src).length,
+      RegExp(r'TextEditingController\(').allMatches(src).length,
       2,
       reason: '地址码 + 口令两枚归弹层（调用方建的话，await 返回那一刻就打在退场动画上）',
     );

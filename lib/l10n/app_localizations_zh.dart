@@ -3356,6 +3356,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPairPeerPrefilled => '这两格是刚才那条链接里读出来的，不是你打的 —— 先确认那是你要配的那台';
+
+  @override
+  String get fnthinkPairLinkRejected =>
+      '这条链接这台设备用不上：不是幻念推送的配对链接，或协议版本对不上。回到那台设备重新挂一枚口令，再点一次';
+
+  @override
   String fnthinkSendSheetTitle(String peer) {
     return '发给 $peer';
   }

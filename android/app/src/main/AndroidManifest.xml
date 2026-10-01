@@ -62,6 +62,21 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- #176 片4：配对链接的入口。只认这一把 scheme + host（= 契约 `pairing.qrPrefix`
+                 拆成两半），别的链接一律不接 —— 否则会替无关链接弹出一个配对输入层。
+                 scheme/host 在清单与 Kotlin 里各存一份是不可避免的（原生读不到那份 JSON），
+                 所以由 FnthinkPairLinkContractTest 逐字钉住"两边合成的是同一把前缀"，
+                 改一边另一边当场红。
+                 ⚠ 链接的 query 里带着一次性口令（契约 `pairing.codeMayAppearIn` 只允许它出现在
+                 二维码与一次性链接里）：原生只记串、不落盘、不打日志，判据全在 Dart 侧的契约读口。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="fnthink-push"
+                    android:host="pair"/>
+            </intent-filter>
             <!-- 集成测试启动入口（v1.62）。flutter_tools 只扫 <activity> 上的 MAIN/LAUNCHER，
                  不认 activity-alias（application_package.dart: findAllElements('activity')），
                  而本应用的可启动组件全在 alias 上（桌面图标切换设计），导致

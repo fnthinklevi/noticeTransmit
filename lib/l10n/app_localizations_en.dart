@@ -3506,6 +3506,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPairPeerPrefilled =>
+      'These two fields came from the link you just opened, not from your typing — check that is the device you mean to pair with';
+
+  @override
+  String get fnthinkPairLinkRejected =>
+      'This device cannot use that link: it is not a fnthink pairing link, or the protocol version does not match. Go back to the other device, arm a new code and open it again';
+
+  @override
   String fnthinkSendSheetTitle(String peer) {
     return 'Send to $peer';
   }

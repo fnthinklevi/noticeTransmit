@@ -254,6 +254,22 @@ extension _MainPageActions on _MainPageState {
     _openHistoryPage(direction: 'received', focusMessageId: messageId);
   }
 
+  /// 点开的那条配对链接（#176 片4）。冷启动那一发与热恢复那一发**共用这一个方法**：
+  /// 取只有一个出口（原生 `FnthinkPairLink.take()` 取走即清），所以两条路不可能各弹一次。
+  ///
+  /// ⚠ 与上面那条通知跳转有一个**方向相反**的判据：`take()` 回 null 在这里意味着
+  /// "根本没人点过链接"（这一发每次打开 App 都会跑），所以**一次导航都不做**；
+  /// 而通知那一路 null 也要打开列表，因为点击确实发生过。把两条写成同一个形状，
+  /// 表现就是"每次启动都被送到幻念推送页"。
+  /// 非 null 但判不过 ⇒ 仍然导航过去并说一句：用户点了一条链接，"点了没反应"正是这片要修的缺陷形状。
+  Future<void> _consumeFnthinkPairLink() async {
+    final outcome = await FnthinkPairLinkReader(
+      contracts: GetIt.instance<FnthinkContractLoader>(),
+    ).take();
+    if (outcome == null || !mounted) return;
+    await _pushPage(FnthinkPushPage(pairLink: outcome));
+  }
+
   void _openPermissionSettingsPage() async {
     await _pushPage(
       PermissionSettingsPage(

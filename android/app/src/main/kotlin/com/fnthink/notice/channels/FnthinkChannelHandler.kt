@@ -4,6 +4,7 @@ import android.content.Context
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
 import com.fnthink.notice.FnthinkOpenTarget
+import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -83,6 +84,10 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             // 空白从来没被记进去（见 FnthinkOpenTarget 的 ③），所以 null 的含义是唯一的：
             // 没有待跳的那条 ⇒ 页面只打开列表，不许猜一条。
             "takeFnthinkOpenTarget" -> result.success(FnthinkOpenTarget.take())
+            // #176 片4：点开的那条配对链接。交的是**原始那一串**，判据全在 Dart 侧的契约读口里
+            // （载荷名单 / 版本 / 口令形状 / 档位词表）—— 原生抄一份判据就是第二个作者。
+            // 同样只给 take()：peek 是第二个读者，表现是同一个链接弹两次输入层。
+            "takeFnthinkPairLink" -> result.success(FnthinkPairLink.take())
             // ── "到点去问一次货"的闹钟（T33 第二片 / §4-9）──
             // 节奏的唯一读者是 Dart（契约 `presence.pollIntervalSeconds` / `burstWhenPending`）：
             // 这里**不自己算间隔**，只负责"把这个数交给系统"与"取消"。

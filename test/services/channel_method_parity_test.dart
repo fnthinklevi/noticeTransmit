@@ -41,6 +41,10 @@ import 'package:flutter_test/flutter_test.dart';
 ///     `FnthinkInboxDisplay.takeOpenTarget`）：100 → 101。这一枚的对应方向与其余不同 ——
 ///     **它是 Dart 主动拉**，因为原生推的时机（configureFlutterEngine）比 Dart 装 handler 更早，
 ///     推出去会静默丢，表现正是这片要修的"点了通知只打开软件"。）
+///     #176 片4 再加 `takeFnthinkPairLink`（点开的配对链接，Dart 侧读者是
+///     `FnthinkPairLinkReader.take`）：101 → 102。与上面那一枚同一个形状：**冷启动只能拉**，
+///     热恢复才有 `onFnthinkPairLinkReceived` 那一发讯号 —— 两个入口共用 take 这一个出口，
+///     所以同一个链接不可能弹两次输入层（口令是 singleUse 的）。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -88,10 +92,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 101（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 102（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        101,
+        102,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -107,7 +111,7 @@ void main() {
         'DeviceChannelHandler': 15,
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
-        'FnthinkChannelHandler': 7,
+        'FnthinkChannelHandler': 8,
         // 不走 ChannelDispatcher 的那一类：worker 自己注册一条 presence 通道，
         // Dart 那一轮的成与败都只交这一发。它必须**被扫到**才谈得上被守住（见上面的登记）。
         'FnthinkPresenceWorker': 1,

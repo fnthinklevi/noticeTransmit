@@ -14,6 +14,8 @@ import '../services/channel_role_guide.dart';
 import '../services/app_channel_service.dart';
 import '../services/fnthink_inbox_service.dart';
 import '../services/fnthink_inbox_display.dart';
+import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_pair_link.dart';
 import '../services/sms_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
@@ -24,6 +26,7 @@ import 'channel_status_page.dart';
 import 'notification_engine_page.dart';
 import 'more_page.dart';
 import 'history_page.dart';
+import 'fnthink_push_page.dart';
 import 'permission_settings_page.dart';
 import 'email_settings_page.dart';
 import 'webhook_channel_list_page.dart';
@@ -165,6 +168,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // `configureFlutterEngine` 比这个 handler 装起来更早，那时推出去会静默丢掉，
       // 表现正是维护者报的"点了通知只打开软件"。没有待跳的那条时这一发不会做任何导航。
       unawaited(_consumeNotificationOpenTargetOnLaunch());
+      // #176 片4：冷启动是"点开配对链接"那一路（系统直接把 VIEW intent 交给 Activity）。
+      // 与上面同一条理由：这一刻原生推不动（handler 还没装），只能由 Dart 来取。
+      unawaited(_consumeFnthinkPairLink());
     });
   }
 
@@ -370,6 +376,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         // T83：App 还活着时点了一条幻念收件通知。原生这一发**只交一个"去问一次"的讯号**，
         // id 仍然只从 `takeFnthinkOpenTarget` 那一个出口走 ⇒ 同一条不会经由两个通道各跳一次。
         unawaited(_openFnthinkMessageFromNotification());
+      } else if (call.method == 'onFnthinkPairLinkReceived') {
+        // #176 片4：App 活着时点开了配对链接。同样只交一个讯号 —— 那一串只从
+        // `takeFnthinkPairLink` 一个出口走，所以冷启动那一发与这一发不可能各弹一次输入层。
+        unawaited(_consumeFnthinkPairLink());
       }
     });
   }
