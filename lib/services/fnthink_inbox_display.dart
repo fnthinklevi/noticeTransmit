@@ -37,4 +37,21 @@ class FnthinkInboxDisplay {
       return false;
     }
   }
+
+  /// 取走「点通知要跳去的那一条」（T83）。返回 null = 没有待跳的那条。
+  ///
+  /// ⚠ **这一枚 id 的唯一出口就是这里**：原生侧 `FnthinkOpenTarget.take()` 取走即清，
+  /// 所以冷启动那一路与热恢复那一路不可能各跳一次。别在这里加"读但不清"的第二种读法 ——
+  /// 第二个读者一旦出现，"同一条通知跳两遍"就只是时间问题。
+  ///
+  /// 通道没接（纯 Dart 测试、原生异常）也回 null：那的含义是"没东西要跳"，
+  /// 调用方据此什么都不做，而不是猜一条。
+  Future<String?> takeOpenTarget() async {
+    try {
+      return await _channel.invokeMethod<String>('takeFnthinkOpenTarget');
+    } catch (e) {
+      debugPrint('[fnthink] 取「要点开的那条」失败（按没有待跳处理）: $e');
+      return null;
+    }
+  }
 }

@@ -24,8 +24,8 @@ import androidx.core.app.NotificationManagerCompat
  *    取值退回 `delivered`（"到我机器了"）而不是 `displayed`（"用户看得见"）—— 报后者等于
  *    替服务端宣布一条没发生的结论，而服务端收到 ack 就把正文删了。
  *  ③ 点通知只做一件事：把 App 带到前台，顺带一枚 `message_id` extra。
- *    ⚠ 今天 Dart 侧还没有读它的地方（收件页在 T44/T46 才落地），所以现在点开的表现就是"打开 App"。
- *    extra 现在就带上，是为了页面落地时不必再动原生这一处、也不必先发一个版本才能定位到那条。
+ *    读它的那一端是 T83 落地的：`MainActivity.consumeOpenTargetFrom` 把它接进 `FnthinkOpenTarget`，
+ *    Dart 侧经 `takeFnthinkOpenTarget` 取走那唯一一次，随后打开历史页并展开这一条。
  *    不在原生里做"标记已读"—— 已读是设备侧那一份事实，走 Dart 的一条咽喉。
  */
 object FnthinkInboxDisplay {
@@ -36,7 +36,7 @@ object FnthinkInboxDisplay {
     /** 三元组里的那个 id 固定；区分靠 tag。见类注释 ①。 */
     const val NOTIFICATION_ID = 90210
 
-    /** 点通知时带的那枚 extra。**当前无人读它**（收件页落地后由 Dart 侧消费），名字先定下来是为了以后不必改原生。 */
+    /** 点通知时带的那枚 extra。读者是 `MainActivity`（T83），Dart 侧不许重打这个字符串。 */
     const val EXTRA_MESSAGE_ID = "extra_fnthink_message_id"
 
     /** 一条要显示的东西的**全部决定**都在这里，`show` 只负责执行 —— 纯函数部分能在 JVM 上测。 */

@@ -3319,6 +3319,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkInboxEmpty => 'No messages received yet';
 
   @override
+  String get fnthinkMessageGoneFromHistory =>
+      'This message is no longer in this device\'s inbox history (it may have been pruned)';
+
+  @override
   String get fnthinkInboxEntry => 'Fnthink inbox';
 
   @override

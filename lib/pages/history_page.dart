@@ -62,6 +62,13 @@ class HistoryPage extends StatefulWidget {
   /// 就藏在一次不显眼的点击里了。其余入口（推送历史卡）留默认值 'forwarded'。
   final String initialDirection;
 
+  /// 点通知跳进来时要在**读完那张表之后自动展开**的那一条（T83）。
+  ///
+  /// null = 没人指定（普通进入），页面停在列表上不动。
+  /// ⚠ 指了但表里没有（那条已被保留策略裁掉、或系统重放了一条老通知）⇒ 页面要**明说**这一点，
+  /// 不许悄悄停在列表 —— 用户盯着列表却什么都没发生，只会读成"App 坏了"。
+  final String? focusMessageId;
+
   const HistoryPage({
     super.key,
     required this.records,
@@ -76,6 +83,7 @@ class HistoryPage extends StatefulWidget {
     this.inboxFindPeer,
     this.inboxSendTo,
     this.initialDirection = 'forwarded',
+    this.focusMessageId,
   });
 
   @override
@@ -377,6 +385,9 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     _direction = widget.initialDirection;
+    // 点通知跳进来时带上的那一条（T83）。抄进 State 而不是每次读 widget：
+    // 它是一次**待兑现的意图**，兑现过就要能清空，而 widget 的字段是不变的。
+    _pendingFocusMessageId = widget.focusMessageId;
     _scrollController.addListener(_onScroll);
     // 取一次溢出计数：loadRecords() 在 app 启动时已经跑过 drainOfflineCache
     _offlineDrops = GetIt.instance<NotificationService>().pendingOfflineDrops;
@@ -387,8 +398,44 @@ class _HistoryPageState extends State<HistoryPage> {
       _inboxDirection = _direction == 'sent'
           ? kFnthinkDirectionOut
           : kFnthinkDirectionIn;
-      _loadInbox();
+      // 点通知跳进来（T83）：详情只能在那张表**读完之后**才展开得了 ——
+      // 列表还没到手，"要展开的那一行"根本无从找起。
+      unawaited(_loadInbox().then((_) => _applyPendingFocus()));
     }
+  }
+
+  /// 把「进来就该展开的那一条」兑现**一次**（T83）。
+  ///
+  /// 三条各钉一个"不这么做会怎样"：
+  ///  ① 只兑现一次（先清再弹）：不然用户在弹层上按返回之后，任何一次 rebuild 都会把它再推出来，
+  ///     表现是"这一条详情关不掉"；
+  ///  ② 表里没有 ⇒ **明说**"这一条已经不在这里了"：悄悄停在列表等于让用户盯着屏幕等一件
+  ///     不会发生的事，而他刚刚明明点了一条通知；
+  ///  ③ 不许猜一条：找不到就是找不到，展开别的行比什么都不做更糟。
+  void _applyPendingFocus() {
+    final messageId = _pendingFocusMessageId;
+    if (messageId == null) return;
+    _pendingFocusMessageId = null;
+    if (!_inboxLoaded) return; // 读表期间被切了档：那一档不是这条的账本，不兑现
+    final matched = _inbox.where((m) => m.messageId == messageId).toList();
+    if (matched.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).fnthinkMessageGoneFromHistory,
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    unawaited(
+      _showInboxDetail(
+        matched.first,
+        outgoing: _inboxDirection == kFnthinkDirectionOut,
+      ),
+    );
   }
 
   /// 离线缓存溢出提示条（#94-A）。
@@ -1582,6 +1629,10 @@ class _HistoryPageState extends State<HistoryPage> {
   late String _direction;
   List<FnthinkInboxMessage> _inbox = const [];
   bool _inboxLoaded = false;
+
+  /// 「进来就要展开的那一条」还欠着的那一次兑现（T83，只在**这一次进入**里有效）。
+  /// 兑现一次就清空（见 [_applyPendingFocus]）；把它落盘则会变成"下次冷启动还跳去三天前那条通知"。
+  String? _pendingFocusMessageId;
 
   /// 幻念那一族当前挂在哪一档：`kFnthinkDirectionIn`（收件）或 `kFnthinkDirectionOut`（发出）。
   /// 转发档不用它。**它和 `_direction` 不是一件事**：`_direction` 是界面上哪一格亮着，

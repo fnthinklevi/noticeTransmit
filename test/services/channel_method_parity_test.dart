@@ -36,7 +36,11 @@ import 'package:flutter_test/flutter_test.dart';
 ///     再加 `roundDone`：99 → 100。它不在 `channels/` 那批里，而是 worker 自己
 ///     `MethodChannel(PRESENCE_CHANNEL).setMethodCallHandler(this)` 接的那一发回报，
 ///     所以扫描器现在必须看得见第二类 handler（见 [_nativeChannelMethods]）——
-///     正确的修法从来不是把名字从 Dart 集合里剔掉，那是把守卫关掉。）
+///     正确的修法从来不是把名字从 Dart 集合里剔掉，那是把守卫关掉。
+///     T83 在同一域加 `takeFnthinkOpenTarget`（点通知要跳去的那一条，Dart 侧读者是
+///     `FnthinkInboxDisplay.takeOpenTarget`）：100 → 101。这一枚的对应方向与其余不同 ——
+///     **它是 Dart 主动拉**，因为原生推的时机（configureFlutterEngine）比 Dart 装 handler 更早，
+///     推出去会静默丢，表现正是这片要修的"点了通知只打开软件"。）
 ///    数字变化本身没风险，但**未经确认**的数字变化应当让人停下来看一眼：
 ///    改动这个期望值时必须同时确认 Dart 侧是否也该同步。
 ///
@@ -84,10 +88,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 100（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 101（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        100,
+        101,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -103,7 +107,7 @@ void main() {
         'DeviceChannelHandler': 15,
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
-        'FnthinkChannelHandler': 6,
+        'FnthinkChannelHandler': 7,
         // 不走 ChannelDispatcher 的那一类：worker 自己注册一条 presence 通道，
         // Dart 那一轮的成与败都只交这一发。它必须**被扫到**才谈得上被守住（见上面的登记）。
         'FnthinkPresenceWorker': 1,

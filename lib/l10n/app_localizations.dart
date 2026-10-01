@@ -5972,6 +5972,12 @@ abstract class AppLocalizations {
   /// **'还没有收到过消息'**
   String get fnthinkInboxEmpty;
 
+  /// No description provided for @fnthinkMessageGoneFromHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条已经不在本机的收件历史里（可能被保留策略清掉了）'**
+  String get fnthinkMessageGoneFromHistory;
+
   /// No description provided for @fnthinkInboxEntry.
   ///
   /// In zh, this message translates to:

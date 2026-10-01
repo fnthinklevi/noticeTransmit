@@ -1575,6 +1575,7 @@
   "fnthinkDirForwarded": "转发",
   "fnthinkDirInbox": "收件（幻念）",
   "fnthinkInboxEmpty": "还没有收到过消息",
+  "fnthinkMessageGoneFromHistory": "这一条已经不在本机的收件历史里（可能被保留策略清掉了）",
   "fnthinkInboxEntry": "幻念收件",
   "fnthinkInboxUnread": "未读 {n} 条",
   "@fnthinkInboxUnread": {

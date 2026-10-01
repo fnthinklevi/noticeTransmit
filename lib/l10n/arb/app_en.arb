@@ -1554,6 +1554,7 @@
   "fnthinkDirForwarded": "Forwarded",
   "fnthinkDirInbox": "Received (Fnthink)",
   "fnthinkInboxEmpty": "No messages received yet",
+  "fnthinkMessageGoneFromHistory": "This message is no longer in this device's inbox history (it may have been pruned)",
   "fnthinkInboxEntry": "Fnthink inbox",
   "fnthinkInboxUnread": "{n} unread",
   "@fnthinkInboxUnread": {

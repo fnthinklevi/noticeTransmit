@@ -102,4 +102,39 @@ void main() {
     );
     expect(await display.show(row()), isFalse);
   });
+
+  // ── T83：那一条待跳的消息 id ─────────────────────────────────────────
+  // 这里钉的是**取法只有一个、而且取不到就等于没跳**：
+  // 通道抛/回 null 都必须落到 null，因为调用方拿 null 的分支是"什么都不做"或"只打开列表" ——
+  // 若这里改成抛，首页那条冷启动那一发会把整页 initState 的后半截一起带走。
+  group('takeOpenTarget（点通知要跳去的那一条）', () {
+    test('原生给了那一枚 ⇒ 原样交出去，不多做判空', () async {
+      mock((_) => 'm_0f48df96');
+      expect(await display.takeOpenTarget(), 'm_0f48df96');
+      expect(calls.single.method, 'takeFnthinkOpenTarget');
+      expect(
+        calls.single.arguments,
+        isNull,
+        reason: '这一发是"取走我手上那一条"，不是查询：带上参数就等于允许调用方指定要跳哪条',
+      );
+    });
+
+    test('没有待跳的（回 null）⇒ 交 null，不换成空串', () async {
+      mock((_) => null);
+      expect(
+        await display.takeOpenTarget(),
+        isNull,
+        reason: '空串与 null 到了页面那边是两种空，判漏一种就是"展开了一条猜出来的行"',
+      );
+    });
+
+    test('通道抛 ⇒ 也回 null：这一发不该让启动那一路断在半截', () async {
+      mock((_) => throw MissingPluginException('没有接原生'));
+      expect(
+        await display.takeOpenTarget(),
+        isNull,
+        reason: '取不到就是要跳的那条不存在，与"没接原生"是同一件事',
+      );
+    });
+  });
 }

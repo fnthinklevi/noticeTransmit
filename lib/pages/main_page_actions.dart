@@ -103,10 +103,15 @@ extension _MainPageActions on _MainPageState {
     _pushPage(const PrivacyPolicyPage());
   }
 
-  void _openHistoryPage({String direction = 'forwarded'}) {
+  void _openHistoryPage({
+    String direction = 'forwarded',
+    String? focusMessageId,
+  }) {
     _pushPage(
       HistoryPage(
         initialDirection: direction,
+        // 只有从通知进来时才非空：页面读完那张表之后自动展开这一条（T83）。
+        focusMessageId: focusMessageId,
         records: _notificationService.records,
         onClear: () async {
           await _notificationService.clearRecords();
@@ -226,6 +231,28 @@ extension _MainPageActions on _MainPageState {
   /// 不另开一页的理由与历史页把"方向"做成数据源切换同源：收件行与转发行是两张表，
   /// 分两页会让用户要记住"哪一类在哪一页"。
   void _openFnthinkInboxPage() => _openHistoryPage(direction: 'received');
+
+  /// 点通知跳进来的那一条：**冷启动那一路**的取法（第一帧之后主动来取）。
+  ///
+  /// 取不到就**一次导航都不做**。这一发每次打开 App 都会跑，"没有待跳的那条"才是常态 ——
+  /// 若在这里顺手打开收件列表，副表现就变成"每次启动都被送到历史页"，
+  /// 那比原来的"点了没反应"更难以解释。
+  Future<void> _consumeNotificationOpenTargetOnLaunch() async {
+    final messageId = await FnthinkInboxDisplay().takeOpenTarget();
+    if (messageId == null || !mounted) return;
+    _openHistoryPage(direction: 'received', focusMessageId: messageId);
+  }
+
+  /// 点通知跳进来的那一条：**App 活着时**的那一路（原生 `onNewIntent` 之后推一发讯号过来）。
+  ///
+  /// 判据③：拿不到 messageId（系统重放一条没有 extra 的老通知）也要把人送到收件列表 ——
+  /// 他确实点了一条通知，"打开列表"与"什么都不发生"之间的差别就是这次点击有没有被接住。
+  /// 只有讯号、没有 id 的时候不许猜一条。
+  Future<void> _openFnthinkMessageFromNotification() async {
+    final messageId = await FnthinkInboxDisplay().takeOpenTarget();
+    if (!mounted) return;
+    _openHistoryPage(direction: 'received', focusMessageId: messageId);
+  }
 
   void _openPermissionSettingsPage() async {
     await _pushPage(

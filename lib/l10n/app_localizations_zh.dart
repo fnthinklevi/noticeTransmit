@@ -3181,6 +3181,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkInboxEmpty => '还没有收到过消息';
 
   @override
+  String get fnthinkMessageGoneFromHistory => '这一条已经不在本机的收件历史里（可能被保留策略清掉了）';
+
+  @override
   String get fnthinkInboxEntry => '幻念收件';
 
   @override

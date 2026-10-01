@@ -3,6 +3,7 @@ package com.fnthink.notice.channels
 import android.content.Context
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
+import com.fnthink.notice.FnthinkOpenTarget
 import com.fnthink.notice.FnthinkPresenceAlarm
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -74,6 +75,14 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                 )
                 result.success(FnthinkInboxDisplay.show(context, spec))
             }
+            // ── T83：点通知要跳去的那一条 ──
+            // **冷启动那一发的唯一出口**：MainActivity 在 onCreate 里把 Intent 上的 messageId 记进
+            // FnthinkOpenTarget，这里把它取走（取走即清）。为什么是 Dart 来拉而不是原生推：
+            // configureFlutterEngine 早于 Dart 侧装 handler，那一刻推出去会静默丢，
+            // 表现恰好是"点了通知只打开软件"——与这片要修的那个缺陷同形。
+            // 空白从来没被记进去（见 FnthinkOpenTarget 的 ③），所以 null 的含义是唯一的：
+            // 没有待跳的那条 ⇒ 页面只打开列表，不许猜一条。
+            "takeFnthinkOpenTarget" -> result.success(FnthinkOpenTarget.take())
             // ── "到点去问一次货"的闹钟（T33 第二片 / §4-9）──
             // 节奏的唯一读者是 Dart（契约 `presence.pollIntervalSeconds` / `burstWhenPending`）：
             // 这里**不自己算间隔**，只负责"把这个数交给系统"与"取消"。

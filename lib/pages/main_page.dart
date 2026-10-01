@@ -13,6 +13,7 @@ import '../services/active_channels.dart';
 import '../services/channel_role_guide.dart';
 import '../services/app_channel_service.dart';
 import '../services/fnthink_inbox_service.dart';
+import '../services/fnthink_inbox_display.dart';
 import '../services/sms_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
@@ -160,6 +161,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     _setupMethodChannel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _postInit();
+      // T83：冷启动（含进程被杀之后从通知进来）那枚 messageId 由**这里**来取，不在原生推：
+      // `configureFlutterEngine` 比这个 handler 装起来更早，那时推出去会静默丢掉，
+      // 表现正是维护者报的"点了通知只打开软件"。没有待跳的那条时这一发不会做任何导航。
+      unawaited(_consumeNotificationOpenTargetOnLaunch());
     });
   }
 
@@ -361,6 +366,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         setState(() {});
       } else if (call.method == 'onPhonePermissionResult') {
         setState(() {});
+      } else if (call.method == 'onFnthinkNotificationOpened') {
+        // T83：App 还活着时点了一条幻念收件通知。原生这一发**只交一个"去问一次"的讯号**，
+        // id 仍然只从 `takeFnthinkOpenTarget` 那一个出口走 ⇒ 同一条不会经由两个通道各跳一次。
+        unawaited(_openFnthinkMessageFromNotification());
       }
     });
   }

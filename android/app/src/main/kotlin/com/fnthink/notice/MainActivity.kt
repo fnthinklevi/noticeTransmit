@@ -237,6 +237,10 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         // N7：恢复开发者诊断日志开关（默认关闭，更多页连点版本号 7 次切换）
         DiagLog.init(this)
+        // T83：冷启动（含进程被杀之后从通知进来）先接住那枚 messageId。
+        // 这里**只记不推**：configureFlutterEngine 比 Dart 侧装 handler 早，那一刻 invokeMethod
+        // 会掉进"没人接"里静默丢掉 —— 于是冷启动由 Dart 自己来取（`takeFnthinkOpenTarget`）。
+        consumeOpenTargetFrom(intent)
         maybeInitCrashReport()
         // 修复历史版本可能禁用了监听组件的情况，确保组件启用以便系统能重新绑定通知监听器
         try {
@@ -280,6 +284,38 @@ class MainActivity : FlutterActivity() {
                 e.printStackTrace()
             }
         }
+    }
+
+    /**
+     * T83 的第二、三种进入形状：App 还活着时点通知。
+     *
+     * `launchMode="singleTask"`（清单里写死的）⇒ 系统不新建实例，而是把新的 Intent 交给现存的那个，
+     * 回调就是这个 `onNewIntent`。**不接它就只有冷启动那一次能跳**，而用户恰恰是"第二次点通知
+     * 还是只打开软件"里的那个第二次。
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // 必须先 setIntent：不写这一行，`getIntent()` 一直停在第一条上，
+        // 之后任何一次 recreate（配置变化、语言切换）都会重新读到**旧的那枚** id ——
+        // 用户看到的就是"点了第二条、展开的第一条"。
+        setIntent(intent)
+        consumeOpenTargetFrom(intent)
+        // 引擎这时候一定在（Activity 活着），所以这一发是推。冷启动那一路不推，见 onCreate 的注释。
+        methodChannel?.invokeMethod("onFnthinkNotificationOpened", null)
+    }
+
+    /**
+     * 从 Intent 上接走那枚 messageId（T83）。
+     *
+     * 接走之后立刻 `removeExtra`：Intent 是跟着 Activity 实例留下的，不清的话
+     * 下一次 recreate 会把**已经跳过的那一条**再记一遍 —— 那副表现是"从桌面图标进来也跳到某条通知"。
+     * 读的是 [FnthinkInboxDisplay.EXTRA_MESSAGE_ID] 这一个常量，不在这里重打字符串（两处字面量
+     * 可以朝同一个方向写错，而那时测试仍然全绿）。
+     */
+    private fun consumeOpenTargetFrom(intent: Intent?) {
+        val messageId = intent?.getStringExtra(FnthinkInboxDisplay.EXTRA_MESSAGE_ID) ?: return
+        intent.removeExtra(FnthinkInboxDisplay.EXTRA_MESSAGE_ID)
+        FnthinkOpenTarget.record(messageId)
     }
 
     override fun onDestroy() {

@@ -70,6 +70,7 @@ void main() {
     WidgetTester tester, {
     String initialDirection = 'forwarded',
     FnthinkPeer? rosterPeer,
+    String? focusMessageId,
   }) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -81,6 +82,7 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: HistoryPage(
           initialDirection: initialDirection,
+          focusMessageId: focusMessageId,
           records: const [],
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
@@ -221,6 +223,55 @@ void main() {
   testWidgets('默认档不预读收件表：进历史页不该顺手查另一张表', (tester) async {
     await pump(tester);
     expect(loads, 0);
+  });
+
+  // ── T83：点通知跳进来，展开的就是那一条 ──────────────────────────────
+  // 这一族用例钉的是"那一次点击到底被不被接住"。判据③（拿不到 id 不许猜一条）与
+  // "读表之前没有行可展开"这两件事，都只有在这里才看得见 —— 原生那一半的接线形状
+  // 由 `FnthinkNotificationOpenContractTest` 钉，交付一次即清由 `FnthinkOpenTargetTest` 钉。
+  group('点通知跳进来（focusMessageId）', () {
+    testWidgets('带着 messageId 进来 ⇒ 读完表就自动展开那一条，并标成已读', (tester) async {
+      await pump(
+        tester,
+        initialDirection: 'received',
+        focusMessageId: 'm_unread',
+      );
+      expect(
+        find.text('温度 63 度（m_unread）'),
+        findsWidgets,
+        reason: '点的是这一条，详情却没起来 ⇒ 那一次点击又被吞了一次',
+      );
+      expect(marked, ['m_unread'], reason: '跳进来就是看过了：不标已读，首页那个未读数会一直举着');
+    });
+
+    testWidgets('那一条已经不在表里 ⇒ 明说"不在了"，不许悄悄停在列表', (tester) async {
+      await pump(
+        tester,
+        initialDirection: 'received',
+        focusMessageId: 'm_already_pruned',
+      );
+      expect(
+        find.text(l10n(tester).fnthinkMessageGoneFromHistory),
+        findsOneWidget,
+        reason: '什么都不显示，用户只会读成"App 坏了" —— 而他刚刚明明点了一条通知',
+      );
+      expect(
+        find.text('温度 63 度（m_unread）'),
+        findsNothing,
+        reason: '找不到就展开别的行，比什么都不做更糟（判据③：不许猜一条）',
+      );
+      expect(marked, isEmpty, reason: '没展开的那条不许被标成已读');
+    });
+
+    testWidgets('普通进入（没人指定）⇒ 一次弹层都不起，也不说那句"不在了"', (tester) async {
+      await pump(tester, initialDirection: 'received');
+      expect(
+        find.text(l10n(tester).fnthinkMessageGoneFromHistory),
+        findsNothing,
+        reason: '那句话是一次跳转的答复，不是给每次进页的欢迎语',
+      );
+      expect(find.text('温度 63 度（m_unread）'), findsNothing);
+    });
   });
 
   group('收件详情里的「回复 / 重发」（T48 收尾）', () {
