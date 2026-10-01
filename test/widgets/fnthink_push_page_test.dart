@@ -107,6 +107,11 @@ void main() {
     String confirmBody =
         '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
         '"serverTime":1800000000000}',
+    // #176 片3：B 侧那一发（`/pair`）。默认 200 + 一条 pending 请求 = "已提交，等对方同意"。
+    int pairStatus = 200,
+    String pairBody =
+        '{"requestId":"pr_peer_1","status":"pending",'
+        '"expiresAt":1800000300000,"serverTime":1800000000000}',
     int revokeStatus = 200,
     String revokeBody = '{"revoked":true,"serverTime":1800000000000}',
     int endpointStatus = 200,
@@ -144,6 +149,7 @@ void main() {
     );
     final armAsked = <http.Request>[];
     final confirmAsked = <http.Request>[];
+    final pairAsked = <http.Request>[];
     final revokeAsked = <http.Request>[];
     final endpointAsked = <http.Request>[];
     final endpointListAsked = <http.Request>[];
@@ -188,6 +194,16 @@ void main() {
           if (req.url.path == contract.apiPath('pairConfirm')) {
             confirmAsked.add(req);
             return http.Response(confirmBody, confirmStatus);
+          }
+          if (req.url.path == contract.apiPath('pair')) {
+            pairAsked.add(req);
+            return http.Response(
+              pairBody,
+              pairStatus,
+              headers: const {
+                'content-type': 'application/json; charset=utf-8',
+              },
+            );
           }
           if (req.url.path == contract.apiPath('pairRevoke')) {
             revokeAsked.add(req);
@@ -299,6 +315,7 @@ void main() {
       builds: () => builds,
       armAsked: () => armAsked,
       confirmAsked: () => confirmAsked,
+      pairAsked: () => pairAsked,
       peerRows: () => peerRows,
       peersShown: () => peersShown,
       peerReads: () => peerReads,
@@ -2341,6 +2358,263 @@ void main() {
     });
   });
 
+  group('配对另一台设备（#176 片3，B 侧那一发）', () {
+    // 对端地址码：本机那一枚在下面按用例分别钉进桩里（`disk`），所以这里只需"与本机不同"。
+    final peerAddress = FnthinkAddressCode.generate(contract).value;
+
+    Future<void> openSheet(WidgetTester tester) async {
+      final button = find.byKey(const ValueKey('fnthink-pair-peer'));
+      await revealTo(tester, button);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> fillPair(
+      WidgetTester tester, {
+      String target = '',
+      String code = '',
+    }) async {
+      await tester.enterText(
+        find.byKey(const ValueKey('fnthink-pair-peer-target')),
+        target,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('fnthink-pair-peer-code')),
+        code,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> submitPair(WidgetTester tester) async {
+      final submit = find.byKey(const ValueKey('fnthink-pair-peer-submit'));
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+    }
+
+    /// 结论那一行现在的文字（没画出来就是 null）。
+    String? pairNote(WidgetTester tester) {
+      final finder = find.byKey(const ValueKey('fnthink-pair-peer-note'));
+      return finder.evaluate().isEmpty
+          ? null
+          : tester.widget<Text>(finder).data;
+    }
+
+    testWidgets('那一格是个入口，不是三格常驻输入框（口令不该有个"一直在那儿"的形态）', (tester) async {
+      stubChannels();
+      final h = harness();
+      await pump(tester, h.page);
+      // 名单在 ListView 里、默认在视口外：没滚到那一格时它根本没被 build，
+      // 那时"找不到"是测试自己的红，不是页面的（各条用例都先滚再断言）。
+      await revealTo(tester, find.byKey(const ValueKey('fnthink-pair-peer')));
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer')),
+        findsOneWidget,
+        reason: '名单这一格讲的正是"我和谁有关系"，发起新关系的那一下挂在这里',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-target')),
+        findsNothing,
+        reason:
+            '输入框常驻 ⇒ 总要有人决定"那串口令什么时候清掉"，而最容易写的两种实现'
+            '（存进 state 方便回填、存进 prefs 方便重来）都把一次性变成了长期可见',
+      );
+      expect(h.pairAsked(), isEmpty, reason: '看一眼不等于发一发');
+    });
+
+    testWidgets('取消 ⇒ 一个字节都不发（那一枚一次性口令还留着）', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await openSheet(tester);
+      await fillPair(tester, target: peerAddress, code: validPairing);
+      await tester.tap(find.text(l10n.cancel));
+      await tester.pumpAndSettle();
+      expect(h.pairAsked(), isEmpty);
+      expect(pairNote(tester), isNull);
+    });
+
+    testWidgets('少填一样 ⇒ 「发过去」是灰的，点下去没有请求', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await openSheet(tester);
+      await fillPair(tester, target: peerAddress);
+      final submit = find.byKey(const ValueKey('fnthink-pair-peer-submit'));
+      expect(
+        tester.widget<TextButton>(submit).onPressed,
+        isNull,
+        reason: '半填的提交换回的只会是"口令错"，而那枚口令本来能配成 —— 一次性的东西经不起试错',
+      );
+      expect(
+        find.text(l10n.fnthinkPairPeerIncomplete),
+        findsOneWidget,
+        reason: '灰掉要同时说清为什么灰着，否则用户以为按钮坏了',
+      );
+      await submitPair(tester);
+      expect(h.pairAsked(), isEmpty);
+    });
+
+    testWidgets('填好提交 ⇒ 打到契约那扇门，target 是对端，而结论说的是"等对方同意"', (tester) async {
+      stubChannels();
+      disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await openSheet(tester);
+      await fillPair(tester, target: peerAddress, code: validPairing);
+      await submitPair(tester);
+      final request = h.pairAsked().single;
+      expect(
+        request.url.path,
+        contract.apiPath('pair'),
+        reason: '那一发要打在契约声明的门上，而不是页面自己拼的某条路径',
+      );
+      final envelope = jsonDecode(request.body) as Map<String, Object?>;
+      expect(envelope.keys.toSet(), {'sender', 'signature', 'fields'});
+      final fields = envelope['fields']! as Map<String, Object?>;
+      expect(fields['target'], peerAddress, reason: '这一发签的是"关于别人"，target 不是本机');
+      expect(envelope['sender'], validAddress);
+      final payload = jsonDecode('${fields['body']}') as Map<String, Object?>;
+      expect(payload.keys.toSet(), contract.pairFields.toSet());
+      expect(payload['level'], 'L1', reason: '默认落在最低那一档：更高的要用户自己往上点');
+      expect(
+        find.text(l10n.fnthinkPairPeerSubmitted('pr_peer_1', 'pending')),
+        findsOneWidget,
+        reason: '服务端 autoApprove=false：这一发只让对面多一条待确认，说"配对成功"就是替没发生的事作保',
+      );
+      expect(
+        find.text(l10n.fnthinkPairPeerPendingNote),
+        findsOneWidget,
+        reason: '少了这句，"已提交"会被读成"已经配上了"，用户下一步就是发一条试试',
+      );
+    });
+
+    testWidgets('档位只列契约够得着的那几档：默认有 L1/L2、没有 L3', (tester) async {
+      stubChannels();
+      final h = harness();
+      await pump(tester, h.page);
+      await openSheet(tester);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-level-L1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-level-L2')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-level-L3')),
+        findsNothing,
+        reason: '请求超档在服务端是整条拒（level-too-high）而不是压到封顶：摆出来就是让人点一句必被拒的话',
+      );
+    });
+
+    testWidgets('把契约的封顶降到最低一档 ⇒ 界面上只剩那一枚（数从契约读，不是抄来的）', (tester) async {
+      stubChannels();
+      final raw =
+          jsonDecode(File('protocol/fnthink-v1.json').readAsStringSync())
+              as Map<String, Object?>;
+      (raw['pairing']! as Map)['maxRequestableLevelWithoutLocalAuth'] = 'L1';
+      final h = harness(contractText: jsonEncode(raw));
+      final l10n = await pump(tester, h.page);
+      await openSheet(tester);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-level-L1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer-level-L2')),
+        findsNothing,
+        reason: '与契约同数不能证明读过：这一条靠"喂一份改过的契约进去"才分得开',
+      );
+      expect(find.text(l10n.fnthinkPairPeerLevelNote('L1')), findsOneWidget);
+    });
+
+    testWidgets('提交之后口令没有副本：盘上没有、屏幕上也没有', (tester) async {
+      stubChannels();
+      disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
+      final h = harness();
+      await pump(tester, h.page);
+      await openSheet(tester);
+      await fillPair(tester, target: peerAddress, code: validPairing);
+      await submitPair(tester);
+      expect(
+        h.pairAsked(),
+        hasLength(1),
+        reason: '它确实上过线 —— 不然下面两条断言是在断"什么都没发生"',
+      );
+      for (final value in disk.values.whereType<String>()) {
+        expect(
+          value.contains(validPairing),
+          isFalse,
+          reason: '口令进了加密盘就有了第二份副本，而这一枚按契约是一次性的（singleUse）',
+        );
+      }
+      expect(
+        find.text(validPairing),
+        findsNothing,
+        reason: '弹层关掉就是它消失的时候；界面上留着 = 页面替它记了一份',
+      );
+    });
+
+    testWidgets('200 而没给 requestId ⇒ 不说"已提交"', (tester) async {
+      stubChannels();
+      disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
+      final h = harness(pairBody: '{"serverTime":1800000000000}');
+      final l10n = await pump(tester, h.page);
+      await openSheet(tester);
+      await fillPair(tester, target: peerAddress, code: validPairing);
+      await submitPair(tester);
+      expect(
+        find.text(l10n.fnthinkPairPeerSubmitted('pr_peer_1', 'pending')),
+        findsNothing,
+        reason: '没拿到那条请求号，服务器那边就没有任何东西在等 A 确认；"已提交"此刻是假话',
+      );
+      expect(pairNote(tester), isNot(isNull), reason: '失败也要有一句原话，不能点了没反应');
+    });
+
+    testWidgets('403 同形那一支 ⇒ 说的是签名没被认，不是"已提交"也不是网络', (tester) async {
+      stubChannels();
+      disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
+      final h = harness(pairStatus: 403, pairBody: '{}');
+      final l10n = await pump(tester, h.page);
+      await openSheet(tester);
+      await fillPair(tester, target: peerAddress, code: validPairing);
+      await submitPair(tester);
+      expect(find.text(l10n.fnthinkPairPeerUnsigned), findsOneWidget);
+      expect(find.text(l10n.fnthinkPairPeerTransportError), findsNothing);
+      expect(
+        find.text(l10n.fnthinkPairPeerSubmitted('pr_peer_1', 'pending')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('把本机自己的地址码粘进对端那一格 ⇒ 一个字节都不发，且不崩', (tester) async {
+      stubChannels();
+      disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
+      final h = harness();
+      final l10n = await pump(tester, h.page);
+      await openSheet(tester);
+      await fillPair(tester, target: validAddress, code: validPairing);
+      await submitPair(tester);
+      expect(
+        h.pairAsked(),
+        isEmpty,
+        reason: '自配在服务端那句拒信与"口令错"同形，所以内核在离机之前就拦；界面必须看得见这一步',
+      );
+      final text = pairNote(tester);
+      expect(text, isNotNull, reason: '拦下来了却不说话，用户只会以为按钮坏了');
+      expect(
+        text,
+        isNot(l10n.fnthinkPairPeerSubmitted('pr_peer_1', 'pending')),
+        reason: '这一发没出去，说"已提交"就是把本机错误报成服务器在等确认',
+      );
+    });
+  });
+
   group('接收卡那一行「下一次自己醒」（§4-9 片1d）', () {
     Future<void> tapSwitch(WidgetTester tester) async {
       final sw = find.byKey(const ValueKey('fnthink-receive-switch'));
@@ -2634,6 +2908,7 @@ class _Harness {
     required this.builds,
     required this.armAsked,
     required this.confirmAsked,
+    required this.pairAsked,
     required this.peerRows,
     required this.peersShown,
     required this.peerReads,
@@ -2655,6 +2930,9 @@ class _Harness {
 
   /// 答复配对请求那一发。
   final List<http.Request> Function() confirmAsked;
+
+  /// B 侧「配对另一台设备」那一发（`/pair`，#176 片3）。
+  final List<http.Request> Function() pairAsked;
 
   /// 写进本机名单的那几行（替身记下来的，所以能问出"记的是哪一档"）。
   final List<FnthinkPeer> Function() peerRows;

@@ -3290,6 +3290,72 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerSend => '发一条';
 
   @override
+  String get fnthinkPairPeer => '配对另一台设备';
+
+  @override
+  String get fnthinkPairPeerTitle => '向那台设备发起配对';
+
+  @override
+  String get fnthinkPairPeerTargetHint => '对端地址码（那台设备上显示的那一串）';
+
+  @override
+  String get fnthinkPairPeerCodeHint => '它刚挂出的一次性口令';
+
+  @override
+  String get fnthinkPairPeerCodeNote =>
+      '这串口令只活在这一次输入里：这台不留副本、不写日志、不进数据库。关掉这一层就得让对方重新挂一枚。';
+
+  @override
+  String fnthinkPairPeerLevelNote(String level) {
+    return '这里只列到 $level 为止：更高那一档要在那台设备上本地确认（锁屏或生物认证），远程把它请求过去只会被整条拒。';
+  }
+
+  @override
+  String get fnthinkPairPeerSubmit => '发过去';
+
+  @override
+  String get fnthinkPairPeerIncomplete => '地址码和口令都填了才发得出去';
+
+  @override
+  String get fnthinkPairPeerPendingNote =>
+      '发过去只等于对面那台多了一条待确认：同不同意由它自己点，本机名单里那一行要等下一轮收取才出现。';
+
+  @override
+  String fnthinkPairPeerSubmitted(String id, String status) {
+    return '已提交（请求 $id，状态 $status）。现在要等那台设备自己同意 —— 这台还没拿到任何许可。';
+  }
+
+  @override
+  String get fnthinkPairPeerNotConsented =>
+      '这台还没同意过「通知内容经服务器中转」，这一发一个字节都没出去 —— 先到上面翻开同意那一格';
+
+  @override
+  String get fnthinkPairPeerNoSignature =>
+      '这一发签不出来（本机拿不到那把身份密钥），一个字节都没出去 —— 到上面重置三件套';
+
+  @override
+  String get fnthinkPairPeerTransportError =>
+      '没等到服务器的回话：这一发可能没送到，也可能送到了而回信半路丢了。先看那台的待确认列表，别急着重发 —— 一枚口令只配用上一次';
+
+  @override
+  String get fnthinkPairPeerUnsigned => '服务器没认这枚签名：本机身份还没登记，或那把公钥与登记的那枚已经不是同一把';
+
+  @override
+  String get fnthinkPairPeerRateLimited => '问得太频繁，这一发被挡回 —— 等一会儿再点一次，连点不会更快';
+
+  @override
+  String get fnthinkPairPeerReplayed => '这一发被当成重复提交（nonce 撞了）—— 让对方重新挂一枚口令';
+
+  @override
+  String get fnthinkPairPeerNeedsCalibration =>
+      '本机时钟与服务器差得太远 —— 先点一次「立即收取」让它校上时，再发这一发';
+
+  @override
+  String fnthinkPairPeerFailed(String reason) {
+    return '没交上去：$reason';
+  }
+
+  @override
   String fnthinkSendSheetTitle(String peer) {
     return '发给 $peer';
   }

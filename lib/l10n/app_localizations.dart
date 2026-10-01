@@ -6140,6 +6140,114 @@ abstract class AppLocalizations {
   /// **'发一条'**
   String get fnthinkPeerSend;
 
+  /// No description provided for @fnthinkPairPeer.
+  ///
+  /// In zh, this message translates to:
+  /// **'配对另一台设备'**
+  String get fnthinkPairPeer;
+
+  /// No description provided for @fnthinkPairPeerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'向那台设备发起配对'**
+  String get fnthinkPairPeerTitle;
+
+  /// No description provided for @fnthinkPairPeerTargetHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'对端地址码（那台设备上显示的那一串）'**
+  String get fnthinkPairPeerTargetHint;
+
+  /// No description provided for @fnthinkPairPeerCodeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'它刚挂出的一次性口令'**
+  String get fnthinkPairPeerCodeHint;
+
+  /// No description provided for @fnthinkPairPeerCodeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'这串口令只活在这一次输入里：这台不留副本、不写日志、不进数据库。关掉这一层就得让对方重新挂一枚。'**
+  String get fnthinkPairPeerCodeNote;
+
+  /// No description provided for @fnthinkPairPeerLevelNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'这里只列到 {level} 为止：更高那一档要在那台设备上本地确认（锁屏或生物认证），远程把它请求过去只会被整条拒。'**
+  String fnthinkPairPeerLevelNote(String level);
+
+  /// No description provided for @fnthinkPairPeerSubmit.
+  ///
+  /// In zh, this message translates to:
+  /// **'发过去'**
+  String get fnthinkPairPeerSubmit;
+
+  /// No description provided for @fnthinkPairPeerIncomplete.
+  ///
+  /// In zh, this message translates to:
+  /// **'地址码和口令都填了才发得出去'**
+  String get fnthinkPairPeerIncomplete;
+
+  /// No description provided for @fnthinkPairPeerPendingNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'发过去只等于对面那台多了一条待确认：同不同意由它自己点，本机名单里那一行要等下一轮收取才出现。'**
+  String get fnthinkPairPeerPendingNote;
+
+  /// No description provided for @fnthinkPairPeerSubmitted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已提交（请求 {id}，状态 {status}）。现在要等那台设备自己同意 —— 这台还没拿到任何许可。'**
+  String fnthinkPairPeerSubmitted(String id, String status);
+
+  /// No description provided for @fnthinkPairPeerNotConsented.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台还没同意过「通知内容经服务器中转」，这一发一个字节都没出去 —— 先到上面翻开同意那一格'**
+  String get fnthinkPairPeerNotConsented;
+
+  /// No description provided for @fnthinkPairPeerNoSignature.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一发签不出来（本机拿不到那把身份密钥），一个字节都没出去 —— 到上面重置三件套'**
+  String get fnthinkPairPeerNoSignature;
+
+  /// No description provided for @fnthinkPairPeerTransportError.
+  ///
+  /// In zh, this message translates to:
+  /// **'没等到服务器的回话：这一发可能没送到，也可能送到了而回信半路丢了。先看那台的待确认列表，别急着重发 —— 一枚口令只配用上一次'**
+  String get fnthinkPairPeerTransportError;
+
+  /// No description provided for @fnthinkPairPeerUnsigned.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器没认这枚签名：本机身份还没登记，或那把公钥与登记的那枚已经不是同一把'**
+  String get fnthinkPairPeerUnsigned;
+
+  /// No description provided for @fnthinkPairPeerRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'问得太频繁，这一发被挡回 —— 等一会儿再点一次，连点不会更快'**
+  String get fnthinkPairPeerRateLimited;
+
+  /// No description provided for @fnthinkPairPeerReplayed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一发被当成重复提交（nonce 撞了）—— 让对方重新挂一枚口令'**
+  String get fnthinkPairPeerReplayed;
+
+  /// No description provided for @fnthinkPairPeerNeedsCalibration.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机时钟与服务器差得太远 —— 先点一次「立即收取」让它校上时，再发这一发'**
+  String get fnthinkPairPeerNeedsCalibration;
+
+  /// No description provided for @fnthinkPairPeerFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没交上去：{reason}'**
+  String fnthinkPairPeerFailed(String reason);
+
   /// No description provided for @fnthinkSendSheetTitle.
   ///
   /// In zh, this message translates to:

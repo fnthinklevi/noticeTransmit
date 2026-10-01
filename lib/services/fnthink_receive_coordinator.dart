@@ -574,6 +574,12 @@ class FnthinkReceiveCoordinator {
   ///
   /// ⚠ 成功也不代表"配上了"：服务端 `pairing.autoApprove=false`，这一发只让**对面那台**多出一条
   /// 待确认。界面上要说的是结论那句"已提交，等对方确认"，不是"配对成功"。
+  ///
+  /// ⚠ 内核在**离机之前**拦下的那一类（target 空 / 填了自己的地址码 / 载荷名单与契约不合）走的是
+  ///   `ArgumentError`，不是网络失败。这里把它收成一个 `failed` 结果并原样带上内核那句话：
+  ///   让它穿透到页面，症状是"点了配对以后屏幕上什么都没有"（而用户其实只是把本机地址码粘错了格子），
+  ///   而折叠成"服务器拒了"更糟 —— 那一发一个字节都没出去，服务器根本不知道有这回事。
+  ///   判据仍然只在 `pairFields` 一处：这里不重判，只接住它抛的那一句。
   Future<FnthinkPairResult> pairWithDevice({
     required String targetAddressCode,
     required String pairingCode,
@@ -593,6 +599,12 @@ class FnthinkReceiveCoordinator {
         targetAddressCode: targetAddressCode,
         pairingCode: pairingCode,
         level: level,
+      );
+    } on ArgumentError catch (e) {
+      return FnthinkPairResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'refused-before-send: ${e.message}',
+        signedWhileUncalibrated: false,
       );
     } finally {
       service.dispose();

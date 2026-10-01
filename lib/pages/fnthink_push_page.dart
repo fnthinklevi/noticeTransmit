@@ -19,6 +19,7 @@ import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_pair_dialog.dart';
 import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
 
@@ -174,6 +175,13 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 与撤销那一条同一个理由：只弹一句 toast 的话，用户回头就分不出"没发出去"与
   /// "发出去了但那台还没回执" —— 而这两件事的下一步动作完全不同。
   ({FnthinkPeer peer, FnthinkSendResult result})? _sendNote;
+
+  /// 最近一次「配对另一台设备」的结论（null = 这一页还没发过那一发）。#176 片3。
+  /// ⚠ 这里留的是**结论**（`FnthinkPairResult`：请求号 + 状态词 + 失败原因），不是输入：
+  /// 口令、地址码都不进这个字段 —— 弹层一关就该消失的东西，页面记一份就是它的第二份副本。
+  /// 为什么这一句要留在页面上而不是弹个 toast：`ok` 那一句说的是"还没配上，在等对方点"，
+  /// 用户回头再看一次才能确认自己没读错（与 [_peerRevoke]、[_sendNote] 同一条理由）。
+  FnthinkPairResult? _pairSubmit;
 
   /// 刚建好的那条接入端点。**口令只在这里活这么长**：页面不把它写进 prefs、不写进表、
   /// 不拼进任何日志 —— 这一格存在的目的就是让用户当场抄走，抄不到就重新建一把。
@@ -797,6 +805,44 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     });
   }
 
+  /// 「配对另一台设备」那一格（#176 片3，B 侧那发 `pair` 的唯一入口）。
+  ///
+  /// 三件事按本仓既有纪律摆：
+  ///  - **取消 ⇒ 一个字节都不发**：弹层返回 null 就早退。这一发带走的是对端刚挂出的**一次性**口令，
+  ///    把半填的表单发出去等于替用户用掉那枚口令（那边下一次挂出来的才是新的一枚）。
+  ///  - **页面不判协议**：档位名单、target 能不能等于本机、成功要哪三样都在契约/内核/协调者判过，
+  ///    这里只把结论翻成一句人话（唯一作者 [fnthinkPairSubmitText]）。页面自己 min(L?) 一遍的话，
+  ///    封顶换档时界面还在说旧的 —— 那正是 `pairRequestableLevels` 存在的理由。
+  ///  - **口令不进页面状态**：它只在这次调用里存在，`_pairSubmit` 记的是结论。
+  ///
+  /// 与「发一条」不同，这一发**不要求接收开关开着**（配对是接收的前置），那条判据在协调者的
+  /// `requireEnabled: false` 上，不在这里 —— 页面若自己加一个"先打开关"的判断，就会把
+  /// 唯一那条"关着也能配对"的路径堵回去，而界面上看不出来。
+  Future<void> _pairWithPeer() async {
+    if (_busy) return;
+    final contract = _contract;
+    if (contract == null) return;
+    final input = await showFnthinkPairDialog(
+      context: context,
+      contract: contract,
+    );
+    if (input == null || !mounted) return;
+    setState(() => _busy = true);
+    final result = await _coordinator.pairWithDevice(
+      targetAddressCode: input.target,
+      pairingCode: input.code,
+      level: input.level,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _pairSubmit = result;
+    });
+    // 提交成不成都不重读名单：这一发**不会**让本机名单多出任何东西（要等对方点同意，
+    // 而那一下由后台那一轮带回来）。在这里 `_loadPeers()` 的话，界面就会把"还没人同意"
+    // 显示成刚刷新过的样子，像是这一发已经结了。
+  }
+
   /// 建一条接入端点（T42 第七片那一发）。名字用本地化里那句默认外号，这里**不给输入框**：
   /// 这一发的价值全在"回一把只出现一次的口令"，外号是管理面那列可以以后改的东西，
   /// 而为一个非关键输入开一个弹层，就把这个页面变成了表单生命周期那类事故的发生地。
@@ -1104,6 +1150,27 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           _Note(
             keyName: 'fnthink-peer-revoke-note',
             text: _peerRevokeText(l10n, revokeEntry),
+          ),
+        // 「配对另一台设备」挂在名单这一格里，而不是身份那一格（本机是自己）或页面顶部
+        // 一个通用按钮：这一格讲的正是"我和谁有关系"，而这一发要做的就是把一行新的关系挂进去。
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-pair-peer'),
+            onPressed: _busy ? null : _pairWithPeer,
+            child: Text(l10n.fnthinkPairPeer),
+          ),
+        ),
+        // 提交之后本机这一格不会立刻多出什么：同意由对面那台点，那一行要等下一轮收取才回来。
+        // 少了这句，"发过去了"会被读成"已经配上了"，而用户接下来做的动作（发一条试试）当场必失败。
+        _Note(
+          keyName: 'fnthink-pair-peer-pending',
+          text: l10n.fnthinkPairPeerPendingNote,
+        ),
+        if (_pairSubmit != null)
+          _Note(
+            keyName: 'fnthink-pair-peer-note',
+            text: fnthinkPairSubmitText(l10n, _pairSubmit!),
           ),
         const SizedBox(height: 8),
         _Note(

@@ -3434,6 +3434,78 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPeerSend => 'Send';
 
   @override
+  String get fnthinkPairPeer => 'Pair with another device';
+
+  @override
+  String get fnthinkPairPeerTitle => 'Start pairing with that device';
+
+  @override
+  String get fnthinkPairPeerTargetHint =>
+      'Counterpart address code (the one shown on that device)';
+
+  @override
+  String get fnthinkPairPeerCodeHint =>
+      'The one-time pairing code it just armed';
+
+  @override
+  String get fnthinkPairPeerCodeNote =>
+      'That code lives only inside this one input: this device keeps no copy, writes no log, stores nothing. Close this sheet and the other device has to arm a new one.';
+
+  @override
+  String fnthinkPairPeerLevelNote(String level) {
+    return 'Only up to $level is listed here: anything higher must be confirmed locally on that device (lock screen or biometrics), and requesting it remotely is rejected outright.';
+  }
+
+  @override
+  String get fnthinkPairPeerSubmit => 'Send it';
+
+  @override
+  String get fnthinkPairPeerIncomplete =>
+      'Fill in both the address code and the code first';
+
+  @override
+  String get fnthinkPairPeerPendingNote =>
+      'Sending it only adds a pending request on the other device: it decides whether to approve, and this device\'s peer list only shows the row after the next round of receiving.';
+
+  @override
+  String fnthinkPairPeerSubmitted(String id, String status) {
+    return 'Submitted (request $id, status $status). Now that device has to approve it — this one holds no grant yet.';
+  }
+
+  @override
+  String get fnthinkPairPeerNotConsented =>
+      'This device never consented to \"notification content relayed through the server\", so not a byte left it — flip the consent cell above first';
+
+  @override
+  String get fnthinkPairPeerNoSignature =>
+      'This one cannot be signed (no identity key on this device), not a byte left it — reset the three credentials above';
+
+  @override
+  String get fnthinkPairPeerTransportError =>
+      'No reply from the server: this attempt may never have arrived, or it arrived and the answer was lost. Check the pending list on that device before resending — one code is good for one pairing';
+
+  @override
+  String get fnthinkPairPeerUnsigned =>
+      'The server did not accept this signature: this device is not registered, or its public key is no longer the one on record';
+
+  @override
+  String get fnthinkPairPeerRateLimited =>
+      'Asked too often, this attempt was pushed back — try once more later, tapping again will not make it faster';
+
+  @override
+  String get fnthinkPairPeerReplayed =>
+      'This attempt looked like a duplicate (nonce collision) — have the other device arm a new code';
+
+  @override
+  String get fnthinkPairPeerNeedsCalibration =>
+      'This device\'s clock is too far from the server\'s — press \"receive now\" once to calibrate, then send';
+
+  @override
+  String fnthinkPairPeerFailed(String reason) {
+    return 'Not submitted: $reason';
+  }
+
+  @override
   String fnthinkSendSheetTitle(String peer) {
     return 'Send to $peer';
   }

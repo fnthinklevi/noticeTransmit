@@ -267,6 +267,9 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/pages/temperature_page.dart',
   'lib/pages/webhook_settings_item.dart',
   'lib/pages/widget_guide_page.dart',
+  // #176 片3 新增的一枚：与下面那枚是同一个形态（多字段输入弹层），#184 换那一屏时一起换。
+  // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。
+  'lib/widgets/fnthink_pair_dialog.dart',
   'lib/widgets/fnthink_send_dialog.dart',
   'lib/widgets/icon_picker_tile.dart',
   'lib/widgets/rule_template_sheet.dart',

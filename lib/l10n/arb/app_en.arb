@@ -1681,6 +1681,48 @@
   "fnthinkPeersBoundary": "This cell records who this device has approved. Revoking first takes the grant back on the server, then this row disappears here; notifications already received are not deleted. The grant the other device gave you is its own to revoke.",
   "fnthinkPeerRevoke": "Revoke",
   "fnthinkPeerSend": "Send",
+  "fnthinkPairPeer": "Pair with another device",
+  "fnthinkPairPeerTitle": "Start pairing with that device",
+  "fnthinkPairPeerTargetHint": "Counterpart address code (the one shown on that device)",
+  "fnthinkPairPeerCodeHint": "The one-time pairing code it just armed",
+  "fnthinkPairPeerCodeNote": "That code lives only inside this one input: this device keeps no copy, writes no log, stores nothing. Close this sheet and the other device has to arm a new one.",
+  "fnthinkPairPeerLevelNote": "Only up to {level} is listed here: anything higher must be confirmed locally on that device (lock screen or biometrics), and requesting it remotely is rejected outright.",
+  "@fnthinkPairPeerLevelNote": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairPeerSubmit": "Send it",
+  "fnthinkPairPeerIncomplete": "Fill in both the address code and the code first",
+  "fnthinkPairPeerPendingNote": "Sending it only adds a pending request on the other device: it decides whether to approve, and this device's peer list only shows the row after the next round of receiving.",
+  "fnthinkPairPeerSubmitted": "Submitted (request {id}, status {status}). Now that device has to approve it — this one holds no grant yet.",
+  "@fnthinkPairPeerSubmitted": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairPeerNotConsented": "This device never consented to \"notification content relayed through the server\", so not a byte left it — flip the consent cell above first",
+  "fnthinkPairPeerNoSignature": "This one cannot be signed (no identity key on this device), not a byte left it — reset the three credentials above",
+  "fnthinkPairPeerTransportError": "No reply from the server: this attempt may never have arrived, or it arrived and the answer was lost. Check the pending list on that device before resending — one code is good for one pairing",
+  "fnthinkPairPeerUnsigned": "The server did not accept this signature: this device is not registered, or its public key is no longer the one on record",
+  "fnthinkPairPeerRateLimited": "Asked too often, this attempt was pushed back — try once more later, tapping again will not make it faster",
+  "fnthinkPairPeerReplayed": "This attempt looked like a duplicate (nonce collision) — have the other device arm a new code",
+  "fnthinkPairPeerNeedsCalibration": "This device's clock is too far from the server's — press \"receive now\" once to calibrate, then send",
+  "fnthinkPairPeerFailed": "Not submitted: {reason}",
+  "@fnthinkPairPeerFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "fnthinkSendSheetTitle": "Send to {peer}",
   "@fnthinkSendSheetTitle": {
     "placeholders": {

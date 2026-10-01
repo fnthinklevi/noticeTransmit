@@ -213,6 +213,66 @@ void main() {
     });
   });
 
+  group('B 侧请求配对时够得着哪几档（#176 片3）', () {
+    test('只列出到封顶为止的那几档，顺序照 capabilities.levels', () {
+      expect(
+        c.pairRequestableLevels,
+        ['L1', 'L2'],
+        reason:
+            'L3 要在那台设备本地确认，远程请求超档是整条拒（level-too-high），'
+            '把它摆进选项等于让用户点一句必被拒的话',
+      );
+    });
+
+    test('封顶从 clientEvents.pair.levelCeilingFrom 那条**路径**读，不是写死的档位', () {
+      final copy = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+      (copy['pairing']! as Map)['maxRequestableLevelWithoutLocalAuth'] = 'L1';
+      final lowered = FnthinkContract(copy);
+      expect(lowered.pairRequestableLevels, [
+        'L1',
+      ], reason: '把契约那一档改了界面就得跟着变；写死 L2 时这条用例当场绿不了');
+    });
+
+    test('读的是 pair 那一条路径，不是 pairConfirm 的（两条各管一头）', () {
+      final copy = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+      ((copy['clientEvents']! as Map)['pair']! as Map)['levelCeilingFrom'] =
+          'capabilities.endpointMaxLevel';
+      final moved = FnthinkContract(copy);
+      expect(
+        moved.pairRequestableLevels,
+        ['L1'],
+        reason:
+            '这一条走的是 `pair.levelCeilingFrom`；若实现图省事复用 pairConfirm 的路径，'
+            '这里改一边不会有任何反应，而两端各有上限时界面就在摆一发必拒的请求',
+      );
+      expect(
+        moved.pairConfirmLevelCeiling,
+        c.pairConfirmLevelCeiling,
+        reason: '同一份改动能把两条路径分开：答复那一侧不该跟着动',
+      );
+    });
+
+    test('路径缺了 / 取到的不是词表里的一档 ⇒ 抛，不补默认档位', () {
+      final noPath = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+      ((noPath['clientEvents']! as Map)['pair']! as Map).remove(
+        'levelCeilingFrom',
+      );
+      expect(
+        () => FnthinkContract(noPath).pairRequestableLevels,
+        throwsStateError,
+      );
+
+      final bogus = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
+      ((bogus['clientEvents']! as Map)['pair']! as Map)['levelCeilingFrom'] =
+          'pairing.nope';
+      expect(
+        () => FnthinkContract(bogus).pairRequestableLevels,
+        throwsStateError,
+        reason: '取不到值就补一个默认档位 = 在代码里发明一种授权',
+      );
+    });
+  });
+
   test('契约表自洽（validate 必须为空；不空就把全部问题打出来）', () {
     expect(c.validate(), isEmpty);
   });

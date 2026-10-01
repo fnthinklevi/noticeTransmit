@@ -546,6 +546,36 @@ class FnthinkContract {
     return levelRank(requested) <= levelRank(ceiling) ? requested : ceiling;
   }
 
+  /// B 侧「我要配对那台设备」时**够得着**的那几档（`clientEvents.pair.levelCeilingFrom`）。
+  ///
+  /// 为什么单开一条、不复用 [grantableLevel]：那一条读的是 `pairConfirm` 的路径，管的是
+  /// "本机答复时能把授权写到哪"，而**请求**这一侧服务端判的方式不同 —— 超档是整条拒
+  /// （`level-too-high`），不是压到封顶（`authorizePair`）。今天两条路径都指向
+  /// `pairing.maxRequestableLevelWithoutLocalAuth`，所以数字相同；复用的话，改一条不会有人喊，
+  /// 而错的那一侧正是"L3 免确认"那道门。
+  ///
+  /// 界面上**摆不出来就不许点**：把 L3 放进选项、发出去换回的是一句与"口令错"同形的 403，
+  /// 用户既不知道自己要的是哪一档，也不知道是这一步被拦的。
+  /// 路径缺了 / 取到的不是词表里的一档 ⇒ 抛，不补默认档位（补一个默认档位等于在代码里发明一种授权）。
+  List<String> get pairRequestableLevels {
+    final path = str(['clientEvents', 'pair', 'levelCeilingFrom']);
+    if (path == null || path.isEmpty) {
+      throw StateError(
+        '契约缺 clientEvents.pair.levelCeilingFrom（不补默认档位：补了就是在代码里发明一种授权）',
+      );
+    }
+    final ceiling = str(path.split('.'));
+    if (ceiling == null || !capabilityLevels.contains(ceiling)) {
+      throw StateError(
+        'clientEvents.pair.levelCeilingFrom=$path 取到的「$ceiling」'
+        '不是 capabilities.levels（${capabilityLevels.join('/')}）里的一档',
+      );
+    }
+    return capabilityLevels
+        .where((level) => levelRank(level) <= levelRank(ceiling))
+        .toList();
+  }
+
   /// 挂出去的口令在这一步**不许带**的那一项：契约说它 arms 什么，实现就只发什么。
   String get pairArmPayloadField {
     final value = str(['clientEvents', 'pairArm', 'arms']);
