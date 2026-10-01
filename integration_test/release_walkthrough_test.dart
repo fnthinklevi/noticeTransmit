@@ -2281,6 +2281,10 @@ Future<void> _must(WidgetTester t, bool ok, String why, Finder f) async {
 /// 下一节就在弹层底下找控件（第 16、17 轮多节连红的共同根因）。
 bool _modalUp(WidgetTester t) =>
     find.byType(AlertDialog).evaluate().isNotEmpty ||
+    // #184 片3：删除类确认框换成了 `CupertinoAlertDialog` —— 它走 `DialogRoute`，
+    // **不是 `Dialog` 的子类**，`byType` 又是精确匹配 ⇒ 不加这一条，"有没有模态盖着"
+    // 会在弹层还开着的时候答"没有"，下一节就在弹层底下找控件（第 16、17 轮那种红）。
+    find.byType(CupertinoAlertDialog).evaluate().isNotEmpty ||
     find.byType(SimpleDialog).evaluate().isNotEmpty ||
     find.byType(Dialog).evaluate().isNotEmpty ||
     find.byType(BottomSheet).evaluate().isNotEmpty;

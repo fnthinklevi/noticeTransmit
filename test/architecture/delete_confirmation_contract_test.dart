@@ -201,4 +201,64 @@ void main() {
       }
     });
   });
+
+  group('确认框本体的风格（T90 片3：删除确认换成 Cupertino 那一件）', () {
+    test(
+      'askConfirm 用的是 Cupertino 那一件（showCupertinoDialog + CupertinoAlertDialog）',
+      () {
+        final helper = read('lib/widgets/ios_dialog_actions.dart');
+        // 切片而不是 blockAfter：参数表里那个 `{`（命名参数）会先被配对上，
+        // 用花括号计数取块只会取到参数表结尾 —— 那不是我们要断的那一段。
+        final start = helper.indexOf('static Future<bool> askConfirm(');
+        final end = helper.indexOf('static List<Widget> confirm(', start);
+        expect(
+          start,
+          greaterThanOrEqualTo(0),
+          reason: 'askConfirm 不在了 ⇒ 本条在空转',
+        );
+        expect(end, greaterThan(start), reason: '下一个方法没找到，切片边界不成立');
+        final ask = helper.substring(start, end);
+        expect(
+          ask,
+          contains('showCupertinoDialog'),
+          reason: '确认框没走 Cupertino 那条路 ⇒ 与根组件（CupertinoApp）两套外观',
+        );
+        expect(
+          ask,
+          contains('CupertinoAlertDialog('),
+          reason: '上面那条只看调用名，这里兜住本体：两件可以名字对、本体错',
+        );
+      },
+    );
+
+    test('这份文件里不再长着一枚 Material AlertDialog（台账已把它划掉）', () {
+      final helper = read('lib/widgets/ios_dialog_actions.dart');
+      expect(
+        RegExp(r'(^|[^A-Za-z0-9_])AlertDialog\(').hasMatch(helper),
+        isFalse,
+        reason:
+            '又长出一枚 Material `AlertDialog` ⇒ 台账（ui_style_guards）里那一格本该已经划掉；'
+            '两条路并存时"删除要确认"这件事会跟着外观一起分叉',
+      );
+    });
+
+    test('发版闸门认得 Cupertino 弹窗（"有没有模态盖着"不许漏这一类）', () {
+      final gate = stripComments(
+        File(
+          '$root/integration_test/release_walkthrough_test.dart',
+        ).readAsStringSync(),
+      );
+      final start = gate.indexOf('bool _modalUp(');
+      expect(start, greaterThanOrEqualTo(0), reason: '闸门里的模态判据不见了 ⇒ 本条在空转');
+      final end = gate.indexOf(';', start);
+      expect(
+        gate.substring(start, end),
+        contains('CupertinoAlertDialog'),
+        reason:
+            '`CupertinoAlertDialog` 走 `DialogRoute`、不是 `Dialog` 的子类，`byType` 又是精确匹配 ⇒ '
+            '不补这一类，闸门会在确认框还开着的时候答"没有模态"，下一节就在弹层底下找控件'
+            '（第 16、17 轮多节连红的共同根因）',
+      );
+    });
+  });
 }

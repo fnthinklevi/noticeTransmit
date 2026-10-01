@@ -214,7 +214,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(InkWell, '删除').first);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '删除').last);
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, '删除').last);
       await tester.pumpAndSettle();
 
       expect(

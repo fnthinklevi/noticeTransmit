@@ -269,7 +269,6 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/pages/widget_guide_page.dart',
   'lib/widgets/fnthink_send_dialog.dart',
   'lib/widgets/icon_picker_tile.dart',
-  'lib/widgets/ios_dialog_actions.dart',
   'lib/widgets/rule_template_sheet.dart',
 };
 

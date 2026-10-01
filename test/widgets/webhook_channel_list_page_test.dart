@@ -91,7 +91,7 @@ void main() {
     // 动作表的下场动画与确认框的上场动画之间必须让它 settle，否则这里找到的
     // 是"还没出现的对话框"（本仓库的 widget 测试反复踩过：点完菜单项立刻断言）。
     await t.pumpAndSettle();
-    final dialog = find.widgetWithText(TextButton, '删除');
+    final dialog = find.widgetWithText(CupertinoDialogAction, '删除');
     expect(
       dialog,
       findsWidgets,
@@ -276,7 +276,7 @@ void main() {
       await openMenu(tester, 'a');
       await tester.tap(inSheet('删除'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '取消').last);
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, '取消').last);
       await tester.pumpAndSettle();
 
       expect(savedIds(), ['a', 'b']);

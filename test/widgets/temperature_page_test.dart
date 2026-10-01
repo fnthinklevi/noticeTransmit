@@ -197,11 +197,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.widgetWithText(TextButton, '删除'),
+      find.widgetWithText(CupertinoDialogAction, '删除'),
       findsWidgets,
       reason: '菜单里点删除就直接删 ⇒ 确认被绕开',
     );
-    await tester.tap(find.widgetWithText(TextButton, '取消').last);
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, '取消').last);
     await tester.pumpAndSettle();
     expect(service.rules, hasLength(1), reason: '取消不许改数据');
 
@@ -209,7 +209,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(inSheet('删除'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, '删除').last);
+    await tester.tap(find.widgetWithText(CupertinoDialogAction, '删除').last);
     await tester.pumpAndSettle();
     expect(service.rules, isEmpty, reason: '确认之后必须真的删掉（并落盘）');
     expect(

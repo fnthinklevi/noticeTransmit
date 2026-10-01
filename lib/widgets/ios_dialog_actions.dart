@@ -1,27 +1,19 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 
-/// iOS 风格弹窗按钮行 —— 全项目确认弹窗统一的 actions 构建器。
+/// 确认弹窗的统一入口 —— 两条路，形状不同但**都只有一个作者**：
 ///
-/// 布局：0.5px 竖分割线 + 两等分按钮（取消 = 次要文字色；
-/// 确认 = 蓝色，破坏性操作 = 红色）。替换 Material 默认的右对齐按钮布局。
+/// - [askConfirm]：**删除类**一律走它。T06 之后长成 `CupertinoAlertDialog`（base.md §UI 强约束），
+///   返回 `true` 才算用户确认。
+/// - [confirm]：给仍在自己搭 `AlertDialog` 的历史页面当 actions 构建器（台账见
+///   `test/architecture/ui_style_guards_test.dart`，只许缩短）。布局：0.5px 竖分割线 +
+///   两等分按钮（取消 = 次要文字色；确认 = 蓝色，破坏性 = 红色）。
 ///
-/// 用法：
-/// ```dart
-/// AlertDialog(
-///   backgroundColor: AppColors.cardBg(ctx),
-///   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-///   actions: IosDialogActions.confirm(
-///     context,
-///     cancelText: l10n.cancel,
-///     confirmText: l10n.delete,
-///     onConfirm: () { Navigator.pop(ctx, true); },
-///     destructive: true,
-///   ),
-/// )
-/// ```
+/// ⚠ 换根组件之后 `_modalUp()` 那类"有没有模态盖在上面"的判据不能再只认 Material 四类 ——
+/// `CupertinoAlertDialog` 走 `DialogRoute`，不是 `Dialog` 的子类。
 class IosDialogActions {
   IosDialogActions._();
 
@@ -41,30 +33,26 @@ class IosDialogActions {
     bool destructive = true,
   }) async {
     final l10n = AppLocalizations.of(context);
-    final ok = await showDialog<bool>(
+    final ok = await showCupertinoDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(message),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(cancelText ?? l10n.cancel),
           ),
-        ),
-        content: Text(
-          message,
-          style: TextStyle(color: AppColors.primaryLabel(ctx)),
-        ),
-        actions: confirm(
-          ctx,
-          cancelText: cancelText ?? l10n.cancel,
-          confirmText: confirmText,
-          destructive: destructive,
-          onConfirm: () => Navigator.pop(ctx, true),
-        ),
+          CupertinoDialogAction(
+            isDestructiveAction: destructive,
+            isDefaultAction: !destructive,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmText),
+          ),
+        ],
       ),
     );
     return ok == true;

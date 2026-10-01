@@ -236,7 +236,7 @@ void main() {
       await tester.tap(inSheet('删除'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(TextButton, '取消').last);
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, '取消').last);
       await tester.pumpAndSettle();
       expect(service.channels, hasLength(2), reason: '取消不许改数据');
       expect(health.of('app', 'a'), isNotNull, reason: '取消也不许清缓存');
@@ -244,7 +244,7 @@ void main() {
       await openMenu(tester, 'a');
       await tester.tap(inSheet('删除'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '删除').last);
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, '删除').last);
       await tester.pumpAndSettle();
 
       expect(service.channels.map((c) => c['id']), ['b']);
