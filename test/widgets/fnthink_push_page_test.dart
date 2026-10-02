@@ -2249,7 +2249,9 @@ void main() {
       await fill(tester, title: '只有标题没有正文');
       final submit = find.byKey(const ValueKey('fnthink-send-submit'));
       expect(
-        tester.widget<TextButton>(submit).onPressed,
+        // T90 片19：表单弹层换成了共享外壳 `IosFormDialog` ⇒ 提交那颗从 `TextButton`
+        //  变成了 `CupertinoDialogAction`。断的还是同一件事（没填全不许能提交）。
+        tester.widget<CupertinoDialogAction>(submit).onPressed,
         isNull,
         reason: '空正文发出去那边只会收到一句空话，而回执照样算"送达"',
       );
@@ -2450,7 +2452,9 @@ void main() {
       await fillPair(tester, target: peerAddress);
       final submit = find.byKey(const ValueKey('fnthink-pair-peer-submit'));
       expect(
-        tester.widget<TextButton>(submit).onPressed,
+        // T90 片19：表单弹层换成了共享外壳 `IosFormDialog` ⇒ 提交那颗从 `TextButton`
+        //  变成了 `CupertinoDialogAction`。断的还是同一件事（没填全不许能提交）。
+        tester.widget<CupertinoDialogAction>(submit).onPressed,
         isNull,
         reason: '半填的提交换回的只会是"口令错"，而那枚口令本来能配成 —— 一次性的东西经不起试错',
       );

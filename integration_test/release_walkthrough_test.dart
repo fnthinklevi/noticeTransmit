@@ -1926,16 +1926,19 @@ void main() {
 
             final submit = find.byKey(const ValueKey('fnthink-send-submit'));
             expect(submit, findsOneWidget, reason: '发送弹层没起来 ⇒ 那一格点不动');
+            // T90 片19：这枚表单弹层换成了共享外壳 `IosFormDialog`，提交那颗从 `TextButton`
+            //  变成了 `CupertinoDialogAction` ⇒ 这里跟着换。⚠ 换的是**读哪个字段**，
+            //  断的还是同一件事：正文空着而提交可点 ⇒ 发出去的是一句空话、而对面回执照样算"送达"。
             expect(
-              tester.widget<TextButton>(submit).onPressed,
+              tester.widget<CupertinoDialogAction>(submit).onPressed,
               isNull,
               reason: '正文空着而「发送」可点 ⇒ 点下去发出去的是一句空话，而对面回执照样算"送达"',
             );
 
             // 取消：弹层关掉 + 结论行不出现（后者是"一个字节都没发"在设备上的可观察形状）。
             final cancel = find.descendant(
-              of: find.byType(AlertDialog),
-              matching: find.widgetWithText(TextButton, '取消'),
+              of: find.byType(CupertinoAlertDialog),
+              matching: find.widgetWithText(CupertinoDialogAction, '取消'),
             );
             await _tap(tester, cancel, '发送弹层→取消');
             await _settle(tester);

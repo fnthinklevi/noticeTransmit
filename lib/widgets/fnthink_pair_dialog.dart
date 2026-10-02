@@ -3,6 +3,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import 'ios_form_dialog.dart';
 
 /// 「配对另一台设备」那一格的输入弹层与提交结论（#176 片3，T28-B 的 B 侧）。
 ///
@@ -88,98 +89,81 @@ class _FnthinkPairDialogState extends State<_FnthinkPairDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final levels = widget.contract.pairRequestableLevels;
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      title: Text(l10n.fnthinkPairPeerTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            key: const ValueKey('fnthink-pair-peer-target'),
-            controller: _target,
-            autocorrect: false,
-            decoration: InputDecoration(
-              hintText: l10n.fnthinkPairPeerTargetHint,
-            ),
-            onChanged: (_) => setState(() {}),
+    return IosFormDialog(
+      title: l10n.fnthinkPairPeerTitle,
+      cancelText: l10n.cancel,
+      submitText: _ready
+          ? l10n.fnthinkPairPeerSubmit
+          : l10n.fnthinkPairPeerIncomplete,
+      // 少填一样 ⇒ 不发：这一发带走一次性的口令，半填的提交换回的只会是「口令错」，
+      // 而那枚口令本来能配成。判据只有这一处（调用方不再判一次空）⇒ 外壳只管画成灰的。
+      submitEnabled: _ready,
+      submitKey: const ValueKey('fnthink-pair-peer-submit'),
+      onSubmit: () => Navigator.pop(context, (
+        target: _target.text.trim(),
+        code: _code.text.trim(),
+        level: _level,
+      )),
+      fields: [
+        TextField(
+          key: const ValueKey('fnthink-pair-peer-target'),
+          controller: _target,
+          autocorrect: false,
+          decoration: InputDecoration(hintText: l10n.fnthinkPairPeerTargetHint),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('fnthink-pair-peer-code'),
+          controller: _code,
+          autocorrect: false,
+          decoration: InputDecoration(hintText: l10n.fnthinkPairPeerCodeHint),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.fnthinkPairPeerCodeNote,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.secondaryLabel(context),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('fnthink-pair-peer-code'),
-            controller: _code,
-            autocorrect: false,
-            decoration: InputDecoration(hintText: l10n.fnthinkPairPeerCodeHint),
-            onChanged: (_) => setState(() {}),
-          ),
+        ),
+        // 预填不是自动填：用户得知道这两格为什么已经满了，否则他会以为"这台自己填的"，
+        // 而下一跳其实是"我刚点开的链接里带来的那台"。少这句，点「发过去」的人不知道发给谁。
+        if (widget.prefill != null) ...[
           const SizedBox(height: 6),
           Text(
-            l10n.fnthinkPairPeerCodeNote,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-          // 预填不是自动填：用户得知道这两格为什么已经满了，否则他会以为"这台自己填的"，
-          // 而下一跳其实是"我刚点开的链接里带来的那台"。少这句，点「发过去」的人不知道发给谁。
-          if (widget.prefill != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              l10n.fnthinkPairPeerPrefilled,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.secondaryLabel(context),
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 8,
-              children: [
-                for (final level in levels)
-                  ChoiceChip(
-                    key: ValueKey('fnthink-pair-peer-level-$level'),
-                    label: Text(level),
-                    selected: _level == level,
-                    onSelected: (_) => setState(() => _level = level),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          // 为什么这里没有更高的那一档：它不是"还没加载出来"，也不是"本机坏了"。
-          // 少这句时用户的下一步动作是翻设置或重挂口令，而真答案是"那台设备要本地确认"。
-          Text(
-            l10n.fnthinkPairPeerLevelNote(levels.last),
+            l10n.fnthinkPairPeerPrefilled,
             style: TextStyle(
               fontSize: 12,
               color: AppColors.secondaryLabel(context),
             ),
           ),
         ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 8,
+            children: [
+              for (final level in levels)
+                ChoiceChip(
+                  key: ValueKey('fnthink-pair-peer-level-$level'),
+                  label: Text(level),
+                  selected: _level == level,
+                  onSelected: (_) => setState(() => _level = level),
+                ),
+            ],
+          ),
         ),
-        TextButton(
-          key: const ValueKey('fnthink-pair-peer-submit'),
-          // 少填一样 ⇒ 不发：这一发带走一次性的口令，半填的提交换回的只会是"口令错"，
-          // 而那枚口令本来能配成。判据只有这一处（调用方不再判一次空）。
-          onPressed: !_ready
-              ? null
-              : () => Navigator.pop(context, (
-                  target: _target.text.trim(),
-                  code: _code.text.trim(),
-                  level: _level,
-                )),
-          child: Text(
-            _ready
-                ? l10n.fnthinkPairPeerSubmit
-                : l10n.fnthinkPairPeerIncomplete,
+        const SizedBox(height: 6),
+        // 为什么这里没有更高的那一档：它不是"还没加载出来"，也不是"本机坏了"。
+        // 少这句时用户的下一步动作是翻设置或重挂口令，而真答案是"那台设备要本地确认"。
+        Text(
+          l10n.fnthinkPairPeerLevelNote(levels.last),
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.secondaryLabel(context),
           ),
         ),
       ],

@@ -3,6 +3,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import 'ios_form_dialog.dart';
 
 /// 「发一条」那一格的输入弹层（§4-10 片2b）与发送结论文案（T48 收尾）。
 ///
@@ -66,66 +67,51 @@ class _FnthinkSendDialogState extends State<_FnthinkSendDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      title: Text(l10n.fnthinkSendSheetTitle(widget.peerAddress)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            key: const ValueKey('fnthink-send-title'),
-            controller: _title,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(hintText: l10n.fnthinkSendTitleHint),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('fnthink-send-body'),
-            controller: _body,
-            minLines: 2,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(hintText: l10n.fnthinkSendBodyHint),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.fnthinkSendEnvelopeNote,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-          const SizedBox(height: 6),
-          // 与上面那句一起说，而不是等发完再补：这两句讲的是"这一路与端点那一路哪里不一样"，
-          // 用户是在填内容时才需要知道它 —— 发完之后再告诉他，他已经点过发送了。
-          Text(
-            l10n.fnthinkSendBoundary,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel),
+    return IosFormDialog(
+      title: l10n.fnthinkSendSheetTitle(widget.peerAddress),
+      cancelText: l10n.cancel,
+      submitText: _body.text.trim().isEmpty
+          ? l10n.fnthinkSendEmptyBody
+          : l10n.fnthinkSendSubmit,
+      // 「空正文不许发出去」这条判据留在本页（外壳只管画成灰的）——
+      // 它从建这个文件起就在这儿：两处判同一件事，早晚有一处改了另一处没改。
+      submitEnabled: _body.text.trim().isNotEmpty,
+      submitKey: const ValueKey('fnthink-send-submit'),
+      onSubmit: () =>
+          Navigator.pop(context, (title: _title.text, text: _body.text)),
+      fields: [
+        TextField(
+          key: const ValueKey('fnthink-send-title'),
+          controller: _title,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(hintText: l10n.fnthinkSendTitleHint),
         ),
-        TextButton(
-          key: const ValueKey('fnthink-send-submit'),
-          onPressed: _body.text.trim().isEmpty
-              ? null
-              : () => Navigator.pop(context, (
-                  title: _title.text,
-                  text: _body.text,
-                )),
-          child: Text(
-            _body.text.trim().isEmpty
-                ? l10n.fnthinkSendEmptyBody
-                : l10n.fnthinkSendSubmit,
+        const SizedBox(height: 12),
+        TextField(
+          key: const ValueKey('fnthink-send-body'),
+          controller: _body,
+          minLines: 2,
+          maxLines: 4,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(hintText: l10n.fnthinkSendBodyHint),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.fnthinkSendEnvelopeNote,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // 与上面那句一起说，而不是等发完再补：这两句讲的是"这一路与端点那一路哪里不一样"，
+        // 用户是在填内容时才需要知道它 —— 发完之后再告诉他，他已经点过发送了。
+        Text(
+          l10n.fnthinkSendBoundary,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.secondaryLabel(context),
           ),
         ),
       ],

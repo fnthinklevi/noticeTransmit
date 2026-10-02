@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -321,7 +322,9 @@ void main() {
         find.byKey(const ValueKey('fnthink-send-title')),
       );
       expect(title.controller!.text, l10n(tester).fnthinkReplyTitle('机箱温度'));
-      final submit = tester.widget<TextButton>(
+      // T90 片19：发一条那枚表单弹层换成了共享外壳 `IosFormDialog` ⇒
+      // 提交那颗从 `TextButton` 变成了 `CupertinoDialogAction`（断的还是同一件事）。
+      final submit = tester.widget<CupertinoDialogAction>(
         find.byKey(const ValueKey('fnthink-send-submit')),
       );
       expect(
@@ -338,7 +341,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('fnthink-inbox-reply')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, '取消'));
       await tester.pumpAndSettle();
 
       expect(

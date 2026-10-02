@@ -329,6 +329,10 @@ void main() {
         ],
         'lib/pages/widget_guide_page.dart': ['IosDialogActions.showInfo('],
         'lib/pages/more_page.dart': ['showIosOptionPicker<'],
+        // 片19：幻念 pair/send 这两枚**多字段**框（提交键按填全与否置灰 ⇒ 外壳补了
+        //   submitEnabled / submitKey 两个口子，判据仍留各页）。
+        'lib/widgets/fnthink_pair_dialog.dart': ['IosFormDialog('],
+        'lib/widgets/fnthink_send_dialog.dart': ['IosFormDialog('],
         'lib/pages/fnthink_push_page.dart': ['showIosInputDialog('],
         'lib/widgets/rule_template_sheet.dart': ['showIosInputDialog('],
         // 片11：这两处原本是**逐字相同的两份**同一个权限引导框（连"允许"那颗
@@ -545,8 +549,6 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/webhook_settings_item.dart': 1,
   // #176 片3 新增的一枚：与下面那枚是同一个形态（多字段输入弹层），#184 换那一屏时一起换。
   // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。
-  'lib/widgets/fnthink_pair_dialog.dart': 1,
-  'lib/widgets/fnthink_send_dialog.dart': 1,
 };
 
 List<File> _dartFilesIn(String root, String dir) => Directory('$root/$dir')
