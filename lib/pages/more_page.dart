@@ -10,6 +10,7 @@ import '../services/platform_channel.dart';
 import '../services/device_info_service.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_option_picker.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'backup_restore_page.dart';
 import 'device_snapshot_page.dart';
@@ -417,60 +418,22 @@ class MorePage extends StatelessWidget {
       ThemeMode.dark: const Color(0xFF5856D6),
     };
     return InkWell(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: AppColors.cardBg(context),
-            title: Text(
-              l10n.darkMode,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(context),
+      onTap: () async {
+        final picked = await showIosOptionPicker<ThemeMode>(
+          context,
+          title: l10n.darkMode,
+          options: [
+            for (final mode in ThemeMode.values)
+              IosPickerOption<ThemeMode>(
+                value: mode,
+                label: themeNames[mode] ?? '',
+                icon: themeIcons[mode],
+                iconColor: themeIconColors[mode],
               ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 4),
-                ...ThemeMode.values.map(
-                  (mode) => ListTile(
-                    onTap: () {
-                      onThemeModeChanged(mode);
-                      Navigator.pop(context);
-                    },
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: (themeIconColors[mode] ?? Colors.grey)
-                            .withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        themeIcons[mode] ?? Icons.brightness_auto,
-                        color: themeIconColors[mode] ?? Colors.grey,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      themeNames[mode] ?? '',
-                      style: TextStyle(color: AppColors.primaryLabel(context)),
-                    ),
-                    trailing: themeMode == mode
-                        ? const Icon(Icons.check, color: AppColors.blue)
-                        : null,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  ),
-                ),
-              ],
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+          ],
+          selectedValue: themeMode,
         );
+        if (picked != null) onThemeModeChanged(picked);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -534,64 +497,29 @@ class MorePage extends StatelessWidget {
       AppLanguage.en: Icons.g_translate,
     };
     return InkWell(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.cardBg(ctx),
-            title: Text(
-              l10n.language,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(ctx),
+      onTap: () async {
+        final picked = await showIosOptionPicker<AppLanguage>(
+          context,
+          title: l10n.language,
+          options: [
+            for (final lang in AppLanguage.values)
+              IosPickerOption<AppLanguage>(
+                value: lang,
+                label: langNames[lang] ?? '',
+                icon: langIcons[lang],
+                iconColor: localeService.language == lang
+                    ? AppColors.blue
+                    : AppColors.secondaryLabel(context),
               ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 4),
-                ...AppLanguage.values.map(
-                  (lang) => ListTile(
-                    leading: Icon(
-                      langIcons[lang],
-                      color: localeService.language == lang
-                          ? AppColors.blue
-                          : AppColors.secondaryLabel(ctx),
-                      size: 22,
-                    ),
-                    onTap: () {
-                      final navigator = Navigator.of(ctx);
-                      localeService.setLanguage(lang).then((_) {
-                        onChangeLanguage(lang);
-                        _syncNativeLocale(lang);
-                        navigator.pop();
-                      });
-                    },
-                    title: Text(
-                      langNames[lang] ?? '',
-                      style: TextStyle(
-                        color: AppColors.primaryLabel(ctx),
-                        fontWeight: localeService.language == lang
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    trailing: localeService.language == lang
-                        ? const Icon(Icons.check, color: AppColors.blue)
-                        : null,
-                  ),
-                ),
-              ],
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
+          ],
+          selectedValue: localeService.language,
         );
+        if (picked == null) return;
+        // pop 已经发生在组件内部（它返回选中的值），所以"先落盘再刷新页面"这一串
+        // 不再嵌在 ListTile.onTap 里 —— 旧写法是 setLanguage().then(...) 里再 pop。
+        await localeService.setLanguage(picked);
+        onChangeLanguage(picked);
+        _syncNativeLocale(picked);
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

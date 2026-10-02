@@ -10,6 +10,7 @@ import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_option_picker.dart';
 
 // R3 拆分：iOS 选择器/条件行/动作行组件与条件/动作编辑对话框（part 共享私有类名）
 part 'rule_edit_widgets.dart';

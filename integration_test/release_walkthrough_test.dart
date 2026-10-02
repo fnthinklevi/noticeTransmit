@@ -603,11 +603,7 @@ void main() {
                 direction: dir,
               ),
             );
-            expect(
-              inserted,
-              isTrue,
-              reason: '注入没落库（$id）⇒ 后面每一条断言都是在演一场空',
-            );
+            expect(inserted, isTrue, reason: '注入没落库（$id）⇒ 后面每一条断言都是在演一场空');
           }
           await _tap(tester, find.text('推送历史'), '首页→推送历史（要看全部档的那一次）');
           await _settle(tester, seconds: 2);
@@ -634,10 +630,7 @@ void main() {
             //    所以这里必须往下找一个 Text 读文字，直接 `widget<Text>(header)` 会当场 cast 炸。
             final title = tester
                 .widgetList<Text>(
-                  find.descendant(
-                    of: header,
-                    matching: find.byType(Text),
-                  ),
+                  find.descendant(of: header, matching: find.byType(Text)),
                 )
                 .map((t) => t.data ?? '')
                 .join();
@@ -658,11 +651,7 @@ void main() {
           }
           for (final tag in const ['收', '发']) {
             final badge = find.byKey(ValueKey('history-all-tag-$tag'));
-            expect(
-              badge,
-              findsWidgets,
-              reason: '行首没有来源标识 ⇒ 三段并排变成一屏看不出归属的流水账',
-            );
+            expect(badge, findsWidgets, reason: '行首没有来源标识 ⇒ 三段并排变成一屏看不出归属的流水账');
           }
           await db.delete(
             FnthinkInboxMessage.table,
@@ -1573,11 +1562,24 @@ void main() {
           //「外观设置」是那一分组的表头 —— 点表头不会打开对话框（第 18 轮试过）。
           await _openMoreRow(tester, '深色模式');
           await _settle(tester);
-          await _tap(tester, find.text('浅色模式'), '深色模式→浅色');
+          // T90 片6：这两枚弹层换成了共享的选项弹层，行是带 key 的 `CupertinoButton`。
+          // ⚠ 这里**不再按文本点**：主题行的文案与页面那一格的副标题（当前档位）是同一串字，
+          // 按文本命中两只 ⇒ `.first` 点到底下那一格，弹层重开一次，选档静默丢失
+          // （语言那一格第 19 轮就红在这，当时的修法是 scope 到 ListTile；ListTile 没了，
+          // 现在直接用行的 key，把"点到同名件"这一整类一次堵掉）。
+          await _tap(
+            tester,
+            find.byKey(const ValueKey('ios-picker-ThemeMode.light')),
+            '深色模式→浅色',
+          );
           await _settle(tester, seconds: 1);
           await _openMoreRow(tester, '深色模式');
           await _settle(tester);
-          await _tap(tester, find.text('跟随系统'), '深色模式→跟随系统');
+          await _tap(
+            tester,
+            find.byKey(const ValueKey('ios-picker-ThemeMode.system')),
+            '深色模式→跟随系统',
+          );
           await _settle(tester, seconds: 1);
           await _openMoreRow(tester, '语言');
           await _settle(tester);
@@ -1587,14 +1589,9 @@ void main() {
             findsWidgets,
             reason: '语言对话框没列出当前语言 = 这层弹层结构变了',
           );
-          // ⚠ 点的是**那一行的 ListTile**，不是行里的 Text：`more_page.dart` 把这个弹层做成
-          // `AlertDialog.content = Column(ListTile...)`，手势归 ListTile 管。直接点 Text 时
-          // flutter_test 的严格命中判据会抱怨"打在 RenderParagraph 上而不在目标里"（2026-09-30
-          // 那条 `GATE-MISSED-TAP ▸ 语言弹窗→选当前语言（关闭）` 就是这么来的：效果有（弹层关了），
-          // 但"点中了什么"没有出处）。改点行之后，找不到那一行会当场红，而不是静默空点。
           await _tap(
             tester,
-            find.ancestor(of: find.text('中文'), matching: find.byType(ListTile)),
+            find.byKey(const ValueKey('ios-picker-AppLanguage.zh')),
             '语言弹窗→选当前语言（关闭）',
           );
           await _settle(tester, seconds: 1);

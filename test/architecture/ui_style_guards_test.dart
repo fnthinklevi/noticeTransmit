@@ -231,7 +231,7 @@ void main() {
 
   group('确认框台账（Material AlertDialog）', () {
     // 不是一条「禁止」，而是一本**只许变薄的账**：这三条强约束之外，历史页面上的
-    // Material 对话框还很多（片5 之后剩 19 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
+    // Material 对话框还很多（片6 之后剩 18 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
     // 换完一屏就在台账里划掉一屏（#184 逐屏推进的可核对进度）。
     final materialDialogs = RegExp(r'(^|[^A-Za-z0-9_])AlertDialog\(');
 
@@ -257,34 +257,66 @@ void main() {
     });
 
     test('已划掉的每一屏走的是 helper，不是自己手搭一枚 Cupertino 的', () {
-      // 划掉台账有两条路：真的走 `IosDialogActions`，或者把 `AlertDialog(` 就地改成
-      // `CupertinoAlertDialog(`。后者让上面两条守卫都绿（Material 那件确实没了），
-      // 但标题字号 / 按钮色 / 可关性重新各页一份 —— 与换根组件之前那种散落是同一样东西。
-      // 所以这一条钉的是"走哪条路"，`T90 片5` 起效。
+      // 划掉台账有两条路：真的走共享件（`IosDialogActions` / `showIosOptionPicker`），
+      // 或者把 `AlertDialog(` 就地改成 `CupertinoAlertDialog(`。后者让上面两条守卫都绿
+      // （Material 那件确实没了），但标题字号 / 按钮色 / 可关性重新各页一份 ——
+      // 与换根组件之前那种散落是同一样东西。所以这一条钉的是"走哪条路"（T90 片5/片6）。
       const migrated = <String, String>{
-        'lib/pages/main_page_actions.dart': 'askConfirm',
-        'lib/pages/sms_monitor_settings_page.dart': 'showInfo',
-        'lib/pages/widget_guide_page.dart': 'showInfo',
+        'lib/pages/main_page_actions.dart': 'IosDialogActions.askConfirm(',
+        'lib/pages/sms_monitor_settings_page.dart':
+            'IosDialogActions.showInfo(',
+        'lib/pages/widget_guide_page.dart': 'IosDialogActions.showInfo(',
+        'lib/pages/more_page.dart': 'showIosOptionPicker<',
       };
       for (final entry in migrated.entries) {
         final src = codeByPath[entry.key];
         expect(src, isNotNull, reason: '${entry.key} 不在了 ⇒ 本条在空转');
         expect(
           src!,
-          contains('IosDialogActions.${entry.value}('),
-          reason: '${entry.key} 的弹层没接到 helper（${entry.value}）⇒ 形状又要各页一份',
+          contains(entry.value),
+          reason: '${entry.key} 的弹层没接到共享件（${entry.value}）⇒ 形状又要各页一份',
         );
         expect(
           src,
           isNot(contains('CupertinoAlertDialog(')),
           reason:
               '${entry.key} 自己手搭了一枚 Cupertino 的 ⇒ 台账划掉了，但散落的还是散落的；'
-              '请改走 IosDialogActions.${entry.value}',
+              '请改走 ${entry.value}',
         );
       }
     });
+
+    test('手搭 CupertinoAlertDialog 的文件是一本只许缩短的台账', () {
+      // 上一条只管"已划掉的那几屏"；这一条管全 lib —— 不然新写一屏时可以绕过共享件
+      // 直接搭 Cupertino 的弹层，风格闸一声不响（它禁的是 Material 那一件）。
+      final handRolled = hittingRe(
+        RegExp(r'(^|[^A-Za-z0-9_])CupertinoAlertDialog\('),
+      ).toSet();
+      expect(
+        handRolled.difference(kHandRolledCupertinoDialogSites),
+        isEmpty,
+        reason:
+            '又一处自己搭弹层 ⇒ 确认框走 `IosDialogActions.askConfirm` / `showInfo`，'
+            '选档走 `showIosOptionPicker`；这两件是全站唯一装配点',
+      );
+      expect(
+        kHandRolledCupertinoDialogSites.difference(handRolled),
+        isEmpty,
+        reason: '登记表里那一处已经不手搭了却没从台账划掉 ⇒ 这本账不能再当剩余工作量',
+      );
+    });
   });
 }
+
+/// 仍在自己搭 `CupertinoAlertDialog` 的文件（T90 片6 起的台账，只许缩短）。
+/// - `ios_dialog_actions.dart` / `ios_option_picker.dart` 是**装配点本身**（确认框、说明框、选档）；
+/// - `main.dart` 那两枚是 T56 的隐私同意门（要读两个勾选态、不可 barrier 关闭），
+///   形状与"确认框"不同族，等它自己那片再收 —— 但新增一处就不许了。
+const Set<String> kHandRolledCupertinoDialogSites = <String>{
+  'lib/main.dart',
+  'lib/widgets/ios_dialog_actions.dart',
+  'lib/widgets/ios_option_picker.dart',
+};
 
 /// 还长着 Material `AlertDialog` 的文件（T83 逐屏换的台账，同上只许缩短）。
 const Set<String> kPendingMaterialDialogSites = <String>{
@@ -296,7 +328,6 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/pages/history_page.dart',
   'lib/pages/main_page_dialogs.dart',
   'lib/pages/main_page_update.dart',
-  'lib/pages/more_page.dart',
   'lib/pages/rule_edit_page.dart',
   'lib/pages/rule_edit_widgets.dart',
   'lib/pages/rule_list_page.dart',

@@ -81,73 +81,25 @@ class _IosSelectField<T> extends StatelessWidget {
     );
   }
 
-  void _showPicker(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          label,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
+  Future<void> _showPicker(BuildContext context) async {
+    // T90 片6：这一枚换成全站唯一的选项弹层 `showIosOptionPicker`。
+    // 顺序问题从此由组件负责：它**返回选中的值**，回调发生在 pop 之后 —— 旧写法里
+    // "先 pop 再 onChanged" 是砸过脚的（优先级那一档的回调会同步压入自定义输入框，
+    // 先回调时栈顶已是那个新框，于是同一帧被压入又弹出 ⇒ 用户看到"点自定义没反应"）。
+    final picked = await showIosOptionPicker<T>(
+      context,
+      title: label,
+      options: [
+        for (final option in options)
+          IosPickerOption<T>(
+            value: option.value,
+            label: option.label,
+            description: option.description,
           ),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 4),
-                ...options.map((option) {
-                  final selected = option.value == value;
-                  return ListTile(
-                    onTap: () {
-                      // 顺序不能反：先关 picker，再回调。优先级那一档的 onChanged 会
-                      // **同步**压入自定义输入框，而 `Navigator.pop(dialogContext)` 弹的是
-                      // 栈顶路由 —— 先回调时栈顶已经是那个新框，于是它同一帧被压入又弹出，
-                      // 用户看到的是"点自定义没反应"（picker 还留在原地）。
-                      Navigator.pop(dialogContext);
-                      onChanged(option.value);
-                    },
-                    dense: true,
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          option.label,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: AppColors.primaryLabel(context),
-                          ),
-                        ),
-                        if (option.description != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            option.description!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.secondaryLabel(context),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    trailing: selected
-                        ? const Icon(Icons.check, color: AppColors.blue)
-                        : null,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+      ],
+      selectedValue: value,
     );
+    if (picked != null) onChanged(picked);
   }
 }
 
