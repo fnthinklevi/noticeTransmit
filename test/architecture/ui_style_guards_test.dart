@@ -286,16 +286,22 @@ void main() {
       }
     });
 
-    // T90 片14：三页的「新增/编辑规则」阈值框原本是同一套形状抄三遍（圆角、标题字号、
-    // 取消/添加两颗钮各存一份，字段内容才各不同）。这一条钉的是「这一屏接没接到共享外壳」；
+    // T90 片12/14/16：这几屏的表单弹层（新增/编辑条件与动作、三页阈值框、聚合参数）
+    // 都是「同一套外壳抄在各处」的历史，现在统一接 `IosFormDialog`。
+    // 这一条钉的是「这一屏接没接到共享外壳」；
     // **还剩几枚 Material 的**由上面那本逐文件台账管 —— 同一件事不写两处。
     // ⚠ 这里原本还有一条"整屏不许有 Material AlertDialog"的负向断言，第一次跑就红了：
     //   温度页除了阈值框另有「试跑」那一枚不在本族 ⇒ 负向断言把正常状态判成缺陷，已删。
-    test('三页阈值框走的是共享外壳 IosFormDialog', () {
+    // ⚠ `rule_edit_widgets.dart` 是 `rule_edit_page.dart` 的 part：按文件名 grep 会以为那四枚表单不在 lib 里。
+    test('走 IosFormDialog 外壳的那几屏都真的接上了', () {
       const shells = <String>{
         'lib/pages/battery_page.dart',
         'lib/pages/temperature_page.dart',
         'lib/pages/device_state_page.dart',
+        // 片16：聚合参数编辑框（本文件自己写的第五枚，不在 part 里）
+        'lib/pages/rule_edit_page.dart',
+        // 片12：四枚条件/动作表单（在 part 里）
+        'lib/pages/rule_edit_widgets.dart',
       };
       for (final path in shells) {
         final src = codeByPath[path];
@@ -303,7 +309,7 @@ void main() {
         expect(
           src!,
           contains('IosFormDialog('),
-          reason: '$path 的阈值框没接到共享外壳 ⇒ 形状又要各页一份',
+          reason: '$path 的表单弹层没接到共享外壳 ⇒ 形状又要各页一份',
         );
       }
     });
@@ -510,7 +516,8 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/history_page.dart': 3,
   'lib/pages/main_page_dialogs.dart': 2,
   'lib/pages/main_page_update.dart': 2,
-  'lib/pages/rule_edit_page.dart': 1,
+  // 片16：rule_edit_page 最后一枚（聚合参数编辑框）换进了 `IosFormDialog` ⇒ 整屏出账。
+  // 四枚条件/动作表单在 part 文件 `rule_edit_widgets.dart`（片12 迁的），别按文件名 grep 漏掉。
   'lib/pages/rule_list_page.dart': 1,
   'lib/pages/rule_tester_page.dart': 1,
   'lib/pages/temperature_page.dart': 1,

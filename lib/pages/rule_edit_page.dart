@@ -623,26 +623,56 @@ class _RuleEditPageState extends State<RuleEditPage> {
     var groupByTitle = _mergeGroupByTitle;
     String? errorText;
     const presets = [15, 30, 60, 120, 300];
+
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.cardBg(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: Text(
-            l10n.ruleMergeWindowRow,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryLabel(context),
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        builder: (dialogContext, setDialogState) {
+          // T90 片16：外壳换成共享的 `IosFormDialog` 之后，「按下确定时做什么」不该埋在一长串
+          // 字段 widget 的中间 —— 提成局部闭包，上面是「这枚框长什么样」，这里是「答完之后改哪几个字段」。
+          // ⚠ 闭包**必须**留在 StatefulBuilder 的 builder 里：它要用 `dialogContext` 去 pop、
+          //   要用 `setDialogState` 把校验错误就地显示出来（第一版把它提到 showDialog 之前，
+          //   analyze 直接报 undefined_method / undefined_identifier —— 这两个名字那时候还不存在）。
+          void submit() {
+            final value = int.tryParse(controller.text.trim());
+            if (value == null || value < 5 || value > 86400) {
+              setDialogState(() {
+                errorText = l10n.ruleMergeWindowInvalid;
+              });
+              return;
+            }
+            final maxItemsValue = int.tryParse(maxItemsController.text.trim());
+            setState(() {
+              _rule = _rule.copyWith(
+                actions: _rule.actions.map((a) {
+                  if (a.type != ActionType.merge) return a;
+                  final params = <String, dynamic>{
+                    ...a.params,
+                    'windowSeconds': value,
+                  };
+                  if (maxItemsValue != null && maxItemsValue > 0) {
+                    params['maxItems'] = maxItemsValue;
+                  } else {
+                    params.remove('maxItems');
+                  }
+                  if (groupByTitle) {
+                    params['groupByTitle'] = true;
+                  } else {
+                    params.remove('groupByTitle');
+                  }
+                  return a.copyWith(params: params);
+                }).toList(),
+              );
+            });
+            Navigator.pop(dialogContext);
+          }
+
+          return IosFormDialog(
+            title: l10n.ruleMergeWindowRow,
+            cancelText: l10n.cancel,
+            submitText: l10n.confirm,
+            onSubmit: submit,
+            fields: [
               TextField(
                 contextMenuBuilder: AppTextSelectionMenu.editableText,
                 controller: controller,
@@ -761,65 +791,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
                 ],
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                l10n.cancel,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                final value = int.tryParse(controller.text.trim());
-                if (value == null || value < 5 || value > 86400) {
-                  setDialogState(() {
-                    errorText = l10n.ruleMergeWindowInvalid;
-                  });
-                  return;
-                }
-                final maxItemsValue = int.tryParse(
-                  maxItemsController.text.trim(),
-                );
-                setState(() {
-                  _rule = _rule.copyWith(
-                    actions: _rule.actions.map((a) {
-                      if (a.type != ActionType.merge) return a;
-                      final params = <String, dynamic>{
-                        ...a.params,
-                        'windowSeconds': value,
-                      };
-                      if (maxItemsValue != null && maxItemsValue > 0) {
-                        params['maxItems'] = maxItemsValue;
-                      } else {
-                        params.remove('maxItems');
-                      }
-                      if (groupByTitle) {
-                        params['groupByTitle'] = true;
-                      } else {
-                        params.remove('groupByTitle');
-                      }
-                      return a.copyWith(params: params);
-                    }).toList(),
-                  );
-                });
-                Navigator.pop(dialogContext);
-              },
-              child: Text(
-                l10n.confirm,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.blue,
-                ),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

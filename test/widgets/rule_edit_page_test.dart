@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 // 值输入格现在仍是 Material 的 `TextField`（`_buildTextFieldSection`，属于还没迁的那一屏）
 // ⇒ 按类型找它得引 material 的这一名；用 show 限定，避免与 cupertino 的同名件冲突。
 import 'package:flutter/material.dart'
-    show IconButton, Icons, InkWell, TextButton, TextField;
+    show AlertDialog, IconButton, Icons, InkWell, TextButton, TextField;
 import 'package:notice_transmit/pages/rule_edit_page.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
@@ -372,6 +372,173 @@ void main() {
         find.text('延迟推送'),
         findsWidgets,
         reason: '动作行的档位没换 ⇒ 编辑那一路的 onSave 断了',
+      );
+    });
+  });
+
+  // T90 片16：聚合参数编辑框此前在 test/ 与 integration_test/ 里**零覆盖**
+  // （换外壳那一片只钉了 IosFormDialog 自己的形状）。这一组补的是那一层：
+  // 「这枚框怎么画的」由外壳用例管，「用户答完之后改没改到规则上」只有这里管。
+  group('聚合参数编辑框真的写回规则（片16 换件后的页面级证据）', () {
+    RuleAction mergeAction({int window = 60}) => RuleAction(
+      id: 'a2',
+      type: ActionType.merge,
+      params: {'windowSeconds': window},
+    );
+
+    // ⚠ 另一组那个 `openPage` 是**组内局部函数**，这里用不到 ⇒ 自己开一份。
+    Future<void> openPage(WidgetTester tester, NotificationRule rule) async {
+      await tester.pumpWidget(_buildApp(RuleEditPage(rule: rule)));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openMergeDialog(WidgetTester tester) async {
+      await openPage(
+        tester,
+        NotificationRule(
+          id: 'r1',
+          name: 'R',
+          actions: [
+            RuleAction(id: 'a1', type: ActionType.push),
+            mergeAction(),
+          ],
+        ),
+      );
+      // 入口是动作行下方那颗「聚合等待时长」（P1 起内联在那儿）。
+      // ⚠ 它在 800×600 测试视口**之外**（动作区在页面下半）⇒ 不先 ensureVisible 这发 tap 打空，
+      //   弹层压根没被按出来 —— 与 #200 那第三条同一次课。
+      final entry = find.text('聚合等待时长');
+      await tester.ensureVisible(entry);
+      await tester.pumpAndSettle();
+      await tester.tap(entry);
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsOneWidget,
+        reason: '点「聚合等待时长」没打开编辑框 ⇒ 入口那一下就断了',
+      );
+      expect(
+        find.byType(AlertDialog),
+        findsNothing,
+        reason: 'Material 那一件还在 ⇒ 外壳没真的换掉（片16 的判据在这里被复现一次）',
+      );
+    }
+
+    testWidgets('窗口秒数不合法按「确定」⇒ 弹层不关，错误就地提示（不许静默写进去）', (tester) async {
+      await openMergeDialog(tester);
+
+      await tester.enterText(
+        find
+            .descendant(
+              of: find.byType(CupertinoAlertDialog),
+              matching: find.byType(TextField),
+            )
+            .first,
+        '2',
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.widgetWithText(CupertinoDialogAction, '确定'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsOneWidget,
+        reason: '非法值把弹层关了 ⇒ 用户看不到错在哪，还得重新点进来',
+      );
+      expect(
+        find.text('请输入 5-86400 的整数（最小 5 秒）'),
+        findsOneWidget,
+        reason: '非法值没有就地提示 ⇒ 这一格静默失败',
+      );
+      // 断的是**那一行**的摘要没被改：预置档里有一枚写着「等待 30 秒」，所以不能拿裸 find 去数。
+      final row = find.ancestor(
+        of: find.text('聚合等待时长'),
+        matching: find.byType(InkWell),
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('等待 2 秒')),
+        findsNothing,
+        reason: '那一行的摘要变成了 2 秒 ⇒ 非法值被写进规则了',
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('等待 60 秒')),
+        findsOneWidget,
+        reason: '非法值之后那一行仍应显示原值 60 秒',
+      );
+    });
+
+    testWidgets('填合法值按「确定」⇒ 弹层下场，规则那一行的摘要真的变了', (tester) async {
+      await openMergeDialog(tester);
+      expect(find.text('等待 60 秒'), findsWidgets, reason: '进页时摘要显示默认的 60 秒');
+      // ⚠ 不能拿裸 find 断「30 秒没出现」：预置档 chips 里就有一枚写着「等待 30 秒」
+      //   （presets = 15/30/60/120/300）⇒ 保存后要断的是**那一行**上的摘要，得限定作用域。
+
+      await tester.enterText(
+        find
+            .descendant(
+              of: find.byType(CupertinoAlertDialog),
+              matching: find.byType(TextField),
+            )
+            .first,
+        '30',
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.widgetWithText(CupertinoDialogAction, '确定'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      // ⚠ 这条必须**限定到那一行**：摘要句在页面上有三处（行内 + 规则行 + 预置档 chip），
+      //   而预置档里恰好也有一枚写着「等待 30 秒」⇒ 裸 find 的 findsWidgets 会永远绿（假断言）。
+      final row = find.ancestor(
+        of: find.text('聚合等待时长'),
+        matching: find.byType(InkWell),
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('等待 30 秒')),
+        findsOneWidget,
+        reason: '按了确定但那一行的摘要没变 ⇒ 写回那一段断了',
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('等待 60 秒')),
+        findsNothing,
+        reason: '那一行还留着旧的 60 秒 ⇒ 摘要没跟着更新',
+      );
+    });
+
+    testWidgets('按「取消」⇒ 规则一个字都没变', (tester) async {
+      await openMergeDialog(tester);
+
+      await tester.enterText(
+        find
+            .descendant(
+              of: find.byType(CupertinoAlertDialog),
+              matching: find.byType(TextField),
+            )
+            .first,
+        '30',
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.widgetWithText(CupertinoDialogAction, '取消'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(find.text('等待 30 秒'), findsNothing, reason: '取消那条路也把值写进去了');
+      expect(
+        find.text('等待 60 秒'),
+        findsWidgets,
+        reason: '取消那条路也把值写进去了 ⇒ 用户以为没改，规则却改了',
       );
     });
   });
