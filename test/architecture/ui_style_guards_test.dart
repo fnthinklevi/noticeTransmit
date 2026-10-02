@@ -347,6 +347,8 @@ void main() {
         // 片13：这几枚的动作早就走 helper 了，只剩外壳还挂着 Material 那件 ⇒ 整枚收进装配点。
         'lib/pages/battery_page.dart': ['IosDialogActions.askConfirm('],
         // 片17：批量补推那枚进度框（形状与任何现有装配点都不同形 ⇒ 新装配点）。
+        // 片18：图标网格弹层（第四种形状：标题 + 有上限的可滚网格、没有动作区）。
+        'lib/widgets/icon_picker_tile.dart': ['IosGridPickerDialog('],
         'lib/pages/history_page.dart': [
           'IosDialogActions.askConfirm(',
           'IosProgressDialog(',
@@ -524,6 +526,8 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
   'lib/widgets/ios_form_dialog.dart',
   // 片17：进度框外壳（批量补推 / 更新下载那两枚的形状同源、用法不同）
   'lib/widgets/ios_progress_dialog.dart',
+  // 片18：图标网格外壳（标题 + 高度上限的可滚网格）
+  'lib/widgets/ios_grid_picker_dialog.dart',
 };
 
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
@@ -543,7 +547,6 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。
   'lib/widgets/fnthink_pair_dialog.dart': 1,
   'lib/widgets/fnthink_send_dialog.dart': 1,
-  'lib/widgets/icon_picker_tile.dart': 1,
 };
 
 List<File> _dartFilesIn(String root, String dir) => Directory('$root/$dir')

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import 'ios_grid_picker_dialog.dart';
 import '../services/icon_service.dart';
 
 /// 真实图标预览：彩色圆角方底 + 实际铃铛字形（默认图标为白/深底 + 蓝铃）。
@@ -129,92 +130,68 @@ class _IconPickerTileState extends State<IconPickerTile> {
     final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          l10n.appIconTitle,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 380),
-            child: GridView.builder(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: 8,
-                childAspectRatio: 0.78,
-              ),
-              itemCount: IconService.options.length,
-              itemBuilder: (_, i) {
-                final opt = IconService.options[i];
-                final selected = _current == opt.key;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => _select(opt),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(13),
-                              border: Border.all(
-                                color: selected
-                                    ? AppColors.blue
-                                    : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                            child: AppIconPreview(option: opt, size: 44),
-                          ),
-                          if (selected)
-                            const Positioned(
-                              right: -4,
-                              top: -4,
-                              child: CircleAvatar(
-                                radius: 9,
-                                backgroundColor: AppColors.blue,
-                                child: Icon(
-                                  Icons.check,
-                                  size: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _iconLabel(opt.label, l10n),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: selected
-                              ? AppColors.blue
-                              : AppColors.secondaryLabel(context),
+      // T90 片18：这枚图标网格弹层换成共享外壳 `IosGridPickerDialog`。形状没变：
+      // 标题 + 高度上限 380 的可滚四列网格、**没有动作区**（点中哪一格就选中并当场关掉，
+      // 那是 `_select` 里的行为，不归外壳管）；网格每一格是 Material 件（InkWell / CircleAvatar /
+      // AppIconPreview），而 CupertinoAlertDialog 不含 Material 祖先 ⇒ 那层透明 Material 是必需的。
+      builder: (ctx) => IosGridPickerDialog(
+        title: l10n.appIconTitle,
+        itemCount: IconService.options.length,
+        itemBuilder: (_, i) {
+          final opt = IconService.options[i];
+          final selected = _current == opt.key;
+          return InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _select(opt),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(
+                          color: selected ? AppColors.blue : Colors.transparent,
+                          width: 2,
                         ),
                       ),
-                    ],
+                      child: AppIconPreview(option: opt, size: 44),
+                    ),
+                    if (selected)
+                      const Positioned(
+                        right: -4,
+                        top: -4,
+                        child: CircleAvatar(
+                          radius: 9,
+                          backgroundColor: AppColors.blue,
+                          child: Icon(
+                            Icons.check,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _iconLabel(opt.label, l10n),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: selected
+                        ? AppColors.blue
+                        : AppColors.secondaryLabel(context),
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          );
+        },
       ),
     );
   }
