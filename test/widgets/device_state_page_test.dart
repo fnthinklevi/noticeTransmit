@@ -1,5 +1,8 @@
 import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:flutter/cupertino.dart';
+// 阈值框的**字段**仍是 Material 的（Slider / TextField），弹层外壳是 Cupertino 的（T90 片14）
+// ⇒ 两边各引一处，用 show 限定避免同名件冲突。
+import 'package:flutter/material.dart' show AlertDialog, Slider, TextField;
 import 'package:flutter/services.dart';
 import 'package:notice_transmit/widgets/engine_page_sections.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,12 +34,13 @@ void main() {
     String type = 'brightness_below',
     int value = 15,
     bool enabled = true,
+    String title = '',
   }) => {
     'id': id,
     'type': type,
     'value': value,
     'enabled': enabled,
-    'title': '',
+    'title': title,
     'content': '',
   };
 
@@ -148,6 +152,103 @@ void main() {
   });
 
   // 版式对齐电量页之后新增：顶部读数（亮度 + 网络）与总开关行。
+  // T90 片14 把这枚阈值框换成了共享外壳 `IosFormDialog`，而**编辑分支**（isEdit → updateRule）
+  // 此前没有任何页面级用例：温度页有一条「弹窗保存一条规则」看着新增分支，这两页只看着列表显示。
+  // 这一组补的正是「改完了真的替换那一条 / 取消真的没动 / 网络型在编辑框里也没有滑杆」。
+  group('阈值框的编辑分支（片14 换件后的页面级证据）', () {
+    // ⚠ 按**标题**找那一行，不是按类型名：规则有标题时列表显示标题，只有标题为空才回落成
+    //   类型名。第一版我按「亮度低于」找，两条带标题的用例当场红（`Found 0 widgets with text`）。
+    Future<void> openEdit(
+      WidgetTester tester, {
+      required String rowLabel,
+    }) async {
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(rowLabel));
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsOneWidget,
+        reason: '点规则行没打开编辑框 ⇒ 入口那一下就断了',
+      );
+      expect(
+        find.byType(AlertDialog),
+        findsNothing,
+        reason: 'Material 那一件还在 ⇒ 外壳没真的换掉（片14 的判据在这里被复现一次）',
+      );
+    }
+
+    testWidgets('改完按「确定」⇒ 同 id 那一条被替换，不是多出一条', (tester) async {
+      await service.restoreSettings(
+        rules: [rule(id: 'b1', title: '旧标题')],
+      );
+      await openEdit(tester, rowLabel: '旧标题');
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.byType(TextField),
+        ),
+        '改过的标题',
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.text('确定'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(service.rules, hasLength(1), reason: '编辑不是新增：编辑后规则数不该变');
+      expect(service.rules.single['title'], '改过的标题');
+      expect(
+        service.rules.single['id'],
+        'b1',
+        reason: '换标题不该把 id 也换了 ⇒ 后面编辑开关都指不到',
+      );
+    });
+
+    testWidgets('按「取消」⇒ 服务里那一条一个字都没变', (tester) async {
+      await service.restoreSettings(
+        rules: [rule(id: 'b1', title: '旧标题')],
+      );
+      await openEdit(tester, rowLabel: '旧标题');
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.byType(TextField),
+        ),
+        '不该被写进去',
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.text('取消'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(service.rules.single['title'], '旧标题', reason: '取消那条路也把值写进去了');
+    });
+
+    testWidgets('编辑时切到网络型 ⇒ 没有滑杆，且那句「网络触发不需要阈值」在', (tester) async {
+      await service.restoreSettings(
+        rules: [rule(id: 'b1', type: 'brightness_below')],
+      );
+      // 无标题 ⇒ 那一行显示类型名（回落规则见 openEdit 注释）
+      await openEdit(tester, rowLabel: '亮度低于');
+
+      // 亮度型开着滑杆；切到网络型那一格之后它必须消失（凭空的数值会骗用户"断网也有阈值可调"）
+      expect(find.byType(Slider), findsOneWidget);
+      await tester.tap(find.text('断网时'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Slider), findsNothing);
+      expect(find.text('网络触发不需要阈值'), findsOneWidget);
+    });
+  });
+
   group('顶部读数与总开关（与电量页同构）', () {
     void stubSnapshot(Map<String, Object?>? snap) {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
