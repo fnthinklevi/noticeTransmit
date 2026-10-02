@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 
+/// 「有更新」那一屏用户选的那一档（T90 片21）。
+enum UpdateChoice { ignore, later, update }
+
 /// 确认弹窗的统一入口 —— 三条路，形状不同但**都只有一个作者**：
 ///
 /// - [askConfirm]：**删除类**一律走它。T06 之后长成 `CupertinoAlertDialog`（base.md §UI 强约束），
@@ -13,6 +16,10 @@ import '../theme/app_colors.dart';
 ///   或者自己手搭一枚 `CupertinoAlertDialog`。后者过了风格闸（Material 那件确实没了），
 ///   但标题字号、按钮色、`barrierDismissible` 会重新各页一份，与换根组件之前的散是同一样东西。
 ///   守卫见 `ui_style_guards_test.dart`「划掉台账的那几屏必须走 helper」。
+/// - [showPermissionGuide]：**系统权限引导**（图标 + 说明 + 拒绝 / 允许），片11 建的。
+/// - [showUpdatePrompt] / [showForceUpdatePrompt]：**有更新**那一枚（T90 片21）——
+///   三颗等分档位（含「忽略」＝写进忽略名单）与强制更新那颗「只有一条出路」的，形状不同，
+///   各是一颗入口；两者的内容（徽标 / 版本行 / 更新日志）由调用方往 [body] 塞。
 /// - [confirm]：给仍在自己搭 `AlertDialog` 的历史页面当 actions 构建器（台账见
 ///   `test/architecture/ui_style_guards_test.dart`，只许缩短）。布局：0.5px 竖分割线 +
 ///   两等分按钮（取消 = 次要文字色；确认 = 蓝色，破坏性 = 红色）。
@@ -163,6 +170,111 @@ class IosDialogActions {
       ),
     );
     return picked == true;
+  }
+
+  /// 有更新的那一枚弹层（T90 片21）。返回用户选的那一档（`UpdateChoice`）。
+  ///
+  /// 为什么不是 `askConfirm`：那一族是「一问一答」，而这一屏的形状是**三颗等分的档位**，
+  /// 其中「忽略」按下还要顺手把这一版写进忽略名单（下次不再提示）—— 它带走的是一次**设置**，
+  /// 不是一次确认，所以走 `Navigator.pop(choice)` 而不是 `pop(true)`。
+  ///
+  /// ⚠ [barrierDismissible] 默认 **true**，且**必须**由调用方按 `forceUpdate` 覆盖：
+  ///   旧形状是 `showDialog(barrierDismissible: !forceUpdate)` —— 强推那一版**点外面不许关**
+  ///   （唯一一条出路就是立刻更新），非强推点外面 = 先不更新。`showCupertinoDialog` 默认 false，
+  ///   照抄默认会让"稍后再说"这条出路消失，漏传又会把强推那一版变成可以点穿（两条都撞过）。
+  /// ⚠ [titleBadge] 是标题**上方**那枚红标（强推才出现）。它走 `content` 而不是 `title`：
+  ///   `CupertinoAlertDialog` 的 title 是居中一行的文字，徽标要塞进去得改成行内流，不值当。
+  static Future<UpdateChoice?> showUpdatePrompt(
+    BuildContext context, {
+    required String title,
+    required String ignoreText,
+    required String laterText,
+    required String updateText,
+    Widget? titleBadge,
+    Widget? body,
+    bool barrierDismissible = true,
+  }) {
+    return showCupertinoDialog<UpdateChoice>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) => CupertinoAlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (titleBadge != null) ...[titleBadge, const SizedBox(height: 12)],
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+            if (body != null) ...[const SizedBox(height: 12), body],
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, UpdateChoice.ignore),
+            child: Text(ignoreText),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, UpdateChoice.later),
+            child: Text(laterText),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, UpdateChoice.update),
+            child: Text(updateText),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 强制更新那一枚（片21 的第二颗入口）：**只有一条出路** —— 一颗默认色的「立即更新」。
+  ///
+  /// 为什么单独一颗而不是给上面那枚加个 `onlyUpdate` 开关：上面那枚的「忽略 / 稍后」在这一屏
+  /// 不存在，这一屏的「点外面不许关」也不由本组件决定（它在 `showDialog` 上，本组件没有那个口）。
+  /// 一个开关会把三颗等分 + 可点穿 + 两颗次要按钮这三件事全变成条件分支，而这一屏根本不走那三条。
+  static Future<UpdateChoice?> showForceUpdatePrompt(
+    BuildContext context, {
+    required String title,
+    required String updateText,
+    Widget? titleBadge,
+    Widget? body,
+  }) {
+    return showCupertinoDialog<UpdateChoice>(
+      context: context,
+      // ⚠ 照旧行为：强推那枚点外面**不许**关（`showDialog(barrierDismissible: false)`），
+      // 而 `showCupertinoDialog` 的默认恰好也是 false —— 这一处默认是对的，但写成显式值，
+      // 免得后人照着上面那颗「默认 true」的注释把这句删掉。
+      barrierDismissible: false,
+      builder: (ctx) => CupertinoAlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (titleBadge != null) ...[titleBadge, const SizedBox(height: 12)],
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(ctx),
+              ),
+            ),
+            if (body != null) ...[const SizedBox(height: 12), body],
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, UpdateChoice.update),
+            child: Text(updateText),
+          ),
+        ],
+      ),
+    );
   }
 
   static List<Widget> confirm(

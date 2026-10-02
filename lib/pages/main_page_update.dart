@@ -62,205 +62,140 @@ extension _MainPageUpdate on _MainPageState {
     }
   }
 
-  void _showUpdateDialog(VersionCheckResult result) {
-    showDialog(
-      context: context,
-      barrierDismissible: !result.forceUpdate,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Column(
-          children: [
-            if (result.forceUpdate) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.red,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _l10n.updateForceBadge,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            Text(
-              result.forceUpdate
-                  ? _l10n.updateForceRequired
-                  : _l10n.updateFoundNew,
+  /// 「有更新」那一枚弹层。
+  ///
+  /// T90 片21：外壳收进 `IosDialogActions` 的两个入口（`showUpdatePrompt` 三颗档位 /
+  /// `showForceUpdatePrompt` 只有一颗），**弹层里的内容仍留在这里** ——
+  /// 徽标、三行版本号和那块可滚的更新日志是这一屏的私有形状，硬塞进共享件只会长出一个
+  /// 带一堆可选口的假通用组件（与 `IosFormDialog`「字段由调用方给」同一条规矩）。
+  ///
+  /// ⚠ 换件时三件必须原样保留的东西：
+  /// ① `barrierDismissible: !result.forceUpdate` —— 强推那版点外面**不许**关（唯一出路是
+  ///    立刻更新），非强推点外面 = 先不更新；
+  /// ② 「忽略」要**写进忽略名单**（旧代码里那颗 `TextButton` 就是这么写的），它不是关框；
+  /// ③ 点外面关掉回 `null` = 什么都不做，与旧 `showDialog` 行为一致。
+  Future<void> _showUpdateDialog(VersionCheckResult result) async {
+    final l10n = _l10n;
+    final choice = result.forceUpdate
+        ? await IosDialogActions.showForceUpdatePrompt(
+            context,
+            title: l10n.updateForceRequired,
+            updateText: l10n.updateNow,
+            titleBadge: _forceUpdateBadge(),
+            body: _updateDialogBody(result),
+          )
+        : await IosDialogActions.showUpdatePrompt(
+            context,
+            title: l10n.updateFoundNew,
+            ignoreText: l10n.updateIgnore,
+            laterText: l10n.updateLater,
+            updateText: l10n.updateButton,
+            body: _updateDialogBody(result),
+          );
+    if (!mounted) return;
+    if (choice == UpdateChoice.ignore) {
+      // ⚠ 旧形状那颗「忽略」是 `TextButton` 里的 `setIgnoredVersion(...)`（**没 await**），
+      //   换件后这里补上 await：它写的是 SharedPreferences，不等它写完就返回，
+      //   下一次启动的检查可能在写盘之前就读到旧值 ⇒ 「忽略」等于没按。
+      await _updateService.setIgnoredVersion(result.latestVersion);
+    } else if (choice == UpdateChoice.update) {
+      // ⚠ 这一颗**已经**把弹层 pop 掉了（`Navigator.pop(ctx, UpdateChoice.update)`），
+      //   所以 `_startDownloadUpdate` 里不能再 pop —— 那会把刚弹出来的进度框关掉。
+      await _startDownloadUpdate(result);
+    }
+    // `later` 与点外面关掉（null）都什么都不做。
+  }
+
+  /// 标题上方那枚红标（只在强推时给）。
+  Widget? _forceUpdateBadge() {
+    if (_l10n.updateForceBadge.isNotEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.red,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          _l10n.updateForceBadge,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+    return null;
+  }
+
+  /// 三行版本号 + 可滚的更新日志。
+  Widget _updateDialogBody(VersionCheckResult result) {
+    final l10n = _l10n;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _infoRow(l10n.updateLatestVersionLabel, 'v${result.latestVersion}'),
+        _infoRow(
+          l10n.updateCurrentVersionLabel,
+          'v${_updateService.currentVersion}',
+        ),
+        _infoRow(l10n.updateFileSizeLabel, result.fileSizeStr),
+        const SizedBox(height: 16),
+        Text(
+          l10n.updateChangelogTitle,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryLabel(context),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.inputBg(context),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          // ⚠ 这里**不套**滚动：`CupertinoAlertDialog` 已把 content 放在有界且可滚的位置里
+          // （与 `IosFormDialog` / `showIosOptionPicker` 同一课，反证 PK5/FM1 都验过）。
+          child: Text(
+            result.changelog.replaceAll('\\n', '\n'),
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: AppColors.primaryLabel(context),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 「标签 + 值」一行（版本号 / 文件大小三处共用）。
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.secondaryLabel(context),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
               style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
+                fontSize: 13,
                 color: AppColors.primaryLabel(context),
               ),
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  _l10n.updateLatestVersionLabel,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-                Text(
-                  'v${result.latestVersion}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  _l10n.updateCurrentVersionLabel,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-                Text(
-                  'v${_updateService.currentVersion}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  _l10n.updateFileSizeLabel,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-                Text(
-                  result.fileSizeStr,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _l10n.updateChangelogTitle,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(context),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.inputBg(context),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: SingleChildScrollView(
-                  child: Text(
-                    result.changelog.replaceAll('\\n', '\n'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.4,
-                      color: AppColors.primaryLabel(context),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: result.forceUpdate
-            ? [
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => _startDownloadUpdate(result),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(
-                      _l10n.updateNow,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ]
-            : [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _updateService.setIgnoredVersion(
-                            result.latestVersion,
-                          );
-                        },
-                        child: Text(
-                          _l10n.updateIgnore,
-                          style: TextStyle(
-                            color: AppColors.secondaryLabel(context),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(
-                          _l10n.updateLater,
-                          style: const TextStyle(color: AppColors.blue),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => _startDownloadUpdate(result),
-                        child: Text(
-                          _l10n.updateButton,
-                          style: const TextStyle(
-                            color: AppColors.blue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ],
       ),
     );
   }
@@ -268,8 +203,11 @@ extension _MainPageUpdate on _MainPageState {
   Future<void> _startDownloadUpdate(VersionCheckResult result) async {
     if (_isDownloading) return;
 
-    // 系统下载器（DownloadManager）下载到公共 Download 目录，无需存储权限
-    Navigator.pop(context);
+    // ⚠ T90 片21：**这里不再 `Navigator.pop`**。旧形状里那颗「立即更新 / 更新」是 `AlertDialog`
+    //   actions 里的一颗 TextButton，按下时弹层还开着，所以 `_startDownloadUpdate` 自己 pop 一次
+    //   去关它。换到 `showUpdatePrompt` 之后，按下那颗**已经先把弹层 pop 了**
+    //   （`Navigator.pop(ctx, UpdateChoice.update)`），再 pop 一次就是**把刚弹出来的进度框关掉** ——
+    //   用户会看到进度条一闪就没了，而下载还在后台跑。
     final progressNotifier = ValueNotifier<double>(0);
     setState(() => _isDownloading = true);
 

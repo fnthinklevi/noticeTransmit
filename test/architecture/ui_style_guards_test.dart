@@ -542,13 +542,15 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/backup_restore_page.dart': 1,
   'lib/pages/history_page.dart': 1,
   'lib/pages/main_page_dialogs.dart': 2,
-  'lib/pages/main_page_update.dart': 1,
   // 片16：rule_edit_page 最后一枚（聚合参数编辑框）换进了 `IosFormDialog` ⇒ 整屏出账。
   // 四枚条件/动作表单在 part 文件 `rule_edit_widgets.dart`（片12 迁的），别按文件名 grep 漏掉。
   'lib/pages/rule_list_page.dart': 1,
   'lib/pages/rule_tester_page.dart': 1,
   'lib/pages/temperature_page.dart': 1,
   'lib/pages/webhook_settings_item.dart': 1,
+  // 片21：`main_page_update` 那一枚「发现新版本」换进 `IosDialogActions.showUpdatePrompt` /
+  // `showForceUpdatePrompt` ⇒ 整屏出账（下载进度框是片17 收的，不在本账里）。
+  // ⚠ 这枚在 part 文件里：按 `main_page.dart` grep 会以为它不在账上。
   // #176 片3 新增的一枚：与下面那枚是同一个形态（多字段输入弹层），#184 换那一屏时一起换。
   // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。
 };

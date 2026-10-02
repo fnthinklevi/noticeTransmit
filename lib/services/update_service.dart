@@ -60,8 +60,13 @@ class UpdateService {
   String? get lastInstallBlockReason =>
       AppUpdateManager.instance.lastInstallBlockReason;
 
-  void setIgnoredVersion(String version) {
-    AppUpdateManager.instance.setIgnoredVersion(version);
+  /// 把某一版写进忽略名单（用户按下「忽略」时走这条）。
+  /// ⚠ T90 片21：这一层**原来**返回 `void`（对底层的 `Future` 既不 await 也不返回）——
+  ///   换件之后调用点要 await 它（弹层 pop 完就该确认写盘），而 `void` 接不住 await。
+  ///   顺手把底下那一层补上：原来那行是个**被弃用的 future**，写盘还没开始就返回了
+  ///   ⇒ 下一次启动的检查可能在写盘之前读到旧值，「忽略」等于没按。
+  Future<void> setIgnoredVersion(String version) async {
+    await AppUpdateManager.instance.setIgnoredVersion(version);
   }
 
   Future<String?> getIgnoredVersion() async {
