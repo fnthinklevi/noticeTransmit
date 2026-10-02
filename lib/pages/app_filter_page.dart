@@ -7,6 +7,7 @@ import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
 
 /// 应用列表条目：组头（已选/未选分组标题）或应用行
 class _AppListItem {
@@ -127,69 +128,18 @@ class _AppFilterPageState extends State<AppFilterPage>
   /// 无权限进入页面时的提醒弹窗：允许 → 跳系统设置申请；拒绝 → 仅显示提示文案
   Future<void> _showPermissionDialog() async {
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final l10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          backgroundColor: AppColors.cardBg(ctx),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.apps, size: 44, color: AppColors.blue),
-              const SizedBox(height: 14),
-              Text(
-                l10n.appListPermTitle,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.appListPermMsg,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                l10n.reject,
-                style: TextStyle(
-                  color: AppColors.secondaryLabel(ctx),
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _channel.invokeMethod('requestQueryAllPackagesPermission');
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.blue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(l10n.allow, style: const TextStyle(fontSize: 15)),
-            ),
-          ],
-        );
-      },
+    final l10n = AppLocalizations.of(context);
+    final allowed = await IosDialogActions.showPermissionGuide(
+      context,
+      icon: Icons.apps,
+      title: l10n.appListPermTitle,
+      message: l10n.appListPermMsg,
+      rejectText: l10n.reject,
+      allowText: l10n.allow,
     );
+    if (allowed) {
+      _channel.invokeMethod('requestQueryAllPackagesPermission');
+    }
   }
 
   Future<void> _loadCachedApps() async {

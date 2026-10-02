@@ -11,6 +11,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
+import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
 
 // R3 拆分：iOS 选择器/条件行/动作行组件与条件/动作编辑对话框（part 共享私有类名）
 part 'rule_edit_widgets.dart';
@@ -904,69 +905,18 @@ class _AppScopePickerPageState extends State<_AppScopePickerPage>
   /// （与应用筛选页 _showPermissionDialog 相同）
   Future<void> _showPermissionDialog() async {
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final l10n = AppLocalizations.of(ctx);
-        return AlertDialog(
-          backgroundColor: AppColors.cardBg(ctx),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.apps, size: 44, color: AppColors.blue),
-              const SizedBox(height: 14),
-              Text(
-                l10n.appListPermTitle,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.appListPermMsg,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.spaceEvenly,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                l10n.reject,
-                style: TextStyle(
-                  color: AppColors.secondaryLabel(ctx),
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _channel.invokeMethod('requestQueryAllPackagesPermission');
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.blue,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(l10n.allow, style: const TextStyle(fontSize: 15)),
-            ),
-          ],
-        );
-      },
+    final l10n = AppLocalizations.of(context);
+    final allowed = await IosDialogActions.showPermissionGuide(
+      context,
+      icon: Icons.apps,
+      title: l10n.appListPermTitle,
+      message: l10n.appListPermMsg,
+      rejectText: l10n.reject,
+      allowText: l10n.allow,
     );
+    if (allowed) {
+      _channel.invokeMethod('requestQueryAllPackagesPermission');
+    }
   }
 
   Future<void> _initLoad() async {

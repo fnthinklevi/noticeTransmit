@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show AlertDialog;
+import 'package:flutter/material.dart' show AlertDialog, Icons;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:notice_transmit/l10n/app_localizations.dart';
@@ -202,6 +202,91 @@ void main() {
       await tester.pumpAndSettle();
       expect(underneath, 0, reason: '点得穿 ⇒ 用户可以绕过二次确认，连点两下就把东西删了');
       expect(find.text('删除这条规则'), findsOneWidget);
+    });
+  });
+
+  group('showPermissionGuide（图标打头的权限引导框，片11）', () {
+    Future<void> openGuide(WidgetTester tester, List<bool?> seen) async {
+      await tester.pumpWidget(
+        AppRoot(
+          locale: const Locale('zh'),
+          dark: false,
+          home: Builder(
+            builder: (context) => CupertinoButton(
+              onPressed: () async {
+                final allowed = await IosDialogActions.showPermissionGuide(
+                  context,
+                  icon: Icons.apps,
+                  title: '允许读取应用列表',
+                  message: '不授权就找不到你要屏蔽的那些应用',
+                  rejectText: '以后再说',
+                  allowText: '去允许',
+                );
+                seen.add(allowed);
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('画的是 Cupertino 那一件，且图标在标题**之上**（不是悬在空处）', (tester) async {
+      final seen = <bool?>[];
+      await openGuide(tester, seen);
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byIcon(Icons.apps), findsOneWidget);
+
+      // 这一屏的形状是「图标在上、标题居中、说明在下」——标题不能塞进
+      // CupertinoAlertDialog 的 title（那会变成左对齐 + 图标悬空）。
+      final iconBottom = tester.getBottomLeft(find.byIcon(Icons.apps)).dy;
+      final titleTop = tester.getTopLeft(find.text('允许读取应用列表')).dy;
+      expect(
+        titleTop,
+        greaterThan(iconBottom),
+        reason: '标题跑到图标上面 ⇒ 说明文字和图标脱节，这一屏的形状又要各页一份',
+      );
+      final titleBottom = tester.getBottomLeft(find.text('允许读取应用列表')).dy;
+      final msgTop = tester.getTopLeft(find.text('不授权就找不到你要屏蔽的那些应用')).dy;
+      expect(msgTop, greaterThan(titleBottom), reason: '说明必须在标题下面');
+    });
+
+    testWidgets('「去允许」回 true、「以后再说」回 false', (tester) async {
+      final seen = <bool?>[];
+      await openGuide(tester, seen);
+
+      await tester.tap(find.text('去允许'));
+      await tester.pumpAndSettle();
+      expect(seen, [true], reason: '允许被读成"没选" ⇒ 用户点了去允许却什么权限都没请求');
+
+      seen.clear();
+      await openGuide(tester, seen);
+      await tester.tap(find.text('以后再说'));
+      await tester.pumpAndSettle();
+      expect(seen, [false]);
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+    });
+
+    testWidgets('点外面收回去 = 拒绝（旧框点得穿外面，这一条不许顺手改成"必须答"）', (tester) async {
+      final seen = <bool?>[];
+      await openGuide(tester, seen);
+
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(
+        seen,
+        [false],
+        reason:
+            '旧的两枚用的是 Material showDialog（默认点得穿）⇒ "点开看一眼又想收回去"是有的出路；'
+            '改成 barrierDismissible: false 就等于把它禁了',
+      );
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
     });
   });
 }

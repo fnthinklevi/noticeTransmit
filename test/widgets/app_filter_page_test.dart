@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoAlertDialog;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -214,6 +215,94 @@ void main() {
       expect(find.text('需要应用列表权限'), findsOneWidget);
       // 不得去扫描应用列表
       expect(find.text('Alpha'), findsNothing);
+    });
+  });
+
+  group('应用列表权限引导框（片11：点了才请求，且"点外面"那条出路要留着）', () {
+    late List<String> methods;
+
+    void mockDenied() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      if (!GetIt.instance.isRegistered<InstalledAppsService>()) {
+        GetIt.instance.registerLazySingleton<InstalledAppsService>(
+          () => InstalledAppsService(),
+        );
+      }
+      methods = <String>[];
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            methods.add(call.method);
+            switch (call.method) {
+              case 'canQueryAllPackages':
+                return false;
+              case 'getCachedInstalledApps':
+              case 'getInstalledApps':
+                return <Map<String, dynamic>>[];
+              default:
+                return null;
+            }
+          });
+    }
+
+    Future<void> open(WidgetTester tester) async {
+      mockDenied();
+      await tester.pumpWidget(
+        _buildApp(const AppFilterPage(installedApps: [], enabledPackages: [])),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Finder btn(String label) => find.descendant(
+      of: find.byType(CupertinoAlertDialog),
+      matching: find.text(label),
+    );
+
+    testWidgets('无权限进页 ⇒ 框出现，但那一次权限请求**还没**发出去', (tester) async {
+      await open(tester);
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(
+        methods.where((m) => m == 'requestQueryAllPackagesPermission').toList(),
+        isEmpty,
+        reason: '框刚画出来就发请求 ⇒ 用户一个字都没答，系统权限就已经被替他要了',
+      );
+    });
+
+    testWidgets('点「允许」才发那一次，且只发一次', (tester) async {
+      await open(tester);
+      await tester.tap(btn('允许'));
+      await tester.pumpAndSettle();
+
+      expect(
+        methods.where((m) => m == 'requestQueryAllPackagesPermission').toList(),
+        hasLength(1),
+        reason: '这一发是用户答完之后才该走的（换件之前是在按钮回调里发的）',
+      );
+    });
+
+    testWidgets('点「拒绝」一次都不发', (tester) async {
+      await open(tester);
+      await tester.tap(btn('拒绝'));
+      await tester.pumpAndSettle();
+
+      expect(
+        methods.where((m) => m == 'requestQueryAllPackagesPermission').toList(),
+        isEmpty,
+      );
+    });
+
+    testWidgets('点外面收回去 ⇒ 也不发（旧的 Material 框点得穿外面，这条出路不能换成"必须答"）', (
+      tester,
+    ) async {
+      await open(tester);
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(
+        methods.where((m) => m == 'requestQueryAllPackagesPermission').toList(),
+        isEmpty,
+      );
     });
   });
 }

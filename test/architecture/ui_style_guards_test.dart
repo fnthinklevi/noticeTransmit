@@ -281,6 +281,12 @@ void main() {
         'lib/pages/more_page.dart': 'showIosOptionPicker<',
         'lib/pages/fnthink_push_page.dart': 'showIosInputDialog(',
         'lib/widgets/rule_template_sheet.dart': 'showIosInputDialog(',
+        // 片11：这两处原本是**逐字相同的两份**同一个权限引导框（连"允许"那颗
+        // 请求的原生方法名都一样）⇒ 重复的代价不是行数，是两处以后各改各的。
+        'lib/pages/app_filter_page.dart':
+            'IosDialogActions.showPermissionGuide(',
+        'lib/pages/rule_edit_page.dart':
+            'IosDialogActions.showPermissionGuide(',
       };
       for (final entry in migrated.entries) {
         final src = codeByPath[entry.key];
@@ -420,7 +426,6 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 
 /// 还长着 Material `AlertDialog` 的文件（T83 逐屏换的台账，同上只许缩短）。
 const Set<String> kPendingMaterialDialogSites = <String>{
-  'lib/pages/app_filter_page.dart',
   'lib/pages/backup_restore_page.dart',
   'lib/pages/battery_page.dart',
   'lib/pages/device_state_page.dart',

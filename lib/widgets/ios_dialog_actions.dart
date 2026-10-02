@@ -90,6 +90,71 @@ class IosDialogActions {
     return ok == true;
   }
 
+  /// 系统权限引导框（T90 片11）：图标 + 标题 + 说明 + 「拒绝 / 允许」，返回 true = 允许。
+  ///
+  /// 为什么要有它：这一屏在 `app_filter_page` 与 `rule_edit_page` 里**逐字重复过两份**
+  /// （连"允许"那颗去请求的原生方法名都一样）。重复的下一幕不是多两行代码，
+  /// 而是两处的文案与行为各改各的 —— 用户在筛选页看到 A 说法、在规则页看到 B 说法，
+  /// 而它们讲的是同一个系统权限。
+  ///
+  /// ⚠ `barrierDismissible: true` 是**照旧行为**保留的：旧的那两枚用的是 Material
+  /// `showDialog`（默认点得穿外面），点外面 = 没选 = 不请求权限。这里不能顺手改成
+  /// "必须答"——那会让"看一眼又想收回去"这条路消失（片6 撞过同一件事，方向相反）。
+  static Future<bool> showPermissionGuide(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String message,
+    required String rejectText,
+    required String allowText,
+  }) async {
+    final picked = await showCupertinoDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => CupertinoAlertDialog(
+        // 标题走 content 而不是 CupertinoAlertDialog 的 title：这一屏的形状是
+        // 「图标在上、标题居中、说明在下」，塞进 title 会变成标题左对齐 + 图标悬空。
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 44, color: AppColors.blue),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppColors.primaryLabel(context),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(rejectText),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(allowText),
+          ),
+        ],
+      ),
+    );
+    return picked == true;
+  }
+
   static List<Widget> confirm(
     BuildContext context, {
     required String cancelText,
