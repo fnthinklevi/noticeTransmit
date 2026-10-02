@@ -1535,13 +1535,25 @@ void main() {
         await _backToHomeQuietly(tester);
         await _openMoreRow(tester, '设备名称');
         await _settle(tester);
-        if (find.byType(TextField).evaluate().isEmpty) {
+        // T90 片7：设备名那枚弹层换成了共享的输入弹层 ⇒ 输入框与外壳都改成 Cupertino 那一件。
+        // 这里仍按"外壳 + 文案"定位而不是拿 key：闸门要验的就是"用户看得见『保存』那颗"。
+        if (find.byType(CupertinoTextField).evaluate().isEmpty) {
           _diagnose(tester, '设备名称弹层未出现');
           fail('设备名称弹层里没有输入框（见上一条 GATE-DIAG 的 pages/texts）');
         }
-        await _type(tester, find.byType(TextField), '闸门改名', '设备名称输入框');
-        // 确认按钮是 l10n.save（"保存"），不是"确定"：main_page_dialogs.dart:158
-        await _tap(tester, _in(AlertDialog, find.text('保存')), '设备名称→保存');
+        await _type(
+          tester,
+          find.byType(CupertinoTextField),
+          '闸门改名',
+          '设备名称输入框',
+        );
+        // 确认按钮的文案是 l10n.save（"保存"），不是"确定" —— 出处是 `_showDeviceNameDialog`
+        // 里那句 confirmText，别照旧行号找（改完文件行号就漂）。
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('保存')),
+          '设备名称→保存',
+        );
         await _settle(tester, seconds: 1);
         expect(
           GetIt.instance<DeviceInfoService>().deviceName,
@@ -2596,7 +2608,20 @@ Future<void> _type(WidgetTester t, Finder f, String text, String why) async {
     await t.ensureVisible(f.first);
   } catch (_) {}
   await t.pump(const Duration(milliseconds: 120));
-  final obscured = (t.widget(f.first) as TextField).obscureText;
+  // ⚠ 这里不能 `as TextField`：T90 片7 起，闸门要往 Cupertino 的输入弹层里也打字
+  //   （设备名那一格），那一位是 `CupertinoTextField` —— 直接 cast 会在 5.10 当场炸
+  //   （本机模拟器实跑红过一次：`type 'CupertinoTextField' is not a subtype of type 'TextField'`）。
+  //   两件外壳底下都是同一个 `EditableText`，读密文开关就读它，别读外壳。
+  final obscured = t
+      .widget<EditableText>(
+        find
+            .descendant(
+              of: f.first,
+              matching: find.byType(EditableText),
+            )
+            .first,
+      )
+      .obscureText;
   await _withMissNet(t, '$why（聚焦那一下）', () => t.tap(f.first));
   await _settle(t);
   await t.enterText(f.first, text);

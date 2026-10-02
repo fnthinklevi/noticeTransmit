@@ -108,68 +108,22 @@ extension _MainPageDialogs on _MainPageState {
     );
   }
 
-  void _showDeviceNameDialog() {
+  Future<void> _showDeviceNameDialog() async {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(
-      text: _deviceInfoService.deviceName,
+    final name = await showIosInputDialog(
+      context,
+      title: l10n.setDeviceName,
+      initialText: _deviceInfoService.deviceName,
+      hintText: l10n.deviceNameLabel,
+      confirmText: l10n.save,
+      // 空值时"什么都不发生、也不关框"，与换件之前一致：这一格没有专门的提示文案，
+      // 编一句要动 ARB ⇒ 措辞是维护者的决定，不在这里替他定。
+      requiredField: true,
     );
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          l10n.setDeviceName,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        content: TextField(
-          contextMenuBuilder: AppTextSelectionMenu.editableText,
-          controller: controller,
-          style: TextStyle(color: AppColors.primaryLabel(context)),
-          decoration: InputDecoration(
-            hintText: l10n.deviceNameLabel,
-            hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.separator(context)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.separator(context)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.blue),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            isDense: true,
-            filled: true,
-            fillColor: AppColors.inputBg(context),
-          ),
-          autofocus: true,
-        ),
-        actions: IosDialogActions.confirm(
-          context,
-          cancelText: l10n.cancel,
-          confirmText: l10n.save,
-          onConfirm: () {
-            final name = controller.text.trim();
-            if (name.isNotEmpty) {
-              _deviceInfoService.saveDeviceName(name);
-              setState(() {});
-              Navigator.pop(context);
-            }
-          },
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
+    if (name == null) return;
+    await _deviceInfoService.saveDeviceName(name);
+    if (!mounted) return;
+    setState(() {});
   }
 
   void _showAboutDialog() {

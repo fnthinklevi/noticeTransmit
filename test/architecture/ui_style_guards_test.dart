@@ -309,13 +309,15 @@ void main() {
 }
 
 /// 仍在自己搭 `CupertinoAlertDialog` 的文件（T90 片6 起的台账，只许缩短）。
-/// - `ios_dialog_actions.dart` / `ios_option_picker.dart` 是**装配点本身**（确认框、说明框、选档）；
+/// - `ios_dialog_actions.dart` / `ios_option_picker.dart` / `ios_input_dialog.dart` 是**装配点本身**
+///   （确认框与说明框、选档、单字段输入）；
 /// - `main.dart` 那两枚是 T56 的隐私同意门（要读两个勾选态、不可 barrier 关闭），
 ///   形状与"确认框"不同族，等它自己那片再收 —— 但新增一处就不许了。
 const Set<String> kHandRolledCupertinoDialogSites = <String>{
   'lib/main.dart',
   'lib/widgets/ios_dialog_actions.dart',
   'lib/widgets/ios_option_picker.dart',
+  'lib/widgets/ios_input_dialog.dart',
 };
 
 /// 还长着 Material `AlertDialog` 的文件（T83 逐屏换的台账，同上只许缩短）。

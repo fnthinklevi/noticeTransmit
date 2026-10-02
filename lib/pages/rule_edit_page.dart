@@ -9,7 +9,7 @@ import '../services/installed_apps_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
-import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
 
 // R3 拆分：iOS 选择器/条件行/动作行组件与条件/动作编辑对话框（part 共享私有类名）
@@ -529,73 +529,30 @@ class _RuleEditPageState extends State<RuleEditPage> {
   }
 
   /// P1-1：自定义优先级输入（0-500，非法输入就地提示）
-  void _showCustomPriorityDialog() {
+  Future<void> _showCustomPriorityDialog() async {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController(text: '${_rule.priority}');
-    String? errorText;
-    showDialog(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.cardBg(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: Text(
-            l10n.rulePriorityCustomTitle,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryLabel(context),
-            ),
-          ),
-          content: TextField(
-            contextMenuBuilder: AppTextSelectionMenu.editableText,
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: TextStyle(color: AppColors.primaryLabel(context)),
-            decoration: InputDecoration(
-              hintText: l10n.rulePriorityCustomHint,
-              hintStyle: TextStyle(color: AppColors.secondaryLabel(context)),
-              fillColor: AppColors.inputBg(context),
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.separator(context)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.blue),
-              ),
-              isDense: true,
-              errorText: errorText,
-            ),
-            onChanged: (_) => setDialogState(() => errorText = null),
-          ),
-          actions: IosDialogActions.confirm(
-            dialogContext,
-            cancelText: l10n.cancel,
-            confirmText: l10n.confirm,
-            onCancel: () => Navigator.pop(dialogContext),
-            onConfirm: () {
-              final value = int.tryParse(controller.text.trim());
-              if (value == null || value < 0 || value > 500) {
-                setDialogState(() {
-                  errorText = l10n.rulePriorityCustomInvalid;
-                });
-                return;
-              }
-              setState(() {
-                _rule = _rule.copyWith(priority: value);
-              });
-              Navigator.pop(dialogContext);
-            },
-          ),
-        ),
-      ),
+    final input = await showIosInputDialog(
+      context,
+      title: l10n.rulePriorityCustomTitle,
+      initialText: '${_rule.priority}',
+      hintText: l10n.rulePriorityCustomHint,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      confirmText: l10n.confirm,
+      // 「判错不关框」这条行为从这里归组件：这一支的红不是弹层坏了，是用户还没改对，
+      // 关掉就等于让人从头再输一遍（test/widgets/rule_edit_page_test.dart 有一条专门钉它）。
+      validate: (value) {
+        final parsed = int.tryParse(value);
+        if (parsed == null || parsed < 0 || parsed > 500) {
+          return l10n.rulePriorityCustomInvalid;
+        }
+        return null;
+      },
     );
+    if (input == null) return;
+    setState(() {
+      _rule = _rule.copyWith(priority: int.parse(input));
+    });
   }
 
   /// P1-4：打开「适用应用」选择页，返回排除列表后回写规则

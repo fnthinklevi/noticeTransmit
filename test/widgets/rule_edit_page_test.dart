@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
@@ -92,7 +93,7 @@ void main() {
       await tester.tap(find.text('自定义…'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).last, '123');
+      await tester.enterText(find.byType(CupertinoTextField).last, '123');
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
 
@@ -108,7 +109,7 @@ void main() {
       await tester.tap(find.text('自定义…'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).last, '999');
+      await tester.enterText(find.byType(CupertinoTextField).last, '999');
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
 
