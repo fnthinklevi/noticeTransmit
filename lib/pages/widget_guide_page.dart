@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 /// 桌面小部件添加引导页
 ///
@@ -83,31 +84,10 @@ class WidgetGuidePage extends StatelessWidget {
     BuildContext context,
     AppLocalizations l10n,
   ) async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.widgetPinUnsupported,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: Text(
-          _currentBrandGuide(l10n),
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.6,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.ok)),
-        ],
-      ),
+    await IosDialogActions.showInfo(
+      context,
+      title: l10n.widgetPinUnsupported,
+      message: _currentBrandGuide(l10n),
     );
   }
 

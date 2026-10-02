@@ -231,7 +231,7 @@ void main() {
 
   group('确认框台账（Material AlertDialog）', () {
     // 不是一条「禁止」，而是一本**只许变薄的账**：这三条强约束之外，历史页面上的
-    // Material 对话框还很多（22 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
+    // Material 对话框还很多（片5 之后剩 19 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
     // 换完一屏就在台账里划掉一屏（#184 逐屏推进的可核对进度）。
     final materialDialogs = RegExp(r'(^|[^A-Za-z0-9_])AlertDialog\(');
 
@@ -255,6 +255,34 @@ void main() {
         reason: '台账与实际不符 ⇒ 这本账不能再当作剩余工作量',
       );
     });
+
+    test('已划掉的每一屏走的是 helper，不是自己手搭一枚 Cupertino 的', () {
+      // 划掉台账有两条路：真的走 `IosDialogActions`，或者把 `AlertDialog(` 就地改成
+      // `CupertinoAlertDialog(`。后者让上面两条守卫都绿（Material 那件确实没了），
+      // 但标题字号 / 按钮色 / 可关性重新各页一份 —— 与换根组件之前那种散落是同一样东西。
+      // 所以这一条钉的是"走哪条路"，`T90 片5` 起效。
+      const migrated = <String, String>{
+        'lib/pages/main_page_actions.dart': 'askConfirm',
+        'lib/pages/sms_monitor_settings_page.dart': 'showInfo',
+        'lib/pages/widget_guide_page.dart': 'showInfo',
+      };
+      for (final entry in migrated.entries) {
+        final src = codeByPath[entry.key];
+        expect(src, isNotNull, reason: '${entry.key} 不在了 ⇒ 本条在空转');
+        expect(
+          src!,
+          contains('IosDialogActions.${entry.value}('),
+          reason: '${entry.key} 的弹层没接到 helper（${entry.value}）⇒ 形状又要各页一份',
+        );
+        expect(
+          src,
+          isNot(contains('CupertinoAlertDialog(')),
+          reason:
+              '${entry.key} 自己手搭了一枚 Cupertino 的 ⇒ 台账划掉了，但散落的还是散落的；'
+              '请改走 IosDialogActions.${entry.value}',
+        );
+      }
+    });
   });
 }
 
@@ -266,7 +294,6 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/pages/device_state_page.dart',
   'lib/pages/fnthink_push_page.dart',
   'lib/pages/history_page.dart',
-  'lib/pages/main_page_actions.dart',
   'lib/pages/main_page_dialogs.dart',
   'lib/pages/main_page_update.dart',
   'lib/pages/more_page.dart',
@@ -274,10 +301,8 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/pages/rule_edit_widgets.dart',
   'lib/pages/rule_list_page.dart',
   'lib/pages/rule_tester_page.dart',
-  'lib/pages/sms_monitor_settings_page.dart',
   'lib/pages/temperature_page.dart',
   'lib/pages/webhook_settings_item.dart',
-  'lib/pages/widget_guide_page.dart',
   // #176 片3 新增的一枚：与下面那枚是同一个形态（多字段输入弹层），#184 换那一屏时一起换。
   // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。
   'lib/widgets/fnthink_pair_dialog.dart',

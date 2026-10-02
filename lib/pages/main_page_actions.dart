@@ -122,68 +122,14 @@ extension _MainPageActions on _MainPageState {
         onExport: () async {
           // 安全确认：导出前弹出对话框验证用户意图（UI 统一：iOS 分割线双按钮）
           final l10n = AppLocalizations.of(context);
-          final confirm = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: AppColors.cardBg(ctx),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              title: Text(
-                l10n.confirmExport,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-              content: Text(
-                l10n.exportConfirmDesc,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppColors.primaryLabel(ctx),
-                ),
-              ),
-              actions: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: Text(
-                          l10n.cancel,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.secondaryLabel(ctx),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 0.5,
-                      height: 20,
-                      color: AppColors.separator(ctx),
-                    ),
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: Text(
-                          l10n.exportBtn,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.blue,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          final confirm = await IosDialogActions.askConfirm(
+            context,
+            title: l10n.confirmExport,
+            message: l10n.exportConfirmDesc,
+            confirmText: l10n.exportBtn,
+            destructive: false,
           );
-          if (confirm != true) {
+          if (!confirm) {
             return {'success': false, 'message': l10n.exportCancelled};
           }
           final json = await _notificationService.buildExportJson(
@@ -406,40 +352,17 @@ extension _MainPageActions on _MainPageState {
     if (!decision.prompt || !mounted) return;
 
     final l10n = AppLocalizations.of(context);
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.roleGuideTitle,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: Text(
-          l10n.roleGuideBody(decision.count),
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.5,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.spaceEvenly,
-        actions: IosDialogActions.confirm(
-          ctx,
-          cancelText: l10n.roleGuideLater,
-          confirmText: l10n.roleGuideAction,
-          onCancel: () => Navigator.pop(ctx, false),
-          onConfirm: () => Navigator.pop(ctx, true),
-        ),
-      ),
+    final go = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.roleGuideTitle,
+      message: l10n.roleGuideBody(decision.count),
+      confirmText: l10n.roleGuideAction,
+      cancelText: l10n.roleGuideLater,
+      destructive: false,
     );
     // 点「以后再说」也算提示过 —— 它的字面意思就是"以后不要再弹"。
     await prefs.setString(ChannelRoleGuide.seenVersionKey, version);
-    if (go == true) await _openChannelStatusPage();
+    if (go) await _openChannelStatusPage();
   }
 
   /// 通道状态页（T10）：从首页「当前推送通道」那张卡点进来。

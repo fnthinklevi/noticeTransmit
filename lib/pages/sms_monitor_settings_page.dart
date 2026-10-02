@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/sms_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 /// 短信/来电监听设置页：总开关、监听卡选择（同时作用于短信和电话）、验证码开关
 class SmsMonitorSettingsPage extends StatefulWidget {
@@ -43,36 +44,10 @@ class _SmsMonitorSettingsPageState extends State<SmsMonitorSettingsPage> {
     // 选择指定卡时提醒：部分短信（通知兜底链路）无法识别所属卡，设置对其无效
     if (value != 'all' && mounted) {
       final l10n = AppLocalizations.of(context);
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.cardBg(ctx),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          title: Text(
-            l10n.simFilterRemindTitle,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryLabel(ctx),
-            ),
-          ),
-          content: Text(
-            l10n.simFilterRemindMsg,
-            style: TextStyle(
-              fontSize: 14,
-              height: 1.5,
-              color: AppColors.primaryLabel(ctx),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(l10n.ok),
-            ),
-          ],
-        ),
+      await IosDialogActions.showInfo(
+        context,
+        title: l10n.simFilterRemindTitle,
+        message: l10n.simFilterRemindMsg,
       );
     }
   }

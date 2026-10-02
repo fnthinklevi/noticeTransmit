@@ -4,10 +4,15 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 
-/// 确认弹窗的统一入口 —— 两条路，形状不同但**都只有一个作者**：
+/// 确认弹窗的统一入口 —— 三条路，形状不同但**都只有一个作者**：
 ///
 /// - [askConfirm]：**删除类**一律走它。T06 之后长成 `CupertinoAlertDialog`（base.md §UI 强约束），
 ///   返回 `true` 才算用户确认。
+/// - [showInfo]：**只读说明框**（一句标题 + 一段正文 + 一个「好」）走它。T90 片5 补的这一条
+///   不是为了少写四行，而是为了堵一个后门 —— 台账划掉一个文件有两种办法：真的走 helper，
+///   或者自己手搭一枚 `CupertinoAlertDialog`。后者过了风格闸（Material 那件确实没了），
+///   但标题字号、按钮色、`barrierDismissible` 会重新各页一份，与换根组件之前的散是同一样东西。
+///   守卫见 `ui_style_guards_test.dart`「划掉台账的那几屏必须走 helper」。
 /// - [confirm]：给仍在自己搭 `AlertDialog` 的历史页面当 actions 构建器（台账见
 ///   `test/architecture/ui_style_guards_test.dart`，只许缩短）。布局：0.5px 竖分割线 +
 ///   两等分按钮（取消 = 次要文字色；确认 = 蓝色，破坏性 = 红色）。
@@ -16,6 +21,33 @@ import '../theme/app_colors.dart';
 /// `CupertinoAlertDialog` 走 `DialogRoute`，不是 `Dialog` 的子类。
 class IosDialogActions {
   IosDialogActions._();
+
+  /// 单动作的说明框（T90 片5）。不返回什么 —— 它没有任何"用户的选择"要带走。
+  static Future<void> showInfo(
+    BuildContext context, {
+    required String title,
+    required String message,
+    String? okText,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(message),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(okText ?? l10n.ok),
+          ),
+        ],
+      ),
+    );
+  }
 
   /// 破坏性动作的**统一确认框**（T06）。返回 true = 用户确认执行。
   ///
