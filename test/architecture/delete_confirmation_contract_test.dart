@@ -39,6 +39,14 @@ void main() {
     'lib/pages/temperature_page.dart': ['Future<void> _confirmDeleteRule('],
     'lib/pages/rule_list_page.dart': ['Future<void> _deleteRule('],
     'lib/pages/keywords_page.dart': ['Future<void> _removeKeyword('],
+    // T90 片13/#203：历史页这两条都是**一次点下去动一批**的路径。
+    // 「批量重推」逐条再发一遍（对面收到 N 发，撤回不了）；「清空全部」是无差别删本机记录。
+    // 其余三档（今天 / 最近 10 / 最近 50）不在此列 —— 那一发选档本身就是确认，
+    // 唯独「全部」没有回滚可言，所以只有它多问一次。
+    'lib/pages/history_page.dart': [
+      'Future<void> _runBatchPush(',
+      'Future<void> _showClearOptions(',
+    ],
     // 幻念推送页：换一枚地址码 = 这台设备在所有对端白名单里那一串当场作废，
     // 后果与删一条通道同级（而更不可逆：对面不会报错，只是再也推不进来）。
     // 第二条是 T42 第五片：同意一条配对请求 = 把一台陌生设备写进本机名单并授一档，
@@ -138,6 +146,10 @@ void main() {
         'lib/pages/temperature_page.dart': ['_service.deleteRule('],
         'lib/pages/rule_list_page.dart': ['_rules.removeWhere('],
         'lib/pages/keywords_page.dart': ['_blacklist.remove('],
+        // #203：只登记「无差别清空」那一句。批量重推走的是 `widget.onPushNow!(record)`，
+        // 而这个方法还有一条**单条重推**的入口（历史行上那一下）—— 单条是用户指着一条按的，
+        // 不该被二次确认按住，所以它不能登记成「只出现一次」的 mutator，否则那条正常入口当场红。
+        'lib/pages/history_page.dart': ['widget.onClear('],
         'lib/pages/fnthink_push_page.dart': [
           'credentials.resetAddressCode(',
           '_coordinator.confirmPairing(',

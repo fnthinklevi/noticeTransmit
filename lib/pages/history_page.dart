@@ -2578,6 +2578,8 @@ class _HistoryPageState extends State<HistoryPage> {
         break;
       case 'all':
         // T90 片13：破坏性动作一律走统一确认框（T06 那条判据：确认写在执行那一步里）。
+        // #203：形状换成早退 —— 「弹了框但没按答案办」这一类由咽喉清单那条契约钉
+        // （它认的是**同一个标识符被否定过**，不是某种写法）。
         final confirm = await IosDialogActions.askConfirm(
           context,
           title: l10n.confirmClear,
@@ -2588,10 +2590,9 @@ class _HistoryPageState extends State<HistoryPage> {
           // 旧的 Material showDialog 默认点得穿，点外面 = 不清 ⇒ 照旧保留
           barrierDismissible: true,
         );
-        if (confirm) {
-          await widget.onClear();
-          deleted = widget.records.length;
-        }
+        if (!confirm) break;
+        await widget.onClear();
+        deleted = widget.records.length;
         break;
     }
     if (deleted > 0 && mounted) {
