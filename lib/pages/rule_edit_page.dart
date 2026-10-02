@@ -12,6 +12,7 @@ import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
 import 'package:notice_transmit/widgets/ios_dialog_actions.dart';
+import 'package:notice_transmit/widgets/ios_form_dialog.dart';
 
 // R3 拆分：iOS 选择器/条件行/动作行组件与条件/动作编辑对话框（part 共享私有类名）
 part 'rule_edit_widgets.dart';

@@ -375,81 +375,44 @@ class _ConditionAddDialogState extends State<_ConditionAddDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      title: Text(
-        l10n.ruleAddConditionTitle,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryLabel(context),
+    return IosFormDialog(
+      title: l10n.ruleAddConditionTitle,
+      cancelText: l10n.cancel,
+      submitText: l10n.add,
+      onSubmit: _submit,
+      fields: [
+        _IosSelectField<ConditionType>(
+          label: l10n.ruleConditionType,
+          value: _selectedType,
+          options: ConditionType.values
+              .map((t) => _IosOption(t, l10n.conditionTypeLabel(t)))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedType = value;
+            });
+          },
         ),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _IosSelectField<ConditionType>(
-              label: l10n.ruleConditionType,
-              value: _selectedType,
-              options: ConditionType.values
-                  .map((t) => _IosOption(t, l10n.conditionTypeLabel(t)))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedType = value;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildTextFieldSection(
-              context,
-              l10n.ruleConditionValue,
-              _selectedType != null
-                  ? l10n.conditionTypeHint(_selectedType!)
-                  : '',
-              (value) => _value = value,
-              _valueController,
-            ),
-            const SizedBox(height: 16),
-            _IosSelectField<LogicOperator>(
-              label: l10n.ruleLogic,
-              value: _logic,
-              options: LogicOperator.values
-                  .map((l) => _IosOption(l, l10n.logicLabel(l)))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _logic = value!;
-                });
-              },
-            ),
-          ],
+        const SizedBox(height: 16),
+        _buildTextFieldSection(
+          context,
+          l10n.ruleConditionValue,
+          _selectedType != null ? l10n.conditionTypeHint(_selectedType!) : '',
+          (value) => _value = value,
+          _valueController,
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            l10n.cancel,
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: _submit,
-          child: Text(
-            l10n.add,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.blue,
-            ),
-          ),
+        const SizedBox(height: 16),
+        _IosSelectField<LogicOperator>(
+          label: l10n.ruleLogic,
+          value: _logic,
+          options: LogicOperator.values
+              .map((l) => _IosOption(l, l10n.logicLabel(l)))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _logic = value!;
+            });
+          },
         ),
       ],
     );
@@ -547,79 +510,44 @@ class _ConditionEditDialogState extends State<_ConditionEditDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      title: Text(
-        l10n.ruleEditCondition,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryLabel(context),
+    return IosFormDialog(
+      title: l10n.ruleEditCondition,
+      cancelText: l10n.cancel,
+      submitText: l10n.save,
+      onSubmit: _submit,
+      fields: [
+        _IosSelectField<ConditionType>(
+          label: l10n.ruleConditionType,
+          value: _type,
+          options: ConditionType.values
+              .map((t) => _IosOption(t, l10n.conditionTypeLabel(t)))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _type = value!;
+            });
+          },
         ),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _IosSelectField<ConditionType>(
-              label: l10n.ruleConditionType,
-              value: _type,
-              options: ConditionType.values
-                  .map((t) => _IosOption(t, l10n.conditionTypeLabel(t)))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _type = value!;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildTextFieldSection(
-              context,
-              l10n.ruleConditionValue,
-              l10n.conditionTypeHint(_type),
-              (value) => _value = value,
-              _valueController,
-            ),
-            const SizedBox(height: 16),
-            _IosSelectField<LogicOperator>(
-              label: l10n.ruleLogic,
-              value: _logic,
-              options: LogicOperator.values
-                  .map((l) => _IosOption(l, l10n.logicLabel(l)))
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _logic = value!;
-                });
-              },
-            ),
-          ],
+        const SizedBox(height: 16),
+        _buildTextFieldSection(
+          context,
+          l10n.ruleConditionValue,
+          l10n.conditionTypeHint(_type),
+          (value) => _value = value,
+          _valueController,
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            l10n.cancel,
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: _submit,
-          child: Text(
-            l10n.save,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.blue,
-            ),
-          ),
+        const SizedBox(height: 16),
+        _IosSelectField<LogicOperator>(
+          label: l10n.ruleLogic,
+          value: _logic,
+          options: LogicOperator.values
+              .map((l) => _IosOption(l, l10n.logicLabel(l)))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _logic = value!;
+            });
+          },
         ),
       ],
     );
@@ -745,82 +673,47 @@ class _ActionAddDialogState extends State<_ActionAddDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      title: Text(
-        l10n.ruleAddActionTitle,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryLabel(context),
+    return IosFormDialog(
+      title: l10n.ruleAddActionTitle,
+      cancelText: l10n.cancel,
+      submitText: l10n.add,
+      onSubmit: _submit,
+      fields: [
+        _IosSelectField<ActionType>(
+          label: l10n.ruleActionType,
+          value: _selectedType,
+          options: ActionType.values
+              .map(
+                (t) => _IosOption(
+                  t,
+                  l10n.actionTypeLabel(t),
+                  l10n.actionTypeDesc(t),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedType = value;
+            });
+          },
         ),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _IosSelectField<ActionType>(
-              label: l10n.ruleActionType,
-              value: _selectedType,
-              options: ActionType.values
-                  .map(
-                    (t) => _IosOption(
-                      t,
-                      l10n.actionTypeLabel(t),
-                      l10n.actionTypeDesc(t),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedType = value;
-                });
-              },
-            ),
-            if (_selectedType == ActionType.delay) ...[
-              const SizedBox(height: 16),
-              _DelayParamsFields(
-                delaySecondsController: _delaySecondsController,
-                scheduleTimeController: _scheduleTimeController,
-              ),
-            ],
-            if (_selectedType == ActionType.merge) ...[
-              const SizedBox(height: 16),
-              _MergeParamsFields(
-                windowController: _mergeWindowController,
-                maxItemsController: _mergeMaxItemsController,
-                groupByTitle: _mergeGroupByTitle,
-                onGroupByTitleChanged: (v) =>
-                    setState(() => _mergeGroupByTitle = v),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            l10n.cancel,
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.secondaryLabel(context),
-            ),
+        if (_selectedType == ActionType.delay) ...[
+          const SizedBox(height: 16),
+          _DelayParamsFields(
+            delaySecondsController: _delaySecondsController,
+            scheduleTimeController: _scheduleTimeController,
           ),
-        ),
-        TextButton(
-          onPressed: _submit,
-          child: Text(
-            l10n.add,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.blue,
-            ),
+        ],
+        if (_selectedType == ActionType.merge) ...[
+          const SizedBox(height: 16),
+          _MergeParamsFields(
+            windowController: _mergeWindowController,
+            maxItemsController: _mergeMaxItemsController,
+            groupByTitle: _mergeGroupByTitle,
+            onGroupByTitleChanged: (v) =>
+                setState(() => _mergeGroupByTitle = v),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -910,82 +803,47 @@ class _ActionEditDialogState extends State<_ActionEditDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      title: Text(
-        l10n.ruleEditAction,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryLabel(context),
+    return IosFormDialog(
+      title: l10n.ruleEditAction,
+      cancelText: l10n.cancel,
+      submitText: l10n.save,
+      onSubmit: _submit,
+      fields: [
+        _IosSelectField<ActionType>(
+          label: l10n.ruleActionType,
+          value: _type,
+          options: ActionType.values
+              .map(
+                (t) => _IosOption(
+                  t,
+                  l10n.actionTypeLabel(t),
+                  l10n.actionTypeDesc(t),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _type = value!;
+            });
+          },
         ),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _IosSelectField<ActionType>(
-              label: l10n.ruleActionType,
-              value: _type,
-              options: ActionType.values
-                  .map(
-                    (t) => _IosOption(
-                      t,
-                      l10n.actionTypeLabel(t),
-                      l10n.actionTypeDesc(t),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() {
-                  _type = value!;
-                });
-              },
-            ),
-            if (_type == ActionType.delay) ...[
-              const SizedBox(height: 16),
-              _DelayParamsFields(
-                delaySecondsController: _delaySecondsController,
-                scheduleTimeController: _scheduleTimeController,
-              ),
-            ],
-            if (_type == ActionType.merge) ...[
-              const SizedBox(height: 16),
-              _MergeParamsFields(
-                windowController: _mergeWindowController,
-                maxItemsController: _mergeMaxItemsController,
-                groupByTitle: _mergeGroupByTitle,
-                onGroupByTitleChanged: (v) =>
-                    setState(() => _mergeGroupByTitle = v),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            l10n.cancel,
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.secondaryLabel(context),
-            ),
+        if (_type == ActionType.delay) ...[
+          const SizedBox(height: 16),
+          _DelayParamsFields(
+            delaySecondsController: _delaySecondsController,
+            scheduleTimeController: _scheduleTimeController,
           ),
-        ),
-        TextButton(
-          onPressed: _submit,
-          child: Text(
-            l10n.save,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.blue,
-            ),
+        ],
+        if (_type == ActionType.merge) ...[
+          const SizedBox(height: 16),
+          _MergeParamsFields(
+            windowController: _mergeWindowController,
+            maxItemsController: _mergeMaxItemsController,
+            groupByTitle: _mergeGroupByTitle,
+            onGroupByTitleChanged: (v) =>
+                setState(() => _mergeGroupByTitle = v),
           ),
-        ),
+        ],
       ],
     );
   }

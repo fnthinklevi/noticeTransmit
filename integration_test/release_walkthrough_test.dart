@@ -1432,18 +1432,25 @@ void main() {
             reason: '规则编辑页没出现「添加条件 / 添加动作」两个按钮',
           );
           await _tap(tester, addButtons, '规则编辑→添加条件(按钮)');
+          // T90 片12：这枚表单弹层换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 等的那一层跟着换。
+          // ⚠ 上一轮只改了下面那处 `_tap` 的定位、漏了这一处 `_waitUntil` ⇒ 闸门 3/4 当场红在 5.7
+          //   （`Found 0 widgets with type "AlertDialog"`）。**同一枚弹层在一个步骤里被两处引用时，
+          //   换件必须一次改全**，只改"点的那处"会让等待先超时，后面的断言根本没跑到。
           await _waitUntil(
             tester,
-            find.byType(AlertDialog),
+            find.byType(CupertinoAlertDialog),
             '条件类型对话框',
             seconds: 10,
           );
           // 条件类型是"点开再选"的 iOS 选择器，快照证实选完**连条件对话框也一起关了**
           // （dialog=false）⇒ 不再追这层嵌套弹层，改为断言对话框三要素齐备后取消；
           // 条件能否真落盘由桌面 widget 用例守（跑得快、可断言到控件级）。
+          // T90 片12：这枚表单弹层换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 定位跟着换。
+          // ⚠ 同文件里上面那处 `_in(AlertDialog, find.text('添加'))`（温度规则对话框）**不换** ——
+          //   温度/电量/设备状态三页的表单框这一片没动，仍是 Material 那件；照着这里一起改就会红。
           await _tap(
             tester,
-            _in(AlertDialog, find.text('条件类型')),
+            _in(CupertinoAlertDialog, find.text('条件类型')),
             '条件对话框→条件类型选择器',
           );
           await _settle(tester);
@@ -1541,12 +1548,7 @@ void main() {
           _diagnose(tester, '设备名称弹层未出现');
           fail('设备名称弹层里没有输入框（见上一条 GATE-DIAG 的 pages/texts）');
         }
-        await _type(
-          tester,
-          find.byType(CupertinoTextField),
-          '闸门改名',
-          '设备名称输入框',
-        );
+        await _type(tester, find.byType(CupertinoTextField), '闸门改名', '设备名称输入框');
         // 确认按钮的文案是 l10n.save（"保存"），不是"确定" —— 出处是 `_showDeviceNameDialog`
         // 里那句 confirmText，别照旧行号找（改完文件行号就漂）。
         await _tap(
@@ -2362,10 +2364,12 @@ void _diagnose(WidgetTester t, String where) {
     final fields = <String>[
       for (final w in t.widgetList<TextField>(find.byType(TextField)))
         '${w.decoration?.hintText ?? "-"}=${w.controller?.text ?? ""}'
-        '${w.obscureText == true ? "(口令)" : ""}',
-      for (final w in t.widgetList<CupertinoTextField>(find.byType(CupertinoTextField)))
+            '${w.obscureText == true ? "(口令)" : ""}',
+      for (final w in t.widgetList<CupertinoTextField>(
+        find.byType(CupertinoTextField),
+      ))
         '${w.placeholder ?? "-"}=${w.controller?.text ?? ""}'
-        '${w.obscureText == true ? "(口令)" : ""}',
+            '${w.obscureText == true ? "(口令)" : ""}',
     ].join(' | ');
     final texts = t
         .widgetList(find.byType(Text))
@@ -2618,12 +2622,7 @@ Future<void> _type(WidgetTester t, Finder f, String text, String why) async {
   //   两件外壳底下都是同一个 `EditableText`，读密文开关就读它，别读外壳。
   final obscured = t
       .widget<EditableText>(
-        find
-            .descendant(
-              of: f.first,
-              matching: find.byType(EditableText),
-            )
-            .first,
+        find.descendant(of: f.first, matching: find.byType(EditableText)).first,
       )
       .obscureText;
   await _withMissNet(t, '$why（聚焦那一下）', () => t.tap(f.first));

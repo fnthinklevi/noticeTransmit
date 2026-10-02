@@ -287,6 +287,9 @@ void main() {
             'IosDialogActions.showPermissionGuide(',
         'lib/pages/rule_edit_page.dart':
             'IosDialogActions.showPermissionGuide(',
+        // 片12：新增/编辑条件、新增/编辑动作这四枚表单弹层的外壳原本是各写一遍的
+        // （圆角、背景色、按钮顺序、字号存了四份），现在共用 `IosFormDialog`。
+        'lib/pages/rule_edit_widgets.dart': 'IosFormDialog(',
       };
       for (final entry in migrated.entries) {
         final src = codeByPath[entry.key];
@@ -422,6 +425,7 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
   'lib/widgets/ios_dialog_actions.dart',
   'lib/widgets/ios_option_picker.dart',
   'lib/widgets/ios_input_dialog.dart',
+  'lib/widgets/ios_form_dialog.dart',
 };
 
 /// 还长着 Material `AlertDialog` 的文件（T83 逐屏换的台账，同上只许缩短）。
@@ -433,7 +437,6 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/pages/main_page_dialogs.dart',
   'lib/pages/main_page_update.dart',
   'lib/pages/rule_edit_page.dart',
-  'lib/pages/rule_edit_widgets.dart',
   'lib/pages/rule_list_page.dart',
   'lib/pages/rule_tester_page.dart',
   'lib/pages/temperature_page.dart',
