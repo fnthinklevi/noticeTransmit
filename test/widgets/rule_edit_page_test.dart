@@ -2,7 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/cupertino.dart';
 // 值输入格现在仍是 Material 的 `TextField`（`_buildTextFieldSection`，属于还没迁的那一屏）
 // ⇒ 按类型找它得引 material 的这一名；用 show 限定，避免与 cupertino 的同名件冲突。
-import 'package:flutter/material.dart' show InkWell, TextButton, TextField;
+import 'package:flutter/material.dart'
+    show IconButton, Icons, InkWell, TextButton, TextField;
 import 'package:notice_transmit/pages/rule_edit_page.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
@@ -250,6 +251,127 @@ void main() {
         find.text('推送通知'),
         findsWidgets,
         reason: '动作行没出现 ⇒ 提交链断了（类型标签在行内与别处都可能出现，故 findsWidgets）',
+      );
+    });
+  });
+
+  // #201：上面那组只钉了「新增」那两枚。`ruleEditCondition` / `ruleEditAction` 这两枚表单
+  // 在 test/ 与 integration_test/ 里实测零命中（grep 已核）⇒ 换外壳那一片对它们同样是空白。
+  // 「编辑」比「新增」多一条会静默坏掉的判据：**取消不许写回**，而保存要真的替换那一行。
+  group('编辑条件/编辑动作真的写回', () {
+    // 一条件 + 一动作：页面上正好两颗编辑钮，文档顺序＝条件在前、动作在后
+    NotificationRule oneEach() => NotificationRule(
+      id: 'r1',
+      name: 'R',
+      conditions: [
+        Condition(id: 'c1', type: ConditionType.titleContains, value: '验证码'),
+      ],
+      actions: [RuleAction(id: 'a1', type: ActionType.push)],
+    );
+
+    Future<void> openEditForm(
+      WidgetTester tester, {
+      required bool action,
+    }) async {
+      await tester.pumpWidget(_buildApp(RuleEditPage(rule: oneEach())));
+      await tester.pumpAndSettle();
+      final editBtns = find.widgetWithIcon(IconButton, Icons.edit);
+      expect(editBtns, findsNWidgets(2), reason: '条件行与动作行各应有一颗编辑钮');
+      final target = action ? editBtns.last : editBtns.first;
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsOneWidget,
+        reason:
+            '${action ? '编辑动作' : '编辑条件'}表单没出现 ⇒ 那颗编辑钮没接到 _editAction/_editCondition',
+      );
+    }
+
+    Future<void> submitForm(
+      WidgetTester tester, {
+      required String button,
+    }) async {
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.text(button),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('编辑条件：改值后按「保存」⇒ 那一行真的换成新值，旧值不再出现', (tester) async {
+      await openEditForm(tester, action: false);
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.byType(TextField),
+        ),
+        '登录提醒',
+      );
+      await submitForm(tester, button: '保存');
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(
+        find.text('登录提醒'),
+        findsOneWidget,
+        reason: '新值没出现在页面上 ⇒ onSave 收到了却什么都没写',
+      );
+      expect(
+        find.text('验证码'),
+        findsNothing,
+        reason: '旧值还在 ⇒ 写回的是「多加一条」而不是「替换那一条」',
+      );
+    });
+
+    testWidgets('编辑条件：按「取消」⇒ 那一行还是旧值（取消不许写回）', (tester) async {
+      await openEditForm(tester, action: false);
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.byType(TextField),
+        ),
+        '登录提醒',
+      );
+      await submitForm(tester, button: '取消');
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(find.text('验证码'), findsOneWidget);
+      expect(
+        find.text('登录提醒'),
+        findsNothing,
+        reason: '取消那条路也把值写进去了 ⇒ 用户以为没改，规则却已经改了',
+      );
+    });
+
+    testWidgets('编辑动作：换类型后按「保存」⇒ 那一行真的变成新档位', (tester) async {
+      await openEditForm(tester, action: true);
+
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(CupertinoAlertDialog),
+              matching: find.byType(InkWell),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('ios-picker-ActionType.delay')),
+      );
+      await tester.pumpAndSettle();
+      await submitForm(tester, button: '保存');
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(
+        find.text('延迟推送'),
+        findsWidgets,
+        reason: '动作行的档位没换 ⇒ 编辑那一路的 onSave 断了',
       );
     });
   });
