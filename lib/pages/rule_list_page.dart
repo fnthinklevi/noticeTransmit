@@ -410,80 +410,69 @@ class _RuleListPageState extends State<RuleListPage> {
     }
   }
 
-  void _showGuideDialog() {
+  /// 规则引导。T90 片26：收进 `IosDialogActions.showExplainer`。
+  ///
+  /// ⚠ **为什么不是 `showInfo`**：`showInfo` 的正文只能是「一句」（`Text(message)`），
+  /// 而这一枚要容纳一组「小标题 + 描述」条目与一个提示框 ⇒ 压进它就得给 `message` 开一个
+  /// `Widget?` 口，那样的参数面开始能接任何东西。
+  ///
+  /// ⚠ **`barrierDismissible: false` 是旧行为**（它强制通过）—— 引导是「读完才行」的东西，
+  /// 但新装配点的默认是**可点穿**（照 Material `showDialog`）。直接照抄会把它变成可以不看完就走开 ⇒
+  /// 明确传 `false`，把“看了片屏就算看过”这件事保留在原地。
+  Future<void> _showGuideDialog() {
     final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
+    return IosDialogActions.showExplainer(
+      context,
+      title: l10n.ruleGuideTitle,
+      gotItText: l10n.ruleGuideGotIt,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.lightbulb_outline,
-              color: AppColors.systemYellow(context),
-            ),
-            const SizedBox(width: 8),
-            Text(l10n.ruleGuideTitle),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 12),
-              _buildGuideItem(
-                context,
-                Icons.plus_one,
-                AppColors.systemBlue(context),
-                l10n.ruleGuideAdd,
-                l10n.ruleGuideAddDesc,
-              ),
-              const SizedBox(height: 16),
-              _buildGuideItem(
-                context,
-                Icons.filter_alt,
-                AppColors.systemOrange(context),
-                l10n.ruleGuideCondition,
-                l10n.ruleGuideConditionDesc,
-              ),
-              const SizedBox(height: 16),
-              _buildGuideItem(
-                context,
-                Icons.play_arrow,
-                AppColors.systemGreen(context),
-                l10n.ruleGuideAction,
-                l10n.ruleGuideActionDesc,
-              ),
-              const SizedBox(height: 16),
-              _buildGuideItem(
-                context,
-                Icons.toggle_on,
-                AppColors.systemPurple(context),
-                l10n.ruleGuideEnable,
-                l10n.ruleGuideEnableDesc,
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.systemBlue(context).withAlpha(20),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  l10n.ruleGuideTip,
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-            ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildGuideItem(
+            context,
+            Icons.plus_one,
+            AppColors.systemBlue(context),
+            l10n.ruleGuideAdd,
+            l10n.ruleGuideAddDesc,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.ruleGuideGotIt),
+          const SizedBox(height: 16),
+          _buildGuideItem(
+            context,
+            Icons.filter_alt,
+            AppColors.systemOrange(context),
+            l10n.ruleGuideCondition,
+            l10n.ruleGuideConditionDesc,
+          ),
+          const SizedBox(height: 16),
+          _buildGuideItem(
+            context,
+            Icons.play_arrow,
+            AppColors.systemGreen(context),
+            l10n.ruleGuideAction,
+            l10n.ruleGuideActionDesc,
+          ),
+          const SizedBox(height: 16),
+          _buildGuideItem(
+            context,
+            Icons.toggle_on,
+            AppColors.systemPurple(context),
+            l10n.ruleGuideEnable,
+            l10n.ruleGuideEnableDesc,
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.systemBlue(context).withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              l10n.ruleGuideTip,
+              style: const TextStyle(fontSize: 13),
+            ),
           ),
         ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }

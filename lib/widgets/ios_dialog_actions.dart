@@ -221,6 +221,38 @@ class IosDialogActions {
     return picked == true;
   }
 
+  /// 「长文说明型」那一枚（T90 片26）：一段说明 + **一颗**「知道了」。
+  ///
+  /// 与 [showInfo] 的差别：`showInfo` 的正文是**一句**（`Text(message)`），而这一枚要容纳
+  /// 一组「小标题 + 描述」的条目 + 一个提示框（T90 片26 的规则引导）。
+  /// 把它压进 `showInfo` 就得给 `message` 开一个 `Widget?` 口 —— 那样的参数面开始能接
+  /// 任何东西，而本来只能表达「一句说明」。
+  static Future<void> showExplainer(
+    BuildContext context, {
+    required String title,
+    required Widget body,
+    String? gotItText,
+    bool barrierDismissible = true,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return showCupertinoDialog<void>(
+      context: context,
+      // ⚠ 默认开着（照旧那枚 Material `showDialog` 的行为）；说明型应该先占屏幕读完。
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(padding: const EdgeInsets.only(top: 8), child: body),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(gotItText ?? l10n.ok),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 「三选一决策」那一枚（T90 片25）。返回用户选的那一档（`ConflictChoice`），
   /// 取消或点外面返回 `null`。
   ///
