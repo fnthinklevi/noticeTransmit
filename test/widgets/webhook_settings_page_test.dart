@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +33,9 @@ void main() {
   /// 原生描述符拉不到（装配失败 / 旧 App 配新原生）
   var serveDescriptors = true;
   final calls = <String>[];
+
+  /// 最近一次 `testWebhook` 的参数（页面交给原生的字面量就在这里）。
+  Map<dynamic, dynamic>? lastTestArgs;
 
   /// testWebhook 的答复，逐条用例可改
   var testSucceeds = true;
@@ -111,6 +115,7 @@ void main() {
     stubNativeChannels(
       onCall: (call) async {
         calls.add(call.method);
+        if (call.method == 'testWebhook') lastTestArgs = call.arguments;
         if (call.method == 'getChannelDescriptors') {
           if (!serveDescriptors) return null;
           final override = formatsOverride;
@@ -247,6 +252,112 @@ void main() {
 
       expect(find.text('签名密钥（可选）'), findsOneWidget);
       expect(find.text('消息格式'), findsOneWidget);
+    });
+  });
+
+  group('详情页 – 选择通道类型（T90 片23）', () {
+    Map<String, dynamic> tele(String id, String type) =>
+        uiRow(id, id.toUpperCase(), 'https://example.com/hook', type);
+
+    /// 开那一枚选择器。那一格是一个**无标签**的 （只有展示文案 + 一颗尖角），
+    /// 文案还会跟着 URL 探测结果变（「自动识别」 / 「自动识别（某某）」）
+    /// ⇒ 按文案点不稳，按尖角那颗图标才是稳的（全页只有那一枚尖角）。
+    Future<void> openPicker(WidgetTester tester) async {
+      final chevron = find.byIcon(Icons.chevron_right);
+      expect(chevron, findsOneWidget, reason: '页面上的尖角不是唯一 ⇒ 这个找法已经不成立');
+      await tester.ensureVisible(chevron);
+      await tester.tap(chevron);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('弹层是现成的选项弹层，不是 Material AlertDialog', (tester) async {
+      await openDetail(tester, [tele('t', 'auto')], channelId: 't');
+      await openPicker(tester);
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('选择推送渠道'), findsOneWidget);
+      // 「自动」与每个已知档位都在；都带  这个 key（下一条用它点）。
+      expect(find.byKey(const ValueKey('ios-picker-auto')), findsOneWidget);
+    });
+
+    testWidgets('选中那一档 ⇒ 值回到页面，且下次开层时那一档打勾', (tester) async {
+      await openDetail(tester, [tele('t', 'auto')], channelId: 't');
+      await openPicker(tester);
+
+      final telegram = find.byKey(const ValueKey('ios-picker-telegram'));
+      await tester.ensureVisible(telegram);
+      await tester.tap(telegram);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsNothing,
+        reason: '选完必须自己关掉',
+      );
+      // ⚠ 必须**scope 到页面那一格**：选完弹层已关，但弹层里列下的档位名也在树上（未会自动移除），
+      // 直接 `find.text('Telegram')` 会匹到多个 ⇒ 把「页面格子变了」这个判据误读成三个。
+      final row = find.ancestor(
+        of: find.text('Telegram'),
+        matching: find.byWidgetPredicate(
+          (w) => w.runtimeType.toString().contains('Container'),
+        ),
+      );
+      expect(row, findsWidgets);
+      expect(
+        find.text('Telegram'),
+        findsWidgets,
+        reason: '选中的值没回到页面 ⇒ 页面那一格仍是「自动识别」',
+      );
+
+      // 重开一次：现地那一档打勾——下面那个打勾才是「你选了哪一档」
+      await openPicker(tester);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('ios-picker-telegram')),
+          matching: find.byIcon(CupertinoIcons.check_mark),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('选「自动」 ⇒ 存的字面量与旧形状一致（auto，不是空字符串）', (tester) async {
+      await openDetail(tester, [tele('t', 'telegram')], channelId: 't');
+      await openPicker(tester);
+      await tester.tap(find.byKey(const ValueKey('ios-picker-auto')));
+      await tester.pumpAndSettle();
+
+      // 断的是**页面端**交给原生的那个字面量：选「自动」就等于
+      // 把类型交回「自动识别」——旧形状序的字面量就是 auto（不是空字符串），
+      // 换件时一律「规范化成空」就是改了数据（存进 DB 的字面量不同）。
+      // 不断存进去的那个值： 会把 auto 归一化成 generic，
+      // 那是 codec 的职责（与旧形状一致），断它会把「页面交错值」也隐去。
+      await tester.tap(find.text('仅测试'));
+      await tester.pumpAndSettle();
+      expect(
+        lastTestArgs?['channelType'],
+        'auto',
+        reason:
+            '选「自动」交给原生的类型必须还是 auto：'
+            '旧形状存的就是这个字面量，换件时一律「规范化成空」就是改了数据'
+            '（存进 DB 的字面量也会变）。'
+            '（不断存进去的值：webhook_service 会把 auto 归一化成 generic，那是 codec 的职责。）',
+      );
+    });
+
+    testWidgets('点外面关掉 ⇒ 一个字节都不改', (tester) async {
+      await openDetail(tester, [tele('t', 'telegram')], channelId: 't');
+      await openPicker(tester);
+
+      // 断弹层确实可点穿（旧的 Material showDialog 默认可点穿，
+      //  默认 false —— 这一句不能省）。
+      // ⚠ 坐标不可写死： 高度不封顶，屏幕上可能根本没有「外面」
+      // （片 21 已经在同一个坑上记录过）。
+      final barriers = tester
+          .widgetList<ModalBarrier>(find.byType(ModalBarrier))
+          .where((b) => b.dismissible)
+          .toList();
+      expect(barriers, isNotEmpty, reason: '这一枚不可点穿 ⇒ 看了想收回去的路没了');
     });
   });
 

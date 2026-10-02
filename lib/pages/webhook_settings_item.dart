@@ -541,98 +541,59 @@ extension _WebhookFormMethods on _WebhookSettingsPageState {
   }
 
   /// 渠道类型选择弹窗（与主题/语言选择同款 iOS 风格）
-  void _showChannelTypePicker(BuildContext context) {
+  ///
+  /// T90 片23：这一枚收进**现成的** `showIosOptionPicker` —— 形状一模一样
+  /// （标题 + 若干行 + 行首图标 + 选中打勾 + 选中回一个值），与片6 迁过的主题/语言
+  /// 那一族是同一件。`IosPickerOption` 的 `icon` / `iconColor` 两个口正好对上旧的
+  /// `_buildTypeOption` 那一枚彩色圆底图标。
+  ///
+  /// ⚠ **那一处圆底要跟着搬**（旧形状：36×36、圆角 8、底色是该类型色 15% 透明）。
+  /// `IosPickerOption` 画的是**裸图标**，不画那个底 ⇒ 换件后图标会"浮"在文字旁边，
+  /// 与主题/语言那两枚一致，但**与这一屏换件前不一致**。这是形状取舍，由维护者拍板
+  /// （要么就这样，要么给 `IosPickerOption` 补一个带底色的口）；先按现状换，不自己改样式。
+  Future<void> _showChannelTypePicker(BuildContext context) async {
     final l10n = AppLocalizations.of(context);
     final detectedSlug = WebhookChannel.detectTypeFromUrl(
       _urlController.text,
     ).value;
 
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          l10n.selectChannelType,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 4),
-                _buildTypeOption(
-                  context,
-                  icon: Icons.auto_awesome,
-                  color: AppColors.blue,
-                  label: detectedSlug == 'generic'
-                      ? l10n.channelTypeAuto
-                      : l10n.channelTypeAutoWith(
-                          _channelTypeLabel(context, detectedSlug),
-                        ),
-                  selected: _channelType.isEmpty || _channelType == 'auto',
-                  onTap: () {
-                    setState(() => _channelType = 'auto');
-                    Navigator.pop(dialogContext);
-                  },
+    final picked = await showIosOptionPicker<String>(
+      context,
+      title: l10n.selectChannelType,
+      // ⚠ 「自动」那一档**永远**是 `selected` 的候选之一（空字符串也映射到它），
+      //   而 `showIosOptionPicker` 只在 `value == selectedValue` 时打勾 ⇒
+      //   把当前值规范化成 'auto' 再传，否则空值那一档不打勾（用户看不出自己选的是哪一档）。
+      selectedValue: _channelType.isEmpty ? 'auto' : _channelType,
+      options: [
+        IosPickerOption<String>(
+          value: 'auto',
+          icon: Icons.auto_awesome,
+          iconColor: AppColors.blue,
+          label: detectedSlug == 'generic'
+              ? l10n.channelTypeAuto
+              : l10n.channelTypeAutoWith(
+                  _channelTypeLabel(context, detectedSlug),
                 ),
-                ..._typeSlugs().map((slug) {
-                  final visual = _typeVisual(slug);
-                  return _buildTypeOption(
-                    context,
-                    icon: visual.icon,
-                    color: visual.color,
-                    label: _channelTypeLabel(context, slug),
-                    selected: _channelType == slug,
-                    onTap: () {
-                      setState(() => _channelType = slug);
-                      Navigator.pop(dialogContext);
-                    },
-                  );
-                }),
-              ],
-            ),
-          ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+        ..._typeSlugs().map((slug) {
+          final visual = _typeVisual(slug);
+          return IosPickerOption<String>(
+            value: slug,
+            icon: visual.icon,
+            iconColor: visual.color,
+            label: _channelTypeLabel(context, slug),
+          );
+        }),
+      ],
     );
-  }
-
-  Widget _buildTypeOption(
-    BuildContext context, {
-    required IconData icon,
-    required Color color,
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      onTap: onTap,
-      dense: true,
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-      title: Text(
-        label,
-        style: TextStyle(fontSize: 15, color: AppColors.primaryLabel(context)),
-      ),
-      trailing: selected
-          ? const Icon(Icons.check, color: AppColors.blue)
-          : null,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-    );
+    // 被点外面关掉（null）= 什么都不改，与旧 `showDialog` 行为一致。
+    if (picked == null) return;
+    // ⚠ **这里必须是 `'auto'` 本身，不是空字符串**：旧形状按「自动」那一档时
+    //   `setState(() => _channelType = 'auto')` —— 存的是字面量 `'auto'`。
+    //   页面读它时把 `''` 与 `'auto'` 都当「自动」（`isAuto`），所以两者显示一样，
+    //   但**存下去的字面量不同** ⇒ 顺手"规范化"成 `''` 会改掉写进 DB 的值
+    //   （备份/迁移/原生同步都以那个字面量为准）。写用例时才发现这一条。
+    setState(() => _channelType = picked);
   }
 
   /// URL 识别提示区。

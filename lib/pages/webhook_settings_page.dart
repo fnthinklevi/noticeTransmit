@@ -13,6 +13,7 @@ import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
+import '../widgets/ios_option_picker.dart';
 
 // R3 拆分：通道卡片构建巨型方法迁出（extension 共享 State 私有成员）
 part 'webhook_settings_item.dart';

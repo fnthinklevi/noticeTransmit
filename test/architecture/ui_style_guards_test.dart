@@ -548,7 +548,8 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/rule_list_page.dart': 1,
   'lib/pages/rule_tester_page.dart': 1,
   'lib/pages/temperature_page.dart': 1,
-  'lib/pages/webhook_settings_item.dart': 1,
+  // 片23：`webhook_settings_item` 那枚「选择通道类型」收进**现成的** `showIosOptionPicker`
+  // ⇒ 整屏出账。⚠ 它是 part 文件：按 `webhook_settings_page.dart` grep 会以为它还在账上。
   // 片21：`main_page_update` 那一枚「发现新版本」换进 `IosDialogActions.showUpdatePrompt` /
   // `showForceUpdatePrompt` ⇒ 整屏出账（下载进度框是片17 收的，不在本账里）。
   // ⚠ 这枚在 part 文件里：按 `main_page.dart` grep 会以为它不在账上。
