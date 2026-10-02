@@ -10,6 +10,7 @@ import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/engine_page_sections.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_form_dialog.dart';
 import '../widgets/pull_to_refresh_list.dart';
 import '../widgets/app_text_selection_menu.dart';
 
@@ -384,223 +385,187 @@ class _BatteryPageState extends State<BatteryPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: AppColors.cardBg(context),
-              title: Text(
-                isEdit ? l10n.editRule : l10n.addRule,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLabel(context),
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        l10n.ruleType,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.secondaryLabel(context),
-                        ),
-                      ),
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildTypeChip(
-                          'charging',
-                          l10n.startCharging,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                        _buildTypeChip(
-                          'discharging',
-                          l10n.stopCharging,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                        _buildTypeChip(
-                          'level_below',
-                          l10n.belowValue,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                        _buildTypeChip(
-                          'level_above',
-                          l10n.aboveValue,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                        _buildTypeChip(
-                          'level_equals',
-                          l10n.equalValue,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                      ],
-                    ),
-                    if ([
-                      'level_below',
-                      'level_above',
-                      'level_equals',
-                    ].contains(selectedType)) ...[
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          l10n.threshold,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.secondaryLabel(context),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.inputBg(context),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Slider(
-                                value: selectedValue.toDouble(),
-                                min: isTempType ? 30 : 1,
-                                max: isTempType ? 90 : 100,
-                                divisions: isTempType ? 60 : 99,
-                                label: isTempType
-                                    ? '$selectedValue℃'
-                                    : '$selectedValue%',
-                                activeColor: AppColors.blue,
-                                onChanged: (v) {
-                                  setDialogState(() {
-                                    selectedValue = v.round();
-                                    valueController.text = selectedValue
-                                        .toString();
-                                  });
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 50,
-                              child: Text(
-                                isTempType
-                                    ? '$selectedValue℃'
-                                    : '$selectedValue%',
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primaryLabel(context),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        l10n.customTitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.secondaryLabel(context),
-                        ),
-                      ),
-                    ),
-                    TextField(
-                      contextMenuBuilder: AppTextSelectionMenu.editableText,
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        hintText: l10n.customTitleHint,
-                        hintStyle: TextStyle(
-                          color: AppColors.secondaryLabel(context),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                            color: AppColors.separator(context),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.blue),
-                        ),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                      style: TextStyle(color: AppColors.primaryLabel(context)),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
+            // T90 片14：这三页的阈值框原本是「同一套形状抄三遍」（圆角、标题字号、
+            // 取消/添加两颗钮各存一份）⇒ 外壳换成唯一装配点，字段与判据原样留在本页。
+            return IosFormDialog(
+              title: isEdit ? l10n.editRule : l10n.addRule,
+              cancelText: l10n.cancel,
+              submitText: isEdit ? l10n.save : l10n.add,
+              onSubmit: () {
+                final id = isEdit
+                    ? existingRule['id'] as String? ?? ''
+                    : 'rule_${DateTime.now().millisecondsSinceEpoch}';
+                final newRule = {
+                  'id': id,
+                  'type': selectedType,
+                  'value': selectedValue,
+                  'enabled': existingRule?['enabled'] ?? true,
+                  'title': titleController.text.trim().isNotEmpty
+                      ? titleController.text.trim()
+                      : _defaultTitleForType(selectedType, selectedValue),
+                  'content': '',
+                };
+                if (isEdit) {
+                  _service.updateRule(id, newRule);
+                } else {
+                  _handleAddRule(newRule);
+                }
+                Navigator.pop(context);
+              },
+              fields: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    l10n.cancel,
+                    l10n.ruleType,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.secondaryLabel(context),
                     ),
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    final id = isEdit
-                        ? existingRule['id'] as String? ?? ''
-                        : 'rule_${DateTime.now().millisecondsSinceEpoch}';
-                    final newRule = {
-                      'id': id,
-                      'type': selectedType,
-                      'value': selectedValue,
-                      'enabled': existingRule?['enabled'] ?? true,
-                      'title': titleController.text.trim().isNotEmpty
-                          ? titleController.text.trim()
-                          : _defaultTitleForType(selectedType, selectedValue),
-                      'content': '',
-                    };
-                    if (isEdit) {
-                      _service.updateRule(id, newRule);
-                    } else {
-                      _handleAddRule(newRule);
-                    }
-                    Navigator.pop(context);
-                  },
-                  child: Text(
-                    isEdit ? l10n.save : l10n.add,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.blue,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildTypeChip(
+                      'charging',
+                      l10n.startCharging,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                    _buildTypeChip(
+                      'discharging',
+                      l10n.stopCharging,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                    _buildTypeChip(
+                      'level_below',
+                      l10n.belowValue,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                    _buildTypeChip(
+                      'level_above',
+                      l10n.aboveValue,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                    _buildTypeChip(
+                      'level_equals',
+                      l10n.equalValue,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                  ],
+                ),
+                if ([
+                  'level_below',
+                  'level_above',
+                  'level_equals',
+                ].contains(selectedType)) ...[
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      l10n.threshold,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondaryLabel(context),
+                      ),
                     ),
                   ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputBg(context),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: selectedValue.toDouble(),
+                            min: isTempType ? 30 : 1,
+                            max: isTempType ? 90 : 100,
+                            divisions: isTempType ? 60 : 99,
+                            label: isTempType
+                                ? '$selectedValue℃'
+                                : '$selectedValue%',
+                            activeColor: AppColors.blue,
+                            onChanged: (v) {
+                              setDialogState(() {
+                                selectedValue = v.round();
+                                valueController.text = selectedValue.toString();
+                              });
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            isTempType ? '$selectedValue℃' : '$selectedValue%',
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryLabel(context),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    l10n.customTitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ),
+                TextField(
+                  contextMenuBuilder: AppTextSelectionMenu.editableText,
+                  controller: titleController,
+                  decoration: InputDecoration(
+                    hintText: l10n.customTitleHint,
+                    hintStyle: TextStyle(
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.separator(context),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.blue),
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                  style: TextStyle(color: AppColors.primaryLabel(context)),
                 ),
               ],
             );

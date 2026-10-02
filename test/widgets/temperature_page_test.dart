@@ -97,7 +97,16 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, '添加'));
+    // T90 片14：这颗「添加」从此是共享外壳 `IosFormDialog` 里的 `CupertinoDialogAction`。
+    // ⚠ 换件打断 finder —— 与片8 那四条红同一次课：**页面级用例正是这一类的检出点**
+    //   （外壳自己的用例只测形状，测不到"按下去之后服务里真的多了一条"）。
+    expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(CupertinoAlertDialog),
+        matching: find.widgetWithText(CupertinoDialogAction, '添加'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(ListTile), findsOneWidget);

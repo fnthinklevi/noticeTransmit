@@ -1137,8 +1137,20 @@ void main() {
           '温度→添加规则',
         );
         await _settle(tester);
-        await _tap(tester, _in(AlertDialog, find.text('电池温度')), '温度规则类型 chip');
-        await _tap(tester, _in(AlertDialog, find.text('添加')), '温度→添加(确认)');
+        // T90 片14：这枚阈值框换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 本步里
+        // **等/点/断言的每一处引用一起换**（片12 只改了「点」漏了「等」，闸门当场红）。
+        // ⚠ 下面第 1164 行那处 `_in(AlertDialog, find.text('关闭'))`（温度**试跑**结果框）**不换** ——
+        //   试跑框这一片没动，仍是 Material 那件；照着这里一起改就会把闸门改红。
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('电池温度')),
+          '温度规则类型 chip',
+        );
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('添加')),
+          '温度→添加(确认)',
+        );
         await _settle(tester, seconds: 1);
         // 启停开关是**每条规则一行**的尾控件，规则没建成就是 0 个 ⇒ 直接查服务更准
         expect(
@@ -1194,18 +1206,24 @@ void main() {
             '设备状态→添加(亮度)',
           );
           await _settle(tester);
+          // T90 片14：设备状态的阈值框同样换成了 `IosFormDialog` ⇒ 这一节的每一处
+          // `_in(AlertDialog, …)` 一起跟着换（同一个步骤里等、点、输入都指着同一枚弹层）。
           await _tap(
             tester,
-            _in(AlertDialog, find.text('亮度低于')),
+            _in(CupertinoAlertDialog, find.text('亮度低于')),
             '亮度规则类型 chip',
           );
           await _type(
             tester,
-            _in(AlertDialog, find.byType(TextField)),
+            _in(CupertinoAlertDialog, find.byType(TextField)),
             '闸门亮度规则',
             '亮度规则标题输入框',
           );
-          await _tap(tester, _in(AlertDialog, find.text('确定')), '设备状态→确定(亮度)');
+          await _tap(
+            tester,
+            _in(CupertinoAlertDialog, find.text('确定')),
+            '设备状态→确定(亮度)',
+          );
           await _settle(tester, seconds: 1);
 
           // 网络型：没有阈值可填 ⇒ 这一条专测"没有滑杆也要能存下来"
@@ -1215,15 +1233,23 @@ void main() {
             '设备状态→添加(网络)',
           );
           await _settle(tester);
-          await _tap(tester, _in(AlertDialog, find.text('断网时')), '网络规则类型 chip');
+          await _tap(
+            tester,
+            _in(CupertinoAlertDialog, find.text('断网时')),
+            '网络规则类型 chip',
+          );
           // 标题留空 → 列表按类型名显示，就找不回这一条了 ⇒ 给它一个可定位的标题
           await _type(
             tester,
-            _in(AlertDialog, find.byType(TextField)),
+            _in(CupertinoAlertDialog, find.byType(TextField)),
             '闸门断网规则',
             '断网规则标题输入框',
           );
-          await _tap(tester, _in(AlertDialog, find.text('确定')), '设备状态→确定(网络)');
+          await _tap(
+            tester,
+            _in(CupertinoAlertDialog, find.text('确定')),
+            '设备状态→确定(网络)',
+          );
           await _settle(tester, seconds: 1);
 
           expect(

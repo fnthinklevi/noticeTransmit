@@ -387,7 +387,10 @@ void main() {
       for (final chip in const ['亮度低于', '断网时']) {
         expect(
           flat,
-          contains("_in(AlertDialog, find.text('$chip'))"),
+          // T90 片14：这枚阈值框换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 期望串跟着走。
+          // ⚠ 这不是放宽：断的还是「闸门真的把那两种触发源各点了一遍」，只是那一层的型变了。
+          //   同一条断言若哪天又指回 `AlertDialog`，红的应该是闸门那一步找不到弹层，而不是这条。
+          contains("_in(CupertinoAlertDialog, find.text('$chip'))"),
           reason: '规则类型「$chip」不再被选 ⇒ 只测了另一半，形状分叉看不见',
         );
       }

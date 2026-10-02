@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/engine_page_sections.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_form_dialog.dart';
 import '../widgets/pull_to_refresh_list.dart';
 
 /// 设备状态告警页（T24）：亮度与网络两类**设备态触发源**的规则都在这里。
@@ -309,90 +310,78 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
           final isBrightness = DeviceStateService.brightnessTypes.contains(
             selectedType,
           );
-          return AlertDialog(
-            backgroundColor: AppColors.cardBg(context),
-            title: Text(isEdit ? l10n.editRule : l10n.addRule),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // T90 片14：三页阈值框的形状原本各抄一遍（圆角、标题、取消/确定两颗钮），
+          // 现在外壳只有一个作者。本页的判据（亮度档才有阈值、网络型恒 0）留在 _submit 里。
+          return IosFormDialog(
+            title: isEdit ? l10n.editRule : l10n.addRule,
+            cancelText: l10n.cancel,
+            submitText: l10n.confirm,
+            onSubmit: () => _submit(dialogContext, existingRule, {
+              'type': selectedType,
+              // 网络型没有阈值概念，但存储列不接受 null ⇒ 恒 0（引擎也不看它）
+              'value': isBrightness ? selectedValue : 0,
+              'title': titleController.text.trim(),
+            }),
+            fields: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final type in const [
-                        'brightness_below',
-                        'brightness_above',
-                        'network_disconnected',
-                        'network_connected',
-                      ])
-                        ChoiceChip(
-                          label: Text(_typeLabel(l10n, type)),
-                          selected: selectedType == type,
-                          onSelected: (_) => setDialogState(() {
-                            selectedType = type;
-                          }),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (isBrightness) ...[
-                    Text(
-                      l10n.deviceStateValueLabel,
-                      style: const TextStyle(fontSize: 13),
+                  for (final type in const [
+                    'brightness_below',
+                    'brightness_above',
+                    'network_disconnected',
+                    'network_connected',
+                  ])
+                    ChoiceChip(
+                      label: Text(_typeLabel(l10n, type)),
+                      selected: selectedType == type,
+                      onSelected: (_) => setDialogState(() {
+                        selectedType = type;
+                      }),
                     ),
-                    Slider(
-                      value: selectedValue
-                          .clamp(
-                            DeviceStateService.minBrightness,
-                            DeviceStateService.maxBrightness,
-                          )
-                          .toDouble(),
-                      min: DeviceStateService.minBrightness.toDouble(),
-                      max: DeviceStateService.maxBrightness.toDouble(),
-                      divisions:
-                          DeviceStateService.maxBrightness -
-                          DeviceStateService.minBrightness,
-                      label: '$selectedValue%',
-                      onChanged: (v) =>
-                          setDialogState(() => selectedValue = v.round()),
-                    ),
-                  ] else
-                    Text(
-                      l10n.deviceStateNoValue,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.secondaryLabel(context),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleController,
-                    decoration: InputDecoration(
-                      hintText: l10n.customTitleHint,
-                      hintStyle: TextStyle(
-                        color: AppColors.secondaryLabel(context),
-                      ),
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
                 ],
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text(l10n.cancel),
-              ),
-              TextButton(
-                onPressed: () => _submit(dialogContext, existingRule, {
-                  'type': selectedType,
-                  // 网络型没有阈值概念，但存储列不接受 null ⇒ 恒 0（引擎也不看它）
-                  'value': isBrightness ? selectedValue : 0,
-                  'title': titleController.text.trim(),
-                }),
-                child: Text(l10n.confirm),
+              const SizedBox(height: 12),
+              if (isBrightness) ...[
+                Text(
+                  l10n.deviceStateValueLabel,
+                  style: const TextStyle(fontSize: 13),
+                ),
+                Slider(
+                  value: selectedValue
+                      .clamp(
+                        DeviceStateService.minBrightness,
+                        DeviceStateService.maxBrightness,
+                      )
+                      .toDouble(),
+                  min: DeviceStateService.minBrightness.toDouble(),
+                  max: DeviceStateService.maxBrightness.toDouble(),
+                  divisions:
+                      DeviceStateService.maxBrightness -
+                      DeviceStateService.minBrightness,
+                  label: '$selectedValue%',
+                  onChanged: (v) =>
+                      setDialogState(() => selectedValue = v.round()),
+                ),
+              ] else
+                Text(
+                  l10n.deviceStateNoValue,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: titleController,
+                decoration: InputDecoration(
+                  hintText: l10n.customTitleHint,
+                  hintStyle: TextStyle(
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
               ),
             ],
           );

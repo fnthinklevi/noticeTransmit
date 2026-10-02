@@ -286,6 +286,28 @@ void main() {
       }
     });
 
+    // T90 片14：三页的「新增/编辑规则」阈值框原本是同一套形状抄三遍（圆角、标题字号、
+    // 取消/添加两颗钮各存一份，字段内容才各不同）。这一条钉的是「这一屏接没接到共享外壳」；
+    // **还剩几枚 Material 的**由上面那本逐文件台账管 —— 同一件事不写两处。
+    // ⚠ 这里原本还有一条"整屏不许有 Material AlertDialog"的负向断言，第一次跑就红了：
+    //   温度页除了阈值框另有「试跑」那一枚不在本族 ⇒ 负向断言把正常状态判成缺陷，已删。
+    test('三页阈值框走的是共享外壳 IosFormDialog', () {
+      const shells = <String>{
+        'lib/pages/battery_page.dart',
+        'lib/pages/temperature_page.dart',
+        'lib/pages/device_state_page.dart',
+      };
+      for (final path in shells) {
+        final src = codeByPath[path];
+        expect(src, isNotNull, reason: '$path 不在了 ⇒ 本条在空转');
+        expect(
+          src!,
+          contains('IosFormDialog('),
+          reason: '$path 的阈值框没接到共享外壳 ⇒ 形状又要各页一份',
+        );
+      }
+    });
+
     test('已划掉的每一屏走的是 helper，不是自己手搭一枚 Cupertino 的', () {
       // 划掉台账有两条路：真的走共享件（`IosDialogActions` / `showIosOptionPicker`），
       // 或者把 `AlertDialog(` 就地改成 `CupertinoAlertDialog(`。后者让上面两条守卫都绿
@@ -455,15 +477,13 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 /// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
 const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/backup_restore_page.dart': 1,
-  'lib/pages/battery_page.dart': 1,
-  'lib/pages/device_state_page.dart': 1,
   'lib/pages/history_page.dart': 3,
   'lib/pages/main_page_dialogs.dart': 2,
   'lib/pages/main_page_update.dart': 2,
   'lib/pages/rule_edit_page.dart': 1,
   'lib/pages/rule_list_page.dart': 1,
   'lib/pages/rule_tester_page.dart': 1,
-  'lib/pages/temperature_page.dart': 2,
+  'lib/pages/temperature_page.dart': 1,
   'lib/pages/webhook_settings_item.dart': 1,
   // #176 片3 新增的一枚：与下面那枚是同一个形态（多字段输入弹层），#184 换那一屏时一起换。
   // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。

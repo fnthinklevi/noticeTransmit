@@ -9,6 +9,7 @@ import '../services/device_info_service.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_form_dialog.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/engine_page_sections.dart';
@@ -437,197 +438,163 @@ class _TemperaturePageState extends State<TemperaturePage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: AppColors.cardBg(context),
-              title: Text(
-                isEdit ? l10n.editRule : l10n.addRule,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLabel(context),
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        l10n.ruleType,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.secondaryLabel(context),
-                        ),
-                      ),
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildTypeChip(
-                          'battery_temp_above',
-                          l10n.batteryTempAbove,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                        _buildTypeChip(
-                          'device_temp_above',
-                          l10n.deviceTempAbove,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                        _buildTypeChip(
-                          'screen_temp_above',
-                          l10n.screenTempAbove,
-                          selectedType,
-                          setDialogState,
-                          (v) => selectedType = v,
-                          context,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        l10n.tempThreshold,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.secondaryLabel(context),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.inputBg(context),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Slider(
-                              value: selectedValue.toDouble(),
-                              min: 30,
-                              max: 90,
-                              divisions: 60,
-                              label: '$selectedValue℃',
-                              activeColor: AppColors.blue,
-                              onChanged: (v) {
-                                setDialogState(() {
-                                  selectedValue = v.round();
-                                  valueController.text = selectedValue
-                                      .toString();
-                                });
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: 50,
-                            child: Text(
-                              '$selectedValue℃',
-                              textAlign: TextAlign.end,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryLabel(context),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        l10n.customTitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.secondaryLabel(context),
-                        ),
-                      ),
-                    ),
-                    TextField(
-                      contextMenuBuilder: AppTextSelectionMenu.editableText,
-                      controller: titleController,
-                      decoration: InputDecoration(
-                        hintText: l10n.customTitleHint,
-                        hintStyle: TextStyle(
-                          color: AppColors.secondaryLabel(context),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                            color: AppColors.separator(context),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppColors.blue),
-                        ),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                      style: TextStyle(color: AppColors.primaryLabel(context)),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
+            // T90 片14：三页阈值框的形状原本各抄一遍（圆角、标题 17/w600、取消/添加两颗 16/w600/blue），
+            // 现在外壳只有一个作者；字段内容与「默认标题怎么兜」这些判据仍留在本页。
+            return IosFormDialog(
+              title: isEdit ? l10n.editRule : l10n.addRule,
+              cancelText: l10n.cancel,
+              submitText: isEdit ? l10n.save : l10n.add,
+              onSubmit: () {
+                final id = isEdit
+                    ? existingRule['id'] as String? ?? ''
+                    : 'temp_rule_${DateTime.now().millisecondsSinceEpoch}';
+                final newRule = {
+                  'id': id,
+                  'type': selectedType,
+                  'value': selectedValue,
+                  'enabled': existingRule?['enabled'] ?? true,
+                  'title': titleController.text.trim().isNotEmpty
+                      ? titleController.text.trim()
+                      : _defaultTitleForType(selectedType, selectedValue),
+                  'content': '',
+                };
+                if (isEdit) {
+                  _service.updateRule(id, newRule);
+                } else {
+                  _service.addRule(newRule);
+                }
+                Navigator.pop(context);
+              },
+              fields: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    l10n.cancel,
+                    l10n.ruleType,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.secondaryLabel(context),
                     ),
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    final id = isEdit
-                        ? existingRule['id'] as String? ?? ''
-                        : 'temp_rule_${DateTime.now().millisecondsSinceEpoch}';
-                    final newRule = {
-                      'id': id,
-                      'type': selectedType,
-                      'value': selectedValue,
-                      'enabled': existingRule?['enabled'] ?? true,
-                      'title': titleController.text.trim().isNotEmpty
-                          ? titleController.text.trim()
-                          : _defaultTitleForType(selectedType, selectedValue),
-                      'content': '',
-                    };
-                    if (isEdit) {
-                      _service.updateRule(id, newRule);
-                    } else {
-                      _service.addRule(newRule);
-                    }
-                    Navigator.pop(context);
-                  },
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildTypeChip(
+                      'battery_temp_above',
+                      l10n.batteryTempAbove,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                    _buildTypeChip(
+                      'device_temp_above',
+                      l10n.deviceTempAbove,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                    _buildTypeChip(
+                      'screen_temp_above',
+                      l10n.screenTempAbove,
+                      selectedType,
+                      setDialogState,
+                      (v) => selectedType = v,
+                      context,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    isEdit ? l10n.save : l10n.add,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    l10n.tempThreshold,
+                    style: TextStyle(
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.blue,
+                      color: AppColors.secondaryLabel(context),
                     ),
                   ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBg(context),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: selectedValue.toDouble(),
+                          min: 30,
+                          max: 90,
+                          divisions: 60,
+                          label: '$selectedValue℃',
+                          activeColor: AppColors.blue,
+                          onChanged: (v) {
+                            setDialogState(() {
+                              selectedValue = v.round();
+                              valueController.text = selectedValue.toString();
+                            });
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 50,
+                        child: Text(
+                          '$selectedValue℃',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryLabel(context),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    l10n.customTitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ),
+                TextField(
+                  contextMenuBuilder: AppTextSelectionMenu.editableText,
+                  controller: titleController,
+                  decoration: InputDecoration(
+                    hintText: l10n.customTitleHint,
+                    hintStyle: TextStyle(
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(
+                        color: AppColors.separator(context),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.blue),
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                  style: TextStyle(color: AppColors.primaryLabel(context)),
                 ),
               ],
             );
