@@ -22,6 +22,7 @@ import '../widgets/card_action_sheet.dart';
 import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/ios_input_dialog.dart';
 
 class HistoryPage extends StatefulWidget {
   final List<NotificationRecord> records;
@@ -1487,84 +1488,16 @@ class _HistoryPageState extends State<HistoryPage> {
       _showToast(l10n.historyBlockNoText);
       return;
     }
-    final controller = TextEditingController(text: initialText);
-    final keyword = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(dialogContext),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.historyBlockContentDialogTitle,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(dialogContext),
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              contextMenuBuilder: AppTextSelectionMenu.editableText,
-              controller: controller,
-              autofocus: true,
-              maxLines: 3,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryLabel(dialogContext),
-              ),
-              decoration: InputDecoration(
-                fillColor: AppColors.inputBg(dialogContext),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(
-                    color: AppColors.separator(dialogContext),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppColors.blue),
-                ),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.historyBlockContentEditHint,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.secondaryLabel(dialogContext),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(
-              l10n.cancel,
-              style: TextStyle(
-                fontSize: 16,
-                color: AppColors.secondaryLabel(dialogContext),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text.trim()),
-            child: Text(
-              l10n.save,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.blue,
-              ),
-            ),
-          ),
-        ],
-      ),
+    // T90 片8：走单字段输入弹层的唯一装配点。这一格是三行输入、提示写在框**下面**，
+    // 且换件之前就是 trim 过再落库的 ⇒ trim: true 显式写出来（组件默认不 trim，
+    // 因为口令那两格的首尾空格是口令本身）。
+    final keyword = await showIosInputDialog(
+      context,
+      title: l10n.historyBlockContentDialogTitle,
+      initialText: initialText,
+      maxLines: 3,
+      supportingText: l10n.historyBlockContentEditHint,
+      trim: true,
     );
     if (keyword == null || keyword.isEmpty) return;
     final filterService = _filterService;

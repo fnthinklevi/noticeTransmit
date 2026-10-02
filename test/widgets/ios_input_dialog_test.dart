@@ -22,6 +22,7 @@ void main() {
     bool requiredField = false,
     String? Function(String value)? validate,
     bool obscureText = false,
+    bool trim = false,
   }) async {
     await tester.pumpWidget(
       wrap(
@@ -39,6 +40,7 @@ void main() {
                       requiredField: requiredField,
                       validate: validate,
                       obscureText: obscureText,
+                      trim: trim,
                     ),
                   );
                 },
@@ -58,9 +60,14 @@ void main() {
   Finder cancelBtn() => find.byKey(const ValueKey('ios-input-cancel'));
 
   group('取值', () {
-    testWidgets('画的是一件 Cupertino 的，保存回的是**去掉首尾空格**的值', (tester) async {
+    testWidgets('画的是一件 Cupertino 的；显式要 trim 的那一格回去空格后的值', (tester) async {
       final seen = <String?>[];
-      await openDialog(tester, (v) => seen.add(v), initialText: '旧名字');
+      await openDialog(
+        tester,
+        (v) => seen.add(v),
+        initialText: '旧名字',
+        trim: true,
+      );
 
       expect(find.byType(CupertinoAlertDialog), findsOneWidget);
       expect(
@@ -79,7 +86,25 @@ void main() {
       await tester.tap(confirmBtn());
       await tester.pumpAndSettle();
 
-      expect(seen, ['闸门改名'], reason: '没 trim ⇒ 存进去的名字带空格，推送标题前缀与导出文件名都会跟着带');
+      expect(seen, ['闸门改名'], reason: '设备名那一格换件之前就是先 trim 再判空的 ⇒ trim 由调用点显式要');
+    });
+
+    testWidgets('默认**不** trim —— 口令两端空格是口令的一部分', (tester) async {
+      final seen = <String?>[];
+      await openDialog(tester, (v) => seen.add(v), obscureText: true);
+
+      await tester.enterText(field(), ' 口令带空格 ');
+      await tester.tap(confirmBtn());
+      await tester.pumpAndSettle();
+
+      expect(
+        seen,
+        [' 口令带空格 '],
+        reason:
+            '悄悄 trim 会做出最难查的那种 bug：口令本来就带首尾空格的人，'
+            '导出的备份能写、回来却解不开（报"口令错误或文件已损坏"），'
+            '而他会开始怀疑自己记错了口令',
+      );
     });
 
     testWidgets('取消那颗回 null，不写任何东西', (tester) async {
@@ -131,7 +156,13 @@ void main() {
 
     testWidgets('requiredField：空值点保存什么都不发生（不关框、不回值）', (tester) async {
       final seen = <String?>[];
-      await openDialog(tester, (v) => seen.add(v), requiredField: true);
+      // 设备名那一格就是这对参数（requiredField + trim）：空值与全空格都不许把它保存掉。
+      await openDialog(
+        tester,
+        (v) => seen.add(v),
+        requiredField: true,
+        trim: true,
+      );
 
       await tester.enterText(field(), '   ');
       await tester.tap(confirmBtn());
@@ -142,6 +173,57 @@ void main() {
         find.byType(CupertinoAlertDialog),
         findsOneWidget,
         reason: '空值直接关框 ⇒ 把设备名存成空串（这一格没有专门的提示文案，措辞由维护者定）',
+      );
+    });
+  });
+
+  group('调用点要的那几件', () {
+    testWidgets('提示写在框下面、三行输入、关掉自动纠错、key 由调用点给', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          Builder(
+            builder: (ctx) => CupertinoPageScaffold(
+              child: Center(
+                child: CupertinoButton(
+                  onPressed: () => showIosInputDialog(
+                    ctx,
+                    title: '拉黑这一条',
+                    initialText: '验证码',
+                    maxLines: 3,
+                    autocorrect: false,
+                    supportingText: '只按这一条文字拦，改一个字就不再命中',
+                    fieldKeyValue: 'history-block-keyword-input',
+                  ),
+                  child: const Text('开'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('开'));
+      await tester.pumpAndSettle();
+
+      final keyed = find.byKey(const ValueKey('history-block-keyword-input'));
+      expect(
+        keyed,
+        findsOneWidget,
+        reason: '调用点给的 key 不生效 ⇒ 页面级用例与闸门会一起找不到这一格',
+      );
+      final field = tester.widget<CupertinoTextField>(keyed);
+      expect(field.maxLines, 3, reason: '提示语要能写三行，压回一行就成了看不全的输入框');
+      expect(
+        field.autocorrect,
+        isFalse,
+        reason: '关键词/主机名被自动纠错换掉字，症状是"配了却不生效"，最难往输入框上想',
+      );
+
+      final hint = find.text('只按这一条文字拦，改一个字就不再命中');
+      expect(hint, findsOneWidget);
+      expect(
+        tester.getTopLeft(hint).dy,
+        greaterThan(tester.getBottomLeft(keyed).dy),
+        reason: '这句是"写完之后再想想"的说明，画到框上面就把"输入"这一步挤到下面去了',
       );
     });
   });

@@ -9,8 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../services/backup_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
-import '../widgets/ios_dialog_actions.dart';
-import '../widgets/app_text_selection_menu.dart';
+import '../widgets/ios_input_dialog.dart';
 
 /// P1 配置备份与恢复页。
 ///
@@ -315,42 +314,14 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
 
   Future<String?> _promptPassword(String title, String hint) {
     final l10n = AppLocalizations.of(context);
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: TextField(
-          contextMenuBuilder: AppTextSelectionMenu.editableText,
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          style: TextStyle(color: AppColors.primaryLabel(ctx)),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(ctx),
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-        actions: IosDialogActions.confirm(
-          ctx,
-          cancelText: l10n.cancel,
-          confirmText: l10n.confirm,
-          onConfirm: () => Navigator.pop(ctx, controller.text),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+    // T90 片7/8：走单字段输入弹层的唯一装配点。**不 trim**（默认就是不 trim）——
+    // 口令两端的空格是口令的一部分，悄悄去掉会做出"口令对却解不开"那种最难查的 bug。
+    return showIosInputDialog(
+      context,
+      title: title,
+      hintText: hint,
+      obscureText: true,
+      confirmText: l10n.confirm,
     );
   }
 

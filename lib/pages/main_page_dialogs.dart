@@ -116,6 +116,8 @@ extension _MainPageDialogs on _MainPageState {
       initialText: _deviceInfoService.deviceName,
       hintText: l10n.deviceNameLabel,
       confirmText: l10n.save,
+      // 换件之前这句就是先 trim 再判空的 ⇒ 显式写出来，不靠组件默认值。
+      trim: true,
       // 空值时"什么都不发生、也不关框"，与换件之前一致：这一格没有专门的提示文案，
       // 编一句要动 ARB ⇒ 措辞是维护者的决定，不在这里替他定。
       requiredField: true,

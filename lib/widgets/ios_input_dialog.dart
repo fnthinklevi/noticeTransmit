@@ -27,6 +27,19 @@ Future<String?> showIosInputDialog(
   String? cancelText,
   bool requiredField = false,
   String? Function(String value)? validate,
+  // 下面四个参数每个都由本仓一处真实调用点要求，不是给"以后"留的口子：
+  // `fieldKeyValue` —— 幻念推送那格的用例按 `ValueKey('fnthink-host-input')` 点它；
+  // `autocorrect: false` —— 主机名不该被自动纠错改成别的词；
+  // `maxLines` —— 拉黑关键词那条是三行输入；
+  // `supportingText` —— 同一条的提示写在输入框**下面**（`message` 写在上面）。
+  String? fieldKeyValue,
+  bool autocorrect = true,
+  int maxLines = 1,
+  String? supportingText,
+  // ⚠ 默认**不 trim**，与各枚旧对话框逐字一致：口令那两格（备份口令、模板口令）里
+  //   首尾空格是口令的一部分 —— 悄悄 trim 会做出"口令明明对，却解不开文件"这种最难查的 bug。
+  //   需要去空格的调用点（设备名、自定义优先级）显式写 `trim: true`，别拿默认值赌。
+  bool trim = false,
 }) {
   final l10n = AppLocalizations.of(context);
   return showCupertinoDialog<String>(
@@ -44,6 +57,13 @@ Future<String?> showIosInputDialog(
       cancelText: cancelText ?? l10n.cancel,
       requiredField: requiredField,
       validate: validate,
+      fieldKey: fieldKeyValue == null
+          ? const ValueKey('ios-input-field')
+          : ValueKey(fieldKeyValue),
+      autocorrect: autocorrect,
+      maxLines: maxLines,
+      supportingText: supportingText,
+      trim: trim,
     ),
   );
 }
@@ -61,6 +81,11 @@ class _IosInputDialog extends StatefulWidget {
     required this.cancelText,
     required this.requiredField,
     required this.validate,
+    required this.fieldKey,
+    required this.autocorrect,
+    required this.maxLines,
+    required this.supportingText,
+    required this.trim,
   });
 
   final String title;
@@ -74,6 +99,11 @@ class _IosInputDialog extends StatefulWidget {
   final String cancelText;
   final bool requiredField;
   final String? Function(String value)? validate;
+  final Key fieldKey;
+  final bool autocorrect;
+  final int maxLines;
+  final String? supportingText;
+  final bool trim;
 
   @override
   State<_IosInputDialog> createState() => _IosInputDialogState();
@@ -92,7 +122,8 @@ class _IosInputDialogState extends State<_IosInputDialog> {
   }
 
   void _submit() {
-    final value = _controller.text.trim();
+    final raw = _controller.text;
+    final value = widget.trim ? raw.trim() : raw;
     final error = widget.validate?.call(value);
     if (error != null) {
       // 就地提示且不关框：这一支的红不是"弹层坏了"，是"用户还没改对"。
@@ -128,12 +159,14 @@ class _IosInputDialogState extends State<_IosInputDialog> {
           ],
           const SizedBox(height: 10),
           CupertinoTextField(
-            key: const ValueKey('ios-input-field'),
+            key: widget.fieldKey,
             controller: _controller,
             autofocus: true,
             obscureText: widget.obscureText,
             keyboardType: widget.keyboardType,
             inputFormatters: widget.inputFormatters,
+            autocorrect: widget.autocorrect,
+            maxLines: widget.maxLines,
             // 长按选择后的浮动菜单走共享那份（中文工具栏、浅色深色都对），与 Material 时代一致。
             contextMenuBuilder: AppTextSelectionMenu.editableText,
             placeholder: widget.hintText,
@@ -156,6 +189,18 @@ class _IosInputDialogState extends State<_IosInputDialog> {
             },
             onSubmitted: (_) => _submit(),
           ),
+          // 提示写在框**下面**那一支（拉黑关键词：告诉你这一条会被拿去干什么）：
+          // 与 `message`（框上面那段说明）不是一个位置，合并会让"哪句话在解释这一格"含糊掉。
+          if (widget.supportingText != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              widget.supportingText!,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
+          ],
           if (error != null) ...[
             const SizedBox(height: 6),
             Text(

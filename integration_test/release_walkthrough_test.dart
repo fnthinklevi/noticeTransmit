@@ -1978,9 +1978,10 @@ void main() {
           _mark('7.1 备份页已进：下面两次 PBKDF2 派生各按秒计（生成）');
           await _tap(tester, find.text('生成备份文件'), '备份→生成备份文件');
           await _settle(tester);
+          // T90 片8：备份口令那枚弹层换成了共享的输入弹层 ⇒ 字段是 CupertinoTextField。
           await _type(
             tester,
-            find.byType(TextField).last,
+            find.byType(CupertinoTextField).last,
             backupPassword,
             '备份口令输入框',
           );
@@ -2059,9 +2060,10 @@ void main() {
           pickedPathForNextCall = backupPath;
           await _tap(tester, find.text('选择备份文件恢复'), '备份→选择备份文件恢复');
           await _settle(tester, seconds: 2);
+          // T90 片8：恢复口令走的也是那枚共享输入弹层。
           await _type(
             tester,
-            find.byType(TextField).last,
+            find.byType(CupertinoTextField).last,
             backupPassword,
             '恢复口令输入框',
           );
@@ -2355,14 +2357,16 @@ void _diagnose(WidgetTester t, String where) {
         .map((w) => w.runtimeType.toString())
         .toSet()
         .join(', ');
-    final fields = t
-        .widgetList(find.byType(TextField))
-        .map((w) {
-          final f = w as TextField;
-          return '${f.decoration?.hintText ?? "-"}=${f.controller?.text ?? ""}'
-              '${f.obscureText == true ? "(口令)" : ""}';
-        })
-        .join(' | ');
+    // ⚠ 两类输入框都要列进来：T90 之后弹层里是 `CupertinoTextField`，
+    //   只列 Material 那一件的话，"看不见输入框"这种红会把人往错的方向带。
+    final fields = <String>[
+      for (final w in t.widgetList<TextField>(find.byType(TextField)))
+        '${w.decoration?.hintText ?? "-"}=${w.controller?.text ?? ""}'
+        '${w.obscureText == true ? "(口令)" : ""}',
+      for (final w in t.widgetList<CupertinoTextField>(find.byType(CupertinoTextField)))
+        '${w.placeholder ?? "-"}=${w.controller?.text ?? ""}'
+        '${w.obscureText == true ? "(口令)" : ""}',
+    ].join(' | ');
     final texts = t
         .widgetList(find.byType(Text))
         .take(220)

@@ -790,7 +790,8 @@ void main() {
         find.byKey(const ValueKey('fnthink-host-input')),
         'https://Push.Example.COM',
       );
-      await tester.tap(find.widgetWithText(TextButton, l10n.save));
+      // T90 片8：地址那枚弹层换成了共享输入弹层 ⇒ 保存那颗按 key 点（不再认 TextButton，两类外壳都命中同一位）。
+      await tester.tap(find.byKey(const ValueKey('ios-input-confirm')));
       await tester.pumpAndSettle();
       expect(
         tester
@@ -816,7 +817,8 @@ void main() {
         find.byKey(const ValueKey('fnthink-host-input')),
         'PUSH.Example:8443',
       );
-      await tester.tap(find.widgetWithText(TextButton, l10n.save));
+      // T90 片8：地址那枚弹层换成了共享输入弹层 ⇒ 保存那颗按 key 点（不再认 TextButton，两类外壳都命中同一位）。
+      await tester.tap(find.byKey(const ValueKey('ios-input-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('push.example:8443'), findsOneWidget);
       expect(find.byKey(const ValueKey('fnthink-host-error')), findsNothing);
@@ -851,7 +853,8 @@ void main() {
         find.byKey(const ValueKey('fnthink-host-input')),
         'push.example:8443',
       );
-      await tester.tap(find.widgetWithText(TextButton, l10n.save));
+      // T90 片8：地址那枚弹层换成了共享输入弹层 ⇒ 保存那颗按 key 点（不再认 TextButton，两类外壳都命中同一位）。
+      await tester.tap(find.byKey(const ValueKey('ios-input-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('push.example:8443'), findsOneWidget);
       expect(h.builds(), 2, reason: '改了地址而循环没重启 ⇒ 界面与在跑的那一份各说一段');
@@ -881,7 +884,8 @@ void main() {
         find.byKey(const ValueKey('fnthink-host-input')),
         'https://push.example.com',
       );
-      await tester.tap(find.widgetWithText(TextButton, l10n.save));
+      // T90 片8：地址那枚弹层换成了共享输入弹层 ⇒ 保存那颗按 key 点（不再认 TextButton，两类外壳都命中同一位）。
+      await tester.tap(find.byKey(const ValueKey('ios-input-confirm')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('fnthink-host-error')), findsOneWidget);
       expect(h.builds(), 1, reason: '值都没落库就重启，等于把"改了没反应"做成"每改一次断一次线"');

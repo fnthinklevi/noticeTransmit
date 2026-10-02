@@ -539,6 +539,8 @@ class _RuleEditPageState extends State<RuleEditPage> {
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       confirmText: l10n.confirm,
+      // 数字框两端空格无所谓 ⇒ 与换件之前一致地 trim 掉。
+      trim: true,
       // 「判错不关框」这条行为从这里归组件：这一支的红不是弹层坏了，是用户还没改对，
       // 关掉就等于让人从头再输一遍（test/widgets/rule_edit_page_test.dart 有一条专门钉它）。
       validate: (value) {

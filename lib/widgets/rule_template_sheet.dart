@@ -8,7 +8,7 @@ import '../models/notification_rule.dart';
 import '../services/platform_channel.dart';
 import '../services/rule_template_service.dart';
 import '../theme/app_colors.dart';
-import 'app_text_selection_menu.dart';
+import 'ios_input_dialog.dart';
 
 /// 规则模板库（P2）：预设模板 + 用户模板 + 文件导入导出。
 ///
@@ -285,53 +285,19 @@ class _RuleTemplateSheetState extends State<RuleTemplateSheet> {
     AppLocalizations l10n, {
     bool optional = false,
   }) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          optional
-              ? l10n.ruleTemplateExportPasswordTitle
-              : l10n.ruleTemplateImportPasswordTitle,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: TextField(
-          contextMenuBuilder: AppTextSelectionMenu.editableText,
-          controller: controller,
-          obscureText: true,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: optional
-                ? l10n.ruleTemplateExportPasswordHint
-                : l10n.ruleTemplateImportPasswordHint,
-            hintStyle: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(ctx),
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.blue),
-            child: Text(
-              l10n.confirm,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
+    // T90 片7/8：走单字段输入弹层的唯一装配点。这里**不 trim**（默认即不 trim）——
+    // 口令两端空格算口令本身；也**不填 requiredField**：导出那一支"留空 = 明文导出"
+    // 是这套模板库的既有语义，必填会把它堵死。
+    return showIosInputDialog(
+      context,
+      title: optional
+          ? l10n.ruleTemplateExportPasswordTitle
+          : l10n.ruleTemplateImportPasswordTitle,
+      hintText: optional
+          ? l10n.ruleTemplateExportPasswordHint
+          : l10n.ruleTemplateImportPasswordHint,
+      obscureText: true,
+      confirmText: l10n.confirm,
     );
   }
 }

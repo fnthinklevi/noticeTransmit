@@ -231,7 +231,7 @@ void main() {
 
   group('确认框台账（Material AlertDialog）', () {
     // 不是一条「禁止」，而是一本**只许变薄的账**：这三条强约束之外，历史页面上的
-    // Material 对话框还很多（片6 之后剩 18 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
+    // Material 对话框还很多（片8 之后剩 16 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
     // 换完一屏就在台账里划掉一屏（#184 逐屏推进的可核对进度）。
     final materialDialogs = RegExp(r'(^|[^A-Za-z0-9_])AlertDialog\(');
 
@@ -267,6 +267,8 @@ void main() {
             'IosDialogActions.showInfo(',
         'lib/pages/widget_guide_page.dart': 'IosDialogActions.showInfo(',
         'lib/pages/more_page.dart': 'showIosOptionPicker<',
+        'lib/pages/fnthink_push_page.dart': 'showIosInputDialog(',
+        'lib/widgets/rule_template_sheet.dart': 'showIosInputDialog(',
       };
       for (final entry in migrated.entries) {
         final src = codeByPath[entry.key];
@@ -326,7 +328,6 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/pages/backup_restore_page.dart',
   'lib/pages/battery_page.dart',
   'lib/pages/device_state_page.dart',
-  'lib/pages/fnthink_push_page.dart',
   'lib/pages/history_page.dart',
   'lib/pages/main_page_dialogs.dart',
   'lib/pages/main_page_update.dart',
@@ -341,7 +342,6 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/widgets/fnthink_pair_dialog.dart',
   'lib/widgets/fnthink_send_dialog.dart',
   'lib/widgets/icon_picker_tile.dart',
-  'lib/widgets/rule_template_sheet.dart',
 };
 
 List<File> _dartFiles(String root) => Directory('$root/lib')

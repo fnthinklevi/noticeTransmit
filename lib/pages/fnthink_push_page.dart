@@ -23,6 +23,7 @@ import '../theme/app_colors.dart';
 import '../widgets/fnthink_pair_dialog.dart';
 import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_input_dialog.dart';
 
 /// 页面要用到的那一小包依赖。
 ///
@@ -1531,12 +1532,20 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   Future<void> _editHost() async {
     final settings = _settings;
     if (settings == null) return;
-    // controller 由弹层自己持有：在 `await showDialog` 返回的那一刻 dispose 会打在有
-    // 退场动画的 TextField 上（实测报 "A TextEditingController was used after being
-    // disposed"，而且这条只在真点一次的时候才现形，写页面时看不出任何问题）。
-    final input = await showDialog<String>(
-      context: context,
-      builder: (context) => _HostDialog(initial: _host),
+    // controller 归弹层自己管（T90 片8 起 = 共享件里的 Stateful 那一位）：在
+    // `await` 返回的那一刻 dispose 会打在还有退场动画的输入框上（实测报
+    // "A TextEditingController was used after being disposed"，只在真点一次时才现形）。
+    // 原来那枚 `_HostDialog` 就是为这件事存在的，现在由装配点承担 ⇒ 类删掉。
+    final l10n = AppLocalizations.of(context);
+    final input = await showIosInputDialog(
+      context,
+      title: l10n.fnthinkHostEditTitle,
+      initialText: _host,
+      hintText: l10n.fnthinkHostDesc,
+      // 用例按这把 key 点这一格（test/widgets/fnthink_push_page_test.dart 四处）⇒ 沿用旧 key。
+      fieldKeyValue: 'fnthink-host-input',
+      // 主机名不该被自动纠错改成别的词（改错了是"地址明明对却连不上"）。
+      autocorrect: false,
     );
     if (input == null || !mounted) return;
     try {
@@ -2118,59 +2127,6 @@ class _Note extends StatelessWidget {
           color: AppColors.secondaryLabel(context),
         ),
       ),
-    );
-  }
-}
-
-/// 改服务地址那一格用的输入弹层。**controller 归它自己管**（initState 建、dispose 释放）。
-///
-/// 为什么不是调用方建好 controller 传进来：调用方在 `await showDialog` 一返回就 dispose，
-/// 而那时刻退场动画还在跑、TextField 还要再建一帧 —— 实测报
-/// `A TextEditingController was used after being disposed`。这类形状的错误只在"真的点过一次"
-/// 时现形，静态读代码看不出来，所以让它跟着路由一起生老病死。
-class _HostDialog extends StatefulWidget {
-  const _HostDialog({required this.initial});
-
-  final String initial;
-
-  @override
-  State<_HostDialog> createState() => _HostDialogState();
-}
-
-class _HostDialogState extends State<_HostDialog> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.initial,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      title: Text(l10n.fnthinkHostEditTitle),
-      content: TextField(
-        key: const ValueKey('fnthink-host-input'),
-        controller: _controller,
-        autocorrect: false,
-        decoration: InputDecoration(hintText: l10n.fnthinkHostDesc),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.cancel),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, _controller.text),
-          child: Text(l10n.save),
-        ),
-      ],
     );
   }
 }
