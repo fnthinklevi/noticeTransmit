@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -5,6 +6,7 @@ import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/pages/history_page.dart';
+import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 
@@ -72,6 +74,8 @@ void main() {
   late List<String> marked;
   late int inboxLoads;
   late int sentLoads;
+  late int clearTodayCalls;
+  late List<int> clearLastNCalls;
 
   Future<void> pump(
     WidgetTester tester, {
@@ -89,8 +93,14 @@ void main() {
           records: [record('r_1')],
           onClear: () async {},
           onExport: () async => <String, dynamic>{},
-          onClearToday: () async => 0,
-          onClearLastN: (_) async => 0,
+          onClearToday: () async {
+            clearTodayCalls++;
+            return 0;
+          },
+          onClearLastN: (n) async {
+            clearLastNCalls.add(n);
+            return 0;
+          },
           inboxLoader: () async {
             inboxLoads++;
             return List.of(inboxTable);
@@ -127,6 +137,8 @@ void main() {
     marked = <String>[];
     inboxLoads = 0;
     sentLoads = 0;
+    clearTodayCalls = 0;
+    clearLastNCalls = <int>[];
   });
 
   group('「全部」档（T84）', () {
@@ -249,6 +261,45 @@ void main() {
         find.text('机箱温度'),
         findsNothing,
         reason: '换档 = 换账本：幻念那两段不许在转发档上留着',
+      );
+    });
+  });
+
+  // T90 片20：「清除记录」那枚四选一收进 `showIosOptionPicker`（片6 就有那个装配点）。
+  // 这一条钉的是**换壳之后选中仍落到同一个回调上** —— 选档弹层的返回值是那一发的咽喉，
+  // 而换壳时最容易丢的就是它（值变了、按钮还在 ⇒ 用户以为清了，其实一个字节没动）。
+  group('清除记录的档位框（片20 换件后的页面级证据）', () {
+    Future<void> openClearOptions(WidgetTester tester) async {
+      await pump(tester);
+      await tester.tap(find.byIcon(Icons.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('清除记录'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsOneWidget,
+        reason: '点「清除记录」没打开档位框 ⇒ 入口那一下断了',
+      );
+    }
+
+    testWidgets('选「清除今日」⇒ onClearToday 被调一次，其余两档没被顺手清掉', (tester) async {
+      await openClearOptions(tester);
+      // 按行 key 点（不用按文案：「清除今日/清除全部」几行字在动作表里也出现过）
+      await tester.tap(find.byKey(const ValueKey('ios-picker-today')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(clearTodayCalls, 1, reason: '选了「清除今日」而回调没落到它身上');
+      expect(clearLastNCalls, isEmpty, reason: '选一档顺手清了别的档 ⇒ 那个返回值串台了');
+    });
+
+    testWidgets('「清除全部」那一档是红的（不可撤销的批量删除是安全信号）', (tester) async {
+      await openClearOptions(tester);
+      final all = tester.widget<Text>(find.text('清除全部'));
+      expect(
+        all.style?.color,
+        AppColors.red,
+        reason: '「清除全部」不红 ⇒ 用户分不出"清今天"与"全清光"，而两者的后果差着几个数量级',
       );
     });
   });

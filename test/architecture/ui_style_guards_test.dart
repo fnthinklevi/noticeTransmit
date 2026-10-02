@@ -356,6 +356,8 @@ void main() {
         'lib/pages/history_page.dart': [
           'IosDialogActions.askConfirm(',
           'IosProgressDialog(',
+          // 片20：「清除记录」那枚四选一收进现成的选项装配点（不用新造一个）
+          'showIosOptionPicker<',
         ],
         'lib/pages/main_page_dialogs.dart': [
           'IosDialogActions.showPermissionGuide(',
@@ -538,7 +540,7 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 /// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
 const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/backup_restore_page.dart': 1,
-  'lib/pages/history_page.dart': 2,
+  'lib/pages/history_page.dart': 1,
   'lib/pages/main_page_dialogs.dart': 2,
   'lib/pages/main_page_update.dart': 1,
   // 片16：rule_edit_page 最后一枚（聚合参数编辑框）换进了 `IosFormDialog` ⇒ 整屏出账。

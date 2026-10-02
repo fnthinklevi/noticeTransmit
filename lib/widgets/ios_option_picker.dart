@@ -23,6 +23,7 @@ class IosPickerOption<T> {
     this.description,
     this.icon,
     this.iconColor,
+    this.labelColor,
   });
 
   /// 选中这一项时回填的值。
@@ -38,6 +39,12 @@ class IosPickerOption<T> {
   final IconData? icon;
 
   final Color? iconColor;
+
+  /// 主文案颜色（可空）。
+  /// ⚠ 不是装饰：历史页那枚「清除记录」里，「全部」那一档是**不可撤销的批量删除**，
+  ///   旧形状把它染成红色 —— 那个红是安全信号，收进本组件时必须一起搬过来，
+  ///   否则用户就分不出"清今天"与"全清光"（两者的后果差着几个数量级）。
+  final Color? labelColor;
 }
 
 /// 单选弹层。返回用户选中的值；被 barrier / 返回键关掉时返回 `null`（= 没改）。
@@ -89,7 +96,9 @@ Future<T?> showIosOptionPicker<T>(
                             option.label,
                             style: TextStyle(
                               fontSize: 16,
-                              color: AppColors.primaryLabel(ctx),
+                              color:
+                                  option.labelColor ??
+                                  AppColors.primaryLabel(ctx),
                             ),
                           ),
                           if (option.description != null) ...[

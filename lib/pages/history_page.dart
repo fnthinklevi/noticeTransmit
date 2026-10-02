@@ -21,6 +21,7 @@ import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_option_picker.dart';
 import '../widgets/ios_progress_dialog.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
@@ -2481,73 +2482,22 @@ class _HistoryPageState extends State<HistoryPage> {
   /// 清除记录入口：iOS 风格弹窗（替代 Material PopupMenuButton）
   Future<void> _showClearOptions() async {
     final l10n = AppLocalizations.of(context);
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          l10n.clearRecords,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
+    // T90 片20：这枚「清除记录」的档位列表收进唯一装配点 `showIosOptionPicker`（片6 起就在）。
+    // ⚠ 「全部」那一档的红色**必须一起搬过去**（不可撤销的批量删除是安全信号）⇒ 外壳为此补了
+    //   `labelColor`；点外面关掉仍然回 `null`（= 什么都不清），与旧 Material 行为一致。
+    final selected = await showIosOptionPicker<String>(
+      context,
+      title: l10n.clearRecords,
+      options: [
+        IosPickerOption(value: 'today', label: l10n.clearToday),
+        IosPickerOption(value: 'last10', label: l10n.clearLast10),
+        IosPickerOption(value: 'last50', label: l10n.clearLast50),
+        IosPickerOption(
+          value: 'all',
+          label: l10n.clearAll,
+          labelColor: AppColors.red,
         ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                dense: true,
-                title: Text(
-                  l10n.clearToday,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                onTap: () => Navigator.pop(dialogContext, 'today'),
-              ),
-              ListTile(
-                dense: true,
-                title: Text(
-                  l10n.clearLast10,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                onTap: () => Navigator.pop(dialogContext, 'last10'),
-              ),
-              ListTile(
-                dense: true,
-                title: Text(
-                  l10n.clearLast50,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                onTap: () => Navigator.pop(dialogContext, 'last50'),
-              ),
-              ListTile(
-                dense: true,
-                title: Text(
-                  l10n.clearAll,
-                  style: const TextStyle(color: Colors.red, fontSize: 15),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                onTap: () => Navigator.pop(dialogContext, 'all'),
-              ),
-            ],
-          ),
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+      ],
     );
     if (selected == null || !mounted) return;
 
