@@ -381,15 +381,35 @@ void main() {
         .map((e) => e.key)
         .toSet();
 
-    test('test/ 里不得在台账之外再 pump MaterialApp(', () {
+    test('test/ 里不得在台账之外再 pump MaterialApp（具名例外除外）', () {
       expect(
-        fakeRoot.difference(kPendingMaterialAppTestHarnesses),
+        fakeRoot.difference(<String>{
+          ...kPendingMaterialAppTestHarnesses,
+          ...kNamedMaterialAppTestHarnesses,
+        }),
         isEmpty,
         reason:
             '又一个 harness 用假根 ⇒ 它验的不是真机上那棵树（页面在 CupertinoApp 下'
             '的尺寸、文字样式、可关性都不同 —— 片9 就是这样漏掉一次溢出的）。'
             '请换成 `AppRoot(locale: …, dark: …, home: …)`',
       );
+    });
+
+    // ⚠ 这一条今天**没有能编译的坏法**（如实登记，属纵深防御、不算已验证的闸）：
+    //   想让那个文件不再 pump 假根，就得连 import 一起换成 Cupertino，
+    //   而它传的是 `ThemeData`（`CupertinoApp.theme` 只吃 `CupertinoThemeData`）⇒ 两次试过都编译不过。
+    //   真正会咬人的坏法是**把例外那一行从名单里删掉**（它于是变成账外 ⇒ 上一条断言当场红），
+    //   那一条有可植入的坏法（反证 NE1）。
+    test('具名例外必须真的还在场（把 Material 那套换掉 = 要验的东西没了）', () {
+      for (final path in kNamedMaterialAppTestHarnesses) {
+        expect(
+          harnessByPath[path],
+          contains('MaterialApp('),
+          reason:
+              '$path 是具名例外，它验的就是 Material 的行为；'
+              '把它换成 Cupertino 根等于删掉被测对象（如实登记，不要悄悄改）',
+        );
+      }
     });
 
     test('台账里那些 harness 都还 pump 着 MaterialApp（划掉之前先真换掉）', () {
@@ -455,9 +475,19 @@ void main() {
 /// 仍 pump `MaterialApp` 的 widget harness（T90 片9 起的台账，只许缩短）。
 /// 不含本文件自己：这里那些 needle 是故意留在代码里的探针，见 `harnessByPath` 的排除。
 const Set<String> kPendingMaterialAppTestHarnesses = <String>{
-  'test/theme/text_selection_consistency_test.dart',
+  // 这两页自己还长着 AlertDialog（Material 台账上），换根会把"页面自己的红"和"换根的红"混在一起
+  // ⇒ 等那一屏迁弹层时一起换。
   'test/widgets/app_filter_page_test.dart',
   'test/widgets/webhook_settings_page_test.dart',
+};
+
+/// **具名例外**：故意留在假根（`MaterialApp`）下的 harness，不在"待换"账里。
+/// - `text_selection_consistency_test.dart` 验的就是 **Material 文本选择工具栏的 locale 归一**
+///   （真机上的那套控件就是 Material 的）⇒ 换成 Cupertino 根等于把要验的东西换掉，
+///   它不是"忘了换"，是"换了就不成立"。
+/// ⚠ 本书要的是**具名**：每个例外都得写清为什么；本列表之外的假根一律红（上一条断言）。
+const Set<String> kNamedMaterialAppTestHarnesses = <String>{
+  'test/theme/text_selection_consistency_test.dart',
 };
 
 /// 仍在自己搭 `CupertinoAlertDialog` 的文件（T90 片6 起的台账，只许缩短）。
