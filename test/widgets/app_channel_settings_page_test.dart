@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/app_channel_settings_page.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,10 +37,9 @@ void main() {
     final id = newAppType == null && service.channels.length > which
         ? service.channels[which]['id']?.toString()
         : null;
-    return MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
+    return AppRoot(
       locale: const Locale('zh'),
+      dark: false,
       // key 挂在 id 上：测试里连续 pumpWidget 两个不同 channelId 时，没有 key 的话
       // Flutter 会**复用同一个 State**（initState 不再跑），断言就会看到上一条的内容。
       home: AppChannelSettingsPage(

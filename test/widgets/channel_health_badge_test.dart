@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 健康徽标组件自身的显示契约（三族通道页共用它，T04 把两份抄本合成这一份）。
@@ -33,10 +33,9 @@ void main() {
     double? width,
   }) async {
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+      AppRoot(
         locale: const Locale('zh'),
+        dark: false,
         home: Scaffold(
           body: SizedBox(
             // 列表行副标题的实际可用宽度：手机宽度扣掉图标与右侧开关后只剩 ~170dp。

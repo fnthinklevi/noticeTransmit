@@ -6,12 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/app_channel_list_page.dart';
 import 'package:notice_transmit/pages/app_channel_settings_page.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/widgets/card_action_sheet.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
@@ -59,10 +59,9 @@ void main() {
     addTearDown(tester.view.reset);
     await service.loadChannels();
     await tester.pumpWidget(
-      const MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+      const AppRoot(
         locale: Locale('zh'),
+        dark: false,
         home: AppChannelListPage(),
       ),
     );

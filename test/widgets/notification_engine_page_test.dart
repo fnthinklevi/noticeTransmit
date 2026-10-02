@@ -1,9 +1,7 @@
 import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/battery_page.dart';
 import 'package:notice_transmit/pages/notification_engine_page.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
@@ -11,6 +9,7 @@ import 'package:notice_transmit/pages/device_state_page.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
 import 'package:notice_transmit/services/device_state_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -68,12 +67,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh'),
-        home: home,
-      ),
+      AppRoot(locale: const Locale('zh'), dark: false, home: home),
     );
     await tester.pumpAndSettle();
   }

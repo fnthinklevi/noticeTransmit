@@ -362,6 +362,18 @@ void main() {
         'test/widgets/history_page_backup_chip_test.dart',
         'test/widgets/history_page_fnthink_inbox_test.dart',
         'test/widgets/history_offline_drop_test.dart',
+        // 片10：这一批页面里已没有 Material 弹层（不在 AlertDialog 台账上），
+        // 换根的代价只有 import 面，收益是"页面上任何受根组件影响的行为"从此真被验到。
+        'test/widgets/app_channel_list_page_test.dart',
+        'test/widgets/app_channel_settings_page_test.dart',
+        'test/widgets/channel_health_badge_test.dart',
+        'test/widgets/channel_status_page_test.dart',
+        'test/widgets/device_snapshot_page_test.dart',
+        'test/widgets/email_settings_page_test.dart',
+        'test/widgets/notification_engine_page_test.dart',
+        'test/widgets/notification_page_channels_test.dart',
+        'test/widgets/notification_page_fnthink_inbox_test.dart',
+        'test/widgets/webhook_channel_list_page_test.dart',
       ];
       for (final path in migrated) {
         final src = harnessByPath[path];
@@ -390,17 +402,7 @@ void main() {
 /// 不含本文件自己：这里那些 needle 是故意留在代码里的探针，见 `harnessByPath` 的排除。
 const Set<String> kPendingMaterialAppTestHarnesses = <String>{
   'test/theme/text_selection_consistency_test.dart',
-  'test/widgets/app_channel_list_page_test.dart',
-  'test/widgets/app_channel_settings_page_test.dart',
   'test/widgets/app_filter_page_test.dart',
-  'test/widgets/channel_health_badge_test.dart',
-  'test/widgets/channel_status_page_test.dart',
-  'test/widgets/device_snapshot_page_test.dart',
-  'test/widgets/email_settings_page_test.dart',
-  'test/widgets/notification_engine_page_test.dart',
-  'test/widgets/notification_page_channels_test.dart',
-  'test/widgets/notification_page_fnthink_inbox_test.dart',
-  'test/widgets/webhook_channel_list_page_test.dart',
   'test/widgets/webhook_settings_page_test.dart',
 };
 

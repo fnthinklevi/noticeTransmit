@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/notification_page.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 /// T48 第二片：首页「幻念收件」那一格。
 ///
@@ -17,10 +17,9 @@ void main() {
   var historyTaps = 0;
 
   Widget page({int unread = 0, bool withInboxEntry = true}) {
-    return MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
+    return AppRoot(
       locale: const Locale('zh'),
+      dark: false,
       home: NotificationPage(
         notificationPermissionGranted: true,
         foregroundServiceRunning: true,

@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/email_settings_page.dart';
 import 'package:notice_transmit/services/channel_descriptor_service.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/email_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -99,10 +99,9 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+      AppRoot(
         locale: const Locale('zh'),
+        dark: false,
         home: EmailSettingsPage(
           emailChannels: channels ?? uiChannels(count: count),
         ),
@@ -284,10 +283,9 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
+        AppRoot(
           locale: const Locale('zh'),
+          dark: false,
           home: EmailSettingsPage(emailChannels: uiFromDb(rows)),
         ),
       );

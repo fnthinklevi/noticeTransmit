@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/device_snapshot_page.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
 import 'package:notice_transmit/services/battery_service.dart';
@@ -11,6 +10,7 @@ import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:notice_transmit/services/email_service.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test_setup.dart';
@@ -69,10 +69,9 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      const MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+      const AppRoot(
         locale: Locale('zh'),
+        dark: false,
         home: DeviceSnapshotPage(),
       ),
     );

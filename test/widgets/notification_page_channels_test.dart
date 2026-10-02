@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/notification_page.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 /// T01：首页「当前推送通道」这张卡的渲染契约。
 ///
@@ -19,10 +19,9 @@ void main() {
     bool running = true,
     VoidCallback? onOpenChannelStatus,
   }) {
-    return MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
+    return AppRoot(
       locale: const Locale('zh'),
+      dark: false,
       home: NotificationPage(
         notificationPermissionGranted: true,
         foregroundServiceRunning: running,
