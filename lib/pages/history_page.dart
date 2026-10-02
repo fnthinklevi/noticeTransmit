@@ -21,6 +21,7 @@ import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/ios_progress_dialog.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 
@@ -311,32 +312,17 @@ class _HistoryPageState extends State<HistoryPage> {
     if (!confirmed || !mounted) return;
 
     final progress = ValueNotifier<int>(0);
+    // T90 片17：这枚进度框换进共享外壳 `IosProgressDialog`。
+    // ⚠ 两件必须原样保留的东西：**没有标题**（批量补推没有标题那一行）与 **barrierDismissible: false**
+    //   （补推到一半被点掉，下一幕是"用户以为推完了"）。
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(dialogContext),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: ValueListenableBuilder<int>(
-          valueListenable: progress,
-          builder: (_, done, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                l10n.batchPushRunning(done, targets.length),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.primaryLabel(dialogContext),
-                ),
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: targets.isEmpty ? 0 : done / targets.length,
-                backgroundColor: AppColors.inputBg(dialogContext),
-                color: AppColors.blue,
-              ),
-            ],
-          ),
+      builder: (dialogContext) => ValueListenableBuilder<int>(
+        valueListenable: progress,
+        builder: (_, done, _) => IosProgressDialog(
+          progress: targets.isEmpty ? 0 : done / targets.length,
+          message: l10n.batchPushRunning(done, targets.length),
         ),
       ),
     );

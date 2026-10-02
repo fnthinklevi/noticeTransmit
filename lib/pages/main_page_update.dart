@@ -273,65 +273,29 @@ extension _MainPageUpdate on _MainPageState {
     final progressNotifier = ValueNotifier<double>(0);
     setState(() => _isDownloading = true);
 
+    // T90 片17：这枚下载进度框换进共享外壳 `IosProgressDialog`。
+    // ⚠ 三件必须原样保留的东西：**强推不可取消**（actions 为空、且 barrierDismissible 跟着
+    //   forceUpdate 走）、**非强推可取消**（那颗红色「取消」要连 setState 一起撤 _isDownloading）、
+    //   以及 `progress > 0 ? progress : null` —— 0 表示"服务器还没给总大小"，那时要的是不确定态。
     showDialog(
       context: context,
       barrierDismissible: !result.forceUpdate,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(
-          _l10n.updateDownloading,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(context),
-          ),
-        ),
-        content: ValueListenableBuilder<double>(
-          valueListenable: progressNotifier,
-          builder: (context, progress, child) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress > 0 ? progress : null,
-                    minHeight: 6,
-                    backgroundColor: AppColors.separator(context),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      AppColors.blue,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '${(progress * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryLabel(context),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-        actions: result.forceUpdate
-            ? []
-            : [
-                TextButton(
-                  onPressed: () {
+      builder: (context) => ValueListenableBuilder<double>(
+        valueListenable: progressNotifier,
+        builder: (context, progress, child) {
+          return IosProgressDialog(
+            title: _l10n.updateDownloading,
+            progress: progress > 0 ? progress : null,
+            percentText: '${(progress * 100).toStringAsFixed(0)}%',
+            cancelText: result.forceUpdate ? null : _l10n.cancel,
+            onCancel: result.forceUpdate
+                ? null
+                : () {
                     Navigator.pop(context);
                     setState(() => _isDownloading = false);
                   },
-                  child: Text(
-                    _l10n.cancel,
-                    style: const TextStyle(color: AppColors.red),
-                  ),
-                ),
-              ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          );
+        },
       ),
     );
 

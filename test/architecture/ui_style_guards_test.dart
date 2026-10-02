@@ -319,43 +319,58 @@ void main() {
       // 或者把 `AlertDialog(` 就地改成 `CupertinoAlertDialog(`。后者让上面两条守卫都绿
       // （Material 那件确实没了），但标题字号 / 按钮色 / 可关性重新各页一份 ——
       // 与换根组件之前那种散落是同一样东西。所以这一条钉的是"走哪条路"（T90 片5/片6）。
-      const migrated = <String, String>{
-        'lib/pages/main_page_actions.dart': 'IosDialogActions.askConfirm(',
-        'lib/pages/sms_monitor_settings_page.dart':
-            'IosDialogActions.showInfo(',
-        'lib/pages/widget_guide_page.dart': 'IosDialogActions.showInfo(',
-        'lib/pages/more_page.dart': 'showIosOptionPicker<',
-        'lib/pages/fnthink_push_page.dart': 'showIosInputDialog(',
-        'lib/widgets/rule_template_sheet.dart': 'showIosInputDialog(',
+      // ⚠ 值是**列表**不是一个字符串：一个文件可以接多个装配点（history_page 同时有
+      //   确认框 askConfirm 与片17 的进度框 IosProgressDialog；rule_edit_page 同时有
+      //   权限引导框与片16 的表单外壳）。早先用 String 时第二次登记同名键 ⇒ Dart 直接编译不过。
+      const migrated = <String, List<String>>{
+        'lib/pages/main_page_actions.dart': ['IosDialogActions.askConfirm('],
+        'lib/pages/sms_monitor_settings_page.dart': [
+          'IosDialogActions.showInfo(',
+        ],
+        'lib/pages/widget_guide_page.dart': ['IosDialogActions.showInfo('],
+        'lib/pages/more_page.dart': ['showIosOptionPicker<'],
+        'lib/pages/fnthink_push_page.dart': ['showIosInputDialog('],
+        'lib/widgets/rule_template_sheet.dart': ['showIosInputDialog('],
         // 片11：这两处原本是**逐字相同的两份**同一个权限引导框（连"允许"那颗
         // 请求的原生方法名都一样）⇒ 重复的代价不是行数，是两处以后各改各的。
-        'lib/pages/app_filter_page.dart':
-            'IosDialogActions.showPermissionGuide(',
-        'lib/pages/rule_edit_page.dart':
-            'IosDialogActions.showPermissionGuide(',
+        'lib/pages/app_filter_page.dart': [
+          'IosDialogActions.showPermissionGuide(',
+        ],
+        'lib/pages/rule_edit_page.dart': [
+          'IosDialogActions.showPermissionGuide(',
+          // 片16：聚合参数编辑框（新增/编辑条件那四枚在 part 文件里）
+          'IosFormDialog(',
+        ],
         // 片12：新增/编辑条件、新增/编辑动作这四枚表单弹层的外壳原本是各写一遍的
         // （圆角、背景色、按钮顺序、字号存了四份），现在共用 `IosFormDialog`。
-        'lib/pages/rule_edit_widgets.dart': 'IosFormDialog(',
-        // 片13：这三枚的动作早就走 helper 了，只剩外壳还挂着 Material 那件 ⇒ 整枚收进装配点。
-        'lib/pages/battery_page.dart': 'IosDialogActions.askConfirm(',
-        'lib/pages/history_page.dart': 'IosDialogActions.askConfirm(',
-        'lib/pages/main_page_dialogs.dart':
-            'IosDialogActions.showPermissionGuide(',
+        'lib/pages/rule_edit_widgets.dart': ['IosFormDialog('],
+        // 片13：这几枚的动作早就走 helper 了，只剩外壳还挂着 Material 那件 ⇒ 整枚收进装配点。
+        'lib/pages/battery_page.dart': ['IosDialogActions.askConfirm('],
+        // 片17：批量补推那枚进度框（形状与任何现有装配点都不同形 ⇒ 新装配点）。
+        'lib/pages/history_page.dart': [
+          'IosDialogActions.askConfirm(',
+          'IosProgressDialog(',
+        ],
+        'lib/pages/main_page_dialogs.dart': [
+          'IosDialogActions.showPermissionGuide(',
+        ],
       };
       for (final entry in migrated.entries) {
         final src = codeByPath[entry.key];
         expect(src, isNotNull, reason: '${entry.key} 不在了 ⇒ 本条在空转');
-        expect(
-          src!,
-          contains(entry.value),
-          reason: '${entry.key} 的弹层没接到共享件（${entry.value}）⇒ 形状又要各页一份',
-        );
+        for (final helper in entry.value) {
+          expect(
+            src!,
+            contains(helper),
+            reason: '${entry.key} 的弹层没接到共享件（$helper）⇒ 形状又要各页一份',
+          );
+        }
         expect(
           src,
           isNot(contains('CupertinoAlertDialog(')),
           reason:
               '${entry.key} 自己手搭了一枚 Cupertino 的 ⇒ 台账划掉了，但散落的还是散落的；'
-              '请改走 ${entry.value}',
+              '请改走 ${entry.value.join(" / ")}',
         );
       }
     });
@@ -507,15 +522,17 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
   'lib/widgets/ios_option_picker.dart',
   'lib/widgets/ios_input_dialog.dart',
   'lib/widgets/ios_form_dialog.dart',
+  // 片17：进度框外壳（批量补推 / 更新下载那两枚的形状同源、用法不同）
+  'lib/widgets/ios_progress_dialog.dart',
 };
 
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
 /// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
 const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/backup_restore_page.dart': 1,
-  'lib/pages/history_page.dart': 3,
+  'lib/pages/history_page.dart': 2,
   'lib/pages/main_page_dialogs.dart': 2,
-  'lib/pages/main_page_update.dart': 2,
+  'lib/pages/main_page_update.dart': 1,
   // 片16：rule_edit_page 最后一枚（聚合参数编辑框）换进了 `IosFormDialog` ⇒ 整屏出账。
   // 四枚条件/动作表单在 part 文件 `rule_edit_widgets.dart`（片12 迁的），别按文件名 grep 漏掉。
   'lib/pages/rule_list_page.dart': 1,

@@ -38,6 +38,7 @@ import 'sms_monitor_settings_page.dart';
 import 'app_channel_list_page.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
+import '../widgets/ios_progress_dialog.dart';
 
 // R3 拆分：容器页按域拆分（part 共享 State 私有成员，行为零变化）
 // main_page_update: 更新检查/弹窗/下载安装
