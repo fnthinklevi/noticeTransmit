@@ -50,6 +50,12 @@ void main() {
           .toList()
         ..sort();
 
+  /// 同一个口径但**逐文件数枚数**：台账记的是「这个文件几枚」，不是「这个文件有没有」。
+  Map<String, int> countingRe(RegExp re) => {
+    for (final e in codeByPath.entries)
+      if (re.hasMatch(e.value)) e.key: re.allMatches(e.value).length,
+  };
+
   group('根组件', () {
     test('lib/ 里不得出现 MaterialApp(', () {
       expect(
@@ -251,21 +257,33 @@ void main() {
       expect(
         hittingRe(
           materialDialogs,
-        ).toSet().difference(kPendingMaterialDialogSites),
+        ).toSet().difference(kMaterialDialogSites.keys.toSet()),
         isEmpty,
         reason:
             '新一处 Material AlertDialog ⇒ 与 Cupertino 风格不一致；确认框请用 IosDialogActions',
       );
     });
 
-    test('台账里的文件都还长着一枚（划掉之前先真换掉）', () {
+    // ⚠ 这条才是「剩余工作量」的真读数。旧的两条只问文件在不在账上，于是在**已入账的文件里
+    //   再加一枚**对话框永远不会红（history_page 本来就挂着五枚 ⇒ 第六枚没人喊）。
+    //   片13 划掉四枚之后把口径改成逐文件枚数：多一枚红、少一枚也红（少的那次要顺手把账改小）。
+    test('逐文件枚数与台账相等（这本账就是剩余工作量）', () {
+      final actual = countingRe(materialDialogs);
       expect(
-        kPendingMaterialDialogSites.difference(
-          hittingRe(materialDialogs).toSet(),
-        ),
-        isEmpty,
-        reason: '台账与实际不符 ⇒ 这本账不能再当作剩余工作量',
+        actual.keys.toSet(),
+        kMaterialDialogSites.keys.toSet(),
+        reason: '台账内外的文件对不上 ⇒ 这本账不能再当作剩余工作量',
       );
+      for (final entry in kMaterialDialogSites.entries) {
+        expect(
+          actual[entry.key] ?? 0,
+          entry.value,
+          reason:
+              '${entry.key} 里 Material AlertDialog 实际 '
+              '${actual[entry.key] ?? 0} 枚、台账记 ${entry.value} 枚'
+              ' ⇒ 真换掉一枚就把账改小，新写一枚不许',
+        );
+      }
     });
 
     test('已划掉的每一屏走的是 helper，不是自己手搭一枚 Cupertino 的', () {
@@ -290,6 +308,11 @@ void main() {
         // 片12：新增/编辑条件、新增/编辑动作这四枚表单弹层的外壳原本是各写一遍的
         // （圆角、背景色、按钮顺序、字号存了四份），现在共用 `IosFormDialog`。
         'lib/pages/rule_edit_widgets.dart': 'IosFormDialog(',
+        // 片13：这三枚的动作早就走 helper 了，只剩外壳还挂着 Material 那件 ⇒ 整枚收进装配点。
+        'lib/pages/battery_page.dart': 'IosDialogActions.askConfirm(',
+        'lib/pages/history_page.dart': 'IosDialogActions.askConfirm(',
+        'lib/pages/main_page_dialogs.dart':
+            'IosDialogActions.showPermissionGuide(',
       };
       for (final entry in migrated.entries) {
         final src = codeByPath[entry.key];
@@ -428,24 +451,25 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
   'lib/widgets/ios_form_dialog.dart',
 };
 
-/// 还长着 Material `AlertDialog` 的文件（T83 逐屏换的台账，同上只许缩短）。
-const Set<String> kPendingMaterialDialogSites = <String>{
-  'lib/pages/backup_restore_page.dart',
-  'lib/pages/battery_page.dart',
-  'lib/pages/device_state_page.dart',
-  'lib/pages/history_page.dart',
-  'lib/pages/main_page_dialogs.dart',
-  'lib/pages/main_page_update.dart',
-  'lib/pages/rule_edit_page.dart',
-  'lib/pages/rule_list_page.dart',
-  'lib/pages/rule_tester_page.dart',
-  'lib/pages/temperature_page.dart',
-  'lib/pages/webhook_settings_item.dart',
+/// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
+/// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
+const Map<String, int> kMaterialDialogSites = <String, int>{
+  'lib/pages/backup_restore_page.dart': 1,
+  'lib/pages/battery_page.dart': 1,
+  'lib/pages/device_state_page.dart': 1,
+  'lib/pages/history_page.dart': 3,
+  'lib/pages/main_page_dialogs.dart': 2,
+  'lib/pages/main_page_update.dart': 2,
+  'lib/pages/rule_edit_page.dart': 1,
+  'lib/pages/rule_list_page.dart': 1,
+  'lib/pages/rule_tester_page.dart': 1,
+  'lib/pages/temperature_page.dart': 2,
+  'lib/pages/webhook_settings_item.dart': 1,
   // #176 片3 新增的一枚：与下面那枚是同一个形态（多字段输入弹层），#184 换那一屏时一起换。
   // 输入弹层刻意不用 `IosDialogActions`：那是**确认框**（一问一答），这里要的是三个输入项 + 选档。
-  'lib/widgets/fnthink_pair_dialog.dart',
-  'lib/widgets/fnthink_send_dialog.dart',
-  'lib/widgets/icon_picker_tile.dart',
+  'lib/widgets/fnthink_pair_dialog.dart': 1,
+  'lib/widgets/fnthink_send_dialog.dart': 1,
+  'lib/widgets/icon_picker_tile.dart': 1,
 };
 
 List<File> _dartFilesIn(String root, String dir) => Directory('$root/$dir')

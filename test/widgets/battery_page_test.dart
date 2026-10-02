@@ -52,5 +52,29 @@ void main() {
         isNot(anyOf(contains('AppColors.red'), contains('AppColors.green'))),
       );
     });
+
+    // 片13：那一发系统请求原来写在弹层按钮的回调里（pop 完立刻 invokeMethod），
+    // 现在必须等 `askConfirm` 返回答案之后由调用点发 —— 与 #103、片11 同一条道理：
+    // 「点没点中那颗钮」与「用户到底选了哪颗」是两件事，后者才是发请求的条件。
+    test('去设置那一发在 await 之后，不在弹层回调里', () {
+      expect(
+        src,
+        contains('IosDialogActions.askConfirm('),
+        reason: '外壳没走装配点 ⇒ 形状又要各页一份',
+      );
+      expect(
+        src.indexOf('askConfirm(') <
+            src.indexOf("invokeMethod('requestBatteryOptimization')"),
+        isTrue,
+        reason: '那一发跑到 askConfirm 之前 ⇒ 框一弹出来就把用户送去设置了',
+      );
+      // 「拿到答案之后按答案早退」这一条由 `delete_confirmation_contract_test` 的咽喉清单钉
+      // （那里断的是同一个标识符被否定过），这里不重复写第二份判据。
+      expect(
+        src,
+        isNot(contains('onConfirm:')),
+        reason: '又把动作塞回弹层回调 ⇒ 点「暂不」与点「去设置」在这条链上又分不开了',
+      );
+    });
   });
 }

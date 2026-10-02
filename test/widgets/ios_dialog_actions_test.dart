@@ -161,6 +161,68 @@ void main() {
       ], reason: '取消被读成确认 ⇒ "二次确认"变成一次点击就删，还会连带丢凭据');
     });
 
+    // 片13：`battery_page` / `history_page` 那三枚从 Material `showDialog` 换过来，
+    // 旧默认是**点得穿外面**（点外面 = 没答 = 不执行）。组件这边默认 false（Cupertino 语义），
+    // 所以调用点必须显式传 true —— 这两条用例钉的就是"显式传的那一枚真的生效、默认那枚没被顺手改掉"。
+    testWidgets('barrierDismissible: true ⇒ 点外面收回去 = 没答（回 false）', (
+      tester,
+    ) async {
+      final results = <bool>[];
+      Future<void> ask(BuildContext ctx, AppLocalizations l10n) async {
+        results.add(
+          await IosDialogActions.askConfirm(
+            ctx,
+            title: '关闭电池优化',
+            message: '去系统设置里关',
+            confirmText: '去设置',
+            cancelText: '暂不',
+            destructive: false,
+            barrierDismissible: true,
+          ),
+        );
+      }
+
+      await tester.pumpWidget(wrap(host(action: ask)));
+
+      await open(tester);
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      // 点弹层外面（左上角那一片空白）
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsNothing,
+        reason: '点外面收不回去 ⇒ 旧的"看一眼再收回"那条出路被换件换掉了',
+      );
+      expect(results, [false], reason: '点外面被读成确认 ⇒ 用户只想关掉却被送去设置页');
+    });
+
+    testWidgets('不传 barrierDismissible ⇒ 默认必须答（点外面那一下不关框）', (tester) async {
+      final results = <bool>[];
+      Future<void> ask(BuildContext ctx, AppLocalizations l10n) async {
+        results.add(
+          await IosDialogActions.askConfirm(
+            ctx,
+            title: '删除这条规则',
+            message: '删掉之后不可恢复',
+            confirmText: '删除',
+          ),
+        );
+      }
+
+      await tester.pumpWidget(wrap(host(action: ask)));
+
+      await open(tester);
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(CupertinoAlertDialog),
+        findsOneWidget,
+        reason: '默认变成点得穿 ⇒ 现有那些"必须答"的确认框（片5 起）行为被这一枚参数悄悄改了',
+      );
+      expect(results, isEmpty);
+    });
+
     testWidgets('框还开着的时候，底下那一层收不到点击', (tester) async {
       var underneath = 0;
       await tester.pumpWidget(
@@ -287,6 +349,53 @@ void main() {
             '改成 barrierDismissible: false 就等于把它禁了',
       );
       expect(find.byType(CupertinoAlertDialog), findsNothing);
+    });
+    // 片13：`main_page_dialogs` 那枚通知权限提醒**本来就没有标题**（旧形状是「图标 + 说明」两行）。
+    // 装配点因此把 title 做成可选 —— 而不是替维护者编一句文案（措辞要动 ARB，那是他的决定）。
+    testWidgets('省略 title ⇒ 只有图标 + 说明，不硬挤出一行标题', (tester) async {
+      final seen = <bool?>[];
+      await tester.pumpWidget(
+        AppRoot(
+          locale: const Locale('zh'),
+          dark: false,
+          home: Builder(
+            builder: (context) => CupertinoButton(
+              onPressed: () async {
+                seen.add(
+                  await IosDialogActions.showPermissionGuide(
+                    context,
+                    icon: Icons.notifications_off,
+                    message: '通知权限关着，收不到就提示不了',
+                    rejectText: '以后再说',
+                    allowText: '去设置',
+                  ),
+                );
+              },
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.byIcon(Icons.notifications_off), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(CupertinoAlertDialog),
+          matching: find.byType(Text),
+        ),
+        findsNWidgets(3),
+        reason:
+            '弹层里的文字应当只有「说明 + 两颗钮」三处 ⇒ 多出来的是被硬造的标题，'
+            '少了的是说明或某颗钮没挂上',
+      );
+
+      await tester.tap(find.text('去设置'));
+      await tester.pumpAndSettle();
+      expect(seen, [true]);
     });
   });
 }

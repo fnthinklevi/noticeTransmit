@@ -74,38 +74,22 @@ extension _MainPageDialogs on _MainPageState {
     );
   }
 
-  void _showNotificationPermissionDialog() {
+  Future<void> _showNotificationPermissionDialog() async {
+    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        title: const Icon(
-          Icons.notifications_off,
-          size: 40,
-          color: AppColors.orange,
-        ),
-        content: Text(
-          l10n.notificationPermOffMsg,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.5,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        actions: IosDialogActions.confirm(
-          ctx,
-          cancelText: l10n.updateLater,
-          confirmText: l10n.goSettings,
-          onConfirm: () {
-            Navigator.pop(ctx);
-            _openPermissionSettingsPage();
-          },
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+    // T90 片13：这一枚与片11 收的那两枚是同一形状（图标 + 说明 + 拒绝/允许），
+    // 只是它**没有标题** —— 所以 title 传 null，而不是替维护者编一句文案。
+    final goSettings = await IosDialogActions.showPermissionGuide(
+      context,
+      icon: Icons.notifications_off,
+      iconColor: AppColors.orange,
+      message: l10n.notificationPermOffMsg,
+      rejectText: l10n.updateLater,
+      allowText: l10n.goSettings,
     );
+    if (goSettings) {
+      _openPermissionSettingsPage();
+    }
   }
 
   Future<void> _showDeviceNameDialog() async {

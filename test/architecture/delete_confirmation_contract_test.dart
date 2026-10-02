@@ -30,7 +30,12 @@ void main() {
       'Future<void> _confirmDeleteChannel(',
     ],
     'lib/pages/email_settings_page.dart': ['Future<void> _deleteChannel('],
-    'lib/pages/battery_page.dart': ['Future<void> _confirmDeleteRule('],
+    'lib/pages/battery_page.dart': [
+      'Future<void> _confirmDeleteRule(',
+      // T90 片13：这一发的后果是**改系统设置里那一项豁免**（点错了要被系统一直省电），
+      // 与删一条规则同级的是「它不可由本页回滚」⇒ 也登记成咽喉，不按「只是个提示框」放过。
+      'Future<void> _showBatteryOptimizationDialog(',
+    ],
     'lib/pages/temperature_page.dart': ['Future<void> _confirmDeleteRule('],
     'lib/pages/rule_list_page.dart': ['Future<void> _deleteRule('],
     'lib/pages/keywords_page.dart': ['Future<void> _removeKeyword('],
@@ -125,7 +130,11 @@ void main() {
         'lib/pages/app_channel_list_page.dart': ['_service.deleteChannel('],
         // T08-C2：邮件页不再改本地列表，删除走服务层单条咽喉
         'lib/pages/email_settings_page.dart': ['_emailService.deleteChannel('],
-        'lib/pages/battery_page.dart': ['_service.deleteRule('],
+        'lib/pages/battery_page.dart': [
+          '_service.deleteRule(',
+          // 片13：这一发改的是**系统里那项省电豁免**，同样只许从确认框那一条路出去
+          "invokeMethod('requestBatteryOptimization')",
+        ],
         'lib/pages/temperature_page.dart': ['_service.deleteRule('],
         'lib/pages/rule_list_page.dart': ['_rules.removeWhere('],
         'lib/pages/keywords_page.dart': ['_blacklist.remove('],

@@ -297,37 +297,18 @@ class _HistoryPageState extends State<HistoryPage> {
       ).showSnackBar(SnackBar(content: Text(l10n.batchPushUnsupported)));
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(dialogContext),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.batchPushConfirmTitle,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(dialogContext),
-          ),
-        ),
-        content: Text(
-          l10n.batchPushConfirmMsg(targets.length),
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.4,
-            color: AppColors.primaryLabel(dialogContext),
-          ),
-        ),
-        actions: IosDialogActions.confirm(
-          dialogContext,
-          cancelText: l10n.cancel,
-          confirmText: l10n.confirm,
-          onCancel: () => Navigator.pop(dialogContext, false),
-          onConfirm: () => Navigator.pop(dialogContext, true),
-        ),
-      ),
+    // T90 片13：确认那一发换成唯一装配点（外壳与钮的形状从此只有一份作者）。
+    // 点外面 = 没答 = 不推（`barrierDismissible: true` 照旧的 Material 默认保留）。
+    final confirmed = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.batchPushConfirmTitle,
+      message: l10n.batchPushConfirmMsg(targets.length),
+      confirmText: l10n.confirm,
+      cancelText: l10n.cancel,
+      destructive: false,
+      barrierDismissible: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     final progress = ValueNotifier<int>(0);
     showDialog(
@@ -2596,35 +2577,18 @@ class _HistoryPageState extends State<HistoryPage> {
         deleted = await widget.onClearLastN(50);
         break;
       case 'all':
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.cardBg(ctx),
-            title: Text(
-              l10n.confirmClear,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(ctx),
-              ),
-            ),
-            content: Text(
-              l10n.clearConfirmMsg(widget.records.length),
-              style: TextStyle(color: AppColors.primaryLabel(ctx)),
-            ),
-            actions: IosDialogActions.confirm(
-              ctx,
-              cancelText: l10n.cancel,
-              confirmText: l10n.confirm,
-              onConfirm: () => Navigator.pop(ctx, true),
-              destructive: true,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
+        // T90 片13：破坏性动作一律走统一确认框（T06 那条判据：确认写在执行那一步里）。
+        final confirm = await IosDialogActions.askConfirm(
+          context,
+          title: l10n.confirmClear,
+          message: l10n.clearConfirmMsg(widget.records.length),
+          confirmText: l10n.confirm,
+          cancelText: l10n.cancel,
+          destructive: true,
+          // 旧的 Material showDialog 默认点得穿，点外面 = 不清 ⇒ 照旧保留
+          barrierDismissible: true,
         );
-        if (confirm == true) {
+        if (confirm) {
           await widget.onClear();
           deleted = widget.records.length;
         }

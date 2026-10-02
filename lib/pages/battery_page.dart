@@ -180,47 +180,22 @@ class _BatteryPageState extends State<BatteryPage> {
     _service.addRule(rule);
   }
 
-  void _showBatteryOptimizationDialog() {
+  Future<void> _showBatteryOptimizationDialog() async {
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: AppColors.cardBg(context),
-          title: Text(
-            l10n.closeBatteryOpt,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryLabel(context),
-            ),
-          ),
-          content: Text(
-            l10n.batteryOptDesc,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.secondaryLabel(context),
-              height: 1.4,
-            ),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          actions: IosDialogActions.confirm(
-            ctx,
-            cancelText: l10n.notNow,
-            confirmText: l10n.goSettings,
-            onConfirm: () {
-              Navigator.pop(ctx);
-              AppChannels.notification.invokeMethod(
-                'requestBatteryOptimization',
-              );
-            },
-          ),
-        );
-      },
+    // T90 片13：外壳换成唯一装配点。顺序与换件前一致 —— 拿到答案之后才发那一发，
+    // 「暂不」和「点外面」都是不发（`barrierDismissible: true` 照 Material 旧默认保留）。
+    final goSettings = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.closeBatteryOpt,
+      message: l10n.batteryOptDesc,
+      confirmText: l10n.goSettings,
+      cancelText: l10n.notNow,
+      destructive: false,
+      barrierDismissible: true,
     );
+    if (!goSettings) return;
+    AppChannels.notification.invokeMethod('requestBatteryOptimization');
   }
 
   Widget _buildRuleTile(Map<String, dynamic> rule, BuildContext context) {

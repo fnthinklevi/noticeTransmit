@@ -56,6 +56,9 @@ class IosDialogActions {
   /// webhook 与自建应用通道的删除一直是没有确认的（点一下就没了，还会连带丢凭据）。
   /// **删除类动作一律走这里**，且确认要写在"执行删除的那个函数"里（单一咽喉），
   /// 而不是写在每个调用点，否则新增入口时必然漏掉一条。
+  /// ⚠ [barrierDismissible] 默认 **false**（Cupertino 语义「必须答」），但**换件过来的调用点要按旧行为显式传**：
+  ///   Material `showDialog` 默认点得穿，那些框「点外面」= 没答 = 不执行；在这里悄悄改成 false
+  ///   会让「看一眼又想收回去」那条出路消失（片6 与片11 各撞过一次，方向相反）。
   static Future<bool> askConfirm(
     BuildContext context, {
     required String title,
@@ -63,10 +66,12 @@ class IosDialogActions {
     required String confirmText,
     String? cancelText,
     bool destructive = true,
+    bool barrierDismissible = false,
   }) async {
     final l10n = AppLocalizations.of(context);
     final ok = await showCupertinoDialog<bool>(
       context: context,
+      barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
         title: Text(title),
         content: Padding(
@@ -103,7 +108,8 @@ class IosDialogActions {
   static Future<bool> showPermissionGuide(
     BuildContext context, {
     required IconData icon,
-    required String title,
+    Color iconColor = AppColors.blue,
+    String? title,
     required String message,
     required String rejectText,
     required String allowText,
@@ -114,20 +120,24 @@ class IosDialogActions {
       builder: (ctx) => CupertinoAlertDialog(
         // 标题走 content 而不是 CupertinoAlertDialog 的 title：这一屏的形状是
         // 「图标在上、标题居中、说明在下」，塞进 title 会变成标题左对齐 + 图标悬空。
+        // ⚠ [title] 可省：`main_page_dialogs` 那枚通知权限提醒本来就只有「图标 + 说明」两行，
+        //   给它编一句标题要动 ARB ⇒ 措辞是维护者的决定，不在装配点里替他定。
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 44, color: AppColors.blue),
+            Icon(icon, size: 44, color: iconColor),
             const SizedBox(height: 14),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(context),
+            if (title != null) ...[
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLabel(context),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ],
             Text(
               message,
               textAlign: TextAlign.center,
