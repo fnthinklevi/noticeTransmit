@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/pull_to_refresh_list.dart';
 
 class PermissionSettingsPage extends StatefulWidget {
   final bool notificationListenerGranted;
@@ -157,230 +158,224 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.permSettingsTitle)),
-      body: RefreshIndicator(
+      body: PullToRefreshList(
         onRefresh: widget.onRefresh,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            _buildSectionHeader(l10n.essentialPerms, context),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          _buildSectionHeader(l10n.essentialPerms, context),
+          _buildGroup([
+            _buildPermissionTile(
+              icon: Icons.notifications_active,
+              title: l10n.notifAccessPerm,
+              subtitle: _notificationListenerGranted
+                  ? l10n.enabled
+                  : l10n.disabled,
+              isOn: _notificationListenerGranted,
+              onTap: _notificationListenerGranted
+                  ? null
+                  : widget.onRequestNotificationListenerPermission,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildPermissionTile(
+              icon: Icons.notification_add,
+              title: l10n.allowNotifications,
+              subtitle: _postNotificationGranted ? l10n.enabled : l10n.disabled,
+              isOn: _postNotificationGranted,
+              onTap: _postNotificationGranted
+                  ? null
+                  : widget.onRequestPostNotificationPermission,
+              context: context,
+            ),
+            _buildDivider(context),
+            _buildPermissionTile(
+              icon: Icons.battery_full,
+              title: l10n.ignoreBatteryOpt,
+              subtitle: _batteryOptimizationIgnored
+                  ? l10n.enabled
+                  : l10n.disabled,
+              isOn: _batteryOptimizationIgnored,
+              onTap: _batteryOptimizationIgnored
+                  ? null
+                  : widget.onRequestBatteryOptimization,
+              context: context,
+            ),
+          ], context),
+          const SizedBox(height: 24),
+          if (_isXiaomi ||
+              _isMeizu ||
+              _isHuawei ||
+              _isOppo ||
+              _isVivo ||
+              _isSamsung ||
+              _isStockAndroid) ...[
+            _buildSectionHeader(l10n.keepAliveGuideTitle, context),
+            _buildKeepAliveGuideCard(context),
+            const SizedBox(height: 24),
+            _buildSectionHeader(l10n.vendorBgSettings, context),
             _buildGroup([
-              _buildPermissionTile(
-                icon: Icons.notifications_active,
-                title: l10n.notifAccessPerm,
-                subtitle: _notificationListenerGranted
-                    ? l10n.enabled
-                    : l10n.disabled,
-                isOn: _notificationListenerGranted,
-                onTap: _notificationListenerGranted
-                    ? null
-                    : widget.onRequestNotificationListenerPermission,
-                context: context,
-              ),
-              _buildDivider(context),
-              _buildPermissionTile(
-                icon: Icons.notification_add,
-                title: l10n.allowNotifications,
-                subtitle: _postNotificationGranted
-                    ? l10n.enabled
-                    : l10n.disabled,
-                isOn: _postNotificationGranted,
-                onTap: _postNotificationGranted
-                    ? null
-                    : widget.onRequestPostNotificationPermission,
-                context: context,
-              ),
-              _buildDivider(context),
-              _buildPermissionTile(
-                icon: Icons.battery_full,
-                title: l10n.ignoreBatteryOpt,
-                subtitle: _batteryOptimizationIgnored
-                    ? l10n.enabled
-                    : l10n.disabled,
-                isOn: _batteryOptimizationIgnored,
-                onTap: _batteryOptimizationIgnored
-                    ? null
-                    : widget.onRequestBatteryOptimization,
-                context: context,
-              ),
+              if (_isXiaomi)
+                _buildPermissionTile(
+                  icon: Icons.rocket_launch,
+                  title: l10n.xiaomiAutoStart,
+                  subtitle: l10n.clickToSettings,
+                  isOn: false,
+                  onTap: widget.onRequestXiaomiAutoStart,
+                  isWarning: true,
+                  context: context,
+                ),
+              if (_isMeizu)
+                _buildPermissionTile(
+                  icon: Icons.rocket_launch,
+                  title: l10n.meizuBgRun,
+                  subtitle: l10n.clickToSettings,
+                  isOn: false,
+                  onTap: widget.onRequestMeizuBackground,
+                  isWarning: true,
+                  context: context,
+                ),
+              if (_isHuawei)
+                _buildPermissionTile(
+                  icon: Icons.rocket_launch,
+                  title: l10n.huaweiProtected,
+                  subtitle: l10n.clickToSettings,
+                  isOn: false,
+                  onTap: widget.onRequestHuaweiLaunch,
+                  isWarning: true,
+                  context: context,
+                ),
+              if (_isOppo)
+                _buildPermissionTile(
+                  icon: Icons.rocket_launch,
+                  title: l10n.oppoAutoStart,
+                  subtitle: l10n.clickToSettings,
+                  isOn: false,
+                  onTap: widget.onRequestOppoBackground,
+                  isWarning: true,
+                  context: context,
+                ),
+              if (_isVivo)
+                _buildPermissionTile(
+                  icon: Icons.rocket_launch,
+                  title: l10n.vivoBgStart,
+                  subtitle: l10n.clickToSettings,
+                  isOn: false,
+                  onTap: widget.onRequestVivoBackground,
+                  isWarning: true,
+                  context: context,
+                ),
+              if (_isSamsung)
+                _buildPermissionTile(
+                  icon: Icons.info_outline,
+                  title: l10n.samsungSettings,
+                  subtitle: l10n.samsungSmartManagerDesc,
+                  isOn: false,
+                  onTap: null,
+                  isWarning: true,
+                  context: context,
+                ),
+              if (_isStockAndroid)
+                _buildPermissionTile(
+                  icon: Icons.info_outline,
+                  title: l10n.nativeAndroid,
+                  subtitle: l10n.nativeBatteryOptDesc,
+                  isOn: false,
+                  onTap: null,
+                  isWarning: true,
+                  context: context,
+                ),
             ], context),
             const SizedBox(height: 24),
-            if (_isXiaomi ||
-                _isMeizu ||
-                _isHuawei ||
-                _isOppo ||
-                _isVivo ||
-                _isSamsung ||
-                _isStockAndroid) ...[
-              _buildSectionHeader(l10n.keepAliveGuideTitle, context),
-              _buildKeepAliveGuideCard(context),
-              const SizedBox(height: 24),
-              _buildSectionHeader(l10n.vendorBgSettings, context),
-              _buildGroup([
-                if (_isXiaomi)
-                  _buildPermissionTile(
-                    icon: Icons.rocket_launch,
-                    title: l10n.xiaomiAutoStart,
-                    subtitle: l10n.clickToSettings,
-                    isOn: false,
-                    onTap: widget.onRequestXiaomiAutoStart,
-                    isWarning: true,
-                    context: context,
-                  ),
-                if (_isMeizu)
-                  _buildPermissionTile(
-                    icon: Icons.rocket_launch,
-                    title: l10n.meizuBgRun,
-                    subtitle: l10n.clickToSettings,
-                    isOn: false,
-                    onTap: widget.onRequestMeizuBackground,
-                    isWarning: true,
-                    context: context,
-                  ),
-                if (_isHuawei)
-                  _buildPermissionTile(
-                    icon: Icons.rocket_launch,
-                    title: l10n.huaweiProtected,
-                    subtitle: l10n.clickToSettings,
-                    isOn: false,
-                    onTap: widget.onRequestHuaweiLaunch,
-                    isWarning: true,
-                    context: context,
-                  ),
-                if (_isOppo)
-                  _buildPermissionTile(
-                    icon: Icons.rocket_launch,
-                    title: l10n.oppoAutoStart,
-                    subtitle: l10n.clickToSettings,
-                    isOn: false,
-                    onTap: widget.onRequestOppoBackground,
-                    isWarning: true,
-                    context: context,
-                  ),
-                if (_isVivo)
-                  _buildPermissionTile(
-                    icon: Icons.rocket_launch,
-                    title: l10n.vivoBgStart,
-                    subtitle: l10n.clickToSettings,
-                    isOn: false,
-                    onTap: widget.onRequestVivoBackground,
-                    isWarning: true,
-                    context: context,
-                  ),
-                if (_isSamsung)
-                  _buildPermissionTile(
-                    icon: Icons.info_outline,
-                    title: l10n.samsungSettings,
-                    subtitle: l10n.samsungSmartManagerDesc,
-                    isOn: false,
-                    onTap: null,
-                    isWarning: true,
-                    context: context,
-                  ),
-                if (_isStockAndroid)
-                  _buildPermissionTile(
-                    icon: Icons.info_outline,
-                    title: l10n.nativeAndroid,
-                    subtitle: l10n.nativeBatteryOptDesc,
-                    isOn: false,
-                    onTap: null,
-                    isWarning: true,
-                    context: context,
-                  ),
-              ], context),
-              const SizedBox(height: 24),
-            ],
-            _buildSectionHeader(l10n.optionalPerms, context),
-            _buildGroup([
-              _buildExactAlarmTile(context),
-              _buildDivider(context),
-              _buildPermissionTile(
-                icon: Icons.message,
-                title: l10n.smsPerm,
-                subtitle: _smsPermissionGranted ? l10n.enabled : l10n.disabled,
-                isOn: _smsPermissionGranted,
-                onTap: _smsPermissionGranted
-                    ? null
-                    : widget.onRequestSmsPermission,
-                context: context,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
-                child: Text(
-                  l10n.smsPermDesc,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-              ),
-              _buildDivider(context),
-              _buildPermissionTile(
-                icon: Icons.call,
-                title: l10n.phonePerm,
-                subtitle: _phonePermissionGranted
-                    ? l10n.enabled
-                    : l10n.disabled,
-                isOn: _phonePermissionGranted,
-                onTap: _phonePermissionGranted
-                    ? null
-                    : widget.onRequestPhonePermission,
-                context: context,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
-                child: Text(
-                  l10n.phonePermDesc,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-              ),
-              _buildDivider(context),
-              _buildPermissionTile(
-                icon: Icons.apps,
-                title: l10n.appListPerm,
-                // 三态而不是开关：`unknown` 表示"这个系统压根不给明确读数"。
-                // 显示成「已开启」是本次修复的原始缺陷（权限页恒显已授予），
-                // 显示成「已关闭」会误导用户去系统里找一个并不存在的开关。
-                subtitle: switch (_permissionService.appListPermission) {
-                  AppListPermission.granted => l10n.enabled,
-                  AppListPermission.denied => l10n.disabled,
-                  AppListPermission.unknown => l10n.appListPermUnknown,
-                },
-                isOn: _appListPermissionGranted,
-                // 点下去**直接发起申请**（链路见 PermissionService.requestAppListPermission）。
-                // 这里原先先弹一层应用内说明框、再点「允许」才跳系统页 —— 维护者 1.5.76
-                // 反馈 #3 要的就是少这一层：申请动作本身就是这一行的语义。
-                onTap: _appListPermissionGranted
-                    ? null
-                    : widget.onRequestAppListPermission,
-                context: context,
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
-                child: Text(
-                  l10n.appListPermExtra,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(context),
-                  ),
-                ),
-              ),
-            ], context),
-            const SizedBox(height: 8),
+          ],
+          _buildSectionHeader(l10n.optionalPerms, context),
+          _buildGroup([
+            _buildExactAlarmTile(context),
+            _buildDivider(context),
+            _buildPermissionTile(
+              icon: Icons.message,
+              title: l10n.smsPerm,
+              subtitle: _smsPermissionGranted ? l10n.enabled : l10n.disabled,
+              isOn: _smsPermissionGranted,
+              onTap: _smsPermissionGranted
+                  ? null
+                  : widget.onRequestSmsPermission,
+              context: context,
+            ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
               child: Text(
-                l10n.appListPermDesc,
+                l10n.smsPermDesc,
                 style: TextStyle(
-                  color: AppColors.secondaryLabel(context),
                   fontSize: 12,
+                  color: AppColors.secondaryLabel(context),
                 ),
               ),
             ),
-          ],
-        ),
+            _buildDivider(context),
+            _buildPermissionTile(
+              icon: Icons.call,
+              title: l10n.phonePerm,
+              subtitle: _phonePermissionGranted ? l10n.enabled : l10n.disabled,
+              isOn: _phonePermissionGranted,
+              onTap: _phonePermissionGranted
+                  ? null
+                  : widget.onRequestPhonePermission,
+              context: context,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
+              child: Text(
+                l10n.phonePermDesc,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            _buildDivider(context),
+            _buildPermissionTile(
+              icon: Icons.apps,
+              title: l10n.appListPerm,
+              // 三态而不是开关：`unknown` 表示"这个系统压根不给明确读数"。
+              // 显示成「已开启」是本次修复的原始缺陷（权限页恒显已授予），
+              // 显示成「已关闭」会误导用户去系统里找一个并不存在的开关。
+              subtitle: switch (_permissionService.appListPermission) {
+                AppListPermission.granted => l10n.enabled,
+                AppListPermission.denied => l10n.disabled,
+                AppListPermission.unknown => l10n.appListPermUnknown,
+              },
+              isOn: _appListPermissionGranted,
+              // 点下去**直接发起申请**（链路见 PermissionService.requestAppListPermission）。
+              // 这里原先先弹一层应用内说明框、再点「允许」才跳系统页 —— 维护者 1.5.76
+              // 反馈 #3 要的就是少这一层：申请动作本身就是这一行的语义。
+              onTap: _appListPermissionGranted
+                  ? null
+                  : widget.onRequestAppListPermission,
+              context: context,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(52, 0, 16, 12),
+              child: Text(
+                l10n.appListPermExtra,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+          ], context),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              l10n.appListPermDesc,
+              style: TextStyle(
+                color: AppColors.secondaryLabel(context),
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

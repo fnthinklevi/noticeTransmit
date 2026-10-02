@@ -11,6 +11,7 @@ import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
 import 'package:notice_transmit/services/engine_rule_codec.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
+import 'package:notice_transmit/widgets/pull_to_refresh_list.dart';
 
 import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -364,6 +365,39 @@ void main() {
 
       expect(find.text('41.3℃'), findsOneWidget);
       expect(find.text('这台设备读不到'), findsNothing);
+    });
+
+    testWidgets('下拉壳接的是本页真的重读，不是空函数（换壳之后手势的作者要在）', (tester) async {
+      // #184：这一页的下拉壳刚从 Material 的 RefreshIndicator 换成 Cupertino 的 sliver 壳。
+      // 手势本身由 `pull_to_refresh_list_test.dart` 那份（用真 AppRoot 的）用例验；
+      // 这里验的是**分工的另一半** —— 本页交给壳的那一发，真的会再去读一次快照。
+      // 坏法有两种：onRefresh 接成空函数（壳在、拉了什么都不做），或接成别的页的函数。
+      var calls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.fnthink.notice/notification'),
+            (call) async {
+              if (call.method == 'getDeviceSnapshot') calls++;
+              return null;
+            },
+          );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      final atStart = calls;
+      expect(
+        atStart,
+        greaterThanOrEqualTo(1),
+        reason: '进页本身就是一次读数尝试，否则这一格永远停在"读不到"',
+      );
+
+      final shell = tester.widget<PullToRefreshList>(
+        find.byType(PullToRefreshList),
+      );
+      await shell.onRefresh();
+
+      expect(calls, greaterThan(atStart), reason: '下拉的作者不是本页的重读 ⇒ 拉一下什么都不发生');
+      await tester.pumpAndSettle();
     });
 
     testWidgets('总开关那一行真的落到服务，且关掉后加号变灰', (tester) async {

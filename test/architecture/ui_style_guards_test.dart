@@ -122,22 +122,15 @@ void main() {
   });
 
   group('下拉刷新', () {
-    test('RefreshIndicator 新增落点必须红（登记表只减不增）', () {
-      final sites = hitting('RefreshIndicator(').toSet();
+    test('lib/ 不用 Material 的 RefreshIndicator（台账已清零 ⇒ 硬断）', () {
       expect(
-        sites.difference(kPendingRefreshIndicatorSites),
+        hitting('RefreshIndicator('),
         isEmpty,
         reason:
-            '新增 Material 下拉刷新 ⇒ 纯 Cupertino 树里红屏；改用 CustomScrollView + CupertinoSliverRefreshControl',
-      );
-    });
-
-    test('登记表里的落点必须都还在（换完一条就划掉一条）', () {
-      final sites = hitting('RefreshIndicator(').toSet();
-      expect(
-        kPendingRefreshIndicatorSites.difference(sites),
-        isEmpty,
-        reason: '已换掉的落点没从登记表划掉 ⇒ 棘轮自己变陈旧，下一屏会误判为「还在」',
+            '它依赖 MaterialLocalizations、画的还是 Material 那枚转圈 ⇒ 改用 CustomScrollView '
+            '+ CupertinoSliverRefreshControl（唯一装配点 = PullToRefreshList）。'
+            'T90 台账最后四处在 battery/device_state/permission_settings/temperature 页，'
+            '2026-10-02 换完 ⇒ 这里不再是登记表，新增一律直接红',
       );
     });
 
@@ -147,6 +140,33 @@ void main() {
         const <String>['lib/widgets/pull_to_refresh_list.dart'],
         reason: '各页自己搭 sliver ⇒ 「哪一页用的是哪一件」重新散落（T05/T06 同一条理由）',
       );
+    });
+
+    test('台账清零那四页确实换上了下拉壳（否则上一条会假绿）', () {
+      // 只断「lib/ 里没有 RefreshIndicator」是不够的：把那四页的壳整块删掉同样绿。
+      // 这一条钉的是另一半 —— 每一页的下拉手势都得有作者，而且只能由 PullToRefreshList 给。
+      for (final page in const [
+        'lib/pages/battery_page.dart',
+        'lib/pages/device_state_page.dart',
+        'lib/pages/permission_settings_page.dart',
+        'lib/pages/temperature_page.dart',
+      ]) {
+        final src = codeByPath[page];
+        expect(src, isNotNull, reason: '$page 不在了 ⇒ 这条断言在空转');
+        expect(
+          src!,
+          contains('body: PullToRefreshList('),
+          reason: '$page 的页面主体不再挂下拉壳 ⇒ 上一条「台账清零」就变成了「下拉没了」',
+        );
+        // 壳接上了还不算：这一发必须有作者。不看缩进（format 会动它），只看壳后面那一段参数表。
+        final tail = src.split('body: PullToRefreshList(').last;
+        final shellArgs = tail.length > 200 ? tail.substring(0, 200) : tail;
+        expect(
+          shellArgs,
+          contains('onRefresh:'),
+          reason: '$page 的下拉壳没接到本页的重读函数 ⇒ 拉一下什么都不做',
+        );
+      }
     });
 
     test('用户点名的那几页都接了自己的下拉入口', () {
@@ -237,15 +257,6 @@ void main() {
     });
   });
 }
-
-/// 还没换成 `CupertinoSliverRefreshControl` 的历史落点（T83/#182 逐屏清）。
-/// 只许缩短：新增一律红，清完一条就要在这里删掉一条。
-const Set<String> kPendingRefreshIndicatorSites = <String>{
-  'lib/pages/battery_page.dart',
-  'lib/pages/device_state_page.dart',
-  'lib/pages/permission_settings_page.dart',
-  'lib/pages/temperature_page.dart',
-};
 
 /// 还长着 Material `AlertDialog` 的文件（T83 逐屏换的台账，同上只许缩短）。
 const Set<String> kPendingMaterialDialogSites = <String>{

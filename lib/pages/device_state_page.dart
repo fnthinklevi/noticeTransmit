@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/engine_page_sections.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/pull_to_refresh_list.dart';
 
 /// 设备状态告警页（T24）：亮度与网络两类**设备态触发源**的规则都在这里。
 ///
@@ -78,84 +79,79 @@ class _DeviceStatePageState extends State<DeviceStatePage> {
         ],
       ),
       // 版式与电量页同构（顶部读数 → 提醒设置 → 通知规则 → 说明）。
-      body: RefreshIndicator(
+      body: PullToRefreshList(
         onRefresh: _loadReading,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            const SizedBox(height: 16),
-            EngineReadoutHeader(
-              icon: Icons.smartphone,
-              iconColor: AppColors.blue,
-              value: bright == null
-                  ? l10n.unreadableField
-                  : l10n.brightnessPercentOnly(bright),
-              caption: l10n.snapshotBrightness,
-              // 本页两类触发（亮度、网络）各占一行：读数放大的那个是亮度，网络放下面一行。
-              detail: network == null ? null : l10n.networkCaption(network),
-            ),
-            const SizedBox(height: 32),
-            EngineSection(
-              title: l10n.reminderSettings,
-              children: [
-                EngineSwitchRow(
-                  icon: Icons.power_settings_new,
-                  iconColor: AppColors.blue,
-                  title: l10n.deviceStateNotifyEnabled,
-                  subtitle: l10n.notifToggleDesc,
-                  value: _service.notifyEnabled,
-                  onChanged: (v) => _service.saveNotifyEnabled(v),
-                  context: context,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            EngineSection(
-              title: l10n.notifRules,
-              divided: rules.isNotEmpty,
-              children: [
-                if (rules.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      // 不用 `noRules` —— 那条明写"暂无温度规则"，借过来会让用户以为
-                      // 走错了页（本页是亮度与网络）。
-                      l10n.noDeviceStateRules,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.secondaryLabel(context),
-                      ),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          const SizedBox(height: 16),
+          EngineReadoutHeader(
+            icon: Icons.smartphone,
+            iconColor: AppColors.blue,
+            value: bright == null
+                ? l10n.unreadableField
+                : l10n.brightnessPercentOnly(bright),
+            caption: l10n.snapshotBrightness,
+            // 本页两类触发（亮度、网络）各占一行：读数放大的那个是亮度，网络放下面一行。
+            detail: network == null ? null : l10n.networkCaption(network),
+          ),
+          const SizedBox(height: 32),
+          EngineSection(
+            title: l10n.reminderSettings,
+            children: [
+              EngineSwitchRow(
+                icon: Icons.power_settings_new,
+                iconColor: AppColors.blue,
+                title: l10n.deviceStateNotifyEnabled,
+                subtitle: l10n.notifToggleDesc,
+                value: _service.notifyEnabled,
+                onChanged: (v) => _service.saveNotifyEnabled(v),
+                context: context,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          EngineSection(
+            title: l10n.notifRules,
+            divided: rules.isNotEmpty,
+            children: [
+              if (rules.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    // 不用 `noRules` —— 那条明写"暂无温度规则"，借过来会让用户以为
+                    // 走错了页（本页是亮度与网络）。
+                    l10n.noDeviceStateRules,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.secondaryLabel(context),
                     ),
                   ),
-                for (final rule in rules) _ruleCard(l10n, rule),
-              ],
-            ),
-            const SizedBox(height: 24),
-            EngineSection(
-              title: l10n.notes,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      EngineNoteRow(
-                        text: l10n.deviceStateDesc,
-                        context: context,
-                      ),
-                      const SizedBox(height: 8),
-                      EngineNoteRow(
-                        text: l10n.deviceStateNotes2,
-                        context: context,
-                      ),
-                    ],
-                  ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              for (final rule in rules) _ruleCard(l10n, rule),
+            ],
+          ),
+          const SizedBox(height: 24),
+          EngineSection(
+            title: l10n.notes,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    EngineNoteRow(text: l10n.deviceStateDesc, context: context),
+                    const SizedBox(height: 8),
+                    EngineNoteRow(
+                      text: l10n.deviceStateNotes2,
+                      context: context,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

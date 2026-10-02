@@ -10,6 +10,7 @@ import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
 import '../widgets/engine_page_sections.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/pull_to_refresh_list.dart';
 import '../widgets/app_text_selection_menu.dart';
 
 /// 电量告警设置页（「通知引擎」tab 的一个入口，规则列表 + 当前电量）。
@@ -79,71 +80,68 @@ class _BatteryPageState extends State<BatteryPage> {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: PullToRefreshList(
         onRefresh: _service.refreshStatus,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            const SizedBox(height: 16),
-            EngineReadoutHeader(
-              icon: _service.currentIsCharging
-                  ? Icons.battery_charging_full
-                  : Icons.battery_full,
-              iconColor: batteryColor,
-              value: _service.currentLevel < 0
-                  ? l10n.unknown
-                  : '${_service.currentLevel}%',
-              caption: _service.currentIsCharging
-                  ? l10n.charging
-                  : l10n.notCharging,
-            ),
-            const SizedBox(height: 32),
-            EngineSection(
-              title: l10n.reminderSettings,
-              children: [
-                EngineSwitchRow(
-                  icon: Icons.power_settings_new,
-                  iconColor: AppColors.blue,
-                  title: l10n.batteryNotifToggle,
-                  subtitle: l10n.notifToggleDesc,
-                  value: _service.notifyEnabled,
-                  onChanged: _handleToggleNotify,
-                  context: context,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          const SizedBox(height: 16),
+          EngineReadoutHeader(
+            icon: _service.currentIsCharging
+                ? Icons.battery_charging_full
+                : Icons.battery_full,
+            iconColor: batteryColor,
+            value: _service.currentLevel < 0
+                ? l10n.unknown
+                : '${_service.currentLevel}%',
+            caption: _service.currentIsCharging
+                ? l10n.charging
+                : l10n.notCharging,
+          ),
+          const SizedBox(height: 32),
+          EngineSection(
+            title: l10n.reminderSettings,
+            children: [
+              EngineSwitchRow(
+                icon: Icons.power_settings_new,
+                iconColor: AppColors.blue,
+                title: l10n.batteryNotifToggle,
+                subtitle: l10n.notifToggleDesc,
+                value: _service.notifyEnabled,
+                onChanged: _handleToggleNotify,
+                context: context,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          EngineSection(
+            title: l10n.notifRules,
+            divided: true,
+            children: [
+              for (final rule in _service.rules) _buildRuleTile(rule, context),
+            ],
+          ),
+          const SizedBox(height: 24),
+          EngineSection(
+            title: l10n.notes,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    EngineNoteRow(text: l10n.batteryNotes1, context: context),
+                    const SizedBox(height: 8),
+                    EngineNoteRow(text: l10n.batteryNotes2, context: context),
+                    const SizedBox(height: 8),
+                    EngineNoteRow(text: l10n.batteryNotes3, context: context),
+                    const SizedBox(height: 8),
+                    EngineNoteRow(text: l10n.batteryNotes4, context: context),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            EngineSection(
-              title: l10n.notifRules,
-              divided: true,
-              children: [
-                for (final rule in _service.rules)
-                  _buildRuleTile(rule, context),
-              ],
-            ),
-            const SizedBox(height: 24),
-            EngineSection(
-              title: l10n.notes,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      EngineNoteRow(text: l10n.batteryNotes1, context: context),
-                      const SizedBox(height: 8),
-                      EngineNoteRow(text: l10n.batteryNotes2, context: context),
-                      const SizedBox(height: 8),
-                      EngineNoteRow(text: l10n.batteryNotes3, context: context),
-                      const SizedBox(height: 8),
-                      EngineNoteRow(text: l10n.batteryNotes4, context: context),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
