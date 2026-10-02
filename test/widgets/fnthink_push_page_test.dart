@@ -21,6 +21,7 @@ import 'package:notice_transmit/services/fnthink_receive_loop.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test_setup.dart';
@@ -336,12 +337,7 @@ void main() {
 
   Future<AppLocalizations> pump(WidgetTester tester, Widget page) async {
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('zh'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: page,
-      ),
+      AppRoot(locale: const Locale('zh'), dark: false, home: page),
     );
     await tester.pumpAndSettle();
     return AppLocalizations.of(tester.element(find.byType(FnthinkPushPage)));

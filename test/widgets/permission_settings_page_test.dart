@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/permission_settings_page.dart';
 import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/permission_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 /// 权限设置页此前**没有任何**自动化契约 —— "点这一行到底发生了什么"全靠读代码。
 /// 维护者 1.5.76 反馈 #3 改的就是这一行的行为，所以先把行为钉住：
@@ -40,15 +39,9 @@ void main() {
 
     appListTaps = 0;
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('zh'), Locale('en')],
+      AppRoot(
         locale: const Locale('zh'),
+        dark: false,
         home: PermissionSettingsPage(
           notificationListenerGranted: false,
           postNotificationGranted: false,

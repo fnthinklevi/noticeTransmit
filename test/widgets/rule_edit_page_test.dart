@@ -1,23 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/rule_edit_page.dart';
 import 'package:notice_transmit/models/notification_rule.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 Widget _buildApp(Widget home) {
-  return MaterialApp(
-    localizationsDelegates: const [
-      AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    supportedLocales: const [Locale('zh'), Locale('en')],
-    locale: const Locale('zh'),
-    home: home,
-  );
+  return AppRoot(locale: const Locale('zh'), dark: false, home: home);
 }
 
 void main() {

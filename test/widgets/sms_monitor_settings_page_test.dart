@@ -1,27 +1,15 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/sms_monitor_settings_page.dart';
 import 'package:notice_transmit/services/sms_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _channel = MethodChannel('com.fnthink.notice/notification');
 
 Widget _buildApp(Widget home) {
-  return MaterialApp(
-    localizationsDelegates: const [
-      AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    supportedLocales: const [Locale('zh'), Locale('en')],
-    locale: const Locale('zh'),
-    home: home,
-  );
+  return AppRoot(locale: const Locale('zh'), dark: false, home: home);
 }
 
 void main() {

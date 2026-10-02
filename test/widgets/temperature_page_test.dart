@@ -6,12 +6,12 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:notice_transmit/widgets/engine_page_sections.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/widgets/card_action_sheet.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
 import 'package:notice_transmit/services/engine_rule_codec.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
 import 'package:notice_transmit/widgets/pull_to_refresh_list.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,10 +33,9 @@ void main() {
   late MemoryRuleStore store;
 
   Widget buildApp() {
-    return const MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
+    return const AppRoot(
       locale: Locale('zh'),
+      dark: false,
       home: TemperaturePage(),
     );
   }

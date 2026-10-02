@@ -1,13 +1,12 @@
 import 'package:notice_transmit/services/device_info_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
 import 'package:notice_transmit/widgets/engine_page_sections.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/device_state_page.dart';
 import 'package:notice_transmit/services/device_state_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/engine_rule_store_fake.dart';
@@ -24,12 +23,8 @@ void main() {
   late DeviceStateService service;
   late MemoryRuleStore store;
 
-  Widget buildApp() => const MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: Locale('zh'),
-    home: DeviceStatePage(),
-  );
+  Widget buildApp() =>
+      const AppRoot(locale: Locale('zh'), dark: false, home: DeviceStatePage());
 
   Map<String, dynamic> rule({
     String id = 'd1',

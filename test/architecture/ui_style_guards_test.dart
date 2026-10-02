@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../support/source_guards.dart';
 
+/// 本文件相对仓库根的路径 —— harness 台账要排除自己（原因见 `harnessByPath`）。
+const String _self = 'test/architecture/ui_style_guards_test.dart';
+
 /// UI 风格守卫（base.md §6「UI 强约束」那三条的静态那半）。
 ///
 /// 三条各断一个**运行期会炸**的契约，不断某版行形状：
@@ -13,13 +16,22 @@ import '../support/source_guards.dart';
 /// ② 返回件：`CupertinoNavigationBarBackButton` 带本地化「返回」文字，中文下挤爆 leading。
 /// ③ 下拉刷新：`RefreshIndicator` 依赖 `MaterialLocalizations`，纯 Cupertino 树里红屏。
 ///
-/// ⚠ 本守卫只扫 `lib/`。`test/widgets/` 那 24 个 harness 仍各自 pump `MaterialApp` ——
-///   它们验不出根组件的坑（roadmap T83 记为「harness 要跟着逐屏换成 AppRoot」）。
+/// ⚠ 本守卫对 `lib/` 是**禁止**，对 `test/` 是一本**只许缩短的台账**（
+///   `kPendingMaterialAppTestHarnesses`）：历史 harness 各自 pump `MaterialApp`，
+///   那验的不是真机上的那棵树 —— 片9 把第一批 12 个换成真根 `AppRoot`，当场撞出
+///   `CardActionSheet` 的 18px 溢出（假根下靠 Material 那套文字尺寸刚好躲过）。
 void main() {
   final root = projectRoot();
   final codeByPath = <String, String>{
-    for (final file in _dartFiles(root))
+    for (final file in _dartFilesIn(root, 'lib'))
       _relative(root, file.path): stripComments(file.readAsStringSync()),
+  };
+  // `test/` 侧同一套口径。⚠ 排除本文件自己：下面那些 needle 是**故意留在代码里的探针**
+  // （`'MaterialApp('` 作为字符串字面量出现），剥注释不会剥掉它们，留着就成自指。
+  final harnessByPath = <String, String>{
+    for (final file in _dartFilesIn(root, 'test'))
+      if (_relative(root, file.path) != _self)
+        _relative(root, file.path): stripComments(file.readAsStringSync()),
   };
 
   /// 返回源码里含 [needle]（剥注释后）的文件相对路径。
@@ -308,7 +320,89 @@ void main() {
       );
     });
   });
+
+  group('测试 harness 的根组件（T90 片9）', () {
+    final fakeRoot = harnessByPath.entries
+        .where((e) => e.value.contains('MaterialApp('))
+        .map((e) => e.key)
+        .toSet();
+
+    test('test/ 里不得在台账之外再 pump MaterialApp(', () {
+      expect(
+        fakeRoot.difference(kPendingMaterialAppTestHarnesses),
+        isEmpty,
+        reason:
+            '又一个 harness 用假根 ⇒ 它验的不是真机上那棵树（页面在 CupertinoApp 下'
+            '的尺寸、文字样式、可关性都不同 —— 片9 就是这样漏掉一次溢出的）。'
+            '请换成 `AppRoot(locale: …, dark: …, home: …)`',
+      );
+    });
+
+    test('台账里那些 harness 都还 pump 着 MaterialApp（划掉之前先真换掉）', () {
+      expect(
+        kPendingMaterialAppTestHarnesses.difference(fakeRoot),
+        isEmpty,
+        reason: '台账与实际不符 ⇒ 这本账不能再当作剩余工作量',
+      );
+    });
+
+    test('已划掉的那批 harness 走的是真根，不是自己再搭一枚壳', () {
+      // 与「已划掉的每一屏走的是 helper」同一条道理：台账能靠"换个写法"划掉，
+      // 也能靠"删掉那一句"划掉 —— 后者会让这条用例什么都验不到却仍是绿。
+      const migrated = <String>[
+        'test/widgets/card_action_sheet_test.dart',
+        'test/widgets/temperature_page_test.dart',
+        'test/widgets/device_state_page_test.dart',
+        'test/widgets/permission_settings_page_test.dart',
+        'test/widgets/sms_monitor_settings_page_test.dart',
+        'test/widgets/widget_guide_page_test.dart',
+        'test/widgets/fnthink_push_page_test.dart',
+        'test/widgets/rule_edit_page_test.dart',
+        'test/widgets/history_page_all_tab_test.dart',
+        'test/widgets/history_page_backup_chip_test.dart',
+        'test/widgets/history_page_fnthink_inbox_test.dart',
+        'test/widgets/history_offline_drop_test.dart',
+      ];
+      for (final path in migrated) {
+        final src = harnessByPath[path];
+        expect(src, isNotNull, reason: '$path 不在了 ⇒ 本条在空转（文件改名也要一起改这里）');
+        expect(
+          src!,
+          contains("widgets/app_root.dart'"),
+          reason: '$path 划掉了台账却没接上真根 AppRoot',
+        );
+        expect(
+          src,
+          contains('AppRoot('),
+          reason: '$path import 了 AppRoot 却没用 ⇒ 大概又搭了一枚壳',
+        );
+        expect(
+          src,
+          isNot(contains('MaterialApp(')),
+          reason: '$path 假根与真根并存 ⇒ 台账划得不干净',
+        );
+      }
+    });
+  });
 }
+
+/// 仍 pump `MaterialApp` 的 widget harness（T90 片9 起的台账，只许缩短）。
+/// 不含本文件自己：这里那些 needle 是故意留在代码里的探针，见 `harnessByPath` 的排除。
+const Set<String> kPendingMaterialAppTestHarnesses = <String>{
+  'test/theme/text_selection_consistency_test.dart',
+  'test/widgets/app_channel_list_page_test.dart',
+  'test/widgets/app_channel_settings_page_test.dart',
+  'test/widgets/app_filter_page_test.dart',
+  'test/widgets/channel_health_badge_test.dart',
+  'test/widgets/channel_status_page_test.dart',
+  'test/widgets/device_snapshot_page_test.dart',
+  'test/widgets/email_settings_page_test.dart',
+  'test/widgets/notification_engine_page_test.dart',
+  'test/widgets/notification_page_channels_test.dart',
+  'test/widgets/notification_page_fnthink_inbox_test.dart',
+  'test/widgets/webhook_channel_list_page_test.dart',
+  'test/widgets/webhook_settings_page_test.dart',
+};
 
 /// 仍在自己搭 `CupertinoAlertDialog` 的文件（T90 片6 起的台账，只许缩短）。
 /// - `ios_dialog_actions.dart` / `ios_option_picker.dart` / `ios_input_dialog.dart` 是**装配点本身**
@@ -344,7 +438,7 @@ const Set<String> kPendingMaterialDialogSites = <String>{
   'lib/widgets/icon_picker_tile.dart',
 };
 
-List<File> _dartFiles(String root) => Directory('$root/lib')
+List<File> _dartFilesIn(String root, String dir) => Directory('$root/$dir')
     .listSync(recursive: true)
     .whereType<File>()
     .where((f) => f.path.endsWith('.dart'))

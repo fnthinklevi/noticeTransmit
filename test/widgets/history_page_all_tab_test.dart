@@ -6,6 +6,7 @@ import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/models/notification_record.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 import '../test_setup.dart';
 
@@ -80,10 +81,9 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      MaterialApp(
+      AppRoot(
         locale: const Locale('zh'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+        dark: false,
         home: HistoryPage(
           initialDirection: initialDirection,
           records: [record('r_1')],

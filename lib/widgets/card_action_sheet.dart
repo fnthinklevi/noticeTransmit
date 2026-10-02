@@ -115,41 +115,55 @@ class CardActionSheet extends StatelessWidget {
                   ),
                 ),
               ),
-            for (final action in actions)
-              ListTile(
-                enabled: action.onTap != null,
-                leading: Icon(
-                  action.icon,
-                  color: action.danger
-                      ? AppColors.red
-                      : (action.iconColor ?? AppColors.blue),
-                ),
-                title: Text(
-                  action.label,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: action.danger
-                        ? AppColors.red
-                        : AppColors.primaryLabel(context),
-                  ),
-                ),
-                subtitle: action.description == null
-                    ? null
-                    : Text(
-                        action.description!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.secondaryLabel(context),
+            // ⚠ 动作段自己可滚：`showModalBottomSheet` 把高度上限压在屏高的 9/16，
+            // 而这一段的需要高度随动作条数与是否带副标题线性增长 —— 矮屏 / 横屏 / 分屏
+            // 下多出来的那几十像素会直接把整块 Column 顶成 RenderFlex overflow
+            // （本仓在真根 `AppRoot` 下的 widget 用例里撞到过：5 条动作差 18px）。
+            // 标题与拖拽条留在滚动区外：滚起来时"这是谁的菜单"要一直看得见。
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final action in actions)
+                      ListTile(
+                        enabled: action.onTap != null,
+                        leading: Icon(
+                          action.icon,
+                          color: action.danger
+                              ? AppColors.red
+                              : (action.iconColor ?? AppColors.blue),
                         ),
+                        title: Text(
+                          action.label,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: action.danger
+                                ? AppColors.red
+                                : AppColors.primaryLabel(context),
+                          ),
+                        ),
+                        subtitle: action.description == null
+                            ? null
+                            : Text(
+                                action.description!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.secondaryLabel(context),
+                                ),
+                              ),
+                        onTap: action.onTap == null
+                            ? null
+                            // 只负责"把选中的动作带出弹层"，执行点在 [show] 里（等弹层下场之后）。
+                            : () => Navigator.pop(context, action),
                       ),
-                onTap: action.onTap == null
-                    ? null
-                    // 只负责"把选中的动作带出弹层"，执行点在 [show] 里（等弹层下场之后）。
-                    : () => Navigator.pop(context, action),
+                  ],
+                ),
               ),
+            ),
             const SizedBox(height: 8),
           ],
         ),

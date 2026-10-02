@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/card_action_sheet.dart';
 
 /// T05 共用组件的契约。
@@ -20,10 +20,12 @@ void main() {
     String? title,
   }) async {
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+      // harness 用**真根 `AppRoot`**：这枚组件被六个页面共用，而它们在真机上跑的不是
+      // `MaterialApp` 那套文字尺寸 —— 用假根 pump 出来的"刚好矮一点、不溢出"是测试
+      // 环境的形状，不是用户看到的形状（本仓第一次换真根就撞出 18px 溢出）。
+      AppRoot(
         locale: zh,
+        dark: false,
         home: Builder(
           builder: (context) => Scaffold(
             body: Center(
@@ -170,6 +172,57 @@ void main() {
       await open(tester, actions: const []);
       expect(tester.takeException(), isNull);
       expect(find.byType(CardActionSheet), findsOneWidget);
+    });
+
+    testWidgets('屏矮到弹层放不下所有动作 ⇒ 动作段自己滚，最后一项滚得到也点得到', (tester) async {
+      // 弹层高度上限是屏高的 9/16 ⇒ surface 越矮，动作段越容易超出它。
+      // 超出之后的现场是黄黑条纹 + 最后几条动作**永远点不到**。
+      await tester.binding.setSurfaceSize(const Size(360, 300));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final order = <String>[];
+      await open(
+        tester,
+        title: '值班邮箱',
+        actions: [
+          for (var i = 0; i < 5; i++)
+            CardAction(
+              icon: Icons.copy,
+              label: '第${i + 1}项',
+              description: '每一项都带一行说明，高度就是这样一条条累上去的',
+              onTap: () => order.add('a$i'),
+            ),
+        ],
+      );
+
+      const surfaceHeight = 300.0;
+      final last = find.text('第5项');
+      expect(find.text('第1项'), findsOneWidget);
+      // 先确认"最后一项本来就在视口外"，否则这条用例什么都没验（全都看得见时，
+      // 没有滚动兜底也不会红 ⇒ 那是假绿）。
+      expect(
+        tester.getRect(last).bottom,
+        greaterThan(surfaceHeight),
+        reason: '最后一项本该在视口外 —— 这一格没成立就说明 surface 造得不够矮',
+      );
+
+      await tester.ensureVisible(last);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getRect(last).bottom,
+        lessThanOrEqualTo(surfaceHeight),
+        reason: '滚完之后最后一项要整条进入视口',
+      );
+      // 滚到底之后"这是谁的菜单"还得在屏幕上：标题与拖拽条在滚动区**之外**。
+      expect(
+        tester.getRect(find.text('值班邮箱')).bottom,
+        lessThanOrEqualTo(surfaceHeight),
+        reason: '标题跟着滚出视口 ⇒ 滚到一半用户不知道自己在改哪一条',
+      );
+      await tester.tap(last);
+      await tester.pumpAndSettle();
+      expect(order, ['a4'], reason: '点到的必须是滚到眼前的那一条');
     });
   });
 }
