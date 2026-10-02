@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart';
 // 进度条是 Material 的 LinearProgressIndicator，而外壳是 Cupertino 的（与 IosFormDialog 同一件事：
 // CupertinoAlertDialog 自己不含 Material 祖先，少了那层透明 Material 就 "No Material widget found"）。
 // ⇒ 两边各引一处，用 show 限定避免同名件冲突。
-import 'package:flutter/material.dart' show AlertDialog, LinearProgressIndicator;
+import 'package:flutter/material.dart'
+    show AlertDialog, LinearProgressIndicator;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:notice_transmit/widgets/app_root.dart';
