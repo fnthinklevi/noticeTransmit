@@ -539,7 +539,8 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
 /// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
 const Map<String, int> kMaterialDialogSites = <String, int>{
-  'lib/pages/backup_restore_page.dart': 1,
+  // 片25：`backup_restore_page` 那枚「恢复冲突三选一」收进 `IosDialogActions.askThreeWay`
+  // ⇒ **整屏出账**（该文件下屏的口令弹层早就是 `showIosInputDialog`，本版是最后一枚）。
   // 片24：`history_page` 那枚「自动保存路径」收进 `showIosOptionPicker`
   // ⇒ **整屏出账**（history 下屏的弹层从此全部走了装配点）。
   // 片22：`main_page_dialogs` 两枚全清（「关于」走 `showInfo`，语言切换走 `askEitherWay`）

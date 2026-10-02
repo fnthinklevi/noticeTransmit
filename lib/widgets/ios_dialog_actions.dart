@@ -7,6 +7,11 @@ import '../theme/app_colors.dart';
 /// 「有更新」那一屏用户选的那一档（T90 片21）。
 enum UpdateChoice { ignore, later, update }
 
+/// 恢复冲突的三个结果（T90 片25）。
+/// 取消 / 仅导入空缺项 / 覆盖全部 —— 三者**都会写盘**，
+/// 所以它不是 `bool` 能忍的（形状上它们都是「做了事」，意义上它们不同）。
+enum ConflictChoice { fillGaps, overwrite }
+
 /// 确认弹窗的统一入口 —— 三条路，形状不同但**都只有一个作者**：
 ///
 /// - [askConfirm]：**删除类**一律走它。T06 之后长成 `CupertinoAlertDialog`（base.md §UI 强约束），
@@ -214,6 +219,55 @@ class IosDialogActions {
       ),
     );
     return picked == true;
+  }
+
+  /// 「三选一决策」那一枚（T90 片25）。返回用户选的那一档（`ConflictChoice`），
+  /// 取消或点外面返回 `null`。
+  ///
+  /// 为什么不是 [askConfirm] 也不是 [askEitherWay]：那两枚的「取消」都是「什么都不做」，
+  /// 而这一枚的中间那档（仅导入空缺项）**也是一个真的决策** ——
+  /// 它与「覆盖全部」都会写盘。拿它去拆「二选一」的参数面，就会出现「取消」
+  /// 这个动作在同一个参数位上既是「什么都不做」又是「取消了选它」的情况。
+  /// 三枚动作各身不同（取消 / 覆盖（红、破坏性）/ 仅导入空缺项）也各自有定义，
+  /// 同样实现在这里不复制、只在这里定义。
+  static Future<ConflictChoice?> askThreeWay(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required String cancelText,
+    required String fillGapsText,
+    required String overwriteText,
+    bool barrierDismissible = true,
+  }) async {
+    final picked = await showCupertinoDialog<ConflictChoice>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(message),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(cancelText),
+          ),
+          // ⚠ 中间那一档是**默认行为（没动作）**，不是破坏性一鞘：
+          // 覆盖才是破坏性那一鞘（覆掉已有配置）。
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, ConflictChoice.fillGaps),
+            child: Text(fillGapsText),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(ctx, ConflictChoice.overwrite),
+            child: Text(overwriteText),
+          ),
+        ],
+      ),
+    );
+    return picked;
   }
 
   /// 有更新的那一枚弹层（T90 片21）。返回用户选的那一档（`UpdateChoice`）。

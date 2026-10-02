@@ -9,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../services/backup_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 
 /// P1 配置备份与恢复页。
@@ -265,51 +266,31 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
     }
   }
 
-  Future<String?> _promptConflictStrategy() {
+  /// 恢复冲突的三选一。T90 片25：收进 `IosDialogActions.askThreeWay`。
+  ///
+  /// ⚠ 为什么不能接 [askConfirm] / [askEitherWay]：那两枚的「取消」都是「什么都不做」，
+  /// 而这一枚的中间那档（仅导入空缺项）**也是一个真的决策** —— 它也会写盘。
+  /// 拆成「二选一」会让「取消」在同一参数位上既是「什么都不做」又可能是「它」。
+  ///
+  /// ⚠ **两个值与旧字面量一一对应**：旧的 `Navigator.pop(ctx, 'gaps'|'overwrite')`
+  /// 字面量它还在下面那段被当字符串比质（`strategy == 'overwrite'`）——
+  /// 本片不改那一比较（改了就是“覆盖 / 仅导入空缺项”两条路径共用一个字面量之外的新字面量），
+  /// 不过 `ConflictChoice` 把「选哪个」返回去再在调用点映射成那两个字面量。
+  Future<String?> _promptConflictStrategy() async {
     final l10n = AppLocalizations.of(context);
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        title: Text(
-          l10n.restoreConfirmTitle,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: Text(
-          l10n.restoreConflictMsg,
-          style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(ctx)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              l10n.cancel,
-              style: TextStyle(color: AppColors.secondaryLabel(ctx)),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'gaps'),
-            child: Text(
-              l10n.restoreFillGaps,
-              style: TextStyle(color: AppColors.secondaryLabel(ctx)),
-            ),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'overwrite'),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
-            child: Text(
-              l10n.restoreOverwriteAll,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+    final choice = await IosDialogActions.askThreeWay(
+      context,
+      title: l10n.restoreConfirmTitle,
+      message: l10n.restoreConflictMsg,
+      cancelText: l10n.cancel,
+      fillGapsText: l10n.restoreFillGaps,
+      overwriteText: l10n.restoreOverwriteAll,
     );
+    return switch (choice) {
+      ConflictChoice.fillGaps => 'gaps',
+      ConflictChoice.overwrite => 'overwrite',
+      null => null,
+    };
   }
 
   Future<String?> _promptPassword(String title, String hint) {
