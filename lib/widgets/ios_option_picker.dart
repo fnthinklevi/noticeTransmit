@@ -53,6 +53,12 @@ Future<T?> showIosOptionPicker<T>(
   required String title,
   required List<IosPickerOption<T>> options,
   T? selectedValue,
+
+  /// 标题与选项之间那一块（可空）。T90 片24 加它：历史页那枚要显示**当前归档目录**——
+  /// 那是弹层要回答的问题本身（「我现在存到哪儿了」），不是某一档的说明。
+  /// ⚠ 不做成 `description` 那样的字符串口：那一条要带 `_prettyTreeUri` 转出来的多行路径，
+  /// 颜色与字号也和副标题不同。
+  Widget? header,
 }) {
   return showCupertinoDialog<T>(
     context: context,
@@ -71,6 +77,7 @@ Future<T?> showIosOptionPicker<T>(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (header != null) ...[header, const SizedBox(height: 10)],
             for (final option in options)
               CupertinoButton(
                 key: ValueKey('ios-picker-${option.value}'),

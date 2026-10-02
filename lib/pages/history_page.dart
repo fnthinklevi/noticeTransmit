@@ -1178,84 +1178,62 @@ class _HistoryPageState extends State<HistoryPage> {
     } catch (_) {}
     if (!mounted) return;
 
-    final action = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(dialogContext),
-        title: Text(
-          l10n.autoSavePath,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(dialogContext),
+    // T90 片24：这一枚收进 `showIosOptionPicker` —— 形状与那一族一致
+    //（标题 + 若干行 + 选中回一个值），且「恢复默认」那一行旧形状本就是
+    // 置灰的（`saved == null` 时 `onTap: null`）。
+    // ⚠ ⚠ **「恢复默认」的置灰为何不能省**：`IosPickerOption` 的行是 `CupertinoButton`，
+    // 它没有 `enabled` 这个口 ⇒ 会变成「点得动但不走 `onPressed`」的行。
+    // 而它的动作是**不可撤销的写盘**（清掉自定义目录），按下去时应该**没变化**，
+    // 但用户会看到弹层关掉一张库里的掉发就没了 ⇒ 这是真置灰混成了一个假作。
+    // ⇒ 接 `IosPickerOption` 时把 `onTap` 空的那一档整档**拿掉**（不列出来），而不是列出一个按不动的。
+    // 口径差异如此（当录下简单地说是「旧形状置灰」、新形状是「不在列单里」）已写在这里，
+    // 不让后人当成意外变化。
+    final action = await showIosOptionPicker<String>(
+      context,
+      title: l10n.autoSavePath,
+      selectedValue: null,
+      // 「现在存到哪儿了」那一行（旧形状在 content 的最上面）。
+      // ⇒ 它是这枚弹层要回答的问题本身，不是某一档的说明（那个口是
+      // `IosPickerOption.description`，已经被片23 那枚占了）。换件时把它丢掉就是旧形状的硬依赖
+      // 不见了 —— `_prettyTreeUri` 会立即变成未引用函数，analyze 会报（第一版确实报了）。
+      header: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.autoSavePathDesc,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.secondaryLabel(context),
+            ),
           ),
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.autoSavePathDesc,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.secondaryLabel(dialogContext),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                saved == null
-                    ? l10n.archivePathDefault
-                    : _prettyTreeUri(l10n, saved),
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.primaryLabel(dialogContext),
-                ),
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.folder_open, size: 20),
-                title: Text(
-                  l10n.chooseFolder,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.primaryLabel(dialogContext),
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                onTap: () => Navigator.pop(dialogContext, 'pick'),
-              ),
-              ListTile(
-                dense: true,
-                leading: const Icon(Icons.restore, size: 20),
-                title: Text(
-                  l10n.resetToDefault,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: saved == null
-                        ? AppColors.tertiaryLabel(dialogContext)
-                        : AppColors.primaryLabel(dialogContext),
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                onTap: saved == null
-                    ? null
-                    : () => Navigator.pop(dialogContext, 'reset'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, null),
-            child: Text(l10n.cancel),
+          const SizedBox(height: 6),
+          Text(
+            saved == null
+                ? l10n.archivePathDefault
+                : _prettyTreeUri(l10n, saved),
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.primaryLabel(context),
+            ),
           ),
         ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
+      options: [
+        IosPickerOption<String>(
+          value: 'pick',
+          icon: Icons.folder_open,
+          label: l10n.chooseFolder,
+        ),
+        if (saved != null)
+          IosPickerOption<String>(
+            value: 'reset',
+            icon: Icons.restore,
+            label: l10n.resetToDefault,
+          ),
+      ],
     );
+
     if (action == null || !mounted) return;
 
     final prefs = await SharedPreferences.getInstance();
