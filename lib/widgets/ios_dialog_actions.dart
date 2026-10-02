@@ -172,6 +172,50 @@ class IosDialogActions {
     return picked == true;
   }
 
+  /// 「二选一，两条路都要做事」那一枚（T90 片22）。返回 true = 用户选了 [confirmText] 那一档。
+  ///
+  /// 为什么要有它而不是给 `askConfirm` 加个 `onCancel`：**那一族里「取消」= 什么都不做**
+  /// （删除被用户撤回），而这一枚的「暂不」**也要写盘** —— 它同样把语言落到「跟随系统」并
+  /// 记下系统语言，只是**不**顺手刷新界面。给 `askConfirm` 加回调，等于让"取消"这个动作
+  /// 在同一个参数面上既是"什么都没发生"又是"发生了一件事"，后人照着用必然踩。
+  ///
+  /// ⚠ [barrierDismissible] 默认 **true**（照旧那枚 Material `showDialog` 的行为）：
+  ///   这一枚的第三种结局是「点外面 = 先不切」，与「暂不」的结果**不同**（后者写了盘），
+  ///   所以这一句不能改成 false —— 那会把「看一眼又想收回去」这条路也变成一次写盘。
+  /// ⚠ 两颗都不是破坏性动作：[confirmText] 那一颗是 `isDefaultAction`（蓝）。
+  static Future<bool> askEitherWay(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required String deferText,
+    required String confirmText,
+    bool barrierDismissible = true,
+  }) async {
+    final picked = await showCupertinoDialog<bool>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(message),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(deferText),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmText),
+          ),
+        ],
+      ),
+    );
+    return picked == true;
+  }
+
   /// 有更新的那一枚弹层（T90 片21）。返回用户选的那一档（`UpdateChoice`）。
   ///
   /// 为什么不是 `askConfirm`：那一族是「一问一答」，而这一屏的形状是**三颗等分的档位**，

@@ -5,73 +5,40 @@ part of 'main_page.dart';
 // 同 library 内有意使用 State 的 protected 成员（setState/mounted/context）
 // ignore_for_file: invalid_use_of_protected_member
 extension _MainPageDialogs on _MainPageState {
+  /// 「系统语言变了，要不要跟着切」那一枚（T90 片22）。
+  ///
+  /// ⚠ **这一枚的「暂不」也要写盘** —— 它同样把语言落到「跟随系统」并记下系统语言，
+  /// 只是**不**顺手刷新界面。所以它**不能**接 `askConfirm`：那一族里「取消」= 什么都不做
+  /// （删除被用户撤回），把两件不同的事塞进同一个「取消」位，后人照着用必然踩
+  /// ⇒ 走 `askEitherWay`（两条路都做事，返回值只答"要不要顺手刷新界面"）。
   Future<void> _showLanguageSwitchDialog(LocaleService localeService) async {
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     final newLang = PlatformDispatcher.instance.locale.languageCode;
     final label = newLang == 'zh' ? l10n.langChinese : l10n.langEnglish;
-    await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardBg(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.switchLangTitle,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.primaryLabel(ctx),
-          ),
-        ),
-        content: Text(
-          l10n.switchLangMsg(label),
-          style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(ctx)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              final navigator = Navigator.of(ctx);
-              localeService.setLanguage(AppLanguage.system).then((_) async {
-                await localeService.recordSystemLang();
-                // 同步原生端桌面应用名，保持与界面语言一致（避免残留旧语言）
-                AppChannels.notification.invokeMethod(
-                  'setLocaleLabel',
-                  localeService.currentLocale.languageCode,
-                );
-                if (mounted) navigator.pop(false);
-              });
-            },
-            child: Text(
-              l10n.notNow,
-              style: TextStyle(color: AppColors.secondaryLabel(ctx)),
-            ),
-          ),
-          FilledButton(
-            onPressed: () {
-              final navigator = Navigator.of(ctx);
-              localeService.setLanguage(AppLanguage.system).then((_) async {
-                await localeService.recordSystemLang();
-                if (mounted) {
-                  AppChannels.notification.invokeMethod(
-                    'setLocaleLabel',
-                    localeService.currentLocale.languageCode,
-                  );
-                  navigator.pop(true);
-                  widget.onLocaleChanged?.call(localeService.currentLocale);
-                }
-              });
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(l10n.switchBtn, style: const TextStyle(fontSize: 15)),
-          ),
-        ],
-      ),
+
+    final alsoRefreshUi = await IosDialogActions.askEitherWay(
+      context,
+      title: l10n.switchLangTitle,
+      message: l10n.switchLangMsg(label),
+      deferText: l10n.notNow,
+      confirmText: l10n.switchBtn,
     );
+
+    await localeService.setLanguage(AppLanguage.system);
+    await localeService.recordSystemLang();
+    // 同步原生端桌面应用名，保持与界面语言一致（避免残留旧语言）。
+    // ⚠ 这一步旧代码放在 `.then` 里、**没有 await** —— 原生那侧是 fire-and-forget 的
+    // `invokeMethod`，而旧写法把它排在 `navigator.pop` 之前；现在弹层已经先关上了，
+    // 把它排在 `pop` 之前没有意义，留在原地即可。
+    AppChannels.notification.invokeMethod(
+      'setLocaleLabel',
+      localeService.currentLocale.languageCode,
+    );
+    // 点外面关掉（null）**什么都不做** —— 那是第三种结局，与「暂不」不是同一件事。
+    if (alsoRefreshUi && mounted) {
+      widget.onLocaleChanged?.call(localeService.currentLocale);
+    }
   }
 
   Future<void> _showNotificationPermissionDialog() async {
@@ -112,75 +79,18 @@ extension _MainPageDialogs on _MainPageState {
     setState(() {});
   }
 
-  void _showAboutDialog() {
+  /// 「关于」那一枚。
+  ///
+  /// T90 片22：这一枚的形状就是片5 建的 `showInfo`（一句标题 + 一段正文 + 一颗「好」）——
+  /// 旧代码自己手搭的 `AlertDialog` 与那三行一比一对应，唯一的差别是它把应用图标
+  /// 塞进了 title 那一列。图标**留在调用方**：本组件不读 asset、也不管图标多大，
+  /// 把它做成一个可选口就会变成"通用组件替调用方决定要不要图标"。
+  Future<void> _showAboutDialog() async {
     final l10n = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Column(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Image.asset(
-                  'assets/app_icon.png',
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              l10n.appName,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryLabel(context),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              l10n.author,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryLabel(context),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              l10n.ok,
-              style: const TextStyle(
-                color: AppColors.blue,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
+    await IosDialogActions.showInfo(
+      context,
+      title: l10n.appName,
+      message: l10n.author,
     );
   }
 }

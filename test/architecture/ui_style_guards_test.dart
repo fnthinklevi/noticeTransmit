@@ -541,7 +541,8 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 const Map<String, int> kMaterialDialogSites = <String, int>{
   'lib/pages/backup_restore_page.dart': 1,
   'lib/pages/history_page.dart': 1,
-  'lib/pages/main_page_dialogs.dart': 2,
+  // 片22：`main_page_dialogs` 两枚全清（「关于」走 `showInfo`，语言切换走 `askEitherWay`）
+  // ⇒ **整屏出账**。⚠ 它是 part 文件：按 `main_page.dart` grep 会以为它还在账上。
   // 片16：rule_edit_page 最后一枚（聚合参数编辑框）换进了 `IosFormDialog` ⇒ 整屏出账。
   // 四枚条件/动作表单在 part 文件 `rule_edit_widgets.dart`（片12 迁的），别按文件名 grep 漏掉。
   'lib/pages/rule_list_page.dart': 1,
