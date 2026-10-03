@@ -303,6 +303,43 @@ class NotificationEngineTest {
     }
 
     @Test
+    fun `一轮只出一条：电量先命中即 return，温度那条顺延到下一轮而不是丢`() {
+        // T73 ① 的正面判据：求值顺序是 battery → temperature → deviceState，任一条命中即 return
+        // ⇒ **同一轮最多一条**（有意设计：避免同一轮里多条互相盖掉）。被顶掉的那个维度不是"没发生"，
+        // 而是**顺延到下一轮再评估** —— 它的"上次读数"停在最后真正跑过的那一轮（与上一条用例配套）。
+        val low = rule("level_below", 35)
+        val engine = NotificationEngine()
+        engine.evaluate(
+            true, listOf(low), listOf(temp),
+            reading(50, temps = mapOf(temp.type to 20.0)), t0
+        ) // 基准轮
+        engine.evaluate(
+            true, listOf(low), listOf(temp),
+            reading(40, temps = mapOf(temp.type to 20.0)), t0 + minute
+        ) // 电量 40 尚未低于 35 ⇒ 不匹配；整轮走完 ⇒ prevLevel=40、prevTemps=20
+
+        val round3 = engine.evaluate(
+            true, listOf(low), listOf(temp),
+            reading(30, temps = mapOf(temp.type to 45.0)), t0 + 2 * minute
+        ) // 电量 30 跨过 35、温度 45 也跨过 40 —— 两者同轮满足，但电量在前
+        assertTrue(
+            "一轮最多一条：电量先命中并 return，温度那条不在同一轮出",
+            round3 is EngineDecision.BatteryFire,
+        )
+
+        val round4 = engine.evaluate(
+            true, listOf(low), listOf(temp),
+            reading(30, temps = mapOf(temp.type to 45.0)), t0 + 3 * minute
+        ) // 读数不动：电量基准已推成 30（不再 crossing）⇒ 本轮轮到温度补发
+        assertTrue(
+            "被顶掉的那一轮必须顺延到下一轮发出，而不是丢事件：第 3 轮温度分支没被评估 ⇒ " +
+                "prevTemps 仍停在 20，20→45 的 crossing 在第 4 轮仍成立。若先命中的那一支也顺手把 " +
+                "prevTemps 推成 45，则 45 与 45 不构成 crossing ⇒ 这条温度告警就永久丢了",
+            round4 is EngineDecision.TemperatureFire,
+        )
+    }
+
+    @Test
     fun `维度读不到时不得写入基准，否则下一轮会凭空造出一次 crossing`() {
         // 温区可能只是那一轮没读到（休眠 / 权限），不是"温度掉到 0℃"。
         // 若把缺失记成 0，下一次读到 40℃ 就会被当成 0→40 的上升沿 ⇒ 凭空误报一次高温。
