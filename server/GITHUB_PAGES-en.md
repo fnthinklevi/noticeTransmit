@@ -118,6 +118,29 @@ The `_pages/` directory assembled by the workflow (i.e. the Pages site root):
 
 If the Node server / CDN is unreachable, point `_updateServerUrl` at the Pages address and ship a new build (it is a compile-time constant, not an in-app setting).
 
+## What this page does not cover: fnthink Push, and why
+
+GitHub Pages is **purely static**: it can publish JSON files, but it cannot run logic. The fnthink Push server side — registration, pairing, inbox, long-polling, signature verification, rate limiting, 2FA — is **all logic**.
+
+So:
+
+| Capability | GitHub Pages | Node.js self-hosted |
+|---|---|---|
+| Version check / APK download | ✅ sufficient | ✅ |
+| fnthink Push (`/api/fnthink/*`) | ❌ **does not exist at all** | ✅ available once the contract is installed |
+
+⚠ **There is no "lite" fnthink Push on Pages.** Only `/api/version/*` exists there. If you want push, you have to run the Node.js copy yourself (see the README's "installing the fnthink Push public surface").
+
+### Boundary statement (same as the README section)
+
+- The **official instance** is the maintainer's default service address, upgraded in step with App releases. A **self-hosted instance** is yours: no availability promise, no support, and it does not represent the official one.
+- A **Pages site is only a static publishing channel** — neither an official instance nor a "service instance"; it does not even have `/health`.
+- If you point the client's fnthink Push service address at a third-party instance, **they can read the message body and metadata** (the in-app privacy notice says so too).
+
+### Version policy
+
+Only the **App and the official instance** are guaranteed to upgrade together. The Pages site and self-hosted instances are yours to track; when a self-hosted contract and its code are from different generations, that server **refuses outright** (rather than making the best of it) — `npm run fnthink:doctor` tells you in one step (details in the README).
+
 ## Notes
 
 1. **GitHub Pages has a 1 GB storage limit and 100 GB/month bandwidth**, and is not suited to large files — APK download URLs must point to a CDN or GitHub Releases

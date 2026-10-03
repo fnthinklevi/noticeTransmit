@@ -4,6 +4,80 @@ Version update service, built with Node.js + Express.
 
 > 💡 **Don't want to maintain a server?** This project also supports [GitHub Pages static deployment](GITHUB_PAGES-en.md), zero-maintenance and free. The client auto-compatibles with both modes.
 
+## Official instance vs. your own instance (read this first)
+
+"Official instance" and "self-hosted instance" are two different things, and the difference is not a setting — it is a promise:
+
+| | Official instance | Self-hosted instance (yours) |
+|---|---|---|
+| What it is | The maintainer's default service address | The `server/` you run on your own VPS / NAS / home connection |
+| Who maintains it | The maintainer | **You** |
+| Availability promise | Per the published status page | **None** — downtime, reboots and expired certificates are yours |
+| Support | Handled by the maintainer | **Not provided**, and it does not represent the official one |
+| Version upgrades | Ship together with the App | You track them yourself (see below) |
+
+Concretely, that means three things:
+
+1. **Work out which side you are on before reporting a problem.** The App shows the service address it is currently using (fnthink Push page → Settings → Service address). If you changed it to your own instance, "it will not connect" is your server's business — not something this repository's issues cover.
+2. **Everything on a self-hosted instance is your responsibility.** It runs the same code, but it handles your data: who may register, who may push to this device, and what gets delivered are decided by that instance's configuration and credentials.
+3. **A third-party instance sees your message bodies.** fnthink Push relays message content through whichever server you connected to (the in-app privacy notice says so too). If that is the official instance, bodies pass through a service operated by the maintainer; if it is someone else's, **they can read the message body and metadata** — the same exposure as pointing a webhook at a target. Only connect to instances you trust.
+
+***
+
+## 🔢 Version policy: stay in step, or stay put
+
+**The only thing the maintainer guarantees is that the App and the official instance upgrade together.**
+
+- **Official instance**: follows the App release. Nothing for you to do.
+- **Self-hosted instance**: **pinned to whenever you choose.** This repository does not keep your instance aligned with any App version.
+
+That is not "we don't support self-hosting" — it is that nobody can decide this for you: your machine may have been powered off for three months.
+
+### How you find out
+
+There is a **contract version gate**: if the client brings a contract version this server does not implement, it **refuses outright** rather than making the best of it — half-understanding a new protocol is more dangerous than an error. You will see it in two places:
+
+1. The App: it cannot connect, or it reports a protocol mismatch.
+2. The server: the verdict of `npm run fnthink:doctor` (next section).
+
+### How you upgrade
+
+```bash
+# 1) take the new code — you need BOTH server/ and protocol/
+# 2) upload — see the upload red lines above; never overwrite data/ or .env
+# 3) run the self-check
+npm run fnthink:doctor -- --url https://your-instance.example
+```
+
+> ⚠ **Uploading `server/` without `protocol/` is the most common mismatch.** New code with an old contract throws at startup, and the symptom is "the service is up but every push endpoint returns 503". That is exactly what `fnthink:doctor` reports.
+
+***
+
+## 🩺 One-command self-check: `npm run fnthink:doctor`
+
+The failure mode of the fnthink Push layer is most often a **version mismatch**, which never says "I am broken" — it just says "cannot connect". This command turns that vague symptom into a verdict.
+
+```bash
+# check the local copy only (no server needs to be running)
+npm run fnthink:doctor
+
+# also ask a deployed instance to report its contract version and reconcile it
+npm run fnthink:doctor -- --url https://your-instance.example
+```
+
+**The exit code has three levels**, and that is the command's entire contract:
+
+| Code | Meaning | What to do |
+| --- | --- | --- |
+| `0` | Everything matches | Nothing |
+| `1` | **Mismatch** | Contract and code are from different generations. Upload a matching pair |
+| `2` | **Cannot tell** | A file is missing, or the instance is unreachable. That is **not** a version problem — do not go swapping contracts |
+
+> ⚠ Level 2 exists on purpose: "unreachable" and "wrong version" are different problems, and collapsing them sends you re-uploading contract files at a networking problem.
+
+It only reads: it issues no state-changing request and never touches your `data/`.
+
+***
 ***
 
 ## 🚀 Quick Start (5 minutes)
