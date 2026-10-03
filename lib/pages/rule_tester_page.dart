@@ -8,6 +8,7 @@ import '../services/installed_apps_service.dart';
 import '../services/rule_trace.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_text_selection_menu.dart';
+import '../widgets/ios_dialog_actions.dart';
 
 /// F1 规则测试器：输入模拟通知，实时展示完整命中链路
 ///（① 过滤 → ② 规则匹配 → ③ 最终动作）。
@@ -72,10 +73,16 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
   }
 
   Future<void> _pickApp() async {
-    final selected = await showDialog<Map<String, dynamic>>(
-      context: context,
-      // 列表由对话框自行加载（缓存优先 + 全量兜底，无权限时展示空列表）
-      builder: (_) => const _AppPickDialog(apps: []),
+    // 列表由对话框自行加载（缓存优先 + 全量兜底，无权限时展示空列表）
+    // T90 片27：外壳收进 `IosDialogActions.showExplainer`（正文高度 420 经 [bodyHeight] 传进去），
+    // 这里只剩选择器本身。⚠ 旧形状的 `apps` 入参**唯一调用点一直传空列表**
+    // （`_AppPickDialog(apps: [])`，注释也写着「由对话框自行加载」）⇒ 那个口从来没接过东西，一并去掉。
+    final selected = await IosDialogActions.showExplainer<Map<String, dynamic>>(
+      context,
+      title: AppLocalizations.of(context).testerPickApp,
+      gotItText: AppLocalizations.of(context).cancel,
+      bodyHeight: 420,
+      body: const _AppPickBody(),
     );
     if (selected == null) return;
     if (!mounted) return;
@@ -474,17 +481,19 @@ class _RuleTesterPageState extends State<RuleTesterPage> {
       );
 }
 
-/// 应用选择对话框（复用已安装应用缓存，搜索过滤）
-class _AppPickDialog extends StatefulWidget {
-  final List<Map<String, dynamic>> apps;
-
-  const _AppPickDialog({required this.apps});
+/// 应用选择那块正文（复用已安装应用缓存，搜索过滤）。
+///
+/// T90 片27：外壳（`AlertDialog`）收进 `IosDialogActions.showExplainer`，这里只剩选择器本身 ——
+/// 搜索框、「显示系统应用」开关、应用列表。选中一行仍是 `Navigator.pop(context, a)`
+/// 把那个 Map 带出去（与 `showIosOptionPicker` 同一个思路：带值的是正文里的行，不是外壳）。
+class _AppPickBody extends StatefulWidget {
+  const _AppPickBody();
 
   @override
-  State<_AppPickDialog> createState() => _AppPickDialogState();
+  State<_AppPickBody> createState() => _AppPickBodyState();
 }
 
-class _AppPickDialogState extends State<_AppPickDialog> {
+class _AppPickBodyState extends State<_AppPickBody> {
   final _search = TextEditingController();
   List<Map<String, dynamic>> _apps = [];
   bool _showSystem = false;
@@ -493,7 +502,6 @@ class _AppPickDialogState extends State<_AppPickDialog> {
   @override
   void initState() {
     super.initState();
-    _apps = widget.apps;
     _search.addListener(() => setState(() {}));
     _load();
   }
@@ -530,110 +538,82 @@ class _AppPickDialogState extends State<_AppPickDialog> {
       return name.contains(q) || pkg.contains(q);
     }).toList();
 
-    return AlertDialog(
-      backgroundColor: AppColors.cardBg(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      title: Text(
-        l10n.testerPickApp,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryLabel(context),
-        ),
-      ),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 420,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
+    // ⚠ T90 片27：这里返回的是**正文**，不再是弹层。标题、那颗「取消」、正文高度 420、
+    //   以及「点外面关得掉」全都归 `showExplainer` 那一边管了。
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
+            children: [
+              TextField(
+                contextMenuBuilder: AppTextSelectionMenu.editableText,
+                controller: _search,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primaryLabel(context),
+                ),
+                decoration: InputDecoration(
+                  hintText: l10n.searchAppHint,
+                  hintStyle: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  filled: true,
+                  fillColor: AppColors.inputBg(context),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppColors.separator(context)),
+                  ),
+                ),
+              ),
+              Row(
                 children: [
-                  TextField(
-                    contextMenuBuilder: AppTextSelectionMenu.editableText,
-                    controller: _search,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.primaryLabel(context),
-                    ),
-                    decoration: InputDecoration(
-                      hintText: l10n.searchAppHint,
-                      hintStyle: TextStyle(
-                        fontSize: 13,
+                  Expanded(
+                    child: Text(
+                      l10n.showSystemApps,
+                      style: TextStyle(
+                        fontSize: 12,
                         color: AppColors.secondaryLabel(context),
                       ),
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      filled: true,
-                      fillColor: AppColors.inputBg(context),
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: AppColors.separator(context),
-                        ),
-                      ),
                     ),
                   ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          l10n.showSystemApps,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.secondaryLabel(context),
-                          ),
-                        ),
-                      ),
-                      CupertinoSwitch(
-                        value: _showSystem,
-                        activeTrackColor: AppColors.blue,
-                        onChanged: (v) => setState(() => _showSystem = v),
-                      ),
-                    ],
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: filtered.length,
-                      itemBuilder: (_, i) {
-                        final a = filtered[i];
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            a['appName'] as String? ?? '',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.primaryLabel(context),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            a['packageName'] as String? ?? '',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.secondaryLabel(context),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onTap: () => Navigator.pop(context, a),
-                        );
-                      },
-                    ),
+                  CupertinoSwitch(
+                    value: _showSystem,
+                    activeTrackColor: AppColors.blue,
+                    onChanged: (v) => setState(() => _showSystem = v),
                   ),
                 ],
               ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(
-            l10n.cancel,
-            style: TextStyle(
-              fontSize: 15,
-              color: AppColors.secondaryLabel(context),
-            ),
-          ),
-        ),
-      ],
-    );
+              Expanded(
+                child: ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) {
+                    final a = filtered[i];
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        a['appName'] as String? ?? '',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.primaryLabel(context),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        a['packageName'] as String? ?? '',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.secondaryLabel(context),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => Navigator.pop(context, a),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
   }
 }

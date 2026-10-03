@@ -539,6 +539,8 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
 /// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
 const Map<String, int> kMaterialDialogSites = <String, int>{
+  // 片27：`rule_tester_page` 那枚「选择应用」外壳收进 `IosDialogActions.showExplainer`
+  // ⇒ **整屏出账**（选择器本体变成 `body`，带值的行仍然 `Navigator.pop(context, a)`）。
   // 片26：`rule_list_page` 那枚「规则引导」收进 `IosDialogActions.showExplainer` ⇒ **整屏出账**。
   // 片25：`backup_restore_page` 那枚「恢复冲突三选一」收进 `IosDialogActions.askThreeWay`
   // ⇒ **整屏出账**（该文件下屏的口令弹层早就是 `showIosInputDialog`，本版是最后一枚）。
@@ -548,7 +550,6 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   // ⇒ **整屏出账**。⚠ 它是 part 文件：按 `main_page.dart` grep 会以为它还在账上。
   // 片16：rule_edit_page 最后一枚（聚合参数编辑框）换进了 `IosFormDialog` ⇒ 整屏出账。
   // 四枚条件/动作表单在 part 文件 `rule_edit_widgets.dart`（片12 迁的），别按文件名 grep 漏掉。
-  'lib/pages/rule_tester_page.dart': 1,
   'lib/pages/temperature_page.dart': 1,
   // 片23：`webhook_settings_item` 那枚「选择通道类型」收进**现成的** `showIosOptionPicker`
   // ⇒ 整屏出账。⚠ 它是 part 文件：按 `webhook_settings_page.dart` grep 会以为它还在账上。

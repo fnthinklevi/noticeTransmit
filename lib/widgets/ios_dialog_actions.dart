@@ -227,21 +227,30 @@ class IosDialogActions {
   /// 一组「小标题 + 描述」的条目 + 一个提示框（T90 片26 的规则引导）。
   /// 把它压进 `showInfo` 就得给 `message` 开一个 `Widget?` 口 —— 那样的参数面开始能接
   /// 任何东西，而本来只能表达「一句说明」。
-  static Future<void> showExplainer(
+  static Future<T?> showExplainer<T>(
     BuildContext context, {
     required String title,
     required Widget body,
     String? gotItText,
+
+    /// 正文固定高度（给自带高度的正文用，例如规则测试器那枚应用选择器的 420）。
+    /// 不给的话高度由内容自己决定 —— `CupertinoAlertDialog` 自己给 content 有界且可滚的位置。
+    double? bodyHeight,
     bool barrierDismissible = true,
   }) {
     final l10n = AppLocalizations.of(context);
-    return showCupertinoDialog<void>(
+    return showCupertinoDialog<T>(
       context: context,
       // ⚠ 默认开着（照旧那枚 Material `showDialog` 的行为）；说明型应该先占屏幕读完。
       barrierDismissible: barrierDismissible,
       builder: (ctx) => CupertinoAlertDialog(
         title: Text(title),
-        content: Padding(padding: const EdgeInsets.only(top: 8), child: body),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: bodyHeight == null
+              ? body
+              : SizedBox(height: bodyHeight, child: body),
+        ),
         actions: [
           CupertinoDialogAction(
             isDefaultAction: true,
