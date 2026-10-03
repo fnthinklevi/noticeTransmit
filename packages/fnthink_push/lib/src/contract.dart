@@ -265,6 +265,42 @@ class FnthinkContract {
     };
   }
 
+  /// 某一个 `type` 映射到哪一档；不在词表里返回 null。
+  ///
+  /// 单开一条而不是让调用方自己 `messageTypeLevels[type] ?? ''`：
+  /// 那个写法在词表里没有这一项时得到**空串**，而空串在下游会被
+  /// "级别不存在" 判成最窄那档 —— 表现是配好的一条动作静默退化成通知。
+  String? typeTableLevelsFor(String type) => messageTypeLevels[type];
+
+  /// L2 应用动作的**封闭词表**（契约 `capabilities.l2.actions`）。
+  ///
+  /// 两端各持一份枚举映射，这张表是它们共同的唯一出处。空表抛而不返回 `[]`：
+  /// 空表读出来与「L2 这一档没有任何动作」在下游难以区分（枚举映射退化成空 switch
+  /// 不报错，而表现是所有动作都不执行 —— 与「都执行」同样是静默）。
+  List<String> get l2Actions {
+    final value = strings(const ['capabilities', 'l2', 'actions']);
+    if (value.isEmpty) {
+      throw StateError(
+        '契约缺 capabilities.l2.actions（或它是空表）：'
+        '这张表是两端枚举映射的唯一出处，空表会让「未知 action」与「没有任何 action」读起来一样',
+      );
+    }
+    return value;
+  }
+
+  /// 这些 L2 动作必须带参数（契约 `capabilities.l2.requiresArgumentFrom`）。
+  List<String> get l2ActionsRequiringArgument =>
+      strings(const ['capabilities', 'l2', 'requiresArgumentFrom']);
+
+  /// L2 执行失败对外回哪一个回执词（契约 `capabilities.l2.actionReceipt`）。
+  String get l2ActionReceipt {
+    final value = str(const ['capabilities', 'l2', 'actionReceipt']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 capabilities.l2.actionReceipt（不补默认值）');
+    }
+    return value;
+  }
+
   /// **开启 L3 本身**要过的那几种本地认证（契约 `capabilities.l3.enableRequiresLocalAuth`）。
   ///
   /// ⚠ 这条与 [FnthinkGrant] 里那条逐次确认是**两道不同的门**：那一道管"这一条设置消息要不要
@@ -1076,6 +1112,59 @@ class FnthinkContract {
     need(
       str(const ['capabilities', 'l3', 'unknownAction']) == 'reject',
       'capabilities.l3.unknownAction 必须是 reject：两边不认识的 action 一律拒',
+    );
+
+    // ── L2 动作词表（T50）──
+    // 这张表是「L2 到底有哪几个动作」的**唯一出处**：设备侧与服务端各持一份枚举映射，
+    // 而它们之间的漂移不会报错 —— 表现是对面新加一个动作只有自己认得，
+    // 服务端把它收进队列、设备端在 apply 段判成 unknown-action，两头日志互相看不懂。
+    final l2Actions = strings(const ['capabilities', 'l2', 'actions']);
+    need(
+      l2Actions.isNotEmpty,
+      'capabilities.l2.actions 不能为空：为空等于 L2 这一档没有任何合法动作，'
+      '而它映射到的 messageTypes.action 仍然要求 L2',
+    );
+    need(
+      l2Actions.toSet().length == l2Actions.length,
+      'capabilities.l2.actions 里有重复项：$l2Actions',
+    );
+    need(
+      l2Actions.every((a) => a.contains(':')),
+      'capabilities.l2.actions 每项都要写成 <family>:<verb>（itemFormat）：$l2Actions',
+    );
+    need(
+      str(const ['capabilities', 'l2', 'unknownAction']) == 'reject',
+      'capabilities.l2.unknownAction 必须是 reject：认不出的 action 一律拒，'
+      '不许「认不出就先跳过这一条」',
+    );
+    need(
+      str(const ['capabilities', 'l2', 'itemFormat']) == '<family>:<verb>',
+      'capabilities.l2.itemFormat 必须是 <family>:<verb>：actions 那张表按这个形状写，'
+      '换一种形状两端的拆分就会各行其是',
+    );
+    final l2NeedsArg = strings(const [
+      'capabilities',
+      'l2',
+      'requiresArgumentFrom',
+    ]);
+    need(
+      l2NeedsArg.every((a) => l2Actions.contains(a)),
+      'capabilities.l2.requiresArgumentFrom 里有不在 actions 里的 action：$l2NeedsArg',
+    );
+    final l2Receipt = str(const ['capabilities', 'l2', 'actionReceipt']);
+    need(
+      l2Receipt != null && l2Receipt.isNotEmpty,
+      'capabilities.l2.actionReceipt 必须写清（执行失败对外回哪一个词）',
+    );
+    need(
+      l2Receipt != null && strings(const ['receipts']).contains(l2Receipt),
+      'capabilities.l2.actionReceipt=$l2Receipt 不在顶层 receipts 词表里：'
+      '对外形状只能取那一处的词',
+    );
+    need(
+      typeTableLevelsFor('action') == 'L2',
+      'capabilities.messageTypes.action 仍映射到 L2 —— L2 动作表存在而 type 侧不指向它，'
+      '等于这张表没有读者',
     );
 
     // ── 能力清单（T30）：type 词表与授权缺省 ──

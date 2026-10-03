@@ -356,6 +356,19 @@
     "grantChangeRequiresConfirmation": true,
     "endpointMaxLevel": "L1",
     "endpointActionReceipt": "rejected_capability",
+    "l2": {
+      "actions": ["listener:start", "listener:stop", "channel:toggle", "device_state:push"],
+      "actionsWhy": "L2 应用动作的**封闭词表**。两端各持一份枚举映射（设备侧 lib/services/fnthink_l2_actions.dart、服务端 server/lib/fnthink/l2actions.js），而这张表是它们共同的**唯一出处**：一份名单存在两处时，两处各自都对，但对面新加一个动作只有自己认得，表现是服务端把它收进队列、设备端在 apply 段判成 unknown-action，两头日志互相看不懂",
+      "unknownAction": "reject",
+      "unknownActionWhy": "认不出的 action 一律拒，不许「认不出就先跳过这一条」：那等于让对端用一个编出来的动作名试探这台设备的边界（探到就等于多一档权限）",
+      "unknownActionScope": "这一条只管 L2 的 action；L3 的设置键由 l3.unknownAction 管，两份不共用 —— 共用的话，哪天只改一边就变成一档认不出的东西按另一档的规则处置，而那种偏差在两边各自的用例里都是绿的",
+      "itemFormat": "<family>:<verb>",
+      "itemFormatWhy": "逐条勾选的清单里那一项就是 item，由 action 与它指向的东西拼成：listener 家族那两条没有参数（启停整个监听服务），channel:toggle 带通道标识，device_state:push 不带（推的是整份设备状态）。**参数不许留在签名之外的地方** —— item 必须来自签过名的载荷，否则改一改参数就能换一个已勾选的项",
+      "requiresArgumentFrom": ["channel:toggle"],
+      "requiresArgumentWhy": "这些 action 必须带参数（通道标识）；不带就是「开关哪一条通道」没写，而默认取第一条通道等于让一条没写清楚的消息改了某个用户没预期的东西。**不写成「缺了就取第一条」** —— 那是一条静默的越权",
+      "actionReceipt": "failed_action",
+      "actionReceiptWhy": "执行失败对外只回 receipts 词表里那一个词。与 T27/T28 那条同源：身份已证明，不许把「没权限」和「执行失败」压成同形的一句话；但也**不许把本地细节（哪个通道、什么异常）写进对外形状** —— 那些要进留痕（T53）"
+    },
     "grantSource": "配对时由**接收端**确认并写进它自己的 grantsBy（pairing.relationshipField），随签名校验；之后变更要接收端再确认一次（grantChangeRequiresConfirmation）。这条不是注释：收单读的就是这一份，发送方记录上没有授权可读。",
     "l3": {
       "default": "off",
