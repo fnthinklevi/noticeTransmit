@@ -198,7 +198,7 @@ void main() {
         logExecution(
           contract,
           kind: 'l3_setting',
-          item: 'write_settings',
+          item: 'exact_alarm',
           from: '8K3FJ6QPTM9WZ4VHNS',
           result: 'rejected',
           at: 1780000000000,
@@ -211,11 +211,11 @@ void main() {
         logExecution(
           contract,
           kind: 'l3_setting',
-          item: 'write_settings',
+          item: 'exact_alarm',
           from: '8K3FJ6QPTM9WZ4VHNS',
           result: 'failed',
           at: 1780000000000,
-          reason: 'not-applied:write_settings',
+          reason: 'not-applied:exact_alarm',
         ).result,
         'failed',
       );

@@ -83,8 +83,8 @@ void main() {
   group('parseL3Item：四种拒的理由各不相同', () {
     test('认得出的两项各解析成设置项（确认过之后）', () {
       expect(
-        parseL3Item(contract, 'write_settings', confirmedThisTime: true),
-        FnthinkL3Ok(contract.l3Settings['write_settings']!),
+        parseL3Item(contract, 'exact_alarm', confirmedThisTime: true),
+        FnthinkL3Ok(contract.l3Settings['exact_alarm']!),
       );
       expect(
         parseL3Item(
@@ -121,7 +121,7 @@ void main() {
       // ⚠ 本组最要紧的一条：跳过它 = L3 这一档变成"发一次就生效"，
       // 而这一档的全部意义就是每次都要用户自己点一下
       expect(
-        parseL3Item(contract, 'write_settings'),
+        parseL3Item(contract, 'exact_alarm'),
         const FnthinkL3Rejected('confirm-required'),
       );
       expect(
@@ -159,7 +159,7 @@ void main() {
   group('派发：grant 与 toggle 走两个不同的方法', () {
     test('两种形态各落到该落的方法上', () async {
       final exec = RecordingExecutor();
-      for (final key in ['write_settings', 'monitoring']) {
+      for (final key in ['exact_alarm', 'monitoring']) {
         final parsed = parseL3Item(
           contract,
           key,
@@ -173,7 +173,7 @@ void main() {
           (parsed as FnthinkL3Ok).setting,
         );
       }
-      expect(exec.calls, ['grant(write_settings)', 'toggle(monitoring)']);
+      expect(exec.calls, ['grant(exact_alarm)', 'toggle(monitoring)']);
     });
 
     test('做不到 ⇒ failed（不是"已开"：grant 的成功只是把人送到那一页）', () async {
@@ -206,17 +206,17 @@ void main() {
       final ok = await dispatchL3Setting(
         contract,
         exec,
-        contract.l3Settings['write_settings']!,
+        contract.l3Settings['exact_alarm']!,
       );
       expect(ok.receipt(contract), 'delivered');
 
-      const bad = FnthinkL3Result.failed('not-applied:write_settings');
+      const bad = FnthinkL3Result.failed('not-applied:exact_alarm');
       expect(bad.receipt(contract), 'failed_action');
     });
 
     test('本地细节只进 reason，不进对外那个词', () {
-      const r = FnthinkL3Result.failed('not-applied:write_settings');
-      expect(r.receipt(contract), isNot(contains('write_settings')));
+      const r = FnthinkL3Result.failed('not-applied:exact_alarm');
+      expect(r.receipt(contract), isNot(contains('exact_alarm')));
     });
   });
 

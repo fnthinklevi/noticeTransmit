@@ -382,15 +382,14 @@
       "settings": {
         "notification": { "mode": "grant", "native": "requestNotificationListenerPermission" },
         "dnd_access": { "mode": "grant", "native": "requestNotificationListenerPermission" },
-        "write_settings": { "mode": "grant", "native": "requestWriteSettings" },
         "exact_alarm": { "mode": "grant", "native": "requestExactAlarmPermission" },
         "battery_optimization": { "mode": "grant", "native": "requestBatteryOptimization" },
-        "foreground_service": { "mode": "grant", "native": "requestForegroundService" },
-        "autostart": { "mode": "grant", "native": "requestAutostart" },
-        "monitoring": { "mode": "toggle", "native": "toggleMonitoring" },
-        "collect_inbox": { "mode": "toggle", "native": "toggleCollectInbox" }
+        "autostart": { "mode": "grant", "native": "vendorAutostart" },
+        "monitoring": { "mode": "toggle", "native": "setMonitoringEnabledPref" },
+        "collect_inbox": { "mode": "toggle", "native": "settings.receiveEnabled" }
       },
-      "settingsWhy": "L3 系统设置的**封闭词表**，与 capabilities.l2.actions 同一套做法：动作名单只有契约一处，两端各持一份映射。为什么每项要带 mode：这一档里两件事的**危险程度不同** —— grant 是把一项授权交给这台设备，toggle 是这台设备自己的一项开关。而它们能不能被远端**直接改**也不同：原生侧至今**没有**任何静默改系统设置的能力，全部是跳设置页请用户自己点（MainActivity 里那十几个 request* 函数无一例外），所以只有 toggle 那两项（且要系统已授权）才谈得上「改」，其余只能「请」。把这两类混成一张没有 mode 的表，表现是界面把「勾了就会静默改」与「勾了只是弹设置页」显示成同一种承诺",
+      "settingsWhy": "L3 系统设置的**封闭词表**，与 capabilities.l2.actions 同一套做法：动作名单只有契约一处，两端各持一份映射。为什么每项要带 mode：这一档里两件事的**危险程度不同** —— grant 是把一项授权交给这台设备，toggle 是这台设备自己的一项开关。而它们能不能被远端**直接改**也不同：原生侧至今**没有**任何静默改系统设置的能力，全部是跳设置页请用户自己点（MainActivity 里那几个 request* 函数无一例外），所以只有 toggle 那两项（且要系统已授权）才谈得上「改」，其余只能「请」。把这两类混成一张没有 mode 的表，表现是界面把「勾了就会静默改」与「勾了只是弹设置页」显示成同一种承诺",
+      "settingsNativeWhy": "`native` 那一列**逐个核过 MainActivity / PermissionService**（不是照着想象写的），而核这一遍**当场推翻了第一版的两个词**。⚠ 三个形状值得记下来：`dnd_access` 与 `notification` **指向同一个原生函数** —— DND 访问在 Android 上就是通知监听权限的一个子能力，跳的是同一页（`ACTION_NOTIFICATION_LISTENER_SETTINGS`），所以「两个设置项、一个跳转」是事实而不是漏写。`autostart` 指向的 `vendorAutostart` **不是一个函数名**而是「按厂商分流」这件事本身：小米/魅族/华为/oppo/vivo 各有各的入口（`requestXiaomiAutoStart` / `requestMeizuBackground` / …），写成某一个具体函数名就会把另外四个厂商的入口说成不存在。`collect_inbox` 指向 `settings.receiveEnabled`（Dart 侧 prefs）而不是原生 —— 幻念收件的开��**纯本地**，压根不经过系统授权。⚠ 第一版写在这两项上的 `requestWriteSettings` / `requestForegroundService` **已删**：前者是 `WRITE_SETTINGS` 这一项权限（`AppSettings.canWrite`）本该有的跳转、今天没实现；后者**根本不是一次授权** —— `FOREGROUND_SERVICE` 是 Manifest 里早就声明的权限，`NotificationMonitorService` 直接就带着 `dataSync|specialUse` 类型跑，它没有「申请」这一步。留着它等于让契约宣称一个不存在的动作。⚠ **教训**：「每项都有真实原生落点」这句话得**逐个 grep 核过**才敢说 —— 第一版是照着 T52 的描述（通知/DND/WRITE_SETTINGS/电池优化/精确闹钟/前台服务 六项）建的，核完发现其中两项在原生侧不存在，而第三项压根不是授权",
       "modes": ["grant", "toggle"],
       "modesWhy": "mode 的封闭词表。只有这两种：grant = 打开这项授权（不可逆动作在系统那边，要用户点）；toggle = 翻这台设备自己的一项开关（可逆，且要系统已授权）。**没有第三种**：加一种「静默改设置」在今天没有任何原生能力支撑，而契约写了却没人实现的那一类（T30 那两条 l3 规则的老毛病）正是这里要防的",
       "requiresExistingGrantFrom": ["monitoring", "collect_inbox"],
@@ -399,8 +398,7 @@
       "settingsReceiptWhy": "L3 执行失败对外回哪一个词。与 L2 共用 receipts 词表里的 failed_action —— **不是因为它们是一件事**，而是因为契约只该有一个对外形状；两种失败的区别进留痕（T53），不进回执"
     },
 
-    "execution": {
-      "fields": ["kind", "item", "argument", "from", "at", "result", "reason"],
+    "execution": {      "fields": ["kind", "item", "argument", "from", "at", "result", "reason"],
       "fieldsWhy": "一次 L2/L3 执行写进留痕时**能出现哪些键**。四个身份键（kind / item / argument / from）回答「谁让这台设备做了什么」，两个结果键（at / result / reason）回答「成了没有、为什么没成」。⚠ 名单里**没有正文、标题、口令** —— 对面发来的通知内容不进执行留痕：那台设备已经把消息正文存进收件表了（且那是本机的事），执行留痕要回答的是「刚才那台设备被谁动了什么」，多存一份正文等于同一段内容有两个留存点，而其中一个的删除策略与另一个不同（正文走 retention.deleteBodyOn，留痕不走）",
       "forbiddenFields": ["body", "title", "text", "secret", "token", "credential"],
       "forbiddenFieldsWhy": "上面那份名单是**白名单**（只有列出的键能进），这一份是**黑名单**（列出的键一次都不许出现）。为什么要有黑名单而不是只靠白名单：白名单挡的是「没列的键」，而一个**名字像留痕的正文键**（body / title）恰好可能被人顺手加进白名单去「留个底」—— 那正是 privacy.auditStoresMetadataOnly 想防的事。黑名单把这件事单独喊出来，两边合起来才是完整判据",

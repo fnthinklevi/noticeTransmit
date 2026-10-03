@@ -24,7 +24,7 @@ class FnthinkExecutionLog {
   /// `l2_action` 或 `l3_setting`（契约 `execution.kinds`）。
   final String kind;
 
-  /// 动作名或设置项 key（如 `listener:start` / `write_settings`）。
+  /// 动作名或设置项 key（如 `listener:start` / `exact_alarm`）。
   final String item;
 
   /// 参数（`channel:toggle` 才有；其余空串）。
