@@ -6883,6 +6883,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未知'**
   String get updateSizeUnknown;
+
+  /// No description provided for @updateNotificationTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知推送助手更新'**
+  String get updateNotificationTitle;
 }
 
 class _AppLocalizationsDelegate

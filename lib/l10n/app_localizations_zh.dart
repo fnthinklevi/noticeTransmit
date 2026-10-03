@@ -3754,4 +3754,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updateSizeUnknown => '未知';
+
+  @override
+  String get updateNotificationTitle => '通知推送助手更新';
 }

@@ -3925,4 +3925,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateSizeUnknown => 'Unknown';
+
+  @override
+  String get updateNotificationTitle => 'Notification Forwarder Update';
 }

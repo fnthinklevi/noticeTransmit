@@ -245,6 +245,7 @@ extension _MainPageUpdate on _MainPageState {
           result.downloadUrl,
           totalSize: result.fileSize,
           version: result.latestVersion,
+          notificationTitle: _l10n.updateNotificationTitle,
           onProgress: (progress) {
             progressNotifier.value = progress;
             if (mounted) setState(() {});

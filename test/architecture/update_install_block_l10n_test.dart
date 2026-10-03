@@ -62,6 +62,11 @@ void main() {
       reason: '这三句已进 ARB；再出现就是有人把措辞抄回了服务层',
     );
     expect(
+      code.contains('通知推送助手更新'),
+      isFalse,
+      reason: '下载通知的标题也要界面出词（本片已把它从界面一路传下来）',
+    );
+    expect(
       code.contains("'未知'"),
       isFalse,
       reason:

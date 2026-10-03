@@ -454,6 +454,7 @@ class AppUpdateManager {
     Function()? onCancel,
     String? appName,
     String? version,
+    String? notificationTitle,
   }) async {
     if (Platform.isAndroid) {
       // Android：调用系统下载器（DownloadManager），无需存储权限，
@@ -464,6 +465,7 @@ class AppUpdateManager {
         onProgress: onProgress,
         appName: appName,
         version: version,
+        notificationTitle: notificationTitle,
       );
     }
     // 桌面等其他平台：保持原有自实现下载（保存到临时目录）
@@ -493,6 +495,7 @@ class AppUpdateManager {
     Function(double progress)? onProgress,
     String? appName,
     String? version,
+    String? notificationTitle,
   }) async {
     final abiKey = await _getRealAbi();
     final candidates = _buildCandidateUrls(downloadUrl, version, abiKey);
@@ -518,6 +521,7 @@ class AppUpdateManager {
           fileName: fileName,
           version: version,
           onProgress: onProgress,
+          notificationTitle: notificationTitle,
         );
         return path;
       } catch (e) {
@@ -541,10 +545,15 @@ class AppUpdateManager {
     required String fileName,
     String? version,
     Function(double progress)? onProgress,
+    String? notificationTitle,
   }) async {
     final id = await AppChannels.notification.invokeMethod(
       'startSystemDownload',
-      {'url': downloadUrl, 'fileName': fileName, 'title': '通知推送助手更新'},
+      {
+        'url': downloadUrl,
+        'fileName': fileName,
+        'title': notificationTitle ?? '',
+      },
     );
     if (id == null || id.toString().isEmpty) {
       throw const UpdateFailureException(UpdateFailure.downloaderStartFailed);

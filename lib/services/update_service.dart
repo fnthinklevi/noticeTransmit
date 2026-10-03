@@ -26,6 +26,7 @@ class UpdateService {
     int? totalSize,
     String? appName,
     String? version,
+    String? notificationTitle,
     required void Function(double) onProgress,
   }) async {
     _isDownloading = true;
@@ -35,6 +36,7 @@ class UpdateService {
         totalSize: totalSize,
         appName: appName,
         version: version,
+        notificationTitle: notificationTitle,
         onProgress: onProgress,
       );
     } finally {
