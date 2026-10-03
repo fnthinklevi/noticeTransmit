@@ -378,7 +378,25 @@
       "enableRequiresLocalAuth": ["lockScreen", "biometric"],
       "circuitBreaker": { "failuresPerMinute": 5, "downgradeTo": "L1" },
       "unknownAction": "reject",
-      "noKeyValueGenericWrite": true
+      "noKeyValueGenericWrite": true,
+      "settings": {
+        "notification": { "mode": "grant", "native": "requestNotificationListenerPermission" },
+        "dnd_access": { "mode": "grant", "native": "requestNotificationListenerPermission" },
+        "write_settings": { "mode": "grant", "native": "requestWriteSettings" },
+        "exact_alarm": { "mode": "grant", "native": "requestExactAlarmPermission" },
+        "battery_optimization": { "mode": "grant", "native": "requestBatteryOptimization" },
+        "foreground_service": { "mode": "grant", "native": "requestForegroundService" },
+        "autostart": { "mode": "grant", "native": "requestAutostart" },
+        "monitoring": { "mode": "toggle", "native": "toggleMonitoring" },
+        "collect_inbox": { "mode": "toggle", "native": "toggleCollectInbox" }
+      },
+      "settingsWhy": "L3 系统设置的**封闭词表**，与 capabilities.l2.actions 同一套做法：动作名单只有契约一处，两端各持一份映射。为什么每项要带 mode：这一档里两件事的**危险程度不同** —— grant 是把一项授权交给这台设备，toggle 是这台设备自己的一项开关。而它们能不能被远端**直接改**也不同：原生侧至今**没有**任何静默改系统设置的能力，全部是跳设置页请用户自己点（MainActivity 里那十几个 request* 函数无一例外），所以只有 toggle 那两项（且要系统已授权）才谈得上「改」，其余只能「请」。把这两类混成一张没有 mode 的表，表现是界面把「勾了就会静默改」与「勾了只是弹设置页」显示成同一种承诺",
+      "modes": ["grant", "toggle"],
+      "modesWhy": "mode 的封闭词表。只有这两种：grant = 打开这项授权（不可逆动作在系统那边，要用户点）；toggle = 翻这台设备自己的一项开关（可逆，且要系统已授权）。**没有第三种**：加一种「静默改设置」在今天没有任何原生能力支撑，而契约写了却没人实现的那一类（T30 那两条 l3 规则的老毛病）正是这里要防的",
+      "requiresExistingGrantFrom": ["monitoring", "collect_inbox"],
+      "requiresExistingGrantWhy": "这两项是 toggle，而 toggle 只有在对应授权**已经在**这台设备上时才能翻。反过来（授权还没拿到就先开 toggle）在今天不可能发生，但一旦发生，表现是「勾了没反应」——而那与「系统不给开」读起来一模一样",
+      "settingsReceipt": "failed_action",
+      "settingsReceiptWhy": "L3 执行失败对外回哪一个词。与 L2 共用 receipts 词表里的 failed_action —— **不是因为它们是一件事**，而是因为契约只该有一个对外形状；两种失败的区别进留痕（T53），不进回执"
     }
   },
 

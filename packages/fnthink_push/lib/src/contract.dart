@@ -34,6 +34,51 @@ String fnthinkContractFile({String? from}) =>
 /// 向量文件的真实路径（同 [fnthinkContractFile] 的定位规则）。
 String fnthinkVectorsFile({String? from}) => _findUp(fnthinkVectorsPath, from);
 
+/// L3 系统设置表里的**一项**（契约 `capabilities.l3.settings` 的一项）。
+///
+/// [mode] 是这一项的形态（契约 `capabilities.l3.modes`）：
+///  - `grant`  = 打开这项授权。不可逆的动作在系统那边，**只能请用户点**（原生侧至今
+///    没有任何静默改系统设置的能力）；
+///  - `toggle` = 翻这台设备自己的一项开关。可逆，且要先有对应授权。
+///
+/// ⚠ 为什么这一层必须带 mode 而不是一张光秃秃的清单：这两类的**承诺强度不同**，
+/// 而界面上它们长得一模一样。合成一张没有 mode 的表，用户看到的就是
+/// 「勾了就会静默改」与「勾了只是弹设置页」被显示成同一种承诺。
+class FnthinkL3Setting {
+  const FnthinkL3Setting({
+    required this.key,
+    required this.mode,
+    required this.native,
+  });
+
+  final String key;
+
+  /// `grant` 或 `toggle`（取值来自契约 `capabilities.l3.modes`）。
+  final String mode;
+
+  /// 设备侧那一侧的落点（原生方法名 / 服务层方法名）。**不是**给远端用的 ——
+  /// 远端只能通过契约的 `key` 说"要哪一项"，映射到哪一段代码由本地决定。
+  final String native;
+
+  /// 这一项能不能被**直接改**（`toggle`），还是只能**请用户去系统里开**（`grant`）。
+  bool get isToggle => mode == 'toggle';
+
+  bool get isGrant => mode == 'grant';
+
+  @override
+  String toString() => '$key($mode)';
+
+  @override
+  bool operator ==(Object other) =>
+      other is FnthinkL3Setting &&
+      other.key == key &&
+      other.mode == mode &&
+      other.native == native;
+
+  @override
+  int get hashCode => Object.hash(key, mode, native);
+}
+
 /// 单一协议契约（T71）。
 ///
 /// 为什么要有这么一层：幻念推送的规则散在路线图 W3a–W3g 的十几段话里，而它们**同时**约束
@@ -297,6 +342,49 @@ class FnthinkContract {
     final value = str(const ['capabilities', 'l2', 'actionReceipt']);
     if (value == null || value.isEmpty) {
       throw StateError('契约缺 capabilities.l2.actionReceipt（不补默认值）');
+    }
+    return value;
+  }
+
+  /// L3 系统设置的**封闭词表**（契约 `capabilities.l3.settings`）。
+  ///
+  /// 与 [l2Actions] 同一套做法：这张表是唯一出处，两端各持一份映射。空表抛而不返回
+  /// `{}`：空表读出来与「L3 这一档没有任何设置项」在下游难以区分（映射退化成空 switch
+  /// 不报错，而表现是所有设置项都不出现 —— 与「都出现」同样是静默）。
+  Map<String, FnthinkL3Setting> get l3Settings {
+    final raw = map(const ['capabilities', 'l3', 'settings']) ?? const {};
+    if (raw.isEmpty) {
+      throw StateError(
+        '契约缺 capabilities.l3.settings（或它是空表）：'
+        '这张表是两端映射的唯一出处，空表会让「未知设置项」与「没有任何设置项」读起来一样',
+      );
+    }
+    final out = <String, FnthinkL3Setting>{};
+    for (final entry in raw.entries) {
+      final spec = entry.value;
+      if (spec is! Map) continue;
+      out[entry.key] = FnthinkL3Setting(
+        key: entry.key,
+        mode: '${spec['mode'] ?? ''}',
+        native: '${spec['native'] ?? ''}',
+      );
+    }
+    return out;
+  }
+
+  /// 某一档设置项的形态（契约 `capabilities.l3.modes`）。
+  List<String> get l3SettingModes =>
+      strings(const ['capabilities', 'l3', 'modes']);
+
+  /// 这些设置项要先有对应授权才谈得上翻（契约 `capabilities.l3.requiresExistingGrantFrom`）。
+  List<String> get l3SettingsRequiringExistingGrant =>
+      strings(const ['capabilities', 'l3', 'requiresExistingGrantFrom']);
+
+  /// L3 执行失败对外回哪一个回执词（契约 `capabilities.l3.settingsReceipt`）。
+  String get l3SettingsReceipt {
+    final value = str(const ['capabilities', 'l3', 'settingsReceipt']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 capabilities.l3.settingsReceipt（不补默认值）');
     }
     return value;
   }
@@ -1114,6 +1202,71 @@ class FnthinkContract {
       'capabilities.l3.unknownAction 必须是 reject：两边不认识的 action 一律拒',
     );
 
+    // ── L3 设置词表（T51）──
+    // 与 L2 那张同一套做法：这张表是「L3 到底有哪几项设置」的**唯一出处**。
+    // 两端各持一份映射，而它们的漂移不会报错 —— 表现是对面新加一项只有自己认得，
+    // 设备端在 apply 段判成 unknown（而那一档恰好每次都要本地确认，用户看不出差别）。
+    final l3SettingsRaw =
+        map(const ['capabilities', 'l3', 'settings']) ?? const {};
+    need(
+      l3SettingsRaw.isNotEmpty,
+      'capabilities.l3.settings 不能为空：为空等于 L3 这一档没有任何设置项，'
+      '而 messageTypes.setting 仍然要求 L3',
+    );
+    final l3Modes = strings(const ['capabilities', 'l3', 'modes']);
+    need(
+      l3Modes.isNotEmpty,
+      'capabilities.l3.modes 不能为空：settings 里每一项都要写 mode，'
+      '而没有这张词表就没人能判它写对了没有',
+    );
+    for (final entry in l3SettingsRaw.entries) {
+      final spec = entry.value;
+      need(
+        spec is Map,
+        'capabilities.l3.settings.${entry.key} 必须是 {mode, native} 那一块',
+      );
+      if (spec is! Map) continue;
+      final mode = '${spec['mode'] ?? ''}';
+      need(
+        mode.isNotEmpty && l3Modes.contains(mode),
+        'capabilities.l3.settings.${entry.key} 的 mode=「$mode」不在 modes（${l3Modes.join('/')}）里',
+      );
+      need(
+        '${spec['native'] ?? ''}'.isNotEmpty,
+        'capabilities.l3.settings.${entry.key} 没写 native：'
+        '没有落点的那一项等于"契约说有、设备上找不到"',
+      );
+    }
+    final l3NeedsGrant = strings(const [
+      'capabilities',
+      'l3',
+      'requiresExistingGrantFrom',
+    ]);
+    need(
+      l3NeedsGrant.every(l3SettingsRaw.containsKey),
+      'capabilities.l3.requiresExistingGrantFrom 里有不在 settings 里的项：$l3NeedsGrant',
+    );
+    // 先有授权才谈得上翻 —— 只对 toggle 成立。grant 那一类恰恰是要**去拿**那项授权，
+    // 把它列进来就自相矛盾了（要"已有"的东西才能翻，而它正是要开的东西）。
+    for (final key in l3NeedsGrant) {
+      final spec = l3SettingsRaw[key];
+      need(
+        spec is Map && '${spec['mode'] ?? ''}' == 'toggle',
+        'capabilities.l3.requiresExistingGrantFrom 里的 $key 不是 toggle：'
+        '要求"先有授权才翻"的只可能是 toggle，而 grant 要的正是去拿那项授权',
+      );
+    }
+    final l3Receipt = str(const ['capabilities', 'l3', 'settingsReceipt']);
+    need(
+      l3Receipt != null && l3Receipt.isNotEmpty,
+      'capabilities.l3.settingsReceipt 必须写清（执行失败对外回哪一个词）',
+    );
+    need(
+      l3Receipt != null && strings(const ['receipts']).contains(l3Receipt),
+      'capabilities.l3.settingsReceipt=$l3Receipt 不在顶层 receipts 词表里：'
+      '对外形状只能取那一处的词',
+    );
+
     // ── L2 动作词表（T50）──
     // 这张表是「L2 到底有哪几个动作」的**唯一出处**：设备侧与服务端各持一份枚举映射，
     // 而它们之间的漂移不会报错 —— 表现是对面新加一个动作只有自己认得，
@@ -1164,6 +1317,15 @@ class FnthinkContract {
     need(
       typeTableLevelsFor('action') == 'L2',
       'capabilities.messageTypes.action 仍映射到 L2 —— L2 动作表存在而 type 侧不指向它，'
+      '等于这张表没有读者',
+    );
+    // 同一条判据的 L3 那一半：`settings` 表存在而 type 侧不指向它 = 同样没有读者。
+    // ⚠ 两条必须**各写一条**而不是合成一个循环：`for (final e in {...})` 里报出来的
+    // 消息会含 type 名，而反证的点名串取自**测试标题**（标题里写的是 L2 或 L3）——
+    // 合成一条之后，改 L3 那侧时红在同一条 L2 的消息上，读起来像「判据抓错了对象」。
+    need(
+      typeTableLevelsFor('setting') == 'L3',
+      'capabilities.messageTypes.setting 仍映射到 L3 —— L3 设置表存在而 type 侧不指向它，'
       '等于这张表没有读者',
     );
 

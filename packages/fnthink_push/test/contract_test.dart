@@ -485,6 +485,83 @@ void main() {
       expectProblem(broken, '没有读者', '表在而 type 侧不指向它 = 这张表没人读');
     });
 
+    // ── T51：L3 设置词表 ──
+    // ⚠ 这一组是 B6 那条反证的**前提**。「l3.settings 不能为空」这一判只有
+    // **表真的被清空**时才可观察 —— 上一批（T50 的 A10）就是没有这种用例，
+    // 把判据改成恒真后全套照样绿。补了这一组之后那一判才有观众。
+    test('L3 设置表清空 ⇒ 报（这一档没有任何设置项 = type 侧指着空处）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l3'] as Map)['settings'] =
+            <String, Object?>{};
+      });
+      expectProblem(broken, 'l3.settings 不能为空', '空表与「这一档没有任何设置项」在下游读起来一样');
+    });
+
+    test('L3 设置表整段删掉 ⇒ 报（不是"读起来空"，是那一档根本不存在）', () {
+      final broken = mutate((raw) {
+        (raw['capabilities'] as Map)['l3'].remove('settings');
+      });
+      expectProblem(broken, 'l3.settings 不能为空', '整段删掉与清空是同一个后果，不能只有后者报错');
+    });
+
+    test('某一项的 mode 写成 modes 之外的词 ⇒ 报（两端会各读各的）', () {
+      final broken = mutate((raw) {
+        final s =
+            ((raw['capabilities'] as Map)['l3'] as Map)['settings'] as Map;
+        (s['autostart'] as Map)['mode'] = 'quietly';
+      });
+      expectProblem(broken, '不在 modes', 'mode 不在词表里 = 这一项的形态两端读出来不一样');
+    });
+
+    test('modes 清空 ⇒ 报（没有那张词表就没人能判 mode 写对了没有）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l3'] as Map)['modes'] = <String>[];
+      });
+      expectProblem(broken, 'l3.modes 不能为空', '词表空了，每一项的 mode 都成了一道没有标准答案的判据');
+    });
+
+    test('某一项不写 native ⇒ 报（契约说有、设备上找不到）', () {
+      final broken = mutate((raw) {
+        final s =
+            ((raw['capabilities'] as Map)['l3'] as Map)['settings'] as Map;
+        (s['collect_inbox'] as Map)['native'] = '';
+      });
+      expectProblem(broken, '没写 native', '没有落点的那一项等于"契约说有、设备上找不到"');
+    });
+
+    test('先有授权才谈得上翻的项不是 toggle ⇒ 报（自相矛盾）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l3']
+            as Map)['requiresExistingGrantFrom'] = [
+          'monitoring',
+          'write_settings',
+        ];
+      });
+      expectProblem(
+        broken,
+        '不是 toggle',
+        '要求「先有授权才翻」的只可能是 toggle，而 grant 要的正是去拿那项授权',
+      );
+    });
+
+    test('L3 执行失败的回执词不在顶层 receipts 里 ⇒ 报（对外形状只能取那一处的词）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l3'] as Map)['settingsReceipt'] =
+            'setting_broke';
+      });
+      expectProblem(broken, '不在顶层 receipts', '回执词只能从那张表里取');
+    });
+
+    test('messageTypes.setting 不再指向 L3 ⇒ 报（设置表存在却没有读者）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['messageTypes'] as Map)['setting'] = {
+          'minLevel': 'L2',
+          '_comment': '把它挪到 L2 了',
+        };
+      });
+      expectProblem(broken, '没有读者', '表在而 type 侧不指向它 = 这张表没人读');
+    });
+
     test('验签失败不计数 ⇒ 报（T29 任务书那句「并计数」）', () {
       final broken = mutate((raw) {
         ((raw['signature'] as Map)['onFailure'] as Map)['count'] = false;
