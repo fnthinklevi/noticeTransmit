@@ -2086,5 +2086,12 @@
   "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页",
   "updateBlockIntegrityFailed": "更新包校验未通过，已阻止安装",
   "updateBlockChecksumMismatch": "更新包完整性校验未通过（校验和不匹配），已阻止安装",
-  "updateBlockUnverifiable": "无法完成安全性校验，已阻止安装"
+  "updateBlockUnverifiable": "无法完成安全性校验，已阻止安装",
+  "updateFailAllUrls": "所有下载地址均失败",
+  "updateFailDownloaderStart": "无法启动系统下载器",
+  "updateFailProgressQuery": "获取下载进度失败",
+  "updateFailDownloader": "系统下载器下载失败{detail}",
+  "@updateFailDownloader": {"description": "系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）", "placeholders": {"detail": {"type": "String"}}},
+  "updateFailHttpStatus": "下载失败：HTTP {code}",
+  "@updateFailHttpStatus": {"description": "按 HTTP 状态码报失败；{code} 是状态码", "placeholders": {"code": {"type": "int"}}}
 }

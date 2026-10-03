@@ -2065,5 +2065,12 @@
   "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page",
   "updateBlockIntegrityFailed": "Update package verification failed. Installation blocked.",
   "updateBlockChecksumMismatch": "Update package integrity check failed (checksum mismatch). Installation blocked.",
-  "updateBlockUnverifiable": "Cannot verify the update package. Installation blocked."
+  "updateBlockUnverifiable": "Cannot verify the update package. Installation blocked.",
+  "updateFailAllUrls": "Every download address failed.",
+  "updateFailDownloaderStart": "Cannot start the system downloader.",
+  "updateFailProgressQuery": "Failed to read the download progress.",
+  "updateFailDownloader": "System downloader failed{detail}.",
+  "@updateFailDownloader": {"description": "系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）", "placeholders": {"detail": {"type": "String"}}},
+  "updateFailHttpStatus": "Download failed: HTTP {code}.",
+  "@updateFailHttpStatus": {"description": "按 HTTP 状态码报失败；{code} 是状态码", "placeholders": {"code": {"type": "int"}}}
 }

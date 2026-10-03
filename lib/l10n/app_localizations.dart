@@ -6847,6 +6847,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'无法完成安全性校验，已阻止安装'**
   String get updateBlockUnverifiable;
+
+  /// No description provided for @updateFailAllUrls.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有下载地址均失败'**
+  String get updateFailAllUrls;
+
+  /// No description provided for @updateFailDownloaderStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法启动系统下载器'**
+  String get updateFailDownloaderStart;
+
+  /// No description provided for @updateFailProgressQuery.
+  ///
+  /// In zh, this message translates to:
+  /// **'获取下载进度失败'**
+  String get updateFailProgressQuery;
+
+  /// 系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）
+  ///
+  /// In zh, this message translates to:
+  /// **'系统下载器下载失败{detail}'**
+  String updateFailDownloader(String detail);
+
+  /// 按 HTTP 状态码报失败；{code} 是状态码
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败：HTTP {code}'**
+  String updateFailHttpStatus(int code);
 }
 
 class _AppLocalizationsDelegate

@@ -54,7 +54,7 @@ extension _MainPageUpdate on _MainPageState {
       await _performUpdateCheck(isManual: true);
     } catch (e) {
       if (mounted) {
-        _showInfo(_l10n.updateCheckFailedWithError(e.toString()));
+        _showInfo(_l10n.updateCheckFailedWithError(_failureText(e)));
       }
     } finally {
       await minWait;
@@ -272,9 +272,30 @@ extension _MainPageUpdate on _MainPageState {
           if (!mounted) return;
           Navigator.of(context, rootNavigator: true).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_l10n.updateDownloadFailed(e.toString()))),
+            SnackBar(
+              content: Text(_l10n.updateDownloadFailed(_failureText(e))),
+            ),
           );
         });
+  }
+
+  /// 更新流程失败的那一句（**码在 service，词在这里**）。
+  ///
+  /// ⚠ 五档穷尽、没有 default：加一档而这里没接就编译红。此前页面直接把
+  /// `e.toString()` 塞进 l10n 模板，而那个 exception 的文本是服务层拼的中文句子
+  /// ⇒ 英文界面下「英文模板 + 中文句子」混排。
+  String _failureText(Object e) {
+    if (e is! UpdateFailureException) return e.toString();
+    final detail = e.detail;
+    return switch (e.code) {
+      UpdateFailure.allUrlsFailed => _l10n.updateFailAllUrls,
+      UpdateFailure.downloaderStartFailed => _l10n.updateFailDownloaderStart,
+      UpdateFailure.progressQueryFailed => _l10n.updateFailProgressQuery,
+      UpdateFailure.downloaderFailed => _l10n.updateFailDownloader(
+        detail == null || detail.isEmpty ? '' : '（$detail）',
+      ),
+      UpdateFailure.httpStatus => _l10n.updateFailHttpStatus(e.status ?? 0),
+    };
   }
 
   /// 安装被完整性校验阻止时，给用户的那一句。

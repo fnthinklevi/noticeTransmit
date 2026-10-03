@@ -3732,4 +3732,23 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updateBlockUnverifiable => '无法完成安全性校验，已阻止安装';
+
+  @override
+  String get updateFailAllUrls => '所有下载地址均失败';
+
+  @override
+  String get updateFailDownloaderStart => '无法启动系统下载器';
+
+  @override
+  String get updateFailProgressQuery => '获取下载进度失败';
+
+  @override
+  String updateFailDownloader(String detail) {
+    return '系统下载器下载失败$detail';
+  }
+
+  @override
+  String updateFailHttpStatus(int code) {
+    return '下载失败：HTTP $code';
+  }
 }

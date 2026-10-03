@@ -96,4 +96,79 @@ void main() {
     }
     expect(enumValues(), isNotEmpty);
   });
+
+  group('B 组：更新流程失败也是出码不出句', () {
+    test('⑤ 服务层不再抛中文句子（throw Exception(中文) 归零）', () {
+      final code = stripComments(manager);
+      expect(
+        RegExp(r"throw\s+Exception\(\s*'").allMatches(code).length,
+        0,
+        reason: '页面把 e.toString() 塞进 l10n 模板 ⇒ 英文界面会漏出服务层那句中文',
+      );
+    });
+
+    test('⑥ 失败的每一码在界面接到对的词条（枚举现取 + 对应关系逐个断）', () {
+      final m = RegExp(
+        r'enum\s+UpdateFailure\s*\{([^}]*)\}',
+      ).firstMatch(manager);
+      expect(m, isNotNull, reason: '枚举没了 ⇒ 下面两条在测空气');
+      final codes = m!
+          .group(1)!
+          // 枚举体里允许写文档注释（本仓的规矩），先按行剥掉再拆逗号 ——
+          // 不然"注释 + 标识符"会被当成一个成员，下面的差集断言就成了噪声。
+          .split('\n')
+          .map((l) => l.split('//').first)
+          .join(',')
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      expect(codes, isNotEmpty);
+      final body = page.substring(
+        page.indexOf('String _failureText(Object e)'),
+      );
+      final pairs = RegExp(
+        r'UpdateFailure\.(\w+)\s*=>\s*_l10n\.(\w+)',
+      ).allMatches(body);
+      final mapping = {for (final p in pairs) p.group(1)!: p.group(2)!};
+      expect(
+        mapping.keys.toSet().difference(codes.toSet()),
+        isEmpty,
+        reason: '界面接了一个枚举里没有的码',
+      );
+      expect(
+        codes.toSet().difference(mapping.keys.toSet()),
+        isEmpty,
+        reason: '枚举加了一档而界面没接（编译期也会红，但红在这里才说明是哪一档）',
+      );
+      expect(mapping, {
+        'allUrlsFailed': 'updateFailAllUrls',
+        'downloaderStartFailed': 'updateFailDownloaderStart',
+        'progressQueryFailed': 'updateFailProgressQuery',
+        'downloaderFailed': 'updateFailDownloader',
+        'httpStatus': 'updateFailHttpStatus',
+      });
+    });
+
+    test('⑦ 那五枚词条中英两份都在、非空、且不相同', () {
+      Map<String, dynamic> arb(String path) =>
+          jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
+      final zh = arb('lib/l10n/arb/app_zh.arb');
+      final en = arb('lib/l10n/arb/app_en.arb');
+      final body = page.substring(
+        page.indexOf('String _failureText(Object e)'),
+      );
+      final keys = RegExp(
+        r'_l10n\.(updateFail\w+)',
+      ).allMatches(body).map((m) => m.group(1)!).toSet();
+      expect(keys, isNotEmpty, reason: '界面一个词条都没引用 ⇒ 这条守卫在测空气');
+      for (final key in keys) {
+        expect(zh[key], isA<String>(), reason: '$key 缺中文那份');
+        expect(en[key], isA<String>(), reason: '$key 缺英文那份');
+        expect((zh[key] as String).trim(), isNotEmpty);
+        expect((en[key] as String).trim(), isNotEmpty);
+        expect(zh[key], isNot(en[key]), reason: '$key 两份一模一样 ⇒ 有一份是占位（没翻）');
+      }
+    });
+  });
 }

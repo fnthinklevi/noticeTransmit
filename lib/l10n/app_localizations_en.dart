@@ -3903,4 +3903,23 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get updateBlockUnverifiable =>
       'Cannot verify the update package. Installation blocked.';
+
+  @override
+  String get updateFailAllUrls => 'Every download address failed.';
+
+  @override
+  String get updateFailDownloaderStart => 'Cannot start the system downloader.';
+
+  @override
+  String get updateFailProgressQuery => 'Failed to read the download progress.';
+
+  @override
+  String updateFailDownloader(String detail) {
+    return 'System downloader failed$detail.';
+  }
+
+  @override
+  String updateFailHttpStatus(int code) {
+    return 'Download failed: HTTP $code.';
+  }
 }

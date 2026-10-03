@@ -529,7 +529,10 @@ class AppUpdateManager {
     if (errors.isNotEmpty) {
       debugPrint('下载源全部失败，明细：\n${errors.join('\n')}');
     }
-    throw Exception(lastError ?? '所有下载地址均失败');
+    throw UpdateFailureException(
+      UpdateFailure.allUrlsFailed,
+      detail: lastError,
+    );
   }
 
   /// 使用系统下载器下载单个地址并轮询进度，失败时抛异常
@@ -544,7 +547,7 @@ class AppUpdateManager {
       {'url': downloadUrl, 'fileName': fileName, 'title': '通知推送助手更新'},
     );
     if (id == null || id.toString().isEmpty) {
-      throw Exception('无法启动系统下载器');
+      throw const UpdateFailureException(UpdateFailure.downloaderStartFailed);
     }
     _lastDownloadId = id.toString();
 
@@ -564,7 +567,7 @@ class AppUpdateManager {
                 )
                 as Map<Object?, Object?>;
       } catch (e) {
-        throw Exception('获取下载进度失败');
+        throw const UpdateFailureException(UpdateFailure.progressQueryFailed);
       }
       final status = (info['status'] as int?) ?? -1;
       if (status == statusSuccessful) {
@@ -575,12 +578,15 @@ class AppUpdateManager {
       }
       if (status == statusFailed) {
         final reason = (info['reason'] as int?) ?? 0;
-        final reasonText = info['reasonText']?.toString() ?? '未知';
+        final reasonText = info['reasonText']?.toString() ?? '';
         debugPrint(
           '系统下载器失败：$downloadUrl status=$status reason=$reason($reasonText)'
           '${await _httpStatusDiagnosis(downloadUrl)}',
         );
-        throw Exception('系统下载器下载失败（$reasonText）');
+        throw UpdateFailureException(
+          UpdateFailure.downloaderFailed,
+          detail: reasonText.isEmpty ? null : reasonText,
+        );
       }
       final progress = ((info['progress'] as num?) ?? 0).toDouble();
       if (progress != lastProgress) {
@@ -717,7 +723,10 @@ class AppUpdateManager {
             debugPrint('下载APK：地址 $url 返回 ${response.statusCode}，尝试下一个');
             continue;
           }
-          throw Exception('下载失败：HTTP ${response.statusCode}');
+          throw UpdateFailureException(
+            UpdateFailure.httpStatus,
+            status: response.statusCode,
+          );
         }
 
         if (fileTotalSize == 0) {
@@ -760,7 +769,7 @@ class AppUpdateManager {
       }
     }
 
-    throw Exception('所有下载地址均失败');
+    throw const UpdateFailureException(UpdateFailure.allUrlsFailed);
   }
 
   List<String> _buildDownloadUrls(
@@ -1083,4 +1092,40 @@ class UpdateInstallBlock {
 
   final UpdateInstallBlockReason code;
   final String? nativeDetail;
+}
+
+/// 更新流程失败的那个**码**（措辞在界面的 ARB 里，见 main_page_update 的 failureText）。
+///
+/// ⚠ 服务层此前抛的是 `Exception('中文句子')`，而页面把 `e.toString()` 塞进 l10n 模板 ——
+/// 结果是英文界面下「英文模板 + 中文句子」混排，且每加一种失败就多一句服务层中文。
+enum UpdateFailure {
+  /// 所有候选地址都失败（具体明细在 detail 里，只进日志不进界面）。
+  allUrlsFailed,
+
+  /// 系统下载器压根起不来（DownloadManager 不可用或被禁）。
+  downloaderStartFailed,
+
+  /// 下载已起来但读不到进度 —— 轮询通道断了。
+  progressQueryFailed,
+
+  /// 系统下载器自己报失败，原生给了 reasonText（detail）。
+  downloaderFailed,
+
+  /// 直连下载拿到非 200 的状态码（status）。
+  httpStatus,
+}
+
+/// 带码的更新失败。`toString()` 只给日志与上层兜底看，不是给用户看的句子。
+class UpdateFailureException implements Exception {
+  const UpdateFailureException(this.code, {this.detail, this.status});
+
+  final UpdateFailure code;
+  final String? detail;
+  final int? status;
+
+  @override
+  String toString() =>
+      'update:${code.name}'
+      '${detail == null ? '' : '[$detail]'}'
+      '${status == null ? '' : '[http$status]'}';
 }
