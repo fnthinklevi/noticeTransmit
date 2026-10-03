@@ -124,6 +124,29 @@ List<FnthinkL3GrantRow> unsupportedL3Grants(
       ),
 );
 
+/// 生产那一份 `readers` 的**合成**（装配处只许经这里，不许自己写 map 字面量）。
+///
+/// ⚠ 为什么单独抽出来：`Map` 字面量少写一个键，编译器不喊、页面也不红 ——
+/// 那一格只会显示成「读不到这台设备的状态」，**看起来像设备的问题，其实是我们的漏接**。
+/// 抽成函数之后，「键集 == 契约词表」与「每枚参数落在自己的键上」才第一次可断。
+///
+/// 参数按契约的键名命名（不叫 `a`/`b`）：这样"接错线"至少还要过一道类型 + 一条用例。
+Map<String, bool?> l3ReadersFrom({
+  required bool notification,
+  required bool batteryOptimization,
+  bool? exactAlarm,
+  bool? autostart,
+  bool? monitoring,
+  bool? collectInbox,
+}) => <String, bool?>{
+  'notification': notification,
+  'exact_alarm': exactAlarm,
+  'battery_optimization': batteryOptimization,
+  'autostart': autostart,
+  'monitoring': monitoring,
+  'collect_inbox': collectInbox,
+};
+
 /// 各处读法收成一处：**按契约词表的次序**产出 [FnthinkL3GrantRow]。
 ///
 /// ⚠ [readers] 的取值口径就是这四态（`true` / `false` / `null`）：

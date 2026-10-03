@@ -263,16 +263,16 @@ extension _MainPageActions on _MainPageState {
     final settings = FnthinkSettings(contract: contract);
     return collectL3GrantRows(
       contract,
-      readers: {
-        'notification': _permissionService.notificationListenerGranted,
-        'exact_alarm': await _permissionService.canScheduleExactAlarms(),
-        'battery_optimization': _permissionService.batteryOptimizationIgnored,
+      readers: l3ReadersFrom(
+        notification: _permissionService.notificationListenerGranted,
+        batteryOptimization: _permissionService.batteryOptimizationIgnored,
+        exactAlarm: await _permissionService.canScheduleExactAlarms(),
         // 自启动：原生只有按厂商分流的跳转，系统不提供统一读数。
-        'autostart': null,
+        autostart: null,
         // 监听开关住在原生 SharedPreferences 里，Dart 侧目前没有读口（已登记的缺口）。
-        'monitoring': null,
-        'collect_inbox': await settings.receiveEnabled,
-      },
+        monitoring: null,
+        collectInbox: await settings.receiveEnabled,
+      ),
       notes: {
         'autostart': l10n.l3NoteAutostart,
         'monitoring': l10n.l3NoteLivesInFnthinkPage,

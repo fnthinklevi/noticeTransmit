@@ -287,6 +287,37 @@ void main() {
     });
   });
 
+  group('生产 readers 的合成（装配处不许自己写 map 字面量）', () {
+    test('键集与契约词表逐项相等（对称差集两边都空）', () {
+      // 少一个键 = 那一格显示「读不到这台设备的状态」，看起来像设备的问题；
+      // 多一个键 = 有一行没人能填状态。两个方向都要断，单向 eq 只是同一件事的一半。
+      final produced = l3ReadersFrom(
+        notification: true,
+        batteryOptimization: false,
+      ).keys.toSet();
+      final vocab = contract.l3Settings.keys.toSet();
+      expect(produced.difference(vocab), isEmpty, reason: '产出了词表外的键');
+      expect(vocab.difference(produced), isEmpty, reason: '词表里有一项没人接线');
+    });
+
+    test('每枚参数落在自己的键上（接错线只有这一条能喊）', () {
+      final readers = l3ReadersFrom(
+        notification: true,
+        batteryOptimization: false,
+        exactAlarm: null,
+        autostart: false,
+        monitoring: true,
+        collectInbox: null,
+      );
+      expect(readers['notification'], isTrue);
+      expect(readers['battery_optimization'], isFalse);
+      expect(readers['exact_alarm'], isNull);
+      expect(readers['autostart'], isFalse);
+      expect(readers['monitoring'], isTrue);
+      expect(readers['collect_inbox'], isNull);
+    });
+  });
+
   group('真实契约而不是夹具', () {
     test('本文件读的是仓库那份契约（它自洽，否则这一组在测空气）', () {
       expect(contract.validate(), isEmpty);
