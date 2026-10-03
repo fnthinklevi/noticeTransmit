@@ -105,7 +105,7 @@ void main() {
       expect(RegExp(r'if \(oldVersion < 15\)').allMatches(src), hasLength(1));
     });
 
-    test('新建库的列就是模型声明那五列；granted_at 落成 INTEGER', () async {
+    test('新建库的列就是模型声明那七列；granted_at 落成 INTEGER', () async {
       final db = await freshDb();
       expect(await columnsOf(db), FnthinkPeer.columns.toSet());
       await helper.upsertFnthinkPeer(peer('8K3FJ6QPTM9WZ4VHNS'));
@@ -116,6 +116,7 @@ void main() {
           r['name'].toString(): r['type'].toString(),
       };
       expect(types['granted_at'], 'INTEGER');
+      expect(types['revision'], 'INTEGER');
       final stored = (await allRows(db)).single;
       expect(stored['granted_at'], 1700000000000);
       expect(stored['request_id'], 'rq-8K3FJ6QPTM9WZ4VHNS');
@@ -136,6 +137,43 @@ void main() {
       expect(await columnsOf(old), isEmpty, reason: '锚点：表没建成，本用例是空转');
       await helper.upgradeSchemaForTest(old, 14, 15);
       expect(await columnsOf(old), FnthinkPeer.columns.toSet());
+    });
+
+    test('v16 老库升上来：T49 那两列补上，**存量行一个字节都不改**', () async {
+      // ⚠ "不改存量行"在这里正是要的那个行为：那些行写着 L2/L3，清单一律空。
+      // 补上"按档位放行"会让升级变成一次静默的权限扩张 —— 那一半才是不该发生的。
+      SharedPreferences.setMockInitialValues({});
+      if (await databaseFactory.databaseExists(dbPath)) {
+        await databaseFactory.deleteDatabase(dbPath);
+      }
+      final old = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(version: DatabaseHelper.dbVersion),
+      );
+      addTearDown(() async => old.close());
+      await helper.createSchemaForTest(old);
+      // 造一张 v16 的表：当前 schema 减去 T49 那两列（`ALTER` 不支持 DROP COLUMN 到这份
+      // sqlite 版本上，所以整表重建）。存量行带着 L3 —— 正是"看着像没收紧"的那一行。
+      await old.execute('DROP TABLE ${FnthinkPeer.table}');
+      await old.execute(
+        'CREATE TABLE ${FnthinkPeer.table} ('
+        ' peer_address TEXT PRIMARY KEY, public_key TEXT NOT NULL,'
+        ' level TEXT NOT NULL, granted_at INTEGER NOT NULL,'
+        " request_id TEXT NOT NULL DEFAULT '')",
+      );
+      await old.insert(FnthinkPeer.table, {
+        'peer_address': '8K3FJ6QPTM9WZ4VHNS',
+        'public_key': 'AAAABBBBCCCC',
+        'level': 'L3',
+        'granted_at': 1700000000000,
+        'request_id': '',
+      });
+      await helper.upgradeSchemaForTest(old, 16, 17);
+      expect(await columnsOf(old), FnthinkPeer.columns.toSet());
+      final row = (await old.query(FnthinkPeer.table)).single;
+      expect(row['level'], 'L3', reason: '锚点：存量行不该被这一刀改写');
+      expect('${row['items'] ?? ''}', isEmpty, reason: '存量授权一条都没逐条给过');
+      expect((row['revision'] as num?)?.toInt(), 0);
     });
   });
 
@@ -221,6 +259,42 @@ void main() {
       expect(bare.level, '');
       expect(bare.grantedAt, 0);
       expect(bare.requestId, '');
+      // 缺这两列（v17 之前的老行读进新代码）一律当"一条都没逐条给过"，
+      // 而不是"清单字段缺失 ⇒ 放行"。写反了就是一次静默的权限扩张。
+      expect(bare.items, isEmpty);
+      expect(bare.revision, 0);
+    });
+
+    test('清单一格写坏了往收紧的那一侧靠（不许读成"全给"）', () {
+      // 空白、只有换行、id 前后带空格都归一成一个空清单
+      for (final raw in ['', '\n', '  \n  \n']) {
+        expect(
+          FnthinkPeer.fromDbRow({'items': raw}).items,
+          isEmpty,
+          reason: '「$raw」读出了清单',
+        );
+      }
+      expect(FnthinkPeer.fromDbRow({'items': 'setting:a\n setting:b '}).items, [
+        'setting:a',
+        'setting:b',
+      ]);
+    });
+
+    test('清单原样往返（写进去什么，读出来还是那几条，顺序不变）', () async {
+      await freshDb();
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'AAAABBBBCCCC',
+          level: 'L3',
+          grantedAt: 1700000000000,
+          items: ['setting:do_not_disturb', 'app:a/b/startListen'],
+          revision: 3,
+        ),
+      );
+      final back = (await helper.loadFnthinkPeers()).single;
+      expect(back.items, ['setting:do_not_disturb', 'app:a/b/startListen']);
+      expect(back.revision, 3);
     });
 
     test('toString 不带整串公钥（日志会离开这台机）', () {

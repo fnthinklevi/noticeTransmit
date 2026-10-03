@@ -166,3 +166,142 @@ CapabilityDecision decideCapability(
   if (!confirmedThisTime) return CapabilityDecision.confirmRequired;
   return CapabilityDecision.allowNeedConfirm;
 }
+
+/// 「把 L3 开起来」这一次本地认证的结论。**三值**：设备根本没装锁屏/生物识别、
+/// 用户按了取消、以及平台通道本身还没接上，三者在这一层是同一个形状 —— **不许开**。
+///
+/// 为什么不能是 `bool`：把"没认证器"读成"通过"或读成"失败"都说得通，于是实现里
+/// 两种都会长出来 —— 一种把 L3 开给了没有锁屏的设备，另一种让用户永远开不了。
+/// 判据是**三态各自有用**：只有 `authenticated` 能开，另外两态的处置不同
+/// （去设置页开锁屏 / 告诉用户没配认证器）。
+enum LocalAuthOutcome {
+  /// 用户刚才真的过了一关（指纹、面容、锁屏密码）。
+  authenticated,
+
+  /// 这一台压根没有认证器（`KeyguardManager.isDeviceSecure` 为假）——
+  /// 要请用户先去系统里设一个，不是"他拒绝了"。
+  unavailable,
+
+  /// 有认证器，用户没通过（取消、输错、超时）。原样可以重试。
+  rejected,
+}
+
+/// 开启 L3 的那一次本地认证在本设备上的实现。
+///
+/// 平台通道（锁屏 / 生物识别）今天还没接 —— 这是 T49 之后那一片的事。接上之前给
+/// [unimplementedLocalAuthenticator]：它回"没有认证器"，于是**默认关着**而不是默认开着。
+/// ⚠ 默认回 [LocalAuthOutcome.unavailable] 而不是 `authenticated` 是这一条存在的全部理由。
+typedef LocalAuthenticator =
+    Future<LocalAuthResult> Function({required String reason});
+
+/// 一次本地认证的结果：**过没过**（[LocalAuthOutcome]）与**过的哪一关**（[mechanism]）是
+/// 两件事，合成一个字段就会出现下面这个坑 ——
+/// 契约 `capabilities.l3.enableRequiresLocalAuth` 列的是**手段**（`lockScreen` /
+/// `biometric`），不是"通过"这个词。把结论的名字直接拿去与那张表比，读出来永远是空表，
+/// 于是每一次判都是"开不了"，而用户看到的是"这功能坏了"。
+class LocalAuthResult {
+  const LocalAuthResult({required this.mechanism, required this.outcome});
+
+  /// 用的哪一关。取值须来自 [FnthinkContract.l3EnableRequiresLocalAuth]；表外的形状
+  /// 按"开不了"处置（平台通道与契约各说各话时，放行等于把授权交给谁都读不懂的那种结论）。
+  final String mechanism;
+
+  final LocalAuthOutcome outcome;
+
+  bool get authenticated => outcome == LocalAuthOutcome.authenticated;
+
+  @override
+  String toString() => 'LocalAuthResult($mechanism, ${outcome.name})';
+}
+
+/// 还没接平台通道时的实现：永远"这台没有认证器"。
+/// 与"用户拒了"分开 —— 前者要请用户去设置，后者在界面上只是没开成，可以原样重试。
+/// 机制词仍填契约那张表的首项：判据核的是"用的手段在不在词表里"，
+/// 而这里根本没走到那一步（`outcome` 已经把这件事说清了）。
+Future<LocalAuthResult> unimplementedLocalAuthenticator({
+  required String reason,
+}) async => LocalAuthResult(
+  mechanism: 'lockScreen',
+  outcome: LocalAuthOutcome.unavailable,
+);
+
+/// 能不能把 L3 开起来。纯函数：只判认证结果与词表，不弹框、不查系统。
+///
+/// 返回**最终要写进授权的那一档**，或者 null（不开）。⚠ 这里不是"校验通过就放行"，
+/// 是一道**改档**：拿到 L2 授权时调用它，写回去的是最高档；而授权变更本身还要
+/// 重新确认（契约 `capabilities.grantChangeRequiresConfirmation`），那一步在界面上。
+String? grantableL3Level(
+  FnthinkContract contract,
+  FnthinkGrant current, {
+  required LocalAuthResult result,
+}) {
+  final levels = contract.capabilityLevels;
+  final top = levels.isEmpty ? null : levels.last;
+  if (top == null) return null;
+  if (!contract.l3EnableRequiresLocalAuth.contains(result.mechanism))
+    return null;
+  if (!result.authenticated) return null;
+  return top;
+}
+
+/// L3 熔断器：**一分钟内连续失败达到契约那条线，就把这一对发送方降回 L1**。
+///
+/// 三件事写在这里，别处再写一遍就会各自算各自的窗口：
+///  ① 失败的时刻按到达顺序倒序记，超过一分钟的旧记录先丢（"一分钟内连续"就是这个意思）；
+///  ② 成功一次就把窗口**清空**（连续 ⇒ 失败之间不许插成功）；
+///  ③ 降级是**有方向的**：降到契约写的那一档就停，不会一路降到最低档。
+///
+/// 时钟由调用方注入：这一层判"一分钟内失败几次"，判错的表现是正常负载下熔断或
+/// 对端一直在打失败却永远不熔断，而测试里没法靠真等一分钟来复现其中任何一种。
+class L3CircuitBreaker {
+  L3CircuitBreaker({
+    required FnthinkContract contract,
+    required int Function() nowMs,
+  }) : _contract = contract,
+       _now = nowMs;
+
+  final FnthinkContract _contract;
+  final int Function() _now;
+
+  /// 失败到达的时刻，**新的在后面**。只留窗口内的。
+  final List<int> _failures = <int>[];
+
+  int get threshold => _contract.l3CircuitBreakerFailuresPerMinute;
+
+  String get downgradeTo => _contract.l3CircuitBreakerDowngradeTo;
+
+  /// 窗口内失败了几次（已丢弃过期记录）。
+  int get failuresInWindow {
+    _trim();
+    return _failures.length;
+  }
+
+  /// 现在该不该降级 —— 只读，**不自己动手**：降级要写授权，是调用方的动作。
+  bool get tripped => failuresInWindow >= threshold;
+
+  /// 记一次失败，落这一发带来的动作**没能完成**（判据在裁决层之外）：
+  /// 已达到阈值就回要降到的档，否则回 null（继续按现状）。
+  String? recordFailure() {
+    _failures.add(_now());
+    _trim();
+    return tripped ? downgradeTo : null;
+  }
+
+  /// 记一次成功并清空窗口（"连续"要求失败之间没有成功）。
+  void recordSuccess() => _failures.clear();
+
+  /// 丢掉窗口外的记录。⚠ 这一步不是可选的整理：不丢的话一个每分钟失败一次的对端
+  /// 会把计数攒到阈值，而契约写的是"一分钟内连续" —— 表现是某天毫无征兆地降级。
+  ///
+  /// 窗口是**半开的** `[now - 60s, now)`：恰好整一分钟前的那次失败不算"一分钟内"。
+  /// 用 `t < floor` 判会把它留下，于是"第 5 次"与"第 6 次"之间差整整一分钟时，
+  /// 两种读法能给出相反的结论 —— 而这一条的全部作用就是那个结论。
+  void _trim() {
+    final floor = _now() - windowMs;
+    _failures.removeWhere((t) => t <= floor);
+  }
+
+  /// 窗口宽度就是一分钟，这个数写在这里是因为它要与 [threshold] 同源 ——
+  /// 契约那条线说的是"每分钟"，两个数分开写就会出现"3 次/周"那种读数。
+  static const int windowMs = 60000;
+}

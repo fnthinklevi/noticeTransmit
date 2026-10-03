@@ -265,6 +265,62 @@ class FnthinkContract {
     };
   }
 
+  /// **开启 L3 本身**要过的那几种本地认证（契约 `capabilities.l3.enableRequiresLocalAuth`）。
+  ///
+  /// ⚠ 这条与 [FnthinkGrant] 里那条逐次确认是**两道不同的门**：那一道管"这一条设置消息要不要
+  /// 再问一次"，这一道管"用户有没有资格把 L3 这个能力开起来"。T30 定稿时它只在契约里躺着，
+  /// 消费它的读口是 T49 补的。
+  ///
+  /// 缺键抛，不补默认值：`[]` 长得与"契约说不需要本地认证"完全一样，
+  /// 而补出来的那种"不用验证就能开 L3"恰好是这一条要防的事。
+  List<String> get l3EnableRequiresLocalAuth =>
+      _l3List('enableRequiresLocalAuth');
+
+  /// 熔断阈值：一分钟内连续失败多少次就把档位降回去（契约 `capabilities.l3.circuitBreaker`）。
+  int get l3CircuitBreakerFailuresPerMinute {
+    final path = [
+      ...const ['capabilities', 'l3', 'circuitBreaker'],
+      'failuresPerMinute',
+    ];
+    final value = intOf(path);
+    if (value == null || value <= 0) {
+      throw StateError(
+        '契约缺 capabilities.l3.circuitBreaker.failuresPerMinute'
+        '（或它不是正整数，实际「$value」）：补默认值等于在代码里发明熔断线',
+      );
+    }
+    return value;
+  }
+
+  /// 熔断之后降到哪一档（契约 `capabilities.l3.circuitBreaker.downgradeTo`）。
+  String get l3CircuitBreakerDowngradeTo {
+    final value = str(const [
+      'capabilities',
+      'l3',
+      'circuitBreaker',
+      'downgradeTo',
+    ]);
+    if (value == null || value.isEmpty || !capabilityLevels.contains(value)) {
+      throw StateError(
+        'capabilities.l3.circuitBreaker.downgradeTo=「$value」'
+        '不是 capabilities.levels（${capabilityLevels.join('/')}）里的一档',
+      );
+    }
+    return value;
+  }
+
+  /// 读 `capabilities.l3` 下面某个词表字段。空数组**照样抛**：见上面的理由。
+  List<String> _l3List(String key) {
+    final value = strings(['capabilities', 'l3', key]);
+    if (value.isEmpty) {
+      throw StateError(
+        '契约缺 capabilities.l3.$key（或它是空表：空表会被读成"不需要本地认证"，'
+        '而那正是这一条要防的事）',
+      );
+    }
+    return value;
+  }
+
   bool get rejectsUnknownMessageTypes =>
       str(const ['capabilities', 'unknownMessageType']) == 'reject';
 

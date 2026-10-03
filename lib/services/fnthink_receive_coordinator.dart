@@ -728,6 +728,11 @@ class FnthinkReceiveCoordinator {
           // 而"什么时候在这台设备上同意的"本来就以这一台为准。
           grantedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
           requestId: request.requestId,
+          // T49：逐条清单这一版是**空的**。原因不是漏填，而是这一条答复里根本没有勾选表
+          // —— 今天的界面只有一个"同意/拒绝"，而契约 `grantDefaults.items = []` 定的是
+          // 查不到清单就按最窄档判。写 L2/L3 的行却带着空清单，读起来正是 T49 要防的那个
+          // 形状（L3 却什么都还没逐条给过）。给 T51 做完逐条勾选那一格，这里才有真值可写。
+          items: const <String>[],
         ),
       );
       return FnthinkPairAnswer(result: result, wrote: wrote);

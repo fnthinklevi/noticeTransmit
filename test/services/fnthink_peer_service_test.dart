@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/di/service_locator.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_peer_service.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -150,6 +154,96 @@ void main() {
             '服务层没注册 ⇒ 页面各自 new 一份或直接摸 DatabaseHelper，'
             '"一处读法"就又变成多处',
       );
+    });
+
+    test('DI 里那一份带着契约装载器（少注入时 `grantFor` 只会抛）', () {
+      setupLocator();
+      expect(
+        GetIt.instance<FnthinkPeerService>().contracts,
+        isNotNull,
+        reason: '注入是 `setupLocator` 里写的；这里是第一句会因漏写而红的断言',
+      );
+    });
+  });
+
+  // T49：这一层新加的那一段（grantFor）。它把"本机记得我同意过什么"读成裁决层要的形状。
+  group('grantFor：本机那份清单才是裁决依据（T49）', () {
+    /// 用仓库里那份真契约走资产通道 —— 判据里所有词表都从它来，假的会测到空气。
+    FnthinkPeerService withContract() => FnthinkPeerService(
+      contracts: FnthinkContractLoader(
+        readAsset: (key) async =>
+            File(fnthinkContractFile()).readAsStringSync(),
+      ),
+    );
+
+    test('名单里那一行的档位与清单原样进授权（裁决要的正是这两样）', () async {
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'AAAA',
+          level: 'L3',
+          grantedAt: 1780000000000,
+          items: ['setting:do_not_disturb'],
+          revision: 2,
+        ),
+      );
+      final grant = await withContract().grantFor('8K3FJ6QPTM9WZ4VHNS');
+      expect(grant.maxLevel, 'L3');
+      expect(grant.items, ['setting:do_not_disturb']);
+      expect(grant.revision, 2);
+    });
+
+    test('名单里没有这一行 ⇒ 缺省档，不是"给最高那档"', () async {
+      // 这一条是 T49 的地基：查不到清单时按最窄档判（契约 grantDefaults），
+      // 写错了方向就是一台没配对过的设备被当成什么都能做。
+      final grant = await withContract().grantFor('8TQVWZ3XKR5B6YD4HM');
+      expect(grant.maxLevel, 'L1');
+      expect(grant.items, isEmpty);
+    });
+
+    test('库里的档位不在契约词表里 ⇒ 按缺省档，不是"放行"也不是崩', () async {
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'AAAA',
+          level: 'L9',
+          grantedAt: 1780000000000,
+        ),
+      );
+      final grant = await withContract().grantFor('8K3FJ6QPTM9WZ4VHNS');
+      expect(grant.maxLevel, 'L1');
+    });
+
+    test('没注入契约装载器就抛，不静默放行', () async {
+      await expectLater(
+        FnthinkPeerService().grantFor('8K3FJ6QPTM9WZ4VHNS'),
+        throwsStateError,
+      );
+    });
+
+    test('拿到的授权喂进裁决层：L3 但清单一空 ⇒ 判"这一条没给"', () async {
+      // 端到端那一段：档位是天花板，清单才是判据（契约 itemRequiredFromLevel = L2）。
+      // 这一条就是 T49 要防的那个形状 —— 写着 L3 却什么都还没逐条给过。
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'AAAA',
+          level: 'L3',
+          grantedAt: 1780000000000,
+        ),
+      );
+      final contract = FnthinkContract.readFile();
+      final grant = await withContract().grantFor('8K3FJ6QPTM9WZ4VHNS');
+      final decided = decideCapability(
+        contract,
+        stage: CapabilityStage.apply,
+        grant: grant,
+        type: 'setting',
+        item: 'setting:do_not_disturb',
+        confirmedThisTime: true,
+      );
+      expect(decided.allowed, isFalse, reason: '清单一空就该拒');
+      expect(decided.reason, startsWith('item:'));
     });
   });
 }

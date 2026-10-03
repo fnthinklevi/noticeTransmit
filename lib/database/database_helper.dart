@@ -66,7 +66,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 16;
+  static const int dbVersion = 17;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -521,7 +521,9 @@ class DatabaseHelper
         public_key TEXT NOT NULL,
         level TEXT NOT NULL,
         granted_at INTEGER NOT NULL,
-        request_id TEXT NOT NULL DEFAULT ''
+        request_id TEXT NOT NULL DEFAULT '',
+        items TEXT NOT NULL DEFAULT '',
+        revision INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -743,6 +745,25 @@ class DatabaseHelper
         FnthinkInboxMessage.table,
         'direction',
         "TEXT NOT NULL DEFAULT 'in'",
+      );
+    }
+    if (oldVersion < 17) {
+      // v17: 配对名单加逐条清单与版本号（T49）。同样**只加列、不动任何既有行**，
+      // 而"不动"在这里正是要的那个行为：存量授权的清单一律空 = 一条都没逐条给过。
+      // 看着像"倒退"（那些行写着 L2/L3），但按 fail-closed 判，存量那些行从这一刻起
+      // 只够发 L1 —— 与升级前它们实际能做的事相比是收紧的，方向对。
+      // 补上"这些行以前按档位放行"才是危险的那一半：那会让升级变成一次静默的权限扩张。
+      await _addColumnIfMissing(
+        db,
+        FnthinkPeer.table,
+        'items',
+        "TEXT NOT NULL DEFAULT ''",
+      );
+      await _addColumnIfMissing(
+        db,
+        FnthinkPeer.table,
+        'revision',
+        'INTEGER NOT NULL DEFAULT 0',
       );
     }
   }

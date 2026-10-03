@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
+import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -386,6 +387,18 @@ void main() {
                 read INTEGER NOT NULL DEFAULT 0,
                 ack_result TEXT NOT NULL DEFAULT '',
                 acked_at INTEGER NOT NULL DEFAULT 0
+              )
+            ''');
+            // ⚠ T49：真实的 v15 库里**还有**配对名单那张表（v15 才建的）。这一份夹具只造
+            // 收件表，于是 15→17 的升级跑到 `ALTER TABLE fnthink_peers` 时报"no such table"
+            // ⇒ 表现与"迁移写坏了"完全一样，却只是夹具缺了一张表。
+            await db.execute('''
+              CREATE TABLE ${FnthinkPeer.table} (
+                peer_address TEXT PRIMARY KEY,
+                public_key TEXT NOT NULL,
+                level TEXT NOT NULL,
+                granted_at INTEGER NOT NULL,
+                request_id TEXT NOT NULL DEFAULT ''
               )
             ''');
           },

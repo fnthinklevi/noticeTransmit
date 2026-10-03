@@ -138,7 +138,11 @@ void setupLocator() {
   getIt.registerLazySingleton<FnthinkInboxService>(() => FnthinkInboxService());
   // 本机配对名单的唯一读写咽喉（T42「配对名单」那一格 + T31 的撤销）。
   // ⚠ 删行只在协调者撤销成功之后被调用，页面从不直接碰它 —— 先删行会让"授权还在而来源消失"。
-  getIt.registerLazySingleton<FnthinkPeerService>(() => FnthinkPeerService());
+  // ⚠ T49 追加：契约装载器也注入进来 —— `grantFor` 要拿档位词表才能判"够不够得着"，
+  //   少注入时不是静默放行，而是那一发抛 `FnthinkContractUnavailable`。
+  getIt.registerLazySingleton<FnthinkPeerService>(
+    () => FnthinkPeerService(contracts: getIt<FnthinkContractLoader>()),
+  );
 }
 
 /// 后台引擎里"那一轮到底干什么"的**唯一实现**（T33 第二片 / §4-9 片1b；#178 真机现形后定的形状）。

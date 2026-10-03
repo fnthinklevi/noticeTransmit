@@ -161,4 +161,137 @@ void main() {
       );
     });
   });
+
+  group('开启 L3 的本地认证（T49）', () {
+    final top = contract.capabilityLevels.last;
+
+    test('只有真的过了本地认证那一关才开得了，其余两种一律不开', () {
+      for (final outcome in LocalAuthOutcome.values) {
+        final got = grantableL3Level(
+          contract,
+          FnthinkGrant(maxLevel: 'L1'),
+          result: LocalAuthResult(mechanism: 'biometric', outcome: outcome),
+        );
+        expect(
+          got,
+          outcome == LocalAuthOutcome.authenticated ? top : null,
+          reason: '结论 ${outcome.name} 判成了「$got」',
+        );
+      }
+    });
+
+    test('还没接平台通道时默认开不了（不许把"没接"读成"已认证"）', () async {
+      final r = await unimplementedLocalAuthenticator(reason: 't49');
+      expect(r.authenticated, isFalse);
+      expect(
+        grantableL3Level(contract, FnthinkGrant(maxLevel: 'L1'), result: r),
+        isNull,
+      );
+    });
+
+    test('用的手段不在契约那张表里就按开不了处置（平台通道自造一种形状）', () {
+      expect(
+        grantableL3Level(
+          contract,
+          FnthinkGrant(maxLevel: 'L1'),
+          result: const LocalAuthResult(
+            mechanism: 'faceIrWhatever',
+            outcome: LocalAuthOutcome.authenticated,
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('契约点名要哪几种手段，本地回的那一种要对得上词表', () {
+      final allowed = contract.l3EnableRequiresLocalAuth;
+      expect(allowed, isNotEmpty);
+      expect(allowed, contains('lockScreen'));
+      expect(allowed, contains('biometric'));
+    });
+
+    test('认证过了也不许顺手把清单一起放开：返回的是档位，清单要另一次勾选', () {
+      final got = grantableL3Level(
+        contract,
+        FnthinkGrant(maxLevel: 'L2', items: const ['setting:x']),
+        result: const LocalAuthResult(
+          mechanism: 'lockScreen',
+          outcome: LocalAuthOutcome.authenticated,
+        ),
+      );
+      expect(got, top);
+    });
+  });
+
+  group('L3 熔断：一分钟内连续失败降到 L1（T49）', () {
+    late int clock;
+    late L3CircuitBreaker breaker;
+    final start = 1700000000000;
+
+    setUp(() {
+      clock = start;
+      breaker = L3CircuitBreaker(contract: contract, nowMs: () => clock);
+    });
+
+    test('没到那条线不许降（少一次失败就还是现状）', () {
+      for (var i = 0; i < breaker.threshold - 1; i++) {
+        clock += 100;
+        expect(breaker.recordFailure(), isNull, reason: '第 ${i + 1} 次就降了');
+      }
+      expect(breaker.failuresInWindow, breaker.threshold - 1);
+      expect(breaker.tripped, isFalse);
+    });
+
+    test('一分钟内连续失败到那条线就降到契约写的那一档', () {
+      for (var i = 0; i < breaker.threshold; i++) {
+        clock += 100;
+        final drop = breaker.recordFailure();
+        if (i < breaker.threshold - 1) {
+          expect(drop, isNull, reason: '第 ${i + 1} 次就降了');
+        } else {
+          expect(drop, 'L1', reason: '到线那一次没降');
+        }
+      }
+      expect(breaker.tripped, isTrue);
+    });
+
+    test('失败之间插一次成功就重新计数（连续的意思）', () {
+      for (var i = 0; i < breaker.threshold - 1; i++) {
+        clock += 100;
+        breaker.recordFailure();
+      }
+      breaker.recordSuccess();
+      expect(breaker.failuresInWindow, 0);
+      clock += 100;
+      expect(breaker.recordFailure(), isNull, reason: '成功后还在拿旧账降级');
+    });
+
+    test('超过一分钟的旧失败不算（否则每分钟失败一次也会攒到阈值）', () {
+      for (var i = 0; i < breaker.threshold; i++) {
+        clock += 1000;
+        breaker.recordFailure();
+      }
+      clock += L3CircuitBreaker.windowMs;
+      expect(breaker.failuresInWindow, 0, reason: '窗口没被裁掉');
+      expect(breaker.tripped, isFalse);
+    });
+
+    test('降级有方向：降到契约那一档就停，不会一路掉到最低档', () {
+      String? seen;
+      for (var i = 0; i < breaker.threshold * 3; i++) {
+        clock += 10;
+        seen = breaker.recordFailure() ?? seen;
+      }
+      expect(seen, breaker.downgradeTo);
+      expect(
+        contract.levelRank(seen!),
+        lessThan(contract.levelRank(contract.capabilityLevels.last)),
+      );
+    });
+
+    test('阈值与降档都取自契约（代码里没有第二个数字）', () {
+      expect(breaker.threshold, 5);
+      expect(breaker.downgradeTo, 'L1');
+    });
+  });
 }
