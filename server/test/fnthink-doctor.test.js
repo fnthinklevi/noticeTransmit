@@ -21,6 +21,21 @@ const fs = require('fs');
 const os = require('os');
 const { execFileSync } = require('child_process');
 
+// ⚠ 这四条必须在任何 `require('../lib/app')` **之前**设好，与同目录其它用例同一形状
+//   （见 `fnthink-bodylimit.test.js:18-22`）。下面那个 describe 会真起一台 app 实例，
+//   而 `lib/store.js` 是**模块顶层**就读 env 的：缺 `ADMIN_TOKEN_HASH` 它直接
+//   `process.exit(1)`（那是对的 —— 线上没配管理口令就不许起服务）。
+//   本机碰巧不炸是因为这台机器上有不入库的 `server/.env` 兜着；CI 上没有那个文件，
+//   于是它 exit ⇒ jest worker 子进程全退 ⇒ 报成"Jest worker encountered 4 child
+//   process exceptions"，看起来像并发问题，实际是一处缺失的测试环境。
+//   ⇒ 这里给的是**一次性、只存在于本进程**的测试口令，不是给生产加兜底；
+//   `lib/store.js` 的那道闸门一行没动，也不该动。
+process.env.NODE_ENV = 'test';
+process.env.PORT = '0';
+process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-fnthink-doctor-'));
+process.env.ADMIN_TOKEN_HASH = require('bcryptjs').hashSync('test-admin-token-for-doctor', 10);
+process.env.ENCRYPTION_KEY = 'a'.repeat(64);
+
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const DOCTOR = path.join(REPO_ROOT, 'server', 'tools', 'fnthink_doctor.js');
 
