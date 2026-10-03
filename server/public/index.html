@@ -728,10 +728,14 @@ document.addEventListener('click',(e)=>{if(navLinks.classList.contains('open')&&
 addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(false)},{passive:true});
 
 /* ---- 动态版本号、下载链接与文件大小（发版无需更新本页）----
- * 数据源优先级：同源 /api/version/check → notice.fnthink.top（需 CORS 白名单）→ GitHub Releases。
- * 前两源来自 update-server 的 version.json（latestVersion/downloads/fileSizes）；
- * GitHub 源从 latest release 的 assets 同时解析版本号、browser_download_url 与文件大小。
- * 任一来源成功即覆盖页面显示；全部失败保留 HTML 内中性占位（不含具体版本/大小，永不随发版过期）。
+ * 数据源优先级：同源静态 version.json → 同源 /api/version/check → notice.fnthink.top（需 CORS 白名单）→ GitHub Releases。
+ * ⚠ 第一源是**同源静态 JSON**，因为 Pages 上站点住在子路径 `/noticeTransmit/`：
+ *   `new URL('/api/...', location.href)` 会解析到**根路径** `/api/...`（实测 404），
+ *   而 deploy 脚本把版本配置放在 `_pages/api/version.json` ⇒ 相对路径 `api/version.json`
+ *   才是那一源，且它随子路径自适应、不跨域、不依赖任何后端。
+ * 各源形状不同：`api/version.json` 是**平铺**的 {latestVersion, downloads, fileSizes}，
+ * `/api/version/check` 是 {code:0, data:{…}} ⇒ 两种都要认（`_unwrap`）。
+ * 全部失败保留 HTML 内中性占位（不含具体版本/大小，永不随发版过期）。
  * 文本语言随站点语言设置（localStorage.lang）生成，切换语言后刷新页面即可对齐。
  */
 (async () => {
@@ -750,8 +754,17 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
   const zh = (localStorage.getItem('lang') || detectSiteLang()) !== 'en';
   const verText = (v) => zh ? '版本 v' + v : 'Version v' + v;
   const fmtSize = (b) => (zh ? '约 ' : '~') + (b / 1048576).toFixed(1) + ' MB';
+  // 平铺的 version.json 与 {code:0,data:{…}} 的 check 响应，在这里收成同一种形状。
+  // 少了这一步就会只认其中一种形状，于是换源成功也照样不显示。
+  const _unwrap = (j) => {
+    if (!j) return null;
+    if (j.code === 0 && j.data) return j.data;   // /api/version/check
+    if (j.latestVersion) return j;               // api/version.json（平铺）
+    return null;
+  };
   const sources = [
-    new URL('/api/version/check?platform=all', location.href).href,
+    new URL('api/version.json', location.href).href,
+    new URL('api/version/check?platform=all', location.href).href,
     'https://notice.fnthink.top/api/version/check?platform=all'
   ];
   try {
@@ -759,8 +772,7 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
       try {
         const r = await fetch(url, { headers: { Accept: 'application/json' } });
         if (!r.ok) continue;
-        const j = await r.json();
-        const d = j && j.code === 0 && j.data;
+        const d = _unwrap(await r.json());
         if (!d || !d.latestVersion) continue;
         $('ver-text').textContent = verText(d.latestVersion);
         const dl = d.downloads || {}, fs = d.fileSizes || {};
