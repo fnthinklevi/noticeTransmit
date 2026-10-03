@@ -4,11 +4,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
-import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:open_filex/open_filex.dart';
-import 'services/locale_service.dart';
 import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
 import 'services/update_download_urls.dart';
@@ -62,38 +60,16 @@ class AppUpdateManager {
   int _currentBuild = _fallbackBuild;
   String? _lastError;
 
-  /// 最近一次安装被完整性校验阻止的原因（中英双语文案）。
-  /// 非空表示上次 installApk 因签名/版本校验失败而拒绝安装，UI 层应据此提示用户
-  /// —— 这是最需要告知用户的场景（签名不匹配或版本降级都意味着风险）。
-  String? _lastInstallBlockReason;
+  /// 最近一次安装被完整性校验阻止的结论；null = 没被阻止过。
+  ///
+  /// ⚠ 这里存的是**码 + 原生那句原文**，不存中文句子。此前它存的是双语句子，而双语是
+  /// 服务层自己用 `_isEnglish` 现拼的（第二份本地化机制：ARB 是第一份）—— 新文案只会
+  /// 继续往那套三元上长，且英文界面下漏中文。现在措辞归界面（见 `main_page_update` 的
+  /// `installBlockText`，四档穷尽由编译器把关）。
+  UpdateInstallBlock? _lastInstallBlock;
 
-  /// 最近一次安装被阻止的原因；无则 null
-  String? get lastInstallBlockReason => _lastInstallBlockReason;
-
-  /// 是否英文界面（跟随 App 语言设置）。GetIt 未初始化（如纯 Dart 单测环境）
-  /// 时按中文处理。
-  bool get _isEnglish {
-    try {
-      return GetIt.instance<LocaleService>().currentLocale.languageCode == 'en';
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// 通用安装阻止文案（原生 detail 缺失时的 Dart 侧回退，双语）
-  String _genericInstallBlockMessage() => _isEnglish
-      ? 'Update package verification failed. Installation blocked.'
-      : '更新包校验未通过，已阻止安装';
-
-  /// sha256 校验不通过文案（N3 传输层校验，双语）
-  String _sha256MismatchMessage() => _isEnglish
-      ? 'Update package integrity check failed (checksum mismatch). Installation blocked.'
-      : '更新包完整性校验未通过（校验和不匹配），已阻止安装';
-
-  /// 校验通道不可用文案（fail-closed 时的双语提示）
-  String _unverifiableInstallMessage() => _isEnglish
-      ? 'Cannot verify the update package. Installation blocked.'
-      : '无法完成安全性校验，已阻止安装';
+  /// 最近一次安装被阻止的结论；无则 null
+  UpdateInstallBlock? get lastInstallBlock => _lastInstallBlock;
 
   /// 最近一次系统下载器（DownloadManager）任务的 downloadId，安装回退时使用
   String? _lastDownloadId;
@@ -819,7 +795,7 @@ class AppUpdateManager {
   /// 即使更新服务器被入侵、镜像被投毒或 CDN 被劫持，非本项目签名密钥
   /// 签署的安装包也会被拒绝安装（攻击者无法伪造他人密钥的签名）。
   /// 校验失败时删除安装包，防止用户后续绕过 App 误装。
-  Future<String?> _verifyApkSignature(String filePath) async {
+  Future<UpdateInstallBlock?> _verifyApkSignature(String filePath) async {
     try {
       final result = await AppChannels.notification.invokeMethod(
         'verifyApkSignature',
@@ -834,11 +810,16 @@ class AppUpdateManager {
         if (await file.exists()) await file.delete();
         await _clearPendingApkRecord();
       } catch (_) {}
-      return detail.isNotEmpty ? detail : _genericInstallBlockMessage();
+      return detail.isNotEmpty
+          ? UpdateInstallBlock(
+              UpdateInstallBlockReason.integrityFailed,
+              nativeDetail: detail,
+            )
+          : const UpdateInstallBlock(UpdateInstallBlockReason.integrityFailed);
     } catch (e) {
       debugPrint('完整性校验调用失败（按校验不通过处理）: $e');
       // 原生校验通道不可用时安全优先：拒绝安装
-      return _unverifiableInstallMessage();
+      return const UpdateInstallBlock(UpdateInstallBlockReason.unverifiable);
     }
   }
 
@@ -860,7 +841,7 @@ class AppUpdateManager {
   ///   签名校验仍会执行）；
   /// - 不匹配 → 与签名失败同等处理：删除安装包 + 清 pending 记录 + 阻止安装；
   /// - 校验通道异常 → 跳过 sha256（签名校验 fail-closed 兜底，可信根不受影响）。
-  Future<String?> _verifyFileSha256(
+  Future<UpdateInstallBlock?> _verifyFileSha256(
     String filePath,
     String expectedSha256,
   ) async {
@@ -880,7 +861,9 @@ class AppUpdateManager {
         if (await file.exists()) await file.delete();
         await _clearPendingApkRecord();
       } catch (_) {}
-      return _sha256MismatchMessage();
+      return const UpdateInstallBlock(
+        UpdateInstallBlockReason.checksumMismatch,
+      );
     } catch (e) {
       debugPrint('sha256 校验调用失败（跳过，签名校验兜底）: $e');
       return null;
@@ -891,7 +874,7 @@ class AppUpdateManager {
     String filePath, {
     Map<String, String> sha256ByAbi = const {},
   }) async {
-    _lastInstallBlockReason = null;
+    _lastInstallBlock = null;
     try {
       if (Platform.isAndroid) {
         final status = await Permission.requestInstallPackages.request();
@@ -906,7 +889,7 @@ class AppUpdateManager {
           if (expected.isNotEmpty) {
             final blockReason = await _verifyFileSha256(filePath, expected);
             if (blockReason != null) {
-              _lastInstallBlockReason = blockReason;
+              _lastInstallBlock = blockReason;
               return false;
             }
           }
@@ -916,7 +899,7 @@ class AppUpdateManager {
         if (filePath.isNotEmpty) {
           final blockReason = await _verifyApkSignature(filePath);
           if (blockReason != null) {
-            _lastInstallBlockReason = blockReason;
+            _lastInstallBlock = blockReason;
             return false;
           }
         }
@@ -932,9 +915,14 @@ class AppUpdateManager {
           if (!ok) {
             // detail 来自原生 I18n（随 App 语言），缺失时用 Dart 侧双语回退
             final detail = res is Map ? res['detail']?.toString() ?? '' : '';
-            _lastInstallBlockReason = detail.isNotEmpty
-                ? detail
-                : _genericInstallBlockMessage();
+            _lastInstallBlock = detail.isNotEmpty
+                ? UpdateInstallBlock(
+                    UpdateInstallBlockReason.integrityFailed,
+                    nativeDetail: detail,
+                  )
+                : const UpdateInstallBlock(
+                    UpdateInstallBlockReason.integrityFailed,
+                  );
           }
           return ok;
         }
@@ -1076,4 +1064,23 @@ class VersionCheckResult {
     }
     return '${(fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
+}
+
+/// 一次「安装被完整性校验阻止」的**码**（措辞归界面，见 main_page_update 的 installBlockText）。
+///
+/// ⚠ 三档各自对应一件不同的事：签名不一致（可能被换包）、校验和不匹配（下载被截断或篡改）、
+/// 校验通道不可用（我们**没法**判断）。把它们合成一句「校验失败」，用户就分不清
+/// 该重试下载、该换网络，还是该来报 bug。
+enum UpdateInstallBlockReason {
+  integrityFailed,
+  checksumMismatch,
+  unverifiable,
+}
+
+/// 校验阻止的结论：码 + 原生那句原文（原生自己按 App 语言出文案，有就优先用它的）。
+class UpdateInstallBlock {
+  const UpdateInstallBlock(this.code, {this.nativeDetail});
+
+  final UpdateInstallBlockReason code;
+  final String? nativeDetail;
 }

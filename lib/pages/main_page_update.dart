@@ -259,7 +259,8 @@ extension _MainPageUpdate on _MainPageState {
           if (!mounted || installed) return;
           // 完整性校验（签名不一致 / 版本降级）失败时必须告知用户，
           // 而不是让他只看到一句含糊的"安装失败"
-          final reason = _updateService.lastInstallBlockReason;
+          final block = _updateService.lastInstallBlock;
+          final reason = block == null ? null : _installBlockText(block);
           if (reason != null && reason.isNotEmpty) {
             ScaffoldMessenger.of(
               context,
@@ -274,5 +275,23 @@ extension _MainPageUpdate on _MainPageState {
             SnackBar(content: Text(_l10n.updateDownloadFailed(e.toString()))),
           );
         });
+  }
+
+  /// 安装被完整性校验阻止时，给用户的那一句。
+  ///
+  /// ⚠ 原生自己按 App 语言出文案，它给了就优先用；没给才走 ARB。
+  /// **三档穷尽、没有 default**：加第四档而这里没接，编译就红 ——
+  /// 合成一句含糊的「安装失败」正是这片要消灭的形状：签名不匹配（可能被换包）、
+  /// 校验和不匹配（下载被截断）、校验通道不可用（我们没法判断），用户下一步该做的事各不相同。
+  String _installBlockText(UpdateInstallBlock block) {
+    final detail = block.nativeDetail;
+    if (detail != null && detail.isNotEmpty) return detail;
+    return switch (block.code) {
+      UpdateInstallBlockReason.integrityFailed =>
+        _l10n.updateBlockIntegrityFailed,
+      UpdateInstallBlockReason.checksumMismatch =>
+        _l10n.updateBlockChecksumMismatch,
+      UpdateInstallBlockReason.unverifiable => _l10n.updateBlockUnverifiable,
+    };
   }
 }

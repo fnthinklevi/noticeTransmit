@@ -2083,5 +2083,8 @@
   "l3ItemMonitoring": "通知转发监听",
   "l3ItemCollectInbox": "幻念收件开关",
   "l3NoteAutostart": "系统只有各厂商的入口，不提供统一读数",
-  "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页"
+  "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页",
+  "updateBlockIntegrityFailed": "更新包校验未通过，已阻止安装",
+  "updateBlockChecksumMismatch": "更新包完整性校验未通过（校验和不匹配），已阻止安装",
+  "updateBlockUnverifiable": "无法完成安全性校验，已阻止安装"
 }

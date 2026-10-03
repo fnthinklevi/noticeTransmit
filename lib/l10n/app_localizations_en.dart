@@ -3891,4 +3891,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get l3NoteLivesInFnthinkPage =>
       'This switch lives on the Fnthink Push page';
+
+  @override
+  String get updateBlockIntegrityFailed =>
+      'Update package verification failed. Installation blocked.';
+
+  @override
+  String get updateBlockChecksumMismatch =>
+      'Update package integrity check failed (checksum mismatch). Installation blocked.';
+
+  @override
+  String get updateBlockUnverifiable =>
+      'Cannot verify the update package. Installation blocked.';
 }

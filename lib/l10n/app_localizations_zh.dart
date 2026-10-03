@@ -3723,4 +3723,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get l3NoteLivesInFnthinkPage => '这一格的开关在「幻念推送」页';
+
+  @override
+  String get updateBlockIntegrityFailed => '更新包校验未通过，已阻止安装';
+
+  @override
+  String get updateBlockChecksumMismatch => '更新包完整性校验未通过（校验和不匹配），已阻止安装';
+
+  @override
+  String get updateBlockUnverifiable => '无法完成安全性校验，已阻止安装';
 }

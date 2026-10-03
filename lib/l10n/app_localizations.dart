@@ -6829,6 +6829,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这一格的开关在「幻念推送」页'**
   String get l3NoteLivesInFnthinkPage;
+
+  /// No description provided for @updateBlockIntegrityFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新包校验未通过，已阻止安装'**
+  String get updateBlockIntegrityFailed;
+
+  /// No description provided for @updateBlockChecksumMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新包完整性校验未通过（校验和不匹配），已阻止安装'**
+  String get updateBlockChecksumMismatch;
+
+  /// No description provided for @updateBlockUnverifiable.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法完成安全性校验，已阻止安装'**
+  String get updateBlockUnverifiable;
 }
 
 class _AppLocalizationsDelegate

@@ -44,7 +44,7 @@ class UpdateService {
 
   /// 安装已下载的安装包。
   /// [sha256ByAbi]：各架构安装包的期望 sha256（version.json 下发，N3 传输层校验）。
-  /// 返回是否成功启动安装；失败时可通过 [lastInstallBlockReason] 获取原因
+  /// 返回是否成功启动安装；失败时可通过 [lastInstallBlock] 获取原因
   /// （如签名校验不通过、sha256 校验和不匹配、版本降级被拦截），UI 层应展示给用户。
   Future<bool> installApk(
     String filePath, {
@@ -56,9 +56,10 @@ class UpdateService {
     );
   }
 
-  /// 最近一次安装被完整性校验阻止的原因；无则 null
-  String? get lastInstallBlockReason =>
-      AppUpdateManager.instance.lastInstallBlockReason;
+  /// 最近一次安装被完整性校验阻止的结论（码 + 原生那句原文）；无则 null。
+  /// ⚠ 回的是**码**不是句子：措辞归界面（服务层再拼一份双语，就是 ARB 之外的第二份本地化机制）。
+  UpdateInstallBlock? get lastInstallBlock =>
+      AppUpdateManager.instance.lastInstallBlock;
 
   /// 把某一版写进忽略名单（用户按下「忽略」时走这条）。
   /// ⚠ T90 片21：这一层**原来**返回 `void`（对底层的 `Future` 既不 await 也不返回）——
