@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
+import '../services/fnthink_l3_grants.dart';
 import '../services/permission_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/pull_to_refresh_list.dart';
@@ -13,6 +14,14 @@ class PermissionSettingsPage extends StatefulWidget {
   final bool smsPermissionGranted;
   final bool phonePermissionGranted;
   final bool appListPermissionGranted;
+
+  /// 契约 `capabilities.l3.settings` 那几项在这一台设备上的读数（T52）。
+  ///
+  /// ⚠ **这一份由调用方注入，页面不自己去读**：读法只有一处（`collectL3GrantRows`），
+  /// 页面里再读一遍就会出现「两处读数各自漂移」—— 而那正是本仓修过的
+  /// 「权限页恒显已授予」的形状。构造参数是**必填**的：少传一项编译就不过，
+  /// 而不是那一格悄悄不渲染。
+  final List<FnthinkL3GrantRow> l3GrantRows;
   final String manufacturer;
   final Future<void> Function() onRefresh;
   final VoidCallback onRequestNotificationListenerPermission;
@@ -35,6 +44,7 @@ class PermissionSettingsPage extends StatefulWidget {
     required this.smsPermissionGranted,
     required this.phonePermissionGranted,
     required this.appListPermissionGranted,
+    required this.l3GrantRows,
     required this.manufacturer,
     required this.onRefresh,
     required this.onRequestNotificationListenerPermission,
@@ -364,6 +374,20 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
               ),
             ),
           ], context),
+          const SizedBox(height: 24),
+          _buildSectionHeader(l10n.l3SettingsSectionTitle, context),
+          _buildL3Group(context),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              l10n.l3SettingsSectionDesc,
+              style: TextStyle(
+                color: AppColors.secondaryLabel(context),
+                fontSize: 12,
+              ),
+            ),
+          ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -379,6 +403,79 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
       ),
     );
   }
+
+  /// L3 那一格：**六行按契约次序全列**，没给的置灰并说一句，不折叠、不隐藏。
+  ///
+  /// ⚠ 这里**不读任何状态**：`widget.l3GrantRows` 已经是读模型的产物，
+  /// 在这一层再问一次系统就会出现两处读数（本仓为这个栽过一次）。
+  Widget _buildL3Group(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final children = <Widget>[];
+    for (final (i, row) in widget.l3GrantRows.indexed) {
+      if (i > 0) children.add(_buildDivider(context));
+      children.add(
+        _buildPermissionTile(
+          icon: _l3Icon(row.key),
+          title: _l3ItemTitle(l10n, row.key),
+          // 状态那句 + 调用方补的那一条说明（说明只在没给的时候非空，见读模型）
+          subtitle: row.note.isEmpty
+              ? _l3StateText(l10n, row)
+              : '${_l3StateText(l10n, row)} · ${row.note}',
+          isOn: row.granted,
+          dimmed: !row.granted,
+          // 已授予 ⇒ 不再给"重复申请"留口子；这台没有这一项 / 开关住在别处 ⇒ 不放会动的按钮
+          onTap: row.granted || row.thisDeviceLacksIt ? null : _l3Jump(row.key),
+          context: context,
+        ),
+      );
+    }
+    return _buildGroup(children, context);
+  }
+
+  /// 契约里的设置项 key → 这一格叫什么。
+  ///
+  /// ⚠ 契约加了一项而这里没接 ⇒ **把 key 原样显示**，而不是让那一行消失：
+  /// 少一行是静默的，多一个看得见的生词不是。
+  String _l3ItemTitle(AppLocalizations l10n, String key) => switch (key) {
+    'notification' => l10n.notifAccessPerm,
+    'exact_alarm' => l10n.exactAlarmTitle,
+    'battery_optimization' => l10n.ignoreBatteryOpt,
+    'autostart' => l10n.l3ItemAutostart,
+    'monitoring' => l10n.l3ItemMonitoring,
+    'collect_inbox' => l10n.l3ItemCollectInbox,
+    _ => key,
+  };
+
+  /// 四种状态四句话。⚠ **穷尽由编译器把关**：读模型加第五态而这里没接，编译就红。
+  String _l3StateText(AppLocalizations l10n, FnthinkL3GrantRow row) =>
+      switch (row.state) {
+        FnthinkL3GrantState.granted => l10n.enabled,
+        FnthinkL3GrantState.missing => l10n.l3StateMissing,
+        FnthinkL3GrantState.unreadable => l10n.l3StateUnreadable,
+        FnthinkL3GrantState.unsupported => l10n.l3StateUnsupported,
+      };
+
+  IconData _l3Icon(String key) => switch (key) {
+    'notification' => Icons.notifications_active,
+    'exact_alarm' => Icons.alarm,
+    'battery_optimization' => Icons.battery_full,
+    'autostart' => Icons.rocket_launch,
+    'monitoring' => Icons.radar,
+    'collect_inbox' => Icons.inbox,
+    _ => Icons.settings,
+  };
+
+  /// 点这一行去哪儿：只有「跳系统页请用户自己点」这一种，且**每一项的落点不同**。
+  ///
+  /// ⚠ 返回 null 的两种情况都刻意不放按钮 —— 「点了没反应」是这片要防的形状，
+  /// 而 monitoring / collect_inbox 的开关在「幻念推送」页那一格（说明行已经写在那一行上）。
+  VoidCallback? _l3Jump(String key) => switch (key) {
+    'notification' => widget.onRequestNotificationListenerPermission,
+    'battery_optimization' => widget.onRequestBatteryOptimization,
+    'exact_alarm' => () => _permissionService.requestExactAlarmPermission(),
+    'autostart' => _vendorJump(),
+    _ => null,
+  };
 
   /// B1 精确闹钟开关（iOS 风格行 + Switch）
   Widget _buildExactAlarmTile(BuildContext context) {
@@ -573,6 +670,7 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
     required VoidCallback? onTap,
     required BuildContext context,
     bool isWarning = false,
+    bool dimmed = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -602,7 +700,9 @@ class _PermissionSettingsPageState extends State<PermissionSettingsPage>
                     title,
                     style: TextStyle(
                       fontSize: 16,
-                      color: AppColors.primaryLabel(context),
+                      color: dimmed
+                          ? AppColors.tertiaryLabel(context)
+                          : AppColors.primaryLabel(context),
                     ),
                   ),
                   const SizedBox(height: 2),

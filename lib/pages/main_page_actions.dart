@@ -227,6 +227,7 @@ extension _MainPageActions on _MainPageState {
         smsPermissionGranted: _permissionService.smsGranted,
         phonePermissionGranted: _permissionService.phoneGranted,
         appListPermissionGranted: _permissionService.appListGranted,
+        l3GrantRows: await _l3GrantRows(),
         manufacturer: _deviceInfoService.manufacturer,
         onRefresh: _checkPermissions,
         onRequestNotificationListenerPermission:
@@ -249,6 +250,35 @@ extension _MainPageActions on _MainPageState {
     await _notificationService.loadServiceState();
     if (!mounted) return;
     setState(() {});
+  }
+
+  /// 契约 `capabilities.l3.settings` 那几项在这一台设备上的读数（T52 那一格）。
+  ///
+  /// ⚠ 这里只**取数**，不判状态、不排序：判状态的是 `collectL3GrantRows`（读法只有一处）。
+  /// 拿不到读数的一律给 null —— 那显示成「读不到这台设备的状态」，
+  /// **猜成 false 会把它显示成「你还没去开」**，而那两件事的修法完全不同（一个是缺口，一个是催用户）。
+  Future<List<FnthinkL3GrantRow>> _l3GrantRows() async {
+    final l10n = AppLocalizations.of(context);
+    final contract = await GetIt.instance<FnthinkContractLoader>().load();
+    final settings = FnthinkSettings(contract: contract);
+    return collectL3GrantRows(
+      contract,
+      readers: {
+        'notification': _permissionService.notificationListenerGranted,
+        'exact_alarm': await _permissionService.canScheduleExactAlarms(),
+        'battery_optimization': _permissionService.batteryOptimizationIgnored,
+        // 自启动：原生只有按厂商分流的跳转，系统不提供统一读数。
+        'autostart': null,
+        // 监听开关住在原生 SharedPreferences 里，Dart 侧目前没有读口（已登记的缺口）。
+        'monitoring': null,
+        'collect_inbox': await settings.receiveEnabled,
+      },
+      notes: {
+        'autostart': l10n.l3NoteAutostart,
+        'monitoring': l10n.l3NoteLivesInFnthinkPage,
+        'collect_inbox': l10n.l3NoteLivesInFnthinkPage,
+      },
+    );
   }
 
   /// 打开短信/来电监听设置页
