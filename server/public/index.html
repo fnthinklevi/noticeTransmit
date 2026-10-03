@@ -728,13 +728,19 @@ document.addEventListener('click',(e)=>{if(navLinks.classList.contains('open')&&
 addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(false)},{passive:true});
 
 /* ---- 动态版本号、下载链接与文件大小（发版无需更新本页）----
- * 数据源优先级：同源静态 version.json → 同源 /api/version/check → notice.fnthink.top（需 CORS 白名单）→ GitHub Releases。
+ * ⚠ **本文件部署到 notice.fnthink.top 与 notice.fnthink.com 两台，两份只差域名**
+ *   （维护者 2026-10-02 定）。所以下面**不写死任何域名**：站点域与 CDN 域都按
+ *   `location.hostname` 推导（映射表 `_isCom`／`_cdn`／`_fixCdn`），下一次更新不必
+ *   记得改两遍，而"两份"的差异被压缩成那一张表。
+ *
+ * 数据源优先级：同源静态 version.json → 同源 /api/version/check → 另一个 notice 域 → GitHub Releases。
  * ⚠ 第一源是**同源静态 JSON**，因为 Pages 上站点住在子路径 `/noticeTransmit/`：
  *   `new URL('/api/...', location.href)` 会解析到**根路径** `/api/...`（实测 404），
  *   而 deploy 脚本把版本配置放在 `_pages/api/version.json` ⇒ 相对路径 `api/version.json`
  *   才是那一源，且它随子路径自适应、不跨域、不依赖任何后端。
  * 各源形状不同：`api/version.json` 是**平铺**的 {latestVersion, downloads, fileSizes}，
  * `/api/version/check` 是 {code:0, data:{…}} ⇒ 两种都要认（`_unwrap`）。
+ * 下载链接只换主机名（`.top` ⇄ `cdn2.fnthink.top`／`cdn.fnthink.com`），**路径与文件名逐字不变**。
  * 全部失败保留 HTML 内中性占位（不含具体版本/大小，永不随发版过期）。
  * 文本语言随站点语言设置（localStorage.lang）生成，切换语言后刷新页面即可对齐。
  */
@@ -762,10 +768,32 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
     if (j.latestVersion) return j;               // api/version.json（平铺）
     return null;
   };
+  // 一个文件部署到 notice.fnthink.top 与 notice.fnthink.com 两台，**只差域名**（维护者 2026-10-02 定）。
+  // ⇒ 这里一律按自身 hostname 推导，不写死任何域名：下一次更新不必记得改两遍，
+  // 而"两份"的差异被压缩成这一张映射表。
+  //
+  // 两个映射：**CDN**（下载域名，.top 用 cdn2.fnthink.top、.com 用 cdn.fnthink.com，
+  // 路径与文件名一字不改）与**自身站点域**（回退源用同源，不跨域）。
+  const _isCom = /\.com$/i.test(location.hostname);
+  const _cdn = _isCom ? 'cdn.fnthink.com' : 'cdn2.fnthink.top';
+  // 下载链接只换主机名：把任何来源里出现的 CDN 主机名换成当前该用的那个，
+  // 路径 / 段数 / 文件名逐字保留（"除了域名外其余与之前保持不变"就是这条判据）。
+  const _fixCdn = (u) => {
+    try {
+      const url = new URL(u, location.href);
+      if (url.hostname === 'cdn2.fnthink.top' || url.hostname === 'cdn.fnthink.com') {
+        url.hostname = _cdn;
+      }
+      return url.href;
+    } catch (_) { return u; }
+  };
   const sources = [
     new URL('api/version.json', location.href).href,
     new URL('api/version/check?platform=all', location.href).href,
-    'https://notice.fnthink.top/api/version/check?platform=all'
+    // 回退源用**同源**：这一份文件部署在哪台就问哪台，不写死另一个域名 ——
+    // 写死的话 .com 那份会去问 .top，而那条链路的 CORS 白名单未必放行 Pages。
+    new URL('api/version/check?platform=all', location.href).href,
+    'https://' + (_isCom ? 'notice.fnthink.com' : 'notice.fnthink.top') + '/api/version/check?platform=all'
   ];
   try {
     for (const url of sources) {
@@ -778,7 +806,7 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
         const dl = d.downloads || {}, fs = d.fileSizes || {};
         for (const k of ['arm64', 'arm32', 'x86_64', 'all']) {
           const a = $('dl-' + k);
-          if (a && dl[k]) a.href = dl[k];
+          if (a && dl[k]) a.href = _fixCdn(dl[k]);
         }
         if (fs.arm64) $('ver-size').textContent = fmtSize(fs.arm64);
         return;
@@ -797,7 +825,8 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
           const a = assets.find((x) => re.test(x.name));
           if (!a) continue;
           const link = $('dl-' + k);
-          if (link && a.browser_download_url) link.href = a.browser_download_url;
+          // Releases 那条本来就不经 CDN，`_fixCdn` 只会原样返回（它只认两个 CDN 主机名）
+          if (link && a.browser_download_url) link.href = _fixCdn(a.browser_download_url);
           if (k === 'arm64' && typeof a.size === 'number') {
             $('ver-size').textContent = fmtSize(a.size);
           }

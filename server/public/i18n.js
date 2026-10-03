@@ -153,7 +153,7 @@ D['通知推送助手'] = 'NoticeTransmit';
 
   // lang toggle 按钮文字（在 applyLang 中直接处理，无需入字典）
   // D['English'] = '中文';  // 移除：避免长句翻译后再次被此 key 替换
-  // 版本号与文件大小由 index.html 内联脚本动态获取（同源 API → notice.fnthink.top → GitHub Releases），
+  // 版本号与文件大小由 index.html 内联脚本动态获取（同源静态 version.json → 同源 API → 另一个 notice 域 → GitHub Releases），
   // 文本语言感知生成，不再依赖本字典按发版更新；此处仅覆盖「三源全部失败」时的中性占位。
   D['版本 --'] = 'Version --';
   D['约 -- MB'] = '~-- MB';
