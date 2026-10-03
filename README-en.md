@@ -15,9 +15,9 @@ A **privacy-first** notification forwarder for Android. Fully on-device processi
 [![Version](https://badgen.net/badge/Version/1.5.76/007AFF?icon=android)](https://github.com/fnthinklevi/noticeTransmit/releases)
 [![License](https://badgen.net/badge/License/Apache--2.0/green)](#license)
 
-🌐 **Official Website**: [notice.example.com](https://notice.example.com) — intro, client download & admin console
+🌐 **Official Website**: [notice.fnthink.top](https://notice.fnthink.top) · [notice.fnthink.com](https://notice.fnthink.com) — intro, client download & admin console
 
-🌐 **GitHub Pages**: [your-org.github.io/noticeTransmit](https://your-org.github.io/noticeTransmit/) — zero-maintenance static deployment (auto-syncs version config)
+🌐 **GitHub Pages**: [fnthinklevi.github.io/noticeTransmit](https://fnthinklevi.github.io/noticeTransmit/) — zero-maintenance static deployment (auto-syncs version config)
 
 </div>
 
