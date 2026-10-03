@@ -403,6 +403,88 @@ void main() {
       expectProblem(broken, '没有任何 type 能进', 'L1 变成发不出东西的死档');
     });
 
+    // ── T50：L2 动作词表 ──
+    // ⚠ 这一组是 A10 那条反证的**前提**。之前「l2.actions 不能为空」这一判
+    // **不可单独观察**：没有任何用例把表清空过，于是把判据改成恒真后全套照样绿。
+    // 补了下面这几条之后，「表空了却不报」这件事才有人喊。
+    test('L2 动作表清空 ⇒ 报（这一档没有任何动作 = messageTypes.action 指着空处）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l2'] as Map)['actions'] = <String>[];
+      });
+      expectProblem(broken, 'l2.actions 不能为空', '空表与「这一档没有任何动作」在下游读起来一样');
+    });
+
+    test('L2 动作表整段删掉 ⇒ 报（不是"读起来空"，是那一档根本不存在）', () {
+      final broken = mutate((raw) {
+        (raw['capabilities'] as Map).remove('l2');
+      });
+      expectProblem(broken, 'l2.actions 不能为空', '整段删掉与清空是同一个后果，不能只有后者报错');
+    });
+
+    test('L2 动作表里有重复项 ⇒ 报（两端按位置读，重复会让"第几个动作"两处不同）', () {
+      final broken = mutate((raw) {
+        final l2 = (raw['capabilities'] as Map)['l2'] as Map;
+        (l2['actions'] as List).add('channel:toggle');
+      });
+      expectProblem(broken, '重复项', '重复项让"这一条是第几个动作"在两端给出不同答案');
+    });
+
+    test('L2 动作不写成 <family>:<verb> ⇒ 报（itemFormat 那一列就失去了依据）', () {
+      final broken = mutate((raw) {
+        final l2 = (raw['capabilities'] as Map)['l2'] as Map;
+        (l2['actions'] as List)[0] = 'listenerStart';
+      });
+      expectProblem(broken, '<family>:<verb>', '形状变了，逐条勾选的那一项就没法从它拼出来');
+    });
+
+    test('L2 认不出的动作改成"跳过" ⇒ 报（那等于让对端拿编出来的动作名试边界）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l2'] as Map)['unknownAction'] = 'skip';
+      });
+      expectProblem(broken, 'unknownAction 必须是 reject', '跳过 = 不设防');
+    });
+
+    test('L3 那条 unknownAction 也改成"跳过" ⇒ 报（两份刻意不共用，各改各的都要被看见）', () {
+      final broken = mutate((raw) {
+        (((raw['capabilities'] as Map)['l3']) as Map)['unknownAction'] = 'skip';
+      });
+      expectProblem(broken, 'unknownAction 必须是 reject', 'L3 那一档同样不许跳过');
+    });
+
+    test('点名要参数的动作指到词表外 ⇒ 报（那条要求就永远不会被触发）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l2'] as Map)['requiresArgumentFrom'] = [
+          'made:up',
+        ];
+      });
+      expectProblem(broken, 'requiresArgumentFrom', '要求一个不存在的动作带参数，等于没要求');
+    });
+
+    test('执行失败的回执词不在顶层 receipts 里 ⇒ 报（对外形状只能取那一处的词）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l2'] as Map)['actionReceipt'] =
+            'action_broke';
+      });
+      expectProblem(broken, '不在顶层 receipts', '回执词只能从那张表里取');
+    });
+
+    test('itemFormat 改了形状 ⇒ 报（actions 那张表按 <family>:<verb> 写）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['l2'] as Map)['itemFormat'] = 'a.b';
+      });
+      expectProblem(broken, 'itemFormat', '格式与那张表的写法对不上，两端会各行其是');
+    });
+
+    test('messageTypes.action 不再指向 L2 ⇒ 报（L2 动作表存在却没有读者）', () {
+      final broken = mutate((raw) {
+        ((raw['capabilities'] as Map)['messageTypes'] as Map)['action'] = {
+          'minLevel': 'L3',
+          '_comment': '把它挪到 L3 了',
+        };
+      });
+      expectProblem(broken, '没有读者', '表在而 type 侧不指向它 = 这张表没人读');
+    });
+
     test('验签失败不计数 ⇒ 报（T29 任务书那句「并计数」）', () {
       final broken = mutate((raw) {
         ((raw['signature'] as Map)['onFailure'] as Map)['count'] = false;
