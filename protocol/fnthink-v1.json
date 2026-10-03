@@ -125,7 +125,9 @@
     "dropped",
     "rejected_unsigned",
     "rejected_capability",
-    "failed_action"
+    "failed_action",
+    "executing",
+    "execution_done"
   ],
 
   "fieldTolerance": {
@@ -356,6 +358,40 @@
     "grantChangeRequiresConfirmation": true,
     "endpointMaxLevel": "L1",
     "endpointActionReceipt": "rejected_capability",
+    "remoteExecution": {
+      "sources": {
+        "L1": ["fnthink", "localNotificationWhitelist"],
+        "L2": ["fnthink"],
+        "L3": ["fnthink"]
+      },
+      "sourcesWhy": "级别 × 渠道。L1 有两条：幻念推送，或**本机白名单应用的通知栏消息**（在远程执行列表里逐应用勾选，命中的是那几条通知里出现的关键匹配字符）。L2/L3 只允许幻念推送。⚠ webhook 那一路只认「幻念推送自己的 webhook」——别的 webhook 一律不当指令源（webhook 载荷的字段是第三方随手写的，把「能发指令」挂在它身上等于把指令格式的解释权交给别人）。与 capabilities.endpointMaxLevel(=L1) 是同一条纪律的两个面：接入端点也只能到 L1",
+      "auth": {
+        "modes": ["key", "totp"],
+        "l2Requires": false,
+        "l3Requires": true,
+        "keyMinLength": 8,
+        "totpDigits": 6,
+        "totpPeriodSeconds": 30,
+        "totpSecretOwner": "receiver",
+        "onMissingOrWrong": "reject"
+      },
+      "authWhy": "L2 与 L3 共用两种凭据：**高级密钥**（远程执行专用、用户自定义或系统随机生成、本机只存哈希）与 **TOTP**（6 位、30 秒步长；⚠ 密钥由**接收端**生成并只存在接收端，通过二维码/链接当面交给发送端录进验证器 —— **不经过服务器**）。L2 可带可不带（l2Requires:false），L3 **必须带其一**（l3Requires:true）。凭据随指令走加密正文，**不进服务端审计**（与 capabilities.execution.storesBody 同一条红线）。⚠ 高级密钥与恢复码/设备身份私钥**不是同一把**：那把管「证明我是这台设备」，这把管「授权这条远程指令」",
+      "delay": {
+        "defaultSeconds": 10,
+        "minSeconds": 0,
+        "maxSeconds": 60,
+        "onTimeout": "execute",
+        "cancelChannels": ["statusBar", "inAppBanner"],
+        "userPresenceAffectsTiming": false
+      },
+      "delayWhy": "执行前的**可取消窗口**：窗口内接收端可经状态栏与界面顶端横幅两种入口取消，超时**默认执行**（onTimeout:execute），用户在不在设备前**不影响计时**（userPresenceAffectsTiming:false）。0 秒 = 立即执行（等于关掉延时）。⚠ 这不是「再确认一次」：安全闸是「凭据 × 渠道」，这个窗口是**给用户的一次可见的撤销机会** —— 见 l3.confirmForm",
+      "states": ["pending", "executing", "done", "failed", "cancelled"],
+      "statesWhy": "**执行状态机**，与 delivery 那套（delivering/delivered/acked）刻意分开：delivery 说的是「消息有没有送到」，这里说的是「这条指令被执行到哪一步」。五个状态封闭；`cancelled` 单独一档（用户在窗口内撤销），与 `failed`（执行了但没成）不是一回事 —— 合成一个，界面上就分不清「我没让它做」和「它没做成」",
+      "receipts": { "started": "executing", "finished": "execution_done" },
+      "receiptsWhy": "两段回执走**回发给发送方的消息**（不是 ack）：收到即回 receipts.started，执行完回 receipts.finished 并带结果。⚠ 把回执塞进 ack 的后果是 at-least-once 重投与「执行中」互相污染（重投会再 ack 一次）；ack 只回答「我收到了这条投递」，回执回答「我把这件事做到哪了」",
+      "localTriggerReceipt": "none",
+      "localTriggerReceiptWhy": "本机白名单应用的通知触发的是**本机**指令：这条路上没有远端发送方，**没有任何人可以回** ⇒ 不回执，只进本地远程执行历史。⚠ 这一条是维护者未明确确认时的**中性写法**（契约不为它定义回执；若他改主意要回给谁，改这一处即可）"
+    },
     "l2": {
       "actions": ["listener:start", "listener:stop", "channel:toggle", "device_state:push"],
       "actionsWhy": "L2 应用动作的**封闭词表**。两端各持一份枚举映射（设备侧 lib/services/fnthink_l2_actions.dart、服务端 server/lib/fnthink/l2actions.js），而这张表是它们共同的**唯一出处**：一份名单存在两处时，两处各自都对，但对面新加一个动作只有自己认得，表现是服务端把它收进队列、设备端在 apply 段判成 unknown-action，两头日志互相看不懂",
@@ -375,6 +411,8 @@
       "perItem": true,
       "confirmEveryTime": true,
       "allowSkipConfirm": false,
+      "confirmForm": "cancelableDelay",
+      "confirmFormWhy": "⚠ **改形不改内核**：`confirmEveryTime` 与 `allowSkipConfirm:false` 这一对，过去读成「每次都要用户点一下确认」；而远程执行的新模型里所有级别都是「延时窗口内未取消 ⇒ 超时执行」（见 capabilities.remoteExecution.delay）。所以「确认」这个动作的形式从**点一下**变成**没去取消**，内核（每次执行前都有一次用户可见的撤销机会、且不允许绕过）原样保留。`allowSkipConfirm:false` 的含义随之明确为「不许绕过这道窗口」，而不是「必须弹框」",
       "enableRequiresLocalAuth": ["lockScreen", "biometric"],
       "circuitBreaker": { "failuresPerMinute": 5, "downgradeTo": "L1" },
       "unknownAction": "reject",
