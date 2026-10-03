@@ -2152,7 +2152,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noDeviceStateRules => '暂无设备状态规则，点右上角 + 添加';
 
   @override
-  String get deviceStatusEntry => '设备状态';
+  String get deviceStatusEntry => '设备状态快照';
 
   @override
   String deviceStatusBrief(String model, int level) {
@@ -3692,4 +3692,35 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkRecipient => '收件人';
+
+  @override
+  String get l3SettingsSectionTitle => '对端可以请求的系统设置';
+
+  @override
+  String get l3SettingsSectionDesc =>
+      '这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。';
+
+  @override
+  String get l3StateMissing => '还没给这台设备授权';
+
+  @override
+  String get l3StateUnreadable => '读不到这台设备的状态';
+
+  @override
+  String get l3StateUnsupported => '这台设备上没有这一项';
+
+  @override
+  String get l3ItemAutostart => '自启动（按厂商）';
+
+  @override
+  String get l3ItemMonitoring => '通知转发监听';
+
+  @override
+  String get l3ItemCollectInbox => '幻念收件开关';
+
+  @override
+  String get l3NoteAutostart => '系统只有各厂商的入口，不提供统一读数';
+
+  @override
+  String get l3NoteLivesInFnthinkPage => '这一格的开关在「幻念推送」页';
 }

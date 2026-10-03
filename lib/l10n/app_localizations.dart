@@ -4151,7 +4151,7 @@ abstract class AppLocalizations {
   /// No description provided for @deviceStatusEntry.
   ///
   /// In zh, this message translates to:
-  /// **'设备状态'**
+  /// **'设备状态快照'**
   String get deviceStatusEntry;
 
   /// No description provided for @deviceStatusBrief.
@@ -6769,6 +6769,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'收件人'**
   String get fnthinkRecipient;
+
+  /// No description provided for @l3SettingsSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'对端可以请求的系统设置'**
+  String get l3SettingsSectionTitle;
+
+  /// No description provided for @l3SettingsSectionDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。'**
+  String get l3SettingsSectionDesc;
+
+  /// No description provided for @l3StateMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没给这台设备授权'**
+  String get l3StateMissing;
+
+  /// No description provided for @l3StateUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'读不到这台设备的状态'**
+  String get l3StateUnreadable;
+
+  /// No description provided for @l3StateUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备上没有这一项'**
+  String get l3StateUnsupported;
+
+  /// No description provided for @l3ItemAutostart.
+  ///
+  /// In zh, this message translates to:
+  /// **'自启动（按厂商）'**
+  String get l3ItemAutostart;
+
+  /// No description provided for @l3ItemMonitoring.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知转发监听'**
+  String get l3ItemMonitoring;
+
+  /// No description provided for @l3ItemCollectInbox.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念收件开关'**
+  String get l3ItemCollectInbox;
+
+  /// No description provided for @l3NoteAutostart.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统只有各厂商的入口，不提供统一读数'**
+  String get l3NoteAutostart;
+
+  /// No description provided for @l3NoteLivesInFnthinkPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一格的开关在「幻念推送」页'**
+  String get l3NoteLivesInFnthinkPage;
 }
 
 class _AppLocalizationsDelegate

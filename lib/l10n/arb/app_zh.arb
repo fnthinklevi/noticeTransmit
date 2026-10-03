@@ -991,7 +991,7 @@
   "deviceStateValueLabel": "亮度阈值（%）",
   "deviceStateNoValue": "网络触发不需要阈值",
   "noDeviceStateRules": "暂无设备状态规则，点右上角 + 添加",
-  "deviceStatusEntry": "设备状态",
+  "deviceStatusEntry": "设备状态快照",
   "deviceStatusBrief": "{model} · 电量 {level}%",
   "@deviceStatusBrief": {
     "placeholders": {
@@ -2073,5 +2073,15 @@
   "fnthinkTagSent": "发",
   "fnthinkAllScopeNote": "全部档是把三个来源并排看，不是拼成同一条时间线：搜索与筛选只作用于「转发」那一段（收件与发出在另一张表里，翻页口径不同，混排会出现同一条重复或整条不出现）",
   "fnthinkSentEmpty": "还没有发过。这一档只记本机发出去的（对方收到与否要看回执）",
-  "fnthinkRecipient": "收件人"
+  "fnthinkRecipient": "收件人",
+  "l3SettingsSectionTitle": "对端可以请求的系统设置",
+  "l3SettingsSectionDesc": "这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。",
+  "l3StateMissing": "还没给这台设备授权",
+  "l3StateUnreadable": "读不到这台设备的状态",
+  "l3StateUnsupported": "这台设备上没有这一项",
+  "l3ItemAutostart": "自启动（按厂商）",
+  "l3ItemMonitoring": "通知转发监听",
+  "l3ItemCollectInbox": "幻念收件开关",
+  "l3NoteAutostart": "系统只有各厂商的入口，不提供统一读数",
+  "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页"
 }

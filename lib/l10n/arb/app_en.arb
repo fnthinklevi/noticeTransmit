@@ -991,7 +991,7 @@
   "deviceStateValueLabel": "Brightness threshold (%)",
   "deviceStateNoValue": "Network triggers need no threshold",
   "noDeviceStateRules": "No device state rules yet — tap + to add one",
-  "deviceStatusEntry": "Device status",
+  "deviceStatusEntry": "Device status snapshot",
   "deviceStatusBrief": "{model} · battery {level}%",
   "@deviceStatusBrief": {
     "placeholders": {
@@ -2052,5 +2052,15 @@
   "fnthinkTagSent": "Out",
   "fnthinkAllScopeNote": "All lines the three sources up side by side; it does not merge them into one timeline. Search and filters apply to the Forwarded section only — inbox and sent rows live in another table with different paging, so a merged timeline would show a row twice or not at all.",
   "fnthinkSentEmpty": "Nothing sent yet. This tab only lists what this device sent.",
-  "fnthinkRecipient": "Recipient"
+  "fnthinkRecipient": "Recipient",
+  "l3SettingsSectionTitle": "System settings a peer can request",
+  "l3SettingsSectionDesc": "Each item here needs a confirmation you make on this device. Items you have not granted stay listed - greyed out, with the reason.",
+  "l3StateMissing": "Not granted on this device yet",
+  "l3StateUnreadable": "This device does not report a state",
+  "l3StateUnsupported": "Not available on this device",
+  "l3ItemAutostart": "Auto-start (per vendor)",
+  "l3ItemMonitoring": "Notification forwarding listener",
+  "l3ItemCollectInbox": "Fnthink inbox switch",
+  "l3NoteAutostart": "Android exposes per-vendor entry points only - there is no unified reading",
+  "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page"
 }

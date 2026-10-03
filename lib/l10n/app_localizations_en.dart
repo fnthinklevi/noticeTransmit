@@ -2241,7 +2241,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'No device state rules yet — tap + to add one';
 
   @override
-  String get deviceStatusEntry => 'Device status';
+  String get deviceStatusEntry => 'Device status snapshot';
 
   @override
   String deviceStatusBrief(String model, int level) {
@@ -3858,4 +3858,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkRecipient => 'Recipient';
+
+  @override
+  String get l3SettingsSectionTitle => 'System settings a peer can request';
+
+  @override
+  String get l3SettingsSectionDesc =>
+      'Each item here needs a confirmation you make on this device. Items you have not granted stay listed - greyed out, with the reason.';
+
+  @override
+  String get l3StateMissing => 'Not granted on this device yet';
+
+  @override
+  String get l3StateUnreadable => 'This device does not report a state';
+
+  @override
+  String get l3StateUnsupported => 'Not available on this device';
+
+  @override
+  String get l3ItemAutostart => 'Auto-start (per vendor)';
+
+  @override
+  String get l3ItemMonitoring => 'Notification forwarding listener';
+
+  @override
+  String get l3ItemCollectInbox => 'Fnthink inbox switch';
+
+  @override
+  String get l3NoteAutostart =>
+      'Android exposes per-vendor entry points only - there is no unified reading';
+
+  @override
+  String get l3NoteLivesInFnthinkPage =>
+      'This switch lives on the Fnthink Push page';
 }
