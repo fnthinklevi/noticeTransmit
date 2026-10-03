@@ -28,7 +28,7 @@ enum FnthinkL3GrantState {
 ///
 /// ⚠ **为什么这一层存在，而不是让页面自己去问**：契约里那六项的当前状态分别来自四个地方，
 /// 形状还各不相同（`PermissionService` 的三个缓存字段、它的 `canScheduleExactAlarms()`、
-/// 原生 `isMonitoringEnabled()`、`FnthinkSettings.receiveEnabled` 纯 prefs）。
+/// 原生 `isMonitoringEnabled()`（经 `isServiceRunning` 通道）、`FnthinkSettings.receiveEnabled` 纯 prefs）。
 /// 页面里各写一遍就是**七处会各自漂移的地方** —— 而它们漂移的表现是「某一项永远显示已开启」。
 /// 这里把各处读法**收成一种**，读数由调用方注入。
 ///

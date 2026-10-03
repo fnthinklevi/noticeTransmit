@@ -259,6 +259,9 @@ extension _MainPageActions on _MainPageState {
   /// **猜成 false 会把它显示成「你还没去开」**，而那两件事的修法完全不同（一个是缺口，一个是催用户）。
   Future<List<FnthinkL3GrantRow>> _l3GrantRows() async {
     final l10n = AppLocalizations.of(context);
+    // ⚠ 先刷新再读：`serviceRunning` 默认 false，拿旧值出来会被显示成「还没给这台设备授权」——
+    // 那是把「我们没问」说成「用户没给」，正是 T52 四态里刻意分开的那两档。
+    await _notificationService.loadServiceState();
     final contract = await GetIt.instance<FnthinkContractLoader>().load();
     final settings = FnthinkSettings(contract: contract);
     return collectL3GrantRows(
@@ -269,8 +272,9 @@ extension _MainPageActions on _MainPageState {
         exactAlarm: await _permissionService.canScheduleExactAlarms(),
         // 自启动：原生只有按厂商分流的跳转，系统不提供统一读数。
         autostart: null,
-        // 监听开关住在原生 SharedPreferences 里，Dart 侧目前没有读口（已登记的缺口）。
-        monitoring: null,
+        // 监听开关：原生 `isMonitoringEnabled()`（读 SharedPreferences）经 `isServiceRunning`
+        // 通道出来，上面那一次 loadServiceState 就是刷新它。
+        monitoring: _notificationService.serviceRunning,
         collectInbox: await settings.receiveEnabled,
       ),
       notes: {
