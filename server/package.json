@@ -12,7 +12,8 @@
     "dev": "node server.js",
     "test": "jest --verbose",
     "format": "prettier --write \"lib/**/*.js\" server.js \"test/**/*.js\"",
-    "format:check": "prettier --check \"lib/**/*.js\" server.js \"test/**/*.js\""
+    "format:check": "prettier --check \"lib/**/*.js\" server.js \"test/**/*.js\"",
+    "fnthink:doctor": "node tools/fnthink_doctor.js"
   },
   "jest": {
     "transformIgnorePatterns": [

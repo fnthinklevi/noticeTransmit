@@ -11,6 +11,10 @@ const express = require('express');
 
 const store = require('../store');
 const { authMiddleware } = require('../middleware');
+// T75 ④：`/health` 要报契约版本，取值与版本闸门只认 `fnthink/contract` 这一份 ——
+// 自己另抄一份 SUPPORTED_MAJOR 就是第二份真值，而它错配时不会报错，只会让自部署者
+// 看到「版本号对但连不上」这类查不出来的现象。
+const contractModule = require('../fnthink/contract');
 
 const router = express.Router();
 
@@ -273,9 +277,34 @@ router.post('/api/admin/version', authMiddleware, (req, res) => {
   }
 });
 
-// 公开：健康检查
+// 公开：健康检查。
+// ⚠ T75 ④：这里**必须报契约版本**（`protocolVersion` / `contractVersion`）——
+//   自部署者遇到「我这边连不上」时，第一件要确认的就是「我这份 server/ 与那份契约
+//   是不是同一代」。只回 `{status:'ok'}` 的话，一个版本错配的实例和健康的实例长得
+//   一模一样，于是每次都得开一条 issue 才问得出来。
+//   ⚠ 契约读不到时**照旧回 200**，只把两个字段置成 null 并带上原因 ——
+//     `/health` 是整台风服务的心跳（连它都与幻念推送毫无关系），让契约缺失把它带走
+//     就是把「协议面降级」升级成「整机不可用」，与 A1 定的那条部署口径相反。
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  let contractVersion = null;
+  let protocolVersion = null;
+  let contractError = null;
+  try {
+    const contract = contractModule.assertSupported(contractModule.loadContract());
+    contractVersion = contract.contractVersion;
+    protocolVersion = contract.protocol;
+  } catch (e) {
+    contractError = e && e.code ? e.code : 'CONTRACT_UNREADABLE';
+  }
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    // 本实现支持到的主版本（常量恒在，报出来是为了让自部署者一眼看出「落后了几代」）
+    supportedMajor: contractModule.SUPPORTED_MAJOR,
+    contractVersion,
+    protocolVersion,
+    ...(contractError ? { contractError } : {}),
+  });
 });
 
 module.exports = router;
