@@ -389,6 +389,58 @@ class FnthinkContract {
     return value;
   }
 
+  /// 执行留痕里**能出现哪些键**（契约 `capabilities.execution.fields`）。
+  ///
+  /// 这是白名单 —— 落一条留痕时只有列出的键能进去。⚠ 它**不含正文与标题**：
+  /// 消息正文已经在收件表里（那是本机的事），执行留痕要回答的是「谁让这台设备动了什么」，
+  /// 多存一份正文等于同一段内容有两个留存点，而其中一个的删除策略与另一个不同。
+  List<String> get executionFields =>
+      strings(const ['capabilities', 'execution', 'fields']);
+
+  /// 执行留痕里**一次都不许出现**的键（契约 `capabilities.execution.forbiddenFields`）。
+  ///
+  /// ⚠ 为什么白名单之外还要黑名单：白名单挡的是「没列的键」，而一个**名字像留痕的
+  /// 正文键**（body / title）恰好可能被人顺手加进白名单去「留个底」——
+  /// 那正是 `privacy.auditStoresMetadataOnly` 想防的事。
+  List<String> get executionForbiddenFields =>
+      strings(const ['capabilities', 'execution', 'forbiddenFields']);
+
+  /// 留痕的两种种类（契约 `capabilities.execution.kinds`）。
+  List<String> get executionKinds =>
+      strings(const ['capabilities', 'execution', 'kinds']);
+
+  /// 留痕的四种结果（契约 `capabilities.execution.results`）。
+  ///
+  /// ⚠ `rejected` 与 `failed` 刻意分开：`rejected` = 这一条**根本不该被执行**
+  /// （不在词表 / 没逐条勾选 / 没确认 / 没前置授权），`failed` = 该执行但设备上做不成。
+  /// 前者说明对端越界，后者说明这台设备做不到；合成一个之后，用户看到「有条消息没生效」
+  /// 既不知道是对端越界还是自己没配好。
+  List<String> get executionResults =>
+      strings(const ['capabilities', 'execution', 'results']);
+
+  /// 一个对端一天最多在这台设备上留多少条（契约 `capabilities.execution.maxPerPeerDay`）。
+  ///
+  /// 与 `retention.auditTrail.maxPerMessage`（投递态，按**消息**留）是两个不同的界：
+  /// 那一条的界是「一条消息被反复推进」，这一条的是「对端连发大量互不相干的动作」。
+  /// 缺这一档抛而不返回 0：0 意味着「一条都不留」，而那不是"有界"，那是"没记"。
+  int get executionMaxPerPeerDay {
+    final value = intOf(const ['capabilities', 'execution', 'maxPerPeerDay']);
+    if (value == null || value <= 0) {
+      throw StateError(
+        '契约缺 capabilities.execution.maxPerPeerDay（或它不是正整数，实际'
+        '「$value」）：留痕要么有界，要么就别记',
+      );
+    }
+    return value;
+  }
+
+  /// 服务端那一侧的审计**只存元数据**（契约 `capabilities.execution.storesBody`）。
+  ///
+  /// 设备本机那一侧不受它约束 —— 本机存不存正文是本机自己的决定（T47 的收件表已经存了），
+  /// 这一条只管**服务端**：留痕是元数据的另一个名字，不是「顺便把正文也存一份」的新入口。
+  bool get executionStoresBody =>
+      boolOf(const ['capabilities', 'execution', 'storesBody']) == true;
+
   /// **开启 L3 本身**要过的那几种本地认证（契约 `capabilities.l3.enableRequiresLocalAuth`）。
   ///
   /// ⚠ 这条与 [FnthinkGrant] 里那条逐次确认是**两道不同的门**：那一道管"这一条设置消息要不要
@@ -1265,6 +1317,66 @@ class FnthinkContract {
       l3Receipt != null && strings(const ['receipts']).contains(l3Receipt),
       'capabilities.l3.settingsReceipt=$l3Receipt 不在顶层 receipts 词表里：'
       '对外形状只能取那一处的词',
+    );
+
+    // ── 执行留痕（T53）──
+    // 白名单 + 黑名单两份名单：白名单挡「没列的键」，黑名单挡「名字像留痕的正文键」
+    // （body / title）被人顺手加进白名单去「留个底」—— 那正是 auditStoresMetadataOnly
+    // 想防的事。两边合起来才是完整判据。
+    final exFields = strings(const ['capabilities', 'execution', 'fields']);
+    need(
+      exFields.isNotEmpty,
+      'capabilities.execution.fields 不能为空：为空等于执行留痕什么都记不下，'
+      '而「谁让这台设备动了什么」这个问题就没有出处了',
+    );
+    final exForbidden = strings(const [
+      'capabilities',
+      'execution',
+      'forbiddenFields',
+    ]);
+    need(
+      exForbidden.isNotEmpty,
+      'capabilities.execution.forbiddenFields 不能为空：白名单之外的正文类键'
+      '需要单独喊出来，否则「留个底」这件事没有任何地方会拦',
+    );
+    final overlap = exFields.toSet().intersection(exForbidden.toSet());
+    need(
+      overlap.isEmpty,
+      'capabilities.execution.fields 与 forbiddenFields 有交集：$overlap —— '
+      '同一把键既在白名单又在黑名单里，实现读哪一边都不对',
+    );
+    for (final key in ['from', 'item', 'result', 'at']) {
+      need(
+        exFields.contains(key),
+        'capabilities.execution.fields 缺 $key：'
+        '少了它这条留痕答不出「谁让这台设备做了什么 / 成了没有」',
+      );
+    }
+    final exKinds = strings(const ['capabilities', 'execution', 'kinds']);
+    need(
+      exKinds.isNotEmpty,
+      'capabilities.execution.kinds 不能为空：界面按它分栏，'
+      '而多一种就多一份没写过的显示逻辑',
+    );
+    final exResults = strings(const ['capabilities', 'execution', 'results']);
+    need(
+      exResults.contains('ok') &&
+          exResults.contains('failed') &&
+          exResults.contains('rejected'),
+      'capabilities.execution.results 必须同时有 ok / failed / rejected：'
+      'rejected（根本不该执行）与 failed（该执行但做不成）合成一个之后，'
+      '用户看到「有条消息没生效」既不知道是对端越界还是自己没配好',
+    );
+    need(
+      (intOf(const ['capabilities', 'execution', 'maxPerPeerDay']) ?? 0) > 0,
+      'capabilities.execution.maxPerPeerDay 必须 > 0：'
+      '0 意味着「一条都不留」，而那不是有界，那是没记',
+    );
+    need(
+      boolOf(const ['capabilities', 'execution', 'storesBody']) == false,
+      'capabilities.execution.storesBody 必须为 false：'
+      '服务端审计只存元数据（与 privacy.auditStoresMetadataOnly 同一句承诺），'
+      '留痕不是「顺便把正文也存一份」的新入口',
     );
 
     // ── L2 动作词表（T50）──

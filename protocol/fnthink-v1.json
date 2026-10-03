@@ -397,6 +397,23 @@
       "requiresExistingGrantWhy": "这两项是 toggle，而 toggle 只有在对应授权**已经在**这台设备上时才能翻。反过来（授权还没拿到就先开 toggle）在今天不可能发生，但一旦发生，表现是「勾了没反应」——而那与「系统不给开」读起来一模一样",
       "settingsReceipt": "failed_action",
       "settingsReceiptWhy": "L3 执行失败对外回哪一个词。与 L2 共用 receipts 词表里的 failed_action —— **不是因为它们是一件事**，而是因为契约只该有一个对外形状；两种失败的区别进留痕（T53），不进回执"
+    },
+
+    "execution": {
+      "fields": ["kind", "item", "argument", "from", "at", "result", "reason"],
+      "fieldsWhy": "一次 L2/L3 执行写进留痕时**能出现哪些键**。四个身份键（kind / item / argument / from）回答「谁让这台设备做了什么」，两个结果键（at / result / reason）回答「成了没有、为什么没成」。⚠ 名单里**没有正文、标题、口令** —— 对面发来的通知内容不进执行留痕：那台设备已经把消息正文存进收件表了（且那是本机的事），执行留痕要回答的是「刚才那台设备被谁动了什么」，多存一份正文等于同一段内容有两个留存点，而其中一个的删除策略与另一个不同（正文走 retention.deleteBodyOn，留痕不走）",
+      "forbiddenFields": ["body", "title", "text", "secret", "token", "credential"],
+      "forbiddenFieldsWhy": "上面那份名单是**白名单**（只有列出的键能进），这一份是**黑名单**（列出的键一次都不许出现）。为什么要有黑名单而不是只靠白名单：白名单挡的是「没列的键」，而一个**名字像留痕的正文键**（body / title）恰好可能被人顺手加进白名单去「留个底」—— 那正是 privacy.auditStoresMetadataOnly 想防的事。黑名单把这件事单独喊出来，两边合起来才是完整判据",
+      "kinds": ["l2_action", "l3_setting"],
+      "kindsWhy": "留痕只有这两种：L2 动作与 L3 设置。**封闭**是因为界面按它分栏，而多一种就多一份没写过的显示逻辑（新增一种而界面没接 ⇒ 那一条在详情里看不见，等于没记）",
+      "results": ["ok", "failed", "rejected", "skipped"],
+      "resultsWhy": "四种结果。⚠ `rejected` 与 `failed` 刻意分开（与 l2actions/l3settings 那四种拒同一纪律）：rejected = **这一条根本不该被执行**（不在词表 / 没逐条勾选 / 没确认 / 没前置授权），failed = 该执行但设备上做不成。前者说明对端越界，后者说明这台设备做不到；合成一个之后，用户看到「有条消息没生效」既不知道是对端越界还是自己没配好",
+      "maxPerPeerDay": 200,
+      "maxPerPeerDayWhy": "有界：一个对端一天最多在这台设备上留这么多条。与 `retention.auditTrail.maxPerMessage`（投递态，40/条）**是两个不同的界** —— 那一条按消息留，这一条按发送方留，因为攻击面不同：前者是「一条消息被反复推进」，后者是「对端连发大量互不相干的动作」。**裁掉的条数要留下计数**（droppedCount），理由与那条投递留痕一致：悄悄裁与悄悄丢在用户眼里是同一个错",
+      "whoSentQuery": "by_from",
+      "whoSentQueryWhy": "「谁给我发过什么」在收件详情里怎么查：按 `from` 过滤。⚠ 只按 `from`、不按时间倒序 —— 倒序是界面那一层的事（读出来再排），而排序口径写在留痕里就会出现两份",
+      "storesBody": false,
+      "storesBodyWhy": "服务端这一侧的审计**只存元数据**（与 privacy.auditStoresMetadataOnly 同一句承诺）：留痕是元数据的另一个名字，不是「顺便把正文也存一份」的新入口。设备本机那一侧不受这条约束 —— 本机存不存正文是本机自己的决定（T47 的收件表已经存了），这一条只管**服务端**"
     }
   },
 
