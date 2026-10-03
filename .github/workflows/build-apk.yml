@@ -105,7 +105,7 @@ jobs:
           BUILD=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f2)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
-          echo "APK_NAME=notice${VERSION}.apk" >> $GITHUB_OUTPUT
+          echo "APK_NAME=notice_all_${VERSION}+${BUILD}.apk" >> $GITHUB_OUTPUT
 
       - name: 纯净度 + 版本号双闸（base.md §10.2 步骤 6.5 铁律）
         run: |

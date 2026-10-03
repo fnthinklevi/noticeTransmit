@@ -798,13 +798,29 @@ class AppUpdateManager {
     }
 
     if (version != null && appName != null) {
-      // GitHub Release 资产按项目命名规范为 notice_{平台}_{版本}.apk，
-      // 这里统一回退到全平台融合包（notice_all_{version}.apk）。
-      final githubUrl = '$_githubMirrorUrl/$version/notice_all_$version.apk';
-      urls.add(githubUrl);
+      // GitHub Release 上的那一份与 CDN 上的是**同一个文件**（发版脚本一次构建、两处归档），
+      // 所以回退地址沿用主地址里的**文件名**，不再自己按版本号猜一个名字 ——
+      // 归档名带不带构件号、用哪个前缀，都不需要这里跟着改（T66 的根因就是这个猜出来的名字：
+      // 脚本一改命名，这条回退就悄悄 404，而它只在 CDN 挂掉时才走到）。
+      final asset = _apkAssetNameOf(downloadUrl);
+      if (asset != null) {
+        urls.add('$_githubMirrorUrl/$version/$asset');
+      }
     }
 
     return urls;
+  }
+
+  /// 主下载地址里那一份 APK 的文件名（拿不到就不是 APK ⇒ 不拼回退地址）。
+  String? _apkAssetNameOf(String downloadUrl) {
+    try {
+      final segments = Uri.parse(_getFullUrl(downloadUrl)).pathSegments;
+      if (segments.isEmpty) return null;
+      final last = segments.last;
+      return last.endsWith('.apk') ? last : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 安装前完整性校验（P0 安全加固）：下载包签名必须与当前应用签名一致。

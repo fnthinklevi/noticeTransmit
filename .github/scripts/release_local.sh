@@ -161,11 +161,11 @@ build_one() { # $1=flutter target  $2=env 值  $3=归档名
     cp "$APKDIR/app-release.apk" "$APKDIR/v$VER/$3"
     ok "$3 构建完成"
 }
-build_one "android-arm64" "android-arm64" "notice_arm64_$VER.apk"  || exit 1
-build_one "android-arm"   "android-arm"   "notice_arm32_$VER.apk"  || exit 1
-build_one "android-x64"   "android-x64"   "notice_x86_$VER.apk"    || exit 1
+build_one "android-arm64" "android-arm64" "notice_arm64_$VER_FULL.apk"  || exit 1
+build_one "android-arm"   "android-arm"   "notice_arm32_$VER_FULL.apk"  || exit 1
+build_one "android-x64"   "android-x64"   "notice_x86_$VER_FULL.apk"    || exit 1
 unset FLUTTER_TARGET_PLATFORM
-build_one "android-arm,android-arm64,android-x64" "" "notice_all_$VER.apk" || exit 1
+build_one "android-arm,android-arm64,android-x64" "" "notice_all_$VER_FULL.apk" || exit 1
 
 # 纯净度 + versionName 验证（步骤 6.5；Git Bash 无 zip 格式 tar，用 python zipfile）
 PY=""; for c in python python3; do p=$(command -v "$c" 2>/dev/null) || p=""; case "$p" in *WindowsApps*) p="" ;; esac; [ -z "$PY" ] && [ -n "$p" ] && PY="$p"; done
