@@ -11,6 +11,7 @@ import 'package:open_filex/open_filex.dart';
 import 'services/locale_service.dart';
 import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
+import 'services/update_download_urls.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// SSL 证书固定（默认关闭）
@@ -628,17 +629,17 @@ class AppUpdateManager {
       if (s.isNotEmpty && !urls.contains(s)) urls.add(s);
     }
 
-    // ABI → 安装包平台名（release 资产命名规范 notice_{平台}_{版本}.apk）
-    final platform = switch (abiKey) {
-      'arm32' => 'arm32',
-      'x86_64' => 'x86',
-      _ => 'arm64',
-    };
-
     add(downloadUrl);
-    if (version != null && version.isNotEmpty) {
-      add('$_githubMirrorUrl/$version/notice_${platform}_$version.apk');
-      add('$_githubDirectUrl/$version/notice_${platform}_$version.apk');
+    // 镜像上的那一份与 CDN 主地址是**同一个文件**，所以沿用主地址的文件名 ——
+    // 不再按 `abiKey` 猜一个 `notice_<平台>_<版本>.apk`（T66 给归档名加了构件号，
+    // 猜出来的那个名字从那一刻起就是 404，而这条只在 CDN 挂掉时才走到）。
+    for (final mirror in buildMirrorApkUrls(
+      downloadUrl: downloadUrl,
+      version: version,
+      serverUrl: _updateServerUrl,
+      mirrorBases: [_githubMirrorUrl, _githubDirectUrl],
+    )) {
+      add(mirror);
     }
     return urls;
   }
@@ -797,30 +798,19 @@ class AppUpdateManager {
       urls.add(_getFullUrl(downloadUrl));
     }
 
-    if (version != null && appName != null) {
-      // GitHub Release 上的那一份与 CDN 上的是**同一个文件**（发版脚本一次构建、两处归档），
-      // 所以回退地址沿用主地址里的**文件名**，不再自己按版本号猜一个名字 ——
-      // 归档名带不带构件号、用哪个前缀，都不需要这里跟着改（T66 的根因就是这个猜出来的名字：
-      // 脚本一改命名，这条回退就悄悄 404，而它只在 CDN 挂掉时才走到）。
-      final asset = _apkAssetNameOf(downloadUrl);
-      if (asset != null) {
-        urls.add('$_githubMirrorUrl/$version/$asset');
-      }
-    }
+    // 镜像上的那一份与 CDN 主地址是同一个文件 ⇒ 沿用主地址的文件名，不猜名字。
+    // `appName` 这一枚闸门保持原样（它代表"这台确实配过应用名"，缺时原本就不走回退）。
+    urls.addAll(
+      buildMirrorApkUrls(
+        downloadUrl: downloadUrl,
+        version: version,
+        serverUrl: _updateServerUrl,
+        mirrorBases: [_githubMirrorUrl],
+        skip: appName == null,
+      ),
+    );
 
     return urls;
-  }
-
-  /// 主下载地址里那一份 APK 的文件名（拿不到就不是 APK ⇒ 不拼回退地址）。
-  String? _apkAssetNameOf(String downloadUrl) {
-    try {
-      final segments = Uri.parse(_getFullUrl(downloadUrl)).pathSegments;
-      if (segments.isEmpty) return null;
-      final last = segments.last;
-      return last.endsWith('.apk') ? last : null;
-    } catch (_) {
-      return null;
-    }
   }
 
   /// 安装前完整性校验（P0 安全加固）：下载包签名必须与当前应用签名一致。
