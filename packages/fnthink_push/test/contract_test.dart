@@ -306,6 +306,109 @@ void main() {
       );
     }
 
+    Map<String, Object?> remoteOf(Map<String, Object?> raw) {
+      final caps = raw['capabilities'] as Map<String, Object?>;
+      return caps['remoteExecution'] as Map<String, Object?>;
+    }
+
+    // ── 远程执行（片1：五组条款，判据与用例成对）──
+
+    test('远程执行：L2/L3 的来源只许幻念推送，且每一档都要有渠道', () {
+      for (final push in ['L2', 'L3']) {
+        final broken = mutate((raw) {
+          final remote = remoteOf(raw);
+          final sources = remote['sources'] as Map<String, Object?>;
+          sources[push] = ['fnthink', 'webhook'];
+        });
+        expectProblem(broken, 'sources.$push', '$push 只许幻念推送');
+      }
+      final empty = mutate((raw) {
+        final remote = remoteOf(raw);
+        final sources = remote['sources'] as Map<String, Object?>;
+        sources['L1'] = <String>[];
+      });
+      expectProblem(empty, 'sources.L1', '一档没有任何渠道，等于把它禁掉');
+    });
+
+    test('远程执行：凭据是 L2 可选、L3 必填（写反了就是安全漏）', () {
+      final broken = mutate((raw) {
+        final auth = remoteOf(raw)['auth'] as Map<String, Object?>;
+        auth['l2Requires'] = true;
+      });
+      expectProblem(broken, 'L2 可选、L3 必填', '写反就是漏');
+    });
+
+    test('远程执行：auth.modes 少了 totp ⇒ 报', () {
+      final broken = mutate((raw) {
+        final auth = remoteOf(raw)['auth'] as Map<String, Object?>;
+        auth['modes'] = ['key'];
+      });
+      expectProblem(broken, 'auth.modes', 'L3 二者其一即可用，少一种就少一条路');
+    });
+
+    test('远程执行：延时默认值超出上下限 ⇒ 报', () {
+      final broken = mutate((raw) {
+        final delay = remoteOf(raw)['delay'] as Map<String, Object?>;
+        delay['defaultSeconds'] = 120;
+      });
+      expectProblem(broken, '默认值要落在', '默认值必须在窗口内');
+    });
+
+    test('远程执行：超时语义不是 execute ⇒ 报（维护者定：超时默认执行）', () {
+      final broken = mutate((raw) {
+        final delay = remoteOf(raw)['delay'] as Map<String, Object?>;
+        delay['onTimeout'] = 'notify';
+      });
+      expectProblem(broken, '超时语义必须是 execute', '改掉它等于改了模型');
+    });
+
+    test('远程执行：状态词表少了 cancelled ⇒ 报（撤销那一档没了）', () {
+      final broken = mutate((raw) {
+        remoteOf(raw)['states'] = ['pending', 'executing', 'done', 'failed'];
+      });
+      expectProblem(broken, 'executing', '两段回执与撤销都靠这张表');
+    });
+
+    test('远程执行：回执词不在 receipts 词表里 ⇒ 报（不许另造一份词表）', () {
+      final broken = mutate((raw) {
+        final receipts = remoteOf(raw)['receipts'] as Map<String, Object?>;
+        receipts['finished'] = 'finished_ok';
+      });
+      expectProblem(broken, 'receipts 词表里的词', '第二份词表就是漂移的起点');
+    });
+
+    test('L3 的闸不是 cancelableDelay ⇒ 报（改形不改内核要有落点）', () {
+      final broken = mutate((raw) {
+        final caps = raw['capabilities'] as Map<String, Object?>;
+        final l3 = caps['l3'] as Map<String, Object?>;
+        l3['confirmForm'] = 'dialog';
+      });
+      expectProblem(broken, 'cancelableDelay', '闸的形式改了，模型就断了');
+    });
+
+    test('正向：仓库这份契约的远程执行条款读出来就是维护者定的那套', () {
+      expect(c.remoteExecutionSourcesFor('L1'), [
+        'fnthink',
+        'localNotificationWhitelist',
+      ]);
+      expect(c.remoteExecutionSourcesFor('L2'), ['fnthink']);
+      expect(c.remoteExecutionSourcesFor('L3'), ['fnthink']);
+      expect(c.remoteExecutionAuthModes, ['key', 'totp']);
+      expect(c.remoteExecutionL2RequiresAuth, isFalse);
+      expect(c.remoteExecutionL3RequiresAuth, isTrue);
+      expect(c.remoteExecutionDelayDefaultSeconds, 10);
+      expect(c.remoteExecutionDelayMinSeconds, 0);
+      expect(c.remoteExecutionDelayMaxSeconds, 60);
+      expect(c.remoteExecutionOnTimeout, 'execute');
+      expect(c.remoteExecutionPresenceAffectsTiming, isFalse);
+      expect(c.remoteExecutionStates.contains('cancelled'), isTrue);
+      expect(c.remoteExecutionReceipts, {
+        'started': 'executing',
+        'finished': 'execution_done',
+      });
+      expect(c.l3ConfirmForm, 'cancelableDelay');
+    });
+
     test('端点被允许产 L3 ⇒ 报', () {
       final broken = mutate((raw) {
         (raw['capabilities'] as Map<String, Object?>)['endpointMaxLevel'] =

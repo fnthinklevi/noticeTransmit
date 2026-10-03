@@ -441,6 +441,79 @@ class FnthinkContract {
   bool get executionStoresBody =>
       boolOf(const ['capabilities', 'execution', 'storesBody']) == true;
 
+  // ── 远程执行（capabilities.remoteExecution，片1 契约先行）──────────────────
+
+  /// 某一档允许从哪些渠道来（契约 `capabilities.remoteExecution.sources`）。
+  ///
+  /// ⚠ 渠道名是**封闭词表**：`fnthink` 与 `localNotificationWhitelist` 两种。
+  /// 读不到回空表 —— 调用方必须把"空"当"没有任何渠道允许"，而不是"不限制"。
+  List<String> remoteExecutionSourcesFor(String level) {
+    final raw = map(const ['capabilities', 'remoteExecution', 'sources']);
+    final value = raw == null ? null : raw[level];
+    if (value is! List) return const <String>[];
+    return value.map((e) => '$e').toList(growable: false);
+  }
+
+  /// 远程执行允许的两种凭据（契约 `capabilities.remoteExecution.auth.modes`）。
+  List<String> get remoteExecutionAuthModes =>
+      strings(const ['capabilities', 'remoteExecution', 'auth', 'modes']);
+
+  /// L2 是否**必须**带凭据 —— 维护者 2026-10-03 定的是「可选」，所以这里应为 false。
+  bool get remoteExecutionL2RequiresAuth =>
+      boolOf(const ['capabilities', 'remoteExecution', 'auth', 'l2Requires']) ==
+      true;
+
+  /// L3 是否**必须**带凭据 —— 维护者定的是「必须」，所以这里应为 true。
+  bool get remoteExecutionL3RequiresAuth =>
+      boolOf(const ['capabilities', 'remoteExecution', 'auth', 'l3Requires']) ==
+      true;
+
+  int get remoteExecutionDelayDefaultSeconds =>
+      intOf(const [
+        'capabilities',
+        'remoteExecution',
+        'delay',
+        'defaultSeconds',
+      ]) ??
+      -1;
+
+  int get remoteExecutionDelayMinSeconds =>
+      intOf(const ['capabilities', 'remoteExecution', 'delay', 'minSeconds']) ??
+      -1;
+
+  int get remoteExecutionDelayMaxSeconds =>
+      intOf(const ['capabilities', 'remoteExecution', 'delay', 'maxSeconds']) ??
+      -1;
+
+  String get remoteExecutionOnTimeout =>
+      str(const ['capabilities', 'remoteExecution', 'delay', 'onTimeout']) ??
+      '';
+
+  /// 用户在场与否影响计时吗 —— 维护者定的是「不影响」，所以这里应为 false。
+  bool get remoteExecutionPresenceAffectsTiming =>
+      boolOf(const [
+        'capabilities',
+        'remoteExecution',
+        'delay',
+        'userPresenceAffectsTiming',
+      ]) ==
+      true;
+
+  /// 执行状态机的封闭词表（契约 `capabilities.remoteExecution.states`）。
+  List<String> get remoteExecutionStates =>
+      strings(const ['capabilities', 'remoteExecution', 'states']);
+
+  /// 两段回执词（契约 `capabilities.remoteExecution.receipts`）。
+  Map<String, String> get remoteExecutionReceipts {
+    final raw =
+        map(const ['capabilities', 'remoteExecution', 'receipts']) ?? const {};
+    return {for (final e in raw.entries) e.key: '${e.value}'};
+  }
+
+  /// L3 那道闸的形态（契约 `capabilities.l3.confirmForm`）。
+  String get l3ConfirmForm =>
+      str(const ['capabilities', 'l3', 'confirmForm']) ?? '';
+
   /// **开启 L3 本身**要过的那几种本地认证（契约 `capabilities.l3.enableRequiresLocalAuth`）。
   ///
   /// ⚠ 这条与 [FnthinkGrant] 里那条逐次确认是**两道不同的门**：那一道管"这一条设置消息要不要
@@ -2996,6 +3069,57 @@ class FnthinkContract {
       strings(const ['capabilities', 'levels']).contains(requestable) &&
           requestable != 'L3',
       '配对时可请求的最高级别必须是契约已定义的级别且不得是 L3（L3 要本地锁屏/生物认证）',
+    );
+
+    // ── 远程执行（片1：契约先行，读口与判据成对）──
+    for (final level in const ['L1', 'L2', 'L3']) {
+      need(
+        remoteExecutionSourcesFor(level).isNotEmpty,
+        'capabilities.remoteExecution.sources.$level 为空：这一档没有任何渠道允许，等于把它禁掉',
+      );
+    }
+    for (final level in const ['L2', 'L3']) {
+      final sources = remoteExecutionSourcesFor(level);
+      need(
+        sources.every((s) => s == 'fnthink'),
+        'capabilities.remoteExecution.sources.$level 只允许 fnthink（维护者定：L2/L3 仅幻念推送），实为 $sources',
+      );
+    }
+    need(
+      remoteExecutionAuthModes.contains('key') &&
+          remoteExecutionAuthModes.contains('totp'),
+      'capabilities.remoteExecution.auth.modes 必须同时含 key 与 totp（L3 二者其一即可用）',
+    );
+    need(
+      !remoteExecutionL2RequiresAuth && remoteExecutionL3RequiresAuth,
+      '凭据是 L2 可选、L3 必填（维护者定）；写反了就是一个安全漏',
+    );
+    need(
+      remoteExecutionDelayMinSeconds <= remoteExecutionDelayDefaultSeconds &&
+          remoteExecutionDelayDefaultSeconds <= remoteExecutionDelayMaxSeconds,
+      '延时窗口的默认值要落在 [minSeconds, maxSeconds] 里：'
+      '${remoteExecutionDelayDefaultSeconds}s',
+    );
+    need(
+      remoteExecutionOnTimeout == 'execute',
+      '超时语义必须是 execute（维护者定：所有级别超时默认执行）',
+    );
+    need(!remoteExecutionPresenceAffectsTiming, '用户在场与否不影响计时（维护者定）');
+    need(
+      remoteExecutionStates.contains('executing') &&
+          remoteExecutionStates.contains('cancelled'),
+      '执行状态词表必须含 executing（两段回执那一段）与 cancelled（窗口内撤销）',
+    );
+    final receiptWords = strings(const ['receipts']);
+    final twoStageReceipts = remoteExecutionReceipts;
+    need(
+      twoStageReceipts.length == 2 &&
+          twoStageReceipts.values.every(receiptWords.contains),
+      '两段回执词必须是 receipts 词表里的词（不许另造一份词表）：$twoStageReceipts',
+    );
+    need(
+      l3ConfirmForm == 'cancelableDelay',
+      'L3 那道闸是 cancelableDelay（改形不改内核：那个窗口就是"每次确认"的新形式）',
     );
 
     return problems;
