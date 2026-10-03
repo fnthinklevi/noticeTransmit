@@ -6,13 +6,15 @@ import 'package:notice_transmit/services/fnthink_l3_grants.dart';
 
 /// T52：权限引导页背后那一份**读模型**。
 ///
-/// 页面要展示的是「契约里那几项系统设置，这一台各自给了没有」。这一组用例钉的
-/// 全是**这一件事的四种说法不能被混成一种**：
-///  ① 给了；② 没给（要用户去开）；③ 这台读不到（没查到 ≠ 没给）；④ 这台压根没有这一项。
+/// 页面要展示的是「契约里那几项系统设置，这一台各自是哪一态」。这一组用例钉的全是
+/// **四态不能被混成一态**：
+///  ① `granted` 给了；② `missing` 没给（要用户去开）；
+///  ③ `unreadable` 读不到（没查到 ≠ 没给，要修的是代码）；
+///  ④ `unsupported` 这台压根没有这一项（设备事实，换一台就变）。
 ///
-/// ⚠ ②③④ 混成一种是本仓修过的老 bug 的形状（权限页恒显「已授予」）：把「不知道」
-/// 显示成「有」，用户就再也不会去查那一格。这里刻意让三句话各不相同，
-/// 并且让**未授权项留在列表里**（置灰 + 一句解释），而不是被折叠掉。
+/// ⚠ ②③④ 合成一种是本仓修过的老 bug 的形状（权限页恒显「已授予」）：把「不知道」
+/// 显示成「有」，用户就再也不会去查那一格。这里同时钉住**未授权项留在列表里**
+/// （置灰 + 一句说明），而不是被折叠掉。
 void main() {
   final contract = FnthinkContract.readFile();
   final keys = contract.l3Settings.keys.toList();
@@ -22,42 +24,103 @@ void main() {
     for (final k in keys) k: granted,
   };
 
-  group('七种读法收成一处', () {
-    test('每一项都在列表里，且次序取自契约', () {
-      final rows = collectL3GrantRows(contract, readers: allReaders());
-      expect(rows.map((r) => r.key).toList(), keys);
-      expect(rows.length, contract.l3Settings.length);
+  FnthinkL3GrantRow rowOf(List<FnthinkL3GrantRow> rows, String key) =>
+      rows.firstWhere((r) => r.key == key);
+
+  group('四态不合并', () {
+    test('true / false / null 各落一态，且这三态今天就都在词表里跑得通', () {
+      final rows = collectL3GrantRows(
+        contract,
+        readers: allReaders()
+          ..['notification'] = true
+          ..['dnd_access'] = false
+          ..['exact_alarm'] = null,
+      );
+      expect(rowOf(rows, 'notification').state, FnthinkL3GrantState.granted);
+      expect(rowOf(rows, 'dnd_access').state, FnthinkL3GrantState.missing);
+      expect(rowOf(rows, 'exact_alarm').state, FnthinkL3GrantState.unreadable);
     });
 
-    test('读不到的一项仍列出，说的是「读不到」而不是「未授权」', () {
+    test('读不到的一项仍列出，且不降级成「未授权」', () {
+      // ⚠ 这一条才是本片的重点：读不到要的是**修代码**，未授权要的是**用户动手**。
+      // 合成一态之后，界面上会出现一句催用户去开的话，而那一格压根没有读数可催。
       final rows = collectL3GrantRows(
         contract,
         readers: allReaders()..['exact_alarm'] = null,
       );
-      final row = rows.firstWhere((r) => r.key == 'exact_alarm');
+      final row = rowOf(rows, 'exact_alarm');
+      expect(row.unreadable, isTrue);
       expect(row.granted, isFalse);
-      expect(row.detail, unreadableDetail);
-      // ⚠ 这一条才是本片的重点：三句话必须各不相同。合成一句，界面上就分不清
-      // 「用户没去开」与「这条通道压根没读数」—— 后者要修的是代码，前者要动的是用户。
-      expect(unreadableDetail, isNot(defaultDetail));
-      expect(unreadableDetail, isNot(unsupportedDetail));
+      expect(
+        row.needsUserAction,
+        isFalse,
+        reason: 'unreadable 不该被算进「等用户去开」那一堆',
+      );
     });
 
     test('readers 里干脆没有这个键，与读到 null 同一种下场', () {
-      // 少注册一个读法（换了个 Android 版本、那个方法没实现）在调用方看来就是
+      // 少注册一个读法（那个方法在这个 Android 版本上没实现）在调用方看来就是
       // 取不到值，与显式 null 没有区别 —— 两种都得落在「读不到」那一档。
       final missing = allReaders()..remove('dnd_access');
       final absent = allReaders()..['dnd_access'] = null;
-      final a = collectL3GrantRows(contract, readers: missing);
-      final b = collectL3GrantRows(contract, readers: absent);
       expect(
-        a.firstWhere((r) => r.key == 'dnd_access').detail,
-        b.firstWhere((r) => r.key == 'dnd_access').detail,
+        rowOf(
+          collectL3GrantRows(contract, readers: missing),
+          'dnd_access',
+        ).state,
+        FnthinkL3GrantState.unreadable,
       );
       expect(
-        a.firstWhere((r) => r.key == 'dnd_access').detail,
-        unreadableDetail,
+        rowOf(
+          collectL3GrantRows(contract, readers: absent),
+          'dnd_access',
+        ).state,
+        FnthinkL3GrantState.unreadable,
       );
+    });
+
+    test('「这台没有」是第四态，不与「用户没开」共用一档', () {
+      // ⚠ 与 missing 混起来，用户会一直为一个换台手机就不存在的问题去设置里找开关。
+      final rows = unsupportedL3Grants(
+        contract,
+        keys.where((k) => k != 'autostart').toSet(),
+      );
+      expect(rows.map((r) => r.key).toList(), ['autostart']);
+      expect(rows.single.state, FnthinkL3GrantState.unsupported);
+      expect(rows.single.granted, isFalse);
+      expect(rows.single.needsUserAction, isFalse);
+      expect(unsupportedL3Grants(contract, keys.toSet()), isEmpty);
+    });
+
+    test('四态各有来路：今天每一条都真造得出来（不是写着好看）', () {
+      final produced = <FnthinkL3GrantState>{};
+      produced.addAll(
+        collectL3GrantRows(contract, readers: allReaders()).map((r) => r.state),
+      );
+      produced.addAll(
+        collectL3GrantRows(
+          contract,
+          readers: allReaders(granted: false),
+        ).map((r) => r.state),
+      );
+      produced.addAll(
+        collectL3GrantRows(
+          contract,
+          readers: const <String, bool?>{},
+        ).map((r) => r.state),
+      );
+      produced.addAll(
+        unsupportedL3Grants(contract, const <String>{}).map((r) => r.state),
+      );
+      expect(produced, FnthinkL3GrantState.values.toSet());
+    });
+  });
+
+  group('置灰而不是隐藏', () {
+    test('每一项都在列表里，且次序取自契约', () {
+      final rows = collectL3GrantRows(contract, readers: allReaders());
+      expect(rows.map((r) => r.key).toList(), keys);
+      expect(rows.length, contract.l3Settings.length);
     });
 
     test('全部未授权时一行都不少（未授权是置灰，不是隐藏）', () {
@@ -74,30 +137,22 @@ void main() {
       );
     });
 
-    test('已授权的那一项不配解释（给了还说"你还没给"是自相矛盾）', () {
-      final rows = collectL3GrantRows(
-        contract,
-        readers: allReaders()..['notification'] = false,
-        details: const {'notification': '不开这一项，收不到任何通知'},
-      );
-      expect(
-        rows.firstWhere((r) => r.key == 'notification').detail,
-        '不开这一项，收不到任何通知',
-      );
-      expect(
-        rows.firstWhere((r) => r.key == 'battery_optimization').detail,
-        isEmpty,
-      );
+    test('全部读不到时同样一行都不少', () {
+      // 「这台读不到」那一支与「读到值」那一支是两段代码，只查前者等于没查后者。
+      final rows = collectL3GrantRows(contract, readers: const {});
+      expect(rows.length, contract.l3Settings.length);
+      expect(rows.every((r) => r.unreadable), isTrue);
     });
+  });
 
-    test('每行带的落点来自契约，不在代码里另写一份', () {
-      // ⚠ 两支都要查：'读到值'那一支走 l3GrantRow（落点取自 setting），
-      // '读不到'那一支在 collectL3GrantRows 里就地造行 —— 只查前者，后者改坏了没人喊。
-      for (final rows in [
+  group('每行带的仍是契约里那一份', () {
+    test('落点与形态取自契约，两种读法造出的行都查', () {
+      final rows = [
         collectL3GrantRows(contract, readers: allReaders()),
-        collectL3GrantRows(contract, readers: const <String, bool?>{}),
-      ]) {
-        for (final row in rows) {
+        unsupportedL3Grants(contract, const <String>{}),
+      ];
+      for (final batch in rows) {
+        for (final row in batch) {
           final setting = contract.l3Settings[row.key]!;
           expect(
             row.native,
@@ -109,6 +164,21 @@ void main() {
         }
       }
     });
+
+    test('已授权的那一项不配说明（给了还说"你还没给"是自相矛盾）', () {
+      final rows = collectL3GrantRows(
+        contract,
+        readers: allReaders()
+          ..['notification'] = false
+          ..['dnd_access'] = true,
+        notes: const {
+          'notification': '不开这一项，收不到任何通知',
+          'dnd_access': '这句在已授权时用不上',
+        },
+      );
+      expect(rowOf(rows, 'notification').note, '不开这一项，收不到任何通知');
+      expect(rowOf(rows, 'dnd_access').note, isEmpty);
+    });
   });
 
   group('l3GrantRow：词表外的一行造不出来', () {
@@ -117,8 +187,7 @@ void main() {
         () => l3GrantRow(
           contract,
           'foreground_service',
-          granted: false,
-          detailWhenMissing: '这一项在 8.162 已从契约删掉',
+          state: FnthinkL3GrantState.missing,
         ),
         throwsA(
           isA<StateError>().having(
@@ -135,13 +204,13 @@ void main() {
       final row = l3GrantRow(
         contract,
         'monitoring',
-        granted: true,
-        detailWhenMissing: '没开',
+        state: FnthinkL3GrantState.granted,
+        note: '这句该被丢掉',
       );
       expect(row.mode, 'toggle');
       expect(row.directlyToggleable, isTrue);
       expect(row.granted, isTrue);
-      expect(row.detail, isEmpty);
+      expect(row.note, isEmpty);
     });
   });
 
@@ -153,15 +222,34 @@ void main() {
           ..['notification'] = true
           ..['battery_optimization'] = true,
       );
-      final outstanding = outstandingL3Grants(rows);
-      expect(outstanding.map((r) => r.key).toList(), [
+      expect(outstandingL3Grants(rows).map((r) => r.key).toList(), [
         'dnd_access',
         'exact_alarm',
         'autostart',
         'monitoring',
         'collect_inbox',
       ]);
-      expect(outstanding.every((r) => r.needsUserAction), isTrue);
+    });
+
+    test('读不到与这台没有的，都不算进「等用户去开」', () {
+      // 「还差哪几项」这一句是要催人的：把没有读数的那格算进去，催的是修代码的人；
+      // 把这台没有的那格算进去，催的是一件在这台设备上做不成的事。
+      final rows = [
+        ...collectL3GrantRows(
+          contract,
+          readers: allReaders()
+            ..['notification'] = false
+            ..['dnd_access'] = null
+            ..remove('exact_alarm'),
+        ),
+        ...unsupportedL3Grants(
+          contract,
+          keys.where((k) => k != 'battery_optimization').toSet(),
+        ),
+      ];
+      expect(outstandingL3Grants(rows).map((r) => r.key).toList(), [
+        'notification',
+      ]);
     });
 
     test('全给了 ⇒ 空清单（而不是"没有这一项"）', () {
@@ -171,17 +259,6 @@ void main() {
         ),
         isEmpty,
       );
-    });
-  });
-
-  group('unsupportedL3Grants：「这台没有」与「用户没开」是两件事', () {
-    test('契约里有、这台没有的那几项被点名，且带的是「这台没有」那句', () {
-      final supported = keys.where((k) => k != 'autostart').toSet();
-      final rows = unsupportedL3Grants(contract, supported);
-      expect(rows.map((r) => r.key).toList(), ['autostart']);
-      expect(rows.single.detail, unsupportedDetail);
-      expect(rows.single.granted, isFalse);
-      expect(unsupportedL3Grants(contract, keys.toSet()), isEmpty);
     });
   });
 
