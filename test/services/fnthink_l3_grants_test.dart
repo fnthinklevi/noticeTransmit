@@ -33,11 +33,14 @@ void main() {
         contract,
         readers: allReaders()
           ..['notification'] = true
-          ..['dnd_access'] = false
+          ..['battery_optimization'] = false
           ..['exact_alarm'] = null,
       );
       expect(rowOf(rows, 'notification').state, FnthinkL3GrantState.granted);
-      expect(rowOf(rows, 'dnd_access').state, FnthinkL3GrantState.missing);
+      expect(
+        rowOf(rows, 'battery_optimization').state,
+        FnthinkL3GrantState.missing,
+      );
       expect(rowOf(rows, 'exact_alarm').state, FnthinkL3GrantState.unreadable);
     });
 
@@ -61,19 +64,19 @@ void main() {
     test('readers 里干脆没有这个键，与读到 null 同一种下场', () {
       // 少注册一个读法（那个方法在这个 Android 版本上没实现）在调用方看来就是
       // 取不到值，与显式 null 没有区别 —— 两种都得落在「读不到」那一档。
-      final missing = allReaders()..remove('dnd_access');
-      final absent = allReaders()..['dnd_access'] = null;
+      final missing = allReaders()..remove('battery_optimization');
+      final absent = allReaders()..['battery_optimization'] = null;
       expect(
         rowOf(
           collectL3GrantRows(contract, readers: missing),
-          'dnd_access',
+          'battery_optimization',
         ).state,
         FnthinkL3GrantState.unreadable,
       );
       expect(
         rowOf(
           collectL3GrantRows(contract, readers: absent),
-          'dnd_access',
+          'battery_optimization',
         ).state,
         FnthinkL3GrantState.unreadable,
       );
@@ -170,14 +173,14 @@ void main() {
         contract,
         readers: allReaders()
           ..['notification'] = false
-          ..['dnd_access'] = true,
+          ..['battery_optimization'] = true,
         notes: const {
           'notification': '不开这一项，收不到任何通知',
-          'dnd_access': '这句在已授权时用不上',
+          'battery_optimization': '这句在已授权时用不上',
         },
       );
       expect(rowOf(rows, 'notification').note, '不开这一项，收不到任何通知');
-      expect(rowOf(rows, 'dnd_access').note, isEmpty);
+      expect(rowOf(rows, 'battery_optimization').note, isEmpty);
     });
   });
 
@@ -223,7 +226,6 @@ void main() {
           ..['battery_optimization'] = true,
       );
       expect(outstandingL3Grants(rows).map((r) => r.key).toList(), [
-        'dnd_access',
         'exact_alarm',
         'autostart',
         'monitoring',
@@ -239,7 +241,7 @@ void main() {
           contract,
           readers: allReaders()
             ..['notification'] = false
-            ..['dnd_access'] = null
+            ..['battery_optimization'] = null
             ..remove('exact_alarm'),
         ),
         ...unsupportedL3Grants(

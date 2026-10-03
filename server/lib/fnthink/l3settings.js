@@ -12,7 +12,7 @@
 /// 把载荷里那个 `item` 读成设置项。
 ///
 /// ⚠ 与 L2 的差别：L3 的 `item` **就是**设置项的 key，没有 `<family>:<verb>` 那一层
-/// 拆分 —— 设置项本身已经带命名空间（`write_settings` / `battery_optimization`），
+/// 拆分 —— 设置项本身已经带命名空间（`battery_optimization` / `collect_inbox`），
 /// 再套一层前缀只会让"这项是哪个"有两个写法。
 ///
 /// 四种拒的理由各不相同，**不许合并**（与 L2 同一条纪律）：

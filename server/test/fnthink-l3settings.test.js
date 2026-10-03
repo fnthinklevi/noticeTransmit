@@ -13,11 +13,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { assertSupported, loadContract } = require('../lib/fnthink/contract');
-const {
-  l3ReceiptFor,
-  l3SettingsKnownToServer,
-  parseL3Item,
-} = require('../lib/fnthink/l3settings');
+const { l3ReceiptFor, l3SettingsKnownToServer, parseL3Item } = require('../lib/fnthink/l3settings');
 
 const CONTRACT_PATH = path.join(__dirname, '..', '..', 'protocol', 'fnthink-v1.json');
 
@@ -31,8 +27,10 @@ describe('L3 设置词表（契约是唯一出处，T51）', () => {
     expect(() => assertSupported(loadContract())).not.toThrow();
   });
 
-  test('九项，且每一项都带 mode 与 native', () => {
-    expect(Object.keys(settings)).toHaveLength(9);
+  test('词表非空，且每一项都带 mode 与 native（项数不在这里写死）', () => {
+    // ⚠ 曾经写死 `toHaveLength(9)`：8.162 删了两项、8.165 又删了一项，那一条就一直在红，
+    // 而"项数"根本不是这一条要守的东西 —— 词表只能由契约改，改几项是内容不是不变量。
+    expect(Object.keys(settings).length).toBeGreaterThan(0);
     for (const [key, spec] of Object.entries(settings)) {
       expect(typeof spec.mode).toBe('string');
       expect(spec.mode).not.toBe('');
@@ -74,9 +72,13 @@ describe('parseL3Item：四种拒的理由各不相同', () => {
   const c = JSON.parse(fs.readFileSync(CONTRACT_PATH, 'utf8'));
 
   test('认得出的两项各解析出设置项（确认过之后）', () => {
-    expect(parseL3Item(c, 'write_settings', { confirmedThisTime: true })).toEqual({
+    expect(parseL3Item(c, 'battery_optimization', { confirmedThisTime: true })).toEqual({
       ok: true,
-      setting: { key: 'write_settings', mode: 'grant', native: 'requestWriteSettings' },
+      setting: {
+        key: 'battery_optimization',
+        mode: 'grant',
+        native: 'requestBatteryOptimization',
+      },
     });
     expect(
       parseL3Item(c, 'monitoring', {
@@ -85,7 +87,7 @@ describe('parseL3Item：四种拒的理由各不相同', () => {
       }),
     ).toEqual({
       ok: true,
-      setting: { key: 'monitoring', mode: 'toggle', native: 'toggleMonitoring' },
+      setting: { key: 'monitoring', mode: 'toggle', native: 'setMonitoringEnabledPref' },
     });
   });
 
@@ -107,7 +109,7 @@ describe('parseL3Item：四种拒的理由各不相同', () => {
   });
 
   test('没确认 ⇒ confirm-required（且没有免确认这条路）', () => {
-    expect(parseL3Item(c, 'write_settings', {})).toEqual({
+    expect(parseL3Item(c, 'battery_optimization', {})).toEqual({
       ok: false,
       reason: 'confirm-required',
     });
@@ -115,9 +117,10 @@ describe('parseL3Item：四种拒的理由各不相同', () => {
   });
 
   test('先有授权才谈得上翻的项，缺授权就是缺（不自动去拿）', () => {
-    expect(
-      parseL3Item(c, 'monitoring', { confirmedThisTime: true, grantedKeys: [] }),
-    ).toEqual({ ok: false, reason: 'missing-grant:monitoring' });
+    expect(parseL3Item(c, 'monitoring', { confirmedThisTime: true, grantedKeys: [] })).toEqual({
+      ok: false,
+      reason: 'missing-grant:monitoring',
+    });
     expect(
       parseL3Item(c, 'monitoring', {
         confirmedThisTime: true,
@@ -157,8 +160,8 @@ describe('回执：成功与失败对外各是哪一个词', () => {
   });
 
   test('本地细节只进 reason，不进对外那个词', () => {
-    const w = l3ReceiptFor(c, { ok: false, reason: 'not-applied:write_settings' });
-    expect(w).not.toContain('write_settings');
+    const w = l3ReceiptFor(c, { ok: false, reason: 'not-applied:battery_optimization' });
+    expect(w).not.toContain('battery_optimization');
     expect(w).toBe('failed_action');
   });
 

@@ -13,11 +13,7 @@ const path = require('path');
 const fs = require('fs');
 
 const { assertSupported, loadContract } = require('../lib/fnthink/contract');
-const {
-  l2ActionsKnownToServer,
-  l2ReceiptFor,
-  parseL2Item,
-} = require('../lib/fnthink/l2actions');
+const { l2ActionsKnownToServer, l2ReceiptFor, parseL2Item } = require('../lib/fnthink/l2actions');
 
 const CONTRACT_PATH = path.join(__dirname, '..', '..', 'protocol', 'fnthink-v1.json');
 

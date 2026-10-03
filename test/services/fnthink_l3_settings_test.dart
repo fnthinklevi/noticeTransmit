@@ -38,7 +38,7 @@ void main() {
   final contract = FnthinkContract.readFile();
 
   group('契约词表（唯一出处）', () {
-    test('读得到九项设置，且每一项都有形态与落点', () {
+    test('读得到设置项，且每一项都有形态与落点（项数不在这里写死）', () {
       final settings = contract.l3Settings;
       expect(settings, isNotEmpty);
       expect(
