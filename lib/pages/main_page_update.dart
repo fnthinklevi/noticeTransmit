@@ -140,7 +140,10 @@ extension _MainPageUpdate on _MainPageState {
           l10n.updateCurrentVersionLabel,
           'v${_updateService.currentVersion}',
         ),
-        _infoRow(l10n.updateFileSizeLabel, result.fileSizeStr),
+        _infoRow(
+          l10n.updateFileSizeLabel,
+          result.fileSizeStr ?? l10n.updateSizeUnknown,
+        ),
         const SizedBox(height: 16),
         Text(
           l10n.updateChangelogTitle,

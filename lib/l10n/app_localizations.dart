@@ -6877,6 +6877,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'下载失败：HTTP {code}'**
   String updateFailHttpStatus(int code);
+
+  /// No description provided for @updateSizeUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知'**
+  String get updateSizeUnknown;
 }
 
 class _AppLocalizationsDelegate

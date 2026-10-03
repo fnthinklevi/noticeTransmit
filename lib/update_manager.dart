@@ -1062,8 +1062,10 @@ class VersionCheckResult {
     );
   }
 
-  String get fileSizeStr {
-    if (fileSize <= 0) return '未知';
+  /// 包体大小那一行；**拿不到就给 null**，让界面出词（服务层不再住
+  /// 「未知」这种会显示给用户的中文 —— T62 收尾）。
+  String? get fileSizeStr {
+    if (fileSize <= 0) return null;
     if (fileSize < 1024) return '$fileSize B';
     if (fileSize < 1024 * 1024) {
       return '${(fileSize / 1024).toStringAsFixed(1)} KB';

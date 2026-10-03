@@ -3922,4 +3922,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String updateFailHttpStatus(int code) {
     return 'Download failed: HTTP $code.';
   }
+
+  @override
+  String get updateSizeUnknown => 'Unknown';
 }

@@ -3751,4 +3751,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String updateFailHttpStatus(int code) {
     return '下载失败：HTTP $code';
   }
+
+  @override
+  String get updateSizeUnknown => '未知';
 }

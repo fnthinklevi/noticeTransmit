@@ -2072,5 +2072,6 @@
   "updateFailDownloader": "System downloader failed{detail}.",
   "@updateFailDownloader": {"description": "系统下载器失败那一句；{detail} 是原生给的 reasonText（带括号或空串）", "placeholders": {"detail": {"type": "String"}}},
   "updateFailHttpStatus": "Download failed: HTTP {code}.",
-  "@updateFailHttpStatus": {"description": "按 HTTP 状态码报失败；{code} 是状态码", "placeholders": {"code": {"type": "int"}}}
+  "@updateFailHttpStatus": {"description": "按 HTTP 状态码报失败；{code} 是状态码", "placeholders": {"code": {"type": "int"}}},
+  "updateSizeUnknown": "Unknown"
 }

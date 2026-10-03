@@ -55,10 +55,18 @@ void main() {
   });
 
   test('② 服务层代码里不再有"已阻止安装"这类会显示给人的中文句子', () {
+    final code = stripComments(manager);
     expect(
-      stripComments(manager).contains('已阻止安装'),
+      code.contains('已阻止安装'),
       isFalse,
       reason: '这三句已进 ARB；再出现就是有人把措辞抄回了服务层',
+    );
+    expect(
+      code.contains("'未知'"),
+      isFalse,
+      reason:
+          '「未知」是给用户看的那半句（大小那一行），该由界面出词；'
+          '服务层里只剩日志类中文（那条口径见 roadmap §7 8.170/8.171）',
     );
   });
 
