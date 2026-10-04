@@ -98,6 +98,7 @@ class FnthinkLoopSpec {
     required this.persist,
     this.display,
     this.recordAck,
+    this.onCommand,
     this.onRound,
     this.client,
     this.pollSeconds,
@@ -119,6 +120,12 @@ class FnthinkLoopSpec {
     required int at,
   })?
   recordAck;
+
+  /// 这一条收件是不是一条**远程指令**（片3c）。null = 这台没有远程执行那条链路。
+  ///
+  /// ⚠ 它排在**落库之后、显示之前**：早于落库 ⇒ 远程指令不进收件表（"对方发来过什么"
+  /// 就查不到）；晚于显示 ⇒ 指令以普通通知的形状弹出来。判定与执行都在那一格自己手里。
+  final Future<bool> Function(FnthinkInboxMessage message)? onCommand;
 
   /// 每轮结束后的账（**只**用来把这一轮 poll 到的配对请求交给协调者，见 [FnthinkReceiveLoop.onRound]）。
   /// 由协调者在 `_resolveSpec` 里填 `_noteRound`，所以这里带着它出去、`buildFnthinkReceiveLoop` 再把它接上。
@@ -217,6 +224,7 @@ class FnthinkReceiveCoordinator {
     required this.persist,
     this.display,
     this.recordAck,
+    this.onCommand,
     this.recordPeer,
     this.removePeer,
     this.presenceNotice,
@@ -251,6 +259,12 @@ class FnthinkReceiveCoordinator {
     required int at,
   })?
   recordAck;
+
+  /// 这一条收件是不是一条**远程指令**（片3c）。null = 这台没有远程执行那条链路。
+  ///
+  /// ⚠ 漏接时的表现不是「指令不执行」，而是**它会作为一条普通通知弹出来** ——
+  ///   那是「远程指令被当成通知显示掉」的形状，比不执行更难查。
+  final Future<bool> Function(FnthinkInboxMessage message)? onCommand;
 
   /// 服务端**认了**一条授权之后，把这一条写进本机配对名单（`fnthink_peers`）。
   /// null = 这台设备没装配落库链路 ⇒ 名单不写，而结论里会带着 [FnthinkPeerSkip.storeUnavailable]
@@ -502,6 +516,8 @@ class FnthinkReceiveCoordinator {
       persist: persist,
       display: display,
       recordAck: recordAck,
+      // 片3c：远程指令判定那一格（null = 这台没装远程执行 ⇒ 照常当通知）。
+      onCommand: onCommand,
       // 后台那几轮也要有人记账：只有页面"立即收取"那一条接了 `_noteRound`，
       // 待确认列表就会变成"点了按钮才有人来"，而开关开着时它本来就是自动在收的。
       onRound: _noteRound,

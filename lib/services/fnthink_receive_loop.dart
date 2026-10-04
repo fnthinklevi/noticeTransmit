@@ -38,6 +38,7 @@ class FnthinkReceiveLoop {
     required this.persist,
     this.display,
     this.recordAck,
+    this.onCommand,
     int Function()? nowMs,
     Timer Function(Duration delay, void Function() callback)? schedule,
     this.onRound,
@@ -74,6 +75,19 @@ class FnthinkReceiveLoop {
     required int at,
   })?
   recordAck;
+
+  /// **这一条收件里是不是一条远程指令**（远程执行 片3c）。回 true = 是。
+  ///
+  /// ⚠ 为什么它排在**落库之后、显示之前**，而不是更早：
+  ///  - 早于落库的话，一条远程指令就**不会进收件表** —— 而"对方发来过什么"必须查得到
+  ///    （用户会问"它到底对我做了什么"，而答案是"收件表里没有这一条"）；
+  ///  - 晚于显示的话，指令会以一条普通通知的形状弹出来 —— 那正是
+  ///    「远程指令被当成通知显示掉」这个形状。
+  ///
+  /// ⚠ **它只回答"是不是"**，不执行任何东西：判定权在那一格自己手里（凭据、延时、
+  /// 执行、回执全在那边），循环这一层不碰协议 —— 那样第二条读者就长出来了。
+  /// null = 这台设备没有远程执行那条链路 ⇒ 一律当普通通知（**不静默丢弃**）。
+  final Future<bool> Function(FnthinkInboxMessage message)? onCommand;
 
   final int Function() nowMs;
   final Timer Function(Duration delay, void Function() callback) schedule;
@@ -174,6 +188,14 @@ class FnthinkReceiveLoop {
         persistedFailed++;
         continue; // ① 没落到盘上的这条**不显示也不 ack**：ack 会让服务端删正文
       }
+      // ⑥ 远程指令（片3c）：**落库之后、显示之前**问一次。
+      //    命中 ⇒ 不按通知显示 —— 那正是「指令被当成通知弹出来」的形状；
+      //    而它仍然进收件表（"对方发来过什么"必须查得到）。
+      //    没命中 / 这一格没接 ⇒ 照常当一条通知（**不静默丢弃**）。
+      if (await _isRemoteCommand(row)) {
+        toAck[row.messageId] = 'delivered';
+        continue;
+      }
       // ⑤ 显示成功才报 displayed。报错了那条结论就是替服务端宣布"用户看过了"，
       //    而它下一秒就会把正文删掉 —— 用户两头都没见到。
       final displayed = await _displayRow(row);
@@ -220,6 +242,19 @@ class FnthinkReceiveLoop {
   }
 
   /// 显示这条收件。没接链路 = 没显示；抛异常 = 没显示（两种都退回 delivered）。
+  /// 这一条是不是一条远程指令。**异常一律当"不是"** —— 抛出来的话这一轮就断了，
+  /// 而"这一格坏了"不该让整批通知都取不到货（那是把一条链的故障扩大成全链的故障）。
+  Future<bool> _isRemoteCommand(FnthinkInboxMessage message) async {
+    final hook = onCommand;
+    if (hook == null) return false;
+    try {
+      return await hook(message);
+    } catch (e) {
+      debugPrint('[fnthink] 远程指令判定异常（按普通通知处理）: ${message.messageId} $e');
+      return false;
+    }
+  }
+
   Future<bool> _displayRow(FnthinkInboxMessage message) async {
     final show = display;
     if (show == null) return false;
