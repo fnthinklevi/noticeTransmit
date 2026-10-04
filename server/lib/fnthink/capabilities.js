@@ -35,8 +35,15 @@ function grantFromNode(contract, node) {
 /// - `intake`（服务端收单）：只判 词表 / 档位 / 逐条清单。**这一段判不了"每次本地确认"** ——
 ///   确认发生在设备上，而服务端收到的请求里那个字段是**对端自称**的：拿它当确认，
 ///   等于让发送方替接收方点"我确认了"（那条红线：不许远端悄悄执行本地动作）。
-///   所以 intake 遇到 L3 放行时会带 `requiresLocalConfirm: true`，交给设备在 apply 那一段判。
+///   所以 intake 遇到 L3 放行时会带 `requiresApplyConfirm: true`，交给设备在 apply 那一段判。
 /// - `apply`（设备落地之前）：四条全判，其中确认取自**本机**那一次用户动作。
+///
+/// ⚠⚠ **apply 段今天没有任何调用方**（如实登记，2026-10-05）：确认那道闸的形式
+///   已改成「延时窗口内未撤销」（契约 `l3.confirmForm = cancelableDelay`，2026-10-04 定），
+///   而窗口在**设备侧**走（`RemoteCommandRunner` 到点那一刻自己判）。
+///   服务端**不该**再有 apply 段的调用方 —— 拿请求里那个自称的标志当确认，
+///   等于让发送方替接收方点头（T30 那条红线）。这一段留着不删，是那三判的完整形状；
+///   若哪天确认又回到服务端，必须重新接线并补用例。
 function decideCapability(contract, input) {
   const capabilities = contract.capabilities || {};
   const defaults = capabilities.grantDefaults || {};
@@ -49,30 +56,30 @@ function decideCapability(contract, input) {
   const need = entry ? String(entry.minLevel || '') : null;
   // 认不出的 type 一律拒，不往任何一侧兜底：兜底等于把词表的解释权交给对端。
   if (!need)
-    return { allowed: false, reason: `unknown-type:${input.type}`, requiresLocalConfirm: false };
+    return { allowed: false, reason: `unknown-type:${input.type}`, requiresApplyConfirm: false };
   const grant = input.grant || { maxLevel: defaults.maxLevel, items: [] };
   if (levelRank(levels, need) > levelRank(levels, grant.maxLevel)) {
-    return { allowed: false, reason: `level:${need}`, requiresLocalConfirm: false };
+    return { allowed: false, reason: `level:${need}`, requiresApplyConfirm: false };
   }
   if (levelRank(levels, need) >= levelRank(levels, capabilities.itemRequiredFromLevel)) {
     const item = input.item === undefined || input.item === null ? '' : String(input.item);
-    if (item === '') return { allowed: false, reason: 'missing-item', requiresLocalConfirm: false };
+    if (item === '') return { allowed: false, reason: 'missing-item', requiresApplyConfirm: false };
     if (!(grant.items || []).includes(item)) {
-      return { allowed: false, reason: `item:${item}`, requiresLocalConfirm: false };
+      return { allowed: false, reason: `item:${item}`, requiresApplyConfirm: false };
     }
   }
   const topLevel = levels.length ? levels[levels.length - 1] : '';
   const l3 = capabilities.l3 || {};
   const needsConfirm = need === topLevel && l3.confirmEveryTime === true;
-  if (!needsConfirm) return { allowed: true, reason: null, requiresLocalConfirm: false };
+  if (!needsConfirm) return { allowed: true, reason: null, requiresApplyConfirm: false };
   if (input.stage === 'intake') {
     // 收单这段判不了确认，也不许用请求里那个自称的标志替设备判 —— 交给 apply。
-    return { allowed: true, reason: null, requiresLocalConfirm: true };
+    return { allowed: true, reason: null, requiresApplyConfirm: true };
   }
   if (!input.confirmedThisTime) {
-    return { allowed: false, reason: 'confirm-required', requiresLocalConfirm: true };
+    return { allowed: false, reason: 'confirm-required', requiresApplyConfirm: true };
   }
-  return { allowed: true, reason: null, requiresLocalConfirm: true };
+  return { allowed: true, reason: null, requiresApplyConfirm: true };
 }
 
 /// 端点（长期口令、无签名）这一侧的授权：**只有档位，没有逐条清单**。

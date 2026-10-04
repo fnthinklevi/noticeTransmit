@@ -55,9 +55,9 @@ void main() {
         );
         expect(got.reason, want['reason'], reason: '${c['id']} reason');
         expect(
-          got.requiresLocalConfirm,
-          want['requiresLocalConfirm'] == true,
-          reason: '${c['id']} requiresLocalConfirm',
+          got.requiresApplyConfirm,
+          want['requiresApplyConfirm'] == true,
+          reason: '${c['id']} requiresApplyConfirm',
         );
       }
     });

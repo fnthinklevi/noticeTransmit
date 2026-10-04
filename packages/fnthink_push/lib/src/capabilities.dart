@@ -67,9 +67,22 @@ class FnthinkGrant {
 /// 裁决走哪一段。**没有默认值**：两条路径判的不完全是同一件事，
 /// 让调用方不必说清自己是哪一段，就等于允许服务端拿"对端自称已确认"当确认用。
 enum CapabilityStage {
-  /// 服务端收单：只判 词表 / 档位 / 逐条清单。判不了"每次本地确认"（那发生在设备上），
-  /// 到最高档时放行并带 [CapabilityDecision.requiresLocalConfirm]。
+  /// 服务端收单：只判 词表 / 档位 / 逐条清单。判不了那道确认（它在设备上），
+  /// 到最高档时放行并带 [CapabilityDecision.requiresApplyConfirm]。
   intake,
+
+  // ⚠⚠ **apply 段今天没有任何调用方**，如实登记（2026-10-05）。
+  //   这不是"忘了接"：确认那道闸的形式已经改成「延时窗口内未撤销」
+  //   （契约 `l3.confirmForm = cancelableDelay`，2026-10-04 定的），
+  //   而**窗口在设备侧走**——`RemoteCommandRunner` 到点那一刻自己判
+  //   （它就是那一格唯一的执行者，见 `lib/services/fnthink_remote_runner.dart`）。
+  //   服务端**不该**再有 apply 段的调用方：它在服务端能做的仍然是 intake 那三判，
+  //   而"确认过了没有"那个事实只有设备侧知道（拿请求里自称的标志当确认，
+  //   等于让发送方替接收方点头 —— T30 那条红线）。
+  //   留这一段不删：它是那三判的**完整形状**，而删掉它会让"确认那一格在哪判"
+  //   只剩代码里一处、没有词可指。
+  //   **若哪天确认又回到服务端**（例如改成"对面签一次名就当确认"），
+  //   那一格必须重新接线并补用例 —— 别让它以"两段都在"的名义继续躺着。
 
   /// 设备落地之前：四条全判，其中确认取自**本机**那一次用户动作。
   apply,
@@ -78,7 +91,7 @@ enum CapabilityStage {
 /// 裁决结果。**原因只进日志与留痕，不改变对外形状**（能力拒绝发生在身份已证明之后，
 /// 所以它可以被说清楚 —— 与 T27/T28 那条"预授权失败只有一句话"是两回事）。
 class CapabilityDecision {
-  const CapabilityDecision._(this.reason, this.requiresLocalConfirm);
+  const CapabilityDecision._(this.reason, this.requiresApplyConfirm);
 
   static const CapabilityDecision allow = CapabilityDecision._(null, false);
   static const CapabilityDecision allowNeedConfirm = CapabilityDecision._(
@@ -108,8 +121,14 @@ class CapabilityDecision {
   final String? reason;
 
   /// 这一条要不要在落到用户眼前时**再确认一次**（契约 `capabilities.l3.confirmEveryTime`）。
-  /// intake 那一段它只是"提醒"，apply 那一段它是判据。
-  final bool requiresLocalConfirm;
+  ///
+  /// ⚠ **它曾经叫 `requiresApplyConfirm`**，而那个名字在说一件已经不存在的事：
+  ///   「开启 L3 要过本机锁屏/生物认证」那一族在 2026-10-04 被删了
+  ///   （`enableRequiresLocalAuth` 及其读口 `grantableL3Level` 一起删掉的，
+  ///   `l3.confirmForm` 同步改成 `cancelableDelay`）。
+  ///   留着那个名字，下一个人会去找一道并不存在的本地认证。
+  ///   现在它表达的是：**apply 段要判那道确认**（那一格今天在设备侧的延时窗口里）。
+  final bool requiresApplyConfirm;
 
   bool get allowed => reason == null;
 }
