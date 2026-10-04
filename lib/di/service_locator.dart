@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:get_it/get_it.dart';
+import 'package:fnthink_push/fnthink_push.dart';
 import '../database/database_helper.dart';
 import '../services/webhook_service.dart';
 import '../services/battery_service.dart';
@@ -15,6 +18,15 @@ import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_receiver_service.dart';
+import '../services/fnthink_remote_command_handler.dart';
+import '../services/fnthink_remote_executors.dart';
+import '../services/fnthink_remote_runner.dart';
+import '../services/fnthink_remote_settings.dart';
+import '../services/fnthink_remote_wiring.dart';
+import '../services/remote_credential_store.dart';
+import '../services/secure_storage_service.dart';
+import '../services/active_channels.dart';
+import '../services/fnthink_settings.dart';
 import '../services/update_service.dart';
 import '../services/device_info_service.dart';
 import '../services/theme_service.dart';
@@ -137,6 +149,22 @@ void setupLocator() {
             reachable: reachable,
             latencyMs: latencyMs,
           ),
+      // ⚠⚠ 远程执行那一格（片3c-4）。此前 `onCommand` **一个值都没接过** ——
+      //   收货循环从 8.183 起就挂着它，DI 里却没有，于是远程指令消息
+      //   **照常按通知弹出来而没有任何东西动手**（用户看到的："对方说发了指令，我这边响了一声"）。
+      //   全场 Dart 测试仍然绿，因为循环的用例把 hook 当参数传进来、不经过 DI。
+      //
+      //   守卫在 `test/architecture/fnthink_receive_wiring_test.dart`：
+      //   摘掉这一行，红的不是任何一条"远程执行能不能执行"的用例，
+      //   而是"这一格有没有接上"这一条 —— 漏接的那两处（判据写对了、装配没接）
+      //   在别的用例里长得一模一样（都绿）。
+      onCommand: (message) async {
+        // ⚠ 契约还没读到 ⇒ 判不了远程执行，**按普通通知处理**（照常显示）。
+        //   不这么判的话下面那一行 `cached!` 会崩，而崩溃发生在收货循环里
+        //   —— 一次崩溃把整轮收货带走，而那一轮里还有别的普通通知。
+        if (getIt<FnthinkContractLoader>().cached == null) return false;
+        return getIt<RemoteCommandWiring>().onCommand(message);
+      },
     ),
   );
   // 收件（别人推给本机的消息）的读写咽喉：历史页的收件档、下一片的首页未读卡都从这里取同一个数。
@@ -149,6 +177,181 @@ void setupLocator() {
   getIt.registerLazySingleton<FnthinkPeerService>(
     () => FnthinkPeerService(contracts: getIt<FnthinkContractLoader>()),
   );
+
+  // ── 远程执行（片3c-4：把判定层、执行器、执行链接到收货那一格）──
+  // ⚠ 注册顺序无所谓（全 lazy），但**这五处都要在**。少任何一处的表现都是
+  //   「那条指令不执行」或「那一格没接」，而**全场 Dart 测试仍然绿** ——
+  //   远程执行的每一组用例都把依赖当参数传进来，压根不经过 DI。
+  //   所以这一段的值不在用例里，在 `test/architecture/fnthink_receive_wiring_test.dart`。
+  //
+  // ⚠ 下面几处都用 `cached!`：它们只在**契约已读之后**才构造
+  //   （入口是 `onCommand` 那一格，那里先判过 `cached != null`）。
+  //   没发生过远程执行时一个都不会构造 ⇒ 契约也不会被读。
+
+  // 总开关与延时窗口那一份。
+  getIt.registerLazySingleton<FnthinkRemoteSettings>(
+    () =>
+        FnthinkRemoteSettings(contract: getIt<FnthinkContractLoader>().cached!),
+  );
+  // 凭据（只存哈希；高级密钥与二步验证码的种子都在这一份里）。
+  getIt.registerLazySingleton<RemoteCredentialStore>(
+    () => RemoteCredentialStore(
+      contract: getIt<FnthinkContractLoader>().cached!,
+      storage: getIt<SecureStorageService>(),
+    ),
+  );
+  // 判定层（开关 → 渠道 → 凭据 → 词表）。
+  getIt.registerLazySingleton<RemoteCommandRecognizer>(
+    () => RemoteCommandRecognizer(
+      contract: getIt<FnthinkContractLoader>().cached!,
+      settings: getIt<FnthinkRemoteSettings>(),
+      credentials: getIt<RemoteCredentialStore>(),
+    ),
+  );
+  // 两个执行器。
+  getIt.registerLazySingleton<DeviceL2Executor>(
+    () => DeviceL2Executor(
+      setListenerEnabled: ({required bool enabled}) async => enabled
+          ? await getIt<NotificationService>().startService()
+          : await getIt<NotificationService>().stopService(),
+      setChannelEnabled: (target) =>
+          updateChannelEnabled(target.family, target.id, target.enabled),
+      pushDeviceStateNow: _pushDeviceStateOnce,
+    ),
+  );
+  getIt.registerLazySingleton<DeviceL3Executor>(
+    () => DeviceL3Executor(
+      grantNotificationListener:
+          getIt<PermissionService>().requestNotificationListenerPermission,
+      grantExactAlarm: getIt<PermissionService>().requestExactAlarmPermission,
+      grantBatteryOptimization:
+          getIt<PermissionService>().requestBatteryOptimization,
+      // ⚠ 厂商自启动**没有统一入口**：本机五个方法各送一家（小米/魅族/华为/oppo/vivo），
+      //   而「这一台是哪个厂商」是**读设备信息**那件事。选哪一家放在这里，
+      //   执行器只收那一条被选中的（`DeviceL3Executor` 的类注释里同一段理由）。
+      grantVendorAutoStart: () => _requestVendorAutoStart(getIt),
+      serviceRunning: () async => getIt<NotificationService>().serviceRunning,
+      setListenerEnabled: ({required bool enabled}) async => enabled
+          ? await getIt<NotificationService>().startService()
+          : await getIt<NotificationService>().stopService(),
+      collectInboxEnabled: () async => getIt<FnthinkSettings>().receiveEnabled,
+      setCollectInboxEnabled: (enabled) async {
+        await getIt<FnthinkSettings>().setReceiveEnabled(enabled);
+        return true;
+      },
+    ),
+  );
+  // 执行链（窗口 → 动手 → 两段回执 → 撤销咽喉）。
+  // ⚠ 窗口秒数**每次现取**设置那一格，不在构造时缓存 ——
+  //   用户在设置页改了一次，不该要重启进程才生效。
+  getIt.registerLazySingleton<RemoteCommandRunner>(
+    () => RemoteCommandRunner(
+      contract: getIt<FnthinkContractLoader>().cached!,
+      // ⚠ `delaySeconds` 是 `Future<int?>`（null = 用户从没选过 ⇒ 落回契约默认），
+      //   而执行链要的是一个确定的秒数。契约那一格在这里现取（不缓存）。
+      windowSeconds: () async =>
+          await getIt<FnthinkRemoteSettings>().delaySeconds ??
+          getIt<FnthinkContractLoader>()
+              .cached!
+              .remoteExecutionDelayDefaultSeconds,
+      l2: getIt<DeviceL2Executor>(),
+      l3: getIt<DeviceL3Executor>(),
+      saveRecord: (record) =>
+          getIt<DatabaseHelper>().saveRemoteExecutionRecord(record),
+      sendReceipt: (peer, receipt) => _sendRemoteReceipt(getIt, peer, receipt),
+      now: DateTime.now,
+    ),
+  );
+  // 收货循环那一格与判定层之间那一段。
+  getIt.registerLazySingleton<RemoteCommandWiring>(
+    () => RemoteCommandWiring(
+      contract: getIt<FnthinkContractLoader>().cached!,
+      recognizer: getIt<RemoteCommandRecognizer>(),
+      runner: getIt<RemoteCommandRunner>(),
+      saveRecord: (record) =>
+          getIt<DatabaseHelper>().saveRemoteExecutionRecord(record),
+    ),
+  );
+}
+
+/// 把一段回执发给某个对端（远程执行的两段回执与「被拒」那一档都经这里）。
+///
+/// ⚠ **走协调者而不是自己造收货服务**：造一份 `FnthinkLoopSpec` 要契约、baseUri、
+///   签名器、地址码、nonce 全套，而那些的唯一组装处是协调者 `_resolveSpec` ——
+///   这里再拼一份就等于给同一个协议找第二个作者（背景引擎那条纪律的同一条）。
+/// ⚠ 回 false = 没送出去。**调用方不许拿它改执行状态**：本机做完了就是做完了，
+///   对面没收到是另一件事（`RemoteCommandRunner.sendReceipt` 那一格同一句话）。
+Future<bool> _sendRemoteReceipt(
+  GetIt getIt,
+  String peer,
+  RemoteReceipt receipt,
+) async {
+  try {
+    final result = await getIt<FnthinkReceiveCoordinator>().sendNotice(
+      peer: peer,
+      title: 'fnthink',
+      text: RemoteReceiptEnvelope.encode(
+        result: receipt.result,
+        level: receipt.level,
+        item: receipt.item,
+        argument: receipt.argument,
+        state: receipt.state,
+      ),
+    );
+    return result.status == FnthinkSendStatus.accepted;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// 「立刻推一次设备状态」那一发（`device_state:push`）。
+///
+/// ⚠ **推给名单上每一台**，任一台收下就算成（用户看到的是"设备状态发出去了"）。
+/// 回 false = 一台都没发出去；**不抛** —— 一条推不出去的动作不该让整次执行崩在半路
+/// （那一格会记成 `threw:` 而不是没成的理由，两者查起来是两回事）。
+Future<bool> _pushDeviceStateOnce() async {
+  try {
+    final snapshot = await getIt<DeviceInfoService>().getDeviceSnapshot();
+    if (snapshot == null) return false;
+    final peers = await getIt<FnthinkPeerService>().list();
+    if (peers.isEmpty) return false;
+    final payload = jsonEncode(snapshot);
+    var any = false;
+    for (final peer in peers) {
+      final result = await getIt<FnthinkReceiveCoordinator>().sendNotice(
+        peer: peer.peerAddress,
+        title: 'device-state',
+        text: payload,
+      );
+      if (result.status == FnthinkSendStatus.accepted) any = true;
+    }
+    return any;
+  } catch (e) {
+    return false;
+  }
+}
+
+/// 厂商自启动那一条入口（`autostart`）—— 按本机厂商选那一个方法。
+///
+/// ⚠ 厂商名做**小写包含**匹配而不是相等：各家在 `Build.MANUFACTURER` 里写的串
+///   各不相同（`Xiaomi` / `Redmi` / `Xiaomi Inc.`…），相等匹配的表现是
+///   "这台明明是小米、却说什么都没有"。
+/// ⚠ 都对不上 ⇒ **不送任何一家**（什么都不做），而不是随便挑一个 ——
+///   弹一个别的厂商的自启动页比不弹更糟（用户会被送进一个无关页面）。
+Future<void> _requestVendorAutoStart(GetIt getIt) async {
+  final maker = getIt<DeviceInfoService>().manufacturer.toLowerCase();
+  final permissions = getIt<PermissionService>();
+  if (maker.contains('xiaomi')) {
+    await permissions.requestXiaomiAutoStart();
+  } else if (maker.contains('meizu')) {
+    await permissions.requestMeizuBackground();
+  } else if (maker.contains('huawei')) {
+    await permissions.requestHuaweiLaunch();
+  } else if (maker.contains('oppo')) {
+    await permissions.requestOppoBackground();
+  } else if (maker.contains('vivo')) {
+    await permissions.requestVivoBackground();
+  }
 }
 
 /// 后台引擎里"那一轮到底干什么"的**唯一实现**（T33 第二片 / §4-9 片1b；#178 真机现形后定的形状）。

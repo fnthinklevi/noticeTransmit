@@ -3982,6 +3982,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String remoteExecPendingBanner(String item, int seconds) {
+    return 'Remote command 「$item」 runs in ${seconds}s unless you cancel';
+  }
+
+  @override
+  String get remoteExecCancel => 'Cancel';
+
+  @override
+  String get remoteExecCancelled => 'Cancelled — that command will not run';
+
+  @override
+  String get remoteExecCancelTooLate =>
+      'It already started, so it cannot be undone (the action may be half done)';
+
+  @override
   String get remoteCredWhy =>
       'A credential authorizes one remote command, and it is a different key from your device identity: one proves which device this is, the other authorizes someone to make it act.';
 

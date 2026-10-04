@@ -3810,6 +3810,20 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String remoteExecPendingBanner(String item, int seconds) {
+    return '远程指令「$item」等 $seconds 秒后自动执行';
+  }
+
+  @override
+  String get remoteExecCancel => '撤销';
+
+  @override
+  String get remoteExecCancelled => '已撤销：那一条不会执行';
+
+  @override
+  String get remoteExecCancelTooLate => '已经动手了，撤不回来（动作可能做完了一半）';
+
+  @override
   String get remoteCredWhy =>
       '凭据是「授权这一条远程指令」用的，与设备身份是两把不同的钥匙：一把证明我是这台设备，一把授权别人让我做事。';
 

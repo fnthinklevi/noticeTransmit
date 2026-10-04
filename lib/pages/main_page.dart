@@ -18,6 +18,9 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_l3_grants.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_pair_link.dart';
+import '../services/fnthink_remote_runner.dart';
+import '../di/service_locator.dart' show getIt;
+import '../widgets/remote_execution_banner.dart';
 import '../services/sms_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
@@ -392,7 +395,23 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context);
     final pages = _buildPages();
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: pages),
+      // ⚠ 撤销入口那一半（契约 `delay.cancelChannels` 的 `inAppBanner`）。
+      //   放在 **IndexedStack 之上**而不是某一页里：指令可能被任何一个 tab 收到，
+      //   而把它挂在某一页上就意味着「只有那一页开着才撤得掉」——
+      //   而用户此刻多半就在别的页面（那正是"来不及撤"的时刻）。
+      //   另半个入口是状态栏通知（片3c-5，那一半要动原生）。
+      body: Column(
+        children: [
+          if (getIt.isRegistered<RemoteCommandRunner>())
+            RemoteExecutionBanner(
+              runner: getIt<RemoteCommandRunner>(),
+              clock: DateTime.now,
+            ),
+          Expanded(
+            child: IndexedStack(index: _currentIndex, children: pages),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {

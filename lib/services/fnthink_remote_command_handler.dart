@@ -67,6 +67,7 @@ class RemoteCommandRecognizer {
         command,
         sender,
         'source-not-allowed:${command.level}',
+        source,
       );
     }
     // ③ 凭据（L2 可选 / L3 必填，契约 auth）。
@@ -78,12 +79,17 @@ class RemoteCommandRecognizer {
       probe: remoteCredentialProbe(credentials),
     );
     if (auth is RemoteExecutionAuthRejected) {
-      return RemoteCommandRejected(command, sender, 'auth:${auth.reason}');
+      return RemoteCommandRejected(
+        command,
+        sender,
+        'auth:${auth.reason}',
+        source,
+      );
     }
     // ④ item 在不在那一档的词表里。
     final bad = _rejectItem(command, grantedKeys: grantedKeys);
     if (bad != null) {
-      return RemoteCommandRejected(command, sender, 'item:$bad');
+      return RemoteCommandRejected(command, sender, 'item:$bad', source);
     }
     return RemoteCommandAccepted(
       command: command,
@@ -176,13 +182,26 @@ class RemoteCommandNotEnabled extends RemoteCommandParse {
 /// 是指令，被拒（凭据不对 / 来源渠道不对 / item 不认得）—— 执行不发生，
 /// 但**要留痕并给对面回一条拒的回执**（对方在等一个答复）。
 class RemoteCommandRejected extends RemoteCommandParse {
-  const RemoteCommandRejected(this.command, this.sender, this.reason);
+  const RemoteCommandRejected(
+    this.command,
+    this.sender,
+    this.reason,
+    this.source,
+  );
 
   final RemoteCommand command;
   final String sender;
 
   /// `auth:<reason>` ｜`source-not-allowed:<level>` ｜`item:<reason>`。
   final String reason;
+
+  /// 这一条是从哪来的（契约 `remoteExecution.sources` 的那两项之一）。
+  ///
+  /// ⚠ 它不是多余的：留痕与「该不该发回执」这两件事**都要按来源判** ——
+  /// 本机白名单触发的那一路没有远端发送方，不许给它发回执
+  /// （契约 `localTriggerReceipt`）。少了这一格，接线处只能拿 `sender` 当来源，
+  /// 而那一路上 sender 恰恰是有值的（本机那条通知的来源）⇒ 会朝一个不存在的地址发回执。
+  final String source;
 }
 
 /// 是指令且放行（**还没有执行** —— 延时窗口与执行都在调用方那一层）。

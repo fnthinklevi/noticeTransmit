@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:fnthink_push/fnthink_push.dart';
 
 import '../models/fnthink_remote_execution_record.dart';
@@ -27,7 +28,12 @@ import 'fnthink_remote_execution.dart';
 /// `pending`**。不扫一遍的话，界面上永远显示"待执行"，而"撤销"那一下点下去也没有任何反应
 /// （撤销靠的就是那个 Timer）。所以 [sweepInterrupted] 在装配处跑一次：
 /// 把所有未决的行记成 `failed` + `interrupted`，**如实说"没做成"而不是让它永远显示在等**。
-class RemoteCommandRunner {
+/// ⚠ 它是 [ChangeNotifier]：执行链的状态每一次变（来了新指令 / 到点了 / 撤销了 /
+///   执行完了）都 `notifyListeners()`，而撤销入口那两处横幅靠这个**立刻**重画。
+///   只给它们一个 `pendingAt` 问口的话，横幅只能每秒轮询一次 ——
+///   于是"指令到了、横幅 1 秒后才出现"，而那 1 秒正是用户最想按它的时刻。
+/// ⚠ 只依赖 foundation，不引 material：这一层是服务，不该沾界面库。
+class RemoteCommandRunner extends ChangeNotifier {
   RemoteCommandRunner({
     required this.contract,
     required this.windowSeconds,
@@ -90,6 +96,40 @@ class RemoteCommandRunner {
 
   bool isUnsettled(String execId) => _inFlight.containsKey(execId);
 
+  /// 正在窗口里的那几条（**给界面看的那一份**：撤销入口那两处横幅）。
+  ///
+  /// ⚠ 每问一次都现算剩余秒数，而不是在 [run] 里算好存着 ——
+  /// 存下来的那个数在横幅画出来之前就开始过时，而界面上一个不动的倒计时
+  /// 会让用户以为窗口已经过了却还留着「撤销」那一下（撤不动，只会更困惑）。
+  List<RemotePendingView> pendingAt(DateTime now) {
+    final views = <RemotePendingView>[];
+    for (final entry in _inFlight.entries) {
+      final flight = entry.value;
+      if (flight.started) continue; // 已动手：撤不回来，界面上不该还给按钮
+      final remain = flight.startedAt
+          .add(Duration(seconds: flight.seconds))
+          .difference(now)
+          .inSeconds;
+      views.add(
+        RemotePendingView(
+          execId: entry.key,
+          level: flight.record.level,
+          item: flight.record.item,
+          remainingSeconds: remain < 0 ? 0 : remain,
+        ),
+      );
+    }
+    views.sort((a, b) => a.remainingSeconds.compareTo(b.remainingSeconds));
+    return List<RemotePendingView>.unmodifiable(views);
+  }
+
+  /// 发一段回执（**对外发回执只有这一个口**）。
+  ///
+  /// 执行链那两段与「被拒」那一档都经这里 —— 直接在别处调 `sendReceipt` 依赖的话，
+  /// "送不出去该怎么办"这件事会在两处各判一次，而两处的答案很容易不一样。
+  Future<bool> replyReceipt(String peer, RemoteReceipt receipt) =>
+      sendReceipt(peer, receipt);
+
   /// 一条指令从放行到终态的全过程。回 `exec_id`（撤销入口拿它）。
   Future<String> run(RemoteCommandAccepted accepted) async {
     final command = accepted.command;
@@ -110,14 +150,19 @@ class RemoteCommandRunner {
       source: accepted.source,
       createdAt: startedAt.millisecondsSinceEpoch,
     );
-    _inFlight[execId] = _InFlight(record: record, seconds: seconds);
+    _inFlight[execId] = _InFlight(
+      record: record,
+      seconds: seconds,
+      startedAt: startedAt,
+    );
     await saveRecord(record);
     // ① 第一段回执：**收到就发**，不等窗口。
     await _emitReceipt(execId, RemoteExecutionStates.pending);
     if (seconds <= 0) {
       await _execute(execId);
-      return execId;
+      return execId; // `_finish` 里已经通知过（pending → 终态）
     }
+    notifyListeners();
     // ⚠ 走**注入进来的** [schedule]，不是硬编码 `Timer(...)`：
     //   第一版这里写的是 `Timer(...)`，于是 schedule 字段从未被接上 ——
     //   字段在、默认实现在、测试也能注入，唯独这一行没调它。
@@ -179,6 +224,7 @@ class RemoteCommandRunner {
       );
       swept++;
     }
+    if (swept > 0) notifyListeners();
     return swept;
   }
 
@@ -203,6 +249,10 @@ class RemoteCommandRunner {
       return;
     }
     flight.started = true;
+    // ⚠ 迁移过了也要通知：横幅从这一刻起**不该再给撤销按钮**了
+    //   （撤不回来），而它若只在终态才重画，中间那段时间用户按下去只会得到一句
+    //   "撤不回来" —— 与"横幅已经撤不掉"是同一件事，但前者多一次失败的按压。
+    notifyListeners();
     // ⚠⚠ 迁完**必须把这一行改成 executing**：`_finish` 还要用内核那一格判
     //   `executing → 终态`，而它读到的是这里存的那一份。
     //   漏这一改的症状很难认：`pending → done` 不在允许表里 ⇒ 被判 `illegal-move`
@@ -289,6 +339,7 @@ class RemoteCommandRunner {
       _withState(flight.record, state, reason: reason, result: result),
     );
     await _emitReceipt(execId, state, flight: flight);
+    notifyListeners();
   }
 
   /// 发一段回执（**两段都走这里** —— 只有"该不该发"那一格按来源分）。
@@ -334,7 +385,9 @@ class RemoteCommandRunner {
   );
 
   /// 把所有还在等窗口的撤掉（装配拆卸时用；不给一条 orphan Timer 留活口）。
+  @override
   void dispose() {
+    super.dispose();
     for (final timer in _timers.values) {
       timer.cancel();
     }
@@ -343,9 +396,37 @@ class RemoteCommandRunner {
   }
 }
 
+/// 一条还在窗口里的东西 —— **给界面的那一份**（撤销入口那两处横幅读它）。
+///
+/// ⚠ 它是 [RemotePendingView] 而不是直接给记录：横幅要显示「还剩几秒」，
+/// 而那个数每时每刻都在变；把它存进记录里就等于给界面一个一动不动的倒计时。
+class RemotePendingView {
+  const RemotePendingView({
+    required this.execId,
+    required this.level,
+    required this.item,
+    required this.remainingSeconds,
+  });
+
+  final String execId;
+  final String level;
+  final String item;
+
+  /// 还差几秒到点（0 = 已到点，那一刻执行就在跑或已跑完）。
+  final int remainingSeconds;
+
+  @override
+  String toString() =>
+      'RemotePendingView($execId $level $item 剩 ${remainingSeconds}s)';
+}
+
 /// 一条正在执行的东西（工作集的一格）。
 class _InFlight {
-  _InFlight({required this.record, required this.seconds});
+  _InFlight({
+    required this.record,
+    required this.seconds,
+    required this.startedAt,
+  });
 
   /// 这一条现在的样子（**迁一次改一次** —— 见 `_execute` 里那格：漏改的后果是
   /// 下一次迁移拿一个过时的状态去判，而内核会判它非法）。
@@ -354,6 +435,10 @@ class _InFlight {
   /// 窗口秒数（落在这里是为了 [RemoteCommandRunner.windowSeconds] 那一格
   /// 只读一次 —— 一条指令的窗口不该在读设置与到点之间被改成另一档）。
   final int seconds;
+
+  /// 什么时候开始算窗口（横幅的倒计时按它算，不按 `createdAt` ——
+  /// 那两个差着一次落盘与一次回执的工夫，而倒计时差一秒用户就看出来了）。
+  final DateTime startedAt;
 
   /// 已经动手了（`pending → executing` 走完）⇒ 撤销入口不再受理。
   bool started = false;

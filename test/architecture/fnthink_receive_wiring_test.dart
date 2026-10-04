@@ -9,6 +9,10 @@ import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/services/fnthink_inbox_display.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
+import 'package:notice_transmit/services/fnthink_remote_command_handler.dart';
+import 'package:notice_transmit/services/fnthink_remote_executors.dart';
+import 'package:notice_transmit/services/fnthink_remote_runner.dart';
+import 'package:notice_transmit/services/fnthink_remote_wiring.dart';
 
 import '../support/source_guards.dart';
 
@@ -34,6 +38,26 @@ void main() {
   tearDown(() => getIt.reset());
 
   group('装配点', () {
+    test('⚠ 远程执行那一格接上了（onCommand 从 8.183 起挂着，DI 里曾一直没有值）', () {
+      setupLocator();
+      final c = getIt<FnthinkReceiveCoordinator>();
+      expect(
+        c.onCommand,
+        isNotNull,
+        reason:
+            '漏接时**不是崩**：远程指令消息照常按通知弹出来，而没有任何东西动手 —— '
+            '用户看到的现象是"对方说发了指令，我这边响了一声"。'
+            '而全场 Dart 测试仍然绿（循环的用例把 hook 当参数传进来，不经过 DI）',
+      );
+      // 五个对象都要在：少任何一个的表现都是"那条指令不执行"，
+      // 而那与"这一格没接"在别的用例里长得一模一样（都绿）。
+      expect(getIt.isRegistered<RemoteCommandWiring>(), isTrue);
+      expect(getIt.isRegistered<RemoteCommandRunner>(), isTrue);
+      expect(getIt.isRegistered<RemoteCommandRecognizer>(), isTrue);
+      expect(getIt.isRegistered<DeviceL2Executor>(), isTrue);
+      expect(getIt.isRegistered<DeviceL3Executor>(), isTrue);
+    });
+
     test(
       'DI 起来的 coordinator 四条副作用都在（recordPeer/removePeer 被漏掉时全场仍绿，所以只能靠这条）',
       () {

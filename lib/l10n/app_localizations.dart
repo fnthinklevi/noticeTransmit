@@ -6974,6 +6974,30 @@ abstract class AppLocalizations {
   /// **'延时这一档没有生效：{reason}'**
   String remoteExecDelayInvalid(String reason);
 
+  /// No description provided for @remoteExecPendingBanner.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程指令「{item}」等 {seconds} 秒后自动执行'**
+  String remoteExecPendingBanner(String item, int seconds);
+
+  /// No description provided for @remoteExecCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销'**
+  String get remoteExecCancel;
+
+  /// No description provided for @remoteExecCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销：那一条不会执行'**
+  String get remoteExecCancelled;
+
+  /// No description provided for @remoteExecCancelTooLate.
+  ///
+  /// In zh, this message translates to:
+  /// **'已经动手了，撤不回来（动作可能做完了一半）'**
+  String get remoteExecCancelTooLate;
+
   /// No description provided for @remoteCredWhy.
   ///
   /// In zh, this message translates to:
