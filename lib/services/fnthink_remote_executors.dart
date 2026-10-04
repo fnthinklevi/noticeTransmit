@@ -153,27 +153,29 @@ class DeviceL3Executor implements FnthinkL3Executor {
     }
   }
 
-  /// 翻一个本机开关（L3 那两个 `toggle` 项：`monitoring` / `collect_inbox`）。
+  /// 设一个本机开关（L3 那两个 `toggle` 项：`monitoring` / `collect_inbox`）。
   ///
-  /// ⚠⚠ **协议级非幂等，已登记待维护者裁决**：
-  ///   [FnthinkL3Executor.toggle] 只收一个 `setting`、**没有目标值**，
-  ///   而 L3 的 item 就是 `setting.key`（契约 `parseL3Item` 不解参数段）——
-  ///   也就是说**协议里这一项没地方写"我要开"还是"我要关"**。
-  ///   于是一次重投（契约 `delivery`：ack 没送到就再投一次）就会翻两次，
-  ///   结果回到原状，而本机留痕两条都记 done。
-  ///   两条出路：(a) 改 L3 的 item 成 `<key>/<on|off>`（动协议形状，两端一起改）；
-  ///   (b) 在执行层按来源消息去重（需要指令带 id，同样是协议形状改动）。
-  ///   在他拍板之前，这里按接口现有的形状做 read-modify-write。
-  ///   ⚠ 也不许把它悄悄做成幂等（写死成开）—— 那会让 `collect_inbox` 永远开着，
-  ///   而那正是这一项存在的反面；两种错里"永远开着"更难被用户发现。
+  /// ⚠ **带目标值时幂等**：item 写成 `<key>/on` 或 `<key>/off`
+  ///   （契约 `l3.itemMayCarryTarget` / `itemTargetWords`）⇒ 写进去的就是那一档，
+  ///   重投多少次结果一样。
+  /// ⚠ **不带目标值时退回读当前再翻**（`setting.targetValue == null`）——
+  ///   那是老的对端今天那套写法，**不幂等**：重投一次就翻两次、回到原状。
+  ///   仍然保留它是因为老发送侧不必升级就能继续用；代价由维护者知情（见契约
+  ///   `itemTargetWhy` 里的发版次序那一段）。
+  /// ⚠ 也不许把不带目标值的那一格悄悄做成幂等（写死成开）——
+  ///   那会让 `collect_inbox` 永远开着，而那正是这一项存在的反面。
   @override
   Future<bool> toggle(FnthinkL3Setting setting) async {
     try {
       switch (setting.key) {
         case 'monitoring':
-          return await setListenerEnabled(enabled: !(await serviceRunning()));
+          return await setListenerEnabled(
+            enabled: setting.targetValue ?? !(await serviceRunning()),
+          );
         case 'collect_inbox':
-          return await setCollectInboxEnabled(!(await collectInboxEnabled()));
+          return await setCollectInboxEnabled(
+            setting.targetValue ?? !(await collectInboxEnabled()),
+          );
         default:
           return false;
       }

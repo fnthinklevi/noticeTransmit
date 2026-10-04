@@ -74,12 +74,41 @@ FnthinkL3Parse parseL3Item(
   if (item == null || item.isEmpty) {
     return const FnthinkL3Rejected('missing-item');
   }
-  final key = item;
+  // ⚠ 拆 item 尾部那个目标值（契约 `l3.itemMayCarryTarget` / `itemTargetWords`）：
+  //   `<key>` 收（沿用旧语义「读当前再翻」，**不幂等**），
+  //   `<key>/on` 与 `<key>/off` 收且**幂等** —— 而投递是 at-least-once，
+  //   不带目标值时重投一次就翻两次、回到原状。
+  // ⚠ 词从契约读，不写死（那一层要透传回执、两端各拆一次）。
+  var key = item;
+  bool? target;
+  final slash = item.lastIndexOf('/');
+  if (slash > 0) {
+    final words = contract.l3ItemTargetWords;
+    final head = item.substring(0, slash);
+    final tail = item.substring(slash + 1);
+    final wantOn = words.contains('on');
+    final wantOff = words.contains('off');
+    if ((wantOn && tail == 'on') || (wantOff && tail == 'off')) {
+      key = head;
+      target = tail == 'on';
+    }
+    // ⚗ 不认识的尾部**不拆**：留成整串去查词表 ⇒ `unknown-setting:monitoring/on`
+    //   而不是"猜它是别的东西"。而那正是契约 `itemTargetRejected` 说的
+    //   **老设备**会报的那一句 —— 本机这一版拼错的尾部要能被看见，不能被吞掉。
+  }
   final settings = contract.l3Settings;
-  final setting = settings[key];
-  if (setting == null) {
+  final base = settings[key];
+  if (base == null) {
     return FnthinkL3Rejected('unknown-setting:$key');
   }
+  final setting = target == null
+      ? base
+      : FnthinkL3Setting(
+          key: base.key,
+          mode: base.mode,
+          native: base.native,
+          targetValue: target,
+        );
   // 每一项都要本地确认，且**没有免确认这条路**（契约 allowSkipConfirm: false）。
   if (contract.boolOf(const ['capabilities', 'l3', 'confirmEveryTime']) ==
           true &&

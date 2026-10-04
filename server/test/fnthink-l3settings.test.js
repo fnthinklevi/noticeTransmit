@@ -78,6 +78,8 @@ describe('parseL3Item：四种拒的理由各不相同', () => {
         key: 'battery_optimization',
         mode: 'grant',
         native: 'requestBatteryOptimization',
+        // itemMayCarryTarget：裸 key 的目标值是 null（退回读当前再翻）
+        target: null,
       },
     });
     expect(
@@ -87,7 +89,13 @@ describe('parseL3Item：四种拒的理由各不相同', () => {
       }),
     ).toEqual({
       ok: true,
-      setting: { key: 'monitoring', mode: 'toggle', native: 'setMonitoringEnabledPref' },
+      setting: {
+        key: 'monitoring',
+        mode: 'toggle',
+        native: 'setMonitoringEnabledPref',
+        // itemMayCarryTarget：裸 key 的目标值是 null（退回读当前再翻）
+        target: null,
+      },
     });
   });
 

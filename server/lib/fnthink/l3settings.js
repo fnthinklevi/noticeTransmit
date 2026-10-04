@@ -30,7 +30,23 @@ function parseL3Item(contract, item, options) {
   if (item === undefined || item === null || String(item) === '') {
     return { ok: false, reason: 'missing-item' };
   }
-  const key = String(item);
+  // 眉解 item 尾部那个目标值（契约 l3.itemMayCarryTarget / itemTargetWords）：
+  // 《<key>》收（漢用旧语业，读当前再翻，不幂祖）；
+  // 带目标值的是幂祖的（重投多少次相同）。
+  // 不认跞的尾部不拆＊故意成整个串去查词表→ unknown-setting，
+  // 而是同一个么饰，同时部署不拆——而只写新连句一件一样把金银投到这里
+  let key = String(item);
+  let target = null;
+  const slash = key.lastIndexOf('/');
+  if (slash > 0) {
+    const words = Array.isArray(l3.itemTargetWords) ? l3.itemTargetWords : [];
+    const head = key.slice(0, slash);
+    const tail = key.slice(slash + 1);
+    if ((words.includes('on') && tail === 'on') || (words.includes('off') && tail === 'off')) {
+      key = head;
+      target = tail === 'on';
+    }
+  }
   const spec = settings[key];
   if (!spec || typeof spec !== 'object') {
     return { ok: false, reason: `unknown-setting:${key}` };
@@ -54,7 +70,7 @@ function parseL3Item(contract, item, options) {
       return { ok: false, reason: `missing-grant:${key}` };
     }
   }
-  return { ok: true, setting: { key, mode, native: String(spec.native || '') } };
+  return { ok: true, setting: { key, mode, native: String(spec.native || ''), target } };
 }
 
 /// 这一次 L3 执行对外回哪一个回执词（与 L2 共用 receipts 词表里那一个词，

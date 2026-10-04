@@ -514,6 +514,11 @@
       },
       "unknownAction": "reject",
       "noKeyValueGenericWrite": true,
+"itemMayCarryTarget": true,
+            "itemTargetWords": ["on", "off"],
+            "itemTargetWhy": "L3 的 item 原本**就是**设置项的 key，没有参数段 —— 而那让 `toggle` 这一族**不可幂等**：投递是 at-least-once（ack 没送到就重投），而 item 里没地方写「我要开」还是「我要关」，于是重投一次就翻两次、回到原状，而本机留痕两条都记 done。⚠ **可选**而不是必填：带 `/on|off` 的写法是幂等的，不带的仍然收（按读当前再翻），所以**老的对端不必升级就能继续用它今天那套「翻」**。⚠ **发版次序是「先设备、后发送侧」**：带目标值的 item 老设备会判 `unknown-setting`（它按整串查词表）—— 反过来（老发送侧 + 新设备）完全正常，因为不带就是今天那个形状。",
+            "itemTargetRejected": "unknown-setting:X",
+            "itemTargetRejectedWhy": "老设备对带目标值的 item 会报这一句 —— 那是**版本次序**的正常现象，不是被拒的理由；收到它应当先确认自己这一版是不是发在对面之前。",
       "settings": {
         "notification": {
           "mode": "grant",

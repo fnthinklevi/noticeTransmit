@@ -49,6 +49,7 @@ class FnthinkL3Setting {
     required this.key,
     required this.mode,
     required this.native,
+    this.targetValue,
   });
 
   final String key;
@@ -65,18 +66,34 @@ class FnthinkL3Setting {
 
   bool get isGrant => mode == 'grant';
 
+  /// **这一次要设成哪一档**（契约 `l3.itemTargetWords` 的 `on` / `off`）。
+  ///
+  /// ⚠ null = item 里没带目标值 ⇒ 沿用旧语义「读当前再翻」。而**那不可幂等**：
+  ///   投递是 at-least-once（ack 没送到就重投），翻两次回到原状，
+  ///   而本机留痕两条都记 done。带目标值则是幂等的（重投多少次都是同一档）。
+  final bool? targetValue;
+
+  /// 有没有带目标值（带的那一档才谈得上幂等）。
+  bool get hasTarget => targetValue != null;
+
   @override
-  String toString() => '$key($mode)';
+  String toString() =>
+      '$key($mode${targetValue == null
+          ? ''
+          : targetValue!
+          ? '/on'
+          : '/off'})';
 
   @override
   bool operator ==(Object other) =>
       other is FnthinkL3Setting &&
       other.key == key &&
       other.mode == mode &&
-      other.native == native;
+      other.native == native &&
+      other.targetValue == targetValue;
 
   @override
-  int get hashCode => Object.hash(key, mode, native);
+  int get hashCode => Object.hash(key, mode, native, targetValue);
 }
 
 /// 单一协议契约（T71）。
@@ -375,6 +392,13 @@ class FnthinkContract {
   /// 某一档设置项的形态（契约 `capabilities.l3.modes`）。
   List<String> get l3SettingModes =>
       strings(const ['capabilities', 'l3', 'modes']);
+
+  /// item 尾部那个目标值允许的词（契约 `capabilities.l3.itemTargetWords`，`on` / `off`）。
+  ///
+  /// ⚠ **读契约而不是写死**：这两个词经服务端透传回执、也在两端各拆一次，
+  ///   写死等于第三份（第三份不会随契约一起改）。
+  List<String> get l3ItemTargetWords =>
+      strings(const ['capabilities', 'l3', 'itemTargetWords']);
 
   /// 这些设置项要先有对应授权才谈得上翻（契约 `capabilities.l3.requiresExistingGrantFrom`）。
   List<String> get l3SettingsRequiringExistingGrant =>

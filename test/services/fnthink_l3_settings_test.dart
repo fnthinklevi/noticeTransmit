@@ -226,4 +226,99 @@ void main() {
       expect(File(fnthinkContractFile()).existsSync(), isTrue);
     });
   });
+
+  group('L3 item 目标值（契约 l3.itemMayCarryTarget）', () {
+    // ⚠ 与 `server/test/fnthink-l3target.test.js` **逐条对应**：两端各拆一次同一个 item，
+    //   两份都改或都不改 —— 否则漂了只有真发一次才看得见。
+
+    // ⚠ `grantedKeys` **给了**（Dart 侧那一格没给就是拒）：`monitoring` /
+    //   `collect_inbox` 在契约 `requiresExistingGrantFrom` 里。
+    //   ⚗ 顺带记一处两端不同的默认值：Node 侧 `opts.grantedKeys` 不给就**跳过**
+    //   那一格，Dart 侧默认是空集合 ⇒ **全拒**。调用方两边都得给，
+    //   而"不给"在两端的含义不同（放行 vs 拒）—— 本组按 Dart 的约定给。
+    FnthinkL3Ok ok(String item) =>
+        parseL3Item(
+              contract,
+              item,
+              confirmedThisTime: true,
+              grantedKeys: const {'monitoring', 'collect_inbox'},
+            )
+            as FnthinkL3Ok;
+
+    test('裸 key 收，且目标值是 null（沿用旧语义：读当前再翻，不幂等）', () {
+      expect(ok('monitoring').setting.targetValue, isNull);
+    });
+
+    test('<key>/on ⇒ 目标值 true（幂等那一档）', () {
+      expect(ok('monitoring/on').setting.targetValue, isTrue);
+      expect(ok('monitoring/on').setting.key, 'monitoring');
+    });
+
+    test('<key>/off ⇒ 目标值 false', () {
+      expect(ok('collect_inbox/off').setting.targetValue, isFalse);
+    });
+
+    test('⚠ 大小写不同 ⇒ 不拆（unknown-setting 带整串，不是猜）', () {
+      final r = parseL3Item(contract, 'monitoring/ON', confirmedThisTime: true);
+      expect(r, isA<FnthinkL3Rejected>());
+      expect((r as FnthinkL3Rejected).reason, 'unknown-setting:monitoring/ON');
+    });
+
+    test('尾部不是目标值词 ⇒ 不拆，仍按整串查词表', () {
+      expect(
+        parseL3Item(contract, 'monitoring/enabled', confirmedThisTime: true),
+        isA<FnthinkL3Rejected>(),
+      );
+    });
+
+    test('不存在的 key 带目标值 ⇒ 拒的理由说的是拆出来的那个 key', () {
+      final r = parseL3Item(contract, 'nope/off', confirmedThisTime: true);
+      expect((r as FnthinkL3Rejected).reason, 'unknown-setting:nope');
+    });
+
+    test('grant 项也能带目标值（协议不按 mode 限制；设备侧忽略它）', () {
+      final setting = ok('exact_alarm/on').setting;
+      expect(setting.mode, 'grant');
+      expect(setting.targetValue, isTrue);
+    });
+
+    test('前置授权那一格仍然按**拆出来的 key** 判', () {
+      // ⚠ `grantedKeys` 给了（即使是空列表）那一格才判。
+      final bare = parseL3Item(
+        contract,
+        'collect_inbox',
+        confirmedThisTime: true,
+        grantedKeys: const <String>{},
+      );
+      expect((bare as FnthinkL3Rejected).reason, 'missing-grant:collect_inbox');
+      final withTarget = parseL3Item(
+        contract,
+        'collect_inbox/on',
+        confirmedThisTime: true,
+        grantedKeys: const <String>{},
+      );
+      expect(
+        (withTarget as FnthinkL3Rejected).reason,
+        'missing-grant:collect_inbox',
+      );
+    });
+
+    test('词从契约读：契约里去掉 itemTargetWords ⇒ 目标值不再被拆', () {
+      // 这一条钉住「那两个词**不写死**」——它们经服务端透传回执、两端各拆一次，
+      // 写死等于第三份，而第三份不会随契约一起改。
+      final stripped = Map<String, Object?>.from(contract.raw);
+      final caps = Map<String, Object?>.from(stripped['capabilities']! as Map);
+      final l3 = Map<String, Object?>.from(caps['l3']! as Map)
+        ..remove('itemTargetWords');
+      caps['l3'] = l3;
+      stripped['capabilities'] = caps;
+      final bare = FnthinkContract(stripped);
+
+      expect(
+        parseL3Item(bare, 'monitoring/on', confirmedThisTime: true),
+        isA<FnthinkL3Rejected>(),
+        reason: '契约没给那两个字 ⇒ 不该再拆（写死的话这里会拆开并放行）',
+      );
+    });
+  });
 }
