@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
+import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/fnthink_contract_loader.dart';
@@ -518,6 +519,27 @@ class _RemoteCredentialSettingsPageState
           _Note(
             keyName: 'remote-cred-totp-link-label',
             text: l10n.remoteCredTotpLink,
+          ),
+          // ⚠ **二维码画的就是上面那串链接，同一份 `fresh.uri`** —— 不另拼一遍：
+          //   两处各拼一次的话，某天改了链接的拼法而忘了这一处，用户扫出来的
+          //   就是一条**指向别处的**链接，而界面看上去完全正常。
+          // ⚠ 用 `PrettyQrView.data`（不是已废弃的 `PrettyQr` 构造）：它按数据长度**自动选版本**，
+          //   而版本选错的表现是"扫出来是一坨看不懂的东西"而界面完全正常。
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: SizedBox(
+                width: 220,
+                height: 220,
+                child: PrettyQrView.data(
+                  data: fresh.uri,
+                  key: const ValueKey('remote-cred-totp-qr'),
+                  // 纠错等级取 M（不是默认的 L）：这一段是屏幕显示而不是打印，
+                  // 中等纠错在 220px 上更耐得住反光与轻微变形。
+                  errorCorrectLevel: QrErrorCorrectLevel.M,
+                ),
+              ),
+            ),
           ),
           SelectableText(
             fresh.uri,

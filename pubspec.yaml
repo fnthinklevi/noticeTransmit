@@ -62,6 +62,11 @@ dependencies:
   cryptography: ^2.7.0
   file_picker: ^8.3.7
   flutter_slidable: ^3.1.0
+  # 远程执行 TOTP 的二维码图片（片3c）：把 otpauth:// 链接画成图给用户扫。
+  # ⚠ 选它而不是自己写 QR 编码器：MIT、纯 Dart 生成内核（依赖 qr）、
+  #   pub.dev 上 18 万次下载 —— 自己写那一套等于给安全面引入一处没被审过的实现。
+  #   选定版本要钉住 patch 位（3.6.0），理由见 roadmap 8.184。
+  pretty_qr_code: ^3.6.0
 
 dev_dependencies:
   flutter_test:
