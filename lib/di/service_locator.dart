@@ -104,6 +104,12 @@ void setupLocator() {
       // （方向 out）。漏接时的表现不是崩，是那一档**永远是空的** —— 用户发过的每一条都查不到，
       // 而全场测试仍然绿。守卫在 `test/architecture/fnthink_device_send_guard_test.dart`。
       recordSent: DatabaseHelper().insertFnthinkInbox,
+      // 远程执行历史的读咽喉（片3b-2）。页面**不许**自己开表（守卫
+      // `test/architecture/fnthink_receive_wiring_test.dart`），所以这两个 hook 就是
+      // 那一格唯一的取货口；漏接时的表现是历史页说"读不出来"，而不是崩。
+      loadRemoteExecutions: (direction) =>
+          DatabaseHelper().loadRemoteExecutionRecords(direction: direction),
+      forgetRemoteExecution: DatabaseHelper().removeRemoteExecutionRecord,
       // 设备自登记（#177）：本机在服务端设备表里那一行是**其余每一发的共同前置** ——
       // 服务端按表里那把钥匙验签，而表里的行只能由 /register 建。缺这一行时全场 Dart 测试
       // 仍然绿，而真机上所有请求都换回同形的 403 `rejected_unsigned`（用户报的「建立端点：

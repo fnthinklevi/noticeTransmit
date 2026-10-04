@@ -3928,4 +3928,258 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateNotificationTitle => 'Notification Forwarder Update';
+
+  @override
+  String get remoteExecSection => 'Remote execution';
+
+  @override
+  String get remoteExecWhy =>
+      'Others can make this device act. Safety comes from two things: the channel it arrives on, and whether a credential comes with it. The switch is off by default — an upgrade never makes that decision for you.';
+
+  @override
+  String get remoteExecEnabledOn => 'On';
+
+  @override
+  String get remoteExecEnabledOff => 'Off';
+
+  @override
+  String get remoteExecNeedsCredential =>
+      'On but no credential set ⇒ nothing at the high-risk level (L3) can get in.';
+
+  @override
+  String get remoteExecOpenSettings => 'Remote execution settings';
+
+  @override
+  String get remoteExecSendPage => 'Send a remote command';
+
+  @override
+  String get remoteExecHistory => 'Remote execution history';
+
+  @override
+  String get remoteExecDelayTitle => 'Cancel window';
+
+  @override
+  String remoteExecDelayUsingDefault(int seconds) {
+    return 'It runs automatically ${seconds}s later (the protocol default)';
+  }
+
+  @override
+  String remoteExecDelayChosen(int seconds) {
+    return 'It runs automatically ${seconds}s later (your choice)';
+  }
+
+  @override
+  String remoteExecDelayRange(int min, int max) {
+    return 'Allowed range $min–${max}s, set by the protocol, not a local preference';
+  }
+
+  @override
+  String get remoteExecDelayReset => 'Use protocol default';
+
+  @override
+  String remoteExecDelayInvalid(String reason) {
+    return 'This cancel window is not in effect: $reason';
+  }
+
+  @override
+  String get remoteCredWhy =>
+      'A credential authorizes one remote command, and it is a different key from your device identity: one proves which device this is, the other authorizes someone to make it act.';
+
+  @override
+  String get remoteCredKeySection => 'Advanced key';
+
+  @override
+  String get remoteCredKeyNone => 'Not set yet';
+
+  @override
+  String get remoteCredKeySet => 'One is set';
+
+  @override
+  String remoteCredKeyMin(int min) {
+    return 'At least $min characters, set by the protocol';
+  }
+
+  @override
+  String get remoteCredKeyGenerate => 'Generate one';
+
+  @override
+  String get remoteCredKeyCustom => 'Set my own';
+
+  @override
+  String get remoteCredKeyOnce =>
+      'This string appears exactly once. Close this page and it is gone — copy it, or generate another.';
+
+  @override
+  String get remoteCredKeyReset => 'Remove this key';
+
+  @override
+  String get remoteCredKeyResetAsk =>
+      'Once removed, the other side\'s copy stops working at once — you will have to generate another and hand it over in person.';
+
+  @override
+  String get remoteCredTotpSection => 'Two-step code (TOTP)';
+
+  @override
+  String get remoteCredTotpNone => 'Not set yet';
+
+  @override
+  String get remoteCredTotpSet => 'One is set';
+
+  @override
+  String get remoteCredTotpGenerate => 'Generate one';
+
+  @override
+  String get remoteCredTotpLink => 'Link to add to your authenticator app';
+
+  @override
+  String get remoteCredTotpSecret =>
+      'Secret string (your authenticator app can also take it by hand)';
+
+  @override
+  String get remoteCredTotpOnce =>
+      'This appears exactly once, and it exists only on the receiving device — the sender records it in their own authenticator app, after which the app keeps it, and no server ever sees it.';
+
+  @override
+  String get remoteCredTotpClear => 'Remove this one';
+
+  @override
+  String remoteCredProblem(String reason) {
+    return 'The credential stored on this device is unusable: $reason';
+  }
+
+  @override
+  String get remoteCredResetAll => 'Reset everything';
+
+  @override
+  String get remoteCredResetAllAsk =>
+      'After a full reset, both the advanced key and the code seed the other side holds stop working at once. To keep remote execution going you must generate new ones and hand them over in person.';
+
+  @override
+  String get remoteSendTitle => 'Send a remote command';
+
+  @override
+  String get remoteSendPickPeer => 'Send to which device';
+
+  @override
+  String get remoteSendLevel => 'Send at which level';
+
+  @override
+  String get remoteSendLevelL1 =>
+      'Low risk: runs directly, or can be triggered by a chosen app\'s notification';
+
+  @override
+  String get remoteSendLevelL2 =>
+      'Medium risk: only via push; a credential is optional';
+
+  @override
+  String get remoteSendLevelL3 =>
+      'High risk: push only, and it must carry a key or a two-step code';
+
+  @override
+  String get remoteSendAction => 'What it should do';
+
+  @override
+  String get remoteSendArgument => 'Argument (target channel id)';
+
+  @override
+  String get remoteSendKeyOptional => 'Advanced key (optional)';
+
+  @override
+  String get remoteSendTotpOptional => 'Two-step code (optional)';
+
+  @override
+  String get remoteSendKeyRequired => 'Advanced key (required at this level)';
+
+  @override
+  String get remoteSendTotpRequired => 'Two-step code (required at this level)';
+
+  @override
+  String get remoteSendSubmit => 'Send it';
+
+  @override
+  String get remoteSendCancelNote =>
+      'Cancel ⇒ not one byte is sent. The credential you just typed would ride along with it.';
+
+  @override
+  String get remoteSendNeedsCredential =>
+      'This level needs an advanced key or a two-step code — with both empty there is nothing to send.';
+
+  @override
+  String get remoteSendNeedsArgument =>
+      'This one needs an argument (the target channel id); it cannot be sent empty.';
+
+  @override
+  String get remoteSendStartedNote =>
+      'Sent. Wait for the other device to send back two receipts — “executing” and “execution_done” — they will show up in the remote execution history.';
+
+  @override
+  String remoteSendFailed(String reason) {
+    return 'It did not go out: $reason';
+  }
+
+  @override
+  String remoteSendLevelUnknown(String level) {
+    return 'This level ($level) is not in the protocol vocabulary — nothing sent.';
+  }
+
+  @override
+  String get remoteHistoryIn => 'Commands received';
+
+  @override
+  String get remoteHistoryOut => 'Commands sent';
+
+  @override
+  String get remoteHistoryAll => 'All';
+
+  @override
+  String get remoteHistoryEmpty => 'No remote execution yet.';
+
+  @override
+  String get remoteHistoryPending => 'Waiting';
+
+  @override
+  String get remoteHistoryExecuting => 'Executing';
+
+  @override
+  String get remoteHistoryDone => 'Done';
+
+  @override
+  String get remoteHistoryFailed => 'Failed';
+
+  @override
+  String get remoteHistoryCancelled => 'Cancelled';
+
+  @override
+  String remoteHistoryStateUnknown(String state) {
+    return 'Unrecognised execution state ($state)';
+  }
+
+  @override
+  String remoteHistoryFromPeer(String peer) {
+    return 'From $peer';
+  }
+
+  @override
+  String remoteHistoryToPeer(String peer) {
+    return 'To $peer';
+  }
+
+  @override
+  String get remoteHistoryLocalTrigger =>
+      'Triggered by this device\'s own app notification (no remote sender)';
+
+  @override
+  String get remoteHistoryCancel => 'Cancel this one';
+
+  @override
+  String get remoteHistoryCancelNote =>
+      'Cancelling only works before execution starts; one already running is past that window.';
+
+  @override
+  String get remoteHistoryRemoved =>
+      'This entry is now gone from this device\'s history.';
+
+  @override
+  String get remoteHistoryBoundary =>
+      'This history is this device\'s own record: both received and sent. Credentials and command text never enter it — they ride inside that message\'s encrypted body, while receipts and audit rows each keep their own copy.';
 }

@@ -3757,4 +3757,245 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updateNotificationTitle => '通知推送助手更新';
+
+  @override
+  String get remoteExecSection => '远程执行';
+
+  @override
+  String get remoteExecWhy =>
+      '别人可以让这台设备做事。安全度由两件事决定：走哪条渠道，以及有没有带凭据。开关默认关——升级不会替你做这个决定。';
+
+  @override
+  String get remoteExecEnabledOn => '已开启';
+
+  @override
+  String get remoteExecEnabledOff => '已关闭';
+
+  @override
+  String get remoteExecNeedsCredential => '开了但一把凭据都没有 ⇒ 高风险（L3）那条一条都进不来。';
+
+  @override
+  String get remoteExecOpenSettings => '远程执行设置';
+
+  @override
+  String get remoteExecSendPage => '远程指令发送';
+
+  @override
+  String get remoteExecHistory => '远程执行历史';
+
+  @override
+  String get remoteExecDelayTitle => '延时执行';
+
+  @override
+  String remoteExecDelayUsingDefault(int seconds) {
+    return '这一条会在 $seconds 秒后自动执行（协议默认那一档）';
+  }
+
+  @override
+  String remoteExecDelayChosen(int seconds) {
+    return '这一条会在 $seconds 秒后自动执行（你选的）';
+  }
+
+  @override
+  String remoteExecDelayRange(int min, int max) {
+    return '可设范围 $min–$max 秒，由协议规定，不是本机偏好';
+  }
+
+  @override
+  String get remoteExecDelayReset => '改用协议默认';
+
+  @override
+  String remoteExecDelayInvalid(String reason) {
+    return '延时这一档没有生效：$reason';
+  }
+
+  @override
+  String get remoteCredWhy =>
+      '凭据是「授权这一条远程指令」用的，与设备身份是两把不同的钥匙：一把证明我是这台设备，一把授权别人让我做事。';
+
+  @override
+  String get remoteCredKeySection => '高级密钥';
+
+  @override
+  String get remoteCredKeyNone => '还没设';
+
+  @override
+  String get remoteCredKeySet => '已设一把';
+
+  @override
+  String remoteCredKeyMin(int min) {
+    return '至少 $min 个字符，由协议规定';
+  }
+
+  @override
+  String get remoteCredKeyGenerate => '生成一把';
+
+  @override
+  String get remoteCredKeyCustom => '我自己设一把';
+
+  @override
+  String get remoteCredKeyOnce => '这一串只出现这一次。关掉这一页就没了，抄走或者重新生成一把。';
+
+  @override
+  String get remoteCredKeyReset => '撤掉这把';
+
+  @override
+  String get remoteCredKeyResetAsk => '撤掉之后，对面手里那把立刻作废——你得重新生成一把并当面交给对方。';
+
+  @override
+  String get remoteCredTotpSection => '二步验证码（TOTP）';
+
+  @override
+  String get remoteCredTotpNone => '还没设';
+
+  @override
+  String get remoteCredTotpSet => '已设一枚';
+
+  @override
+  String get remoteCredTotpGenerate => '生成一枚';
+
+  @override
+  String get remoteCredTotpLink => '录进验证器 App 的链接';
+
+  @override
+  String get remoteCredTotpSecret => '密钥串（验证器 App 也可以手输这个）';
+
+  @override
+  String get remoteCredTotpOnce =>
+      '这一枚只出现这一次，而且只存在接收端——对面把它录进自己的验证器 App，之后由验证器保管，不经过任何服务器。';
+
+  @override
+  String get remoteCredTotpClear => '撤掉这一枚';
+
+  @override
+  String remoteCredProblem(String reason) {
+    return '本机的凭据不可用：$reason';
+  }
+
+  @override
+  String get remoteCredResetAll => '全部重置';
+
+  @override
+  String get remoteCredResetAllAsk =>
+      '全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。';
+
+  @override
+  String get remoteSendTitle => '远程指令发送';
+
+  @override
+  String get remoteSendPickPeer => '发给哪一台';
+
+  @override
+  String get remoteSendLevel => '这一条按哪一档发';
+
+  @override
+  String get remoteSendLevelL1 => '低风险：可直接执行，也可由指定应用的通知触发';
+
+  @override
+  String get remoteSendLevelL2 => '中风险：只允许幻念推送，凭据可不带';
+
+  @override
+  String get remoteSendLevelL3 => '高风险：必须幻念推送，且必须带密钥或二步验证码';
+
+  @override
+  String get remoteSendAction => '要它做什么';
+
+  @override
+  String get remoteSendArgument => '参数（目标通道标识）';
+
+  @override
+  String get remoteSendKeyOptional => '高级密钥（可留空）';
+
+  @override
+  String get remoteSendTotpOptional => '二步验证码（可留空）';
+
+  @override
+  String get remoteSendKeyRequired => '高级密钥（这一档必填）';
+
+  @override
+  String get remoteSendTotpRequired => '二步验证码（这一档必填）';
+
+  @override
+  String get remoteSendSubmit => '发出去';
+
+  @override
+  String get remoteSendCancelNote => '取消 ⇒ 一个字节都不发。这一发带走了你刚填的凭据。';
+
+  @override
+  String get remoteSendNeedsCredential => '这一档必须带高级密钥或二步验证码之一——两个都空着发不出去。';
+
+  @override
+  String get remoteSendNeedsArgument => '这一项要一个参数（目标通道标识），空着发不出去。';
+
+  @override
+  String get remoteSendStartedNote =>
+      '已发出。等对面那台回「正在执行」与「执行完毕」两条回执——它们会出现在远程执行历史里。';
+
+  @override
+  String remoteSendFailed(String reason) {
+    return '这一发没发出去：$reason';
+  }
+
+  @override
+  String remoteSendLevelUnknown(String level) {
+    return '这一档（$level）不在协议词表里，不发。';
+  }
+
+  @override
+  String get remoteHistoryIn => '收到的指令';
+
+  @override
+  String get remoteHistoryOut => '发出的指令';
+
+  @override
+  String get remoteHistoryAll => '全部';
+
+  @override
+  String get remoteHistoryEmpty => '还没有任何远程执行记录。';
+
+  @override
+  String get remoteHistoryPending => '等执行';
+
+  @override
+  String get remoteHistoryExecuting => '执行中';
+
+  @override
+  String get remoteHistoryDone => '执行完毕';
+
+  @override
+  String get remoteHistoryFailed => '没做成';
+
+  @override
+  String get remoteHistoryCancelled => '已取消';
+
+  @override
+  String remoteHistoryStateUnknown(String state) {
+    return '不认得的执行状态（$state）';
+  }
+
+  @override
+  String remoteHistoryFromPeer(String peer) {
+    return '来自 $peer';
+  }
+
+  @override
+  String remoteHistoryToPeer(String peer) {
+    return '发给 $peer';
+  }
+
+  @override
+  String get remoteHistoryLocalTrigger => '本机应用的通知触发的（没有远端发送方）';
+
+  @override
+  String get remoteHistoryCancel => '取消这一条';
+
+  @override
+  String get remoteHistoryCancelNote => '取消只对还没开始执行的那一条有用；已经开始执行的不受这条窗口影响。';
+
+  @override
+  String get remoteHistoryRemoved => '这一条已从本机历史里删掉。';
+
+  @override
+  String get remoteHistoryBoundary =>
+      '远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。';
 }

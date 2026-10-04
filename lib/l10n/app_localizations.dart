@@ -6889,6 +6889,432 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'通知推送助手更新'**
   String get updateNotificationTitle;
+
+  /// No description provided for @remoteExecSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程执行'**
+  String get remoteExecSection;
+
+  /// No description provided for @remoteExecWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'别人可以让这台设备做事。安全度由两件事决定：走哪条渠道，以及有没有带凭据。开关默认关——升级不会替你做这个决定。'**
+  String get remoteExecWhy;
+
+  /// No description provided for @remoteExecEnabledOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'已开启'**
+  String get remoteExecEnabledOn;
+
+  /// No description provided for @remoteExecEnabledOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'已关闭'**
+  String get remoteExecEnabledOff;
+
+  /// No description provided for @remoteExecNeedsCredential.
+  ///
+  /// In zh, this message translates to:
+  /// **'开了但一把凭据都没有 ⇒ 高风险（L3）那条一条都进不来。'**
+  String get remoteExecNeedsCredential;
+
+  /// No description provided for @remoteExecOpenSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程执行设置'**
+  String get remoteExecOpenSettings;
+
+  /// No description provided for @remoteExecSendPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程指令发送'**
+  String get remoteExecSendPage;
+
+  /// No description provided for @remoteExecHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程执行历史'**
+  String get remoteExecHistory;
+
+  /// No description provided for @remoteExecDelayTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'延时执行'**
+  String get remoteExecDelayTitle;
+
+  /// No description provided for @remoteExecDelayUsingDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条会在 {seconds} 秒后自动执行（协议默认那一档）'**
+  String remoteExecDelayUsingDefault(int seconds);
+
+  /// No description provided for @remoteExecDelayChosen.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条会在 {seconds} 秒后自动执行（你选的）'**
+  String remoteExecDelayChosen(int seconds);
+
+  /// No description provided for @remoteExecDelayRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'可设范围 {min}–{max} 秒，由协议规定，不是本机偏好'**
+  String remoteExecDelayRange(int min, int max);
+
+  /// No description provided for @remoteExecDelayReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'改用协议默认'**
+  String get remoteExecDelayReset;
+
+  /// No description provided for @remoteExecDelayInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'延时这一档没有生效：{reason}'**
+  String remoteExecDelayInvalid(String reason);
+
+  /// No description provided for @remoteCredWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'凭据是「授权这一条远程指令」用的，与设备身份是两把不同的钥匙：一把证明我是这台设备，一把授权别人让我做事。'**
+  String get remoteCredWhy;
+
+  /// No description provided for @remoteCredKeySection.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级密钥'**
+  String get remoteCredKeySection;
+
+  /// No description provided for @remoteCredKeyNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没设'**
+  String get remoteCredKeyNone;
+
+  /// No description provided for @remoteCredKeySet.
+  ///
+  /// In zh, this message translates to:
+  /// **'已设一把'**
+  String get remoteCredKeySet;
+
+  /// No description provided for @remoteCredKeyMin.
+  ///
+  /// In zh, this message translates to:
+  /// **'至少 {min} 个字符，由协议规定'**
+  String remoteCredKeyMin(int min);
+
+  /// No description provided for @remoteCredKeyGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成一把'**
+  String get remoteCredKeyGenerate;
+
+  /// No description provided for @remoteCredKeyCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'我自己设一把'**
+  String get remoteCredKeyCustom;
+
+  /// No description provided for @remoteCredKeyOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一串只出现这一次。关掉这一页就没了，抄走或者重新生成一把。'**
+  String get remoteCredKeyOnce;
+
+  /// No description provided for @remoteCredKeyReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤掉这把'**
+  String get remoteCredKeyReset;
+
+  /// No description provided for @remoteCredKeyResetAsk.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤掉之后，对面手里那把立刻作废——你得重新生成一把并当面交给对方。'**
+  String get remoteCredKeyResetAsk;
+
+  /// No description provided for @remoteCredTotpSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'二步验证码（TOTP）'**
+  String get remoteCredTotpSection;
+
+  /// No description provided for @remoteCredTotpNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没设'**
+  String get remoteCredTotpNone;
+
+  /// No description provided for @remoteCredTotpSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'已设一枚'**
+  String get remoteCredTotpSet;
+
+  /// No description provided for @remoteCredTotpGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成一枚'**
+  String get remoteCredTotpGenerate;
+
+  /// No description provided for @remoteCredTotpLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'录进验证器 App 的链接'**
+  String get remoteCredTotpLink;
+
+  /// No description provided for @remoteCredTotpSecret.
+  ///
+  /// In zh, this message translates to:
+  /// **'密钥串（验证器 App 也可以手输这个）'**
+  String get remoteCredTotpSecret;
+
+  /// No description provided for @remoteCredTotpOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一枚只出现这一次，而且只存在接收端——对面把它录进自己的验证器 App，之后由验证器保管，不经过任何服务器。'**
+  String get remoteCredTotpOnce;
+
+  /// No description provided for @remoteCredTotpClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤掉这一枚'**
+  String get remoteCredTotpClear;
+
+  /// No description provided for @remoteCredProblem.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机的凭据不可用：{reason}'**
+  String remoteCredProblem(String reason);
+
+  /// No description provided for @remoteCredResetAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部重置'**
+  String get remoteCredResetAll;
+
+  /// No description provided for @remoteCredResetAllAsk.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。'**
+  String get remoteCredResetAllAsk;
+
+  /// No description provided for @remoteSendTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程指令发送'**
+  String get remoteSendTitle;
+
+  /// No description provided for @remoteSendPickPeer.
+  ///
+  /// In zh, this message translates to:
+  /// **'发给哪一台'**
+  String get remoteSendPickPeer;
+
+  /// No description provided for @remoteSendLevel.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条按哪一档发'**
+  String get remoteSendLevel;
+
+  /// No description provided for @remoteSendLevelL1.
+  ///
+  /// In zh, this message translates to:
+  /// **'低风险：可直接执行，也可由指定应用的通知触发'**
+  String get remoteSendLevelL1;
+
+  /// No description provided for @remoteSendLevelL2.
+  ///
+  /// In zh, this message translates to:
+  /// **'中风险：只允许幻念推送，凭据可不带'**
+  String get remoteSendLevelL2;
+
+  /// No description provided for @remoteSendLevelL3.
+  ///
+  /// In zh, this message translates to:
+  /// **'高风险：必须幻念推送，且必须带密钥或二步验证码'**
+  String get remoteSendLevelL3;
+
+  /// No description provided for @remoteSendAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'要它做什么'**
+  String get remoteSendAction;
+
+  /// No description provided for @remoteSendArgument.
+  ///
+  /// In zh, this message translates to:
+  /// **'参数（目标通道标识）'**
+  String get remoteSendArgument;
+
+  /// No description provided for @remoteSendKeyOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级密钥（可留空）'**
+  String get remoteSendKeyOptional;
+
+  /// No description provided for @remoteSendTotpOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'二步验证码（可留空）'**
+  String get remoteSendTotpOptional;
+
+  /// No description provided for @remoteSendKeyRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级密钥（这一档必填）'**
+  String get remoteSendKeyRequired;
+
+  /// No description provided for @remoteSendTotpRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'二步验证码（这一档必填）'**
+  String get remoteSendTotpRequired;
+
+  /// No description provided for @remoteSendSubmit.
+  ///
+  /// In zh, this message translates to:
+  /// **'发出去'**
+  String get remoteSendSubmit;
+
+  /// No description provided for @remoteSendCancelNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消 ⇒ 一个字节都不发。这一发带走了你刚填的凭据。'**
+  String get remoteSendCancelNote;
+
+  /// No description provided for @remoteSendNeedsCredential.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一档必须带高级密钥或二步验证码之一——两个都空着发不出去。'**
+  String get remoteSendNeedsCredential;
+
+  /// No description provided for @remoteSendNeedsArgument.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一项要一个参数（目标通道标识），空着发不出去。'**
+  String get remoteSendNeedsArgument;
+
+  /// No description provided for @remoteSendStartedNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'已发出。等对面那台回「正在执行」与「执行完毕」两条回执——它们会出现在远程执行历史里。'**
+  String get remoteSendStartedNote;
+
+  /// No description provided for @remoteSendFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一发没发出去：{reason}'**
+  String remoteSendFailed(String reason);
+
+  /// No description provided for @remoteSendLevelUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一档（{level}）不在协议词表里，不发。'**
+  String remoteSendLevelUnknown(String level);
+
+  /// No description provided for @remoteHistoryIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'收到的指令'**
+  String get remoteHistoryIn;
+
+  /// No description provided for @remoteHistoryOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'发出的指令'**
+  String get remoteHistoryOut;
+
+  /// No description provided for @remoteHistoryAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get remoteHistoryAll;
+
+  /// No description provided for @remoteHistoryEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有任何远程执行记录。'**
+  String get remoteHistoryEmpty;
+
+  /// No description provided for @remoteHistoryPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'等执行'**
+  String get remoteHistoryPending;
+
+  /// No description provided for @remoteHistoryExecuting.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行中'**
+  String get remoteHistoryExecuting;
+
+  /// No description provided for @remoteHistoryDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'执行完毕'**
+  String get remoteHistoryDone;
+
+  /// No description provided for @remoteHistoryFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没做成'**
+  String get remoteHistoryFailed;
+
+  /// No description provided for @remoteHistoryCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消'**
+  String get remoteHistoryCancelled;
+
+  /// No description provided for @remoteHistoryStateUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'不认得的执行状态（{state}）'**
+  String remoteHistoryStateUnknown(String state);
+
+  /// No description provided for @remoteHistoryFromPeer.
+  ///
+  /// In zh, this message translates to:
+  /// **'来自 {peer}'**
+  String remoteHistoryFromPeer(String peer);
+
+  /// No description provided for @remoteHistoryToPeer.
+  ///
+  /// In zh, this message translates to:
+  /// **'发给 {peer}'**
+  String remoteHistoryToPeer(String peer);
+
+  /// No description provided for @remoteHistoryLocalTrigger.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机应用的通知触发的（没有远端发送方）'**
+  String get remoteHistoryLocalTrigger;
+
+  /// No description provided for @remoteHistoryCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消这一条'**
+  String get remoteHistoryCancel;
+
+  /// No description provided for @remoteHistoryCancelNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消只对还没开始执行的那一条有用；已经开始执行的不受这条窗口影响。'**
+  String get remoteHistoryCancelNote;
+
+  /// No description provided for @remoteHistoryRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一条已从本机历史里删掉。'**
+  String get remoteHistoryRemoved;
+
+  /// No description provided for @remoteHistoryBoundary.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。'**
+  String get remoteHistoryBoundary;
 }
 
 class _AppLocalizationsDelegate

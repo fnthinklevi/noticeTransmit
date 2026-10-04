@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
+import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_contract_loader.dart';
 import 'fnthink_credential_store.dart';
 import 'fnthink_receive_loop.dart';
@@ -220,6 +221,8 @@ class FnthinkReceiveCoordinator {
     this.removePeer,
     this.presenceNotice,
     this.recordSent,
+    this.loadRemoteExecutions,
+    this.forgetRemoteExecution,
     this.registerDevice,
     this.recordHealth,
     FnthinkSettings Function(FnthinkContract contract)? buildSettings,
@@ -285,6 +288,24 @@ class FnthinkReceiveCoordinator {
   /// 只在 `accepted` 时记：被拒的那几种（429/403/签不出来）**没有可记的事实** ——
   /// 记进去等于在界面上写「我发过」，而服务端那边根本没收到过这一条。
   final Future<bool> Function(FnthinkInboxMessage message)? recordSent;
+
+  /// 远程执行历史的读咽喉（片3b-2）。**方向档传 null = 两个档一起看**。
+  ///
+  /// ⚠ 为什么读口挂在协调者而不是让页面自己开表：那一格页面要连 DB 就能读，
+  /// 而 `fnthink_receive_wiring_test` 里那条守卫断的正是「页面不自己取货、不自己开表」。
+  /// 挂这里还有一个好处：日后收货那一轮要在落一条 `in` 记录时，顺手把状态机往前推 ——
+  /// 那两件事共用同一条写链，各写一次就会有两个"这一条执行到哪了"的口径。
+  ///
+  /// null = 这台没装配读历史的链路 ⇒ 历史页显示"读不出来"（不是"一个都没有"）。
+  ///
+  /// ⚽ 读口**不回 null**：null 是"这台没接链路"，而"读失败"是**抛** ——
+  /// 三种"没有记录"（还没读 / 读失败 / 真的一个都没有）必须由历史页自己分桶说，
+  /// 读口把前两种合成一种返回就是替它做了那个判断。
+  final Future<List<FnthinkRemoteExecutionRecord>> Function(String? direction)?
+  loadRemoteExecutions;
+
+  /// 从远程执行历史里删掉一条（撤回）。回 false = 本来就没有这一行。
+  final Future<bool> Function(String execId)? forgetRemoteExecution;
 
   /// 设备自登记（#177）：把"本机这一行"写到服务端设备表里。
   ///

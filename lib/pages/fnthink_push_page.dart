@@ -8,6 +8,9 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
+import 'remote_credential_settings_page.dart';
+import 'remote_history_page.dart';
+import 'remote_send_page.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../services/fnthink_contract_loader.dart';
@@ -1626,6 +1629,8 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             const SizedBox(height: 12),
             _buildEndpointCard(l10n),
             const SizedBox(height: 12),
+            _buildRemoteExecCard(l10n),
+            const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 12),
             _buildBoundaryCard(l10n),
@@ -1928,6 +1933,98 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     final age = pairing.ageMs(DateTime.now().toUtc().millisecondsSinceEpoch);
     if (age == null) return AppLocalizations.of(context).unknown;
     return '${(age / 1000).floor()}s';
+  }
+
+  /// 远程执行那一格（片3b-2）：**三扇门** —— 设置、发送、历史。
+  ///
+  /// ⚠ 这一格刻意**不给开关**：总开关住在凭据设置页里，和凭据放在一起。
+  /// 把开关摆在这一格而凭据在另一格，用户开完就走了，然后 L3 那一条条都被拒 ——
+  /// 而他唯一看得到"开了"的地方是这一格。两个入口讲同一件事时，
+  /// 界面上要能一眼看出它们是同一件事，所以这一格只给入口，不给状态。
+  Widget _buildRemoteExecCard(AppLocalizations l10n) {
+    return _Card(
+      title: l10n.remoteExecSection,
+      children: [
+        _Note(keyName: 'fnthink-remote-exec-why', text: l10n.remoteExecWhy),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-remote-exec-settings'),
+            onPressed: _busy ? null : _openRemoteCredentialSettings,
+            child: Text(l10n.remoteExecOpenSettings),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-remote-exec-send'),
+            onPressed: _busy ? null : _openRemoteSend,
+            child: Text(l10n.remoteExecSendPage),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-remote-exec-history'),
+            onPressed: _busy ? null : _openRemoteHistory,
+            child: Text(l10n.remoteExecHistory),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openRemoteCredentialSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const RemoteCredentialSettingsPage(),
+      ),
+    );
+  }
+
+  Future<void> _openRemoteSend() async {
+    final contract = _contract;
+    if (contract == null) return;
+    final coordinator = _coordinator;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RemoteSendPage(
+          // 名单**只**从协调者那条读咽喉取（与本页同一份），
+          // 不另开一条读库的路 —— 两处各读一次就会有两个排序口径。
+          deps: RemoteSendDeps(
+            loadPeers: _deps.loadPeers,
+            send:
+                ({
+                  required String peer,
+                  required String title,
+                  required String text,
+                }) => coordinator.sendNotice(
+                  peer: peer,
+                  title: title,
+                  text: text,
+                ),
+            contractOf: () async => _deps.contracts.load(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRemoteHistory() async {
+    final coordinator = _coordinator;
+    final loader = coordinator.loadRemoteExecutions;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RemoteHistoryPage(
+          deps: RemoteHistoryDeps(
+            loadRecords: (direction) async => await loader?.call(direction),
+            removeRecord: (id) async =>
+                await coordinator.forgetRemoteExecution?.call(id) ?? false,
+            contractOf: () => _deps.contracts.load(),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildServerCard(AppLocalizations l10n) {
