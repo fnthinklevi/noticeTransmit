@@ -6,4 +6,9 @@
     <string name="widget_desc_toggle_2x2">Start or pause notification push with one tap and see the live status</string>
     <string name="widget_desc_toggle_4x2">Toggle notification push and show today\'s pushed notification count</string>
     <string name="service_label_monitor">Notification Monitor Service</string>
+    <!-- 远程执行的状态栏通知（片3c-5）。动作按钮那一枚才是这一格存在的理由：
+         用户不在这个 App 里时，那一下仍然按得到。 -->
+    <string name="fnthink_remote_exec_title">A remote command</string>
+    <string name="fnthink_remote_exec_text">%1$s will run on this device in %2$ds — cancel it to stop that</string>
+    <string name="fnthink_remote_exec_channel_desc">%1$s will run on this device in %2$ds — cancel it to stop that</string>
 </resources>

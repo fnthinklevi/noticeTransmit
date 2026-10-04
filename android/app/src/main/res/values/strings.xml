@@ -7,4 +7,9 @@
     <string name="widget_desc_toggle_4x2">一键开关通知推送，并显示当日已推送通知数量</string>
     <!-- 常驻前台服务的系统可见名（设置 → 应用通知 列表中显示） -->
     <string name="service_label_monitor">通知监听服务</string>
+    <!-- 远程执行的状态栏通知（片3c-5）。动作按钮那一枚才是这一格存在的理由：
+         用户不在这个 App 里时，那一下仍然按得到。 -->
+    <string name="fnthink_remote_exec_title">有人让这台设备做事</string>
+    <string name="fnthink_remote_exec_text">%1$s 将在这台设备上执行；%2$d 秒后自动执行，撤销就是不让它做</string>
+    <string name="fnthink_remote_exec_channel_desc">%1$s 将在这台设备上执行；%2$d 秒后自动执行，撤销就是不让它做</string>
 </resources>

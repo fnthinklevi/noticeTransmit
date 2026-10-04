@@ -262,6 +262,15 @@ object I18n {
     fun fnthinkInboxChannelDescription(): String =
         if (isEn) "Messages pushed to this device by paired devices and endpoints"
         else "由已配对设备与接入端点推给本机的消息"
+    // ⚠ 与收件那一条**分开**（片3c-5）：关掉收件通知时不该连撤销机会一起关掉，
+    //   否则界面上是"远程执行开着、却找不到能取消它的入口"。
+    fun fnthinkRemoteExecChannelName(): String =
+        if (isEn) "Fnthink remote commands" else "幻念推送 · 远程指令"
+    fun fnthinkRemoteExecChannelDescription(): String =
+        if (isEn) "Someone asks this device to do something; it runs after a short delay unless you cancel"
+        else "别人让这台设备做事；延时窗口内不撤销就自动执行"
+    /** 通知上那枚动作按钮的标题（动作按钮**不吃** l10n 资源，必须带真实文案）。 */
+    fun remoteExecCancelLabel(): String = if (isEn) "Cancel" else "撤销"
     // ========== v1.59 温度维度（自建应用通道体系的电池域扩展） ==========
 
 /** 温度维度显示名（电池/设备/屏幕） */

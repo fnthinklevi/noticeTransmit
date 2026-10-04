@@ -92,10 +92,10 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 102（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 106（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        102,
+        106,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -112,6 +112,10 @@ void main() {
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
         'FnthinkChannelHandler': 8,
+        // 远程执行（片3c-5）：状态栏通知的显示/清理 + "被原生记下撤销"的读口。
+        // ⚠ 这四发是**撤销入口其二**那条路径的唯一通道 —— 用户在通知栏按下的那一下
+        //   落在原生（Dart 当时不一定在跑），到点动手前由 Dart 回来问一句。
+        'RemoteExecChannelHandler': 4,
         // 不走 ChannelDispatcher 的那一类：worker 自己注册一条 presence 通道，
         // Dart 那一轮的成与败都只交这一发。它必须**被扫到**才谈得上被守住（见上面的登记）。
         'FnthinkPresenceWorker': 1,

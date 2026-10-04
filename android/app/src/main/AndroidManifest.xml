@@ -627,6 +627,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- 远程执行状态栏那个「撤销」按钮的读者（片3c-5）。
+             exported=false：只接自家 setPackage 的显式 action。给外部留一个
+             "替这台设备取消执行"的入口，等于任何人按一下就能让一条远程指令作废 ——
+             而那条指令是**持有凭据**才发得出来的，作废它不该不需要凭据。 -->
+        <receiver
+            android:name=".RemoteExecCancelReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fnthink.notice.action.FNTHINK_REMOTE_CANCEL" />
+            </intent-filter>
+        </receiver>
+
         <!-- 幻念推送"到点去问一次货"的闹钟接收器（T33 第二片 / §4-9）。
              exported=false：只接自家 setPackage 的显式 action —— 给外部留一个"催这台设备醒来"的
              入口，等于把每次唤醒的成本转嫁给用户的电与通知栏。 -->

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:fnthink_push/fnthink_push.dart';
 
+import 'remote_execution_notifier.dart';
+
 import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_l2_actions.dart';
 import 'fnthink_l3_settings.dart';
@@ -44,6 +46,7 @@ class RemoteCommandRunner extends ChangeNotifier {
     required this.now,
     this.schedule = _defaultSchedule,
     this.newId = newRemoteExecutionId,
+    this.statusBar,
   });
 
   final FnthinkContract contract;
@@ -75,6 +78,10 @@ class RemoteCommandRunner extends ChangeNotifier {
   /// 写成 `void Function(...)` 就只能"到点让它空转"，而那会留下一批
   /// orphan Timer —— 进程里每收一条指令就多一个，撤了也不消失。
   final Timer Function(Duration delay, void Function() onFire) schedule;
+
+  /// 状态栏那一枚通知（契约 `delay.cancelChannels` 的 `statusBar`，片3c-5）。
+  /// null = 这一版没接（测试与某些构建形态）⇒ 只剩界面横幅那一个撤销入口。
+  final RemoteExecutionNotifier? statusBar;
 
   final String Function(String seed) newId;
 
@@ -159,10 +166,23 @@ class RemoteCommandRunner extends ChangeNotifier {
     // ① 第一段回执：**收到就发**，不等窗口。
     await _emitReceipt(execId, RemoteExecutionStates.pending);
     if (seconds <= 0) {
+      // ⚠⚠ **窗口 0 不发状态栏那一枚**，而且这是**写死**的，不是顺序的巧合：
+      //   契约 `delay.minSeconds = 0` 的意思是"立刻执行"，而它立刻就执行完了
+      //   —— 发出去的通知活不到用户能看见，而它随即又被 `_finish` 收掉，
+      //   留在通知栏里的实际效果是**闪一下**。
+      //   闪一下比不发更坏：它会让用户以为"刚才那一下是要执行什么"。
+      //   （`inAppBanner` 那一格同样不画 —— 窗口 0 时它连一帧都待不住。）
       await _execute(execId);
       return execId; // `_finish` 里已经通知过（pending → 终态）
     }
     notifyListeners();
+    // 状态栏那一枚（撤销入口其二）。⚗ **不 await**：它是原生往返，
+    // 而这一格正在收货循环里 —— 挡住它等于让一条通知的延迟拖慢整轮收货。
+    // 发不出去也不该影响执行（那只是「撤销入口少了一个」，协议不要求有通知）。
+    unawaited(
+      statusBar?.show(execId: execId, item: record.item, seconds: seconds) ??
+          Future<bool>.value(false),
+    );
     // ⚠ 走**注入进来的** [schedule]，不是硬编码 `Timer(...)`：
     //   第一版这里写的是 `Timer(...)`，于是 schedule 字段从未被接上 ——
     //   字段在、默认实现在、测试也能注入，唯独这一行没调它。
@@ -233,6 +253,19 @@ class RemoteCommandRunner extends ChangeNotifier {
     final flight = _inFlight[execId];
     if (flight == null || flight.started) return;
     _timers.remove(execId);
+    // ⚠⚠ **到点动手前先问原生那一句**：用户在状态栏按过「撤销」而 Dart 这边不在
+    //   （后台轮次随时被回收，那正是状态栏那个入口存在的理由）。
+    //   不问这一句的表现是「我明明按了撤销，它还是执行了」，而本机没有任何痕迹可查。
+    //   问完即清（原生那一侧 consume），所以下一轮重投同一条指令时它会被当成没被撤过 ——
+    //   那是对的：重投是一次新的指令。
+    if (await (statusBar?.takeCancelled(execId) ?? Future<bool>.value(false))) {
+      await _finish(
+        execId,
+        RemoteExecutionStates.cancelled,
+        reason: 'cancelled-from-status-bar',
+      );
+      return;
+    }
     // ⚠ 迁移要用**内核那一格**判，不是自己拼字符串：非法迁移要么拒要么不留痕，
     //   而这一层若绕过它，出现一次意外状态就会直接把一次执行记成成功。
     final moving = advanceRemoteExecution(
@@ -339,6 +372,9 @@ class RemoteCommandRunner extends ChangeNotifier {
       _withState(flight.record, state, reason: reason, result: result),
     );
     await _emitReceipt(execId, state, flight: flight);
+    // 收掉那一枚：不管这一次是做了、没成、还是撤了，
+    // 留着一条「10 秒后执行」就等于告诉用户「还有机会」—— 而其实没有了。
+    unawaited(statusBar?.clear(execId) ?? Future<void>.value());
     notifyListeners();
   }
 

@@ -33,6 +33,7 @@ import com.fnthink.notice.channels.DeviceChannelHandler
 import com.fnthink.notice.channels.FileChannelHandler
 import com.fnthink.notice.channels.FnthinkChannelHandler
 import com.fnthink.notice.channels.PermissionChannelHandler
+import com.fnthink.notice.channels.RemoteExecChannelHandler
 import com.fnthink.notice.channels.StatsChannelHandler
 import com.tencent.bugly.crashreport.CrashReport
 import io.flutter.embedding.android.FlutterActivity
@@ -404,6 +405,10 @@ class MainActivity : FlutterActivity() {
                 FileChannelHandler(this),
                 StatsChannelHandler(this),
                 FnthinkChannelHandler(this),
+                // 远程执行（片3c-5）：状态栏通知的显示/清理 + 那一格"被原生记下撤销"的读口。
+                // ⚠ 放在**最后**：它是新加的一格，而未消费方法回 notImplemented 与拆分前一致 ——
+                //   顺序只影响"谁先认领"，不影响别的域。
+                RemoteExecChannelHandler(this),
             )
         )
         methodChannel?.setMethodCallHandler { call, result ->

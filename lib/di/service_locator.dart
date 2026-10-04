@@ -24,6 +24,7 @@ import '../services/fnthink_remote_runner.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_remote_wiring.dart';
 import '../services/remote_credential_store.dart';
+import '../services/remote_execution_notifier.dart';
 import '../services/secure_storage_service.dart';
 import '../services/active_channels.dart';
 import '../services/fnthink_settings.dart';
@@ -244,6 +245,9 @@ void setupLocator() {
   // 执行链（窗口 → 动手 → 两段回执 → 撤销咽喉）。
   // ⚠ 窗口秒数**每次现取**设置那一格，不在构造时缓存 ——
   //   用户在设置页改了一次，不该要重启进程才生效。
+  getIt.registerLazySingleton<RemoteExecutionNotifier>(
+    () => const RemoteExecutionNotifier(),
+  );
   getIt.registerLazySingleton<RemoteCommandRunner>(
     () => RemoteCommandRunner(
       contract: getIt<FnthinkContractLoader>().cached!,
@@ -259,6 +263,7 @@ void setupLocator() {
       saveRecord: (record) =>
           getIt<DatabaseHelper>().saveRemoteExecutionRecord(record),
       sendReceipt: (peer, receipt) => _sendRemoteReceipt(getIt, peer, receipt),
+      statusBar: getIt<RemoteExecutionNotifier>(),
       now: DateTime.now,
     ),
   );
