@@ -247,6 +247,62 @@ void main() {
     });
   });
 
+  // ── T90 补册（2026-10-05）：另两族从未被纳入，也从没有守卫 ──────────────
+  group('转场与轻提示两族（T90 补册：防变多，不是「要换掉的清单」）', () {
+    // ⚠ 这两族**从来没进过台账**：那 27 片换的是对话框 / 列表选择器 / 表单弹层 /
+    //   下拉壳，而 `MaterialPageRoute` 与 `showSnackBar` 是另外两族。
+    //   后果不是"风格不统一"这么轻 —— 它们**改坏了没有任何一条守卫会红**，
+    //   而新增一处也不会有人知道多了一处。本册把它们钉成「只许变薄」。
+    //
+    // ⚠ **`showSnackBar` 的换法尚未定**：SnackBar 在 Cupertino 里**没有对应控件**
+    //   （`CupertinoApp` 下它仍按 Material 样式渲染），换它要先有一个自己的
+    //   轻提示装配点（`IosDialogActions` 那族已有 `showInfo`，但那是对话框不是轻提示）。
+    //   在那之前，本册只管「别变多」—— 不假装"清零"就算完成。
+    for (final spec in const [
+      (
+        name: 'MaterialPageRoute',
+        pattern: r'(^|[^A-Za-z0-9_])MaterialPageRoute',
+        sites: kMaterialRouteSites,
+      ),
+      (
+        name: 'showSnackBar',
+        pattern: r'(^|[^A-Za-z0-9_])showSnackBar',
+        sites: kSnackBarSites,
+      ),
+    ]) {
+      final pattern = RegExp(spec.pattern);
+
+      test('${spec.name}：没有文件在台账之外新增', () {
+        expect(
+          hittingRe(pattern).toSet().difference(spec.sites.keys.toSet()),
+          isEmpty,
+          reason:
+              '新一处 ${spec.name} ⇒ 这一族从 T90 补册起就不受任何守卫保护，'
+              '而换法（尤其 SnackBar 没有 Cupertino 对应件）还没定 ⇒ '
+              '先记账，不许悄悄加',
+        );
+      });
+
+      test('${spec.name}：逐文件枚数与台账相等', () {
+        final actual = countingRe(pattern);
+        expect(
+          actual.keys.toSet(),
+          spec.sites.keys.toSet(),
+          reason: '台账内外的文件对不上 ⇒ 这本账不能再当剩余工作量',
+        );
+        for (final entry in spec.sites.entries) {
+          expect(
+            actual[entry.key],
+            entry.value,
+            reason:
+                '${entry.key} 实际 ${actual[entry.key] ?? 0} 枚、台账记 ${entry.value} 枚'
+                '（多一枚红：账内加一枚没人喊；少一枚也红：顺手把账改小）',
+          );
+        }
+      });
+    }
+  });
+
   group('确认框台账（Material AlertDialog）', () {
     // 不是一条「禁止」，而是一本**只许变薄的账**：这三条强约束之外，历史页面上的
     // Material 对话框还很多（片8 之后剩 16 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
@@ -538,6 +594,58 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 
 /// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
 /// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
+/// MaterialPageRoute 的**现状台账**（片：T90 补册，2026-10-05）。
+///
+/// ⚠ **这不是「要换掉的清单」，是「不许变多的清单」**：这一类从来没有被纳入 T90 的
+///   弹层那一族（那 27 片换的是对话框 / 列表选择器 / 表单弹层 / 下拉壳），
+///   于是它们**既不在旧台账、也没有守卫** —— 加一处不会红，减一处也没人记。
+///   本册把它钉成「只许变薄」：新增一律红，逐文件枚数相等。
+///
+/// ⚠ **换法尚未定**：SnackBar 在 Cupertino 里**没有对应控件**（`CupertinoApp` 下它仍走
+///   Material 样式），所以换它要先有一个自己的轻提示装配点（`IosDialogActions`
+///   那族已经有 `showInfo` 一类，但那是对话框不是轻提示）。在那之前，本册只管「别变多」。
+const Map<String, int> kMaterialRouteSites = <String, int>{
+  'lib/pages/app_channel_list_page.dart': 1,
+  'lib/pages/email_settings_page.dart': 1,
+  'lib/pages/fnthink_push_page.dart': 3,
+  'lib/pages/main_page.dart': 1,
+  'lib/pages/more_page.dart': 5,
+  'lib/pages/notification_engine_page.dart': 1,
+  'lib/pages/rule_edit_page.dart': 1,
+  'lib/pages/rule_list_page.dart': 3,
+  'lib/pages/webhook_channel_list_page.dart': 1,
+};
+
+/// showSnackBar 的**现状台账**（片：T90 补册，2026-10-05）。
+///
+/// ⚠ **这不是「要换掉的清单」，是「不许变多的清单」**：这一类从来没有被纳入 T90 的
+///   弹层那一族（那 27 片换的是对话框 / 列表选择器 / 表单弹层 / 下拉壳），
+///   于是它们**既不在旧台账、也没有守卫** —— 加一处不会红，减一处也没人记。
+///   本册把它钉成「只许变薄」：新增一律红，逐文件枚数相等。
+///
+/// ⚠ **换法尚未定**：SnackBar 在 Cupertino 里**没有对应控件**（`CupertinoApp` 下它仍走
+///   Material 样式），所以换它要先有一个自己的轻提示装配点（`IosDialogActions`
+///   那族已经有 `showInfo` 一类，但那是对话框不是轻提示）。在那之前，本册只管「别变多」。
+const Map<String, int> kSnackBarSites = <String, int>{
+  'lib/pages/app_channel_settings_page.dart': 1,
+  'lib/pages/app_filter_page.dart': 1,
+  'lib/pages/backup_restore_page.dart': 1,
+  'lib/pages/channel_status_page.dart': 1,
+  'lib/pages/device_snapshot_page.dart': 1,
+  'lib/pages/email_settings_page.dart': 2,
+  'lib/pages/fnthink_push_page.dart': 1,
+  'lib/pages/history_page.dart': 11,
+  'lib/pages/main_page.dart': 1,
+  'lib/pages/main_page_update.dart': 2,
+  'lib/pages/more_page.dart': 2,
+  'lib/pages/remote_credential_settings_page.dart': 1,
+  'lib/pages/rule_list_page.dart': 1,
+  'lib/pages/webhook_settings_page.dart': 1,
+  'lib/pages/widget_guide_page.dart': 3,
+  'lib/widgets/icon_picker_tile.dart': 1,
+  'lib/widgets/rule_template_sheet.dart': 1,
+};
+
 const Map<String, int> kMaterialDialogSites = <String, int>{
   // 片27：`rule_tester_page` 那枚「选择应用」外壳收进 `IosDialogActions.showExplainer`
   // ⇒ **整屏出账**（选择器本体变成 `body`，带值的行仍然 `Navigator.pop(context, a)`）。
