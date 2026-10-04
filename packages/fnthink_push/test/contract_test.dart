@@ -458,6 +458,35 @@ void main() {
       expectProblem(broken, 'localTriggerReceipt', '另造一个回执词 = 第二份词表');
     });
 
+    test('远程执行：localTriggerSource 换成不在来源词表里的名字 ⇒ 报', () {
+      // ⚠ 这一条是片3c 补那条判据的**反证**：摘掉「必须在 sources.L1 里」那一半之后，
+      // 本用例必须红。它此前不存在 ⇒ 那条判据属于"写了但没人证明它有效"。
+      // 症状若不钉住就是最坏的一种：写一个不存在的来源名，判据绿着，
+      // 而"本机那一路按契约不回执"永远不成立（永远没有一条指令来自那个名字）。
+      final broken = mutate((raw) {
+        remoteOf(raw)['localTriggerSource'] = 'somewhere_else';
+      });
+      expectProblem(
+        broken,
+        'localTriggerSource',
+        '来源名不在 L1 词表里 ⇒ 代码判不出本机那一路，回执会照发',
+      );
+      expectProblem(
+        mutate((raw) {
+          remoteOf(raw)['localTriggerSource'] = '';
+        }),
+        'localTriggerSource',
+        '来源名留空 = 判据不成立时最可能的写法（照抄那一行会写空串）',
+      );
+      // 正向：契约里这一行与 L1 的词表一致（否则上面两条红而这一条绿 = 判据指错了地方）。
+      expect(
+        mutate(
+          (raw) {},
+        ).validate().where((p) => p.contains('localTriggerSource')),
+        isEmpty,
+      );
+    });
+
     test('远程执行：localTriggerReceipt 只能是 none 或 receipts 词表里的词', () {
       // 「none」是刻意不在 receipts 词表里的那个哨兵：它说的不是"回哪一个回执"，
       // 而是"这一路上没有任何人可以回"（本机白名单触发的那一路）。

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/services/fnthink_execution_log.dart';
@@ -27,11 +29,22 @@ class _StubProbe implements RemoteExecutionCredentialProbe {
 
 /// 构造一个删掉了 `remoteExecution.receipts.finished` 的契约副本
 /// （用于测「缺键抛」这一支：回一个看起来像成功的词出去，比抛更坏）。
+///
+/// ⚠ **逐层深拷贝**：`Map.from(c.raw)` 是浅的，而 `receipts` 是 `raw` 里**同一个**
+/// Map 对象 —— 浅拷贝下 `remove('finished')` 删掉的是**真契约**那一个。
+/// 后果不响：本文件里原来只有这一条用到深删，且它排在最后，
+/// 于是后面任何一条读 `receipts.finished` 的用例都会拿到 `null` 而抛
+/// 「契约缺 …receipts.finished」—— 报出来的原因指向契约，**现场却是一次测试污染**。
+/// 两种失败在现场完全分不开，这比原来的失败更难查。
 FnthinkContract _withoutFinishedReceipt(FnthinkContract c) {
   final copy = Map<String, Object?>.from(c.raw);
-  final caps = copy['capabilities']! as Map<String, Object?>;
-  final remote = caps['remoteExecution']! as Map<String, Object?>;
-  (remote['receipts']! as Map<String, Object?>).remove('finished');
+  final caps = Map<String, Object?>.from(copy['capabilities']! as Map);
+  final remote = Map<String, Object?>.from(caps['remoteExecution']! as Map);
+  final receipts = Map<String, Object?>.from(remote['receipts']! as Map)
+    ..remove('finished');
+  remote['receipts'] = receipts;
+  caps['remoteExecution'] = remote;
+  copy['capabilities'] = caps;
   return FnthinkContract(copy);
 }
 
@@ -285,6 +298,148 @@ void main() {
         throwsA(isA<StateError>()),
       );
     });
+
+    // 片3c-1：状态 → 回执的映射。此前只有"两个词从哪来"，没有"这一条该回哪一段"。
+    test('pending 与 executing ⇒ 只回第一段且不带终态', () {
+      for (final state in const ['pending', 'executing']) {
+        final r = remoteExecutionReceiptFor(
+          contract: contract,
+          level: 'L2',
+          item: 'channel:toggle',
+          argument: 'webhook_acme',
+          state: state,
+        );
+        expect(r, isNotNull);
+        expect(
+          r!.result,
+          remoteExecutionStartedReceipt(contract),
+          reason: '$state 只回第一段',
+        );
+        expect(r.state, isNull, reason: '还没执行完，没有终态可报');
+        expect(r.isFinished, isFalse);
+      }
+    });
+
+    test('三个终态 ⇒ 回第二段且逐字带上那个终态', () {
+      for (final state in const ['done', 'failed', 'cancelled']) {
+        final r = remoteExecutionReceiptFor(
+          contract: contract,
+          level: 'L3',
+          item: 'autostart',
+          argument: '',
+          state: state,
+        )!;
+        expect(r.result, remoteExecutionFinishedReceipt(contract));
+        expect(r.state, state);
+        expect(r.isFinished, isTrue);
+      }
+    });
+
+    test('level/item/argument 原样带出去（对面靠这三项对回自己发的那一条）', () {
+      final r = remoteExecutionReceiptFor(
+        contract: contract,
+        level: 'L2',
+        item: 'channel:toggle',
+        argument: 'webhook_acme',
+        state: 'done',
+      )!;
+      expect(r.level, 'L2');
+      expect(r.item, 'channel:toggle');
+      expect(r.argument, 'webhook_acme');
+    });
+
+    test('不在词表里的状态 ⇒ null（不许落回第一段编一个回执）', () {
+      expect(
+        remoteExecutionReceiptFor(
+          contract: contract,
+          level: 'L2',
+          item: 'listener:start',
+          argument: '',
+          state: 'whatever',
+        ),
+        isNull,
+      );
+      expect(
+        remoteExecutionReceiptFor(
+          contract: contract,
+          level: 'L2',
+          item: 'listener:start',
+          argument: '',
+          state: '',
+        ),
+        isNull,
+      );
+    });
+
+    test('拼出来再拆回去逐项相等（回执要真的发得出去）', () {
+      final r = remoteExecutionReceiptFor(
+        contract: contract,
+        level: 'L2',
+        item: 'channel:toggle',
+        argument: 'webhook_acme',
+        state: 'failed',
+      )!;
+      final back = RemoteReceiptEnvelope.decode(
+        RemoteReceiptEnvelope.encode(
+          result: r.result,
+          level: r.level,
+          item: r.item,
+          argument: r.argument,
+          state: r.state,
+        ),
+      );
+      expect(back!.result, r.result);
+      expect(back.level, r.level);
+      expect(back.item, r.item);
+      expect(back.argument, r.argument);
+      expect(back.state, r.state);
+    });
+  });
+
+  group('这一条该不该回回执（片3c-1）', () {
+    test('幻念推送那一路回（本机没有"对面"可回的只有白名单那一路）', () {
+      expect(
+        remoteExecutionSendsReceipt(
+          contract,
+          contract.remoteExecutionSourcesFor('L1').first,
+        ),
+        isTrue,
+      );
+    });
+
+    test('本机白名单触发那一路不回（契约 localTriggerReceipt=none）', () {
+      expect(
+        remoteExecutionSendsReceipt(
+          contract,
+          contract.remoteExecutionLocalTriggerSource,
+        ),
+        isFalse,
+      );
+    });
+
+    test('⚠ 判的是"是不是本机那一路"，不是"在不在来源词表里"', () {
+      // 前提：白名单那一路**在** L1 的来源词表里（所以"在不在词表里"这个判据不可用）。
+      //
+      // ⚠⚠ **这一条守不住这个判据**，如实记下来（反证 RC3 实测）：
+      //   把实现换成 `sourcesFor('L1').contains(source)`，
+      //   `localNotificationWhitelist` 在那张表里 ⇒ 结论**仍然是 false** ⇒ 本条照样绿。
+      //   那一发真正红的是上面「幻念推送那一路回」—— 因为 `fnthink` 也在那张表里，
+      //   错误写法于是把它判成"本机那一路"而不发回执。
+      //   ⇒ **别因为看着重复就删掉「幻念那一路回」**：它是这一组里唯一分辨两种写法的用例，
+      //   而"本机那一路不回"与它合起来才把两条路都钉住。
+      expect(
+        contract.remoteExecutionSourcesFor('L1'),
+        contains(contract.remoteExecutionLocalTriggerSource),
+        reason: '前提：白名单那一路确实在 L1 的来源词表里',
+      );
+      expect(
+        remoteExecutionSendsReceipt(
+          contract,
+          contract.remoteExecutionLocalTriggerSource,
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('留痕映射', () {
@@ -323,13 +478,39 @@ void main() {
       expect(out['body'], isNull, reason: '留痕里不许有正文键');
     });
   });
+
+  // ⚠ 这一条**必须排在最后**：它比的是「跑完前面所有用例之后，本文件手里那份契约
+  //   与磁盘上那份是否逐字相同」，所以只有最后跑才有意义。
+  //   钉的是「改副本不改原件」这一条 —— 它此前**没有任何判据**：把两个 helper 的
+  //   浅拷贝改回原样（重新写成 `Map.from(c.raw)` 一层），这个文件照样全绿，
+  //   而后面读 `receipts.finished` / `auth.modes` 的用例会拿到前面用例留下的残值。
+  //   症状出现在**另一条**用例上，报出来的原因却指向契约，现场两种失败分不开。
+  test('⚠ 前面那些"改契约副本"的用例没有改到原件（改副本必须逐层拷贝）', () {
+    expect(
+      jsonEncode(contract.raw),
+      jsonEncode(FnthinkContract.readFile().raw),
+      reason:
+          '本文件读的那份契约被前面的用例改过了：'
+          '浅拷贝只拷一层，而 nested map 与 raw 里的是同一个对象',
+    );
+  });
 }
 
 /// 把契约副本里的 auth.modes 改成只认一种（用于 unsupported-mode 那条）。
+///
+/// ⚠ 与 [_withoutFinishedReceipt] 同一条理由，**同一个坑的另一半**：那里是 `remove`，
+/// 这里是**赋值** —— 浅拷贝下 `['modes'] = modes` 写进的是真契约那一个 Map。
+/// 表现是凭据校验那组跑完之后，本文件后面任何读 `auth.modes` 的用例拿到的都是
+/// 上一个用例留下的那一种模式，而真契约在**整轮**里被改掉了。
+/// 一句话记这一类：**改契约副本必须逐层拷贝，只拷一层等于改原件**。
 Map<String, Object?> _withAuthModes(FnthinkContract c, List<String> modes) {
   final copy = Map<String, Object?>.from(c.raw);
-  final caps = copy['capabilities']! as Map<String, Object?>;
-  final remote = caps['remoteExecution']! as Map<String, Object?>;
-  (remote['auth']! as Map<String, Object?>)['modes'] = modes;
+  final caps = Map<String, Object?>.from(copy['capabilities']! as Map);
+  final remote = Map<String, Object?>.from(caps['remoteExecution']! as Map);
+  final auth = Map<String, Object?>.from(remote['auth']! as Map)
+    ..['modes'] = modes;
+  remote['auth'] = auth;
+  caps['remoteExecution'] = remote;
+  copy['capabilities'] = caps;
   return copy;
 }

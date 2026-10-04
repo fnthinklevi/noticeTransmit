@@ -167,4 +167,122 @@ void main() {
       expect(printed.contains('已带'), isTrue, reason: '要说清"带了"，但不说带了什么');
     });
   });
+
+  group('回执信封（片3c-1，B → A 那一半）', () {
+    test('第一段（收到即回）不带终态，拆回来逐项相等', () {
+      final wire = RemoteReceiptEnvelope.encode(
+        result: 'executing',
+        level: 'L2',
+        item: 'channel:toggle',
+        argument: 'webhook_acme',
+      );
+      final back = RemoteReceiptEnvelope.decode(wire);
+      expect(back, isNotNull);
+      expect(back!.result, 'executing');
+      expect(back.level, 'L2');
+      expect(back.item, 'channel:toggle');
+      expect(back.argument, 'webhook_acme');
+      expect(back.state, isNull, reason: '第一段还没执行完，没有终态可报');
+      expect(back.isFinished, isFalse);
+    });
+
+    test('第二段带终态，done/failed/cancelled 三个终态都拆得回来', () {
+      for (final terminal in const ['done', 'failed', 'cancelled']) {
+        final wire = RemoteReceiptEnvelope.encode(
+          result: 'execution_done',
+          level: 'L3',
+          item: 'autostart',
+          state: terminal,
+        );
+        final back = RemoteReceiptEnvelope.decode(wire)!;
+        expect(back.result, 'execution_done');
+        expect(back.state, terminal);
+        expect(back.isFinished, isTrue);
+      }
+    });
+
+    test('空串 state 与不传是同一件事（载荷里根本不带那个键）', () {
+      final wire = RemoteReceiptEnvelope.encode(
+        result: 'executing',
+        level: 'L1',
+        item: 'listener:start',
+        state: '',
+      );
+      final raw =
+          jsonDecode(wire.substring(RemoteReceiptEnvelope.prefix.length))
+              as Map;
+      expect(raw.containsKey('state'), isFalse);
+      expect(RemoteReceiptEnvelope.decode(wire)!.state, isNull);
+    });
+
+    test('拆不出来就是拆不出来（缺 result/level/item 一律 null）', () {
+      expect(
+        RemoteReceiptEnvelope.decode('FRR1:{"level":"L2","item":"x"}'),
+        isNull,
+        reason: '缺 result 最危险：那正是"对面说执行完了"那一段',
+      );
+      expect(
+        RemoteReceiptEnvelope.decode('FRR1:{"result":"executing","item":"x"}'),
+        isNull,
+      );
+      expect(
+        RemoteReceiptEnvelope.decode(
+          'FRR1:{"result":"executing","level":"L2"}',
+        ),
+        isNull,
+      );
+      expect(
+        RemoteReceiptEnvelope.decode('${RemoteReceiptEnvelope.prefix}not json'),
+        isNull,
+      );
+      expect(
+        RemoteReceiptEnvelope.decode('${RemoteReceiptEnvelope.prefix}[1]'),
+        isNull,
+      );
+    });
+
+    test('普通通知与一条指令都拆不成回执', () {
+      expect(RemoteReceiptEnvelope.decode('今天天气不错'), isNull);
+      expect(
+        RemoteReceiptEnvelope.decode(
+          RemoteCommandEnvelope.encode(level: 'L2', item: 'listener:start'),
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('三个前缀互不串', () {
+    test('指令前缀与回执前缀不同', () {
+      expect(
+        RemoteCommandEnvelope.prefix == RemoteReceiptEnvelope.prefix,
+        isFalse,
+        reason: '共用前缀 ⇒ 别人的回执会被当一条指令执行一遍',
+      );
+    });
+
+    test('回执前缀与标题信封不同', () {
+      final titlePrefix = FnthinkContract.readFile().deviceTitlePrefix;
+      expect(
+        RemoteReceiptEnvelope.prefix == titlePrefix,
+        isFalse,
+        reason: '回执前缀与标题信封前缀相同：$titlePrefix',
+      );
+    });
+
+    test('一条回执既拆不成指令、也拆不成标题消息', () {
+      final receipt = RemoteReceiptEnvelope.encode(
+        result: 'execution_done',
+        level: 'L2',
+        item: 'listener:start',
+        state: 'done',
+      );
+      expect(RemoteCommandEnvelope.decode(receipt), isNull);
+      final asTitle = FnthinkTitleEnvelope.decode(
+        FnthinkContract.readFile(),
+        receipt,
+      );
+      expect(asTitle.split, isFalse);
+    });
+  });
 }

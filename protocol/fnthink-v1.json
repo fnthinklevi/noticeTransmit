@@ -476,6 +476,8 @@
       },
       "receiptsWhy": "两段回执走**回发给发送方的消息**（不是 ack）：收到即回 receipts.started，执行完回 receipts.finished 并带结果。⚠ 把回执塞进 ack 的后果是 at-least-once 重投与「执行中」互相污染（重投会再 ack 一次）；ack 只回答「我收到了这条投递」，回执回答「我把这件事做到哪了」",
       "localTriggerReceipt": "none",
+      "localTriggerSource": "localNotificationWhitelist",
+      "localTriggerSourceWhy": "「哪一条来源不回执」必须能读到，否则代码只有两条路：写死那个字符串（第二份字面量，改了来源名这一处不回执逻辑静默失配），或者按「这个来源在 sources 里吗」来判（而 sources.L1 恰好**包含**它，于是本机那一路被判成有远端发送方，回执发到一个不存在的地址）。这一条只回答是谁，回不回是 localTriggerReceipt 那一条 —— 两者分开，加第三条渠道时不必回来看这一段。validate 钉住它必须在 sources.L1 里：写一个不在词表里的来源名，这一条会**永远不成立**（判据绿着，而那一路照发回执）",
       "localTriggerReceiptWhy": "本机白名单应用的通知触发的是**本机**指令：这条路上没有远端发送方，**没有任何人可以回** ⇒ 不回执，只进本地远程执行历史。⚠ 这一条是维护者未明确确认时的**中性写法**（契约不为它定义回执；若他改主意要回给谁，改这一处即可）"
     },
     "l2": {

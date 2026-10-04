@@ -224,6 +224,59 @@ String remoteExecutionFinishedReceipt(FnthinkContract contract) {
   return word;
 }
 
+/// 这条执行现在该不该回回执、回哪一段（**状态 → 回执**的唯一映射处）。
+///
+/// ⚠ `pending` / `executing` ⇒ **只回第一段**（`executing`，不带终态）。
+/// 契约 `receiptsWhy` 写的是「收到即回 receipts.started」—— 那一刻这条执行刚刚被判放行，
+/// 它进的是延时窗口（默认 10s），还什么都没做。所以第一段的含义是
+/// 「**对面那条我收到了、已经进流程、现在还在撤得回来的窗口里**」，
+/// 不是「已经在执行了」—— 后者会让对面以为不能再撤销而提前安心。
+/// 三个终态 ⇒ 回第二段（`execution_done`）并**带上那个终态**。
+///
+/// ⚠ **不在词表里的 state 回 null**，不落回第一段：那等于给一条从没见过的状态编一个回执，
+/// 而对面收到 `executing` 之后会一直等第二段 —— 等不到比早回一段更难查。
+/// 同一条纪律与 [remoteExecutionStartedReceipt] 的"缺键抛"一致：回执词不许造第二个。
+RemoteReceipt? remoteExecutionReceiptFor({
+  required FnthinkContract contract,
+  required String level,
+  required String item,
+  required String argument,
+  required String state,
+}) {
+  if (!contract.remoteExecutionStates.contains(state)) return null;
+  final finished = <String>{
+    RemoteExecutionStates.done,
+    RemoteExecutionStates.failed,
+    RemoteExecutionStates.cancelled,
+  };
+  final isFinished = finished.contains(state);
+  return RemoteReceipt(
+    result: isFinished
+        ? remoteExecutionFinishedReceipt(contract)
+        : remoteExecutionStartedReceipt(contract),
+    level: level,
+    item: item,
+    argument: argument,
+    state: isFinished ? state : null,
+  );
+}
+
+/// 这段回执该不该**发出去**（本机触发那一路不发 —— 契约 `localTriggerReceipt = none`）。
+///
+/// ⚠ 判的是「**是不是本机那一路**」，不是「这个来源在不在词表里」：
+/// 后者会把本机触发判成要回执 —— `sources.L1` 恰恰**包含**它
+/// （`localNotificationWhitelist` 正是 L1 允许的两条来源之一），
+/// 于是每一台设备都会朝一个不存在的地址发回执，而收件那侧根本没人。
+/// ⚠ 也不按「有没有 sender」判：白名单通知**有** sender（那条本机通知的来源），
+/// 按结构判会把同一个洞留在原地。
+bool remoteExecutionSendsReceipt(FnthinkContract contract, String source) {
+  if (localTriggerReceiptIsNone(contract) &&
+      source == contract.remoteExecutionLocalTriggerSource) {
+    return false;
+  }
+  return true;
+}
+
 /// 把"这一条执行现在什么状态"收成一条留痕行（T53 的形状）。
 ///
 /// ⚠ 映射口径（**只有这一个出处**，界面与审计都读它）：

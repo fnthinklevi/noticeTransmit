@@ -614,6 +614,28 @@ class FnthinkContract {
       str(const ['capabilities', 'remoteExecution', 'localTriggerReceipt']) ??
       '';
 
+  /// 哪一条来源是「本机触发」（契约 `remoteExecution.localTriggerSource`）。
+  ///
+  /// ⚠ 与上面那一条**刻意分开**：那一条答「回不回」，这一条答「是谁」。
+  /// 代码里要判的是"这一条该不该回执"，而它得先知道本机那一路叫什么 ——
+  /// 少了这一条就只有两条路可走：写死字符串（第二份字面量），或者按"在不在
+  /// sources 里"来判（而本机那一路恰好在 L1 的 sources 里 ⇒ 判成要回）。
+  /// 缺键抛而不补默认值：那等于让"判不出本机那一路"悄悄落成"每一路都回执"。
+  String get remoteExecutionLocalTriggerSource {
+    final value = str(const [
+      'capabilities',
+      'remoteExecution',
+      'localTriggerSource',
+    ]);
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        '契约缺 capabilities.remoteExecution.localTriggerSource（不补默认值：'
+        '补上之后本机触发那一路会照发回执，而对面根本不存在）',
+      );
+    }
+    return value;
+  }
+
   /// 熔断阈值：一分钟内连续失败多少次就把档位降回去（契约 `capabilities.l3.circuitBreaker`）。
   int get l3CircuitBreakerFailuresPerMinute {
     final path = [
@@ -3205,6 +3227,27 @@ class FnthinkContract {
       l3ConfirmForm == 'cancelableDelay',
       'L3 那道闸是 cancelableDelay（改形不改内核：那个窗口就是"每次确认"的新形式）',
     );
+    // 片3c 补：本机触发那一路的**来源名**必须落在 L1 的词表里。
+    // ⚠ 走裸读口而不是上面的 getter：那个 getter「缺了就抛」，而在校验里抛异常
+    //   报出的是崩溃而不是问题（见下面那段注），现场两种失败分不开。
+    // ⚠ **只判「是谁」，不判「回不回」**：后者已经有一条更宽的判据（哨兵词或 receipts
+    //   词表里的词），契约也刻意留了「改主意要回给谁就改这一处」的口子 ——
+    //   在这里再钉一条「必须是 none」会把那个口子焊死，且与那条既有用例直接冲突
+    //   （它明确断言换成 `delivered` 应当照收）。两条分开：来源判合法性，回执判词表。
+    final localTrigger = str(const [
+      'capabilities',
+      'remoteExecution',
+      'localTriggerSource',
+    ]);
+    need(
+      localTrigger != null &&
+          localTrigger.isNotEmpty &&
+          remoteExecutionSourcesFor('L1').contains(localTrigger),
+      'capabilities.remoteExecution.localTriggerSource 必须在 '
+      'sources.L1 里（实为「$localTrigger」，'
+      '词表 ${remoteExecutionSourcesFor('L1')}）：写一个不在词表里的来源名，'
+      '「本机那一路按契约不回执」会永远不成立 —— 判据绿着，而本机触发照发回执',
+    );
     // 片3b 补的三组读口各带一条判据：长度/位数/步长/安全方向/范围次序，
     // 每一项丢了或写反了，界面或校验那一层就会**静默地**按一个协议从没同意过的值走。
     //
@@ -3278,3 +3321,13 @@ class FnthinkContract {
 /// 而本机白名单触发的那一路**没有任何人可以回**（`sourcesWhy` 里写了原因）。
 /// 把它加进 `receipts` 等于为一件不存在的事造一个对外形状。
 const String _remoteExecutionNoReceiptSentinel = 'none';
+
+/// 本机触发那一路**到底回不回**（契约 `remoteExecution.localTriggerReceipt`）。
+///
+/// ⚠ 这是判据（用哨兵比字面量）那一半的公开读口。**有了它，调用方就不必知道
+/// `'none'` 这个哨兵长什么样** —— 那个字面量此前只有 `validate()` 内部认，
+/// 于是别处只能写第二份 `"none"`，而改了契约那个词之后它会**静默失配**。
+bool localTriggerReceiptIsNone(FnthinkContract contract) {
+  return contract.remoteExecutionLocalTriggerReceipt ==
+      _remoteExecutionNoReceiptSentinel;
+}

@@ -102,3 +102,114 @@ class RemoteCommand {
       'RemoteCommand($level $item${argument.isEmpty ? '' : '/$argument'}, '
       'credential: ${hasCredential ? '已带' : '没带'})';
 }
+
+/// 一条**回执**的载荷（B → A，片3c-1）—— 与 [RemoteCommandEnvelope] 反向的那一半。
+///
+/// ## 为什么它是"消息"而不是 ack
+/// 契约 `capabilities.remoteExecution.receiptsWhy` 写死了：两段回执走**回发给发送方的消息**，
+/// 不是 ack。ack 答的是「这条投递我收没收到」，而回执答的是「这件事我做到哪一步了」——
+/// 把它塞进 ack 的话，at-least-once 的重投会与「执行中」互相污染（同一条重投一次就多 ack 一次）。
+///
+/// ## 与指令信封的分工
+/// 指令（`FRX1:`）只在 `fnthink` 那一条渠道上出现，带凭据、来自对面；
+/// 回执（`FRR1:`）是本机**执行完之后**回给那个发送方的，不带凭据（对面已经证明过自己了，
+/// 而回执里再回一份凭据等于把它抄进第三处存储）。两条路的 `level`/`item`/`argument`
+/// 逐字相同，**这正是对面能把一条回执对回一条指令的依据**。
+///
+/// ⚠ **故意不带执行 id**：协议形状一改，两端对**任何一条已发消息**的解读都可能变，
+/// 而这一批的指令形状（[RemoteCommandEnvelope]）已经发出去了。发送方是串行的，
+/// 「回执对回自己发过的哪一条」由它自己按 `level+item+argument` 配最老那条未终结的发件记录——
+/// 那是**发送侧**的一条规则，不该由协议来承担。
+class RemoteReceiptEnvelope {
+  const RemoteReceiptEnvelope._();
+
+  /// 载荷里的键名（唯一一个作者；`decode` 只认它）。
+  static const receiptKey = 'fnthink_receipt';
+
+  /// 前缀。⚠ 与 [RemoteCommandEnvelope.prefix] 刻意**不同**（`FRX1:` / `FRR1:`），
+  /// 且与标题信封也不同：三者共用一个前缀的话，"这是一条回执"与"这是一条指令"在拆的时候
+  /// 分不开，而分不开的形状是**把别人的回执当成一条指令执行一遍** ——
+  /// 比「指令被当通知弹出来」严重一个量级。
+  static const prefix = 'FRR1:';
+
+  /// 拼出一条回执的 body。
+  ///
+  /// [state] 只在**第二段**（执行完）才有，且必须是执行状态机的终态三选一
+  /// （`done` / `failed` / `cancelled`）。传空串按"没带"处理 ——
+  /// 拼一条带空串的载荷和拼一条不带的是同一件事，不留第二种形状。
+  static String encode({
+    required String result,
+    required String level,
+    required String item,
+    String argument = '',
+    String? state,
+  }) {
+    final payload = <String, Object?>{
+      'result': result,
+      'level': level,
+      'item': item,
+      if (argument.isNotEmpty) 'argument': argument,
+      if (state != null && state.isNotEmpty) 'state': state,
+    };
+    return prefix + jsonEncode(payload);
+  }
+
+  /// 拆一条回执。**拆不出来就回 null，不猜**（与 [RemoteCommandEnvelope.decode] 同一纪律）。
+  static RemoteReceipt? decode(String wire) {
+    if (!wire.startsWith(prefix)) return null;
+    final Object? parsed;
+    try {
+      parsed = jsonDecode(wire.substring(prefix.length));
+    } on FormatException {
+      return null;
+    }
+    if (parsed is! Map) return null;
+    final result = parsed['result'];
+    final level = parsed['level'];
+    final item = parsed['item'];
+    // 三件缺一不可。`result` 单独缺了尤其危险：那正是"对面说执行完了"那一段，
+    // 认不出它就等于把一段回执当一条普通通知显示给用户看。
+    if (result is! String || result.isEmpty) return null;
+    if (level is! String || level.isEmpty) return null;
+    if (item is! String || item.isEmpty) return null;
+    final argument = parsed['argument'];
+    final state = parsed['state'];
+    return RemoteReceipt(
+      result: result,
+      level: level,
+      item: item,
+      argument: argument is String ? argument : '',
+      state: state is String && state.isNotEmpty ? state : null,
+    );
+  }
+}
+
+/// 拆出来的一条回执。
+class RemoteReceipt {
+  const RemoteReceipt({
+    required this.result,
+    required this.level,
+    required this.item,
+    this.argument = '',
+    this.state,
+  });
+
+  /// 契约 `capabilities.remoteExecution.receipts` 里那一个词：
+  /// `executing`（收到即回的那一段）｜`execution_done`（执行完的那一段）。
+  final String result;
+
+  final String level;
+  final String item;
+  final String argument;
+
+  /// 终态（`done` / `failed` / `cancelled`）。**只有第二段回执带**。
+  final String? state;
+
+  bool get isFinished => state != null;
+
+  @override
+  String toString() =>
+      'RemoteReceipt($result $level $item'
+      '${argument.isEmpty ? '' : '/$argument'}'
+      '${state == null ? '' : ' → $state'})';
+}
