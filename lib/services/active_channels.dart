@@ -231,6 +231,55 @@ Future<bool> updateChannelRole(String family, String id, String role) async {
   }
 }
 
+/// 改一条通道的启用/停用（远程执行 `channel:toggle` 的落点）。
+///
+/// ⚠ 与 [updateChannelRole] **刻意同形**（family + id 二元组 → switch 三族 → 写回该族
+/// 自己的服务）：本机寻址一条通道的方式只有这一种，两条写路径各写一套 switch，
+/// 表现是「改了主备不生效」或「启停了不生效」—— 而两处都得对着另两族的模型形状改一遍。
+///
+/// ⚠ [enabled] 是**目标值而不是"翻"**：这条是远程指令，重投是常态（契约
+/// `delivery._retryWhy`：ack 没送到就再投一次），而"翻"不可重现 ——
+/// 翻一次开、翻两次回原状，于是对面看到的是"这条指令好像没生效"。
+/// 幂等地设成某一档，重投多少次都是同一个结果。
+Future<bool> updateChannelEnabled(
+  String family,
+  String id,
+  bool enabled,
+) async {
+  switch (family) {
+    case 'webhook':
+      final service = GetIt.instance<WebhookService>();
+      final rows = service.channels
+          .map<Map<String, dynamic>>(
+            (c) => c['id']?.toString() == id ? {...c, 'enabled': enabled} : c,
+          )
+          .toList();
+      if (!rows.any((c) => c['id']?.toString() == id)) return false;
+      await service.saveChannels(rows);
+      return true;
+    case 'app':
+      final service = GetIt.instance<AppChannelService>();
+      final rows = service.channels
+          .map<Map<String, dynamic>>(
+            (c) => c['id']?.toString() == id ? {...c, 'enabled': enabled} : c,
+          )
+          .toList();
+      if (!rows.any((c) => c['id']?.toString() == id)) return false;
+      await service.saveChannels(rows);
+      return true;
+    case 'email':
+      final service = GetIt.instance<EmailService>();
+      if (!service.cachedChannels.any((c) => c.id == id)) return false;
+      await service.saveChannels([
+        for (final c in service.cachedChannels)
+          if (c.id == id) c.copyWith(enabled: enabled) else c,
+      ]);
+      return true;
+    default:
+      return false;
+  }
+}
+
 /// 服务未注册（早期启动阶段 / 测试环境）时按「该族无通道」处理，与两份旧实现一致。
 List<Map<String, dynamic>> _rows(List<Map<String, dynamic>> Function() read) {
   try {

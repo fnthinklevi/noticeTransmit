@@ -140,8 +140,14 @@ abstract class FnthinkL2Executor {
   /// 启停整个通知监听服务（无参数）。
   Future<FnthinkL2Result> setListener({required bool enabled});
 
-  /// 翻某一��通道的开关（参数是通道标识）。
-  Future<FnthinkL2Result> toggleChannel(String channelId);
+  /// 翻某一条通道的启用状态（[target] 指明哪一条、要设成哪一档）。
+  ///
+  /// ⚠ 参数**不是**一个裸 id：见 [parseChannelTarget] 顶上那段（族 / id / 目标值三段）。
+  /// 这一层收一个已经拆好的 [RemoteChannelTarget] 而不是字符串，是为了让
+  /// 「参数成不成形」这个判据只发生在**一个地方**（收件判定那一格）——
+  /// 执行层再拆一次的话，两处对同一个字符串的理解可能不同，
+  /// 而表现是"收的时候说参数没问题、动手的时候才发现动不了"。
+  Future<FnthinkL2Result> toggleChannel(RemoteChannelTarget target);
 
   /// 立刻推一次设备状态（无参数）。
   Future<FnthinkL2Result> pushDeviceState();
@@ -176,7 +182,16 @@ Future<FnthinkL2Result> dispatchL2Action(
     case 'listener:stop':
       return executor.setListener(enabled: false);
     case 'channel:toggle':
-      return executor.toggleChannel(action.argument);
+      // ⚠ 拆不出 [RemoteChannelTarget] 就是「参数不成形」—— 收件那一格应当已经拒过，
+      //   走到这里说明那两处对同一个字符串的理解不一致（收件那格漏了，或参数被换过）。
+      //   记成 `failed` 而不是抛：那正是"这份代码与判据脱节了"，要让留痕看得见。
+      final target = parseChannelTarget(action.argument);
+      if (target == null) {
+        return FnthinkL2Result.failed(
+          'bad-channel-argument:${action.argument}',
+        );
+      }
+      return executor.toggleChannel(target);
     case 'device_state:push':
       return executor.pushDeviceState();
     default:
@@ -184,6 +199,99 @@ Future<FnthinkL2Result> dispatchL2Action(
       // 两者都在同一份契约上，却给出了不同的答案。
       return FnthinkL2Result.failed('unmapped-action:${action.name}');
   }
+}
+
+/// `channel:toggle` 的参数解析（远程执行 片3c-2）。
+///
+/// ## 参数形状：`<family>:<id>:<on|off>`
+///
+/// ⚠ **三段都必填，缺一段就拒**。这不是格式洁癖，是重投的直接后果：
+/// 契约 `delivery` 的投递语义是 at-least-once（ack 没送到 ⇒ 服务端重投），
+/// 而"翻"（toggle）**不可重现** —— 翻一次开、翻两次回原状。
+/// 对面看到的现象是"我下了两次指令，通道回到了原来的样子"，
+/// 而本机留痕里两条都记成 done，没有任何异常可查。
+/// 所以这一项**只允许"设成某一档"**：`…:off` 重投多少次都是关着的。
+///
+/// ⚠ **第三段是目标值，不是"翻"** —— 与 `listener:start` / `listener:stop` 的关系：
+/// 那两个是**两个动作词**（天然幂等），这一个只有一个词（`channel:toggle`），
+/// 所以目标值只能由参数带。契约 `l2.actions` 仍是四个词、不许加 `channel:enable`：
+/// 加词会让两端的动作词表与 `kFnthinkL2ActionVerbs` 那张对照表一起变，
+/// 而收益只是少写三个字符。
+///
+/// ⚠ **family 段必填**（不能只给 id）：三族的 id **允许重复**
+/// （健康缓存按 `family:id` 存就是这个前提），
+/// 所以"按 id 在三族里找第一个"是不确定的 —— 同一条指令两次执行可能命中不同族。
+/// `family` 的合法值就是本机那三族，与 [updateChannelRole] / [updateChannelEnabled]
+/// 的 switch 分支同源（`channel_display.dart` 的 `_familyNames` 也是这三个）。
+///
+/// ⚠ **拆不出来就回 null，不猜**：这一层在**进延时窗口之前**跑（判定层那一格），
+/// 而"猜一个族"等于凭空替这条指令选一个要动的东西。
+RemoteChannelTarget? parseChannelTarget(String? argument) {
+  if (argument == null || argument.isEmpty) return null;
+  final parts = argument.split(':');
+  // ⚠ 用 `length != 3` 而不是 `parts.length < 3`：多一段也要拒 ——
+  //   `<family>:<id>:<on|off>:<多余>` 静默取前三段的话，对面拼错一个字符就变成另一条指令。
+  if (parts.length != 3) return null;
+  final (family, id, wanted) = (parts[0], parts[1], parts[2]);
+  if (family.isEmpty || id.isEmpty) return null;
+  // ⚠ 只认这两个词，不做 `startsWith('o')` 之类的宽容归一：
+  //   宽容会把拼错的参数变成一次真实的启停，而重投会把它再启停一次。
+  final bool? enabled = switch (wanted) {
+    'on' => true,
+    'off' => false,
+    _ => null,
+  };
+  if (enabled == null) return null;
+  if (!isKnownChannelFamily(family)) return null;
+  return RemoteChannelTarget(family: family, id: id, enabled: enabled);
+}
+
+/// 本机那三族通道（`webhook` / `app` / `email`）。
+///
+/// ⚠ **唯一出处**：[updateChannelRole] 与 [updateChannelEnabled] 的 switch 分支，
+/// 以及 `channel_display.dart` 的 `_familyNames` 是同一组词。
+/// 解析层单独再列一份的话，加一族要改三处，而漏掉的那一处表现为
+/// 「这一族能配能显示，就是远程启停不了，且界面上什么提示都没有」。
+/// 本机那三族通道（`webhook` / `app` / `email`）。
+///
+/// ⚠ **这里列的是第三份**：前两份在 [updateChannelRole] 的 switch 分支与
+/// `channel_display.dart` 的 `_familyNames`。加一族要三处一起改；
+/// 只改这份的表现是「这一族能配能显示，就是远程启停不认识它，界面上还没有提示」。
+/// ⚠ 不抽成一个共享常量：这三处对数据的用法不同（switch 里要拿实例，
+/// `_familyNames` 只要显示名），抽出来之后 switch 仍要再判一次
+/// 「这个族我有没有分支」—— 那一判是删不掉的，等于多一层间接。
+bool isKnownChannelFamily(String family) =>
+    family == 'webhook' || family == 'app' || family == 'email';
+
+/// 拆出来的那条通道 + 它该被设成哪一档。
+class RemoteChannelTarget {
+  const RemoteChannelTarget({
+    required this.family,
+    required this.id,
+    required this.enabled,
+  });
+
+  final String family;
+  final String id;
+
+  /// 目标值（不是"翻"）：见 [parseChannelTarget] 顶上那段。
+  final bool enabled;
+
+  @override
+  String toString() => 'RemoteChannelTarget($family/$id ⇒ $enabled)';
+}
+
+/// 这条指令的参数能不能走 `channel:toggle`（判定层那一格的前置判据）。
+///
+/// ⚠ 判据在**进延时窗口之前**跑：参数不成形就别让它占掉那 10 秒、再发一条
+/// `executing` 回执（对面会以为它在排队），最后才失败。
+/// ⚠ 这不是「参数非空」那条的重复：`parseL2Item` 只判非空，
+/// 而**三段齐全**是本机这一层的形状要求（协议里没有约定参数长什么样）。
+String? rejectChannelTarget(String? argument) {
+  if (parseChannelTarget(argument) == null) {
+    return 'bad-channel-argument:${argument ?? ''}';
+  }
+  return null;
 }
 
 /// 契约词表与设备侧映射是否同步。守卫用例调它，改契约时红的就是这一条。

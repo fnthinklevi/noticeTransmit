@@ -29,8 +29,8 @@ class RecordingExecutor implements FnthinkL2Executor {
   }
 
   @override
-  Future<FnthinkL2Result> toggleChannel(String channelId) async {
-    calls.add('toggleChannel($channelId)');
+  Future<FnthinkL2Result> toggleChannel(RemoteChannelTarget target) async {
+    calls.add('toggleChannel(${target.family}:${target.id}:${target.enabled})');
     return failEverything
         ? const FnthinkL2Result.failed('no-such-channel')
         : const FnthinkL2Result.ok();
@@ -127,7 +127,7 @@ void main() {
       for (final item in [
         'listener:start',
         'listener:stop',
-        'channel:toggle/chan:email',
+        'channel:toggle/webhook:acme:off',
         'device_state:push',
       ]) {
         final parsed = parseL2Item(contract, item);
@@ -137,7 +137,7 @@ void main() {
       expect(exec.calls, [
         'setListener(true)',
         'setListener(false)',
-        'toggleChannel(chan:email)',
+        'toggleChannel(webhook:acme:false)',
         'pushDeviceState()',
       ]);
     });
@@ -161,7 +161,9 @@ void main() {
       expect(okRun.receipt(contract), 'delivered');
 
       exec.failEverything = true;
-      final badRun = await exec.toggleChannel('chan:x');
+      final badRun = await exec.toggleChannel(
+        const RemoteChannelTarget(family: 'app', id: 'x', enabled: true),
+      );
       expect(badRun.ok, isFalse);
       expect(badRun.receipt(contract), contract.l2ActionReceipt);
       expect(badRun.receipt(contract), 'failed_action');

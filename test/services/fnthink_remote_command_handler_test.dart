@@ -285,6 +285,102 @@ void main() {
     });
   });
 
+  group('channel:toggle 的参数形状（片3c-2）', () {
+    // ⚠⚠ **参数写在 `item` 的 `/` 后面**，不是信封里那个 `argument` 字段 ——
+    //   `parseL2Item` 拆的是前者（契约 `itemFormat = <family>:<verb>/<参数>`），
+    //   后者是另一处。本组第一版用 `wire(argument: …)` 写，红了才发现：
+    //   形状判据读的是信封那一份，于是**每一条** channel:toggle 都被拒，
+    //   而现场看到的是「命令认得，就是没反应」—— 看不出读错了哪一处。
+    //   这一条把两处的区别钉死，改任一处时它会红。
+    test('参数取自 item 的斜杠段，不是信封的 argument 字段', () async {
+      final r = await recognizer();
+      expect(
+        await r.parse(msg(wire(item: 'channel:toggle/webhook:acme:off'))),
+        isA<RemoteCommandAccepted>(),
+        reason: '斜杠后那一段才是参数',
+      );
+      expect(
+        await r.parse(
+          msg(wire(item: 'channel:toggle', argument: 'webhook:acme:off')),
+        ),
+        isA<RemoteCommandRejected>(),
+        reason: '信封那个字段不参与动作参数（item 里没有斜杠段 ⇒ 参数为空）',
+      );
+    });
+
+    test('三段齐全（族:id:on|off）⇒ 放行', () async {
+      final r = await recognizer();
+      for (final arg in const ['webhook:acme:off', 'app:x:on', 'email:y:off']) {
+        expect(
+          await r.parse(msg(wire(item: 'channel:toggle/$arg'))),
+          isA<RemoteCommandAccepted>(),
+          reason: '参数「$arg」应当放行',
+        );
+      }
+    });
+
+    test('缺目标值 ⇒ 拒（重投一次就翻回去的那种"翻"不许做）', () async {
+      final r = await recognizer();
+      final parsed = await r.parse(
+        msg(wire(item: 'channel:toggle/webhook:acme')),
+      );
+      expect(parsed, isA<RemoteCommandRejected>());
+      expect(
+        (parsed as RemoteCommandRejected).reason,
+        startsWith('item:bad-channel-argument'),
+      );
+    });
+
+    test('族/id 为空、族名不认识、目标值拼错、多一段 ⇒ 全拒', () async {
+      final r = await recognizer();
+      for (final arg in const [
+        ':acme:off',
+        'webhook::off',
+        'sms:acme:off',
+        'webhook:acme:ON',
+        'webhook:acme:enabled',
+        'webhook:acme:off:extra',
+      ]) {
+        expect(
+          await r.parse(msg(wire(item: 'channel:toggle/$arg'))),
+          isA<RemoteCommandRejected>(),
+          reason: '参数「$arg」应当被拒',
+        );
+      }
+    });
+
+    test('⚠ L1 也要判参数形状（L1 的 item 是 L2∪L3 那张并集表）', () async {
+      // 只把形状判据写进 `case 'L2'` 的话，L1 那条路会直接放行 ——
+      // 而 L1 **不需要任何凭据**，那等于任何人配对过就能启停本机的投递通道。
+      final r = await recognizer();
+      expect(
+        await r.parse(
+          msg(wire(level: 'L1', item: 'channel:toggle/webhook:acme')),
+        ),
+        isA<RemoteCommandRejected>(),
+        reason: 'L1 无凭据 ⇒ 参数形状更不能放过',
+      );
+      expect(
+        await r.parse(
+          msg(wire(level: 'L1', item: 'channel:toggle/webhook:acme:off')),
+        ),
+        isA<RemoteCommandAccepted>(),
+      );
+    });
+
+    test('参数形状这一格对没有参数的动作是 no-op', () async {
+      final r = await recognizer();
+      expect(
+        await r.parse(msg(wire(item: 'listener:start'))),
+        isA<RemoteCommandAccepted>(),
+      );
+      expect(
+        await r.parse(msg(wire(item: 'device_state:push'))),
+        isA<RemoteCommandAccepted>(),
+      );
+    });
+  });
+
   group('结构守卫：这一层不许碰执行与延时', () {
     test('判定层不 import 执行器/延时那一族（执行与窗口在调用方）', () {
       final src = stripComments(

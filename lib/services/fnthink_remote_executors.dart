@@ -1,0 +1,184 @@
+import 'package:fnthink_push/fnthink_push.dart';
+
+import 'fnthink_l2_actions.dart';
+import 'fnthink_l3_settings.dart';
+
+/// 远程执行 片3c-2：**设备侧执行器**（真正动手的那一半）。
+///
+/// 抽象类（[FnthinkL2Executor] / [FnthinkL3Executor]）从 T50/T51 起就在
+/// `fnthink_l2_actions.dart` / `fnthink_l3_settings.dart` 里，**到那为止 `lib/` 下
+/// 没有任何一个实现** —— 也就是说 `dispatchL2Action` / `dispatchL3Setting`
+/// 这两个派发函数一个调用方都没有：解析与映射都做完了，没有任何东西真的动手。
+/// 这两个类把那一条缺口接上。
+///
+/// ⚠⚠ **依赖一律是能力函数，不是服务对象**（`NotificationService` /
+/// `PermissionService` / `FnthinkSettings` 都不在这里出现）。这不是洁癖：
+/// 执行发生在**后台轮次**里（收货循环 → 判定 → 窗口 → 动手），那一轮没有任何界面上下文；
+/// 而更要紧的是可测 —— 这一层是本批次的**安全面**，「系统拒绝了」「找不到那一条通道」
+/// 「厂商那一项没接」这几支都必须能在 `flutter test` 里跑一遍；绑在具体服务上就只能靠
+/// MethodChannel mock，而 mock 的"调用过没有"分不出「原生回了 false」与「原生没这个方法」。
+/// 取服务那一格在装配处（`service_locator.dart`）：它把服务的方法接成这里的回调。
+class DeviceL2Executor implements FnthinkL2Executor {
+  const DeviceL2Executor({
+    required this.setListenerEnabled,
+    required this.setChannelEnabled,
+    required this.pushDeviceStateNow,
+  });
+
+  /// 启停整个通知监听服务。回 false = 原生拒绝了。
+  final Future<bool> Function({required bool enabled}) setListenerEnabled;
+
+  /// 落一条通道的启用状态。回 false = **那一族里没有那条通道**（不是"系统拒绝了"）。
+  final Future<bool> Function(RemoteChannelTarget target) setChannelEnabled;
+
+  /// 立刻推一次设备状态（推给谁、走哪条链路是发送侧的事）。
+  final Future<bool> Function() pushDeviceStateNow;
+
+  @override
+  Future<FnthinkL2Result> setListener({required bool enabled}) async {
+    try {
+      final ok = await setListenerEnabled(enabled: enabled);
+      // ⚠ **不判"当前是不是已经是那一档"**：原生回 false 有两种含义
+      //   （"已经是了" 与 "系统拒绝了"），而这一层分不出来。
+      //   把"已经是那一档"当失败，用户看到的是"我让它开着，它说没开成"。
+      return ok
+          ? const FnthinkL2Result.ok()
+          : FnthinkL2Result.failed('listener:${enabled ? "start" : "stop"}');
+    } catch (e) {
+      // 抛异常也要记成"做失败了"而不是让整轮收货停在这里（与 dispatchL3Setting 同一纪律）。
+      return FnthinkL2Result.failed(
+        'threw:listener:${enabled ? "start" : "stop"}',
+      );
+    }
+  }
+
+  @override
+  Future<FnthinkL2Result> toggleChannel(RemoteChannelTarget target) async {
+    try {
+      // ⚠ 落的是**目标值**不是"翻"：见 [parseChannelTarget] 顶上那段（重投会翻回去）。
+      //   幂等地写一次，重投多少次都是同一个结果。
+      final ok = await setChannelEnabled(target);
+      if (ok) return const FnthinkL2Result.ok();
+      return FnthinkL2Result.failed(
+        'no-such-channel:${target.family}/${target.id}',
+      );
+    } catch (e) {
+      return FnthinkL2Result.failed(
+        'threw:channel:${target.family}/${target.id}',
+      );
+    }
+  }
+
+  @override
+  Future<FnthinkL2Result> pushDeviceState() async {
+    try {
+      return await pushDeviceStateNow()
+          ? const FnthinkL2Result.ok()
+          : const FnthinkL2Result.failed('device-state-push-refused');
+    } catch (e) {
+      return const FnthinkL2Result.failed('threw:device_state:push');
+    }
+  }
+}
+
+/// 设备侧执行某一项 L3 设置（`grant` 把用户送到设置页 / `toggle` 直接翻本机的开关）。
+///
+/// ⚠ [grant] 回 true 的含义是「**已经把人送到那一页了**」，不是「已经改好了」——
+/// 契约里那几个 `grant` 项全是"跳设置页请用户自己点"（原生侧至今没有静默改系统设置的能力）。
+/// 两者混为一谈，界面上会立刻显示已开启，而用户还得自己去点。
+///
+/// ⚠ 契约 `settings.<key>.native` 记的是**语义名**（`vendorAutostart`），
+/// 而这一层的 switch 用的是 `setting.key`。两者不是同一组词，也不该合成一组：
+/// 加一项要同时改契约与这里，而漏掉哪一处的表现不同 —— 漏契约那处是
+/// 「这一项在词表外被静默忽略」，漏这里那处是「它认得这个词、但没有对应的动作」。
+class DeviceL3Executor implements FnthinkL3Executor {
+  const DeviceL3Executor({
+    required this.grantNotificationListener,
+    required this.grantExactAlarm,
+    required this.grantBatteryOptimization,
+    required this.grantVendorAutoStart,
+    required this.serviceRunning,
+    required this.setListenerEnabled,
+    required this.collectInboxEnabled,
+    required this.setCollectInboxEnabled,
+  });
+
+  final Future<void> Function() grantNotificationListener;
+  final Future<void> Function() grantExactAlarm;
+  final Future<void> Function() grantBatteryOptimization;
+
+  /// 厂商自启动那一条入口。**null = 这一台/这一版没接**（不是"已开启"）。
+  ///
+  /// ⚠ 本机有五个方法（小米/魅族/华为/oppo/vivo），而"这一台是哪个厂商"是
+  /// **读设备信息**那件事 —— 按厂商选哪一个放在装配处，这里只收那一条被选中的。
+  final Future<void> Function()? grantVendorAutoStart;
+
+  /// 当前监听服务在不在跑（`monitoring` 要读它才能翻）。
+  final Future<bool> Function() serviceRunning;
+
+  /// 启停监听服务（`monitoring` 写它）。
+  final Future<bool> Function({required bool enabled}) setListenerEnabled;
+
+  /// 当前「收进幻念推送」开没开 / 把它设成某一档（`collect_inbox`）。
+  final Future<bool> Function() collectInboxEnabled;
+  final Future<bool> Function(bool enabled) setCollectInboxEnabled;
+
+  @override
+  Future<bool> grant(FnthinkL3Setting setting) async {
+    // ⚠ `default` 那一格**不是**兜底成功：它回 false，也就是
+    // 「这一台压根没有那一项的入口」。把不认识的一项当成功，
+    // 界面上就会立刻显示"已开启"而用户根本没被送到任何地方。
+    try {
+      switch (setting.key) {
+        case 'notification':
+          await grantNotificationListener();
+          return true;
+        case 'exact_alarm':
+          await grantExactAlarm();
+          return true;
+        case 'battery_optimization':
+          await grantBatteryOptimization();
+          return true;
+        case 'autostart':
+          final go = grantVendorAutoStart;
+          if (go == null) return false;
+          await go();
+          return true;
+        default:
+          return false;
+      }
+    } catch (e) {
+      // 抛异常同样回 false（"没送成"），而不是让整轮收货停在一条坏指令上。
+      return false;
+    }
+  }
+
+  /// 翻一个本机开关（L3 那两个 `toggle` 项：`monitoring` / `collect_inbox`）。
+  ///
+  /// ⚠⚠ **协议级非幂等，已登记待维护者裁决**：
+  ///   [FnthinkL3Executor.toggle] 只收一个 `setting`、**没有目标值**，
+  ///   而 L3 的 item 就是 `setting.key`（契约 `parseL3Item` 不解参数段）——
+  ///   也就是说**协议里这一项没地方写"我要开"还是"我要关"**。
+  ///   于是一次重投（契约 `delivery`：ack 没送到就再投一次）就会翻两次，
+  ///   结果回到原状，而本机留痕两条都记 done。
+  ///   两条出路：(a) 改 L3 的 item 成 `<key>/<on|off>`（动协议形状，两端一起改）；
+  ///   (b) 在执行层按来源消息去重（需要指令带 id，同样是协议形状改动）。
+  ///   在他拍板之前，这里按接口现有的形状做 read-modify-write。
+  ///   ⚠ 也不许把它悄悄做成幂等（写死成开）—— 那会让 `collect_inbox` 永远开着，
+  ///   而那正是这一项存在的反面；两种错里"永远开着"更难被用户发现。
+  @override
+  Future<bool> toggle(FnthinkL3Setting setting) async {
+    try {
+      switch (setting.key) {
+        case 'monitoring':
+          return await setListenerEnabled(enabled: !(await serviceRunning()));
+        case 'collect_inbox':
+          return await setCollectInboxEnabled(!(await collectInboxEnabled()));
+        default:
+          return false;
+      }
+    } catch (e) {
+      return false;
+    }
+  }
+}

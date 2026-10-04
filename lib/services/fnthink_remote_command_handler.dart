@@ -95,36 +95,63 @@ class RemoteCommandRecognizer {
   }
 
   /// 回 null = 认得；回一句 = 拒的理由。
+  ///
+  /// ⚠ 判据**分两段**：先按档判"这个词认不认得"，再判"参数成不成形"。
+  /// 参数那一段放在 switch **之后**是因为 L1 也能做 L2 的事（`itemRequiredFromLevel`
+  /// 使 L1 的 item 就是 L2∪L3 那张并集表）—— 只写进 `case 'L2'` 的话，
+  /// L1 那条路会绕过形状判据直接放行。而 switch 里每一档若都 return，
+  /// 后面那段就成了死代码，所以三档各归一个小函数、由这一段统一收口。
   String? _rejectItem(
     RemoteCommand command, {
     required Set<String> grantedKeys,
   }) {
-    switch (command.level) {
-      case 'L3':
-        // ⚠ **这里只判"认不认得"与"前置授权有没有"两件** ——
-        //   `confirm-required`（契约 confirmEveryTime）是**延期**判据：它答的是
-        //   "本机那一次用户动作有没有发生"，而这件事只有执行那一层知道（延时窗口
-        //   走完之后才有）。把它算成"拒"的话**每一条 L3 指令都会在这一层被拒**，
-        //   而 `parseL3Item(confirmedThisTime: false)` 正是那个会必然返回它的一侧
-        //   —— 这就是这一条第一版的写法（实测 6 条红全在这里）。
-        final setting = contract.l3Settings[command.item];
-        if (setting == null) return 'unknown-setting:${command.item}';
-        if (contract.l3SettingsRequiringExistingGrant.contains(command.item) &&
-            !grantedKeys.contains(command.item)) {
-          return 'missing-grant:${command.item}';
-        }
-        return null;
-      case 'L2':
-        final parsed = parseL2Item(contract, command.item);
-        return parsed is FnthinkL2Rejected ? parsed.reason : null;
-      default:
-        // L1：并集那张表（见类注释）。
-        if (parseL2Item(contract, command.item) is FnthinkL2Ok) return null;
-        // ⚠ 同上：这里问的是"这个词在不在 L3 那张表上"，**不是**问它能不能执行 ——
-        //   所以只查词表，不走 parseL3Item（那会把 confirm-required 一起带出来）。
-        if (contract.l3Settings.containsKey(command.item)) return null;
-        return 'unknown-action:${command.item}';
+    final word = switch (command.level) {
+      'L3' => _rejectL3Item(command, grantedKeys: grantedKeys),
+      'L2' => _rejectL2Item(command.item),
+      _ => _rejectL1Item(command.item),
+    };
+    if (word != null) return word;
+    // ⚠⚠ 动作名与参数**都**从 `parseL2Item` 的结果取，不要直接碰 `command.item`：
+    //   后者是**带斜杠段**的整串（`channel:toggle/webhook:acme:off`），
+    //   拿它比 `'channel:toggle'` 恒不相等 ⇒ 这一格形同没写，每一条都放行。
+    //   （本条判据第一版就是这么错的：症状是「参数拼错了也照样执行」。）
+    //   而信封里那个 `argument` 字段是**另一处**参数，读它同样是错的。
+    final parsed = parseL2Item(contract, command.item);
+    if (parsed is! FnthinkL2Ok) return null;
+    if (parsed.action.name != 'channel:toggle') return null;
+    return rejectChannelTarget(parsed.action.argument);
+  }
+
+  String? _rejectL3Item(
+    RemoteCommand command, {
+    required Set<String> grantedKeys,
+  }) {
+    // ⚠ **这里只判"认不认得"与"前置授权有没有"两件** ——
+    //   `confirm-required`（契约 confirmEveryTime）是**延期**判据：它答的是
+    //   "本机那一次用户动作有没有发生"，而这件事只有执行那一层知道（延时窗口
+    //   走完之后才有）。把它算成"拒"的话**每一条 L3 指令都会在这一层被拒**，
+    //   而 `parseL3Item(confirmedThisTime: false)` 正是那个会必然返回它的一侧
+    //   —— 这就是这一条第一版的写法（实测 6 条红全在这里）。
+    final setting = contract.l3Settings[command.item];
+    if (setting == null) return 'unknown-setting:${command.item}';
+    if (contract.l3SettingsRequiringExistingGrant.contains(command.item) &&
+        !grantedKeys.contains(command.item)) {
+      return 'missing-grant:${command.item}';
     }
+    return null;
+  }
+
+  String? _rejectL2Item(String item) {
+    final parsed = parseL2Item(contract, item);
+    return parsed is FnthinkL2Rejected ? parsed.reason : null;
+  }
+
+  String? _rejectL1Item(String item) {
+    if (parseL2Item(contract, item) is FnthinkL2Ok) return null;
+    // ⚠ 同上：这里问的是"这个词在不在 L3 那张表上"，**不是**问它能不能执行 ——
+    //   所以只查词表，不走 parseL3Item（那会把 confirm-required 一起带出来）。
+    if (contract.l3Settings.containsKey(item)) return null;
+    return 'unknown-action:$item';
   }
 }
 
