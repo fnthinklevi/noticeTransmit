@@ -33,9 +33,40 @@ String? apkAssetNameOf(String downloadUrl, {String? serverUrl}) {
   }
 }
 
+/// Release 的 **tag 段**（`<base>/<tag>/<asset>` 里中间那一段）。
+///
+/// ⚠⚠ **必须带 `v` 前缀**，而 `versionName` 不带 —— 这一条是 #234 的全部内容。
+///   它**不是**"GitHub 风格"，是一条本地可核对的事实：
+///   `.github/workflows/build-apk.yml` 里建 Release 的那一格是
+///   `if: startsWith(github.ref, 'refs/tags/v')`，
+///   也就是说**只有 `v` 开头的 tag 才有 Release**（不带 `v` 的那批历史 tag 一个都没有）。
+///   而合成地址时拼的是裸 `versionName` ⇒ `.../download/1.5.76/app-xxx.apk`
+///   **必然 404**，而这一格**只在 CDN 主地址挂掉时才被走到** —— 平时一条用例都摸不到。
+///
+/// ⚠ **幂等**：已经带 `v` 的原样返回。写成 `v$version` 的话，
+///   哪个来源给了带 `v` 的版本号就会拼出 `vv1.5.76`（同样 404，且更难认）。
+///
+/// ⚠ **为什么它不进契约**（#234 当时的设想是"须先改契约"）：这个 URL **只有客户端合成**
+///   ——服务端下发的 `version.json` 里给的是主 CDN 地址，镜像那一段是 CDN 挂掉时的兜底。
+///   而"tag 段带不带 `v`"是**本仓库自己的发版约定**（上面那行 CI），
+///   不是两端协商出来的东西。把它写进契约会让契约替一份 CI 配置背书，
+///   而 CI 改口径时没人会去改契约 —— 于是那份陈述会**静默地变成假话**。
+String? releaseTagFor(String? version) {
+  if (version == null) return null;
+  final trimmed = version.trim();
+  if (trimmed.isEmpty) return null;
+  if (trimmed.startsWith(_releaseTagPrefix)) return trimmed;
+  return '$_releaseTagPrefix$trimmed';
+}
+
+/// tag 段的前缀（**唯一定义**）。CI 那一行与这里是同一件事的两端，
+/// 改一处就要改另一处 —— 守卫用例在 `test/services/update_download_urls_test.dart`。
+const String _releaseTagPrefix = 'v';
+
 /// 镜像上的候选地址（顺序 = 传入的 `mirrors` 顺序）。
 ///
-/// 每个地址都是 `<mirrorBase>/<version>/<主地址那一份的文件名>`。
+/// 每个地址都是 `<mirrorBase>/<tag>/<主地址那一份的文件名>`，而 `<tag>` 走
+/// [releaseTagFor]（**带 `v`**）。
 /// 拿不到文件名、或没有版本 ⇒ 回空列表（不猜）。
 /// [skip] 给调用方留一个"这一路今天不该走"的闸（如缺必需的上下文时）。
 List<String> buildMirrorApkUrls({
@@ -47,13 +78,14 @@ List<String> buildMirrorApkUrls({
 }) {
   final urls = <String>[];
   if (skip) return urls;
-  if (version == null || version.isEmpty) return urls;
+  final tag = releaseTagFor(version);
+  if (tag == null) return urls;
   final asset = apkAssetNameOf(downloadUrl, serverUrl: serverUrl);
   if (asset == null) return urls;
   for (final base in mirrorBases) {
     final trimmed = base.trim();
     if (trimmed.isEmpty) continue;
-    final url = '$trimmed/$version/$asset';
+    final url = '$trimmed/$tag/$asset';
     if (!urls.contains(url)) urls.add(url);
   }
   return urls;
