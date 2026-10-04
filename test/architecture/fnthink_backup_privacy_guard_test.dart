@@ -51,6 +51,21 @@ void main() {
         'keyPair',
         'endpointSecret',
         'grantRelayConsent',
+        // 远程执行的凭据（维护者 2026-10-04 定：**不进备份**，理由见
+        // `FnthinkBackup` 类注释的第 ⑤ 条）。加进这份名单是因为那一格现在是
+        // **白名单式**的（只写 `collect()` 里点名的四个字段），所以"没进"是构造
+        // 保证的而不是靠一张排除表 —— 一旦有人往 `collect()` 里加一行"顺手把远程
+        // 执行开关也带上"，这里必须当场喊住。
+        //
+        // ⚠ 允许带进去的是**总开关**（它和接收开关一样是"意图"）；不带的是凭据本身
+        //   （哈希/盐/TOTP 种子）与延时秒数 —— 后者虽然也是"设置"，但它是远程执行
+        //   那一格的内部值，跟着凭据一起重来更不容易搞混（凭据没了而延时还在，
+        //   界面上看着像"配好了"）。
+        'RemoteCredentialStore',
+        'remote_credential_store',
+        'keyHashKey',
+        'saltKey',
+        'totpSecretKey',
       ]) {
         for (final (where, src) in [
           ('fnthink_backup.dart', backup),

@@ -2,7 +2,6 @@
   "protocol": "fnthink-v1",
   "contractVersion": 1,
   "_comment": "幻念推送的单一协议契约（T71）。Dart 与 Node 两侧各自读这一份文件跑契约测试：任何一侧偷偷改自己的常量都会红。规则来源见 docs/roadmap.md 的 W3a–W3g（T26–T60）与 §2 实现红线。",
-
   "identity": {
     "addressCode": {
       "length": 18,
@@ -30,7 +29,12 @@
       "algorithm": "Ed25519",
       "privateKeyExportable": false,
       "privateKeyStorage": "AndroidKeyStore",
-      "neverIn": ["url", "log", "qrPayload", "serverRequestBody"],
+      "neverIn": [
+        "url",
+        "log",
+        "qrPayload",
+        "serverRequestBody"
+      ],
       "rebuildRequiresRepair": true,
       "nativeMinSdkVersion": 33,
       "nativeMinSdkWhy": "KeyStore 从 API 30 起能【生成】Ed25519，但签名要 java.security.spec 的 EdECPoint / EdECPublicKey / NamedParameterSpec —— 本地 SDK 的 api-versions.xml 里这三个全是 since=33。门槛写成 30 的表现是：30–32 上能建钥、拿不到公钥点，第一次签名就抛，而那台设备已经在屏幕上显示了自己的地址码",
@@ -41,11 +45,15 @@
     },
     "generator": "csprng"
   },
-
   "pairing": {
     "_comment": "配对流程（T28）：A 出二维码/一次性链接（地址码 + 短期口令），B 扫码后用自己的身份私钥签一条握手回执，A 本地确认才把 B 的公钥写进白名单。⚠ 配对口令是整条链路上唯一被允许出现在配对载荷里的秘密：5 分钟过期、配对即消耗、UI 必须明示「此链接等同密码」。它只走 POST 正文（TLS），不进 path/query —— URL 会被访问日志、浏览器历史与代理留下副本，那是 `privacy.credentialsNeverIn` 里那条 url 的真正含义（与 transport.accessLogRedactPathPattern 为端点长期口令做的脱敏是同一类事）。",
     "qrPrefix": "fnthink-push://pair",
-    "payloadFields": ["v", "to", "code", "level"],
+    "payloadFields": [
+      "v",
+      "to",
+      "code",
+      "level"
+    ],
     "payloadFieldMeaning": {
       "v": "contractVersion（对不上就拒，不「能读多少算多少」）",
       "to": "接收方地址码（公开标识）",
@@ -54,7 +62,11 @@
     },
     "rejectUnknownFields": true,
     "rejectUnknownFieldsWhy": "配对载荷不是外部消息正文：这里的「容错」等于给对方一个往身份交换里塞料口。与 fieldTolerance.ignoreUnknownFields=true 不矛盾（那条只管第三方推送正文的 title/body 别名）",
-    "codeMayAppearIn": ["qrCode", "oneTimeShareLink", "postBody"],
+    "codeMayAppearIn": [
+      "qrCode",
+      "oneTimeShareLink",
+      "postBody"
+    ],
     "neverCarry": [
       "privateKey",
       "signature",
@@ -63,24 +75,35 @@
     ],
     "confirmRequired": true,
     "autoApprove": false,
-    "maxRequestableLevelWithoutLocalAuth": "L2",
     "failureMessageShape": "single-generic",
     "clockAuthority": "server",
     "relationshipStoredOn": "target-device-record",
     "_relationshipStoredOnWhy": "授权的内容是「A 允许 B 投给我」，做决定的是被投的那台：存在 A 的行里，A 才能自己划掉（撤销不需要问 B）。契约里「逐条勾选」「每次本地确认」「重建身份后所有发送方重配」说的全是接收端的动作——挂在发送方记录上时，这三处没有一处执行得了。#131 前两片把关系建起来了才发现：收单时读的是发送方自己那一行的 grant，等于谁登记过就能给任何人投。",
     "relationshipField": "grantsBy",
-    "relationshipEntryFields": ["maxLevel", "items", "revision", "grantedAt"],
+    "relationshipEntryFields": [
+      "maxLevel",
+      "items",
+      "revision",
+      "grantedAt"
+    ],
     "_relationshipEntryFieldsWhy": "每一项就是 capabilities 那份授权节点（同形 ⇒ 双端裁决函数原样可用，grantFromNode 不必再认一种新形状）。另立一套字段名的下场是「配对给的级别」与「能力裁决读的级别」变成两个数，而改一个不动另一个不会报错。",
     "enforcedAt": "server-intake",
     "_enforcedAtWhy": "配对关系必须在服务端收单时就判：设备看不见别人的队列，A 只能靠 poll 拿到什么才显示什么——这里不判，陌生设备只要登记过就能把标题与正文投进 A 的队列（验证码常常就在正文里），而 A 侧没有第二次拦截的机会。",
     "relationshipRequiredForIntake": true,
     "_relationshipRequiredForIntakeWhy": "查不到这一条关系 ⇒ 直接拒，**不许**落到 capabilities.grantDefaults 那一档：缺省档防的是「有授权记录但字段缺」，把它当成「谁都没配过对」的默认放行方向就是 fail-open。",
     "revocableBy": "target-device",
-    "_revocableByWhy": "能授权的人才能撤销：A 划掉 B 之后，B 的签名再对也进不了 A 的队列。撤销的入口（单条划掉 / 一键冻结）挂在 T31 与 #130，这一段只声明数据形状与判定方向。"
+    "_revocableByWhy": "能授权的人才能撤销：A 划掉 B 之后，B 的签名再对也进不了 A 的队列。撤销的入口（单条划掉 / 一键冻结）挂在 T31 与 #130，这一段只声明数据形状与判定方向。",
+    "maxRequestableLevelFromPairing": "L2"
   },
-
   "signature": {
-    "canonicalOrder": ["version", "type", "target", "ts", "nonce", "body"],
+    "canonicalOrder": [
+      "version",
+      "type",
+      "target",
+      "ts",
+      "nonce",
+      "body"
+    ],
     "encoding": "utf8",
     "separator": "\u0000",
     "timestampSource": "serverTime",
@@ -99,10 +122,11 @@
     "maxSkewWhy": "ts 用服务端时间判定，容差只覆盖网络抖动与合理重放窗口；再大就等于把「过期」这条 410 变成摆设",
     "nonceDedupeSeconds": 900,
     "nonceDedupeWhy": "去重窗口必须大于容差窗口的两倍（一端提前、一端滞后各算一次），否则一条迟到足够久的重放刚好落在记忆之外",
-
-    "onFailure": { "receipt": "rejected_unsigned", "count": true }
+    "onFailure": {
+      "receipt": "rejected_unsigned",
+      "count": true
+    }
   },
-
   "statusCodes": {
     "queued": 202,
     "unauthorized": 401,
@@ -113,10 +137,12 @@
     "requestTooLarge": 413,
     "badRequest": 400,
     "_badRequestWhy": "解析失败（畸形 JSON、不支持的编码）在公网面上必须回协议自己的形状。改造前它冒到应用级错误处理，回的是管理面那套 {code:-5, message:Internal server error} —— 同一份协议面上出现两套错误契约，客户端只能靠猜；而 500 还会让设备端的退避逻辑以为是自己这边坏了。不带 receipt：那是投递结论，这一步连载荷都没读出来。",
-    "indistinguishable": ["unauthorized", "notFoundEndpoint"],
+    "indistinguishable": [
+      "unauthorized",
+      "notFoundEndpoint"
+    ],
     "_indistinguishable": "不存在的端点与口令错误必须返回同一形状：否则可以用返回码枚举哪些端点存在"
   },
-
   "receipts": [
     "delivered",
     "displayed",
@@ -129,22 +155,37 @@
     "executing",
     "execution_done"
   ],
-
   "fieldTolerance": {
-    "title": ["title", "message", "text", "msg"],
-    "body": ["body", "content", "description"],
+    "title": [
+      "title",
+      "message",
+      "text",
+      "msg"
+    ],
+    "body": [
+      "body",
+      "content",
+      "description"
+    ],
     "rule": "first-non-empty",
     "ignoreUnknownFields": true,
     "_why": "每接一个第三方平台都要改服务端是不可接受的；别名表就是这份契约的一部分"
   },
-
   "presence": {
     "heartbeatSource": "poll",
     "separateHeartbeatProtocol": false,
-    "pollIntervalSeconds": { "default": 20, "min": 5, "max": 60 },
+    "pollIntervalSeconds": {
+      "default": 20,
+      "min": 5,
+      "max": 60
+    },
     "_pollIntervalSecondsWhy": "min/max 是**设备侧那格设置的允许范围**（T88：开放给用户选，范围不许在 Dart 里另写一份）。下界 5s 而不是更低：服务端 `/poll` 那格的额度是按 `burstWhenPending.intervalSeconds` 推导的（`ceil(60/5)+pollBurstSlack=14` 次/分），常态 5s 正好是 12 次/分 ⇒ 仍在额度内，不用重算限流；再往下（3s、1s）不仅会常态比提频还快（语义倒挂），还会把按设备地址算的那桶打穿。上界 60s（维护者 2026-10-01 把建议的 180s 收到 60s）：间隔同时决定「对端发现新消息的最坏延迟」与「本机掉线后还被显示在线多久」，60s 两头都还在即时通知的语义里；再长就不是慢而是**在线状态失真**。default 20s 不动 ⇒ 从没设过这一档的设备行为与今天完全一致。",
     "onlineThresholdMultiplier": 3,
-    "states": ["online", "offline", "unknown"],
+    "states": [
+      "online",
+      "offline",
+      "unknown"
+    ],
     "unknownMeans": "从未上线（与离线在界面上必须是两件事）",
     "burstWhenPending": {
       "intervalSeconds": 5,
@@ -152,10 +193,11 @@
       "_intervalSecondsWhy": "提频档与常态下界同值（5s）是有意的：常态最快那一档**不得比提频更慢**（两侧校验都钉这条，等号放行是 T88 把下界压到 5s 的直接后果）。这一档设在 5s 的用户已经问得和提频一样密，提频对他不再额外提速 —— 这是下界选择的代价，不是缺陷。额度侧没变：`ratelimit.js` 的 `pollPerMinute` 一直是按这一档推出来的。"
     }
   },
-
   "revocation": {
     "_why": "设备生命周期的状态表与三件事（重置配对口令、重建身份、一键全部失效）。这一段有一条判据最容易被写反：投递时该问「这台设备是不是在**允许**的状态里」，而不是「它是不是某个被停用的状态」。按后者写，将来新加一个状态就会静默地变成「没被枚举到 = 继续投递」。",
-    "deliveryAllowedStatuses": ["active"],
+    "deliveryAllowedStatuses": [
+      "active"
+    ],
     "deviceStatuses": {
       "active": "正常：在册、可投递",
       "frozen": "暂停：记录与公钥都留着，一条都不投，随时可解",
@@ -173,10 +215,12 @@
     "_statusNamesWhy": "这三个名字以前散在实现里（setDeviceStatus 写死 'revoked'、invalidatePeersAfterRebuild 写死 'active'、revokeAllDevices 写死 'revoked'），那是典型的第二份真值：契约新加一档而代码里那串字符没跟上，表现不是报错，而是「这一档谁都不认得，但记录照端在那儿」。现在三处一律从本段读，validate 钉住它们必须都在 deviceStatuses 表上、resumableStatus 必须就是投递白名单里那一个、revokedStatus 与 afterRebuildStatus 必须在白名单之外且互不相同（两个动作写进同一档，「一键全部失效」与「本机重建身份」在记录上就分不开了）。",
     "_dataNeverDeletedWhy": "吊销的是「还能不能收到我的消息」，不是「这台设备的历史」。清历史要单独一次显式操作 —— 用户可撤销的那类破坏性动作不塞进安全动作的副作用里"
   },
-
   "endpoint": {
     "_why": "接入端点（T38）：接收端自建自管的长期口令入口，供 NAS / 脚本 / 第三方平台往这台实例推通知。它与设备身份的区别决定了两处的规则：设备是**签名**（服务端永远拿不到私钥），端点是**共享口令**（服务端只存摘要，但一次泄露就能被冒充）。所以这一段的重心不是'怎么方便'，而是'一把口令能被拿去做什么、以及它出现在哪儿'。⚠ 本段的数字只能从这里读，实现里不许写字面量（与 limits / alerts / ops 同规矩）。",
-    "statuses": ["active", "revoked"],
+    "statuses": [
+      "active",
+      "revoked"
+    ],
     "usableStatus": "active",
     "revokedStatus": "revoked",
     "_usableStatusWhy": "与 revocation 那四个键同一个教训：状态名一旦写死在实现里，契约加一档时它不报错，只会让「这一档没人认得，而端点照旧收信」。判定一律问「是不是 usableStatus」（白名单式），不许问「是不是 revoked」（黑名单式）。",
@@ -195,10 +239,13 @@
     "_postOnlyWhy": "postOnly=true 的端点收到 GET 时回 405。GET 形态把口令放在路径段里（URL 会被 access log、浏览器历史、代理留副本），所以这个开关是在'方便抄一行 curl 进脚本'与'口令出现在别人的日志里'之间做选择；开关本身归接收端，服务端只如实执行。",
     "callLog": {
       "maxPerEndpoint": 50,
-      "fields": ["at", "ip", "outcome"],
+      "fields": [
+        "at",
+        "ip",
+        "outcome"
+      ],
       "_why": "最近调用日志（时间/来源/结论），**不含正文也不含标题**：端点侧最常见的求助是'为什么那条没到'，没有一份调用记录就只能靠猜；而中转服务器的日志里一旦出现正文，就与 privacy.auditStoresMetadataOnly 那句话直接矛盾。maxPerEndpoint 是有界环：否则一次洪水会把每端点的日志撑成攻击者驱动的存储。⚠ 名单里出现 body/title/secret/path/url 任一个都该由 validate 拦下 —— 日志字段是会被复制粘贴的，第二个人不会再去查它允许到什么程度。"
     },
-
     "ingress": {
       "_why": "第三方真正推进来的那两条入口（T39/T40/T41）。它与签名面（/message）的区别决定了这里几乎所有规则：那边的发送方是**设备**（有身份、有私钥、能被 poll 认出来），这边只是一把**共享长期口令**（服务端只有摘要，泄露无法归因，也没有'重放窗口只有 5 分钟'那层保护）。所以三条特有的东西：口令只进路径段、配额按端点计、能力只到 L1。",
       "pathPattern": "/api/fnthink/p/:endpointId/:secret",
@@ -221,7 +268,6 @@
       "_levelWhy": "端点只能产 L1（capabilities.endpointMaxLevel）：type 非 notice、level 高于 L1、带 item 的一律 403 + rejected_capability。走 capabilities.endpointGrant 那份裁决，**不在这里再写一份档位表**。"
     }
   },
-
   "ops": {
     "_why": "运维入口（#130-A5：冻结 / 解冻 / 单台吊销 / 一键全部失效）。这一段管的是「人按下去之后会发生什么」，最容易写歪的不是权限而是**确认**：契约既然声明支持一键全部失效（massRevokeSupported），那一次误点的代价就是一整个设备群同时失联，而这类动作在界面上和一个普通按钮长得一模一样。",
     "listMaxRows": 100,
@@ -241,7 +287,11 @@
     "overflowReceipt": "dropped",
     "maxRetentionDays": 7,
     "whilePending": "static_encrypted",
-    "deleteBodyOn": ["delivered", "expired", "dropped"],
+    "deleteBodyOn": [
+      "delivered",
+      "expired",
+      "dropped"
+    ],
     "_deleteBodyOnWhy": "必须是**每一个终态**，一个都不能漏。T34 第一次写这条时只列了 delivered 与 expired，而「被 200 条上限挤掉」的 dropped 也是终态——漏它的后果是：那条消息永远不会再被投递，正文却按契约合法地留到 7 天。这正是「不静默丢、也不无谓留」里后一半的反面。",
     "storeOnlyNecessaryFields": true,
     "_titleWhere": "名单里**没有 title**：标题与正文一起装进 `body` 那个密信封（见 bodyAtRest）。分开存就是把标题留在盘上明文可读 —— 而验证码、金额、姓名这类东西常常就在标题里 —— 「正文加密了」不等于「内容没泄露」。",
@@ -264,7 +314,11 @@
     ],
     "auditTrail": {
       "maxPerMessage": 40,
-      "fields": ["state", "at", "event"],
+      "fields": [
+        "state",
+        "at",
+        "event"
+      ],
       "_why": "T45 的投递视图要能回答「这条死在哪一步」，而那必须有**留痕**：行里只有当前态 + 两个时间戳时，「几点下发过、ack 了几次」今日没有任何出处，界面编一条出来就是让运维把猜的当日志读。但留痕必须有界 —— 一条 waiting_online 的消息每次 poll 都会被推进一次，7 天保留期 ÷ 15 秒 ≈ 四万条，而无界的日志就是攻击者驱动的存储（端点调用日志那条同样成立）。所以按条数裁，**且裁掉多少要留下计数**（`trailDropped`）：悄悄裁与悄悄丢在运维眼里是同一个错。名单里带 trail/trailDropped 是因为这条白名单管的是「行里能出现什么键」，机器写的字段照样要在名单里 —— 它们同时被 MACHINE_OWNED 挡在输入之外。"
     },
     "bodyAtRest": {
@@ -275,13 +329,17 @@
       "_why": "GCM 的 IV 标准长度就是 12 字节；`refuseWithoutKey=true` 是刻意的：本仓既有的 TOTP 加密在没有 ENCRYPTION_KEY 时**退回明文**（那是运维不能因为少配一个环境变量就被锁在门外的取舍），而正文不行 —— 契约写着 serverStoresBodyPlaintext=false，退回明文就是当场违反协议。宁可拒绝入队并回 500，也不静默留明文。"
     }
   },
-
   "limits": {
     "unauthenticatedPerMinute": 30,
     "_unauthenticatedPerMinuteWhy": "30 而不是我第一版的 6：那版理由是「validate 算出轮询推导额度 60÷5+2=14，身份未证明的那一类不该比轮询宽松」。7 条配对路由用例当场把它证伪了 —— 它们从同一个 IP 在一分钟里登记 5 台设备，那正是「家里一次装手机 + 手表 + 平板 + PC」的形状，而部署文档里 TRUST_PROXY 默认不开 ⇒ 反代之后所有设备都是同一个源。**按 IP 的端点级额度只能当洪水闸，不能当公平额度**：卡紧它误伤的是诚实用户，而攻击者换一个 IP 的成本是零。真正的兜底是 limits.devicesMax（全局上限）加层 1 那个总量闸门。⇒ 这一档必须**不严于**轮询推导额度（validate 与 JS 都拦反方向的数），下一片要把配额主键换成已证明身份的设备地址。",
     "unauthenticatedPerDay": 3000,
-    "perEndpoint": ["register"],
-    "cadenceGoverned": ["poll", "ack"],
+    "perEndpoint": [
+      "register"
+    ],
+    "cadenceGoverned": [
+      "poll",
+      "ack"
+    ],
     "perSenderOnly": [
       "pairArm",
       "pair",
@@ -309,7 +367,6 @@
     "devicesMax": 5000,
     "_devicesMaxWhy": "POST /register 是全协议唯一一类「提交者还没有身份」的写入面：攻击者做一次的成本是生成一把 Ed25519 密钥（微秒级），服务端的成本是一行记录加一次磁盘写。设备表没有上限就等于给未认证流量送一台无限增长的存储。到上限后新登记一律回 rateLimited 并把原因写进留痕，**绝不覆盖任何已有记录**——覆盖一次就是一次静默换身份，与「公钥不可静默替换」是同一条红线。"
   },
-
   "alerts": {
     "_why": "突增告警（#130-A4）。这一段管的不是「拦住」——拦住是 limits 那三档的事——而是「有人正在被拦住，而运维对此一无所知」。限流与配额全在内存里计数，一次 429 之后不留任何痕迹，现场表现就是「我朋友的推送进不来了」，只有翻 access log 才可能对上；而 #140 已经实测到反代之后按 IP 的桶本来就不可信，光看日志更对不上。⚠ 这一段的四个数只许从这里读，实现里不许出现字面量：A1 那次实现绕开契约改用环境变量，于是留下两份真值，调 env 的人只会更糟。",
     "nearQuotaRatio": 0.5,
@@ -320,12 +377,19 @@
     "_maxActiveAlertsWhy": "内存环的条目上限。告警的主体来自外部输入（设备地址码、对端 IP），没有上限就等于在公网上挂一段无界内存，而那正是这批限流要防的东西。到上限按最旧的合并项淘汰。",
     "persistToDisk": false,
     "_persistToDiskWhy": "刻意不落盘。本仓已经有一处同样的取舍（T29-B 的拒收计数只写内存）：公网未认证面上每一次写盘都是一个「一个请求换一次磁盘写」的放大器。告警的用途是「提示运维现在去看一眼」，不是审计账本——账本另有一片专门管（T53）。所以重启丢告警是可接受的，而丢审计不可。⚠ 这条要改成 true 的话，必须同时给写盘加限频与上限，并把这两样写进本段。",
-    "subjectKinds": ["device", "ip", "endpoint"],
+    "subjectKinds": [
+      "device",
+      "ip",
+      "endpoint"
+    ],
     "_subjectKindsWhy": "⚠ 这里只列**现在真有生产者**的主体种类，且名单与 limits / endpoint.ingress.quota 由 validate 交叉钉住：按设备计的那两档非空就必须有 device，按 IP 计的那档非空就必须有 ip，端点有自己的配额就必须有 endpoint。在没有生产者的种类写进名单，validate 与守卫都查不出它是摆设，但它会让人以为已经覆盖 —— 这正是本仓反复躲开的那类「没人读的键」。端点那一档等的是 T40（配额按端点计）：入口没接之前先列上，就是一份看着齐全其实不响的名单。"
   },
-
   "capabilities": {
-    "levels": ["L1", "L2", "L3"],
+    "levels": [
+      "L1",
+      "L2",
+      "L3"
+    ],
     "levelMeaning": {
       "L1": "消息（配对即有）",
       "L2": "应用动作（逐条勾选）",
@@ -360,13 +424,23 @@
     "endpointActionReceipt": "rejected_capability",
     "remoteExecution": {
       "sources": {
-        "L1": ["fnthink", "localNotificationWhitelist"],
-        "L2": ["fnthink"],
-        "L3": ["fnthink"]
+        "L1": [
+          "fnthink",
+          "localNotificationWhitelist"
+        ],
+        "L2": [
+          "fnthink"
+        ],
+        "L3": [
+          "fnthink"
+        ]
       },
       "sourcesWhy": "级别 × 渠道。L1 有两条：幻念推送，或**本机白名单应用的通知栏消息**（在远程执行列表里逐应用勾选，命中的是那几条通知里出现的关键匹配字符）。L2/L3 只允许幻念推送。⚠ webhook 那一路只认「幻念推送自己的 webhook」——别的 webhook 一律不当指令源（webhook 载荷的字段是第三方随手写的，把「能发指令」挂在它身上等于把指令格式的解释权交给别人）。与 capabilities.endpointMaxLevel(=L1) 是同一条纪律的两个面：接入端点也只能到 L1",
       "auth": {
-        "modes": ["key", "totp"],
+        "modes": [
+          "key",
+          "totp"
+        ],
         "l2Requires": false,
         "l3Requires": true,
         "keyMinLength": 8,
@@ -381,26 +455,45 @@
         "minSeconds": 0,
         "maxSeconds": 60,
         "onTimeout": "execute",
-        "cancelChannels": ["statusBar", "inAppBanner"],
+        "cancelChannels": [
+          "statusBar",
+          "inAppBanner"
+        ],
         "userPresenceAffectsTiming": false
       },
       "delayWhy": "执行前的**可取消窗口**：窗口内接收端可经状态栏与界面顶端横幅两种入口取消，超时**默认执行**（onTimeout:execute），用户在不在设备前**不影响计时**（userPresenceAffectsTiming:false）。0 秒 = 立即执行（等于关掉延时）。⚠ 这不是「再确认一次」：安全闸是「凭据 × 渠道」，这个窗口是**给用户的一次可见的撤销机会** —— 见 l3.confirmForm",
-      "states": ["pending", "executing", "done", "failed", "cancelled"],
+      "states": [
+        "pending",
+        "executing",
+        "done",
+        "failed",
+        "cancelled"
+      ],
       "statesWhy": "**执行状态机**，与 delivery 那套（delivering/delivered/acked）刻意分开：delivery 说的是「消息有没有送到」，这里说的是「这条指令被执行到哪一步」。五个状态封闭；`cancelled` 单独一档（用户在窗口内撤销），与 `failed`（执行了但没成）不是一回事 —— 合成一个，界面上就分不清「我没让它做」和「它没做成」",
-      "receipts": { "started": "executing", "finished": "execution_done" },
+      "receipts": {
+        "started": "executing",
+        "finished": "execution_done"
+      },
       "receiptsWhy": "两段回执走**回发给发送方的消息**（不是 ack）：收到即回 receipts.started，执行完回 receipts.finished 并带结果。⚠ 把回执塞进 ack 的后果是 at-least-once 重投与「执行中」互相污染（重投会再 ack 一次）；ack 只回答「我收到了这条投递」，回执回答「我把这件事做到哪了」",
       "localTriggerReceipt": "none",
       "localTriggerReceiptWhy": "本机白名单应用的通知触发的是**本机**指令：这条路上没有远端发送方，**没有任何人可以回** ⇒ 不回执，只进本地远程执行历史。⚠ 这一条是维护者未明确确认时的**中性写法**（契约不为它定义回执；若他改主意要回给谁，改这一处即可）"
     },
     "l2": {
-      "actions": ["listener:start", "listener:stop", "channel:toggle", "device_state:push"],
+      "actions": [
+        "listener:start",
+        "listener:stop",
+        "channel:toggle",
+        "device_state:push"
+      ],
       "actionsWhy": "L2 应用动作的**封闭词表**。两端各持一份枚举映射（设备侧 lib/services/fnthink_l2_actions.dart、服务端 server/lib/fnthink/l2actions.js），而这张表是它们共同的**唯一出处**：一份名单存在两处时，两处各自都对，但对面新加一个动作只有自己认得，表现是服务端把它收进队列、设备端在 apply 段判成 unknown-action，两头日志互相看不懂",
       "unknownAction": "reject",
       "unknownActionWhy": "认不出的 action 一律拒，不许「认不出就先跳过这一条」：那等于让对端用一个编出来的动作名试探这台设备的边界（探到就等于多一档权限）",
       "unknownActionScope": "这一条只管 L2 的 action；L3 的设置键由 l3.unknownAction 管，两份不共用 —— 共用的话，哪天只改一边就变成一档认不出的东西按另一档的规则处置，而那种偏差在两边各自的用例里都是绿的",
       "itemFormat": "<family>:<verb>",
       "itemFormatWhy": "逐条勾选的清单里那一项就是 item，由 action 与它指向的东西拼成：listener 家族那两条没有参数（启停整个监听服务），channel:toggle 带通道标识，device_state:push 不带（推的是整份设备状态）。**参数不许留在签名之外的地方** —— item 必须来自签过名的载荷，否则改一改参数就能换一个已勾选的项",
-      "requiresArgumentFrom": ["channel:toggle"],
+      "requiresArgumentFrom": [
+        "channel:toggle"
+      ],
       "requiresArgumentWhy": "这些 action 必须带参数（通道标识）；不带就是「开关哪一条通道」没写，而默认取第一条通道等于让一条没写清楚的消息改了某个用户没预期的东西。**不写成「缺了就取第一条」** —— 那是一条静默的越权",
       "actionReceipt": "failed_action",
       "actionReceiptWhy": "执行失败对外只回 receipts 词表里那一个词。与 T27/T28 那条同源：身份已证明，不许把「没权限」和「执行失败」压成同形的一句话；但也**不许把本地细节（哪个通道、什么异常）写进对外形状** —— 那些要进留痕（T53）"
@@ -412,36 +505,85 @@
       "confirmEveryTime": true,
       "allowSkipConfirm": false,
       "confirmForm": "cancelableDelay",
-      "confirmFormWhy": "⚠ **改形不改内核**：`confirmEveryTime` 与 `allowSkipConfirm:false` 这一对，过去读成「每次都要用户点一下确认」；而远程执行的新模型里所有级别都是「延时窗口内未取消 ⇒ 超时执行」（见 capabilities.remoteExecution.delay）。所以「确认」这个动作的形式从**点一下**变成**没去取消**，内核（每次执行前都有一次用户可见的撤销机会、且不允许绕过）原样保留。`allowSkipConfirm:false` 的含义随之明确为「不许绕过这道窗口」，而不是「必须弹框」",
-      "enableRequiresLocalAuth": ["lockScreen", "biometric"],
-      "circuitBreaker": { "failuresPerMinute": 5, "downgradeTo": "L1" },
+      "confirmFormWhy": "⚠ **改形不改内核**：`confirmEveryTime` 与 `allowSkipConfirm:false` 这一对，过去读成「每次都要用户点一下确认」；而远程执行的新模型里所有级别都是「延时窗口内未取消 ⇒ 超时执行」（见 capabilities.remoteExecution.delay）。所以「确认」这个动作的形式从**点一下**变成**没去取消**，内核（每次执行前都有一次用户可见的撤销机会、且不允许绕过）原样保留。`allowSkipConfirm:false` 的含义随之明确为「不许绕过这道窗口」，而不是「必须弹框」。⚠ **维护者 2026-10-04 定：不再有「开启 L3 要过本机锁屏/生物认证」那一道**（原 `enableRequiresLocalAuth` 整项删除）—— L3 的安全度**只**由「对面在指令里带高级密钥或二步验证码」承担。理由与那条通道的真实状态一并记在这里：它**从来没接过**（全仓唯一的实现是 `unimplementedLocalAuthenticator`，永远回「这台没有认证器」；android/ 侧没有任何 `BiometricPrompt`/`KeyguardManager`），所以 L3 在那套条款下本来就开不起来，删掉它不削弱任何**正在生效**的保护，而那道「开不起来」的死条款本身就是一块会误导人的负担",
+      "circuitBreaker": {
+        "failuresPerMinute": 5,
+        "downgradeTo": "L1"
+      },
       "unknownAction": "reject",
       "noKeyValueGenericWrite": true,
       "settings": {
-        "notification": { "mode": "grant", "native": "requestNotificationListenerPermission" },
-        "exact_alarm": { "mode": "grant", "native": "requestExactAlarmPermission" },
-        "battery_optimization": { "mode": "grant", "native": "requestBatteryOptimization" },
-        "autostart": { "mode": "grant", "native": "vendorAutostart" },
-        "monitoring": { "mode": "toggle", "native": "setMonitoringEnabledPref" },
-        "collect_inbox": { "mode": "toggle", "native": "settings.receiveEnabled" }
+        "notification": {
+          "mode": "grant",
+          "native": "requestNotificationListenerPermission"
+        },
+        "exact_alarm": {
+          "mode": "grant",
+          "native": "requestExactAlarmPermission"
+        },
+        "battery_optimization": {
+          "mode": "grant",
+          "native": "requestBatteryOptimization"
+        },
+        "autostart": {
+          "mode": "grant",
+          "native": "vendorAutostart"
+        },
+        "monitoring": {
+          "mode": "toggle",
+          "native": "setMonitoringEnabledPref"
+        },
+        "collect_inbox": {
+          "mode": "toggle",
+          "native": "settings.receiveEnabled"
+        }
       },
       "settingsWhy": "L3 系统设置的**封闭词表**，与 capabilities.l2.actions 同一套做法：动作名单只有契约一处，两端各持一份映射。为什么每项要带 mode：这一档里两件事的**危险程度不同** —— grant 是把一项授权交给这台设备，toggle 是这台设备自己的一项开关。而它们能不能被远端**直接改**也不同：原生侧至今**没有**任何静默改系统设置的能力，全部是跳设置页请用户自己点（MainActivity 里那几个 request* 函数无一例外），所以只有 toggle 那两项（且要系统已授权）才谈得上「改」，其余只能「请」。把这两类混成一张没有 mode 的表，表现是界面把「勾了就会静默改」与「勾了只是弹设置页」显示成同一种承诺",
       "settingsNativeWhy": "`native` 那一列**逐个核过 MainActivity / PermissionService**（不是照着想象写的），而核这一遍**当场推翻了第一版的两个词**。⚠ 两个形状值得记下来：`autostart` 指向的 `vendorAutostart` **不是一个函数名**而是「按厂商分流」这件事本身：小米/魅族/华为/oppo/vivo 各有各的入口（`requestXiaomiAutoStart` / `requestMeizuBackground` / …），写成某一个具体函数名就会把另外四个厂商的入口说成不存在。`collect_inbox` 指向 `settings.receiveEnabled`（Dart 侧 prefs）而不是原生 —— 幻念收件的开��**纯本地**，压根不经过系统授权。⚠ 第一版写在这两项上的 `requestWriteSettings` / `requestForegroundService` **已删**：前者是 `WRITE_SETTINGS` 这一项权限（`AppSettings.canWrite`）本该有的跳转、今天没实现；后者**根本不是一次授权** —— `FOREGROUND_SERVICE` 是 Manifest 里早就声明的权限，`NotificationMonitorService` 直接就带着 `dataSync|specialUse` 类型跑，它没有「申请」这一步。留着它等于让契约宣称一个不存在的动作。⚠ **教训**：「每项都有真实原生落点」这句话得**逐个 grep 核过**才敢说 —— 第一版是照着 T52 的描述（通知/DND/WRITE_SETTINGS/电池优化/精确闹钟/前台服务 六项）建的，核完发现其中两项在原生侧不存在，而第三项压根不是授权；⚠ **8.165 又删了一项，且这一遍核的是语义而不是符号名** —— `dnd_access` 原本与 `notification` 同写 `requestNotificationListenerPermission`，当时写下的理由是「DND 访问是通知监听权限的一个子能力、跳的是同一页」，**那句话是错的**：Android 的免打扰访问是 `ACCESS_NOTIFICATION_POLICY` + `ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS`，与 `ACTION_NOTIFICATION_LISTENER_SETTINGS` 是两个页面、两种授权，而本应用的 Manifest 与 MainActivity 里**两处都没有**（规则模板里那条 `night_dnd` 只是夜间静默，走我们自己的引擎，不碰系统 DND）—— 留着它，点一下会把人带到一个压根没有这个开关的页面。**第二次教训：8.162 那一遍只问了「这个函数名在源码里存在吗」，没问「它做的事是不是这一项要的事」**，于是这一项带着一个真实存在、却指向错误页面的函数名活了下来 —— 符号存在不等于名字配得上",
-      "modes": ["grant", "toggle"],
+      "modes": [
+        "grant",
+        "toggle"
+      ],
       "modesWhy": "mode 的封闭词表。只有这两种：grant = 打开这项授权（不可逆动作在系统那边，要用户点）；toggle = 翻这台设备自己的一项开关（可逆，且要系统已授权）。**没有第三种**：加一种「静默改设置」在今天没有任何原生能力支撑，而契约写了却没人实现的那一类（T30 那两条 l3 规则的老毛病）正是这里要防的",
-      "requiresExistingGrantFrom": ["monitoring", "collect_inbox"],
+      "requiresExistingGrantFrom": [
+        "monitoring",
+        "collect_inbox"
+      ],
       "requiresExistingGrantWhy": "这两项是 toggle，而 toggle 只有在对应授权**已经在**这台设备上时才能翻。反过来（授权还没拿到就先开 toggle）在今天不可能发生，但一旦发生，表现是「勾了没反应」——而那与「系统不给开」读起来一模一样",
       "settingsReceipt": "failed_action",
       "settingsReceiptWhy": "L3 执行失败对外回哪一个词。与 L2 共用 receipts 词表里的 failed_action —— **不是因为它们是一件事**，而是因为契约只该有一个对外形状；两种失败的区别进留痕（T53），不进回执"
     },
-
-    "execution": {      "fields": ["kind", "item", "argument", "from", "at", "result", "reason"],
+    "execution": {
+      "fields": [
+        "kind",
+        "item",
+        "argument",
+        "from",
+        "at",
+        "result",
+        "reason"
+      ],
       "fieldsWhy": "一次 L2/L3 执行写进留痕时**能出现哪些键**。四个身份键（kind / item / argument / from）回答「谁让这台设备做了什么」，两个结果键（at / result / reason）回答「成了没有、为什么没成」。⚠ 名单里**没有正文、标题、口令** —— 对面发来的通知内容不进执行留痕：那台设备已经把消息正文存进收件表了（且那是本机的事），执行留痕要回答的是「刚才那台设备被谁动了什么」，多存一份正文等于同一段内容有两个留存点，而其中一个的删除策略与另一个不同（正文走 retention.deleteBodyOn，留痕不走）",
-      "forbiddenFields": ["body", "title", "text", "secret", "token", "credential"],
+      "forbiddenFields": [
+        "body",
+        "title",
+        "text",
+        "secret",
+        "token",
+        "credential"
+      ],
       "forbiddenFieldsWhy": "上面那份名单是**白名单**（只有列出的键能进），这一份是**黑名单**（列出的键一次都不许出现）。为什么要有黑名单而不是只靠白名单：白名单挡的是「没列的键」，而一个**名字像留痕的正文键**（body / title）恰好可能被人顺手加进白名单去「留个底」—— 那正是 privacy.auditStoresMetadataOnly 想防的事。黑名单把这件事单独喊出来，两边合起来才是完整判据",
-      "kinds": ["l2_action", "l3_setting"],
+      "kinds": [
+        "l2_action",
+        "l3_setting"
+      ],
       "kindsWhy": "留痕只有这两种：L2 动作与 L3 设置。**封闭**是因为界面按它分栏，而多一种就多一份没写过的显示逻辑（新增一种而界面没接 ⇒ 那一条在详情里看不见，等于没记）",
-      "results": ["ok", "failed", "rejected", "skipped"],
+      "results": [
+        "ok",
+        "failed",
+        "rejected",
+        "skipped"
+      ],
       "resultsWhy": "四种结果。⚠ `rejected` 与 `failed` 刻意分开（与 l2actions/l3settings 那四种拒同一纪律）：rejected = **这一条根本不该被执行**（不在词表 / 没逐条勾选 / 没确认 / 没前置授权），failed = 该执行但设备上做不成。前者说明对端越界，后者说明这台设备做不到；合成一个之后，用户看到「有条消息没生效」既不知道是对端越界还是自己没配好",
       "maxPerPeerDay": 200,
       "maxPerPeerDayWhy": "有界：一个对端一天最多在这台设备上留这么多条。与 `retention.auditTrail.maxPerMessage`（投递态，40/条）**是两个不同的界** —— 那一条按消息留，这一条按发送方留，因为攻击面不同：前者是「一条消息被反复推进」，后者是「对端连发大量互不相干的动作」。**裁掉的条数要留下计数**（droppedCount），理由与那条投递留痕一致：悄悄裁与悄悄丢在用户眼里是同一个错",
@@ -451,7 +593,6 @@
       "storesBodyWhy": "服务端这一侧的审计**只存元数据**（与 privacy.auditStoresMetadataOnly 同一句承诺）：留痕是元数据的另一个名字，不是「顺便把正文也存一份」的新入口。设备本机那一侧不受这条约束 —— 本机存不存正文是本机自己的决定（T47 的收件表已经存了），这一条只管**服务端**"
     }
   },
-
   "waitingOnline": {
     "withBackupChannel": "backup_replay",
     "withoutBackupChannel": "queue_resend",
@@ -460,10 +601,12 @@
     "backupReplayIdempotencyKey": "message_id",
     "backupReplayLabel": "备用补推"
   },
-
   "delivery": {
     "ackIsOnlyProof": true,
-    "ackFields": ["messageId", "result"],
+    "ackFields": [
+      "messageId",
+      "result"
+    ],
     "resultReturnedAsMessage": true,
     "senderPollsStatusEndpoint": false,
     "channelKey": "chan:fnthink",
@@ -477,11 +620,27 @@
       "dropped"
     ],
     "initialState": "queued",
-    "terminalStates": ["delivered", "expired", "dropped"],
+    "terminalStates": [
+      "delivered",
+      "expired",
+      "dropped"
+    ],
     "transitions": {
-      "queued": ["delivering", "expired", "dropped"],
-      "delivering": ["queued", "delivered", "waiting_online", "expired"],
-      "waiting_online": ["delivering", "expired"],
+      "queued": [
+        "delivering",
+        "expired",
+        "dropped"
+      ],
+      "delivering": [
+        "queued",
+        "delivered",
+        "waiting_online",
+        "expired"
+      ],
+      "waiting_online": [
+        "delivering",
+        "expired"
+      ],
       "delivered": [],
       "expired": [],
       "dropped": []
@@ -499,13 +658,15 @@
     "_retryTotalMeans": "limits.deliveryRetryTotal 是**首次投递之外**的重试次数，所以总尝试数 = 1 + deliveryRetryTotal。这句不写清就会一边按 2 次、另一边按 3 次发，而它的表现是「偶尔多推一条」——最难查的那种。",
     "resendDecisionFrom": "waitingOnline",
     "_pollableStatesWhy": "poll 能取走哪些状态，也必须写在契约里：代码里出现 `if (state === 'queued')` 就是第二份状态表，将来加一个可重发态时它不报错，只会让那条状态永远取不到。终态不得出现在这里（终态没有正文可发了）。",
-    "pollableStates": ["queued", "waiting_online"],
+    "pollableStates": [
+      "queued",
+      "waiting_online"
+    ],
     "ackDeadlineSeconds": 180,
     "_ackDeadlineSecondsWhy": "一条消息在 poll 里被取走时从 queued 变 delivering；此后只有设备回一条 ack（ack_ok / ack_fail）才会离开 delivering。ack 可能在回来的路上被设备崩溃/网络断开吞掉，于是那条永远停在 delivering —— 而 pollableStates 不含 delivering，没有任何事件能把它推回去（delivery.js 的 no_ack 分支就是为这个准备的，却**没有任何调用方**：没有这一档 = 取走了却没 ack 的消息被静默卡住，正文留满保留期后按过期删掉，永不补发）。所以「发了没等到 ack 算超时、多久算超时」是服务端 poll 的扫描判据，必须写在契约里：**≥ 3 × presence.pollIntervalSeconds.max**（两侧校验都钉这一条；T88 把上界从 30s 抬到 60s ⇒ 这一档随之 120s→180s，不跟着抬就是契约自己不自洽）。钉的是最慢那一档而不是默认那一档：间隔现在由用户选，设在 60s 的设备取走一条之后，正常 ack 也要跨到下一次 poll 才发得出去—— 小于两三轮 poll 就会把一次正常往返误判成丢 ack（设备离线/提频时），太大则卡住窗口变长。两条实现（Dart delivery.dart / JS delivery.js）都从这里读，不许各写一份。",
     "receiptDelivery": "poll_response",
     "_receiptDeliveryWhy": "投递结果放在设备 poll 的响应里（receipts 数组），不另开状态接口，也不做成「一条签好名的消息」。做成消息就要问「谁签它」：服务端没有设备身份私钥，自造一把服务端签名钥匙等于在契约里悄悄新增一个信任根；放 poll 响应里则复用同一条拉取链路与同一个 TLS 通道，而 senderPollsStatusEndpoint=false 说的正是这件事。"
   },
-
   "clientEvents": {
     "_why": "poll 与 ack 是设备自己签的事件，不是用户消息。它们必须复用同一套签字节 / 时间容差 / nonce 去重（否则等于给这两条路各开一个免检入口），又绝不能落进 capabilities 的 type 词表——一台设备若能拿一次 poll 的签名冒充一条已授权的通知，前面整条验签链就白做了。",
     "_verifyAgainstWhy": "同一个签字节可以用两把不同的钥匙验。poll / ack 的签名者已经在设备表里，公钥只能从表里取（请求自带的一概不信）；而自登记这一步表里还没有他这一行，签名能证明的只是「提交者持有这把公钥对应的私钥」（私钥持有证明），不是「他是谁」。两类必须分开声明——否则实现里就会出现「为了统一代码，这里偶尔信一下请求里的公钥」那种一步走错就全线失效的分支。",
@@ -524,8 +685,15 @@
       "_why": "设备自登记是配对、poll、ack 的共同前提：#131 排查时发现 registerDevice 与 armPairingCode 两个纯函数没有任何调用方——表里一行都没有的时候，配对码挂不到设备上、白名单里也没有可验的公钥，整条链在第一步就断了。本片补的就是这个缺口。",
       "addressCodeSource": "client-generated",
       "_addressCodeSourceWhy": "地址码由设备自己 CSPRNG 生成（不从公钥推导，见 identity.generator）。服务端在这里只守一件事：同一地址码带另一把公钥来登记必须抛，而不是覆盖——这与「公钥不可静默替换」是同一条规则，走的是 devicestore.registerDevice 里已有的那道分支。",
-      "requiredTopLevelFields": ["publicKey", "name"],
-      "mayNotCarry": ["privateKey", "pairingCode", "endpointSecret"]
+      "requiredTopLevelFields": [
+        "publicKey",
+        "name"
+      ],
+      "mayNotCarry": [
+        "privateKey",
+        "pairingCode",
+        "endpointSecret"
+      ]
     },
     "poll": {
       "messageType": "poll",
@@ -533,9 +701,15 @@
       "_targetMustEqualSenderWhy": "poll 的 target 必须是自己的地址码。放开这条，任何一台已配对的设备都能读走别人队列里的标题与正文，而验证码常常就在正文里。",
       "targetMustEqualSender": true,
       "maxBatchPerPoll": 50,
-      "messageFields": ["messageId", "type", "item", "title", "body", "sender"],
+      "messageFields": [
+        "messageId",
+        "type",
+        "item",
+        "title",
+        "body",
+        "sender"
+      ],
       "_messageFieldsWhy": "poll 带回的每条消息必须自带发件人：客户端要落收件表（T47）、要显示\"是谁发的\"（T45/T48），而它手上只有标题与正文的话，那一行就没有主键可归属 —— 服务端 receiptsForSender 已经知道 sender，poll 这边此前却只回 messageId/type/item/title/body。这条是 T47 动手时才暴露的：列设计到一半发现没数据可灌，比写一个永远为空的列诚实。",
-
       "_maxBatchPerPollWhy": "一次 poll 最多取走这么多条：设备离线七天积压到 200 条上限时，不设上限等于让它一次把整段历史拉下来（响应体大小与设备侧渲染都会出问题）。",
       "returns": [
         "messages",
@@ -549,7 +723,10 @@
     "ack": {
       "messageType": "ack",
       "verifyAgainst": "device-table-public-key",
-      "fields": ["messageId", "result"],
+      "fields": [
+        "messageId",
+        "result"
+      ],
       "_fieldsMirrorWhy": "这两个字段名必须与 delivery.ackFields 逐字相同。两张表各写一份，早晚一张改了另一张没改，那时 ack 会静默地读不到 result。",
       "resultMustBeReceipt": true,
       "onlyForOwnMessages": true,
@@ -565,33 +742,51 @@
       "messageType": "pairArm",
       "verifyAgainst": "device-table-public-key",
       "targetMustEqualSender": true,
-      "fields": ["pairingCode"],
+      "fields": [
+        "pairingCode"
+      ],
       "arms": "pairingCode",
       "_fieldsWhy": "只带口令，不带级别：级别在二维码里由 A 写下、由 B 在 pair 那一步带上来（A 屏幕上那串才是它的出处）。armPairingCode 这个纯函数从不读级别，这里塞一个 level 进去就是让它落进一份没人读的载荷——那正是「两边各自以为对方读了」那一类缺陷的起点。",
       "_why": "A 把自己刚生成的那枚一次性配对口令挂到自己的设备记录上（服务端只存摘要，T27 那条红线走的是 devicestore.armPairingCode——它与 registerDevice 一样，此前没有任何调用方）。这一步不是可选的装饰：不挂，B 拿着 A 的码来找服务端时服务端没有任何东西可以对表，配对在服务端这一侧就只剩一条没人听的广播。",
       "_codeMustBeSignedWhy": "口令放在被签的 body 里而不是旁路字段：不签，中间人可以在转发时换一枚自己造的口令而签名照旧，于是 A 屏幕上那串与实际挂上去的那串不是同一串——而配对口令是整条链路上唯一的那个秘密。",
-      "mayNotCarry": ["privateKey", "endpointSecret"]
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
     },
     "pair": {
       "messageType": "pair",
       "verifyAgainst": "device-table-public-key",
       "mustContainCounterpartAddress": true,
-      "fields": ["pairingCode", "level"],
+      "fields": [
+        "pairingCode",
+        "level"
+      ],
       "consumes": "pairingCode",
       "creates": "pairRequest",
-      "levelCeilingFrom": "pairing.maxRequestableLevelWithoutLocalAuth",
+      "levelCeilingFrom": "pairing.maxRequestableLevelFromPairing",
       "_counterpartWhy": "B 签的 target 是 A 的地址码——全协议唯一一个「关于别人」的签名，所以它走 selfOnlyRules 的第三条而不是前两条。为什么必须有「且不等于自己」那一半：允许 target 等于自己，一台设备就能自己跟自己配对、把登记时那一档默认级别往上调，而全程没有落在任何人的屏幕上。",
       "_why": "B 扫了 A 的码，签一条握手交给服务端。服务端在这里只记一条「待 A 确认的请求」，绝不写授权：pairing.confirmRequired=true 且 autoApprove=false，白名单只能由 A 自己那一次本机确认进来。口令成功即消耗（identity.pairingCode.singleUse），一次扫码只配一台。",
       "_levelCeilingFromWhy": "免本地确认的档位上限从 pairing 段读，不在这里再写一个 L2：两处各存一份「最多给到哪儿」，改一处时另一处不会报错，而它错的那一侧正是 L3 免确认那道门。",
-      "mayNotCarry": ["privateKey", "endpointSecret"]
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
     },
     "pairConfirm": {
       "messageType": "pairConfirm",
       "verifyAgainst": "device-table-public-key",
       "mustContainCounterpartAddress": true,
-      "fields": ["requestId", "decision", "level"],
+      "fields": [
+        "requestId",
+        "decision",
+        "level"
+      ],
       "decides": "pairRequest",
-      "decisions": ["approved", "denied"],
+      "decisions": [
+        "approved",
+        "denied"
+      ],
       "approveDecision": "approved",
       "_approveDecisionWhy": "哪一个词代表「同意」必须由契约说：JS 与 Dart 都从这一行读。让实现自己认 'approved' 这个词，哪天状态改名成 'granted' 时服务端仍会照旧把它当成一次拒绝而没有任何一条报错 —— 而 A 那边明明点了同意。",
       "_decisionsMirrorWhy": "这两个词必须逐字出现在 pairRequest.statuses 的**终态**里：一套状态名两个来源，早晚一张改了另一张没改——那时 A 点了「拒绝」而服务端写进一个谁都不认的字符串，请求就永远挂在待处理里。",
@@ -599,28 +794,41 @@
       "_requestMustBelongToTargetWhy": "requestId 是随机串、猜不到，但「猜不到」不是判据：A 只能处理**关于自己**的那一条（请求的收件人是自己、请求的发起人是自己签的那个 target）。否则任何一台设备拿到别人的 id 就能替别人答应一个配对请求。",
       "consumesRequest": true,
       "_consumesRequestWhy": "一条请求只能被处理一次。第二次同名确认若还能改授权，等于把一次点头变成可反复使用的凭证——包括把早已划掉的发送方再请回来。",
-      "levelCeilingFrom": "pairing.maxRequestableLevelWithoutLocalAuth",
-      "_levelCeilingWhy": "确认时能给的上限与请求时是同一道闸（同一个契约引用，不是两份数值）：服务端看不见锁屏与生物认证，L3 的那次本地认证只能在设备侧发生（capabilities.l3.enableRequiresLocalAuth），所以这里最多接到 L2。这一条宁可窄，也不许用「请求里自称已经确认过」来放宽——与 T30 那次同一处红线。",
-      "mayNotCarry": ["privateKey", "endpointSecret"],
+      "levelCeilingFrom": "pairing.maxRequestableLevelFromPairing",
+      "_levelCeilingWhy": "确认时能给的上限与请求时是同一道闸（同一个契约引用，不是两份数值）：L3 要求对面在指令里携带高级密钥或二步验证码，而**凭据只有接收端能校验**（服务端拿不到本机的哈希，也算不出 TOTP），所以服务端这一侧最多接到 L2。这一条宁可窄，也不许用「请求里自称带凭据」来放宽——那等于让服务端替接收端判凭据，而它连那把密钥长什么样都不知道。与 T30 那次同一处红线。（⚠ 2026-10-04 维护者删掉了 `capabilities.l3.enableRequiresLocalAuth` 那道本机认证，理由见 `l3.confirmFormWhy`；**上限值 L2 一动没动** —— 变的只是「为什么」，不是「到哪」）",
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ],
       "_why": "整条链上唯一一次「A 亲手把 B 写进自己的白名单」。前两片只做到证明 B 知道那枚口令、挂起一条请求，授权一直是空的；这一片第一次往表里写关系，也因此第一次暴露出旧实现把「在设备表里」当成了「被谁允许」——见 pairing.relationshipStoredOnWhy。"
     },
     "pairRevoke": {
       "messageType": "pairRevoke",
       "verifyAgainst": "device-table-public-key",
       "mustContainCounterpartAddress": true,
-      "fields": ["peerAddress"],
+      "fields": [
+        "peerAddress"
+      ],
       "_why": "A 亲手把 B 从自己的白名单里划掉 —— 与 pairConfirm 对称的那一发：那边第一次往 grantsBy 里写，这一发第一次删。两条红线钉在这里：① 撤销只停投递、不删历史（与 revocation.dataNeverDeletedByRevoke 同一条），A 撤的是「以后别再推过来」，不是「把我们共事过的痕迹抹掉」；② 撤销是**幂等**的：目标状态是「B 不在 A 的名单里」，已经不在就是目标已达成 ⇒ 回 200 并带 revoked=false。回 403/404 的表现很具体：客户端把「服务器那边本来就没有」当成一次失败，于是留着本机那一行不再删 —— 两边从此各说一段。⚠ 这里不防「试探谁和谁配过对」，因为无从试探：查询主键永远是签名者自己的 grantsBy，A 问得出的只有 A 自己的关系（与 pairConfirm 那「三种走法同一句话」不同，那边要防的是替你答复了你的请求）。",
       "_counterpartWhy": "签名里的 target 是**被划掉的那台**（B），不是本机：与 pairConfirm 同属「关于别人」那一类，所以走 selfOnlyRules 的第三条（且不许等于自己）。写成本机地址就是替别人撤销他自己的授权 —— 而服务端拒回来的那句与「口令错」同形，排查的人分不出是哪种。",
-      "mayNotCarry": ["privateKey", "endpointSecret"]
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
     },
     "endpointCreate": {
       "messageType": "endpointCreate",
       "verifyAgainst": "device-table-public-key",
       "targetMustEqualSender": true,
-      "fields": ["name"],
+      "fields": [
+        "name"
+      ],
       "_why": "接收端给自己建一个接入端点（T42 那一格；端点语义见 endpoint 段）：NAS / 脚本 / 第三方平台往这台设备推东西时用的长期口令入口。这一发是**self-only**（建的是自己的端点，不是替别人建），载荷**只有 name**。⚠ 口令不在这里，也不许在这里：设备自带口令等于把「选一把多强的口令」这件事交给最不方便负责它的一端 —— 一旦有人抄了一把弱口令或复用过的口令，泄露的是这台实例，而服务端只会照单收下。口令一律服务端生成、只有摘要落盘、明文**只在这一次的响应里出现**（错过就得重建，不留副本）。上限从 `endpoint.perDeviceMax` / `globalMax` 读，到上限只拒新的、不挤掉已有端点（挤掉一次 = 某台 NAS 的定时任务从此静默失效）。",
       "_targetMustEqualSenderWhy": "target 必须是本机地址码。放开这一条，任何一台登记过的设备都能替别人建端点、拿到别人那条入口的明文口令 —— 而它拿到的那句口令可以直接用来冒充那台设备。",
-      "mayNotCarry": ["privateKey", "endpointSecret"]
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
     },
     "endpointList": {
       "messageType": "endpointList",
@@ -629,26 +837,39 @@
       "fields": [],
       "_why": "接收端看自己有哪些接入端点（T42「我的端点」那一格的读口）。它与 `/endpoint-create` 是一对：只会建、看不见，等于把用户关在一个\"点了但不知道有什么\"的界面外面。self-only + **按 owner 过滤**：查的主键永远是签名者自己名下那些行，所以这一发不需要防试探 —— 别人名下的东西根本不在它的可达集合里（与 pairRevoke 同一条论证）。载荷是空的（`fields: []` ⇒ 带任何键都拒），因为它不改变任何东西：多一个可选参数（比如\"连调用日志一起给\"）就会长出第二个读口，而那份日志是运维面看的。",
       "_neverReturnsSecretWhy": "⚠ 这一发的响应里永远不许出现口令或它的摘要：明文只在创建那一次给过（给完就没人再知道），而摘要是\"能拿去比对的东西\" —— 一份能比对的摘要配上这一发就是离线猜口令的入口。投影走 `devicestore.endpointSummary`（管理面那份 `publicEndpoint` 的窄版：去掉逐条调用日志），别处不许自己拼字段。",
-      "mayNotCarry": ["privateKey", "endpointSecret"]
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
     },
     "endpointRevoke": {
       "messageType": "endpointRevoke",
       "verifyAgainst": "device-table-public-key",
       "targetMustEqualSender": true,
-      "fields": ["endpointId"],
+      "fields": [
+        "endpointId"
+      ],
       "_why": "接收端关掉自己名下一条接入端点（`/endpoint-list` 那一眼之后要能做的事）。它与 pairRevoke 同族而不与 endpointCreate 同族：这一发改变的是**别人还能不能往这台设备推**，所以判据比创建那一条更严 —— 除了 self-only，还要在路由里核一次「这条端点的 owner 就是签名者」。⚠ 「不存在」与「不是你的」必须**同形**（同一句 403、同一个 receipt `rejected_capability`）：分开回，等于给任何一台登记过的设备送一台端点 id 探测器（拿别人的 id 试一次，回 404 就是没有、回 403 就是有且属于别人）。幂等：已经吊销过的那一把 ⇒ 回 `revoked:false` 与 200，那是一次达成而不是失败（撤销的目标状态是「它不再收信」，本来就不收信就是已达成）。吊销**不删行**：留着那行带 `status`/`revokedAt`，`/endpoint-list` 才会继续把它列出来 —— 悄悄少一行会让用户看不出自己什么时候关掉了哪一个。",
       "_targetMustEqualSenderWhy": "target 必须是本机地址码。这一发真正改的东西由载荷里的 endpointId 指名，所以 owner 那一道核查不能省 —— target 对上了而端点属于别人，同样是替别人关闸。",
       "_neverReturnsSecretWhy": "这一发的响应里没有口令、也没有摘要，连刚被吊销那把的都不给：明文只在创建那一次给过，而摘要是能拿去比对的东西。吊销之后设备要知道的只有「这一条不再收信」，那一句由 `revoked` 与列表那一次读就够。",
-      "mayNotCarry": ["privateKey", "endpointSecret"]
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
     },
     "endpointRotate": {
       "messageType": "endpointRotate",
       "verifyAgainst": "device-table-public-key",
       "targetMustEqualSender": true,
-      "fields": ["endpointId"],
+      "fields": [
+        "endpointId"
+      ],
       "_why": "换一把入口的长期口令（同一条入口、同一个 id，旧口令进宽限期）。它比吊销更需要说清楚：`endpoint.rotation.graceSeconds` 那一段里**两把口令同时有效** —— 那正是这一发存在的理由（第三方平台里的口令是抄进去的，没有宽限期就等于逼着人在\"换钥匙那一刻所有集成同时 401\"和\"先不换了\"之间选第二个）。⚠ 所以这一发的返回里有**一把明文口令**，那是协议里唯一一处\"换了之后还要再给一次明文\"的地方：它同样只出现这一次、同样不落盘，而 `rotatingUntil` 一起给出去，因为\"旧的那把什么时候算死\"是用户要不要现在去改 NAS 的唯一依据。判据与吊销同一条：self-only + 路由里核 owner，「不存在」与「不是你的」同形。已吊销的那一把 ⇒ `rotated:false` + 200，**不复活**（`devicestore.rotateEndpoint` 对不工作的端点是抛的，所以路由必须先判状态再调用）。⚠ 这一句与吊销那条不同，是可以分辨的：能走到这一支的只有 owner 自己，可达集合已经被圈住了，说清楚比同形更有价值（与 endpointList 同一条论证）。",
       "_neverReturnsSecretWhy": "响应里只许出现**这一次新生成的那把明文**与 `rotatingUntil`：旧口令的明文（服务端本来就没有）、任何一方的摘要（那是能离线验猜测的靶子）、`rotatedFrom` 整个对象（它挂着旧摘要）都不许出门。投影仍走 `devicestore.endpointSummary` 那一份窄的。",
-      "mayNotCarry": ["privateKey", "endpointSecret"]
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
     },
     "notInCapabilitiesVocabulary": true,
     "nonceSpaceSharedWithMessages": true,
@@ -667,11 +888,24 @@
       "expiresAt",
       "status"
     ],
-    "neverStored": ["pairingCode", "privateKey", "endpointSecret"],
+    "neverStored": [
+      "pairingCode",
+      "privateKey",
+      "endpointSecret"
+    ],
     "_neverStoredWhy": "配对口令即使已经消耗也不存明文：那 20 位是用户抄过、印在二维码里、可能被拍过照的东西，而设备表会跟着备份走。存摘要已经够用——A poll 到这条请求时，拿自己手上那枚口令算一次摘要比一下就能确认「这就是我刚挂出去的那枚」。",
-    "statuses": ["pending", "approved", "denied", "expired"],
+    "statuses": [
+      "pending",
+      "approved",
+      "denied",
+      "expired"
+    ],
     "initialStatus": "pending",
-    "terminalStatuses": ["approved", "denied", "expired"],
+    "terminalStatuses": [
+      "approved",
+      "denied",
+      "expired"
+    ],
     "ttlSecondsFrom": "identity.pairingCode.ttlSeconds",
     "_ttlSecondsFromWhy": "请求的存活期直接引用口令的存活期，不另设一个旋钮：两个各自独立的 TTL 早晚会出现「口令还活着而请求已消失」或反过来，而后者的表现是用户重扫一次码却被告知口令已消耗。",
     "visibleVia": "poll",
@@ -709,7 +943,6 @@
       "suggestSwitchOnMainlandNetwork": true
     }
   },
-
   "deviceSend": {
     "_why": "配对设备这一路（逐条 Ed25519 签名投给另一台设备）发一条消息时的入参形状。它和端点收单是两类发送方：端点靠路径段里的长期口令，标题是独立字段；设备靠签名，而 signature.canonicalOrder 里没有 title —— 服务端于是只收「出现在已签字节里」的标题（整段比对，见 routes.js 那段 includes），设备在顶层另附的 title 一定被丢掉。与其让它静默变成一个空标题，不如把标题放进**已签的 body**：能改这段字节的人本来就能改整条消息（标题与正文同一段签名，不多出攻击面），而「未签内容上屏」那个口子仍然不开。",
     "titleEnvelope": {
@@ -725,13 +958,15 @@
       "_onlyWhenSignedTitleEmptyWhy": "只有 poll 回来的 title 是空串时才拆。将来若协议把 title 签进字节，签过的那一份是权威的 —— 信封不许盖掉它（未签内容覆盖已签内容正是这条协议反复拒的那种事）。"
     }
   },
-
   "privacy": {
     "serverStoresBodyPlaintext": false,
     "auditStoresMetadataOnly": true,
     "relayConsentVersion": 1,
     "_relayConsentVersionWhy": "「用幻念推送 ⇒ 消息经服务器中转」必须由用户**一次性显式同意**（T56），而同意这件事要有版本：文案或边界变了（多一个去向、少一条保留期）就得重新问一次。这个数只做这一件事 —— 本机记住的同意版本 ≥ 契约这一档就算已同意；调高它 ⇒ 升级后的用户重新被问一遍。**不要拿它当协议版本**（协议版本是 protocol.contractVersion），也别拿它编码「同意的是第几份协议」。",
-    "credentialsNeverIn": ["url", "log"],
+    "credentialsNeverIn": [
+      "url",
+      "log"
+    ],
     "messageLevelDedupe": "dedupe_id",
     "dedupeRefreshSemantics": "同 dedupe_id 覆盖而非新增",
     "_dedupeRefreshWhileWhy": "「覆盖」只在消息**还没发出去**时成立（同一事件重复上报，换一份新正文而已）。已经在飞或已终态时再来一条同 dedupe_id 的，判 duplicate 而不是重发 —— 否则用户会为同一条通知被提醒两次，而 dedupe 存在的意义就是防这个。",

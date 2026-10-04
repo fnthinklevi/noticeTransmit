@@ -219,7 +219,10 @@ String otpAuthUri({
 // ── 底层：sha256 与 hmac-sha1（用仓里已有的 package:crypto）─────────────────
 // 放在文件末尾是为了让上面的算法读起来是"标准的样子"，不夹着实现细节。
 
-String _sha256Hex(List<int> bytes) => sha256.convert(bytes).toString();
+/// 十六进制小写的 sha256（**公开出来给指纹那一处用**，别在第二个文件里重写一遍）。
+String sha256Hex(List<int> bytes) => sha256.convert(bytes).toString();
+
+String _sha256Hex(List<int> bytes) => sha256Hex(bytes);
 
 List<int> _hmacSha1(List<int> key, List<int> message) =>
     Hmac(sha1, key).convert(message).bytes;

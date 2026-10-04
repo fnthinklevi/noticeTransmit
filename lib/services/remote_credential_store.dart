@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:fnthink_push/fnthink_push.dart';
@@ -39,6 +40,24 @@ class RemoteCredentialStore {
   static const saltKey = 'fnthink.remote.salt';
   static const totpSecretKey = 'fnthink.remote.totp_secret';
 
+  /// 密钥的**不可逆指纹**（维护者 2026-10-04 要的"再次打开时中间打星号"那一半）。
+  ///
+  /// ⚠ **为什么不是"存前后几位"**：那等于把明文的 4 个字符长期留在盘上
+  /// （base32 字母表 32 字符 ⇒ 泄露 20 bit）。而这一条指纹是
+  /// `sha256('fingerprint|' + key)` 的**前 8 个十六进制字符**，且**不带盐** ——
+  /// 不带盐是为了让"对面录进去的那一串"能在另一台机器上算出同样的指纹，
+  /// 用户于是能核对「对面上录的就是这一把」；代价是它可被字典攻击，
+  /// 但**自定义密钥最少 8 个字符**这一条把候选空间限在可枚举的范围之外，
+  /// 而生成的密钥是 26 字符随机（130 bit），指纹对它没有意义。
+  ///
+  /// 所以界面能显示的是 `AB****YZ` 这种**首尾各 2 位**的样子 —— 它来自指纹的前后段，
+  /// **不是**从明文里截的；真正的用途只有一个：让用户认出"我手里这把是不是这一把"。
+  static const keyFingerprintKey = 'fnthink.remote.key_fingerprint';
+
+  /// 由密钥算出那个指纹（**不含盐**，见 [keyFingerprintKey] 的注释）。
+  static String keyFingerprint(String key) =>
+      sha256Hex(utf8.encode('fingerprint|$key')).substring(0, 8);
+
   /// 本机这一份凭据（**不含明文密钥**）。
   ///
   /// ⚠ 三件各自可空而组合起来才有意义：只有 salt 没有 hash = 用户还没设过密钥
@@ -49,6 +68,7 @@ class RemoteCredentialStore {
     final hash = await _storage.read(keyHashKey);
     final salt = await _storage.read(saltKey);
     final totp = await _storage.read(totpSecretKey);
+    final fingerprint = await _storage.read(keyFingerprintKey);
     final hasKey = hash != null && hash.isNotEmpty;
     final hasSalt = salt != null && salt.isNotEmpty;
     final hasTotp = totp != null && totp.isNotEmpty;
@@ -63,6 +83,9 @@ class RemoteCredentialStore {
       keyHash: hasKey ? hash : null,
       salt: hasSalt ? salt : null,
       totpSecret: hasTotp ? totp : null,
+      keyFingerprint: fingerprint != null && fingerprint.isNotEmpty
+          ? fingerprint
+          : null,
     );
   }
 
@@ -74,6 +97,7 @@ class RemoteCredentialStore {
     final salt = await _ensureSalt();
     final key = generateRemoteKey(contract, _random);
     await _storage.write(keyHashKey, hashRemoteKey(key, salt));
+    await _storage.write(keyFingerprintKey, keyFingerprint(key));
     return RemoteCredentialIssue(key: key, salt: salt);
   }
 
@@ -87,6 +111,7 @@ class RemoteCredentialStore {
     }
     final salt = await _ensureSalt();
     await _storage.write(keyHashKey, hashRemoteKey(trimmed, salt));
+    await _storage.write(keyFingerprintKey, keyFingerprint(trimmed));
   }
 
   /// 换一枚 TOTP 种子。**明文只在这一发里出现**（调用方据此显示链接与密钥串）。
@@ -116,11 +141,15 @@ class RemoteCredentialStore {
   Future<void> clearTotp() => _storage.delete(totpSecretKey);
 
   /// 撤掉高级密钥。
-  Future<void> clearKey() => _storage.delete(keyHashKey);
+  Future<void> clearKey() async {
+    await _storage.delete(keyHashKey);
+    await _storage.delete(keyFingerprintKey);
+  }
 
   /// 全部撤掉（**含安装盐**：留着盐没有任何用处，而留着它等于"上次那把密钥的哈希还在算"）。
   Future<void> clearAll() async {
     await _storage.delete(keyHashKey);
+    await _storage.delete(keyFingerprintKey);
     await _storage.delete(saltKey);
     await _storage.delete(totpSecretKey);
   }
@@ -200,7 +229,12 @@ class RemoteCredentialStore {
 
 /// 本机存着的那一份（**没有明文密钥**）。
 class RemoteCredentialEntry {
-  const RemoteCredentialEntry({this.keyHash, this.salt, this.totpSecret});
+  const RemoteCredentialEntry({
+    this.keyHash,
+    this.salt,
+    this.totpSecret,
+    this.keyFingerprint,
+  });
 
   final String? keyHash;
   final String? salt;
@@ -208,8 +242,23 @@ class RemoteCredentialEntry {
   /// ⚠ 明文（RFC 6238 的输入）。**调用方不许把它写进任何日志或回执**。
   final String? totpSecret;
 
+  /// 密钥的不可逆指纹（见 [RemoteCredentialStore.keyFingerprintKey]）。**没有它时
+  /// 界面要显示「已设一把（看不出是哪一把）」而不是编一个** —— 那正是"存量设备
+  /// （指纹这一项是后加的）"该有的样子。
+  final String? keyFingerprint;
+
   bool get hasKey => keyHash != null;
   bool get hasTotp => totpSecret != null && totpSecret!.isNotEmpty;
+
+  /// 界面上那一格：指纹首尾各 2 位 + 中间打点（**不是**从明文截的，见
+  /// [RemoteCredentialStore.keyFingerprintKey]）。
+  ///
+  /// 长度不足 5 的指纹回 null 而不是硬凑 —— 指纹只有 8 个十六进制字符，
+  /// 正常不会这么短，而短的那一个拼出来的样子会让人以为"这是另一把"。
+  String? get maskedKey =>
+      (keyFingerprint == null || keyFingerprint!.length < 5)
+      ? null
+      : '${keyFingerprint!.substring(0, 2)}····${keyFingerprint!.substring(keyFingerprint!.length - 2)}';
 
   @override
   String toString() =>

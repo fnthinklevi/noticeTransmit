@@ -288,6 +288,72 @@ void main() {
     });
   });
 
+  group('指纹（"再次打开时中间打星号"那一半）', () {
+    test('生成之后指纹在，掩码首尾各 2 位、中间打点', () async {
+      final issue = await store.generateKey();
+      final entry = await store.read();
+      expect(entry?.hasKey, isTrue);
+      expect(entry!.maskedKey, isNotNull);
+      final fp = entry.keyFingerprint!;
+      expect(fp.length, 8);
+      expect(entry.maskedKey, '${fp.substring(0, 2)}····${fp.substring(6)}');
+      // 指纹不是从明文截的（否则"显示出来的"就等于泄了 4 个字符）。
+      expect(issue.key.startsWith(entry.maskedKey!.substring(0, 2)), isFalse);
+    });
+
+    test('同一把密钥在任何机器上算出同一个指纹（不带盐 ⇒ 可跨机核对）', () {
+      expect(
+        RemoteCredentialStore.keyFingerprint('my-long-key-1234'),
+        RemoteCredentialStore.keyFingerprint('my-long-key-1234'),
+      );
+      expect(
+        RemoteCredentialStore.keyFingerprint('my-long-key-1234'),
+        isNot(RemoteCredentialStore.keyFingerprint('my-long-key-12345')),
+      );
+    });
+
+    test('换个盐重算哈希 ⇒ 指纹不变（它答的是"是不是同一把"，不是"哪台设备存的"）', () async {
+      final a = RemoteCredentialStore.keyFingerprint('my-long-key-1234');
+      await store.setCustomKey('my-long-key-1234');
+      expect((await store.read())?.keyFingerprint, a);
+    });
+
+    test('自定义密钥也写指纹', () async {
+      await store.setCustomKey('my-long-key-1234');
+      final entry = await store.read();
+      expect(entry?.maskedKey, isNotNull);
+    });
+
+    test('撤掉密钥时指纹也一起走（否则还留着一个"这一把"的读数）', () async {
+      await store.generateKey();
+      await store.clearKey();
+      expect(
+        storage.data.containsKey(RemoteCredentialStore.keyFingerprintKey),
+        isFalse,
+      );
+      expect((await store.read())?.maskedKey, isNull);
+    });
+
+    test('存量设备（有哈希、没有指纹）⇒ 掩码回 null，不编一个出来', () async {
+      storage.data[RemoteCredentialStore.saltKey] = 'SALT';
+      storage.data[RemoteCredentialStore.keyHashKey] = 'deadbeef';
+      final entry = await store.read();
+      expect(entry?.hasKey, isTrue);
+      expect(entry?.keyFingerprint, isNull);
+      expect(entry?.maskedKey, isNull);
+    });
+
+    test('太短的指纹回 null（硬凑出来的样子会让人以为是另一把）', () {
+      expect(
+        const RemoteCredentialEntry(
+          keyHash: 'x',
+          keyFingerprint: 'ab',
+        ).maskedKey,
+        isNull,
+      );
+    });
+  });
+
   group('撤回', () {
     test('撤掉密钥之后哈希与盐都不在', () async {
       await store.generateKey();

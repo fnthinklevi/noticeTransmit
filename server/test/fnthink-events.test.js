@@ -667,8 +667,8 @@ describe('clientEvents（poll / ack）裁决', () => {
       expect(out.reason).toBe('counterpart-is-self');
     });
 
-    test('免本地确认的档位上限从契约引用：L3 来了 ⇒ 拒', () => {
-      const ceiling = contract.pairing.maxRequestableLevelWithoutLocalAuth;
+    test('配对请求的档位上限从契约引用：L3 来了 ⇒ 拒', () => {
+      const ceiling = contract.pairing.maxRequestableLevelFromPairing;
       const rank = (l) => contract.capabilities.levels.indexOf(l);
       expect(rank(ceiling)).toBeLessThan(rank('L3'));
       const out = events.authorizePair(

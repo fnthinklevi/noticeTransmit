@@ -162,67 +162,6 @@ void main() {
     });
   });
 
-  group('开启 L3 的本地认证（T49）', () {
-    final top = contract.capabilityLevels.last;
-
-    test('只有真的过了本地认证那一关才开得了，其余两种一律不开', () {
-      for (final outcome in LocalAuthOutcome.values) {
-        final got = grantableL3Level(
-          contract,
-          FnthinkGrant(maxLevel: 'L1'),
-          result: LocalAuthResult(mechanism: 'biometric', outcome: outcome),
-        );
-        expect(
-          got,
-          outcome == LocalAuthOutcome.authenticated ? top : null,
-          reason: '结论 ${outcome.name} 判成了「$got」',
-        );
-      }
-    });
-
-    test('还没接平台通道时默认开不了（不许把"没接"读成"已认证"）', () async {
-      final r = await unimplementedLocalAuthenticator(reason: 't49');
-      expect(r.authenticated, isFalse);
-      expect(
-        grantableL3Level(contract, FnthinkGrant(maxLevel: 'L1'), result: r),
-        isNull,
-      );
-    });
-
-    test('用的手段不在契约那张表里就按开不了处置（平台通道自造一种形状）', () {
-      expect(
-        grantableL3Level(
-          contract,
-          FnthinkGrant(maxLevel: 'L1'),
-          result: const LocalAuthResult(
-            mechanism: 'faceIrWhatever',
-            outcome: LocalAuthOutcome.authenticated,
-          ),
-        ),
-        isNull,
-      );
-    });
-
-    test('契约点名要哪几种手段，本地回的那一种要对得上词表', () {
-      final allowed = contract.l3EnableRequiresLocalAuth;
-      expect(allowed, isNotEmpty);
-      expect(allowed, contains('lockScreen'));
-      expect(allowed, contains('biometric'));
-    });
-
-    test('认证过了也不许顺手把清单一起放开：返回的是档位，清单要另一次勾选', () {
-      final got = grantableL3Level(
-        contract,
-        FnthinkGrant(maxLevel: 'L2', items: const ['setting:x']),
-        result: const LocalAuthResult(
-          mechanism: 'lockScreen',
-          outcome: LocalAuthOutcome.authenticated,
-        ),
-      );
-      expect(got, top);
-    });
-  });
-
   group('L3 熔断：一分钟内连续失败降到 L1（T49）', () {
     late int clock;
     late L3CircuitBreaker breaker;

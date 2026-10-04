@@ -1119,7 +1119,7 @@ void main() {
         result.grantedLevel,
         'L1',
         reason:
-            '契约 pairing.maxRequestableLevelWithoutLocalAuth 那道封顶由服务端落，界面要显示的是这一格',
+            '契约 pairing.maxRequestableLevelFromPairing 那道封顶由服务端落，界面要显示的是这一格',
       );
     });
 

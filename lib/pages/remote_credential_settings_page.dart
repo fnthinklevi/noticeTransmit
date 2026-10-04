@@ -444,9 +444,16 @@ class _RemoteCredentialSettingsPageState
       title: l10n.remoteCredKeySection,
       children: [
         _Note(keyName: 'remote-cred-why', text: l10n.remoteCredWhy),
+        // ⚠ 三档分开：**没设** / **设了且有指纹（显示打点的那一格）** /
+        //   **设了但没有指纹**（存量设备：指纹是后加的那一项）。第三档写成
+        //   "已设一把"是**假承诺** —— 它让人以为看得见是哪一把。
         _Note(
           keyName: 'remote-cred-key-state',
-          text: state.hasKey ? l10n.remoteCredKeySet : l10n.remoteCredKeyNone,
+          text: !state.hasKey
+              ? l10n.remoteCredKeyNone
+              : (state.entry?.maskedKey == null
+                    ? l10n.remoteCredKeySetNoFingerprint
+                    : l10n.remoteCredKeySet(state.entry!.maskedKey!)),
         ),
         // ⚠ 明文那一格**只在刚生成这一次**在：重读一次就没了（见类注释）。
         if (fresh != null) ...[

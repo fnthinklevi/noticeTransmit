@@ -6992,11 +6992,17 @@ abstract class AppLocalizations {
   /// **'还没设'**
   String get remoteCredKeyNone;
 
+  /// No description provided for @remoteCredKeySetNoFingerprint.
+  ///
+  /// In zh, this message translates to:
+  /// **'已设一把（本机没有它的指纹，看不出是哪一把）'**
+  String get remoteCredKeySetNoFingerprint;
+
   /// No description provided for @remoteCredKeySet.
   ///
   /// In zh, this message translates to:
-  /// **'已设一把'**
-  String get remoteCredKeySet;
+  /// **'已设一把，指纹 {fingerprint}'**
+  String remoteCredKeySet(String fingerprint);
 
   /// No description provided for @remoteCredKeyMin.
   ///
@@ -7019,7 +7025,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredKeyOnce.
   ///
   /// In zh, this message translates to:
-  /// **'这一串只出现这一次。关掉这一页就没了，抄走或者重新生成一把。'**
+  /// **'这一串只出现这一次：请现在就抄到你自己单独保存的地方（或当面交给对面那台）。关掉这一页之后本机只剩哈希，谁都看不回这串字——包括你自己。'**
   String get remoteCredKeyOnce;
 
   /// No description provided for @remoteCredKeyReset.
@@ -7073,7 +7079,7 @@ abstract class AppLocalizations {
   /// No description provided for @remoteCredTotpOnce.
   ///
   /// In zh, this message translates to:
-  /// **'这一枚只出现这一次，而且只存在接收端——对面把它录进自己的验证器 App，之后由验证器保管，不经过任何服务器。'**
+  /// **'这一枚只出现这一次，而且只存在接收端：请现在就录进对面那台的验证器 App（或当面交给对方录）。之后由验证器保管，不经过任何服务器；本机关掉这一页之后也只剩那一枚种子。'**
   String get remoteCredTotpOnce;
 
   /// No description provided for @remoteCredTotpClear.

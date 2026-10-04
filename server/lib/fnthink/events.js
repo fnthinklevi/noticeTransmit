@@ -331,7 +331,7 @@ function authorizePair(contract, state, input) {
   const level = String(read.payload.level === undefined ? '' : read.payload.level);
   const levels = (contract.capabilities || {}).levels || [];
   if (!levels.includes(level)) return fail(`level:${level}`);
-  // 免本地确认的档位上限从契约引用（pairing.maxRequestableLevelWithoutLocalAuth）：
+  // 免本地确认的档位上限从契约引用（pairing.maxRequestableLevelFromPairing）：
   // 在这里再写一个 'L2'，改契约那一处时这行不会报错，而它错的一侧正是"L3 免确认"那道门。
   const ceiling = resolvePath(contract, spec.levelCeilingFrom);
   if (!levels.includes(ceiling)) {

@@ -3992,7 +3992,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteCredKeyNone => 'Not set yet';
 
   @override
-  String get remoteCredKeySet => 'One is set';
+  String get remoteCredKeySetNoFingerprint =>
+      'One is set (this device has no fingerprint for it, so you cannot tell which one)';
+
+  @override
+  String remoteCredKeySet(String fingerprint) {
+    return 'One is set, fingerprint $fingerprint';
+  }
 
   @override
   String remoteCredKeyMin(int min) {
@@ -4007,7 +4013,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteCredKeyOnce =>
-      'This string appears exactly once. Close this page and it is gone — copy it, or generate another.';
+      'This string appears exactly once: copy it somewhere you keep yourself right now (or hand it to the other device in person). Once you close this page only the hash stays on this device, and nobody — including you — can read the string back.';
 
   @override
   String get remoteCredKeyReset => 'Remove this key';
@@ -4037,7 +4043,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteCredTotpOnce =>
-      'This appears exactly once, and it exists only on the receiving device — the sender records it in their own authenticator app, after which the app keeps it, and no server ever sees it.';
+      'This appears exactly once and exists only on the receiving device: enter it into the other device\'s authenticator app now (or hand it over in person to be entered there). After that the authenticator keeps it, no server ever sees it, and once you close this page only the seed remains here.';
 
   @override
   String get remoteCredTotpClear => 'Remove this one';

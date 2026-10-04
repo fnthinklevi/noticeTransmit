@@ -10,11 +10,13 @@ import 'package:fnthink_push/fnthink_push.dart';
 ///
 /// 这一层只做纯解析，**不执行**。执行在 [FnthinkL3Executor] 那一层（碰 MethodChannel）。
 ///
-/// ⚠ 有一个与服务端**刻意不同**的地方：[parseL3Item] 多了一个 `needsLocalAuth` 的判据，
-/// 服务端那一侧没有。原因是 `grantableL3Level`（T49）判的是"**开启 L3 这个能力**本身"
-/// 要过本地认证，而这里是"**执行其中某一项**"—— 后者每次都要确认（契约
-/// `confirmEveryTime`），但确认与本地认证是**两道不同的门**：把两者合成一道，
-/// 表现是用户为了翻一个开关而被要求按指纹。
+/// ⚠ **2026-10-04 更新**（原来这段写的是"与服务端刻意不同"）：维护者删掉了「开启 L3 要过
+/// 本机锁屏/生物认证」那一道（`grantableL3Level` 那一族随之删除），所以**服务端与设备侧
+/// 现在判的是同一件事**了 —— 两边都只按 `confirmEveryTime` 要求"这一项要确认过"。
+/// 那道本机认证的通道**从来没接过**（`unimplementedLocalAuthenticator` 永远回「没有认证器」，
+/// android/ 侧也没有 `BiometricPrompt`），所以删掉它不改变任何一处的实际行为。
+/// ⚠ L3 的安全度现在**只**由「对面在指令里带高级密钥或二步验证码」承担（见
+/// `capabilities.remoteExecution.auth`），本机这一侧不再叠加任何本地认证。
 sealed class FnthinkL3Parse {
   const FnthinkL3Parse();
 }

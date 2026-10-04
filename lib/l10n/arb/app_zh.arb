@@ -2117,12 +2117,23 @@
   "remoteCredWhy": "凭据是「授权这一条远程指令」用的，与设备身份是两把不同的钥匙：一把证明我是这台设备，一把授权别人让我做事。",
   "remoteCredKeySection": "高级密钥",
   "remoteCredKeyNone": "还没设",
-  "remoteCredKeySet": "已设一把",
+  "remoteCredKeySetNoFingerprint": "已设一把（本机没有它的指纹，看不出是哪一把）",
+  "@remoteCredKeySetNoFingerprint": {
+    "placeholders": {}
+  },
+  "remoteCredKeySet": "已设一把，指纹 {fingerprint}",
+  "@remoteCredKeySet": {
+    "placeholders": {
+      "fingerprint": {
+        "type": "String"
+      }
+    }
+  },
   "remoteCredKeyMin": "至少 {min} 个字符，由协议规定",
   "@remoteCredKeyMin": { "placeholders": { "min": { "type": "int" } } },
   "remoteCredKeyGenerate": "生成一把",
   "remoteCredKeyCustom": "我自己设一把",
-  "remoteCredKeyOnce": "这一串只出现这一次。关掉这一页就没了，抄走或者重新生成一把。",
+  "remoteCredKeyOnce": "这一串只出现这一次：请现在就抄到你自己单独保存的地方（或当面交给对面那台）。关掉这一页之后本机只剩哈希，谁都看不回这串字——包括你自己。",
   "remoteCredKeyReset": "撤掉这把",
   "remoteCredKeyResetAsk": "撤掉之后，对面手里那把立刻作废——你得重新生成一把并当面交给对方。",
   "remoteCredTotpSection": "二步验证码（TOTP）",
@@ -2131,7 +2142,7 @@
   "remoteCredTotpGenerate": "生成一枚",
   "remoteCredTotpLink": "录进验证器 App 的链接",
   "remoteCredTotpSecret": "密钥串（验证器 App 也可以手输这个）",
-  "remoteCredTotpOnce": "这一枚只出现这一次，而且只存在接收端——对面把它录进自己的验证器 App，之后由验证器保管，不经过任何服务器。",
+  "remoteCredTotpOnce": "这一枚只出现这一次，而且只存在接收端：请现在就录进对面那台的验证器 App（或当面交给对方录）。之后由验证器保管，不经过任何服务器；本机关掉这一页之后也只剩那一枚种子。",
   "remoteCredTotpClear": "撤掉这一枚",
   "remoteCredProblem": "本机的凭据不可用：{reason}",
   "@remoteCredProblem": { "placeholders": { "reason": { "type": "String" } } },

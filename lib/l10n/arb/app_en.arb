@@ -2096,12 +2096,23 @@
   "remoteCredWhy": "A credential authorizes one remote command, and it is a different key from your device identity: one proves which device this is, the other authorizes someone to make it act.",
   "remoteCredKeySection": "Advanced key",
   "remoteCredKeyNone": "Not set yet",
-  "remoteCredKeySet": "One is set",
+  "remoteCredKeySetNoFingerprint": "One is set (this device has no fingerprint for it, so you cannot tell which one)",
+  "@remoteCredKeySetNoFingerprint": {
+    "placeholders": {}
+  },
+  "remoteCredKeySet": "One is set, fingerprint {fingerprint}",
+  "@remoteCredKeySet": {
+    "placeholders": {
+      "fingerprint": {
+        "type": "String"
+      }
+    }
+  },
   "remoteCredKeyMin": "At least {min} characters, set by the protocol",
   "@remoteCredKeyMin": { "placeholders": { "min": { "type": "int" } } },
   "remoteCredKeyGenerate": "Generate one",
   "remoteCredKeyCustom": "Set my own",
-  "remoteCredKeyOnce": "This string appears exactly once. Close this page and it is gone — copy it, or generate another.",
+  "remoteCredKeyOnce": "This string appears exactly once: copy it somewhere you keep yourself right now (or hand it to the other device in person). Once you close this page only the hash stays on this device, and nobody — including you — can read the string back.",
   "remoteCredKeyReset": "Remove this key",
   "remoteCredKeyResetAsk": "Once removed, the other side's copy stops working at once — you will have to generate another and hand it over in person.",
   "remoteCredTotpSection": "Two-step code (TOTP)",
@@ -2110,7 +2121,7 @@
   "remoteCredTotpGenerate": "Generate one",
   "remoteCredTotpLink": "Link to add to your authenticator app",
   "remoteCredTotpSecret": "Secret string (your authenticator app can also take it by hand)",
-  "remoteCredTotpOnce": "This appears exactly once, and it exists only on the receiving device — the sender records it in their own authenticator app, after which the app keeps it, and no server ever sees it.",
+  "remoteCredTotpOnce": "This appears exactly once and exists only on the receiving device: enter it into the other device's authenticator app now (or hand it over in person to be entered there). After that the authenticator keeps it, no server ever sees it, and once you close this page only the seed remains here.",
   "remoteCredTotpClear": "Remove this one",
   "remoteCredProblem": "The credential stored on this device is unusable: {reason}",
   "@remoteCredProblem": { "placeholders": { "reason": { "type": "String" } } },

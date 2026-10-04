@@ -253,7 +253,7 @@ class FnthinkContract {
 
   /// 配对阶段可请求的最高级别（免本地确认）。L3 不在这条路上。
   String get pairingMaxRequestableLevel =>
-      str(const ['pairing', 'maxRequestableLevelWithoutLocalAuth']) ?? '';
+      str(const ['pairing', 'maxRequestableLevelFromPairing']) ?? '';
 
   /// 设备状态表：状态名 → 含义。**投递只认白名单里那几个状态**。
   Map<String, String> get deviceStatuses {
@@ -614,17 +614,6 @@ class FnthinkContract {
       str(const ['capabilities', 'remoteExecution', 'localTriggerReceipt']) ??
       '';
 
-  /// **开启 L3 本身**要过的那几种本地认证（契约 `capabilities.l3.enableRequiresLocalAuth`）。
-  ///
-  /// ⚠ 这条与 [FnthinkGrant] 里那条逐次确认是**两道不同的门**：那一道管"这一条设置消息要不要
-  /// 再问一次"，这一道管"用户有没有资格把 L3 这个能力开起来"。T30 定稿时它只在契约里躺着，
-  /// 消费它的读口是 T49 补的。
-  ///
-  /// 缺键抛，不补默认值：`[]` 长得与"契约说不需要本地认证"完全一样，
-  /// 而补出来的那种"不用验证就能开 L3"恰好是这一条要防的事。
-  List<String> get l3EnableRequiresLocalAuth =>
-      _l3List('enableRequiresLocalAuth');
-
   /// 熔断阈值：一分钟内连续失败多少次就把档位降回去（契约 `capabilities.l3.circuitBreaker`）。
   int get l3CircuitBreakerFailuresPerMinute {
     final path = [
@@ -653,18 +642,6 @@ class FnthinkContract {
       throw StateError(
         'capabilities.l3.circuitBreaker.downgradeTo=「$value」'
         '不是 capabilities.levels（${capabilityLevels.join('/')}）里的一档',
-      );
-    }
-    return value;
-  }
-
-  /// 读 `capabilities.l3` 下面某个词表字段。空数组**照样抛**：见上面的理由。
-  List<String> _l3List(String key) {
-    final value = strings(['capabilities', 'l3', key]);
-    if (value.isEmpty) {
-      throw StateError(
-        '契约缺 capabilities.l3.$key（或它是空表：空表会被读成"不需要本地认证"，'
-        '而那正是这一条要防的事）',
       );
     }
     return value;
@@ -915,13 +892,18 @@ class FnthinkContract {
 
   /// 本机答复一条配对请求时**能写进载荷的最高一档**。
   ///
-  /// `levelCeilingFrom` 存的是**路径**（今日 = `pairing.maxRequestableLevelWithoutLocalAuth`），
+  /// `levelCeilingFrom` 存的是**路径**（今日 = `pairing.maxRequestableLevelFromPairing`），
   /// 不是档位字面量：服务端 `authorizePairConfirm` 读的就是这条路径，两端因此共用一个旋钮。
   /// 在这里写死 `'L2'` 的话，改契约的那一刀不会报错，只会变成"本机发得出去、服务端整条拒"，
   /// 而拒信是一句与"口令错"同形的 403。
   ///
-  /// L3 不在这一发够得着的范围里：那一档要锁屏或生物认证（`capabilities.l3.enableRequiresLocalAuth`），
-  /// 而服务端看不见屏幕前的那个人 —— 所以它也不许从远程事件里被批准（T30 那条红线）。
+  /// L3 不在这一发够得着的范围里：那一档要求对面在指令里携带高级密钥或二步验证码，
+  /// 而**凭据只有接收端能校验**（服务端拿不到本机的哈希，也算不出 TOTP）——
+  /// 所以它也不许从远程事件里被批准（T30 那条红线）。
+  /// ⚠ 2026-10-04 之前这里写的是「要锁屏或生物认证」：那道本机认证的**平台通道从来没接过**
+  /// （`unimplementedLocalAuthenticator` 永远回「没有认证器」，android/ 侧也没有
+  /// `BiometricPrompt`），所以 L3 在那套条款下本来就开不起来。删掉它之后 L3 的安全度
+  /// **只**由「对面带凭据」承担，而**这个上限值 L2 一个字节都没动**。
   String get pairConfirmLevelCeiling {
     final path = str(['clientEvents', 'pairConfirm', 'levelCeilingFrom']);
     if (path == null || path.isEmpty) {
@@ -956,7 +938,7 @@ class FnthinkContract {
   /// 为什么单开一条、不复用 [grantableLevel]：那一条读的是 `pairConfirm` 的路径，管的是
   /// "本机答复时能把授权写到哪"，而**请求**这一侧服务端判的方式不同 —— 超档是整条拒
   /// （`level-too-high`），不是压到封顶（`authorizePair`）。今天两条路径都指向
-  /// `pairing.maxRequestableLevelWithoutLocalAuth`，所以数字相同；复用的话，改一条不会有人喊，
+  /// `pairing.maxRequestableLevelFromPairing`，所以数字相同；复用的话，改一条不会有人喊，
   /// 而错的那一侧正是"L3 免确认"那道门。
   ///
   /// 界面上**摆不出来就不许点**：把 L3 放进选项、发出去换回的是一句与"口令错"同形的 403，
@@ -3163,7 +3145,7 @@ class FnthinkContract {
     );
     final requestable = str(const [
       'pairing',
-      'maxRequestableLevelWithoutLocalAuth',
+      'maxRequestableLevelFromPairing',
     ]);
     need(
       strings(const ['capabilities', 'levels']).contains(requestable) &&

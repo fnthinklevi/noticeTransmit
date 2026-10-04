@@ -2526,7 +2526,7 @@ void main() {
       final raw =
           jsonDecode(File('protocol/fnthink-v1.json').readAsStringSync())
               as Map<String, Object?>;
-      (raw['pairing']! as Map)['maxRequestableLevelWithoutLocalAuth'] = 'L1';
+      (raw['pairing']! as Map)['maxRequestableLevelFromPairing'] = 'L1';
       final h = harness(contractText: jsonEncode(raw));
       final l10n = await pump(tester, h.page);
       await openSheet(tester);

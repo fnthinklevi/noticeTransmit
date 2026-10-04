@@ -166,7 +166,7 @@ void main() {
       expect(c.pairConfirmLevelCeiling, 'L2');
       expect(
         c.pairConfirmLevelCeiling,
-        c.str(const ['pairing', 'maxRequestableLevelWithoutLocalAuth']),
+        c.str(const ['pairing', 'maxRequestableLevelFromPairing']),
         reason:
             '服务端 authorizePairConfirm 读的是同一条路径：两端共用一个旋钮。'
             '这里写死 L2 的话，改契约不会报错，只会变成"本机发得出去、服务端整条拒"',
@@ -207,7 +207,7 @@ void main() {
 
     test('路径取到的不是档位 ⇒ 抛（那道闸在读一个不存在的值）', () {
       final copy = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
-      (copy['pairing']! as Map)['maxRequestableLevelWithoutLocalAuth'] = 'L9';
+      (copy['pairing']! as Map)['maxRequestableLevelFromPairing'] = 'L9';
       final broken = FnthinkContract(copy);
       expect(() => broken.pairConfirmLevelCeiling, throwsStateError);
     });
@@ -226,7 +226,7 @@ void main() {
 
     test('封顶从 clientEvents.pair.levelCeilingFrom 那条**路径**读，不是写死的档位', () {
       final copy = jsonDecode(jsonEncode(c.raw)) as Map<String, Object?>;
-      (copy['pairing']! as Map)['maxRequestableLevelWithoutLocalAuth'] = 'L1';
+      (copy['pairing']! as Map)['maxRequestableLevelFromPairing'] = 'L1';
       final lowered = FnthinkContract(copy);
       expect(lowered.pairRequestableLevels, [
         'L1',
