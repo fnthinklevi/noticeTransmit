@@ -16,14 +16,14 @@ Map<String, Object?> _loadVectors() =>
     jsonDecode(File(fnthinkVectorsFile()).readAsStringSync())
         as Map<String, Object?>;
 
-/// reason 的全部形状（与向量文件里 `_capabilityReasonVocabulary` 那一段一一对应）。
-const _reasonForms = <String>[
-  'unknown-type:',
-  'level:L',
-  'item:',
-  'missing-item',
-  'confirm-required',
-];
+/// reason 的全部形状 —— **从向量文件读，不在本文件另写一份**。
+///
+/// ⚠ 此前 Dart 的 `_reasonForms` 与 Node 的 `REASON_FORMS` 是**两份手抄**：
+///   一端加了词而另一端没加时，没有任何守卫会喊（向量里那 22 条走的都是已有形状，
+///   加一个新形状不会被任何一条向量碰到）。现在两端都从
+///   `_capabilityReasonWords` 读 —— 「只改了一端」从静默变成编译期错误。
+final List<String> _reasonForms =
+    (_loadVectors()['_capabilityReasonWords'] as List<Object?>).cast<String>();
 
 void main() {
   final contract = FnthinkContract.readFile();

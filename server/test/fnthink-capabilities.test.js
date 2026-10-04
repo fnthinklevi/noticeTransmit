@@ -25,7 +25,9 @@ const vectors = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', '..', 'protocol', 'fnthink-vectors-v1.json'), 'utf8'),
 );
 const CAPS = vectors.capabilities;
-const REASON_FORMS = ['unknown-type:', 'level:L', 'item:', 'missing-item', 'confirm-required'];
+// ⚠ 从向量文件读，不在本文件另写一份 —— 此前它与 Dart 的 `_reasonForms` 是两份手抄，
+//   一端加词而另一端没加时没有任何守卫会喊。两端现在读同一处。
+const REASON_FORMS = vectors._capabilityReasonWords;
 
 function decide(given) {
   return decideCapability(contract, {

@@ -416,6 +416,8 @@
       "note": ""
     }
   ],
+  "_capabilityReasonWords": ["unknown-type:", "level:L", "item:", "missing-item", "confirm-required"],
+  "_capabilityReasonWordsWhy": "reason 的**封闭词表**（形状，不含实际取值）。⚠ **两端原先各写一份**（Dart 的 `_reasonForms` 与 Node 的 `REASON_FORMS`）—— 而那正是本仓反复在治的「两份会漂」：一端加了词而另一端没加时，**没有任何守卫会喊**（向量里那几条走的都是已有形状，加一个新形状不会被任何一条向量碰到）。收进向量文件之后两端从这一份读，加形状必须改这里、且两端同时编译不过 —— 「只改了一端」从静默变成编译期错误。",
   "capabilities": [
     {
       "id": "c-notice-l1",
