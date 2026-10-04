@@ -514,6 +514,106 @@ class FnthinkContract {
   String get l3ConfirmForm =>
       str(const ['capabilities', 'l3', 'confirmForm']) ?? '';
 
+  /// 延时窗口的范围（契约 `capabilities.remoteExecution.delay` 的 min/max）。
+  ///
+  /// ⚠ 三个数（min/max/default）**同时**取才合法：少取一个就等于在代码里补一个默认值，
+  /// 而界面上那根滑杆的两端正是从这里来的 —— 补出来的那一档协议从来没同意过。
+  ({int min, int max}) get remoteExecutionDelayRange {
+    final min = remoteExecutionDelayMinSeconds;
+    final max = remoteExecutionDelayMaxSeconds;
+    if (min < 0 || max < 0) {
+      throw StateError(
+        '契约缺 capabilities.remoteExecution.delay.minSeconds/maxSeconds'
+        '（或有一项不是非负整数，实际 ${min}/${max}）',
+      );
+    }
+    if (min > max) {
+      throw StateError(
+        'capabilities.remoteExecution.delay 的 minSeconds(${min}) > '
+        'maxSeconds(${max})',
+      );
+    }
+    return (min: min, max: max);
+  }
+
+  /// 用户选的那一档（null = 没选过）⇒ 真正该用的窗口秒数。
+  ///
+  /// ⚠ 选过的那一档**仍然要过范围校验**：prefs 里的值可能是备份恢复灌回来的
+  /// （与 `FnthinkSettings.pollSeconds` 同一条教训），而"悄悄夹到合法区间"的表现是
+  /// "界面写 60、实际按 10 跑"，用户唯一的线索就是屏幕上那个数字。
+  int effectiveRemoteExecutionDelaySeconds(int? chosen) {
+    final range = remoteExecutionDelayRange;
+    if (chosen == null) return remoteExecutionDelayDefaultSeconds;
+    if (chosen < range.min || chosen > range.max) {
+      throw StateError('延时窗口选的是 ${chosen}s，协议只允许 ${range.min}–${range.max}s');
+    }
+    return chosen;
+  }
+
+  /// 高级密钥的最短长度（契约 `capabilities.remoteExecution.auth.keyMinLength`）。
+  /// 缺键抛不补 8：长度是安全参数，补出来的那一档是代码替协议做的决定。
+  int get remoteExecutionKeyMinLength {
+    final value = intOf(const [
+      'capabilities',
+      'remoteExecution',
+      'auth',
+      'keyMinLength',
+    ]);
+    if (value == null || value <= 0) {
+      throw StateError(
+        '契约缺 capabilities.remoteExecution.auth.keyMinLength'
+        '（或它不是正整数，实际「$value」）',
+      );
+    }
+    return value;
+  }
+
+  /// TOTP 的位数与步长（契约 `auth.totpDigits` / `auth.totpPeriodSeconds`）。
+  /// ⚠ 成对取：位数与步长只有一个的时候，另一半的默认值就是代码在发明协议。
+  ({int digits, int periodSeconds}) get remoteExecutionTotpShape {
+    final digits = intOf(const [
+      'capabilities',
+      'remoteExecution',
+      'auth',
+      'totpDigits',
+    ]);
+    final period = intOf(const [
+      'capabilities',
+      'remoteExecution',
+      'auth',
+      'totpPeriodSeconds',
+    ]);
+    if (digits == null || digits <= 0 || period == null || period <= 0) {
+      throw StateError(
+        '契约缺 capabilities.remoteExecution.auth.totpDigits/totpPeriodSeconds'
+        '（或有一项不是正整数，实际 ${digits ?? "null"}/${period ?? "null"}）',
+      );
+    }
+    return (digits: digits, periodSeconds: period);
+  }
+
+  /// 凭据缺失或不对时怎么办（契约 `auth.onMissingOrWrong`）。
+  /// ⚠ 缺键抛：这一项是**安全方向**，补一个 `execute` 就是把"没带凭据也执行"写进代码。
+  String get remoteExecutionOnMissingOrWrong {
+    final value = str(const [
+      'capabilities',
+      'remoteExecution',
+      'auth',
+      'onMissingOrWrong',
+    ]);
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        '契约缺 capabilities.remoteExecution.auth.onMissingOrWrong（不补默认值）',
+      );
+    }
+    return value;
+  }
+
+  /// 本机白名单应用触发时有没有回执（契约 `remoteExecution.localTriggerReceipt`）。
+  String get remoteExecutionLocalTriggerReceipt =>
+      str(const ['capabilities', 'remoteExecution', 'localTriggerReceipt']) ??
+      '';
+
   /// **开启 L3 本身**要过的那几种本地认证（契约 `capabilities.l3.enableRequiresLocalAuth`）。
   ///
   /// ⚠ 这条与 [FnthinkGrant] 里那条逐次确认是**两道不同的门**：那一道管"这一条设置消息要不要
@@ -3098,7 +3198,9 @@ class FnthinkContract {
       remoteExecutionDelayMinSeconds <= remoteExecutionDelayDefaultSeconds &&
           remoteExecutionDelayDefaultSeconds <= remoteExecutionDelayMaxSeconds,
       '延时窗口的默认值要落在 [minSeconds, maxSeconds] 里：'
-      '${remoteExecutionDelayDefaultSeconds}s',
+      '${remoteExecutionDelayDefaultSeconds}s'
+      '（⚠ 区间反了——min > max——也必然走这一条，所以**没有**另立一条次序判据：'
+      '那会是一条永远不可观察的判断，摘掉它之后没有任何用例会红）',
     );
     need(
       remoteExecutionOnTimeout == 'execute',
@@ -3121,7 +3223,76 @@ class FnthinkContract {
       l3ConfirmForm == 'cancelableDelay',
       'L3 那道闸是 cancelableDelay（改形不改内核：那个窗口就是"每次确认"的新形式）',
     );
+    // 片3b 补的三组读口各带一条判据：长度/位数/步长/安全方向/范围次序，
+    // 每一项丢了或写反了，界面或校验那一层就会**静默地**按一个协议从没同意过的值走。
+    //
+    // ⚠ 这几条走 `intOf` / `str` 的**裸读口**，不走上面那几个 getter：那几个是
+    //   "缺了就抛"（调用方要拿到一个能用的值），而这里是"把缺了这件事报出来"——
+    //   一个在校验里抛异常的判据，报出的不是问题而是崩，届时"契约被改坏"会显示成
+    //   "测试崩了"，两种失败在现场分不开。
+    final reAuth =
+        map(const ['capabilities', 'remoteExecution', 'auth']) ??
+        const <String, Object?>{};
+    final reDelay =
+        map(const ['capabilities', 'remoteExecution', 'delay']) ??
+        const <String, Object?>{};
+    final keyMin = (reAuth['keyMinLength'] as num?)?.toInt();
+    need(
+      keyMin != null && keyMin > 0,
+      'auth.keyMinLength 必须是正整数（长度是安全参数，不补默认值），实为「$keyMin」',
+    );
+    final totpDigits = (reAuth['totpDigits'] as num?)?.toInt();
+    final totpPeriod = (reAuth['totpPeriodSeconds'] as num?)?.toInt();
+    need(
+      totpDigits != null &&
+          totpDigits > 0 &&
+          totpPeriod != null &&
+          totpPeriod > 0,
+      'auth.totpDigits 与 auth.totpPeriodSeconds 都必须是正整数'
+      '（位数与步长缺一个，另一半的默认值就变成代码在发明协议），'
+      '实为「$totpDigits」/「$totpPeriod」',
+    );
+    final onMissing = reAuth['onMissingOrWrong'] as String?;
+    need(
+      onMissing == 'reject',
+      'auth.onMissingOrWrong 必须是 reject（缺凭据或凭据不对一律拒；'
+      '改成 execute 就是把"没带凭据也执行"写进协议），实为「$onMissing」',
+    );
+    final delayMin = (reDelay['minSeconds'] as num?)?.toInt();
+    final delayMax = (reDelay['maxSeconds'] as num?)?.toInt();
+    need(
+      delayMin != null && delayMax != null && delayMin >= 0,
+      'delay.minSeconds 与 delay.maxSeconds 都必须存在且 min 非负'
+      '（⚠ **不另判 min ≤ max**：区间反了时 default 必然掉出区间，'
+      '上面「默认值要落在」那条已经必然红，所以次序判据是**不可观察**的 —— '
+      'R10 那发植入摘掉它之后全绿，证的就是这件事），'
+      '实为「$delayMin」/「$delayMax」',
+    );
+    final localReceipt = str(const [
+      'capabilities',
+      'remoteExecution',
+      'localTriggerReceipt',
+    ]);
+    // ⚠ `none` 是**故意不在** receipts 词表里的那个词：它说的不是"回哪一个回执"，
+    // 而是"这一路上没有任何人可以回"。把它也要求 ∈ receipts 会让契约必须为一件
+    // 不存在的事造一个回执词 —— 那恰好是本地触发这一路的全部要点。
+    need(
+      localReceipt == null ||
+          localReceipt.isEmpty ||
+          localReceipt == _remoteExecutionNoReceiptSentinel ||
+          receiptWords.contains(localReceipt),
+      'remoteExecution.localTriggerReceipt 只能是「$_remoteExecutionNoReceiptSentinel」'
+      '（不回执：那一路上没有远端发送方）或 receipts 词表里的词（另造一个词 = 第二份词表），'
+      '实为「$localReceipt」',
+    );
 
     return problems;
   }
 }
+
+/// "这一路上没有回执"那个哨兵词（契约 `remoteExecution.localTriggerReceipt`）。
+///
+/// ⚠ 它**不在**顶层 `receipts` 词表里，这是刻意的：那一列列的是"回哪一个回执"，
+/// 而本机白名单触发的那一路**没有任何人可以回**（`sourcesWhy` 里写了原因）。
+/// 把它加进 `receipts` 等于为一件不存在的事造一个对外形状。
+const String _remoteExecutionNoReceiptSentinel = 'none';

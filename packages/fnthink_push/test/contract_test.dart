@@ -386,6 +386,96 @@ void main() {
       expectProblem(broken, 'cancelableDelay', '闸的形式改了，模型就断了');
     });
 
+    test('远程执行：auth.keyMinLength 缺了或不是正整数 ⇒ 报（长度是安全参数）', () {
+      for (final bad in [null, 0, -1]) {
+        final broken = mutate((raw) {
+          final auth = remoteOf(raw)['auth'] as Map<String, Object?>;
+          if (bad == null) {
+            auth.remove('keyMinLength');
+          } else {
+            auth['keyMinLength'] = bad;
+          }
+        });
+        expectProblem(broken, 'keyMinLength', '补一个默认值就是代码替协议决定安全强度');
+      }
+    });
+
+    test('远程执行：totpDigits 与 totpPeriodSeconds 少一个 ⇒ 报', () {
+      for (final key in ['totpDigits', 'totpPeriodSeconds']) {
+        final broken = mutate((raw) {
+          (remoteOf(raw)['auth'] as Map<String, Object?>).remove(key);
+        });
+        expectProblem(broken, 'totpDigits', '位数与步长只有一个时，另一半的默认值就是代码在发明协议');
+      }
+      final zero = mutate((raw) {
+        (remoteOf(raw)['auth'] as Map<String, Object?>)['totpPeriodSeconds'] =
+            0;
+      });
+      expectProblem(zero, 'totpPeriodSeconds', '步长 0 秒 = 校验器给什么码都过');
+    });
+
+    test('远程执行：onMissingOrWrong 不是 reject ⇒ 报（安全方向不许反）', () {
+      final broken = mutate((raw) {
+        (remoteOf(raw)['auth'] as Map<String, Object?>)['onMissingOrWrong'] =
+            'execute';
+      });
+      expectProblem(broken, 'onMissingOrWrong', '改成 execute 就是把"没带凭据也执行"写进协议');
+    });
+
+    test('远程执行：delay 的 min/max 缺一个 ⇒ 报；区间反了也报（走同一条）', () {
+      // ⚠ **只有一条判据管延时范围**：min 与 max 都必须存在且 min 非负；而"区间反了"
+      //   （min > max）**不再另立判据** —— 那时 default 必然掉出区间，"默认值要落在"
+      //   已经必然红，所以次序判据是**永远不可观察**的（R10 那发植入摘掉它之后全绿）。
+      //   下面第一条用例据此改钉"删掉 min"，点名才是本条判据自己的。
+      final missing = mutate((raw) {
+        final delay = remoteOf(raw)['delay'] as Map<String, Object?>;
+        // ⚠ **default 必须一起搬进区间**：minSeconds 缺了之后读口会给 -1，
+        //   而"默认值要落在"那条判据走的是**同一批 getter**，所以它也会红 ——
+        //   那就是 R10 零失败的真正原因（相邻判据替它响了），不是本条没被覆盖。
+        delay['defaultSeconds'] = 0;
+        delay['maxSeconds'] = 60;
+        delay.remove('minSeconds');
+      });
+      // 点名本条判据自己的那句，而不是"有没有报出什么问题"：
+      // "哪一条报了"才是这条用例要断的东西。
+      expect(
+        missing.validate().where((p) => p.contains('都必须存在且 min 非负')),
+        isNotEmpty,
+        reason: 'min 缺了、default 已搬进 [?,60] ⇒ 只有本条判据能报它',
+      );
+      final reversed = mutate((raw) {
+        final delay = remoteOf(raw)['delay'] as Map<String, Object?>;
+        delay['minSeconds'] = 90;
+        delay['maxSeconds'] = 30;
+      });
+      expectProblem(reversed, '区间反了', '范围反了 = 界面上那根滑杆不存在');
+    });
+
+    test('远程执行：localTriggerReceipt 换成自造的词 ⇒ 报', () {
+      final broken = mutate((raw) {
+        remoteOf(raw)['localTriggerReceipt'] = 'local_none';
+      });
+      expectProblem(broken, 'localTriggerReceipt', '另造一个回执词 = 第二份词表');
+    });
+
+    test('远程执行：localTriggerReceipt 只能是 none 或 receipts 词表里的词', () {
+      // 「none」是刻意不在 receipts 词表里的那个哨兵：它说的不是"回哪一个回执"，
+      // 而是"这一路上没有任何人可以回"（本机白名单触发的那一路）。
+      expect(c.remoteExecutionLocalTriggerReceipt, 'none');
+      expect(
+        c.receipts,
+        isNot(contains('none')),
+        reason: '把 none 塞进 receipts 等于为一件不存在的事造一个对外形状',
+      );
+      expect(
+        mutate((raw) {
+          remoteOf(raw)['localTriggerReceipt'] = 'delivered';
+        }).validate(),
+        isEmpty,
+        reason: '真回执词当然收',
+      );
+    });
+
     test('正向：仓库这份契约的远程执行条款读出来就是维护者定的那套', () {
       expect(c.remoteExecutionSourcesFor('L1'), [
         'fnthink',

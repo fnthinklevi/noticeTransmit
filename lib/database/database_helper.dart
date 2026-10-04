@@ -7,10 +7,12 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../models/email_channel.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
+import '../models/fnthink_remote_execution_record.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/channel_display.dart';
 import '../services/engine_rule_codec.dart';
+import '../services/fnthink_remote_execution.dart';
 import '../services/secure_storage_service.dart';
 
 /// 数据库加密密钥丢失/损坏异常。
@@ -66,7 +68,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 17;
+  static const int dbVersion = 18;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -402,6 +404,7 @@ class DatabaseHelper
     await _createEngineRules(db);
     await _createFnthinkInbox(db);
     await _createFnthinkPeers(db);
+    await _createFnthinkRemoteExecutions(db);
   }
 
   /// v13 / T20：通知引擎规则表（电量族 + 温度族）。
@@ -529,6 +532,49 @@ class DatabaseHelper
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_fnthink_peers_granted
       ON ${FnthinkPeer.table}(granted_at DESC)
+    ''');
+  }
+
+  /// v18 / 远程执行 片3b：远程执行历史（**区分收指令与发指令**，维护者 2026-10-03 定）。
+  ///
+  /// 两处建表（`_onCreate` 与 `oldVersion < 18`）共用本方法，列必须一致 ——
+  /// 与 `_createFnthinkInbox` 同一条纪律（PRAGMA 实测比对在
+  /// `test/database/fnthink_remote_executions_test.dart`）。
+  ///
+  /// ⚠ 这张表**故意**没有的列，每一条都有理由：
+  /// - **凭据列（key / totp / secret）**：契约 `execution.forbiddenFields` 的同一份黑名单。
+  ///   进这张表就等于给每个能读本机数据库的人发一把钥匙，而它们对"后来怎么了"这个问题
+  ///   没有任何用处。
+  /// - `body` / `title`：指令正文已经在那条消息自己的收件行里；这里再存一份就是
+  ///   同一段内容两个留存点，而两者的删除策略不同。
+  /// - `receipt`：两段回执是**发给对面**的消息，不是本机的状态。回执发没发出去这件事
+  ///   要问对面那台（它才有那一份），本机存一份就成了两处各说各话的第二份。
+  /// - `peer_name`：对端自报的名字从没流到本机（同 `FnthinkPeer` 的注释）。
+  Future<void> _createFnthinkRemoteExecutions(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${FnthinkRemoteExecutionRecord.table} (
+        exec_id TEXT PRIMARY KEY,
+        direction TEXT NOT NULL DEFAULT 'in',
+        peer_address TEXT NOT NULL DEFAULT '',
+        level TEXT NOT NULL DEFAULT '',
+        item TEXT NOT NULL DEFAULT '',
+        argument TEXT NOT NULL DEFAULT '',
+        state TEXT NOT NULL DEFAULT '',
+        -- 白名单触发的那一路没有远端发送方 ⇒ peer_address 是空的，source 是唯一线索。
+        source TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL,
+        result TEXT NOT NULL DEFAULT '',
+        reason TEXT NOT NULL DEFAULT ''
+      )
+    ''');
+    // 历史页按方向 + 时间倒序翻；"还没到终态的那几条"是状态栏撤销那一格要读的面。
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_fnthink_remote_exec_created
+      ON ${FnthinkRemoteExecutionRecord.table}(created_at DESC)
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_fnthink_remote_exec_direction
+      ON ${FnthinkRemoteExecutionRecord.table}(direction, created_at DESC)
     ''');
   }
 
@@ -765,6 +811,12 @@ class DatabaseHelper
         'revision',
         'INTEGER NOT NULL DEFAULT 0',
       );
+    }
+    if (oldVersion < 18) {
+      // v18: 远程执行历史表（远程执行 片3b）。**只建表、不碰任何既有行** ——
+      // 这是本机第一次有远程执行功能，历史里不可能有它的行，而"造几行占位"会让
+      // 界面上显示出没发生过的执行。
+      await _createFnthinkRemoteExecutions(db);
     }
   }
 
@@ -1355,6 +1407,86 @@ class DatabaseHelper
       FnthinkPeer.table,
       where: 'peer_address = ?',
       whereArgs: [peerAddress],
+    );
+    return n > 0;
+  }
+
+  // ── 远程执行历史（远程执行 片3b，表 `fnthink_remote_executions`）──────────
+
+  /// 写一条；已存在的那一条**整行覆盖**（状态迁移是这张表的主要写法）。
+  ///
+  /// ⚠ 用 `insert(..., conflictAlgorithm: replace)` 而不是 update-then-insert：
+  /// 后者在"读回来发现没有"与"有人刚好插进来"之间留了一个窗口，而远程执行是**并发**
+  /// 的活（后台轮次同时可能在落一条，而用户在界面上正要点撤销）。
+  Future<void> saveRemoteExecutionRecord(
+    FnthinkRemoteExecutionRecord record,
+  ) async {
+    final db = await database;
+    await db.insert(
+      FnthinkRemoteExecutionRecord.table,
+      record.toRow(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 历史列表。`direction` 传 null = 两个档一起看（界面上的「全部」）。
+  /// ⚠ 排序口径**只有这一处**（`created_at DESC, exec_id ASC`）：翻页与"最新那条是谁"
+  /// 必须是同一个顺序，两处各写一次 `ORDER BY` 迟早会不一样。
+  Future<List<FnthinkRemoteExecutionRecord>> loadRemoteExecutionRecords({
+    String? direction,
+    int limit = 200,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkRemoteExecutionRecord.table,
+      orderBy: 'created_at DESC, exec_id ASC',
+      where: direction == null ? null : 'direction = ?',
+      whereArgs: direction == null ? null : [direction],
+      limit: limit,
+    );
+    return rows.map(FnthinkRemoteExecutionRecord.fromMap).toList();
+  }
+
+  /// 还没到终态的那几条（`pending` / `executing`）。状态栏撤销那一格要读它们 ——
+  /// 而它读的不是"全部历史再自己滤"，那会让撤销那一格在历史很长时翻不到。
+  Future<List<FnthinkRemoteExecutionRecord>>
+  loadUnsettledRemoteExecutions() async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkRemoteExecutionRecord.table,
+      orderBy: 'created_at DESC, exec_id ASC',
+      where: 'state IN (?, ?)',
+      whereArgs: [
+        RemoteExecutionStates.pending,
+        RemoteExecutionStates.executing,
+      ],
+    );
+    return rows.map(FnthinkRemoteExecutionRecord.fromMap).toList();
+  }
+
+  /// 读一条。null = 没有这一条（界面那句"没找到"必须是这句话，不是"已取消"）。
+  Future<FnthinkRemoteExecutionRecord?> remoteExecutionRecord(
+    String execId,
+  ) async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkRemoteExecutionRecord.table,
+      where: 'exec_id = ?',
+      whereArgs: [execId],
+      limit: 1,
+    );
+    return rows.isEmpty
+        ? null
+        : FnthinkRemoteExecutionRecord.fromMap(rows.first);
+  }
+
+  /// 清掉这一条（T06 那条"删除一律二次确认"的落点之一；用户撤回自己发的一条指令时用）。
+  Future<bool> removeRemoteExecutionRecord(String execId) async {
+    final db = await database;
+    final n = await db.delete(
+      FnthinkRemoteExecutionRecord.table,
+      where: 'exec_id = ?',
+      whereArgs: [execId],
     );
     return n > 0;
   }
