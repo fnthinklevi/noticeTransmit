@@ -69,8 +69,10 @@ void main() {
       // T56 同意门：这一下点下去的后果是**通知内容此后可以经服务器中转**。
       // 它比"换一枚地址码"更需要先看一眼 —— 而"看一眼"在这里必须是一次显式确认，
       // 不是开关被翻开时顺带勾上的。
-      'Future<void> _grantConsent(',
     ],
+    // ⚠ T94 片2：这一下随「接收与远程执行」那张独立页走，名单随主语迁移。
+    //   它不在旧名单里——留着会把“页面上不得有第二个点事出口”这一条让它看着像还在。
+    'lib/pages/fnthink_receive_page.dart': ['Future<void> _grantConsent('],
   };
 
   group('会改状态的路径只有一个咽喉（T06 + T42 授权那一下）', () {
@@ -164,6 +166,7 @@ void main() {
           '_coordinator.revokeEndpoint(',
           '_coordinator.rotateEndpoint(',
         ],
+        'lib/pages/fnthink_receive_page.dart': ['settings.ensureFirstRunHost('],
       };
       for (final entry in mutators.entries) {
         for (final mutator in entry.value) {

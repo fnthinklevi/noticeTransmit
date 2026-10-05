@@ -3440,6 +3440,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Which devices are paired, send one to them, or revoke one of them.';
 
   @override
+  String get fnthinkHubReceiveDesc =>
+      'Receiving, how often to ask for messages, and what the sender may make this device do (remote execution) live here.';
+
+  @override
+  String get fnthinkReceiveGo => 'Open receiving and remote execution';
+
+  @override
   String get fnthinkPeersGo => 'Manage paired devices';
 
   @override

@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import 'battery_page.dart';
 import 'device_state_page.dart';
 import 'fnthink_peers_page.dart';
+import 'fnthink_receive_page.dart';
 import 'temperature_page.dart';
 
 /// 「通知引擎」tab 的骨架页（T15）。
@@ -31,7 +32,7 @@ import 'temperature_page.dart';
 /// 两条入口的目标页都**订阅各自的服务**（T16 立的先例），所以本页不往下传回调：
 /// 传了就会有第三份"父页接线"，而父页 rebuild 根本到不了被 push 出去的子页。
 class NotificationEnginePage extends StatefulWidget {
-  const NotificationEnginePage({super.key, this.peersDeps});
+  const NotificationEnginePage({super.key, this.peersDeps, this.receiveDeps});
 
   /// 「已配对的设备」那一行的依赖（T94）。
   ///
@@ -40,6 +41,10 @@ class NotificationEnginePage extends StatefulWidget {
   /// 而被点开的那一页是跟 GetIt 拿的（没注册就异常）——那样的用例必须先注册三个单例，
   /// 而那三个单例与这一页的判据无关，白白让测试变成装配点的清单。
   final FnthinkPeersDeps? peersDeps;
+
+  /// 「接收与远程执行」那一行要推的那张页的依赖（T94 片2）。
+  /// 缺省同样走 `fromLocator()`；测试里传替身。
+  final FnthinkReceiveDeps? receiveDeps;
 
   @override
   State<NotificationEnginePage> createState() => _NotificationEnginePageState();
@@ -204,6 +209,15 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             title: l10n.fnthinkPeersTitle,
             subtitle: l10n.fnthinkHubPeersDesc,
             page: FnthinkPeersPage(deps: widget.peersDeps),
+          ),
+          _divider(),
+          _entry(
+            key: const ValueKey('engine-fnthink-receive'),
+            icon: Icons.move_to_inbox,
+            iconColor: AppColors.orange,
+            title: l10n.fnthinkReceive,
+            subtitle: l10n.fnthinkHubReceiveDesc,
+            page: FnthinkReceivePage(deps: widget.receiveDeps),
           ),
         ],
       ),

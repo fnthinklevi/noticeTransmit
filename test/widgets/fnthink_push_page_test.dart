@@ -11,6 +11,7 @@ import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
+import 'package:notice_transmit/pages/fnthink_receive_page.dart';
 import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
@@ -304,16 +305,25 @@ void main() {
     }
 
     return _Harness(
+      // T94 片2：接收设置与远程执行那两张卡搬去了，它们要的 presence /
+      //   healthOf / loadPeers 都从同一份替身走 —— 拆得功不应该在每一个入口重复一份。
+      receivePage: FnthinkReceivePage(
+        deps: FnthinkReceiveDeps(
+          contracts: loader,
+          coordinator: coordinator,
+          presence: FnthinkPresenceScheduler(contracts: loader),
+          loadPeers: loadPeersStub,
+          healthOf: healthOf,
+        ),
+      ),
       page: FnthinkPushPage(
         deps: FnthinkPushDeps(
           contracts: loader,
           coordinator: coordinator,
           identity: FnthinkIdentityService(),
           loadPeers: loadPeersStub,
-          // 「下一次自己醒」那一行（§4-9 片1d）：真的 scheduler + 被桩住的通道 ——
           // 页面拿到的就是生产那一份（`status()` 读 `fnthinkPresenceStatus`），
           // 而通道那头由各条用例自己决定回什么。
-          presence: FnthinkPresenceScheduler(contracts: loader),
           // T60：对着服务器的健康度读替身。默认 null ⇒ 那一行"从没发过"。
           healthOf: healthOf,
         ),
@@ -361,6 +371,15 @@ void main() {
     );
     await tester.pumpAndSettle();
     return AppLocalizations.of(tester.element(find.byType(FnthinkPeersPage)));
+  }
+
+  /// 推接收页（T94 片2）。两张页拉的 l10n 各自解一次。
+  Future<AppLocalizations> pumpReceive(WidgetTester tester, _Harness h) async {
+    await tester.pumpWidget(
+      AppRoot(locale: const Locale('zh'), dark: false, home: h.receivePage),
+    );
+    await tester.pumpAndSettle();
+    return AppLocalizations.of(tester.element(find.byType(FnthinkReceivePage)));
   }
 
   Future<AppLocalizations> pump(WidgetTester tester, Widget page) async {
@@ -429,7 +448,7 @@ void main() {
     testWidgets('默认关 ⇒ 开关关着、"立即收取"是灰的', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       expect(
         tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
         isFalse,
@@ -449,7 +468,7 @@ void main() {
     testWidgets('翻开 ⇒ 写进 prefs、循环起来、状态行改口', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.tap(find.byType(CupertinoSwitch));
       await tester.pumpAndSettle();
       final prefs = await SharedPreferences.getInstance();
@@ -465,7 +484,7 @@ void main() {
     testWidgets('起不来 ⇒ 开关**留在开**、原话贴在下面（不回弹、不谎称在跑）', (tester) async {
       stubChannels();
       final h = harness(canSign: false);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.tap(find.byType(CupertinoSwitch));
       await tester.pumpAndSettle();
       expect(
@@ -487,7 +506,7 @@ void main() {
     testWidgets('关掉 ⇒ 循环停、状态行改回来', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.tap(find.byType(CupertinoSwitch));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(CupertinoSwitch));
@@ -503,7 +522,7 @@ void main() {
       // ⚠ 刻意**不**种同意键：这一条要观察的就是"从没同意过"那一份世界。
       SharedPreferences.setMockInitialValues({});
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
 
       expect(
         find.byKey(const ValueKey('fnthink-consent-pending')),
@@ -542,7 +561,7 @@ void main() {
       stubChannels();
       SharedPreferences.setMockInitialValues({});
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
 
       await tester.tap(find.byKey(const ValueKey('fnthink-consent-agree')));
       await tester.pumpAndSettle();
@@ -565,7 +584,7 @@ void main() {
         healthOf: (_) =>
             const ChannelHealth(reachable: true, latencyMs: 42, probedAt: 1),
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       expect(
         find.byKey(const ValueKey('fnthink-server-health')),
         findsOneWidget,
@@ -579,14 +598,14 @@ void main() {
         healthOf: (_) =>
             const ChannelHealth(reachable: false, latencyMs: 0, probedAt: 1),
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       expect(find.text(l10n.fnthinkHealthUnreachable), findsOneWidget);
     });
 
     testWidgets('从没发过 ⇒ 那一行如实说"还没发出去过"，不冒充正常', (tester) async {
       stubChannels();
       final h = harness(); // healthOf 默认 null
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       expect(find.text(l10n.fnthinkHealthNever), findsOneWidget);
     });
 
@@ -597,7 +616,7 @@ void main() {
         healthOf: (_) =>
             const ChannelHealth(reachable: false, latencyMs: 0, probedAt: 1),
       );
-      await pump(tester, h.page);
+      await pumpReceive(tester, h);
       expect(find.byKey(const ValueKey('fnthink-server-health')), findsNothing);
     });
   });
@@ -606,7 +625,7 @@ void main() {
     testWidgets('有货 ⇒ 上界面的是那笔账，而账里没有标题与正文', (tester) async {
       stubChannels();
       final h = harness(messages: const ['m_1'], pending: 2);
-      await pump(tester, h.page);
+      await pumpReceive(tester, h);
       await tester.tap(find.byType(CupertinoSwitch));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('fnthink-receive-now')));
@@ -624,7 +643,7 @@ void main() {
       stubChannels();
       final gate = Completer<void>();
       final h = harness(gate: () => gate.future, messages: const ['m_1']);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.tap(find.byType(CupertinoSwitch));
       await tester.pumpAndSettle();
       // 起循环的那一轮此刻卡在 poll 上，这一发拿回的是"整轮跳过"那份账。
@@ -854,7 +873,11 @@ void main() {
       disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
       final h = harness();
       final l10n = await pump(tester, h.page);
-      await tester.tap(find.byType(CupertinoSwitch));
+      // T94 片2：开关那一格已经在「接收与远程执行」那张独立页上，
+      //   这里要的只是「循环正在跑」这个前提 ⇒ 把开关写进 prefs 再直接启协调者。
+      await FnthinkSettings(contract: contract).setReceiveEnabled(true);
+      await h.coordinator.startIfEnabled();
+      await tester.pump();
       await tester.pumpAndSettle();
       expect(h.builds(), 1);
       await revealTo(tester, find.byKey(const ValueKey('fnthink-reset-code')));
@@ -937,7 +960,11 @@ void main() {
       stubChannels();
       final h = harness();
       final l10n = await pump(tester, h.page);
-      await tester.tap(find.byType(CupertinoSwitch));
+      // T94 片2：开关那一格已经在「接收与远程执行」那张独立页上，
+      //   这里要的只是「循环正在跑」这个前提 ⇒ 把开关写进 prefs 再直接启协调者。
+      await FnthinkSettings(contract: contract).setReceiveEnabled(true);
+      await h.coordinator.startIfEnabled();
+      await tester.pump();
       await tester.pumpAndSettle();
       expect(h.builds(), 1, reason: '先把循环弄成"正在跑"，下面才有"该不该重启"可问');
 
@@ -968,7 +995,11 @@ void main() {
       stubChannels();
       final h = harness();
       final l10n = await pump(tester, h.page);
-      await tester.tap(find.byType(CupertinoSwitch));
+      // T94 片2：开关那一格已经在「接收与远程执行」那张独立页上，
+      //   这里要的只是「循环正在跑」这个前提 ⇒ 把开关写进 prefs 再直接启协调者。
+      await FnthinkSettings(contract: contract).setReceiveEnabled(true);
+      await h.coordinator.startIfEnabled();
+      await tester.pump();
       await tester.pumpAndSettle();
       expect(h.builds(), 1);
 
@@ -2869,7 +2900,7 @@ void main() {
       // 它必须与"读不出来"分得开（后者的用例在下一条）。
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.pumpAndSettle();
 
       final row = find.byKey(const ValueKey('fnthink-presence-next'));
@@ -2887,7 +2918,7 @@ void main() {
         presenceStatus: () => {'nextRoundAt': fireAt, 'cadenceSeconds': 27},
       );
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.pumpAndSettle();
 
       final row = find.byKey(const ValueKey('fnthink-presence-next'));
@@ -2911,7 +2942,7 @@ void main() {
             : null, // 没排（或已撤）：nextRoundAt = 0、cadence 也清掉
       );
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.pumpAndSettle();
       expect(find.text(l10n.fnthinkPresenceAsleep), findsOneWidget);
 
@@ -2930,7 +2961,7 @@ void main() {
     testWidgets('读口抛 ⇒ 这一行根本不画（不拿"没在醒着"冒充"读不出来"）', (tester) async {
       stubChannels(presenceStatus: () => throw StateError('通道那头没人接'));
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.pumpAndSettle();
 
       expect(
@@ -2946,7 +2977,7 @@ void main() {
     testWidgets('滑杆画出来，两端与那句范围话都来自契约', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.pumpAndSettle();
       final range = contract.pollIntervalRange;
 
@@ -2985,7 +3016,7 @@ void main() {
       // 这条接线；拖动手势本身那一层要真机/模拟器才验得到（本批没跑）。
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.pumpAndSettle();
       final slider = find.byType(CupertinoSlider);
       await revealTo(tester, slider);
@@ -3051,7 +3082,7 @@ void main() {
       });
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpReceive(tester, h);
       await tester.pumpAndSettle();
 
       final range = contract.pollIntervalRange;
@@ -3146,6 +3177,7 @@ class _Harness {
   _Harness({
     required this.page,
     required this.peersPage,
+    required this.receivePage,
     required this.coordinator,
     required this.builds,
     required this.armAsked,
@@ -3167,6 +3199,9 @@ class _Harness {
 
   /// 设备绑定那一张独立页（T94：从幻念推送页里拆出来的那两张卡）。
   final FnthinkPeersPage peersPage;
+
+  /// 接收设置 + 远程执行那张独立页（T94 片2）。
+  final FnthinkReceivePage receivePage;
   final FnthinkReceiveCoordinator coordinator;
   final int Function() builds;
 

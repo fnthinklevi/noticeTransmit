@@ -1670,6 +1670,8 @@
   "fnthinkHubTitle": "Fnthink Push",
   "fnthinkHubDesc": "Where to send: paired devices, sending a notice and receiving settings live here.",
   "fnthinkHubPeersDesc": "Which devices are paired, send one to them, or revoke one of them.",
+  "fnthinkHubReceiveDesc": "Receiving, how often to ask for messages, and what the sender may make this device do (remote execution) live here.",
+  "fnthinkReceiveGo": "Open receiving and remote execution",
   "fnthinkPeersGo": "Manage paired devices",
   "fnthinkPushPeersDesc": "Pairing, sending and revoking are set up under Notification Engine → Fnthink Push; this page is about this device itself.",
   "fnthinkPeerLine": "{peer} · granted {level} · {at}",

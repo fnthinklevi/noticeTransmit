@@ -6152,6 +6152,18 @@ abstract class AppLocalizations {
   /// **'配对了几台设备、能给它们发一条，也能撤销那一台。'**
   String get fnthinkHubPeersDesc;
 
+  /// No description provided for @fnthinkHubReceiveDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。'**
+  String get fnthinkHubReceiveDesc;
+
+  /// No description provided for @fnthinkReceiveGo.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开接收与远程执行'**
+  String get fnthinkReceiveGo;
+
   /// No description provided for @fnthinkPeersGo.
   ///
   /// In zh, this message translates to:

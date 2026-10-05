@@ -3293,6 +3293,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHubPeersDesc => '配对了几台设备、能给它们发一条，也能撤销那一台。';
 
   @override
+  String get fnthinkHubReceiveDesc => '收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。';
+
+  @override
+  String get fnthinkReceiveGo => '打开接收与远程执行';
+
+  @override
   String get fnthinkPeersGo => '管理已配对的设备';
 
   @override

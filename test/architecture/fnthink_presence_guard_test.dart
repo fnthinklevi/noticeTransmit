@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/di/service_locator.dart';
-import 'package:notice_transmit/pages/fnthink_push_page.dart';
+import 'package:notice_transmit/pages/fnthink_receive_page.dart';
 import 'package:notice_transmit/services/fnthink_presence_scheduler.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
@@ -67,7 +67,8 @@ void main() {
 
     test('幻念推送页拿那一行也只走 DI 里那颗 scheduler（§4-9 片1d）', () {
       setupLocator();
-      final deps = FnthinkPushDeps.fromLocator();
+      // ⚠ T94 片2：这一行随「接收与远程执行」那张独立页走，守卫的主语随之迁移。
+      final deps = FnthinkReceiveDeps.fromLocator();
       expect(
         identical(deps.presence, getIt<FnthinkPresenceScheduler>()),
         isTrue,
@@ -452,7 +453,7 @@ void main() {
     test('页面那一行只读不排：它不许自己算间隔、也不许自己排闹钟（§4-9 片1d）', () {
       // 负向断言 ⇒ 按整个 library 读并剥注释（页面若被拆出 part，写进 part 的那份也要被看见）。
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        librarySource(root, 'lib/pages/fnthink_receive_page.dart'),
       );
       expect(
         page,

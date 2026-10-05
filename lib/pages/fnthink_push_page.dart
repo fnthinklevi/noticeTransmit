@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fnthink_push/fnthink_push.dart';
@@ -8,10 +7,8 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
-import 'remote_credential_settings_page.dart';
-import 'remote_history_page.dart';
 import 'fnthink_peers_page.dart';
-import 'remote_send_page.dart';
+import 'fnthink_receive_page.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../services/fnthink_contract_loader.dart';
@@ -19,7 +16,6 @@ import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_guide.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_peer_service.dart';
-import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
@@ -40,7 +36,6 @@ class FnthinkPushDeps {
     required this.coordinator,
     required this.identity,
     required this.loadPeers,
-    required this.presence,
     this.healthOf,
   });
 
@@ -51,10 +46,6 @@ class FnthinkPushDeps {
     // 名单只从读咽喉取。退回 `DatabaseHelper().loadFnthinkPeers` 的话，页面就会自己长出一份
     // 排序/时间口径，而 `history_page` 那批守卫已经证明过这种分叉是怎么开始的。
     loadPeers: GetIt.instance<FnthinkPeerService>().list,
-    // 「下一次自己醒」那一行只**读**这一个源（§4-9 片1d）：页面既不自己算间隔、也不自己排闹钟
-    // （排/撤那一半在协调者 + scheduler 里，各只有一处）。DI 漏接时这一行取不到值 —— 守卫在
-    // `test/architecture/fnthink_presence_guard_test.dart`。
-    presence: GetIt.instance<FnthinkPresenceScheduler>(),
     // T60（approach B）：对着某台服务器的最近一次发送健康度。读源与写源（协调者 recordHealth
     // 落到 ChannelHealthStore）都认 `kFnthinkChannelSlug` 这一个 family，页面不自己 new 读写实现。
     healthOf: (host) =>
@@ -65,7 +56,6 @@ class FnthinkPushDeps {
   final FnthinkReceiveCoordinator coordinator;
   final FnthinkIdentityService identity;
   final Future<List<FnthinkPeer>> Function() loadPeers;
-  final FnthinkPresenceScheduler presence;
 
   /// 读某台服务器的健康度（null = 这台没装配健康度链路 ⇒ 那一行不画/显示"从没发过"）。
   final ChannelHealth? Function(String host)? healthOf;
@@ -92,7 +82,12 @@ class FnthinkPushDeps {
 ///    等于把决策甩回给用户，而且他一旦选错，症状是"网络好好的却连不上"。
 ///  - **收件未读数**：它属于 T48 那张入口卡与历史页筛选，不是这一页的责任。
 class FnthinkPushPage extends StatefulWidget {
-  const FnthinkPushPage({super.key, this.deps, this.peersDeps});
+  const FnthinkPushPage({
+    super.key,
+    this.deps,
+    this.peersDeps,
+    this.receiveDeps,
+  });
 
   final FnthinkPushDeps? deps;
 
@@ -101,6 +96,9 @@ class FnthinkPushPage extends StatefulWidget {
   /// 否则「可以点」那一下会在没注册那些单例的测试里直接抛，
   /// 而一个入口行的判据正是「点得动」，不能因为装配点缺失就无法被测。
   final FnthinkPeersDeps? peersDeps;
+
+  /// 「接收与远程执行」那一行要推的那张页的依赖（T94 片 2）。缺省走 `FnthinkReceiveDeps.fromLocator()`；测试里传替身。
+  final FnthinkReceiveDeps? receiveDeps;
 
   @override
   State<FnthinkPushPage> createState() => _FnthinkPushPageState();
@@ -116,31 +114,6 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 契约不可用的原话。非空时整页只显示这一条 —— 设置项的默认值要从契约读，
   /// 拿不到契约还让人改开关与地址，等于把值写进一个说不清含义的地方。
   String? _contractError;
-
-  bool _enabled = false;
-  bool _running = false;
-
-  /// 这台同意过「通知内容经服务器中转」没有（T56 的同意门）。
-  ///
-  /// **它与 [_enabled] 是两件不同的事**：开关是"要不要收"，同意是"允不允许内容离开这台设备"。
-  /// 两格都在接收卡上、都不许替用户点 —— 升级不改任一个。
-  bool _consented = false;
-
-  /// T60（approach B）：最近一次发送与服务器通话的健康度（family=fnthink、id=服务器 host）。
-  /// null = 这一台对着这个服务器从没发出过一发（或还没读到）⇒ 那一行显示"从没发过"，
-  /// 而不是猜一个"正常"。
-  ChannelHealth? _serverHealth;
-
-  /// 最近一次"起不来"的原话（五种各有各的成因，不许归并成"出错了"）。
-  String? _startNote;
-
-  /// 上一轮的账（`FnthinkLoopReport.summary`，只有计数）。
-  String? _lastRound;
-
-  /// 这一发的性质：null=没点，skipped=上一轮还在途，disabled=开关关着。
-  /// 三者都不该被显示成"收到 0 条"。
-  String? _roundNote;
-
   String? _addressCode;
   FnthinkArmedPairingCode? _pairing;
 
@@ -194,24 +167,6 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
 
   /// 改地址失败的原因（校验在 `FnthinkSettings` 那一处，这里只显示）。
   String? _hostError;
-
-  /// 「多久问一次货」那一格（T88）。整格从 `settings.pollSetting()` 一次读齐 ——
-  /// 范围来自契约，页面不写任何一个节奏数字（守卫钉的就是这条）。
-  FnthinkPollSetting? _poll;
-
-  /// 拖拽中的那一档（只有拖动过程用，松手才落盘）。null = 没在拖。
-  double? _pollDrag;
-
-  /// 保存这一格失败时那句"协议不允许"（写了 `_poll.problem` 之外的另一种失败：用户刚犯的）。
-  String? _pollError;
-
-  /// 「下一次自己醒」那一行读回来的那一份（null = 还没读到，或读口抛了）。
-  ///
-  /// ⚠ null 与 `armed == false` 是**两件事**：前者是"不知道"，后者是"确实没排" ——
-  /// 合并成一句话，就是拿"读不出来"冒充"没在醒着"，而这两者的下一步动作完全不同
-  /// （一个要查通道/版本，一个只要把开关打开）。
-  FnthinkPresenceStatus? _presence;
-
   bool _busy = false;
 
   @override
@@ -259,265 +214,9 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       _pairing = pairing;
       _identity = identity;
       _identityUnavailable = identity == null;
-      _running = _coordinator.isRunning;
     });
     // 开关的真值**只**从 prefs 读：它是用户做过的那个决定。契约那边没有任何一项能替代它
     // （契约管的是节奏与档位，不是"这台设备同不同意被中转"）。
-    await Future.wait<void>([_readEnabled(), _readPresence(), _readPoll()]);
-  }
-
-  /// 读「收取间隔」那一格（T88）。
-  ///
-  /// 范围与生效值都从 `FnthinkSettings` 那一个合成处来，页面自己不碰契约那个字段 ——
-  /// 那是守卫钉的（页面成为第二个节奏作者时，改契约那一刀不会有任何东西报错）。
-  /// 读失败（契约缺 min/max、或 prefs 里灌回来一个坏值）时**整格不画**并留下那句原话，
-  /// 而不是退到一个猜出来的秒数上。
-  Future<void> _readPoll() async {
-    final settings = _settings;
-    if (settings == null) return;
-    FnthinkPollSetting? poll;
-    String? error;
-    try {
-      poll = await settings.pollSetting();
-    } on FnthinkSettingsInvalid catch (e) {
-      error = e.reason;
-    }
-    if (!mounted) return;
-    setState(() {
-      _poll = poll;
-      _pollError = error;
-    });
-  }
-
-  /// 落一盘这一格（松手那一刻调，不是每像素一次）。
-  ///
-  /// ⚠ 写完必须重启循环：`FnthinkLoopSpec` 是**启动那一刻的快照**，与改地址同一条纪律 ——
-  /// 不重启的表现是"屏幕上写着新间隔，而货还在按旧间隔取"，用户唯一的线索就是那个数字。
-  Future<void> _savePollSeconds(int seconds) async {
-    final settings = _settings;
-    if (settings == null) return;
-    setState(() => _busy = true);
-    var saved = false;
-    try {
-      await settings.setPollSeconds(seconds);
-      _pollError = null;
-      saved = true;
-    } on FnthinkSettingsInvalid catch (e) {
-      // 越界不写、也**不重启**：什么都没改变断一次线，等于把"改了没反应"做成
-      // "每改一次断一次"（那一句话要留在屏幕上，所以这里不重读、只把忙态摘掉）。
-      _pollError = e.reason;
-    }
-    if (!saved) {
-      if (mounted) setState(() => _busy = false);
-      return;
-    }
-    await _restartLoopAndReread();
-  }
-
-  /// 抹掉"用户选过"这件事 ⇒ 回到协议默认那一档（不是把默认值写进去，见 `clearPollSeconds`）。
-  Future<void> _resetPollSeconds() async {
-    final settings = _settings;
-    if (settings == null) return;
-    setState(() => _busy = true);
-    await settings.clearPollSeconds();
-    _pollError = null;
-    await _restartLoopAndReread();
-  }
-
-  Future<void> _restartLoopAndReread() async {
-    _coordinator.stop();
-    await _coordinator.startIfEnabled();
-    if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _pollDrag = null;
-      _running = _coordinator.isRunning;
-    });
-    await Future.wait<void>([_readPoll(), _readPresence()]);
-  }
-
-  /// 读一次「这台还要不要自己醒、下一次在什么时候」。
-  ///
-  /// 这是**只读**的一发：它不排闹钟、不撤闹钟、也不改任何开关 —— 那三件事各有各的作者
-  /// （协调者按开关裁决、scheduler 按契约读数）。页面拿到的是一个毫秒时间点与一档秒数，
-  /// 于是"到底还有没有人醒"这句话在界面上第一次有了出处，而不是靠用户猜。
-  ///
-  /// 读失败**什么都不改**（保持上一次那份，或者干脆不显示这一行）：通道没接（桌面/老包）时
-  /// 显示 0 会让这一行看起来像"没在醒着"，而真值是"不知道"。
-  Future<void> _readPresence() async {
-    final FnthinkPresenceStatus status;
-    try {
-      status = await _deps.presence.status();
-    } catch (_) {
-      // 保持原样。原生那侧已经会为"排不上/撤不掉"留日志，这一层不重复喊。
-      return;
-    }
-    if (!mounted) return;
-    setState(() => _presence = status);
-  }
-
-  /// `HH:mm:ss`。**只做格式化**：页面不推算"还有多久"（那个数只有排闹钟的那一方知道）。
-  String _presenceClock(int millis) {
-    final at = DateTime.fromMillisecondsSinceEpoch(millis);
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${two(at.hour)}:${two(at.minute)}:${two(at.second)}';
-  }
-
-  String _presenceText(AppLocalizations l10n) {
-    final status = _presence!;
-    if (!status.armed) return l10n.fnthinkPresenceAsleep;
-    final clock = _presenceClock(status.nextRoundAt);
-    return status.cadenceSeconds > 0
-        ? l10n.fnthinkPresenceNext(clock, status.cadenceSeconds)
-        : l10n.fnthinkPresenceNextNoCadence(clock);
-  }
-
-  Future<void> _readEnabled() async {
-    final settings = _settings;
-    if (settings == null) return;
-    // 两个真值一起读：开关是"要不要收"，同意是"允不允许经服务器中转"（T56）。
-    // 两件事互不派生，合成一个状态字段就会在某一处漏掉重读 —— 而漏掉的那一处
-    // 表现是"界面说已同意，协调者说不认"，用户看不出该点哪一下。
-    final values = await Future.wait<bool>([
-      settings.receiveEnabled,
-      settings.hasRelayConsent(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _enabled = values[0];
-      _consented = values[1];
-    });
-    // T60（approach B）：对着这个服务器最近一次发送通没通过（读通道健康度）。
-    // 主机名要在 settings 那边现取（发送用的就是它），健康度按 (fnthink, host) 读那一条；
-    // 读不到 = 这台对这个服务器从没发出过一发 ⇒ 那一行说"从没发过"，不猜"正常"。
-    await _readServerHealth();
-  }
-
-  Future<void> _readServerHealth() async {
-    final settings = _settings;
-    if (settings == null) return;
-    final String host;
-    try {
-      host = await settings.host;
-    } catch (_) {
-      // 服务地址本身没配好：这一行留"从没发过"（连该读哪台都不知道，谈不上健康度）。
-      if (!mounted) return;
-      setState(() => _serverHealth = null);
-      return;
-    }
-    final health = _deps.healthOf?.call(host);
-    if (!mounted) return;
-    setState(() => _serverHealth = health);
-  }
-
-  String _serverHealthText(AppLocalizations l10n) {
-    final health = _serverHealth;
-    if (health == null) return l10n.fnthinkHealthNever;
-    return health.reachable
-        ? l10n.fnthinkHealthReachable
-        : l10n.fnthinkHealthUnreachable;
-  }
-
-  /// 一次性同意「通知内容经服务器中转」（T56）。三情形说明放在确认弹层里，确认键才写下同意。
-  ///
-  /// ⚠ **同意是一次显式动作**，所以它走 `askConfirm` 而不是"点一下开关就算"：
-  /// 这一格的后果是"通知内容会离开这台设备、经服务器中转"，那是本产品里最重的一件事，
-  /// 静默发生就是把用户没做过的决定替他做了（"升级/新功能不许悄悄做让用户意外的事"）。
-  /// 取消 ⇒ 一个字节都不写，也不改任一开关（不写半份同意）。
-  Future<void> _grantConsent() async {
-    final settings = _settings;
-    if (settings == null || _busy) return;
-    final l10n = AppLocalizations.of(context);
-    final ok = await IosDialogActions.askConfirm(
-      context,
-      title: l10n.fnthinkConsentTitle,
-      message: l10n.fnthinkConsentMsg,
-      confirmText: l10n.fnthinkConsentAgree,
-    );
-    if (!ok || !mounted) return;
-    setState(() => _busy = true);
-    // T76 ⓑ 首启选路：**在同意之后**选一次（T76 §6 ③ 的次序），不在这之前 ——
-    // 选路要发一次 HTTPS 请求，而"用户还没同意把内容交给服务器中转"那一刻连字节都不该出机。
-    // 选完落盘 ⇒ 之后无论探测怎么变都不再自动改（§6 ⑤）。
-    // ⚠ 探不到就落契约 default（`ensureFirstRunHost` 内部已兜），这一格不许因为探测失败
-    //   而把"同意"这一步卡住 —— 用户已经点了同意，卡住他的后果比选错服务器更糟。
-    await settings.ensureFirstRunHost();
-    await settings.grantRelayConsent();
-    if (!mounted) return;
-    setState(() {
-      _consented = true;
-      _busy = false;
-    });
-    // 同意之前收货循环起不来（协调者 early-return not-consented）；用户刚同意 ⇒ 若开关已开，
-    // 立刻试一次起来，让"同意"这件事当场有可见后果（否则要等下一轮后台闹钟）。
-    if (_enabled) unawaited(_toggleReceive(true));
-  }
-
-  /// 开关。⚠ 这里有一个必须写下来的取舍：**开关那一格显示的是"用户要的状态"（prefs 真值），
-  /// 运行那一格显示的是"实际状态"**，两者不一致时把原话贴在下面，而不是把开关回弹。
-  /// 回弹会让他以为没点上而再点一次（结果一样），而"已开但起不来"才是可诊断的那句话。
-  Future<void> _toggleReceive(bool value) async {
-    final settings = _settings;
-    if (settings == null || _busy) return;
-    final l10n = AppLocalizations.of(context);
-    // 开关那一格跟着**写进 prefs 的那一份**走：先落库再改口，界面与 prefs 不会各说一段。
-    setState(() {
-      _busy = true;
-      _enabled = value;
-    });
-    await settings.setReceiveEnabled(value);
-    if (value) {
-      final result = await _coordinator.startIfEnabled();
-      if (!mounted) return;
-      setState(() {
-        _running = _coordinator.isRunning;
-        // 「没同意中转」是本片新增的那一档，机器理由 `not-consented` 用户读不懂 ⇒ 换成
-        // 人话。其余理由沿用原样（既有那些都已是面向用户的短词）。
-        _startNote = result.started
-            ? null
-            : (result.reason == 'not-consented'
-                  ? l10n.fnthinkConsentNotGranted
-                  : result.reason);
-        _busy = false;
-      });
-      // 开关翻开 ⇒ 协调者刚排过闹钟（或刚因为起不来撤过）：那一行必须跟着重读，
-      // 否则它会一直显示翻开之前的样子，而这一行的全部意义就是"现在到底醒没醒"。
-      // 不 await：这是显示刷新，开关那一发该做的已经做完了（读口自己吞异常）。
-      unawaited(_readPresence());
-      return;
-    }
-    _coordinator.stop();
-    if (!mounted) return;
-    setState(() {
-      _running = false;
-      _startNote = null;
-      _busy = false;
-    });
-    unawaited(_readPresence());
-  }
-
-  Future<void> _receiveNow() async {
-    final l10n = AppLocalizations.of(context);
-    setState(() => _busy = true);
-    final report = await _coordinator.receiveOnce();
-    if (!mounted) return;
-    setState(() {
-      _running = _coordinator.isRunning;
-      if (report == null) {
-        _roundNote = l10n.fnthinkReceiveDisabled;
-        _lastRound = null;
-      } else if (report.skipped) {
-        _roundNote = l10n.fnthinkReceiveSkipped;
-      } else {
-        _roundNote = null;
-        // summary 只有计数（没有标题、正文与消息 id），所以可以直接上界面。
-        _lastRound = report.summary;
-        _startNote = null;
-      }
-      _busy = false;
-    });
-    // 手动那一轮跑完也会续排（`_noteRound`）：读回来，别让这一行停在上一轮的时间点上。
-    await _readPresence();
   }
 
   Future<void> _copy(String text) async {
@@ -550,14 +249,13 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     final fresh = await credentials.resetAddressCode();
     // ⚠ 循环带着的是**启动那一刻**定型的地址码：换了码还让它继续跑，签出去的 target
     // 与本轮要 ack 的那条就不是同一台设备。所以重启，而不是"下次自然生效"。
-    if (_running) {
+    if (_coordinator.isRunning) {
       _coordinator.stop();
       await _coordinator.startIfEnabled();
     }
     if (!mounted) return;
     setState(() {
       _addressCode = fresh.value;
-      _running = _coordinator.isRunning;
       _credentialError = null;
       _busy = false;
     });
@@ -1132,7 +830,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     // 界面上显示的是**读回来**的那一份，不是用户给的那一份（setHost 会归一小写）。
     final stored = await settings.host;
     // 排在 mounted 判断之前：值已经改了，页面关没关都不该把循环留在旧地址上。
-    if (_running) {
+    if (_coordinator.isRunning) {
       _coordinator.stop();
       await _coordinator.startIfEnabled();
     }
@@ -1140,7 +838,6 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     setState(() {
       _host = stored;
       _hostError = null;
-      _running = _coordinator.isRunning;
     });
   }
 
@@ -1151,7 +848,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       await settings.setHost(settings.defaultHost);
       final stored = await settings.host;
       // 恢复默认也是换地址 ⇒ 同一个重启（理由见 `_applyHost`）
-      if (_running) {
+      if (_coordinator.isRunning) {
         _coordinator.stop();
         await _coordinator.startIfEnabled();
       }
@@ -1187,14 +884,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
               text: l10n.fnthinkContractUnavailable(_contractError!),
             )
           else ...[
-            _buildReceiveCard(l10n),
-            const SizedBox(height: 12),
             _buildIdentityCard(l10n),
             _buildPeersEntryCard(l10n),
             const SizedBox(height: 12),
-            _buildEndpointCard(l10n),
+            _buildReceiveEntryCard(l10n),
             const SizedBox(height: 12),
-            _buildRemoteExecCard(l10n),
+            _buildEndpointCard(l10n),
             const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 12),
@@ -1210,6 +905,35 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   /// 为什么是入口而不是内容：设备绑定是**两台设备之间**的关系，而这一页讲的是**这台设备**
   /// 的身份与服务地址。同一张页里摆两件事，用户配错时看不出自己刚动的是哪一个 ——
   /// 而这两个决定的代价完全不同（换地址码要重新配对，撤销一台只影响那一台）。
+  /// 「接收推送与远程执行」那一行入口（T94 片 2）。
+  ///
+  /// 两张卡都是「别人对这台设备做什么」：先收下来，再按拿到的命令去做。
+  /// 它们不是这台设备自己的渠道信息，所以也一并搬走——拆得功不应该在每一个入口
+  /// 重复一份。
+  Widget _buildReceiveEntryCard(AppLocalizations l10n) {
+    return FnthinkCard(
+      title: l10n.fnthinkReceive,
+      children: [
+        FnthinkNote(
+          keyName: 'fnthink-receive-entry-desc',
+          text: l10n.fnthinkHubReceiveDesc,
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-receive-entry'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => FnthinkReceivePage(deps: widget.receiveDeps),
+              ),
+            ),
+            child: Text(l10n.fnthinkReceiveGo),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPeersEntryCard(AppLocalizations l10n) {
     return FnthinkCard(
       title: l10n.fnthinkPeersTitle,
@@ -1228,151 +952,6 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
               ),
             ),
             child: Text(l10n.fnthinkPeersGo),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReceiveCard(AppLocalizations l10n) {
-    return FnthinkCard(
-      title: l10n.fnthinkReceive,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                l10n.fnthinkReceiveDesc,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.secondaryLabel(context),
-                ),
-              ),
-            ),
-            // onChanged 传 null 就是灰态：契约拿不到时这一格不许被翻开。
-            CupertinoSwitch(
-              key: const ValueKey('fnthink-receive-switch'),
-              value: _enabled,
-              onChanged: _contractError == null && !_busy
-                  ? _toggleReceive
-                  : null,
-            ),
-          ],
-        ),
-        FnthinkStatusRow(
-          keyName: 'fnthink-receive-status',
-          dot: _running,
-          text: _running ? l10n.fnthinkStatusRunning : l10n.fnthinkStatusIdle,
-        ),
-        // 同意门（T56）：**开着开关也不等于同意中转**。这一行在没同意时始终在场，
-        // 并把三情形说明摆在按钮后面 —— 用户要能一眼看出"关掉接收"与"不让人中转内容"
-        // 是两件不同的事，而后者没有任何一处会自动替他做。
-        if (!_consented) ...[
-          FnthinkNote(
-            keyName: 'fnthink-consent-pending',
-            text: l10n.fnthinkConsentPending,
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: CupertinoButton.filled(
-              key: const ValueKey('fnthink-consent-agree'),
-              onPressed: _busy ? null : _grantConsent,
-              child: Text(l10n.fnthinkConsentTitle),
-            ),
-          ),
-        ] else
-          FnthinkNote(
-            keyName: 'fnthink-consent-granted',
-            text: l10n.fnthinkConsentGranted,
-          ),
-        // T60（approach B）：这一台对着当前服务器最近一次发送通没通过。
-        // 只在同意之后画 —— 没同意时任何一发都在本机就被挡下（没有"服务器通不通"这回事），
-        // 画出来只会把"还没同意"错读成"服务器坏了"。
-        if (_consented)
-          FnthinkNote(
-            keyName: 'fnthink-server-health',
-            text: _serverHealthText(l10n),
-          ),
-        // 「多久问一次货」那一格（T88）。范围与生效值都来自契约经 `FnthinkSettings` 合成后的
-        // 那一份 —— 页面一个节奏数字都不写。契约那边给不出范围时**整格不画**：画一根没有
-        // 范围的滑杆等于任用户选到协议不许的那一档，而那一档的代价是这台被服务端按额度持续 429。
-        if (_poll case final FnthinkPollSetting poll) ...[
-          FnthinkNote(
-            keyName: 'fnthink-poll-title',
-            text: l10n.fnthinkPollIntervalTitle,
-          ),
-          FnthinkNote(
-            keyName: 'fnthink-poll-value',
-            text: poll.chosen == null
-                ? l10n.fnthinkPollIntervalUsingDefault(poll.effective)
-                : l10n.fnthinkPollIntervalChosen(poll.effective),
-          ),
-          CupertinoSlider(
-            key: const ValueKey('fnthink-poll-slider'),
-            value: (_pollDrag ?? poll.effective.toDouble()).clamp(
-              poll.range.min.toDouble(),
-              poll.range.max.toDouble(),
-            ),
-            min: poll.range.min.toDouble(),
-            max: poll.range.max.toDouble(),
-            divisions: poll.range.max - poll.range.min,
-            // 这一版本 SDK 的 `CupertinoSlider` 没有 `label`（拖动时那颗气泡），
-            // 所以拖动过程中界面上那句话仍是**已生效**的那一档 —— 松手落盘并重读之后才跟上。
-            // 只由"这一格正在忙"把关，**不由接收开关把关**：这是设置而不是运行状态 ——
-            // 开着关着的设备都该能在换机后先把这一档配好。（关掉时下面那发重启本身就是空转。）
-            onChanged: _busy ? null : (v) => setState(() => _pollDrag = v),
-            onChangeEnd: _busy ? null : (v) => _savePollSeconds(v.round()),
-          ),
-          FnthinkNote(
-            keyName: 'fnthink-poll-range',
-            text: l10n.fnthinkPollIntervalRange(poll.range.min, poll.range.max),
-          ),
-          FnthinkNote(
-            keyName: 'fnthink-poll-tradeoff',
-            text: l10n.fnthinkPollIntervalTradeoff,
-          ),
-          // prefs 里存着协议不许的那一档（备份恢复灌回来的那一种）与"刚刚那一盘被拒"是两处，
-          // 分开画：前者是历史留下的、后者是这一次做的，用户的下一步动作不一样。
-          if (poll.problem case final String problem)
-            FnthinkNote(
-              keyName: 'fnthink-poll-problem',
-              text: l10n.fnthinkPollIntervalInvalid(problem),
-            ),
-          if (_pollError case final String reason)
-            FnthinkNote(
-              keyName: 'fnthink-poll-error',
-              text: l10n.fnthinkPollIntervalInvalid(reason),
-            ),
-          if (poll.chosen != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: CupertinoButton(
-                key: const ValueKey('fnthink-poll-reset'),
-                onPressed: _busy ? null : _resetPollSeconds,
-                child: Text(l10n.fnthinkPollIntervalReset),
-              ),
-            ),
-        ],
-        // 「被杀之后还有没有人去问一次货」（T33 第二片 / §4-9）：这一行读的是**原生那份排程**。
-        // 收货循环活着 ≠ 闹钟排着（进程被杀之后正是"循环没了而闹钟还在"），所以两行必须分开说。
-        // 还没有读到（读口抛过、或这一页刚起来）时**不画这一行** —— 画一句"没在醒着"是假话。
-        if (_presence != null)
-          FnthinkNote(
-            keyName: 'fnthink-presence-next',
-            text: _presenceText(l10n),
-          ),
-        if (_startNote != null)
-          FnthinkNote(keyName: 'fnthink-start-note', text: _startNote!),
-        if (_roundNote != null)
-          FnthinkNote(keyName: 'fnthink-round-note', text: _roundNote!),
-        if (_lastRound != null)
-          FnthinkNote(keyName: 'fnthink-last-round', text: _lastRound!),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: CupertinoButton(
-            key: const ValueKey('fnthink-receive-now'),
-            onPressed: _enabled && !_busy ? _receiveNow : null,
-            child: Text(l10n.fnthinkReceiveNow),
           ),
         ),
       ],
@@ -1533,101 +1112,6 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     final age = pairing.ageMs(DateTime.now().toUtc().millisecondsSinceEpoch);
     if (age == null) return AppLocalizations.of(context).unknown;
     return '${(age / 1000).floor()}s';
-  }
-
-  /// 远程执行那一格（片3b-2）：**三扇门** —— 设置、发送、历史。
-  ///
-  /// ⚠ 这一格刻意**不给开关**：总开关住在凭据设置页里，和凭据放在一起。
-  /// 把开关摆在这一格而凭据在另一格，用户开完就走了，然后 L3 那一条条都被拒 ——
-  /// 而他唯一看得到"开了"的地方是这一格。两个入口讲同一件事时，
-  /// 界面上要能一眼看出它们是同一件事，所以这一格只给入口，不给状态。
-  Widget _buildRemoteExecCard(AppLocalizations l10n) {
-    return FnthinkCard(
-      title: l10n.remoteExecSection,
-      children: [
-        FnthinkNote(
-          keyName: 'fnthink-remote-exec-why',
-          text: l10n.remoteExecWhy,
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-remote-exec-settings'),
-            onPressed: _busy ? null : _openRemoteCredentialSettings,
-            child: Text(l10n.remoteExecOpenSettings),
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-remote-exec-send'),
-            onPressed: _busy ? null : _openRemoteSend,
-            child: Text(l10n.remoteExecSendPage),
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-remote-exec-history'),
-            onPressed: _busy ? null : _openRemoteHistory,
-            child: Text(l10n.remoteExecHistory),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _openRemoteCredentialSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const RemoteCredentialSettingsPage(),
-      ),
-    );
-  }
-
-  Future<void> _openRemoteSend() async {
-    final contract = _contract;
-    if (contract == null) return;
-    final coordinator = _coordinator;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => RemoteSendPage(
-          // 名单**只**从协调者那条读咽喉取（与本页同一份），
-          // 不另开一条读库的路 —— 两处各读一次就会有两个排序口径。
-          deps: RemoteSendDeps(
-            loadPeers: _deps.loadPeers,
-            send:
-                ({
-                  required String peer,
-                  required String title,
-                  required String text,
-                }) => coordinator.sendNotice(
-                  peer: peer,
-                  title: title,
-                  text: text,
-                ),
-            contractOf: () async => _deps.contracts.load(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openRemoteHistory() async {
-    final coordinator = _coordinator;
-    final loader = coordinator.loadRemoteExecutions;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => RemoteHistoryPage(
-          deps: RemoteHistoryDeps(
-            loadRecords: (direction) async => await loader?.call(direction),
-            removeRecord: (id) async =>
-                await coordinator.forgetRemoteExecution?.call(id) ?? false,
-            contractOf: () => _deps.contracts.load(),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildServerCard(AppLocalizations l10n) {
