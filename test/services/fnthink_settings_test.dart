@@ -46,6 +46,43 @@ void main() {
       expect(settings.defaultHost, defaultHost['default']);
     });
 
+    // ── T76 双地域：候选恒为契约声明的那两台 ──
+    group('declaredHosts（T76 选哪台）', () {
+      test('两台都在，且逐字等于契约里的值（代码里不许再抄一份域名）', () {
+        final hosts = settings.declaredHosts;
+        expect(hosts.map((h) => h.key).toList(), [
+          'international',
+          'mainland',
+        ], reason: '顺序也钉住：界面按这个顺序摆两档');
+        expect(hosts.map((h) => h.host).toList(), [
+          defaultHost['international'],
+          defaultHost['mainland'],
+        ]);
+      });
+
+      test('两台不同：相同的话"切换"这一下就什么也没换', () {
+        final hosts = settings.declaredHosts.map((h) => h.host).toSet();
+        expect(hosts.length, 2, reason: '契约侧已经钉过这一条，这里是第二道（客户端视角）');
+      });
+
+      test('默认那台必须是两台之一（选档与默认值不许指向第三台）', () {
+        expect(
+          settings.declaredHosts.map((h) => h.host),
+          contains(settings.defaultHost),
+          reason: '默认值落在候选之外 ⇒ 界面摆两档而实际连的是第三台，用户改不动它',
+        );
+      });
+
+      // ⚠ §6 定的口径：**候选恒是这两台，`.com` 没部署好也照样列出来**。
+      //   这条是它的反面自检 —— 一旦有人加"探测通了才进候选"的过滤，下面那条会红。
+      test('不按"能不能连上"过滤：这一层只看契约，不发任何请求', () async {
+        // prefs 是空的、也没有任何网络桩：这一层若偷偷去探测，这里就会挂住或抛。
+        final hosts = settings.declaredHosts;
+        expect(hosts, hasLength(2));
+        expect(await settings.host, defaultHost['default']);
+      });
+    });
+
     test('存进去归一成小写：同一台主机不许有两个写法被认成两台服务', () async {
       await settings.setHost('Push.Example.COM');
       expect(await settings.host, 'push.example.com');

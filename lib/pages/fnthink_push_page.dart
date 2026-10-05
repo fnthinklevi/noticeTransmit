@@ -27,6 +27,8 @@ import '../widgets/fnthink_pair_dialog.dart';
 import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
+import '../widgets/ios_option_picker.dart';
+import '../update_manager.dart' show AppUpdateManager;
 
 /// 页面要用到的那一小包依赖。
 ///
@@ -1552,28 +1554,82 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     );
     if (input == null || !mounted) return;
     try {
-      await settings.setHost(input);
-      // 界面上显示的是**读回来**的那一份，不是用户敲进去的那一份（setHost 会归一小写）。
-      final stored = await settings.host;
-      // ⚠ 换了地址必须重启循环 —— 与上面"重置地址码"那一条同一个理由：循环握的是**启动那一刻
-      //   定型的 baseUri**，不重启就是"屏幕上写着新地址，而货还在从旧地址取"（症状是"地址明明改了
-      //   却连不上"，而改回来的那一下又"没反应"）。排在 mounted 判断之前：值已经改了，
-      //   页面关没关都不该把循环留在旧地址上。
-      if (_running) {
-        _coordinator.stop();
-        await _coordinator.startIfEnabled();
-      }
-      if (!mounted) return;
-      setState(() {
-        _host = stored;
-        _hostError = null;
-        _running = _coordinator.isRunning;
-      });
+      await _applyHost(input);
     } on FnthinkSettingsInvalid catch (e) {
-      // 不改值、只把那句话贴出来：校验的唯一出处在 FnthinkSettings，这里不自己判一遍。
       if (!mounted) return;
       setState(() => _hostError = e.reason);
     }
+  }
+
+  /// T76 双地域：在契约声明的那两台里选一台。
+  ///
+  /// ⚠ **这一格与"手动填地址"并存，不是替代它**：自部署（T75）要填的是**契约里没有的**
+  /// 第三个地址，把它换掉就等于砍掉自部署那条路。
+  /// ⚠ 选项恒是契约声明的两台，**不按"探测通不通"过滤**（§6 的口径）：探测不通该显示
+  /// "不可用"，而不是把那一档从候选里拿走 —— 拿走之后用户就没有回去的路。
+  Future<void> _pickHostRegion() async {
+    final settings = _settings;
+    if (settings == null) return;
+    final l10n = AppLocalizations.of(context);
+    final choices = settings.declaredHosts;
+    if (choices.isEmpty) {
+      if (!mounted) return;
+      setState(() => _hostError = l10n.fnthinkHostNoCandidates);
+      return;
+    }
+    // ⚠ 先把当前那台读出来再开弹层：`selectedValue: await settings.host` 写在实参里时，
+    //   那个 await 落在 `showIosOptionPicker(context, …)` **之前** ⇒ analyzer 会喊
+    //   "BuildContext 跨 async gap"，而它喊的是真问题（页面可能已经走了）。
+    final current = await settings.host;
+    if (!mounted) return;
+    final picked = await showIosOptionPicker<String>(
+      context,
+      title: l10n.fnthinkHostSwitch,
+      // 选中打勾落在"当前这一台"上：换之前先看得见现在连的是哪台。
+      selectedValue: current,
+      options: [
+        for (final c in choices)
+          IosPickerOption<String>(
+            value: c.host,
+            label: c.host,
+            description: c.key == 'international'
+                ? l10n.fnthinkHostRegionInternational
+                : l10n.fnthinkHostRegionMainland,
+          ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    try {
+      await _applyHost(picked);
+    } on FnthinkSettingsInvalid catch (e) {
+      if (!mounted) return;
+      setState(() => _hostError = e.reason);
+    }
+  }
+
+  /// 换地址之后的那一套：写值 → 读回 → **重启收货循环** → 刷界面。
+  ///
+  /// ⚠ 重启不是锦上添花：循环握的是**启动那一刻定型的 baseUri**，不重启就是
+  /// "屏幕上写着新地址，而货还在从旧地址取"（症状是"地址明明改了却连不上"，
+  /// 而改回来的那一下又没反应）。手工填地址与选两台之一**共用这一段** ——
+  /// 抄一份就多一处将来会漏掉重启的地方。
+  Future<void> _applyHost(String value) async {
+    final settings = _settings;
+    if (settings == null) return;
+    await settings.setHost(value);
+    // 界面上显示的是**读回来**的那一份，不是用户给的那一份（setHost 会归一小写）。
+    final stored = await settings.host;
+    // 排在 mounted 判断之前：值已经改了，页面关没关都不该把循环留在旧地址上。
+    if (_running) {
+      _coordinator.stop();
+      await _coordinator.startIfEnabled();
+    }
+    if (!mounted) return;
+    setState(() {
+      _host = stored;
+      _hostError = null;
+      _running = _coordinator.isRunning;
+    });
   }
 
   Future<void> _restoreDefaultHost() async {
@@ -1582,7 +1638,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     try {
       await settings.setHost(settings.defaultHost);
       final stored = await settings.host;
-      // 恢复默认也是换地址 ⇒ 同一个重启（理由见上面 `_editHost` 那一段）
+      // 恢复默认也是换地址 ⇒ 同一个重启（理由见 `_applyHost`）
       if (_running) {
         _coordinator.stop();
         await _coordinator.startIfEnabled();
@@ -2042,6 +2098,13 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
               ),
             ),
             TextButton(onPressed: _editHost, child: Text(l10n.edit)),
+            // T76 双地域：在契约声明的两台里选一台（与上面"手动填"并存 ——
+            // 自部署要填的是契约里没有的第三个地址）。
+            TextButton(
+              key: const ValueKey('fnthink-host-switch'),
+              onPressed: _pickHostRegion,
+              child: Text(l10n.fnthinkHostSwitch),
+            ),
             TextButton(
               key: const ValueKey('fnthink-host-default'),
               onPressed: _restoreDefaultHost,
@@ -2051,6 +2114,17 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
         ),
         Text(
           l10n.fnthinkHostDesc,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+        // T76 ⓐ：更新通道**不跟随**这一格，必须在界面上写明 ——
+        // §6 把它列为"不定就会变成隐性双源"的那一件：不写，用户以为切到成都、
+        // 实际还在洛杉矶那边收更新，而两边版本可能不一样。
+        Text(
+          l10n.fnthinkHostUpdateNote(AppUpdateManager.updateServerHost),
+          key: const ValueKey('fnthink-host-update-note'),
           style: TextStyle(
             fontSize: 12,
             color: AppColors.secondaryLabel(context),

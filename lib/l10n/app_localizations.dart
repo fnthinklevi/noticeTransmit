@@ -5942,6 +5942,36 @@ abstract class AppLocalizations {
   /// **'恢复默认'**
   String get fnthinkHostReset;
 
+  /// No description provided for @fnthinkHostSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换服务'**
+  String get fnthinkHostSwitch;
+
+  /// No description provided for @fnthinkHostRegionInternational.
+  ///
+  /// In zh, this message translates to:
+  /// **'海外（洛杉矶）'**
+  String get fnthinkHostRegionInternational;
+
+  /// No description provided for @fnthinkHostRegionMainland.
+  ///
+  /// In zh, this message translates to:
+  /// **'大陆（成都）'**
+  String get fnthinkHostRegionMainland;
+
+  /// No description provided for @fnthinkHostNoCandidates.
+  ///
+  /// In zh, this message translates to:
+  /// **'契约里没有声明可选的服务地址'**
+  String get fnthinkHostNoCandidates;
+
+  /// No description provided for @fnthinkHostUpdateNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新始终走 {host}，不随这里切换。'**
+  String fnthinkHostUpdateNote(String host);
+
   /// No description provided for @fnthinkBoundary.
   ///
   /// In zh, this message translates to:

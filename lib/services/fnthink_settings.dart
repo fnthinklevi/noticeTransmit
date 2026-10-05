@@ -96,6 +96,25 @@ class FnthinkSettings {
     return value;
   }
 
+  /// T76 双地域：契约声明的那**两台**（`transport.endpoints.international` /
+  /// `mainland`），按声明顺序返回，供页面摆一个"选哪台"。
+  ///
+  /// ⚠ **候选恒是这两台，`.com` 没部署好也照样列出来**（T76 §6 定的口径）：探测不通就在
+  /// 界面上说"不可用"，而不是把它从候选里拿掉 —— 拿掉的那一刻用户就没有回去的路，
+  /// 而这一版能不能用是**运维侧**的事，不是客户端该替它做的判断。
+  /// ⚠ 从契约读而不是在这里写死域名：本仓已经吃过一次「域名口径纠正」的亏
+  /// （代码里那份与契约那份漂移，客户端连到了没部署的那台）。
+  List<({String key, String host})> get declaredHosts {
+    const keys = ['international', 'mainland'];
+    final out = <({String key, String host})>[];
+    for (final k in keys) {
+      final raw = contract.str(['transport', 'endpoints', k]) ?? '';
+      if (raw.isEmpty) continue; // 契约校验已保证非空；这里跳过而不是抛，页面另有错误位
+      out.add((key: k, host: validateHost(raw)));
+    }
+    return out;
+  }
+
   /// scheme 不是自由项：契约 `transport.httpsOnly=true` ⇒ 只能是 https。
   /// 收货服务在装配期还会再判一次，这里是第一次、也是离用户输入最近的那一次。
   Future<Uri> get baseUrl async {

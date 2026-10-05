@@ -3164,6 +3164,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHostReset => '恢复默认';
 
   @override
+  String get fnthinkHostSwitch => '切换服务';
+
+  @override
+  String get fnthinkHostRegionInternational => '海外（洛杉矶）';
+
+  @override
+  String get fnthinkHostRegionMainland => '大陆（成都）';
+
+  @override
+  String get fnthinkHostNoCandidates => '契约里没有声明可选的服务地址';
+
+  @override
+  String fnthinkHostUpdateNote(String host) {
+    return '检查更新始终走 $host，不随这里切换。';
+  }
+
+  @override
   String get fnthinkBoundary => '开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。';
 
   @override

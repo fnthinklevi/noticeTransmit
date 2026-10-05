@@ -3301,6 +3301,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkHostReset => 'Restore default';
 
   @override
+  String get fnthinkHostSwitch => 'Switch service';
+
+  @override
+  String get fnthinkHostRegionInternational => 'Overseas (Los Angeles)';
+
+  @override
+  String get fnthinkHostRegionMainland => 'Mainland China (Chengdu)';
+
+  @override
+  String get fnthinkHostNoCandidates =>
+      'The contract declares no selectable service address';
+
+  @override
+  String fnthinkHostUpdateNote(String host) {
+    return 'Update checks always go to $host, regardless of this setting.';
+  }
+
+  @override
   String get fnthinkBoundary =>
       'With receiving on, message content passes through the server, which can then read the body and metadata.';
 

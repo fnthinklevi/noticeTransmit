@@ -77,6 +77,15 @@ class AppUpdateManager {
   String? _lastDownloadId;
 
   String get serverUrl => _updateServerUrl;
+
+  /// T76 ⓐ：更新通道固定走这一台，**不随幻念推送的服务地址切换**
+  /// （`lib/services/fnthink_settings.dart` 的 `host` 管的是收件那一条链路）。
+  ///
+  /// ⚠ 做成 static 而不是让调用方 new 一个实例：这句话要出现在**推送页**里，
+  /// 而那一页并不持有更新服务 —— 为了一句提示文案去构造一个服务，等于把
+  /// 「更新在跑」这件事与「界面上提到了更新地址」这两件事绑在一起。
+  static String get updateServerHost => Uri.parse(_updateServerUrl).host;
+
   bool get autoCheck => _autoCheck;
   String? get lastError => _lastError;
 
