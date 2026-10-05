@@ -85,4 +85,24 @@ class RemoteExecutionNotifier {
       // 同上：原生那份有 TTL（两倍窗口上限），扫不到就让它自己过期。
     }
   }
+
+  /// 白名单通知触发那一路：取一条攒着的指令正文。回 null = **现在没有**
+  /// （取空了，或原生那一堆全部过了新鲜期而被丢弃）。
+  ///
+  /// ⚠ 读不到也回 null，与 [takeCancelled] 的理由**相同但方向相反**，别照抄那条注释：
+  /// 那边读不到要回「没被撤」（宁可多执行一次），这边读不到要回「没有指令」
+  /// （宁可少执行一次）。两次通道故障各自往 fail-safe 那侧倒 —— 少做一次用户会
+  /// 再发一遍，多做一次用户根本不知道发生过。
+  ///
+  /// ⚠ **一次只取一条**（原生那一侧是 FIFO 队列）。调用方要循环取到 null 为止，
+  ///   别指望一次调用把攒着的清空。
+  Future<String?> takeLocalCommand() async {
+    try {
+      return await _channel.invokeMethod<String>(
+        'fnthinkRemoteExecTakeLocalCommand',
+      );
+    } catch (e) {
+      return null;
+    }
+  }
 }

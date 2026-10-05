@@ -686,6 +686,164 @@ void main() {
     });
   });
 
+  group('白名单通知触发那一路（契约 sources.L1 的第二条来源）', () {
+    // 这一组全钉"接上了没有"，因为**接不上时没有任何症状**：白名单通知照常显示、
+    // 照常推送、照常进历史，而没有任何东西动手 —— 用户配的自动化从此静默失效。
+    // 每一段的功能用例都把依赖当参数传进来、不经过这三处接线，所以它们全绿也说明不了什么。
+
+    test('原生侧：白名单命中那一格真的把正文交出去了，且排在规则引擎之后', () {
+      final service = read(
+        'android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt',
+      );
+      expect(
+        service,
+        contains('LocalRemoteCommandInbox.offer('),
+        reason:
+            '通知监听那一格不再交出去了 ⇒ 白名单通知永远到不了 Dart，'
+            '而通知照常显示、推送照常发生，没有任何一处会红',
+      );
+      expect(
+        service,
+        contains('filterResult.source == FilterSource.WHITELIST'),
+        reason:
+            '判定条件必须是**过滤来源**而不是白名单标题标签（`whitelistTag()`）：'
+            '后者只在标题里多了三个字，改一次文案这条就静默失效',
+      );
+      // ⚠ 顺序是安全语义，不是排版：规则引擎说 Block 的那一条不许被交出去。
+      //   放到 `RuleEngine.decide` 之前就是"规则拦得住推送、拦不住动手"。
+      final decide = service.indexOf(
+        'RuleEngine.decide(info, config.rulesJson)',
+      );
+      // ⚠⚠ 先断"只有一个交接点"再断它的位置。**只判 indexOf 是不够的**：
+      //   在 `decide` 前面另插一次 `offer(...)`（那正是"提前交接"这个植入的样子），
+      //   位置判据照样绿 —— 因为 indexOf 读到的是**后面**那一次真实的交接。
+      //   形状可靠的那条是"交接点恰好一个"，而它也正是这一格的主语：
+      //   多一个交接点 = 同一类通知可能被交出去两次。
+      expect(
+        occurrences(service, 'LocalRemoteCommandInbox.offer('),
+        1,
+        reason:
+            '白名单正文出现了多个交接点 ⇒ 某条通知可能被交出去两次，'
+            '而"交接点在规则引擎之后"那一问在多处时只看第一处，等于没问',
+      );
+      final offer = service.indexOf('LocalRemoteCommandInbox.offer(');
+      expect(decide, greaterThanOrEqualTo(0), reason: '规则引擎那一发搬走了：本条守卫空跑');
+      expect(
+        offer,
+        greaterThan(decide),
+        reason: '交接被排到了规则引擎之前 ⇒ 用户明说"这条别动"的那些也会照样执行',
+      );
+      expect(
+        service,
+        contains('decision !is RuleEngine.Decision.Block'),
+        reason: 'Block 那一档不再被排除 ⇒ 规则引擎拦得住推送、拦不住动手',
+      );
+    });
+
+    test('原生侧：取口在执行那一格的方法表里，且方法名两端一致', () {
+      final handler = read(
+        'android/app/src/main/kotlin/com/fnthink/notice/channels/RemoteExecChannelHandler.kt',
+      );
+      expect(
+        handler,
+        contains('fnthinkRemoteExecTakeLocalCommand'),
+        reason:
+            'Dart 会去调一个没人认领的方法名 ⇒ 取口永远回 null，'
+            '而症状是"白名单通知从不触发"，看起来像白名单没配对',
+      );
+      expect(handler, contains('LocalRemoteCommandInbox.take('));
+      final notifier = read('lib/services/remote_execution_notifier.dart');
+      expect(
+        notifier,
+        contains("'fnthinkRemoteExecTakeLocalCommand'"),
+        reason: 'Dart 侧的方法名与原生那一格对不上：通道调用会静默变成 notImplemented',
+      );
+    });
+
+    test('原生侧：引擎登记与注销成对（静态槽不能持着一个死引擎）', () {
+      final activity = read(
+        'android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt',
+      );
+      expect(
+        occurrences(activity, 'LocalRemoteCommandInbox.attach('),
+        2,
+        reason:
+            '成对才成形状：`configureFlutterEngine` 里登记、`cleanUpFlutterEngine` 里注销。'
+            '只登记 ⇒ 每一条白名单通知都对着一具死引擎 invokeMethod（异常被吃掉，不崩、也不响应）',
+      );
+      expect(activity, contains('override fun cleanUpFlutterEngine('));
+    });
+
+    test('Dart 侧：DI 把取口接上了，且与执行链共用同一个 notifier', () {
+      final locator = read('lib/di/service_locator.dart');
+      expect(
+        locator,
+        contains('notifier: getIt<RemoteExecutionNotifier>()'),
+        reason:
+            '`RemoteCommandWiring` 的 notifier 是必填的，漏掉编译不过；'
+            '而若改成自己 new 一个，读者会以为原生那一格有第二个实现（它没有）',
+      );
+    });
+
+    test('Dart 侧：讯号与冷启动两个时刻都去取（否则某一条通知永远没人处理）', () {
+      final page = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      expect(
+        page,
+        contains("call.method == 'onLocalRemoteCommand'"),
+        reason:
+            '原生推的讯号没人接 ⇒ 白名单通知在 App 运行时永远不触发，'
+            '只有在冷启动那一次会被取走。而那正是"我在用着手机，它一直没反应"的形状',
+      );
+      // 两个时刻：讯号（主路径）与首帧后（通知早于引擎起来的那一条）。
+      // ⚠ 判的是**调用点**（`unawaited(_drainLocalRemoteCommands());`），不是标识符出现次数：
+      //   后者把那一个**函数定义**也算进去，于是"删掉一处调用"仍是 3 >= 2 而照样绿。
+      expect(
+        occurrences(page, 'unawaited(_drainLocalRemoteCommands());'),
+        2,
+        reason:
+            '两个时刻都得去取。少一个 ⇒ 另一条路（原生推 / 冷启动）上的通知永远留在原生那一堆里，'
+            '而它 60 秒后过期被丢弃 —— 现象是"有时候有效有时候没反应"。'
+            '（这里必须是恰好 2：多出来的调用会把同一条通知取两遍。）',
+      );
+      expect(
+        page,
+        contains('getIt<FnthinkContractLoader>().cached == null'),
+        reason:
+            '契约还没读到就构造 wiring 会在 `cached!` 上崩，而这次崩溃落在'
+            '"首帧后回调 + 原生讯号"两条路上，现场没有任何线索指向它',
+      );
+    });
+
+    test('前缀与新鲜期住在原生那一格，别在别处抄第二份', () {
+      // `FRX1:` 与 60 秒各只该有一处。Dart 侧若再抄一份前缀判据，
+      // 两处就会在"前缀改名"这件事上安静地错开一边。
+      final inbox = read(
+        'android/app/src/main/kotlin/com/fnthink/notice/LocalRemoteCommandInbox.kt',
+      );
+      expect(inbox, contains('"FRX1:"'), reason: '前缀判据不在交接那一格了：本条守卫空跑');
+      expect(
+        occurrences(inbox, 'FRX1'),
+        1,
+        reason: '交接那一格里 FRX1 出现多处 ⇒ 有一处是注释或第二份判据，前缀改名时会只改一边',
+      );
+      var dartSays = 0;
+      for (final entity in Directory('$root/lib').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final code = stripComments(entity.readAsStringSync());
+        dartSays += code.split('FRX1').length - 1;
+      }
+      expect(
+        dartSays,
+        0,
+        reason:
+            'lib/ 里出现了 FRX1 字面量 ⇒ Dart 侧多了一份"什么算一条本机指令"的判据，'
+            '而原生那一格才是唯一定义处（判定拆信封在 Dart 的信封类里，不该在这里重抄）',
+      );
+    });
+  });
+
   group('§4-10 片2：设备侧发送那一发的接线', () {
     test('装配判定里含 message，而投递面那扇门按契约词表反查（没有第二条路径）', () {
       final src = read('lib/services/fnthink_receiver_service.dart');

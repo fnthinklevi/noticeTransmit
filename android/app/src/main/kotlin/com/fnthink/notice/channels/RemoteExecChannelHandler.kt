@@ -2,6 +2,7 @@ package com.fnthink.notice.channels
 
 import com.fnthink.notice.FnthinkRemoteExecDisplay
 import com.fnthink.notice.I18n
+import com.fnthink.notice.LocalRemoteCommandInbox
 import com.fnthink.notice.MainActivity
 import com.fnthink.notice.RemoteExecutionCancelStore
 import io.flutter.plugin.common.MethodCall
@@ -10,7 +11,7 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * 远程执行的原生那一格（片3c-5）：状态栏通知的显示/清理 + 那一格「被原生记下撤销」的读口。
  *
- * ⚠ **只有这三个方法**。执行链本身在 Dart 那边（`RemoteCommandRunner`），这里不碰状态机 ——
+ * ⚠ **只有这五个方法**。执行链本身在 Dart 那边（`RemoteCommandRunner`），这里不碰状态机 ——
  *   一个"到点动手前问一句原生"之外的东西都不该落在这侧，
  *   否则同一个状态就有两个读者，而它们对不齐的时候没有任何症状。
  */
@@ -65,6 +66,14 @@ internal class RemoteExecChannelHandler(activity: MainActivity) : ChannelHandler
                 val execId = call.argument<String>("execId").orEmpty()
                 RemoteExecutionCancelStore.forget(activity, execId)
                 result.success(true)
+            }
+
+            // 白名单通知触发那一路的取口。⚠ 回 null 与回空串**不一样**：null = 现在没有
+            //   攒着的（已取空或全部过期），空串 = 有但取不到内容。两种都当"没有"处理，
+            //   而分开是因为 `take()` 在过期丢弃时也要让调用方知道"我刚丢了几条"。
+            "fnthinkRemoteExecTakeLocalCommand" -> {
+                val item = LocalRemoteCommandInbox.take()
+                result.success(item?.body)
             }
 
             else -> return false

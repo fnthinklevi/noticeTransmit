@@ -416,6 +416,19 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+
+        // 白名单通知触发那一路：引擎在的时候原生能直接推一个「去问一次」的讯号，
+        // 不在的时候那一条已经躺在队列里，等 Dart 装配好时自己取。
+        // ⚠ 这里复用的是同一个 methodChannel（同一个 channel 名的**另一个方向**：
+        //   上面那个 handler 是 Dart→原生，这个 invokeMethod 是原生→Dart，两侧互不冲突）。
+        LocalRemoteCommandInbox.attach(methodChannel)
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        // ⚠ 必须注销：静态槽持着一个已销毁的 engine 引用，之后每一次 offer 都会
+        //   对着死引擎 invokeMethod。异常被 catch 住不崩，但那是每次通知白付一次开销。
+        LocalRemoteCommandInbox.attach(null)
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onRequestPermissionsResult(

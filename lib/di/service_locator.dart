@@ -273,6 +273,9 @@ void setupLocator() {
       contract: getIt<FnthinkContractLoader>().cached!,
       recognizer: getIt<RemoteCommandRecognizer>(),
       runner: getIt<RemoteCommandRunner>(),
+      // ⚠ 与 runner 上面那个**同一个** lazy singleton：两者都只发方法调用，
+      //   各拿一个实例不会有行为差异，但让读者以为它们是两件事就不好了。
+      notifier: getIt<RemoteExecutionNotifier>(),
       saveRecord: (record) =>
           getIt<DatabaseHelper>().saveRemoteExecutionRecord(record),
     ),

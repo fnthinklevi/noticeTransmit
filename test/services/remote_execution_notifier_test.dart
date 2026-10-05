@@ -70,6 +70,18 @@ class _FakeNotifier implements RemoteExecutionNotifier {
 
   @override
   Future<void> forget(String execId) async {}
+
+  /// 白名单那一路：原生那边攒着的（拿一条少一条）。
+  final List<String> localInbox = [];
+  final List<String> localTaken = [];
+
+  @override
+  Future<String?> takeLocalCommand() async {
+    if (localInbox.isEmpty) return null;
+    final body = localInbox.removeAt(0);
+    localTaken.add(body);
+    return body;
+  }
 }
 
 void main() {

@@ -19,6 +19,7 @@ import '../services/fnthink_l3_grants.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_remote_runner.dart';
+import '../services/fnthink_remote_wiring.dart';
 import '../di/service_locator.dart' show getIt;
 import '../widgets/remote_execution_banner.dart';
 import '../services/sms_service.dart';
@@ -177,6 +178,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // #176 片4：冷启动是"点开配对链接"那一路（系统直接把 VIEW intent 交给 Activity）。
       // 与上面同一条理由：这一刻原生推不动（handler 还没装），只能由 Dart 来取。
       unawaited(_consumeFnthinkPairLink());
+      // 白名单通知触发那一路（契约 sources.L1 的第二条来源）：冷启动来取。
+      // 与上面两条**完全同一形状** —— 原生在 `configureFlutterEngine` 那一刻推不动，
+      // 而通知却可能早于这一刻到达（`NotificationMonitorService` 自己会把进程拉起来）。
+      unawaited(_drainLocalRemoteCommands());
     });
   }
 
@@ -386,8 +391,27 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         // #176 片4：App 活着时点开了配对链接。同样只交一个讯号 —— 那一串只从
         // `takeFnthinkPairLink` 一个出口走，所以冷启动那一发与这一发不可能各弹一次输入层。
         unawaited(_consumeFnthinkPairLink());
+      } else if (call.method == 'onLocalRemoteCommand') {
+        // 白名单通知触发那一路：原生只交一个「去问一次」的讯号，
+        // 真的那一条只从 `RemoteCommandWiring.drainLocalCommands` → 原生 `take()` 一个出口走
+        // （与 T83 / #176 同一条纪律：讯号可以重，取不能重）。
+        // ⚠ 这条分支挂在 widget 上是**当前代码形状下的唯一位置**：同一个 channel 名的
+        //   handler 全仓只有这一处（上面六个分支都在这里），另开一个 `setMethodCallHandler`
+        //   会把整个顶掉，收件/送达/电量/T83/#176 六条链一起失灵，而症状只是"通知不刷新"。
+        unawaited(_drainLocalRemoteCommands());
       }
     });
+  }
+
+  /// 白名单通知触发那一路：把原生那边攒着的指令取空并逐条走判定/执行。
+  ///
+  /// ⚠ 契约还没读到就**直接返回**，与 `onCommand` 那一格同一条理由：不这么判的话
+  ///   下面 `getIt<RemoteCommandWiring>()` 会在 `cached!` 上崩，而这次崩溃落在
+  ///   「首帧后回调 + 原生讯号」这两条路上，现场没有任何线索指向它。
+  ///   跳过的后果是那一条过 60 秒后被原生丢弃（不执行）—— 这是 fail-safe 那一侧。
+  Future<void> _drainLocalRemoteCommands() async {
+    if (getIt<FnthinkContractLoader>().cached == null) return;
+    await getIt<RemoteCommandWiring>().drainLocalCommands();
   }
 
   @override

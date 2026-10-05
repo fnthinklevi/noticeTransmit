@@ -44,7 +44,8 @@ class RemoteCommandRecognizer {
   final RemoteCredentialStore credentials;
 
   /// 这一条收件是不是远程指令。**只认幻念推送那一条渠道** —— L1 的白名单应用那一路
-  /// 是**本机**触发的、根本不经过收件表（见 `RemoteLocalTrigger`）。
+  /// 是**本机**触发的、根本不经过收件表，它走 [RemoteCommandWiring.onLocalContent]
+  /// （本文件那一条 `source:` 形参就是为它留的）。
   Future<RemoteCommandParse> parse(FnthinkInboxMessage message) async {
     final command = RemoteCommandEnvelope.decode(message.body);
     if (command == null) return const RemoteCommandNotACommand();

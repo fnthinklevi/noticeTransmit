@@ -626,7 +626,20 @@ class NotificationMonitorService : NotificationListenerService() {
                             rawInfo.copy(title = "$tag${rawInfo.title}")
                         } ?: rawInfo
                         // 规则引擎决策：立即推送 / 延迟推送 / 仅记录 / 静默忽略
-                        when (val decision = RuleEngine.decide(info, config.rulesJson)) {
+                        val decision = RuleEngine.decide(info, config.rulesJson)
+                        // 白名单通知触发远程执行那一路（契约 sources.L1 的第二条来源）。
+                        // ⚠ 放在**规则引擎之后**：Block 是用户明说"这条别动"，
+                        //   而远程执行是这条通知的副作用，不该比推送走得更远 ——
+                        //   顺序反过来就等于"规则拦得住推送、拦不住动手"。
+                        // ⚠ 只判 filterResult.source，不看 whitelistTag()：那只是给标题加了个
+                        //   备注标签，读它等于"标题里有没有『[白名单]』三个字"。
+                        if (decision !is RuleEngine.Decision.Block &&
+                            filterResult.source == FilterSource.WHITELIST &&
+                            LocalRemoteCommandInbox.offer(info.content)
+                        ) {
+                            DiagLog.w(TAG, "Local remote command offered from ${info.appName}")
+                        }
+                        when (decision) {
                             RuleEngine.Decision.Block -> {
                                 Log.d(TAG, "Notification blocked by rule: ${info.appName}")
                             }
