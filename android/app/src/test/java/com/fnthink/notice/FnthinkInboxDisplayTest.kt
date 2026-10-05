@@ -182,4 +182,44 @@ class FnthinkInboxDisplayTest {
             spec(messageId = "m_x7").messageId == "m_x7",
         )
     }
+
+    /**
+     * T55：**上岛 / 悬浮通知那一份提升只给推送那两枚渠道**，监控服务那条常驻通知不许动。
+     *
+     * ⚠ 这条钉的是**归属**，不是"有没有写那个 flag"：维护者 2026-10-05 纠正过一次 ——
+     * 我原先把监控那条渠道从 LOW 升到 HIGH，理由是"靠悬浮通知发现设备被取消"，
+     * 而那会让**被拦下的每一条通知都跟着弹一次横幅**（常驻通知每次更新都带最新内容）。
+     * 真正的落点是：收件 / 远程执行那两条（用户据此察觉的东西）要提升，
+     * 常驻那条**维持 LOW、安静待在通知栏**。
+     */
+    @Test
+    fun 上岛提升只归推送那两枚_监控那条常驻通知维持原样() {
+        val inbox = appFile("src/main/kotlin/com/fnthink/notice/FnthinkInboxDisplay.kt")
+            .readText()
+        val exec = appFile("src/main/kotlin/com/fnthink/notice/FnthinkRemoteExecDisplay.kt")
+            .readText()
+        val monitor = appFile("src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt")
+            .readText()
+
+        assertTrue(
+            "收件那一枚要请求提升（它是用户看见「有消息到」的那条）",
+            inbox.contains("NotificationPromoted.applyIfGranted"),
+        )
+        assertTrue(
+            "远程执行那枚同样要（有人要动你的设备，更该弹出来）",
+            exec.contains("NotificationPromoted.applyIfGranted"),
+        )
+        assertTrue(
+            "监控服务那条常驻通知**不许**带提升 flag：它一动，被拦下的每一条通知都会跟着弹横幅",
+            !monitor.contains("NotificationPromoted"),
+        )
+        assertTrue(
+            "监控那条渠道必须维持 IMPORTANCE_LOW（LOW 只进通知栏、不弹悬浮通知）",
+            monitor.contains("NotificationManager.IMPORTANCE_LOW"),
+        )
+        assertTrue(
+            "渠道 id 也不许换：换 id 会让用户丢���那一枚渠道上的既有设置",
+            monitor.contains("\"notification_monitor_channel\""),
+        )
+    }
 }

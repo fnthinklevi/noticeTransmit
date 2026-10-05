@@ -77,7 +77,12 @@ object FnthinkRemoteExecDisplay {
                         cancel,
                     ).build(),
                 )
-            manager.notify(GROUP_KEY, spec.execId.hashCode(), builder.build())
+            // T55：与收件那枚同一条理由（这是"有人要动你的设备"，更该能弹出来看见）
+            manager.notify(
+                GROUP_KEY,
+                spec.execId.hashCode(),
+                NotificationPromoted.applyIfGranted(context, builder.build()),
+            )
             true
         } catch (e: SecurityException) {
             android.util.Log.w(TAG, "远程执行通知权限被拒", e)

@@ -149,7 +149,15 @@ object FnthinkInboxDisplay {
                 //    少数桌面只显示一个点、不显示数字；② 用户在系统设置里关掉这一枚渠道的
                 //    角标，这里写什么都没用（与"横幅弹不弹"同一档用户主权）。
                 .setNumber(spec.unreadCount)
-            manager.notify(spec.tag, spec.notificationId, builder.build())
+            // T55：请求提升为「上岛 / 超级岛实时更新」（Android 16+）。
+            // ⚠ 这一枚**才**该要：它是用户能看见的那条（收件到达），
+            //   而监控服务那条常驻通知不动 —— 它一动，被拦下的每一条通知都会跟着弹横幅。
+            //   拿不到 POST_PROMOTED_NOTIFICATIONS 时原样发出（静默降级，不抛）。
+            manager.notify(
+                spec.tag,
+                spec.notificationId,
+                NotificationPromoted.applyIfGranted(context, builder.build()),
+            )
             true
         } catch (e: SecurityException) {
             // 权限这一档：areNotificationsEnabled() 已经问过一句，但系统/OEM 仍可能在这里抛
