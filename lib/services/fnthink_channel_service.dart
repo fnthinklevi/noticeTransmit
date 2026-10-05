@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../database/database_helper.dart';
 import '../models/fnthink_channel.dart';
 import '../models/fnthink_peer.dart';
+import 'channel_config_codec.dart';
+import 'fnthink_channel_mirror.dart';
 
 /// 幻念通道的**唯一写咽喉**（T94 片3）。
 ///
@@ -65,11 +67,15 @@ class FnthinkChannelService implements FnthinkChannelStore {
       name: name,
       target: target,
       targetKind: targetKind,
-      role: role,
+      // 归一在写这一侧：主备角色是**跨语言字符串契约**（原生 `ChannelRole.parse` 与
+      // 另外三族共用同一套取值），落一个自造词进去，两侧会各自按"认不出⇒主通道"处理，
+      // 表现是"界面灰着的一条照样推出去"。
+      role: ChannelConfigCodec.normalizeRole(role),
       createdAt: now,
       updatedAt: now,
     );
     await (await _db.database).insert(FnthinkChannel.table, channel.toDbRow());
+    await publishMirror();
     return channel;
   }
 
@@ -88,7 +94,10 @@ class FnthinkChannelService implements FnthinkChannelStore {
       await _rejectUncheckedDevice(channel.target);
     }
     final row = channel
-        .copyWith(updatedAt: DateTime.now().millisecondsSinceEpoch)
+        .copyWith(
+          role: ChannelConfigCodec.normalizeRole(channel.role),
+          updatedAt: DateTime.now().millisecondsSinceEpoch,
+        )
         .toDbRow();
     final db = await _db.database;
     final changed = await db.update(
@@ -100,6 +109,7 @@ class FnthinkChannelService implements FnthinkChannelStore {
     if (changed == 0) {
       throw StateError('没有这一条幻念通道：${channel.id}');
     }
+    await publishMirror();
     return (await list()).firstWhere((c) => c.id == channel.id);
   }
 
@@ -111,6 +121,7 @@ class FnthinkChannelService implements FnthinkChannelStore {
       where: 'id = ?',
       whereArgs: [id],
     );
+    await publishMirror();
   }
 
   /// 勾上 / 取消勾选「这一台可以当幻念通道的目标」。
@@ -141,6 +152,22 @@ class FnthinkChannelService implements FnthinkChannelStore {
       orderBy: 'granted_at DESC, peer_address ASC',
     );
     return rows.map(FnthinkPeer.fromDbRow).toList();
+  }
+
+  /// 把当前这份配置写进跨端镜像（原生读得到的那一份，见 `fnthink_channel_mirror.dart`）。
+  ///
+  /// 增删改三处各自调它，而不是让调用方记得调：漏掉一次的表现是"库里已经改了、
+  /// 原生还按旧配置推"，而界面上看不出任何异常。
+  Future<bool> publishMirror() async {
+    try {
+      return await publishFnthinkChannelMirror(await list());
+    } catch (e) {
+      // 镜像写不进去时**不**把异常抬给界面：调用方是"建一条通道 / 删一条通道"，
+      // 抛出去会让一次成功的保存看起来像失败，用户白按一次再来一遍（而库里已经有两条）。
+      // 真值是"这族暂时不参与自动扇出"，那条由原生侧的守卫与真机复验去发现。
+      debugPrint('[fnthink] 幻念通道镜像没写成（这一族暂时不参与自动扇出）：$e');
+      return false;
+    }
   }
 
   void _rejectInvalid({

@@ -1358,7 +1358,7 @@ class NotificationMonitorService : NotificationListenerService() {
     }
 
     /**
-     * 三族扇出的**唯一**入口（T12）。原先这段在三处各写一遍、共 7 个调用点，
+     * 四族扇出的**唯一**入口（T12）。原先这段在三处各写一遍、共 7 个调用点，
      * 任何"发送前先做的判断"（推送开关、主备分流）都只能挑几个点加 —— 一旦漏一处，
      * 表现就是"某条路径的通知不受策略约束"。所以先收口，再在收口处加分流。
      *
@@ -1403,19 +1403,26 @@ class NotificationMonitorService : NotificationListenerService() {
             configs = routed.emails,
             viaBackup = routed.viaBackup,
         )
+        dispatchFnthink(
+            info,
+            force = force,
+            configs = routed.fnthinks,
+            viaBackup = routed.viaBackup,
+        )
     }
 
-    /** 一次扇出对应的三族目标集合（路由后的结果，可能比配置里少） */
+    /** 一次扇出对应的四族目标集合（路由后的结果，可能比配置里少） */
     private class RoutedChannels(
         val webhooks: List<ConfigManager.WebhookChannelConfig>,
         val apps: List<AppChannelConfig>,
         val emails: List<EmailSender.EmailConfig>,
+        val fnthinks: List<FnthinkChannelConfig>,
         /** 本轮为「降级走备用」：直接取 [ChannelRouting.Decision.engagedBackup]，不自行推断 */
         val viaBackup: Boolean,
     )
 
     /**
-     * 主备路由（T12）：三族候选合成**一次**决策。
+     * 主备路由（T12）：四族候选合成**一次**决策。
      *
      * 分开按族决策会出现「webhook 已经走备用、邮件还在推主通道」的半吊子状态 ——
      * 而「主通道是否全不可用」本来就是设备级判断。
@@ -1427,6 +1434,7 @@ class NotificationMonitorService : NotificationListenerService() {
         val webhooks = configManager.getWebhookChannelConfigs()
         val apps = configManager.getAppChannelConfigs()
         val emails = EmailManager.getEnabledConfigs(this)
+        val fnthinks = configManager.getFnthinkChannelConfigs()
         val now = System.currentTimeMillis()
 
         fun available(family: String, id: String): Boolean = ChannelAvailability.reasonOf(
@@ -1445,6 +1453,11 @@ class NotificationMonitorService : NotificationListenerService() {
         emails.forEach {
             members.add(ChannelRouting.Member("email:" + it.id, it.role, available("email", it.id)))
         }
+        // 幻念族（T94 片4）同一次决策，不另判一次：另判就会出现"邮件走备用、幻念还在推主通道"
+        // 的半吊子状态，而这一族的健康度还没有探针（见下），所以可用性恒为真。
+        fnthinks.forEach {
+            members.add(ChannelRouting.Member("fnthink:" + it.id, it.role, true))
+        }
 
         val engaged = BackupModeStore.isEngaged(this)
         val decision = ChannelRouting.route(members, engaged)
@@ -1456,8 +1469,93 @@ class NotificationMonitorService : NotificationListenerService() {
             webhooks.filter { ("webhook:" + it.id) in want },
             apps.filter { ("app:" + it.id) in want },
             emails.filter { ("email:" + it.id) in want },
+            fnthinks.filter { ("fnthink:" + it.id) in want },
             viaBackup = decision.engagedBackup,
         )
+    }
+
+    /**
+     * 幻念族的出站口（T94 片4）。
+     *
+     * **两种目标走两条路，这是刻意的**：目标是一个 https 地址时，原生这一侧做的就是一条
+     * 普通 webhook POST —— 走 [NetworkClient] 才有一整套现成的东西（重试、健康度记账、
+     * 送达回执、推送暂停），在 Dart 另写一份只会得到一个"能发出去但什么都不记"的次品。
+     * 目标是一台绑定设备时才需要签名私钥（AndroidKeyStore）与载荷/nonce（全在 Dart），
+     * 于是那一半只能落进 [FnthinkFanoutQueue]，由 [FnthinkFanoutWorker] 起后台引擎去发。
+     *
+     * 推送暂停在这里同样生效，但**不回传 paused 结果**：幻念这一族的结果由发送那一侧逐条回执，
+     * 这里还没拿到任何送达事实，回传一个"暂停"就是凭空造一条送达记录。
+     */
+    private fun dispatchFnthink(
+        info: NotificationInfo,
+        force: Boolean = false,
+        configs: List<FnthinkChannelConfig>? = null,
+        viaBackup: Boolean = false,
+    ) {
+        try {
+            val selected = configs ?: configManager.getFnthinkChannelConfigs()
+            if (selected.isEmpty()) return
+            if (!force && !PushToggleManager.isPushActive()) {
+                Log.d(TAG, "Fnthink fanout skipped (push paused): ${info.appName}")
+                return
+            }
+            val hooks = selected.filter { it.isWebhook }
+            val devices = selected.filterNot { it.isWebhook }
+            hooks.forEach { dispatchFnthinkHook(info, it, force, viaBackup) }
+            if (devices.isNotEmpty()) {
+                val queue = FnthinkFanoutQueue(this)
+                val dropped = queue.enqueue(info, devices, viaBackup)
+                FnthinkFanoutWorker.schedule(this)
+                Log.d(TAG, "Fnthink fanout queued: ${devices.size} device targets, dropped $dropped")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "幻念分发异常: ${e.message}", e)
+        }
+    }
+
+    /**
+     * 幻念通道的 webhook 目标：一个 https 地址 + 一个不带签名的通用正文。
+     *
+     * 单通道异常不许影响别的通道（同 [AppChannelSender.sendSafely] 的理由）：
+     * 「一个通道有问题 = 全部通道失效」在多通道场景下不可接受。
+     */
+    private fun dispatchFnthinkHook(
+        info: NotificationInfo,
+        cfg: FnthinkChannelConfig,
+        force: Boolean,
+        viaBackup: Boolean,
+    ) {
+        try {
+            val payload = WebhookPayloadBuilder.buildTextBody(
+                title = info.title,
+                content = info.content,
+                appName = info.appName,
+                time = info.time,
+                deviceName = info.deviceName.ifEmpty { PrefsHelper.deviceName },
+                notifyType = info.type,
+            )
+            NetworkClient.sendWithRetry(
+                url = cfg.target,
+                payload = payload,
+                tag = "notification",
+                webhookType = WebhookPayloadBuilder.WebhookType.GENERIC,
+                secret = null,
+                recordId = info.id,
+                force = force,
+                onResult = { result ->
+                    Log.d(TAG, "Delivery(fnthink hook ${cfg.id}) ${NetworkClient.sanitizeUrlHost(cfg.target)} → status=${result.status}")
+                    ChannelAvailability.noteResult(
+                        this, "fnthink", cfg.id,
+                        success = result.status == WebhookResponseParser.DeliveryStatus.SUCCESS,
+                    )
+                    // 送达键用族 slug（`chan:fnthink`，T60 已占）：`channelKey` 会在第一个
+                    // 冒号处截断，带通道 id 的写法会读成"未知通道"回退成 generic。
+                    DeliveryNotifier.notify(this, info.id, "fnthink", result, cfg.target, viaBackup)
+                },
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "幻念 webhook 通道发送异常 id=${cfg.id}", e)
+        }
     }
 
     private fun dispatchEmail(

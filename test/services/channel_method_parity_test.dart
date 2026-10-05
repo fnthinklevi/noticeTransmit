@@ -99,10 +99,13 @@ void main() {
     // T55 新增三发（getSdkInt / isPromotedNotificationPermissionGranted /
     // requestPromotedNotificationPermission）—— 提升/悬浮通知权限那一族（Android 16+），
     // 见 §7 第 8.196 版。107 → 110 是**有意**改动，不是分支被删。
-    test('原生方法总数 == 110（防止分支被静默删除/新增未登记）', () {
+    // T94 片4 新增一发（`fanoutDone`，挂在 `com.fnthink.notice/fanout` 上）：
+    // 「收到通知就转」那一轮跑完之后 Dart 交回结果的那一发，与 `roundDone` 同形但**不同一条通道**。
+    // 110 → 111 是**有意**改动，不是分支被删。
+    test('原生方法总数 == 111（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        110,
+        111,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -126,9 +129,13 @@ void main() {
         // （原生推的讯号比 Dart 装 handler 更早，推出去会静默丢），与上面
         // `takeFnthinkOpenTarget` / `takeFnthinkPairLink` 同一个形状。106 → 107。
         'RemoteExecChannelHandler': 5,
-        // 不走 ChannelDispatcher 的那一类：worker 自己注册一条 presence 通道，
+        // 不走 ChannelDispatcher 的那一类：worker 自己注册一条通道，
         // Dart 那一轮的成与败都只交这一发。它必须**被扫到**才谈得上被守住（见上面的登记）。
         'FnthinkPresenceWorker': 1,
+        // T94 片4：幻念转发那一轮（事件驱动，一条通知排一次）的回报口。
+        // 与上面那个形状相同、通道不同 —— 合成一个 worker 会让「收货要等下一次闹钟」
+        // 和「转发要等下一条通知」共用一个 latch，而它们的截止时刻完全不同。
+        'FnthinkFanoutWorker': 1,
       });
     });
 
@@ -209,7 +216,9 @@ void main() {
 /// 2. **不走分发器**的那一类：某个类自己 `MethodChannel(ch).setMethodCallHandler(this)`，
 ///    分支写作 `call.method == "methodName"`。目前只有 `FnthinkPresenceWorker`
 ///    （后台那一轮的 `roundDone` 回报口，挂在 `com.fnthink.notice/presence` 上，
-///    与 App 主通道不是一条）。
+///    与 App 主通道不是一条）与 `FnthinkFanoutWorker`（T94 片4：幻念转发的 `fanoutDone`，
+///    挂在 `com.fnthink.notice/fanout` 上 —— **不是第三条**通道，是同一族事件驱动的第二个引擎，
+///    所以单独一个 worker 而不塞进收货那一个：那个是闹钟节奏驱动的，这个是一条通知排一次的）。
 ///
 /// ⚠ 第 2 类必须被扫到，不能靠"从 Dart 集合里把它剔掉"来放行：那样方向 1 就少了一整个
 /// 通道，改名/删分支从此无人知晓。这一类漏扫时的红长得像"Dart 调了不存在的方法"，
@@ -239,6 +248,8 @@ Map<String, List<String>> _nativeChannelMethods(String root) {
   final standalone = [
     '$root/android/app/src/main/kotlin/com/fnthink/notice/'
         'FnthinkPresenceWorker.kt',
+    '$root/android/app/src/main/kotlin/com/fnthink/notice/'
+        'FnthinkFanoutWorker.kt',
   ];
 
   final branchPattern = RegExp(r'"([A-Za-z0-9_]+)"\s*->');

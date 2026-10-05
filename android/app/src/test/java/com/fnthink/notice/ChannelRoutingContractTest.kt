@@ -14,10 +14,10 @@ import java.io.File
  *    某条通道从此静默收不到通知，归错方向不可接受。
  * 2. 跨语言的线值（`primary`/`backup`/`none`/`unset`）与 Dart 侧 `ChannelConfigCodec` 一致。
  *    两边各写一份字符串，改一侧不会有编译期报错 —— 表现就是"设了备用，原生当主通道推"。
- * 3. 三个配置源（webhook / 自建应用 / 邮件）都排除 NONE；但「按 id 找通道」不排除，
- *    否则"不参与推送"的通道连手动测试都做不了。
+ * 3. 四个配置源（webhook / 自建应用 / 邮件 / 幻念，T94 片4）都排除 NONE；
+ *    但「按 id 找通道」不排除，否则"不参与推送"的通道连手动测试都做不了。
  * 4. 扇出仍只有一个入口 [NotificationMonitorService.dispatchToChannels]。
- *    退回"三行在 7 个地方各写一遍"的形状，主备策略就会对新加的路径静默失效。
+ *    退回"四行在 7 个地方各写一遍"的形状，主备策略就会对新加的路径静默失效。
  */
 class ChannelRoutingContractTest {
 
@@ -173,12 +173,16 @@ class ChannelRoutingContractTest {
             Regex("""fun dispatchDeviceAlert\(""").findAll(svc).count(),
         )
 
-        // 收口函数自己必须把三族都发出去，并且把 webhook 的汇总回调透传给聚合链路
+        // 收口函数自己必须把四族都发出去，并且把 webhook 的汇总回调透传给聚合链路
         // （不透传 = 聚合成员又回到"写死成功"的老缺陷）。
         val funnel = svc.substringAfter("private fun dispatchToChannels(")
             .substringBefore("private class RoutedChannels(")
-        // 具名参数各占一行是格式化器的结果，所以按"每个参数在三族调用里各出现一次"断言，
+        // 具名参数各占一行是格式化器的结果，所以按"每个参数在四族调用里各出现一次"断言，
         // 不按整行文本匹配（整行匹配会随排版静默失效）。
+        //
+        // ⚠ 这个 4 是**族数**，不是"凑够三处就行"：T94 片4 把幻念族接进收口之后，每一族都
+        //   各自过一遍这三个参数。哪天第五族加进来而这里没跟着改，这条会当场红 ——
+        //   那正是它该做的事（"暂停开关断了"的症状是新族无视推送暂停）。
         for ((pattern, why) in listOf(
             """force = force,""" to "暂停开关断了：暂停时手动补推推不出东西",
             """configs = routed\.\w+,""" to "路由子集断了：不参与本轮的通道照收通知",
@@ -186,9 +190,9 @@ class ChannelRoutingContractTest {
                 "降级标记断了：那一族的历史记录永远不会标「备用」，用户看不出消息换了出口",
         )) {
             assertEquals(
-                3,
+                4,
                 Regex(pattern).findAll(funnel).count(),
-                "收口函数调三族时 `$pattern` 不是恰好 3 处 —— $why"
+                "收口函数调四族时 `$pattern` 不是恰好 4 处 —— $why"
             )
         }
         assertTrue(

@@ -38,6 +38,12 @@ class ConfigManager(private val context: Context) {
         // T23：设备态告警（电量/温度）要不要也过一遍关键词约束。**唯一写入者是 Dart**
         // （BatteryService.saveDeviceAlertsRespectConstraints 走 setBatterySetting 那枚通用布尔写）。
         private const val KEY_DEVICE_ALERT_CONSTRAINT = "flutter.device_alert_constraint_enabled"
+        /**
+         * 幻念通道（T94 片4）的跨端镜像。**唯一写入者是 Dart 侧
+         * `FnthinkChannelService.publishMirror`**，落盘时 shared_preferences 自动加
+         * `flutter.` 前缀，所以原生读到的键名就是本串。
+         */
+        private const val KEY_FNTHINK_CHANNELS = "flutter.fnthink_channels"
     }
 
     private val prefs: SharedPreferences by lazy {
@@ -191,6 +197,47 @@ class ConfigManager(private val context: Context) {
      *  不参与推送不该连手动测试都不让做，所以这里用全量视图而不是 [getAppChannelConfigs]。 */
     fun findAppChannelById(id: String): AppChannelConfig? =
         parseAppChannelConfigs().firstOrNull { it.id == id }
+
+    /**
+     * 幻念通道（T94 片4）。
+     *
+     * 这份配置的**真值**在 Dart 的 SQLite（`fnthink_channels` 表），原生读不到那个库 ——
+     * 没有 SQLCipher 依赖，与上面 T20 那条注释同因。所以这里读的是 Dart 写下来的镜像
+     * （`lib/services/fnthink_channel_mirror.dart`，唯一写入者是 `FnthinkChannelService`），
+     * 与另外两族同一套路：**唯一真值在库里，镜像只是让它跨过语言边界**。
+     *
+     * 镜像里只有**启用中**的通道，角色为 NONE 的在此排除 —— 与 [getWebhookChannelConfigs]
+     * / [getAppChannelConfigs] 同一个口径。"推不推"的裁决必须留在这一层：Dart 提前把 none
+     * 滤掉的话，「这一族参与不参与主备」就有第二个真值，两处不同步的表现是界面上灰着的一条
+     * 照样被推出去。
+     *
+     * 读不到 / 解析不出来一律当**没有幻念通道**（不推），不猜也不回退：
+     * 猜出来的目标就是"往一个用户没配的地方发通知"。
+     */
+    fun getFnthinkChannelConfigs(): List<FnthinkChannelConfig> {
+        val json = prefs.getString(KEY_FNTHINK_CHANNELS, null) ?: return emptyList()
+        return try {
+            val array = JSONArray(json)
+            (0 until array.length()).mapNotNull { i ->
+                val obj = array.optJSONObject(i) ?: return@mapNotNull null
+                val id = obj.optString("id", "").trim()
+                val target = obj.optString("target", "").trim()
+                if (id.isEmpty() || target.isEmpty()) return@mapNotNull null
+                val role = ChannelRole.parse(obj.optString("role", ""))
+                if (role == ChannelRole.NONE) return@mapNotNull null
+                FnthinkChannelConfig(
+                    id = id,
+                    name = obj.optString("name", ""),
+                    targetKind = obj.optString("target_kind", "device"),
+                    target = target,
+                    role = role,
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse fnthink channel configs", e)
+            emptyList()
+        }
+    }
 
     /** 写入自建应用通道（SecurePrefs 加密全量 + 明文脱敏镜像），服务刷新由 ACTION_UPDATE_CONFIG 触发 */
     fun setAppChannels(channels: List<JSONObject>) {
@@ -357,4 +404,23 @@ class ConfigManager(private val context: Context) {
             emptyList()
         }
     }
+}
+
+/**
+ * 一条幻念通道（转发目标 + 主备角色）。真值在 Dart 的 `fnthink_channels` 表，
+ * 这里是它跨过语言边界之后的形状（见 [ConfigManager.getFnthinkChannelConfigs]）。
+ *
+ * [targetKind] 只有两个词：`device`（一台已勾选的绑定设备，目标为地址码）或
+ * `webhook`（https 地址）。封闭而不猜：认不出的词由调用方当**设备**处理 ——
+ * 那一列在发送前要过地址码校验，错发不出去；而把它猜成 webhook 就是把通知发给用户
+ * 没配过的地址。
+ */
+data class FnthinkChannelConfig(
+    val id: String,
+    val name: String,
+    val targetKind: String,
+    val target: String,
+    val role: ChannelRole,
+) {
+    val isWebhook: Boolean get() = targetKind == "webhook"
 }

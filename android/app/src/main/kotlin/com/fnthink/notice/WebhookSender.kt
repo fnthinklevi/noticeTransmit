@@ -68,7 +68,7 @@ class WebhookSender(private val context: Context) {
      * 仅推送 webhook（不广播记录）。用于延迟推送到点后的补推：
      * 记录已在通知到达时通过 sendBroadcast 立即写入历史。
      *
-     * ⚠ 调用方应是 `NotificationMonitorService.dispatchToChannels`（三族扇出的唯一入口）。
+     * ⚠ 调用方应是 `NotificationMonitorService.dispatchToChannels`（四族扇出的唯一入口）。
      * 本类原先另有一个 `sendNotification`（广播 + 全通道直推）已无调用者并删除 —— 留着
      * 就是"绕过主备路由"的后门：T12 的角色判定、备用标记都只挂在唯一入口上。
      *

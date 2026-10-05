@@ -17,6 +17,7 @@ import 'services/theme_service.dart';
 import 'services/locale_service.dart';
 import 'services/archive_worker.dart';
 import 'services/fnthink_receive_coordinator.dart';
+import 'services/fnthink_fanout_entrypoint.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,11 @@ void main() {
 
       runApp(const MyApp());
       log('runApp 调用完成');
+      // 幻念转发那一发的后台入口 handle（T94 片4）。**每次冷启动都重写**：
+      // handle 会随编译变，而 prefs 里那一份不会自己跟上 —— 拿着旧 handle 的话，
+      // 表现是每一条通知都落进待发队列然后被原生丢掉（日志一行 no-entry-handle），
+      // 而界面上看不出任何异常。写失败不拦启动：这一族不写只是不自动转发。
+      unawaited(publishFnthinkFanoutEntryHandle());
     },
     (error, stackTrace) {
       log('全局未捕获异常: $error', error: error, stackTrace: stackTrace);

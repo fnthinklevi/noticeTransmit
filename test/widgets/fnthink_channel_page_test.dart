@@ -7,7 +7,6 @@ import 'package:notice_transmit/pages/fnthink_channel_settings_page.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 
-
 /// 幻念通道的两张页面（T94 片3）。
 ///
 /// ⚠ 这里**不开真库**，页面拿的是一份内存替身 —— 理由不是省事：`testWidgets` 跑在 fake async 里，
