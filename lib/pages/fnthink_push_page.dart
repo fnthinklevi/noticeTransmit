@@ -508,6 +508,12 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     );
     if (!ok || !mounted) return;
     setState(() => _busy = true);
+    // T76 ⓑ 首启选路：**在同意之后**选一次（T76 §6 ③ 的次序），不在这之前 ——
+    // 选路要发一次 HTTPS 请求，而"用户还没同意把内容交给服务器中转"那一刻连字节都不该出机。
+    // 选完落盘 ⇒ 之后无论探测怎么变都不再自动改（§6 ⑤）。
+    // ⚠ 探不到就落契约 default（`ensureFirstRunHost` 内部已兜），这一格不许因为探测失败
+    //   而把"同意"这一步卡住 —— 用户已经点了同意，卡住他的后果比选错服务器更糟。
+    await settings.ensureFirstRunHost();
     await settings.grantRelayConsent();
     if (!mounted) return;
     setState(() {

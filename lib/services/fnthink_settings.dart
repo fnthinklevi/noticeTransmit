@@ -1,6 +1,8 @@
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'fnthink_endpoint_probe.dart';
+
 /// 幻念推送的设备侧设置（T44 的数据层 —— 页面还没做，先把"总开关 + 服务地址"这两件事定下来）。
 ///
 /// 这一层存在的理由不是"存两个值"，而是**默认方向**：
@@ -94,6 +96,33 @@ class FnthinkSettings {
       contract.str(const ['transport', 'endpoints', 'default']) ?? '',
     );
     return value;
+  }
+
+  /// T76 ⓑ 首启选路：**只在"从没选过"时**按实测时延选一次，选完立刻落盘。
+  ///
+  /// ⚠ 与「禁止自动切换」（T76 §6 ⑤）的分工写在这里，别把它们混成一句：
+  /// ⑤ 管的是**已保存的偏好**被自动改掉；这一条只在偏好为空时动一次，
+  /// 且结果**写进偏好** ⇒ 之后无论探测结果怎么变、用户按没按过，都不再自动选。
+  /// 换句话说：它跑完这一次之后，己就是"用户的偏好"。
+  ///
+  /// [latencyProbe] 可注入（测试与"不想要探测"的那条路都用它）；null ⇒ 用真的
+  /// [measureEndpointLatency]。**探测失败或两台都测不到 ⇒ 落契约的 default**
+  /// 并同样写进偏好：宁可给一个确定的默认，也不要每次冷启动都重猜一次。
+  Future<String> ensureFirstRunHost({
+    EndpointLatencyProbe? latencyProbe,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(keyHost);
+    if (stored != null && stored.isNotEmpty) {
+      // 有偏好 ⇒ 一个字节都不许自动改（哪怕探测说另一台更快）。
+      return validateHost(stored);
+    }
+    final hosts = declaredHosts.map((h) => h.host).toList();
+    final probe = latencyProbe ?? measureEndpointLatency;
+    final picked =
+        nearestHost(await probe(hosts), preferredOrder: hosts) ?? defaultHost;
+    await setHost(picked);
+    return picked;
   }
 
   /// T76 双地域：契约声明的那**两台**（`transport.endpoints.international` /
