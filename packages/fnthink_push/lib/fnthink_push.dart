@@ -7,6 +7,7 @@
 /// 主 App 以 path 依赖引入。
 library;
 
+export 'src/backup_replay.dart';
 export 'src/canonical_bytes.dart';
 export 'src/capabilities.dart';
 export 'src/contract.dart';

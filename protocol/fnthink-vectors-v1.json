@@ -1142,6 +1142,139 @@
       "note": "已经在飞的那条不挤位（挤它等于丢一条用户可能已经看到的消息）"
     }
   ],
+  "_backupReplayWhy": "T46：delivery.advance 的步里只回答「该走哪条路」（路线词），而路线词之后的三件事 —— 能不能再补推一次（幂等键）、最多补推几次（上限）、这一发在记录上叫什么（标签）—— 今天在代码里没有第二份答案。三样都写在契约里，所以三样都由这份向量钉住，两端各断言一遍。⇒ 这一组的重点不是各行分别对不对，而是**互斥**：backup_replay 与 queue_resend 永远只出现一个（两条并存 = 同一条消息提醒两次）。",
+  "backupReplay": [
+    {
+      "id": "br-queue-resend",
+      "given": {
+        "route": "queue_resend",
+        "alreadyReplayed": false,
+        "replayCount": 0,
+        "messageId": "msg-1"
+      },
+      "expect": {
+        "action": "queue_resend",
+        "label": null,
+        "dedupeKey": null,
+        "limitReason": null
+      },
+      "note": "没配备用渠道 ⇒ 交服务端排队补发，发送端**不动作**。这一行是互斥的正面说法：调用方不必自己判 「有没有备用」（那是第二份判据）"
+    },
+    {
+      "id": "br-queue-resend-after-replay",
+      "given": {
+        "route": "queue_resend",
+        "alreadyReplayed": true,
+        "replayCount": 3,
+        "messageId": "msg-1"
+      },
+      "expect": {
+        "action": "queue_resend",
+        "label": null,
+        "dedupeKey": null,
+        "limitReason": null
+      },
+      "note": "幂等键与补推上限**只管补推那一档**：已经补推过不该把排队补发也一起压掉（压掉的后果是这条消息再没有投递路径）"
+    },
+    {
+      "id": "br-replay-first",
+      "given": {
+        "route": "backup_replay",
+        "alreadyReplayed": false,
+        "replayCount": 0,
+        "messageId": "msg-2"
+      },
+      "expect": {
+        "action": "backup_replay",
+        "label": "\u5907\u7528\u8865\u63a8",
+        "dedupeKey": "msg-2",
+        "max": 2,
+        "limitReason": null
+      },
+      "note": "配了备用渠道 ⇒ 走备用补推；去重键就是这条的 message_id（契约 waitingOnline.backupReplayIdempotencyKey）"
+    },
+    {
+      "id": "br-replay-second",
+      "given": {
+        "route": "backup_replay",
+        "alreadyReplayed": false,
+        "replayCount": 1,
+        "messageId": "msg-2"
+      },
+      "expect": {
+        "action": "backup_replay",
+        "label": "\u5907\u7528\u8865\u63a8",
+        "dedupeKey": "msg-2",
+        "max": 2,
+        "limitReason": null
+      },
+      "note": "上限是 2 ⇒ 还有一次可补推（把上限读成 1 的实现会在这一行红）"
+    },
+    {
+      "id": "br-replay-cap",
+      "given": {
+        "route": "backup_replay",
+        "alreadyReplayed": false,
+        "replayCount": 2,
+        "messageId": "msg-2"
+      },
+      "expect": {
+        "action": "none",
+        "label": null,
+        "dedupeKey": null,
+        "limitReason": "cap-reached"
+      },
+      "note": "补推次数用满 ⇒ 什么都不做（契约 limits.backupReplayMax = 2）"
+    },
+    {
+      "id": "br-replay-over-cap",
+      "given": {
+        "route": "backup_replay",
+        "alreadyReplayed": false,
+        "replayCount": 5,
+        "messageId": "msg-2"
+      },
+      "expect": {
+        "action": "none",
+        "label": null,
+        "dedupeKey": null,
+        "limitReason": "cap-reached"
+      },
+      "note": "上限判据必须写成 >= 而不是 ==：写成 == 的话计数一旦越过上限就一路补推下去（账是从别处读来的，越界是常态）"
+    },
+    {
+      "id": "br-replay-idempotent",
+      "given": {
+        "route": "backup_replay",
+        "alreadyReplayed": true,
+        "replayCount": 1,
+        "messageId": "msg-2"
+      },
+      "expect": {
+        "action": "none",
+        "label": null,
+        "dedupeKey": null,
+        "limitReason": "already-replayed"
+      },
+      "note": "同一个 message_id 已经补推过 ⇒ 幂等，不许再来一次"
+    },
+    {
+      "id": "br-replay-idempotent-before-cap",
+      "given": {
+        "route": "backup_replay",
+        "alreadyReplayed": true,
+        "replayCount": 2,
+        "messageId": "msg-2"
+      },
+      "expect": {
+        "action": "none",
+        "label": null,
+        "dedupeKey": null,
+        "limitReason": "already-replayed"
+      },
+      "note": "幂等**先于**上限判：两者同时成立时报幂等，因为 「这条已经补推过」才是这次不动作的直接原因，而上限用满是另一条消息的事"
+    }
+  ],
   "titleEnvelope": {
     "_why": "设备这一路的标题信封（契约 deviceSend.titleEnvelope）。同一份表，Dart 与 Node 各断自己那一半：Dart 断「这一串是编码规则算出来的」与「收件端拆出来就是 appliedTitle/appliedBody」；Node 断「服务端把 wireBody 当一段不透明正文：存进去什么、poll 回来还是什么，而标题列永远是空的」。",
     "_serverTitleWhy": "expect.serverTitle 全表都是空串，这不是遗漏：canonicalOrder 里没有 title，而服务端只收出现在已签字节里的标题。哪天它开始自己拆信封，这一列就不再是空的，而同一条消息在两台设备上会有两种表现 —— 那正是 splitBy=receiving-client 要防的。",

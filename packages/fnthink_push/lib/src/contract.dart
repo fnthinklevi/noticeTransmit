@@ -3013,6 +3013,29 @@ class FnthinkContract {
       boolOf(const ['waitingOnline', 'notifySenderProactively']) == false,
       '进入 waiting_online 不主动通知发送端（已定）',
     );
+    // 补推那三样（幂等键 / 上限 / 标签）是 T46 那条内核唯一的读数来源。缺任意一样时它的表现
+    // 都**不报错**：幂等键缺 ⇒ 拿空串去重（等于没去重），上限缺 ⇒ 退回 0（这条路径直接消失），
+    // 标签缺 ⇒ 记录上那一格空着。三个都判在契约这一层，是因为"实现里退回默认值"这一族错误
+    // 从来不会自己暴露，只会在某条消息被补推两次的那天被人当成玄学。
+    final replayMax = intOf(const ['limits', 'backupReplayMax']);
+    need(
+      replayMax != null && replayMax > 0 && replayMax < 10,
+      'limits.backupReplayMax 必须是 1..9 的整数（备用补推最多再走几条路，'
+      '0 = 这条路径被静默关掉）：$replayMax',
+    );
+    final replayKey = str(const [
+      'waitingOnline',
+      'backupReplayIdempotencyKey',
+    ]);
+    need(
+      replayKey != null && replayKey.isNotEmpty,
+      'waitingOnline.backupReplayIdempotencyKey 不能为空：'
+      '没有幂等键，同一条消息会被补推两次（＝同一条消息提醒两次）',
+    );
+    need(
+      (str(const ['waitingOnline', 'backupReplayLabel']) ?? '').isNotEmpty,
+      'waitingOnline.backupReplayLabel 不能为空：补推那一发在记录上要有个名字',
+    );
 
     // ── 传输 ──
     need(
