@@ -75,6 +75,22 @@ if not (title.startswith("**") and title.endswith("**") and len(title) > 4):
     print("RED update.md v%s+%s 条目的第一行不是加粗标题 ⇒ 没有可对照的标题行（发布说明的口径就是这个标题行）"
           % (ver, build)); sys.exit(0)
 title = title.strip("*").strip()
+# T61 更新流双语：本条目还要有**英文**那条加粗标题行（update.md 的双语约定是
+# "先完整中文版，分隔线后为逐条对应的英文翻译"）⇒ 取本条目里**第二条**加粗行。
+# 为什么必须取"第二条"而不是"第一条以 ASCII 字母开头的"：某些条目的中文标题本身
+# 以 ASCII 开头（"1.5.x ..."），按字母挑会挑到中文那一条，于是英文那一半永远核不到。
+title_en = ""
+for l in lines[at + 1:]:
+    s = l.strip()
+    if s.startswith("### "): break
+    if s.startswith("**") and s.endswith("**") and len(s) > 4:
+        cand = s.strip("*").strip()
+        if cand != title:
+            title_en = cand
+            break
+if not title_en:
+    print("RED update.md v%s+%s 条目没有英文标题行（分隔线后那一条加粗）⇒ 无从核对 changelogEn"
+          % (ver, build)); sys.exit(0)
 
 try:
     data = json.load(open("server/data/version.json", encoding="utf-8"))
@@ -87,6 +103,15 @@ if not first:
 if first != title:
     print("RED version.json 的 changelog 首行与本次条目不符：实得「%s」，应为 update.md "
           "v%s+%s 的标题行「%s」" % (first, ver, build, title)); sys.exit(0)
+# T61：英文那一半同样要核。客户端按"取不到回退中文"处理，所以**缺字段不会让用户看到空白**
+# —— 正因如此，只靠"不发会回退"就以为双语已做，是这条闸门存在的理由。
+notes_en = (data.get("changelogEn") or "").strip()
+first_en = notes_en.splitlines()[0].strip() if notes_en else ""
+if not first_en:
+    print("RED version.json 没有 changelogEn（英文系统下更新弹窗仍是中文）"); sys.exit(0)
+if first_en != title_en:
+    print("RED version.json 的 changelogEn 首行与本次条目不符：实得「%s」，应为 update.md "
+          "v%s+%s 的英文标题行「%s」" % (first_en, ver, build, title_en)); sys.exit(0)
 print("OK")
 PYEOF
 )

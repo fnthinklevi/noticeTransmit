@@ -312,6 +312,8 @@
         document.getElementById('v_latestBuild').value = data.latestBuild || '';
         document.getElementById('v_minSupportedVersion').value = data.minSupportedVersion || '';
         document.getElementById('v_changelog').value = data.changelog || '';
+        // T61：英文那一份同样读回来（缺键时是空串，不是 null —— `|| ''` 兜住两种）。
+        document.getElementById('v_changelogEn').value = data.changelogEn || '';
         document.getElementById('v_forceUpdate').checked = data.forceUpdate || false;
         document.getElementById('v_forceUpdateVersion').value = data.forceUpdateVersion || '';
         document.getElementById('v_forceUpdateBuild').value = data.forceUpdateBuild || '';
@@ -344,6 +346,8 @@
       latestBuild: parseInt(document.getElementById('v_latestBuild').value) || 0,
       minSupportedVersion: document.getElementById('v_minSupportedVersion').value,
       changelog: document.getElementById('v_changelog').value,
+      // T61：英文那一份。⚠ 客户端按"取不到回退中文"处理 ⇒ 这里允许空串，不做校验拦截。
+      changelogEn: document.getElementById('v_changelogEn').value,
       forceUpdate: document.getElementById('v_forceUpdate').checked,
       forceUpdateVersion: document.getElementById('v_forceUpdateVersion').value,
       forceUpdateBuild: parseInt(document.getElementById('v_forceUpdateBuild').value) || 0,

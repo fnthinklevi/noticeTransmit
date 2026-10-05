@@ -163,7 +163,13 @@ extension _MainPageUpdate on _MainPageState {
           // ⚠ 这里**不套**滚动：`CupertinoAlertDialog` 已把 content 放在有界且可滚的位置里
           // （与 `IosFormDialog` / `showIosOptionPicker` 同一课，反证 PK5/FM1 都验过）。
           child: Text(
-            result.changelog.replaceAll('\\n', '\n'),
+            // T61 更新流双语：按软件语言**只显示一种**，英文那一份没有就回退中文
+            // （裁决在 `pickUpdateChangelog`，是纯函数 ⇒ 能被单测直接断）。
+            pickUpdateChangelog(
+              zh: result.changelog,
+              en: result.changelogEn,
+              locale: Localizations.localeOf(context),
+            ).replaceAll('\\n', '\n'),
             style: TextStyle(
               fontSize: 13,
               height: 1.4,

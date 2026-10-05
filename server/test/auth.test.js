@@ -144,6 +144,9 @@ describe('版本保存链路（前后端契约）', () => {
     latestVersion: '2.0.0',
     latestBuild: 20,
     changelog: '测试版本更新',
+    // T61 更新流双语：英文那一份。**放进 validBody 是有意的** ——
+    // 它一进这个夹具，"白名单漏了它"就当场可见（落盘读回 + 公开接口回显两处都断）。
+    changelogEn: 'Test release notes',
     downloads: {
       arm64: 'https://example.com/app_arm64.apk',
       arm32: 'https://example.com/app_arm32.apk',
@@ -153,6 +156,57 @@ describe('版本保存链路（前后端契约）', () => {
     fileSizes: { arm64: 123456, arm32: 0, x86_64: 100 },
     minSupportedVersion: '1.0.0',
   };
+
+  test('T61：changelogEn 必须能落盘并经公开接口下发（白名单漏了它就是静默丢）', async () => {
+    const save = await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send(validBody);
+    expect(save.status).toBe(200);
+
+    // ① 落盘读回：白名单之外 / 之内，这一行是唯一能分辨的地方
+    // ⚠ 断法写成 `.toBe(...)`：jest 的 `expect(actual, message)` **第二个参数不是 message**
+    //   （那是 vitest 的写法），在 jest 里它会让 expect 自己抛，而报错指向 expect 内部 ——
+    //   与"白名单漏了它"长得完全不一样。
+    const onDisk = store.readJsonFile(store.VERSION_FILE, {});
+    expect(onDisk.changelogEn).toBe('Test release notes');
+
+    // ② 公开接口下发：客户端那一侧靠它才有英文那份可显示
+    const pub = await request(app)
+      .get('/api/version/check')
+      .query({ version: '1.0.0', build: 1 });
+    expect(pub.body.data.changelogEn).toBe('Test release notes');
+
+    // ③ 老数据（没有这个键）必须仍是合法响应，且那一格是空串而不是 undefined
+    const noEn = await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send({ ...validBody, changelogEn: undefined });
+    expect(noEn.status).toBe(200);
+    const after = await request(app)
+      .get('/api/version/check')
+      .query({ version: '1.0.0', build: 1 });
+    expect(after.body.data.changelogEn).toBe('');
+    // 复位夹具：后面那些用例读的是这一份
+    await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send(validBody);
+  });
+
+  test('T61：changelogEn 不是字符串 → 400（别把对象存进去，客户端 toString 会出 {…}）', async () => {
+    const res = await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send({ ...validBody, changelogEn: { zh: 'x', en: 'y' } });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('changelogEn');
+    // 复位：这一发故意存不进去，后面的用例仍按 validBody 读
+    await request(app)
+      .post('/api/admin/version')
+      .set('x-session-id', sessionId)
+      .send(validBody);
+  });
 
   test('未认证 POST 保存 → 401', async () => {
     const res = await request(app).post('/api/admin/version').send(validBody);

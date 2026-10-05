@@ -275,6 +275,12 @@
             <label>更新日志</label>
             <textarea id="v_changelog" placeholder="每行一条更新内容"></textarea>
           </div>
+          <!-- T61：英文那一份。留空时客户端按"取不到回退中文"处理 ⇒ 这一格**允许空**，
+               而"这一版该有"由发版闸门去核（那里才有"本次版本"这个概念）。 -->
+          <div class="form-group">
+            <label>更新日志（英文）</label>
+            <textarea id="v_changelogEn" placeholder="每行一条，留空则显示中文"></textarea>
+          </div>
           <div class="btn-group">
             <button class="btn btn-primary" data-action="saveVersion">保存版本配置</button>
             <button class="btn btn-secondary" data-action="loadVersion">刷新数据</button>

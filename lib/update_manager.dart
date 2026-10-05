@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+// T61：pickUpdateChangelog 的参数类型（`Locale` 住在 widgets/dart:ui 那层）。
+import 'package:flutter/widgets.dart' show Locale;
 
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -370,6 +372,9 @@ class AppUpdateManager {
         latestBuild: latestBuild,
         forceUpdate: needForce,
         changelog: versionData['changelog']?.toString() ?? '',
+        // T61：英文那一份同理。两串都由服务端发下来，**这里不选** ——
+        // 选的那一处是界面（那里才知道软件语言），这一层只搬运。
+        changelogEn: versionData['changelogEn']?.toString() ?? '',
         downloadUrl: downloadUrl,
         fileSize: fileSize,
         minSupportedVersion:
@@ -1009,12 +1014,35 @@ class AppUpdateManager {
   }
 }
 
+/// T61 更新流双语：**按软件语言只显示一种**，取不到英文那一份就回退中文。
+///
+/// 为什么不返回"两段拼起来"：混排的更新日志读起来像半成品，而英文用户拿到一整段中文
+/// 又等于没做 —— 两种都比"英文系统显示英文、这一版没写英文就显示中文"更差。
+/// ⚠ 这里判的是**软件语言**（应用实际用的那个 locale），不是系统语言：
+/// 用户在设置里切过语言之后，系统语言与软件语言就是两件事。
+String pickUpdateChangelog({
+  required String zh,
+  required String en,
+  required Locale locale,
+}) {
+  if (locale.languageCode != 'en') return zh;
+  final trimmed = en.trim();
+  // 空白也算"没有"：服务端可能存下一个空串或几个换行，那不是一段说明。
+  return trimmed.isEmpty ? zh : trimmed;
+}
+
 class VersionCheckResult {
   final bool hasUpdate;
   final String latestVersion;
   final int latestBuild;
   final bool forceUpdate;
   final String changelog;
+
+  /// T61 更新流双语：英文那一份。**空串 = 服务端没有这一版**（老数据），
+  /// 界面按"取不到回退中文"处理，不是缺陷。中文那一份保持原样不动 ——
+  /// 老包读的是它，把它改成对象的话它们 `toString()` 会显示 `{zh=…}`。
+  final String changelogEn;
+
   final String downloadUrl;
   final int fileSize;
   final String minSupportedVersion;
@@ -1030,6 +1058,9 @@ class VersionCheckResult {
     required this.latestBuild,
     required this.forceUpdate,
     required this.changelog,
+    // T61：默认空串而不是 required —— 补它不是为了"逼所有构造点都写"，
+    // 而是老数据/老路径没有它时仍能构造出对象（回退中文由界面那一侧负责）。
+    this.changelogEn = '',
     required this.downloadUrl,
     required this.fileSize,
     required this.minSupportedVersion,
@@ -1063,6 +1094,10 @@ class VersionCheckResult {
       latestBuild: json['latestBuild'] ?? 0,
       forceUpdate: json['forceUpdate'] ?? false,
       changelog: json['changelog'] ?? '',
+      // T61：第二条读取路径（API 模式）。⚠ 两条路径都要写 —— 只改直接解析那一处，
+      // 走 fromJson 的调用点拿到的 changelogEn 恒为空串，而界面按"取不到回退中文"
+      // 处理 ⇒ 表现是"英文系统下仍然显示中文"，且没有任何一条用例会红。
+      changelogEn: json['changelogEn'] ?? '',
       downloadUrl: downloadUrl,
       fileSize: fileSize,
       minSupportedVersion: json['minSupportedVersion'] ?? '',

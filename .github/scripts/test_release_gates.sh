@@ -78,22 +78,38 @@ cat > update.md <<'EOF'
 **送达状态判定修正 + 备份恢复兼容**
 
 - 正文
+
+---
+
+**Delivery-status fix + backup restore compatibility**
 EOF
-notes_json() { # $1 = changelog 首行（"-" 表示压根不给这个字段）
+# T61：changelog / changelogEn 两份都要能写出来。"-" = 压根不给那个字段
+# （"不给"与"给了但是空串"在这条闸门里是同一件事：都按"没有"报）。
+notes_json() { # $1 = changelog 首行  $2 = changelogEn 首行（"-" 表示不给）
     if [ "$1" = "-" ]; then
         printf '{"latestVersion":"1.5.74","latestBuild":113}\n' > server/data/version.json
-    else
+    elif [ "$2" = "-" ]; then
         printf '{"latestVersion":"1.5.74","latestBuild":113,"changelog":"%s\\n\\n正文"}\n' \
             "$1" > server/data/version.json
+    else
+        printf '{"latestVersion":"1.5.74","latestBuild":113,"changelog":"%s\\n\\n正文",' \
+            "$1" > server/data/version.json
+        printf '"changelogEn":"%s\\n\\nbody"}\n' "$2" >> server/data/version.json
     fi
 }
-notes_json "送达状态判定修正 + 备份恢复兼容"
-check "首行取自本次标题行 → 通过" 0 "" check_release_notes 1.5.74 113
-notes_json "送达状态判定修正 + 备份恢复兼容 与表单统一"
-check "首行与标题行差几个字 → 红并点名不符" 1 "与本次条目不符" check_release_notes 1.5.74 113
-notes_json "-"
+ZH="送达状态判定修正 + 备份恢复兼容"
+EN="Delivery-status fix + backup restore compatibility"
+notes_json "$ZH" "$EN"
+check "中英首行都取自本次条目 → 通过" 0 "" check_release_notes 1.5.74 113
+notes_json "$ZH 与表单统一" "$EN"
+check "中文首行与标题行差几个字 → 红并点名不符" 1 "与本次条目不符" check_release_notes 1.5.74 113
+notes_json "$ZH" "$EN and form unification"
+check "英文首行与条目差几个字 → 红并点名不符" 1 "changelogEn 首行与本次条目不符" check_release_notes 1.5.74 113
+notes_json "$ZH" "-"
+check "压根没有 changelogEn → 红（英文系统下仍是中文）" 1 "没有 changelogEn" check_release_notes 1.5.74 113
+notes_json "-" "$EN"
 check "压根没有 changelog 字段 → 红" 1 "没有 changelog" check_release_notes 1.5.74 113
-notes_json "送达状态判定修正 + 备份恢复兼容"
+notes_json "$ZH" "$EN"
 check "update.md 没有本次条目 → 红并说无从核对" 1 "无从核对" check_release_notes 1.5.99 113
 cat > update.md <<'EOF'
 ### v1.5.74+113 - 2026-09-21
@@ -101,6 +117,15 @@ cat > update.md <<'EOF'
 - 正文直接开始，没有加粗标题
 EOF
 check "条目第一行不是加粗标题 → 红并说没有可对照的标题行" 1 "不是加粗标题" check_release_notes 1.5.74 113
+cat > update.md <<'EOF'
+### v1.5.74+113 - 2026-09-21
+
+**只有中文标题，没有英文那一条**
+
+- 正文
+EOF
+notes_json "$ZH" "$EN"
+check "条目没有英文标题行 → 红并说无从核对 changelogEn" 1 "没有英文标题行" check_release_notes 1.5.74 113
 
 # 反向自检：闸门表达式本身不能退化成「永远返回 0」的空壳。
 if printf '%s' "$BLOCK" | grep -q 'return 1'; then

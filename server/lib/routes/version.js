@@ -35,6 +35,11 @@ const VERSION_CONFIG_FIELDS = [
   'forceUpdateVersion',
   'forceUpdateBuild',
   'changelog',
+  // T61 更新流双语：**新增**英文那一份，`changelog` 保持中文串不动 ——
+  // 老包读的是 `changelog`，改成对象的话它们 `toString()` 会显示 `{zh=…}`。
+  // 这一行必须在白名单里：保存接口只接受列出来的键，漏了它就是"管理面填了、
+  // 落盘时静默丢掉"，而报告里看不出任何东西。
+  'changelogEn',
   'downloads',
   'fileSizes',
   'sha256',
@@ -109,6 +114,17 @@ function validateVersionConfig(body) {
       }
     }
   }
+  // T61：`changelog` / `changelogEn` 都是可选字符串。
+  // ⚠ 这里**不要求英文那一份非空**：老版本还没有它（`changelogEn` 缺失是常态，
+  //   不是缺陷），强制必填会让每一次升级保存都红，而客户端本来就按"取不到回退中文"处理。
+  //   要非空的话得由发版闸门去核（那是"这一版该有"的判断，不是"这个键合法"的判断）。
+  for (const k of ['changelog', 'changelogEn']) {
+    const v = body[k];
+    if (v === undefined) continue;
+    if (typeof v !== 'string') {
+      errors.push(`${k} 必须为字符串`);
+    }
+  }
   // 兼容旧契约：仅当未提供 downloads 时才校验 downloadUrl/fileSize
   if (body.downloads === undefined) {
     if (body.downloadUrl !== undefined) {
@@ -175,6 +191,8 @@ router.get('/api/version/check', (req, res) => {
       forceUpdate: false,
       forceUpdateBuild: 0,
       changelog: '',
+      // T61：英文那一份同样给空串默认值，缺它时客户端按"取不到回退中文"处理。
+      changelogEn: '',
       downloads: {},
       fileSizes: {},
       minSupportedVersion: '1.0.0',
@@ -207,6 +225,10 @@ router.get('/api/version/check', (req, res) => {
         latestBuild: versionData.latestBuild,
         forceUpdate: needForce,
         changelog: versionData.changelog,
+        // T61：两串都发下去，**由客户端按软件语言只显示一种**（取不到回退中文）。
+        // ⚠ 服务端不在这里替客户端选：它不知道这台机器的软件语言，而问一次要多一个参数
+        // 与一条代理链路；两串一起发是唯一不把语言判断塞进两处的做法。
+        changelogEn: versionData.changelogEn || '',
         downloadUrl,
         fileSize,
         downloads,
