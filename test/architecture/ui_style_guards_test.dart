@@ -520,6 +520,20 @@ void main() {
       );
     });
 
+    // ⚠ 同 AlertDialog 那本账一样的教训（反证 TP28-C）：**账清零不等于闸变硬** ——
+    //   「台账之外不许有假根」那条的牙全靠这份账，把一行加回来就把那个文件重新变成"允许"。
+    //   所以这本账从"待办清单"退化成"**必须恒空**的常量"，由这一条钉住。
+    test('假根 harness 台账必须保持为空（新 harness 一律走 AppRoot）', () {
+      expect(
+        kPendingMaterialAppTestHarnesses,
+        isEmpty,
+        reason:
+            '把某文件加回这本账＝让那个 harness 继续验假根；要留下就得先真换成 '
+            '`AppRoot(locale: …, dark: …, home: …)`（反证 TP28-C：'
+            '塞一枚 ＋ 加一条 ⇒ 当时 exit 0）',
+      );
+    });
+
     test('已划掉的那批 harness 走的是真根，不是自己再搭一枚壳', () {
       // 与「已划掉的每一屏走的是 helper」同一条道理：台账能靠"换个写法"划掉，
       // 也能靠"删掉那一句"划掉 —— 后者会让这条用例什么都验不到却仍是绿。
@@ -572,14 +586,16 @@ void main() {
   });
 }
 
-/// 仍 pump `MaterialApp` 的 widget harness（T90 片9 起的台账，只许缩短）。
-/// 不含本文件自己：这里那些 needle 是故意留在代码里的探针，见 `harnessByPath` 的排除。
-const Set<String> kPendingMaterialAppTestHarnesses = <String>{
-  // 这两页自己还长着 AlertDialog（Material 台账上），换根会把"页面自己的红"和"换根的红"混在一起
-  // ⇒ 等那一屏迁弹层时一起换。
-  'test/widgets/app_filter_page_test.dart',
-  'test/widgets/webhook_settings_page_test.dart',
-};
+/// 仍 pump `MaterialApp` 的 widget harness（T90 片9 起的台账）。
+/// ⚠ **片29（2026-10-05）这本账清零**：`app_filter_page_test` 与 `webhook_settings_page_test`
+///   两份换真根 `AppRoot` ⇒ **test/ 下已无待换的假根 harness**。
+///   ⚠ 当年把这两份留在账上的理由写着"这两页自己还长着 AlertDialog"——**那个理由已经过期**
+///   （片11 收 `showPermissionGuide`、片23 收 `showIosOptionPicker`），而留在假根的真实代价是：
+///   本页的真形态（尺寸／文字样式／弹层可关性）在测试里看不见，换壳时没人被它喊。
+///   ⚠ webhook 那份换真根前量过一次：真根下 30 条全绿 —— `AppRoot` 装了
+///   `GlobalMaterialLocalizations`（app_root.dart:52），本页 Material `Scaffold`/`AppBar`
+///   的 `MaterialLocalizations` 依赖因此被满足，`AppBar` 自带 Material ⇒ 卡里的 Material 控件有祖先。
+const Set<String> kPendingMaterialAppTestHarnesses = <String>{};
 
 /// **具名例外**：故意留在假根（`MaterialApp`）下的 harness，不在"待换"账里。
 /// - `text_selection_consistency_test.dart` 验的就是 **Material 文本选择工具栏的 locale 归一**

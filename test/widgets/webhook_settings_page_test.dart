@@ -4,10 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/webhook_settings_page.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/channel_descriptor_fixtures.dart';
@@ -83,10 +83,9 @@ void main() {
     store.savedBatches.clear();
     calls.clear();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+      AppRoot(
         locale: const Locale('zh'),
+        dark: false,
         home: WebhookSettingsPage(channelId: channelId),
       ),
     );
@@ -459,10 +458,9 @@ void main() {
       ];
       await service.loadChannels();
       await tester.pumpWidget(
-        const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
+        const AppRoot(
           locale: Locale('zh'),
+          dark: false,
           home: WebhookSettingsPage(channelId: 'a'),
         ),
       );
@@ -499,10 +497,9 @@ void main() {
       ];
       await service.loadChannels();
       await tester.pumpWidget(
-        const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
+        const AppRoot(
           locale: Locale('zh'),
+          dark: false,
           home: WebhookSettingsPage(channelId: '7'),
         ),
       );

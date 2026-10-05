@@ -1,28 +1,20 @@
 import 'package:flutter/cupertino.dart' show CupertinoAlertDialog;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/app_filter_page.dart';
 import 'package:notice_transmit/services/installed_apps_service.dart';
+import 'package:notice_transmit/widgets/app_root.dart';
 
 const _channel = MethodChannel('com.fnthink.notice/notification');
 
-Widget _buildApp(Widget home) {
-  return MaterialApp(
-    localizationsDelegates: const [
-      AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    supportedLocales: const [Locale('zh'), Locale('en')],
-    locale: const Locale('zh'),
-    home: home,
-  );
-}
+/// T90 片29：换真根 `AppRoot`。这一份此前留在假根账上，理由写着"这两页自己还长着
+/// AlertDialog"——**那个理由已经过期**（片11 把本页那枚权限引导收进
+/// `IosDialogActions.showPermissionGuide`），而留在假根的真实代价是：本页的真形态
+/// （Cupertino 那套尺寸与弹层）在这里看不见，换壳时没人被它喊。
+Widget _buildApp(Widget home) =>
+    AppRoot(locale: const Locale('zh'), dark: false, home: home);
 
 final _installedApps = [
   {'packageName': 'com.alpha.app', 'appName': 'Alpha', 'isSystemApp': false},
