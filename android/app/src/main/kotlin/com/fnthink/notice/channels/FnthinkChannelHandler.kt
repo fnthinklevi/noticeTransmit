@@ -73,6 +73,11 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                     sender = call.argument<String>("sender").orEmpty(),
                     title = call.argument<String>("title").orEmpty(),
                     body = call.argument<String>("body").orEmpty(),
+                    // T55 ③ 角标那个数。**数法只有 Dart 一处**（`countFnthinkInboxUnread`）：
+                    // 原生这边不去查库也不自己数 —— 数法抄第二份迟早与首页那张卡对不上，
+                    // 而"角标 3、首页写 5"是用户会当场看见的那种不一致。
+                    // 缺这个键（老 Dart 或通道被直调）按 0 算，不报错：角标不是这条通知的身份。
+                    unreadCount = call.argument<Int>("unreadCount") ?: 0,
                 )
                 result.success(FnthinkInboxDisplay.show(context, spec))
             }

@@ -49,23 +49,70 @@ void main() {
         .setMockMethodCallHandler(AppChannels.notification, null);
   });
 
-  test('发出去的键名与取值：messageId / sender / title / body 一枚不多一枚不少', () async {
-    mock((_) => true);
-    expect(await display.show(row()), isTrue);
+  test(
+    '发出去的键名与取值：messageId / sender / title / body / unreadCount 一枚不多一枚不少',
+    () async {
+      mock((_) => true);
+      expect(await display.show(row(), unreadCount: 3), isTrue);
 
-    expect(calls, hasLength(1));
-    expect(calls.single.method, 'showFnthinkInbox');
-    final args = calls.single.arguments as Map<Object?, Object?>;
-    expect(args.keys.toSet(), {
-      'messageId',
-      'sender',
-      'title',
-      'body',
-    }, reason: '多传 = 原生不读的那一份会误导后人；少传 = 通知里那一栏静默变空');
-    expect(args['messageId'], messageId);
-    expect(args['sender'], 'endpoint:ep_7');
-    expect(args['title'], '机箱温度');
-    expect(args['body'], '温度 63 度');
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'showFnthinkInbox');
+      final args = calls.single.arguments as Map<Object?, Object?>;
+      expect(args.keys.toSet(), {
+        'messageId',
+        'sender',
+        'title',
+        'body',
+        // T55 ③ 角标那个数。⚠ 它是**后来加的第五个键** —— 加它时这条断言当场红了
+        // （这正是"键名一枚不多一枚不少"存在的理由：多传/少传两端都不报错，
+        // 表现是角标永远是 0 或者原生读到 null）。
+        'unreadCount',
+      }, reason: '多传 = 原生不读的那一份会误导后人；少传 = 通知里那一栏静默变空');
+      expect(args['messageId'], messageId);
+      expect(args['sender'], 'endpoint:ep_7');
+      expect(args['title'], '机箱温度');
+      expect(args['body'], '温度 63 度');
+      expect(args['unreadCount'], 3);
+    },
+  );
+
+  // ── T55 ③ 角标那个数 ───────────────────────────────────────────────
+  // 断的是**转发与归一**：数从调用方一路到那份 map，中间不许被丢成 null 或原样传负数。
+  group('T55 角标那个数（unreadCount）', () {
+    test('不给时按 0 发出去，而不是不发这个键', () async {
+      mock((_) => true);
+      await display.show(row());
+      final args = calls.single.arguments as Map<Object?, Object?>;
+      expect(
+        args['unreadCount'],
+        0,
+        reason:
+            '老 Dart 与通道被直调都不会带这个键；原生侧读不到就按 0，'
+            '但**这枚键必须在** —— 少一枚就是"角标永远是 0"那种静默失效',
+      );
+    });
+
+    test('负数按 0 发：调用方没数到时不该让桌面自己发挥', () async {
+      mock((_) => true);
+      await display.show(row(), unreadCount: -3);
+      expect(
+        (calls.single.arguments as Map<Object?, Object?>)['unreadCount'],
+        0,
+      );
+    });
+
+    test('数从服务层到通道一路没丢（点显示时读的那一份）', () async {
+      mock((_) => true);
+      // 一轮里可能落了好几条：每条都要带当刻的数，而不是循环开始时的数。
+      for (final n in [1, 2, 3]) {
+        await display.show(row(id: 'm_$n'), unreadCount: n);
+      }
+      expect(
+        calls.map((c) => (c.arguments as Map<Object?, Object?>)['unreadCount']),
+        [1, 2, 3],
+        reason: '三条通知各带自己那一刻的未读数；全带同一个数就是"角标永远停在 1"',
+      );
+    });
   });
 
   test('messageId 为空 ⇒ 直接回 false，连通道都不碰', () async {

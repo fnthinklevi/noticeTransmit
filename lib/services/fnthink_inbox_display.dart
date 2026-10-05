@@ -20,7 +20,12 @@ class FnthinkInboxDisplay {
 
   /// 空 id 直接回 false：那是"没有这一条"，不是一次显示请求。
   /// 服务端删正文、本机标已读、通知栏撤回，全都要按 id 说话。
-  Future<bool> show(FnthinkInboxMessage message) async {
+  ///
+  /// [unreadCount] 是 T55 那个角标上的数，**由调用方给**：本类不去查库 ——
+  /// 数法只有 `DatabaseHelper.countFnthinkInboxUnread` 一处（首页入口卡与这里说的是同一个数），
+  /// 在显示层再数一遍就是第二个作者，而"角标 3、首页写 5"是用户当场能看见的不一致。
+  /// 不给按 0 算：角标不是这条通知的身份，少一个数不该让整条通知显示失败。
+  Future<bool> show(FnthinkInboxMessage message, {int unreadCount = 0}) async {
     if (message.messageId.isEmpty) return false;
     try {
       final shown = await _channel.invokeMethod<bool>('showFnthinkInbox', {
@@ -28,6 +33,7 @@ class FnthinkInboxDisplay {
         'sender': message.sender,
         'title': message.title,
         'body': message.body,
+        'unreadCount': unreadCount < 0 ? 0 : unreadCount,
       });
       return shown ?? false;
     } catch (e) {

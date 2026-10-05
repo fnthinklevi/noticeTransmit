@@ -94,7 +94,14 @@ void setupLocator() {
       // 消息会安全落到表里但永远不进通知栏，而 ack 一律报 delivered —— 服务端据此留着正文重发，
       // 于是"能慢不能丢"做成了"能存不能见"。装配点的那条守卫在
       // `test/architecture/fnthink_receive_wiring_test.dart`。
-      display: FnthinkInboxDisplay().show,
+      display: (message) async {
+        // T55 ③ 角标那个数：在**发通知这一刻**去数，而不是把循环开始时的数一直带着 ——
+        // 一轮里可能落了好几条，中途插进来的那条也算未读。数法只有
+        // `countFnthinkInboxUnread` 一处，与首页入口卡同源（不另写 list().length：
+        // 那条列表带 limit，收到第 51 条起它就会开始少报）。
+        final unread = await DatabaseHelper().countFnthinkInboxUnread();
+        return FnthinkInboxDisplay().show(message, unreadCount: unread);
+      },
       // 回执那一列的作者。缺它 ⇒ `ack_result`/`acked_at` 永远空着，而 T48 的收件详情
       // 一旦显示这一列就是在猜（任务 #155 那条"只有漏接才现形"的形状）。
       recordAck: DatabaseHelper().recordFnthinkInboxAck,

@@ -108,7 +108,7 @@ class FnthinkInboxDisplayTest {
 
     @Test
     fun `渠道与前台服务那条常驻通知分开（读两个源文件比对，不为测试放宽可见性）`() {
-        assertEquals("fnthink_inbox", FnthinkInboxDisplay.CHANNEL_ID)
+        assertEquals("fnthink_inbox_v2", FnthinkInboxDisplay.CHANNEL_ID)
         assertEquals(FnthinkInboxDisplay.CHANNEL_ID, spec().channel)
         assertNotEquals(
             "混用渠道会让收件跟着服务通知的 IMPORTANCE_LOW 走（不响、不弹横幅）",
@@ -116,6 +116,61 @@ class FnthinkInboxDisplayTest {
                 "src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt",
             ),
             FnthinkInboxDisplay.CHANNEL_ID,
+        )
+    }
+
+    // ── T55：上岛 + 锁屏 + 角标（2026-10-05 维护者拍板走"换 CHANNEL_ID"那条路）──
+    // 这三条里只有"角标那个数"是纯算术，能在 JVM 上断；另两条是**渠道建出来时的形状**，
+    // JVM 测不到（要真机），所以下面两条用**读源文件**的方式钉住写没写 ——
+    // 钉不住的那一半在 T55 的验收里，由真机那一格负责。
+
+    @Test
+    fun `T55 角标那个数随 spec 走，负数按 0 算`() {
+        assertEquals(
+            3,
+            FnthinkInboxDisplay.specFor("m_1", "8K3FJ6QPTM9WZ4VHNS", "t", "b", unreadCount = 3)
+                .unreadCount,
+        )
+        assertEquals(
+            "负数会让部分桌面把角标画成\"消失\"，而调用方传负数的唯一原因是\"没数到\"",
+            0,
+            FnthinkInboxDisplay.specFor("m_1", "8K", "t", "b", unreadCount = -5).unreadCount,
+        )
+        assertEquals(
+            "不给这个数时必须是 0 而不是抛：老 Dart 与通道被直调都会少这个键",
+            0,
+            FnthinkInboxDisplay.specFor("m_1", "8K", "t", "b").unreadCount,
+        )
+    }
+
+    @Test
+    fun `T55 上岛与锁屏写进渠道与通知两层（读源文件，不为测试放宽）`() {
+        val src = appFile("src/main/kotlin/com/fnthink/notice/FnthinkInboxDisplay.kt")
+            .readText()
+        val body = stripComments(src)
+        assertTrue(
+            "渠道必须是 IMPORTANCE_HIGH：DEFAULT 进通知栏但不弹 heads-up（T55 ①）",
+            body.contains("NotificationManager.IMPORTANCE_HIGH"),
+        )
+        assertTrue(
+            "渠道层要写 lockscreenVisibility：这一层才是用户在系统设置里改的那一档（T55 ②）",
+            body.contains("lockscreenVisibility = Notification.VISIBILITY_PUBLIC"),
+        )
+        assertTrue(
+            "通知层要写 setVisibility：只写渠道那一层，通知仍可能落到 PRIVATE（T55 ②）",
+            body.contains("setVisibility(NotificationCompat.VISIBILITY_PUBLIC)"),
+        )
+        assertTrue(
+            "角标：渠道层显式 setShowBadge(true) ＋ 通知层 setNumber(T55 ③)",
+            body.contains("setShowBadge(true)") && body.contains("setNumber(spec.unreadCount)"),
+        )
+        assertTrue(
+            "换 id 之后必须留得住旧 id 的名字，否则\"上一版用的是哪个\"无从查证",
+            body.contains("LEGACY_CHANNEL_ID"),
+        )
+        assertTrue(
+            "DEFAULT 必须已经从渠道创建里消失（留着就是\"渠道建完还是 DEFAULT\"）",
+            !body.contains("NotificationManager.IMPORTANCE_DEFAULT"),
         )
     }
 
