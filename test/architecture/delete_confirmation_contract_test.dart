@@ -53,10 +53,15 @@ void main() {
     // 对面从此能往这台设备推正文 —— 契约把这一步定为 `confirmRequired`，不是可省的仪式。
     // 第三条是 T31 B 片：撤销 = 让对面从此推不进来。它比"同意"更需要看一眼：
     // 点错的代价不是本地能回滚的，对面要重新扫码配对才能再推。
-    'lib/pages/fnthink_push_page.dart': [
-      'Future<void> _resetAddressCode(',
+    // ⚠ T94：答复一条配对请求与撤销都是「两台设备之间」的事，已搬到绑定页；
+    //   它们不能留在旧页面的名单里——那个文件已经没有这几个方法了，
+    //   留着只会让管理员以为它们还在那里受保护。
+    'lib/pages/fnthink_peers_page.dart': [
       'Future<void> _answer(',
       'Future<void> _revoke(',
+    ],
+    'lib/pages/fnthink_push_page.dart': [
+      'Future<void> _resetAddressCode(',
       // T42/#157：关掉一把入口 = 关掉一个别人能写进来的门，手滑的代价是 NAS 从此 401
       'Future<void> _revokeEndpoint(',
       // 换口令不留"撤销"那么明显的后果，却更狠：旧那把当场开始倒计时，而 NAS 还在用它
@@ -150,10 +155,12 @@ void main() {
         // 而这个方法还有一条**单条重推**的入口（历史行上那一下）—— 单条是用户指着一条按的，
         // 不该被二次确认按住，所以它不能登记成「只出现一次」的 mutator，否则那条正常入口当场红。
         'lib/pages/history_page.dart': ['widget.onClear('],
-        'lib/pages/fnthink_push_page.dart': [
-          'credentials.resetAddressCode(',
+        'lib/pages/fnthink_peers_page.dart': [
           '_coordinator.confirmPairing(',
           '_coordinator.revokePeer(',
+        ],
+        'lib/pages/fnthink_push_page.dart': [
+          'credentials.resetAddressCode(',
           '_coordinator.revokeEndpoint(',
           '_coordinator.rotateEndpoint(',
         ],

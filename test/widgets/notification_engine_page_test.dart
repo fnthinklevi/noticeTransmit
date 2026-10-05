@@ -6,6 +6,13 @@ import 'package:notice_transmit/pages/battery_page.dart';
 import 'package:notice_transmit/pages/notification_engine_page.dart';
 import 'package:notice_transmit/pages/temperature_page.dart';
 import 'package:notice_transmit/pages/device_state_page.dart';
+import 'dart:io';
+
+import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/pages/fnthink_peers_page.dart';
+import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
+import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
 import 'package:notice_transmit/services/device_state_service.dart';
@@ -168,6 +175,38 @@ void main() {
     });
   });
 
+  group('T94：这一页多了一块「幻念推送」（往哪儿发）', () {
+    testWidgets('那一块在，且只有「已配对的设备」一行（其余三格随片2/片3 落，不摆占位行）', (tester) async {
+      await pumpHome(tester, const NotificationEnginePage());
+
+      expect(find.text('幻念推送'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('engine-fnthink-peers')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('engine-fnthink-peers')),
+        findsOneWidget,
+        reason:
+            '「点了没反应的行比没有这行更糟」是这一页上面三格只放真能用的入口的理由，'
+            '同一页里摆三行占位会把那条理由自己拆了',
+      );
+    });
+
+    testWidgets('点它真的 push 到设备绑定页（不是画出来点不动）', (tester) async {
+      await pumpHome(tester, NotificationEnginePage(peersDeps: _peersDeps()));
+
+      await tester.tap(find.byKey(const ValueKey('engine-fnthink-peers')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(FnthinkPeersPage),
+        findsOneWidget,
+        reason: '这一格的主题是"我和谁有关系"，而绑定那一页正是它的去处',
+      );
+    });
+  });
+
   group('T23：设备态告警也接受约束（默认关）', () {
     testWidgets('页面上只有一枚，且默认是关的', (tester) async {
       await pumpHome(tester, const NotificationEnginePage());
@@ -196,4 +235,36 @@ void main() {
       expect(prefs.getBool('device_alert_constraint_enabled'), isTrue);
     });
   });
+}
+
+/// 绑定页的依赖替身（T94）。
+///
+/// 只需要能把页面推进去、并且读出一个空名单 —— 这里连坐轮都不走；
+/// 给一个真跑轮子的替身就变成了「测端点的是哪一行入口」的问题。
+FnthinkPeersDeps _peersDeps() => FnthinkPeersDeps(
+  contracts: FnthinkContractLoader(
+    readAsset: (_) async => File('protocol/fnthink-v1.json').readAsStringSync(),
+  ),
+  coordinator: FnthinkReceiveCoordinator(
+    contracts: FnthinkContractLoader(
+      readAsset: (_) async =>
+          File('protocol/fnthink-v1.json').readAsStringSync(),
+    ),
+    signer: _NoSigner(),
+    persist: (_) async => true,
+    serviceFactory: (_) => throw StateError('本用例不走收货'),
+  ),
+  loadPeers: () async => const <FnthinkPeer>[],
+);
+
+/// 签名器替身：这一页只看名单，不发任何需要签名的请求。
+class _NoSigner implements FnthinkIdentitySigner {
+  @override
+  Future<String> call(List<int> canonicalBytes) async => 'AAAAc2ln';
+
+  @override
+  Future<bool> probe() async => false;
+
+  @override
+  Future<String?> publicKey() async => null;
 }

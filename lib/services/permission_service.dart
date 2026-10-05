@@ -120,14 +120,15 @@ class PermissionService {
 
   Future<bool> isPromotedNotificationGranted() async {
     try {
-      return await _channel.invokeMethod<bool>('isPromotedNotificationPermissionGranted') ??
+      return await _channel.invokeMethod<bool>(
+            'isPromotedNotificationPermissionGranted',
+          ) ??
           false;
     } catch (e) {
       debugPrint('检查提升通知权限失败（按未授予处理）: $e');
       return false;
     }
   }
-
 
   Future<void> requestBatteryOptimization() =>
       _requestPermission('requestBatteryOptimization');

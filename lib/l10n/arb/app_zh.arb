@@ -1688,6 +1688,11 @@
   "fnthinkPeerStoreUnavailable": "服务端认了这条，但这台设备没接名单落库 ⇒ 本机名单没写",
   "fnthinkPeerWriteFailed": "服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写",
   "fnthinkPeersTitle": "已配对的设备",
+  "fnthinkHubTitle": "幻念推送",
+  "fnthinkHubDesc": "往哪儿发：设备绑定、发起推送与接收设置都在这一块。",
+  "fnthinkHubPeersDesc": "配对了几台设备、能给它们发一条，也能撤销那一台。",
+  "fnthinkPeersGo": "管理已配对的设备",
+  "fnthinkPushPeersDesc": "配对、发一条与撤销在「通知引擎 → 幻念推送」里配；这里管的是这台设备自己。",
   "fnthinkPeerLine": "{peer} · 授到 {level} · {at}",
   "@fnthinkPeerLine": {
     "placeholders": {

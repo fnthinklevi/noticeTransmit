@@ -6134,6 +6134,36 @@ abstract class AppLocalizations {
   /// **'已配对的设备'**
   String get fnthinkPeersTitle;
 
+  /// No description provided for @fnthinkHubTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念推送'**
+  String get fnthinkHubTitle;
+
+  /// No description provided for @fnthinkHubDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'往哪儿发：设备绑定、发起推送与接收设置都在这一块。'**
+  String get fnthinkHubDesc;
+
+  /// No description provided for @fnthinkHubPeersDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'配对了几台设备、能给它们发一条，也能撤销那一台。'**
+  String get fnthinkHubPeersDesc;
+
+  /// No description provided for @fnthinkPeersGo.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理已配对的设备'**
+  String get fnthinkPeersGo;
+
+  /// No description provided for @fnthinkPushPeersDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'配对、发一条与撤销在「通知引擎 → 幻念推送」里配；这里管的是这台设备自己。'**
+  String get fnthinkPushPeersDesc;
+
   /// No description provided for @fnthinkPeerLine.
   ///
   /// In zh, this message translates to:

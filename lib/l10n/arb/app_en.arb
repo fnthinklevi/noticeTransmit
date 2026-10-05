@@ -1667,6 +1667,11 @@
   "fnthinkPeerStoreUnavailable": "The server accepted this one but no peer store is wired on this device ⇒ nothing written to the local list",
   "fnthinkPeerWriteFailed": "The server accepted this one but writing the local list failed ⇒ nothing written",
   "fnthinkPeersTitle": "Paired devices",
+  "fnthinkHubTitle": "Fnthink Push",
+  "fnthinkHubDesc": "Where to send: paired devices, sending a notice and receiving settings live here.",
+  "fnthinkHubPeersDesc": "Which devices are paired, send one to them, or revoke one of them.",
+  "fnthinkPeersGo": "Manage paired devices",
+  "fnthinkPushPeersDesc": "Pairing, sending and revoking are set up under Notification Engine → Fnthink Push; this page is about this device itself.",
   "fnthinkPeerLine": "{peer} · granted {level} · {at}",
   "@fnthinkPeerLine": {
     "placeholders": {

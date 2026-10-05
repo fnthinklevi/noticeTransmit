@@ -1,0 +1,559 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:fnthink_push/fnthink_push.dart';
+import 'package:get_it/get_it.dart';
+
+import '../l10n/app_localizations.dart';
+import '../models/fnthink_peer.dart';
+import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_pair_link.dart';
+import '../services/fnthink_peer_service.dart';
+import '../services/fnthink_receive_coordinator.dart';
+import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
+import '../widgets/fnthink_pair_dialog.dart';
+import '../widgets/fnthink_send_dialog.dart';
+import '../widgets/ios_dialog_actions.dart';
+
+/// 这一页要碰的三样依赖。
+///
+/// 与 `FnthinkPushDeps` 分开而不是复用它：那一包还带 presence 与健康度读口，
+/// 而设备绑定这一页一个都用不到（留着就是"这一页其实能读那些、只是没读"，
+/// 而那种多余的能力正是将来被人顺手用上的那一半）。
+class FnthinkPeersDeps {
+  FnthinkPeersDeps({
+    required this.contracts,
+    required this.coordinator,
+    required this.loadPeers,
+  });
+
+  factory FnthinkPeersDeps.fromLocator() => FnthinkPeersDeps(
+    contracts: GetIt.instance<FnthinkContractLoader>(),
+    coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
+    // 名单只从读咽喉取。退回 `DatabaseHelper().loadFnthinkPeers` 的话，页面就会自己长出一份
+    // 排序/时间口径，而 `history_page` 那批守卫已经证明过这种分叉是怎么开始的。
+    loadPeers: GetIt.instance<FnthinkPeerService>().list,
+  );
+
+  final FnthinkContractLoader contracts;
+  final FnthinkReceiveCoordinator coordinator;
+  final Future<List<FnthinkPeer>> Function() loadPeers;
+}
+
+/// 设备绑定（T94 片1）—— 「我和谁有关系」这一页。
+///
+/// 它从幻念推送页里独立出来，是因为维护者把幻念推送分成两块：**推送引擎**那侧收
+/// 渠道设置·设备绑定·发起推送·接收设置·远程执行，**更多页**那处只留这台设备的渠道信息。
+/// 绑定是"两台设备之间"的关系，不是"这台设备自己"的属性，所以它归推送引擎那侧 ——
+/// 而"两处都能进"这一条要求它必须是一张**独立页**：否则第二处入口只能指向第一处的某一格，
+/// 那不是两个入口，是一个入口被指了两次。
+class FnthinkPeersPage extends StatefulWidget {
+  const FnthinkPeersPage({super.key, this.deps, this.pairLink});
+
+  /// 刚被点开的那条配对链接（#176 片4）。null = 这一页不是从链接进来的。
+  ///
+  /// ⚠ 它带着那枚一次性口令，所以**只活在这一次导航的参数里**：页面不把它写进 prefs、
+  /// 不写进名单表、不拼进日志，处理过一次就再不放回（`_pairLinkHandled`）。
+  /// 为什么不在这里自己判格式：判据（载荷名单、`v`、口令形状、档位词表）在包层那份契约
+  /// 读口里，页面再判一遍就是第二个作者。
+  final FnthinkPairLinkOutcome? pairLink;
+
+  final FnthinkPeersDeps? deps;
+
+  @override
+  State<FnthinkPeersPage> createState() => _FnthinkPeersPageState();
+}
+
+class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
+  late final FnthinkPeersDeps _deps;
+  late final FnthinkReceiveCoordinator _coordinator;
+
+  FnthinkContract? _contract;
+
+  /// 契约不可用的原话。非空时整页只显示这一条 —— 弹层里的档位名单要从契约读，
+  /// 拿不到契约还让人去配对，等于把一次签出去的请求写进一个说不清含义的地方。
+  String? _contractError;
+
+  List<FnthinkPeer>? _peers;
+
+  /// 名单读失败的原话。与 `null`（还没读）分开：那一句是"读不到"，不能画成"一个都没有"。
+  String? _peersError;
+
+  /// 最近一次答复配对请求的结论（null = 这一页还没答过）。
+  ({FnthinkPairRequest request, bool approve, FnthinkPairAnswer answer})?
+  _pairAnswer;
+
+  /// 最近一次撤销的结论（null = 这一页还没撤过）。
+  ({FnthinkPeer peer, FnthinkPeerRevoke revoke})? _peerRevoke;
+
+  /// 最近一次「发一条」的结论（null = 这一页还没发过）。
+  ({FnthinkPeer peer, FnthinkSendResult result})? _sendNote;
+
+  /// 最近一次「配对另一台设备」的结论（null = 这一页还没提交过）。
+  FnthinkPairResult? _pairSubmit;
+
+  bool _busy = false;
+
+  /// 那条被点开的链接**这一页已经处理过了**。口令是 singleUse 的：
+  /// 重放一次不是"再试一次"，而是"把同一枚口令往被人再看一眼的方向推"，所以一次进入只处理一次。
+  bool _pairLinkHandled = false;
+
+  /// 链接判不过（前缀对但载荷不成形 / 契约读不到）。⚠ 这与"没有链接"是两件事：
+  /// 后者什么都不该说，前者必须说一句 —— 用户确实点了一条链接，"点了没反应"就是这次任务要修的缺陷形状。
+  /// 这里只留一个布尔：那句文案是**同一句**（不分辨哪一种不对），原因留在 outcome 里不进界面。
+  bool _pairLinkRejected = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _deps = widget.deps ?? FnthinkPeersDeps.fromLocator();
+    _coordinator = _deps.coordinator;
+    // 链接里带来的那份预填必须**等 `_load` 之后**再处理：弹层的档位来自 `_contract`，
+    // 而 `_contract` 是 `_load` 里异步读到的。早一步开弹层，档位那一排就无处可取（当场抛），
+    // 表现是"点开了链接，页面闪一下就没了"。
+    unawaited(_load().then((_) => _consumePairLink()));
+  }
+
+  Future<void> _load() async {
+    final FnthinkContract contract;
+    try {
+      contract = await _deps.contracts.load();
+    } on FnthinkContractUnavailable catch (e) {
+      if (mounted) setState(() => _contractError = e.reason);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _contract = contract);
+    await _loadPeers();
+  }
+
+  Future<void> _loadPeers() async {
+    List<FnthinkPeer>? rows;
+    String? error;
+    try {
+      rows = await _deps.loadPeers();
+    } catch (e) {
+      error = '$e';
+      rows = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _peers = rows;
+      _peersError = error;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final error = _contractError;
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.fnthinkPeersTitle)),
+      backgroundColor: AppColors.bgColor(context),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          if (error != null)
+            FnthinkNote(keyName: 'fnthink-peers-contract-error', text: error)
+          else ...[
+            _buildPairRequests(l10n),
+            _buildPeersCard(l10n),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 待确认的配对请求那一格。
+  ///
+  /// 列表**跟着协调者那份账走**（`pairRequestsListenable`）：用户挂出口令之后是盯着屏幕等对面来配的，
+  /// 后台每轮带回来的东西要自己上界面。页面不重新 poll（那会长出第二个"这一轮有没有货"的读法），
+  /// 也不自己定定时器去翻（那种"什么时候该看"的口径一漏，表现就是列表看着看着不再更新）。
+  /// 空列表**不画这一格** —— 一张永远空的表等于让界面猜；但答过一条之后要留着：那一条已经
+  /// 是发生过的事，抹掉它等于让界面说"没发生过"。
+  Widget _buildPairRequests(AppLocalizations l10n) {
+    return ListenableBuilder(
+      listenable: _coordinator.pairRequestsListenable,
+      builder: (context, _) {
+        final requests = _coordinator.pendingPairRequests;
+        final answer = _pairAnswer;
+        if (requests.isEmpty && answer == null) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: FnthinkCard(
+            title: l10n.fnthinkPairRequests,
+            children: [
+              for (final request in requests)
+                ..._pairRequestRows(l10n, request),
+              if (answer != null)
+                FnthinkNote(
+                  keyName: 'fnthink-pair-answer',
+                  text: _pairAnswerText(l10n, answer),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _pairRequestRows(
+    AppLocalizations l10n,
+    FnthinkPairRequest request,
+  ) {
+    // 这一档是不是本机够得着的：`grantableLevel` 回 null 就是词表里没有那个词。
+    // 词表里没有 ⇒ **同意不许点**（协调者那一发也不会发出去，但把按钮灰掉比让用户点下去
+    // 再读一句 `unknown-level:xxx` 诚实），拒绝仍然可以 —— 划掉一条看不懂的请求不需要档位。
+    final grantable = _contract?.grantableLevel(request.level);
+    final capped = grantable != null && grantable != request.level;
+    return [
+      FnthinkNote(
+        keyName: 'fnthink-pair-request-${request.requestId}',
+        text: l10n.fnthinkPairRequestLine(request.requester, request.level),
+      ),
+      if (capped)
+        FnthinkNote(
+          keyName: 'fnthink-pair-will-grant-${request.requestId}',
+          text: l10n.fnthinkPairWillGrant(grantable),
+        ),
+      if (grantable == null)
+        FnthinkNote(
+          keyName: 'fnthink-pair-unknown-level-${request.requestId}',
+          text: l10n.fnthinkPairUnknownLevel(request.level),
+        ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              key: ValueKey('fnthink-pair-approve-${request.requestId}'),
+              onPressed: grantable == null || _busy
+                  ? null
+                  : () => _answer(request, true),
+              child: Text(l10n.fnthinkPairApprove),
+            ),
+            TextButton(
+              key: ValueKey('fnthink-pair-deny-${request.requestId}'),
+              onPressed: _busy ? null : () => _answer(request, false),
+              child: Text(l10n.fnthinkPairDeny),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  /// 名单那一格：每一行是一台对端，能发一条、能撤销。
+  Widget _buildPeersCard(AppLocalizations l10n) {
+    final rows = _peers;
+    final revokeEntry = _peerRevoke;
+    return FnthinkCard(
+      title: l10n.fnthinkPeersTitle,
+      children: [
+        if (rows == null)
+          FnthinkNote(
+            keyName: 'fnthink-peers-error',
+            text: l10n.fnthinkPeersError(_peersError ?? ''),
+          )
+        else if (rows.isEmpty)
+          FnthinkNote(
+            keyName: 'fnthink-peers-empty',
+            text: l10n.fnthinkPeersEmpty,
+          )
+        else
+          for (final peer in rows) ...[
+            FnthinkNote(
+              keyName: 'fnthink-peer-${peer.peerAddress}',
+              text: l10n.fnthinkPeerLine(
+                peer.peerAddress,
+                peer.level,
+                fnthinkFormatTime(peer.grantedAt),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: ValueKey('fnthink-peer-revoke-${peer.peerAddress}'),
+                // 撤销那一发要能连点两下都不出事（服务端幂等），但 `_busy` 仍然拦：
+                // 拦的不是"撤两次"，是"两次删行撞在一起"——那种时候界面显示的是哪一次？
+                onPressed: _busy ? null : () => _revoke(peer),
+                child: Text(l10n.fnthinkPeerRevoke),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: ValueKey('fnthink-peer-send-${peer.peerAddress}'),
+                // 「发一条」挂在**这一行**上而不是页面顶部一个通用按钮：收件人只能是本机
+                // 同意过的那几台（名单就是候选全集），让人先在行里选中那台再填内容，
+                // 比在弹层里再挑一次少一处可能填错的地址（填错了服务端只会回一句同形的 403）。
+                onPressed: _busy ? null : () => _sendTo(peer),
+                child: Text(l10n.fnthinkPeerSend),
+              ),
+            ),
+          ],
+        if (_sendNote != null)
+          FnthinkNote(
+            keyName: 'fnthink-send-note',
+            text: fnthinkSendResultText(l10n, _sendNote!.result),
+          ),
+        if (revokeEntry != null)
+          FnthinkNote(
+            keyName: 'fnthink-peer-revoke-note',
+            text: _peerRevokeText(l10n, revokeEntry),
+          ),
+        // 点开的那条链接判不过 ⇒ 必须说一句（用户确实点了一下，"没反应"就是这次要修的缺陷形状）。
+        // 只给一句、不分辨原因：分辨"哪种不对"对着抄来的链接就是枚举器。
+        if (_pairLinkRejected)
+          FnthinkNote(
+            keyName: 'fnthink-pair-link-rejected',
+            text: l10n.fnthinkPairLinkRejected,
+          ),
+        // 「配对另一台设备」挂在名单这一格里，而不是身份那一格（本机是自己）或页面顶部
+        // 一个通用按钮：这一格讲的正是"我和谁有关系"，而这一发要做的就是把一行新的关系挂进去。
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const ValueKey('fnthink-pair-peer'),
+            onPressed: _busy ? null : _pairWithPeer,
+            child: Text(l10n.fnthinkPairPeer),
+          ),
+        ),
+        // 提交之后本机这一格不会立刻多出什么：同意由对面那台点，那一行要等下一轮收取才回来。
+        // 少了这句，"发过去了"会被读成"已经配上了"，而用户接下来做的动作（发一条试试）当场必失败。
+        FnthinkNote(
+          keyName: 'fnthink-pair-peer-pending',
+          text: l10n.fnthinkPairPeerPendingNote,
+        ),
+        if (_pairSubmit != null)
+          FnthinkNote(
+            keyName: 'fnthink-pair-peer-note',
+            text: fnthinkPairSubmitText(l10n, _pairSubmit!),
+          ),
+        const SizedBox(height: 8),
+        FnthinkNote(
+          keyName: 'fnthink-peers-boundary',
+          text: l10n.fnthinkPeersBoundary,
+        ),
+      ],
+    );
+  }
+
+  /// 答复一条待确认的配对请求。**同意那一下一定过二次确认** —— 契约把这一步定为
+  /// `confirmRequired=true / autoApprove=false`，它存在的意义就是有人看过并点过一次。
+  ///
+  /// 页面交给协调者的**只有一个布尔**：答复词与档位都由协调者从契约取。弹层上写的那一档是
+  /// 契约算出来的（`grantableLevel`），不是对方请求的那一档 —— 让用户在他以为的档位上按下同意，
+  /// 而实际授出去的是另一档，那一下点得就没有意义。
+  ///
+  /// ⚠ 参数写成位置式是给 T06 那条守卫留一个不带 `{` 的签名锚点：`blockAfter` 会停在
+  ///    命名参数表那个花括号上，取到的是参数表而不是函数体（这条在收件守卫上砸过一次）。
+  Future<void> _answer(FnthinkPairRequest request, bool approve) async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final willGrant = _contract?.grantableLevel(request.level) ?? request.level;
+    if (approve) {
+      final ok = await IosDialogActions.askConfirm(
+        context,
+        title: l10n.fnthinkPairAskTitle,
+        message: l10n.fnthinkPairAskMsg(request.requester, willGrant),
+        // 确认键不复用列表里那句"同意"：弹层内外两句一模一样，用户分不清自己点的是哪一个，
+        // 而 `find.text` 会一次抓到两个。
+        confirmText: l10n.confirm,
+      );
+      if (!ok || !mounted) return;
+    }
+    setState(() => _busy = true);
+    final answer = await _coordinator.confirmPairing(
+      request: request,
+      approve: approve,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _pairAnswer = (request: request, approve: approve, answer: answer);
+    });
+    // 名单是这一发的**后果**：不重读一次，用户点完同意，下面那格还是旧的（而它的存在意义
+    // 正是"我同意过谁"）。重读走的是同一个读咽喉，不是页面自己数一遍。
+    await _loadPeers();
+  }
+
+  /// 最近一次答复的结论。⚠ 档位那一格用的是**服务端回的** `grantedLevel`，不是用户点的那一档：
+  /// 封顶（`pairConfirm.levelCeilingFrom`）在服务端那侧也判一次，本机以为给到了而对面记低了
+  /// 是完全可能的，而名单以后就是按这一列显示"我给过谁哪一档"的。
+  String _pairAnswerText(
+    AppLocalizations l10n,
+    ({FnthinkPairRequest request, bool approve, FnthinkPairAnswer answer})
+    entry,
+  ) {
+    final answer = entry.answer;
+    if (!answer.ok) return l10n.fnthinkPairFailed(answer.reason ?? 'no-answer');
+    final peer = entry.request.requester;
+    if (!entry.approve) return l10n.fnthinkPairDenied(peer);
+    final skipped = answer.skipped;
+    if (skipped == FnthinkPeerSkip.grantedLevelUnusable) {
+      return l10n.fnthinkPairNoGrantedLevel;
+    }
+    if (skipped == FnthinkPeerSkip.storeUnavailable) {
+      return l10n.fnthinkPeerStoreUnavailable;
+    }
+    if (skipped == FnthinkPeerSkip.writeFailed) {
+      return l10n.fnthinkPeerWriteFailed;
+    }
+    if (answer.wrote == FnthinkPeerWrite.keySwapped) {
+      return l10n.fnthinkPairKeySwapped(peer);
+    }
+    final granted = answer.result.grantedLevel;
+    if (granted == null) return l10n.fnthinkPairNoGrantedLevel;
+    return l10n.fnthinkPairApproved(peer, granted);
+  }
+
+  /// 划掉名单里的一台（T31 B 片那一发的入口）。
+  ///
+  /// ⚠ 参数写成位置式，与 [_answer] 同一条理由：T06 那条守卫的锚点要不带 `{` 的签名
+  ///    （`blockAfter` 会停在命名参数表那个花括号上，取到的是参数表而不是函数体）。
+  /// ⚠ 页面**只交一个 bool 之外的东西都没有**：撤谁、先后怎么做、`revoked:false` 算不算成，
+  ///    全在协调者那一处。页面自己先删行再发请求的话，"授权还在而来源消失"那一种就长在界面里了。
+  Future<void> _revoke(FnthinkPeer peer) async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final ok = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.fnthinkRevokeAskTitle,
+      message: l10n.fnthinkRevokeAskMsg(peer.peerAddress),
+      // 弹层里的确认键不写"撤销"：那与列表里那个按钮同词，`find.text` 一次抓到两个，
+      // 而用户也分不清自己点的是"要撤"还是"只是打开了弹层"。
+      confirmText: l10n.confirm,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    final revoke = await _coordinator.revokePeer(peer);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _peerRevoke = (peer: peer, revoke: revoke);
+    });
+    // 撤成了那一行就不该再显示；没撤成也要重读一次，因为界面那句结论说的是"此刻名单什么样"。
+    // 重读走同一个读咽喉，不是页面自己数一遍（那会长出第二个排序/时间口径）。
+    await _loadPeers();
+  }
+
+  /// 撤销那一发的结论。⚠ `revoked:false` 走的是**成功**那一路：撤销是幂等的
+  /// （契约 `clientEvents.pairRevoke._why`），把它显示成失败会让人再点一次，而那一行一直在。
+  String _peerRevokeText(
+    AppLocalizations l10n,
+    ({FnthinkPeer peer, FnthinkPeerRevoke revoke}) entry,
+  ) {
+    final revoke = entry.revoke;
+    if (!revoke.ok) {
+      return l10n.fnthinkRevokeFailed(revoke.reason ?? 'no-revoke');
+    }
+    final skipped = revoke.skipped;
+    if (skipped == FnthinkPeerRemoveSkip.storeUnavailable) {
+      return l10n.fnthinkRevokeStoreUnavailable;
+    }
+    if (skipped == FnthinkPeerRemoveSkip.removeFailed) {
+      return l10n.fnthinkRevokeRowRemains;
+    }
+    final peer = entry.peer.peerAddress;
+    if (revoke.result.revoked != true) {
+      return l10n.fnthinkRevokeAlreadyGone(peer);
+    }
+    return l10n.fnthinkRevoked(peer);
+  }
+
+  /// 发一条给名单里那一台（§4-10 片2b）。
+  ///
+  /// 两件事按本仓既有纪律摆：
+  ///  - **取消 ⇒ 一个字节都不发**：弹层返回 null 就早退。这一条不是想当然 ——
+  ///    取消那一路是本格唯一没有"服务器帮我把关"的路径，写错的表现是"我明明点了取消"。
+  ///  - **弹层的 controller 归弹层自己**：调用方在 `await` 一返回就 dispose，会打在还在跑
+  ///    退场动画的 TextField 上，而那种错只在"真点过一次"时现形。
+  ///  - 页面**不判协议**：这里只把 `FnthinkSendStatus` 翻成一句人话。授权、配对、去重、
+  ///    时间容差都在内核与服务端判过并反证过；页面再判一遍就是第二份实现。
+  Future<void> _sendTo(FnthinkPeer peer) async {
+    if (_busy) return;
+    final draft = await showFnthinkSendDialog(
+      context: context,
+      peerAddress: peer.peerAddress,
+    );
+    if (draft == null || !mounted) return;
+    setState(() => _busy = true);
+    final result = await _coordinator.sendNotice(
+      peer: peer.peerAddress,
+      title: draft.title,
+      text: draft.text,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _sendNote = (peer: peer, result: result);
+    });
+  }
+
+  /// 「配对另一台设备」那一格（#176 片3，B 侧那发 `pair` 的唯一入口）。
+  ///
+  /// 三件事按本仓既有纪律摆：
+  ///  - **取消 ⇒ 一个字节都不发**：弹层返回 null 就早退。这一发带走的是对端刚挂出的**一次性**口令，
+  ///    把半填的表单发出去等于替用户用掉那枚口令（那边下一次挂出来的才是新的一枚）。
+  ///  - **页面不判协议**：档位名单、target 能不能等于本机、成功要哪三样都在契约/内核/协调者判过，
+  ///    这里只把结论翻成一句人话（唯一作者 [fnthinkPairSubmitText]）。页面自己 min(L?) 一遍的话，
+  ///    封顶换档时界面还在说旧的 —— 那正是 `pairRequestableLevels` 存在的理由。
+  ///  - **口令不进页面状态**：它只在这次调用里存在，`_pairSubmit` 记的是结论。
+  ///
+  /// 与「发一条」不同，这一发**不要求接收开关开着**（配对是接收的前置），那条判据在协调者的
+  /// `requireEnabled: false` 上，不在这里 —— 页面若自己加一个"先打开关"的判断，就会把
+  /// 唯一那条"关着也能配对"的路径堵回去，而界面上看不出来。
+  Future<void> _pairWithPeer({FnthinkPairingRequest? prefill}) async {
+    if (_busy) return;
+    final contract = _contract;
+    if (contract == null) return;
+    final input = await showFnthinkPairDialog(
+      context: context,
+      contract: contract,
+      prefill: prefill,
+    );
+    if (input == null || !mounted) return;
+    setState(() => _busy = true);
+    final result = await _coordinator.pairWithDevice(
+      targetAddressCode: input.target,
+      pairingCode: input.code,
+      level: input.level,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _pairSubmit = result;
+    });
+    // 提交成不成都不重读名单：这一发**不会**让本机名单多出任何东西（要等对方点同意，
+    // 而那一下由后台那一轮带回来）。在这里 `_loadPeers()` 的话，界面就会把"还没人同意"
+    // 显示成刚刷新过的样子，像是这一发已经结了。
+  }
+
+  /// 处理"点开的那条配对链接"带进来的那一份（#176 片4）。
+  ///
+  /// 三条都在这里，理由各不相同：
+  ///  - **一次进入只处理一次**（`_pairLinkHandled`）：口令是 singleUse 的，重放不是"再试一次"，
+  ///    而是把同一枚口令往"被人再看一眼"的方向推；`didUpdateWidget` 因此**不**重放。
+  ///  - **判不过要说一句**（`_pairLinkRejected`），且只说同一句：用户确实点了一条链接，
+  ///    "点了没反应"正是这片要修的那个缺陷的形状；而分辨"是前缀不对还是口令形状不对"，
+  ///    对着一台自己的设备没有风险、对着一份抄来的链接就是枚举器 —— 所以原因不进界面。
+  ///  - **契约没就位就不开弹层**：档位那一排从 `_contract` 读（`pairRequestableLevels`），
+  ///    没契约的弹层只能摆一个猜出来的档位，而那一发是要签出去的。
+  Future<void> _consumePairLink() async {
+    final link = widget.pairLink;
+    if (link == null || _pairLinkHandled) return;
+    _pairLinkHandled = true;
+    final contract = _contract;
+    if (!mounted) return;
+    if (!link.accepted || link.request == null || contract == null) {
+      setState(() => _pairLinkRejected = true);
+      return;
+    }
+    await _pairWithPeer(prefill: link.request);
+  }
+}

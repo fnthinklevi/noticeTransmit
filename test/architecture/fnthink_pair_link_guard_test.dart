@@ -17,7 +17,8 @@ void main() {
       File('$root/$rel').readAsStringSync().replaceAll('\r\n', '\n');
 
   const reader = 'lib/services/fnthink_pair_link.dart';
-  const page = 'lib/pages/fnthink_push_page.dart';
+  // ⚠ T94：配对链径链的落点是绑定页（链接的主语就是「我和谁有关系」）。
+  const page = 'lib/pages/fnthink_peers_page.dart';
   const dialog = 'lib/widgets/fnthink_pair_dialog.dart';
   const actions = 'lib/pages/main_page_actions.dart';
   const mainPage = 'lib/pages/main_page.dart';

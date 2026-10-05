@@ -8,6 +8,7 @@ import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import 'battery_page.dart';
 import 'device_state_page.dart';
+import 'fnthink_peers_page.dart';
 import 'temperature_page.dart';
 
 /// 「通知引擎」tab 的骨架页（T15）。
@@ -16,6 +17,13 @@ import 'temperature_page.dart';
 /// 那边判"这条已到达的通知要不要转"，这边判"设备自己到了某个状态要不要提醒"。
 /// 二分口径来自 roadmap §3，把两件事放进同一个列表会让人以为规则约束也能配温度阈值。
 ///
+/// ⚠ **T94 起这一页多了一块「幻念推送」**，而且它与上面那三格**不是一类东西**：
+/// 上面三格是"什么时候主动提醒"（阈值/迟滞/冷却），这一块是"往哪儿发"
+/// （渠道、设备绑定、发起推送、接收设置、远程执行）。维护者明确要求两块区域分开：
+/// 「更多 → 幻念推送」那一处只做这台设备的渠道信息（服务地址·身份·端点·边界），
+/// 而"我和谁有关系、往哪儿发"归这里。⚠ 混在一处时用户改完一件事分不清自己刚动的是哪一个，
+/// 而这两个决定的代价完全不同（换地址码要重新配对，撤销一台只影响那一台）。
+///
 /// 入口只放**今天真的能用**的两个：
 /// - 设备状态（T17 快照 + T18 详情页）还没建，不放占位行 —— 点了没反应的行比没有这行更糟；
 /// - 「幻念收件」跳转同理，等 T42/T59 落地再加（本 tab 只放跳转，配置入口按 T42 归「更多」）。
@@ -23,7 +31,15 @@ import 'temperature_page.dart';
 /// 两条入口的目标页都**订阅各自的服务**（T16 立的先例），所以本页不往下传回调：
 /// 传了就会有第三份"父页接线"，而父页 rebuild 根本到不了被 push 出去的子页。
 class NotificationEnginePage extends StatefulWidget {
-  const NotificationEnginePage({super.key});
+  const NotificationEnginePage({super.key, this.peersDeps});
+
+  /// 「已配对的设备」那一行的依赖（T94）。
+  ///
+  /// 缺省走 `FnthinkPeersDeps.fromLocator()`；测试里传一份替身。
+  /// 为什么这一页要单独开一个参数而不是拿 GetIt：这一页的判据是「入口能不能点不动」，
+  /// 而被点开的那一页是跟 GetIt 拿的（没注册就异常）——那样的用例必须先注册三个单例，
+  /// 而那三个单例与这一页的判据无关，白白让测试变成装配点的清单。
+  final FnthinkPeersDeps? peersDeps;
 
   @override
   State<NotificationEnginePage> createState() => _NotificationEnginePageState();
@@ -136,6 +152,59 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
           ),
           const SizedBox(height: 12),
           _constraintCard(l10n),
+          const SizedBox(height: 12),
+          _fnthinkHubCard(l10n),
+        ],
+      ),
+    );
+  }
+
+  /// T94：这一块收「往哪儿发」 —— 渠道、设备绑定、发起推送、接收设置、远程执行。
+  ///
+  /// ⚠ 今天只有「已配对的设备」一行：其余三格在 T94 片2/片3 里落。
+  /// **不摆占位行** —— 这一页上面那三格为什么只有三个，理由就是「点了没反应的行比没有这行更糟」，
+  /// 同一页里摆三行占位会把那条理由自己拆了。
+  Widget _fnthinkHubCard(AppLocalizations l10n) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBg(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.separator(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.fnthinkHubTitle,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.fnthinkHubDesc,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.secondaryLabel(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _entry(
+            key: const ValueKey('engine-fnthink-peers'),
+            icon: Icons.devices_other,
+            iconColor: AppColors.blue,
+            title: l10n.fnthinkPeersTitle,
+            subtitle: l10n.fnthinkHubPeersDesc,
+            page: FnthinkPeersPage(deps: widget.peersDeps),
+          ),
         ],
       ),
     );

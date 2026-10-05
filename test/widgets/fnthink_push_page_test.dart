@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
@@ -294,19 +295,21 @@ void main() {
         );
       },
     );
+    // 名单的读替身：**两个页面共用同一个入口**（幻念推送页还把它交给远程指令发送那一格用）。
+    // `peerReads` 数得到被读了几次 —— "点完同意之后那一格还是旧的"就是这么抓的。
+    Future<List<FnthinkPeer>> loadPeersStub() async {
+      peerReads++;
+      if (peersFail) throw StateError('库打不开');
+      return List<FnthinkPeer>.unmodifiable(peersShown);
+    }
+
     return _Harness(
       page: FnthinkPushPage(
         deps: FnthinkPushDeps(
           contracts: loader,
           coordinator: coordinator,
           identity: FnthinkIdentityService(),
-          // 名单的读替身：页面只能经由这一个入口读到对端（守卫钉住它不许直连表）。
-          // `peerReads` 数得到被读了几次 —— "点完同意之后那一格还是旧的"就是这么抓的。
-          loadPeers: () async {
-            peerReads++;
-            if (peersFail) throw StateError('库打不开');
-            return List<FnthinkPeer>.unmodifiable(peersShown);
-          },
+          loadPeers: loadPeersStub,
           // 「下一次自己醒」那一行（§4-9 片1d）：真的 scheduler + 被桩住的通道 ——
           // 页面拿到的就是生产那一份（`status()` 读 `fnthinkPresenceStatus`），
           // 而通道那头由各条用例自己决定回什么。
@@ -314,7 +317,22 @@ void main() {
           // T60：对着服务器的健康度读替身。默认 null ⇒ 那一行"从没发过"。
           healthOf: healthOf,
         ),
-        // #176 片4：这一页是不是从"点开的配对链接"进来的。
+        // T94：那一行入口要推的绑定页也得拿到同一份替身 —— 两个入口若各造一份，
+        // "两处看到的不是同一份名单"这件事只有真机上才现形。
+        peersDeps: FnthinkPeersDeps(
+          contracts: loader,
+          coordinator: coordinator,
+          loadPeers: loadPeersStub,
+        ),
+      ),
+      // T94：绑定那几格搬到了这张独立页（推送引擎那侧）。同一个协调者、同一份名单读口
+      // —— 而"两处都能进"这条要求两个入口必须指向**同一份状态**，所以它们共用替身而不是各造一份。
+      peersPage: FnthinkPeersPage(
+        deps: FnthinkPeersDeps(
+          contracts: loader,
+          coordinator: coordinator,
+          loadPeers: loadPeersStub,
+        ),
         pairLink: pairLink,
       ),
       coordinator: coordinator,
@@ -333,6 +351,16 @@ void main() {
       sendAsked: () => sendAsked,
       removed: () => removed,
     );
+  }
+
+  /// 推绑定页（T94）。两张页拉的 l10n 各自解一次：拉的句子那一个类型
+  /// 只在自己那张页上存在，另一张页的取法只能读到自己的那个元素。
+  Future<AppLocalizations> pumpPeers(WidgetTester tester, _Harness h) async {
+    await tester.pumpWidget(
+      AppRoot(locale: const Locale('zh'), dark: false, home: h.peersPage),
+    );
+    await tester.pumpAndSettle();
+    return AppLocalizations.of(tester.element(find.byType(FnthinkPeersPage)));
   }
 
   Future<AppLocalizations> pump(WidgetTester tester, Widget page) async {
@@ -610,6 +638,79 @@ void main() {
       );
       gate.complete();
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('T94：该页只是这台设备自己的渠道信息', () {
+    testWidgets('「已配对的设备」那一行在，且点它真的进到绑定页', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: const [
+          FnthinkPeer(
+            peerAddress: '8KMNPQRSTVWX999777',
+            publicKey: 'AAAA',
+            level: 'L1',
+            grantedAt: 1780000111000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      final l10n = await pump(tester, h.page);
+
+      // 这一页不再自己绘名单：拆两块的第一步就是「这两件事不是一件事」。
+      // ⚠ 那一行排在接收与身份两格之后 ⇒ 首屏之外，先滚到它被 build 出来再断言
+      // （视口外那一格根本没 build，"找不到"会被读成"这一行没有"）。
+      await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-entry')));
+      expect(
+        find.byKey(const ValueKey('fnthink-peers-entry')),
+        findsOneWidget,
+        reason: '两处都要能进绑定，这一处就是第二个入口',
+      );
+      expect(
+        find.text(l10n.fnthinkPeersTitle),
+        findsOneWidget,
+        reason: '行标题采用名单那一把的词，两处名字一致才不会被用户当成两个功能',
+      );
+
+      await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-entry')));
+      await tester.tap(find.byKey(const ValueKey('fnthink-peers-entry')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(FnthinkPeersPage),
+        findsOneWidget,
+        reason: '入口画出来但点不动，比没这一行更坏',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-8KMNPQRSTVWX999777')),
+        findsOneWidget,
+        reason: '进到的是真的绑定页（名单在那里），不是一个空壳',
+      );
+    });
+
+    testWidgets('这一页上不再有名单与待确认请求那两张卡', (tester) async {
+      stubChannels();
+      final h = harness(
+        peers: const [
+          FnthinkPeer(
+            peerAddress: '8KMNPQRSTVWX999777',
+            publicKey: 'AAAA',
+            level: 'L1',
+            grantedAt: 1780000111000,
+            requestId: 'pr_9',
+          ),
+        ],
+      );
+      await pump(tester, h.page);
+
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-peer')),
+        findsNothing,
+        reason:
+            '绑定那两张卡搬走之后，它们不得在这里还留一份——'
+            '留着只会让管理员以为它们还在这台设备上受保护',
+      );
+      expect(find.byKey(const ValueKey('fnthink-peers-empty')), findsNothing);
     });
   });
 
@@ -923,7 +1024,7 @@ void main() {
                 '"serverTime":1800000000000}',
         recordPeer: recordPeer,
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await h.coordinator.startIfEnabled();
       await tester.pump();
       await tester.pumpAndSettle();
@@ -1151,7 +1252,7 @@ void main() {
           row('BBBBBBBBBBBBBBBBBBBB'),
         ],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       final first = find.byKey(
         const ValueKey('fnthink-peer-AAAAAAAAAAAAAAAAAAAA'),
       );
@@ -1190,7 +1291,7 @@ void main() {
     testWidgets('名单真的是空的 ⇒ 说"还没有配对过任何设备"', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-empty')));
       expect(
         find.text(l10n.fnthinkPeersEmpty),
@@ -1203,7 +1304,7 @@ void main() {
     testWidgets('名单读不出来 ⇒ 贴原话，不许显示成"还没有配对过任何设备"', (tester) async {
       stubChannels();
       final h = harness(peersFail: true);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-error')));
       expect(
         find.byKey(const ValueKey('fnthink-peers-error')),
@@ -1232,7 +1333,7 @@ void main() {
           ),
         ],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await h.coordinator.startIfEnabled();
       await tester.pump();
       await tester.pumpAndSettle();
@@ -1256,7 +1357,7 @@ void main() {
     testWidgets('grantedAt 是 0 ⇒ 那一行写"—"，不写成 1970 年', (tester) async {
       stubChannels();
       final h = harness(peers: [row('CCCCCCCCCCCCCCCCCCCC', at: 0)]);
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       final target = find.byKey(
         const ValueKey('fnthink-peer-CCCCCCCCCCCCCCCCCCCC'),
       );
@@ -1304,7 +1405,7 @@ void main() {
     testWidgets('点了不等于撤了：那一发要先过二次确认', (tester) async {
       stubChannels();
       final h = harness(peers: [peerRow('AAAAAAAAAAAAAAAAAAAA')]);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapRevoke(tester, l10n, 'AAAAAAAAAAAAAAAAAAAA');
       expect(
         find.text(l10n.fnthinkRevokeAskTitle),
@@ -1323,7 +1424,7 @@ void main() {
     testWidgets('撤成 ⇒ 那一行从格子里消失，而结论说的是服务端的事实', (tester) async {
       stubChannels();
       final h = harness(peers: [peerRow('BBBBBBBBBBBBBBBBBBBB')]);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       final before = h.peerReads();
       await tapRevoke(tester, l10n, 'BBBBBBBBBBBBBBBBBBBB');
       await tester.tap(find.text(l10n.confirm));
@@ -1347,7 +1448,7 @@ void main() {
         peers: [peerRow('CCCCCCCCCCCCCCCCCCCC')],
         revokeBody: '{"revoked":false,"serverTime":1800000000000}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapRevoke(tester, l10n, 'CCCCCCCCCCCCCCCCCCCC');
       await tester.tap(find.text(l10n.confirm));
       await tester.pumpAndSettle();
@@ -1365,7 +1466,7 @@ void main() {
         revokeStatus: 403,
         revokeBody: '{"receipt":"rejected_capability"}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapRevoke(tester, l10n, 'DDDDDDDDDDDDDDDDDD');
       await tester.tap(find.text(l10n.confirm));
       await tester.pumpAndSettle();
@@ -1392,7 +1493,7 @@ void main() {
         peers: [peerRow('EEEEEEEEEEEEEEEEEEEE')],
         removePeer: (_) async => throw StateError('表被锁'),
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapRevoke(tester, l10n, 'EEEEEEEEEEEEEEEEEEEE');
       await tester.tap(find.text(l10n.confirm));
       await tester.pumpAndSettle();
@@ -1415,7 +1516,7 @@ void main() {
         canSign: false,
         peers: [peerRow('FFFFFFFFFFFFFFFFFFFF')],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapRevoke(tester, l10n, 'FFFFFFFFFFFFFFFFFFFF');
       await tester.tap(find.text(l10n.confirm));
       await tester.pumpAndSettle();
@@ -2189,7 +2290,7 @@ void main() {
     testWidgets('没配对过任何一台 ⇒ 这一格根本没有发送入口', (tester) async {
       stubChannels();
       final h = harness();
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       expect(
         find.byKey(const ValueKey('fnthink-peer-send-$peerAddress')),
         findsNothing,
@@ -2211,7 +2312,7 @@ void main() {
           ),
         ],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, title: '到家了', body: '门已开');
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
@@ -2244,7 +2345,7 @@ void main() {
           ),
         ],
       );
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, title: '只有标题没有正文');
       final submit = find.byKey(const ValueKey('fnthink-send-submit'));
@@ -2273,7 +2374,7 @@ void main() {
           ),
         ],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '本来要发的正文');
       await tester.tap(find.text(l10n.cancel));
@@ -2297,7 +2398,7 @@ void main() {
           ),
         ],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '发一条试试');
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
@@ -2322,7 +2423,7 @@ void main() {
           ),
         ],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '排队里挤掉了两条');
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
@@ -2350,7 +2451,7 @@ void main() {
           ),
         ],
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '签不出来也要试');
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
@@ -2413,7 +2514,7 @@ void main() {
     testWidgets('那一格是个入口，不是三格常驻输入框（口令不该有个"一直在那儿"的形态）', (tester) async {
       stubChannels();
       final h = harness();
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       // 名单在 ListView 里、默认在视口外：没滚到那一格时它根本没被 build，
       // 那时"找不到"是测试自己的红，不是页面的（各条用例都先滚再断言）。
       await revealTo(tester, find.byKey(const ValueKey('fnthink-pair-peer')));
@@ -2435,7 +2536,7 @@ void main() {
     testWidgets('取消 ⇒ 一个字节都不发（那一枚一次性口令还留着）', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await openSheet(tester);
       await fillPair(tester, target: peerAddress, code: validPairing);
       await tester.tap(find.text(l10n.cancel));
@@ -2447,7 +2548,7 @@ void main() {
     testWidgets('少填一样 ⇒ 「发过去」是灰的，点下去没有请求', (tester) async {
       stubChannels();
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await openSheet(tester);
       await fillPair(tester, target: peerAddress);
       final submit = find.byKey(const ValueKey('fnthink-pair-peer-submit'));
@@ -2471,7 +2572,7 @@ void main() {
       stubChannels();
       disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await openSheet(tester);
       await fillPair(tester, target: peerAddress, code: validPairing);
       await submitPair(tester);
@@ -2504,7 +2605,7 @@ void main() {
     testWidgets('档位只列契约够得着的那几档：默认有 L1/L2、没有 L3', (tester) async {
       stubChannels();
       final h = harness();
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       await openSheet(tester);
       expect(
         find.byKey(const ValueKey('fnthink-pair-peer-level-L1')),
@@ -2528,7 +2629,7 @@ void main() {
               as Map<String, Object?>;
       (raw['pairing']! as Map)['maxRequestableLevelFromPairing'] = 'L1';
       final h = harness(contractText: jsonEncode(raw));
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await openSheet(tester);
       expect(
         find.byKey(const ValueKey('fnthink-pair-peer-level-L1')),
@@ -2546,7 +2647,7 @@ void main() {
       stubChannels();
       disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
       final h = harness();
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       await openSheet(tester);
       await fillPair(tester, target: peerAddress, code: validPairing);
       await submitPair(tester);
@@ -2573,7 +2674,7 @@ void main() {
       stubChannels();
       disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
       final h = harness(pairBody: '{"serverTime":1800000000000}');
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await openSheet(tester);
       await fillPair(tester, target: peerAddress, code: validPairing);
       await submitPair(tester);
@@ -2589,7 +2690,7 @@ void main() {
       stubChannels();
       disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
       final h = harness(pairStatus: 403, pairBody: '{}');
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await openSheet(tester);
       await fillPair(tester, target: peerAddress, code: validPairing);
       await submitPair(tester);
@@ -2605,7 +2706,7 @@ void main() {
       stubChannels();
       disk[FnthinkCredentialStore.addressCodeKey] = validAddress;
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       await openSheet(tester);
       await fillPair(tester, target: validAddress, code: validPairing);
       await submitPair(tester);
@@ -2650,7 +2751,7 @@ void main() {
     testWidgets('链接判过 ⇒ 页面自己打开预填的弹层，但一个字节都不发', (tester) async {
       stubChannels();
       final h = harness(pairLink: outcome());
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       expect(
         find.byKey(const ValueKey('fnthink-pair-peer-target')),
         findsOneWidget,
@@ -2673,7 +2774,7 @@ void main() {
     testWidgets('链接里那一档够得着 ⇒ 选中的就是那一档，不回到最低', (tester) async {
       stubChannels();
       final h = harness(pairLink: outcome(level: 'L2'));
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       expect(
         tester
             .widget<ChoiceChip>(
@@ -2689,7 +2790,7 @@ void main() {
     testWidgets('链接里那一档够不着（L3）⇒ 落到够得着的最高那一档，不摆一发必被拒的请求', (tester) async {
       stubChannels();
       final h = harness(pairLink: outcome(level: 'L3'));
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       expect(
         find.byKey(const ValueKey('fnthink-pair-peer-level-L3')),
         findsNothing,
@@ -2709,7 +2810,7 @@ void main() {
     testWidgets('链接判不过 ⇒ 不开弹层，但那一句要说', (tester) async {
       stubChannels();
       final h = harness(pairLink: outcome(accepted: false));
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpPeers(tester, h);
       expect(
         find.byKey(const ValueKey('fnthink-pair-peer-target')),
         findsNothing,
@@ -2742,7 +2843,7 @@ void main() {
     testWidgets('没有链接（null）⇒ 那一句绝不出现，弹层也不自己开', (tester) async {
       stubChannels();
       final h = harness();
-      await pump(tester, h.page);
+      await pumpPeers(tester, h);
       expect(
         find.byKey(const ValueKey('fnthink-pair-link-rejected')),
         findsNothing,
@@ -3044,6 +3145,7 @@ class _StubSigner implements FnthinkIdentitySigner {
 class _Harness {
   _Harness({
     required this.page,
+    required this.peersPage,
     required this.coordinator,
     required this.builds,
     required this.armAsked,
@@ -3062,6 +3164,9 @@ class _Harness {
   });
 
   final FnthinkPushPage page;
+
+  /// 设备绑定那一张独立页（T94：从幻念推送页里拆出来的那两张卡）。
+  final FnthinkPeersPage peersPage;
   final FnthinkReceiveCoordinator coordinator;
   final int Function() builds;
 

@@ -21,7 +21,9 @@ void main() {
       File('$root/$rel').readAsStringSync().replaceAll('\r\n', '\n');
 
   const dialog = 'lib/widgets/fnthink_pair_dialog.dart';
-  const page = 'lib/pages/fnthink_push_page.dart';
+  // ⚠ T94：绑定那两张卡搬到独立页了（守卫的主语随之迁移，
+  //   路径不改就等于监督的是另一个文件。
+  const page = 'lib/pages/fnthink_peers_page.dart';
   const contract = 'packages/fnthink_push/lib/src/contract.dart';
   const coordinator = 'lib/services/fnthink_receive_coordinator.dart';
 

@@ -636,7 +636,7 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 const Map<String, int> kMaterialRouteSites = <String, int>{
   'lib/pages/app_channel_list_page.dart': 1,
   'lib/pages/email_settings_page.dart': 1,
-  'lib/pages/fnthink_push_page.dart': 3,
+  'lib/pages/fnthink_push_page.dart': 4,
   'lib/pages/main_page.dart': 1,
   'lib/pages/more_page.dart': 5,
   'lib/pages/notification_engine_page.dart': 1,

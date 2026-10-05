@@ -32,7 +32,7 @@ import 'channel_status_page.dart';
 import 'notification_engine_page.dart';
 import 'more_page.dart';
 import 'history_page.dart';
-import 'fnthink_push_page.dart';
+import 'fnthink_peers_page.dart';
 import 'permission_settings_page.dart';
 import 'email_settings_page.dart';
 import 'webhook_channel_list_page.dart';

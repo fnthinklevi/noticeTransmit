@@ -388,7 +388,7 @@ void main() {
 
     test('页面不自己取货、不自己开表，也不把答复词与档位抄成字面量', () {
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        librarySource(root, 'lib/pages/fnthink_peers_page.dart'),
       );
       expect(
         page,
@@ -471,7 +471,7 @@ void main() {
       );
 
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        librarySource(root, 'lib/pages/fnthink_peers_page.dart'),
       );
       expect(
         page,
@@ -523,8 +523,11 @@ void main() {
         isNot(contains('secret')),
         reason: '设置项里出现了 secret：那等于给"顺手存一下"开一个正式的键',
       );
+      // ⚠ T94：幻念推送页拆成两张（设备绑定那张单独成页）之后，
+      //   这条断言必须两张都断：只断其中一张，另一张里的口令可以无宱地落盘。
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        librarySource(root, 'lib/pages/fnthink_push_page.dart') +
+            librarySource(root, 'lib/pages/fnthink_peers_page.dart'),
       );
       for (final write in ['setString', 'SharedPreferences']) {
         expect(
@@ -928,7 +931,7 @@ void main() {
             '表现是"收货正常而发送一路 410"，而 410 那句看起来像服务端坏了',
       );
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        librarySource(root, 'lib/pages/fnthink_peers_page.dart'),
       );
       expect(
         page,

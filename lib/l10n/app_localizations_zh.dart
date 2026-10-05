@@ -3284,6 +3284,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeersTitle => '已配对的设备';
 
   @override
+  String get fnthinkHubTitle => '幻念推送';
+
+  @override
+  String get fnthinkHubDesc => '往哪儿发：设备绑定、发起推送与接收设置都在这一块。';
+
+  @override
+  String get fnthinkHubPeersDesc => '配对了几台设备、能给它们发一条，也能撤销那一台。';
+
+  @override
+  String get fnthinkPeersGo => '管理已配对的设备';
+
+  @override
+  String get fnthinkPushPeersDesc => '配对、发一条与撤销在「通知引擎 → 幻念推送」里配；这里管的是这台设备自己。';
+
+  @override
   String fnthinkPeerLine(String peer, String level, String at) {
     return '$peer · 授到 $level · $at';
   }

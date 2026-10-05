@@ -3429,6 +3429,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPeersTitle => 'Paired devices';
 
   @override
+  String get fnthinkHubTitle => 'Fnthink Push';
+
+  @override
+  String get fnthinkHubDesc =>
+      'Where to send: paired devices, sending a notice and receiving settings live here.';
+
+  @override
+  String get fnthinkHubPeersDesc =>
+      'Which devices are paired, send one to them, or revoke one of them.';
+
+  @override
+  String get fnthinkPeersGo => 'Manage paired devices';
+
+  @override
+  String get fnthinkPushPeersDesc =>
+      'Pairing, sending and revoking are set up under Notification Engine → Fnthink Push; this page is about this device itself.';
+
+  @override
   String fnthinkPeerLine(String peer, String level, String at) {
     return '$peer · granted $level · $at';
   }

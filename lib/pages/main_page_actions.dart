@@ -208,12 +208,16 @@ extension _MainPageActions on _MainPageState {
   /// 而通知那一路 null 也要打开列表，因为点击确实发生过。把两条写成同一个形状，
   /// 表现就是"每次启动都被送到幻念推送页"。
   /// 非 null 但判不过 ⇒ 仍然导航过去并说一句：用户点了一条链接，"点了没反应"正是这片要修的缺陷形状。
+  ///
+  /// ⚠ T94：落点是**绑定页**而不是幻念推送页 —— 一条配对链接的主语就是"我和谁有关系"，
+  /// 那件事搬去推送引擎那侧的独立页之后，先开渠道信息页再等用户自己点进绑定，
+  /// 等于让用户点完链接还要再点一次"管理已配对的设备"才看到弹层。
   Future<void> _consumeFnthinkPairLink() async {
     final outcome = await FnthinkPairLinkReader(
       contracts: GetIt.instance<FnthinkContractLoader>(),
     ).take();
     if (outcome == null || !mounted) return;
-    await _pushPage(FnthinkPushPage(pairLink: outcome));
+    await _pushPage(FnthinkPeersPage(pairLink: outcome));
   }
 
   void _openPermissionSettingsPage() async {

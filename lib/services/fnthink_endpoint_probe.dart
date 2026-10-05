@@ -18,9 +18,8 @@ import 'package:http/http.dart' as http;
 ///
 /// ⚠ **"答了"就算可达，不看状态码**：403/404 同样证明服务器在、答了，
 /// 而把非 2xx 当不可达会让"服务在但这一档被拒"被读成"这一台不通"。
-typedef EndpointLatencyProbe = Future<Map<String, Duration>> Function(
-  List<String> hosts,
-);
+typedef EndpointLatencyProbe =
+    Future<Map<String, Duration>> Function(List<String> hosts);
 
 /// 给 [hosts] 各测一次往返时延。**测不到的（超时/连接失败/DNS 失败）不进表**。
 ///
@@ -33,19 +32,21 @@ Future<Map<String, Duration>> measureEndpointLatency(
   final owned = client == null;
   final c = client ?? http.Client();
   try {
-    final results = await Future.wait(hosts.map((host) async {
-      final sw = Stopwatch()..start();
-      try {
-        await c.get(Uri.https(host, '/health')).timeout(timeout);
-        sw.stop();
-        return MapEntry(host, sw.elapsed);
-      } catch (_) {
-        // 超时 / 连接被拒 / DNS 不对：一律读成"这台测不到"，不进表。
-        // ⚠ 这里**不区分**"连不上"与"连上了但没在预算内答完" ——
-        //   对"就近选"这个用途来说，两者的处置完全一样（不参与竞选）。
-        return MapEntry(host, const Duration(days: 1));
-      }
-    }));
+    final results = await Future.wait(
+      hosts.map((host) async {
+        final sw = Stopwatch()..start();
+        try {
+          await c.get(Uri.https(host, '/health')).timeout(timeout);
+          sw.stop();
+          return MapEntry(host, sw.elapsed);
+        } catch (_) {
+          // 超时 / 连接被拒 / DNS 不对：一律读成"这台测不到"，不进表。
+          // ⚠ 这里**不区分**"连不上"与"连上了但没在预算内答完" ——
+          //   对"就近选"这个用途来说，两者的处置完全一样（不参与竞选）。
+          return MapEntry(host, const Duration(days: 1));
+        }
+      }),
+    );
     return {
       for (final e in results)
         if (e.value < const Duration(days: 1)) e.key: e.value,

@@ -162,8 +162,10 @@ void main() {
             '把"状态 → 原话"的 switch 抄进第二个文件 ⇒ 那一档以后只在一边改。'
             '结论文案的唯一作者是 `fnthinkSendResultText`（两页都调它）',
       );
+      // ⚠ T94：「发一条」那一发与「结论文案」都搬到绑定页（`fnthink_peers_page.dart`），
+      //   两侧都必须经那一份文案；把旧页面留在这里只会让它穿带绿。
       for (final page in const [
-        'lib/pages/fnthink_push_page.dart',
+        'lib/pages/fnthink_peers_page.dart',
         'lib/pages/history_page.dart',
       ]) {
         expect(
