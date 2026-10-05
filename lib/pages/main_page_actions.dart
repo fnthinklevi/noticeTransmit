@@ -232,8 +232,16 @@ extension _MainPageActions on _MainPageState {
         onRefresh: _checkPermissions,
         onRequestNotificationListenerPermission:
             _permissionService.requestNotificationListenerPermission,
-        onRequestPostNotificationPermission:
-            _permissionService.requestPostNotificationPermission,
+        // T55：通知权限给了之后**顺手**把提升/悬浮通知（POST_PROMOTED_NOTIFICATIONS，36+）
+        // 一起申请。
+        // ⚠ 为什么挂在这一格而不是权限页另开一行：那一档只在 36+ 存在，在 34/35 的设备上
+        //   显示一个永远"已开启"的开关，比不显示更糟（用户会去点一个点不动的东西）。
+        // ⚠ 为什么必须真的申请：manifest 里声明了不等于有 —— 声明而不申请，
+        //   FLAG_PROMOTED_ONGOING 就是**静默无效**（上不了岛），没有任何报错可查。
+        onRequestPostNotificationPermission: () async {
+          await _permissionService.requestPostNotificationPermission();
+          await _permissionService.requestPromotedNotificationPermission();
+        },
         onRequestBatteryOptimization:
             _permissionService.requestBatteryOptimization,
         onRequestXiaomiAutoStart: _permissionService.requestXiaomiAutoStart,

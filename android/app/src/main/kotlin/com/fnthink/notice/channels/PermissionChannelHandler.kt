@@ -9,6 +9,11 @@ import io.flutter.plugin.common.MethodChannel
  * 精确闹钟、电池优化白名单、应用详情页，以及国产 ROM 保活跳转（小米/魅族/华为/OPPO/vivo）。
  */
 internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler(activity) {
+    companion object {
+        /** T61：请求码自定一个不与别的申请撞的（T84 那批用的是 71–78 那一段）。 */
+        const val PROMOTED_PERMISSION_REQUEST_CODE = 9101
+    }
+
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
             "isNotificationPermissionGranted" -> {
@@ -25,6 +30,19 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 activity.requestPostNotificationPermission()
                 result.success(true)
             }
+            // T55：提升/悬浮通知权限（36+ 才有；36 以下原生直接回 true，见那一侧注释）
+            "isPromotedNotificationPermissionGranted" -> {
+                result.success(activity.isPromotedNotificationPermissionGranted())
+            }
+            "requestPromotedNotificationPermission" -> {
+                activity.requestPromotedNotificationPermission(PROMOTED_PERMISSION_REQUEST_CODE)
+                result.success(true)
+            }
+            // T55：权限那一族有一枚是 36+ 才有的（提升/悬浮通知），界面要靠它决定显不显示
+            "getSdkInt" -> {
+                result.success(android.os.Build.VERSION.SDK_INT)
+            }
+
             "isSmsPermissionGranted" -> {
                 result.success(activity.isSmsPermissionGranted())
             }

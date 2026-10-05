@@ -104,6 +104,31 @@ class PermissionService {
     }
   }
 
+  /// T55：**提升/悬浮通知**权限（`POST_PROMOTED_NOTIFICATIONS`，Android 16 起才有运行时权限）。
+  ///
+  /// ⚠ **走原生而不是 permission_handler**：那一版（13.x）的枚举里没有这一项，硬塞进去等于
+  /// 让"没这一项"在编译期看不见 —— 而漏申请的代价是 `FLAG_PROMOTED_ONGOING` **静默无效**
+  /// （上不了岛），没有任何报错可查。
+  /// ⚠ 36 以下**直接回 false**（= 不支持、不必申请）：那一档系统没有这个权限，
+  ///   也没有"用户拒绝"这回事，在那里弹框只会让用户看到一个莫名其妙的应用信息页。
+  Future<bool> requestPromotedNotificationPermission() async {
+    final sdk = await _channel.invokeMethod<int>('getSdkInt');
+    if ((sdk ?? 0) < 36) return false;
+    await _requestPermission('requestPromotedNotificationPermission');
+    return isPromotedNotificationGranted();
+  }
+
+  Future<bool> isPromotedNotificationGranted() async {
+    try {
+      return await _channel.invokeMethod<bool>('isPromotedNotificationPermissionGranted') ??
+          false;
+    } catch (e) {
+      debugPrint('检查提升通知权限失败（按未授予处理）: $e');
+      return false;
+    }
+  }
+
+
   Future<void> requestBatteryOptimization() =>
       _requestPermission('requestBatteryOptimization');
 

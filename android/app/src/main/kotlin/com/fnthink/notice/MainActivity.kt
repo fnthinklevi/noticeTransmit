@@ -1216,6 +1216,35 @@ class MainActivity : FlutterActivity() {
         return flat.contains(packageName)
     }
 
+    /**
+     * T55：申请 **POST_PROMOTED_NOTIFICATIONS**（Android 16 起"提升/悬浮通知"的运行时权限）。
+     *
+     * ⚠ 为什么必须走原生而不能用 permission_handler：那一版（13.x）的枚举里**没有**这一枚，
+     *   硬塞进现有枚举等于让"没这一项"这件事在编译期看不见 —— 而漏申请的代价是
+     *   `FLAG_PROMOTED_ONGOING` 静默无效（上不了岛），没有任何报错。
+     * ⚠ 36 以下**直接回已授予**：那一档系统没有这个权限，也没有"用户拒绝"这回事 ——
+     *   在那里弹一个不存在的权限框，用户只会看到一个莫名其妙的应用信息页。
+     */
+    internal fun requestPromotedNotificationPermission(requestCode: Int) {
+        if (Build.VERSION.SDK_INT < 36) return
+        try {
+            requestPermissions(
+                arrayOf("android.permission.POST_PROMOTED_NOTIFICATIONS"),
+                requestCode,
+            )
+        } catch (e: Exception) {
+            Log.w("MainActivity", "申请提升通知权限失败（其余能力不受影响）", e)
+        }
+    }
+
+    internal fun isPromotedNotificationPermissionGranted(): Boolean {
+        if (Build.VERSION.SDK_INT < 36) return true
+        return ContextCompat.checkSelfPermission(
+            this,
+            "android.permission.POST_PROMOTED_NOTIFICATIONS"
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     internal fun requestNotificationListenerPermission() {
         try {
             val intent = Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")

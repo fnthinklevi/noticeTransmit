@@ -113,6 +113,10 @@ object FnthinkRemoteExecDisplay {
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description = I18n.fnthinkRemoteExecChannelDescription()
+                    // T55 同批：锁屏与角标原来没写 ⇒ 真机上读回 lockscreenVisibility=-1000
+                    // （MIUI 不保存这一层，但通知层那一行仍要写，见 build 里的 setVisibility）。
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    setShowBadge(true)
                 },
             )
         } catch (e: Exception) {

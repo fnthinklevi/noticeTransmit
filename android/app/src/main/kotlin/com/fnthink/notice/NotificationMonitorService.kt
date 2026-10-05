@@ -33,7 +33,11 @@ class NotificationMonitorService : NotificationListenerService() {
     companion object {
         private const val TAG = "NotificationMonitorService"
         private const val FOREGROUND_ID = 1001
-        private const val CHANNEL_ID = "notification_monitor_channel"
+        /** T55 那一类改动的同一条理由：渠道 importance **创建后不可改**，
+         *  而监控那条原来是 LOW（不弹悬浮通知）。维护者 2026-10-05 要求这一条
+         *  也要悬浮通知 ⇒ 换一枚新 id，**旧的那枚留着等他后面删**。 */
+        private const val CHANNEL_ID = "notification_monitor_channel_v2"
+        private const val LEGACY_CHANNEL_ID = "notification_monitor_channel"
         private const val CHANNEL_NAME = "通知监听"
         const val ACTION_UPDATE_CONFIG = "com.fnthink.notice.UPDATE_CONFIG"
         const val ACTION_SET_MONITORING = "com.fnthink.notice.SET_MONITORING"
@@ -1140,9 +1144,14 @@ class NotificationMonitorService : NotificationListenerService() {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
                     CHANNEL_NAME,
-                    NotificationManager.IMPORTANCE_LOW
+                    // LOW 只进通知栏、**不弹悬浮通知**（heads-up）。维护者 2026-10-05：
+                    // 「被控端设备取消就是靠的悬浮通知和通知栏，通知栏在部分国产系统
+                    // 无法点击就只能靠悬浮通知」⇒ 这一条必须 HIGH。
+                    NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "后台通知监听前台服务"
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    // 角标留给收件那枚（那是"未读数"的语义）；常驻服务通知不占桌面数字。
                     setShowBadge(false)
                     enableVibration(false)
                     enableLights(false)
@@ -1156,25 +1165,63 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     }
 
+    /** 34+ 的前台服务类型；32 以下走不带类型的那个重载。 */
+    private fun foregroundServiceType(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        } else {
+            0
+        }
+
     private fun startForegroundService() {
         val notification = buildForegroundNotification()
 
-        // 注意：不请求 EXTRA_REQUEST_PROMOTED_ONGOING（Android 16 Live Update 提升）。
+        // ⚠ **这一段是反转的决策，原句保留**：
+        // 原注记「注意：不请求 EXTRA_REQUEST_PROMOTED_ONGOING（Android 16 Live Update 提升）。
         // 该标志会让常驻通知被提升为实时更新，在小米 HyperOS 上表现为「超级岛」常驻胶囊。
-        // 我们的前台通知仅需在通知栏展示，不参与系统胶囊/灵动岛。
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(FOREGROUND_ID, notification)
+        // 我们的前台通知仅需在通知栏展示，不参与系统胶囊/灵动岛。」
+        // 维护者 2026-10-05 改判：**要参与**。理由是他给的那条 ——
+        // 「被控端设备取消就是靠的悬浮通知和通知栏，通知栏在部分国产系统无法点击
+        // 就只能靠悬浮通知了」⇒ 这一条通知是"设备被取消了/有拦截"唯一的即时入口。
+        // 相应地那一段 `CATEGORY_SERVICE` 也一并换掉（系统对服务类常驻通知默认不上岛）。
+        // ⚠ 用**平台那个 flag** 而不是 `NotificationCompat.Builder.setRequestPromotedOngoing`：
+        // 本仓 androidx.core 是 1.13.1，那一 API 还没有（1.16 才加）。平台侧自 API 36 起
+        // 认 `Notification.FLAG_PROMOTED_ONGOING`，自己加效果相同，且不牵升级。
+        // ⚠ 提升要**运行时权限** POST_PROMOTED_NOTIFICATIONS（manifest 里已声明，
+        // 但此前**从来没有申请过** —— 声明而不申请等于关着）。拿不到就不加这个 flag，
+        // 少一个上岛胶囊不该让前台服务起不来。
+        var promoted = notification
+        if (Build.VERSION.SDK_INT >= 36) {
+            val granted = try {
+                checkSelfPermission("android.permission.POST_PROMOTED_NOTIFICATIONS") ==
+                    PackageManager.PERMISSION_GRANTED
+            } catch (e: Exception) {
+                false
+            }
+            if (granted) {
+                // 先把原通知**原样重建**（不能拿一个新的空壳去替换前台通知：
+                // 那会把标题/正文/按钮全丢掉，用户看到的是一枚空通知）。
+                // 重建只需要原通知带着的那几项，而 `Notification` 上没有通用的
+                // "copy" —— 所以走 Builder 把原样字段再摆一遍。
+                promoted = NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(notification.icon)
+                    .setContentTitle(notification.extras?.getCharSequence(Notification.EXTRA_TITLE))
+                    .setContentText(notification.extras?.getCharSequence(Notification.EXTRA_TEXT))
+                    .setWhen(notification.`when`)
+                    .build()
+                    .apply { flags = flags or android.app.Notification.FLAG_PROMOTED_ONGOING }
+                Log.i(TAG, "前台通知已请求提升为实时更新（上岛胶囊）")
+            } else {
+                Log.i(TAG, "未授予 POST_PROMOTED_NOTIFICATIONS ⇒ 不请求提升（其余能力照旧）")
+            }
         }
+        startForeground(FOREGROUND_ID, promoted, foregroundServiceType())
         Log.i(TAG, "Foreground service started")
         // v1.59：通知权限未授予时系统不会展示任何通知；显式 cancel 防止
         // 权限被撤前显示过的旧通知残留（场景 5b：权限缺失直接隐藏）
-        if (!notificationManager.areNotificationsEnabled()) {
-            notificationManager.cancel(FOREGROUND_ID)
+        if (!notificationManager.areNotificationsEnabled()) {            notificationManager.cancel(FOREGROUND_ID)
         }
     }
 
@@ -1219,9 +1266,18 @@ class NotificationMonitorService : NotificationListenerService() {
             .setContentText(contentText)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            // 归类为服务通知：系统（含各品牌灵动岛/超级岛）对服务类常驻通知默认不上岛
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // ⚠ **这一行也是反转的决策，原注释保留**：
+            // 原注记「归类为服务通知：系统（含各品牌灵动岛/超级岛）对服务类常驻通知默认不上岛」。
+            // 维护者 2026-10-05 要求这一条上"上岛的 liveupdate" ⇒ 不能再用 SERVICE 那一类
+            // （那一类恰好是系统判定"不上岛"的那一类）。改用 EVENT（事件类），
+            // 锁屏可见性由渠道那一层的 VISIBILITY_PUBLIC 兜。
+            .setCategory(NotificationCompat.CATEGORY_EVENT)
+            // 只在服务真正起来时响一次；之后 pushCount / 聚合组的每一次变化都**原地更新**
+            // （updateForegroundNotification → notify(同一个 id)），不一条一条弹横幅 ——
+            // 那正是"live update"的形状，也是"被拦截了才提示"与"监听中就够吵"之间的分界。
+            .setOnlyAlertOnce(true)
+            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
 

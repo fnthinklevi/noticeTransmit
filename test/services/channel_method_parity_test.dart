@@ -96,10 +96,13 @@ void main() {
       );
     });
 
-    test('原生方法总数 == 107（防止分支被静默删除/新增未登记）', () {
+    // T55 新增三发（getSdkInt / isPromotedNotificationPermissionGranted /
+    // requestPromotedNotificationPermission）—— 提升/悬浮通知权限那一族（Android 16+），
+    // 见 §7 第 8.196 版。107 → 110 是**有意**改动，不是分支被删。
+    test('原生方法总数 == 110（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        107,
+        110,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -111,7 +114,7 @@ void main() {
       final dist = _distribution(native);
       expect(dist, {
         'ConfigChannelHandler': 34,
-        'PermissionChannelHandler': 23,
+        'PermissionChannelHandler': 26, // T55：提升/悬浮通知那一族 +3
         'DeviceChannelHandler': 15,
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
