@@ -1139,8 +1139,10 @@ void main() {
         await _settle(tester);
         // T90 片14：这枚阈值框换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 本步里
         // **等/点/断言的每一处引用一起换**（片12 只改了「点」漏了「等」，闸门当场红）。
-        // ⚠ 下面第 1164 行那处 `_in(AlertDialog, find.text('关闭'))`（温度**试跑**结果框）**不换** ——
-        //   试跑框这一片没动，仍是 Material 那件；照着这里一起改就会把闸门改红。
+        // ⚠ 下面温度**试跑**结果框那一处曾长期**不换**（它还是 Material 那件）；
+        //   T90 片28 把它收进 `IosDialogActions.showExplainer` ⇒ **那一处现在也换成
+        //   `CupertinoAlertDialog` 了**，本文件里已无 `_in(AlertDialog, …)`。
+        //   ⚠ 这条注释留着：当初"照着一起改就会把闸门改红"是对的，改之前先确认那一枚真的迁了。
         await _tap(
           tester,
           _in(CupertinoAlertDialog, find.text('电池温度')),
@@ -1173,7 +1175,11 @@ void main() {
           isNotEmpty,
           reason: '弹层是空的 ⇒ 原生回了载荷而 Dart 没渲染出来（三种结局都会看不见）',
         );
-        await _tap(tester, _in(AlertDialog, find.text('关闭')), '温度试跑→关闭');
+        await _tap(
+          tester,
+          _in(CupertinoAlertDialog, find.text('关闭')),
+          '温度试跑→关闭',
+        );
         await _settle(tester);
         await _backToHome(tester);
 
@@ -1472,8 +1478,9 @@ void main() {
           // （dialog=false）⇒ 不再追这层嵌套弹层，改为断言对话框三要素齐备后取消；
           // 条件能否真落盘由桌面 widget 用例守（跑得快、可断言到控件级）。
           // T90 片12：这枚表单弹层换成了共享外壳 `IosFormDialog`（Cupertino 那件）⇒ 定位跟着换。
-          // ⚠ 同文件里上面那处 `_in(AlertDialog, find.text('添加'))`（温度规则对话框）**不换** ——
-          //   温度/电量/设备状态三页的表单框这一片没动，仍是 Material 那件；照着这里一起改就会红。
+          // ⚠ 同文件里上面那处「温度规则对话框」的定位（T90 片12 起）早已换成 `CupertinoAlertDialog`；
+          //   本句原写的是「那一处不换」，T90 片28 把温度页最后一枚也迁完之后**本文件再无
+          //   Material `AlertDialog` 引用** —— 留着是为了让下一个人改定位前先确认那一枚真的迁了。
           await _tap(
             tester,
             _in(CupertinoAlertDialog, find.text('条件类型')),

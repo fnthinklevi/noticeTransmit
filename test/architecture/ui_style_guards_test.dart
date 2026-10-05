@@ -342,6 +342,21 @@ void main() {
       }
     });
 
+    // ⚠ 片28 反证（`outputs/_t90p28_falsify.report.txt` 的 **TP28-C**）抓到这一族的**真缺口**：
+    // 账清零之后，上面那条「新增长对话框」的牙**全靠这份账** —— 而把一条写回账里，
+    // 它就把那个文件重新变成"允许"：同一发植入（lib 塞一枚 ＋ 账里加回那一条，名数相等）
+    // 实测 **exit 0**，两条守卫全绿。所以台账从"待办清单"退化成"**必须恒空**的常量"，
+    // 由这一条钉住；否则"清零"只是一句当前的读数，下一个人加回一行就静默失效。
+    test('这本账必须保持为空（新写一处 Material 对话框是缺陷，不是待办）', () {
+      expect(
+        kMaterialDialogSites,
+        isEmpty,
+        reason:
+            '把某文件加回这本账＝把那处 Material 对话框重新变成"允许"；'
+            '要留下就得先把它换成 Cupertino（反证 TP28-C：塞一枚＋加一条 ⇒ 当时 exit 0）',
+      );
+    });
+
     // T90 片12/14/16：这几屏的表单弹层（新增/编辑条件与动作、三页阈值框、聚合参数）
     // 都是「同一套外壳抄在各处」的历史，现在统一接 `IosFormDialog`。
     // 这一条钉的是「这一屏接没接到共享外壳」；
@@ -592,8 +607,6 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
   'lib/widgets/ios_grid_picker_dialog.dart',
 };
 
-/// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
-/// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
 /// MaterialPageRoute 的**现状台账**（片：T90 补册，2026-10-05）。
 ///
 /// ⚠ **这不是「要换掉的清单」，是「不许变多的清单」**：这一类从来没有被纳入 T90 的
@@ -646,6 +659,14 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/widgets/rule_template_sheet.dart': 1,
 };
 
+/// 还长着 Material `AlertDialog` 的文件与**各自的枚数**（T90 逐屏换的台账，只许缩短）。
+/// 片13 起记枚数不记文件：文件级台账挡不住「在已入账的文件里再添一枚」。
+///
+/// ✅ **片28（2026-10-05）这本账清零**：`temperature_page` 那枚「试跑结果框」收进
+///   `IosDialogActions.showExplainer`（形状 = 标题 + 可读正文 + 一颗「关闭」，与片26 的规则引导同族）
+///   ⇒ **lib 下已无 Material `AlertDialog`**。
+/// ⚠ 账**留着不删**（空账）：上面那两条守卫现在等于「整棵 lib 不许有 Material 对话框」——
+///   删掉这个常量就把那两条守卫一起删了。新写一处会红在「没有文件在台账之外新增长对话框」。
 const Map<String, int> kMaterialDialogSites = <String, int>{
   // 片27：`rule_tester_page` 那枚「选择应用」外壳收进 `IosDialogActions.showExplainer`
   // ⇒ **整屏出账**（选择器本体变成 `body`，带值的行仍然 `Navigator.pop(context, a)`）。
@@ -658,7 +679,6 @@ const Map<String, int> kMaterialDialogSites = <String, int>{
   // ⇒ **整屏出账**。⚠ 它是 part 文件：按 `main_page.dart` grep 会以为它还在账上。
   // 片16：rule_edit_page 最后一枚（聚合参数编辑框）换进了 `IosFormDialog` ⇒ 整屏出账。
   // 四枚条件/动作表单在 part 文件 `rule_edit_widgets.dart`（片12 迁的），别按文件名 grep 漏掉。
-  'lib/pages/temperature_page.dart': 1,
   // 片23：`webhook_settings_item` 那枚「选择通道类型」收进**现成的** `showIosOptionPicker`
   // ⇒ 整屏出账。⚠ 它是 part 文件：按 `webhook_settings_page.dart` grep 会以为它还在账上。
   // 片21：`main_page_update` 那一枚「发现新版本」换进 `IosDialogActions.showUpdatePrompt` /

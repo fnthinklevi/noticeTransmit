@@ -458,4 +458,117 @@ void main() {
       expect(header.right, lessThanOrEqualTo(360), reason: '读数被推到屏幕外就是溢出');
     });
   });
+
+  // T90 片28：温度「试一次」的结果框 —— 换壳之前**这一枚在 test/ 与 integration_test/ 里
+  // 零页面级覆盖**（只有闸门 5.4 那一步点过，而闸门只断"正文非空"）。
+  // 换壳那三个最容易丢的东西各钉一条：动作文案（「关闭」不是「好的」）、正文那个 key
+  // （闸门与这两条用例都按它找）、以及点「关闭」真收得掉。
+  group('试跑结果框（T90 片28 收进 showExplainer）', () {
+    Future<void> openPreview(WidgetTester tester) async {
+      await service.addRule(rule());
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('电池过热'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CardActionSheet),
+          matching: find.text('试一次'),
+        ),
+      );
+      // 原生那一次往返要走平台通道：`.timeout(8s)` 之外还要把帧推完，
+      // 否则弹层还没进树（实测：只 pump 一次会停在 await 里）。
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('原生没回话 ⇒ 弹层仍弹出、正文说"没测成"、动作是「关闭」', (tester) async {
+      await openPreview(tester);
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(
+        find.byType(AlertDialog),
+        findsNothing,
+        reason: 'Material 那件已经出账（台账清零）⇒ 这一条同时是"账真的空了"的页面级证据',
+      );
+      final body = find.byKey(const ValueKey('temp-preview-body'));
+      expect(body, findsOneWidget, reason: '闸门与这两条用例都按这个 key 找正文');
+      expect(
+        tester.widget<Text>(body).data,
+        contains('不代表不会触发'),
+        reason: '把"没测成"显示成"不会触发"会诱导用户去改阈值，而问题在传感器',
+      );
+      expect(
+        find.widgetWithText(CupertinoDialogAction, '关闭'),
+        findsOneWidget,
+        reason: '这一枚原来的动作就是「关闭」；showExplainer 默认是「好的」，不显式传就换了文案',
+      );
+      expect(
+        find.widgetWithText(CupertinoDialogAction, '好的'),
+        findsNothing,
+        reason: '「好的」是 showExplainer 给别的调用点的默认文案，不是这一枚的',
+      );
+
+      await tester.tap(find.widgetWithText(CupertinoDialogAction, '关闭'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+    });
+
+    testWidgets('原生回三维度 + 走查 ⇒ 正文逐段渲染，且长正文不溢出', (tester) async {
+      // 复刻 setUp 里那个"什么都回 null"的桩，只把这一条方法换成有载荷的答复。
+      // ⚠ `stubNativeChannels` 给同一通道也装桩且后者覆盖前者 ⇒ 自己的桩必须重装。
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('com.fnthink.notice/notification'),
+            (call) async {
+              if (call.method != 'previewTemperatureRule') return null;
+              return <Object?, Object?>{
+                'ok': true,
+                'ruleCount': 1,
+                'temps': <Object?, Object?>{
+                  'battery_temp_above': 46.53,
+                  'device_temp_above': 38.24,
+                  'screen_temp_above': 30.11,
+                },
+                'steps': <Object?>[
+                  <Object?, Object?>{'phase': 'read', 'outcome': 'FIRE'},
+                  <Object?, Object?>{
+                    'phase': 'rule',
+                    'outcome': 'NOT_TRIGGERED',
+                  },
+                  <Object?, Object?>{
+                    'phase': 'cooldown',
+                    'outcome': 'BASELINE',
+                  },
+                ],
+                'fired': false,
+                'silence': 'NOT_TRIGGERED',
+              };
+            },
+          );
+      await openPreview(tester);
+
+      final text = tester
+          .widget<Text>(find.byKey(const ValueKey('temp-preview-body')))
+          .data!;
+      expect(text, contains('当前读数：'), reason: '读数那一段没渲染 ⇒ 原生回了载荷而 Dart 没画');
+      expect(text, contains('46.5℃'), reason: '保留一位小数（照抄原生会变成 46.53）');
+      expect(text, contains('38.2℃'));
+      expect(text, contains('30.1℃'));
+      expect(
+        text,
+        contains('走查：触发 → 未达到阈值 → 首轮只记录基准，不触发'),
+        reason: '走查三段要在同一行里按顺序出现（用户靠它判断卡在哪一步）',
+      );
+      expect(text, contains('不会触发：未达到阈值'));
+      expect(
+        find.text('试跑失败（没测成，不代表不会触发）'),
+        findsNothing,
+        reason: '原生明明回了一份成功载荷 ⇒ 这一句出现就是解析或判据出了问题',
+      );
+      // 这一枚的正文是全应用最长的一段（读数 + 走查 + 结论），屏高放不下。
+      // 旧形状 content 里那层 `SingleChildScrollView` 已随换壳删掉（外层自带）⇒
+      // 这条断言是"删掉那层仍然不溢出"的证据，不是装饰。
+      expect(tester.takeException(), isNull, reason: '长正文溢出/滚动嵌套都会从这里冒出来');
+    });
+  });
 }

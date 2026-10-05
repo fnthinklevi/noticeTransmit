@@ -295,27 +295,23 @@ class _TemperaturePageState extends State<TemperaturePage> {
     final l10n = AppLocalizations.of(context);
     final preview = await _service.previewTest(rules);
     if (!mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.cardBg(context),
-        title: Text(l10n.tempTestTitle),
-        content: SingleChildScrollView(
-          child: Text(
-            _previewBody(l10n, preview),
-            key: const ValueKey('temp-preview-body'),
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.primaryLabel(context),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l10n.close),
-          ),
-        ],
+    // T90 片28：Material `AlertDialog` 台账上的**最后一枚**，收进
+    // `IosDialogActions.showExplainer`（片26 为规则引导建的那一枚）。
+    // ⚠ **为什么不是 `showInfo`**：那一族的正文只能是一句（`Text(message)`），而这里是一段
+    // 多行读数 —— 压进去就得给 `message` 开 `Widget?` 口，那会让 `showInfo` 不再是「只读说明框」。
+    // 动作文案经 `gotItText` 从默认的「好的」换成「关闭」（这一枚原来就是「关闭」）。
+    // `barrierDismissible` 两边默认都是可点穿（Material `showDialog` 与这一族一致），没变。
+    await IosDialogActions.showExplainer(
+      context,
+      title: l10n.tempTestTitle,
+      gotItText: l10n.close,
+      // ⚠ 旧形状 content 里那层 `SingleChildScrollView` **删掉了**：`CupertinoAlertDialog`
+      // 自己就把 title+content 整组包进 `SingleChildScrollView`（flutter/cupertino/dialog.dart:2042）
+      // ⇒ 留着就是滚动视图套滚动视图。同 PK5/FM1 那两次的结论：能判定为冗余的就删。
+      body: Text(
+        _previewBody(l10n, preview),
+        key: const ValueKey('temp-preview-body'),
+        style: TextStyle(fontSize: 14, color: AppColors.primaryLabel(context)),
       ),
     );
   }
