@@ -424,9 +424,23 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       //   而把它挂在某一页上就意味着「只有那一页开着才撤得掉」——
       //   而用户此刻多半就在别的页面（那正是"来不及撤"的时刻）。
       //   另半个入口是状态栏通知（片3c-5，那一半要动原生）。
+      //
+      // ⚠⚠⚠ `cached == null` 那一格**不是可选的防御**，去掉它就是**冷启动白屏**：
+      //   契约是**懒加载**的 —— 全仓只有 `main_page_actions` 的一个动作会调 `load()`，
+      //   启动链（`setupLocator` / `_onServicesInitialized`）**从不**读它。所以 `MainPage`
+      //   第一次 build 时 `cached` 通常就是 null，而 `RemoteCommandRunner` 的注册闭包里
+      //   是 `contract: getIt<FnthinkContractLoader>().cached!` ⇒ 构造即抛
+      //   "Null check operator used on a null value"，首页整页起不来。
+      //   （这一格是 2026-10-05 在模拟器跑集成冒烟时当场红出来的；此前 widget 测试全绿，
+      //   因为那些 harness 预先把契约塞进了 loader。）
+      //
+      //   为什么"契约还没加载 ⇒ 不画横幅"是对的而不只是自保：**pending 只可能由执行链
+      //   产生，而执行链的每一个入口都先判 `cached != null`**（收货那一格、白名单那一格）。
+      //   契约不在 ⇒ 不可能有远程执行 ⇒ 这一行本来就没有内容可画。
       body: Column(
         children: [
-          if (getIt.isRegistered<RemoteCommandRunner>())
+          if (getIt<FnthinkContractLoader>().cached != null &&
+              getIt.isRegistered<RemoteCommandRunner>())
             RemoteExecutionBanner(
               runner: getIt<RemoteCommandRunner>(),
               clock: DateTime.now,

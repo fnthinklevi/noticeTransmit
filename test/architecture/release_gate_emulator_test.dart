@@ -301,7 +301,7 @@ void main() {
         '关键词过滤',
         '规则约束',
         '设备名称',
-        '设备状态',
+        '设备状态快照',
         '深色模式',
         '语言',
         '推送开关',
@@ -445,7 +445,7 @@ void main() {
       final src = walkSrc();
       final flat = src.replaceAll(RegExp(r'\s+'), ' ');
       expect(
-        RegExp("_openMoreRow\\(tester, '设备状态'\\)").hasMatch(src),
+        RegExp("_openMoreRow\\(tester, '设备状态快照'\\)").hasMatch(src),
         isTrue,
         reason: '「设备状态」入口不再被点开 ⇒ T17 那份快照没有消费者，闸门也管不到这一页',
       );
@@ -461,7 +461,7 @@ void main() {
       );
       expect(
         flat,
-        contains("r.title == '设备状态'"),
+        contains("r.title == '设备状态快照'"),
         reason: '点了不看历史里真有一条 ⇒ 送达结果没有落点也照样绿',
       );
 

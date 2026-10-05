@@ -691,6 +691,52 @@ void main() {
     // 照常推送、照常进历史，而没有任何东西动手 —— 用户配的自动化从此静默失效。
     // 每一段的功能用例都把依赖当参数传进来、不经过这三处接线，所以它们全绿也说明不了什么。
 
+    test('DI 里 getIt<X>() 读到的每一个 X 都有注册（这一族只有模拟器会喊）', () {
+      // ⚠⚠ 这一族**当场抓出三个真缺口**，而它们之前是"全量 1977 条 App 测试全绿"的状态：
+      //   `getIt<SecureStorageService>()`（那个类从没注册过，它是 factory 单例，全仓八处直接 new）
+      //   `getIt<DatabaseHelper>()`（同上，六处直接 new）
+      //   `getIt<FnthinkSettings>()`（从没注册过，但它需要 contract ⇒ 正解是补注册）
+      //
+      // 为什么 widget 测试一条都不红：守卫里写的是 `isRegistered<T>()`，那**只查注册表**、
+      // 不构造对象；而所有注册都是 lazy ⇒ 真正的崩发生在"谁先碰那条链"。片3c-6 之前
+      // 碰那条链的只有收货循环（要等配对才跑），所以它在真机上一直藏着；
+      // 挂到**首页首帧后无条件 drain** 之后，它变成"每次冷启动都崩在 getIt 上"。
+      //
+      // 这条判据断的是**差集为空**，不是某一行写对写错 —— 下一枚新服务忘了注册它立刻红。
+      final locator = read('lib/di/service_locator.dart');
+      final reads = RegExp(
+        r'getIt<([A-Za-z_][A-Za-z0-9_]*)>\s*\(',
+      ).allMatches(locator).map((m) => m.group(1)!).toSet();
+      final regs = RegExp(
+        r'register[A-Za-z]*<([A-Za-z_][A-Za-z0-9_]*)>',
+      ).allMatches(locator).map((m) => m.group(1)!).toSet();
+      final aliases = RegExp(
+        r'as\s+([A-Za-z_][A-Za-z0-9_]*)\s*\)',
+      ).allMatches(locator).map((m) => m.group(1)!).toSet();
+      // ⚠ 别名必须一起收（`registerSingleton<X>(...) as Y` 会制造假差集），
+      //   但也**不能**因为"差集算得出来"就当它必然为空 —— 下面那条正面锚点盯着解析本身。
+      expect(reads, isNotEmpty, reason: 'getIt<X>() 一个都没解析到：本条守卫在空跑（口径漂移了）');
+      expect(
+        regs,
+        contains('FnthinkSettings'),
+        reason:
+            '`DeviceL3Executor.collectInboxEnabled` 读的那一个补注册不见了 ⇒ '
+            '翻 `collect_inbox` 那一档会在 getIt 上抛',
+      );
+      // ⚠ `difference` 而不是 `reads - regs`：Dart 的 Set **没有**差集运算符
+      //   （那是 Python 的 `set - set`，照抄过来是 undefined_operator，整份文件加载失败 ——
+      //   而"文件加载失败"在 CI 里表现为"这个文件没有用例"，不是红）。
+      final missing = reads.difference(regs.union(aliases)).toList()..sort();
+      expect(
+        missing,
+        isEmpty,
+        reason:
+            'DI 里读了但没有任何地方注册的服务：${missing.join(', ')}。'
+            '所有注册都是 lazy ⇒ 谁先碰那条链谁崩，而症状（GetIt not registered）'
+            '与真正的原因隔着一层，widget 测试压根构造不到它。',
+      );
+    });
+
     test('原生侧：白名单命中那一格真的把正文交出去了，且排在规则引擎之后', () {
       final service = read(
         'android/app/src/main/kotlin/com/fnthink/notice/NotificationMonitorService.kt',
@@ -1024,6 +1070,59 @@ void main() {
         reason:
             '多一处调用 = 多一份"什么时候该登记"的口径，而其中一份会在换地址/换码之后'
             '悄悄不成立；页面尤其不许直接碰它',
+      );
+    });
+  });
+
+  group('启动链上不许构造需要契约的东西（这一族只有模拟器/真机会喊）', () {
+    // ⚠⚠ 下面两条都是 2026-10-05 在模拟器跑集成冒烟时**当场红出来**的，而它们的症状
+    //   在 widget 测试里一模一样地绿：那些 harness 预先把契约塞进了 loader，
+    //   所以 `cached!` 永远不炸。真实的冷启动链（`setupLocator` → `_onServicesInitialized`
+    //   → `MainPage.build`）**从不**读契约 —— 全仓唯一的 `load()` 调用在
+    //   `main_page_actions` 的一个动作里（用户碰了才读）。
+    //
+    //   也就是说「契约还没读」是**冷启动的常态**，而任何 `cached!` 都要为此付一次白屏。
+
+    test('撤销横幅那一格在取 runner 之前先问契约（去掉它就是冷启动白屏）', () {
+      final page = stripComments(
+        librarySource(root, 'lib/pages/main_page.dart'),
+      );
+      final at = page.indexOf('isRegistered<RemoteCommandRunner>()');
+      expect(at, greaterThanOrEqualTo(0), reason: '撤销横幅那一格搬走了：请把这条一起搬过去，别删');
+      // ⚠ 判的是**同一个 `if (...)` 里有没有那半句**，而不是"同一行"：
+      //   `dart format` 会把两个条件折成两行（`cached != null &&` / `isRegistered<…>()`），
+      //   同行判据会在格式化之后变成假红。窗口往前取够（默认 80 列放得下两个条件）。
+      // ⚠ 也**不是**"文件里出现过 cached != null" —— 那会被 `_drainLocalRemoteCommands`
+      //   里那一句喂成恒绿（而那一句是对的，不能算在这条账上）。
+      final winStart = at > 300 ? at - 300 : 0;
+      final winEnd = at + 60 > page.length ? page.length : at + 60;
+      final window = page.substring(winStart, winEnd);
+      expect(
+        window,
+        contains('cached != null'),
+        reason:
+            '取 RemoteCommandRunner 之前没有先问契约 ⇒ 构造那个 lazy singleton 时 '
+            '`cached!` 崩 ⇒ 首页整页起不来（冷启动白屏）。'
+            '判据必须与那一格同在一个 if 表达式里：文件别处也写着 `cached != null`，'
+            '数它出现过几次是恒绿的假判据。',
+      );
+    });
+
+    test('启动链读不读契约这件事要被看见（谁先碰 cached! 谁得自己判）', () {
+      // 这条**不判**「启动链必须加载契约」—— 那是产品决定，不是我能替他做的。
+      // 它只把"读契约的唯一入口在哪"钉住，免得下一个加 cached! 的人以为自己有底。
+      expect(
+        read('lib/services/fnthink_contract_loader.dart'),
+        contains('Future<FnthinkContract> load('),
+        reason: '契约装载器的读口没了：加 cached! 的人就没有兜底的判断依据',
+      );
+      expect(
+        stripComments(read('lib/main.dart')),
+        isNot(contains('FnthinkContractLoader>().load(')),
+        reason:
+            '启动链改成**主动**读契约了 ⇒ 上面那两条守卫的前提（cached 冷启动为 null）'
+            '已经变松。请重新评估：要么它们可以删掉，要么要换成"读失败时也不许崩"。'
+            '把它留成红是为了让"有人改了这件事"必须被看见，而不是让旧判据悄悄失去意义。',
       );
     });
   });

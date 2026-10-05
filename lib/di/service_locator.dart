@@ -194,11 +194,28 @@ void setupLocator() {
     () =>
         FnthinkRemoteSettings(contract: getIt<FnthinkContractLoader>().cached!),
   );
+  // ⚠⚠ 这一处是**补注册**，不是新增功能：`DeviceL3Executor.collectInboxEnabled` 早就写着
+  //   `getIt<FnthinkSettings>()`，而全仓没有任何 `register*<FnthinkSettings>`。
+  //   症状与 `SecureStorageService` 那条同一族：所有注册都是 lazy ⇒ 谁先碰谁崩，
+  //   而 widget 测试压根不构造这条链（守卫只 `isRegistered<T>()`，那不构造对象），
+  //   所以**全量 App 测试 1977 条全绿也照样藏着**。它在模拟器跑集成冒烟时当场红出来。
+  //   `FnthinkSettings` 需要 `contract`（无参 new 不了），所以正解是注册而不是改调用点。
+  getIt.registerLazySingleton<FnthinkSettings>(
+    () => FnthinkSettings(contract: getIt<FnthinkContractLoader>().cached!),
+  );
   // 凭据（只存哈希；高级密钥与二步验证码的种子都在这一份里）。
+  // ⚠⚠ `storage:` 必须**直接 new**，不能写 `getIt<SecureStorageService>()`：
+  //   `SecureStorageService` 是 `factory SecureStorageService() => _instance` 的**进程单例**，
+  //   全仓八处用法（database_helper / webhook_service / 两份 credential_store …）都是直接 new，
+  //   **它从来没有在 DI 里注册过**。写成 getIt<> 的后果不是"少一个可选依赖"：
+  //   `RemoteCredentialStore` 是 lazy singleton，谁先碰它谁崩 —— 而片3c-6 把
+  //   `RemoteCommandWiring` 挂到**首页首帧后无条件 drain**，于是这一行会让
+  //   **每次冷启动都崩在 getIt 上**，症状是"首页白屏，控制台一行 GetIt not registered"。
+  //   （这条是在模拟器跑集成冒烟时当场红出来的；此前没人碰这条链，所以它一直藏着。）
   getIt.registerLazySingleton<RemoteCredentialStore>(
     () => RemoteCredentialStore(
       contract: getIt<FnthinkContractLoader>().cached!,
-      storage: getIt<SecureStorageService>(),
+      storage: SecureStorageService(),
     ),
   );
   // 判定层（开关 → 渠道 → 凭据 → 词表）。
@@ -261,7 +278,11 @@ void setupLocator() {
       l2: getIt<DeviceL2Executor>(),
       l3: getIt<DeviceL3Executor>(),
       saveRecord: (record) =>
-          getIt<DatabaseHelper>().saveRemoteExecutionRecord(record),
+          // ⚠ 直接 new 而不走 getIt：DatabaseHelper 是单例且全仓其余六处（上面 92–125 行）
+          //   都是直接 new 的 —— 它**没有**在 DI 注册。写成 getIt<> 的后果是
+          //   `RemoteCommandRunner` / `RemoteCommandWiring` 的 saveRecord 一调就崩，
+          //   而留痕是执行链的每一格都要走的 ⇒ 每一次远程执行都失败。
+          DatabaseHelper().saveRemoteExecutionRecord(record),
       sendReceipt: (peer, receipt) => _sendRemoteReceipt(getIt, peer, receipt),
       statusBar: getIt<RemoteExecutionNotifier>(),
       now: DateTime.now,
@@ -276,8 +297,12 @@ void setupLocator() {
       // ⚠ 与 runner 上面那个**同一个** lazy singleton：两者都只发方法调用，
       //   各拿一个实例不会有行为差异，但让读者以为它们是两件事就不好了。
       notifier: getIt<RemoteExecutionNotifier>(),
+      // ⚠ 直接 new 而不走 getIt：DatabaseHelper 是单例且全仓其余六处（上面 92–125 行）
+      //   都是直接 new 的 —— 它**没有**在 DI 注册。写成 getIt<> 的后果是
+      //   `RemoteCommandRunner` / `RemoteCommandWiring` 的 saveRecord 一调就崩，
+      //   而留痕是执行链的每一格都要走的 ⇒ 每一次远程执行都失败。
       saveRecord: (record) =>
-          getIt<DatabaseHelper>().saveRemoteExecutionRecord(record),
+          DatabaseHelper().saveRemoteExecutionRecord(record),
     ),
   );
 }

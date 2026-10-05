@@ -1732,7 +1732,12 @@ void main() {
       // ⚠ 编号接在 5.13 后面：5.10/5.11 已被「设备名称」「深色模式」占用
       await _step(tester, gateFailures, '── 5.14 设备状态页：快照与「推送设备信息」', () async {
         await _backToHomeQuietly(tester);
-        await _openMoreRow(tester, '设备状态');
+        // ⚠ 这句标签与 `more_page` 的 `l10n.deviceStatusEntry` **同一处出处**
+        //   （ARB 的 `deviceStatusEntry`，中文「设备状态快照」）。2026-10-03 的 `2befab9`
+        //   把那个入口改了名而没同步这里 ⇒ 5.14 当场红在"找不到入口"，而**闸门自己
+        //   把它归成了"页面改坏了"** —— 真相反过来：页面是好的，定位是旧的。
+        //   `test/architecture/` 里有一条守卫钉住这两处同源，改名时它会先红。
+        await _openMoreRow(tester, '设备状态快照');
         await _onPage(tester, DeviceSnapshotPage, '设备状态页');
         // 值本身按机器不同（模拟器多半读不到温区），所以这里钉的是**结构**：
         // 一项一行、标签都在。数值级断言会绿在一次写死的桩上，这里不给桩。
@@ -1778,7 +1783,10 @@ void main() {
         await _settle(tester, seconds: 3);
         expect(
           GetIt.instance<NotificationService>().records.any(
-            (r) => r.title == '设备状态',
+            // ⚠ 与上面那句同源（同一个 ARB 键 `deviceStatusEntry`）：那枚通知的 title
+            //   取的就是这个入口标题。第一轮只改了入口定位、跑到这里才红 ⇒ 顺手量到的，
+            //   不是猜的（两处曾是一起漏的，只补一处就是"改一半"）。
+            (r) => r.title == '设备状态快照',
           ),
           isTrue,
           reason: '点了没落历史记录 ⇒ 送达结果没有落点（原生回传按 id 更新）',
