@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import 'battery_page.dart';
 import 'device_state_page.dart';
 import 'fnthink_peers_page.dart';
+import 'fnthink_channel_list_page.dart';
 import 'fnthink_receive_page.dart';
 import 'temperature_page.dart';
 
@@ -218,6 +219,15 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             title: l10n.fnthinkReceive,
             subtitle: l10n.fnthinkHubReceiveDesc,
             page: FnthinkReceivePage(deps: widget.receiveDeps),
+          ),
+          _divider(),
+          _entry(
+            key: const ValueKey('engine-fnthink-channels'),
+            icon: Icons.send_rounded,
+            iconColor: AppColors.purple,
+            title: l10n.fnthinkChannelTitle,
+            subtitle: l10n.fnthinkHubChannelsDesc,
+            page: const FnthinkChannelListPage(),
           ),
         ],
       ),

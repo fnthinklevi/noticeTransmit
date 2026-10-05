@@ -3296,6 +3296,94 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHubReceiveDesc => '收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。';
 
   @override
+  String get fnthinkChannelTitle => '幻念通道';
+
+  @override
+  String get fnthinkChannelDesc => '这台设备作为发送方的那些转发目标：收到通知就按这里转出去。';
+
+  @override
+  String get fnthinkHubChannelsDesc => '这台设备作为发送方的那些转发目标。';
+
+  @override
+  String get fnthinkChannelEmpty => '还没有幻念通道。新建一条，它就会把这台收到的通知转给指定的目标。';
+
+  @override
+  String get fnthinkChannelAdd => '新建通道';
+
+  @override
+  String get fnthinkChannelDelete => '删掉这条';
+
+  @override
+  String get fnthinkChannelDeleteAskTitle => '删掉这条通道？';
+
+  @override
+  String fnthinkChannelDeleteAskMsg(Object name) {
+    return '删掉之后，这台设备就不再往「$name」转发了。';
+  }
+
+  @override
+  String get fnthinkChannelDeleted => '已删掉那条通道';
+
+  @override
+  String get fnthinkChannelName => '名称';
+
+  @override
+  String get fnthinkChannelNameHint => '给这条通道起个名';
+
+  @override
+  String get fnthinkChannelNameEmpty => '名称不能空';
+
+  @override
+  String get fnthinkChannelTargetKind => '转到哪儿';
+
+  @override
+  String get fnthinkChannelTargetKindDevice => '一台勾选过的设备';
+
+  @override
+  String get fnthinkChannelTargetKindWebhook => '一个 webhook 地址';
+
+  @override
+  String get fnthinkChannelTarget => '目标';
+
+  @override
+  String get fnthinkChannelTargetEmpty => '目标不能空';
+
+  @override
+  String get fnthinkChannelTargetBadScheme => 'webhook 目标必须以 https:// 开头';
+
+  @override
+  String get fnthinkChannelNoTargetPicked => '还没有勾选过任何设备，先到「已配对的设备」里勾一台。';
+
+  @override
+  String get fnthinkChannelTargetNotChecked => '这一台还没勾选为转发目标';
+
+  @override
+  String get fnthinkChannelEnabled => '启用这条通道';
+
+  @override
+  String get fnthinkChannelRole => '主备';
+
+  @override
+  String get fnthinkChannelSave => '保存';
+
+  @override
+  String get fnthinkChannelSaved => '已保存';
+
+  @override
+  String get fnthinkChannelNewTitle => '新建幻念通道';
+
+  @override
+  String fnthinkChannelSaveFailed(Object reason) {
+    return '没存上：$reason';
+  }
+
+  @override
+  String get fnthinkPeerForwardToggle => '当作幻念通道的目标';
+
+  @override
+  String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';
+
+  @override
   String get fnthinkReceiveGo => '打开接收与远程执行';
 
   @override

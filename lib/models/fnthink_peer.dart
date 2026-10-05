@@ -18,6 +18,7 @@ class FnthinkPeer {
     this.requestId = '',
     this.items = const <String>[],
     this.revision = 0,
+    this.forwards = false,
   });
 
   /// 对端的 18 位地址码（Crockford Base32）。它是主键：一台设备只该有一行授权记录。
@@ -47,6 +48,13 @@ class FnthinkPeer {
   /// 第几版授权（T49）。变更要重新确认，所以它只增不减。
   final int revision;
 
+  /// 这台是否被勾为「幻念通道」的发送目标（T94，维护者 2026-10-05 定）。
+  ///
+  /// 与 `level` / `items` 无关，也**不是配对权限**：配对等于「对方可以往这台推」，
+  /// 勾选等于「我同意这台可以收到我转发出去的通知」—— 方向相反，它扩的是**发出**。
+  /// 两者各说一件事：一个是谁能往我这里发，一个是我能往哪里发。
+  final bool forwards;
+
   static const table = 'fnthink_peers';
 
   static const columns = <String>[
@@ -57,6 +65,7 @@ class FnthinkPeer {
     'request_id',
     'items',
     'revision',
+    'forwards',
   ];
 
   Map<String, Object?> toDbRow() => {
@@ -69,6 +78,7 @@ class FnthinkPeer {
     // 而 db 里存 JSON 会让"这一格坏了"与"清单是空的"读起来一模一样（都是解析失败）。
     'items': items.join('\n'),
     'revision': revision,
+    'forwards': forwards ? 1 : 0,
   };
 
   static FnthinkPeer fromDbRow(Map<String, Object?> row) {
@@ -87,6 +97,9 @@ class FnthinkPeer {
           .where((e) => e.isNotEmpty)
           .toList(),
       revision: (row['revision'] as num?)?.toInt() ?? 0,
+      // 读不出时当**未勾选**（fail-closed）：这一列写坏时的后果必须是"不发"，
+      // 而"全发"那一头是静默把本机的通知推出去。
+      forwards: (row['forwards'] as num?)?.toInt() == 1,
     );
   }
 

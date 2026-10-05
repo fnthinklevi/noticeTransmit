@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/email_channel.dart';
+import '../models/fnthink_channel.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
 import '../models/fnthink_remote_execution_record.dart';
@@ -68,7 +69,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 18;
+  static const int dbVersion = 19;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -405,6 +406,7 @@ class DatabaseHelper
     await _createFnthinkInbox(db);
     await _createFnthinkPeers(db);
     await _createFnthinkRemoteExecutions(db);
+    await _createFnthinkChannels(db);
   }
 
   /// v13 / T20：通知引擎规则表（电量族 + 温度族）。
@@ -526,7 +528,8 @@ class DatabaseHelper
         granted_at INTEGER NOT NULL,
         request_id TEXT NOT NULL DEFAULT '',
         items TEXT NOT NULL DEFAULT '',
-        revision INTEGER NOT NULL DEFAULT 0
+        revision INTEGER NOT NULL DEFAULT 0,
+        forwards INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -818,6 +821,48 @@ class DatabaseHelper
       // 界面上显示出没发生过的执行。
       await _createFnthinkRemoteExecutions(db);
     }
+    if (oldVersion < 19) {
+      // v19: 幻念通道表（T94 片3）+ 名单的转发勾选列。两条并行的动作：
+      // **只建表、碰既有行** —— 本机一条幻念通道都还没有，造几行占位会让界面上
+      // 显示出没配过的通道；而勾选那一列的 DEFAULT 是 **0**：升级之后没有一台设备
+      // 会自动开始接收本机的转发。默认 1 的方向是「升级之后就开始往别人那里发」，
+      // 那是静默扩张。
+      await _createFnthinkChannels(db);
+      await _addColumnIfMissing(
+        db,
+        FnthinkPeer.table,
+        'forwards',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+  }
+
+  /// v19 / T94 片3：**幻念通道**（这一台作为发送方的那些转发目标）。
+  ///
+  /// 维护者 2026-10-05 定：幻念推送是第四个转发族，可建多条；每条的目标要么是
+  /// **一台勾选过的设备**（名单里 `forwards=1` 的那一行），要么是**一个 webhook 地址**。
+  ///
+  /// 两条要写在这里的理由：
+  /// - **为什么不是 webhook_channels 里加两列**：目标种类不同（一个是 18 位地址码，
+  ///   一个是 https 地址），而"这一列装不下时会怎样"在同一个表里没有答案 —— 分表才诚实。
+  /// - **为什么没有 secret / token 列**：幻念那一份走的是配对设备的私钥（不在本机这张表里），
+  ///   webhook 目标的口令属于 webhook 族自己的表 —— 在这里加一列等于给凭证多一个去处。
+  ///
+  /// 两处建表（`_onCreate` 与 `oldVersion < 19`）共用本方法，列必须一致 ——
+  /// 与 `fnthink_peers`、远程执行表同一条纪律（PRAGMA 实测比对在测试里）。
+  Future<void> _createFnthinkChannels(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${FnthinkChannel.table} (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        target_kind TEXT NOT NULL DEFAULT 'device',
+        target TEXT NOT NULL DEFAULT '',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        role TEXT NOT NULL DEFAULT 'primary',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    ''');
   }
 
   /// 把逐条送达状态与送达日志里的「通道标识」改写为稳定键 `chan:<slug>`。

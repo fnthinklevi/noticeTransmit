@@ -636,6 +636,7 @@ const Set<String> kHandRolledCupertinoDialogSites = <String>{
 const Map<String, int> kMaterialRouteSites = <String, int>{
   'lib/pages/app_channel_list_page.dart': 1,
   'lib/pages/email_settings_page.dart': 1,
+  'lib/pages/fnthink_channel_list_page.dart': 1,
   'lib/pages/fnthink_push_page.dart': 2,
   'lib/pages/fnthink_receive_page.dart': 3,
   'lib/pages/main_page.dart': 1,
@@ -663,6 +664,7 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/pages/channel_status_page.dart': 1,
   'lib/pages/device_snapshot_page.dart': 1,
   'lib/pages/email_settings_page.dart': 2,
+  'lib/pages/fnthink_channel_list_page.dart': 1,
   'lib/pages/fnthink_push_page.dart': 1,
   'lib/pages/history_page.dart': 11,
   'lib/pages/main_page.dart': 1,

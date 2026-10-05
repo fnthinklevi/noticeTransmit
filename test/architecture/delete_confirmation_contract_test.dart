@@ -73,6 +73,9 @@ void main() {
     // ⚠ T94 片2：这一下随「接收与远程执行」那张独立页走，名单随主语迁移。
     //   它不在旧名单里——留着会把“页面上不得有第二个点事出口”这一条让它看着像还在。
     'lib/pages/fnthink_receive_page.dart': ['Future<void> _grantConsent('],
+    // T94：删一条幻念通道 = 这台不再往它转发。每条方案都按自己的代价去次，
+    //   不会提醒「我可以继续跟那台通帙」——那是超出本条的范围（业务意义）。
+    'lib/pages/fnthink_channel_list_page.dart': ['Future<void> _delete('],
   };
 
   group('会改状态的路径只有一个咽喉（T06 + T42 授权那一下）', () {

@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
+import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_peer_service.dart';
@@ -26,7 +28,8 @@ class FnthinkPeersDeps {
     required this.contracts,
     required this.coordinator,
     required this.loadPeers,
-  });
+    FnthinkChannelService? channels,
+  }) : channels = channels ?? FnthinkChannelService();
 
   factory FnthinkPeersDeps.fromLocator() => FnthinkPeersDeps(
     contracts: GetIt.instance<FnthinkContractLoader>(),
@@ -39,6 +42,10 @@ class FnthinkPeersDeps {
   final FnthinkContractLoader contracts;
   final FnthinkReceiveCoordinator coordinator;
   final Future<List<FnthinkPeer>> Function() loadPeers;
+
+  /// 勾选写嗅喂（T94）。不单独引一个服务参数过来：额外依赖多一个还要测试替身的页面，
+  /// 而那一页并不用它——这个参数只是为了让拒绝发送的那几条用例不要同时去碰一个真库。
+  final FnthinkChannelService channels;
 }
 
 /// 设备绑定（T94 片1）—— 「我和谁有关系」这一页。
@@ -95,6 +102,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
 
   bool _busy = false;
 
+  /// 勾选写不上时的原话（null = 没发生过错）。
+  String? _forwardError;
+
   /// 那条被点开的链接**这一页已经处理过了**。口令是 singleUse 的：
   /// 重放一次不是"再试一次"，而是"把同一枚口令往被人再看一眼的方向推"，所以一次进入只处理一次。
   bool _pairLinkHandled = false;
@@ -126,6 +136,31 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     if (!mounted) return;
     setState(() => _contract = contract);
     await _loadPeers();
+  }
+
+  /// 勾上 / 取消勾选「这一台可以当幻念通道的目标」（T94）。
+  ///
+  /// 取消不连带删通道：那一下要断掉的只是「新通道不能选它」，已建好的那一条留着
+  /// 并让它在发送时报出「目标未勾选」—— 比偷偷把用户的配置删掉好。
+  Future<void> _setForward(FnthinkPeer peer, bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _deps.channels.setForward(peer.peerAddress, value);
+      await _loadPeers();
+      if (!mounted) return;
+      setState(() => _busy = false);
+    } catch (e) {
+      // 写不上就在界面上说一句原话。**不 debugPrint**：这一页的守卫明写「不许打印」
+      // （一次性口令不许有第二份去处，而本站日志脱敏 T89 还没配）。
+      // 开关是从库里读的，不抬回就等于说屏幕上那个开关是假的。
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _forwardError = '$e';
+        });
+      }
+    }
   }
 
   Future<void> _loadPeers() async {
@@ -294,6 +329,36 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
                 onPressed: _busy ? null : () => _sendTo(peer),
                 child: Text(l10n.fnthinkPeerSend),
               ),
+            ),
+            // T94：「这台能不能当幻念通道的目标」是**另一件事**（方向相反：配对是对方能往
+            // 这台推，勾选是这台可以往它那边发），所以它挂在**这一行**而不是通道那一格里 ——
+            // 放通道那里的话，用户得先知道目标是谁才能回头去名单里开这个权限。
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.fnthinkPeerForwardToggle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondaryLabel(context),
+                    ),
+                  ),
+                ),
+                CupertinoSwitch(
+                  key: ValueKey('fnthink-peer-forward-${peer.peerAddress}'),
+                  value: peer.forwards,
+                  onChanged: _busy ? null : (v) => _setForward(peer, v),
+                ),
+              ],
+            ),
+            if (_forwardError != null)
+              FnthinkNote(
+                keyName: 'fnthink-peer-forward-error',
+                text: _forwardError!,
+              ),
+            FnthinkNote(
+              keyName: 'fnthink-peer-forward-hint',
+              text: l10n.fnthinkPeerForwardHint,
             ),
           ],
         if (_sendNote != null)

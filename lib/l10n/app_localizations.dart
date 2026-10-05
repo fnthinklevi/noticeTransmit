@@ -6158,6 +6158,174 @@ abstract class AppLocalizations {
   /// **'收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。'**
   String get fnthinkHubReceiveDesc;
 
+  /// No description provided for @fnthinkChannelTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念通道'**
+  String get fnthinkChannelTitle;
+
+  /// No description provided for @fnthinkChannelDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备作为发送方的那些转发目标：收到通知就按这里转出去。'**
+  String get fnthinkChannelDesc;
+
+  /// No description provided for @fnthinkHubChannelsDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备作为发送方的那些转发目标。'**
+  String get fnthinkHubChannelsDesc;
+
+  /// No description provided for @fnthinkChannelEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有幻念通道。新建一条，它就会把这台收到的通知转给指定的目标。'**
+  String get fnthinkChannelEmpty;
+
+  /// No description provided for @fnthinkChannelAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建通道'**
+  String get fnthinkChannelAdd;
+
+  /// No description provided for @fnthinkChannelDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删掉这条'**
+  String get fnthinkChannelDelete;
+
+  /// No description provided for @fnthinkChannelDeleteAskTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'删掉这条通道？'**
+  String get fnthinkChannelDeleteAskTitle;
+
+  /// No description provided for @fnthinkChannelDeleteAskMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'删掉之后，这台设备就不再往「{name}」转发了。'**
+  String fnthinkChannelDeleteAskMsg(Object name);
+
+  /// No description provided for @fnthinkChannelDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删掉那条通道'**
+  String get fnthinkChannelDeleted;
+
+  /// No description provided for @fnthinkChannelName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get fnthinkChannelName;
+
+  /// No description provided for @fnthinkChannelNameHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'给这条通道起个名'**
+  String get fnthinkChannelNameHint;
+
+  /// No description provided for @fnthinkChannelNameEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称不能空'**
+  String get fnthinkChannelNameEmpty;
+
+  /// No description provided for @fnthinkChannelTargetKind.
+  ///
+  /// In zh, this message translates to:
+  /// **'转到哪儿'**
+  String get fnthinkChannelTargetKind;
+
+  /// No description provided for @fnthinkChannelTargetKindDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'一台勾选过的设备'**
+  String get fnthinkChannelTargetKindDevice;
+
+  /// No description provided for @fnthinkChannelTargetKindWebhook.
+  ///
+  /// In zh, this message translates to:
+  /// **'一个 webhook 地址'**
+  String get fnthinkChannelTargetKindWebhook;
+
+  /// No description provided for @fnthinkChannelTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标'**
+  String get fnthinkChannelTarget;
+
+  /// No description provided for @fnthinkChannelTargetEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标不能空'**
+  String get fnthinkChannelTargetEmpty;
+
+  /// No description provided for @fnthinkChannelTargetBadScheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'webhook 目标必须以 https:// 开头'**
+  String get fnthinkChannelTargetBadScheme;
+
+  /// No description provided for @fnthinkChannelNoTargetPicked.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有勾选过任何设备，先到「已配对的设备」里勾一台。'**
+  String get fnthinkChannelNoTargetPicked;
+
+  /// No description provided for @fnthinkChannelTargetNotChecked.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一台还没勾选为转发目标'**
+  String get fnthinkChannelTargetNotChecked;
+
+  /// No description provided for @fnthinkChannelEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用这条通道'**
+  String get fnthinkChannelEnabled;
+
+  /// No description provided for @fnthinkChannelRole.
+  ///
+  /// In zh, this message translates to:
+  /// **'主备'**
+  String get fnthinkChannelRole;
+
+  /// No description provided for @fnthinkChannelSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get fnthinkChannelSave;
+
+  /// No description provided for @fnthinkChannelSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存'**
+  String get fnthinkChannelSaved;
+
+  /// No description provided for @fnthinkChannelNewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建幻念通道'**
+  String get fnthinkChannelNewTitle;
+
+  /// No description provided for @fnthinkChannelSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'没存上：{reason}'**
+  String fnthinkChannelSaveFailed(Object reason);
+
+  /// No description provided for @fnthinkPeerForwardToggle.
+  ///
+  /// In zh, this message translates to:
+  /// **'当作幻念通道的目标'**
+  String get fnthinkPeerForwardToggle;
+
+  /// No description provided for @fnthinkPeerForwardHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'勾上它，这台设备收到的通知才会往它那边转。'**
+  String get fnthinkPeerForwardHint;
+
   /// No description provided for @fnthinkReceiveGo.
   ///
   /// In zh, this message translates to:

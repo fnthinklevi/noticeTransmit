@@ -3444,6 +3444,101 @@ class AppLocalizationsEn extends AppLocalizations {
       'Receiving, how often to ask for messages, and what the sender may make this device do (remote execution) live here.';
 
   @override
+  String get fnthinkChannelTitle => 'Fnthink channels';
+
+  @override
+  String get fnthinkChannelDesc =>
+      'Where this device forwards to as a sender: notifications it receives go out through these.';
+
+  @override
+  String get fnthinkHubChannelsDesc =>
+      'Where this device forwards to as a sender.';
+
+  @override
+  String get fnthinkChannelEmpty =>
+      'No Fnthink channel yet. Add one and this device will forward the notifications it receives.';
+
+  @override
+  String get fnthinkChannelAdd => 'Add a channel';
+
+  @override
+  String get fnthinkChannelDelete => 'Delete this channel';
+
+  @override
+  String get fnthinkChannelDeleteAskTitle => 'Delete this channel?';
+
+  @override
+  String fnthinkChannelDeleteAskMsg(Object name) {
+    return 'After deleting it, this device stops forwarding to “$name”.';
+  }
+
+  @override
+  String get fnthinkChannelDeleted => 'Channel deleted';
+
+  @override
+  String get fnthinkChannelName => 'Name';
+
+  @override
+  String get fnthinkChannelNameHint => 'Name this channel';
+
+  @override
+  String get fnthinkChannelNameEmpty => 'The name cannot be empty';
+
+  @override
+  String get fnthinkChannelTargetKind => 'Where to';
+
+  @override
+  String get fnthinkChannelTargetKindDevice => 'A checked device';
+
+  @override
+  String get fnthinkChannelTargetKindWebhook => 'A webhook URL';
+
+  @override
+  String get fnthinkChannelTarget => 'Target';
+
+  @override
+  String get fnthinkChannelTargetEmpty => 'The target cannot be empty';
+
+  @override
+  String get fnthinkChannelTargetBadScheme =>
+      'A webhook target must start with https://';
+
+  @override
+  String get fnthinkChannelNoTargetPicked =>
+      'No device is checked yet — check one under Paired devices first.';
+
+  @override
+  String get fnthinkChannelTargetNotChecked =>
+      'This device is not checked as a forwarding target';
+
+  @override
+  String get fnthinkChannelEnabled => 'Enable this channel';
+
+  @override
+  String get fnthinkChannelRole => 'Primary or backup';
+
+  @override
+  String get fnthinkChannelSave => 'Save';
+
+  @override
+  String get fnthinkChannelSaved => 'Saved';
+
+  @override
+  String get fnthinkChannelNewTitle => 'New Fnthink channel';
+
+  @override
+  String fnthinkChannelSaveFailed(Object reason) {
+    return 'Not saved: $reason';
+  }
+
+  @override
+  String get fnthinkPeerForwardToggle => 'Use as an Fnthink channel target';
+
+  @override
+  String get fnthinkPeerForwardHint =>
+      'Check it so notifications this device receives are forwarded to it.';
+
+  @override
   String get fnthinkReceiveGo => 'Open receiving and remote execution';
 
   @override
