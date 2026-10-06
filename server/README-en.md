@@ -811,6 +811,30 @@ body**: `GET /api/admin/fnthink/endpoints` returns per-endpoint `calls` with exa
   window every integration 401s at the moment of rotation, so operators learn to "not rotate yet", which
   is worse than a weak secret.
 
+#### Where remote control actually lives
+
+Remote control has **no endpoint of its own** — reading `server/lib/fnthink/routes.js`, what is
+registered is `/message`, `/poll`, `/ack`, `/register`, `/pair-arm`, `/pair`, `/pair-confirm`,
+`/pair-revoke`, `/endpoint-create`, `/endpoint-list`, `/endpoint-revoke`, `/endpoint-rotate`,
+plus the three endpoint-ingress entries. An instruction is a **signed message**: the sender posts
+it to `/message` in the same envelope shape as a notification, the controlled device picks it up
+from `/poll` and acks on `/ack`. For an operator that means three things:
+
+- **Enabling remote control needs no configuration change here.** It rides along with the Fnthink
+  Push public face; turning it off is done on the **receiving device** (revoke its L2/L3 grants)
+  or by removing that pairing server-side (`/pair-revoke`) — not by flipping a server switch.
+- **Credentials never reach the server.** The advanced key and the TOTP ride inside the encrypted
+  body; the server only uses the device public key to verify the signature. The contract pins
+  "L3 must carry one of them" (`capabilities.remoteExecution.auth`), and whether it does is judged
+  **on the device**. => the audit log can never contain a credential: by design, not by omission.
+- **The audit trail keeps metadata only** (sender address code, type, time, state) and **no
+  instruction bodies** (`privacy.auditStoresMetadataOnly = true` and
+  `capabilities.execution.storesBody = false`).
+
+⚠ **Watch the L1 cap on the third tier**: messages arriving through an ingress endpoint (the three
+`/p/...` entries) reach **at most L1** — `type=action` is always `403 + rejected_capability`.
+So "have my NAS / script also flip a light" is not reachable today; remote control is issued only
+from an **already-paired device**.
 
 ***
 

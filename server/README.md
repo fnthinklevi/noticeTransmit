@@ -782,7 +782,25 @@ POST 正文覆盖同名的 query 参数。投递目标**不能**由请求指定�
 - 口令轮换后有宽限期（`endpoint.rotation.graceSeconds`，当前 3600 秒）：旧口令在宽限期内仍能推，
   不至于"换钥匙那一刻所有集成同时 401"，从而让运维学会"先不换了"。
 
+#### 远程控制落在哪几条路由上
 
+远程控制**没有自己的端点** —— 现读 `server/lib/fnthink/routes.js`，它注册的是
+/message、/poll、/ack、/register、/pair-arm、/pair、/pair-confirm、/pair-revoke、
+/endpoint-create、/endpoint-list、/endpoint-revoke、/endpoint-rotate 这几条，加上三个接入端点入口。
+指令本身是一条**签名消息**：发送方按与通知同形的信封发到 `/message`，被控设备从 `/poll` 取到、
+执行后回 `/ack`。对运维来说这意味着三件事：
+
+- **启用远程控制不需要改任何配置**。它随幻念推送公网面一起可用，关掉的办法是在**接收端设备**上
+  撤销 L2/L3 授权或在服务端删掉那条配对关系（`/pair-revoke`），不是改服务端开关。
+- **凭据不进服务端**。高级密钥与 TOTP 随指令走**加密正文**，服务端只在验签时用设备公钥核对签名；
+  契约 `capabilities.remoteExecution.auth` 钉的是"L3 必须带其中之一"，而带没带在**设备侧**判。
+  ⇒ 审计日志里永远看不到凭据，这是设计，不是遗漏。
+- **审计只落元数据**（发件人地址码、类型、时间、状态），**不含指令正文**
+  （契约 `privacy.auditStoresMetadataOnly = true`、`capabilities.execution.storesBody = false`）。
+
+⚠ **第三档封顶那条要盯住**：接入端点（`/p/...` 那三条）进来的消息**最高只到 L1** ——
+`type=action` 一律 `403 + rejected_capability`。所以"让 NAS/脚本顺带下发一条开灯指令"这条路
+今天不通；远程控制只从**已配对的设备**发起。
 
 ***
 
