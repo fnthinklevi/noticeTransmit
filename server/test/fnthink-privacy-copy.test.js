@@ -35,6 +35,25 @@ describe('落地页隐私文案：开启幻念推送中转之后，公开口径�
     expect(html).toContain('配对口令与身份私钥不上传');
   });
 
+  test('第四情形说清官方实例与自行部署的边界（T92）', () => {
+    // 只写"自部署也可以"是不够的：用户真正要判断的是**谁在运营那台机器**。
+    // 而"谁能看到正文"两者是一样的（契约 privacy.serverStoresBodyPlaintext=false）——
+    // 把它写成"自部署更私密"是**不实陈述**，会让用户以为官方侧能看到明文。
+    for (const fact of [
+      '④ 官方实例与自行部署',
+      'push.fnthink.top',
+      'push.fnthink.com',
+      '既不运营也不接触',
+      '没有官方侧的限流与风控兜底',
+      '服务器不落明文正文',
+    ]) {
+      expect(html).toContain(fact);
+    }
+    // 英文侧必须同形：只补中文 ⇒ 英文模式的用户读到的是没有第四情形的旧口径
+    expect(i18n).toContain('(4) Official instance vs self-hosting');
+    expect(i18n).toContain('the server never stores plaintext bodies');
+  });
+
   test('新增的三处中文句子都在 i18n.js 里有词条（漏一条 = 英文模式漏译）', () => {
     const zh = [
       '通知默认在本机处理、管理后台二步验证、敏感数据加密',
