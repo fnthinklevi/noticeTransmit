@@ -47,4 +47,47 @@ void main() {
       );
     }
   });
+
+  /// T92 第②件：对外文档替应用内文案许了一个诺 —— 那句话今天才补上，
+  /// 本用例钉的是**引用与被引用两侧不许再分叉**。
+  ///
+  /// 为什么写成条件式而不是无条件要求应用内含某句：只有当 `GITHUB_PAGES.md`
+  /// 还在说"应用内隐私说明里也写着这一点"时，应用内才**必须**写着它。
+  /// 哪天对外文档删掉那句引用，本用例应当安静下来（否则就成了没人许过的诺的通行证）。
+  test('对外文档引用了应用内隐私说明 ⇒ 应用内必须真的写着第三方实例那一条', () {
+    const claimNeedle = '应用内隐私说明里也写着';
+    final pages = File('server/GITHUB_PAGES.md').readAsStringSync();
+    final claimsIt = pages.contains(claimNeedle);
+
+    // 先钉住这个条件本身成立：引用还在（否则下面三条断言全是空转，
+    // 而"空转的守卫"正是本仓反复踩过的那类假绿）。
+    expect(
+      claimsIt,
+      isTrue,
+      reason:
+          'GITHUB_PAGES.md 里那句「$claimNeedle…」被删或改写了 —— '
+          '本用例的判据主语随之消失，请连同它一起处置，别让它空转。',
+    );
+
+    for (final fact in ['别人运营的实例', '信得过的实例', '存储形态']) {
+      expect(zhBody, contains(fact), reason: '中文隐私政策漏了第三方实例那条的「$fact」');
+    }
+    for (final fact in [
+      'run by someone else',
+      'storage form',
+      'instances you trust',
+    ]) {
+      expect(
+        enBody,
+        contains(fact),
+        reason: 'English privacy policy is missing "$fact"',
+      );
+    }
+    // 措辞红线（维护者 2026-10-06 认的口径）：讲的是**类别**与**存储形态**，
+    // 不写"差别在谁能看到正文"，也不写"自部署更私密" —— 落盘加密用的是服务端自己的
+    // 密钥（messagestore.js:55 的 envKey ← store.js:48 的 ENCRYPTION_KEY），
+    // 所以两种形态对方都读得到，把差别写成"谁能看到"是不实陈述。
+    expect(zhBody, isNot(contains('自部署更私密')));
+    expect(enBody, isNot(contains('more private')));
+  });
 }
