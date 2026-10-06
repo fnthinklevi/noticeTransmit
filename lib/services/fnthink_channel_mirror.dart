@@ -20,8 +20,9 @@ const String kFnthinkChannelMirrorKey = 'fnthink_channels';
 
 /// 镜像正文（纯函数，不碰平台）⇒ 一行 JSON 数组。
 ///
-/// 字段名用 snake_case：这是**跨语言字符串契约**，由 `ChannelRoutingContractTest`
-/// 与 `test/architecture/fnthink_channel_mirror_guard_test.dart` 双向钉住。
+/// 字段名用 snake_case：这是**跨语言字符串契约**，由原生侧的
+/// `FnthinkMirrorContractTest` 双向钉住（它从**两侧源码现取**键集合再比对 ——
+/// 各写一份期望集合的话，改 Dart 的键并顺手改 Dart 用例就会两边一起绿）。
 String encodeFnthinkChannelMirror(List<FnthinkChannel> channels) {
   final rows = channels
       .where((c) => c.enabled)

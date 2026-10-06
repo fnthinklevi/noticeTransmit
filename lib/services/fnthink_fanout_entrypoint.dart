@@ -10,7 +10,7 @@ import 'fnthink_receive_coordinator.dart';
 
 /// 后台入口 handle 在 prefs 里的键（**不带** `flutter.` 前缀：那是 shared_preferences 落盘时
 /// 加的，原生读的是 `flutter.fnthink_fanout_handle` —— 这一对关系与收货那一轮
-/// （`fnthink_presence_handle`）同形，由 [test/architecture/fnthink_fanout_guard_test.dart] 钉住）。
+/// （`fnthink_presence_handle`）同形，由原生侧的 `FnthinkMirrorContractTest` 钉住）。
 const String kFnthinkFanoutHandleKey = 'fnthink_fanout_handle';
 
 /// 与原生 worker 那条回报通道同名（`FnthinkFanoutWorker.FANOUT_CHANNEL`）。
