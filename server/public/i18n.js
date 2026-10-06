@@ -376,7 +376,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['三个入口是同一个：'] = 'All three are the same call:';
   D[' 与 '] = ' and ';
   D[' 两个字段就够，其余（'] = ' are all you need; the rest (';
-  D['）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 服务端已把这一段纳入脱敏前缀，而你自部署时请照同样的规则配。'] = ') is optional. The token is the last path segment of the URL, so a reverse proxy may write it into its access log — the hosted service already redacts that segment; configure your own the same way.';
+  D['）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 契约把这一段声明成必须脱敏的前缀，服务端启动时会核对两条收单路径确实落在它之内；日志本身仍要在你自己的反代里配，没配之前那段口令是会落盘的。'] = ') is optional. The token is the last path segment of the URL, so a reverse proxy may write it into its access log — the contract declares that segment a prefix which must be redacted, and the service checks at startup that both ingress paths fall inside it — but the log line itself is still yours to configure in the reverse proxy, and until you do, that segment is being written to disk.';
   // ── 远程控制整节：键**逐字等于**文本节点原文（含前导/行尾空格），照 outputs/_remote_nodes.txt 生成 ──
   D['远程控制：让另一台设备替你做那件事'] = 'Remote Control: Let Another Device Handle It';
   D['与幻念推送同一条链路，接收端把'] = 'Over the same link as Fnthink Push, the receiver splits';

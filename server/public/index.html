@@ -645,7 +645,7 @@
   --data-urlencode "body=heartbeat $(date)"</pre>
         </div>
       </div>
-      <p class="note">三个入口是同一个：<code>title</code> 与 <code>body</code> 两个字段就够，其余（<code>tags</code>、<code>ttl</code>、<code>dedupe</code>）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 服务端已把这一段纳入脱敏前缀，而你自部署时请照同样的规则配。</p>
+      <p class="note">三个入口是同一个：<code>title</code> 与 <code>body</code> 两个字段就够，其余（<code>tags</code>、<code>ttl</code>、<code>dedupe</code>）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 契约把这一段声明成必须脱敏的前缀，服务端启动时会核对两条收单路径确实落在它之内；日志本身仍要在你自己的反代里配，没配之前那段口令是会落盘的。</p>
     </div>
   </section>
 
