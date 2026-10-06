@@ -63,19 +63,27 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            # android-emulator-runner 以 bash -e 执行脚本；这里显式关掉 errexit，
-            # 否则第一条失败命令就中止，下面的设备日志（唯一的真线索）一行都留不下。
+            # ⚠ 这一段跑在 /bin/sh（dash）里，不是 bash —— `android-emulator-runner` 用的是
+            #   `child_process.exec`，Linux 上默认 shell 就是 sh。所以这里**不许**出现 bash 专有
+            #   语法（`${PIPESTATUS[0]}` / `[[ ]]` / `set -o pipefail`）：dash 在解析期就 exit 2，
+            #   `set +e` 根本来不及生效 ⇒ 整段脚本一次都没跑过，而 CI 上看到的是"测试红了"。
+            #   取管道左侧退出码的写法是「重定向到文件 → $? → cat 出来」，两边都在 POSIX 里。
+            #   由 `test/architecture/release_gate_emulator_test.dart` 的「CI 脚本不许有 bash 专有写法」钉住。
+            set +e
             set +e
             mkdir -p test_report
             flutter --version | tee test_report/flutter_version.txt
             flutter devices
             # --reporter expanded：每个用例名单独一行。冒烟已按步拆成 4 个用例，
             # 于是"哪一步红"直接出现在日志里（以前是一条巨型用例，只知道"冒烟红了"）。
-            flutter test integration_test/smoke_test.dart --reporter expanded 2>&1 | tee test_report/smoke.log
-            smoke_status=${PIPESTATUS[0]}
+            flutter test integration_test/smoke_test.dart --reporter expanded > test_report/smoke.log 2>&1
+            smoke_status=$?
+            # 不用管道取左侧退出码（`${PIPESTATUS[0]}` 在 dash 上解析期就死）——重定向后 $? 就是它的
+            cat test_report/smoke.log
             # 仪表测试（androidTest）：必须复用这台存活模拟器，独立 step 会因模拟器已关而找不到设备
-            (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) 2>&1 | tee test_report/connected.log
-            connected_status=${PIPESTATUS[0]}
+            (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) > test_report/connected.log 2>&1
+            connected_status=$?
+            cat test_report/connected.log
             # 应用侧崩溃只出现在 logcat：没有它，CI 上永远只能看到 "0 tests passed"
             adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
             adb shell dumpsys activity activities > test_report/activities.txt 2>&1
@@ -159,9 +167,10 @@ jobs:
             flutter --version | tee test_report/flutter_version.txt
             # ㊻ 发版硬闸门（base.md 步骤 6.7）：所有可达页面逐个进入、每条 CRUD 各走一次、
             # 备份真落盘再真读回。分节失败由测试自己收集后一次性报，日志里是 GATE-STEP-FAIL。
-            flutter test integration_test/release_walkthrough_test.dart --reporter expanded 2>&1 \
-              | tee test_report/walkthrough.log
-            walk_status=${PIPESTATUS[0]}
+            flutter test integration_test/release_walkthrough_test.dart --reporter expanded \
+              > test_report/walkthrough.log 2>&1
+            walk_status=$?
+            cat test_report/walkthrough.log
             adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
             adb logcat -d -b crash -t 500 > test_report/logcat_crash.txt 2>&1
             if [ "$walk_status" != "0" ]; then

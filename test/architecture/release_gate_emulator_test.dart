@@ -209,6 +209,47 @@ void main() {
         reason: 'test_report 必须**无论成败**上传 —— 绿的时候也要能证明它真跑过',
       );
     });
+
+    test('CI 脚本里不许有 bash 专有写法（T64 根因）', () {
+      // `android-emulator-runner` 用 `child_process.exec` 执行 script，Linux 上
+      // 默认 shell 是 /bin/sh（dash），**不是 bash**。`${PIPESTATUS[0]}` 是 bash 数组，
+      // dash 在**解析期**就 exit 2 ⇒ `set +e` 还没生效，整段脚本一次都没跑过，
+      // 而 CI 上看到的是"集成测试红了"（2026-09-23 引入，09-22 之后一次都没真跑过）。
+      //
+      // 只查**非注释行**：注释里必须能提到这个词（那正是讲清"为什么不能这么写"的地方）。
+      final src = read('.github/workflows/integration_test.yml');
+      const banned = {
+        r'${PIPESTATUS': 'bash 数组（取管道左侧退出码）—— dash 解析期 exit 2',
+        'set -o pipefail': r'bash 专有；POSIX 做法是「重定向到文件 → $?」',
+        '[[ ': 'bash 专有；POSIX 是单个 [',
+      };
+      for (final entry in banned.entries) {
+        final hits = src
+            .split('\n')
+            .where((l) => !l.trimLeft().startsWith('#'))
+            .where((l) => l.contains(entry.key))
+            .toList();
+        expect(
+          hits,
+          isEmpty,
+          reason:
+              'CI 脚本里出现 ${entry.key}（${entry.value}）\n'
+              '第 ${hits.length} 处：${hits.isEmpty ? '' : hits.first.trim()}',
+        );
+      }
+      // 正向锚点：改成 POSIX 形状之后，"重定向到文件 → $? → cat" 必须真的在，
+      // 否则这条判据可能在判据失效时照样通过（本组踩过两次"提取退化成空集"）。
+      expect(
+        RegExp(r'>\s*test_report/smoke\.log 2>&1').hasMatch(src),
+        isTrue,
+        reason: '冒烟那一步没有「重定向到文件」⇒ 取退出码的写法被删了，判红回到 tee 上',
+      );
+      expect(
+        RegExp(r'smoke_status=\$\?').hasMatch(src),
+        isTrue,
+        reason: r'smoke_status 必须来自真实的 $?，不是别处算出来的数',
+      );
+    });
   });
 
   group('冒烟测试必须保持"红在第几步"可读', () {
