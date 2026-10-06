@@ -13,6 +13,8 @@ import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_receive_page.dart';
 import 'package:notice_transmit/pages/fnthink_push_page.dart';
+import 'package:notice_transmit/widgets/channel_health_badge.dart';
+import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
@@ -141,6 +143,16 @@ void main() {
     List<FnthinkPeer> peers = const [],
     bool peersFail = false,
     ChannelHealth? Function(String host)? healthOf,
+    // T95 片5：打开「切换服务」那一格时的**探测**与**记账**两个口。
+    // 用例里让它们指向同一个真 ChannelHealthStore —— 这样"探完写的"与"选项读的"
+    // 必须是同一份，漏接任何一边都当场看得见（页面自己判 reachable 会退成第二份口径）。
+    Future<Map<String, Duration>> Function(List<String> hosts)? probeHosts,
+    Future<void> Function({
+      required String host,
+      required bool reachable,
+      required int latencyMs,
+    })?
+    recordHealth,
     // #176 片4：那条被点开的链接**判过之后的结论**。null = 这一页不是从链接进来的（常态）。
     FnthinkPairLinkOutcome? pairLink,
   }) {
@@ -326,6 +338,9 @@ void main() {
           // 而通道那头由各条用例自己决定回什么。
           // T60：对着服务器的健康度读替身。默认 null ⇒ 那一行"从没发过"。
           healthOf: healthOf,
+          // T95 片5：探测 + 记账（不传 = 这一格没接探测链路，页面此时什么都不做）。
+          probeHosts: probeHosts,
+          recordHealth: recordHealth,
         ),
         // T94：那一行入口要推的绑定页也得拿到同一份替身 —— 两个入口若各造一份，
         // "两处看到的不是同一份名单"这件事只有真机上才现形。
@@ -963,8 +978,15 @@ void main() {
         //   —— 拿走之后用户就没有回去的路（§6 的口径）。
         expect(find.text(intl), findsWidgets, reason: '国际那台不见了');
         expect(find.text(mland), findsWidgets, reason: '大陆那台不见了');
-        expect(find.text(l10n.fnthinkHostRegionMainland), findsWidgets);
-        expect(find.text(l10n.fnthinkHostRegionInternational), findsWidgets);
+        // T95 片5 之后选项描述是「地区 · 这一台能不能用」一句合成的，所以按包含断言。
+        expect(
+          find.textContaining(l10n.fnthinkHostRegionMainland),
+          findsWidgets,
+        );
+        expect(
+          find.textContaining(l10n.fnthinkHostRegionInternational),
+          findsWidgets,
+        );
 
         await tester.tap(find.text(mland));
         await tester.pumpAndSettle();
@@ -1001,7 +1023,9 @@ void main() {
         await tester.pumpAndSettle();
         // ⚠ 点**地区标签**而不是域名：弹层开着时当前那台的域名在「当前值」与「选项」
         //   两处都出现，`find.text(host)` 匹配 2 个 ⇒ tap 落不下去（本条第一版就栽在这）。
-        await tester.tap(find.text(l10n.fnthinkHostRegionInternational));
+        await tester.tap(
+          find.textContaining(l10n.fnthinkHostRegionInternational),
+        );
         await tester.pumpAndSettle();
         expect(
           tester
@@ -1010,7 +1034,107 @@ void main() {
           intl,
         );
         // 弹层已关（选项不该还在）
-        expect(find.text(l10n.fnthinkHostRegionInternational), findsNothing);
+        expect(
+          find.textContaining(l10n.fnthinkHostRegionInternational),
+          findsNothing,
+        );
+      });
+
+      // ===== T95 片5：这一格的健康度 =====
+      testWidgets('打开「切换服务」⇒ 两台各探一次、结论进单点、选项上说得出来', (tester) async {
+        stubChannels();
+        // 探测与读写共用**同一个真 store**：探完写的、与选项读的必须是同一份，
+        // 页面自己判 reachable 就会长成第二份口径（T01 那次"设置页说正常、首页说未知"）。
+        final store = ChannelHealthStore();
+        final probed = <String>[];
+        final h = harness(
+          healthOf: (host) => store.of(kFnthinkChannelSlug, host),
+          probeHosts: (hosts) async {
+            probed.addAll(hosts);
+            // 只有第一台答（第二台探不通）。
+            return {hosts.first: const Duration(milliseconds: 40)};
+          },
+          recordHealth:
+              ({required host, required reachable, required latencyMs}) =>
+                  store.record(
+                    kFnthinkChannelSlug,
+                    host,
+                    reachable: reachable,
+                    latencyMs: latencyMs,
+                  ),
+        );
+        final l10n = await pump(tester, h.page);
+        final sw = find.byKey(const ValueKey('fnthink-host-switch'));
+        await revealTo(tester, sw);
+        await tester.pumpAndSettle();
+        await tester.tap(sw);
+        await tester.pumpAndSettle();
+
+        expect(probed, hasLength(2), reason: '两台各探一次：只探当前那台就换台 = 拿旧数据替用户拍板');
+        // 结论进了单点：一台通、一台不通（这是这条链的牙齿 —— 界面上那两句是它的影子）。
+        final intlHost = contract.str(const [
+          'transport',
+          'endpoints',
+          'international',
+        ])!;
+        final mlandHost = contract.str(const [
+          'transport',
+          'endpoints',
+          'mainland',
+        ])!;
+        expect(store.of(kFnthinkChannelSlug, intlHost)!.reachable, isTrue);
+        expect(store.of(kFnthinkChannelSlug, mlandHost)!.reachable, isFalse);
+        // 通的那台在**选项上**报时延，不通那台说"连不上" —— 两句都得在屏上，
+        // 而**不通那台也还在候选里**（§6 口径：标不可用，不拿掉）。
+        // 时延那句会出现两次：卡片上当前那台的徽标 + 弹层里的选项（同一份单点，两处都该说）。
+        expect(
+          find.textContaining(l10n.healthReachable(40)),
+          findsNWidgets(2),
+          reason: '只出现一次 = 徽标与选项读的不是同一份健康度',
+        );
+        expect(find.textContaining(l10n.healthUnreachable), findsOneWidget);
+        expect(
+          find.textContaining(l10n.fnthinkHostRegionMainland),
+          findsWidgets,
+        );
+        expect(
+          find.textContaining(l10n.fnthinkHostRegionInternational),
+          findsWidgets,
+        );
+      });
+
+      testWidgets('没接探测链路时不编结论：两台都只说"状态未知"，不是"连通"', (tester) async {
+        stubChannels();
+        final h = harness(); // probeHosts / recordHealth 都不给
+        final l10n = await pump(tester, h.page);
+        final sw = find.byKey(const ValueKey('fnthink-host-switch'));
+        await revealTo(tester, sw);
+        await tester.pumpAndSettle();
+        await tester.tap(sw);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining(l10n.statusUnknown), findsNWidgets(2));
+        expect(find.textContaining(l10n.healthUnreachable), findsNothing);
+      });
+
+      testWidgets('服务器那一格画出当前那台的健康度（healthOf 注入了却从没被读过）', (tester) async {
+        stubChannels();
+        final h = harness(
+          healthOf: (host) => ChannelHealth(
+            reachable: true,
+            latencyMs: 66,
+            probedAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+        final l10n = await pump(tester, h.page);
+        await revealTo(
+          tester,
+          find.byKey(const ValueKey('fnthink-host-switch')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ChannelHealthBadge), findsWidgets);
+        expect(find.textContaining(l10n.healthReachable(66)), findsWidgets);
       });
     });
 

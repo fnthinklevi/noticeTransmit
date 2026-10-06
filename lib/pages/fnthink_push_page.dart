@@ -9,16 +9,19 @@ import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
 import 'fnthink_peers_page.dart';
 import 'fnthink_receive_page.dart';
+import '../services/active_channels.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_guide.dart';
+import '../services/fnthink_endpoint_probe.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
+import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
@@ -36,6 +39,8 @@ class FnthinkPushDeps {
     required this.identity,
     required this.loadPeers,
     this.healthOf,
+    this.probeHosts,
+    this.recordHealth,
   });
 
   factory FnthinkPushDeps.fromLocator() => FnthinkPushDeps(
@@ -49,6 +54,16 @@ class FnthinkPushDeps {
     // 落到 ChannelHealthStore）都认 `kFnthinkChannelSlug` 这一个 family，页面不自己 new 读写实现。
     healthOf: (host) =>
         GetIt.instance<ChannelHealthStore>().of(kFnthinkChannelSlug, host),
+    // T95 片5：打开「切换服务」那一格时**两台各探一次**。走 `/health` 那一发非侵入探测
+    // （`measureEndpointLatency`），不往任何一台发真消息。
+    probeHosts: measureEndpointLatency,
+    recordHealth: ({required host, required reachable, required latencyMs}) =>
+        GetIt.instance<ChannelHealthStore>().record(
+          kFnthinkChannelSlug,
+          host,
+          reachable: reachable,
+          latencyMs: latencyMs,
+        ),
   );
 
   final FnthinkContractLoader contracts;
@@ -58,6 +73,19 @@ class FnthinkPushDeps {
 
   /// 读某台服务器的健康度（null = 这台没装配健康度链路 ⇒ 那一行不画/显示"从没发过"）。
   final ChannelHealth? Function(String host)? healthOf;
+
+  /// 探这几台，回到得了的那些的时延。
+  final Future<Map<String, Duration>> Function(List<String> hosts)? probeHosts;
+
+  /// 把一次探测结果写进健康度单点（与协调者那条 `recordHealth` 同一个口）。
+  /// 回 Future 是要被 await 的：换台之前那行徽标必须已经落好，否则界面与 prefs
+  /// 会各说一句"上次探到的是…"。
+  final Future<void> Function({
+    required String host,
+    required bool reachable,
+    required int latencyMs,
+  })?
+  recordHealth;
 }
 
 /// 幻念推送页（T44 的②③ + T42 的入口那半）。
@@ -791,6 +819,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
     //   "BuildContext 跨 async gap"，而它喊的是真问题（页面可能已经走了）。
     final current = await settings.host;
     if (!mounted) return;
+    // T95 片5：打开这一格就两台各探一次。选项上那句"能不能用"必须是**这一轮**的实测 ——
+    // 徽标那套 30 分钟过期口径是给列表扫一眼用的，不是给"要不要换一台"这个决定用的；
+    // 拿十分钟前的数字替用户拍板，错了没人会回来查它是哪一轮探的。
+    await _probeDeclaredHosts([for (final c in choices) c.host]);
+    if (!mounted) return;
     final picked = await showIosOptionPicker<String>(
       context,
       title: l10n.fnthinkHostSwitch,
@@ -801,9 +834,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           IosPickerOption<String>(
             value: c.host,
             label: c.host,
-            description: c.key == 'international'
-                ? l10n.fnthinkHostRegionInternational
-                : l10n.fnthinkHostRegionMainland,
+            // 地区 + 这一台今天的可达性。候选**恒两台**（上面 §6 那条口径）：
+            // 探不通是把这一行标成"连不上"，不是把它从列表里拿掉。
+            description:
+                '${c.key == 'international' ? l10n.fnthinkHostRegionInternational : l10n.fnthinkHostRegionMainland}'
+                ' · ${_healthWord(l10n, c.host)}',
           ),
       ],
     );
@@ -814,6 +849,48 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       if (!mounted) return;
       setState(() => _hostError = e.reason);
     }
+  }
+
+  /// 探这几台并把结论写进健康度单点（读写都走 `_deps` 那两个口，页面不自己 new 实现）。
+  ///
+  /// ⚠ 没装配探测链路时**什么都不做**：这里不许退化成"没探到就当可用" ——
+  ///   那是一次凭空写进去的"可达"，比空白更坏。
+  /// ⚠ 探测本身炸了也只记日志：这一发不该把"换服务器"这个动作带崩，
+  ///   界面上维持上一轮三态、并仍然把两台摆出来。
+  Future<void> _probeDeclaredHosts(List<String> hosts) async {
+    final probe = _deps.probeHosts;
+    final record = _deps.recordHealth;
+    if (probe == null || record == null || hosts.isEmpty) return;
+    final Map<String, Duration> latencies;
+    try {
+      latencies = await probe(hosts);
+    } catch (e) {
+      debugPrint('幻念推送：切换服务前的健康度探测失败 $e');
+      return;
+    }
+    for (final host in hosts) {
+      final hit = latencies[host];
+      await record(
+        host: host,
+        reachable: hit != null,
+        latencyMs: hit?.inMilliseconds ?? 0,
+      );
+    }
+    if (!mounted) return;
+    // 卡片上那枚徽标读的就是这一轮：不刷新就会画着上一轮的数，而用户刚看着它做完决定。
+    setState(() {});
+  }
+
+  /// 这一台今天怎么样 —— 与徽标**同一套三态判定**（`channelHealthState`）。
+  /// 页面自己再判一次 `reachable` 就是第二份口径：T01 那次"设置页说正常、首页说未知"
+  /// 就是这么来的。
+  String _healthWord(AppLocalizations l10n, String host) {
+    final health = _deps.healthOf?.call(host);
+    return switch (channelHealthState(health)) {
+      ChannelHealthState.ok => l10n.healthReachable(health!.latencyMs),
+      ChannelHealthState.error => l10n.healthUnreachable,
+      ChannelHealthState.unknown => l10n.statusUnknown,
+    };
   }
 
   /// 换地址之后的那一套：写值 → 读回 → **重启收货循环** → 刷界面。
@@ -1142,6 +1219,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
             ),
           ],
         ),
+        // T95 片5：这一枚读的是健康度单点。`healthOf` 在 T60 就注入了，但页面从没读过它 ——
+        // 于是"接口有、界面没有"，用户换台时手上一个证据都没有。
+        // 它说的是"最近一次对着这台试过"：收货链路的真实发送会写它，打开「切换服务」
+        // 那一格时的探测也会写它（`_probeDeclaredHosts`）。
+        ChannelHealthBadge(health: _deps.healthOf?.call(_host)),
         Text(
           l10n.fnthinkHostDesc,
           style: TextStyle(
