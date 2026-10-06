@@ -1607,3 +1607,59 @@ If your own egress IP got blocked and a restart is inconvenient, set `DISABLE_IP
 - ✅ **Diagnosable 2FA misconfiguration**: a decryption failure answers 500 with an explicit message, without counting failures or blocking; the startup banner prints the TOTP diagnostics and `DISABLE_IP_BLOCKING` state.
 - ✅ **Recovery codes via POST only**: `/totp/rebind` replaced `GET /totp/setup?recoveryCode=` (query strings leak into access logs / history).
 - ✅ Express 5 + otplib 13 (pluggable crypto/base32) and the fail-safe `trust proxy` default of 0.
+
+## 🧪 Diagnosing CJK Mojibake: telling the device side from the transport side at a glance
+
+> Companion to client task T86. The original premise of that bug report ("only the first
+> message after switching devices is garbled") has been **refuted by measurement**. What is
+> kept here is what was refuted, and how to localize the layer within a minute next time.
+
+### Root cause: how the message was sent, not the device
+
+Three probes on 2026-10-01, same device, same receiver:
+
+| How it was sent | Reading |
+|---|---|
+| `curl -d '<inline CJK>'` | **mojibake** |
+| `curl --data-binary @<file written as UTF-8>` | correct |
+| request body with zero non-ASCII bytes, CJK via `\u` escapes | correct |
+
+"First time only" has **nothing to do with the device being new** — it matches
+"whoever sent it inlined CJK the first time, hit GBK, then switched to a file".
+On Windows `curl.exe` receives argv encoded as ANSI/GBK while the server decodes as UTF-8,
+producing replacement characters. (Sending conventions are fixed in the internal handbook,
+`docs/server_deploy_and_update_guide.md` §4.1.)
+
+### Per-candidate conclusions on the device side
+
+Four device-side candidates were registered when the bug was filed. **None of them can
+produce mojibake**; each gets a conclusion rather than a "we tried it":
+
+1. **Notification title fallback** (`FnthinkInboxDisplay.specFor` uses the first non-blank
+   body line when the title is empty) — changes **which string becomes the title**, not a
+   single byte. It can explain "the first one looks different", never mojibake.
+2. **Cold-start poll racing contract readiness** — affects whether fields are present
+   (title/body may be missing), and still does not alter bytes. Missing fields and mojibake
+   are trivially distinguishable on screen: one is blank, the other is replacement chars.
+3. **First-time database creation and migration** (`sqflite_sqlcipher`) — no charset
+   conversion anywhere on that path (the single match in the file is `json.decode`, which
+   is JSON parsing, not encoding).
+4. **First MethodChannel round-trip after isolate cold start** — `StandardMessageCodec`
+   is UTF-8 on both ends with **no charset negotiation**, so there is no "first call uses a
+   different encoding" state to get into.
+
+### One-minute triage
+
+- Seeing `�` / `??` ⇒ **transport side**: first inspect **the bytes being sent**.
+  `xxd` the request body; re-sending with `--data-binary @file` fixes it ⇒ transport side
+  confirmed, nothing to change on the device.
+- Some section of the UI is **blank or missing fields**, with no replacement characters ⇒
+  device-side timing or fallback; see candidates 1 and 2 above.
+- Self-checking responses from the server: a **GBK terminal is not evidence**. Use
+  `iconv -f UTF-8` or inspect the bytes.
+
+### Acceptance criterion (fixing the symptom is not enough)
+
+**On the same new device, push three CJK messages in a row; the first must be
+character-for-character identical to the second and third.** If it is not, it is not fixed —
+"push it once more and it goes through" is not accepted as a resolution.
