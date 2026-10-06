@@ -29,6 +29,7 @@ import '../services/secure_storage_service.dart';
 import '../services/active_channels.dart';
 import '../services/fnthink_settings.dart';
 import '../services/update_service.dart';
+import '../services/update_server_regions.dart';
 import '../services/device_info_service.dart';
 import '../services/theme_service.dart';
 import '../services/email_service.dart';
@@ -52,7 +53,20 @@ void setupLocator() {
   getIt.registerLazySingleton<DeviceStateService>(() => DeviceStateService());
   getIt.registerLazySingleton<PermissionService>(() => PermissionService());
   getIt.registerLazySingleton<FilterService>(() => FilterService());
-  getIt.registerLazySingleton<UpdateService>(() => UpdateService());
+  // T95：检查更新那一发同时是"这台更新服务器能不能用"的测量结果，接进健康度单点
+  // （family=`update`、id=档位名）。⚠ 漏接的表现与幻念那一格当年同形：更新照常、
+  // 页面照常，只有徽标永远"没测过"——所以这一处接线有守卫用例盯着。
+  getIt.registerLazySingleton<UpdateService>(
+    () => UpdateService(
+      onProbe: ({required probe}) => getIt<ChannelHealthStore>().record(
+        kUpdateHealthFamily,
+        probe.region.name,
+        reachable: probe.reachable,
+        latencyMs: probe.latencyMs,
+        httpCode: probe.httpCode,
+      ),
+    ),
+  );
   getIt.registerLazySingleton<DeviceInfoService>(() => DeviceInfoService());
   getIt.registerLazySingleton<ThemeService>(() => ThemeService());
   getIt.registerLazySingleton<EmailService>(() => EmailService());

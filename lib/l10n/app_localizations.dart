@@ -6017,8 +6017,8 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkHostUpdateNote.
   ///
   /// In zh, this message translates to:
-  /// **'检查更新始终走 {host}，不随这里切换。'**
-  String fnthinkHostUpdateNote(String host);
+  /// **'检查更新走的是另一条链路，不随这里切换。'**
+  String get fnthinkHostUpdateNote;
 
   /// No description provided for @fnthinkBoundary.
   ///

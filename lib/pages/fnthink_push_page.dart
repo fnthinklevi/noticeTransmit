@@ -23,7 +23,6 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
-import '../update_manager.dart' show AppUpdateManager;
 
 /// 页面要用到的那一小包依赖。
 ///
@@ -1153,8 +1152,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
         // T76 ⓐ：更新通道**不跟随**这一格，必须在界面上写明 ——
         // §6 把它列为"不定就会变成隐性双源"的那一件：不写，用户以为切到成都、
         // 实际还在洛杉矶那边收更新，而两边版本可能不一样。
+        // ⚠ 这句话**不再报出更新服务器的主机名**（T95 之前它是 `{host}`）：
+        //   那一台现在也分两档、也可以用户选，写死在提示文案里就等于替用户
+        //   宣布一个随时会被他自己改掉的事实。
         Text(
-          l10n.fnthinkHostUpdateNote(AppUpdateManager.updateServerHost),
+          l10n.fnthinkHostUpdateNote,
           key: const ValueKey('fnthink-host-update-note'),
           style: TextStyle(
             fontSize: 12,

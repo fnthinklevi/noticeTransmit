@@ -1554,14 +1554,7 @@
   "fnthinkHostRegionInternational": "Overseas (Los Angeles)",
   "fnthinkHostRegionMainland": "Mainland China (Chengdu)",
   "fnthinkHostNoCandidates": "The contract declares no selectable service address",
-  "fnthinkHostUpdateNote": "Update checks always go to {host}, regardless of this setting.",
-  "@fnthinkHostUpdateNote": {
-    "placeholders": {
-      "host": {
-        "type": "String"
-      }
-    }
-  },
+  "fnthinkHostUpdateNote": "Update checks use a different server and do not follow this setting.",
   "fnthinkBoundary": "With receiving on, message content passes through the server, which can then read the body and metadata.",
   "fnthinkContractUnavailable": "The bundled protocol contract cannot be read, so nothing here can be changed yet: {reason}",
   "@fnthinkContractUnavailable": {

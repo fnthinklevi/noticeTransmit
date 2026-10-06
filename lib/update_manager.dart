@@ -12,6 +12,7 @@ import 'package:open_filex/open_filex.dart';
 import 'services/pinned_http_client.dart';
 import 'services/platform_channel.dart';
 import 'services/update_download_urls.dart';
+import 'services/update_server_regions.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// SSL 证书固定（默认关闭）
@@ -31,7 +32,13 @@ final _updateHttpClient = PinnedHttpClient.create(
 );
 
 class AppUpdateManager {
-  static const String _updateServerUrl = 'https://notice.fnthink.top';
+  /// 更新服务器分大陆／国际两档（T95，档位表见 `services/update_server_regions.dart`）。
+  ///
+  /// ⚠ 这里存的是**本次正在用的那一档**，不是"缓存优化"：安装包地址是那一次检查从某一台
+  ///   取回来的，随后的相对地址补全与镜像合成必须用**同一台**的 apiBase ——
+  ///   界面上换档不能把上一次拿到的地址补到另一台底下去。
+  UpdateServerRegion _region = UpdateServerRegion.defaultRegion;
+
   static const String _githubMirrorUrl =
       'https://xget.fnthink.top/gh/fnthinklevi/noticeTransmit/releases/download';
   static const String _githubDirectUrl =
@@ -76,15 +83,12 @@ class AppUpdateManager {
   /// 最近一次系统下载器（DownloadManager）任务的 downloadId，安装回退时使用
   String? _lastDownloadId;
 
-  String get serverUrl => _updateServerUrl;
-
-  /// T76 ⓐ：更新通道固定走这一台，**不随幻念推送的服务地址切换**
-  /// （`lib/services/fnthink_settings.dart` 的 `host` 管的是收件那一条链路）。
+  /// 本次会话正在用的那一档（页面展示、下载补全都以它为准）。
   ///
-  /// ⚠ 做成 static 而不是让调用方 new 一个实例：这句话要出现在**推送页**里，
-  /// 而那一页并不持有更新服务 —— 为了一句提示文案去构造一个服务，等于把
-  /// 「更新在跑」这件事与「界面上提到了更新地址」这两件事绑在一起。
-  static String get updateServerHost => Uri.parse(_updateServerUrl).host;
+  /// T76 ⓐ 那句仍然成立：**更新这条链路与幻念推送的服务地址是两件事**，切一边不动另一边。
+  /// T95 之后多出来的那句话是：更新这一边自己也**可选**（两档 + 自动/手动），
+  /// 所以它不再是一个可以写进提示文案的固定主机名 —— 想知道现在走哪台，读这一枚。
+  UpdateServerRegion get region => _region;
 
   bool get autoCheck => _autoCheck;
   String? get lastError => _lastError;
@@ -92,6 +96,7 @@ class AppUpdateManager {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _autoCheck = prefs.getBool(_prefsKeyAutoCheck) ?? true;
+    await _reloadRegion();
     await _updateVersionInfo();
     // 更新完成后（新版本已启动）自动删除上一次下载的安装包
     await _cleanupInstalledApk();
@@ -241,15 +246,60 @@ class AppUpdateManager {
     );
   }
 
-  Future<VersionCheckResult?> checkUpdate({bool force = false}) async {
+  /// 重新读一次「本机该用哪一台」（启动时一次、每次检查更新前再一次）。
+  ///
+  /// ⚠ 这不是缓存刷新 optimization：用户在「更新服务器」那一页钉完档，紧接着就会点
+  ///   检查更新 —— 那一发必须走他刚选的那台，否则这一格改了等于没改。
+  Future<void> _reloadRegion() async {
+    _region = (await UpdateServerSettings.load()).region;
+  }
+
+  Future<VersionCheckResult?> checkUpdate({
+    bool force = false,
+    UpdateProbeReport? onProbe,
+    // 与 `measureEndpointLatency` 同一个理由：这一发要能在用例里被替身接住，
+    // 否则"检查更新走的是钉住那一台"这句话只能靠真机回答。
+    http.Client? client,
+  }) async {
     _lastError = null;
     if (!force && !(await shouldCheckNow())) return null;
+
+    final httpClient = client ?? _updateHttpClient;
+    await _reloadRegion();
+    // 这一发**本身就是**一次探测：不再另发一发去"探健康度"。
+    // 另发那一发与用户真正要走的那一条不是同一次往返（时机、重试、命中的边缘节点都不同），
+    // 而它的结论会替用户做换档的决定 —— 用检查更新那一发的结果记账，
+    // 界面上写的"可用"才与用户按下去会发生的事是同一件事。
+    final watch = Stopwatch();
+    Future<void> report({
+      required bool reachable,
+      required int latencyMs,
+      int? httpCode,
+      VersionCheckResult? result,
+    }) async {
+      await onProbe?.call(
+        probe: UpdateServerProbe(
+          region: _region,
+          reachable: reachable,
+          latencyMs: latencyMs,
+          httpCode: httpCode,
+          latestVersion: result?.latestVersion,
+          latestBuild: result?.latestBuild,
+          downloadHost: result == null
+              ? null
+              : Uri.tryParse(result.downloadUrl)?.host,
+        ),
+      );
+    }
 
     // 1. 尝试 API 模式（Node.js 服务器），失败后指数退避重试一次
     //    （403 系 Cloudflare 评分抖动导致，重试通常可恢复）
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
-        final uri = Uri.parse('$_updateServerUrl/api/version/check').replace(
+        watch
+          ..reset()
+          ..start();
+        final uri = Uri.parse('${_region.apiBase}/api/version/check').replace(
           queryParameters: {
             'version': currentVersion,
             'build': currentBuild.toString(),
@@ -258,7 +308,7 @@ class AppUpdateManager {
         );
         debugPrint('检查更新：请求地址 $uri（第 ${attempt + 1} 次）');
 
-        final response = await _updateHttpClient
+        final response = await httpClient
             .get(uri)
             .timeout(const Duration(seconds: 15));
         debugPrint('检查更新：响应状态码 ${response.statusCode}');
@@ -276,6 +326,12 @@ class AppUpdateManager {
             debugPrint(
               '检查更新：最新版本 ${result.latestVersion}，hasUpdate=${result.hasUpdate}',
             );
+            await report(
+              reachable: true,
+              latencyMs: watch.elapsedMilliseconds,
+              httpCode: response.statusCode,
+              result: result,
+            );
             await _markChecked();
             return result;
           }
@@ -288,10 +344,22 @@ class AppUpdateManager {
               '检查更新被 CDN 拦截（HTTP ${response.statusCode}），'
               '请稍后重试，或访问 GitHub Releases 手动下载最新版';
           debugPrint('检查更新：被 CDN 拦截，跳过静态回退');
+          await report(
+            reachable: false,
+            latencyMs: watch.elapsedMilliseconds,
+            httpCode: response.statusCode,
+          );
           return null;
         }
         // 404 等非 200 状态 → 尝试静态模式
         debugPrint('检查更新：API 返回 ${response.statusCode}，尝试静态 JSON 模式');
+        // 200 但业务码不是 0 也会走到这里：**这一台今天给不了用户可用的回答**，
+        // 所以记成不可达（httpCode 仍是 200，界面上说得出"通了但答得不对"）。
+        await report(
+          reachable: false,
+          latencyMs: watch.elapsedMilliseconds,
+          httpCode: response.statusCode,
+        );
         break;
       } catch (e) {
         // 网络异常 → 重试一次后仍失败再尝试静态模式
@@ -300,18 +368,21 @@ class AppUpdateManager {
           await Future<void>.delayed(const Duration(seconds: 2));
           continue;
         }
+        // 两发都没发出去：httpCode 留 null（"没回话"与"回了 500"不是一件事，
+        // 用户在界面上要能看出该等一会还是该换一台）。
+        await report(reachable: false, latencyMs: watch.elapsedMilliseconds);
       }
     }
 
     // 2. 回退到静态 JSON 模式（GitHub Pages 等静态部署）
-    return _checkUpdateStatic();
+    return _checkUpdateStatic(httpClient);
   }
 
   /// 静态 JSON 模式：直接拉取 /api/version.json，客户端做版本比较
-  Future<VersionCheckResult?> _checkUpdateStatic() async {
+  Future<VersionCheckResult?> _checkUpdateStatic(http.Client client) async {
     try {
-      final uri = Uri.parse('$_updateServerUrl/api/version.json');
-      final response = await _updateHttpClient
+      final uri = Uri.parse('${_region.apiBase}/api/version.json');
+      final response = await client
           .get(uri)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
@@ -641,12 +712,80 @@ class AppUpdateManager {
     for (final mirror in buildMirrorApkUrls(
       downloadUrl: downloadUrl,
       version: version,
-      serverUrl: _updateServerUrl,
+      serverUrl: _region.apiBase,
       mirrorBases: [_githubMirrorUrl, _githubDirectUrl],
     )) {
       add(mirror);
     }
     return urls;
+  }
+
+  /// 主动探一台更新服务器（T95：打开「更新服务器」那一页时两台各探一次）。
+  ///
+  /// ⚠ 走**检查更新同一条路**：同一个 http 客户端（`PinnedHttpClient` 那层浏览器 UA 是
+  ///   防 Cloudflare 403 的）、同一个 `/api/version/check`。换 UA、换路径（比如去问
+  ///   `/health`）探出来的"可用/不可用"与用户按下去会发生的事不是同一件事，
+  ///   而这一页的结论是拿去替用户换档的。
+  /// ⚠ 问的是**极低的版本号**（`0.0.0+0`）：这样这台必然回答"有更新"，于是同一发里
+  ///   多读到两件真话——它报告的最新版、它下发的安装包落在哪个 CDN。
+  ///   两台的 `version.json` 是各自部署的那一份（同一份代码、两份数据文件），会漂；
+  ///   漂了的时候界面上只有这一格看得见。
+  /// ⚠ 探测**不读也不写** `_lastError`、不 `_markChecked`：它不是"检查过更新"，
+  ///   把 24 小时那一档的时钟拨了会让真正的自动检查少跑一次。
+  Future<UpdateServerProbe> probeUpdateServer(
+    UpdateServerRegion region, {
+    Duration timeout = const Duration(seconds: 6),
+    http.Client? client,
+  }) async {
+    final httpClient = client ?? _updateHttpClient;
+    final watch = Stopwatch()..start();
+    try {
+      final uri = Uri.parse('${region.apiBase}/api/version/check').replace(
+        queryParameters: {
+          'version': '0.0.0',
+          'build': '0',
+          'platform': 'android',
+        },
+      );
+      final response = await httpClient.get(uri).timeout(timeout);
+      final latency = watch.elapsedMilliseconds;
+      if (response.statusCode != 200) {
+        return UpdateServerProbe(
+          region: region,
+          reachable: false,
+          latencyMs: latency,
+          httpCode: response.statusCode,
+        );
+      }
+      final data = jsonDecode(
+        utf8.decode(response.bodyBytes, allowMalformed: false),
+      );
+      final payload = data is Map && data['data'] is Map
+          ? Map<String, dynamic>.from(data['data'] as Map)
+          : const <String, dynamic>{};
+      final downloads = payload['downloads'];
+      final asset = downloads is Map && downloads.isNotEmpty
+          ? (downloads['all'] ?? downloads.values.first)?.toString()
+          : null;
+      return UpdateServerProbe(
+        region: region,
+        // 200 但业务码不是 0：这一台今天给不了可用的回答（与 checkUpdate 同一判据，
+        // 两处分两套口径就会长成"徽标绿着但更新失败"那种查不出来的现象）。
+        reachable: data is Map && data['code'] == 0,
+        latencyMs: latency,
+        httpCode: response.statusCode,
+        latestVersion: payload['latestVersion']?.toString(),
+        latestBuild: int.tryParse(payload['latestBuild']?.toString() ?? ''),
+        downloadHost: asset == null ? null : Uri.tryParse(asset)?.host,
+      );
+    } catch (e) {
+      debugPrint('探测更新服务器：${region.apiHost} → $e');
+      return UpdateServerProbe(
+        region: region,
+        reachable: false,
+        latencyMs: watch.elapsedMilliseconds,
+      );
+    }
   }
 
   /// HEAD 探测 URL 是否可下载（返回 true 表示 HTTP 200）。
@@ -812,7 +951,7 @@ class AppUpdateManager {
       buildMirrorApkUrls(
         downloadUrl: downloadUrl,
         version: version,
-        serverUrl: _updateServerUrl,
+        serverUrl: _region.apiBase,
         mirrorBases: [_githubMirrorUrl],
         skip: appName == null,
       ),
@@ -1002,15 +1141,13 @@ class AppUpdateManager {
     }
   }
 
-  String _getFullUrl(String url) {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    if (url.startsWith('/')) {
-      return '$_updateServerUrl$url';
-    }
-    return '$_updateServerUrl/$url';
-  }
+  /// 把服务端下发的相对地址补成绝对地址（用**当前这一档**的 apiBase）。
+  ///
+  /// 原来这里是第二条"怎么补"的实现（`startsWith('http')` 那一段自己写了一遍），
+  /// 与 `update_download_urls.dart` 里的 `absoluteUpdateUrl` 同一件事两份 ——
+  /// 换成复用那一枚，档位这件事就只剩"从哪台补"这一个变量。
+  String _getFullUrl(String url) =>
+      absoluteUpdateUrl(url, serverUrl: _region.apiBase);
 
   Future<void> setIgnoredVersion(String version) async {
     final prefs = await SharedPreferences.getInstance();

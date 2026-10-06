@@ -1575,14 +1575,7 @@
   "fnthinkHostRegionInternational": "海外（洛杉矶）",
   "fnthinkHostRegionMainland": "大陆（成都）",
   "fnthinkHostNoCandidates": "契约里没有声明可选的服务地址",
-  "fnthinkHostUpdateNote": "检查更新始终走 {host}，不随这里切换。",
-  "@fnthinkHostUpdateNote": {
-    "placeholders": {
-      "host": {
-        "type": "String"
-      }
-    }
-  },
+  "fnthinkHostUpdateNote": "检查更新走的是另一条链路，不随这里切换。",
   "fnthinkBoundary": "开着接收之后，通知内容会经过服务器中转：服务器那一侧看得见消息正文与元数据。",
   "fnthinkContractUnavailable": "随包的协议契约读不到，这一页暂时什么都改不了：{reason}",
   "@fnthinkContractUnavailable": {

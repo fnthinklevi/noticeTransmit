@@ -3344,9 +3344,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'The contract declares no selectable service address';
 
   @override
-  String fnthinkHostUpdateNote(String host) {
-    return 'Update checks always go to $host, regardless of this setting.';
-  }
+  String get fnthinkHostUpdateNote =>
+      'Update checks use a different server and do not follow this setting.';
 
   @override
   String get fnthinkBoundary =>

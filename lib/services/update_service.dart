@@ -1,6 +1,15 @@
 import '../update_manager.dart';
+import 'update_server_regions.dart';
 
 class UpdateService {
+  /// [onProbe] 是「这台更新服务器能不能用」的记账出口，装配点在
+  /// `lib/di/service_locator.dart`（与幻念协调者的 `recordHealth` 同一形状）。
+  /// ⚠ 可空不是摆设：没接的时候更新照常，只是服务器选择页的徽标永远"没测过" ——
+  ///   那个缺陷在幻念那一格已经出现过一次，所以这里给装配留了一个编译期看得见的口子。
+  UpdateService({this.onProbe});
+
+  final UpdateProbeReport? onProbe;
+
   bool _isDownloading = false;
 
   bool get isDownloading => _isDownloading;
@@ -10,7 +19,20 @@ class UpdateService {
   }
 
   Future<VersionCheckResult?> checkUpdate({bool force = false}) async {
-    return AppUpdateManager.instance.checkUpdate(force: force);
+    return AppUpdateManager.instance.checkUpdate(
+      force: force,
+      onProbe: onProbe,
+    );
+  }
+
+  /// 本机当前该用哪一台更新服务器（界面展示）。
+  UpdateServerRegion get region => AppUpdateManager.instance.region;
+
+  /// 主动探一台并把结论记账（打开「更新服务器」那一页时两台各来一次）。
+  Future<UpdateServerProbe> probeRegion(UpdateServerRegion region) async {
+    final probe = await AppUpdateManager.instance.probeUpdateServer(region);
+    await onProbe?.call(probe: probe);
+    return probe;
   }
 
   Future<void> performAutoCheck() async {
