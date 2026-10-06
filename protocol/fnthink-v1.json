@@ -41,7 +41,9 @@
       "belowNativeSdk": "keystoreWrappedSoftwareKey",
       "belowNativeSdkComment": "Android 平台的 Ed25519 自 API 30 起，minSdk 是 24 ⇒ 30 以下用 KeyStore 里一把不可导出的 AES-GCM 密钥包裹软件生成的 Ed25519 私钥（落盘的是密文，运行时解密到内存）。这条路径的 keystoreBacked=false：不可导出的其实是包裹密钥，不是私钥本体。绝不许写成 softwarePlaintext：那等于把任务书里的红线改成注释",
       "softwareLibrary": "net.i2p.crypto:eddsa:0.3.0",
-      "keystoreBackedCapability": true
+      "keystoreBackedCapability": true,
+      "keystoreBackedScope": "localOnly",
+      "keystoreBackedScopeWhy": "T26 第③件（2026-10-06 现读补）：keystoreBacked 是**本机事实** —— 它由本机 KeyStore 策略算出、随本机身份读出、显示在本机页面上，**今天不跨端**。要让它跨端（对端据此做准入、或进 L1/L2/L3 那本能力表）必须先改协议，两条路都有代价：① 塞进**已签信封**（加第七个 canonical key）⇒ 改所有事件的签名形状，**旧客户端全部要升级**，与 T26 第10条『不抬协议版本』那条定稿直接冲突；② 放**顶层不带签** ⇒ 服务端只能当提交者自述，**能伪造 true**，比没有这个字段更坏（服务端据此放行而实际是包裹路径）。⇒ 契约只声明能力位必须上报（keystoreBackedCapability），不声明任何跨端语义。守卫：`test/architecture/fnthink_keystore_scope_test.dart` 钉住 `server/` 对 keystoreBacked 零命中 —— 哪天真要让服务端读它，必须先走完上面①②的取舍并把那条守卫改成显式迁移检查"
     },
     "generator": "csprng"
   },
