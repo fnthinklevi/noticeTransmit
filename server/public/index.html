@@ -830,24 +830,18 @@ addEventListener('scroll',()=>{if(navLinks.classList.contains('open'))setMenu(fa
  * `/api/version/check` 是 {code:0, data:{…}} ⇒ 两种都要认（`_unwrap`）。
  * 下载链接只换主机名（`.top` ⇄ `cdn2.fnthink.top`／`cdn.fnthink.com`），**路径与文件名逐字不变**。
  * 全部失败保留 HTML 内中性占位（不含具体版本/大小，永不随发版过期）。
- * 文本语言随站点语言设置（localStorage.lang）生成，切换语言后刷新页面即可对齐。
+ * 文本语言随站点语言设置（localStorage.lang）与**站点域名**（.top 英文 / .com 与缺省中文）生成；
+ * 这两个值都只在 fetch 回调里读到，所以切换语言后刷新页面即可对齐（见 i18n.js 的 domainLang）。
  */
 (async () => {
   const $ = (id) => document.getElementById(id);
-  // 与 i18n.js 同步：仅简体中文环境显示中文，其余显示英文
-  function detectSiteLang() {
-    var langs = navigator.languages || [navigator.language || ''];
-    for (var i = 0; i < langs.length; i++) {
-      var l = String(langs[i] || '').toLowerCase();
-      if (l === 'zh' || l.indexOf('zh-cn') === 0 || l.indexOf('zh-sg') === 0 || l.indexOf('zh-hans') === 0) {
-        return 'zh';
-      }
-    }
-    return 'en';
-  }
-  const zh = (localStorage.getItem('lang') || detectSiteLang()) !== 'en';
-  const verText = (v) => zh ? '版本 v' + v : 'Version v' + v;
-  const fmtSize = (b) => (zh ? '约 ' : '~') + (b / 1048576).toFixed(1) + ' MB';
+  // 默认语言**只有一条规则**，住在 i18n.js 的 domainLang() 里（.top 英文 / .com 与缺省中文）。
+  // 这里不再抄第二份 navigator 版 —— 抄一份就意味着改一处只改一半，而那半份静默生效。
+  // ⚠ 必须在**调用时**求值：本脚本在 i18n.js 之前加载，同步那一刻 window 上还没有那个函数。
+  const isZh = () =>
+    (localStorage.getItem('lang') || (window._i18nDomainLang && window._i18nDomainLang(location.hostname)) || 'zh') !== 'en';
+  const verText = (v) => (isZh() ? '版本 v' + v : 'Version v' + v);
+  const fmtSize = (b) => (isZh() ? '约 ' : '~') + (b / 1048576).toFixed(1) + ' MB';
   // 平铺的 version.json 与 {code:0,data:{…}} 的 check 响应，在这里收成同一种形状。
   // 少了这一步就会只认其中一种形状，于是换源成功也照样不显示。
   const _unwrap = (j) => {

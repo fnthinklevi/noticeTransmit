@@ -214,22 +214,36 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['飞书自建应用'] = 'Feishu App (self-built)';
   D['app_id/receive_id 定向'] = 'Targeted push via app_id/receive_id';
 
+  // ── 补漏：check_site_i18n.py 现报的 5 处未覆盖（导航/统计/国际化卡/两段隐私声明）──
+  D['远程控制'] = 'Remote Control';
+  D['条转发通道族（含幻念推送）'] = 'forwarding channel families (incl. Fnthink Push)';
+  D['全应用中英双语支持（中英各 1251 词条，键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Chinese and English throughout (1251 entries per language, key sets aligned by CI), one-tap switching in Settings; 17 launcher icons with Chinese and English alias entries that follow the UI language.';
+  D['默认情况下，通知与短信内容只在你的设备本地处理，推送只经你自己配置的 Webhook / 自建应用 / SMTP 邮件通道发出；已安装应用列表也只用于本机的应用筛选与规则匹配。三种情形分开说清：① 不使用「幻念推送」——全部逻辑在本机完成，通知内容不经过任何服务器；② 只用本软件转发通知——同样不经过服务器，服务器不收集任何通知内容；③ 使用「幻念推送」（设备互推，或第三方经接入端点推给手机）——消息需经服务器中转才能送达，且必须先由你在应用内一次性显式同意；未送达期间正文在服务端加密暂存、最长保留 7 天，送达或到期立即删除，配对口令与身份私钥不上传，审计只保存元数据（不含正文）。'] = 'By default notification and SMS content is processed on your own device, and pushes leave only through the Webhook / self-built app / SMTP channels you configured yourself; the installed-app list is used only for on-device app filtering and rule matching. Three cases separately: (1) you do not use Fnthink Push — everything happens on the device and notification content never reaches any server; (2) you only forward with this app — still no server involved, and the server collects no notification content; (3) you use Fnthink Push (device-to-device, or a third party pushing to the phone through an endpoint) — messages must be relayed by a server to be delivered, and you must give one-time explicit consent in the app first; undelivered bodies are held encrypted on the server for at most 7 days and deleted on delivery or expiry, pairing secrets and the identity private key are never uploaded, and the audit trail keeps metadata only (no bodies).';
+  D['④ 官方实例与自行部署——幻念推送有两套服务可选：**官方实例**（push.fnthink.top／中国大陆 push.fnthink.com）由本项目方运营，受其服务条款与运维纪律约束；**自行部署的实例**由你自己运行与掌控，本项目方既不运营也不接触，但也因此没有官方侧的限流与风控兜底——保护强度取决于你自己的部署与运维。两种形态共用同一套协议：正文在你的设备上加密后才发出，服务器不落明文正文，差别只在谁在运营那台机器，不在谁能看到正文。'] = '(4) Official instance vs. self-hosting — Fnthink Push comes in two forms: the **official instance** (push.fnthink.top / push.fnthink.com in mainland China) is operated by this project\'s maintainers and bound by their terms of service and operational discipline; a **self-hosted instance** is run and controlled entirely by you — the maintainers neither operate it nor touch it, which also means there is no official rate limiting or risk control backstop, so the level of protection depends on your own deployment and operations. Both forms share one protocol: bodies are encrypted on your device before sending and the server never stores plaintext; the difference is only who runs that machine, not who can read the body.';
+  D['崩溃统计（腾讯 Bugly）默认关闭，仅在你在应用内主动开启后采集必要的崩溃堆栈、设备型号、系统版本用于修复问题，可随时关闭。'] = 'Crash statistics (Tencent Bugly) are off by default; only after you turn them on in the app are the crash stack, device model and OS version collected for the purpose of fixing bugs, and you can turn them off again at any time.';
+  D['不会——除非你启用「幻念推送」并显式同意。默认情况下，通知与短信内容只在设备本地监听、处理与推送，不经过任何服务器；已安装应用列表也只用于本机的应用筛选与规则条件，推送只通过你自行配置的 Webhook / 自建应用 / SMTP 邮件通道发出，开发者不存储经这些通道推送的内容。当你使用「幻念推送」（设备互推，或第三方经接入端点推给手机）时，消息需经服务器中转才能送达，且必须先由你在应用内一次性显式同意；未送达期间正文在服务端加密暂存、最长保留 7 天，送达或到期立即删除，配对口令与身份私钥不上传，审计只保存元数据（不含正文）。'] = 'No — unless you enable Fnthink Push and explicitly consent. By default notification and SMS content is only listened to, processed and pushed on the device, without passing through any server; the installed-app list is used only for on-device app filtering and rule conditions, pushes leave only through the Webhook / self-built app / SMTP channels you configured, and the maintainers store nothing that passes through those channels. When you use Fnthink Push (device-to-device, or a third party pushing to the phone through an endpoint), messages must be relayed by a server to be delivered, and you must give one-time explicit consent in the app first; undelivered bodies are held encrypted on the server for at most 7 days and deleted on delivery or expiry, pairing secrets and the identity private key are never uploaded, and the audit trail keeps metadata only (no bodies).';
+  D['崩溃统计（腾讯 Bugly）默认关闭，仅在你主动开启后采集崩溃堆栈用于修复问题，可随时关闭。'] = 'Crash statistics (Tencent Bugly) are off by default; only after you turn them on are crash stacks collected to fix bugs, and you can turn them off again at any time.';
+
   // ── 当前语言 ──
-  // 语言检测（P2）：按用户需求——仅「简体中文」环境显示中文，
-  // 其他语言（含繁体 zh-tw/zh-hk/zh-hant）一律显示英文
+  // 默认语言按**域名**定（早先按 navigator.languages，浏览器 locale 说了算）：
+  //   .top → 英文（面向国际访客）；.com → 中文；其余后缀与无 host → 中文（缺省）。
+  // 两个域名都可用右上角按钮切换，选择记进 localStorage 且**优先于**域名规则 ——
+  // 域名只决定"第一次来看到什么"，不该盖掉用户自己选过的语言。
+  function domainLang(host) {
+    var h = String(host == null ? '' : host).toLowerCase();
+    if (!h) return 'zh';
+    if (h.slice(-4) === '.top') return 'en';
+    // .com 与缺省同值，但**显式写出**：日后改缺省值时不该顺手把 .com 一起带走
+    if (h.slice(-4) === '.com') return 'zh';
+    return 'zh';
+  }
   function detectLang() {
-    var langs = navigator.languages || [navigator.language || ''];
-    for (var i = 0; i < langs.length; i++) {
-      var l = String(langs[i] || '').toLowerCase();
-      if (l === 'zh' || l.indexOf('zh-cn') === 0 || l.indexOf('zh-sg') === 0 || l.indexOf('zh-hans') === 0) {
-        return 'zh';
-      }
-    }
-    return 'en';
+    return domainLang(typeof location !== 'undefined' ? location.hostname : '');
   }
   var lang = localStorage.getItem('lang');
   if (!lang) lang = detectLang();
   window._i18nDetect = detectLang;
+  window._i18nDomainLang = domainLang;
 
   // ── 存储原始文本用于恢复中文 ──
   // 用 Map 而非普通对象：对象 key 会被 toString 强转（Text 节点都是 "[object Text]"），
