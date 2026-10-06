@@ -77,6 +77,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationEngineTitle => '通知引擎';
 
   @override
+  String get notificationEngineShort =>
+      '电量、温度这类设备自己的状态到了就提醒；要不要转发在「更多 → 筛选与规则」里配。';
+
+  @override
+  String get notificationEngineScopeTitle => '这一页管什么，不管什么';
+
+  @override
   String get notificationEngineDesc =>
       '设备自己到了某个状态就提醒：电量、温度。已到达的通知要不要转，在「更多 → 筛选与规则」里配。';
 
@@ -2055,6 +2062,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get engineConstraintEntry => '设备态告警也接受约束';
 
   @override
+  String get engineConstraintTitle => '设备态告警受哪些约束、被拦下来会怎样';
+
+  @override
+  String get engineConstraintShort => '开了之后，电量／温度告警在推送前也过一遍关键词黑白名单。';
+
+  @override
   String get engineConstraintDesc =>
       '开启后，电量/温度告警在推送前也要过一遍关键词黑白名单；应用黑白名单不适用（这类告警由本机自己产生）。被拦下的告警会写入推送历史并标注原因。';
 
@@ -2674,6 +2687,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get noAppChannels => '暂无自建应用通道';
+
+  @override
+  String get appChannelPageTitle => '自建应用通道怎么把消息发出去';
+
+  @override
+  String get appChannelPageShort => '企业微信／飞书的自建应用：先用凭据换 token，再往消息端点发；密钥加密存储。';
 
   @override
   String get appChannelPageDesc =>

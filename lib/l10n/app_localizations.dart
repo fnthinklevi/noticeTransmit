@@ -230,6 +230,18 @@ abstract class AppLocalizations {
   /// **'通知引擎'**
   String get notificationEngineTitle;
 
+  /// No description provided for @notificationEngineShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'电量、温度这类设备自己的状态到了就提醒；要不要转发在「更多 → 筛选与规则」里配。'**
+  String get notificationEngineShort;
+
+  /// No description provided for @notificationEngineScopeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一页管什么，不管什么'**
+  String get notificationEngineScopeTitle;
+
   /// No description provided for @notificationEngineDesc.
   ///
   /// In zh, this message translates to:
@@ -3968,6 +3980,18 @@ abstract class AppLocalizations {
   /// **'设备态告警也接受约束'**
   String get engineConstraintEntry;
 
+  /// No description provided for @engineConstraintTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备态告警受哪些约束、被拦下来会怎样'**
+  String get engineConstraintTitle;
+
+  /// No description provided for @engineConstraintShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'开了之后，电量／温度告警在推送前也过一遍关键词黑白名单。'**
+  String get engineConstraintShort;
+
   /// No description provided for @engineConstraintDesc.
   ///
   /// In zh, this message translates to:
@@ -5047,6 +5071,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无自建应用通道'**
   String get noAppChannels;
+
+  /// No description provided for @appChannelPageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自建应用通道怎么把消息发出去'**
+  String get appChannelPageTitle;
+
+  /// No description provided for @appChannelPageShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'企业微信／飞书的自建应用：先用凭据换 token，再往消息端点发；密钥加密存储。'**
+  String get appChannelPageShort;
 
   /// No description provided for @appChannelPageDesc.
   ///

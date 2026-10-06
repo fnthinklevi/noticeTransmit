@@ -6,6 +6,7 @@ import '../services/battery_service.dart';
 import '../services/device_state_service.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/help_note_button.dart';
 import 'battery_page.dart';
 import 'device_state_page.dart';
 import 'fnthink_peers_page.dart';
@@ -97,12 +98,14 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text(
-            l10n.notificationEngineDesc,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(context),
-            ),
+          HelpNoteRow(
+            noteKey: 'engine-page-desc',
+            helpKey: 'engine-page-help',
+            text: l10n.notificationEngineShort,
+            // 标题另起一个键：`notificationEngineTitle` 已经是这一页的 AppBar 标题，
+            // 拿它当弹窗标题只会重复一遍页面名，什么也没多说。
+            helpTitle: l10n.notificationEngineScopeTitle,
+            helpBody: l10n.notificationEngineDesc,
           ),
           const SizedBox(height: 12),
           Container(
@@ -260,12 +263,14 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
                   style: const TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  l10n.engineConstraintDesc,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.secondaryLabel(context),
-                  ),
+                HelpNoteRow(
+                  noteKey: 'engine-constraint-desc',
+                  helpKey: 'engine-constraint-help',
+                  text: l10n.engineConstraintShort,
+                  helpTitle: l10n.engineConstraintTitle,
+                  // 「应用黑白名单不适用」与「被拦下的告警会写进历史并标注原因」两句
+                  // 都在弹窗里 —— 前者是这一格最容易被误解的地方。
+                  helpBody: l10n.engineConstraintDesc,
                 ),
               ],
             ),

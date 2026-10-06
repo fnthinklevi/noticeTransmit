@@ -328,8 +328,9 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      // 页面顶部入口 + 卡片入口 → 取卡片内的那个打开引导
-      await tester.tap(find.byIcon(Icons.help_outline).last);
+      // 页内有多枚问号（顶部说明行的 HelpNoteRow、顶部接入引导、卡片接入引导），
+      // 图标不是身份 —— 卡片内那一枚的唯一形状是 IconButton(help_outline)。
+      await tester.tap(find.widgetWithIcon(IconButton, Icons.help_outline));
       await tester.pumpAndSettle();
 
       expect(find.text('企业微信自建应用 · 接入步骤'), findsOneWidget);
@@ -360,7 +361,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.help_outline).last);
+      await tester.tap(find.widgetWithIcon(IconButton, Icons.help_outline));
       await tester.pumpAndSettle();
 
       expect(find.text('飞书自建应用 · 接入步骤'), findsOneWidget);
@@ -454,8 +455,14 @@ void main() {
       await tester.pumpWidget(buildApp());
       await tester.pumpAndSettle();
 
-      // 只剩页面顶部那个企微入口；卡片内不得再多出一个（否则点开就是企微步骤）
-      expect(find.byIcon(Icons.help_outline), findsOneWidget);
+      // 只剩页面顶部那个企微入口；卡片内不得再多出一个（否则点开就是企微步骤）。
+      // 按「角色+图标」认卡片那一枚，不按全站问号计数：页内本就有说明行的帮助按钮。
+      expect(
+        find.byKey(const ValueKey('app-channel-setup-guide')),
+        findsOneWidget,
+        reason: '顶部入口要在，否则本用例会因为整页没渲染而空过',
+      );
+      expect(find.widgetWithIcon(IconButton, Icons.help_outline), findsNothing);
     });
     // ===== 描述符驱动（第 5 步）=====
 

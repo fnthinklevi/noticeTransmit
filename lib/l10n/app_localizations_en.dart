@@ -77,6 +77,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationEngineTitle => 'Notification Engine';
 
   @override
+  String get notificationEngineShort =>
+      'Alerts when the device itself reaches a state: battery, temperature. Whether to forward a notification is set under More -> Filters & rules.';
+
+  @override
+  String get notificationEngineScopeTitle =>
+      'What this page covers, and what it does not';
+
+  @override
   String get notificationEngineDesc =>
       'Alerts the device raises about itself: battery and temperature. Whether an incoming notification gets forwarded is set under More → Filter & Rules.';
 
@@ -2137,6 +2145,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Apply keyword constraints to device alerts';
 
   @override
+  String get engineConstraintTitle =>
+      'Which constraints apply to device-state alerts, and what happens when one is blocked';
+
+  @override
+  String get engineConstraintShort =>
+      'When on, battery and temperature alerts also pass the keyword allow/block lists before being pushed.';
+
+  @override
   String get engineConstraintDesc =>
       'When on, battery/temperature alerts also pass the keyword allow/block lists before sending; app filtering does not apply (these alerts originate on this device). Suppressed alerts are recorded in push history with the reason.';
 
@@ -2783,6 +2799,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noAppChannels => 'No app channels yet';
+
+  @override
+  String get appChannelPageTitle =>
+      'How a custom-app channel actually gets a message out';
+
+  @override
+  String get appChannelPageShort =>
+      'WeCom and Feishu custom apps: trade credentials for a token, then post to the message endpoint. Secrets are stored encrypted.';
 
   @override
   String get appChannelPageDesc =>

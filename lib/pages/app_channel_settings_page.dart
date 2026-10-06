@@ -13,6 +13,7 @@ import '../widgets/app_text_selection_menu.dart';
 import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_visuals.dart';
+import '../widgets/help_note_button.dart';
 
 /// 自建应用通道设置页（应用通道体系，管理完善度与 Webhook 通道对齐）。
 ///
@@ -212,17 +213,18 @@ class _AppChannelSettingsPageState extends State<AppChannelSettingsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          Text(
-            l10n.appChannelPageDesc,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.4,
-              color: AppColors.secondaryLabel(context),
-            ),
+          HelpNoteRow(
+            noteKey: 'app-channel-page-desc',
+            helpKey: 'app-channel-page-help',
+            text: l10n.appChannelPageShort,
+            helpTitle: l10n.appChannelPageTitle,
+            // 94 字的原理说明（两阶段 API、与 webhook 的差别、重试归属）原样进弹窗，不删。
+            helpBody: l10n.appChannelPageDesc,
           ),
           const SizedBox(height: 8),
           // 接入引导入口（v1.59）：详细步骤见 _showSetupGuide
           InkWell(
+            key: const ValueKey('app-channel-setup-guide'),
             onTap: () => _showSetupGuide(context, 'wecom_app'),
             borderRadius: BorderRadius.circular(6),
             child: Padding(
