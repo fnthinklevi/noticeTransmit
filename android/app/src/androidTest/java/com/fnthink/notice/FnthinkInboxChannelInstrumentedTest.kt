@@ -3,13 +3,16 @@ package com.fnthink.notice
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.FileInputStream
 
 /**
  * T55 的设备侧断言：收件通知那一枚渠道**建出来之后**在系统眼里到底是什么形状。
@@ -41,11 +44,37 @@ class FnthinkInboxChannelInstrumentedTest {
     private fun manager(): NotificationManager =
         context().getSystemService(NotificationManager::class.java)
 
+    /**
+     * **CI 上那台模拟器是全新安装**，而 targetSdk 37 下 `POST_NOTIFICATIONS` 是运行时权限 ⇒ 没给。
+     * 没给时 `show()` 回 false 是**正确**行为（那条判据在 `FnthinkInboxDisplay.show` 里），
+     * 但那样这一支验的就是"权限给没给"而不是渠道形状 —— 一个假红，而且把真要验的东西挡住。
+     *
+     * ⇒ 授权归**工装**：先 `pm grant`，再断言它真的给到了（`areNotificationsEnabled()`）。
+     * 顺序不能反 —— 只 grant 不核对，grant 失败时又会回到"验的是空气"那个形状。
+     * 本地真机（MIUI）看不到这个差别：装包时系统把通知权限顺手给了。
+     */
+    @Before
+    fun grantNotificationPermission() {
+        val pkg = context().packageName
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("pm grant $pkg android.permission.POST_NOTIFICATIONS")
+            // shell 的输出必须被读完并关掉（关的是那个 descriptor 本身），否则它一直挂在进程上。
+            FileInputStream(pfd.fileDescriptor).use { it.readBytes() }
+        }
+        assertTrue(
+            "工装没能拿到通知权限（areNotificationsEnabled=false）⇒ 后面的渠道断言验的是空气。" +
+                "全新安装的模拟器上 POST_NOTIFICATIONS 是运行时权限，只能由这里 grant。",
+            manager().areNotificationsEnabled(),
+        )
+    }
+
     @Test
     fun inboxChannelIsHighImportanceAndBadgeEnabled() {
         // 先发一条：渠道是懒创建的（ensureChannel 在 show 里面），不发就没有那枚渠道。
         // ⚠ 没给 POST_NOTIFICATIONS 权限时 show() 会回 false（这是**正确**行为），
         //   所以第一条断言是"显示出来了"，不是"渠道存在" —— 否则后面验的是空气。
+        //   权限由上面那个 @Before 负责给上并核对。
         val shown = FnthinkInboxDisplay.show(
             context(),
             FnthinkInboxDisplay.specFor(
