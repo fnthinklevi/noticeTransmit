@@ -51,7 +51,9 @@ void main() {
       // 那等于把默认值当前提，默认一改这条就红在反方向上。
       expect(service.smsMonitorEnabled, isFalse);
       expect(
-        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch).first).value,
+        tester
+            .widget<CupertinoSwitch>(find.byType(CupertinoSwitch).first)
+            .value,
         isFalse,
         reason: '服务里是关、画面上却是开 ⇒ 首页与设置页会给用户"已经授权"的错觉',
       );

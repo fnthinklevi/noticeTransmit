@@ -129,13 +129,6 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onOpenSmsMonitorSettings: _openSmsMonitorSettingsPage,
         fnthinkInboxUnread: _fnthinkInboxUnread,
         onOpenInbox: _openFnthinkInboxPage,
-        // T43 顶栏三格（维护者 2026-10-06 定）。
-        // ⚠ 推送历史走**新**的一格而不是改 `onOpenHistory`：后者那张入口卡是
-        // 「我转发出去的」（`_openHistoryPage` 默认 `forwarded`），改成 all 会顺手改掉
-        // 它已有的语义与用例。顶栏那一格按维护者原话「就是历史页、含收发」传 `all`。
-        onOpenPeers: _openFnthinkPeersPage,
-        onOpenAllHistory: () => _openHistoryPage(direction: 'all'),
-        onOpenSettings: _openMoreTab,
       ),
       // 中间那一格＝通知引擎骨架页（T15）：电量/温度两类设备侧告警的入口。
       // 电量页原先直接挂在这里、由本页逐个包回调，现在它订阅自己的服务并由骨架页 push。

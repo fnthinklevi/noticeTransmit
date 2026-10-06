@@ -27,14 +27,6 @@ class NotificationPage extends StatelessWidget {
   /// 这一格的去处（打开历史页的收件档）。没接上时**整格不画** —— 见 build 里那段注释。
   final VoidCallback? onOpenInbox;
 
-  /// 顶栏三格（T43，维护者 2026-10-06 定，右→左：添加设备 → 推送历史 → 设置）。
-  ///
-  /// **三个都可选**：没接上时那一格**不画**（不是画一个灰的）—— 灰按钮点了没反应，
-  /// 比不画更坏；而且这样接缝没接好时会在 widget 层直接红，而不是上线后才发现。
-  final VoidCallback? onOpenPeers;
-  final VoidCallback? onOpenAllHistory;
-  final VoidCallback? onOpenSettings;
-
   const NotificationPage({
     super.key,
     required this.notificationPermissionGranted,
@@ -52,46 +44,16 @@ class NotificationPage extends StatelessWidget {
     required this.onOpenSmsMonitorSettings,
     this.fnthinkInboxUnread = 0,
     this.onOpenInbox,
-    this.onOpenPeers,
-    this.onOpenAllHistory,
-    this.onOpenSettings,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.appName),
-        // T43：顶栏三格。**列表顺序与视觉顺序相反** —— `AppBar.actions` 把第一个
-        // 排在**最左**，依次往右排；任务书写的是「右→左：添加设备 → 推送历史 → 设置」，
-        // 所以这里的列表必须倒着写：设置最左、添加设备最右。
-        // ⚠ 这条只有实测能钉住：写反了界面上仍然"有三个按钮"，只是顺序错了 ——
-        // `notification_page_topbar_test` 断的是 x 坐标次序，不是"有没有"。
-        actions: <Widget>[
-          if (onOpenSettings != null)
-            IconButton(
-              key: const ValueKey<String>('home-bar-settings'),
-              icon: const Icon(Icons.settings_outlined),
-              tooltip: l10n.homeBarSettings,
-              onPressed: onOpenSettings,
-            ),
-          if (onOpenAllHistory != null)
-            IconButton(
-              key: const ValueKey<String>('home-bar-history'),
-              icon: const Icon(Icons.history_outlined),
-              tooltip: l10n.homeBarHistory,
-              onPressed: onOpenAllHistory,
-            ),
-          if (onOpenPeers != null)
-            IconButton(
-              key: const ValueKey<String>('home-bar-add-device'),
-              icon: const Icon(Icons.device_hub_outlined),
-              tooltip: l10n.homeBarAddDevice,
-              onPressed: onOpenPeers,
-            ),
-        ],
-      ),
+      // 顶栏只留标题。曾经有过三格（T43 `fd4fce7`：设置／推送历史／添加设备），
+      // 2026-10-06 维护者判为多此一举并删掉 —— 三格的目标都另有路：设置＝底部「更多」，
+      // 历史＝本页那张卡，配对名单＝幻念推送页与通知引擎页各有一处。
+      appBar: AppBar(title: Text(l10n.appName)),
       body: PullToRefreshList(
         onRefresh: onRefresh,
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
