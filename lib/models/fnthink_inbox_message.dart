@@ -26,6 +26,7 @@ class FnthinkInboxMessage {
     this.ackResult = '',
     this.ackedAt = 0,
     this.direction = kFnthinkDirectionIn,
+    this.viaBackup = false,
   });
 
   /// 服务端给的消息主键（`m_` 前缀那串）。它同时是表主键：投递是 at-least-once
@@ -69,6 +70,16 @@ class FnthinkInboxMessage {
   /// 历史页的那两档就按它分：收件档只显示 in、发出档只显示 out；首页未读卡也只数 in。
   final String direction;
 
+  /// 这一条是**降级后**从备用通道发出去的（T94 片4d）。
+  ///
+  /// 原生那一侧从路由决策就知道这件事（`routeChannels()` 的 `viaBackup`），并把它写进
+  /// 待发队列；**在这之前它断在半路** —— 队列里带着，Dart 侧那一项没有这个字段，
+  /// 于是值在解析那一步被丢掉，历史里这一条与"走主通道发的"长得一模一样。
+  /// 表现比"不标"更坏：另外三族都标，只有幻念这一族不标 ⇒ 用户看到的是"有时标有时不标"。
+  ///
+  /// 只对 `direction == kFnthinkDirectionOut` 有意义（收件那一侧不存在主备路由）。
+  final bool viaBackup;
+
   /// 表名（SQL 与测试共用这一处字面量）。
   static const table = 'fnthink_messages';
 
@@ -84,6 +95,7 @@ class FnthinkInboxMessage {
     'ack_result',
     'acked_at',
     'direction',
+    'via_backup',
   ];
 
   Map<String, Object?> toDbRow() => {
@@ -100,6 +112,7 @@ class FnthinkInboxMessage {
     'ack_result': ackResult,
     'acked_at': ackedAt,
     'direction': direction,
+    'via_backup': viaBackup ? 1 : 0,
   };
 
   /// 读一行。**不做兜底猜测**：`read` 只认 0/1 两个整数（其它形状说明库里存的不是本表
@@ -133,6 +146,23 @@ class FnthinkInboxMessage {
       // 值说明有人没走迁移就往里塞行，宁可抛出，也别把一条方向未知的消息当成收件显示在
       // 「别人推给我的」那一档里。
       direction: _directionOf(row['direction']),
+      // ⚠ 这里**故意比 [read] 松一档**：缺键当 false，形状不对（非整数）才抛。
+      // 区别在于 `read` 那列自建表起就在，缺键只可能是有人手搭了坏行；
+      // 而 `via_backup` 是 v20 才加的，v20 之前写的行**本来就没有这一列**，
+      // 而迁移给它们补的正是 DEFAULT 0 —— 所以"缺"与"0"是同一件事的两种写法，
+      // 把缺当 false 才与迁移一致。反过来对非整数仍然抛：那是形状不对，不是缺失。
+      viaBackup: _viaBackupOf(row['via_backup']),
     );
+  }
+
+  static bool _viaBackupOf(Object? raw) {
+    if (raw == null) return false;
+    if (raw is! int) {
+      throw StateError(
+        'fnthink_messages.via_backup 不是整数（实为 $raw）：'
+        '不猜这一条是不是走了备用出口',
+      );
+    }
+    return raw != 0;
   }
 }

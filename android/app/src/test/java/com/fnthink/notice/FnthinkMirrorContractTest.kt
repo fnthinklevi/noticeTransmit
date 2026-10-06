@@ -159,7 +159,9 @@ class FnthinkMirrorContractTest {
     @Test
     fun `待发项：原生写的键集合固定为十一个`() {
         // 反向也钉住：原生多写一个键时这里会红，逼人回答"Dart 到底要不要读它"。
-        // 不钉的后果已经现过一次 —— `viaBackup` 写了没人读（见 roadmap 的那条债）。
+        // ⚠ 不钉的后果已经现过一次 —— `viaBackup` 从 8.199 起一直在原生那一侧写，
+        // 而 Dart 侧压根没读（片4d 之前），于是那一列白写：值在解析时被丢掉，
+        // 表现是「只有幻念这一族的历史不标备用」。
         eq(
             "原生侧待发项写入键集合变了（新增/删除字段必须同时决定 Dart 要不要读）",
             setOf(
@@ -170,7 +172,7 @@ class FnthinkMirrorContractTest {
         )
         eq(
             "Dart 侧取值键集合变了（多读一个键 ⇒ 原生没写时恒为 null）",
-            setOf("id", "title", "content", "appName", "targets", "target"),
+            setOf("id", "title", "content", "appName", "targets", "target", "viaBackup"),
             dartFanoutReadKeys(),
         )
     }

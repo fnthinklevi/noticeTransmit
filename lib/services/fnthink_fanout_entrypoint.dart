@@ -109,6 +109,9 @@ Future<void> fnthinkBackgroundFanoutRound(String batchJson) async {
           peer: target,
           title: item.title.trim().isEmpty ? item.appName : item.title,
           text: item.text.trim().isEmpty ? item.title : item.text,
+          // 逐条传而不是每轮一次：同一批里可能既有主通道选中的也有降级选中的
+          // （轮询到不同通道的结果不同），按轮传就会把其中一半标错。
+          viaBackup: item.viaBackup,
         );
         sent++;
       } catch (e) {
@@ -129,6 +132,7 @@ class FnthinkFanoutItem {
     required this.text,
     required this.appName,
     required this.targets,
+    this.viaBackup = false,
   });
 
   final String id;
@@ -138,6 +142,14 @@ class FnthinkFanoutItem {
 
   /// 这一轮路由判下来的**设备地址码**（webhook 目标由原生自己发，不过这里）。
   final List<String> targets;
+
+  /// 这一轮是不是降级后才选中幻念通道的（T94 片4d）。
+  ///
+  /// ⚠ **这一列此前被丢在这里**：原生 `buildItem` 一直在写它，而本类没有这个字段，
+  /// 于是值在解析这一步消失，往下再没有一处知道"这一条走了备用"。
+  /// 表现是**只有幻念这一族**的历史不标「备用」，另外三族都标 ——
+  /// 比一律不标更难查，因为看起来像随机丢。
+  final bool viaBackup;
 }
 
 /// 解析原生交下来的那一批（纯函数，便于用例直接喂字符串）。
@@ -173,6 +185,9 @@ List<FnthinkFanoutItem> parseFanoutBatch(String batchJson) {
         text: '${raw['content'] ?? ''}',
         appName: '${raw['appName'] ?? ''}',
         targets: targets,
+        // 只认真正的 bool：原生写的是 JSON true/false，而 `1`/`'true'` 这类形状
+        // 说明有人改过写盘那一侧 —— 宁可当成"没走备用"（少标一枚）也不替它猜。
+        viaBackup: raw['viaBackup'] == true,
       ),
     );
   }

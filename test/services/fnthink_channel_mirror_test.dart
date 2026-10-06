@@ -112,6 +112,55 @@ void main() {
       expect(items.single.targets, ['AAA', 'BBB']);
     });
 
+    test('待发项带出 viaBackup，且只认真正的 bool', () {
+      // 这一列原生一直在写，而 Dart 侧此前压根没读 ⇒ 值在解析这步被丢掉，
+      // 表现是「只有幻念这一族的历史不标备用」（T94 片4d）。
+      final withFlag = parseFanoutBatch(
+        jsonEncode([
+          {
+            'id': 'bk',
+            'title': 't',
+            'content': 'c',
+            'viaBackup': true,
+            'targets': [
+              {'target': 'AAA'},
+            ],
+          },
+        ]),
+      );
+      expect(withFlag.single.viaBackup, isTrue);
+
+      // 缺这一列 = 主通道（原生只有降级时才是 true）
+      expect(
+        parseFanoutBatch(
+          jsonEncode([
+            {
+              'id': 'primary',
+              'targets': [
+                {'target': 'AAA'},
+              ],
+            },
+          ]),
+        ).single.viaBackup,
+        isFalse,
+      );
+      // 1 / 'true' 这类形状不认：原生写的是 JSON 布尔，别的形状说明写盘那侧被改过
+      expect(
+        parseFanoutBatch(
+          jsonEncode([
+            {
+              'id': 'odd',
+              'viaBackup': 1,
+              'targets': [
+                {'target': 'AAA'},
+              ],
+            },
+          ]),
+        ).single.viaBackup,
+        isFalse,
+      );
+    });
+
     test('坏 JSON / 不是数组 ⇒ 空（不抛）', () {
       expect(parseFanoutBatch('not json'), isEmpty);
       expect(parseFanoutBatch('{"a":1}'), isEmpty);

@@ -1659,11 +1659,11 @@ class _HistoryPageState extends State<HistoryPage> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        outgoing
-            ? '${l10n.fnthinkRecipient}：${m.sender.isEmpty ? l10n.unknown : m.sender} · '
-                  '${_formatTime(m.receivedAt)}'
-            : '${m.sender.isEmpty ? l10n.unknown : m.sender} · '
-                  '${_formatTime(m.receivedAt)}',
+        // 「备用」与另外三族共用同一个词条（deliveryViaBackupTag）：这一族此前不标，
+        // 于是同一屏里出现"webhook 标了、幻念没标"，看起来像随机丢而不是一族的事。
+        '${outgoing ? '${l10n.fnthinkRecipient}：${m.sender.isEmpty ? l10n.unknown : m.sender}' : (m.sender.isEmpty ? l10n.unknown : m.sender)}'
+        '${m.viaBackup ? ' · ${l10n.deliveryViaBackupTag}' : ''}'
+        ' · ${_formatTime(m.receivedAt)}',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

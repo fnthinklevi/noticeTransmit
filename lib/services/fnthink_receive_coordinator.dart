@@ -979,6 +979,7 @@ class FnthinkReceiveCoordinator {
     required String peer,
     required String title,
     required String text,
+    bool viaBackup = false,
   }) async {
     final resolved = await _resolveSpec(requireEnabled: false);
     if (resolved.reason != null) {
@@ -1002,6 +1003,7 @@ class FnthinkReceiveCoordinator {
       title: title,
       text: text,
       result: result,
+      viaBackup: viaBackup,
     );
     await _recordSendHealth(
       spec: resolved.spec!,
@@ -1040,6 +1042,7 @@ class FnthinkReceiveCoordinator {
     required String title,
     required String text,
     required FnthinkSendResult result,
+    bool viaBackup = false,
   }) async {
     final hook = recordSent;
     if (hook == null) return;
@@ -1067,6 +1070,9 @@ class FnthinkReceiveCoordinator {
           body: text,
           receivedAt: DateTime.now().millisecondsSinceEpoch,
           direction: kFnthinkDirectionOut,
+          // T94 片4d：手动发的那些一律 false（用户点的，没有主备路由）；
+          // 只有转发那一轮会传 true。界面上与另外三族同一枚「备用」标记。
+          viaBackup: viaBackup,
         ),
       );
     } catch (e) {

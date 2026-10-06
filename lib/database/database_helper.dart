@@ -69,7 +69,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 19;
+  static const int dbVersion = 20;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -498,7 +498,10 @@ class DatabaseHelper
         ack_result TEXT NOT NULL DEFAULT '',
         acked_at INTEGER NOT NULL DEFAULT 0,
         -- T43：收件（in）与「我发过的」（out）同表不同档。老行由 DEFAULT 补成 in。
-        direction TEXT NOT NULL DEFAULT 'in'
+        direction TEXT NOT NULL DEFAULT 'in',
+        -- T94 片4d：这一条是不是降级后走备用通道发出去的。DEFAULT 0 的方向是
+        -- 「升级之后把历史里每一条都说成走了备用」—— 那是静默改写既有行的含义。
+        via_backup INTEGER NOT NULL DEFAULT 0
       )
     ''');
     // 收件列表按时间倒序翻页；未读数是首页那张入口卡每次都要算的。
@@ -832,6 +835,18 @@ class DatabaseHelper
         db,
         FnthinkPeer.table,
         'forwards',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 20) {
+      // v20 / T94 片4d：收件表的「这一条走了备用通道」那一列。**只加列、碰既有行**
+      // —— DEFAULT 0 意味着升级后既有那几条一律仍读成"没走备用"，而那本来就是事实
+      // （那一列此前压根不存在，谁也没记过）。反过来若把既有行补成 1，等于替用户
+      // 伪造一段没发生过的降级历史。
+      await _addColumnIfMissing(
+        db,
+        FnthinkInboxMessage.table,
+        'via_backup',
         'INTEGER NOT NULL DEFAULT 0',
       );
     }

@@ -479,6 +479,193 @@ void main() {
     });
   });
 
+  group('v20 升级路径（T94 片4d：老库补 via_backup 列）', () {
+    test('v19 的老库升上来：列补上、既有行一律 0、之后照常写 true', () async {
+      // ⚠ **必须是行为用例**：只断言"源码里有那一行 ALTER"的话，把整段迁移删掉也照样绿
+      //   —— 那正是本片要防的坏法（列在源码里、升级后没有）。
+      //   断言落在两处：① PRAGMA 看得到列；② 升级后**写一条 viaBackup=true** 要写得进去。
+      //   缺列时第②步会以 "table fnthink_messages has no column named via_backup" 炸 ——
+      //   而读口对缺列是当 false 的（见边界那组），所以只断言读回值是抓不到它的。
+      SharedPreferences.setMockInitialValues({});
+      if (await databaseFactory.databaseExists(dbPath)) {
+        await databaseFactory.deleteDatabase(dbPath);
+      }
+      final old = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 19,
+          onCreate: (db, version) async {
+            await db.execute('''
+              CREATE TABLE ${FnthinkInboxMessage.table} (
+                message_id TEXT PRIMARY KEY,
+                sender TEXT NOT NULL DEFAULT '',
+                type TEXT NOT NULL DEFAULT '',
+                item TEXT NOT NULL DEFAULT '',
+                title TEXT NOT NULL DEFAULT '',
+                body TEXT NOT NULL DEFAULT '',
+                received_at INTEGER NOT NULL,
+                read INTEGER NOT NULL DEFAULT 0,
+                ack_result TEXT NOT NULL DEFAULT '',
+                acked_at INTEGER NOT NULL DEFAULT 0,
+                direction TEXT NOT NULL DEFAULT 'in'
+              )
+            ''');
+          },
+        ),
+      );
+      await old.insert(FnthinkInboxMessage.table, {
+        'message_id': 'm_pre20',
+        'sender': 'endpoint:ep_9',
+        'type': 'notice',
+        'item': '',
+        'title': '升级前那条',
+        'body': '正文',
+        'received_at': 1780000000000,
+        'read': 1,
+        'ack_result': '',
+        'acked_at': 0,
+        'direction': kFnthinkDirectionOut,
+      });
+      await old.close();
+
+      final upgraded = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: DatabaseHelper.dbVersion,
+          onUpgrade: (db, oldV, newV) =>
+              helper.upgradeSchemaForTest(db, oldV, newV),
+        ),
+      );
+      helper.debugDatabase = upgraded;
+      addTearDown(() async {
+        helper.debugDatabase = null;
+        await upgraded.close();
+      });
+
+      expect(
+        await columnsOf(upgraded),
+        contains('via_backup'),
+        reason:
+            '升级之后这一列不在：写一条 viaBackup=true 会以 no such column 炸，'
+            '而读口按缺失当 false ⇒ 症状是"标错"而不是"报错"',
+      );
+      expect(
+        (await allRows(upgraded)).single['via_backup'],
+        0,
+        reason: '既有行由 DEFAULT 补成 0：补成 1 等于替用户伪造一段没发生过的降级',
+      );
+      expect(
+        (await helper.loadFnthinkInbox(
+          direction: kFnthinkDirectionOut,
+        )).single.viaBackup,
+        isFalse,
+        reason: '夹具那一条是 direction=out，而不带参数的那一读口只回收件档 ⇒ 空列表',
+      );
+
+      // 升级之后新写的那条要能把 true 落进去（这才是"列真的在"的证据）
+      await helper.insertFnthinkInbox(
+        const FnthinkInboxMessage(
+          messageId: 'm_post20',
+          sender: 'AAAABBBBCCCCDDDD',
+          type: 'notice',
+          item: '',
+          title: '升级后那条',
+          body: '正文',
+          receivedAt: 1780000000001,
+          direction: kFnthinkDirectionOut,
+          viaBackup: true,
+        ),
+      );
+      final after = await helper.loadFnthinkInbox(
+        direction: kFnthinkDirectionOut,
+      );
+      expect(
+        after.firstWhere((m) => m.messageId == 'm_post20').viaBackup,
+        isTrue,
+      );
+    });
+
+    test('建表那条 DDL 与升级那条 ALTER 对 via_backup 口径一致', () {
+      // 读源码这一条留着：它抓的是**两处定义逐字分家**（新库有、老库没有或默认值不同），
+      // 那是行为用例抓不到的一半（行为只验"升级后能写"，验不出建表那一份的默认值改了）。
+      final src = stripComments(
+        File(
+          '${projectRoot()}/lib/database/database_helper.dart',
+        ).readAsStringSync(),
+      );
+      expect(
+        src.contains('via_backup INTEGER NOT NULL DEFAULT 0'),
+        isTrue,
+        reason: '建表那条 DDL 里那一列的写法变了',
+      );
+      expect(src.contains("'via_backup',"), isTrue, reason: '升级那条 ALTER 少了列名');
+      // ⚠ 按**出现次数**判，不按某一处的引号形状：定义那串字面量在源码里出现两次
+      //   （建表 DDL 一处、ALTER 的实参一处），任一侧改了写法，次数都会掉。
+      //   别改成只搜双引号 —— 那一处用的是单引号，写死引号形状会立刻假红。
+      expect(
+        'INTEGER NOT NULL DEFAULT 0'.allMatches(src).length,
+        greaterThanOrEqualTo(2),
+        reason: '建表与 ALTER 两处对 via_backup 的定义不一致（次数变了说明有一处被改过）',
+      );
+    });
+  });
+
+  group('via_backup（T94 片4d：这一条是不是走了备用通道）', () {
+    // 这一列此前**只在原生那一侧写**（FnthinkFanoutQueue.buildItem 一直在写），
+    // 而 Dart 侧的待发项没有对应字段 ⇒ 值在解析时被丢掉，历史里幻念这一族
+    // 永远不标「备用」，而另外三族都标。下面三条把整条链钉住。
+    FnthinkInboxMessage out({required bool viaBackup, String id = 'm_bk_1'}) =>
+        FnthinkInboxMessage(
+          messageId: id,
+          sender: 'AAAABBBBCCCCDDDD',
+          type: 'notice',
+          item: '',
+          title: '标题',
+          body: '正文',
+          receivedAt: 1000,
+          direction: kFnthinkDirectionOut,
+          viaBackup: viaBackup,
+        );
+
+    test('toDbRow 落 1/0，读回来同形（true 不会读成 true 之外的东西）', () {
+      expect(out(viaBackup: true).toDbRow()['via_backup'], 1);
+      expect(out(viaBackup: false).toDbRow()['via_backup'], 0);
+      expect(
+        FnthinkInboxMessage.fromDbRow(out(viaBackup: true).toDbRow()).viaBackup,
+        isTrue,
+      );
+      expect(
+        FnthinkInboxMessage.fromDbRow(
+          out(viaBackup: false).toDbRow(),
+        ).viaBackup,
+        isFalse,
+      );
+      expect(
+        FnthinkInboxMessage.columns,
+        contains('via_backup'),
+        reason: '列名只在这一处声明：不登记它，写入口与读取口会对不上',
+      );
+    });
+
+    test('缺这一列读成 false（= 迁移给老行补的那个 DEFAULT）', () {
+      // 与 [read] 的严格解析**故意不同**：read 那列自建表起就在，缺键只可能是坏行；
+      // via_backup 是 v20 才加的，v20 之前写的行本来就没有它，而"缺"与"0"是同一件事。
+      final row = out(viaBackup: true).toDbRow()..remove('via_backup');
+      expect(FnthinkInboxMessage.fromDbRow(row).viaBackup, isFalse);
+    });
+
+    test('非整数一律抛（形状不对不是缺失，不猜）', () {
+      for (final bad in <Object>['1', 1.5, true]) {
+        final row = out(viaBackup: false).toDbRow()..['via_backup'] = bad;
+        expect(
+          () => FnthinkInboxMessage.fromDbRow(row),
+          throwsStateError,
+          reason: 'via_backup=$bad：认下它等于替这一行伪造一段没发生过的降级',
+        );
+      }
+    });
+  });
+
   group('边界与不猜', () {
     test('fromDbRow 见到非整数的 read 就抛（不猜成未读/已读）', () {
       expect(
