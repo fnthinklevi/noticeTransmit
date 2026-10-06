@@ -49,9 +49,9 @@ describe('落地页两个核心功能节（幻念推送 / 远程控制）：双�
     });
 
     test(`${id} 每一句中文在 i18n.js 都有词条（漏一条 = 英文模式下那半句仍是中文）`, () => {
-    // ⚠ 键必须是**未 strip 的原文**：i18n 的行走器拿 node.textContent 直接匹配
-    //   （只用 trim() 判空）。早先在这里 strip 过一遍，于是把「 与 」误报成缺失 ——
-    //   那一条其实已经在字典里。判据自己错了，报出来的"缺陷"也是假的。
+      // ⚠ 键必须是**未 strip 的原文**：i18n 的行走器拿 node.textContent 直接匹配
+      //   （只用 trim() 判空）。早先在这里 strip 过一遍，于是把「 与 」误报成缺失 ——
+      //   那一条其实已经在字典里。判据自己错了，报出来的"缺陷"也是假的。
       const missing = sectionNodes(id).filter((n) => !i18n.includes(`D['${n}']`));
       expect(missing).toEqual([]);
     });

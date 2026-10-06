@@ -69,15 +69,36 @@ function decide(contract, input) {
         `不是契约 ${section} 里的两条补发路线：${table.withBackupChannel} / ${table.withoutBackupChannel}（收到 ${route}）`,
       );
     }
-    return { action: ACTION.queueResend, route: table.withoutBackupChannel, label: null, dedupeKey: null, max: 0, limitReason: null };
+    return {
+      action: ACTION.queueResend,
+      route: table.withoutBackupChannel,
+      label: null,
+      dedupeKey: null,
+      max: 0,
+      limitReason: null,
+    };
   }
   if (opts.alreadyReplayed === true) {
-    return { action: ACTION.none, route: null, label: null, dedupeKey: null, max: 0, limitReason: 'already-replayed' };
+    return {
+      action: ACTION.none,
+      route: null,
+      label: null,
+      dedupeKey: null,
+      max: 0,
+      limitReason: 'already-replayed',
+    };
   }
   const max = backupReplayMax(contract);
   const count = Number(opts.replayCount || 0);
   if (count >= max) {
-    return { action: ACTION.none, route: null, label: null, dedupeKey: null, max: 0, limitReason: 'cap-reached' };
+    return {
+      action: ACTION.none,
+      route: null,
+      label: null,
+      dedupeKey: null,
+      max: 0,
+      limitReason: 'cap-reached',
+    };
   }
   const keyName = idempotencyKeyName(contract);
   const dedupeKey = opts.messageId || '';
@@ -88,7 +109,14 @@ function decide(contract, input) {
   if (!label) {
     throw new Error('契约缺 waitingOnline.backupReplayLabel：补推那一发在记录上叫什么');
   }
-  return { action: ACTION.backupReplay, route: table.withBackupChannel, label, dedupeKey, max, limitReason: null };
+  return {
+    action: ACTION.backupReplay,
+    route: table.withBackupChannel,
+    label,
+    dedupeKey,
+    max,
+    limitReason: null,
+  };
 }
 
 module.exports = {

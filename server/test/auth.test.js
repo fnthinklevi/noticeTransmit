@@ -172,9 +172,7 @@ describe('版本保存链路（前后端契约）', () => {
     expect(onDisk.changelogEn).toBe('Test release notes');
 
     // ② 公开接口下发：客户端那一侧靠它才有英文那份可显示
-    const pub = await request(app)
-      .get('/api/version/check')
-      .query({ version: '1.0.0', build: 1 });
+    const pub = await request(app).get('/api/version/check').query({ version: '1.0.0', build: 1 });
     expect(pub.body.data.changelogEn).toBe('Test release notes');
 
     // ③ 老数据（没有这个键）必须仍是合法响应，且那一格是空串而不是 undefined
@@ -188,10 +186,7 @@ describe('版本保存链路（前后端契约）', () => {
       .query({ version: '1.0.0', build: 1 });
     expect(after.body.data.changelogEn).toBe('');
     // 复位夹具：后面那些用例读的是这一份
-    await request(app)
-      .post('/api/admin/version')
-      .set('x-session-id', sessionId)
-      .send(validBody);
+    await request(app).post('/api/admin/version').set('x-session-id', sessionId).send(validBody);
   });
 
   test('T61：changelogEn 不是字符串 → 400（别把对象存进去，客户端 toString 会出 {…}）', async () => {
@@ -202,10 +197,7 @@ describe('版本保存链路（前后端契约）', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toContain('changelogEn');
     // 复位：这一发故意存不进去，后面的用例仍按 validBody 读
-    await request(app)
-      .post('/api/admin/version')
-      .set('x-session-id', sessionId)
-      .send(validBody);
+    await request(app).post('/api/admin/version').set('x-session-id', sessionId).send(validBody);
   });
 
   test('未认证 POST 保存 → 401', async () => {
