@@ -7,6 +7,7 @@ import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/channel_health_store.dart';
 import '../services/update_server_regions.dart';
+import '../services/update_server_probe.dart';
 import '../services/update_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
@@ -82,41 +83,21 @@ class _UpdateServerPageState extends State<UpdateServerPage> {
   }
 
   /// 两台各探一次；自动档据此重挑。
+  ///
+  /// 执行序（探两台 → 记账 → 只在自动档重挑 → 落盘）收成 `update_server_probe.dart` 一处，
+  /// 与"第一次进入"那一发共用同一套判据 —— 两处各写一遍，先漂移的一定是"哪一台算当前"。
   Future<void> _probeAll() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final results = <UpdateServerRegion, UpdateServerProbe>{};
     try {
       // 只在没被注入时才向容器要那一个：探测能被替身接住的页面，不该因为
       // "顺手取了一下 UpdateService"而要求测试把整个装配摆好。
       final probe = widget.probe ?? GetIt.instance<UpdateService>().probeRegion;
-      await Future.wait(
-        UpdateServerRegion.ordered.map((region) async {
-          results[region] = await probe(region);
-        }),
+      final results = await probeAllAndUpdate(
+        probe: probe,
+        health: _healthStore,
       );
-      var settings = await UpdateServerSettings.load();
-      // 记账落在**这里**（两台一起探完、一起写），而不是服务里那一发：
-      // 页面是聚合点，注入替身的用例走的也是同一条写入路 —— 换掉探测不换掉记账，
-      // 否则测试绿的是假世界（徽标那条永远空，而生产靠另一条路填）。
-      final store = _healthStore;
-      for (final result in results.values) {
-        await store.record(
-          kUpdateHealthFamily,
-          result.region.name,
-          reachable: result.reachable,
-          latencyMs: result.latencyMs,
-          httpCode: result.httpCode,
-        );
-      }
-      // 只有停在自动档时才让实测决定用哪台；手动档那一次探测只更新徽标与那一行的数字。
-      if (settings.isAuto) {
-        final picked = pickAutoRegion(results);
-        if (picked != null && picked != settings.autoRegion) {
-          await settings.recordAutoProbe(picked);
-        }
-      }
-      settings = await UpdateServerSettings.load();
+      final settings = await UpdateServerSettings.load();
       if (!mounted) return;
       setState(() {
         _probes = results;

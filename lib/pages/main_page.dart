@@ -10,6 +10,7 @@ import '../services/theme_service.dart';
 import '../services/email_service.dart';
 import '../services/locale_service.dart';
 import '../services/active_channels.dart';
+import '../services/update_server_probe.dart';
 import '../services/channel_role_guide.dart';
 import '../services/app_channel_service.dart';
 import '../services/fnthink_inbox_service.dart';

@@ -9,6 +9,15 @@ extension _MainPageUpdate on _MainPageState {
   AppLocalizations get _l10n => AppLocalizations.of(context);
 
   Future<void> _checkUpdateOnStartup() async {
+    // 第一次进入：从没选过、也从没测出来过时，两台各探一次并按实测时延落一台（T95 片4）。
+    // ⚠ 不 await：这一发问的是"该用哪台"，下面那一发问的是"有没有新版本"。
+    //   把启动卡在"网络上还没答案"那一发上，用户看到的是软件变慢，而不是多了一个选择。
+    unawaited(
+      ensureFirstRunRegion(
+        probe: _updateService.probeRegion,
+        health: getIt<ChannelHealthStore>(),
+      ),
+    );
     final result = await _updateService.checkUpdate(force: false);
     if (!mounted) return;
     if (result != null && result.hasUpdate) {
