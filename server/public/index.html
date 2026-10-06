@@ -362,6 +362,21 @@
     .nav-cta .btn-primary svg{width:14px;height:14px}
     .wrap{padding:0 10px}
   }
+    /* 幻念推送介绍节（T70） */
+    .fnpush { margin-top: 34px; }
+    .fnpush h3 { font-size: 20px; margin: 0 0 8px; }
+    .fnpush .lead { opacity: .78; font-size: 14px; margin: 0 0 18px; }
+    .fnpush .note { opacity: .7; font-size: 13px; margin-top: 18px; line-height: 1.7; }
+    .fnpush code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(127,127,127,.14); border-radius: 5px; padding: 1px 5px; font-size: 12.5px; }
+    .codewrap { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .codeblock { border: 1px solid rgba(127,127,127,.22); border-radius: 12px; overflow: hidden;
+      background: rgba(127,127,127,.07); }
+    .codelab-h { padding: 10px 14px; font-size: 13px; font-weight: 600;
+      border-bottom: 1px solid rgba(127,127,127,.18); }
+    .codeblock pre { margin: 0; padding: 14px; overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px; line-height: 1.65; }
 </style>
 </head>
 <body>
@@ -383,6 +398,7 @@
       <a href="#how" data-i18n="nav.how">工作原理</a>
       <a href="#security" data-i18n="nav.security">安全</a>
       <a href="#tech" data-i18n="nav.tech">技术栈</a>
+      <a href="#fnthink" data-i18n="nav.fnthink">幻念推送</a>
       <a href="#faq" data-i18n="nav.faq">常见问题</a>
     </div>
     <button class="nav-burger" id="navBurger" aria-label="打开菜单" aria-expanded="false">
@@ -583,6 +599,52 @@
       <div class="t">AES-256-GCM</div>
       <div class="t">Gradle 9.5.0 · AGP 9.3.0</div>
       <div class="t">GitHub Actions CI/CD</div>
+    </div>
+  </section>
+
+  <!-- FNTHINK -->
+  <section id="fnthink">
+    <div class="s-head center reveal">
+      <div class="eyebrow">Fnthink Push</div>
+      <h2>幻念推送：让通知跨设备、跨服务抵达</h2>
+      <p>除了把通知发到聊天软件和邮箱，幻念推送还能把它们送到<b>另一台手机</b>，或者由 NAS、脚本、第三方平台经接入端点推进来。</p>
+    </div>
+    <div class="platforms reveal">
+      <div class="plat"><span class="pi" style="background:rgba(70,124,253,.16)">📱</span><div><b>设备互推</b><small>两台设备配对后逐条签名投递</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(0,209,209,.15)">🔌</span><div><b>接入端点</b><small>一把长期口令，脚本与平台推给你</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(38,190,110,.16)">🌐</span><div><b>官方实例 / 自部署</b><small>同一套协议，差别在谁运营那台机器</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(255,159,107,.16)">🔒</span><div><b>正文不落明文</b><small>设备上加密后才发出，送达或到期即删</small></div></div>
+    </div>
+    <div class="fnpush reveal">
+      <h3>三种接入方式</h3>
+      <p class="lead">先在应用里「推送引擎 → 幻念推送 → 接入端点」建一个端点，拿到它的地址与口令。口令只在这台设备上有效，且只能往这台设备推 —— 拿到口令也发不到别的设备去。下面三段里的占位符换成你自己的。</p>
+      <div class="codewrap">
+        <div class="codeblock">
+          <div class="codelab-h">① curl —— 脚本 / 任意终端</div>
+          <pre>curl -X POST "https://&lt;HOST&gt;/api/fnthink/p/&lt;ENDPOINT_ID&gt;/&lt;SECRET&gt;" \
+  --data-urlencode "title=Backup done" \
+  --data-urlencode "body=NAS backup finished"</pre>
+        </div>
+        <div class="codeblock">
+          <div class="codelab-h">② Home Assistant 的 rest 通知</div>
+          <pre>rest_command:
+  notify_phone:
+    url: "https://&lt;HOST&gt;/api/fnthink/p/&lt;ENDPOINT_ID&gt;/&lt;SECRET&gt;"
+    method: post
+    content_type: application/x-www-form-urlencoded
+    payload:
+      title: "Home Assistant"
+      body: "{{ states('sensor.living_room') }}"</pre>
+        </div>
+        <div class="codeblock">
+          <div class="codelab-h">③ 群晖 / 路由器计划任务</div>
+          <pre>*/10 * * * * /usr/bin/curl -s -X POST \
+  "https://&lt;HOST&gt;/api/fnthink/p/&lt;ENDPOINT_ID&gt;/&lt;SECRET&gt;" \
+  --data-urlencode "title=Cron" \
+  --data-urlencode "body=heartbeat $(date)"</pre>
+        </div>
+      </div>
+      <p class="note">三个入口是同一个：<code>title</code> 与 <code>body</code> 两个字段就够，其余（<code>tags</code>、<code>ttl</code>、<code>dedupe</code>）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 服务端已把这一段纳入脱敏前缀，而你自部署时请照同样的规则配。</p>
     </div>
   </section>
 
