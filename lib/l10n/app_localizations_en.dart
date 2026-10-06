@@ -4109,6 +4109,85 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateNotificationTitle => 'Notification Forwarder Update';
 
   @override
+  String get updateServerTitle => 'Update server';
+
+  @override
+  String get updateServerEntryDesc =>
+      'Choose which server update checks use (mainland / overseas)';
+
+  @override
+  String get updateServerShort =>
+      'This page decides which server checks and downloads updates. It does not change the Fnthink Push service address.';
+
+  @override
+  String get updateServerHelpTitle =>
+      'What the two options are, and how the pick works';
+
+  @override
+  String get updateServerHelpBody =>
+      'Updates are published on two servers: notice.fnthink.com for mainland China and notice.fnthink.top for everywhere else. Apart from the domain suffix and the CDN host, the links are identical. On first launch one is picked by measured latency; every time you open this page both are probed again. You can also pin one manually - once pinned, nothing changes it for you. \'Automatic\' means following the most recent measurement: if you never open this page, the last measured choice is still what is used. Each server hands out its own download host, and the two version files are maintained separately, so they can briefly disagree; this page shows what each one reports so you can decide which to use.';
+
+  @override
+  String get updateServerModeSection => 'Choice';
+
+  @override
+  String get updateServerModeAuto => 'Automatic (by measured latency)';
+
+  @override
+  String get updateServerModeManual => 'Manual (pin one)';
+
+  @override
+  String get updateServerListSection => 'Servers';
+
+  @override
+  String get updateRegionMainland => 'Mainland';
+
+  @override
+  String get updateRegionInternational => 'Overseas';
+
+  @override
+  String get updateServerInUse => 'In use';
+
+  @override
+  String get updateServerProbeNow => 'Probe now';
+
+  @override
+  String get updateServerProbing => 'Probing...';
+
+  @override
+  String get updateServerAutoUnprobed =>
+      'Automatic has never measured: the default server is in use for now.';
+
+  @override
+  String get updateServerBothDown =>
+      'Neither server answered: the default is used for now. Probe again later, or pin one manually.';
+
+  @override
+  String get updateServerUnprobed => 'Not probed yet';
+
+  @override
+  String get updateServerNoAnswer => 'No answer (network or DNS failure)';
+
+  @override
+  String updateServerHttpStatus(int code) {
+    return 'This server returned HTTP $code';
+  }
+
+  @override
+  String updateServerLatestLine(String version, String build) {
+    return 'Latest it reports: $version+$build';
+  }
+
+  @override
+  String updateServerCdnLine(String host) {
+    return 'Packages from $host';
+  }
+
+  @override
+  String get updateServerAnswerEmpty =>
+      'Reached it, but it reported no version info';
+
+  @override
   String get remoteExecSection => 'Remote execution';
 
   @override

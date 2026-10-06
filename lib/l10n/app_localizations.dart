@@ -7196,6 +7196,138 @@ abstract class AppLocalizations {
   /// **'通知推送助手更新'**
   String get updateNotificationTitle;
 
+  /// No description provided for @updateServerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新服务器'**
+  String get updateServerTitle;
+
+  /// No description provided for @updateServerEntryDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择检查更新走哪一台（大陆／海外）'**
+  String get updateServerEntryDesc;
+
+  /// No description provided for @updateServerShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查更新与下载安装包走哪一台由这一页决定，不影响幻念推送的服务地址。'**
+  String get updateServerShort;
+
+  /// No description provided for @updateServerHelpTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'两档各是什么，怎么挑'**
+  String get updateServerHelpTitle;
+
+  /// No description provided for @updateServerHelpBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'软件在两台服务器上发布更新：大陆这台是 notice.fnthink.com，海外这台是 notice.fnthink.top，两台的链接除域名后缀与 CDN 主机名外逐字一致。第一次进入时按你网络的实测时延挑一台，之后每打开这一页就两台各探一次；也可以切到手动钉住某一台——钉住之后谁都不会再替你改。「自动」的含义是跟着最近一次实测走：一直不来这一页，用的就还是上次测出来的那台。安装包的实际下载地址由所选那台自己下发，两台的版本信息是各自维护的两份数据，可能短暂不一致；这种情况下这一页把两台各自报的最新版摆出来，让你自己看出该换哪台。'**
+  String get updateServerHelpBody;
+
+  /// No description provided for @updateServerModeSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择方式'**
+  String get updateServerModeSection;
+
+  /// No description provided for @updateServerModeAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动（按实测时延挑）'**
+  String get updateServerModeAuto;
+
+  /// No description provided for @updateServerModeManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'手动（我钉住一台）'**
+  String get updateServerModeManual;
+
+  /// No description provided for @updateServerListSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'两台服务器'**
+  String get updateServerListSection;
+
+  /// No description provided for @updateRegionMainland.
+  ///
+  /// In zh, this message translates to:
+  /// **'大陆'**
+  String get updateRegionMainland;
+
+  /// No description provided for @updateRegionInternational.
+  ///
+  /// In zh, this message translates to:
+  /// **'海外'**
+  String get updateRegionInternational;
+
+  /// No description provided for @updateServerInUse.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前用这一台'**
+  String get updateServerInUse;
+
+  /// No description provided for @updateServerProbeNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即探测'**
+  String get updateServerProbeNow;
+
+  /// No description provided for @updateServerProbing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在探测…'**
+  String get updateServerProbing;
+
+  /// No description provided for @updateServerAutoUnprobed.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动档还没测出来过：现在用的是默认那一台。'**
+  String get updateServerAutoUnprobed;
+
+  /// No description provided for @updateServerBothDown.
+  ///
+  /// In zh, this message translates to:
+  /// **'两台都没探通：暂时用默认那一台，可稍后再探，或手动指定一台。'**
+  String get updateServerBothDown;
+
+  /// No description provided for @updateServerUnprobed.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没探过'**
+  String get updateServerUnprobed;
+
+  /// No description provided for @updateServerNoAnswer.
+  ///
+  /// In zh, this message translates to:
+  /// **'没回话（网络或域名解析不通）'**
+  String get updateServerNoAnswer;
+
+  /// No description provided for @updateServerHttpStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一台回了 HTTP {code}'**
+  String updateServerHttpStatus(int code);
+
+  /// No description provided for @updateServerLatestLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台报的最新版：{version}+{build}'**
+  String updateServerLatestLine(String version, String build);
+
+  /// No description provided for @updateServerCdnLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'安装包来自 {host}'**
+  String updateServerCdnLine(String host);
+
+  /// No description provided for @updateServerAnswerEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'通了，但这一台没报出版本信息'**
+  String get updateServerAnswerEmpty;
+
   /// No description provided for @remoteExecSection.
   ///
   /// In zh, this message translates to:

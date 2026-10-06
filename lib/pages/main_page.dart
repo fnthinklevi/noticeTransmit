@@ -43,6 +43,7 @@ import 'rule_list_page.dart';
 import 'privacy_policy_page.dart';
 import 'sms_monitor_settings_page.dart';
 import 'app_channel_list_page.dart';
+import 'update_server_page.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_progress_dialog.dart';
@@ -162,6 +163,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onOpenKeywords: _openKeywordsPage,
         onOpenRules: _openRuleListPage,
         onCheckUpdate: _manualCheckUpdate,
+        onOpenUpdateServer: _openUpdateServerPage,
         onOpenPrivacyPolicy: _openPrivacyPolicyPage,
         onChangeLanguage: _onChangeLanguage,
       ),

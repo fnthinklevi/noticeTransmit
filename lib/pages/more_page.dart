@@ -56,6 +56,7 @@ class MorePage extends StatelessWidget {
   final VoidCallback onOpenKeywords;
   final VoidCallback onOpenRules;
   final VoidCallback onCheckUpdate;
+  final VoidCallback onOpenUpdateServer;
   final VoidCallback onOpenPrivacyPolicy;
   final ValueChanged<AppLanguage> onChangeLanguage;
 
@@ -82,6 +83,7 @@ class MorePage extends StatelessWidget {
     required this.onOpenKeywords,
     required this.onOpenRules,
     required this.onCheckUpdate,
+    required this.onOpenUpdateServer,
     required this.onOpenPrivacyPolicy,
     required this.onChangeLanguage,
   });
@@ -268,6 +270,17 @@ class MorePage extends StatelessWidget {
                     )
                   : null,
               onTap: isCheckingUpdate ? null : onCheckUpdate,
+              context: context,
+            ),
+            _buildDivider(context),
+            // T95：更新走哪一台现在是可以选的了，所以这一格与「检查更新」并列而不是
+            // 塞进它的弹层里 —— 一个决定（用哪台）与一次动作（现在查一次）不是一件事。
+            _buildNavTile(
+              icon: Icons.dns,
+              iconColor: const Color(0xFF5856D6),
+              title: l10n.updateServerTitle,
+              subtitle: l10n.updateServerEntryDesc,
+              onTap: onOpenUpdateServer,
               context: context,
             ),
             _buildDivider(context),

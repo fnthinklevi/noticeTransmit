@@ -84,8 +84,10 @@ void main() {
     );
     expect(
       tileCount(),
-      15,
-      reason: '解析出的 nav tile 数 = ${tileCount()}，为 0 时下面几条全是空断言',
+      16,
+      reason:
+          '解析出的 nav tile 数 = ${tileCount()}，为 0 时下面几条全是空断言'
+          '（16：T95 在「关于与更新」里加了「更新服务器」那一格）',
     );
   });
 

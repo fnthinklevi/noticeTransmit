@@ -28,12 +28,14 @@ class UpdateService {
   /// 本机当前该用哪一台更新服务器（界面展示）。
   UpdateServerRegion get region => AppUpdateManager.instance.region;
 
-  /// 主动探一台并把结论记账（打开「更新服务器」那一页时两台各来一次）。
-  Future<UpdateServerProbe> probeRegion(UpdateServerRegion region) async {
-    final probe = await AppUpdateManager.instance.probeUpdateServer(region);
-    await onProbe?.call(probe: probe);
-    return probe;
-  }
+  /// 主动探一台（「更新服务器」那一页每次打开 / 每次点立即探测）。
+  ///
+  /// ⚠ 这一层**不记账**：记账在聚合两台的调用点做一次。两处都写同一个键时，
+  ///   "注入替身的用例绿、生产不绿"这种分叉就回来了（探测能被换掉而记账换不掉），
+  ///   见 `lib/pages/update_server_page.dart` 里那段注释。
+  ///   `checkUpdate` 那一路的记账在 [onProbe]（装配点接），因为那一发没有第二个读者。
+  Future<UpdateServerProbe> probeRegion(UpdateServerRegion region) =>
+      AppUpdateManager.instance.probeUpdateServer(region);
 
   Future<void> performAutoCheck() async {
     if (!AppUpdateManager.instance.autoCheck) return;

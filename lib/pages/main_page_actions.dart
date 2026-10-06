@@ -356,6 +356,12 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
+  /// 「更新服务器」那一格（T95）：走哪一台是个**决定**，所以给它自己一页，
+  /// 不塞进「检查更新」那个动作里（一次检查不该顺带替用户改偏好）。
+  Future<void> _openUpdateServerPage() async {
+    await _pushPage(const UpdateServerPage());
+  }
+
   /// 打开自建应用通道设置页
   Future<void> _openAppChannelsSettingsPage() async {
     await _pushPage(const AppChannelListPage());
