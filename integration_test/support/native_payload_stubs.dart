@@ -161,8 +161,12 @@ Map<String, Object?> stubEmail() => <String, Object?>{
 };
 
 /// 组装 `getChannelDescriptors` 的答复（形状必须与生产一致：对象，两个键）。
-Map<String, Object?> channelDescriptorsStub(List<Map<String, Object?>> subset) =>
-    <String, Object?>{'descriptors': subset, 'messageFormats': stubMessageFormats};
+Map<String, Object?> channelDescriptorsStub(
+  List<Map<String, Object?>> subset,
+) => <String, Object?>{
+  'descriptors': subset,
+  'messageFormats': stubMessageFormats,
+};
 
 Map<String, Object?> _webhook({
   required String key,

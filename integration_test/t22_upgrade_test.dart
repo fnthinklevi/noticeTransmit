@@ -43,7 +43,9 @@ void main() {
       //   失效"—— 两者的修法完全不同（前者改脚本，后者是产品缺陷）。
       final prefs0 = await SharedPreferences.getInstance();
       debugPrint('T22 迁移前镜像原文 battery=${prefs0.getString('battery_rules')}');
-      debugPrint('T22 迁移前镜像原文 temperature=${prefs0.getString('temperature_rules')}');
+      debugPrint(
+        'T22 迁移前镜像原文 temperature=${prefs0.getString('temperature_rules')}',
+      );
       expect(
         await DatabaseHelper().getEngineRules(EngineRuleCodec.familyBattery),
         equals([
@@ -54,7 +56,9 @@ void main() {
         reason: '电量族规则搬家后必须逐条同序同值（第 2 条缺 enabled，按缺省算启用）',
       );
       expect(
-        await DatabaseHelper().getEngineRules(EngineRuleCodec.familyTemperature),
+        await DatabaseHelper().getEngineRules(
+          EngineRuleCodec.familyTemperature,
+        ),
         equals([
           _r('t1', 'battery_temp_above', 45, true, '电池过热'),
           _r('t2', 'device_temp_above', 60, false, '设备过热'),
@@ -109,13 +113,10 @@ void main() {
         reason: '锚点：库不在，上一条断言就是空转',
       );
       final version = await DatabaseHelper().database;
-      final stamped =
-          (await version.rawQuery('PRAGMA user_version')).single.values.first;
-      expect(
-        stamped,
-        DatabaseHelper.dbVersion,
-        reason: '库没被贴上当前版本号 = 迁移链没跑完',
-      );
+      final stamped = (await version.rawQuery(
+        'PRAGMA user_version',
+      )).single.values.first;
+      expect(stamped, DatabaseHelper.dbVersion, reason: '库没被贴上当前版本号 = 迁移链没跑完');
     },
     timeout: const Timeout(Duration(minutes: 5)),
   );
