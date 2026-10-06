@@ -3461,6 +3461,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'Where this device forwards to as a sender: notifications it receives go out through these.';
 
   @override
+  String get fnthinkPushChannel => 'Fnthink Push Channels';
+
+  @override
+  String get fnthinkChannelSettingsEntry => 'Push and receive settings';
+
+  @override
+  String get fnthinkChannelNote =>
+      'The badge line records the last time this channel was tested, not an automatic probe: a Fnthink channel has no way to ask \"is it reachable\" without disturbing the other end.';
+
+  @override
   String get fnthinkHubChannelsDesc =>
       'Where this device forwards to as a sender.';
 

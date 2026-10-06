@@ -640,7 +640,9 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
   'lib/pages/fnthink_push_page.dart': 2,
   'lib/pages/fnthink_receive_page.dart': 3,
   'lib/pages/main_page.dart': 1,
-  'lib/pages/more_page.dart': 5,
+  // 4 而不是 5：幻念那一格改走注入回调（`main_page_actions.dart`），
+  // more_page 里就地 Navigator.push 的那一枚随之消失（变薄，不是搬家）。
+  'lib/pages/more_page.dart': 4,
   'lib/pages/notification_engine_page.dart': 1,
   'lib/pages/rule_edit_page.dart': 1,
   'lib/pages/rule_list_page.dart': 3,

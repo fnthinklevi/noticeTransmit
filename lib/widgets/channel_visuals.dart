@@ -162,6 +162,14 @@ const Map<String, ChannelVisual> _channelVisuals = {
     color: AppColors.blue,
     labelKey: 'emailChannel',
   ),
+  // 幻念第四族（T94 片4a 的原生路由那一支，Dart 侧列表页与「更多」那格共用这一行）。
+  // 它**不在**原生描述符那 15 条里 —— 幻念通道不是"第 13 个 webhook 平台"，
+  // 字段只有名称／种类／目标三项，表单不走 schema 渲染，所以这张表是它唯一的视觉出处。
+  'fnthink': ChannelVisual(
+    icon: Icons.inbox,
+    color: AppColors.purple,
+    labelKey: 'fnthinkPush',
+  ),
 };
 
 /// 通用兜底样式：未知 slug（新通道还没补这张表时）也要能渲染，不能崩。
@@ -207,6 +215,8 @@ String channelNameOf(AppLocalizations l10n, ChannelDescriptor descriptor) {
 /// 否则新通道在原生登记了、Dart 却取不到名字。
 String channelLabelFor(AppLocalizations l10n, String labelKey) {
   switch (labelKey) {
+    case 'fnthinkPush':
+      return l10n.fnthinkPush;
     case 'channelTypeWechat':
       return l10n.channelTypeWechat;
     case 'channelTypeDingtalk':

@@ -348,6 +348,14 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
+  /// 「幻念推送通道」那一格（维护者 2026-10-06 定：这一格与组内的 webhook 同义 ——
+  /// 点进去是通道列表，设置从列表页右上齿轮进，不在推送分组里再长第二格）。
+  Future<void> _openFnthinkChannelsPage() async {
+    await _pushPage(const FnthinkChannelListPage());
+    if (!mounted) return;
+    setState(() {});
+  }
+
   /// 打开自建应用通道设置页
   Future<void> _openAppChannelsSettingsPage() async {
     await _pushPage(const AppChannelListPage());

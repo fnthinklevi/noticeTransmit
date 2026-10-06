@@ -3311,6 +3311,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelDesc => '这台设备作为发送方的那些转发目标：收到通知就按这里转出去。';
 
   @override
+  String get fnthinkPushChannel => '幻念推送通道';
+
+  @override
+  String get fnthinkChannelSettingsEntry => '推送与接收的设置';
+
+  @override
+  String get fnthinkChannelNote =>
+      '徽标那一句记的是最近一次「测这条通道」的结果，不是自动探测：幻念通道没有不打扰对端就能问出通不通的办法。';
+
+  @override
   String get fnthinkHubChannelsDesc => '这台设备作为发送方的那些转发目标。';
 
   @override

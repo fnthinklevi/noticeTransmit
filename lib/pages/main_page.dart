@@ -33,6 +33,7 @@ import 'notification_engine_page.dart';
 import 'more_page.dart';
 import 'history_page.dart';
 import 'fnthink_peers_page.dart';
+import 'fnthink_channel_list_page.dart';
 import 'permission_settings_page.dart';
 import 'email_settings_page.dart';
 import 'webhook_channel_list_page.dart';
@@ -152,6 +153,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         onOpenWebhookSettings: _openWebhookChannelsPage,
         onOpenEmailSettings: _openEmailSettingsPage,
         onOpenAppChannels: _openAppChannelsSettingsPage,
+        // 幻念：这一格只管「这台往哪发」的那些通道；设置从列表页右上齿轮进，
+        // 不在这条分组里再长第二格（维护者 2026-10-06 定）。
+        onOpenFnthinkChannels: _openFnthinkChannelsPage,
         onShowDeviceNameDialog: _showDeviceNameDialog,
         onShowAboutDialog: _showAboutDialog,
         onOpenAppFilter: _openAppFilterPage,

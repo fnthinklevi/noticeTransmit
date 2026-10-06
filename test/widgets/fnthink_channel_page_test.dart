@@ -1,11 +1,15 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
 import 'package:notice_transmit/pages/fnthink_channel_settings_page.dart';
+import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/channel_health_badge.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 幻念通道的两张页面（T94 片3）。
 ///
@@ -82,6 +86,13 @@ FnthinkPeer _peer({String address = '8KMNPQRSTVWX999777'}) => FnthinkPeer(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUp(() {
+    // 健康度缓存在测试里必须有 mock：`ChannelHealthStore.load()` 读 SharedPreferences，
+    // 没 mock 时那一次 await 不会返回。页面已改成「列表先出、缓存后补」，
+    // 这一行补上另一半 —— 别让用例跑去等一个永远不来的平台通道回信。
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   Future<void> pump(WidgetTester tester, Widget page) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -92,16 +103,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('一条都没有 ⇒ 说「还没有通道」，且新建按钮在', (tester) async {
+  testWidgets('一条都没有 ⇒ 说「还没有通道」，且那一下新增在（FAB，与另三族同一形状）', (tester) async {
     final store = _MemoryStore();
-    await pump(tester, FnthinkChannelListPage(service: store));
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
+    );
     expect(find.byKey(const ValueKey('fnthink-channel-empty')), findsOneWidget);
-    expect(find.byKey(const ValueKey('fnthink-channel-add')), findsOneWidget);
+    // 新增从"页面里一颗左对齐的按钮"换成了 FAB —— 与 webhook／自建应用两族一致：
+    // 列表页的主行动是"再加一条"，它该在右下角，而不是跟在最后一行下面。
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.byKey(const ValueKey('fnthink-channel-add')), findsNothing);
   });
 
   testWidgets('库读不出来 ⇒ 说读不到，**不**说「还没有通道」', (tester) async {
     final store = _MemoryStore(failList: true);
-    await pump(tester, FnthinkChannelListPage(service: store));
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
+    );
     expect(find.byKey(const ValueKey('fnthink-channel-error')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('fnthink-channel-empty')),
@@ -110,7 +130,7 @@ void main() {
     );
   });
 
-  testWidgets('有一条 ⇒ 列表上是它的名字与目标，且那一下能进详情', (tester) async {
+  testWidgets('有一条 ⇒ 行上是名字与目标，点那一行进详情', (tester) async {
     final store = _MemoryStore();
     await store.create(
       id: 'fc_1',
@@ -118,20 +138,73 @@ void main() {
       target: '8KMNPQRSTVWX999777',
       targetKind: FnthinkChannelTarget.device,
     );
-    await pump(tester, FnthinkChannelListPage(service: store));
-
-    expect(find.text('给孩子'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('fnthink-channel-fc_1-target')),
-      findsOneWidget,
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
     );
 
-    await tester.tap(find.byKey(const ValueKey('fnthink-channel-fc_1-open')));
+    final row = find.byKey(const ValueKey('fnthink-channel-row-fc_1'));
+    expect(row, findsOneWidget, reason: '行的 key 挂在**通道 id** 上，不挂下标');
+    expect(
+      find.descendant(of: row, matching: find.text('给孩子')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: row, matching: find.text('8KMNPQRSTVWX999777')),
+      findsOneWidget,
+      reason: '地址码是这条通道"是谁"的身份，不是可省略的传输细节',
+    );
+
+    await tester.tap(row);
     await tester.pumpAndSettle();
     expect(find.byType(FnthinkChannelSettingsPage), findsOneWidget);
   });
 
-  testWidgets('删除要二次确认：取消 ⇒ 那一条还在（点了没反应比删错好）', (tester) async {
+  testWidgets('还没测过的行 ⇒ 徽标带的是 null（"没测过"），不是一枚绿的', (tester) async {
+    final store = _MemoryStore();
+    await store.create(
+      id: 'fc_5',
+      name: '没测过',
+      target: '8KMNPQRSTVWX999777',
+      targetKind: FnthinkChannelTarget.device,
+    );
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
+    );
+
+    final badges = find.descendant(
+      of: find.byKey(const ValueKey('fnthink-channel-row-fc_5')),
+      matching: find.byType(ChannelHealthBadge),
+    );
+    expect(badges, findsOneWidget);
+    expect(
+      tester.widget<ChannelHealthBadge>(badges).health,
+      isNull,
+      reason:
+          '这一族没有非侵入探针，徽标只能记"最近一次测过"。从没测过的行画成绿，'
+          '就是让一个没发生过的结论出现在屏幕上',
+    );
+  });
+
+  testWidgets('设置不混在列表里：右上那一枚齿轮在，且接得上设置页', (tester) async {
+    final store = _MemoryStore();
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
+    );
+    final gear = find.byKey(const ValueKey('fnthink-channel-settings'));
+    expect(gear, findsOneWidget);
+    expect(
+      tester.widget<IconButton>(gear).onPressed,
+      isNotNull,
+      reason: '画一枚点了没反应的齿轮，比不画更坏（这一族自己的判据）',
+    );
+    // 真跳转的那一页要读契约与 DI，由 `fnthink_push_page_test.dart` 那批用例负责；
+    // 这里只钉"这一格在、且接得上"，不去替那一页构造世界。
+  });
+
+  testWidgets('删除走长按菜单 + 二次确认：取消 ⇒ 那一条还在（点了没反应比删错好）', (tester) async {
     final store = _MemoryStore();
     await store.create(
       id: 'fc_2',
@@ -139,9 +212,16 @@ void main() {
       target: 'https://example.com/hook',
       targetKind: FnthinkChannelTarget.webhook,
     );
-    await pump(tester, FnthinkChannelListPage(service: store));
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
+    );
 
-    await tester.tap(find.byKey(const ValueKey('fnthink-channel-fc_2-delete')));
+    await tester.longPress(
+      find.byKey(const ValueKey('fnthink-channel-row-fc_2')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
@@ -150,7 +230,7 @@ void main() {
     expect(find.text('留着'), findsOneWidget);
   });
 
-  testWidgets('删除确认 ⇒ 确认之后那一条真的没了', (tester) async {
+  testWidgets('长按菜单里确认 ⇒ 那一条真的没了，行上的开关不再替它说话', (tester) async {
     final store = _MemoryStore();
     await store.create(
       id: 'fc_3',
@@ -158,15 +238,48 @@ void main() {
       target: 'https://example.com/hook',
       targetKind: FnthinkChannelTarget.webhook,
     );
-    await pump(tester, FnthinkChannelListPage(service: store));
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
+    );
 
-    await tester.tap(find.byKey(const ValueKey('fnthink-channel-fc_3-delete')));
+    await tester.longPress(
+      find.byKey(const ValueKey('fnthink-channel-row-fc_3')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     expect(await store.list(), isEmpty);
     expect(find.byKey(const ValueKey('fnthink-channel-empty')), findsOneWidget);
+  });
+
+  testWidgets('行上那枚开关改的就是这一条（启停不必进详情）', (tester) async {
+    final store = _MemoryStore();
+    await store.create(
+      id: 'fc_4',
+      name: '先停',
+      target: '8KMNPQRSTVWX999777',
+      targetKind: FnthinkChannelTarget.device,
+    );
+    await pump(
+      tester,
+      FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
+    );
+
+    final row = find.byKey(const ValueKey('fnthink-channel-row-fc_4'));
+    final sw = find.descendant(of: row, matching: find.byType(CupertinoSwitch));
+    expect(sw, findsOneWidget);
+    expect(tester.widget<CupertinoSwitch>(sw).value, isTrue);
+    // 点的是行尾那枚开关本身：tap 整行的中心落在标题区，那一下是「进详情」。
+    await tester.tap(sw);
+    await tester.pumpAndSettle();
+
+    final after = (await store.list()).single;
+    expect(after.enabled, isFalse, reason: '开关点了没落到那一条上，界面上它就只是个装饰');
+    expect(after.name, '先停', reason: '只该动启停这一项，别把名字一起写掉');
   });
 
   testWidgets('设备那一支：没勾选任何设备时不可点，并说清去哪儿勾', (tester) async {

@@ -14,7 +14,6 @@ import '../widgets/ios_option_picker.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'backup_restore_page.dart';
 import 'device_snapshot_page.dart';
-import 'fnthink_push_page.dart';
 import 'stats_page.dart';
 import 'widget_guide_page.dart';
 
@@ -50,6 +49,7 @@ class MorePage extends StatelessWidget {
   final VoidCallback onOpenWebhookSettings;
   final VoidCallback onOpenEmailSettings;
   final VoidCallback onOpenAppChannels;
+  final VoidCallback onOpenFnthinkChannels;
   final VoidCallback onShowDeviceNameDialog;
   final VoidCallback onShowAboutDialog;
   final VoidCallback onOpenAppFilter;
@@ -75,6 +75,7 @@ class MorePage extends StatelessWidget {
     required this.onOpenWebhookSettings,
     required this.onOpenEmailSettings,
     required this.onOpenAppChannels,
+    required this.onOpenFnthinkChannels,
     required this.onShowDeviceNameDialog,
     required this.onShowAboutDialog,
     required this.onOpenAppFilter,
@@ -146,19 +147,16 @@ class MorePage extends StatelessWidget {
               context: context,
             ),
             _buildDivider(context),
-            // 幻念推送：这一条是整条收货链路**唯一**的用户入口 —— 总开关默认关，
-            // 而这个开关此前没有任何界面能翻开，于是链路对真实用户不可达。
+            // 幻念推送**通道**：与上面三格同义 —— 点进去是一条条通道的列表，设置不混在这里
+            //（维护者 2026-10-06：「幻念推送和分组内的 webhook 推送通道一致」「设置放在设置页」）。
+            // ⚠ 这里原先那句「这一条是整条收货链路唯一的用户入口」已经不成立：收货的开关、
+            //   收取节奏与远程执行都在设置页和通知引擎页那一格，这一格只管「这台往哪发」。
             _buildNavTile(
               icon: Icons.inbox,
               iconColor: AppColors.purple,
-              title: l10n.fnthinkPush,
-              subtitle: l10n.fnthinkPushDesc,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const FnthinkPushPage(),
-                ),
-              ),
+              title: l10n.fnthinkPushChannel,
+              subtitle: l10n.fnthinkChannelDesc,
+              onTap: onOpenFnthinkChannels,
               context: context,
             ),
           ], context),

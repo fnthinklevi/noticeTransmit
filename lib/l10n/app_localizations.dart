@@ -6188,6 +6188,24 @@ abstract class AppLocalizations {
   /// **'这台设备作为发送方的那些转发目标：收到通知就按这里转出去。'**
   String get fnthinkChannelDesc;
 
+  /// No description provided for @fnthinkPushChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念推送通道'**
+  String get fnthinkPushChannel;
+
+  /// No description provided for @fnthinkChannelSettingsEntry.
+  ///
+  /// In zh, this message translates to:
+  /// **'推送与接收的设置'**
+  String get fnthinkChannelSettingsEntry;
+
+  /// No description provided for @fnthinkChannelNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'徽标那一句记的是最近一次「测这条通道」的结果，不是自动探测：幻念通道没有不打扰对端就能问出通不通的办法。'**
+  String get fnthinkChannelNote;
+
   /// No description provided for @fnthinkHubChannelsDesc.
   ///
   /// In zh, this message translates to:
