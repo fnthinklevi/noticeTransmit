@@ -922,6 +922,98 @@ void main() {
       expect(find.text(before!), findsOneWidget, reason: '校验没过就不该改值');
     });
 
+    group('双地域选择（T76）', () {
+      // 这一格此前**零用例**：`declaredHosts` 在服务层被钉住了（两台、来自契约、互不相同），
+      // 但「页面上那枚按钮点下去到底换没换」没人验 —— 而那正是用户唯一能碰到的一步。
+      testWidgets('点开是契约声明的那两台；选完之后当前那台跟着换', (tester) async {
+        stubChannels();
+        final h = harness();
+        final l10n = await pump(tester, h.page);
+        final intl = contract.str(const [
+          'transport',
+          'endpoints',
+          'international',
+        ])!;
+        final mland = contract.str(const [
+          'transport',
+          'endpoints',
+          'mainland',
+        ])!;
+
+        // 默认那台（契约 default）。
+        //
+        // ⚠ 先 `revealTo` 再断言：服务地址卡在折叠线以下，host 又是**异步**读出来的
+        // —— 不滚进视口就断言，拿到的是「还没 build」而不是"值不对"（本条第一版就栽在这里：
+        // 报出来是"找不到 push.fnthink.top"，看起来像契约读错，其实是那一格根本没被 build）。
+        final sw = find.byKey(const ValueKey('fnthink-host-switch'));
+        await revealTo(tester, sw);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('fnthink-host-value')))
+              .data,
+          intl,
+          reason: '默认那台必须逐字等于契约的 endpoints.default（代码里不许有兜底域名）',
+        );
+
+        await tester.tap(sw);
+        await tester.pumpAndSettle();
+
+        // ⚠ **两台都必须还在候选里**：探测不通该显示"不可用"，而不是把那一档从候选拿走
+        //   —— 拿走之后用户就没有回去的路（§6 的口径）。
+        expect(find.text(intl), findsWidgets, reason: '国际那台不见了');
+        expect(find.text(mland), findsWidgets, reason: '大陆那台不见了');
+        expect(find.text(l10n.fnthinkHostRegionMainland), findsWidgets);
+        expect(find.text(l10n.fnthinkHostRegionInternational), findsWidgets);
+
+        await tester.tap(find.text(mland));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('fnthink-host-value')))
+              .data,
+          mland,
+          reason:
+              '选完大陆那台，界面上"当前连的是哪台"必须跟着换 ——'
+              '不换的话用户以为切了，实际请求还发往旧那台',
+        );
+        // 换完这一格仍然要能手动填（自部署要填契约里没有的第三个地址）
+        expect(
+          find.byKey(const ValueKey('fnthink-host-switch')),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('换到当前这一台：弹层关掉，值不变（不是"什么都没发生"）', (tester) async {
+        stubChannels();
+        final h = harness();
+        final l10n = await pump(tester, h.page);
+        final intl = contract.str(const [
+          'transport',
+          'endpoints',
+          'international',
+        ])!;
+        final sw = find.byKey(const ValueKey('fnthink-host-switch'));
+        await revealTo(tester, sw);
+        await tester.pumpAndSettle();
+        await tester.tap(sw);
+        await tester.pumpAndSettle();
+        // ⚠ 点**地区标签**而不是域名：弹层开着时当前那台的域名在「当前值」与「选项」
+        //   两处都出现，`find.text(host)` 匹配 2 个 ⇒ tap 落不下去（本条第一版就栽在这）。
+        await tester.tap(find.text(l10n.fnthinkHostRegionInternational));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('fnthink-host-value')))
+              .data,
+          intl,
+        );
+        // 弹层已关（选项不该还在）
+        expect(find.text(l10n.fnthinkHostRegionInternational), findsNothing);
+      });
+    });
+
     testWidgets('合法值按归一后的那一份显示（大小写不是两台服务）', (tester) async {
       stubChannels();
       final h = harness();
