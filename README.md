@@ -216,7 +216,7 @@
 - 🔐 **SSL 证书固定** —— 双端 HTTP 客户端（Dart `PinnedHttpClient` + Kotlin `NetworkClient` 的 OkHttp `CertificatePinner`）均已就位，**默认未启用**（须注入 `CERT_PINS` / `ENABLE_CERT_PINNING`，Debug 构建恒关闭），当前通过 CDN 间接保护；轮换与启用流程见 [docs/cert_rotation_runbook.md](docs/cert_rotation_runbook.md)
 - 🧩 **小部件广播防护** —— 桌面小部件的启停广播受签名级自定义权限 `com.fnthink.notice.permission.WIDGET_CONTROL` 保护，第三方应用因签名不匹配无法伪造 `TOGGLE_PUSH`
 - 🔒 **HTTPS 强制** —— `network_security_config.xml` 禁止明文传输
-- 🔒 **完整隐私政策** —— 应用内置 11 章节隐私政策，首次启动弹窗征得同意，可随时在「更多」页查看
+- 🔒 **完整隐私政策** —— 应用内置 11 章节隐私政策；首次启动的弹窗里《隐私政策》可直接点开读全文（**同意之前就能读**），之后随时可在「更多」页再看
 
 ---
 

@@ -90,4 +90,106 @@ void main() {
     expect(zhBody, isNot(contains('自部署更私密')));
     expect(enBody, isNot(contains('more private')));
   });
+
+  // ===== 同意门那一侧（`privacyBody`）=====
+  // 上面这几条只读 `privacyInfoContent`（应用内说明页），于是「落地页修了、说明页
+  // 补了、同意门还留着那句全称量词」三件事同时成立而全场全绿 —— 缺口正落在两把尺的
+  // 覆盖缝里。同意门是用户点"同意"**之前**唯一读得到的一段话，必须同判。
+  final zhGate = zh['privacyBody'] as String;
+  final enGate = en['privacyBody'] as String;
+
+  test('同意门（privacyBody）两个语言都写明"经服务器中转"', () {
+    for (final fact in ['服务器中转', '不出本机']) {
+      expect(zhGate, contains(fact), reason: '同意门中文漏了「$fact」');
+    }
+    for (final fact in [
+      'relayed through the server',
+      'never leaves this device',
+    ]) {
+      expect(enGate, contains(fact), reason: '同意门英文漏了 "$fact"');
+    }
+  });
+
+  test('同意门与说明页都不许再出现那句全称量词（本次修掉的实陈述本体）', () {
+    final bodies = {
+      'zh 同意门': zhGate,
+      'en 同意门': enGate,
+      'zh 说明页': zhBody,
+      'en 说明页': enBody,
+    };
+    for (final e in bodies.entries) {
+      // 幻念推送经服务器中转 ⇒ "所有通知内容仅在设备本地处理"这一句在任何一处都是假的。
+      expect(
+        e.value,
+        isNot(contains('所有通知内容仅在设备本地')),
+        reason: '${e.key} 又写回了那句全称量词',
+      );
+      expect(
+        e.value,
+        isNot(contains('All notification content is matched against rules')),
+        reason: '${e.key} 又写回了那句全称量词（英文）',
+      );
+      expect(
+        e.value,
+        isNot(contains('All notifications are processed on-device')),
+        reason: '${e.key} 又写回了那句全称量词（英文·同意门版）',
+      );
+    }
+  });
+
+  test('main.dart 里那个链接真的通向全文页（同一函数体内 onOpenPolicy ⇒ push 全文页）', () {
+    final src = File('lib/main.dart').readAsStringSync();
+    // 先验主语在场：否则下面每条都是空转（"文件里根本没有这个东西"不能当成"它是对的"）。
+    final head = src.indexOf('void _showPrivacyDialog(');
+    expect(
+      head,
+      greaterThan(-1),
+      reason: '同意门那个方法不叫 _showPrivacyDialog 了 ⇒ 本条判据的主语已消失，请连同它一起处置',
+    );
+    final end = src.indexOf('\n  }\n', head);
+    expect(end, greaterThan(head), reason: '读不到 _showPrivacyDialog 的函数体结尾');
+    // 取**整个函数体**而不是固定字符窗口：窗口会被注释和 format 折行推出范围，
+    // 那只会造出"守卫自己红"的假信号（本条第一版就栽在这里）。
+    final body = src.substring(head, end);
+
+    expect(
+      body.contains('PrivacyGateBody('),
+      isTrue,
+      reason: '同意门不再用 PrivacyGateBody ⇒ 链接那一层没人画了',
+    );
+    final atCallback = body.indexOf('onOpenPolicy');
+    final atPage = body.indexOf('PrivacyPolicyPage');
+    expect(atCallback, greaterThan(-1), reason: '没给 onOpenPolicy ⇒ 链接画出来了却没人接');
+    expect(
+      atPage,
+      greaterThan(-1),
+      reason: '函数体里不出现 PrivacyPolicyPage ⇒ 点了链接不去全文页，"请先阅读"没法执行',
+    );
+    expect(
+      atCallback < atPage,
+      isTrue,
+      reason: '全文页出现在 onOpenPolicy 之前 ⇒ 它多半挂在别处（不是那个回调要推的东西）',
+    );
+  });
+
+  test('三个链接词条两侧都在、都非空、且都有调用点', () {
+    const keys = [
+      'privacyGateLinkBefore',
+      'privacyPolicyLink',
+      'privacyGateLinkAfter',
+    ];
+    final shell = File('lib/widgets/privacy_gate_body.dart').readAsStringSync();
+    for (final k in keys) {
+      for (final e in {'zh': zh, 'en': en}.entries) {
+        final v = e.value[k];
+        expect(v, isA<String>(), reason: '${e.key} 缺词条 $k');
+        expect(
+          (v as String).trim().isNotEmpty,
+          isTrue,
+          reason: '${e.key} 的 $k 是空串',
+        );
+      }
+      expect(shell.contains('l10n.$k'), isTrue, reason: '$k 没有调用点 ⇒ 它会变成死词条');
+    }
+  });
 }

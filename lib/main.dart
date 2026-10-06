@@ -9,10 +9,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'l10n/app_localizations.dart';
 import 'pages/main_page.dart';
+import 'pages/privacy_policy_page.dart';
 import 'pages/splash_page.dart';
 import 'di/service_locator.dart';
 import 'theme/app_colors.dart';
 import 'widgets/app_root.dart';
+import 'widgets/privacy_gate_body.dart';
 import 'services/theme_service.dart';
 import 'services/locale_service.dart';
 import 'services/archive_worker.dart';
@@ -282,12 +284,12 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
           content: Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: Text(
-              '${l10n.privacyWelcome}\n\n${l10n.privacyBody}',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.5,
-                color: AppColors.secondaryLabel(ctx),
+            child: PrivacyGateBody(
+              // 用 Cupertino 转场推它：全文页本身仍是 Material 的 Scaffold，但
+              // 根组件已是 CupertinoApp，不该再往「MaterialPageRoute 只许变薄」那本
+              // 台账里加一处（见 ui_style_guards_test.dart 的 kMaterialRouteSites）。
+              onOpenPolicy: () => Navigator.of(ctx).push(
+                CupertinoPageRoute(builder: (_) => const PrivacyPolicyPage()),
               ),
             ),
           ),
