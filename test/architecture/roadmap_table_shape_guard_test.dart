@@ -17,9 +17,31 @@ import '../support/source_guards.dart';
 ///     T26 / T28 两行，2026-10-06 实测；
 ///  ② **两行被并进一行** —— 仓库踩过两次：T90 那一行被写成多行（8.192 记过），
 ///     以及 2026-10-06 我自己改 T35/T36 状态格时把「旧状态」留在中间段、拼出 5 格。
+///
+/// ## 为什么这个文件里有两组用例（一组读盘、一组纯内联）
+///
+/// `docs/` 整目录在 `.gitignore:109`，**roadmap 永远不在 CI 的 checkout 里**（它记着真实
+/// 域名与服务器 runbook，按策略不入库）。第一版把 5 条用例全部挂在读盘上，于是 CI 里
+/// 4 条必红（第 5 条 `正向锚点` 不碰盘，是唯一过去的那条）—— 不是代码坏了，是**守卫放错
+/// 了层**：没入库的文件不可能由 CI 跑的单元套件来守。`build-apk.yml:44` 同样跑
+/// `flutter test`，所以它当时连发版一起挡。
+///
+/// 现在的分工：
+///  - **内联契约用例**不碰盘，CI 与本地都跑，把上面 ① ② 两种坏形状和「转义竖线不算
+///    分隔符」这条规则钉住 —— 这是本文件在 CI 里真正保证的东西；
+///  - **读盘用例**在 `GITHUB_ACTIONS=true` 且文件缺失时**显式 skip 并写明原因**（不是
+///    悄悄通过）；在本地跑则照常执行，读不到仍然是 ABORT —— 本地那半条牙齿没丢。
 void main() {
   final root = projectRoot();
   final file = File('$root/docs/roadmap.md');
+
+  // skip 必须**同时**满足「文件不在」与「在 CI 上」：只按 GITHUB_ACTIONS 判，
+  // 就等于给 CI 发了张通行证；只按文件缺失判，本地误删/改名会被静默跳过（假绿）。
+  final skipRoadmapFile =
+      !file.existsSync() && Platform.environment['GITHUB_ACTIONS'] == 'true';
+  const ciSkipReason =
+      'docs/ 按 .gitignore 不入库 ⇒ CI 的 checkout 里没有 roadmap.md。'
+      '本地跑（非 GITHUB_ACTIONS）时这些用例必须真执行，读不到就是 ABORT。';
 
   // ⚠ 助手必须声明在用例之前：Dart 的局部函数不能被前面的语句引用。
   final unescapedPipe = RegExp(r'(?<!\\)\|');
@@ -66,17 +88,21 @@ void main() {
   bool isNoise(String first) =>
       first.isEmpty || first.startsWith('-') || first.startsWith('#');
 
-  test('roadmap 在盘上（读不到就是 ABORT，不许静默跳过）', () {
-    expect(
-      file.existsSync(),
-      isTrue,
-      reason:
-          'docs/roadmap.md 不在 —— 这条守卫必须为真，'
-          '否则它会变成「永远通过」的那一种假绿',
-    );
-  });
+  test(
+    'roadmap 在盘上（本地读不到就是 ABORT，不许静默跳过）',
+    skip: skipRoadmapFile ? ciSkipReason : null,
+    () {
+      expect(
+        file.existsSync(),
+        isTrue,
+        reason:
+            'docs/roadmap.md 不在 —— 这条守卫必须为真，'
+            '否则它会变成「永远通过」的那一种假绿',
+      );
+    },
+  );
 
-  test('§2 每个逻辑任务行恰好 4 格', () {
+  test('§2 每个逻辑任务行恰好 4 格', skip: skipRoadmapFile ? ciSkipReason : null, () {
     final bad = <String>[];
     for (final row in logicalRows(section2())) {
       final first = row.cells.isEmpty ? '' : row.cells.first.trim();
@@ -91,38 +117,87 @@ void main() {
     expect(bad, isEmpty, reason: '这些行按列读会读到错的那一格：\n${bad.join('\n')}');
   });
 
-  test('任务行行尾必须有收尾竖线（漏了就把下一行吞进来）', () {
-    final missing = <String>[];
-    for (var i = 0; i < section2().length; i++) {
-      final l = section2()[i];
-      if (!l.trimLeft().startsWith('|')) continue;
-      if (l.trimRight().endsWith('|')) continue;
-      missing.add('  第 ${i + 1} 行「${l.split('|')[1].trim()}」行尾没有 `|`');
-    }
-    expect(
-      missing,
-      isEmpty,
-      reason: 'GFM 渲染容得过去，但按列读会把下一行吞成接续行：\n${missing.join('\n')}',
-    );
-  });
+  test(
+    '任务行行尾必须有收尾竖线（漏了就把下一行吞进来）',
+    skip: skipRoadmapFile ? ciSkipReason : null,
+    () {
+      final missing = <String>[];
+      final lines = section2();
+      for (var i = 0; i < lines.length; i++) {
+        final l = lines[i];
+        if (!l.trimLeft().startsWith('|')) continue;
+        if (l.trimRight().endsWith('|')) continue;
+        missing.add('  第 ${i + 1} 行「${l.split('|')[1].trim()}」行尾没有 `|`');
+      }
+      expect(
+        missing,
+        isEmpty,
+        reason: 'GFM 渲染容得过去，但按列读会把下一行吞成接续行：\n${missing.join('\n')}',
+      );
+    },
+  );
 
   test('正向锚点：转义过的竖线算内容、不算分隔符（第一版就错在这）', () {
     // 拿一份**已正确转义**的样本当锚。若哪天把切分改回 `split('|')`，
     // 这条当场红 —— 而不是等它把四个正确的行报成坏的。
     const escaped = r'| T66 | 归档名 notice_all\| 加 APK_NAME | — | [x] |';
     expect(escaped.split(unescapedPipe).length - 2, 4);
+    // 同一条样本反着钉一次：naive `split('|')` 必须**数不出** 4 格。
+    // 少了这一半，上面那条在「切分被整体改坏到恰好也凑出 4」时会跟着绿。
+    expect(escaped.split('|').length - 2, isNot(4));
   });
 
-  test('反向锚点：真能数出 4 格的行（防提取退化成恒真）', () {
-    final four = logicalRows(section2())
-        .where((r) => r.cells.length == 4 && !isNoise(r.cells.first.trim()))
-        .length;
-    expect(
-      four,
-      greaterThan(50),
-      reason:
-          '§2 里能数出 4 格的任务行只有 $four 条 ——'
-          '要么解析退化了，要么表被大面积切坏，两种都要知道',
-    );
+  // ==== 以下三条不碰盘：CI 与本仓库都跑，是本文件在 CI 里真正保证的契约 ====
+
+  test('内联契约：合法行（含表头与转义竖线）必须一格不误地数成 4 格', () {
+    final rows = logicalRows([
+      '| ID | 摘要 | 备注 | 状态 |',
+      '|---:|---|---|:---:|',
+      r'| T66 | 归档名 notice_all\| 加 APK_NAME | — | [x] |',
+      '| T01 | 甲 | 乙 | [ ] |',
+    ]);
+    final task = rows.where((r) => !isNoise(r.cells.first.trim())).toList();
+    expect(task, hasLength(3));
+    for (final r in task) {
+      expect(
+        r.cells.length,
+        4,
+        reason:
+            '第 ${r.line} 行「${r.cells.first.trim()}」被读成 ${r.cells.length} 格'
+            '⇒ 提取退化了（合法行被误伤，就会拿正确的行去「修」）',
+      );
+    }
   });
+
+  test('内联契约：漏了收尾竖线 ⇒ 下一行被吞，必须表现为非 4 格（坏形状 ①）', () {
+    final rows = logicalRows([
+      '| T26 | 打包改名 | 保证签名 | [ ] ', // 行尾漏 `|`
+      '| T28 | 校验和 | 现算 sha | [ ] |',
+    ]);
+    // 两行物理行只出一条逻辑行 —— 这正是「吞行」的症状
+    expect(rows, hasLength(1));
+    expect(rows.single.cells.length, 8);
+  });
+
+  test('内联契约：两行被写成一行 ⇒ 5 格，必须被点名（坏形状 ②）', () {
+    final rows = logicalRows(['| T35 | 旧状态 | 新状态 | 多余段 | [x] |']);
+    expect(rows.single.cells.length, 5);
+  });
+
+  test(
+    '反向锚点：真能数出 4 格的行（防提取退化成恒真）',
+    skip: skipRoadmapFile ? ciSkipReason : null,
+    () {
+      final four = logicalRows(section2())
+          .where((r) => r.cells.length == 4 && !isNoise(r.cells.first.trim()))
+          .length;
+      expect(
+        four,
+        greaterThan(50),
+        reason:
+            '§2 里能数出 4 格的任务行只有 $four 条 ——'
+            '要么解析退化了，要么表被大面积切坏，两种都要知道',
+      );
+    },
+  );
 }
