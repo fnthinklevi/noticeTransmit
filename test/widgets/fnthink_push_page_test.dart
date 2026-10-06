@@ -3225,6 +3225,33 @@ void main() {
       expect(notes, findsWidgets);
     });
   });
+
+  testWidgets('远程执行那一格的「为什么」也收进了问号（两处都改了，不许漏一处）', (tester) async {
+    stubChannels();
+    final h = harness();
+    final l10n = await pumpReceive(tester, h);
+    await tester.pumpAndSettle();
+    await revealTo(
+      tester,
+      find.byKey(const ValueKey('fnthink-remote-exec-why')),
+    );
+
+    expect(find.text(l10n.remoteExecShort), findsWidgets);
+    expect(
+      find.text(l10n.remoteExecWhy),
+      findsNothing,
+      reason: '整段还画在接收页那一格里 ⇒ 与凭据页改法不一致，这一格仍是小字论文',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('fnthink-remote-exec-why-help')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteExecWhy),
+      findsOneWidget,
+      reason: '问号点开看不见那句原话 ⇒ 长文是被删掉了，不是被搬进弹窗',
+    );
+  });
 }
 
 /// 把折叠线以下的格子滚进视口（`ListView` 只 build 视口与 cacheExtent 内的行，

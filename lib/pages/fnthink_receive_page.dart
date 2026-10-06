@@ -608,9 +608,13 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
     return FnthinkCard(
       title: l10n.remoteExecSection,
       children: [
-        FnthinkNote(
-          keyName: 'fnthink-remote-exec-why',
-          text: l10n.remoteExecWhy,
+        HelpNoteRow(
+          noteKey: 'fnthink-remote-exec-why',
+          helpKey: 'fnthink-remote-exec-why-help',
+          text: l10n.remoteExecShort,
+          helpTitle: l10n.remoteExecWhyTitle,
+          // 长文不删：渠道 + 凭据那两个决定因素、以及"默认关、升级不替你打开"都在弹窗里。
+          helpBody: l10n.remoteExecWhy,
         ),
         Align(
           alignment: Alignment.centerLeft,

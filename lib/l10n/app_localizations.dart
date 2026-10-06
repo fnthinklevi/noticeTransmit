@@ -7166,6 +7166,18 @@ abstract class AppLocalizations {
   /// **'远程执行'**
   String get remoteExecSection;
 
+  /// No description provided for @remoteExecWhyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程执行的安全度由什么决定'**
+  String get remoteExecWhyTitle;
+
+  /// No description provided for @remoteExecShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'别人能让这台设备做事；默认关，升级不会替你打开。'**
+  String get remoteExecShort;
+
   /// No description provided for @remoteExecWhy.
   ///
   /// In zh, this message translates to:
@@ -7267,6 +7279,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已经动手了，撤不回来（动作可能做完了一半）'**
   String get remoteExecCancelTooLate;
+
+  /// No description provided for @remoteCredWhyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'凭据与设备身份为什么是两把钥匙'**
+  String get remoteCredWhyTitle;
+
+  /// No description provided for @remoteCredShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这是「授权别人让我做事」那把钥匙，与「证明我是这台设备」是两把。'**
+  String get remoteCredShort;
 
   /// No description provided for @remoteCredWhy.
   ///

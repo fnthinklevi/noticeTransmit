@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/pages/remote_credential_settings_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_remote_settings.dart';
@@ -93,6 +94,50 @@ void main() {
     await tester.pumpAndSettle();
     return Future.value();
   }
+
+  testWidgets('远程执行那一行的「为什么」收进了问号：短说在界面上，点开一字不少', (tester) async {
+    await pump(tester, enabled: true);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    expect(find.text(l10n.remoteExecShort), findsOneWidget);
+    expect(
+      find.text(l10n.remoteExecWhy),
+      findsNothing,
+      reason: '整段说明还画在开关那一行上 ⇒ 这一格又变回小字论文',
+    );
+    // 比的是**同一个词条**，不抄字面量：抄了的话改了文案会假红，
+    // 而"长文被删掉"这件事反倒没人喊。
+    await tester.tap(find.byKey(const ValueKey('remote-exec-switch-help')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteExecWhy),
+      findsOneWidget,
+      reason: '问号点开看不见那句原话 ⇒ 长文是被删掉了，不是被搬进弹窗',
+    );
+  });
+
+  testWidgets('凭据那一格的「两把钥匙」说明同样搬进了问号弹窗', (tester) async {
+    await pump(tester, enabled: true);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(RemoteCredentialSettingsPage)),
+    );
+
+    expect(find.text(l10n.remoteCredShort), findsOneWidget);
+    expect(
+      find.text(l10n.remoteCredWhy),
+      findsNothing,
+      reason: '整段还画在凭据那一格里 ⇒ 这一格又变回小字论文',
+    );
+    await tester.tap(find.byKey(const ValueKey('remote-cred-why-help')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(l10n.remoteCredWhy),
+      findsOneWidget,
+      reason: '问号点开看不见那句原话 ⇒ 长文是被删掉了，不是被搬进弹窗',
+    );
+  });
 
   testWidgets('契约读不到 ⇒ 整页只显示那一句，不给设凭据', (tester) async {
     await pump(tester, failWith: const FnthinkContractUnavailable('missing'));

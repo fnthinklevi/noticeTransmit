@@ -3904,6 +3904,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteExecSection => '远程执行';
 
   @override
+  String get remoteExecWhyTitle => '远程执行的安全度由什么决定';
+
+  @override
+  String get remoteExecShort => '别人能让这台设备做事；默认关，升级不会替你打开。';
+
+  @override
   String get remoteExecWhy =>
       '别人可以让这台设备做事。安全度由两件事决定：走哪条渠道，以及有没有带凭据。开关默认关——升级不会替你做这个决定。';
 
@@ -3964,6 +3970,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remoteExecCancelTooLate => '已经动手了，撤不回来（动作可能做完了一半）';
+
+  @override
+  String get remoteCredWhyTitle => '凭据与设备身份为什么是两把钥匙';
+
+  @override
+  String get remoteCredShort => '这是「授权别人让我做事」那把钥匙，与「证明我是这台设备」是两把。';
 
   @override
   String get remoteCredWhy =>

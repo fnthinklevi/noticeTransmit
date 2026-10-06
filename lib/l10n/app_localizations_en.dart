@@ -4089,6 +4089,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteExecSection => 'Remote execution';
 
   @override
+  String get remoteExecWhyTitle =>
+      'What actually decides how safe remote execution is';
+
+  @override
+  String get remoteExecShort =>
+      'Others can make this device act. Off by default — an upgrade will not turn it on for you.';
+
+  @override
   String get remoteExecWhy =>
       'Others can make this device act. Safety comes from two things: the channel it arrives on, and whether a credential comes with it. The switch is off by default — an upgrade never makes that decision for you.';
 
@@ -4151,6 +4159,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get remoteExecCancelTooLate =>
       'It already started, so it cannot be undone (the action may be half done)';
+
+  @override
+  String get remoteCredWhyTitle =>
+      'Why the credential and the device identity are two different keys';
+
+  @override
+  String get remoteCredShort =>
+      'This key authorizes others to make this device act — it is not the key that proves this device is who it says it is.';
 
   @override
   String get remoteCredWhy =>

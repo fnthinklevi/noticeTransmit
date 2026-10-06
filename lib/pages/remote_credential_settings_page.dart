@@ -12,6 +12,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/remote_credential_store.dart';
 import '../theme/app_colors.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 
@@ -362,12 +363,19 @@ class _RemoteCredentialSettingsPageState
           children: [
             Expanded(
               child: Text(
-                l10n.remoteExecWhy,
+                // 原来这一行是 56 字的整段说明。现在只留一句短说，问号点开看全文
+                //（维护者 2026-10-06：页面里不许成段堆小字）。长文一个字没删。
+                l10n.remoteExecShort,
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.secondaryLabel(context),
                 ),
               ),
+            ),
+            HelpNoteButton(
+              keyName: 'remote-exec-switch-help',
+              title: l10n.remoteExecWhyTitle,
+              body: l10n.remoteExecWhy,
             ),
             CupertinoSwitch(
               key: const ValueKey('remote-exec-switch'),
@@ -443,7 +451,14 @@ class _RemoteCredentialSettingsPageState
     return _Card(
       title: l10n.remoteCredKeySection,
       children: [
-        _Note(keyName: 'remote-cred-why', text: l10n.remoteCredWhy),
+        HelpNoteRow(
+          noteKey: 'remote-cred-why',
+          helpKey: 'remote-cred-why-help',
+          text: l10n.remoteCredShort,
+          helpTitle: l10n.remoteCredWhyTitle,
+          // 「两把钥匙」那句区别不能只留标题 —— 它是这一格唯一说明"为什么换了密钥还要重设凭据"的话。
+          helpBody: l10n.remoteCredWhy,
+        ),
         // ⚠ 三档分开：**没设** / **设了且有指纹（显示打点的那一格）** /
         //   **设了但没有指纹**（存量设备：指纹是后加的那一项）。第三档写成
         //   "已设一把"是**假承诺** —— 它让人以为看得见是哪一把。
