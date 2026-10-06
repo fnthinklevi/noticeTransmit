@@ -7580,6 +7580,24 @@ abstract class AppLocalizations {
   /// **'这一条已从本机历史里删掉。'**
   String get remoteHistoryRemoved;
 
+  /// No description provided for @homeBarAddDevice.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加设备'**
+  String get homeBarAddDevice;
+
+  /// No description provided for @homeBarHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'推送历史'**
+  String get homeBarHistory;
+
+  /// No description provided for @homeBarSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get homeBarSettings;
+
   /// No description provided for @remoteHistoryBoundary.
   ///
   /// In zh, this message translates to:

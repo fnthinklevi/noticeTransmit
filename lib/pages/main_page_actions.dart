@@ -103,6 +103,23 @@ extension _MainPageActions on _MainPageState {
     _pushPage(const PrivacyPolicyPage());
   }
 
+  /// 顶栏「添加设备」那一格（T43）：与新装了同软件或幻念推送的设备进行匹配 ⇒ 进配对页。
+  ///
+  /// 复用配对链接那条路用的同一个页（`main_page_actions.dart:220` 那个），不另造入口：
+  /// 「谁来配对」这件事的读者只有一个，就是这张名单。
+  void _openFnthinkPeersPage() async {
+    await _pushPage(const FnthinkPeersPage());
+  }
+
+  /// 顶栏「设置」那一格（T43）：设置功能住在「更多」那一格 tab 里，
+  /// 所以这里切 tab 而不是 push 一个新页 —— push 会让用户在一个新页里找设置项，
+  /// 而那份清单就是「更多」页本身。
+  void _openMoreTab() {
+    if (!mounted) return;
+    if (_currentIndex == 2) return;
+    setState(() => _currentIndex = 2);
+  }
+
   void _openHistoryPage({
     String direction = 'forwarded',
     String? focusMessageId,

@@ -2240,5 +2240,8 @@
   "remoteHistoryCancel": "取消这一条",
   "remoteHistoryCancelNote": "取消只对还没开始执行的那一条有用；已经开始执行的不受这条窗口影响。",
   "remoteHistoryRemoved": "这一条已从本机历史里删掉。",
+  "homeBarAddDevice": "添加设备",
+  "homeBarHistory": "推送历史",
+  "homeBarSettings": "设置",
   "remoteHistoryBoundary": "远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。"
 }

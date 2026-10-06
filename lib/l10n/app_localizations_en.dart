@@ -4339,6 +4339,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'This entry is now gone from this device\'s history.';
 
   @override
+  String get homeBarAddDevice => 'Add Device';
+
+  @override
+  String get homeBarHistory => 'Push History';
+
+  @override
+  String get homeBarSettings => 'Settings';
+
+  @override
   String get remoteHistoryBoundary =>
       'This history is this device\'s own record: both received and sent. Credentials and command text never enter it — they ride inside that message\'s encrypted body, while receipts and audit rows each keep their own copy.';
 }
