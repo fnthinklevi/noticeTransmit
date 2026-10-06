@@ -49,7 +49,6 @@ object FnthinkInboxDisplay {
     /** 上一版那枚渠道（DEFAULT）。见 [CHANNEL_ID] 的注释：只留名，不删、不读。 */
     const val LEGACY_CHANNEL_ID = "fnthink_inbox"
 
-
     /** 三元组里的那个 id 固定；区分靠 tag。见类注释 ①。 */
     const val NOTIFICATION_ID = 90210
 

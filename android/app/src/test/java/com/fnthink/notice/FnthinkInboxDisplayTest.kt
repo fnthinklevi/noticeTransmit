@@ -193,7 +193,7 @@ class FnthinkInboxDisplayTest {
      * 常驻那条**维持 LOW、安静待在通知栏**。
      */
     @Test
-    fun 上岛提升只归推送那两枚_监控那条常驻通知维持原样() {
+    fun `上岛提升只归推送那两枚_监控那条常驻通知维持原样`() {
         val inbox = appFile("src/main/kotlin/com/fnthink/notice/FnthinkInboxDisplay.kt")
             .readText()
         val exec = appFile("src/main/kotlin/com/fnthink/notice/FnthinkRemoteExecDisplay.kt")

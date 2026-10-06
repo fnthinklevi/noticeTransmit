@@ -42,7 +42,7 @@ class FnthinkInboxChannelInstrumentedTest {
         context().getSystemService(NotificationManager::class.java)
 
     @Test
-    fun 收件渠道建出来之后是上岛那一档且角标开着() {
+    fun inboxChannelIsHighImportanceAndBadgeEnabled() {
         // 先发一条：渠道是懒创建的（ensureChannel 在 show 里面），不发就没有那枚渠道。
         // ⚠ 没给 POST_NOTIFICATIONS 权限时 show() 会回 false（这是**正确**行为），
         //   所以第一条断言是"显示出来了"，不是"渠道存在" —— 否则后面验的是空气。
