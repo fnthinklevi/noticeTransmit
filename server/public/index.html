@@ -427,7 +427,7 @@
     <div class="hero-copy">
       <span class="badge"><span class="dot"></span> <span data-i18n="hero.badge">开源免费 · 本地处理</span></span>
       <h1>让每条通知，<br><span class="grad">抵达每个平台</span></h1>
-      <p class="sub">通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、自建应用通道（企业微信 / 飞书）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与电量/温度提醒。</p>
+      <p class="sub">通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）、自建应用通道（企业微信 / 飞书）、幻念推送（另一台手机，或由第三方经接入端点推给这台设备）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与电量/温度提醒。</p>
       <div class="hero-actions">
         <a class="btn btn-primary btn-lg" href="#download">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
@@ -496,6 +496,7 @@
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🔔</div><h3>全量通知监听</h3><p>监听系统所有应用的通知栏消息，自动识别微信、QQ、短信、来电、支付宝、微博、抖音、系统通知等 20 类通知来源，并以 %notifyType% 变量随推送下发。</p></div>
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🔗</div><h3>Webhook + 邮件多通道</h3><p>12 种 Webhook 通道类型（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（465 SSL / 587 STARTTLS），每个通道独立开关，主题与正文支持模板变量。</p></div>
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🏗️</div><h3>自建应用通道</h3><p>与 Webhook 并行的独立通道体系：企业微信自建应用 / 飞书自建应用，走「凭据换 token → 调用消息端点」两阶段 API，按 corpid/agentid 或 app_id/receive_id 定向推送；官方端点可替换为你自己的私有化部署地址，凭据加密存储，送达回传与失败重试同 Webhook 通道。</p></div>
+      <div class="card reveal"><span class="tag">Core</span><div class="fi">🔮</div><h3>幻念推送通道</h3><p>与 Webhook、自建应用、邮件并列的第四类通道「幻念推送」：把通知送到另一台装了本应用的手机（两台设备配对、逐条签名投递），或由 NAS、脚本、第三方平台经接入端点（一把长期口令）推给这台设备。正文在你的设备上加密后才发出；可用官方实例，也可自行部署。</p></div>
       <div class="card reveal"><span class="tag">Core</span><div class="fi">🧠</div><h3>可视化规则约束</h3><p>IF 条件组合（包名 / 标题与正文的含或不含关键词 / 优先级 / 时间段 / 正则，共 8 类条件）+ THEN 动作配置，按通知优先级（高/中/低）分级处理——静默忽略 / 仅记录 / 定时与延迟推送 / 立即推送 / 同应用合并推送（可设窗口期，支持满 N 条提前触发与按会话分组）；内置验证码优先、广告拦截、夜间免打扰等默认规则，开箱即用。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">🏷️</div><h3>关键词过滤</h3><p>白名单 + 黑名单双模式关键词过滤，精准控制哪些内容推送、哪些内容拦截。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📱</div><h3>应用筛选</h3><p>自定义选择需要推送的应用，支持「通知 / 不通知」双模式与一键全选、反选。</p></div>
@@ -505,7 +506,7 @@
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📝</div><h3>推送模板引擎</h3><p>text / markdown / json / xml 四种消息格式（另有平台默认封装）自定义，%appName% 等变量占位符自动替换，聚合推送额外提供 %count%（条数）与 %titles%（成员标题摘要）变量，每个通道独立配置。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">⏸️</div><h3>一键暂停推送</h3><p>前台通知栏按钮或桌面小部件一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。小部件 2×2/4×2 视觉焕新，支持系统添加弹窗预览；不支持一键添加的桌面自动弹出分品牌分步引导（小米/华为/OPPO/vivo/三星等）。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📶</div><h3>短信监听设置中心</h3><p>监听短信 / 验证码监听 / 监听卡选择三大开关集中管理，单卡设备自动灰化选卡；卡槽过滤同时作用于短信与来电，推送正文可附「卡1，运营商」双语信息行。</p></div>
-      <div class="card reveal"><span class="tag">Pro</span><div class="fi">💾</div><h3>配置备份与恢复</h3><p>一键将 Webhook / 自建应用 / 邮件通道、通知规则、短信设置、应用筛选、黑白名单关键词、电池规则、设备名、主题与语言等 12 类配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 210k 迭代口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定；备份格式 v2 向后兼容 v1，通知历史不在备份范围内。</p></div>
+      <div class="card reveal"><span class="tag">Pro</span><div class="fi">💾</div><h3>配置备份与恢复</h3><p>一键将 Webhook / 自建应用 / 邮件 / 幻念推送四类的通道与接收设置、通知规则、短信设置、应用筛选、黑白名单关键词、电量 / 温度 / 设备状态规则、设备名、主题与语言等 14 类配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 210k 迭代口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定；备份格式 v2 向后兼容 v1，通知历史不在备份范围内。幻念推送的身份私钥、配对名单与各类口令不进备份，换机后需重建端点、重新配对。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🌐</div><h3>多语言国际化</h3><p>全应用中英双语支持（中英各 1251 词条，键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🌙</div><h3>深色模式</h3><p>浅色 / 深色 / 跟随系统三种主题，Material 3 视觉基底，弹窗与开关控件统一 iOS 风格，界面简洁优雅。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🔄</div><h3>后台保活 · 在线更新</h3><p>前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新，无需重装。</p></div>
@@ -522,13 +523,13 @@
     <div class="s-head center reveal">
       <div class="eyebrow">How it works</div>
       <h2>通知，如何抵达你想要的地方</h2>
-      <p>一条通知从产生到推送，只需毫秒级的四步流转。</p>
+      <p>一条通知从产生到送达，只需五步。</p>
     </div>
     <div class="flow reveal">
       <div class="step"><div class="n">01</div><div class="si">📲</div><h4>捕获通知</h4><p>系统通知栏产生消息，监听服务实时捕获</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
       <div class="step"><div class="n">02</div><div class="si">🔍</div><h4>识别分类</h4><p>解析来源应用与类型，标记微信、短信、来电等</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
       <div class="step"><div class="n">03</div><div class="si">⚙️</div><h4>规则过滤</h4><p>经规则约束 + 关键词 + 应用筛选层层判定</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
-      <div class="step"><div class="n">04</div><div class="si">🚀</div><h4>多通道推送</h4><p>按格式封装，并行推送至 Webhook / 邮件通道</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+      <div class="step"><div class="n">04</div><div class="si">🚀</div><h4>多通道推送</h4><p>按格式封装，并行推送至 Webhook / 自建应用 / 邮件 / 幻念推送通道</p><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
       <div class="step"><div class="n">05</div><div class="si">✅</div><h4>送达确认</h4><p>推送结果记入历史，成功失败一目了然</p></div>
     </div>
     <div class="platforms reveal">
@@ -547,6 +548,7 @@
       <div class="plat"><span class="pi" style="background:rgba(88,101,242,.16)">💬</span><div><b>Discord</b><small>Webhook 推送</small></div></div>
       <div class="plat"><span class="pi" style="background:rgba(124,108,255,.16)">🔌</span><div><b>自定义 Webhook</b><small>任意兼容平台</small></div></div>
       <div class="plat"><span class="pi" style="background:rgba(255,159,107,.16)">📧</span><div><b>SMTP 邮件</b><small>SSL/STARTTLS 加密</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(124,108,255,.16)">🔮</span><div><b>幻念推送</b><small>设备互推 · 接入端点</small></div></div>
     </div>
   </section>
 
@@ -572,7 +574,7 @@
         <div style="position:relative;z-index:2">
           <div class="big">🛡️</div>
           <h3>通知，默认留在你自己的设备上</h3>
-          <p>默认情况下，通知与短信内容只在你的设备本地处理，推送只经你自己配置的 Webhook / 自建应用 / SMTP 邮件通道发出；已安装应用列表也只用于本机的应用筛选与规则匹配。三种情形分开说清：① 不使用「幻念推送」——全部逻辑在本机完成，通知内容不经过任何服务器；② 只用本软件转发通知——同样不经过服务器，服务器不收集任何通知内容；③ 使用「幻念推送」（设备互推，或第三方经接入端点推给手机）——消息需经服务器中转才能送达，且必须先由你在应用内一次性显式同意；未送达期间正文在服务端加密暂存、最长保留 7 天，送达或到期立即删除，配对口令与身份私钥不上传，审计只保存元数据（不含正文）。④ 官方实例与自行部署——幻念推送有两套服务可选：**官方实例**（push.fnthink.top／中国大陆 push.fnthink.com）由本项目方运营，受其服务条款与运维纪律约束；**自行部署的实例**由你自己运行与掌控，本项目方既不运营也不接触，但也因此没有官方侧的限流与风控兜底——保护强度取决于你自己的部署与运维。两种形态共用同一套协议：正文在你的设备上加密后才发出，服务器不落明文正文，差别只在谁在运营那台机器，不在谁能看到正文。崩溃统计（腾讯 Bugly）默认关闭，仅在你在应用内主动开启后采集必要的崩溃堆栈、设备型号、系统版本用于修复问题，可随时关闭。</p>
+          <p>默认情况下，通知与短信内容只在你的设备本地处理，推送只经你自己配置的通道发出——Webhook、自建应用、SMTP 邮件，以及幻念推送；已安装应用列表也只用于本机的应用筛选与规则匹配。四种情形分开说清：① 不使用「幻念推送」——全部逻辑在本机完成，通知内容不经过任何服务器；② 只用本软件转发通知——同样不经过服务器，我们不收集通知内容；③ 使用「幻念推送」（设备互推，或第三方经接入端点推给手机）——需经服务器中转才能送达，且要先由你在应用内一次性显式同意；未送达期间正文在服务端加密暂存、最长保留 7 天，送达或到期立即删除，配对口令与身份私钥不上传，审计只保存元数据（不含正文）。④ 官方实例与自行部署——官方实例（push.fnthink.top／中国大陆 push.fnthink.com）由本项目方运营；自行部署由你自己运行与掌控，本项目方既不运营也不接触，也因此没有官方侧的限流与风控兜底，保护强度取决于你自己的运维。两种形态共用同一套协议：正文在你的设备上加密后才发出，服务器不落明文正文，差别只在谁在运营那台机器，不在谁能看到正文。崩溃统计（腾讯 Bugly）默认关闭，仅在你主动开启后采集崩溃堆栈与设备型号，可随时关闭。</p>
         </div>
       </div>
     </div>
@@ -618,7 +620,7 @@
     </div>
     <div class="fnpush reveal">
       <h3>三种接入方式</h3>
-      <p class="lead">先在应用里「推送引擎 → 幻念推送 → 接入端点」建一个端点，拿到它的地址与口令。口令只在这台设备上有效，且只能往这台设备推 —— 拿到口令也发不到别的设备去。下面三段里的占位符换成你自己的。</p>
+      <p class="lead">在应用里「推送引擎 → 幻念推送 → 接入端点」建一个端点，拿到它的地址与口令。口令只能往这台设备推 —— 拿到口令也发不到别的设备去。下面三段的占位符换成你自己的。</p>
       <div class="codewrap">
         <div class="codeblock">
           <div class="codelab-h">① curl —— 脚本 / 任意终端</div>
@@ -645,7 +647,7 @@
   --data-urlencode "body=heartbeat $(date)"</pre>
         </div>
       </div>
-      <p class="note">三个入口是同一个：<code>title</code> 与 <code>body</code> 两个字段就够，其余（<code>tags</code>、<code>ttl</code>、<code>dedupe</code>）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 契约把这一段声明成必须脱敏的前缀，服务端启动时会核对两条收单路径确实落在它之内；日志本身仍要在你自己的反代里配，没配之前那段口令是会落盘的。</p>
+      <p class="note">三个入口是同一个：<code>title</code> 与 <code>body</code> 就够，<code>tags</code>、<code>ttl</code>、<code>dedupe</code> 按需加。口令在 URL 的最后一段，可能被反代写进 access log —— 服务端启动时会核对脱敏前缀盖得住这条收单路径，但那段配置仍要你在自己的反代里做，没配之前口令确实会落盘。</p>
     </div>
   </section>
 
@@ -681,8 +683,8 @@
       <h2>常见问题</h2>
     </div>
     <div class="faq">
-      <details class="qa reveal"><summary>它会不会上传我的通知或短信内容？<span class="plus"></span></summary><div class="a">不会——除非你启用「幻念推送」并显式同意。默认情况下，通知与短信内容只在设备本地监听、处理与推送，不经过任何服务器；已安装应用列表也只用于本机的应用筛选与规则条件，推送只通过你自行配置的 Webhook / 自建应用 / SMTP 邮件通道发出，开发者不存储经这些通道推送的内容。当你使用「幻念推送」（设备互推，或第三方经接入端点推给手机）时，消息需经服务器中转才能送达，且必须先由你在应用内一次性显式同意；未送达期间正文在服务端加密暂存、最长保留 7 天，送达或到期立即删除，配对口令与身份私钥不上传，审计只保存元数据（不含正文）。④ 官方实例与自行部署——幻念推送有两套服务可选：**官方实例**（push.fnthink.top／中国大陆 push.fnthink.com）由本项目方运营，受其服务条款与运维纪律约束；**自行部署的实例**由你自己运行与掌控，本项目方既不运营也不接触，但也因此没有官方侧的限流与风控兜底——保护强度取决于你自己的部署与运维。两种形态共用同一套协议：正文在你的设备上加密后才发出，服务器不落明文正文，差别只在谁在运营那台机器，不在谁能看到正文。崩溃统计（腾讯 Bugly）默认关闭，仅在你主动开启后采集崩溃堆栈用于修复问题，可随时关闭。</div></details>
-      <details class="qa reveal"><summary>支持哪些推送平台？<span class="plus"></span></summary><div class="a">Webhook 通道内置适配 11 类平台消息格式（企业微信群机器人、钉钉、飞书、Telegram、Bark、Server酱、PushPlus、ntfy（官方/自建）、Gotify（自建）、Slack、Discord），加上通用自定义 Webhook 共 12 种通道类型；另有独立的企业微信自建应用 / 飞书自建应用通道（凭据换 token → 消息端点的两阶段 API，可配置私有化部署地址）；同时支持 SMTP 邮件推送（SSL/STARTTLS）。自定义 Webhook 可对接兼容的第三方平台或你自己的服务端。</div></details>
+      <details class="qa reveal"><summary>它会不会上传我的通知或短信内容？<span class="plus"></span></summary><div class="a">不会——除非你启用「幻念推送」并显式同意。默认的监听、过滤与转发全在本机完成，Webhook / 自建应用 / SMTP 邮件三条通道都是你的设备直连对方，我们不存储经这些通道推送的内容。只有幻念推送需要中转：未送达期间正文在服务端加密暂存、最长保留 7 天，送达或到期立即删除，配对口令与身份私钥不上传，审计只保存元数据（不含正文）；服务可用官方实例也可自行部署，两种形态都不落明文正文。逐条边界写在上面「把安全，做进每一层」那一节。</div></details>
+      <details class="qa reveal"><summary>支持哪些推送平台？<span class="plus"></span></summary><div class="a">Webhook 通道内置适配 11 类平台消息格式（企业微信群机器人、钉钉、飞书、Telegram、Bark、Server酱、PushPlus、ntfy（官方/自建）、Gotify（自建）、Slack、Discord），加上通用自定义 Webhook 共 12 种通道类型；另有独立的企业微信自建应用 / 飞书自建应用通道（凭据换 token → 消息端点的两阶段 API，可配置私有化部署地址）；同时支持 SMTP 邮件推送（SSL/STARTTLS）。此外还有一条自有通道「幻念推送」：把通知送到另一台装了本应用的手机，或由第三方经接入端点推给你（见上方「幻念推送」那一节）。自定义 Webhook 可对接兼容的第三方平台或你自己的服务端。</div></details>
       <details class="qa reveal"><summary>为什么有时候收不到推送？<span class="plus"></span></summary><div class="a">请依次检查：① 通知访问权限是否开启；② 是否已忽略电池优化（应用会在首次启用时引导）；③ 前台服务是否运行；④ 厂商自启动 / 后台权限是否放行；⑤ Webhook 地址是否正确（设置页可测试）；⑥ 是否被应用筛选或关键词过滤拦截。</div></details>
       <details class="qa reveal"><summary>需要 root 或特殊权限吗？<span class="plus"></span></summary><div class="a">无需 root。仅需授予通知监听权限，并按需开启短信 / 来电识别、忽略电池优化、开机自启等常规权限即可稳定运行。</div></details>
       <details class="qa reveal"><summary>是免费的吗？开源吗？<span class="plus"></span></summary><div class="a">完全免费，且在 GitHub 开源（Apache-2.0 许可，供学习交流使用）。欢迎提交 Issue 与 Pull Request 参与共建。</div></details>
@@ -740,7 +742,7 @@
           <span class="logo"><img src="app_icon.png" alt="通知推送助手"></span>
           通知推送助手
         </a>
-        <p class="desc">Android 通知监听与推送工具。开源、免费、本地处理，支持 Webhook 和 SMTP 邮件多通道。让每条通知抵达每个平台。由 幻念团队 fnthinklevi 打造。</p>
+        <p class="desc">Android 通知监听与推送工具。开源、免费、本地处理，支持 Webhook / 自建应用 / SMTP 邮件 / 幻念推送多通道。让每条通知抵达每个平台。由 幻念团队 fnthinklevi 打造。</p>
       </div>
       <div>
         <h5>产品</h5>
