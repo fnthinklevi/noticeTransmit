@@ -2096,6 +2096,8 @@
       }
     }
   },
+  "fnthinkPollIntervalShort": "往短：到货快、更费电；往长：省电，但最坏要等一整个间隔才发现新消息。",
+  "fnthinkPollIntervalTradeoffTitle": "多久问一次货，两头各付什么",
   "fnthinkPollIntervalTradeoff": "往短里调：到货更快，但每多问一次都多耗一点电。往长里调：省电，但两头的代价同时来——对方新消息你最坏要等整整一个间隔才发现（服务端提前知道有货时才会临时问密一点，救不了「第一次什么时候发现」），而发送方看到的「你在不在」也按这个数一起变迟钝。省电模式／系统合并唤醒时，这些只是大约值：就算设到协议允许的最短那一档，也不等于每那么久就一定问一次。",
   "fnthinkPollIntervalReset": "改用协议默认",
   "fnthinkPollIntervalInvalid": "收取间隔这一档没有生效：{reason}",

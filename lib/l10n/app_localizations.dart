@@ -5720,12 +5720,6 @@ abstract class AppLocalizations {
   /// **'幻念推送'**
   String get fnthinkPush;
 
-  /// No description provided for @fnthinkPushDesc.
-  ///
-  /// In zh, this message translates to:
-  /// **'让别的设备与端点把消息推给这台手机'**
-  String get fnthinkPushDesc;
-
   /// No description provided for @fnthinkReceive.
   ///
   /// In zh, this message translates to:
@@ -6217,18 +6211,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'还没有幻念通道。新建一条，它就会把这台收到的通知转给指定的目标。'**
   String get fnthinkChannelEmpty;
-
-  /// No description provided for @fnthinkChannelAdd.
-  ///
-  /// In zh, this message translates to:
-  /// **'新建通道'**
-  String get fnthinkChannelAdd;
-
-  /// No description provided for @fnthinkChannelDelete.
-  ///
-  /// In zh, this message translates to:
-  /// **'删掉这条'**
-  String get fnthinkChannelDelete;
 
   /// No description provided for @fnthinkChannelDeleteAskTitle.
   ///
@@ -6961,6 +6943,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'可设范围 {min}–{max} 秒，由协议规定，不是本机偏好'**
   String fnthinkPollIntervalRange(int min, int max);
+
+  /// No description provided for @fnthinkPollIntervalShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'往短：到货快、更费电；往长：省电，但最坏要等一整个间隔才发现新消息。'**
+  String get fnthinkPollIntervalShort;
+
+  /// No description provided for @fnthinkPollIntervalTradeoffTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'多久问一次货，两头各付什么'**
+  String get fnthinkPollIntervalTradeoffTitle;
 
   /// No description provided for @fnthinkPollIntervalTradeoff.
   ///

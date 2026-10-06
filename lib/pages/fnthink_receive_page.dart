@@ -16,6 +16,7 @@ import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import 'remote_credential_settings_page.dart';
 import 'remote_history_page.dart';
@@ -542,9 +543,14 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
             keyName: 'fnthink-poll-range',
             text: l10n.fnthinkPollIntervalRange(poll.range.min, poll.range.max),
           ),
-          FnthinkNote(
-            keyName: 'fnthink-poll-tradeoff',
-            text: l10n.fnthinkPollIntervalTradeoff,
+          // 原来这里直接画一句 172 字的「往短/往长各付什么」—— 就是被点名的那种
+          // "页面里成段小字"。现在只留一行短说，**长文原样搬进问号弹窗、一个字不删**。
+          HelpNoteRow(
+            noteKey: 'fnthink-poll-tradeoff',
+            helpKey: 'fnthink-poll-tradeoff-help',
+            text: l10n.fnthinkPollIntervalShort,
+            helpTitle: l10n.fnthinkPollIntervalTradeoffTitle,
+            helpBody: l10n.fnthinkPollIntervalTradeoff,
           ),
           // prefs 里存着协议不许的那一档（备份恢复灌回来的那一种）与"刚刚那一盘被拒"是两处，
           // 分开画：前者是历史留下的、后者是这一次做的，用户的下一步动作不一样。

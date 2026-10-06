@@ -3174,10 +3174,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPush => 'Fnthink Push';
 
   @override
-  String get fnthinkPushDesc =>
-      'Let other devices and endpoints push messages to this phone';
-
-  @override
   String get fnthinkReceive => 'Receive pushes';
 
   @override
@@ -3477,12 +3473,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkChannelEmpty =>
       'No Fnthink channel yet. Add one and this device will forward the notifications it receives.';
-
-  @override
-  String get fnthinkChannelAdd => 'Add a channel';
-
-  @override
-  String get fnthinkChannelDelete => 'Delete this channel';
 
   @override
   String get fnthinkChannelDeleteAskTitle => 'Delete this channel?';
@@ -3967,6 +3957,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String fnthinkPollIntervalRange(int min, int max) {
     return 'Allowed range $min–${max}s, set by the protocol, not a local preference';
   }
+
+  @override
+  String get fnthinkPollIntervalShort =>
+      'Shorter: messages arrive sooner, battery drains faster. Longer: saves power, but a new message can wait a whole interval.';
+
+  @override
+  String get fnthinkPollIntervalTradeoffTitle =>
+      'What each end of this slider costs';
 
   @override
   String get fnthinkPollIntervalTradeoff =>

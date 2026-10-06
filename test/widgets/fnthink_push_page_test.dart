@@ -3066,6 +3066,33 @@ void main() {
   });
 
   group('收取间隔那一格（T88）', () {
+    testWidgets('那句长权衡搬进了问号弹窗：界面上不再占一段，点开仍一字不少', (tester) async {
+      stubChannels();
+      final h = harness();
+      final l10n = await pumpReceive(tester, h);
+      await tester.pumpAndSettle();
+
+      // 维护者 2026-10-06 的口径：页面里不许成段堆小字说明。这一格现在只留一行短说。
+      expect(find.text(l10n.fnthinkPollIntervalShort), findsOneWidget);
+      // ⚠ 两头都比的是**同一个词条**，不抄字面量：抄文案的话，改了词条这条会假红，
+      //    而"长文被删掉"这件事反倒没人喊（钉的是位置，不是某串字）。
+      expect(
+        find.text(l10n.fnthinkPollIntervalTradeoff),
+        findsNothing,
+        reason: '长文还画在滑杆下面 ⇒ 这一格又变回一段论文',
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('fnthink-poll-tradeoff-help')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(l10n.fnthinkPollIntervalTradeoff),
+        findsOneWidget,
+        reason: '问号点开看不见那句原话 ⇒ 长文是被**删掉**了，不是被搬进弹窗',
+      );
+    });
+
     testWidgets('滑杆画出来，两端与那句范围话都来自契约', (tester) async {
       stubChannels();
       final h = harness();
