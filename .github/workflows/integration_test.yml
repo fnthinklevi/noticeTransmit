@@ -93,15 +93,25 @@ jobs:
               tail -n 60 test_report/logcat.txt
               echo "::error::device-basic 失败 smoke=$smoke_status connectedAndroidTest=$connected_status（test_report 产物已上传）"
             fi
-            {
-              echo "### device-basic"
-              echo "- smoke（4 个分步用例）：exit \`$smoke_status\`"
-              echo "- connectedAndroidTest：exit \`$connected_status\`"
-              echo '```'
-              grep -E "^[0-9]{2}:[0-9]{2} (\+[0-9]+.*(-[0-9]+)?: |All tests passed|Some tests failed)|FAILURE|Exception|tests? (completed|failed)" \
-                test_report/smoke.log | tail -n 25
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
+            echo "CI-STATUS device-basic smoke=$smoke_status connectedAndroidTest=$connected_status"
+            # ⚠ 写摘要之前必须判空。run#11 的证据：两个子步骤**都是 0**（smoke 末行
+            #   `+4: All tests passed!`；connectedDebugAndroidTest 末行 `BUILD SUCCESSFUL`，
+            #   产物里 smoke.log／connected.log／logcat.txt／logcat_crash.txt／activities.txt 五件齐），
+            #   job 却以 `sh exit 2` 收 ⇒ 尾部能吞掉 shell 的只剩这一段。
+            #   `$GITHUB_STEP_SUMMARY` 为空时 `} >> ""` 在 bash 里只是那条命令失败（本机复跑过整段，
+            #   仍回 0），在 dash 里行为**未经验证** ⇒ 判空一次同时消掉两种可能。
+            #   上面那行 CI-STATUS 是下一轮的定位锚：日志里有它 = 死在它之后，没它 = 死在它之前。
+            if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+              {
+                echo "### device-basic"
+                echo "- smoke（4 个分步用例）：exit \`$smoke_status\`"
+                echo "- connectedAndroidTest：exit \`$connected_status\`"
+                echo '```'
+                grep -E "^[0-9]{2}:[0-9]{2} (\+[0-9]+.*(-[0-9]+)?: |All tests passed|Some tests failed)|FAILURE|Exception|tests? (completed|failed)" \
+                  test_report/smoke.log | tail -n 25
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
             [ "$smoke_status" = "0" ] && [ "$connected_status" = "0" ]
 
       - name: Upload test report（无论成败都留档）
@@ -167,6 +177,10 @@ jobs:
             flutter --version | tee test_report/flutter_version.txt
             # ㊻ 发版硬闸门（base.md 步骤 6.7）：所有可达页面逐个进入、每条 CRUD 各走一次、
             # 备份真落盘再真读回。分节失败由测试自己收集后一次性报，日志里是 GATE-STEP-FAIL。
+            # CI-MARK：run#11 的产物里**只有 flutter_version.txt**（连 walkthrough.log 都没生成，
+            #   而那个文件在重定向发生时就会被创建）⇒ 这一支死在闸门测试启动之前。
+            #   这行标记出现在日志里 = 死点在其后，没出现 = 死点在其前，下一轮不再靠猜。
+            echo "CI-MARK walkthrough about to run release_walkthrough_test.dart"
             flutter test integration_test/release_walkthrough_test.dart --reporter expanded \
               > test_report/walkthrough.log 2>&1
             walk_status=$?
@@ -178,13 +192,17 @@ jobs:
               tail -n 60 test_report/logcat_crash.txt
               echo "::error::walkthrough 失败 exit=$walk_status（GATE-STEP-FAIL 见日志与产物）"
             fi
-            {
-              echo "### walkthrough"
-              echo "- release_walkthrough_test.dart：exit \`$walk_status\`"
-              echo '```'
-              grep -E "GATE-STEP-FAIL|All tests passed|Some tests failed" test_report/walkthrough.log | tail -n 25
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
+            echo "CI-STATUS walkthrough release_walkthrough_test=$walk_status"
+            # 判空再写摘要，理由与 device-basic 那段注释同源（那里写了完整版，这里不复制第二份真值）。
+            if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+              {
+                echo "### walkthrough"
+                echo "- release_walkthrough_test.dart：exit \`$walk_status\`"
+                echo '```'
+                grep -E "GATE-STEP-FAIL|All tests passed|Some tests failed" test_report/walkthrough.log | tail -n 25
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
             [ "$walk_status" = "0" ]
 
       - name: Upload test report（无论成败都留档）

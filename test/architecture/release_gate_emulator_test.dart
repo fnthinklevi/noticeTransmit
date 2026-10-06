@@ -250,6 +250,53 @@ void main() {
         reason: r'smoke_status 必须来自真实的 $?，不是别处算出来的数',
       );
     });
+
+    test('CI 脚本往 step summary 写之前必须判空，定位锚不许被删（run#11 的形状）', () {
+      // run#11 的证据链：smoke 末行 `+4: All tests passed!`、connectedDebugAndroidTest 末行
+      // `BUILD SUCCESSFUL`，产物里五件齐（含 logcat 三件）⇒ 两个子步骤都是 0，
+      // 而 job 仍以 `sh exit 2` 收。尾部能吞掉 shell 的只剩 `} >> "$GITHUB_STEP_SUMMARY"`：
+      // 那个变量为空时 `} >> ""` 在 bash 里只是那条命令失败（本机把整段复跑过，仍回 0），
+      // 在 dash 里行为未经验证 ⇒ **判空一次消掉两种可能**，不是赌某一种。
+      // CI-STATUS / CI-MARK 是下一轮的定位锚：没有它们，下次仍然只剩一句
+      // "The process '/usr/bin/sh' failed with exit code N"，谁也不知道死在哪一行。
+      final all = read('.github/workflows/integration_test.yml').split('\n');
+      final code = all
+          .asMap()
+          .entries
+          .where((e) => !e.value.trimLeft().startsWith('#'))
+          .toList();
+      const guard = r'if [ -n "$GITHUB_STEP_SUMMARY" ]; then';
+      const write = r'} >> "$GITHUB_STEP_SUMMARY"';
+      final writes = code.where((e) => e.value.contains(write)).toList();
+      // 提取退化成正空集 ⇒ 判据会恒真，所以先断言它认得这个形状、且数量>0
+      expect(writes, isNotEmpty, reason: '一处 summary 写入都没找到 ⇒ 判据形状漂了');
+      for (final hit in writes) {
+        final guarded = code.any(
+          (e) =>
+              e.key < hit.key &&
+              e.key >= hit.key - 12 &&
+              e.value.contains(guard),
+        );
+        expect(
+          guarded,
+          isTrue,
+          reason:
+              '第 ${hit.key + 1} 行往 step summary 写之前 12 行内没有判空 ⇒ '
+              r'`$GITHUB_STEP_SUMMARY` 为空时整段可能被 shell 吞掉，全绿的测试会被判成红 job',
+        );
+      }
+      for (final marker in [
+        'CI-STATUS device-basic',
+        'CI-STATUS walkthrough',
+        'CI-MARK walkthrough',
+      ]) {
+        expect(
+          code.any((e) => e.value.contains(marker)),
+          isTrue,
+          reason: '$marker 被删了 ⇒ 下次红仍然只剩一句 sh failed with exit code N',
+        );
+      }
+    });
   });
 
   group('冒烟测试必须保持"红在第几步"可读', () {
