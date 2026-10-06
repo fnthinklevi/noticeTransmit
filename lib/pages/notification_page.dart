@@ -41,7 +41,7 @@ class NotificationPage extends StatelessWidget {
     required this.foregroundServiceRunning,
     required this.notificationCount,
     this.activeChannels = const [],
-    this.smsMonitorEnabled = true,
+    this.smsMonitorEnabled = false,
     required this.onStartService,
     required this.onStopService,
     required this.onRefresh,

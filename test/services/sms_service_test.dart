@@ -28,13 +28,13 @@ void main() {
   });
 
   group('SmsService – 默认值与存取', () {
-    test('空配置时 loadSettings 读取默认值：监听开 / 全部卡 / 验证码开', () async {
+    test('空配置时 loadSettings 读取默认值：监听关 / 全部卡 / 验证码关', () async {
       final service = SmsService();
       await service.loadSettings();
 
-      expect(service.smsMonitorEnabled, isTrue);
+      expect(service.smsMonitorEnabled, isFalse);
       expect(service.simFilter, 'all');
-      expect(service.codeMonitorEnabled, isTrue);
+      expect(service.codeMonitorEnabled, isFalse);
     });
 
     test('saveSmsMonitorEnabled(false)：内存生效 + prefs 持久化 + 原生同步', () async {

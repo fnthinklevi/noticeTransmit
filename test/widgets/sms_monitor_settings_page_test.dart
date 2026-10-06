@@ -40,19 +40,28 @@ void main() {
       expect(find.text('监听验证码'), findsOneWidget);
     });
 
-    testWidgets('切换总开关后状态生效并持久化', (tester) async {
+    testWidgets('总开关默认关；点一下才开，内存与 prefs 一起生效', (tester) async {
       final service = SmsService();
       await tester.pumpWidget(
         _buildApp(SmsMonitorSettingsPage(smsService: service)),
       );
       await tester.pumpAndSettle();
 
+      // 这一句钉的是新默认值：进页时那一格必须显示"关"。旧写法是"默认开→点一下→断关"，
+      // 那等于把默认值当前提，默认一改这条就红在反方向上。
+      expect(service.smsMonitorEnabled, isFalse);
+      expect(
+        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch).first).value,
+        isFalse,
+        reason: '服务里是关、画面上却是开 ⇒ 首页与设置页会给用户"已经授权"的错觉',
+      );
+
       await tester.tap(find.byType(CupertinoSwitch).first);
       await tester.pumpAndSettle();
 
-      expect(service.smsMonitorEnabled, isFalse);
+      expect(service.smsMonitorEnabled, isTrue);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('sms_monitor_enabled'), isFalse);
+      expect(prefs.getBool('sms_monitor_enabled'), isTrue);
     });
 
     testWidgets('选择仅卡1时弹出系统限制提醒弹窗', (tester) async {

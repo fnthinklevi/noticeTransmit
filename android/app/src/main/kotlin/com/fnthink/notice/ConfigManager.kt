@@ -360,14 +360,19 @@ class ConfigManager(private val context: Context) {
         return prefs.getBoolean(KEY_DEVICE_ALERT_CONSTRAINT, false)
     }
 
-    /** 短信监听总开关（首页「监听短信」，默认开） */
+    /**
+     * 短信监听总开关（首页「监听短信」）。**默认关**（维护者 2026-10-06 指令）——
+     * 这一族读的是短信正文，属于要用户主动开启的能力，不预授权。
+     * ⚠ Dart 侧 `SmsService._smsMonitorEnabled` 与备份恢复的缺键回退必须同为 false：
+     *   三处各写一份、没有编译器管（钉在 `test/architecture/sms_default_off_test.dart`）。
+     */
     fun getSmsMonitorEnabled(): Boolean {
-        return prefs.getBoolean(KEY_SMS_MONITOR_ENABLED, true)
+        return prefs.getBoolean(KEY_SMS_MONITOR_ENABLED, false)
     }
 
-    /** 「监听验证码」开关（默认开；关闭后验证码短信整条拦截） */
+    /** 「监听验证码」开关（默认关；开启后才会放行含验证码的短信） */
     fun getSmsCodeMonitorEnabled(): Boolean {
-        return prefs.getBoolean(KEY_SMS_CODE_MONITOR_ENABLED, true)
+        return prefs.getBoolean(KEY_SMS_CODE_MONITOR_ENABLED, false)
     }
 
     /**

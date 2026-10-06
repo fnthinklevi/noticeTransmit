@@ -275,10 +275,12 @@ class BackupService {
     if (sms is Map) {
       fixed['smsSettings'] = {
         ...Map<String, dynamic>.from(sms),
-        'sms_monitor_enabled': _bool(sms['sms_monitor_enabled'], true),
+        // 缺键/值不可解析 ⇒ **关**（与 SmsService 与原生 ConfigManager 同一默认口径：
+        // 读短信正文这一族不预授权，也不许一次导入把它悄悄打开）。
+        'sms_monitor_enabled': _bool(sms['sms_monitor_enabled'], false),
         'sms_code_monitor_enabled': _bool(
           sms['sms_code_monitor_enabled'],
-          true,
+          false,
         ),
         'sms_sim_filter': _text(sms['sms_sim_filter'], 'all'),
       };
