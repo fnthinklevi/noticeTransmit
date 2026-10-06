@@ -62,7 +62,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['款可选应用图标'] = 'App Icon Variants';
   D['通知本地处理'] = 'Local Processing';
   D['多语言国际化'] = 'Multi-language i18n';
-  D['全应用中英双语支持（850+ 词条，中英键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Full-app Chinese/English bilingual support (850+ strings, both key sets enforced equal by CI), one-tap language switch in settings; launcher icons come in 17 variants with separate Chinese/English aliases.';
+  D['全应用中英双语支持（850+ 词条，中英键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。'] = 'Full-app Chinese/English bilingual support (1251 strings each, both key sets enforced equal by CI), one-tap language switch in settings; launcher icons come in 17 variants with separate Chinese/English aliases.';
   D['通知推送助手是一款 Android 通知监听与推送工具。把手机上的任意通知，通过 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord）或 SMTP 邮件实时转发——支持应用筛选、关键词过滤、可视化规则约束（通知优先级分级、定时/延迟推送）、桌面小部件一键启停与自定义电量提醒。'] = 'NoticeTransmit is an Android notification listener and forwarding tool. Forward any notification from your phone in real time via Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord) or SMTP email — with app filtering, keyword filtering, a visual rule constraints (notification priority tiers, scheduled/delayed push), one-tap pause/resume via home-screen widget, and custom battery alerts.';
   D['Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义，ntfy 与 Gotify 支持自建服务器）+ SMTP 邮件（SSL/STARTTLS），每个通道独立开关，主题/正文支持模板变量。'] = 'Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / custom — ntfy and Gotify support self-hosted servers) + SMTP email (SSL/STARTTLS). Independent switch per channel; subject/body support template variables.';
   // feature cards — updated v1.5.48
@@ -331,8 +331,8 @@ D['通知推送助手'] = 'NoticeTransmit';
     var metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
       metaDesc.content = l === 'zh'
-        ? '通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义）、自建应用通道（企业微信自建应用 / 飞书自建应用，两阶段 token API，支持私有化部署）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则约束（通知优先级分级 / 静默忽略 / 定时与延迟推送）、规则测试器、桌面小部件一键启停、电量与温度提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。'
-        : 'NoticeTransmit — Android notification listener & push tool. Webhooks (WeCom / DingTalk / Feishu / Telegram / Bark / ServerChan / PushPlus / ntfy / Gotify / Slack / Discord / Custom), self-built app channels (WeCom App / Feishu App, two-phase token API, private deployment supported) and SMTP email multi-channel. App filtering, keyword filtering, visual rule constraints (priority tiers / silent ignore / scheduled & delayed push), rule tester, one-tap pause widget, battery and temperature alerts. Open source, free. Crash reporting is off by default and only enabled with your consent.';
+        ? '通知推送助手 —— Android 通知监听、转发与设备协同工具。三条线：① 通知转发（12 类 Webhook 通道 / 企业微信·飞书自建应用通道 / SMTP 邮件，含应用筛选、关键词过滤、可视化规则约束、规则测试器、桌面小部件一键启停、电量与温度提醒）；② 幻念推送（两台设备无账号直投，逐条签名可验，服务端只存投递元数据不存正文，支持接入端点与自部署）；③ 远程控制（L2 应用动作与 L3 系统设置分档逐条授权，执行前有可撤销的延时窗口，两段回执）。开源、免费。崩溃上报默认关闭，经用户同意后才启用。'
+        : 'NoticeTransmit — Android notification listening, forwarding and device collaboration. Three tracks: (1) forwarding via 12 Webhook channel types, WeCom / Feishu self-built app channels and SMTP email, with app and keyword filtering, visual rule constraints, a rule tester, a one-tap home-screen widget and battery / temperature alerts; (2) Fnthink Push — direct signed device-to-device delivery with no account, the server storing delivery metadata only, with endpoints and self-hosting; (3) Remote Control — L2 app actions and L3 system settings, granted per item, with a cancellable delay window before execution and two-stage receipts. Open source, free. Crash reporting is off by default and only enabled with your consent.';
     }
   }
 
@@ -363,6 +363,49 @@ D['通知推送助手'] = 'NoticeTransmit';
   D[' 与 '] = ' and ';
   D[' 两个字段就够，其余（'] = ' are all you need; the rest (';
   D['）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 服务端已把这一段纳入脱敏前缀，而你自部署时请照同样的规则配。'] = ') is optional. The token is the last path segment of the URL, so a reverse proxy may write it into its access log — the hosted service already redacts that segment; configure your own the same way.';
+  // ── 远程控制整节：键**逐字等于**文本节点原文（含前导/行尾空格），照 outputs/_remote_nodes.txt 生成 ──
+  D['远程控制：让另一台设备替你做那件事'] = 'Remote Control: Let Another Device Handle It';
+  D['与幻念推送同一条链路，接收端把'] = 'Over the same link as Fnthink Push, the receiver splits';
+  D['应用动作'] = 'app actions';
+  D['与'] = 'and';
+  D['系统设置'] = 'system settings';
+  D['分成两档、逐条授权。 每一条执行前都有一次看得见的撤销机会，执行完回执告诉你做到哪一步。'] = 'into two tiers, granted item by item. Every instruction gets a visible chance to be revoked before it runs, and a receipt tells you how far it got.';
+  D['L2 应用动作'] = 'L2 App Actions';
+  D['启停监听 · 开关某条通道 · 推送设备状态'] = 'Start / stop listening · toggle one channel · push device state';
+  D['L3 系统设置'] = 'L3 System Settings';
+  D['默认全关，逐条单独开'] = 'Off by default, enabled one at a time';
+  D['可撤销的延时窗口'] = 'Cancellable Delay Window';
+  D['状态栏与横幅两处都能取消'] = 'Cancellable from the status bar or the banner';
+  D['两段回执'] = 'Two-stage Receipts';
+  D['开始 / 结束各一条，带结果'] = 'Started / finished, one each, with the result';
+  D['四道闸，缺一不可'] = 'Four Gates, All Required';
+  D['凭据'] = 'Credentials';
+  D['L2 可带可不带；'] = 'L2 may carry either or neither; ';
+  D['L3 必须带'] = 'L3 must carry';
+  D['其中之一 —— 一把接收端生成、只存哈希的高级密钥，或一份 6 位 / 30 秒的 TOTP（TOTP 由接收端生成、'] = 'one of them — an advanced key generated by the receiver and stored only as a hash, or a 6-digit / 30-second TOTP (generated by the receiver,';
+  D['不经服务器'] = 'never passing through the server';
+  D['，当面扫码交给发送端）。缺失或错误一律拒收。'] = ', handed over in person by QR code). Missing or wrong is rejected.';
+  D['延时窗口'] = 'Delay Window';
+  D['执行前默认 10 秒（0–60 可调），窗口内可经状态栏通知与界面顶端横幅取消，超时默认执行。你在不在设备前'] = 'Ten seconds before execution by default (0–60 configurable); cancellable from the status-bar notification or the in-app banner, executing on timeout. Whether you are at the device';
+  D['不影响计时'] = 'does not affect the timing';
+  D[' —— 这是给你的一次可见撤销机会，不是再弹一次确认框；它'] = ' — this is a visible chance to revoke, not a second confirmation dialog, and it';
+  D['不许被绕过'] = 'cannot be bypassed';
+  D['封闭词表'] = 'Closed Vocabulary';
+  D['L2 只有四个动作、L3 只有六项设置，'] = 'L2 has exactly four actions and L3 exactly six settings,';
+  D['不在表内的一律拒收'] = 'and anything outside is rejected';
+  D['，不做「认不出就先跳过」—— 那等于让对端拿编出来的名字试探这台设备的边界。第三方平台接入端点最高只到 L1。'] = ' — never “skip what we do not recognize”, which would let a peer probe this device’s boundaries with invented names. Third-party platform endpoints cap at L1.';
+  D['熔断与留痕'] = 'Circuit Breaker & Audit';
+  D['每分钟失败 5 次自动降级到 L1；每次执行都写留痕。服务端只保存元数据，'] = 'Five failures per minute downgrade to L1; every execution is recorded. The server stores metadata only,';
+  D['指令正文与凭据都不进审计'] = 'neither instruction bodies nor credentials enter the audit log';
+  D['两件事要分清：'] = 'Two different keys:';
+  D['设备身份私钥'] = 'the device identity private key';
+  D['证明「我是这台设备」，'] = 'proves “I am this device”, while';
+  D['远程执行的高级密钥 / TOTP'] = 'the remote-control advanced key / TOTP';
+  D['授权「这条远程指令」—— 不是同一把。 另外 L3 的每项设置分两种落法：'] = 'authorizes “this remote instruction”. They are not the same key. Each L3 setting also lands in one of two ways:';
+  D[' 是跳系统设置页请你自己点（不可逆动作必须由你完成）， '] = ' jumps to the system settings page for you to tap it yourself (irreversible actions must be done by you), while ';
+  D[' 是翻这台设备自己的一项开关。'] = ' flips one of this device’s own switches.';
+  D['没有「静默改系统设置」这一档'] = 'There is no “silently change system settings” mode';
+
   D['幻念推送'] = 'Fnthink Push';
   D['除了把通知发到聊天软件和邮箱，幻念推送还能把它们送到'] = 'Besides chat apps and email, Fnthink Push can deliver them to another phone';
 })();

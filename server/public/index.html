@@ -8,7 +8,7 @@
 <link rel="shortcut icon" href="favicon.ico?v=20260719">
 <link rel="apple-touch-icon" href="app_icon.png?v=20260719">
 <title>NoticeTransmit · 通知推送助手</title>
-<meta name="description" content="通知推送助手 —— Android 通知监听与推送工具。支持 Webhook（企业微信 / 钉钉 / 飞书 / Telegram / Bark / Server酱 / PushPlus / ntfy / Gotify / Slack / Discord / 自定义）、自建应用通道（企业微信自建应用 / 飞书自建应用，两阶段 token API，支持私有化部署）和 SMTP 邮件多通道，具备应用筛选、关键词过滤、可视化规则约束（通知优先级分级 / 静默忽略 / 定时与延迟推送）、规则测试器、桌面小部件一键启停、电量与温度提醒等功能。开源、免费。崩溃上报默认关闭，经用户同意后才启用。" />
+<meta name="description" content="通知推送助手 —— Android 通知监听、转发与设备协同工具。三条线：① 通知转发（12 类 Webhook 通道 / 企业微信·飞书自建应用通道 / SMTP 邮件，含应用筛选、关键词过滤、可视化规则约束、规则测试器、桌面小部件一键启停、电量与温度提醒）；② 幻念推送（两台设备无账号直投，逐条签名可验，服务端只存投递元数据不存正文，支持接入端点与自部署）；③ 远程控制（L2 应用动作与 L3 系统设置分档逐条授权，执行前有可撤销的延时窗口，两段回执）。开源、免费。崩溃上报默认关闭，经用户同意后才启用。" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1024 1024'%3E%3Cpath fill='%23467CFD' d='M939.6 850.4 854.1 659V401.8a342.6 342.6 0 0 0-266.8-333.6C578.4 29.2 548.1 0 512 0s-66.4 29.2-75.4 68.2a342.6 342.6 0 0 0-266.8 333.6V659l-85.5 191.4a45 45 0 0 0 40.8 63.4h773.4a45 45 0 0 0 40.8-63.4z'/%3E%3Cpath fill='%238BAEF7' d='M512 959.7a80.8 80.8 0 0 1-72.5-45.9h-68a145 145 0 0 0 33.5 62.6 147 147 0 0 0 28 24 145 145 0 0 0 91 19.6 145.8 145.8 0 0 0 132-100.2h-63.5a80.8 80.8 0 0 1-72.5 45.9z'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.cn" />
 <link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin />
@@ -395,10 +395,11 @@
     </a>
     <div class="nav-links" id="navLinks">
       <a href="#features" data-i18n="nav.features">功能</a>
+      <a href="#fnthink" data-i18n="nav.fnthink">幻念推送</a>
+      <a href="#remote" data-i18n="nav.remote">远程控制</a>
       <a href="#how" data-i18n="nav.how">工作原理</a>
       <a href="#security" data-i18n="nav.security">安全</a>
       <a href="#tech" data-i18n="nav.tech">技术栈</a>
-      <a href="#fnthink" data-i18n="nav.fnthink">幻念推送</a>
       <a href="#faq" data-i18n="nav.faq">常见问题</a>
     </div>
     <button class="nav-burger" id="navBurger" aria-label="打开菜单" aria-expanded="false">
@@ -480,7 +481,7 @@
       <div class="stat"><div class="num" data-to="12">0</div><div class="lbl">Webhook 推送通道</div></div>
       <div class="stat"><div class="num" data-to="20">0</div><div class="lbl">类通知来源智能识别</div></div>
       <div class="stat"><div class="num" data-to="17">0</div><div class="lbl">款可选应用图标</div></div>
-      <div class="stat"><div class="num" data-to="100" data-suffix="%">0</div><div class="lbl">通知本地处理</div></div>
+      <div class="stat"><div class="num" data-to="4" data-suffix="">0</div><div class="lbl">条转发通道族（含幻念推送）</div></div>
     </div>
   </section>
 
@@ -505,7 +506,7 @@
       <div class="card reveal"><span class="tag">UX</span><div class="fi">⏸️</div><h3>一键暂停推送</h3><p>前台通知栏按钮或桌面小部件一键暂停 / 恢复推送，监听继续、仅停 Webhook，状态重启后恢复。小部件 2×2/4×2 视觉焕新，支持系统添加弹窗预览；不支持一键添加的桌面自动弹出分品牌分步引导（小米/华为/OPPO/vivo/三星等）。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">📶</div><h3>短信监听设置中心</h3><p>监听短信 / 验证码监听 / 监听卡选择三大开关集中管理，单卡设备自动灰化选卡；卡槽过滤同时作用于短信与来电，推送正文可附「卡1，运营商」双语信息行。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">💾</div><h3>配置备份与恢复</h3><p>一键将 Webhook / 自建应用 / 邮件通道、通知规则、短信设置、应用筛选、黑白名单关键词、电池规则、设备名、主题与语言等 12 类配置加密导出为 .nbackup 文件（AES-256-GCM + PBKDF2 210k 迭代口令派生），换机重装输入口令即可还原，覆盖或仅补空缺由你决定；备份格式 v2 向后兼容 v1，通知历史不在备份范围内。</p></div>
-      <div class="card reveal"><span class="tag">UX</span><div class="fi">🌐</div><h3>多语言国际化</h3><p>全应用中英双语支持（850+ 词条，中英键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。</p></div>
+      <div class="card reveal"><span class="tag">UX</span><div class="fi">🌐</div><h3>多语言国际化</h3><p>全应用中英双语支持（中英各 1251 词条，键集由 CI 强制对齐），设置页一键切换语言；桌面图标随界面语言提供 17 款 × 中/英两套 alias 入口。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🌙</div><h3>深色模式</h3><p>浅色 / 深色 / 跟随系统三种主题，Material 3 视觉基底，弹窗与开关控件统一 iOS 风格，界面简洁优雅。</p></div>
       <div class="card reveal"><span class="tag">UX</span><div class="fi">🔄</div><h3>后台保活 · 在线更新</h3><p>前台服务 + 电量白名单 + 开机自启，稳定常驻；支持版本更新，无需重装。</p></div>
       <div class="card reveal"><span class="tag">Pro</span><div class="fi">🧪</div><h3>规则测试器</h3><p>输入模拟通知（应用 + 标题 / 内容 / 优先级），实时展示「过滤 → 规则匹配 → 最终动作」完整命中链路，规则为什么不生效一眼看清。</p></div>
@@ -645,6 +646,31 @@
         </div>
       </div>
       <p class="note">三个入口是同一个：<code>title</code> 与 <code>body</code> 两个字段就够，其余（<code>tags</code>、<code>ttl</code>、<code>dedupe</code>）按需加。口令出现在 URL 的最后一段，所以它可能被反代的 access log 记下 —— 服务端已把这一段纳入脱敏前缀，而你自部署时请照同样的规则配。</p>
+    </div>
+  </section>
+
+  <!-- REMOTE -->
+  <section id="remote">
+    <div class="s-head center reveal">
+      <div class="eyebrow">Remote Control</div>
+      <h2>远程控制：让另一台设备替你做那件事</h2>
+      <p>与幻念推送同一条链路，接收端把<b>应用动作</b>与<b>系统设置</b>分成两档、逐条授权。 每一条执行前都有一次看得见的撤销机会，执行完回执告诉你做到哪一步。</p>
+    </div>
+    <div class="platforms reveal">
+      <div class="plat"><span class="pi" style="background:rgba(70,124,253,.16)">🎧</span><div><b>L2 应用动作</b><small>启停监听 · 开关某条通道 · 推送设备状态</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(0,209,209,.15)">⚙️</span><div><b>L3 系统设置</b><small>默认全关，逐条单独开</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(255,159,107,.16)">⏱️</span><div><b>可撤销的延时窗口</b><small>状态栏与横幅两处都能取消</small></div></div>
+      <div class="plat"><span class="pi" style="background:rgba(38,190,110,.16)">🧾</span><div><b>两段回执</b><small>开始 / 结束各一条，带结果</small></div></div>
+    </div>
+    <div class="fnpush reveal">
+      <h3>四道闸，缺一不可</h3>
+      <div class="sec-list" style="margin-top:6px">
+        <div class="sec-item"><div class="sic">🔑</div><div><h4>凭据</h4><p>L2 可带可不带；<b>L3 必须带</b>其中之一 —— 一把接收端生成、只存哈希的高级密钥，或一份 6 位 / 30 秒的 TOTP（TOTP 由接收端生成、<b>不经服务器</b>，当面扫码交给发送端）。缺失或错误一律拒收。</p></div></div>
+        <div class="sec-item"><div class="sic">⏱️</div><div><h4>延时窗口</h4><p>执行前默认 10 秒（0–60 可调），窗口内可经状态栏通知与界面顶端横幅取消，超时默认执行。你在不在设备前<b>不影响计时</b> —— 这是给你的一次可见撤销机会，不是再弹一次确认框；它<b>不许被绕过</b>。</p></div></div>
+        <div class="sec-item"><div class="sic">🚫</div><div><h4>封闭词表</h4><p>L2 只有四个动作、L3 只有六项设置，<b>不在表内的一律拒收</b>，不做「认不出就先跳过」—— 那等于让对端拿编出来的名字试探这台设备的边界。第三方平台接入端点最高只到 L1。</p></div></div>
+        <div class="sec-item"><div class="sic">🧯</div><div><h4>熔断与留痕</h4><p>每分钟失败 5 次自动降级到 L1；每次执行都写留痕。服务端只保存元数据，<b>指令正文与凭据都不进审计</b>。</p></div></div>
+      </div>
+      <p class="note">两件事要分清：<b>设备身份私钥</b>证明「我是这台设备」，<b>远程执行的高级密钥 / TOTP</b>授权「这条远程指令」—— 不是同一把。 另外 L3 的每项设置分两种落法：<code>grant</code> 是跳系统设置页请你自己点（不可逆动作必须由你完成）， <code>toggle</code> 是翻这台设备自己的一项开关。<b>没有「静默改系统设置」这一档</b>。</p>
     </div>
   </section>
 
