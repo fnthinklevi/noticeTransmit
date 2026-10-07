@@ -63,55 +63,34 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            # ⚠ 这一段跑在 /bin/sh（dash）里，不是 bash —— `android-emulator-runner` 用的是
-            #   `child_process.exec`，Linux 上默认 shell 就是 sh。所以这里**不许**出现 bash 专有
-            #   语法（`${PIPESTATUS[0]}` / `[[ ]]` / `set -o pipefail`）：dash 在解析期就 exit 2，
-            #   `set +e` 根本来不及生效 ⇒ 整段脚本一次都没跑过，而 CI 上看到的是"测试红了"。
-            #   取管道左侧退出码的写法是「重定向到文件 → $? → cat 出来」，两边都在 POSIX 里。
-            #   由 `test/architecture/release_gate_emulator_test.dart` 的「CI 脚本不许有 bash 专有写法」钉住。
-            set +e
+            # ⚠⚠ 这一段由 `android-emulator-runner` **按行拆开、每行单独 `sh -c 一行`** 执行，
+            #   不是一次跑整段脚本。run#11 的日志把这条钉死了：
+            #     /usr/bin/sh -c if [ "$smoke_status" != "0" ] || [ "$connected_status" != "0" ]; then
+            #     /usr/bin/sh: 1: Syntax error: end of file unexpected (expecting "fi")
+            #   ⇒ 任何**跨行结构**（`if … fi`、`{ … }` 块、`\` 续行）都会变成"给 sh 半句话"，
+            #     当场语法错 exit 2。walkthrough 那边连 walkthrough.log 都没生成，就是死在
+            #     `flutter test … \` ＋ 下一行 `> test_report/walkthrough.log` 这个两行写法上。
+            #   ⇒ 而且**任何一行返回非 0 就中止后面的行**（run#10：connected 失败后三条 adb 没跑，
+            #     产物里就没有 logcat 三件 —— `set +e` 对"下一行"无效，它是另一个进程）。
+            #   所以这里的写法是硬要求：**每行自包含、每行都以 0 结尾，只有最后判行例外**：
+            #     · 取退出码与命令同行：`cmd > log 2>&1; x=$?`（赋值成功 ⇒ 整行 0）
+            #     · 条件块单行：`[ 条件 ] && { a; b; } || true`
+            #     · 不许 bash 专有语法（`${PIPESTATUS[0]}`／`[[ ]]`／`set -o pipefail`）—— T64 那一课
+            #   由 `test/architecture/release_gate_emulator_test.dart` 那两条一起钉住（形状＋bash 专有）。
             set +e
             mkdir -p test_report
             flutter --version | tee test_report/flutter_version.txt
             flutter devices
-            # --reporter expanded：每个用例名单独一行。冒烟已按步拆成 4 个用例，
-            # 于是"哪一步红"直接出现在日志里（以前是一条巨型用例，只知道"冒烟红了"）。
-            flutter test integration_test/smoke_test.dart --reporter expanded > test_report/smoke.log 2>&1
-            smoke_status=$?
-            # 不用管道取左侧退出码（`${PIPESTATUS[0]}` 在 dash 上解析期就死）——重定向后 $? 就是它的
+            flutter test integration_test/smoke_test.dart --reporter expanded > test_report/smoke.log 2>&1; smoke_status=$?
             cat test_report/smoke.log
-            # 仪表测试（androidTest）：必须复用这台存活模拟器，独立 step 会因模拟器已关而找不到设备
-            (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) > test_report/connected.log 2>&1
-            connected_status=$?
+            (cd android && chmod +x gradlew && ./gradlew connectedDebugAndroidTest) > test_report/connected.log 2>&1; connected_status=$?
             cat test_report/connected.log
-            # 应用侧崩溃只出现在 logcat：没有它，CI 上永远只能看到 "0 tests passed"
             adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
             adb shell dumpsys activity activities > test_report/activities.txt 2>&1
             adb logcat -d -b crash -t 500 > test_report/logcat_crash.txt 2>&1
-            if [ "$smoke_status" != "0" ] || [ "$connected_status" != "0" ]; then
-              tail -n 120 test_report/logcat_crash.txt
-              tail -n 60 test_report/logcat.txt
-              echo "::error::device-basic 失败 smoke=$smoke_status connectedAndroidTest=$connected_status（test_report 产物已上传）"
-            fi
             echo "CI-STATUS device-basic smoke=$smoke_status connectedAndroidTest=$connected_status"
-            # ⚠ 写摘要之前必须判空。run#11 的证据：两个子步骤**都是 0**（smoke 末行
-            #   `+4: All tests passed!`；connectedDebugAndroidTest 末行 `BUILD SUCCESSFUL`，
-            #   产物里 smoke.log／connected.log／logcat.txt／logcat_crash.txt／activities.txt 五件齐），
-            #   job 却以 `sh exit 2` 收 ⇒ 尾部能吞掉 shell 的只剩这一段。
-            #   `$GITHUB_STEP_SUMMARY` 为空时 `} >> ""` 在 bash 里只是那条命令失败（本机复跑过整段，
-            #   仍回 0），在 dash 里行为**未经验证** ⇒ 判空一次同时消掉两种可能。
-            #   上面那行 CI-STATUS 是下一轮的定位锚：日志里有它 = 死在它之后，没它 = 死在它之前。
-            if [ -n "$GITHUB_STEP_SUMMARY" ]; then
-              {
-                echo "### device-basic"
-                echo "- smoke（4 个分步用例）：exit \`$smoke_status\`"
-                echo "- connectedAndroidTest：exit \`$connected_status\`"
-                echo '```'
-                grep -E "^[0-9]{2}:[0-9]{2} (\+[0-9]+.*(-[0-9]+)?: |All tests passed|Some tests failed)|FAILURE|Exception|tests? (completed|failed)" \
-                  test_report/smoke.log | tail -n 25
-                echo '```'
-              } >> "$GITHUB_STEP_SUMMARY"
-            fi
+            [ "$smoke_status" != "0" ] && { tail -n 120 test_report/logcat_crash.txt; tail -n 60 test_report/logcat.txt; echo "::error::device-basic 失败 smoke=$smoke_status connectedAndroidTest=$connected_status（test_report 产物已上传）"; } || true
+            [ -n "$GITHUB_STEP_SUMMARY" ] && { echo "### device-basic"; echo "- smoke（4 个分步用例）：exit \`$smoke_status\`"; echo "- connectedAndroidTest：exit \`$connected_status\`"; grep -E "All tests passed|Some tests failed|FAILURE|Exception" test_report/smoke.log | tail -n 15; } >> "$GITHUB_STEP_SUMMARY" || true
             [ "$smoke_status" = "0" ] && [ "$connected_status" = "0" ]
 
       - name: Upload test report（无论成败都留档）
@@ -172,37 +151,20 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
+            # 每行自包含、每行都以 0 结尾（机制与理由写在 device-basic 那段注释里，这里不放第二份真值）。
+            # CI-MARK／CI-STATUS 是定位锚：run#11 里这一支的产物只有 flutter_version.txt，
+            # 连 walkthrough.log 都没生成 —— 死在闸门测试启动之前（那条两行的 `flutter test … \` 写法）。
             set +e
             mkdir -p test_report
             flutter --version | tee test_report/flutter_version.txt
-            # ㊻ 发版硬闸门（base.md 步骤 6.7）：所有可达页面逐个进入、每条 CRUD 各走一次、
-            # 备份真落盘再真读回。分节失败由测试自己收集后一次性报，日志里是 GATE-STEP-FAIL。
-            # CI-MARK：run#11 的产物里**只有 flutter_version.txt**（连 walkthrough.log 都没生成，
-            #   而那个文件在重定向发生时就会被创建）⇒ 这一支死在闸门测试启动之前。
-            #   这行标记出现在日志里 = 死点在其后，没出现 = 死点在其前，下一轮不再靠猜。
             echo "CI-MARK walkthrough about to run release_walkthrough_test.dart"
-            flutter test integration_test/release_walkthrough_test.dart --reporter expanded \
-              > test_report/walkthrough.log 2>&1
-            walk_status=$?
+            flutter test integration_test/release_walkthrough_test.dart --reporter expanded > test_report/walkthrough.log 2>&1; walk_status=$?
             cat test_report/walkthrough.log
             adb logcat -d -v time -t 3000 > test_report/logcat.txt 2>&1
             adb logcat -d -b crash -t 500 > test_report/logcat_crash.txt 2>&1
-            if [ "$walk_status" != "0" ]; then
-              grep -E "GATE-STEP-FAIL|GATE-DIAG" test_report/walkthrough.log | tail -n 40
-              tail -n 60 test_report/logcat_crash.txt
-              echo "::error::walkthrough 失败 exit=$walk_status（GATE-STEP-FAIL 见日志与产物）"
-            fi
             echo "CI-STATUS walkthrough release_walkthrough_test=$walk_status"
-            # 判空再写摘要，理由与 device-basic 那段注释同源（那里写了完整版，这里不复制第二份真值）。
-            if [ -n "$GITHUB_STEP_SUMMARY" ]; then
-              {
-                echo "### walkthrough"
-                echo "- release_walkthrough_test.dart：exit \`$walk_status\`"
-                echo '```'
-                grep -E "GATE-STEP-FAIL|All tests passed|Some tests failed" test_report/walkthrough.log | tail -n 25
-                echo '```'
-              } >> "$GITHUB_STEP_SUMMARY"
-            fi
+            [ "$walk_status" != "0" ] && { grep -E "GATE-STEP-FAIL|GATE-DIAG" test_report/walkthrough.log | tail -n 40; tail -n 60 test_report/logcat_crash.txt; echo "::error::walkthrough 失败 exit=$walk_status（GATE-STEP-FAIL 见日志与产物）"; } || true
+            [ -n "$GITHUB_STEP_SUMMARY" ] && { echo "### walkthrough"; echo "- release_walkthrough_test.dart：exit \`$walk_status\`"; grep -E "GATE-STEP-FAIL|All tests passed|Some tests failed" test_report/walkthrough.log | tail -n 15; } >> "$GITHUB_STEP_SUMMARY" || true
             [ "$walk_status" = "0" ]
 
       - name: Upload test report（无论成败都留档）

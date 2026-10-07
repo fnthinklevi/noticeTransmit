@@ -251,49 +251,121 @@ void main() {
       );
     });
 
-    test('CI 脚本往 step summary 写之前必须判空，定位锚不许被删（run#11 的形状）', () {
-      // run#11 的证据链：smoke 末行 `+4: All tests passed!`、connectedDebugAndroidTest 末行
-      // `BUILD SUCCESSFUL`，产物里五件齐（含 logcat 三件）⇒ 两个子步骤都是 0，
-      // 而 job 仍以 `sh exit 2` 收。尾部能吞掉 shell 的只剩 `} >> "$GITHUB_STEP_SUMMARY"`：
-      // 那个变量为空时 `} >> ""` 在 bash 里只是那条命令失败（本机把整段复跑过，仍回 0），
-      // 在 dash 里行为未经验证 ⇒ **判空一次消掉两种可能**，不是赌某一种。
-      // CI-STATUS / CI-MARK 是下一轮的定位锚：没有它们，下次仍然只剩一句
-      // "The process '/usr/bin/sh' failed with exit code N"，谁也不知道死在哪一行。
-      final all = read('.github/workflows/integration_test.yml').split('\n');
-      final code = all
-          .asMap()
-          .entries
-          .where((e) => !e.value.trimLeft().startsWith('#'))
-          .toList();
-      const guard = r'if [ -n "$GITHUB_STEP_SUMMARY" ]; then';
-      const write = r'} >> "$GITHUB_STEP_SUMMARY"';
-      final writes = code.where((e) => e.value.contains(write)).toList();
-      // 提取退化成正空集 ⇒ 判据会恒真，所以先断言它认得这个形状、且数量>0
-      expect(writes, isNotEmpty, reason: '一处 summary 写入都没找到 ⇒ 判据形状漂了');
-      for (final hit in writes) {
-        final guarded = code.any(
-          (e) =>
-              e.key < hit.key &&
-              e.key >= hit.key - 12 &&
-              e.value.contains(guard),
-        );
+    /// 抽出第 `block` 段 `script: |` 里的**非注释代码行**（按块标量缩进剥前导空格）。
+    /// 抽不到就抛 —— 静默返回空集会让下面所有判据恒真（本组栽过两次）。
+    List<String> ciScriptLines(String yml, {required int block}) {
+      final lines = yml.split('\n');
+      final starts = <int>[];
+      for (var i = 0; i < lines.length; i++) {
+        if (RegExp(r'^\s*script: \|\s*$').hasMatch(lines[i])) starts.add(i);
+      }
+      if (starts.length < block) {
+        throw StateError('CI 脚本只有 ${starts.length} 段，要第 $block 段 ⇒ 结构变了');
+      }
+      final at = starts[block - 1];
+      final base = RegExp(r'^(\s*)').firstMatch(lines[at])![1]!.length + 2;
+      final out = <String>[];
+      for (var j = at + 1; j < lines.length; j++) {
+        final l = lines[j];
+        if (l.trim().isEmpty) continue;
+        final ind = RegExp(r'^(\s*)').firstMatch(l)![1]!.length;
+        if (ind < base) break;
+        final body = l.substring(base);
+        if (body.trimLeft().startsWith('#')) continue;
+        out.add(body);
+      }
+      if (out.length < 8) {
+        throw StateError('第 $block 段只抽出 ${out.length} 行代码 ⇒ 提取退化，判据会恒真');
+      }
+      return out;
+    }
+
+    test('CI 脚本必须**每行自包含**（action 按行 `sh -c 一行` 跑，run#11 实证）', () {
+      // run#11 的日志：`/usr/bin/sh -c if [ "$smoke_status" != "0" ] … ; then` 紧跟
+      // `sh: 1: Syntax error: end of file unexpected (expecting "fi")` ⇒ 那一行是**单独**喂给 shell 的。
+      // 同理 walkthrough 里 `flutter test … \` ＋ 次行 `> walkthrough.log` 的两行写法，
+      // 让产物里连 walkthrough.log 都没生成 —— 那才是它红着的真原因，不是闸门测试自己红。
+      // ⇒ 跨行结构（`if … fi`／`{ … }`／`\` 续行）在这里都是错的；而且某行返回非 0 会中止
+      //   后面的行（run#10：connected 失败后三条 adb 没跑 ⇒ 产物里没有 logcat 三件），
+      //   所以取退出码必须与命令**同行**（赋值那步成功 ⇒ 整行 0）。
+      final yml = read('.github/workflows/integration_test.yml');
+      for (final blockNo in [1, 2]) {
+        final code = ciScriptLines(yml, block: blockNo);
+        for (final l in code) {
+          if (l.trimRight().endsWith(r'\')) {
+            fail('第 $blockNo 段有反斜杠续行 ⇒ 单独一行喂给 sh 就是半句话：${l.trim()}');
+          }
+          if (RegExp(r';\s*then\b').hasMatch(l) &&
+              !RegExp(r'\bfi\b').hasMatch(l)) {
+            fail('第 $blockNo 段有跨行的 if…fi ⇒ ${l.trim()}');
+          }
+          if (RegExp(r'(^|\s)\{(?!\{)').hasMatch(l) && !l.contains('}')) {
+            fail('第 $blockNo 段有跨行的 { … } 块 ⇒ ${l.trim()}');
+          }
+        }
+        for (final l in code.where((e) => RegExp(r'=\$\?\s*$').hasMatch(e))) {
+          expect(
+            l,
+            contains('; '),
+            reason: '退出码赋值单独占一行 ⇒ 上一条命令非 0 时那行就中止，x=\$? 永远读不到：${l.trim()}',
+          );
+        }
         expect(
-          guarded,
+          code.any(
+            (e) => RegExp(r'(smoke|connected|walk)_status=\$\?').hasMatch(e),
+          ),
           isTrue,
-          reason:
-              '第 ${hit.key + 1} 行往 step summary 写之前 12 行内没有判空 ⇒ '
-              r'`$GITHUB_STEP_SUMMARY` 为空时整段可能被 shell 吞掉，全绿的测试会被判成红 job',
+          reason: '第 $blockNo 段没有同行取码 ⇒ 这条判据在判空集',
         );
       }
+      // 判据自证（两个方向）：跨行形状必须认得出，单行条件块不许误伤
+      expect(
+        RegExp(r';\s*then\b').hasMatch('if [ "\$a" != "0" ]; then') &&
+            !RegExp(r'\bfi\b').hasMatch('if [ "\$a" != "0" ]; then'),
+        isTrue,
+        reason: '合成样本都不被认成跨行 ⇒ 上面那条判据是恒真的',
+      );
+      expect(
+        RegExp(
+          r';\s*then\b',
+        ).hasMatch(r'[ "$a" != "0" ] && { echo x; } || true'),
+        isFalse,
+        reason: '单行形状被误判 ⇒ 会把合规写法判红',
+      );
+    });
+
+    test('CI 脚本的定位锚与 summary 同行判空不许被删', () {
+      // 这两轮我三次只能对着 `The process '/usr/bin/sh' failed with exit code N` 猜死在哪一行
+      // —— 那是工装缺证据。CI-STATUS／CI-MARK 是下一轮的定位锚；summary 写入必须在**同一行**判空
+      // （`} >> "$GITHUB_STEP_SUMMARY"` 在变量为空时那行会失败，而跨行 if 会被按行执行拆掉）。
+      final yml = read('.github/workflows/integration_test.yml');
       for (final marker in [
         'CI-STATUS device-basic',
         'CI-STATUS walkthrough',
         'CI-MARK walkthrough',
       ]) {
         expect(
-          code.any((e) => e.value.contains(marker)),
+          yml.contains(marker),
           isTrue,
           reason: '$marker 被删了 ⇒ 下次红仍然只剩一句 sh failed with exit code N',
+        );
+      }
+      final writes = [
+        ...ciScriptLines(
+          yml,
+          block: 1,
+        ).where((l) => l.contains(r'>> "$GITHUB_STEP_SUMMARY"')),
+        ...ciScriptLines(
+          yml,
+          block: 2,
+        ).where((l) => l.contains(r'>> "$GITHUB_STEP_SUMMARY"')),
+      ];
+      expect(writes, isNotEmpty, reason: '一处 summary 写入都没找到 ⇒ 判据形状漂了');
+      for (final l in writes) {
+        expect(
+          l,
+          contains(r'[ -n "$GITHUB_STEP_SUMMARY" ]'),
+          reason: 'summary 那行没在同一行判空 ⇒ ${l.trim()}',
         );
       }
     });
