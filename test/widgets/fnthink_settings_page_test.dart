@@ -16,6 +16,7 @@ import 'package:notice_transmit/pages/fnthink_receive_page.dart';
 import 'package:notice_transmit/pages/fnthink_remote_page.dart';
 import 'package:notice_transmit/pages/fnthink_settings_page.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
 import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
@@ -1486,8 +1487,10 @@ void main() {
       stubChannels();
       final ctx = await openWith(tester, requests: [request('L9')]);
       expect(
+        // 断在**公共件**上（T100 判据② 第二刀：这两枚行内动作换成了 `FnthinkInlineAction`）：
+        // "这一枚此刻可不可用"就是它的 `onPressed` 直通到按钮，读里层等于把壳的形状钉死。
         tester
-            .widget<ButtonStyleButton>(
+            .widget<FnthinkInlineAction>(
               find.byKey(const ValueKey('fnthink-pair-approve-pr_9')),
             )
             .onPressed,
@@ -1498,7 +1501,7 @@ void main() {
       );
       expect(
         tester
-            .widget<TextButton>(
+            .widget<FnthinkInlineAction>(
               find.byKey(const ValueKey('fnthink-pair-deny-pr_9')),
             )
             .onPressed,

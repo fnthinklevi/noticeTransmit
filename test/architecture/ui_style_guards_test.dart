@@ -386,7 +386,8 @@ void main() {
       int n(String path, String needle) =>
           needle.allMatches(codeByPath[path]!).length;
 
-      // 第一刀收的是「复制」那一族：设置页两处（地址码／配对码）+ 端点页那枚按 key 的复制。
+      // 第一刀收的是「复制」那一族：设置页两处（地址码／配对码）+ 端点页那枚按 key 的复制；
+      // 第二刀收的是绑定页那四枚行内动作（批准／拒绝／撤销／发一条）—— 那一格已从台账删掉。
       expect(
         n('lib/pages/fnthink_settings_page.dart', 'FnthinkInlineAction('),
         2,
@@ -395,6 +396,7 @@ void main() {
         n('lib/pages/fnthink_endpoint_page.dart', 'FnthinkInlineAction('),
         greaterThanOrEqualTo(1),
       );
+      expect(n('lib/pages/fnthink_peers_page.dart', 'FnthinkInlineAction('), 4);
     });
 
     test('「主操作填充」也只有 PrimaryActionButton 一个装配点', () {
@@ -405,11 +407,12 @@ void main() {
       int n(String path, String needle) =>
           needle.allMatches(codeByPath[path]!).length;
 
-      // 形状的出处（桌面小部件引导页那两枚）与幻念那两页的主操作都在用它。
+      // 形状的出处（桌面小部件引导页那两枚）与幻念那几页的主操作都在用它。
       for (final p in const [
         'lib/pages/widget_guide_page.dart',
         'lib/pages/fnthink_endpoint_page.dart',
         'lib/pages/fnthink_receive_page.dart',
+        'lib/pages/fnthink_peers_page.dart',
       ]) {
         expect(
           n(p, 'PrimaryActionButton('),
@@ -782,7 +785,6 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
 ///   守卫断的是键集合相等，"留 0"与"没有这一格"在读数上是两件事。
 const Map<String, int> kFnthinkRawTextButtons = <String, int>{
   'lib/pages/fnthink_settings_page.dart': 7,
-  'lib/pages/fnthink_peers_page.dart': 5,
   'lib/pages/fnthink_endpoint_page.dart': 3,
 };
 

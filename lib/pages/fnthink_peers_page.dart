@@ -14,6 +14,7 @@ import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/primary_action_button.dart';
 import '../widgets/fnthink_pair_dialog.dart';
 import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -264,17 +265,17 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextButton(
+            FnthinkInlineAction(
               key: ValueKey('fnthink-pair-approve-${request.requestId}'),
+              label: l10n.fnthinkPairApprove,
               onPressed: grantable == null || _busy
                   ? null
                   : () => _answer(request, true),
-              child: Text(l10n.fnthinkPairApprove),
             ),
-            TextButton(
+            FnthinkInlineAction(
               key: ValueKey('fnthink-pair-deny-${request.requestId}'),
+              label: l10n.fnthinkPairDeny,
               onPressed: _busy ? null : () => _answer(request, false),
-              child: Text(l10n.fnthinkPairDeny),
             ),
           ],
         ),
@@ -311,23 +312,23 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             ),
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(
+              child: FnthinkInlineAction(
                 key: ValueKey('fnthink-peer-revoke-${peer.peerAddress}'),
+                label: l10n.fnthinkPeerRevoke,
                 // 撤销那一发要能连点两下都不出事（服务端幂等），但 `_busy` 仍然拦：
                 // 拦的不是"撤两次"，是"两次删行撞在一起"——那种时候界面显示的是哪一次？
                 onPressed: _busy ? null : () => _revoke(peer),
-                child: Text(l10n.fnthinkPeerRevoke),
               ),
             ),
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(
+              child: FnthinkInlineAction(
                 key: ValueKey('fnthink-peer-send-${peer.peerAddress}'),
+                label: l10n.fnthinkPeerSend,
                 // 「发一条」挂在**这一行**上而不是页面顶部一个通用按钮：收件人只能是本机
                 // 同意过的那几台（名单就是候选全集），让人先在行里选中那台再填内容，
                 // 比在弹层里再挑一次少一处可能填错的地址（填错了服务端只会回一句同形的 403）。
                 onPressed: _busy ? null : () => _sendTo(peer),
-                child: Text(l10n.fnthinkPeerSend),
               ),
             ),
             // T94：「这台能不能当幻念通道的目标」是**另一件事**（方向相反：配对是对方能往
@@ -380,13 +381,10 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           ),
         // 「配对另一台设备」挂在名单这一格里，而不是身份那一格（本机是自己）或页面顶部
         // 一个通用按钮：这一格讲的正是"我和谁有关系"，而这一发要做的就是把一行新的关系挂进去。
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-pair-peer'),
-            onPressed: _busy ? null : _pairWithPeer,
-            child: Text(l10n.fnthinkPairPeer),
-          ),
+        PrimaryActionButton(
+          key: const ValueKey('fnthink-pair-peer'),
+          label: l10n.fnthinkPairPeer,
+          onPressed: _busy ? null : _pairWithPeer,
         ),
         // 提交之后本机这一格不会立刻多出什么：同意由对面那台点，那一行要等下一轮收取才回来。
         // 少了这句，"发过去了"会被读成"已经配上了"，而用户接下来做的动作（发一条试试）当场必失败。
