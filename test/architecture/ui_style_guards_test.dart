@@ -637,7 +637,8 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
   'lib/pages/app_channel_list_page.dart': 1,
   'lib/pages/email_settings_page.dart': 1,
   'lib/pages/fnthink_channel_list_page.dart': 1,
-  'lib/pages/fnthink_push_page.dart': 2,
+  // 这一格从台账里删掉，不是漏记：那两枚入口行（接收入页 / 绑定入页）换成了
+  // `CupertinoPageRoute` ⇒ 该文件现在 0 枚。变薄，不是搬家（T100 第一刀）。
   'lib/pages/fnthink_receive_page.dart': 3,
   'lib/pages/main_page.dart': 1,
   // 4 而不是 5：幻念那一格改走注入回调（`main_page_actions.dart`），

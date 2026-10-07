@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fnthink_push/fnthink_push.dart';
@@ -1016,7 +1017,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           child: TextButton(
             key: const ValueKey('fnthink-receive-entry'),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
+              CupertinoPageRoute<void>(
                 builder: (_) => FnthinkReceivePage(deps: widget.receiveDeps),
               ),
             ),
@@ -1040,7 +1041,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
           child: TextButton(
             key: const ValueKey('fnthink-peers-entry'),
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
+              CupertinoPageRoute<void>(
                 builder: (_) => FnthinkPeersPage(deps: widget.peersDeps),
               ),
             ),
