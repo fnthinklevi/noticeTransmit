@@ -334,7 +334,7 @@ noticeTransmit/
 │   └── README.md · GITHUB_PAGES.md       # Deployment docs (zh + en each)
 ├── test/                                 # Dart tests (170 files / 2063 cases)
 ├── integration_test/                     # On-device smoke (5 files, includes the release gate)
-├── docs/                                 # roadmap.md · server_deploy_and_update_guide.md · cert_rotation_runbook.md
+├── docs/                                 # server_deploy_and_update_guide.md · cert_rotation_runbook.md (internal ledgers stay out of the repo)
 ├── .github/                              # workflows/ (CI) and scripts/ (format, version consistency, local release)
 ├── assets/                               # Resource files
 ├── pubspec.yaml                          # Flutter configuration (version: 1.5.76+116)

@@ -1614,7 +1614,7 @@ pm2 restart update-server
 
 **「首次必坏」与设备新旧无关**，与「发的人第一次内联中文、踩了 GBK 再改文件」同形：
 Windows 上 `curl.exe` 收到的 argv 按 ANSI(GBK) 编码，服务端按 UTF-8 解那些非法字节 ⇒ 替换符。
-（发中文的姿势固化在内部手册 `docs/server_deploy_and_update_guide.md` §4.1。）
+（发中文的姿势固化在部署手册 `docs/server_deploy_and_update_guide.md` §4.1。）
 
 ### 设备侧四条候选的逐条结论
 

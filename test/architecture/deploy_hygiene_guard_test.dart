@@ -233,4 +233,198 @@ void main() {
       );
     });
   });
+
+  group('④ 公开文档指向 docs/ 的引用必须真在版本库里', () {
+    // 2026-10-07 的实际事故：README 与 server/README 一共 24 处指着 `docs/server_deploy_and_update_guide.md`，
+    // 而 `.gitignore` 那行 `docs/` 把整个目录挡在库外 ⇒ 公开页面上每一条都是**死链**。
+    // 读源码的守卫看不见"作用域"以外的东西（i18n 那一课），而"文件在磁盘上"也看不见"库里有没有"——
+    // 所以判据必须是**两段**：磁盘上有 ⇒ 而且 ⇒ 没被 .gitignore 挡住。
+    const publicFiles = [
+      'README.md',
+      'README-en.md',
+      'CONTRIBUTING.md',
+      'CONTRIBUTING-en.md',
+      'server/README.md',
+      'server/README-en.md',
+    ];
+    final ref = RegExp(r'docs/([A-Za-z0-9_.\-]+\.md)');
+
+    /// 与 ② 那份 `ignoredBy` 的区别：这里**必须认得负向行**（`!docs/x.md`）。
+    /// ② 只核"危险项还挡着吗"，永远不会碰到 `!`；这一组核的是"被点名放开的两份手册"，
+    /// 不认负向就会把它们判成"仍被挡住"⇒ 恰好把这次修好的东西判红。
+    /// 规则按 gitignore 的语义：**后写的赢**，`docs/*` 这种段内通配展开成前缀判定。
+    bool ignoredForReal(String rel) {
+      final rules = read('.gitignore')
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty && !l.startsWith('#'))
+          .toList();
+      var ignored = false;
+      for (final raw in rules) {
+        final neg = raw.startsWith('!');
+        var p = neg ? raw.substring(1) : raw;
+        if (p.endsWith('/')) p = p.substring(0, p.length - 1);
+        if (p.startsWith('/')) p = p.substring(1);
+        final trailingStar = p.endsWith('/*');
+        if (trailingStar) p = p.substring(0, p.length - 2);
+        if (p.isEmpty) continue;
+        final hit = neg
+            ? rel == p
+            : rel == p ||
+                  rel.startsWith('$p/') ||
+                  (trailingStar &&
+                      rel.startsWith('$p/') &&
+                      !rel.substring(p.length + 1).contains('/'));
+        if (hit) ignored = !neg;
+      }
+      return ignored;
+    }
+
+    test('提取器自己先自证：正/负向都要认得', () {
+      expect(
+        ignoredForReal('docs/roadmap.md'),
+        isTrue,
+        reason: '路线图不再被挡 ⇒ 一次 `git add .` 就把内部流水推进公开仓',
+      );
+      expect(
+        ignoredForReal('docs/server_deploy_and_update_guide.md'),
+        isFalse,
+        reason: r'负向行 `!docs/…` 没被认得 ⇒ ④ 会把这次修好的链接判成死链',
+      );
+      expect(
+        ignoredForReal('backpack/anything'),
+        isTrue,
+        reason: 'docs/ 副本的备份目录不再被挡 ⇒ 含真实域名与路径的副本会跟着入库',
+      );
+    });
+
+    test('每一处引用：磁盘上有，而且库里也有', () {
+      final broken = <String>[];
+      var total = 0;
+      for (final rel in publicFiles) {
+        // server/README.md 里写的是 `../docs/x.md`，而正则只吃 `docs/<名>.md` 那一段 ⇒
+        // 从仓库根解析对两种写法都成立。
+        for (final m in ref.allMatches(read(rel))) {
+          total++;
+          final target = 'docs/${m.group(1)}';
+          final exists = File('$root/$target').existsSync();
+          if (!exists || ignoredForReal(target)) {
+            broken.add(
+              '  · $rel → $target（${exists ? '在磁盘上但被 .gitignore 挡着' : '文件都不存在'}）',
+            );
+          }
+        }
+      }
+      // ⚠ 提取退化成空集时上面那条循环会一声不响 ⇒ 必须先数总量（本仓栽过两次）
+      expect(
+        total,
+        greaterThanOrEqualTo(10),
+        reason: '公开文档里只找到 $total 处 docs/*.md 引用 ⇒ 提取或引用面变了，先确认再谈"没有死链"',
+      );
+      expect(
+        broken,
+        isEmpty,
+        reason:
+            '公开文档指着不存在的文件 —— 这正是 2026-10-07 那个报告：\n${broken.join('\n')}\n'
+            '要么把该文件入库（并在此处的 ignore 判定下放开），要么把引用改掉。',
+      );
+    });
+
+    test('公开文档不许提 docs/roadmap（它不入库，提了就是死链）', () {
+      final hits = <String>[];
+      for (final rel in publicFiles) {
+        final src = read(rel);
+        for (final l in src.split('\n')) {
+          if (l.contains('docs/roadmap')) hits.add('  · $rel：${l.trim()}');
+        }
+      }
+      expect(
+        hits,
+        isEmpty,
+        reason: '路线图等内部流水不入库，公开文档提到它就是给读者一条打不开的链接：\n${hits.join('\n')}',
+      );
+    });
+  });
+
+  group('⑤ 入库的运维手册：只写占位符，不写某一台机器的落地路径', () {
+    // 这两份是**随仓库公开**的部署手册（④ 保证它们真在库里）。手册里可以给真实域名 ——
+    // 那是客户端必须填的公网地址；但**不能**给"这台机器的代码目录叫什么"、更不能给口令。
+    const manuals = [
+      'docs/server_deploy_and_update_guide.md',
+      'docs/cert_rotation_runbook.md',
+    ];
+
+    final landingPaths = RegExp(r'/www/wwwroot/|/www/backup/');
+    final literalSecret = RegExp(
+      r'(?<![0-9a-fA-F])[0-9a-fA-F]{32,}(?![0-9a-fA-F])|[A-Z2-7]{26,}|(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{24,}[0-9][A-Za-z0-9+/]{0,20}={1,2}',
+    );
+    final secretAssignment = RegExp(
+      r'(ADMIN_TOKEN_HASH|ENCRYPTION_KEY|TOTP_SECRET|storePassword|keyPassword)\s*[:=]\s*(\S+)',
+    );
+
+    test('逐份扫：落地路径与字面密钥都零命中', () {
+      final hits = <String>[];
+      for (final rel in manuals) {
+        final src = read(rel);
+        for (final l in src.split('\n')) {
+          if (landingPaths.hasMatch(l)) {
+            hits.add('  · $rel 带着某台机器的落地路径：${l.trim()}');
+          }
+          if (literalSecret.hasMatch(l)) {
+            hits.add('  · $rel 有一个像真值的长串：${l.trim()}');
+          }
+          for (final m in secretAssignment.allMatches(l)) {
+            final v = m.group(2)!;
+            final placeholder =
+                v.startsWith('…') ||
+                v.startsWith('<') ||
+                v.startsWith(r'$') ||
+                v.startsWith('[') ||
+                v.contains('占位');
+            if (!placeholder) {
+              hits.add('  · $rel 的 ${m.group(1)} 后面跟着**不是占位符**的值：$v');
+            }
+          }
+        }
+      }
+      expect(
+        hits,
+        isEmpty,
+        reason:
+            '公开手册里出现了不该公开的东西：\n${hits.take(6).join('\n')}\n'
+            '写法约定写在手册开头：路径用 `\$ROOT`／`<…>`，口令用 `…`。',
+      );
+    });
+
+    test('自证 + 占位约定真的在用（防判据恒真、也防"过度脱敏把手册掏空"）', () {
+      expect(
+        landingPaths.hasMatch('/www/wwwroot/notice/protocol/fnthink-v1.json'),
+        isTrue,
+        reason: '落地路径正则失效 ⇒ 上一条恒真',
+      );
+      expect(
+        literalSecret.hasMatch(
+          'ADMIN_TOKEN_HASH=0123456789abcdef0123456789abcdef',
+        ),
+        isTrue,
+        reason: '字面密钥正则失效 ⇒ 上一条恒真',
+      );
+      expect(
+        literalSecret.hasMatch('unauthenticatedPerMinute=5'),
+        isFalse,
+        reason: '配置项名被当成 base64 ⇒ 手册会被假红逼着改写措辞',
+      );
+      expect(
+        secretAssignment.hasMatch('  #   ENCRYPTION_KEY=…'),
+        isTrue,
+        reason: '键名规则失效 ⇒ 真赋值那一类没人看',
+      );
+      // 占位符这一套必须**真的在用**：手册里 `$ROOT` 是替代写法本身，一处都没有就说明被删空了。
+      expect(
+        read(manuals.first).contains(r'$ROOT'),
+        isTrue,
+        reason: '手册里不再有任何 `\$ROOT` ⇒ 要么规则被改，要么整段部署步骤被删',
+      );
+    });
+  });
 }

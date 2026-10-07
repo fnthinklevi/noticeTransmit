@@ -337,7 +337,7 @@ noticeTransmit/
 │   └── README.md · GITHUB_PAGES.md       # 部署文档（中英各一份）
 ├── test/                                # Dart 测试（170 个文件 / 2063 用例）
 ├── integration_test/                    # 设备侧冒烟（5 个文件，含发版闸门）
-├── docs/                                # roadmap.md · server_deploy_and_update_guide.md · cert_rotation_runbook.md
+├── docs/                                # server_deploy_and_update_guide.md · cert_rotation_runbook.md（路线图等内部流水不入库）
 ├── .github/                             # workflows/（CI）与 scripts/（格式、版本一致性、本地发版）
 ├── assets/                              # 图标资源
 ├── pubspec.yaml                         # version: 1.5.76+116

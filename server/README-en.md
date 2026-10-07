@@ -1672,7 +1672,7 @@ Three probes on 2026-10-01, same device, same receiver:
 "First time only" has **nothing to do with the device being new** — it matches
 "whoever sent it inlined CJK the first time, hit GBK, then switched to a file".
 On Windows `curl.exe` receives argv encoded as ANSI/GBK while the server decodes as UTF-8,
-producing replacement characters. (Sending conventions are fixed in the internal handbook,
+producing replacement characters. (Sending conventions are fixed in the deployment guide,
 `docs/server_deploy_and_update_guide.md` §4.1.)
 
 ### Per-candidate conclusions on the device side
