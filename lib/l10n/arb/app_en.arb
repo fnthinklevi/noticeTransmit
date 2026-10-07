@@ -1702,9 +1702,9 @@
   "fnthinkChannelSaved": "Saved",
   "fnthinkChannelNewTitle": "New Fnthink channel",
   "fnthinkChannelSaveFailed": "Not saved: {reason}",
-  "fnthinkPeerForwardToggle": "Use as an Fnthink channel target",
+  "fnthinkPeerForwardToggle": "You → it · may receive what you forward",
   "fnthinkPeerForwardHint": "Check it so notifications this device receives are forwarded to it.",
-  "fnthinkPeerLine": "{peer} · granted {level} · {at}",
+  "fnthinkPeerLine": "{peer} · it → you · granted {level} · {at}",
   "@fnthinkPeerLine": {
     "placeholders": {
       "peer": {

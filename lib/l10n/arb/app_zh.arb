@@ -1723,9 +1723,9 @@
   "fnthinkChannelSaved": "已保存",
   "fnthinkChannelNewTitle": "新建幻念通道",
   "fnthinkChannelSaveFailed": "没存上：{reason}",
-  "fnthinkPeerForwardToggle": "当作幻念通道的目标",
+  "fnthinkPeerForwardToggle": "你 → 它 · 可以收到你这台转发的通知",
   "fnthinkPeerForwardHint": "勾上它，这台设备收到的通知才会往它那边转。",
-  "fnthinkPeerLine": "{peer} · 授到 {level} · {at}",
+  "fnthinkPeerLine": "{peer} · 它 → 你 · 授到 {level} · {at}",
   "@fnthinkPeerLine": {
     "placeholders": {
       "peer": {

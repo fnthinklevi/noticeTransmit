@@ -3575,7 +3575,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get fnthinkPeerForwardToggle => 'Use as an Fnthink channel target';
+  String get fnthinkPeerForwardToggle =>
+      'You → it · may receive what you forward';
 
   @override
   String get fnthinkPeerForwardHint =>
@@ -3583,7 +3584,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkPeerLine(String peer, String level, String at) {
-    return '$peer · granted $level · $at';
+    return '$peer · it → you · granted $level · $at';
   }
 
   @override

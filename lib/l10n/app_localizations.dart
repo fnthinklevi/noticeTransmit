@@ -6389,7 +6389,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerForwardToggle.
   ///
   /// In zh, this message translates to:
-  /// **'当作幻念通道的目标'**
+  /// **'你 → 它 · 可以收到你这台转发的通知'**
   String get fnthinkPeerForwardToggle;
 
   /// No description provided for @fnthinkPeerForwardHint.
@@ -6401,7 +6401,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeerLine.
   ///
   /// In zh, this message translates to:
-  /// **'{peer} · 授到 {level} · {at}'**
+  /// **'{peer} · 它 → 你 · 授到 {level} · {at}'**
   String fnthinkPeerLine(String peer, String level, String at);
 
   /// No description provided for @fnthinkPeersEmpty.

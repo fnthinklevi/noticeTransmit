@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -333,6 +334,24 @@ void main() {
           reason:
               '${entry.key} 里裸 TextButton 实际 ${actual[entry.key] ?? 0} 枚、'
               '台账记 ${entry.value} 枚 ⇒ 换掉一枚就把账改小',
+        );
+      }
+    });
+
+    test('T98 片①：名单那一行必须报两个方向（两句都带方向箭头）', () {
+      // 「两个方向」是这一行的信息契约：它 → 你（授到什么档）／你 → 它（能不能收到你转发的）。
+      // 判据打在**方向箭头**上，不打在某句措辞上：措辞可以改，方向不许消失。
+      final page = codeByPath['lib/pages/fnthink_peers_page.dart']!;
+      expect(page.contains('l10n.fnthinkPeerLine('), isTrue);
+      expect(page.contains('l10n.fnthinkPeerForwardToggle'), isTrue);
+      final arb =
+          jsonDecode(File('$root/lib/l10n/arb/app_zh.arb').readAsStringSync())
+              as Map<String, dynamic>;
+      for (final k in const ['fnthinkPeerLine', 'fnthinkPeerForwardToggle']) {
+        expect(
+          (arb[k] as String).contains('→'),
+          isTrue,
+          reason: '$k 没报方向 —— 用户读不出这句话是谁对谁',
         );
       }
     });

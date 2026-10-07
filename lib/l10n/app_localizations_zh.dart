@@ -3414,14 +3414,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get fnthinkPeerForwardToggle => '当作幻念通道的目标';
+  String get fnthinkPeerForwardToggle => '你 → 它 · 可以收到你这台转发的通知';
 
   @override
   String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';
 
   @override
   String fnthinkPeerLine(String peer, String level, String at) {
-    return '$peer · 授到 $level · $at';
+    return '$peer · 它 → 你 · 授到 $level · $at';
   }
 
   @override
