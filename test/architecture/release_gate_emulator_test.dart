@@ -244,10 +244,11 @@ void main() {
         isTrue,
         reason: '冒烟那一步没有「重定向到文件」⇒ 取退出码的写法被删了，判红回到 tee 上',
       );
+      // run#12 之后状态不再走 shell 变量（每行一个新进程），改成「同一行把 $? 写进状态文件」。
       expect(
-        RegExp(r'smoke_status=\$\?').hasMatch(src),
+        RegExp(r'echo \$\? > test_report/smoke_status\.txt').hasMatch(src),
         isTrue,
-        reason: r'smoke_status 必须来自真实的 $?，不是别处算出来的数',
+        reason: r'冒烟的退出码必须来自真实的 $? 并落进状态文件，不是别处算出来的数',
       );
     });
 
@@ -280,7 +281,7 @@ void main() {
       return out;
     }
 
-    test('CI 脚本必须**每行自包含**（action 按行 `sh -c 一行` 跑，run#11 实证）', () {
+    test('CI 脚本必须每行自包含且**状态走文件**（每行一个新进程，run#11／run#12 实证）', () {
       // run#11 的日志：`/usr/bin/sh -c if [ "$smoke_status" != "0" ] … ; then` 紧跟
       // `sh: 1: Syntax error: end of file unexpected (expecting "fi")` ⇒ 那一行是**单独**喂给 shell 的。
       // 同理 walkthrough 里 `flutter test … \` ＋ 次行 `> walkthrough.log` 的两行写法，
@@ -289,6 +290,24 @@ void main() {
       //   后面的行（run#10：connected 失败后三条 adb 没跑 ⇒ 产物里没有 logcat 三件），
       //   所以取退出码必须与命令**同行**（赋值那步成功 ⇒ 整行 0）。
       final yml = read('.github/workflows/integration_test.yml');
+      // ② **shell 变量不跨行存活**（每行一个新进程）：上一行赋的变量，下一行读到的是空 ⇒
+      //    `[ "" = "0" ]` 恒假 ⇒ **测试全绿也会被判红**（run#12 的注解就是 `smoke= connectedAndroidTest=` 空值）。
+      //    所以状态只能走文件：`cmd > log 2>&1; echo $? > test_report/x_status.txt`，判读用 `$(cat …)`。
+      //    （名字不叫 assign/read —— `read` 会与本 group 的 `read(rel)` 同名，把上面那行遮住。）
+      const envNames = {
+        'GITHUB_STEP_SUMMARY',
+        'GITHUB_OUTPUT',
+        'HOME',
+        'PWD',
+        'PATH',
+        'TMPDIR',
+        'ANDROID_HOME',
+        'FLUTTER_ROOT',
+      };
+      final assignRe = RegExp(r'(?:^|[;&|\s])([A-Za-z_][A-Za-z0-9_]*)=(?!=)');
+      final readRe = RegExp(r'\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?');
+      // ③ 「同一行把 $? 写进状态文件」那一步的形状
+      final statusWriteRe = RegExp(r'echo \$\? > (\S+)');
       for (final blockNo in [1, 2]) {
         final code = ciScriptLines(yml, block: blockNo);
         for (final l in code) {
@@ -303,19 +322,53 @@ void main() {
             fail('第 $blockNo 段有跨行的 { … } 块 ⇒ ${l.trim()}');
           }
         }
-        for (final l in code.where((e) => RegExp(r'=\$\?\s*$').hasMatch(e))) {
-          expect(
-            l,
-            contains('; '),
-            reason: '退出码赋值单独占一行 ⇒ 上一条命令非 0 时那行就中止，x=\$? 永远读不到：${l.trim()}',
-          );
+        // ② 跨行变量：上一行赋的变量在下一行读到的是空（每行一个新进程）
+        final firstAssign = <String, int>{};
+        for (var n = 0; n < code.length; n++) {
+          for (final m in assignRe.allMatches(code[n])) {
+            firstAssign.putIfAbsent(m.group(1)!, () => n);
+          }
+          for (final m in readRe.allMatches(code[n])) {
+            final name = m.group(1)!;
+            if (envNames.contains(name)) continue;
+            final at = firstAssign[name];
+            if (at != null && at < n) {
+              fail(
+                '第 $blockNo 段跨行用变量 $name（赋值在第 ${at + 1} 行、读取在第 ${n + 1} 行）⇒ '
+                '每行是一个新进程，读到的是空 ⇒ 测试全绿也会被 [ "" = "0" ] 判成红 job。'
+                '状态请走文件（echo \$? > test_report/x_status.txt，判读用 \$(cat …)）',
+              );
+            }
+          }
+        }
+        // ③ 状态文件写了就必须有人读 —— 只写不读等于判行在判空（本组栽过两次"提取退化成空集"）。
+        final statusFiles = <String>{};
+        for (final l in code) {
+          for (final m in statusWriteRe.allMatches(l)) {
+            statusFiles.add(m.group(1)!);
+          }
+          // `x=$?` 单独占一行 ⇒ 上一条命令非 0 时那一行根本执行不到（非 0 即中止后面所有行）
+          if (RegExp(r'=\$\?').hasMatch(l) && !l.contains('; ')) {
+            fail('第 $blockNo 段有「单独一行的取码」⇒ \$? 赋值必须与命令同行：${l.trim()}');
+          }
         }
         expect(
-          code.any(
-            (e) => RegExp(r'(smoke|connected|walk)_status=\$\?').hasMatch(e),
-          ),
-          isTrue,
-          reason: '第 $blockNo 段没有同行取码 ⇒ 这条判据在判空集',
+          statusFiles,
+          isNotEmpty,
+          reason: '第 $blockNo 段没有「同行把退出码写进状态文件」这一步 ⇒ 状态传递的形状被删了',
+        );
+        for (final f in statusFiles) {
+          expect(
+            code.any((e) => e.contains('\$(cat $f')),
+            isTrue,
+            reason: '状态文件 $f 写了却没人读 ⇒ job 的成败判定拿的是空气',
+          );
+        }
+        // device-basic 有两条链（smoke + connectedAndroidTest），walkthrough 只有一条
+        expect(
+          statusFiles.length,
+          greaterThanOrEqualTo(blockNo == 1 ? 2 : 1),
+          reason: '第 $blockNo 段的状态文件数少于预期 ⇒ 某条链的取码步骤被删了',
         );
       }
       // 判据自证（两个方向）：跨行形状必须认得出，单行条件块不许误伤
@@ -331,6 +384,34 @@ void main() {
         ).hasMatch(r'[ "$a" != "0" ] && { echo x; } || true'),
         isFalse,
         reason: '单行形状被误判 ⇒ 会把合规写法判红',
+      );
+      // ② 的两个方向：正则必须认得合成样本（否则跨行变量那条判据在判空集），
+      //   且不许把「echo $? > 文件」里的 `?` 当成变量赋值（合规写法被误伤 ⇒ 假红）。
+      expect(
+        assignRe.hasMatch('smoke_status=1') &&
+            readRe.hasMatch(r'[ "$smoke_status" = "0" ]'),
+        isTrue,
+        reason: '赋值／读取的正则有一个不认得合成样本 ⇒ 上面那条跨行变量判据是恒真的',
+      );
+      expect(
+        assignRe
+            .allMatches(
+              'cmd > log 2>&1; echo \$? > test_report/smoke_status.txt',
+            )
+            .length,
+        0,
+        reason: r'「echo $? > 文件」被当成赋值 ⇒ 状态走文件的合规写法会被判红',
+      );
+      // ③ 的提取方向：合成行必须被抽出一个文件名，否则上面那三条 expect 全在判空集
+      expect(
+        statusWriteRe
+            .allMatches(
+              'flutter test x.dart > log 2>&1; echo \$? > test_report/s.txt',
+            )
+            .map((m) => m.group(1))
+            .toList(),
+        ['test_report/s.txt'],
+        reason: r'「echo $? > 文件」抽不出文件名 ⇒ 状态文件判据退化成空集',
       );
     });
 
