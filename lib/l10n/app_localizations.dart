@@ -272,6 +272,18 @@ abstract class AppLocalizations {
   /// **'通知监听服务未启动，点击可启动'**
   String get serviceStopped;
 
+  /// No description provided for @pushPausedShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停'**
+  String get pushPausedShort;
+
+  /// No description provided for @servicePausedWhileListening.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前继续读取设备通知，但暂停推送；点击可恢复'**
+  String get servicePausedWhileListening;
+
   /// No description provided for @running.
   ///
   /// In zh, this message translates to:

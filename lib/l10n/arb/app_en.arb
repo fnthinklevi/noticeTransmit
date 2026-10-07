@@ -35,6 +35,8 @@
   "engineTemperatureEntry": "Temperature Alerts",
   "serviceRunning": "Notification service is running, tap to stop",
   "serviceStopped": "Notification service is stopped, tap to start",
+  "pushPausedShort": "Paused",
+  "servicePausedWhileListening": "Still reading this device's notifications, but pushing is paused. Tap to resume.",
   "running": "Running",
   "stopped": "Stopped",
   "currentChannels": "Push Channels",

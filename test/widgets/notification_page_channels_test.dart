@@ -25,10 +25,12 @@ void main() {
       home: NotificationPage(
         notificationPermissionGranted: true,
         foregroundServiceRunning: running,
+        pushActive: true,
         notificationCount: 3,
         activeChannels: channels,
         onStartService: () {},
         onStopService: () {},
+        onResumePush: () {},
         onRefresh: () async {},
         onOpenHistory: () {},
         onOpenPermissionSettings: () {},

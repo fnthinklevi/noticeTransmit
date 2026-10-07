@@ -21,6 +21,12 @@ class NotificationService {
   bool get serviceRunning => _serviceRunning;
   bool get serviceManuallyStopped => _serviceManuallyStopped;
 
+  /// 推送开关（原生 `push_toggle_state/push_active`）：**与"监听在不在跑"是两件事**。
+  /// 用户可以从常驻通知或桌面小部件把发送单独暂停，此时监听继续、通知照旧记进历史，
+  /// 只是不发 webhook。null = 还没读到/读失败 ⇒ 界面不许猜（见 `homeServiceTone`）。
+  bool? _pushActive;
+  bool? get pushActive => _pushActive;
+
   /// 本次启动从原生带来的「离线期间因缓存已满被丢弃」条数（#94-A）。
   ///
   /// 原生在交付时已把计数清零 ⇒ 它天然只会报一次，不需要"已读"状态。历史页显示后调
@@ -260,6 +266,14 @@ class NotificationService {
           await _channel.invokeMethod('isServiceRunning') as bool? ?? false;
     } catch (e) {
       _serviceRunning = false;
+    }
+    // 推送开关单独读：原生那份状态可以被通知栏/小部件改，而这两处都不往 Dart 推事件
+    //（没有 EventChannel），所以"回前台/下拉刷新时重读一次"就是它唯一的跟上时机。
+    // ⚠ 读失败留 null，不许退化成 true：那一格要说的是"这台此刻到底发不发"。
+    try {
+      _pushActive = await _channel.invokeMethod('isPushActive') as bool?;
+    } catch (e) {
+      _pushActive = null;
     }
   }
 
@@ -735,6 +749,23 @@ class NotificationService {
       return true;
     } catch (e) {
       debugPrint('停止服务失败: $e');
+      return false;
+    }
+  }
+
+  /// 恢复推送（首页那颗圈在"监听开着、推送暂停"那一态下的那一下点击）。
+  ///
+  /// ⚠ 这里**不**碰 `service_manually_stopped`，也不调 start/stopNotificationListener：
+  ///   那一发点的是"把发送打开"，监听此刻本来就开着。把它做成"重启监听"就是替用户
+  ///   多做了一件他没要的事（还会打断正在跑的那一轮）。
+  /// ⚠ 状态取原生回的那一份，不本地假定 true：那一发之后界面说的必须是"现在真的恢复了"。
+  Future<bool> resumePush() async {
+    try {
+      final active = await _channel.invokeMethod('resumePush') as bool?;
+      _pushActive = active;
+      return active ?? false;
+    } catch (e) {
+      debugPrint('恢复推送失败: $e');
       return false;
     }
   }

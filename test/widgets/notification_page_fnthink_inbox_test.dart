@@ -23,9 +23,11 @@ void main() {
       home: NotificationPage(
         notificationPermissionGranted: true,
         foregroundServiceRunning: true,
+        pushActive: true,
         notificationCount: 3,
         onStartService: () {},
         onStopService: () {},
+        onResumePush: () {},
         onRefresh: () async {},
         onOpenHistory: () => historyTaps++,
         onOpenPermissionSettings: () {},

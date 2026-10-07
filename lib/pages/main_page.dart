@@ -113,11 +113,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         notificationPermissionGranted:
             _permissionService.notificationListenerGranted,
         foregroundServiceRunning: _notificationService.serviceRunning,
+        // 暂停推送是原生那一份独立状态（通知栏/小部件改的），这里只做"读回来的那一份"的搬运。
+        pushActive: _notificationService.pushActive,
         notificationCount: _notificationTotalCount,
         activeChannels: _getActiveChannels(),
         smsMonitorEnabled: _smsService.smsMonitorEnabled,
         onStartService: _startForegroundService,
         onStopService: _stopForegroundService,
+        onResumePush: _resumePush,
         onRefresh: _pullToRefreshHome,
         onOpenHistory: _openHistoryPage,
         onOpenChannelStatus: _openChannelStatusPage,
@@ -314,6 +317,14 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
+      // 监听状态与推送开关都存在**原生那一份**里，而这两处都不会往 Dart 推事件
+      //（没有 EventChannel）。用户在通知栏或桌面小部件上按了暂停，回到软件必须重读一次 ——
+      // 否则首页那一格还停在上一轮的绿色上，说的正是"一切照旧"那句假话。
+      unawaited(
+        _notificationService.loadServiceState().then((_) {
+          if (mounted) setState(() {});
+        }),
+      );
       // 回到前台时补偿拉取 Activity 销毁期间丢失的送达结果（修复"一直显示推送中"）
       unawaited(_notificationService.drainPendingDeliveries());
       // 收件未读数也在这里重取：收货循环在后台跑，它落库的那几条不会往 UI 推事件。

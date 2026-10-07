@@ -101,6 +101,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serviceStopped => 'Notification service is stopped, tap to start';
 
   @override
+  String get pushPausedShort => 'Paused';
+
+  @override
+  String get servicePausedWhileListening =>
+      'Still reading this device\'s notifications, but pushing is paused. Tap to resume.';
+
+  @override
   String get running => 'Running';
 
   @override

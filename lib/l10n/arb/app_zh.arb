@@ -35,6 +35,8 @@
   "engineTemperatureEntry": "温度告警",
   "serviceRunning": "通知监听服务正在运行，点击可停止",
   "serviceStopped": "通知监听服务未启动，点击可启动",
+  "pushPausedShort": "已暂停",
+  "servicePausedWhileListening": "当前继续读取设备通知，但暂停推送；点击可恢复",
   "running": "运行中",
   "stopped": "已停止",
   "currentChannels": "当前推送通道",

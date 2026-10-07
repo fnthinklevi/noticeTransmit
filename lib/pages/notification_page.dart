@@ -1,17 +1,26 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../services/home_service_status.dart';
 import '../theme/app_colors.dart';
 import '../widgets/pull_to_refresh_list.dart';
 
 class NotificationPage extends StatelessWidget {
   final bool notificationPermissionGranted;
   final bool foregroundServiceRunning;
+
+  /// 推送开关（原生 `push_active`），null = 没读到。与上面那一个是**两件事**：
+  /// 监听可以开着而发送被用户从通知栏/桌面小部件单独暂停 —— 那种时刻这一格既不是
+  /// "运行中"（说了像一切照旧）也不是"已停止"（监听明明在跑），所以有第三态。
+  final bool? pushActive;
   final int notificationCount;
   final List<Map<String, String>> activeChannels;
   final bool smsMonitorEnabled;
   final VoidCallback onStartService;
   final VoidCallback onStopService;
+
+  /// 暂停态下点那一圈要做的**唯一**一件事：把发送打开（不停监听、不重启监听）。
+  final VoidCallback onResumePush;
   final Future<void> Function() onRefresh;
   final VoidCallback onOpenHistory;
   final VoidCallback onOpenPermissionSettings;
@@ -31,11 +40,13 @@ class NotificationPage extends StatelessWidget {
     super.key,
     required this.notificationPermissionGranted,
     required this.foregroundServiceRunning,
+    required this.pushActive,
     required this.notificationCount,
     this.activeChannels = const [],
     this.smsMonitorEnabled = false,
     required this.onStartService,
     required this.onStopService,
+    required this.onResumePush,
     required this.onRefresh,
     required this.onOpenHistory,
     required this.onOpenPermissionSettings,
@@ -49,6 +60,40 @@ class NotificationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // 三态判定只有一处作者（`homeServiceTone`）：颜色、那句话、点下去做什么，
+    // 三样都必须从同一个结论派生 —— 各判一次就会出现"圈是橙的、点它却停了监听"。
+    final tone = homeServiceTone(
+      listening: foregroundServiceRunning,
+      pushActive: pushActive,
+    );
+    final toneColor = switch (tone) {
+      HomeServiceTone.listening => AppColors.green,
+      HomeServiceTone.paused => AppColors.orange,
+      HomeServiceTone.stopped => AppColors.red,
+    };
+    final toneIcon = switch (tone) {
+      HomeServiceTone.listening => Icons.notifications_active,
+      // 监听在跑、发送被暂停 —— Material 这枚图标画的正是"铃铛在、斜杠拦着"。
+      HomeServiceTone.paused => Icons.notifications_paused,
+      HomeServiceTone.stopped => Icons.notifications_off,
+    };
+    final toneLabel = switch (tone) {
+      HomeServiceTone.listening => l10n.running,
+      HomeServiceTone.paused => l10n.pushPausedShort,
+      HomeServiceTone.stopped => l10n.stopped,
+    };
+    final toneHint = switch (tone) {
+      HomeServiceTone.listening => l10n.serviceRunning,
+      HomeServiceTone.paused => l10n.servicePausedWhileListening,
+      HomeServiceTone.stopped => l10n.serviceStopped,
+    };
+    final toneTap = switch (tone) {
+      // ⚠ 暂停态那一下是"恢复推送"，**不是**"停止监听"：用户此刻要的是把发送打开，
+      //   而监听正在跑。把这两件事混在一起，症状是"我只是想恢复推送，通知却整台不再读了"。
+      HomeServiceTone.paused => onResumePush,
+      HomeServiceTone.listening => onStopService,
+      HomeServiceTone.stopped => onStartService,
+    };
     return Scaffold(
       // 顶栏只留标题。曾经有过三格（T43 `fd4fce7`：设置／推送历史／添加设备），
       // 2026-10-06 维护者判为多此一举并删掉 —— 三格的目标都另有路：设置＝底部「更多」，
@@ -61,7 +106,7 @@ class NotificationPage extends StatelessWidget {
           const SizedBox(height: 40),
           Center(
             child: GestureDetector(
-              onTap: foregroundServiceRunning ? onStopService : onStartService,
+              onTap: toneTap,
               child: Container(
                 // 冒烟测试的稳定锚点：文案不可点、图标在页内不唯一，
                 // 只有这个圆形按钮是真正的服务启停控件。
@@ -70,16 +115,10 @@ class NotificationPage extends StatelessWidget {
                 height: 180,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: foregroundServiceRunning
-                      ? AppColors.green
-                      : AppColors.red,
+                  color: toneColor,
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          (foregroundServiceRunning
-                                  ? AppColors.green
-                                  : AppColors.red)
-                              .withValues(alpha: 0.3),
+                      color: toneColor.withValues(alpha: 0.3),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -88,16 +127,10 @@ class NotificationPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      foregroundServiceRunning
-                          ? Icons.notifications_active
-                          : Icons.notifications_off,
-                      size: 48,
-                      color: Colors.white,
-                    ),
+                    Icon(toneIcon, size: 48, color: Colors.white),
                     const SizedBox(height: 8),
                     Text(
-                      foregroundServiceRunning ? l10n.running : l10n.stopped,
+                      toneLabel,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -112,9 +145,7 @@ class NotificationPage extends StatelessWidget {
           const SizedBox(height: 24),
           Center(
             child: Text(
-              foregroundServiceRunning
-                  ? l10n.serviceRunning
-                  : l10n.serviceStopped,
+              toneHint,
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.secondaryLabel(context),

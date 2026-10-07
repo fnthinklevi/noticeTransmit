@@ -87,6 +87,17 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
+  /// 首页那颗圈在"监听开着、推送暂停"那一态下的那一下点击：**只恢复发送**。
+  ///
+  /// ⚠ 不重读监听状态、不 start/stop 监听：那一发改的是原生 `push_active`，
+  ///   监听此刻本来就开着。成功后按服务回的那一份读数重绘，所以圈从橙变绿
+  ///   说的就是"发送确实打开了"，而不是"我们点了按钮所以假设它打开了"。
+  Future<void> _resumePush() async {
+    await _notificationService.resumePush();
+    if (!mounted) return;
+    setState(() {});
+  }
+
   void _openRuleListPage() async {
     await _pushPage<List<NotificationRule>>(
       RuleListPage(

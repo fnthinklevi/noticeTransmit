@@ -6,6 +6,9 @@ import com.fnthink.notice.DeviceSnapshot
 import com.fnthink.notice.MainActivity
 import com.fnthink.notice.NotificationMonitorService
 import com.fnthink.notice.PrefsHelper
+import com.fnthink.notice.PushToggleActionReceiver
+import com.fnthink.notice.PushToggleManager
+import com.fnthink.notice.PushToggleWidgetProvider
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.launch
@@ -43,6 +46,25 @@ internal class DeviceChannelHandler(activity: MainActivity) : ChannelHandler(act
             }
             "isServiceRunning" -> {
                 result.success(activity.isMonitoringEnabled())
+            }
+            // 首页那一格的第三态（监听开着、推送被用户暂停）。⚠ 先 ensureInit 再读：
+            // 进程可能被短信/来电/开机广播直接唤醒而服务尚未 onCreate —— 未初始化时
+            // isPushActive() 按"推送中"放行，那是**放行发送**的默认值，拿来显示界面
+            // 就会把"这台其实暂停过"读成"没暂停"。读盘是幂等的，付一次 SharedPreferences。
+            "isPushActive" -> {
+                PushToggleManager.ensureInit(activity)
+                result.success(PushToggleManager.isPushActive())
+            }
+            // 首页那颗圈在暂停态下的那一下点击 = 恢复推送（不停监听）。
+            // ⚠ 这里同步写状态再回 success，而不是广播出去让别人做：Dart 拿到返回值就立刻重读，
+            //   走广播会读回旧的 false ⇒ 界面点了没反应，而推送其实已经恢复了。
+            //   刷常驻通知与小部件那两发与桌面小部件的 toggle 走同两条内部口，不自己重绘。
+            "resumePush" -> {
+                PushToggleManager.ensureInit(activity)
+                PushToggleManager.resume(activity)
+                PushToggleActionReceiver.notifyServiceToUpdate(activity)
+                PushToggleWidgetProvider.updateAllWidgets(activity)
+                result.success(PushToggleManager.isPushActive())
             }
             "getDeviceModel" -> {
                 result.success(Build.MODEL)

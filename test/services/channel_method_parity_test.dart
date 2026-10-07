@@ -102,10 +102,14 @@ void main() {
     // T94 片4 新增一发（`fanoutDone`，挂在 `com.fnthink.notice/fanout` 上）：
     // 「收到通知就转」那一轮跑完之后 Dart 交回结果的那一发，与 `roundDone` 同形但**不同一条通道**。
     // 110 → 111 是**有意**改动，不是分支被删。
-    test('原生方法总数 == 111（防止分支被静默删除/新增未登记）', () {
+    // 首页那颗圈的第三态（监听开着、推送被用户从通知栏/桌面小部件暂停）新增两发：
+    // `isPushActive`（读原生那一份 `push_toggle_state/push_active`，Dart 此前完全读不到）
+    // 与 `resumePush`（暂停态下点那一圈 = 恢复推送，**不停监听**）。
+    // 111 → 113 同样是**有意**改动：这两发没有第二个读者，也没有第二个写者。
+    test('原生方法总数 == 113（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        111,
+        113,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -118,7 +122,8 @@ void main() {
       expect(dist, {
         'ConfigChannelHandler': 34,
         'PermissionChannelHandler': 26, // T55：提升/悬浮通知那一族 +3
-        'DeviceChannelHandler': 15,
+        // 首页第三态那两发挂在这一域（读推送开关 + 恢复推送）。15 → 17。
+        'DeviceChannelHandler': 17,
         'FileChannelHandler': 12,
         'StatsChannelHandler': 9,
         'FnthinkChannelHandler': 8,

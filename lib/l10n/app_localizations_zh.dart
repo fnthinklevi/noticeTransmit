@@ -100,6 +100,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get serviceStopped => '通知监听服务未启动，点击可启动';
 
   @override
+  String get pushPausedShort => '已暂停';
+
+  @override
+  String get servicePausedWhileListening => '当前继续读取设备通知，但暂停推送；点击可恢复';
+
+  @override
   String get running => '运行中';
 
   @override
