@@ -30,6 +30,10 @@ class _MemoryStore implements FnthinkChannelStore {
   final List<FnthinkPeer> _targets;
   final List<FnthinkChannel> _rows = [];
 
+  /// 名单那一列勾选（T98 片③ 把它挪进了接口）：这一页的用例不勾，留一条能编译又什么都不做的。
+  @override
+  Future<void> setForward(String peerAddress, bool forwards) async {}
+
   @override
   Future<List<FnthinkChannel>> list() async {
     if (failList) throw StateError('库打不开');

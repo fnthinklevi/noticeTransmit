@@ -338,6 +338,26 @@ void main() {
       }
     });
 
+    test('T98 片③：勾上那一支必须代建通道，且已有就不重复建', () {
+      // 三段链（对方授权／本机勾选／一条目标=它的通道）缺一段就不发，而缺的是哪一段
+      // 界面上看不出来 —— 这一片把'还差一段'变成'替你办了'。判据落在**触发条件**上：
+      // 代建只在 value==true 那一支（取消勾选不连带删，服务层那条判据写着为什么）。
+      final page = codeByPath['lib/pages/fnthink_peers_page.dart']!;
+      expect(
+        page.contains('if (value) await _ensureChannelFor(peer);'),
+        isTrue,
+      );
+      expect(page.contains('if (!exists) {'), isTrue);
+      final svc = codeByPath['lib/services/fnthink_channel_service.dart']!;
+      expect(
+        svc.contains(
+          'Future<void> setForward(String peerAddress, bool forwards);',
+        ),
+        isTrue,
+        reason: 'setForward 必须在接口上 —— 否则这一列勾选在测试里换不了替身',
+      );
+    });
+
     test('T98 片①：名单那一行必须报两个方向（两句都带方向箭头）', () {
       // 「两个方向」是这一行的信息契约：它 → 你（授到什么档）／你 → 它（能不能收到你转发的）。
       // 判据打在**方向箭头**上，不打在某句措辞上：措辞可以改，方向不许消失。

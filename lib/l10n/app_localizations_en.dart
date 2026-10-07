@@ -3579,6 +3579,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'You → it · may receive what you forward';
 
   @override
+  String get fnthinkPeerForwardChannelMade =>
+      'Created a channel to it (all three links are in place now)';
+
+  @override
+  String get fnthinkPeerForwardChannelKept =>
+      'A channel to it already exists; nothing was created';
+
+  @override
   String get fnthinkPeerForwardHint =>
       'Check it so notifications this device receives are forwarded to it.';
 

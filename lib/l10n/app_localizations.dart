@@ -6392,6 +6392,18 @@ abstract class AppLocalizations {
   /// **'你 → 它 · 可以收到你这台转发的通知'**
   String get fnthinkPeerForwardToggle;
 
+  /// No description provided for @fnthinkPeerForwardChannelMade.
+  ///
+  /// In zh, this message translates to:
+  /// **'已替你建了一条通往它的通道（三段现在齐了）'**
+  String get fnthinkPeerForwardChannelMade;
+
+  /// No description provided for @fnthinkPeerForwardChannelKept.
+  ///
+  /// In zh, this message translates to:
+  /// **'通往它的通道已经有一条，没另建'**
+  String get fnthinkPeerForwardChannelKept;
+
   /// No description provided for @fnthinkPeerForwardHint.
   ///
   /// In zh, this message translates to:

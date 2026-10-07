@@ -1703,6 +1703,8 @@
   "fnthinkChannelNewTitle": "New Fnthink channel",
   "fnthinkChannelSaveFailed": "Not saved: {reason}",
   "fnthinkPeerForwardToggle": "You → it · may receive what you forward",
+  "fnthinkPeerForwardChannelMade": "Created a channel to it (all three links are in place now)",
+  "fnthinkPeerForwardChannelKept": "A channel to it already exists; nothing was created",
   "fnthinkPeerForwardHint": "Check it so notifications this device receives are forwarded to it.",
   "fnthinkPeerLine": "{peer} · it → you · granted {level} · {at}",
   "@fnthinkPeerLine": {

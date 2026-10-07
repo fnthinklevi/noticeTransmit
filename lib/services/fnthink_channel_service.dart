@@ -14,6 +14,10 @@ import 'fnthink_channel_mirror.dart';
 abstract class FnthinkChannelStore {
   Future<List<FnthinkChannel>> list();
 
+  /// 名单上那一列勾选（T98 片③：页面要经**接口**说话 —— 具体类不能在测试里换替身，
+  /// 而这一列勾上是会连带建通道的，那一步必须能被钉住）。
+  Future<void> setForward(String peerAddress, bool forwards);
+
   Future<FnthinkChannel> create({
     required String id,
     required String name,
@@ -128,6 +132,7 @@ class FnthinkChannelService implements FnthinkChannelStore {
   ///
   /// 取消勾选**不连带删通道**：那一格要立刻断掉的只是"新通道不能再选它"，
   /// 已经建好的那一条留着并让它在发送时报出"目标未勾选"，比偷偷把用户的配置删掉好。
+  @override
   Future<void> setForward(String peerAddress, bool forwards) async {
     final changed = await (await _db.database).update(
       FnthinkPeer.table,

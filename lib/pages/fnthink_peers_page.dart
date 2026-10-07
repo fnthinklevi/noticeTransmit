@@ -7,6 +7,7 @@ import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
+import '../models/fnthink_channel.dart';
 import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_pair_link.dart';
@@ -29,7 +30,7 @@ class FnthinkPeersDeps {
     required this.contracts,
     required this.coordinator,
     required this.loadPeers,
-    FnthinkChannelService? channels,
+    FnthinkChannelStore? channels,
   }) : channels = channels ?? FnthinkChannelService();
 
   factory FnthinkPeersDeps.fromLocator() => FnthinkPeersDeps(
@@ -44,9 +45,9 @@ class FnthinkPeersDeps {
   final FnthinkReceiveCoordinator coordinator;
   final Future<List<FnthinkPeer>> Function() loadPeers;
 
-  /// 勾选写嗅喂（T94）。不单独引一个服务参数过来：额外依赖多一个还要测试替身的页面，
-  /// 而那一页并不用它——这个参数只是为了让拒绝发送的那几条用例不要同时去碰一个真库。
-  final FnthinkChannelService channels;
+  /// 勾选写嗅喂（T94）＋ 代建通道（T98 片③）。类型是**接口**：这一页今天要读通道、
+  /// 按目标找一条、没有就建一条 —— 三件事都得能在测试里被替身钉住。
+  final FnthinkChannelStore channels;
 }
 
 /// 设备绑定（T94 片1）—— 「我和谁有关系」这一页。
@@ -106,6 +107,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   /// 勾选写不上时的原话（null = 没发生过错）。
   String? _forwardError;
 
+  /// 勾上之后代建通道那一句（T98 片③）：建了还是本来就有 —— 两句不同，不是「成功/失败」。
+  String? _forwardChannelNote;
+
   /// 那条被点开的链接**这一页已经处理过了**。口令是 singleUse 的：
   /// 重放一次不是"再试一次"，而是"把同一枚口令往被人再看一眼的方向推"，所以一次进入只处理一次。
   bool _pairLinkHandled = false;
@@ -148,6 +152,10 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     setState(() => _busy = true);
     try {
       await _deps.channels.setForward(peer.peerAddress, value);
+      // T98 片③：勾上就**代建**一条目标=这台的通道（已有就不动）。三段链 —— 对方授权／
+      // 本机的这一勾／一条目标=它的通道 —— 缺一段就不发，而缺的是哪一段界面上看不出来。
+      // ⚠ 只在**勾上**那一支做：取消勾选不连带删通道（服务层那条判据写着为什么）。
+      if (value) await _ensureChannelFor(peer);
       await _loadPeers();
       if (!mounted) return;
       setState(() => _busy = false);
@@ -161,6 +169,28 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           _forwardError = '$e';
         });
       }
+    }
+  }
+
+  /// 保证「目标=这台」的通道存在（T98 片③）。**已有就不动**：用户可能自己改过它的名字
+  /// 或主备角色，代建的第二条只会在通道列表里多出一行长得一样的行。
+  Future<void> _ensureChannelFor(FnthinkPeer peer) async {
+    final channels = await _deps.channels.list();
+    final exists = channels.any(
+      (c) =>
+          c.targetKind == FnthinkChannelTarget.device &&
+          c.target == peer.peerAddress,
+    );
+    if (!exists) {
+      await _deps.channels.create(
+        id: '${DateTime.now().millisecondsSinceEpoch}-ff',
+        name: peer.peerAddress,
+        target: peer.peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+      );
+    }
+    if (mounted) {
+      setState(() => _forwardChannelNote = exists ? 'kept' : 'made');
     }
   }
 
@@ -356,6 +386,13 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
               FnthinkNote(
                 keyName: 'fnthink-peer-forward-error',
                 text: _forwardError!,
+              ),
+            if (_forwardChannelNote != null)
+              FnthinkNote(
+                keyName: 'fnthink-peer-forward-channel',
+                text: _forwardChannelNote == 'made'
+                    ? l10n.fnthinkPeerForwardChannelMade
+                    : l10n.fnthinkPeerForwardChannelKept,
               ),
             FnthinkNote(
               keyName: 'fnthink-peer-forward-hint',

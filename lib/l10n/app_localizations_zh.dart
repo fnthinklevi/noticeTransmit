@@ -3417,6 +3417,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerForwardToggle => '你 → 它 · 可以收到你这台转发的通知';
 
   @override
+  String get fnthinkPeerForwardChannelMade => '已替你建了一条通往它的通道（三段现在齐了）';
+
+  @override
+  String get fnthinkPeerForwardChannelKept => '通往它的通道已经有一条，没另建';
+
+  @override
   String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';
 
   @override
