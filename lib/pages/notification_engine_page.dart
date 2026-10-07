@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
 import '../services/battery_service.dart';
 import '../services/device_state_service.dart';
+import '../services/fnthink_remote_gate.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
@@ -13,6 +16,7 @@ import 'device_state_page.dart';
 import 'fnthink_peers_page.dart';
 import 'fnthink_channel_list_page.dart';
 import 'fnthink_receive_page.dart';
+import 'fnthink_remote_page.dart';
 import 'temperature_page.dart';
 
 /// 「通知引擎」tab 的骨架页（T15）。
@@ -35,7 +39,13 @@ import 'temperature_page.dart';
 /// 两条入口的目标页都**订阅各自的服务**（T16 立的先例），所以本页不往下传回调：
 /// 传了就会有第三份"父页接线"，而父页 rebuild 根本到不了被 push 出去的子页。
 class NotificationEnginePage extends StatefulWidget {
-  const NotificationEnginePage({super.key, this.peersDeps, this.receiveDeps});
+  const NotificationEnginePage({
+    super.key,
+    this.peersDeps,
+    this.receiveDeps,
+    this.remoteDeps,
+    this.remoteGateOf,
+  });
 
   /// 「已配对的设备」那一行的依赖（T94）。
   ///
@@ -49,6 +59,17 @@ class NotificationEnginePage extends StatefulWidget {
   /// 缺省同样走 `fromLocator()`；测试里传替身。
   final FnthinkReceiveDeps? receiveDeps;
 
+  /// 「远程控制」那一行（T97 片C）：既是它要推的那张页的依赖，也是**前置三选一**的读口。
+  ///
+  /// ⚠ 与上面两个参数不同，这一个**同时决定 hub 那一行灰不灰** —— 前置的判定要在这一页上
+  /// 现算；缺省（null：测试或未接线）时那一行按「还不知道」画（不禁用、中性副标题），
+  /// 见 `_readRemoteGate`。
+  final FnthinkRemoteDeps? remoteDeps;
+
+  /// 只读前置那一下（widget 测试专用：造一整套 `FnthinkRemoteDeps` 要先有契约与协调者，
+  /// 而那两件与本页的判据无关）。缺省 null ⇒ 这一页保持「还不知道」。
+  final Future<FnthinkRemoteGate?> Function()? remoteGateOf;
+
   @override
   State<NotificationEnginePage> createState() => _NotificationEnginePageState();
 }
@@ -58,12 +79,37 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
   final TemperatureService _temperature = GetIt.instance<TemperatureService>();
   final DeviceStateService _deviceState = GetIt.instance<DeviceStateService>();
 
+  /// 远程控制那一行的前置（T97 片C）。null = 还不知道（契约没读到 / 这一页没装配依赖）。
+  FnthinkRemoteGate? _remoteGate;
+
   @override
   void initState() {
     super.initState();
     _battery.addListener(_onServiceChanged);
     _temperature.addListener(_onServiceChanged);
     _deviceState.addListener(_onServiceChanged);
+    unawaited(_readRemoteGate());
+  }
+
+  /// 读前置三选一。**读不到就保持 null（还不知道）**，绝不按「全都没开」画成灰的 ——
+  /// 那会把「还没读到契约」说成「你不能用」。
+  Future<void> _readRemoteGate() async {
+    final read = widget.remoteGateOf;
+    if (read == null) return;
+    final gate = await read();
+    if (!mounted) return;
+    setState(() => _remoteGate = gate);
+  }
+
+  /// 进「远程控制」。回来再读一次前置 —— 开关就在那一页里（凭据与窗口），
+  /// 用户在那边打开之后回到 hub，这一行必须立刻不再是灰的。
+  Future<void> _openRemotePage() async {
+    final deps = widget.remoteDeps ?? FnthinkRemoteDeps.fromLocator();
+    await Navigator.of(context).push(
+      CupertinoPageRoute<void>(builder: (_) => FnthinkRemotePage(deps: deps)),
+    );
+    if (!mounted) return;
+    await _readRemoteGate();
   }
 
   @override
@@ -233,6 +279,21 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             subtitle: l10n.fnthinkHubChannelsDesc,
             page: const FnthinkChannelListPage(),
           ),
+          _divider(),
+          // 第四行：远程控制（T97 片C）。它与上面三行的**画法不同** —— 那一行会灰，
+          // 灰的原因写在副标题里（缺接收 / 缺同意 / 缺自己的开关）。
+          // ⚠ 判定不在这段代码里：`FnthinkRemoteGate` 一个纯函数，两个读者共用一份。
+          FnthinkEntryRow(
+            key: const ValueKey('engine-fnthink-remote'),
+            icon: Icons.settings_remote,
+            iconColor: AppColors.teal,
+            title: l10n.fnthinkRemoteTitle,
+            subtitle: _remoteSubtitle(l10n),
+            onTap:
+                (_remoteGate == null || _remoteGate == FnthinkRemoteGate.ready)
+                ? _openRemotePage
+                : null,
+          ),
         ],
       ),
     );
@@ -313,6 +374,23 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
         context,
       ).push(CupertinoPageRoute<void>(builder: (_) => page)),
     );
+  }
+
+  /// 远程控制那一行的副标题：**缺哪一条就说哪一条**（四条文案一一对应 `FnthinkRemoteGate`）。
+  ///
+  /// `null`（还不知道）走中性那句 —— 与 `.ready` 同一句，因为"还没读到契约"不许被画成"缺东西"。
+  String _remoteSubtitle(AppLocalizations l10n) {
+    switch (_remoteGate) {
+      case FnthinkRemoteGate.receiveOff:
+        return l10n.fnthinkRemoteNeedsReceive;
+      case FnthinkRemoteGate.notConsented:
+        return l10n.fnthinkRemoteNeedsConsent;
+      case FnthinkRemoteGate.switchOff:
+        return l10n.fnthinkRemoteNeedsSwitch;
+      case FnthinkRemoteGate.ready:
+      case null:
+        return l10n.remoteExecShort;
+    }
   }
 
   Widget _divider() {

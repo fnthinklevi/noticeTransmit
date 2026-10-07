@@ -13,6 +13,7 @@ import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_receive_page.dart';
+import 'package:notice_transmit/pages/fnthink_remote_page.dart';
 import 'package:notice_transmit/pages/fnthink_settings_page.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
@@ -330,6 +331,17 @@ void main() {
           healthOf: healthOf,
         ),
       ),
+      // T97 片C：远程执行那一格搬成了独立一页。依赖是同一份替身；
+      // gate 传「还不知道」（null）—— 那一页自己不看 gate（灰不灰在 hub 那一行上），
+      // 这里传它只是为了让状态是确定的。
+      remotePage: FnthinkRemotePage(
+        deps: FnthinkRemoteDeps(
+          contracts: loader,
+          coordinator: coordinator,
+          loadPeers: loadPeersStub,
+          gate: () async => null,
+        ),
+      ),
       page: FnthinkSettingsPage(
         deps: FnthinkSettingsDeps(
           contracts: loader,
@@ -402,6 +414,15 @@ void main() {
     );
     await tester.pumpAndSettle();
     return AppLocalizations.of(tester.element(find.byType(FnthinkReceivePage)));
+  }
+
+  /// 推远程控制页（T97 片C：那一格从接收页搬出来独立成页）。
+  Future<AppLocalizations> pumpRemote(WidgetTester tester, _Harness h) async {
+    await tester.pumpWidget(
+      AppRoot(locale: const Locale('zh'), dark: false, home: h.remotePage),
+    );
+    await tester.pumpAndSettle();
+    return AppLocalizations.of(tester.element(find.byType(FnthinkRemotePage)));
   }
 
   /// 推端点页（T97 片B：那一整格搬成了独立一页）。l10n 仍按各自那张页解一次。
@@ -3400,10 +3421,10 @@ void main() {
     });
   });
 
-  testWidgets('远程执行那一格的「为什么」也收进了问号（两处都改了，不许漏一处）', (tester) async {
+  testWidgets('远程控制页那句「为什么」也收进了问号（T97 片C 之后在它自己的页上）', (tester) async {
     stubChannels();
     final h = harness();
-    final l10n = await pumpReceive(tester, h);
+    final l10n = await pumpRemote(tester, h);
     await tester.pumpAndSettle();
     await revealTo(
       tester,
@@ -3498,6 +3519,7 @@ class _Harness {
     required this.page,
     required this.peersPage,
     required this.receivePage,
+    required this.remotePage,
     required this.coordinator,
     required this.builds,
     required this.armAsked,
@@ -3524,8 +3546,11 @@ class _Harness {
   /// 设备绑定那一张独立页（T94：从幻念推送页里拆出来的那两张卡）。
   final FnthinkPeersPage peersPage;
 
-  /// 接收设置 + 远程执行那张独立页（T94 片2）。
+  /// 接收设置那张独立页（T94 片2；T97 片C 之后它只收接收）。
   final FnthinkReceivePage receivePage;
+
+  /// 「远程控制」独立页（T97 片C：从接收页里搬出来的那一格）。
+  final FnthinkRemotePage remotePage;
   final FnthinkReceiveCoordinator coordinator;
   final int Function() builds;
 

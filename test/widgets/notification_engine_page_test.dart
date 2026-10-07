@@ -17,6 +17,9 @@ import 'package:notice_transmit/services/battery_service.dart';
 import 'package:notice_transmit/services/temperature_service.dart';
 import 'package:notice_transmit/services/device_state_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/services/fnthink_remote_gate.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 
 import '../support/engine_rule_store_fake.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -203,6 +206,66 @@ void main() {
         find.byType(FnthinkPeersPage),
         findsOneWidget,
         reason: '这一格的主题是"我和谁有关系"，而绑定那一页正是它的去处',
+      );
+    });
+
+    // T97 片C：第四行「远程控制」—— 它与会上面三行不同：**会灰，且灰的原因写在副标题里**。
+    testWidgets('远程控制那一行：缺哪一条就说哪一条，并当场点不动', (tester) async {
+      await pumpHome(
+        tester,
+        NotificationEnginePage(
+          remoteGateOf: () async => FnthinkRemoteGate.receiveOff,
+        ),
+      );
+
+      final row = find.byKey(const ValueKey('engine-fnthink-remote'));
+      expect(row, findsOneWidget);
+      expect(
+        find.text('先开「接收」—— 这一页的前提是这台愿意收别人的东西'),
+        findsOneWidget,
+        reason: '灰了不说原因，用户只会以为这一页坏了',
+      );
+      expect(
+        tester.widget<FnthinkEntryRow>(row).onTap,
+        isNull,
+        reason: '前置不满足还能点进去，等于把"能不能用"这件事留到下一屏才说',
+      );
+    });
+
+    testWidgets('前置齐了 ⇒ 那一行可点、副标题回到中性那句', (tester) async {
+      await pumpHome(
+        tester,
+        NotificationEnginePage(
+          remoteGateOf: () async => FnthinkRemoteGate.ready,
+        ),
+      );
+
+      expect(
+        tester
+            .widget<FnthinkEntryRow>(
+              find.byKey(const ValueKey('engine-fnthink-remote')),
+            )
+            .onTap,
+        isNotNull,
+      );
+      // 断在**词条**上，不抄那把字面量（措辞改一次这里就假红）。
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(NotificationEnginePage)),
+      );
+      expect(find.text(l10n.remoteExecShort), findsOneWidget);
+    });
+
+    testWidgets('读不到前置（没装配）⇒ 不禁用、也不说"缺东西"', (tester) async {
+      await pumpHome(tester, const NotificationEnginePage());
+
+      expect(
+        tester
+            .widget<FnthinkEntryRow>(
+              find.byKey(const ValueKey('engine-fnthink-remote')),
+            )
+            .onTap,
+        isNotNull,
+        reason: '「还不知道」不是「不能用」——禁用会把没读到契约说成用户的问题',
       );
     });
   });

@@ -30,6 +30,7 @@ import '../models/email_channel.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
 import 'channel_status_page.dart';
+import 'fnthink_remote_page.dart';
 import 'notification_engine_page.dart';
 import 'more_page.dart';
 import 'history_page.dart';
@@ -68,6 +69,10 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   int _currentIndex = 0;
+
+  /// 幻念远程控制那一页的依赖（T97 片C）。**在 State 上建一次**：hub 那一行的前置
+  /// 与"点进去要推的那张页"用的是同一份 —— 两份就迟早一个读 prefs 一个读另一处。
+  final FnthinkRemoteDeps _fnthinkRemoteDeps = FnthinkRemoteDeps.fromLocator();
   bool _isCheckingUpdate = false;
   bool _isDownloading = false;
   // 首页推送记录总数（统一以 DB 为准，与更多页统计/状态栏统计共用同一数据源）
@@ -138,7 +143,13 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       ),
       // 中间那一格＝通知引擎骨架页（T15）：电量/温度两类设备侧告警的入口。
       // 电量页原先直接挂在这里、由本页逐个包回调，现在它订阅自己的服务并由骨架页 push。
-      const NotificationEnginePage(),
+      // T97 片C：hub 上「远程控制」那一行的前置要在这台机器上现算（接收已开／已过同意门／
+      // 远程执行开关），所以把那一页的依赖（含 gate 读口）交给它 —— 缺省 null 时那一行
+      // 按「还不知道」画，不禁用也不撒谎。
+      NotificationEnginePage(
+        remoteDeps: _fnthinkRemoteDeps,
+        remoteGateOf: _fnthinkRemoteDeps.gate,
+      ),
       MorePage(
         key: ValueKey('more_${_themeService.themeMode.index}'),
         webhookChannels: _webhookService.channels,

@@ -7831,6 +7831,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'远程执行历史只记本机这一份：收到的与发出的都记。凭据与指令正文不进这一层——它们随那条消息的密文正文走，回执与留痕各存自己的那一份。'**
   String get remoteHistoryBoundary;
+
+  /// No description provided for @fnthinkRemoteTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程控制'**
+  String get fnthinkRemoteTitle;
+
+  /// No description provided for @fnthinkRemoteNeedsReceive.
+  ///
+  /// In zh, this message translates to:
+  /// **'先开「接收」—— 这一页的前提是这台愿意收别人的东西'**
+  String get fnthinkRemoteNeedsReceive;
+
+  /// No description provided for @fnthinkRemoteNeedsConsent.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没过同意门 —— 去「接收」那一页读一次说明并同意'**
+  String get fnthinkRemoteNeedsConsent;
+
+  /// No description provided for @fnthinkRemoteNeedsSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程执行默认关 —— 进去把它打开'**
+  String get fnthinkRemoteNeedsSwitch;
 }
 
 class _AppLocalizationsDelegate

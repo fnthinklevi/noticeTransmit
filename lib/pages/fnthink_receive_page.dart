@@ -19,9 +19,6 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
-import 'remote_credential_settings_page.dart';
-import 'remote_history_page.dart';
-import 'remote_send_page.dart';
 
 /// 这一页要碰的四样依赖。
 ///
@@ -379,56 +376,6 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
     await _readPresence();
   }
 
-  Future<void> _openRemoteCredentialSettings() async {
-    await Navigator.of(context).push(
-      CupertinoPageRoute<void>(
-        builder: (_) => const RemoteCredentialSettingsPage(),
-      ),
-    );
-  }
-
-  Future<void> _openRemoteSend() async {
-    final coordinator = _coordinator;
-    await Navigator.of(context).push(
-      CupertinoPageRoute<void>(
-        builder: (_) => RemoteSendPage(
-          // 名单**只**从协调者那条读嗄喂取，不另开一条读库的路 —— 两处各读一次就会有两个排序口径。
-          deps: RemoteSendDeps(
-            loadPeers: _deps.loadPeers,
-            send:
-                ({
-                  required String peer,
-                  required String title,
-                  required String text,
-                }) => coordinator.sendNotice(
-                  peer: peer,
-                  title: title,
-                  text: text,
-                ),
-            contractOf: () async => _deps.contracts.load(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openRemoteHistory() async {
-    final coordinator = _coordinator;
-    final loader = coordinator.loadRemoteExecutions;
-    await Navigator.of(context).push(
-      CupertinoPageRoute<void>(
-        builder: (_) => RemoteHistoryPage(
-          deps: RemoteHistoryDeps(
-            loadRecords: (direction) async => await loader?.call(direction),
-            removeRecord: (id) async =>
-                await coordinator.forgetRemoteExecution?.call(id) ?? false,
-            contractOf: () => _deps.contracts.load(),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -442,9 +389,10 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
           if (error != null)
             FnthinkNote(keyName: 'fnthink-contract-error', text: error)
           else ...[
+            // 远程执行那一格 T97 片C 搬去「远程控制」独立页了 —— 那件事（别人能不能指挥这台）
+            // 与这一页（这台收不收别人的东西）代价不同，混一页会让"我关了接收"被读成
+            // "远程执行也关了"。入口在通知引擎 hub 那一行（带前置三选一）。
             _buildReceiveCard(l10n),
-            const SizedBox(height: 12),
-            _buildRemoteExecCard(l10n),
           ],
         ],
       ),
@@ -595,50 +543,6 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
           key: const ValueKey('fnthink-receive-now'),
           label: l10n.fnthinkReceiveNow,
           onPressed: _enabled && !_busy ? _receiveNow : null,
-        ),
-      ],
-    );
-  }
-
-  /// 远程执行那一格（T94 起搬到这里）。
-  ///
-  /// 它与接收开关是同一件事的两面：**收下**是接收设置，**按收到的去做**是远程执行，
-  /// 而两者都由"对方获没获得授权"决定 —— 拆开摆会让用户在"我明明允许了"与"为什么它没动"之间来回猜。
-  Widget _buildRemoteExecCard(AppLocalizations l10n) {
-    return FnthinkCard(
-      title: l10n.remoteExecSection,
-      children: [
-        HelpNoteRow(
-          noteKey: 'fnthink-remote-exec-why',
-          helpKey: 'fnthink-remote-exec-why-help',
-          text: l10n.remoteExecShort,
-          helpTitle: l10n.remoteExecWhyTitle,
-          // 长文不删：渠道 + 凭据那两个决定因素、以及"默认关、升级不替你打开"都在弹窗里。
-          helpBody: l10n.remoteExecWhy,
-        ),
-        // 三行都是「进一页」⇒ 形状①（§1 定稿），装配点与 hub 那三行同一件。
-        // ⚠ `onTap: null` 是**真语义**（`_busy` 时那一行点不动）：旧写法靠"按钮的
-        // onPressed 传 null 即灰掉"，换件时漏掉它就会在忙的时候还能点进去。
-        FnthinkEntryRow(
-          key: const ValueKey('fnthink-remote-exec-settings'),
-          icon: Icons.tune,
-          iconColor: AppColors.blue,
-          title: l10n.remoteExecOpenSettings,
-          onTap: _busy ? null : _openRemoteCredentialSettings,
-        ),
-        FnthinkEntryRow(
-          key: const ValueKey('fnthink-remote-exec-send'),
-          icon: Icons.send_rounded,
-          iconColor: AppColors.green,
-          title: l10n.remoteExecSendPage,
-          onTap: _busy ? null : _openRemoteSend,
-        ),
-        FnthinkEntryRow(
-          key: const ValueKey('fnthink-remote-exec-history'),
-          icon: Icons.history,
-          iconColor: AppColors.purple,
-          title: l10n.remoteExecHistory,
-          onTap: _busy ? null : _openRemoteHistory,
         ),
       ],
     );

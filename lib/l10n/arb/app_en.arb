@@ -2256,5 +2256,9 @@
   "remoteHistoryCancel": "Cancel this one",
   "remoteHistoryCancelNote": "Cancelling only works before execution starts; one already running is past that window.",
   "remoteHistoryRemoved": "This entry is now gone from this device's history.",
-  "remoteHistoryBoundary": "This history is this device's own record: both received and sent. Credentials and command text never enter it — they ride inside that message's encrypted body, while receipts and audit rows each keep their own copy."
+  "remoteHistoryBoundary": "This history is this device's own record: both received and sent. Credentials and command text never enter it — they ride inside that message's encrypted body, while receipts and audit rows each keep their own copy.",
+  "fnthinkRemoteTitle": "Remote control",
+  "fnthinkRemoteNeedsReceive": "Turn on Receive first - this page assumes this device is willing to receive",
+  "fnthinkRemoteNeedsConsent": "Not consented yet - read the note on the Receive page and agree",
+  "fnthinkRemoteNeedsSwitch": "Remote execution is off by default - open it here"
 }

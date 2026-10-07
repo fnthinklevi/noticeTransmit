@@ -358,16 +358,18 @@ void main() {
       int n(String path, String needle) =>
           needle.allMatches(codeByPath[path]!).length;
 
-      // hub 那三行在 `_entry` 里共用一个调用；接收页那三行是三次直调。
+      // hub 那三行在 `_entry` 里共用一个调用；远程控制页那三行是三次直调
+      // （T97 片C 从接收页搬过去 —— 守卫跟着主语走，不是留在旧文件上收一份假账）。
       expect(
         n('lib/pages/notification_engine_page.dart', 'FnthinkEntryRow('),
         greaterThanOrEqualTo(1),
       );
-      expect(n('lib/pages/fnthink_receive_page.dart', 'FnthinkEntryRow('), 3);
-      // 换件之后这两个文件里不该再留下自己搭的 Material 路由。
+      expect(n('lib/pages/fnthink_remote_page.dart', 'FnthinkEntryRow('), 3);
+      // 换件之后这几个文件里不该再留下自己搭的 Material 路由。
       for (final p in const [
         'lib/pages/notification_engine_page.dart',
         'lib/pages/fnthink_receive_page.dart',
+        'lib/pages/fnthink_remote_page.dart',
       ]) {
         expect(
           n(p, 'MaterialPageRoute'),

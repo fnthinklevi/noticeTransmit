@@ -4491,4 +4491,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get remoteHistoryBoundary =>
       'This history is this device\'s own record: both received and sent. Credentials and command text never enter it — they ride inside that message\'s encrypted body, while receipts and audit rows each keep their own copy.';
+
+  @override
+  String get fnthinkRemoteTitle => 'Remote control';
+
+  @override
+  String get fnthinkRemoteNeedsReceive =>
+      'Turn on Receive first - this page assumes this device is willing to receive';
+
+  @override
+  String get fnthinkRemoteNeedsConsent =>
+      'Not consented yet - read the note on the Receive page and agree';
+
+  @override
+  String get fnthinkRemoteNeedsSwitch =>
+      'Remote execution is off by default - open it here';
 }
