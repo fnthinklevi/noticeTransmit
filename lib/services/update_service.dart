@@ -37,6 +37,10 @@ class UpdateService {
   Future<UpdateServerProbe> probeRegion(UpdateServerRegion region) =>
       AppUpdateManager.instance.probeUpdateServer(region);
 
+  /// 读服务端那条地理回读（T96 片2）。拿不到就回 null ⇒ 调用方回落时延实测。
+  Future<String?> fetchRegionCountry() =>
+      AppUpdateManager.instance.fetchRegionCountry();
+
   Future<void> performAutoCheck() async {
     if (!AppUpdateManager.instance.autoCheck) return;
     final shouldCheck = await AppUpdateManager.instance.shouldCheckNow();

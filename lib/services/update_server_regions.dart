@@ -58,6 +58,21 @@ enum UpdateServerRegion {
   }
 }
 
+/// 国家码 → 档位（T96 片2）。
+///
+/// `CN` ⇒ 大陆档；其它**认得出的**两位码 ⇒ 国际档；空/拿不到 ⇒ `null`（交给调用方回落时延实测）。
+/// ⚠ 「拿不到」与「不是 CN」是两件事：前者不许猜（猜了就替用户做了他没做过的选择），
+///   后者是**读到了的事实**（服务端按来访 IP 判的国家码，我们自己的服务器，不是第三个
+///   GeoIP 服务）。这正是 T96 片1b 那条 fail-closed 的客户端一半：没声明信任 ⇒ 服务端回
+///   `country: null` ⇒ 这里也回 null ⇒ 退回时延那一套。
+UpdateServerRegion? regionForCountryCode(String? raw) {
+  final code = raw?.trim().toUpperCase();
+  if (code == null || code.length != 2) return null;
+  return code == 'CN'
+      ? UpdateServerRegion.mainland
+      : UpdateServerRegion.international;
+}
+
 /// 选择方式。
 ///
 /// 「自动」的含义是**跟着最近一次实测走**，不是"每次检查都重猜"：

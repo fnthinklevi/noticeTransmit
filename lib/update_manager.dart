@@ -632,6 +632,39 @@ class AppUpdateManager {
     return urls;
   }
 
+  /// 读服务端那条地理回读（T96 片2，`GET /api/version/region`）。
+  ///
+  /// **fail-closed**：非 200 / 业务码不是 0 / 没有 `country` 字段 —— 一律回 `null`（=「不知道」）。
+  /// 拿到 null 的调用方要**回落**另一套判据（时延实测），不许拿「没读到」当「读到国际档」：
+  /// 那一下会把一台大陆设备钉在默认那一台上，而界面上看不出它其实是被猜的。
+  ///
+  /// 问的是默认那一档那台（片1b 之后服务端只在部署声明了信任时才回国家码，
+  /// 而两台各自部署、各自声明 —— 问哪台都行，问默认那台少一次可能的跨洋请求）。
+  Future<String?> fetchRegionCountry({
+    UpdateServerRegion region = UpdateServerRegion.defaultRegion,
+    Duration timeout = const Duration(seconds: 4),
+    http.Client? client,
+  }) async {
+    final httpClient = client ?? _updateHttpClient;
+    try {
+      final response = await httpClient
+          .get(Uri.parse('${region.apiBase}/api/version/region'))
+          .timeout(timeout);
+      if (response.statusCode != 200) return null;
+      final data = jsonDecode(
+        utf8.decode(response.bodyBytes, allowMalformed: false),
+      );
+      if (data is! Map || data['code'] != 0) return null;
+      final payload = data['data'];
+      if (payload is! Map) return null;
+      return payload['country']?.toString();
+    } catch (_) {
+      // 连不上 / 超时 / 体不是 JSON —— 全都是「不知道」。这里不记账也不报错：
+      // 这一发只是选档的第一步，失败的自然结果是走第二步（时延实测），而不是让用户看见一条错误。
+      return null;
+    }
+  }
+
   /// 主动探一台更新服务器（T95：打开「更新服务器」那一页时两台各探一次）。
   ///
   /// ⚠ 走**检查更新同一条路**：同一个 http 客户端（`PinnedHttpClient` 那层浏览器 UA 是

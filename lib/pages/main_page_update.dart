@@ -16,6 +16,9 @@ extension _MainPageUpdate on _MainPageState {
       ensureFirstRunRegion(
         probe: _updateService.probeRegion,
         health: getIt<ChannelHealthStore>(),
+        // T96 片2：先问国家码（我们自己的服务器按来访 IP 判、片1b fail-closed），
+        // 拿不到才退回上面那套时延实测。
+        countryOf: _updateService.fetchRegionCountry,
       ),
     );
     final result = await _updateService.checkUpdate(force: false);

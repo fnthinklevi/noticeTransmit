@@ -55,8 +55,21 @@ Future<Map<UpdateServerRegion, UpdateServerProbe>> probeAllAndUpdate({
 Future<void> ensureFirstRunRegion({
   required Future<UpdateServerProbe> Function(UpdateServerRegion region) probe,
   required ChannelHealthStore health,
+
+  /// T96 片2：**先**按国家码那条读口问一次（服务端 `GET /api/version/region`）。
+  /// 不接（null）或读不到（country 为 null）⇒ 退回下面那套时延实测 —— 片1b 那条
+  /// fail-closed 在这条链上的落点：**没读到不等于读到了坏消息，但也不等于读到了好消息**。
+  Future<String?> Function()? countryOf,
 }) async {
   final settings = await UpdateServerSettings.load();
   if (!settings.autoUnprobed) return;
+  final read = countryOf;
+  if (read != null) {
+    final byCountry = regionForCountryCode(await read());
+    if (byCountry != null) {
+      await settings.recordAutoProbe(byCountry);
+      return;
+    }
+  }
   await probeAllAndUpdate(probe: probe, health: health, settings: settings);
 }

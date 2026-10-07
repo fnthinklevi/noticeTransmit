@@ -63,6 +63,48 @@ void main() {
     expect(health.of(kUpdateHealthFamily, 'international'), isNotNull);
   });
 
+  // ── T96 片2：先按国家码（服务端地理回读），拿不到才走上面那套时延实测 ──
+
+  test('读到了国家码 ⇒ 直接按它落档，**时延那一发根本不发**', () async {
+    await ensureFirstRunRegion(
+      health: health,
+      countryOf: () async => 'CN',
+      probe: (region) async {
+        asked.add(region);
+        return reached(region, 1);
+      },
+    );
+    final p = await SharedPreferences.getInstance();
+    expect(p.getString(UpdateServerSettings.keyAutoRegion), 'mainland');
+    expect(asked, isEmpty, reason: '读到了事实还去测时延 ⇒ 慢的那一档可能把国家码顶掉，而它是更弱的判据');
+  });
+
+  test('拿不到国家码（没声明信任 / 不通）⇒ 回落时延实测，且**不猜档**', () async {
+    await ensureFirstRunRegion(
+      health: health,
+      countryOf: () async => null,
+      probe: (region) async {
+        asked.add(region);
+        return reached(
+          region,
+          region == UpdateServerRegion.mainland ? 90 : 800,
+        );
+      },
+    );
+    expect(asked, UpdateServerRegion.ordered, reason: '拿不到就该走第二步');
+    final p = await SharedPreferences.getInstance();
+    expect(p.getString(UpdateServerSettings.keyAutoRegion), 'mainland');
+  });
+
+  test('国家码认得出才落档；空 / 短码都回 null', () {
+    expect(regionForCountryCode('CN'), UpdateServerRegion.mainland);
+    expect(regionForCountryCode('cn'), UpdateServerRegion.mainland);
+    expect(regionForCountryCode('US'), UpdateServerRegion.international);
+    expect(regionForCountryCode(null), isNull);
+    expect(regionForCountryCode(''), isNull);
+    expect(regionForCountryCode('C'), isNull, reason: '长度不对就是没读到');
+  });
+
   test('用户钉过那一台：一次都不许探，更不许改偏好', () async {
     final p = await SharedPreferences.getInstance();
     await p.setString(UpdateServerSettings.keyMode, 'manual');
