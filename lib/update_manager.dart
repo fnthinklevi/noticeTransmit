@@ -337,13 +337,13 @@ class AppUpdateManager {
           }
           _lastError = '服务器返回错误：${data['message'] ?? '未知错误'}';
         }
-        // Cloudflare/CDN 拦截（Bot Fight Mode / WAF）→ 静态端点同域同防护，
-        // 不再尝试必然失败的静态回退，直接给出可操作提示。
+        // Cloudflare/CDN 拦截（Bot Fight Mode / WAF）：同一域别的路径也在同一套
+        // 防护后面，重试与换路径都救不了 ⇒ 直接给出可操作提示。
         if (_isCloudflareBlocked(response.statusCode, response.headers)) {
           _lastError =
               '检查更新被 CDN 拦截（HTTP ${response.statusCode}），'
               '请稍后重试，或访问 GitHub Releases 手动下载最新版';
-          debugPrint('检查更新：被 CDN 拦截，跳过静态回退');
+          debugPrint('检查更新：被 CDN 拦截，直接给出可操作提示');
           await report(
             reachable: false,
             latencyMs: watch.elapsedMilliseconds,
@@ -351,8 +351,8 @@ class AppUpdateManager {
           );
           return null;
         }
-        // 404 等非 200 状态 → 尝试静态模式
-        debugPrint('检查更新：API 返回 ${response.statusCode}，尝试静态 JSON 模式');
+        // 404 等非 200 状态：这一台今天给不出可用的回答，直接收尾。
+        debugPrint('检查更新：API 返回 ${response.statusCode}');
         // 200 但业务码不是 0 也会走到这里：**这一台今天给不了用户可用的回答**，
         // 所以记成不可达（httpCode 仍是 200，界面上说得出"通了但答得不对"）。
         await report(
@@ -360,9 +360,14 @@ class AppUpdateManager {
           latencyMs: watch.elapsedMilliseconds,
           httpCode: response.statusCode,
         );
-        break;
+        // 原来这一发之后还要去拉 `/api/version.json`（所谓“静态回退”），而服务端
+        // **没有那个路由** —— 两台实测都是 Express 自己回的 `Cannot GET /api/version.json`
+        // （维护者 2026-10-07 确认：故意没做）。留着它只多做一件事：让用户白等第二个 15 秒
+        // 超时，然后仍然报同一个 HTTP 码。故此处直接收尾；措辞沿用原先那条（用户看到的没变）。
+        _lastError ??= '服务器响应错误：HTTP ${response.statusCode}';
+        return null;
       } catch (e) {
-        // 网络异常 → 重试一次后仍失败再尝试静态模式
+        // 网络异常 → 重试一次后仍失败就报这一发的原话
         debugPrint('检查更新：API 异常（第 ${attempt + 1} 次）$e');
         if (attempt == 0) {
           await Future<void>.delayed(const Duration(seconds: 2));
@@ -371,113 +376,20 @@ class AppUpdateManager {
         // 两发都没发出去：httpCode 留 null（"没回话"与"回了 500"不是一件事，
         // 用户在界面上要能看出该等一会还是该换一台）。
         await report(reachable: false, latencyMs: watch.elapsedMilliseconds);
-      }
-    }
-
-    // 2. 回退到静态 JSON 模式（GitHub Pages 等静态部署）
-    return _checkUpdateStatic(httpClient);
-  }
-
-  /// 静态 JSON 模式：直接拉取 /api/version.json，客户端做版本比较
-  Future<VersionCheckResult?> _checkUpdateStatic(http.Client client) async {
-    try {
-      final uri = Uri.parse('${_region.apiBase}/api/version.json');
-      final response = await client
-          .get(uri)
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) {
-        if (_isCloudflareBlocked(response.statusCode, response.headers)) {
-          _lastError =
-              '检查更新被 CDN 拦截（HTTP ${response.statusCode}），'
-              '请稍后重试，或访问 GitHub Releases 手动下载最新版';
-        } else {
-          _lastError = '服务器响应错误：HTTP ${response.statusCode}';
-        }
+        // 两发都没发出去：错误原话留给界面（与静态那发抛出来时同一份字符串，
+        // 用户看到的措辞没变）。之前它被静态回退的 catch 覆盖，那条路今天走不通。
+        _lastError ??= e.toString();
         return null;
       }
-
-      // 静态模式那一发同理（T85a）：GitHub Pages 与中间的任意一层都可能把 content-type
-      // 报成 text/plain 或干脆不给 —— 那时 `.body` 按 latin-1 解，changelog 的中文就坏了。
-      final versionData =
-          jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: false))
-              as Map<String, dynamic>;
-      final latestVersion = versionData['latestVersion']?.toString() ?? '0.0.0';
-      final latestBuild =
-          int.tryParse(versionData['latestBuild']?.toString() ?? '0') ?? 0;
-
-      final hasUpdate =
-          _compareVersions(latestVersion, currentVersion) > 0 ||
-          latestBuild > currentBuild;
-
-      final needForce =
-          (versionData['forceUpdate'] == true) &&
-          (_compareVersions(
-                    versionData['forceUpdateVersion']?.toString() ??
-                        latestVersion,
-                    currentVersion,
-                  ) >
-                  0 ||
-              (int.tryParse(
-                        versionData['forceUpdateBuild']?.toString() ?? '0',
-                      ) ??
-                      0) >
-                  currentBuild);
-
-      // 解析 downloads（v1.5.47+） / 兼容旧 downloadUrl
-      final downloads = Map<String, String>.from(
-        versionData['downloads'] as Map? ?? {},
-      );
-      final sha256Map = Map<String, String>.from(
-        (versionData['sha256'] as Map? ?? {}).map(
-          (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
-        ),
-      );
-      final fileSizes = Map<String, int>.from(
-        (versionData['fileSizes'] as Map? ?? {}).map(
-          (k, v) =>
-              MapEntry(k.toString(), int.tryParse(v?.toString() ?? '0') ?? 0),
-        ),
-      );
-      final abiKey = await _getRealAbi();
-      final downloadUrl =
-          downloads[abiKey] ??
-          downloads['all'] ??
-          versionData['downloadUrl']?.toString() ??
-          '';
-      final fileSize = fileSizes[abiKey] ?? fileSizes['all'] ?? 0;
-
-      final result = VersionCheckResult(
-        hasUpdate: hasUpdate,
-        latestVersion: latestVersion,
-        latestBuild: latestBuild,
-        forceUpdate: needForce,
-        changelog: versionData['changelog']?.toString() ?? '',
-        // T61：英文那一份同理。两串都由服务端发下来，**这里不选** ——
-        // 选的那一处是界面（那里才知道软件语言），这一层只搬运。
-        changelogEn: versionData['changelogEn']?.toString() ?? '',
-        downloadUrl: downloadUrl,
-        fileSize: fileSize,
-        minSupportedVersion:
-            versionData['minSupportedVersion']?.toString() ?? '1.0.0',
-        downloads: downloads,
-        sha256: sha256Map,
-      );
-
-      debugPrint('检查更新（静态）：最新版本 ${result.latestVersion}，hasUpdate=$hasUpdate');
-      await _markChecked();
-      return result;
-    } catch (e) {
-      _lastError = e.toString();
-      debugPrint('检查更新（静态）异常：$e');
-      return null;
     }
+    return null;
   }
 
   /// 判断 HTTP 响应是否为 Cloudflare/CDN 拦截（Bot Fight Mode / WAF 等）。
   ///
   /// Cloudflare 拦截特征：状态码 403/429 + 响应头含 `cf-ray`，或
-  /// `server` 头为 cloudflare。命中时静态回退端点（同域同防护）大概率同样被拦，
-  /// 应直接给出可操作提示而非继续尝试。
+  /// `server` 头为 cloudflare。命中时同一域别的路径也在同一套防护后面，
+  /// 重试或换路径都救不了 —— 直接给出可操作提示。
   bool _isCloudflareBlocked(int statusCode, Map<String, String> headers) {
     if (statusCode != 403 && statusCode != 429) return false;
     final lower = headers.map((k, v) => MapEntry(k.toLowerCase(), v));

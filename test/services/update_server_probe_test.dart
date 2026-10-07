@@ -114,6 +114,22 @@ void main() {
       expect(r.probes.single.httpCode, 500);
     });
 
+    // 静态回退（`/api/version.json`）已删：服务端两台都没有那个路由，维护者 2026-10-07 确认
+    // "故意没做"。留着它的唯一效果是让用户白等第二个 15 秒超时后仍然报同一个码 ——
+    // 所以"只发一发"与"错误里带状态码"这两条现在是**行为契约**，钉在这里。
+    test('404 ⇒ 只发一发（不再补第二发去拉不存在的静态端点），错误里带状态码', () async {
+      final r = await runCheck((_) async => http.Response('Cannot GET', 404));
+      expect(r.hosts, hasLength(1), reason: '第二发就是那条走不通的静态回退');
+      expect(r.probes, hasLength(1));
+      expect(r.probes.single.reachable, isFalse);
+      expect(r.probes.single.httpCode, 404);
+      expect(
+        AppUpdateManager.instance.lastError,
+        contains('404'),
+        reason: '原来的措辞原样保留（用户看到的没变），只是不再白等第二发',
+      );
+    });
+
     test('两发都抛异常 ⇒ httpCode 为 null（"没回话"与"回了 500"不是一件事）', () async {
       final r = await runCheck(
         (_) async => throw http.ClientException('dns down'),
