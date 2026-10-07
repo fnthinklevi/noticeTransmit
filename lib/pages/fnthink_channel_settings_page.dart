@@ -1,10 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:fnthink_push/fnthink_push.dart';
+import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_channel.dart';
 import '../models/fnthink_peer.dart';
+import '../services/channel_display.dart';
+import '../services/channel_health_store.dart';
 import '../services/fnthink_channel_service.dart';
+import '../services/fnthink_receive_coordinator.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/ios_input_dialog.dart';
@@ -20,16 +25,58 @@ import '../widgets/ios_option_picker.dart';
 /// - **保存走服务那一处**（[FnthinkChannelService]），校验也只在那里一份：页面再判一遍
 ///   就会出现两个作者，而它们只在其中一侧被改动时才会分叉。
 class FnthinkChannelSettingsPage extends StatefulWidget {
-  const FnthinkChannelSettingsPage({super.key, this.channel, this.service});
+  const FnthinkChannelSettingsPage({
+    super.key,
+    this.channel,
+    this.service,
+    this.probe,
+  });
 
   /// null = 新建。
   final FnthinkChannel? channel;
 
   final FnthinkChannelStore? service;
 
+  /// 「测试这条通道」那两件（#271）。**没接就不画那一枚** ——
+  /// 点了没反应的按钮比没有这一枚更糟（本仓那条老判据）。
+  final FnthinkChannelProbeDeps? probe;
+
   @override
   State<FnthinkChannelSettingsPage> createState() =>
       _FnthinkChannelSettingsPageState();
+}
+
+/// 「测试这条通道」要的两件（#271）：**真发一条**的那一发 ＋ 记账口。
+///
+/// 为什么这两件必须成对：幻念这一族**没有非侵入探针**（`presence` 只答本机醒不醒），
+/// 所以徽标的语义只能是「最近一次测过」。只给发送不给记账 ⇒ 徽标永远「没测过」；
+/// 只给记账不给发送 ⇒ 界面能造出没有发生过的事实。
+class FnthinkChannelProbeDeps {
+  const FnthinkChannelProbeDeps({required this.send, required this.health});
+
+  /// 生产装配点：列表页 push 详情页时构造一次。
+  /// 发送走**既有那一发**（`sendNotice` 的 `requireEnabled: false` 口径）—— 这里不另开
+  /// 一条发消息的路；ok 的判据是 `accepted`，其余档位（含「对面没接」）都算没通。
+  factory FnthinkChannelProbeDeps.fromLocator() => FnthinkChannelProbeDeps(
+    send: ({required peer, required title, required text}) async {
+      final result = await GetIt.instance<FnthinkReceiveCoordinator>()
+          .sendNotice(peer: peer, title: title, text: text);
+      return result.status == FnthinkSendStatus.accepted;
+    },
+    health: GetIt.instance<ChannelHealthStore>(),
+  );
+
+  /// 发一条（ok = 对面收下了这一发）。
+  final Future<bool> Function({
+    required String peer,
+    required String title,
+    required String text,
+  })
+  send;
+
+  /// 记账口（单点）。键写 `(kFnthinkChannelSlug, 通道 id)` —— **不是 host**：
+  /// `(fnthink, host)` 那格是「这台对中转服务器最近一次发出去怎样」，两格不许串。
+  final ChannelHealthStore health;
 }
 
 class _FnthinkChannelSettingsPageState
@@ -48,6 +95,9 @@ class _FnthinkChannelSettingsPageState
 
   /// 保存之后的那一句结论（失败也留原话，不折叠成"保存失败"）。
   String? _note;
+
+  /// 「测试这条通道」那一句结论（同样留原话）。
+  String? _probeNote;
 
   @override
   void initState() {
@@ -146,6 +196,47 @@ class _FnthinkChannelSettingsPageState
     setState(() {
       _role = picked;
       _note = null;
+    });
+  }
+
+  /// 「测试这条通道」（#271）：**会真的往它发一条** —— 这一族没有非侵入探针，
+  /// 界面在按钮旁写了这句话。发完按结果记账：徽标记的是「最近一次测过」。
+  Future<void> _probeChannel() async {
+    final probe = widget.probe;
+    final channel = widget.channel;
+    if (probe == null || channel == null || _busy) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() {
+      _busy = true;
+      _probeNote = null;
+    });
+    final watch = Stopwatch()..start();
+    var ok = false;
+    String? failure;
+    try {
+      ok = await probe.send(
+        peer: channel.target,
+        title: l10n.fnthinkChannelProbeTitle,
+        text: l10n.fnthinkChannelProbeBody,
+      );
+    } catch (e) {
+      failure = '$e';
+    }
+    final ms = watch.elapsedMilliseconds;
+    await probe.health.record(
+      kFnthinkChannelSlug,
+      channel.id,
+      reachable: failure == null && ok,
+      latencyMs: ms,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _probeNote = failure != null
+          ? l10n.fnthinkChannelProbeFail(failure)
+          : (ok
+                ? l10n.fnthinkChannelProbeOk(ms)
+                : l10n.fnthinkChannelProbeRejected);
     });
   }
 
@@ -306,6 +397,26 @@ class _FnthinkChannelSettingsPageState
               child: Text(l10n.fnthinkChannelSave),
             ),
           ),
+          // #271：只有**设备档**能给这一枚 —— webhook 档的发送实现在原生那侧
+          // （NetworkClient），从 Dart 给一枚按钮就是摆一条点了没反应的路。
+          if (widget.probe != null &&
+              widget.channel != null &&
+              _kind == FnthinkChannelTarget.device) ...[
+            FnthinkInlineAction(
+              key: const ValueKey('fnthink-channel-probe'),
+              label: l10n.fnthinkChannelProbe,
+              onPressed: _busy ? null : _probeChannel,
+            ),
+            FnthinkNote(
+              keyName: 'fnthink-channel-probe-why',
+              text: l10n.fnthinkChannelProbeWhy,
+            ),
+            if (_probeNote != null)
+              FnthinkNote(
+                keyName: 'fnthink-channel-probe-note',
+                text: _probeNote!,
+              ),
+          ],
         ],
       ),
     );

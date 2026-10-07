@@ -6362,6 +6362,48 @@ abstract class AppLocalizations {
   /// **'主备'**
   String get fnthinkChannelRole;
 
+  /// No description provided for @fnthinkChannelProbe.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试这条通道'**
+  String get fnthinkChannelProbe;
+
+  /// No description provided for @fnthinkChannelProbeWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'会真的往它发一条（这一族没有不打扰对面的探针），对面会收到。'**
+  String get fnthinkChannelProbeWhy;
+
+  /// No description provided for @fnthinkChannelProbeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道测试'**
+  String get fnthinkChannelProbeTitle;
+
+  /// No description provided for @fnthinkChannelProbeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'这是从对面那台设备的通道设置里发出的一条测试。'**
+  String get fnthinkChannelProbeBody;
+
+  /// No description provided for @fnthinkChannelProbeOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'已发出（{ms} 毫秒）—— 徽标记的就是这一次。'**
+  String fnthinkChannelProbeOk(Object ms);
+
+  /// No description provided for @fnthinkChannelProbeRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'对面没接下这一条（没报错，但状态不是 accepted）。'**
+  String get fnthinkChannelProbeRejected;
+
+  /// No description provided for @fnthinkChannelProbeFail.
+  ///
+  /// In zh, this message translates to:
+  /// **'没发出去：{reason}'**
+  String fnthinkChannelProbeFail(Object reason);
+
   /// No description provided for @fnthinkChannelSave.
   ///
   /// In zh, this message translates to:

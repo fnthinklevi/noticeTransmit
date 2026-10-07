@@ -36,6 +36,7 @@ import 'more_page.dart';
 import 'history_page.dart';
 import 'fnthink_peers_page.dart';
 import 'fnthink_channel_list_page.dart';
+import 'fnthink_channel_settings_page.dart';
 import 'permission_settings_page.dart';
 import 'email_settings_page.dart';
 import 'webhook_channel_list_page.dart';
@@ -73,6 +74,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   /// 幻念远程控制那一页的依赖（T97 片C）。**在 State 上建一次**：hub 那一行的前置
   /// 与"点进去要推的那张页"用的是同一份 —— 两份就迟早一个读 prefs 一个读另一处。
   final FnthinkRemoteDeps _fnthinkRemoteDeps = FnthinkRemoteDeps.fromLocator();
+
+  /// 幻念通道详情页那枚「测试这条通道」要的两件（#271）。同样在 State 上建一次：
+  /// 两个入口（更多页那一格／引擎 hub 那一行）进的是同一张列表页，两份依赖就迟早分叉。
+  final FnthinkChannelProbeDeps _fnthinkChannelProbe =
+      FnthinkChannelProbeDeps.fromLocator();
+
   bool _isCheckingUpdate = false;
   bool _isDownloading = false;
   // 首页推送记录总数（统一以 DB 为准，与更多页统计/状态栏统计共用同一数据源）
@@ -149,6 +156,7 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       NotificationEnginePage(
         remoteDeps: _fnthinkRemoteDeps,
         remoteGateOf: _fnthinkRemoteDeps.gate,
+        channelProbe: _fnthinkChannelProbe,
       ),
       MorePage(
         key: ValueKey('more_${_themeService.themeMode.index}'),

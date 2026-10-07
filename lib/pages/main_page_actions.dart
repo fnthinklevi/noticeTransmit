@@ -361,8 +361,11 @@ extension _MainPageActions on _MainPageState {
 
   /// 「幻念推送通道」那一格（维护者 2026-10-06 定：这一格与组内的 webhook 同义 ——
   /// 点进去是通道列表，设置从列表页右上齿轮进，不在推送分组里再长第二格）。
+  ///
+  /// `probe`（#271）：列表页只是转交，详情页那枚「测试这条通道」靠它 ——
+  /// 依赖在 State 上建一次（`_fnthinkChannelProbe`），与 hub 那一行走的是同一份。
   Future<void> _openFnthinkChannelsPage() async {
-    await _pushPage(const FnthinkChannelListPage());
+    await _pushPage(FnthinkChannelListPage(probe: _fnthinkChannelProbe));
     if (!mounted) return;
     setState(() {});
   }

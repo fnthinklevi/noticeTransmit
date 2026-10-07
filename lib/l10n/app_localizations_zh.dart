@@ -3400,6 +3400,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelRole => '主备';
 
   @override
+  String get fnthinkChannelProbe => '测试这条通道';
+
+  @override
+  String get fnthinkChannelProbeWhy => '会真的往它发一条（这一族没有不打扰对面的探针），对面会收到。';
+
+  @override
+  String get fnthinkChannelProbeTitle => '通道测试';
+
+  @override
+  String get fnthinkChannelProbeBody => '这是从对面那台设备的通道设置里发出的一条测试。';
+
+  @override
+  String fnthinkChannelProbeOk(Object ms) {
+    return '已发出（$ms 毫秒）—— 徽标记的就是这一次。';
+  }
+
+  @override
+  String get fnthinkChannelProbeRejected => '对面没接下这一条（没报错，但状态不是 accepted）。';
+
+  @override
+  String fnthinkChannelProbeFail(Object reason) {
+    return '没发出去：$reason';
+  }
+
+  @override
   String get fnthinkChannelSave => '保存';
 
   @override

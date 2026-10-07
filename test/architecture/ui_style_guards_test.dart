@@ -376,6 +376,63 @@ void main() {
       }
     });
 
+    test('T97 #271：ok 是 accepted，账记在 (fnthink, 通道 id) 上', () {
+      // 两条都是"今天恒为没测过"那个缺陷的另一半：徽标读的是
+      // `ChannelHealthStore.of(kFnthinkChannelSlug, channel.id)`，所以写那一侧一旦换了键
+      // （例如写 host），徽标会永远停在「没测过」——**假绿**，而界面上看不出任何异常。
+      final page = codeByPath['lib/pages/fnthink_channel_settings_page.dart']!;
+      expect(
+        page.contains('return result.status == FnthinkSendStatus.accepted;'),
+        isTrue,
+        reason:
+            'ok 的判据必须是 accepted：其余档位（含"对面没接"）都算没通，'
+            '放宽成"没抛就算通"就是给一条没送到的通道发绿',
+      );
+      expect(
+        RegExp(
+          r'probe\.health\.record\(\s*kFnthinkChannelSlug,\s*channel\.id,',
+        ).hasMatch(page),
+        isTrue,
+        reason: '记账键必须是 (kFnthinkChannelSlug, 通道 id) —— 与列表页徽标读的那一对逐字相同',
+      );
+    });
+
+    test('T97 #271：给列表页的每个装配点都要装 probe', () {
+      // 漏装那一个入口的后果很隐蔽：从它进去详情页就是**没有那一枚**，
+      // 而另一个入口有 —— 用户从哪进决定了他有没有这个功能。
+      const page = 'lib/pages/fnthink_channel_list_page.dart';
+      final sites =
+          codeByPath.entries
+              .where(
+                (e) =>
+                    e.key != page &&
+                    e.value.contains('FnthinkChannelListPage('),
+              )
+              .map((e) => e.key)
+              .toList()
+            ..sort();
+      expect(sites, const <String>[
+        'lib/pages/main_page_actions.dart',
+        'lib/pages/notification_engine_page.dart',
+      ], reason: '装配点变了就要回来改这一格，并给新的那一个装上 probe');
+      for (final p in sites) {
+        expect(
+          RegExp(r'FnthinkChannelListPage\(\s*probe:').hasMatch(codeByPath[p]!),
+          isTrue,
+          reason: '$p 没给 probe ⇒ 从这条路进去详情页没有「测试这条通道」',
+        );
+      }
+      // 依赖只在一处从 locator 装（main_page 的 State 上），两处引用同一份 ——
+      // 各装各的就会一份读 prefs、另一份读到别的（本仓那条老判据）。
+      expect(
+        codeByPath['lib/pages/main_page.dart']!.contains(
+          'FnthinkChannelProbeDeps.fromLocator()',
+        ),
+        isTrue,
+        reason: '生产装配点必须有一处 fromLocator —— 否则那一枚在真机上永远不出现',
+      );
+    });
+
     test('那三页的成段说明：边界句只许走「底部圆点行」那一形状', () {
       // 判据③ 2026-10-07 的分桶结论：remote 三页 37 处 _Note 里，绝大多数是状态原话／
       // 字段标签／弹窗正文（§1 明说不许按'美化'去动），唯一一条成段说明是历史页那句边界；

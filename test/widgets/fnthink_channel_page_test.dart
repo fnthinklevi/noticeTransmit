@@ -5,6 +5,7 @@ import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
 import 'package:notice_transmit/pages/fnthink_channel_settings_page.dart';
+import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
@@ -85,6 +86,38 @@ FnthinkPeer _peer({String address = '8KMNPQRSTVWX999777'}) => FnthinkPeer(
   level: 'L1',
   grantedAt: 1780000111000,
   forwards: true,
+);
+
+/// 「测试这条通道」那一发的替身（#271）：记下每一次发出去的载荷，并让用例决定回什么。
+class _ProbeSpy {
+  final List<({String peer, String title, String text})> sent = [];
+
+  /// 对面收下了没有（生产里这一位是 `status == accepted`）。
+  bool ok = true;
+
+  /// 非空 ⇒ 这一发抛这个（服务/网络层的原话）。
+  Object? boom;
+
+  Future<bool> send({
+    required String peer,
+    required String title,
+    required String text,
+  }) async {
+    sent.add((peer: peer, title: title, text: text));
+    final e = boom;
+    if (e != null) throw e;
+    return ok;
+  }
+}
+
+/// 一条设备档通道（详情页那一枚只对设备档画）。
+FnthinkChannel _deviceChannel({String id = 'fc_9'}) => FnthinkChannel(
+  id: id,
+  name: '给孩子',
+  target: '8KMNPQRSTVWX999777',
+  targetKind: FnthinkChannelTarget.device,
+  createdAt: 1780000000000,
+  updatedAt: 1780000000000,
 );
 
 void main() {
@@ -309,5 +342,216 @@ void main() {
       find.byKey(const ValueKey('fnthink-channel-target')),
     );
     expect(target.onPressed, isNotNull);
+  });
+
+  // ── #271「测试这条通道」：徽标今天恒为「没测过」的那一发 ──────────────────────
+  //
+  // 这一族**没有非侵入探针**（`presence` 只答本机醒不醒），所以徽标能记的只有
+  // 「最近一次测试」—— 也就是说：没有这一枚，列表页那些徽标永远说不出话来。
+
+  testWidgets('那一枚只在三个条件同时成立时才画（接了 probe ＋ 已有通道 ＋ 设备档）', (tester) async {
+    final store = _MemoryStore();
+    final health = ChannelHealthStore();
+    final probe = FnthinkChannelProbeDeps(
+      send: _ProbeSpy().send,
+      health: health,
+    );
+    const probeKey = ValueKey('fnthink-channel-probe');
+
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        key: const ValueKey('page-no-probe'),
+        channel: _deviceChannel(),
+        service: store,
+      ),
+    );
+    expect(
+      find.byKey(probeKey),
+      findsNothing,
+      reason: '没接 probe（测试与别处构造）就不画：点了没反应的按钮比没有这一枚更糟',
+    );
+
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        key: const ValueKey('page-new'),
+        service: store,
+        probe: probe,
+      ),
+    );
+    expect(
+      find.byKey(probeKey),
+      findsNothing,
+      reason: '还没存过的新通道没有 id 可记账 —— 测出来的那一条会挂到一条不存在的通道上',
+    );
+
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        key: const ValueKey('page-webhook'),
+        channel: const FnthinkChannel(
+          id: 'fc_w',
+          name: '钩子',
+          target: 'https://example.com/hook',
+          targetKind: FnthinkChannelTarget.webhook,
+          createdAt: 1780000000000,
+          updatedAt: 1780000000000,
+        ),
+        service: store,
+        probe: probe,
+      ),
+    );
+    expect(
+      find.byKey(probeKey),
+      findsNothing,
+      reason: 'webhook 档的发送实现在原生那侧 ⇒ 这一枚会是一条点了没反应的路',
+    );
+
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        key: const ValueKey('page-device'),
+        channel: _deviceChannel(),
+        service: store,
+        probe: probe,
+      ),
+    );
+    expect(find.byKey(probeKey), findsOneWidget);
+  });
+
+  testWidgets('测一下：发的是这一条通道的目标，账记在 (fnthink, 通道 id) 上', (tester) async {
+    final store = _MemoryStore();
+    final health = ChannelHealthStore();
+    final spy = _ProbeSpy();
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        channel: _deviceChannel(),
+        service: store,
+        probe: FnthinkChannelProbeDeps(send: spy.send, health: health),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-probe')));
+    await tester.pumpAndSettle();
+
+    expect(spy.sent, hasLength(1), reason: '「测试」这一下必须真发一条 —— 这一族没有非侵入探针');
+    expect(
+      spy.sent.single.peer,
+      '8KMNPQRSTVWX999777',
+      reason: '发的是**这一条**通道的目标，不是别的通道、也不是随便哪一台',
+    );
+    expect(spy.sent.single.title, isNotEmpty);
+
+    final h = health.of(kFnthinkChannelSlug, 'fc_9');
+    expect(h, isNotNull, reason: '不记账 ⇒ 列表页那个徽标永远「没测过」，而那正是 #271 要修的东西');
+    expect(h!.reachable, isTrue);
+    expect(
+      find.byKey(const ValueKey('fnthink-channel-probe-note')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('对面没接下（不是 accepted）⇒ 结论是「没接」，账记成不通', (tester) async {
+    final store = _MemoryStore();
+    final health = ChannelHealthStore();
+    final spy = _ProbeSpy()..ok = false;
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        channel: _deviceChannel(),
+        service: store,
+        probe: FnthinkChannelProbeDeps(send: spy.send, health: health),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-probe')));
+    await tester.pumpAndSettle();
+
+    expect(spy.sent, hasLength(1));
+    expect(
+      health.of(kFnthinkChannelSlug, 'fc_9')!.reachable,
+      isFalse,
+      reason: '没报错不等于通了：这一档必须落成"不通"，否则徽标会给一条没送到的通道发绿',
+    );
+    expect(
+      find.byKey(const ValueKey('fnthink-channel-probe-note')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('发的时候抛了 ⇒ 界面上留原话，账同样记成不通', (tester) async {
+    final store = _MemoryStore();
+    final health = ChannelHealthStore();
+    final spy = _ProbeSpy()..boom = StateError('对面关机了');
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        channel: _deviceChannel(),
+        service: store,
+        probe: FnthinkChannelProbeDeps(send: spy.send, health: health),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-probe')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('对面关机了'),
+      findsOneWidget,
+      reason: '把服务/网络层的原话折叠成一句「失败」，用户与我们都不知道被什么挡住',
+    );
+    final h = health.of(kFnthinkChannelSlug, 'fc_9');
+    expect(h, isNotNull, reason: '抛了也要落一条不通 —— 徽标说的是"最近一次试过"，不是"最近一次成功"');
+    expect(h!.reachable, isFalse);
+  });
+
+  testWidgets('列表页 → 测一条 → 回来徽标就带上了这一次（写键与读键是同一个）', (tester) async {
+    final store = _MemoryStore();
+    await store.create(
+      id: 'fc_1',
+      name: '给孩子',
+      target: '8KMNPQRSTVWX999777',
+      targetKind: FnthinkChannelTarget.device,
+    );
+    final health = ChannelHealthStore();
+    final spy = _ProbeSpy();
+    await pump(
+      tester,
+      FnthinkChannelListPage(
+        service: store,
+        health: health,
+        probe: FnthinkChannelProbeDeps(send: spy.send, health: health),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-row-fc_1')));
+    await tester.pumpAndSettle();
+    expect(find.byType(FnthinkChannelSettingsPage), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-probe')));
+    await tester.pumpAndSettle();
+    // 这一页是 Material 路由：`pageBack()` 只认 Cupertino 背键／英文 tooltip，
+    // 中文下必失败（`bootstrap_order_test` 里那条守卫写的就是这件事）⇒ 按 BackButton 点。
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FnthinkChannelSettingsPage),
+        matching: find.byType(BackButton),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final badge = tester.widget<ChannelHealthBadge>(
+      find.descendant(
+        of: find.byKey(const ValueKey('fnthink-channel-row-fc_1')),
+        matching: find.byType(ChannelHealthBadge),
+      ),
+    );
+    expect(
+      badge.health,
+      isNotNull,
+      reason: '测完回来徽标还是「没测过」⇒ 写键与读键不是同一个（#271 的原形）',
+    );
+    expect(badge.health!.reachable, isTrue);
   });
 }

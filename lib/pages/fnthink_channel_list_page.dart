@@ -33,11 +33,20 @@ import 'fnthink_settings_page.dart';
 /// `_rows == null` 与 `_rows.isEmpty` 分开：读不到和真的没有，是两句不同的话
 /// （画成「还没有通道」时，界面就在替库说它没说过的事）。
 class FnthinkChannelListPage extends StatefulWidget {
-  const FnthinkChannelListPage({super.key, this.service, this.health});
+  const FnthinkChannelListPage({
+    super.key,
+    this.service,
+    this.health,
+    this.probe,
+  });
 
   final FnthinkChannelStore? service;
 
   final ChannelHealthStore? health;
+
+  /// 详情页那枚「测试这条通道」要的两件（#271）。这一页只**转交**，不用它：
+  /// 没接（测试／别处构造）时详情页就不画那一枚 —— 点了没反应的按钮比没有更糟。
+  final FnthinkChannelProbeDeps? probe;
 
   @override
   State<FnthinkChannelListPage> createState() => _FnthinkChannelListPageState();
@@ -96,6 +105,7 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
         builder: (_) => FnthinkChannelSettingsPage(
           channel: channel,
           service: widget.service,
+          probe: widget.probe,
         ),
       ),
     );

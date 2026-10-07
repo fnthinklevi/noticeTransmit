@@ -15,6 +15,7 @@ import 'battery_page.dart';
 import 'device_state_page.dart';
 import 'fnthink_peers_page.dart';
 import 'fnthink_channel_list_page.dart';
+import 'fnthink_channel_settings_page.dart';
 import 'fnthink_receive_page.dart';
 import 'fnthink_remote_page.dart';
 import 'temperature_page.dart';
@@ -45,6 +46,7 @@ class NotificationEnginePage extends StatefulWidget {
     this.receiveDeps,
     this.remoteDeps,
     this.remoteGateOf,
+    this.channelProbe,
   });
 
   /// 「已配对的设备」那一行的依赖（T94）。
@@ -69,6 +71,14 @@ class NotificationEnginePage extends StatefulWidget {
   /// 只读前置那一下（widget 测试专用：造一整套 `FnthinkRemoteDeps` 要先有契约与协调者，
   /// 而那两件与本页的判据无关）。缺省 null ⇒ 这一页保持「还不知道」。
   final Future<FnthinkRemoteGate?> Function()? remoteGateOf;
+
+  /// 「通道」那一行推的列表页里，详情页那枚「测试这条通道」要的两件（#271）。
+  ///
+  /// ⚠ 这里**不写 `?? fromLocator()`**：`FnthinkRemoteDeps` 那条能那么写是因为它在
+  ///   「点进去」那一刻才求值，而这一份是 `page:` 参数，**在 build 里就要求值** ——
+  ///   于是每个 pump 这一页的用例都得先注册 GetIt 单例（而它与本页判据无关），
+  ///   本文件那十条用例实测就是这么红的。缺省 null ⇒ 从这条路进去没有那一枚。
+  final FnthinkChannelProbeDeps? channelProbe;
 
   @override
   State<NotificationEnginePage> createState() => _NotificationEnginePageState();
@@ -277,7 +287,9 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             iconColor: AppColors.purple,
             title: l10n.fnthinkChannelTitle,
             subtitle: l10n.fnthinkHubChannelsDesc,
-            page: const FnthinkChannelListPage(),
+            // `probe`（#271）从这里也要给到：这一格是「幻念推送 → 通道」的第二个入口，
+            // 两个入口进的是同一页，只给一个装、另一个不装的话，用户从哪进决定了他有没有那一枚。
+            page: FnthinkChannelListPage(probe: widget.channelProbe),
           ),
           _divider(),
           // 第四行：远程控制（T97 片C）。它与上面三行的**画法不同** —— 那一行会灰，

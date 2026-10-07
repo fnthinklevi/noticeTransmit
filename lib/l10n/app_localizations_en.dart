@@ -3561,6 +3561,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkChannelRole => 'Primary or backup';
 
   @override
+  String get fnthinkChannelProbe => 'Test this channel';
+
+  @override
+  String get fnthinkChannelProbeWhy =>
+      'This really sends one to it (the family has no non-intrusive probe); the other side will receive it.';
+
+  @override
+  String get fnthinkChannelProbeTitle => 'Channel test';
+
+  @override
+  String get fnthinkChannelProbeBody =>
+      'A test sent from the channel settings on the other device.';
+
+  @override
+  String fnthinkChannelProbeOk(Object ms) {
+    return 'Sent ($ms ms) - this is what the badge records.';
+  }
+
+  @override
+  String get fnthinkChannelProbeRejected =>
+      'The other side did not accept it (no error, but the status is not accepted).';
+
+  @override
+  String fnthinkChannelProbeFail(Object reason) {
+    return 'Not sent: $reason';
+  }
+
+  @override
   String get fnthinkChannelSave => 'Save';
 
   @override
