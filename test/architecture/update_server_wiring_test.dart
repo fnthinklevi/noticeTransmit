@@ -54,11 +54,11 @@ void main() {
   });
 
   test('幻念推送「切换服务」那一格的探测与记账两个口都给了默认值', () {
-    final page = src('lib/pages/fnthink_push_page.dart');
+    final page = src('lib/pages/fnthink_settings_page.dart');
     final block = blockFrom(
       page,
-      'factory FnthinkPushDeps.fromLocator()',
-      'FnthinkPushDeps.fromLocator',
+      'factory FnthinkSettingsDeps.fromLocator()',
+      'FnthinkSettingsDeps.fromLocator',
     );
     expect(
       block,
@@ -85,7 +85,7 @@ void main() {
   test('更新服务器那一页不自己判 reachable，交出现有的三态判定', () {
     // 三态判定只有 `channelHealthState` 一枚（`channel_health_badge` 的类注释把这条写死了）。
     // 幻念那侧的选项文案也一样：页面自己 `h.reachable ? ... : ...` 就是第二份口径。
-    final page = src('lib/pages/fnthink_push_page.dart');
+    final page = src('lib/pages/fnthink_settings_page.dart');
     expect(
       page,
       contains('channelHealthState(health)'),

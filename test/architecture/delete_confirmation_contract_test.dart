@@ -60,7 +60,7 @@ void main() {
       'Future<void> _answer(',
       'Future<void> _revoke(',
     ],
-    'lib/pages/fnthink_push_page.dart': ['Future<void> _resetAddressCode('],
+    'lib/pages/fnthink_settings_page.dart': ['Future<void> _resetAddressCode('],
     // ⚠ T97 片B：那两下随「接入端点」独立成页走，名单跟着主语迁。
     //   留在旧文件名下就成了"那里还有一道确认闸"的假账 —— 那两个方法在新页里，
     //   旧页只剩一行入口，点下去连网络都不碰。
@@ -172,7 +172,7 @@ void main() {
           '_coordinator.confirmPairing(',
           '_coordinator.revokePeer(',
         ],
-        'lib/pages/fnthink_push_page.dart': ['credentials.resetAddressCode('],
+        'lib/pages/fnthink_settings_page.dart': ['credentials.resetAddressCode('],
         // T97 片B：那两句随端点那一页走（名单跟着主语迁，旧文件名下留一条就是假账）。
         'lib/pages/fnthink_endpoint_page.dart': [
           '_coordinator.revokeEndpoint(',

@@ -95,7 +95,7 @@ void main() {
     );
 
     test('收货循环的启动点不许只有页面（T33 第一片）', () {
-      // 这一条存在的理由是一段已经上线的行为：`startIfEnabled()` 全仓只有 `fnthink_push_page`
+      // 这一条存在的理由是一段已经上线的行为：`startIfEnabled()` 全仓只有 `fnthink_settings_page`
       // 那两处调用 —— 于是"总开关开着"只在用户**停留在那一页时**成立，退回首页、切 tab、
       // 把 App 划进后台（进程还活着）都不再取货。用户翻开关时读到的承诺是"这台设备会去收"。
       // 这类漏接在任何功能测试里都不会红（页面测试总是自己点开关），只能靠装配点钉。
@@ -354,7 +354,7 @@ void main() {
       );
       // 替身循环也得接：测试里那张假循环不接 `spec.onRound` 时，"这一格自己出现"那条
       // 会红在装配上而不是红在产品代码上 —— 但那正是它该有的行为，所以这里也钉一次。
-      final pageTest = read('test/widgets/fnthink_push_page_test.dart');
+      final pageTest = read('test/widgets/fnthink_settings_page_test.dart');
       expect(
         pageTest,
         contains('onRound: spec.onRound'),
@@ -527,7 +527,7 @@ void main() {
       //   这条断言必须两张都断：只断其中一张，另一张里的口令可以无宱地落盘。
       // ⚠ T97 片B：端点那一格又独立成页，尺要跟着宽一格 —— 这三张页才是"口令可能落盘"的全部现场。
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart') +
+        librarySource(root, 'lib/pages/fnthink_settings_page.dart') +
             librarySource(root, 'lib/pages/fnthink_peers_page.dart') +
             librarySource(root, 'lib/pages/fnthink_endpoint_page.dart'),
       );

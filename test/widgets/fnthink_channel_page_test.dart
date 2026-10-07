@@ -200,7 +200,7 @@ void main() {
       isNotNull,
       reason: '画一枚点了没反应的齿轮，比不画更坏（这一族自己的判据）',
     );
-    // 真跳转的那一页要读契约与 DI，由 `fnthink_push_page_test.dart` 那批用例负责；
+    // 真跳转的那一页要读契约与 DI，由 `fnthink_settings_page_test.dart` 那批用例负责；
     // 这里只钉"这一格在、且接得上"，不去替那一页构造世界。
   });
 

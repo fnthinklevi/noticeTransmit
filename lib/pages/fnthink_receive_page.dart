@@ -24,7 +24,7 @@ import 'remote_send_page.dart';
 
 /// 这一页要碰的四样依赖。
 ///
-/// 与 `FnthinkPushDeps` 分开而不是复用它：那一包还带身份与端点（那是「这台设备是谁」，
+/// 与 `FnthinkSettingsDeps` 分开而不是复用它：那一包还带身份与端点（那是「这台设备是谁」，
 /// 留在幻念推送页），而这一页只管「别人对本机做什么」—— 收不收、间隔多少、谁来指挥。
 class FnthinkReceiveDeps {
   FnthinkReceiveDeps({

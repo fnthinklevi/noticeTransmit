@@ -41,7 +41,7 @@ class IosFormDialog extends StatelessWidget {
   ///   所以那颗在没填全时必须是灰的 —— 判据留在调用方，这里只管画成灰的。
   final bool submitEnabled;
 
-  /// 提交那颗的 key。⚠ **不是装饰**：发版闸门与 `fnthink_push_page_test` 的六条用例都是
+  /// 提交那颗的 key。⚠ **不是装饰**：发版闸门与 `fnthink_settings_page_test` 的六条用例都是
   ///   按 `fnthink-send-submit` / `fnthink-pair-peer-submit` 这两枚 key 找到那颗钮的
   ///   （闸门还要读它的 `onPressed` 判「空正文不许能发」）—— 而壳外面挂不了 key，
   ///   所以这个口子是这两处真实需求逼出来的。

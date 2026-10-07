@@ -13,7 +13,7 @@ import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_receive_page.dart';
-import 'package:notice_transmit/pages/fnthink_push_page.dart';
+import 'package:notice_transmit/pages/fnthink_settings_page.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
 import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
@@ -329,8 +329,8 @@ void main() {
           healthOf: healthOf,
         ),
       ),
-      page: FnthinkPushPage(
-        deps: FnthinkPushDeps(
+      page: FnthinkSettingsPage(
+        deps: FnthinkSettingsDeps(
           contracts: loader,
           coordinator: coordinator,
           identity: FnthinkIdentityService(),
@@ -425,7 +425,7 @@ void main() {
       AppRoot(locale: const Locale('zh'), dark: false, home: page),
     );
     await tester.pumpAndSettle();
-    return AppLocalizations.of(tester.element(find.byType(FnthinkPushPage)));
+    return AppLocalizations.of(tester.element(find.byType(FnthinkSettingsPage)));
   }
 
   group('看一眼不该发生的事', () {
@@ -3531,7 +3531,7 @@ class _Harness {
     required this.removed,
   });
 
-  final FnthinkPushPage page;
+  final FnthinkSettingsPage page;
 
   /// 接入端点那一张独立页（T97 片B：从这张混合页里搬出去的那一整格）。
   final FnthinkEndpointPage endpointPage;

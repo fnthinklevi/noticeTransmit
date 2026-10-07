@@ -404,7 +404,7 @@ void main() {
         //   submitEnabled / submitKey 两个口子，判据仍留各页）。
         'lib/widgets/fnthink_pair_dialog.dart': ['IosFormDialog('],
         'lib/widgets/fnthink_send_dialog.dart': ['IosFormDialog('],
-        'lib/pages/fnthink_push_page.dart': ['showIosInputDialog('],
+        'lib/pages/fnthink_settings_page.dart': ['showIosInputDialog('],
         'lib/widgets/rule_template_sheet.dart': ['showIosInputDialog('],
         // 片11：这两处原本是**逐字相同的两份**同一个权限引导框（连"允许"那颗
         // 请求的原生方法名都一样）⇒ 重复的代价不是行数，是两处以后各改各的。
@@ -544,7 +544,7 @@ void main() {
         'test/widgets/permission_settings_page_test.dart',
         'test/widgets/sms_monitor_settings_page_test.dart',
         'test/widgets/widget_guide_page_test.dart',
-        'test/widgets/fnthink_push_page_test.dart',
+        'test/widgets/fnthink_settings_page_test.dart',
         'test/widgets/rule_edit_page_test.dart',
         'test/widgets/history_page_all_tab_test.dart',
         'test/widgets/history_page_backup_chip_test.dart',
@@ -677,7 +677,7 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/pages/webhook_settings_page.dart': 1,
   'lib/pages/widget_guide_page.dart': 3,
   // T97 片B：幻念那两页的「复制」各写一份 `_copy` ⇒ 搬一张页就多一处轻提示。
-  // 收成 `fnthinkCopyNotice` 一处之后，这一格是从 `fnthink_push_page` 那**同一枚**搬来的，
+  // 收成 `fnthinkCopyNotice` 一处之后，这一格是从 `fnthink_settings_page` 那**同一枚**搬来的，
   // 总数没变；而换法定下来那天（SnackBar 在 Cupertino 下没有对应件）只有一处要改。
   'lib/widgets/fnthink_card.dart': 1,
   'lib/widgets/icon_picker_tile.dart': 1,

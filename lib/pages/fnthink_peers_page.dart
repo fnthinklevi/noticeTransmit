@@ -20,7 +20,7 @@ import '../widgets/ios_dialog_actions.dart';
 
 /// 这一页要碰的三样依赖。
 ///
-/// 与 `FnthinkPushDeps` 分开而不是复用它：那一包还带 presence 与健康度读口，
+/// 与 `FnthinkSettingsDeps` 分开而不是复用它：那一包还带 presence 与健康度读口，
 /// 而设备绑定这一页一个都用不到（留着就是"这一页其实能读那些、只是没读"，
 /// 而那种多余的能力正是将来被人顺手用上的那一半）。
 class FnthinkPeersDeps {

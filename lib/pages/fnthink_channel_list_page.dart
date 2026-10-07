@@ -14,7 +14,7 @@ import '../widgets/channel_visuals.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/pull_to_refresh_list.dart';
 import 'fnthink_channel_settings_page.dart';
-import 'fnthink_push_page.dart';
+import 'fnthink_settings_page.dart';
 
 /// 幻念通道**列表页** —— 与 webhook／自建应用／邮件三族同一形状（维护者 2026-10-06 定：
 /// 「更多」页推送通道分组里这一格要和组内的 webhook 一致，点进来就是通道列表，
@@ -110,7 +110,7 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
   Future<void> _openSettings() async {
     await Navigator.of(
       context,
-    ).push(CupertinoPageRoute<void>(builder: (_) => const FnthinkPushPage()));
+    ).push(CupertinoPageRoute<void>(builder: (_) => const FnthinkSettingsPage()));
     if (!mounted) return;
     await _reload();
   }

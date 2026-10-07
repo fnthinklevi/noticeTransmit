@@ -328,7 +328,7 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   /// T33 第一片：收货循环的启动点**不能只有页面**。
   ///
-  /// 在这一行之前，全仓只有 `fnthink_push_page` 那两处调 `startIfEnabled()` ——
+  /// 在这一行之前，全仓只有 `fnthink_settings_page` 那两处调 `startIfEnabled()` ——
   /// 于是"总开关开着"这件事只在用户停留在幻念推送页时成立：他退回首页、切到别的 tab、
   /// 或直接把 App 划进后台（进程还活着），服务器那头的消息就不再有人来取。
   /// 用户翻那个开关时看到的说明是"这台设备会去收"，不是"停在这一页时才会收"。

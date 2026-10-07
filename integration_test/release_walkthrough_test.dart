@@ -27,7 +27,7 @@ import 'package:notice_transmit/pages/email_settings_page.dart';
 import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
-import 'package:notice_transmit/pages/fnthink_push_page.dart';
+import 'package:notice_transmit/pages/fnthink_settings_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/pages/keywords_page.dart';
 import 'package:notice_transmit/pages/more_page.dart';
@@ -1838,13 +1838,13 @@ void main() {
         await _openFnthinkHub(tester);
 
         final inPage = find.descendant(
-          of: find.byType(FnthinkPushPage),
+          of: find.byType(FnthinkSettingsPage),
           matching: find.byType(Text),
         );
         // ⚠ 先滚到那一格再收文字：本页是 ListView（懒加载），端点格在视口外时**根本没被 build**，
         // 于是"页面里找不到那句话"既可能是文案改了，也可能是它还没出生 —— 第一次红就是这么来的。
         final endpointCard = find.descendant(
-          of: find.byType(FnthinkPushPage),
+          of: find.byType(FnthinkSettingsPage),
           matching: find.text('接入端点（给 NAS / 脚本用）'),
         );
         await _scrollUntil(tester, endpointCard);
@@ -3056,8 +3056,8 @@ Future<void> _openMoreRow(WidgetTester t, String label) async {
   await _settle(t);
 }
 
-/// 幻念推送的**设置页**（`FnthinkPushPage`）在设备上的真实路径，两跳：
-/// 更多页「幻念推送通道」→ 通道列表页 → 右上角那枚设置图标 → `FnthinkPushPage`。
+/// 幻念推送的**设置页**（`FnthinkSettingsPage`）在设备上的真实路径，两跳：
+/// 更多页「幻念推送通道」→ 通道列表页 → 右上角那枚设置图标 → `FnthinkSettingsPage`。
 ///
 /// 为什么不是一跳：维护者 2026-10-06 把更多页那一格改成了与同组三格同义的
 /// 「通道列表」（`l10n.fnthinkPushChannel`），设置搬进列表页右上角
@@ -3074,7 +3074,7 @@ Future<void> _openFnthinkHub(WidgetTester t) async {
     find.byKey(const ValueKey('fnthink-channel-settings')),
     '幻念通道列表→推送与接收的设置',
   );
-  await _onPage(t, FnthinkPushPage, '幻念推送页（设置那一跳之后）');
+  await _onPage(t, FnthinkSettingsPage, '幻念推送页（设置那一跳之后）');
 }
 
 /// 「通知引擎」tab 里的入口（T15 骨架页：电量告警 / 温度告警）。

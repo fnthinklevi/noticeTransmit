@@ -38,7 +38,7 @@ String fnthinkFormatTime(int ms) {
   return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
 }
 
-/// 幻念那几页共用的四个小片段（T94 片1 从 `fnthink_push_page.dart` 抽出来的）。
+/// 幻念那几页共用的四个小片段（T94 片1 从 `fnthink_settings_page.dart` 抽出来的）。
 ///
 /// 为什么要抽成公共件：幻念推送分两块之后（推送引擎那侧收渠道·绑定·发起·接收·远程，
 /// 更多页那处只留渠道信息），「一张卡 + 几行原话」这个版式被两个页面同时用 ——

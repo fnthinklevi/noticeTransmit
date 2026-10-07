@@ -32,8 +32,8 @@ import '../widgets/ios_option_picker.dart';
 /// 为什么不直接散着 `GetIt.instance<X>()` 取：这一页要同时碰契约、开关、凭证、身份、
 /// 启停五件事，测试里必须能把它们一起换成替身（否则"点开关 ⇒ 写 prefs ⇒ 起循环 ⇒ 起不来就
 /// 把原话显示出来"这条只能靠真机回答）。
-class FnthinkPushDeps {
-  FnthinkPushDeps({
+class FnthinkSettingsDeps {
+  FnthinkSettingsDeps({
     required this.contracts,
     required this.coordinator,
     required this.identity,
@@ -43,7 +43,7 @@ class FnthinkPushDeps {
     this.recordHealth,
   });
 
-  factory FnthinkPushDeps.fromLocator() => FnthinkPushDeps(
+  factory FnthinkSettingsDeps.fromLocator() => FnthinkSettingsDeps(
     contracts: GetIt.instance<FnthinkContractLoader>(),
     coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
     identity: FnthinkIdentityService(),
@@ -108,8 +108,8 @@ class FnthinkPushDeps {
 ///    而设备侧没有任何测量口径（那半属于 T44 ①，未做）。摆两个都能用的地址却不给选择的依据，
 ///    等于把决策甩回给用户，而且他一旦选错，症状是"网络好好的却连不上"。
 ///  - **收件未读数**：它属于 T48 那张入口卡与历史页筛选，不是这一页的责任。
-class FnthinkPushPage extends StatefulWidget {
-  const FnthinkPushPage({
+class FnthinkSettingsPage extends StatefulWidget {
+  const FnthinkSettingsPage({
     super.key,
     this.deps,
     this.peersDeps,
@@ -117,7 +117,7 @@ class FnthinkPushPage extends StatefulWidget {
     this.endpointDeps,
   });
 
-  final FnthinkPushDeps? deps;
+  final FnthinkSettingsDeps? deps;
 
   /// 「已配对的设备」那一行要推的那张页的依赖（T94）。
   /// 缺省走 `FnthinkPeersDeps.fromLocator()`；测试里传一份替身——
@@ -133,11 +133,11 @@ class FnthinkPushPage extends StatefulWidget {
   final FnthinkEndpointDeps? endpointDeps;
 
   @override
-  State<FnthinkPushPage> createState() => _FnthinkPushPageState();
+  State<FnthinkSettingsPage> createState() => _FnthinkSettingsPageState();
 }
 
-class _FnthinkPushPageState extends State<FnthinkPushPage> {
-  late final FnthinkPushDeps _deps;
+class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
+  late final FnthinkSettingsDeps _deps;
   late final FnthinkReceiveCoordinator _coordinator;
 
   FnthinkSettings? _settings;
@@ -176,7 +176,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
   @override
   void initState() {
     super.initState();
-    _deps = widget.deps ?? FnthinkPushDeps.fromLocator();
+    _deps = widget.deps ?? FnthinkSettingsDeps.fromLocator();
     _coordinator = _deps.coordinator;
     unawaited(_load());
   }
@@ -329,7 +329,7 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
       title: l10n.fnthinkHostEditTitle,
       initialText: _host,
       hintText: l10n.fnthinkHostDesc,
-      // 用例按这把 key 点这一格（test/widgets/fnthink_push_page_test.dart 四处）⇒ 沿用旧 key。
+      // 用例按这把 key 点这一格（test/widgets/fnthink_settings_page_test.dart 四处）⇒ 沿用旧 key。
       fieldKeyValue: 'fnthink-host-input',
       // 主机名不该被自动纠错改成别的词（改错了是"地址明明对却连不上"）。
       autocorrect: false,
