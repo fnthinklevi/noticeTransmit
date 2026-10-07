@@ -200,7 +200,7 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage> {
         if (_note != null) _Note(keyName: 'remote-history-note', text: _note!),
         _Note(
           keyName: 'remote-history-boundary',
-          text: l10n.remoteHistoryBoundary,
+          text: '• ${l10n.remoteHistoryBoundary}',
         ),
       ];
     }
@@ -211,7 +211,7 @@ class _RemoteHistoryPageState extends State<RemoteHistoryPage> {
       for (final row in rows) _row(l10n, row),
       _Note(
         keyName: 'remote-history-boundary',
-        text: l10n.remoteHistoryBoundary,
+        text: '• ${l10n.remoteHistoryBoundary}',
       ),
     ];
   }
