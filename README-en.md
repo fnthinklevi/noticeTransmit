@@ -28,9 +28,9 @@ A privacy-first Android notification forwarding and device collaboration tool. T
 ## Table of Contents
 
 - [Introduction](#introduction)
+- [Features](#features)
 - [Fnthink Push](#fnthink-push)
 - [Remote Control](#remote-control)
-- [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Permission Description](#permission-description)
 - [Project Structure](#project-structure)
@@ -54,83 +54,6 @@ Notice Push Assistant is a privacy-first Android notification forwarding and dev
 **Track 3 — Remote Control.** Instructions issued from another paired device, split into L2 (app actions) and L3 (system settings): four L2 actions and six L3 settings, each granted individually, each with a cancellable delay window before execution and two-stage receipts afterwards.
 
 Fully bilingual (1251 keys × 2 languages). Apache License 2.0, free and ad-free.
-
----
-
-## Fnthink Push
-
-> Setup and deployment: [docs/server_deploy_and_update_guide.md](docs/server_deploy_and_update_guide.md). Protocol contract: `protocol/fnthink-v1.json`.
-
-### What problem it solves
-
-The usual convention for notification tools is "you hand your content to a third-party platform and it forwards for you". Fnthink Push takes a different route: **two devices talk to each other directly**. The server in the middle only buffers and relays — it holds no body text and there is no third-party account system at all.
-
-- 🔑 **No account, no third party** — a pairing code or pairing link is all it takes; each device has its own address code, independent of any platform account system
-- ✍️ **Verifiable signatures** — every message is signed with the sender's Ed25519 private key and verified before delivery; the key is generated inside AndroidKeyStore and never uploaded
-- 🗄️ **Server keeps no message body** — only delivery metadata (sender, type, time, state); body text is never stored (contract `privacy.serverStoresBodyPlaintext = false`)
-- 🔁 **Delivery state machine** — `queued → delivering → delivered → acked`; the receiver acks after rendering, and **the ack is the only delivery evidence**; failures and resends have explicit states rather than guesswork
-- ↩️ **Revocable** — revoking on the receiver side takes effect immediately, no need to wait for the peer to go offline
-- 🌐 **Two regions** — Chengdu `*.fnthink.com` and Los Angeles `*.fnthink.top`; pick one from the More page. Fully self-hostable
-- 📨 **Forward onward** — after receiving a message, forward it through your configured **Fnthink channels** to a bound device or a webhook address
-
-### Capability levels
-
-| Level | Meaning | How it is obtained |
-|-------|---------|--------------------|
-| **L1** | Messages | Granted by pairing, no per-item selection |
-| **L2** | App actions | Granted item by item |
-| **L3** | System settings | Off by default, each item enabled separately, a cancellable window before every execution |
-
-**The grant lives on the receiving device** (confirmed by the receiver at pairing time and written into its own `grantsBy`). The sender's own record carries no grant to read — that is not a stylistic choice: the receiving side reads exactly that one copy.
-
----
-
-## Remote Control
-
-> The authoritative source is the contract's `capabilities.remoteExecution` / `.l2` / `.l3` sections; below is their prose equivalent.
-
-### What each level can do (**closed vocabulary** — anything outside it is rejected)
-
-**L2 app actions (4)**
-
-| item | action | argument |
-|------|--------|----------|
-| `listener:start` | Start notification listening | — |
-| `listener:stop` | Stop notification listening | — |
-| `channel:toggle` | Toggle one forwarding channel | channel id (**required**) |
-| `device_state:push` | Push the full device snapshot | — |
-
-**L3 system settings (6)**
-
-| item | action | mode | lands on |
-|------|--------|------|-----------|
-| `notification` | Notification listener access | `grant` | jump to the system settings page for the user to tap |
-| `exact_alarm` | Exact alarms | `grant` | jump to the system settings page |
-| `battery_optimization` | Battery optimization exemption | `grant` | jump to the system settings page |
-| `autostart` | OEM auto-start | `grant` | vendor-specific pages (Xiaomi / Meizu / Huawei / OPPO / vivo each differ) |
-| `monitoring` | Local monitoring switch | `toggle` | local prefs |
-| `collect_inbox` | Fnthink inbox switch | `toggle` | local prefs |
-
-⚠ **There are exactly two modes**: `grant` hands an authorization to this device (irreversible on the system side — the user must tap), `toggle` flips one of this device's own switches. **There is no third "silently change system settings" mode** — the native side has never had that capability, so claiming it would promise something that cannot be done. Unknown items / actions are `reject`ed, never "skip what we don't recognize".
-
-### Security model (every cell is load-bearing)
-
-- 🔑 **Credentials**: an advanced key (remote-control specific, ≥ 8 chars, generated by the receiver and stored only as a hash) or TOTP (6 digits / 30 s, generated by the receiver and **never passing through the server**, handed over in person via QR code or link). L2 may carry either or neither; **L3 must carry one of them** — missing or wrong is rejected
-- ⏱️ **Delay window**: 10 seconds by default (0–60 configurable) before execution; during the window it can be cancelled from **the status-bar notification** or **the in-app banner**; on timeout it executes by default. Whether the user is standing at the device **does not affect timing** — this is a visible chance to revoke, not a second confirmation dialog
-- 🚫 **Not bypassable**: `allowSkipConfirm: false` — the window cannot be turned off or skipped
-- 🧯 **Circuit breaker**: 5 failures per minute downgrades to L1
-- 🔄 **Idempotent**: delivery is at-least-once, so an L3 `toggle` may carry a target value (`on` / `off`) — a redelivery will not flip it back; the old form without a target is still accepted and read-modify-flips, so **older peers need no upgrade**
-- 📜 **State machine**: `pending → executing → done / failed / cancelled`; five closed states, and `cancelled` (you revoked in the window) is deliberately separate from `failed` (it ran and did not succeed)
-- 🧾 **Two-stage receipts**: `started` on receipt and `finished` with the result on completion, both sent as **messages back to the sender**, not as acks — an ack only answers "I received this delivery", a receipt answers "how far did I get with this task"; mixing them lets at-least-once redelivery pollute "executing"
-- 🚫 **Endpoints cap at L1**: messages arriving through a third-party platform endpoint reach **at most L1**; webhook is only trusted as an instruction source when it is the Fnthink channel's own webhook — a foreign webhook is never a source, because its payload fields are written by a third party and treating it as an instruction source hands them control of the instruction format
-- 📍 **Local triggers get no receipt**: instructions triggered by a local whitelisted app's notification have no remote sender to answer, so they only land in the local remote-execution history
-
-### The two kinds of keys are not the same key
-
-- **Device identity private key** — proves "I am this device"
-- **Remote-control advanced key / TOTP** — authorizes "this remote instruction"
-
-⚠ There is deliberately **no "unlock L3 with a local lockscreen or biometric"** step: it was never wired up (the only implementation in the repo always answers "this device has no authenticator"), so keeping it would advertise an action that does not exist. L3's security rests solely on the peer presenting a valid credential.
 
 ---
 
@@ -212,6 +135,83 @@ The usual convention for notification tools is "you hand your content to a third
 - 🔐 **SSL Certificate Pinning** — both HTTP clients are ready (Dart `PinnedHttpClient` + the OkHttp `CertificatePinner` in Kotlin `NetworkClient`), forming the HTTPS certificate security layer, **disabled by default** (requires injecting `CERT_PINS` / `ENABLE_CERT_PINNING`; always off in Debug builds), currently protected indirectly via Cloudflare CDN; see [docs/cert_rotation_runbook.md](docs/cert_rotation_runbook.md) for rotation / enablement
 - 🧩 **Widget Broadcast Guard** — home-screen widget toggle broadcasts are protected by the signature-level custom permission `com.fnthink.notice.permission.WIDGET_CONTROL`, so third-party apps cannot forge a `TOGGLE_PUSH` broadcast to silently pause or resume pushes
 - 🔒 **Mandatory HTTPS** — site-wide HTTPS enforced via `network_security_config.xml`
+
+---
+
+## Fnthink Push
+
+> Setup and deployment: [docs/server_deploy_and_update_guide.md](docs/server_deploy_and_update_guide.md). Protocol contract: `protocol/fnthink-v1.json`.
+
+### What problem it solves
+
+The usual convention for notification tools is "you hand your content to a third-party platform and it forwards for you". Fnthink Push takes a different route: **two devices talk to each other directly**. The server in the middle only buffers and relays — it holds no body text and there is no third-party account system at all.
+
+- 🔑 **No account, no third party** — a pairing code or pairing link is all it takes; each device has its own address code, independent of any platform account system
+- ✍️ **Verifiable signatures** — every message is signed with the sender's Ed25519 private key and verified before delivery; the key is generated inside AndroidKeyStore and never uploaded
+- 🗄️ **Server keeps no message body** — only delivery metadata (sender, type, time, state); body text is never stored (contract `privacy.serverStoresBodyPlaintext = false`)
+- 🔁 **Delivery state machine** — `queued → delivering → delivered → acked`; the receiver acks after rendering, and **the ack is the only delivery evidence**; failures and resends have explicit states rather than guesswork
+- ↩️ **Revocable** — revoking on the receiver side takes effect immediately, no need to wait for the peer to go offline
+- 🌐 **Two regions** — Chengdu `*.fnthink.com` and Los Angeles `*.fnthink.top`; pick one from the More page. Fully self-hostable
+- 📨 **Forward onward** — after receiving a message, forward it through your configured **Fnthink channels** to a bound device or a webhook address
+
+### Capability levels
+
+| Level | Meaning | How it is obtained |
+|-------|---------|--------------------|
+| **L1** | Messages | Granted by pairing, no per-item selection |
+| **L2** | App actions | Granted item by item |
+| **L3** | System settings | Off by default, each item enabled separately, a cancellable window before every execution |
+
+**The grant lives on the receiving device** (confirmed by the receiver at pairing time and written into its own `grantsBy`). The sender's own record carries no grant to read — that is not a stylistic choice: the receiving side reads exactly that one copy.
+
+---
+
+## Remote Control
+
+> The authoritative source is the contract's `capabilities.remoteExecution` / `.l2` / `.l3` sections; below is their prose equivalent.
+
+### What each level can do (**closed vocabulary** — anything outside it is rejected)
+
+**L2 app actions (4)**
+
+| item | action | argument |
+|------|--------|----------|
+| `listener:start` | Start notification listening | — |
+| `listener:stop` | Stop notification listening | — |
+| `channel:toggle` | Toggle one forwarding channel | channel id (**required**) |
+| `device_state:push` | Push the full device snapshot | — |
+
+**L3 system settings (6)**
+
+| item | action | mode | lands on |
+|------|--------|------|-----------|
+| `notification` | Notification listener access | `grant` | jump to the system settings page for the user to tap |
+| `exact_alarm` | Exact alarms | `grant` | jump to the system settings page |
+| `battery_optimization` | Battery optimization exemption | `grant` | jump to the system settings page |
+| `autostart` | OEM auto-start | `grant` | vendor-specific pages (Xiaomi / Meizu / Huawei / OPPO / vivo each differ) |
+| `monitoring` | Local monitoring switch | `toggle` | local prefs |
+| `collect_inbox` | Fnthink inbox switch | `toggle` | local prefs |
+
+⚠ **There are exactly two modes**: `grant` hands an authorization to this device (irreversible on the system side — the user must tap), `toggle` flips one of this device's own switches. **There is no third "silently change system settings" mode** — the native side has never had that capability, so claiming it would promise something that cannot be done. Unknown items / actions are `reject`ed, never "skip what we don't recognize".
+
+### Security model (every cell is load-bearing)
+
+- 🔑 **Credentials**: an advanced key (remote-control specific, ≥ 8 chars, generated by the receiver and stored only as a hash) or TOTP (6 digits / 30 s, generated by the receiver and **never passing through the server**, handed over in person via QR code or link). L2 may carry either or neither; **L3 must carry one of them** — missing or wrong is rejected
+- ⏱️ **Delay window**: 10 seconds by default (0–60 configurable) before execution; during the window it can be cancelled from **the status-bar notification** or **the in-app banner**; on timeout it executes by default. Whether the user is standing at the device **does not affect timing** — this is a visible chance to revoke, not a second confirmation dialog
+- 🚫 **Not bypassable**: `allowSkipConfirm: false` — the window cannot be turned off or skipped
+- 🧯 **Circuit breaker**: 5 failures per minute downgrades to L1
+- 🔄 **Idempotent**: delivery is at-least-once, so an L3 `toggle` may carry a target value (`on` / `off`) — a redelivery will not flip it back; the old form without a target is still accepted and read-modify-flips, so **older peers need no upgrade**
+- 📜 **State machine**: `pending → executing → done / failed / cancelled`; five closed states, and `cancelled` (you revoked in the window) is deliberately separate from `failed` (it ran and did not succeed)
+- 🧾 **Two-stage receipts**: `started` on receipt and `finished` with the result on completion, both sent as **messages back to the sender**, not as acks — an ack only answers "I received this delivery", a receipt answers "how far did I get with this task"; mixing them lets at-least-once redelivery pollute "executing"
+- 🚫 **Endpoints cap at L1**: messages arriving through a third-party platform endpoint reach **at most L1**; webhook is only trusted as an instruction source when it is the Fnthink channel's own webhook — a foreign webhook is never a source, because its payload fields are written by a third party and treating it as an instruction source hands them control of the instruction format
+- 📍 **Local triggers get no receipt**: instructions triggered by a local whitelisted app's notification have no remote sender to answer, so they only land in the local remote-execution history
+
+### The two kinds of keys are not the same key
+
+- **Device identity private key** — proves "I am this device"
+- **Remote-control advanced key / TOTP** — authorizes "this remote instruction"
+
+⚠ There is deliberately **no "unlock L3 with a local lockscreen or biometric"** step: it was never wired up (the only implementation in the repo always answers "this device has no authenticator"), so keeping it would advertise an action that does not exist. L3's security rests solely on the peer presenting a valid credential.
 
 ---
 
