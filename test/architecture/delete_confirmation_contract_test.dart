@@ -60,18 +60,21 @@ void main() {
       'Future<void> _answer(',
       'Future<void> _revoke(',
     ],
-    'lib/pages/fnthink_push_page.dart': [
-      'Future<void> _resetAddressCode(',
+    'lib/pages/fnthink_push_page.dart': ['Future<void> _resetAddressCode('],
+    // ⚠ T97 片B：那两下随「接入端点」独立成页走，名单跟着主语迁。
+    //   留在旧文件名下就成了"那里还有一道确认闸"的假账 —— 那两个方法在新页里，
+    //   旧页只剩一行入口，点下去连网络都不碰。
+    'lib/pages/fnthink_endpoint_page.dart': [
       // T42/#157：关掉一把入口 = 关掉一个别人能写进来的门，手滑的代价是 NAS 从此 401
       'Future<void> _revokeEndpoint(',
       // 换口令不留"撤销"那么明显的后果，却更狠：旧那把当场开始倒计时，而 NAS 还在用它
       'Future<void> _rotateEndpoint(',
-      // T56 同意门：这一下点下去的后果是**通知内容此后可以经服务器中转**。
-      // 它比"换一枚地址码"更需要先看一眼 —— 而"看一眼"在这里必须是一次显式确认，
-      // 不是开关被翻开时顺带勾上的。
     ],
     // ⚠ T94 片2：这一下随「接收与远程执行」那张独立页走，名单随主语迁移。
     //   它不在旧名单里——留着会把“页面上不得有第二个点事出口”这一条让它看着像还在。
+    // T56 同意门：这一下点下去的后果是**通知内容此后可以经服务器中转**。
+    // 它比"换一枚地址码"更需要先看一眼 —— 而"看一眼"在这里必须是一次显式确认，
+    // 不是开关被翻开时顺带勾上的。
     'lib/pages/fnthink_receive_page.dart': ['Future<void> _grantConsent('],
     // T94：删一条幻念通道 = 这台不再往它转发。每条方案都按自己的代价去次，
     //   不会提醒「我可以继续跟那台通帙」——那是超出本条的范围（业务意义）。
@@ -98,6 +101,11 @@ void main() {
           //     `confirmed`，当场被判成缺陷）。守卫断行为不断写法。
           //  ② 放宽成 `if (!\w+` —— 那又被块里别处的 `if (!mounted)` 顺手满足（C2 假绿）。
           //     必须是**同一个标识符**，否则这道闸等于没有。
+          // ③ T97 片B 反证 F3 抓到的这一处要说清：**块是"签名之后一直到文件末尾"**，不是方法体。
+          //    把 `_revokeEndpoint` 那道 `if (!ok …) return;` 摘掉，这一条**照样全绿** ——
+          //    因为下面 `_rotateEndpoint` 里还有一句同形的早退替它答了。真正拦住它的是页面用例
+          //    「弹层上点取消 ⇒ 那一发不发」（F3b 实测 named+restored）。这本账管"每条路径都弹了、
+          //    并按结果早退过"，管不了"哪一条路径的早退被摘掉"——别把这两件事混为一谈。
           final assigned = RegExp(
             r'=\s*await\s+(?:IosDialogActions\.)?askConfirm\(',
           ).firstMatch(body);
@@ -164,8 +172,9 @@ void main() {
           '_coordinator.confirmPairing(',
           '_coordinator.revokePeer(',
         ],
-        'lib/pages/fnthink_push_page.dart': [
-          'credentials.resetAddressCode(',
+        'lib/pages/fnthink_push_page.dart': ['credentials.resetAddressCode('],
+        // T97 片B：那两句随端点那一页走（名单跟着主语迁，旧文件名下留一条就是假账）。
+        'lib/pages/fnthink_endpoint_page.dart': [
           '_coordinator.revokeEndpoint(',
           '_coordinator.rotateEndpoint(',
         ],

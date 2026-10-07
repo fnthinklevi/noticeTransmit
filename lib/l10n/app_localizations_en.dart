@@ -3801,6 +3801,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'A long-lived token third-party platforms use to push to this device. The server stores only a digest; the token below is shown this once — close the page and it is gone.';
 
   @override
+  String get fnthinkEndpointEntryDesc =>
+      'A long-lived token that lets external services — a NAS, scripts, monitoring — push in. Most people never need to touch this.';
+
+  @override
+  String get fnthinkEndpointGo => 'Open ingress endpoints';
+
+  @override
   String fnthinkEndpointCap(int max) {
     return 'This device can hold up to $max; at the cap new ones are refused and none in use is displaced.';
   }

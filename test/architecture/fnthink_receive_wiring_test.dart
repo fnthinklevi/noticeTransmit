@@ -525,9 +525,11 @@ void main() {
       );
       // ⚠ T94：幻念推送页拆成两张（设备绑定那张单独成页）之后，
       //   这条断言必须两张都断：只断其中一张，另一张里的口令可以无宱地落盘。
+      // ⚠ T97 片B：端点那一格又独立成页，尺要跟着宽一格 —— 这三张页才是"口令可能落盘"的全部现场。
       final page = stripComments(
         librarySource(root, 'lib/pages/fnthink_push_page.dart') +
-            librarySource(root, 'lib/pages/fnthink_peers_page.dart'),
+            librarySource(root, 'lib/pages/fnthink_peers_page.dart') +
+            librarySource(root, 'lib/pages/fnthink_endpoint_page.dart'),
       );
       for (final write in ['setString', 'SharedPreferences']) {
         expect(
@@ -567,7 +569,8 @@ void main() {
         1,
       );
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        // T97 片B：那一下住在端点页，不在这张混合页里 —— 尺要跟着主语走。
+        librarySource(root, 'lib/pages/fnthink_endpoint_page.dart'),
       );
       expect(
         page,
@@ -640,7 +643,8 @@ void main() {
         reason: '两处就两本账：一处负责 dispose、一处不负责',
       );
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        // T97 片B：那一行按钮住在端点页（混合页只剩一行入口，点下去连网络都不碰）。
+        librarySource(root, 'lib/pages/fnthink_endpoint_page.dart'),
       );
       expect(
         page,
@@ -670,7 +674,8 @@ void main() {
         reason: '两处就两本账：一处负责 dispose、一处不负责',
       );
       final page = stripComments(
-        librarySource(root, 'lib/pages/fnthink_push_page.dart'),
+        // T97 片B：那一行按钮住在端点页。
+        librarySource(root, 'lib/pages/fnthink_endpoint_page.dart'),
       );
       expect(
         page,

@@ -668,7 +668,6 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/pages/device_snapshot_page.dart': 1,
   'lib/pages/email_settings_page.dart': 2,
   'lib/pages/fnthink_channel_list_page.dart': 1,
-  'lib/pages/fnthink_push_page.dart': 1,
   'lib/pages/history_page.dart': 11,
   'lib/pages/main_page.dart': 1,
   'lib/pages/main_page_update.dart': 2,
@@ -677,6 +676,10 @@ const Map<String, int> kSnackBarSites = <String, int>{
   'lib/pages/rule_list_page.dart': 1,
   'lib/pages/webhook_settings_page.dart': 1,
   'lib/pages/widget_guide_page.dart': 3,
+  // T97 片B：幻念那两页的「复制」各写一份 `_copy` ⇒ 搬一张页就多一处轻提示。
+  // 收成 `fnthinkCopyNotice` 一处之后，这一格是从 `fnthink_push_page` 那**同一枚**搬来的，
+  // 总数没变；而换法定下来那天（SnackBar 在 Cupertino 下没有对应件）只有一处要改。
+  'lib/widgets/fnthink_card.dart': 1,
   'lib/widgets/icon_picker_tile.dart': 1,
   'lib/widgets/rule_template_sheet.dart': 1,
 };

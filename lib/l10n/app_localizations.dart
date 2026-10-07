@@ -6722,6 +6722,18 @@ abstract class AppLocalizations {
   /// **'第三方平台往这台设备推通知用的长期口令。服务端只存摘要；下面这把口令只在这次显示，关掉页面就再也看不到。'**
   String get fnthinkEndpointWhy;
 
+  /// No description provided for @fnthinkEndpointEntryDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'给 NAS、脚本、监控这类外部服务开门用的长期口令。多数人不需动这里。'**
+  String get fnthinkEndpointEntryDesc;
+
+  /// No description provided for @fnthinkEndpointGo.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开接入端点'**
+  String get fnthinkEndpointGo;
+
   /// No description provided for @fnthinkEndpointCap.
   ///
   /// In zh, this message translates to:

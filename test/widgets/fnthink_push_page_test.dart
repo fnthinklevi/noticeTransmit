@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_receive_page.dart';
 import 'package:notice_transmit/pages/fnthink_push_page.dart';
@@ -349,6 +350,12 @@ void main() {
           coordinator: coordinator,
           loadPeers: loadPeersStub,
         ),
+        // T97 片B：入口行推的那张端点页也要拿到同一份替身。留空 ⇒ 点那一下走
+        // `fromLocator()`，测试里当场抛"GetIt 没注册"，而"入口点得动"这条就再也测不了。
+        endpointDeps: FnthinkEndpointDeps(
+          contracts: loader,
+          coordinator: coordinator,
+        ),
       ),
       // T94：绑定那几格搬到了这张独立页（推送引擎那侧）。同一个协调者、同一份名单读口
       // —— 而"两处都能进"这条要求两个入口必须指向**同一份状态**，所以它们共用替身而不是各造一份。
@@ -359,6 +366,11 @@ void main() {
           loadPeers: loadPeersStub,
         ),
         pairLink: pairLink,
+      ),
+      // T97 片B：端点那一整格搬成了独立页。同一个协调者、同一份假服务器 ——
+      // 两页各造一份替身时，建端点那一下到底发出去了就没有人能对账。
+      endpointPage: FnthinkEndpointPage(
+        deps: FnthinkEndpointDeps(contracts: loader, coordinator: coordinator),
       ),
       coordinator: coordinator,
       builds: () => builds,
@@ -395,6 +407,17 @@ void main() {
     );
     await tester.pumpAndSettle();
     return AppLocalizations.of(tester.element(find.byType(FnthinkReceivePage)));
+  }
+
+  /// 推端点页（T97 片B：那一整格搬成了独立一页）。l10n 仍按各自那张页解一次。
+  Future<AppLocalizations> pumpEndpoint(WidgetTester tester, _Harness h) async {
+    await tester.pumpWidget(
+      AppRoot(locale: const Locale('zh'), dark: false, home: h.endpointPage),
+    );
+    await tester.pumpAndSettle();
+    return AppLocalizations.of(
+      tester.element(find.byType(FnthinkEndpointPage)),
+    );
   }
 
   Future<AppLocalizations> pump(WidgetTester tester, Widget page) async {
@@ -746,6 +769,48 @@ void main() {
       );
       expect(find.byKey(const ValueKey('fnthink-peers-empty')), findsNothing);
     });
+  });
+
+  testWidgets('「接入端点」那一行在，且点它真的进到端点页（T97 片B）', (tester) async {
+    stubChannels();
+    final h = harness();
+    final l10n = await pump(tester, h.page);
+
+    // 这一行在首屏之外（ListView 懒加载），先滚到它被 build 出来再断言。
+    await revealTo(
+      tester,
+      find.byKey(const ValueKey('fnthink-endpoint-entry')),
+    );
+    expect(
+      find.byKey(const ValueKey('fnthink-endpoint-entry')),
+      findsOneWidget,
+      reason: '那一格搬成独立页之后这里只剩一行入口；行没了，用户就只能回管理面铸口令',
+    );
+    expect(
+      find.text(l10n.fnthinkEndpointTitle),
+      findsOneWidget,
+      reason: '行标题与那一张页用的是同一把词，两处名字一致才不会被当成两个功能',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-endpoint-entry')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(FnthinkEndpointPage),
+      findsOneWidget,
+      reason: '入口画出来但点不动，比没这一行更坏',
+    );
+    // 进到的是那一页本体：建端点那一下在页上。
+    expect(
+      find.byKey(const ValueKey('fnthink-endpoint-create')),
+      findsOneWidget,
+      reason: '进到的是端点页本体，不是一个空壳标题',
+    );
+    expect(
+      h.endpointAsked(),
+      isEmpty,
+      reason: '只是走进去看一眼 ⇒ 一发都不该出去（这一条从它还在混合页时就这样判）',
+    );
   });
 
   group('三件套面板', () {
@@ -1783,7 +1848,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
       await revealTo(tester, button);
       await tester.ensureVisible(button);
@@ -1814,7 +1879,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness();
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
       await revealTo(tester, button);
       await tester.ensureVisible(button);
@@ -1851,7 +1916,7 @@ void main() {
         },
       };
       final h = harness(contractText: jsonEncode(shrunk));
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       final cap = find.byKey(const ValueKey('fnthink-endpoint-cap'));
       await revealTo(tester, cap);
       expect(
@@ -1869,7 +1934,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointStatus: 429, endpointBody: '{}');
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
       await revealTo(tester, button);
       await tester.ensureVisible(button);
@@ -1891,7 +1956,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointBody: '{"endpointId":"ep_7","serverTime":1}');
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
       await revealTo(tester, button);
       await tester.ensureVisible(button);
@@ -1925,7 +1990,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness();
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       expect(
         h.endpointListAsked(),
         isEmpty,
@@ -1959,7 +2024,7 @@ void main() {
             '{"id":"ep_old","name":"","status":"revoked","createdAt":1600000000000}'
             '],"serverTime":1800000000000}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await tapRead(tester);
       expect(h.endpointListAsked(), hasLength(1));
 
@@ -1991,7 +2056,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness();
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       await tapRead(tester);
       final none = find.byKey(const ValueKey('fnthink-endpoint-list-none'));
       await revealTo(tester, none);
@@ -2008,7 +2073,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListStatus: 403, endpointListBody: '{}');
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       await tapRead(tester);
       final failed = find.byKey(const ValueKey('fnthink-endpoint-list-failed'));
       await revealTo(tester, failed);
@@ -2030,7 +2095,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness();
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       await tapRead(tester);
       expect(h.endpointListAsked(), hasLength(1));
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
@@ -2052,7 +2117,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness();
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       final button = find.byKey(const ValueKey('fnthink-endpoint-create'));
       await revealTo(tester, button);
       await tester.ensureVisible(button);
@@ -2076,7 +2141,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(canSign: false);
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       await tapRead(tester);
       expect(h.endpointListAsked(), isEmpty);
       expect(
@@ -2127,7 +2192,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListBody: twoRows);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapClose(tester, 'ep_live');
       expect(
@@ -2160,7 +2225,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListBody: twoRows);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapClose(tester, 'ep_live');
       expect(
@@ -2183,7 +2248,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListBody: twoRows);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       expect(h.endpointListAsked(), hasLength(1));
       await tapClose(tester, 'ep_live');
@@ -2204,7 +2269,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListBody: twoRows);
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       await readList(tester);
       final live = find.byKey(
         const ValueKey('fnthink-endpoint-revoke-ep_live'),
@@ -2228,7 +2293,7 @@ void main() {
         endpointRevokeStatus: 403,
         endpointRevokeBody: '{}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapClose(tester, 'ep_live');
       await tester.tap(find.text(l10n.confirm));
@@ -2260,7 +2325,7 @@ void main() {
         endpointRevokeBody:
             '{"endpointId":"ep_live","revoked":false,"serverTime":1800000000000}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapClose(tester, 'ep_live');
       await tester.tap(find.text(l10n.confirm));
@@ -2285,7 +2350,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(canSign: false, endpointListBody: twoRows);
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       await readList(tester);
       expect(
         h.endpointListAsked(),
@@ -2340,7 +2405,7 @@ void main() {
             '{"endpointId":"ep_live","rotated":true,'
             '"secret":"ZZZ7RABQKPZ3STVWX234","rotatingUntil":0}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapRotate(tester, 'ep_live');
       expect(find.text(l10n.fnthinkEndpointRotateAskMsg), findsOneWidget);
@@ -2373,7 +2438,7 @@ void main() {
             '{"endpointId":"ep_live","rotated":true,'
             '"secret":"ZZZ7RABQKPZ3STVWX234"}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapRotate(tester, 'ep_live');
       await tester.tap(find.text(l10n.confirm));
@@ -2395,7 +2460,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListBody: oneLive);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       expect(h.endpointListAsked(), hasLength(1));
       await tapRotate(tester, 'ep_live');
@@ -2414,7 +2479,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListBody: oneLive);
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapRotate(tester, 'ep_live');
       expect(find.text(l10n.fnthinkEndpointRotateAskMsg), findsOneWidget);
@@ -2441,7 +2506,7 @@ void main() {
         endpointRotateBody:
             '{"endpointId":"ep_live","rotated":false,"serverTime":1800000000000}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapRotate(tester, 'ep_live');
       await tester.tap(find.text(l10n.confirm));
@@ -2468,7 +2533,7 @@ void main() {
         endpointListBody: oneLive,
         endpointRotateBody: '{"endpointId":"ep_live","rotated":true}',
       );
-      final l10n = await pump(tester, h.page);
+      final l10n = await pumpEndpoint(tester, h);
       await readList(tester);
       await tapRotate(tester, 'ep_live');
       await tester.tap(find.text(l10n.confirm));
@@ -2488,7 +2553,7 @@ void main() {
         'flutter.${'fnthink.consent_version'}': 1,
       });
       final h = harness(endpointListBody: oneDead);
-      await pump(tester, h.page);
+      await pumpEndpoint(tester, h);
       await readList(tester);
       final row = find.byKey(const ValueKey('fnthink-endpoint-row-ep_dead'));
       await revealTo(tester, row);
@@ -3457,6 +3522,7 @@ class _Harness {
     required this.peersShown,
     required this.peerReads,
     required this.revokeAsked,
+    required this.endpointPage,
     required this.endpointAsked,
     required this.endpointListAsked,
     required this.endpointRevokeAsked,
@@ -3466,6 +3532,9 @@ class _Harness {
   });
 
   final FnthinkPushPage page;
+
+  /// 接入端点那一张独立页（T97 片B：从这张混合页里搬出去的那一整格）。
+  final FnthinkEndpointPage endpointPage;
 
   /// 设备绑定那一张独立页（T94：从幻念推送页里拆出来的那两张卡）。
   final FnthinkPeersPage peersPage;

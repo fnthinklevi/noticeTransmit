@@ -1,6 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+
+/// 复制一段东西并当场说一句"已复制"（T97 片B：两张幻念页共用这一枚装配点）。
+///
+/// 为什么要有它：`_copy` 原来各页写一份，于是"把一张页搬成两张"就顺手"多出一处轻提示"——
+/// 而 SnackBar 这一族在 Cupertino 下还没有定过换法（T90 补册那本账记的就是它），
+/// 多一处就多一处没人认领的。收成一处，换法定下来的那天只有一处要改。
+///
+/// ⚠ 页面别再自己拼 `Clipboard.setData` + `showSnackBar`：那本台账按**文件**计枚数，
+///   多一个文件就要多登记一格，而每一格都是一笔将来要还的形状债。
+Future<void> fnthinkCopyNotice(BuildContext context, String text) async {
+  final l10n = AppLocalizations.of(context);
+  await Clipboard.setData(ClipboardData(text: text));
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(l10n.fnthinkCopied),
+      duration: const Duration(seconds: 1),
+    ),
+  );
+}
 
 /// 名单/端点那些行上的时刻（`grantedAt`、轮换宽限期都是毫秒）。
 ///

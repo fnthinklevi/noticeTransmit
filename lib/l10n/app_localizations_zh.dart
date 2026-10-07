@@ -3621,6 +3621,12 @@ class AppLocalizationsZh extends AppLocalizations {
       '第三方平台往这台设备推通知用的长期口令。服务端只存摘要；下面这把口令只在这次显示，关掉页面就再也看不到。';
 
   @override
+  String get fnthinkEndpointEntryDesc => '给 NAS、脚本、监控这类外部服务开门用的长期口令。多数人不需动这里。';
+
+  @override
+  String get fnthinkEndpointGo => '打开接入端点';
+
+  @override
   String fnthinkEndpointCap(int max) {
     return '这台设备最多建 $max 把；到数了只拒新的，不会挤掉已经在用的那把。';
   }

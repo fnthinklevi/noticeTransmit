@@ -14,7 +14,8 @@ void main() {
       File('$root/$rel').readAsStringSync().replaceAll('\r\n', '\n');
 
   const guide = 'lib/services/fnthink_endpoint_guide.dart';
-  const page = 'lib/pages/fnthink_push_page.dart';
+  // T97 片B：教程与四枚复制从混合页搬进了这一页 —— 判据跟着主语走，不跟文件名走。
+  const page = 'lib/pages/fnthink_endpoint_page.dart';
   const contract = 'packages/fnthink_push/lib/src/contract.dart';
 
   test('收单路径只有契约那一份作者：教程与页面都不许重打', () {
@@ -111,6 +112,28 @@ void main() {
       used.split('\n  }').first,
       contains('listing?.ok == true'),
       reason: '三态里只有"读到且有"能点亮这一格；`listing == null` 是"还没读"，不是"没有"（判据①）',
+    );
+  });
+
+  test('教程只有一个作者：lib/pages 下含 `_endpointUsed(` 的文件恰好这一页', () {
+    // 上面那三条都是"读一个文件"，因此它们**看不见第二个作者**：谁在别的页里再抄一份
+    // 出现条件，那三条各自都还是绿的。T97 片B 把这一格搬成独立页，恰好就是最容易
+    // 留下旧抄本的那种改动 ⇒ 这一条按"整个目录只有一份"来断，不按文件名断。
+    final hits =
+        Directory('$root/lib/pages')
+            .listSync(followLinks: false)
+            .whereType<File>()
+            .map((f) => 'lib/pages/${f.uri.pathSegments.last}')
+            .where((rel) => rel.endsWith('_page.dart'))
+            .where((rel) => stripComments(read(rel)).contains('_endpointUsed('))
+            .toList()
+          ..sort();
+    expect(
+      hits,
+      [page],
+      reason:
+          '出现条件长出第二个作者 ⇒ 两张页对"该不该给教程"各有自己的说法，'
+          '而其中一张迟早把"还没读"当成"没有"（$hits）',
     );
   });
 }
