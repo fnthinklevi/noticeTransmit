@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -171,6 +172,84 @@ class FnthinkNote extends StatelessWidget {
           fontSize: 12,
           height: 1.4,
           color: AppColors.secondaryLabel(context),
+        ),
+      ),
+    );
+  }
+}
+
+/// 形状①「行」的**唯一装配点**（T100 片2）：整行可点 · 左图标块 · 标题（＋可选一句副标题）· 右箭头。
+///
+/// 为什么收成一件而不是各页各搭：§1 把这一族合法形状定成三种（行／弹层里的动作行／主操作填充），
+/// 而"进一页"这一类当时并存两份抄本 —— 通知引擎 hub 那三行自己搭 `InkWell`＋`MaterialPageRoute`，
+/// 接收页远程执行那三行是裸 `TextButton`（蓝字无框）。两张页会被连着看（引擎 → 接收 → 那三行），
+/// 两份各自长下去，同一件事就是两种形状、两种点法、两种转场。
+///
+/// `onTap` 允许 null：那一行灰掉、点不动（接收页在 `_busy` 时就是这个状态）。换件时必须把这个
+/// 语义一起搬过来 —— 旧写法靠 `TextButton(onPressed: null)`，漏了它就会在忙的时候还能点进去。
+///
+/// `subtitle` 可空：有的行确实只有一句话可说。这一格留空是版式，不是"忘了写"。
+class FnthinkEntryRow extends StatelessWidget {
+  const FnthinkEntryRow({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+    super.key,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      onPressed: onTap,
+      // 行距在这层定，不交给 CupertinoButton：默认 padding 会让每行高度随内容长短变，
+      // 而"同页对齐"判的就是同一张页上几行的高度一致。
+      padding: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: iconColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 16)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondaryLabel(context),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: AppColors.tertiaryLabel(context),
+            ),
+          ],
         ),
       ),
     );

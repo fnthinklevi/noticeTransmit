@@ -380,7 +380,7 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
 
   Future<void> _openRemoteCredentialSettings() async {
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      CupertinoPageRoute<void>(
         builder: (_) => const RemoteCredentialSettingsPage(),
       ),
     );
@@ -389,7 +389,7 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
   Future<void> _openRemoteSend() async {
     final coordinator = _coordinator;
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      CupertinoPageRoute<void>(
         builder: (_) => RemoteSendPage(
           // 名单**只**从协调者那条读嗄喂取，不另开一条读库的路 —— 两处各读一次就会有两个排序口径。
           deps: RemoteSendDeps(
@@ -415,7 +415,7 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
     final coordinator = _coordinator;
     final loader = coordinator.loadRemoteExecutions;
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      CupertinoPageRoute<void>(
         builder: (_) => RemoteHistoryPage(
           deps: RemoteHistoryDeps(
             loadRecords: (direction) async => await loader?.call(direction),
@@ -616,29 +616,29 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
           // 长文不删：渠道 + 凭据那两个决定因素、以及"默认关、升级不替你打开"都在弹窗里。
           helpBody: l10n.remoteExecWhy,
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-remote-exec-settings'),
-            onPressed: _busy ? null : _openRemoteCredentialSettings,
-            child: Text(l10n.remoteExecOpenSettings),
-          ),
+        // 三行都是「进一页」⇒ 形状①（§1 定稿），装配点与 hub 那三行同一件。
+        // ⚠ `onTap: null` 是**真语义**（`_busy` 时那一行点不动）：旧写法靠"按钮的
+        // onPressed 传 null 即灰掉"，换件时漏掉它就会在忙的时候还能点进去。
+        FnthinkEntryRow(
+          key: const ValueKey('fnthink-remote-exec-settings'),
+          icon: Icons.tune,
+          iconColor: AppColors.blue,
+          title: l10n.remoteExecOpenSettings,
+          onTap: _busy ? null : _openRemoteCredentialSettings,
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-remote-exec-send'),
-            onPressed: _busy ? null : _openRemoteSend,
-            child: Text(l10n.remoteExecSendPage),
-          ),
+        FnthinkEntryRow(
+          key: const ValueKey('fnthink-remote-exec-send'),
+          icon: Icons.send_rounded,
+          iconColor: AppColors.green,
+          title: l10n.remoteExecSendPage,
+          onTap: _busy ? null : _openRemoteSend,
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-remote-exec-history'),
-            onPressed: _busy ? null : _openRemoteHistory,
-            child: Text(l10n.remoteExecHistory),
-          ),
+        FnthinkEntryRow(
+          key: const ValueKey('fnthink-remote-exec-history'),
+          icon: Icons.history,
+          iconColor: AppColors.purple,
+          title: l10n.remoteExecHistory,
+          onTap: _busy ? null : _openRemoteHistory,
         ),
       ],
     );

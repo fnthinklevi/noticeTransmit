@@ -6,6 +6,7 @@ import '../services/battery_service.dart';
 import '../services/device_state_service.dart';
 import '../services/temperature_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import 'battery_page.dart';
 import 'device_state_page.dart';
@@ -286,11 +287,12 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
     );
   }
 
-  /// 与「更多」页入口行同一形状（InkWell + 色块图标 + 标题/副标题 + 左缩进分隔线）。
+  /// 「进一页那一行」走 §1 定稿的形状①，装配点在 `widgets/fnthink_card.dart`。
   ///
-  /// ⚠ 不用 `ListTile`：它把水波纹画在**最近的 Material** 上，放进带底色的 Container 里
-  /// 会被那层背景盖住，Flutter 直接断言报错（MorePage 正因如此用 InkWell）。
-  /// MorePage 的 `_buildNavTile` 是私有方法，抽成共用组件是 T05 的活。
+  /// 为什么改成调公共件：hub 这三行与接收页远程执行那三行是**同一件事**（进一页），
+  /// 而 T100 片2 之前各搭一份 —— 一份自己搭行壳 + Material 路由、一份是裸的蓝字按钮，
+  /// 于是「同页对齐」没有可对齐的东西，点法与转场也各走各的。
+  /// ⚠ 与「更多」页那种 InkWell 行不是一件东西：那一族是另一张页的账（T05 已定不抽）。
   Widget _entry({
     required Key key,
     required IconData icon,
@@ -299,48 +301,17 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
     required String subtitle,
     required Widget page,
   }) {
-    return InkWell(
+    return FnthinkEntryRow(
       key: key,
-      onTap: () =>
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: iconColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 18, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.secondaryLabel(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: AppColors.tertiaryLabel(context),
-            ),
-          ],
-        ),
-      ),
+      icon: icon,
+      iconColor: iconColor,
+      title: title,
+      subtitle: subtitle,
+      // 转场走 Cupertino：这本「Material 路由站点」台账只许变薄，而 hub 这三行
+      // 就是它在**这个文件里的全部**（换完这一格从账上删掉，不是留 0）。
+      onTap: () => Navigator.of(
+        context,
+      ).push(CupertinoPageRoute<void>(builder: (_) => page)),
     );
   }
 

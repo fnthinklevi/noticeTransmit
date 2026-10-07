@@ -303,6 +303,81 @@ void main() {
     }
   });
 
+  group('幻念页里的裸 TextButton（T100 片2 的台账）', () {
+    // 词边界与 AlertDialog 那条同因：`CupertinoButton(` 不含这三词，但 `_TextButton(` 之类的
+    // 自定义件会 —— 判据要的是"裸的那一枚"，所以前一个字符不能是标识符字符。
+    final rawTextButton = RegExp(r'(^|[^A-Za-z0-9_])TextButton\(');
+
+    // 只扫幻念那几张页：§1 的判据②说的是"幻念这六张页里计数归零"，不是全库。
+    Map<String, int> fnthinkOnly() => {
+      for (final e in countingRe(rawTextButton).entries)
+        if (e.key.startsWith('lib/pages/fnthink_')) e.key: e.value,
+    };
+
+    test('账内外的文件对得上（账外的页长出一枚就红）', () {
+      expect(
+        fnthinkOnly().keys.toSet(),
+        kFnthinkRawTextButtons.keys.toSet(),
+        reason:
+            '幻念的某张页出现了台账之外的裸 TextButton ⇒ 变多。'
+            '新写一枚请改走三种合法形状；真换掉一枚就把那一格改小、换到 0 就把这一格删掉',
+      );
+    });
+
+    test('逐文件枚数与台账相等（这本账就是剩余工作量）', () {
+      final actual = fnthinkOnly();
+      for (final entry in kFnthinkRawTextButtons.entries) {
+        expect(
+          actual[entry.key] ?? 0,
+          entry.value,
+          reason:
+              '${entry.key} 里裸 TextButton 实际 ${actual[entry.key] ?? 0} 枚、'
+              '台账记 ${entry.value} 枚 ⇒ 换掉一枚就把账改小',
+        );
+      }
+    });
+
+    test('尺认得合成样本（防判据退化成空集＝恒真）', () {
+      // 本仓栽过两次：提取式收窄之后正则恒不匹配 ⇒ 差集恒空 ⇒ 全绿而什么都没量到。
+      expect(
+        rawTextButton.hasMatch('child: TextButton(onPressed: null)'),
+        isTrue,
+      );
+      expect(rawTextButton.hasMatch('CupertinoButton('), isFalse);
+      expect(rawTextButton.hasMatch('myTextButton('), isFalse);
+      expect(fnthinkOnly(), isNotEmpty, reason: '一枚都扫不到 ⇒ 上面两条差集恒真');
+    });
+
+    test('「进一页那一行」只有 FnthinkEntryRow 一个装配点', () {
+      expect(
+        hitting('class FnthinkEntryRow'),
+        const <String>['lib/widgets/fnthink_card.dart'],
+        reason: '形状①的装配点必须唯一 —— 两份抄本正是 T100 要收的东西',
+      );
+
+      int n(String path, String needle) =>
+          needle.allMatches(codeByPath[path]!).length;
+
+      // hub 那三行在 `_entry` 里共用一个调用；接收页那三行是三次直调。
+      expect(
+        n('lib/pages/notification_engine_page.dart', 'FnthinkEntryRow('),
+        greaterThanOrEqualTo(1),
+      );
+      expect(n('lib/pages/fnthink_receive_page.dart', 'FnthinkEntryRow('), 3);
+      // 换件之后这两个文件里不该再留下自己搭的 Material 路由。
+      for (final p in const [
+        'lib/pages/notification_engine_page.dart',
+        'lib/pages/fnthink_receive_page.dart',
+      ]) {
+        expect(
+          n(p, 'MaterialPageRoute'),
+          0,
+          reason: '$p 里还有自己搭的 MaterialPageRoute ⇒ 转场没有跟着形状①走',
+        );
+      }
+    });
+  });
+
   group('确认框台账（Material AlertDialog）', () {
     // 不是一条「禁止」，而是一本**只许变薄的账**：这三条强约束之外，历史页面上的
     // Material 对话框还很多（片8 之后剩 16 个文件），一次性换完的风险远大于收益 —— 于是新增一律红，
@@ -637,17 +712,36 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
   'lib/pages/app_channel_list_page.dart': 1,
   'lib/pages/email_settings_page.dart': 1,
   'lib/pages/fnthink_channel_list_page.dart': 1,
-  // 这一格从台账里删掉，不是漏记：那两枚入口行（接收入页 / 绑定入页）换成了
-  // `CupertinoPageRoute` ⇒ 该文件现在 0 枚。变薄，不是搬家（T100 第一刀）。
-  'lib/pages/fnthink_receive_page.dart': 3,
+  // 这一格从台账里删掉，不是漏记：T100 第一刀把两枚入口行（接收入页 / 绑定入页）换成
+  // `CupertinoPageRoute`、片2 又把远程执行那三行交给 `FnthinkEntryRow` ⇒ 该文件现在 0 枚。
+  // 变薄，不是搬家。
   'lib/pages/main_page.dart': 1,
   // 4 而不是 5：幻念那一格改走注入回调（`main_page_actions.dart`），
   // more_page 里就地 Navigator.push 的那一枚随之消失（变薄，不是搬家）。
   'lib/pages/more_page.dart': 4,
-  'lib/pages/notification_engine_page.dart': 1,
+  // 这一格同样是从台账里买断式删掉：hub 那三行（T100 片2）改走 `FnthinkEntryRow`，
+  // 而这个文件里**没有第二处** MaterialPageRoute ⇒ 0 枚。
   'lib/pages/rule_edit_page.dart': 1,
   'lib/pages/rule_list_page.dart': 3,
   'lib/pages/webhook_channel_list_page.dart': 1,
+};
+
+/// 幻念那几张页里"蓝字无框"的裸 `TextButton` 台账（T100 片2 立，只许变薄）。
+///
+/// §1 已把这一族的合法形状收成三种：**行**（`FnthinkEntryRow`，进一页／改一个值）／
+/// **弹层里的动作行**（`CardActionSheet`、IosFormDialog 内按钮）／**主操作填充**（一页最多一枚）。
+/// 裸 `TextButton` 当页内动作用不再计入这三种 —— 但今天还剩 19 枚，一次换完的风险大于收益
+/// ⇒ 照 T43 那本「不许长回来」的账写：**新增一律红、逐文件枚数相等**，换掉一枚就把账改小。
+///
+/// ⚠ **口径是"幻念那六张页"**（`lib/pages/fnthink_*.dart`），不是全库：别的页面不归这本账管，
+///   把它们一并扫进来会把这份文档说的剩余工作量换成另一个数。
+///
+/// ⚠ 0 枚的文件**从账里删掉**（照 `kMaterialRouteSites` 的先例），不留 `: 0` ——
+///   守卫断的是键集合相等，"留 0"与"没有这一格"在读数上是两件事。
+const Map<String, int> kFnthinkRawTextButtons = <String, int>{
+  'lib/pages/fnthink_settings_page.dart': 9,
+  'lib/pages/fnthink_peers_page.dart': 5,
+  'lib/pages/fnthink_endpoint_page.dart': 5,
 };
 
 /// showSnackBar 的**现状台账**（片：T90 补册，2026-10-05）。
