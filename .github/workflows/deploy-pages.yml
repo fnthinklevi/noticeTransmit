@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
-# 将官网和版本配置部署到 GitHub Pages，作为 Node.js 服务器的替代方案。
-# 客户端自动兼容两种模式：先请求 /api/version/check（API 模式），
-# 失败后回退到 /api/version.json（静态模式，即 GitHub Pages）。
+# 将官网和版本配置发布到 GitHub Pages（静态站：官网首页 + /api/version.json）。
+# ⚠ 这条通道服务的是**官网**，不是 App：App 只请求 Node 的 /api/version/check，
+#   不读这里的静态文件（原先"失败后回退 /api/version.json"那条已在提交 cbec666 删除 ——
+#   服务端没有那个路由，两个官方域名实测都回 404）。纯 Pages 部署因此**不能**给 App 提供更新；
+#   详见 server/GITHUB_PAGES.md（English: server/GITHUB_PAGES-en.md）。
 
 on:
   push:

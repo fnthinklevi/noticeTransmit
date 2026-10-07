@@ -1018,8 +1018,8 @@ server {
 > ```
 > Verify it **bypassing CF**: on the server, hit the upstream 31 times in a row and check whether the 31st is a 429 (see the acceptance section in `server/README.md`).
 
-> ⚠️ **Do not entangle the update hostname you already run in production** (written `notice.example.com` throughout below). The division is fixed:
-> `notice.example.com` = update check / APK download / admin console (a compile-time constant `_updateServerUrl` in the app; changing it means shipping a new APK);
+> ⚠️ **Do not entangle the update hostname you already run in production** (written `notice.example.com` throughout below). The division is fixed (⚠ what is enumerated here are **roles**, not a count — since T95 the update face has two hostnames of its own):
+> `notice.example.com` = app update check / APK downloads / admin console. The other region reads `notice.example.top` and differs **only by host name**; the app picks between the two in-app (More → Update server, automatic or manual pin) from the table in `lib/services/update_server_regions.dart`, and pointing it elsewhere still means editing that table and shipping a new build (see the Client configuration section above);
 > `push.example.com` (plus an optional second mainland hostname) = the fnthink push public face (declared in the contract's `transport.endpoints`; the app dials them directly).
 > Both chains **share one Node process and one `data/`**, so three rules when touching this layer:
 >
@@ -1409,14 +1409,27 @@ Still on the operator:
 
 ## 📱 Client Configuration
 
-The app's update server URL is the compile-time constant `AppUpdateManager._updateServerUrl` in `lib/update_manager.dart` (currently `https://notice.example.com`). **There is no in-app setting to change it**; pointing the app elsewhere means editing that constant and shipping a new build, or switching to [GitHub Pages static deployment](GITHUB_PAGES-en.md) and pointing the constant there.
+The app's update server comes in **two regions, selectable in-app** (T95, since 2026-10-06): `https://notice.example.com` (mainland) and `https://notice.example.top` (international — **also the default region**). The entry point is More → Update server, with two modes: **automatic** (probe both, pick by the result) and **manual** (pin the one you chose; nothing may auto-change it afterwards). The two regions differ **only by host name** — scheme, path, query parameters and APK file names are character-for-character identical; **the APK CDN is served by whichever region you picked** (in `version.json`'s `downloads`), the client never builds CDN URLs.
+
+> ⚠ **There is no compile-time constant left to edit**: `AppUpdateManager._updateServerUrl` was removed in
+> T95 slice 2 and the two hosts now live in `lib/services/update_server_regions.dart`. **Pointing a self-hosted
+> server at the app still means editing that table and shipping a new build** — the in-app picker only lists
+> the two declared regions (it chooses between official instances; it is not a free-text address field).
 
 The app appends these paths automatically:
 
-- Version check (API mode): `/api/version/check?version=…&build=…&platform=android`
-- Static fallback (Pages / static hosting): `/api/version.json` (raw file, compared on the device)
+- Version check: `/api/version/check?version=…&build=…&platform=android` — **the only data path**
+- Geo read-back: `/api/version/region` (returns `{country,source,edge}`; the automatic mode uses it on first run to pick a region — **the decision lives in the client**, the server never adjudicates)
 - Relative download URLs: resolved as "server URL + relative path" (so `/apks/...` works, but the admin API only accepts absolute `https://`)
-- Download fallbacks: after the CDN, the GitHub accelerator mirror (`xget.example.com`) and the official GitHub Release direct link are tried (same `notice_<flavour>_<version>.apk` naming)
+- Download fallbacks: after the primary CDN, the GitHub accelerator mirror and the official GitHub Release direct link are tried. The asset name on the mirror **is the one from the primary URL** (the release script builds once and archives to both places ⇒ same file), and the Release tag segment **must carry the `v` prefix** (`build-apk.yml` only creates a Release for `v*` tags)
+
+> ⚠ **The "static fallback" is gone**: the client used to fire a second request at `/api/version.json` after a
+> non-200 / `code≠0`, but **the server has no such route** (both official hosts answer with Express's own
+> `Cannot GET /api/version.json`; the maintainer confirmed on 2026-10-07 it was deliberately never built). That
+> extra request only made the user wait out another 15 s timeout and then report the same error, so the whole
+> path was deleted (commit `cbec666`). GitHub Pages **still publishes** `/api/version.json`, but its reader is
+> the **website** (the first of its four-tier data fallback, see `public/index.html`) — not the app.
+> What Pages can and cannot provide today is spelled out in [the deployment guide](GITHUB_PAGES-en.md).
 
 **Note:** With HTTPS on the server side, ensure the certificate is valid. The app performs standard TLS validation by default; certificate pinning is off unless `CERT_PINS` is injected (see `../docs/cert_rotation_runbook.md`).
 

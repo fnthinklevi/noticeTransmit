@@ -980,8 +980,10 @@ server {
 > ```
 > 验证要**绕开 CF**：在服务器上直连上游连发 31 次，看第 31 次是不是 429（见 `server/README.md` 的部署验收一节）。
 
-> ⚠️ **别把你已经上线的更新域名卷进来**（下文示例统一写作 `notice.example.com`）。三个域名的分工是固定的：
-> `notice.example.com` = App 检查更新 / 下载 APK / 管理后台（App 里是编译期常量 `_updateServerUrl`，换地址要重新出包）；
+> ⚠️ **别把你已经上线的更新域名卷进来**（下文示例统一写作 `notice.example.com`）。域名的分工是固定的（⚠ 这里数的是**角色**而不是个数 —— T95 之后更新面自己也是两个域名）：
+> `notice.example.com` = App 检查更新 / 下载 APK / 管理后台。另一档示例写作 `notice.example.top`，两档**除主机名外逐字一致**；
+> App 侧在两档之间选（`更多 → 更新服务器`，自动/手动两种模式），地址表住在 `lib/services/update_server_regions.dart`，
+> 要指向别的域名仍需改那张表重新出包（详见上面「客户端配置」一节）；
 > `push.example.com`（以及可选的第二个大陆域名）= 幻念推送的公网面（契约 `transport.endpoints` 声明，App 按它们拨号）。
 > 两条链路**共用同一个 Node 进程与同一份 `data/`**，所以改这一层时守住三条：
 >
@@ -1354,16 +1356,25 @@ CI 侧同源：`.github/workflows/analyze.yml` 在 Node 24 上跑 `npm ci --no-a
 
 ## 📱 客户端配置
 
-APP 默认服务器地址：`https://notice.example.com`
+APP 的更新服务器**有两档、应用内可选**（T95，2026-10-06 起）：`https://notice.example.com`（大陆）与 `https://notice.example.top`（海外，**也是默认那一档**）。入口在「更多 → 更新服务器」，两种模式：**自动**（两台各探一次，按结果挑一台）与**手动**（钉住你选的那一台，之后谁都不许自动改）。两档之间**只差主机名**：协议、路径、查询参数、安装包文件名逐字一致；**安装包 CDN 由所选那台自己下发**（`version.json` 里的 `downloads`），客户端从不拼 CDN。
 
-APP 的更新服务器地址是 `lib/update_manager.dart` 里的编译期常量 `AppUpdateManager._updateServerUrl`（当前值 `https://notice.example.com`），**应用内不提供修改入口**；换地址要改代码重新出包，或走 [GitHub Pages 静态部署](GITHUB_PAGES.md)（把该常量指向 Pages 地址）。
+> ⚠ **这里没有编译期常量可改了**：`AppUpdateManager._updateServerUrl` 已随 T95 片2 删除，两档地址住在
+> `lib/services/update_server_regions.dart`。**自部署要把 App 指到你自己的域名，目前仍然是改那张表 + 重新出包**
+> —— 应用内那一格只列表里声明的两台（它管的是"官方实例的两台之间选一台"，不是"填任意地址"）。
 
 APP 会自动拼接以下路径：
 
-- 版本检查（API 模式）：`/api/version/check?version=…&build=…&platform=android`
-- 静态回退（Pages/纯静态模式）：`/api/version.json`（原样读取 version.json 后在本地比对版本号）
+- 版本检查：`/api/version/check?version=…&build=…&platform=android` —— **这是唯一的取数路径**
+- 地理回读：`/api/version/region`（回 `{country,source,edge}`；「自动」档第一次进入据此挑一台，**判据在客户端**，服务端不裁决）
 - 相对下载地址：以「服务器地址 + 相对路径」解析（所以 `downloads` 写 `/apks/...` 也可用，但管理接口只接受 `https://` 绝对地址）
-- 下载兜底源：CDN 失败后依次尝试 GitHub 加速镜像与官方 Releases 直链（同一 `notice_<平台>_<版本号>.apk` 命名）
+- 下载兜底源：CDN 主地址失败后依次尝试 GitHub 加速镜像与官方 Releases 直链。镜像上的资产名**沿用主地址里那一个**（发版脚本一次构建、两处归档 ⇒ 同一个文件），Release 的 tag 段**必须带 `v` 前缀**（`.github/workflows/build-apk.yml` 只在 `v*` 的 tag 上建 Release）
+
+> ⚠ **"静态回退"这条已经不存在了**：客户端原先在非 200 / `code≠0` 之后还要再拉一发 `/api/version.json`，
+> 而服务端**没有那个路由**（两个官方域名实测都回 Express 自己的 `Cannot GET /api/version.json`；维护者
+> 2026-10-07 确认那是故意没做的）。那一发的净效果只是让用户白等一个 15 秒超时、然后报同一个错，
+> 故整条删除（提交 `cbec666`）。GitHub Pages 上那份 `/api/version.json` **今天仍然发布**，但读它的是
+> **官网首页**（站内四级数据源降级的第一级，见 `public/index.html`），不是 App。
+> Pages 那条路现在能给你什么、不能给你什么，见 [GitHub Pages 部署指南](GITHUB_PAGES.md)。
 
 **注意：** 服务端使用 HTTPS 时请确保证书有效（App 侧默认仅做标准 TLS 验证，证书固定默认关闭，见 `../docs/cert_rotation_runbook.md`）。
 

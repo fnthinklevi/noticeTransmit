@@ -420,8 +420,12 @@ completeness, git commit/tag, server deployment.
    package, uploads the artifact, and attaches it to a GitHub Release
    (`softprops/action-gh-release`).
 2. Push `server/data/version.json` (and `server/public/**` when needed) to `main` →
-   `deploy-pages.yml` publishes the GitHub Pages static fallback (the client first requests
-   `/api/version/check`, then falls back to `/api/version.json`).
+   `deploy-pages.yml` publishes the GitHub Pages static site (the website plus `/api/version.json`).
+   ⚠ That step changes **what the website shows as the latest version**, not the app's update channel:
+   the app **does not read that static file**, it only requests Node's `/api/version/check` (the old
+   "falls back to `/api/version.json`" path was deleted wholesale in commit `cbec666` — the server has no
+   such route, and both official hosts answer 404). To take effect on the app side, the server's own
+   `version.json` has to change (admin console `POST /api/admin/version`, or edit the file on the server).
 3. Deploying/restarting your own Node server: see [server/README.md](server/README.md)
    (English: [server/README-en.md](server/README-en.md)). The server **supports single-instance
    deployment only** — rate-limit counters, sessions and IP blocks live in process memory, so PM2

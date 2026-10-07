@@ -405,8 +405,11 @@ git 提交打 tag、服务端部署。
 1. 提交并打 tag `vX.Y.Z` → `.github/workflows/build-apk.yml`（tag 触发）构建 arm64 包，
    上传工件并在 GitHub Release 挂包（`softprops/action-gh-release`）。
 2. 把 `server/data/version.json`（以及需要时 `server/public/**`）推到 `main` →
-   `deploy-pages.yml` 自动发布 GitHub Pages 静态回退模式（客户端先请求
-   `/api/version/check`，失败后回退 `/api/version.json`）。
+   `deploy-pages.yml` 自动发布 GitHub Pages 静态站（官网首页 + `/api/version.json`）。
+   ⚠ 这一步改的是**官网显示的最新版本**，不是 App 的更新通道：App **不读那份静态文件**，
+   它只请求 Node 的 `/api/version/check`（原先那条「失败后回退 `/api/version.json`」已在提交
+   `cbec666` 整条删除 —— 服务端没有那个路由，两个官方域名实测都回 404）。App 那边要生效，
+   得到服务端那份 `version.json`（管理后台 `POST /api/admin/version`，或直接编辑服务器上的文件）。
 3. 自有 Node 服务器部署与重启：详见 [server/README.md](server/README.md)
    （English：[server/README-en.md](server/README-en.md)）。服务端**仅支持单实例部署**
    （限流计数、会话、IP 封锁都在进程内存里），PM2 cluster / 多副本会导致状态漂移。

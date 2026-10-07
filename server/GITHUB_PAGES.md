@@ -1,36 +1,48 @@
 # GitHub Pages 部署指南
 
-本文档介绍如何通过 **GitHub Pages** 部署更新服务，作为 Node.js 服务器的轻量替代方案。
+这一页讲的是 **GitHub Pages 今天能给你什么、不能给你什么**：它发布的是**官网静态站**（首页 + `/api/version.json`）；
+而 **App 的更新通道需要一个能回 `/api/version/check` 的服务** —— 那一条 Pages 给不了（原因见「App 今天到底怎么拿更新」）。
 
 ## 两种部署模式对比
 
 | | Node.js 服务器 | GitHub Pages |
 |---|---|---|
 | **运行时** | 需要 Node.js 进程（Node 24） | 纯静态，零运维 |
+| **App 内检查更新** | ✅ `/api/version/check`（App 走的**只有**这一条） | ❌ **走不通**：App 不读静态 `version.json` |
+| **官网显示最新版本** | ✅ | ✅（Pages 那份 `/api/version.json` 就是给它读的） |
+| **APK 托管** | ✅ `/apks/`（`downloads` 写相对路径也能解析） | ❌ 产物里没有 APK（`server/public/apks/` 被 `.gitignore` 挡着，CI 检出时是空的）⇒ 下载必须指向 CDN 或 Releases |
 | **管理后台** | ✅ 可用（`admin.html` + `/api/admin/*`） | ❌ 不可用（页面能打开，接口不存在） |
-| **版本管理** | API 侧计算 `hasUpdate`/`forceUpdate` | 客户端读原始 JSON 本地比对 |
+| **版本管理** | `POST /api/admin/version` 校验后落盘；API 侧算 `hasUpdate` / `forceUpdate` | ❌ 只能改仓库文件后重新部署；没有那个 API，也就没人替你算 `hasUpdate` |
 | **二步验证** | ✅ 支持（TOTP + 恢复码） | ❌ 不可用 |
 | **IP 封锁 / 限流** | ✅ 支持（内置） | ❌ 不可用 |
-| **写入 version.json** | ✅ `POST /api/admin/version`（含字段校验） | ❌ 只能改仓库文件后重新部署 |
+| **地理回读**（`/api/version/region`，App 用它挑一档） | ✅ | ❌ 不存在 —— 纯静态跑不了逻辑 |
 | **部署成本** | 需服务器 + Nginx + PM2 | 免费零配置 |
-| **适用场景** | 正式生产环境 | 个人 / 小规模使用 |
+| **适用场景** | **要给 App 提供更新，就必须是这一档** | 官网 / 文档的静态镜像；**不是** App 的更新通道 |
 
-## 客户端兼容机制
+## App 今天到底怎么拿更新（2026-10-07 的实际行为）
 
-客户端 `lib/update_manager.dart` 已内置双模式自动兼容（`_updateServerUrl` 是编译期常量）：
+客户端**只发一发** `GET <所选那一档>/api/version/check?version=…&build=…&platform=android`，四种结局：
 
 ```
-1. 先请求 /api/version/check?version=X&build=Y&platform=android   （API 模式）
-   ├─ 200 + JSON {code:0, data:{…}}  → 直接用服务端算好的 hasUpdate / forceUpdate
-   ├─ 网络异常                        → 退避 2 秒重试一次，仍失败才进入静态模式
-   ├─ 被 CDN 拦截（Cloudflare 403 等） → 不回退（静态端点同域同防护，必然同样失败），直接提示
-   └─ 其他非 200 / code≠0             → 进入静态模式
-
-2. 回退请求 /api/version.json（无 query 参数）                      （静态模式）
-   └─ 200 + 原始 version.json → 客户端本地比对版本号/构建号，并自行算 forceUpdate
+200 + {code:0, data:{…}}        → 用服务端算好的 hasUpdate / forceUpdate；这一发同时记成那台的健康度
+被 CDN 拦截（Cloudflare 403 等） → 直接给可操作提示（同域的别的路径也在同一套防护后面，换路径救不了）
+其他非 200 / code≠0             → 就报这一发的结论并收尾
+网络异常                         → 退避 2 秒重试一次；两发都没发出去就报"没回话"（与"回了 500"分开）
 ```
 
-**无需修改客户端代码**——只要部署的 URL 能返回正确的 JSON，两种模式自动切换。两种模式下客户端都按设备 ABI 从 `downloads` 选包，并用 `sha256` 做安装前的传输层校验（N3），所以静态模式**同样要求 `downloads`/`fileSizes`/`sha256` 三张表填全**。
+⚠ **原先那条「失败后回退 `/api/version.json`」的静态模式已经整条删除**（提交 `cbec666`）。删它的理由不是"用的人少"，
+而是它**从来没通过**：服务端没有那个路由，两个官方域名实测都回 Express 自己那句 `Cannot GET /api/version.json`
+（维护者 2026-10-07 确认那是故意没做的）。它唯一的净效果是让用户白等第二个 15 秒超时，然后仍然报同一个错。
+⇒ **所以"只部署 Pages"这条路，对 App 的更新流不成立。**
+
+App 拨的是哪一台：`lib/services/update_server_regions.dart` 里的**两档**（大陆 / 海外，除主机名外逐字一致），
+用户在「更多 → 更新服务器」里选，两种模式 —— 自动（两台各探一次再挑）与手动（钉住之后谁都不许自动改）。
+**已经没有编译期常量 `AppUpdateManager._updateServerUrl` 可改**，这也是本页以前那句
+「把 `_updateServerUrl` 指向 Pages 地址重新出包」作废的原因。
+
+安装包那边照旧：客户端按设备 ABI 从服务端下发的 `downloads` 选包，装前用 `sha256` 做传输层校验（N3）；
+CDN 主地址失败后再试 GitHub 加速镜像与 Releases 直链 —— 镜像上的资产名**沿用主地址里那一个**（同一个文件、两处归档），
+Release 的 tag 段**必须带 `v`**（只有 `v*` 的 tag 才建得出 Release）。
 
 ## 部署工作流实际做了什么
 
@@ -75,7 +87,8 @@ https://<用户名>.github.io/<仓库名>/
 
 例如：`https://your-org.github.io/noticeTransmit/`
 
-客户端要读静态配置，`_updateServerUrl` 就得指到**含仓库名前缀**的那一层（回退请求是 `$_updateServerUrl/api/version.json`）：`https://your-org.github.io/noticeTransmit`。
+Pages 站点根**含仓库名前缀**（`https://your-org.github.io/noticeTransmit`）这一点仍然要记：官网首页里那些相对地址（`api/version.json`、页面内链接）是按"站点根"解析的，前缀少一层就 404。
+⚠ 但**读者是官网首页，不是 App 的更新请求** —— App 不读 `/api/version.json`（见上面那节），把 Pages 地址喂给 App 是行不通的。
 
 ## 静态文件目录结构
 
@@ -93,17 +106,23 @@ https://<用户名>.github.io/<仓库名>/
     └── version.json        ← 版本配置（复制自 server/data/version.json）
 ```
 
-> 注意 `api/version.json` 是**人为拼出来的路径**：仓库里它位于 `server/data/version.json`，Pages 上它出现在 `/api/` 前缀下，只为配合客户端的回退请求。`server/public/` 里新增的文件会自动进入产物；`server/data/` 下除 `version.json` 外的文件（`totp.json`、`sessions.json` 等运行期状态）**不会**被发布。
+> 注意 `api/version.json` 是**人为拼出来的路径**：仓库里它位于 `server/data/version.json`，Pages 上它出现在 `/api/` 前缀下。
+> ⚠ 现在读它的是**官网首页**（站内四级数据源降级的第一级，见 `public/index.html`），**不是 App** —— 它以前配合的是
+> 客户端那条静态回退请求，那条已在提交 `cbec666` 删除（服务端没有那个路由）。路径留着是因为官网还在用，别当废话删掉。
+> `server/public/` 里新增的文件会自动进入产物；`server/data/` 下除 `version.json` 外的文件（`totp.json`、`sessions.json` 等运行期状态）**不会**被发布。
 
 ## 发布新版本
 
 ### GitHub Pages 模式
 
 1. 修改 `server/data/version.json`：`latestVersion`、`latestBuild`、`changelog`、`minSupportedVersion`、`forceUpdate`（含 `forceUpdateVersion`/`forceUpdateBuild`）、以及四架构的 `downloads` / `fileSizes` / `sha256`
-2. 把 APK 上传到 CDN 或 GitHub Releases。App 的下载兜底顺序是 `version.json` 的 `downloads`（CDN 主地址）→ GitHub 加速镜像 → GitHub 直链，后两者按 `releases/download/<版本号>/notice_<arm64|arm32|x86|all>_<版本号>.apk` 拼接：要让兜底生效，**Release tag 必须正好是版本号（不带 `v`），资产必须按该命名上传**。（注意 `.github/workflows/build-apk.yml` 只在 `v*` tag 上建 Release，且资产名是 `notice<版本号>.apk`，与这条兜底命名不一致——别指望 CI 产物自动喂到镜像兜底。）
-3. 本地跑一遍闸门：`bash .github/scripts/check_version_consistency.sh`（校验版本号/构建号一致性 + `sha256` 格式与完备性），静态模式下服务端不会替你校验任何字段
+2. 把 APK 上传到 CDN 或 GitHub Releases。App 的下载顺序是：`downloads` 里那一条（服务端下发的 CDN 主地址）→ GitHub 加速镜像 → Releases 直链。后两条由**客户端自己合成**，形状是 `<镜像基址>/v<版本号>/<主地址里那一份 APK 的文件名>`：
+   - tag 段**必须带 `v`**。`.github/workflows/build-apk.yml` 只在 `v*` 的 tag 上建 Release —— 这一页以前写的是"tag 必须正好是版本号（不带 `v`）"，那正是 #234 修掉的缺陷：拼出来的地址必然 404，而它**只在 CDN 主地址挂掉时**才被走到，日常一条用例都摸不到。
+   - 文件名**沿用主地址里那一个**（发版脚本一次构建、两处归档 ⇒ 是同一个文件）。所以改 `downloads` 的命名那天，镜像上的那份也得叫那个名字。规则住在 `lib/services/update_download_urls.dart`，别在别处再抄一份。
+3. 本地跑一遍闸门：`bash .github/scripts/check_version_consistency.sh`（校验版本号/构建号一致性 + `sha256` 格式与完备性）—— Pages 那份是静态文件，发布之后没有任何服务端会替你校验字段
 4. 提交并推送到 `main` 分支
 5. GitHub Actions 自动部署到 Pages；到 `/api/version.json` 确认内容已是新版本
+6. ⚠ **到这一步 App 看不见新版本**（App 不读静态文件，见上面那节）。要让 App 收到，得改**服务端**那份 `version.json`：管理后台 `POST /api/admin/version`，或直接编辑服务器上的文件（每次请求实时读取，无需重启）
 
 ### Node.js 服务器模式
 
@@ -111,13 +130,15 @@ https://<用户名>.github.io/<仓库名>/
 2. 通过管理后台 `/admin.html` 提交 `POST /api/admin/version`（保存即生效，无需重启；服务端会做字段校验与白名单投影，并沿用既有 `sha256`）
 3. 或直接编辑服务器上的文件——同样是每次请求实时读取，无需重启
 
-## 混合部署（推荐，本项目现状）
+## 混合部署（本项目现状）
 
-- **GitHub Pages** 作为官网静态主站（`your-org.github.io/noticeTransmit`）
-- **Node.js 服务器** 承担 API 与管理后台（`notice.example.com`）
-- 客户端 `_updateServerUrl` 指向 Node 服务器：API 正常时用 API，Pages 场景由静态回退兜底
+- **GitHub Pages** = 官网静态镜像（`your-org.github.io/<仓库名>`），读它那份 `/api/version.json` 的是**官网首页**
+- **Node.js 服务器** = App 的更新通道与管理后台（示例写作 `notice.example.com` / `notice.example.top`，两档只差主机名）
+- App 拨的是**两档里被选中的那一台**（「更多 → 更新服务器」，自动/手动），**永远走 `/api/version/check`**
 
-如果 Node 服务器 / CDN 不可用（被墙等），把 `_updateServerUrl` 指向 Pages 地址重新出包即可（这是编译期常量，不能应用内改）。
+⚠ 以前这一节写的是「`_updateServerUrl` 指向 Node，Pages 场景由静态回退兜底；Node 或 CDN 不可用（被墙等）时把常量指向 Pages 地址重新出包」。
+**这条路今天不存在了**：那个常量已随 T95 片2 删除，静态回退已随 `cbec666` 删除 ⇒ Pages 不能当 App 更新通道的备胎。
+App 侧真正生效的"另一台"只有地址表里的**另一档**（那是另一个 Node 实例，不是 Pages）。
 
 ## 这一页不涵盖幻念推送，以及为什么
 
@@ -127,10 +148,13 @@ GitHub Pages 是**纯静态**的：它只能发 JSON 文件，不能跑逻辑。
 
 | 能力 | GitHub Pages | Node.js 自部署 |
 |---|---|---|
-| 版本检查 / APK 下载 | ✅ 够用 | ✅ |
+| 官网展示最新版本 / 手动下载入口 | ✅ | ✅ |
+| **App 内检查更新** | ❌ **走不通**：App 只请求 `/api/version/check`，不读静态 JSON | ✅ |
 | 幻念推送（`/api/fnthink/*`） | ❌ **完全不存在** | ✅ 装上契约后可用 |
 
-⚠ **Pages 上没有"简化版幻念推送"。** 只有 `/api/version/*`。如果你想要推送，只能自己跑 Node.js 那一份（见 README 的「加装幻念推送公网面」）。
+⚠ **Pages 上既没有"简化版幻念推送"，也没有"降级版更新通道"。** 它只有静态文件 —— `/api/version.json` 那一条是给
+官网首页读的（App 不读它，`/health` 也不存在）。想要 App 能收到新版本、或想要推送，都只能跑 Node.js 那一份
+（见 README 的「加装幻念推送公网面」与上面的对比表）。
 
 ### 边界声明（与 README 那节一致）
 
@@ -145,7 +169,11 @@ GitHub Pages 是**纯静态**的：它只能发 JSON 文件，不能跑逻辑。
 ## 注意事项
 
 1. **GitHub Pages 有 1GB 存储限制和 100GB/月流量限制**，且 Pages 不适合托管大文件——APK 下载地址必须指向 CDN 或 GitHub Releases
-2. **JSON 文件更新可能有 1-2 分钟 CDN 缓存延迟**；发版后先直接访问 `https://<站点>/api/version.json` 确认已刷新，再看客户端
+2. **JSON 文件更新可能有 1-2 分钟 CDN 缓存延迟**；发版后先直接访问 `https://<站点>/api/version.json` 确认已刷新，再**刷新官网页面**看
+   （⚠ 看的是官网，不是 App：App 不读这份文件。App 那一路走的是服务端 `/api/version/check`，两台实测都回
+   `Cache-Control: no-cache` ⇒ 每次都会回源，不存在"Pages 刷新了 App 就看到了"这回事）
 3. **管理后台 `admin.html` 在 GitHub Pages 上可以打开，但所有 `/api/admin/*` 请求都会 404**（`admin.js` 用 `window.location.origin` 拼接口地址），登录/改版本/二步验证全部不可用
-4. **静态模式没有任何服务端校验**：`version.json` 写错（例如 `latestBuild` 非整数、`sha256` 大写、`downloads` 用了 `http://`）会被客户端按各自容错逻辑解析，问题会直达全部用户——务必先过 `check_version_consistency.sh`
+4. **Pages 那份静态文件没有任何服务端校验**：`version.json` 写错（例如 `latestBuild` 非整数、`sha256` 大写、`downloads` 用了 `http://`）时，读它的**官网**会按各自的容错逻辑解析 ⇒ 现象是"页面上版本号/大小/链接不对"。
+   ⚠ 别把它与"直达全部用户"混为一谈：那一句在今天只对**服务端那一份**成立（App 读的是 `/api/version/check`）。
+   但两份是同一个来源 —— 你从仓库 `rsync` 上去的就是服务端那份，所以**发版前一律先过 `check_version_consistency.sh`**（服务端的管理接口 `POST /api/admin/version` 另有字段校验与白名单投影，直接编辑文件那条路径没有）
 5. **`server/data/` 里的运行期状态不会被发布**，Pages 上也不存在二步验证、会话、IP 封锁、限流这些能力（它们只在 Node.js 服务端里）
