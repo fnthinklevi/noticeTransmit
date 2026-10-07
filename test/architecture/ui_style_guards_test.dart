@@ -378,6 +378,25 @@ void main() {
         );
       }
     });
+    test('「行内次要动作」也只有 FnthinkInlineAction 一个装配点', () {
+      expect(hitting('class FnthinkInlineAction'), const <String>[
+        'lib/widgets/fnthink_card.dart',
+      ], reason: '「对行里那个值做点什么」这一形状必须只有一处定义');
+
+      int n(String path, String needle) =>
+          needle.allMatches(codeByPath[path]!).length;
+
+      // 第一刀收的是「复制」那一族：设置页两处（地址码／配对码）+ 端点页那枚按 key 的复制。
+      expect(
+        n('lib/pages/fnthink_settings_page.dart', 'FnthinkInlineAction('),
+        2,
+      );
+      expect(
+        n('lib/pages/fnthink_endpoint_page.dart', 'FnthinkInlineAction('),
+        greaterThanOrEqualTo(1),
+      );
+    });
+
     test('「主操作填充」也只有 PrimaryActionButton 一个装配点', () {
       expect(hitting('class PrimaryActionButton'), const <String>[
         'lib/widgets/primary_action_button.dart',
@@ -762,9 +781,9 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
 /// ⚠ 0 枚的文件**从账里删掉**（照 `kMaterialRouteSites` 的先例），不留 `: 0` ——
 ///   守卫断的是键集合相等，"留 0"与"没有这一格"在读数上是两件事。
 const Map<String, int> kFnthinkRawTextButtons = <String, int>{
-  'lib/pages/fnthink_settings_page.dart': 9,
+  'lib/pages/fnthink_settings_page.dart': 7,
   'lib/pages/fnthink_peers_page.dart': 5,
-  'lib/pages/fnthink_endpoint_page.dart': 4,
+  'lib/pages/fnthink_endpoint_page.dart': 3,
 };
 
 /// showSnackBar 的**现状台账**（片：T90 补册，2026-10-05）。

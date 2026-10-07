@@ -559,9 +559,9 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
               ),
             ),
             if (code != null)
-              TextButton(
+              FnthinkInlineAction(
+                label: l10n.fnthinkCopy,
                 onPressed: () => fnthinkCopyNotice(context, code),
-                child: Text(l10n.fnthinkCopy),
               ),
             TextButton(
               key: const ValueKey('fnthink-reset-code'),
@@ -597,9 +597,9 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
                   ),
                 ),
               ),
-              TextButton(
+              FnthinkInlineAction(
+                label: l10n.fnthinkCopy,
                 onPressed: () => fnthinkCopyNotice(context, pairing.code.value),
-                child: Text(l10n.fnthinkCopy),
               ),
             ],
           ),

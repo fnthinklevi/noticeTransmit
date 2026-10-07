@@ -501,13 +501,13 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
     Widget copyButton(String keyName, String label, String? text) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: TextButton(
+        child: FnthinkInlineAction(
           key: ValueKey(keyName),
+          label: label,
           // 这一页手上没有那一段东西 ⇒ 置灰，而不是复制一条拼了一半的假命令。
           onPressed: _busy || text == null
               ? null
               : () => fnthinkCopyNotice(context, text),
-          child: Text(label),
         ),
       );
     }

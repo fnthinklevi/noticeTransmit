@@ -178,6 +178,45 @@ class FnthinkNote extends StatelessWidget {
   }
 }
 
+/// 形状① 的**行内次要动作**（T100 判据② 第一刀）：一枚蓝字小按钮，对"行里那个值"做点什么
+/// （复制、重置）。
+///
+/// 它**不是**主操作（那走 `PrimaryActionButton`，一页最多一枚），也**不是**"进一页的行"
+/// （那走 `FnthinkEntryRow`）。§1 把这一族的合法形状收成三种之后，"复制这个口令"这类动作
+/// 一直没归属 —— 于是三处各写一枚裸 `TextButton`，字号、左右留白、禁用态各是各的。
+///
+/// `onPressed` 传 null = 此刻不可用（例如手上还没有那段东西）：**置灰，不是藏起来** ——
+/// 藏起来用户会以为这一页没有这个功能。
+class FnthinkInlineAction extends StatelessWidget {
+  const FnthinkInlineAction({
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      onPressed: onPressed,
+      // 行内动作不该把行撑高：上下留 2 而不是 CupertinoButton 默认那一大圈。
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      minimumSize: Size.zero,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 15,
+          color: onPressed == null
+              ? AppColors.tertiaryLabel(context)
+              : AppColors.systemBlue(context),
+        ),
+      ),
+    );
+  }
+}
+
 /// 形状①「行」的**唯一装配点**（T100 片2）：整行可点 · 左图标块 · 标题（＋可选一句副标题）· 右箭头。
 ///
 /// 为什么收成一件而不是各页各搭：§1 把这一族合法形状定成三种（行／弹层里的动作行／主操作填充），
