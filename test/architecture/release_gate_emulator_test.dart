@@ -682,6 +682,175 @@ void main() {
       );
     });
 
+    test('闸门按文案点的每一格「更多页」入口，必须是那页现在真的画出来的标题', () {
+      // 2026-10-07 CI run 37599710957：5.15/5.16 红在「更多页里找不到入口『幻念推送』」，
+      // 而同一条 GATE-DIAG 打出的真实标签里明明写着**「幻念推送通道」**——维护者 10-06 要求这一格
+      // 与同组三格同义（点进去是通道列表，设置搬进列表页右上角那枚图标）。
+      // ⇒ 页面改了名，闸门的字面量没人跟着改；这类红只有等一次 10+ 分钟的发版闸门才现形。
+      // 这条守卫把"改名当天就红"搬到 `flutter test` 这一层：闸门点的标签 ⊆ 页面现在画的标题。
+      final src = walkSrc();
+      final gateLabels = <String>{};
+      var at = 0;
+      while (true) {
+        at = src.indexOf("_openMoreRow(", at);
+        if (at < 0) break;
+        final a = src.indexOf("'", at);
+        final b = src.indexOf("'", a + 1);
+        if (a < 0 || b < 0) break;
+        // 只收**调用点**：`_openMoreRow(WidgetTester t, String label)` 那一行是定义，
+        // 它后面第一个引号对是函数体里的 `find.text('更多')` —— 收进来就成了"闸门点了一格
+        // 叫『更多』的入口"这种假红。调用点的参数段一定是「一个标识符 + 逗号」。
+        final args = src.substring(at + 13, a).trimRight();
+        if (!args.endsWith(',') || args.indexOf(',') != args.length - 1) {
+          at = b;
+          continue;
+        }
+        gateLabels.add(src.substring(a + 1, b));
+        at = b;
+      }
+      expect(
+        gateLabels.length,
+        greaterThanOrEqualTo(8),
+        reason: '只提取到 ${gateLabels.length} 个入口标签 ⇒ 提取退化了，这条守卫等于没写',
+      );
+
+      final page = stripComments(read('lib/pages/more_page.dart'));
+      const sig = 'title: l10n.';
+      const idChars =
+          'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+      final getters = <String>{};
+      var i = 0;
+      while (true) {
+        i = page.indexOf(sig, i);
+        if (i < 0) break;
+        var j = i + sig.length;
+        while (j < page.length && idChars.contains(page[j])) {
+          j++;
+        }
+        if (j > i + sig.length) getters.add(page.substring(i + sig.length, j));
+        i = j;
+      }
+      expect(
+        getters.length,
+        greaterThanOrEqualTo(12),
+        reason: '更多页只提取到 ${getters.length} 个标题 getter ⇒ 页面的写法变了，先修提取再来谈覆盖',
+      );
+
+      final arb =
+          jsonDecode(read('lib/l10n/arb/app_zh.arb')) as Map<String, dynamic>;
+      final labels = <String>{};
+      for (final g in getters) {
+        final zh = arb[g];
+        expect(zh, isA<String>(), reason: 'ARB 里没有 $g ⇒ 词条命名漂了');
+        final text = zh as String;
+        labels.add(text);
+        labels.add(text.split(RegExp('[：:{（(]')).first);
+      }
+
+      final stale = gateLabels.where((l) => !labels.contains(l)).toList()
+        ..sort();
+      expect(
+        stale,
+        isEmpty,
+        reason:
+            '闸门按这些文案点更多页的格子，而更多页现在不画它们：$stale\n'
+            '要么页面改名了（闸门跟上），要么那一格真没了（闸门去掉那一节）—— 不许留着点不到的字面量。',
+      );
+
+      // 判据自证，两个方向都不许恒真：成员判定要能拒绝一个假标签，也要收得下页面自己的标题。
+      expect(
+        labels.contains('这一串不是任何入口的标题'),
+        isFalse,
+        reason: '成员判定恒真 ⇒ 上面那条 stale 是摆设',
+      );
+      expect(
+        labels.contains('${arb['fnthinkPushChannel']}'),
+        isTrue,
+        reason: '更多页那一格的标题没进 labels ⇒ 提取按 `title: l10n.X` 的写法漂了，改名红不了',
+      );
+
+      // 5.15/5.16 现在走的第二跳钉在 key 上（文案可以改，key 是两边的契约）。
+      expect(
+        src.contains("ValueKey('fnthink-channel-settings')"),
+        isTrue,
+        reason: '闸门不再从通道列表页右上角那枚进设置页 ⇒ 幻念推送页在设备上又变回盲区',
+      );
+      expect(
+        src.contains('FnthinkChannelListPage'),
+        isTrue,
+        reason: '中间那一页没被确认 ⇒ "点了设置图标但落在别的页"读不出来',
+      );
+    });
+
+    test('闸门断 toast 文案那几步必须先被 _waitUntil 命中（不许靠 settle 等它）', () {
+      // 同一次 run 37599710957 的另一条红：5.3 `_tap(测试并保存)` 之后 `_settle(seconds: 1)`，
+      // 再 expect 那句「保存失败：通道名称不能为空」⇒ `Found 0 widgets`。
+      // SnackBar 只活 **2 秒假时钟**，而 `_settle` 是按**墙钟**循环、每圈泵 100ms 假时间 ⇒
+      // 机器越快跨得越多：**本机绿、CI 红**就是这一族（7 节「恢复完成」那条早就改用 _waitUntil）。
+      // 判据打在形状上而不是那一句措辞上：toast 的文案从 lib 侧现取（`_showToast(l10n.X` → ARB 的 zh 值），
+      // 闸门里凡是 `find.text(那句)` 的断言，从上一次 `_tap(` 到它之间必须出现 `_waitUntil(`。
+      final src = walkSrc();
+      const sig = '_showToast(l10n.';
+      const idChars =
+          'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+      final getters = <String>{};
+      for (final f in Directory(
+        '${projectRoot()}/lib',
+      ).listSync(recursive: true).whereType<File>()) {
+        if (!f.path.endsWith('.dart')) continue;
+        final body = stripComments(f.readAsStringSync());
+        var i = 0;
+        while (true) {
+          i = body.indexOf(sig, i);
+          if (i < 0) break;
+          var j = i + sig.length;
+          while (j < body.length && idChars.contains(body[j])) {
+            j++;
+          }
+          if (j > i + sig.length) {
+            getters.add(body.substring(i + sig.length, j));
+          }
+          i = j;
+        }
+      }
+      expect(
+        getters.length,
+        greaterThanOrEqualTo(6),
+        reason: 'lib 侧只提取到 ${getters.length} 个 toast 词条 ⇒ 提取退化，这条是摆设',
+      );
+
+      final arb =
+          jsonDecode(read('lib/l10n/arb/app_zh.arb')) as Map<String, dynamic>;
+      final raced = <String>[];
+      var checked = 0;
+      for (final g in getters) {
+        final zh = arb[g];
+        if (zh is! String) continue;
+        final needle = "find.text('$zh')";
+        var at = src.indexOf(needle);
+        while (at >= 0) {
+          checked++;
+          final back = src.lastIndexOf('_tap(', at);
+          final window = back < 0 ? '' : src.substring(back, at);
+          if (!window.contains('_waitUntil(')) raced.add('  · $zh');
+          at = src.indexOf(needle, at + 1);
+        }
+      }
+      expect(
+        checked,
+        greaterThanOrEqualTo(1),
+        reason: '闸门里一处 toast 断言都没匹配上 ⇒ 提取退化了（词条改了或写法改了），这条守卫等于没写',
+      );
+      expect(
+        raced,
+        isEmpty,
+        reason:
+            '这些提示是"tap 之后 settle 一下再看"等出来的：${raced.join('\n')}\n'
+            'SnackBar 的寿命按假时钟算，而 `_settle` 按墙钟循环 ⇒ 快机器上提示自己消失，红在 CI 而不是红在本机。'
+            '改成 tap 后立即 `_waitUntil(同一个 finder)`（命中即返回，最多消耗一格假时间）。',
+      );
+    });
+
     test('T18 设备状态页：入口被点开、每一项都被核对、推送按钮被真按', () {
       final src = walkSrc();
       final flat = src.replaceAll(RegExp(r'\s+'), ' ');

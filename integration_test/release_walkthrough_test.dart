@@ -24,6 +24,9 @@ import 'package:notice_transmit/pages/battery_page.dart';
 import 'package:notice_transmit/pages/device_state_page.dart';
 import 'package:notice_transmit/pages/device_snapshot_page.dart';
 import 'package:notice_transmit/pages/email_settings_page.dart';
+import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
+import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
+import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_push_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/pages/keywords_page.dart';
@@ -980,9 +983,27 @@ void main() {
           await _tap(tester, find.text('企业微信自建应用'), '应用通道→类型弹层选企微');
           await _settle(tester, seconds: 1);
           await _onPage(tester, AppChannelSettingsPage, '应用通道详情页（单条）');
+          // ⚠ 这一节的每一步之前都留一行 GATE-MARK：2026-10-07 这一节**挂住过**（3 分钟预算用满，
+          //   TimeoutException 不指向任何一行），而挂住不会走到断言 ⇒ 没有 marks 就永远只能猜。
+          _mark('5.3 详情页已就位，先验空表必填拦截');
           // 必填校验：空表点保存必须**点名缺哪个字段**并拒绝写入（第 5 步表单收口的承课）
-          await _tap(tester, _appBarText('测试并保存'), '应用通道→空表保存(应被拦)');
-          await _settle(tester, seconds: 1);
+          await _tap(
+            tester,
+            _appBarText('测试并保存'),
+            '应用通道→空表保存(应被拦)',
+            settleSeconds: 0,
+          );
+          // ⚠ 不许写成「tap 后 settle 一秒，再看那句」：点名提示是一条 **2 秒**的 SnackBar，
+          //   而 `_settle` 是按墙钟循环、每圈泵 100ms 假时间 ⇒ 机器越快跨得越多，
+          //   CI run 37599710957 的 5.3 就是"提示自己被等到消失"红成 `Found 0 widgets`。
+          //   `_waitUntil` 命中即返回（最多消耗一格假时间），等不到时说的是"没等到那句话"，
+          //   与 7 节「恢复完成」那条同形。
+          await _waitUntil(
+            tester,
+            find.text('保存失败：通道名称不能为空'),
+            '空表保存的点名提示',
+            seconds: 6,
+          );
           expect(
             find.text('保存失败：通道名称不能为空'),
             findsWidgets,
@@ -993,6 +1014,7 @@ void main() {
             isEmpty,
             reason: '必填没填却保存成功了 = 校验被绕过',
           );
+          _mark('5.3 必填拦住了（提示已出现、没写库），开始填表');
           // 名称 + API 地址（校验要求 HTTPS）+ 描述符声明的必填扩展参数（corpid/agentid）。
           // 扩展参数按"仍为空的输入框"逐个填：字段集合由描述符决定，写死下标会随类型漂移。
           await _type(
@@ -1018,6 +1040,7 @@ void main() {
             if (empty.evaluate().isEmpty) break;
             await _type(tester, empty, '闸门扩展$i', '应用通道扩展参数 #$i');
           }
+          _mark('5.3 填完了，点「测试并保存」（这一发会走真网络测试）');
           await _tap(tester, _appBarText('测试并保存'), '应用通道→测试并保存');
           await _settle(tester, seconds: 2);
           expect(
@@ -1025,6 +1048,7 @@ void main() {
             hasLength(1),
             reason: '自建应用通道未保存（必填校验/字段键名链路）',
           );
+          _mark('5.3 已落库 1 条');
           // T04「仅测试」：与「测试并保存」是两个动作 ⇒ 它不写库，但结论同样要落单点。
           _mark('5.3 仅测试：不写库，但结论照样落单点');
           await _tap(tester, _appBarText('仅测试'), '应用通道→仅测试');
@@ -1811,8 +1835,7 @@ void main() {
       // "什么都还没做过时，界面有没有替用户编一份列表"。
       await _step(tester, gateFailures, '── 5.15 幻念推送页：端点那一格的形状', () async {
         await _backToHomeQuietly(tester);
-        await _openMoreRow(tester, '幻念推送');
-        await _onPage(tester, FnthinkPushPage, '幻念推送页');
+        await _openFnthinkHub(tester);
 
         final inPage = find.descendant(
           of: find.byType(FnthinkPushPage),
@@ -1835,12 +1858,29 @@ void main() {
           contains('接入端点（给 NAS / 脚本用）'),
           reason: '端点那一格没渲染 ⇒ 这一页最重要的入口又回到只能去管理面',
         );
-        // 上限那句里的数是**从契约读的**：它在设备上出现，才证明契约 asset 真被加载了
-        // （而不是"页面上写死一个 10" —— 那条在 widget 用例里已经被 X5 钉过，这里钉设备上能读到）。
+        // 端点那一格的**形状自 T100 起住在下一页**（`FnthinkEndpointPage`，hub 里按 key
+        // `fnthink-endpoint-entry` 跳）⇒ hub 只管"这张卡在不在、说什么"，四件事要跳进去收。
+        await _tap(
+          tester,
+          find.byKey(const ValueKey('fnthink-endpoint-entry')),
+          '幻念推送页→打开接入端点',
+        );
+        await _onPage(tester, FnthinkEndpointPage, '幻念接入端点页');
+
+        // 上限那句是**条件渲染**（`if (cap != null)` 才画那一枚 FnthinkNote）：
+        // 它在设备上出现，才证明契约 asset 真被加载了（而不是"页面上写死一个 10"）。
+        // 判据打在 key 与"数被代入了"上，不打在那句中文的措辞上 —— 文案改了不该让闸门瞎。
+        final capNote = find.byKey(const ValueKey('fnthink-endpoint-cap'));
         expect(
-          texts,
-          contains('这台设备最多建'),
-          reason: '端点格没有"最多建几把"那句 ⇒ 契约在设备上没读起来，那一格的所有解释都在说谎',
+          capNote,
+          findsOneWidget,
+          reason: '上限那句没出现 ⇒ 契约在设备上没读起来，那一格的所有解释都在说谎（它是 cap != null 才画的条件渲染）',
+        );
+        final capText = tester.widget<Text>(capNote).data ?? '';
+        expect(
+          RegExp('[0-9]').hasMatch(capText),
+          isTrue,
+          reason: '上限那句里没有数字 ⇒ `{max}` 没被代入（读回来的是 "$capText"）',
         );
 
         final create = find.byKey(const ValueKey('fnthink-endpoint-create'));
@@ -1921,8 +1961,15 @@ void main() {
           );
           try {
             await _backToHomeQuietly(tester);
-            await _openMoreRow(tester, '幻念推送');
-            await _onPage(tester, FnthinkPushPage, '幻念推送页');
+            await _openFnthinkHub(tester);
+
+            // 名单行与「发一条」自 T100 起住在 `FnthinkPeersPage`（hub 里按 key 跳）⇒ 先跳进去。
+            await _tap(
+              tester,
+              find.byKey(const ValueKey('fnthink-peers-entry')),
+              '幻念推送页→管理已配对的设备',
+            );
+            await _onPage(tester, FnthinkPeersPage, '幻念已配对设备页');
 
             final sendEntry = find.byKey(
               const ValueKey('fnthink-peer-send-$gatePeer'),
@@ -2634,7 +2681,12 @@ Future<void> _withMissNet(
   }
 }
 
-Future<void> _tap(WidgetTester t, Finder f, String why) async {
+Future<void> _tap(
+  WidgetTester t,
+  Finder f,
+  String why, {
+  int settleSeconds = 1,
+}) async {
   await _scrollUntil(t, f);
   await _must(t, f.evaluate().isNotEmpty, '可点控件 $why', f);
   // ⚠ 用"树上第一个匹配"，不要把控件钉成实例：`const Icon(...)` 会被规范化，
@@ -2650,7 +2702,10 @@ Future<void> _tap(WidgetTester t, Finder f, String why) async {
   await t.pump(const Duration(milliseconds: 120));
   await _must(t, f.evaluate().isNotEmpty, '可见化后 $why', f);
   await _withMissNet(t, why, () => t.tap(f.first));
-  await _settle(t);
+  // `settleSeconds: 0` 是给"要点名提示/SnackBar 那一闪"的步骤用的：`_settle` 按**墙钟**循环、
+  // 每圈泵 100ms **假时钟**，机器越快假时间跑得越多，而 SnackBar 的寿命是按假时钟计的 2 秒。
+  // 在 tap 之后再等 1 秒就等于把提示自己等到消失（CI run 37599710957 的 5.3 正是这样红的）。
+  await _settle(t, seconds: settleSeconds);
 }
 
 Future<void> _type(WidgetTester t, Finder f, String text, String why) async {
@@ -2999,6 +3054,27 @@ Future<void> _openMoreRow(WidgetTester t, String label) async {
   }
   await _tap(t, row, '更多页→$label');
   await _settle(t);
+}
+
+/// 幻念推送的**设置页**（`FnthinkPushPage`）在设备上的真实路径，两跳：
+/// 更多页「幻念推送通道」→ 通道列表页 → 右上角那枚设置图标 → `FnthinkPushPage`。
+///
+/// 为什么不是一跳：维护者 2026-10-06 把更多页那一格改成了与同组三格同义的
+/// 「通道列表」（`l10n.fnthinkPushChannel`），设置搬进列表页右上角
+/// （`lib/pages/fnthink_channel_list_page.dart` 的 `_openSettings`，
+/// key `fnthink-channel-settings`）。闸门此前是 `_openMoreRow(tester, '幻念推送')`
+/// ⇒ 2026-10-07 CI run 37599710957 的 5.15/5.16 就红在"更多页找不到入口「幻念推送」"，
+/// 而它自己打出的 GATE-DIAG 标签里明明有「幻念推送通道」——**页面没坏，是闸门的字面量与
+/// 路线过期**。按 key 点那一枚，不再按文案猜。
+Future<void> _openFnthinkHub(WidgetTester t) async {
+  await _openMoreRow(t, '幻念推送通道');
+  await _onPage(t, FnthinkChannelListPage, '幻念推送通道列表');
+  await _tap(
+    t,
+    find.byKey(const ValueKey('fnthink-channel-settings')),
+    '幻念通道列表→推送与接收的设置',
+  );
+  await _onPage(t, FnthinkPushPage, '幻念推送页（设置那一跳之后）');
 }
 
 /// 「通知引擎」tab 里的入口（T15 骨架页：电量告警 / 温度告警）。
