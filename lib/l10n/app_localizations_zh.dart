@@ -3656,6 +3656,13 @@ class AppLocalizationsZh extends AppLocalizations {
       'GET 形态只给形状：它把口令写在网址的路径段里，因而会进反代的访问日志（access log）。本站日志脱敏还没配好之前，这一支不给可整行复制的真口令 —— 现在就要能用，请用上面那条 POST。';
 
   @override
+  String get fnthinkEndpointCopyPushUrl => '复制推送地址';
+
+  @override
+  String get fnthinkEndpointPushUrlWhy =>
+      '只想粘进别的软件那一个 webhook 输入框：这一条把口令写在网址的最后一段，POST 过来即可，不必发请求头。⚠ 口令进了网址就会进反代的访问日志 —— 本站日志脱敏还没配好之前，能发请求头的客户端请优先用上面那条 Bearer。';
+
+  @override
   String fnthinkEndpointFieldAlias(String title, String body) {
     return '字段名各家平台不一样，取第一个非空：标题依次看 $title；正文依次看 $body。多余的字段一律忽略。投递目标不能由请求指定 —— 这一把只投这台设备。';
   }

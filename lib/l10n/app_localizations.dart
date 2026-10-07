@@ -6776,6 +6776,18 @@ abstract class AppLocalizations {
   /// **'GET 形态只给形状：它把口令写在网址的路径段里，因而会进反代的访问日志（access log）。本站日志脱敏还没配好之前，这一支不给可整行复制的真口令 —— 现在就要能用，请用上面那条 POST。'**
   String get fnthinkEndpointGetWarning;
 
+  /// No description provided for @fnthinkEndpointCopyPushUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制推送地址'**
+  String get fnthinkEndpointCopyPushUrl;
+
+  /// No description provided for @fnthinkEndpointPushUrlWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'只想粘进别的软件那一个 webhook 输入框：这一条把口令写在网址的最后一段，POST 过来即可，不必发请求头。⚠ 口令进了网址就会进反代的访问日志 —— 本站日志脱敏还没配好之前，能发请求头的客户端请优先用上面那条 Bearer。'**
+  String get fnthinkEndpointPushUrlWhy;
+
   /// No description provided for @fnthinkEndpointFieldAlias.
   ///
   /// In zh, this message translates to:

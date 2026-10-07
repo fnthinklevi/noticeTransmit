@@ -750,8 +750,10 @@ curl -sS -X POST "https://push.example.com/api/fnthink/p/ep_xxxxxxxx" \
   -d '{"title":"备份","body":"第 3 盘完成了"}'
 ```
 
-字段别名由契约 `fieldTolerance` 管，按顺序取**第一个非空**：标题 `title|message|text|msg`，
-正文 `body|content|description`；纯空白不算非空。别名表之外的键一概不看、也不回显。
+字段别名由契约 `fieldTolerance` 管，按顺序取**第一个非空**：标题 `title|subject|message|text|msg`，
+正文 `body|content|description|text.content|content.text|data.content`；纯空白不算非空。
+**值是对象或数组时跳过这一档**继续往下找 —— 所以钉钉／企业微信的 `text.content`、飞书自定义机器人的
+`content.text` 都能直接推进来，而不会把那个容器读成 `[object Object]`。别名表之外的键一概不看、也不回显。
 POST 正文覆盖同名的 query 参数。投递目标**不能**由请求指定：只能投到这条端点所属的那台设备。
 
 #### 结论怎么读（这一面不是探针）

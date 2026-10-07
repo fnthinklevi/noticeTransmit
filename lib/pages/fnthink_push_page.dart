@@ -729,6 +729,18 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
         keyName: 'fnthink-endpoint-get-warning',
         text: l10n.fnthinkEndpointGetWarning,
       ),
+      // T99：给"只有一个 webhook 输入框"的第三方软件用的路径形态。门槛与 copyCommand
+      // 同一个（明文不在手就整格不给），所以这一格不会比「复制口令」多泄露一个字。
+      if (guide.pushUrl.isNotEmpty) ...[
+        SelectableText(
+          guide.pushUrl,
+          key: const ValueKey('fnthink-endpoint-push-url'),
+        ),
+        FnthinkNote(
+          keyName: 'fnthink-endpoint-push-url-why',
+          text: l10n.fnthinkEndpointPushUrlWhy,
+        ),
+      ],
       FnthinkNote(
         keyName: 'fnthink-endpoint-fields',
         text: l10n.fnthinkEndpointFieldAlias(
@@ -750,6 +762,11 @@ class _FnthinkPushPageState extends State<FnthinkPushPage> {
         'fnthink-endpoint-copy-command',
         l10n.fnthinkEndpointCopyCommand,
         guide.canCopyCommand ? guide.copyCommand : null,
+      ),
+      copyButton(
+        'fnthink-endpoint-copy-push-url',
+        l10n.fnthinkEndpointCopyPushUrl,
+        guide.canCopyPushUrl ? guide.pushUrl : null,
       ),
       FnthinkNote(
         keyName: 'fnthink-endpoint-copy-hint',

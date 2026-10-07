@@ -158,15 +158,35 @@ function aliasesFor(contract, field) {
   return list;
 }
 
+/// 沿点分路径在**外部载荷**里取值（`text.content` 这种嵌一层的正文）。
+/// 每一段都只认 own property —— 与 `resolvePath` 同一条纪律，而且这里的输入完全来自请求：
+/// `{"text":{"constructor":…}}` 不该顺着原型链摸到东西去。走到非对象上就停手回 undefined。
+function readAliasPath(source, path) {
+  let node = source;
+  for (const key of String(path).split('.')) {
+    if (node === null || typeof node !== 'object') return undefined;
+    if (!Object.prototype.hasOwnProperty.call(node, key)) return undefined;
+    node = node[key];
+  }
+  return node;
+}
+
 /// 按契约的"取第一个非空"规则从外部载荷里取一个规范字段。
 /// 这是本模块唯一真正跑在请求路径上的函数：每接一个新平台都要改服务端，
 /// 就是因为没有这一层（别名表可以扩，代码不用动）。
+///
+/// ⚠ **值是对象或数组时跳过这一档、继续往下找别名**，不许 `String(v)` 兜底。
+///   钉钉／企业微信的形状是 `{"msgtype":"text","text":{"content":"…"}}`：顶层那个
+///   `text` 是个对象，转成字符串就是 `[object Object]`，而 intake 那道闸是"标题正文
+///   **都**空才拒" ⇒ 一半是乱码就放行，用户收到的是一条标题写着 `[object Object]`
+///   的通知。宁可少取一档，也不要把容器当值。
 function pickField(contract, field, source) {
   const aliases = aliasesFor(contract, field);
   const pick = aliases.length > 0 ? aliases : [field];
   for (const key of pick) {
-    const value = source ? source[key] : undefined;
+    const value = readAliasPath(source, key);
     if (value === null || value === undefined) continue;
+    if (typeof value === 'object') continue;
     const text = typeof value === 'string' ? value : String(value);
     if (text.trim() !== '') return text;
   }

@@ -773,9 +773,12 @@ curl -sS -X POST "https://push.example.com/api/fnthink/p/ep_xxxxxxxx" \
 ```
 
 Field names follow the contract's `fieldTolerance`, first non-empty wins: title
-`title|message|text|msg`, body `body|content|description` (whitespace does not count as non-empty).
-Keys outside that list are neither read nor echoed back. A POST body field overrides a query parameter of
-the same name. The delivery target cannot be chosen by the request — it is always the endpoint's own device.
+`title|subject|message|text|msg`, body `body|content|description|text.content|content.text|data.content`
+(whitespace does not count as non-empty). When a value is an object or an array that alias is **skipped** and the
+search continues — so DingTalk/WeCom's `text.content` and Feishu's `content.text` can be posted straight in without
+that container ever being read as `[object Object]`. Keys outside that list are neither read nor echoed back.
+A POST body field overrides a query parameter of the same name. The delivery target cannot be chosen by the request —
+it is always the endpoint's own device.
 
 #### Reading the outcome (this surface is not a probe)
 

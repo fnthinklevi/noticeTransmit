@@ -98,6 +98,37 @@ describe('fnthink 协议契约（服务端侧）', () => {
     expect(pickField(c, 'title', null)).toBe('');
   });
 
+  // T99：别名表扩到"嵌一层的形状"，配套那条实现判据（对象/数组值跳过）在这里钉住。
+  // 旧实现把顶层那个 `text` 对象 `String()` 成 `[object Object]`，而 intake 那道闸是
+  // "标题正文都空才拒" ⇒ 粘钉钉/企业微信形状会发出一条标题是乱码的通知，且不报错。
+  test('字段容错：别名支持点分路径，对象与数组值一律跳过而不是变成 [object Object]', () => {
+    expect(pickField(c, 'body', { msgtype: 'text', text: { content: 'CPU 92%' } })).toBe('CPU 92%');
+    expect(pickField(c, 'body', { msg_type: 'text', content: { text: '构建失败' } })).toBe(
+      '构建失败',
+    );
+    expect(pickField(c, 'body', { title: 'NAS', data: { content: '备份完成' } })).toBe('备份完成');
+    // 标题位上是个对象 ⇒ 跳过它继续往下找别名，不把容器当值。
+    expect(pickField(c, 'title', { title: { x: 1 }, message: '甲' })).toBe('甲');
+    for (const payload of [
+      { msgtype: 'text', text: { content: '甲' } },
+      { msg_type: 'text', content: { text: '乙' } },
+      { title: { x: 1 }, body: '丙' },
+      { title: ['丁'], body: '戊' },
+    ]) {
+      const wire = pickField(c, 'title', payload) + pickField(c, 'body', payload);
+      expect(wire).not.toContain('object Object');
+    }
+    // own property 纪律：载荷里出现 constructor 也不许顺着原型链摸值。
+    expect(pickField(c, 'title', JSON.parse('{"text":{"constructor":{}}}'))).toBe('');
+    // 同一纪律的**可观察**那一半：把别名换成原型链上的键（真实别名表里不会，但
+    // readAliasPath 的写法对任何别名表都成立），弱写法会摸到 Object.prototype 上去。
+    expect(pickField({ fieldTolerance: { title: ['constructor', 'toString'] } }, 'title', {})).toBe(
+      '',
+    );
+    // 数字与布尔照旧转字符串 —— 它们不是容器，这一档行为与改动前一致。
+    expect(pickField(c, 'title', { subject: 404 })).toBe('404');
+  });
+
   test('在线阈值 = 3 × 拉取间隔（poll 即心跳，不另设协议）', () => {
     expect(onlineThresholdMs(c)).toBe(60000);
     expect(onlineThresholdMs(c, 30)).toBe(90000);

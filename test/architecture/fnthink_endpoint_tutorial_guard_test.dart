@@ -47,17 +47,26 @@ void main() {
     );
     expect(
       RegExp(r"'https://").allMatches(stripComments(read(guide))).length,
-      2,
-      reason: 'guide 里那两枚 = POST 那条与 GET 形状那条；多一枚就要问是不是又开了一条拼法',
+      3,
+      reason:
+          'guide 里那三枚 = POST 那条、GET 形状那条、T99 加的路径形态推送地址那条。'
+          '多一枚就要问是不是又开了一条拼法（少一枚就是那条入口被谁悄悄撤了）',
     );
   });
 
-  test('复制按钮的可用性只读 canCopyCommand：口令不许为了常亮而持久化', () {
+  test('复制按钮的可用性只读 guide 那两个判据：口令不许为了常亮而持久化', () {
     final src = stripComments(read(page));
     expect(
       src,
       contains('guide.canCopyCommand'),
       reason: '页面自己判"口令在不在手上"= 第二个判据，而第二个判据最容易写成"存一下就好了"',
+    );
+    expect(
+      src,
+      contains('guide.canCopyPushUrl'),
+      reason:
+          'T99 那条路径形态与 Bearer 那条共用同一个门槛：页面若绕过 canCopyPushUrl '
+          '自己判空，下一幕就是"列表里读到 id 也把口令拼上去"',
     );
     for (final rel in [guide, page]) {
       final text = stripComments(read(rel));

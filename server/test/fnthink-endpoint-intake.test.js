@@ -131,6 +131,40 @@ describe('端点收单：两种形态与字段容错（T39）', () => {
     expect(JSON.stringify(res.body)).not.toContain('没人认的键');
   });
 
+  // T99：第三方推进来的正文十有八九嵌一层。旧实现只读顶层，于是钉钉/企业微信那种
+  // {"text":{"content":…}} 形状会把顶层那个对象 String() 成 [object Object] —— 而
+  // "标题正文都空才拒"那道闸会放它过去，用户收到的是一条标题写着乱码的通知、且不报错。
+  test('通用 webhook 形状收单：嵌套正文取得到，且输出里不许出现 [object Object]', async () => {
+    const ding = await request(app)
+      .post(postPath())
+      .set(bearer())
+      .send({ msgtype: 'text', text: { content: 'CPU 92%' } });
+    expect(ding.status).toBe(status);
+    const dingContent = ms.decryptBodyFor(
+      contract,
+      process.env.ENCRYPTION_KEY,
+      ms.loadMessages()[ding.body.messageId].body,
+    );
+    expect(dingContent.body).toBe('CPU 92%');
+    expect(dingContent.title).toBe('');
+
+    const feishu = await request(app)
+      .post(postPath())
+      .set(bearer())
+      .send({ msg_type: 'text', content: { text: '构建失败' } });
+    expect(feishu.status).toBe(status);
+    const feishuContent = ms.decryptBodyFor(
+      contract,
+      process.env.ENCRYPTION_KEY,
+      ms.loadMessages()[feishu.body.messageId].body,
+    );
+    expect(feishuContent.body).toBe('构建失败');
+
+    for (const content of [dingContent, feishuContent]) {
+      expect(JSON.stringify(content)).not.toContain('object Object');
+    }
+  });
+
   test('dedupe 覆盖走同一条状态机：queued 时刷新，已发出的判 duplicate 不重发', async () => {
     const first = await request(app)
       .post(postPath())

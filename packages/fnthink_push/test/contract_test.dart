@@ -115,12 +115,45 @@ void main() {
     });
 
     test('字段容错：首项是规范名，title 与 body 的别名不相交', () {
-      expect(c.aliases['title'], ['title', 'message', 'text', 'msg']);
-      expect(c.aliases['body'], ['body', 'content', 'description']);
+      expect(c.aliases['title'], [
+        'title',
+        'subject',
+        'message',
+        'text',
+        'msg',
+      ]);
+      expect(
+        c.aliases['body'],
+        const <String>[
+          'body',
+          'content',
+          'description',
+          'text.content',
+          'content.text',
+          'data.content',
+        ],
+        reason:
+            'T99：钉钉/企微的正文在 text.content、飞书 legacy 在 content.text —— '
+            '别名表是这份契约的一部分，谁把嵌一层的那几档删了，这里就要问一句',
+      );
       expect(
         c.aliases['title']!.toSet().intersection(c.aliases['body']!.toSet()),
         isEmpty,
       );
+      // 点分路径从今天起是合法别名，那就得钉住形状：只允许"名.名"一层，
+      // 空段（`text.`、`.content`）与三层以上都是写错了 —— 服务端只会把它当成
+      // 一个取不到的键，静默。
+      for (final entry in c.aliases.entries) {
+        for (final alias in entry.value) {
+          expect(
+            RegExp(
+              r'^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*)?$',
+            ).hasMatch(alias),
+            isTrue,
+            reason: '${entry.key} 的别名 "$alias" 不是"名"或"名.名"的形状',
+          );
+        }
+      }
     });
 
     test('poll 每条消息的名单：主键与归属都在，且每个名字都投影得出来', () {

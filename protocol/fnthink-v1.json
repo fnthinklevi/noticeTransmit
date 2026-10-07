@@ -160,6 +160,7 @@
   "fieldTolerance": {
     "title": [
       "title",
+      "subject",
       "message",
       "text",
       "msg"
@@ -167,11 +168,15 @@
     "body": [
       "body",
       "content",
-      "description"
+      "description",
+      "text.content",
+      "content.text",
+      "data.content"
     ],
     "rule": "first-non-empty",
     "ignoreUnknownFields": true,
-    "_why": "每接一个第三方平台都要改服务端是不可接受的；别名表就是这份契约的一部分"
+    "_why": "每接一个第三方平台都要改服务端是不可接受的；别名表就是这份契约的一部分",
+    "_nestedWhy": "别名允许点分路径（`text.content` 这种嵌一层的形状）：钉钉与企业微信的正文在 `text.content` 里，飞书自定义机器人的 legacy 形态在 `content.text` 里，只读顶层就等于把「通用 webhook」这句话只说给自己听。⚠ 配套那条实现判据（**值是对象或数组时跳过这一档**，不许 `String(v)` 兜底成 `[object Object]`）住在 `server/lib/fnthink/contract.js` 的 `pickField` 上，这一格只声明形状、不重复判据。`title` 与 `body` 两个集合不许相交（校验器钉着），所以 `text` 归标题、`text.content` 归正文，不冲突。"
   },
   "presence": {
     "heartbeatSource": "poll",

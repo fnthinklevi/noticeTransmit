@@ -68,10 +68,29 @@ void main() {
       expect(guide.getShape, contains('/api/fnthink/ingress/'));
     });
 
-    test('字段别名照契约那份名单念（标题四个、正文三个，顺序不改）', () {
+    test('字段别名照契约那份名单念（顺序不改，嵌一层的形状也在里面）', () {
       final guide = build();
-      expect(guide.titleAliases, ['title', 'message', 'text', 'msg']);
-      expect(guide.bodyAliases, ['body', 'content', 'description']);
+      expect(guide.titleAliases, [
+        'title',
+        'subject',
+        'message',
+        'text',
+        'msg',
+      ]);
+      expect(
+        guide.bodyAliases,
+        const <String>[
+          'body',
+          'content',
+          'description',
+          'text.content',
+          'content.text',
+          'data.content',
+        ],
+        reason:
+            'T99：钉钉/企微的正文在 text.content、飞书 legacy 在 content.text —— '
+            '只读顶层就等于把"通用 webhook"这句话只说给自己听',
+      );
     });
 
     test('契约缺那两条路径就抛，不补默认值', () {
@@ -127,11 +146,37 @@ void main() {
       );
     });
 
+    // T99：路径形态的推送地址 —— 给"只有一个 webhook 输入框、发不了请求头"的第三方软件用。
+    test('推送地址只在明文在手那一段时间里给，路径段仍是契约那一份作者', () {
+      final guide = build(secret: 'ABCDEF234567');
+      expect(guide.canCopyPushUrl, isTrue);
+      expect(
+        guide.pushUrl,
+        'https://push.example.com/api/fnthink/p/ep_2f71c0d4e5a67890/ABCDEF234567',
+      );
+      expect(
+        build(secret: null).canCopyPushUrl,
+        isFalse,
+        reason: '没有明文 ⇒ 按钮必须置灰',
+      );
+      expect(build(secret: '   ').canCopyPushUrl, isFalse);
+      expect(build(endpointId: '').canCopyPushUrl, isFalse);
+      // 这条红线没被这次改动挪走：可整行复制的 GET 命令仍然不产，GET 那一支只有占位符。
+      expect(guide.getShape, contains('<secret>'));
+      expect(
+        guide.getShape,
+        isNot(contains('ABCDEF234567')),
+        reason: '给了路径形态的 POST 入口，不等于顺手给一条会把口令写进终端历史的 GET',
+      );
+    });
+
     test('地址为空 ⇒ 两条都交空串，不给半条拼坏的 URL', () {
       final guide = build(host: '');
       expect(guide.postUrl, isEmpty);
       expect(guide.getShape, isEmpty);
+      expect(guide.pushUrl, isEmpty);
       expect(guide.canCopyCommand, isFalse);
+      expect(guide.canCopyPushUrl, isFalse);
     });
   });
 }

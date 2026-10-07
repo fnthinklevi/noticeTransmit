@@ -3837,6 +3837,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'The GET form is shown as a shape only: it puts the token in the URL path, so it does land in the reverse proxy\'s access log. Until log redaction is configured on this server, this branch gives no copyable real token — use the POST above if you need it working now.';
 
   @override
+  String get fnthinkEndpointCopyPushUrl => 'Copy push URL';
+
+  @override
+  String get fnthinkEndpointPushUrlWhy =>
+      'Just need something to paste into another app\'s single webhook field: this one carries the token in the last path segment, so a plain POST is enough — no request headers required. ⚠ A token in the URL does land in the reverse proxy\'s access log. Until log redaction is configured on this server, prefer the Bearer form above whenever your client can send headers.';
+
+  @override
   String fnthinkEndpointFieldAlias(String title, String body) {
     return 'Field names differ per platform; the first non-empty one wins. Title: $title. Body: $body. Extra fields are ignored. A request cannot pick the delivery target — this endpoint only delivers to this device.';
   }
