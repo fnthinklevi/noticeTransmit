@@ -28,6 +28,8 @@ import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_settings_page.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
+import 'package:notice_transmit/widgets/primary_action_button.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/pages/keywords_page.dart';
 import 'package:notice_transmit/pages/more_page.dart';
@@ -1895,10 +1897,10 @@ void main() {
             findsOneWidget,
             reason: '${pair[0]} 那一下不在 ⇒ 这一格又只剩"看不见"那一半',
           );
-          final button = tester.widget<TextButton>(pair[1] as Finder);
+          final button = _tappable(pair[1] as Finder, tester);
           expect(
-            button.onPressed,
-            isNotNull,
+            button,
+            isTrue,
             reason: '${pair[0]} 是灰的 ⇒ 首屏就被判成不可用（要么 _busy 卡住，要么前置判据写歪）',
           );
         }
@@ -3027,6 +3029,21 @@ Future<void> _backToHome(WidgetTester t) async {
 }
 
 /// 在「更多」页里滚到某个入口再点它。MorePage 是长列表，靠下条目不滚动根本不存在。
+/// 这一格现在可不可点 —— **类型无关**。
+///
+/// T100 把幻念那一族的按钮收进了三种形状（行 `FnthinkEntryRow` / 行内动作 `FnthinkInlineAction` /
+/// 主操作 `PrimaryActionButton`），闸门里原来那句 `tester.widget<TextButton>(…)` 会随着换件
+/// 在设备上抛（本机跑不到，只有真机那一趟会现形）。判据要的从来是"这一格此刻能不能点"，
+/// 不是"它是不是 TextButton" —— 读各形状自己那个字段即可。
+bool _tappable(Finder f, WidgetTester tester) {
+  final widget = f.evaluate().single.widget;
+  if (widget is PrimaryActionButton) return widget.onPressed != null;
+  if (widget is FnthinkInlineAction) return widget.onPressed != null;
+  if (widget is FnthinkEntryRow) return widget.onTap != null;
+  if (widget is TextButton) return widget.onPressed != null;
+  return false;
+}
+
 Future<void> _openMoreRow(WidgetTester t, String label) async {
   // 主界面是 IndexedStack：MorePage 永远**在树上**，但当前 tab 不是它时并不在屏幕上，
   // 滚不动 ⇒ 每次都先点一下 tab（第 12 轮 5.11/8 两节的"找不到入口"就是这个）。

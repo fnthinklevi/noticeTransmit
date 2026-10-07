@@ -988,7 +988,7 @@ void main() {
       // 这一格在 ListView 的折叠线以下：不先滚进视口，tap 打在一个够不着的坐标上。
       // ⚠ 必须用 `revealTo`（滚到它被 build 出来）而不是 `ensureVisible`：名单那一格加进来之后
       //    服务地址卡已经落在 cacheExtent 之外，`ensureVisible` 拿到的是空 finder。
-      final edit = find.widgetWithText(TextButton, l10n.edit);
+      final edit = find.widgetWithText(FnthinkInlineAction, l10n.edit);
       await revealTo(tester, edit);
       await tester.pumpAndSettle();
       await tester.tap(edit);
@@ -1216,7 +1216,7 @@ void main() {
       final l10n = await pump(tester, h.page);
       // 这一格在 ListView 的折叠线以下：不先滚进视口，tap 打在一个够不着的坐标上。
       // 同上一条：这一格已经在 cacheExtent 之外。
-      final edit = find.widgetWithText(TextButton, l10n.edit);
+      final edit = find.widgetWithText(FnthinkInlineAction, l10n.edit);
       await revealTo(tester, edit);
       await tester.pumpAndSettle();
       await tester.tap(edit);
@@ -1256,7 +1256,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(h.builds(), 1, reason: '先把循环弄成"正在跑"，下面才有"该不该重启"可问');
 
-      final edit = find.widgetWithText(TextButton, l10n.edit);
+      final edit = find.widgetWithText(FnthinkInlineAction, l10n.edit);
       await revealTo(tester, edit);
       await tester.pumpAndSettle();
       await tester.tap(edit);
@@ -1291,7 +1291,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(h.builds(), 1);
 
-      final edit = find.widgetWithText(TextButton, l10n.edit);
+      final edit = find.widgetWithText(FnthinkInlineAction, l10n.edit);
       await revealTo(tester, edit);
       await tester.pumpAndSettle();
       await tester.tap(edit);

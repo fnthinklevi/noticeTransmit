@@ -19,6 +19,7 @@ import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/primary_action_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../widgets/ios_option_picker.dart';
@@ -519,16 +520,16 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
           keyName: 'fnthink-endpoint-entry-desc',
           text: l10n.fnthinkEndpointEntryDesc,
         ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-endpoint-entry'),
-            onPressed: () => Navigator.of(context).push(
-              CupertinoPageRoute<void>(
-                builder: (_) => FnthinkEndpointPage(deps: widget.endpointDeps),
-              ),
+        FnthinkEntryRow(
+          key: const ValueKey('fnthink-endpoint-entry'),
+          icon: Icons.hub_outlined,
+          iconColor: AppColors.indigo,
+          title: l10n.fnthinkEndpointGo,
+          subtitle: l10n.fnthinkEndpointEntryDesc,
+          onTap: () => Navigator.of(context).push(
+            CupertinoPageRoute<void>(
+              builder: (_) => FnthinkEndpointPage(deps: widget.endpointDeps),
             ),
-            child: Text(l10n.fnthinkEndpointGo),
           ),
         ),
       ],
@@ -563,10 +564,10 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
                 label: l10n.fnthinkCopy,
                 onPressed: () => fnthinkCopyNotice(context, code),
               ),
-            TextButton(
+            FnthinkInlineAction(
               key: const ValueKey('fnthink-reset-code'),
+              label: l10n.fnthinkResetCode,
               onPressed: code == null ? null : _resetAddressCode,
-              child: Text(l10n.fnthinkResetCode),
             ),
           ],
         ),
@@ -628,16 +629,16 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
         if (pairing != null)
           Align(
             alignment: Alignment.centerLeft,
-            child: TextButton(
+            child: FnthinkInlineAction(
               key: const ValueKey('fnthink-revoke-pairing'),
+              label: l10n.fnthinkRevokePairing,
               onPressed: _clearPairingCode,
-              child: Text(l10n.fnthinkRevokePairing),
             ),
           ),
-        TextButton(
+        PrimaryActionButton(
           key: const ValueKey('fnthink-arm-pairing'),
+          label: l10n.fnthinkArmPairing,
           onPressed: _armPairingCode,
-          child: Text(l10n.fnthinkArmPairing),
         ),
         Text(
           l10n.fnthinkPairingExpireNote,
@@ -705,18 +706,18 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
               ),
             ),
-            TextButton(onPressed: _editHost, child: Text(l10n.edit)),
+            FnthinkInlineAction(label: l10n.edit, onPressed: _editHost),
             // T76 双地域：在契约声明的两台里选一台（与上面"手动填"并存 ——
             // 自部署要填的是契约里没有的第三个地址）。
-            TextButton(
+            FnthinkInlineAction(
               key: const ValueKey('fnthink-host-switch'),
+              label: l10n.fnthinkHostSwitch,
               onPressed: _pickHostRegion,
-              child: Text(l10n.fnthinkHostSwitch),
             ),
-            TextButton(
+            FnthinkInlineAction(
               key: const ValueKey('fnthink-host-default'),
+              label: l10n.fnthinkHostReset,
               onPressed: _restoreDefaultHost,
-              child: Text(l10n.fnthinkHostReset),
             ),
           ],
         ),

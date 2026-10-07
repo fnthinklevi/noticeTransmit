@@ -388,9 +388,11 @@ void main() {
 
       // 第一刀收的是「复制」那一族：设置页两处（地址码／配对码）+ 端点页那枚按 key 的复制；
       // 第二刀收的是绑定页那四枚行内动作（批准／拒绝／撤销／发一条）—— 那一格已从台账删掉。
+      // 第三刀之后设置页那一格也清了（复制×2 ＋ 重置地址码 ＋ 撤销口令 ＋ 改地址 ＋
+      // 换服务器 ＋ 恢复默认 = 7 枚），所以它整格从台账里删掉。
       expect(
         n('lib/pages/fnthink_settings_page.dart', 'FnthinkInlineAction('),
-        2,
+        7,
       );
       expect(
         n('lib/pages/fnthink_endpoint_page.dart', 'FnthinkInlineAction('),
@@ -413,6 +415,7 @@ void main() {
         'lib/pages/fnthink_endpoint_page.dart',
         'lib/pages/fnthink_receive_page.dart',
         'lib/pages/fnthink_peers_page.dart',
+        'lib/pages/fnthink_settings_page.dart',
       ]) {
         expect(
           n(p, 'PrimaryActionButton('),
@@ -784,7 +787,6 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
 /// ⚠ 0 枚的文件**从账里删掉**（照 `kMaterialRouteSites` 的先例），不留 `: 0` ——
 ///   守卫断的是键集合相等，"留 0"与"没有这一格"在读数上是两件事。
 const Map<String, int> kFnthinkRawTextButtons = <String, int>{
-  'lib/pages/fnthink_settings_page.dart': 7,
   'lib/pages/fnthink_endpoint_page.dart': 3,
 };
 
