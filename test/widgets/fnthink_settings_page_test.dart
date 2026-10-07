@@ -15,6 +15,7 @@ import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_receive_page.dart';
 import 'package:notice_transmit/pages/fnthink_settings_page.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
+import 'package:notice_transmit/widgets/primary_action_button.dart';
 import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
@@ -489,8 +490,10 @@ void main() {
       );
       expect(find.text(l10n.fnthinkStatusIdle), findsOneWidget);
       expect(
+        // 断在**公共件**上（T100 片2 之后这枚主操作是 `PrimaryActionButton`）：
+        // 它能点与否就是外层这一个 `onPressed` 直通到按钮，读里层等于把壳的形状钉死。
         tester
-            .widget<CupertinoButton>(
+            .widget<PrimaryActionButton>(
               find.byKey(const ValueKey('fnthink-receive-now')),
             )
             .onPressed,

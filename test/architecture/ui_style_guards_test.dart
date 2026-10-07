@@ -376,6 +376,27 @@ void main() {
         );
       }
     });
+    test('「主操作填充」也只有 PrimaryActionButton 一个装配点', () {
+      expect(hitting('class PrimaryActionButton'), const <String>[
+        'lib/widgets/primary_action_button.dart',
+      ], reason: '形状③（一页最多一枚的全宽填充）必须只有一处定义');
+
+      int n(String path, String needle) =>
+          needle.allMatches(codeByPath[path]!).length;
+
+      // 形状的出处（桌面小部件引导页那两枚）与幻念那两页的主操作都在用它。
+      for (final p in const [
+        'lib/pages/widget_guide_page.dart',
+        'lib/pages/fnthink_endpoint_page.dart',
+        'lib/pages/fnthink_receive_page.dart',
+      ]) {
+        expect(
+          n(p, 'PrimaryActionButton('),
+          greaterThanOrEqualTo(1),
+          reason: '$p 的主操作没有走公共件 ⇒ 形状又分叉了',
+        );
+      }
+    });
   });
 
   group('确认框台账（Material AlertDialog）', () {
@@ -741,7 +762,7 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
 const Map<String, int> kFnthinkRawTextButtons = <String, int>{
   'lib/pages/fnthink_settings_page.dart': 9,
   'lib/pages/fnthink_peers_page.dart': 5,
-  'lib/pages/fnthink_endpoint_page.dart': 5,
+  'lib/pages/fnthink_endpoint_page.dart': 4,
 };
 
 /// showSnackBar 的**现状台账**（片：T90 补册，2026-10-05）。

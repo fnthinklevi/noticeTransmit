@@ -18,6 +18,7 @@ import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/primary_action_button.dart';
 import 'remote_credential_settings_page.dart';
 import 'remote_history_page.dart';
 import 'remote_send_page.dart';
@@ -588,13 +589,12 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
           FnthinkNote(keyName: 'fnthink-round-note', text: _roundNote!),
         if (_lastRound != null)
           FnthinkNote(keyName: 'fnthink-last-round', text: _lastRound!),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: CupertinoButton(
-            key: const ValueKey('fnthink-receive-now'),
-            onPressed: _enabled && !_busy ? _receiveNow : null,
-            child: Text(l10n.fnthinkReceiveNow),
-          ),
+        // 这一页的主操作（§1 判据④）：旧写法是一枚左对齐、无填充的 `CupertinoButton`，
+        // 与上面那些「行」混在一起分不出主次。
+        PrimaryActionButton(
+          key: const ValueKey('fnthink-receive-now'),
+          label: l10n.fnthinkReceiveNow,
+          onPressed: _enabled && !_busy ? _receiveNow : null,
         ),
       ],
     );

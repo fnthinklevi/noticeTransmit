@@ -12,6 +12,7 @@ import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/primary_action_button.dart';
 
 /// 这一页的依赖（T97 片B：从混合页那一格里抽出来）。
 ///
@@ -331,13 +332,12 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
             keyName: 'fnthink-endpoint-cap',
             text: l10n.fnthinkEndpointCap(cap),
           ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-endpoint-create'),
-            onPressed: _busy ? null : () => _createEndpoint(),
-            child: Text(l10n.fnthinkEndpointCreate),
-          ),
+        // 这一页的主操作（§1 判据④：一页最多一枚全宽填充）—— 「创建端点」是**做掉一件事**，
+        // 而下面「读取列表」是"再看一眼"，两枚在旧写法里长得一模一样。
+        PrimaryActionButton(
+          key: const ValueKey('fnthink-endpoint-create'),
+          label: l10n.fnthinkEndpointCreate,
+          onPressed: _busy ? null : () => _createEndpoint(),
         ),
         if (created != null)
           if (created.ok) ...[

@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
 import '../widgets/ios_dialog_actions.dart';
+import '../widgets/primary_action_button.dart';
 
 /// 桌面小部件添加引导页
 ///
@@ -205,35 +206,12 @@ class WidgetGuidePage extends StatelessWidget {
     required String subtitle,
     required bool wide,
   }) {
-    return Material(
-      color: AppColors.systemBlue(context),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _requestPinWidget(context, wide: wide),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ),
+    // T100 判据④：形状抬进公共件 `PrimaryActionButton`（幻念那边的「创建端点」「立即收取」
+    // 用的是同一枚）。这一页之所以是"形状的出处"而不是特例：它和那些页一样只有**一个**主操作。
+    return PrimaryActionButton(
+      label: label,
+      subtitle: subtitle,
+      onPressed: () => _requestPinWidget(context, wide: wide),
     );
   }
 
