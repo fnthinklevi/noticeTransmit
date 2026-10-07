@@ -273,6 +273,9 @@ Provided via `.env` (template: `server/.env.example`) or real environment variab
 | `ENCRYPTION_KEY` | AES-256-GCM key for the TOTP secret, **must be 64 hex characters** (32 bytes). An invalid format is discarded with a warning and the secret is stored in plaintext | none (strongly recommended) |
 | `NODE_ENV` | Runtime environment. Only affects whether error responses leak internals: `development` adds the `error` field, anything else returns just "服务器内部错误" | unset (`.env.example` ships `production`) |
 | `TRUST_PROXY` | Reverse-proxy hops to trust. `0` = trust no proxy headers (fail-safe default for direct deployments); a single Nginx layer needs `1`, Nginx + CDN needs `2`. Left unset behind a proxy, IP blocking and rate limiting all count the proxy IP; set without a proxy, attackers can spoof `X-Forwarded-For` to evade blocks | `0` |
+| `FNTHINK_GEO_HEADER` | Custom geo header name for `GET /api/version/region`. Not needed for the Cloudflare host (it sends `cf-ipcountry` on its own); fill it only after measuring whether the other edge (Tencent EdgeOne) forwards a geo header — a guessed name makes the endpoint answer `source:'none'` forever | unset (`cf-ipcountry` only) |
+| `FNTHINK_EDGE` | Explicit edge label (e.g. `edgeone`). When `cf-*` headers are present the endpoint self-proves `cloudflare` and this value is ignored; otherwise it falls back to `unknown` — the code deliberately does **not assume** what fronts the other domain, since that is exactly what this endpoint is for | unset |
+| `FNTHINK_GEO_ECHO` | Temporary instrument: with `1` the endpoint also returns the **names** of the request headers (names only, never values), so one curl reveals what the edge in front actually sends. **Turn it back off after measuring** | unset (off) |
 | `ALLOWED_ORIGINS` | CORS allow-list, comma separated. Requests without an Origin (native app / curl / same-origin) are always allowed; `*` restores allow-all. **Unset means a cross-origin browser request carrying an Origin is refused** (the same-origin console is unaffected) | empty |
 | `DATA_DIR` | Runtime state directory (`version.json` / `totp.json` / `sessions.json` / …), used for test isolation | `<server>/data` |
 | `RATE_LIMIT_GENERAL_MAX` | Global limit: max requests per IP per **route bucket** per 60 s | `60` |
@@ -342,6 +345,7 @@ All endpoints (route definitions in `lib/routes/version.js` and `lib/routes/auth
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
 | `GET`  | `/api/version/check` | public (exempt from IP blocks) | App version check |
+| `GET`  | `/api/version/region` | public (exempt from IP blocks) | Geo read-back `{country,source,edge}` — reports the country code the edge saw; **the client decides which host to use** |
 | `GET`  | `/health` | public (exempt from IP blocks) | Health check `{status:'ok',timestamp}` |
 | `POST` | `/api/admin/login` | Token (+ OTP / recovery code) | Login, returns `sessionId` |
 | `POST` | `/api/admin/logout` | Session/Token | Revoke the current session |

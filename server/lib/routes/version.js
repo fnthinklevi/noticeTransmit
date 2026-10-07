@@ -3,6 +3,7 @@
  *
  * 从 server.js 拆分而来，保持原有行为不变：
  * - GET /api/version/check 为公开接口（不受 IP 封锁与认证限制）
+ * - GET /api/version/region 同样公开：只回边缘看到的国家码，裁决在客户端（T96）
  * - GET|POST /api/admin/version 需认证（authMiddleware）
  * - 版本配置保存链路：POST 校验并写入 version.json，GET 读取返回（前后端契约）
  */
@@ -241,6 +242,119 @@ router.get('/api/version/check', (req, res) => {
     console.error('Version check error:', e.message);
     res.status(500).json({ code: -5, message: '服务器内部错误' });
   }
+});
+
+// ────────────────────────────── T96 地理回读 ──────────────────────────────
+//
+// 公开：GET /api/version/region —— 把**边缘**看到的国家码原样报给客户端。
+// 客户端拿它做首启的"该连哪一台"裁决（大陆档 / 国际档）。
+//
+// ⚠ 这一条**只报事实、不做裁决**：回的三样是 country / source / edge。
+//   "哪些国家码算大陆"住在客户端的纯函数里。裁决若搬进服务端，两个域名的两份
+//   部署就必须永远一致（多一个真值出处），而改判据要从"改客户端"变成"重新部署"。
+//
+// ⚠ 为什么**不**用 `req.ip` 去查 GeoIP：本机 `trust proxy = 0`（见 lib/app.js 那条
+//   注释），源站看到的 `req.ip` 是 **CDN 回源 IP** —— 拿它算地理会把 Cloudflare 的
+//   机房当成用户（#140 量的正是同一件事，只是那里伤的是限流）。而 `cf-ipcountry`
+//   是 CF 边缘按**真实客户端 IP** 判好之后随请求带进来的，与 trust proxy 无关。
+//   ⇒ 今天这个端点不需要先动反代配置就能在那一台上用。
+// ⚠ `.com` 那台走腾讯 EdgeOne：它是否在回源请求里带地理头**未经实测**，所以这里
+//   不猜头名（猜错的话永远回 source:'none'，而那看起来像"部署没生效"）。头名由
+//   `FNTHINK_GEO_HEADER` 配置；`FNTHINK_GEO_ECHO=1` 时额外把请求头的**名字**列出来
+//   （只有名字、不含值）用于部署后跑一次 curl 就测出 EdgeOne 到底带了什么，测完关掉。
+// ⚠ 缓存口径与 /api/version/check **相反**：那份是全体一致的版本配置，这一份是每个
+//   用户不一样的地理结论。必须 `no-store`（`no-cache` 仍允许存储 + 回源校验，
+//   于是第一个用户的国家码可能被发给后面的人），并按地理头写 `Vary`。
+// ⚠ 不落日志：这里既不写 IP 也不写国家码。一条"问一次地理"的接口不该顺手变成
+//   访问日志里的地理记录 —— 那是隐私政策要另算的一件事。
+
+const CF_COUNTRY_HEADER = 'cf-ipcountry';
+// EdgeOne 那台将来实测到的头名由这里配（小写，Node 的 req.get 不区分大小写）
+const GEO_COUNTRY_HEADER_ENV = 'FNTHINK_GEO_HEADER';
+// 边缘标识在 cf-* 之外没法从请求头自证，允许部署方显式标注（如 edgeone）
+const GEO_EDGE_LABEL_ENV = 'FNTHINK_EDGE';
+const GEO_ECHO_ENV = 'FNTHINK_GEO_ECHO';
+
+// 国家码只认 ISO 3166-1 alpha-2 的**形状**（两个 ASCII 字母）。
+// ⚠ 另外单列 CF 的两个**保留值**（不属于 alpha-2，但确实是边缘给的一种事实）：
+//   · `XX` —— 边缘判不出来；
+//   · `T1` —— 匿名代理（iCloud Private Relay 那一类）。
+// 折叠成 null 的话，"它说不知道"与"根本没给地理头"就同一形状，而这两种在客户端
+// 是不同分支（前者该按国家码之外再回落，后者该只用时延）。
+// ⚠ 这两个值**不是**结论：客户端不许把它们放进任何一档的判据里。裁决仍然在客户端，
+//   这里只保证它们不会被当成畸形丢掉。
+function parseGeoCountry(raw) {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(s) || s === 'XX' || s === 'T1' ? s : null;
+}
+
+// 配置里的自定义地理头名；不合法（空、含空格/冒号/换行）一律当作没配。
+function geoHeaderName() {
+  const raw = String(process.env[GEO_COUNTRY_HEADER_ENV] || '')
+    .trim()
+    .toLowerCase();
+  return /^[a-z0-9-]{1,64}$/.test(raw) ? raw : null;
+}
+
+// 边缘标识：cf-* 在场就是 cloudflare（这是能从请求头上自证的唯一一种）；
+// 否则用部署方标注的值，否则 unknown —— **不猜**"另一个域名前面一定是 EdgeOne"，
+// 那正是本端点要测的东西，写死了就再也测不出来。
+function edgeLabelOf(req) {
+  if (req.get('cf-ray') || req.get(CF_COUNTRY_HEADER) || req.get('cf-visitor')) {
+    return 'cloudflare';
+  }
+  const configured = String(process.env[GEO_EDGE_LABEL_ENV] || '')
+    .trim()
+    .toLowerCase();
+  return /^[a-z0-9-]{1,32}$/.test(configured) ? configured : 'unknown';
+}
+
+router.get('/api/version/region', (req, res) => {
+  const configuredHeader = geoHeaderName();
+  const cfRaw = req.get(CF_COUNTRY_HEADER);
+  const customRaw = configuredHeader ? req.get(configuredHeader) : undefined;
+  const cfCountry = parseGeoCountry(cfRaw);
+  const customCountry = parseGeoCountry(customRaw);
+
+  let country = null;
+  let source = 'none';
+  if (cfCountry) {
+    country = cfCountry;
+    source = 'cf-ipcountry';
+  } else if (customCountry) {
+    country = customCountry;
+    source = 'geo-header';
+  }
+  // 头到了、值不成形状：与"根本没有头"是两件事（前者像中间层改写，后者像没接上），
+  // 用一个布尔区分，country/source 那一对的不变量保持干净。
+  const rawUnusable =
+    (!!cfRaw && !cfCountry) || (!!configuredHeader && !!customRaw && !customCountry);
+
+  res.set('Cache-Control', 'no-store');
+  // 无论这次有没有读到，响应都按这两个头变（读到的是 cf，配的是自定义那一个）
+  res.set('Vary', [CF_COUNTRY_HEADER, configuredHeader].filter(Boolean).join(', '));
+
+  res.json({
+    code: 0,
+    message: 'success',
+    data: {
+      country,
+      source,
+      edge: edgeLabelOf(req),
+      ...(rawUnusable ? { rawUnusable: true } : {}),
+      // 只在配了自定义头时出现：让"我要的是哪个头、它到没到"部署后一眼读得出来
+      ...(configuredHeader
+        ? {
+            geoHeader: configuredHeader,
+            ...(customRaw ? {} : { geoHeaderMissing: true }),
+          }
+        : {}),
+      ...(process.env[GEO_ECHO_ENV] === '1'
+        ? { headerNames: Object.keys(req.headers).sort() }
+        : {}),
+    },
+  });
 });
 
 // 管理：读取版本配置（需认证）

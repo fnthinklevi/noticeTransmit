@@ -101,6 +101,9 @@ app.listen(PORT, () => {
   );
   console.log('API 接口:');
   console.log('  GET  /api/version/check           - 检查版本更新');
+  console.log(
+    '  GET  /api/version/region          - 地理回读（只报边缘看到的国家码，不替你选服务器）',
+  );
   console.log('  POST /api/admin/login             - 管理员登录');
   console.log('  GET  /api/admin/totp/setup        - 获取二步验证设置');
   console.log('  POST /api/admin/totp/enable       - 启用二步验证');
