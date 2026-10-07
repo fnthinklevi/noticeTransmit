@@ -362,10 +362,10 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
         // 把它们合成一句"你还没有端点"，用户就会在第一次读失败那天下 NAS 的定时任务。
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton(
+          child: FnthinkInlineAction(
             key: const ValueKey('fnthink-endpoint-read'),
+            label: l10n.fnthinkEndpointListRead,
             onPressed: _busy ? null : _readEndpoints,
-            child: Text(l10n.fnthinkEndpointListRead),
           ),
         ),
         if (listing == null)
@@ -400,18 +400,18 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
             if (row.usable) ...[
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton(
+                child: FnthinkInlineAction(
                   key: ValueKey('fnthink-endpoint-revoke-${row.id}'),
+                  label: l10n.fnthinkEndpointRevoke,
                   onPressed: _busy ? null : () => _revokeEndpoint(row),
-                  child: Text(l10n.fnthinkEndpointRevoke),
                 ),
               ),
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton(
+                child: FnthinkInlineAction(
                   key: ValueKey('fnthink-endpoint-rotate-${row.id}'),
+                  label: l10n.fnthinkEndpointRotate,
                   onPressed: _busy ? null : () => _rotateEndpoint(row),
-                  child: Text(l10n.fnthinkEndpointRotate),
                 ),
               ),
             ],

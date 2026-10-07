@@ -337,6 +337,16 @@ void main() {
       }
     });
 
+    test('这本账必须保持为空（清零之后牙全挂在这一条上）', () {
+      expect(
+        kFnthinkRawTextButtons,
+        isEmpty,
+        reason:
+            'T100 判据② 已经四刀收完：幻念六页的裸 TextButton 归零。'
+            '往这本账里加回一格，等于把「账外一律红」那道门重新打开 —— 而一行代码都没改错',
+      );
+    });
+
     test('尺认得合成样本（防判据退化成空集＝恒真）', () {
       // 本仓栽过两次：提取式收窄之后正则恒不匹配 ⇒ 差集恒空 ⇒ 全绿而什么都没量到。
       expect(
@@ -345,7 +355,13 @@ void main() {
       );
       expect(rawTextButton.hasMatch('CupertinoButton('), isFalse);
       expect(rawTextButton.hasMatch('myTextButton('), isFalse);
-      expect(fnthinkOnly(), isNotEmpty, reason: '一枚都扫不到 ⇒ 上面两条差集恒真');
+      // ⚠ 判据② 收完之后匹配集合**按设计就是空的** ⇒ 空集不能再当"尺坏了"的信号。
+      //   要防退化，得盯**语料**：那几张页必须真的在被扫的范围里。
+      expect(
+        codeByPath.keys.where((p) => p.startsWith('lib/pages/fnthink_')),
+        isNotEmpty,
+        reason: '一张幻念页都没进语料 ⇒ 上面那两条差集恒真',
+      );
     });
 
     test('「进一页那一行」只有 FnthinkEntryRow 一个装配点', () {
@@ -786,9 +802,10 @@ const Map<String, int> kMaterialRouteSites = <String, int>{
 ///
 /// ⚠ 0 枚的文件**从账里删掉**（照 `kMaterialRouteSites` 的先例），不留 `: 0` ——
 ///   守卫断的是键集合相等，"留 0"与"没有这一格"在读数上是两件事。
-const Map<String, int> kFnthinkRawTextButtons = <String, int>{
-  'lib/pages/fnthink_endpoint_page.dart': 3,
-};
+const Map<String, int> kFnthinkRawTextButtons = <String, int>{};
+// ⚠ **这本账今天必须是空的**（2026-10-07 判据② 四刀收完）—— 清零之后它的牙全挂在
+// 「差集为空」那一条上：任何一张幻念页再长出一枚裸 TextButton 都会当场红。
+// 与 T90 那两本台账同一条教训（台账清零不等于闸变硬，得另写一条'必须保持为空'）。
 
 /// showSnackBar 的**现状台账**（片：T90 补册，2026-10-05）。
 ///
