@@ -108,9 +108,9 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
   /// 走 Cupertino 转场而不是 `MaterialPageRoute`：那一本「Material 路由站点」台账
   /// 只许变薄，这一页已有的那一枚是详情页留下的，不能再往这里加第二枚。
   Future<void> _openSettings() async {
-    await Navigator.of(
-      context,
-    ).push(CupertinoPageRoute<void>(builder: (_) => const FnthinkSettingsPage()));
+    await Navigator.of(context).push(
+      CupertinoPageRoute<void>(builder: (_) => const FnthinkSettingsPage()),
+    );
     if (!mounted) return;
     await _reload();
   }

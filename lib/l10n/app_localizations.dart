@@ -5768,6 +5768,12 @@ abstract class AppLocalizations {
   /// **'幻念推送'**
   String get fnthinkPush;
 
+  /// No description provided for @fnthinkSettingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'幻念推送设置'**
+  String get fnthinkSettingsTitle;
+
   /// No description provided for @fnthinkReceive.
   ///
   /// In zh, this message translates to:
@@ -6391,24 +6397,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'勾上它，这台设备收到的通知才会往它那边转。'**
   String get fnthinkPeerForwardHint;
-
-  /// No description provided for @fnthinkReceiveGo.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开接收与远程执行'**
-  String get fnthinkReceiveGo;
-
-  /// No description provided for @fnthinkPeersGo.
-  ///
-  /// In zh, this message translates to:
-  /// **'管理已配对的设备'**
-  String get fnthinkPeersGo;
-
-  /// No description provided for @fnthinkPushPeersDesc.
-  ///
-  /// In zh, this message translates to:
-  /// **'配对、发一条与撤销在「通知引擎 → 幻念推送」里配；这里管的是这台设备自己。'**
-  String get fnthinkPushPeersDesc;
 
   /// No description provided for @fnthinkPeerLine.
   ///

@@ -1835,7 +1835,7 @@ void main() {
       // "什么都还没做过时，界面有没有替用户编一份列表"。
       await _step(tester, gateFailures, '── 5.15 幻念推送页：端点那一格的形状', () async {
         await _backToHomeQuietly(tester);
-        await _openFnthinkHub(tester);
+        await _openFnthinkSettings(tester);
 
         final inPage = find.descendant(
           of: find.byType(FnthinkSettingsPage),
@@ -1961,14 +1961,10 @@ void main() {
           );
           try {
             await _backToHomeQuietly(tester);
-            await _openFnthinkHub(tester);
-
-            // 名单行与「发一条」自 T100 起住在 `FnthinkPeersPage`（hub 里按 key 跳）⇒ 先跳进去。
-            await _tap(
-              tester,
-              find.byKey(const ValueKey('fnthink-peers-entry')),
-              '幻念推送页→管理已配对的设备',
-            );
+            // 名单那一行与「发一条」自 T94 起住在 `FnthinkPeersPage`。T97 片A 之前可以从
+            // 设置页那一行入口进，现在那张页只管"这台设备自己"（两行入口删了）⇒
+            // 唯一的入口是「通知引擎」tab 里的这一行。
+            await _openEngineRow(tester, '已配对的设备');
             await _onPage(tester, FnthinkPeersPage, '幻念已配对设备页');
 
             final sendEntry = find.byKey(
@@ -3066,7 +3062,7 @@ Future<void> _openMoreRow(WidgetTester t, String label) async {
 /// ⇒ 2026-10-07 CI run 37599710957 的 5.15/5.16 就红在"更多页找不到入口「幻念推送」"，
 /// 而它自己打出的 GATE-DIAG 标签里明明有「幻念推送通道」——**页面没坏，是闸门的字面量与
 /// 路线过期**。按 key 点那一枚，不再按文案猜。
-Future<void> _openFnthinkHub(WidgetTester t) async {
+Future<void> _openFnthinkSettings(WidgetTester t) async {
   await _openMoreRow(t, '幻念推送通道');
   await _onPage(t, FnthinkChannelListPage, '幻念推送通道列表');
   await _tap(
@@ -3074,7 +3070,7 @@ Future<void> _openFnthinkHub(WidgetTester t) async {
     find.byKey(const ValueKey('fnthink-channel-settings')),
     '幻念通道列表→推送与接收的设置',
   );
-  await _onPage(t, FnthinkSettingsPage, '幻念推送页（设置那一跳之后）');
+  await _onPage(t, FnthinkSettingsPage, '幻念推送设置页');
 }
 
 /// 「通知引擎」tab 里的入口（T15 骨架页：电量告警 / 温度告警）。

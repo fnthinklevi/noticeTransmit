@@ -1527,6 +1527,7 @@
     }
   },
   "fnthinkPush": "幻念推送",
+  "fnthinkSettingsTitle": "幻念推送设置",
   "fnthinkReceive": "接收推送",
   "fnthinkReceiveDesc": "开着才会去服务器取货；关掉则既不发送也不接收",
   "fnthinkConsentTitle": "允许通知内容经服务器中转？",
@@ -1724,9 +1725,6 @@
   "fnthinkChannelSaveFailed": "没存上：{reason}",
   "fnthinkPeerForwardToggle": "当作幻念通道的目标",
   "fnthinkPeerForwardHint": "勾上它，这台设备收到的通知才会往它那边转。",
-  "fnthinkReceiveGo": "打开接收与远程执行",
-  "fnthinkPeersGo": "管理已配对的设备",
-  "fnthinkPushPeersDesc": "配对、发一条与撤销在「通知引擎 → 幻念推送」里配；这里管的是这台设备自己。",
   "fnthinkPeerLine": "{peer} · 授到 {level} · {at}",
   "@fnthinkPeerLine": {
     "placeholders": {

@@ -334,7 +334,6 @@ void main() {
           contracts: loader,
           coordinator: coordinator,
           identity: FnthinkIdentityService(),
-          loadPeers: loadPeersStub,
           // 页面拿到的就是生产那一份（`status()` 读 `fnthinkPresenceStatus`），
           // 而通道那头由各条用例自己决定回什么。
           // T60：对着服务器的健康度读替身。默认 null ⇒ 那一行"从没发过"。
@@ -343,13 +342,8 @@ void main() {
           probeHosts: probeHosts,
           recordHealth: recordHealth,
         ),
-        // T94：那一行入口要推的绑定页也得拿到同一份替身 —— 两个入口若各造一份，
-        // "两处看到的不是同一份名单"这件事只有真机上才现形。
-        peersDeps: FnthinkPeersDeps(
-          contracts: loader,
-          coordinator: coordinator,
-          loadPeers: loadPeersStub,
-        ),
+        // T97 片A：这一页不再有「绑定」「接收」两行入口（那两页在通知引擎下面各有一行），
+        // 所以它们不再从这里的 deps 表里过；名单读口只剩接收页与绑定页自己用。
         // T97 片B：入口行推的那张端点页也要拿到同一份替身。留空 ⇒ 点那一下走
         // `fromLocator()`，测试里当场抛"GetIt 没注册"，而"入口点得动"这条就再也测不了。
         endpointDeps: FnthinkEndpointDeps(
@@ -425,7 +419,9 @@ void main() {
       AppRoot(locale: const Locale('zh'), dark: false, home: page),
     );
     await tester.pumpAndSettle();
-    return AppLocalizations.of(tester.element(find.byType(FnthinkSettingsPage)));
+    return AppLocalizations.of(
+      tester.element(find.byType(FnthinkSettingsPage)),
+    );
   }
 
   group('看一眼不该发生的事', () {
@@ -698,8 +694,8 @@ void main() {
     });
   });
 
-  group('T94：该页只是这台设备自己的渠道信息', () {
-    testWidgets('「已配对的设备」那一行在，且点它真的进到绑定页', (tester) async {
+  group('T94→T97 片A：这一页只管这台设备自己', () {
+    testWidgets('「绑定」「接收」那两行入口不在这张页上（每件事只有一个入口）', (tester) async {
       stubChannels();
       final h = harness(
         peers: const [
@@ -714,35 +710,21 @@ void main() {
       );
       final l10n = await pump(tester, h.page);
 
-      // 这一页不再自己绘名单：拆两块的第一步就是「这两件事不是一件事」。
-      // ⚠ 那一行排在接收与身份两格之后 ⇒ 首屏之外，先滚到它被 build 出来再断言
-      // （视口外那一格根本没 build，"找不到"会被读成"这一行没有"）。
-      await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-entry')));
-      expect(
-        find.byKey(const ValueKey('fnthink-peers-entry')),
-        findsOneWidget,
-        reason: '两处都要能进绑定，这一处就是第二个入口',
-      );
-      expect(
-        find.text(l10n.fnthinkPeersTitle),
-        findsOneWidget,
-        reason: '行标题采用名单那一把的词，两处名字一致才不会被用户当成两个功能',
-      );
-
-      await revealTo(tester, find.byKey(const ValueKey('fnthink-peers-entry')));
-      await tester.tap(find.byKey(const ValueKey('fnthink-peers-entry')));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byType(FnthinkPeersPage),
-        findsOneWidget,
-        reason: '入口画出来但点不动，比没这一行更坏',
-      );
-      expect(
-        find.byKey(const ValueKey('fnthink-peer-8KMNPQRSTVWX999777')),
-        findsOneWidget,
-        reason: '进到的是真的绑定页（名单在那里），不是一个空壳',
-      );
+      // 这两行原来就在这张页上，点进去的是「绑定页」与「接收页」—— 而那两页在
+      // 「通知引擎 → 幻念推送」下面**各有一行**（`engine-fnthink-peers` / `engine-fnthink-receive`）。
+      // 同一个决定两个入口，改了一处就会忘了另一处；而这两行卡片不携带任何只有它才有的信息。
+      for (final gone in const [
+        'fnthink-peers-entry',
+        'fnthink-receive-entry',
+      ]) {
+        expect(
+          find.byKey(ValueKey(gone)),
+          findsNothing,
+          reason: '$gone 又长回这张页上了 ⇒ 第二棵树回来了',
+        );
+      }
+      // 标题也跟着主语换：这张页不再是什么都往这里放的混合页。
+      expect(find.text(l10n.fnthinkSettingsTitle), findsOneWidget);
     });
 
     testWidgets('这一页上不再有名单与待确认请求那两张卡', (tester) async {

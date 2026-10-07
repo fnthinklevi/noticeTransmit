@@ -3074,6 +3074,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPush => '幻念推送';
 
   @override
+  String get fnthinkSettingsTitle => '幻念推送设置';
+
+  @override
   String get fnthinkReceive => '接收推送';
 
   @override
@@ -3415,15 +3418,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPeerForwardHint => '勾上它，这台设备收到的通知才会往它那边转。';
-
-  @override
-  String get fnthinkReceiveGo => '打开接收与远程执行';
-
-  @override
-  String get fnthinkPeersGo => '管理已配对的设备';
-
-  @override
-  String get fnthinkPushPeersDesc => '配对、发一条与撤销在「通知引擎 → 幻念推送」里配；这里管的是这台设备自己。';
 
   @override
   String fnthinkPeerLine(String peer, String level, String at) {

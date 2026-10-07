@@ -6,10 +6,7 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
-import '../models/fnthink_peer.dart';
 import 'fnthink_endpoint_page.dart';
-import 'fnthink_peers_page.dart';
-import 'fnthink_receive_page.dart';
 import '../services/active_channels.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
@@ -17,7 +14,6 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_probe.dart';
 import '../services/fnthink_identity_service.dart';
-import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
@@ -37,7 +33,6 @@ class FnthinkSettingsDeps {
     required this.contracts,
     required this.coordinator,
     required this.identity,
-    required this.loadPeers,
     this.healthOf,
     this.probeHosts,
     this.recordHealth,
@@ -47,9 +42,6 @@ class FnthinkSettingsDeps {
     contracts: GetIt.instance<FnthinkContractLoader>(),
     coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
     identity: FnthinkIdentityService(),
-    // 名单只从读咽喉取。退回 `DatabaseHelper().loadFnthinkPeers` 的话，页面就会自己长出一份
-    // 排序/时间口径，而 `history_page` 那批守卫已经证明过这种分叉是怎么开始的。
-    loadPeers: GetIt.instance<FnthinkPeerService>().list,
     // T60（approach B）：对着某台服务器的最近一次发送健康度。读源与写源（协调者 recordHealth
     // 落到 ChannelHealthStore）都认 `kFnthinkChannelSlug` 这一个 family，页面不自己 new 读写实现。
     healthOf: (host) =>
@@ -69,7 +61,6 @@ class FnthinkSettingsDeps {
   final FnthinkContractLoader contracts;
   final FnthinkReceiveCoordinator coordinator;
   final FnthinkIdentityService identity;
-  final Future<List<FnthinkPeer>> Function() loadPeers;
 
   /// 读某台服务器的健康度（null = 这台没装配健康度链路 ⇒ 那一行不画/显示"从没发过"）。
   final ChannelHealth? Function(String host)? healthOf;
@@ -88,20 +79,21 @@ class FnthinkSettingsDeps {
   recordHealth;
 }
 
-/// 幻念推送页（T44 的②③ + T42 的入口那半）。
+/// 幻念推送**设置页**（T97 片A。前身是 T44/T42 那张什么都往这里放的混合页）。
 ///
-/// 这一页存在的理由是**一条断链**：收货链路（契约→地址码→循环→收件表→通知栏）五片都落完了，
-/// 而总开关住在 SharedPreferences 里、默认关，界面上没有任何一处能把它翻开 ——
-/// 于是整条链对真实用户是不可达的。顺带把"这台设备是谁"（地址码 / 配对口令 / 身份密钥）
-/// 第一次显示给人看：在此之前它们只在日志与测试里出现过。
+/// 这一页只管**这台设备自己**：它是谁（地址码 / 配对口令 / 身份密钥）、它对着哪台服务器
+/// （地址 + 双地域 + 健康度）、以及外部服务从哪一格推进来（接入端点）。入口只有通道列表页
+/// 右上角那枚齿轮 —— 维护者 2026-10-06 定的「设置从列表页右上齿轮进，不在推送分组里再长第二格」。
+///
+/// ⚠ 主语不同的两件事**不在这里**：「绑定哪几台」与「怎么收、要不要听远程」各自的页
+/// 在「通知引擎 → 幻念推送」下面（`engine-fnthink-peers` / `engine-fnthink-receive`）。
+/// 这里原来各有一行入口，T97 片A 删掉了：同一个决定有两个入口，改了一处就会忘了另一处，
+/// 而两行卡片本身不携带任何只有它才有的信息。
 ///
 /// ⚠ 页面上刻意没有的东西，都不是忘了：
-///  - **一键"全部撤销"**：名单上有的只是**逐行那一下**「撤销」（T31 B 片第二片），它撤的是
-///    服务端那份授权，而已经收到的通知不在这一发的范围里（撤销只停投递、不删历史）。
-///    "把这台设备上所有许可一次收回"需要另一套二次确认（它得先说清"这会切断 N 台"），
-///    那是 T31 的另一档，不在这一格顺手加一个按钮的范围里。
-///  - **对端的名字**：`fnthink_peers` 故意没有这一列（见 `FnthinkPeer` 的注释：poll 的回信里
-///    从没带过它，等有出处了再加列）。所以名单只能显示 18 位地址码 —— 难看，但是有出处的难看。
+///  - **名单本身、逐行那一下「撤销」、以及"一键全部撤销"**：都在绑定页那一页。
+///    这一页只负责把口令挂出去（要让人配它，得在这里），而"切断哪一台"是对一台一台做的决定。
+///    「全部撤销」至今没有，也不是忘了：它得先有一句"这会切断 N 台"的二次确认（T31 的另一档）。
 ///  - **大陆那台预设地址**：`transport.endpoints.mainland` 今天**已部署**（#137 走"先把它部署起来"收口，
 ///    两个域名的能力等价有外网实测），但这一页仍然不给那一档 —— 缺的已经不是地址，而是
 ///    **"什么时候该建议切"的判据**：契约的 `suggestSwitchOnMainlandNetwork` 要靠网络测量，
@@ -109,24 +101,9 @@ class FnthinkSettingsDeps {
 ///    等于把决策甩回给用户，而且他一旦选错，症状是"网络好好的却连不上"。
 ///  - **收件未读数**：它属于 T48 那张入口卡与历史页筛选，不是这一页的责任。
 class FnthinkSettingsPage extends StatefulWidget {
-  const FnthinkSettingsPage({
-    super.key,
-    this.deps,
-    this.peersDeps,
-    this.receiveDeps,
-    this.endpointDeps,
-  });
+  const FnthinkSettingsPage({super.key, this.deps, this.endpointDeps});
 
   final FnthinkSettingsDeps? deps;
-
-  /// 「已配对的设备」那一行要推的那张页的依赖（T94）。
-  /// 缺省走 `FnthinkPeersDeps.fromLocator()`；测试里传一份替身——
-  /// 否则「可以点」那一下会在没注册那些单例的测试里直接抛，
-  /// 而一个入口行的判据正是「点得动」，不能因为装配点缺失就无法被测。
-  final FnthinkPeersDeps? peersDeps;
-
-  /// 「接收与远程执行」那一行要推的那张页的依赖（T94 片 2）。缺省走 `FnthinkReceiveDeps.fromLocator()`；测试里传替身。
-  final FnthinkReceiveDeps? receiveDeps;
 
   /// 「接入端点」那一行要推的那张页的依赖（T97 片B）。缺省走 `FnthinkEndpointDeps.fromLocator()`；
   /// 测试里传替身 —— 入口行的判据是「点得动」，不能因为装配点缺失就无法被测。
@@ -491,7 +468,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
         title: Text(
-          l10n.fnthinkPush,
+          l10n.fnthinkSettingsTitle,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
       ),
@@ -506,31 +483,28 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             )
           else ...[
             _buildIdentityCard(l10n),
-            _buildPeersEntryCard(l10n),
-            const SizedBox(height: 12),
-            _buildReceiveEntryCard(l10n),
-            const SizedBox(height: 12),
-            _buildEndpointEntryCard(l10n),
             const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 12),
-            _buildBoundaryCard(l10n),
+            _buildEndpointEntryCard(l10n),
+            const SizedBox(height: 20),
+            // 隐私边界那句从“一张卡里一段小字”改成底部一行（§1 已定口径：页面里的提醒
+            // 只有两种去处 —— 底部无序列表 / 右上问号弹层）。它不是状态读数，所以不是例外。
+            Text(
+              '• ${l10n.fnthinkBoundary}',
+              key: const ValueKey('fnthink-boundary'),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.secondaryLabel(context),
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  /// 「已配对的设备」那一行入口（T94 片1）。
-  ///
-  /// 为什么是入口而不是内容：设备绑定是**两台设备之间**的关系，而这一页讲的是**这台设备**
-  /// 的身份与服务地址。同一张页里摆两件事，用户配错时看不出自己刚动的是哪一个 ——
-  /// 而这两个决定的代价完全不同（换地址码要重新配对，撤销一台只影响那一台）。
-  /// 「接收推送与远程执行」那一行入口（T94 片 2）。
-  ///
-  /// 两张卡都是「别人对这台设备做什么」：先收下来，再按拿到的命令去做。
-  /// 它们不是这台设备自己的渠道信息，所以也一并搬走——拆得功不应该在每一个入口
-  /// 重复一份。
   /// 「接入端点」那一行入口（T97 片B：那一格搬成了独立一页）。
   ///
   /// 为什么留一行而不是留整格：这一族是**机器对机器**的 —— 应用内没有任何一条路径需要它，
@@ -555,54 +529,6 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
               ),
             ),
             child: Text(l10n.fnthinkEndpointGo),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReceiveEntryCard(AppLocalizations l10n) {
-    return FnthinkCard(
-      title: l10n.fnthinkReceive,
-      children: [
-        FnthinkNote(
-          keyName: 'fnthink-receive-entry-desc',
-          text: l10n.fnthinkHubReceiveDesc,
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-receive-entry'),
-            onPressed: () => Navigator.of(context).push(
-              CupertinoPageRoute<void>(
-                builder: (_) => FnthinkReceivePage(deps: widget.receiveDeps),
-              ),
-            ),
-            child: Text(l10n.fnthinkReceiveGo),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPeersEntryCard(AppLocalizations l10n) {
-    return FnthinkCard(
-      title: l10n.fnthinkPeersTitle,
-      children: [
-        FnthinkNote(
-          keyName: 'fnthink-peers-entry-desc',
-          text: l10n.fnthinkPushPeersDesc,
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: const ValueKey('fnthink-peers-entry'),
-            onPressed: () => Navigator.of(context).push(
-              CupertinoPageRoute<void>(
-                builder: (_) => FnthinkPeersPage(deps: widget.peersDeps),
-              ),
-            ),
-            child: Text(l10n.fnthinkPeersGo),
           ),
         ),
       ],
@@ -823,14 +749,6 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
         if (_hostError != null)
           FnthinkNote(keyName: 'fnthink-host-error', text: _hostError!),
       ],
-    );
-  }
-
-  Widget _buildBoundaryCard(AppLocalizations l10n) {
-    return _buildNoteCard(
-      keyName: 'fnthink-boundary',
-      icon: Icons.privacy_tip_outlined,
-      text: l10n.fnthinkBoundary,
     );
   }
 

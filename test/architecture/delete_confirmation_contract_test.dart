@@ -172,7 +172,9 @@ void main() {
           '_coordinator.confirmPairing(',
           '_coordinator.revokePeer(',
         ],
-        'lib/pages/fnthink_settings_page.dart': ['credentials.resetAddressCode('],
+        'lib/pages/fnthink_settings_page.dart': [
+          'credentials.resetAddressCode(',
+        ],
         // T97 片B：那两句随端点那一页走（名单跟着主语迁，旧文件名下留一条就是假账）。
         'lib/pages/fnthink_endpoint_page.dart': [
           '_coordinator.revokeEndpoint(',

@@ -3205,6 +3205,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPush => 'Fnthink Push';
 
   @override
+  String get fnthinkSettingsTitle => 'Fnthink push settings';
+
+  @override
   String get fnthinkReceive => 'Receive pushes';
 
   @override
@@ -3577,16 +3580,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkPeerForwardHint =>
       'Check it so notifications this device receives are forwarded to it.';
-
-  @override
-  String get fnthinkReceiveGo => 'Open receiving and remote execution';
-
-  @override
-  String get fnthinkPeersGo => 'Manage paired devices';
-
-  @override
-  String get fnthinkPushPeersDesc =>
-      'Pairing, sending and revoking are set up under Notification Engine → Fnthink Push; this page is about this device itself.';
 
   @override
   String fnthinkPeerLine(String peer, String level, String at) {

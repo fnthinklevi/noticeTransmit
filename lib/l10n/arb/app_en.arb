@@ -1506,6 +1506,7 @@
     }
   },
   "fnthinkPush": "Fnthink Push",
+  "fnthinkSettingsTitle": "Fnthink push settings",
   "fnthinkReceive": "Receive pushes",
   "fnthinkReceiveDesc": "Messages are only fetched while this is on; off means neither sending nor receiving",
   "fnthinkConsentTitle": "Allow notification content to be relayed through the server?",
@@ -1703,9 +1704,6 @@
   "fnthinkChannelSaveFailed": "Not saved: {reason}",
   "fnthinkPeerForwardToggle": "Use as an Fnthink channel target",
   "fnthinkPeerForwardHint": "Check it so notifications this device receives are forwarded to it.",
-  "fnthinkReceiveGo": "Open receiving and remote execution",
-  "fnthinkPeersGo": "Manage paired devices",
-  "fnthinkPushPeersDesc": "Pairing, sending and revoking are set up under Notification Engine → Fnthink Push; this page is about this device itself.",
   "fnthinkPeerLine": "{peer} · granted {level} · {at}",
   "@fnthinkPeerLine": {
     "placeholders": {
