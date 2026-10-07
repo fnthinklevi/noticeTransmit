@@ -258,20 +258,34 @@ router.get('/api/version/check', (req, res) => {
 //   机房当成用户（#140 量的正是同一件事，只是那里伤的是限流）。而 `cf-ipcountry`
 //   是 CF 边缘按**真实客户端 IP** 判好之后随请求带进来的，与 trust proxy 无关。
 //   ⇒ 今天这个端点不需要先动反代配置就能在那一台上用。
-// ⚠ `.com` 那台走腾讯 EdgeOne：它是否在回源请求里带地理头**未经实测**，所以这里
-//   不猜头名（猜错的话永远回 source:'none'，而那看起来像"部署没生效"）。头名由
-//   `FNTHINK_GEO_HEADER` 配置；`FNTHINK_GEO_ECHO=1` 时额外把请求头的**名字**列出来
-//   （只有名字、不含值）用于部署后跑一次 curl 就测出 EdgeOne 到底带了什么，测完关掉。
+// ⚠⚠ **2026-10-07 部署后实测（本机对公网，两台各一发）把"能不能信这个头"问出来了**：
+//   · `notice.fnthink.top`（Cloudflare）：客户端自带 `cf-ipcountry: US` 打过去，回的是**真实**那一档（CN）
+//     ⇒ CF **覆盖**了入站的这个头，那台上它只有边缘能写；
+//   · `notice.fnthink.com`（腾讯 EdgeOne）：同样伪造 `US`，回的就是 **US** —— EdgeOne 把客户端自带的
+//     `cf-*` **原样透传**进源站。 ⇒ 那台上 `cf-ipcountry` 是一条**请求方可写的字符串**，不是地理结论。
+//   源站只看得到一条头，**没有别的办法分辨它是谁写的**。所以信任只能由部署声明：
+//   `FNTHINK_GEO_TRUST`（`cf` / `header`，逗号并列）。**没声明就一律不采信**（fail-closed）——
+//   这条接口唯一的用途是替客户端决定连哪一台，把一个请求方可写的值当成结论，
+//   等于把那台的选择权交回给请求方；而它错的时候界面上不会有任何东西变红。
+// ⚠ `.com` 那台将来若实测到它自己的地理头（`FNTHINK_GEO_ECHO=1` 跑一次 curl 就能问出来），
+//   要同时设 `FNTHINK_GEO_HEADER` 与 `FNTHINK_GEO_TRUST=header` 才会出结论。
+//   只设前者 = 永远 `country:null`（这是刻意的：透传型 CDN 后面那个头名谁都能写）。
 // ⚠ 缓存口径与 /api/version/check **相反**：那份是全体一致的版本配置，这一份是每个
 //   用户不一样的地理结论。必须 `no-store`（`no-cache` 仍允许存储 + 回源校验，
 //   于是第一个用户的国家码可能被发给后面的人），并按地理头写 `Vary`。
+//   ⚠ 实测：两台的边缘都给这条响应另加了一条自己的 `Cache-Control: no-cache`（`.top` 上两条并列、
+//   `.com` 上合并成 `no-cache, no-store`），而 `/health` 与 `/api/version/check` 只有那条 `no-cache`
+//   —— 源站在这两条路由上根本不发 Cache-Control（全局那份只管 `/api/admin*`，见 middleware.js）。
+//   净效果仍成立：`no-store` 在场，`cf-cache-status:DYNAMIC` / `EO-Cache-Status:MISS`，没被边缘存下来。
 // ⚠ 不落日志：这里既不写 IP 也不写国家码。一条"问一次地理"的接口不该顺手变成
 //   访问日志里的地理记录 —— 那是隐私政策要另算的一件事。
 
 const CF_COUNTRY_HEADER = 'cf-ipcountry';
 // EdgeOne 那台将来实测到的头名由这里配（小写，Node 的 req.get 不区分大小写）
 const GEO_COUNTRY_HEADER_ENV = 'FNTHINK_GEO_HEADER';
-// 边缘标识在 cf-* 之外没法从请求头自证，允许部署方显式标注（如 edgeone）
+// 部署声明"我这台的边缘会覆盖哪个地理头" ⇒ 那一个才允许出结论
+const GEO_TRUST_ENV = 'FNTHINK_GEO_TRUST';
+// 边缘标识**只能**由部署方声明（cf-* 可以被请求方写，见上面那条实测）
 const GEO_EDGE_LABEL_ENV = 'FNTHINK_EDGE';
 const GEO_ECHO_ENV = 'FNTHINK_GEO_ECHO';
 
@@ -297,13 +311,24 @@ function geoHeaderName() {
   return /^[a-z0-9-]{1,64}$/.test(raw) ? raw : null;
 }
 
-// 边缘标识：cf-* 在场就是 cloudflare（这是能从请求头上自证的唯一一种）；
-// 否则用部署方标注的值，否则 unknown —— **不猜**"另一个域名前面一定是 EdgeOne"，
-// 那正是本端点要测的东西，写死了就再也测不出来。
-function edgeLabelOf(req) {
-  if (req.get('cf-ray') || req.get(CF_COUNTRY_HEADER) || req.get('cf-visitor')) {
-    return 'cloudflare';
-  }
+// 部署声明的可信地理头来源集合：`cf` / `header`，逗号分隔；其余值忽略（不猜）。
+function geoTrusted() {
+  const raw = String(process.env[GEO_TRUST_ENV] || '').toLowerCase();
+  const set = new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s === 'cf' || s === 'header'),
+  );
+  return { cf: set.has('cf'), header: set.has('header') };
+}
+
+// 边缘标识：**只认部署方声明的那一个**。
+// ⚠ 这里原先写的是"cf-* 在场就是 cloudflare，这是能从请求头上自证的唯一一种" —— 2026-10-07
+//   的实测把它证伪了：EdgeOne 那台把客户端自带的 `cf-ipcountry`/`cf-ray` 透传进来，
+//   一发伪造的 `-H 'cf-ipcountry: US'` 就让 `.com` 自称 cloudflare。
+//   ⇒ "cf-* 在场"降级成一条**事实**（`sawCfHeaders`），不再当成边缘的证明。
+function edgeLabelOf() {
   const configured = String(process.env[GEO_EDGE_LABEL_ENV] || '')
     .trim()
     .toLowerCase();
@@ -312,6 +337,7 @@ function edgeLabelOf(req) {
 
 router.get('/api/version/region', (req, res) => {
   const configuredHeader = geoHeaderName();
+  const trust = geoTrusted();
   const cfRaw = req.get(CF_COUNTRY_HEADER);
   const customRaw = configuredHeader ? req.get(configuredHeader) : undefined;
   const cfCountry = parseGeoCountry(cfRaw);
@@ -319,17 +345,21 @@ router.get('/api/version/region', (req, res) => {
 
   let country = null;
   let source = 'none';
-  if (cfCountry) {
+  // 值成形状**且**这一台的部署声明了该头由边缘覆盖 ⇒ 才敢当结论用
+  if (cfCountry && trust.cf) {
     country = cfCountry;
     source = 'cf-ipcountry';
-  } else if (customCountry) {
+  } else if (customCountry && trust.header) {
     country = customCountry;
     source = 'geo-header';
   }
-  // 头到了、值不成形状：与"根本没有头"是两件事（前者像中间层改写，后者像没接上），
-  // 用一个布尔区分，country/source 那一对的不变量保持干净。
+  // 三种"没给出结论"互不相同，各留一个布尔，别让界面把它们读成同一件事：
+  //   rawUnusable        —— 头到了、值不成形状（像中间层改写）
+  //   geoHeaderUntrusted —— 值成形状、但这一台没声明"边缘会覆盖它"（上面那条实测就是它存在的理由）
+  //   geoHeaderMissing   —— 配了自定义头而这次根本没收到（没接上 / 头名配错）
   const rawUnusable =
     (!!cfRaw && !cfCountry) || (!!configuredHeader && !!customRaw && !customCountry);
+  const untrusted = !country && ((!!cfCountry && !trust.cf) || (!!customCountry && !trust.header));
 
   res.set('Cache-Control', 'no-store');
   // 无论这次有没有读到，响应都按这两个头变（读到的是 cf，配的是自定义那一个）
@@ -341,8 +371,10 @@ router.get('/api/version/region', (req, res) => {
     data: {
       country,
       source,
-      edge: edgeLabelOf(req),
+      edge: edgeLabelOf(),
       ...(rawUnusable ? { rawUnusable: true } : {}),
+      ...(untrusted ? { geoHeaderUntrusted: true } : {}),
+      ...(req.get('cf-ray') || cfRaw || req.get('cf-visitor') ? { sawCfHeaders: true } : {}),
       // 只在配了自定义头时出现：让"我要的是哪个头、它到没到"部署后一眼读得出来
       ...(configuredHeader
         ? {

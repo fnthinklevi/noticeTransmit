@@ -217,8 +217,9 @@ server/
 | `ENCRYPTION_KEY`             | TOTP secret 的 AES-256-GCM 密钥，**必须是 64 位十六进制**（32 字节）。格式非法会被忽略并告警，secret 转为明文存储 | 无（强烈建议配置） |
 | `NODE_ENV`                   | 运行环境。仅影响错误响应是否回显内部异常细节：`development` 会带 `error` 字段，其他值只回 `服务器内部错误` | 未设（生产按 `.env.example` 写 `production`） |
 | `TRUST_PROXY`                | 信任的反向代理跳数。0 = 不信任任何 `X-Forwarded-For`（直连部署的 fail-safe 默认）；Nginx 单层反代需设 `1`，Nginx+CDN 设 `2`。不设则 IP 封锁/限流全部记在代理 IP 上，误设则攻击者可伪造头绕封 | `0` |
-| `FNTHINK_GEO_HEADER`         | `GET /api/version/region` 的**自定义地理头名**。Cloudflare 那台自带 `cf-ipcountry`，不需要设；另一台（腾讯 EdgeOne）是否回源带地理头要实测之后才填 —— 猜的头名只会让接口恒回 `source:'none'` | 未设（只读 `cf-ipcountry`） |
-| `FNTHINK_EDGE`               | 边缘标识的显式标注（如 `edgeone`）。`cf-*` 在场时以请求头自证为准（回 `cloudflare`），这个值只在自证不了的时候用；两者都不满足回 `unknown` —— **不猜**「另一个域名前面一定是某家」，那正是这条接口要测的事 | 未设 |
+| `FNTHINK_GEO_TRUST`          | **声明这台网络里哪个地理头是由边缘覆盖的**：`cf`（信任 `cf-ipcountry`）/ `header`（信任 `FNTHINK_GEO_HEADER` 那一个）/ `cf,header`。2026-10-07 部署实测：Cloudflare **覆盖**入站 `cf-ipcountry`（一发伪造头无效），而 EdgeOne 那台把它**原样透传**进源站（伪造什么就回什么）⇒ 源站只看得到一条头，分不出是谁写的，信任只能由部署声明。**没声明一律不出结论**（`country:null`，客户端退回只按时延挑一台），写成 `1` / `true` 也算没声明 | 未设 |
+| `FNTHINK_GEO_HEADER`         | `GET /api/version/region` 的**自定义地理头名**。Cloudflare 那台不需要（读 `cf-ipcountry`）；另一台（腾讯 EdgeOne）是否回源带地理头要实测之后才填，且要同时设 `FNTHINK_GEO_TRUST=header` 才生效 —— 只配头名的话接口恒回 `country:null`（这是刻意的：透传型 CDN 后面那个头谁都能写） | 未设 |
+| `FNTHINK_EDGE`               | 边缘标识（如 `edgeone` / `cloudflare`）的**唯一出处**。⚠ 这里原先写的是"`cf-*` 在场即以请求头自证"，2026-10-07 实测证伪：一发伪造的 `cf-ipcountry` 就让 EdgeOne 那台自称 Cloudflare ⇒ cf-* 降级成一条事实（响应里的 `sawCfHeaders`），不再用来推断边缘。两者都不满足回 `unknown` | 未设 |
 | `FNTHINK_GEO_ECHO`           | 临时仪器：设 `1` 时该接口额外回**请求头的名字**列表（只有名字、不含值），一次 curl 就能问出链路上那层 CDN 到底带了什么头。**测完必须关掉** | 未设（关） |
 | `ALLOWED_ORIGINS`            | CORS 白名单，逗号分隔；无 Origin 的请求（原生 App / curl / 同源）始终放行；`*` 恢复放行所有来源。**不设时，浏览器跨域携带 Origin 的请求会被拒绝**（同源管理后台不受影响） | 空 |
 | `DATA_DIR`                   | 运行期状态目录（`version.json` / `totp.json` / `sessions.json` / …），测试隔离用 | `<server>/data` |
@@ -289,7 +290,7 @@ PORT=8080 npm start
 | 方法 | 路径 | 鉴权 | 说明 |
 | ---- | ---- | ---- | ---- |
 | `GET`  | `/api/version/check` | 公开（豁免 IP 封锁） | App 检查版本更新 |
-| `GET`  | `/api/version/region` | 公开（豁免 IP 封锁） | 地理回读 `{country,source,edge}`：只报边缘看到的国家码，**选哪台由客户端判** |
+| `GET`  | `/api/version/region` | 公开（豁免 IP 封锁） | 地理回读 `{country,source,edge}`：报**边缘**看到的国家码，**选哪台由客户端判**；⚠ 该头是否可信要部署声明（`FNTHINK_GEO_TRUST`），没声明就回 `country:null` |
 | `GET`  | `/health` | 公开（豁免 IP 封锁） | 健康检查 `{status:'ok',timestamp}` |
 | `POST` | `/api/admin/login` | Token（+ OTP / 恢复码） | 登录，成功返回 `sessionId` |
 | `POST` | `/api/admin/logout` | 会话/Token | 吊销当前会话 |
