@@ -242,8 +242,11 @@ void main() {
       );
       expect(
         homeAndStatus,
-        contains('unawaited(probeChannelsAcrossFamilies());'),
-        reason: '回前台那一轮被改成 force ⇒ 每次切回 App 对三族各发一轮请求',
+        contains('probeChannelsAcrossFamilies(onUpdated: _onHealthRecorded)'),
+        reason:
+            '回前台那一轮被改成 force ⇒ 每次切回 App 对三族各发一轮请求。'
+            '（T114 之后那一句的形状是「带 onUpdated、不带 force」—— '
+            '这里断的是后一半，前一半的牙在 `channel_health_reprobe_guard_test` 那一组）',
       );
     });
   });

@@ -47,19 +47,32 @@ extension _MainPageActions on _MainPageState {
     setState(() {});
   }
 
+  /// 结论落库之后的那一次重画（T114）。
+  ///
+  /// 为什么单列出来：健康度是**写进 `ChannelHealthStore` 的**（prefs + 内存），而首页那张卡
+  /// 读的是 `collectActiveChannels()` 里那份快照 —— 探完了不重画，屏幕上就还是上一轮的结论。
+  /// 表现为「打开软件后那四枚要等很久才亮」，而且**没有任何一处报错**（数据其实已经新了）。
+  /// 传这个回调 = 每写回一条结论重画一次，与通道状态页、各列表页进页那一头发的是同一形状。
+  void _onHealthRecorded() {
+    if (mounted) setState(() {});
+  }
+
   /// 通道健康度的**主动**节奏（#183）：立刻探一轮 + 每 [ChannelHealthStore.staleness] 再一轮。
   ///
   /// 三处细节都是刻意的：
   /// ① 周期读的是那个时效常量，不是另写一个「30 分钟」字面量 —— 周期与时效必须是同一个数，
   ///    否则「记录已过期但下一轮还没到」的空档会重新出现（#174 修的就是这类空档）；
   /// ② 每一轮仍是 stale-only：过期的才真发请求，所以一轮的工作量上界就是过期条数；
-  /// ③ 冷启动与每次回前台都重起定时器（先 cancel 再起 ⇒ 反复前后台不会叠出两条轮询）。
+  /// ③ 冷启动与每次回前台都重起定时器（先 cancel 再起 ⇒ 反复前后台不会叠出两条轮询）；
+  /// ④ **两发都带 [onUpdated]**（T114）：这一轮是"探完就完"的 `unawaited`，外面没有人等它，
+  ///    不挂重画就会长出「数据新了、屏幕旧的」那一档 —— 立刻那一发与周期那一发少任何一发都不对。
   void _startHealthProbeCadence() {
-    unawaited(probeChannelsAcrossFamilies());
+    unawaited(probeChannelsAcrossFamilies(onUpdated: _onHealthRecorded));
     _healthProbeTimer?.cancel();
     _healthProbeTimer = Timer.periodic(
       ChannelHealthStore.staleness,
-      (_) => unawaited(probeChannelsAcrossFamilies()),
+      (_) =>
+          unawaited(probeChannelsAcrossFamilies(onUpdated: _onHealthRecorded)),
     );
   }
 

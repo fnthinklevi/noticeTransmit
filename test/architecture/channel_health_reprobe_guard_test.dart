@@ -47,8 +47,51 @@ void main() {
       // 真正发请求的那一句在同一个 library 的 part 里（#183 把它收进了节奏函数）：
       expect(
         librarySource(root, 'lib/pages/main_page.dart'),
-        contains('unawaited(probeChannelsAcrossFamilies());'),
-        reason: '回前台那一轮必须是 stale-only 的（force 只属于下拉那一路）',
+        contains('probeChannelsAcrossFamilies(onUpdated: _onHealthRecorded)'),
+        reason:
+            '回前台那一轮必须是 stale-only 的（force 只属于下拉那一路），'
+            '且必须带重画回调（T114）',
+      );
+    });
+
+    test('节奏那两发都带 onUpdated：探完即改，不留「数据新了、屏幕旧的」那一档（T114）', () {
+      // 病灶不是编译错误：健康度确实写进了 `ChannelHealthStore`，只是这张卡没重画。
+      // 少一发 ⇒ 那一轮（立刻的那一轮 / 每 30 分钟那一轮）探完了屏幕上还是上一轮的结论，
+      // 而所有功能测试仍然绿 —— 它们不断"探完之后界面变没变"。
+      final cadence = blockAfter(
+        librarySource(root, 'lib/pages/main_page.dart'),
+        'void _startHealthProbeCadence()',
+      );
+      final withCallback = RegExp(
+        r'probeChannelsAcrossFamilies\(onUpdated: _onHealthRecorded\)',
+      ).allMatches(cadence).length;
+      expect(
+        withCallback,
+        2,
+        reason:
+            '立刻那一发与周期那一发必须各带一次重画回调（现在数到 $withCallback）：'
+            '少一发就是"那一轮的结果永远要等别的原因才上屏"',
+      );
+      expect(
+        cadence,
+        isNot(contains('force:')),
+        reason: '这两发是主动节奏（stale-only）；force 只属于用户显式下拉那一路（#182）',
+      );
+
+      // 数到"传了回调"还不够：回调本身什么都不做时，与不传是同一个结果，而上面那两条都绿。
+      final callback = blockAfter(
+        librarySource(root, 'lib/pages/main_page.dart'),
+        'void _onHealthRecorded()',
+      );
+      expect(
+        callback,
+        contains('setState(() {})'),
+        reason: '挂着回调却什么都不做 ⇒ 等于没传（这一条守的是"回调里有重画"）',
+      );
+      expect(
+        callback,
+        contains('mounted'),
+        reason: '结论是异步回来的，那一刻这一页可能已经销毁 ⇒ 裸 setState 抛 "after dispose()"',
       );
     });
 
