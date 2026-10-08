@@ -33,6 +33,15 @@ import '../test_setup.dart';
 /// 踩过的坑）。所以电量页先改成订阅 [BatteryService]，骨架页才不必复制第三份接线。
 ///
 /// 共同判据与 temperature_page_test 一致：**只改服务、不重建父树，界面必须自己跟上**。
+/// 读源码做**形状**守卫用（T109）：只剥掉整行注释，留下代码本体。
+///
+/// 为什么剥：注释里会写"为什么不再读 gate"这类历史说法，不剥的话上一条守卫会被自己的
+/// 解释文字打红（本仓记过"锚定在注释上的尺，改注释就能让守卫假红/假绿"）。
+/// 只剥整行 `//…`，不碰行尾与字符串里的 `://`。
+String _readSource(String rel) => File(
+  rel,
+).readAsStringSync().replaceAll(RegExp(r'^[ \t]*//.*$', multiLine: true), '');
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -209,8 +218,10 @@ void main() {
       );
     });
 
-    // T97 片C：第四行「远程控制」—— 它与会上面三行不同：**会灰，且灰的原因写在副标题里**。
-    testWidgets('远程控制那一行：缺哪一条就说哪一条，并当场点不动', (tester) async {
+    // T97 片C 立这一行时是「会灰、点不动，原因写在副标题里」；T109 把它翻过来了：
+    // 三档"没开启"没有一档是"做不到"，而那一页**正是唯一能把它们开起来的地方** ——
+    // 锁在门外再写一句"门后面有开关"是最坏的一种诚实。灰与点不动现在只留给真进不去的时候。
+    testWidgets('远程控制那一行：缺哪一条仍要说出来，但**这一行照样可点**（T109）', (tester) async {
       await pumpHome(
         tester,
         NotificationEnginePage(
@@ -223,12 +234,41 @@ void main() {
       expect(
         find.text('先开「接收」—— 这一页的前提是这台愿意收别人的东西'),
         findsOneWidget,
-        reason: '灰了不说原因，用户只会以为这一页坏了',
+        reason: '可点了不代表不用解释：这一行进去之后要做的事，得有话在前头说清',
       );
       expect(
         tester.widget<FnthinkEntryRow>(row).onTap,
-        isNull,
-        reason: '前置不满足还能点进去，等于把"能不能用"这件事留到下一屏才说',
+        isNotNull,
+        reason:
+            '未开启被画成"不可用" = 用户被锁在门外，而那一页是唯一能把开关翻开的地方'
+            '（维护者 2026-10-08 报的现象就是"第一次进去看一眼、返回之后这一行点不动了"）',
+      );
+    });
+
+    test('那一行的可点性**不许**再读 gate（T109 的形状；gate 只许管副标题说什么）', () {
+      // 行为用例能钉住"未开启时可点"，但钉不住"下一次有人再拿别的档去挡"。
+      // 这一条钉的是装配形状：`onTap:` 直接是那枚回调，中间不许再出现 `_remoteGate`。
+      final src = _readSource('lib/pages/notification_engine_page.dart');
+      final at = src.indexOf("ValueKey('engine-fnthink-remote')");
+      expect(at, greaterThanOrEqualTo(0), reason: '那一行不在这页上了 ⇒ 尺要跟着搬，别让它空转');
+      // 取一个**有界**窗口（这一枚构造函数的长度量级），而不是找 `),` ——
+      // `subtitle: _remoteSubtitle(l10n),` 自己就以 `),` 收尾，按它切会把 `onTap:` 切在尺外面。
+      final row = src.substring(at, at + 600);
+      expect(
+        row,
+        contains('onTap: _openRemotePage'),
+        reason: '那一行的 onTap 又不是直接进页了 ⇒ 回到"按前置决定能不能进"那个形状',
+      );
+      expect(
+        row,
+        isNot(contains('_remoteGate')),
+        reason: '前置又漏进可点性判定里了：读它是"这一行该说什么"，不是"这一行让不让进"',
+      );
+      // 反向自证：判定本身没被删 —— 副标题仍按同一份纯函数分档（三档各有各的话）。
+      expect(
+        src,
+        contains('switch (_remoteGate)'),
+        reason: 'gate 不再管副标题 ⇒ 这条守卫在拦的东西已经没人生产了，先去看读口',
       );
     });
 

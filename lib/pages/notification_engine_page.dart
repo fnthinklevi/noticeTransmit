@@ -292,8 +292,11 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             page: FnthinkChannelListPage(probe: widget.channelProbe),
           ),
           _divider(),
-          // 第四行：远程控制（T97 片C）。它与上面三行的**画法不同** —— 那一行会灰，
-          // 灰的原因写在副标题里（缺接收 / 缺同意 / 缺自己的开关）。
+          // 第四行：远程控制（T97 片C 立的这一行，T109 改了它的可点性）。
+          // T109：这一行**永远可点**。三档"没开启"（缺接收 / 缺同意 / 缺自己的开关）
+          // 没有一档是"做不到"，而那一页正是唯一能把它们开起来的地方 —— 把它做成点不动，
+          // 等于把用户锁在门外再告诉他"门后面有开关"。缺的那一条写在副标题里（下面那句），
+          // 灰与点不动只留给真的进不去的时候（这里没有那种时候）。
           // ⚠ 判定不在这段代码里：`FnthinkRemoteGate` 一个纯函数，两个读者共用一份。
           FnthinkEntryRow(
             key: const ValueKey('engine-fnthink-remote'),
@@ -301,10 +304,7 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             iconColor: AppColors.teal,
             title: l10n.fnthinkRemoteTitle,
             subtitle: _remoteSubtitle(l10n),
-            onTap:
-                (_remoteGate == null || _remoteGate == FnthinkRemoteGate.ready)
-                ? _openRemotePage
-                : null,
+            onTap: _openRemotePage,
           ),
         ],
       ),
