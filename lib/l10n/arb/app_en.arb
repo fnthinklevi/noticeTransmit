@@ -1669,10 +1669,10 @@
   "fnthinkHubDesc": "Where to send: paired devices, sending a notice and receiving settings live here.",
   "fnthinkHubPeersDesc": "Which devices are paired, send one to them, or revoke one of them.",
   "fnthinkHubReceiveDesc": "Receiving, how often to ask for messages, and what the sender may make this device do (remote execution) live here.",
+  "fnthinkHubSettingsDesc": "Who this device is (address code, pairing passphrase, identity key) and which server it talks to.",
   "fnthinkChannelTitle": "Fnthink channels",
   "fnthinkChannelDesc": "Where this device forwards to as a sender: notifications it receives go out through these.",
   "fnthinkPushChannel": "Fnthink Push Channels",
-  "fnthinkChannelSettingsEntry": "Push and receive settings",
   "fnthinkChannelNote": "The badge line records the last time this channel was tested, not an automatic probe: a Fnthink channel has no way to ask \"is it reachable\" without disturbing the other end.",
   "fnthinkHubChannelsDesc": "Where this device forwards to as a sender.",
   "fnthinkChannelEmpty": "No Fnthink channel yet. Add one and this device will forward the notifications it receives.",
@@ -1878,7 +1878,6 @@
   "fnthinkEndpointTitle": "Ingress endpoints (for NAS / scripts)",
   "fnthinkEndpointWhy": "A long-lived token third-party platforms use to push to this device. The server stores only a digest; the token below is shown this once — close the page and it is gone.",
   "fnthinkEndpointEntryDesc": "A long-lived token that lets external services — a NAS, scripts, monitoring — push in. Most people never need to touch this.",
-  "fnthinkEndpointGo": "Open ingress endpoints",
   "fnthinkEndpointCap": "This device can hold up to {max}; at the cap new ones are refused and none in use is displaced.",
   "@fnthinkEndpointCap": {
     "placeholders": {

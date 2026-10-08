@@ -1690,10 +1690,10 @@
   "fnthinkHubDesc": "往哪儿发：设备绑定、发起推送与接收设置都在这一块。",
   "fnthinkHubPeersDesc": "配对了几台设备、能给它们发一条，也能撤销那一台。",
   "fnthinkHubReceiveDesc": "收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。",
+  "fnthinkHubSettingsDesc": "这台设备是谁（地址码、配对口令、身份密钥），以及它对着哪台服务器。",
   "fnthinkChannelTitle": "幻念通道",
   "fnthinkChannelDesc": "这台设备作为发送方的那些转发目标：收到通知就按这里转出去。",
   "fnthinkPushChannel": "幻念推送通道",
-  "fnthinkChannelSettingsEntry": "推送与接收的设置",
   "fnthinkChannelNote": "徽标那一句记的是最近一次「仅探测／探测并保存」的结果，不是自动探测：幻念通道没有不打扰对端就能问出通不通的办法。",
   "fnthinkHubChannelsDesc": "这台设备作为发送方的那些转发目标。",
   "fnthinkChannelEmpty": "还没有幻念通道。新建一条，它就会把这台收到的通知转给指定的目标。",
@@ -1899,7 +1899,6 @@
   "fnthinkEndpointTitle": "接入端点（给 NAS / 脚本用）",
   "fnthinkEndpointWhy": "第三方平台往这台设备推通知用的长期口令。服务端只存摘要；下面这把口令只在这次显示，关掉页面就再也看不到。",
   "fnthinkEndpointEntryDesc": "给 NAS、脚本、监控这类外部服务开门用的长期口令。多数人不需动这里。",
-  "fnthinkEndpointGo": "打开接入端点",
   "fnthinkEndpointCap": "这台设备最多建 {max} 把；到数了只拒新的，不会挤掉已经在用的那把。",
   "@fnthinkEndpointCap": {
     "placeholders": {

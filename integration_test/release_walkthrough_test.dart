@@ -1836,106 +1836,105 @@ void main() {
       // 断言只钉**结构**与**此刻该说什么话**，刻意不按那四把按钮：
       // 按下去就是真网络请求（打的是线上那台服务器），而这一节的价值恰在于
       // "什么都还没做过时，界面有没有替用户编一份列表"。
-      await _step(tester, gateFailures, '── 5.15 幻念推送页：端点那一格的形状', () async {
-        await _backToHomeQuietly(tester);
-        await _openFnthinkSettings(tester);
-
-        final inPage = find.descendant(
-          of: find.byType(FnthinkSettingsPage),
-          matching: find.byType(Text),
-        );
-        // ⚠ 先滚到那一格再收文字：本页是 ListView（懒加载），端点格在视口外时**根本没被 build**，
-        // 于是"页面里找不到那句话"既可能是文案改了，也可能是它还没出生 —— 第一次红就是这么来的。
-        final endpointCard = find.descendant(
-          of: find.byType(FnthinkSettingsPage),
-          matching: find.text('接入端点（给 NAS / 脚本用）'),
-        );
-        await _scrollUntil(tester, endpointCard);
-        await _settle(tester);
-        final texts = tester
-            .widgetList<Text>(inPage)
-            .map((t) => t.data ?? '')
-            .join(' | ');
-        expect(
-          texts,
-          contains('接入端点（给 NAS / 脚本用）'),
-          reason: '端点那一格没渲染 ⇒ 这一页最重要的入口又回到只能去管理面',
-        );
-        // 端点那一格的**形状自 T100 起住在下一页**（`FnthinkEndpointPage`，hub 里按 key
-        // `fnthink-endpoint-entry` 跳）⇒ hub 只管"这张卡在不在、说什么"，四件事要跳进去收。
-        await _tap(
-          tester,
-          find.byKey(const ValueKey('fnthink-endpoint-entry')),
-          '幻念推送页→打开接入端点',
-        );
-        await _onPage(tester, FnthinkEndpointPage, '幻念接入端点页');
-
-        // 上限那句是**条件渲染**（`if (cap != null)` 才画那一枚 FnthinkNote）：
-        // 它在设备上出现，才证明契约 asset 真被加载了（而不是"页面上写死一个 10"）。
-        // 判据打在 key 与"数被代入了"上，不打在那句中文的措辞上 —— 文案改了不该让闸门瞎。
-        final capNote = find.byKey(const ValueKey('fnthink-endpoint-cap'));
-        expect(
-          capNote,
-          findsOneWidget,
-          reason: '上限那句没出现 ⇒ 契约在设备上没读起来，那一格的所有解释都在说谎（它是 cap != null 才画的条件渲染）',
-        );
-        final capText = tester.widget<Text>(capNote).data ?? '';
-        expect(
-          RegExp('[0-9]').hasMatch(capText),
-          isTrue,
-          reason: '上限那句里没有数字 ⇒ `{max}` 没被代入（读回来的是 "$capText"）',
-        );
-
-        final create = find.byKey(const ValueKey('fnthink-endpoint-create'));
-        final read = find.byKey(const ValueKey('fnthink-endpoint-read'));
-        await _scrollUntil(tester, read);
-        for (final pair in [
-          ['建一个端点', create],
-          ['读一次我建过的入口', read],
-        ]) {
+      await _step(
+        tester,
+        gateFailures,
+        '── 5.15 幻念推送：设置页与接入端点页的形状（两页都在通知引擎那一块里）',
+        () async {
+          await _backToHomeQuietly(tester);
+          // T107 换了这一节的路线：这两页原先挂在「更多页 → 通道列表 → 右上齿轮（→ 齿轮里那一行端点）」
+          // 那棵树上。旧路线的两个抓手（`fnthink-channel-settings` 那枚齿轮、设置页里那行
+          // `fnthink-endpoint-entry`）已经**真删**，留着按不动的字面量正是这一节自己要防的事。
+          await _openFnthinkSettings(tester);
           expect(
-            pair[1],
+            find.byKey(const ValueKey('fnthink-address-code')),
             findsOneWidget,
-            reason: '${pair[0]} 那一下不在 ⇒ 这一格又只剩"看不见"那一半',
+            reason: '进到了设置页却没有身份那一格 ⇒ 只剩一张壳，地址码没地方看',
           );
-          final button = _tappable(pair[1] as Finder, tester);
+          // 端点那一格搬走了（T107），设置页里不该再有第二枚通往它的行。
           expect(
-            button,
-            isTrue,
-            reason: '${pair[0]} 是灰的 ⇒ 首屏就被判成不可用（要么 _busy 卡住，要么前置判据写歪）',
-          );
-        }
-
-        // 还没读过 ⇒ 只能出现"还没读过"那一句；出现"没有端点"就是替用户编了一份列表。
-        expect(
-          find.byKey(const ValueKey('fnthink-endpoint-list-pending')),
-          findsOneWidget,
-          reason: '没读过就该说"还没看过"（空白会被读成"你没有"，那是这一格最容易说的假话）',
-        );
-        expect(
-          find.byKey(const ValueKey('fnthink-endpoint-list-none')),
-          findsNothing,
-          reason: '一次都没读过就说"没有端点"：用户会当着一次没发生的事去重建入口',
-        );
-        // 没有列表行 ⇒ 没有"关掉这把 / 换一把口令"那两下（此刻连 id 都还不知道）。
-        for (final prefix in [
-          'fnthink-endpoint-revoke-',
-          'fnthink-endpoint-rotate-',
-        ]) {
-          final rowButtons = find.byWidgetPredicate(
-            (w) =>
-                w.key is ValueKey &&
-                '${(w.key as ValueKey).value}'.startsWith(prefix),
-          );
-          expect(
-            rowButtons,
+            find.byKey(const ValueKey('fnthink-endpoint-entry')),
             findsNothing,
-            reason: '$prefix 那一下在没有列表的情况下出现了 ⇒ 按钮指向的是一个还不存在的对象',
+            reason: '设置页里还留着通往端点页的那一行 ⇒ 同一张页两个入口，端点页只需一个',
           );
-        }
-        await _backToHome(tester);
-        await _backToHomeQuietly(tester);
-      });
+
+          await _backToHome(tester);
+          await _openEngineRow(tester, '接入端点（给 NAS / 脚本用）');
+          await _onPage(tester, FnthinkEndpointPage, '幻念接入端点页');
+
+          // 上限那句是**条件渲染**（`if (cap != null)` 才画那一枚 FnthinkNote）：
+          // 它在设备上出现，才证明契约 asset 真被加载了（而不是"页面上写死一个 10"）。
+          // 判据打在 key 与"数被代入了"上，不打在那句中文的措辞上 —— 文案改了不该让闸门瞎。
+          final capNote = find.byKey(const ValueKey('fnthink-endpoint-cap'));
+          expect(
+            capNote,
+            findsOneWidget,
+            reason: '上限那句没出现 ⇒ 契约在设备上没读起来，那一格的所有解释都在说谎（它是 cap != null 才画的条件渲染）',
+          );
+          final capText = tester.widget<Text>(capNote).data ?? '';
+          expect(
+            RegExp('[0-9]').hasMatch(capText),
+            isTrue,
+            reason: '上限那句里没有数字 ⇒ `{max}` 没被代入（读回来的是 "$capText"）',
+          );
+
+          final create = find.byKey(const ValueKey('fnthink-endpoint-create'));
+          final read = find.byKey(const ValueKey('fnthink-endpoint-read'));
+          await _scrollUntil(tester, read);
+          for (final pair in [
+            ['建一个端点', create],
+            ['读一次我建过的入口', read],
+          ]) {
+            expect(
+              pair[1],
+              findsOneWidget,
+              reason: '${pair[0]} 那一下不在 ⇒ 这一格又只剩"看不见"那一半',
+            );
+            final button = _tappable(pair[1] as Finder, tester);
+            expect(
+              button,
+              isTrue,
+              reason: '${pair[0]} 是灰的 ⇒ 首屏就被判成不可用（要么 _busy 卡住，要么前置判据写歪）',
+            );
+          }
+
+          // 还没读过 ⇒ 只能出现"还没读过"那一句；出现"没有端点"就是替用户编了一份列表。
+          expect(
+            find.byKey(const ValueKey('fnthink-endpoint-list-pending')),
+            findsOneWidget,
+            reason: '没读过就该说"还没看过"（空白会被读成"你没有"，那是这一格最容易说的假话）',
+          );
+          expect(
+            find.byKey(const ValueKey('fnthink-endpoint-list-none')),
+            findsNothing,
+            reason: '一次都没读过就说"没有端点"：用户会当着一次没发生的事去重建入口',
+          );
+          // 没有列表行 ⇒ 没有"关掉这把 / 换一把口令"那两下（此刻连 id 都还不知道）。
+          for (final prefix in [
+            'fnthink-endpoint-revoke-',
+            'fnthink-endpoint-rotate-',
+          ]) {
+            final rowButtons = find.byWidgetPredicate(
+              (w) =>
+                  w.key is ValueKey &&
+                  '${(w.key as ValueKey).value}'.startsWith(prefix),
+            );
+            expect(
+              rowButtons,
+              findsNothing,
+              reason: '$prefix 那一下在没有列表的情况下出现了 ⇒ 按钮指向的是一个还不存在的对象',
+            );
+          }
+          // 更多页那一格仍然只到**通道列表**为止（T107 的验收口径：那一格不再另开一条设置路径）。
+          // 这一走是为了确认那条路还通，"齿轮真删"由 widget 用例与
+          // `fnthink_ia_single_entry_test.dart` 那批源码守卫钉 —— 闸门里不留按已删 key 找路的写法。
+          await _backToHome(tester);
+          await _openMoreRow(tester, '幻念推送通道');
+          await _onPage(tester, FnthinkChannelListPage, '幻念推送通道列表');
+          await _backToHome(tester);
+          await _backToHomeQuietly(tester);
+        },
+      );
       // ── 5.16 幻念推送页：名单行上的「发一条」（T98 片④：那一枚弹层换成了共用那张页）───
       // 这一格此前只有 widget 用例里的证据，而它有一个**只有设备上才看得见**的形状：
       // "名单是空的 ⇒ 连入口都不该有"。这一节钉三件形状，一个字节都不发出去：
@@ -3072,24 +3071,17 @@ Future<void> _openMoreRow(WidgetTester t, String label) async {
   await _settle(t);
 }
 
-/// 幻念推送的**设置页**（`FnthinkSettingsPage`）在设备上的真实路径，两跳：
-/// 更多页「幻念推送通道」→ 通道列表页 → 右上角那枚设置图标 → `FnthinkSettingsPage`。
+/// 幻念推送的**设置页**（`FnthinkSettingsPage`）在设备上的真实路径（T107 起是一跳）：
+/// 通知引擎 tab → 幻念推送那一块 → 「幻念推送设置」那一行。
 ///
-/// 为什么不是一跳：维护者 2026-10-06 把更多页那一格改成了与同组三格同义的
-/// 「通道列表」（`l10n.fnthinkPushChannel`），设置搬进列表页右上角
-/// （`lib/pages/fnthink_channel_list_page.dart` 的 `_openSettings`，
-/// key `fnthink-channel-settings`）。闸门此前是 `_openMoreRow(tester, '幻念推送')`
-/// ⇒ 2026-10-07 CI run 37599710957 的 5.15/5.16 就红在"更多页找不到入口「幻念推送」"，
-/// 而它自己打出的 GATE-DIAG 标签里明明有「幻念推送通道」——**页面没坏，是闸门的字面量与
-/// 路线过期**。按 key 点那一枚，不再按文案猜。
+/// 这里原先是两跳（更多页「幻念推送通道」→ 通道列表页 → 右上角那枚齿轮）。换掉的不只是路线，
+/// 还有一条**至今成立的教训**：闸门曾经写成 `_openMoreRow(tester, '幻念推送')`，
+/// CI run 37599710957 的 5.15/5.16 就红在"更多页找不到入口「幻念推送」"，而它自己打出的
+/// GATE-DIAG 标签里明明有「幻念推送通道」——**页面没坏，是闸门的字面量与路线过期**。
+/// 所以现在仍然按页面真画的标题走（那一枚词条住在 ARB，行标题与页标题同源），
+/// 由 `release_gate_emulator_test.dart` 的 T111 那条守卫钉住"标签 ⊆ 页面画的标题"。
 Future<void> _openFnthinkSettings(WidgetTester t) async {
-  await _openMoreRow(t, '幻念推送通道');
-  await _onPage(t, FnthinkChannelListPage, '幻念推送通道列表');
-  await _tap(
-    t,
-    find.byKey(const ValueKey('fnthink-channel-settings')),
-    '幻念通道列表→推送与接收的设置',
-  );
+  await _openEngineRow(t, '幻念推送设置');
   await _onPage(t, FnthinkSettingsPage, '幻念推送设置页');
 }
 

@@ -364,12 +364,9 @@ void main() {
         ),
         // T97 片A：这一页不再有「绑定」「接收」两行入口（那两页在通知引擎下面各有一行），
         // 所以它们不再从这里的 deps 表里过；名单读口只剩接收页与绑定页自己用。
-        // T97 片B：入口行推的那张端点页也要拿到同一份替身。留空 ⇒ 点那一下走
-        // `fromLocator()`，测试里当场抛"GetIt 没注册"，而"入口点得动"这条就再也测不了。
-        endpointDeps: FnthinkEndpointDeps(
-          contracts: loader,
-          coordinator: coordinator,
-        ),
+        // T107：也不再需要 `endpointDeps` —— 端点那一行入口搬去了通知引擎，这一页里
+        // 不再 push 那张页（原来的注释写着"留空 ⇒ 点那一下走 fromLocator() 当场抛"，
+        // 现在这里没有那一下可点了）。
       ),
       // T94：绑定那几格搬到了这张独立页（推送引擎那侧）。同一个协调者、同一份名单读口
       // —— 而"两处都能进"这条要求两个入口必须指向**同一份状态**，所以它们共用替身而不是各造一份。
@@ -787,45 +784,30 @@ void main() {
     });
   });
 
-  testWidgets('「接入端点」那一行在，且点它真的进到端点页（T97 片B）', (tester) async {
+  testWidgets('「接入端点」那一行**不再**留在这页（T107：入口都收在通知引擎那一块）', (tester) async {
     stubChannels();
     final h = harness();
-    final l10n = await pump(tester, h.page);
+    await pump(tester, h.page);
 
-    // 这一行在首屏之外（ListView 懒加载），先滚到它被 build 出来再断言。
-    await revealTo(
-      tester,
-      find.byKey(const ValueKey('fnthink-endpoint-entry')),
-    );
+    // 旧的一条用例是「这一行在、点得动、进到端点页」——它搬走了，所以这里断的是**反面**：
+    // 同一张页有两个入口的话，改了一处就会忘另一处（T107 立的就是这一条）。
     expect(
       find.byKey(const ValueKey('fnthink-endpoint-entry')),
-      findsOneWidget,
-      reason: '那一格搬成独立页之后这里只剩一行入口；行没了，用户就只能回管理面铸口令',
+      findsNothing,
+      reason:
+          '这一页里还留着通往端点页的那一行 ⇒ 通知引擎那一行与这一行会各指一处，'
+          '而端点页本身只需要一个入口',
     );
+    // 搬走的是那一行，不是整页：这台设备自己的两格必须还在。
     expect(
-      find.text(l10n.fnthinkEndpointTitle),
+      find.byKey(const ValueKey('fnthink-address-code')),
       findsOneWidget,
-      reason: '行标题与那一张页用的是同一把词，两处名字一致才不会被当成两个功能',
-    );
-
-    await tester.tap(find.byKey(const ValueKey('fnthink-endpoint-entry')));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byType(FnthinkEndpointPage),
-      findsOneWidget,
-      reason: '入口画出来但点不动，比没这一行更坏',
-    );
-    // 进到的是那一页本体：建端点那一下在页上。
-    expect(
-      find.byKey(const ValueKey('fnthink-endpoint-create')),
-      findsOneWidget,
-      reason: '进到的是端点页本体，不是一个空壳标题',
+      reason: '删一行删过头了：身份那一格也不见了，用户就没有看地址码的地方了',
     );
     expect(
       h.endpointAsked(),
       isEmpty,
-      reason: '只是走进去看一眼 ⇒ 一发都不该出去（这一条从它还在混合页时就这样判）',
+      reason: '只是打开这一页 ⇒ 一发都不该出去（这一条从它还在混合页时就这样判）',
     );
   });
 

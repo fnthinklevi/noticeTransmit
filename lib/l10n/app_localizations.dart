@@ -6248,6 +6248,12 @@ abstract class AppLocalizations {
   /// **'收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。'**
   String get fnthinkHubReceiveDesc;
 
+  /// No description provided for @fnthinkHubSettingsDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台设备是谁（地址码、配对口令、身份密钥），以及它对着哪台服务器。'**
+  String get fnthinkHubSettingsDesc;
+
   /// No description provided for @fnthinkChannelTitle.
   ///
   /// In zh, this message translates to:
@@ -6265,12 +6271,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'幻念推送通道'**
   String get fnthinkPushChannel;
-
-  /// No description provided for @fnthinkChannelSettingsEntry.
-  ///
-  /// In zh, this message translates to:
-  /// **'推送与接收的设置'**
-  String get fnthinkChannelSettingsEntry;
 
   /// No description provided for @fnthinkChannelNote.
   ///
@@ -6859,12 +6859,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'给 NAS、脚本、监控这类外部服务开门用的长期口令。多数人不需动这里。'**
   String get fnthinkEndpointEntryDesc;
-
-  /// No description provided for @fnthinkEndpointGo.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开接入端点'**
-  String get fnthinkEndpointGo;
 
   /// No description provided for @fnthinkEndpointCap.
   ///

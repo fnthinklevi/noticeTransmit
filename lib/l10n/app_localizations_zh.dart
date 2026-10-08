@@ -3340,6 +3340,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkHubReceiveDesc => '收下来、多久问一次货、以及对方你做什么（远程执行）都在这里。';
 
   @override
+  String get fnthinkHubSettingsDesc => '这台设备是谁（地址码、配对口令、身份密钥），以及它对着哪台服务器。';
+
+  @override
   String get fnthinkChannelTitle => '幻念通道';
 
   @override
@@ -3347,9 +3350,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPushChannel => '幻念推送通道';
-
-  @override
-  String get fnthinkChannelSettingsEntry => '推送与接收的设置';
 
   @override
   String get fnthinkChannelNote =>
@@ -3693,9 +3693,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkEndpointEntryDesc => '给 NAS、脚本、监控这类外部服务开门用的长期口令。多数人不需动这里。';
-
-  @override
-  String get fnthinkEndpointGo => '打开接入端点';
 
   @override
   String fnthinkEndpointCap(int max) {

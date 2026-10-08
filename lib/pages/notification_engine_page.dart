@@ -18,6 +18,8 @@ import 'fnthink_channel_list_page.dart';
 import 'fnthink_channel_settings_page.dart';
 import 'fnthink_receive_page.dart';
 import 'fnthink_remote_page.dart';
+import 'fnthink_settings_page.dart';
+import 'fnthink_endpoint_page.dart';
 import 'temperature_page.dart';
 
 /// 「通知引擎」tab 的骨架页（T15）。
@@ -228,8 +230,9 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
   /// T94：这一块收「往哪儿发」 —— 渠道、设备绑定、发起推送、接收设置、远程执行。
   ///
   /// 这一块现在有四行（设备配对／接收设置／幻念通道／远程执行）—— T94 片2/片3 都已落。
-  /// **不摆占位行** —— 这一页上面那三格为什么只有三个，理由就是「点了没反应的行比没有这行更糟」，
-  /// 同一页里摆三行占位会把那条理由自己拆了。
+  /// T107 又补了两行（推送设置／接入端点），把原先挂在「更多页 → 通道列表 → 齿轮」那棵树上的
+  /// 两页也接进来 ⇒ 幻念那一族只有一个入口面。**不摆占位行** —— 这一页上面那三格为什么只有三个，
+  /// 理由就是「点了没反应的行比没有这行更糟」，同一页里摆三行占位会把那条理由自己拆了。
   Widget _fnthinkHubCard(AppLocalizations l10n) {
     return Container(
       decoration: BoxDecoration(
@@ -305,6 +308,34 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             title: l10n.fnthinkRemoteTitle,
             subtitle: _remoteSubtitle(l10n),
             onTap: _openRemotePage,
+          ),
+          _divider(),
+          // 第五、六行（T107）：**推送设置**与**接入端点**也从这一块进。
+          // 这两页原先挂在「更多页 → 幻念推送通道 → 列表页右上角齿轮（→ 齿轮里那一行端点）」
+          // 那棵树上，而同一族的另外四件事早在通知引擎里 ⇒ 用户要记两个入口。
+          // 旧的齿轮与那一行端点**真删了**（不留兼容跳转）：两条路进同一页，改了一处就会忘了另一处，
+          // 而"从哪进决定看得见什么"正是 #271 那条装配点守卫反对的事。
+          // ⚠ 这一条**推翻**了维护者 2026-10-06 定的「设置从列表页右上齿轮进，不在推送分组里再长第二格」
+          //   与 2026-10-07 拍的「端点归设置 → 高级」—— 原话留在 `fnthink_settings_page.dart` 的注释里，
+          //   新口径是 2026-10-08 第 1 条：幻念那一族只长一棵树，入口都在通知引擎。
+          _entry(
+            key: const ValueKey('engine-fnthink-settings'),
+            icon: Icons.settings_outlined,
+            iconColor: AppColors.systemGray(context),
+            title: l10n.fnthinkSettingsTitle,
+            subtitle: l10n.fnthinkHubSettingsDesc,
+            page: const FnthinkSettingsPage(),
+          ),
+          _divider(),
+          _entry(
+            key: const ValueKey('engine-fnthink-endpoint'),
+            icon: Icons.hub_outlined,
+            iconColor: AppColors.indigo,
+            // 行标题与目标页 AppBar 读**同一枚词条**（与「设备配对」那一行同一条纪律）：
+            // 两边各写各的，就是"改了行没改页"这种半改的源头。
+            title: l10n.fnthinkEndpointTitle,
+            subtitle: l10n.fnthinkEndpointEntryDesc,
+            page: const FnthinkEndpointPage(),
           ),
         ],
       ),

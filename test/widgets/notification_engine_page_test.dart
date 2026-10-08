@@ -308,6 +308,33 @@ void main() {
         reason: '「还不知道」不是「不能用」——禁用会把没读到契约说成用户的问题',
       );
     });
+
+    // T107：幻念那一族的入口收成一棵树 —— 设置页与端点页的入口都在这块卡片里。
+    testWidgets('推送设置／接入端点两行都在这块里，且都点得动（T107）', (tester) async {
+      await pumpHome(tester, const NotificationEnginePage());
+
+      final list = find.byType(ListView).first;
+      for (final key in const [
+        'engine-fnthink-settings',
+        'engine-fnthink-endpoint',
+      ]) {
+        final row = find.byKey(ValueKey(key));
+        // 这一页是 ListView（懒加载），第五、六行在视口外时**根本没被 build** ⇒ 先拖到它出生。
+        await tester.dragUntilVisible(list, row, const Offset(0, -120));
+        expect(
+          row,
+          findsOneWidget,
+          reason:
+              '这一行不在 ⇒ 那一页又只剩一条旧路径（T107 删掉的那条），'
+              '用户从通知引擎进不去它',
+        );
+        expect(
+          tester.widget<FnthinkEntryRow>(row).onTap,
+          isNotNull,
+          reason: '入口画出来却点不动，比没有这一行更坏（这一族自己的判据）',
+        );
+      }
+    });
   });
 
   group('T23：设备态告警也接受约束（默认关）', () {

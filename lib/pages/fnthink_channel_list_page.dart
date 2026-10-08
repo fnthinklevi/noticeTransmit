@@ -14,7 +14,6 @@ import '../widgets/channel_visuals.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/pull_to_refresh_list.dart';
 import 'fnthink_channel_settings_page.dart';
-import 'fnthink_settings_page.dart';
 
 /// 幻念通道**列表页** —— 与 webhook／自建应用／邮件三族同一形状（维护者 2026-10-06 定：
 /// 「更多」页推送通道分组里这一格要和组内的 webhook 一致，点进来就是通道列表，
@@ -115,17 +114,9 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
     await _reload();
   }
 
-  /// 设置住在设置页，不跟通道混在一张列表里（维护者 2026-10-06：「设置放在设置页」）。
-  ///
-  /// 走 Cupertino 转场而不是 `MaterialPageRoute`：那一本「Material 路由站点」台账
-  /// 只许变薄，这一页已有的那一枚是详情页留下的，不能再往这里加第二枚。
-  Future<void> _openSettings() async {
-    await Navigator.of(context).push(
-      CupertinoPageRoute<void>(builder: (_) => const FnthinkSettingsPage()),
-    );
-    if (!mounted) return;
-    await _reload();
-  }
+  // 这一页右上角原先那枚「设置」齿轮**删掉了**（T107：入口都收在「通知引擎 → 幻念推送」那一块）。
+  // 原先它走 `Navigator.push` + 返回后 `_reload()`：设置页改的是这台设备的身份与服务器，
+  // 不改通道表里的行，所以少那一次重载不影响这里显示的内容 —— 真要立刻重看，这一页支持下拉刷新。
 
   /// 删除通道的**单一咽喉**（与 T06 那条契约同一个形状）：确认 → 落库 → 清健康缓存。
   Future<void> _delete(FnthinkChannel channel) async {
@@ -199,14 +190,9 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
       backgroundColor: AppColors.bgColor(context),
       appBar: AppBar(
         title: Text(l10n.fnthinkPushChannel),
-        actions: <Widget>[
-          IconButton(
-            key: const ValueKey<String>('fnthink-channel-settings'),
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: l10n.fnthinkChannelSettingsEntry,
-            onPressed: _openSettings,
-          ),
-        ],
+        // T107：右上角那枚「设置」齿轮**删掉了** —— 设置页与端点页的入口都在
+        // 「通知引擎 → 幻念推送」那一块里（`engine-fnthink-settings` / `-endpoint`）。
+        // 这一页从此只管通道本身：进来看到的是列表，不欠任何一条通往别处的路。
       ),
       body: PullToRefreshList(
         onRefresh: _reload,

@@ -1,12 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 
 import '../l10n/app_localizations.dart';
-import 'fnthink_endpoint_page.dart';
 import '../services/active_channels.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
@@ -84,8 +82,14 @@ class FnthinkSettingsDeps {
 /// 幻念推送**设置页**（T97 片A。前身是 T44/T42 那张什么都往这里放的混合页）。
 ///
 /// 这一页只管**这台设备自己**：它是谁（地址码 / 配对口令 / 身份密钥）、它对着哪台服务器
-/// （地址 + 双地域 + 健康度）、以及外部服务从哪一格推进来（接入端点）。入口只有通道列表页
-/// 右上角那枚齿轮 —— 维护者 2026-10-06 定的「设置从列表页右上齿轮进，不在推送分组里再长第二格」。
+/// （地址 + 双地域 + 健康度）。
+///
+/// ⚠ 入口在 T107 换了地方：这里原本写着「入口只有通道列表页右上角那枚齿轮 —— 维护者
+/// 2026-10-06 定的『设置从列表页右上齿轮进，不在推送分组里再长第二格』」，那句已被
+/// 2026-10-08 的第 1 条**推翻**（原话留着，因为它是"为什么这一页当时不放进推送分组"的证据）：
+/// 幻念那一族后来在通知引擎里已经有四行，齿轮那条路就成了同一件事的两棵树 ——
+/// 现在入口是「通知引擎 → 幻念推送 → 幻念推送设置」（`engine-fnthink-settings`），
+/// 通道列表页右上角那枚齿轮与本页那行「接入端点」都真删了，不留兼容跳转。
 ///
 /// ⚠ 主语不同的两件事**不在这里**：「绑定哪几台」与「怎么收、要不要听远程」各自的页
 /// 在「通知引擎 → 幻念推送」下面（`engine-fnthink-peers` / `engine-fnthink-receive`）。
@@ -103,13 +107,9 @@ class FnthinkSettingsDeps {
 ///    等于把决策甩回给用户，而且他一旦选错，症状是"网络好好的却连不上"。
 ///  - **收件未读数**：它属于 T48 那张入口卡与历史页筛选，不是这一页的责任。
 class FnthinkSettingsPage extends StatefulWidget {
-  const FnthinkSettingsPage({super.key, this.deps, this.endpointDeps});
+  const FnthinkSettingsPage({super.key, this.deps});
 
   final FnthinkSettingsDeps? deps;
-
-  /// 「接入端点」那一行要推的那张页的依赖（T97 片B）。缺省走 `FnthinkEndpointDeps.fromLocator()`；
-  /// 测试里传替身 —— 入口行的判据是「点得动」，不能因为装配点缺失就无法被测。
-  final FnthinkEndpointDeps? endpointDeps;
 
   @override
   State<FnthinkSettingsPage> createState() => _FnthinkSettingsPageState();
@@ -490,8 +490,6 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             _buildIdentityCard(l10n),
             const SizedBox(height: 12),
             _buildServerCard(l10n),
-            const SizedBox(height: 12),
-            _buildEndpointEntryCard(l10n),
             const SizedBox(height: 20),
             // 隐私边界那句从“一张卡里一段小字”改成底部一行（§1 已定口径：页面里的提醒
             // 只有两种去处 —— 底部无序列表 / 右上问号弹层）。它不是状态读数，所以不是例外。
@@ -510,33 +508,10 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     );
   }
 
-  /// 「接入端点」那一行入口（T97 片B：那一格搬成了独立一页）。
-  ///
-  /// 为什么留一行而不是留整格：这一族是**机器对机器**的 —— 应用内没有任何一条路径需要它，
-  /// 而它的口令是一次性的、轮换还带宽限期。把它压在这台设备自己的信息上面，迟早有人在
-  /// 不知情时点了轮换然后回不来（维护者 2026-10-07 拍：端点归「设置 → 高级」）。
-  /// ⚠ 它同时是外部服务推进来的**唯一**入口 ⇒ 这一行必须一眼可见，不折进三层。
-  Widget _buildEndpointEntryCard(AppLocalizations l10n) {
-    return FnthinkCard(
-      title: l10n.fnthinkEndpointTitle,
-      children: [
-        // ⚠ 这里原来还有一条 note，正文与下面那行的副标题**逐字相同**（同一句在屏上出现两次）。
-        // 删的是重复的那一份，话一句没少 —— 它就在这一行的副标题里。
-        FnthinkEntryRow(
-          key: const ValueKey('fnthink-endpoint-entry'),
-          icon: Icons.hub_outlined,
-          iconColor: AppColors.indigo,
-          title: l10n.fnthinkEndpointGo,
-          subtitle: l10n.fnthinkEndpointEntryDesc,
-          onTap: () => Navigator.of(context).push(
-            CupertinoPageRoute<void>(
-              builder: (_) => FnthinkEndpointPage(deps: widget.endpointDeps),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  /// 「接入端点」**不在这一页里了**（T107）：那一页的入口与本页的入口都在
+  /// 「通知引擎 → 幻念推送」那一块（`engine-fnthink-endpoint` / `engine-fnthink-settings`）。
+  /// 原先这里留着一行跳转卡，是维护者 2026-10-07 拍的「端点归设置 → 高级」；T107 把整族收成
+  /// 一棵树之后，那一行就成了同一页的两个入口 —— 少一个，路径不短（都在通知引擎里）。
 
   Widget _buildIdentityCard(AppLocalizations l10n) {
     final code = _addressCode;

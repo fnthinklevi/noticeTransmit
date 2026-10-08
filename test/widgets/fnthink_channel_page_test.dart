@@ -236,21 +236,26 @@ void main() {
     );
   });
 
-  testWidgets('设置不混在列表里：右上那一枚齿轮在，且接得上设置页', (tester) async {
+  testWidgets('这一页不挂通往设置页的入口（T107：入口都收在通知引擎那一块）', (tester) async {
     final store = _MemoryStore();
     await pump(
       tester,
       FnthinkChannelListPage(service: store, health: ChannelHealthStore()),
     );
-    final gear = find.byKey(const ValueKey('fnthink-channel-settings'));
-    expect(gear, findsOneWidget);
+    // 旧的一条用例是「右上那枚齿轮在、且按得下去设置页」。T107 把它翻了：
+    // 幻念那一族在通知引擎里已经有四行，齿轮这条路就是"同一件事两棵树"里的第二棵。
     expect(
-      tester.widget<IconButton>(gear).onPressed,
-      isNotNull,
-      reason: '画一枚点了没反应的齿轮，比不画更坏（这一族自己的判据）',
+      find.byKey(const ValueKey('fnthink-channel-settings')),
+      findsNothing,
+      reason:
+          '这里还留一枚齿轮 ⇒ 设置页有两个入口，改了一处就会忘另一处；'
+          '而"从哪进决定看得见什么"正是 #271 那条装配点守卫反对的事',
     );
-    // 真跳转的那一页要读契约与 DI，由 `fnthink_settings_page_test.dart` 那批用例负责；
-    // 这里只钉"这一格在、且接得上"，不去替那一页构造世界。
+    expect(
+      find.byType(IconButton),
+      findsNothing,
+      reason: '这一页只剩通道本身：列表、下拉刷新、长按菜单，不再兼任别处的门',
+    );
   });
 
   testWidgets('删除走长按菜单 + 二次确认：取消 ⇒ 那一条还在（点了没反应比删错好）', (tester) async {

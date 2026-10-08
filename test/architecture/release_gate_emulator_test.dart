@@ -769,16 +769,24 @@ void main() {
         reason: '更多页那一格的标题没进 labels ⇒ 提取按 `title: l10n.X` 的写法漂了，改名红不了',
       );
 
-      // 5.15/5.16 现在走的第二跳钉在 key 上（文案可以改，key 是两边的契约）。
+      // T107 改了这一条的口径（旧断言是"齿轮 key 必须还在闸门里"，理由：那一页在设备上
+      // 是盲区，只能靠那枚齿轮走进去）。现在设置页的入口在通知引擎那一块里，闸门改走
+      // `_openEngineRow(t, '幻念推送设置')` ⇒ 齿轮**必须不在**，留着就是"两条路进同一页"。
       expect(
-        src.contains("ValueKey('fnthink-channel-settings')"),
-        isTrue,
-        reason: '闸门不再从通道列表页右上角那枚进设置页 ⇒ 幻念推送页在设备上又变回盲区',
+        src,
+        isNot(contains("ValueKey('fnthink-channel-settings')")),
+        reason: '闸门还按那枚已删的齿轮找路 ⇒ 它点的是一个页面上不存在的东西',
       );
+      expect(
+        src.contains("_openEngineRow(t, '幻念推送设置')"),
+        isTrue,
+        reason: '设置页不再被任何一节点进去 ⇒ 它又变回设备上没验过的那一页',
+      );
+      // 更多页那一格仍要走到通道列表为止（T107：进去只到列表，不再另开设置路径）。
       expect(
         src.contains('FnthinkChannelListPage'),
         isTrue,
-        reason: '中间那一页没被确认 ⇒ "点了设置图标但落在别的页"读不出来',
+        reason: '那条路不再被走一遍 ⇒ "更多页那一格只到列表"这句没有设备证据',
       );
     });
 

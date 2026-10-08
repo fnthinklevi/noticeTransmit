@@ -3500,6 +3500,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Receiving, how often to ask for messages, and what the sender may make this device do (remote execution) live here.';
 
   @override
+  String get fnthinkHubSettingsDesc =>
+      'Who this device is (address code, pairing passphrase, identity key) and which server it talks to.';
+
+  @override
   String get fnthinkChannelTitle => 'Fnthink channels';
 
   @override
@@ -3508,9 +3512,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPushChannel => 'Fnthink Push Channels';
-
-  @override
-  String get fnthinkChannelSettingsEntry => 'Push and receive settings';
 
   @override
   String get fnthinkChannelNote =>
@@ -3887,9 +3888,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get fnthinkEndpointEntryDesc =>
       'A long-lived token that lets external services — a NAS, scripts, monitoring — push in. Most people never need to touch this.';
-
-  @override
-  String get fnthinkEndpointGo => 'Open ingress endpoints';
 
   @override
   String fnthinkEndpointCap(int max) {
