@@ -9,6 +9,7 @@ import 'package:notice_transmit/pages/fnthink_channel_settings_page.dart';
 import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
+import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -378,7 +379,7 @@ void main() {
   // 这一族**没有非侵入探针**（`presence` 只答本机醒不醒），所以徽标能记的只有
   // 「最近一次测试」—— 也就是说：没有这一枚，列表页那些徽标永远说不出话来。
 
-  testWidgets('那一枚只在三个条件同时成立时才画（接了 probe ＋ 已有通道 ＋ 设备档）', (tester) async {
+  testWidgets('那一枚只看两件事（接了 probe ＋ 设备档）—— 新建那一条也画', (tester) async {
     final store = _MemoryStore();
     final health = ChannelHealthStore();
     final probe = FnthinkChannelProbeDeps(
@@ -411,8 +412,10 @@ void main() {
     );
     expect(
       find.byKey(probeKey),
-      findsNothing,
-      reason: '还没存过的新通道没有 id 可记账 —— 测出来的那一条会挂到一条不存在的通道上',
+      findsOneWidget,
+      reason:
+          '维护者 2026-10-08 第 2 条点名的就是这个：新建那一页原本没有「仅探测」。'
+          'id 在需要时先发号（与另三族 T04 同一做法），所以那一发的账有稳定归属',
     );
 
     await pump(
@@ -582,5 +585,250 @@ void main() {
       reason: '测完回来徽标还是「没测过」⇒ 写键与读键不是同一个（#271 的原形）',
     );
     expect(badge.health!.reachable, isTrue);
+  });
+
+  // ── 维护者 2026-10-08 点名的四条：红字 / 页脚两枚 / 角色中文 / 版式 ─────────────
+  // 判据都打在**能观察的东西**上：红字挂在哪个控件上、一次点击落下几件事、
+  // 那一格画的是译文还是 token。不断措辞（措辞会漂），也不断装饰性的尺寸。
+
+  /// 屏幕上那句话实际用的颜色：`Text.style` 或外面那层 `DefaultTextStyle`。
+  Color? paintedColor(WidgetTester tester, String text) {
+    final finder = find.text(text);
+    final element = finder.evaluate().single;
+    return tester.widget<Text>(finder).style?.color ??
+        DefaultTextStyle.of(element).style.color;
+  }
+
+  /// 把一条设备档通道填到可以保存（名称 + 从名单里挑目标）。
+  Future<void> fillDeviceForm(WidgetTester tester) async {
+    await tester.enterText(
+      find.byKey(const ValueKey('fnthink-channel-name')),
+      '给孩子',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-target')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('ios-picker-8KMNPQRSTVWX999777')),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('名称为空 ⇒ 红字挂在**名称字段**上，而且不发也不存', (tester) async {
+    final store = _MemoryStore(targets: [_peer()]);
+    final spy = _ProbeSpy();
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        key: const ValueKey('page-empty-name'),
+        service: store,
+        probe: FnthinkChannelProbeDeps(
+          send: spy.send,
+          health: ChannelHealthStore(),
+        ),
+      ),
+    );
+    final line = lookupAppLocalizations(
+      const Locale('zh'),
+    ).fnthinkChannelNameEmpty;
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-save')));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextField>(
+      find.byKey(const ValueKey('fnthink-channel-name')),
+    );
+    expect(
+      field.decoration!.errorText,
+      line,
+      reason: '那句话必须挂在字段上：卡片底下那行灰字与"这条为什么没存上"混在一起，等于没说',
+    );
+    expect(
+      paintedColor(tester, line),
+      AppColors.red,
+      reason: '要的是红字（维护者第 1 条）；12px 灰字那一版就是"提醒不明显"的那个东西',
+    );
+    expect(spy.sent, isEmpty, reason: '名称没填就往外发一条 = 给一条还不存在的通道记上"最近测过"');
+    expect(await store.list(), isEmpty);
+  });
+
+  testWidgets('填全之后点「探测并保存」⇒ 一次点击：建一条、真发一条、账挂在这条上', (tester) async {
+    final store = _MemoryStore(targets: [_peer()]);
+    final spy = _ProbeSpy();
+    final health = ChannelHealthStore();
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        service: store,
+        probe: FnthinkChannelProbeDeps(send: spy.send, health: health),
+      ),
+    );
+    await fillDeviceForm(tester);
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-save')));
+    await tester.pumpAndSettle();
+
+    final rows = await store.list();
+    expect(rows, hasLength(1));
+    expect(rows.single.name, '给孩子');
+    expect(
+      spy.sent,
+      hasLength(1),
+      reason:
+          '保存默认带探测（维护者第 2 条）：这一族没有非侵入探针，'
+          '"存下来了、通不通"只能真的发一条才知道 —— 分两下点等于让用户猜',
+    );
+    expect(
+      health.of(kFnthinkChannelSlug, rows.single.id)?.reachable,
+      isTrue,
+      reason: 'id 在写库前就发好了 ⇒ 那一发的账有稳定归属，不是挂到别处',
+    );
+    // 卡头那枚徽标当场就说上话（另三族详情页的同一件）。测完这一页还停在"没测过"的话，
+    // 用户得退出这一页去列表页确认 —— 那一发像是根本没做。
+    final badge = tester.widget<ChannelHealthBadge>(
+      find.descendant(
+        of: find.byType(FnthinkChannelSettingsPage),
+        matching: find.byType(ChannelHealthBadge),
+      ),
+    );
+    expect(badge.health?.reachable, isTrue);
+
+    // 再点一次是**更新那一条**，不是又建一条（连按两下不该在库里留下两条同名通道）。
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-save')));
+    await tester.pumpAndSettle();
+    expect(await store.list(), hasLength(1));
+  });
+
+  testWidgets('「仅探测」不落库：真发一条、给出结论，库里仍然一条都没有', (tester) async {
+    final store = _MemoryStore(targets: [_peer()]);
+    final spy = _ProbeSpy();
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        service: store,
+        probe: FnthinkChannelProbeDeps(
+          send: spy.send,
+          health: ChannelHealthStore(),
+        ),
+      ),
+    );
+    await fillDeviceForm(tester);
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-probe')));
+    await tester.pumpAndSettle();
+
+    expect(spy.sent, hasLength(1));
+    expect(
+      await store.list(),
+      isEmpty,
+      reason: '「仅探测」这一枚存在的全部理由就是"别替我存下来"（另三族的「仅测试」同义）',
+    );
+    expect(
+      find.byKey(const ValueKey('fnthink-channel-probe-note')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('主备那一档画的是**译文**（起点「未设置」），存下去的仍是字面量', (tester) async {
+    final l10n = lookupAppLocalizations(const Locale('zh'));
+    final store = _MemoryStore(targets: [_peer()]);
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        service: store,
+        probe: FnthinkChannelProbeDeps(
+          send: _ProbeSpy().send,
+          health: ChannelHealthStore(),
+        ),
+      ),
+    );
+    final cell = find.byKey(const ValueKey('fnthink-channel-role-value'));
+
+    expect(
+      tester.widget<Text>(cell).data,
+      l10n.roleUnset,
+      reason:
+          '新建的起点是「未设置」而不是「主」——与另外三族同一口径（全停在「主」时'
+          '同一条通知会被重复推送）',
+    );
+    for (final token in ['primary', 'backup', 'none', 'unset']) {
+      expect(
+        find.textContaining(token),
+        findsNothing,
+        reason: '$token 是落库的字面量，不是画给用户看的 label（维护者第 3 条）',
+      );
+    }
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-role')));
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.rolePrimary), findsOneWidget);
+    expect(
+      find.text(l10n.roleBackup),
+      findsOneWidget,
+      reason: '弹层里那一档也得画译文 —— 维护者第 3 条说的就是这一格里画着英文 token',
+    );
+    expect(find.text(l10n.roleNone), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('ios-picker-backup')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(cell).data, l10n.roleBackup);
+
+    await fillDeviceForm(tester);
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-save')));
+    await tester.pumpAndSettle();
+    expect(
+      (await store.list()).single.role,
+      'backup',
+      reason: '画的是译文、存的是 `ChannelConfigCodec` 的字面量 —— 换译名不许改掉落库值',
+    );
+  });
+
+  testWidgets('切到 webhook 那一支 ⇒ 主操作只说「保存」，并说清这一支为什么测不了', (tester) async {
+    final l10n = lookupAppLocalizations(const Locale('zh'));
+    final store = _MemoryStore(targets: [_peer()]);
+    final spy = _ProbeSpy();
+    await pump(
+      tester,
+      FnthinkChannelSettingsPage(
+        service: store,
+        probe: FnthinkChannelProbeDeps(
+          send: spy.send,
+          health: ChannelHealthStore(),
+        ),
+      ),
+    );
+    expect(find.byKey(const ValueKey('fnthink-channel-probe')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-kind')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(l10n.fnthinkChannelTargetKindWebhook));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('fnthink-channel-probe')),
+      findsNothing,
+      reason: '那一支的发送实现在原生那侧，从 Dart 画一枚按钮就是摆一条点了没反应的路',
+    );
+    expect(find.text(l10n.fnthinkChannelSave), findsOneWidget);
+    expect(find.text(l10n.fnthinkChannelProbeAndSave), findsNothing);
+    expect(
+      find.byKey(const ValueKey('fnthink-channel-probe-unavailable')),
+      findsOneWidget,
+      reason: '按钮少了一枚要当场说为什么 —— 否则用户以为这一页少了个功能',
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('fnthink-channel-name')),
+      '给孩子',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('fnthink-channel-target')),
+      'https://example.com/hook',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('fnthink-channel-save')));
+    await tester.pumpAndSettle();
+
+    expect(await store.list(), hasLength(1), reason: '保存本身照常 —— 只是不冒充探测');
+    expect(spy.sent, isEmpty, reason: 'webhook 那一支从这一页发不出去，保存也不许假装探测一次');
   });
 }

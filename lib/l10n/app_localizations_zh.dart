@@ -3406,13 +3406,23 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelTargetNotChecked => '这一台还没勾选为转发目标';
 
   @override
+  String get fnthinkChannelTargetPick => '从名单里挑一台';
+
+  @override
   String get fnthinkChannelEnabled => '启用这条通道';
 
   @override
   String get fnthinkChannelRole => '主备';
 
   @override
-  String get fnthinkChannelProbe => '测试这条通道';
+  String get fnthinkChannelProbeOnly => '仅探测';
+
+  @override
+  String get fnthinkChannelProbeAndSave => '探测并保存';
+
+  @override
+  String get fnthinkChannelProbeUnavailable =>
+      'webhook 那一支从这一页测不了（发送实现在原生那侧），所以只保存、不探测。';
 
   @override
   String get fnthinkChannelProbeWhy => '会真的往它发一条（这一族没有不打扰对面的探针），对面会收到。';

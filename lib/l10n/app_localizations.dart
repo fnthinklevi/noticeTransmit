@@ -6374,6 +6374,12 @@ abstract class AppLocalizations {
   /// **'这一台还没勾选为转发目标'**
   String get fnthinkChannelTargetNotChecked;
 
+  /// No description provided for @fnthinkChannelTargetPick.
+  ///
+  /// In zh, this message translates to:
+  /// **'从名单里挑一台'**
+  String get fnthinkChannelTargetPick;
+
   /// No description provided for @fnthinkChannelEnabled.
   ///
   /// In zh, this message translates to:
@@ -6386,11 +6392,23 @@ abstract class AppLocalizations {
   /// **'主备'**
   String get fnthinkChannelRole;
 
-  /// No description provided for @fnthinkChannelProbe.
+  /// No description provided for @fnthinkChannelProbeOnly.
   ///
   /// In zh, this message translates to:
-  /// **'测试这条通道'**
-  String get fnthinkChannelProbe;
+  /// **'仅探测'**
+  String get fnthinkChannelProbeOnly;
+
+  /// No description provided for @fnthinkChannelProbeAndSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'探测并保存'**
+  String get fnthinkChannelProbeAndSave;
+
+  /// No description provided for @fnthinkChannelProbeUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'webhook 那一支从这一页测不了（发送实现在原生那侧），所以只保存、不探测。'**
+  String get fnthinkChannelProbeUnavailable;
 
   /// No description provided for @fnthinkChannelProbeWhy.
   ///

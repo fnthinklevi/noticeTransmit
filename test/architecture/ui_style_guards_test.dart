@@ -590,12 +590,14 @@ void main() {
           needle.allMatches(codeByPath[path]!).length;
 
       // 形状的出处（桌面小部件引导页那两枚）与幻念那几页的主操作都在用它。
+      // 通道详情页那一枚是 2026-10-08 换过来的（原来是裸 `CupertinoButton.filled`）。
       for (final p in const [
         'lib/pages/widget_guide_page.dart',
         'lib/pages/fnthink_endpoint_page.dart',
         'lib/pages/fnthink_receive_page.dart',
         'lib/pages/fnthink_peers_page.dart',
         'lib/pages/fnthink_settings_page.dart',
+        'lib/pages/fnthink_channel_settings_page.dart',
       ]) {
         expect(
           n(p, 'PrimaryActionButton('),
@@ -603,6 +605,105 @@ void main() {
           reason: '$p 的主操作没有走公共件 ⇒ 形状又分叉了',
         );
       }
+    });
+  });
+
+  // ── 「新建幻念通道」那一页（维护者 2026-10-08 点名的四条）───────────────────
+  // 页面级证据在 `test/widgets/fnthink_channel_page_test.dart`（六条新的）。这一册钉的是
+  // 那四条的**形状**：红字挂在哪儿、保存默认带不带探测、那一档画的是译文还是 token。
+  group('「新建幻念通道」那四条（各有牙）', () {
+    const page = 'lib/pages/fnthink_channel_settings_page.dart';
+
+    test('①必填那句挂在字段上，不是卡片底下那一行灰字', () {
+      final src = codeByPath[page]!;
+      expect(src.contains('errorText: _nameError'), isTrue);
+      expect(src.contains('errorText: _targetError'), isTrue);
+      // 红 = `AppColors.red`，与 widget 用例里那条 `paintedColor` 断的是同一个色值：
+      // 谁把它换回 secondaryLabel，两条一起红（一条断屏幕上、一条断形状上）。
+      expect(
+        src.contains('errorStyle: const TextStyle(color: AppColors.red'),
+        isTrue,
+        reason: '维护者第 1 条要的就是"红字"：12px 灰字那一版说了等于没说',
+      );
+      expect(
+        RegExp(
+          r"""FnthinkNote\(\s*keyName:\s*'fnthink-channel-note'""",
+        ).hasMatch(src),
+        isFalse,
+        reason: '校验话又搬回卡片底下那行灰字 ⇒ 与"这条为什么没存上"混在一起',
+      );
+    });
+
+    test('②保存默认带探测，两枚都是公共件', () {
+      final src = codeByPath[page]!;
+      expect(
+        src.contains('if (_canProbe) await _probe();'),
+        isTrue,
+        reason: '「探测并保存」少了那一发就只是"保存"——按钮说两件事、做一件',
+      );
+      for (final key in const [
+        'fnthinkChannelProbeOnly',
+        'fnthinkChannelProbeAndSave',
+      ]) {
+        expect(
+          RegExp('l10n\\.$key').allMatches(src).length,
+          1,
+          reason: '$key 的调用点应当恰好一处（两处＝页脚长成了两排）',
+        );
+      }
+      expect(
+        src.contains('CupertinoButton.filled'),
+        isFalse,
+        reason: '主操作走 `PrimaryActionButton`（形状③唯一装配点），裸填充件不许回来',
+      );
+      // 新建那一页也能记账的前提：id 在写库之前先发号（另三族 T04 的同一做法）。
+      expect(
+        src.contains("_id ??= 'fc_"),
+        isTrue,
+        reason: '没有稳定 id ⇒ 「探测并保存」那一发的账无处可挂，徽标还是"没测过"',
+      );
+    });
+
+    test('③主备那一档画译文，token 只当 value', () {
+      final src = codeByPath[page]!;
+      for (final key in const ['rolePrimary', 'roleBackup', 'roleNone']) {
+        expect(
+          src.contains('label: l10n.$key'),
+          isTrue,
+          reason: '$key 没被当 label 用 ⇒ 那一格又画回英文 token（维护者第 3 条）',
+        );
+      }
+      for (final token in const ['primary', 'backup', 'none', 'unset']) {
+        expect(
+          src.contains("label: '$token'"),
+          isFalse,
+          reason: "'$token' 是落库的跨语言字面量，不是画给用户看的那句人话",
+        );
+      }
+      expect(
+        src.contains('String _role = ChannelConfigCodec.roleUnset;'),
+        isTrue,
+        reason: '新建起点是「未设置」——与另三族 #105 一致：全停在「主」时同一条通知重复推送',
+      );
+    });
+
+    test('④这一页与另三族同形：徽标在卡头、标签在上、不当场开弹窗改字段', () {
+      final src = codeByPath[page]!;
+      expect(
+        src.contains('ChannelHealthBadge('),
+        isTrue,
+        reason: '另三族详情页卡头那件徽标 —— 没有它，这一页读起来不像同一家族',
+      );
+      expect(
+        src.contains('_label(context, l10n.fnthinkChannelName)'),
+        isTrue,
+        reason: '标签在上（与 `_buildFieldLabel` 同一形状），不是"值挤在行尾"',
+      );
+      expect(
+        RegExp(r'showIosInputDialog\(').allMatches(src).length,
+        0,
+        reason: '"点开弹窗改一行"那一套从这一页出账：同组另外三页都是当场输入',
+      );
     });
   });
 

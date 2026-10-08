@@ -3571,13 +3571,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'This device is not checked as a forwarding target';
 
   @override
+  String get fnthinkChannelTargetPick => 'Pick a device from the list';
+
+  @override
   String get fnthinkChannelEnabled => 'Enable this channel';
 
   @override
   String get fnthinkChannelRole => 'Primary or backup';
 
   @override
-  String get fnthinkChannelProbe => 'Test this channel';
+  String get fnthinkChannelProbeOnly => 'Probe only';
+
+  @override
+  String get fnthinkChannelProbeAndSave => 'Probe & save';
+
+  @override
+  String get fnthinkChannelProbeUnavailable =>
+      'A webhook target can not be probed from this page (its sender lives on the native side), so this only saves.';
 
   @override
   String get fnthinkChannelProbeWhy =>
