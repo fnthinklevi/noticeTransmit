@@ -49,7 +49,7 @@ class NotificationEnginePage extends StatefulWidget {
     this.channelProbe,
   });
 
-  /// 「已配对的设备」那一行的依赖（T94）。
+  /// 「设备配对」那一行的依赖（T94）。
   ///
   /// 缺省走 `FnthinkPeersDeps.fromLocator()`；测试里传一份替身。
   /// 为什么这一页要单独开一个参数而不是拿 GetIt：这一页的判据是「入口能不能点不动」，
@@ -227,7 +227,7 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
 
   /// T94：这一块收「往哪儿发」 —— 渠道、设备绑定、发起推送、接收设置、远程执行。
   ///
-  /// ⚠ 今天只有「已配对的设备」一行：其余三格在 T94 片2/片3 里落。
+  /// 这一块现在有四行（设备配对／接收设置／幻念通道／远程执行）—— T94 片2/片3 都已落。
   /// **不摆占位行** —— 这一页上面那三格为什么只有三个，理由就是「点了没反应的行比没有这行更糟」，
   /// 同一页里摆三行占位会把那条理由自己拆了。
   Widget _fnthinkHubCard(AppLocalizations l10n) {

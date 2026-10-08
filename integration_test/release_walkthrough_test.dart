@@ -1967,8 +1967,8 @@ void main() {
             // 名单那一行与「发一条」自 T94 起住在 `FnthinkPeersPage`。T97 片A 之前可以从
             // 设置页那一行入口进，现在那张页只管"这台设备自己"（两行入口删了）⇒
             // 唯一的入口是「通知引擎」tab 里的这一行。
-            await _openEngineRow(tester, '已配对的设备');
-            await _onPage(tester, FnthinkPeersPage, '幻念已配对设备页');
+            await _openEngineRow(tester, '设备配对');
+            await _onPage(tester, FnthinkPeersPage, '设备配对页');
 
             final sendEntry = find.byKey(
               const ValueKey('fnthink-peer-send-$gatePeer'),

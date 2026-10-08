@@ -6221,7 +6221,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPeersTitle.
   ///
   /// In zh, this message translates to:
-  /// **'已配对的设备'**
+  /// **'设备配对'**
   String get fnthinkPeersTitle;
 
   /// No description provided for @fnthinkHubTitle.
@@ -6365,7 +6365,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelNoTargetPicked.
   ///
   /// In zh, this message translates to:
-  /// **'还没有勾选过任何设备，先到「已配对的设备」里勾一台。'**
+  /// **'还没有勾选过任何设备，先到「设备配对」里勾一台。'**
   String get fnthinkChannelNoTargetPicked;
 
   /// No description provided for @fnthinkChannelTargetNotChecked.

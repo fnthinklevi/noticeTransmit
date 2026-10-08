@@ -179,7 +179,7 @@ void main() {
   });
 
   group('T94：这一页多了一块「幻念推送」（往哪儿发）', () {
-    testWidgets('那一块在，且只有「已配对的设备」一行（其余三格随片2/片3 落，不摆占位行）', (tester) async {
+    testWidgets('那一块在，且「设备配对」那一行按 key 画出来（不摆占位行）', (tester) async {
       await pumpHome(tester, const NotificationEnginePage());
 
       expect(find.text('幻念推送'), findsOneWidget);

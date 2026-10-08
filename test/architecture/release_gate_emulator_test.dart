@@ -782,6 +782,104 @@ void main() {
       );
     });
 
+    test('「通知引擎」那一侧同理：闸门按文案点的标签要 ⊆ 页面真画的标题，且行标题与页内标题同一枚词条（T111）', () {
+      // T111 把「已配对的设备」改名「设备配对」。上一条守卫管的是 more_page 的 `title:`，
+      // 而这一页的行 + 那页自己的 AppBar 标题在它的射程之外 —— 改名当天闸门不会红，
+      // 只会等一次 10+ 分钟的发版闸门红在"找不到入口"（2026-10-07 CI run 37599710957 就是这个形状）。
+      final src = walkSrc();
+      final gateLabels = RegExp(
+        r"_openEngineRow\(\s*\w+\s*,\s*'([^']+)'\s*\)",
+      ).allMatches(src).map((m) => m.group(1)!).toSet();
+      expect(
+        gateLabels.length,
+        greaterThanOrEqualTo(4),
+        reason:
+            '只提取到 ${gateLabels.length} 个引擎页入口标签 ⇒ 提取退化（闸门的调用形状变了），'
+            '这条守卫等于没写',
+      );
+
+      final page = stripComments(
+        read('lib/pages/notification_engine_page.dart'),
+      );
+      const sig = 'title: l10n.';
+      const idChars =
+          'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+      final getters = <String>{};
+      var i = 0;
+      while (true) {
+        i = page.indexOf(sig, i);
+        if (i < 0) break;
+        var j = i + sig.length;
+        while (j < page.length && idChars.contains(page[j])) {
+          j++;
+        }
+        if (j > i + sig.length) getters.add(page.substring(i + sig.length, j));
+        i = j;
+      }
+      expect(
+        getters.length,
+        greaterThanOrEqualTo(6),
+        reason: '通知引擎页只提取到 ${getters.length} 个标题 getter ⇒ 页面写法变了，先修提取',
+      );
+
+      final arb =
+          jsonDecode(read('lib/l10n/arb/app_zh.arb')) as Map<String, dynamic>;
+      // 每个标题 getter 都得在 ARB 里有一枚**字符串**词条：少了这一判，"词条被改名"会让
+      // `${arb[g]}` 变成 `'null'` 这个字面量，下面的成员判定两边都是 'null' ⇒ 假绿。
+      for (final g in getters) {
+        expect(arb[g], isA<String>(), reason: 'ARB 里没有 $g ⇒ 词条命名漂了');
+      }
+      final labels = <String>{for (final g in getters) '${arb[g]}'};
+      // 判据自证：成员判定不许恒真
+      expect(
+        labels.contains('这一串不是任何入口的标题'),
+        isFalse,
+        reason: '成员判定恒真 ⇒ 下面的 stale 是摆设',
+      );
+      final stale = gateLabels.where((l) => !labels.contains(l)).toList()
+        ..sort();
+      expect(
+        stale,
+        isEmpty,
+        reason:
+            '闸门按这些文案点通知引擎的格子，而那一页现在不画它们：$stale\n'
+            '页面改名就把闸门的字面量一起换（词条只住 ARB 一处），别留着点不到的字面量。',
+      );
+
+      // 「设备配对」这一格：行标题与目标页的 AppBar 标题读**同一枚词条**，谁也不许写死一份 ——
+      // 两边各写各的正是"改了行没改页"这种半改的源头。
+      final peersPage = stripComments(
+        read('lib/pages/fnthink_peers_page.dart'),
+      );
+      expect(
+        RegExp(
+          r"AppBar\(title: Text\(l10n\.fnthinkPeersTitle\)\)",
+        ).hasMatch(peersPage),
+        isTrue,
+        reason: '目标页的 AppBar 不再读 fnthinkPeersTitle ⇒ 行与页标题从此可以各漂各的',
+      );
+      expect(
+        page.contains('title: l10n.fnthinkPeersTitle'),
+        isTrue,
+        reason: '通知引擎那一行不再读同一枚词条 ⇒ 上面那条 stale 覆盖不到它，改名会半改',
+      );
+      expect(
+        page,
+        isNot(contains('已配对的设备')),
+        reason: '通知引擎页里写死了旧名字面量 ⇒ 改名一次改不全，闸门与守卫各指一处',
+      );
+      expect(
+        peersPage,
+        isNot(contains('已配对的设备')),
+        reason: '目标页里写死了旧名字面量 ⇒ 词条改了、页面上还是旧标题',
+      );
+      expect(
+        labels.contains('${arb['fnthinkPeersTitle']}'),
+        isTrue,
+        reason: '词条没进页面真画的标题集合 ⇒ 提取或写法漂了，改名红不了',
+      );
+    });
+
     test('闸门断 toast 文案那几步必须先被 _waitUntil 命中（不许靠 settle 等它）', () {
       // 同一次 run 37599710957 的另一条红：5.3 `_tap(测试并保存)` 之后 `_settle(seconds: 1)`，
       // 再 expect 那句「保存失败：通道名称不能为空」⇒ `Found 0 widgets`。

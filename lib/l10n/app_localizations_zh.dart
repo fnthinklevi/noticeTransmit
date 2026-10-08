@@ -3325,7 +3325,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPeerWriteFailed => '服务端认了这条，本机写名单时失败了 ⇒ 本机名单没写';
 
   @override
-  String get fnthinkPeersTitle => '已配对的设备';
+  String get fnthinkPeersTitle => '设备配对';
 
   @override
   String get fnthinkHubTitle => '幻念推送';
@@ -3400,7 +3400,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkChannelTargetBadScheme => 'webhook 目标必须以 https:// 开头';
 
   @override
-  String get fnthinkChannelNoTargetPicked => '还没有勾选过任何设备，先到「已配对的设备」里勾一台。';
+  String get fnthinkChannelNoTargetPicked => '还没有勾选过任何设备，先到「设备配对」里勾一台。';
 
   @override
   String get fnthinkChannelTargetNotChecked => '这一台还没勾选为转发目标';

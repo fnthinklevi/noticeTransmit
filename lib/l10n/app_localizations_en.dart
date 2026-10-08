@@ -3482,7 +3482,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The server accepted this one but writing the local list failed ⇒ nothing written';
 
   @override
-  String get fnthinkPeersTitle => 'Paired devices';
+  String get fnthinkPeersTitle => 'Device pairing';
 
   @override
   String get fnthinkHubTitle => 'Fnthink Push';
@@ -3565,7 +3565,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkChannelNoTargetPicked =>
-      'No device is checked yet — check one under Paired devices first.';
+      'No device is checked yet — check one under Device pairing first.';
 
   @override
   String get fnthinkChannelTargetNotChecked =>

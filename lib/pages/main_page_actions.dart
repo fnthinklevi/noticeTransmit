@@ -235,7 +235,7 @@ extension _MainPageActions on _MainPageState {
   ///
   /// ⚠ T94：落点是**绑定页**而不是幻念推送页 —— 一条配对链接的主语就是"我和谁有关系"，
   /// 那件事搬去推送引擎那侧的独立页之后，先开渠道信息页再等用户自己点进绑定，
-  /// 等于让用户点完链接还要再点一次"管理已配对的设备"才看到弹层。
+  /// 等于让用户点完链接还要再点一次「设备配对」才看到弹层。
   Future<void> _consumeFnthinkPairLink() async {
     final outcome = await FnthinkPairLinkReader(
       contracts: GetIt.instance<FnthinkContractLoader>(),
