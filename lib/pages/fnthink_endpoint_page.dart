@@ -11,6 +11,7 @@ import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
 
@@ -269,9 +270,30 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // 契约 + "手上那一把"一起算出 guide，在这里算一次、往下传：右上那枚问号与教程块
+    // 用的是**同一份**（路径与字段别名的唯一作者仍是契约，见 `FnthinkEndpointGuide`）。
+    final guide = _currentGuide();
     return Scaffold(
       backgroundColor: AppColors.bgColor(context),
-      appBar: AppBar(title: Text(l10n.fnthinkEndpointTitle)),
+      appBar: AppBar(
+        title: Text(l10n.fnthinkEndpointTitle),
+        // §1（2026-10-07 拍）：那几条教程说明收进右上问号弹窗 —— 页面里不许成段堆小字。
+        // ⚠ 长文**一字未删**：五段原样进弹窗正文（`_tutorialBody`），词条一个没动。
+        // 契约读不到时整页只剩一句错误 ⇒ 这一枚也不画（没有路径可讲）。
+        actions: [
+          if (guide != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: HelpNoteButton(
+                  keyName: 'fnthink-endpoint-help',
+                  title: l10n.fnthinkEndpointTutorial,
+                  body: _tutorialBody(l10n, guide),
+                ),
+              ),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -283,7 +305,7 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
               text: l10n.fnthinkContractUnavailable(_contractError!),
             )
           else
-            _buildEndpointCard(l10n),
+            _buildEndpointCard(l10n, guide),
         ],
       ),
     );
@@ -315,7 +337,10 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
   ///    **Z8** 把"还没读过"那一支的 keyName 换掉 ⇒ 红在「只是翻开页面 ⇒ ...而界面说的是"还没读过"」。
   ///    ⚠ Z8 第一次的写法是 `if (false)`，那是**语法不过**（`listing` 没被提升成非空，
   ///    后面的 `listing.ok` 报 receiver 可为 null），不能读成"这条断言没覆盖"。
-  Widget _buildEndpointCard(AppLocalizations l10n) {
+  Widget _buildEndpointCard(
+    AppLocalizations l10n,
+    FnthinkEndpointGuide? guide,
+  ) {
     final created = _endpoint;
     final listing = _endpointList;
     final rotated = _endpointRotated;
@@ -451,7 +476,7 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
         // 出现条件按页面既有三态判：**真用过**才给教程。`listing == null` 是"还没读"，
         // 不是"没有" —— 把"还没读"当"没有"，这一格就在用户第一次读失败那天安静消失。
         if (_endpointUsed(created, rotated, listing))
-          ..._buildEndpointTutorial(l10n, created, rotated),
+          ..._buildEndpointTutorial(l10n, guide),
       ],
     );
   }
@@ -469,35 +494,70 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
     return listing?.ok == true && (listing?.endpoints?.isNotEmpty ?? false);
   }
 
+  /// 手上还有**明文**的只有这两次：创建那一次、轮换那一次。列表那半永远没有。
+  String? get _heldId {
+    final created = _endpoint;
+    if (created?.ok ?? false) return created!.endpointId;
+    final rotated = _endpointRotated;
+    return (rotated?.exchanged ?? false) ? rotated!.endpointId : null;
+  }
+
+  String? get _heldSecret {
+    final created = _endpoint;
+    if (created?.ok ?? false) return created!.secret;
+    final rotated = _endpointRotated;
+    return (rotated?.exchanged ?? false) ? rotated!.secret : null;
+  }
+
+  /// 手上那一把（刚建成 / 刚换过）对应的 guide；契约读不到时 null。
+  ///
+  /// ⚠ 这一份原来长在 `_buildEndpointTutorial` 里，搬到这一层只是因为右上那枚问号里的
+  ///   字段别名也要它 —— 而两处各算一份就是两个来源，分叉时只会在其中一侧被改动。
+  FnthinkEndpointGuide? _currentGuide() {
+    final contract = _contract;
+    if (contract == null) return null;
+    return FnthinkEndpointGuide.from(
+      host: _host,
+      endpointId: _heldId ?? '',
+      secret: _heldSecret,
+      contract: contract,
+    );
+  }
+
+  /// 教程那几条说明的正文（§1 2026-10-07 拍：收进右上问号弹窗）。
+  ///
+  /// ⚠ **长文一字未删**：五段按原来的次序拼进弹窗，词条一个没动（键数不变）。
+  ///   留在页面上的只有网址与四枚复制 —— 那些是"此刻这一把"的操作面，不是说明。
+  String _tutorialBody(AppLocalizations l10n, FnthinkEndpointGuide guide) => [
+    l10n.fnthinkEndpointPostWhy,
+    l10n.fnthinkEndpointGetWarning,
+    l10n.fnthinkEndpointPushUrlWhy,
+    l10n.fnthinkEndpointFieldAlias(
+      guide.titleAliases.join('、'),
+      guide.bodyAliases.join('、'),
+    ),
+    l10n.fnthinkEndpointCopyHint,
+  ].join('\n\n');
+
   /// 教程那一格的 children（T87）。做成"一串 widget"而不是一个弹层：
   /// 口令只活在这一页的内存里，把教程挪进弹层就会让人以为"关掉弹层它还在那儿"。
+  ///
+  /// ⚠ **2026-10-07 更正（原句留着）**：上面那条针对的是**网址与复制**（它们跟着手上那一把
+  ///   变），而 §1 拍的是**那几条说明**进右上问号 —— 说明是静态的，挪进弹层不会让人误以为
+  ///   口令还在。照办的正是这个切法：网址/复制留在页面上（出现条件不变），五段说明进弹窗。
+  ///   原句留着的理由：下一轮若想把网址也挪进去，这两句冲突要先解决。
   ///
   /// ⚠ 网址、命令、字段别名**一律不在这个文件里拼**：全部出自 `FnthinkEndpointGuide`
   ///   （路径与别名的唯一作者是契约）。这里重打一遍 `/api/fnthink/p/…`，服务器换前缀时
   ///   界面会安静地教一条 404 的路径。
   List<Widget> _buildEndpointTutorial(
     AppLocalizations l10n,
-    FnthinkEndpointCreateResult? created,
-    FnthinkEndpointRotateResult? rotated,
+    FnthinkEndpointGuide? guide,
   ) {
-    final contract = _contract;
-    // 契约读不到就整格不给（不给半条地址）：路径与别名都只有一份作者，缺了就只剩猜。
-    if (contract == null) return const [];
-    // 手上还有口令明文的只有这两次：创建那一次、轮换那一次。列表那半永远没有。
-    final createdOk = created?.ok ?? false;
-    final rotatedOk = rotated?.exchanged ?? false;
-    final heldId = createdOk
-        ? created!.endpointId
-        : (rotatedOk ? rotated!.endpointId : null);
-    final heldSecret = createdOk
-        ? created!.secret
-        : (rotatedOk ? rotated!.secret : null);
-    final guide = FnthinkEndpointGuide.from(
-      host: _host,
-      endpointId: heldId ?? '',
-      secret: heldSecret,
-      contract: contract,
-    );
+    // 首帧（契约还没到）或契约读不到 ⇒ 整格不给（不给半条地址）：路径与别名只有一份作者。
+    if (guide == null) return const [];
+    final heldId = _heldId;
+    final heldSecret = _heldSecret;
     Widget copyButton(String keyName, String label, String? text) {
       return Align(
         alignment: Alignment.centerLeft,
@@ -522,39 +582,22 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
           guide.postUrl,
           key: const ValueKey('fnthink-endpoint-post-url'),
         ),
-      FnthinkNote(
-        keyName: 'fnthink-endpoint-post-why',
-        text: l10n.fnthinkEndpointPostWhy,
-      ),
+      // 下面这几条说明（POST 为什么能整行复制 / GET 为什么只给形状 / 路径形态怎么用 /
+      // 字段别名 / 复制按钮的可用窗口）搬进了右上那枚问号（`fnthink-endpoint-help`）：
+      // 它们是静态说明，不是"此刻这一把"的操作面 —— 正文见 `_tutorialBody`，一字未删。
       // GET 那一支永远只有形状（口令进 URL ⇒ 进反代 access log；T89 未配之前不给真口令）。
       if (guide.getShape.isNotEmpty)
         SelectableText(
           guide.getShape,
           key: const ValueKey('fnthink-endpoint-get-shape'),
         ),
-      FnthinkNote(
-        keyName: 'fnthink-endpoint-get-warning',
-        text: l10n.fnthinkEndpointGetWarning,
-      ),
       // T99：给"只有一个 webhook 输入框"的第三方软件用的路径形态。门槛与 copyCommand
       // 同一个（明文不在手就整格不给），所以这一格不会比「复制口令」多泄露一个字。
-      if (guide.pushUrl.isNotEmpty) ...[
+      if (guide.pushUrl.isNotEmpty)
         SelectableText(
           guide.pushUrl,
           key: const ValueKey('fnthink-endpoint-push-url'),
         ),
-        FnthinkNote(
-          keyName: 'fnthink-endpoint-push-url-why',
-          text: l10n.fnthinkEndpointPushUrlWhy,
-        ),
-      ],
-      FnthinkNote(
-        keyName: 'fnthink-endpoint-fields',
-        text: l10n.fnthinkEndpointFieldAlias(
-          guide.titleAliases.join('、'),
-          guide.bodyAliases.join('、'),
-        ),
-      ),
       copyButton(
         'fnthink-endpoint-copy-id',
         l10n.fnthinkEndpointCopyId,
@@ -574,10 +617,6 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
         'fnthink-endpoint-copy-push-url',
         l10n.fnthinkEndpointCopyPushUrl,
         guide.canCopyPushUrl ? guide.pushUrl : null,
-      ),
-      FnthinkNote(
-        keyName: 'fnthink-endpoint-copy-hint',
-        text: l10n.fnthinkEndpointCopyHint,
       ),
     ];
   }

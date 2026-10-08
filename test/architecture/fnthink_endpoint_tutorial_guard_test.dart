@@ -115,6 +115,56 @@ void main() {
     );
   });
 
+  test('T97 片D：那五条说明收进右上问号，且长文一字未删', () {
+    final src = stripComments(read(page));
+    // ① 新家那枚问号：正文接的是 `_tutorialBody`。
+    expect(
+      RegExp(r"keyName: 'fnthink-endpoint-help'").allMatches(src).length,
+      1,
+      reason: '问号要么没有、要么有两个 —— 前者那五段说明等于被删，后者两枚会各讲一套',
+    );
+    expect(
+      src,
+      contains('body: _tutorialBody(l10n, guide),'),
+      reason: '问号没接正文 ⇒ 点开是空的（或点开还是那几个网址，而说明不知道去哪儿了）',
+    );
+    // 问号**不在**教程块里：教程块要"真用过"才出现，而那几段说明是静态的 ——
+    // 放在块里就会跟着一起消失，用户刚建第一把之前根本读不到怎么用。
+    final tutorialBlock = src.substring(
+      src.indexOf('List<Widget> _buildEndpointTutorial('),
+    );
+    expect(
+      tutorialBlock.contains('HelpNoteButton('),
+      isFalse,
+      reason: '问号长进了教程块 ⇒ 它跟着"真用过"一起出现/消失',
+    );
+    // ② 页面上不许再有那五条（键名一个都不在）。
+    for (final gone in const [
+      "keyName: 'fnthink-endpoint-post-why'",
+      "keyName: 'fnthink-endpoint-get-warning'",
+      "keyName: 'fnthink-endpoint-push-url-why'",
+      "keyName: 'fnthink-endpoint-fields'",
+      "keyName: 'fnthink-endpoint-copy-hint'",
+    ]) {
+      expect(src, isNot(contains(gone)), reason: '$gone 长回页面 ⇒ 又成段堆小字了');
+    }
+    // ③ 长文没删：那五段各在页面里出现**恰好一次**（就是弹窗正文那一处）。
+    //    ⚠ 这里认的是**键名**而不是措辞：措辞改了守卫照样该绿，键没了才是"说明丢了"。
+    for (final key in const [
+      'l10n.fnthinkEndpointPostWhy',
+      'l10n.fnthinkEndpointGetWarning',
+      'l10n.fnthinkEndpointPushUrlWhy',
+      'l10n.fnthinkEndpointFieldAlias',
+      'l10n.fnthinkEndpointCopyHint',
+    ]) {
+      expect(
+        RegExp(key.replaceAll('.', r'\.')).allMatches(src).length,
+        1,
+        reason: '$key 不再恰好出现一次 ⇒ 要么被删了，要么又被画回页面上（两处各说一遍）',
+      );
+    }
+  });
+
   test('教程只有一个作者：lib/pages 下含 `_endpointUsed(` 的文件恰好这一页', () {
     // 上面那三条都是"读一个文件"，因此它们**看不见第二个作者**：谁在别的页里再抄一份
     // 出现条件，那三条各自都还是绿的。T97 片B 把这一格搬成独立页，恰好就是最容易

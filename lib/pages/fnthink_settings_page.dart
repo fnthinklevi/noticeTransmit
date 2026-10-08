@@ -516,10 +516,8 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     return FnthinkCard(
       title: l10n.fnthinkEndpointTitle,
       children: [
-        FnthinkNote(
-          keyName: 'fnthink-endpoint-entry-desc',
-          text: l10n.fnthinkEndpointEntryDesc,
-        ),
+        // ⚠ 这里原来还有一条 note，正文与下面那行的副标题**逐字相同**（同一句在屏上出现两次）。
+        // 删的是重复的那一份，话一句没少 —— 它就在这一行的副标题里。
         FnthinkEntryRow(
           key: const ValueKey('fnthink-endpoint-entry'),
           icon: Icons.hub_outlined,
