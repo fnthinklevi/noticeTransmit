@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Colors;
 
+import '../theme/app_colors.dart';
+
 /// 「一页最多一枚」的主操作：**全宽圆角填充**按钮（T100 判据④ 的公共件）。
 ///
 /// 形状是从「推送开关」页那两枚（一键添加 2×2 / 添加 4×2）抬上来的 —— 它们与幻念这边的
@@ -57,6 +59,60 @@ class PrimaryActionButton extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 与主操作**同高同宽**的次级一枚：描边、不着填充（T108 片②：原通道设置页的 `_OutlineActionButton`）。
+///
+/// 存在的理由是页脚那一对：「仅探测」与「探测并保存」是**同一个决定的两个档**，
+/// 一实一虚、一高一矮会让人以为它们是两个不相干的动作。所以形状与
+/// [PrimaryActionButton] 对齐（圆角 12、左右 16、上下 12、字号 15／w600），只换底色为描边。
+///
+/// ⚠ 不要复用 `FnthinkInlineAction`（那枚是"对行里那个值做点什么"：复制、重置）——
+///   它与"这一页要办的事"不是同一件事，贴在主操作旁边会一高一矮。
+class SecondaryActionButton extends StatelessWidget {
+  const SecondaryActionButton({
+    required this.keyName,
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String keyName;
+  final String label;
+
+  /// null = 此刻不可用（正在忙）：**置灰，不是藏起来**。
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final dim = onPressed == null;
+    return CupertinoButton(
+      key: ValueKey(keyName),
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: dim
+                ? AppColors.separator(context)
+                : AppColors.blue.withValues(alpha: 0.45),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: dim ? AppColors.tertiaryLabel(context) : AppColors.blue,
+          ),
         ),
       ),
     );

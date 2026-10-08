@@ -583,7 +583,7 @@ class _FnthinkChannelSettingsPageState
                 ),
                 const SizedBox(height: 12),
                 _label(context, l10n.fnthinkChannelTargetKind),
-                _FieldButton(
+                FnthinkFieldTile(
                   keyName: 'fnthink-channel-kind',
                   icon: _kind == FnthinkChannelTarget.webhook
                       ? Icons.link
@@ -594,7 +594,7 @@ class _FnthinkChannelSettingsPageState
                 const SizedBox(height: 12),
                 _label(context, l10n.fnthinkChannelTarget),
                 if (_kind == FnthinkChannelTarget.device) ...[
-                  _FieldButton(
+                  FnthinkFieldTile(
                     keyName: 'fnthink-channel-target',
                     icon: Icons.qr_code,
                     value: _target.text.isEmpty
@@ -632,7 +632,7 @@ class _FnthinkChannelSettingsPageState
                   ),
                 const SizedBox(height: 12),
                 _label(context, l10n.fnthinkChannelRole),
-                _FieldButton(
+                FnthinkFieldTile(
                   keyName: 'fnthink-channel-role',
                   icon: Icons.layers_outlined,
                   value: _roleLabel(l10n),
@@ -682,7 +682,7 @@ class _FnthinkChannelSettingsPageState
             children: [
               if (_canProbe) ...[
                 Expanded(
-                  child: _OutlineActionButton(
+                  child: SecondaryActionButton(
                     keyName: 'fnthink-channel-probe',
                     label: l10n.fnthinkChannelProbeOnly,
                     onPressed: _busy ? null : _probe,
@@ -717,122 +717,6 @@ class _FnthinkChannelSettingsPageState
               text: l10n.fnthinkChannelProbeUnavailable,
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// 「点开再选／点开再挑」那一类字段（与 webhook 那一族的类型选择框同形：
-/// 输入底色 + 行首图标 + 值 + 右箭头）。
-///
-/// `onTap` 传 null = 此刻挑不动（名单里一台都没勾选过）：**置灰，不是藏起来**。
-/// 仍然是 `CupertinoButton`：这一格的禁用态要用例点得中，而用例认的是这一件。
-class _FieldButton extends StatelessWidget {
-  const _FieldButton({
-    required this.keyName,
-    required this.icon,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String keyName;
-  final IconData icon;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final dim = onTap == null;
-    return CupertinoButton(
-      key: ValueKey(keyName),
-      padding: EdgeInsets.zero,
-      onPressed: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: AppColors.inputBg(context),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.separator(context)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: dim ? AppColors.tertiaryLabel(context) : AppColors.blue,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                value,
-                key: ValueKey('$keyName-value'),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: dim
-                      ? AppColors.tertiaryLabel(context)
-                      : AppColors.primaryLabel(context),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: AppColors.tertiaryLabel(context),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 页脚那一对里的**次级**一枚（描边、与主操作同高）。
-///
-/// 为什么不复用 `FnthinkInlineAction`（蓝字裸文本）：那一枚是"对行里那个值做点什么"
-/// （复制、重置），与"这一页的动作"不是同一件事；贴在填充按钮旁边会一高一矮、
-/// 一实一虚，而这两枚是同一个决定（测不测）的两个档。
-/// 形状与 `PrimaryActionButton` 同：圆角 12、左右 16、上下 12、字号 15／w600。
-class _OutlineActionButton extends StatelessWidget {
-  const _OutlineActionButton({
-    required this.keyName,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final String keyName;
-  final String label;
-
-  /// null = 此刻不可用（正在忙）：**置灰，不是藏起来**。
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final dim = onPressed == null;
-    return CupertinoButton(
-      key: ValueKey(keyName),
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: dim
-                ? AppColors.separator(context)
-                : AppColors.blue.withValues(alpha: 0.45),
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: dim ? AppColors.tertiaryLabel(context) : AppColors.blue,
-          ),
-        ),
       ),
     );
   }

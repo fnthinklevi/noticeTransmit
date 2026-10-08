@@ -655,13 +655,12 @@ void main() {
         );
       }
 
-      // ④ 台账②：还剩这几枚是页面自己搭的按钮（`CupertinoButton` 直接写在页文件里）。
-      //    这一本就是 T108 的剩余工作量：搬一枚进公共件就把账改小，新写一枚当场红。
-      const localButtons = <String, int>{
-        'lib/pages/fnthink_channel_settings_page.dart': 2,
-        'lib/pages/fnthink_send_page.dart': 4,
-        'lib/pages/fnthink_receive_page.dart': 1,
-      };
+      // ④ 台账②：**清零**（T108 片②）。原先还剩七枚是页面自己搭的按钮
+      //    （`CupertinoButton(` 直接写在页文件里：通道设置页的字段行与页脚次级、发送页的档位与
+      //    三排选择件、接收页的恢复默认）。现在它们分别走 `FnthinkFieldTile` /
+      //    `SecondaryActionButton` / `FnthinkChoiceChip` / `FnthinkInlineAction`。
+      //    这本账清空之后**不许再长回来**（与 T90 那两本同一条纪律：账上的数字就是欠账本身）。
+      const localButtons = <String, int>{};
       int local(String p) =>
           'CupertinoButton('.allMatches(codeByPath[p]!).length;
       final actualLocal = <String, int>{
@@ -673,13 +672,38 @@ void main() {
         localButtons.keys.toSet(),
         reason:
             '又有一张页自己搭按钮（${actualLocal.keys.toSet().difference(localButtons.keys.toSet())}）⇒ '
-            '新写的那枚请走装配点；真搬走一枚就把这一格从账上删掉',
+            '新写的那枚请走那四枚公共件之一；账上的每一格都是一笔要还的债',
       );
       for (final e in localButtons.entries) {
         expect(
           actualLocal[e.key] ?? 0,
           e.value,
-          reason: '${e.key} 的自搭按钮枚数与台账不等 ⇒ 这本账就是剩余量，改了要回来记账',
+          reason: '${e.key} 的自搭按钮枚数与台账不等 ⇒ 改了要回来记账',
+        );
+      }
+
+      // ⑤ 那四枚公共件各自只有一处定义 —— 单独一条用例（见下一条 test），
+      //    这样"页面又自己搭一枚"与"公共件长出第二份定义"两种回归各红各的用例。
+    });
+
+    test('T108 片②：那几枚公共件各只有一处定义，且确实有页在用', () {
+      for (final w in const [
+        'class FnthinkChoiceChip',
+        'class FnthinkFieldTile',
+        'class SecondaryActionButton',
+      ]) {
+        expect(hitting(w).length, 1, reason: '$w 有了第二处定义 ⇒ 形状又开始分叉');
+      }
+      // 反向自证：这三件确实被用着（没人用的公共件只是把耦合换了个地方放着）。
+      for (final u in const [
+        'FnthinkChoiceChip(',
+        'FnthinkFieldTile(',
+        'SecondaryActionButton(',
+      ]) {
+        expect(
+          hitting(u),
+          isNotEmpty,
+          reason: '$u 一处都没被用 ⇒ 上面那条"只有一处定义"是在守一件不存在的事',
         );
       }
     });

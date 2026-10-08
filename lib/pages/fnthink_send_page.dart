@@ -347,7 +347,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         Row(
           children: [
             Expanded(
-              child: _TierButton(
+              child: FnthinkChoiceChip(
                 keyName: 'fnthink-send-tier-notice',
                 label: l10n.fnthinkSendTierNotice,
                 selected: _tier == FnthinkSendTier.notice,
@@ -357,7 +357,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             const SizedBox(width: 8),
             Expanded(
               // 契约读不到时这一档灰掉并说原因（不是藏起来：藏起来用户以为这一页没这功能）。
-              child: _TierButton(
+              child: FnthinkChoiceChip(
                 keyName: 'fnthink-send-tier-command',
                 label: l10n.fnthinkSendTierCommand,
                 selected: _tier == FnthinkSendTier.command,
@@ -411,23 +411,15 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           for (final peer in rows)
             Align(
               alignment: Alignment.centerLeft,
-              child: CupertinoButton(
-                key: ValueKey('remote-send-peer-${peer.peerAddress}'),
-                onPressed: _busy
+              // T108 片②：这一排原来是裸文字（选中只有一点点字重差），
+              // 换成公共的选择件 ⇒ "选上没有"在屏上读得出来。key 一字节没动。
+              child: FnthinkChoiceChip(
+                keyName: 'remote-send-peer-${peer.peerAddress}',
+                label: peer.peerAddress,
+                selected: peer.peerAddress == _peerAddress,
+                onTap: _busy
                     ? null
                     : () => setState(() => _peerAddress = peer.peerAddress),
-                child: Text(
-                  peer.peerAddress,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: peer.peerAddress == _peerAddress
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                    color: peer.peerAddress == _peerAddress
-                        ? AppColors.systemBlue(context)
-                        : AppColors.primaryLabel(context),
-                  ),
-                ),
               ),
             ),
       ],
@@ -491,17 +483,18 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           spacing: 8,
           children: [
             for (final level in contract.capabilityLevels)
-              CupertinoButton(
-                key: ValueKey('remote-send-level-$level'),
-                onPressed: _busy
+              FnthinkChoiceChip(
+                keyName: 'remote-send-level-$level',
+                label: level,
+                selected: _level == level,
+                // 换档时把那一档用不上的动作摘掉：留着上一个档的动作名，
+                // 用户会发出一条对方那边压根没有的项。
+                onTap: _busy
                     ? null
                     : () => setState(() {
                         _level = level;
-                        // 换档时把那一档用不上的动作摘掉：留着上一个档的动作名，
-                        // 用户会发出一条对方那边压根没有的项。
                         _item = '';
                       }),
-                child: Text(level),
               ),
           ],
         ),
@@ -530,12 +523,11 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             spacing: 8,
             children: [
               for (final action in actions)
-                CupertinoButton(
-                  key: ValueKey('remote-send-action-$action'),
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() => _item = action),
-                  child: Text(action),
+                FnthinkChoiceChip(
+                  keyName: 'remote-send-action-$action',
+                  label: action,
+                  selected: _item == action,
+                  onTap: _busy ? null : () => setState(() => _item = action),
                 ),
             ],
           ),
@@ -604,54 +596,6 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         if (_note != null)
           FnthinkNote(keyName: 'remote-send-note', text: _note!),
       ],
-    );
-  }
-}
-
-/// 档位那一排里的**一枚**：选中态是蓝底描边，不可用时置灰并留着（不是藏起来）。
-class _TierButton extends StatelessWidget {
-  const _TierButton({
-    required this.keyName,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String keyName;
-  final String label;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final blue = AppColors.systemBlue(context);
-    return CupertinoButton(
-      key: ValueKey(keyName),
-      padding: EdgeInsets.zero,
-      onPressed: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? blue.withValues(alpha: 0.10) : null,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? blue : AppColors.separator(context),
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            color: onTap == null
-                ? AppColors.tertiaryLabel(context)
-                : selected
-                ? blue
-                : AppColors.primaryLabel(context),
-          ),
-        ),
-      ),
     );
   }
 }

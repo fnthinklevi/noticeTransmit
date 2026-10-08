@@ -326,3 +326,127 @@ class FnthinkEntryRow extends StatelessWidget {
     );
   }
 }
+
+/// 一排**可选项**里的一枚（T108 片②：从发送页那四枚各搭一遍的 `CupertinoButton` 抬上来）。
+///
+/// 形状是原 `_TierButton`：选中＝蓝底描边＋加粗；不可用＝置灰但**留着**（藏起来用户会以为
+/// 这一档压根不存在）。抬上来之前，「选一台设备／选一档能力／选一个动作」那三排是裸文字，
+/// 选中态只有一点点字重差 —— 于是"我到底选上没有"这件事在屏上读不出来，而它正是
+/// 「点了没反应」那类误报的来源（维护者 2026-10-08 第 2 条要的就是这个）。
+class FnthinkChoiceChip extends StatelessWidget {
+  const FnthinkChoiceChip({
+    required this.keyName,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String keyName;
+  final String label;
+  final bool selected;
+
+  /// null = 此刻挑不动（正在忙／前置没开）：置灰，不是藏起来。
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final blue = AppColors.systemBlue(context);
+    return CupertinoButton(
+      key: ValueKey(keyName),
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? blue.withValues(alpha: 0.10) : null,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? blue : AppColors.separator(context),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+            color: onTap == null
+                ? AppColors.tertiaryLabel(context)
+                : selected
+                ? blue
+                : AppColors.primaryLabel(context),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 「点开再挑」那一类字段行（T108 片②：原通道设置页的私有 `_FieldButton`）。
+///
+/// 与 [FnthinkEntryRow] 不是一件东西：行是"进另一张页"，这一枚是**就地改一个值**
+/// （输入底色 + 行首图标 + 当前值 + 右箭头，与 webhook 那一族的类型选择框同形）。
+/// 仍是 `CupertinoButton`：禁用态要用例点得中，而用例认的是这一件。
+class FnthinkFieldTile extends StatelessWidget {
+  const FnthinkFieldTile({
+    required this.keyName,
+    required this.icon,
+    required this.value,
+    required this.onTap,
+    super.key,
+  });
+
+  final String keyName;
+  final IconData icon;
+  final String value;
+
+  /// null = 此刻挑不动：**置灰，不是藏起来**。
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final dim = onTap == null;
+    return CupertinoButton(
+      key: ValueKey(keyName),
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: AppColors.inputBg(context),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.separator(context)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: dim ? AppColors.tertiaryLabel(context) : AppColors.blue,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                value,
+                key: ValueKey('$keyName-value'),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: dim
+                      ? AppColors.tertiaryLabel(context)
+                      : AppColors.primaryLabel(context),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: AppColors.tertiaryLabel(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

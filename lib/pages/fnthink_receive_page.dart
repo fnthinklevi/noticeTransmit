@@ -516,10 +516,13 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
           if (poll.chosen != null)
             Align(
               alignment: Alignment.centerLeft,
-              child: CupertinoButton(
+              // T108 片②：这一枚是"对行里那个值做点什么"（把收取间隔恢复成契约默认），
+              // 形状归 `FnthinkInlineAction`；可逆 ⇒ neutral 档（不是蓝、也不是红）。
+              child: FnthinkInlineAction(
                 key: const ValueKey('fnthink-poll-reset'),
+                label: l10n.fnthinkPollIntervalReset,
+                tone: FnthinkActionTone.neutral,
                 onPressed: _busy ? null : _resetPollSeconds,
-                child: Text(l10n.fnthinkPollIntervalReset),
               ),
             ),
         ],
