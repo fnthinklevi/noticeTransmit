@@ -2390,6 +2390,110 @@ void main() {
       expectProblem(broken, '必须是 receipts 里的一个词', '两个出处指同一个拒绝时，必须逐字节同名');
     });
 
+    // ── endpoint.probe（T106 片①b：端点档的干跑）──
+    // 这一段在设备侧还没有读口（接线是片①b 格2），但**判据必须先落地**：路径形状与口令放法
+    // 一旦由服务端单方面定下来，客户端下一次就只能顺着它拼 URL —— 那正是 T87 那条"别重打路径"的债。
+    test('缺 endpoint.probe 整段 ⇒ 报（干跑的路径与策略没有第二个来源）', () {
+      final broken = mutate((raw) {
+        (raw['endpoint'] as Map<String, Object?>).remove('probe');
+      });
+      expectProblem(
+        broken,
+        'endpoint.probe.bearerPath',
+        '缺段读回来是空串，而空串落在脱敏前缀之外 ⇒ 必须报，不许"没有就不判"',
+      );
+    });
+
+    test('探针路径落在脱敏前缀之外 ⇒ 报（这一条与口令同面）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['probe']
+                as Map<String, Object?>)['bearerPath'] =
+            '/api/fnthink/endpoint-probe';
+      });
+      expectProblem(
+        broken,
+        '必须落在 transport.accessLogRedactPathPattern',
+        '脱敏规则盖不住这一条，就是让探针与收单各用一套日志口径',
+      );
+    });
+
+    test('探针路径里出现 :secret ⇒ 报（口令进 URL，而它会被反复自动打）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['probe']
+                as Map<String, Object?>)['bearerPath'] =
+            '/api/fnthink/p/:endpointId/:secret/probe';
+      });
+      expectProblem(
+        broken,
+        'endpoint.probe.bearerPath',
+        '探针的口令在请求头里是它能被自动重探反复打的前提',
+      );
+    });
+
+    test('探针尾段是参数 ⇒ 报（会与收单的 :secret 撞位，而 Express 按注册顺序匹配）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['probe']
+                as Map<String, Object?>)['bearerPath'] =
+            '/api/fnthink/p/:endpointId/:mode';
+      });
+      expectProblem(broken, '固定字面量', '撞位之后探针打到收单那条并回 401，看起来像"口令错了"');
+    });
+
+    test('探针路径不在 postBearerPath 之下 ⇒ 报（多插一层参数就换了识别主键）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['probe']
+                as Map<String, Object?>)['bearerPath'] =
+            '/api/fnthink/p/probe/:endpointId';
+      });
+      expectProblem(
+        broken,
+        '固定字面量',
+        '这一条管的是"探针与收单认同一个 endpointId 位"，尾段字面量只是它的表象',
+      );
+    });
+
+    test('口令放法改成 path-segment ⇒ 报（改向不会静默生效）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['probe']
+                as Map<String, Object?>)['secretPlacement'] =
+            'path-segment';
+      });
+      expectProblem(broken, 'bearer-header', '契约写了放法而实现读另一套，就是两份真值');
+    });
+
+    test('探针改成写调用日志 ⇒ 报（有界日志会被自动重探把自己观察的历史挤掉）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['probe']
+                as Map<String, Object?>)['writesCallLog'] =
+            true;
+      });
+      expectProblem(
+        broken,
+        'writesCallLog 只能是 false',
+        '那份日志回答的是「为什么那条没到」，而探针不是一条「那一条」',
+      );
+    });
+
+    test('chargesIngressQuota 少了 ⇒ 报（这件取舍必须写下来，不许留空）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['probe']
+                as Map<String, Object?>)
+            .remove('chargesIngressQuota');
+      });
+      expectProblem(broken, '必须是布尔', '健康监测花不花被监测那条路的额度，是实现里顺手一个 if 说不出理由的那一类');
+    });
+
+    test('判据自证：当前契约这一段一条都不报，且四条键都读得回来', () {
+      expect(c.validate(), isEmpty);
+      final probe =
+          (c.raw['endpoint'] as Map<String, Object?>)['probe']
+              as Map<String, Object?>;
+      expect(probe['bearerPath'], '/api/fnthink/p/:endpointId/probe');
+      expect(probe['secretPlacement'], 'bearer-header');
+      expect(probe['chargesIngressQuota'], false);
+      expect(probe['writesCallLog'], false);
+    });
+
     // ── transport.apiPaths（#126 第二片：客户端发到哪个 URL 的唯一出处）──
     test('apiPaths 整段缺失 ⇒ 报（路径不能两边各拼一份）', () {
       final broken = mutate((raw) {

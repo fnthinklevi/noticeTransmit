@@ -1876,6 +1876,10 @@ describe('契约声明的路径 == 实际挂载的路径', () => {
       .map(([, path]) => path),
     contract.endpoint.ingress.pathPattern,
     contract.endpoint.ingress.postBearerPath,
+    // T106 片①b：端点档的干跑。它挂在 postBearerPath 之下、尾段是字面量，所以它**不进**
+    // transport.apiPaths（那张表只管设备面，混进来等于宣布"设备面路径也可以携带口令"）；
+    // 但它同样是"契约声明了一条路径"，漏在这一格里就会变成"声明了却没挂，客户端敲一年 404"。
+    contract.endpoint.probe.bearerPath,
   ];
 
   test('不多不少：挂载清单与契约声明逐条对得上（改任一边都必须同时改另一边）', () => {

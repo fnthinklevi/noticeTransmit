@@ -90,8 +90,11 @@ final Set<String> _probing = {};
 ///
 /// 三条与另外三族同一口径：**只探启用的**、进页那一路**只探过期的**（[force] 只属于下拉刷新）、
 /// 结论照实写进健康单点（写的是 `(kFnthinkChannelSlug, 通道 id)`，不是 host）。
-/// ⚠ **webhook 目标那条今天探不了**：它的干跑要另立一条出示长期口令的路（T106 片①b），
-/// 这里**跳过**它 —— 不是忘了，是没有那条路可走；它的徽标仍只会被人手动测那两枚写。
+/// ⚠ **webhook 目标那条这里仍然 `continue`**（不是探了失败，是没接）：它要的那条干跑
+/// 在服务端已经落地了（T106 片①b 格1：`POST /p/<id>/probe` + Bearer 长期口令，一条都不投），
+/// 欠的是设备侧那一半（片①b 格2：认出「这个目标就是幻念端点」并按契约拼出探针地址、把口令放头里）。
+/// 在那之前这一档的徽标仍只由人手动测那两枚写 —— 这条"仍然跳过"由
+/// `test/services/active_channels_health_test.dart` 里那一格钉着（格2 接线时它必须**翻**而不是删）。
 Future<int> probeFnthinkChannels({
   required bool force,
   FnthinkProbeCall? call,
@@ -111,6 +114,9 @@ Future<int> probeFnthinkChannels({
   var probed = 0;
   for (final channel in channels.cachedChannels) {
     if (!channel.enabled || channel.id.isEmpty) continue;
+    // 端点档（webhook 目标）：服务端那条干跑已经落地（T106 片①b 格1），欠的是这一侧的接线 ——
+    // 认出「这个目标就是幻念端点」+ 按契约拼探针地址 + 把长期口令放请求头里（片①b 格2）。
+    // 接线之前照旧跳过：宁可徽标空着（读"从未探测"），也不替用户往对面推一条真通知。
     if (channel.targetKind != FnthinkChannelTarget.device) continue;
     // T115 护栏①：另一轮（进页 / 回前台 / 下拉）正在探这一条 ⇒ 这一轮跳过它。
     // 结论由那一发写回同一个键，界面靠它自己的 onUpdated 重画 —— 这里再发一次只是把

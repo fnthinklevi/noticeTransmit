@@ -927,6 +927,57 @@ function handleEndpointIngress(req, res, endpointId, secret, method) {
   });
 }
 
+// ── POST /p/:endpointId/probe：端点档的干跑（T106 片①b）──────────────────
+//
+// 它填的是 T106 片① 留下的那一格：签名面的 `/probe` 只能问「这台到那台设备的链路立不立得住」，
+// 而一条 webhook 目标的幻念通道走的是**另一类鉴权**（共享长期口令，没有签名），当时没有路可走，
+// 于是那一族的健康度仍只由人手动测那两枚写（`probeFnthinkChannels` 对它 `continue`）。
+//
+// ⚠ 为什么**不**并进签名面那条 `/probe`：那条的每一条 clientEvents 都在 mayNotCarry 里明令禁止
+//   endpointSecret —— 合并就得把口令塞进被签的载荷，那是新开的一条红线，而不是一处方便。
+//   这里走的是端点面自己的鉴权（Bearer 头），与 postBearerPath 那条**同一个出示方式**。
+//
+// 三条这一发特有的口径：
+//  ① 判序一步不少（传输→口令/存在性/IP→方法→能力→目标绑定），跳一条就是绿徽标配一条真发进不去的通知；
+//  ② 不读任何载荷字段（`readIngress(contract, {}, {})` 拿的是协议默认形状）⇒「带正文来探测」
+//     不会顺手投进一条正文；也因此绿灯只承诺「这条入口现在收得进默认形状」，不承诺具体某条；
+//  ③ 结论走正文、状态码恒 200：口令错 / 端点不存在 / IP 不在名单 / 已吊销 / 没绑设备 / 明文传输
+//     六种在这一发上**同形**（一枚红）。收单那条用 401 同形守住的性质，这里用「永远 200」守得更严，
+//     而设备侧的徽标本来就只能画一种红。
+//
+// ⚠ **注册顺序在这里有语义**：必须排在 `/p/:endpointId/:secret` 之前。Express 按注册顺序匹配，
+//   排错了就是把字面量 `probe` 当成口令送去收单 ⇒ 401，表现是「口令错了」而实际是路由没接上。
+//   契约那条尾段必须是字面量的校验管不到顺序，所以顺序由用例钉住（fnthink-endpoint-probe.test.js）。
+function handleEndpointProbe(req, res) {
+  const now = Date.now();
+  const ip = req.ip || 'unknown';
+  const endpoints = loadEndpoints();
+  const secure =
+    req.secure === true || String(req.headers['x-forwarded-proto'] || '').toLowerCase() === 'https';
+  const verdict = endpointIngress.decide({
+    endpoints,
+    endpointId: req.params.endpointId,
+    secret: bearerSecret(req),
+    // ② 载荷：一个字段都不读 —— 请求体与 query 根本不交给裁决，所以「带一段正文来探测」
+    //   既不会投进一条正文，也不会让探针去回答「我这条正文合不合格」。
+    message: readIngress(contract, {}, {}),
+    secure,
+    ip,
+    method: 'POST',
+    now,
+    dryRun: true,
+  });
+  // ③ 永远 200 + 结论在正文；结论键用签名面那一枚作者（PROBE_READY_FIELD），不在此另起名字。
+  // ⚠ 这里**不** recordEndpointCall：契约 endpoint.probe.writesCallLog=false，装载时已断言。
+  //   调用日志是有界环，自动重探每轮塞几行就会把自己要观察的那份历史挤掉。
+  res.status(200).json({ [PROBE_READY_FIELD]: !!verdict.ok, serverTime: now });
+}
+
+router.post(
+  '/p/:endpointId/probe',
+  asyncHandler(async (req, res) => handleEndpointProbe(req, res)),
+);
+
 router.get(
   '/p/:endpointId/:secret',
   asyncHandler(async (req, res) =>

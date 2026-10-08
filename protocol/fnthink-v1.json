@@ -273,6 +273,18 @@
       "_insecureTransportWhy": "明文传输时口令就裸奔在路径段里（谁在链路上都能看到），HTTPS-only 因此是协议承诺而不是运维建议，默认 reject。本地或内网直连 http 的部署要显式打开 `FNTHINK_ALLOW_INSECURE_ENDPOINT=1` —— 开关放在环境变量而不是契约里，因为它是**部署事实**，不是协议事实（把部署事实写进协议文件，就会出现「改了协议文件才能连本机」这种荒谬）。",
       "rejectedCapabilityReceipt": "rejected_capability",
       "_levelWhy": "端点只能产 L1（capabilities.endpointMaxLevel）：type 非 notice、level 高于 L1、带 item 的一律 403 + rejected_capability。走 capabilities.endpointGrant 那份裁决，**不在这里再写一份档位表**。"
+    },
+    "probe": {
+      "_why": "端点档的**干跑**（T106 片①b）：问一句「这条入口现在收不收得进」，而一条都不投递。它存在的理由与签名面那条 `/probe` 完全同一条：没有它，一个 webhook 目标的通道就只能靠真发一条去测（对面会收到一条他没要过的消息），于是这一族的健康度永远只由人手动测那两枚写。⚠ 它**不是** clientEvents.probe 的第二份实现，也不许合并成一条路由：那边靠 Ed25519 签名证明是谁、查的是「这台到那台的关系与档位立不立得住」，这边靠一把共享长期口令、查的是「这把口令还对吗、这个来源被允许吗、这条端点还活着且绑着设备吗」。两类发送方的鉴权根本不同 —— 硬共用的话，口令就得塞进被签的载荷，而每一条 clientEvents 的 mayNotCarry 里明令禁的正是 endpointSecret 这一件事。",
+      "bearerPath": "/api/fnthink/p/:endpointId/probe",
+      "_bearerPathWhy": "挂在 postBearerPath 同一条前缀之下、尾段是固定字面量。三个理由，每个都对应一种会静默变坏的写法：① 它天然落在 transport.accessLogRedactPathPattern 之内，不必为这一条再开一个脱敏口子；② 限流那一层认「带 p 段的路由＝端点形态」，这一发因此只过面级那道按 IP 的洪水闸，不会被塞进 perEndpoint（那一档量的是「身份还没证明」，把额度算到 IP 头上，误伤的是同一个出口后面挂三台 NAS 的诚实用户 —— A1 那 7 条配对用例红在 429 上就是这个形状）；③ 尾段不许是参数段，否则它与 ingress.pathPattern 的 :secret 撞位，而 Express 按注册顺序匹配 —— 撞了的表现是「探针打到收单那条、回 401」，看起来像口令错了而不是路由没接上。③ 由用例钉住，不靠这句注释。",
+      "secretPlacement": "bearer-header",
+      "_secretPlacementWhy": "只能是 bearer-header：口令出现在**请求头**里，不出现在路径段也不出现在 query。这一条与 ingress.pathPattern（允许口令进路径段）刻意不同：路径段那一条是被脱敏前缀盖住的那一条，而探针会被自动重探反复打，把口令塞进 URL 就是把副本多送一份给链路上每一层日志。装载时读这个值、不是 bearer-header 就抛 ⇒ 把它改成 path_segment 不会静默生效。",
+      "chargesIngressQuota": false,
+      "_chargesIngressQuotaWhy": "干跑**不花** ingress.quota 那 15/分、500/天。反过来说才是这条的理由：探针是监控行为，让它计费等于「健康监测把它监测的那条路挤死」—— 自动重探每轮 3 次、几条通道叠起来，先被 429 拦住的是 NAS 的真推送。⚠ 不花额度不等于没人管洪水：面级那道按 IP 的闸门在这一发之前，而它不需要身份就能生效。",
+      "writesCallLog": false,
+      "_writesCallLogWhy": "干跑**不写** callLog 那本最近调用日志（装载时断言它是 false，实现里没有「记一笔」那一条分支）。那份日志回答的是「为什么那条没到」，而探针从来不是一条「那一条」；更要紧的是它有界（callLog.maxPerEndpoint），自动重探每轮往里塞几行，等于让健康监测把自己要观察的那份历史挤掉。想知道有没有人在探测：看 access log，这一条路径里不含口令。",
+      "_carriesNoMessageWhy": "这一发**不读**任何 query 与正文字段，载荷一律取协议的默认形状（type=notice、无 item、标题正文都空）。所以「带一段正文来探测」不会顺手投进一条正文，而「我这个标题太长会不会被拒」这类**载荷形状**的问题不在这一发回答的范围里 —— 它回答的是路由问题。⚠ 因此绿灯的含义是「这条入口现在收得进一条默认形状的通知」，不是「我这一条具体的通知一定进得去」；反过来红灯是确凿的（这条现在就是收不进）。结论键仍只有签名面那一枚作者（clientEvents.probe.readyField），这里不另写一个 ready：两张面各写一次，改一边不报错，表现是设备永远读到 null 而判成「探针没结论」。"
     }
   },
   "ops": {

@@ -2014,6 +2014,48 @@ class FnthinkContract {
       '两处各写一个词就变成了"同一个拒绝有两种说法"',
     );
 
+    // ── 端点档的干跑（T106 片①b）──
+    // 这一段与 JS 侧 `probeFromContract` 各判一次是**双端同读**，不是两份真值：两边读同一份
+    // 契约的同一批键。设备侧连「这条 URL 长什么样」都不许自己拼 —— 路径只有契约一份作者
+    //（与 T87 那份教程同一条纪律）。
+    final probePath = str(const ['endpoint', 'probe', 'bearerPath']) ?? '';
+    need(
+      probePath.isNotEmpty &&
+          redact.isNotEmpty &&
+          probePath.startsWith(redact) &&
+          !probePath.contains(':secret') &&
+          !probePath.contains('?'),
+      'endpoint.probe.bearerPath（$probePath）必须落在 transport.accessLogRedactPathPattern'
+      '（$redact）之内，且既不带 :secret 也不带 query：探针会被自动重探反复打，'
+      '口令进 URL 就是把副本多送一份给链路上每一层日志',
+    );
+    final probeTail = probePath.split('/').last;
+    need(
+      inPostPath.isNotEmpty &&
+          probePath.startsWith('$inPostPath/') &&
+          probePath.substring(inPostPath.length + 1) == probeTail &&
+          !probeTail.startsWith(':'),
+      'endpoint.probe.bearerPath 必须是 postBearerPath 再接**一个固定字面量**段（实际 "$probePath"，'
+      '而 postBearerPath 是 "$inPostPath"）：中间多出参数段、或尾段本身是参数，它就会与 '
+      'ingress.pathPattern 的 :secret 撞位 —— 而 Express 按注册顺序匹配，撞了的表现是探针打到收单'
+      '那条并回 401，看起来像「口令错了」，实际是路由没接上（顺序这一半由服务端用例钉，契约只能钉形状）',
+    );
+    need(
+      str(const ['endpoint', 'probe', 'secretPlacement']) == 'bearer-header',
+      'endpoint.probe.secretPlacement 只能是 bearer-header：口令出现在请求头里，是这一发能被'
+      '反复自动重探而不多留一份 URL 副本的前提',
+    );
+    need(
+      boolOf(const ['endpoint', 'probe', 'writesCallLog']) == false,
+      'endpoint.probe.writesCallLog 只能是 false：那份调用日志有界（callLog.maxPerEndpoint），'
+      '自动重探每轮往里塞几行，等于让健康监测把自己要观察的那份历史挤掉',
+    );
+    need(
+      boolOf(const ['endpoint', 'probe', 'chargesIngressQuota']) != null,
+      'endpoint.probe.chargesIngressQuota 必须是布尔：健康监测花不花被监测那条路的额度，'
+      '是一件要写下来并说清理由的决定，不是实现里顺手的一个 if',
+    );
+
     // ── 投递状态机（T34）──
     // 这里查的是"这张表本身能不能跑"，不是"实现对不对"（那由双端共读的向量查）。
     // 一张少边的迁移表不会报错，只会让消息停在中间态 —— 而中间态 = 正文一直被留着。

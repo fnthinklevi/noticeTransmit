@@ -2,6 +2,9 @@
 //
 //   GET  /api/fnthink/p/<endpointId>/<secret>?title=&body=…      口令在路径段
 //   POST /api/fnthink/p/<endpointId>  +  Authorization: Bearer <secret>
+//   POST /api/fnthink/p/<endpointId>/probe  +  Authorization: Bearer <secret>
+//        ↑ 端点档的**干跑**（T106 片①b）：同一条裁决链一步不少，只跳过 ⑥（没有载荷可判）
+//          与 ⑧（不花端点额度），而调用方（routes.js）拿到 ok 之后**不 enqueue**。
 //
 // 它与签名面（/message）的区别决定了这里几乎所有规则：那边发的是**设备**（有身份、有私钥、
 // poll 时能被认出来），这边只是一把**共享长期口令**（服务端只有摘要，泄露无法归因，也没有
@@ -37,6 +40,68 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function insecureAllowed() {
   const raw = String(process.env.FNTHINK_ALLOW_INSECURE_ENDPOINT || '').toLowerCase();
   return raw === '1' || raw === 'true' || raw === 'yes';
+}
+
+/// 端点档的干跑（T106 片①b）：路径与三条策略都只从契约 endpoint.probe 读。
+///
+/// ⚠ 两条布尔用**装载即断**、一条留分支，这个分工是刻意的：
+///  - `secretPlacement` 改向（口令进 URL）与 `writesCallLog` 改向（监测把自己要观察的那本
+///    历史挤掉）都是缺陷，不是取舍 ⇒ 让它启动失败，而不是"实现里还留着那条分支"；
+///  - `chargesIngressQuota` 是**产品取舍**（健康监测花不花被监测那条路的额度），真要改得连
+///    `_why` 一起改，所以它出现在用的那一处（下面 ⑧），而不是一个把死的值。
+/// ⚠ 尾段必须是固定字面量这一条不是洁癖：Express 按注册顺序匹配，而收单那条以 `:secret`
+///   收尾。`/p/:id/<参数>` 会被收单先接走并把参数当成口令 —— 回 401，表现是"口令错了"，
+///   实际是路由没接上。顺序本身没法由契约保证，所以注册顺序由用例钉（fnthink-endpoint-probe）。
+function probeFromContract(contract) {
+  const src = ((contract || {}).endpoint || {}).probe;
+  if (!src || typeof src !== 'object') {
+    throw shapeError('契约缺 endpoint.probe 段：端点档的干跑没有路径与策略的第二来源');
+  }
+  const bearerPath = String(src.bearerPath || '');
+  const redact = String((contract.transport || {}).accessLogRedactPathPattern || '');
+  if (!bearerPath || !redact || !bearerPath.startsWith(redact)) {
+    throw shapeError(
+      `endpoint.probe.bearerPath（${bearerPath}）必须落在 transport.accessLogRedactPathPattern` +
+        `（${redact}）之内：这一条与口令同面，脱敏盖不住它就是把口令送进日志的那一半`,
+    );
+  }
+  if (bearerPath.includes(':secret') || bearerPath.includes('?')) {
+    throw shapeError(
+      'endpoint.probe.bearerPath 既不许带 :secret 也不许带 query：探针会被自动重探反复打，' +
+        '口令进 URL 等于给链路上每一层日志多送一份副本',
+    );
+  }
+  const tail = bearerPath.split('/').filter(Boolean).pop() || '';
+  if (tail.startsWith(':')) {
+    throw shapeError(
+      `endpoint.probe.bearerPath 的尾段必须是固定字面量（实际 ${tail}）：尾段是参数时它与 ` +
+        'ingress.pathPattern 的 :secret 撞位，探针会打到收单那条并回 401',
+    );
+  }
+  if (src.secretPlacement !== 'bearer-header') {
+    throw shapeError(
+      `endpoint.probe.secretPlacement 只能是 bearer-header（实际 ${src.secretPlacement}）：` +
+        '口令出现在请求头里是这一发能被自动重探反复打的前提',
+    );
+  }
+  if (src.writesCallLog !== false) {
+    throw shapeError(
+      'endpoint.probe.writesCallLog 只能是 false：调用日志回答的是「为什么那条没到」，' +
+        '而探针从来不是一条「那一条」；它有界，自动重探会把自己要观察的那份历史挤掉',
+    );
+  }
+  if (typeof src.chargesIngressQuota !== 'boolean') {
+    throw shapeError(
+      'endpoint.probe.chargesIngressQuota 必须是布尔：健康探测花不花被监测那条路的额度，' +
+        '是一件要写下来并说清理由的决定，不是实现里顺手的一个 if',
+    );
+  }
+  return {
+    bearerPath,
+    secretPlacement: src.secretPlacement,
+    chargesIngressQuota: src.chargesIngressQuota,
+    writesCallLog: src.writesCallLog,
+  };
 }
 
 /// ingress 段的数字与语义一律从契约读。取不到就抛**可降级**的 SHAPE。
@@ -104,6 +169,9 @@ function ingressFromContract(contract) {
     maxBodyChars,
     endpointGrant: grant,
     capabilityReceipt: String(src.rejectedCapabilityReceipt || 'rejected_capability'),
+    // 干跑（T106 片①b）的策略跟着 ingress 一起装配：同一份裁决、同一个配额计数器，
+    // 只是不走 ⑥⑧ 与投递那三步。分两处读就得保证两处同时改，而那正是"探针说通、真发被拒"的起点。
+    probe: probeFromContract(contract),
   };
 }
 
@@ -210,6 +278,10 @@ function createEndpointQuota(ingress, observe) {
 function decideIngress(contract, ingress, state, input) {
   const unauthorized = statusCode(contract, 'unauthorized');
   const { endpoints, endpointId, secret, message, secure, ip, method, now } = input;
+  // 干跑（T106 片①b）：判序一步都不少，只少了「为此花掉什么」那三步 —— 不判载荷（探针没带载荷）、
+  // 不花配额、不投递。⚠ 不许因为"反正不投递"就跳过 ①②③⑤⑦：那几条正是探针要回答的问题，
+  // 跳一条就等于绿徽标配一条真发进不去的通知。
+  const dryRun = input.dryRun === true;
 
   // ① 明文传输：口令在路径段里 ⇒ 先拒，且不给任何细节（403 空 body，理由见文件头）。
   if (!secure && !insecureAllowed()) {
@@ -291,28 +363,33 @@ function decideIngress(contract, ingress, state, input) {
     };
   }
   // ⑥ 载荷形状：正文与标题都空 = 一条没有内容的通知；超限 = 明确拒，不截断。
-  if (message.title.trim() === '' && message.body.trim() === '') {
-    return {
-      ok: false,
-      status: statusCode(contract, 'badRequest'),
-      receipt: null,
-      endpointId: found.id,
-      logEndpointId: found.id,
-      logOutcome: 'empty_payload',
-    };
-  }
-  if (
-    [...message.title].length > ingress.maxTitleChars ||
-    [...message.body].length > ingress.maxBodyChars
-  ) {
-    return {
-      ok: false,
-      status: statusCode(contract, 'badRequest'),
-      receipt: null,
-      endpointId: found.id,
-      logEndpointId: found.id,
-      logOutcome: 'payload_too_large',
-    };
+  //    ⚠ 干跑**整段跳过**：探针一个字段都不读，载荷永远是协议的默认形状（标题正文都空），
+  //    按这一段的判据它必然"空载荷"——那不是结论而是"探针没在回答这个问题"。
+  //    所以绿灯说的是「这条入口现在收得进一条默认形状的通知」，不是「我这一条具体的通知进得去」。
+  if (!dryRun) {
+    if (message.title.trim() === '' && message.body.trim() === '') {
+      return {
+        ok: false,
+        status: statusCode(contract, 'badRequest'),
+        receipt: null,
+        endpointId: found.id,
+        logEndpointId: found.id,
+        logOutcome: 'empty_payload',
+      };
+    }
+    if (
+      [...message.title].length > ingress.maxTitleChars ||
+      [...message.body].length > ingress.maxBodyChars
+    ) {
+      return {
+        ok: false,
+        status: statusCode(contract, 'badRequest'),
+        receipt: null,
+        endpointId: found.id,
+        logEndpointId: found.id,
+        logOutcome: 'payload_too_large',
+      };
+    }
   }
   // ⑦ 目标只许是这台端点所属的设备（契约 maySpecifyTarget=false 的执行处）。
   const target = typeof found.owner === 'string' ? found.owner : '';
@@ -328,25 +405,35 @@ function decideIngress(contract, ingress, state, input) {
     };
   }
   // ⑧ 配额：只在以上都过了之后记一发（在此之前记 = 让攻击者替受害者花额度）。
-  const over = state.charge(found.id, now);
-  if (over) {
-    return {
-      ok: false,
-      status: statusCode(contract, 'rateLimited'),
-      receipt: null,
-      retryAfter: over.retryAfter,
-      endpointId: found.id,
-      logEndpointId: found.id,
-      logOutcome: 'rate_limited',
-    };
+  //    干跑**默认不记**（契约 endpoint.probe.chargesIngressQuota=false）：让健康监测花被监测
+  //    那条路的额度，等于「探针把它监视的那条路挤死」—— 自动重探每轮 3 次、几条通道叠起来，
+  //    先被 429 拦住的是 NAS 的真推送。⚠ 不记这一档不等于没人管洪水：面级那道按 IP 的闸门
+  //    挂在路由之前（ratelimit.js），它不需要身份就能生效。
+  if (!dryRun || ingress.probe.chargesIngressQuota) {
+    const over = state.charge(found.id, now);
+    if (over) {
+      return {
+        ok: false,
+        status: statusCode(contract, 'rateLimited'),
+        receipt: null,
+        retryAfter: over.retryAfter,
+        endpointId: found.id,
+        logEndpointId: found.id,
+        logOutcome: 'rate_limited',
+      };
+    }
   }
   return {
     ok: true,
-    status: statusCode(contract, 'queued'),
+    // 干跑不回「真发会回哪个码」：那一发永远是 200 + 结论在正文（routes.js 那段）。
+    // 写成 null 而不是留着 202 —— 留着，下一个读它的人会照 verdict.status 回，
+    // 探针就变成"会 401 的那一种"，而这一面守的正是所有失败同形。
+    status: dryRun ? null : statusCode(contract, 'queued'),
     receipt: null,
     endpointId: found.id,
     logEndpointId: found.id,
-    logOutcome: 'queued',
+    logOutcome: dryRun ? 'probe_ok' : 'queued',
+    dryRun,
     target,
     usedRotated: found.usedRotated === true,
   };
@@ -374,6 +461,7 @@ module.exports = {
   decideIngress,
   createEndpointQuota,
   ingressFromContract,
+  probeFromContract,
   readIngress,
   insecureAllowed,
   windowKey,

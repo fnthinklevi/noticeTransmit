@@ -183,7 +183,7 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
       return kind !== fourthKind && !listed.has(kind);
     });
     expect(missing).toEqual([]);
-    // 放过第四类不等于放过"任何带 p 段的路由"：这几条路径必须逐条对得上契约声明的两条形状。
+    // 放过第四类不等于放过"任何带 p 段的路由"：这几条路径必须逐条对得上契约声明的形状。
     // 否则将来在 /p/ 底下加一条没登记的形状（比如口令进 query 的那种），这里会一起放行。
     const shapes = new Set(
       mounted
@@ -191,7 +191,13 @@ describe('fnthink 限流的适用范围（#130-A1）', () => {
         .map((entry) => entry.replace(/^[A-Z,]+ /, '')),
     );
     expect([...shapes].sort()).toEqual(
-      [contract.endpoint.ingress.pathPattern, contract.endpoint.ingress.postBearerPath].sort(),
+      [
+        contract.endpoint.ingress.pathPattern,
+        contract.endpoint.ingress.postBearerPath,
+        // T106 片①b：端点档的干跑也在第四类之内（它同样是一把口令鉴权、没有设备地址可当主键），
+        // 而它的额度**不花** ingress.quota —— 不花的原因写在契约 endpoint.probe 那句 _why 里。
+        contract.endpoint.probe.bearerPath,
+      ].sort(),
     );
   });
 

@@ -472,8 +472,10 @@ void main() {
         probed,
         [peerAddress],
         reason:
-            '设备档那条要真的被探（探的是那台地址码）；webhook 档那条今天探不了 —— '
-            '它的干跑要另立一条出示长期口令的路（T106 片①b），这里跳过它而不是假装探过',
+            '设备档那条要真的被探（探的是那台地址码）；webhook 档那条仍然跳过 —— '
+            '服务端那条干跑已经落地（T106 片①b 格1：POST /p/<id>/probe + Bearer 长期口令，'
+            '一条都不投），欠的是设备侧接线（格2）。接线落地时这一格必须**翻**而不是删：'
+            '删掉就没人知道这里曾经跳过，而翻过来的那一行说的是口径变了。',
       );
       expect(
         health.of(kFnthinkChannelSlug, 'fc_dev')!.reachable,
