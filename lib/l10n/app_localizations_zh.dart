@@ -130,6 +130,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get channelStatusTitle => '通道状态';
 
   @override
+  String get channelStatusShort => '这里列出所有已启用的通道，以及每条最近一次探测的结果与地址。';
+
+  @override
   String get channelStatusGuide =>
       '这里列出所有已启用的通道，以及每条最近一次探测的结果与地址。点任意一条可直接进入它的配置页。';
 
@@ -1905,6 +1908,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupSectionTitle => '备份配置';
 
   @override
+  String get backupSectionShort => '把你的所有设置打包成一个文件，换手机或重装后一键恢复。';
+
+  @override
   String get backupSectionDesc =>
       '把你的所有设置打包成一个文件，换手机或重装后可以一键恢复。\n\n包含：Webhook 和邮件通道（含密钥）、通知规则、短信监听开关、应用筛选和黑白名单关键词。\n不含：已经推送过的通知历史。\n\n文件有密码保护，恢复时需要输入同一个密码，请务必记住。';
 
@@ -2198,6 +2204,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get deviceStatusShort => '下面每一项都来自**同一次**读取。';
+
+  @override
   String get deviceStatusDesc =>
       '下面每一项都来自**同一次**读取。显示「这台设备读不到」表示这个系统接口在本机不可用，不等于数值是 0。';
 
@@ -2315,6 +2324,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get pushDeviceInfo => '推送设备信息';
+
+  @override
+  String get pushDeviceInfoShort => '把上面这份快照作为一条通知推到你启用的通道。';
 
   @override
   String get pushDeviceInfoDesc =>

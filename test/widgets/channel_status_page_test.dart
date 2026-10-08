@@ -197,7 +197,15 @@ void main() {
 
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
+    expect(find.textContaining('以及每条最近一次探测的结果与地址'), findsOneWidget);
+
+    // 收进问号的那半句（原来直接画在引导条里）：T97 片6 搬的位置，话一字没改 ——
+    // 点开那一枚必须还能读到它，否则"搬进弹窗"就成了"删掉"。
+    await tester.tap(find.byKey(const ValueKey('channel-status-guide-help')));
+    await tester.pumpAndSettle();
     expect(find.textContaining('点任意一条可直接进入它的配置页'), findsOneWidget);
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('channel_status_guide_seen'), isTrue);
@@ -206,7 +214,7 @@ void main() {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('点任意一条可直接进入它的配置页'),
+      find.textContaining('以及每条最近一次探测的结果与地址'),
       findsNothing,
       reason: '每次都弹就成了打扰，"只提示一次"靠的就是那个 prefs 键',
     );

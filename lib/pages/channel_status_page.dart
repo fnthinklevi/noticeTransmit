@@ -10,6 +10,7 @@ import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
 import '../theme/app_colors.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/pull_to_refresh_list.dart';
 
 /// 通道状态页（T10）：首页「当前推送通道」那点进来，按三族分组列出**已启用**的通道，
@@ -196,13 +197,20 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              l10n.channelStatusGuide,
+              l10n.channelStatusShort,
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.4,
                 color: AppColors.primaryLabel(context),
               ),
             ),
+          ),
+          // 那半句「点任意一条可直接进入它的配置页」收进问号（§1：页面里不许成段堆小字）。
+          // 引导条本身留着可关 —— "读一次就够"由那枚 × 满足；长文一字未删，只换了位置。
+          HelpNoteButton(
+            keyName: 'channel-status-guide-help',
+            title: l10n.channelStatusTitle,
+            body: l10n.channelStatusGuide,
           ),
           IconButton(
             icon: const Icon(Icons.close, size: 16),

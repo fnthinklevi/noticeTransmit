@@ -332,6 +332,12 @@ abstract class AppLocalizations {
   /// **'通道状态'**
   String get channelStatusTitle;
 
+  /// No description provided for @channelStatusShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'这里列出所有已启用的通道，以及每条最近一次探测的结果与地址。'**
+  String get channelStatusShort;
+
   /// No description provided for @channelStatusGuide.
   ///
   /// In zh, this message translates to:
@@ -3674,6 +3680,12 @@ abstract class AppLocalizations {
   /// **'备份配置'**
   String get backupSectionTitle;
 
+  /// No description provided for @backupSectionShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'把你的所有设置打包成一个文件，换手机或重装后一键恢复。'**
+  String get backupSectionShort;
+
   /// No description provided for @backupSectionDesc.
   ///
   /// In zh, this message translates to:
@@ -4226,6 +4238,12 @@ abstract class AppLocalizations {
   /// **'{model} · 电量读数还没到'**
   String deviceStatusBriefNoReading(String model);
 
+  /// No description provided for @deviceStatusShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'下面每一项都来自**同一次**读取。'**
+  String get deviceStatusShort;
+
   /// No description provided for @deviceStatusDesc.
   ///
   /// In zh, this message translates to:
@@ -4429,6 +4447,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'推送设备信息'**
   String get pushDeviceInfo;
+
+  /// No description provided for @pushDeviceInfoShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'把上面这份快照作为一条通知推到你启用的通道。'**
+  String get pushDeviceInfoShort;
 
   /// No description provided for @pushDeviceInfoDesc.
   ///

@@ -45,6 +45,7 @@
   "statusError": "Abnormal",
   "statusUnknown": "Unknown",
   "channelStatusTitle": "Channel Status",
+  "channelStatusShort": "Every enabled channel with its latest probe result and address.",
   "channelStatusGuide": "Every enabled channel with its latest probe result and address. Tap any row to open that channel's settings.",
   "channelStatusNeverProbed": "Never probed",
   "mainBackupSettings": "Primary & Backup",
@@ -893,6 +894,7 @@
   "deliveryLogEmpty": "No delivery log yet (older than the 30-day retention, or this notification predates the feature)",
   "backupRestoreTitle": "Backup & Restore",
   "backupSectionTitle": "Backup Configuration",
+  "backupSectionShort": "Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.",
   "backupSectionDesc": "Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.\n\nIncludes: Webhook and email channels (with credentials), notification rules, SMS monitoring toggle, app filter and keyword lists.\nExcludes: notification history that has already been pushed.\n\nThe file is password-protected — you will need the same password to restore, so keep it safe.",
   "restoreSectionTitle": "Restore Configuration",
   "restoreSectionDesc": "Pick a .nbackup file and enter its password to restore. When existing configuration is detected, you can choose to overwrite or fill gaps only.",
@@ -1021,6 +1023,7 @@
       "model": { "type": "String" }
     }
   },
+  "deviceStatusShort": "Every line below comes from the same reading.",
   "deviceStatusDesc": "Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here — it is not a value of 0.",
   "deviceStatusSnapshotFailed": "No device snapshot (the native channel did not reply)",
   "deviceStatusRefresh": "Read again",
@@ -1102,6 +1105,7 @@
   },
   "unreadableField": "Not readable on this device",
   "pushDeviceInfo": "Push device info",
+  "pushDeviceInfoShort": "Sends this snapshot to your enabled channels as one notification.",
   "pushDeviceInfoDesc": "Sends this snapshot to your enabled channels as one notification. It goes through the same delivery chain as alerts, so results show up in push history.",
   "pushDeviceInfoSent": "Handed to your channels — see push history",
   "pushDeviceInfoBusy": "Pushing…",

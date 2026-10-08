@@ -132,6 +132,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get channelStatusTitle => 'Channel Status';
 
   @override
+  String get channelStatusShort =>
+      'Every enabled channel with its latest probe result and address.';
+
+  @override
   String get channelStatusGuide =>
       'Every enabled channel with its latest probe result and address. Tap any row to open that channel\'s settings.';
 
@@ -1978,6 +1982,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backupSectionTitle => 'Backup Configuration';
 
   @override
+  String get backupSectionShort =>
+      'Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.';
+
+  @override
   String get backupSectionDesc =>
       'Pack all your settings into a single file so you can restore them in one step after switching phones or reinstalling.\n\nIncludes: Webhook and email channels (with credentials), notification rules, SMS monitoring toggle, app filter and keyword lists.\nExcludes: notification history that has already been pushed.\n\nThe file is password-protected — you will need the same password to restore, so keep it safe.';
 
@@ -2292,6 +2300,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get deviceStatusShort =>
+      'Every line below comes from the same reading.';
+
+  @override
   String get deviceStatusDesc =>
       'Every line below comes from the same reading. \"Not readable on this device\" means the system API is unavailable here — it is not a value of 0.';
 
@@ -2410,6 +2422,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pushDeviceInfo => 'Push device info';
+
+  @override
+  String get pushDeviceInfoShort =>
+      'Sends this snapshot to your enabled channels as one notification.';
 
   @override
   String get pushDeviceInfoDesc =>

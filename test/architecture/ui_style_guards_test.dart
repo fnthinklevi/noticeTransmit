@@ -433,6 +433,53 @@ void main() {
       );
     });
 
+    test('T97 片6：那几段说明收进问号（长文进弹窗、短说留页面）', () {
+      // 判据：**长文键在它那个文件里恰好出现一次** —— 就是弹窗正文那一处。
+      // 出现两次 = 短说和长文一起画在页面上了（成段小字又长回来）；零次 = 搬丢了。
+      // 每个文件再各钉一条"短说在"：只钉长文的话，"把长文删了、短说也没写"也是绿的。
+      const pairs = <String, List<String>>{
+        'lib/pages/backup_restore_page.dart': [
+          'l10n.backupSectionDesc',
+          'l10n.backupSectionShort',
+        ],
+        'lib/pages/channel_status_page.dart': [
+          'l10n.channelStatusGuide',
+          'l10n.channelStatusShort',
+        ],
+        'lib/pages/device_snapshot_page.dart': [
+          'l10n.deviceStatusDesc',
+          'l10n.deviceStatusShort',
+          'l10n.pushDeviceInfoDesc',
+          'l10n.pushDeviceInfoShort',
+        ],
+      };
+      for (final e in pairs.entries) {
+        final src = codeByPath[e.key]!;
+        for (var i = 0; i < e.value.length; i += 2) {
+          final long = e.value[i];
+          final short = e.value[i + 1];
+          expect(
+            RegExp(long.replaceAll('.', r'\.')).allMatches(src).length,
+            1,
+            reason: '$long 不再恰好出现一次（${e.key}）⇒ 要么搬丢了，要么又画回页面上',
+          );
+          expect(
+            src.contains(short),
+            isTrue,
+            reason: '$short 不在页面上 ⇒ 长文搬走之后那一格什么都不说了',
+          );
+        }
+      }
+      // 底部那一句（圆点行 = §1 的「底部无序列表」）：话一字未改，形状换了。
+      expect(
+        codeByPath['lib/pages/history_page.dart']!.contains(
+          "'\u2022 \${l10n.fnthinkAllScopeNote}'",
+        ),
+        isTrue,
+        reason: '全部档那句说明又变回裸小字 ⇒ 底部无序列表那一形状没挂住',
+      );
+    });
+
     test('那三页的成段说明：边界句只许走「底部圆点行」那一形状', () {
       // 判据③ 2026-10-07 的分桶结论：remote 三页 37 处 _Note 里，绝大多数是状态原话／
       // 字段标签／弹窗正文（§1 明说不许按'美化'去动），唯一一条成段说明是历史页那句边界；

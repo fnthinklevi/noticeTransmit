@@ -1799,7 +1799,9 @@ class _HistoryPageState extends State<HistoryPage> {
       key: const ValueKey<String>('history-all-note'),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Text(
-        l10n.fnthinkAllScopeNote,
+        // 圆点在前 = §1 的「底部无序列表」那一形状（与设置页 `fnthink-boundary`、
+        // 远程历史页那句边界句同一做法）；这句一字未改，只换了它挂的形状。
+        '• ${l10n.fnthinkAllScopeNote}',
         style: TextStyle(fontSize: 12, color: AppColors.tertiaryLabel(context)),
       ),
     );

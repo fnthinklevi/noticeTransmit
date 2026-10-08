@@ -245,7 +245,11 @@ void main() {
     testWidgets('顶部那行说明在位：搜索与筛选只作用于「转发」那一段（判据③的另一半）', (tester) async {
       await pump(tester);
       expect(find.byKey(const ValueKey('history-all-note')), findsOneWidget);
-      expect(find.text(l10n(tester).fnthinkAllScopeNote), findsOneWidget);
+      // 圆点在前 = §1 的「底部无序列表」那一形状（T97 片6 换的只是形状，话一字没改）。
+      expect(
+        find.text('• ${l10n(tester).fnthinkAllScopeNote}'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('切到全部档 ⇒ 两本账都读；切回转发档 ⇒ 一次都不多读', (tester) async {

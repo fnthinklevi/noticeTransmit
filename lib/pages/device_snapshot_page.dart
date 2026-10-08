@@ -5,6 +5,7 @@ import '../models/device_snapshot.dart';
 import '../services/device_info_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/engine_page_sections.dart';
+import '../widgets/help_note_button.dart';
 import '../theme/app_colors.dart';
 
 /// 设备状态页（T18）：T17 那份 `getDeviceSnapshot` 的第一个消费方。
@@ -183,12 +184,14 @@ class _DeviceSnapshotPageState extends State<DeviceSnapshotPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text(
-            l10n.deviceStatusDesc,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.secondaryLabel(context),
-            ),
+          // 「读不到 ≠ 0」那半句收进问号（§1：页面里不许成段堆小字）：短说留下、
+          // 长文原样进弹窗。这句话本身一字未改。
+          HelpNoteRow(
+            noteKey: 'device-status-desc',
+            helpKey: 'device-status-desc-help',
+            text: l10n.deviceStatusShort,
+            helpTitle: l10n.deviceStatusEntry,
+            helpBody: l10n.deviceStatusDesc,
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -244,12 +247,12 @@ class _DeviceSnapshotPageState extends State<DeviceSnapshotPage> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              l10n.pushDeviceInfoDesc,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.secondaryLabel(context),
-              ),
+            HelpNoteRow(
+              noteKey: 'push-device-info-desc',
+              helpKey: 'push-device-info-desc-help',
+              text: l10n.pushDeviceInfoShort,
+              helpTitle: l10n.pushDeviceInfo,
+              helpBody: l10n.pushDeviceInfoDesc,
             ),
             const SizedBox(height: 10),
             FilledButton.icon(

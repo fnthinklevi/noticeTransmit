@@ -9,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../services/backup_service.dart';
 import '../services/platform_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
 
@@ -42,7 +43,9 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
             icon: Icons.backup,
             iconColor: AppColors.blue,
             title: l10n.backupSectionTitle,
-            desc: l10n.backupSectionDesc,
+            desc: l10n.backupSectionShort,
+            helpKeyName: 'backup-section-help',
+            helpBody: l10n.backupSectionDesc,
             buttonLabel: l10n.backupCreate,
             onTap: _busy ? null : _createBackup,
           ),
@@ -67,6 +70,11 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
     required Color iconColor,
     required String title,
     required String desc,
+
+    /// 这一张卡那一段完整说明（§1 2026-10-07：页面里不许成段堆小字 ⇒ 收进右上问号，
+    /// 长文原样进弹窗）。null = 这张卡没有长文可收（恢复那一张就只留短说）。
+    String? helpKeyName,
+    String? helpBody,
     required String buttonLabel,
     required VoidCallback? onTap,
   }) {
@@ -100,6 +108,14 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                   color: AppColors.primaryLabel(context),
                 ),
               ),
+              if (helpBody != null) ...[
+                const SizedBox(width: 4),
+                HelpNoteButton(
+                  keyName: helpKeyName!,
+                  title: title,
+                  body: helpBody,
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 10),
