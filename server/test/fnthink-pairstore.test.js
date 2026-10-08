@@ -341,3 +341,102 @@ describe('decideRequest（#131 第三片）', () => {
     ).toThrow(/decisions/);
   });
 });
+
+// ── 第二面（T110）：发起方读自己发起过的那些，含终态。放在这里而不是只放 HTTP 那一层，
+// 因为"到期那一刻"要能控制 `now`：路由里那个数是 Date.now()，HTTP 用例钉不住等值。
+describe('sentFor（T110 第二面：我发起的那条走到了哪儿）', () => {
+  const devicestore = require('../lib/fnthink/devicestore');
+
+  beforeEach(() => {
+    // 上面那个 describe 的 beforeEach 管不到这一节：`expireDue` 与"读到几条"都是全表口径，
+    // 上一节留下的行会把计数与截断一起带歪。
+    if (fs.existsSync(pairstore.REQUEST_FILE)) fs.rmSync(pairstore.REQUEST_FILE);
+  });
+
+  /// 两张都登记好的设备表：`decideRequest` 批准那一支要往 A 那一行写授权。
+  function deviceTable() {
+    const devices = {};
+    devicestore.registerDevice(
+      contract,
+      devices,
+      { addressCode: A, publicKey: Buffer.alloc(32, 5).toString('base64') },
+      NOW,
+    );
+    devicestore.registerDevice(
+      contract,
+      devices,
+      { addressCode: B, publicKey: Buffer.alloc(32, 6).toString('base64') },
+      NOW,
+    );
+    return devices;
+  }
+
+  test('两面主语相反：pendingFor 按 target 选且只 pending，sentFor 按 requester 选且含终态', () => {
+    const requests = pairstore.loadRequests();
+    // A←B（会被批准）与 B←A（A 发起给 B 的）两条，同一张表里两个方向。
+    const toA = pairstore.createRequest(contract, requests, input(), NOW + 1).request.id;
+    const toB = pairstore.createRequest(
+      contract,
+      requests,
+      input({ target: B, requester: A, requesterPublicKey: 'pk-a', codeDigest: 'a'.repeat(64) }),
+      NOW + 2,
+    ).request.id;
+    expect(pairstore.pendingFor(contract, requests, A, NOW + 3).map((r) => r.id)).toEqual([toA]);
+    expect(pairstore.sentFor(contract, requests, A, NOW + 3, 50).map((r) => r.id)).toEqual([toB]);
+
+    // 批准掉 toA：A 的接收面少一条，B 的发起面**多出一个终态**（那正是这一面存在的全部理由）。
+    pairstore.decideRequest(
+      contract,
+      requests,
+      deviceTable(),
+      { requestId: toA, target: A, requester: B, decision: 'approved', level: 'L1' },
+      NOW + 4,
+    );
+    expect(pairstore.pendingFor(contract, requests, A, NOW + 5)).toHaveLength(0);
+    const sentB = pairstore.sentFor(contract, requests, B, NOW + 5, 50);
+    expect(sentB.map((r) => r.id)).toEqual([toA]);
+    expect(sentB[0].status).toBe(contract.clientEvents.pairConfirm.approveDecision);
+  });
+
+  test('到期扫描与本机答复共用同一列，出门叫 at（旧记录没记过 ⇒ 0，不拿当下凑）', () => {
+    const requests = pairstore.loadRequests();
+    const id = pairstore.createRequest(contract, requests, input(), NOW).request.id;
+    // 还没人答过 ⇒ "状态什么时候变的"不知道。
+    expect(pairstore.sentFor(contract, requests, B, NOW + 1, 50)[0].at).toBe(0);
+
+    const later = NOW + contract.identity.pairingCode.ttlSeconds * 1000 + 7;
+    expect(pairstore.expireDue(contract, requests, later)).toBe(1);
+    const out = pairstore.sentFor(contract, requests, B, later, 50);
+    // 「服务端从不批准」在词表上的形状：到期写的那个终态，本机答复那两发永远写不出来
+    // （它必须落在 pairConfirm.decisions 之外，否则"过期"与"被拒"就是同一个词）。
+    const expiredWord = contract.pairRequest.terminalStatuses.find(
+      (s) => !contract.clientEvents.pairConfirm.decisions.includes(s),
+    );
+    expect(out[0].status).toBe(expiredWord);
+    expect(out[0].at).toBe(later);
+    // 表里只有一个时刻列（decidedAt 那个旧名字不许回来，否则两面各认一个）。
+    expect(requests[id].statusChangedAt).toBe(later);
+    expect(requests[id].decidedAt).toBeUndefined();
+  });
+
+  test('按发起时刻正序、到 limit 截最旧之外的，且显式挑字段（内部键与摘要都不出门）', () => {
+    const requests = pairstore.loadRequests();
+    const first = pairstore.createRequest(contract, requests, input(), NOW + 10).request.id;
+    const second = pairstore.createRequest(contract, requests, input(), NOW + 4).request.id;
+    requests[second].internalNote = '口令在第 2 次尝试时不对';
+
+    const all = pairstore.sentFor(contract, requests, B, NOW + 20, 50);
+    expect(all.map((r) => r.id)).toEqual([second, first]);
+    expect(Object.keys(all[0]).sort()).toEqual([...contract.pairRequest.sentFields].sort());
+    const text = JSON.stringify(all);
+    expect(text).not.toContain('internalNote');
+    expect(text).not.toContain('codeDigest');
+    expect(text).not.toContain('requesterPublicKey');
+    // 截断留的是**最旧**那几条（与 receiptsForSender 同一排干方向）：这一面的正常规模是
+    // perDeviceLimit 那个量级（个位数），limit 只是响应体大小的防线，不是常态。
+    expect(pairstore.sentFor(contract, requests, B, NOW + 20, 1).map((r) => r.id)).toEqual([
+      second,
+    ]);
+    expect(pairstore.sentFor(contract, requests, B, NOW + 20, 0)).toHaveLength(0);
+  });
+});

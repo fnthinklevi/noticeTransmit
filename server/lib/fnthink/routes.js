@@ -79,6 +79,9 @@ const {
   pendingFor,
   pollKey,
   requestSpec,
+  sentFields,
+  sentFor,
+  sentPollKey,
 } = require('./pairstore');
 const {
   advanceMessage,
@@ -155,6 +158,27 @@ function probeReadyField(c) {
 }
 
 const PROBE_READY_FIELD = probeReadyField(contract);
+
+/// 配对请求**两面**的读口：接收方那个键名、发出方那个键名、以及发出方那份投影名单。
+/// 装载时取一次（与 `POLL_FIELDS` 同一条理由：名单与这台实现对不上属契约内容不达标 SHAPE，
+/// 只该降级 + 启动横幅说破原因，不该等第一次带货的 poll 冒 500）。
+/// pairstore 那三个读口自己会抛（缺 `sentPollKey`、两面同名、名单里出现摘要或 neverStored 那一项），
+/// 这里只把它们统一成可降级的 SHAPE —— 判据本身不在这里复制一份。
+function pairFaces(c) {
+  let incoming;
+  let outgoing;
+  let outgoingFields;
+  try {
+    incoming = pollKey(c);
+    outgoing = sentPollKey(c);
+    outgoingFields = sentFields(c);
+  } catch (e) {
+    throw shapeError(`配对请求那两面的读口与这份契约对不上：${e.message}`);
+  }
+  return { incoming, outgoing, outgoingFields };
+}
+
+const PAIR_FACES = pairFaces(contract);
 
 function projectForPoll(record, content) {
   const source = {
@@ -327,6 +351,10 @@ router.post(
     );
     saveMessages(messages);
 
+    // 一次 poll 只读一遍这张表：两面（谁在请求配对你 / 我发起的那条）读的是**同一份**，
+    // 读两遍的话中间落进一次写盘，同一句响应里的两面就来自两个时刻的表。
+    const requests = loadRequests();
+
     res.status(200).json({
       messages: out,
       receipts,
@@ -334,7 +362,17 @@ router.post(
       // 配对请求走的是另一张表（它不是消息：没有正文、不过 type 词表），
       // 但它的可见性与消息一样只有一条路 —— 设备来取。键名取自契约 pairRequest.pollKey，
       // 少这一行的表现是"请求躺在表里，A 屏幕上永远显示等待配对"。
-      [pollKey(contract)]: pendingFor(contract, loadRequests(), auth.sender, now),
+      [PAIR_FACES.incoming]: pendingFor(contract, requests, auth.sender, now),
+      // T110 第二面：同一条记录对**发起方**也要可见（"我发起给谁、现在算什么状态、多久之前"）。
+      // 与上面那一条共用这张表、共用到期扫描，但选择键相反（requester 而不是 target）、
+      // 且**含终态**——发起方要的恰恰是"后来怎么样了"。投影名单来自契约 pairRequest.sentFields。
+      [PAIR_FACES.outgoing]: sentFor(
+        contract,
+        requests,
+        auth.sender,
+        now,
+        contract.clientEvents.poll.maxBatchPerPoll,
+      ),
       // T29 的「ts 以服务端时间判定」到这里才有承载处：设备用它算自己的时钟偏移，
       // 之后签出去的 ts 才是服务端认的那个时间。
       serverTime: now,

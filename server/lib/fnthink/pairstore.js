@@ -13,6 +13,11 @@
 //
 // 键是随机 id，不是地址码：一台设备可以挂很多枚口令、被很多人扫，用地址码当键就是
 // 让后来者覆盖前一条 —— 而 A 屏幕上还挂着前一条的二维码。
+//
+// T110 给这张表加了**第二面**：`pendingFor`（谁在请求配对你，按 `target` 选、只 pending）与
+// `sentFor`（我发起的那条走到了哪儿，按 `requester` 选、含终态）。两份共用同一张表、同一条
+// 到期扫描，但投影名单各自在契约上（`pollKey`／`sentPollKey` + `sentFields`）—— 一份名单
+// 两面共用是这里最省事的错：要么发起方看不见终态（他要的正是那个），要么接收方多收到别人的行。
 
 'use strict';
 
@@ -157,13 +162,129 @@ function pollKey(contract) {
   const key = spec.pollKey;
   if (via === 'poll' && (typeof key !== 'string' || key === '')) {
     throw new Error(
-      '契约 pairRequest.visibleVia=poll 却没写 pollKey（请求落进了表里，却没人取得到它）',
+      '契约缺 pairRequest.pollKey（不补默认值）：visibleVia=poll 却没写键名 —— 请求落进了表里，却没人取得到它',
     );
   }
   if (via !== 'poll') {
     throw new Error(`pairRequest.visibleVia=${JSON.stringify(via)}：本实现只会走 poll`);
   }
   return key;
+}
+
+/// 发出方那一面的响应键名（T110 的第一面之另一面：「我发起给谁、现在算什么状态」）。
+///
+/// 它与 `pollKey` 同一条判据（缺就抛，不补默认值），再多一条**不许同名**：同名的话一次 poll
+/// 长出两个同键，后写的盖掉先写的（盖掉顺序是 JS 的插入顺序），B 屏幕上就会画出
+/// 「谁在请求配对你」而发起请求的正是他自己 —— 那一句还会诱导他去点同意。
+function sentPollKey(contract) {
+  const spec = requestSpec(contract);
+  const key = spec.sentPollKey;
+  if (typeof key !== 'string' || key === '') {
+    throw new Error(
+      '契约缺 pairRequest.sentPollKey（不补默认值）：发起了请求的那台没有读口，' +
+        '界面上只能显示"我提交了"这一瞬间，之后走到哪儿全是猜',
+    );
+  }
+  if (key === pollKey(contract)) {
+    throw new Error(
+      `pairRequest.sentPollKey 与 pollKey 同名（都是 ${JSON.stringify(key)}）：` +
+        '两面共用一个键 ⇒ 一面把另一面盖掉，而被盖掉的那一面在屏幕上看不出来',
+    );
+  }
+  return key;
+}
+
+/// 发出方那一条投影的字段名单（含 `at` 那一个对外别名）。启动期判，不在每次 poll 的热路径上判：
+/// 这几条判的都是"契约被人手改过之后这份投影还算不算数"，那种错要**当场**让进程起不来。
+///
+/// ⚠ 名单里为什么没有 `codeDigest`：摘要是「能拿去比对的东西」（`endpointList._neverReturnsSecretWhy`
+///   同一条论证），而发起方本来就知道自己用过的那枚口令 —— 这一面拿它换不到任何信息，
+///   多回一份就多一处能漏的地方。这条**显式挡**而不只靠白名单：白名单是投影照抄的名单，
+///   哪天有人往名单里补一项时，只有这条挡箭牌会说"这一项不许出现在面向发出方的投影里"。
+function sentFields(contract) {
+  const spec = requestSpec(contract);
+  const fields = spec.sentFields;
+  if (!Array.isArray(fields) || fields.length === 0) {
+    throw new Error(
+      '契约缺 pairRequest.sentFields（非空数组）：投影照它挑字段，没有名单就是自己拼一份',
+    );
+  }
+  const stored = spec.storedFields || [];
+  const neverStored = spec.neverStored || [];
+  for (const field of fields) {
+    if (typeof field !== 'string' || field === '') {
+      throw new Error(`pairRequest.sentFields 里有一项不是名字：${JSON.stringify(field)}`);
+    }
+    // ⚠ 这两条口令类的挡箭牌排在"表里有没有这一列"**之前**：`neverStored` 那几项本来就不在
+    //   storedFields 里，排在后面就永远轮不到它们说话 —— 报出来的会是"表里没这列"这种次要理由，
+    //   而真正该说破的是「口令类字段不许出这一面的门」。判据要能报对原因，不然下一个人会去
+    //   补列而不是删名单。
+    if (neverStored.includes(field)) {
+      throw new Error(
+        `pairRequest.sentFields 含 neverStored 的那一项「${field}」：这一面要把口令类字段带出门，` +
+          '而"只活在那一次输入里"那条红线就是它写的',
+      );
+    }
+    if (field === 'codeDigest') {
+      throw new Error(
+        'pairRequest.sentFields 里有 codeDigest：面向发出方的投影不回摘要 —— ' +
+          '摘要是能拿去比对的东西，而发起方本来就知道自己用过的那枚口令',
+      );
+    }
+    // `at` 是 `statusChangedAt` 的对外别名（见契约 `_storedFieldsWhy`），表里没有叫 `at` 的列。
+    const inRow = stored.includes(field) || WIRE_ALIASES[field] !== undefined;
+    if (!inRow) {
+      throw new Error(
+        `pairRequest.sentFields 里的「${field}」在这张表的 storedFields 里根本没有：` +
+          '投影会当场把它读成 undefined —— 那一列在界面上永远空着，而空着与"这条没有那个时刻"分不出来',
+      );
+    }
+  }
+  const unique = new Set(fields);
+  if (unique.size !== fields.length) {
+    throw new Error(`pairRequest.sentFields 有重名项：${fields.join('/')}`);
+  }
+  // `status` 与两个时刻是这一面存在的全部理由：少了 status 它就是接收方那份的复制品，
+  // 少了 createdAt/at 界面答不了「多久之前」。
+  for (const must of ['status', 'createdAt', 'at']) {
+    if (!unique.has(must)) {
+      throw new Error(
+        `pairRequest.sentFields 少了「${must}」：这一面答的就是"现在算什么状态、什么时候变的"`,
+      );
+    }
+  }
+  return fields.slice();
+}
+
+/// 表里那一列 → 线上那个键。只有这一个别名（其余字段名两面相同，所以名单能直接当投影用）。
+const WIRE_ALIASES = { at: 'statusChangedAt' };
+
+/// 一台设备**自己发起过**的那些配对请求，含终态（T110 第二面）。
+///
+/// 三条与接收方那份不同的地方，各有理由：
+///  ① 选择键是 `requester` 而不是 `target`：这一面问的是"我发出去的那条怎么样了"。
+///  ② **终态要回**（approved / denied / expired）： pending 那一条接收方已经看得见，
+///     发起方要的恰恰是"后来怎么样了"——只看 pending 的那份等于回答"还没人同意"然后永远停在那儿。
+///  ③ 表里的 `statusChangedAt` 出门叫 `at`（与 T105 片③ 的回执同一个词；0 = 旧记录没记过）。
+/// 到期的先落地（expireDue）：一条早已过期的请求不该还在发起方屏幕上挂着 pending。
+function sentFor(contract, requests, addressCode, now, limit) {
+  expireDue(contract, requests, now);
+  const fields = sentFields(contract);
+  const me = keyOf(contract, addressCode);
+  const rows = Object.values(requests)
+    .filter((record) => String(record.requester) === me)
+    .sort((a, b) => Number(a.createdAt) - Number(b.createdAt) || (a.id < b.id ? -1 : 1))
+    .slice(0, Math.max(0, Number(limit) || 0));
+  return rows.map((record) => {
+    const out = {};
+    for (const field of fields) {
+      const source = WIRE_ALIASES[field] || field;
+      // `at` 是唯一可能缺的一列（本片之前的记录写的是 decidedAt／到期扫描没写）：
+      // 缺 = 0 = "不知道"，宁可不给也不拿当下时间凑一个（同 T105 片③ 那条）。
+      out[field] = field === 'at' ? Number(record[source] || 0) : record[source];
+    }
+    return out;
+  });
 }
 
 /// 一台设备 poll 到的待确认请求。**显式挑字段**：将来记录里多一个内部键（比如留痕用的原因）
@@ -234,7 +355,10 @@ function decideRequest(contract, requests, devices, input, now) {
     grant = approvePeer(contract, devices, input.target, input.requester, input.level, now);
   }
   record.status = input.decision;
-  record.decidedAt = now;
+  // 与到期扫描那一支同一个列名（原先这里写 `decidedAt`、那里写 `statusChangedAt`，说的是
+  // 同一件事「状态最后一次变的时刻」）：两个名字 ⇒ 发起方那一面的投影要认两遍，
+  // 而"这一条什么时候变的"在界面上就成了猜哪个键非空。契约 `_storedFieldsWhy` 钉的是这一条。
+  record.statusChangedAt = now;
   saveRequests(requests);
   return { ok: true, request: record, grant };
 }
@@ -242,6 +366,7 @@ function decideRequest(contract, requests, devices, input, now) {
 module.exports = {
   ID_BYTES,
   REQUEST_FILE,
+  WIRE_ALIASES,
   createRequest,
   decideRequest,
   expireDue,
@@ -251,4 +376,7 @@ module.exports = {
   pollKey,
   requestSpec,
   saveRequests,
+  sentFields,
+  sentFor,
+  sentPollKey,
 };

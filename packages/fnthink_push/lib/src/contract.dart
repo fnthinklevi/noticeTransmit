@@ -852,6 +852,27 @@ class FnthinkContract {
     return value;
   }
 
+  /// poll 响应里「**我发起过的那些**配对请求」那一项的键名（T110 第二面）。
+  ///
+  /// 与 [pairRequestPollKey] 分开两份，是因为两面**主语相反**：那一条按 `target` 选、只给
+  /// pending，这一条按 `requester` 选、含终态。合成一个键名的话一次响应里两面互相盖掉，
+  /// 而 B 屏幕上被盖出来的那一句是「谁在请求配对你」——发起请求的正是他自己。
+  String get pairRequestSentPollKey {
+    final value = str(const ['pairRequest', 'sentPollKey']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 pairRequest.sentPollKey（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 发出方那一条投影的字段名单（`id / target / level / status / createdAt / expiresAt / at`）。
+  ///
+  /// 名单里**没有** `codeDigest`，也没有 `requester`／`requesterPublicKey`（都是发起方自己的
+  /// 东西，复述一遍只是多一处能漏的地方）。设备侧解析器照这份名单读，界面照它画 ⇒
+  /// 「列表里只放地址码与状态」那条红线在这份名单上有出处，不在注释里。
+  List<String> get pairRequestSentFields =>
+      strings(const ['pairRequest', 'sentFields']);
+
   /// 某一类客户端事件的载荷字段名单（服务端按名单逐字节比，多一个键都会被拒）。
   ///
   /// 名单**只许从这一处读**：加一类事件就在实现里抄一份字面量的话，契约改名的那一半
@@ -2518,8 +2539,8 @@ class FnthinkContract {
         '$created 的两条上限不成样子：perDeviceLimit=$perDevice / globalLimit=$globalLimit'
         '（都要是正数，且每台不得超过全局）',
       );
+      final pollKey = str([created, 'pollKey']) ?? '';
       if (str([created, 'visibleVia']) == 'poll') {
-        final pollKey = str([created, 'pollKey']) ?? '';
         need(
           pollKey.isNotEmpty &&
               strings(const [
@@ -2531,6 +2552,58 @@ class FnthinkContract {
           '不在那份清单上（创建了东西却没人取得它，A 屏幕上就永远显示"等待配对"）',
         );
       }
+      // T110 第二面：**发起方**那条读口。判据与上面那条同形 —— 缺了它，「契约声明了一条读口
+      // 而路由没挂」与「路由挂了而设备读错键」在屏幕上都是同一句话：列表空着。
+      // 外加**不许与第一面同名**：同名 ⇒ 一次响应里两面互相盖掉（盖掉顺序是 JS 的插入顺序，
+      // 谁都不知道屏幕上那条是谁的），而 B 那边被盖出来的那一句是「谁在请求配对你」——
+      // 发起请求的正是他自己，那一句还会诱导他去点同意。
+      final sentKey = str([created, 'sentPollKey']) ?? '';
+      need(
+        sentKey.isNotEmpty &&
+            strings(const [
+              'clientEvents',
+              'poll',
+              'returns',
+            ]).contains(sentKey) &&
+            sentKey != pollKey,
+        '$created.sentPollKey=「$sentKey」必须是一个写在 clientEvents.poll.returns 里、'
+        '且与 $created.pollKey=「$pollKey」不同的响应键名：发出方这一面没有读口时，'
+        '界面上只能显示"我提交了"那一瞬间，之后走到哪儿全是猜；与第一面同名时两面互相盖掉',
+      );
+      // 投影名单：空 = 实现只能自己拼一份（那正是第二份真值），少一列 = 界面答不了
+      // 「现在算什么状态、多久之前」，多一列到口令类字段 = 违反"列表里只放地址码与状态"。
+      final sentFields = strings([created, 'sentFields']);
+      final neverStoredSent = strings([created, 'neverStored']);
+      need(
+        sentFields.isNotEmpty,
+        '$created.sentFields 不能为空：面向发出方的投影照它挑字段，没有名单就是实现自己拼一份',
+      );
+      need(
+        sentFields.toSet().length == sentFields.length,
+        '$created.sentFields 有重名项（$sentFields）：投影里同一列被写两次，后写的盖掉先写的',
+      );
+      for (final must in const ['status', 'createdAt', 'at']) {
+        need(
+          sentFields.contains(must),
+          '$created.sentFields 少了「$must」：这一面答的就是"现在算什么状态、什么时候立的、'
+          '状态什么时候变的"，少一列界面就答不了其中一句（$sentFields）',
+        );
+      }
+      for (final secret in neverStoredSent) {
+        need(
+          !sentFields.contains(secret),
+          '$created.sentFields 含 neverStored 的那一项「$secret」：'
+          '面向发出方的投影把口令类字段带出门了（T110 ③：列表里只放地址码与状态，不落任何口令副本）',
+        );
+      }
+      // ⚠ 摘要单独挡，而不是靠上面那条：`codeDigest` 是**故意存**的（接收方那面要用它确认
+      // 「这就是我刚挂出去的那枚」），所以它不在 neverStored 里。发起方这一面拿它换不到任何
+      // 信息（那枚口令就是他自己的），而"能拿去比对的东西"多出一个出口就是离线猜口令的入口。
+      need(
+        !sentFields.contains('codeDigest'),
+        '$created.sentFields 里有 codeDigest：这一面不回摘要 —— 发起方本来就知道自己用过的那枚口令，'
+        '而一份能比对的摘要多一处出口就多一处能漏的地方（同 endpointList._neverReturnsSecretWhy）',
+      );
       final ceiling = '${entry.value['levelCeilingFrom'] ?? ''}';
       if (ceiling.isNotEmpty) {
         // 这条的判据本体已经上移到事件主循环里（那里对**所有**声明了上限的事件生效：

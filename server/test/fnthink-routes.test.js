@@ -754,13 +754,15 @@ describe('POST /api/fnthink/register、/pair-arm、/pair', () => {
       .post('/api/fnthink/poll')
       .send(eventBody('poll', targetKey, TARGET))
       .expect(200);
-    expect(poll.body.pairRequests).toHaveLength(1);
-    expect(poll.body.pairRequests[0].requester).toBe(requesterCode);
-    expect(poll.body.pairRequests[0].requesterPublicKey).toBe(requesterKey.rawBase64);
-    // 旧的四个键一个都不能少（新增响应键不许挤掉既有的那条契约承诺）。
-    expect(Object.keys(poll.body).sort()).toEqual(
-      ['messages', 'pairRequests', 'pending', 'receipts', 'serverTime'].sort(),
-    );
+    const incoming = poll.body[contract.pairRequest.pollKey];
+    expect(incoming).toHaveLength(1);
+    expect(incoming[0].requester).toBe(requesterCode);
+    expect(incoming[0].requesterPublicKey).toBe(requesterKey.rawBase64);
+    // 响应键集合与契约 `clientEvents.poll.returns` **逐字相等**（两个方向都算，所以名单里
+    // 多一项少一项都红）：只查"声明的都出现"，路由多回一项没人管 —— 设备按名单设计解析器，
+    // 那一块永远解析不到，而它恰好可能是这一面唯一的新数据；只查"出现的都声明"，契约多列
+    // 一项而路由没挂也照样过 —— 设备读一个不存在的键，屏幕上那一格空着且没人报错。
+    expect(Object.keys(poll.body).sort()).toEqual([...contract.clientEvents.poll.returns].sort());
   });
 
   test('/pair 消耗即失效：口令只能用一次，且"没挂过"与"已消耗"逐字节同形', async () => {

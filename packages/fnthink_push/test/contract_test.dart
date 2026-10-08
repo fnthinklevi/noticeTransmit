@@ -1510,6 +1510,93 @@ void main() {
       expectProblem(broken, '不在那份清单上', '请求躺在表里、A 屏幕上永远显示"等待配对"，那是最难的静默之一');
     });
 
+    // ── T110 第二面：发起了请求的那台也有一条读口。下面这几条判的是"这一面的名单在契约上
+    // 站不站得住"，站不住的表现全在界面上：列表空着、画错了主语、或者多回一份口令的副本。
+    test('缺 pairRequest.sentPollKey ⇒ 报（发起方只能看见"我提交了"那一瞬间）', () {
+      final broken = mutate((raw) {
+        (raw['pairRequest'] as Map<String, Object?>).remove('sentPollKey');
+      });
+      expectProblem(broken, 'sentPollKey', '之后走到哪儿全是猜');
+    });
+
+    test('sentPollKey 没写进 poll.returns ⇒ 报（声明了一条读口而没人挂上去）', () {
+      final broken = mutate((raw) {
+        (kindOf(raw, 'poll')['returns'] as List<Object?>).remove(
+          'sentPairRequests',
+        );
+      });
+      expectProblem(broken, 'sentPollKey', '设备按名单去读一个永远不存在的键');
+    });
+
+    test('两面共用一个键名 ⇒ 报（一次响应里两面互相盖掉，被盖的那面看不出来）', () {
+      final broken = mutate((raw) {
+        final pr = raw['pairRequest'] as Map<String, Object?>;
+        pr['sentPollKey'] = pr['pollKey'];
+      });
+      expectProblem(broken, '不同的响应键名', 'B 屏幕上画出"谁在请求配对你"而发起的正是他自己');
+    });
+
+    test('sentFields 清空 ⇒ 报（投影没有共同出处，实现只能自己拼一份）', () {
+      final broken = mutate((raw) {
+        (raw['pairRequest'] as Map<String, Object?>)['sentFields'] =
+            <Object?>[];
+      });
+      expectProblem(broken, 'sentFields 不能为空', '第二份真值');
+    });
+
+    test('sentFields 少了 status / createdAt / at 之一 ⇒ 报（这一面答的就是这三句）', () {
+      for (final must in ['status', 'createdAt', 'at']) {
+        final broken = mutate((raw) {
+          final pr = raw['pairRequest'] as Map<String, Object?>;
+          pr['sentFields'] = (pr['sentFields'] as List<Object?>)
+              .where((f) => f != must)
+              .toList();
+        });
+        expectProblem(
+          broken,
+          'sentFields 少了「$must」',
+          '现在算什么状态、什么时候立的、状态什么时候变的',
+        );
+      }
+    });
+
+    test('sentFields 里出现摘要 ⇒ 报（发起方不需要它，而多一处比对靶子就多一处能漏）', () {
+      final broken = mutate((raw) {
+        final pr = raw['pairRequest'] as Map<String, Object?>;
+        (pr['sentFields'] as List<Object?>).add('codeDigest');
+      });
+      expectProblem(broken, '有 codeDigest', '能拿去比对的东西');
+    });
+
+    test('sentFields 里出现 neverStored 那一项 ⇒ 报（口令类字段绝不出这一面的门）', () {
+      final broken = mutate((raw) {
+        final pr = raw['pairRequest'] as Map<String, Object?>;
+        (pr['sentFields'] as List<Object?>).add('pairingCode');
+      });
+      expectProblem(broken, 'neverStored 的那一项', '只活在那一次输入里');
+    });
+
+    test('sentFields 有重名 ⇒ 报（同一列被写两次，后写的盖掉先写的）', () {
+      final broken = mutate((raw) {
+        final pr = raw['pairRequest'] as Map<String, Object?>;
+        (pr['sentFields'] as List<Object?>).add('status');
+      });
+      expectProblem(broken, '重名', '盖掉');
+    });
+
+    test('读口这两个键只从契约取一次（两面键名与那份名单都是唯一作者）', () {
+      expect(c.pairRequestSentPollKey, 'sentPairRequests');
+      expect(
+        c.pairRequestSentFields,
+        containsAll(<String>['id', 'target', 'status', 'at']),
+      );
+      // ③ 那条红线在名单上有出处：明文与摘要都不在这份名单里。
+      expect(c.pairRequestSentFields, isNot(contains('codeDigest')));
+      expect(c.pairRequestSentFields, isNot(contains('pairingCode')));
+      // 表里那个时刻列与线上那个别名各只有一个名字（两面共用，不许再长第三套）。
+      expect(c.pairRequestStoredFields, contains('statusChangedAt'));
+    });
+
     test('poll 名单里没有 sender ⇒ 报（收件表那一行无处归属）', () {
       final broken = mutate((raw) {
         (kindOf(raw, 'poll')['messageFields'] as List<Object?>).remove(

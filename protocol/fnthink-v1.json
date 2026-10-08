@@ -745,8 +745,10 @@
         "receipts",
         "pending",
         "serverTime",
-        "pairRequests"
+        "pairRequests",
+        "sentPairRequests"
       ],
+      "_returnsWhy": "这份名单是**双向**的：路由那次响应的键集合必须与它逐字相等（用例 `fnthink-routes.test.js` 拿它当尺，不写死字面量）。只查一个方向的话，两种缺陷各剩一半藏在暗处 —— 「契约多列一项而路由没挂」＝设备按名单去读一个永远不存在的键，屏幕上那一格空着且没人报错；「路由多回一项而契约没列」＝设备侧按名单设计解析器，那一块永远解析不到，而它其实是这一面唯一的新数据。配对的两面各占一项（`pairRequest.pollKey` 与 `pairRequest.sentPollKey`）：接收方看「谁在请求配对你」，发起方看「我发起的那条走到了哪儿」，两边读的是同一张表但**主语相反**。",
       "_serverTimeWhy": "响应必须带服务端时间：T29 的「ts 以服务端时间判定」要有承载处，设备自算偏移只能在拿到响应之后进行。"
     },
     "ack": {
@@ -936,8 +938,10 @@
       "codeDigest",
       "createdAt",
       "expiresAt",
-      "status"
+      "status",
+      "statusChangedAt"
     ],
+    "_storedFieldsWhy": "那三个时刻各有主语，混不得：`createdAt`＝这条请求什么时候立起来（两面都按它排「多久之前」）、`expiresAt`＝它什么时候作废（= createdAt + 口令的 TTL，唯一 TTL 见 `ttlSecondsFrom`）、`statusChangedAt`＝「状态最后一次变的时刻」。写第三列的只有两处：本机答复（approved／denied）与到期扫描（expired），两者共用这一个名字是刻意的 —— 原先答复那一支写的是 `decidedAt`，于是「同一次状态变更」在一张表里留下两个列名，投影要认两遍、界面要猜哪一个空着（`devicestore` 那侧的状态变更今天也叫 `statusChangedAt`）。响应里那个键叫 `at`（见 `sentFields`），与 T105 片③ 的回执同名同义：一个含义全协议只许一个词。",
     "neverStored": [
       "pairingCode",
       "privateKey",
@@ -961,6 +965,18 @@
     "visibleVia": "poll",
     "pollKey": "pairRequests",
     "_pollKeyWhy": "A 只能靠 poll 看见它：这里显式写出响应键名，是为了让「创建了东西却没人取得它」能被判出来——少这一行，validate 就只能在代码里猜那个键叫什么，而猜错的表现是请求静静地躺在表里，A 屏幕上永远显示「等待配对」。",
+    "sentPollKey": "sentPairRequests",
+    "_sentPollKeyWhy": "第二面：发起方（B）也要读得到自己那条请求走到了哪儿（T110：「我填了地址码和口令，对方怎么看待匹配？我怎么看对方进度？」）。它与 `pollKey` 受同一条约束——显式写出键名、并由 validate 断言它出现在 `clientEvents.poll.returns` 里；少了那条断言，「契约声明了一条读口而路由没挂」与「路由挂了而设备读错了键」在屏幕上是同一句话：列表空着。两条键名**不许相同**：同名 ⇒ 一个响应里长出两个同名键、后写的盖掉先写的（盖掉顺序是 JS 的插入顺序，谁都不知道屏幕上那条是谁的），B 那边就会画出「谁在请求配对你」而发起请求的正是他自己。",
+    "sentFields": [
+      "id",
+      "target",
+      "level",
+      "status",
+      "createdAt",
+      "expiresAt",
+      "at"
+    ],
+    "_sentFieldsWhy": "发出方这一面**显式挑字段**，而且名单比接收方那份窄：不回显 `requester`（问的人就是他）、不回显 `requesterPublicKey`（那就是他自己那把公钥，复述一遍只是多一处能漏的地方）、**不回 `codeDigest`** —— 摘要是「能拿去比对的东西」（与 `endpointList._neverReturnsSecretWhy` 同一条论证），而发起方本来就知道自己用过的那枚口令，这一面拿它换不到任何信息。名单里那个 `at` 是 `statusChangedAt` 的对外名字：表里那一列带主语（哪个字段变了），线上这个键与 T105 片③ 的回执同一个词、同一个含义（状态变更那一刻，0 = 旧记录没记过）。",
     "perDeviceLimit": 3,
     "globalLimit": 2000,
     "_limitsWhy": "两条都是写放大防线，不是配额：pair 的入口要求一把已登记的合法身份与一枚正确口令，本来就打不进来；这两条防的是「一台设备反复挂口令反复扫」把请求表撑到无界。超上限时新请求不落地并回带原因，绝不静默挤掉已经挂在 A 屏幕上的那一条（那等于让 A 确认一个自己没见过的请求）。"
