@@ -38,6 +38,19 @@ class FnthinkChannelService implements FnthinkChannelStore {
 
   final DatabaseHelper _db;
 
+  /// 最近一次 [list()] 读回来的那一份（T104 片②）。
+  ///
+  /// 为什么要有它：首页与通道状态页那份"当前启用的通道"清单（`collectActiveChannels`）是**同步**的 ——
+  /// 回前台顺手刷一次健康度那条路也要读它，不能在读路径上 await 开库。另三族同形
+  /// （`EmailService.cachedChannels`），装载点都在装配链里（这一族是 `main_page._refreshFnthinkChannels()`）。
+  ///
+  /// ⚠ 赋值点**只有 [list()] 这一处**，且缓存里永远是"某一次真读回来的值"，不是页面刚拼出来的那份 ——
+  ///   三条写路径今日恰好都会经 `publishMirror()` 重读一次，但那是镜像链路的副作用，**不许当依赖**：
+  ///   哪天镜像改成按增量写，缓存就会停在改动之前，而界面上那条还是旧的。调用方（页面）写完照旧重读。
+  /// ⚠ 从没装载过 ⇒ 空表（首页少一行），这里不把它报成"读不出来"——那一族要说这句话是在
+  ///   通道列表页那一格（读失败由 [list] 抛出，不吞成空表）。
+  List<FnthinkChannel> cachedChannels = const [];
+
   /// 全部通道，按建的时间正序（列表上先建的在上面 —— 与另外三族一致）。
   ///
   /// 读不到就**抛**，不返回空列表：空列表与"真的还没有"读起来一模一样，
@@ -48,7 +61,9 @@ class FnthinkChannelService implements FnthinkChannelStore {
       FnthinkChannel.table,
       orderBy: 'created_at ASC, id ASC',
     );
-    return rows.map(FnthinkChannel.fromDbRow).toList();
+    final channels = rows.map(FnthinkChannel.fromDbRow).toList();
+    cachedChannels = List.unmodifiable(channels);
+    return channels;
   }
 
   /// 建一条。**id 由调用方给**（毫秒时间戳 + 后缀），理由与另外三族相同：

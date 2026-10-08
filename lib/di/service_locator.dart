@@ -10,6 +10,7 @@ import '../services/device_state_service.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
 import '../services/filter_service.dart';
+import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_inbox_display.dart';
@@ -160,13 +161,14 @@ void setupLocator() {
           service.dispose();
         }
       },
-      // T60（approach B）：发送的服务器可达性记进通道健康度，family=fnthink、id=服务器 host。
+      // T60（approach B）：发送的服务器可达性记进通道健康度，family=`fnthink-server`、id=服务器 host
+      // （T104 片①：以前它与"这条通道最近手动测过没有"共用 `fnthink` 那个族名，两种主语挤一处）。
       // 协调者只在"拿到过服务器响应/传输失败"时调这里（本机没发出去那几种不进来）。
       // 守卫在 `test/architecture/fnthink_receive_wiring_test.dart`：漏接时发送与页面照常，
       // 只有幻念那一行的健康度永远是"没测过"。
       recordHealth: ({required host, required reachable, required latencyMs}) =>
           getIt<ChannelHealthStore>().record(
-            kFnthinkChannelSlug,
+            kFnthinkServerFamily,
             host,
             reachable: reachable,
             latencyMs: latencyMs,
@@ -198,6 +200,14 @@ void setupLocator() {
   //   少注入时不是静默放行，而是那一发抛 `FnthinkContractUnavailable`。
   getIt.registerLazySingleton<FnthinkPeerService>(
     () => FnthinkPeerService(contracts: getIt<FnthinkContractLoader>()),
+  );
+  // 幻念通道的唯一写咽喉（T94 片3）。T104 片② 之前它**不在 DI 里**：四处调用点各自 new 一个
+  // （`main_page` 的字段、通道列表页、通道详情页、配对名单页）——那时每个实例只服务自己那一次读写，
+  // new 出第二份没有任何可见后果。现在它多了一份**内存列表**（`cachedChannels`，首页与通道状态页那张
+  // 「当前推送通道」清单读的就是它），于是"谁装载的谁看得见"成了缺陷：装载发生在 `main_page`
+  // 那一份上，而清单读另一份就永远是空表 —— 表现是配好的幻念通道在首页根本不出现，且一行错误都没有。
+  getIt.registerLazySingleton<FnthinkChannelService>(
+    () => FnthinkChannelService(),
   );
 
   // ── 远程执行（片3c-4：把判定层、执行器、执行链接到收货那一格）──

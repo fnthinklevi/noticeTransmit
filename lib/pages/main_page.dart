@@ -102,8 +102,12 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   /// 扫一眼分不清哪一行配过。现在四行走同一句摘要，所以这一族也得有份条数。
   List<FnthinkChannel> _fnthinkChannels = const [];
 
-  /// 与两张幻念页各自 new 的那份是同一件（无状态、只是库的一层皮），不是第二份缓存。
-  final FnthinkChannelStore _fnthinkChannelStore = FnthinkChannelService();
+  /// 从 DI 取那**一个**实例（T104 片②）：它带着一份内存列表（`cachedChannels`），首页与通道
+  /// 状态页那张「当前推送通道」清单读的就是这一份。此前这里与两张幻念页各 new 一份，理由是
+  /// "无状态、只是库的一层皮" —— 有了缓存之后那句话不再成立：各 new 一份就是"谁装载的谁看得见"，
+  /// 而装载发生在这一份上，清单读另一份永远是空表 ⇒ 配好的幻念通道在首页不出现，还不报任何错。
+  final FnthinkChannelStore _fnthinkChannelStore =
+      GetIt.instance<FnthinkChannelService>();
 
   final WebhookService _webhookService = GetIt.instance<WebhookService>();
   final BatteryService _batteryService = GetIt.instance<BatteryService>();

@@ -221,8 +221,10 @@ Future<FnthinkL2Result> dispatchL2Action(
 /// ⚠ **family 段必填**（不能只给 id）：三族的 id **允许重复**
 /// （健康缓存按 `family:id` 存就是这个前提），
 /// 所以"按 id 在三族里找第一个"是不确定的 —— 同一条指令两次执行可能命中不同族。
-/// `family` 的合法值就是本机那三族，与 [updateChannelRole] / [updateChannelEnabled]
-/// 的 switch 分支同源（`channel_display.dart` 的 `_familyNames` 也是这三个）。
+/// `family` 的合法值就是本机**可远程启停的那三族**，与 [updateChannelRole] / [updateChannelEnabled]
+/// 的 switch 分支同源。⚠ 显示用的族表（`channel_display.dart` 的 `_familyNames`）现在**多一族**
+/// （幻念，T104 片③ 起出现在首页与通道状态页）：要开放远程启停得同时给两条 switch 加分支，
+/// 那是扩大"对面能动我这台的范围"，不是一次显示改动顺带做的事。
 ///
 /// ⚠ **拆不出来就回 null，不猜**：这一层在**进延时窗口之前**跑（判定层那一格），
 /// 而"猜一个族"等于凭空替这条指令选一个要动的东西。
@@ -248,15 +250,15 @@ RemoteChannelTarget? parseChannelTarget(String? argument) {
 
 /// 本机那三族通道（`webhook` / `app` / `email`）。
 ///
-/// ⚠ **唯一出处**：[updateChannelRole] 与 [updateChannelEnabled] 的 switch 分支，
-/// 以及 `channel_display.dart` 的 `_familyNames` 是同一组词。
+/// ⚠ **唯一出处**：[updateChannelRole] 与 [updateChannelEnabled] 的 switch 分支。
 /// 解析层单独再列一份的话，加一族要改三处，而漏掉的那一处表现为
 /// 「这一族能配能显示，就是远程启停不了，且界面上什么提示都没有」。
 /// 本机那三族通道（`webhook` / `app` / `email`）。
 ///
-/// ⚠ **这里列的是第三份**：前两份在 [updateChannelRole] 的 switch 分支与
-/// `channel_display.dart` 的 `_familyNames`。加一族要三处一起改；
-/// 只改这份的表现是「这一族能配能显示，就是远程启停不认识它，界面上还没有提示」。
+/// ⚠ **这里列的是第三份**：前两份在 [updateChannelRole] 与 [updateChannelEnabled] 的 switch 分支。
+/// 加一族要三处一起改；只改这份的表现是「这一族能配能显示，就是远程启停不认识它，界面上还没有提示」。
+/// ⚠ 显示那一张表（`channel_display.dart` 的 `_familyNames`）**已经比这里多一族**（幻念）——
+/// 那是 T104 片③ 的**显示**改动，这一族的启停/角色走的不是 `saveChannels` 那条路，别顺手在这儿加一个词。
 /// ⚠ 不抽成一个共享常量：这三处对数据的用法不同（switch 里要拿实例，
 /// `_familyNames` 只要显示名），抽出来之后 switch 仍要再判一次
 /// 「这个族我有没有分支」—— 那一判是删不掉的，等于多一层间接。

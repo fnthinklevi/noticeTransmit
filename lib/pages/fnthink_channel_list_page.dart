@@ -69,7 +69,9 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? FnthinkChannelService();
+    // 缺省从 DI 取那一个实例，不 new 第二份（T104 片②）：这一页装载出来的那份表就是
+    // 首页/通道状态页那张清单读的缓存，各 new 一份时这一页写完、首页还看着空的。
+    _service = widget.service ?? GetIt.instance<FnthinkChannelService>();
     _health = widget.health ?? GetIt.instance<ChannelHealthStore>();
     _reload();
   }

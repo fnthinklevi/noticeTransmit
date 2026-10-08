@@ -44,15 +44,16 @@ class FnthinkSettingsDeps {
     coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
     identity: FnthinkIdentityService(),
     // T60（approach B）：对着某台服务器的最近一次发送健康度。读源与写源（协调者 recordHealth
-    // 落到 ChannelHealthStore）都认 `kFnthinkChannelSlug` 这一个 family，页面不自己 new 读写实现。
+    // 落到 ChannelHealthStore）都认 `kFnthinkServerFamily` 这一个 family（T104 片①：以前它与
+    // 通道健康度共用 `fnthink`，两种主语挤在一个族名里），页面不自己 new 读写实现。
     healthOf: (host) =>
-        GetIt.instance<ChannelHealthStore>().of(kFnthinkChannelSlug, host),
+        GetIt.instance<ChannelHealthStore>().of(kFnthinkServerFamily, host),
     // T95 片5：打开「切换服务」那一格时**两台各探一次**。走 `/health` 那一发非侵入探测
     // （`measureEndpointLatency`），不往任何一台发真消息。
     probeHosts: measureEndpointLatency,
     recordHealth: ({required host, required reachable, required latencyMs}) =>
         GetIt.instance<ChannelHealthStore>().record(
-          kFnthinkChannelSlug,
+          kFnthinkServerFamily,
           host,
           reachable: reachable,
           latencyMs: latencyMs,

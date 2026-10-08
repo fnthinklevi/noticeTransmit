@@ -31,7 +31,7 @@ class FnthinkPeersDeps {
     required this.coordinator,
     required this.loadPeers,
     FnthinkChannelStore? channels,
-  }) : channels = channels ?? FnthinkChannelService();
+  }) : _injectedChannels = channels;
 
   factory FnthinkPeersDeps.fromLocator() => FnthinkPeersDeps(
     contracts: GetIt.instance<FnthinkContractLoader>(),
@@ -44,10 +44,17 @@ class FnthinkPeersDeps {
   final FnthinkContractLoader contracts;
   final FnthinkReceiveCoordinator coordinator;
   final Future<List<FnthinkPeer>> Function() loadPeers;
+  FnthinkChannelStore? _injectedChannels;
 
   /// 勾选写嗅喂（T94）＋ 代建通道（T98 片③）。类型是**接口**：这一页今天要读通道、
   /// 按目标找一条、没有就建一条 —— 三件事都得能在测试里被替身钉住。
-  final FnthinkChannelStore channels;
+  ///
+  /// ⚠ 缺省是 DI 里那**一个** `FnthinkChannelService`（T104 片②），不 new 第二份 ——
+  ///   这一页代建的那条通道要立刻出现在首页那张「当前推送通道」清单里，而清单读的是它的缓存。
+  /// ⚠ 但**第一次用到时才解析**：构造这一包的地方比用得到这一格的地方多（设置页的 harness
+  ///   每次都构造它），在构造函数里摸 GetIt 会让"这一格从没被碰过"那条路也崩在注册表上。
+  FnthinkChannelStore get channels =>
+      _injectedChannels ??= GetIt.instance<FnthinkChannelService>();
 }
 
 /// 设备绑定（T94 片1）—— 「我和谁有关系」这一页。

@@ -1129,7 +1129,7 @@ void main() {
         final store = ChannelHealthStore();
         final probed = <String>[];
         final h = harness(
-          healthOf: (host) => store.of(kFnthinkChannelSlug, host),
+          healthOf: (host) => store.of(kFnthinkServerFamily, host),
           probeHosts: (hosts) async {
             probed.addAll(hosts);
             // 只有第一台答（第二台探不通）。
@@ -1138,7 +1138,7 @@ void main() {
           recordHealth:
               ({required host, required reachable, required latencyMs}) =>
                   store.record(
-                    kFnthinkChannelSlug,
+                    kFnthinkServerFamily,
                     host,
                     reachable: reachable,
                     latencyMs: latencyMs,
@@ -1163,8 +1163,8 @@ void main() {
           'endpoints',
           'mainland',
         ])!;
-        expect(store.of(kFnthinkChannelSlug, intlHost)!.reachable, isTrue);
-        expect(store.of(kFnthinkChannelSlug, mlandHost)!.reachable, isFalse);
+        expect(store.of(kFnthinkServerFamily, intlHost)!.reachable, isTrue);
+        expect(store.of(kFnthinkServerFamily, mlandHost)!.reachable, isFalse);
         // 通的那台在**选项上**报时延，不通那台说"连不上" —— 两句都得在屏上，
         // 而**不通那台也还在候选里**（§6 口径：标不可用，不拿掉）。
         // 时延那句会出现两次：卡片上当前那台的徽标 + 弹层里的选项（同一份单点，两处都该说）。

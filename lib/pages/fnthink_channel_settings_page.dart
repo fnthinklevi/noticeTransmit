@@ -137,7 +137,8 @@ class _FnthinkChannelSettingsPageState
   @override
   void initState() {
     super.initState();
-    _service = widget.service ?? FnthinkChannelService();
+    // 缺省从 DI 取那一个实例（T104 片②）：这一页保存完要重读，重读写进的是首页那份清单读的缓存。
+    _service = widget.service ?? GetIt.instance<FnthinkChannelService>();
     final channel = widget.channel;
     if (channel != null) {
       _id = channel.id;

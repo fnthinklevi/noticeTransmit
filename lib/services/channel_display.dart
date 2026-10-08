@@ -29,10 +29,24 @@ const String kBlockedChannelKey = 'blocked';
 
 /// 幻念推送的规范 slug（T60 approach B）。它同时是：
 /// - 送达键 `chan:fnthink` 的那一段（经 [channelDeliveryKey] 拼，别处不手打）；
-/// - [ChannelHealthStore] 里那一族的 family 名（发送可达性记在 `fnthink:<host>`）。
+/// - [ChannelHealthStore] 里**那一族通道**的 family 名 —— id 必须是**通道 id**
+///   （T104 片① 之前它还被拿去记服务器可达性，那一份现在搬去 [kFnthinkServerFamily]）。
 /// 写成一处常量，是为了让"页面读健康度"与"协调者写健康度"用的是同一个串 —— 两边各打一份
 /// 字面量时，改一个忘一个的表现是徽标永远"没测过"（读到的键与写入的键不等）。
 const String kFnthinkChannelSlug = 'fnthink';
+
+/// 幻念推送**服务器**（那台中转机）可达性的 family，id＝服务器 host。
+///
+/// 为什么不与 [kFnthinkChannelSlug] 共用一个族名（这就是 T104 拆的那"两种主语"）：
+/// `(fnthink, 通道 id)` 说的是"这条通道最近一次**手动**测的结果"，而 `(fnthink, host)` 说的是
+/// "这台服务器通不通"。两件事的下一步动作完全不同（前者去通道详情点「仅探测」，后者去
+/// 「切换服务」那一格换档），挤在一个族名里时，首页那条通道行随时可能把服务器的结论显示成
+/// 自己的结论 —— 而它俩的 id 形状碰巧不会撞上，所以这种错**不会崩，只会静默说错话**。
+///
+/// ⚠ 旧键（`channel_health_fnthink:<host>`）**不迁移**：读写两侧一起换到新族名，旧键就此没人读，
+///   过了 [ChannelHealthStore.staleness] 连"上次成功"都不会再冒出来。代价是第一次进那一格时
+///   徽标显示「从未探测」—— 那是真话（这一族的探针本来就只有"真发一条"那一种）。
+const String kFnthinkServerFamily = 'fnthink-server';
 
 /// 聚合伪通道的规范键（P2 merge 动作：窗口期内成员被合并推送）。
 const String kMergedChannelKey = 'merge';
@@ -143,12 +157,21 @@ String channelDeliveryKey(String rawType) =>
 
 /// 通道**族**显示名（T01：首页与通道状态页的「类型：」前缀）。
 ///
-/// 与 [_channelNames] 分两张表是有意的：族只有三个、不随原生描述符表增删，
-/// 而子类型（钉钉/飞书应用/…）会变。混成一张表会让"族"这一层跟着通道数漂移。
+/// 与 [_channelNames] 分两张表是有意的：族只有四五个、不随原生描述符表增删（钉钉/飞书应用/…
+/// 那些子类型会变），而"这一族能不能被某条写路径改"是另一件事。混成一张表会让"族"这一层
+/// 跟着通道数漂移。
+///
+/// ⚠ 这一张是**显示**用的四族。可写的那三族（`updateChannelRole` / `updateChannelEnabled` /
+/// 远程指令 `channel:toggle` 的 `isKnownChannelFamily`）**不含幻念** —— 那一族的角色与启停
+/// 走 `FnthinkChannelService.save()`（会连带重验目标），形状与另三族不同。两张表不一致时
+/// 的表现是「这一族能配能显示，就是快捷改不了」，所以三处都有注释指回这里。
 const Map<String, (String, String)> _familyNames = {
   'webhook': ('Webhook', 'Webhook'),
   'app': ('自建应用', 'App Channel'),
   'email': ('邮件', 'Email'),
+  // T104 片③：第四族进首页与通道状态页。不登记这一行的话 `channelFamilyName` 会**原样返回
+  // 'fnthink'**（那是有意的：不猜成 webhook），表现就是首页那行写着英文 token。
+  'fnthink': ('幻念推送', 'Fnthink Push'),
 };
 
 /// 族显示名（语言感知）。未登记的族原样返回，不猜成 webhook。

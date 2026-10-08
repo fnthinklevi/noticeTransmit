@@ -38,12 +38,12 @@ class FnthinkReceiveDeps {
     coordinator: GetIt.instance<FnthinkReceiveCoordinator>(),
     // 「下一次自己醒」那一行只**读**这一个源（§4-9 片1d）：页面既不自己算间隔、也不自己排闹钟。
     presence: GetIt.instance<FnthinkPresenceScheduler>(),
-    // 远程指令的「发一条」要挑收件人，而名单只能从协调者那一个读嗄喂取。
+    // 远程指令的「发一条」要挑收件人，而名单只能从协调者那一个读咽喉取。
     // 它不是「接收设置需要名单」，而是「这一格要推的那个页需要」——
     // 另开一条读库的路就会有两个排序口径。
     loadPeers: GetIt.instance<FnthinkPeerService>().list,
     healthOf: (host) =>
-        GetIt.instance<ChannelHealthStore>().of(kFnthinkChannelSlug, host),
+        GetIt.instance<ChannelHealthStore>().of(kFnthinkServerFamily, host),
   );
 
   final FnthinkContractLoader contracts;

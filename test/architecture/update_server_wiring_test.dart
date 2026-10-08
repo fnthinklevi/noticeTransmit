@@ -71,8 +71,11 @@ void main() {
       reason: '探完没人写 ⇒ 徽标与选项读的是同一份空，看着像"从没测过"，其实是被漏接',
     );
     // 读写两侧必须认同一个 family：折行/缩进怎么排都算（形状判据，不是字面抄本）。
-    final writes = RegExp(r'record\(\s*kFnthinkChannelSlug,').hasMatch(block);
-    final reads = page.contains('of(kFnthinkChannelSlug, host)');
+    // ⚠ 这里是 **`kFnthinkServerFamily`**（服务器主语，id＝host），不是 `kFnthinkChannelSlug`
+    //   （通道主语，id＝通道行 id）—— T104 片① 把两种主语拆开的正是这一对，串台时不报错，
+    //   只是首页那条通道行会替一台服务器说话。
+    final writes = RegExp(r'record\(\s*kFnthinkServerFamily,').hasMatch(block);
+    final reads = page.contains('of(kFnthinkServerFamily, host)');
     expect(
       [writes, reads].where((x) => x).length,
       2,

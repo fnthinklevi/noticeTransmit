@@ -970,10 +970,18 @@ void main() {
       );
       expect(
         locator,
-        contains('kFnthinkChannelSlug'),
+        contains('kFnthinkServerFamily'),
         reason:
             'family 必须用那个具名常量：页面读、协调者写各打一份 "fnthink" 字面量时，'
-            '改一个忘一个的表现是徽标永远"没测过"（读写键不等）',
+            '改一个忘一个的表现是徽标永远"没测过"（读写键不等）。'
+            '⚠ T104 片① 之后这里认的是**服务器**那一族（id＝host），不是通道那一族（id＝通道行 id）',
+      );
+      expect(
+        RegExp(r'record\(\s*kFnthinkChannelSlug').hasMatch(locator),
+        isFalse,
+        reason:
+            '装配点用**通道主语**那枚常量去记服务器可达性 ⇒ 两种主语又挤回一个族名了：这一发记的是'
+            '"这台服务器通不通"，与首页那条通道行的徽标是两件事（串台时不报错，只会说错话）',
       );
     });
 
