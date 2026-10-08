@@ -3934,6 +3934,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSentEmpty => '还没有发过。这一档只记本机发出去的（对方收到与否要看回执）';
 
   @override
+  String get fnthinkSender => '发送人';
+
+  @override
+  String get fnthinkSentAt => '发送时间';
+
+  @override
+  String get fnthinkReceivedAt => '接收时间';
+
+  @override
   String get fnthinkRecipient => '收件人';
 
   @override

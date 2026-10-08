@@ -473,4 +473,60 @@ void main() {
       );
     });
   });
+  // ===== T105 片①：详情那一行把「谁」与「什么时候」都写出来 =====
+  //
+  // 改之前那一行是两个裸值（一串地址码 + 一个光秃秃的时间）：读不出哪个是谁、哪个是什么时候。
+  // 这里钉三件：两个标签在、两个标签各归各的档、且发出档里不许出现「接收时间」
+  // （对端什么时候真的收到，本机今天拿不到 —— 见 T105 片③）。措辞不钉，钉的是“这句话里有没有那个词”。
+  group('T105 片①：收发详情那一行的四个词', () {
+    const addr = 'PEER00000000000001';
+
+    Future<void> open(WidgetTester tester, String id) async {
+      await tester.tap(find.byKey(ValueKey('fnthink-inbox-row-$id')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('收件档：写「发送人」与「接收时间」', (tester) async {
+      table = [row('m_in', sender: addr)];
+      await pump(tester);
+      await toInbox(tester);
+      await open(tester, 'm_in');
+
+      expect(
+        find.textContaining('${l10n(tester).fnthinkSender}\uff1a$addr'),
+        findsOneWidget,
+        reason: '发送人只有裸地址码、没有标签 ⇒ 用户读不出那一串是谁',
+      );
+      expect(
+        find.textContaining('${l10n(tester).fnthinkReceivedAt}\uff1a'),
+        findsOneWidget,
+        reason: '收件档那个时间是**本机收到**的时刻，不写词就会被当作对方发的时刻读',
+      );
+    });
+
+    testWidgets('发出档：写「收件人」与「发送时间」', (tester) async {
+      sentTable = [row('m_out', direction: kFnthinkDirectionOut, sender: addr)];
+      await pump(tester);
+      await tester.tap(find.text(l10n(tester).fnthinkDirSent));
+      await tester.pumpAndSettle();
+      await open(tester, 'm_out');
+
+      expect(
+        find.textContaining(
+          '${l10n(tester).fnthinkRecipient}\uff1a$addr \u00b7 ${l10n(tester).fnthinkSentAt}\uff1a',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(l10n(tester).fnthinkSentAt),
+        findsOneWidget,
+        reason: '发出档那个时间是本机发出去的时刻 —— 写的是“发送时间”',
+      );
+      expect(
+        find.textContaining(l10n(tester).fnthinkReceivedAt),
+        findsNothing,
+        reason: '发出档出现“接收时间” ⇒ 用户会以为那是对方收到的时刻（本机今天拿不到）',
+      );
+    });
+  });
 }

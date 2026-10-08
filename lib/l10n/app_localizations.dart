@@ -7226,6 +7226,24 @@ abstract class AppLocalizations {
   /// **'还没有发过。这一档只记本机发出去的（对方收到与否要看回执）'**
   String get fnthinkSentEmpty;
 
+  /// No description provided for @fnthinkSender.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送人'**
+  String get fnthinkSender;
+
+  /// No description provided for @fnthinkSentAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'发送时间'**
+  String get fnthinkSentAt;
+
+  /// No description provided for @fnthinkReceivedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收时间'**
+  String get fnthinkReceivedAt;
+
   /// No description provided for @fnthinkRecipient.
   ///
   /// In zh, this message translates to:

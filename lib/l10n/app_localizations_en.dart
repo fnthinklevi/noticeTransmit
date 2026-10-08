@@ -4134,6 +4134,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Nothing sent yet. This tab only lists what this device sent.';
 
   @override
+  String get fnthinkSender => 'Sender';
+
+  @override
+  String get fnthinkSentAt => 'Sent';
+
+  @override
+  String get fnthinkReceivedAt => 'Received';
+
+  @override
   String get fnthinkRecipient => 'Recipient';
 
   @override

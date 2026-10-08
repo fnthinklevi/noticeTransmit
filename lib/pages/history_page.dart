@@ -1929,13 +1929,19 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  // 六项里那四项就在这一行（T105 片①）：
+                  // 对端与时刻都带标签 —— 裸的一串地址码加一个光秃秃的时间，
+                  // 用户读不出“这是谁”“这是什么时候”。
+                  // 时刻的语义随方向变（与 sender 那一列同一套两用）：收件档＝本机收到的时刻，
+                  // 发出档＝本机发出的时刻；对端“什么时候真的收到”本机今天拿不到（见 T105 片③）。
                   Text(
                     outgoing
                         ? '${l10n.fnthinkRecipient}：'
                               '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
-                              '${_formatTime(message.receivedAt)}'
-                        : '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
-                              '${_formatTime(message.receivedAt)}'
+                              '${l10n.fnthinkSentAt}：${_formatTime(message.receivedAt)}'
+                        : '${l10n.fnthinkSender}：'
+                              '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
+                              '${l10n.fnthinkReceivedAt}：${_formatTime(message.receivedAt)}'
                               '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
                     style: TextStyle(
                       fontSize: 12,

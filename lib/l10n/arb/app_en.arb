@@ -2119,6 +2119,9 @@
   "fnthinkTagSent": "Out",
   "fnthinkAllScopeNote": "All lines the three sources up side by side; it does not merge them into one timeline. Search and filters apply to the Forwarded section only — inbox and sent rows live in another table with different paging, so a merged timeline would show a row twice or not at all.",
   "fnthinkSentEmpty": "Nothing sent yet. This tab only lists what this device sent.",
+  "fnthinkSender": "Sender",
+  "fnthinkSentAt": "Sent",
+  "fnthinkReceivedAt": "Received",
   "fnthinkRecipient": "Recipient",
   "l3SettingsSectionTitle": "System settings a peer can request",
   "l3SettingsSectionDesc": "Each item here needs a confirmation you make on this device. Items you have not granted stay listed - greyed out, with the reason.",

@@ -2140,6 +2140,9 @@
   "fnthinkTagSent": "发",
   "fnthinkAllScopeNote": "全部档是把三个来源并排看，不是拼成同一条时间线：搜索与筛选只作用于「转发」那一段（收件与发出在另一张表里，翻页口径不同，混排会出现同一条重复或整条不出现）",
   "fnthinkSentEmpty": "还没有发过。这一档只记本机发出去的（对方收到与否要看回执）",
+  "fnthinkSender": "发送人",
+  "fnthinkSentAt": "发送时间",
+  "fnthinkReceivedAt": "接收时间",
   "fnthinkRecipient": "收件人",
   "l3SettingsSectionTitle": "对端可以请求的系统设置",
   "l3SettingsSectionDesc": "这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。",
