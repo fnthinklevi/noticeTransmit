@@ -3430,6 +3430,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPairDeny => 'Deny';
 
   @override
+  String get fnthinkPairApproveOutbound =>
+      'Also make it a forward target when approving';
+
+  @override
+  String get fnthinkPairApproveOutboundDesc =>
+      'Checked = both local legs happen right now: the roster tick plus a channel targeting it.';
+
+  @override
+  String get fnthinkPairApprovedOneWay =>
+      'This side can now send to it. The other half (that device allowing pushes from here) has to be approved over there — the relationship is stored on the receiving device, and this one cannot click for it.';
+
+  @override
   String get fnthinkPairAskTitle => 'Approve this pairing?';
 
   @override

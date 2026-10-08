@@ -6146,6 +6146,24 @@ abstract class AppLocalizations {
   /// **'拒绝'**
   String get fnthinkPairDeny;
 
+  /// No description provided for @fnthinkPairApproveOutbound.
+  ///
+  /// In zh, this message translates to:
+  /// **'同意时也把它设为往外发的目标'**
+  String get fnthinkPairApproveOutbound;
+
+  /// No description provided for @fnthinkPairApproveOutboundDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。'**
+  String get fnthinkPairApproveOutboundDesc;
+
+  /// No description provided for @fnthinkPairApprovedOneWay.
+  ///
+  /// In zh, this message translates to:
+  /// **'这边已经能往它发了。反过来那一半（它那边允许这台推过去）要对面那台自己点一次同意 —— 关系记在被投那台的名单里，这台替它点不了。'**
+  String get fnthinkPairApprovedOneWay;
+
   /// No description provided for @fnthinkPairAskTitle.
   ///
   /// In zh, this message translates to:

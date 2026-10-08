@@ -107,6 +107,17 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   /// 勾上之后代建通道那一句（T98 片③）：建了还是本来就有 —— 两句不同，不是「成功/失败」。
   String? _forwardChannelNote;
 
+  /// 批准那一屏上那一枚「同意时也把它设为往外发的目标」（T98 片②）。
+  ///
+  /// ⚠ 它只管**本机这两段**（那一列勾上 ＋ 一条目标=它的通道）。反过来的那一半 ——
+  ///   对面那台允许这台推过去 —— 由那一台自己点同意（契约 `pairing.relationshipStoredOn`
+  ///   把关系记在**被投那台**的记录上），这一屏替它点不了，所以结论里必须单独说一句。
+  bool _alsoOutbound = false;
+
+  /// 上一次的批准**真的把这两段办掉了**（结论行据此决定要不要说那句"还缺那一半"）。
+  /// 每次答复开头清零：留着它，下一次没勾的批准也会跟着说"已经能往它发了"这句假话。
+  bool _outboundDone = false;
+
   /// 那条被点开的链接**这一页已经处理过了**。口令是 singleUse 的：
   /// 重放一次不是"再试一次"，而是"把同一枚口令往被人再看一眼的方向推"，所以一次进入只处理一次。
   bool _pairLinkHandled = false;
@@ -256,6 +267,17 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
                   keyName: 'fnthink-pair-answer',
                   text: _pairAnswerText(l10n, answer),
                 ),
+              // 代办了本机这两段 ⇒ 必须跟着说清**还缺哪一段**（这一段不在这屏的能力里：
+              // 关系存在被投那台的记录上，那台的同意只能那台点）。不说，用户读到的就是
+              // "点一次两边都通了"这句假话 —— 而那正是这次任务要修的形状。
+              if (answer != null &&
+                  answer.approve &&
+                  answer.answer.ok &&
+                  _outboundDone)
+                FnthinkNote(
+                  keyName: 'fnthink-pair-one-way',
+                  text: l10n.fnthinkPairApprovedOneWay,
+                ),
             ],
           ),
         );
@@ -306,6 +328,35 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             ),
           ],
         ),
+      ),
+      // T98 片②：把"批准完之后还要再去下面把那一列勾上、再去通道页建一条"这三下并成一下。
+      // 名字说的是它真正做的事 —— 不是"一次配对即双向"（那一条今天做不到：关系存在被投那台）。
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.fnthinkPairApproveOutbound,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.secondaryLabel(context),
+                ),
+              ),
+            ),
+            CupertinoSwitch(
+              key: const ValueKey('fnthink-pair-approve-outbound'),
+              value: _alsoOutbound,
+              onChanged: _busy
+                  ? null
+                  : (v) => setState(() => _alsoOutbound = v),
+            ),
+          ],
+        ),
+      ),
+      FnthinkNote(
+        keyName: 'fnthink-pair-approve-outbound-desc',
+        text: l10n.fnthinkPairApproveOutboundDesc,
       ),
     ];
   }
@@ -460,6 +511,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       if (!ok || !mounted) return;
     }
     setState(() => _busy = true);
+    _outboundDone = false;
     final answer = await _coordinator.confirmPairing(
       request: request,
       approve: approve,
@@ -472,6 +524,25 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     // 名单是这一发的**后果**：不重读一次，用户点完同意，下面那格还是旧的（而它的存在意义
     // 正是"我同意过谁"）。重读走的是同一个读咽喉，不是页面自己数一遍。
     await _loadPeers();
+    // T98 片②：勾了就把**本机这两段**当场办掉。为什么放在 `_loadPeers()` 之后：那两段要的
+    // 是"名单里已经有这一台"，而这一台正是刚才那一发写进去的 —— 早一步做就是在一行还不存在
+    // 的记录上写勾选。
+    if (approve && answer.ok && _alsoOutbound) {
+      FnthinkPeer? row;
+      for (final p in _peers ?? const <FnthinkPeer>[]) {
+        if (p.peerAddress == request.requester) row = p;
+      }
+      // 名单里没有那一行 ⇒ 一段都不代办，也不再补一句"没建成"：上面 `fnthink-pair-answer`
+      // 那句说的就是为什么（写不进去／档位不认／换过钥），补第二句是替那句撒第二次谎。
+      if (row != null) {
+        await _setForward(row, true);
+        // 写失败时 `_setForward` 已经把原话放进 `_forwardError`，那句"这边已经能往它发了"
+        // 就跟着不许出现。
+        _outboundDone = _forwardError == null;
+      }
+    }
+    if (!mounted) return;
+    setState(() {});
   }
 
   /// 最近一次答复的结论。⚠ 档位那一格用的是**服务端回的** `grantedLevel`，不是用户点的那一档：

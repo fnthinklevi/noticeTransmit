@@ -110,6 +110,29 @@ void main() {
   });
 
   group('形状', () {
+    test('批准那一屏代办的"本机这两段"走的是同一处，不抄第二份（T98 片②）', () {
+      final src = readCode('lib/pages/fnthink_peers_page.dart');
+      // 那两段 = 名单那一列的勾选 + 一条目标=这台的通道。页面里**每样只能有一处**调用：
+      // 第二处出现的那天，"自己拨那一枚"与"批准时顺手办"就会开始各改各的。
+      expect(
+        occurrences(src, 'channels.setForward('),
+        1,
+        reason: '两处 setForward ⇒ 两条路对"勾上到底还建不建通道"可以给出不同答案',
+      );
+      expect(
+        occurrences(src, 'channels.create('),
+        1,
+        reason: '代建通道只有一处作者；抄第二份的那一份多半会忘了"已有就不建"那一判',
+      );
+      expect(
+        src,
+        contains('await _setForward(row, true);'),
+        reason:
+            '批准那一屏要**复用**那一枚开关走的那条路（`_setForward`），'
+            '而不是自己把两段再写一遍',
+      );
+    });
+
     test('发送那一发没有"顶层 title"这条路：内核构造的信封只有三个键', () {
       final code = readCode('packages/fnthink_push/lib/src/send_kernel.dart');
       // 只看**构造对外信封**那一段字面量：整文件找 'title' 会撞上本地判据用的映射，

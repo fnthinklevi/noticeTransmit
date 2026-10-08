@@ -1338,6 +1338,7 @@ void main() {
       int confirmStatus = 200,
       String? confirmBody,
       Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
+      FnthinkChannelStore? channels,
     }) async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
@@ -1351,6 +1352,7 @@ void main() {
             '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
                 '"serverTime":1800000000000}',
         recordPeer: recordPeer,
+        channels: channels,
       );
       final l10n = await pumpPeers(tester, h);
       await h.coordinator.startIfEnabled();
@@ -1490,6 +1492,98 @@ void main() {
         findsOneWidget,
         reason: '报成"已同意"就是这台设备替用户点了"同意换钥"',
       );
+    });
+
+    // ── T98 片②：批准那一屏顺手把**本机这两段**办掉 ─────────────────────────
+    // 三段链（对方授权 / 本机那一勾 / 一条目标=它的通道）原本要用户在三个地方各点一次，
+    // 而"点完同意却发现还是发不出去"就是这次的缺陷形状。这里钉的是：勾了才代办、
+    // 代办的恰好是本机那两段（**不是**对面那台的同意），以及名单没写成时一段都不办。
+    Future<void> tickOutbound(WidgetTester tester) async {
+      final sw = find.byKey(const ValueKey('fnthink-pair-approve-outbound'));
+      await revealTo(tester, sw);
+      await tester.ensureVisible(sw);
+      await tester.pumpAndSettle();
+      await tester.tap(sw);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('勾上再同意 ⇒ 出站两段当场办掉，并且说清还缺对面那一次', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L1')],
+        channels: store,
+      );
+      await tickOutbound(tester);
+      await _tapPair(tester, ctx.l10n, approve: true);
+
+      expect(store.forwardWrites, [
+        (peer: '8KMNPQRSTVWX999777', value: true),
+      ], reason: '办的是**这一台**：写别台就是把刚同意的那个人换成另一个');
+      expect(store.created, hasLength(1));
+      expect(store.created.single.target, '8KMNPQRSTVWX999777');
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-one-way')),
+        findsOneWidget,
+        reason: '代办了两段却不说明白"对面那台还没同意"，用户读到的就是"点一次两边都通了"',
+      );
+    });
+
+    testWidgets('没勾 ⇒ 一段都不代办，那句"还缺一半"也不出现', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L1')],
+        channels: store,
+      );
+      await _tapPair(tester, ctx.l10n, approve: true);
+
+      expect(store.forwardWrites, isEmpty);
+      expect(store.created, isEmpty);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-one-way')),
+        findsNothing,
+        reason: '没代办还说"这边已经能往它发了" ⇒ 这一句是假的',
+      );
+    });
+
+    testWidgets('拒绝 ⇒ 出站两段一段都不办', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L1')],
+        channels: store,
+      );
+      // 先勾上再点拒绝：那一枚勾的是"同意时顺手办"，拒绝不该替用户开任何权限。
+      await tickOutbound(tester);
+      await _tapPair(tester, ctx.l10n, approve: false);
+
+      expect(store.forwardWrites, isEmpty, reason: '划掉一条请求却同时把它设为往外发的目标，比不划更坏');
+      expect(store.created, isEmpty);
+    });
+
+    testWidgets('同意了而名单里没写进那一行（换过钥）⇒ 两段都不代办', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore();
+      final ctx = await openWith(
+        tester,
+        requests: [request('L1')],
+        recordPeer: (_) async => FnthinkPeerWrite.keySwapped,
+        channels: store,
+      );
+      await tickOutbound(tester);
+      await _tapPair(tester, ctx.l10n, approve: true);
+
+      expect(
+        store.forwardWrites,
+        isEmpty,
+        reason: '名单里没有那一行还去写它的勾选，写的是"这条授权本来没成立"的东西',
+      );
+      expect(store.created, isEmpty);
+      expect(find.byKey(const ValueKey('fnthink-pair-one-way')), findsNothing);
     });
 
     testWidgets('档位读不懂的那一条 ⇒ 同意是灰的，拒绝还能点', (tester) async {

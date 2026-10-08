@@ -3277,6 +3277,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairDeny => '拒绝';
 
   @override
+  String get fnthinkPairApproveOutbound => '同意时也把它设为往外发的目标';
+
+  @override
+  String get fnthinkPairApproveOutboundDesc =>
+      '勾上＝本机这两段当场办掉：那一列勾上 ＋ 一条目标=它的通道。';
+
+  @override
+  String get fnthinkPairApprovedOneWay =>
+      '这边已经能往它发了。反过来那一半（它那边允许这台推过去）要对面那台自己点一次同意 —— 关系记在被投那台的名单里，这台替它点不了。';
+
+  @override
   String get fnthinkPairAskTitle => '同意配对？';
 
   @override
