@@ -6275,7 +6275,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkChannelNote.
   ///
   /// In zh, this message translates to:
-  /// **'徽标那一句记的是最近一次「测这条通道」的结果，不是自动探测：幻念通道没有不打扰对端就能问出通不通的办法。'**
+  /// **'徽标那一句记的是最近一次「仅探测／探测并保存」的结果，不是自动探测：幻念通道没有不打扰对端就能问出通不通的办法。'**
   String get fnthinkChannelNote;
 
   /// No description provided for @fnthinkHubChannelsDesc.
