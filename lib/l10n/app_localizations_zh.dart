@@ -3285,7 +3285,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fnthinkPairApprovedOneWay =>
-      '这边已经能往它发了。反过来那一半（它那边允许这台推过去）要对面那台自己点一次同意 —— 关系记在被投那台的名单里，这台替它点不了。';
+      '这边已经能往它发了。反过来那一半要两台各做一次：在它那一台挂一枚口令，回这里点「配对另一台设备」把它输进去，再由那台点一次同意 —— 关系记在被投那台的名单里，这台替它点不了。';
 
   @override
   String get fnthinkPairAskTitle => '同意配对？';

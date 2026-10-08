@@ -3439,7 +3439,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairApprovedOneWay =>
-      'This side can now send to it. The other half (that device allowing pushes from here) has to be approved over there — the relationship is stored on the receiving device, and this one cannot click for it.';
+      'This side can now send to it. The other half needs one step on each device: arm a code over there, enter it here under \'Pair another device\', and let that device approve once — the relationship lives on the receiving device\'s list, and this one cannot click for it.';
 
   @override
   String get fnthinkPairAskTitle => 'Approve this pairing?';

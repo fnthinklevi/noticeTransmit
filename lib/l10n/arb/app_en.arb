@@ -1613,7 +1613,7 @@
   "fnthinkPairDeny": "Deny",
   "fnthinkPairApproveOutbound": "Also make it a forward target when approving",
   "fnthinkPairApproveOutboundDesc": "Checked = both local legs happen right now: the roster tick plus a channel targeting it.",
-  "fnthinkPairApprovedOneWay": "This side can now send to it. The other half (that device allowing pushes from here) has to be approved over there — the relationship is stored on the receiving device, and this one cannot click for it.",
+  "fnthinkPairApprovedOneWay": "This side can now send to it. The other half needs one step on each device: arm a code over there, enter it here under 'Pair another device', and let that device approve once — the relationship lives on the receiving device's list, and this one cannot click for it.",
   "fnthinkPairAskTitle": "Approve this pairing?",
   "fnthinkPairAskMsg": "Adds {peer} to this device's list and grants {level}. Once approved it can push notifications to this device.",
   "@fnthinkPairAskMsg": {
