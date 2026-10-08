@@ -13,7 +13,7 @@ import '../theme/app_colors.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/pull_to_refresh_list.dart';
 
-/// 通道状态页（T10）：首页「当前推送通道」那点进来，按三族分组列出**已启用**的通道，
+/// 通道状态页（T10）：首页「当前推送通道」那点进来，按族分组列出**已启用**的通道，
 /// 每行给「通道名 · 类型 · 关键链接 · 最近一次探测」，点一行直接进那条通道的配置页。
 ///
 /// 为什么单独一页而不是就在家常的首页卡里铺开：首页那张卡只放得下"几条、大致怎样"，
@@ -21,6 +21,9 @@ import '../widgets/pull_to_refresh_list.dart';
 ///
 /// ⚠ 数据只在 build 时现取（[collectActiveChannels]）：判据与首页同源，两处不会出现
 /// 「首页三条、这里两条」。从配置页返回后主动 `setState` 重取一次。
+/// ⚠ 第四族（幻念推送，T104 片③）在这一页只**读**不**探**：它没有非侵入探针，
+/// 进页那一轮（stale-only）与下拉刷新那一轮（force）都不许带上它 —— 那等于用户拉一下列表，
+/// 对面那台设备就收到一条真通知。
 class ChannelStatusPage extends StatefulWidget {
   /// 打开某一族的配置页。用回调而不是页面自己 push：三个配置页都需要"先加载再进页"
   /// （email 要 `loadChannels()`、webhook 要带通道列表），那套逻辑已经在家常的
@@ -41,8 +44,9 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
   /// 所以这一页既要显示"当前在走备用"，也要给一个手动切回。
   bool _backupEngaged = false;
 
-  /// 分组的固定顺序（首页卡是按"应用→webhook→邮件"的观感排的，这里按族的常用度排）。
-  static const _familyOrder = ['webhook', 'email', 'app'];
+  /// 分组的固定顺序（首页卡是按"应用→webhook→邮件→幻念"的观感排的，这里按族的常用度排，
+  /// 幻念在最后一族：它没有自动重探，徽标在多数时刻是「从未探测」，排前面会把这页顶格变成未知）。
+  static const _familyOrder = ['webhook', 'email', 'app', 'fnthink'];
 
   @override
   void initState() {
@@ -407,6 +411,13 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
                     child: ListView(
                       shrinkWrap: true,
                       children: [
+                        // ⚠ 这一份族清单**不是**上面的 `_familyOrder`（四族）：主备弹层只纳入
+                        // 能"按 family+id 直接改回该族服务"的那三族。幻念那一条的角色改要走
+                        // `FnthinkChannelService.save()`，而它会**连带重验目标**（那台设备已经
+                        // 取消勾选 ⇒ 抛异常），于是"点了主/备没改成"在这里有三种成因，而弹层只
+                        // 有一句「这条通道已经不在了」可说 —— 说错的那一句比少一个快捷入口坏得多。
+                        // 所以这一族的同一件事在通道详情页那一格做（`fnthink-channel-role`）。
+                        // 首页与本页**显示**它的角色（徽标），只是不提供这条快捷路。
                         for (final family in const ['webhook', 'email', 'app'])
                           for (final c in channels.where(
                             (c) => c.family == family,

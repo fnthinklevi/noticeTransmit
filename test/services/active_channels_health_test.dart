@@ -5,14 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/models/email_channel.dart';
+import 'package:notice_transmit/models/fnthink_channel.dart';
+import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/services/active_channels.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
+import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/channel_probe_service.dart';
 import 'package:notice_transmit/services/email_service.dart';
+import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/platform_channel.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
+import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../test_setup.dart';
 
@@ -217,6 +223,218 @@ void main() {
       expect(entry('app')!.displayLine, '自建应用：企业微信应用');
     });
   });
+
+  // ===== T104 第四族：幻念通道进这份清单 =====
+  //
+  // 病灶不是"少写一个 for"：这一族的通道此前在 Dart 侧**没有一个同步读口**（页面各自 await 开库），
+  // 而这份清单是同步的（首页每帧、回前台那一轮、入库快照都读它）。片② 给的是 `cachedChannels`，
+  // 片③ 把它接进来。这里钉的四件事按"错了不报错、只是慢慢说假话"排：
+  // ① 启用中的那条**在**（不在就是 T104 没做完）；② 三列同口径（target／角色／显示名）；
+  // ③ 服务器那一份结论不许冒充通道那一份（片① 拆的两种主语）；④ 自动重探**永不**碰它。
+  group('T104 第四族进清单：显示口径 + 绝不自动重探', () {
+    final helper = DatabaseHelper();
+    late FnthinkChannelService channelService;
+
+    const peerAddress = '8KMNPQRSTVWX999777';
+
+    /// 一台已配对**且已勾选为转发目标**的设备 —— 设备目标的通道只认这种目标（服务那侧的判据）。
+    Future<void> seedForwardPeer() async {
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: peerAddress,
+          publicKey: 'AAAA',
+          level: 'L1',
+          grantedAt: 1780000111000,
+        ),
+      );
+      await channelService.setForward(peerAddress, true);
+    }
+
+    ActiveChannel? byId(String id) {
+      for (final c in collectActiveChannels()) {
+        if (c.family == 'fnthink' && c.id == id) return c;
+      }
+      return null;
+    }
+
+    setUp(() async {
+      final dbPath = join(
+        await getDatabasesPath(),
+        'active_channels_fnthink_test.db',
+      );
+      if (await databaseFactory.databaseExists(dbPath)) {
+        await databaseFactory.deleteDatabase(dbPath);
+      }
+      final db = await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(version: DatabaseHelper.dbVersion),
+      );
+      await helper.createSchemaForTest(db);
+      helper.debugDatabase = db;
+      channelService = FnthinkChannelService(db: helper);
+      // 生产里这是 `setupLocator()` 里那**一个**实例（T104 片②）：装载与读缓存必须落在同一个对象上。
+      GetIt.instance.registerSingleton<FnthinkChannelService>(channelService);
+      addTearDown(() async {
+        helper.debugDatabase = null;
+        await db.close();
+      });
+    });
+
+    test('启用中的幻念通道出现在清单里（此前一个字都不出现）', () async {
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_dev',
+        name: '机房那台',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+      );
+
+      final e = byId('fc_dev');
+      expect(e, isNotNull, reason: '一条启用中的幻念通道没进清单 = T104 没做完');
+      expect(e!.family, 'fnthink');
+      expect(e.slug, kFnthinkChannelSlug);
+      expect(e.deliveryKey, 'chan:fnthink');
+      // 设备目标的"关键链接"就是那台地址码：它不含凭据，且是用户用来认设备的那串。
+      expect(e.target, peerAddress);
+      expect(e.role, 'primary');
+      expect(
+        e.displayLine,
+        '幻念推送：机房那台',
+        reason: '族名没登记进 `_familyNames` 时这里会画成英文 token「fnthink：…」',
+      );
+      expect(
+        e.statusLabel,
+        'unknown',
+        reason: '从没测过的通道在首页不许显示"正常" —— 这一族的探针只有"真发一条"那一种',
+      );
+    });
+
+    test('webhook 目标那条只留 host：path 里常常就是凭据', () async {
+      await channelService.create(
+        id: 'fc_hook',
+        name: '自建端点',
+        target: 'https://push.example.com/hook/secretpath',
+        targetKind: FnthinkChannelTarget.webhook,
+      );
+      expect(byId('fc_hook')!.target, 'push.example.com');
+    });
+
+    test('停用 ⇒ 从清单与送达快照一起退掉（与另三族同一判据）', () async {
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_off',
+        name: '停掉的那条',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+      );
+      expect(deliveryKeysOfActiveChannels(), contains('chan:fnthink'));
+
+      final created = (await channelService.list()).firstWhere(
+        (c) => c.id == 'fc_off',
+      );
+      await channelService.save(created.copyWith(enabled: false));
+
+      expect(byId('fc_off'), isNull);
+      expect(
+        deliveryKeysOfActiveChannels(),
+        isNot(contains('chan:fnthink')),
+        reason: '界面上退掉了而入库快照还按它算 ⇒ 历史记录里那条永远"发送中"',
+      );
+    });
+
+    test('服务器通不通 ≠ 这条通道通不通（片① 拆开的两种主语）', () async {
+      final health = GetIt.instance<ChannelHealthStore>();
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_dev',
+        name: '机房那台',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+      );
+      // 那台中转机判"不可达"，而这条通道从没测过。
+      await health.record(
+        kFnthinkServerFamily,
+        'push.example.com',
+        reachable: false,
+        latencyMs: 9000,
+      );
+
+      expect(
+        byId('fc_dev')!.statusLabel,
+        'unknown',
+        reason:
+            '服务器那一份结论串到通道行上 = 首页当着用户说"这条通道坏了"，'
+            '而这两件事的下一步动作完全不同（换档 vs 进详情点「仅探测」）',
+      );
+      expect(
+        health.of(kFnthinkChannelSlug, 'push.example.com'),
+        isNull,
+        reason: '通道那一族的主语是**通道 id**：拿 host 去查它说明两处又共用族名了',
+      );
+
+      // 反向：通道自己测过之后结论只归通道，不许漏到服务器那一格。
+      await health.record(
+        kFnthinkChannelSlug,
+        'fc_dev',
+        reachable: true,
+        latencyMs: 20,
+      );
+      expect(byId('fc_dev')!.statusLabel, 'ok');
+      expect(
+        health.of(kFnthinkServerFamily, 'push.example.com')!.reachable,
+        isFalse,
+      );
+    });
+
+    test('自动重探（含 force 那一发）不碰这一族：一条记录都不写', () async {
+      final health = GetIt.instance<ChannelHealthStore>();
+      await seedChannels(
+        hooks: [hookRow()],
+        apps: [appRow()],
+        emails: [enabledEmail()],
+      );
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_dev',
+        name: '机房那台',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+      );
+
+      final calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(AppChannels.notification, (call) async {
+            calls.add(call);
+            return <String, Object?>{'reachable': true, 'latencyMs': 5};
+          });
+      GetIt.instance.registerSingleton<ChannelProbeService>(
+        ChannelProbeService(health: health, channel: AppChannels.notification),
+      );
+
+      // force：通道状态页下拉刷新那一路 —— 它对另三族"现在全探一遍"，对这一族一个字节都不许发。
+      await probeChannelsAcrossFamilies(force: true);
+
+      expect(
+        health.of(kFnthinkChannelSlug, 'fc_dev'),
+        isNull,
+        reason:
+            '这一族没有非侵入探针：自动重探一旦写上记录，就等于用户拉一下列表，'
+            '对面那台设备收到一条他没要过的真通知',
+      );
+      // 另三族的行为一字节不许因为"加了一族"而变（这里只钉"还在探"，具体探几条由 #174 那组钉）。
+      expect(
+        calls.map((c) => c.method),
+        containsAll(<String>['probeChannelHealth', 'probeAppChannelToken']),
+        reason: '排除幻念时把另两族一起排除掉了 ⇒ 过时效的灯又没人管',
+      );
+      // 这一族仍在清单里：它是**只读地**被显示，不是被探测改动掉。
+      expect(byId('fc_dev'), isNotNull);
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(AppChannels.notification, null);
+    });
+  });
+
   group('#174 过期之后有人重探：目标构造 + 全族扫一遍', () {
     // 能探的邮件通道：凭据要**齐**（探测目标的门槛里含密码）—— `enabledEmail()` 不带密码，
     // 拿它来断言会把"门槛生效"错读成"这条链路没接上"。

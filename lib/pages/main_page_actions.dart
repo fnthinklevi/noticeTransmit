@@ -443,9 +443,12 @@ extension _MainPageActions on _MainPageState {
   }
 
   /// 通道状态页（T10）：从首页「当前推送通道」那张卡点进来。
-  /// 点某一行按族进对应配置页 —— 直接复用上面三个开页方法：
+  /// 点某一行按族进对应配置页 —— 直接复用上面那几个开页方法：
   /// webhook / email 都是"先把数据取进来、退出时把结果存回去"的形态，
   /// 在状态页里再写一份加载与回存逻辑就会和这里漂移。
+  ///
+  /// ⚠ 第四族（幻念，T104 片③）必须**单独一条 case**：漏在它上面那个 `default` 里，
+  ///   表现是点幻念那一行开的是「自建应用通道」那页 —— 不崩、不报错，只是把人带到别的地方。
   Future<void> _openChannelStatusPage() async {
     await _pushPage(
       ChannelStatusPage(
@@ -455,6 +458,8 @@ extension _MainPageActions on _MainPageState {
               await _openWebhookChannelsPage();
             case 'email':
               await _openEmailSettingsPage();
+            case 'fnthink':
+              await _openFnthinkChannelsPage();
             default:
               await _openAppChannelsSettingsPage();
           }

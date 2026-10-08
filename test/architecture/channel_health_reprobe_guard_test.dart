@@ -174,4 +174,130 @@ void main() {
       );
     });
   });
+
+  // T104 立的那条安全判据。这一族进首页/通道状态页之后，"顺手重探"那两发（进页 stale-only、
+  // 下拉 force）离它只差一行 —— 而它**没有非侵入探针**：那一发是真往对面那台设备发一条通知。
+  // 所以这一组钉的是"这一族只被显示，绝不被自动探"，两侧都要钉：
+  // 少了正向那条，第四族哪天被人"顺手补齐"就没人拦；少了负向那条，拦不住的就是空话。
+  group('T104 幻念第四族：只进显示单点，绝不进自动重探', () {
+    test('自动重探那一发里没有幻念族（进页与下拉都不许带上它）', () {
+      final src = read('lib/services/active_channels.dart');
+      // 探测链路的族名只有一个出处：`probeChannelsAcrossFamilies` 里那三行 `add('<族>', …)`。
+      // 按"这一族的族名集合"判，而不是抄那一段源码的行列 —— 折行/改参数形状都会让字面抄本变红，
+      // 而那种红与"口径"无关（base.md（75））。
+      final probed = RegExp(
+        "add\\('([^']+)'",
+      ).allMatches(src).map((m) => m.group(1)!).toSet();
+      expect(
+        probed,
+        equals({'webhook', 'app', 'email'}),
+        reason:
+            '自动重探的族集合变了：多出 fnthink ⇒ 用户进页/拉一下，对面那台设备就收到一条'
+            '他没要过的真通知（这一族没有非侵入探针）；少掉一族 ⇒ 过时效的那盏灯又没人管（#174 的病灶）',
+      );
+      expect(
+        src,
+        isNot(contains("add('fnthink'")),
+        reason: '族集合那条已经拦住了，这一条是把"怎么加进来的"那一句也钉住（改天集合判据被人绕过时它还红）',
+      );
+    });
+
+    test('这一族自己也不提供探测目标（连"想接"的口子都没有）', () {
+      final service = read('lib/services/fnthink_channel_service.dart');
+      expect(
+        service,
+        isNot(contains('probeTargets')),
+        reason:
+            '另三族各有 `probeTargets`，全族扫一遍读的就是它。这一族一旦长出同名的口，'
+            '下一行代码就会把它接进自动重探 —— 而那一步不需要任何新逻辑，所以拦在这里',
+      );
+    });
+
+    test('显示单点这一侧：第四族确实在清单里，且按 enabled 判', () {
+      final body = blockAfter(
+        read('lib/services/active_channels.dart'),
+        'List<ActiveChannel> collectActiveChannels() {',
+      );
+      expect(
+        body,
+        contains("family: 'fnthink'"),
+        reason: '一条启用中的幻念通道不在这份清单里 = 它照在转发而界面上看不见（T104 的病灶）',
+      );
+      expect(
+        body,
+        contains('where((c) => c.enabled)'),
+        reason: '停用的通道不进这份清单（与另三族同一判据；停用≠可以显示成"正常"）',
+      );
+    });
+
+    test('通道状态页分四组，但主备弹层仍只有那三族（这条快捷路没开）', () {
+      final page = read('lib/pages/channel_status_page.dart');
+      expect(
+        page,
+        contains("'fnthink'"),
+        reason: '分组顺序里没有第四族 ⇒ 清单里有它而这一页不画它，两处又开始各说一套',
+      );
+      final sheet = blockAfter(page, 'Future<void> _showRoleSheet() async');
+      expect(
+        sheet,
+        isNot(contains("'fnthink'")),
+        reason:
+            '这一族的角色改要走 `FnthinkChannelService.save()`（会连带重验目标），'
+            '而弹层只有「这条通道已经不在了」一句可说 —— 在这里加一族等于让快捷路说假话',
+      );
+    });
+
+    test('点幻念那一行必须有自己的 case（不许被 default 带去自建应用那页）', () {
+      final actions = librarySource(root, 'lib/pages/main_page.dart');
+      final opener = blockAfter(
+        actions,
+        'Future<void> _openChannelStatusPage()',
+      );
+      expect(
+        opener,
+        contains("case 'fnthink'"),
+        reason:
+            '按族分派漏了这一条时会走 `default` ⇒ 点幻念那行开的是「自建应用通道」那页：'
+            '不崩、不报错，只是把人带到别的地方',
+      );
+    });
+
+    test('装载与读缓存必须是同一个实例：除 DI 那处，全 lib 不许再 new', () {
+      // T104 片② 的病灶不是编译错误：那份 `cachedChannels` 挂在**实例**上，各页各 new 一份时
+      // "装载发生在这一份、清单读的是另一份"，表现是首页少一行而一行错误都不冒（全场测试照样绿）。
+      final locator = read('lib/di/service_locator.dart');
+      expect(
+        locator,
+        contains('registerLazySingleton<FnthinkChannelService>('),
+        reason: '没注册 ⇒ `collectActiveChannels()` 那个 try 每次都被吞掉，第四族永远不上屏',
+      );
+      expect(
+        librarySource(root, 'lib/pages/main_page.dart'),
+        contains('GetIt.instance<FnthinkChannelService>()'),
+        reason:
+            '装载点（`_refreshFnthinkChannels()` 那一发 `list()`）必须落在 DI 那一个实例上 —— '
+            '它自己 new 一份就是那份缓存的第二本账',
+      );
+      final offenders = <String>[];
+      for (final f in Directory(
+        '$root/lib',
+      ).listSync(recursive: true).whereType<File>()) {
+        if (!f.path.endsWith('.dart')) continue;
+        final rel = f.path
+            .replaceAll(r'\', '/')
+            .substring(root.replaceAll(r'\', '/').length + 1);
+        if (rel == 'lib/di/service_locator.dart') continue;
+        if (stripComments(
+          f.readAsStringSync(),
+        ).contains('FnthinkChannelService()')) {
+          offenders.add(rel);
+        }
+      }
+      expect(
+        offenders,
+        isEmpty,
+        reason: '这些文件又 new 了一份通道写咽喉：$offenders ⇒ 首页读的缓存与它们写的不是同一个',
+      );
+    });
+  });
 }

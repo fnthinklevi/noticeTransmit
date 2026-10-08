@@ -4,10 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/models/email_channel.dart';
+import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/pages/channel_status_page.dart';
 import 'package:notice_transmit/services/app_channel_service.dart';
+import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/email_service.dart';
+import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/webhook_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,7 +20,7 @@ import '../test_setup.dart';
 /// T10：通道状态页（首页「当前推送通道」点进来的那一页）。
 ///
 /// 锁四件事：
-/// 1. **按三族分组**，每行给通道名 / 类型 / 关键链接 / 最近一次探测；
+/// 1. **按族分组**（四族，T104 起含幻念推送），每行给通道名 / 类型 / 关键链接 / 最近一次探测；
 /// 2. 关键链接**只有 host[:port]** —— webhook 的凭据常在 path 与 query 里
 ///    （Server酱 `/<SENDKEY>.send`、钉钉 `?access_token=`），整条 URL 上屏就是泄露；
 /// 3. 点某一行按**族**回调（配置页的"先加载再进页、退出回存"逻辑留在 MainPage，不复制）；
@@ -391,6 +394,171 @@ void main() {
         find.textContaining('建议不超过 5 条'),
         findsOneWidget,
         reason: '超过推荐值要给提示（但不设硬上限）',
+      );
+    });
+  });
+
+  // ===== T104 片③④：第四族进这一页 =====
+  //
+  // 这里只喂 `cachedChannels` 那一份内存列表，不建库 —— 装载与校验是服务那侧的账
+  // （`fnthink_channel_service_test`），这一页要钉的是"配好的那条到底出现不出现、
+  // 出现时三列说的是什么"。生产里那份列表由装配链的 `list()` 填（T103 的装载点）。
+  group('T104 第四族（幻念推送）在这一页', () {
+    const peerAddress = '8KMNPQRSTVWX999777';
+    late FnthinkChannelService channelService;
+
+    void seedFnthink({bool enabled = true, String role = 'backup'}) {
+      channelService.cachedChannels = [
+        FnthinkChannel(
+          id: 'fc_dev',
+          name: '机房那台',
+          target: peerAddress,
+          targetKind: FnthinkChannelTarget.device,
+          enabled: enabled,
+          role: role,
+          createdAt: 1780000111000,
+          updatedAt: 1780000111000,
+        ),
+      ];
+    }
+
+    setUp(() {
+      // 与生产同一个解析口：`collectActiveChannels()` 读的是 GetIt 里那**一个**实例的缓存。
+      channelService = FnthinkChannelService();
+      GetIt.instance.registerSingleton<FnthinkChannelService>(channelService);
+    });
+
+    testWidgets('族标题在最后，行有锚点、关键链接是那台地址码、角色画译文', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+      seedFnthink();
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('幻念推送'),
+        findsOneWidget,
+        reason: '族名没登记进 `_familyNames` 时这里会画成英文 token「fnthink」',
+      );
+      expect(
+        find.byKey(const ValueKey('channel-status-fnthink-fc_dev')),
+        findsOneWidget,
+        reason: '一行都不画 = 它照在转发而这一页看不见（T104 的病灶）',
+      );
+      expect(find.text('机房那台'), findsOneWidget);
+      // 设备目标的关键链接就是那台地址码（不含凭据，且是用户认设备的那串）
+      expect(find.textContaining(peerAddress), findsOneWidget);
+      // 排在最后：这一族的徽标多数时刻是「未知」，摆第一行会把整页顶格变成未知
+      expect(
+        tester.getTopLeft(find.text('幻念推送')).dy,
+        greaterThan(tester.getTopLeft(find.text('自建应用')).dy),
+      );
+      expect(
+        find.text('备'),
+        findsOneWidget,
+        reason: '另三族那三行没写过角色 ⇒ 一律画「主」，而这一条存的是 backup ⇒ 角色列跨族同一个徽标',
+      );
+    });
+
+    testWidgets('从没测过 ⇒ 那一行说「未知」＋「从未探测」，不是一句"状态正常"', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      seedFnthink();
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('状态未知'), findsOneWidget);
+      expect(find.textContaining('从未探测'), findsOneWidget);
+      expect(
+        find.text('状态正常'),
+        findsNothing,
+        reason: '这一族没有非侵入探针，没人手动测过就没有证据 —— 恒绿是谎',
+      );
+    });
+
+    testWidgets('人手动测过之后，结论只上这一行（键是通道 id，不是 host）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      seedFnthink();
+      await GetIt.instance<ChannelHealthStore>().record(
+        kFnthinkChannelSlug,
+        'fc_dev',
+        reachable: true,
+        latencyMs: 40,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('状态正常'),
+        findsOneWidget,
+        reason: '详情页页脚那一枚测完，这一页要跟着改口径（读的是同一对键）',
+      );
+      expect(find.textContaining('分钟前探测'), findsOneWidget);
+    });
+
+    testWidgets('服务器那格的结论不冒充这条通道（片① 拆开的两种主语）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      seedFnthink();
+      await GetIt.instance<ChannelHealthStore>().record(
+        kFnthinkServerFamily,
+        'push.example.com',
+        reachable: false,
+        latencyMs: 9000,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('状态异常'),
+        findsNothing,
+        reason:
+            '一台中转机不通就宣布这条通道坏了 ⇒ 用户会去详情页点「仅探测」（那一发是真往对面发通知）。'
+            '两件事的下一步动作不同，界面上必须先分清',
+      );
+      expect(find.text('状态未知'), findsOneWidget);
+    });
+
+    testWidgets('点那一行回调的是 fnthink（不是被 default 带去自建应用那页）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      seedFnthink();
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('channel-status-fnthink-fc_dev')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(opened, ['fnthink']);
+    });
+
+    testWidgets('停用 ⇒ 这一页不再列它（与首页同一判据）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      seedFnthink(enabled: false);
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('幻念推送'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('channel-status-fnthink-fc_dev')),
+        findsNothing,
+        reason: '停用的通道不进这份清单 —— 三族同一判据，幻念不许是第二种规矩',
       );
     });
   });
