@@ -539,11 +539,13 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             if (code != null)
               FnthinkInlineAction(
                 label: l10n.fnthinkCopy,
+                tone: FnthinkActionTone.neutral,
                 onPressed: () => fnthinkCopyNotice(context, code),
               ),
             FnthinkInlineAction(
               key: const ValueKey('fnthink-reset-code'),
               label: l10n.fnthinkResetCode,
+              tone: FnthinkActionTone.destructive,
               onPressed: code == null ? null : _resetAddressCode,
             ),
           ],
@@ -577,6 +579,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
               ),
               FnthinkInlineAction(
                 label: l10n.fnthinkCopy,
+                tone: FnthinkActionTone.neutral,
                 onPressed: () => fnthinkCopyNotice(context, pairing.code.value),
               ),
             ],
@@ -609,6 +612,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             child: FnthinkInlineAction(
               key: const ValueKey('fnthink-revoke-pairing'),
               label: l10n.fnthinkRevokePairing,
+              tone: FnthinkActionTone.destructive,
               onPressed: _clearPairingCode,
             ),
           ),
@@ -694,6 +698,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             FnthinkInlineAction(
               key: const ValueKey('fnthink-host-default'),
               label: l10n.fnthinkHostReset,
+              tone: FnthinkActionTone.neutral,
               onPressed: _restoreDefaultHost,
             ),
           ],

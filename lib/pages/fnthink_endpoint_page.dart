@@ -390,6 +390,7 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
           child: FnthinkInlineAction(
             key: const ValueKey('fnthink-endpoint-read'),
             label: l10n.fnthinkEndpointListRead,
+            tone: FnthinkActionTone.neutral,
             onPressed: _busy ? null : _readEndpoints,
           ),
         ),
@@ -428,6 +429,7 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
                 child: FnthinkInlineAction(
                   key: ValueKey('fnthink-endpoint-revoke-${row.id}'),
                   label: l10n.fnthinkEndpointRevoke,
+                  tone: FnthinkActionTone.destructive,
                   onPressed: _busy ? null : () => _revokeEndpoint(row),
                 ),
               ),
@@ -436,6 +438,7 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
                 child: FnthinkInlineAction(
                   key: ValueKey('fnthink-endpoint-rotate-${row.id}'),
                   label: l10n.fnthinkEndpointRotate,
+                  tone: FnthinkActionTone.destructive,
                   onPressed: _busy ? null : () => _rotateEndpoint(row),
                 ),
               ),
@@ -564,6 +567,7 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
         child: FnthinkInlineAction(
           key: ValueKey(keyName),
           label: label,
+          tone: FnthinkActionTone.neutral,
           // 这一页手上没有那一段东西 ⇒ 置灰，而不是复制一条拼了一半的假命令。
           onPressed: _busy || text == null
               ? null

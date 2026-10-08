@@ -331,6 +331,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             FnthinkInlineAction(
               key: ValueKey('fnthink-pair-deny-${request.requestId}'),
               label: l10n.fnthinkPairDeny,
+              tone: FnthinkActionTone.destructive,
               onPressed: _busy ? null : () => _answer(request, false),
             ),
           ],
@@ -400,6 +401,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
               child: FnthinkInlineAction(
                 key: ValueKey('fnthink-peer-revoke-${peer.peerAddress}'),
                 label: l10n.fnthinkPeerRevoke,
+                tone: FnthinkActionTone.destructive,
                 // 撤销那一发要能连点两下都不出事（服务端幂等），但 `_busy` 仍然拦：
                 // 拦的不是"撤两次"，是"两次删行撞在一起"——那种时候界面显示的是哪一次？
                 onPressed: _busy ? null : () => _revoke(peer),

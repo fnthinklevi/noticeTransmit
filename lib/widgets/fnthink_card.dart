@@ -187,15 +187,49 @@ class FnthinkNote extends StatelessWidget {
 ///
 /// `onPressed` 传 null = 此刻不可用（例如手上还没有那段东西）：**置灰，不是藏起来** ——
 /// 藏起来用户会以为这一页没有这个功能。
+///
+/// T108：颜色按**功能语义**分，不按"这看起来是个链接"分 —— 关掉一把端点与复制它的 id
+/// 不是同一类决定，画成同一个蓝就是把"不可逆"藏在"可逆"旁边。
+enum FnthinkActionTone {
+  /// 往前走一步（批准、发一条、建一个、改地址）：主色。
+  action,
+
+  /// 可逆、看一眼动一下（复制、读一次、恢复默认）：中性字色。
+  neutral,
+
+  /// 会让某个东西从此不可用（关掉、撤销、换掉口令、拒绝）：红。
+  destructive,
+}
+
 class FnthinkInlineAction extends StatelessWidget {
   const FnthinkInlineAction({
     required this.label,
     required this.onPressed,
+    this.tone = FnthinkActionTone.action,
     super.key,
   });
 
   final String label;
   final VoidCallback? onPressed;
+  final FnthinkActionTone tone;
+
+  /// 语义 → 颜色的**唯一作者**：页面不许自己挑蓝/红（一处自挑一次，下一处就漏一次）。
+  /// 用例也读这一枚，不另抄一份颜色表。
+  static Color colorOf(
+    BuildContext context,
+    FnthinkActionTone tone,
+    bool enabled,
+  ) {
+    if (!enabled) return AppColors.tertiaryLabel(context);
+    switch (tone) {
+      case FnthinkActionTone.destructive:
+        return AppColors.systemRed(context);
+      case FnthinkActionTone.neutral:
+        return AppColors.secondaryLabel(context);
+      case FnthinkActionTone.action:
+        return AppColors.systemBlue(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,9 +242,7 @@ class FnthinkInlineAction extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: 15,
-          color: onPressed == null
-              ? AppColors.tertiaryLabel(context)
-              : AppColors.systemBlue(context),
+          color: colorOf(context, tone, onPressed != null),
         ),
       ),
     );

@@ -584,6 +584,106 @@ void main() {
       expect(n('lib/pages/fnthink_peers_page.dart', 'FnthinkInlineAction('), 4);
     });
 
+    // T108 片①：那批"蓝色文字点击件"按功能语义分色，并把"谁还在自己搭按钮"记成一本账。
+    test('T108：语义→颜色只有 colorOf 一处；页面自己搭的按钮与裸 Text 点击件各有台账', () {
+      // ① 词表只有一处作者。抄第二处 = 页面可以自己决定"撤销"该是什么颜色，
+      //    而这一条判据的内容正是"不可逆的事要看得出来"。
+      expect(hitting('enum FnthinkActionTone'), const <String>[
+        'lib/widgets/fnthink_card.dart',
+      ], reason: '语义词表被抄到第二处 ⇒ 颜色口径开始分叉');
+
+      // ② 破坏性（关掉／撤销／拒绝／换一把口令／重置地址码）逐文件枚数就是台账：
+      //    少一枚 ⇒ 有人把它改回了默认蓝，而界面上"能不能反悔"这件事又看不出来了。
+      const destructive = <String, int>{
+        'lib/pages/fnthink_endpoint_page.dart': 2,
+        'lib/pages/fnthink_peers_page.dart': 2,
+        'lib/pages/fnthink_settings_page.dart': 2,
+      };
+      const neutral = <String, int>{
+        'lib/pages/fnthink_endpoint_page.dart': 2,
+        'lib/pages/fnthink_settings_page.dart': 3,
+      };
+      for (final (table, needle) in const [
+        (destructive, 'FnthinkActionTone.destructive'),
+        (neutral, 'FnthinkActionTone.neutral'),
+      ]) {
+        for (final e in table.entries) {
+          final actual = 'FnthinkActionTone.'
+              .allMatches(codeByPath[e.key]!)
+              .length; // 只为报错信息用，见下条 reason
+          expect(
+            needle.allMatches(codeByPath[e.key]!).length,
+            e.value,
+            reason:
+                '${e.key} 里 $needle 实际 '
+                '${needle.allMatches(codeByPath[e.key]!).length} 枚、台账 ${e.value} 枚 ⇒ '
+                '要么改回了默认蓝（缺陷复活），要么换成了公共件之外的形状（该搬的没搬）。'
+                '本页现在共有 $actual 处 tone 引用。',
+          );
+          expect(actual, greaterThanOrEqualTo(e.value));
+        }
+      }
+      // 判据自证：台账不许是空的（空表会让上面那一圈恒真 —— 本仓"不许变多"型台账的正解）。
+      expect(
+        destructive.values.reduce((a, b) => a + b),
+        greaterThan(0),
+        reason: '破坏性一枚都没登记 ⇒ 上面那条等于没写',
+      );
+
+      // ③ 验收 ③：页面里不许出现"裸 Text 直接挂 onTap"那种自搭点击件。
+      //    GestureDetector／InkWell 一次都不该有（命中区与按压反馈都由公共件负责）。
+      final fnthinkPages =
+          codeByPath.keys
+              .where((k) => k.startsWith('lib/pages/fnthink_'))
+              .toList()
+            ..sort();
+      expect(
+        fnthinkPages.length,
+        greaterThanOrEqualTo(8),
+        reason: '只扫到 ${fnthinkPages.length} 张幻念页 ⇒ 目录口径漂了，下面两条是摆设',
+      );
+      for (final p in fnthinkPages) {
+        expect(
+          'GestureDetector('.allMatches(codeByPath[p]!).length,
+          0,
+          reason: '$p 自己搭了 GestureDetector ⇒ 绕开装配点，命中区与按压反馈各是各的',
+        );
+        expect(
+          'InkWell('.allMatches(codeByPath[p]!).length,
+          0,
+          reason: '$p 自己搭了 InkWell ⇒ 同上（T100 已把这一形状收进公共件）',
+        );
+      }
+
+      // ④ 台账②：还剩这几枚是页面自己搭的按钮（`CupertinoButton` 直接写在页文件里）。
+      //    这一本就是 T108 的剩余工作量：搬一枚进公共件就把账改小，新写一枚当场红。
+      const localButtons = <String, int>{
+        'lib/pages/fnthink_channel_settings_page.dart': 2,
+        'lib/pages/fnthink_send_page.dart': 4,
+        'lib/pages/fnthink_receive_page.dart': 1,
+      };
+      int local(String p) =>
+          'CupertinoButton('.allMatches(codeByPath[p]!).length;
+      final actualLocal = <String, int>{
+        for (final p in fnthinkPages)
+          if (local(p) > 0) p: local(p),
+      };
+      expect(
+        actualLocal.keys.toSet(),
+        localButtons.keys.toSet(),
+        reason:
+            '又有一张页自己搭按钮（${actualLocal.keys.toSet().difference(localButtons.keys.toSet())}）⇒ '
+            '新写的那枚请走装配点；真搬走一枚就把这一格从账上删掉',
+      );
+      for (final e in localButtons.entries) {
+        expect(
+          actualLocal[e.key] ?? 0,
+          e.value,
+          reason: '${e.key} 的自搭按钮枚数与台账不等 ⇒ 这本账就是剩余量，改了要回来记账',
+        );
+      }
+    });
+
     test('「主操作填充」也只有 PrimaryActionButton 一个装配点', () {
       expect(hitting('class PrimaryActionButton'), const <String>[
         'lib/widgets/primary_action_button.dart',
