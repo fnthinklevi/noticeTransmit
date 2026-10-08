@@ -340,29 +340,38 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
   }
 
   /// 空态也在下拉壳里：没有「上面还有内容」可滚，但重读仍然成立。
+  ///
+  /// ⚠ 左右 32 的留白不是装饰（2026-10-08 真机走查）：这一句 32 字，在 393dp 宽的屏上
+  ///   按整幅宽度换行**正好顶到两边**（第一行从 x=0 起、末字压到屏幕边缘）。
+  ///   另外三族的空态是 6–13 字的一行，不会走到这一步 —— 所以只在这里加留白，不改成公共件。
   Widget _emptyView(AppLocalizations l10n) => Center(
     key: const ValueKey('fnthink-channel-empty'),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.inbox, size: 48, color: AppColors.secondaryLabel(context)),
-        const SizedBox(height: 12),
-        Text(
-          l10n.fnthinkChannelEmpty,
-          style: TextStyle(
-            fontSize: 16,
-            color: AppColors.secondaryLabel(context),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.inbox, size: 48, color: AppColors.secondaryLabel(context)),
+          const SizedBox(height: 12),
+          Text(
+            l10n.fnthinkChannelEmpty,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.secondaryLabel(context),
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          l10n.clickToAdd,
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.tertiaryLabel(context),
+          const SizedBox(height: 4),
+          Text(
+            l10n.clickToAdd,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.tertiaryLabel(context),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
@@ -344,8 +345,36 @@ void main() {
     expect(target.onPressed, isNotNull);
   });
 
+  testWidgets('窄屏（393dp＝这台机的逻辑宽）：空态那句话不顶到屏幕两边', (tester) async {
+    // ⚠ 这一条是真机走查逼出来的（2026-10-08）：本文件其它用例都跑在 1080 逻辑宽上，
+    //   那句话按整幅宽度换行**正好顶到两边**（手机上第一行从 x=0 起、末字压到边缘）。
+    //   离开这台机之前，这个缺陷任何一条用例都看不见。
+    tester.view.physicalSize = const Size(393, 851);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      AppRoot(
+        locale: const Locale('zh'),
+        dark: false,
+        home: FnthinkChannelListPage(
+          service: _MemoryStore(),
+          health: ChannelHealthStore(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final line = lookupAppLocalizations(const Locale('zh')).fnthinkChannelEmpty;
+    final rect = tester.getRect(find.text(line));
+    expect(rect.left, greaterThan(8), reason: '那句话左边顶到屏幕 ⇒ 窄屏上会溢出去');
+    expect(
+      393 - rect.right,
+      greaterThan(8),
+      reason: '那句话右边顶到屏幕 ⇒ 同上（真机走查看到的就是这个）',
+    );
+  });
+
   // ── #271「测试这条通道」：徽标今天恒为「没测过」的那一发 ──────────────────────
-  //
   // 这一族**没有非侵入探针**（`presence` 只答本机醒不醒），所以徽标能记的只有
   // 「最近一次测试」—— 也就是说：没有这一枚，列表页那些徽标永远说不出话来。
 
