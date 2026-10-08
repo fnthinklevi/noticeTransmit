@@ -177,6 +177,37 @@ object EmailSender {
     }
 
     /**
+     * 非侵入探测的结论：通不通、给人看的那一句、以及**是不是认证失败**。
+     *
+     * `authFailure` 单独占一格，是因为调用方（Dart 的探测调度）要拿它决定「要不要进冷却」，
+     * 而它只看得到 [message] 那句中文 —— 让它去匹配措辞就成了第二份口径：文案一改，
+     * 冷却静默失效，而失效方向恰好是「又开始频繁认证」（那正是要防的事）。
+     */
+    data class ProbeOutcome(
+        val ok: Boolean,
+        val message: String,
+        val authFailure: Boolean,
+    )
+
+    /**
+     * 认证类失败：**会引来厂商临时封禁的那一类**（授权码错、账号被拒），与「连不上／超时」分开。
+     *
+     * 判据与 [classifyError] 里那几臂同源（530／534／535 与 AuthenticationFailedException），
+     * 这样「探测说通而实发失败」那类分裂就少一处能藏身的地方。
+     */
+    fun isAuthFailure(e: Exception): Boolean =
+        when (e) {
+            is AuthenticationFailedException -> true
+            is MessagingException -> {
+                val raw = e.message.orEmpty()
+                raw.contains("530", ignoreCase = true) ||
+                    raw.contains("534", ignoreCase = true) ||
+                    raw.contains("535", ignoreCase = true)
+            }
+            else -> false
+        }
+
+    /**
      * 6e 非侵入探测：**只握手 + 认证，不投递任何邮件**。
      *
      * 为什么要有第三条路：`sendTestEmail` 会真的发出一封信 —— 用户只是想确认
@@ -185,8 +216,12 @@ object EmailSender {
      * ⚠ 与 webhook 侧的 `probeChannelHealth` 不同，这条**会真的走到厂商服务器并认证**，
      * 所以调用方必须只在"用户进页面 + 缓存超过 staleness"或用户主动点测试时触发，
      * 不得做成轮询（QQ/163 对连续认证失败有临时封禁）。
+     * ⚠ T115 护栏②：认证失败之后 **Dart 侧还会再挡一道冷却**（见
+     * `ChannelProbeService.authCooldown`）—— 那一侧只看得到这一发回传的 `authFailure`
+     * 布尔（判据住在这一侧，因为它看得见异常类型），而界面那一句「多久可以再试」归界面。
      */
-    fun verifyConnection(config: EmailConfig): Pair<Boolean, String> {
+
+    fun verifyConnection(config: EmailConfig): ProbeOutcome {
         return try {
             val transport = sessionFor(config).getTransport("smtp")
             try {
@@ -194,11 +229,11 @@ object EmailSender {
             } finally {
                 runCatching { transport.close() }
             }
-            Pair(true, "SMTP 握手与认证通过（未发送邮件）")
+            ProbeOutcome(true, "SMTP 握手与认证通过（未发送邮件）", false)
         } catch (e: Exception) {
             val msg = classifyError(e)
             Log.e(TAG, "SMTP 探测失败: $msg", e)
-            Pair(false, msg)
+            ProbeOutcome(false, msg, isAuthFailure(e))
         }
     }
 

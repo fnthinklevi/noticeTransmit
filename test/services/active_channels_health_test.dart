@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -142,7 +143,7 @@ void main() {
       expect(entry('email')!.statusLabel, 'ok');
     });
 
-    test('成功但记录已过时效（>6h）→ 未知：旧的成功不能证明现在通', () async {
+    test('成功但记录已过时效 ⇒ stale（可以说正常，但界面必须同时带出上次时间）', () async {
       final staleAt = DateTime.now()
           .subtract(const Duration(hours: 7))
           .millisecondsSinceEpoch;
@@ -160,10 +161,44 @@ void main() {
       GetIt.instance.registerSingleton<ChannelHealthStore>(health);
       await seedChannels();
 
-      // 「没记录」与「记录过期」都判 unknown —— 所以必须先证明记录真读到了，
-      // 否则这条用例其实什么都没测
+      // 旧写法把这一档画成 unknown（理由：没有新鲜的探测结果既不能说正常也不能说异常）。
+      // 维护者 2026-10-08 拍的形状是"上次结论 + 多久之前"⇒ 这一档有自己的标签，
+      // 而它带的**显示契约**（必须同屏带时间）由 `channelHealthStateForDisplay` 把关，
+      // 页面侧的用例在 channel_health_badge / notification_page_channels 那两份里钉。
       expect(entry('app')!.health, isNotNull, reason: '预置键没命中：id 或键格式变了');
-      expect(entry('app')!.statusLabel, 'unknown');
+      expect(entry('app')!.statusLabel, 'stale');
+      expect(
+        entry('app')!.health!.probedAt,
+        greaterThan(0),
+        reason: '这一档能说"正常"的前提是说得出上次时间；probedAt 为 0 时该退回 unknown',
+      );
+    });
+
+    test('probedAt == 0 的旧成功结论退回 unknown：没有时间就不许只说正常', () async {
+      // 这不是防御性用例：email 族的旧缓存 `email_test_results` 搬进健康单点时
+      // 就是"有结果、没时间"（probedAt 记 0），见 ChannelHealthStore._migrateEmailResults。
+      SharedPreferences.setMockInitialValues({
+        'channel_health_app:app-1': jsonEncode({
+          'reachable': true,
+          'latencyMs': 20,
+          'httpCode': null,
+          'probedAt': 0,
+        }),
+      });
+      await GetIt.instance.unregister<ChannelHealthStore>();
+      final health = ChannelHealthStore();
+      await health.load();
+      GetIt.instance.registerSingleton<ChannelHealthStore>(health);
+      await seedChannels();
+
+      expect(entry('app')!.health, isNotNull, reason: '预置键没命中');
+      expect(
+        entry('app')!.statusLabel,
+        'unknown',
+        reason:
+            'probedAt 为 0 时"上次探测于何时"说不出口 —— 此时画"正常"就是那句禁令禁的半句谎，'
+            '所以显示侧必须退回未知（调度侧 needsProbe 仍按过期算，照旧会去重探）',
+      );
     });
 
     test('失败不因时效而降级成未知：失败是确凿证据，直到下次探测推翻它', () async {
@@ -490,6 +525,40 @@ void main() {
       expect(probed, [
         peerAddress,
       ], reason: '进页/回前台是"顺手检查"，不是"每次露脸都发一轮请求"（另三族同一条不变量）');
+    });
+
+    test('同一条通道并发两轮只发一发（T115 护栏①：这一族自己那份在飞保护）', () async {
+      // 原生那三族有 `ChannelProbeService._running` 挡着并发轮次，而这一族走自己那条路 ——
+      // T106 片③ 把它接进自动重探时没有那道保护：主动节奏那一轮 + 状态页进页那一轮 +
+      // 首页下拉那一轮叠起来，就是同一条路被问两遍签名事件。
+      // ⚠ 这条断的是"并发不叠发"，与上面那条"过期才发"是两件事：把 staleness 判据删掉，
+      //   上面那条会红而这条不会，所以两条都得在。
+      final blocker = Completer<void>();
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_dev',
+        name: '机房那台',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+      );
+
+      final probed = <String>[];
+      Future<FnthinkProbeResult> stubProbe({required String peer}) async {
+        probed.add(peer);
+        await blocker.future;
+        return const FnthinkProbeResult(
+          status: FnthinkPollStatus.ok,
+          ready: true,
+        );
+      }
+
+      final first = probeChannelsAcrossFamilies(fnthinkProbe: stubProbe);
+      final second = await probeChannelsAcrossFamilies(fnthinkProbe: stubProbe);
+      expect(second, 0, reason: '另一轮正在探这一条 ⇒ 这一轮跳过它（结论由那一发写回同一个键）');
+      expect(probed, [peerAddress], reason: '只该发一发');
+
+      blocker.complete();
+      expect(await first, 1);
     });
   });
 

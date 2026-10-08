@@ -2341,19 +2341,25 @@ class MainActivity : FlutterActivity() {
 
     /**
      * 6e 邮件通道的**非侵入**健康探测：SMTP 握手 + 认证，不投递。
-     * 见 [EmailSender.verifyConnection] 的触发约束（不得轮询）。
+     * 触发约束见 [EmailSender.verifyConnection]：**不得做成轮询**。
+     * 允许的三个触发点（T115 决定二拍的）：用户进页面 / 回到前台那一轮（stale-only，
+     * 只有过了时效的才发）/ 用户显式下拉或点「测试」。认证失败之后 Dart 侧还会再挡一道
+     * 冷却（`ChannelProbeService.authCooldown`），免得密码错着被反复前后台撞到厂商封禁。
      */
     internal fun verifySmtp(configMap: Map<String, Any?>, result: MethodChannel.Result) {
         activityScope.launch(Dispatchers.IO) {
             val config = emailConfigOf(configMap)
             val start = System.currentTimeMillis()
-            val (ok, message) = EmailSender.verifyConnection(config)
+            val outcome = EmailSender.verifyConnection(config)
             withContext(Dispatchers.Main) {
                 result.success(
                     mapOf(
-                        "reachable" to ok,
+                        "reachable" to outcome.ok,
                         "latencyMs" to (System.currentTimeMillis() - start).toInt(),
-                        "reason" to message
+                        "reason" to outcome.message,
+                        // T115 护栏②：这一族只有认证失败会引来厂商临时封禁，而 Dart 侧
+                        // 看不见异常类型，所以由这里明说一个布尔，而不是让它去猜那句中文。
+                        "authFailure" to outcome.authFailure,
                     )
                 )
             }

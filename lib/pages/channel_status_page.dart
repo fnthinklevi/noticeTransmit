@@ -9,6 +9,7 @@ import '../services/backup_mode.dart';
 import '../services/channel_config_codec.dart';
 import '../services/channel_display.dart';
 import '../services/channel_health_store.dart';
+import '../widgets/channel_health_badge.dart';
 import '../theme/app_colors.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/pull_to_refresh_list.dart';
@@ -21,9 +22,10 @@ import '../widgets/pull_to_refresh_list.dart';
 ///
 /// ⚠ 数据只在 build 时现取（[collectActiveChannels]）：判据与首页同源，两处不会出现
 /// 「首页三条、这里两条」。从配置页返回后主动 `setState` 重取一次。
-/// ⚠ 第四族（幻念推送，T104 片③）在这一页只**读**不**探**：它没有非侵入探针，
-/// 进页那一轮（stale-only）与下拉刷新那一轮（force）都不许带上它 —— 那等于用户拉一下列表，
-/// 对面那台设备就收到一条真通知。
+/// ⚠ 第四族（幻念推送）在这一页**读的是同一份健康单点**，重探走它自己那一条
+/// （`probeFnthinkChannels`，T106 的非浸入探针 `POST /probe` —— 服务端只查关系与档位，
+/// 一条都不投）。它以前不进自动重探的理由是「那一发会真往对面发一条通知」，那个理由
+/// 今天不成立了，但「不许退化成真发一条去凑」照旧成立（守卫在 reprobe 那一族里）。
 class ChannelStatusPage extends StatefulWidget {
   /// 打开某一族的配置页。用回调而不是页面自己 push：三个配置页都需要"先加载再进页"
   /// （email 要 `loadChannels()`、webhook 要带通道列表），那套逻辑已经在家常的
@@ -257,11 +259,15 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     final color = switch (state) {
       ChannelHealthState.ok => AppColors.green,
       ChannelHealthState.error => AppColors.red,
+      // 过期 ≠ 未知：下面那一行 `_probeAge` 就在同一张卡上，"正常"与"上次探测于 X 前"
+      // 是同屏出现的（T115 决定一的显示契约）—— 少了那一句这里就不许说正常。
+      ChannelHealthState.stale => AppColors.green,
       ChannelHealthState.unknown => AppColors.tertiaryLabel(context),
     };
     final statusText = switch (state) {
       ChannelHealthState.ok => l10n.statusOk,
       ChannelHealthState.error => l10n.statusError,
+      ChannelHealthState.stale => l10n.statusOk,
       ChannelHealthState.unknown => l10n.statusUnknown,
     };
     final name = channel.configName.trim();
@@ -517,19 +523,14 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
     );
   }
 
-  /// 探测时间的口语化距离（与两个设置页原来各写一份的口径一致）；
-  /// `probedAt == 0` 是从旧的 `email_test_results` 搬进来的条目（没有时间戳），只能说"从未探测"。
+  /// 这一行末尾那句"上次探测于多久以前"。**格式化本身只有一个作者**（[channelHealthAgoLabel]）：
+  /// T115 决定一之后，这一句是"过期结论"的一部分（只说正常、不带上次时间就是那句禁令禁的谎），
+  /// 各处再抄一份「<1 小时用分钟、否则用小时」就会出现"首页说 3 天前、这里说 72 小时前"。
+  /// 这里只补本页的缺省话术：拿不出时间（没记录，或旧的 `email_test_results` 搬进来那种没有时间戳的条目）
+  /// 说"从未探测"，而不是留一个空段。
   String _probeAge(AppLocalizations l10n, ChannelHealth? health) {
-    if (health == null || health.probedAt == 0) {
-      return l10n.channelStatusNeverProbed;
-    }
-    final ago = DateTime.now()
-        .difference(DateTime.fromMillisecondsSinceEpoch(health.probedAt))
-        .inMilliseconds;
-    if (ago < 60 * 60 * 1000) {
-      return l10n.healthProbedMinutes(ago ~/ (60 * 1000));
-    }
-    return l10n.healthProbedHours(ago ~/ (60 * 60 * 1000));
+    return channelHealthAgoLabel(l10n, health?.probedAt) ??
+        l10n.channelStatusNeverProbed;
   }
 }
 

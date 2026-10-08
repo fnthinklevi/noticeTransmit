@@ -100,6 +100,58 @@ void main() {
     expect(label.overflow, TextOverflow.ellipsis);
   });
 
+  testWidgets('过期那一档画"上次结论 + 多久之前"，缺时间时退回未知（T115 决定一）', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final threeMinAgo = (DateTime.now().millisecondsSinceEpoch - 3 * 60 * 1000)
+        .toString();
+
+    await tester.pumpWidget(
+      page([
+        {'label': 'Webhook：钉钉/告警群', 'status': 'stale', 'probedAt': ''},
+        {'label': '邮件：主邮箱', 'status': 'stale', 'probedAt': '0'},
+        {'label': '自建应用：企业微信应用/办公', 'status': 'stale', 'probedAt': threeMinAgo},
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    // 首页这张卡此前只有 `{'label','status'}` 两格 —— 过期那一档没有地方放时间，
+    // 于是它要么画成"未知"（旧行为），要么画成一句没有时间的"正常"（被禁的那种谎）。
+    // 现在载荷多带一格 `probedAt`，这一行才可能长成维护者要的那个形状。
+    expect(
+      find.text('状态正常 · 3 分钟前探测'),
+      findsOneWidget,
+      reason: '第三行有真时间 ⇒ 必须同屏带出"多久之前"',
+    );
+    expect(
+      find.text('状态未知'),
+      findsNWidgets(2),
+      reason: 'probedAt 缺失或为 0（旧 email 缓存那种"有结果没时间"）时宁可说不知道',
+    );
+  });
+
+  testWidgets('窄屏上过期那一行也不溢出（状态文字变长了）', (tester) async {
+    tester.view.physicalSize = const Size(360, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      page(const [
+        {
+          'label': 'Webhook：通用 Webhook/一个非常非常长的通道名称用来把这一行撑爆',
+          'status': 'stale',
+          'probedAt': '1750000000000',
+        },
+      ]),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final status = tester.widget<Text>(find.textContaining('探测'));
+    expect(status.overflow, TextOverflow.ellipsis);
+  });
+
   testWidgets('没配通道时仍是空态文案', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;

@@ -255,6 +255,137 @@ void main() {
       );
     });
   });
+
+  group('认证失败进冷却（T115 护栏②）', () {
+    // 判据住在原生那一侧（它看得见异常类型），"失败之后多久不再自动探"住在这的一侧。
+    // 这一族的用例都靠注入的 clock 走时间 —— 真实时间等不起，而"用墙钟推进"会让这条
+    // 用例变成随机红（本仓的闸门挂死档案里那一类）。
+    late DateTime fakeNow;
+    ChannelProbeService prober() => ChannelProbeService(
+      health: health,
+      channel: AppChannels.notification,
+      clock: () => fakeNow,
+    );
+
+    setUp(() {
+      fakeNow = DateTime.now();
+      results = [
+        {'reachable': false, 'latencyMs': 100, 'authFailure': true},
+      ];
+    });
+
+    test('冷却时长必须长于时效，否则这一档永远不会生效（第一版就写短了）', () {
+      expect(
+        ChannelProbeService.authCooldown,
+        greaterThan(ChannelHealthStore.staleness),
+        reason:
+            '自动那一路只在记录过 staleness 之后才发下一发；冷却短于它 ⇒ 冷却在能被观察到'
+            '之前就散完了，写成常量却什么都不挡（本仓说的"结构性死分支"就是这个形状）',
+      );
+    });
+
+    test('认证失败 ⇒ 过了时效也不再自动认证；用户显式下拉照打', () async {
+      final p = prober();
+      expect(await p.probeStale('email', [target(id: 'e1')]), 1);
+      expect(
+        health.of('email', 'e1')?.reachable,
+        isFalse,
+        reason: '结论照实记（徽标变红是正确结果）',
+      );
+
+      // 走过期、没走冷却：这时自动那一路**应该**被冷却挡住。
+      fakeNow = fakeNow.add(const Duration(minutes: 31));
+      calls.clear();
+      expect(
+        await p.probeStale('email', [target(id: 'e1')]),
+        0,
+        reason: '授权码错着 + 用户频繁前后台 = 拿自己的账号去撞厂商封禁',
+      );
+      expect(calls, isEmpty);
+
+      expect(
+        await p.probeNow('email', [target(id: 'e1')]),
+        1,
+        reason: 'force 是用户显式做的那一发，挡掉它就成了"点了没反应"',
+      );
+    });
+
+    test('冷却到期后自动那一路恢复；另一条通道不受这条的冷却影响', () async {
+      final p = prober();
+      await p.probeStale('email', [target(id: 'e1')]);
+
+      fakeNow = fakeNow.add(
+        ChannelProbeService.authCooldown + const Duration(minutes: 1),
+      );
+      calls.clear();
+      expect(
+        await p.probeStale('email', [target(id: 'e1'), target(id: 'e2')]),
+        2,
+        reason: '冷却只针对"刚认证失败过的那一条"，按 `<family>:<id>` 记账',
+      );
+    });
+
+    test('非认证失败不进冷却：连不上／超时不该让人两小时不能再验', () async {
+      results = [
+        {'reachable': false, 'latencyMs': 9000},
+      ];
+      final p = prober();
+      await p.probeStale('email', [target(id: 'e9')]);
+
+      fakeNow = fakeNow.add(const Duration(minutes: 31));
+      calls.clear();
+      expect(
+        await p.probeStale('email', [target(id: 'e9')]),
+        1,
+        reason: '冷却的触发条件是原生的 authFailure 布尔，不是"任何一次不可达"',
+      );
+    });
+
+    test('跨语言：Dart 读的每个回包键，原生三枚探测方法里至少有一个写它', () {
+      // `authFailure` 是这一片新加的那一格。没有这条守卫时，原生改名成 `isAuthFailure`
+      // 或 `authFailed`，Dart 的 `r['authFailure'] == true` 恒为 false ⇒ 冷却静默失效，
+      // 而两侧各自都"编译通过、测试全绿"。
+      final dartRead = RegExp(
+        r"r\['([A-Za-z][A-Za-z0-9]*)'\]",
+      ).allMatches(_dartProbeSource()).map((m) => m.group(1)!).toSet();
+      expect(dartRead, isNotEmpty, reason: '提取式没匹配到 ⇒ 本条已失效');
+      final nativeWritten = <String>{};
+      for (final fn in const [
+        'probeAppChannelToken',
+        'verifySmtp',
+        'probeChannelHealth',
+      ]) {
+        nativeWritten.addAll(_nativeReplyKeys(fn));
+      }
+      expect(
+        dartRead.difference(nativeWritten),
+        isEmpty,
+        reason: 'Dart 读而原生从不写的键 ⇒ 恒为 null，判据静默失效：$dartRead vs $nativeWritten',
+      );
+    });
+  });
+}
+
+/// `channel_probe_service.dart` 里读回包那一段源码（去掉注释）。
+String _dartProbeSource() => stripComments(
+  File(
+    '${projectRoot()}/lib/services/channel_probe_service.dart',
+  ).readAsStringSync(),
+);
+
+/// 解析 `MainActivity` 某枚探测方法 `result.success(mapOf(...))` 里写的键集合。
+Set<String> _nativeReplyKeys(String functionName) {
+  final kotlin = stripComments(
+    File(
+      '${projectRoot()}/android/app/src/main/kotlin/com/fnthink/notice/MainActivity.kt',
+    ).readAsStringSync(),
+  );
+  final block = blockAfter(kotlin, 'internal fun $functionName(');
+  final keys = RegExp(
+    r'"([A-Za-z][A-Za-z0-9]*)" to ',
+  ).allMatches(block).map((m) => m.group(1)!).toSet();
+  expect(keys, isNotEmpty, reason: '未解析到任何回包键 ⇒ 原生改了写法，本用例已失效（$functionName）');
+  return keys;
 }
 
 /// 解析 `MainActivity` 里某个函数从 `configMap["…"]` 读到的键集合。

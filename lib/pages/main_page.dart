@@ -126,12 +126,21 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
 
   /// 首页「当前推送通道」：条目、健康态与显示格式都来自 [collectActiveChannels]（第 6 步单点），
   /// 与历史记录入库时的送达键快照同源。这里只做显示形状。
-  /// status 三态（ok / error / unknown）来自健康单点 `channel_health_*`：
-  /// **没有新鲜探测结果就报未知，不再一律报正常**（T01）。要让首页少出现未知，
-  /// 靠 T09/6e 的非侵入探测，而不是把标签改回恒绿。
+  /// status 四态（ok / error / stale / unknown）来自健康单点 `channel_health_*`：
+  /// **没有探测结果就报未知，不再一律报正常**（T01）。
+  /// 过期那一档要说"正常"，就必须同屏带出"上次探测于何时"（T115 决定一）⇒ 这里把
+  /// `probedAt` 一起交给页面；那句"多久以前"的格式化只有 `channelHealthAgoLabel`
+  /// 一个作者，本页与页面都不抄第二份。要让首页少出现"很久以前"，靠的是探测真的
+  /// 在跑（#183 的主动节奏），而不是把标签改回恒绿。
   List<Map<String, String>> _getActiveChannels() {
     return collectActiveChannels()
-        .map((c) => {'label': c.displayLine, 'status': c.statusLabel})
+        .map(
+          (c) => {
+            'label': c.displayLine,
+            'status': c.statusLabel,
+            'probedAt': '${c.health?.probedAt ?? 0}',
+          },
+        )
         .toList(growable: false);
   }
 

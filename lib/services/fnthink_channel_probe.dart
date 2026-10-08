@@ -71,6 +71,16 @@ FnthinkProbeCall? fnthinkProbeFromLocator() {
   }
 }
 
+/// 此刻正在探的通道 id（T115 护栏①：一轮内同一通道只测一次）。
+///
+/// 原生那三族有 `ChannelProbeService._running` 那把锁挡着并发轮次（后到的那一发直接返回 0）；
+/// 这一族走自己这条路，**没有**那份保护 ⇒ 主动节奏那一轮 + 状态页进页那一轮 + 首页下拉那一轮
+/// 叠起来时，同一条通道会被连发两次签名探针。两边各自有锁不等于"同一轮同一通道只测一次"，
+/// 所以这里补自己那一份。
+/// ⚠ 按**通道 id** 挡而不是按整族挡：按族挡会把没在探的别的通道一起挡掉（那是"点了没反应"）。
+/// 只在进程内记 —— 这一族没有需要长期记住的状态，跨重启的那一发本来就过期该重探。
+final Set<String> _probing = {};
+
 /// 探**一整族**幻念通道（自动重探的那一条路）。
 ///
 /// ⚠ 这一族此前**不许进自动重探**（T104 立的安全判据）：它当时没有非侵入探针，
@@ -102,24 +112,33 @@ Future<int> probeFnthinkChannels({
   for (final channel in channels.cachedChannels) {
     if (!channel.enabled || channel.id.isEmpty) continue;
     if (channel.targetKind != FnthinkChannelTarget.device) continue;
-    if (!force &&
-        !ChannelHealthStore.needsProbe(
-          health.of(kFnthinkChannelSlug, channel.id),
-          now: now,
-        )) {
-      continue;
+    // T115 护栏①：另一轮（进页 / 回前台 / 下拉）正在探这一条 ⇒ 这一轮跳过它。
+    // 结论由那一发写回同一个键，界面靠它自己的 onUpdated 重画 —— 这里再发一次只是把
+    // 同一条路问两遍（而这一族的"问一遍"是一次签名事件，不是免费的）。
+    if (_probing.add(channel.id)) {
+      try {
+        if (!force &&
+            !ChannelHealthStore.needsProbe(
+              health.of(kFnthinkChannelSlug, channel.id),
+              now: now,
+            )) {
+          continue;
+        }
+        final watch = Stopwatch()..start();
+        final ready = await probeFnthinkWithRetries(call, peer: channel.target);
+        watch.stop();
+        await health.record(
+          kFnthinkChannelSlug,
+          channel.id,
+          reachable: ready,
+          latencyMs: watch.elapsedMilliseconds,
+        );
+        probed++;
+        onUpdated?.call();
+      } finally {
+        _probing.remove(channel.id);
+      }
     }
-    final watch = Stopwatch()..start();
-    final ready = await probeFnthinkWithRetries(call, peer: channel.target);
-    watch.stop();
-    await health.record(
-      kFnthinkChannelSlug,
-      channel.id,
-      reachable: ready,
-      latencyMs: watch.elapsedMilliseconds,
-    );
-    probed++;
-    onUpdated?.call();
   }
   return probed;
 }

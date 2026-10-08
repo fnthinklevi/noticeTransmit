@@ -405,14 +405,17 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
     setState(() {});
   }
 
-  /// 这一台今天怎么样 —— 与徽标**同一套三态判定**（`channelHealthState`）。
+  /// 这一台今天怎么样 —— 与徽标**同一条判定**（`channelHealthStateForDisplay`）。
   /// 页面自己再判一次 `reachable` 就是第二份口径：T01 那次"设置页说正常、首页说未知"
   /// 就是这么来的。
+  /// 过期那一档在这里只说结论词：同一格右边那枚徽标一直在说"上次探测于 X 前"
+  /// （`ChannelHealthBadge`），这一行再说一遍只是把同一句挂两次。
   String _healthWord(AppLocalizations l10n, String host) {
     final health = _deps.healthOf?.call(host);
-    return switch (channelHealthState(health)) {
+    return switch (channelHealthStateForDisplay(health)) {
       ChannelHealthState.ok => l10n.healthReachable(health!.latencyMs),
       ChannelHealthState.error => l10n.healthUnreachable,
+      ChannelHealthState.stale => l10n.statusOk,
       ChannelHealthState.unknown => l10n.statusUnknown,
     };
   }

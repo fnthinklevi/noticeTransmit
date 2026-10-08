@@ -13,6 +13,7 @@ import '../services/email_service.dart';
 import '../services/template_variables.dart';
 import '../theme/app_colors.dart';
 import '../widgets/card_action_sheet.dart';
+import '../widgets/channel_health_badge.dart';
 import '../widgets/channel_form_renderer.dart';
 import '../widgets/channel_visuals.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -115,19 +116,37 @@ class _EmailSettingsPageState extends State<EmailSettingsPage> {
     },
   );
 
-  /// 列表里的"上次测试"标注：只在**确有结论**时显示（成功但已过期算 unknown ⇒
-  /// 不显示，比拿很久以前的一次成功糊弄用户诚实）。
+  /// 列表里的"上次测试"标注。**过期结论可以显示，但必须带着它的时间**（T115 决定一）：
+  /// 只说"验证通过"而不说那是三天前量的，就是那句禁令禁的谎 —— 所以这一行的形状是
+  /// 「验证通过 · 3 天前探测」。旧写法把过期算 unknown ⇒ 这一行干脆不画，用户看得见的是
+  /// "这条没有结论"，而真话是"有一条很旧的结论"，那也不诚实。
+  /// 格式化读唯一作者 [channelHealthAgoLabel]；拿不出时间（旧的 `email_test_results` 搬
+  /// 进来就没有时间戳）退回不画。
   String? _lastTestLabel(AppLocalizations l10n, String id) {
-    final state = channelHealthState(_health.of('email', id));
-    return switch (state) {
+    final health = _health.of('email', id);
+    return switch (channelHealthStateForDisplay(health)) {
       ChannelHealthState.ok => l10n.testPassed,
       ChannelHealthState.error => l10n.testFailed,
+      ChannelHealthState.stale => _withProbeAge(l10n, l10n.testPassed, health),
       ChannelHealthState.unknown => null,
     };
   }
 
-  bool _lastTestOk(String id) =>
-      channelHealthState(_health.of('email', id)) == ChannelHealthState.ok;
+  /// `结论 · 多久以前`：时间是这句的一部分，缺它就不该画这一行。
+  String? _withProbeAge(
+    AppLocalizations l10n,
+    String verdict,
+    ChannelHealth? health,
+  ) {
+    final age = channelHealthAgoLabel(l10n, health?.probedAt);
+    return age == null ? null : '$verdict · $age';
+  }
+
+  /// 「通过」那一档的着色：过期仍按通过着色（同一行就写着它多久了）。
+  bool _lastTestOk(String id) {
+    final state = channelHealthStateForDisplay(_health.of('email', id));
+    return state == ChannelHealthState.ok || state == ChannelHealthState.stale;
+  }
 
   @override
   void initState() {

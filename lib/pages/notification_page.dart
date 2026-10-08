@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/home_service_status.dart';
 import '../theme/app_colors.dart';
+import '../widgets/channel_health_badge.dart';
 import '../widgets/pull_to_refresh_list.dart';
 
 class NotificationPage extends StatelessWidget {
@@ -200,17 +201,32 @@ class NotificationPage extends StatelessWidget {
                   if (activeChannels.isNotEmpty)
                     ...activeChannels.map((c) {
                       final label = c['label'] ?? '';
-                      // 三态：正常 / 异常 / 未知（没有新鲜的探测结果）。
+                      // 四态（T115 决定一）：正常 / 异常 / 过期 / 未知。
                       // 未知既不是绿灯也不是红灯 —— 之前只有二态，webhook 与应用通道
                       // 从没探过也被算成"正常"（T01 的病灶）。
-                      final isOk = (c['status'] ?? 'unknown') == 'ok';
-                      final isUnknown = (c['status'] ?? 'unknown') == 'unknown';
+                      // `stale` 敢说"正常"的唯一前提是**同一行就写着上次探测于何时**；
+                      // 时间来自条目带进来的 `probedAt`，拿不出时间就退回未知 ——
+                      // 只说正常、不带上次时间正是那句禁令要防的半句谎。
+                      // （判定本身在 `channelHealthStateForDisplay`，页面不重判。）
+                      final rawStatus = c['status'] ?? 'unknown';
+                      final ageText = rawStatus == 'stale'
+                          ? channelHealthAgoLabel(
+                              l10n,
+                              int.tryParse(c['probedAt'] ?? ''),
+                            )
+                          : null;
+                      final isStale = rawStatus == 'stale' && ageText != null;
+                      final isOk = rawStatus == 'ok' || isStale;
+                      final isError = rawStatus == 'error';
+                      final isUnknown = !isOk && !isError;
                       final statusColor = isOk
                           ? AppColors.green
                           : isUnknown
                           ? AppColors.tertiaryLabel(context)
                           : AppColors.red;
-                      final statusText = isOk
+                      final statusText = isStale
+                          ? '${l10n.statusOk} · $ageText'
+                          : isOk
                           ? l10n.statusOk
                           : isUnknown
                           ? l10n.statusUnknown
@@ -228,12 +244,18 @@ class NotificationPage extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: statusColor,
+                            // Flexible：过期那一档把这枚文字加长了（「状态正常 · 3 天前探测」），
+                            // 右边的标签是 Expanded —— 放不下时先让这里收缩，而不是把行撑破。
+                            Flexible(
+                              child: Text(
+                                statusText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: statusColor,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),

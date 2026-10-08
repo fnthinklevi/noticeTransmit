@@ -84,7 +84,7 @@ void main() {
       expect(find.text('连接失败'), findsOneWidget);
     });
 
-    testWidgets('有记录但已过期 ⇒ 画灰色「未知」，不替用户宣称正常', (tester) async {
+    testWidgets('有记录但已过期 ⇒ 画上次结论 + 多久之前（T115 决定一）', (tester) async {
       final stale = health(
         reachable: true,
         probedAt: DateTime.now()
@@ -92,8 +92,56 @@ void main() {
             .millisecondsSinceEpoch,
       );
       await show(tester, stale);
+      expect(find.text('状态正常'), findsOneWidget);
+      // ⚠ 时间不是"顺带显示的补充说明"，而是这一档**能说正常的前提**：少了下面这句，
+      // 这一格就退化成"拿七天前的一次成功糊弄用户"，正是被推翻的那条禁令要防的谎。
+      expect(find.text('7 小时前探测'), findsOneWidget);
+      expect(
+        find.text('状态未知'),
+        findsNothing,
+        reason: '过期不等于"没有结论"：这里知道的是"上次通、结论旧"',
+      );
+      expect(
+        find.textContaining('20 ms'),
+        findsNothing,
+        reason: '耗时是上一次那一发量到的数，过期之后再报它就是假装知道现在多快',
+      );
+    });
+
+    testWidgets('过期但拿不出时间 ⇒ 退回「状态未知」，绝不画一句没有时间的"正常"', (tester) async {
+      // 旧 `email_test_results` 搬进来的条目就是"有结果没时间"（probedAt 记 0）。
+      final noTime = health(reachable: true, probedAt: 0);
+      await show(tester, noTime);
       expect(find.text('状态未知'), findsOneWidget);
-      expect(find.textContaining('连通'), findsNothing);
+      expect(find.text('状态正常'), findsNothing);
+      expect(
+        find.textContaining('分钟前探测'),
+        findsNothing,
+        reason: '把 0 糊成"0 分钟前探测"是造一句假话，比不显示更坏',
+      );
+    });
+
+    testWidgets('过了几个小时 ⇒ 按小时说（两处抄本曾有一份把小时除错了 60 倍）', (tester) async {
+      // T115 合并抄本时实测到的既有缺陷：徽标那份写的是 `ago ~/ (60 * 1000)` 却挂在
+      // `healthProbedHours` 上 ⇒ 五小时前探测会显示「300 小时前探测」。状态页那份是对的，
+      // 所以这是"同一件事两份实现"最典型的下场：错的那一份没人看得见，因为它每次都出数。
+      final fiveHoursAgo = DateTime.now()
+          .subtract(const Duration(hours: 5))
+          .millisecondsSinceEpoch;
+      await show(tester, health(reachable: true, probedAt: fiveHoursAgo));
+      expect(find.text('5 小时前探测'), findsOneWidget);
+      expect(find.text('300 小时前探测'), findsNothing);
+    });
+
+    testWidgets('过期那一档在窄约束下也不溢出（加了时间之后这一枚更长了）', (tester) async {
+      final stale = health(
+        reachable: true,
+        probedAt: DateTime.now()
+            .subtract(const Duration(days: 3))
+            .millisecondsSinceEpoch,
+      );
+      await show(tester, stale, width: 170);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('窄约束（列表行副标题的真实宽度）下不得溢出', (tester) async {

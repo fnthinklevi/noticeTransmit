@@ -180,11 +180,15 @@ void main() {
     });
 
     test('健康状态只有 ChannelHealthBadge / channelHealthState 这一条判定', () {
+      // T115 决定一之后这条判定分成两枚：调度侧读 `channelHealthState`（过没过时效），
+      // 显示侧读 `channelHealthStateForDisplay`（过期那档拿不出时间就退回未知）。
+      // 单点还是单点 —— 但"显示点不许读调度那一枚"必须一起钉住，否则四处又会各自
+      // 决定"过期要不要说正常"，那正是这次改的东西。
       final badge = read('lib/widgets/channel_health_badge.dart');
       expect(
         badge,
-        contains('channelHealthState('),
-        reason: '徽标自己判三态 = 又开一份真值',
+        contains('channelHealthStateForDisplay('),
+        reason: '徽标自己判态 = 又开一份真值（T04），绕过显示契约 = 能画出没带时间的"正常"',
       );
       // 注意 webhook：它的卡片构建在 part 文件 `webhook_settings_item.dart` 里，
       // 所以列的是"真正渲染健康的地方"，不是页面的库文件。
@@ -197,7 +201,7 @@ void main() {
           read(rel),
           anyOf(
             contains('ChannelHealthBadge'),
-            contains('channelHealthState('),
+            contains('channelHealthStateForDisplay('),
             contains('.healthState'),
           ),
           reason: '$rel 显示通道健康却没走单点',

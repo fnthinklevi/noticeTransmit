@@ -12,22 +12,46 @@ import 'fnthink_channel_probe.dart';
 import 'fnthink_channel_service.dart';
 import 'webhook_service.dart';
 
-/// 一条通道在首页/状态页的健康态。**三态**，不是二态：
-/// 「没有新鲜的探测结果」既不能说正常（那是恒绿的谎），也不能说异常（那是假警报）。
-enum ChannelHealthState { ok, error, unknown }
+/// 一条通道在首页/状态页的健康态。**四态**（T115 决定一把"过期"从 `unknown` 里拆出来了）：
+/// `ok` 有新鲜的正常结论 · `error` 有确凿的失败证据 · `stale` 上次结论是正常但已过时效 ·
+/// `unknown` 从没测过。
+enum ChannelHealthState { ok, error, stale, unknown }
 
-/// 三态判定的**唯一**实现（T04 抽出）：首页通道卡、通道状态页、各通道列表的徽标
-/// 必须同一条规则，否则同一刻会出现"首页说正常、列表说失败"。
+/// 四态判定的**唯一**实现（T04 抽出三态，T115 决定一改口径）：首页通道卡、通道状态页、
+/// 各通道列表的徽标必须同一条规则，否则同一刻会出现"首页说正常、列表说失败"。
 ///
-/// - `null`（从没测过）与"成功但已过期"都算 [ChannelHealthState.unknown]：
-///   说不出可用性就画成红色，等于把"我不知道"伪装成"坏了"；
-/// - 失败则一直是失败（有确凿证据），直到下一次测试覆盖它。
+/// - `null`（从没测过）算 [ChannelHealthState.unknown]：说不出可用性就画成红色，
+///   等于把"我不知道"伪装成"坏了"；
+/// - 失败则一直是失败（有确凿证据），直到下一次测试覆盖它 ⇒ `error` **不**按时效拆；
+/// - 成功但过了 [ChannelHealthStore.staleness] 是 [ChannelHealthState.stale]。
+///   ⚠ 这一档在 2026-10-08 之前画成 `unknown`，当时的理由是"没有新鲜的探测结果，
+///   既不能说正常也不能说异常"。维护者拍的**新**口径是：可以说正常，但必须把
+///   "上次探测于 X 前"一起说出来 —— 只说正常、不带上次时间仍是那句禁令禁的谎。
+///   所以这一态带着一条**显示契约**，由 [channelHealthStateForDisplay] 把关：
+///   拿不出时间的过期结论（`probedAt == 0`，email 旧缓存搬进来的那种）宁可退回 `unknown`。
 ChannelHealthState channelHealthState(ChannelHealth? h) {
   if (h == null) return ChannelHealthState.unknown;
   if (!h.reachable) return ChannelHealthState.error;
   return ChannelHealthStore.needsProbe(h)
-      ? ChannelHealthState.unknown
+      ? ChannelHealthState.stale
       : ChannelHealthState.ok;
+}
+
+/// **显示**用的那一条判定（T115 决定一的显示契约）：所有画徽标/状态词的地方读它，
+/// 而调度（"这条过期了吗，要不要重探"）读 [channelHealthState]。
+///
+/// 为什么要有第二枚而不直接把时间塞进 [channelHealthState]：那条规则会读 `probedAt`
+/// 之外的东西（时间能不能说出来），而调度侧关心的是"过没过时效"这一件事。
+/// 分开的代价是"两处各读一枚"，所以守卫钉住：**显示点只许读这一枚**。
+ChannelHealthState channelHealthStateForDisplay(ChannelHealth? h) {
+  final state = channelHealthState(h);
+  if (state == ChannelHealthState.stale && (h == null || h.probedAt <= 0)) {
+    // 「上次是通的」这句要成立，得连带说得出"上次是什么时候"。说不出口就还是未知 ——
+    // 这一支不是防御性代码：email 族的旧缓存 `email_test_results` 就没有时间戳（搬进来
+    // 时 probedAt 记 0），而它确实能读出一条"通"的历史结论。
+    return ChannelHealthState.unknown;
+  }
+  return state;
 }
 
 /// 一个**已启用**通道的条目：身份、显示名、用户命名、最近一次探测结果。
@@ -72,13 +96,16 @@ class ActiveChannel {
 
   String get deliveryKey => channelDeliveryKey(slug);
 
-  /// 健康态：见 [channelHealthState]（单点，各页共用同一条规则）。
-  ChannelHealthState get healthState => channelHealthState(health);
+  /// 健康态：见 [channelHealthStateForDisplay]（显示侧的单点，各页共用同一条规则）。
+  /// 这一枚是**给界面读的** —— 首页与状态页拿它取文案与点色，所以它带那条"过期必须
+  /// 说得出时间"的显示契约（T115）。调度侧问"过没过期"走 `ChannelHealthStore.needsProbe`。
+  ChannelHealthState get healthState => channelHealthStateForDisplay(health);
 
   /// 首页「当前推送通道」的状态标签（页面据此取 l10n 文案与点色）。
   String get statusLabel => switch (healthState) {
     ChannelHealthState.ok => 'ok',
     ChannelHealthState.error => 'error',
+    ChannelHealthState.stale => 'stale',
     ChannelHealthState.unknown => 'unknown',
   };
 
@@ -328,8 +355,8 @@ List<Map<String, dynamic>> _rows(List<Map<String, dynamic>> Function() read) {
 /// 把**全族通道**各探一遍（#174 / #182）。
 ///
 /// 为什么需要它：别处（三个族页的进页刷新）只在"用户走到那一页"时才检查过期，而用户看
-/// 状态的地方是首页那张卡与通道状态页 —— [channelHealthState] 把"成功但过了时效"判成
-/// `unknown`，于是时效一过它们只会显示「未知」，**没有任何一处会自己去重探**。
+/// 状态的地方是首页那张卡与通道状态页 —— 过了时效的"上次成功"在界面上是 [ChannelHealthState.stale]
+/// （T115 之前是 `unknown`），**无论画哪一档都得有人去重探**，否则那一档就一直挂着。
 /// 这两处入口（通道状态页进页、App 回前台）走这一发把它补上。
 ///
 /// ⚠ 读的是三个服务的**内存列表**（启动链 `main_page` 已装载），这里不做装载 IO：

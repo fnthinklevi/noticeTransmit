@@ -156,4 +156,39 @@ class NonInvasiveProbeContractTest {
             )
         }
     }
+
+    @Test
+    fun `邮件探测的回包必须明说是不是认证失败（T115 护栏②的跨语言判据）`() {
+        // 为什么钉这一格：认证失败会让 QQ／163 临时封禁账号，Dart 侧要在自动重探那一路里
+        // 挡一道冷却。而 Dart 只看得到 `classifyError` 出来的那句中文 —— 让它去匹配措辞
+        // 就成了第二份口径：文案一改冷却静默失效，失效方向恰好是"又开始频繁认证"。
+        // 所以判据必须住在原生这一侧，并由回包里那个**布尔**交出去。
+        val smtp = blockAfter(mainActivity, "internal fun verifySmtp(")
+        assertTrue(
+            "verifySmtp 的回包没有 authFailure ⇒ Dart 那一侧的冷却永远不触发",
+            smtp.contains("\"authFailure\" to")
+        )
+        val probe = blockAfter(emailSender, "fun verifyConnection(")
+        assertTrue(
+            "verifyConnection 不再经 isAuthFailure 分类 ⇒ 那个布尔是硬编的，会随分类漂移",
+            probe.contains("isAuthFailure(")
+        )
+        assertEquals(
+            "isAuthFailure 只允许定义一处（两处就会各判各的）",
+            1,
+            Regex("fun isAuthFailure\\(").findAll(emailSender).count()
+        )
+    }
+
+    @Test
+    fun `冷却只挡自动那一路，下拉那一发必须照样能测`() {
+        // 与 Dart 侧 `channel_health_reprobe_guard_test` 同一件事的两面：这里钉的是"探测这一发
+        // 仍然是显式意图优先"，那条钉的是"节奏那两发仍然 stale-only"。
+        val smtp = blockAfter(mainActivity, "internal fun verifySmtp(")
+        assertFalse(
+            "verifySmtp 自己不许做冷却/退避：冷却归调用方（Dart 的调度单点），" +
+                "否则两处各挡一次，用户点下拉会连发都不发",
+            Regex("cooldown|Cooldown|Thread\\.sleep").containsMatchIn(smtp)
+        )
+    }
 }

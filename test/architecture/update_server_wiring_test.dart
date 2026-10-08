@@ -85,14 +85,15 @@ void main() {
     );
   });
 
-  test('更新服务器那一页不自己判 reachable，交出现有的三态判定', () {
-    // 三态判定只有 `channelHealthState` 一枚（`channel_health_badge` 的类注释把这条写死了）。
-    // 幻念那侧的选项文案也一样：页面自己 `h.reachable ? ... : ...` 就是第二份口径。
+  test('更新服务器那一页不自己判 reachable，交出现有的显示侧判定', () {
+    // 判定只有 `channelHealthState` 一枚（T115 之后分两枚：调度侧那枚 + 显示侧那枚
+    // `channelHealthStateForDisplay`）。这一页要的是**显示**那一条 —— 反向也成立：
+    // 显示点去读调度那枚就绕过了"过期必须带时间"那条契约，见 channel_single_points_test。
     final page = src('lib/pages/fnthink_settings_page.dart');
     expect(
       page,
-      contains('channelHealthState(health)'),
-      reason: '选项上那句"能不能用"没走三态单点 ⇒ 会与徽标/首页各说一套（T01 那次）',
+      contains('channelHealthStateForDisplay(health)'),
+      reason: '选项上那句"能不能用"没走显示侧单点 ⇒ 会与徽标/首页各说一套（T01 那次）',
     );
   });
 }

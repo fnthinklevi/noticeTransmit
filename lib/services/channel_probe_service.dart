@@ -48,6 +48,41 @@ class ChannelProbeService {
   final DateTime Function() _clock;
   bool _running = false;
 
+  /// 认证失败之后不再**自动**探这一条的时长（T115 护栏②）。
+  ///
+  /// 为什么必须有：邮件那一族的探针是**真的走到厂商服务器并认证一次**
+  /// （`EmailSender.verifyConnection` 只握手 + 认证、不投递），而 QQ／163 对连续认证失败
+  /// 有临时封禁。授权码错着 + 用户频繁前后台 = 拿自己的账号去撞那道封禁 ——
+  /// 后果不是"探测不到"，是邮箱被临时锁。
+  ///
+  /// ⚠ 只挡自动那一路（[probeStale]：进页 / 回前台 / 每 `staleness` 那一轮）。
+  /// [probeNow] 是用户显式拉下来那一发，页面里那一枚「测试」更不经过这里 ——
+  /// 把它们也挡住就变成"点了没反应"（本仓反复修过的那类缺陷）。
+  /// ⚠ 只在进程内记、不落盘：冷启动放首发是刻意的（一次一发不构成"频繁"），
+  /// 而往磁盘写一份"什么时候别再试"就是又多了一本没人清理的账。
+  ///
+  /// ⚠ 这一档**必须长于** `ChannelHealthStore.staleness`（30 分钟），否则它是死的：
+  /// 自动那一路只在记录过时效后才发下一发，而 30 分钟才轮到一次 —— 短于它的冷却会在
+  /// 能被观察之前就散掉（第一版写的 10 分钟就是这个错，用例 `冷却必须长于时效` 钉住）。
+  /// 2 小时 = 授权码错着时，这一族最多每两小时被自动认证一次，而不是每天 48 次。
+  static const authCooldown = Duration(hours: 2);
+
+  /// 键 `<family>:<id>` → 冷却到什么时候。触发条件是原生回传里的 `authFailure`，
+  /// **不是"任何失败"**：连不上／超时既没有封禁风险，也不该让人等十分钟才能再验一次。
+  final Map<String, DateTime> _authCooldownUntil = {};
+
+  /// 这条通道此刻在不在认证冷却里（界面要说"过一会儿再试"就读它，不自己判时长）。
+  bool isInAuthCooldown(String family, String id) {
+    final key = '$family:$id';
+    final until = _authCooldownUntil[key];
+    if (until == null) return false;
+    if (!until.isAfter(_clock())) {
+      _authCooldownUntil.remove(key);
+      return false;
+    }
+    return true;
+  }
+
   /// 逐个探测过期通道并把结论写回健康单点；[onUpdated] 每写回一条回调一次（页面 setState）。
   /// 返回本次实际探测的通道数。
   ///
@@ -77,16 +112,19 @@ class ChannelProbeService {
   }) async {
     if (_running) return 0;
     final now = _clock();
+    _authCooldownUntil.removeWhere((_, until) => !until.isAfter(now));
     final wanted = targets
         .where(
           (t) =>
               t.enabled &&
               t.id.isNotEmpty &&
               (force ||
-                  ChannelHealthStore.needsProbe(
-                    _health.of(family, t.id),
-                    now: now,
-                  )),
+                  (ChannelHealthStore.needsProbe(
+                        _health.of(family, t.id),
+                        now: now,
+                      ) &&
+                      // T115 护栏②：认证失败过的，自动那一路先等一会儿（force 那一路不受此限）。
+                      !isInAuthCooldown(family, t.id))),
         )
         .toList();
     if (wanted.isEmpty) return 0;
@@ -109,6 +147,11 @@ class ChannelProbeService {
                 (r['latencyMs'] as num?)?.toInt() ?? watch.elapsedMilliseconds,
             httpCode: (r['httpCode'] as num?)?.toInt(),
           );
+          // 只有原生明说"这是认证失败"才进冷却 —— 判据在 Kotlin 那一侧（它看得见异常类型，
+          // 这里只看得见一句中文），在 Dart 里匹配那句话的措辞就是第二份口径。
+          if (r['authFailure'] == true) {
+            _authCooldownUntil['$family:${t.id}'] = _clock().add(authCooldown);
+          }
           probed++;
           onUpdated?.call();
         } catch (_) {
