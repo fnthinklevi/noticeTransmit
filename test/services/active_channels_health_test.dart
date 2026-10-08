@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 import 'package:notice_transmit/models/email_channel.dart';
@@ -231,7 +232,7 @@ void main() {
   // 片③ 把它接进来。这里钉的四件事按"错了不报错、只是慢慢说假话"排：
   // ① 启用中的那条**在**（不在就是 T104 没做完）；② 三列同口径（target／角色／显示名）；
   // ③ 服务器那一份结论不许冒充通道那一份（片① 拆的两种主语）；④ 自动重探**永不**碰它。
-  group('T104 第四族进清单：显示口径 + 绝不自动重探', () {
+  group('T104 第四族进清单：显示口径 + 自动重探（T106 片③ 起会探设备档）', () {
     final helper = DatabaseHelper();
     late FnthinkChannelService channelService;
 
@@ -386,7 +387,10 @@ void main() {
       );
     });
 
-    test('自动重探（含 force 那一发）不碰这一族：一条记录都不写', () async {
+    test('自动重探（含 force 那一发）现在会探这一族：设备档写进健康单点，webhook 档不探', () async {
+      // ⚠ 这一格的**方向被 T106 片③ 改过**：T104 时这里断的是"一条记录都不写"，
+      //   因为那一族当时没有非侵入探针（"顺手重探"＝替用户往对面发一条真通知）。
+      //   现在探针有了（`/probe`，一条都不投），断的变成"它真的被探、而且只探设备档"。
       final health = GetIt.instance<ChannelHealthStore>();
       await seedChannels(
         hooks: [hookRow()],
@@ -400,6 +404,12 @@ void main() {
         target: peerAddress,
         targetKind: FnthinkChannelTarget.device,
       );
+      await channelService.create(
+        id: 'fc_hook',
+        name: '自建端点',
+        target: 'https://push.example.com/hook/secretpath',
+        targetKind: FnthinkChannelTarget.webhook,
+      );
 
       final calls = <MethodCall>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -411,27 +421,75 @@ void main() {
         ChannelProbeService(health: health, channel: AppChannels.notification),
       );
 
-      // force：通道状态页下拉刷新那一路 —— 它对另三族"现在全探一遍"，对这一族一个字节都不许发。
-      await probeChannelsAcrossFamilies(force: true);
+      final probed = <String>[];
+      Future<FnthinkProbeResult> stubProbe({required String peer}) async {
+        probed.add(peer);
+        return const FnthinkProbeResult(
+          status: FnthinkPollStatus.ok,
+          ready: false,
+        );
+      }
+
+      // force：通道状态页下拉刷新那一路。
+      await probeChannelsAcrossFamilies(force: true, fnthinkProbe: stubProbe);
 
       expect(
-        health.of(kFnthinkChannelSlug, 'fc_dev'),
-        isNull,
+        probed,
+        [peerAddress],
         reason:
-            '这一族没有非侵入探针：自动重探一旦写上记录，就等于用户拉一下列表，'
-            '对面那台设备收到一条他没要过的真通知',
+            '设备档那条要真的被探（探的是那台地址码）；webhook 档那条今天探不了 —— '
+            '它的干跑要另立一条出示长期口令的路（T106 片①b），这里跳过它而不是假装探过',
       );
-      // 另三族的行为一字节不许因为"加了一族"而变（这里只钉"还在探"，具体探几条由 #174 那组钉）。
+      expect(
+        health.of(kFnthinkChannelSlug, 'fc_dev')!.reachable,
+        isFalse,
+        reason: '服务端说"这条链立不住"（ready:false）就是一次失败，照实写',
+      );
+      expect(
+        health.of(kFnthinkChannelSlug, 'fc_hook'),
+        isNull,
+        reason: '没探过就不许有记录 —— 写一条假的绿比不写更糟',
+      );
+      // 另三族的行为一字节不许因为"加了一族"而变。
       expect(
         calls.map((c) => c.method),
         containsAll(<String>['probeChannelHealth', 'probeAppChannelToken']),
-        reason: '排除幻念时把另两族一起排除掉了 ⇒ 过时效的灯又没人管',
+        reason: '加第四族时把另两族一起弄丢了 ⇒ 过时效的灯又没人管',
       );
-      // 这一族仍在清单里：它是**只读地**被显示，不是被探测改动掉。
-      expect(byId('fc_dev'), isNotNull);
 
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(AppChannels.notification, null);
+    });
+
+    test('进页/回前台那一路只探过期的：刚探过的那条不再发（force 才属于下拉）', () async {
+      final health = GetIt.instance<ChannelHealthStore>();
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_dev',
+        name: '机房那台',
+        target: peerAddress,
+        targetKind: FnthinkChannelTarget.device,
+      );
+
+      final probed = <String>[];
+      Future<FnthinkProbeResult> stubProbe({required String peer}) async {
+        probed.add(peer);
+        return const FnthinkProbeResult(
+          status: FnthinkPollStatus.ok,
+          ready: true,
+        );
+      }
+
+      // 第一发（进页那一发就是 stale-only）：从没探过 ⇒ 探。
+      await probeChannelsAcrossFamilies(fnthinkProbe: stubProbe);
+      expect(probed, [peerAddress], reason: '从没测过的通道挂着「从未探测」，进页那次必须探它');
+      expect(health.of(kFnthinkChannelSlug, 'fc_dev')!.reachable, isTrue);
+
+      // 第二发：刚探过（在时效内）⇒ 一个字节都不发。
+      await probeChannelsAcrossFamilies(fnthinkProbe: stubProbe);
+      expect(probed, [
+        peerAddress,
+      ], reason: '进页/回前台是"顺手检查"，不是"每次露脸都发一轮请求"（另三族同一条不变量）');
     });
   });
 

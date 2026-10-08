@@ -8,6 +8,7 @@ import 'channel_health_store.dart';
 import 'channel_display.dart';
 import 'channel_probe_service.dart';
 import 'email_service.dart';
+import 'fnthink_channel_probe.dart';
 import 'fnthink_channel_service.dart';
 import 'webhook_service.dart';
 
@@ -187,10 +188,9 @@ List<ActiveChannel> collectActiveChannels() {
   // 第四族：幻念推送的通道（T104 片③）。它此前一直不在这份清单里，而一条启用中的幻念通道
   // **照在转发**（原生 fanout 读的是通道表，不看这份列表）—— 界面上看不见，用户就只能猜。
   //
-  // ⚠ 这一族**只进这份清单，不进下面的 `probeChannelsAcrossFamilies`**：它没有非侵入探针，
-  //   "顺手重探一次"就是替用户往对面那台设备发一条真通知（对面会收到）。所以它的 `health`
-  //   只在人手动「仅探测／探测并保存」之后才有值，其余时候是 null ⇒ 首页那行显示「未知」、
-  //   列表页那一格说「从未探测」（T103 的 `absentText`），两者都是真话。
+  // ⚠ 它的健康度现在**能自动重探了**（T106 片③：非侵入探针 `/probe` 落了地，见下面
+  //   `probeChannelsAcrossFamilies` 里那一段）；在那之前这里写的是"绝不进自动重探"。
+  //   设备档之外的那条（webhook 目标）今天仍探不了。
   List<FnthinkChannel> fnthinkChannels;
   try {
     fnthinkChannels = GetIt.instance<FnthinkChannelService>().cachedChannels;
@@ -338,41 +338,56 @@ List<Map<String, dynamic>> _rows(List<Map<String, dynamic>> Function() read) {
 /// 进页/回前台不是"必发一轮请求"的借口。三条不变量（只探启用 / 只探过期 / 调用异常不写不可达）
 /// 全在 [ChannelProbeService] 里。
 ///
-/// ⚠ **幻念族不在这里，而且不许加进来**（T104 立的那条安全判据）：它没有非侵入探针 ——
-/// 这一族"测一次"的**唯一**做法是真往对面那台设备发一条通知（对面会收到），所以它只能由人
-/// 在通道详情页按页脚那两枚（「仅探测／探测并保存」）手动触发。上面那三族是"顺手检查"，
-/// 这一族是"替用户对外面做一件他没要做的事"。判据钉在 `channel_status_page_test` 的
-/// 「自动重探那两处入口里出现 fnthink 即红」。
+/// ⚠ **幻念族走自己那一条**（T106 片③）：它的探针是一次签名事件（`POST /probe`），
+/// 不是原生那三枚方法，所以不进上面那张按「原生方法名 + 参数」组织的表。
+/// 这一族**曾经**被明确挡在门外（T104 的安全判据）：那时它没有非侵入探针，"顺手重探一次"
+/// 就是替用户往对面那台设备发一条真通知（对面会收到）。T106 补上了非浸入探针 ⇒ 那条判据
+/// **改理由**而不是被悄悄放宽（判据本身没错，错的是它当初依赖的那个事实）。
+/// 判据仍在守卫里：`channel_health_reprobe_guard_test` 那一组钉住"探它的**只有**这一条路、
+/// 原生那张表里仍旧没有它"。
 Future<int> probeChannelsAcrossFamilies({
   void Function()? onUpdated,
   bool force = false,
+  FnthinkProbeCall? fnthinkProbe,
 }) async {
-  // 探测链路没装配（早期启动阶段 / 测试环境）⇒ 当"无事可做"返回，与 [collectActiveChannels]
-  // 对三个服务的兜底同一条纪律：这一发是**顺手检查**，不该把一个没注册的 GetIt 变成页面崩。
-  final ChannelProbeService prober;
+  // 原生那三族的调度链路没装配（早期启动阶段 / 测试环境）⇒ 它们当"无事可做"；
+  // ⚠ **不能顺手把第四族一起返回 0**：它不经过原生那套方法（见下面 `probeFnthinkChannels`），
+  // 缺的是 `ChannelProbeService` 而它自己那条路是好的 —— 早退一次就等于"幻念这一族
+  // 在别处测试环境里永远探不了"，而那正是这条判据要防的那种静默。
+  ChannelProbeService? prober;
   try {
     prober = GetIt.instance<ChannelProbeService>();
   } catch (_) {
-    return 0;
+    prober = null;
   }
-  final byFamily = <String, List<ChannelProbeTarget>>{};
-  void add(String family, List<ChannelProbeTarget> Function() build) {
-    try {
-      byFamily[family] = build();
-    } catch (_) {
-      // 这一族没注册 ⇒ 跳过这一族，别的两族照探
-    }
-  }
-
-  add('webhook', () => GetIt.instance<WebhookService>().probeTargets);
-  add('app', () => GetIt.instance<AppChannelService>().probeTargets);
-  add('email', () => GetIt.instance<EmailService>().probeTargets);
 
   var probed = 0;
-  for (final entry in byFamily.entries) {
-    probed += await (force
-        ? prober.probeNow(entry.key, entry.value, onUpdated: onUpdated)
-        : prober.probeStale(entry.key, entry.value, onUpdated: onUpdated));
+  if (prober != null) {
+    final byFamily = <String, List<ChannelProbeTarget>>{};
+    void add(String family, List<ChannelProbeTarget> Function() build) {
+      try {
+        byFamily[family] = build();
+      } catch (_) {
+        // 这一族没注册 ⇒ 跳过这一族，别的两族照探
+      }
+    }
+
+    add('webhook', () => GetIt.instance<WebhookService>().probeTargets);
+    add('app', () => GetIt.instance<AppChannelService>().probeTargets);
+    add('email', () => GetIt.instance<EmailService>().probeTargets);
+    for (final entry in byFamily.entries) {
+      probed += await (force
+          ? prober.probeNow(entry.key, entry.value, onUpdated: onUpdated)
+          : prober.probeStale(entry.key, entry.value, onUpdated: onUpdated));
+    }
   }
+  // 第四族（T106 片③）：走自己那一条 —— 判据「只探启用 / 只探过期 / 只写通道 id」都在
+  // `probeFnthinkChannels` 里，与上面那三族同一套口径（不是"凑上去"的第二份实现）。
+  // [fnthinkProbe] 只为测试注入；生产从 GetIt 取协调者（取不到 = 这一族还没装配 ⇒ 无事可做）。
+  probed += await probeFnthinkChannels(
+    force: force,
+    call: fnthinkProbe ?? fnthinkProbeFromLocator(),
+    onUpdated: onUpdated,
+  );
   return probed;
 }
