@@ -913,6 +913,21 @@ class FnthinkContract {
     return value;
   }
 
+  /// 探针载荷里那个「要问哪一台」的键名（今日 = `peer`）。
+  ///
+  /// 形状是**恰好一个键**：这一发只带一个地址码。多一个键（比如顺手问一句"对面在线吗"）
+  /// 就是给它长第二条读口，而服务端那一刻能答的只有"这条链在服务端立不立得住"。
+  /// 键名从契约读的理由与 pairArm 那份逐字相同：写一个 `'peer'` 字面量就是第二份真值。
+  String get probePeerField {
+    final declared = clientEventFields('probe');
+    if (declared.length != 1 || declared.first.isEmpty) {
+      throw StateError(
+        '契约 clientEvents.probe.fields 必须恰好一个键（今日 = peer），实为 $declared',
+      );
+    }
+    return declared.first;
+  }
+
   /// 端点状态的**封闭**词表（今日 = `["active","revoked"]`）。
   List<String> get endpointStatuses => strings(const ['endpoint', 'statuses']);
 

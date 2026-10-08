@@ -602,6 +602,32 @@ class FnthinkReceiveCoordinator {
     }
   }
 
+  /// 非浸入探针（T106 片②）：问服务端「本机到 [peer] 这条路还立不立得住」。
+  ///
+  /// 与 [publishPairingCode] 同一条口径：`requireEnabled: false` —— 这一发**不是收货**，
+  /// 它问的是"这台往那台投的链还在不在"，与收取总开关无关；用开关挡住它，用户就会看到
+  /// 一条正在转发的通道徽标恒为「从未探测」。用完即 `dispose`（同那一条：用户/系统触发的一发，
+  /// 不像循环那样需要长期客户端）。
+  ///
+  /// ⚠ 前置失败（没契约 / 地址非法 / 没同意中转 / 没自登记）一律以 `ready == null` 返回，
+  /// **不折算成"路断了"**：那几种是"本机这一发没出去"，与"对面那条链不在"是两件事，
+  /// 而健康度那一格只该记后者（前者的红来自"探测调用本身没成"，归调用方的重试口径管）。
+  Future<FnthinkProbeResult> probePeer({required String peer}) async {
+    final resolved = await _resolveSpec(requireEnabled: false);
+    if (resolved.reason != null) {
+      return FnthinkProbeResult(
+        status: FnthinkPollStatus.failed,
+        reason: resolved.reason,
+      );
+    }
+    final service = _serviceFactory(resolved.spec!);
+    try {
+      return await service.probe(peer: peer);
+    } finally {
+      service.dispose();
+    }
+  }
+
   /// 拿对端的地址码 + 那枚一次性口令去配对（#176 的 B 侧，页面上「配对另一台设备」那一格）。
   ///
   /// 与 [publishPairingCode] 同一条口径：`requireEnabled: false` —— **接收开关关着的时候

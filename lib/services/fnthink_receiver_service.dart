@@ -53,6 +53,9 @@ class FnthinkReceiverService {
       'endpointList',
       'endpointRevoke',
       'endpointRotate',
+      // 非浸入探针（T106 片②）：健康度自动重探要发的就是这一发。登记进这张名单的
+      // 意义与上面几条相同 —— 装配期就确认"这扇门存在"，而不是等第一次重探才炸。
+      'probe',
       // 投递面也在这张名单里，但它**不是一种事件**：那一条的签字节 `type` 取自能力词表
       // （notice / action / setting），所以下面的反查为它单独兜了一档。登记进名单要的是
       // "装配期就确认这条路存在"——缺它时第一次发送会在运行时炸成一句看起来像网络故障的话。
@@ -210,6 +213,20 @@ class FnthinkReceiverService {
       );
     }
     return kernel.ack(messageId: messageId, result: result);
+  }
+
+  /// 非浸入探针（T106 片②）：问服务端「本机到 `peer` 这条路还立不立得住」。
+  ///
+  /// 与其余每一发同一道闸：**签名拿不出来就不发**（那既不是网络问题，也不该被记成"路断了"）。
+  /// 结论的三态（true / false / null）由内核给，这一层不重判 —— 它只负责把 URL 与签名接上。
+  Future<FnthinkProbeResult> probe({required String peer}) async {
+    if (!await _canSign()) {
+      return const FnthinkProbeResult(
+        status: FnthinkPollStatus.failed,
+        reason: 'signing-unavailable',
+      );
+    }
+    return kernel.probe(peer: peer);
   }
 
   /// 设备自登记（#177）。**所有签名请求的共同前置**。

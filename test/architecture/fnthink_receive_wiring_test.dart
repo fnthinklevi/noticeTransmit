@@ -1144,6 +1144,37 @@ void main() {
       );
     });
   });
+
+  group('非浸入探针那一发（T106 片②）', () {
+    test('服务层装配判定里含 probe，内核那一发只有一个调用点', () {
+      final src = read('lib/services/fnthink_receiver_service.dart');
+      expect(
+        src,
+        contains("'probe',"),
+        reason: '漏登记 ⇒ 装配期不报错，第一次自动重探才在 transport 里抛，而那一句看起来像网络抖动',
+      );
+      expect(src, contains('kernel.probe('));
+    });
+
+    test('这一发只有一个作者：页面走协调者，不直连服务层', () {
+      // ⚠ 与上面那几条同族的"读者"（自动重探）要到片③才落 —— 这一条今天只钉"没有第二个作者"：
+      //   页面直连服务层 ⇒ 前置判定（契约/地址/同意门/自登记）与 service 生命周期都被跳过。
+      expect(
+        read('lib/services/fnthink_receive_coordinator.dart'),
+        contains('Future<FnthinkProbeResult> probePeer('),
+      );
+      for (final page in [
+        'lib/pages/fnthink_channel_settings_page.dart',
+        'lib/pages/fnthink_channel_list_page.dart',
+      ]) {
+        expect(
+          occurrences(read(page), 'probePeer('),
+          0,
+          reason: '$page 直连了探针那一发',
+        );
+      }
+    });
+  });
 }
 
 class _StubSigner implements FnthinkIdentitySigner {

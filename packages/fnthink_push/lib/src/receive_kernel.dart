@@ -366,6 +366,69 @@ class FnthinkReceiveKernel {
     );
   }
 
+  /// 非浸入探针（T106 片②）：问服务端「本机到 [peer] 这条路还立不立得住」。
+  ///
+  /// 与 [ack] 同族（载荷进被签的 `body`、`target` 是本机），但**一条都不投**：服务端只查
+  /// 那条关系与档位，不落消息、不进回执。所以它的结论是 `ready` 而不是回执词。
+  ///
+  /// 三条边界写在这里而不是留给调用方：
+  ///  ① 载荷**只有那一个键**（契约名单；多一个键服务端整条拒）；
+  ///  ② `ready` 读不出来（缺键 / 不是布尔）⇒ `ready = null` = **没有结论**，
+  ///     调用方据此不写健康度 —— 把"没读懂"当成"路断了"是假警报（与"对面没配对"那种确凿的红不同）；
+  ///  ③ 非 200 与传输异常照旧走 [interpret] 那五种分类（429 要等、410 要先校准时间…），
+  ///     这里不另写一个"如果状态是 429 就…"。
+  ///
+  /// ⚠ `peer` 的形状**不在这里判**：地址码规则住在契约字母表里，本机再写一份就是第二份真值；
+  ///   形状不对时服务端答 `peer-address-code`（403），那一句本身就是结论的一部分。
+  Future<FnthinkProbeResult> probe({required String peer}) async {
+    final nonce = (nonceFactory ?? _fallbackNonce)();
+    final sentAt = _nowMs();
+    final signedWhileUncalibrated = !calibrated;
+    final envelope = await buildEnvelope(
+      fields: {
+        'version': contract.protocolVersionForSignature,
+        'type': eventType('probe'),
+        'target': addressCode,
+        'ts': signedTimestamp,
+        'nonce': nonce,
+        'body': jsonEncode({contract.probePeerField: peer}),
+      },
+      nonce: nonce,
+    );
+    final FnthinkReply reply;
+    final int receivedAt;
+    try {
+      reply = await _transport(envelope);
+      receivedAt = _nowMs();
+    } catch (e) {
+      _lastReason = 'transport:${e.runtimeType}';
+      return FnthinkProbeResult(
+        status: FnthinkPollStatus.transportError,
+        reason: _lastReason,
+      );
+    }
+    final verdict = interpret(
+      reply,
+      signedAt: sentAt,
+      receivedAt: receivedAt,
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+    if (verdict.status != FnthinkPollStatus.ok) {
+      return FnthinkProbeResult(
+        status: verdict.status,
+        reason: verdict.reason ?? 'probe-http:${reply.status}',
+        signedWhileUncalibrated: signedWhileUncalibrated,
+      );
+    }
+    final ready = reply.body[contract.probeReadyField];
+    return FnthinkProbeResult(
+      status: FnthinkPollStatus.ok,
+      ready: ready is bool ? ready : null,
+      reason: ready is bool ? null : 'probe-no-verdict',
+      signedWhileUncalibrated: signedWhileUncalibrated,
+    );
+  }
+
   /// 组自登记的签名字段（#177）：与 poll 同形的六个键，`type` 从契约取。
   ///
   /// ⚠ `publicKey` 与 `name` **不在**这六个键里：契约把「自带公钥」写在这一类事件的顶层
@@ -1580,6 +1643,32 @@ class FnthinkAckResult {
 
   /// 本地就把重复的渲染回调挡掉了（没发出去）。
   final bool duplicateSuppressed;
+}
+
+/// 一次非浸入探针的结论（T106 片②）。
+///
+/// ⚠ [ready] 是**三态**，不是两态：
+///  - `true`  = 这条链在服务端立得住；
+///  - `false` = 立不住（没配对 / 那台没登记 / 档位不够）—— 确凿的红；
+///  - `null`  = **没有结论**（这一发没成，或响应里没有那个键）。
+///    调用方据此**不写健康度**：把"我没问到"画成红是假警报，画成绿是假安心。
+class FnthinkProbeResult {
+  const FnthinkProbeResult({
+    required this.status,
+    this.ready,
+    this.reason,
+    this.signedWhileUncalibrated = false,
+  });
+
+  final FnthinkPollStatus status;
+
+  /// 服务端给的结论；null = 这次没有结论（见类注释）。
+  final bool? ready;
+
+  final String? reason;
+
+  /// 还没学到服务端时间就签了这一发（与其余几发同一个信号）。
+  final bool signedWhileUncalibrated;
 }
 
 /// 挂口令那一发的结论。

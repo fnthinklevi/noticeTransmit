@@ -2035,4 +2035,70 @@ void main() {
       );
     });
   });
+
+  group('T106 片②：非浸入探针的那一发', () {
+    /// 服务端那一发的响应形状：只回那个结论键与服务端时间。
+    Map<String, Object?> probeReply(Object? ready) => {
+      if (ready != null) contract.probeReadyField: ready,
+      'serverTime': 1_800_000_000_000,
+    };
+
+    test('载荷只有 peer 那一个键、target 是本机、type 是契约里 probe 那个词', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(status: 200, body: probeReply(true));
+
+      final result = await harness.kernel().probe(peer: _peer);
+
+      expect(result.ready, isTrue);
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      expect(
+        fields['target'],
+        _self,
+        reason: 'self-only：问的是"本机到那台"这条路，写别人的码就是替别人查',
+      );
+      expect(
+        fields['type'],
+        contract.str(const ['clientEvents', 'probe', 'messageType']),
+      );
+      expect(jsonDecode(fields['body']! as String), {
+        contract.probePeerField: _peer,
+      }, reason: '载荷逐字节比：多一个键就是给它长第二条读口');
+      expect(
+        harness.signedBytes.single,
+        contains(_peer),
+        reason: '要问谁必须出现在**被签**的字节里，否则中间人能换一个目标而签名照旧',
+      );
+    });
+
+    test('ready:false 是一个结论而不是失败（服务端查过了，红灯照实回）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(status: 200, body: probeReply(false));
+
+      final result = await harness.kernel().probe(peer: _peer);
+
+      expect(result.status, FnthinkPollStatus.ok);
+      expect(result.ready, isFalse);
+    });
+
+    test('缺那个键 / 形状不对 ⇒ ready=null（没有结论），不当成"路断了"', () async {
+      for (final body in [probeReply(null), probeReply('yes')]) {
+        final harness = _Harness(contract, 1_800_000_000_000);
+        harness.reply = FnthinkReply(status: 200, body: body);
+        final result = await harness.kernel().probe(peer: _peer);
+        expect(result.status, FnthinkPollStatus.ok);
+        expect(result.ready, isNull, reason: '把"没读懂"读成"路断了"就是假警报');
+        expect(result.reason, 'probe-no-verdict');
+      }
+    });
+
+    test('连不上 ⇒ 传输异常且 ready=null（没问到 ≠ 路断了）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000)
+        ..throws = const SocketException('boom');
+
+      final result = await harness.kernel().probe(peer: _peer);
+
+      expect(result.status, FnthinkPollStatus.transportError);
+      expect(result.ready, isNull);
+    });
+  });
 }
