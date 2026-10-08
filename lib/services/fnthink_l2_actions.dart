@@ -248,20 +248,16 @@ RemoteChannelTarget? parseChannelTarget(String? argument) {
   return RemoteChannelTarget(family: family, id: id, enabled: enabled);
 }
 
-/// 本机那三族通道（`webhook` / `app` / `email`）。
+/// 这里**只管远程启停**这一档的三族（`webhook` / `app` / `email`）。
 ///
-/// ⚠ **唯一出处**：[updateChannelRole] 与 [updateChannelEnabled] 的 switch 分支。
-/// 解析层单独再列一份的话，加一族要改三处，而漏掉的那一处表现为
-/// 「这一族能配能显示，就是远程启停不了，且界面上什么提示都没有」。
-/// 本机那三族通道（`webhook` / `app` / `email`）。
-///
-/// ⚠ **这里列的是第三份**：前两份在 [updateChannelRole] 与 [updateChannelEnabled] 的 switch 分支。
-/// 加一族要三处一起改；只改这份的表现是「这一族能配能显示，就是远程启停不认识它，界面上还没有提示」。
-/// ⚠ 显示那一张表（`channel_display.dart` 的 `_familyNames`）**已经比这里多一族**（幻念）——
-/// 那是 T104 片③ 的**显示**改动，这一族的启停/角色走的不是 `saveChannels` 那条路，别顺手在这儿加一个词。
-/// ⚠ 不抽成一个共享常量：这三处对数据的用法不同（switch 里要拿实例，
-/// `_familyNames` 只要显示名），抽出来之后 switch 仍要再判一次
-/// 「这个族我有没有分支」—— 那一判是删不掉的，等于多一层间接。
+/// ⚠ **这里列的是"可写的族"里的第三份**：另两份在 [updateChannelRole] 与
+/// [updateChannelEnabled] 的 switch 分支。加一族要三处一起改；只改这份的表现是
+/// 「这一族能配能显示，就是远程启停不认识它，界面上还没有提示」。
+/// ⚠ 显示那一张表（`channel_display.dart` 的 `_familyNames`）比这里多一族（幻念）：
+/// 那是 T104 片③ 的**显示**改动。⚠ **别把这一档与"主备"混着读** —— 主备那一档从 T113 起
+/// 四族都能改（幻念走只改角色的 `FnthinkChannelService.setRole`，不重验目标），
+/// 而这一族的**启停**仍只有那三族：幻念的启停只有 `save()` 一条路，会连带重验目标，
+/// 形状与"设一个布尔"不是一件事。要在这里加一个词，先决定的是那条形状，不是这里。
 bool isKnownChannelFamily(String family) =>
     family == 'webhook' || family == 'app' || family == 'email';
 

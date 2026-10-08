@@ -174,6 +174,32 @@ class FnthinkChannelService implements FnthinkChannelStore {
     return rows.map(FnthinkPeer.fromDbRow).toList();
   }
 
+  /// 只改**主备那一档**，不碰目标（T113：让幻念通道也进得了首页那个主备弹层）。
+  ///
+  /// 为什么不复用 [save]：`save()` 会连带重验目标（那条设备被取消勾选就抛），于是"把这条改成备用"
+  /// 这一个动作会有三种失败 —— 名称空、目标空、目标没勾选 —— 而弹层只有一句「这条通道已经不在了」
+  /// 可说。用户做的是改主备，那一句说的是另一件事，**说错的解释比没有快捷入口更坏**；
+  /// 上一版的结论就是"干脆不列这一族"，代价是这一族在主备面上不可见（T113 报的就是它）。
+  ///
+  /// 归一仍在这里做一次（与 [create]/[save] 同一个口径）：主备是跨语言字符串契约，
+  /// 认不出的值在原生侧按"主通道"处理，表现是"界面灰着的一条照样推出去"。
+  ///
+  /// 找不到那条回 `false`（不抛）：调用方据此说那一句「已经不在了」，不多解释。
+  /// 写成公共写口而不是让页面直接 `db.update`：镜像（原生读的那一份）必须跟着改，
+  /// 少调一次 `publishMirror()` 的表现是"库里改了、原生还按旧角色推"，而界面上看不出任何异常。
+  Future<bool> setRole(String id, String role) async {
+    final normalized = ChannelConfigCodec.normalizeRole(role);
+    final changed = await (await _db.database).update(
+      FnthinkChannel.table,
+      {'role': normalized, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (changed == 0) return false;
+    await publishMirror();
+    return true;
+  }
+
   /// 把当前这份配置写进跨端镜像（原生读得到的那一份，见 `fnthink_channel_mirror.dart`）。
   ///
   /// 增删改三处各自调它，而不是让调用方记得调：漏掉一次的表现是"库里已经改了、

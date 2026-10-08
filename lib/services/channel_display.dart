@@ -161,10 +161,13 @@ String channelDeliveryKey(String rawType) =>
 /// 那些子类型会变），而"这一族能不能被某条写路径改"是另一件事。混成一张表会让"族"这一层
 /// 跟着通道数漂移。
 ///
-/// ⚠ 这一张是**显示**用的四族。可写的那三族（`updateChannelRole` / `updateChannelEnabled` /
-/// 远程指令 `channel:toggle` 的 `isKnownChannelFamily`）**不含幻念** —— 那一族的角色与启停
-/// 走 `FnthinkChannelService.save()`（会连带重验目标），形状与另三族不同。两张表不一致时
-/// 的表现是「这一族能配能显示，就是快捷改不了」，所以三处都有注释指回这里。
+/// ⚠ 这一张是**显示**用的四族。"可写的族"今天分成**两档**，别再混着说：
+/// **主备**（`updateChannelRole`）四族都有 —— T113 起幻念那一族走只改角色的
+/// `FnthinkChannelService.setRole`（不重验目标），弹层与页面分组都读 `channelFamilies` 那一份；
+/// **启停**（`updateChannelEnabled` / 远程指令 `channel:toggle` 的 `isKnownChannelFamily`）
+/// 仍是那三族 —— 那一族的启停只有 `save()`，会连带重验目标，形状与"设一个布尔"不是一件事。
+/// 两张表不一致时的表现是「这一族能配能显示，就是快捷改不了」，所以守卫钉在
+/// `channel_single_points_test.dart`（清单 = switch 的 case 集合 = 弹层遍历的那一份）。
 const Map<String, (String, String)> _familyNames = {
   'webhook': ('Webhook', 'Webhook'),
   'app': ('自建应用', 'App Channel'),

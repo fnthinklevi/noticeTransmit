@@ -227,6 +227,89 @@ void main() {
     });
   });
 
+  // ── T113（维护者 2026-10-08 第 7 条：首页那个主备通道设置里不显示幻念推送通道）─────
+  // 病灶不是"少了个 if"，是**同一件事在三处各数一遍**：页面分组顺序、主备弹层要列的族、
+  // `updateChannelRole` 的 switch。弹层那一处少数了一族，表现就是"能配能显示、快捷入口里没有它"；
+  // 而反过来"列表里有这行、写路径却掉进 `default: return false`"会说成「这条通道已经不在了」——
+  // 那句话说的是没找到，不是没人会写。所以这里钉的是**集合只能有一份作者**，不是钉行数。
+  group('主备这一档的族集合只有一份作者（T113）', () {
+    test('清单、弹层遍历、写路径 switch 三处指向同一份', () {
+      final codec = read('lib/services/active_channels.dart');
+      final page = read('lib/pages/channel_status_page.dart');
+
+      final declared = RegExp(
+        r"const List<String> channelFamilies = \[([^\]]*)\];",
+      ).firstMatch(codec);
+      expect(declared, isNotNull, reason: '那份清单不在了 ⇒ 作者换了地方，先看清再谈覆盖');
+      final families = RegExp(
+        r"'([a-z]+)'",
+      ).allMatches(declared!.group(1)!).map((m) => m.group(1)!).toSet();
+      expect(
+        families,
+        containsAll(<String>['webhook', 'email', 'app', 'fnthink']),
+        reason: '主备这一档少了哪一族，首页那个弹层就列不出哪一族',
+      );
+
+      // ① 写路径：switch 的 case 标签集合必须与清单**相等**（少一个 = 点了没人写）
+      final start = codec.indexOf('Future<bool> updateChannelRole(');
+      final stop = codec.indexOf('Future<bool> updateChannelEnabled(');
+      expect(start, greaterThanOrEqualTo(0));
+      expect(stop, greaterThan(start), reason: '两条写口的先后顺序变了 ⇒ 这段提取尺量错了对象');
+      final cases = RegExp(r"case '([a-z]+)':")
+          .allMatches(codec.substring(start, stop))
+          .map((m) => m.group(1)!)
+          .toSet();
+      expect(cases, families, reason: '写路径能改的族与那份清单不一致：$cases vs $families');
+
+      // ② 弹层：遍历的就是这一份，且页面里不再留着手写的那三族
+      expect(
+        page.contains('for (final family in channelFamilies)'),
+        isTrue,
+        reason: '主备弹层不再遍历那份清单 ⇒ 它开始自己数族了',
+      );
+      expect(
+        page.contains("['webhook', 'email', 'app']"),
+        isFalse,
+        reason: '页面里还留着一份三族的手写清单 ⇒ 改名/加族时又会漏一处',
+      );
+
+      // ③ 显示分组顺序也读同一份（它以前是页面里的第二份清单）
+      expect(
+        page.contains('List<String> get _familyOrder => channelFamilies;'),
+        isTrue,
+        reason: '页面自己又数了一遍族 ⇒ 两处会开始不一致',
+      );
+
+      // 尺自证：提取到的必须真是四族，不是把空集合比空集合
+      expect(families.length, 4, reason: '提取到的族数不是 4 ⇒ 尺比被量的东西窄');
+    });
+
+    test('族显示名那张表与这份清单同集合（不然第五族会画成英文 token）', () {
+      final codec = read('lib/services/active_channels.dart');
+      final display = read('lib/services/channel_display.dart');
+      final declared = RegExp(
+        r"const List<String> channelFamilies = \[([^\]]*)\];",
+      ).firstMatch(codec)!;
+      final families = RegExp(
+        r"'([a-z]+)'",
+      ).allMatches(declared.group(1)!).map((m) => m.group(1)!).toSet();
+      final block = display.substring(
+        display.indexOf('const Map<String, (String, String)> _familyNames = {'),
+      );
+      final named = RegExp(
+        r"^\s*'([a-z]+)': \(",
+        multiLine: true,
+      ).allMatches(block).map((m) => m.group(1)!).toSet();
+      expect(
+        named.intersection(families),
+        families,
+        reason:
+            '有一族进了清单却没进显示名表：$families 里缺的是 ${families.difference(named)} '
+            '—— `channelFamilyName` 会原样返回英文 token 而不是猜一个',
+      );
+    });
+  });
+
   // ── T103（维护者 2026-10-08 两条追问：「更多页那一行为什么不是已配置 X 个 ·
   //    启用 X 个」「幻念推送通道列表为什么没有通道健康度！」）─────────────────
   // 第一条的根因是这一组四行**从来没有过一个共享口径**：webhook 与自建应用各抄了一份

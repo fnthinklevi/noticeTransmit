@@ -545,6 +545,41 @@ void main() {
       expect(opened, ['fnthink']);
     });
 
+    testWidgets('主备弹层里出现幻念那一行，三段都在且当前档选中的是库里那一档（T113）', (tester) async {
+      tester.view.physicalSize = const Size(1200, 3200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await seedAll();
+      seedFnthink(); // 库里那一条存的是 backup
+
+      await tester.pumpWidget(buildApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('channel-status-open-roles')));
+      await tester.pumpAndSettle();
+
+      final picker = find.byKey(const ValueKey('role-picker-fnthink-fc_dev'));
+      expect(
+        picker,
+        findsOneWidget,
+        reason: '弹层不列这一族 = 维护者报的那条本身（能配能显示，主备面上看不见）',
+      );
+      expect(
+        find.descendant(of: picker, matching: find.text('不参与')),
+        findsOneWidget,
+        reason: '只列一行却不给全套档位 = 这一族在主备面上只能"减半档"',
+      );
+      expect(
+        tester.widget<SegmentedButton<String>>(picker).selected,
+        const <String>{'backup'},
+        reason: '弹层里的当前档必须是库里那一档，不能按"默认主"猜一个',
+      );
+      // ⚠ 这一条**故意不点**那三段：点下去会走 `updateChannelRole` → DB，而这个 harness
+      //   没接住库那枚通道 —— `testWidgets` 里那个 await 永不返回（test_setup 记过同一坑，
+      //   第一版就是这么把整批用例拖成 10 分钟超时的）。写路径与"真落库"在
+      //   `fnthink_channel_service_test` 里钉（那里有 ffi 库）。
+    });
+
     testWidgets('停用 ⇒ 这一页不再列它（与首页同一判据）', (tester) async {
       tester.view.physicalSize = const Size(1200, 3200);
       tester.view.devicePixelRatio = 1.0;

@@ -54,6 +54,19 @@ ChannelHealthState channelHealthStateForDisplay(ChannelHealth? h) {
   return state;
 }
 
+/// 通道**族**的同一份清单：显示分组的顺序、主备弹层要列的族、`updateChannelRole` 能写回的族，
+/// 三处都从这里取（T113）。
+///
+/// 为什么收成一份：这三处今日是同一个集合，却在三个文件里各数各的 —— 一旦少数一族，
+/// 表现是"这一族能配能显示，快捷入口里却没有它"（维护者报的 T113），或者反过来
+/// "列表里有这一行、点下去没人写"（写路径 `default:` 回 false，界面只能说那句「这条通道已经不在了」，
+/// 而那句话说的是**没找到**，不是**没人会写**）。守卫钉住"switch 的 case 集合 == 这一份"。
+///
+/// ⚠ 只有**主备**这一档是四族。启用/停用（`updateChannelEnabled` 与远程指令
+/// `channel:toggle` 的 `isKnownChannelFamily`）仍是那三族 —— 幻念那一族的启停走
+/// `FnthinkChannelService.save()`，那一发要连带重验目标，形状与"设一个布尔"不是一件事。
+const List<String> channelFamilies = ['webhook', 'email', 'app', 'fnthink'];
+
 /// 一个**已启用**通道的条目：身份、显示名、用户命名、最近一次探测结果。
 class ActiveChannel {
   const ActiveChannel({
@@ -289,6 +302,12 @@ Future<bool> updateChannelRole(String family, String id, String role) async {
           if (c.id == id) c.copyWith(role: normalized) else c,
       ]);
       return true;
+    case 'fnthink':
+      // 走**只改角色**那一条写口（[FnthinkChannelService.setRole]），不走 `save()`：
+      // `save()` 会连带重验目标（那台设备被取消勾选就抛），而用户此刻做的是"改主备"，
+      // 不是"改目标"。用 save() 的话这一发有三种失败，而弹层只有一句话说得出，
+      // 说错的那一句比少一个快捷入口坏得多（T113 的病灶就是这个"没法说清所以干脆不列"）。
+      return GetIt.instance<FnthinkChannelService>().setRole(id, normalized);
     default:
       return false;
   }

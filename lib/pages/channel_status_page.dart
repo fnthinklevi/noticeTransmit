@@ -48,7 +48,10 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
 
   /// 分组的固定顺序（首页卡是按"应用→webhook→邮件→幻念"的观感排的，这里按族的常用度排，
   /// 幻念在最后一族：它没有自动重探，徽标在多数时刻是「从未探测」，排前面会把这页顶格变成未知）。
-  static const _familyOrder = ['webhook', 'email', 'app', 'fnthink'];
+  /// 分组顺序**不在这一页数**：族集合只有一个作者 [channelFamilies]（T113）——
+  /// 显示分组、主备弹层、`updateChannelRole` 的写路径读同一份，
+  /// 三处各数一遍的下场是"这一族能配能显示，快捷入口里却没有它"。
+  List<String> get _familyOrder => channelFamilies;
 
   @override
   void initState() {
@@ -417,14 +420,15 @@ class _ChannelStatusPageState extends State<ChannelStatusPage> {
                     child: ListView(
                       shrinkWrap: true,
                       children: [
-                        // ⚠ 这一份族清单**不是**上面的 `_familyOrder`（四族）：主备弹层只纳入
-                        // 能"按 family+id 直接改回该族服务"的那三族。幻念那一条的角色改要走
-                        // `FnthinkChannelService.save()`，而它会**连带重验目标**（那台设备已经
-                        // 取消勾选 ⇒ 抛异常），于是"点了主/备没改成"在这里有三种成因，而弹层只
-                        // 有一句「这条通道已经不在了」可说 —— 说错的那一句比少一个快捷入口坏得多。
-                        // 所以这一族的同一件事在通道详情页那一格做（`fnthink-channel-role`）。
-                        // 首页与本页**显示**它的角色（徽标），只是不提供这条快捷路。
-                        for (final family in const ['webhook', 'email', 'app'])
+                        // 这一份族清单**不在这里数**（`channelFamilies`，T113）：以前这里少数了一族，
+                        // 表现就是维护者报的那条"幻念通道能配能显示、主备快捷入口里却没有它"。
+                        // 以前不列是有理由的：那一族的角色改只有 `save()` 一条路，而它会**连带重验目标**
+                        // （那台设备被取消勾选就抛）⇒「点了主/备没改成」在这里有三种成因，而弹层只有
+                        // 一句「这条通道已经不在了」可说 —— 说错的那一句比少一个快捷入口坏得多。
+                        // 现在这一族走**只改角色**那条写口（`FnthinkChannelService.setRole`），
+                        // 失败只剩"没有这一条"，那一句就说得起了。通道详情页那一格
+                        // （`fnthink-channel-role`）仍留着：两个入口改的是同一档，读的是同一份库。
+                        for (final family in channelFamilies)
                           for (final c in channels.where(
                             (c) => c.family == family,
                           ))

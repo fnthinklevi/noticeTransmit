@@ -284,20 +284,37 @@ void main() {
       );
     });
 
-    test('通道状态页分四组，但主备弹层仍只有那三族（这条快捷路没开）', () {
+    test('通道状态页分四组，主备弹层也读同一份族清单（T113 改了这条的口径）', () {
       final page = read('lib/pages/channel_status_page.dart');
+      // 旧断言是「`page` 里要出现 'fnthink'，而弹层里不许出现」。T113 之后**两处都不该出现字面量**：
+      // 族集合只有一个作者（`channelFamilies`），这一页只读它。⇒ 这一条改成钉"读的是那一份"，
+      // "第四族在不在清单里"由 single_points 那把作者守卫判 —— 它比"这一页有没有出现某个词"强：
+      // 页面少画一行而清单没少，旧断言会跟着一起漂。
       expect(
         page,
-        contains("'fnthink'"),
-        reason: '分组顺序里没有第四族 ⇒ 清单里有它而这一页不画它，两处又开始各说一套',
+        isNot(contains("'fnthink'")),
+        reason: '页面里又写死一族 ⇒ 它与那份清单会各自漂（漂的那一侧表现为少一行或多一行）',
       );
+      // 旧断言是「弹层里不许出现这一族」，理由写得很实：那一族的角色改只有 `save()` 一条路，
+      // 而它会连带重验目标 ⇒ "点了主/备没改成"有三种成因，弹层只有一句「通道已不存在」可说。
+      // T113 换掉的正是那条前提：现在有一支**只改角色**的写口（`FnthinkChannelService.setRole`，
+      // 不碰目标），失败只剩一种 ⇒ 那一句说得起了。所以这条守卫从"不许出现"改成
+      // "**必须走那份清单**"：少数一族红（就是维护者报的那条），自己手写一份也红。
       final sheet = blockAfter(page, 'Future<void> _showRoleSheet() async');
       expect(
         sheet,
-        isNot(contains("'fnthink'")),
-        reason:
-            '这一族的角色改要走 `FnthinkChannelService.save()`（会连带重验目标），'
-            '而弹层只有「这条通道已经不在了」一句可说 —— 在这里加一族等于让快捷路说假话',
+        contains('for (final family in channelFamilies)'),
+        reason: '弹层不再遍历那份清单 ⇒ 它又自己数一遍族，下一次漏的就是这一族',
+      );
+      expect(
+        sheet,
+        isNot(contains("['webhook'")),
+        reason: '弹层里还留着手写的族清单 ⇒ 两处会开始不一致',
+      );
+      expect(
+        page.contains('List<String> get _familyOrder => channelFamilies;'),
+        isTrue,
+        reason: '分组顺序另开一份清单 ⇒ 它与弹层那份会各自漂（T113 的病灶正是这个）',
       );
     });
 
