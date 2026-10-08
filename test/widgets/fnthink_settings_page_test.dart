@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_receive_page.dart';
@@ -20,6 +21,7 @@ import 'package:notice_transmit/widgets/channel_health_badge.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
 import 'package:notice_transmit/services/channel_display.dart';
+import 'package:notice_transmit/services/fnthink_channel_service.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_credential_store.dart';
 import 'package:notice_transmit/services/fnthink_identity_service.dart';
@@ -160,6 +162,9 @@ void main() {
     recordHealth,
     // #176 片4：那条被点开的链接**判过之后的结论**。null = 这一页不是从链接进来的（常态）。
     FnthinkPairLinkOutcome? pairLink,
+    // T98 片③：通道那一包的替身。勾上那一枚是会**连带建一条通道**的，
+    // 那一步只能经接口被钉住（留真服务就是在依赖 sqflite，而这里刻意不开盘）。
+    FnthinkChannelStore? channels,
   }) {
     final loader = FnthinkContractLoader(
       readAsset: (_) async {
@@ -373,6 +378,9 @@ void main() {
           contracts: loader,
           coordinator: coordinator,
           loadPeers: loadPeersStub,
+          // T98 片③ 的页面级证据要数得到"代建了几条通道"，所以这一包也走替身
+          //  （不传时页面用真的 `FnthinkChannelService`，其余用例一字节没动）。
+          channels: channels,
         ),
         pairLink: pairLink,
       ),
@@ -2789,6 +2797,143 @@ void main() {
     });
   });
 
+  group('勾上「这台可以当幻念通道的目标」会连带建一条通道（T98 片③）', () {
+    // 这一组钉的是"那一次勾选到底改了哪几张表"—— 之前只有服务层与源码守卫的证据，
+    // 页面这一发（勾上⇒恰好建一条、已有⇒不建、取消⇒不删）今天第一次有人能对账。
+    const peerAddress = 'AAAAAAAAAAAAAAAAAAAA';
+    const forwardPeer = FnthinkPeer(
+      peerAddress: peerAddress,
+      publicKey: 'AAAApublicKeyBytesForTests',
+      level: 'L1',
+      grantedAt: 1800000000000,
+      requestId: 'pr_9',
+    );
+
+    Future<void> toggle(WidgetTester tester, bool value) async {
+      final sw = find.byKey(
+        const ValueKey('fnthink-peer-forward-$peerAddress'),
+      );
+      await revealTo(tester, sw);
+      await tester.ensureVisible(sw);
+      await tester.pumpAndSettle();
+      await tester.tap(sw);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('勾上 ⇒ 恰好代建一条，目标就是这一台，界面上说的是"已建好"', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore();
+      final l10n = await pumpPeers(
+        tester,
+        harness(peers: const [forwardPeer], channels: store),
+      );
+      await toggle(tester, true);
+
+      expect(store.forwardWrites, [(peer: peerAddress, value: true)]);
+      expect(
+        store.created,
+        hasLength(1),
+        reason: '建两条＝通道列表里多出一行长得一样的行，用户不知道哪一条是这次建的',
+      );
+      expect(store.created.single.target, peerAddress);
+      expect(
+        store.created.single.targetKind,
+        FnthinkChannelTarget.device,
+        reason: '目标种类写错成 webhook 时，那一条会在发送前才失败，而界面上看着是配好的',
+      );
+      expect(store.deleted, isEmpty);
+      expect(
+        find.text(l10n.fnthinkPeerForwardChannelMade),
+        findsOneWidget,
+        reason: '三段链里这一段刚补上，界面上必须看得见它',
+      );
+    });
+
+    testWidgets('已经有一条目标=这台的 ⇒ 不再代建，说的是"本来就有"', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore(
+        existing: const [
+          FnthinkChannel(
+            id: 'fc_old',
+            name: '我自己起的名',
+            target: peerAddress,
+            targetKind: FnthinkChannelTarget.device,
+            createdAt: 1,
+            updatedAt: 1,
+          ),
+        ],
+      );
+      final l10n = await pumpPeers(
+        tester,
+        harness(peers: const [forwardPeer], channels: store),
+      );
+      await toggle(tester, true);
+
+      expect(
+        store.created,
+        isEmpty,
+        reason: '已有还再建一条 ⇒ 用户改过的名字与主备角色被第二行长成一样的盖住',
+      );
+      expect(find.text(l10n.fnthinkPeerForwardChannelKept), findsOneWidget);
+      expect(
+        find.text(l10n.fnthinkPeerForwardChannelMade),
+        findsNothing,
+        reason: '说"已建好"而什么都没建 ⇒ 这一句下次就没人信了',
+      );
+    });
+
+    testWidgets('取消勾选 ⇒ 那一勾断掉，已建好的通道不连带删', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore();
+      await pumpPeers(
+        tester,
+        harness(
+          peers: [
+            const FnthinkPeer(
+              peerAddress: peerAddress,
+              publicKey: 'AAAApublicKeyBytesForTests',
+              level: 'L1',
+              grantedAt: 1800000000000,
+              forwards: true,
+            ),
+          ],
+          channels: store,
+        ),
+      );
+      await toggle(tester, false);
+
+      expect(store.forwardWrites, [(peer: peerAddress, value: false)]);
+      expect(store.deleted, isEmpty, reason: '偷偷删掉用户建过的配置，比留一条"目标没勾选"的通道坏得多');
+      expect(store.created, isEmpty);
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-forward-channel')),
+        findsNothing,
+        reason: '取消那一支不代建，也就不该冒出"建好了／本来就有"那两句',
+      );
+    });
+
+    testWidgets('通道那张表读不出来 ⇒ 说一句原话，不假装已经建好', (tester) async {
+      stubChannels();
+      final store = _FakeChannelStore()..listFails = true;
+      final l10n = await pumpPeers(
+        tester,
+        harness(peers: const [forwardPeer], channels: store),
+      );
+      await toggle(tester, true);
+
+      expect(
+        find.byKey(const ValueKey('fnthink-peer-forward-error')),
+        findsOneWidget,
+        reason: '勾上了、通道没建成、界面一个字不说 ⇒ 三段链看着是齐的',
+      );
+      expect(
+        find.text(l10n.fnthinkPeerForwardChannelMade),
+        findsNothing,
+        reason: '没建成就说"已建好"，这一句以后没人信',
+      );
+    });
+  });
+
   group('配对另一台设备（#176 片3，B 侧那一发）', () {
     // 对端地址码：本机那一枚在下面按用例分别钉进桩里（`disk`），所以这里只需"与本机不同"。
     final peerAddress = FnthinkAddressCode.generate(contract).value;
@@ -3601,4 +3746,67 @@ class _Harness {
 
   /// 本机删行被调用时点到的地址码（替身记下来的）。
   final List<String> Function() removed;
+}
+
+/// 通道那一包的替身（T98 片③）：只记账，不碰库。
+///
+/// ⚠ `created` 记的是**整包参数**而不是只记 target —— 「代建那一条的名字就是那台地址码」
+///   与「targetKind 必须是设备」都是这一发的语义，只记 target 的话写歪了没人知道。
+///
+/// 为什么写在文件末尾而不是 group 里：Dart 不许在函数体里声明 `class`。
+class _FakeChannelStore implements FnthinkChannelStore {
+  _FakeChannelStore({this.existing = const []});
+
+  final List<FnthinkChannel> existing;
+  final forwardWrites = <({String peer, bool value})>[];
+  final created =
+      <
+        ({
+          String id,
+          String name,
+          String target,
+          FnthinkChannelTarget targetKind,
+        })
+      >[];
+  final deleted = <String>[];
+  bool listFails = false;
+
+  @override
+  Future<List<FnthinkChannel>> list() async {
+    if (listFails) throw StateError('表读不出来');
+    return List.of(existing);
+  }
+
+  @override
+  Future<void> setForward(String peerAddress, bool forwards) async {
+    forwardWrites.add((peer: peerAddress, value: forwards));
+  }
+
+  @override
+  Future<FnthinkChannel> create({
+    required String id,
+    required String name,
+    required String target,
+    required FnthinkChannelTarget targetKind,
+    String role = 'primary',
+  }) async {
+    created.add((id: id, name: name, target: target, targetKind: targetKind));
+    return FnthinkChannel(
+      id: id,
+      name: name,
+      target: target,
+      targetKind: targetKind,
+      createdAt: 1,
+      updatedAt: 1,
+    );
+  }
+
+  @override
+  Future<FnthinkChannel> save(FnthinkChannel channel) async => channel;
+
+  @override
+  Future<void> delete(String id) async => deleted.add(id);
+
+  @override
+  Future<List<FnthinkPeer>> listForwardTargets() async => const <FnthinkPeer>[];
 }
