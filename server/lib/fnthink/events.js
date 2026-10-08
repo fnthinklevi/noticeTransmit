@@ -21,7 +21,13 @@ const {
   assertPublicKey,
   verifyPairingCode,
 } = require('./devicestore');
-const { canonicalBytes, verifyIdentity, verifySignature, checkFresh } = require('./verify');
+const {
+  canonicalBytes,
+  verifyIdentity,
+  verifySignature,
+  checkFresh,
+  intakeGrantFor,
+} = require('./verify');
 const { levelRank } = require('./capabilities');
 const {
   alphabetFromContract,
@@ -128,6 +134,8 @@ function bannedTopLevel(spec, input) {
  *  - 失败 `{ok:false, status, reason}`（reason 仅内部留痕，对外形状由路由按 status 决定）
  *  - poll   `{ok:true, kind:'poll', sender, serverTime}`
  *  - ack    `{ok:true, kind:'ack', sender, messageId, result}`
+ *  - probe  `{ok:true, kind:'probe', sender, peer, ready}`（T106：非浸入探针，只查关系不投递；
+ *           `ready` 由 `verify.intakeGrantFor` 算出，与真发那一条同一处判定）
  *
  * ⚠ 这里**不查消息表**：ack 那句「只能 ack 下发给自己的那一条」要有 messageId 的归属才判得了，
  * 那是路由侧拿着表来做的事；本文件只判事件自身的形状与签名。契约那一条的前半段
@@ -176,6 +184,33 @@ function authorizeClientEvent(contract, state, input, kind) {
       messageId: String(payload.messageId),
       result: String(payload.result),
     };
+  }
+  if (kind === 'probe') {
+    // 探针答的是"这条链在服务端立不立得住"。链的档位随消息类型走，所以查哪个类型必须由契约说
+    //（写在实现里就是第二份真值：改契约那一行不报错，只会让探针验着另一种类型的档位）。
+    const checkedType = typeof spec.checksType === 'string' ? spec.checksType : '';
+    if (checkedType === '') {
+      throw new Error(
+        '契约 clientEvents.probe 缺 checksType：不声明就只能在实现里挑一个消息类型来判档位',
+      );
+    }
+    const read = readPayload(spec, fields.body, 'probe');
+    if (read.reason) return denied(contract, state, input, read.reason);
+    const peer = normalize(
+      alphabetFromContract(contract),
+      String(read.payload.peer === undefined ? '' : read.payload.peer),
+    );
+    if (peer === null || !isValidAddressCode(contract, peer)) {
+      return denied(contract, state, input, 'peer-address-code');
+    }
+    // ⚠ 判定复用收单那一处（verify.intakeGrantFor）：这里**不许**自己再写一遍关系判定 ——
+    //   探针的全部价值就是"它说的与真发那条一致"，两处各判一次就是绿徽标配一条发不出去的通知。
+    // item 传空串：这一族今天只有通知这一种活，而通知不带逐条清单（L1 不看 item）。
+    const cap = intakeGrantFor(contract, state, peer, id.sender, {
+      type: checkedType,
+      item: '',
+    });
+    return { ok: true, kind: 'probe', sender: id.sender, peer, ready: !!(cap && cap.allowed) };
   }
   // 契约加了新的事件种类而这里没实现：**必须抛**，不能 fall through 到"当成 poll 放行"。
   // 需要专用入口的那几种（自带公钥 / 要查表）在各自的文件级函数里判，不在这里。

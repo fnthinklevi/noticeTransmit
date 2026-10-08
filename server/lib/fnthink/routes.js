@@ -142,6 +142,20 @@ function pollMessageFields(c) {
 
 const POLL_FIELDS = pollMessageFields(contract);
 
+/// 探针响应里那个结论键：从契约读，不写死 `ready`。
+/// 写死的下场：契约改了名（或客户端版本读的是新契约），服务端这一份不报错，
+/// 只会让设备侧永远读到一个 undefined —— 而 `undefined` 在那边会被读成"探针没结论"。
+function probeReadyField(c) {
+  const probe = (c.clientEvents || {}).probe;
+  const field = probe ? probe.readyField : undefined;
+  if (typeof field !== 'string' || field === '') {
+    throw shapeError('契约缺 clientEvents.probe.readyField：探针的结论键必须有共同出处');
+  }
+  return field;
+}
+
+const PROBE_READY_FIELD = probeReadyField(contract);
+
 function projectForPoll(record, content) {
   const source = {
     messageId: record.messageId,
@@ -362,6 +376,40 @@ router.post(
     const { step } = advanceMessage(contract, messages, auth.messageId, event, { now });
     saveMessages(messages);
     res.status(200).json({ receipt: step.receipt || null, state: step.state });
+  }),
+);
+
+// ── POST /probe：非侵入探针（T106）——只问这条链立不立得住，一条都不投 ──────
+// 判序与其余设备面路由同一条（禁带字段 → 事件裁决（身份/种类/self-only/时间重放）→ 验签后配额）。
+// 三条这一发特有的口径：
+//  ① **不投递**是这一发存在的全部理由：一次都不碰消息表、不产生回执、不动任何投递状态。
+//     这不是"顺手不做"而是产品前提（对面不会收到一条他没要过的消息）—— 所以它有一条用例钉着：
+//     调完之后队列长度与 receipts 都不变。上面对 `auth` 的用法里能看见这一点：整个处理体
+//     只读了设备表与 nonce 表（都在 `freshState` 里）。
+//  ② 判定**复用收单那一处**（`verify.intakeGrantFor`，结在 events.js 的 probe 分支里）：
+//     绿灯必须等于"真发一条也能进"。两处各判一次的下场是绿徽标配一条发不出去的通知。
+//  ③ 结论走**响应正文**而不是失败：'没配对' 是一个合法的探针结论（红灯），不是协议错误。
+//     回 403 会让设备分不清"这条链断了"与"我这一发写错了"，而后者不该被记进健康度。
+router.post(
+  '/probe',
+  asyncHandler(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+    const state = freshState();
+
+    if (carriesForbidden(body, contract.clientEvents.probe).length) {
+      return sendFailure(res, statusCode(contract, 'forbidden'), unsignedReceipt);
+    }
+    const auth = authorizeClientEvent(contract, state, eventInput(body, now), 'probe');
+    if (!auth.ok) {
+      const failure = eventFailure(auth);
+      return sendFailure(res, failure.status, failure.receipt);
+    }
+    if (rejectIfOverQuota(res, 'probe', auth.sender)) return;
+    res.status(200).json({
+      [PROBE_READY_FIELD]: auth.ready,
+      serverTime: now,
+    });
   }),
 );
 

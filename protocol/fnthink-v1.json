@@ -356,6 +356,7 @@
       "endpointList",
       "endpointRevoke",
       "endpointRotate",
+      "probe",
       "message"
     ],
     "perSenderPerMinute": 60,
@@ -754,6 +755,27 @@
       },
       "_onlyForOwnMessagesWhy": "设备只能 ack 下发给它自己的那条消息。不钉这条，一台设备可以把别人队列里的消息逐个 ack 成 delivered，而正文按契约在 delivered 时立即删除——等于替别人把消息销毁。"
     },
+    "probe": {
+      "messageType": "probe",
+      "verifyAgainst": "device-table-public-key",
+      "targetMustEqualSender": true,
+      "_targetMustEqualSenderWhy": "探针问的是**本机**自己：从这台到载荷里那个目标，这条链在服务端还立不立得住。target 写成别人就是替别人查他的关系，而结论一旦也照实回，这一发就成了替他人数白名单的读口。",
+      "fields": [
+        "peer"
+      ],
+      "_fieldsWhy": "载荷只有一个键：要查的那台对端的地址码。多一个键就是让这一发长出第二条读口（例如顺手问一句「对面此刻在不在线」），而服务端此刻能答的只有「这条链在服务端立不立得住」——对面在不在线它并不保管。",
+      "checksType": "notice",
+      "_checksTypeWhy": "探针验的是这条通道的活：转发一条通知。类型固定在这里而不是由设备传：让设备传就等于把它变成一台「我能发哪些类型」的枚举器，而这一族今天只有通知这一种活。要覆盖远程指令时先改这一行、再谈客户端。",
+      "nonIntrusive": true,
+      "_nonIntrusiveWhy": "这一发**不投递**：只查那台登记过没有、本机在不在它的名单里、档位够不够，不落消息、不进回执、不动任何投递状态。这条是整件事的前提——用真发一条通知的办法去测，对面会收到一条他没要过的消息；也正是这一条把幻念族从「只能人手动测」变成「可以自动重探」（T104 立的那道「不许替用户打扰对面」的闸，到此才谈得上松开）。",
+      "readyField": "ready",
+      "_readyFieldWhy": "响应里那个结论键（`ready`：这条路在服务端立不立得住）必须只取名一次、两端同读：名字写在两处，改一边不报错，只会让设备侧永远读到一个 undefined 而判成「探针没结论」。⚠ 它说的是**链路结论**不是投递结论：绿灯＝这条链没断，不等于对面此刻收得到（对面在不在线服务端不保管）；红灯则是确凿的。",
+      "_why": "非浸入探针（T106）：判定用的关系与真发那一条走的是同一处——被投那台的 grantsBy 加同一张档位表（capabilities.decideCapability），不是另立一份「探针专用」的宽松判定。两处各判一次的下场是「探针说通、真发被拒」，而用户拿着绿徽标去查为什么收不到。",
+      "mayNotCarry": [
+        "privateKey",
+        "endpointSecret"
+      ]
+    },
     "pairArm": {
       "messageType": "pairArm",
       "verifyAgainst": "device-table-public-key",
@@ -950,6 +972,7 @@
       "message": "/api/fnthink/message",
       "poll": "/api/fnthink/poll",
       "ack": "/api/fnthink/ack",
+      "probe": "/api/fnthink/probe",
       "_endpointPathsApartWhy": "端点收单的两条不在这张表里，也不许进来：那是另一类鉴权（共享长期口令在路径段里），而且它们已由 endpoint.ingress.pathPattern / postBearerPath 钉住必须落在脱敏前缀之内。混在一张表里，下一个读它的人会以为设备面路径也可以携带口令。"
     },
     "endpoints": {

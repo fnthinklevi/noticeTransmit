@@ -81,6 +81,30 @@ function verifySignature(contract, publicKeyB64, canonical, signatureB64) {
   }
 }
 
+/// 「被投那台允许这台投吗、能投到哪一档」——**收单与探针共用这一处**（T106 片①）。
+///
+/// 返回 `null` = 这条关系不存在（目标没登记、或本机不在它的名单里；两者刻意同形，
+/// 见 acceptIncoming 里那段注释）；否则返回 `capabilities.decideCapability` 的裁决。
+///
+/// 为什么必须只有这一处：非侵入探针的全部价值就是「它说的与真发那条一致」。两处各判一次，
+/// 下场是「探针说通、真发被拒」—— 而用户拿着绿徽标去查为什么收不到。
+function intakeGrantFor(contract, state, targetKey, senderCode, { type, item }) {
+  const target = targetKey === null ? undefined : state.devices[targetKey];
+  // 档位与逐条清单读的是**这一段关系**（A 给 B 的那一份），不是 B 自己的记录：
+  // 一份授权两个读处就会分叉，所以发送方记录上那份 grant 已经退役（见 devicestore）。
+  const peer = target ? peerGrant(contract, target, senderCode) : null;
+  if (!peer) return null;
+  // 收单这一段判不了"每次本地确认"：那是设备上的一次用户动作。
+  // ⚠ 这里**故意不读**请求里的 `confirmedThisTime` —— 从请求里取那个值，
+  // 等于让发送方替接收方点"我确认了"，而 L3 那条红线写的正是"不许远端悄悄执行本地动作"。
+  return decideCapability(contract, {
+    stage: 'intake',
+    grant: grantFromNode(contract, peer),
+    type,
+    item,
+  });
+}
+
 /// 一次入站消息的完整裁决。`now` 由调用方注入（服务端时间，且测试要能把时钟拧动）。
 ///
 /// ⚠ 身份段与重放段是**从这里抽出去共用的**（`verifyIdentity` / `checkFresh`），因为
@@ -122,22 +146,13 @@ function acceptIncoming(contract, state, input) {
     );
   }
   const targetKey = normalize(alphabetFromContract(contract), String(input.fields.target));
-  const target = targetKey === null ? undefined : state.devices[targetKey];
-  const peer = target ? peerGrant(contract, target, sender) : null;
   // 「目标设备不存在」与「存在但没配过对」**同形同码**：分辨它们就等于把地址码表递出去
   //（地址码本来就是要印在二维码上给人抄的公开标识，而登记一把密钥只要几微秒）。
-  if (!peer) return denied('rejected_capability', 'not-paired');
-  const cap = decideCapability(contract, {
-    // 收单这一段判不了"每次本地确认"：那是设备上的一次用户动作。
-    // ⚠ 这里**故意不读** `input.confirmedThisTime` —— 从请求里取那个值，
-    // 等于让发送方替接收方点"我确认了"，而 L3 那条红线写的正是"不许远端悄悄执行本地动作"。
-    stage: 'intake',
-    // 档位与逐条清单读的是**这一段关系**（A 给 B 的那一份），不是 B 自己的记录：
-    // 一份授权两个读处就会分叉，所以发送方记录上那份 grant 已经退役（见 devicestore）。
-    grant: grantFromNode(contract, peer),
+  const cap = intakeGrantFor(contract, state, targetKey, sender, {
     type: String(input.fields.type),
     item,
   });
+  if (!cap) return denied('rejected_capability', 'not-paired');
   if (!cap.allowed) return denied('rejected_capability', 'capability:' + cap.reason);
 
   const fresh = checkFresh(contract, state, input, sender);
@@ -237,9 +252,11 @@ module.exports = {
   canonicalBytes,
   verifySignature,
   acceptIncoming,
-  // 给 clientEvents（poll / ack）共用的两段：身份段与重放段。
+  // 给 clientEvents（poll / ack / probe）共用的两段：身份段与重放段。
   // ⚠ 它们不是"对外可随便拼的半个裁决"：路由侧只许按 events.js 里那个顺序用，
   //   顺序本身是判据（身份之前同形、之后照实说）。
   verifyIdentity,
   checkFresh,
+  // 收单那道授权判定本身也抽出来共用：探针（T106）问的正是同一件事。
+  intakeGrantFor,
 };

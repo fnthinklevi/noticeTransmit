@@ -1753,6 +1753,116 @@ describe('POST /api/fnthink/endpoint-rotate（换那把入口的口令，旧口�
   });
 });
 
+// ── T106 片①：非侵入探针（POST /probe）────────────────────────────────────
+// 这一组盯的是三件"接上线才会出现"的事：
+//  ① 结论走 **200 正文**而不是失败 —— '没配对' 是一个合法的探针结论（红灯），不是协议错误；
+//     回 403 会让设备分不清"这条链断了"与"我这一发写错了"，而后者不该被记进健康度。
+//  ② **一条都不投**：调完之后队列与回执账都不变。这一发存在的全部理由就是"不打扰对面"。
+//  ③ 没配对与那台没登记**同一个形状**：探针不许变成地址码枚举器（登记一把密钥的成本是微秒级）。
+describe('POST /api/fnthink/probe（非侵入探针）', () => {
+  const peerBody = (kp, addressCode, peer) =>
+    eventBody('probe', kp, addressCode, { body: JSON.stringify({ peer }) });
+
+  test('配对过的目标 ⇒ ready:true（绿灯＝这条链在服务端立得住）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/probe')
+      .send(peerBody(senderKey, SENDER, TARGET))
+      .expect(200);
+    expect(res.body[contract.clientEvents.probe.readyField]).toBe(true);
+    // 响应只有结论与服务端时间两样：多一个键就是这一发悄悄长出了第二条读口
+    expect(Object.keys(res.body).sort()).toEqual(
+      [contract.clientEvents.probe.readyField, 'serverTime'].sort(),
+    );
+  });
+
+  test('peer 不是地址码 ⇒ 拒（形状错误与"没配对"是两件事）', async () => {
+    // 「那台没配对」是一个合法的探针结论（200 ready:false），而"载荷里那个东西根本不是地址码"
+    // 是这一发写错了 —— 两者混成一个形状，设备侧就会把一次客户端 bug 记成"这条路断了"。
+    const res = await request(app)
+      .post('/api/fnthink/probe')
+      .send(peerBody(senderKey, SENDER, '不是地址码'));
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('探针一条都不投：调完之后队列与回执账都不变', async () => {
+    const snapshot = () => messagestore.loadMessages();
+    const ids = () => Object.keys(snapshot()).sort().join('|');
+    const receiptsOf = () =>
+      JSON.stringify(
+        messagestore.receiptsForSender(
+          contract,
+          snapshot(),
+          SENDER,
+          Date.now(),
+          contract.clientEvents.poll.maxBatchPerPoll,
+        ),
+      );
+    const beforeIds = ids();
+    const beforeReceipts = receiptsOf();
+    await request(app)
+      .post('/api/fnthink/probe')
+      .send(peerBody(senderKey, SENDER, TARGET))
+      .expect(200);
+    expect(ids()).toBe(beforeIds);
+    expect(receiptsOf()).toBe(beforeReceipts);
+  });
+
+  test('没配对 ⇒ ready:false，而且与"那台没登记"逐字节同形（不是地址码枚举器）', async () => {
+    // ⚠ 「没配对」这一支必须挑一台**本组才登记**的设备：这个文件里别的用例给 SENDER 在
+    //   OTHER 那台身上开过授权（见上面那条 approvePeer），拿 OTHER 当"没配对"会测到相反的结论。
+    const lonely = '8K3FJ6QPTM9WZ4VHSN'; // 与 SENDER 同一批字符、换末尾两位，保证形状合法且没被登记过
+    register(lonely, keypair());
+    const notPaired = await request(app)
+      .post('/api/fnthink/probe')
+      .send(peerBody(senderKey, SENDER, lonely))
+      .expect(200);
+    expect(notPaired.body[contract.clientEvents.probe.readyField]).toBe(false);
+    const unknownPeer = await request(app)
+      .post('/api/fnthink/probe')
+      .send(peerBody(senderKey, SENDER, '9YXW3RQVKPB7MZ2THN'))
+      .expect(200);
+    expect(unknownPeer.body[contract.clientEvents.probe.readyField]).toBe(false);
+    // 形状比的是**两个各自造出来的东西**（同形那条判据要真的比两发响应）
+    expect(unknownPeer.body[contract.clientEvents.probe.readyField]).toBe(
+      notPaired.body[contract.clientEvents.probe.readyField],
+    );
+  });
+
+  test('target 写成别人 ⇒ 拒（探针只问本机自己的路）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/probe')
+      .send(
+        eventBody('probe', senderKey, SENDER, {
+          target: OTHER,
+          body: JSON.stringify({ peer: TARGET }),
+        }),
+      );
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('载荷名单只认 peer：多带一个键就拒（名单逐字节比）', async () => {
+    const res = await request(app)
+      .post('/api/fnthink/probe')
+      .send(
+        eventBody('probe', senderKey, SENDER, {
+          body: JSON.stringify({ peer: TARGET, level: 'L1' }),
+        }),
+      );
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('顶层带 privateKey ⇒ 与"是谁都没答出来"同形（禁带字段排第一）', async () => {
+    const body = peerBody(senderKey, SENDER, TARGET);
+    body.privateKey = crypto.randomBytes(32).toString('base64');
+    const res = await request(app).post('/api/fnthink/probe').send(body);
+    expect(res.status).toBe(statusCode(contract, 'forbidden'));
+    expect(res.body).toEqual({ receipt: 'rejected_unsigned' });
+  });
+});
+
 // #126 第二片把"客户端发到哪个 URL"收进契约 `transport.apiPaths`，这一组就是把那张表钉回事实。
 // 它必须双向：只查"声明的都挂了"会漏掉挂了两条声明一条；只查"挂了的都声明了"则漏掉
 // 声明了却没挂的那条（客户端照着 404 敲一年）。

@@ -897,6 +897,22 @@ class FnthinkContract {
   /// `endpoint.rotation.graceSeconds`，而设备侧连读都不必读：响应直接给 `rotatingUntil`。
   List<String> get endpointRotateFields => clientEventFields('endpointRotate');
 
+  /// probe 载荷的字段名单（今日 = `["peer"]`，T106 的非浸入探针）。
+  ///
+  /// 载荷只有一个键：要查的那台**对端**的地址码。它刻意不是 `target` —— target 必须是本机
+  /// （`targetMustEqualSender`），"要问谁"写在被签的 body 里，两者各司其职。
+  List<String> get probeFields => clientEventFields('probe');
+
+  /// 探针响应里那个结论键（今日 = `ready`）。**不写死**：服务端就是从契约拼这个键的，
+  /// 名字住在两处时改一边不报错，只会让设备侧永远读到一个 null 而判成「探针没结论」。
+  String get probeReadyField {
+    final value = str(const ['clientEvents', 'probe', 'readyField']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 clientEvents.probe.readyField（不补默认值）');
+    }
+    return value;
+  }
+
   /// 端点状态的**封闭**词表（今日 = `["active","revoked"]`）。
   List<String> get endpointStatuses => strings(const ['endpoint', 'statuses']);
 
