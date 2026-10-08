@@ -86,6 +86,8 @@ void main() {
             'title': '机箱',
             'body': '温度 63 度 $i',
             'sender': _peer,
+            // T105 片②：真服务端会带这一项，替身也要带上。
+            'sentAt': 1780000000000,
           },
       ],
       'receipts': receipts,
@@ -94,6 +96,30 @@ void main() {
       'serverTime': serverTime ?? DateTime.now().toUtc().millisecondsSinceEpoch,
     };
   }
+
+  group('T105 片②：每条消息带着「发送时间」（服务端受理那一刻）', () {
+    test('服务端给了 ⇒ 原样落到 sentAt；没给/形状不对 ⇒ 0，且这一条照收', () {
+      Map<String, Object?> msg(Object? sentAt) => {
+        'messageId': 'm_x',
+        'type': 'notice',
+        'title': '机箱',
+        'body': '温度 63 度',
+        'sender': 'PEER00000000000001',
+        if (sentAt != null) 'sentAt': sentAt,
+      };
+
+      final withIt = FnthinkDelivered.tryFrom(contract, msg(1780000000000));
+      expect(withIt!.sentAt, 1780000000000);
+
+      final without = FnthinkDelivered.tryFrom(contract, msg(null));
+      expect(without, isNotNull, reason: '因为少一个可选的时刻就把这条丢了 = 静默丢消息');
+      expect(without!.sentAt, 0, reason: '旧服务端不回它 ⇒ 不知道，而不是拿本机时钏去填');
+
+      final badShape = FnthinkDelivered.tryFrom(contract, msg('oops'));
+      expect(badShape, isNotNull);
+      expect(badShape!.sentAt, 0, reason: '形状不对当不知道：不丢这一条、也不猜一个数');
+    });
+  });
 
   group('校准与 ts', () {
     test('没校准前 signedTimestamp 是本机秒；一发之后按 serverTime 折半学偏移', () async {

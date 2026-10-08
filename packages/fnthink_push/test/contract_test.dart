@@ -159,11 +159,14 @@ void main() {
     test('poll 每条消息的名单：主键与归属都在，且每个名字都投影得出来', () {
       expect(c.pollMessageFields, containsAll(['messageId', 'sender']));
       expect(c.pollMessageFields.toSet().length, c.pollMessageFields.length);
+      // T105 片②：`sentAt`（服务端受理那一刻）也在可投影面里 ——
+      // 它不是 `state`/`attempts`/`queuedAt` 那三个名字（投递状态的账），而是一个不会再变的时刻。
       final projectable = {
         'messageId',
         'type',
         'item',
         'sender',
+        'sentAt',
         ...c.aliases.keys,
       };
       expect(

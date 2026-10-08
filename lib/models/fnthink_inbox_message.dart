@@ -22,6 +22,8 @@ class FnthinkInboxMessage {
     required this.title,
     required this.body,
     required this.receivedAt,
+    // T105 片②：服务端受理这一刻。0＝不知道（旧服务端/旧行）。
+    this.sentAt = 0,
     this.read = false,
     this.ackResult = '',
     this.ackedAt = 0,
@@ -55,6 +57,11 @@ class FnthinkInboxMessage {
   /// 时间排序"，而跨设备的时间戳要靠服务端 `serverTime` 校正后才可比（内核已经在算偏移，
   /// 但落库时刻取本机时钟最诚实 —— 它回答的是"我什么时候拿到的"）。
   final int receivedAt;
+
+  /// 「这条什么时候发出来的」（服务端受理那一刻，毫秒）。
+  /// 与 [receivedAt] 分开是两件事：一个是对方发的时刻、一个是本机拿到的时刻，
+  /// 而**本机时钀答不了前者** —— 0 就是本机不知道，不是「发于 1970」。
+  final int sentAt;
 
   final bool read;
 
@@ -91,6 +98,7 @@ class FnthinkInboxMessage {
     'title',
     'body',
     'received_at',
+    'sent_at',
     'read',
     'ack_result',
     'acked_at',
@@ -106,6 +114,7 @@ class FnthinkInboxMessage {
     'title': title,
     'body': body,
     'received_at': receivedAt,
+    'sent_at': sentAt,
     // bool 落 0/1：SQLite 没有布尔列语义，而 `read == true` 在 Dart 侧是 bool、
     // 在库里是 INTEGER —— 这里不写 0/1，读取侧的 `as bool` 会当场抛。
     'read': read ? 1 : 0,
@@ -139,6 +148,8 @@ class FnthinkInboxMessage {
       title: '${row['title'] ?? ''}',
       body: '${row['body'] ?? ''}',
       receivedAt: (row['received_at'] as num?)?.toInt() ?? 0,
+      // 缺列（升级中间态）也当 0：不知道就是不知道，别猜一个时刻出来。
+      sentAt: (row['sent_at'] as num?)?.toInt() ?? 0,
       read: readRaw != 0,
       ackResult: '${row['ack_result'] ?? ''}',
       ackedAt: (row['acked_at'] as num?)?.toInt() ?? 0,

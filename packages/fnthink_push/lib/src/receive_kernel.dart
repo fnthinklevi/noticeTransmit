@@ -1445,6 +1445,10 @@ class FnthinkDelivered {
     required this.title,
     required this.body,
     required this.sender,
+    // T105 片②：**服务端受理这一刻**（poll 的 `sentAt`）。
+    // 缺值／旧服务端不回它 ⇒ 0（未知），界面上那一句就不出现 ——
+    // 拿本机时钀去填这个位置是假的：它答不了「对方什么时候发的」。
+    this.sentAt = 0,
   });
 
   final String messageId;
@@ -1458,6 +1462,9 @@ class FnthinkDelivered {
   /// 缺值时留空串而不是丢弃这条：正文已经到手了，因为少一个归属就把消息扔掉是
   /// 「不静默丢」的反面 —— 旧服务端不回 sender 时，那一条显示成未知来源，但看得见。
   final String sender;
+
+  /// 服务端受理这一刻（毫秒）。0＝不知道（旧服务端不回这一项）。
+  final int sentAt;
 
   /// 形状不对 ⇒ null（**不猜**）。一条缺 messageId 的记录没法 ack，而猜一个 id 去 ack
   /// 就是在替另一条消息宣布结局。
@@ -1485,6 +1492,8 @@ class FnthinkDelivered {
       title: content.title,
       body: content.body,
       sender: raw['sender'] is String ? raw['sender'] as String : '',
+      // 容错到底：不是整数/缺失都当 0（不知道），不因它丢这一条。
+      sentAt: raw['sentAt'] is int ? raw['sentAt'] as int : 0,
     );
   }
 }

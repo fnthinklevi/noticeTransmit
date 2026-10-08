@@ -1942,6 +1942,9 @@ class _HistoryPageState extends State<HistoryPage> {
                         : '${l10n.fnthinkSender}：'
                               '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
                               '${l10n.fnthinkReceivedAt}：${_formatTime(message.receivedAt)}'
+                              // T105 片②：服务端给过受理时刻才出这一句
+                              // （旧行与旧服务端是 0 ⇒ 不出现，而不是画一个 1970 年的时刻）。
+                              '${message.sentAt > 0 ? ' · ${l10n.fnthinkSentAt}：${_formatTime(message.sentAt)}' : ''}'
                               '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}',
                     style: TextStyle(
                       fontSize: 12,

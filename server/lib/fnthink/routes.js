@@ -122,7 +122,7 @@ function signedFields(raw) {
 /// ⚠ 校验放在**装载时**而不是请求里：名单与这台实现对不上，属契约内容不达标（SHAPE），
 ///   按 #130-A4 定的口径只该降级幻念推送那一段并让启动横幅说破原因；放到请求里就变成
 ///   "第一条带货的 poll 冒 500"，而投影不出来的那一列本来会**静默地空着**。
-const POLL_PROJECTABLE = ['messageId', 'type', 'item', 'title', 'body', 'sender'];
+const POLL_PROJECTABLE = ['messageId', 'type', 'item', 'title', 'body', 'sender', 'sentAt'];
 
 function pollMessageFields(c) {
   const declared =
@@ -150,6 +150,8 @@ function projectForPoll(record, content) {
     sender: record.sender || '',
     title: content.title,
     body: content.body,
+    // 用户面向的「发送时间」＝这条被受理的那一刻（契约 `_sentAtWhy` 写了为什么另起一个名字）。
+    sentAt: record.queuedAt,
   };
   const out = {};
   for (const field of POLL_FIELDS) out[field] = source[field];

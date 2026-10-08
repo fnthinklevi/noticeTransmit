@@ -297,6 +297,8 @@ class FnthinkReceiveLoop {
         title: message.title,
         body: message.body,
         receivedAt: at,
+        // 服务端给了才有；不给就是 0（界面上不出现那一句）。
+        sentAt: message.sentAt,
       );
 
   Future<_Persisted> _persistRow(FnthinkInboxMessage row) async {

@@ -2804,6 +2804,12 @@ class FnthinkContract {
       '收件表也失去去重水位线（message_id 就是它的主键）',
     );
     need(
+      messageFields.contains('sentAt'),
+      'clientEvents.poll.messageFields 少了 sentAt：收件详情那一列「发送时间」无处取值 —— '
+      '它只可能来自服务端的受理时刻（设备本地时钟答不了「对方什么时候发的」），'
+      '而投影面只有 POLL_PROJECTABLE 一处',
+    );
+    need(
       messageFields.contains('sender'),
       'clientEvents.poll.messageFields 少了 sender：收件表里那一行无处归属 —— '
       '「是谁发的」只有这一个数据源，这条缺口是 T47 设计表列时才现形的（当时 sender 列无值可灌）',
@@ -2818,7 +2824,18 @@ class FnthinkContract {
             .where((e) => e.value is List)
             .map((e) => e.key)
             .toSet();
-    final projectable = {'messageId', 'type', 'item', 'sender', ...contentKeys};
+    // T105 片②：`sentAt` 也在可投影面里 —— 它取自消息表的
+    // `queuedAt`（服务端受理那一刻），而上面那句「存盘元数据一律不回」
+    // 说的是 `state`/`attempts`/`queuedAt` 这三个**名字**（投递状态的账）。
+    // 两边同步：服务端那份名单在 `routes.js` 的 POLL_PROJECTABLE。
+    final projectable = {
+      'messageId',
+      'type',
+      'item',
+      'sender',
+      'sentAt',
+      ...contentKeys,
+    };
     final undeliverable = messageFields
         .where((f) => !projectable.contains(f))
         .toList();

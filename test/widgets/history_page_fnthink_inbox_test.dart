@@ -42,6 +42,7 @@ void main() {
     bool read = false,
     String sender = 'endpoint:ep_7',
     String direction = kFnthinkDirectionIn,
+    int sentAt = 0,
   }) => FnthinkInboxMessage(
     messageId: id,
     sender: sender,
@@ -50,6 +51,7 @@ void main() {
     title: '机箱温度',
     body: '温度 63 度（$id）',
     receivedAt: 1780000000000,
+    sentAt: sentAt,
     read: read,
     ackResult: direction == kFnthinkDirectionOut ? '' : 'displayed',
     direction: direction,
@@ -504,6 +506,31 @@ void main() {
       );
     });
 
+    testWidgets('收件档：服务端给过受理时刻 ⇒ 多一句「发送时间」', (tester) async {
+      table = [row('m_in', sender: addr, sentAt: 1779999000000)];
+      await pump(tester);
+      await toInbox(tester);
+      await open(tester, 'm_in');
+
+      expect(
+        find.textContaining(l10n(tester).fnthinkSentAt),
+        findsOneWidget,
+        reason: '服务端给了时刻而界面不画 ⇒ 收件详情读不出「对方什么时候发的」',
+      );
+    });
+
+    testWidgets('收件档：没这个时刻（旧服务端/旧行）⇒ 那一句不出现', (tester) async {
+      table = [row('m_in', sender: addr)];
+      await pump(tester);
+      await toInbox(tester);
+      await open(tester, 'm_in');
+
+      expect(
+        find.textContaining(l10n(tester).fnthinkSentAt),
+        findsNothing,
+        reason: '把 0 留成 1970 年那一刻比不显示更坏：用户会以为那是真的发送时间',
+      );
+    });
     testWidgets('发出档：写「收件人」与「发送时间」', (tester) async {
       sentTable = [row('m_out', direction: kFnthinkDirectionOut, sender: addr)];
       await pump(tester);

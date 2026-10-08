@@ -69,7 +69,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 20;
+  static const int dbVersion = 21;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -501,7 +501,9 @@ class DatabaseHelper
         direction TEXT NOT NULL DEFAULT 'in',
         -- T94 片4d：这一条是不是降级后走备用通道发出去的。DEFAULT 0 的方向是
         -- 「升级之后把历史里每一条都说成走了备用」—— 那是静默改写既有行的含义。
-        via_backup INTEGER NOT NULL DEFAULT 0
+        via_backup INTEGER NOT NULL DEFAULT 0,
+        -- T105 片②：服务端受理这一刻（0＝不知道：旧行与旧服务端都是这个值）
+        sent_at INTEGER NOT NULL DEFAULT 0
       )
     ''');
     // 收件列表按时间倒序翻页；未读数是首页那张入口卡每次都要算的。
@@ -847,6 +849,19 @@ class DatabaseHelper
         db,
         FnthinkInboxMessage.table,
         'via_backup',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+
+    if (oldVersion < 21) {
+      // v21 / T105 片②：收件表的「服务端受理这一刻」。**只加列** ——
+      // DEFAULT 0 意味着升级后既有那几条一律仍读成「不知道对方什么时候发的」，
+      // 而那本来就是事实；把它们补成收到时刻等于替用户伪造一段
+      // 从来没记过的历史。
+      await _addColumnIfMissing(
+        db,
+        FnthinkInboxMessage.table,
+        'sent_at',
         'INTEGER NOT NULL DEFAULT 0',
       );
     }
