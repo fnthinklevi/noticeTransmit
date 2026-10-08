@@ -218,18 +218,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webhookChannel => 'Webhook 推送通道';
 
   @override
-  String get webhookNotConfigured => '未配置';
+  String get channelNotConfigured => '未配置';
 
   @override
-  String webhookConfigured(int n, int m) {
+  String channelConfigured(int n, int m) {
     return '已配置 $n 个 · 启用 $m 个';
   }
 
   @override
   String get emailChannel => '邮件转发通道';
-
-  @override
-  String get emailChannelDesc => 'SMTP 邮件通知';
 
   @override
   String get appFilter => '应用筛选';
@@ -2715,14 +2712,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get appChannelPageDesc =>
       '自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。';
-
-  @override
-  String appChannelConfigured(int n, int m) {
-    return '已配置 $n 个 · 启用 $m 个';
-  }
-
-  @override
-  String get appChannelNotConfigured => '未配置';
 
   @override
   String get appChannelNameLabel => '通道名称';

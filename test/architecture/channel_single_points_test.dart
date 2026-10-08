@@ -222,4 +222,98 @@ void main() {
       );
     });
   });
+
+  // ── T103（维护者 2026-10-08 两条追问：「更多页那一行为什么不是已配置 X 个 ·
+  //    启用 X 个」「幻念推送通道列表为什么没有通道健康度！」）─────────────────
+  // 第一条的根因是这一组四行**从来没有过一个共享口径**：webhook 与自建应用各抄了一份
+  // 逐字相同的词条，邮件与幻念两行干脆画静态描述。第二条的根因是徽标对"没有记录"的
+  // 缺省是不吭声 —— 那对能自动探测的三族是对的，对没有探针的这一族就成了"看着没有"。
+  group('推送通道那一组入口行的摘要与健康度缺省态（T103）', () {
+    test('更多页那四行都走同一个 `channelFamilySummary`，页面不留第二份', () {
+      final page = read('lib/pages/more_page.dart');
+      // ⚠ 第一版这条只数 `channelFamilySummary(` 出现四次 —— 反证 G2 当场证伪：
+      //   把幻念那一行的 `subtitle:` 换回静态描述，赋值那一侧还在，四次调用照旧凑齐 ⇒ 假绿。
+      //   现在按**行**钉：每一行都得"从公共件取"，而且"画出去的就是那一句"。
+      for (final row in const ['webhook', 'email', 'app', 'fnthink']) {
+        expect(
+          page.contains('final ${row}Summary = channelFamilySummary('),
+          isTrue,
+          reason: '$row 那一行的读数不是从公共件来的 ⇒ 又开一份口径',
+        );
+        expect(
+          page.contains('subtitle: ${row}Summary,'),
+          isTrue,
+          reason: '$row 那一行画出去的不是这一句摘要 ⇒ 四行又各自一种读法（维护者点名的就是这个）',
+        );
+      }
+      expect(
+        page.contains('_channelSummary'),
+        isFalse,
+        reason: '页面里再留一枚私有副本 ⇒ 两份又会各自长',
+      );
+      expect(
+        read(
+          'lib/widgets/channel_visuals.dart',
+        ).contains('String channelFamilySummary('),
+        isTrue,
+        reason: '装配点必须在公共件那一处',
+      );
+    });
+
+    test('那两份逐字相同的重复词条不许回字典', () {
+      for (final p in const [
+        'lib/l10n/arb/app_zh.arb',
+        'lib/l10n/arb/app_en.arb',
+      ]) {
+        final arb = read(p);
+        for (final old in const [
+          'webhookConfigured',
+          'webhookNotConfigured',
+          'appChannelConfigured',
+          'appChannelNotConfigured',
+          'emailChannelDesc',
+        ]) {
+          expect(
+            arb.contains('"$old"'),
+            isFalse,
+            reason:
+                '$old 已被 channelConfigured/channelNotConfigured 取代；'
+                '留着就是"改文案的人只改到自己搜到的那一个"那颗暗雷',
+          );
+        }
+        expect(arb.contains('"channelConfigured"'), isTrue);
+        expect(arb.contains('"channelNotConfigured"'), isTrue);
+      }
+    });
+
+    test('幻念那两页必须说出「从未探测」，能自动探测的三族保持不吭声', () {
+      for (final p in const [
+        'lib/pages/fnthink_channel_list_page.dart',
+        'lib/pages/fnthink_channel_settings_page.dart',
+      ]) {
+        expect(
+          read(p).contains('absentText:'),
+          isTrue,
+          reason:
+              '$p：这一族没有非侵入探针，空着读起来像"这一族没有健康度"，'
+              '而真话是"还没测过 —— 进详情点那一枚"',
+        );
+      }
+      for (final p in const [
+        'lib/pages/webhook_settings_item.dart',
+        'lib/pages/app_channel_settings_page.dart',
+        'lib/pages/email_settings_page.dart',
+        'lib/pages/main_page.dart',
+        'lib/pages/channel_status_page.dart',
+      ]) {
+        expect(
+          read(p).contains('absentText:'),
+          isFalse,
+          reason:
+              '$p 那一族过一轮非侵入探测就有数，没记录只是"还没来得及"——'
+              '立个牌子反而替用户说了他没做过的事',
+        );
+      }
+    });
+  });
 }

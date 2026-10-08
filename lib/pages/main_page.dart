@@ -27,6 +27,8 @@ import '../services/sms_service.dart';
 import '../update_manager.dart';
 import '../models/notification_rule.dart';
 import '../models/email_channel.dart';
+import '../models/fnthink_channel.dart';
+import '../services/fnthink_channel_service.dart';
 import '../theme/app_colors.dart';
 import 'notification_page.dart';
 import 'channel_status_page.dart';
@@ -92,6 +94,16 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
   /// 首页「幻念收件」那一格的未读数。**这一页不数**，只从收件咽喉取（`FnthinkInboxService`），
   /// 于是它与历史页收件档、详情里那个未读点是同一个数。
   int _fnthinkInboxUnread = 0;
+
+  /// 更多页那一行「幻念推送通道」的读数（T103）。
+  ///
+  /// 那一行以前画的是静态描述（"这台设备作为发送方的那些转发目标"），而同一组里
+  /// webhook／自建应用画的是「已配置 X 个 · 启用 X 个」—— 四行并列、读法却两种，
+  /// 扫一眼分不清哪一行配过。现在四行走同一句摘要，所以这一族也得有份条数。
+  List<FnthinkChannel> _fnthinkChannels = const [];
+
+  /// 与两张幻念页各自 new 的那份是同一件（无状态、只是库的一层皮），不是第二份缓存。
+  final FnthinkChannelStore _fnthinkChannelStore = FnthinkChannelService();
 
   final WebhookService _webhookService = GetIt.instance<WebhookService>();
   final BatteryService _batteryService = GetIt.instance<BatteryService>();
@@ -162,6 +174,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         key: ValueKey('more_${_themeService.themeMode.index}'),
         webhookChannels: _webhookService.channels,
         appChannels: GetIt.instance<AppChannelService>().channels,
+        // 另外两族也报同一个数（T103）：邮件读的是服务里那份内存列表（装配链里已 load 过），
+        // 幻念读的是本页 State 上那一份 —— 两个都是"条数"，都不替健康度说话。
+        emailChannels: GetIt.instance<EmailService>().cachedChannels,
+        fnthinkChannels: _fnthinkChannels,
         deviceName: _deviceInfoService.deviceName,
         enabledPackagesCount: _filterService.enabledPackages.length,
         appFilterMode: _filterService.appFilterMode,
@@ -242,6 +258,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       await _webhookService.loadChannels();
       final emailService = GetIt.instance<EmailService>();
       await emailService.loadChannels();
+      // 幻念通道那一份条数也在这里取（T103）：更多页那一行现在要说「已配置 X 个」，
+      // 而它没有像另两族那样的常驻 service 持有列表 —— 取一次、存在本页 State 上。
+      await _refreshFnthinkChannels();
       await _smsService.loadSettings();
       _notificationService.startDailyExport();
       // 通道健康度的主动节奏（#183）：冷启动立刻探一轮，之后每
@@ -316,6 +335,19 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
     }
   }
 
+  /// 刷新「幻念通道」那一条的读数（T103：更多页那一行现在要说条数）。
+  ///
+  /// ⚠ 取失败时**保留上一份**，不回落成空列表：空列表在那一行上的意思是「未配置」，
+  /// 而"没读到"与"没有"是两件事（与 `_refreshFnthinkInboxUnread` 同一条不变量）。
+  Future<void> _refreshFnthinkChannels() async {
+    try {
+      final rows = await _fnthinkChannelStore.list();
+      if (mounted) setState(() => _fnthinkChannels = rows);
+    } catch (e) {
+      debugPrint('[fnthink] 通道条数没读到，沿用上一份: $e');
+    }
+  }
+
   Future<void> _checkFirstLaunch() async {
     final prefs = await SharedPreferences.getInstance();
     final hasLaunched = prefs.getBool('has_launched') ?? false;
@@ -349,6 +381,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       // 收件未读数也在这里重取：收货循环在后台跑，它落库的那几条不会往 UI 推事件。
       // 不接实时事件总闸的理由是这一格的时效要求是"回到前台就该对"，而不是"秒级跳变"。
       unawaited(_refreshFnthinkInboxUnread());
+      // 通道那一条的读数同理（T103）：新增／删除／启停都发生在应用内，回到前台重取一次
+      // 就能保证「更多页那一行说的数」与库里一致，不必再加一条实时事件总闸。
+      unawaited(_refreshFnthinkChannels());
       // 通道健康度同理（#174）：6h 时效一过，"上次成功"会被判成「未知」，而此前只有
       // 进那三个族页才会重探 —— 首页这张卡/状态页会一直挂着"未知"没人管。
       // 通道健康度同理（#174 → #183）：时效一过，"上次成功"会被判成「未知」，而此前只有
@@ -491,6 +526,9 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          // 切到「更多」那一tab 时重取幻念通道那一份读数（T103）：新建／删除／启停都发生在
+          // 从引擎 hub 或从这一页本身 push 出去的页面里，回到这一tab 就得报最新的数。
+          if (index == 2) unawaited(_refreshFnthinkChannels());
           setState(() => _currentIndex = index);
         },
         destinations: [

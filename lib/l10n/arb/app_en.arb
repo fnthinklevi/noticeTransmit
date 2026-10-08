@@ -84,9 +84,9 @@
   "pushChannels": "Push Channels",
   "filterRules": "Filter Rules",
   "webhookChannel": "Webhook Channels",
-  "webhookNotConfigured": "Not configured",
-  "webhookConfigured": "{n} configured · {m} enabled",
-  "@webhookConfigured": {
+  "channelNotConfigured": "Not configured",
+  "channelConfigured": "{n} configured · {m} enabled",
+  "@channelConfigured": {
     "placeholders": {
       "n": {
         "type": "int"
@@ -97,7 +97,6 @@
     }
   },
   "emailChannel": "Email Forwarding",
-  "emailChannelDesc": "SMTP email notifications",
   "appFilter": "App Filter",
   "appFilterBlocked": "{n} apps blocked",
   "@appFilterBlocked": {
@@ -1368,18 +1367,6 @@
   "appChannelPageTitle": "How a custom-app channel actually gets a message out",
   "appChannelPageShort": "WeCom and Feishu custom apps: trade credentials for a token, then post to the message endpoint. Secrets are stored encrypted.",
   "appChannelPageDesc": "App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.",
-  "appChannelConfigured": "{n} configured · {m} enabled",
-  "@appChannelConfigured": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      },
-      "m": {
-        "type": "int"
-      }
-    }
-  },
-  "appChannelNotConfigured": "Not configured",
   "appChannelNameLabel": "Channel name",
   "appChannelBaseUrlHint": "API base URL (leave empty for the official endpoint; self-hosted deployments supported — must be HTTPS with a system-trusted certificate)",
   "appChannelSecretWecomHint": "corpsecret (exchanges for access_token)",

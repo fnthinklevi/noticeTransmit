@@ -14,14 +14,55 @@ import '../theme/app_colors.dart';
 ///
 /// 没有探测记录时画 `SizedBox.shrink()`：从没测过就什么都不断言（T01 的口径）。
 class ChannelHealthBadge extends StatelessWidget {
-  const ChannelHealthBadge({super.key, required this.health});
+  const ChannelHealthBadge({super.key, required this.health, this.absentText});
 
   final ChannelHealth? health;
+
+  /// 「此刻没有记录」要不要在屏幕上说一句话（T103）。
+  ///
+  /// 默认 null = **不吭声**：另外三族有非侵入探针（只换 token、只握手），过一轮就有记录，
+  /// 从没探过只是"还没来得及"，不该在行上立个牌子。
+  ///
+  /// 幻念通道那一族不同 —— 它**没有**这种探针，记录只能由详情页那一发「仅探测／探测并
+  /// 保存」写入（列表页的下拉也刻意不重探，否则就是骚扰对面那台）。于是那一族的每一行
+  /// 看上去都没有健康度，而"这条测过、结果是没通"与"这条测不了、需要人手点一次"是两件事。
+  /// 所以由调用方把这句话交进来，而不是让行保持空白。
+  final String? absentText;
 
   @override
   Widget build(BuildContext context) {
     final h = health;
-    if (h == null) return const SizedBox.shrink();
+    if (h == null) {
+      final absent = absentText;
+      if (absent == null) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.help_outline,
+              size: 14,
+              color: AppColors.tertiaryLabel(context),
+            ),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                absent,
+                key: const ValueKey('channel-health-absent'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.tertiaryLabel(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final l10n = AppLocalizations.of(context);
     final (icon, text, color) = switch (channelHealthState(h)) {
       ChannelHealthState.ok => (

@@ -84,9 +84,9 @@
   "pushChannels": "推送通道",
   "filterRules": "过滤规则",
   "webhookChannel": "Webhook 推送通道",
-  "webhookNotConfigured": "未配置",
-  "webhookConfigured": "已配置 {n} 个 · 启用 {m} 个",
-  "@webhookConfigured": {
+  "channelNotConfigured": "未配置",
+  "channelConfigured": "已配置 {n} 个 · 启用 {m} 个",
+  "@channelConfigured": {
     "placeholders": {
       "n": {
         "type": "int"
@@ -97,7 +97,6 @@
     }
   },
   "emailChannel": "邮件转发通道",
-  "emailChannelDesc": "SMTP 邮件通知",
   "appFilter": "应用筛选",
   "appFilterBlocked": "已屏蔽 {n} 个应用",
   "@appFilterBlocked": {
@@ -1368,18 +1367,6 @@
   "appChannelPageTitle": "自建应用通道怎么把消息发出去",
   "appChannelPageShort": "企业微信／飞书的自建应用：先用凭据换 token，再往消息端点发；密钥加密存储。",
   "appChannelPageDesc": "自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。",
-  "appChannelConfigured": "已配置 {n} 个 · 启用 {m} 个",
-  "@appChannelConfigured": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      },
-      "m": {
-        "type": "int"
-      }
-    }
-  },
-  "appChannelNotConfigured": "未配置",
   "appChannelNameLabel": "通道名称",
   "appChannelBaseUrlHint": "API 地址（留空使用官方地址；支持私有化部署，须为 HTTPS 且证书受系统信任）",
   "appChannelSecretWecomHint": "corpsecret（用于获取 access_token）",

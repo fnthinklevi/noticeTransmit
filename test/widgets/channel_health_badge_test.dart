@@ -31,6 +31,7 @@ void main() {
     WidgetTester tester,
     ChannelHealth? h, {
     double? width,
+    String? absentText,
   }) async {
     await tester.pumpWidget(
       AppRoot(
@@ -40,7 +41,7 @@ void main() {
           body: SizedBox(
             // 列表行副标题的实际可用宽度：手机宽度扣掉图标与右侧开关后只剩 ~170dp。
             width: width,
-            child: ChannelHealthBadge(health: h),
+            child: ChannelHealthBadge(health: h, absentText: absentText),
           ),
         ),
       ),
@@ -55,6 +56,23 @@ void main() {
       await show(tester, null);
       expect(find.byType(ChannelHealthBadge), findsOneWidget);
       expect(find.byType(Row), findsNothing);
+      // ⚠ 光断"没有 Row"不够（反证 G3 证伪过：把 `SizedBox.shrink()` 换成
+      //   `SizedBox(height: 1)` 仍然没有 Row ⇒ 假绿）。断的是**占位为零**：
+      //   没记录时这一格不占任何高度，行不会为它留出那一行空。
+      expect(tester.getSize(find.byType(ChannelHealthBadge)), const Size(0, 0));
+    });
+
+    testWidgets('交来 absentText ⇒ 没记录也说话（T103：幻念那一族没有自动探针）', (tester) async {
+      // 那一族的记录只能由详情页那一发「仅探测／探测并保存」写入，下拉也刻意不重探。
+      // 于是"空白"读起来是"这一族没有健康度"，而真话是"还没测过，要人点一次"——
+      // 缺省仍然是不吭声（上面那条钉着），说话与否由调用方决定。
+      await show(tester, null, absentText: '从未探测');
+      expect(find.text('从未探测'), findsOneWidget);
+    });
+
+    testWidgets('absentText 那一格在窄约束下也不溢出（列表行副标题只有 ~170dp）', (tester) async {
+      await show(tester, null, width: 170, absentText: '从未探测从未探测从未探测');
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('可达：画状态与耗时；不可达：画故障', (tester) async {

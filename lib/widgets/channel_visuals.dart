@@ -206,6 +206,23 @@ String channelNameOf(AppLocalizations l10n, ChannelDescriptor descriptor) {
   return label;
 }
 
+/// 「推送通道」那一组入口行的**同一句**摘要（T103）。
+///
+/// 为什么要有这一处：更多页那一组四行原本是各写各的 —— webhook 与自建应用各抄了一份
+/// **逐字相同**的词条（`webhookConfigured`/`appChannelConfigured`、`…NotConfigured` 同样两份），
+/// 而邮件与幻念两行干脆画静态描述（"SMTP 邮件通知"）。于是"这一族配了几条、开着几条"
+/// 这件最该横向比较的事，只有两行说得出话。四行现在都走这一个函数，那两份重复词条已删。
+///
+/// ⚠ 这一句只报**库里的条数**，不替健康度说话：探测结果在每一族的列表页与详情页上。
+/// `total == 0` 说「未配置」而不是「没有一条能用」—— 后者要靠探测，这里没有那个证据。
+String channelFamilySummary(
+  AppLocalizations l10n, {
+  required int total,
+  required int enabled,
+}) => total == 0
+    ? l10n.channelNotConfigured
+    : l10n.channelConfigured(total, enabled);
+
 /// ARB 资源名 → 当前语言文案。
 ///
 /// ⚠ 这是 Dart 侧唯一允许的「资源名 → 值」映射（Flutter 的 ARB 生成物是 getter，

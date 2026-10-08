@@ -9,7 +9,10 @@ import '../services/locale_service.dart';
 import '../services/platform_channel.dart';
 import '../services/device_info_service.dart';
 import '../l10n/app_localizations.dart';
+import '../models/email_channel.dart';
+import '../models/fnthink_channel.dart';
 import '../theme/app_colors.dart';
+import '../widgets/channel_visuals.dart';
 import '../widgets/ios_option_picker.dart';
 import '../widgets/icon_picker_tile.dart';
 import 'backup_restore_page.dart';
@@ -37,6 +40,12 @@ int _diagTapCount = 0;
 class MorePage extends StatelessWidget {
   final List<Map<String, dynamic>> webhookChannels;
   final List<Map<String, dynamic>> appChannels;
+
+  /// 邮件与幻念两族也走**同一句摘要**（T103）：这一组四行是"推送通道"的并列入口，
+  /// 读法必须一样 —— 之前这两行画的是静态描述（"SMTP 邮件通知"/"这台设备作为发送方的
+  /// 那些转发目标"），另外两行画的是计数，用户扫一眼分不清哪一行配过、哪一行没配。
+  final List<EmailChannel> emailChannels;
+  final List<FnthinkChannel> fnthinkChannels;
   final String deviceName;
   final int enabledPackagesCount;
   final String appFilterMode; // 'allow' = 通知应用；'block' = 不通知应用
@@ -64,6 +73,8 @@ class MorePage extends StatelessWidget {
     super.key,
     required this.webhookChannels,
     required this.appChannels,
+    required this.emailChannels,
+    required this.fnthinkChannels,
     required this.deviceName,
     required this.enabledPackagesCount,
     this.appFilterMode = 'allow',
@@ -91,12 +102,29 @@ class MorePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final enabledCount = webhookChannels
-        .where((c) => c['enabled'] == true)
-        .length;
-    final appEnabledCount = appChannels
-        .where((c) => c['enabled'] == true)
-        .length;
+    // 「这一组四行」的读数口径只有一处：`channelFamilySummary`（T103）。
+    // ⚠ 每条通道"是否启用"的读法两族不同（另两族是 Map 行、幻念与邮件是模型），
+    //   但**汇成哪一句话**是同一个函数 —— 那才是这一条要收的东西。
+    final webhookSummary = channelFamilySummary(
+      l10n,
+      total: webhookChannels.length,
+      enabled: webhookChannels.where((c) => c['enabled'] == true).length,
+    );
+    final emailSummary = channelFamilySummary(
+      l10n,
+      total: emailChannels.length,
+      enabled: emailChannels.where((c) => c.enabled).length,
+    );
+    final appSummary = channelFamilySummary(
+      l10n,
+      total: appChannels.length,
+      enabled: appChannels.where((c) => c['enabled'] == true).length,
+    );
+    final fnthinkSummary = channelFamilySummary(
+      l10n,
+      total: fnthinkChannels.length,
+      enabled: fnthinkChannels.where((c) => c.enabled).length,
+    );
     return Scaffold(
       appBar: AppBar(title: Text(l10n.tabMore)),
       body: ListView(
@@ -117,12 +145,7 @@ class MorePage extends StatelessWidget {
               icon: Icons.link,
               iconColor: AppColors.blue,
               title: l10n.webhookChannel,
-              subtitle: webhookChannels.isEmpty
-                  ? l10n.webhookNotConfigured
-                  : l10n.webhookConfigured(
-                      webhookChannels.length,
-                      enabledCount,
-                    ),
+              subtitle: webhookSummary,
               onTap: onOpenWebhookSettings,
               context: context,
             ),
@@ -130,7 +153,7 @@ class MorePage extends StatelessWidget {
               icon: Icons.email,
               iconColor: AppColors.orange,
               title: l10n.emailChannel,
-              subtitle: l10n.emailChannelDesc,
+              subtitle: emailSummary,
               onTap: onOpenEmailSettings,
               context: context,
             ),
@@ -139,12 +162,7 @@ class MorePage extends StatelessWidget {
               icon: Icons.apps,
               iconColor: const Color(0xFF00D3B6),
               title: l10n.appChannelTitle,
-              subtitle: appChannels.isEmpty
-                  ? l10n.appChannelNotConfigured
-                  : l10n.appChannelConfigured(
-                      appChannels.length,
-                      appEnabledCount,
-                    ),
+              subtitle: appSummary,
               onTap: onOpenAppChannels,
               context: context,
             ),
@@ -153,11 +171,14 @@ class MorePage extends StatelessWidget {
             //（维护者 2026-10-06：「幻念推送和分组内的 webhook 推送通道一致」「设置放在设置页」）。
             // ⚠ 这里原先那句「这一条是整条收货链路唯一的用户入口」已经不成立：收货的开关、
             //   收取节奏与远程执行都在设置页和通知引擎页那一格，这一格只管「这台往哪发」。
+            // ⚠ 2026-10-08 纠正：这一格当时抄的是 email 那一行（静态描述），而不是带计数的
+            //   webhook／自建应用 —— 维护者点名的就是这个："为什么不是未配置／已配置 X 个 ·
+            //   启用 X 个"。四行现在走同一个 `_channelSummary`。
             _buildNavTile(
               icon: Icons.inbox,
               iconColor: AppColors.purple,
               title: l10n.fnthinkPushChannel,
-              subtitle: l10n.fnthinkChannelDesc,
+              subtitle: fnthinkSummary,
               onTap: onOpenFnthinkChannels,
               context: context,
             ),

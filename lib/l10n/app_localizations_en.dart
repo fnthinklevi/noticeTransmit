@@ -226,18 +226,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webhookChannel => 'Webhook Channels';
 
   @override
-  String get webhookNotConfigured => 'Not configured';
+  String get channelNotConfigured => 'Not configured';
 
   @override
-  String webhookConfigured(int n, int m) {
+  String channelConfigured(int n, int m) {
     return '$n configured · $m enabled';
   }
 
   @override
   String get emailChannel => 'Email Forwarding';
-
-  @override
-  String get emailChannelDesc => 'SMTP email notifications';
 
   @override
   String get appFilter => 'App Filter';
@@ -2834,14 +2831,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get appChannelPageDesc =>
       'App channels use a two-phase API (credential → token → message endpoint), distinct from webhooks. Supports WeCom self-built apps and Feishu self-built apps; secrets are encrypted; delivery results and failure retries match webhook channels.';
-
-  @override
-  String appChannelConfigured(int n, int m) {
-    return '$n configured · $m enabled';
-  }
-
-  @override
-  String get appChannelNotConfigured => 'Not configured';
 
   @override
   String get appChannelNameLabel => 'Channel name';

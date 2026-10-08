@@ -549,7 +549,12 @@ class _FnthinkChannelSettingsPageState
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    ChannelHealthBadge(health: _healthInfo),
+                    ChannelHealthBadge(
+                      health: _healthInfo,
+                      // 与列表页同一句话（T103）：这一族没有自动探测，空着读起来像
+                      // "这一页没有健康度"，而真话是"这条还没测过 —— 点页脚那一枚"。
+                      absentText: l10n.channelStatusNeverProbed,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),

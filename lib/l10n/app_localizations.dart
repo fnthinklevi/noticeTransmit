@@ -494,29 +494,23 @@ abstract class AppLocalizations {
   /// **'Webhook 推送通道'**
   String get webhookChannel;
 
-  /// No description provided for @webhookNotConfigured.
+  /// No description provided for @channelNotConfigured.
   ///
   /// In zh, this message translates to:
   /// **'未配置'**
-  String get webhookNotConfigured;
+  String get channelNotConfigured;
 
-  /// No description provided for @webhookConfigured.
+  /// No description provided for @channelConfigured.
   ///
   /// In zh, this message translates to:
   /// **'已配置 {n} 个 · 启用 {m} 个'**
-  String webhookConfigured(int n, int m);
+  String channelConfigured(int n, int m);
 
   /// No description provided for @emailChannel.
   ///
   /// In zh, this message translates to:
   /// **'邮件转发通道'**
   String get emailChannel;
-
-  /// No description provided for @emailChannelDesc.
-  ///
-  /// In zh, this message translates to:
-  /// **'SMTP 邮件通知'**
-  String get emailChannelDesc;
 
   /// No description provided for @appFilter.
   ///
@@ -5125,18 +5119,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'自建应用通道走「凭据换 token → 消息端点」的两阶段 API（区别于 webhook），支持企业微信自建应用与飞书自建应用；密钥加密存储，送达结果与失败重试同 webhook 通道。'**
   String get appChannelPageDesc;
-
-  /// No description provided for @appChannelConfigured.
-  ///
-  /// In zh, this message translates to:
-  /// **'已配置 {n} 个 · 启用 {m} 个'**
-  String appChannelConfigured(int n, int m);
-
-  /// No description provided for @appChannelNotConfigured.
-  ///
-  /// In zh, this message translates to:
-  /// **'未配置'**
-  String get appChannelNotConfigured;
 
   /// No description provided for @appChannelNameLabel.
   ///

@@ -290,6 +290,10 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
             ),
             ChannelHealthBadge(
               health: _health.of(kFnthinkChannelSlug, channel.id),
+              // 这一族的"没有记录"必须说出来（T103）：另三族没记录就闭嘴，因为它们过一轮
+              // 非侵入探测就有数；这一族只能等用户进详情点那一枚 —— 行上空着，读起来就像
+              // "这一族没有健康度"，而真话是"还没测过，要人点一次"。
+              absentText: l10n.channelStatusNeverProbed,
             ),
           ],
         ),
