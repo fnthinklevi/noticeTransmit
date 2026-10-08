@@ -71,6 +71,9 @@ class FnthinkInboxMessage {
   final String ackResult;
 
   /// 报出去的时刻（毫秒），0 = 没报过。
+  /// ⚠ **含义随 [direction] 变**（与 `sender` / `receivedAt` 同一套两用）：
+  /// in 方向＝**本机**把这一条报出去的时刻；out 方向＝**对面**收下这一条的时刻
+  /// （服务端的回执带回来的，见 T105 片③）。0＝还不知道。
   final int ackedAt;
 
   /// 这条是本机收到的（`kFnthinkDirectionIn`）还是本机发出去的（`kFnthinkDirectionOut`）。

@@ -26,6 +26,8 @@ void main() {
     _timers.clear();
   });
 
+  _t105cReceipts();
+
   group('顺序：取货 → 落库 → ack', () {
     test('三条取到就三条落库、三条各 ack 一次 delivered', () async {
       final h = _Harness();
@@ -524,13 +526,61 @@ FnthinkReceiveOutcome _ok(
   List<FnthinkDelivered> messages, {
   int pending = 0,
   List<FnthinkPairRequest> pairRequests = const [],
+  List<FnthinkReceipt> receipts = const [],
 }) => FnthinkReceiveOutcome(
   status: FnthinkPollStatus.ok,
   messages: messages,
   pending: pending,
   pairRequests: pairRequests,
+  receipts: receipts,
   nextDelay: const Duration(seconds: 20),
 );
+
+/// T105 片③：回执不能只解析不落地 —— 而时刻必须是**服务端给的那个**。
+void _t105cReceipts() {
+  test('回执落进本机那一行：时刻用服务端给的，不用 nowMs 凑', () async {
+    final written = <(String, String, int)>[];
+    final h = _Harness();
+    final loop = FnthinkReceiveLoop(
+      poll: h.poll,
+      ack: h.ack,
+      persist: h.persist,
+      recordAck: ({required messageId, required result, required at}) async {
+        written.add((messageId, result, at));
+        return true;
+      },
+    );
+
+    h._pollScript.add(
+      _ok(
+        const [],
+        receipts: [
+          const FnthinkReceipt(
+            messageId: 'm_out',
+            receipt: 'delivered',
+            at: 1780000000000,
+          ),
+        ],
+      ),
+    );
+    await loop.runOnce();
+    expect(written, [
+      ('m_out', 'delivered', 1780000000000),
+    ], reason: '回执不落地 ⇒ 发送侧永远只知道「我发出去了」');
+
+    written.clear();
+    h._pollScript.add(
+      _ok(
+        const [],
+        receipts: [
+          const FnthinkReceipt(messageId: 'm_old', receipt: 'delivered'),
+        ],
+      ),
+    );
+    await loop.runOnce();
+    expect(written, isEmpty, reason: '拿刚刚取到回执的时间冒充「对面收下的时间」= 说假话；宁可不写');
+  });
+}
 
 /// 三个依赖的程序化替身 + 排期捕获。
 class _Harness {

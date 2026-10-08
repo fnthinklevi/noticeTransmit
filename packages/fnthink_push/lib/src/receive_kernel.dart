@@ -1500,10 +1500,19 @@ class FnthinkDelivered {
 
 /// 一条回执（"我发的第三条已经送达了"）。回执是元数据，正文早按契约删了。
 class FnthinkReceipt {
-  const FnthinkReceipt({required this.messageId, required this.receipt});
+  const FnthinkReceipt({
+    required this.messageId,
+    required this.receipt,
+    // T105 片③：对面收下那一刻（毫秒）。0＝不知道（旧服务端）。
+    this.at = 0,
+  });
 
   final String messageId;
   final String receipt;
+
+  /// 对面收下这一条的时刻（服务端那侧终态迁移的时间）。
+  /// 与本机那一个 `ackedAt` 分开：那个是「我什么时候报的」，这个是「它什么时候收的」。
+  final int at;
 
   static FnthinkReceipt? tryFrom(FnthinkContract contract, Object? raw) {
     if (raw is! Map) return null;
@@ -1512,7 +1521,12 @@ class FnthinkReceipt {
     if (id is! String || id.isEmpty || receipt is! String) return null;
     // 回执词表是封闭的（契约 `receipts`）：不在表里的词说明两端对"结论"的理解漂了。
     if (!contract.receipts.contains(receipt)) return null;
-    return FnthinkReceipt(messageId: id, receipt: receipt);
+    return FnthinkReceipt(
+      messageId: id,
+      receipt: receipt,
+      // 容错：缺失/形状不对都当 0（不知道），不因它丢这条回执。
+      at: raw['at'] is int ? raw['at'] as int : 0,
+    );
   }
 }
 

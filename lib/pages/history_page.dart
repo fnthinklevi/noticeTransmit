@@ -1939,6 +1939,10 @@ class _HistoryPageState extends State<HistoryPage> {
                         ? '${l10n.fnthinkRecipient}：'
                               '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
                               '${l10n.fnthinkSentAt}：${_formatTime(message.receivedAt)}'
+                              // T105 片③：对面收下那一刻（服务端回执带回来的）。
+                              // 0＝还不知道（对面还没 ack／旧服务端）—— 那时这一句不出现。
+                              '${message.ackedAt > 0 ? ' · ${l10n.fnthinkPeerAckedAt}：${_formatTime(message.ackedAt)}' : ''}'
+                              '${message.ackResult.isEmpty ? '' : ' · ${message.ackResult}'}'
                         : '${l10n.fnthinkSender}：'
                               '${message.sender.isEmpty ? l10n.unknown : message.sender} · '
                               '${l10n.fnthinkReceivedAt}：${_formatTime(message.receivedAt)}'

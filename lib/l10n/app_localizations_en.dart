@@ -4140,6 +4140,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkSentAt => 'Sent';
 
   @override
+  String get fnthinkPeerAckedAt => 'Received by peer';
+
+  @override
   String get fnthinkReceivedAt => 'Received';
 
   @override

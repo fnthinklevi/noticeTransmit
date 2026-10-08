@@ -218,7 +218,15 @@ function receiptsForSender(contract, messages, sender, now, limit) {
     m.receiptSentAt = now;
     messages[m.messageId] = m;
   }
-  return out.map((m) => ({ messageId: m.messageId, target: m.device, receipt: m.receipt }));
+  // T105 片③：回执还带上「对面收下那一刻」（终态迁移的 `updatedAt`）——
+  // 发送侧那一栏从此答得了「它什么时候收到的」，而不只是「有没有收到」。
+  // 0 = 旧记录没记过时刻（宁可不给，也不拿当下时间凑一个）。
+  return out.map((m) => ({
+    messageId: m.messageId,
+    target: m.device,
+    receipt: m.receipt,
+    at: m.updatedAt || 0,
+  }));
 }
 
 /**

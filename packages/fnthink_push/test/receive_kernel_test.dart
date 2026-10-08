@@ -119,6 +119,24 @@ void main() {
       expect(badShape, isNotNull);
       expect(badShape!.sentAt, 0, reason: '形状不对当不知道：不丢这一条、也不猜一个数');
     });
+
+    test('回执相：带回「对面收下那一刻」；旧服务端不带 ⇒ 0', () {
+      Map<String, Object?> r(Object? at) => {
+        'messageId': 'm_r',
+        'receipt': contract.receipts.first,
+        if (at != null) 'at': at,
+      };
+
+      expect(
+        FnthinkReceipt.tryFrom(contract, r(1780000000000))!.at,
+        1780000000000,
+        reason: '没透传 ⇒ 发送侧那句「对端接收时间」永远无值可填',
+      );
+      final old = FnthinkReceipt.tryFrom(contract, r(null));
+      expect(old, isNotNull, reason: '因为少一个可选的时刻就把整条回执丢了 ⇒ 那一条永远停在「发送中」');
+      expect(old!.at, 0);
+      expect(FnthinkReceipt.tryFrom(contract, r('oops'))!.at, 0);
+    });
   });
 
   group('校准与 ts', () {

@@ -2142,6 +2142,7 @@
   "fnthinkSentEmpty": "还没有发过。这一档只记本机发出去的（对方收到与否要看回执）",
   "fnthinkSender": "发送人",
   "fnthinkSentAt": "发送时间",
+  "fnthinkPeerAckedAt": "对端接收时间",
   "fnthinkReceivedAt": "接收时间",
   "fnthinkRecipient": "收件人",
   "l3SettingsSectionTitle": "对端可以请求的系统设置",

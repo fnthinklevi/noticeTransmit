@@ -323,6 +323,9 @@ describe('POST /api/fnthink/ack', () => {
       .send(eventBody('poll', senderKey, SENDER))
       .expect(200);
     expect(JSON.stringify(withReceipt.body.receipts)).toContain(messageId);
+    // T105 片③：只有 id 与词的话，发送侧那句「对端接收时间」永远无值可填。
+    const firstReceipt = withReceipt.body.receipts.find((r) => r.messageId === messageId);
+    expect(firstReceipt.at).toBeGreaterThan(0);
     const second = await request(app)
       .post('/api/fnthink/poll')
       .send(eventBody('poll', senderKey, SENDER))

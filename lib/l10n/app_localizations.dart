@@ -7238,6 +7238,12 @@ abstract class AppLocalizations {
   /// **'发送时间'**
   String get fnthinkSentAt;
 
+  /// No description provided for @fnthinkPeerAckedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'对端接收时间'**
+  String get fnthinkPeerAckedAt;
+
   /// No description provided for @fnthinkReceivedAt.
   ///
   /// In zh, this message translates to:

@@ -549,10 +549,17 @@ describe('回执账（T35）', () => {
 
     const first = store.receiptsForSender(contract, messages, SENDER, T0 + 30, 50);
     expect(first).toEqual([
-      { messageId: message.messageId, target: 'DEV-1', receipt: 'delivered' },
+      {
+        messageId: message.messageId,
+        target: 'DEV-1',
+        receipt: 'delivered',
+        // T105 片③：对面收下那一刻（终态迁移那一下的 now）——
+        // 发送侧那句「对端接收时间」全靠它。
+        at: T0 + 20,
+      },
     ]);
     // ⚠ 返回对象里**没有 body**：正文早已删除，回执是元数据（契约 auditStoresMetadataOnly）
-    expect(Object.keys(first[0]).sort()).toEqual(['messageId', 'receipt', 'target']);
+    expect(Object.keys(first[0]).sort()).toEqual(['at', 'messageId', 'receipt', 'target']);
     expect(store.receiptsForSender(contract, messages, SENDER, T0 + 40, 50)).toEqual([]);
   });
 
@@ -661,7 +668,12 @@ describe('回执账（T35）', () => {
     });
     store.advanceMessage(contract, messages, message.messageId, 'ack_ok', { now: T0 + 2001 });
     expect(store.receiptsForSender(contract, messages, SENDER, T0 + 3000, 50)).toEqual([
-      { messageId: message.messageId, target: 'DEV-W', receipt: 'delivered' },
+      {
+        messageId: message.messageId,
+        target: 'DEV-W',
+        receipt: 'delivered',
+        at: T0 + 2001,
+      },
     ]);
   });
 

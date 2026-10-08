@@ -222,6 +222,31 @@ class FnthinkReceiveLoop {
       ackFailed++;
     }
 
+    // T105 片③：这一轮带回来的**回执**（「我发的那条对面已经收下了」）。
+    // 在这之前每个版本都把它解析出来就扔了 —— 发送侧那一栏永远只有
+    // 「我发出去了」，而对端到底收没收到、什么时候收到，界面上无处可查。
+    // 用**同一枚钩子**（`recordAck`）：落的就是同一对列（`ack_result` + `acked_at`），
+    // 只是 in 方向写的是「我报出去的时刻」、out 方向写的是「它收下的时刻」。
+    // 时刻不能用 nowMs()：那会把「刚刚取到回执」写成「对面刚刚收到」。
+    for (final receipt in outcome.receipts) {
+      if (receipt.at <= 0) {
+        debugPrint('[fnthink] 回执没带时刻，不猜一个：${receipt.messageId}');
+        continue;
+      }
+      final write = recordAck;
+      if (write == null) break;
+      try {
+        await write(
+          messageId: receipt.messageId,
+          result: receipt.receipt,
+          at: receipt.at,
+        );
+      } catch (e) {
+        // 一条回执写不进去不能把这一轮带走：本轮里还有别的消息要落库与 ack。
+        debugPrint('[fnthink] 回执没记进本机历史：${receipt.messageId} $e');
+      }
+    }
+
     return FnthinkLoopReport(
       status: FnthinkPollStatus.ok,
       taken: outcome.messages.length,

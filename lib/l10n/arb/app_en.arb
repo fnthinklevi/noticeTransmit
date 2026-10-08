@@ -2121,6 +2121,7 @@
   "fnthinkSentEmpty": "Nothing sent yet. This tab only lists what this device sent.",
   "fnthinkSender": "Sender",
   "fnthinkSentAt": "Sent",
+  "fnthinkPeerAckedAt": "Received by peer",
   "fnthinkReceivedAt": "Received",
   "fnthinkRecipient": "Recipient",
   "l3SettingsSectionTitle": "System settings a peer can request",

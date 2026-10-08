@@ -43,6 +43,8 @@ void main() {
     String sender = 'endpoint:ep_7',
     String direction = kFnthinkDirectionIn,
     int sentAt = 0,
+    int ackedAt = 0,
+    String? ackResult,
   }) => FnthinkInboxMessage(
     messageId: id,
     sender: sender,
@@ -53,7 +55,9 @@ void main() {
     receivedAt: 1780000000000,
     sentAt: sentAt,
     read: read,
-    ackResult: direction == kFnthinkDirectionOut ? '' : 'displayed',
+    ackResult:
+        ackResult ?? (direction == kFnthinkDirectionOut ? '' : 'displayed'),
+    ackedAt: ackedAt,
     direction: direction,
   );
 
@@ -531,6 +535,43 @@ void main() {
         reason: '把 0 留成 1970 年那一刻比不显示更坏：用户会以为那是真的发送时间',
       );
     });
+    testWidgets('发出档：服务端回过执 ⇒ 多一句「对端接收时间」与回执词', (tester) async {
+      sentTable = [
+        row(
+          'm_out',
+          direction: kFnthinkDirectionOut,
+          sender: addr,
+          ackedAt: 1779999000000,
+          ackResult: 'delivered',
+        ),
+      ];
+      await pump(tester);
+      await tester.tap(find.text(l10n(tester).fnthinkDirSent));
+      await tester.pumpAndSettle();
+      await open(tester, 'm_out');
+
+      expect(
+        find.textContaining(l10n(tester).fnthinkPeerAckedAt),
+        findsOneWidget,
+        reason: '回执带回了时刻而界面不画 ⇒ 发送侧永远只知道「我发出去了」',
+      );
+      expect(find.textContaining('delivered'), findsOneWidget);
+    });
+
+    testWidgets('发出档：还没回执（ackedAt=0）⇒ 那一句不出现', (tester) async {
+      sentTable = [row('m_out', direction: kFnthinkDirectionOut, sender: addr)];
+      await pump(tester);
+      await tester.tap(find.text(l10n(tester).fnthinkDirSent));
+      await tester.pumpAndSettle();
+      await open(tester, 'm_out');
+
+      expect(
+        find.textContaining(l10n(tester).fnthinkPeerAckedAt),
+        findsNothing,
+        reason: '没回执就画一个时间 = 当着用户面编一个对面收到的时刻',
+      );
+    });
+
     testWidgets('发出档：写「收件人」与「发送时间」', (tester) async {
       sentTable = [row('m_out', direction: kFnthinkDirectionOut, sender: addr)];
       await pump(tester);

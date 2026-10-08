@@ -3940,6 +3940,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSentAt => '发送时间';
 
   @override
+  String get fnthinkPeerAckedAt => '对端接收时间';
+
+  @override
   String get fnthinkReceivedAt => '接收时间';
 
   @override
