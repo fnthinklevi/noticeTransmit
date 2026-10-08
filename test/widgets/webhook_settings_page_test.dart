@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,6 +41,10 @@ void main() {
 
   /// testWebhook 的答复，逐条用例可改
   var testSucceeds = true;
+
+  /// true ⇒ 原生**一个字都不回**（T112 ① 的现象：整发跑在 activityScope 上，
+  /// activity 一没就没人回话）。用例用它验"页面有没有自己的上限"，而不是去验原生为什么没回。
+  var testWebhookHangs = false;
 
   /// 改写原生载荷里的档位名单（null = 用导出快照原样）。T08-B 用它证明名单真的来自载荷。
   List<String>? formatsOverride;
@@ -123,6 +129,8 @@ void main() {
               : descriptorsPayload(override);
         }
         if (call.method == 'testWebhook') {
+          // 永不回复这一支是**有意的**：它复现的就是"回包连同协程一起消失"那一种死法。
+          if (testWebhookHangs) return Completer<Object?>().future;
           return {
             'success': testSucceeds,
             'message': testSucceeds ? 'ok' : 'HTTP 401 未授权',
@@ -777,6 +785,53 @@ void main() {
 
       expect(store.savedBatches, isNotEmpty, reason: '这颗按钮的定义就是"存下来"');
       expect(calls, contains('testWebhook'));
+    });
+
+    // T112 ①：这一发原先**没有上限**。原生把它整发跑在 `activityScope`
+    // （`activityJob + Dispatchers.Main`）上，回包只在末尾 `withContext(Main)` 发一次 ⇒
+    // activity 一没（离开这页／被回收／重建），协程连同回包一起消失，Dart 的 await
+    // 既不完成也不抛，界面永远停在「发送中」——维护者 2026-10-08 报的就是这个现象。
+    // 这一条钉的是"页面自己有没有兜住"，不去替原生解释为什么没回。
+    testWidgets('原生不回话 ⇒ 页面到自己的上限就复位，并把那句原话说出来', (tester) async {
+      await openDetail(tester, [
+        uiRow(
+          'dt',
+          '钉钉A',
+          'https://oapi.dingtalk.com/robot/send?access_token=a',
+          'dingtalk',
+          secret: 'sec-a',
+        ),
+      ], channelId: 'dt');
+      calls.clear();
+      testWebhookHangs = true;
+      addTearDown(() => testWebhookHangs = false);
+
+      await tester.tap(find.widgetWithText(TextButton, '仅测试'));
+      await tester.pump();
+      expect(
+        calls,
+        contains('testWebhook'),
+        reason: '连发都没发出去 ⇒ 下面那条"到点复位"验的就不是同一件事',
+      );
+
+      // 假时钟推过上限（不是墙钟）：这条用例要钉的是"上限到了会怎样"，不是真等 90 秒。
+      await tester.pump(kTestWebhookBudget + const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining(
+          '原生 ${kTestWebhookBudget.inSeconds}s 未回复 testWebhook',
+        ),
+        findsOneWidget,
+        reason: '到了上限却不说话 ⇒ 用户只看到一个还停在原地的界面，分不清是没测还是坏了',
+      );
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, '仅测试'))
+            .onPressed,
+        isNotNull,
+        reason: '「发送中」没复位 ⇒ 这一页从此点不动，而它唯一能做的事就是再测一次',
+      );
     });
 
     testWidgets('停用的通道保存后不自动测：它本来就不在推送路由里', (tester) async {

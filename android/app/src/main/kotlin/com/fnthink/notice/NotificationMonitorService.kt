@@ -1526,7 +1526,14 @@ class NotificationMonitorService : NotificationListenerService() {
         viaBackup: Boolean,
     ) {
         try {
-            val payload = WebhookPayloadBuilder.buildTextBody(
+            // T112 ②：这里原来发的是 `buildTextBody(...)` 的**纯文本多行正文**，而
+            // `NetworkClient.sendWithRetry` 的 contentType 默认就是 `application/json; charset=utf-8`
+            // ⇒ 服务端 `express.json` 抛 entity.parse.failed，被 bodylimit 按契约回 400 + 空 body `{}`，
+            // 界面只能说「HTTP 400：{}」。改法是**换载荷**不是换 content-type：端点只解析 JSON 与 query，
+            // 发 text/plain 一条都进不去。载荷构造与通用 webhook 走同一位作者（buildPayload→描述符表），
+            // 于是"探测能过、真发不过"这种两半各造一条的形状没了。
+            val payload = WebhookPayloadBuilder.buildPayload(
+                type = WebhookPayloadBuilder.WebhookType.GENERIC,
                 title = info.title,
                 content = info.content,
                 appName = info.appName,

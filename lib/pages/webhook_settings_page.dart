@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../l10n/app_localizations.dart';
@@ -17,6 +19,15 @@ import '../widgets/ios_option_picker.dart';
 
 // R3 拆分：通道卡片构建巨型方法迁出（extension 共享 State 私有成员）
 part 'webhook_settings_item.dart';
+
+/// 「测试这条通道」那一下的**本机上限**（T112 ①）。
+///
+/// 90 秒不是随手一个大数：原生单次 HTTP 是 15s（connect/read/write 都是）、最多 3 次，
+/// 中间还有 2s／4s 退避 ⇒ 顺利情形约 50s。留一倍余量是因为**掐太紧会把"其实还在发"的
+/// 通道判成失败** —— 那等于用一个新谎换掉"永远停在发送中"这个旧谎。要防的是另一种形状：
+/// 原生整发跑在 activity 的生命周期上，activity 一没就永远没人回话（base.md（83）：
+/// 平台通道没有"永不回复"这个选项，所以每一发都得自己带上限）。
+const Duration kTestWebhookBudget = Duration(seconds: 90);
 
 /// Webhook **单通道详情页**（T07-B：「列表页 → 单通道详情页」）。
 ///
@@ -337,11 +348,25 @@ class _WebhookSettingsPageState extends State<WebhookSettingsPage> {
       // 类型一起传：只给 URL 时，自建 Gotify / 私有 ntfy 会被原生按 host 降级成通用
       // webhook 判定，测试结论与真实推送不一致。
       final secret = _secretController.text.trim();
-      final result = await _channel.invokeMethod('testWebhook', {
-        'url': url,
-        if (secret.isNotEmpty) 'secret': secret,
-        'channelType': _channelType,
-      });
+      final result = await _channel
+          // T112 ①：这一发原先**没带超时** —— 而 base.md（83）那条纪律写的是"平台通道没有
+          // '永不回复'这个选项"。现象就是这么来的：原生把整发跑在 `activityScope`
+          // （`activityJob + Dispatchers.Main`）里，回包只在末尾 `withContext(Main)` 发一次 ⇒
+          // activity 一没（离开这页／被系统回收／重建），协程连同回包一起消失，Dart 的 await
+          // **既不完成也不抛**，界面永远停在「发送中」。这里给自己一个上限：失败也要复位、也要有话。
+          // 上限取 90 秒是**宽过原生那一发的预算**（单次 15s × 3 次 + 退避 ≈ 50s）：
+          // 掐太紧会把"其实还在发"的通道判成失败，那是拿一个新谎换掉旧谎。
+          .invokeMethod('testWebhook', {
+            'url': url,
+            if (secret.isNotEmpty) 'secret': secret,
+            'channelType': _channelType,
+          })
+          .timeout(
+            kTestWebhookBudget,
+            onTimeout: () => throw TimeoutException(
+              '原生 ${kTestWebhookBudget.inSeconds}s 未回复 testWebhook',
+            ),
+          );
       final success = result['success'] as bool? ?? false;
       if (!mounted) return;
       final id = _channelId;
