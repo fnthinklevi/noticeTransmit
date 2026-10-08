@@ -13,6 +13,7 @@ export 'src/capabilities.dart';
 export 'src/contract.dart';
 export 'src/credentials.dart';
 export 'src/delivery.dart';
+export 'src/endpoint_ingress.dart';
 export 'src/pairing.dart';
 export 'src/receive_kernel.dart';
 export 'src/remote_command.dart';

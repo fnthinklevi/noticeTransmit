@@ -10,6 +10,7 @@ import 'channel_probe_service.dart';
 import 'email_service.dart';
 import 'fnthink_channel_probe.dart';
 import 'fnthink_channel_service.dart';
+import 'fnthink_endpoint_dryrun.dart';
 import 'webhook_service.dart';
 
 /// 一条通道在首页/状态页的健康态。**四态**（T115 决定一把"过期"从 `unknown` 里拆出来了）：
@@ -230,7 +231,7 @@ List<ActiveChannel> collectActiveChannels() {
   //
   // ⚠ 它的健康度现在**能自动重探了**（T106 片③：非侵入探针 `/probe` 落了地，见下面
   //   `probeChannelsAcrossFamilies` 里那一段）；在那之前这里写的是"绝不进自动重探"。
-  //   设备档之外的那条（webhook 目标）今天仍探不了。
+  //   两种目标各有各的那一发（片①b）：设备档＝一次签名探针，端点档＝一次干跑（一条都不投）。
   List<FnthinkChannel> fnthinkChannels;
   try {
     fnthinkChannels = GetIt.instance<FnthinkChannelService>().cachedChannels;
@@ -395,6 +396,8 @@ Future<int> probeChannelsAcrossFamilies({
   void Function()? onUpdated,
   bool force = false,
   FnthinkProbeCall? fnthinkProbe,
+  FnthinkEndpointProbeCall? fnthinkEndpointProbe,
+  FnthinkEndpointContext? fnthinkEndpointContext,
 }) async {
   // 原生那三族的调度链路没装配（早期启动阶段 / 测试环境）⇒ 它们当"无事可做"；
   // ⚠ **不能顺手把第四族一起返回 0**：它不经过原生那套方法（见下面 `probeFnthinkChannels`），
@@ -429,10 +432,16 @@ Future<int> probeChannelsAcrossFamilies({
   }
   // 第四族（T106 片③）：走自己那一条 —— 判据「只探启用 / 只探过期 / 只写通道 id」都在
   // `probeFnthinkChannels` 里，与上面那三族同一套口径（不是"凑上去"的第二份实现）。
-  // [fnthinkProbe] 只为测试注入；生产从 GetIt 取协调者（取不到 = 这一族还没装配 ⇒ 无事可做）。
+  // 两个 [fnthinkProbe]/[fnthinkEndpointProbe] 都只为测试注入：
+  //  - 设备档生产走协调者（取不到 = 这一族还没装配 ⇒ 无事可做）；
+  //  - 端点档生产直接挂 `postFnthinkEndpointDryRun`（T106 片①b 格2：一次干跑，一条都不投），
+  //    而"能不能问"仍要问装配（随包契约 + 这台当前在用的那台服务器）⇒ 见 [endpointContext]。
   probed += await probeFnthinkChannels(
     force: force,
     call: fnthinkProbe ?? fnthinkProbeFromLocator(),
+    endpointCall: fnthinkEndpointProbe ?? postFnthinkEndpointDryRun,
+    endpointContext:
+        fnthinkEndpointContext ?? fnthinkEndpointContextFromLocator,
     onUpdated: onUpdated,
   );
   return probed;

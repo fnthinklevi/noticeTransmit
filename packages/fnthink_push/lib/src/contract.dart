@@ -219,6 +219,19 @@ class FnthinkContract {
     return value;
   }
 
+  /// `endpoint.probe.bearerPath`（T106 片①b 格2：端点档干跑那条路的唯一出处）。
+  ///
+  /// 与 [endpointIngressPath] 分两个口子而不是共用一个：那一条读的是 `endpoint.ingress` 段、
+  /// 这一条读的是 `endpoint.probe` 段，合成一个参数化的口子就会让"少一段"退化成
+  /// "读到 null 就补个默认路径" —— 而默认路径意味着设备往一条不存在的路径送口令。
+  String endpointProbePath() {
+    final value = str(const ['endpoint', 'probe', 'bearerPath']);
+    if (value == null || !value.startsWith('/')) {
+      throw StateError('契约缺 endpoint.probe.bearerPath（或不以 / 开头）：$value');
+    }
+    return value;
+  }
+
   /// `identity.<which>.length`。缺键直接抛而不是补个默认位数 —— 位数错生成出来的是
   /// 一把对端永远不认的凭证，而"默认 18"会让这个错误静默通过。
   int identityLength(String which) {

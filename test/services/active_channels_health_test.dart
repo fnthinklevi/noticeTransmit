@@ -267,7 +267,7 @@ void main() {
   // 片③ 把它接进来。这里钉的四件事按"错了不报错、只是慢慢说假话"排：
   // ① 启用中的那条**在**（不在就是 T104 没做完）；② 三列同口径（target／角色／显示名）；
   // ③ 服务器那一份结论不许冒充通道那一份（片① 拆的两种主语）；④ 自动重探**永不**碰它。
-  group('T104 第四族进清单：显示口径 + 自动重探（T106 片③ 起会探设备档）', () {
+  group('T104 第四族进清单：显示口径 + 自动重探（T106 起两档各有非浸入那一发）', () {
     final helper = DatabaseHelper();
     late FnthinkChannelService channelService;
 
@@ -422,10 +422,14 @@ void main() {
       );
     });
 
-    test('自动重探（含 force 那一发）现在会探这一族：设备档写进健康单点，webhook 档不探', () async {
-      // ⚠ 这一格的**方向被 T106 片③ 改过**：T104 时这里断的是"一条记录都不写"，
-      //   因为那一族当时没有非侵入探针（"顺手重探"＝替用户往对面发一条真通知）。
-      //   现在探针有了（`/probe`，一条都不投），断的变成"它真的被探、而且只探设备档"。
+    test('自动重探（含 force 那一发）现在两档都探得到：设备档签名探针、端点档干跑；第三方那条仍不探', () async {
+      // ⚠ 这一格的**方向被改过两次**：T104 时断"一条记录都不写"（那一族没有非侵入探针，
+      //   顺手重探＝替用户往对面发真通知）；T106 片③ 起了设备档；T106 片①b 格2 起了端点档。
+      //   今天断的是"两档各走自己那一发、第三类（别人的 webhook）照旧一条都不问"。
+      final contract = FnthinkContract.readFile();
+      const endpointId = 'e_1';
+      const endpointSecret = 'AB12CD34EF56GH78JK90MN23PQ45RS67';
+      const serverHost = 'push.example.com';
       final health = GetIt.instance<ChannelHealthStore>();
       await seedChannels(
         hooks: [hookRow()],
@@ -441,8 +445,17 @@ void main() {
       );
       await channelService.create(
         id: 'fc_hook',
-        name: '自建端点',
-        target: 'https://push.example.com/hook/secretpath',
+        name: '别人家的 webhook',
+        target: 'https://hooks.other.example/hook/secretpath',
+        targetKind: FnthinkChannelTarget.webhook,
+      );
+      await channelService.create(
+        id: 'fc_ep',
+        name: '自己那台上的端点',
+        target:
+            'https://$serverHost${contract.endpointIngressPath('pathPattern')}'
+                .replaceAll(':endpointId', endpointId)
+                .replaceAll(':secret', endpointSecret),
         targetKind: FnthinkChannelTarget.webhook,
       );
 
@@ -457,7 +470,7 @@ void main() {
       );
 
       final probed = <String>[];
-      Future<FnthinkProbeResult> stubProbe({required String peer}) async {
+      Future<FnthinkProbeResult> stubDevice({required String peer}) async {
         probed.add(peer);
         return const FnthinkProbeResult(
           status: FnthinkPollStatus.ok,
@@ -465,17 +478,50 @@ void main() {
         );
       }
 
-      // force：通道状态页下拉刷新那一路。
-      await probeChannelsAcrossFamilies(force: true, fnthinkProbe: stubProbe);
+      final asked = <({Uri probeUrl, String secret})>[];
+      Future<FnthinkProbeResult> stubEndpoint({
+        required FnthinkContract contract,
+        required Uri probeUrl,
+        required String secret,
+      }) async {
+        asked.add((probeUrl: probeUrl, secret: secret));
+        return const FnthinkProbeResult(
+          status: FnthinkPollStatus.ok,
+          ready: true,
+        );
+      }
 
+      // force：通道状态页下拉刷新那一路。
+      await probeChannelsAcrossFamilies(
+        force: true,
+        fnthinkProbe: stubDevice,
+        fnthinkEndpointProbe: stubEndpoint,
+        fnthinkEndpointContext: () async =>
+            (contract: contract, host: serverHost),
+      );
+
+      expect(probed, [peerAddress], reason: '设备档那条探的是那台地址码（一次签名事件，不投东西）');
       expect(
-        probed,
-        [peerAddress],
+        asked.map((a) => a.probeUrl.path).toList(),
+        [contract.endpointProbePath().replaceAll(':endpointId', endpointId)],
         reason:
-            '设备档那条要真的被探（探的是那台地址码）；webhook 档那条仍然跳过 —— '
-            '服务端那条干跑已经落地（T106 片①b 格1：POST /p/<id>/probe + Bearer 长期口令，'
-            '一条都不投），欠的是设备侧接线（格2）。接线落地时这一格必须**翻**而不是删：'
-            '删掉就没人知道这里曾经跳过，而翻过来的那一行说的是口径变了。',
+            '端点档那条要问，而且问的是**契约声明的那条探针路径**（期望值同样从契约算，'
+            '不是在测试里重打一遍 —— 服务器换前缀时这条要跟着走）',
+      );
+      expect(
+        asked.single.secret,
+        endpointSecret,
+        reason: '口令从那条推送地址里取出来、交给干跑那一发放请求头（不进 URL）',
+      );
+      expect(
+        asked.single.probeUrl.toString(),
+        isNot(contains(endpointSecret)),
+        reason: '⚠ 这一断就是本片唯一的新红线：口令出现在 URL 里＝送给每一层日志',
+      );
+      expect(
+        health.of(kFnthinkChannelSlug, 'fc_ep')!.reachable,
+        isTrue,
+        reason: '干跑说通就写绿：这一档的徽标不再只能靠人手动测',
       );
       expect(
         health.of(kFnthinkChannelSlug, 'fc_dev')!.reachable,
@@ -485,9 +531,12 @@ void main() {
       expect(
         health.of(kFnthinkChannelSlug, 'fc_hook'),
         isNull,
-        reason: '没探过就不许有记录 —— 写一条假的绿比不写更糟',
+        reason:
+            '第三方 webhook（别人家的口）协议里没有"问一句收不收得进"这一发 —— '
+            '硬探就等于真推一条；没探过就不许有记录，写一条假的绿比不写更糟',
       );
-      // 另三族的行为一字节不许因为"加了一族"而变。
+      expect(asked.length, 1, reason: '一次都没问 = 0 次；上面那条健康断言挡不住"问了但没记"这种错');
+      // 另三族的行为一字节不许因为"加了一档"而变。
       expect(
         calls.map((c) => c.method),
         containsAll(<String>['probeChannelHealth', 'probeAppChannelToken']),
@@ -496,6 +545,97 @@ void main() {
 
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(AppChannels.notification, null);
+    });
+
+    test('端点档那一问"没问到"三次才落红（与设备档共用同一份重试判据）', () async {
+      final contract = FnthinkContract.readFile();
+      final health = GetIt.instance<ChannelHealthStore>();
+      await seedForwardPeer();
+      await channelService.create(
+        id: 'fc_ep',
+        name: '自己那台上的端点',
+        target:
+            'https://push.example.com${contract.endpointIngressPath('pathPattern')}'
+                .replaceAll(':endpointId', 'e_1')
+                .replaceAll(':secret', 'AB12CD34EF56GH78JK90MN23PQ45RS67'),
+        targetKind: FnthinkChannelTarget.webhook,
+      );
+      var hits = 0;
+      Future<FnthinkProbeResult> noVerdict({
+        required FnthinkContract contract,
+        required Uri probeUrl,
+        required String secret,
+      }) async {
+        hits++;
+        // 非 200（429／404／反代）在服务层就折算成"没有结论"，这里直接照那个形状返回。
+        return const FnthinkProbeResult(status: FnthinkPollStatus.ok);
+      }
+
+      await probeChannelsAcrossFamilies(
+        force: true,
+        fnthinkEndpointProbe: noVerdict,
+        fnthinkEndpointContext: () async =>
+            (contract: contract, host: 'push.example.com'),
+      );
+      expect(hits, 3, reason: '维护者 2026-10-08：「自动重试 3 次」——两档共用那一份判据，不是各写一遍');
+      expect(
+        health.of(kFnthinkChannelSlug, 'fc_ep')!.reachable,
+        isFalse,
+        reason: '问到上限还没问到就是失败（「超时显示失败」）：把"没问到"画成绿是假安心',
+      );
+    });
+
+    test('两件事会让端点档一条都不问：装配没起来、或 host 不是这台在用的那台', () async {
+      final contract = FnthinkContract.readFile();
+      final health = GetIt.instance<ChannelHealthStore>();
+      final target =
+          'https://push.example.com${contract.endpointIngressPath('pathPattern')}'
+              .replaceAll(':endpointId', 'e_1')
+              .replaceAll(':secret', 'AB12CD34EF56GH78JK90MN23PQ45RS67');
+      await channelService.create(
+        id: 'fc_ep',
+        name: '自己那台上的端点',
+        target: target,
+        targetKind: FnthinkChannelTarget.webhook,
+      );
+      var hits = 0;
+      Future<FnthinkProbeResult> count({
+        required FnthinkContract contract,
+        required Uri probeUrl,
+        required String secret,
+      }) async {
+        hits++;
+        return const FnthinkProbeResult(
+          status: FnthinkPollStatus.ok,
+          ready: true,
+        );
+      }
+
+      // ① 装配没起来（契约读不到 / 这一族还没注册）：什么都不做，也不写红。
+      await probeChannelsAcrossFamilies(
+        force: true,
+        fnthinkEndpointProbe: count,
+        fnthinkEndpointContext: () async => null,
+      );
+      // ② 装配起来了，但那台服务器不是这条地址所在的那台 ⇒ 一条都不问。
+      await probeChannelsAcrossFamilies(
+        force: true,
+        fnthinkEndpointProbe: count,
+        fnthinkEndpointContext: () async =>
+            (contract: contract, host: 'other.example.com'),
+      );
+      expect(
+        hits,
+        0,
+        reason:
+            '② 是本片的红线：口令只发给这台设备本来就在通信的那一个地址；'
+            '而且往另一台问一个不存在的人只会拿到一次假红（红灯必须是确凿的）',
+      );
+      expect(
+        health.of(kFnthinkChannelSlug, 'fc_ep'),
+        isNull,
+        reason: '"没法测"与"测了没通"是两件事：前者必须留在 unknown（页面画「从未探测」）',
+      );
     });
 
     test('进页/回前台那一路只探过期的：刚探过的那条不再发（force 才属于下拉）', () async {
