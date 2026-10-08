@@ -375,6 +375,50 @@ void main() {
     );
   });
 
+  testWidgets('窄屏（393dp）：这一页的卡头徽标与页脚两枚都不溢出', (tester) async {
+    // 上一条是列表页的空态；这一条是**详情页**：它同一横排里有「种类 + 徽标（两段字）」，
+    // 页脚又并排两枚按钮 —— 都是这一屏最宽的东西，而 393dp 是这台机的真实逻辑宽。
+    tester.view.physicalSize = const Size(393, 851);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final store = _MemoryStore(targets: [_peer()]);
+    final health = ChannelHealthStore();
+    // 先记一发不通的，让那枚徽标真的带两段文字（带耗时的那种更容易挤爆）
+    await health.record(
+      kFnthinkChannelSlug,
+      'fc_9',
+      reachable: false,
+      latencyMs: 4200,
+    );
+    final spy = _ProbeSpy();
+    await tester.pumpWidget(
+      AppRoot(
+        locale: const Locale('zh'),
+        dark: false,
+        home: FnthinkChannelSettingsPage(
+          channel: _deviceChannel(),
+          service: store,
+          probe: FnthinkChannelProbeDeps(send: spy.send, health: health),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 溢出在测试里是一条 RenderFlex 异常，不是"看着有点挤"——它必须一条都没有。
+    expect(tester.takeException(), isNull);
+    for (final key in const ['fnthink-channel-probe', 'fnthink-channel-save']) {
+      final finder = find.byKey(ValueKey(key));
+      await tester.ensureVisible(finder);
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(finder);
+      expect(
+        [rect.left.floorToDouble(), (393 - rect.right).floorToDouble()],
+        everyElement(greaterThanOrEqualTo(0.0)),
+        reason: '$key 那枚按钮横着跑到屏幕外了',
+      );
+    }
+  });
+
   // ── #271「测试这条通道」：徽标今天恒为「没测过」的那一发 ──────────────────────
   // 这一族**没有非侵入探针**（`presence` 只答本机醒不醒），所以徽标能记的只有
   // 「最近一次测试」—— 也就是说：没有这一枚，列表页那些徽标永远说不出话来。
