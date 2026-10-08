@@ -1,0 +1,693 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:fnthink_push/fnthink_push.dart';
+
+import '../l10n/app_localizations.dart';
+import '../models/fnthink_peer.dart';
+import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_receive_coordinator.dart';
+import '../theme/app_colors.dart';
+import '../widgets/fnthink_card.dart';
+import '../widgets/help_note_button.dart';
+import '../widgets/ios_dialog_actions.dart';
+import '../widgets/primary_action_button.dart';
+
+/// 「发一条」那两档收成一张页（T98 片④）。
+///
+/// ## 为什么是一张页而不是两件事
+/// 这一路原来有**两个形状**：名单行与收件详情走一枚弹层（只有标题＋正文），远程执行那一格走
+/// 一张 492 行的页（档位／动作／参数／凭据）。可它们是同一条出站路的两个档 —— 载荷不同，
+/// 而签名、能力判定、去重、时间容差、回执、健康度**全共用协调者那一发**。分成两件的下场是：
+/// 从名单进去的人根本不知道还有指令那一档，从远程页进去的人以为发一条也得填凭据。
+///
+/// ## 两档走的仍是既有那一发，不新开通路
+/// 都不是第二条 HTTP 路：两档都经 [FnthinkReceiveCoordinator.sendNotice]（指令档是把
+/// [RemoteCommandEnvelope] 编成 `text` 走）—— 那一发仍然被签名、仍被服务端按能力判、
+/// 仍记送达健康度。多开一条通路的下场是"两条路的权限判定不一样"，而权限判定只有契约一份。
+///
+/// ## 界面不判协议
+/// 这一页判的都只是**界面形状**：那一档在不在词表里、契约点名要参数的动作有没有参数、
+/// 该档要不要凭据（直接读契约与 [levelNeedsAuth]）。真执行时对面那台还会再判一遍 ——
+/// 本页的判只是"别让人填完才发现发不出去"。
+class FnthinkSendPage extends StatefulWidget {
+  const FnthinkSendPage({
+    super.key,
+    required this.deps,
+    this.preselectedPeer,
+    this.prefillTitle = '',
+    this.prefillBody = '',
+    this.initialTier = FnthinkSendTier.notice,
+  });
+
+  final FnthinkSendDeps deps;
+
+  /// 从哪一行进来的那一台（名单行 / 收件详情的发送方）。null = 进来自己挑。
+  ///
+  /// 它只是**预选**：那一台仍在名单里被高亮、也仍可换 —— 这一页三个入口共用，
+  /// 把对端锁死会让"从收件详情进来才发现想发给另一台"只能退出去重走一遍。
+  final String? preselectedPeer;
+
+  /// 「回复／重发」预填的那两格（重发＝原文；回复＝只给标题、正文留空 ⇒ 主操作是灰的）。
+  final String prefillTitle;
+  final String prefillBody;
+
+  /// 远程执行那一格进来时停在指令档；其余入口停在纯文本档。
+  final FnthinkSendTier initialTier;
+
+  @override
+  State<FnthinkSendPage> createState() => _FnthinkSendPageState();
+}
+
+/// 这一页要碰的三样（原来的 `RemoteSendDeps`，现在两档共用）。
+class FnthinkSendDeps {
+  const FnthinkSendDeps({
+    required this.loadPeers,
+    required this.send,
+    required this.contractOf,
+  });
+
+  /// 名单**只**从读咽喉取（页面不自己排、也不自己读库）。
+  final Future<List<FnthinkPeer>> Function() loadPeers;
+
+  /// 那一发。两档同形，只是 `text` 里装的东西不同。
+  final Future<FnthinkSendResult> Function({
+    required String peer,
+    required String title,
+    required String text,
+  })
+  send;
+
+  /// 契约（异步读）。只有指令档需要它 —— 但**进来就读**：档位那一排要当场说得出
+  /// "指令档为什么进不去"，等人点下去才发现是另一回事。
+  final Future<FnthinkContract> Function() contractOf;
+}
+
+/// 两档。枚举而不是布尔：加第三档（比如带附件的那一路）时这里要一起想清楚。
+enum FnthinkSendTier { notice, command }
+
+class _FnthinkSendPageState extends State<FnthinkSendPage> {
+  FnthinkContract? _contract;
+  String? _contractError;
+
+  List<FnthinkPeer>? _peers;
+
+  /// 选中那一台的**地址码**（不是整行记录）。
+  ///
+  /// 为什么不是 `FnthinkPeer`：三个入口里，收件详情那一路只知道地址（那一行的整条记录
+  /// 是它自己从名单里查出来的），而发送那一发要的也只是地址 —— 公钥、档位由协调者按地址
+  /// 去库里取。页面存整行记录的话，就得替名单那次读负责，读失败时连"发给谁"都一起丢了。
+  late String? _peerAddress = widget.preselectedPeer;
+
+  late FnthinkSendTier _tier = widget.initialTier;
+
+  late final TextEditingController _title = TextEditingController(
+    text: widget.prefillTitle,
+  );
+  late final TextEditingController _body = TextEditingController(
+    text: widget.prefillBody,
+  );
+
+  String _level = '';
+  String _item = '';
+  final TextEditingController _argument = TextEditingController();
+  final TextEditingController _key = TextEditingController();
+  final TextEditingController _totp = TextEditingController();
+
+  /// 挡住的那句（**发之前**）：画在页面最上面。
+  String? _block;
+
+  /// 那一发的结论（发之后）：画在提交那一格底下。两者分开是因为下一步动作不同 ——
+  /// "去把参数填上"与"去对面那台看看为什么没接"不是同一件事。
+  String? _note;
+  bool _sent = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _body.dispose();
+    _argument.dispose();
+    _key.dispose();
+    _totp.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    await _loadPeers();
+    final contract = await _loadContract();
+    if (!mounted) return;
+    setState(() {
+      if (contract != null && contract.capabilityLevels.isNotEmpty) {
+        // 默认那一档 = 词表里**最低**的那一档（不是写死 L1）：契约改了级别序，
+        // 写死 L1 会让用户第一次进来就落在一个也许已经不存在的那一档上。
+        _level = contract.capabilityLevels.first;
+      }
+      // 指令档没有契约就进不去 ⇒ 停在纯文本档，而不是画一张填不动的表单。
+      if (_tier == FnthinkSendTier.command && contract == null) {
+        _tier = FnthinkSendTier.notice;
+      }
+    });
+  }
+
+  Future<void> _loadPeers() async {
+    try {
+      final rows = await widget.deps.loadPeers();
+      if (mounted) setState(() => _peers = rows);
+    } catch (_) {
+      // 读失败与"真的没有"是两句（`_peers == null` 才是读失败），不许糊成空名单。
+      if (mounted) setState(() => _peers = null);
+    }
+  }
+
+  Future<FnthinkContract?> _loadContract() async {
+    try {
+      final contract = await widget.deps.contractOf();
+      if (mounted) setState(() => _contract = contract);
+      return contract;
+    } on FnthinkContractUnavailable catch (e) {
+      if (mounted) setState(() => _contractError = e.reason);
+      return null;
+    } catch (e) {
+      if (mounted) setState(() => _contractError = '$e');
+      return null;
+    }
+  }
+
+  /// 这一档**能发**的动作（词表从契约来，页面不写死任何一个动作名）。
+  List<String> _actionsFor(FnthinkContract contract, String level) {
+    if (level == 'L1') {
+      // L1 无凭据、无逐条勾选：可做的与 L2 同源（执行时对面那台按自己的清单判）。
+      return [...contract.l2Actions, ...contract.l3Settings.keys];
+    }
+    if (level == 'L2') return contract.l2Actions;
+    return contract.l3Settings.keys.toList();
+  }
+
+  bool _needsArgument(FnthinkContract contract, String level) {
+    if (level == 'L3') return false;
+    return contract.l2ActionsRequiringArgument.contains(_item);
+  }
+
+  bool _needsCredential(FnthinkContract contract) =>
+      levelNeedsAuth(contract, _level);
+
+  /// 发出之前那一发的本地校验。**回 null = 可以发**；回一句 = 为什么不发。
+  String? _commandBlocked(FnthinkContract contract) {
+    final l10n = AppLocalizations.of(context);
+    if (_peerAddress == null) return l10n.fnthinkSendNeedsPeer;
+    if (!contract.capabilityLevels.contains(_level)) {
+      return l10n.remoteSendLevelUnknown(_level);
+    }
+    if (_item.isEmpty) return l10n.remoteSendAction;
+    if (_needsArgument(contract, _level) && _argument.text.trim().isEmpty) {
+      return l10n.remoteSendNeedsArgument;
+    }
+    if (_needsCredential(contract) &&
+        _key.text.trim().isEmpty &&
+        _totp.text.trim().isEmpty) {
+      return l10n.remoteSendNeedsCredential;
+    }
+    return null;
+  }
+
+  /// 纯文本那一档。
+  ///
+  /// 为什么**这里**还拦一次空正文（主操作本来就是灰的）：空正文发出去，那边只会收到一句空话，
+  /// 而回执照样是"送达"—— 那正是"不静默丢、也不无谓留"那条不变量不想看到的形状。
+  /// 这条判据从弹层那一版就在这儿，换了一张页而已：两处判同一件事，早晚有一处改了另一处没改。
+  Future<void> _sendNotice() async {
+    final peer = _peerAddress;
+    if (peer == null || _busy) return;
+    if (_body.text.trim().isEmpty) return;
+    final l10n = AppLocalizations.of(context);
+    setState(() {
+      _busy = true;
+      _block = null;
+      _note = null;
+      _sent = false;
+    });
+    final result = await widget.deps.send(
+      peer: peer,
+      title: _title.text,
+      text: _body.text,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _sent = result.status == FnthinkSendStatus.accepted;
+      _note = fnthinkSendResultText(l10n, result);
+    });
+  }
+
+  /// 远程指令那一档：载荷编成 [RemoteCommandEnvelope] 之后走**同一发**。
+  Future<void> _sendCommand() async {
+    final contract = _contract;
+    if (contract == null || _busy) return;
+    // ⚠ **先算"为什么发不出去"，再判有没有对端**：早退放在判据之前的话，
+    //   "没选中对端"这一档就一个字都不说 —— 而用户刚按了那个按钮。
+    final blocked = _commandBlocked(contract);
+    if (blocked != null) {
+      setState(() => _block = blocked);
+      return;
+    }
+    final peer = _peerAddress;
+    if (peer == null) return;
+    final l10n = AppLocalizations.of(context);
+    // 这一发会**带走刚填的凭据**，所以先过二次确认 —— 与 T06「删除一律二次确认」
+    // 同一条纪律的另一面：不可撤的动作都要问一次。
+    final ok = await IosDialogActions.askConfirm(
+      context,
+      title: l10n.remoteSendSubmit,
+      message: l10n.remoteSendCancelNote,
+      confirmText: l10n.remoteSendSubmit,
+    );
+    if (!ok || !mounted) return;
+    final wire = RemoteCommandEnvelope.encode(
+      level: _level,
+      item: _item,
+      argument: _argument.text.trim(),
+      key: _key.text.trim(),
+      totpCode: _totp.text.trim(),
+    );
+    setState(() {
+      _busy = true;
+      _block = null;
+      _note = null;
+      _sent = false;
+    });
+    final result = await widget.deps.send(
+      peer: peer,
+      // ⚠ 标题留空：指令没有标题/正文这个划分，而空标题在标题信封那边是"不套信封"
+      //   （见 FnthinkTitleEnvelope 的注释）—— 套一个空标题会给收件端留一个
+      //   「有信封而标题为空」的形状，而那与「这条本来没有标题」不可区分。
+      title: '',
+      text: wire,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _sent = result.status == FnthinkSendStatus.accepted;
+      _note = _sent
+          ? l10n.remoteSendStartedNote
+          : l10n.remoteSendFailed(result.reason ?? result.status.name);
+      if (_sent) {
+        // 发成之后**立刻清掉凭据输入框**：这一页不该留着别人的密钥等人回头再看。
+        // （想再发一条就重新填 —— 这是有意的代价，不是顺手加的。）
+        _key.clear();
+        _totp.clear();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      backgroundColor: AppColors.bgColor(context),
+      appBar: AppBar(title: Text(l10n.fnthinkPeerSend)),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          _tierCard(l10n),
+          const SizedBox(height: 12),
+          // ⚠ 挡住的那句在**最上面**（不是提交那一格底下）：ListView 是懒布局，提交键常常在
+          //   视口之外 —— 用户按了它、什么也没发生，而"为什么"在屏幕外。那是这一页最不能
+          //   出现的形状（"点了没反应"）。
+          if (_block != null)
+            FnthinkNote(keyName: 'fnthink-send-blocked', text: _block!),
+          _peerCard(l10n),
+          const SizedBox(height: 12),
+          if (_tier == FnthinkSendTier.notice)
+            _noticeCard(l10n)
+          else if (_contract != null) ...[
+            _levelCard(l10n),
+            const SizedBox(height: 12),
+            _actionCard(l10n),
+            const SizedBox(height: 12),
+            _commandSubmitCard(l10n),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 档位那一排：两档是**同一条出发送的两副载荷**，所以并排给，而不是藏在两个入口里。
+  Widget _tierCard(AppLocalizations l10n) {
+    return FnthinkCard(
+      title: l10n.fnthinkSendTierLabel,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _TierButton(
+                keyName: 'fnthink-send-tier-notice',
+                label: l10n.fnthinkSendTierNotice,
+                selected: _tier == FnthinkSendTier.notice,
+                onTap: () => _pickTier(FnthinkSendTier.notice),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              // 契约读不到时这一档灰掉并说原因（不是藏起来：藏起来用户以为这一页没这功能）。
+              child: _TierButton(
+                keyName: 'fnthink-send-tier-command',
+                label: l10n.fnthinkSendTierCommand,
+                selected: _tier == FnthinkSendTier.command,
+                onTap: _contract == null
+                    ? null
+                    : () => _pickTier(FnthinkSendTier.command),
+              ),
+            ),
+          ],
+        ),
+        FnthinkNote(
+          keyName: 'fnthink-send-tier-note',
+          text: l10n.fnthinkSendTierNote,
+        ),
+        if (_contractError != null)
+          FnthinkNote(
+            keyName: 'remote-send-contract-error',
+            text: l10n.fnthinkContractUnavailable(_contractError!),
+          ),
+      ],
+    );
+  }
+
+  void _pickTier(FnthinkSendTier tier) {
+    if (_tier == tier) return;
+    setState(() {
+      _tier = tier;
+      _block = null;
+      _note = null;
+      _sent = false;
+    });
+  }
+
+  Widget _peerCard(AppLocalizations l10n) {
+    final rows = _peers;
+    return FnthinkCard(
+      title: l10n.remoteSendPickPeer,
+      children: [
+        if (rows == null)
+          FnthinkNote(
+            keyName: 'remote-send-peers-unknown',
+            text: l10n.remotePeersReadFailed,
+          )
+        else if (rows.isEmpty)
+          // ⚠ 「还没有配对过任何设备」与「读不出来」是两句：名单空着不是"你可以随便填个地址"。
+          FnthinkNote(
+            keyName: 'remote-send-peers-empty',
+            text: l10n.remoteHistoryEmpty,
+          )
+        else
+          for (final peer in rows)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: CupertinoButton(
+                key: ValueKey('remote-send-peer-${peer.peerAddress}'),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _peerAddress = peer.peerAddress),
+                child: Text(
+                  peer.peerAddress,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: peer.peerAddress == _peerAddress
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                    color: peer.peerAddress == _peerAddress
+                        ? AppColors.systemBlue(context)
+                        : AppColors.primaryLabel(context),
+                  ),
+                ),
+              ),
+            ),
+      ],
+    );
+  }
+
+  Widget _noticeCard(AppLocalizations l10n) {
+    final empty = _body.text.trim().isEmpty;
+    return FnthinkCard(
+      title: l10n.fnthinkSendSheetTitle(_peerAddress ?? '—'),
+      children: [
+        CupertinoTextField(
+          key: const ValueKey('fnthink-send-title'),
+          controller: _title,
+          placeholder: l10n.fnthinkSendTitleHint,
+          textCapitalization: TextCapitalization.sentences,
+        ),
+        const SizedBox(height: 10),
+        CupertinoTextField(
+          key: const ValueKey('fnthink-send-body'),
+          controller: _body,
+          placeholder: l10n.fnthinkSendBodyHint,
+          minLines: 3,
+          maxLines: 6,
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        // 这两句讲的是"这一路与端点那一路哪里不一样"，用户是在填内容时才需要知道它 ——
+        // 发完之后再告诉他，他已经点过发送了。成段的那句（标题走正文信封）按 T100 的规矩
+        // 收进右上角问号，界面上只留这一行短说。
+        HelpNoteRow(
+          noteKey: 'fnthink-send-boundary',
+          helpKey: 'fnthink-send-envelope-help',
+          text: l10n.fnthinkSendBoundary,
+          helpTitle: l10n.fnthinkSendEnvelopeHelpTitle,
+          helpBody: l10n.fnthinkSendEnvelopeNote,
+        ),
+        const SizedBox(height: 10),
+        PrimaryActionButton(
+          key: const ValueKey('fnthink-send-submit'),
+          // 空正文时主操作**不藏、不换名、只置灰**，并把"为什么"写在键上（这一族的规矩）。
+          label: empty ? l10n.fnthinkSendEmptyBody : l10n.fnthinkSendSubmit,
+          subtitle: _peerAddress == null ? l10n.fnthinkSendNeedsPeer : null,
+          onPressed: _busy || empty || _peerAddress == null
+              ? null
+              : _sendNotice,
+        ),
+        if (_note != null)
+          FnthinkNote(keyName: 'fnthink-send-note', text: _note!),
+      ],
+    );
+  }
+
+  Widget _levelCard(AppLocalizations l10n) {
+    final contract = _contract!;
+    return FnthinkCard(
+      title: l10n.remoteSendLevel,
+      children: [
+        Wrap(
+          spacing: 8,
+          children: [
+            for (final level in contract.capabilityLevels)
+              CupertinoButton(
+                key: ValueKey('remote-send-level-$level'),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() {
+                        _level = level;
+                        // 换档时把那一档用不上的动作摘掉：留着上一个档的动作名，
+                        // 用户会发出一条对方那边压根没有的项。
+                        _item = '';
+                      }),
+                child: Text(level),
+              ),
+          ],
+        ),
+        FnthinkNote(
+          keyName: 'remote-send-level-desc',
+          text: switch (_level) {
+            'L2' => l10n.remoteSendLevelL2,
+            'L3' => l10n.remoteSendLevelL3,
+            _ => l10n.remoteSendLevelL1,
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _actionCard(AppLocalizations l10n) {
+    final contract = _contract!;
+    final actions = _actionsFor(contract, _level);
+    return FnthinkCard(
+      title: l10n.remoteSendAction,
+      children: [
+        if (actions.isEmpty)
+          FnthinkNote(keyName: 'remote-send-actions-empty', text: l10n.unknown)
+        else
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final action in actions)
+                CupertinoButton(
+                  key: ValueKey('remote-send-action-$action'),
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() => _item = action),
+                  child: Text(action),
+                ),
+            ],
+          ),
+        if (_item.isNotEmpty && _needsArgument(contract, _level)) ...[
+          FnthinkNote(
+            keyName: 'remote-send-arg-label',
+            text: l10n.remoteSendArgument,
+          ),
+          CupertinoTextField(
+            key: const ValueKey('remote-send-argument'),
+            controller: _argument,
+            placeholder: l10n.remoteSendArgument,
+            autocorrect: false,
+          ),
+        ],
+        const SizedBox(height: 8),
+        // 凭据两格按该档**要不要**显示：L1 一格都不给（它永远不需要凭据，
+        // 给一个永远空的输入框等于在暗示"这里要填点什么"）。
+        if (_level != 'L1') ...[
+          FnthinkNote(
+            keyName: 'remote-send-key-label',
+            text: _needsCredential(contract)
+                ? l10n.remoteSendKeyRequired
+                : l10n.remoteSendKeyOptional,
+          ),
+          CupertinoTextField(
+            key: const ValueKey('remote-send-key'),
+            controller: _key,
+            obscureText: true,
+            autocorrect: false,
+          ),
+          const SizedBox(height: 8),
+          FnthinkNote(
+            keyName: 'remote-send-totp-label',
+            text: _needsCredential(contract)
+                ? l10n.remoteSendTotpRequired
+                : l10n.remoteSendTotpOptional,
+          ),
+          CupertinoTextField(
+            key: const ValueKey('remote-send-totp'),
+            controller: _totp,
+            keyboardType: TextInputType.number,
+            autocorrect: false,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _commandSubmitCard(AppLocalizations l10n) {
+    return FnthinkCard(
+      title: l10n.remoteSendSubmit,
+      children: [
+        FnthinkNote(
+          keyName: 'remote-send-cancel-note',
+          text: l10n.remoteSendCancelNote,
+        ),
+        PrimaryActionButton(
+          key: const ValueKey('remote-send-submit'),
+          label: l10n.remoteSendSubmit,
+          subtitle: _peerAddress == null ? l10n.fnthinkSendNeedsPeer : null,
+          onPressed: _busy ? null : _sendCommand,
+        ),
+        // ⚠ 已发出/被拒那句留在这底下（"我刚做成了什么"离那个按钮近）；
+        //   而"为什么发不出去"（还没填齐）在页面最上面 —— 两者位置不同是刻意的。
+        if (_note != null)
+          FnthinkNote(keyName: 'remote-send-note', text: _note!),
+      ],
+    );
+  }
+}
+
+/// 档位那一排里的**一枚**：选中态是蓝底描边，不可用时置灰并留着（不是藏起来）。
+class _TierButton extends StatelessWidget {
+  const _TierButton({
+    required this.keyName,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String keyName;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final blue = AppColors.systemBlue(context);
+    return CupertinoButton(
+      key: ValueKey(keyName),
+      padding: EdgeInsets.zero,
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? blue.withValues(alpha: 0.10) : null,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? blue : AppColors.separator(context),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+            color: onTap == null
+                ? AppColors.tertiaryLabel(context)
+                : selected
+                ? blue
+                : AppColors.primaryLabel(context),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 这一档要不要凭据（**唯一出处**：契约 `auth.l2Requires` / `l3Requires`）。
+bool levelNeedsAuth(FnthinkContract contract, String level) {
+  if (level == 'L3') return contract.remoteExecutionL3RequiresAuth;
+  if (level == 'L2') return contract.remoteExecutionL2RequiresAuth;
+  return false;
+}
+
+/// 发送结论那一句的原话。**全仓唯一一处**：每一档状态说的都是"用户下一步做什么"，
+/// 折叠成一句"发送失败"就是让他去点第二下。
+String fnthinkSendResultText(AppLocalizations l10n, FnthinkSendResult result) {
+  final base = switch (result.status) {
+    FnthinkSendStatus.accepted => l10n.fnthinkSendSent(result.messageId ?? ''),
+    FnthinkSendStatus.rejectedUnsigned => l10n.fnthinkSendRejectedUnsigned,
+    FnthinkSendStatus.rejectedCapability => l10n.fnthinkSendRejectedCapability,
+    FnthinkSendStatus.replayed => l10n.fnthinkSendReplayed,
+    FnthinkSendStatus.needsCalibration => l10n.fnthinkSendNeedsCalibration,
+    FnthinkSendStatus.rateLimited => l10n.fnthinkSendRateLimited(
+      result.retryAfterSeconds ?? 0,
+    ),
+    FnthinkSendStatus.transportError => l10n.fnthinkSendTransportError,
+    FnthinkSendStatus.signingUnavailable => l10n.fnthinkSendSigningUnavailable,
+    FnthinkSendStatus.preconditionFailed => l10n.fnthinkSendPrecondition(
+      result.reason ?? '',
+    ),
+    FnthinkSendStatus.badInput => l10n.fnthinkSendBadInput,
+    FnthinkSendStatus.unparseable => l10n.fnthinkSendUnparseable,
+  };
+  // 挤位那句话只在真挤掉过东西时才出现。发送端是唯一能看见这件事的地方 ——
+  // 服务端那边各条已写了 dropped 回执，但那要等下一次 poll 才看得见。
+  if (result.status == FnthinkSendStatus.accepted &&
+      result.evicted.isNotEmpty) {
+    return '$base ${l10n.fnthinkSendEvicted(result.evicted.length)}';
+  }
+  return base;
+}

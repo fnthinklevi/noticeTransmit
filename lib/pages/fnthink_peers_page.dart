@@ -17,8 +17,8 @@ import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/fnthink_pair_dialog.dart';
-import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
+import 'fnthink_send_page.dart';
 
 /// 这一页要碰的三样依赖。
 ///
@@ -95,9 +95,6 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
 
   /// 最近一次撤销的结论（null = 这一页还没撤过）。
   ({FnthinkPeer peer, FnthinkPeerRevoke revoke})? _peerRevoke;
-
-  /// 最近一次「发一条」的结论（null = 这一页还没发过）。
-  ({FnthinkPeer peer, FnthinkSendResult result})? _sendNote;
 
   /// 最近一次「配对另一台设备」的结论（null = 这一页还没提交过）。
   FnthinkPairResult? _pairSubmit;
@@ -399,11 +396,6 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
               text: l10n.fnthinkPeerForwardHint,
             ),
           ],
-        if (_sendNote != null)
-          FnthinkNote(
-            keyName: 'fnthink-send-note',
-            text: fnthinkSendResultText(l10n, _sendNote!.result),
-          ),
         if (revokeEntry != null)
           FnthinkNote(
             keyName: 'fnthink-peer-revoke-note',
@@ -566,33 +558,42 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     return l10n.fnthinkRevoked(peer);
   }
 
-  /// 发一条给名单里那一台（§4-10 片2b）。
+  /// 发一条给名单里那一台（T98 片④：从弹层换成一张页）。
+  ///
+  /// 这一格**只负责把那一台带过去**（`preselectedPeer`），填什么、发不发、结论怎么说都在
+  /// [FnthinkSendPage] 上 —— 与远程执行那一格同一个形状，两条路不再有"一边是弹层一边是页"的分裂。
   ///
   /// 两件事按本仓既有纪律摆：
-  ///  - **取消 ⇒ 一个字节都不发**：弹层返回 null 就早退。这一条不是想当然 ——
-  ///    取消那一路是本格唯一没有"服务器帮我把关"的路径，写错的表现是"我明明点了取消"。
-  ///  - **弹层的 controller 归弹层自己**：调用方在 `await` 一返回就 dispose，会打在还在跑
-  ///    退场动画的 TextField 上，而那种错只在"真点过一次"时现形。
-  ///  - 页面**不判协议**：这里只把 `FnthinkSendStatus` 翻成一句人话。授权、配对、去重、
-  ///    时间容差都在内核与服务端判过并反证过；页面再判一遍就是第二份实现。
+  ///  - **取消 ⇒ 一个字节都不发**：这一发是 push，退出这一页（不点发送）就是取消，
+  ///    本页不留任何"发过一半"的状态。
+  ///  - **页面不判协议**：授权、配对、去重、时间容差都在内核与服务端判过并反证过。
   Future<void> _sendTo(FnthinkPeer peer) async {
     if (_busy) return;
-    final draft = await showFnthinkSendDialog(
-      context: context,
-      peerAddress: peer.peerAddress,
+    await Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => FnthinkSendPage(
+          preselectedPeer: peer.peerAddress,
+          deps: FnthinkSendDeps(
+            loadPeers: _deps.loadPeers,
+            send:
+                ({
+                  required String peer,
+                  required String title,
+                  required String text,
+                }) => _coordinator.sendNotice(
+                  peer: peer,
+                  title: title,
+                  text: text,
+                ),
+            contractOf: () async => _deps.contracts.load(),
+          ),
+        ),
+      ),
     );
-    if (draft == null || !mounted) return;
-    setState(() => _busy = true);
-    final result = await _coordinator.sendNotice(
-      peer: peer.peerAddress,
-      title: draft.title,
-      text: draft.text,
-    );
+    // 回来时重读名单：那一台的名字/档位/是否还在，可能已经被对面那台的改动带变了
+    // （撤销、重新同意）。不重读的话，这一页会留着进来时那一份。
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _sendNote = (peer: peer, result: result);
-    });
+    await _loadPeers();
   }
 
   /// 「配对另一台设备」那一格（#176 片3，B 侧那发 `pair` 的唯一入口）。

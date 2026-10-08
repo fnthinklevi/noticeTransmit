@@ -148,8 +148,9 @@ void main() {
       );
     });
 
-    test('发送结论那句话只有一个作者（两个入口共用一份，不许各说各的）', () {
-      // T48 收尾：发送这一发现在有两个入口（幻念推送页名单行、历史页收件详情）。
+    test('发送结论那句话只有一个作者（三个入口共用一张页，不许各说各的）', () {
+      // T48 收尾时这条判据管的是"两个入口共用一份弹层"；T98 片④ 把两副形状收成一张页之后，
+      // 它管的是"全仓只有那一页会把状态翻成原话"。
       // 11 档状态各有各的原话，抄第二份的下场是"同一个状态在两个页面说两句话" ——
       // 而用户看哪一句，取决于他当时在哪一页。
       final senders = dartFiles('lib')
@@ -157,21 +158,46 @@ void main() {
           .toList();
       expect(
         senders,
-        ['lib/widgets/fnthink_send_dialog.dart'],
+        ['lib/pages/fnthink_send_page.dart'],
         reason:
             '把"状态 → 原话"的 switch 抄进第二个文件 ⇒ 那一档以后只在一边改。'
-            '结论文案的唯一作者是 `fnthinkSendResultText`（两页都调它）',
+            '结论文案的唯一作者是那一页里的 `fnthinkSendResultText`',
       );
-      // ⚠ T94：「发一条」那一发与「结论文案」都搬到绑定页（`fnthink_peers_page.dart`），
-      //   两侧都必须经那一份文案；把旧页面留在这里只会让它穿带绿。
-      for (final page in const [
+      // 三个入口都必须**开那一页**，而不是自己再拼一发：多一个装配点的下场正是这次要收的
+      // "两种形状"（名单行走弹层、远程格走另一张 492 行的页）。
+      for (final entry in const [
         'lib/pages/fnthink_peers_page.dart',
         'lib/pages/history_page.dart',
+        'lib/pages/fnthink_remote_page.dart',
       ]) {
         expect(
-          readCode(page),
-          contains('fnthinkSendResultText('),
-          reason: '$page 必须经那一份文案，而不是自己拼句子',
+          readCode(entry),
+          contains('FnthinkSendPage('),
+          reason: '$entry 没有走那张共用页 ⇒ 出站的界面又要各长一份',
+        );
+      }
+      // 三个入口**各自带着什么进去**：页面对了而装配点没把人放到该站的地方，等于白收一张页。
+      expect(
+        readCode('lib/pages/fnthink_peers_page.dart'),
+        contains('preselectedPeer: peer.peerAddress'),
+        reason: '从名单那一行进来却没带上那一台 ⇒ 用户还要在页上再挑一次（那一行白点）',
+      );
+      expect(
+        readCode('lib/pages/history_page.dart'),
+        allOf(contains('prefillTitle: title'), contains('prefillBody: text')),
+        reason: '「回复／重发」的两种语义全靠这两格预填；丢了它俩，两条路就成了一样的',
+      );
+      expect(
+        readCode('lib/pages/fnthink_remote_page.dart'),
+        contains('initialTier: FnthinkSendTier.command'),
+        reason: '远程控制那一格进来必须停在指令档；停在纯文本档＝那一格把要发的东西说成了通知',
+      );
+      // 退役的两件形状不许回到 lib 里（用例针可以留，生产代码不行）。
+      for (final retired in const ['RemoteSendPage', 'showFnthinkSendDialog']) {
+        expect(
+          dartFiles('lib').where((p) => readCode(p).contains(retired)).toList(),
+          isEmpty,
+          reason: '$retired 已经并进 `fnthink_send_page.dart` ⇒ 留一份就是一份分叉',
         );
       }
     });

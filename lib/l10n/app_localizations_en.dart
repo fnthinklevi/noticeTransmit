@@ -3748,6 +3748,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkSendBodyHint => 'Message';
 
   @override
+  String get fnthinkSendTierLabel => 'What this send carries';
+
+  @override
+  String get fnthinkSendTierNotice => 'A notice';
+
+  @override
+  String get fnthinkSendTierCommand => 'A remote command';
+
+  @override
+  String get fnthinkSendTierNote =>
+      'Both tiers ride the same outbound send; only the payload differs. Whether it runs is decided by the other device.';
+
+  @override
+  String get fnthinkSendNeedsPeer => 'Pick which device to send to first';
+
+  @override
+  String get fnthinkSendEnvelopeHelpTitle =>
+      'The title travels inside the body';
+
+  @override
   String get fnthinkSendEnvelopeNote =>
       'On the device path the title travels inside the message envelope: the signed bytes have no separate title field, only the endpoint forms do. What the recipient shows as a title comes from this body.';
 
@@ -4416,7 +4436,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'After a full reset, both the advanced key and the code seed the other side holds stop working at once. To keep remote execution going you must generate new ones and hand them over in person.';
 
   @override
-  String get remoteSendTitle => 'Send a remote command';
+  String get remotePeersReadFailed =>
+      'The peer list could not be read (that table didn\'t come back). This isn\'t \'no paired devices yet\' — check the device pairing page first.';
 
   @override
   String get remoteSendPickPeer => 'Send to which device';

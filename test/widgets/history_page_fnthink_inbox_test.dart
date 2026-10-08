@@ -1,14 +1,15 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/history_page.dart';
 import 'package:notice_transmit/services/notification_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/primary_action_button.dart';
 
 import '../test_setup.dart';
 
@@ -113,9 +114,13 @@ void main() {
                 : null;
           },
           inboxSendTo: ({required peer, required title, required text}) async {
-            sent.add((address: peer.peerAddress, title: title, text: text));
+            sent.add((address: peer, title: title, text: text));
             return sendResult();
           },
+          // T98 片④：那枚弹层换成一张共用页之后，页上还要摊开名单好让人换目标 ——
+          // 生产的默认读口是 `FnthinkPeerService.list`，这里给同一个替身（一人一册）。
+          inboxListPeers: () async =>
+              rosterPeer == null ? const [] : [rosterPeer],
         ),
       ),
     );
@@ -316,15 +321,18 @@ void main() {
       await pump(tester, rosterPeer: peer);
       await openDetail(tester, 'm_from_peer');
 
+      // ⚠ 先在**这一页**上解一次 l10n：push 出去之后 HistoryPage 成了 offstage，
+      //   `find.byType` 默认不看 offstage ⇒ 在这儿取会抛 "No element"（不是页面坏了，是尺站错了地方）。
+      final expectedTitle = l10n(tester).fnthinkReplyTitle('机箱温度');
       await tester.tap(find.byKey(const ValueKey('fnthink-inbox-reply')));
       await tester.pumpAndSettle();
-      final title = tester.widget<TextField>(
+      final title = tester.widget<CupertinoTextField>(
         find.byKey(const ValueKey('fnthink-send-title')),
       );
-      expect(title.controller!.text, l10n(tester).fnthinkReplyTitle('机箱温度'));
-      // T90 片19：发一条那枚表单弹层换成了共享外壳 `IosFormDialog` ⇒
-      // 提交那颗从 `TextButton` 变成了 `CupertinoDialogAction`（断的还是同一件事）。
-      final submit = tester.widget<CupertinoDialogAction>(
+      expect(title.controller!.text, expectedTitle);
+      // T98 片④：发一条那枚表单弹层换成了共用那张页 ⇒ 主操作是公共件
+      //  `PrimaryActionButton`（断的还是同一件事：没填全不许能提交）。
+      final submit = tester.widget<PrimaryActionButton>(
         find.byKey(const ValueKey('fnthink-send-submit')),
       );
       expect(
@@ -334,35 +342,36 @@ void main() {
       );
     });
 
-    testWidgets('取消 ⇒ 一个字节都不发（草稿不回传）', (tester) async {
+    testWidgets('不点发送就退出这一页 ⇒ 一个字节都不发（草稿不带回来）', (tester) async {
       table = [row('m_from_peer', sender: peerAddress)];
       await pump(tester, rosterPeer: peer);
       await openDetail(tester, 'm_from_peer');
 
       await tester.tap(find.byKey(const ValueKey('fnthink-inbox-reply')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(CupertinoDialogAction, '取消'));
+      // 一张页没有「取消」那一枚了：退出这一页就是取消。
+      Navigator.of(tester.element(find.byType(FnthinkSendPage))).pop();
       await tester.pumpAndSettle();
 
       expect(
         find.byKey(const ValueKey('fnthink-send-body')),
         findsNothing,
-        reason: '点了取消弹层还开着 ⇒ 用户以为取消了',
+        reason: '退出了这一页而输入框还在 ⇒ 根本没退成',
       );
       expect(sent, isEmpty, reason: '取消之后还是发出去了 ⇒ 「取消」说的与做的不一致');
     });
 
-    testWidgets('重发：原文预填进弹层，点发送 ⇒ 发的是这条的标题与正文', (tester) async {
+    testWidgets('重发：原文预填进那一页，点发送 ⇒ 发的是这条的标题与正文', (tester) async {
       table = [row('m_from_peer', sender: peerAddress)];
       await pump(tester, rosterPeer: peer);
       await openDetail(tester, 'm_from_peer');
 
       await tester.tap(find.byKey(const ValueKey('fnthink-inbox-resend')));
       await tester.pumpAndSettle();
-      final title = tester.widget<TextField>(
+      final title = tester.widget<CupertinoTextField>(
         find.byKey(const ValueKey('fnthink-send-title')),
       );
-      final body = tester.widget<TextField>(
+      final body = tester.widget<CupertinoTextField>(
         find.byKey(const ValueKey('fnthink-send-body')),
       );
       expect(title.controller!.text, '机箱温度');
@@ -376,9 +385,9 @@ void main() {
       expect(sent.single.title, '机箱温度');
       expect(sent.single.text, '温度 63 度（m_from_peer）');
       expect(
-        find.byKey(const ValueKey('fnthink-inbox-send-note')),
+        find.byKey(const ValueKey('fnthink-send-note')),
         findsOneWidget,
-        reason: '结论行必须留在弹层里：用户正看着这一条，才知道自己刚回了什么',
+        reason: '结论行留在**发出去的那一页**上：用户刚按了发送，回头就能看见自己那一发的结果',
       );
     });
 

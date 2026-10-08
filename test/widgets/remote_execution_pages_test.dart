@@ -4,8 +4,8 @@ import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/remote_history_page.dart';
-import 'package:notice_transmit/pages/remote_send_page.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 
 /// 远程执行 片3b-2 的**页面**契约（发送页 + 历史页）。
@@ -46,8 +46,11 @@ void main() {
       AppRoot(
         locale: const Locale('zh'),
         dark: false,
-        home: RemoteSendPage(
-          deps: RemoteSendDeps(
+        home: FnthinkSendPage(
+          // 这一组用例走的是**指令档**（T98 片④ 之后它不再是一张独立的页，而是那张共用
+          // 发送页停在哪一档）。纯文本那一档的证据在 `fnthink_settings_page_test.dart`。
+          initialTier: FnthinkSendTier.command,
+          deps: FnthinkSendDeps(
             loadPeers: () async => peers ?? const <FnthinkPeer>[],
             send:
                 send ??
@@ -146,7 +149,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(called, isFalse);
       expect(
-        find.byKey(const ValueKey('remote-send-blocked')),
+        find.byKey(const ValueKey('fnthink-send-blocked')),
         findsOneWidget,
         reason: '挡住的那句必须在页面最上面（ListView 懒布局，提交键常常在视口之外）',
       );

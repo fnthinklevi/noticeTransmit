@@ -3569,6 +3569,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkSendBodyHint => '正文';
 
   @override
+  String get fnthinkSendTierLabel => '这一发送什么';
+
+  @override
+  String get fnthinkSendTierNotice => '一条通知';
+
+  @override
+  String get fnthinkSendTierCommand => '一条远程指令';
+
+  @override
+  String get fnthinkSendTierNote => '两档是同一条出站的两种载荷；能不能做由对面那台判。';
+
+  @override
+  String get fnthinkSendNeedsPeer => '还没选中发给哪一台';
+
+  @override
+  String get fnthinkSendEnvelopeHelpTitle => '标题走的是正文信封';
+
+  @override
   String get fnthinkSendEnvelopeNote =>
       '设备这一路的标题走的是正文信封：签名的字节里没有独立的标题字段，端点那两种形态才有。收件人看到的标题来自这一段正文。';
 
@@ -4199,7 +4217,8 @@ class AppLocalizationsZh extends AppLocalizations {
       '全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。';
 
   @override
-  String get remoteSendTitle => '远程指令发送';
+  String get remotePeersReadFailed =>
+      '名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。';
 
   @override
   String get remoteSendPickPeer => '发给哪一台';

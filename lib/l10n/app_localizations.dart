@@ -6650,6 +6650,42 @@ abstract class AppLocalizations {
   /// **'正文'**
   String get fnthinkSendBodyHint;
 
+  /// No description provided for @fnthinkSendTierLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一发送什么'**
+  String get fnthinkSendTierLabel;
+
+  /// No description provided for @fnthinkSendTierNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'一条通知'**
+  String get fnthinkSendTierNotice;
+
+  /// No description provided for @fnthinkSendTierCommand.
+  ///
+  /// In zh, this message translates to:
+  /// **'一条远程指令'**
+  String get fnthinkSendTierCommand;
+
+  /// No description provided for @fnthinkSendTierNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'两档是同一条出站的两种载荷；能不能做由对面那台判。'**
+  String get fnthinkSendTierNote;
+
+  /// No description provided for @fnthinkSendNeedsPeer.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没选中发给哪一台'**
+  String get fnthinkSendNeedsPeer;
+
+  /// No description provided for @fnthinkSendEnvelopeHelpTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题走的是正文信封'**
+  String get fnthinkSendEnvelopeHelpTitle;
+
   /// No description provided for @fnthinkSendEnvelopeNote.
   ///
   /// In zh, this message translates to:
@@ -7694,11 +7730,11 @@ abstract class AppLocalizations {
   /// **'全部重置之后，对面手里那把高级密钥与那枚验证码种子都当场作废。要继续远程执行就得重新生成并当面交给对方。'**
   String get remoteCredResetAllAsk;
 
-  /// No description provided for @remoteSendTitle.
+  /// No description provided for @remotePeersReadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'远程指令发送'**
-  String get remoteSendTitle;
+  /// **'名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。'**
+  String get remotePeersReadFailed;
 
   /// No description provided for @remoteSendPickPeer.
   ///

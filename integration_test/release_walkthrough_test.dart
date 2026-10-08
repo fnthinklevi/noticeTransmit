@@ -27,6 +27,7 @@ import 'package:notice_transmit/pages/email_settings_page.dart';
 import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
+import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/fnthink_settings_page.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
@@ -1935,11 +1936,11 @@ void main() {
         await _backToHome(tester);
         await _backToHomeQuietly(tester);
       });
-      // ── 5.16 幻念推送页：名单行上的「发一条」（§4-10 片2b）───────────────
+      // ── 5.16 幻念推送页：名单行上的「发一条」（T98 片④：那一枚弹层换成了共用那张页）───
       // 这一格此前只有 widget 用例里的证据，而它有一个**只有设备上才看得见**的形状：
       // "名单是空的 ⇒ 连入口都不该有"。这一节钉三件形状，一个字节都不发出去：
-      //   ① 名单里有一行 ⇒ 「发一条」在且可点；② 弹层里正文空着 ⇒ 「发送」是灰的；
-      //   ③ 点「取消」⇒ 弹层关掉、结论行不出现（取消了还发出去，说的与做的就不一致）。
+      //   ① 名单里有一行 ⇒ 「发一条」在且可点；② 那一页里正文空着 ⇒ 主操作是灰的；
+      //   ③ 不点发送退出那一页 ⇒ 输入框消失、结论行不出现（退出了还发出去，说的与做的就不一致）。
       // ⚠ 真发一条**不进闸门**：它打的是线上那台服务器，而且"发出去并被对方收到"要有对端
       //    （#108）—— 闸门只证形状，不证投递。
       await _step(
@@ -1981,36 +1982,38 @@ void main() {
               findsOneWidget,
               reason: '名单里已经有一行却没有「发一条」入口 ⇒ 那一行只是摆设，用户只能看着对端',
             );
-            await _tap(tester, sendEntry, '名单行→发一条（开弹层）');
+            await _tap(tester, sendEntry, '名单行→发一条（开那一页）');
             await _settle(tester);
+            await _onPage(tester, FnthinkSendPage, '共用发送页');
 
             final submit = find.byKey(const ValueKey('fnthink-send-submit'));
-            expect(submit, findsOneWidget, reason: '发送弹层没起来 ⇒ 那一格点不动');
-            // T90 片19：这枚表单弹层换成了共享外壳 `IosFormDialog`，提交那颗从 `TextButton`
-            //  变成了 `CupertinoDialogAction` ⇒ 这里跟着换。⚠ 换的是**读哪个字段**，
-            //  断的还是同一件事：正文空着而提交可点 ⇒ 发出去的是一句空话、而对面回执照样算"送达"。
+            // ⚠ 提交那一枚**必须在屏幕上看得见**才谈"它是灰的"：闸门是在设备上点的，
+            //   滚动一下不算作弊（widget 用例里同一条断言不需要这一步）。
+            await _scrollUntil(tester, submit);
+            await _settle(tester);
+            expect(submit, findsOneWidget, reason: '那一页没起来 ⇒ 那一格点不动');
+            // T98 片④：主操作走公共件 `PrimaryActionButton`（原来那枚是弹层里的
+            //  `CupertinoDialogAction`）。⚠ 换的是**读哪个字段**，断的还是同一件事：
+            //  正文空着而提交可点 ⇒ 发出去的是一句空话、而对面回执照样算"送达"。
             expect(
-              tester.widget<CupertinoDialogAction>(submit).onPressed,
+              tester.widget<PrimaryActionButton>(submit).onPressed,
               isNull,
               reason: '正文空着而「发送」可点 ⇒ 点下去发出去的是一句空话，而对面回执照样算"送达"',
             );
 
-            // 取消：弹层关掉 + 结论行不出现（后者是"一个字节都没发"在设备上的可观察形状）。
-            final cancel = find.descendant(
-              of: find.byType(CupertinoAlertDialog),
-              matching: find.widgetWithText(CupertinoDialogAction, '取消'),
-            );
-            await _tap(tester, cancel, '发送弹层→取消');
+            // 取消：退出那一页 ⇒ 输入框没了 + 结论行不出现（后者是"一个字节都没发"
+            // 在设备上的可观察形状）。
+            _nav(tester).pop();
             await _settle(tester);
             expect(
               find.byKey(const ValueKey('fnthink-send-body')),
               findsNothing,
-              reason: '点了取消而弹层还开着 ⇒ 用户以为取消了',
+              reason: '退了那一页而输入框还在 ⇒ 用户以为没退出去',
             );
             expect(
               find.byKey(const ValueKey('fnthink-send-note')),
               findsNothing,
-              reason: '取消之后出现结论行 ⇒ 那一发其实发出去了（"取消"说的与做的不一致）',
+              reason: '退出之后出现结论行 ⇒ 那一发其实发出去了（"没点发送"说的与做的不一致）',
             );
           } finally {
             // 收尾：下一轮开跑之前名单必须回到"这台没配对过任何一台"（与擦库同一口径）。

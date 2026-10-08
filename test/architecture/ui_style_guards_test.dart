@@ -598,6 +598,8 @@ void main() {
         'lib/pages/fnthink_peers_page.dart',
         'lib/pages/fnthink_settings_page.dart',
         'lib/pages/fnthink_channel_settings_page.dart',
+        // T98 片④：那张共用发送页两档各一枚主操作（同一时刻只画其中一档）。
+        'lib/pages/fnthink_send_page.dart',
       ]) {
         expect(
           n(p, 'PrimaryActionButton('),
@@ -605,6 +607,15 @@ void main() {
           reason: '$p 的主操作没有走公共件 ⇒ 形状又分叉了',
         );
       }
+      // 那张发送页尤其不许退回裸填充件：它的两枚主操作原来一枚是 `CupertinoButton.filled`
+      // （远程指令那一档）、一枚是弹层里的 `CupertinoDialogAction`（纯文本那一档）。
+      expect(
+        codeByPath['lib/pages/fnthink_send_page.dart']!.contains(
+          'CupertinoButton.filled',
+        ),
+        isFalse,
+        reason: '主操作走 `PrimaryActionButton`（形状③唯一装配点），裸填充件不许回来',
+      );
     });
   });
 
@@ -807,7 +818,8 @@ void main() {
         // 片19：幻念 pair/send 这两枚**多字段**框（提交键按填全与否置灰 ⇒ 外壳补了
         //   submitEnabled / submitKey 两个口子，判据仍留各页）。
         'lib/widgets/fnthink_pair_dialog.dart': ['IosFormDialog('],
-        'lib/widgets/fnthink_send_dialog.dart': ['IosFormDialog('],
+        // T98 片④：「发一条」那一枚弹层整屏退役了（换成一张共用页 `fnthink_send_page.dart`），
+        //   所以它从这张"已接上共享外壳"的名单里**删掉**，而不是换成页名 —— 页不是弹层。
         'lib/pages/fnthink_settings_page.dart': ['showIosInputDialog('],
         'lib/widgets/rule_template_sheet.dart': ['showIosInputDialog('],
         // 片11：这两处原本是**逐字相同的两份**同一个权限引导框（连"允许"那颗

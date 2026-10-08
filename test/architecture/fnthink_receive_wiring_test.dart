@@ -941,7 +941,9 @@ void main() {
       expect(
         page,
         contains('_coordinator.sendNotice('),
-        reason: '页面上那一行「发一条」必须走协调者：前置判定与 service 的生命周期都在那里',
+        reason:
+            '那一行「发一条」现在开的是共用那张页（T98 片④），但**注入给它的那一发仍必须走协调者**：'
+            '前置判定与 service 的生命周期都在那里',
       );
       expect(
         occurrences(page, 'FnthinkSendKernel('),

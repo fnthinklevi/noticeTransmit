@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:get_it/get_it.dart';
@@ -8,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../services/archive_worker.dart' show kArchiveDirModeKey;
 import '../services/channel_display.dart';
 import '../services/filter_service.dart';
+import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_inbox_service.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
@@ -19,12 +21,12 @@ import '../models/notification_record.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
 import '../widgets/card_action_sheet.dart';
-import '../widgets/fnthink_send_dialog.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_option_picker.dart';
 import '../widgets/ios_progress_dialog.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
+import 'fnthink_send_page.dart';
 
 class HistoryPage extends StatefulWidget {
   final List<NotificationRecord> records;
@@ -53,12 +55,20 @@ class HistoryPage extends StatefulWidget {
 
   /// 「回复 / 重发」真正发出去的那一发。默认走协调者（与幻念推送页名单行上那一下**同一个函数**），
   /// 于是状态码、结论文案、签不出来那几道闸两处完全同源。测试注入替身，不让这一页的用例碰网络。
+  ///
+  /// 参数是**地址码**而不是整行记录（T98 片④）：共用那张发送页交出的是"发给哪一台"的地址，
+  /// 而协调者那一发要的也只是地址 —— 替它拼一个空壳 `FnthinkPeer` 等于让界面造一条库里没有的行。
   final Future<FnthinkSendResult> Function({
-    required FnthinkPeer peer,
+    required String peer,
     required String title,
     required String text,
   })?
   inboxSendTo;
+
+  /// 名单读口（T98 片④）：共用那张发送页要把"还能发给谁"摊开给人换目标，
+  /// 所以它要的是名单**全集**，不是 `inboxFindPeer` 那一条。与那一格同一个读口、
+  /// 同一条注入优先的理由。
+  final Future<List<FnthinkPeer>> Function()? inboxListPeers;
 
   /// 打开时停在哪一档。首页那张「幻念收件」卡靠它把人**直接放到收件档**：
   /// 这一档是数据源切换而不是筛选条件，进来还要再手动切一次的话，"原来还有第二个抽屉"这件事
@@ -85,6 +95,7 @@ class HistoryPage extends StatefulWidget {
     this.inboxMarkRead,
     this.inboxFindPeer,
     this.inboxSendTo,
+    this.inboxListPeers,
     this.initialDirection = 'forwarded',
     this.focusMessageId,
   });
@@ -1343,14 +1354,19 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<FnthinkSendResult> _sendViaCoordinator({
-    required FnthinkPeer peer,
+    required String peer,
     required String title,
     required String text,
   }) => GetIt.instance<FnthinkReceiveCoordinator>().sendNotice(
-    peer: peer.peerAddress,
+    peer: peer,
     title: title,
     text: text,
   );
+
+  /// 名单全集的默认读口 —— 与上面 `_findPeerInRoster` 走的是**同一个** `FnthinkPeerService.list`，
+  /// 不是第二个读口（同一条纪律：两本账的表现是"名单里删了那一行，这里还能看见它"）。
+  Future<List<FnthinkPeer>> _listRoster() =>
+      GetIt.instance<FnthinkPeerService>().list();
 
   void _showToast(String message) {
     if (!mounted) return;
@@ -1871,12 +1887,6 @@ class _HistoryPageState extends State<HistoryPage> {
         ? null
         : await (widget.inboxFindPeer ?? _findPeerInRoster)(message.sender);
     if (!mounted) return;
-    // 这一发的结果只活在这张弹层里：与幻念推送页那条结论行同一纪律（11 档状态各有各的原话），
-    // 而且它不该一弹就走 —— 用户正看着这一条，才知道自己刚回了什么。
-    // 用 ValueNotifier 而不是 StatefulBuilder：发送是在弹层之外 await 的，回来时弹层可能已经被
-    // 划掉，`setState` 打在已 dispose 的 State 上会炸；监听者会随弹层一起消失，这条路径天然安全。
-    var sheetClosed = false;
-    final sent = ValueNotifier<FnthinkSendResult?>(null);
     unawaited(
       showModalBottomSheet<void>(
         context: context,
@@ -1946,9 +1956,6 @@ class _HistoryPageState extends State<HistoryPage> {
                                 ? l10n.fnthinkReply
                                 : l10n.fnthinkReplyTitle(message.title),
                             text: '',
-                            onResult: (r) {
-                              if (!sheetClosed) sent.value = r;
-                            },
                           ),
                           child: Text(l10n.fnthinkReply),
                         ),
@@ -1959,26 +1966,10 @@ class _HistoryPageState extends State<HistoryPage> {
                             // 重发：把这一条的标题与正文原样带进弹层，用户点发送就是"再发一次"。
                             title: message.title,
                             text: message.body,
-                            onResult: (r) {
-                              if (!sheetClosed) sent.value = r;
-                            },
                           ),
                           child: Text(l10n.fnthinkResend),
                         ),
                       ],
-                    ),
-                    ValueListenableBuilder<FnthinkSendResult?>(
-                      valueListenable: sent,
-                      builder: (context, result, _) => result == null
-                          ? const SizedBox.shrink()
-                          : Text(
-                              fnthinkSendResultText(l10n, result),
-                              key: const ValueKey('fnthink-inbox-send-note'),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.secondaryLabel(sheetContext),
-                              ),
-                            ),
                     ),
                   ],
                 ],
@@ -1986,10 +1977,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ),
         ),
-      ).whenComplete(() {
-        sheetClosed = true;
-        sent.dispose();
-      }),
+      ),
     );
     // 点开即已读。写完之后**重新读表**，不在这个页面自己维护第二份"看没看过"：
     // 没命中（那条已被保留策略裁掉）与命中变已读，两种结果都由这一次读表如实反映出来。
@@ -2007,28 +1995,36 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  /// 「回复 / 重发」共用的一发：同一个弹层（预填不同 ⇒ 两种语义在界面上看得见）、同一个发送函数
-  /// （状态与文案与幻念推送页那一发完全同源）。取消 ⇒ 一个字节都不发（弹层回 null 就早退）。
+  /// 「回复 / 重发」共用的一发：同一张发送页（预填不同 ⇒ 两种语义在界面上看得见）、同一个发送函数
+  /// （状态与文案与幻念推送页名单行那一发完全同源）。
+  ///
+  /// T98 片④：原来这里开的是弹层，弹层回 null 就是取消；换成页之后**退出这一页而不点发送**
+  /// 就是取消 —— 结论留在那一页上，这一页不再挂第二份"发出去是什么结果"。
   Future<void> _composeFromInbox({
     required FnthinkPeer peer,
     required String title,
     required String text,
-    required void Function(FnthinkSendResult) onResult,
   }) async {
-    final draft = await showFnthinkSendDialog(
-      context: context,
-      peerAddress: peer.peerAddress,
-      initialTitle: title,
-      initialBody: text,
+    final sendTo = widget.inboxSendTo ?? _sendViaCoordinator;
+    final listPeers = widget.inboxListPeers ?? _listRoster;
+    await Navigator.of(context).push(
+      CupertinoPageRoute<void>(
+        builder: (_) => FnthinkSendPage(
+          preselectedPeer: peer.peerAddress,
+          prefillTitle: title,
+          prefillBody: text,
+          deps: FnthinkSendDeps(
+            loadPeers: listPeers,
+            send: sendTo,
+            contractOf: () async =>
+                GetIt.instance<FnthinkContractLoader>().load(),
+          ),
+        ),
+      ),
     );
-    if (draft == null || !mounted) return;
-    final result = await (widget.inboxSendTo ?? _sendViaCoordinator)(
-      peer: peer,
-      title: draft.title,
-      text: draft.text,
-    );
+    // 发出去的那一条会进「我发出的」那一档：这一发不是这一页写的，但那张表要跟着变。
     if (!mounted) return;
-    onResult(result);
+    await _loadInbox();
   }
 
   Future<void> _showRecordDetail(NotificationRecord record) async {

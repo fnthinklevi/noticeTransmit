@@ -15,9 +15,9 @@ import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
+import 'fnthink_send_page.dart';
 import 'remote_credential_settings_page.dart';
 import 'remote_history_page.dart';
-import 'remote_send_page.dart';
 
 /// 远程控制页要用到的那一小包依赖。
 ///
@@ -93,9 +93,12 @@ class _FnthinkRemotePageState extends State<FnthinkRemotePage> {
     final coordinator = widget.deps.coordinator;
     await Navigator.of(context).push(
       CupertinoPageRoute<void>(
-        builder: (_) => RemoteSendPage(
+        // T98 片④：这一格开的不再是另一张"指令发送页"，而是与名单行、收件详情**同一张**
+        // 发送页，只是停在指令档 —— 三处入口从此没有"两种形状"。
+        builder: (_) => FnthinkSendPage(
+          initialTier: FnthinkSendTier.command,
           // 名单**只**从协调者那条读咽喉取，不另开一条读库的路 —— 两处各读一次就会有两个排序口径。
-          deps: RemoteSendDeps(
+          deps: FnthinkSendDeps(
             loadPeers: widget.deps.loadPeers,
             send:
                 ({

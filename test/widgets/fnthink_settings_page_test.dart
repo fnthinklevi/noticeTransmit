@@ -14,6 +14,7 @@ import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
 import 'package:notice_transmit/pages/fnthink_receive_page.dart';
 import 'package:notice_transmit/pages/fnthink_remote_page.dart';
+import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/pages/fnthink_settings_page.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
 import 'package:notice_transmit/widgets/fnthink_card.dart';
@@ -2671,9 +2672,9 @@ void main() {
       await fill(tester, title: '只有标题没有正文');
       final submit = find.byKey(const ValueKey('fnthink-send-submit'));
       expect(
-        // T90 片19：表单弹层换成了共享外壳 `IosFormDialog` ⇒ 提交那颗从 `TextButton`
-        //  变成了 `CupertinoDialogAction`。断的还是同一件事（没填全不许能提交）。
-        tester.widget<CupertinoDialogAction>(submit).onPressed,
+        // T98 片④：那一枚弹层换成了共用那张页，主操作是公共件 `PrimaryActionButton`。
+        //  断的还是同一件事（没填全不许能提交）。
+        tester.widget<PrimaryActionButton>(submit).onPressed,
         isNull,
         reason: '空正文发出去那边只会收到一句空话，而回执照样算"送达"',
       );
@@ -2682,7 +2683,7 @@ void main() {
       expect(h.sendAsked(), isEmpty);
     });
 
-    testWidgets('弹层上点取消 ⇒ 那一发不发', (tester) async {
+    testWidgets('不点发送就退出这一页 ⇒ 那一发不发', (tester) async {
       stubChannels();
       final h = harness(
         peers: [
@@ -2695,10 +2696,11 @@ void main() {
           ),
         ],
       );
-      final l10n = await pumpPeers(tester, h);
+      await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '本来要发的正文');
-      await tester.tap(find.text(l10n.cancel));
+      // 换成一张页之后没有「取消」那一枚了 —— 退出这一页就是取消。
+      Navigator.of(tester.element(find.byType(FnthinkSendPage))).pop();
       await tester.pumpAndSettle();
       expect(h.sendAsked(), isEmpty, reason: '取消就是取消：这一发不该有个"顺便试一下"');
       expect(find.byKey(const ValueKey('fnthink-send-note')), findsNothing);
