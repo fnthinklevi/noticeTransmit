@@ -119,11 +119,19 @@ FnthinkL2Parse parseL2Item(
 /// 身份已证明，不许把两种失败压成同形的一句话；但**本地细节不许写进对外形状**，
 /// 那些要进留痕（T53）。
 class FnthinkL2Result {
-  const FnthinkL2Result.ok() : reason = null;
-  const FnthinkL2Result.failed(this.reason);
+  const FnthinkL2Result.ok({this.payload}) : reason = null;
+  const FnthinkL2Result.failed(this.reason) : payload = null;
 
   /// 对外回执词：成功走正常投递流程，失败走 [FnthinkL2Result.receipt]。
   final String? reason;
+
+  /// 这一发产出、要**回传**给发起方的东西（T124 片B；`notifications:report` 那一类）。
+  ///
+  /// ⚠ 它不是"执行结果的可选说明"（那是 [reason]）：回传是**协议行为** ——
+  /// 有 payload 的动作，把那条消息发出去是执行的一部分（发不出去这一步就没成），
+  /// 而 [reason] 只进本机留痕。**谁发、发给谁由执行链决定**（runner 知道发起方），
+  /// 执行器连"发起方是谁"都看不到 —— 所以 payload 只能从这一层带出来。
+  final String? payload;
 
   bool get ok => reason == null;
 
@@ -151,6 +159,13 @@ abstract class FnthinkL2Executor {
 
   /// 立刻推一次设备状态（无参数）。
   Future<FnthinkL2Result> pushDeviceState();
+
+  /// 回传最近的 [count] 条通知原文（`notifications:report`，T124 片B）。
+  ///
+  /// 回**产出要回传的那段正文**；回 null = 这一步没做成（读库失败、这台没有可回传的东西）。
+  /// ⚠ 它是唯一一个"有产出"的 L2 动作：产出由这一层**读出来**，而发去哪儿由执行链决定
+  /// （这一层看不到发起方是谁 —— 见 [FnthinkL2Result.payload] 那一格）。
+  Future<String?> reportNotifications(int count);
 }
 
 /// 契约词表里那四个动作，与 [FnthinkL2Executor] 的三个方法一一对应。
@@ -164,6 +179,7 @@ const Map<String, String> kFnthinkL2ActionVerbs = {
   'listener:stop': 'setListener',
   'channel:toggle': 'toggleChannel',
   'device_state:push': 'pushDeviceState',
+  'notifications:report': 'reportNotifications',
 };
 
 /// 把一个已解析的动作派到执行器上。纯转发，但**这里是唯一一处** action 名 → 方法的映射。
@@ -194,6 +210,20 @@ Future<FnthinkL2Result> dispatchL2Action(
       return executor.toggleChannel(target);
     case 'device_state:push':
       return executor.pushDeviceState();
+    case 'notifications:report':
+      // ⚠ 参数（「要几条」）的形状判据与收件那一格**同源**（[reportCountInRange]）：
+      //   两处各写一份的表现是"收的时候说没问题、动手时才发现动不了"。
+      final count = int.tryParse(action.argument.trim());
+      if (count == null || !reportCountInRange(contract, action.name, count)) {
+        return FnthinkL2Result.failed('bad-report-count:${action.argument}');
+      }
+      final payload = await executor.reportNotifications(count);
+      if (payload == null || payload.isEmpty) {
+        // 产不出正文 = 这一步没做成（读库失败那一支；"一条都没有"由产出自带一句明说，
+        // 不是一个空串 —— 空串与"做成了但什么都没说"在读的人那边分不开）。
+        return const FnthinkL2Result.failed('report-failed');
+      }
+      return FnthinkL2Result.ok(payload: payload);
     default:
       // 走到这里说明 [parseL2Item] 与本函数对同一张表的读法不一致 ——
       // 两者都在同一份契约上，却给出了不同的答案。
@@ -317,6 +347,38 @@ class RemoteChannelTarget {
 String? rejectChannelTarget(String? argument) {
   if (parseChannelTarget(argument) == null) {
     return 'bad-channel-argument:${argument ?? ''}';
+  }
+  return null;
+}
+
+/// 「要几条」在不在契约闭区间里（收件判定那一格与发送侧界面**共用**这一条）。
+///
+/// 契约没声明这一项（缺 min/max）⇒ **一律不认**（fail-closed）：没有声明的回传
+/// 等于一条没有上界的路，而它把本机的东西往外发。
+bool reportCountInRange(FnthinkContract contract, String action, int count) {
+  final min = contract.l2ReportMinItems(action);
+  final max = contract.l2ReportMaxItems(action);
+  if (min == null || max == null) return false;
+  return count >= min && count <= max;
+}
+
+/// 这条动作的参数能不能过（判定层那一格的前置判据，**按动作分派**）。
+///
+/// 回 null = 这个动作没有额外形状要求（认不认得由 `parseL2Item` 在更早那一格判）。
+/// ⚠ 判据在**进延时窗口之前**跑：参数不成形就别让它占掉那 10 秒、再发一条 `executing`
+/// 回执（对面会以为它在排队），最后才失败。每一种参数的形状判据各有唯一作者：
+/// `channel:toggle` → [rejectChannelTarget]，回传动作 → [reportCountInRange]。
+///
+/// ⚠ 只列"参数怎么读"分得最细的两种；两个都没有的动作（`listener:*` 等）回 null。
+String? rejectL2Argument(FnthinkContract contract, FnthinkL2Action action) {
+  if (action.name == 'channel:toggle') {
+    return rejectChannelTarget(action.argument);
+  }
+  if (contract.l2ReportMinItems(action.name) != null) {
+    final count = int.tryParse(action.argument.trim());
+    if (count == null || !reportCountInRange(contract, action.name, count)) {
+      return 'bad-report-count:${action.argument}';
+    }
   }
   return null;
 }

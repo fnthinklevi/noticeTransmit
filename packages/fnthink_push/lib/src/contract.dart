@@ -376,6 +376,38 @@ class FnthinkContract {
     return value;
   }
 
+  /// 「会回传东西的动作」那张表（契约 `capabilities.l2.reports`，T124 片B）。
+  ///
+  /// 键 = 动作名，值 = 那份声明（参数形态／上下界／回传那条消息的标题）。
+  /// 缺这一节 ⇒ 空表 = **没有任何回传动作**（不是"默认允许"）：
+  /// 回传是把本机的东西发出去，少一条声明就该少一条路。
+  Map<String, Map<String, Object?>> get l2Reports {
+    final raw = map(const ['capabilities', 'l2', 'reports']) ?? const {};
+    final out = <String, Map<String, Object?>>{};
+    for (final entry in raw.entries) {
+      final value = entry.value;
+      if (value is Map) out[entry.key] = value.cast<String, Object?>();
+    }
+    return out;
+  }
+
+  /// 这条回传消息的标题（机器词；`title` 不在契约里 ⇒ null，不补默认）。
+  String? l2ReportTitle(String action) {
+    final value = l2Reports[action]?['title'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// 参数（「要几条」）的下界／上界。不是回传动作或缺项 ⇒ null。
+  int? l2ReportMinItems(String action) {
+    final value = l2Reports[action]?['minItems'];
+    return value is int ? value : null;
+  }
+
+  int? l2ReportMaxItems(String action) {
+    final value = l2Reports[action]?['maxItems'];
+    return value is int ? value : null;
+  }
+
   /// L3 系统设置的**封闭词表**（契约 `capabilities.l3.settings`）。
   ///
   /// 与 [l2Actions] 同一套做法：这张表是唯一出处，两端各持一份映射。空表抛而不返回
@@ -1696,6 +1728,44 @@ class FnthinkContract {
       l2NeedsArg.every((a) => l2Actions.contains(a)),
       'capabilities.l2.requiresArgumentFrom 里有不在 actions 里的 action：$l2NeedsArg',
     );
+    // ── 回传动作那张表（T124 片B）──
+    // 每一项都要**同时**列进 requiresArgumentFrom：参数就是「要几条」，
+    // 缺了它这一发没有东西可回，而界面会画出一个填不动的动作。
+    final l2Reports = map(const ['capabilities', 'l2', 'reports']) ?? const {};
+    for (final entry in l2Reports.entries) {
+      final spec = entry.value;
+      need(
+        l2Actions.contains(entry.key),
+        'capabilities.l2.reports 里有不在 actions 里的动作：${entry.key}',
+      );
+      need(
+        l2NeedsArg.contains(entry.key),
+        'capabilities.l2.reports.${entry.key} 没列进 requiresArgumentFrom：'
+        '回传的参数就是「要几条」，缺了它这一发没有东西可回',
+      );
+      need(
+        spec is Map && spec['argumentKind'] == 'count',
+        'capabilities.l2.reports.${entry.key}.argumentKind 必须是 count：$spec',
+      );
+      final minItems = spec is Map ? spec['minItems'] : null;
+      final maxItems = spec is Map ? spec['maxItems'] : null;
+      need(
+        minItems is int && minItems >= 1,
+        'capabilities.l2.reports.${entry.key}.minItems 必须是 ≥1 的整数：$spec',
+      );
+      need(
+        maxItems is int && minItems is int && maxItems >= minItems,
+        'capabilities.l2.reports.${entry.key}.maxItems 必须 ≥ minItems：$spec',
+      );
+      final reportTitle = spec is Map ? spec['title'] : null;
+      need(
+        reportTitle is String &&
+            reportTitle.isNotEmpty &&
+            !reportTitle.contains('/'),
+        'capabilities.l2.reports.${entry.key}.title 必须是非空、不含斜杠的串'
+        '（它是回传那条消息的标题，斜杠会与 item 的形状撞在读法上）：$spec',
+      );
+    }
     final l2Receipt = str(const ['capabilities', 'l2', 'actionReceipt']);
     need(
       l2Receipt != null && l2Receipt.isNotEmpty,

@@ -35,6 +35,9 @@ class _NoopL2 implements FnthinkL2Executor {
 
   @override
   Future<FnthinkL2Result> pushDeviceState() async => const FnthinkL2Result.ok();
+
+  @override
+  Future<String?> reportNotifications(int count) async => null;
 }
 
 class _NoopL3 implements FnthinkL3Executor {
@@ -107,6 +110,7 @@ void main() {
     l3: _NoopL3(),
     saveRecord: (r) async => saved.add(r),
     sendReceipt: (peer, receipt) async => true,
+    sendReport: (peer, action, payload) async => true,
     now: () => DateTime.utc(2026, 10, 4, 12),
     schedule: (d, f) {
       fired.add(f);
@@ -141,6 +145,7 @@ void main() {
         l3: _NoopL3(),
         saveRecord: (x) async => saved.add(x),
         sendReceipt: (peer, receipt) async => true,
+        sendReport: (peer, action, payload) async => true,
         now: () => DateTime.utc(2026, 10, 4, 12),
         schedule: (d, f) =>
             Timer(const Duration(microseconds: 1), () {})..cancel(),
@@ -206,6 +211,7 @@ void main() {
           receipts.add(receipt);
           return true;
         },
+        sendReport: (peer, action, payload) async => true,
         now: () => DateTime.utc(2026, 10, 4, 12),
         schedule: (d, f) {
           fired.add(f);

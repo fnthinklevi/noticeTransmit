@@ -24,6 +24,9 @@ void main() {
     var channelOk = true;
     var pushOk = true;
     var pushThrows = false;
+    late List<int> reportCalls;
+    var reportPayload = 'REPORT';
+    var reportThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -33,6 +36,9 @@ void main() {
       channelOk = true;
       pushOk = true;
       pushThrows = false;
+      reportCalls = [];
+      reportPayload = 'REPORT';
+      reportThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -44,6 +50,11 @@ void main() {
       setChannelEnabled: (target) async {
         channelCalls.add(target);
         return channelOk;
+      },
+      reportNotificationsNow: (count) async {
+        reportCalls.add(count);
+        if (reportThrows) throw StateError('boom');
+        return reportPayload;
       },
       pushDeviceStateNow: () async {
         if (pushThrows) throw StateError('boom');
@@ -97,6 +108,7 @@ void main() {
       final exec = DeviceL2Executor(
         setListenerEnabled: ({required bool enabled}) async => true,
         setChannelEnabled: (target) async => throw StateError('boom'),
+        reportNotificationsNow: (count) async => null,
         pushDeviceStateNow: () async => true,
       );
       expect(

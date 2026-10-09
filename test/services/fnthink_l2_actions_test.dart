@@ -43,6 +43,15 @@ class RecordingExecutor implements FnthinkL2Executor {
         ? const FnthinkL2Result.failed('no-bridge')
         : const FnthinkL2Result.ok();
   }
+
+  /// 回传那一条要回的那段正文（null = 这一步没做成）。
+  String? reportPayload;
+
+  @override
+  Future<String?> reportNotifications(int count) async {
+    calls.add('reportNotifications($count)');
+    return failEverything ? null : reportPayload;
+  }
 }
 
 void main() {
@@ -58,8 +67,18 @@ void main() {
       );
     });
 
-    test('点名要参数的动作只有一个，且它确实在词表里', () {
-      expect(contract.l2ActionsRequiringArgument, ['channel:toggle']);
+    test('点名要参数的动作与契约那张回传表对得上（不多不少）', () {
+      expect(contract.l2ActionsRequiringArgument, [
+        'channel:toggle',
+        'notifications:report',
+      ]);
+      for (final a in contract.l2Reports.keys) {
+        expect(
+          contract.l2ActionsRequiringArgument,
+          contains(a),
+          reason: '回传的参数就是「要几条」，缺了它这一发没有东西可回',
+        );
+      }
     });
 
     test('执行失败回的那一个词在顶层 receipts 词表里', () {
@@ -180,6 +199,93 @@ void main() {
     test('这些用例读的是仓库那份契约（它自洽，否则本文件在测空气）', () {
       expect(contract.validate(), isEmpty);
       expect(File(fnthinkContractFile()).existsSync(), isTrue);
+    });
+  });
+
+  group('回传那一条（T124 片B）：参数是「要几条」，产出从这一层带出来', () {
+    test('契约声明了它与它的上下界，且它必带参数', () {
+      expect(contract.l2Actions, contains('notifications:report'));
+      expect(
+        contract.l2ActionsRequiringArgument,
+        contains('notifications:report'),
+      );
+      expect(contract.l2ReportMinItems('notifications:report'), 1);
+      expect(contract.l2ReportMaxItems('notifications:report'), 20);
+      expect(contract.l2ReportTitle('notifications:report'), 'notif-report');
+    });
+
+    test('区间内 ⇒ 执行器被调一次，产出挂在结果上（payload）', () async {
+      final exec = RecordingExecutor()..reportPayload = 'REPORT';
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('notifications:report', '10'),
+      );
+      expect(exec.calls, ['reportNotifications(10)']);
+      expect(r.ok, isTrue);
+      expect(r.payload, 'REPORT');
+    });
+
+    test('越界或不是数 ⇒ failed，且**执行器一次都不被调**', () async {
+      for (final bad in ['0', '21', 'abc', '', ' 5.5']) {
+        final exec = RecordingExecutor()..reportPayload = 'REPORT';
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          FnthinkL2Action('notifications:report', bad),
+        );
+        expect(r.ok, isFalse, reason: '参数「$bad」不该过');
+        expect(r.reason, startsWith('bad-report-count:'));
+        expect(exec.calls, isEmpty, reason: '拦在动手之前 —— 越界的请求不该占掉延时窗口');
+      }
+    });
+
+    test('产出为空（读库失败那一支）⇒ failed，不装成"一条都没有"', () async {
+      final exec = RecordingExecutor()..reportPayload = null;
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('notifications:report', '5'),
+      );
+      expect(r.ok, isFalse);
+      expect(r.reason, 'report-failed');
+      expect(r.payload, isNull);
+    });
+
+    test('收件前的形状判据与派发同源（rejectL2Argument）', () {
+      const ok = FnthinkL2Action('notifications:report', '3');
+      expect(rejectL2Argument(contract, ok), isNull);
+      expect(
+        rejectL2Argument(
+          contract,
+          const FnthinkL2Action('notifications:report', '99'),
+        ),
+        startsWith('bad-report-count:'),
+      );
+      // channel:toggle 那一条仍走它自己的判据（两族参数各判各的）。
+      expect(
+        rejectL2Argument(
+          contract,
+          const FnthinkL2Action('channel:toggle', 'app:x:on'),
+        ),
+        isNull,
+      );
+      expect(
+        rejectL2Argument(
+          contract,
+          const FnthinkL2Action('channel:toggle', 'x'),
+        ),
+        startsWith('bad-channel-argument:'),
+      );
+      // 没有参数形状要求的动作：两个判据都不拦（认不认得由 parseL2Item 管）。
+      expect(
+        rejectL2Argument(contract, const FnthinkL2Action('listener:start', '')),
+        isNull,
+      );
+    });
+
+    test('契约没声明上下界 ⇒ 一律不认（fail-closed，不是默认放行）', () {
+      expect(reportCountInRange(contract, 'listener:start', 1), isFalse);
     });
   });
 }

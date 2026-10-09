@@ -62,6 +62,16 @@ class _RecordingL2 implements FnthinkL2Executor {
         ? const FnthinkL2Result.ok()
         : const FnthinkL2Result.failed('nope');
   }
+
+  /// 回传那一条要回的那段正文（null = 这一步没做成）。
+  String? reportPayload;
+
+  @override
+  Future<String?> reportNotifications(int count) async {
+    calls.add('reportNotifications($count)');
+    await _pass();
+    return ok ? reportPayload : null;
+  }
 }
 
 class _RecordingL3 implements FnthinkL3Executor {
@@ -93,6 +103,8 @@ void main() {
   late Timer Function(Duration, void Function()) schedule;
   var windowSeconds = 10;
   var receiptOk = true;
+  final reports = <String>[];
+  var reportOk = true;
   var clock = DateTime.utc(2026, 10, 4, 9);
 
   setUp(() {
@@ -102,6 +114,8 @@ void main() {
     receipts = [];
     windowSeconds = 10;
     receiptOk = true;
+    reports.clear();
+    reportOk = true;
     clock = DateTime.utc(2026, 10, 4, 9);
     // 手动点火：用例自己决定"到点没有"。
     schedule = (d, f) => Timer(const Duration(days: 1), () {});
@@ -116,6 +130,10 @@ void main() {
     sendReceipt: (peer, receipt) async {
       receipts.add(receipt);
       return receiptOk;
+    },
+    sendReport: (peer, action, payload) async {
+      reports.add('$peer|$action|$payload');
+      return reportOk;
     },
     now: () => clock,
     schedule: schedule,
@@ -408,6 +426,48 @@ void main() {
       r.dispose();
       expect(r.waitingCount, 0);
       expect(r.unsettledCount, 0);
+    });
+  });
+
+  group('回传（T124 片B）：产出送去发起的那一台，送不到就算没做成', () {
+    test('有产出 ⇒ 回传发给发起方，动作名是**不带参数的那一个**，终态 done', () async {
+      windowSeconds = 0;
+      l2.reportPayload = '07-12 09:31 微信 张三：晚上一起吃饭';
+      final r = runner();
+      await r.run(accepted(item: 'notifications:report/10'));
+      expect(l2.calls, ['reportNotifications(10)']);
+      expect(reports, [
+        '8K3FJ6QPTM9WZ4VHNS|notifications:report|07-12 09:31 微信 张三：晚上一起吃饭',
+      ], reason: '动作名若带上 /10，契约那张 reports 表就查不到标题（收件端认不出这是回传）');
+      expect(saved.last.state, RemoteExecutionStates.done);
+    });
+
+    test('回传送不到 ⇒ 终态是 failed + report-not-sent（不是"做成了但对面没收到"）', () async {
+      windowSeconds = 0;
+      l2.reportPayload = 'X';
+      reportOk = false;
+      final r = runner();
+      await r.run(accepted(item: 'notifications:report/10'));
+      expect(saved.last.state, RemoteExecutionStates.failed);
+      expect(saved.last.reason, 'report-not-sent');
+      expect(receipts.last.state, RemoteExecutionStates.failed);
+    });
+
+    test('产不出正文（读库失败那一支）⇒ failed，且一次回传都不发', () async {
+      windowSeconds = 0;
+      l2.reportPayload = null;
+      final r = runner();
+      await r.run(accepted(item: 'notifications:report/10'));
+      expect(reports, isEmpty);
+      expect(saved.last.state, RemoteExecutionStates.failed);
+      expect(saved.last.reason, 'report-failed');
+    });
+
+    test('没有产出的动作（listener:start）不许触发回传那一路', () async {
+      windowSeconds = 0;
+      final r = runner();
+      await r.run(accepted());
+      expect(reports, isEmpty, reason: 'payload 为空的 ok 结果不该借道回传');
     });
   });
 }

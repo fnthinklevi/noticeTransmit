@@ -310,6 +310,12 @@ void main() {
       find.byKey(const ValueKey('remote-send-action-listener:start')),
     );
     await tester.pumpAndSettle();
+    // ⚠ 动作多了一个（T124 片B 的 `notifications:report`）之后这一格会折到视口外：
+    //   不先滚到它就 tap 等于打空气（"按了没反应"正是这一条要防的形状，而这次是测试自己按空）。
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('remote-send-submit')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
     await tester.pumpAndSettle();
 

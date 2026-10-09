@@ -8005,6 +8005,12 @@ abstract class AppLocalizations {
   /// **'让对面立刻回一份设备状态'**
   String get remoteActionDeviceStatePush;
 
+  /// No description provided for @remoteActionNotificationsReport.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面回传最近的通知原文'**
+  String get remoteActionNotificationsReport;
+
   /// No description provided for @remoteSettingNotification.
   ///
   /// In zh, this message translates to:
@@ -8148,6 +8154,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'这一项要一个参数（目标通道标识），空着发不出去。'**
   String get remoteSendNeedsArgument;
+
+  /// No description provided for @remoteSendReportCountLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'回传几条'**
+  String get remoteSendReportCountLabel;
+
+  /// No description provided for @remoteSendReportCountWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'只回传这段文字：时间、应用、标题与正文。对面拿到的是一条消息，不是一台设备的读取权。'**
+  String get remoteSendReportCountWhy;
+
+  /// No description provided for @remoteSendNeedsReportCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'回传条数只能是 {min}–{max} 之间的整数。'**
+  String remoteSendNeedsReportCount(int min, int max);
 
   /// No description provided for @remoteSendStartedNote.
   ///

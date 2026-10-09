@@ -2758,4 +2758,109 @@ void main() {
       );
     });
   });
+
+  group('回传动作那张表（T124 片B）：改坏哪一条就报哪一条', () {
+    // 造一份"只把 l2.reports / requiresArgumentFrom 换掉"的契约 —— 其余原样，
+    // 于是每一条断言红的只可能是它自己那一处。
+    FnthinkContract withL2({Object? reports, Object? requiresArgumentFrom}) {
+      final caps = Map<String, Object?>.from(c.raw['capabilities'] as Map);
+      final l2 = Map<String, Object?>.from(caps['l2'] as Map);
+      if (reports != null) l2['reports'] = reports;
+      if (requiresArgumentFrom != null) {
+        l2['requiresArgumentFrom'] = requiresArgumentFrom;
+      }
+      return FnthinkContract.parse(
+        jsonEncode({
+          ...c.raw,
+          'capabilities': {...caps, 'l2': l2},
+        }),
+      );
+    }
+
+    const okSpec = {
+      'argumentKind': 'count',
+      'minItems': 1,
+      'maxItems': 5,
+      'title': 'notif-report',
+    };
+
+    test('真契约那一条读得到；不是回传动作的项问出来是 null（不猜）', () {
+      expect(c.l2Reports.keys, contains('notifications:report'));
+      expect(c.l2ReportTitle('notifications:report'), 'notif-report');
+      expect(c.l2ReportMinItems('notifications:report'), 1);
+      expect(c.l2ReportMaxItems('notifications:report'), 20);
+      expect(c.l2ReportTitle('listener:start'), isNull);
+      expect(c.l2ReportMinItems('listener:start'), isNull);
+      expect(c.l2ReportMaxItems('nope'), isNull);
+    });
+
+    test('表里有不在 actions 里的动作 ⇒ 报出来', () {
+      final broken = withL2(reports: {'ghost:report': okSpec});
+      expect(broken.validate(), anyElement(contains('不在 actions 里')));
+    });
+
+    test('没同列进 requiresArgumentFrom ⇒ 报出来（参数就是「要几条」）', () {
+      final broken = withL2(
+        reports: {'notifications:report': okSpec},
+        requiresArgumentFrom: const ['channel:toggle'],
+      );
+      expect(
+        broken.validate(),
+        anyElement(contains('没列进 requiresArgumentFrom')),
+      );
+    });
+
+    test('argumentKind 不是 count ⇒ 报出来', () {
+      final broken = withL2(
+        reports: {
+          'notifications:report': {...okSpec, 'argumentKind': 'keyword'},
+        },
+      );
+      expect(broken.validate(), anyElement(contains('argumentKind 必须是 count')));
+    });
+
+    test('minItems < 1 或 maxItems < minItems ⇒ 各报各的', () {
+      expect(
+        withL2(
+          reports: {
+            'notifications:report': {...okSpec, 'minItems': 0},
+          },
+        ).validate(),
+        anyElement(contains('minItems 必须是 ≥1')),
+      );
+      expect(
+        withL2(
+          reports: {
+            'notifications:report': {...okSpec, 'maxItems': 0},
+          },
+        ).validate(),
+        anyElement(contains('maxItems 必须 ≥ minItems')),
+      );
+    });
+
+    test('title 空着或带斜杠 ⇒ 报出来（它是回传那条消息的标题）', () {
+      expect(
+        withL2(
+          reports: {
+            'notifications:report': {...okSpec, 'title': ''},
+          },
+        ).validate(),
+        anyElement(contains('title 必须是非空')),
+      );
+      expect(
+        withL2(
+          reports: {
+            'notifications:report': {...okSpec, 'title': 'a/b'},
+          },
+        ).validate(),
+        anyElement(contains('title 必须是非空')),
+      );
+    });
+
+    test('整张表缺了 ⇒ 空表 = 没有回传动作（不是"默认放行"）', () {
+      final noReports = withL2(reports: const <String, Object?>{});
+      expect(noReports.l2Reports, isEmpty);
+      expect(noReports.validate(), isEmpty, reason: '不写这一节是合法的：没声明就没有回传');
+    });
+  });
 }

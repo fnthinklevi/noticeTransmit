@@ -43,6 +43,7 @@ class RemoteCommandRunner extends ChangeNotifier {
     required this.l3,
     required this.saveRecord,
     required this.sendReceipt,
+    required this.sendReport,
     required this.now,
     this.schedule = _defaultSchedule,
     this.newId = newRemoteExecutionId,
@@ -69,6 +70,15 @@ class RemoteCommandRunner extends ChangeNotifier {
   /// ⚠ **发不出去不等于执行失败**：本机已经做完了，对面没收到是另一件事。
   /// 所以它只进 [FnthinkRemoteExecutionRecord.reason]，不改执行状态。
   final Future<bool> Function(String peer, RemoteReceipt receipt) sendReceipt;
+
+  /// 把一次动作**产出**的东西回传给发起的那一台（T124 片B：`notifications:report`）。
+  ///
+  /// 与 [sendReceipt] 同一条路（一条普通消息），但语义不同：回执是"我做到哪一步"，
+  /// 回传是"你要的东西在这里"。⚠ **回传送不到 = 这一步没做成**（不是"做成了但对面没收到"）：
+  /// 这一族动作的全部产出就是那段回传，发送失败与产出为空的差别在发起方那边不存在。
+  /// 参数：对端、**动作名**（不是带参数的整串 item）、正文。回 false = 没送出去。
+  final Future<bool> Function(String peer, String action, String payload)
+  sendReport;
 
   final DateTime Function() now;
 
@@ -338,6 +348,14 @@ class RemoteCommandRunner extends ChangeNotifier {
       //   不是历史那一行的 `argument` 列 —— 判形状那一次也是从它取的，
       //   两处不同源的话"收的时候说没问题、动手时才发现动不了"。
       final r = await dispatchL2Action(contract, l2, action);
+      // 回传（T124 片B）：有产出就必须送出去，而**送不到 = 这一步没做成** ——
+      // 这一族动作的全部产出就是那段回传（与回执那条"发不出去不改状态"不同，
+      // 那条说的是"本机已经做完了"，这里本机的产出还没到对面手里）。
+      final payload = r.payload;
+      if (r.ok && payload != null) {
+        final sent = await sendReport(record.peerAddress, action.name, payload);
+        if (!sent) return (ok: false, reason: 'report-not-sent');
+      }
       return (ok: r.ok, reason: r.reason);
     } catch (e) {
       // 一条坏指令不许把整轮收货按停（记成失败，接着走下一条）。

@@ -150,6 +150,12 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   String? _channelFamily;
   bool? _channelWant;
 
+  /// 回传那一条要几条（T124 片B 的 `notifications:report`）。
+  ///
+  /// 与通道号同一类：**界面只收一个数**，闭区间由契约给（`l2.reports` 的
+  /// minItems／maxItems，唯一判据是 `reportCountInRange`）—— 页面不自己抄上下界。
+  final TextEditingController _reportCount = TextEditingController();
+
   /// L3 那两个 `toggle` 项要设成的那一档（null = 没选）。
   ///
   /// ⚠ 发送侧**必填**：契约说 `itemMayCarryTarget` 是"可选"，那是为了老对端不必升级；
@@ -179,6 +185,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     _argument.dispose();
     _key.dispose();
     _totp.dispose();
+    _reportCount.dispose();
     super.dispose();
   }
 
@@ -249,6 +256,10 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     return contract.l2ActionsRequiringArgument.contains(_item);
   }
 
+  /// 这一项要的是「要几条」那种参数（T124 片B；判据直接读契约那张表）。
+  bool _needsReportArgument(FnthinkContract contract) =>
+      _item.isNotEmpty && contract.l2ReportMinItems(_item) != null;
+
   /// 这一项是 L3 里那两个 `toggle` 吗（要选"设成哪一档"）。
   ///
   /// 判据来自契约的 `mode`（`grant` 那四项只能"请用户去系统里开"，没有目标值这一说）。
@@ -260,13 +271,33 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
 
   /// 交给对面的那两格：**界面选的东西在这里拼成协议形状**（唯一作者是
   /// [buildChannelArgument] 与 [buildL3Item]，本页不自己拼字符串）。
+  ///
+  /// ⚠⚠ **参数写在 item 的 `/` 后面**（契约 `l2.itemFormat = <family>:<verb>/<参数>`）——
+  /// 这不是格式选择：对面那一格判形状与派发**都只读 item 的这一段**
+  /// （`fnthink_remote_command_handler_test.dart` 那条用例把两处的区别钉死：
+  /// 参数只写在信封的 `argument` 字段里 ⇒ 每一条都被拒成 `missing-argument`，
+  /// 而现场看到的是"命令认得、就是没反应"，两个字段长得都像"参数"）。
   String get _wireItem {
-    if (!_needsL3Target(_contract!)) return _item;
-    return buildL3Item(key: _item, want: _l3Want);
+    final contract = _contract!;
+    if (_needsL3Target(contract)) return buildL3Item(key: _item, want: _l3Want);
+    final arg = _wireArgument;
+    return arg.isEmpty ? _item : '$_item/$arg';
   }
 
+  /// 信封里那个 `argument` 字段：与 item 斜杠段**同源**（同一份拼出来的串）。
+  ///
+  /// 它不参与对面的动作解析（见 [_wireItem]），但对面的留痕与两段回执读的是它 ——
+  /// 不传的话，对面历史那一行会缺"动的到底哪一条"。
   String get _wireArgument {
-    if (!_needsArgument(_contract!, _level)) return '';
+    final contract = _contract!;
+    if (!_needsArgument(contract, _level)) return '';
+    // 「要几条」那一条：用户手上只有一枚数，拼出来的就是那个数（十进制文本）。
+    // ⚠ 只在 `reportCountInRange` 通过时才走到这里（`_commandBlocked` 先拦），
+    //   拼出去的是 `int` 的规范写法（`07` 这种前导零在解析那一侧也认，但送到线
+    //   上的应当是同一个数）。
+    if (contract.l2ReportMinItems(_item) != null) {
+      return '${int.tryParse(_reportCount.text.trim()) ?? 0}';
+    }
     return buildChannelArgument(
       family: _channelFamily ?? kFnthinkRemoteChannelFamilies.first,
       id: _argument.text.trim(),
@@ -283,10 +314,21 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     }
     if (_item.isEmpty) return l10n.remoteSendAction;
     if (_needsArgument(contract, _level)) {
-      if (_channelFamily == null) return l10n.remoteSendNeedsFamily;
-      // 号空着沿用那一句旧话（"这一项要一个参数（目标通道标识）"）：它说的就是这件事。
-      if (_argument.text.trim().isEmpty) return l10n.remoteSendNeedsArgument;
-      if (_channelWant == null) return l10n.remoteSendNeedsWant;
+      final min = contract.l2ReportMinItems(_item);
+      if (min != null) {
+        // 回传那一条：判据的唯一作者是 `reportCountInRange`（与收件那一格同源），
+        // 上下界也从契约现取 —— 页面不自己抄一份。
+        final max = contract.l2ReportMaxItems(_item) ?? min;
+        final count = int.tryParse(_reportCount.text.trim());
+        if (count == null || !reportCountInRange(contract, _item, count)) {
+          return l10n.remoteSendNeedsReportCount(min, max);
+        }
+      } else {
+        if (_channelFamily == null) return l10n.remoteSendNeedsFamily;
+        // 号空着沿用那一句旧话（"这一项要一个参数（目标通道标识）"）：它说的就是这件事。
+        if (_argument.text.trim().isEmpty) return l10n.remoteSendNeedsArgument;
+        if (_channelWant == null) return l10n.remoteSendNeedsWant;
+      }
     }
     if (_needsL3Target(contract) && _l3Want == null) {
       return l10n.remoteSendNeedsWant;
@@ -746,7 +788,10 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
                 ),
             ],
           ),
-        if (needsArgument) ..._channelArgumentRows(l10n),
+        if (needsArgument)
+          ...(_needsReportArgument(contract)
+              ? _reportArgumentRows(l10n)
+              : _channelArgumentRows(l10n)),
         if (needsL3Target) ...[
           const SizedBox(height: 10),
           _wantRow(
@@ -785,6 +830,36 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         ],
       ],
     );
+  }
+
+  /// 「回传最近 N 条通知」那一项的参数：**一枚数字**，上下界由契约给。
+  ///
+  /// 为什么不给默认值先填上：一个预填的数会被当成"就这样发"（用户看不出这是他自己
+  /// 选的还是页面替他选的），而这一发的语义是"把对面那台的通知原文要过来"——
+  /// 要几条应当是一次明确的表态。空着时主操作被挡并说清区间。
+  List<Widget> _reportArgumentRows(AppLocalizations l10n) {
+    final contract = _contract!;
+    final min = contract.l2ReportMinItems(_item) ?? 1;
+    final max = contract.l2ReportMaxItems(_item) ?? min;
+    return [
+      const SizedBox(height: 10),
+      FnthinkNote(
+        keyName: 'remote-send-report-count-label',
+        text: l10n.remoteSendReportCountLabel,
+      ),
+      CupertinoTextField(
+        key: const ValueKey('remote-send-report-count'),
+        controller: _reportCount,
+        placeholder: '$min–$max',
+        keyboardType: TextInputType.number,
+        autocorrect: false,
+        onChanged: (_) => setState(() {}),
+      ),
+      FnthinkNote(
+        keyName: 'remote-send-report-count-why',
+        text: l10n.remoteSendReportCountWhy,
+      ),
+    ];
   }
 
   /// `channel:toggle` 那三段的选法：族（选）＋ 对面那台的通道号（填）＋ 目标档（选）。

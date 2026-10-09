@@ -4384,6 +4384,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteActionDeviceStatePush => '让对面立刻回一份设备状态';
 
   @override
+  String get remoteActionNotificationsReport => '让对面回传最近的通知原文';
+
+  @override
   String get remoteSettingNotification => '请对面打开「通知监听」权限页';
 
   @override
@@ -4455,6 +4458,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remoteSendNeedsArgument => '这一项要一个参数（目标通道标识），空着发不出去。';
+
+  @override
+  String get remoteSendReportCountLabel => '回传几条';
+
+  @override
+  String get remoteSendReportCountWhy =>
+      '只回传这段文字：时间、应用、标题与正文。对面拿到的是一条消息，不是一台设备的读取权。';
+
+  @override
+  String remoteSendNeedsReportCount(int min, int max) {
+    return '回传条数只能是 $min–$max 之间的整数。';
+  }
 
   @override
   String get remoteSendStartedNote =>

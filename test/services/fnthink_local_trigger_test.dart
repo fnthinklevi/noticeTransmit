@@ -70,6 +70,9 @@ class _NoopL2 implements FnthinkL2Executor {
 
   @override
   Future<FnthinkL2Result> pushDeviceState() async => const FnthinkL2Result.ok();
+
+  @override
+  Future<String?> reportNotifications(int count) async => null;
 }
 
 class _NoopL3 implements FnthinkL3Executor {
@@ -158,6 +161,7 @@ void main() {
         receipts.add((peer, receipt));
         return true;
       },
+      sendReport: (peer, action, payload) async => true,
       now: () => DateTime.utc(2026, 10, 5, 12),
       // ⚠ 窗口 0 ⇒ 立刻执行且不发状态栏通知（那一格另有用例），
       //   这样本组只看"判没判放行 + 执行器被调没调"。

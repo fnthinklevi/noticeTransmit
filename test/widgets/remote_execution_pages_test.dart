@@ -371,11 +371,14 @@ void main() {
       final env = RemoteCommandEnvelope.decode(sent ?? '');
       expect(env, isNotNull, reason: '发出去的必须是一条指令载荷，否则对面按通知处置');
       expect(env!.level, 'L2');
-      expect(env.item, 'channel:toggle');
+      // ⚠⚠ **参数写在 item 的斜杠段**：对面判形状与派发都只读那一段，
+      //   只写进信封那个 `argument` 字段的话每一条都会被拒成 missing-argument
+      //   （`fnthink_remote_command_handler_test.dart` 把两处的区别钉死）。
+      expect(env.item, 'channel:toggle/app:chan-42:off');
       expect(
         env.argument,
         'app:chan-42:off',
-        reason: '三段由界面拼 —— 用户手里那两枚是"app"与"关"，不是冒号串',
+        reason: '信封那一份仍带着（进对面留痕与回执），但动作参数只认 item 的斜杠段',
       );
     });
 
@@ -441,6 +444,86 @@ void main() {
       await _confirmIfPresent(tester);
       expect(sent, hasLength(1));
       expect(RemoteCommandEnvelope.decode(sent.single)?.item, 'monitoring/on');
+    });
+
+    testWidgets('回传那一条 ⇒ 只填一个数：空／越界被挡，填对了发 notifications:report/10', (
+      tester,
+    ) async {
+      String? sent;
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-notifications:report')),
+      );
+      await tester.pumpAndSettle();
+      // 它只要一枚数 —— 通道那三格（族／号／目标档）一个都不该出现。
+      expect(
+        find.byKey(const ValueKey('remote-send-report-count')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('remote-send-family-webhook')),
+        findsNothing,
+      );
+
+      Future<void> submit() async {
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('remote-send-submit')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+        await tester.pumpAndSettle();
+      }
+
+      // 空着 ⇒ 被挡（区间写在挡住那句里）。
+      await submit();
+      expect(sent, isNull);
+      expect(
+        find.byKey(const ValueKey('fnthink-send-blocked')),
+        findsOneWidget,
+      );
+
+      // 越界 ⇒ 还是被挡。
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-report-count')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-report-count')),
+        '99',
+      );
+      await tester.pumpAndSettle();
+      await submit();
+      expect(sent, isNull);
+
+      // 填对了才发，且拼出来的是那个数（不是用户敲的整串别的什么）。
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-report-count')),
+        '10',
+      );
+      await tester.pumpAndSettle();
+      await submit();
+      await _confirmIfPresent(tester);
+      expect(
+        RemoteCommandEnvelope.decode(sent ?? '')?.item,
+        'notifications:report/10',
+      );
     });
   });
 

@@ -30,6 +30,9 @@ class _NoopL2 implements FnthinkL2Executor {
 
   @override
   Future<FnthinkL2Result> pushDeviceState() async => const FnthinkL2Result.ok();
+
+  @override
+  Future<String?> reportNotifications(int count) async => null;
 }
 
 class _NoopL3 implements FnthinkL3Executor {
@@ -58,6 +61,7 @@ void main() {
       l3: _NoopL3(),
       saveRecord: (_) async {},
       sendReceipt: (peer, receipt) async => true,
+      sendReport: (peer, action, payload) async => true,
       now: () => clock,
       // 手动点火（横幅这一组关心的是"看得见、撤得动"，不是计时本身）
       // ⚗ 手动点火，且返回的那枚句柄**当场取消**：

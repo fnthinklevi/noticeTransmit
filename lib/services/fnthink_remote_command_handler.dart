@@ -125,8 +125,9 @@ class RemoteCommandRecognizer {
     //   而信封里那个 `argument` 字段是**另一处**参数，读它同样是错的。
     final parsed = parseL2Item(contract, command.item);
     if (parsed is! FnthinkL2Ok) return null;
-    if (parsed.action.name != 'channel:toggle') return null;
-    return rejectChannelTarget(parsed.action.argument);
+    // 参数形状那一段按动作分派（T124 片B 起不止 channel:toggle 一种参数形状）：
+    // 唯一的作者在 `fnthink_l2_actions.dart`，这里只转发。
+    return rejectL2Argument(contract, parsed.action);
   }
 
   String? _rejectL3Item(

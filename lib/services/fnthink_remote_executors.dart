@@ -23,6 +23,7 @@ class DeviceL2Executor implements FnthinkL2Executor {
     required this.setListenerEnabled,
     required this.setChannelEnabled,
     required this.pushDeviceStateNow,
+    required this.reportNotificationsNow,
   });
 
   /// 启停整个通知监听服务。回 false = 原生拒绝了。
@@ -33,6 +34,9 @@ class DeviceL2Executor implements FnthinkL2Executor {
 
   /// 立刻推一次设备状态（推给谁、走哪条链路是发送侧的事）。
   final Future<bool> Function() pushDeviceStateNow;
+
+  /// 产出「最近 [count] 条通知原文」那段正文（T124 片B）。回 null = 读不出来。
+  final Future<String?> Function(int count) reportNotificationsNow;
 
   @override
   Future<FnthinkL2Result> setListener({required bool enabled}) async {
@@ -77,6 +81,19 @@ class DeviceL2Executor implements FnthinkL2Executor {
           : const FnthinkL2Result.failed('device-state-push-refused');
     } catch (e) {
       return const FnthinkL2Result.failed('threw:device_state:push');
+    }
+  }
+
+  /// ⚠ 这里回的是**产出本身**（`Future<String?>`）而不是 [FnthinkL2Result]：
+  /// "发去哪儿"不归执行器管（它连发起方是谁都看不到），它只答"取到了没有"。
+  /// 抛异常与读不出来都回 null（与 `pushDeviceState` 的 catch 同一纪律：
+  /// 一条坏指令不许让整轮收货停在半路）。
+  @override
+  Future<String?> reportNotifications(int count) async {
+    try {
+      return await reportNotificationsNow(count);
+    } catch (e) {
+      return null;
     }
   }
 }

@@ -24,6 +24,8 @@ import '../services/fnthink_remote_executors.dart';
 import '../services/fnthink_remote_runner.dart';
 import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_remote_wiring.dart';
+import '../models/notification_record.dart';
+import '../services/fnthink_notification_report.dart';
 import '../services/remote_credential_store.dart';
 import '../services/remote_execution_notifier.dart';
 import '../services/secure_storage_service.dart';
@@ -272,6 +274,7 @@ void setupLocator() {
       setChannelEnabled: (target) =>
           updateChannelEnabled(target.family, target.id, target.enabled),
       pushDeviceStateNow: _pushDeviceStateOnce,
+      reportNotificationsNow: _fnthinkReportNotificationsOnce,
     ),
   );
   getIt.registerLazySingleton<DeviceL3Executor>(
@@ -321,6 +324,21 @@ void setupLocator() {
           //   而留痕是执行链的每一格都要走的 ⇒ 每一次远程执行都失败。
           DatabaseHelper().saveRemoteExecutionRecord(record),
       sendReceipt: (peer, receipt) => _sendRemoteReceipt(getIt, peer, receipt),
+      // 回传（T124 片B）：产出那段正文，走**同一条消息路**发给发起的那一台。
+      // ⚠ 标题取契约声明的那一枚（`l2.reports[*].title`）—— 契约没声明就不发：
+      //   没有标题就发出去，收件端把一次回传读成一条普通通知。
+      sendReport: (peer, action, payload) async {
+        final title = getIt<FnthinkContractLoader>().cached!.l2ReportTitle(
+          action,
+        );
+        if (title == null) return false;
+        final result = await getIt<FnthinkReceiveCoordinator>().sendNotice(
+          peer: peer,
+          title: title,
+          text: payload,
+        );
+        return result.status == FnthinkSendStatus.accepted;
+      },
       statusBar: getIt<RemoteExecutionNotifier>(),
       now: DateTime.now,
     ),
@@ -401,8 +419,24 @@ Future<bool> _pushDeviceStateOnce() async {
   }
 }
 
-/// 厂商自启动那一条入口（`autostart`）—— 按本机厂商选那一个方法。
+/// 「回传最近 N 条通知原文」那段正文的产出（`notifications:report`，T124 片B）。
 ///
+/// ⚠ 它是**读口**（开真库），组装那段在 `fnthink_notification_report.dart`（纯函数）——
+/// 形状与读口分开，理由写在那份文件头上。
+/// 回 null = 读不出来（库打不开、查询抛了）。**"一条都没有"不回 null**：
+/// 那由产出自带一句明说（空表不是失败，见那份文件第二条口径）。
+Future<String?> _fnthinkReportNotificationsOnce(int count) async {
+  try {
+    final rows = await DatabaseHelper().getNotifications(limit: count);
+    return formatFnthinkNotificationReport(
+      rows.map(NotificationRecord.fromMap).toList(),
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
+/// 厂商自启动那一条入口（`autostart`）—— 按本机厂商选那一个方法。///
 /// ⚠ 厂商名做**小写包含**匹配而不是相等：各家在 `Build.MANUFACTURER` 里写的串
 ///   各不相同（`Xiaomi` / `Redmi` / `Xiaomi Inc.`…），相等匹配的表现是
 ///   "这台明明是小米、却说什么都没有"。

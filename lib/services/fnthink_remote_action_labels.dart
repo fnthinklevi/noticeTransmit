@@ -19,6 +19,7 @@ kFnthinkRemoteActionLabels = {
   'listener:stop': (l) => l.remoteActionListenerStop,
   'channel:toggle': (l) => l.remoteActionChannelToggle,
   'device_state:push': (l) => l.remoteActionDeviceStatePush,
+  'notifications:report': (l) => l.remoteActionNotificationsReport,
   'notification': (l) => l.remoteSettingNotification,
   'exact_alarm': (l) => l.remoteSettingExactAlarm,
   'battery_optimization': (l) => l.remoteSettingBatteryOptimization,

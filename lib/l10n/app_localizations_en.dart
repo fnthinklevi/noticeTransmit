@@ -4613,6 +4613,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Have the other device report its device state now';
 
   @override
+  String get remoteActionNotificationsReport =>
+      'Have the other device send back its recent notifications';
+
+  @override
   String get remoteSettingNotification =>
       'Ask the other device to open its notification-listener page';
 
@@ -4697,6 +4701,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get remoteSendNeedsArgument =>
       'This one needs an argument (the target channel id); it cannot be sent empty.';
+
+  @override
+  String get remoteSendReportCountLabel => 'How many to send back';
+
+  @override
+  String get remoteSendReportCountWhy =>
+      'Only this much text travels: time, app, title and body. What the other side gets is a message, not read access to a device.';
+
+  @override
+  String remoteSendNeedsReportCount(int min, int max) {
+    return 'How many to send back must be a whole number between $min and $max.';
+  }
 
   @override
   String get remoteSendStartedNote =>
