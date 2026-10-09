@@ -6119,8 +6119,79 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairRequestLine.
   ///
   /// In zh, this message translates to:
-  /// **'{peer} 请求配对你，要的是 {level}'**
-  String fnthinkPairRequestLine(String peer, String level);
+  /// **'{peer} 请求配对你，要的是 {level} · {at}'**
+  String fnthinkPairRequestLine(String peer, String level, String at);
+
+  /// No description provided for @fnthinkPairRequestsSent.
+  ///
+  /// In zh, this message translates to:
+  /// **'我发起过的配对请求'**
+  String get fnthinkPairRequestsSent;
+
+  /// No description provided for @fnthinkPairSentLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'发给 {peer} · 要的是 {level} · {status} · {at}'**
+  String fnthinkPairSentLine(
+    String peer,
+    String level,
+    String status,
+    String at,
+  );
+
+  /// No description provided for @fnthinkPairStatePending.
+  ///
+  /// In zh, this message translates to:
+  /// **'还在等对方答复'**
+  String get fnthinkPairStatePending;
+
+  /// No description provided for @fnthinkPairStateApproved.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方已同意'**
+  String get fnthinkPairStateApproved;
+
+  /// No description provided for @fnthinkPairStateDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方已拒绝'**
+  String get fnthinkPairStateDenied;
+
+  /// No description provided for @fnthinkPairStateExpired.
+  ///
+  /// In zh, this message translates to:
+  /// **'那枚口令已过期'**
+  String get fnthinkPairStateExpired;
+
+  /// No description provided for @fnthinkPairStateUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'不认识的状态：{status}'**
+  String fnthinkPairStateUnknown(String status);
+
+  /// No description provided for @agoMinutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 分钟前'**
+  String agoMinutes(int n);
+
+  /// No description provided for @agoHours.
+  ///
+  /// In zh, this message translates to:
+  /// **'{n} 小时前'**
+  String agoHours(int n);
+
+  /// No description provided for @fnthinkHubPeersWaiting.
+  ///
+  /// In zh, this message translates to:
+  /// **'有 {n} 条在等你答复'**
+  String fnthinkHubPeersWaiting(int n);
+
+  /// No description provided for @fnthinkHubPeersOutgoing.
+  ///
+  /// In zh, this message translates to:
+  /// **'还在等对方答复 {n} 条'**
+  String fnthinkHubPeersOutgoing(int n);
 
   /// No description provided for @fnthinkPairWillGrant.
   ///

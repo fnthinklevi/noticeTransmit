@@ -261,6 +261,9 @@ class FnthinkReceiveLoop {
       // 配对请求也要过这一层：循环是"服务端有什么要本机答复"的唯一读者。留在这里没人接，
       // 页面就只能自己去 poll 一次（那是第二个读法，也是第一条会让未读数与列表打架的路）。
       pairRequests: outcome.pairRequests,
+      // 同一轮的**另一面**（T110）：我发起过的那些现在算什么状态。也跟着这一层过 ——
+      // 循环是"服务端有什么要本机知道"的唯一读者，页面不许为它另开一次 poll。
+      sentPairRequests: outcome.sentPairRequests,
       nextDelay: nextDelay,
       signedWhileUncalibrated: outcome.signedWhileUncalibrated,
     );
@@ -358,6 +361,7 @@ class FnthinkLoopReport {
     this.ackSkipped = 0,
     this.pending = 0,
     this.pairRequests = const [],
+    this.sentPairRequests = const [],
     this.nextDelay = Duration.zero,
     this.reason,
     this.signedWhileUncalibrated = false,
@@ -396,6 +400,13 @@ class FnthinkLoopReport {
   /// 把失败轮也算成"清空"，界面就会在一次网络抖动之后把一条真在等的请求藏起来，
   /// 而用户看不出它是被撤了、过期了、还是根本没看见。
   final List<FnthinkPairRequest> pairRequests;
+
+  /// 这一轮 poll 带回来、**本机发起过**的配对请求（含终态，T110 第二面）。
+  ///
+  /// 判据与上面那一条相同：只有 `status == ok` 时"空"才有含义。这一份的"空"另有两种读法
+  /// （今天没发起过 / 发起过但服务端已按 TTL 剪掉），所以界面上空列表**不画这一格**、
+  /// 也不说"没有被拒过"——它什么也没说。
+  final List<FnthinkSentPairRequest> sentPairRequests;
 
   final Duration nextDelay;
   final String? reason;

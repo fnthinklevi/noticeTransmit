@@ -873,6 +873,20 @@ class FnthinkContract {
   List<String> get pairRequestSentFields =>
       strings(const ['pairRequest', 'sentFields']);
 
+  /// 非终态的那一个初始态（今日 = pending）。**不写死**：界面判"还在等"就读这一行。
+  String get pairRequestInitialStatus {
+    final value = str(const ['pairRequest', 'initialStatus']);
+    if (value == null || value.isEmpty) {
+      throw StateError('契约缺 pairRequest.initialStatus（不补默认值）');
+    }
+    return value;
+  }
+
+  /// 终态名单（approved / denied / expired）。界面要区分"同意／拒绝／过期"三句，
+  /// 而这三者从契约上的推导关系取，不在 Dart 里再抄一份词表（抄的那份改不动服务端）。
+  List<String> get pairRequestTerminalStatuses =>
+      strings(const ['pairRequest', 'terminalStatuses']);
+
   /// 某一类客户端事件的载荷字段名单（服务端按名单逐字节比，多一个键都会被拒）。
   ///
   /// 名单**只许从这一处读**：加一类事件就在实现里抄一份字面量的话，契约改名的那一半

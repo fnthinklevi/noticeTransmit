@@ -100,6 +100,12 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
     _battery.addListener(_onServiceChanged);
     _temperature.addListener(_onServiceChanged);
     _deviceState.addListener(_onServiceChanged);
+    // 配对那两面的计数走协调者那两份账（T110 ④）：挂监听而不是自己 poll 或自己数 ——
+    // 后台每轮带回来的东西要自己上界面，否则"新请求静默等着"就是这一行要修的缺陷。
+    // `peersDeps` 可以整包没装配（测试/早期启动）⇒ 那一行就只说常态那句，不猜数。
+    final pairs = widget.peersDeps?.coordinator;
+    pairs?.pairRequestsListenable.addListener(_onServiceChanged);
+    pairs?.sentPairRequestsListenable.addListener(_onServiceChanged);
     unawaited(_readRemoteGate());
   }
 
@@ -130,6 +136,9 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
     _battery.removeListener(_onServiceChanged);
     _temperature.removeListener(_onServiceChanged);
     _deviceState.removeListener(_onServiceChanged);
+    final pairs = widget.peersDeps?.coordinator;
+    pairs?.pairRequestsListenable.removeListener(_onServiceChanged);
+    pairs?.sentPairRequestsListenable.removeListener(_onServiceChanged);
     super.dispose();
   }
 
@@ -271,7 +280,7 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             icon: Icons.devices_other,
             iconColor: AppColors.blue,
             title: l10n.fnthinkPeersTitle,
-            subtitle: l10n.fnthinkHubPeersDesc,
+            subtitle: _peersSubtitle(l10n),
             page: FnthinkPeersPage(deps: widget.peersDeps),
           ),
           _divider(),
@@ -417,6 +426,24 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
         context,
       ).push(CupertinoPageRoute<void>(builder: (_) => page)),
     );
+  }
+
+  /// 「设备配对」那一行的副标题：有账要说账，没账才说那句常态说明（T110 ④）。
+  ///
+  /// 两面的优先级不是并列的：**等本机答复的那几条**必须点头或拒绝，是能被这条行推动的；
+  /// 本机发起、还在等对面的那几条只能等。所以两个数同时非零时说的是前者 ——
+  /// 把"你在等"说成"有人等你"会诱导用户点进去处理一件其实不该他处理的事。
+  ///
+  /// 数只从协调者那两份账取（`pendingPairRequestCount` / `outgoingPairRequestsWaiting`），
+  /// 页面不数第二遍：这一行说 N、进去那张卡画 N+1 行，是这类"两处各数一次"最直接的现形。
+  String _peersSubtitle(AppLocalizations l10n) {
+    final pairs = widget.peersDeps?.coordinator;
+    if (pairs == null) return l10n.fnthinkHubPeersDesc;
+    final waiting = pairs.pendingPairRequestCount;
+    if (waiting > 0) return l10n.fnthinkHubPeersWaiting(waiting);
+    final outgoing = pairs.outgoingPairRequestsWaiting;
+    if (outgoing > 0) return l10n.fnthinkHubPeersOutgoing(outgoing);
+    return l10n.fnthinkHubPeersDesc;
   }
 
   /// 远程控制那一行的副标题：**缺哪一条就说哪一条**（四条文案一一对应 `FnthinkRemoteGate`）。

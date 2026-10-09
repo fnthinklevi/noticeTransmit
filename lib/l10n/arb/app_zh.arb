@@ -1603,7 +1603,7 @@
   },
   "fnthinkPairingAckUnknown": "这台没有问过服务器收没收到 —— 重新挂一枚才能确认",
   "fnthinkPairRequests": "等你答复的配对请求",
-  "fnthinkPairRequestLine": "{peer} 请求配对你，要的是 {level}",
+  "fnthinkPairRequestLine": "{peer} 请求配对你，要的是 {level} · {at}",
   "@fnthinkPairRequestLine": {
     "placeholders": {
       "peer": {
@@ -1611,6 +1611,71 @@
       },
       "level": {
         "type": "String"
+      },
+      "at": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairRequestsSent": "我发起过的配对请求",
+  "fnthinkPairSentLine": "发给 {peer} · 要的是 {level} · {status} · {at}",
+  "@fnthinkPairSentLine": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "at": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairStatePending": "还在等对方答复",
+  "fnthinkPairStateApproved": "对方已同意",
+  "fnthinkPairStateDenied": "对方已拒绝",
+  "fnthinkPairStateExpired": "那枚口令已过期",
+  "fnthinkPairStateUnknown": "不认识的状态：{status}",
+  "@fnthinkPairStateUnknown": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "agoMinutes": "{n} 分钟前",
+  "@agoMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agoHours": "{n} 小时前",
+  "@agoHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkHubPeersWaiting": "有 {n} 条在等你答复",
+  "@fnthinkHubPeersWaiting": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkHubPeersOutgoing": "还在等对方答复 {n} 条",
+  "@fnthinkHubPeersOutgoing": {
+    "placeholders": {
+      "n": {
+        "type": "int"
       }
     }
   },

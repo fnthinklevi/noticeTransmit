@@ -395,6 +395,31 @@ void main() {
         contains('pairRequestsListenable'),
         reason: '页面不再从协调者那份账读了：本条守卫已经在空跑',
       );
+      // T110 第二面：「我发起过的请求」那一格走的是同一套装配 —— 挂协调者那一份 listenable，
+      // 不自己 poll、不自己定定时器。少了这一条，那一格就会停在进来时那一份上。
+      expect(
+        page,
+        contains('sentPairRequestsListenable'),
+        reason:
+            '发起面没有接上协调者那份账 ⇒ 对面那台同意/拒绝之后，'
+            '这一台屏幕上不动，而维护者这条任务要修的正是那个"看不到进度"',
+      );
+      // 入口行那两句计数（T110 ④）：数只在协调者那一处算，页面只取；而且它挂了监听 ——
+      // 不挂的话新请求静默等着，用户要自己点进去才知道有人在等。
+      final hub = stripComments(
+        librarySource(root, 'lib/pages/notification_engine_page.dart'),
+      );
+      expect(hub, contains('pendingPairRequestCount'));
+      expect(hub, contains('outgoingPairRequestsWaiting'));
+      expect(hub, contains('pairRequestsListenable.addListener'));
+      expect(hub, contains('sentPairRequestsListenable.addListener'));
+      expect(
+        hub,
+        isNot(contains('pendingPairRequests.length')),
+        reason:
+            '入口行自己数一遍 = 第二个作者：'
+            '这一行说 2 而进去那张卡画 3 行，正是这类分叉的现形方式',
+      );
       expect(
         page,
         contains('grantableLevel'),

@@ -7,6 +7,36 @@ import '../services/active_channels.dart';
 import '../services/channel_health_store.dart';
 import '../theme/app_colors.dart';
 
+/// 「多久之前」的**分档**口径（T115 立的那一条：不足 1 小时说分钟，否则说小时）。
+///
+/// 为什么单列出来：这一把尺原来只有健康度在用，而 T110 的配对两面（「我发起给谁、多久之前」/
+/// 「谁在请求配对你、多久之前」）也要说同一件事。两处各写一份 `<1h ? 分 : 时` 的下场就是
+/// T115 记下过的那类缺陷 —— 同一条记录，首页说 3 天前、状态页说 72 小时前。
+/// 措辞各归各的主语（健康度那句是"探测"，配对那句是"发起"），所以这里收的是**时长**，
+/// 由调用方挑自己的那个词。
+///
+/// `atMs` 为 null 或 `<= 0` ⇒ null：拿不出时刻就说"不知道"，**不许**糊成"0 分钟前"。
+({bool inHours, int value})? fnthinkAgoBucket(int? atMs) {
+  if (atMs == null || atMs <= 0) return null;
+  // `atMs` 可能来自落盘数据或服务端：设备改过时钟就可能回来一个未来时刻，负数会被
+  // 说成"-3 分钟前"，所以先夹到 0（同一句"不知道"的方向）。
+  final ago = math.max(0, DateTime.now().millisecondsSinceEpoch - atMs);
+  if (ago < 60 * 60 * 1000) {
+    return (inHours: false, value: ago ~/ (60 * 1000));
+  }
+  return (inHours: true, value: ago ~/ (60 * 60 * 1000));
+}
+
+/// 配对那两张表上的「多久之前」（T110）。拿不出时刻就返回 null —— 调用方那一行
+/// 要么不说时间，要么走 [fnthinkFormatTime] 那个 '—'，两种都不许造出一个时刻。
+String? fnthinkAgoLabel(AppLocalizations l10n, int? atMs) {
+  final bucket = fnthinkAgoBucket(atMs);
+  if (bucket == null) return null;
+  return bucket.inHours
+      ? l10n.agoHours(bucket.value)
+      : l10n.agoMinutes(bucket.value);
+}
+
 /// 「上一次探测是多久以前」这句话的**唯一**格式化处（T115）。
 ///
 /// 为什么必须有作者：决定一把"过期"从 `unknown` 里拆出来之后，这一句从"徽标的补充说明"
@@ -17,11 +47,11 @@ import '../theme/app_colors.dart';
 /// 拿不出时间（没记录，或 `probedAt <= 0` —— email 旧缓存搬进来的那种"有结果没时间"）
 /// 就返回 null：**调用方不许**把 null 糊成"0 分钟前"，那正好造出一句假话。
 String? channelHealthAgoLabel(AppLocalizations l10n, int? probedAt) {
-  if (probedAt == null || probedAt <= 0) return null;
-  // `probedAt` 是落盘数据：设备改过时钟就可能回来一个负数，`~/` 会把它说成"-3 分钟前探测"。
-  final ago = math.max(0, DateTime.now().millisecondsSinceEpoch - probedAt);
-  if (ago < 60 * 60 * 1000) return l10n.healthProbedMinutes(ago ~/ (60 * 1000));
-  return l10n.healthProbedHours(ago ~/ (60 * 60 * 1000));
+  final span = fnthinkAgoBucket(probedAt);
+  if (span == null) return null;
+  return span.inHours
+      ? l10n.healthProbedHours(span.value)
+      : l10n.healthProbedMinutes(span.value);
 }
 
 /// 通道卡上的健康徽标：✓ 可达（含耗时）/ ✗ 不可达 / 上次的正常结论 + 多久之前 / ? 状态未知。

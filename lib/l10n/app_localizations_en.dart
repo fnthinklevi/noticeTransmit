@@ -3409,8 +3409,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkPairRequests => 'Pairing requests waiting for you';
 
   @override
-  String fnthinkPairRequestLine(String peer, String level) {
-    return '$peer asks to pair with you, requesting $level';
+  String fnthinkPairRequestLine(String peer, String level, String at) {
+    return '$peer asks to pair with you, requesting $level · $at';
+  }
+
+  @override
+  String get fnthinkPairRequestsSent => 'Pairing requests you sent';
+
+  @override
+  String fnthinkPairSentLine(
+    String peer,
+    String level,
+    String status,
+    String at,
+  ) {
+    return 'to $peer · requesting $level · $status · $at';
+  }
+
+  @override
+  String get fnthinkPairStatePending => 'waiting for the other device';
+
+  @override
+  String get fnthinkPairStateApproved => 'accepted by the other device';
+
+  @override
+  String get fnthinkPairStateDenied => 'declined by the other device';
+
+  @override
+  String get fnthinkPairStateExpired => 'the pairing code expired';
+
+  @override
+  String fnthinkPairStateUnknown(String status) {
+    return 'unrecognised status: $status';
+  }
+
+  @override
+  String agoMinutes(int n) {
+    return '$n min ago';
+  }
+
+  @override
+  String agoHours(int n) {
+    return '$n h ago';
+  }
+
+  @override
+  String fnthinkHubPeersWaiting(int n) {
+    return '$n waiting for your answer';
+  }
+
+  @override
+  String fnthinkHubPeersOutgoing(int n) {
+    return '$n still waiting for the other device';
   }
 
   @override

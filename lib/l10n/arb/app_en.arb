@@ -1582,7 +1582,7 @@
   },
   "fnthinkPairingAckUnknown": "This device never asked the server — re-arm the code to confirm",
   "fnthinkPairRequests": "Pairing requests waiting for you",
-  "fnthinkPairRequestLine": "{peer} asks to pair with you, requesting {level}",
+  "fnthinkPairRequestLine": "{peer} asks to pair with you, requesting {level} · {at}",
   "@fnthinkPairRequestLine": {
     "placeholders": {
       "peer": {
@@ -1590,6 +1590,71 @@
       },
       "level": {
         "type": "String"
+      },
+      "at": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairRequestsSent": "Pairing requests you sent",
+  "fnthinkPairSentLine": "to {peer} · requesting {level} · {status} · {at}",
+  "@fnthinkPairSentLine": {
+    "placeholders": {
+      "peer": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "at": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkPairStatePending": "waiting for the other device",
+  "fnthinkPairStateApproved": "accepted by the other device",
+  "fnthinkPairStateDenied": "declined by the other device",
+  "fnthinkPairStateExpired": "the pairing code expired",
+  "fnthinkPairStateUnknown": "unrecognised status: {status}",
+  "@fnthinkPairStateUnknown": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "agoMinutes": "{n} min ago",
+  "@agoMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agoHours": "{n} h ago",
+  "@agoHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkHubPeersWaiting": "{n} waiting for your answer",
+  "@fnthinkHubPeersWaiting": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkHubPeersOutgoing": "{n} still waiting for the other device",
+  "@fnthinkHubPeersOutgoing": {
+    "placeholders": {
+      "n": {
+        "type": "int"
       }
     }
   },

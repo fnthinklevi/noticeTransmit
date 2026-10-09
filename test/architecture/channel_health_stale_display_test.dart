@@ -18,8 +18,11 @@ void main() {
 
   group('过期结论与它的时间必须同屏（T115 决定一）', () {
     test('「多久以前」这句话只有一个作者', () {
-      // 口径：`lib/` 里读这两个 l10n 词条的地方必须只有那一个函数。
+      // 口径：`lib/` 里读这几句 l10n 词条的地方必须只有那一个文件。
       // ⚠ 提取式守卫先确认自己认得合成样本（本仓两次栽在"尺收窄 ⇒ 差集恒空 ⇒ 恒绿"）。
+      // T110 把这一族从一句扩成两句（健康度那句是"探测"，配对那面是"发起/结论"），
+      // 但**分档只有一处**：`fnthinkAgoBucket`。所以这里扫的是"谁在格式化这几句"，
+      // 允许它们在同一个文件里，绝不允许第二个文件自己算分钟/小时。
       final hits = <String>[];
       for (final f in Directory(
         '$root/lib',
@@ -31,7 +34,9 @@ void main() {
         if (rel.contains('/l10n/')) continue; // 生成物与词条表不是"作者"
         final src = read(rel);
         if (src.contains('healthProbedMinutes(') ||
-            src.contains('healthProbedHours(')) {
+            src.contains('healthProbedHours(') ||
+            src.contains('agoMinutes(') ||
+            src.contains('agoHours(')) {
           hits.add(rel);
         }
       }
@@ -45,8 +50,15 @@ void main() {
       final badge = read('lib/widgets/channel_health_badge.dart');
       expect(
         badge,
-        contains('healthProbedHours(ago ~/ (60 * 60 * 1000))'),
-        reason: '小时那一句的除数必须是 60*60*1000 —— 徽标旧抄本写的是 ~/ (60 * 1000)',
+        contains('ago ~/ (60 * 60 * 1000)'),
+        reason:
+            '小时那一句的除数必须是 60*60*1000 —— 徽标旧抄本写的是 ~/ (60 * 1000)。'
+            '它现在住在 `fnthinkAgoBucket` 里（两句共用的那把尺），不在调用点上',
+      );
+      expect(
+        badge,
+        contains('inHours'),
+        reason: '分档只许有一处判：两句都从同一个 bucket 取分钟还是小时',
       );
     });
 

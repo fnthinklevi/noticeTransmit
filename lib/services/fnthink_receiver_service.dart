@@ -194,6 +194,7 @@ class FnthinkReceiverService {
       receipts: result.receipts,
       pending: result.pending,
       pairRequests: result.pairRequests,
+      sentPairRequests: result.sentPairRequests,
       nextDelay: result.nextDelay,
       signedWhileUncalibrated: result.signedWhileUncalibrated,
       reason: result.reason,
@@ -526,6 +527,7 @@ class FnthinkReceiveOutcome {
     this.receipts = const [],
     this.pending = 0,
     this.pairRequests = const [],
+    this.sentPairRequests = const [],
     required this.nextDelay,
     this.signedWhileUncalibrated = false,
     this.reason,
@@ -540,6 +542,10 @@ class FnthinkReceiveOutcome {
   /// 类型是内核解析过的那一种，不是 `Object?`：留成 `Object?` 的话，"少一个键"这件事
   /// 要等到页面动手到一半才发现，而它的表现是那一栏永远是空的。
   final List<FnthinkPairRequest> pairRequests;
+
+  /// 这一轮 poll 带回来的**本机发起过**的配对请求（`pairRequest.sentPollKey` 那一项，T110）。
+  /// 与上面那一份是两个主语：那一条等本机答复，这一条等对面答复，且它**含终态**。
+  final List<FnthinkSentPairRequest> sentPairRequests;
   final Duration nextDelay;
 
   /// 还没学到服务端时间就签了这一发 —— 值得让 UI 说一次"请先校准设备时钟"，
@@ -558,6 +564,8 @@ class FnthinkReceiveOutcome {
     if (pairRequests.isNotEmpty) {
       parts.add('待本机答复的配对请求 ${pairRequests.length} 条');
     }
+    // 发起面（T110）不进这一句：它含终态，是"最近发过哪几条"的历史，而这一句说的是
+    // "这一轮带回来什么要本机动手的东西"。把历史数进去会让每次轮询都重复报一次。
     if (signedWhileUncalibrated) parts.add('时间未校准');
     return parts.join('，');
   }

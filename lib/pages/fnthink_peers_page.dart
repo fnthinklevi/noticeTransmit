@@ -14,6 +14,7 @@ import '../services/fnthink_pair_link.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../theme/app_colors.dart';
+import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/fnthink_pair_dialog.dart';
@@ -239,6 +240,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
             FnthinkNote(keyName: 'fnthink-peers-contract-error', text: error)
           else ...[
             _buildPairRequests(l10n),
+            _buildSentRequests(l10n),
             _buildPeersCard(l10n),
           ],
         ],
@@ -292,6 +294,72 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     );
   }
 
+  /// 「我发起过的配对请求」那一格（T110 第二面）。
+  ///
+  /// 这一格答的是维护者那句「我怎么看对方进度？」：上面那一格是"别人等我答"，这里是"我等别人答"。
+  /// 与待答复那格的三条纪律同源：列表走协调者那份账（`sentPairRequestsListenable`，
+  /// 只在真跑成的一轮更新）、页面不自己 poll、空列表**不画这一格**。
+  ///
+  /// ⚠ 空列表不画，也**不许**画成"没有被拒绝过"：服务端把终态记录留到那条请求的 TTL 到期为止
+  ///   （引用的是口令那一个 TTL），之后剪掉；应用重启后这一份也就是空的。所以"空"在这里
+  ///   有三种来路（没发起过／都过期被剪了／这一台还没跑成过一轮），而那三种都不是
+  ///   "没有发生过"——一句都不说，比说一句假的诚实。
+  /// ⚠ 这一行**没有任何可点的按钮**：本机对这一条能做的事一件都没有（同意只能由对面那台点，
+  ///   契约 `pairing.relationshipStoredOn` 把关系记在被投那台的记录上）。摆一枚"重试"会让用户
+  ///   以为重扫一次码能替对面点头。
+  Widget _buildSentRequests(AppLocalizations l10n) {
+    return ListenableBuilder(
+      listenable: _coordinator.sentPairRequestsListenable,
+      builder: (context, _) {
+        final rows = _coordinator.sentPairRequests;
+        if (rows.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: FnthinkCard(
+            title: l10n.fnthinkPairRequestsSent,
+            children: [
+              for (final row in rows)
+                FnthinkNote(
+                  keyName: 'fnthink-pair-sent-${row.requestId}',
+                  text: l10n.fnthinkPairSentLine(
+                    row.target,
+                    row.level.isEmpty ? '—' : row.level,
+                    _pairStateLabel(l10n, row),
+                    // 「多久之前」问的是**这一档状态是什么时候成的**：还在等的说它等了多久，
+                    // 已答复/已过期的说结论是几时落的。取不到结论时刻（pending 那一条服务端
+                    // 还没写过状态变更）才退到发起那一刻 —— 退的是同一件事的更早出处，不是猜。
+                    fnthinkAgoLabel(
+                          l10n,
+                          row.statusAt > 0 ? row.statusAt : row.createdAt,
+                        ) ??
+                        '—',
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 那一档状态说哪句话。**词与档的对应不在这里**（在内核那份状态映射里，词表来自契约），
+  /// 这里只做措辞 —— 所以契约把 `approved` 改名的那一天，这一句会跟着换，而不是继续说"已同意"。
+  String _pairStateLabel(AppLocalizations l10n, FnthinkSentPairRequest row) {
+    switch (row.state) {
+      case FnthinkPairRequestState.pending:
+        return l10n.fnthinkPairStatePending;
+      case FnthinkPairRequestState.approved:
+        return l10n.fnthinkPairStateApproved;
+      case FnthinkPairRequestState.denied:
+        return l10n.fnthinkPairStateDenied;
+      case FnthinkPairRequestState.expired:
+        return l10n.fnthinkPairStateExpired;
+      case FnthinkPairRequestState.unknown:
+        // 词表外的值：把原话摊出来。画成"失败"会让人去重扫一次码，而那一发会消耗新口令。
+        return l10n.fnthinkPairStateUnknown(row.status);
+    }
+  }
+
   List<Widget> _pairRequestRows(
     AppLocalizations l10n,
     FnthinkPairRequest request,
@@ -304,7 +372,13 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     return [
       FnthinkNote(
         keyName: 'fnthink-pair-request-${request.requestId}',
-        text: l10n.fnthinkPairRequestLine(request.requester, request.level),
+        text: l10n.fnthinkPairRequestLine(
+          request.requester,
+          request.level,
+          // 「多久之前」只有这一份口径（与通道健康度那句共用同一把尺，见 `fnthinkAgoBucket`）；
+          // 服务端没带创建时刻就写 '—'，不拿"此刻"凑一条看起来刚刚请求过的。
+          fnthinkAgoLabel(l10n, request.createdAt) ?? '—',
+        ),
       ),
       if (capped)
         FnthinkNote(

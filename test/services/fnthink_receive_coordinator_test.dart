@@ -959,6 +959,93 @@ void main() {
       );
     });
 
+    // ── T110 第二面：本机发起过的那些（含终态）也要有人接住，且入口行那个计数只有一个出处 ──
+    FnthinkSentPairRequest sent(
+      String status,
+      FnthinkPairRequestState state, {
+      String id = 'pr_5',
+    }) => FnthinkSentPairRequest(
+      requestId: id,
+      target: '7YD4RKQPBM8XZ3VHNT',
+      status: status,
+      state: state,
+      level: 'L1',
+      createdAt: 1780000000000,
+      expiresAt: 1780000060000,
+      statusAt: 0,
+    );
+
+    test('后台那一轮看到的「我发起过的请求」被接住，listenable 跟着响', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final rec = _LoopRecorder()
+        ..pollSentPairRequests = [
+          sent('approved', FnthinkPairRequestState.approved),
+        ];
+      final c = coordinator(recorder: rec);
+      var sounded = 0;
+      c.sentPairRequestsListenable.addListener(() => sounded++);
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      expect(c.sentPairRequests, hasLength(1));
+      expect(
+        sounded,
+        greaterThan(0),
+        reason:
+            '页面挂的是这一份 listenable；不响的话那一格就停在进来时那一份上，'
+            '而"什么时候该看"的口径就又长回界面里了',
+      );
+    });
+
+    test('失败的那一轮也不清空「已发出的请求」那一份', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final rec = _LoopRecorder()
+        ..pollSentPairRequests = [
+          sent('approved', FnthinkPairRequestState.approved),
+        ];
+      final c = coordinator(recorder: rec);
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      rec.pollStatus = FnthinkPollStatus.transportError;
+      rec.pollSentPairRequests = const [];
+      await c.receiveOnce();
+      expect(
+        c.sentPairRequests,
+        hasLength(1),
+        reason: '一次抖动之后把"对方已经同意"抹掉，屏幕上那张表就说这件事没发生过',
+      );
+    });
+
+    test('两个数是两件事：等本机答复的 N 与还在等对面的 M，各算各的', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final rec = _LoopRecorder()
+        ..pollPairRequests = [req('L1')]
+        ..pollSentPairRequests = [
+          sent('pending', FnthinkPairRequestState.pending, id: 'pr_a'),
+          sent('approved', FnthinkPairRequestState.approved, id: 'pr_b'),
+          sent('denied', FnthinkPairRequestState.denied, id: 'pr_c'),
+        ];
+      final c = coordinator(recorder: rec);
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      expect(c.pendingPairRequestCount, 1);
+      expect(
+        c.outgoingPairRequestsWaiting,
+        1,
+        reason:
+            '三条里只有一条还在等对面；把终态也数进去，入口行会永远挂着'
+            '"还在等 3 条"这句已经过去的账',
+      );
+    });
+
     test('答复成功 ⇒ 那一条立刻从待确认列表里摘掉', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
@@ -2116,6 +2203,9 @@ class _LoopRecorder {
   FnthinkPollStatus pollStatus = FnthinkPollStatus.ok;
   List<FnthinkPairRequest> pollPairRequests = const [];
 
+  /// T110 第二面：本机**发起过**的那些（含终态）。这一份也要有人接住。
+  List<FnthinkSentPairRequest> pollSentPairRequests = const [];
+
   FnthinkReceiveLoop build(FnthinkLoopSpec spec) {
     specs.add(spec);
     return FnthinkReceiveLoop(
@@ -2124,6 +2214,7 @@ class _LoopRecorder {
         return FnthinkReceiveOutcome(
           status: pollStatus,
           pairRequests: pollPairRequests,
+          sentPairRequests: pollSentPairRequests,
           nextDelay: const Duration(seconds: 20),
           reason: pollStatus == FnthinkPollStatus.ok ? null : 'simulated',
         );

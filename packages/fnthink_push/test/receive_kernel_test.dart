@@ -2101,4 +2101,176 @@ void main() {
       expect(result.ready, isNull);
     });
   });
+
+  // ── T110 第二面：同一发 poll 里"我发起过的那些"也要能解析出来 ──
+  group('T110：发起面（sentPairRequests）与它那五个状态档', () {
+    Map<String, Object?> twoFaces({
+      List<Object?> incoming = const [],
+      List<Object?> outgoing = const [],
+    }) => {
+      'messages': const [],
+      'receipts': const [],
+      'pending': 0,
+      'serverTime': 1800000000000,
+      // 两个键名都从契约取：这里写死就等于承认"键名可以有两处作者"。
+      contract.pairRequestPollKey: incoming,
+      contract.pairRequestSentPollKey: outgoing,
+    };
+
+    Map<String, Object?> sentRow({
+      String id = 'pr_9',
+      Object? target = _peer,
+      Object? status = 'approved',
+      Object? level = 'L1',
+      Object? at = 1780000000000,
+    }) => {
+      'id': id,
+      'target': target,
+      'level': level,
+      'status': status,
+      'createdAt': 1780000000000,
+      'expiresAt': 1780000060000,
+      'at': at,
+    };
+
+    test('发起面解析出一条，三个时刻与状态词都在', () async {
+      final harness = _Harness(contract, 1_800_000_000_000)
+        ..reply = FnthinkReply(
+          status: 200,
+          body: twoFaces(outgoing: [sentRow()]),
+        );
+      final row = (await harness.kernel().poll()).sentPairRequests.single;
+      expect(row.requestId, 'pr_9');
+      expect(row.target, _peer);
+      expect(row.status, 'approved');
+      expect(row.statusAt, 1780000000000);
+      expect(row.createdAt, 1780000000000);
+      expect(row.expiresAt, 1780000060000);
+    });
+
+    test('两面各读各的键：发起面有货不会填进待答复那一份', () async {
+      final harness = _Harness(contract, 1_800_000_000_000)
+        ..reply = FnthinkReply(
+          status: 200,
+          body: twoFaces(outgoing: [sentRow()]),
+        );
+      final result = await harness.kernel().poll();
+      expect(result.pairRequests, isEmpty);
+      expect(result.sentPairRequests, hasLength(1));
+    });
+
+    test('`at` 没给或形状不对 ⇒ 0（"还不知道"），但这一条照收', () async {
+      final harness = _Harness(contract, 1_800_000_000_000)
+        ..reply = FnthinkReply(
+          status: 200,
+          body: twoFaces(
+            outgoing: [
+              sentRow(at: null),
+              sentRow(id: 'pr_8', at: 'x'),
+            ],
+          ),
+        );
+      final rows = (await harness.kernel().poll()).sentPairRequests;
+      expect(rows, hasLength(2));
+      expect(rows[0].statusAt, 0);
+      expect(rows[1].statusAt, 0);
+    });
+
+    test('主键缺的那条被丢掉：宁可少一行，也不画一行"配对过某个谁，状态是空的"', () {
+      expect(
+        FnthinkSentPairRequest.tryFrom(contract, sentRow(target: null)),
+        isNull,
+      );
+      expect(
+        FnthinkSentPairRequest.tryFrom(contract, sentRow(status: '')),
+        isNull,
+      );
+      expect(FnthinkSentPairRequest.tryFrom(contract, sentRow(id: '')), isNull);
+      expect(FnthinkSentPairRequest.tryFrom(contract, {'id': 'x'}), isNull);
+      // 档位是可选的：缺了就画成"没给档位"，不许替对面猜一个 L1。
+      expect(
+        FnthinkSentPairRequest.tryFrom(contract, sentRow(level: null))!.level,
+        '',
+      );
+    });
+
+    test('解析这一步就把状态归好档：下游拿不到契约也不会各自抄一份词表', () {
+      final approve = contract.pairConfirmApproveDecision;
+      expect(
+        FnthinkSentPairRequest.tryFrom(
+          contract,
+          sentRow(status: approve),
+        )!.state,
+        FnthinkPairRequestState.approved,
+      );
+      expect(
+        FnthinkSentPairRequest.tryFrom(
+          contract,
+          sentRow(status: contract.pairRequestInitialStatus),
+        )!.state,
+        FnthinkPairRequestState.pending,
+      );
+    });
+
+    test('四个状态词各归一档，词表外那个算"不认识"（不猜成失败也不猜成同意）', () {
+      String word(int index) => contract.pairRequestStatuses[index];
+      final approve = contract.pairConfirmApproveDecision;
+      final denied = contract.pairConfirmDecisions.firstWhere(
+        (d) => d != approve,
+      );
+      final expired = contract.pairRequestTerminalStatuses.firstWhere(
+        (t) => t != approve && !contract.pairConfirmDecisions.contains(t),
+      );
+      expect(
+        fnthinkPairRequestStateOf(contract, word(0)),
+        FnthinkPairRequestState.pending,
+      );
+      expect(
+        fnthinkPairRequestStateOf(contract, approve),
+        FnthinkPairRequestState.approved,
+      );
+      expect(
+        fnthinkPairRequestStateOf(contract, denied),
+        FnthinkPairRequestState.denied,
+      );
+      expect(
+        fnthinkPairRequestStateOf(contract, expired),
+        FnthinkPairRequestState.expired,
+      );
+      expect(
+        fnthinkPairRequestStateOf(contract, 'granted'),
+        FnthinkPairRequestState.unknown,
+        reason: '契约换了词表而这份实现没跟上 ⇒ 说"不认识"，不说"失败了"',
+      );
+    });
+
+    test('归类是从契约推的：把"同意"那个词改名，同一串的归类跟着变', () {
+      final raw = jsonDecode(jsonEncode(contract.raw)) as Map<String, Object?>;
+      final confirm = (raw['clientEvents']! as Map)['pairConfirm']! as Map;
+      confirm['approveDecision'] = 'granted';
+      confirm['decisions'] = const ['granted', 'denied'];
+      // statuses / terminalStatuses 一起改，否则这份副本自己就不闭合了。
+      final pr = raw['pairRequest']! as Map;
+      pr['statuses'] = const ['pending', 'granted', 'denied', 'expired'];
+      pr['terminalStatuses'] = const ['granted', 'denied', 'expired'];
+      final renamed = FnthinkContract(raw);
+      expect(
+        fnthinkPairRequestStateOf(renamed, 'granted'),
+        FnthinkPairRequestState.approved,
+      );
+      expect(
+        fnthinkPairRequestStateOf(renamed, 'denied'),
+        FnthinkPairRequestState.denied,
+      );
+      expect(
+        fnthinkPairRequestStateOf(renamed, 'expired'),
+        FnthinkPairRequestState.expired,
+      );
+      // 反向自证：真契约上 'granted' 谁都不算（说明上面那条红不是因为这个词被写死了）。
+      expect(
+        fnthinkPairRequestStateOf(contract, 'granted'),
+        FnthinkPairRequestState.unknown,
+      );
+    });
+  });
 }

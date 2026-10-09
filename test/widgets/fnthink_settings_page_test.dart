@@ -109,6 +109,7 @@ void main() {
     List<String> messages = const [],
     int pending = 0,
     List<FnthinkPairRequest> pairRequests = const [],
+    List<FnthinkSentPairRequest> sentPairRequests = const [],
     Future<void> Function()? gate,
     bool contractOk = true,
     String? contractText,
@@ -302,6 +303,7 @@ void main() {
               ],
               pending: pending,
               pairRequests: pairRequests,
+              sentPairRequests: sentPairRequests,
               nextDelay: const Duration(seconds: 20),
             );
           },
@@ -1317,6 +1319,7 @@ void main() {
     Future<({AppLocalizations l10n, _Harness h})> openWith(
       WidgetTester tester, {
       required List<FnthinkPairRequest> requests,
+      List<FnthinkSentPairRequest> sentRequests = const [],
       int confirmStatus = 200,
       String? confirmBody,
       Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
@@ -1328,6 +1331,7 @@ void main() {
       });
       final h = harness(
         pairRequests: requests,
+        sentPairRequests: sentRequests,
         confirmStatus: confirmStatus,
         confirmBody:
             confirmBody ??
@@ -1363,7 +1367,14 @@ void main() {
         reason: '后台每轮带回来的东西要能自己上界面：用户挂出口令之后是盯着屏幕等的',
       );
       expect(
-        find.text(ctx.l10n.fnthinkPairRequestLine('8KMNPQRSTVWX999777', 'L1')),
+        find.text(
+          ctx.l10n.fnthinkPairRequestLine(
+            '8KMNPQRSTVWX999777',
+            'L1',
+            // 替身那条请求没带创建时刻 ⇒ 这一句说 '—'，不拿"此刻"凑一条看起来刚刚请求过的。
+            '—',
+          ),
+        ),
         findsOneWidget,
       );
       expect(
@@ -1385,6 +1396,121 @@ void main() {
         reason: '一张永远空的表等于让界面猜',
       );
       expect(find.byKey(const ValueKey('fnthink-pair-answer')), findsNothing);
+    });
+
+    // ── T110 第二面：本机发起过的那些（等对面答复）也要在页上有一格 ──
+    FnthinkSentPairRequest sentRow({
+      String id = 'pr_5',
+      String target = '7YD4RKQPBM8XZ3VHNT',
+      String status = 'approved',
+      FnthinkPairRequestState state = FnthinkPairRequestState.approved,
+      int statusAt = 0,
+    }) => FnthinkSentPairRequest(
+      requestId: id,
+      target: target,
+      status: status,
+      state: state,
+      level: 'L1',
+      createdAt: DateTime.now().millisecondsSinceEpoch - 7 * 60 * 1000,
+      expiresAt: DateTime.now().millisecondsSinceEpoch + 60 * 1000,
+      statusAt: statusAt,
+    );
+
+    testWidgets('我发起过 ⇒ 「已发出的请求」这一格自己出现，行上是那台、那一档、那一句状态', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: const [],
+        sentRequests: [sentRow()],
+      );
+      expect(
+        find.text(ctx.l10n.fnthinkPairRequestsSent),
+        findsOneWidget,
+        reason: '发起之后两边都没有落点，正是这一条任务要修的缺口',
+      );
+      expect(
+        find.text(
+          ctx.l10n.fnthinkPairSentLine(
+            '7YD4RKQPBM8XZ3VHNT',
+            'L1',
+            ctx.l10n.fnthinkPairStateApproved,
+            // 没带"状态变更那一刻"⇒ 退到发起那一刻，说的是"7 分钟前"，不是"刚刚"。
+            '7 分钟前',
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('这一格里一个按钮都没有：同意只能由对面那台点', (tester) async {
+      stubChannels();
+      await openWith(tester, requests: const [], sentRequests: [sentRow()]);
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-approve-pr_5')),
+        findsNothing,
+        reason: '在这台"替对面点头"正是契约 pairing.autoApprove=false 禁的那一下',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-pair-deny-pr_5')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('对面还没答 ⇒ 说的是"还在等对方答复"，不是"失败了"', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: const [],
+        sentRequests: [
+          sentRow(
+            id: 'pr_6',
+            status: 'pending',
+            state: FnthinkPairRequestState.pending,
+          ),
+        ],
+      );
+      expect(
+        find.textContaining(ctx.l10n.fnthinkPairStatePending),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(ctx.l10n.fnthinkPairStateApproved),
+        findsNothing,
+      );
+    });
+
+    testWidgets('词表外的状态词 ⇒ 把原话摊出来，不翻译成"被拒"也不翻译成"失败"', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: const [],
+        sentRequests: [
+          sentRow(
+            id: 'pr_7',
+            status: 'granted',
+            state: FnthinkPairRequestState.unknown,
+          ),
+        ],
+      );
+      expect(
+        find.textContaining(ctx.l10n.fnthinkPairStateUnknown('granted')),
+        findsOneWidget,
+        reason: '契约换了词表而这份实现没跟上时，说"不认识"才能让人去查，猜一个结论会让人去重扫一次码',
+      );
+    });
+
+    testWidgets('没发起过 ⇒ 这一格不存在，也不说一句"没有被拒绝过"', (tester) async {
+      stubChannels();
+      final ctx = await openWith(
+        tester,
+        requests: const [],
+        sentRequests: const [],
+      );
+      expect(find.text(ctx.l10n.fnthinkPairRequestsSent), findsNothing);
+      expect(
+        find.textContaining(ctx.l10n.fnthinkPairStateDenied),
+        findsNothing,
+      );
     });
 
     testWidgets('同意之前要二次确认，弹层上写的是本机实际会给到的那一档', (tester) async {

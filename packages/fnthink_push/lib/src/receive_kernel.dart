@@ -274,6 +274,12 @@ class FnthinkReceiveKernel {
       pairRequests: FnthinkPairRequest.parseList(
         reply.body[contract.pairRequestPollKey],
       ),
+      // 同一发 poll 的**另一面**（T110）：我发起过的那些现在算什么状态。键名也从契约读，
+      // 两面各一份，谁都不许在代码里拼那个字符串。
+      sentPairRequests: FnthinkSentPairRequest.parseList(
+        contract,
+        reply.body[contract.pairRequestSentPollKey],
+      ),
       signedWhileUncalibrated: signedWhileUncalibrated,
     );
   }
@@ -1600,6 +1606,7 @@ class FnthinkPollResult {
     this.receipts = const [],
     this.pending = 0,
     this.pairRequests = const [],
+    this.sentPairRequests = const [],
     required this.nextDelay,
     required this.signedWhileUncalibrated,
     this.reason,
@@ -1613,6 +1620,15 @@ class FnthinkPollResult {
   /// 等着本机答复的配对请求。**解析不出来的那几条被丢掉**（见 [FnthinkPairRequest.tryFrom]）：
   /// 宁可少显示一条，也不把一条键不对的请求画成"某人请求配对你"再让人去同意。
   final List<FnthinkPairRequest> pairRequests;
+
+  /// 本机**发起过**的配对请求（含终态）—— 同一发 poll 的另一面（T110）。
+  ///
+  /// 与上面那一份是两个主语：那一条按 `target` 选（别人请求配对我），这一条按 `requester`
+  /// 选（我请求配对别人），而且这一条**必须含终态** —— 发起方要的恰恰是"后来怎么样了"，
+  /// 只看 pending 的那份等于回答"还没人同意"然后永远停在那儿。
+  ///
+  /// ⚠ 同样只有 `status == ok` 时"空列表"才等于"没有发出去过"：失败的取货不产生判断。
+  final List<FnthinkSentPairRequest> sentPairRequests;
 
   /// 下一轮该等多久。**由内核算，不由调用方猜**：提频窗口与 `Retry-After` 都在这里。
   final Duration nextDelay;
@@ -1792,6 +1808,137 @@ class FnthinkPairRequest {
       expiresAt: expires is int ? expires : null,
     );
   }
+}
+
+/// 本机**发起过**的配对请求（poll 的 `pairRequest.sentPollKey` 那一项，T110 第二面）。
+///
+/// 与 [FnthinkPairRequest] 是两个主语，不是一个形状：那一条是"别人请求配对我、等我答"，
+/// 这一条是"我请求配对别人、等对方答"，所以它带 `target` 与 `status`（含终态），
+/// 而**没有** `requester`／`requesterPublicKey`／`codeDigest` —— 服务端那份投影按契约
+/// `pairRequest.sentFields` 挑字段，这三样一个都不出门（口令只活在那一次输入里，
+/// 而摘要是"能拿去比对的东西"）。
+///
+/// ⚠ `statusAt` 就是契约里那个 `at`（状态最后一次变更那一刻，0 = 服务端还没记过 ⇒
+/// 界面上那句"多久之前"不许出现，也不许拿"此刻"凑）。它与 T105 片③ 回执上的 `at` 同名同义。
+class FnthinkSentPairRequest {
+  const FnthinkSentPairRequest({
+    required this.requestId,
+    required this.target,
+    required this.status,
+    required this.state,
+    this.level = '',
+    this.createdAt = 0,
+    this.expiresAt = 0,
+    this.statusAt = 0,
+  });
+
+  /// 那条请求的 id。界面不拿它做任何事（本机对这条已经没有可写的动作），
+  /// 留着是为了排查时能与服务端那张表对上号。
+  final String requestId;
+
+  /// 我把配对请求发给了哪一台。
+  final String target;
+
+  /// 契约 `pairRequest.statuses` 里的那个词（词表外的值不是错误，是"还不认识"）。
+  final String status;
+
+  /// `status` 归到本机的哪一档 —— **在解析这一步就归好**（词表与推导关系都在契约上，
+  /// 内核手上有契约，而协调者／入口行／页面各处不一定有）。留一个字符串让下游自己比，
+  /// 下游就得各自再抄一份 'approved' 字面量 —— 那正是本仓在回执词表上撞过的那类错。
+  final FnthinkPairRequestState state;
+
+  /// 当时请求的是哪一档。空串 = 服务端没带这一列（不许画成"L1"，那是替对面做决定）。
+  final String level;
+
+  /// 这条什么时候立起来的（服务端时刻，本机时钟不算数）。0 = 不知道。
+  final int createdAt;
+
+  /// 这条什么时候作废。0 = 不知道（**不自己判过期**：过期由服务端裁，下一轮它就不回来了）。
+  final int expiresAt;
+
+  /// 状态最后一次变更的那一刻（`at`）。0 = 还没变更过（pending 那条就是这种）。
+  final int statusAt;
+
+  static List<FnthinkSentPairRequest> parseList(
+    FnthinkContract contract,
+    Object? raw,
+  ) {
+    if (raw is! List) return const [];
+    final out = <FnthinkSentPairRequest>[];
+    for (final item in raw) {
+      final parsed = tryFrom(contract, item);
+      if (parsed != null) out.add(parsed);
+    }
+    return out;
+  }
+
+  /// 键缺或类型不对 ⇒ 丢掉这一条（与 [FnthinkPairRequest.tryFrom] 同一条口径）：
+  /// "读成空字符串"会让这一行画成"我请求配对过某个谁，状态是空的"，
+  /// 而那一行既不能点也不能信 —— 宁可少一行。
+  static FnthinkSentPairRequest? tryFrom(
+    FnthinkContract contract,
+    Object? raw,
+  ) {
+    if (raw is! Map) return null;
+    String req(String key) {
+      final v = raw[key];
+      return v is String && v.isNotEmpty ? v : '';
+    }
+
+    final id = req('id');
+    final target = req('target');
+    final status = req('status');
+    if (id.isEmpty || target.isEmpty || status.isEmpty) return null;
+    int num(String key) {
+      final v = raw[key];
+      return v is int && v > 0 ? v : 0;
+    }
+
+    return FnthinkSentPairRequest(
+      requestId: id,
+      target: target,
+      status: status,
+      state: fnthinkPairRequestStateOf(contract, status),
+      level: req('level'),
+      createdAt: num('createdAt'),
+      expiresAt: num('expiresAt'),
+      statusAt: num('at'),
+    );
+  }
+}
+
+/// 配对请求的状态对本机意味着哪一档（T110：界面上那四个词各有各的来处，不许自己数）。
+enum FnthinkPairRequestState { pending, approved, denied, expired, unknown }
+
+/// 把契约封闭词表里的一个状态词翻成本机的五档。
+///
+/// 判据**全部**从契约的推导关系取，Dart 里没有一份第二个词表：
+///  - `initialStatus` ⇒ pending（还在等对面）；
+///  - `pairConfirm.approveDecision` ⇒ approved（那一个词代表同意，由契约说）；
+///  - `pairConfirm.decisions` 里的另一个 ⇒ denied（本机答复写得出来的两个词之一）；
+///  - 终态里既不是同意也不在 decisions 里的那一个 ⇒ expired（服务端自己写的那一档，
+///    `pairing.autoApprove=false` 保证了答复写不出它）；
+///  - 其余 ⇒ unknown。词表外的值**不是崩溃也不是猜**：界面画"不认识的那个词"，
+///    因为契约改了而这份实现没跟上时，说"不认识"比说"失败了"诚实。
+FnthinkPairRequestState fnthinkPairRequestStateOf(
+  FnthinkContract contract,
+  String status,
+) {
+  if (status == contract.pairRequestInitialStatus) {
+    return FnthinkPairRequestState.pending;
+  }
+  if (status == contract.pairConfirmApproveDecision) {
+    return FnthinkPairRequestState.approved;
+  }
+  if (contract.pairConfirmDecisions.contains(status)) {
+    return FnthinkPairRequestState.denied;
+  }
+  final terminal = contract.pairRequestTerminalStatuses;
+  if (terminal.contains(status) &&
+      !contract.pairConfirmDecisions.contains(status)) {
+    return FnthinkPairRequestState.expired;
+  }
+  return FnthinkPairRequestState.unknown;
 }
 
 /// B 侧交出口令的结论（#176 / T28-B）。

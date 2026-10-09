@@ -383,6 +383,34 @@ class FnthinkReceiveCoordinator {
   /// 页面上那张待确认列表的数据源（不在这里判断过期：过期由服务端裁，下一轮 poll 就不带回来了）。
   List<FnthinkPairRequest> get pendingPairRequests => _pairRequests.value;
 
+  /// 最近一轮 poll 看到的、**本机发起过**的配对请求（含终态，T110 第二面）。
+  ///
+  /// 与上面那一份共用同样的三条纪律（只在 `ok` 轮更新、`ValueNotifier` 让后台那笔账自己上界面、
+  /// 不在这里判过期），差别只有一个主语：那一条是"别人等我答"，这一条是"我在等别人答"。
+  ///
+  /// ⚠ 这一份**不落盘**：服务端把终态记录留到该请求的 TTL 到期为止（引用的是口令那一个 TTL，
+  ///   契约 `pairRequest.ttlSecondsFrom`），之后剪掉。所以重启后这张表是空的，那**不等于**
+  ///   "没发起过" —— 界面在空列表时不画这一格、也不说"没有被拒过"，它什么都不说。
+  final ValueNotifier<List<FnthinkSentPairRequest>> _sentPairRequests =
+      ValueNotifier<List<FnthinkSentPairRequest>>(const []);
+
+  /// 「我发起过的配对请求」那张表的数据源（页面挂它，不自己 poll、也不自己数）。
+  Listenable get sentPairRequestsListenable => _sentPairRequests;
+
+  List<FnthinkSentPairRequest> get sentPairRequests => _sentPairRequests.value;
+
+  /// 本机发起、对面**还没给结论**的那几条（入口行那句"还在等 N 条"的出处，T110 ④）。
+  ///
+  /// 数的是内存里这一份账（`_sentPairRequests`），不查库也不现 poll：这一句要说的是
+  /// "这一台看见过的、还在等的"，而把口径交给页面自己数就会出现"入口行说 2、进去列表 3 行"。
+  int get outgoingPairRequestsWaiting => _sentPairRequests.value
+      .where((r) => r.state == FnthinkPairRequestState.pending)
+      .length;
+
+  /// 等本机答复的那几条的条数（T110 ④：新请求不许静默等着）。空列表时页面**不画那一格**，
+  /// 所以这个数与那张卡片是同一个来源、同一个时刻 —— 不是两处各数一遍。
+  int get pendingPairRequestCount => _pairRequests.value.length;
+
   /// 这一台**已经答复过、且服务端已经结掉**的请求 id。
   ///
   /// 为什么需要它：一次 poll 可能在用户点下同意**之前**就出发了，它的回信里那条还在 ——
@@ -407,6 +435,9 @@ class FnthinkReceiveCoordinator {
   void _noteRound(FnthinkLoopReport report) {
     if (report.status == FnthinkPollStatus.ok) {
       _pairRequests.value = _withoutAnswered(report.pairRequests);
+      // 另一面（T110）同一条纪律：失败的那一轮不产生判断，所以不清空这一份 —— 一次抖动之后
+      // 把"我发起的那条被拒了"从屏幕上抹掉，用户读到的是"这条没发生过"。
+      _sentPairRequests.value = report.sentPairRequests;
     }
     // 失败的那一轮同样要续排：transportError / 429 说明"这一路还活着，只是这次没取到"，
     // 停在这儿等于"一次网络抖动就把这台永久叫醒的机会弄没了"。

@@ -3256,8 +3256,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairRequests => '等你答复的配对请求';
 
   @override
-  String fnthinkPairRequestLine(String peer, String level) {
-    return '$peer 请求配对你，要的是 $level';
+  String fnthinkPairRequestLine(String peer, String level, String at) {
+    return '$peer 请求配对你，要的是 $level · $at';
+  }
+
+  @override
+  String get fnthinkPairRequestsSent => '我发起过的配对请求';
+
+  @override
+  String fnthinkPairSentLine(
+    String peer,
+    String level,
+    String status,
+    String at,
+  ) {
+    return '发给 $peer · 要的是 $level · $status · $at';
+  }
+
+  @override
+  String get fnthinkPairStatePending => '还在等对方答复';
+
+  @override
+  String get fnthinkPairStateApproved => '对方已同意';
+
+  @override
+  String get fnthinkPairStateDenied => '对方已拒绝';
+
+  @override
+  String get fnthinkPairStateExpired => '那枚口令已过期';
+
+  @override
+  String fnthinkPairStateUnknown(String status) {
+    return '不认识的状态：$status';
+  }
+
+  @override
+  String agoMinutes(int n) {
+    return '$n 分钟前';
+  }
+
+  @override
+  String agoHours(int n) {
+    return '$n 小时前';
+  }
+
+  @override
+  String fnthinkHubPeersWaiting(int n) {
+    return '有 $n 条在等你答复';
+  }
+
+  @override
+  String fnthinkHubPeersOutgoing(int n) {
+    return '还在等对方答复 $n 条';
   }
 
   @override
