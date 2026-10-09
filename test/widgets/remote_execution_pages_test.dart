@@ -160,6 +160,10 @@ void main() {
               );
             },
       );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
       expect(called, isFalse);
@@ -188,6 +192,10 @@ void main() {
       );
       await tester.tap(
         find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
@@ -219,6 +227,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('remote-send-action-notification')),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
@@ -261,6 +273,10 @@ void main() {
         find.byKey(const ValueKey('remote-send-action-listener:start')),
       );
       await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
       await tester.pumpAndSettle();
       // 二次确认那一层：先过掉它
@@ -287,6 +303,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('remote-send-action-listener:start')),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('remote-send-submit')));

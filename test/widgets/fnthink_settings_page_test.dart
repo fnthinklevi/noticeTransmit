@@ -2918,6 +2918,10 @@ void main() {
       final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, title: '到家了', body: '门已开');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('fnthink-send-submit')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
       await tester.pumpAndSettle();
 
@@ -3005,6 +3009,10 @@ void main() {
       final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '发一条试试');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('fnthink-send-submit')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
       await tester.pumpAndSettle();
       expect(find.text(l10n.fnthinkSendRejectedCapability), findsOneWidget);
@@ -3030,6 +3038,10 @@ void main() {
       final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '排队里挤掉了两条');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('fnthink-send-submit')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
       await tester.pumpAndSettle();
       expect(
@@ -3058,6 +3070,10 @@ void main() {
       final l10n = await pumpPeers(tester, h);
       await tapSend(tester);
       await fill(tester, body: '签不出来也要试');
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('fnthink-send-submit')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
       await tester.pumpAndSettle();
       expect(h.sendAsked(), isEmpty);

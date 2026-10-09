@@ -5882,6 +5882,54 @@ abstract class AppLocalizations {
   /// **'这一步'**
   String get fnthinkConsentGateThisStep;
 
+  /// No description provided for @fnthinkSendTargetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'发给谁'**
+  String get fnthinkSendTargetTitle;
+
+  /// No description provided for @fnthinkSendTargetDevices.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配对的设备'**
+  String get fnthinkSendTargetDevices;
+
+  /// No description provided for @fnthinkSendTargetNoPeer.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台还没配对过任何设备 —— 先去「设备配对」那一页配一台，或在下面选一条 Webhook 通道。'**
+  String get fnthinkSendTargetNoPeer;
+
+  /// No description provided for @fnthinkSendTargetWebhooks.
+  ///
+  /// In zh, this message translates to:
+  /// **'Webhook 通道'**
+  String get fnthinkSendTargetWebhooks;
+
+  /// No description provided for @fnthinkSendTargetWebhookEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有启用的 Webhook 通道 —— 去「幻念通道」那一页建一条（填接入端点的推送地址，并开着它）。'**
+  String get fnthinkSendTargetWebhookEmpty;
+
+  /// No description provided for @fnthinkSendTargetWebhookOnlyForNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程指令只能发给已配对的设备：Webhook 那条没有配对关系、也没有档位授权。要发到通道就切回「一条通知」。'**
+  String get fnthinkSendTargetWebhookOnlyForNotice;
+
+  /// No description provided for @fnthinkSendNoticeVsCommand.
+  ///
+  /// In zh, this message translates to:
+  /// **'「一条通知」是让对面看到一段内容（那边不需要任何授权、也不执行动作）；「一条远程指令」是让对面做一件事（要配对关系与档位授权，最高那一档还要过延时确认）。'**
+  String get fnthinkSendNoticeVsCommand;
+
+  /// No description provided for @fnthinkHubSendDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档'**
+  String get fnthinkHubSendDesc;
+
   /// No description provided for @fnthinkHealthNever.
   ///
   /// In zh, this message translates to:
@@ -7926,12 +7974,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。'**
   String get remotePeersReadFailed;
-
-  /// No description provided for @remoteSendPickPeer.
-  ///
-  /// In zh, this message translates to:
-  /// **'发给哪一台'**
-  String get remoteSendPickPeer;
 
   /// No description provided for @remoteActionListenerStart.
   ///

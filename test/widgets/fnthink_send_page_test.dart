@@ -7,6 +7,7 @@ import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/services/fnthink_webhook_targets.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
@@ -58,6 +59,10 @@ void main() {
     String prefillBody = '',
     FnthinkSendTier initialTier = FnthinkSendTier.notice,
     void Function(String peer, String title, String text)? onSend,
+    // T122：Webhook 那一组的两个注入口（不传 ⇒ 默认空名单，页面画"还没有启用的通道"）。
+    Future<List<FnthinkWebhookTarget>?> Function()? loadWebhooks,
+    void Function(FnthinkWebhookTarget target, String title, String body)?
+    onSendWebhook,
   }) async {
     tester.view.physicalSize = const Size(1080, 4200);
     tester.view.devicePixelRatio = 3.0;
@@ -87,6 +92,19 @@ void main() {
                   );
                 },
             contractOf: contractOf ?? () async => contract,
+            loadWebhooks: loadWebhooks ?? () async => const [],
+            sendToWebhook:
+                ({
+                  required FnthinkWebhookTarget target,
+                  required String title,
+                  required String body,
+                }) async {
+                  onSendWebhook?.call(target, title, body);
+                  return const FnthinkSendResult(
+                    status: FnthinkSendStatus.accepted,
+                    messageId: 'm_hook_1',
+                  );
+                },
           ),
         ),
       ),
@@ -178,7 +196,8 @@ void main() {
         tester.element(find.byType(FnthinkSendPage)),
       );
       expect(find.text(l10n.remotePeersReadFailed), findsOneWidget);
-      expect(find.text(l10n.remoteHistoryEmpty), findsNothing);
+      // T123：空名单那句**不再是**「还没有任何远程执行记录」（那是执行历史那格的话，串台）
+      expect(find.text(l10n.fnthinkSendTargetNoPeer), findsNothing);
     });
 
     testWidgets('真的空着 ⇒ 是那句"还没有配对过任何设备"，不是读不出来', (tester) async {
@@ -186,7 +205,9 @@ void main() {
       final l10n = AppLocalizations.of(
         tester.element(find.byType(FnthinkSendPage)),
       );
-      expect(find.text(l10n.remoteHistoryEmpty), findsOneWidget);
+      // T123 的正解：空名单说的是"还没配对过设备"（并给出处），不是"没有执行历史"。
+      expect(find.text(l10n.fnthinkSendTargetNoPeer), findsOneWidget);
+      expect(find.text(l10n.remoteHistoryEmpty), findsNothing);
       expect(find.text(l10n.remotePeersReadFailed), findsNothing);
     });
   });
@@ -271,6 +292,66 @@ void main() {
       lessThan(
         tester.getTopLeft(find.byKey(const ValueKey('remote-send-submit'))).dy,
       ),
+    );
+  });
+
+  // T122：目标二选一 —— Webhook 那一类
+  const hook = FnthinkWebhookTarget(
+    channelId: 'fc_hook_1',
+    name: 'NAS 的端点',
+    target: 'https://push.example.com/api/fnthink/p/ep_1/SECRET000000000000000',
+  );
+
+  testWidgets('通知档选一条 Webhook 通道 ⇒ 那一发把标题与正文交给 sendToWebhook（不再走设备那一发）', (
+    tester,
+  ) async {
+    FnthinkWebhookTarget? gotTarget;
+    String? gotTitle;
+    String? gotBody;
+    var deviceSent = 0;
+    await pump(
+      tester,
+      loadWebhooks: () async => const [hook],
+      onSend: (p, t, x) => deviceSent++,
+      onSendWebhook: (target, title, body) {
+        gotTarget = target;
+        gotTitle = title;
+        gotBody = body;
+      },
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('fnthink-send-body')),
+      '门已开',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('fnthink-send-target-webhook-fc_hook_1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
+    await tester.pumpAndSettle();
+
+    expect(gotTarget?.channelId, 'fc_hook_1');
+    expect(gotTitle, '');
+    expect(gotBody, '门已开');
+    expect(deviceSent, 0, reason: '选了 Webhook 还往设备那一发打 ⇒ 目标选择器形同虚设');
+  });
+
+  testWidgets('指令档里 Webhook 那一组**不出现**，只有一句原因', (tester) async {
+    await pump(
+      tester,
+      initialTier: FnthinkSendTier.command,
+      loadWebhooks: () async => const [hook],
+    );
+    expect(
+      find.byKey(const ValueKey('fnthink-send-target-webhook-fc_hook_1')),
+      findsNothing,
+      reason: '指令档列出一个发不出去的目标（Webhook 没有配对关系与档位授权）',
+    );
+    expect(
+      find.byKey(const ValueKey('fnthink-send-target-webhook-only-notice')),
+      findsOneWidget,
+      reason: '不列它就要说清为什么 —— 一句不写的"少了一组"看起来像页面坏了',
     );
   });
 }

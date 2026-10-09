@@ -150,6 +150,9 @@ void main() {
       const wanted = [
         'engine-fnthink-receive',
         'engine-fnthink-peers',
+        // T122：新加的那一扇门。位置是维护者列的先后里唯一没有明说的那一格 ⇒
+        // 我放在「配对」之后（先有名单再谈发给谁），**他要挪一句话就挪**（改这一行即可）。
+        'engine-fnthink-send',
         'engine-fnthink-channels',
         'engine-fnthink-remote',
         'engine-fnthink-endpoint',

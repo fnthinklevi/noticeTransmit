@@ -3133,6 +3133,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkConsentGateThisStep => '这一步';
 
   @override
+  String get fnthinkSendTargetTitle => '发给谁';
+
+  @override
+  String get fnthinkSendTargetDevices => '已配对的设备';
+
+  @override
+  String get fnthinkSendTargetNoPeer =>
+      '这台还没配对过任何设备 —— 先去「设备配对」那一页配一台，或在下面选一条 Webhook 通道。';
+
+  @override
+  String get fnthinkSendTargetWebhooks => 'Webhook 通道';
+
+  @override
+  String get fnthinkSendTargetWebhookEmpty =>
+      '还没有启用的 Webhook 通道 —— 去「幻念通道」那一页建一条（填接入端点的推送地址，并开着它）。';
+
+  @override
+  String get fnthinkSendTargetWebhookOnlyForNotice =>
+      '远程指令只能发给已配对的设备：Webhook 那条没有配对关系、也没有档位授权。要发到通道就切回「一条通知」。';
+
+  @override
+  String get fnthinkSendNoticeVsCommand =>
+      '「一条通知」是让对面看到一段内容（那边不需要任何授权、也不执行动作）；「一条远程指令」是让对面做一件事（要配对关系与档位授权，最高那一档还要过延时确认）。';
+
+  @override
+  String get fnthinkHubSendDesc => '发给已配对的设备，或发到一条 Webhook 通道；与「远程指令」不是同一档';
+
+  @override
   String get fnthinkHealthNever => '最近一次发送：这台对这个服务器还没发出去过';
 
   @override
@@ -4339,9 +4367,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get remotePeersReadFailed =>
       '名单读不出来（库里这一张表没读到）。这不是「还没配对过设备」——先去设备绑定那一页看一眼。';
-
-  @override
-  String get remoteSendPickPeer => '发给哪一台';
 
   @override
   String get remoteActionListenerStart => '让对面开始监听通知';

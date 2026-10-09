@@ -13,7 +13,11 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import 'battery_page.dart';
 import 'device_state_page.dart';
+import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_peer_service.dart';
+import '../services/fnthink_receive_coordinator.dart';
 import 'fnthink_peers_page.dart';
+import 'fnthink_send_page.dart';
 import 'fnthink_channel_list_page.dart';
 import 'fnthink_channel_settings_page.dart';
 import 'fnthink_receive_page.dart';
@@ -297,6 +301,30 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             title: l10n.fnthinkPeersTitle,
             subtitle: _peersSubtitle(l10n),
             page: FnthinkPeersPage(deps: widget.peersDeps),
+          ),
+          _divider(),
+          // T122：一条独立的「发送消息」路 —— 目标二选一（已配对的设备 / Webhook 通道）。
+          // 放在「设备配对」之后：「发给谁」这件事先要有名单，再谈发。
+          _entry(
+            key: const ValueKey('engine-fnthink-send'),
+            icon: Icons.outbox_rounded,
+            iconColor: AppColors.green,
+            title: l10n.fnthinkPeerSend,
+            subtitle: l10n.fnthinkHubSendDesc,
+            page: FnthinkSendPage(
+              deps: FnthinkSendDeps(
+                loadPeers: () => GetIt.instance<FnthinkPeerService>().list(),
+                send:
+                    ({
+                      required String peer,
+                      required String title,
+                      required String text,
+                    }) => GetIt.instance<FnthinkReceiveCoordinator>()
+                        .sendNotice(peer: peer, title: title, text: text),
+                contractOf: () =>
+                    GetIt.instance<FnthinkContractLoader>().load(),
+              ),
+            ),
           ),
           _divider(),
           _entry(

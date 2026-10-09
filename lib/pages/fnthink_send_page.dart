@@ -16,6 +16,7 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
+import '../services/fnthink_webhook_targets.dart';
 import 'fnthink_consent_gate.dart';
 
 /// 「发一条」那两档收成一张页（T98 片④）。
@@ -70,6 +71,8 @@ class FnthinkSendDeps {
     required this.loadPeers,
     required this.send,
     required this.contractOf,
+    this.loadWebhooks,
+    this.sendToWebhook,
   });
 
   /// 名单**只**从读咽喉取（页面不自己排、也不自己读库）。
@@ -86,6 +89,18 @@ class FnthinkSendDeps {
   /// 契约（异步读）。只有指令档需要它 —— 但**进来就读**：档位那一排要当场说得出
   /// "指令档为什么进不去"，等人点下去才发现是另一回事。
   final Future<FnthinkContract> Function() contractOf;
+
+  /// 「Webhook 通道」那一组的目标读口（T122）。不传 ⇒ 走生产默认（locator 里那几条通道）。
+  /// `null` 读的是"读不出来"，与空名单是两句。
+  final Future<List<FnthinkWebhookTarget>?> Function()? loadWebhooks;
+
+  /// 往一条「Webhook 通道」发一条（T122）。不传 ⇒ 走生产默认（`sendFnthinkWebhookMessage`）。
+  final Future<FnthinkSendResult> Function({
+    required FnthinkWebhookTarget target,
+    required String title,
+    required String body,
+  })?
+  sendToWebhook;
 }
 
 /// 两档。枚举而不是布尔：加第三档（比如带附件的那一路）时这里要一起想清楚。
@@ -103,6 +118,13 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   /// 是它自己从名单里查出来的），而发送那一发要的也只是地址 —— 公钥、档位由协调者按地址
   /// 去库里取。页面存整行记录的话，就得替名单那次读负责，读失败时连"发给谁"都一起丢了。
   late String? _peerAddress = widget.preselectedPeer;
+
+  /// 「Webhook 通道」那一组（T122）：`null` = 读不出来（与空名单是两句）。
+  List<FnthinkWebhookTarget>? _webhooks;
+
+  /// 选中的 Webhook 目标。**与 `_peerAddress` 互斥**：两类目标共用一个选中位
+  /// （选一边就把另一边清掉）—— 留着两边都"选中"的状态，提交时就得靠第二个判据决定打哪发。
+  FnthinkWebhookTarget? _webhook;
 
   late FnthinkSendTier _tier = widget.initialTier;
 
@@ -161,6 +183,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
 
   Future<void> _load() async {
     await _loadPeers();
+    await _loadWebhooks();
     final contract = await _loadContract();
     if (!mounted) return;
     setState(() {
@@ -183,6 +206,16 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     } catch (_) {
       // 读失败与"真的没有"是两句（`_peers == null` 才是读失败），不许糊成空名单。
       if (mounted) setState(() => _peers = null);
+    }
+  }
+
+  Future<void> _loadWebhooks() async {
+    final loader = widget.deps.loadWebhooks ?? loadFnthinkWebhookTargets;
+    try {
+      final rows = await loader();
+      if (mounted) setState(() => _webhooks = rows);
+    } catch (_) {
+      if (mounted) setState(() => _webhooks = null);
     }
   }
 
@@ -272,7 +305,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   /// 这条判据从弹层那一版就在这儿，换了一张页而已：两处判同一件事，早晚有一处改了另一处没改。
   Future<void> _sendNotice() async {
     final peer = _peerAddress;
-    if (peer == null || _busy) return;
+    if ((peer == null && _webhook == null) || _busy) return;
     if (_body.text.trim().isEmpty) return;
     final l10n = AppLocalizations.of(context);
     // T118 同意门：这一发走的就是那台中转机 ⇒ 先过门（门在一切写入之前）。
@@ -289,11 +322,19 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       _note = null;
       _sent = false;
     });
-    final result = await widget.deps.send(
-      peer: peer,
-      title: _title.text,
-      text: _body.text,
-    );
+    // 两类目标各走各的那一发（T122）：设备＝签名面；Webhook 通道＝长期口令那条面。
+    final hook = _webhook;
+    final result = hook == null
+        ? await widget.deps.send(
+            peer: peer!,
+            title: _title.text,
+            text: _body.text,
+          )
+        : await (widget.deps.sendToWebhook ?? _defaultSendToWebhook)(
+            target: hook,
+            title: _title.text,
+            body: _body.text,
+          );
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -388,7 +429,13 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           //   出现的形状（"点了没反应"）。
           if (_block != null)
             FnthinkNote(keyName: 'fnthink-send-blocked', text: _block!),
-          _peerCard(l10n),
+          // ⚠ 通知档的结论搬到最上面（T122 顺手）：与「挡住的那句」同一条理由 —— 发送页现在有
+          //    两张卡（目标二选一 + 载荷），提交键常常在视口之外，按完看不到结果等于"点了没反应"。
+          //    ⚠ 只搬通知档：指令档自己那张卡底部本来就有结论位（`remote-send-note`），
+          //    两处都画同一句话 = 同一件事有两个作者（用例当场撞到两个候选）。
+          if (_note != null && _tier == FnthinkSendTier.notice)
+            FnthinkNote(keyName: 'fnthink-send-note', text: _note!),
+          _targetCard(l10n),
           const SizedBox(height: 12),
           if (_tier == FnthinkSendTier.notice)
             _noticeCard(l10n)
@@ -437,6 +484,12 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           keyName: 'fnthink-send-tier-note',
           text: l10n.fnthinkSendTierNote,
         ),
+        // T122：两档的**区别**也写在页面上（维护者点名要的那一条）—— 通知＝让对面看到一段内容、
+        // 不需要任何授权，也不执行动作；指令＝让对面做一件事、要配对关系与档位授权，最高那档还有延时确认。
+        FnthinkNote(
+          keyName: 'fnthink-send-vs-command',
+          text: l10n.fnthinkSendNoticeVsCommand,
+        ),
         if (_contractError != null)
           FnthinkNote(
             keyName: 'remote-send-contract-error',
@@ -453,14 +506,31 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       _block = null;
       _note = null;
       _sent = false;
+      // 切到指令档时把 Webhook 目标摘掉：那一档只发给设备，留着它等于让一个选不中的
+      // 目标继续挂在状态里（提交时还得靠第二个判据决定打哪发）。
+      if (tier == FnthinkSendTier.command) _webhook = null;
     });
   }
 
-  Widget _peerCard(AppLocalizations l10n) {
+  /// 「发给谁」那张卡：两类目标**共用同一枚选择器**（T122/T123）。
+  ///
+  /// 两类是：**已配对的设备**（走签名那一发，对面按能力表判）与 **Webhook 通道**
+  /// （走长期口令那条面，天生只是 L1 通知）。并排给而不是分两张页：它们是同一条
+  /// "我要发一句话"后面的两种去处 —— 分两处的话，从设备那一档进来的人不知道还能发到通道。
+  ///
+  /// ⚠ 指令档**只列设备**（一句原因写在原地）：Webhook 那条没有配对关系、也没有档位授权，
+  /// 让人选一个根本发不出去的目标是这一族最不该有的形状。
+  Widget _targetCard(AppLocalizations l10n) {
     final rows = _peers;
+    final hooks = _webhooks;
+    final devicesOnly = _tier == FnthinkSendTier.command;
     return FnthinkCard(
-      title: l10n.remoteSendPickPeer,
+      title: l10n.fnthinkSendTargetTitle,
       children: [
+        FnthinkNote(
+          keyName: 'fnthink-send-target-devices',
+          text: l10n.fnthinkSendTargetDevices,
+        ),
         if (rows == null)
           FnthinkNote(
             keyName: 'remote-send-peers-unknown',
@@ -470,7 +540,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           // ⚠ 「还没有配对过任何设备」与「读不出来」是两句：名单空着不是"你可以随便填个地址"。
           FnthinkNote(
             keyName: 'remote-send-peers-empty',
-            text: l10n.remoteHistoryEmpty,
+            text: l10n.fnthinkSendTargetNoPeer,
           )
         else
           for (final peer in rows)
@@ -484,9 +554,50 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
                 selected: peer.peerAddress == _peerAddress,
                 onTap: _busy
                     ? null
-                    : () => setState(() => _peerAddress = peer.peerAddress),
+                    : () => setState(() {
+                        _peerAddress = peer.peerAddress;
+                        _webhook = null;
+                      }),
               ),
             ),
+        if (devicesOnly)
+          FnthinkNote(
+            keyName: 'fnthink-send-target-webhook-only-notice',
+            text: l10n.fnthinkSendTargetWebhookOnlyForNotice,
+          )
+        else ...[
+          const SizedBox(height: 10),
+          FnthinkNote(
+            keyName: 'fnthink-send-target-webhooks',
+            text: l10n.fnthinkSendTargetWebhooks,
+          ),
+          if (hooks == null)
+            FnthinkNote(
+              keyName: 'fnthink-send-target-webhooks-unknown',
+              text: l10n.remotePeersReadFailed,
+            )
+          else if (hooks.isEmpty)
+            FnthinkNote(
+              keyName: 'fnthink-send-target-webhooks-empty',
+              text: l10n.fnthinkSendTargetWebhookEmpty,
+            )
+          else
+            for (final hook in hooks)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FnthinkChoiceChip(
+                  keyName: 'fnthink-send-target-webhook-${hook.channelId}',
+                  label: hook.name,
+                  selected: hook.channelId == _webhook?.channelId,
+                  onTap: _busy
+                      ? null
+                      : () => setState(() {
+                          _webhook = hook;
+                          _peerAddress = null;
+                        }),
+                ),
+              ),
+        ],
       ],
     );
   }
@@ -528,16 +639,24 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           key: const ValueKey('fnthink-send-submit'),
           // 空正文时主操作**不藏、不换名、只置灰**，并把"为什么"写在键上（这一族的规矩）。
           label: empty ? l10n.fnthinkSendEmptyBody : l10n.fnthinkSendSubmit,
-          subtitle: _peerAddress == null ? l10n.fnthinkSendNeedsPeer : null,
-          onPressed: _busy || empty || _peerAddress == null
+          subtitle: _peerAddress == null && _webhook == null
+              ? l10n.fnthinkSendNeedsPeer
+              : null,
+          onPressed:
+              _busy || empty || (_peerAddress == null && _webhook == null)
               ? null
               : _sendNotice,
         ),
-        if (_note != null)
-          FnthinkNote(keyName: 'fnthink-send-note', text: _note!),
       ],
     );
   }
+
+  /// 生产默认的「发到 Webhook 通道」那一发（测试用 deps 覆盖）。
+  static Future<FnthinkSendResult> _defaultSendToWebhook({
+    required FnthinkWebhookTarget target,
+    required String title,
+    required String body,
+  }) => sendFnthinkWebhookMessage(target: target, title: title, body: body);
 
   Widget _levelCard(AppLocalizations l10n) {
     final contract = _contract!;

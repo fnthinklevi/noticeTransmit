@@ -3276,6 +3276,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkConsentGateThisStep => 'This step';
 
   @override
+  String get fnthinkSendTargetTitle => 'Send to';
+
+  @override
+  String get fnthinkSendTargetDevices => 'Paired devices';
+
+  @override
+  String get fnthinkSendTargetNoPeer =>
+      'No device has been paired yet - pair one on the \"Device pairing\" page, or pick a Webhook channel below.';
+
+  @override
+  String get fnthinkSendTargetWebhooks => 'Webhook channels';
+
+  @override
+  String get fnthinkSendTargetWebhookEmpty =>
+      'No enabled Webhook channel yet - create one on the \"Fnthink channels\" page (paste the endpoint push URL and keep it on).';
+
+  @override
+  String get fnthinkSendTargetWebhookOnlyForNotice =>
+      'Remote commands can only go to paired devices: a Webhook channel has no pairing and no level grant. Switch back to \"A notification\" to send to a channel.';
+
+  @override
+  String get fnthinkSendNoticeVsCommand =>
+      '\"A notification\" lets the other side see a piece of content (no grant needed, no action taken); \"A remote command\" asks it to do something (needs the pairing and a level grant, and the top level also passes the delayed-confirm window).';
+
+  @override
+  String get fnthinkHubSendDesc =>
+      'Send to a paired device, or to a Webhook channel; not the same tier as a remote command';
+
+  @override
   String get fnthinkHealthNever => 'Nothing has been sent to this server yet';
 
   @override
@@ -4563,9 +4592,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get remotePeersReadFailed =>
       'The peer list could not be read (that table didn\'t come back). This isn\'t \'no paired devices yet\' — check the device pairing page first.';
-
-  @override
-  String get remoteSendPickPeer => 'Send to which device';
 
   @override
   String get remoteActionListenerStart =>
