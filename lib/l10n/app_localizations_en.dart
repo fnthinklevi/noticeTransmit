@@ -4553,6 +4553,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteSendPickPeer => 'Send to which device';
 
   @override
+  String get remoteActionListenerStart =>
+      'Make the other device start listening to notifications';
+
+  @override
+  String get remoteActionListenerStop =>
+      'Make the other device stop listening to notifications';
+
+  @override
+  String get remoteActionChannelToggle =>
+      'Enable or disable one push channel over there';
+
+  @override
+  String get remoteActionDeviceStatePush =>
+      'Have the other device report its device state now';
+
+  @override
+  String get remoteSettingNotification =>
+      'Ask the other device to open its notification-listener page';
+
+  @override
+  String get remoteSettingExactAlarm =>
+      'Ask the other device to open its exact-alarm page';
+
+  @override
+  String get remoteSettingBatteryOptimization =>
+      'Ask the other device to turn off battery optimization';
+
+  @override
+  String get remoteSettingAutostart =>
+      'Ask the other device to enable autostart (per vendor)';
+
+  @override
+  String get remoteSettingMonitoring =>
+      'Turn the other device\'s notification forwarding master switch on/off';
+
+  @override
+  String get remoteSettingCollectInbox =>
+      'Turn the other device\'s Fnthink inbox collection on/off';
+
+  @override
+  String get remoteSendFamilyLabel => 'Which family';
+
+  @override
+  String get remoteSendChannelIdWhy =>
+      'This is the only field you type: this device cannot see which channels the other one has configured (listing them needs a protocol change). Family and on/off are picked below and assembled into the shape the other side understands.';
+
+  @override
+  String get remoteSendWantOn => 'Set to on';
+
+  @override
+  String get remoteSendWantOff => 'Set to off';
+
+  @override
+  String get remoteSendNeedsFamily => 'No channel family picked yet.';
+
+  @override
+  String get remoteSendNeedsWant =>
+      'No target value picked — saying only \'toggle\' without which state you want means one redelivery flips it back.';
+
+  @override
   String get remoteSendLevel => 'Send at which level';
 
   @override
@@ -4572,12 +4632,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteSendArgument => 'Argument (target channel id)';
-
-  @override
-  String get remoteSendKeyOptional => 'Advanced key (optional)';
-
-  @override
-  String get remoteSendTotpOptional => 'Two-step code (optional)';
 
   @override
   String get remoteSendKeyRequired => 'Advanced key (required at this level)';

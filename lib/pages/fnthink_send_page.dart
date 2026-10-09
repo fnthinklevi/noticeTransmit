@@ -6,8 +6,11 @@ import 'package:fnthink_push/fnthink_push.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/fnthink_peer.dart';
+import '../services/channel_display.dart';
 import '../services/fnthink_contract_loader.dart';
+import '../services/fnthink_l2_actions.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_remote_action_labels.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
@@ -115,6 +118,21 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   final TextEditingController _key = TextEditingController();
   final TextEditingController _totp = TextEditingController();
 
+  /// `channel:toggle` 那一条的另两段（T124 A 片：参数由界面生成，不让人手敲冒号串）。
+  ///
+  /// 族与目标值**只可能是选出来的**（族表在 `kFnthinkRemoteChannelFamilies`，
+  /// 目标值是 `on`／`off` 两枚 chip）；只有对面那台的通道号还得自己填 ——
+  /// 本机看不见那台的清单，那一格旁边就写着这件事。
+  String? _channelFamily;
+  bool? _channelWant;
+
+  /// L3 那两个 `toggle` 项要设成的那一档（null = 没选）。
+  ///
+  /// ⚠ 发送侧**必填**：契约说 `itemMayCarryTarget` 是"可选"，那是为了老对端不必升级；
+  /// 不带目标值的 item 落到对面就是"读当前再翻"，而投递是 at-least-once ⇒ 重投一次回到原状。
+  /// 新界面不该产出一种自己知道不幂等的形状。
+  bool? _l3Want;
+
   /// 挡住的那句（**发之前**）：画在页面最上面。
   String? _block;
 
@@ -196,8 +214,30 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     return contract.l2ActionsRequiringArgument.contains(_item);
   }
 
+  /// 这一项是 L3 里那两个 `toggle` 吗（要选"设成哪一档"）。
+  ///
+  /// 判据来自契约的 `mode`（`grant` 那四项只能"请用户去系统里开"，没有目标值这一说）。
+  bool _needsL3Target(FnthinkContract contract) =>
+      _level == 'L3' && (contract.l3Settings[_item]?.isToggle ?? false);
+
   bool _needsCredential(FnthinkContract contract) =>
       levelNeedsAuth(contract, _level);
+
+  /// 交给对面的那两格：**界面选的东西在这里拼成协议形状**（唯一作者是
+  /// [buildChannelArgument] 与 [buildL3Item]，本页不自己拼字符串）。
+  String get _wireItem {
+    if (!_needsL3Target(_contract!)) return _item;
+    return buildL3Item(key: _item, want: _l3Want);
+  }
+
+  String get _wireArgument {
+    if (!_needsArgument(_contract!, _level)) return '';
+    return buildChannelArgument(
+      family: _channelFamily ?? kFnthinkRemoteChannelFamilies.first,
+      id: _argument.text.trim(),
+      enabled: _channelWant ?? false,
+    );
+  }
 
   /// 发出之前那一发的本地校验。**回 null = 可以发**；回一句 = 为什么不发。
   String? _commandBlocked(FnthinkContract contract) {
@@ -207,8 +247,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       return l10n.remoteSendLevelUnknown(_level);
     }
     if (_item.isEmpty) return l10n.remoteSendAction;
-    if (_needsArgument(contract, _level) && _argument.text.trim().isEmpty) {
-      return l10n.remoteSendNeedsArgument;
+    if (_needsArgument(contract, _level)) {
+      if (_channelFamily == null) return l10n.remoteSendNeedsFamily;
+      // 号空着沿用那一句旧话（"这一项要一个参数（目标通道标识）"）：它说的就是这件事。
+      if (_argument.text.trim().isEmpty) return l10n.remoteSendNeedsArgument;
+      if (_channelWant == null) return l10n.remoteSendNeedsWant;
+    }
+    if (_needsL3Target(contract) && _l3Want == null) {
+      return l10n.remoteSendNeedsWant;
     }
     if (_needsCredential(contract) &&
         _key.text.trim().isEmpty &&
@@ -272,8 +318,8 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     if (!ok || !mounted) return;
     final wire = RemoteCommandEnvelope.encode(
       level: _level,
-      item: _item,
-      argument: _argument.text.trim(),
+      item: _wireItem,
+      argument: _wireArgument,
       key: _key.text.trim(),
       totpCode: _totp.text.trim(),
     );
@@ -513,6 +559,8 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   Widget _actionCard(AppLocalizations l10n) {
     final contract = _contract!;
     final actions = _actionsFor(contract, _level);
+    final needsArgument = _item.isNotEmpty && _needsArgument(contract, _level);
+    final needsL3Target = _item.isNotEmpty && _needsL3Target(contract);
     return FnthinkCard(
       title: l10n.remoteSendAction,
       children: [
@@ -521,37 +569,43 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         else
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
               for (final action in actions)
                 FnthinkChoiceChip(
+                  // key 里仍是契约那个动作名（闸门的路线认它），画出来的换成人话。
                   keyName: 'remote-send-action-$action',
-                  label: action,
+                  label: fnthinkRemoteActionLabel(l10n, action),
                   selected: _item == action,
-                  onTap: _busy ? null : () => setState(() => _item = action),
+                  // 换一项时把上一项选的目标档摘掉：留着会拼出一条"用户没选过"的指令。
+                  onTap: _busy
+                      ? null
+                      : () => setState(() {
+                          _item = action;
+                          _l3Want = null;
+                          _channelWant = null;
+                        }),
                 ),
             ],
           ),
-        if (_item.isNotEmpty && _needsArgument(contract, _level)) ...[
-          FnthinkNote(
-            keyName: 'remote-send-arg-label',
-            text: l10n.remoteSendArgument,
-          ),
-          CupertinoTextField(
-            key: const ValueKey('remote-send-argument'),
-            controller: _argument,
-            placeholder: l10n.remoteSendArgument,
-            autocorrect: false,
+        if (needsArgument) ..._channelArgumentRows(l10n),
+        if (needsL3Target) ...[
+          const SizedBox(height: 10),
+          _wantRow(
+            l10n,
+            value: _l3Want,
+            onKey: 'remote-send-l3-want-on',
+            offKey: 'remote-send-l3-want-off',
+            onChanged: (v) => setState(() => _l3Want = v),
           ),
         ],
         const SizedBox(height: 8),
-        // 凭据两格按该档**要不要**显示：L1 一格都不给（它永远不需要凭据，
-        // 给一个永远空的输入框等于在暗示"这里要填点什么"）。
-        if (_level != 'L1') ...[
+        // 凭据那两格**按契约说要不要**显示，不按档位写死（原来是"L1 不给、L2/L3 都给"）：
+        // 契约若哪天说 L2 不必带凭据，画两格空输入框就是在暗示"这里要填点什么"。
+        if (_needsCredential(contract)) ...[
           FnthinkNote(
             keyName: 'remote-send-key-label',
-            text: _needsCredential(contract)
-                ? l10n.remoteSendKeyRequired
-                : l10n.remoteSendKeyOptional,
+            text: l10n.remoteSendKeyRequired,
           ),
           CupertinoTextField(
             key: const ValueKey('remote-send-key'),
@@ -562,9 +616,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
           const SizedBox(height: 8),
           FnthinkNote(
             keyName: 'remote-send-totp-label',
-            text: _needsCredential(contract)
-                ? l10n.remoteSendTotpRequired
-                : l10n.remoteSendTotpOptional,
+            text: l10n.remoteSendTotpRequired,
           ),
           CupertinoTextField(
             key: const ValueKey('remote-send-totp'),
@@ -576,6 +628,85 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       ],
     );
   }
+
+  /// `channel:toggle` 那三段的选法：族（选）＋ 对面那台的通道号（填）＋ 目标档（选）。
+  List<Widget> _channelArgumentRows(AppLocalizations l10n) {
+    return [
+      const SizedBox(height: 10),
+      FnthinkNote(
+        keyName: 'remote-send-family-label',
+        text: l10n.remoteSendFamilyLabel,
+      ),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final family in kFnthinkRemoteChannelFamilies)
+            FnthinkChoiceChip(
+              keyName: 'remote-send-family-$family',
+              label: channelFamilyName(family),
+              selected: (_channelFamily ?? _defaultFamily) == family,
+              onTap: _busy
+                  ? null
+                  : () => setState(() => _channelFamily = family),
+            ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      FnthinkNote(
+        keyName: 'remote-send-arg-label',
+        text: l10n.remoteSendArgument,
+      ),
+      CupertinoTextField(
+        key: const ValueKey('remote-send-argument'),
+        controller: _argument,
+        placeholder: l10n.remoteSendArgument,
+        autocorrect: false,
+      ),
+      FnthinkNote(
+        keyName: 'remote-send-channel-id-why',
+        text: l10n.remoteSendChannelIdWhy,
+      ),
+      const SizedBox(height: 10),
+      _wantRow(
+        l10n,
+        value: _channelWant,
+        onKey: 'remote-send-want-on',
+        offKey: 'remote-send-want-off',
+        onChanged: (v) => setState(() => _channelWant = v),
+      ),
+    ];
+  }
+
+  /// 「设成开着／设成关掉」那一排。两枚而不是一枚"翻"：重投会翻两次（见 [buildL3Item]）。
+  Widget _wantRow(
+    AppLocalizations l10n, {
+    required bool? value,
+    required String onKey,
+    required String offKey,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FnthinkChoiceChip(
+          keyName: onKey,
+          label: l10n.remoteSendWantOn,
+          selected: value == true,
+          onTap: _busy ? null : () => onChanged(true),
+        ),
+        FnthinkChoiceChip(
+          keyName: offKey,
+          label: l10n.remoteSendWantOff,
+          selected: value == false,
+          onTap: _busy ? null : () => onChanged(false),
+        ),
+      ],
+    );
+  }
+
+  String get _defaultFamily => kFnthinkRemoteChannelFamilies.first;
 
   Widget _commandSubmitCard(AppLocalizations l10n) {
     return FnthinkCard(

@@ -258,8 +258,38 @@ RemoteChannelTarget? parseChannelTarget(String? argument) {
 /// 四族都能改（幻念走只改角色的 `FnthinkChannelService.setRole`，不重验目标），
 /// 而这一族的**启停**仍只有那三族：幻念的启停只有 `save()` 一条路，会连带重验目标，
 /// 形状与"设一个布尔"不是一件事。要在这里加一个词，先决定的是那条形状，不是这里。
+/// 可被远程启停的那三族（`webhook` / `app` / `email`）—— **名单在这里，判据也在这里**。
+///
+/// 为什么是一枚可枚举的常量而不是只留一个 `isKnownChannelFamily`：发送侧那一格要把这三族
+/// 画成可点的选项（T124 A 片：参数由界面生成，不让人手敲冒号串）。只留谓词的话，
+/// 界面就得自己抄一份名单，而"抄的那份与判的那份不一致"正是这一族反复犯的病。
+const List<String> kFnthinkRemoteChannelFamilies = ['webhook', 'app', 'email'];
+
 bool isKnownChannelFamily(String family) =>
-    family == 'webhook' || family == 'app' || family == 'email';
+    kFnthinkRemoteChannelFamilies.contains(family);
+
+/// 拼 `channel:toggle` 的参数（**发送侧唯一作者**）。
+///
+/// 形状与理由都在 [parseChannelTarget] 上面那段：三段齐全、第三段是**目标值**而不是"翻"。
+/// 这里不校验 id（对面那台的通道号本机无从知道），但族与目标值只可能取自
+/// [kFnthinkRemoteChannelFamilies] 与 `on`／`off` —— 拼出来的串必然能被对面拆开。
+/// 往返性由用例钉（`parseChannelTarget(buildChannelArgument(…))` 必须还原出同一组值）。
+String buildChannelArgument({
+  required String family,
+  required String id,
+  required bool enabled,
+}) => '$family:$id:${enabled ? 'on' : 'off'}';
+
+/// 拼 L3 的 item（**发送侧唯一作者**）：带目标值的那一档才幂等。
+///
+/// `[want] == null` 回裸 key —— 那是老对端的形状，契约仍收（`l3.itemMayCarryTarget` 是
+/// "可选"而不是"必填"），但**新界面不该产出它**：重投一次就翻两次、回到原状，
+/// 而对面留痕两条都记 done。所以发送侧把目标值做成必选，这一层的 `null` 分支只服务测试。
+String buildL3Item({required String key, bool? want}) {
+  if (want == null) return key;
+  return '$key/${want ? 'on' : 'off'}';
+}
+
 
 /// 拆出来的那条通道 + 它该被设成哪一档。
 class RemoteChannelTarget {

@@ -7909,6 +7909,102 @@ abstract class AppLocalizations {
   /// **'发给哪一台'**
   String get remoteSendPickPeer;
 
+  /// No description provided for @remoteActionListenerStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面开始监听通知'**
+  String get remoteActionListenerStart;
+
+  /// No description provided for @remoteActionListenerStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面停止监听通知'**
+  String get remoteActionListenerStop;
+
+  /// No description provided for @remoteActionChannelToggle.
+  ///
+  /// In zh, this message translates to:
+  /// **'启停对面某一条推送通道'**
+  String get remoteActionChannelToggle;
+
+  /// No description provided for @remoteActionDeviceStatePush.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面立刻回一份设备状态'**
+  String get remoteActionDeviceStatePush;
+
+  /// No description provided for @remoteSettingNotification.
+  ///
+  /// In zh, this message translates to:
+  /// **'请对面打开「通知监听」权限页'**
+  String get remoteSettingNotification;
+
+  /// No description provided for @remoteSettingExactAlarm.
+  ///
+  /// In zh, this message translates to:
+  /// **'请对面打开「精确闹钟」权限页'**
+  String get remoteSettingExactAlarm;
+
+  /// No description provided for @remoteSettingBatteryOptimization.
+  ///
+  /// In zh, this message translates to:
+  /// **'请对面去关掉「电池优化」'**
+  String get remoteSettingBatteryOptimization;
+
+  /// No description provided for @remoteSettingAutostart.
+  ///
+  /// In zh, this message translates to:
+  /// **'请对面打开「自启动」（按厂商分流）'**
+  String get remoteSettingAutostart;
+
+  /// No description provided for @remoteSettingMonitoring.
+  ///
+  /// In zh, this message translates to:
+  /// **'开／关对面的通知转发总开关'**
+  String get remoteSettingMonitoring;
+
+  /// No description provided for @remoteSettingCollectInbox.
+  ///
+  /// In zh, this message translates to:
+  /// **'开／关对面的幻念收件采集'**
+  String get remoteSettingCollectInbox;
+
+  /// No description provided for @remoteSendFamilyLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'哪一族'**
+  String get remoteSendFamilyLabel;
+
+  /// No description provided for @remoteSendChannelIdWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'只有这一格要自己填：本机看不到对面那台配了哪些通道（要能列得动协议）。族与「设成开着／关掉」都在下面选，拼成对面认得的形状。'**
+  String get remoteSendChannelIdWhy;
+
+  /// No description provided for @remoteSendWantOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'设成开着'**
+  String get remoteSendWantOn;
+
+  /// No description provided for @remoteSendWantOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'设成关掉'**
+  String get remoteSendWantOff;
+
+  /// No description provided for @remoteSendNeedsFamily.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没选是哪一族。'**
+  String get remoteSendNeedsFamily;
+
+  /// No description provided for @remoteSendNeedsWant.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没选要设成开着还是关掉 —— 只说「翻」不说要翻成哪一档，重投一次就回到原样。'**
+  String get remoteSendNeedsWant;
+
   /// No description provided for @remoteSendLevel.
   ///
   /// In zh, this message translates to:
@@ -7944,18 +8040,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'参数（目标通道标识）'**
   String get remoteSendArgument;
-
-  /// No description provided for @remoteSendKeyOptional.
-  ///
-  /// In zh, this message translates to:
-  /// **'高级密钥（可留空）'**
-  String get remoteSendKeyOptional;
-
-  /// No description provided for @remoteSendTotpOptional.
-  ///
-  /// In zh, this message translates to:
-  /// **'二步验证码（可留空）'**
-  String get remoteSendTotpOptional;
 
   /// No description provided for @remoteSendKeyRequired.
   ///

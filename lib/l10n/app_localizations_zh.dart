@@ -4330,6 +4330,55 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteSendPickPeer => '发给哪一台';
 
   @override
+  String get remoteActionListenerStart => '让对面开始监听通知';
+
+  @override
+  String get remoteActionListenerStop => '让对面停止监听通知';
+
+  @override
+  String get remoteActionChannelToggle => '启停对面某一条推送通道';
+
+  @override
+  String get remoteActionDeviceStatePush => '让对面立刻回一份设备状态';
+
+  @override
+  String get remoteSettingNotification => '请对面打开「通知监听」权限页';
+
+  @override
+  String get remoteSettingExactAlarm => '请对面打开「精确闹钟」权限页';
+
+  @override
+  String get remoteSettingBatteryOptimization => '请对面去关掉「电池优化」';
+
+  @override
+  String get remoteSettingAutostart => '请对面打开「自启动」（按厂商分流）';
+
+  @override
+  String get remoteSettingMonitoring => '开／关对面的通知转发总开关';
+
+  @override
+  String get remoteSettingCollectInbox => '开／关对面的幻念收件采集';
+
+  @override
+  String get remoteSendFamilyLabel => '哪一族';
+
+  @override
+  String get remoteSendChannelIdWhy =>
+      '只有这一格要自己填：本机看不到对面那台配了哪些通道（要能列得动协议）。族与「设成开着／关掉」都在下面选，拼成对面认得的形状。';
+
+  @override
+  String get remoteSendWantOn => '设成开着';
+
+  @override
+  String get remoteSendWantOff => '设成关掉';
+
+  @override
+  String get remoteSendNeedsFamily => '还没选是哪一族。';
+
+  @override
+  String get remoteSendNeedsWant => '还没选要设成开着还是关掉 —— 只说「翻」不说要翻成哪一档，重投一次就回到原样。';
+
+  @override
   String get remoteSendLevel => '这一条按哪一档发';
 
   @override
@@ -4346,12 +4395,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get remoteSendArgument => '参数（目标通道标识）';
-
-  @override
-  String get remoteSendKeyOptional => '高级密钥（可留空）';
-
-  @override
-  String get remoteSendTotpOptional => '二步验证码（可留空）';
 
   @override
   String get remoteSendKeyRequired => '高级密钥（这一档必填）';
