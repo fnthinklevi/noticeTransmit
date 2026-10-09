@@ -30,6 +30,9 @@ const String kFnthinkReadLocationKey = 'fnthink.read.location';
 /// 「远程可让这台拍一张」那一枚（`camera:snap`，T124 片C-3）。
 const String kFnthinkReadCameraKey = 'fnthink.read.camera';
 
+/// 「远程可查通讯录」那一枚（`contacts:search`，T124 片C-4）。
+const String kFnthinkReadContactsKey = 'fnthink.read.contacts';
+
 /// 读：缺键/读不到 ⇒ **关**（见文件头那条纪律）。
 Future<bool> fnthinkReadCallsEnabled() async {
   final prefs = await SharedPreferences.getInstance();
@@ -64,4 +67,16 @@ Future<bool> fnthinkReadCameraEnabled() async {
 Future<void> setFnthinkReadCameraEnabled(bool enabled) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(kFnthinkReadCameraKey, enabled);
+}
+
+/// 读：缺键/读不到 ⇒ **关**（同一条纪律，逐条各一枚键）。
+Future<bool> fnthinkReadContactsEnabled() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(kFnthinkReadContactsKey) ?? false;
+}
+
+/// 写：开关的唯一作者（页面翻它）。
+Future<void> setFnthinkReadContactsEnabled(bool enabled) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(kFnthinkReadContactsKey, enabled);
 }

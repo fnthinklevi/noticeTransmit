@@ -19,6 +19,7 @@ void main() {
     expect(await fnthinkReadCallsEnabled(), isFalse);
     expect(await fnthinkReadLocationEnabled(), isFalse);
     expect(await fnthinkReadCameraEnabled(), isFalse);
+    expect(await fnthinkReadContactsEnabled(), isFalse);
   });
 
   test('写 true / 写 false 都能读回来', () async {
@@ -45,10 +46,20 @@ void main() {
     expect(await fnthinkReadCameraEnabled(), isFalse);
   });
 
+  test('通讯录那一枚同样默认关、可往返，且不带着别的开', () async {
+    await setFnthinkReadContactsEnabled(true);
+    expect(await fnthinkReadContactsEnabled(), isTrue);
+    expect(await fnthinkReadCallsEnabled(), isFalse, reason: '另一项不许被带着开');
+    expect(await fnthinkReadCameraEnabled(), isFalse);
+    await setFnthinkReadContactsEnabled(false);
+    expect(await fnthinkReadContactsEnabled(), isFalse);
+  });
+
   test('键名是那几枚（跨进程/跨页面只许有一个作者）', () {
     expect(kFnthinkReadCallsKey, 'fnthink.read.calls');
     expect(kFnthinkReadLocationKey, 'fnthink.read.location');
     expect(kFnthinkReadCameraKey, 'fnthink.read.camera');
+    expect(kFnthinkReadContactsKey, 'fnthink.read.contacts');
   });
 
   test('put 过别的键不影响这一枚（缺键回退是关，不是"跟着别人走"）', () async {

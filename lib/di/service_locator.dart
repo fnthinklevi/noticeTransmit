@@ -29,6 +29,7 @@ import '../models/notification_record.dart';
 import '../services/fnthink_notification_report.dart';
 import '../services/fnthink_call_log_report.dart';
 import '../services/fnthink_location_report.dart';
+import '../services/fnthink_contacts_report.dart';
 import '../services/fnthink_photo_report.dart';
 import '../services/fnthink_read_settings.dart';
 import '../services/fnthink_shortcut_registry.dart';
@@ -288,6 +289,7 @@ void setupLocator() {
       searchCallsNow: _fnthinkSearchCallsOnce,
       getLocationNow: _fnthinkGetLocationOnce,
       snapPhotoNow: _fnthinkSnapPhotoOnce,
+      searchContactsNow: _fnthinkSearchContactsOnce,
       launchAppNow: _fnthinkLaunchShortcutOnce,
     ),
   );
@@ -587,6 +589,38 @@ Future<({String? payload, String? reason})> _fnthinkSnapPhotoOnce() async {
     return (payload: text, reason: null);
   } catch (e) {
     return (payload: null, reason: 'camera-snap-failed');
+  }
+}
+
+/// 「在本机通讯录里按关键词搜」那一发（T124 片C-4 的 `contacts:search`）。
+///
+/// 与 `sms:search`／`calls:search` 同一纪律：**先本机开关、后系统权限**；
+/// 开关关着连库都不碰（`contacts-search-disabled`）；原生那格没权限回 null
+/// （`contacts-search-refused`）；**不落任何新库**：直查系统通讯录、命中就回。
+Future<({String? payload, String? reason})> _fnthinkSearchContactsOnce(
+  String keyword,
+) async {
+  try {
+    if (!await fnthinkReadContactsEnabled()) {
+      return (payload: null, reason: 'contacts-search-disabled');
+    }
+    final raw = await AppChannels.notification.invokeMethod<List<Object?>>(
+      'searchFnthinkContacts',
+      {'keyword': keyword},
+    );
+    if (raw == null) {
+      return (payload: null, reason: 'contacts-search-refused');
+    }
+    final rows = raw
+        .whereType<Map<Object?, Object?>>()
+        .map((m) => Map<String, Object?>.from(m))
+        .toList(growable: false);
+    return (
+      payload: formatFnthinkContactsSearchReport(keyword, rows),
+      reason: null,
+    );
+  } catch (e) {
+    return (payload: null, reason: 'contacts-search-failed');
   }
 }
 

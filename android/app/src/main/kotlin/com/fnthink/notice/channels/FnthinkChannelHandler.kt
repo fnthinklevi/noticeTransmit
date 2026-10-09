@@ -4,6 +4,7 @@ import android.content.Context
 import com.fnthink.notice.AppLaunch
 import com.fnthink.notice.CallLogSearch
 import com.fnthink.notice.CameraSnap
+import com.fnthink.notice.ContactSearch
 import com.fnthink.notice.FnthinkAlertDisplay
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
@@ -144,6 +145,20 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             "snapFnthinkPhoto" -> {
                 ioScope.launch {
                     postSuccess(result, CameraSnap.snap(context))
+                }
+            }
+            // ── T124 片C：按关键词搜本机通讯录（`contacts:search`）──
+            // 与另两份"搜"逐字同形：回 null = 没查成、回空表 = 查了没命中。
+            "searchFnthinkContacts" -> {
+                val keyword = call.argument<String>("keyword").orEmpty().trim()
+                ioScope.launch {
+                    val rows =
+                        if (keyword.isEmpty()) {
+                            null
+                        } else {
+                            ContactSearch.search(context, keyword)
+                        }
+                    postSuccess(result, rows)
                 }
             }
             // ── T83：点通知要跳去的那一条 ──

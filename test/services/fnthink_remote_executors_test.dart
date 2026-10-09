@@ -57,6 +57,12 @@ void main() {
       reason: null,
     );
     var snapThrows = false;
+    late List<String> contactsCalls;
+    ({String? payload, String? reason}) contactsResult = (
+      payload: 'CONTHIT',
+      reason: null,
+    );
+    var contactsThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -87,6 +93,9 @@ void main() {
       snapCalls = 0;
       snapResult = (payload: 'SNAP', reason: null);
       snapThrows = false;
+      contactsCalls = [];
+      contactsResult = (payload: 'CONTHIT', reason: null);
+      contactsThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -132,6 +141,11 @@ void main() {
         snapCalls++;
         if (snapThrows) throw StateError('boom');
         return snapResult;
+      },
+      searchContactsNow: (keyword) async {
+        contactsCalls.add(keyword);
+        if (contactsThrows) throw StateError('boom');
+        return contactsResult;
       },
       launchAppNow: (name) async {
         launchCalls.add(name);
@@ -194,6 +208,8 @@ void main() {
             (payload: null, reason: 'calls-search-failed'),
         getLocationNow: () async => (payload: null, reason: 'location-failed'),
         snapPhotoNow: () async => (payload: null, reason: 'camera-snap-failed'),
+        searchContactsNow: (keyword) async =>
+            (payload: null, reason: 'contacts-search-failed'),
         launchAppNow: (name) async =>
             (ok: false, reason: 'app-launch-unknown-name'),
         pushDeviceStateNow: () async => true,
@@ -284,6 +300,23 @@ void main() {
       expect((await build().snapPhoto()).reason, 'camera-snap-no-foreground');
       snapThrows = true;
       expect((await build().snapPhoto()).reason, 'threw:camera:snap');
+    });
+
+    test('contacts:search：产出与理由原样透传；抛异常收成 threw', () async {
+      final hit = await build().searchContacts('张三');
+      expect(contactsCalls, ['张三']);
+      expect(hit.payload, 'CONTHIT');
+      expect(hit.reason, isNull);
+      contactsResult = (payload: null, reason: 'contacts-search-disabled');
+      expect(
+        (await build().searchContacts('x')).reason,
+        'contacts-search-disabled',
+      );
+      contactsThrows = true;
+      expect(
+        (await build().searchContacts('x')).reason,
+        'threw:contacts:search',
+      );
     });
   });
 

@@ -50,6 +50,10 @@ class FnthinkReadCapsPage extends StatefulWidget {
     this.saveCamera,
     this.requestCameraPermission,
     this.isCameraGranted,
+    this.loadContacts,
+    this.saveContacts,
+    this.requestContactsPermission,
+    this.isContactsGranted,
   });
 
   /// 读写口与权限申请口（测试注入；默认走生产那两份）。
@@ -68,6 +72,11 @@ class FnthinkReadCapsPage extends StatefulWidget {
   final Future<void> Function(bool enabled)? saveCamera;
   final Future<void> Function()? requestCameraPermission;
   final Future<bool> Function()? isCameraGranted;
+
+  final Future<bool> Function()? loadContacts;
+  final Future<void> Function(bool enabled)? saveContacts;
+  final Future<void> Function()? requestContactsPermission;
+  final Future<bool> Function()? isContactsGranted;
 
   @override
   State<FnthinkReadCapsPage> createState() => _FnthinkReadCapsPageState();
@@ -254,6 +263,18 @@ class _FnthinkReadCapsPageState extends State<FnthinkReadCapsPage>
     await GetIt.instance<PermissionService>().requestCameraPermission();
   }
 
+  Future<bool> _contactsGranted() async {
+    if (widget.isContactsGranted != null) return widget.isContactsGranted!();
+    return GetIt.instance<PermissionService>().isContactsPermissionGranted();
+  }
+
+  Future<void> _requestContactsPermission() async {
+    if (widget.requestContactsPermission != null) {
+      return widget.requestContactsPermission!();
+    }
+    await GetIt.instance<PermissionService>().requestContactsPermission();
+  }
+
   List<_ReadCapRowSpec> _buildSpecs(AppLocalizations l10n) {
     return [
       _ReadCapRowSpec(
@@ -291,6 +312,18 @@ class _FnthinkReadCapsPageState extends State<FnthinkReadCapsPage>
         save: widget.saveCamera ?? setFnthinkReadCameraEnabled,
         requestPermission: _requestCameraPermission,
         isGranted: _cameraGranted,
+      ),
+      _ReadCapRowSpec(
+        id: 'contacts',
+        title: l10n.fnthinkReadContactsTitle,
+        subtitle: l10n.fnthinkReadContactsSubtitle,
+        deniedText: l10n.fnthinkReadContactsDenied,
+        icon: Icons.contacts_outlined,
+        iconColor: AppColors.teal,
+        load: widget.loadContacts ?? fnthinkReadContactsEnabled,
+        save: widget.saveContacts ?? setFnthinkReadContactsEnabled,
+        requestPermission: _requestContactsPermission,
+        isGranted: _contactsGranted,
       ),
     ];
   }

@@ -6,7 +6,7 @@ import 'package:notice_transmit/widgets/app_root.dart';
 
 /// 「可被远程读取的内容」那一页（T124 片C）。
 ///
-/// 钉每一行的全部判据（两行同套流程，逐行各断一遍）：
+/// 钉每一行的全部判据（四行同套流程，逐行各断一遍）：
 ///  ① **默认关**，且关着时**不碰权限框**；
 ///  ② 翻到开 ⇒ 先弹系统权限框（申请恰好一次）；**答复没回来时不落开**；
 ///  ③ 给了权限 ⇒ 落开（持久化为 true）；被拒 ⇒ 保持关 + 说明那一句在；
@@ -18,15 +18,19 @@ void main() {
     bool callsStored = false,
     bool locationStored = false,
     bool cameraStored = false,
+    bool contactsStored = false,
     Future<bool> Function()? isCallsGranted,
     Future<bool> Function()? isLocationGranted,
     Future<bool> Function()? isCameraGranted,
+    Future<bool> Function()? isContactsGranted,
     List<bool>? savedCalls,
     List<bool>? savedLocation,
     List<bool>? savedCamera,
+    List<bool>? savedContacts,
     List<int>? requestedCalls,
     List<int>? requestedLocation,
     List<int>? requestedCamera,
+    List<int>? requestedContacts,
   }) async {
     await tester.pumpWidget(
       AppRoot(
@@ -45,6 +49,10 @@ void main() {
           saveCamera: (v) async => savedCamera?.add(v),
           requestCameraPermission: () async => requestedCamera?.add(1),
           isCameraGranted: isCameraGranted ?? () async => false,
+          loadContacts: () async => contactsStored,
+          saveContacts: (v) async => savedContacts?.add(v),
+          requestContactsPermission: () async => requestedContacts?.add(1),
+          isContactsGranted: isContactsGranted ?? () async => false,
         ),
       ),
     );
@@ -55,13 +63,15 @@ void main() {
       .widget<CupertinoSwitch>(find.byKey(ValueKey('fnthink-read-$id-switch')))
       .value;
 
-  testWidgets('两行都在、默认全关；关着时不弹任何权限框', (tester) async {
+  testWidgets('四行都在、默认全关；关着时不弹任何权限框', (tester) async {
     final requestedCalls = <int>[];
     final requestedLocation = <int>[];
+    final requestedContacts = <int>[];
     await pump(
       tester,
       requestedCalls: requestedCalls,
       requestedLocation: requestedLocation,
+      requestedContacts: requestedContacts,
     );
     expect(
       find.byKey(const ValueKey('fnthink-read-calls-switch')),
@@ -75,11 +85,17 @@ void main() {
       find.byKey(const ValueKey('fnthink-read-camera-switch')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('fnthink-read-contacts-switch')),
+      findsOneWidget,
+    );
     expect(switchOf(tester, 'calls'), isFalse, reason: '默认必须是关');
     expect(switchOf(tester, 'location'), isFalse, reason: '默认必须是关');
     expect(switchOf(tester, 'camera'), isFalse, reason: '默认必须是关');
+    expect(switchOf(tester, 'contacts'), isFalse, reason: '默认必须是关');
     expect(requestedCalls, isEmpty);
     expect(requestedLocation, isEmpty);
+    expect(requestedContacts, isEmpty);
   });
 
   testWidgets('打开且系统已给过权限 ⇒ 不重复弹框，直接落开', (tester) async {
@@ -240,5 +256,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(savedCamera, [true, false]);
     expect(switchOf(tester, 'camera'), isFalse);
+  });
+
+  testWidgets('通讯录那一行同套流程：给了权限才落开，且只落通讯录那一枚', (tester) async {
+    final savedContacts = <bool>[];
+    final savedCalls = <bool>[];
+    final requestedContacts = <int>[];
+    var granted = false;
+    await pump(
+      tester,
+      isContactsGranted: () async => granted,
+      savedContacts: savedContacts,
+      savedCalls: savedCalls,
+      requestedContacts: requestedContacts,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('fnthink-read-contacts-switch')),
+    );
+    await tester.pumpAndSettle();
+    expect(requestedContacts.length, 1);
+    expect(savedContacts, isEmpty, reason: '答复还没回来，不许先落开');
+    expect(savedCalls, isEmpty, reason: '一条一开：开通讯录不许碰通话记录那一枚');
+
+    granted = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(savedContacts, [true]);
+    expect(savedCalls, isEmpty);
+    expect(switchOf(tester, 'contacts'), isTrue);
+    expect(switchOf(tester, 'calls'), isFalse, reason: '通话记录那枚还该是关的');
+
+    // 关掉：立即落盘 false（与另三行同一条）。
+    await tester.tap(
+      find.byKey(const ValueKey('fnthink-read-contacts-switch')),
+    );
+    await tester.pumpAndSettle();
+    expect(savedContacts, [true, false]);
+    expect(switchOf(tester, 'contacts'), isFalse);
   });
 }

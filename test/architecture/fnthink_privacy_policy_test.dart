@@ -140,9 +140,10 @@ void main() {
   /// T124 片C-1：远程读取（通话记录）这一条**同批**进了说明页与权限清单，
   /// 两个语言都不得漏 —— 只补一边的后果与上面那条全称量词同源：另一边读到的是
   /// 一份少了「对面能读这台什么」的说明，而代码已经能读了。
-  /// 片C-2 把定位一并扩进来（同一条披露句 + 权限清单各加一条）。
+  /// 片C-2 把定位一并扩进来（同一条披露句 + 权限清单各加一条）；
+  /// 片C-3 拍照、片C-4 通讯录同样两处各加一条。
   test('说明页披露远程读取（默认关、单独开）与通话记录/定位那两条权限（两个语言）', () {
-    for (final fact in ['远程读取', '默认关', '通话记录', '最近一次定位', '一张照片']) {
+    for (final fact in ['远程读取', '默认关', '通话记录', '最近一次定位', '一张照片', '联系人']) {
       expect(zhBody, contains(fact), reason: '中文隐私政策漏了「$fact」');
     }
     for (final fact in [
@@ -151,6 +152,7 @@ void main() {
       'call-log',
       'last known location',
       'photo taken',
+      'contacts matching',
     ]) {
       expect(
         enBody,
@@ -165,10 +167,17 @@ void main() {
       'ACCESS_COARSE_LOCATION',
       'CAMERA',
       '拍一张',
+      'READ_CONTACTS',
+      '通讯录',
     ]) {
       expect(zh['privacyPermContent'] as String, contains(fact));
     }
-    for (final fact in ['READ_CALL_LOG', 'ACCESS_FINE_LOCATION', 'CAMERA']) {
+    for (final fact in [
+      'READ_CALL_LOG',
+      'ACCESS_FINE_LOCATION',
+      'CAMERA',
+      'READ_CONTACTS',
+    ]) {
       expect(en['privacyPermContent'] as String, contains(fact));
     }
   });

@@ -339,11 +339,12 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         final min = contract.l2ReportMinChars(_item) ?? 1;
         final max = contract.l2ReportMaxChars(_item) ?? min;
         if (reportArgumentProblem(contract, _item, _keyword.text) != null) {
-          // 同一形态（keyword）现在由三个动作共用：文案按动作分 ——
-          // 「搜什么词」「打开哪一条」「搜通话记录里的什么词」是三件事。
+          // 同一形态（keyword）现在由四个动作共用：文案按动作分 ——「搜什么词」
+          // 「打开哪一条」「搜通话记录里的什么词」「搜通讯录里的什么名字或号码」是四件事。
           return switch (_item) {
             'app:launch' => l10n.remoteSendNeedsShortcutName(min, max),
             'calls:search' => l10n.remoteSendNeedsCallsKeyword(min, max),
+            'contacts:search' => l10n.remoteSendNeedsContactsKeyword(min, max),
             _ => l10n.remoteSendNeedsSmsKeyword(min, max),
           };
         }
@@ -896,16 +897,19 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     final contract = _contract!;
     final min = contract.l2ReportMinChars(_item) ?? 1;
     final max = contract.l2ReportMaxChars(_item) ?? min;
-    // ⚠ 同一个形态（keyword）由三个动作共用：文案按动作分 —— "搜什么词"／
-    //   "打开对面登记过的哪一条"／"搜通话记录里的什么词或号码"。合成一句会把三件事说成一件。
+    // ⚠ 同一个形态（keyword）由四个动作共用：文案按动作分 —— "搜什么词"／
+    //   "打开对面登记过的哪一条"／"搜通话记录里的什么词或号码"／
+    //   "搜通讯录里的什么名字或号码"。合成一句会把四件事说成一件。
     final label = switch (_item) {
       'app:launch' => l10n.remoteSendShortcutNameLabel,
       'calls:search' => l10n.remoteSendCallsKeywordLabel,
+      'contacts:search' => l10n.remoteSendContactsKeywordLabel,
       _ => l10n.remoteSendSmsKeywordLabel,
     };
     final why = switch (_item) {
       'app:launch' => l10n.remoteSendShortcutNameWhy,
       'calls:search' => l10n.remoteSendCallsKeywordWhy,
+      'contacts:search' => l10n.remoteSendContactsKeywordWhy,
       _ => l10n.remoteSendSmsKeywordWhy,
     };
     return [

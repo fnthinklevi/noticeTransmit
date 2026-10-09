@@ -35,6 +35,9 @@
          ⚠ 只在这台「有可见界面」时拍（Android 9+ 后台不许开相机、11+ 前台服务开相机还要
          专门类型与 while-in-use 许可 —— 那是另一条权限面，不在这一条里顺手开） -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- T124 片C-4：远程「按关键词搜通讯录」用（默认关的本机开关 + 一次 READ_CONTACTS 申请）。
+         ⚠ 只声明读、不声明写（WRITE_CONTACTS 不在清单里 ⇒ 那条组申请也不会捎上它） -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- 相机不是本应用的必需硬件：没有相机的设备照样装得上，「拍一张」那一发到那台上
          诚实失败（camera-snap-failed）—— required=false 是给 ChromeOS/无相机设备的门 -->
     <uses-feature

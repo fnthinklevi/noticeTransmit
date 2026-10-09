@@ -120,6 +120,21 @@ class RecordingExecutor implements FnthinkL2Executor {
     }
     return snapResult ?? (payload: null, reason: 'camera-snap-disabled');
   }
+
+  /// 搜通讯录那一条要回的那段正文（null = 没成，理由看 reason）。
+  ({String? payload, String? reason})? contactsResult;
+
+  @override
+  Future<({String? payload, String? reason})> searchContacts(
+    String keyword,
+  ) async {
+    calls.add('searchContacts($keyword)');
+    if (failEverything) {
+      return (payload: null, reason: 'contacts-search-failed');
+    }
+    return contactsResult ??
+        (payload: null, reason: 'contacts-search-disabled');
+  }
 }
 
 void main() {
@@ -142,6 +157,7 @@ void main() {
         'sms:search',
         'app:launch',
         'calls:search',
+        'contacts:search',
       ]);
       for (final a in contract.l2Reports.keys) {
         // ⚠ none（T124 片C-2 的 location:get）是**无参数**的回传：它不列
@@ -715,6 +731,63 @@ void main() {
         );
         expect(r.ok, isFalse);
         expect(r.reason, reason);
+      }
+    });
+  });
+
+  group('搜通讯录那一条（T124 片C-4 的 contacts:search）：与 calls:search 同形', () {
+    test('契约：在词表里、必带参数、kind 是 keyword、上下界与点名的标题都在', () {
+      expect(contract.l2Actions, contains('contacts:search'));
+      expect(contract.l2ActionsRequiringArgument, contains('contacts:search'));
+      expect(contract.l2ReportKind('contacts:search'), 'keyword');
+      expect(contract.l2ReportMinChars('contacts:search'), 1);
+      expect(contract.l2ReportMaxChars('contacts:search'), 32);
+      expect(contract.l2ReportTitle('contacts:search'), 'contacts-search');
+    });
+
+    test('命中 ⇒ 执行器被调一次，产出挂在结果上', () async {
+      final exec = RecordingExecutor()
+        ..contactsResult = (payload: '张三 13800138000', reason: null);
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('contacts:search', '张三'),
+      );
+      expect(exec.calls, ['searchContacts(张三)']);
+      expect(r.ok, isTrue);
+      expect(r.payload, contains('张三'));
+    });
+
+    test('执行器回一句理由（开关关着 / 没权限 / 读不出来）⇒ failed 原样带上', () async {
+      for (final reason in [
+        'contacts-search-disabled',
+        'contacts-search-refused',
+        'contacts-search-failed',
+      ]) {
+        final exec = RecordingExecutor()
+          ..contactsResult = (payload: null, reason: reason);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          const FnthinkL2Action('contacts:search', '张三'),
+        );
+        expect(r.ok, isFalse);
+        expect(r.reason, reason);
+      }
+    });
+
+    test('关键词越界/空/带控制字符 ⇒ failed，且执行器一次都不被调', () async {
+      for (final bad in ['', '   ', 'x' * 33, 'x\ny']) {
+        final exec = RecordingExecutor()
+          ..contactsResult = (payload: 'HIT', reason: null);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          FnthinkL2Action('contacts:search', bad),
+        );
+        expect(r.ok, isFalse, reason: '关键词「$bad」不该过');
+        expect(r.reason, startsWith('bad-keyword:'));
+        expect(exec.calls, isEmpty, reason: '拦在动手之前');
       }
     });
   });

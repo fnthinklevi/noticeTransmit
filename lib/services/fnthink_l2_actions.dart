@@ -209,6 +209,14 @@ abstract class FnthinkL2Executor {
   /// 另一个子系统）—— 这一发的产出是「拍到了、存在这台哪里」那段文字。
   Future<({String? payload, String? reason})> snapPhoto();
 
+  /// 在本机通讯录里按 [keyword] 搜（姓名或号码），命中的回传给发起方
+  /// （T124 片C-4 的 `contacts:search`；与 [searchSms]/[searchCalls] 同一形状）。
+  ///
+  /// 回 `(payload: 正文, reason: null)` = 成了；`(payload: null, reason: ...)` = 没成
+  /// （`contacts-search-disabled` 本机开关关着 / `contacts-search-refused` 没权限 /
+  /// `contacts-search-failed` 读不出来）。
+  Future<({String? payload, String? reason})> searchContacts(String keyword);
+
   /// 回传最近的 [count] 条通知原文（`notifications:report`，T124 片B）。
   ///
   /// 回**产出要回传的那段正文**；回 null = 这一步没做成（读库失败、这台没有可回传的东西）。
@@ -235,6 +243,7 @@ const Map<String, String> kFnthinkL2ActionVerbs = {
   'calls:search': 'searchCalls',
   'location:get': 'getLocation',
   'camera:snap': 'snapPhoto',
+  'contacts:search': 'searchContacts',
 };
 
 /// 把一个已解析的动作派到执行器上。纯转发，但**这里是唯一一处** action 名 → 方法的映射。
@@ -350,13 +359,35 @@ Future<FnthinkL2Result> dispatchL2Action(
       );
       if (badSnapArg != null) return FnthinkL2Result.failed(badSnapArg);
       final snapped = await executor.snapPhoto();
-      if (snapped.reason != null)
+      if (snapped.reason != null) {
         return FnthinkL2Result.failed(snapped.reason!);
+      }
       final snapPayload = snapped.payload;
       if (snapPayload == null || snapPayload.isEmpty) {
         return const FnthinkL2Result.failed('camera-snap-failed');
       }
       return FnthinkL2Result.ok(payload: snapPayload);
+    case 'contacts:search':
+      // 与 sms:search/calls:search 逐字同形：判据同源 reportArgumentProblem。
+      final badContactKeyword = reportArgumentProblem(
+        contract,
+        action.name,
+        action.argument,
+      );
+      if (badContactKeyword != null) {
+        return FnthinkL2Result.failed(badContactKeyword);
+      }
+      final foundContacts = await executor.searchContacts(
+        action.argument.trim(),
+      );
+      if (foundContacts.reason != null) {
+        return FnthinkL2Result.failed(foundContacts.reason!);
+      }
+      final contactsPayload = foundContacts.payload;
+      if (contactsPayload == null || contactsPayload.isEmpty) {
+        return const FnthinkL2Result.failed('contacts-search-failed');
+      }
+      return FnthinkL2Result.ok(payload: contactsPayload);
     default:
       // 走到这里说明 [parseL2Item] 与本函数对同一张表的读法不一致 ——
       // 两者都在同一份契约上，却给出了不同的答案。

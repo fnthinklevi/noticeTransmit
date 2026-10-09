@@ -248,6 +248,24 @@ class PermissionService {
     }
   }
 
+  /// T124 片C-4：通讯录那一格（`READ_CONTACTS`）。
+  ///
+  /// ⚠ 走 permission_handler：这一组的清单里**只声明了读**（没声明 WRITE_CONTACTS），
+  /// 所以那次组申请只会问读这一枚 —— 与相机同一形状，"一条一开"没有被绕过。
+  Future<void> requestContactsPermission() async {
+    await Permission.contacts.request();
+  }
+
+  /// 通讯录权限当前给没给（读不出来按未授予处理）。
+  Future<bool> isContactsPermissionGranted() async {
+    try {
+      return await Permission.contacts.isGranted;
+    } catch (e) {
+      debugPrint('检查通讯录权限失败（按未授予处理）: $e');
+      return false;
+    }
+  }
+
   Future<void> requestPhonePermission() async {
     final status = await Permission.phone.request();
     if (status == PermissionStatus.granted) {

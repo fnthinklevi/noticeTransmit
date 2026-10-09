@@ -712,6 +712,76 @@ void main() {
       );
     });
 
+    testWidgets('搜通讯录那一条 ⇒ 文案是"搜什么名字或号码"，发 contacts:search/<词>', (
+      tester,
+    ) async {
+      String? sent;
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      // 动作多到换行之后这一枚可能在屏外：先滚到它再点。
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-action-contacts:search')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-contacts:search')),
+      );
+      await tester.pumpAndSettle();
+      // 同一个 keyword 形态，第四个动作：文案按动作分（不与短信/通话并成一句）。
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(FnthinkSendPage)),
+      );
+      expect(find.text(l10n.remoteSendContactsKeywordLabel), findsOneWidget);
+      expect(find.text(l10n.remoteSendCallsKeywordLabel), findsNothing);
+      expect(find.text(l10n.remoteSendSmsKeywordLabel), findsNothing);
+      expect(find.byKey(const ValueKey('remote-send-keyword')), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      expect(sent, isNull, reason: '关键词空着不许发');
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-keyword')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-keyword')),
+        '张三',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+      expect(
+        RemoteCommandEnvelope.decode(sent ?? '')?.item,
+        'contacts:search/张三',
+      );
+    });
+
     testWidgets('回定位那一条 ⇒ 没有参数可填，直接发 location:get', (tester) async {
       String? sent;
       await pumpSend(
