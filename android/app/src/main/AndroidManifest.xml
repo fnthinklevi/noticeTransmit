@@ -31,6 +31,15 @@
          ⚠ 不声明 ACCESS_BACKGROUND_LOCATION：后台读不到就诚实失败，不为它多开一条权限面 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- T124 片C-3：远程「让这台拍一张」用（默认关的本机开关 + 一次 CAMERA 申请）。
+         ⚠ 只在这台「有可见界面」时拍（Android 9+ 后台不许开相机、11+ 前台服务开相机还要
+         专门类型与 while-in-use 许可 —— 那是另一条权限面，不在这一条里顺手开） -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 相机不是本应用的必需硬件：没有相机的设备照样装得上，「拍一张」那一发到那台上
+         诚实失败（camera-snap-failed）—— required=false 是给 ChromeOS/无相机设备的门 -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />

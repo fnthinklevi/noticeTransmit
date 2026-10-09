@@ -229,6 +229,25 @@ class PermissionService {
     }
   }
 
+  /// T124 片C-3：相机那一格（`CAMERA`）。
+  ///
+  /// ⚠ 这一枚**走 permission_handler 没问题**：它的组里只有 CAMERA 一枚（不像 phone 组会把
+  /// 通话记录捎上）—— 申请一次只问这一件事。详见 C-1 在 `requestCallLogPermission`
+  /// 顶上写的那段"为什么它是绕开的"。
+  Future<void> requestCameraPermission() async {
+    await Permission.camera.request();
+  }
+
+  /// 相机权限当前给没给（读不出来按未授予处理）。
+  Future<bool> isCameraPermissionGranted() async {
+    try {
+      return await Permission.camera.isGranted;
+    } catch (e) {
+      debugPrint('检查相机权限失败（按未授予处理）: $e');
+      return false;
+    }
+  }
+
   Future<void> requestPhonePermission() async {
     final status = await Permission.phone.request();
     if (status == PermissionStatus.granted) {

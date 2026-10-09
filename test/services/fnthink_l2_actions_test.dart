@@ -108,6 +108,18 @@ class RecordingExecutor implements FnthinkL2Executor {
     }
     return locationResult ?? (payload: null, reason: 'location-disabled');
   }
+
+  /// 拍一张那一条要回的那段正文（null = 没成，理由看 reason）。
+  ({String? payload, String? reason})? snapResult;
+
+  @override
+  Future<({String? payload, String? reason})> snapPhoto() async {
+    calls.add('snapPhoto()');
+    if (failEverything) {
+      return (payload: null, reason: 'camera-snap-failed');
+    }
+    return snapResult ?? (payload: null, reason: 'camera-snap-disabled');
+  }
 }
 
 void main() {
@@ -636,6 +648,70 @@ void main() {
           contract,
           exec,
           const FnthinkL2Action('location:get', ''),
+        );
+        expect(r.ok, isFalse);
+        expect(r.reason, reason);
+      }
+    });
+  });
+
+  group('拍照那一条（T124 片C-3 的 camera:snap）：无参数、产出与理由都带回来', () {
+    test('契约：在词表里、不必带参数、kind 是 none、回传标题在', () {
+      expect(contract.l2Actions, contains('camera:snap'));
+      expect(
+        contract.l2ActionsRequiringArgument,
+        isNot(contains('camera:snap')),
+      );
+      expect(contract.l2ReportKind('camera:snap'), 'none');
+      expect(contract.l2ReportTitle('camera:snap'), 'camera-snap');
+      expect(
+        rejectL2Argument(contract, const FnthinkL2Action('camera:snap', '')),
+        isNull,
+      );
+    });
+
+    test('拍到了 ⇒ 执行器被调一次，产出挂在结果上', () async {
+      final exec = RecordingExecutor()
+        ..snapResult = (
+          payload: '2026-10-10 09:31 640x480 NT_x.jpg',
+          reason: null,
+        );
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('camera:snap', ''),
+      );
+      expect(exec.calls, ['snapPhoto()']);
+      expect(r.ok, isTrue);
+      expect(r.payload, contains('NT_x.jpg'));
+    });
+
+    test('带了参数 ⇒ failed 且执行器一次都不被调（unexpected-argument）', () async {
+      final exec = RecordingExecutor()
+        ..snapResult = (payload: 'HIT', reason: null);
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('camera:snap', 'front'),
+      );
+      expect(r.ok, isFalse);
+      expect(r.reason, 'unexpected-argument:camera:snap');
+      expect(exec.calls, isEmpty, reason: '拦在动手之前');
+    });
+
+    test('执行器回一句理由（开关关着/没权限/没界面/拍失败）⇒ 原样带上', () async {
+      for (final reason in [
+        'camera-snap-disabled',
+        'camera-snap-refused',
+        'camera-snap-no-foreground',
+        'camera-snap-failed',
+      ]) {
+        final exec = RecordingExecutor()
+          ..snapResult = (payload: null, reason: reason);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          const FnthinkL2Action('camera:snap', ''),
         );
         expect(r.ok, isFalse);
         expect(r.reason, reason);

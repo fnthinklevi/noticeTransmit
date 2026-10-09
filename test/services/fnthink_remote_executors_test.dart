@@ -51,6 +51,12 @@ void main() {
       reason: null,
     );
     var locationThrows = false;
+    var snapCalls = 0;
+    ({String? payload, String? reason}) snapResult = (
+      payload: 'SNAP',
+      reason: null,
+    );
+    var snapThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -78,6 +84,9 @@ void main() {
       locationCalls = 0;
       locationResult = (payload: 'FIX', reason: null);
       locationThrows = false;
+      snapCalls = 0;
+      snapResult = (payload: 'SNAP', reason: null);
+      snapThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -118,6 +127,11 @@ void main() {
         locationCalls++;
         if (locationThrows) throw StateError('boom');
         return locationResult;
+      },
+      snapPhotoNow: () async {
+        snapCalls++;
+        if (snapThrows) throw StateError('boom');
+        return snapResult;
       },
       launchAppNow: (name) async {
         launchCalls.add(name);
@@ -179,6 +193,7 @@ void main() {
         searchCallsNow: (keyword) async =>
             (payload: null, reason: 'calls-search-failed'),
         getLocationNow: () async => (payload: null, reason: 'location-failed'),
+        snapPhotoNow: () async => (payload: null, reason: 'camera-snap-failed'),
         launchAppNow: (name) async =>
             (ok: false, reason: 'app-launch-unknown-name'),
         pushDeviceStateNow: () async => true,
@@ -258,6 +273,17 @@ void main() {
       expect((await build().getLocation()).reason, 'location-unavailable');
       locationThrows = true;
       expect((await build().getLocation()).reason, 'threw:location:get');
+    });
+
+    test('camera:snap：产出与理由原样透传；抛异常收成 threw', () async {
+      final hit = await build().snapPhoto();
+      expect(snapCalls, 1);
+      expect(hit.payload, 'SNAP');
+      expect(hit.reason, isNull);
+      snapResult = (payload: null, reason: 'camera-snap-no-foreground');
+      expect((await build().snapPhoto()).reason, 'camera-snap-no-foreground');
+      snapThrows = true;
+      expect((await build().snapPhoto()).reason, 'threw:camera:snap');
     });
   });
 

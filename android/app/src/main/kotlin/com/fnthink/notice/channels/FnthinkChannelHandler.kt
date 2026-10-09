@@ -3,6 +3,7 @@ package com.fnthink.notice.channels
 import android.content.Context
 import com.fnthink.notice.AppLaunch
 import com.fnthink.notice.CallLogSearch
+import com.fnthink.notice.CameraSnap
 import com.fnthink.notice.FnthinkAlertDisplay
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
@@ -135,6 +136,14 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             "getFnthinkLocation" -> {
                 ioScope.launch {
                     postSuccess(result, LocationFix.get(context))
+                }
+            }
+            // ── T124 片C：让这台现在拍一张（`camera:snap`）──
+            // 回 null = 没权限；回 {snap:false, why} = 没界面/拍失败（见 CameraSnap 文件头）；
+            // 回 {snap:true, name, ...} = 成了 —— 三种下场在对面读起来不同。
+            "snapFnthinkPhoto" -> {
+                ioScope.launch {
+                    postSuccess(result, CameraSnap.snap(context))
                 }
             }
             // ── T83：点通知要跳去的那一条 ──

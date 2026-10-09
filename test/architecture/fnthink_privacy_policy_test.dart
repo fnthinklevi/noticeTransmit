@@ -142,7 +142,7 @@ void main() {
   /// 一份少了「对面能读这台什么」的说明，而代码已经能读了。
   /// 片C-2 把定位一并扩进来（同一条披露句 + 权限清单各加一条）。
   test('说明页披露远程读取（默认关、单独开）与通话记录/定位那两条权限（两个语言）', () {
-    for (final fact in ['远程读取', '默认关', '通话记录', '最近一次定位']) {
+    for (final fact in ['远程读取', '默认关', '通话记录', '最近一次定位', '一张照片']) {
       expect(zhBody, contains(fact), reason: '中文隐私政策漏了「$fact」');
     }
     for (final fact in [
@@ -150,6 +150,7 @@ void main() {
       'off by default',
       'call-log',
       'last known location',
+      'photo taken',
     ]) {
       expect(
         enBody,
@@ -162,10 +163,12 @@ void main() {
       '通话记录',
       'ACCESS_FINE_LOCATION',
       'ACCESS_COARSE_LOCATION',
+      'CAMERA',
+      '拍一张',
     ]) {
       expect(zh['privacyPermContent'] as String, contains(fact));
     }
-    for (final fact in ['READ_CALL_LOG', 'ACCESS_FINE_LOCATION']) {
+    for (final fact in ['READ_CALL_LOG', 'ACCESS_FINE_LOCATION', 'CAMERA']) {
       expect(en['privacyPermContent'] as String, contains(fact));
     }
   });

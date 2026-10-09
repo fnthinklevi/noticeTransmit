@@ -29,6 +29,7 @@ import '../models/notification_record.dart';
 import '../services/fnthink_notification_report.dart';
 import '../services/fnthink_call_log_report.dart';
 import '../services/fnthink_location_report.dart';
+import '../services/fnthink_photo_report.dart';
 import '../services/fnthink_read_settings.dart';
 import '../services/fnthink_shortcut_registry.dart';
 import '../services/fnthink_sms_search_report.dart';
@@ -286,6 +287,7 @@ void setupLocator() {
       searchSmsNow: _fnthinkSearchSmsOnce,
       searchCallsNow: _fnthinkSearchCallsOnce,
       getLocationNow: _fnthinkGetLocationOnce,
+      snapPhotoNow: _fnthinkSnapPhotoOnce,
       launchAppNow: _fnthinkLaunchShortcutOnce,
     ),
   );
@@ -546,6 +548,45 @@ Future<({String? payload, String? reason})> _fnthinkGetLocationOnce() async {
     return (payload: text, reason: null);
   } catch (e) {
     return (payload: null, reason: 'location-failed');
+  }
+}
+
+/// 「让这台现在拍一张」那一发（T124 片C-3 的 `camera:snap`）。
+///
+/// ⚠ 与另三条同一纪律：**先本机开关、后系统权限**，各格理由分开：
+///  ① 开关（`fnthink.read.camera`，默认关）关着 ⇒ `camera-snap-disabled`；
+///  ② 原生那格没权限 ⇒ `camera-snap-refused`（原生回 null）；
+///  ③ 这台**没有可见界面** ⇒ `camera-snap-no-foreground`（Android 9+ 后台不许开相机、
+///     11+ 前台服务开相机还要专门类型与 while-in-use 许可 —— 那是另一条权限面，不顺手开）；
+///  ④ 拍/存失败 ⇒ `camera-snap-failed`。
+/// ⚠ 画面不回传（图像传输＋收件端渲染是另一个子系统）：产出是"拍到了、存在这台哪里"那段文字。
+Future<({String? payload, String? reason})> _fnthinkSnapPhotoOnce() async {
+  try {
+    if (!await fnthinkReadCameraEnabled()) {
+      return (payload: null, reason: 'camera-snap-disabled');
+    }
+    final raw = await AppChannels.notification
+        .invokeMethod<Map<Object?, Object?>>('snapFnthinkPhoto');
+    if (raw == null) {
+      return (payload: null, reason: 'camera-snap-refused');
+    }
+    final snap = Map<String, Object?>.from(raw);
+    if (snap['snap'] != true) {
+      final why = '${snap['why'] ?? ''}';
+      return (
+        payload: null,
+        reason: why == 'no-foreground'
+            ? 'camera-snap-no-foreground'
+            : 'camera-snap-failed',
+      );
+    }
+    final text = formatFnthinkPhotoReport(snap);
+    if (text.isEmpty) {
+      return (payload: null, reason: 'camera-snap-failed');
+    }
+    return (payload: text, reason: null);
+  } catch (e) {
+    return (payload: null, reason: 'camera-snap-failed');
   }
 }
 

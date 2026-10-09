@@ -111,10 +111,10 @@ void main() {
     // 116 → 119（T124 片C-1）：通话记录那一族三发 —— `searchFnthinkCallLog`（按关键词搜）
     // 与 `isCallLogPermissionGranted` / `requestCallLogPermission`（**单独一次**申请：
     // 不并进 READ_PHONE_STATE 那次，见 MainActivity 那枚请求码上的说明）。
-    test('原生方法总数 == 122（防止分支被静默删除/新增未登记）', () {
+    test('原生方法总数 == 123（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        122,
+        123,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -135,8 +135,8 @@ void main() {
         'StatsChannelHandler': 9,
         // T124 片B-2 起 9（`showFnthinkAlert`）；片B-3 起 10（`searchFnthinkSms`）；
         // 片B-4 起 11（`launchFnthinkTarget`）；片C-1 起 12（`searchFnthinkCallLog`）；
-        // 片C-2 起 13（`getFnthinkLocation`）。
-        'FnthinkChannelHandler': 13,
+        // 片C-2 起 13（`getFnthinkLocation`）；片C-3 起 14（`snapFnthinkPhoto`）。
+        'FnthinkChannelHandler': 14,
         // 远程执行（片3c-5）：状态栏通知的显示/清理 + "被原生记下撤销"的读口。
         // ⚠ 前四发是**撤销入口其二**那条路径的唯一通道 —— 用户在通知栏按下的那一下
         //   落在原生（Dart 当时不一定在跑），到点动手前由 Dart 回来问一句。

@@ -46,6 +46,10 @@ class FnthinkReadCapsPage extends StatefulWidget {
     this.saveLocation,
     this.requestLocationPermission,
     this.isLocationGranted,
+    this.loadCamera,
+    this.saveCamera,
+    this.requestCameraPermission,
+    this.isCameraGranted,
   });
 
   /// 读写口与权限申请口（测试注入；默认走生产那两份）。
@@ -59,6 +63,11 @@ class FnthinkReadCapsPage extends StatefulWidget {
   final Future<void> Function(bool enabled)? saveLocation;
   final Future<void> Function()? requestLocationPermission;
   final Future<bool> Function()? isLocationGranted;
+
+  final Future<bool> Function()? loadCamera;
+  final Future<void> Function(bool enabled)? saveCamera;
+  final Future<void> Function()? requestCameraPermission;
+  final Future<bool> Function()? isCameraGranted;
 
   @override
   State<FnthinkReadCapsPage> createState() => _FnthinkReadCapsPageState();
@@ -233,6 +242,18 @@ class _FnthinkReadCapsPageState extends State<FnthinkReadCapsPage>
     await GetIt.instance<PermissionService>().requestLocationPermission();
   }
 
+  Future<bool> _cameraGranted() async {
+    if (widget.isCameraGranted != null) return widget.isCameraGranted!();
+    return GetIt.instance<PermissionService>().isCameraPermissionGranted();
+  }
+
+  Future<void> _requestCameraPermission() async {
+    if (widget.requestCameraPermission != null) {
+      return widget.requestCameraPermission!();
+    }
+    await GetIt.instance<PermissionService>().requestCameraPermission();
+  }
+
   List<_ReadCapRowSpec> _buildSpecs(AppLocalizations l10n) {
     return [
       _ReadCapRowSpec(
@@ -258,6 +279,18 @@ class _FnthinkReadCapsPageState extends State<FnthinkReadCapsPage>
         save: widget.saveLocation ?? setFnthinkReadLocationEnabled,
         requestPermission: _requestLocationPermission,
         isGranted: _locationGranted,
+      ),
+      _ReadCapRowSpec(
+        id: 'camera',
+        title: l10n.fnthinkReadCameraTitle,
+        subtitle: l10n.fnthinkReadCameraSubtitle,
+        deniedText: l10n.fnthinkReadCameraDenied,
+        icon: Icons.photo_camera_outlined,
+        iconColor: AppColors.purple,
+        load: widget.loadCamera ?? fnthinkReadCameraEnabled,
+        save: widget.saveCamera ?? setFnthinkReadCameraEnabled,
+        requestPermission: _requestCameraPermission,
+        isGranted: _cameraGranted,
       ),
     ];
   }

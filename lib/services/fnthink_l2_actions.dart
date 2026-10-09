@@ -200,6 +200,15 @@ abstract class FnthinkL2Executor {
   /// `location-failed` 读不出来）。⚠ 与另两条同一纪律：开关关着连系统都不碰。
   Future<({String? payload, String? reason})> getLocation();
 
+  /// 让这台**现在**拍一张照片（T124 片C-3 的 `camera:snap`；无参数）。
+  ///
+  /// 回 `(payload: 正文, reason: null)` = 这一步成了；`payload: null, reason: ...` = 没成
+  /// （`camera-snap-disabled` 本机开关关着 / `camera-snap-refused` 没权限被拒 /
+  /// `camera-snap-no-foreground` 这台没有可见界面（Android 11+ 的 while-in-use 规定）/
+  /// `camera-snap-failed` 拍/存没成）。⚠ 画面**不回传**（那是图像传输＋收件端渲染，
+  /// 另一个子系统）—— 这一发的产出是「拍到了、存在这台哪里」那段文字。
+  Future<({String? payload, String? reason})> snapPhoto();
+
   /// 回传最近的 [count] 条通知原文（`notifications:report`，T124 片B）。
   ///
   /// 回**产出要回传的那段正文**；回 null = 这一步没做成（读库失败、这台没有可回传的东西）。
@@ -225,6 +234,7 @@ const Map<String, String> kFnthinkL2ActionVerbs = {
   'app:launch': 'launchApp',
   'calls:search': 'searchCalls',
   'location:get': 'getLocation',
+  'camera:snap': 'snapPhoto',
 };
 
 /// 把一个已解析的动作派到执行器上。纯转发，但**这里是唯一一处** action 名 → 方法的映射。
@@ -331,6 +341,22 @@ Future<FnthinkL2Result> dispatchL2Action(
         return const FnthinkL2Result.failed('location-failed');
       }
       return FnthinkL2Result.ok(payload: fixPayload);
+    case 'camera:snap':
+      // 与 location:get 同形：无参数、产出挂在结果上、理由原样带上。
+      final badSnapArg = reportArgumentProblem(
+        contract,
+        action.name,
+        action.argument,
+      );
+      if (badSnapArg != null) return FnthinkL2Result.failed(badSnapArg);
+      final snapped = await executor.snapPhoto();
+      if (snapped.reason != null)
+        return FnthinkL2Result.failed(snapped.reason!);
+      final snapPayload = snapped.payload;
+      if (snapPayload == null || snapPayload.isEmpty) {
+        return const FnthinkL2Result.failed('camera-snap-failed');
+      }
+      return FnthinkL2Result.ok(payload: snapPayload);
     default:
       // 走到这里说明 [parseL2Item] 与本函数对同一张表的读法不一致 ——
       // 两者都在同一份契约上，却给出了不同的答案。

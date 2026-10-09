@@ -18,6 +18,7 @@ void main() {
   test('默认关：没写过 prefs ⇒ false', () async {
     expect(await fnthinkReadCallsEnabled(), isFalse);
     expect(await fnthinkReadLocationEnabled(), isFalse);
+    expect(await fnthinkReadCameraEnabled(), isFalse);
   });
 
   test('写 true / 写 false 都能读回来', () async {
@@ -35,9 +36,19 @@ void main() {
     expect(await fnthinkReadLocationEnabled(), isFalse);
   });
 
-  test('键名是那一枚（跨进程/跨页面只许有一个作者）', () {
+  test('相机那一枚同样默认关、可往返，且不带着别的开', () async {
+    await setFnthinkReadCameraEnabled(true);
+    expect(await fnthinkReadCameraEnabled(), isTrue);
+    expect(await fnthinkReadCallsEnabled(), isFalse, reason: '另一项不许被带着开');
+    expect(await fnthinkReadLocationEnabled(), isFalse);
+    await setFnthinkReadCameraEnabled(false);
+    expect(await fnthinkReadCameraEnabled(), isFalse);
+  });
+
+  test('键名是那几枚（跨进程/跨页面只许有一个作者）', () {
     expect(kFnthinkReadCallsKey, 'fnthink.read.calls');
     expect(kFnthinkReadLocationKey, 'fnthink.read.location');
+    expect(kFnthinkReadCameraKey, 'fnthink.read.camera');
   });
 
   test('put 过别的键不影响这一枚（缺键回退是关，不是"跟着别人走"）', () async {

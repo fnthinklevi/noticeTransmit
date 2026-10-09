@@ -28,6 +28,7 @@ class DeviceL2Executor implements FnthinkL2Executor {
     required this.searchSmsNow,
     required this.searchCallsNow,
     required this.getLocationNow,
+    required this.snapPhotoNow,
     required this.launchAppNow,
   });
 
@@ -63,6 +64,9 @@ class DeviceL2Executor implements FnthinkL2Executor {
 
   /// 读本机最近一次定位，组装成要回传的那段正文（T124 片C 的 `location:get`；无参数）。
   final Future<({String? payload, String? reason})> Function() getLocationNow;
+
+  /// 让这台现在拍一张（T124 片C-3 的 `camera:snap`；无参数）。
+  final Future<({String? payload, String? reason})> Function() snapPhotoNow;
 
   /// 打开本机登记过的一条入口（T124 片B 的 `app:launch`；[entryName] 是登记时的名称）。
   ///
@@ -169,6 +173,15 @@ class DeviceL2Executor implements FnthinkL2Executor {
       return await getLocationNow();
     } catch (e) {
       return (payload: null, reason: 'threw:location:get');
+    }
+  }
+
+  @override
+  Future<({String? payload, String? reason})> snapPhoto() async {
+    try {
+      return await snapPhotoNow();
+    } catch (e) {
+      return (payload: null, reason: 'threw:camera:snap');
     }
   }
 

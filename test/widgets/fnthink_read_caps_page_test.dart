@@ -17,12 +17,16 @@ void main() {
     WidgetTester tester, {
     bool callsStored = false,
     bool locationStored = false,
+    bool cameraStored = false,
     Future<bool> Function()? isCallsGranted,
     Future<bool> Function()? isLocationGranted,
+    Future<bool> Function()? isCameraGranted,
     List<bool>? savedCalls,
     List<bool>? savedLocation,
+    List<bool>? savedCamera,
     List<int>? requestedCalls,
     List<int>? requestedLocation,
+    List<int>? requestedCamera,
   }) async {
     await tester.pumpWidget(
       AppRoot(
@@ -37,6 +41,10 @@ void main() {
           saveLocation: (v) async => savedLocation?.add(v),
           requestLocationPermission: () async => requestedLocation?.add(1),
           isLocationGranted: isLocationGranted ?? () async => false,
+          loadCamera: () async => cameraStored,
+          saveCamera: (v) async => savedCamera?.add(v),
+          requestCameraPermission: () async => requestedCamera?.add(1),
+          isCameraGranted: isCameraGranted ?? () async => false,
         ),
       ),
     );
@@ -63,8 +71,13 @@ void main() {
       find.byKey(const ValueKey('fnthink-read-location-switch')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('fnthink-read-camera-switch')),
+      findsOneWidget,
+    );
     expect(switchOf(tester, 'calls'), isFalse, reason: '默认必须是关');
     expect(switchOf(tester, 'location'), isFalse, reason: '默认必须是关');
+    expect(switchOf(tester, 'camera'), isFalse, reason: '默认必须是关');
     expect(requestedCalls, isEmpty);
     expect(requestedLocation, isEmpty);
   });
@@ -196,5 +209,36 @@ void main() {
     );
     expect(find.text(l10n.fnthinkReadLocationDenied), findsOneWidget);
     expect(find.text(l10n.fnthinkReadCallsDenied), findsNothing);
+  });
+
+  testWidgets('拍照那一行同套流程：给了权限才落开，且只落相机那一枚', (tester) async {
+    final savedCamera = <bool>[];
+    final savedCalls = <bool>[];
+    final requestedCamera = <int>[];
+    var granted = false;
+    await pump(
+      tester,
+      isCameraGranted: () async => granted,
+      savedCamera: savedCamera,
+      savedCalls: savedCalls,
+      requestedCamera: requestedCamera,
+    );
+    await tester.tap(find.byKey(const ValueKey('fnthink-read-camera-switch')));
+    await tester.pumpAndSettle();
+    expect(requestedCamera.length, 1);
+    expect(savedCamera, isEmpty, reason: '答复还没回来，不许先落开');
+
+    granted = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(savedCamera, [true]);
+    expect(savedCalls, isEmpty, reason: '一条一开：开相机不许碰通话记录那一枚');
+    expect(switchOf(tester, 'camera'), isTrue);
+
+    // 关掉：立即落盘 false（与另两行同一条）。
+    await tester.tap(find.byKey(const ValueKey('fnthink-read-camera-switch')));
+    await tester.pumpAndSettle();
+    expect(savedCamera, [true, false]);
+    expect(switchOf(tester, 'camera'), isFalse);
   });
 }

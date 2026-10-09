@@ -112,6 +112,14 @@ class _RecordingL2 implements FnthinkL2Executor {
   }
 
   @override
+  Future<({String? payload, String? reason})> snapPhoto() async {
+    calls.add('snapPhoto()');
+    await _pass();
+    if (!ok) return (payload: null, reason: 'camera-snap-failed');
+    return (payload: null, reason: 'camera-snap-disabled');
+  }
+
+  @override
   Future<({bool ok, String? reason})> launchApp(String name) async {
     calls.add('launchApp($name)');
     await _pass();
