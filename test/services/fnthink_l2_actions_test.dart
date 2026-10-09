@@ -96,6 +96,18 @@ class RecordingExecutor implements FnthinkL2Executor {
     }
     return callsResult ?? (payload: null, reason: 'calls-search-disabled');
   }
+
+  /// 定位那一条要回的那段正文（null = 没成，理由看 reason）。
+  ({String? payload, String? reason})? locationResult;
+
+  @override
+  Future<({String? payload, String? reason})> getLocation() async {
+    calls.add('getLocation()');
+    if (failEverything) {
+      return (payload: null, reason: 'location-failed');
+    }
+    return locationResult ?? (payload: null, reason: 'location-disabled');
+  }
 }
 
 void main() {
@@ -120,6 +132,9 @@ void main() {
         'calls:search',
       ]);
       for (final a in contract.l2Reports.keys) {
+        // ⚠ none（T124 片C-2 的 location:get）是**无参数**的回传：它不列
+        // requiresArgumentFrom（列了自相矛盾），契约校验已把这一对关系双向钉住。
+        if (contract.l2ReportKind(a) == 'none') continue;
         expect(
           contract.l2ActionsRequiringArgument,
           contains(a),
@@ -559,6 +574,71 @@ void main() {
         expect(r.ok, isFalse, reason: '关键词「$bad」不该过');
         expect(r.reason, startsWith('bad-keyword:'));
         expect(exec.calls, isEmpty, reason: '拦在动手之前');
+      }
+    });
+  });
+
+  group('定位那一条（T124 片C-2 的 location:get）：无参数、第三种形态 none', () {
+    test('契约：在词表里、**不**必带参数、kind 是 none、回传标题在', () {
+      expect(contract.l2Actions, contains('location:get'));
+      expect(
+        contract.l2ActionsRequiringArgument,
+        isNot(contains('location:get')),
+        reason: '无参数的动作列进 requiresArgumentFrom 是自相矛盾（一处说必填、一处说没有）',
+      );
+      expect(contract.l2ReportKind('location:get'), 'none');
+      expect(contract.l2ReportTitle('location:get'), 'location-report');
+      expect(
+        rejectL2Argument(contract, const FnthinkL2Action('location:get', '')),
+        isNull,
+      );
+    });
+
+    test('命中 ⇒ 执行器被调一次，产出挂在结果上', () async {
+      final exec = RecordingExecutor()
+        ..locationResult = (
+          payload: '31.230416,121.473701 ±25m gps',
+          reason: null,
+        );
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('location:get', ''),
+      );
+      expect(exec.calls, ['getLocation()']);
+      expect(r.ok, isTrue);
+      expect(r.payload, contains('31.230416'));
+    });
+
+    test('带了参数 ⇒ failed 且**执行器一次都不被调**（unexpected-argument）', () async {
+      final exec = RecordingExecutor()
+        ..locationResult = (payload: 'HIT', reason: null);
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('location:get', 'where'),
+      );
+      expect(r.ok, isFalse);
+      expect(r.reason, 'unexpected-argument:location:get');
+      expect(exec.calls, isEmpty, reason: '拦在动手之前');
+    });
+
+    test('执行器回一句理由（开关关着 / 没权限 / 没有最近定位 / 读不出来）⇒ 原样带上', () async {
+      for (final reason in [
+        'location-disabled',
+        'location-refused',
+        'location-unavailable',
+        'location-failed',
+      ]) {
+        final exec = RecordingExecutor()
+          ..locationResult = (payload: null, reason: reason);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          const FnthinkL2Action('location:get', ''),
+        );
+        expect(r.ok, isFalse);
+        expect(r.reason, reason);
       }
     });
   });

@@ -711,6 +711,51 @@ void main() {
         'calls:search/10086',
       );
     });
+
+    testWidgets('回定位那一条 ⇒ 没有参数可填，直接发 location:get', (tester) async {
+      String? sent;
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-location:get')),
+      );
+      await tester.pumpAndSettle();
+      // 无参数形态：关键词/条数/通道那三组参数格都不该出现。
+      expect(find.byKey(const ValueKey('remote-send-keyword')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('remote-send-report-count')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('remote-send-family-webhook')),
+        findsNothing,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+      expect(RemoteCommandEnvelope.decode(sent ?? '')?.item, 'location:get');
+    });
   });
 
   group('历史页：三种"没有记录"分开说', () {

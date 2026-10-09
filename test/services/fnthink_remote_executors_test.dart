@@ -45,6 +45,12 @@ void main() {
       reason: null,
     );
     var callsThrows = false;
+    var locationCalls = 0;
+    ({String? payload, String? reason}) locationResult = (
+      payload: 'FIX',
+      reason: null,
+    );
+    var locationThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -69,6 +75,9 @@ void main() {
       callsCalls = [];
       callsResult = (payload: 'CALLHIT', reason: null);
       callsThrows = false;
+      locationCalls = 0;
+      locationResult = (payload: 'FIX', reason: null);
+      locationThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -104,6 +113,11 @@ void main() {
         callsCalls.add(keyword);
         if (callsThrows) throw StateError('boom');
         return callsResult;
+      },
+      getLocationNow: () async {
+        locationCalls++;
+        if (locationThrows) throw StateError('boom');
+        return locationResult;
       },
       launchAppNow: (name) async {
         launchCalls.add(name);
@@ -164,6 +178,7 @@ void main() {
             (payload: null, reason: 'sms-search-failed'),
         searchCallsNow: (keyword) async =>
             (payload: null, reason: 'calls-search-failed'),
+        getLocationNow: () async => (payload: null, reason: 'location-failed'),
         launchAppNow: (name) async =>
             (ok: false, reason: 'app-launch-unknown-name'),
         pushDeviceStateNow: () async => true,
@@ -232,6 +247,17 @@ void main() {
       expect((await build().searchCalls('x')).reason, 'calls-search-disabled');
       callsThrows = true;
       expect((await build().searchCalls('x')).reason, 'threw:calls:search');
+    });
+
+    test('location:get：产出与理由原样透传；抛异常收成 threw', () async {
+      final hit = await build().getLocation();
+      expect(locationCalls, 1);
+      expect(hit.payload, 'FIX');
+      expect(hit.reason, isNull);
+      locationResult = (payload: null, reason: 'location-unavailable');
+      expect((await build().getLocation()).reason, 'location-unavailable');
+      locationThrows = true;
+      expect((await build().getLocation()).reason, 'threw:location:get');
     });
   });
 

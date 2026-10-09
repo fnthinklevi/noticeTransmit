@@ -71,6 +71,15 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 activity.requestCallLogPermission()
                 result.success(true)
             }
+            // T124 片C-2：定位那一格（FINE+COARSE 一起申请是系统"精确／大致"那一次弹框的形状；
+            // 判据收在 activity.isLocationPermissionGranted 一枚方法里 —— 大致也算给了）
+            "isLocationPermissionGranted" -> {
+                result.success(activity.isLocationPermissionGranted())
+            }
+            "requestLocationPermission" -> {
+                activity.requestLocationPermission()
+                result.success(true)
+            }
             "canQueryAllPackages" -> {
                 // ⚠ 语义是"允许去枚举"（只有明确拒绝才拦），不是"已授予"。
                 // 显示权限状态请用 getAppListPermissionState。

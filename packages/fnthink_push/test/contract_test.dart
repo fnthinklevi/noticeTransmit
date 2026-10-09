@@ -2810,7 +2810,7 @@ void main() {
       );
     });
 
-    test('argumentKind 不是 count/keyword ⇒ 报出来', () {
+    test('argumentKind 不是 count/keyword/none ⇒ 报出来', () {
       final broken = withL2(
         reports: {
           'notifications:report': {...okSpec, 'argumentKind': 'flag'},
@@ -2818,7 +2818,57 @@ void main() {
       );
       expect(
         broken.validate(),
-        anyElement(contains('argumentKind 必须是 count 或 keyword')),
+        anyElement(contains('argumentKind 必须是 count、keyword 或 none')),
+      );
+    });
+
+    test('none（无参数的回传，T124 片C-2）：成形的过，坏的一样样报', () {
+      // 成形的：无参数 + title（它存在的理由就是把"这条会回传"写进契约）
+      expect(
+        withL2(
+          reports: {
+            'location:get': const {
+              'argumentKind': 'none',
+              'title': 'location-report',
+            },
+          },
+        ).validate(),
+        isEmpty,
+      );
+      // 不带 title 的 none 什么都没声明 ⇒ 报
+      expect(
+        withL2(
+          reports: {
+            'location:get': const {'argumentKind': 'none'},
+          },
+        ).validate(),
+        anyElement(contains('title 必写')),
+      );
+      // 列进 requiresArgumentFrom ⇒ 一处说必填、一处说没有 ⇒ 报
+      expect(
+        withL2(
+          reports: {
+            'location:get': const {
+              'argumentKind': 'none',
+              'title': 'location-report',
+            },
+          },
+          requiresArgumentFrom: const ['location:get'],
+        ).validate(),
+        anyElement(contains('却列进了 requiresArgumentFrom')),
+      );
+      // 带了别的 kind 的上下界键 ⇒ 报（写了就是另一种 kind 的残留）
+      expect(
+        withL2(
+          reports: {
+            'location:get': const {
+              'argumentKind': 'none',
+              'title': 'location-report',
+              'minChars': 1,
+            },
+          },
+        ).validate(),
+        anyElement(contains('属于别的 kind')),
       );
     });
 

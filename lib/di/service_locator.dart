@@ -28,6 +28,7 @@ import '../services/fnthink_remote_wiring.dart';
 import '../models/notification_record.dart';
 import '../services/fnthink_notification_report.dart';
 import '../services/fnthink_call_log_report.dart';
+import '../services/fnthink_location_report.dart';
 import '../services/fnthink_read_settings.dart';
 import '../services/fnthink_shortcut_registry.dart';
 import '../services/fnthink_sms_search_report.dart';
@@ -284,6 +285,7 @@ void setupLocator() {
       ringAlertNow: () => FnthinkAlertDisplay().ring(),
       searchSmsNow: _fnthinkSearchSmsOnce,
       searchCallsNow: _fnthinkSearchCallsOnce,
+      getLocationNow: _fnthinkGetLocationOnce,
       launchAppNow: _fnthinkLaunchShortcutOnce,
     ),
   );
@@ -508,6 +510,42 @@ Future<({String? payload, String? reason})> _fnthinkSearchCallsOnce(
     return (payload: formatFnthinkCallLogReport(keyword, rows), reason: null);
   } catch (e) {
     return (payload: null, reason: 'calls-search-failed');
+  }
+}
+
+/// 「读本机最近一次定位」那一发（T124 片C-2 的 `location:get`）。
+///
+/// ⚠ 与另两条同一纪律：**先本机开关、后系统权限**，两格的失败理由分开：
+///  ① 开关（`fnthink.read.location`，默认关）关着 ⇒ `location-disabled`（连系统都不碰）；
+///  ② 原生那格（没给 FINE/COARSE）⇒ `location-refused`；
+///  ③ 有权限但**一条最近定位都没有** ⇒ `location-unavailable`（不是失败，也不是空话 ——
+///     对面要能分辨"这台现在没有可读的定位"与"读这一步没做成"）。
+/// ⚠ **只读"最近一次"**：这一发不主动去点 GPS（那是制造新采集，不是"读"）——
+/// 详见原生 `LocationFix` 文件头。
+Future<({String? payload, String? reason})> _fnthinkGetLocationOnce() async {
+  try {
+    if (!await fnthinkReadLocationEnabled()) {
+      return (payload: null, reason: 'location-disabled');
+    }
+    final raw = await AppChannels.notification
+        .invokeMethod<Map<Object?, Object?>>('getFnthinkLocation');
+    if (raw == null) {
+      // 没给权限 / 查询被拒：原生回 null —— 与"有权限但没有最近定位"（空表）不同。
+      return (payload: null, reason: 'location-refused');
+    }
+    if (raw.isEmpty) {
+      return (payload: null, reason: 'location-unavailable');
+    }
+    final fix = Map<String, Object?>.from(raw);
+    final text = formatFnthinkLocationReport(fix);
+    if (text.isEmpty) {
+      // 有权限、也回了一条，但那一条里连坐标都取不出来 ⇒ 归到"读不出来"，
+      // 不拿一个空串冒充"读到了"。
+      return (payload: null, reason: 'location-failed');
+    }
+    return (payload: text, reason: null);
+  } catch (e) {
+    return (payload: null, reason: 'location-failed');
   }
 }
 

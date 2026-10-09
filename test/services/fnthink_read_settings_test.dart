@@ -17,6 +17,7 @@ void main() {
 
   test('默认关：没写过 prefs ⇒ false', () async {
     expect(await fnthinkReadCallsEnabled(), isFalse);
+    expect(await fnthinkReadLocationEnabled(), isFalse);
   });
 
   test('写 true / 写 false 都能读回来', () async {
@@ -26,8 +27,17 @@ void main() {
     expect(await fnthinkReadCallsEnabled(), isFalse);
   });
 
+  test('两枚键互不影响（一条一开：开一项不等于开另一项）', () async {
+    await setFnthinkReadLocationEnabled(true);
+    expect(await fnthinkReadLocationEnabled(), isTrue);
+    expect(await fnthinkReadCallsEnabled(), isFalse, reason: '另一项不许被带着开');
+    await setFnthinkReadLocationEnabled(false);
+    expect(await fnthinkReadLocationEnabled(), isFalse);
+  });
+
   test('键名是那一枚（跨进程/跨页面只许有一个作者）', () {
     expect(kFnthinkReadCallsKey, 'fnthink.read.calls');
+    expect(kFnthinkReadLocationKey, 'fnthink.read.location');
   });
 
   test('put 过别的键不影响这一枚（缺键回退是关，不是"跟着别人走"）', () async {

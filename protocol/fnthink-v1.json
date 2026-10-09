@@ -514,7 +514,8 @@
         "alert:ring",
         "sms:search",
         "app:launch",
-        "calls:search"
+        "calls:search",
+        "location:get"
       ],
       "actionsWhy": "L2 应用动作的**封闭词表**。两端各持一份枚举映射（设备侧 lib/services/fnthink_l2_actions.dart、服务端 server/lib/fnthink/l2actions.js），而这张表是它们共同的**唯一出处**：一份名单存在两处时，两处各自都对，但对面新加一个动作只有自己认得，表现是服务端把它收进队列、设备端在 apply 段判成 unknown-action，两头日志互相看不懂",
       "unknownAction": "reject",
@@ -553,9 +554,13 @@
           "minChars": 1,
           "maxChars": 32,
           "title": "call-log-search"
+        },
+        "location:get": {
+          "argumentKind": "none",
+          "title": "location-report"
         }
       },
-      "reportsWhy": "哪些 L2 动作的参数形状由契约说（T124 片B；**带 `title` 的那几项才会把东西回传** —— title 就是那条回传消息的标题，没有 title 的只声明形状、不回传）。回传走**一条普通消息**（与 `device_state:push` 同一条路）：它必须经签名面那一次投递，才有回执、才进收件端的收件箱 —— 另开一条「结果通道」等于同一件事有两个投递状态机。`argumentKind` 只有两种：`count`（要几条，闭区间）与 `keyword`（一枚词／一个名称，字长闭区间且不许带控制字符）—— **不许合成一种**：数值区间与字长/可见性不是同一件事。⚠ 上面那些上界的由来：回传正文是一条消息的正文，发送侧按固定字符预算组装并**明写**截断（同一条「不静默丢」的不变量）。",
+      "reportsWhy": "哪些 L2 动作的参数形状由契约说（T124 片B；**带 `title` 的那几项才会把东西回传** —— title 就是那条回传消息的标题，没有 title 的只声明形状、不回传）。回传走**一条普通消息**（与 `device_state:push` 同一条路）：它必须经签名面那一次投递，才有回执、才进收件端的收件箱 —— 另开一条「结果通道」等于同一件事有两个投递状态机。`argumentKind` 现在有三种：`count`（要几条，闭区间）、`keyword`（一枚词／一个名称，字长闭区间且不许带控制字符）与 `none`（**无参数**的回传动作 —— 它存在的全部理由是把「这条无参动作会回传」写进契约；写 `none` 的**必须**带 title、**不许**列进 requiresArgumentFrom、也不许带任何上下界键）—— **不许合成一种**：数值区间、字长/可见性与「没有参数」不是同一件事。⚠ 上面那些上界的由来：回传正文是一条消息的正文，发送侧按固定字符预算组装并**明写**截断（同一条「不静默丢」的不变量）。",
       "actionReceipt": "failed_action",
       "actionReceiptWhy": "执行失败对外只回 receipts 词表里那一个词。与 T27/T28 那条同源：身份已证明，不许把「没权限」和「执行失败」压成同形的一句话；但也**不许把本地细节（哪个通道、什么异常）写进对外形状** —— 那些要进留痕（T53）"
     },

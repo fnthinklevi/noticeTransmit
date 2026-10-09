@@ -68,6 +68,11 @@ class MainActivity : FlutterActivity() {
         // "一条一开"：并进去等于用户点"电话状态"时顺手把通话记录也问了（而那是另一档数据面）。
         private const val REQUEST_CALL_LOG_PERMISSION = 1004
 
+        // T124 片C-2：定位那一档（FINE+COARSE **一起**申请是系统的形状 —— Android 12+ 的
+        // "精确／大致"二选一就长在那一次弹框里；这不是"打包两条面"，而是一条面的两种精度）。
+        // ⚠ 不申请 ACCESS_BACKGROUND_LOCATION：后台读不到就诚实失败（location-unavailable）。
+        private const val REQUEST_LOCATION_PERMISSION = 1005
+
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
         const val FALLBACK_VERSION = "1.5.76"
@@ -1036,6 +1041,22 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * T124 片C-2：定位的**一次**申请（FINE+COARSE 同框 —— 见 [REQUEST_LOCATION_PERMISSION] 上那句）。
+     */
+    internal fun requestLocationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                ),
+                REQUEST_LOCATION_PERMISSION
+            )
+        }
+    }
+
     internal fun requestQueryAllPackagesPermission() {
         try {
             openAppDetailsSettings()
@@ -1350,6 +1371,20 @@ class MainActivity : FlutterActivity() {
         } else {
             true
         }
+    }
+
+    /** T124 片C-2：FINE 或 COARSE **任一**给了就算给了（"大致位置"是能用的一种，不是拒绝）。 */
+    internal fun isLocationPermissionGranted(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val fine = ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
     }
 
     internal fun requestBatteryOptimization() {

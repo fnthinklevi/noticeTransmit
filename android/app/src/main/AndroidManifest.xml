@@ -27,6 +27,10 @@
     <!-- T124 片C：远程「按关键词搜通话记录」用（默认关的本机开关 + 运行时单独申请；
          申请入口在「可被远程读取的内容」那一页，不并进上面那条 READ_PHONE_STATE 的申请） -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- T124 片C-2：远程「读最近一次定位」用（默认关的本机开关 + 一次"精确／大致"申请）。
+         ⚠ 不声明 ACCESS_BACKGROUND_LOCATION：后台读不到就诚实失败，不为它多开一条权限面 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />

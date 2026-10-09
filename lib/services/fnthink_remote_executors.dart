@@ -27,6 +27,7 @@ class DeviceL2Executor implements FnthinkL2Executor {
     required this.ringAlertNow,
     required this.searchSmsNow,
     required this.searchCallsNow,
+    required this.getLocationNow,
     required this.launchAppNow,
   });
 
@@ -59,6 +60,9 @@ class DeviceL2Executor implements FnthinkL2Executor {
   /// （默认关）—— `calls-search-disabled` 说的是"这台设备的持有者没允许"。
   final Future<({String? payload, String? reason})> Function(String keyword)
   searchCallsNow;
+
+  /// 读本机最近一次定位，组装成要回传的那段正文（T124 片C 的 `location:get`；无参数）。
+  final Future<({String? payload, String? reason})> Function() getLocationNow;
 
   /// 打开本机登记过的一条入口（T124 片B 的 `app:launch`；[entryName] 是登记时的名称）。
   ///
@@ -156,6 +160,15 @@ class DeviceL2Executor implements FnthinkL2Executor {
       return await searchCallsNow(keyword);
     } catch (e) {
       return (payload: null, reason: 'threw:calls:search');
+    }
+  }
+
+  @override
+  Future<({String? payload, String? reason})> getLocation() async {
+    try {
+      return await getLocationNow();
+    } catch (e) {
+      return (payload: null, reason: 'threw:location:get');
     }
   }
 

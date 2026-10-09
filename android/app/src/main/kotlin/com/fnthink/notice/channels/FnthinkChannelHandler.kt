@@ -9,6 +9,7 @@ import com.fnthink.notice.FnthinkInboxDisplay
 import com.fnthink.notice.FnthinkOpenTarget
 import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
+import com.fnthink.notice.LocationFix
 import com.fnthink.notice.SmsSearch
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -127,6 +128,13 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                             CallLogSearch.search(context, keyword)
                         }
                     postSuccess(result, rows)
+                }
+            }
+            // ── T124 片C：读本机最近一次定位（`location:get`）──
+            // 同上：回 null = 没查成（没权限/抛了），回空表 = 有权限但没有任何"最近一次"。
+            "getFnthinkLocation" -> {
+                ioScope.launch {
+                    postSuccess(result, LocationFix.get(context))
                 }
             }
             // ── T83：点通知要跳去的那一条 ──

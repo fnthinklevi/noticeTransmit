@@ -208,6 +208,27 @@ class PermissionService {
     }
   }
 
+  /// T124 片C-2：定位那一格（`ACCESS_FINE_LOCATION` + `ACCESS_COARSE_LOCATION`）。
+  ///
+  /// ⚠ 两枚**一起申请**是系统的形状（Android 12+ 的"精确／大致"二选一就长这一次弹框里），
+  /// 不是"打包两条权限面"；另一条既有的是 `locationAlways`（后台定位）——**不申请它**，
+  /// 后台读不到就诚实失败（`location-unavailable`），不为它多开一条权限面。
+  /// ⚠ 走原生而不是 `permission_handler`：那一枚的组语义会把"给了大致"读成"没给"，
+  /// 而大致位置**能用**（精度随结果带出去）—— 判据收在原生一枚方法里。
+  Future<void> requestLocationPermission() =>
+      _requestPermission('requestLocationPermission');
+
+  /// 定位权限当前给没给（**FINE 或 COARSE 任一**；读不出来按未授予处理）。
+  Future<bool> isLocationPermissionGranted() async {
+    try {
+      return await _channel.invokeMethod<bool>('isLocationPermissionGranted') ??
+          false;
+    } catch (e) {
+      debugPrint('检查定位权限失败（按未授予处理）: $e');
+      return false;
+    }
+  }
+
   Future<void> requestPhonePermission() async {
     final status = await Permission.phone.request();
     if (status == PermissionStatus.granted) {

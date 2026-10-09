@@ -104,6 +104,14 @@ class _RecordingL2 implements FnthinkL2Executor {
   }
 
   @override
+  Future<({String? payload, String? reason})> getLocation() async {
+    calls.add('getLocation()');
+    await _pass();
+    if (!ok) return (payload: null, reason: 'location-failed');
+    return (payload: null, reason: 'location-disabled');
+  }
+
+  @override
   Future<({bool ok, String? reason})> launchApp(String name) async {
     calls.add('launchApp($name)');
     await _pass();

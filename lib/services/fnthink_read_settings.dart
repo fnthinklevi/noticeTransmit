@@ -24,6 +24,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// 「远程可查通话记录」那一枚（`calls:search`）。
 const String kFnthinkReadCallsKey = 'fnthink.read.calls';
 
+/// 「远程可读最近一次定位」那一枚（`location:get`，T124 片C-2）。
+const String kFnthinkReadLocationKey = 'fnthink.read.location';
+
 /// 读：缺键/读不到 ⇒ **关**（见文件头那条纪律）。
 Future<bool> fnthinkReadCallsEnabled() async {
   final prefs = await SharedPreferences.getInstance();
@@ -34,4 +37,16 @@ Future<bool> fnthinkReadCallsEnabled() async {
 Future<void> setFnthinkReadCallsEnabled(bool enabled) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setBool(kFnthinkReadCallsKey, enabled);
+}
+
+/// 读：缺键/读不到 ⇒ **关**（同一条纪律，逐条各一枚键）。
+Future<bool> fnthinkReadLocationEnabled() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(kFnthinkReadLocationKey) ?? false;
+}
+
+/// 写：开关的唯一作者（页面翻它）。
+Future<void> setFnthinkReadLocationEnabled(bool enabled) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(kFnthinkReadLocationKey, enabled);
 }

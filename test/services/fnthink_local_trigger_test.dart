@@ -87,6 +87,10 @@ class _NoopL2 implements FnthinkL2Executor {
   ) async => (payload: null, reason: 'calls-search-disabled');
 
   @override
+  Future<({String? payload, String? reason})> getLocation() async =>
+      (payload: null, reason: 'location-disabled');
+
+  @override
   Future<({bool ok, String? reason})> launchApp(String name) async =>
       (ok: false, reason: 'app-launch-unknown-name');
 }

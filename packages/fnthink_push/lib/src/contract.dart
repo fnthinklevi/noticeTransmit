@@ -1747,8 +1747,9 @@ class FnthinkContract {
       'capabilities.l2.requiresArgumentFrom 里有不在 actions 里的 action：$l2NeedsArg',
     );
     // ── 回传动作那张表（T124 片B）──
-    // 每一项都要**同时**列进 requiresArgumentFrom：参数就是「要几条」，
-    // 缺了它这一发没有东西可回，而界面会画出一个填不动的动作。
+    // count / keyword 两类的参数就是那条要回的东西，缺了它这一发没有东西可回 ⇒ 必须列进
+    // requiresArgumentFrom；none（T124 片C-2 起）是**无参数的**回传动作 —— 它列进去反而
+    // 自相矛盾（一处说必填、一处说没有）。
     final l2Reports = map(const ['capabilities', 'l2', 'reports']) ?? const {};
     for (final entry in l2Reports.entries) {
       final spec = entry.value;
@@ -1756,16 +1757,18 @@ class FnthinkContract {
         l2Actions.contains(entry.key),
         'capabilities.l2.reports 里有不在 actions 里的动作：${entry.key}',
       );
-      need(
-        l2NeedsArg.contains(entry.key),
-        'capabilities.l2.reports.${entry.key} 没列进 requiresArgumentFrom：'
-        '回传的参数就是「要几条」，缺了它这一发没有东西可回',
-      );
       final kind = spec is Map ? spec['argumentKind'] : null;
       need(
-        kind == 'count' || kind == 'keyword',
-        'capabilities.l2.reports.${entry.key}.argumentKind 必须是 count 或 keyword：$spec',
+        kind == 'count' || kind == 'keyword' || kind == 'none',
+        'capabilities.l2.reports.${entry.key}.argumentKind 必须是 count、keyword 或 none：$spec',
       );
+      if (kind != 'none') {
+        need(
+          l2NeedsArg.contains(entry.key),
+          'capabilities.l2.reports.${entry.key} 没列进 requiresArgumentFrom：'
+          '回传的参数就是那条要回的东西，缺了它这一发没有东西可回',
+        );
+      }
       if (kind == 'count') {
         final minItems = spec is Map ? spec['minItems'] : null;
         final maxItems = spec is Map ? spec['maxItems'] : null;
@@ -1787,6 +1790,28 @@ class FnthinkContract {
         need(
           maxChars is int && minChars is int && maxChars >= minChars,
           'capabilities.l2.reports.${entry.key}.maxChars 必须 ≥ minChars：$spec',
+        );
+      } else if (kind == 'none') {
+        need(
+          !l2NeedsArg.contains(entry.key),
+          'capabilities.l2.reports.${entry.key} 是 none（无参数）却列进了 requiresArgumentFrom：'
+          '一处说必填、一处说没有，读的人只能猜',
+        );
+        for (final stray in const [
+          'minItems',
+          'maxItems',
+          'minChars',
+          'maxChars',
+        ]) {
+          need(
+            !(spec is Map && spec.containsKey(stray)),
+            'capabilities.l2.reports.${entry.key}.$stray 属于别的 kind（none 没有上下界可写）：$spec',
+          );
+        }
+        need(
+          spec is Map && spec['title'] is String,
+          'capabilities.l2.reports.${entry.key} 是 none ⇒ title 必写'
+          '（不带 title 的 none 什么都没声明 —— 它存在的全部理由就是「这条无参动作会回传」）',
         );
       }
       // `title` **可选**：带它的那几项才会把东西回传（title 就是那条回传消息的标题）；
