@@ -332,9 +332,16 @@ class MainActivity : FlutterActivity() {
             methodChannel?.invokeMethod("onFnthinkPairLinkReceived", null)
             return
         }
-        consumeOpenTargetFrom(intent)
-        // 引擎这时候一定在（Activity 活着），所以这一发是推。冷启动那一路不推，见 onCreate 的注释。
-        methodChannel?.invokeMethod("onFnthinkNotificationOpened", null)
+        // T125：**只有真的接走了一枚 messageId 才推这一发**。`onNewIntent` 在
+        // `launchMode="singleTask"` 下会被每一种进入形状走到 —— 从最近任务恢复、点桌面图标、
+        // 点小组件、点任何一条（不限于收件的）通知都会到这里；无条件推等于把每一次进入
+        // 都说成"他点了一条收件通知"，表现就是"没有新通知也被送进收件历史页"。
+        // ⚠ 不许反过来改成"Dart 侧取不到 id 就不跳"——"点了通知却什么都没发生"是这条链的
+        // 原始缺陷（T83 判据③）；两个方向靠"原生说清是哪一种"分开，不是靠 Dart 猜。
+        if (consumeOpenTargetFrom(intent)) {
+            // 引擎这时候一定在（Activity 活着），所以这一发是推。冷启动那一路不推，见 onCreate 的注释。
+            methodChannel?.invokeMethod("onFnthinkNotificationOpened", null)
+        }
     }
 
     /**
@@ -359,11 +366,15 @@ class MainActivity : FlutterActivity() {
      * 下一次 recreate 会把**已经跳过的那一条**再记一遍 —— 那副表现是"从桌面图标进来也跳到某条通知"。
      * 读的是 [FnthinkInboxDisplay.EXTRA_MESSAGE_ID] 这一个常量，不在这里重打字符串（两处字面量
      * 可以朝同一个方向写错，而那时测试仍然全绿）。
+     *
+     * ⚠ T125：回**是否真的接走了一枚 id**。`onNewIntent` 只在这为 true 时才推那一发讯号 ——
+     * 每一个 Intent 都推的话，"从最近任务回来""点桌面图标"也会被 Dart 当成"他点了一条收件通知"。
      */
-    private fun consumeOpenTargetFrom(intent: Intent?) {
-        val messageId = intent?.getStringExtra(FnthinkInboxDisplay.EXTRA_MESSAGE_ID) ?: return
+    private fun consumeOpenTargetFrom(intent: Intent?): Boolean {
+        val messageId = intent?.getStringExtra(FnthinkInboxDisplay.EXTRA_MESSAGE_ID) ?: return false
         intent.removeExtra(FnthinkInboxDisplay.EXTRA_MESSAGE_ID)
         FnthinkOpenTarget.record(messageId)
+        return true
     }
 
     override fun onDestroy() {

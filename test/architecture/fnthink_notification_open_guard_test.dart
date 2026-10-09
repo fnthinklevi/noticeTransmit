@@ -6,6 +6,10 @@ import '../support/source_guards.dart';
 
 /// 点通知 → 跳到「历史页 + 展开这一条」那一条链的**跨语言**接线守卫（T83）。
 ///
+/// T125 补：**反向的 null 语义那一对**（冷启动 null 不跳／热恢复 null 也要开列表）也钉在这一份里 ——
+/// 那一对少任何一条都是缺陷（拿一个方向的对换另一个方向的错）。原生侧"推的时机"由 JVM 守卫
+/// `FnthinkNotificationOpenGuardTest` 钉形状。
+///
 /// 钉的全是"改一边、另一边不会报错"的那些地方：通道方法名与 Intent 键名都是字符串，
 /// 编译器与运行时都不喊。名字一律从 Kotlin 侧**派生** —— 本仓库的教训是守卫自己重打一份
 /// 字面量 = 第二份可以朝同一个方向写错，而那时两侧编译与全部测试仍然绿。
@@ -138,6 +142,43 @@ void main() {
         loadBody.split('\n  }').first,
         isNot(contains('_applyPendingFocus')),
         reason: '要挂在"这一次进入"的那一发读表上，而不是任何一次读表上',
+      );
+    });
+
+    test('两个方向的 null 语义同时成立：冷启动 null 不跳；热恢复 null 也要开列表', () {
+      // T125：这一对是**反向**的 —— 钉死一条、丢掉另一条都是缺陷（少一条 = 拿一个方向的
+      // 对换另一个方向的错）。原生侧"推的时机"由 JVM 守卫钉形状；这一条钉 Dart 侧
+      // 收到／没收到讯号之后各自的判法。
+      final src = stripComments(read(actions));
+      final cold = blockAfter(
+        src,
+        'Future<void> _consumeNotificationOpenTargetOnLaunch()',
+      );
+      final warm = blockAfter(
+        src,
+        'Future<void> _openFnthinkMessageFromNotification()',
+      );
+      expect(
+        cold,
+        contains('if (messageId == null || !mounted) return;'),
+        reason: '冷启动这一发每次打开 App 都跑，"没有待跳的那条"是常态 —— 不早退就是"每次启动都被送到历史页"',
+      );
+      expect(
+        warm,
+        isNot(contains('messageId == null')),
+        reason: 'T125：不许改成"Dart 侧 null 就不跳" —— 那会把 T83 判据③（点了通知却什么都不发生）原样放回来',
+      );
+      expect(
+        warm,
+        contains('if (!mounted) return;'),
+        reason: '热恢复这一发只有"页面没了"才早退；id 拿不到也要把列表打开',
+      );
+      expect(
+        warm,
+        contains(
+          "_openHistoryPage(direction: 'received', focusMessageId: messageId);",
+        ),
+        reason: '拿不到 id 就把 null 传下去（focusMessageId 可空）—— 展开哪一行没人负责这件事由历史页兜',
       );
     });
   });
