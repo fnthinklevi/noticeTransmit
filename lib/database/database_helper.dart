@@ -8,6 +8,7 @@ import '../models/email_channel.dart';
 import '../models/fnthink_channel.dart';
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
+import '../models/fnthink_pair_request_record.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -69,7 +70,7 @@ class DatabaseHelper
   /// 否则库会被贴上旧版本号（历史缺陷：迁移期用 version:3 建库，而 _onCreate 已是全量
   /// schema）→ 下次启动触发 onUpgrade(3→N)，对已存在的列重复 ALTER 抛 duplicate column，
   /// 打开失败即备份重建空库，用户历史与库内通道配置全丢。
-  static const int dbVersion = 21;
+  static const int dbVersion = 22;
 
   /// 仅供测试：把本类的读写指到调用方自备的 ffi 库上。
   ///
@@ -407,6 +408,7 @@ class DatabaseHelper
     await _createFnthinkPeers(db);
     await _createFnthinkRemoteExecutions(db);
     await _createFnthinkChannels(db);
+    await _createFnthinkPairRequests(db);
   }
 
   /// v13 / T20：通知引擎规则表（电量族 + 温度族）。
@@ -865,6 +867,13 @@ class DatabaseHelper
         'INTEGER NOT NULL DEFAULT 0',
       );
     }
+
+    if (oldVersion < 22) {
+      // v22 / T116：配对请求那一份账。**只建表、一个既有字都不碰** ——
+      // 这是新的一面，本机过去没记过任何一条配对请求的终态；给存量补一行
+      // 等于替用户造一段"我发起过 / 我拒绝过"的假历史。
+      await _createFnthinkPairRequests(db);
+    }
   }
 
   /// v19 / T94 片3：**幻念通道**（这一台作为发送方的那些转发目标）。
@@ -892,6 +901,41 @@ class DatabaseHelper
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
+    ''');
+  }
+
+  /// v22 / T116：本机关于**配对请求**的那一份账（「已发起 / 待处理 / 配对历史」三面共用的出处）。
+  ///
+  /// 为什么到 v22 才建这张表：T110 那两片把两份名单都留在协调者的内存账里，于是"我发出去的那条
+  /// 后来怎么样了"只在那台设备这一次进程里存在。服务端对**已终态**那条的保留期就是它自己的 TTL
+  /// （契约 `pairRequest.ttlSecondsFrom` 引用口令那一个 TTL），下一次建新请求时被剪掉 ——
+  /// 而维护者 2026-10-09 要的是「同意／拒绝之后转到双方的配对历史，显示已同意、已拒绝」，
+  /// 那句话的留存期不可能只有 5 分钟。
+  ///
+  /// ⚠ 两处建表（`_onCreate` 与 `oldVersion < 22`）共用本方法，列必须一致 ——
+  /// 与 `fnthink_peers`、远程执行表同一条纪律（PRAGMA 实测比对在
+  /// `test/database/fnthink_pair_requests_test.dart`）。
+  /// ⚠ **没有口令列、也没有摘要列**（契约 `pairRequest.neverStored` 同一份名单）：这张表是本机
+  /// 留存最久的一份记录，而口令是可能被抄过、印在二维码里、拍过照的东西；界面上那一行要的
+  /// 只是「谁 · 哪一档 · 什么结论 · 什么时候」，口令一个字都不贡献。
+  Future<void> _createFnthinkPairRequests(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${FnthinkPairRequestRecord.table} (
+        request_id TEXT PRIMARY KEY,
+        direction TEXT NOT NULL DEFAULT 'in',
+        peer_address TEXT NOT NULL DEFAULT '',
+        level TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL DEFAULT 0,
+        changed_at INTEGER NOT NULL DEFAULT 0,
+        expires_at INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    // 三面各按方向读、都要"最近的在前"；少了这个索引就是每次进页面全表扫。
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_fnthink_pair_req_dir
+      ON ${FnthinkPairRequestRecord.table}(direction, created_at DESC)
     ''');
   }
 
@@ -1484,6 +1528,43 @@ class DatabaseHelper
       whereArgs: [peerAddress],
     );
     return n > 0;
+  }
+
+  // ── 配对请求那一份账（T116，表 `fnthink_pair_requests`）────────────────────
+
+  /// 写一条配对请求。**整行覆盖**（`ConflictAlgorithm.replace`）：这一张表的主键是
+  /// 服务端那条请求的 id，同一个 id 先后两次到达（发起时的 pending、poll 带回来的 approved）
+  /// 说的就是同一件事的后来，留着两行等于让界面自己数"哪一条更新"。
+  ///
+  /// ⚠ 与 `saveRemoteExecutionRecord` 同一条理由：不用 update-then-insert，
+  /// 那两步之间留的窗口正好是「后台那一轮」与「页面上点一下」同时写的样子。
+  Future<void> saveFnthinkPairRequest(FnthinkPairRequestRecord record) async {
+    final db = await database;
+    await db.insert(
+      FnthinkPairRequestRecord.table,
+      record.toRow(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 本机记下的配对请求。[direction] 传 null = 两个主语一起看。
+  ///
+  /// ⚠ 排序口径**只有这一处**（`created_at DESC, request_id ASC`）：那三张卡读的是同一个顺序，
+  /// 两处各写一次 `ORDER BY` 迟早会不一样（"入口行说 2、进去 3 行"那一族）。
+  /// 未知时刻（0）排在最后 —— 一条连"什么时候立的"都不知道的记录不该顶在最前面。
+  Future<List<FnthinkPairRequestRecord>> loadFnthinkPairRequests({
+    String? direction,
+    int limit = 200,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      FnthinkPairRequestRecord.table,
+      orderBy: 'created_at DESC, request_id ASC',
+      where: direction == null ? null : 'direction = ?',
+      whereArgs: direction == null ? null : [direction],
+      limit: limit,
+    );
+    return rows.map(FnthinkPairRequestRecord.fromMap).toList();
   }
 
   // ── 远程执行历史（远程执行 片3b，表 `fnthink_remote_executions`）──────────

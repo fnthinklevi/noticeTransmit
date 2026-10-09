@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/models/fnthink_pair_request_record.dart';
 import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/pages/fnthink_peers_page.dart';
@@ -149,6 +150,8 @@ void main() {
     Future<FnthinkPeerWrite> Function(FnthinkPeer peer)? recordPeer,
     Future<bool> Function(String peerAddress)? removePeer,
     List<FnthinkPeer> peers = const [],
+    // T116：预先落在「配对历史」那一格里的那几条（已结论的记录）。
+    List<FnthinkPairRequestRecord> pairRows = const [],
     bool peersFail = false,
     ChannelHealth? Function(String host)? healthOf,
     // T95 片5：打开「切换服务」那一格时的**探测**与**记账**两个口。
@@ -188,12 +191,22 @@ void main() {
     final removed = <String>[];
     final peerRows = <FnthinkPeer>[];
     final peersShown = <FnthinkPeer>[...peers];
+    // T116：配对请求那一份账的替身。⚠ **按 id 覆盖**，与生产的 `ConflictAlgorithm.replace`
+    // 同一条语义 —— 用 List 累加会让"同一条写两次"在测试里长出两行、界面画两遍。
+    // 传 `pairRows` 预置历史（"这台以前就落过账"），不传则由这一轮 poll / 发起 / 答复自己写进去。
+    final pairLedger = <String, FnthinkPairRequestRecord>{
+      for (final seed in pairRows) seed.requestId: seed,
+    };
     var peerReads = 0;
     var builds = 0;
     final coordinator = FnthinkReceiveCoordinator(
       contracts: loader,
       signer: _StubSigner(canSign),
       persist: (_) async => true,
+      // T116：那一份账的两个口。接上之后「已发起」「配对历史」两张卡读的都是**落账的结果**；
+      // 漏接时它们退化成"只在内存里出现过"，而界面上看不出区别。
+      storePairRequest: (record) async => pairLedger[record.requestId] = record,
+      loadPairRequests: () async => pairLedger.values.toList(),
       // 名单落库的替身：页面测试里不碰 sqflite，但要数得到"到底写没写、写的是哪一档"。
       // 写进去的那一行同时进 `peersShown`（= 下一次读名单就能读到它），这样"同意之后
       // 名单要重读一次"这条能被观察到，而不是只能靠数读取次数。
@@ -1357,6 +1370,58 @@ void main() {
       }
       return (l10n: l10n, h: h);
     }
+
+    testWidgets('本机有过结论 ⇒「配对历史」那一格自己出现：谁 · 哪一档 · 什么结论（T116）', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final h = harness(
+        pairRows: [
+          outgoingPairRequest(
+            requestId: 'pr_hist',
+            target: '7YD4RKQPBM8XZ3VHNT',
+            level: 'L1',
+            status: 'approved',
+            createdAt: 1700000000000,
+            changedAt: 1700000060000,
+            updatedAt: 1700000060000,
+          ),
+        ],
+      );
+      final l10n = await pumpPeers(tester, h);
+      await tester.pumpAndSettle();
+      await revealTo(
+        tester,
+        find.byKey(const ValueKey('fnthink-pair-history-pr_hist')),
+      );
+      expect(find.text(l10n.fnthinkPairHistoryTitle), findsOneWidget);
+      expect(find.textContaining('7YD4RKQPBM8XZ3VHNT'), findsWidgets);
+      expect(
+        find.textContaining(l10n.fnthinkPairStateApproved),
+        findsOneWidget,
+        reason: '历史那一行要说的是结论（服务端那个词翻成人话），不是"还在等"',
+      );
+      expect(
+        find.textContaining(l10n.fnthinkPairHistoryOutgoing),
+        findsOneWidget,
+      );
+      // 有结论的那条**不该再出现在「我发起过的配对请求」里**（那是"还在等"那一格）：
+      // 两格都画它，用户读到的是"既在等、又已经同意"。
+      expect(find.text(l10n.fnthinkPairRequestsSent), findsNothing);
+    });
+
+    testWidgets('还没落过账 ⇒ 历史那一格不出现，也**不说**"没有历史"（空有三种来路）', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final h = harness();
+      final l10n = await pumpPeers(tester, h);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.fnthinkPairHistoryTitle), findsNothing);
+      expect(find.text(l10n.fnthinkPairRequestsSent), findsNothing);
+    });
 
     testWidgets('有人请求配对 ⇒ 这一格自己出现，两下都在', (tester) async {
       stubChannels();

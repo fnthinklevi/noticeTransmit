@@ -6169,6 +6169,36 @@ abstract class AppLocalizations {
   /// **'不认识的状态：{status}'**
   String fnthinkPairStateUnknown(String status);
 
+  /// No description provided for @fnthinkPairHistoryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配对历史'**
+  String get fnthinkPairHistoryTitle;
+
+  /// No description provided for @fnthinkPairHistoryLine.
+  ///
+  /// In zh, this message translates to:
+  /// **'{role} · {peer} · 要的是 {level} · {status} · {at}'**
+  String fnthinkPairHistoryLine(
+    String role,
+    String peer,
+    String level,
+    String status,
+    String at,
+  );
+
+  /// No description provided for @fnthinkPairHistoryOutgoing.
+  ///
+  /// In zh, this message translates to:
+  /// **'我发起的'**
+  String get fnthinkPairHistoryOutgoing;
+
+  /// No description provided for @fnthinkPairHistoryIncoming.
+  ///
+  /// In zh, this message translates to:
+  /// **'对方请求的'**
+  String get fnthinkPairHistoryIncoming;
+
   /// No description provided for @agoMinutes.
   ///
   /// In zh, this message translates to:

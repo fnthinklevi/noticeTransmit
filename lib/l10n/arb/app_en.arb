@@ -1626,6 +1626,11 @@
       }
     }
   },
+  "fnthinkPairHistoryTitle": "Pairing history",
+  "fnthinkPairHistoryLine": "{role} · {peer} · requesting {level} · {status} · {at}",
+  "@fnthinkPairHistoryLine": {"placeholders": {"role": {"type": "String"}, "peer": {"type": "String"}, "level": {"type": "String"}, "status": {"type": "String"}, "at": {"type": "String"}}},
+  "fnthinkPairHistoryOutgoing": "sent by this device",
+  "fnthinkPairHistoryIncoming": "requested by the other device",
   "agoMinutes": "{n} min ago",
   "@agoMinutes": {
     "placeholders": {

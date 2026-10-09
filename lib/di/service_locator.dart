@@ -130,6 +130,12 @@ void setupLocator() {
       // 缺这一行的后果与上面那行同族：撤销在服务端生效了、对面从此推不进来，而这一台的名单
       // 还留着那一行 —— 用户看到的是"点了撤销没反应"，于是再点一次。守卫在同一个装配点测试里。
       removePeer: FnthinkPeerService().remove,
+      // 配对请求那一份账的作者与读口（T116）。缺 author 的后果与 `recordPeer` 同族且更狠：
+      // 「我发起过什么」「对面答过没有」在本机一个字节都不留，重启即空，
+      // 而界面上一切照常 —— 全场 Dart 测试仍然绿（协调者用例都把 hook 当参数传）。
+      // 守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
+      storePairRequest: DatabaseHelper().saveFnthinkPairRequest,
+      loadPairRequests: () => DatabaseHelper().loadFnthinkPairRequests(),
       // 续排闹钟（T33 第二片）。漏接的表现不是崩，是**链条悄悄断**：收货照常、界面照常，
       // 只有"被 ROM 杀掉之后"那一天没人再去问一次货；而全场 Dart 测试仍然绿
       // （协调者的用例都把 hook 当参数传进来，不经过 DI）。守卫在

@@ -3444,6 +3444,26 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPairHistoryTitle => 'Pairing history';
+
+  @override
+  String fnthinkPairHistoryLine(
+    String role,
+    String peer,
+    String level,
+    String status,
+    String at,
+  ) {
+    return '$role · $peer · requesting $level · $status · $at';
+  }
+
+  @override
+  String get fnthinkPairHistoryOutgoing => 'sent by this device';
+
+  @override
+  String get fnthinkPairHistoryIncoming => 'requested by the other device';
+
+  @override
   String agoMinutes(int n) {
     return '$n min ago';
   }

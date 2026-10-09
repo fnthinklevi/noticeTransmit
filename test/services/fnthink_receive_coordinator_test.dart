@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/models/fnthink_pair_request_record.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receive_loop.dart';
@@ -88,6 +89,8 @@ void main() {
     Future<bool> Function(FnthinkInboxMessage message)? recordSent,
     Future<FnthinkRegisterResult> Function(FnthinkLoopSpec spec)?
     registerDevice,
+    Future<void> Function(FnthinkPairRequestRecord record)? storePairRequest,
+    Future<List<FnthinkPairRequestRecord>> Function()? loadPairRequests,
     Future<void> Function({
       required String host,
       required bool reachable,
@@ -103,6 +106,8 @@ void main() {
     presenceNotice: presenceNotice,
     recordSent: recordSent,
     registerDevice: registerDevice,
+    storePairRequest: storePairRequest,
+    loadPairRequests: loadPairRequests,
     recordHealth: recordHealth,
     loopFactory: recorder.build,
     serviceFactory: serviceFactory,
@@ -571,6 +576,220 @@ void main() {
             '"本机记下了"与"服务器收下了"是两件事；把前者说成后者，'
             '对端扫码只会拿到"口令不存在"，而这一台界面上写着已挂出',
       );
+    });
+  });
+
+  group('T116 配对请求落账：三面共用的那一份账（发起即落、结论即落）', () {
+    /// 一张内存版的 `fnthink_pair_requests`：**按 id 覆盖**（与 `ConflictAlgorithm.replace`
+    /// 同一条语义）。用 List 累加会让用例在"同一条写了两次"上假绿，而生产里那是一行。
+    late Map<String, FnthinkPairRequestRecord> ledger;
+
+    coordinatorWithLedger({
+      _LoopRecorder? recorder,
+      FnthinkServiceFactory? serviceFactory,
+    }) {
+      ledger = {};
+      return coordinator(
+        recorder: recorder ?? _LoopRecorder(),
+        serviceFactory: serviceFactory,
+        storePairRequest: (record) async => ledger[record.requestId] = record,
+        loadPairRequests: () async => ledger.values.toList(),
+      );
+    }
+
+    const pairBody =
+        '{"requestId":"pr_9","status":"pending",'
+        '"expiresAt":1800000300000,"serverTime":1800000000000}';
+
+    test('发起那一刻就落一条 out：不等对面、也不等新服务端', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final c = coordinatorWithLedger(
+        serviceFactory: armFactory(sink: <http.Request>[], body: pairBody),
+      );
+      final result = await c.pairWithDevice(
+        targetAddressCode: '7YD4RKQPBM8XZ3VHNT',
+        pairingCode: 'A' * 20,
+        level: 'L1',
+      );
+      expect(result.ok, isTrue);
+      final row = ledger['pr_9'];
+      expect(row, isNotNull, reason: '发起成功却没落账 ⇒ 那一格要等服务器版本够新才有东西');
+      expect(row!.outgoing, isTrue);
+      expect(row.peerAddress, '7YD4RKQPBM8XZ3VHNT');
+      expect(row.status, 'pending');
+      expect(row.settled, isFalse, reason: '没结论的记录不该出现在「配对历史」那一格里');
+      expect(c.outgoingPairRequests.map((r) => r.requestId), ['pr_9']);
+      expect(c.pairRequestHistory, isEmpty);
+    });
+
+    test('本机点了同意 ⇒ 那一条带着结论落账，并出现在历史里', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      const request = FnthinkPairRequest(
+        requestId: 'pr_9',
+        requester: '8KMNPQRSTVWX999777',
+        requesterPublicKey: 'AAAA',
+        level: 'L1',
+      );
+      final c = coordinatorWithLedger(
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body:
+              '{"requestId":"pr_9","status":"approved","grantedLevel":"L1",'
+              '"serverTime":1800000000000}',
+        ),
+      );
+      final answer = await c.confirmPairing(request: request, approve: true);
+      expect(answer.result.ok, isTrue);
+      final row = ledger['pr_9']!;
+      expect(row.incoming, isTrue, reason: '这一条的主语是"别人请求配对我"');
+      expect(row.peerAddress, '8KMNPQRSTVWX999777');
+      expect(row.status, 'approved');
+      expect(row.changedAt, greaterThan(0));
+      expect(c.pairRequestHistory.map((r) => r.requestId), ['pr_9']);
+    });
+
+    test('本机点了拒绝也要落账 —— 拒绝是一个结论，不是"列表里悄悄少一条"', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      const request = FnthinkPairRequest(
+        requestId: 'pr_8',
+        requester: '8KMNPQRSTVWX999777',
+        requesterPublicKey: 'AAAA',
+        level: 'L1',
+      );
+      final c = coordinatorWithLedger(
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          body:
+              '{"requestId":"pr_8","status":"denied","grantedLevel":"L1",'
+              '"serverTime":1800000000000}',
+        ),
+      );
+      await c.confirmPairing(request: request, approve: false);
+      expect(ledger['pr_8']!.status, 'denied');
+      expect(ledger['pr_8']!.settled, isTrue);
+    });
+
+    test('答复没成 ⇒ 那一条一个字节都不落（"被拒了"与"没答上"是两件事）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      const request = FnthinkPairRequest(
+        requestId: 'pr_7',
+        requester: '8KMNPQRSTVWX999777',
+        requesterPublicKey: 'AAAA',
+        level: 'L1',
+      );
+      final c = coordinatorWithLedger(
+        serviceFactory: armFactory(
+          sink: <http.Request>[],
+          status: 403,
+          body: '{"receipt":"rejected_unsigned"}',
+        ),
+      );
+      final answer = await c.confirmPairing(request: request, approve: true);
+      expect(answer.result.ok, isFalse);
+      expect(
+        ledger,
+        isEmpty,
+        reason: '答复没成却写了一条 approved，等于替用户在本机造一个服务端从没受理过的结论',
+      );
+    });
+
+    test('一轮 poll 带回的终态立刻落盘（服务端剪掉它之前先接住）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final rec = _LoopRecorder()
+        ..pollSentPairRequests = [
+          const FnthinkSentPairRequest(
+            requestId: 'pr_6',
+            target: '7YD4RKQPBM8XZ3VHNT',
+            status: 'denied',
+            state: FnthinkPairRequestState.denied,
+            level: 'L1',
+            createdAt: 1780000000000,
+            expiresAt: 1780000300000,
+            statusAt: 1780000060000,
+          ),
+        ];
+      final c = coordinatorWithLedger(recorder: rec);
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      expect(ledger['pr_6']!.settled, isTrue);
+      expect(ledger['pr_6']!.changedAt, 1780000060000);
+      expect(
+        c.pairRequestHistory.map((r) => r.requestId),
+        ['pr_6'],
+        reason: '对面拒绝的这条该在「配对历史」里，而不是继续挂在「已发起」里说"还在等"',
+      );
+      expect(c.outgoingPairRequests, isEmpty);
+    });
+
+    test('入口行那句"你在等对面 N"与那一格读的是同一份（不许两处各数一遍）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final rec = _LoopRecorder()
+        ..pollSentPairRequests = [
+          const FnthinkSentPairRequest(
+            requestId: 'pr_a',
+            target: '7YD4RKQPBM8XZ3VHNT',
+            status: 'pending',
+            state: FnthinkPairRequestState.pending,
+            level: 'L1',
+            createdAt: 1780000000000,
+            expiresAt: 1780000300000,
+            statusAt: 0,
+          ),
+          const FnthinkSentPairRequest(
+            requestId: 'pr_b',
+            target: '7YD4RKQPBM8XZ3VHNT',
+            status: 'approved',
+            state: FnthinkPairRequestState.approved,
+            level: 'L1',
+            createdAt: 1780000100000,
+            expiresAt: 1780000400000,
+            statusAt: 1780000150000,
+          ),
+        ];
+      final c = coordinatorWithLedger(recorder: rec);
+      await c.startIfEnabled();
+      await pumpEventQueue();
+      expect(c.outgoingPairRequestsWaiting, c.outgoingPairRequests.length);
+      expect(
+        c.outgoingPairRequestsWaiting,
+        1,
+        reason:
+            '两条里只有一条还没结论；把结论那条也数进去，入口行就会说"你在等 2 条"，'
+            '而进去只看见 1 行',
+      );
+    });
+
+    test('没装配落库链路时不许炸（退回 T110 那两片的内存账）', () async {
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final c = coordinator(
+        recorder: _LoopRecorder(),
+        serviceFactory: armFactory(sink: <http.Request>[], body: pairBody),
+      );
+      final result = await c.pairWithDevice(
+        targetAddressCode: '7YD4RKQPBM8XZ3VHNT',
+        pairingCode: 'A' * 20,
+        level: 'L1',
+      );
+      expect(result.ok, isTrue);
+      expect(c.outgoingPairRequests, isEmpty);
+      await c.reloadPairLedger();
+      expect(c.pairRequestHistory, isEmpty);
     });
   });
 

@@ -1647,6 +1647,11 @@
       }
     }
   },
+  "fnthinkPairHistoryTitle": "配对历史",
+  "fnthinkPairHistoryLine": "{role} · {peer} · 要的是 {level} · {status} · {at}",
+  "@fnthinkPairHistoryLine": {"placeholders": {"role": {"type": "String"}, "peer": {"type": "String"}, "level": {"type": "String"}, "status": {"type": "String"}, "at": {"type": "String"}}},
+  "fnthinkPairHistoryOutgoing": "我发起的",
+  "fnthinkPairHistoryIncoming": "对方请求的",
   "agoMinutes": "{n} 分钟前",
   "@agoMinutes": {
     "placeholders": {

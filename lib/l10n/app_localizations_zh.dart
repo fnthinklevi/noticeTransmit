@@ -3291,6 +3291,26 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get fnthinkPairHistoryTitle => '配对历史';
+
+  @override
+  String fnthinkPairHistoryLine(
+    String role,
+    String peer,
+    String level,
+    String status,
+    String at,
+  ) {
+    return '$role · $peer · 要的是 $level · $status · $at';
+  }
+
+  @override
+  String get fnthinkPairHistoryOutgoing => '我发起的';
+
+  @override
+  String get fnthinkPairHistoryIncoming => '对方请求的';
+
+  @override
   String agoMinutes(int n) {
     return '$n 分钟前';
   }

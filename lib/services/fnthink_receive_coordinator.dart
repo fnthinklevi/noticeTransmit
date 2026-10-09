@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/fnthink_inbox_message.dart';
 import '../models/fnthink_peer.dart';
+import '../models/fnthink_pair_request_record.dart';
 import '../models/fnthink_remote_execution_record.dart';
 import 'fnthink_contract_loader.dart';
 import 'fnthink_credential_store.dart';
@@ -227,6 +228,8 @@ class FnthinkReceiveCoordinator {
     this.onCommand,
     this.recordPeer,
     this.removePeer,
+    this.storePairRequest,
+    this.loadPairRequests,
     this.presenceNotice,
     this.recordSent,
     this.loadRemoteExecutions,
@@ -284,6 +287,23 @@ class FnthinkReceiveCoordinator {
   /// 而用户看到的是"点了没反应"——所以守卫在 `test/architecture/fnthink_receive_wiring_test.dart`，
   /// 反证在 `outputs/_revokepeer.report.txt`。
   final Future<bool> Function(String peerAddress)? removePeer;
+
+  /// 把**一条配对请求**写到本机那一份账上（`fnthink_pair_requests`，T116）。
+  ///
+  /// 三个作者共用这一发，各自补的都是"这一台刚刚亲眼看见的事"：
+  ///  - 发起成功那一刻（写 `out` 那档一条 pending ⇒ 用户立刻能看到自己发出去的那条，
+  ///    **不等对面、也不等新服务端**）；
+  ///  - 每一轮 poll（两面的账都过一遍 ⇒ 终态在**服务端剪掉它之前**先落在本机）；
+  ///  - 本机答复成功那一刻（写 `in` 那档的结论 ⇒ "我拒绝过"这件事不能只活 5 分钟）。
+  ///
+  /// null = 这台没装配落库链路 ⇒ 三面退回 T110 那两片的形状（只有内存账，重启即空）。
+  /// ⚠ 漏接时全场测试仍绿、界面上"历史"那一格永远是空的且不报错 —— 与 [recordPeer] 同一族，
+  /// 所以装配点由 `test/architecture/fnthink_receive_wiring_test.dart` 钉着。
+  final Future<void> Function(FnthinkPairRequestRecord record)?
+  storePairRequest;
+
+  /// 读那一份账（同一张表的唯一读口）。null = 没装配 ⇒ 三面只显示内存里的那些。
+  final Future<List<FnthinkPairRequestRecord>> Function()? loadPairRequests;
 
   /// 每一轮之后 / 停下来的那一下，告诉原生"这台还要不要自己醒"（T33 第二片 / §4-9）。
   ///
@@ -401,15 +421,91 @@ class FnthinkReceiveCoordinator {
 
   /// 本机发起、对面**还没给结论**的那几条（入口行那句"还在等 N 条"的出处，T110 ④）。
   ///
-  /// 数的是内存里这一份账（`_sentPairRequests`），不查库也不现 poll：这一句要说的是
-  /// "这一台看见过的、还在等的"，而把口径交给页面自己数就会出现"入口行说 2、进去列表 3 行"。
-  int get outgoingPairRequestsWaiting => _sentPairRequests.value
-      .where((r) => r.state == FnthinkPairRequestState.pending)
-      .length;
+  /// ⚠ T116 起它数的是**与「我发起过的配对请求」那一格同一个来源**（`outgoingPairRequests`）：
+  /// 那句话与那张卡若是两处各数一遍，"入口行说 2、进去 3 行"就是必然，而它没人会报错。
+  int get outgoingPairRequestsWaiting => outgoingPairRequests.length;
 
   /// 等本机答复的那几条的条数（T110 ④：新请求不许静默等着）。空列表时页面**不画那一格**，
   /// 所以这个数与那张卡片是同一个来源、同一个时刻 —— 不是两处各数一遍。
   int get pendingPairRequestCount => _pairRequests.value.length;
+
+  /// 本机那一份配对请求账（`fnthink_pair_requests`）的缓存（T116）。
+  ///
+  /// 为什么读口挂在这里而不是让页面自己开表：与 [loadRemoteExecutions] 同一条理由 ——
+  /// 「页面不自己取货、不自己开表」（`fnthink_receive_wiring_test` 里钉的就是它）。
+  /// 为什么还要缓存一遍而不是每次现查：这三张卡与入口行那句计数读的是**同一份**，
+  /// 各查一次就会出现"入口行说 2、进去 3 行"，而那需要三处同时改错才会一致。
+  final ValueNotifier<List<FnthinkPairRequestRecord>> _pairLedger =
+      ValueNotifier<List<FnthinkPairRequestRecord>>(const []);
+
+  /// 那三张卡的数据源（页面挂它，不自己读库、也不自己 poll）。
+  Listenable get pairLedgerListenable => _pairLedger;
+
+  /// 「我发起过的配对请求」那一格：`out` 档里**还没结论**的那些。
+  ///
+  /// 两个来源合成一份（按 id 去重，账本优先）：落库那一路是唯一作者，而内存那份是
+  /// 装配缺件／写库失败时的兜底 —— 少了兜底，"这台没接落库链路"会表现成"你没发起过任何请求"。
+  List<FnthinkPairRequestRecord> get outgoingPairRequests =>
+      _outgoingUnsettled();
+
+  /// 「配对历史」那一格：两个主语合起来、**已有结论**的那些。
+  ///
+  /// 判据是 `changedAt > 0`（见 [FnthinkPairRequestRecord.settled]），不在这里再比一遍状态词。
+  List<FnthinkPairRequestRecord> get pairRequestHistory =>
+      List.unmodifiable(_pairLedger.value.where((r) => r.settled));
+
+  List<FnthinkPairRequestRecord> _outgoingUnsettled() {
+    final byId = <String, FnthinkPairRequestRecord>{};
+    for (final row in _pairLedger.value) {
+      if (row.outgoing && !row.settled) byId[row.requestId] = row;
+    }
+    for (final sent in _sentPairRequests.value) {
+      if (sent.state != FnthinkPairRequestState.pending) continue;
+      byId.putIfAbsent(sent.requestId, () => pairRecordFromSent(sent));
+    }
+    final rows = byId.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return List.unmodifiable(rows);
+  }
+
+  /// 把那一份账重读进来。**读失败留上一份，不清空**：一次读不动不等于"没发生过"，
+  /// 把缓存抹掉会让三张卡同时消失，而屏幕上一个字节都没变的那台设备其实什么都没丢。
+  Future<void> reloadPairLedger() async {
+    final load = loadPairRequests;
+    if (load == null) return;
+    try {
+      _pairLedger.value = await load();
+    } catch (e) {
+      debugPrint('[fnthink] 配对账重读失败，保留上一份：$e');
+    }
+  }
+
+  /// 写一条再看一眼整份账。**唯一的一个写口**（发起／每一轮／本机答复三处都走这里）：
+  /// 三处各写各的 `storePairRequest` 迟早有一处忘了顺手刷新，表现是"点了同意，
+  /// 那一行还挂在待处理里"。
+  Future<void> _notePairRequest(FnthinkPairRequestRecord record) async {
+    final store = storePairRequest;
+    if (store == null) return;
+    try {
+      await store(record);
+    } catch (e) {
+      debugPrint('[fnthink] 配对账没落下去：$e');
+      return;
+    }
+    await reloadPairLedger();
+  }
+
+  /// 一轮的账 → 落库。两个主语各一条路径，共用 [pairRecordFromSent]／[pairRecordFromIncoming]
+  /// 那两个转换（列名与主语只在那两处定一次）。
+  void _storeRound(FnthinkLoopReport report) {
+    for (final sent in report.sentPairRequests) {
+      unawaited(_notePairRequest(pairRecordFromSent(sent)));
+    }
+    for (final incoming in report.pairRequests) {
+      if (_answeredRequestIds.contains(incoming.requestId)) continue;
+      unawaited(_notePairRequest(pairRecordFromIncoming(incoming)));
+    }
+  }
 
   /// 这一台**已经答复过、且服务端已经结掉**的请求 id。
   ///
@@ -438,6 +534,9 @@ class FnthinkReceiveCoordinator {
       // 另一面（T110）同一条纪律：失败的那一轮不产生判断，所以不清空这一份 —— 一次抖动之后
       // 把"我发起的那条被拒了"从屏幕上抹掉，用户读到的是"这条没发生过"。
       _sentPairRequests.value = report.sentPairRequests;
+      // 同一轮的账顺手落库（T116）：终态**只在这一刻**才既看得见又留得住 ——
+      // 服务端下一次建新请求时就把过了 TTL 的终态记录剪了。
+      _storeRound(report);
     }
     // 失败的那一轮同样要续排：transportError / 429 说明"这一路还活着，只是这次没取到"，
     // 停在这儿等于"一次网络抖动就把这台永久叫醒的机会弄没了"。
@@ -689,11 +788,34 @@ class FnthinkReceiveCoordinator {
     }
     final service = _serviceFactory(resolved.spec!);
     try {
-      return await service.pair(
+      final result = await service.pair(
         targetAddressCode: targetAddressCode,
         pairingCode: pairingCode,
         level: level,
       );
+      // **发出去的那一刻就落账**（T116 第一条）。不等下一轮 poll、不等服务端那条
+      // `sentPairRequests` 读口上线：那一条要求重新部署 `server/` + 契约，而"我发没发过
+      // 这一发"是本机亲眼的事，本机不该因为服务器是旧版就把它忘掉。
+      // ⚠ 没有 id 就不落：主键是服务端那个 id，拿地址码+时刻凑一个会让下一轮 poll 带回来的
+      //   同一条长出第二行（两条都在屏上，用户读成"我发了两次"）。
+      final id = result.requestId;
+      if (result.ok && id != null && id.isNotEmpty) {
+        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+        await _notePairRequest(
+          outgoingPairRequest(
+            requestId: id,
+            target: targetAddressCode,
+            level: level,
+            status: result.requestStatus ?? '',
+            // 发起这一发服务端没给 createdAt，本机先按"我看见的那一刻"记；
+            // 下一轮 poll 带回服务端那份就被覆盖（同一件事的更准出处，不是第二个口径）。
+            createdAt: now,
+            expiresAt: result.expiresAtMs ?? 0,
+            updatedAt: now,
+          ),
+        );
+      }
+      return result;
     } on ArgumentError catch (e) {
       return FnthinkPairResult(
         status: FnthinkPollStatus.failed,
@@ -794,6 +916,23 @@ class FnthinkReceiveCoordinator {
     // 列表里摘掉 —— 留着那一行等于邀请用户点第二下，而第二下换回的是同形的那句 403。
     _answeredRequestIds.add(request.requestId);
     _pairRequests.value = _withoutAnswered(_pairRequests.value);
+    // 本机答复完就把**结论**落进那一份账（T116：「B 同意则该请求转到配对历史并显示已同意，
+    // B 拒绝则…显示已拒绝」）。状态词用服务端回的那个（`requestStatus`），不在这里拿
+    // 答复词凑：`pairConfirm.decisions` 与 `pairRequest.statuses` 今天字面相同，
+    // 那是巧合而不是约定，两张表哪天改一张，这里就会写进一个谁都不认的词。
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+    await _notePairRequest(
+      incomingPairRequest(
+        requestId: request.requestId,
+        requester: request.requester,
+        level: request.level,
+        status: result.requestStatus ?? '',
+        createdAt: request.createdAt ?? 0,
+        changedAt: now,
+        expiresAt: request.expiresAt ?? 0,
+        updatedAt: now,
+      ),
+    );
     if (!approve) return FnthinkPairAnswer(result: result);
 
     // 写进名单的那一档**必须是服务端回的那一档**，不是本机发出去的那一档：两端哪天对封顶的
@@ -1165,3 +1304,35 @@ class FnthinkReceiveCoordinator {
     return report;
   }
 }
+
+/// 发起面那一行 → 本机那一条账（T116）。
+///
+/// 主语写死成 `out`、对端写的是 `target`（这一面问的是"我发给了谁"）。
+/// `changedAt` 直接取 `statusAt`：服务端那个 `at` 就是"状态最后一次变更的时刻"，
+/// pending 的那一条它是 0 ⇒ 本机读成"还没结论"，这正是它该待在这一格而不是历史格的原因。
+FnthinkPairRequestRecord pairRecordFromSent(FnthinkSentPairRequest sent) =>
+    outgoingPairRequest(
+      requestId: sent.requestId,
+      target: sent.target,
+      level: sent.level,
+      status: sent.status,
+      createdAt: sent.createdAt,
+      changedAt: sent.statusAt,
+      expiresAt: sent.expiresAt,
+      updatedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
+    );
+
+/// 接收面那一条请求 → 本机那一条账（T116）。
+///
+/// 主语 `in`、对端是 `requester`。这里**只记"它来了"**（`changedAt` 留 0）：
+/// 结论由 [FnthinkReceiveCoordinator.confirmPairing] 那一发写，两处各写一次就会出现
+/// "同一条请求在两台设备上说的是两个时刻"。
+FnthinkPairRequestRecord pairRecordFromIncoming(FnthinkPairRequest request) =>
+    incomingPairRequest(
+      requestId: request.requestId,
+      requester: request.requester,
+      level: request.level,
+      createdAt: request.createdAt ?? 0,
+      expiresAt: request.expiresAt ?? 0,
+      updatedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
+    );

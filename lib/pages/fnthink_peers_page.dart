@@ -156,6 +156,9 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     }
     if (!mounted) return;
     setState(() => _contract = contract);
+    // 进这一页先看一眼本机那一份配对账（T116）。为什么不等下一轮 poll：这一页正是用户
+    // "去看看有没有回音"的那一屏，慢一轮的表现是"他打开的是空的，而结论其实早就落了"。
+    await _coordinator.reloadPairLedger();
     await _loadPeers();
   }
 
@@ -241,6 +244,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
           else ...[
             _buildPairRequests(l10n),
             _buildSentRequests(l10n),
+            _buildPairHistory(l10n),
             _buildPeersCard(l10n),
           ],
         ],
@@ -297,21 +301,22 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
   /// 「我发起过的配对请求」那一格（T110 第二面）。
   ///
   /// 这一格答的是维护者那句「我怎么看对方进度？」：上面那一格是"别人等我答"，这里是"我等别人答"。
-  /// 与待答复那格的三条纪律同源：列表走协调者那份账（`sentPairRequestsListenable`，
-  /// 只在真跑成的一轮更新）、页面不自己 poll、空列表**不画这一格**。
+  /// ⚠ T116 起它读的是**本机那一份账**（`pairLedgerListenable`），不再只读 poll 带回来的内存账：
+  ///   那一条要求服务端有 `sentPairRequests` 这条读口（T110 格1 那一片），部署在它之前的服务器
+  ///   永远不回这一项 ⇒ 用户发完刷新、屏幕上那一格根本不存在，读起来成了"我没发出去"。
+  ///   发起那一刻本机就落了账，所以这一格**不问服务器是新是旧**。
+  /// 与待答复那格的三条纪律同源：列表走协调者那份账、页面不自己 poll、空列表**不画这一格**。
   ///
-  /// ⚠ 空列表不画，也**不许**画成"没有被拒绝过"：服务端把终态记录留到那条请求的 TTL 到期为止
-  ///   （引用的是口令那一个 TTL），之后剪掉；应用重启后这一份也就是空的。所以"空"在这里
-  ///   有三种来路（没发起过／都过期被剪了／这一台还没跑成过一轮），而那三种都不是
-  ///   "没有发生过"——一句都不说，比说一句假的诚实。
+  /// ⚠ 空列表不画，也**不许**画成"没有被拒绝过"：空有三种来路（没发起过／这一台还没读动那份账／
+  ///   装了本片之前压根没落过账），而那三种都不是"没有发生过"——一句都不说，比说一句假的诚实。
   /// ⚠ 这一行**没有任何可点的按钮**：本机对这一条能做的事一件都没有（同意只能由对面那台点，
   ///   契约 `pairing.relationshipStoredOn` 把关系记在被投那台的记录上）。摆一枚"重试"会让用户
   ///   以为重扫一次码能替对面点头。
   Widget _buildSentRequests(AppLocalizations l10n) {
     return ListenableBuilder(
-      listenable: _coordinator.sentPairRequestsListenable,
+      listenable: _coordinator.pairLedgerListenable,
       builder: (context, _) {
-        final rows = _coordinator.sentPairRequests;
+        final rows = _coordinator.outgoingPairRequests;
         if (rows.isEmpty) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -322,15 +327,15 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
                 FnthinkNote(
                   keyName: 'fnthink-pair-sent-${row.requestId}',
                   text: l10n.fnthinkPairSentLine(
-                    row.target,
+                    row.peerAddress,
                     row.level.isEmpty ? '—' : row.level,
-                    _pairStateLabel(l10n, row),
+                    _pairStateWord(l10n, row.status),
                     // 「多久之前」问的是**这一档状态是什么时候成的**：还在等的说它等了多久，
                     // 已答复/已过期的说结论是几时落的。取不到结论时刻（pending 那一条服务端
                     // 还没写过状态变更）才退到发起那一刻 —— 退的是同一件事的更早出处，不是猜。
                     fnthinkAgoLabel(
                           l10n,
-                          row.statusAt > 0 ? row.statusAt : row.createdAt,
+                          row.changedAt > 0 ? row.changedAt : row.createdAt,
                         ) ??
                         '—',
                   ),
@@ -342,10 +347,47 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     );
   }
 
+  /// 「配对历史」那一格（T116：维护者 2026-10-09 要的三面之三）。
+  ///
+  /// 一行是「{谁发起的} · {对端} · {档位} · {结论} · {结论几时落的}」。**两个主语合在一张表里**，
+  /// 不拆两张：这一格答的是"这台设备上配对这件事发生过什么"，按主语拆开会把「我拒绝过的那条」
+  /// 与「我等到的那个结论」排成两段互不相干的历史，而用户要的是翻一遍就知道结果。
+  /// ⚠ 空列表**不画**，也不说"没有历史"（理由与上面那格同一条）。
+  Widget _buildPairHistory(AppLocalizations l10n) {
+    return ListenableBuilder(
+      listenable: _coordinator.pairLedgerListenable,
+      builder: (context, _) {
+        final rows = _coordinator.pairRequestHistory;
+        if (rows.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: FnthinkCard(
+            title: l10n.fnthinkPairHistoryTitle,
+            children: [
+              for (final row in rows)
+                FnthinkNote(
+                  keyName: 'fnthink-pair-history-${row.requestId}',
+                  text: l10n.fnthinkPairHistoryLine(
+                    row.outgoing
+                        ? l10n.fnthinkPairHistoryOutgoing
+                        : l10n.fnthinkPairHistoryIncoming,
+                    row.peerAddress,
+                    row.level.isEmpty ? '—' : row.level,
+                    _pairStateWord(l10n, row.status),
+                    fnthinkAgoLabel(l10n, row.changedAt) ?? '—',
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// 那一档状态说哪句话。**词与档的对应不在这里**（在内核那份状态映射里，词表来自契约），
   /// 这里只做措辞 —— 所以契约把 `approved` 改名的那一天，这一句会跟着换，而不是继续说"已同意"。
-  String _pairStateLabel(AppLocalizations l10n, FnthinkSentPairRequest row) {
-    switch (row.state) {
+  String _pairStateWord(AppLocalizations l10n, String status) {
+    switch (fnthinkPairRequestStateOf(_contract!, status)) {
       case FnthinkPairRequestState.pending:
         return l10n.fnthinkPairStatePending;
       case FnthinkPairRequestState.approved:
@@ -356,7 +398,7 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
         return l10n.fnthinkPairStateExpired;
       case FnthinkPairRequestState.unknown:
         // 词表外的值：把原话摊出来。画成"失败"会让人去重扫一次码，而那一发会消耗新口令。
-        return l10n.fnthinkPairStateUnknown(row.status);
+        return l10n.fnthinkPairStateUnknown(status);
     }
   }
 

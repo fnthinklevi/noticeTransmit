@@ -105,7 +105,10 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
     // `peersDeps` 可以整包没装配（测试/早期启动）⇒ 那一行就只说常态那句，不猜数。
     final pairs = widget.peersDeps?.coordinator;
     pairs?.pairRequestsListenable.addListener(_onServiceChanged);
-    pairs?.sentPairRequestsListenable.addListener(_onServiceChanged);
+    // ⚠ T116 起这一条换成**账本**那一份而不是内存里那份发起面：入口行那句"你在等对面 N"
+    // 数的就是账本里还没结论的那几条，挂错了 listenable 会出现"发起完那一行还说常态、
+    // 点进去已经有一行"（两处读的不再是同一份）。
+    pairs?.pairLedgerListenable.addListener(_onServiceChanged);
     unawaited(_readRemoteGate());
   }
 
@@ -138,7 +141,7 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
     _deviceState.removeListener(_onServiceChanged);
     final pairs = widget.peersDeps?.coordinator;
     pairs?.pairRequestsListenable.removeListener(_onServiceChanged);
-    pairs?.sentPairRequestsListenable.removeListener(_onServiceChanged);
+    pairs?.pairLedgerListenable.removeListener(_onServiceChanged);
     super.dispose();
   }
 
