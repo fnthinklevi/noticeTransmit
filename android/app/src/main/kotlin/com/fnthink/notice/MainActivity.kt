@@ -64,6 +64,10 @@ class MainActivity : FlutterActivity() {
         private const val REQUEST_PHONE_PERMISSION = 1002
         private const val REQUEST_POST_NOTIFICATION_PERMISSION = 1003
 
+        // T124 片C：通话记录（READ_CALL_LOG）是**单独一次申请**，不并进 phone 那一次 ——
+        // "一条一开"：并进去等于用户点"电话状态"时顺手把通话记录也问了（而那是另一档数据面）。
+        private const val REQUEST_CALL_LOG_PERMISSION = 1004
+
         // 回退版本号：getAppVersion 原生获取失败时使用。
         // 发版时须与 lib/update_manager.dart 中的 _fallbackVersion / _fallbackBuild 同步更新。
         const val FALLBACK_VERSION = "1.5.76"
@@ -1021,6 +1025,17 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /** T124 片C：通话记录的**单独一次**申请（见 [REQUEST_CALL_LOG_PERMISSION] 上那句）。 */
+    internal fun requestCallLogPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.READ_CALL_LOG),
+                REQUEST_CALL_LOG_PERMISSION
+            )
+        }
+    }
+
     internal fun requestQueryAllPackagesPermission() {
         try {
             openAppDetailsSettings()
@@ -1320,6 +1335,17 @@ class MainActivity : FlutterActivity() {
             ContextCompat.checkSelfPermission(
                 this,
                 android.Manifest.permission.READ_PHONE_STATE
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    internal fun isCallLogPermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.READ_CALL_LOG
             ) == PackageManager.PERMISSION_GRANTED
         } else {
             true

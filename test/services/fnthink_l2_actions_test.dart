@@ -82,6 +82,20 @@ class RecordingExecutor implements FnthinkL2Executor {
     if (failEverything) return (ok: false, reason: 'app-launch-failed');
     return launchResult ?? (ok: false, reason: 'app-launch-unknown-name');
   }
+
+  /// 搜通话记录那一条要回的那段正文（null = 没成，理由看 reason）。
+  ({String? payload, String? reason})? callsResult;
+
+  @override
+  Future<({String? payload, String? reason})> searchCalls(
+    String keyword,
+  ) async {
+    calls.add('searchCalls($keyword)');
+    if (failEverything) {
+      return (payload: null, reason: 'calls-search-failed');
+    }
+    return callsResult ?? (payload: null, reason: 'calls-search-disabled');
+  }
 }
 
 void main() {
@@ -103,6 +117,7 @@ void main() {
         'notifications:report',
         'sms:search',
         'app:launch',
+        'calls:search',
       ]);
       for (final a in contract.l2Reports.keys) {
         expect(
@@ -485,6 +500,63 @@ void main() {
           FnthinkL2Action('app:launch', bad),
         );
         expect(r.ok, isFalse, reason: '名字「$bad」不该过');
+        expect(r.reason, startsWith('bad-keyword:'));
+        expect(exec.calls, isEmpty, reason: '拦在动手之前');
+      }
+    });
+  });
+
+  group('搜通话记录那一条（T124 片C 的 calls:search）：与 sms:search 同形', () {
+    test('契约：在词表里、必带参数、kind 是 keyword、上下界与点名的标题都在', () {
+      expect(contract.l2Actions, contains('calls:search'));
+      expect(contract.l2ActionsRequiringArgument, contains('calls:search'));
+      expect(contract.l2ReportKind('calls:search'), 'keyword');
+      expect(contract.l2ReportMinChars('calls:search'), 1);
+      expect(contract.l2ReportMaxChars('calls:search'), 32);
+      expect(contract.l2ReportTitle('calls:search'), 'call-log-search');
+    });
+
+    test('命中 ⇒ 执行器被调一次，产出挂在结果上', () async {
+      final exec = RecordingExecutor()
+        ..callsResult = (payload: '07-12 09:31 ↙ 10086 (12s)', reason: null);
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('calls:search', '10086'),
+      );
+      expect(exec.calls, ['searchCalls(10086)']);
+      expect(r.ok, isTrue);
+      expect(r.payload, contains('10086'));
+    });
+
+    test('执行器回一句理由（开关关着 / 没权限 / 读不出来）⇒ failed 原样带上', () async {
+      for (final reason in [
+        'calls-search-disabled',
+        'calls-search-refused',
+        'calls-search-failed',
+      ]) {
+        final exec = RecordingExecutor()
+          ..callsResult = (payload: null, reason: reason);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          const FnthinkL2Action('calls:search', '10086'),
+        );
+        expect(r.ok, isFalse);
+        expect(r.reason, reason);
+      }
+    });
+
+    test('关键词越界/空/带控制字符 ⇒ failed，且执行器一次都不被调', () async {
+      for (final bad in ['', '   ', 'x' * 33, 'x\ny']) {
+        final exec = RecordingExecutor()
+          ..callsResult = (payload: 'HIT', reason: null);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          FnthinkL2Action('calls:search', bad),
+        );
+        expect(r.ok, isFalse, reason: '关键词「$bad」不该过');
         expect(r.reason, startsWith('bad-keyword:'));
         expect(exec.calls, isEmpty, reason: '拦在动手之前');
       }

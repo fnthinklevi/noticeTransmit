@@ -24,6 +24,9 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- T124 片C：远程「按关键词搜通话记录」用（默认关的本机开关 + 运行时单独申请；
+         申请入口在「可被远程读取的内容」那一页，不并进上面那条 READ_PHONE_STATE 的申请） -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />

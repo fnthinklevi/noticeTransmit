@@ -39,6 +39,12 @@ void main() {
     late List<String> launchCalls;
     ({bool ok, String? reason}) launchResult = (ok: true, reason: null);
     var launchThrows = false;
+    late List<String> callsCalls;
+    ({String? payload, String? reason}) callsResult = (
+      payload: 'CALLHIT',
+      reason: null,
+    );
+    var callsThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -60,6 +66,9 @@ void main() {
       launchCalls = [];
       launchResult = (ok: true, reason: null);
       launchThrows = false;
+      callsCalls = [];
+      callsResult = (payload: 'CALLHIT', reason: null);
+      callsThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -90,6 +99,11 @@ void main() {
         smsCalls.add(keyword);
         if (smsThrows) throw StateError('boom');
         return smsResult;
+      },
+      searchCallsNow: (keyword) async {
+        callsCalls.add(keyword);
+        if (callsThrows) throw StateError('boom');
+        return callsResult;
       },
       launchAppNow: (name) async {
         launchCalls.add(name);
@@ -148,6 +162,8 @@ void main() {
         ringAlertNow: () async => true,
         searchSmsNow: (keyword) async =>
             (payload: null, reason: 'sms-search-failed'),
+        searchCallsNow: (keyword) async =>
+            (payload: null, reason: 'calls-search-failed'),
         launchAppNow: (name) async =>
             (ok: false, reason: 'app-launch-unknown-name'),
         pushDeviceStateNow: () async => true,
@@ -205,6 +221,17 @@ void main() {
       expect((await build().searchSms('x')).reason, 'sms-search-disabled');
       smsThrows = true;
       expect((await build().searchSms('x')).reason, 'threw:sms:search');
+    });
+
+    test('calls:search：产出与理由原样透传；抛异常收成 threw', () async {
+      final hit = await build().searchCalls('10086');
+      expect(callsCalls, ['10086']);
+      expect(hit.payload, 'CALLHIT');
+      expect(hit.reason, isNull);
+      callsResult = (payload: null, reason: 'calls-search-disabled');
+      expect((await build().searchCalls('x')).reason, 'calls-search-disabled');
+      callsThrows = true;
+      expect((await build().searchCalls('x')).reason, 'threw:calls:search');
     });
   });
 

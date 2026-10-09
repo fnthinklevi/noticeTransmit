@@ -323,13 +323,27 @@ void main() {
     await tester.pumpAndSettle();
 
     final blocked = find.byKey(const ValueKey('fnthink-send-blocked'));
+    // ⚠ 按完提交之后人停在页面**底部**（上面 scrollUntilVisible 是为了够得着提交键）——
+    //   那句解释画在页面**最上面**（清单还在视口之外），懒布局下它此刻根本没被 build。
+    //   所以先滚回去把"它真的在树上"这一步做成这枚 key 的存在性（向上滚到建出来为止）。
+    await tester.scrollUntilVisible(
+      blocked,
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(blocked, findsOneWidget);
-    // 它在名单那一格**之上**：ListView 是懒布局，提交键常常在视口外，"按了没反应而解释在屏幕外"
-    // 是这一路最不能出现的形状。
+    // 位置那一半：与它同屏可比的锚是「发给谁」那张卡的第一枚 note ——
+    // 解释必须在**那张卡之上**（"按了没反应而解释在屏幕外"是这一路最不能出现的形状；
+    // 拿提交键做锚要两枚同时在树上，而它们一个在头一个在尾，永远凑不到同一屏）。
     expect(
       tester.getTopLeft(blocked).dy,
       lessThan(
-        tester.getTopLeft(find.byKey(const ValueKey('remote-send-submit'))).dy,
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('fnthink-send-target-devices')),
+            )
+            .dy,
       ),
     );
   });

@@ -371,7 +371,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D['系统设置'] = 'system settings';
   D['分成两档、逐条授权。 每一条执行前都有一次看得见的撤销机会，执行完回执告诉你做到哪一步。'] = 'into two tiers, granted item by item. Every instruction gets a visible chance to be revoked before it runs, and a receipt tells you how far it got.';
   D['L2 应用动作'] = 'L2 App Actions';
-  D['启停监听 · 开关某条通道 · 推送设备状态'] = 'Start / stop listening · toggle one channel · push device state';
+  D['启停监听 · 开关通道 · 回传数据 · 打开入口'] = 'Start / stop listening · toggle a channel · send data back · open an entry';
   D['L3 系统设置'] = 'L3 System Settings';
   D['默认全关，逐条单独开'] = 'Off by default, enabled one at a time';
   D['可撤销的延时窗口'] = 'Cancellable Delay Window';
@@ -391,7 +391,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   D[' —— 这是给你的一次可见撤销机会，不是再弹一次确认框；它'] = ' — this is a visible chance to revoke, not a second confirmation dialog, and it';
   D['不许被绕过'] = 'cannot be bypassed';
   D['封闭词表'] = 'Closed Vocabulary';
-  D['L2 只有四个动作、L3 只有六项设置，'] = 'L2 has exactly four actions and L3 exactly six settings,';
+  D['L2 的每个应用动作与 L3 的每项设置都在契约里逐条列全，'] = 'Every L2 action and L3 setting is enumerated in the contract,';
   D['不在表内的一律拒收'] = 'and anything outside is rejected';
   D['，不做「认不出就先跳过」—— 那等于让对端拿编出来的名字试探这台设备的边界。第三方平台接入端点最高只到 L1。'] = ' — never “skip what we do not recognize”, which would let a peer probe this device’s boundaries with invented names. Third-party platform endpoints cap at L1.';
   D['熔断与留痕'] = 'Circuit Breaker & Audit';
@@ -428,6 +428,7 @@ D['通知推送助手'] = 'NoticeTransmit';
   // ── 通道口径补幻念推送 ＋ 精简两处（本次改动后的节点原文，逐字照抄，值里不许有裸单引号）──
   D['与 Webhook、自建应用、邮件并列的第四类通道「幻念推送」：把通知送到另一台装了本应用的手机（两台设备配对、逐条签名投递），或由 NAS、脚本、第三方平台经接入端点（一把长期口令）推给这台设备。正文在你的设备上加密后才发出；可用官方实例，也可自行部署。'] = 'The fourth channel family, alongside Webhook, self-built apps and email — Fnthink Push: deliver notifications to another phone running this app (two devices paired, every message signed), or let a NAS, a script or a third-party platform push to this device through an ingress endpoint with one long-lived token. Bodies are encrypted on your device before they leave it; use the official instance or host your own.';
   D['Android 通知监听与推送工具。开源、免费、本地处理，支持 Webhook / 自建应用 / SMTP 邮件 / 幻念推送多通道。让每条通知抵达每个平台。由 幻念团队 fnthinklevi 打造。'] = 'An Android notification listener and forwarder — open source, free, processed on your device, with four channel families: Webhook / self-built apps / SMTP email / Fnthink Push. Let every notification reach every platform. Built by the Fnthink team, fnthinklevi.';
+  D['需要读本机数据的动作（如「按关键词搜通话记录」）另有本机开关，默认关、单独开：打开时才向系统要那一条权限，关掉立即生效；读到的内容只当一条普通消息回传（有回执、进收件箱），不是把设备的读取权交出去。'] = 'Actions that read this device’s data (e.g. “search the call log by keyword”) have an extra on-device switch, off by default and enabled one at a time: only when you turn it on does the app ask the system for that permission, and turning it off takes effect immediately. What comes back is an ordinary message (with receipts, landing in the inbox) — not read access to the device.';
 })();
 
 

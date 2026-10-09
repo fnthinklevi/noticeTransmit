@@ -23,6 +23,7 @@ kFnthinkRemoteActionLabels = {
   'alert:ring': (l) => l.remoteActionAlertRing,
   'sms:search': (l) => l.remoteActionSmsSearch,
   'app:launch': (l) => l.remoteActionAppLaunch,
+  'calls:search': (l) => l.remoteActionCallsSearch,
   'notification': (l) => l.remoteSettingNotification,
   'exact_alarm': (l) => l.remoteSettingExactAlarm,
   'battery_optimization': (l) => l.remoteSettingBatteryOptimization,

@@ -94,6 +94,16 @@ class _RecordingL2 implements FnthinkL2Executor {
   }
 
   @override
+  Future<({String? payload, String? reason})> searchCalls(
+    String keyword,
+  ) async {
+    calls.add('searchCalls($keyword)');
+    await _pass();
+    if (!ok) return (payload: null, reason: 'calls-search-failed');
+    return (payload: null, reason: 'calls-search-disabled');
+  }
+
+  @override
   Future<({bool ok, String? reason})> launchApp(String name) async {
     calls.add('launchApp($name)');
     await _pass();

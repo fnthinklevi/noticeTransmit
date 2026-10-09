@@ -2,6 +2,7 @@ package com.fnthink.notice.channels
 
 import android.content.Context
 import com.fnthink.notice.AppLaunch
+import com.fnthink.notice.CallLogSearch
 import com.fnthink.notice.FnthinkAlertDisplay
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
@@ -109,6 +110,21 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                             null
                         } else {
                             SmsSearch.search(context, keyword)
+                        }
+                    postSuccess(result, rows)
+                }
+            }
+            // ── T124 片C：按关键词搜本机通话记录（`calls:search`）──
+            // 与 sms 那一发逐字同形：重活下沉 ioScope，回 null = 没查成、回空表 = 查了没命中。
+            // ⚠ 本机那枚开关（默认关）在 Dart 侧先判，过不来就压根到不了这里。
+            "searchFnthinkCallLog" -> {
+                val keyword = call.argument<String>("keyword").orEmpty().trim()
+                ioScope.launch {
+                    val rows =
+                        if (keyword.isEmpty()) {
+                            null
+                        } else {
+                            CallLogSearch.search(context, keyword)
                         }
                     postSuccess(result, rows)
                 }

@@ -16,6 +16,7 @@ import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
 
 import 'fnthink_shortcuts_page.dart';
+import 'fnthink_read_caps_page.dart';
 import '../widgets/help_note_button.dart';
 import 'fnthink_send_page.dart';
 import 'remote_credential_settings_page.dart';
@@ -198,6 +199,19 @@ class _FnthinkRemotePageState extends State<FnthinkRemotePage> {
           onTap: () => Navigator.of(context).push(
             CupertinoPageRoute<void>(
               builder: (_) => const FnthinkShortcutsPage(),
+            ),
+          ),
+        ),
+        // T124 片C：远程「读这台的数据」那几项的本机那一半 —— 每一项默认关、单独开。
+        FnthinkEntryRow(
+          key: const ValueKey('fnthink-remote-exec-readcaps'),
+          icon: Icons.folder_shared_outlined,
+          iconColor: AppColors.orange,
+          title: l10n.fnthinkReadPageTitle,
+          subtitle: l10n.fnthinkReadEntryShort,
+          onTap: () => Navigator.of(context).push(
+            CupertinoPageRoute<void>(
+              builder: (_) => const FnthinkReadCapsPage(),
             ),
           ),
         ),

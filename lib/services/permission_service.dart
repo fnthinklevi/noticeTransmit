@@ -187,6 +187,27 @@ class PermissionService {
     }
   }
 
+  /// T124 片C：通话记录那一格（`READ_CALL_LOG`）。
+  ///
+  /// ⚠ **走原生而不是 `Permission.phone`**：那一枚在 permission_handler 里是"电话组"，
+  /// 会把它认得的所有组内权限**一起请求** —— 清单里一有 READ_CALL_LOG，用户点
+  /// 「电话状态」那一格时就会连带被问通话记录（而那是另一档数据面，"一条一开"不许这样）。
+  /// 原生那一侧单独一个请求码（见 MainActivity 的 REQUEST_CALL_LOG_PERMISSION）。
+  Future<void> requestCallLogPermission() =>
+      _requestPermission('requestCallLogPermission');
+
+  /// 通话记录权限当前给没给。⚠ 读不出来按**未授予**处理（与 [isPromotedNotificationGranted]
+  /// 同一纪律：不得把"没读到"显示成"已授予"，那会让人以为开着而实际读不到）。
+  Future<bool> isCallLogPermissionGranted() async {
+    try {
+      return await _channel.invokeMethod<bool>('isCallLogPermissionGranted') ??
+          false;
+    } catch (e) {
+      debugPrint('检查通话记录权限失败（按未授予处理）: $e');
+      return false;
+    }
+  }
+
   Future<void> requestPhonePermission() async {
     final status = await Permission.phone.request();
     if (status == PermissionStatus.granted) {

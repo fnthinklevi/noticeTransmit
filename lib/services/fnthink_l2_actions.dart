@@ -183,6 +183,15 @@ abstract class FnthinkL2Executor {
   /// ⚠ **名字对不上就是不做**（fail-closed）：猜一条最像的等于替用户开了一个他没点的东西。
   Future<({bool ok, String? reason})> launchApp(String name);
 
+  /// 在本机通话记录里按 [keyword] 搜，并把命中的那几条**回传**给发起方
+  /// （T124 片C 的 `calls:search`；与 [searchSms] 同一形状，门不同）。
+  ///
+  /// 回 `(payload: 正文, reason: null)` = 这一步成了；`payload: null, reason: ...` = 没成
+  /// （`calls-search-disabled` 本机的开关关着 / `calls-search-refused` 没权限被拒 /
+  /// `calls-search-failed` 读不出来）。⚠ 这一族**多一道本机开关**（默认关）：
+  /// 权限是系统那一格，开关是「允不允许对面读这条数据」这一格 —— 两格都要过。
+  Future<({String? payload, String? reason})> searchCalls(String keyword);
+
   /// 回传最近的 [count] 条通知原文（`notifications:report`，T124 片B）。
   ///
   /// 回**产出要回传的那段正文**；回 null = 这一步没做成（读库失败、这台没有可回传的东西）。
@@ -206,6 +215,7 @@ const Map<String, String> kFnthinkL2ActionVerbs = {
   'alert:ring': 'ringAlert',
   'sms:search': 'searchSms',
   'app:launch': 'launchApp',
+  'calls:search': 'searchCalls',
 };
 
 /// 把一个已解析的动作派到执行器上。纯转发，但**这里是唯一一处** action 名 → 方法的映射。
@@ -278,6 +288,23 @@ Future<FnthinkL2Result> dispatchL2Action(
       return launched.ok
           ? const FnthinkL2Result.ok()
           : FnthinkL2Result.failed(launched.reason ?? 'app-launch-failed');
+    case 'calls:search':
+      // 与 sms:search 逐字同形：参数形状的唯一判据仍是 reportArgumentProblem。
+      final badCallKeyword = reportArgumentProblem(
+        contract,
+        action.name,
+        action.argument,
+      );
+      if (badCallKeyword != null) return FnthinkL2Result.failed(badCallKeyword);
+      final foundCalls = await executor.searchCalls(action.argument.trim());
+      if (foundCalls.reason != null) {
+        return FnthinkL2Result.failed(foundCalls.reason!);
+      }
+      final callsPayload = foundCalls.payload;
+      if (callsPayload == null || callsPayload.isEmpty) {
+        return const FnthinkL2Result.failed('calls-search-failed');
+      }
+      return FnthinkL2Result.ok(payload: callsPayload);
     default:
       // 走到这里说明 [parseL2Item] 与本函数对同一张表的读法不一致 ——
       // 两者都在同一份契约上，却给出了不同的答案。

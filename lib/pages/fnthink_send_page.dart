@@ -339,9 +339,13 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         final min = contract.l2ReportMinChars(_item) ?? 1;
         final max = contract.l2ReportMaxChars(_item) ?? min;
         if (reportArgumentProblem(contract, _item, _keyword.text) != null) {
-          return _item == 'app:launch'
-              ? l10n.remoteSendNeedsShortcutName(min, max)
-              : l10n.remoteSendNeedsSmsKeyword(min, max);
+          // 同一形态（keyword）现在由三个动作共用：文案按动作分 ——
+          // 「搜什么词」「打开哪一条」「搜通话记录里的什么词」是三件事。
+          return switch (_item) {
+            'app:launch' => l10n.remoteSendNeedsShortcutName(min, max),
+            'calls:search' => l10n.remoteSendNeedsCallsKeyword(min, max),
+            _ => l10n.remoteSendNeedsSmsKeyword(min, max),
+          };
         }
       } else {
         if (_channelFamily == null) return l10n.remoteSendNeedsFamily;
@@ -892,17 +896,21 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     final contract = _contract!;
     final min = contract.l2ReportMinChars(_item) ?? 1;
     final max = contract.l2ReportMaxChars(_item) ?? min;
-    // ⚠ 同一个形态（keyword）由两个动作共用：文案按动作分 —— 一条是"搜什么词"，
-    //   一条是"打开对面登记过的哪一条"。合成一句会把两件事说成一件。
-    final isLaunch = _item == 'app:launch';
+    // ⚠ 同一个形态（keyword）由三个动作共用：文案按动作分 —— "搜什么词"／
+    //   "打开对面登记过的哪一条"／"搜通话记录里的什么词或号码"。合成一句会把三件事说成一件。
+    final label = switch (_item) {
+      'app:launch' => l10n.remoteSendShortcutNameLabel,
+      'calls:search' => l10n.remoteSendCallsKeywordLabel,
+      _ => l10n.remoteSendSmsKeywordLabel,
+    };
+    final why = switch (_item) {
+      'app:launch' => l10n.remoteSendShortcutNameWhy,
+      'calls:search' => l10n.remoteSendCallsKeywordWhy,
+      _ => l10n.remoteSendSmsKeywordWhy,
+    };
     return [
       const SizedBox(height: 10),
-      FnthinkNote(
-        keyName: 'remote-send-keyword-label',
-        text: isLaunch
-            ? l10n.remoteSendShortcutNameLabel
-            : l10n.remoteSendSmsKeywordLabel,
-      ),
+      FnthinkNote(keyName: 'remote-send-keyword-label', text: label),
       CupertinoTextField(
         key: const ValueKey('remote-send-keyword'),
         controller: _keyword,
@@ -910,12 +918,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         autocorrect: false,
         onChanged: (_) => setState(() {}),
       ),
-      FnthinkNote(
-        keyName: 'remote-send-keyword-why',
-        text: isLaunch
-            ? l10n.remoteSendShortcutNameWhy
-            : l10n.remoteSendSmsKeywordWhy,
-      ),
+      FnthinkNote(keyName: 'remote-send-keyword-why', text: why),
     ];
   }
 

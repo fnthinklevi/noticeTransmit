@@ -3533,7 +3533,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyInfoContent.
   ///
   /// In zh, this message translates to:
-  /// **'本应用遵循\"最小必要\"原则，仅收集实现核心功能所必需的信息：\n\n1. 通知内容（本地处理）\n   - 应用通过系统通知监听服务读取通知内容\n   - 通知内容在设备本地完成规则匹配与关键词过滤，只按您自行配置的目标转发：Webhook、邮件地址或幻念设备\n   - 除您指定的这些目标外，通知内容不会上传至任何其他服务器；其中「幻念设备」这一路经你选定的中转服务器投递，详见第 7 项\n\n2. 崩溃统计信息（腾讯 Bugly，默认关闭）\n   - 仅当你在「更多 → 崩溃上报」主动开启后，才收集应用崩溃时的堆栈信息、设备型号、系统版本、应用版本号、CPU 架构\n   - 未开启时 SDK 不初始化、数据不出网；开启后仅用于定位和修复崩溃问题，提升应用稳定性\n\n3. 推送统计与历史记录（本地存储）\n   - 通知记录、推送状态、每日统计等数据使用 AES-256 加密存储在本地数据库\n   - 这些数据仅保存在您的设备上，不会对外发送\n\n4. 延迟推送队列（本地存储）\n   - 规则约束产生的延迟/定时推送任务持久化保存在本机，重启后不丢失\n\n5. 电池状态（本地监控）\n   - 电量及充电状态监控仅在本机采集，用于首页展示，不对外发送\n\n6. 已安装应用列表（本地使用）\n   - 用于规则约束的条件配置与应用过滤，仅在本机使用\n\n7. 幻念推送（设备互推 / 第三方经接入端点推给手机，需你显式同意）\n   - 仅在你使用「幻念推送」并在应用内一次性显式同意后，消息才会经你选定的服务器中转送达目标设备；不使用或不同意时，通知内容始终不出本机\n   - 未送达期间，消息正文在服务器端加密暂存、最长保留 7 天，送达或到期后立即删除\n   - 配对口令与身份私钥不上传，服务器与审计日志只保存投递所需的元数据（不含正文）\n   - 若你选择自行部署幻念推送服务器，上述中转与保留规则由你自己的服务器执行，数据处于你掌控的基础设施内\n   - ⚠ 你选的如果是别人运营的实例：那台服务器用它自己的密钥做落盘加密，「服务器不落明文正文」讲的是存储形态，不等于对方读不到；投递元数据与运维日志也在它手里。这和配置一个 webhook 转发目标是同一类决定 —— 请只连你信得过的实例'**
+  /// **'本应用遵循\"最小必要\"原则，仅收集实现核心功能所必需的信息：\n\n1. 通知内容（本地处理）\n   - 应用通过系统通知监听服务读取通知内容\n   - 通知内容在设备本地完成规则匹配与关键词过滤，只按您自行配置的目标转发：Webhook、邮件地址或幻念设备\n   - 除您指定的这些目标外，通知内容不会上传至任何其他服务器；其中「幻念设备」这一路经你选定的中转服务器投递，详见第 7 项\n\n2. 崩溃统计信息（腾讯 Bugly，默认关闭）\n   - 仅当你在「更多 → 崩溃上报」主动开启后，才收集应用崩溃时的堆栈信息、设备型号、系统版本、应用版本号、CPU 架构\n   - 未开启时 SDK 不初始化、数据不出网；开启后仅用于定位和修复崩溃问题，提升应用稳定性\n\n3. 推送统计与历史记录（本地存储）\n   - 通知记录、推送状态、每日统计等数据使用 AES-256 加密存储在本地数据库\n   - 这些数据仅保存在您的设备上，不会对外发送\n\n4. 延迟推送队列（本地存储）\n   - 规则约束产生的延迟/定时推送任务持久化保存在本机，重启后不丢失\n\n5. 电池状态（本地监控）\n   - 电量及充电状态监控仅在本机采集，用于首页展示，不对外发送\n\n6. 已安装应用列表（本地使用）\n   - 用于规则约束的条件配置与应用过滤，仅在本机使用\n\n7. 幻念推送（设备互推 / 第三方经接入端点推给手机，需你显式同意）\n   - 仅在你使用「幻念推送」并在应用内一次性显式同意后，消息才会经你选定的服务器中转送达目标设备；不使用或不同意时，通知内容始终不出本机\n   - 未送达期间，消息正文在服务器端加密暂存、最长保留 7 天，送达或到期后立即删除\n   - 配对口令与身份私钥不上传，服务器与审计日志只保存投递所需的元数据（不含正文）\n   - 若你选择自行部署幻念推送服务器，上述中转与保留规则由你自己的服务器执行，数据处于你掌控的基础设施内\n   - 远程读取（默认关、单独开）：你在「可被远程读取的内容」里为某一项单独打开开关并授予系统权限后，已配对的设备才能经同一条中转链路读回那一项的数据（例如按关键词搜到的那几条通话记录）；关掉即失效\n   - ⚠ 你选的如果是别人运营的实例：那台服务器用它自己的密钥做落盘加密，「服务器不落明文正文」讲的是存储形态，不等于对方读不到；投递元数据与运维日志也在它手里。这和配置一个 webhook 转发目标是同一类决定 —— 请只连你信得过的实例'**
   String get privacyInfoContent;
 
   /// No description provided for @privacyNoCollectTitle.
@@ -3593,7 +3593,7 @@ abstract class AppLocalizations {
   /// No description provided for @privacyPermContent.
   ///
   /// In zh, this message translates to:
-  /// **'本应用遵循最小权限原则，以下为完整权限清单及用途说明：\n\n核心权限（必需）：\n• 通知使用权（Notification Listener）：读取通知内容，实现转发与规则约束功能\n• 网络访问（INTERNET）：Webhook/邮件推送与版本更新检查\n• 前台服务（FOREGROUND_SERVICE 等）：保持通知监听服务常驻，确保消息及时推送\n• 开机自启动（RECEIVE_BOOT_COMPLETED）：设备重启后自动恢复通知监听服务\n• 通知发送（POST_NOTIFICATIONS）：发送本地通知提示\n• 唤醒锁（WAKE_LOCK）：延迟/定时推送到点唤醒设备\n\n辅助权限（可选）：\n• 电量优化白名单（REQUEST_IGNORE_BATTERY_OPTIMIZATIONS）：避免系统限制后台服务\n• 短信（RECEIVE_SMS/READ_SMS）：可选，用于短信通知识别与转发\n• 电话状态（READ_PHONE_STATE）：可选，用于来电通知识别\n• 存储（READ/WRITE_EXTERNAL_STORAGE）：导出推送历史 JSON、保存更新 APK\n• 安装未知应用（REQUEST_INSTALL_PACKAGES）：应用内在线更新时安装 APK\n• 查询已安装应用（QUERY_ALL_PACKAGES）：规则约束的条件配置与应用过滤\n• 振动（VIBRATE）：推送提示振动\n• 网络状态（ACCESS_NETWORK_STATE）：检测网络连接状态\n\n以上辅助权限均在您主动授权后使用，可随时在系统设置中关闭。'**
+  /// **'本应用遵循最小权限原则，以下为完整权限清单及用途说明：\n\n核心权限（必需）：\n• 通知使用权（Notification Listener）：读取通知内容，实现转发与规则约束功能\n• 网络访问（INTERNET）：Webhook/邮件推送与版本更新检查\n• 前台服务（FOREGROUND_SERVICE 等）：保持通知监听服务常驻，确保消息及时推送\n• 开机自启动（RECEIVE_BOOT_COMPLETED）：设备重启后自动恢复通知监听服务\n• 通知发送（POST_NOTIFICATIONS）：发送本地通知提示\n• 唤醒锁（WAKE_LOCK）：延迟/定时推送到点唤醒设备\n\n辅助权限（可选）：\n• 电量优化白名单（REQUEST_IGNORE_BATTERY_OPTIMIZATIONS）：避免系统限制后台服务\n• 短信（RECEIVE_SMS/READ_SMS）：可选，用于短信通知识别与转发\n• 电话状态（READ_PHONE_STATE）：可选，用于来电通知识别\n• 通话记录（READ_CALL_LOG）：可选，仅在「可被远程读取的内容」打开并授权后，允许已配对的设备按关键词搜本机通话记录\n• 存储（READ/WRITE_EXTERNAL_STORAGE）：导出推送历史 JSON、保存更新 APK\n• 安装未知应用（REQUEST_INSTALL_PACKAGES）：应用内在线更新时安装 APK\n• 查询已安装应用（QUERY_ALL_PACKAGES）：规则约束的条件配置与应用过滤\n• 振动（VIBRATE）：推送提示振动\n• 网络状态（ACCESS_NETWORK_STATE）：检测网络连接状态\n\n以上辅助权限均在您主动授权后使用，可随时在系统设置中关闭。'**
   String get privacyPermContent;
 
   /// No description provided for @privacyChildTitle.
@@ -3647,7 +3647,7 @@ abstract class AppLocalizations {
   /// No description provided for @lastUpdate.
   ///
   /// In zh, this message translates to:
-  /// **'最后更新：2026年10月6日'**
+  /// **'最后更新：2026年10月10日'**
   String get lastUpdate;
 
   /// No description provided for @deliveryLogTitle.
@@ -8028,6 +8028,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'让对面打开一个已登记的入口'**
   String get remoteActionAppLaunch;
+
+  /// No description provided for @remoteActionCallsSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面按关键词搜通话记录'**
+  String get remoteActionCallsSearch;
+
+  /// No description provided for @fnthinkReadPageTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'可被远程读取的内容'**
+  String get fnthinkReadPageTitle;
+
+  /// No description provided for @fnthinkReadEntryShort.
+  ///
+  /// In zh, this message translates to:
+  /// **'对面能读这台什么；每一项默认关、单独开。'**
+  String get fnthinkReadEntryShort;
+
+  /// No description provided for @fnthinkReadWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'每一项默认关：打开一项，已配对的设备才能远程读它（打开时会向系统申请对应权限）。'**
+  String get fnthinkReadWhy;
+
+  /// No description provided for @fnthinkReadWhyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'「可被远程读取」是怎么被拦住的'**
+  String get fnthinkReadWhyTitle;
+
+  /// No description provided for @fnthinkReadWhyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'两道闸都要过：① 这一页的开关 —— 本机持有者的表态，默认关、随时可关、关掉立即生效；② 系统的运行时权限 —— 第一次打开时申请，之后可在系统设置里改。只有已配对的设备、走远程指令那条面，才谈得上读；读到的内容只当一条普通消息回传（有回执、进收件箱），不是把设备的读取权交出去。'**
+  String get fnthinkReadWhyBody;
+
+  /// No description provided for @fnthinkReadCallsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'通话记录'**
+  String get fnthinkReadCallsTitle;
+
+  /// No description provided for @fnthinkReadCallsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许已配对的设备按关键词搜本机的通话记录（号码与姓名）'**
+  String get fnthinkReadCallsSubtitle;
+
+  /// No description provided for @fnthinkReadCallsDenied.
+  ///
+  /// In zh, this message translates to:
+  /// **'没拿到通话记录权限 —— 这一项仍是关的。再点一次开关重试，或去系统设置里打开。'**
+  String get fnthinkReadCallsDenied;
+
+  /// No description provided for @remoteSendCallsKeywordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜什么词或号码'**
+  String get remoteSendCallsKeywordLabel;
+
+  /// No description provided for @remoteSendCallsKeywordWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'只回传命中的那几条（时间／方向／对方／时长）。对面那台「可被远程读取的内容」里这一项关着时，这一发不会执行。'**
+  String get remoteSendCallsKeywordWhy;
+
+  /// No description provided for @remoteSendNeedsCallsKeyword.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜什么词要填 {min}–{max} 个字，且不能带控制字符。'**
+  String remoteSendNeedsCallsKeyword(int min, int max);
 
   /// No description provided for @fnthinkShortcutsTitle.
   ///

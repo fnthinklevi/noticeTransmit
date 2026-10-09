@@ -27,6 +27,8 @@ import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_remote_wiring.dart';
 import '../models/notification_record.dart';
 import '../services/fnthink_notification_report.dart';
+import '../services/fnthink_call_log_report.dart';
+import '../services/fnthink_read_settings.dart';
 import '../services/fnthink_shortcut_registry.dart';
 import '../services/fnthink_sms_search_report.dart';
 import '../services/platform_channel.dart';
@@ -281,6 +283,7 @@ void setupLocator() {
       reportNotificationsNow: _fnthinkReportNotificationsOnce,
       ringAlertNow: () => FnthinkAlertDisplay().ring(),
       searchSmsNow: _fnthinkSearchSmsOnce,
+      searchCallsNow: _fnthinkSearchCallsOnce,
       launchAppNow: _fnthinkLaunchShortcutOnce,
     ),
   );
@@ -472,6 +475,39 @@ Future<({String? payload, String? reason})> _fnthinkSearchSmsOnce(
     return (payload: formatFnthinkSmsSearchReport(keyword, rows), reason: null);
   } catch (e) {
     return (payload: null, reason: 'sms-search-failed');
+  }
+}
+
+/// 「在本机通话记录里按关键词搜」那一发（T124 片C 的 `calls:search`）。
+///
+/// ⚠ **两格都要过，次序固定：先本机开关，再系统权限**。
+///  ① 本机那枚开关（`fnthink.read.calls`，默认关）关着 ⇒ `calls-search-disabled`，
+///     **连库都不碰** —— 与 `sms:search` 同一条纪律；
+///  ② 系统权限那一格在原生判（没给 READ_CALL_LOG 就回 null）⇒ `calls-search-refused`。
+/// 两格分开的理由：它们对用户的下一步不一样（来这台打开开关 / 去系统里给权限）。
+/// ⚠ **不落任何新库**：直查系统通话记录，命中就回、不存副本（与短信那一条同源）。
+Future<({String? payload, String? reason})> _fnthinkSearchCallsOnce(
+  String keyword,
+) async {
+  try {
+    if (!await fnthinkReadCallsEnabled()) {
+      return (payload: null, reason: 'calls-search-disabled');
+    }
+    final raw = await AppChannels.notification.invokeMethod<List<Object?>>(
+      'searchFnthinkCallLog',
+      {'keyword': keyword},
+    );
+    if (raw == null) {
+      // 没给 READ_CALL_LOG / 被系统拒：原生回 null —— **与"空表"不同**（空表的含义是"搜了、没有"）。
+      return (payload: null, reason: 'calls-search-refused');
+    }
+    final rows = raw
+        .whereType<Map<Object?, Object?>>()
+        .map((m) => Map<String, Object?>.from(m))
+        .toList(growable: false);
+    return (payload: formatFnthinkCallLogReport(keyword, rows), reason: null);
+  } catch (e) {
+    return (payload: null, reason: 'calls-search-failed');
   }
 }
 

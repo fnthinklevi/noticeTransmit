@@ -548,7 +548,8 @@ void main() {
         greaterThanOrEqualTo(1),
       );
       // T124 片B-4 起 4：远程页多了「可被远程打开的入口」那一行（app:launch 的本机那一半）。
-      expect(n('lib/pages/fnthink_remote_page.dart', 'FnthinkEntryRow('), 4);
+      // T124 片C-1 起 5：多了「可被远程读取的内容」那一行（通话记录那一族的本机开关与权限入口）。
+      expect(n('lib/pages/fnthink_remote_page.dart', 'FnthinkEntryRow('), 5);
       // 换件之后这几个文件里不该再留下自己搭的 Material 路由。
       for (final p in const [
         'lib/pages/notification_engine_page.dart',

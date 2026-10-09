@@ -63,6 +63,14 @@ internal class PermissionChannelHandler(activity: MainActivity) : ChannelHandler
                 activity.requestPhonePermission()
                 result.success(true)
             }
+            // T124 片C：通话记录那一格（单独申请，不并进 phone —— 见 MainActivity 那枚请求码上的一句）
+            "isCallLogPermissionGranted" -> {
+                result.success(activity.isCallLogPermissionGranted())
+            }
+            "requestCallLogPermission" -> {
+                activity.requestCallLogPermission()
+                result.success(true)
+            }
             "canQueryAllPackages" -> {
                 // ⚠ 语义是"允许去枚举"（只有明确拒绝才拦），不是"已授予"。
                 // 显示权限状态请用 getAppListPermissionState。

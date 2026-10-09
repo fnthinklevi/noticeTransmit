@@ -137,6 +137,28 @@ void main() {
     }
   });
 
+  /// T124 片C-1：远程读取（通话记录）这一条**同批**进了说明页与权限清单，
+  /// 两个语言都不得漏 —— 只补一边的后果与上面那条全称量词同源：另一边读到的是
+  /// 一份少了「对面能读这台什么」的说明，而代码已经能读了。
+  test('说明页披露远程读取（默认关、单独开）与通话记录那一条权限（两个语言）', () {
+    for (final fact in ['远程读取', '默认关', '通话记录']) {
+      expect(zhBody, contains(fact), reason: '中文隐私政策漏了「$fact」');
+    }
+    for (final fact in ['Remote reading', 'off by default', 'call-log']) {
+      expect(
+        enBody,
+        contains(fact),
+        reason: 'English privacy policy is missing "$fact"',
+      );
+    }
+    for (final fact in ['READ_CALL_LOG', '通话记录']) {
+      expect(zh['privacyPermContent'] as String, contains(fact));
+    }
+    for (final fact in ['READ_CALL_LOG']) {
+      expect(en['privacyPermContent'] as String, contains(fact));
+    }
+  });
+
   test('main.dart 里那个链接真的通向全文页（同一函数体内 onOpenPolicy ⇒ push 全文页）', () {
     final src = File('lib/main.dart').readAsStringSync();
     // 先验主语在场：否则下面每条都是空转（"文件里根本没有这个东西"不能当成"它是对的"）。

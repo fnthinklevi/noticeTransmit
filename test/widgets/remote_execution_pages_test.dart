@@ -649,6 +649,68 @@ void main() {
       await _confirmIfPresent(tester);
       expect(RemoteCommandEnvelope.decode(sent ?? '')?.item, 'app:launch/开门');
     });
+
+    testWidgets('搜通话记录那一条 ⇒ 文案是"搜什么词或号码"，发 calls:search/<词>', (tester) async {
+      String? sent;
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-calls:search')),
+      );
+      await tester.pumpAndSettle();
+      // 同一个 keyword 形态，第三个动作：文案按动作分（不与短信那一条并成一句）。
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(FnthinkSendPage)),
+      );
+      expect(find.text(l10n.remoteSendCallsKeywordLabel), findsOneWidget);
+      expect(find.text(l10n.remoteSendSmsKeywordLabel), findsNothing);
+      expect(find.byKey(const ValueKey('remote-send-keyword')), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      expect(sent, isNull, reason: '关键词空着不许发');
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-keyword')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-keyword')),
+        '10086',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+      expect(
+        RemoteCommandEnvelope.decode(sent ?? '')?.item,
+        'calls:search/10086',
+      );
+    });
   });
 
   group('历史页：三种"没有记录"分开说', () {

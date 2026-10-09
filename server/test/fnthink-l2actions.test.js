@@ -27,18 +27,32 @@ describe('L2 动作词表（契约是唯一出处，T50）', () => {
     expect(() => assertSupported(loadContract())).not.toThrow();
   });
 
-  test('actions 四条，且服务端这一侧全认得', () => {
+  // ⚠ 这两条钉子自 T124 片B 起就没跟上契约（当时加了 4 个动作，这里的期望值没动）——
+  //   C-1 校平时一并补上：片B 那四个 + 片C-1 的 calls:search。教训照旧：
+  //   期望值是**契约的镜像**，契约动了而它没动，它红的那一天才发现自己没人看。
+  test('actions 九条，且服务端这一侧全认得', () => {
     expect(raw.capabilities.l2.actions).toEqual([
       'listener:start',
       'listener:stop',
       'channel:toggle',
       'device_state:push',
+      'notifications:report',
+      'alert:ring',
+      'sms:search',
+      'app:launch',
+      'calls:search',
     ]);
     expect(l2ActionsKnownToServer(raw)).toBe(true);
   });
 
-  test('点名要参数的动作只有一个，且它在词表里', () => {
-    expect(raw.capabilities.l2.requiresArgumentFrom).toEqual(['channel:toggle']);
+  test('点名要参数的五个动作，且它们都在词表里', () => {
+    expect(raw.capabilities.l2.requiresArgumentFrom).toEqual([
+      'channel:toggle',
+      'notifications:report',
+      'sms:search',
+      'app:launch',
+      'calls:search',
+    ]);
     expect(raw.capabilities.l2.actions).toContain('channel:toggle');
   });
 
