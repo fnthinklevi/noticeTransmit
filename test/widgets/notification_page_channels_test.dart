@@ -152,6 +152,55 @@ void main() {
     expect(status.overflow, TextOverflow.ellipsis);
   });
 
+  // T116：那一行的右半必须贴到内容右沿。
+  // 量出来的旧形状（384dp 逻辑宽、同一屏参）：行道 278dp，状态那枚 49dp，而标签那枚
+  // `Expanded` 只拿到 127dp（右沿停在 253）—— **行尾空出 78dp**，标签还提前被省略号截断。
+  // 根因是 RenderFlex 给弹性子件分份额按"原始剩余空间平均分"，而松（loose）的那一枚用不掉
+  // 自己的份额时**不还给后面**（状态那枚当时包着 `Flexible`）。这一条按几何断，不按措辞断。
+  testWidgets('行道右半贴到内容右沿，且状态那枚拿的是固有宽度（T116 那 78dp 空档不许回来）', (tester) async {
+    double? okWidth;
+    for (final logical in const [384.0, 800.0]) {
+      tester.view.physicalSize = Size(logical * 3.75, 3200);
+      tester.view.devicePixelRatio = 3.75;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        page(const [
+          {'label': 'Webhook：通用 Webhook', 'status': 'ok'},
+          {'label': '幻念推送：魅族', 'status': 'ok'},
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      final rowFinder = find
+          .ancestor(
+            of: find.text('Webhook：通用 Webhook'),
+            matching: find.byType(Row),
+          )
+          .first;
+      final row = tester.getRect(rowFinder);
+      final label = tester.getRect(find.text('Webhook：通用 Webhook'));
+      expect(
+        (label.right - row.right).abs(),
+        lessThanOrEqualTo(1),
+        reason:
+            '标签右沿没贴到行道右沿（屏宽 $logical 时 gap=${row.right - label.right}）'
+            ' ⇒ 行尾又空出一截，那正是 T116 截图里的形状',
+      );
+      final status = tester.getRect(find.text('状态正常').first);
+      if (okWidth == null) {
+        okWidth = status.width;
+      } else {
+        expect(
+          status.width,
+          okWidth,
+          reason:
+              '状态那枚的宽度跟着屏宽变了 ⇒ 它又拿了一份"弹性份额"'
+              '（松子件用不掉的那份不会还给后面的标签）',
+        );
+      }
+    }
+  });
+
   testWidgets('没配通道时仍是空态文案', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;

@@ -244,18 +244,22 @@ class NotificationPage extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Flexible：过期那一档把这枚文字加长了（「状态正常 · 3 天前探测」），
-                            // 右边的标签是 Expanded —— 放不下时先让这里收缩，而不是把行撑破。
-                            Flexible(
-                              child: Text(
-                                statusText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: statusColor,
-                                ),
+                            // ⚠ 这一枚**不许包 `Flexible`**（T116 量出来的）：RenderFlex 给
+                            // 弹性子件分份额是**按原始剩余空间平均分**，而松（loose）的那一枚用不掉
+                            // 自己的份额时**不会把剩下的还给后面**。实测：行道 278dp、状态 49dp、
+                            // 标签那枚 tight 只拿到 254/2＝127dp（右沿停在 253），**行尾空出 78dp**
+                            // —— 那正是用户截图里"右边一大片白、标签还提前被省略号截断"的根因。
+                            // 现在它是非弹性子件：拿自己的固有宽度，标签那枚 `Expanded` 收走**全部**
+                            // 剩余（右沿贴到行道右沿）。它自己很长时才会溢出，而实测最长的
+                            // 「状态正常 · 3 天前探测」≈120dp，行道最窄也有 ~174dp（280dp 屏）。
+                            Text(
+                              statusText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: statusColor,
                               ),
                             ),
                             const SizedBox(width: 8),
