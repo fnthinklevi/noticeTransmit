@@ -40,6 +40,59 @@ void main() {
   String expectedProbePath({FnthinkContract? contract, String id = 'e_1'}) =>
       (contract ?? c).endpointProbePath().replaceAll(':endpointId', id);
 
+  // T122 片①：这一条与干跑**共用同一份解析**，差别只在打哪条路径 ——
+  // 所以下面这几条既量它自己，也量"两边不许分家"。
+  group('发一条消息那一发（T122）', () {
+    test('推送到 POST+Bearer 那条路径上，口令只在返回值里、不在 URL 里', () {
+      final plan = fnthinkEndpointMessageFor(
+        contract: c,
+        target: ingress(),
+        allowedHost: host,
+      );
+      expect(plan, isNotNull);
+      expect(plan!.secret, secret);
+      expect(plan.endpointId, 'e_1');
+      expect(plan.messageUrl.path, '/api/fnthink/p/e_1');
+      expect(plan.messageUrl.scheme, 'https');
+      expect(plan.messageUrl.host, host);
+      // 与干跑同一条红线：口令不进 URL、不进 query。
+      expect(plan.messageUrl.toString(), isNot(contains(secret)));
+      expect(plan.messageUrl.query, isEmpty);
+    });
+
+    test('两条路的判据是同一位作者：干跑认得出 / 认不出的，消息这一发一模一样', () {
+      for (final target in const [
+        'https://other.example.com/api/fnthink/p/e_1/${secret}',
+        'http://${host}/api/fnthink/p/e_1/${secret}',
+        'https://${host}/api/fnthink/p/e_1/${secret}?x=1',
+        'https://${host}/somewhere/else',
+      ]) {
+        final dry = fnthinkEndpointDryRunFor(
+          contract: c,
+          target: target,
+          allowedHost: host,
+        );
+        final msg = fnthinkEndpointMessageFor(
+          contract: c,
+          target: target,
+          allowedHost: host,
+        );
+        expect(msg == null, dry == null, reason: '两条路对「$target」的判断必须一致');
+      }
+    });
+
+    test('不是我们的端点 ⇒ 返回 null（调用方据此跳过，不硬发）', () {
+      expect(
+        fnthinkEndpointMessageFor(
+          contract: c,
+          target: 'https://slack.com/services/T000/B000',
+          allowedHost: host,
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('认得出来的那一半（该探的必须探）', () {
     test('路径形态的推送地址 ⇒ 折算出探针地址与口令，路径由契约给', () {
       final plan = fnthinkEndpointDryRunFor(

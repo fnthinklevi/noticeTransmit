@@ -47,6 +47,62 @@ FnthinkEndpointDryRun? fnthinkEndpointDryRunFor({
   required String target,
   required String allowedHost,
 }) {
+  // ⚠ 校验与解析走 [_parseEndpointTarget]（与"发一条消息"那一发**共用同一份**）：
+  //   两边各写一份的话，表现会是"干跑说这条通道通、真发一条时报口令不对"。
+  final parsed = _parseEndpointTarget(
+    contract: contract,
+    target: target,
+    allowedHost: allowedHost,
+  );
+  if (parsed == null) return null;
+  final probePath = contract.endpointProbePath().replaceAll(
+    ':endpointId',
+    parsed.endpointId,
+  );
+  return FnthinkEndpointDryRun(
+    probeUrl: Uri(
+      scheme: 'https',
+      host: parsed.uri.host,
+      port: parsed.uri.hasPort ? parsed.uri.port : null,
+      path: probePath,
+    ),
+    secret: parsed.secret,
+    endpointId: parsed.endpointId,
+  );
+}
+
+/// 一条**发给某个端点的消息**（T122）该打哪一条 URL。
+///
+/// 与 [FnthinkEndpointDryRun] 同一处作者、同一份校验，差别只在"打哪条路径"：
+/// 干跑打契约声明的 `endpoint.probe.bearerPath`，消息打**POST + Bearer 形态**的收单路径
+/// （`endpoint.ingress.postBearerPath`）—— 口令只进请求头，**不进 URL**。
+/// ⚠ 为什么不直接用用户存在通道里的那条"推送地址"（口令在路径段里）：
+///   那一条是给第三方脚本抄的形态；本机自己能放请求头时没理由再把口令写进 URL
+///   （URL 会被 access log、浏览器历史与中间代理各留一份副本）。
+class FnthinkEndpointMessage {
+  const FnthinkEndpointMessage({
+    required this.messageUrl,
+    required this.secret,
+    required this.endpointId,
+  });
+
+  final Uri messageUrl;
+
+  /// 长期口令。只进请求头（同 [FnthinkEndpointDryRun.secret] 那条规矩）。
+  final String secret;
+
+  final String endpointId;
+}
+
+/// [fnthinkEndpointMessageFor] 与 [fnthinkEndpointDryRunFor] 共用的那一段解析。
+///
+/// 返回 null 的每一条理由都与干跑那份逐条相同，见 [fnthinkEndpointDryRunFor] 的文档 ——
+/// 两边**必须**用同一份判据：各写一份的话，表现会是"干跑说这条通道通、发消息时报口令不对"。
+({Uri uri, String endpointId, String secret})? _parseEndpointTarget({
+  required FnthinkContract contract,
+  required String target,
+  required String allowedHost,
+}) {
   final Uri uri;
   try {
     uri = Uri.parse(target);
@@ -68,31 +124,42 @@ FnthinkEndpointDryRun? fnthinkEndpointDryRunFor({
       if (seg != given[i]) return null;
       continue;
     }
-    // 段值用的是 `Uri.pathSegments` 交回来的那一份（Dart 已经按 URL 规则解过**一层**码）：
-    // 用户从某些界面复制来的地址可能带一层转义，解这一层拿回真口令是对的。这里**不再解第二层** ——
-    // 双重解码等于把用户的转义习惯当成口令的一部分，交出去的就是一串猜出来的东西。
     if (given[i].isEmpty) return null;
     if (seg == ':endpointId') {
       endpointId = given[i];
     } else if (seg == ':secret') {
       secret = given[i];
-    } // 契约的模式里只有这两段；多出来的占位段由 validate 那两条形状判据拦在外面。
+    }
   }
   if (endpointId == null || secret == null) return null;
   if (secret.length != contract.identityLength('endpointSecret')) return null;
+  return (uri: uri, endpointId: endpointId, secret: secret);
+}
 
-  final probePath = contract.endpointProbePath().replaceAll(
-    ':endpointId',
-    endpointId,
+/// 认 [target] 是一条幻念端点的推送地址（同 [fnthinkEndpointDryRunFor] 的判据），
+/// 是就折算出"发一条消息"要打的那一发。null = 这一条不是我们的端点（调用方据此跳过或报错）。
+FnthinkEndpointMessage? fnthinkEndpointMessageFor({
+  required FnthinkContract contract,
+  required String target,
+  required String allowedHost,
+}) {
+  final parsed = _parseEndpointTarget(
+    contract: contract,
+    target: target,
+    allowedHost: allowedHost,
   );
-  return FnthinkEndpointDryRun(
-    probeUrl: Uri(
+  if (parsed == null) return null;
+  final pushPath = contract
+      .endpointIngressPath('postBearerPath')
+      .replaceAll(':endpointId', parsed.endpointId);
+  return FnthinkEndpointMessage(
+    messageUrl: Uri(
       scheme: 'https',
-      host: uri.host,
-      port: uri.hasPort ? uri.port : null,
-      path: probePath,
+      host: parsed.uri.host,
+      port: parsed.uri.hasPort ? parsed.uri.port : null,
+      path: pushPath,
     ),
-    secret: secret,
-    endpointId: endpointId,
+    secret: parsed.secret,
+    endpointId: parsed.endpointId,
   );
 }
