@@ -3254,11 +3254,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkConsentRevokeMsg =>
-      'After revoking, these stop working on this device: anything that goes through the server (the receive loop stops on its next round) and remote control. Nothing is deleted - the peer list, endpoints, channel configs, message history and pairing records all stay. Turning them back on needs a fresh consent tap (the full text stays readable first).';
+      'After revoking, these stop working on this device: anything that goes through the server (the receive loop stops on its next round), remote control, creating/rotating/revoking ingress endpoints, starting and approving pairings, creating/enabling a Fnthink channel and \"send one\", and the test that carries a body. Nothing is deleted - the peer list, endpoints, channel configs, message history and pairing records all stay. Turning them back on needs a fresh consent tap (the full text stays readable first).';
 
   @override
   String get fnthinkConsentRevokeDone =>
       'Revoked: relayed sending/receiving and remote control are unavailable; configs and history were not deleted.';
+
+  @override
+  String get fnthinkConsentGateTitle =>
+      'This step routes content through the server';
+
+  @override
+  String fnthinkConsentGateMsg(Object action) {
+    return '\"$action\" needs the \"content relayed through the server\" consent first: everything in this family lives on that relay server (send/receive, storing and revoking ingress endpoints, pairing relationships, channel sends), and using it requires agreeing. The explanation and the consent button are on the \"Fnthink Push → Receive\" page (the full text is readable before you agree). Once you have agreed, come back here and tap this step again.';
+  }
+
+  @override
+  String get fnthinkConsentGateGo => 'Open that page';
+
+  @override
+  String get fnthinkConsentGateThisStep => 'This step';
 
   @override
   String get fnthinkHealthNever => 'Nothing has been sent to this server yet';

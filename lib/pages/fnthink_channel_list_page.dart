@@ -14,6 +14,7 @@ import '../widgets/channel_visuals.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/pull_to_refresh_list.dart';
 import 'fnthink_channel_settings_page.dart';
+import 'fnthink_consent_gate.dart';
 
 /// 幻念通道**列表页** —— 与 webhook／自建应用／邮件三族同一形状（维护者 2026-10-06 定：
 /// 「更多」页推送通道分组里这一格要和组内的 webhook 一致，点进来就是通道列表，
@@ -140,6 +141,17 @@ class _FnthinkChannelListPageState extends State<FnthinkChannelListPage> {
   }
 
   Future<void> _setEnabled(FnthinkChannel channel, bool enabled) async {
+    // T118 同意门：**开**这条通道＝这一族功能从此会把内容送到那台中转机上。
+    // ⚠ 只拦"开"那一支：停用是**减少**经服务器的东西，拦它等于让一个还没同意的人连
+    //    "先把往外发的那几条停下来"都做不到（而关掉它们恰恰是最该随时可做的事）。
+    if (enabled &&
+        !await requireFnthinkRelayConsent(
+          context,
+          action: AppLocalizations.of(context).fnthinkChannelEnabled,
+        )) {
+      return;
+    }
+    if (!mounted) return;
     try {
       await _service.save(channel.copyWith(enabled: enabled));
     } catch (e) {

@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fnthink_push/fnthink_push.dart';
+import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:notice_transmit/pages/fnthink_endpoint_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/services/fnthink_settings.dart';
 import 'package:notice_transmit/services/fnthink_receive_coordinator.dart';
 import 'package:notice_transmit/services/fnthink_receiver_service.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
@@ -22,7 +25,17 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    // T118 同意门那一道读的是 prefs 里那枚同意版本。这一组用例测的不是门（门自己那几条
+    // 在下面单列），所以这里**默认把同意记上**：不记的话每一发都停在弹窗上，
+    // 而用例的断言会红在一个与它无关的地方。
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'fnthink.consent_version': 1,
+    });
+    // T118：门那一道在 widget 测试里必须走这份同步读出来的契约 —— 真 IO 在假时钟下不会完成。
+    debugFnthinkConsentSettingsOverride = FnthinkSettings(
+      contract: FnthinkContract.readFile(),
+    );
+    addTearDown(() => debugFnthinkConsentSettingsOverride = null);
   });
 
   FnthinkEndpointDeps deps({bool contractOk = true}) {

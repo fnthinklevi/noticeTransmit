@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -58,7 +59,12 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'flutter.${'fnthink.consent_version'}': 1,
     });
+    // T118：那道同意门在 widget 测试里必须走同步读出来的契约（真 IO 在假时钟下不会完成）。
+    debugFnthinkConsentSettingsOverride = FnthinkSettings(
+      contract: FnthinkContract.readFile(),
+    );
   });
+  tearDown(() => debugFnthinkConsentSettingsOverride = null);
   tearDown(clearNativeChannelStubs);
 
   /// `flutter_secure_storage` 与 `getFnthinkIdentity` 共用一枚桩：`disk` 就是那台机的加密盘。

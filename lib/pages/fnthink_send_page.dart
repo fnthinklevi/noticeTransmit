@@ -16,6 +16,7 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
+import 'fnthink_consent_gate.dart';
 
 /// 「发一条」那两档收成一张页（T98 片④）。
 ///
@@ -274,6 +275,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     if (peer == null || _busy) return;
     if (_body.text.trim().isEmpty) return;
     final l10n = AppLocalizations.of(context);
+    // T118 同意门：这一发走的就是那台中转机 ⇒ 先过门（门在一切写入之前）。
+    if (!await requireFnthinkRelayConsent(
+      context,
+      action: l10n.fnthinkSendTierNotice,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _busy = true;
       _block = null;
@@ -307,6 +316,16 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     final peer = _peerAddress;
     if (peer == null) return;
     final l10n = AppLocalizations.of(context);
+    // T118 同意门：指令档与通知档走**同一条出站**（同一台中转机），所以同一道门。
+    // 这一档还带着凭据，先说过门再说"凭据会被带走"那一次确认 —— 顺序反过来会让用户在
+    // 「发出去」那一刻才发现真正挡着他的是另一件事。
+    if (!await requireFnthinkRelayConsent(
+      context,
+      action: l10n.fnthinkSendTierCommand,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     // 这一发会**带走刚填的凭据**，所以先过二次确认 —— 与 T06「删除一律二次确认」
     // 同一条纪律的另一面：不可撤的动作都要问一次。
     final ok = await IosDialogActions.askConfirm(

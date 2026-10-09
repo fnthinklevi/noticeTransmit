@@ -18,6 +18,7 @@ import '../widgets/channel_visuals.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/ios_option_picker.dart';
 import '../widgets/primary_action_button.dart';
+import 'fnthink_consent_gate.dart';
 
 /// 一条幻念通道的设置（T94 片3；2026-10-08 版式对齐另外三族）。
 ///
@@ -326,6 +327,16 @@ class _FnthinkChannelSettingsPageState
     final probe = widget.probe;
     if (probe == null || _busy) return;
     if (!_precheck()) return;
+    // T118 同意门（④「手动测试里会带正文的那一发」）：这一发**真的把标题与正文发出去**
+    // （见下面 `probe.send`），它与非浸入探针不是一回事 —— 后者一个字段都不读、一条都不投。
+    // ⚠ 从 `_save()` 里调进来的那一路不必再过一次：`_save` 自己已经过了门（且那时通道是"开着"的）。
+    if (!await requireFnthinkRelayConsent(
+      context,
+      action: AppLocalizations.of(context).fnthinkChannelProbeOnly,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     final channel = _draft();
     setState(() {
@@ -372,6 +383,18 @@ class _FnthinkChannelSettingsPageState
     if (_busy) return;
     if (!_precheck()) return;
     final l10n = AppLocalizations.of(context);
+    // T118 同意门：**存一条"开着"的通道**＝这一族功能从此会把内容送到那台中转机上
+    // （`_draft().enabled` 就是库里最终那个值）。⚠ 只拦这一支：存一条**停着**的通道不投任何
+    // 东西，拦它等于让一个还没同意的人连"先把配置写好"都做不了 —— 而配置里可能有主备两档、
+    // 有目标地址，这些恰恰是他决定要不要同意时想看的。
+    if (_draft().enabled &&
+        !await requireFnthinkRelayConsent(
+          context,
+          action: l10n.fnthinkChannelSave,
+        )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _busy = true;
       _note = null;

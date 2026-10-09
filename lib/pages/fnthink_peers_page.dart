@@ -18,6 +18,7 @@ import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/fnthink_pair_dialog.dart';
+import 'fnthink_consent_gate.dart';
 import '../widgets/ios_dialog_actions.dart';
 import 'fnthink_send_page.dart';
 
@@ -625,6 +626,14 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     final l10n = AppLocalizations.of(context);
     final willGrant = _contract?.grantableLevel(request.level) ?? request.level;
     if (approve) {
+      // T118 同意门：批准配对＝把这一台记到**那台中转机**的关系列上 ⇒ 内容此后会经服务器走。
+      // ⚠ 只拦"同意"那一支：拒绝是**把关系挡在门外**，拦它等于让一个还没同意的人既不能同意、
+      //    也不能拒绝 —— 那条请求会一直挂在待处理里（而它没有一个"过期"的本地判据）。
+      //    文案用通用那一句：那一格的按钮就叫「同意」，拿它当动作名会读成"同意这件事还要同意"。
+      if (!await requireFnthinkRelayConsent(context)) {
+        return;
+      }
+      if (!mounted) return;
       final ok = await IosDialogActions.askConfirm(
         context,
         title: l10n.fnthinkPairAskTitle,
@@ -809,6 +818,16 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     if (_busy) return;
     final contract = _contract;
     if (contract == null) return;
+    // T118 同意门：发起配对会把地址码与关系记在**那台中转机**上 ⇒ 先过门。
+    // ⚠ 门在填表弹层**之前**：让用户先把地址码与那串一次性口令敲完、再被告知"先去同意"，
+    //    等于白敲一遍（而口令是现读现用的东西）。
+    if (!await requireFnthinkRelayConsent(
+      context,
+      action: AppLocalizations.of(context).fnthinkPairPeer,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final input = await showFnthinkPairDialog(
       context: context,
       contract: contract,

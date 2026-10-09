@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:notice_transmit/services/fnthink_settings.dart';
+import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
@@ -18,6 +21,18 @@ import 'package:notice_transmit/widgets/app_root.dart';
 ///  ④ 三种"没有记录"分开说（还没读 / 读失败 / 真的一个都没有）。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    // T118：这一页那两档都过同意门 ⇒ 种上同意，并给门一份同步读出来的契约
+    //（widget 测试里真 IO 的 future 不会完成）。
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'fnthink.consent_version': 1,
+    });
+    debugFnthinkConsentSettingsOverride = FnthinkSettings(
+      contract: FnthinkContract.readFile(),
+    );
+  });
+  tearDown(() => debugFnthinkConsentSettingsOverride = null);
 
   final contract = FnthinkContract.readFile();
   const peer = FnthinkPeer(

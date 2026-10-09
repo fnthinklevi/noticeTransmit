@@ -14,6 +14,7 @@ import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
+import 'fnthink_consent_gate.dart';
 
 /// 这一页的依赖（T97 片B：从混合页那一格里抽出来）。
 ///
@@ -130,6 +131,16 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
   Future<void> _createEndpoint() async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
+    // T118 同意门：这一发建的那把口令，存在的意义就是让内容经服务器进这台 ⇒ 先过门。
+    // ⚠ 门在**二次确认之前**：先问"这件大事你能不能做"，再问"这一下你确定吗"；
+    //    门那一路返回 false（没同意或取消）⇒ 一个字节都不写。
+    if (!await requireFnthinkRelayConsent(
+      context,
+      action: l10n.fnthinkEndpointCreate,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _busy = true);
     final result = await _coordinator.createEndpoint(
       name: l10n.fnthinkEndpointDefaultName,
@@ -181,6 +192,14 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
   Future<void> _revokeEndpoint(FnthinkEndpointSummary row) async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
+    // T118 同意门（门在二次确认之前 —— 两道都要过，但先问"能不能做"）。
+    if (!await requireFnthinkRelayConsent(
+      context,
+      action: l10n.fnthinkEndpointRevoke,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final ok = await IosDialogActions.askConfirm(
       context,
       title: l10n.fnthinkEndpointRevokeAskTitle,
@@ -233,6 +252,14 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
   Future<void> _rotateEndpoint(FnthinkEndpointSummary row) async {
     if (_busy) return;
     final l10n = AppLocalizations.of(context);
+    // T118 同意门（同上：门 → 二次确认，两道都在这一个函数里，单一咽喉）。
+    if (!await requireFnthinkRelayConsent(
+      context,
+      action: l10n.fnthinkEndpointRotate,
+    )) {
+      return;
+    }
+    if (!mounted) return;
     final ok = await IosDialogActions.askConfirm(
       context,
       title: l10n.fnthinkEndpointRotateAskTitle,

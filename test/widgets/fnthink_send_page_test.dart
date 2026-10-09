@@ -1,10 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fnthink_push/fnthink_push.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:notice_transmit/pages/fnthink_send_page.dart';
 import 'package:notice_transmit/services/fnthink_contract_loader.dart';
+import 'package:notice_transmit/services/fnthink_settings.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
 
@@ -22,6 +25,20 @@ import 'package:notice_transmit/widgets/primary_action_button.dart';
 /// （名单行那一路打的是真链路），指令那一档在 `remote_execution_pages_test.dart`。
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    // T118 同意门读 prefs 那枚同意版本；这一组测的是这张页自己的形状，不是门
+    // （门自己那几条单列在 fnthink_consent_gate_test.dart）。不记同意的话，
+    // 两档的提交都停在弹窗上，红在一个与用例无关的地方。
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'fnthink.consent_version': 1,
+    });
+    // T118：门那一道在 widget 测试里必须走这份同步读出来的契约 —— 真 IO 在假时钟下不会完成。
+    debugFnthinkConsentSettingsOverride = FnthinkSettings(
+      contract: FnthinkContract.readFile(),
+    );
+    addTearDown(() => debugFnthinkConsentSettingsOverride = null);
+  });
 
   final contract = FnthinkContract.readFile();
   const peerAddress = '8K3FJ6QPTM9WZ4VHNS';

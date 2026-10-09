@@ -4,11 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/models/fnthink_channel.dart';
 import 'package:notice_transmit/models/fnthink_peer.dart';
+import 'package:fnthink_push/fnthink_push.dart';
 import 'package:notice_transmit/pages/fnthink_channel_list_page.dart';
 import 'package:notice_transmit/pages/fnthink_channel_settings_page.dart';
+import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:notice_transmit/services/channel_display.dart';
 import 'package:notice_transmit/services/channel_health_store.dart';
 import 'package:notice_transmit/services/fnthink_channel_service.dart';
+import 'package:notice_transmit/services/fnthink_settings.dart';
 import 'package:notice_transmit/theme/app_colors.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/channel_health_badge.dart';
@@ -129,7 +132,16 @@ void main() {
     // 健康度缓存在测试里必须有 mock：`ChannelHealthStore.load()` 读 SharedPreferences，
     // 没 mock 时那一次 await 不会返回。页面已改成「列表先出、缓存后补」，
     // 这一行补上另一半 —— 别让用例跑去等一个永远不来的平台通道回信。
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    // ⚠ 同时把 T118 的同意记上：这一组测的是通道页自己的行为，不是那道门
+    //   （门自己那几条单列在下面）。不记的话「探测并保存」/「仅探测」/「启用」全停在弹窗上。
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'fnthink.consent_version': 1,
+    });
+    // T118：门那一道在 widget 测试里必须走这份同步读出来的契约 —— 真 IO 在假时钟下不会完成。
+    debugFnthinkConsentSettingsOverride = FnthinkSettings(
+      contract: FnthinkContract.readFile(),
+    );
+    addTearDown(() => debugFnthinkConsentSettingsOverride = null);
   });
 
   Future<void> pump(WidgetTester tester, Widget page) async {

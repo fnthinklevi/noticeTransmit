@@ -1,5 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:notice_transmit/services/fnthink_settings.dart';
+import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:get_it/get_it.dart';
 import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:fnthink_push/fnthink_push.dart';
@@ -33,7 +36,15 @@ void main() {
     GetIt.instance.registerSingleton<NotificationService>(
       NotificationService(),
     );
+    // T118：「回复 / 重发」走的是同一张发送页 ⇒ 它那一档也要过同意门。
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'fnthink.consent_version': 1,
+    });
+    debugFnthinkConsentSettingsOverride = FnthinkSettings(
+      contract: FnthinkContract.readFile(),
+    );
   });
+  tearDown(() => debugFnthinkConsentSettingsOverride = null);
   tearDown(() async => GetIt.instance.reset());
   tearDownAll(clearNativeChannelStubs);
 

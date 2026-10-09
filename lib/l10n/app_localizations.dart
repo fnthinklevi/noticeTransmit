@@ -5849,7 +5849,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkConsentRevokeMsg.
   ///
   /// In zh, this message translates to:
-  /// **'撤销后这台立刻不再可用：经服务器的收发（收货循环下一轮就停）、远程控制。不会删除任何东西 —— 配对名单、接入端点、幻念通道配置、收发历史与配对记录都留着。要恢复需再点一次同意（同意前仍可读全文）。'**
+  /// **'撤销后这台立刻不再可用：经服务器的收发（收货循环下一轮就停）、远程控制、接入端点的建/换/撤、发起与批准配对、幻念通道的创建/启用与「发一条」、以及那发会带正文的测试；非浸入探针不受影响（它一个字段都不读、一条都不投）。不会删除任何东西 —— 配对名单、接入端点、幻念通道配置、收发历史与配对记录都留着。要恢复需再点一次同意（同意前仍可读全文）。'**
   String get fnthinkConsentRevokeMsg;
 
   /// No description provided for @fnthinkConsentRevokeDone.
@@ -5857,6 +5857,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已撤销：经服务器的收发与远程控制都不再可用，配置与历史一条没删。'**
   String get fnthinkConsentRevokeDone;
+
+  /// No description provided for @fnthinkConsentGateTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一步要先把内容交给服务器'**
+  String get fnthinkConsentGateTitle;
+
+  /// No description provided for @fnthinkConsentGateMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{action}」要先过「内容经服务器中转」这道同意：这一族功能的东西都放在那台中转机上（收发、接入端点的存与撤、配对关系、通道发送），要它经手就得先同意。说明与同意都在「幻念推送 → 接收推送」那一页里（同意之前可以读到全文）。同意之后回到这里，再点一次这一步就行。'**
+  String fnthinkConsentGateMsg(Object action);
+
+  /// No description provided for @fnthinkConsentGateGo.
+  ///
+  /// In zh, this message translates to:
+  /// **'去那一页同意'**
+  String get fnthinkConsentGateGo;
+
+  /// No description provided for @fnthinkConsentGateThisStep.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一步'**
+  String get fnthinkConsentGateThisStep;
 
   /// No description provided for @fnthinkHealthNever.
   ///
