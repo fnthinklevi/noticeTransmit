@@ -2346,6 +2346,7 @@
   "remoteActionChannelToggle": "启停对面某一条推送通道",
   "remoteActionDeviceStatePush": "让对面立刻回一份设备状态",
   "remoteActionNotificationsReport": "让对面回传最近的通知原文",
+  "remoteActionAlertRing": "让对面响铃＋震动提醒",
   "remoteSettingNotification": "请对面打开「通知监听」权限页",
   "remoteSettingExactAlarm": "请对面打开「精确闹钟」权限页",
   "remoteSettingBatteryOptimization": "请对面去关掉「电池优化」",

@@ -72,6 +72,15 @@ class _RecordingL2 implements FnthinkL2Executor {
     await _pass();
     return ok ? reportPayload : null;
   }
+
+  @override
+  Future<FnthinkL2Result> ringAlert() async {
+    calls.add('ringAlert()');
+    await _pass();
+    return ok
+        ? const FnthinkL2Result.ok()
+        : const FnthinkL2Result.failed('alert-ring-refused');
+  }
 }
 
 class _RecordingL3 implements FnthinkL3Executor {

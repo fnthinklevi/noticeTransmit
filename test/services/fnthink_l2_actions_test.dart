@@ -52,13 +52,21 @@ class RecordingExecutor implements FnthinkL2Executor {
     calls.add('reportNotifications($count)');
     return failEverything ? null : reportPayload;
   }
+
+  @override
+  Future<FnthinkL2Result> ringAlert() async {
+    calls.add('ringAlert()');
+    return failEverything
+        ? const FnthinkL2Result.failed('alert-ring-refused')
+        : const FnthinkL2Result.ok();
+  }
 }
 
 void main() {
   final contract = FnthinkContract.readFile();
 
   group('契约词表（唯一出处）', () {
-    test('读得到四个动作，且设备侧映射把它们全认了', () {
+    test('读得到词表，且设备侧映射把它们全认了（不多不少）', () {
       expect(contract.l2Actions, isNotEmpty);
       expect(
         l2ActionsCoveredByDevice(contract),
@@ -286,6 +294,44 @@ void main() {
 
     test('契约没声明上下界 ⇒ 一律不认（fail-closed，不是默认放行）', () {
       expect(reportCountInRange(contract, 'listener:start', 1), isFalse);
+    });
+  });
+
+  group('响铃那一条（T124 片B 的 alert:ring）：无参数、瞬时动作', () {
+    test('契约里有它、**不**必带参数、也不在回传表里', () {
+      expect(contract.l2Actions, contains('alert:ring'));
+      expect(
+        contract.l2ActionsRequiringArgument,
+        isNot(contains('alert:ring')),
+      );
+      expect(contract.l2Reports.containsKey('alert:ring'), isFalse);
+      expect(
+        rejectL2Argument(contract, const FnthinkL2Action('alert:ring', '')),
+        isNull,
+      );
+    });
+
+    test('派发到执行器的 ringAlert（不是别的方法）', () async {
+      final exec = RecordingExecutor();
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('alert:ring', ''),
+      );
+      expect(exec.calls, ['ringAlert()']);
+      expect(r.ok, isTrue);
+    });
+
+    test('执行器说"没显示" ⇒ failed（对面不许收到 done）', () async {
+      final exec = RecordingExecutor()..failEverything = true;
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('alert:ring', ''),
+      );
+      expect(r.ok, isFalse);
+      expect(r.reason, 'alert-ring-refused');
+      expect(r.receipt(contract), 'failed_action');
     });
   });
 }

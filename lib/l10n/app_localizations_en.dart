@@ -4617,6 +4617,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Have the other device send back its recent notifications';
 
   @override
+  String get remoteActionAlertRing => 'Make the other device ring and vibrate';
+
+  @override
   String get remoteSettingNotification =>
       'Ask the other device to open its notification-listener page';
 

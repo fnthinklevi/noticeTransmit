@@ -170,7 +170,15 @@ object FnthinkInboxDisplay {
         }
     }
 
-    private fun ensureChannel(context: Context) {
+    /**
+     * 建那一条 HIGH 渠道（**本类与 [FnthinkAlertDisplay] 共用的唯一创建点**）。
+     *
+     * ⚠ `internal` 而不是 private：远程「响一条」也走同一条渠道 —— 另开一条等于
+     * 把用户在收件这条渠道上关掉的声音偷偷打开。渠道**只在不存在时创建**（下一行就是
+     * 那个 return），所以谁先建都对；这一条由 `FnthinkAlertDisplay` 的用例钉住
+     * （它读的就是这个常量，改这里它当场红）。
+     */
+    internal fun ensureChannel(context: Context) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
         try {
             val manager = context.getSystemService(NotificationManager::class.java)

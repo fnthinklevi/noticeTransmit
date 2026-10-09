@@ -8011,6 +8011,12 @@ abstract class AppLocalizations {
   /// **'让对面回传最近的通知原文'**
   String get remoteActionNotificationsReport;
 
+  /// No description provided for @remoteActionAlertRing.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面响铃＋震动提醒'**
+  String get remoteActionAlertRing;
+
   /// No description provided for @remoteSettingNotification.
   ///
   /// In zh, this message translates to:

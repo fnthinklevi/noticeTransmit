@@ -33,6 +33,9 @@ class _NoopL2 implements FnthinkL2Executor {
 
   @override
   Future<String?> reportNotifications(int count) async => null;
+
+  @override
+  Future<FnthinkL2Result> ringAlert() async => const FnthinkL2Result.ok();
 }
 
 class _NoopL3 implements FnthinkL3Executor {

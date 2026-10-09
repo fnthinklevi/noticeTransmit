@@ -1,6 +1,7 @@
 package com.fnthink.notice.channels
 
 import android.content.Context
+import com.fnthink.notice.FnthinkAlertDisplay
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
 import com.fnthink.notice.FnthinkOpenTarget
@@ -81,6 +82,10 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
                 )
                 result.success(FnthinkInboxDisplay.show(context, spec))
             }
+            // ── T124 片B：让这台响一条（`alert:ring`）──
+            // 与收件显示同一条渠道与同一条"没显示就回 false"的纪律：
+            // 回 false 的那一次执行会被记成失败（对面收到 done 会以为用户被提醒过了）。
+            "showFnthinkAlert" -> result.success(FnthinkAlertDisplay.show(context))
             // ── T83：点通知要跳去的那一条 ──
             // **冷启动那一发的唯一出口**：MainActivity 在 onCreate 里把 Intent 上的 messageId 记进
             // FnthinkOpenTarget，这里把它取走（取走即清）。为什么是 Dart 来拉而不是原生推：

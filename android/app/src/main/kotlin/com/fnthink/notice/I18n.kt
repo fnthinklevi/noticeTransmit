@@ -262,6 +262,14 @@ object I18n {
     fun fnthinkInboxChannelDescription(): String =
         if (isEn) "Messages pushed to this device by paired devices and endpoints"
         else "由已配对设备与接入端点推给本机的消息"
+    // ── 远程「让这台响一条」（T124 片B 的 alert:ring）──
+    // 与收件那条通知**同一条渠道**（见 FnthinkAlertDisplay 的类注释：另开一条等于
+    // 把用户关掉的声音偷偷打开），文案上分得开这两类事。
+    fun fnthinkAlertTitle(): String =
+        if (isEn) "A paired device is calling your attention" else "有一台已配对的设备在找你"
+    fun fnthinkAlertText(): String =
+        if (isEn) "That device asked this one to ring. Open the app for details."
+        else "对面让你注意一下，所以响起了这一条。打开应用可以看到来源。"
     // ⚠ 与收件那一条**分开**（片3c-5）：关掉收件通知时不该连撤销机会一起关掉，
     //   否则界面上是"远程执行开着、却找不到能取消它的入口"。
     fun fnthinkRemoteExecChannelName(): String =

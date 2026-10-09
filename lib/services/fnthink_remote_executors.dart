@@ -24,6 +24,7 @@ class DeviceL2Executor implements FnthinkL2Executor {
     required this.setChannelEnabled,
     required this.pushDeviceStateNow,
     required this.reportNotificationsNow,
+    required this.ringAlertNow,
   });
 
   /// 启停整个通知监听服务。回 false = 原生拒绝了。
@@ -37,6 +38,9 @@ class DeviceL2Executor implements FnthinkL2Executor {
 
   /// 产出「最近 [count] 条通知原文」那段正文（T124 片B）。回 null = 读不出来。
   final Future<String?> Function(int count) reportNotificationsNow;
+
+  /// 让这台响一条（T124 片B 的 `alert:ring`）。回 false = **没显示**（权限/渠道被关）。
+  final Future<bool> Function() ringAlertNow;
 
   @override
   Future<FnthinkL2Result> setListener({required bool enabled}) async {
@@ -94,6 +98,19 @@ class DeviceL2Executor implements FnthinkL2Executor {
       return await reportNotificationsNow(count);
     } catch (e) {
       return null;
+    }
+  }
+
+  @override
+  Future<FnthinkL2Result> ringAlert() async {
+    try {
+      return await ringAlertNow()
+          ? const FnthinkL2Result.ok()
+          // ⚠ "没显示"与"做失败了"在这一步是同一件事的两面：通知权限被关 / 渠道被禁用
+          //   ⇒ 用户什么都没看到，而对面收到 done 会以为这台的用户被提醒过了。
+          : const FnthinkL2Result.failed('alert-ring-refused');
+    } catch (e) {
+      return const FnthinkL2Result.failed('threw:alert:ring');
     }
   }
 }

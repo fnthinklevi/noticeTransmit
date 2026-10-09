@@ -510,7 +510,8 @@
         "listener:stop",
         "channel:toggle",
         "device_state:push",
-        "notifications:report"
+        "notifications:report",
+        "alert:ring"
       ],
       "actionsWhy": "L2 应用动作的**封闭词表**。两端各持一份枚举映射（设备侧 lib/services/fnthink_l2_actions.dart、服务端 server/lib/fnthink/l2actions.js），而这张表是它们共同的**唯一出处**：一份名单存在两处时，两处各自都对，但对面新加一个动作只有自己认得，表现是服务端把它收进队列、设备端在 apply 段判成 unknown-action，两头日志互相看不懂",
       "unknownAction": "reject",

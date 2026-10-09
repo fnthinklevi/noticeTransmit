@@ -160,6 +160,12 @@ abstract class FnthinkL2Executor {
   /// 立刻推一次设备状态（无参数）。
   Future<FnthinkL2Result> pushDeviceState();
 
+  /// 让这台响起（响铃＋震动＋高优先横幅一条，T124 片B 的 `alert:ring`；无参数）。
+  ///
+  /// ⚠ 它是**瞬时动作**：重投一次就会再响一次（与"翻开关"不同，重投不会留下错误状态，
+  /// 那一次响是投递重试的可见代价）。产出为空（不是回传那一条）。
+  Future<FnthinkL2Result> ringAlert();
+
   /// 回传最近的 [count] 条通知原文（`notifications:report`，T124 片B）。
   ///
   /// 回**产出要回传的那段正文**；回 null = 这一步没做成（读库失败、这台没有可回传的东西）。
@@ -180,6 +186,7 @@ const Map<String, String> kFnthinkL2ActionVerbs = {
   'channel:toggle': 'toggleChannel',
   'device_state:push': 'pushDeviceState',
   'notifications:report': 'reportNotifications',
+  'alert:ring': 'ringAlert',
 };
 
 /// 把一个已解析的动作派到执行器上。纯转发，但**这里是唯一一处** action 名 → 方法的映射。
@@ -210,6 +217,8 @@ Future<FnthinkL2Result> dispatchL2Action(
       return executor.toggleChannel(target);
     case 'device_state:push':
       return executor.pushDeviceState();
+    case 'alert:ring':
+      return executor.ringAlert();
     case 'notifications:report':
       // ⚠ 参数（「要几条」）的形状判据与收件那一格**同源**（[reportCountInRange]）：
       //   两处各写一份的表现是"收的时候说没问题、动手时才发现动不了"。

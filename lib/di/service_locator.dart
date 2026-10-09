@@ -14,6 +14,7 @@ import '../services/fnthink_channel_service.dart';
 import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_inbox_display.dart';
+import '../services/fnthink_alert_display.dart';
 import '../services/fnthink_inbox_service.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_presence_scheduler.dart';
@@ -275,6 +276,7 @@ void setupLocator() {
           updateChannelEnabled(target.family, target.id, target.enabled),
       pushDeviceStateNow: _pushDeviceStateOnce,
       reportNotificationsNow: _fnthinkReportNotificationsOnce,
+      ringAlertNow: () => FnthinkAlertDisplay().ring(),
     ),
   );
   getIt.registerLazySingleton<DeviceL3Executor>(

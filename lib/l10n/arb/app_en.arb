@@ -2325,6 +2325,7 @@
   "remoteActionChannelToggle": "Enable or disable one push channel over there",
   "remoteActionDeviceStatePush": "Have the other device report its device state now",
   "remoteActionNotificationsReport": "Have the other device send back its recent notifications",
+  "remoteActionAlertRing": "Make the other device ring and vibrate",
   "remoteSettingNotification": "Ask the other device to open its notification-listener page",
   "remoteSettingExactAlarm": "Ask the other device to open its exact-alarm page",
   "remoteSettingBatteryOptimization": "Ask the other device to turn off battery optimization",

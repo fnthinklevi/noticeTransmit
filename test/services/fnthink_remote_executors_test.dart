@@ -27,6 +27,9 @@ void main() {
     late List<int> reportCalls;
     var reportPayload = 'REPORT';
     var reportThrows = false;
+    var ringCalls = 0;
+    var ringOk = true;
+    var ringThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -39,6 +42,9 @@ void main() {
       reportCalls = [];
       reportPayload = 'REPORT';
       reportThrows = false;
+      ringCalls = 0;
+      ringOk = true;
+      ringThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -59,6 +65,11 @@ void main() {
       pushDeviceStateNow: () async {
         if (pushThrows) throw StateError('boom');
         return pushOk;
+      },
+      ringAlertNow: () async {
+        ringCalls++;
+        if (ringThrows) throw StateError('boom');
+        return ringOk;
       },
     );
 
@@ -109,6 +120,7 @@ void main() {
         setListenerEnabled: ({required bool enabled}) async => true,
         setChannelEnabled: (target) async => throw StateError('boom'),
         reportNotificationsNow: (count) async => null,
+        ringAlertNow: () async => true,
         pushDeviceStateNow: () async => true,
       );
       expect(
@@ -117,6 +129,21 @@ void main() {
         )).reason,
         startsWith('threw:channel:app/y'),
       );
+    });
+
+    test('alert:ring：响出去 ⇒ ok；没显示（权限被关）与被拒都记失败', () async {
+      expect((await build().ringAlert()).ok, isTrue);
+      expect(ringCalls, 1);
+      ringOk = false;
+      final refused = await build().ringAlert();
+      expect(
+        refused.ok,
+        isFalse,
+        reason: '没显示却记成 ok ⇒ 对面以为这台的用户被提醒过了，而用户什么都没看到',
+      );
+      expect(refused.reason, 'alert-ring-refused');
+      ringThrows = true;
+      expect((await build().ringAlert()).reason, 'threw:alert:ring');
     });
 
     test('device_state:push：发出去 ⇒ ok，被拒与抛异常 ⇒ failed', () async {

@@ -4387,6 +4387,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteActionNotificationsReport => '让对面回传最近的通知原文';
 
   @override
+  String get remoteActionAlertRing => '让对面响铃＋震动提醒';
+
+  @override
   String get remoteSettingNotification => '请对面打开「通知监听」权限页';
 
   @override
