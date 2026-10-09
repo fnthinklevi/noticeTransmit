@@ -2062,6 +2062,44 @@ class FnthinkContract {
       '两处各写一个词就变成了"同一个拒绝有两种说法"',
     );
 
+    // ── 第三方载荷那枚 type 的折价（T120）──
+    // 与 JS 侧 `ingressFromContract` 双端同读同一批数，两条都是**方向性**判据：
+    //  ① 折成的词必须在 `capabilities.messageTypes` 的键上 —— 折成一个词表外的新词，等于把
+    //     unknown-type 那道闸从收单处往后推给设备，而设备那条路收到的是"已经进队"的消息；
+    //  ② 那一档的 minLevel 不许高于 `capabilities.endpointMaxLevel` —— 折价只能朝下，朝上就是
+    //     把每一条读不懂的第三方推送都当成一次动作申请。
+    // 设备侧为什么也要钉：这一折守的是「设备永远只见到词表内的 type」。契约漂了而这里不拦，
+    // 表现是服务端按新词放行、设备按自己的表判成未知 —— 同一句话两种解释，正是双端校验存在的原因。
+    final unknownTypeAs = str(const ['endpoint', 'ingress', 'unknownTypeAs']);
+    final unknownTypeLevel = typeTable[unknownTypeAs ?? ''];
+    need(
+      unknownTypeAs != null &&
+          unknownTypeAs.isNotEmpty &&
+          unknownTypeLevel != null,
+      'endpoint.ingress.unknownTypeAs（$unknownTypeAs）必须是 capabilities.messageTypes 里的一个词：'
+      '词表外的值要折成的是「协议里有定义的那一档」，不是再造一个新词',
+    );
+    // ⚠ 只在缺省词本身合法时去比档位：缺省词都不合法时上面那条已经报了，这里再拿它去
+    // `levels.indexOf` 会当场抛 —— 而 validate 抛异常的表现是"设备读契约时崩"，
+    // 这一段存在的意义恰恰是"改坏了要报得清楚"。
+    final endpointMax = str(const ['capabilities', 'endpointMaxLevel']) ?? '';
+    if (unknownTypeLevel != null) {
+      need(
+        levels.contains(unknownTypeLevel) &&
+            levels.contains(endpointMax) &&
+            levels.indexOf(unknownTypeLevel) <= levels.indexOf(endpointMax),
+        'endpoint.ingress.unknownTypeAs 那一档的 minLevel（$unknownTypeLevel）不许高于 '
+        'capabilities.endpointMaxLevel（$endpointMax）：折价只能朝下',
+      );
+    }
+    // 用 `at(...) is bool` 而不是 `boolOf(...) != null`：那枚 helper 是 `as bool?`，
+    // 契约里写着 "yes" 时它抛 TypeError 而不是报一条问题（同一个坑，见上面那条注释）。
+    need(
+      at(const ['endpoint', 'ingress', 'ignoreItemField']) is bool,
+      'endpoint.ingress.ignoreItemField 必须是布尔：第三方载荷里的 item 到底当噪音还是当越权，'
+      '是一件要写下来并连同理由一起改的决定，不是实现里顺手的一个 if',
+    );
+
     // ── 端点档的干跑（T106 片①b）──
     // 这一段与 JS 侧 `probeFromContract` 各判一次是**双端同读**，不是两份真值：两边读同一份
     // 契约的同一批键。设备侧连「这条 URL 长什么样」都不许自己拼 —— 路径只有契约一份作者

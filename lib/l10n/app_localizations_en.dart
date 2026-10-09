@@ -4022,7 +4022,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkEndpointFieldAlias(String title, String body) {
-    return 'Field names differ per platform; the first non-empty one wins. Title: $title. Body: $body. Extra fields are ignored. A request cannot pick the delivery target — this endpoint only delivers to this device.';
+    return 'Field names differ per platform; the first non-empty one wins. Title: $title. Body: $body. No other field changes delivery — a payload carrying type/level/item is still accepted as a plain notification (this key can only send notifications; asking for an action or a setting is rejected outright). A request cannot pick the delivery target — this endpoint only delivers to this device.';
   }
 
   @override

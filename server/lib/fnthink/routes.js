@@ -934,7 +934,11 @@ function handleEndpointIngress(req, res, endpointId, secret, method) {
     {
       sender: `endpoint:${verdict.endpointId}`,
       device: verdict.target,
-      type: 'notice',
+      // `message.type` 到这一步一定是**词表内且不超过本面档位上限**的那个词：不认识的取值在
+      // `readIngress` 里就按契约 `endpoint.ingress.unknownTypeAs` 折过价，越权的那两个词在 ⑤ 已被 403。
+      // 这里写死 `'notice'` 会变成第二个真值来源（契约把缺省档改成别的词时，闸门按新的放、队列落旧的）。
+      // ⚠ `item` 必须留空串：本面的授权清单恒为空，第三方载荷里那个 `item` 只是它自己的字段名。
+      type: message.type,
       item: '',
       title: message.title,
       body: message.body,

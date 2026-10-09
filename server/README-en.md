@@ -777,6 +777,11 @@ Field names follow the contract's `fieldTolerance`, first non-empty wins: title
 (whitespace does not count as non-empty). When a value is an object or an array that alias is **skipped** and the
 search continues — so DingTalk/WeCom's `text.content` and Feishu's `content.text` can be posted straight in without
 that container ever being read as `[object Object]`. Keys outside that list are neither read nor echoed back.
+A `type`／`level`／`item` in a third-party payload is **not** a protocol field either — it is that sender's own
+classification. An unrecognised `type` is folded into the tier declared by `endpoint.ingress.unknownTypeAs`
+(currently `notice`) before the capability check, and `item` is ignored per `ignoreItemField` (the queued record
+always carries an empty one). The only payloads still refused are those that spell a vocabulary escalation word
+(`type=action`／`setting`, or a `level` above L1) — an explicit request this key cannot grant (T120).
 A POST body field overrides a query parameter of the same name. The delivery target cannot be chosen by the request —
 it is always the endpoint's own device.
 
@@ -786,7 +791,7 @@ it is always the endpoint's own device.
 | --- | --- | --- |
 | `202` | queued; `{messageId, action, evicted}` where `action` is `new` / `refreshed` (same `dedupe`, still queued ⇒ body replaced, no new record) / `duplicate` (already dispatched ⇒ nothing changes) | yes |
 | `401` | **endpoint missing / wrong secret / source IP not allowlisted** — byte-for-byte identical | `{}` |
-| `403` | plain http without the escape hatch; or outside the capability boundary; or the endpoint is not bound to a valid device | `{"receipt":"rejected_capability"}` for the capability case, `{}` otherwise |
+| `403` | plain http without the escape hatch; a payload **spelling a vocabulary escalation word** (`type=action`／`setting`, or a `level` above L1); or the endpoint is not bound to a valid device | `{"receipt":"rejected_capability"}` for the capability case, `{}` otherwise |
 | `405` | this endpoint has GET disabled (`postOnly`) | `{}` |
 | `400` | title and body both empty; or over `maxTitleChars` / `maxBodyChars` (**rejected, not truncated**) | `{}` |
 | `429` | quota exhausted, with `Retry-After` | `{}` |
@@ -807,11 +812,17 @@ body**: `GET /api/admin/fnthink/endpoints` returns per-endpoint `calls` with exa
   attacker floods someone else's id and that someone else gets the 429. The startup banner says
   `按端点 15/分钟 · 500/天（口令验完后由端点收单计，不占 IP 那三档）`; this fourth class is deliberately
   absent from the three `limits` lists.
-- Endpoints can only produce **L1 notifications**: `type=action`, a self-declared `level` above L1, or a
-  non-empty `item` (a device-side action hook) all answer `403 + rejected_capability` and **create no
-  message at all**. The `item` branch deserves a note: the capability table only consults `item` at the
-  level where a per-item allowlist exists, so L1 would not catch it by itself — storing it and blanking
-  it later would be a silent drop, and the integrator would believe the hook fired.
+- Endpoints can only produce **L1 notifications**, and that is decided by **this surface's tier, not by the
+  payload** (T41 + T120): an unrecognised `type` is folded into the tier `endpoint.ingress.unknownTypeAs`
+  declares (currently `notice`), and `item` is ignored per `ignoreItemField` — the queued record carries an
+  empty one. Only a payload that spells a vocabulary escalation word (`type=action`／`setting`, or a `level`
+  above L1) answers `403 + rejected_capability`, and **no message is created at all**. The judgement runs
+  through `capabilities.endpointGrant`; the server keeps no second tier table.
+  ⚠ The fold may only point downwards, and both directions are pinned by the contract validators on each side:
+  `unknownTypeAs` must be a key of `capabilities.messageTypes` (folding onto a brand-new word would push the
+  unknown-type gate downstream to the device) and its `minLevel` must not exceed
+  `capabilities.endpointMaxLevel` (otherwise "we could not read it, so treat it as an action request" — the
+  fold itself would be the escalation).
 - HTTPS-only is on by default; plain http is refused. Local or intranet setups must opt in with
   `FNTHINK_ALLOW_INSECURE_ENDPOINT=1` — an environment variable rather than a contract field, because it
   is a deployment fact, not a protocol fact.

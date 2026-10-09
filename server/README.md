@@ -754,6 +754,11 @@ curl -sS -X POST "https://push.example.com/api/fnthink/p/ep_xxxxxxxx" \
 正文 `body|content|description|text.content|content.text|data.content`；纯空白不算非空。
 **值是对象或数组时跳过这一档**继续往下找 —— 所以钉钉／企业微信的 `text.content`、飞书自定义机器人的
 `content.text` 都能直接推进来，而不会把那个容器读成 `[object Object]`。别名表之外的键一概不看、也不回显。
+⚠ 第三方载荷里的 `type`／`level`／`item` 也**不是**协议字段：那是那条通知自己的分类与字段名。
+认不出的 `type` 一律折成契约 `endpoint.ingress.unknownTypeAs` 声明的那一档（当前 `notice`）再进裁决，
+`item` 按 `endpoint.ingress.ignoreItemField` 忽略（落队那一位恒为空串）。唯一还会被拒的是载荷里恰好
+写着词表内的 `action`／`setting`，或 `level` 写着高于 L1 的那一档 —— 那是明确的越权请求，
+而这一把口令给不了（T120：这一面要能接住任意第三方，而不是为某一家客户端特调）。
 POST 正文覆盖同名的 query 参数。投递目标**不能**由请求指定：只能投到这条端点所属的那台设备。
 
 #### 结论怎么读（这一面不是探针）
@@ -762,7 +767,7 @@ POST 正文覆盖同名的 query 参数。投递目标**不能**由请求指定�
 | --- | --- | --- |
 | `202` | 已排队。回 `{messageId, action, evicted}`；`action` 是 `new` / `refreshed`（同 `dedupe` 那条还在排队 ⇒ 换正文，不新增）/ `duplicate`（已经发出去了 ⇒ 判重，一个字都不改） | 有 |
 | `401` | **端点不存在 / 口令不对 / 来源 IP 不在白名单**，三者逐字节同形 | `{}` |
-| `403` | 明文 http 且没开逃生阀；或超出能力边界；或端点没绑到一台合法设备 | 能力那条是 `{"receipt":"rejected_capability"}`，其余 `{}` |
+| `403` | 明文 http 且没开逃生阀；载荷**写着词表内的越权词**（`type=action`／`setting`，或 `level` 高于 L1）；或端点没绑到一台合法设备 | 能力那条是 `{"receipt":"rejected_capability"}`，其余 `{}` |
 | `405` | 这条端点关了 GET 形态（`postOnly`） | `{}` |
 | `400` | 标题与正文都空；或超过 `maxTitleChars` / `maxBodyChars`（**不截断后收下**） | `{}` |
 | `429` | 配额到顶，带 `Retry-After` | `{}` |
@@ -780,10 +785,14 @@ POST 正文覆盖同名的 query 参数。投递目标**不能**由请求指定�
   按 IP 计会让"一个 NAS 出口后面挂三个端点"互相挤额度；按**未验证**的 `endpointId` 计更糟 ——
   那是 DoS 转移：拿别人的端点 id 发洪水，被 429 的是那个受害者。启动横幅里这一档写作
   `按端点 15/分钟 · 500/天（口令验完后由端点收单计，不占 IP 那三档）`，它不在 `limits` 那三份名单里。
-- 端点只能产 **L1 通知**：`type=action`、外部自称的 `level` 高于 L1、带 `item`（设备侧的动作钩子）
-  一律 `403 + rejected_capability`，且**一条消息都不产生**。`item` 那一支值得单独说一句：
-  档位裁决只在需要逐条清单的那一档才查它，所以 L1 这条路不会自动拦 —— 收下再擦掉就是静默丢，
-  写集成的人会以为钩子生效了。
+- 端点只能产 **L1 通知**，而这件事**由这一面的档位决定、不由载荷决定**（T41 + T120）：认不出的 `type`
+  折成契约 `endpoint.ingress.unknownTypeAs` 声明的那一档（当前 `notice`），`item` 按 `ignoreItemField`
+  忽略且**落队那一位恒为空串**；只有载荷**写着词表内那两个越权词**（`type=action`／`setting`，或
+  `level` 高于 L1）时才 `403 + rejected_capability`，且**一条消息都不产生**。裁决走
+  `capabilities.endpointGrant` 那一份，服务端没有第二张档位表。
+  ⚠ 折价的方向只能朝下，两条由双端契约校验钉住：`unknownTypeAs` 必须在 `capabilities.messageTypes`
+  的键上（不许拿一个新词当"回退"，那是把 unknown-type 那道闸往后推给设备），且它的 `minLevel`
+  不许高于 `capabilities.endpointMaxLevel`（否则"读不懂就当动作申请"，折价这一发本身成了升权）。
 - HTTPS-only 默认生效，明文 http 直接被拒。本地或内网直连要显式开 `FNTHINK_ALLOW_INSECURE_ENDPOINT=1`
   —— 这个开关放在环境变量而不是契约里，因为它是**部署事实**不是协议事实。
 - 口令轮换后有宽限期（`endpoint.rotation.graceSeconds`，当前 3600 秒）：旧口令在宽限期内仍能推，

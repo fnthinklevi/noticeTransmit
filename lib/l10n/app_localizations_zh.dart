@@ -3824,7 +3824,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fnthinkEndpointFieldAlias(String title, String body) {
-    return '字段名各家平台不一样，取第一个非空：标题依次看 $title；正文依次看 $body。多余的字段一律忽略。投递目标不能由请求指定 —— 这一把只投这台设备。';
+    return '字段名各家平台不一样，取第一个非空：标题依次看 $title；正文依次看 $body。其余字段不影响投递 —— 带着 type／level／item 也照收，一律按普通通知处理（这一把口令只能发通知；写着 action／setting 那种要设备做动作的，会被明确拒掉）。投递目标不能由请求指定 —— 这一把只投这台设备。';
   }
 
   @override

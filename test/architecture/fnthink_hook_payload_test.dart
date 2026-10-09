@@ -64,4 +64,29 @@ void main() {
           '这是把"显示 400"换成"永远收不到"，不是修',
     );
   });
+
+  // T120（维护者 2026-10-09 的口径）：那两发 403 的根因是载荷里那枚 `type` —— 它是那条
+  // Android 通知自己的分类，不是向我们申请的协议动作。**修法落在服务端**（契约
+  // `endpoint.ingress.unknownTypeAs` 把认不出的值折成普通通知），客户端不许为幻念端点这一发
+  // 摘掉 `type`：载荷按目标分叉只解决本机这一条，第三方照样踩，而这一面的存在理由就是接第三方。
+  test('载荷照旧带 `type`：折价落在服务端，不在客户端为幻念端点特调（T120）', () {
+    final builder = read(
+      'android/app/src/main/kotlin/com/fnthink/notice/WebhookPayloadBuilder.kt',
+    );
+    expect(
+      builder,
+      contains('put("type", notifyType)'),
+      reason:
+          '通用载荷不再带那条通知自己的 type ⇒ 这一发是"为某个目标改载荷"那种分叉回来了；'
+          '端点侧的折价（契约 unknownTypeAs）才是这一条的正解',
+    );
+    // 反向： dispatch 那一支不许自己动手补/删键 —— 它只负责把那位作者的产物交给发送口。
+    expect(
+      block,
+      isNot(contains('"type"')),
+      reason:
+          '在 dispatch 里出现 "type" 字面量 ⇒ 就是在按目标特调载荷（把键摘掉或改成 notice），'
+          '而服务端那侧的折价会因此永远看不出自己有没有被绕过',
+    );
+  });
 }

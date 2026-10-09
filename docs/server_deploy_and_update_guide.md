@@ -1294,7 +1294,7 @@ curl -sS -o /dev/null -w "%{http_code}\n" -X POST "https://<你的域名>/api/fn
 | `202` | 已排队，设备下次 poll 就取走 | 完成 |
 | `401` 且 body 是 `{}` | **端点不存在 / 口令不对 / 来源 IP 不在白名单** —— 三者逐字节相同，不是服务端坏了 | 只能看端点调用日志（第 4 步），响应体里没有信息 |
 | `403` 且 body 是 `{}` | 明文 http 且没开逃生阀 | 走 https；只在确实要内网直连时临时 `FNTHINK_ALLOW_INSECURE_ENDPOINT=1`（改完 `.env` 要重启），验完关掉 |
-| `403` 且 `{"receipt":"rejected_capability"}` | 超出能力边界（`type=action`、`level` 高于 L1、带了 `item`） | 让第三方只发标题 + 正文 |
+| `403` 且 `{"receipt":"rejected_capability"}` | 载荷里**写着词表内的越权词**：`type=action`／`setting`，或 `level` 高于 L1 —— 这一把口令只能产 L1 通知 | 让第三方只发标题 + 正文。⚠ 认不出的 `type`（第三方自家的分类，如 `alert`／`msg`／`warning`）与 `item` **不是**这一条的原因了：2026-10-09（T120）起它们按契约 `endpoint.ingress.unknownTypeAs`／`ignoreItemField` 折成普通通知收单 ⇒ 还在回这条 403 的就是没升到那一版，先对服务端版本再查别的 |
 | `405` 且 `{}` | 这条端点是"仅 POST"，而它被 GET 打了 | 用 POST + Bearer，或按第 5 步把 `postOnly` 关掉 |
 | `400` 且 `{}` | 标题与正文都空，或超过长度上限（**不会被截断后收下**） | 让第三方改内容；上限见契约 `endpoint.ingress.maxTitleChars/maxBodyChars` |
 | `429` + `Retry-After` | 这条端点的 15/分或 500/天到顶 | 看告警口（第 4 步），配额按端点计，别的端点不受影响 |

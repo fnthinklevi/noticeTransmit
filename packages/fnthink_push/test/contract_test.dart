@@ -2477,6 +2477,58 @@ void main() {
       expectProblem(broken, '必须是 receipts 里的一个词', '两个出处指同一个拒绝时，必须逐字节同名');
     });
 
+    // ── 第三方载荷那枚 type 的折价（T120）──
+    // 这一折守的是「设备永远只见到词表内的 type」。它一旦由服务端单方面定成别的词（新词、
+    // 或一个要 L2 的词），下一次设备就只能顺着它跑 —— 所以判据必须先落在双端这一侧。
+    test('折价折成一个词表外的新词 ⇒ 报（把 unknown-type 那道闸往后推给设备）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['unknownTypeAs'] =
+            'notification';
+      });
+      expectProblem(
+        broken,
+        '必须是 capabilities.messageTypes 里的一个词',
+        '折成的词不在词表上时，服务端放行而设备判未知 ⇒ 同一句话两种解释',
+      );
+    });
+
+    test('折价折成一个高于本面上限的档 ⇒ 报（折价只能朝下）', () {
+      // action 要 L2，而 endpointMaxLevel 是 L1：拿它当缺省等于"每条读不懂的推送都当成一次动作申请"。
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['unknownTypeAs'] =
+            'action';
+      });
+      expectProblem(broken, '不许高于', '朝上折价就是升权，而这一面声明的是"最高只到 L1"');
+    });
+
+    test('缺 endpoint.ingress.unknownTypeAs ⇒ 报（折价没有实现里的第二来源）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)
+            .remove('unknownTypeAs');
+      });
+      expectProblem(
+        broken,
+        '必须是 capabilities.messageTypes 里的一个词',
+        '缺键读回来是 null ⇒ 必须报，不许顺着实现里那句硬写的 notice',
+      );
+    });
+
+    test('ignoreItemField 不是布尔 ⇒ 报（当噪音还是当越权，得写下来）', () {
+      final broken = mutate((raw) {
+        ((raw['endpoint'] as Map<String, Object?>)['ingress']
+                as Map<String, Object?>)['ignoreItemField'] =
+            'yes';
+      });
+      expectProblem(
+        broken,
+        'ignoreItemField 必须是布尔',
+        '"yes" 静默当真值，与删掉这一键静默当假值是同一件缺省方向事故',
+      );
+    });
+
     // ── endpoint.probe（T106 片①b：端点档的干跑）──
     // 这一段在设备侧还没有读口（接线是片①b 格2），但**判据必须先落地**：路径形状与口令放法
     // 一旦由服务端单方面定下来，客户端下一次就只能顺着它拼 URL —— 那正是 T87 那条"别重打路径"的债。

@@ -158,6 +158,40 @@ function ingressFromContract(contract) {
         '字符数上限比字节闸还宽等于没有这条限制，而读契约的人会以为它管着什么',
     );
   }
+  // 第三方载荷那枚 `type` 的折价目标（T120）。两条都是**方向性**判据，不是"键在不在"：
+  //  ① 折成的词必须在协议词表上 —— 折成一个词表外的词，等于把 unknown-type 那道闸往后推给
+  //     设备，而设备那条路是签名面的裁决（对端自称的值能一路走到 apply）；
+  //  ② 那一档的 minLevel 不许高于本面的档位上限 —— 否则"认不出就当它是个动作"，
+  //     折价这一发本身就成了升权。缺省方向只能朝下。
+  const table = (contract.capabilities || {}).messageTypes || {};
+  const levels = (contract.capabilities || {}).levels || [];
+  const unknownTypeAs = String(src.unknownTypeAs || '');
+  const fallbackEntry = Object.prototype.hasOwnProperty.call(table, unknownTypeAs)
+    ? table[unknownTypeAs]
+    : null;
+  if (!fallbackEntry || typeof fallbackEntry !== 'object') {
+    throw shapeError(
+      `endpoint.ingress.unknownTypeAs（${unknownTypeAs}）必须是 capabilities.messageTypes 里的一个词：` +
+        '词表外的值要折成的是「协议里有定义的那一档」，不是再造一个新词',
+    );
+  }
+  const fallbackCeiling = capabilities.endpointGrant(contract).maxLevel;
+  if (
+    capabilities.levelRank(levels, String(fallbackEntry.minLevel || '')) >
+    capabilities.levelRank(levels, String(fallbackCeiling))
+  ) {
+    throw shapeError(
+      `endpoint.ingress.unknownTypeAs 那一档的 minLevel（${fallbackEntry.minLevel}）不许高于 ` +
+        `capabilities.endpointMaxLevel（${fallbackCeiling}）：折价只能朝下，朝上就是把每一条` +
+        '读不懂的第三方推送都当成一次动作申请',
+    );
+  }
+  if (typeof src.ignoreItemField !== 'boolean') {
+    throw shapeError(
+      'endpoint.ingress.ignoreItemField 必须是布尔：第三方载荷里的 item 到底当噪音还是当越权，' +
+        '是一件要写下来并连同理由一起改的决定，不是实现里顺手的一个 if',
+    );
+  }
   const grant = capabilities.endpointGrant(contract);
   return {
     pathPattern,
@@ -169,14 +203,31 @@ function ingressFromContract(contract) {
     maxBodyChars,
     endpointGrant: grant,
     capabilityReceipt: String(src.rejectedCapabilityReceipt || 'rejected_capability'),
+    unknownTypeAs,
+    ignoreItemField: src.ignoreItemField,
     // 干跑（T106 片①b）的策略跟着 ingress 一起装配：同一份裁决、同一个配额计数器，
     // 只是不走 ⑥⑧ 与投递那三步。分两处读就得保证两处同时改，而那正是"探针说通、真发被拒"的起点。
     probe: probeFromContract(contract),
   };
 }
 
+/// 载荷里的 `type` → 协议词表里的那个词（T120）。折价**只发生在词表外**这一支：第三方把自己
+/// 那条通知叫 `msg`／`alert`／`warning` 是它自己的分类法，不是向我们申请一个协议动作。词表内的
+/// 值原样交给裁决 —— 档位与逐条清单在那里判，不在这里。
+/// 契约给不出一个合法缺省词时返回空串：裁决会按 unknown-type 拒掉，这比在实现里藏一个
+/// `'notice'` 安全 —— 那种写法在契约漂移时会静默放行，而这一条的判据正是"不替对端解释词表"。
+function coerceIngressType(contract, raw) {
+  const table = ((contract || {}).capabilities || {}).messageTypes || {};
+  const value = String(raw === undefined || raw === null ? '' : raw);
+  if (Object.prototype.hasOwnProperty.call(table, value)) return value;
+  const fallback = String((((contract || {}).endpoint || {}).ingress || {}).unknownTypeAs || '');
+  return Object.prototype.hasOwnProperty.call(table, fallback) ? fallback : '';
+}
+
 /// 外部字段 → 协议内部形状。别名表与"取第一个非空"都来自契约 `fieldTolerance`：
 /// 每接一个平台都要改服务端，就是因为没有这一层。POST 正文覆盖同名的 query 参数。
+/// ⚠ `type` 出去的是**词表内的那个词**（认不出的按契约折成 unknownTypeAs），不是载荷里原样那句 ——
+/// 下游（裁决与落队）因此可以假定它永远合法，而第三方怎么写自己的分类都不影响它收不收得进。
 function readIngress(contract, query, body) {
   const source = Object.assign({}, query || {}, body || {});
   const one = (key) => {
@@ -195,7 +246,7 @@ function readIngress(contract, query, body) {
   return {
     title: pickField(contract, 'title', source),
     body: pickField(contract, 'body', source),
-    type: one('type') === '' ? 'notice' : one('type'),
+    type: coerceIngressType(contract, one('type')),
     level: one('level'),
     item: one('item'),
     island: one('island'),
@@ -329,24 +380,30 @@ function decideIngress(contract, ingress, state, input) {
       logOutcome: 'rejected_method',
     };
   }
-  // ⑤ 能力边界（T41）：端点只能产 L1。**type 与 item 交给 capabilities.decideCapability 判**
+  // ⑤ 能力边界（T41 + T120）：端点只能产 L1。**type 与 item 交给 capabilities.decideCapability 判**
   //    （那张档位表与词表只能有一份出处，这里再写一份 if 就是等着分叉）；而外部自称的 `level`
   //    是 decideCapability 不看的东西（它按 type 查 minLevel）⇒ 这一支必须单独判，否则
   //    "type=notice&level=L3" 会绕过一切把档位请求带上设备侧。
+  //    ⚠ 到这里的 `message.type` 已经是词表内的词（`readIngress` 按契约 unknownTypeAs 折过价），
+  //    所以这一格判的是「它要的那一档本面给不给得起」，不再判「它写的这个词我们认不认得」。
+  //    契约里那句 unknownMessageType=reject 管的是签名面（对端是有身份的设备），不是这里。
   const ceiling = ingress.endpointGrant.maxLevel;
   const levels = (contract.capabilities || {}).levels || [];
+  // `item` 是设备侧的动作钩子，而本面的授权清单恒为空 ⇒ 落队那一位恒写空串（routes.js）。
+  // 契约 ignoreItemField=true 时它是第三方通知自己的一个字段名，按噪音忽略；false 时恢复旧行为
+  // （带 item 一律按越权拒）。⚠ 这一支的成立前提是那条不转发 —— 前提漂了，这里必须改回拒。
+  const item = ingress.ignoreItemField ? '' : message.item;
   const capability = capabilities.decideCapability(contract, {
     stage: 'intake',
     type: message.type,
-    item: message.item,
+    item,
     grant: ingress.endpointGrant,
   });
   // decideCapability 只在 need ≥ itemRequiredFromLevel 那一档才查 item（通知带不带 item 与档位
-  // 裁决无关），所以 L1 这条路**不会**替我们拦住它。但端点这一侧的授权根本没有逐条清单
-  // （endpointGrant.items 恒为空），外部塞进来的 item 只能按"超出授权"拒：
-  // 收下再擦掉（routes 那里硬写 item:''）就是静默丢，而设备侧的规则可能正按 item 匹配 ——
-  // 与"借真消息挂假标题"是同一个形状，只是这一次是借真通知挂动作钩子。
-  const itemBeyondGrant = message.item !== '' && (ingress.endpointGrant.items || []).length === 0;
+  // 裁决无关），所以 L1 这条路**不会**替我们拦住它。而端点这一侧的授权根本没有逐条清单
+  // （endpointGrant.items 恒为空），契约没让它当噪音时只能按"超出授权"拒：
+  // 收下再擦掉（路由那里硬写 item:''）就是静默丢，写集成的人会以为钩子生效了。
+  const itemBeyondGrant = item !== '' && (ingress.endpointGrant.items || []).length === 0;
   if (
     !capability.allowed ||
     itemBeyondGrant ||
@@ -463,6 +520,7 @@ module.exports = {
   ingressFromContract,
   probeFromContract,
   readIngress,
+  coerceIngressType,
   insecureAllowed,
   windowKey,
   MINUTE_MS,

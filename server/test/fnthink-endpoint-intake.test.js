@@ -34,6 +34,7 @@ const { loadContract, assertSupported, statusCode } = require('../lib/fnthink/co
 const ds = require('../lib/fnthink/devicestore');
 const ms = require('../lib/fnthink/messagestore');
 const intake = require('../lib/fnthink/endpointintake');
+const capabilities = require('../lib/fnthink/capabilities');
 const { endpointKindOf } = require('../lib/fnthink/ratelimit');
 
 const contract = assertSupported(loadContract());
@@ -339,13 +340,57 @@ describe('能力边界（T41）', () => {
     expect(res.body.receipt).toBe('rejected_capability');
   });
 
-  test('带 item ⇒ 403 + rejected_capability（端点这一侧没有逐条动作清单）', async () => {
-    // item 是设备侧的**动作钩子**，而端点这一侧的授权里没有逐条清单（endpointGrant.items 恒为空）。
-    // 档位裁决只在 itemRequiredFromLevel 那一档才查 item，所以 L1 这条路不会替我们拦 —— 必须在这
-    // 里显式拒。收下再擦掉（路由硬写 item:''）就是静默丢：写集成的人以为钩子生效了。
-    const item = await rejectOnly({ title: 'a', body: 'b', item: 'toggle_watch' });
-    expect(item.status).toBe(statusCode(contract, 'forbidden'));
-    expect(item.body.receipt).toBe('rejected_capability');
+  test('带 item ⇒ 当噪音忽略，而落队那一位**恒是空串**（这才是这条的牙）', async () => {
+    // T120 把这一支从"403"翻成"忽略"（契约 endpoint.ingress.ignoreItemField=true）。它成立的
+    // 前提是「这一面永远不把 item 转发下去」—— 所以只断 202 不够：那种写法在"把别人的动作
+    // 钩子塞进一条普通通知"时同样绿。断的是落库那一位的值。
+    const res = await rejectOnly({ title: 'a', body: 'b', item: '4521' });
+    expect(res.status).toBe(status);
+    const stored = ms.loadMessages()[res.body.messageId];
+    expect(stored.item).toBe('');
+  });
+
+  test('契约把 ignoreItemField 关掉 ⇒ 旧行为回来了（带 item 一律 403 + rejected_capability）', () => {
+    // 这一条不打 HTTP：它要证明的是"那个开关真的接在裁决上"，而不是实现里读了一次。
+    // 打 HTTP 反而证不到 —— 路由读的是进程装载的那份契约，改不动。
+    const strict = {
+      ...contract,
+      endpoint: {
+        ...contract.endpoint,
+        ingress: { ...contract.endpoint.ingress, ignoreItemField: false },
+      },
+    };
+    const cfg = intake.ingressFromContract(strict);
+    expect(cfg.ignoreItemField).toBe(false);
+    const message = intake.readIngress(strict, {}, { title: 'a', body: 'b', item: 'toggle_watch' });
+    expect(message.item).toBe('toggle_watch');
+    // 档位裁决这一层拦不住它（L1 通知不查清单）⇒ 拦住它的是收单那一格的 itemBeyondGrant。
+    expect(
+      capabilities.decideCapability(strict, {
+        stage: 'intake',
+        type: message.type,
+        item: message.item,
+        grant: cfg.endpointGrant,
+      }).allowed,
+    ).toBe(true);
+    const verdict = intake.decideIngress(
+      strict,
+      cfg,
+      { charge: () => null, endpointCfg: ds.endpointConfigFromContract(strict) },
+      {
+        endpoints: ds.loadEndpoints(),
+        endpointId: endpoint.id,
+        secret: endpoint.secret,
+        message,
+        secure: true,
+        ip: '127.0.0.1',
+        method: 'POST',
+        now: Date.now(),
+      },
+    );
+    expect(verdict.ok).toBe(false);
+    expect(verdict.status).toBe(statusCode(strict, 'forbidden'));
+    expect(verdict.receipt).toBe('rejected_capability');
   });
 
   test('空载荷 ⇒ 400（一条没有内容的通知不该占一个队列位）', async () => {
@@ -387,6 +432,113 @@ describe('能力边界（T41）', () => {
     expect(JSON.stringify(res.body)).toBe('{}');
     const calls = ds.loadEndpoints()[unbound.id].calls;
     expect(calls.map((c) => c.outcome)).toContain('unbound_endpoint');
+  });
+});
+
+// T120（维护者 2026-10-09 定的口径：这一面要能接住第三方对 webhook 的调用，不是为自家软件特调）。
+// 截图那次是 `chan:generic` 与 `chan:fnthink` 各 403 + rejected_capability，根因是载荷里那枚
+// `type` 被裸读成协议字段。下面这组钉的是三件事，缺一件就回到那个 403：
+//  ① 读不懂的取值 ⇒ 折成**契约声明的那个词**（不是实现里藏着的 'notice'），并真的收进队列；
+//  ② 读得懂而本面给不起的那两个词 ⇒ 照旧 403（折价不能变成放行越权）；
+//  ③ 折价住在入口那一层，共享裁决 `capabilities.decideCapability` 那句 fail-closed 一字未动
+//     —— 签名面的对端是有身份的设备，那边"认不出就当普通通知"才是把词表的解释权交给别人。
+describe('第三方载荷那枚 type 的折价（T120）', () => {
+  // 单独一把口令：端点配额按端点计（15/分钟，进程内按墙钟开窗），而这一组有八九发成功的推送 ——
+  // 与前两组共用 `endpoint` 会把同一文件里后面的用例打到 429（那是计额，不是产品结论）。
+  // 语义上也对：第三方集成本来就是"一条集成一把口令"。
+  let foreign = null;
+  beforeAll(() => {
+    foreign = ds.createEndpoint(
+      contract,
+      ds.loadEndpoints(),
+      { owner: OWNER, name: '第三方' },
+      Date.now(),
+    );
+  });
+  const post = (payload) =>
+    request(app)
+      .post(`/api/fnthink/p/${foreign.id}`)
+      .set({ Authorization: `Bearer ${foreign.secret}` })
+      .send(payload);
+
+  test('第三方自己的分类词（alert／warning／msg…）⇒ 202，落队那条是契约声明的那个词', async () => {
+    const declared = contract.endpoint.ingress.unknownTypeAs;
+    expect(Object.keys(contract.capabilities.messageTypes)).toContain(declared);
+    for (const foreign of ['alert', 'warning', 'news_push', 'DongCheDi']) {
+      const res = await post({ title: '一条推送', body: 'x', type: foreign });
+      expect(res.status).toBe(status);
+      const stored = ms.loadMessages()[res.body.messageId];
+      // ⚠ 断的是**落库那位**而不是 202：闸门放行而队列里带着一个词表外的词，设备侧迟早撞上
+      // 同一道 unknown-type，表现和今天这个 403 只差一层，且更难查。
+      expect(stored.type).toBe(declared);
+    }
+  });
+
+  test('本机通用 webhook 那一发的载荷形状照收（不为我们自己的客户端特调，也不为它开后门）', async () => {
+    // 这就是 WebhookPayloadBuilder.kt 那一份的形状：`type` 是那条 Android 通知自己的 type。
+    const res = await post({
+      title: '懂车帝',
+      content: '您订阅的车有更新',
+      appName: '懂车帝',
+      packageName: 'com.ss.android.auto',
+      time: '2026-10-09 07:30',
+      deviceName: '测试机',
+      type: 'auto_push',
+      timestamp: 1762000000000,
+    });
+    expect(res.status).toBe(status);
+    const stored = ms.loadMessages()[res.body.messageId];
+    const content = ms.decryptBodyFor(contract, process.env.ENCRYPTION_KEY, stored.body);
+    expect(content.title).toBe('懂车帝');
+    expect(content.body).toBe('您订阅的车有更新');
+    expect(stored.type).toBe(contract.endpoint.ingress.unknownTypeAs);
+    // 那些自家键一个都不许进记录（名单由契约 retention.storedFields 管）。
+    for (const stray of ['appName', 'packageName', 'deviceName', 'timestamp']) {
+      expect(stored).not.toHaveProperty(stray);
+    }
+  });
+
+  test('读得懂而本面给不起的那两个词照旧 403：折价只给"读不懂"，不给"越权"', async () => {
+    for (const escalate of ['action', 'setting']) {
+      const res = await post({ title: '开灯', body: 'x', type: escalate });
+      expect(res.status).toBe(statusCode(contract, 'forbidden'));
+      expect(res.body.receipt).toBe('rejected_capability');
+    }
+  });
+
+  test('level 写自家严重级（info／high／P0）⇒ 忽略；写着词表内的高档才是申请 ⇒ 403', async () => {
+    for (const foreign of ['info', 'high', 'P0']) {
+      const res = await post({ title: 'a', body: 'b', level: foreign });
+      expect(res.status).toBe(status);
+    }
+    const escalated = await post({ title: 'a', body: 'b', level: 'L2' });
+    expect(escalated.status).toBe(statusCode(contract, 'forbidden'));
+    expect(escalated.body.receipt).toBe('rejected_capability');
+  });
+
+  test('折价住在入口那一层：共享裁决那句 fail-closed 没被改软（签名面仍按 unknown-type 拒）', () => {
+    const decided = capabilities.decideCapability(contract, {
+      stage: 'intake',
+      type: 'alert',
+      item: '',
+      grant: ingress.endpointGrant,
+    });
+    expect(decided.allowed).toBe(false);
+    expect(decided.reason).toBe('unknown-type:alert');
+  });
+
+  test('折价的缺省词只从契约读：契约给不出词表内的词时折成空串（由裁决拒），实现里没有藏着的 notice', () => {
+    expect(intake.coerceIngressType(contract, 'alert')).toBe(
+      contract.endpoint.ingress.unknownTypeAs,
+    );
+    expect(intake.coerceIngressType(contract, 'notice')).toBe('notice');
+    const broken = {
+      capabilities: { messageTypes: { notice: { minLevel: 'L1' } } },
+      endpoint: { ingress: { unknownTypeAs: 'notification' } },
+    };
+    // 'notification' 不在那份词表上 ⇒ 回空串，而不是"顺手用第一个键"或硬写的 'notice'。
+    expect(intake.coerceIngressType(broken, 'alert')).toBe('');
+    expect(intake.coerceIngressType({}, 'alert')).toBe('');
   });
 });
 
@@ -470,5 +622,38 @@ describe('数字只从契约读', () => {
     expect(err).not.toBeNull();
     const { isContractAvailabilityError } = require('../lib/fnthink/contract');
     expect(isContractAvailabilityError(err)).toBe(true);
+  });
+
+  test('折价的三条判据在 JS 侧同样生效（折向词表外／折向升权档／开关不是布尔 ⇒ 都抛）', () => {
+    const withIngress = (patch) => ({
+      ...contract,
+      endpoint: {
+        ...contract.endpoint,
+        ingress: { ...contract.endpoint.ingress, ...patch },
+      },
+    });
+    // ① 折成的词必须在这张词表上：造一个新词等于把 unknown-type 那道闸往后推给设备。
+    expect(() =>
+      intake.ingressFromContract(withIngress({ unknownTypeAs: 'notification' })),
+    ).toThrow(/messageTypes 里的一个词/);
+    // ② 折价只能朝下：action 要 L2，而本面上限是 L1 ⇒ 拿它当缺省就是每次读不懂都升一档。
+    expect(() => intake.ingressFromContract(withIngress({ unknownTypeAs: 'action' }))).toThrow(
+      /不许高于/,
+    );
+    // ③ 那枚开关必须是布尔（写成 "yes" 不能静默按真值用）。
+    expect(() => intake.ingressFromContract(withIngress({ ignoreItemField: 'yes' }))).toThrow(
+      /必须是布尔/,
+    );
+    // 缺键也抛：两条新判据都不许有"实现里那份缺省"。
+    const noKeys = {
+      ...contract,
+      endpoint: {
+        ...contract.endpoint,
+        ingress: { ...contract.endpoint.ingress },
+      },
+    };
+    delete noKeys.endpoint.ingress.unknownTypeAs;
+    delete noKeys.endpoint.ingress.ignoreItemField;
+    expect(() => intake.ingressFromContract(noKeys)).toThrow(/messageTypes 里的一个词|必须是布尔/);
   });
 });
