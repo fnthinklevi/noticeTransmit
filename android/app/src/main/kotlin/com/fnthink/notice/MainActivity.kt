@@ -80,6 +80,19 @@ class MainActivity : FlutterActivity() {
     private var methodChannel: MethodChannel? = null
     private val activityJob = SupervisorJob()
     private val activityScope = CoroutineScope(activityJob + Dispatchers.Main)
+
+    /**
+     * 「用户点了一下、正在等回话」那一类请求跑在这里，**不**跟着 Activity 一起死（T112 ①）。
+     *
+     * 为什么必须另开一个：`activityJob` 一被取消（离开前台／系统回收／重建），飞行中的请求连同
+     * `MethodChannel.Result` 一起消失，回包一个都发不出去 —— 而 Dart 的 `await` 既不完成也不抛，
+     * 界面就永远停在「发送中」。引擎此时若已 detach，回包会被 `FlutterJNI` 就地丢弃并只写一条日志
+     * （不是崩溃），那一发由 Dart 侧的 `kTestWebhookBudget` 上限复位。
+     *
+     * ⚠ 刻意不在 `onDestroy` 里 cancel：请求的寿命由网络层超时决定（≈50s 上界），不由屏幕决定。
+     * 需要随 UI 取消的那些仍在 [activityScope] 上，两者不许混用。
+     */
+    private val requestScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     internal val prefs: SharedPreferences by lazy {
         getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     }
@@ -2171,7 +2184,7 @@ class MainActivity : FlutterActivity() {
         // 它永远收到 null，且发送层也从不需要它。
         channelType: String? = null,
     ) {
-        activityScope.launch(Dispatchers.IO) {
+        requestScope.launch(Dispatchers.IO) {
             val (success, message, signed) = try {
                 val deviceName = PrefsHelper.deviceName.ifEmpty { Build.MODEL }
                 // 身份由调用方贯穿（第 4 步）：用户在通道里显式选过类型时必须按该类型判定，
