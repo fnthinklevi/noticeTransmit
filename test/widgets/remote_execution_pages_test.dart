@@ -317,6 +317,133 @@ void main() {
     });
   });
 
+  group('发送页（T124 A 片）：参数由界面生成，不让人手敲冒号串', () {
+    testWidgets('channel:toggle ⇒ 族与目标档是选出来的，用户只填对面那台的通道号', (tester) async {
+      String? sent;
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-level-L2')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-channel:toggle')),
+      );
+      await tester.pumpAndSettle();
+      // 三段的头与尾是**选**出来的（族／目标档），中间那段才是填的。
+      await tester.tap(find.byKey(const ValueKey('remote-send-family-app')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-argument')),
+        'chan-42',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-want-off')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-want-off')));
+      await tester.pumpAndSettle();
+      // ⚠ L2 **不要**凭据（契约 `auth.l2Requires: false`）⇒ 凭据两格在这里本来就不该出现。
+      expect(find.byKey(const ValueKey('remote-send-key')), findsNothing);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+
+      final env = RemoteCommandEnvelope.decode(sent ?? '');
+      expect(env, isNotNull, reason: '发出去的必须是一条指令载荷，否则对面按通知处置');
+      expect(env!.level, 'L2');
+      expect(env.item, 'channel:toggle');
+      expect(
+        env.argument,
+        'app:chan-42:off',
+        reason: '三段由界面拼 —— 用户手里那两枚是"app"与"关"，不是冒号串',
+      );
+    });
+
+    testWidgets('L3 的 toggle ⇒ 没选目标值不许发；选了就写在 item 上（重投才幂等）', (tester) async {
+      final sent = <String>[];
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent.add(text);
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-level-L3')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-monitoring')),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('remote-send-key')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-key')),
+        'K-1',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      // 先不选目标档：不带目标值 = 对面"读当前再翻"，重投一次就翻回原状。
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      expect(sent, isEmpty);
+      expect(
+        find.byKey(const ValueKey('fnthink-send-blocked')),
+        findsOneWidget,
+        reason: '挡住的那句必须在页面最上面（这一族的老形状：点了没反应）',
+      );
+      // 选了才发，且目标值要落在那一段 item 上。
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-l3-want-on')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-l3-want-on')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+      expect(sent, hasLength(1));
+      expect(RemoteCommandEnvelope.decode(sent.single)?.item, 'monitoring/on');
+    });
+  });
+
   group('历史页：三种"没有记录"分开说', () {
     testWidgets('空表 ⇒ "还没有任何远程执行记录"', (tester) async {
       await pumpHistory(tester, loadRecords: (_) async => const []);

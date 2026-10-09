@@ -13,7 +13,8 @@ import '../l10n/app_localizations.dart';
 /// ## 为什么不写 ARB 键名再去反查
 /// 下面这张表存的是**取值函数**，不是字符串键名。于是"词条配了没有"这件事由编译器判：
 /// 少一条 ARB 词条就编译不过，而不必等一条运行时用例去撞。
-final Map<String, String Function(AppLocalizations)> kFnthinkRemoteActionLabels = {
+final Map<String, String Function(AppLocalizations)>
+kFnthinkRemoteActionLabels = {
   'listener:start': (l) => l.remoteActionListenerStart,
   'listener:stop': (l) => l.remoteActionListenerStop,
   'channel:toggle': (l) => l.remoteActionChannelToggle,

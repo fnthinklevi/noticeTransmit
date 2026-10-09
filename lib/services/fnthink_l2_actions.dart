@@ -290,7 +290,6 @@ String buildL3Item({required String key, bool? want}) {
   return '$key/${want ? 'on' : 'off'}';
 }
 
-
 /// 拆出来的那条通道 + 它该被设成哪一档。
 class RemoteChannelTarget {
   const RemoteChannelTarget({
