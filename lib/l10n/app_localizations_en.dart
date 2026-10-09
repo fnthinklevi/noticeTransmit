@@ -4624,6 +4624,47 @@ class AppLocalizationsEn extends AppLocalizations {
       'Search the other device’s SMS by keyword';
 
   @override
+  String get remoteActionAppLaunch =>
+      'Have the other device open a registered entry';
+
+  @override
+  String get fnthinkShortcutsTitle => 'Entries openable from another device';
+
+  @override
+  String get fnthinkShortcutsWhy =>
+      'The other side can only open entries you register here: give a name, then the target that opens it - a link the app itself publishes, or this device’s \"package/class\".';
+
+  @override
+  String get fnthinkShortcutsEmpty =>
+      'No entries registered yet - without one, the other side’s \"open an entry\" action has no name to match and does nothing.';
+
+  @override
+  String get fnthinkShortcutsAdd => 'Add one';
+
+  @override
+  String get fnthinkShortcutsNameLabel =>
+      'Name (the other side calls it by this)';
+
+  @override
+  String get fnthinkShortcutsTargetLabel => 'Target (a link, or package/class)';
+
+  @override
+  String get fnthinkShortcutsNameInvalid =>
+      'The name must be 1-32 characters with no control characters.';
+
+  @override
+  String get fnthinkShortcutsTargetInvalid =>
+      'The target must be a link with a scheme, or \"package/class\".';
+
+  @override
+  String get fnthinkShortcutsDuplicate => 'That name is already registered.';
+
+  @override
+  String fnthinkShortcutsDeleteAsk(String name) {
+    return 'After deleting \"$name\", the other side can no longer open it by that name. Continue?';
+  }
+
+  @override
   String get remoteSettingNotification =>
       'Ask the other device to open its notification-listener page';
 
@@ -4731,6 +4772,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String remoteSendNeedsSmsKeyword(int min, int max) {
     return 'The keyword must be between $min and $max characters and carry no control characters.';
+  }
+
+  @override
+  String get remoteSendShortcutNameLabel => 'Which entry';
+
+  @override
+  String get remoteSendShortcutNameWhy =>
+      'Type a name the other device has registered (this device cannot see that list). If no name matches, nothing runs.';
+
+  @override
+  String remoteSendNeedsShortcutName(int min, int max) {
+    return 'The name must be between $min and $max characters and carry no control characters.';
   }
 
   @override

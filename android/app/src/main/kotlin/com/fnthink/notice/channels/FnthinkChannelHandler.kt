@@ -1,6 +1,7 @@
 package com.fnthink.notice.channels
 
 import android.content.Context
+import com.fnthink.notice.AppLaunch
 import com.fnthink.notice.FnthinkAlertDisplay
 import com.fnthink.notice.FnthinkIdentityStore
 import com.fnthink.notice.FnthinkInboxDisplay
@@ -87,6 +88,15 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             // 与收件显示同一条渠道与同一条"没显示就回 false"的纪律：
             // 回 false 的那一次执行会被记成失败（对面收到 done 会以为用户被提醒过了）。
             "showFnthinkAlert" -> result.success(FnthinkAlertDisplay.show(context))
+            // ── T124 片B：打开本机登记过的一条入口（`app:launch`）──
+            // 目标是 Dart 侧校验过的串（`pkg/cls` 或一条带 scheme 的 URI）；
+            // 原生这一层只负责"把它交给系统"，打开不了就回 false（与显示那几发同一条纪律）。
+            "launchFnthinkTarget" -> {
+                val target = call.argument<String>("target").orEmpty()
+                result.success(
+                    if (target.isBlank()) false else AppLaunch.launch(context, target),
+                )
+            }
             // ── T124 片B：按关键词搜本机短信（`sms:search`）──
             // 重活（库查询）下沉 ioScope（与配置那几发同一纪律）。
             // ⚠ 回 null = **没查成**（没给 READ_SMS / 被系统拒），回空表 = 查成了但没命中 ——

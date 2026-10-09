@@ -547,7 +547,8 @@ void main() {
         n('lib/pages/notification_engine_page.dart', 'FnthinkEntryRow('),
         greaterThanOrEqualTo(1),
       );
-      expect(n('lib/pages/fnthink_remote_page.dart', 'FnthinkEntryRow('), 3);
+      // T124 片B-4 起 4：远程页多了「可被远程打开的入口」那一行（app:launch 的本机那一半）。
+      expect(n('lib/pages/fnthink_remote_page.dart', 'FnthinkEntryRow('), 4);
       // 换件之后这几个文件里不该再留下自己搭的 Material 路由。
       for (final p in const [
         'lib/pages/notification_engine_page.dart',

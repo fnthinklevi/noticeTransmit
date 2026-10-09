@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:notice_transmit/l10n/app_localizations.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
 import 'package:notice_transmit/pages/fnthink_consent_gate.dart';
 import 'package:fnthink_push/fnthink_push.dart';
@@ -589,6 +590,64 @@ void main() {
       await submit();
       await _confirmIfPresent(tester);
       expect(RemoteCommandEnvelope.decode(sent ?? '')?.item, 'sms:search/验证码');
+    });
+
+    testWidgets('打开入口那一条 ⇒ 那两格的字是"打开哪一条"，发 app:launch/<名字>', (tester) async {
+      String? sent;
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-app:launch')),
+      );
+      await tester.pumpAndSettle();
+      // 同一个 keyword 形态，但文案必须是"打开哪一条"（不是"搜什么词"）。
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(FnthinkSendPage)),
+      );
+      expect(find.text(l10n.remoteSendShortcutNameLabel), findsOneWidget);
+      expect(find.text(l10n.remoteSendSmsKeywordLabel), findsNothing);
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      expect(sent, isNull, reason: '名字空着不许发');
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-keyword')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-keyword')),
+        '开门',
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-submit')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+      await tester.pumpAndSettle();
+      await _confirmIfPresent(tester);
+      expect(RemoteCommandEnvelope.decode(sent ?? '')?.item, 'app:launch/开门');
     });
   });
 

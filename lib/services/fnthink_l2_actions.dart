@@ -175,6 +175,14 @@ abstract class FnthinkL2Executor {
   /// 所以它带 reason 而不是一个 null。
   Future<({String? payload, String? reason})> searchSms(String keyword);
 
+  /// 打开本机**登记过**的一条入口（T124 片B 的 `app:launch`）。
+  ///
+  /// [name] 是用户在本机给那条登记起的名称（对面的界面读不到本机的清单，所以按名字对）。
+  /// 回 `ok: true` = 已经把它送到前台；`ok: false` 看 [reason]
+  /// （`app-launch-unknown-name` 名称对不上 / `app-launch-refused` 系统拦了 / `app-launch-failed`）。
+  /// ⚠ **名字对不上就是不做**（fail-closed）：猜一条最像的等于替用户开了一个他没点的东西。
+  Future<({bool ok, String? reason})> launchApp(String name);
+
   /// 回传最近的 [count] 条通知原文（`notifications:report`，T124 片B）。
   ///
   /// 回**产出要回传的那段正文**；回 null = 这一步没做成（读库失败、这台没有可回传的东西）。
@@ -197,6 +205,7 @@ const Map<String, String> kFnthinkL2ActionVerbs = {
   'notifications:report': 'reportNotifications',
   'alert:ring': 'ringAlert',
   'sms:search': 'searchSms',
+  'app:launch': 'launchApp',
 };
 
 /// 把一个已解析的动作派到执行器上。纯转发，但**这里是唯一一处** action 名 → 方法的映射。
@@ -258,6 +267,17 @@ Future<FnthinkL2Result> dispatchL2Action(
         return const FnthinkL2Result.failed('sms-search-failed');
       }
       return FnthinkL2Result.ok(payload: foundPayload);
+    case 'app:launch':
+      final badName = reportArgumentProblem(
+        contract,
+        action.name,
+        action.argument,
+      );
+      if (badName != null) return FnthinkL2Result.failed(badName);
+      final launched = await executor.launchApp(action.argument.trim());
+      return launched.ok
+          ? const FnthinkL2Result.ok()
+          : FnthinkL2Result.failed(launched.reason ?? 'app-launch-failed');
     default:
       // 走到这里说明 [parseL2Item] 与本函数对同一张表的读法不一致 ——
       // 两者都在同一份契约上，却给出了不同的答案。

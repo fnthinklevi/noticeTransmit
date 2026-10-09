@@ -2873,7 +2873,7 @@ void main() {
             'notifications:report': {...okSpec, 'title': ''},
           },
         ).validate(),
-        anyElement(contains('title 必须是非空')),
+        anyElement(contains('title 若写了就必须是非空')),
       );
       expect(
         withL2(
@@ -2881,8 +2881,23 @@ void main() {
             'notifications:report': {...okSpec, 'title': 'a/b'},
           },
         ).validate(),
-        anyElement(contains('title 必须是非空')),
+        anyElement(contains('title 若写了就必须是非空')),
       );
+    });
+
+    test('title 缺省是合法的（那一条只声明参数形状、不回传）', () {
+      const noTitle = {
+        'argumentKind': 'keyword',
+        'minChars': 1,
+        'maxChars': 32,
+      };
+      final c2 = withL2(reports: {'sms:search': noTitle});
+      expect(
+        c2.validate(),
+        isEmpty,
+        reason: 'app:launch 那一类不产出任何东西 —— 没有 title 是形状，不是缺漏',
+      );
+      expect(c2.l2ReportTitle('sms:search'), isNull);
     });
 
     test('整张表缺了 ⇒ 空表 = 没有回传动作（不是"默认放行"）', () {

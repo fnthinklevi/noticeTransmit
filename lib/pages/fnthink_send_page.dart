@@ -339,7 +339,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         final min = contract.l2ReportMinChars(_item) ?? 1;
         final max = contract.l2ReportMaxChars(_item) ?? min;
         if (reportArgumentProblem(contract, _item, _keyword.text) != null) {
-          return l10n.remoteSendNeedsSmsKeyword(min, max);
+          return _item == 'app:launch'
+              ? l10n.remoteSendNeedsShortcutName(min, max)
+              : l10n.remoteSendNeedsSmsKeyword(min, max);
         }
       } else {
         if (_channelFamily == null) return l10n.remoteSendNeedsFamily;
@@ -890,11 +892,16 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     final contract = _contract!;
     final min = contract.l2ReportMinChars(_item) ?? 1;
     final max = contract.l2ReportMaxChars(_item) ?? min;
+    // ⚠ 同一个形态（keyword）由两个动作共用：文案按动作分 —— 一条是"搜什么词"，
+    //   一条是"打开对面登记过的哪一条"。合成一句会把两件事说成一件。
+    final isLaunch = _item == 'app:launch';
     return [
       const SizedBox(height: 10),
       FnthinkNote(
         keyName: 'remote-send-keyword-label',
-        text: l10n.remoteSendSmsKeywordLabel,
+        text: isLaunch
+            ? l10n.remoteSendShortcutNameLabel
+            : l10n.remoteSendSmsKeywordLabel,
       ),
       CupertinoTextField(
         key: const ValueKey('remote-send-keyword'),
@@ -905,7 +912,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       ),
       FnthinkNote(
         keyName: 'remote-send-keyword-why',
-        text: l10n.remoteSendSmsKeywordWhy,
+        text: isLaunch
+            ? l10n.remoteSendShortcutNameWhy
+            : l10n.remoteSendSmsKeywordWhy,
       ),
     ];
   }

@@ -378,9 +378,9 @@ class FnthinkContract {
 
   /// 「会回传东西的动作」那张表（契约 `capabilities.l2.reports`，T124 片B）。
   ///
-  /// 键 = 动作名，值 = 那份声明（参数形态／上下界／回传那条消息的标题）。
-  /// 缺这一节 ⇒ 空表 = **没有任何回传动作**（不是"默认允许"）：
-  /// 回传是把本机的东西发出去，少一条声明就该少一条路。
+  /// 键 = 动作名，值 = 那份声明（参数形态／上下界／**可选的**回传消息标题）。
+  /// ⚠ 带 `title` 的才回传；没带 `title` 的只是"参数有形状要求"（`app:launch`）。
+  /// 缺这一节 ⇒ 空表 = **没有任何声明**（不是"默认允许"）。
   Map<String, Map<String, Object?>> get l2Reports {
     final raw = map(const ['capabilities', 'l2', 'reports']) ?? const {};
     final out = <String, Map<String, Object?>>{};
@@ -1789,14 +1789,19 @@ class FnthinkContract {
           'capabilities.l2.reports.${entry.key}.maxChars 必须 ≥ minChars：$spec',
         );
       }
-      final reportTitle = spec is Map ? spec['title'] : null;
-      need(
-        reportTitle is String &&
-            reportTitle.isNotEmpty &&
-            !reportTitle.contains('/'),
-        'capabilities.l2.reports.${entry.key}.title 必须是非空、不含斜杠的串'
-        '（它是回传那条消息的标题，斜杠会与 item 的形状撞在读法上）：$spec',
-      );
+      // `title` **可选**：带它的那几项才会把东西回传（title 就是那条回传消息的标题）；
+      // 没有 title 的只声明参数形状（`app:launch` 就是这一种——它不产出任何东西）。
+      // 带错（空串／斜杠）仍要报：斜杠会与 item 的形状撞在读法上。
+      if (spec is Map && spec.containsKey('title')) {
+        final reportTitle = spec['title'];
+        need(
+          reportTitle is String &&
+              reportTitle.isNotEmpty &&
+              !reportTitle.contains('/'),
+          'capabilities.l2.reports.${entry.key}.title 若写了就必须是非空、不含斜杠的串'
+          '（它是回传那条消息的标题，斜杠会与 item 的形状撞在读法上）：$spec',
+        );
+      }
     }
     final l2Receipt = str(const ['capabilities', 'l2', 'actionReceipt']);
     need(

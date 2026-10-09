@@ -27,6 +27,7 @@ import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_remote_wiring.dart';
 import '../models/notification_record.dart';
 import '../services/fnthink_notification_report.dart';
+import '../services/fnthink_shortcut_registry.dart';
 import '../services/fnthink_sms_search_report.dart';
 import '../services/platform_channel.dart';
 import '../services/remote_credential_store.dart';
@@ -280,6 +281,7 @@ void setupLocator() {
       reportNotificationsNow: _fnthinkReportNotificationsOnce,
       ringAlertNow: () => FnthinkAlertDisplay().ring(),
       searchSmsNow: _fnthinkSearchSmsOnce,
+      launchAppNow: _fnthinkLaunchShortcutOnce,
     ),
   );
   getIt.registerLazySingleton<DeviceL3Executor>(
@@ -470,6 +472,29 @@ Future<({String? payload, String? reason})> _fnthinkSearchSmsOnce(
     return (payload: formatFnthinkSmsSearchReport(keyword, rows), reason: null);
   } catch (e) {
     return (payload: null, reason: 'sms-search-failed');
+  }
+}
+
+/// 「打开本机登记过的一条入口」那一发（T124 片B 的 `app:launch`）。
+///
+/// ⚠ **按名字精确匹配，对不上就是不做**（`app-launch-unknown-name`）：猜一条最像的
+/// 等于替用户开了一个他没点的东西，而那台设备上的用户看到的是一扇自己开了的门。
+/// ⚠ 本机的清单**不出门**：只有"请你打开 <名字>"这一句过线，名字到目标的映射留在本机。
+Future<({bool ok, String? reason})> _fnthinkLaunchShortcutOnce(
+  String entryName,
+) async {
+  try {
+    final rows = await loadFnthinkShortcuts();
+    final hit = findFnthinkShortcut(rows, entryName);
+    if (hit == null) return (ok: false, reason: 'app-launch-unknown-name');
+    final launched = await AppChannels.notification.invokeMethod<bool>(
+      'launchFnthinkTarget',
+      {'target': hit.target},
+    );
+    final ok = launched ?? false;
+    return (ok: ok, reason: ok ? null : 'app-launch-refused');
+  } catch (e) {
+    return (ok: false, reason: 'app-launch-failed');
   }
 }
 

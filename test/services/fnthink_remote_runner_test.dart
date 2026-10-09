@@ -92,6 +92,15 @@ class _RecordingL2 implements FnthinkL2Executor {
     if (!ok) return (payload: null, reason: 'sms-search-failed');
     return smsResult ?? (payload: null, reason: 'sms-search-failed');
   }
+
+  @override
+  Future<({bool ok, String? reason})> launchApp(String name) async {
+    calls.add('launchApp($name)');
+    await _pass();
+    return ok
+        ? (ok: true, reason: null)
+        : (ok: false, reason: 'app-launch-unknown-name');
+  }
 }
 
 class _RecordingL3 implements FnthinkL3Executor {

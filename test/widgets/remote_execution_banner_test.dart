@@ -40,6 +40,10 @@ class _NoopL2 implements FnthinkL2Executor {
   @override
   Future<({String? payload, String? reason})> searchSms(String keyword) async =>
       (payload: null, reason: 'sms-search-disabled');
+
+  @override
+  Future<({bool ok, String? reason})> launchApp(String name) async =>
+      (ok: false, reason: 'app-launch-unknown-name');
 }
 
 class _NoopL3 implements FnthinkL3Executor {

@@ -14,6 +14,8 @@ import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
+
+import 'fnthink_shortcuts_page.dart';
 import '../widgets/help_note_button.dart';
 import 'fnthink_send_page.dart';
 import 'remote_credential_settings_page.dart';
@@ -185,6 +187,19 @@ class _FnthinkRemotePageState extends State<FnthinkRemotePage> {
           iconColor: AppColors.purple,
           title: l10n.remoteExecHistory,
           onTap: _openRemoteHistory,
+        ),
+        // T124 片B：远程「打开某个入口」那条动作的本机那一半 —— 对面只能打开这里登记过的东西。
+        FnthinkEntryRow(
+          key: const ValueKey('fnthink-remote-exec-shortcuts'),
+          icon: Icons.widgets_outlined,
+          iconColor: AppColors.blue,
+          title: l10n.fnthinkShortcutsTitle,
+          subtitle: l10n.remoteExecShort,
+          onTap: () => Navigator.of(context).push(
+            CupertinoPageRoute<void>(
+              builder: (_) => const FnthinkShortcutsPage(),
+            ),
+          ),
         ),
       ],
     );

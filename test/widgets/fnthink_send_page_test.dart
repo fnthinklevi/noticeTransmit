@@ -310,10 +310,13 @@ void main() {
       find.byKey(const ValueKey('remote-send-action-listener:start')),
     );
     await tester.pumpAndSettle();
-    // ⚠ 动作多了一个（T124 片B 的 `notifications:report`）之后这一格会折到视口外：
-    //   不先滚到它就 tap 等于打空气（"按了没反应"正是这一条要防的形状，而这次是测试自己按空）。
-    await tester.ensureVisible(
+    // ⚠ 动作一多（T124 片B 陆续加了三个）这张卡就越长：提交键可能**还没被 build**
+    //   （ListView 懒布局）—— `ensureVisible` 对"不在树上"的键抛 No element，
+    //   这里要用会自己滚到"建出来为止"的那一枚。
+    await tester.scrollUntilVisible(
       find.byKey(const ValueKey('remote-send-submit')),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('remote-send-submit')));

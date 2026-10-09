@@ -26,6 +26,7 @@ class DeviceL2Executor implements FnthinkL2Executor {
     required this.reportNotificationsNow,
     required this.ringAlertNow,
     required this.searchSmsNow,
+    required this.launchAppNow,
   });
 
   /// 启停整个通知监听服务。回 false = 原生拒绝了。
@@ -50,6 +51,13 @@ class DeviceL2Executor implements FnthinkL2Executor {
   /// 三种对用户的下一步动作不一样，所以带 reason 而不是一个 null（见接口那一格）。
   final Future<({String? payload, String? reason})> Function(String keyword)
   searchSmsNow;
+
+  /// 打开本机登记过的一条入口（T124 片B 的 `app:launch`；[entryName] 是登记时的名称）。
+  ///
+  /// `ok: false` 的 [reason] 有三种（与 `sms:search` 同一理由：三种对用户的下一步不一样）：
+  /// `app-launch-unknown-name` 名称对不上 / `app-launch-refused` 系统没放行 / `app-launch-failed`。
+  final Future<({bool ok, String? reason})> Function(String entryName)
+  launchAppNow;
 
   @override
   Future<FnthinkL2Result> setListener({required bool enabled}) async {
@@ -129,6 +137,15 @@ class DeviceL2Executor implements FnthinkL2Executor {
       return await searchSmsNow(keyword);
     } catch (e) {
       return (payload: null, reason: 'threw:sms:search');
+    }
+  }
+
+  @override
+  Future<({bool ok, String? reason})> launchApp(String entryName) async {
+    try {
+      return await launchAppNow(entryName);
+    } catch (e) {
+      return (ok: false, reason: 'threw:app:launch');
     }
   }
 }

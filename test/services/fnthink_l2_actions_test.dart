@@ -72,6 +72,16 @@ class RecordingExecutor implements FnthinkL2Executor {
     }
     return smsResult ?? (payload: null, reason: 'sms-search-disabled');
   }
+
+  /// 打开入口那一条要回的结果（null = 用默认：名字对不上）。
+  ({bool ok, String? reason})? launchResult;
+
+  @override
+  Future<({bool ok, String? reason})> launchApp(String name) async {
+    calls.add('launchApp($name)');
+    if (failEverything) return (ok: false, reason: 'app-launch-failed');
+    return launchResult ?? (ok: false, reason: 'app-launch-unknown-name');
+  }
 }
 
 void main() {
@@ -92,6 +102,7 @@ void main() {
         'channel:toggle',
         'notifications:report',
         'sms:search',
+        'app:launch',
       ]);
       for (final a in contract.l2Reports.keys) {
         expect(
@@ -422,6 +433,61 @@ void main() {
         reportArgumentProblem(contract, 'notifications:report', '21'),
         startsWith('bad-report-count:'),
       );
+    });
+  });
+
+  group('打开入口那一条（T124 片B 的 app:launch）：按名字对、不回传', () {
+    test('契约：在词表里、必带参数、kind 是 keyword、**没有**回传标题', () {
+      expect(contract.l2Actions, contains('app:launch'));
+      expect(contract.l2ActionsRequiringArgument, contains('app:launch'));
+      expect(contract.l2ReportKind('app:launch'), 'keyword');
+      expect(contract.l2ReportMinChars('app:launch'), 1);
+      expect(contract.l2ReportMaxChars('app:launch'), 32);
+      expect(
+        contract.l2ReportTitle('app:launch'),
+        isNull,
+        reason: '它不产出任何东西 —— 没有标题才是它的形状，不是漏配',
+      );
+    });
+
+    test('派发到执行器的 launchApp（名字原样交过去）', () async {
+      final exec = RecordingExecutor()..launchResult = (ok: true, reason: null);
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('app:launch', '开门'),
+      );
+      expect(exec.calls, ['launchApp(开门)']);
+      expect(r.ok, isTrue);
+      expect(r.payload, isNull, reason: '它不产出东西 ⇒ 不该借道回传那一路');
+    });
+
+    test('执行器说名字对不上 ⇒ failed 原样带上理由', () async {
+      final exec = RecordingExecutor()
+        ..launchResult = (ok: false, reason: 'app-launch-unknown-name');
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('app:launch', '不存在的名字'),
+      );
+      expect(r.ok, isFalse);
+      expect(r.reason, 'app-launch-unknown-name');
+      expect(r.receipt(contract), 'failed_action');
+    });
+
+    test('名字越界/空/带控制字符 ⇒ failed，且执行器一次都不被调', () async {
+      for (final bad in ['', '   ', 'x' * 33, 'a\nb']) {
+        final exec = RecordingExecutor()
+          ..launchResult = (ok: true, reason: null);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          FnthinkL2Action('app:launch', bad),
+        );
+        expect(r.ok, isFalse, reason: '名字「$bad」不该过');
+        expect(r.reason, startsWith('bad-keyword:'));
+        expect(exec.calls, isEmpty, reason: '拦在动手之前');
+      }
     });
   });
 }

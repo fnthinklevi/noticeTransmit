@@ -36,6 +36,9 @@ void main() {
       reason: null,
     );
     var smsThrows = false;
+    late List<String> launchCalls;
+    ({bool ok, String? reason}) launchResult = (ok: true, reason: null);
+    var launchThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -54,6 +57,9 @@ void main() {
       smsCalls = [];
       smsResult = (payload: 'HIT', reason: null);
       smsThrows = false;
+      launchCalls = [];
+      launchResult = (ok: true, reason: null);
+      launchThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -84,6 +90,11 @@ void main() {
         smsCalls.add(keyword);
         if (smsThrows) throw StateError('boom');
         return smsResult;
+      },
+      launchAppNow: (name) async {
+        launchCalls.add(name);
+        if (launchThrows) throw StateError('boom');
+        return launchResult;
       },
     );
 
@@ -137,6 +148,8 @@ void main() {
         ringAlertNow: () async => true,
         searchSmsNow: (keyword) async =>
             (payload: null, reason: 'sms-search-failed'),
+        launchAppNow: (name) async =>
+            (ok: false, reason: 'app-launch-unknown-name'),
         pushDeviceStateNow: () async => true,
       );
       expect(
@@ -171,6 +184,16 @@ void main() {
       );
       pushThrows = true;
       expect((await build().pushDeviceState()).reason, startsWith('threw:'));
+    });
+
+    test('app:launch：名字交过去、结果原样透传；抛异常收成 threw', () async {
+      final ok = await build().launchApp('开门');
+      expect(launchCalls, ['开门']);
+      expect(ok.ok, isTrue);
+      launchResult = (ok: false, reason: 'app-launch-unknown-name');
+      expect((await build().launchApp('x')).reason, 'app-launch-unknown-name');
+      launchThrows = true;
+      expect((await build().launchApp('x')).reason, 'threw:app:launch');
     });
 
     test('sms:search：产出与理由原样透传；抛异常收成 threw', () async {

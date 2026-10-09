@@ -512,7 +512,8 @@
         "device_state:push",
         "notifications:report",
         "alert:ring",
-        "sms:search"
+        "sms:search",
+        "app:launch"
       ],
       "actionsWhy": "L2 应用动作的**封闭词表**。两端各持一份枚举映射（设备侧 lib/services/fnthink_l2_actions.dart、服务端 server/lib/fnthink/l2actions.js），而这张表是它们共同的**唯一出处**：一份名单存在两处时，两处各自都对，但对面新加一个动作只有自己认得，表现是服务端把它收进队列、设备端在 apply 段判成 unknown-action，两头日志互相看不懂",
       "unknownAction": "reject",
@@ -523,7 +524,8 @@
       "requiresArgumentFrom": [
         "channel:toggle",
         "notifications:report",
-        "sms:search"
+        "sms:search",
+        "app:launch"
       ],
       "requiresArgumentWhy": "这些 action 必须带参数（通道标识）；不带就是「开关哪一条通道」没写，而默认取第一条通道等于让一条没写清楚的消息改了某个用户没预期的东西。**不写成「缺了就取第一条」** —— 那是一条静默的越权",
       "reports": {
@@ -538,9 +540,14 @@
           "minChars": 1,
           "maxChars": 32,
           "title": "sms-search"
+        },
+        "app:launch": {
+          "argumentKind": "keyword",
+          "minChars": 1,
+          "maxChars": 32
         }
       },
-      "reportsWhy": "哪些 L2 动作会把东西**回传**给发起的那一台、以及那条回传消息长什么样（T124 片B）。回传走**一条普通消息**（与 `device_state:push` 同一条路）：它必须经签名面那一次投递，才有回执、才进收件端的收件箱 —— 另开一条「结果通道」等于同一件事有两个投递状态机。`title` 是那条消息的标题（机器词，收件端按它认这一类回传；要好看的显示在显示层映射，不改这里）。`argumentKind: count`：参数是一个「要几条」的十进制数，闭区间 [minItems, maxItems] 之外一律拒 —— 收件判定那一格与发送侧界面各判一次、同源。⚠ 上界 20 的由来：回传正文是一条消息的正文，发送侧按固定字符预算组装并**明写**截断（同一条「不静默丢」的不变量），20 条 × 每条约 150 字符仍在这条消息的舒适区。",
+      "reportsWhy": "哪些 L2 动作的参数形状由契约说（T124 片B；**带 `title` 的那几项才会把东西回传** —— title 就是那条回传消息的标题，没有 title 的只声明形状、不回传）。回传走**一条普通消息**（与 `device_state:push` 同一条路）：它必须经签名面那一次投递，才有回执、才进收件端的收件箱 —— 另开一条「结果通道」等于同一件事有两个投递状态机。`argumentKind` 只有两种：`count`（要几条，闭区间）与 `keyword`（一枚词／一个名称，字长闭区间且不许带控制字符）—— **不许合成一种**：数值区间与字长/可见性不是同一件事。⚠ 上面那些上界的由来：回传正文是一条消息的正文，发送侧按固定字符预算组装并**明写**截断（同一条「不静默丢」的不变量）。",
       "actionReceipt": "failed_action",
       "actionReceiptWhy": "执行失败对外只回 receipts 词表里那一个词。与 T27/T28 那条同源：身份已证明，不许把「没权限」和「执行失败」压成同形的一句话；但也**不许把本地细节（哪个通道、什么异常）写进对外形状** —— 那些要进留痕（T53）"
     },

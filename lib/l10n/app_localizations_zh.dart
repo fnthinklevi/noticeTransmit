@@ -4393,6 +4393,43 @@ class AppLocalizationsZh extends AppLocalizations {
   String get remoteActionSmsSearch => '让对面按关键词搜短信';
 
   @override
+  String get remoteActionAppLaunch => '让对面打开一个已登记的入口';
+
+  @override
+  String get fnthinkShortcutsTitle => '可被远程打开的入口';
+
+  @override
+  String get fnthinkShortcutsWhy =>
+      '对面只能打开你在这里登记过的入口：填一个名字，再填打开它的目标 —— 那枚 App 自己公开的链接，或本机的「包名/类名」。';
+
+  @override
+  String get fnthinkShortcutsEmpty =>
+      '还没有登记任何入口 —— 没有它，对面那一档「打开某个入口」对不上名字、什么都不会做。';
+
+  @override
+  String get fnthinkShortcutsAdd => '加一条';
+
+  @override
+  String get fnthinkShortcutsNameLabel => '名字（对面按它点名）';
+
+  @override
+  String get fnthinkShortcutsTargetLabel => '目标（链接或 包名/类名）';
+
+  @override
+  String get fnthinkShortcutsNameInvalid => '名字要 1–32 个字，且不能带控制字符。';
+
+  @override
+  String get fnthinkShortcutsTargetInvalid => '目标要是一条带 scheme 的链接，或「包名/类名」。';
+
+  @override
+  String get fnthinkShortcutsDuplicate => '这个名字已经登记过了。';
+
+  @override
+  String fnthinkShortcutsDeleteAsk(String name) {
+    return '删掉「$name」之后，对面再点名这个名字就打不开了。要继续吗？';
+  }
+
+  @override
   String get remoteSettingNotification => '请对面打开「通知监听」权限页';
 
   @override
@@ -4487,6 +4524,18 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String remoteSendNeedsSmsKeyword(int min, int max) {
     return '搜什么词要填 $min–$max 个字，且不能带控制字符。';
+  }
+
+  @override
+  String get remoteSendShortcutNameLabel => '打开哪一条';
+
+  @override
+  String get remoteSendShortcutNameWhy =>
+      '填对面在本机登记过的名字（本机看不到那份清单）。名字对不上时这一发不会执行。';
+
+  @override
+  String remoteSendNeedsShortcutName(int min, int max) {
+    return '名字要填 $min–$max 个字，且不能带控制字符。';
   }
 
   @override
