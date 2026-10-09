@@ -278,15 +278,9 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
               ],
             ),
           ),
-          _entry(
-            key: const ValueKey('engine-fnthink-peers'),
-            icon: Icons.devices_other,
-            iconColor: AppColors.blue,
-            title: l10n.fnthinkPeersTitle,
-            subtitle: _peersSubtitle(l10n),
-            page: FnthinkPeersPage(deps: widget.peersDeps),
-          ),
-          _divider(),
+          // 第一行：接收推送（T117 定的顺序调整 —— 这一组是"这台怎么收／怎么配"，
+          // **先把收起来那一档放最前**：它是开关所在，也是新机器上第一次要动的那一枚；
+          // 配对是它的后续动作，不放第一位。只搬位置，六行的标题／副标题／去处／key 一个字不改）。
           _entry(
             key: const ValueKey('engine-fnthink-receive'),
             icon: Icons.move_to_inbox,
@@ -294,6 +288,15 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             title: l10n.fnthinkReceive,
             subtitle: l10n.fnthinkHubReceiveDesc,
             page: FnthinkReceivePage(deps: widget.receiveDeps),
+          ),
+          _divider(),
+          _entry(
+            key: const ValueKey('engine-fnthink-peers'),
+            icon: Icons.devices_other,
+            iconColor: AppColors.blue,
+            title: l10n.fnthinkPeersTitle,
+            subtitle: _peersSubtitle(l10n),
+            page: FnthinkPeersPage(deps: widget.peersDeps),
           ),
           _divider(),
           _entry(
@@ -322,7 +325,8 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             onTap: _openRemotePage,
           ),
           _divider(),
-          // 第五、六行（T107）：**推送设置**与**接入端点**也从这一块进。
+          // 第五、六行（T107 加进来的两页；T117 把它们**对调**：接入端点是"往外发的那张嘴"，
+          // 日常比设置页更容易要动，而**设置是出口不是日常** —— 它排最后。
           // 这两页原先挂在「更多页 → 幻念推送通道 → 列表页右上角齿轮（→ 齿轮里那一行端点）」
           // 那棵树上，而同一族的另外四件事早在通知引擎里 ⇒ 用户要记两个入口。
           // 旧的齿轮与那一行端点**真删了**（不留兼容跳转）：两条路进同一页，改了一处就会忘了另一处，
@@ -330,15 +334,6 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
           // ⚠ 这一条**推翻**了维护者 2026-10-06 定的「设置从列表页右上齿轮进，不在推送分组里再长第二格」
           //   与 2026-10-07 拍的「端点归设置 → 高级」—— 原话留在 `fnthink_settings_page.dart` 的注释里，
           //   新口径是 2026-10-08 第 1 条：幻念那一族只长一棵树，入口都在通知引擎。
-          _entry(
-            key: const ValueKey('engine-fnthink-settings'),
-            icon: Icons.settings_outlined,
-            iconColor: AppColors.systemGray(context),
-            title: l10n.fnthinkSettingsTitle,
-            subtitle: l10n.fnthinkHubSettingsDesc,
-            page: const FnthinkSettingsPage(),
-          ),
-          _divider(),
           _entry(
             key: const ValueKey('engine-fnthink-endpoint'),
             icon: Icons.hub_outlined,
@@ -348,6 +343,15 @@ class _NotificationEnginePageState extends State<NotificationEnginePage> {
             title: l10n.fnthinkEndpointTitle,
             subtitle: l10n.fnthinkEndpointEntryDesc,
             page: const FnthinkEndpointPage(),
+          ),
+          _divider(),
+          _entry(
+            key: const ValueKey('engine-fnthink-settings'),
+            icon: Icons.settings_outlined,
+            iconColor: AppColors.systemGray(context),
+            title: l10n.fnthinkSettingsTitle,
+            subtitle: l10n.fnthinkHubSettingsDesc,
+            page: const FnthinkSettingsPage(),
           ),
         ],
       ),

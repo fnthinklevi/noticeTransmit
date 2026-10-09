@@ -142,6 +142,40 @@ void main() {
       }
     });
 
+    /// T117（维护者 2026-10-09 第 1 条）：这一组的先后**按 key 序列**断，不按中文措辞 ——
+    /// 措辞漂了守卫就瞎了，而顺序是"哪一扇门先被看见"的实际形状。
+    /// ⚠ 断的是**先后**不是行号：加一行注释、抽一个方法都不该让它红（那是钉抄本不是钉契约）。
+    test('这一组的先后＝T117 拍的那条：接收→配对→通道→远程→端点→设置', () {
+      final hub = read('lib/pages/notification_engine_page.dart');
+      const wanted = [
+        'engine-fnthink-receive',
+        'engine-fnthink-peers',
+        'engine-fnthink-channels',
+        'engine-fnthink-remote',
+        'engine-fnthink-endpoint',
+        'engine-fnthink-settings',
+      ];
+      final at = <String, int>{
+        for (final key in wanted) key: hub.indexOf("ValueKey('$key')"),
+      };
+      expect(
+        at.values.every((i) => i >= 0),
+        isTrue,
+        reason:
+            '少一行 ⇒ 顺序断言会退化成"排剩下的"，先要求六扇门都在：'
+            '${at.entries.where((e) => e.value < 0).map((e) => e.key).toList()}',
+      );
+      final actual = at.entries.toList()
+        ..sort((a, b) => a.value.compareTo(b.value));
+      expect(
+        actual.map((e) => e.key).toList(),
+        wanted,
+        reason:
+            '这一组的先后被改了。设置放最后（它是出口不是日常），'
+            '接收放最前（开关在那一页里），配对紧随——它是收起来之后的第一步',
+      );
+    });
+
     test('两行的标题与目标页同源：都用那一张页自己的词条', () {
       // 「行标题」与「页标题」读同一枚 ARB 词条 —— 两边各写一份就是"改了行没改页"的源头
       // （T111 给「设备配对」立的同一条纪律，这里把它扩展到新增的两行）。
