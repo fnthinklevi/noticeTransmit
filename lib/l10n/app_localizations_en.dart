@@ -3276,6 +3276,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fnthinkConsentGateThisStep => 'This step';
 
   @override
+  String get fnthinkSendTargetGoPair => 'Pair a device';
+
+  @override
   String get fnthinkSendTargetTitle => 'Send to';
 
   @override

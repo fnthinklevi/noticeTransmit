@@ -1515,6 +1515,7 @@
   "fnthinkConsentGateMsg": "\"{action}\" needs the \"content relayed through the server\" consent first: everything in this family lives on that relay server (send/receive, storing and revoking ingress endpoints, pairing relationships, channel sends), and using it requires agreeing. The explanation and the consent button are on the \"Fnthink Push → Receive\" page (the full text is readable before you agree). Once you have agreed, come back here and tap this step again.",
   "fnthinkConsentGateGo": "Open that page",
   "fnthinkConsentGateThisStep": "This step",
+  "fnthinkSendTargetGoPair": "Pair a device",
   "fnthinkSendTargetTitle": "Send to",
   "fnthinkSendTargetDevices": "Paired devices",
   "fnthinkSendTargetNoPeer": "No device has been paired yet - pair one on the \"Device pairing\" page, or pick a Webhook channel below.",

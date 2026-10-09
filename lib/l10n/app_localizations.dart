@@ -5882,6 +5882,12 @@ abstract class AppLocalizations {
   /// **'这一步'**
   String get fnthinkConsentGateThisStep;
 
+  /// No description provided for @fnthinkSendTargetGoPair.
+  ///
+  /// In zh, this message translates to:
+  /// **'去配对'**
+  String get fnthinkSendTargetGoPair;
+
   /// No description provided for @fnthinkSendTargetTitle.
   ///
   /// In zh, this message translates to:

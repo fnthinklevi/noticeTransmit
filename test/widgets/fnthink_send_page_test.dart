@@ -10,6 +10,7 @@ import 'package:notice_transmit/services/fnthink_contract_loader.dart';
 import 'package:notice_transmit/services/fnthink_webhook_targets.dart';
 import 'package:notice_transmit/services/fnthink_settings.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
+import 'package:notice_transmit/widgets/fnthink_card.dart';
 import 'package:notice_transmit/widgets/primary_action_button.dart';
 
 /// 那张共用发送页（T98 片④）。
@@ -196,7 +197,20 @@ void main() {
         tester.element(find.byType(FnthinkSendPage)),
       );
       expect(find.text(l10n.remotePeersReadFailed), findsOneWidget);
-      // T123：空名单那句**不再是**「还没有任何远程执行记录」（那是执行历史那格的话，串台）
+      // T123：断言按 key（断形状不断措辞）—— 「读不出来」与「真的没有」是两句，
+      // 画哪一句由这一格是哪一个 key 说清，不靠读文案去猜。
+      expect(
+        find.byKey(const ValueKey('remote-send-peers-unknown')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('remote-send-peers-empty')),
+        findsNothing,
+      );
+      // 「去配对」那枚是**空态**的出路：读不出来时不知道有没有设备，
+      // 更不该把人支去配对（那是把"读失败"说成"你没设备"的同一个错，换了个形式）。
+      expect(find.byKey(const ValueKey('fnthink-send-go-pair')), findsNothing);
+      // 空名单那句**不再是**「还没有任何远程执行记录」（那是执行历史那格的话，串台）
       expect(find.text(l10n.fnthinkSendTargetNoPeer), findsNothing);
     });
 
@@ -205,10 +219,26 @@ void main() {
       final l10n = AppLocalizations.of(
         tester.element(find.byType(FnthinkSendPage)),
       );
-      // T123 的正解：空名单说的是"还没配对过设备"（并给出处），不是"没有执行历史"。
-      expect(find.text(l10n.fnthinkSendTargetNoPeer), findsOneWidget);
+      // T123 的正解，三件都按 key 断：① 空名单那一格说的是"还没配对过设备"
+      // （并给出处），不是"没有执行历史"、也不是"读不出来"。
+      final emptyNote = find.byKey(const ValueKey('remote-send-peers-empty'));
+      expect(emptyNote, findsOneWidget);
+      expect(tester.widget<Text>(emptyNote).data, l10n.fnthinkSendTargetNoPeer);
+      expect(
+        find.byKey(const ValueKey('remote-send-peers-unknown')),
+        findsNothing,
+      );
       expect(find.text(l10n.remoteHistoryEmpty), findsNothing);
       expect(find.text(l10n.remotePeersReadFailed), findsNothing);
+      // ② 空态要给**可点的一枚**去处（只说"没有"而不给出路 = 让用户自己猜）；
+      // 置灰的那一枚等于没给 —— 所以连"它按得动"一起断。
+      final goPair = find.byKey(const ValueKey('fnthink-send-go-pair'));
+      expect(goPair, findsOneWidget);
+      expect(
+        tester.widget<FnthinkInlineAction>(goPair).onPressed,
+        isNotNull,
+        reason: '枚在那儿但按不动 ⇒ 空态那条出路仍然只是文案',
+      );
     });
   });
 

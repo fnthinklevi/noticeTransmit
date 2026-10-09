@@ -1536,6 +1536,7 @@
   "fnthinkConsentGateMsg": "「{action}」要先过「内容经服务器中转」这道同意：这一族功能的东西都放在那台中转机上（收发、接入端点的存与撤、配对关系、通道发送），要它经手就得先同意。说明与同意都在「幻念推送 → 接收推送」那一页里（同意之前可以读到全文）。同意之后回到这里，再点一次这一步就行。",
   "fnthinkConsentGateGo": "去那一页同意",
   "fnthinkConsentGateThisStep": "这一步",
+  "fnthinkSendTargetGoPair": "去配对",
   "fnthinkSendTargetTitle": "发给谁",
   "fnthinkSendTargetDevices": "已配对的设备",
   "fnthinkSendTargetNoPeer": "这台还没配对过任何设备 —— 先去「设备配对」那一页配一台，或在下面选一条 Webhook 通道。",

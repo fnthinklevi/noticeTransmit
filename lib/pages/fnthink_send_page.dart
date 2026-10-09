@@ -18,6 +18,7 @@ import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
 import '../services/fnthink_webhook_targets.dart';
 import 'fnthink_consent_gate.dart';
+import 'fnthink_peers_page.dart';
 
 /// 「发一条」那两档收成一张页（T98 片④）。
 ///
@@ -536,13 +537,22 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             keyName: 'remote-send-peers-unknown',
             text: l10n.remotePeersReadFailed,
           )
-        else if (rows.isEmpty)
+        else if (rows.isEmpty) ...[
           // ⚠ 「还没有配对过任何设备」与「读不出来」是两句：名单空着不是"你可以随便填个地址"。
+          //    并且**必须给出去处**（T123）：空态只说"没有"而不给可点的一枚，用户只能自己猜。
           FnthinkNote(
             keyName: 'remote-send-peers-empty',
             text: l10n.fnthinkSendTargetNoPeer,
-          )
-        else
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FnthinkInlineAction(
+              key: const ValueKey('fnthink-send-go-pair'),
+              label: l10n.fnthinkSendTargetGoPair,
+              onPressed: _busy ? null : _openPeersPage,
+            ),
+          ),
+        ] else
           for (final peer in rows)
             Align(
               alignment: Alignment.centerLeft,
@@ -649,6 +659,16 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         ),
       ],
     );
+  }
+
+  /// 空名单那条出路（T123）：推到「设备配对」那一页。
+  /// ⚠ 用无参构造（它自己从 locator 取依赖）：发送页没有那一包依赖，也不该替它装配。
+  Future<void> _openPeersPage() async {
+    await Navigator.of(
+      context,
+    ).push(CupertinoPageRoute<void>(builder: (_) => const FnthinkPeersPage()));
+    // 回来重读一次名单：用户很可能就是去那边配对完回来的。
+    await _loadPeers();
   }
 
   /// 生产默认的「发到 Webhook 通道」那一发（测试用 deps 覆盖）。

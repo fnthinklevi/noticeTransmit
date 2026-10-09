@@ -3133,6 +3133,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkConsentGateThisStep => '这一步';
 
   @override
+  String get fnthinkSendTargetGoPair => '去配对';
+
+  @override
   String get fnthinkSendTargetTitle => '发给谁';
 
   @override
