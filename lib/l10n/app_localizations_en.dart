@@ -4620,6 +4620,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get remoteActionAlertRing => 'Make the other device ring and vibrate';
 
   @override
+  String get remoteActionSmsSearch =>
+      'Search the other device’s SMS by keyword';
+
+  @override
   String get remoteSettingNotification =>
       'Ask the other device to open its notification-listener page';
 
@@ -4715,6 +4719,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String remoteSendNeedsReportCount(int min, int max) {
     return 'How many to send back must be a whole number between $min and $max.';
+  }
+
+  @override
+  String get remoteSendSmsKeywordLabel => 'Which keyword';
+
+  @override
+  String get remoteSendSmsKeywordWhy =>
+      'Only the matching messages travel back (time / number / body). If the other device’s SMS monitoring is off, this will not run.';
+
+  @override
+  String remoteSendNeedsSmsKeyword(int min, int max) {
+    return 'The keyword must be between $min and $max characters and carry no control characters.';
   }
 
   @override

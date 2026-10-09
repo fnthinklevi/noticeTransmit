@@ -397,7 +397,14 @@ class FnthinkContract {
     return value is String && value.isNotEmpty ? value : null;
   }
 
-  /// 参数（「要几条」）的下界／上界。不是回传动作或缺项 ⇒ null。
+  /// 这条回传动作的参数是哪种形态（`count` = 要几条；`keyword` = 搜什么词）。
+  /// 不是回传动作或缺项 ⇒ null（**不猜**：没声明的参数形态一律不放行，见 [reportArgumentProblem]）。
+  String? l2ReportKind(String action) {
+    final value = l2Reports[action]?['argumentKind'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// 参数（「要几条」）的下界／上界。不是 count 那一种或缺项 ⇒ null。
   int? l2ReportMinItems(String action) {
     final value = l2Reports[action]?['minItems'];
     return value is int ? value : null;
@@ -405,6 +412,17 @@ class FnthinkContract {
 
   int? l2ReportMaxItems(String action) {
     final value = l2Reports[action]?['maxItems'];
+    return value is int ? value : null;
+  }
+
+  /// 参数（「搜什么词」）的长度下界／上界。不是 keyword 那一种或缺项 ⇒ null。
+  int? l2ReportMinChars(String action) {
+    final value = l2Reports[action]?['minChars'];
+    return value is int ? value : null;
+  }
+
+  int? l2ReportMaxChars(String action) {
+    final value = l2Reports[action]?['maxChars'];
     return value is int ? value : null;
   }
 
@@ -1743,20 +1761,34 @@ class FnthinkContract {
         'capabilities.l2.reports.${entry.key} 没列进 requiresArgumentFrom：'
         '回传的参数就是「要几条」，缺了它这一发没有东西可回',
       );
+      final kind = spec is Map ? spec['argumentKind'] : null;
       need(
-        spec is Map && spec['argumentKind'] == 'count',
-        'capabilities.l2.reports.${entry.key}.argumentKind 必须是 count：$spec',
+        kind == 'count' || kind == 'keyword',
+        'capabilities.l2.reports.${entry.key}.argumentKind 必须是 count 或 keyword：$spec',
       );
-      final minItems = spec is Map ? spec['minItems'] : null;
-      final maxItems = spec is Map ? spec['maxItems'] : null;
-      need(
-        minItems is int && minItems >= 1,
-        'capabilities.l2.reports.${entry.key}.minItems 必须是 ≥1 的整数：$spec',
-      );
-      need(
-        maxItems is int && minItems is int && maxItems >= minItems,
-        'capabilities.l2.reports.${entry.key}.maxItems 必须 ≥ minItems：$spec',
-      );
+      if (kind == 'count') {
+        final minItems = spec is Map ? spec['minItems'] : null;
+        final maxItems = spec is Map ? spec['maxItems'] : null;
+        need(
+          minItems is int && minItems >= 1,
+          'capabilities.l2.reports.${entry.key}.minItems 必须是 ≥1 的整数：$spec',
+        );
+        need(
+          maxItems is int && minItems is int && maxItems >= minItems,
+          'capabilities.l2.reports.${entry.key}.maxItems 必须 ≥ minItems：$spec',
+        );
+      } else if (kind == 'keyword') {
+        final minChars = spec is Map ? spec['minChars'] : null;
+        final maxChars = spec is Map ? spec['maxChars'] : null;
+        need(
+          minChars is int && minChars >= 1,
+          'capabilities.l2.reports.${entry.key}.minChars 必须是 ≥1 的整数：$spec',
+        );
+        need(
+          maxChars is int && minChars is int && maxChars >= minChars,
+          'capabilities.l2.reports.${entry.key}.maxChars 必须 ≥ minChars：$spec',
+        );
+      }
       final reportTitle = spec is Map ? spec['title'] : null;
       need(
         reportTitle is String &&

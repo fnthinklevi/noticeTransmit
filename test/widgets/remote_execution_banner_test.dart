@@ -36,6 +36,10 @@ class _NoopL2 implements FnthinkL2Executor {
 
   @override
   Future<FnthinkL2Result> ringAlert() async => const FnthinkL2Result.ok();
+
+  @override
+  Future<({String? payload, String? reason})> searchSms(String keyword) async =>
+      (payload: null, reason: 'sms-search-disabled');
 }
 
 class _NoopL3 implements FnthinkL3Executor {

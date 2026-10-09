@@ -25,6 +25,7 @@ class DeviceL2Executor implements FnthinkL2Executor {
     required this.pushDeviceStateNow,
     required this.reportNotificationsNow,
     required this.ringAlertNow,
+    required this.searchSmsNow,
   });
 
   /// 启停整个通知监听服务。回 false = 原生拒绝了。
@@ -41,6 +42,14 @@ class DeviceL2Executor implements FnthinkL2Executor {
 
   /// 让这台响一条（T124 片B 的 `alert:ring`）。回 false = **没显示**（权限/渠道被关）。
   final Future<bool> Function() ringAlertNow;
+
+  /// 在本机短信里按关键词搜，组装成要回传的那段正文（T124 片B 的 `sms:search`）。
+  ///
+  /// `payload` 非空 = 成；否则看 `reason`（`sms-search-disabled` 开关关着 /
+  /// `sms-search-refused` 没权限被拒 / `sms-search-failed` 读不出来）——
+  /// 三种对用户的下一步动作不一样，所以带 reason 而不是一个 null（见接口那一格）。
+  final Future<({String? payload, String? reason})> Function(String keyword)
+  searchSmsNow;
 
   @override
   Future<FnthinkL2Result> setListener({required bool enabled}) async {
@@ -111,6 +120,15 @@ class DeviceL2Executor implements FnthinkL2Executor {
           : const FnthinkL2Result.failed('alert-ring-refused');
     } catch (e) {
       return const FnthinkL2Result.failed('threw:alert:ring');
+    }
+  }
+
+  @override
+  Future<({String? payload, String? reason})> searchSms(String keyword) async {
+    try {
+      return await searchSmsNow(keyword);
+    } catch (e) {
+      return (payload: null, reason: 'threw:sms:search');
     }
   }
 }

@@ -81,6 +81,17 @@ class _RecordingL2 implements FnthinkL2Executor {
         ? const FnthinkL2Result.ok()
         : const FnthinkL2Result.failed('alert-ring-refused');
   }
+
+  /// 搜短信那一条要回的那段正文（null = 没成，理由看 reason）。
+  ({String? payload, String? reason})? smsResult;
+
+  @override
+  Future<({String? payload, String? reason})> searchSms(String keyword) async {
+    calls.add('searchSms($keyword)');
+    await _pass();
+    if (!ok) return (payload: null, reason: 'sms-search-failed');
+    return smsResult ?? (payload: null, reason: 'sms-search-failed');
+  }
 }
 
 class _RecordingL3 implements FnthinkL3Executor {
@@ -477,6 +488,28 @@ void main() {
       final r = runner();
       await r.run(accepted());
       expect(reports, isEmpty, reason: 'payload 为空的 ok 结果不该借道回传');
+    });
+
+    test('sms:search 也走同一条回传（产出从 payload 出去）', () async {
+      windowSeconds = 0;
+      l2.smsResult = (payload: '07-12 09:31 10086 验证码 123456', reason: null);
+      final r = runner();
+      await r.run(accepted(item: 'sms:search/验证码'));
+      expect(l2.calls, ['searchSms(验证码)']);
+      expect(
+        reports.single,
+        '8K3FJ6QPTM9WZ4VHNS|sms:search|07-12 09:31 10086 验证码 123456',
+      );
+    });
+
+    test('sms:search 没成（开关关着）⇒ failed 原样带上理由，且一次回传都不发', () async {
+      windowSeconds = 0;
+      l2.smsResult = (payload: null, reason: 'sms-search-disabled');
+      final r = runner();
+      await r.run(accepted(item: 'sms:search/验证码'));
+      expect(reports, isEmpty);
+      expect(saved.last.state, RemoteExecutionStates.failed);
+      expect(saved.last.reason, 'sms-search-disabled');
     });
   });
 }

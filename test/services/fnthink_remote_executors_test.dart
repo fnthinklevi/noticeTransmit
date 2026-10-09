@@ -30,6 +30,12 @@ void main() {
     var ringCalls = 0;
     var ringOk = true;
     var ringThrows = false;
+    late List<String> smsCalls;
+    ({String? payload, String? reason}) smsResult = (
+      payload: 'HIT',
+      reason: null,
+    );
+    var smsThrows = false;
 
     setUp(() {
       listenerCalls = [];
@@ -45,6 +51,9 @@ void main() {
       ringCalls = 0;
       ringOk = true;
       ringThrows = false;
+      smsCalls = [];
+      smsResult = (payload: 'HIT', reason: null);
+      smsThrows = false;
     });
 
     DeviceL2Executor build() => DeviceL2Executor(
@@ -70,6 +79,11 @@ void main() {
         ringCalls++;
         if (ringThrows) throw StateError('boom');
         return ringOk;
+      },
+      searchSmsNow: (keyword) async {
+        smsCalls.add(keyword);
+        if (smsThrows) throw StateError('boom');
+        return smsResult;
       },
     );
 
@@ -121,6 +135,8 @@ void main() {
         setChannelEnabled: (target) async => throw StateError('boom'),
         reportNotificationsNow: (count) async => null,
         ringAlertNow: () async => true,
+        searchSmsNow: (keyword) async =>
+            (payload: null, reason: 'sms-search-failed'),
         pushDeviceStateNow: () async => true,
       );
       expect(
@@ -155,6 +171,17 @@ void main() {
       );
       pushThrows = true;
       expect((await build().pushDeviceState()).reason, startsWith('threw:'));
+    });
+
+    test('sms:search：产出与理由原样透传；抛异常收成 threw', () async {
+      final hit = await build().searchSms('验证码');
+      expect(smsCalls, ['验证码']);
+      expect(hit.payload, 'HIT');
+      expect(hit.reason, isNull);
+      smsResult = (payload: null, reason: 'sms-search-disabled');
+      expect((await build().searchSms('x')).reason, 'sms-search-disabled');
+      smsThrows = true;
+      expect((await build().searchSms('x')).reason, 'threw:sms:search');
     });
   });
 

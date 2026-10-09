@@ -156,6 +156,9 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
   /// minItems／maxItems，唯一判据是 `reportCountInRange`）—— 页面不自己抄上下界。
   final TextEditingController _reportCount = TextEditingController();
 
+  /// 关键词那一类（T124 片B 的 `sms:search`）：用户手上只有一枚词，长度区间由契约给。
+  final TextEditingController _keyword = TextEditingController();
+
   /// L3 那两个 `toggle` 项要设成的那一档（null = 没选）。
   ///
   /// ⚠ 发送侧**必填**：契约说 `itemMayCarryTarget` 是"可选"，那是为了老对端不必升级；
@@ -186,6 +189,7 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     _key.dispose();
     _totp.dispose();
     _reportCount.dispose();
+    _keyword.dispose();
     super.dispose();
   }
 
@@ -258,7 +262,11 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
 
   /// 这一项要的是「要几条」那种参数（T124 片B；判据直接读契约那张表）。
   bool _needsReportArgument(FnthinkContract contract) =>
-      _item.isNotEmpty && contract.l2ReportMinItems(_item) != null;
+      _item.isNotEmpty && contract.l2ReportKind(_item) == 'count';
+
+  /// 这一项要的是「搜什么词」那种参数（T124 片B 的 `sms:search`）。
+  bool _needsKeywordArgument(FnthinkContract contract) =>
+      _item.isNotEmpty && contract.l2ReportKind(_item) == 'keyword';
 
   /// 这一项是 L3 里那两个 `toggle` 吗（要选"设成哪一档"）。
   ///
@@ -292,11 +300,15 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     final contract = _contract!;
     if (!_needsArgument(contract, _level)) return '';
     // 「要几条」那一条：用户手上只有一枚数，拼出来的就是那个数（十进制文本）。
-    // ⚠ 只在 `reportCountInRange` 通过时才走到这里（`_commandBlocked` 先拦），
+    // ⚠ 只在 `reportArgumentProblem` 通过时才走到这里（`_commandBlocked` 先拦），
     //   拼出去的是 `int` 的规范写法（`07` 这种前导零在解析那一侧也认，但送到线
     //   上的应当是同一个数）。
-    if (contract.l2ReportMinItems(_item) != null) {
+    if (_needsReportArgument(contract)) {
       return '${int.tryParse(_reportCount.text.trim()) ?? 0}';
+    }
+    // 「搜什么词」那一条：用户手上只有一枚词（前后空白去掉；判据与收件那一格同源）。
+    if (_needsKeywordArgument(contract)) {
+      return _keyword.text.trim();
     }
     return buildChannelArgument(
       family: _channelFamily ?? kFnthinkRemoteChannelFamilies.first,
@@ -314,14 +326,20 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
     }
     if (_item.isEmpty) return l10n.remoteSendAction;
     if (_needsArgument(contract, _level)) {
-      final min = contract.l2ReportMinItems(_item);
-      if (min != null) {
-        // 回传那一条：判据的唯一作者是 `reportCountInRange`（与收件那一格同源），
+      final kind = contract.l2ReportKind(_item);
+      if (kind == 'count') {
+        // 回传那一条：判据的唯一作者是 `reportArgumentProblem`（与收件那一格同源），
         // 上下界也从契约现取 —— 页面不自己抄一份。
+        final min = contract.l2ReportMinItems(_item) ?? 1;
         final max = contract.l2ReportMaxItems(_item) ?? min;
-        final count = int.tryParse(_reportCount.text.trim());
-        if (count == null || !reportCountInRange(contract, _item, count)) {
+        if (reportArgumentProblem(contract, _item, _reportCount.text) != null) {
           return l10n.remoteSendNeedsReportCount(min, max);
+        }
+      } else if (kind == 'keyword') {
+        final min = contract.l2ReportMinChars(_item) ?? 1;
+        final max = contract.l2ReportMaxChars(_item) ?? min;
+        if (reportArgumentProblem(contract, _item, _keyword.text) != null) {
+          return l10n.remoteSendNeedsSmsKeyword(min, max);
         }
       } else {
         if (_channelFamily == null) return l10n.remoteSendNeedsFamily;
@@ -791,6 +809,8 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         if (needsArgument)
           ...(_needsReportArgument(contract)
               ? _reportArgumentRows(l10n)
+              : _needsKeywordArgument(contract)
+              ? _keywordArgumentRows(l10n)
               : _channelArgumentRows(l10n)),
         if (needsL3Target) ...[
           const SizedBox(height: 10),
@@ -858,6 +878,34 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       FnthinkNote(
         keyName: 'remote-send-report-count-why',
         text: l10n.remoteSendReportCountWhy,
+      ),
+    ];
+  }
+
+  /// 「搜什么词」那一项的参数：**一枚词**，长度区间由契约给（T124 片B 的 `sms:search`）。
+  ///
+  /// ⚠ 提示里写着"对面那台的短信监听关着时这一发不会执行" —— 那件事**本机判不了**
+  /// （开关在对面），所以它只能是一句说明，不是一道闸；真拦在对面那一格（执行器）。
+  List<Widget> _keywordArgumentRows(AppLocalizations l10n) {
+    final contract = _contract!;
+    final min = contract.l2ReportMinChars(_item) ?? 1;
+    final max = contract.l2ReportMaxChars(_item) ?? min;
+    return [
+      const SizedBox(height: 10),
+      FnthinkNote(
+        keyName: 'remote-send-keyword-label',
+        text: l10n.remoteSendSmsKeywordLabel,
+      ),
+      CupertinoTextField(
+        key: const ValueKey('remote-send-keyword'),
+        controller: _keyword,
+        placeholder: '$min–$max',
+        autocorrect: false,
+        onChanged: (_) => setState(() {}),
+      ),
+      FnthinkNote(
+        keyName: 'remote-send-keyword-why',
+        text: l10n.remoteSendSmsKeywordWhy,
       ),
     ];
   }

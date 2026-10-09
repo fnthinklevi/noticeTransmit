@@ -60,6 +60,18 @@ class RecordingExecutor implements FnthinkL2Executor {
         ? const FnthinkL2Result.failed('alert-ring-refused')
         : const FnthinkL2Result.ok();
   }
+
+  /// 搜短信那一条要回的那段正文（null = 没成，理由看 reason）。
+  ({String? payload, String? reason})? smsResult;
+
+  @override
+  Future<({String? payload, String? reason})> searchSms(String keyword) async {
+    calls.add('searchSms($keyword)');
+    if (failEverything) {
+      return (payload: null, reason: 'sms-search-failed');
+    }
+    return smsResult ?? (payload: null, reason: 'sms-search-disabled');
+  }
 }
 
 void main() {
@@ -79,12 +91,13 @@ void main() {
       expect(contract.l2ActionsRequiringArgument, [
         'channel:toggle',
         'notifications:report',
+        'sms:search',
       ]);
       for (final a in contract.l2Reports.keys) {
         expect(
           contract.l2ActionsRequiringArgument,
           contains(a),
-          reason: '回传的参数就是「要几条」，缺了它这一发没有东西可回',
+          reason: '回传的参数就是必须的参数，缺了它这一发没有东西可回',
         );
       }
     });
@@ -332,6 +345,83 @@ void main() {
       expect(r.ok, isFalse);
       expect(r.reason, 'alert-ring-refused');
       expect(r.receipt(contract), 'failed_action');
+    });
+  });
+
+  group('搜短信那一条（T124 片B 的 sms:search）：关键词形态的回传', () {
+    test('契约：在词表里、必带参数、kind 是 keyword、上下界与点名的标题都在', () {
+      expect(contract.l2Actions, contains('sms:search'));
+      expect(contract.l2ActionsRequiringArgument, contains('sms:search'));
+      expect(contract.l2ReportKind('sms:search'), 'keyword');
+      expect(contract.l2ReportMinChars('sms:search'), 1);
+      expect(contract.l2ReportMaxChars('sms:search'), 32);
+      expect(contract.l2ReportTitle('sms:search'), 'sms-search');
+    });
+
+    test('命中 ⇒ 执行器被调一次，产出挂在结果上', () async {
+      final exec = RecordingExecutor()
+        ..smsResult = (payload: '07-12 09:31 10086 验证码 123456', reason: null);
+      final r = await dispatchL2Action(
+        contract,
+        exec,
+        const FnthinkL2Action('sms:search', '验证码'),
+      );
+      expect(exec.calls, ['searchSms(验证码)']);
+      expect(r.ok, isTrue);
+      expect(r.payload, contains('123456'));
+    });
+
+    test('执行器回一句理由（开关关着 / 没权限 / 读不出来）⇒ failed 原样带上', () async {
+      for (final reason in [
+        'sms-search-disabled',
+        'sms-search-refused',
+        'sms-search-failed',
+      ]) {
+        final exec = RecordingExecutor()
+          ..smsResult = (payload: null, reason: reason);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          const FnthinkL2Action('sms:search', '验证码'),
+        );
+        expect(r.ok, isFalse);
+        expect(r.reason, reason);
+      }
+    });
+
+    test('关键词越界/空/带控制字符 ⇒ failed，且**执行器一次都不被调**', () async {
+      for (final bad in ['', '   ', 'x' * 33, 'x\ny']) {
+        final exec = RecordingExecutor()
+          ..smsResult = (payload: 'HIT', reason: null);
+        final r = await dispatchL2Action(
+          contract,
+          exec,
+          FnthinkL2Action('sms:search', bad),
+        );
+        expect(r.ok, isFalse, reason: '关键词「$bad」不该过');
+        expect(r.reason, startsWith('bad-keyword:'));
+        expect(exec.calls, isEmpty, reason: '拦在动手之前');
+      }
+    });
+
+    test('收件前的形状判据与派发同源（rejectL2Argument 也按 keyword 判）', () {
+      expect(
+        rejectL2Argument(contract, const FnthinkL2Action('sms:search', '验证码')),
+        isNull,
+      );
+      expect(
+        rejectL2Argument(contract, FnthinkL2Action('sms:search', 'x' * 33)),
+        startsWith('bad-keyword:'),
+      );
+      // count 那一条不受影响（两种形态各判各的）。
+      expect(
+        reportArgumentProblem(contract, 'notifications:report', '10'),
+        isNull,
+      );
+      expect(
+        reportArgumentProblem(contract, 'notifications:report', '21'),
+        startsWith('bad-report-count:'),
+      );
     });
   });
 }

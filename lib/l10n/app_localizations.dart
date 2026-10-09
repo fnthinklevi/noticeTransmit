@@ -8017,6 +8017,12 @@ abstract class AppLocalizations {
   /// **'让对面响铃＋震动提醒'**
   String get remoteActionAlertRing;
 
+  /// No description provided for @remoteActionSmsSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'让对面按关键词搜短信'**
+  String get remoteActionSmsSearch;
+
   /// No description provided for @remoteSettingNotification.
   ///
   /// In zh, this message translates to:
@@ -8178,6 +8184,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'回传条数只能是 {min}–{max} 之间的整数。'**
   String remoteSendNeedsReportCount(int min, int max);
+
+  /// No description provided for @remoteSendSmsKeywordLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜什么词'**
+  String get remoteSendSmsKeywordLabel;
+
+  /// No description provided for @remoteSendSmsKeywordWhy.
+  ///
+  /// In zh, this message translates to:
+  /// **'只回传命中的那几条（时间／号码／正文）。对面那台的短信监听关着时这一发不会执行。'**
+  String get remoteSendSmsKeywordWhy;
+
+  /// No description provided for @remoteSendNeedsSmsKeyword.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜什么词要填 {min}–{max} 个字，且不能带控制字符。'**
+  String remoteSendNeedsSmsKeyword(int min, int max);
 
   /// No description provided for @remoteSendStartedNote.
   ///

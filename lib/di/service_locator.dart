@@ -27,6 +27,8 @@ import '../services/fnthink_remote_settings.dart';
 import '../services/fnthink_remote_wiring.dart';
 import '../models/notification_record.dart';
 import '../services/fnthink_notification_report.dart';
+import '../services/fnthink_sms_search_report.dart';
+import '../services/platform_channel.dart';
 import '../services/remote_credential_store.dart';
 import '../services/remote_execution_notifier.dart';
 import '../services/secure_storage_service.dart';
@@ -277,6 +279,7 @@ void setupLocator() {
       pushDeviceStateNow: _pushDeviceStateOnce,
       reportNotificationsNow: _fnthinkReportNotificationsOnce,
       ringAlertNow: () => FnthinkAlertDisplay().ring(),
+      searchSmsNow: _fnthinkSearchSmsOnce,
     ),
   );
   getIt.registerLazySingleton<DeviceL3Executor>(
@@ -435,6 +438,38 @@ Future<String?> _fnthinkReportNotificationsOnce(int count) async {
     );
   } catch (e) {
     return null;
+  }
+}
+
+/// 「在本机短信里按关键词搜」那一发（T124 片B 的 `sms:search`）。
+///
+/// ⚠ **开关关着 = 这一发不给做**（不是"搜了没命中"）：短信监听那一族默认关，而它读的是短信
+/// 正文 —— 关着时**连库都不碰**，回一句 `sms-search-disabled`，让对面知道该去哪一台开。
+/// ⚠ **不落任何新库**：查询直连系统短信库（`READ_SMS`），命中就回、不存副本。
+/// 行里那句"在**已监听到的**短信里搜"今天没有对应的本地存储（SMS 一进一出、正文不落库），
+/// 造一个等于新增一处短信正文的**留存点** —— 那是隐私面的决定，不在这一片里顺手做。
+Future<({String? payload, String? reason})> _fnthinkSearchSmsOnce(
+  String keyword,
+) async {
+  try {
+    if (!getIt<SmsService>().smsMonitorEnabled) {
+      return (payload: null, reason: 'sms-search-disabled');
+    }
+    final raw = await AppChannels.notification.invokeMethod<List<Object?>>(
+      'searchFnthinkSms',
+      {'keyword': keyword},
+    );
+    if (raw == null) {
+      // 没给 READ_SMS / 被系统拒：原生回 null —— **与"空表"不同**（空表的含义是"搜了、没有"）。
+      return (payload: null, reason: 'sms-search-refused');
+    }
+    final rows = raw
+        .whereType<Map<Object?, Object?>>()
+        .map((m) => Map<String, Object?>.from(m))
+        .toList(growable: false);
+    return (payload: formatFnthinkSmsSearchReport(keyword, rows), reason: null);
+  } catch (e) {
+    return (payload: null, reason: 'sms-search-failed');
   }
 }
 

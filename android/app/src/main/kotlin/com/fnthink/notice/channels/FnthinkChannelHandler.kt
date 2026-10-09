@@ -7,6 +7,7 @@ import com.fnthink.notice.FnthinkInboxDisplay
 import com.fnthink.notice.FnthinkOpenTarget
 import com.fnthink.notice.FnthinkPairLink
 import com.fnthink.notice.FnthinkPresenceAlarm
+import com.fnthink.notice.SmsSearch
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.launch
@@ -86,6 +87,22 @@ internal class FnthinkChannelHandler(context: Context) : ChannelScope(context) {
             // 与收件显示同一条渠道与同一条"没显示就回 false"的纪律：
             // 回 false 的那一次执行会被记成失败（对面收到 done 会以为用户被提醒过了）。
             "showFnthinkAlert" -> result.success(FnthinkAlertDisplay.show(context))
+            // ── T124 片B：按关键词搜本机短信（`sms:search`）──
+            // 重活（库查询）下沉 ioScope（与配置那几发同一纪律）。
+            // ⚠ 回 null = **没查成**（没给 READ_SMS / 被系统拒），回空表 = 查成了但没命中 ——
+            //   两者在对面读起来完全不同（一个该去给权限，一个只是没命中）。
+            "searchFnthinkSms" -> {
+                val keyword = call.argument<String>("keyword").orEmpty().trim()
+                ioScope.launch {
+                    val rows =
+                        if (keyword.isEmpty()) {
+                            null
+                        } else {
+                            SmsSearch.search(context, keyword)
+                        }
+                    postSuccess(result, rows)
+                }
+            }
             // ── T83：点通知要跳去的那一条 ──
             // **冷启动那一发的唯一出口**：MainActivity 在 onCreate 里把 Intent 上的 messageId 记进
             // FnthinkOpenTarget，这里把它取走（取走即清）。为什么是 Dart 来拉而不是原生推：

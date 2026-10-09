@@ -166,6 +166,15 @@ abstract class FnthinkL2Executor {
   /// 那一次响是投递重试的可见代价）。产出为空（不是回传那一条）。
   Future<FnthinkL2Result> ringAlert();
 
+  /// 在本机短信里按 [keyword] 搜，并把命中的那几条**回传**给发起方（T124 片B 的 `sms:search`）。
+  ///
+  /// 回 `(payload: 正文, reason: null)` = 这一步成了；`payload: null, reason: ...` = 没成
+  /// （`sms-search-disabled` 开关关着 / `sms-search-refused` 没权限被拒 / `sms-search-failed` 读不出来）。
+  /// ⚠ 与 [reportNotifications] 的一处不同值得留意：那一个的"没成"只有一种（读不出来），
+  /// 这一个是三种，而**三种对用户的下一步动作不一样**（去开开关 / 去给权限 / 重试），
+  /// 所以它带 reason 而不是一个 null。
+  Future<({String? payload, String? reason})> searchSms(String keyword);
+
   /// 回传最近的 [count] 条通知原文（`notifications:report`，T124 片B）。
   ///
   /// 回**产出要回传的那段正文**；回 null = 这一步没做成（读库失败、这台没有可回传的东西）。
@@ -187,6 +196,7 @@ const Map<String, String> kFnthinkL2ActionVerbs = {
   'device_state:push': 'pushDeviceState',
   'notifications:report': 'reportNotifications',
   'alert:ring': 'ringAlert',
+  'sms:search': 'searchSms',
 };
 
 /// 把一个已解析的动作派到执行器上。纯转发，但**这里是唯一一处** action 名 → 方法的映射。
@@ -220,12 +230,13 @@ Future<FnthinkL2Result> dispatchL2Action(
     case 'alert:ring':
       return executor.ringAlert();
     case 'notifications:report':
-      // ⚠ 参数（「要几条」）的形状判据与收件那一格**同源**（[reportCountInRange]）：
-      //   两处各写一份的表现是"收的时候说没问题、动手时才发现动不了"。
-      final count = int.tryParse(action.argument.trim());
-      if (count == null || !reportCountInRange(contract, action.name, count)) {
-        return FnthinkL2Result.failed('bad-report-count:${action.argument}');
-      }
+      final badCount = reportArgumentProblem(
+        contract,
+        action.name,
+        action.argument,
+      );
+      if (badCount != null) return FnthinkL2Result.failed(badCount);
+      final count = int.parse(action.argument.trim());
       final payload = await executor.reportNotifications(count);
       if (payload == null || payload.isEmpty) {
         // 产不出正文 = 这一步没做成（读库失败那一支；"一条都没有"由产出自带一句明说，
@@ -233,6 +244,20 @@ Future<FnthinkL2Result> dispatchL2Action(
         return const FnthinkL2Result.failed('report-failed');
       }
       return FnthinkL2Result.ok(payload: payload);
+    case 'sms:search':
+      final badKeyword = reportArgumentProblem(
+        contract,
+        action.name,
+        action.argument,
+      );
+      if (badKeyword != null) return FnthinkL2Result.failed(badKeyword);
+      final found = await executor.searchSms(action.argument.trim());
+      if (found.reason != null) return FnthinkL2Result.failed(found.reason!);
+      final foundPayload = found.payload;
+      if (foundPayload == null || foundPayload.isEmpty) {
+        return const FnthinkL2Result.failed('sms-search-failed');
+      }
+      return FnthinkL2Result.ok(payload: foundPayload);
     default:
       // 走到这里说明 [parseL2Item] 与本函数对同一张表的读法不一致 ——
       // 两者都在同一份契约上，却给出了不同的答案。
@@ -371,23 +396,58 @@ bool reportCountInRange(FnthinkContract contract, String action, int count) {
   return count >= min && count <= max;
 }
 
+/// 回传动作的参数有没有问题（**按契约声明的 kind 分派**；回 null = 可以过）。
+///
+/// ⚠ **唯一的形状作者**：收件那一格（[rejectL2Argument]）与派发那一格都调它 ——
+/// 两处各写一份的表现是"收的时候说没问题、动手时才发现动不了"。
+/// 两种形态各一条判据，**不许合成一条"长度在 1..32 之间"**：
+/// count 是数值区间，keyword 是字符长度与可见性（控制字符会让一句话在对面读起来断成两截）。
+String? reportArgumentProblem(
+  FnthinkContract contract,
+  String action,
+  String argument,
+) {
+  final kind = contract.l2ReportKind(action);
+  if (kind == 'count') {
+    final count = int.tryParse(argument.trim());
+    if (count == null || !reportCountInRange(contract, action, count)) {
+      return 'bad-report-count:${argument.trim()}';
+    }
+    return null;
+  }
+  if (kind == 'keyword') {
+    final keyword = argument.trim();
+    final min = contract.l2ReportMinChars(action);
+    final max = contract.l2ReportMaxChars(action);
+    // 契约没声明上下界 ⇒ 一律不认（fail-closed：没上界的串会被原样带出去）。
+    if (min == null || max == null) return 'bad-keyword:${argument.trim()}';
+    if (keyword.length < min || keyword.length > max) {
+      return 'bad-keyword:${argument.trim()}';
+    }
+    for (final rune in keyword.runes) {
+      if (rune < 0x20 || rune == 0x7F) return 'bad-keyword:${argument.trim()}';
+    }
+    return null;
+  }
+  // 不在那张表里（或 kind 不认识）：**不认**（fail-closed）—— 这条判据只服务那张表里的动作，
+  // 别的动作有自己的参数形状（见 [rejectL2Argument] 里按名分派的那两支）。
+  return 'bad-argument-kind:$action';
+}
+
 /// 这条动作的参数能不能过（判定层那一格的前置判据，**按动作分派**）。
 ///
 /// 回 null = 这个动作没有额外形状要求（认不认得由 `parseL2Item` 在更早那一格判）。
 /// ⚠ 判据在**进延时窗口之前**跑：参数不成形就别让它占掉那 10 秒、再发一条 `executing`
 /// 回执（对面会以为它在排队），最后才失败。每一种参数的形状判据各有唯一作者：
-/// `channel:toggle` → [rejectChannelTarget]，回传动作 → [reportCountInRange]。
+/// `channel:toggle` → [rejectChannelTarget]，契约那张表里的动作 → [reportArgumentProblem]。
 ///
-/// ⚠ 只列"参数怎么读"分得最细的两种；两个都没有的动作（`listener:*` 等）回 null。
+/// ⚠ 只列"参数怎么读"分得最细的几种；两个都没有的动作（`listener:*` 等）回 null。
 String? rejectL2Argument(FnthinkContract contract, FnthinkL2Action action) {
   if (action.name == 'channel:toggle') {
     return rejectChannelTarget(action.argument);
   }
-  if (contract.l2ReportMinItems(action.name) != null) {
-    final count = int.tryParse(action.argument.trim());
-    if (count == null || !reportCountInRange(contract, action.name, count)) {
-      return 'bad-report-count:${action.argument}';
-    }
+  if (contract.l2ReportKind(action.name) != null) {
+    return reportArgumentProblem(contract, action.name, action.argument);
   }
   return null;
 }

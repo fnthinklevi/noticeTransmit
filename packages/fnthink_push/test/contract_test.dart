@@ -2810,13 +2810,41 @@ void main() {
       );
     });
 
-    test('argumentKind 不是 count ⇒ 报出来', () {
+    test('argumentKind 不是 count/keyword ⇒ 报出来', () {
       final broken = withL2(
         reports: {
-          'notifications:report': {...okSpec, 'argumentKind': 'keyword'},
+          'notifications:report': {...okSpec, 'argumentKind': 'flag'},
         },
       );
-      expect(broken.validate(), anyElement(contains('argumentKind 必须是 count')));
+      expect(
+        broken.validate(),
+        anyElement(contains('argumentKind 必须是 count 或 keyword')),
+      );
+    });
+
+    test('keyword 那一种缺 minChars/maxChars 或区间倒置 ⇒ 各报各的', () {
+      const kw = {
+        'argumentKind': 'keyword',
+        'minChars': 1,
+        'maxChars': 32,
+        'title': 'sms-search',
+      };
+      expect(
+        withL2(
+          reports: {
+            'notifications:report': {...kw, 'minChars': 0},
+          },
+        ).validate(),
+        anyElement(contains('minChars 必须是 ≥1')),
+      );
+      expect(
+        withL2(
+          reports: {
+            'notifications:report': {...kw, 'maxChars': 0},
+          },
+        ).validate(),
+        anyElement(contains('maxChars 必须 ≥ minChars')),
+      );
     });
 
     test('minItems < 1 或 maxItems < minItems ⇒ 各报各的', () {

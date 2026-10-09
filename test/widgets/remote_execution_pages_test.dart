@@ -525,6 +525,71 @@ void main() {
         'notifications:report/10',
       );
     });
+
+    testWidgets('搜短信那一条 ⇒ 只填一枚关键词：空被挡，填了发 sms:search/<词>', (tester) async {
+      String? sent;
+      await pumpSend(
+        tester,
+        send:
+            ({
+              required String peer,
+              required String title,
+              required String text,
+            }) async {
+              sent = text;
+              return const FnthinkSendResult(
+                status: FnthinkSendStatus.accepted,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-peer-8K3FJ6QPTM9WZ4VHNS')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('remote-send-action-sms:search')),
+      );
+      await tester.pumpAndSettle();
+      // 它只要一枚词 —— 回传那张数格与通道那三格都不该出现。
+      expect(find.byKey(const ValueKey('remote-send-keyword')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('remote-send-report-count')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('remote-send-family-webhook')),
+        findsNothing,
+      );
+
+      Future<void> submit() async {
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('remote-send-submit')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('remote-send-submit')));
+        await tester.pumpAndSettle();
+      }
+
+      await submit();
+      expect(sent, isNull);
+      expect(
+        find.byKey(const ValueKey('fnthink-send-blocked')),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('remote-send-keyword')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('remote-send-keyword')),
+        '验证码',
+      );
+      await tester.pumpAndSettle();
+      await submit();
+      await _confirmIfPresent(tester);
+      expect(RemoteCommandEnvelope.decode(sent ?? '')?.item, 'sms:search/验证码');
+    });
   });
 
   group('历史页：三种"没有记录"分开说', () {
