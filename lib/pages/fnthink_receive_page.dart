@@ -13,6 +13,7 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_presence_scheduler.dart';
 import '../services/fnthink_peer_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
+import '../services/fnthink_relay_consent.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
@@ -88,6 +89,10 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
   /// 表现是"界面说已同意、协调者说不认"。
   bool _enabled = false;
   bool _consented = false;
+
+  /// 撤销那一发的结论（T119）。null = 这一页还没撤销过 —— 撤销之后"已同意"那行字会消失，
+  /// 用户需要一句"那刚才发生了什么、什么没被删"，否则他分不清"我撤销成功了"与"页面坏了"。
+  String? _consentResult;
 
   bool _running = false;
   String? _startNote;
@@ -306,6 +311,30 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
     if (_enabled) unawaited(_toggleReceive(true));
   }
 
+  /// 撤销那一发（T119）：确认后清那一枚键，然后**重读状态** —— 于是这一页自己回到
+  /// 「还没同意」那一屏（`fnthink-consent-pending`），不留一个"写着已同意而其实已撤销"的中间态。
+  /// 取消 ⇒ 这里什么都不写（连这行结论都不写：没发生过的事不该出现在屏幕上）。
+  Future<void> _revokeConsent() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final l10n = AppLocalizations.of(context);
+    final revoked = await confirmAndRevokeRelayConsent(
+      context: context,
+      settings: _settings,
+    );
+    if (!mounted) return;
+    if (!revoked) {
+      setState(() => _busy = false);
+      return;
+    }
+    setState(() {
+      _consented = false;
+      _consentResult = l10n.fnthinkConsentRevokeDone;
+      _busy = false;
+    });
+    await _readEnabled();
+  }
+
   /// 翻总开关。⚠ **起不来时不回弹**：prefs 里已经是"开"的那一份，回弹说的是"你没点上"这句假话，
   /// 而真相要两格分开：开关=用户要的，状态行=实际的。
   /// 开关。⚠ 这里有一个必须写下来的取舍：**开关那一格显示的是「用户要的状态」（prefs 真值），
@@ -445,11 +474,26 @@ class _FnthinkReceivePageState extends State<FnthinkReceivePage> {
               child: Text(l10n.fnthinkConsentTitle),
             ),
           ),
-        ] else
+        ] else ...[
           FnthinkNote(
             keyName: 'fnthink-consent-granted',
             text: l10n.fnthinkConsentGranted,
           ),
+          // 撤销那一发（T119）：**同意是一次显式动作，撤销也是** —— 所以它是一枚要点第二下的按钮，
+          // 不是把上面那行字改成可点。两处入口（这一页与「幻念推送设置」那一页）调的是
+          // **同一个实现** `confirmAndRevokeRelayConsent`，清的是同一枚键 —— 两边各写一遍
+          // 迟早一处清了键、另一处还显示"已同意"。
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SecondaryActionButton(
+              keyName: 'fnthink-consent-revoke',
+              label: l10n.fnthinkConsentRevoke,
+              onPressed: _busy ? null : _revokeConsent,
+            ),
+          ),
+          if (_consentResult case final String note)
+            FnthinkNote(keyName: 'fnthink-consent-result', text: note),
+        ],
         // T60（approach B）：这一台对着当前服务器最近一次发送通没通过。
         // 只在同意之后画 —— 没同意时任何一发都在本机就被挡下（没有"服务器通不通"这回事），
         // 画出来只会把"还没同意"错读成"服务器坏了"。

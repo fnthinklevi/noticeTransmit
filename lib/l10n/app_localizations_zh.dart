@@ -3103,6 +3103,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkConsentNotGranted => '这台还没同意内容经服务器中转，所以那一发什么都没做';
 
   @override
+  String get fnthinkRelayConsentSection => '经服务器中转';
+
+  @override
+  String get fnthinkConsentRevoke => '撤销同意';
+
+  @override
+  String get fnthinkConsentRevokeTitle => '要撤销「经服务器中转」的同意吗？';
+
+  @override
+  String get fnthinkConsentRevokeMsg =>
+      '撤销后这台立刻不再可用：经服务器的收发（收货循环下一轮就停）、远程控制。不会删除任何东西 —— 配对名单、接入端点、幻念通道配置、收发历史与配对记录都留着。要恢复需再点一次同意（同意前仍可读全文）。';
+
+  @override
+  String get fnthinkConsentRevokeDone => '已撤销：经服务器的收发与远程控制都不再可用，配置与历史一条没删。';
+
+  @override
   String get fnthinkHealthNever => '最近一次发送：这台对这个服务器还没发出去过';
 
   @override

@@ -5828,6 +5828,36 @@ abstract class AppLocalizations {
   /// **'这台还没同意内容经服务器中转，所以那一发什么都没做'**
   String get fnthinkConsentNotGranted;
 
+  /// No description provided for @fnthinkRelayConsentSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'经服务器中转'**
+  String get fnthinkRelayConsentSection;
+
+  /// No description provided for @fnthinkConsentRevoke.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销同意'**
+  String get fnthinkConsentRevoke;
+
+  /// No description provided for @fnthinkConsentRevokeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'要撤销「经服务器中转」的同意吗？'**
+  String get fnthinkConsentRevokeTitle;
+
+  /// No description provided for @fnthinkConsentRevokeMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销后这台立刻不再可用：经服务器的收发（收货循环下一轮就停）、远程控制。不会删除任何东西 —— 配对名单、接入端点、幻念通道配置、收发历史与配对记录都留着。要恢复需再点一次同意（同意前仍可读全文）。'**
+  String get fnthinkConsentRevokeMsg;
+
+  /// No description provided for @fnthinkConsentRevokeDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销：经服务器的收发与远程控制都不再可用，配置与历史一条没删。'**
+  String get fnthinkConsentRevokeDone;
+
   /// No description provided for @fnthinkHealthNever.
   ///
   /// In zh, this message translates to:

@@ -60,6 +60,21 @@ class FnthinkSettings {
     await prefs.setInt(keyConsentVersion, requiredConsentVersion);
   }
 
+  /// 撤销「通知内容经服务器中转」的同意（T119）。**只清这一枚键，别的什么都不碰**。
+  ///
+  /// 为什么只清一枚：撤销的是"我允许你把内容中转"这一个许可，不是"把这些记录都抹掉"——
+  /// 名单、接入端点、幻念通道配置、收发历史都留着。把它们一起删的后果是用户想收回一个许可，
+  /// 换来的是把自己配好的东西全丢一遍（而那会让他不敢点这个按钮）。
+  ///
+  /// ⚠ 与备份那条不变量同形：那条是**恢复时不替他点同意**（fail-closed），这一条是
+  ///   **撤销时不替他删数据**。两边都不许顺手。
+  /// ⚠ 撤销**不硬切正在飞的那一发**：收货循环下一轮在 `_resolveSpec` 那里 early-return
+  ///   `not-consented`，已经收到的东西留在库里。
+  Future<void> revokeRelayConsent() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(keyConsentVersion);
+  }
+
   Future<bool> get receiveEnabled async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(keyReceiveEnabled) ?? false;

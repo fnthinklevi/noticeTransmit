@@ -14,6 +14,7 @@ import '../services/fnthink_endpoint_probe.dart';
 import '../services/fnthink_identity_service.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
+import '../services/fnthink_relay_consent.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
@@ -120,6 +121,12 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   late final FnthinkReceiveCoordinator _coordinator;
 
   FnthinkSettings? _settings;
+
+  /// 「经服务器中转」同没同意（T119：这一页是撤销那一步的两个入口之一）。
+  bool _consented = false;
+
+  /// 撤销那一发的结论（null = 这一页还没撤销过）。
+  String? _consentResult;
   FnthinkCredentialStore? _credentials;
 
   /// 契约不可用的原话。非空时整页只显示这一条 —— 设置项的默认值要从契约读，
@@ -187,6 +194,9 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       _credentialError = e.reason;
     }
     final identity = await _deps.identity.identity();
+    // T119：这一页也要说得出"这台同没同意中转"，因为它现在是撤销那一步的两个入口之一。
+    // 读的是 prefs 那一枚版本号（与协调者、接收页同一个判据），不在这里另算一遍。
+    final consented = await settings.hasRelayConsent();
     if (!mounted) return;
     setState(() {
       _settings = settings;
@@ -196,6 +206,7 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       _pairing = pairing;
       _identity = identity;
       _identityUnavailable = identity == null;
+      _consented = consented;
     });
     // 开关的真值**只**从 prefs 读：它是用户做过的那个决定。契约那边没有任何一项能替代它
     // （契约管的是节奏与档位，不是"这台设备同不同意被中转"）。
@@ -491,6 +502,8 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
             const SizedBox(height: 12),
             _buildServerCard(l10n),
             const SizedBox(height: 20),
+            _buildConsentCard(l10n),
+            const SizedBox(height: 20),
             // 隐私边界那句从“一张卡里一段小字”改成底部一行（§1 已定口径：页面里的提醒
             // 只有两种去处 —— 底部无序列表 / 右上问号弹层）。它不是状态读数，所以不是例外。
             Text(
@@ -512,6 +525,64 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
   /// 「通知引擎 → 幻念推送」那一块（`engine-fnthink-endpoint` / `engine-fnthink-settings`）。
   /// 原先这里留着一行跳转卡，是维护者 2026-10-07 拍的「端点归设置 → 高级」；T107 把整族收成
   /// 一棵树之后，那一行就成了同一页的两个入口 —— 少一个，路径不短（都在通知引擎里）。
+
+  /// 「经服务器中转」这一档许可（T119）。这一格只做两件事：**说清现在是什么状态**，
+  /// 以及在已同意时给一枚**撤销**。
+  ///
+  /// ⚠ 这里**不给"同意"那一枚按钮**（刻意不对称）：同意是一次显式动作，全产品只该有一个
+  ///   落点（接收页那一屏，带着三情形说明与"同意前可读全文"那条不变量）。在这一页再放一枚
+  ///   同意，就把同一段披露抄成了两份 —— 那是 T56 之后本仓最容易被撕开的口子。
+  ///   没同意时这一格只说一句"还没同意，经服务器的收发全部停着"，并指回那一屏。
+  Widget _buildConsentCard(AppLocalizations l10n) {
+    return FnthinkCard(
+      title: l10n.fnthinkRelayConsentSection,
+      children: [
+        if (_consented) ...[
+          FnthinkRowLabel(
+            label: l10n.fnthinkConsentGranted,
+            keyName: 'fnthink-consent-granted',
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FnthinkInlineAction(
+              key: const ValueKey('fnthink-consent-revoke'),
+              label: l10n.fnthinkConsentRevoke,
+              tone: FnthinkActionTone.destructive,
+              onPressed: _busy ? null : _revokeConsent,
+            ),
+          ),
+        ] else
+          FnthinkRowLabel(
+            label: l10n.fnthinkConsentPending,
+            keyName: 'fnthink-consent-pending',
+          ),
+        if (_consentResult case final String note)
+          FnthinkNote(keyName: 'fnthink-consent-result', text: note),
+      ],
+    );
+  }
+
+  /// 撤销（T119）。两处入口共用 `confirmAndRevokeRelayConsent` 那一个实现 ——
+  /// 各写一遍就会有一处清了键而另一处还显示"已同意"。
+  Future<void> _revokeConsent() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final l10n = AppLocalizations.of(context);
+    final revoked = await confirmAndRevokeRelayConsent(
+      context: context,
+      settings: _settings,
+    );
+    if (!mounted) return;
+    if (!revoked) {
+      setState(() => _busy = false);
+      return;
+    }
+    setState(() {
+      _consented = false;
+      _consentResult = l10n.fnthinkConsentRevokeDone;
+      _busy = false;
+    });
+  }
 
   Widget _buildIdentityCard(AppLocalizations l10n) {
     final code = _addressCode;

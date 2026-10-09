@@ -3243,6 +3243,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'This device has not allowed relaying content through the server, so nothing was sent';
 
   @override
+  String get fnthinkRelayConsentSection => 'Relay through the server';
+
+  @override
+  String get fnthinkConsentRevoke => 'Revoke consent';
+
+  @override
+  String get fnthinkConsentRevokeTitle =>
+      'Revoke consent to relaying through the server?';
+
+  @override
+  String get fnthinkConsentRevokeMsg =>
+      'After revoking, these stop working on this device: anything that goes through the server (the receive loop stops on its next round) and remote control. Nothing is deleted - the peer list, endpoints, channel configs, message history and pairing records all stay. Turning them back on needs a fresh consent tap (the full text stays readable first).';
+
+  @override
+  String get fnthinkConsentRevokeDone =>
+      'Revoked: relayed sending/receiving and remote control are unavailable; configs and history were not deleted.';
+
+  @override
   String get fnthinkHealthNever => 'Nothing has been sent to this server yet';
 
   @override

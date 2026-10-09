@@ -573,9 +573,11 @@ void main() {
       // 第二刀收的是绑定页那四枚行内动作（批准／拒绝／撤销／发一条）—— 那一格已从台账删掉。
       // 第三刀之后设置页那一格也清了（复制×2 ＋ 重置地址码 ＋ 撤销口令 ＋ 改地址 ＋
       // 换服务器 ＋ 恢复默认 = 7 枚），所以它整格从台账里删掉。
+      // T119 又加了第 8 枚：**撤销中转同意**（破坏性档）—— 台账跟着 +1，
+      // 少一枚就是有人把它改回默认蓝或自己搭了个 TextButton。
       expect(
         n('lib/pages/fnthink_settings_page.dart', 'FnthinkInlineAction('),
-        7,
+        8,
       );
       expect(
         n('lib/pages/fnthink_endpoint_page.dart', 'FnthinkInlineAction('),
@@ -597,7 +599,8 @@ void main() {
       const destructive = <String, int>{
         'lib/pages/fnthink_endpoint_page.dart': 2,
         'lib/pages/fnthink_peers_page.dart': 2,
-        'lib/pages/fnthink_settings_page.dart': 2,
+        // T119 起设置页有 3 枚：重置地址码、撤销配对口令、**撤销中转同意**。
+        'lib/pages/fnthink_settings_page.dart': 3,
       };
       const neutral = <String, int>{
         'lib/pages/fnthink_endpoint_page.dart': 2,
