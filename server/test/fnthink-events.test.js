@@ -872,6 +872,40 @@ describe('clientEvents（poll / ack）裁决', () => {
       expect(broken.reason).toBe('malformed-pairConfirm');
     });
 
+    test('可缺席的只有契约声明过的那一枚键：少 decision 照旧整发拒（T134 片1）', () => {
+      // 上面那条 3 键载荷能通过，证的是 `optionalFields.items` 那一档豁免成立；
+      // 这一条证豁免的**边界**：豁免清单外的键少一个都不行 —— 否则"少带一个键"
+      // 从一次协议不兼容变成一次静默降级，而 decision 少了就等于没人答复。
+      const noDecision = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({ requestId: 'pr_0a1b', level: 'L1' }),
+          }),
+        ),
+      );
+      expect(noDecision.ok).toBe(false);
+      expect(noDecision.reason).toMatch(/^pairConfirm-fields:/);
+      const withItems = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: 'approved',
+              level: 'L1',
+              items: [],
+            }),
+          }),
+        ),
+      );
+      expect(withItems.ok).toBe(true);
+    });
+
     test('没登记的那台来确认 ⇒ 与签名不对同形（这条入口也不许枚举地址码）', () => {
       const stranger = keypair();
       const out = events.authorizePairConfirm(

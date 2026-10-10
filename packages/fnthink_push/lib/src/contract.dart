@@ -1056,6 +1056,33 @@ class FnthinkContract {
     return value;
   }
 
+  /// 逐条勾选清单（pairConfirm 的 `items`）的**取值域路径**（T134 片1）。
+  ///
+  /// 这里给的是"去哪两张表读"，不是清单本身 —— 设备侧构造勾选表时按这两个路径取，
+  /// 别在本包再抄一份动作名（另立一本账不会报错，只会让两端各认一份清单）。
+  List<String> get pairConfirmItemsVocabulary =>
+      strings(['clientEvents', 'pairConfirm', 'itemsVocabularyFrom']);
+
+  /// 声明过「可以缺席」的载荷键 → 缺席时该读成的值。
+  Map<String, Object?> get pairConfirmOptionalFields =>
+      map(['clientEvents', 'pairConfirm', 'optionalFields']) ?? const {};
+
+  /// 拒绝时 items 必须为空 —— 设备侧在**构造答复**时就照这一条判（不等到服务端拒）。
+  bool get pairConfirmItemsMustBeEmptyOnDeny =>
+      at(['clientEvents', 'pairConfirm', 'itemsMustBeEmptyOnDeny']) == true;
+
+  /// 词表外的取值回哪个状态码（值 = `statusCodes` 里的**键名**，不是数字）。
+  String get pairConfirmUnknownItemStatus {
+    final value = str(['clientEvents', 'pairConfirm', 'unknownItemStatus']);
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        '契约缺 clientEvents.pairConfirm.unknownItemStatus：'
+        '状态码只有一个作者（statusCodes），在这里补默认值就是第二个来源',
+      );
+    }
+    return value;
+  }
+
   /// 配对请求在 poll 响应里带回来的那些字段。
   List<String> get pairRequestStoredFields =>
       strings(const ['pairRequest', 'storedFields']);
@@ -2588,6 +2615,65 @@ class FnthinkContract {
               entry.value['consumesRequest'] == true,
           'clientEvents.$kind 必须同时声明 requestMustBelongToTarget 与 consumesRequest 为 true：'
           '前者丢了 = 谁能拿到 requestId 就能替别人答应配对；后者丢了 = 一次点头变成可反复使用的凭证',
+        );
+      }
+      // 逐条勾选（items）这一段是 T134 片1 的接缝。清单今天还没有写入者，所以先把
+      // 「谁说了算」钉死在契约上：取值域必须是**既有那两张表的路径**、拒绝时必须为空、
+      // 词表外必须有一个来自 statusCodes 的状态码。四种漂移各自的表现都不是报错：
+      // 没取值域 ⇒ 服务端只能"先收下"；可缺席的键不在 fields 里 ⇒ 谁能少带一个键都行；
+      // 引用一张不存在的表 ⇒ 勾选表退化成自由文本；实现里写 400 ⇒ 状态码有两个来源。
+      final fieldsOfKind = (entry.value['fields'] as List<Object?>? ?? const [])
+          .map((e) => '$e')
+          .toList();
+      final optionalOfKind =
+          (map(['clientEvents', kind, 'optionalFields']) ?? const {}).keys
+              .map((e) => '$e')
+              .toList();
+      need(
+        optionalOfKind.every((k) => fieldsOfKind.contains(k)),
+        'clientEvents.$kind.optionalFields 里的键必须先出现在 fields 里：'
+        '$optionalOfKind vs $fieldsOfKind —— 否则那是一份没人声明就能缺席的载荷',
+      );
+      final vocabPaths = strings(['clientEvents', kind, 'itemsVocabularyFrom']);
+      if (fieldsOfKind.contains('items')) {
+        need(
+          vocabPaths.isNotEmpty,
+          'clientEvents.$kind 的 fields 里有 items 却没有 itemsVocabularyFrom：'
+          '勾选表没有取值域，服务端就只能在"收下并忽略"与"自己发明一份词表"之间挑一个',
+        );
+        need(
+          entry.value['itemsMustBeEmptyOnDeny'] == true,
+          'clientEvents.$kind 带 items 就必须声明 itemsMustBeEmptyOnDeny: true：'
+          '拒绝时带清单 = 一边说不、一边把授权递过去',
+        );
+        for (final path in vocabPaths) {
+          final table = at(path.split('.'));
+          // 两张既有名单的**形状本来就不同**：L2 那张是值列表，L3 那张按设置项键控。
+          // 取值域按各自的形状取（List 取值、Map 取键），但都必须非空 ——
+          // 引用一张不存在或空着的表不会崩，只会让每一项勾选都判不过（或全判得过）。
+          final entries = table is List
+              ? table
+              : table is Map
+              ? table.keys.toList()
+              : null;
+          need(
+            entries != null && entries.isNotEmpty,
+            'itemsVocabularyFrom 指向的 $path 既不是非空名单也不是非空键控表（实为 $table）：'
+            '勾上去的项从此没有一处能判对',
+          );
+        }
+        final statusKey = '${entry.value['unknownItemStatus'] ?? ''}';
+        final statusKeys = (map(['statusCodes']) ?? const {}).keys.toSet();
+        need(
+          statusKey.isNotEmpty && statusKeys.contains(statusKey),
+          'clientEvents.$kind.unknownItemStatus 必须是 statusCodes 里一个真实存在的键名'
+          '（实为「$statusKey」，那边有 $statusKeys）',
+        );
+      } else {
+        need(
+          vocabPaths.isEmpty,
+          'clientEvents.$kind 的 fields 里没有 items，却声明了 itemsVocabularyFrom：'
+          '那是一段没人读的取值域 —— 留着它，下一个人会以为这一发真的收清单',
         );
       }
     }

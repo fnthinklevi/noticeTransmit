@@ -301,6 +301,7 @@ class FnthinkReceiverService {
     required String requestId,
     required String decision,
     required String level,
+    required List<String> items,
     required String counterpart,
   }) async {
     if (!await _canSign()) {
@@ -314,6 +315,7 @@ class FnthinkReceiverService {
       requestId: requestId,
       decision: decision,
       level: level,
+      items: items,
       counterpart: counterpart,
     );
   }

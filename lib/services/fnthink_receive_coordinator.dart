@@ -902,6 +902,12 @@ class FnthinkReceiveCoordinator {
         requestId: request.requestId,
         decision: approve ? approved : others.single,
         level: wanted ?? ceiling,
+        // 逐条勾选（T134 片1）：这一发现在把 items 键签出去了，但值照旧是空清单 ——
+        // 同意屏上那张勾选表是片3 的活。⚠ 空清单**不等于这一档什么都能做**：服务端按
+        // `capabilities.itemRequiredFromLevel` 判，从 L2 起逐条项仍要真实出现在清单里才放行，
+        // 所以今天递 `[]` 的结果与本片之前一致（只给档位）。把它省掉才是问题：
+        // 契约 `optionalFields` 允许老设备缺席（读成 []），新设备**应当显式带上**。
+        items: const <String>[],
         // 全协议唯一一发 target 不是自己：授权给谁，就写给谁。
         counterpart: request.requester,
       );

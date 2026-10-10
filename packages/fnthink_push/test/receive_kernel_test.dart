@@ -1141,10 +1141,12 @@ void main() {
       _Harness harness,
       String decision, {
       String level = 'L1',
+      List<String> items = const <String>[],
     }) => harness.kernel().pairConfirm(
       requestId: 'pr_9',
       decision: decision,
       level: level,
+      items: items,
       counterpart: _peer,
     );
 
@@ -1167,6 +1169,37 @@ void main() {
       expect(body.keys.toList(), contract.pairConfirmFields);
     });
 
+    test('答复显式带上 items 那一枚键；拒绝时带清单当场抛（T134 片1）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = FnthinkReply(
+        status: 200,
+        body: {
+          'requestId': 'pr_9',
+          'status': approvedWord(),
+          'grantedLevel': 'L1',
+          'serverTime': 1800000000000,
+        },
+      );
+      await confirm(harness, approvedWord());
+      final fields = harness.sent.single['fields']! as Map<String, Object?>;
+      final body = jsonDecode(fields['body']! as String) as Map;
+      expect(
+        body.containsKey('items'),
+        isTrue,
+        reason:
+            '新设备必须显式带上这一枚键（哪怕是一份空清单）。省掉它是让服务端按 '
+            'optionalFields 补 —— 那件事是给**没升级的那台**留的退路，不是本机偷懒的口子：'
+            '两种形状混着走，日志里就分不出"这台勾了零项"与"这台还不认识勾选项"。',
+      );
+      expect(body['items'], isEmpty);
+      expect(
+        () => confirm(harness, deniedWord(), items: const ['alert:ring']),
+        throwsArgumentError,
+        reason: '契约 itemsMustBeEmptyOnDeny：拒绝时带清单 = 一边说不、一边把授权递过去',
+      );
+      expect(harness.sent.length, 1, reason: '抛在签名之前，那一发根本没发出去');
+    });
+
     test('答应的词与档位都必须在契约的封闭集合里，否则当场抛、不签出去', () async {
       final harness = _Harness(contract, 1_800_000_000_000);
       expect(
@@ -1174,6 +1207,7 @@ void main() {
           requestId: 'pr_9',
           decision: 'granted',
           level: 'L1',
+          items: const <String>[],
           counterpart: _peer,
         ),
         throwsArgumentError,
@@ -1184,6 +1218,7 @@ void main() {
           requestId: 'pr_9',
           decision: approvedWord(),
           level: 'L9',
+          items: const [],
           counterpart: _peer,
         ),
         throwsArgumentError,

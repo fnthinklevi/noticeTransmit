@@ -1741,6 +1741,77 @@ void main() {
       );
     });
 
+    // ── 逐条勾选（pairConfirm 的 items，T134 片1 把接缝打通）──
+    // 这一组钉的是"取值域只有一个出处"：契约里那几个键一旦被改坏，加载当场报 ——
+    // 因为最坏的表现不是报错，而是各端自己发明一份清单（本仓在 `type` 词表上撞过一次）。
+    test('答复载荷现在带着 items，且它的取值域两张表都真实非空', () {
+      expect(c.pairConfirmFields, contains('items'));
+      final paths = c.pairConfirmItemsVocabulary;
+      expect(paths, isNotEmpty, reason: '有键却没有取值域 = 服务端只能"收下并忽略"');
+      for (final path in paths) {
+        final table = c.at(path.split('.'));
+        expect(
+          table,
+          anyOf(isA<List<Object?>>(), isA<Map<String, Object?>>()),
+          reason:
+              'itemsVocabularyFrom 指向的 $path 既不是名单也不是键控表：'
+              '写错路径不会崩，只会让勾选表退化成自由文本',
+        );
+        expect(
+          (table! as dynamic).isEmpty,
+          isFalse,
+          reason: '$path 是空表 ⇒ 任何勾选项都算词表外（一张空表让所有勾选都判不过）',
+        );
+      }
+    });
+
+    test('fields 里有 items 却没有声明取值域 ⇒ 报', () {
+      final broken = mutate((raw) {
+        pairOf(raw).remove('itemsVocabularyFrom');
+      });
+      expectProblem(
+        broken,
+        '没有 itemsVocabularyFrom',
+        '没有取值域时服务端只能在"收下并忽略"与"自己发明一份词表"之间挑一个',
+      );
+    });
+
+    test('取值域指向一张不存在的表 ⇒ 报（引用不存在的键不会崩，只会静默空转）', () {
+      final broken = mutate((raw) {
+        pairOf(raw)['itemsVocabularyFrom'] = ['capabilities.not_a_table'];
+      });
+      expectProblem(broken, '既不是非空名单也不是非空键控表', '勾上去的一项永远判不过，或永远判得过');
+    });
+
+    test('可缺席的键不在 fields 名单里 ⇒ 报（那是没人声明就能少带一发的口子）', () {
+      final broken = mutate((raw) {
+        (pairOf(raw)['optionalFields'] as Map<String, Object?>)['ghost'] = [];
+      });
+      expectProblem(broken, '必须先出现在 fields 里', '豁免一份没声明过的键等于把白名单打开');
+    });
+
+    test('拒绝时带清单被放行（itemsMustBeEmptyOnDeny 摘掉）⇒ 报', () {
+      final broken = mutate((raw) {
+        pairOf(raw).remove('itemsMustBeEmptyOnDeny');
+      });
+      expectProblem(
+        broken,
+        '必须声明 itemsMustBeEmptyOnDeny',
+        '一边说不、一边把授权递过去，而契约不再拦这件事',
+      );
+    });
+
+    test('词表外的状态码不在 statusCodes 里 ⇒ 报（状态码只能有一个作者）', () {
+      final broken = mutate((raw) {
+        pairOf(raw)['unknownItemStatus'] = 'teapot';
+      });
+      expectProblem(
+        broken,
+        '必须是 statusCodes 里一个真实存在的键名',
+        '实现里补一个数字就是第二个来源，而 400 与 403 的分工从此没人守',
+      );
+    });
+
     test('确认的某个状态不是终态 ⇒ 报（那条请求永远处理不完）', () {
       final broken = mutate((raw) {
         (pairOf(raw)['decisions'] as List<Object?>).add('pending');

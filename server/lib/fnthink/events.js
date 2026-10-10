@@ -56,6 +56,11 @@ function denied(contract, state, input, reason) {
 /// ack / pairArm / pair 都把载荷放进**被签的** `body`（canonicalOrder 只有那六个字段，
 /// 不为某一种事件加一位 —— 加一位等于换协议）。键集必须与契约声明的那份逐字相同：
 /// 少一个键读不到，多一个键就是对方往签名载荷里塞料的口子。
+/// 唯一豁免：契约可以用 `clientEvents.<kind>.optionalFields` 声明「这一枚键允许缺席，
+/// 缺席时读成这里写的值」（T134 片1 的 pairConfirm.items —— 老设备的答复没有那一枚键，
+/// 把它判成 403 会让"点同意"直接不动，而界面上只回一句与「口令错」同形的话）。
+/// ⚠ 豁免只覆盖**声明过的键**：名单外的键照旧整发拒，`hasOwnProperty` 而不是真值判断
+///   是为了让 `"optionalFields": {"x": null}` 这种显式声明仍然算声明过。
 /// 返回 `{reason}` 或 `{payload}`，不自己造拒绝对象 —— 三处的状态码不同，
 /// 在这里合成一个"通用拒绝"就等于把那个差异抹掉（而差异正是路由选状态码的依据）。
 function readPayload(spec, body, kind) {
@@ -69,9 +74,19 @@ function readPayload(spec, body, kind) {
   if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
     return { reason: malformed };
   }
-  const want = (spec.fields || []).slice().sort().join('|');
-  const got = Object.keys(payload).sort().join('|');
-  if (got !== want) return { reason: `${kind}-fields:期望 [${want}] 实到 [${got}]` };
+  const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+  const declared = (spec.fields || []).slice().sort();
+  const optional = spec.optionalFields || {};
+  const got = Object.keys(payload).sort();
+  const missing = declared.filter((key) => !has(payload, key));
+  const unknown = got.filter((key) => declared.indexOf(key) < 0);
+  const missingAllDeclaredOptional = missing.every((key) => has(optional, key));
+  if (unknown.length > 0 || !missingAllDeclaredOptional) {
+    return { reason: `${kind}-fields:期望 [${declared.join('|')}] 实到 [${got.join('|')}]` };
+  }
+  // 缺席的键按契约写的缺省补上 ⇒ 下游只看见一份完整载荷，不必每个消费者再判一次
+  // "这一枚键有没有"（那种各判一次的写法就是下一份 fail-open 的住处）。
+  for (const key of missing) payload[key] = optional[key];
   return { payload };
 }
 

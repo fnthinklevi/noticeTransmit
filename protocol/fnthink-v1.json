@@ -889,8 +889,22 @@
       "fields": [
         "requestId",
         "decision",
-        "level"
+        "level",
+        "items"
       ],
+      "optionalFields": {
+        "items": []
+      },
+      "_optionalFieldsWhy": "「键可以缺席，但缺席时读成这里写的值」——只豁免**这一处声明过的**键：名单外的键照旧整发拒（rejectUnknownFields 那条不变）。为什么 items 要能缺席：答复是由**点头那台**发的，而那台可能还没升级；把缺席读成 403 的表现是老设备突然连「同意」都点不动，而界面上只会回一句与「口令错」同形的话。读成空清单则等于今天的行为（只给档位、不解锁任何逐条项），是一条降级而不是一次破坏。",
+      "itemsVocabularyFrom": [
+        "capabilities.l2.actions",
+        "capabilities.l3.settings"
+      ],
+      "_itemsVocabularyWhy": "勾选表能取哪些值**必须引用那两张既有名单**，不许为这一发另立第三本账 —— 两端各抄一份清单的结局与 `type` 词表那次一样：A 勾了一条 B 的服务认不出的写法，或反过来悄悄放行。contract.dart 的交叉校验会去解析这些路径并要求每条都指向一份非空名单，指错当场红。⚠ 今天全仓没有任何一处往 `grantsBy[...]` 的 items 里写非空值（见 roadmap T134），所以本片的作用是把接缝通到**能被校验的位置**：值真正有内容要等同意屏那张勾选表落下来。",
+      "unknownItemStatus": "badRequest",
+      "_unknownItemStatusWhy": "词表外的取值 ⇒ 400（状态码从 statusCodes 这一枚键读，不在实现里写数字），而不是「先收下、能做什么做什么」：收下并忽略会让点头那台以为自己勾过了，而服务端那一格其实是空的 —— 与 relationshipRequiredForIntake 那条防的是同一个方向的 fail-open。",
+      "itemsMustBeEmptyOnDeny": true,
+      "_itemsMustBeEmptyOnDenyWhy": "拒绝时带清单 = 一边说不、一边把授权递过去了。这一条两端各自成立：服务端拒收（片2 落实现），设备侧构造答复时就不许把勾过的项跟着 denial 发出去。",
       "decides": "pairRequest",
       "decisions": [
         "approved",

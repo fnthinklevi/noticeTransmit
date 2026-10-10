@@ -828,6 +828,18 @@ class FnthinkReceiveKernel {
         '${contract.capabilityLevels} 里：档位词表两端同源',
       );
     }
+    // 拒绝时不许带清单（契约 itemsMustBeEmptyOnDeny）：这一条在**构造答复**时就判，
+    // 不等服务端拒 —— 把「不」和一份授权签在同一发里，那句话本身就已经是反的。
+    if (contract.pairConfirmItemsMustBeEmptyOnDeny &&
+        payload['decision'] != contract.pairConfirmApproveDecision) {
+      final carried = payload['items'];
+      if (carried is List && carried.isNotEmpty) {
+        throw ArgumentError(
+          'decision「${payload['decision']}」是拒绝，却带着 ${carried.length} 项逐条勾选：'
+          '拒绝时 items 必须为空',
+        );
+      }
+    }
     return {
       'version': contract.protocolVersionForSignature,
       'type': eventType('pairConfirm'),
@@ -854,6 +866,7 @@ class FnthinkReceiveKernel {
     required String requestId,
     required String decision,
     required String level,
+    required List<String> items,
     required String counterpart,
   }) async {
     final nonce = (nonceFactory ?? _fallbackNonce)();
@@ -861,7 +874,16 @@ class FnthinkReceiveKernel {
     final signedWhileUncalibrated = !calibrated;
     final envelope = await buildEnvelope(
       fields: pairConfirmFields(
-        payload: {'requestId': requestId, 'decision': decision, 'level': level},
+        payload: {
+          'requestId': requestId,
+          'decision': decision,
+          'level': level,
+          // 逐条勾选（T134 片1 把接缝打通；**没有默认值可省**：省掉一枚声明过的键
+          // 与"这一条没勾"在两端的写法上不同，服务端只认契约的 optionalFields 那一档）。
+          // ⚠ 今天同意屏上还没有那张勾选表 ⇒ 调用方只能递空清单；递进来的东西第一次
+          //    真的有意义要等片3。值如何被服务端收下并落进 grantsBy，是片2。
+          'items': items,
+        },
         counterpart: counterpart,
         nonce: nonce,
       ),

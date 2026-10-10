@@ -431,6 +431,7 @@ void main() {
         requestId: 'pr_9',
         decision: approved,
         level: 'L1',
+        items: const [],
         counterpart: peer,
       );
       expect(rec.requests.single.url.path, contract.apiPath('pairConfirm'));
@@ -452,6 +453,7 @@ void main() {
         requestId: 'pr_9',
         decision: contract.pairConfirmApproveDecision,
         level: 'L1',
+        items: const [],
         counterpart: peer,
       );
       expect(rec.requests, isEmpty);
