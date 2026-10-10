@@ -277,7 +277,7 @@ describe('decideRequest（#131 第三片）', () => {
     ).toBe('already-decided');
   });
 
-  test('同意：关系写到 A 那一行、请求进终态；拒绝：什么都不写', () => {
+  test('同意：两段各写自己那一行、请求进终态；拒绝：两段都不写', () => {
     const s1 = seeded();
     const ok = pairstore.decideRequest(
       contract,
@@ -288,8 +288,11 @@ describe('decideRequest（#131 第三片）', () => {
     );
     expect(ok.grant.maxLevel).toBe('L1');
     expect(devicestore.peerGrant(contract, s1.devices[A], B).maxLevel).toBe('L1');
-    // B 那一行上没有给 A 的授权 —— 方向错了就是"B 自己允许自己"。
-    expect(devicestore.peerGrant(contract, s1.devices[B], A)).toBeNull();
+    // T130 片2：反向那一段现在有了，且住在 B 自己那一行上。写成 A 的行里就是"B 允许 B 自己"，
+    // 而收单查的是 target 的行 ⇒ 那一段永远不会被读到，与没写等价。
+    const reverse = devicestore.peerGrant(contract, s1.devices[B], A);
+    expect(reverse.maxLevel).toBe('L1');
+    expect(reverse.items).toEqual([]);
     expect(s1.requests[s1.id].status).toBe(contract.clientEvents.pairConfirm.approveDecision);
 
     const s2 = seeded();
@@ -303,7 +306,72 @@ describe('decideRequest（#131 第三片）', () => {
     expect(denied.ok).toBe(true);
     expect(denied.grant).toBeNull();
     expect(devicestore.peerGrant(contract, s2.devices[A], B)).toBeNull();
+    // 拒绝也必须两段都不写：只省正向那段而把反向照写，等于"说不"的那一发递出去半份授权。
+    expect(devicestore.peerGrant(contract, s2.devices[B], A)).toBeNull();
     expect(s2.requests[s2.id].status).toBe('denied');
+  });
+
+  test('反向那一段不继承勾选：A 勾了两项，B 的行上仍是空清单', () => {
+    const s = seeded();
+    pairstore.decideRequest(
+      contract,
+      s.requests,
+      s.devices,
+      decide({ requestId: s.id, level: 'L2', items: ['alert:ring', 'notifications:report'] }),
+      NOW,
+    );
+    expect(devicestore.peerGrant(contract, s.devices[A], B).items).toEqual([
+      'alert:ring',
+      'notifications:report',
+    ]);
+    // 档位对称、清单不对称（契约 reverseGrantItems=empty）：复制过去就是 A 替 B 点头，
+    // 而逐条勾选整块存在的理由正是"不替谁点头"。
+    expect(devicestore.peerGrant(contract, s.devices[B], A).maxLevel).toBe('L2');
+    expect(devicestore.peerGrant(contract, s.devices[B], A).items).toEqual([]);
+  });
+
+  test('两段各有各的 revision：同一发确认写两行，不许把计数串起来', () => {
+    const s = seeded();
+    pairstore.decideRequest(contract, s.requests, s.devices, decide({ requestId: s.id }), NOW);
+    expect(devicestore.peerGrant(contract, s.devices[A], B).revision).toBe(1);
+    expect(devicestore.peerGrant(contract, s.devices[B], A).revision).toBe(1);
+  });
+
+  test('契约把双写关掉 ⇒ 只写正向那一段（自部署方要单段语义时的旋钮）', () => {
+    const s = seeded();
+    const off = JSON.parse(JSON.stringify(contract));
+    off.pairing.reverseGrantOnConfirm = false;
+    pairstore.decideRequest(off, s.requests, s.devices, decide({ requestId: s.id }), NOW);
+    expect(devicestore.peerGrant(contract, s.devices[A], B).maxLevel).toBe('L1');
+    expect(devicestore.peerGrant(contract, s.devices[B], A)).toBeNull();
+  });
+
+  test('契约少了那枚旋钮 ⇒ 抛，不猜一段还是两段（猜错的一侧与"配对成功"同形）', () => {
+    const s = seeded();
+    const missing = JSON.parse(JSON.stringify(contract));
+    delete missing.pairing.reverseGrantOnConfirm;
+    expect(() =>
+      pairstore.decideRequest(missing, s.requests, s.devices, decide({ requestId: s.id }), NOW),
+    ).toThrow(/reverseGrantOnConfirm/);
+    // 正向那一段也一并不写：抛在判定处、不在写完之后补一句警告 —— 半份表比没有表更难查。
+    expect(devicestore.peerGrant(contract, s.devices[A], B)).toBeNull();
+  });
+
+  test('对面那台已经不在表上 ⇒ 正向照写、反向跳过并说清原因（不整发失败）', () => {
+    const s = seeded();
+    delete s.devices[B]; // 被清过 / 从未登记成功：这一段没有主体可写
+    const out = pairstore.decideRequest(
+      contract,
+      s.requests,
+      s.devices,
+      decide({ requestId: s.id }),
+      NOW,
+    );
+    expect(out.ok).toBe(true);
+    expect(devicestore.peerGrant(contract, s.devices[A], B).maxLevel).toBe('L1');
+    // 跳过不是"配了一半"：收单要先按发送方地址码在表里取到公钥才谈得上验签，
+    // 一个没登记的地址码本来什么都投不进来。
+    expect(s.devices[B]).toBeUndefined();
   });
 
   test('早已过期的请求不能被"同意"：expireDue 排在判定之前', () => {

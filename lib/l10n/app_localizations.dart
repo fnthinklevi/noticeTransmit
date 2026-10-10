@@ -6424,7 +6424,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkPairApprovedOneWay.
   ///
   /// In zh, this message translates to:
-  /// **'这边已经能往它发了。反过来那一半要两台各做一次：在它那一台挂一枚口令，回这里点「配对另一台设备」把它输进去，再由那台点一次同意 —— 关系记在被投那台的名单里，这台替它点不了。'**
+  /// **'两边已经能互发通知了：这一次确认写下两段授权，各住在被投那台的名单里。还缺的是逐条项 —— L2 动作与 L3 设置要对面那台自己在它的同意屏上勾，这台替它点不了。'**
   String get fnthinkPairApprovedOneWay;
 
   /// No description provided for @fnthinkPairAskTitle.

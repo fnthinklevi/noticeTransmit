@@ -257,6 +257,101 @@ describe('fnthink 服务端存储（T27）', () => {
     });
   });
 
+  // ── T130 片2：一次确认写两段、划掉只划自己那一段 ────────────────────────
+  describe('grantPairLegs / revokeDirection（一次确认两段）', () => {
+    function two() {
+      const devices = {};
+      store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+      store.registerDevice(contract, devices, { addressCode: PEER, publicKey: PUB2 }, NOW);
+      return devices;
+    }
+
+    test('两段各写自己那一行：正向带勾选项，反向只带档位', () => {
+      const devices = two();
+      const legs = store.grantPairLegs(contract, devices, ADDR, PEER, 'L2', ['alert:ring'], NOW);
+      expect(legs.forward.maxLevel).toBe('L2');
+      expect(legs.forward.items).toEqual(['alert:ring']);
+      expect(legs.reverse.maxLevel).toBe('L2');
+      expect(legs.reverse.items).toEqual([]);
+      expect(legs.reverseSkipped).toBeNull();
+      // 各自落在各自主键的那一行上：写反一侧就是"A 允许 A"，收单永远读不到。
+      expect(store.peerGrant(contract, devices[ADDR], PEER).items).toEqual(['alert:ring']);
+      expect(store.peerGrant(contract, devices[PEER], ADDR).items).toEqual([]);
+      // 落过盘：只在内存里有两段，重启后两边都退回"没配过对"。
+      const again = store.loadDevices();
+      expect(store.peerGrant(contract, again[PEER], ADDR).maxLevel).toBe('L2');
+    });
+
+    test('对面不在表上 ⇒ 正向照写、反向跳过并说清是哪一类跳过', () => {
+      const devices = {};
+      store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+      const legs = store.grantPairLegs(contract, devices, ADDR, PEER, 'L1', [], NOW);
+      expect(legs.forward.maxLevel).toBe('L1');
+      expect(legs.reverse).toBeNull();
+      expect(legs.reverseSkipped).toBe('requester-unregistered');
+      // 只写了正向那一行：不许出现"给一个没有记录的地址挂一条授权"的那种半行。
+      expect(devices[PEER]).toBeUndefined();
+    });
+
+    test('契约关掉双写 ⇒ 只留正向那一段（单段语义仍可部署）', () => {
+      const devices = two();
+      const off = JSON.parse(JSON.stringify(contract));
+      off.pairing.reverseGrantOnConfirm = false;
+      const legs = store.grantPairLegs(off, devices, ADDR, PEER, 'L1', [], NOW);
+      expect(legs.reverse).toBeNull();
+      expect(legs.reverseSkipped).toBe('disabled-by-contract');
+      expect(store.peerGrant(contract, devices[PEER], ADDR)).toBeNull();
+      expect(store.peerGrant(contract, devices[ADDR], PEER).maxLevel).toBe('L1');
+    });
+
+    test('旋钮缺失或指向实现不执行的取值 ⇒ 抛，且两段都不写', () => {
+      for (const breakIt of [
+        (p) => {
+          delete p.reverseGrantOnConfirm;
+        },
+        (p) => {
+          p.reverseGrantMaxLevel = 'from-request';
+        },
+        (p) => {
+          p.reverseGrantItems = 'copy-forward';
+        },
+      ]) {
+        const devices = two();
+        const broken = JSON.parse(JSON.stringify(contract));
+        breakIt(broken.pairing);
+        expect(() => store.grantPairLegs(broken, devices, ADDR, PEER, 'L2', [], NOW)).toThrow();
+        // ⚠ 判据排在写之前：先写完正向再抛会留下一张半份表，而它对设备侧与一次成功同形。
+        expect(store.peerGrant(contract, devices[ADDR], PEER)).toBeNull();
+        expect(store.peerGrant(contract, devices[PEER], ADDR)).toBeNull();
+      }
+    });
+
+    test('划掉只划自己那一段：反向那一行分毫不动', () => {
+      const devices = two();
+      store.grantPairLegs(contract, devices, ADDR, PEER, 'L1', [], NOW);
+      const otherSide = JSON.stringify(devices[PEER].grantsBy);
+      const res = store.revokePeer(contract, devices, ADDR, PEER, NOW);
+      expect(res.removed).toBe(true);
+      expect(store.peerGrant(contract, devices[ADDR], PEER)).toBeNull();
+      expect(JSON.stringify(devices[PEER].grantsBy)).toBe(otherSide);
+    });
+
+    test('撤销方向不是实现执行的那一个 ⇒ 抛在删之前（一条都不许少）', () => {
+      const devices = two();
+      store.grantPairLegs(contract, devices, ADDR, PEER, 'L1', [], NOW);
+      const before = JSON.stringify(devices);
+      const outgoing = JSON.parse(JSON.stringify(contract));
+      outgoing.pairing.revokeDirection = 'outgoing';
+      expect(() => store.revokePeer(outgoing, devices, ADDR, PEER, NOW)).toThrow(/revokeDirection/);
+      expect(JSON.stringify(devices)).toBe(before);
+      const missing = JSON.parse(JSON.stringify(contract));
+      delete missing.pairing.revokeDirection;
+      expect(() => store.revokePeer(missing, devices, ADDR, PEER, NOW)).toThrow(/revokeDirection/);
+      expect(JSON.stringify(devices)).toBe(before);
+      expect(store.revokeDirection(contract)).toBe('incoming');
+    });
+  });
+
   test('口令成功一次即消耗（singleUse 来自契约），第二次同样失败', () => {
     const devices = {};
     store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);

@@ -1708,6 +1708,52 @@ void main() {
       expectProblem(broken, 'relationshipField 不能缺', '缺了这道判据就是没有的');
     });
 
+    // ── 一次确认创建几段（T130 片2）：与上面那条"一段住在哪一行"是两件事 ──
+    test('双写那枚旋钮缺席 ⇒ 报（不许任何一端自己猜一段还是两段）', () {
+      final broken = mutate((raw) {
+        (raw['pairing'] as Map<String, Object?>).remove(
+          'reverseGrantOnConfirm',
+        );
+      });
+      expectProblem(
+        broken,
+        'reverseGrantOnConfirm 必须明写',
+        '挑错的那一侧正好是"看着成功、其实发不出去"',
+      );
+    });
+
+    test('反向那一段的档位另立一个来源 ⇒ 报（两本账就是这么长出来的）', () {
+      final broken = mutate((raw) {
+        (raw['pairing'] as Map<String, Object?>)['reverseGrantMaxLevel'] =
+            'from-request';
+      });
+      expectProblem(
+        broken,
+        'reverseGrantMaxLevel 只能是 same-as-forward',
+        '换一个词就是声明了一段谁都不执行的规则',
+      );
+    });
+
+    test('反向那一段要继承勾选 ⇒ 报（那是替对面点头）', () {
+      final broken = mutate((raw) {
+        (raw['pairing'] as Map<String, Object?>)['reverseGrantItems'] =
+            'copy-forward';
+      });
+      expectProblem(broken, 'reverseGrantItems 只能是 empty', '反向那一段的对象从没勾过');
+    });
+
+    test('撤销方向放开成对面那一行 ⇒ 报（一台能替别人删授权）', () {
+      final broken = mutate((raw) {
+        (raw['pairing'] as Map<String, Object?>)['revokeDirection'] =
+            'outgoing';
+      });
+      expectProblem(
+        broken,
+        'revokeDirection 只能是 incoming',
+        'revocableBy 讲的正是同一件事',
+      );
+    });
+
     test('执行点写成设备侧判 ⇒ 报（本实现没有那条路径，声明了就是装饰）', () {
       final broken = mutate((raw) {
         (raw['pairing'] as Map<String, Object?>)['enforcedAt'] = 'device-only';

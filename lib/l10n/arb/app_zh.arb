@@ -1738,7 +1738,7 @@
   "fnthinkPairItemsTitle": "也可以只给这一档里的这几项（一幅都不勾＝只给档位）：",
   "fnthinkPairItemsNote": "要填参数的那几项（切哪条通道、启动哪个应用、搜什么词）不在这里勾：那得按参数授权，还没做。",
   "fnthinkPairItemsBroken": "本机算不出可勾的项（契约声明的取值域与那两张词表不一致）⇒ 这一条只能给档位，逐条授权给不了。",
-  "fnthinkPairApprovedOneWay": "这边已经能往它发了。反过来那一半要两台各做一次：在它那一台挂一枚口令，回这里点「配对另一台设备」把它输进去，再由那台点一次同意 —— 关系记在被投那台的名单里，这台替它点不了。",
+  "fnthinkPairApprovedOneWay": "两边已经能互发通知了：这一次确认写下两段授权，各住在被投那台的名单里。还缺的是逐条项 —— L2 动作与 L3 设置要对面那台自己在它的同意屏上勾，这台替它点不了。",
   "fnthinkPairAskTitle": "同意配对？",
   "fnthinkPairAskMsg": "把 {peer} 记进本机名单并授到 {level}。同意之后它就能往这台设备推消息。",
   "@fnthinkPairAskMsg": {

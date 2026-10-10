@@ -214,6 +214,8 @@ function peerGrant(contract, record, peerCode) {
 
 /// A 确认把 B 写进自己的白名单 —— 授权写入的**唯一咽喉**，别处不许再写 `grantsBy[...]`。
 /// 只有 A 自己的签名能走到这里（routes 的 /pair-confirm 先过 authorizePairConfirm）。
+/// ⚠ T130 片2 之后一次确认调它**两次**（正向一段、反向一段，两行各写各的），咽喉仍然只有这一处：
+///   "两段"是两次单段写入，不是一种新的写入形状 —— 否则每加一段就要多一处碰 `grantsBy` 的地方。
 /// ⚠ 每次确认都把 `items` **整份换成这一次的**：重新配对**不继承**旧的逐条勾选 —— L2/L3 那些
 ///   "每一次都要人看一眼"的条目，不该因为重新扫一次码就自动回来（契约 itemRequiredFromLevel 的方向）。
 /// ⚠ **`items` 没有缺省值，也不许在这里补成 `[]`**：这一处是全表唯一写得进清单的地方，
@@ -250,12 +252,91 @@ function approvePeer(contract, devices, addressCode, peerCode, level, items, now
   return record[field][peerKey];
 }
 
+/// A 确认一条配对请求时**要落下的两段授权**（T130 片2：一次确认、两段各写一行）。
+///
+/// ⚠ 咽喉没变：真正写得进 `grantsBy` 的仍然只有 `approvePeer` 那一处，这里只是按契约各调一次。
+/// 反向那一段为什么不写进 A 的行：那段关系的被投方是 B，写在 A 的行上就变成"A 允许 A 投给 A"，
+/// 而收单查的是 `devices[target].grantsBy[sender]`（`verify.js` 那一段）—— 一处存错，两侧都判不到。
+///
+/// 顺序是**先正向、后反向**：与 `decideRequest` 那句"先写授权、后关请求"同一个方向。
+/// 反那一发抛了（对面行还在却形状坏了）⇒ 请求仍是 pending，A 再确认一次即可；反过来做才会留下
+/// "请求显示已同意、对面那台一条都发不进来"那种两端日志各说各话的静默。
+function grantPairLegs(contract, devices, confirmerCode, requesterCode, level, items, now) {
+  // 判据排在**两段写入之前**：契约少一枚旋钮时，先写完正向再抛会留下一张"半份授权表"，
+  // 而它对外与一次成功的确认没有区别（回给设备的仍是那句 500，请求仍是 pending，
+  // 但 A 的行上已经多了一条谁也说不清是不是完整的关系）。
+  const enabled = reverseGrantEnabled(contract);
+  const forward = approvePeer(contract, devices, confirmerCode, requesterCode, level, items, now);
+  if (!enabled) {
+    return { forward, reverse: null, reverseSkipped: 'disabled-by-contract' };
+  }
+  const peerKey = keyOf(contract, requesterCode);
+  if (!peerKey || !devices[peerKey]) {
+    // 对面已经不在表上（被清过、或这一次确认来得比登记晚）。跳过这一段**不是**"配了一半"：
+    // 收单要先按发送方地址码在表里取到公钥才谈得上验签，一个没登记的地址码投不进来任何东西，
+    // 所以这里没写出来的是一条没有主体的授权。不抛 —— 抛会把 A 已经答应的那一段一起否掉，
+    // 而 A 答应的正是"让这台能投给我"。
+    return { forward, reverse: null, reverseSkipped: 'requester-unregistered' };
+  }
+  // 清单恒空：逐条勾选取自**点头那一台**的屏幕，而这一段的授权对象从没勾过任何一项
+  //（契约 `reverseGrantItems`，取值不是 empty 时在下面那一道判据里就抛）。
+  const reverse = approvePeer(contract, devices, requesterCode, confirmerCode, level, [], now);
+  return { forward, reverse, reverseSkipped: null };
+}
+
+/// 反向那一段的三条契约旋钮（T130 片2）。只认本实现会执行的取值，缺键就抛 —— 不补默认值：
+/// "这一次确认到底创建几段"这件事一旦由实现挑，挑错的那一侧要么是两个都以为配好了却发不出去，
+/// 要么是多出一段谁都没点头的授权，而两种在界面上都长得像"配对成功"。
+function reverseGrantEnabled(contract) {
+  const pairing = (contract || {}).pairing || {};
+  const enabled = pairing.reverseGrantOnConfirm;
+  if (typeof enabled !== 'boolean') {
+    throw shapeError(
+      'pairing.reverseGrantOnConfirm 必须是 true 或 false（不补默认值）：一次确认创建一段还是两段，' +
+        '不能由实现自己挑一个',
+    );
+  }
+  if (!enabled) return false;
+  const maxLevel = pairing.reverseGrantMaxLevel;
+  if (maxLevel !== 'same-as-forward') {
+    throw shapeError(
+      `pairing.reverseGrantMaxLevel=${JSON.stringify(maxLevel)}：本实现只会让两段的封顶取同一个数，` +
+        '换一个词就是声明了一段没人执行的规则',
+    );
+  }
+  const items = pairing.reverseGrantItems;
+  if (items !== 'empty') {
+    throw shapeError(
+      `pairing.reverseGrantItems=${JSON.stringify(items)}：反向那一段只能带空清单 —— ` +
+        '把正向那份复制过去就是替对面点头，而逐条勾选整块存在的理由就是不替谁点头',
+    );
+  }
+  return true;
+}
+
+/// 划掉的是**哪一段**（`pairing.revokeDirection`）。判据在删除之前，不在之后：
+/// 契约写着 `outgoing`（那一段住在对面的行里）而实现仍去删签名者自己的行，表现是
+/// "用户按契约以为断开了往外发那一路，其实动的是收的那一路" —— 两段的形状一模一样，事后看不出来。
+function revokeDirection(contract) {
+  const value = ((contract || {}).pairing || {}).revokeDirection;
+  if (value !== 'incoming') {
+    throw shapeError(
+      `pairing.revokeDirection=${JSON.stringify(value)}：本实现只划得到签名者自己那一段（incoming）。` +
+        '放开成 outgoing 就是让一台替别人增删授权，而 `revocableBy` 那条红线讲的是同一件事',
+    );
+  }
+  return value;
+}
+
 /// A 撤销对 B 的授权 —— **全服务端唯一一处**从 `grantsBy` 里删条目的地方（与 `approvePeer` 对称：
 /// 那边是唯一写入者，这边是唯一删除者；别处再写一次 `delete by[...]` 就等于多一本账）。
 ///
 /// ⚠ 三条：
-///  ① 只删 A 自己那一份关系。设备表里不存"B 允许 A"——`pairing.relationshipStoredOn` 说的是
-///    授权存在**被投那台**的记录上，所以双向配对里"我撤了我的"从来不等于"对面撤了对面的"；
+///  ① 只删**签名者自己那一行**里的那一段（`pairing.revokeDirection` = incoming）。T130 片2 之后
+///    设备表里确实还有一条"B 允许 A 投进来"（`devices[B].grantsBy[A]`，由 A 那次确认双写出来的），
+///    它**不跟着消失**：那一段的主语换成了 B，划它的得是 B —— 这正是 `revocableBy` 那句"能授权的人
+///    才能撤销"按段来读的样子。一次划掉两段的表现很难查：对面屏幕上那一行还挂着"已配对"，
+///    而它发过来的一切从此 403，两边各拿一份说不清的账。
 ///  ② 撤一条本来就不存在的关系：**不改表、不抛、回 `removed:false`**。撤销是幂等的 —— 目标状态是
 ///    「这个 peer 不在我的名单里」，已经不在就是已达成；抛错或回 404 只会让客户端把"本来没有"
 ///    当成一次失败，从而留着本机那一行不再删（两边从此各说一段）；
@@ -263,6 +344,7 @@ function approvePeer(contract, devices, addressCode, peerCode, level, items, now
 ///    判定多读一个分支，而忘了读那一支就是 fail-open：撤过的对面还能推进来。
 ///    "曾经给过谁、什么时候撤的"要看得见，靠的是留痕与备份里的那份表，不是靠在这一行留个记号。
 function revokePeer(contract, devices, addressCode, peerCode, now) {
+  revokeDirection(contract);
   const record = devices[keyOf(contract, addressCode)];
   if (!record) throw new Error('设备未登记（撤销不能挂在没有记录的设备上）');
   const peerKey = keyOf(contract, peerCode);
@@ -826,7 +908,10 @@ module.exports = {
   DEVICE_CAP_CODE,
   DEVICE_KEY_SWAP_CODE,
   approvePeer,
+  grantPairLegs,
+  reverseGrantEnabled,
   revokePeer,
+  revokeDirection,
   peerGrant,
   DEVICE_FILE,
   ENDPOINT_FILE,

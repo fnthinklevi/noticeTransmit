@@ -594,8 +594,9 @@ router.post(
 
 // ── POST /pair-confirm：A 处理自己的一条配对请求（唯一一次授权写入）──
 // 这一条是 #131 的收口：前两片只证明"B 知道那枚口令"并挂起请求，授权一直是空的。
-// ⚠ 授权写在**被投那台**的 grantsBy 上（契约 pairing.relationshipStoredOn）；
-//   归属与"只能处理一次"由 pairstore 拿着两张表判，本文件只串顺序。
+// ⚠ 每一段授权都写在**它自己被投那台**的 grantsBy 上（契约 pairing.relationshipStoredOn）；
+//   一次确认创建两段（pairing.reverseGrantOnConfirm，T130 片2），两行各写各的，本文件只串顺序。
+//   归属与"只能处理一次"由 pairstore 拿着两张表判。
 router.post(
   '/pair-confirm',
   asyncHandler(async (req, res) => {
@@ -632,8 +633,9 @@ router.post(
 // ── POST /pair-revoke：A 把 B 从自己的白名单里划掉（唯一一次授权删除）──────
 // 与 /pair-confirm 对称的那一发（#131 写了 grantsBy，这一发才第一次删）。三条口径写在这里：
 //  ① 设备面**只有这一处**能动 `grantsBy`（实现收在 `devicestore.revokePeer`，本文件只串顺序）；
-//  ② 撤销只停投递、不删历史：不动 messagestore、不改设备状态，B 那边给 A 的授权也不在这一点上
-//    （`pairing.relationshipStoredOn` 说的是"存在被投那台"，所以双向关系要各撤各的）；
+//  ② 撤销只停投递、不删历史：不动 messagestore、不改设备状态；一次确认写下的**两段**里，这一发只
+//    停签名者自己那一段（`pairing.revokeDirection`=incoming），对面那一行上给它的授权由对面自己划
+//    （`revocableBy`：能授权的人才划得掉那一段 —— 一台能替别人删授权就是这条红线的反面）；
 //  ③ **撤一条不存在的关系也回 200**（`revoked:false`）：撤销是幂等的，目标状态已达成就是成功。
 //    回 403/404 会让客户端把"服务器本来没有"当成失败，于是本机那一行留着不删 —— 两边各说一段。
 //    ⚠ 这一发不防试探：能查到的只有签名者自己的 grantsBy，与 /pair-confirm 那句"同一句话"不是一回事。

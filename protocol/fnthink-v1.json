@@ -80,7 +80,13 @@
     "failureMessageShape": "single-generic",
     "clockAuthority": "server",
     "relationshipStoredOn": "target-device-record",
-    "_relationshipStoredOnWhy": "授权的内容是「A 允许 B 投给我」，做决定的是被投的那台：存在 A 的行里，A 才能自己划掉（撤销不需要问 B）。契约里「逐条勾选」「每次本地确认」「重建身份后所有发送方重配」说的全是接收端的动作——挂在发送方记录上时，这三处没有一处执行得了。#131 前两片把关系建起来了才发现：收单时读的是发送方自己那一行的 grant，等于谁登记过就能给任何人投。",
+    "_relationshipStoredOnWhy": "授权的内容是「A 允许 B 投给我」，做决定的是被投的那台：存在 A 的行里，A 才能自己划掉（撤销不需要问 B）。契约里「逐条勾选」「每次本地确认」「重建身份后所有发送方重配」说的全是接收端的动作——挂在发送方记录上时，这三处没有一处执行得了。#131 前两片把关系建起来了才发现：收单时读的是发送方自己那一行的 grant，等于谁登记过就能给任何人投。⚠ 这一条钉的是「**一段**关系住在哪一行」，不是「一次确认创建几段」（T130 片2 起一次确认创建两段，见 reverseGrantOnConfirm）：反向那一段照样住在它自己的被投那台上（B 的行里），所以「谁划掉得动哪一行」这条判据一段都没松动 —— 改口径时把这两件事合起来读，别拿这一句去否掉双写，也别拿双写去否掉这一句。",
+    "reverseGrantOnConfirm": true,
+    "_reverseGrantOnConfirmWhy": "一次确认创建两段：正向写在点头那台（A）的行里（A 允许 B 投进来），反向写在被请求那台（B）的行里（B 允许 A 投进来）。为什么由**服务端**在同一发里写完，而不是让 B 也挂一枚口令、A 再扫一次：那样交付的是「两台各自点同意」，而实测现象正是用户以为配完就该互发（维护者 2026-10-10 拍的 A 路线，推翻 2026-10-07／10-08 那条「互发＝两台各确认一次」）。⚠ 这一发的安全边界要读清楚：反向那一段是 A 投进 B 的入口，而 B 从没在本机屏上点过同意 —— 它成立的全部依据是「B 主动拿着 A 的一次性口令发起了这一次」（口令 5 分钟过期、配对即消耗）。所以它是**受限的一段**：`reverseGrantItems=empty` 把 L2 起的逐条项一概挡死，实际能过的只有 L1 那一档的通知。把它改成 `false` 就退回旧的单段语义（自部署方想只通一侧时拧这一枚）。",
+    "reverseGrantMaxLevel": "same-as-forward",
+    "_reverseGrantMaxLevelWhy": "两段的封顶都取自这一次确认里的那一个数（`pairConfirm.level`，仍受 `levelCeilingFrom` 那道闸约束）。分成两枚旋钮就会长出「名单显示 L2、对面实际被限在 L1」那种两本账；而实现只认这一取值，写成别的词 ⇒ 抛，不静默按另一条路走。",
+    "reverseGrantItems": "empty",
+    "_reverseGrantItemsWhy": "逐条清单（`items`）是**点头那一台**在自己的同意屏上勾出来的（T134 片3），而反向那一段的授权对象 B 从没勾过任何一项 ⇒ 恒空。把正向那份复制过去＝A 替 B 点头「允许我对自己执行这些动作」，那正是逐条勾选这一整块要拦的事。空清单的实际效果比 `L1` 更窄也更准：`itemRequiredFromLevel` 起的那一档要求逐条命中，所以 L2 动作与 L3 设置项在这一段上一律 `item:<x>` 拒回，而 L1 通知照投 —— 用档位表达「只能投通知」反而会把 L2 那档的词表项一起放开。",
     "relationshipField": "grantsBy",
     "relationshipEntryFields": [
       "maxLevel",
@@ -94,7 +100,9 @@
     "relationshipRequiredForIntake": true,
     "_relationshipRequiredForIntakeWhy": "查不到这一条关系 ⇒ 直接拒，**不许**落到 capabilities.grantDefaults 那一档：缺省档防的是「有授权记录但字段缺」，把它当成「谁都没配过对」的默认放行方向就是 fail-open。",
     "revocableBy": "target-device",
-    "_revocableByWhy": "能授权的人才能撤销：A 划掉 B 之后，B 的签名再对也进不了 A 的队列。撤销的入口（单条划掉 / 一键冻结）挂在 T31 与 #130，这一段只声明数据形状与判定方向。",
+    "_revocableByWhy": "能授权的人才能撤销：A 划掉 B 之后，B 的签名再对也进不了 A 的队列。撤销的入口（单条划掉 / 一键冻结）挂在 T31 与 #130，这一段只声明数据形状与判定方向。⚠ 双写之后（T130 片2）这一句要按**段**来读：每一段都由它自己的被投那台划掉，A 划掉的是「B 往 A 投」那一段，「A 往 B 投」那一段住在 B 的行里、只有 B 划得到 —— 谁都不替对面划。",
+    "revokeDirection": "incoming",
+    "_revokeDirectionWhy": "`pairRevoke` 划掉的是**哪一段**关系，必须是明写的而不是从代码里读出来的：双写之后「划掉这台设备」这句话有两种读法（停掉别人往我这投／停掉我往那台投），而默认取哪一种会决定用户以为断了、其实只通着一段。取 `incoming`＝只停「别人往我这投」（签名者自己的那一行），实现只执行这一个取值，写成别的词 ⇒ 抛。为什么不给 `outgoing`：那一段住在**对面**的行里，由对面划才是 `revocableBy` 那条；在一台能替别人增删授权的位置上加这个开关，就是把「唯一写入者只写签名者自己那一段」这条红线开了个口子。设备侧界面上那句要说清是「我不再收这台」，不是「断开这台设备」。",
     "maxRequestableLevelFromPairing": "L2"
   },
   "signature": {

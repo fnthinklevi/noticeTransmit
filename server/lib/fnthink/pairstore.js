@@ -28,8 +28,10 @@ const { DATA_DIR } = require('../store');
 const { resolvePath } = require('./contract');
 const { alphabetFromContract, normalize } = require('./credentials');
 // 写授权只有一条咽喉，就在设备表那一侧：本文件不自己碰 `grantsBy`（两处写 = 两份规则）。
+// 一次确认创建**两段**关系（T130 片2），但本文件只调 `grantPairLegs` 那一个入口 ——
+// "两段各写哪一行、反向那一段带不带清单"是设备表的事，请求表只管"这一发答的是哪条请求"。
 // 方向上不成环：devicestore 不认识 pairstore。
-const { approvePeer } = require('./devicestore');
+const { grantPairLegs } = require('./devicestore');
 const { loadTable, saveTable } = require('./table');
 
 const REQUEST_FILE = path.join(DATA_DIR, 'fnthink_pair_requests.json');
@@ -309,13 +311,14 @@ function pendingFor(contract, requests, addressCode, now) {
 }
 
 /// A 处理自己的一条配对请求（#131 第三片）。`devices` 传进来是因为同意要写授权，
-/// 而写授权只有一条咽喉：`devicestore.approvePeer`（本文件不自己碰 `grantsBy`）。
+/// 而写授权只有一条咽喉：`devicestore.approvePeer`（本文件不自己碰 `grantsBy`）；
+/// T130 片2 之后走的是它上面那一层 `grantPairLegs`（一次确认两段，两次单段写入）。
 ///
 /// 三条顺序上的取舍，都写在代码旁边：
 ///  ① 先查归属再查状态：把"不是你的请求"和"已经处理过"分开报，是给运维看的；
 ///     对外两者同形（路由那边只看一个 reason）。
 ///  ② 过期先落地（expireDue）：一条早已过期的请求不该还能被"同意"。
-///  ③ **先写授权、后关请求**：反过来做的话，一次 approvePeer 落盘失败会留下
+///  ③ **先写完两段授权、后关请求**：反过来做的话，一次落盘失败会留下
 ///     "请求显示已同意、B 却一条都发不进来"——A 看见自己点了同意而对面没反应，
 ///     那是最难查的一种静默。现在的顺序最坏只到"授权写了、请求还挂着"，
 ///     A 再确认一次即可（revision +1，方向仍然由 A 决定）。
@@ -355,7 +358,9 @@ function decideRequest(contract, requests, devices, input, now) {
     // `input.items` 是 events 那一侧过完词表与形状两道闸的那一份（T134 片2）。
     // 这里不重判、也不"缺省成空清单"：缺这一枚键说明调用方漏接了，静默补 [] 就等于
     // 把"用户勾了而表里没有"写成一条看不见的缺陷 —— approvePeer 会因为它不是数组而抛。
-    grant = approvePeer(
+    // 反向那一段的清单由 `grantPairLegs` 自己按契约收成空（T130 片2），不从这一枚变量走：
+    // 把 A 勾的那份递给对面那一行，就是 A 替 B 点了逐条勾选那一屏。
+    grant = grantPairLegs(
       contract,
       devices,
       input.target,
@@ -363,7 +368,7 @@ function decideRequest(contract, requests, devices, input, now) {
       input.level,
       input.items,
       now,
-    );
+    ).forward;
   }
   record.status = input.decision;
   // 与到期扫描那一支同一个列名（原先这里写 `decidedAt`、那里写 `statusChangedAt`，说的是

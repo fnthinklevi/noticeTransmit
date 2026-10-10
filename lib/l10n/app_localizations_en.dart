@@ -3606,7 +3606,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fnthinkPairApprovedOneWay =>
-      'This side can now send to it. The other half needs one step on each device: arm a code over there, enter it here under \'Pair another device\', and let that device approve once — the relationship lives on the receiving device\'s list, and this one cannot click for it.';
+      'The two devices can now push notifications to each other: this one confirmation writes two grants, each living on the receiving device\'s list. What\'s still missing is the per-item side — L2 actions and L3 settings have to be ticked on that device\'s own approval screen; this one can\'t click for it.';
 
   @override
   String get fnthinkPairAskTitle => 'Approve this pairing?';

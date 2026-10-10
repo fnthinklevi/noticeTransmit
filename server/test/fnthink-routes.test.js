@@ -539,7 +539,9 @@ describe('源码守卫', () => {
   });
 
   test('配对授权的两把咽喉各只有一处，而关系列名在 lib 下一次都不出现', () => {
-    // 三件事一起钉：① 写授权只有 approvePeer、删授权只有 revokePeer，且各自的**调用点**只有一个文件；
+    // 三件事一起钉：① 写授权只有 approvePeer、删授权只有 revokePeer，各自的**调用点**都在
+    //   设备表那一侧（T130 片2 之后 approvePeer 多了 `grantPairLegs` 这一个上层入口，
+    //   调用点因此收进同一个文件 —— 两处写一段和一段两处写，后者才是这份守卫要挡的）；
     // ② 那一列叫什么**只从契约来**（pairing.relationshipField）；③ 名单在 lib 下没有第四处写法。
     // 为什么是源码守卫而不是行为用例：今天列名就是 `grantsBy`，写死的读法与契约的读法**回一样的数**，
     // 行为上分不出来 —— 只有把契约那一列改名时才见分晓，而那一次改名在真机上表现为
@@ -565,13 +567,15 @@ describe('源码守卫', () => {
       .map(([name]) => name);
     expect(offenders).toEqual([]);
 
-    // 咽喉的调用点：定义都在 devicestore，写入被 pairstore 调，删除被 routes 调，别处一处都没有
+    // 咽喉的调用点：定义与调用都在 devicestore（一次确认两段 = 同一处咽喉被调两次），
+    // 上层入口 `grantPairLegs` 只被 pairstore 叫一次；别处一处都没有。
     const callSites = (fn) =>
       [...reads.entries()]
         .filter(([, c]) => c.includes(`function ${fn}(`) || new RegExp(`\\b${fn}\\(`).test(c))
         .map(([name, c]) => [name, (c.match(new RegExp(`\\b${fn}\\(`, 'g')) || []).length])
         .sort();
-    expect(callSites('approvePeer')).toEqual([
+    expect(callSites('approvePeer')).toEqual([['fnthink/devicestore.js', 3]]);
+    expect(callSites('grantPairLegs')).toEqual([
       ['fnthink/devicestore.js', 1],
       ['fnthink/pairstore.js', 1],
     ]);
@@ -918,7 +922,7 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
     expect(Object.keys(messagestore.loadMessages()).length).toBe(before);
   });
 
-  test('A 确认 ⇒ 同一条消息立刻能投进去，且关系写在 A 那一行上', async () => {
+  test('A 确认 ⇒ 两段都落进表：B 投 A 能进，A 投 B 也立刻能进（T130 片2 双写）', async () => {
     const requestId = await pairUp(CODE, bobKey, BOB, 'L1');
 
     // 别人拿同一个 requestId 替 A 答应 ⇒ 拒（requestId 猜不到不是判据，归属才是）。
@@ -946,16 +950,26 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
       .expect(200);
     // 状态名取自契约（路由与测试都不写 'approved' 字面量）。
     expect(ok.body.status).toBe(contract.clientEvents.pairConfirm.approveDecision);
+    // 回执里那个 grantedLevel 仍是**正向**那一段（A 收下的那一档）：这一发是 A 签的，
+    // 它该看得见的是"我给出去了多少"；反向那一段住在 B 的行上，由 B 自己判。
     expect(ok.body.grantedLevel).toBe('L1');
 
     const devices = devicestore.loadDevices();
     expect(devices[ALICE].grantsBy[BOB].maxLevel).toBe('L1');
-    // 反向没有：B 没授权自己，A 也没给 B"投给 A 之外的人"的许可。
-    expect(devices[BOB].grantsBy[ALICE]).toBeUndefined();
+    // 反向那一段现在**有**了，而且住在 B 自己那一行上（契约 relationshipStoredOn 钉的是
+    // "一段住在哪一行"，不是"一次确认创建几段"）。写成 `devices[ALICE].grantsBy[ALICE]`
+    // 就是"A 允许 A 投给 A"，而收单查的是 target 的行 ⇒ 两段里的一段谁都不判，等于没写。
+    expect(devices[BOB].grantsBy[ALICE].maxLevel).toBe('L1');
+    expect(devices[BOB].grantsBy[ALICE].items).toEqual([]);
 
     await request(app)
       .post('/api/fnthink/message')
       .send(msgBody(bobKey, BOB, ALICE, '验证码 481902'))
+      .expect(202);
+    // 反方向的这一发就是 T130 那行记的实测现象的出口：以前 A 点完同意，自己投过去仍是 403。
+    await request(app)
+      .post('/api/fnthink/message')
+      .send(msgBody(aliceKey, ALICE, BOB, 'A 投给 B'))
       .expect(202);
   });
 
@@ -1097,13 +1111,17 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
     expect(retry.body.status).toBe(APPROVE_WORD);
   });
 
-  test('授权写入只有 approvePeer 一条咽喉：路由与 pairstore 都不自己碰 grantsBy', () => {
+  test('授权写入只有一处咽喉（approvePeer）：pairstore 走 grantPairLegs，路由不自己碰 grantsBy', () => {
     const routesSrc = fs.readFileSync(path.join(__dirname, '../lib/fnthink/routes.js'), 'utf8');
     const pairSrc = fs.readFileSync(path.join(__dirname, '../lib/fnthink/pairstore.js'), 'utf8');
     const code = (s) => s.replace(/\/\/[^\n]*/g, '');
     expect(code(routesSrc)).not.toMatch(/grantsBy\s*=/);
     expect(code(pairSrc)).not.toMatch(/grantsBy\s*\[/);
-    expect(code(pairSrc)).toMatch(/approvePeer\(/);
+    // T130 片2 之后请求表叫的是**上一层**那个入口：两段各写哪一行、反向带不带清单是设备表的事。
+    // 这里两头都断：pairstore 只许调 grantPairLegs，且不许绕过它直接够 approvePeer ——
+    // 否则"一次确认两段"会变成两处各写一段，而两处规则迟早分叉成"一段继承另一段的清单"。
+    expect(code(pairSrc)).toMatch(/grantPairLegs\(/);
+    expect(code(pairSrc)).not.toMatch(/approvePeer\(/);
   });
 
   // ── #156 T31 B 片第一片：撤销那一发 ────────────────────────────────
@@ -1158,28 +1176,14 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
       expect(Object.keys(messagestore.loadMessages()).length).toBe(kept);
     });
 
-    test('撤销只动 A 那一份：B 给 A 的授权原样留着（双向关系各撤各的）', async () => {
+    test('撤销只停「别人往 A 投」那一段：A 自己确认时双写的那一段原样留着（各撤各的）', async () => {
       await pairAtoB(CR6);
-      // 反向来一遍：B 挂口令、A 去握手、B 自己确认 ⇒ B 的名单里也有一条 A
-      await request(app)
-        .post('/api/fnthink/pair-arm')
-        .send(evBody('pairArm', bobKey, BOB, BOB, { pairingCode: CR8 }))
-        .expect(200);
-      const asked = await request(app)
-        .post('/api/fnthink/pair')
-        .send(evBody('pair', aliceKey, ALICE, BOB, { pairingCode: CR8, level: 'L1' }))
-        .expect(statusCode(contract, 'queued'));
-      await request(app)
-        .post('/api/fnthink/pair-confirm')
-        .send(
-          evBody('pairConfirm', bobKey, BOB, ALICE, {
-            requestId: asked.body.requestId,
-            decision: APPROVE,
-            level: 'L1',
-          }),
-        )
-        .expect(200);
-      expect(devicestore.loadDevices()[BOB].grantsBy[ALICE].maxLevel).toBe('L1');
+      const afterConfirm = devicestore.loadDevices();
+      // T130 片2 之后这一段**不再需要 B 也点一次同意**：A 那一发确认就把它写进了 B 的行。
+      // 上一片（片1 之前）这里还要手工再走一遍"B 挂口令、A 握手、B 确认"，那一整段现在
+      // 只剩一个作用——证明两次确认不会把同一行写成两本账，所以留一条对照就够。
+      expect(afterConfirm[BOB].grantsBy[ALICE].maxLevel).toBe('L1');
+      expect(afterConfirm[BOB].grantsBy[ALICE].items).toEqual([]);
 
       const otherSide = JSON.stringify(devicestore.loadDevices()[BOB].grantsBy);
       const res = await request(app)
@@ -1188,13 +1192,58 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
         .expect(200);
       expect(res.body.revoked).toBe(true);
       expect(devicestore.loadDevices()[ALICE].grantsBy[BOB]).toBeUndefined();
+      // ⚠ 这一段断的是"划掉不许带走另一段"：B 的行一个字节都不动。一次划掉两段的话，
+      //   对面屏幕上那行还挂着"已配对"而它收到的一切从此 403 —— 两边各拿一份说不清的账，
+      //   而契约 `revokeDirection` 说得很明白：只执行签名者自己那一段。
       expect(JSON.stringify(devicestore.loadDevices()[BOB].grantsBy)).toBe(otherSide);
-      // 于是 A→B 这一发照样收单：撤销若把两头一起断开，等于替 B 改了他自己的名单，
-      // 而 B 从未签过任何东西。
+      // 于是 A→B 这一发照样收单（反向那一段还在），而 B→A 从此进不来。
       await request(app)
         .post('/api/fnthink/message')
         .send(msgBody(aliceKey, ALICE, BOB, '我投给 B 仍然能进'))
         .expect(202);
+      const back = await request(app)
+        .post('/api/fnthink/message')
+        .send(msgBody(bobKey, BOB, ALICE, '反过来那条该被挡'));
+      expect(back.status).toBe(statusCode(contract, 'forbidden'));
+    });
+
+    test('反向那一段不继承勾选：A 勾了 alert:ring，A 往 B 发动作仍是 403（而通知能进）', async () => {
+      // 这一条是这一片的安全边界，单独一条钉死：双写把**档位**对称了，没有把**清单**对称过去。
+      // 把正向那份 items 复制进 B 的行 = A 替 B 在勾选那一屏点了头，而 B 从没勾过任何一项
+      //（契约 reverseGrantItems=empty 的执行处）。
+      const requestId = await pairUp(CR8, bobKey, BOB, 'L2');
+      await request(app)
+        .post('/api/fnthink/pair-confirm')
+        .send(
+          evBody('pairConfirm', aliceKey, ALICE, BOB, {
+            requestId,
+            decision: APPROVE,
+            level: 'L2',
+            items: ['alert:ring'],
+          }),
+        )
+        .expect(200);
+      const devices = devicestore.loadDevices();
+      expect(devices[ALICE].grantsBy[BOB].items).toEqual(['alert:ring']);
+      expect(devices[BOB].grantsBy[ALICE].maxLevel).toBe('L2');
+      expect(devices[BOB].grantsBy[ALICE].items).toEqual([]);
+
+      // A 投 B 的动作：档位够（L2），清单里没有那一项 ⇒ 拒。
+      const action = await request(app)
+        .post('/api/fnthink/message')
+        .send(actionBody(aliceKey, ALICE, BOB, 'alert:ring'));
+      expect(action.status).toBe(statusCode(contract, 'forbidden'));
+      expect(action.body).toEqual({ receipt: 'rejected_capability' });
+      // 同一段授权下的 L1 通知照投：这一段的意义就是"互发通知"，不是"什么都能发"。
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(msgBody(aliceKey, ALICE, BOB, 'A 的通知'))
+        .expect(202);
+      // 对照：正向那一段里勾过的那一项，B 投给 A 仍然收得进来。
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(actionBody(bobKey, BOB, ALICE, 'alert:ring'))
+        .expect(statusCode(contract, 'queued'));
     });
 
     test('载荷里的 peerAddress 与签名的 target 不一致 ⇒ 拒，名单分毫不动（两个来源只能有一个算数）', async () => {

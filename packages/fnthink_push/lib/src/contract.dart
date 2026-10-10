@@ -3614,6 +3614,36 @@ class FnthinkContract {
       (str(const ['pairing', 'relationshipField']) ?? '').isNotEmpty,
       'pairing.relationshipField 不能缺：收单要知道去哪一列读这段关系，缺了就等于没有这道判据',
     );
+    // ── 一次确认创建几段关系（T130 片2）──
+    // 上面那条讲的是「一段住在哪一行」，这一条讲的是「一次确认写几段」。两件必须分开钉：
+    // 合成一条的话，把双写关掉时 `relationshipStoredOn` 那条照样绿，而设备上表现是
+    // "两台都以为配好了，发过去却是 403" —— 那一半从来没有人报过。
+    final reverseOn = boolOf(const ['pairing', 'reverseGrantOnConfirm']);
+    need(
+      reverseOn != null,
+      'pairing.reverseGrantOnConfirm 必须明写 true 或 false（没有缺省档）：一次确认创建一段还是两段，'
+      '由实现挑的话挑错那一侧正好是"看着成功、其实发不出去"，界面分不出来',
+    );
+    if (reverseOn == true) {
+      need(
+        str(const ['pairing', 'reverseGrantMaxLevel']) == 'same-as-forward',
+        'pairing.reverseGrantMaxLevel 只能是 same-as-forward（实为'
+        '「${str(const ['pairing', 'reverseGrantMaxLevel'])}」）：两段的封顶取自同一个数才只有一本账，'
+        '而两端都只执行这一种写法 —— 换一个词就是声明了一段谁都不执行的规则',
+      );
+      need(
+        str(const ['pairing', 'reverseGrantItems']) == 'empty',
+        'pairing.reverseGrantItems 只能是 empty（实为'
+        '「${str(const ['pairing', 'reverseGrantItems'])}」）：逐条勾选取自**点头那一台**的屏幕，'
+        '反向那一段的对象从没勾过 ⇒ 复制正向那份就是替对面点头，而"不替谁点头"是整块勾选存在的原因',
+      );
+    }
+    need(
+      str(const ['pairing', 'revokeDirection']) == 'incoming',
+      'pairing.revokeDirection 只能是 incoming（实为'
+      '「${str(const ['pairing', 'revokeDirection'])}」）：划得到的只有签名者自己那一行里的那一段；'
+      '放开成 outgoing 就是一台能替别人删授权，而 revocableBy 讲的正是同一件事',
+    );
     need(
       str(const ['pairing', 'enforcedAt']) == 'server-intake',
       'pairing.enforcedAt 只能是 server-intake（实为「${str(const ['pairing', 'enforcedAt'])}」）：'
