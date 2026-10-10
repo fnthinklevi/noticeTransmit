@@ -7102,7 +7102,7 @@ abstract class AppLocalizations {
   /// No description provided for @fnthinkRevokeAskMsg.
   ///
   /// In zh, this message translates to:
-  /// **'撤销之后 {peer} 再也推不进本机；已经收到的通知留着。这一步要先让服务器收回授权，所以离线时做不成。'**
+  /// **'撤销之后 {peer} 再也推不进本机；已经收到的通知留着。只断这一头 —— 这台投给它的授权不跟着消失（那一段要它在它的屏幕上划掉）。这一步要先让服务器收回授权，所以离线时做不成。'**
   String fnthinkRevokeAskMsg(String peer);
 
   /// No description provided for @fnthinkRevoked.

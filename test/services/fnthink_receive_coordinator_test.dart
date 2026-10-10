@@ -1265,6 +1265,92 @@ void main() {
       );
     });
 
+    // ── T130 片3：对面点了同意 ⇒ 本机把那一台升格成名单里的一行（"互见"的那一半）──
+    group('approved 那一发升格成名单行', () {
+      Future<List<FnthinkPeer>> round(
+        List<FnthinkSentPairRequest> sent, {
+        bool withStore = true,
+      }) async {
+        SharedPreferences.setMockInitialValues({
+          'flutter.${FnthinkSettings.keyReceiveEnabled}': true,
+          'flutter.${'fnthink.consent_version'}': 1,
+        });
+        final written = <FnthinkPeer>[];
+        final rec = _LoopRecorder()..pollSentPairRequests = sent;
+        final c = coordinator(
+          recorder: rec,
+          recordPeer: withStore
+              ? (peer) async {
+                  written.add(peer);
+                  return FnthinkPeerWrite.created;
+                }
+              : null,
+        );
+        await c.startIfEnabled();
+        await pumpEventQueue();
+        return written;
+      }
+
+      FnthinkSentPairRequest decided({
+        required String status,
+        required FnthinkPairRequestState state,
+        String id = 'pr_p',
+        int statusAt = 1780000030000,
+      }) => FnthinkSentPairRequest(
+        requestId: id,
+        target: '7YD4RKQPBM8XZ3VHNT',
+        status: status,
+        state: state,
+        level: 'L2',
+        createdAt: 1780000000000,
+        expiresAt: 1780000060000,
+        statusAt: statusAt,
+      );
+
+      test('写进去的那一行：地址码／档位／时刻都来自这一条，清单是空的，公钥是空读数', () async {
+        final written = await round([
+          decided(status: 'approved', state: FnthinkPairRequestState.approved),
+        ]);
+        expect(written, hasLength(1));
+        final peer = written.single;
+        expect(peer.peerAddress, '7YD4RKQPBM8XZ3VHNT');
+        expect(peer.level, 'L2');
+        expect(
+          peer.items,
+          isEmpty,
+          reason:
+              '服务端双写过去的那一段清单恒空（对面从没在本机屏上勾过）⇒ 本机镜像也必须空：'
+              '抄一份进来就是这台替对面点头',
+        );
+        expect(peer.publicKey, '', reason: '那一面的投影不回公钥：这一发带的是"没有读数"，不是"另一把钥匙"');
+        expect(peer.grantedAt, 1780000030000, reason: '时刻取 `at`（状态最后一次变的那一刻）');
+        expect(peer.requestId, 'pr_p');
+        expect(peer.forwards, isFalse, reason: '升格不等于设为转发目标 —— 那是另一枚勾选');
+      });
+
+      test('还在等／被拒／过期：一行都不升', () async {
+        for (final row in [
+          decided(status: 'pending', state: FnthinkPairRequestState.pending),
+          decided(status: 'denied', state: FnthinkPairRequestState.denied),
+          decided(status: 'expired', state: FnthinkPairRequestState.expired),
+          decided(status: 'granted', state: FnthinkPairRequestState.unknown),
+        ]) {
+          expect(
+            await round([row]),
+            isEmpty,
+            reason: '${row.status} 那一档不该出现在名单里（名单每一行都说"这台能投进我"）',
+          );
+        }
+      });
+
+      test('这台没接落库链路 ⇒ 一声不响地少一行，而不是把收货那一轮打断', () async {
+        final written = await round([
+          decided(status: 'approved', state: FnthinkPairRequestState.approved),
+        ], withStore: false);
+        expect(written, isEmpty);
+      });
+    });
+
     test('答复成功 ⇒ 那一条立刻从待确认列表里摘掉', () async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,

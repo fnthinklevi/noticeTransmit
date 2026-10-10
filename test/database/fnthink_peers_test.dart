@@ -177,7 +177,7 @@ void main() {
     });
   });
 
-  group('写入的三种结果', () {
+  group('写入的四种结果（created / refreshed / alreadyPresent / keySwapped）', () {
     test('第一次是 created，再来一次同钥是 refreshed 且不新增行', () async {
       final db = await freshDb();
       expect(
@@ -212,6 +212,74 @@ void main() {
       expect(await allRows(db), [before], reason: '覆盖等于本机替用户点了"同意换钥"');
       expect(before['public_key'], 'pk-original');
       expect(before['level'], 'L2');
+    });
+
+    // ── T130 片3：对面替本机确认那一次，本机只有"空读数"可写 ──────────────
+    test('空读数 + 名单里没有那一行 ⇒ created，公钥那一格空着', () async {
+      final db = await freshDb();
+      expect(
+        await helper.upsertFnthinkPeer(
+          peer('8K3FJ6QPTM9WZ4VHNS', key: '', level: 'L1', at: 1700000900000),
+        ),
+        FnthinkPeerWrite.created,
+      );
+      final row = (await allRows(db)).single;
+      expect(row['public_key'], '');
+      expect(row['level'], 'L1');
+      // 读回来还是同一行：空公钥不能被判成"形状不认识"而读成别的东西。
+      final loaded = (await helper.loadFnthinkPeers()).single;
+      expect(loaded.peerAddress, '8K3FJ6QPTM9WZ4VHNS');
+      expect(loaded.publicKey, '');
+    });
+
+    test('① 空读数 + 已有那一行 ⇒ alreadyPresent，那一行一个字都不改', () async {
+      // 这一条钉的是这一片最贵的一次覆盖：本机先前自己点过同意（档位 L2、勾过 alert:ring、
+      // 还起了名字），而升格那一发手上只有地址码与时刻。拿空清单去 update，表现是
+      // "对面又答了一次，我勾过的逐项授权没了" —— 收紧也是一次改动，而这一发没有那个权限。
+      final db = await freshDb();
+      await helper.upsertFnthinkPeer(
+        const FnthinkPeer(
+          peerAddress: '8K3FJ6QPTM9WZ4VHNS',
+          publicKey: 'pk-original',
+          level: 'L2',
+          grantedAt: 1700000000000,
+          items: ['alert:ring'],
+        ),
+      );
+      await helper.setFnthinkPeerAlias('8K3FJ6QPTM9WZ4VHNS', '客厅那台');
+      final before = (await allRows(db)).single;
+
+      expect(
+        await helper.upsertFnthinkPeer(
+          peer('8K3FJ6QPTM9WZ4VHNS', key: '', level: 'L1', at: 1700000900000),
+        ),
+        FnthinkPeerWrite.alreadyPresent,
+      );
+      expect(await allRows(db), [before], reason: '"什么都没发生"必须真的什么都没发生');
+      final after = (await helper.loadFnthinkPeers()).single;
+      expect(after.level, 'L2');
+      expect(after.items, ['alert:ring']);
+      expect(after.alias, '客厅那台');
+    });
+
+    test('② 存底是空读数、这一发带来真钥匙 ⇒ refreshed 且把那一格补上（不判成换钥）', () async {
+      // 与上一条是一对：升格那一行先挂着（没有公钥），日后本机自己点一次同意就拿到那把钥匙。
+      // 如果这里仍按"两边不等就是换钥"判，界面上会弹出一句"这台设备换了身份"，
+      // 而真相是本机第一次看见它的身份 —— 那是把人往错误方向引的一条假警报。
+      await freshDb();
+      expect(
+        await helper.upsertFnthinkPeer(peer('8K3FJ6QPTM9WZ4VHNS', key: '')),
+        FnthinkPeerWrite.created,
+      );
+      expect(
+        await helper.upsertFnthinkPeer(
+          peer('8K3FJ6QPTM9WZ4VHNS', key: 'pk-seen-now', level: 'L3'),
+        ),
+        FnthinkPeerWrite.refreshed,
+      );
+      final after = (await helper.loadFnthinkPeers()).single;
+      expect(after.publicKey, 'pk-seen-now');
+      expect(after.level, 'L3');
     });
 
     test('两个对端各占一行，最近同意的排在前面（同时间按地址码稳定）', () async {

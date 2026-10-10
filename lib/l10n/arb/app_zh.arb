@@ -1978,7 +1978,7 @@
   "fnthinkSendUnparseable": "服务端收了但没给编号，这一条追不回来",
   "fnthinkSendBoundary": "「发一条」走的是设备签名那一路，只能发给名单里那台；它不等等于送达——那台真显示出来并回了执，才算送到。",
   "fnthinkRevokeAskTitle": "撤销这台设备的推送许可？",
-  "fnthinkRevokeAskMsg": "撤销之后 {peer} 再也推不进本机；已经收到的通知留着。这一步要先让服务器收回授权，所以离线时做不成。",
+  "fnthinkRevokeAskMsg": "撤销之后 {peer} 再也推不进本机；已经收到的通知留着。只断这一头 —— 这台投给它的授权不跟着消失（那一段要它在它的屏幕上划掉）。这一步要先让服务器收回授权，所以离线时做不成。",
   "@fnthinkRevokeAskMsg": {
     "placeholders": {
       "peer": {

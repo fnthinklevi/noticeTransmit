@@ -258,6 +258,11 @@ function approvePeer(contract, devices, addressCode, peerCode, level, items, now
 /// 反向那一段为什么不写进 A 的行：那段关系的被投方是 B，写在 A 的行上就变成"A 允许 A 投给 A"，
 /// 而收单查的是 `devices[target].grantsBy[sender]`（`verify.js` 那一段）—— 一处存错，两侧都判不到。
 ///
+/// 反向那一发的三种"没写"各有各的词，**不许合成一个**：`requester-unregistered`（那一段没有主体）、
+/// `leg-exists`（那一段已经由那台自己确认过一次，它的清单不由这一发负责）、
+/// `disabled-by-contract`（这一台服务端只要单段语义）。三种在下面的界面上长得一模一样
+/// （"两台互见"），而运维要能回答"这一段到底为什么没写"。
+///
 /// 顺序是**先正向、后反向**：与 `decideRequest` 那句"先写授权、后关请求"同一个方向。
 /// 反那一发抛了（对面行还在却形状坏了）⇒ 请求仍是 pending，A 再确认一次即可；反过来做才会留下
 /// "请求显示已同意、对面那台一条都发不进来"那种两端日志各说各话的静默。
@@ -277,6 +282,15 @@ function grantPairLegs(contract, devices, confirmerCode, requesterCode, level, i
     // 所以这里没写出来的是一条没有主体的授权。不抛 —— 抛会把 A 已经答应的那一段一起否掉，
     // 而 A 答应的正是"让这台能投给我"。
     return { forward, reverse: null, reverseSkipped: 'requester-unregistered' };
+  }
+  // ⚠ **只创建，不覆盖**：那一段如果已经在那台自己的行上（它先前自己点过一次同意写进去的），
+  // 这一发就一个字都不动。理由不是"省事"：那一行的 `items` 是**它的屏幕上的人勾出来的**，
+  // 而这一发带来的是空清单 —— 覆盖它会把人家勾过的逐项授权抹成空。
+  // 收紧也是改那一行，而"改谁的那一行"的权限只在 `revocableBy` 那一头（那台自己）。
+  // 不这么判的话，两台各确认一次 = 后一次把前一次抹掉，而两端的界面上都写着"已配对"。
+  const existing = peerGrant(contract, devices[peerKey], confirmerCode);
+  if (existing) {
+    return { forward, reverse: existing, reverseSkipped: 'leg-exists' };
   }
   // 清单恒空：逐条勾选取自**点头那一台**的屏幕，而这一段的授权对象从没勾过任何一项
   //（契约 `reverseGrantItems`，取值不是 empty 时在下面那一道判据里就抛）。

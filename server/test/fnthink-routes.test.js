@@ -1207,15 +1207,17 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
       expect(back.status).toBe(statusCode(contract, 'forbidden'));
     });
 
-    test('反向那一段不继承勾选：A 勾了 alert:ring，A 往 B 发动作仍是 403（而通知能进）', async () => {
+    test('反向那一段不继承勾选：A 勾了 alert:ring，A 往 M 发动作仍是 403（而通知能进）', async () => {
       // 这一条是这一片的安全边界，单独一条钉死：双写把**档位**对称了，没有把**清单**对称过去。
-      // 把正向那份 items 复制进 B 的行 = A 替 B 在勾选那一屏点了头，而 B 从没勾过任何一项
+      // 把正向那份 items 复制进对面的行 = A 替 M 在勾选那一屏点了头，而 M 从没勾过任何一项
       //（契约 reverseGrantItems=empty 的执行处）。
-      const requestId = await pairUp(CR8, bobKey, BOB, 'L2');
+      // ⚠ 这一条用的是 MALLORY 而不是 BOB：BOB 那一行上给 A 的授权在本文件前面那次确认里已经
+      //   建起来了，而反向那一发**只创建不覆盖**（见下一条）—— 换个人才能看到"新建"那一条路径。
+      const requestId = await pairUp(CR8, malloryKey, MALLORY, 'L2');
       await request(app)
         .post('/api/fnthink/pair-confirm')
         .send(
-          evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          evBody('pairConfirm', aliceKey, ALICE, MALLORY, {
             requestId,
             decision: APPROVE,
             level: 'L2',
@@ -1224,25 +1226,82 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
         )
         .expect(200);
       const devices = devicestore.loadDevices();
-      expect(devices[ALICE].grantsBy[BOB].items).toEqual(['alert:ring']);
-      expect(devices[BOB].grantsBy[ALICE].maxLevel).toBe('L2');
-      expect(devices[BOB].grantsBy[ALICE].items).toEqual([]);
+      expect(devices[ALICE].grantsBy[MALLORY].items).toEqual(['alert:ring']);
+      expect(devices[MALLORY].grantsBy[ALICE].maxLevel).toBe('L2');
+      expect(devices[MALLORY].grantsBy[ALICE].items).toEqual([]);
 
-      // A 投 B 的动作：档位够（L2），清单里没有那一项 ⇒ 拒。
+      // A 投 M 的动作：档位够（L2），清单里没有那一项 ⇒ 拒。
       const action = await request(app)
         .post('/api/fnthink/message')
-        .send(actionBody(aliceKey, ALICE, BOB, 'alert:ring'));
+        .send(actionBody(aliceKey, ALICE, MALLORY, 'alert:ring'));
       expect(action.status).toBe(statusCode(contract, 'forbidden'));
       expect(action.body).toEqual({ receipt: 'rejected_capability' });
       // 同一段授权下的 L1 通知照投：这一段的意义就是"互发通知"，不是"什么都能发"。
       await request(app)
         .post('/api/fnthink/message')
-        .send(msgBody(aliceKey, ALICE, BOB, 'A 的通知'))
+        .send(msgBody(aliceKey, ALICE, MALLORY, 'A 的通知'))
         .expect(202);
-      // 对照：正向那一段里勾过的那一项，B 投给 A 仍然收得进来。
+      // 对照：正向那一段里勾过的那一项，M 投给 A 仍然收得进来。
       await request(app)
         .post('/api/fnthink/message')
-        .send(actionBody(bobKey, BOB, ALICE, 'alert:ring'))
+        .send(actionBody(malloryKey, MALLORY, ALICE, 'alert:ring'))
+        .expect(statusCode(contract, 'queued'));
+    });
+
+    test('两台各确认一次：后一发不抹掉先前那一发的勾选（反向只创建、不覆盖）', async () => {
+      const CR9 = 'QRSTVWX234567890ABCD';
+      const CR10 = 'RSTVWX234567890ABCDE';
+      // 第一发：A 确认 M 的请求，并勾上 alert:ring ⇒ M 那一行上给 A 的授权被**创建**（清单空）。
+      const first = await pairUp(CR9, malloryKey, MALLORY, 'L2');
+      await request(app)
+        .post('/api/fnthink/pair-confirm')
+        .send(
+          evBody('pairConfirm', aliceKey, ALICE, MALLORY, {
+            requestId: first,
+            decision: APPROVE,
+            level: 'L2',
+            items: ['alert:ring'],
+          }),
+        )
+        .expect(200);
+      expect(devicestore.loadDevices()[MALLORY].grantsBy[ALICE].items).toEqual([]);
+
+      // 第二发：M 挂口令、A 去握手、**M 自己**确认并勾上 listener:start。
+      await request(app)
+        .post('/api/fnthink/pair-arm')
+        .send(evBody('pairArm', malloryKey, MALLORY, MALLORY, { pairingCode: CR10 }))
+        .expect(200);
+      const asked = await request(app)
+        .post('/api/fnthink/pair')
+        .send(evBody('pair', aliceKey, ALICE, MALLORY, { pairingCode: CR10, level: 'L2' }))
+        .expect(statusCode(contract, 'queued'));
+      await request(app)
+        .post('/api/fnthink/pair-confirm')
+        .send(
+          evBody('pairConfirm', malloryKey, MALLORY, ALICE, {
+            requestId: asked.body.requestId,
+            decision: APPROVE,
+            level: 'L2',
+            items: ['listener:start'],
+          }),
+        )
+        .expect(200);
+
+      const devices = devicestore.loadDevices();
+      // M 自己那一发是**正向**（它那一行归它决定）：整份换成这一次的 ⇒ listener:start。
+      expect(devices[MALLORY].grantsBy[ALICE].items).toEqual(['listener:start']);
+      // 而这一发的反向打在 A 那一行上：那一段已经由 A 自己确认过 ⇒ 一个字都不动。
+      // ⚠ 这条断的就是"覆盖"那个方向：抹成空清单也是改动，而改 A 那一行的权限不在 M 这一次点击里。
+      expect(devices[ALICE].grantsBy[MALLORY].items).toEqual(['alert:ring']);
+      // 两端各看得见的还是自己勾过的那一项：A→M 的 alert:ring 不再能进（M 这次没勾它），
+      // 而 M→A 的 alert:ring 照旧能进。
+      const wide = await request(app)
+        .post('/api/fnthink/message')
+        .send(actionBody(aliceKey, ALICE, MALLORY, 'alert:ring'));
+      expect(wide.status).toBe(statusCode(contract, 'forbidden'));
+      await request(app)
+        .post('/api/fnthink/message')
+        .send(actionBody(malloryKey, MALLORY, ALICE, 'alert:ring'))
         .expect(statusCode(contract, 'queued'));
     });
 

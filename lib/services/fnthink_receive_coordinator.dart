@@ -500,10 +500,49 @@ class FnthinkReceiveCoordinator {
   void _storeRound(FnthinkLoopReport report) {
     for (final sent in report.sentPairRequests) {
       unawaited(_notePairRequest(pairRecordFromSent(sent)));
+      unawaited(_promoteApprovedPeer(sent));
     }
     for (final incoming in report.pairRequests) {
       if (_answeredRequestIds.contains(incoming.requestId)) continue;
       unawaited(_notePairRequest(pairRecordFromIncoming(incoming)));
+    }
+  }
+
+  /// 对面已经同意的那一条请求 ⇒ 把那一台升格成本机名单里的一行（T130 片3「互见」的那一半）。
+  ///
+  /// 为什么不需要新协议字段：这一行要的四个读数本机手上都有 —— 地址码就是发起时自己填的那个
+  /// `target`，档位是自己请求的那一档，时刻是 `sentPairRequests` 的 `at`，出处是那条请求的 id。
+  /// 没有出处的只有**对面的公钥**：那一面的投影只回状态与时刻（`requesterPublicKey` 住在对面
+  /// 那一侧），所以这一发带的是**空读数**，而名单的咽喉认得它（[FnthinkPeerWrite.alreadyPresent]）：
+  /// 已有那一行时一个字都不动，也不会把"发现换钥"那道闸判成换钥。
+  ///
+  /// ⚠ 这一行是**对面被允许往本机投**那一段的本机镜像，不是"本机点过同意"：服务端双写过去时
+  /// 清单恒空（契约 `reverseGrantItems=empty`），所以本机的 apply 段本来就只能放 L1。
+  /// 档位那一格写的是本机**发起时请求的那一档** —— 答复里的 `grantedLevel` 只回给点头那一台，
+  /// 这一面拿不到，因此它可能比服务端实际写的更宽或更窄：它只用于显示与"这一行能不能撤"，
+  /// 真正判"这一投准不准"的是服务端收单那一步（契约 `enforcedAt` = server-intake）。
+  ///
+  /// ⚠ 屏幕上看见这一行要等**下一次重读名单**（进页、答复之后、撤销之后都会重读）：升格挂在
+  ///   后台那一轮上，而名单是页面进页时读的那一份。这里不另加一条 listenable —— 那一行晚出现
+  ///   几秒不等于没出现，而多加一条"谁都会通知"的口径就要多一处"什么时候不许通知"。
+  Future<void> _promoteApprovedPeer(FnthinkSentPairRequest sent) async {
+    if (sent.state != FnthinkPairRequestState.approved) return;
+    final write = recordPeer;
+    if (write == null) return; // 这台没接落库链路：与"本机点同意"那一发同一个口径，不另说一句
+    try {
+      await write(
+        FnthinkPeer(
+          peerAddress: sent.target,
+          publicKey: '',
+          level: sent.level,
+          grantedAt: sent.statusAt,
+          requestId: sent.requestId,
+        ),
+      );
+    } catch (e) {
+      // 升格没成不影响"我发起的那条已同意"那一行（那是另一张账），也不影响收件：
+      // 本机名单少一行只是看不见，服务端那一行才是判据。说破一次，不重试。
+      debugPrint('[fnthink] 配对名单没升格这一台：$e');
     }
   }
 

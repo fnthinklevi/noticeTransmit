@@ -326,6 +326,31 @@ describe('fnthink 服务端存储（T27）', () => {
       }
     });
 
+    test('对面自己确认过的那一段不被覆盖（反向那一发只创建）', () => {
+      const devices = two();
+      // PEER 自己先点过一次同意：它那一行上的 items 是它自己勾的。
+      store.approvePeer(contract, devices, PEER, ADDR, 'L2', ['alert:ring'], NOW);
+      const before = JSON.stringify(devices[PEER].grantsBy[ADDR]);
+      const legs = store.grantPairLegs(
+        contract,
+        devices,
+        ADDR,
+        PEER,
+        'L1',
+        ['notifications:report'],
+        NOW + 5000,
+      );
+      // 反向那一发带回的是**当前生效的那一份**（L2 + 它自己勾的那项），并说清这一发没动表。
+      expect(legs.reverseSkipped).toBe('leg-exists');
+      expect(legs.reverse.maxLevel).toBe('L2');
+      expect(legs.reverse.items).toEqual(['alert:ring']);
+      expect(JSON.stringify(devices[PEER].grantsBy[ADDR])).toBe(before);
+      // 正向照写：A 那一行归 A 决定，这一发就是它自己点的。
+      expect(store.peerGrant(contract, devices[ADDR], PEER).items).toEqual([
+        'notifications:report',
+      ]);
+    });
+
     test('划掉只划自己那一段：反向那一行分毫不动', () => {
       const devices = two();
       store.grantPairLegs(contract, devices, ADDR, PEER, 'L1', [], NOW);

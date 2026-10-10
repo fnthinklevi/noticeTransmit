@@ -4037,7 +4037,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fnthinkRevokeAskMsg(String peer) {
-    return 'After revoking, $peer can no longer push to this device; notifications already received stay. This step needs the server, so it cannot be done offline.';
+    return 'After revoking, $peer can no longer push to this device; notifications already received stay. Only that leg breaks — this device\'s grant to push to it survives (that leg has to be struck on its own screen). This step needs the server, so it cannot be done offline.';
   }
 
   @override

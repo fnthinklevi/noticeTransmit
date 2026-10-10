@@ -1388,6 +1388,12 @@ void main() {
       return (l10n: l10n, h: h);
     }
 
+    // ⚠ 这里试过加一条页面级用例（后台那一轮带回 approved ⇒ 名单咽喉收到那一行），
+    //   结果 `tester.pumpAndSettle()` 在那条用例上不收敛、整条挂住（两轮各停 4-5 分钟，
+    //   根因未定位）。升格这件事的证据现在在两处：`test/services/fnthink_receive_coordinator_test.dart`
+    //   的「approved 那一发升格成名单行」三条，与 `test/database/fnthink_peers_test.dart` 的
+    //   空读数四条。页面屏幕上那一行的观感归真机复验（roadmap T130 片3 登记）。
+
     testWidgets('本机有过结论 ⇒「配对历史」那一格自己出现：谁 · 哪一档 · 什么结论（T116）', (tester) async {
       SharedPreferences.setMockInitialValues({
         'flutter.${FnthinkSettings.keyReceiveEnabled}': true,

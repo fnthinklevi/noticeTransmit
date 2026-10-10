@@ -1497,6 +1497,15 @@ class DatabaseHelper
   /// 静默覆盖的语义是"我把信任给了另一把钥匙"，而那正是契约在自登记那一步拦的事
   /// （`clientEvents.register`：同一地址码带另一把公钥来登记必须抛，不覆盖）。
   /// 本机这份如果悄悄跟着换，就等于设备侧替用户点了"同意换钥"。
+  ///
+  /// ⚠ **空公钥 = 本机没有这一读数**，不是"另一把钥匙"（T130 片3：对面替本机确认那一次，
+  /// 本机只拿得到地址码、档位与时刻 —— 那一面的投影 `sentFields` 里没有对面的公钥）。
+  /// 于是三条分开：
+  ///  - 名单里没有这一行 ⇒ 照写（`created`，公钥那一格空着，等本机自己看见那把钥匙时补）；
+  ///  - 已有这一行而来的又是空读数 ⇒ **一行都不改**（`alreadyPresent`）：那一行的档位与
+  ///    逐条清单是本机自己在同意屏上勾的，拿一份空清单去覆盖就是把人家勾过的东西抹掉 ——
+  ///    收紧也是一次改动，而改这一行的权限在"本机点同意"那一发上，不在升格这一发上；
+  ///  - 已有这一行、存底是空的而这一发带来真读数 ⇒ 正常刷新，那一格从此有出处。
   Future<FnthinkPeerWrite> upsertFnthinkPeer(FnthinkPeer peer) async {
     final db = await database;
     return await db.transaction((txn) async {
@@ -1511,7 +1520,12 @@ class DatabaseHelper
         await txn.insert(FnthinkPeer.table, peer.toDbRow());
         return FnthinkPeerWrite.created;
       }
-      if ('${existing.first['public_key'] ?? ''}' != peer.publicKey) {
+      final storedKey = '${existing.first['public_key'] ?? ''}';
+      if (peer.publicKey.isEmpty) {
+        // 没有读数就没有可比的东西：既不判换钥，也不写。
+        return FnthinkPeerWrite.alreadyPresent;
+      }
+      if (storedKey.isNotEmpty && storedKey != peer.publicKey) {
         return FnthinkPeerWrite.keySwapped;
       }
       // ⚠ 重新授权**不许把用户起的名字抹掉**：`peer.toDbRow()` 里那一格来自调用方

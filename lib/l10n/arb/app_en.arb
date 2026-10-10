@@ -1957,7 +1957,7 @@
   "fnthinkSendUnparseable": "The server accepted it without an id, so this message cannot be tracked",
   "fnthinkSendBoundary": "Send uses the signed device path and only goes to a device on your list; it is not proof of delivery — only that device's ack is.",
   "fnthinkRevokeAskTitle": "Revoke this device's push permission?",
-  "fnthinkRevokeAskMsg": "After revoking, {peer} can no longer push to this device; notifications already received stay. This step needs the server, so it cannot be done offline.",
+  "fnthinkRevokeAskMsg": "After revoking, {peer} can no longer push to this device; notifications already received stay. Only that leg breaks — this device's grant to push to it survives (that leg has to be struck on its own screen). This step needs the server, so it cannot be done offline.",
   "@fnthinkRevokeAskMsg": {
     "placeholders": {
       "peer": {
