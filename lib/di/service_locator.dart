@@ -410,26 +410,27 @@ Future<bool> _sendRemoteReceipt(
 
 /// 「立刻推一次设备状态」那一发（`device_state:push`）。
 ///
-/// ⚠ **推给名单上每一台**，任一台收下就算成（用户看到的是"设备状态发出去了"）。
-/// 回 false = 一台都没发出去；**不抛** —— 一条推不出去的动作不该让整次执行崩在半路
+/// ⚠ **发去哪几台不由这里判**（T132 片2）：这一发以前读一次快照、再把名单里**每一台**都发一遍，
+///   于是「默认只发主、主全不可用才切备、NONE 那一档永不参与」这三条对它就都不成立 —— 判据只有
+///   原生 `dispatchToChannels`/`ChannelRouting.route` 那一份（T12 的结论），Dart 再算一遍就会漂出
+///   第二套路由，所以走 [NotificationService.pushSynthesizedRecord] 那一个入口，与设备快照页
+///   「推送设备信息」那一格同一条链。
+///
+/// 回 `true` 的口径是**已交给推送链**，不是"已经送达"：送达结果要等原生回传，此刻任何
+/// "成功/失败"的说法都是猜（那条纪律写在 `device_snapshot_page.dart` 的 `_push` 旁边）。
+/// 回 `false` = 快照根本没读到；**不抛** —— 一条推不出去的动作不该让整次执行崩在半路
 /// （那一格会记成 `threw:` 而不是没成的理由，两者查起来是两回事）。
 Future<bool> _pushDeviceStateOnce() async {
   try {
-    final snapshot = await getIt<DeviceInfoService>().getDeviceSnapshot();
+    final device = getIt<DeviceInfoService>();
+    final snapshot = await device.getDeviceSnapshot();
     if (snapshot == null) return false;
-    final peers = await getIt<FnthinkPeerService>().list();
-    if (peers.isEmpty) return false;
-    final payload = jsonEncode(snapshot);
-    var any = false;
-    for (final peer in peers) {
-      final result = await getIt<FnthinkReceiveCoordinator>().sendNotice(
-        peer: peer.peerAddress,
-        title: 'device-state',
-        text: payload,
-      );
-      if (result.status == FnthinkSendStatus.accepted) any = true;
-    }
-    return any;
+    await getIt<NotificationService>().pushSynthesizedRecord(
+      title: 'device-state',
+      content: jsonEncode(snapshot),
+      deviceName: device.deviceName,
+    );
+    return true;
   } catch (e) {
     return false;
   }

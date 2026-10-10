@@ -128,4 +128,53 @@ void main() {
       );
     });
   });
+
+  // ── T132 片2：远端指令那一发（`device_state:push`）也必须并回同一份路由 ──
+  // 它以前在 DI 里读一次快照、再把**幻念配对名单上每一台**都发一遍，于是「默认只发主、
+  // 主全不可用才切备、NONE 那一档永不参与」这三条对它不成立 —— 而那三条的判据在原生只有一份。
+  // 这类"绕开判据"的写法在功能测试里永远不会红（它确实把东西发出去了，只是发给了不该给的），
+  // 所以只能钉装配。
+  group('远端那一发也走同一个推送入口（不在 Dart 里选目标）', () {
+    final di = read('lib/di/service_locator.dart');
+    final start = di.indexOf('Future<bool> _pushDeviceStateOnce()');
+    test('DI 里那一发取到了（提取失效不得让本组空转）', () {
+      expect(
+        start,
+        greaterThan(0),
+        reason: '取不到 _pushDeviceStateOnce = 这一族在 DI 里换了名字',
+      );
+    });
+
+    test('走 pushSynthesizedRecord 那一个入口，且不再自己遍历名单发', () {
+      final body = di.substring(start, di.indexOf('\n  }', start));
+      expect(
+        body.contains('pushSynthesizedRecord('),
+        isTrue,
+        reason: '绕开那个入口自己拼一条 = 送达记录与历史形状从此两份',
+      );
+      for (final forbidden in ['sendNotice', 'FnthinkPeerService', '.list()']) {
+        expect(
+          body.contains(forbidden),
+          isFalse,
+          reason:
+              'Dart 侧出现 $forbidden：目标又由这一端挑了。走哪些通道、主备怎么切，'
+              '只有原生 dispatchToChannels/ChannelRouting.route 那一份判据（T12 的结论）',
+        );
+      }
+    });
+
+    test('快照仍然只有 getDeviceSnapshot 那一个读口（T17 那条口径没被绕过）', () {
+      final body = di.substring(start, di.indexOf('\n  }', start));
+      expect(
+        body.contains('getDeviceSnapshot()'),
+        isTrue,
+        reason: '不读快照却自称推了 = 那条回执说的不是真话',
+      );
+      expect(
+        RegExp(r"invokeMethod\(\s*'[a-zA-Z]*[Ss]napshot").hasMatch(body),
+        isFalse,
+        reason: '在 DI 里另开一枚原生方法读快照 = T17 那份跨端契约长出第二个读口',
+      );
+    });
+  });
 }
