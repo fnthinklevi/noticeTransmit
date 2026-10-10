@@ -6,6 +6,7 @@ import 'package:notice_transmit/models/fnthink_inbox_message.dart';
 import 'package:notice_transmit/models/fnthink_remote_execution_record.dart';
 import 'package:notice_transmit/services/fnthink_l2_actions.dart';
 import 'package:notice_transmit/services/fnthink_l3_settings.dart';
+import 'package:notice_transmit/services/fnthink_pair_items.dart';
 import 'package:notice_transmit/services/fnthink_remote_command_handler.dart';
 import 'package:notice_transmit/services/fnthink_remote_execution.dart';
 import 'package:notice_transmit/services/fnthink_remote_runner.dart';
@@ -207,6 +208,14 @@ void main() {
         contract: contract,
         settings: settings,
         credentials: store,
+        // 本组判的是**来源渠道**与**回执按不按来源发**，不是名单：远端那一路给一份
+        // "顶格 + 全勾"的授权，好让名单那一格不参与（它自己在
+        // `fnthink_remote_command_handler_test.dart` 的 T128 片2 那组里逐条钉）。
+        // ⚠ 本机白名单那一路**一次都不会调它** —— 那一发没有远端发送方。
+        grantForSender: (peer) async => FnthinkGrant(
+          maxLevel: contract.capabilityLevels.last,
+          items: pairItemCandidates(contract),
+        ),
       ),
       runner: runner,
       notifier: notifier,

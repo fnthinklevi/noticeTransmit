@@ -209,12 +209,13 @@ void main() {
     String level = 'L2',
     String item = 'listener:start',
     String source = 'fnthink',
+    Set<String> grantedKeys = const <String>{},
   }) => RemoteCommandAccepted(
     command: RemoteCommand(level: level, item: item),
     sender: '8K3FJ6QPTM9WZ4VHNS',
     source: source,
     credential: '',
-    grantedKeys: const <String>{},
+    grantedKeys: grantedKeys,
   );
 
   group('次序：落一行 → 回第一段 → 到点 → 动手 → 回第二段', () {
@@ -405,6 +406,24 @@ void main() {
       expect(l3.calls, isEmpty);
       expect(saved.last.state, RemoteExecutionStates.failed);
       expect(saved.last.reason, startsWith('missing-grant:'));
+    });
+
+    test('⚠ 判定层把名单里那份授权传下来了 ⇒ 同一项到点真的动手', () async {
+      // 这一条钉的是 `accepted.grantedKeys` **有人读**。它一度是个死字段：
+      // 判定层已经放行（本机那一行勾了这项），而这一格拿空集再判一次 ⇒
+      // 表现是"窗口走完、回执说 missing-grant 失败"，而名单明明写着勾过 ——
+      // 两处的日志各自都说自己没错，最难查的那种。
+      windowSeconds = 0;
+      await runner().run(
+        accepted(
+          level: 'L3',
+          item: 'collect_inbox',
+          grantedKeys: const {'collect_inbox'},
+        ),
+      );
+      expect(l3.calls, ['toggle(collect_inbox)']);
+      expect(saved.last.state, RemoteExecutionStates.done);
+      expect(saved.last.reason, isEmpty);
     });
 
     test('L1 的 item 落在 L3 那张表上 ⇒ 照样走设置表（并集表）', () async {

@@ -171,6 +171,7 @@ class RemoteCommandRunner extends ChangeNotifier {
       record: record,
       seconds: seconds,
       startedAt: startedAt,
+      grantedKeys: accepted.grantedKeys,
     );
     await saveRecord(record);
     // ① 第一段回执：**收到就发**，不等窗口。
@@ -302,7 +303,7 @@ class RemoteCommandRunner extends ChangeNotifier {
     //   ⇒ 执行明明做成了，历史那一行却记成 `failed`，而第二段回执压根没发出去
     //   （对面一直等下去）。这一条是内核那个判据当场抓出来的，不是想出来的。
     flight.record = _withState(flight.record, RemoteExecutionStates.executing);
-    final result = await _dispatch(flight.record);
+    final result = await _dispatch(flight.record, flight.grantedKeys);
     await _finish(
       execId,
       result.ok ? RemoteExecutionStates.done : RemoteExecutionStates.failed,
@@ -312,8 +313,14 @@ class RemoteCommandRunner extends ChangeNotifier {
   }
 
   /// 按档派发（L1 走并集那张表：先动作表、再设置表，与判定层同一顺序）。
+  ///
+  /// ⚠ [grantedKeys] 是判定层从**本机名单那一行**取来的那份（`RemoteCommandAccepted` 带的），
+  ///   不是这里再读一次库、也不是留空：留空等于 `requiresExistingGrantFrom` 那两枚
+  ///   **永远**判成 `missing-grant`（判定层已经放行的那一条到动手这一刻又被拦下，
+  ///   而界面上只会看到一句"执行失败"）。
   Future<({bool ok, String? reason})> _dispatch(
     FnthinkRemoteExecutionRecord record,
+    Set<String> grantedKeys,
   ) async {
     try {
       if (record.level == 'L3') {
@@ -324,6 +331,7 @@ class RemoteCommandRunner extends ChangeNotifier {
           //   （契约 `l3.confirmForm = cancelableDelay`：内核仍是"每次确认"，
           //   形式从"点一下"变成"没去取消"）。判定层不判它，因为它那时还没有窗口。
           confirmedThisTime: true,
+          grantedKeys: grantedKeys,
         );
         if (parsed is FnthinkL3Rejected) {
           return (ok: false, reason: parsed.reason);
@@ -480,6 +488,7 @@ class _InFlight {
     required this.record,
     required this.seconds,
     required this.startedAt,
+    required this.grantedKeys,
   });
 
   /// 这一条现在的样子（**迁一次改一次** —— 见 `_execute` 里那格：漏改的后果是
@@ -493,6 +502,12 @@ class _InFlight {
   /// 什么时候开始算窗口（横幅的倒计时按它算，不按 `createdAt` ——
   /// 那两个差着一次落盘与一次回执的工夫，而倒计时差一秒用户就看出来了）。
   final DateTime startedAt;
+
+  /// 判定层从本机名单取来的那份逐条授权（T128 片2 才有人读它）。
+  ///
+  /// ⚠ 它跟着这一条**进工作集**而不是到点再查一次库：用户在窗口里改了名单那一行的话，
+  ///   这一发已经放行的是**那一刻**的授权，而"到点前一刻被改掉的清单"该影响的是下一条。
+  final Set<String> grantedKeys;
 
   /// 已经动手了（`pending → executing` 走完）⇒ 撤销入口不再受理。
   bool started = false;

@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:fnthink_push/fnthink_push.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/models/fnthink_inbox_message.dart';
+import 'package:notice_transmit/services/fnthink_pair_items.dart';
 import 'package:notice_transmit/services/fnthink_remote_command_handler.dart';
 import 'package:notice_transmit/services/fnthink_remote_settings.dart';
+import 'package:notice_transmit/services/fnthink_sender_grant.dart';
 import 'package:notice_transmit/services/remote_credential_store.dart';
 import 'package:notice_transmit/services/remote_credentials.dart';
 import 'package:notice_transmit/services/secure_storage_service.dart';
@@ -52,12 +54,27 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final contract = FnthinkContract.readFile();
+
+  /// 契约词表里最高那一档（名单那一行"顶格"的含义，不写死 'L3'）。
+  final top = contract.capabilityLevels.last;
+
   late _MemStorage storage;
   late RemoteCredentialStore store;
   late FnthinkRemoteSettings settings;
   var nowMs = 1700000000000;
 
-  Future<RemoteCommandRecognizer> recognizer({bool enabled = true}) async {
+  /// 判定层的装配。T128 片2 起多一枚 `grants`（发送方 → 本机名单里那一行）。
+  ///
+  /// ⚠ 缺省给的是「名单里**有**这一行、档位顶格、勾了同意屏能勾的**全表**」那一份。
+  ///   不是偷懒：本组的其它用例判的是**渠道 / 凭据 / 词表 / 参数形状**这四道，
+  ///   若让名单那一格先把它们一律挡住，那二十几条就全红成同一条理由
+  ///   （红的原因与它们各自要钉的判据无关 —— 那是把五道判据挤成一道）。
+  ///   名单本身那一族（没有这一行 / 档位不够 / 没勾这一项）在下面
+  ///   `本机名单才是这一条的依据` 那组里逐条钉，不在这里默认。
+  Future<RemoteCommandRecognizer> recognizer({
+    bool enabled = true,
+    Future<FnthinkGrant> Function(String peer)? grants,
+  }) async {
     SharedPreferences.setMockInitialValues(
       enabled ? {FnthinkRemoteSettings.keyEnabled: true} : <String, Object>{},
     );
@@ -71,6 +88,10 @@ void main() {
       contract: contract,
       settings: settings,
       credentials: store,
+      grantForSender:
+          grants ??
+          (peer) async =>
+              FnthinkGrant(maxLevel: top, items: pairItemCandidates(contract)),
     );
   }
 
@@ -88,9 +109,12 @@ void main() {
     totpCode: totp,
   );
 
-  FnthinkInboxMessage msg(String body) => FnthinkInboxMessage(
+  FnthinkInboxMessage msg(
+    String body, {
+    String sender = '8K3FJ6QPTM9WZ4VHNS',
+  }) => FnthinkInboxMessage(
     messageId: 'm_00000001',
-    sender: '8K3FJ6QPTM9WZ4VHNS',
+    sender: sender,
     type: 'notice',
     item: '',
     title: '',
@@ -198,11 +222,12 @@ void main() {
         contract.remoteExecutionSourcesFor('L1'),
         contains('localNotificationWhitelist'),
       );
-      // 白名单那一路 sender 为空（没有远端发送方）
+      // 白名单那一路 sender 为空（没有远端发送方），授权按契约的**缺省档**（L1 + 空清单）
       final parsed = await r.judge(
         command: RemoteCommandEnvelope.decode(wire(level: 'L1'))!,
         sender: '',
         source: 'localNotificationWhitelist',
+        grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
       );
       expect(parsed, isA<RemoteCommandAccepted>());
     });
@@ -213,6 +238,7 @@ void main() {
         command: RemoteCommandEnvelope.decode(wire(level: 'L2'))!,
         sender: '',
         source: 'localNotificationWhitelist',
+        grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
       );
       expect(parsed, isA<RemoteCommandRejected>());
       expect((parsed as RemoteCommandRejected).reason, 'source-not-allowed:L2');
@@ -271,17 +297,128 @@ void main() {
       );
     });
 
-    test('给了 grantedKeys 之后同一项放行', () async {
-      final r = await recognizer();
+    test('名单里勾了这一项 ⇒ 同一项放行（grantedKeys 来自那一行）', () async {
+      final r = await recognizer(
+        grants: (peer) async =>
+            FnthinkGrant(maxLevel: top, items: ['collect_inbox']),
+      );
       await store.setCustomKey('my-long-key-1234');
-      final parsed = await r.judge(
-        command: RemoteCommandEnvelope.decode(
-          wire(level: 'L3', item: 'collect_inbox', key: 'my-long-key-1234'),
-        )!,
-        sender: 'x',
-        grantedKeys: {'collect_inbox'},
+      final parsed = await r.parse(
+        msg(wire(level: 'L3', item: 'collect_inbox', key: 'my-long-key-1234')),
       );
       expect(parsed, isA<RemoteCommandAccepted>());
+    });
+  });
+
+  /// 本机名单才是这一条的依据（T128 片2：「按设备设权限」终于有了一行代码）。
+  ///
+  /// ⚠ 这一组不是"多一道保险"：一条远程指令在线上是**一条 L1 通知**（发送侧只有
+  ///   `sendNotice(peer,title,text)` 那个口，被签的六个字段里没有 `item`）⇒ 服务端的
+  ///   能力判据拿到的永远是 `type=notice / item=''`，`itemRequiredFromLevel` 那一段**根本不响**。
+  ///   「这条是 L3、动的是 `location:get`」只有收件这一台知道，也只有它能判。
+  ///   少了下面这几条，配对到 L1 的那台发 L2 指令**连凭据都不必带**（契约 l2Requires:false）。
+  group('本机名单才是这一条的依据（T128 片2）', () {
+    test('名单里没有这一台 ⇒ 按契约缺省档：L2 拒在档位上', () async {
+      final r = await recognizer(
+        grants: (peer) async =>
+            FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
+      );
+      final parsed = await r.parse(msg(wire()));
+      expect(parsed, isA<RemoteCommandRejected>());
+      expect((parsed as RemoteCommandRejected).reason, 'level:L2');
+    });
+
+    test('勾了这一项但档位不够 ⇒ 仍拒 level，凭据不是通行证', () async {
+      final r = await recognizer(
+        grants: (peer) async =>
+            FnthinkGrant(maxLevel: 'L1', items: ['exact_alarm']),
+      );
+      await store.setCustomKey('my-long-key-1234');
+      final parsed = await r.parse(
+        msg(wire(level: 'L3', item: 'exact_alarm', key: 'my-long-key-1234')),
+      );
+      expect(parsed, isA<RemoteCommandRejected>());
+      expect((parsed as RemoteCommandRejected).reason, 'level:L3');
+    });
+
+    test('两台各一行：勾了 location:get 的那台放行，没勾的那台被拒', () async {
+      // 这一条就是维护者要的那句「只允许 A 读定位、不允许 B 读定位」的可执行形式。
+      final r = await recognizer(
+        grants: (peer) async => peer == 'AAAAAAAAAAAAAAAAAA'
+            ? FnthinkGrant(maxLevel: top, items: ['location:get'])
+            : FnthinkGrant(maxLevel: top, items: ['camera:snap']),
+      );
+      expect(
+        await r.parse(
+          msg(wire(item: 'location:get'), sender: 'AAAAAAAAAAAAAAAAAA'),
+        ),
+        isA<RemoteCommandAccepted>(),
+      );
+      final blocked = await r.parse(
+        msg(wire(item: 'location:get'), sender: 'BBBBBBBBBBBBBBBBBB'),
+      );
+      expect(blocked, isA<RemoteCommandRejected>());
+      expect(
+        (blocked as RemoteCommandRejected).reason,
+        'item:not-granted:location:get',
+      );
+    });
+
+    test('本机白名单那一路不吃远端名单：一个都没勾也放行它的 L1', () async {
+      // 摘掉名单 ≠ 收紧本机那一路：那一行的授权对象是**远端发送方**，
+      // 而这一路没有发送方（契约 sources 已经把它限在 L1）。
+      final r = await recognizer();
+      final parsed = await r.judge(
+        command: RemoteCommandEnvelope.decode(wire(level: 'L1'))!,
+        sender: '',
+        source: contract.remoteExecutionLocalTriggerSource,
+        grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
+      );
+      expect(parsed, isA<RemoteCommandAccepted>());
+    });
+
+    test('⚠ 带参数的形状：本机清单今天表达不了它 ⇒ 不为它判「没勾」（边界）', () async {
+      // 一份**什么都没勾**的授权，而这一条照过：`channel:toggle` 在契约
+      // `l2.requiresArgumentFrom` 里，同意屏那张表（[pairItemCandidates]）刻意不给它，
+      // 线上串又长成 `<名>/<参数>` ⇒ 判"没勾"就是把这一族当场永久打死。
+      // 「粒度收到动作级还是参数级」要维护者拍（roadmap T134 行），不由这一片代拍。
+      final r = await recognizer(
+        grants: (peer) async => FnthinkGrant(maxLevel: top),
+      );
+      expect(
+        await r.parse(msg(wire(item: 'channel:toggle/webhook:acme:off'))),
+        isA<RemoteCommandAccepted>(),
+        reason: '清单判不了形状，但档位天花板照判（maxLevel=L3 ⇒ L2 够）',
+      );
+      expect(
+        rejectBySenderGrant(
+          contract,
+          level: 'L2',
+          item: 'channel:toggle/webhook:acme:off',
+          grant: FnthinkGrant(maxLevel: top, items: ['listener:start']),
+        ),
+        isNull,
+        reason: '这一族的逐条判据今天恒为"不判"（登记，不是遗漏）',
+      );
+    });
+
+    test('名单里那一行的档位词表外 ⇒ 按不够判，不放开（unknown-ceiling）', () async {
+      final r = await recognizer(
+        grants: (peer) async => FnthinkGrant(maxLevel: 'L9'),
+      );
+      final parsed = await r.parse(msg(wire()));
+      expect(parsed, isA<RemoteCommandRejected>());
+      expect((parsed as RemoteCommandRejected).reason, 'unknown-ceiling:L9');
+    });
+
+    test('名单读不出来 ⇒ 抛出去，不咽成缺省档', () async {
+      // 咽成缺省档会把「读不到」与「这一台确实没被勾过」混成同一件事；
+      // 抛出去由收货循环那一格按"不是指令"处置（照常显示、不执行）——
+      // 收紧的方向仍然成立，而"这一格坏了"是能被日志看见的。
+      final r = await recognizer(
+        grants: (peer) async => throw StateError('表读不出来'),
+      );
+      await expectLater(r.parse(msg(wire())), throwsStateError);
     });
   });
 
@@ -397,6 +534,28 @@ void main() {
       );
       expect(src.contains('dispatchL2Action'), isFalse);
       expect(src.contains('dispatchL3Setting'), isFalse);
+    });
+
+    test('授权只能经那个咽喉拿：判定层不许自己读那张表', () {
+      final src = stripComments(
+        File(
+          '${projectRoot()}/lib/services/fnthink_remote_command_handler.dart',
+        ).readAsStringSync(),
+      );
+      // 那张表（`fnthink_peers`）的读只有一个咽喉 = `FnthinkPeerService.list/grantFor`。
+      // 判定层里出现 `loadFnthinkPeers` 就是第二个读法 —— 而守卫数的是**调用点**，
+      // 多一处不会有人喊，直到两处排序/容错分叉那天。
+      expect(
+        src.contains('loadFnthinkPeers'),
+        isFalse,
+        reason: '授权必须由注入进来的 grantForSender 给（装配点接 FnthinkPeerService.grantFor）',
+      );
+      expect(src.contains('grantForSender('), isTrue);
+      expect(
+        src.contains('DatabaseHelper'),
+        isFalse,
+        reason: '判定层碰库就等于把"读名单"这件事从服务层偷走',
+      );
     });
   });
 }

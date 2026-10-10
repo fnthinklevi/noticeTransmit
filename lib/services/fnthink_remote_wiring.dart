@@ -130,10 +130,14 @@ class RemoteCommandWiring {
       command: command,
       sender: '',
       source: contract.remoteExecutionLocalTriggerSource,
-      // ⚠ **不带任何前置授权**：L3 的"逐条勾选"是本机用户在那台设备上做的动作，
-      //   不能从一条通知的正文里继承。这里显式给空集而不是省略参数 ——
-      //   `grantedKeys` 一旦有个"全给"的默认值，这道收窄就静默消失了。
-      grantedKeys: const <String>{},
+      // ⚠ **缺省档，不是"全给"**：这一路没有远端发送方，名单里那一行无从查起，而
+      //   「本机白名单触发」**不等于**「本机用户勾过这一项」—— L3 的逐条勾选是那台设备上
+      //   的人点出来的，不能从一条通知的正文里继承。
+      //   这里显式给契约的 `grantDefaults`（L1 + 空清单）而不是省略参数：`grant` 一旦有个
+      //   "全给"的默认值，这道收窄就静默消失了（T128 片2 把它从可选形参改成必填的同一理由）。
+      //   它只放行 L1 也够这一路用：来源渠道那一道按契约 `sources` 已经把 L2/L3 拒了
+      //   （`sources.L1` 是唯一含本机来源的那一档）。
+      grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel),
     );
     switch (parsed) {
       case RemoteCommandNotACommand():

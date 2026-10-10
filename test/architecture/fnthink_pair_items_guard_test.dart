@@ -45,7 +45,7 @@ void main() {
     );
   });
 
-  test('pairItemCandidates 的调用点只有一处，且就是那张页', () {
+  test('pairItemCandidates 的调用点只有两处：那张页与本机那份逐条判据', () {
     final hits = <String>[
       // 注意 `libCodeByRel` 已经把注释剥过一层，且**定义那一行本身也含这个名字**，
       // 所以这里比的是"除定义文件之外还有谁调它"。
@@ -53,7 +53,14 @@ void main() {
         if (entry.value.contains('pairItemCandidates(') && entry.key != selfKey)
           entry.key,
     ];
-    expect(hits, [pageKey], reason: '多一处调用＝多一份"这一屏该画哪些项"的判断');
+    // 第二个读者是 T128 片2 的 `rejectBySenderGrant`，而它要的不是"该画哪些项"，
+    // 是"**清单表达得了哪些项**"：那份形状上的减法必须是同一份，否则
+    // 同意屏给勾的集合与判据认的集合会各自漂（漂的那一侧永远是"用户明明勾了却被拒"）。
+    expect(hits.toSet(), {
+      pageKey,
+      'services/fnthink_sender_grant.dart',
+    }, reason: '再多一处调用＝多一份"这一项算不算能被勾"的判断');
+    expect(hits.length, 2, reason: '上面那个集合挡不住同一文件被数两遍');
   });
 
   test('协调者交出去的是变量，不是又写死的空清单', () {

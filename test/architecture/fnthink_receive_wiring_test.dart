@@ -1211,6 +1211,74 @@ void main() {
       }
     });
   });
+
+  group('T128 片2：判定层的授权来自本机名单那个咽喉', () {
+    test('DI 把 grantForSender 接上了（漏接时全场测试仍绿、指令照常执行）', () {
+      final locator = read('lib/di/service_locator.dart');
+      expect(
+        locator,
+        contains('grantForSender:'),
+        reason:
+            '这一格空着的表现是"谁发来都放行"：通知照常弹、执行链照常跑、用例照常绿，'
+            '而"只允许 A 读定位、不允许 B 读定位"这一句在本仓没有任何一行代码能表达 '
+            '（一条远程指令在线上是 L1 通知，服务端的能力判据对它根本不响）',
+      );
+      expect(
+        locator,
+        contains('getIt<FnthinkPeerService>().grantFor('),
+        reason: '授权只能从那张表的唯一咽喉取，不许在装配点 new 一个 DatabaseHelper 直读',
+      );
+    });
+
+    test('grantFor 在 lib/ 只有一个调用点（判定层不另开一个读法）', () {
+      // 定义那处 + DI 那一处；第三处出现就意味着"名单的读法"开始分叉。
+      final total = <String>[
+        'lib/di/service_locator.dart',
+        'lib/services/fnthink_peer_service.dart',
+        'lib/services/fnthink_remote_command_handler.dart',
+        'lib/services/fnthink_remote_wiring.dart',
+        'lib/services/fnthink_receive_coordinator.dart',
+      ].fold<int>(0, (sum, rel) => sum + occurrences(read(rel), 'grantFor('));
+      expect(total, 2, reason: '一处定义、一处装配。多了那一处就是第二个读法（少的那半条排序/容错会分叉）');
+    });
+
+    test('judge 的 grant 是必填、没有默认值（默认值会让这道收窄静默消失）', () {
+      final handler = read('lib/services/fnthink_remote_command_handler.dart');
+      expect(
+        RegExp(r'required FnthinkGrant grant').hasMatch(handler),
+        isTrue,
+        reason:
+            '给一个 "全给" 的默认值 ⇒ 每个忘记传的调用点都放开三档；'
+            '给一个空清单的默认值 ⇒ 本机触发那一路看起来正常，实则被名单挡住（症状相反，同样没人喊）',
+      );
+      expect(
+        handler.contains('Set<String> grantedKeys = const'),
+        isFalse,
+        reason: '旧的可选形参不许长回来：它正是"唯一生产调用点写死空集"那一格的形状',
+      );
+      expect(handler.contains('grantForSender('), isTrue);
+    });
+
+    test('本机那一路显式带缺省档；执行链把那份清单用到动手那一刻', () {
+      final wiring = read('lib/services/fnthink_remote_wiring.dart');
+      expect(
+        wiring,
+        contains(
+          'grant: FnthinkGrant(maxLevel: contract.grantDefaultMaxLevel)',
+        ),
+        reason: '本机白名单触发 ≠ 本机用户勾过这一项：缺省档要**写在这一发上**，不能靠省略参数',
+      );
+      final runner = read('lib/services/fnthink_remote_runner.dart');
+      expect(
+        runner,
+        contains('grantedKeys: grantedKeys'),
+        reason:
+            '判定层取来的那份清单必须走到 parseL3Item 那一格，否则 '
+            '`RemoteCommandAccepted.grantedKeys` 是个死字段：窗口到点后 '
+            '`requiresExistingGrantFrom` 恒判 missing-grant（判定层放行的那条被自己下面一格拦下）',
+      );
+    });
+  });
 }
 
 class _StubSigner implements FnthinkIdentitySigner {

@@ -266,12 +266,17 @@ void setupLocator() {
       storage: SecureStorageService(),
     ),
   );
-  // 判定层（开关 → 渠道 → 凭据 → 词表）。
+  // 判定层（开关 → 渠道 → 凭据 → **本机名单里那一行** → 词表）。
   getIt.registerLazySingleton<RemoteCommandRecognizer>(
     () => RemoteCommandRecognizer(
       contract: getIt<FnthinkContractLoader>().cached!,
       settings: getIt<FnthinkRemoteSettings>(),
       credentials: getIt<RemoteCredentialStore>(),
+      // ⚠⚠ T128 片2：这一行是「按设备设权限」在本机生效的**唯一**一处接线。
+      //   摘掉它不会有任何可见症状（指令照常执行），而它守的是"配对到 L1 的那台能不能
+      //   发 L2/L3"—— 远程指令在线上一条是 L1 通知，服务端的能力判据对它根本不响。
+      //   守卫在 `test/architecture/fnthink_receive_wiring_test.dart`。
+      grantForSender: (peer) => getIt<FnthinkPeerService>().grantFor(peer),
     ),
   );
   // 两个执行器。
