@@ -4080,6 +4080,23 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String fnthinkEndpointCountOf(int n, int max) {
+    return 'This device already has $n (limit $max).';
+  }
+
+  @override
+  String get fnthinkEndpointNeverUsed => 'never received anything';
+
+  @override
+  String fnthinkEndpointLastUsed(String ago) {
+    return 'last received $ago';
+  }
+
+  @override
+  String get fnthinkEndpointLastUsedUnknown =>
+      'not reported (peer build is older)';
+
+  @override
   String get fnthinkEndpointCreate => 'Create an endpoint';
 
   @override

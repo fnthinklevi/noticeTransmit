@@ -2487,20 +2487,122 @@ void main() {
       expect(
         tester.widget<Text>(named).data,
         '${l10n.fnthinkEndpointRowNamed('自家 NAS', 'ep_new')} · '
-        '${l10n.fnthinkEndpointUsable}',
-        reason: '那一行要的是**这一把**的 id 与名字，不是"你有几把"这种代词',
+        '${l10n.fnthinkEndpointUsable} · '
+        '${l10n.fnthinkEndpointLastUsedUnknown}',
+        reason:
+            '那一行要的是**这一把**的 id 与名字，不是"你有几把"这种代词；'
+            '这一发的载荷里压根没有 `lastUsedAt` 这一栏 ⇒ 只能说"没说"，不能说"从没收过"（T127 ②）',
       );
       final revoked = find.byKey(const ValueKey('fnthink-endpoint-row-ep_old'));
       await revealTo(tester, revoked);
       expect(
         tester.widget<Text>(revoked).data,
         '${l10n.fnthinkEndpointRowUnnamed('ep_old')} · '
-        '${l10n.fnthinkEndpointNotUsable('revoked')}',
+        '${l10n.fnthinkEndpointNotUsable('revoked')} · '
+        '${l10n.fnthinkEndpointLastUsedUnknown}',
         reason: '没起名要说"未命名"；已吊销的那行不能消失，否则"我明明建过"变成"界面说没有"',
       );
       expect(
         find.byKey(const ValueKey('fnthink-endpoint-list-none')),
         findsNothing,
+      );
+    });
+
+    // ── T127 ①②：额度读数与死键可见（都是"界面上从没说过"那一族）──
+    testWidgets('读到两把 ⇒ 额度那句说"已经有 2 把（上限 10）"', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final h = harness(
+        endpointListBody:
+            '{"endpoints":['
+            '{"id":"ep_a","name":"A","status":"active","lastUsedAt":1700000000000},'
+            '{"id":"ep_b","name":"B","status":"active","lastUsedAt":null}'
+            '],"serverTime":1800000000000}',
+      );
+      final l10n = await pumpEndpoint(tester, h);
+      final before = find.byKey(const ValueKey('fnthink-endpoint-cap'));
+      await revealTo(tester, before);
+      // 没读过之前只能说上限（那句是静态的，来自契约那一格，不写死）。
+      expect(tester.widget<Text>(before).data, l10n.fnthinkEndpointCap(10));
+      await tapRead(tester);
+      final after = find.byKey(const ValueKey('fnthink-endpoint-cap'));
+      await revealTo(tester, after);
+      expect(
+        tester.widget<Text>(after).data,
+        l10n.fnthinkEndpointCountOf(2, 10),
+        reason: '他读成"只有一个"就是因为界面上从没说过能有一堆，也没说过现在有几个',
+      );
+    });
+
+    testWidgets('读失败 ⇒ 额度那句退回"上限"，绝不显示"已经有 0 把"', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final h = harness(endpointListStatus: 403, endpointListBody: '{}');
+      final l10n = await pumpEndpoint(tester, h);
+      await tapRead(tester);
+      final cap = find.byKey(const ValueKey('fnthink-endpoint-cap'));
+      await revealTo(tester, cap);
+      expect(tester.widget<Text>(cap).data, l10n.fnthinkEndpointCap(10));
+      expect(
+        tester.widget<Text>(cap).data,
+        isNot(l10n.fnthinkEndpointCountOf(0, 10)),
+        reason: '把一次失败读成"你现在 0 把"，用户会当着失败的面重建一把，而旧的那把还在收 NAS 的告警',
+      );
+    });
+
+    testWidgets('三种"上一次什么时候"各说各话：有时刻／明写没有／压根没带这一栏', (tester) async {
+      stubChannels();
+      SharedPreferences.setMockInitialValues({
+        'flutter.${'fnthink.consent_version'}': 1,
+      });
+      final recent = DateTime.now().millisecondsSinceEpoch - 5 * 60 * 1000;
+      final h = harness(
+        endpointListBody:
+            '{"endpoints":['
+            '{"id":"ep_used","name":"used","status":"active","lastUsedAt":$recent},'
+            '{"id":"ep_never","name":"never","status":"active","lastUsedAt":null},'
+            '{"id":"ep_silent","name":"silent","status":"active"}'
+            '],"serverTime":1800000000000}',
+      );
+      final l10n = await pumpEndpoint(tester, h);
+      await tapRead(tester);
+      String rowOf(String id) {
+        final f = find.byKey(ValueKey('fnthink-endpoint-row-$id'));
+        return tester.widget<Text>(f).data!;
+      }
+
+      await revealTo(
+        tester,
+        find.byKey(const ValueKey('fnthink-endpoint-row-ep_used')),
+      );
+      await revealTo(
+        tester,
+        find.byKey(const ValueKey('fnthink-endpoint-row-ep_never')),
+      );
+      await revealTo(
+        tester,
+        find.byKey(const ValueKey('fnthink-endpoint-row-ep_silent')),
+      );
+      // 有时刻那一格**不重算分档**（那把尺它自己的用例钉着）：这里钉的是"三档各挑哪句话"，
+      // 所以期望值走同一个作者拼出来 —— 与本条要防的假绿不是同一件事（Y1 那类是"用被量的常量算期望"）。
+      expect(
+        rowOf('ep_used'),
+        endsWith(l10n.fnthinkEndpointLastUsed(fnthinkAgoLabel(l10n, recent)!)),
+      );
+      expect(rowOf('ep_never'), endsWith(l10n.fnthinkEndpointNeverUsed));
+      expect(
+        rowOf('ep_silent'),
+        endsWith(l10n.fnthinkEndpointLastUsedUnknown),
+        reason: '"这一栏没说" ≠ "从没收过"：后者会让人换掉一把还在收信的入口',
+      );
+      expect(
+        rowOf('ep_never') == rowOf('ep_silent'),
+        isFalse,
+        reason: '两句话合并成一格，本条就白写了（也是这条判据唯一会被看见的方式）',
       );
     });
 

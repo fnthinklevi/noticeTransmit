@@ -1264,6 +1264,10 @@ class FnthinkReceiveKernel {
           lastUsedAt: entry['lastUsedAt'] is int
               ? entry['lastUsedAt'] as int
               : null,
+          // 「表过态」= 这一栏在，且值是时刻或明确的 null；坏值（字符串/浮点）算没说。
+          lastUsedReported:
+              entry['lastUsedAt'] is int ||
+              (entry['lastUsedAt'] == null && entry.containsKey('lastUsedAt')),
         ),
       );
     }
@@ -2109,6 +2113,7 @@ class FnthinkEndpointSummary {
     this.postOnly,
     this.createdAt,
     this.lastUsedAt,
+    this.lastUsedReported = false,
   });
 
   final String id;
@@ -2128,6 +2133,14 @@ class FnthinkEndpointSummary {
   final bool? postOnly;
   final int? createdAt;
   final int? lastUsedAt;
+
+  /// 服务端**有没有就"上一次什么时候收过信"这一栏表过态**。
+  ///
+  /// ⚠ 它不能并进 [lastUsedAt]：`lastUsedAt == null` 有两种完全不同的来路 ——
+  ///   服务端明写 `null`（这把从没收过一条）与压根没带这一栏（旧服务端、或值坏掉）。
+  ///   合成一种的表现是把"那一栏没说"讲成"你这把是死的"，
+  ///   于是人会把一把**还在收信**的入口换掉 —— 与 Z5 那条「没读到 ≠ 没有」是同一句话的另一面。
+  final bool lastUsedReported;
 }
 
 /// 读自己名下那几把入口的结论（#157 第二片）。

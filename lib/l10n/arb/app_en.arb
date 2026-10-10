@@ -2002,6 +2002,27 @@
       }
     }
   },
+  "fnthinkEndpointCountOf": "This device already has {n} (limit {max}).",
+  "@fnthinkEndpointCountOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkEndpointNeverUsed": "never received anything",
+  "fnthinkEndpointLastUsed": "last received {ago}",
+  "@fnthinkEndpointLastUsed": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointLastUsedUnknown": "not reported (peer build is older)",
   "fnthinkEndpointCreate": "Create an endpoint",
   "fnthinkEndpointDefaultName": "Created in-app",
   "fnthinkEndpointId": "Ingress id: {id}",

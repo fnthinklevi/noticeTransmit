@@ -7159,6 +7159,30 @@ abstract class AppLocalizations {
   /// **'这台设备最多建 {max} 把；到数了只拒新的，不会挤掉已经在用的那把。'**
   String fnthinkEndpointCap(int max);
 
+  /// No description provided for @fnthinkEndpointCountOf.
+  ///
+  /// In zh, this message translates to:
+  /// **'这台已经有 {n} 把（上限 {max}）。'**
+  String fnthinkEndpointCountOf(int n, int max);
+
+  /// No description provided for @fnthinkEndpointNeverUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'从没收过一条'**
+  String get fnthinkEndpointNeverUsed;
+
+  /// No description provided for @fnthinkEndpointLastUsed.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次收信于 {ago}'**
+  String fnthinkEndpointLastUsed(String ago);
+
+  /// No description provided for @fnthinkEndpointLastUsedUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一栏没说（对面的版本没报）'**
+  String get fnthinkEndpointLastUsedUnknown;
+
   /// No description provided for @fnthinkEndpointCreate.
   ///
   /// In zh, this message translates to:

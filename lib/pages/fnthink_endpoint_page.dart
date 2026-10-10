@@ -10,6 +10,7 @@ import '../services/fnthink_endpoint_guide.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../theme/app_colors.dart';
+import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
@@ -338,6 +339,23 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
     );
   }
 
+  /// 列表那一行末尾的「这把上一次什么时候真收过信」（T127 ②「死键可见」）。
+  ///
+  /// 三种说法**不许合并**：
+  ///  - 有时刻 ⇒ 用那把共用的尺（[fnthinkAgoLabel]，与通道健康度/配对名单同一个口径）；
+  ///  - 服务端明写了"没有"（`lastUsedReported` 而时刻为空）⇒「从没收过一条」——
+  ///    那才是该被认出来的死键（一把建了三个月从没被调过，界面上今天一个字都不说）；
+  ///  - 服务端**压根没带这一栏**（旧版本）⇒「这一栏没说」，**不许**说成"从没收过"：
+  ///    那会把一把还在收信的入口讲成死的，而讲成死的人下一步就是换一把（#157 那批 Z5 的另一面）。
+  String _endpointUsedTail(AppLocalizations l10n, FnthinkEndpointSummary row) {
+    if (!row.lastUsedReported) return l10n.fnthinkEndpointLastUsedUnknown;
+    final at = row.lastUsedAt;
+    if (at == null || at <= 0) return l10n.fnthinkEndpointNeverUsed;
+    return l10n.fnthinkEndpointLastUsed(
+      fnthinkAgoLabel(l10n, at) ?? fnthinkFormatTime(at),
+    );
+  }
+
   /// 接入端点那一格（T42 第七片建、#157 第二片读）。
   ///
   /// 为什么这一格值得存在：以前只有管理面能建端点，自部署的用户要给自家 NAS 铸一把入口，
@@ -372,6 +390,10 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
     final listing = _endpointList;
     final rotated = _endpointRotated;
     final cap = _contract?.endpointMaxPerDevice;
+    // T127 ①：读成功时那句要说**现在几把**，不是只说上限。
+    // ⚠ 读失败（`!listing.ok`）与"还没读过"一样走静态那一句：把"没读到"报成"你现在 0 把"，
+    //   用户会去重建一把，而那把可能还在收 NAS 的告警（#157 那批 Z5 同一条纪律）。
+    final counted = (listing != null && listing.ok) ? listing.endpoints : null;
     return FnthinkCard(
       title: l10n.fnthinkEndpointTitle,
       children: [
@@ -382,7 +404,9 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
         if (cap != null)
           FnthinkNote(
             keyName: 'fnthink-endpoint-cap',
-            text: l10n.fnthinkEndpointCap(cap),
+            text: counted == null
+                ? l10n.fnthinkEndpointCap(cap)
+                : l10n.fnthinkEndpointCountOf(counted.length, cap),
           ),
         // 这一页的主操作（§1 判据④：一页最多一枚全宽填充）—— 「创建端点」是**做掉一件事**，
         // 而下面「读取列表」是"再看一眼"，两枚在旧写法里长得一模一样。
@@ -445,7 +469,9 @@ class _FnthinkEndpointPageState extends State<FnthinkEndpointPage> {
               text:
                   '${row.name.isEmpty ? l10n.fnthinkEndpointRowUnnamed(row.id) : l10n.fnthinkEndpointRowNamed(row.name, row.id)}'
                   ' · '
-                  '${row.usable ? l10n.fnthinkEndpointUsable : l10n.fnthinkEndpointNotUsable(row.status)}',
+                  '${row.usable ? l10n.fnthinkEndpointUsable : l10n.fnthinkEndpointNotUsable(row.status)}'
+                  ' · '
+                  '${_endpointUsedTail(l10n, row)}',
             ),
             // 已经不收信的那一把**不再给"关掉"或"换一把"那两下**：那一行没有可操作的东西了，
             // 而给它一个按下去只会拿到一句幂等答复的按钮，等于在界面上摆一个假动作。

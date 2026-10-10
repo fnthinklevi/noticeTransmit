@@ -2023,6 +2023,27 @@
       }
     }
   },
+  "fnthinkEndpointCountOf": "这台已经有 {n} 把（上限 {max}）。",
+  "@fnthinkEndpointCountOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "fnthinkEndpointNeverUsed": "从没收过一条",
+  "fnthinkEndpointLastUsed": "上次收信于 {ago}",
+  "@fnthinkEndpointLastUsed": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "fnthinkEndpointLastUsedUnknown": "这一栏没说（对面的版本没报）",
   "fnthinkEndpointCreate": "建一个端点",
   "fnthinkEndpointDefaultName": "App 里建的",
   "fnthinkEndpointId": "入口 id：{id}",

@@ -1590,6 +1590,48 @@ void main() {
         isNull,
         reason: '服务端没回的项不许本机替它选一个方向',
       );
+      // T127 ②「死键可见」的两格形状：报过时刻与压根没报，是两种不同的事实。
+      expect(result.endpoints!.first.lastUsedReported, isTrue);
+      expect(result.endpoints!.first.lastUsedAt, 1_700_000_900_000);
+      expect(
+        result.endpoints!.last.lastUsedReported,
+        isFalse,
+        reason:
+            '这一行没有 `lastUsedAt` 这一栏（旧服务端）⇒ 只能读成"没说"。'
+            '读成"从没收过"会让人换掉一把还在收信的入口 —— 与 Z5 那条同一句话的另一面',
+      );
+    });
+
+    test('服务端明写 lastUsedAt:null ⇒ 表过态了，而时刻是空（这才是"从没收过"）', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpoints': [
+            {'id': 'ep_never', 'status': 'active', 'lastUsedAt': null},
+          ],
+        },
+      );
+      final result = await read(harness);
+      expect(result.ok, isTrue);
+      expect(result.endpoints!.single.lastUsedReported, isTrue);
+      expect(result.endpoints!.single.lastUsedAt, isNull);
+    });
+
+    test('lastUsedAt 是坏值（字符串）⇒ 算"没说"，不猜成 0 也不猜成"从没"', () async {
+      final harness = _Harness(contract, 1_800_000_000_000);
+      harness.reply = const FnthinkReply(
+        status: 200,
+        body: {
+          'endpoints': [
+            {'id': 'ep_bad', 'status': 'active', 'lastUsedAt': '昨天'},
+          ],
+        },
+      );
+      final result = await read(harness);
+      expect(result.ok, isTrue);
+      expect(result.endpoints!.single.lastUsedAt, isNull);
+      expect(result.endpoints!.single.lastUsedReported, isFalse);
     });
 
     test('usable 判的是契约那一个词，不是"不是 revoked"', () async {

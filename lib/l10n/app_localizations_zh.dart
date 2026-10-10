@@ -3879,6 +3879,22 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String fnthinkEndpointCountOf(int n, int max) {
+    return '这台已经有 $n 把（上限 $max）。';
+  }
+
+  @override
+  String get fnthinkEndpointNeverUsed => '从没收过一条';
+
+  @override
+  String fnthinkEndpointLastUsed(String ago) {
+    return '上次收信于 $ago';
+  }
+
+  @override
+  String get fnthinkEndpointLastUsedUnknown => '这一栏没说（对面的版本没报）';
+
+  @override
   String get fnthinkEndpointCreate => '建一个端点';
 
   @override
