@@ -250,7 +250,7 @@ describe('decideRequest（#131 第三片）', () => {
 
   const decide = (over) =>
     Object.assign(
-      { requestId: null, target: A, requester: B, decision: 'approved', level: 'L1' },
+      { requestId: null, target: A, requester: B, decision: 'approved', level: 'L1', items: [] },
       over || {},
     );
 
@@ -389,7 +389,7 @@ describe('sentFor（T110 第二面：我发起的那条走到了哪儿）', () =
       contract,
       requests,
       deviceTable(),
-      { requestId: toA, target: A, requester: B, decision: 'approved', level: 'L1' },
+      { requestId: toA, target: A, requester: B, decision: 'approved', level: 'L1', items: [] },
       NOW + 4,
     );
     expect(pairstore.pendingFor(contract, requests, A, NOW + 5)).toHaveLength(0);

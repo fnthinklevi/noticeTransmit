@@ -805,6 +805,9 @@ describe('clientEvents（poll / ack）裁决', () => {
       expect(out.requester).toBe(OTHER);
       expect(out.requestId).toBe('pr_0a1b');
       expect(out.decision).toBe(contract.clientEvents.pairConfirm.approveDecision);
+      // 载荷里没带那一枚键 ⇒ 读成**空清单**而不是 undefined：下游那一处（授权表里的 items）
+      // 要的是数组，交 undefined 会在写盘那一步抛，而那正是老设备的正常答复。
+      expect(out.items).toEqual([]);
       // 这一层没有任何 grantsBy 的痕迹：写授权是 pairstore + devicestore 的事。
       expect(JSON.stringify(out)).not.toContain('grantsBy');
     });
@@ -904,6 +907,166 @@ describe('clientEvents（poll / ack）裁决', () => {
         ),
       );
       expect(withItems.ok).toBe(true);
+    });
+
+    // ── T134 片2：勾选表从答复里读出来，并在这里就判完形状与词表 ──
+    test('勾选项去重排序地交出去；词表外 ⇒ 400 且点名是哪一项', () => {
+      const confirm = contract.clientEvents.pairConfirm;
+      const picked = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: confirm.approveDecision,
+              level: 'L2',
+              items: ['notification', 'alert:ring', 'notification'],
+            }),
+          }),
+        ),
+      );
+      expect(picked.ok).toBe(true);
+      expect(picked.items).toEqual(['alert:ring', 'notification']);
+
+      const unknown = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: confirm.approveDecision,
+              level: 'L2',
+              items: ['wipe_everything'],
+            }),
+          }),
+        ),
+      );
+      expect(unknown.ok).toBe(false);
+      expect(unknown.reason).toBe('unknown-item:wipe_everything');
+      // ⚠ 要的是"这不是 403"：403 在这个协议里同时是「口令错 / 没这台设备 / 签名不对」那几句
+      //   的对外形状，把"你勾了一项不存在的动作"也压进 403，设备端就只能对用户说"配对失败"，
+      //   而这是一条它自己拼错了、本来能改好的错。
+      expect(unknown.status).toBe(statusCode(contract, 'badRequest'));
+      expect(unknown.status).not.toBe(statusCode(contract, 'forbidden'));
+    });
+
+    test('拒绝时带清单 ⇒ 整发拒（设备侧签出去之前也抛一次，两端同判）', () => {
+      const confirm = contract.clientEvents.pairConfirm;
+      const deniedWord = confirm.decisions.find((d) => d !== confirm.approveDecision);
+      const out = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: deniedWord,
+              level: 'L1',
+              items: ['alert:ring'],
+            }),
+          }),
+        ),
+      );
+      expect(out.ok).toBe(false);
+      expect(out.reason).toBe('items-on-deny');
+      expect(out.status).toBe(statusCode(contract, confirm.unknownItemStatus));
+      // 拒绝而**不**带清单照旧是正常的一发：这一条拦的不是"我不想配"。
+      const plain = events.authorizePairConfirm(
+        contract,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: deniedWord,
+              level: 'L1',
+              items: [],
+            }),
+          }),
+        ),
+      );
+      expect(plain.ok).toBe(true);
+      expect(plain.items).toEqual([]);
+    });
+
+    test('items 不是数组 ⇒ 400，不当成"用户没勾"（形状错与清单空是两件事）', () => {
+      const confirm = contract.clientEvents.pairConfirm;
+      for (const shape of ['alert:ring', null, 7, { a: 1 }]) {
+        const out = events.authorizePairConfirm(
+          contract,
+          stateFor(kpA),
+          signable(
+            kpA,
+            confirmFields({
+              body: JSON.stringify({
+                requestId: 'pr_0a1b',
+                decision: confirm.approveDecision,
+                level: 'L1',
+                items: shape,
+              }),
+            }),
+          ),
+        );
+        expect([JSON.stringify(shape), out.reason]).toEqual([
+          JSON.stringify(shape),
+          'items-not-array',
+        ]);
+        expect(out.status).toBe(statusCode(contract, 'badRequest'));
+      }
+    });
+
+    test('状态码从契约那枚旋钮读：把 unknownItemStatus 换成另一档，400 就跟着换', () => {
+      // 钉的是"这里没写死数字"：写死了 400（或写死 403），契约换旋钮时它照样绿，
+      // 而线上行为与契约分家。⚠ 旋钮指过去的那一档必须与缺省那档**不同** ——
+      // 指回 forbidden 的话，"写死 forbidden"这一种植入恰好也能过（第一轮就栽在这里）。
+      const moved = JSON.parse(JSON.stringify(contract));
+      moved.clientEvents.pairConfirm.unknownItemStatus = 'expired';
+      const out = events.authorizePairConfirm(
+        moved,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: moved.clientEvents.pairConfirm.approveDecision,
+              level: 'L1',
+              items: ['wipe_everything'],
+            }),
+          }),
+        ),
+      );
+      expect(out.status).toBe(statusCode(moved, 'expired'));
+      expect(out.status).not.toBe(statusCode(contract, 'badRequest'));
+      expect(out.status).not.toBe(statusCode(contract, 'forbidden'));
+
+      // 同一个旋钮的两条分支都要跟着它：词表外那一条换了、拒绝带清单那一条还写死 400，
+      // 表现是"同一类错误两种状态码"，而契约只声明了一个旋钮。
+      const onDeny = events.authorizePairConfirm(
+        moved,
+        stateFor(kpA),
+        signable(
+          kpA,
+          confirmFields({
+            body: JSON.stringify({
+              requestId: 'pr_0a1b',
+              decision: moved.clientEvents.pairConfirm.decisions.find(
+                (d) => d !== moved.clientEvents.pairConfirm.approveDecision,
+              ),
+              level: 'L1',
+              items: ['alert:ring'],
+            }),
+          }),
+        ),
+      );
+      expect(onDeny.reason).toBe('items-on-deny');
+      expect(onDeny.status).toBe(statusCode(moved, 'expired'));
     });
 
     test('没登记的那台来确认 ⇒ 与签名不对同形（这条入口也不许枚举地址码）', () => {

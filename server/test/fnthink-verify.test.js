@@ -593,7 +593,7 @@ describe('收单要判配对关系（不是判"这台设备存不存在"）', ()
     const devices = { [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} } };
     expect(send(stateFor(kp, { devices })).ok).toBe(false);
     const store = require('../lib/fnthink/devicestore');
-    store.approvePeer(contract, devices, TARGET_OF_MSG, SENDER, 'L1', NOW);
+    store.approvePeer(contract, devices, TARGET_OF_MSG, SENDER, 'L1', [], NOW);
     const granted = stateFor(kp, { devices });
     expect(send(granted).ok).toBe(true);
     delete devices[SENDER].grantsBy[SENDER];
@@ -621,7 +621,7 @@ describe('收单要判配对关系（不是判"这台设备存不存在"）', ()
     const devices = { [SENDER]: { publicKey: kp.rawBase64, status: 'active', grantsBy: {} } };
     const store = require('../lib/fnthink/devicestore');
     // 用真契约把关系写进 grantsBy，再用"列名改了"的契约去读：读不到 ⇒ 拒。
-    store.approvePeer(contract, devices, TARGET_OF_MSG, SENDER, 'L1', NOW);
+    store.approvePeer(contract, devices, TARGET_OF_MSG, SENDER, 'L1', [], NOW);
     const out = verify.acceptIncoming(renamed, stateFor(kp, { devices }), {
       senderAddress: SENDER,
       ...signable(kp, fields()),

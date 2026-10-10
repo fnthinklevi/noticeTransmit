@@ -70,8 +70,8 @@ function register(addressCode, kp) {
 
 function approveBothWays() {
   const devices = devicestore.loadDevices();
-  devicestore.approvePeer(contract, devices, TARGET, SENDER, 'L1', T0);
-  devicestore.approvePeer(contract, devices, SENDER, TARGET, 'L1', T0);
+  devicestore.approvePeer(contract, devices, TARGET, SENDER, 'L1', [], T0);
+  devicestore.approvePeer(contract, devices, SENDER, TARGET, 'L1', [], T0);
   devicestore.saveDevices(devices);
 }
 

@@ -34,6 +34,9 @@ const {
   looksLikeCredential,
   saveTable,
 } = require('./table');
+// 逐条清单的取值域（T134 片2）：**不写进本文件的第二份名单** —— 它从契约那两张词表现取。
+// 方向是 devicestore → capabilities（后者只依赖 contract），不构成环。
+const { confirmItemVocabulary } = require('./capabilities');
 
 const DEVICE_FILE = path.join(DATA_DIR, 'fnthink_devices.json');
 const NONCE_FILE = path.join(DATA_DIR, 'fnthink_nonces.json');
@@ -85,6 +88,34 @@ function assertLevel(contract, level) {
     throw new Error(`能力级别 ${level} 不在契约的 ${levels.join('/')} 里`);
   }
   return level;
+}
+
+/// 逐条清单写盘前的那道形状闸（与 `assertLevel` 同一类：**唯一写入者不信任上游**）。
+/// 取值域只有一个出处（`capabilities.confirmItemVocabulary` 从契约那两张词表现取），
+/// 这里不另写一份名单，也不重做 events 那一段的业务判定 —— 那一份管"能不能收这一发"，
+/// 这一份管"别把不是一个动作的东西写进授权表"。抛而不是抹掉：能走到这里而清单是坏的，
+/// 说明接线断了，抹掉等于把断线写成"用户没勾"。
+function assertItemNames(contract, items) {
+  if (!Array.isArray(items)) {
+    throw new Error(
+      `逐条勾选必须是数组（实为 ${JSON.stringify(items)}）：缺省不等于"没勾"，缺的是调用方漏接的那一发`,
+    );
+  }
+  const vocabulary = confirmItemVocabulary(contract);
+  const out = [];
+  for (const entry of items) {
+    const value = typeof entry === 'string' ? entry.trim() : '';
+    if (value === '') {
+      throw new Error('逐条勾选里有空项或非字符串项（授权表里"空串"与"没有那一项"同形）');
+    }
+    if (!vocabulary.includes(value)) {
+      throw new Error(
+        `逐条勾选的「${value}」不在契约词表里（授权不能写给一个不存在的动作或设置项）`,
+      );
+    }
+    if (!out.includes(value)) out.push(value);
+  }
+  return out.sort();
 }
 
 /// 登记设备。幂等 upsert，但**公钥不许静默替换**。
@@ -183,14 +214,17 @@ function peerGrant(contract, record, peerCode) {
 
 /// A 确认把 B 写进自己的白名单 —— 授权写入的**唯一咽喉**，别处不许再写 `grantsBy[...]`。
 /// 只有 A 自己的签名能走到这里（routes 的 /pair-confirm 先过 authorizePairConfirm）。
-/// ⚠ 每次确认都把 `items` 重置成空清单：重新配对**不继承**旧的逐条勾选 —— L2/L3 那些
+/// ⚠ 每次确认都把 `items` **整份换成这一次的**：重新配对**不继承**旧的逐条勾选 —— L2/L3 那些
 ///   "每一次都要人看一眼"的条目，不该因为重新扫一次码就自动回来（契约 itemRequiredFromLevel 的方向）。
-/// ⚠ **今天这一句还不完整，别把它读成"items 只是会被抹掉"**：全仓（含设备侧）没有任何一处往里写非空值 ——
-///   `pair-confirm` 的载荷里没有勾选表，设备侧那份答复也明写自己是空清单（T49 的注释）。
-///   所以现实是「L2 起带 `item:x` 的授权一律判不过」，而不是「勾过又被抹」。
-///   补那一位写入者是 roadmap **T134**（勾选取自哪一屏、要不要进契约，都在那一条里拍）；
-///   在它落地之前，改这里之前先去看那条 —— 往这里塞一个"继承旧 items"的写法会直接放行历史勾选。
-function approvePeer(contract, devices, addressCode, peerCode, level, now) {
+/// ⚠ **`items` 没有缺省值，也不许在这里补成 `[]`**：这一处是全表唯一写得进清单的地方，
+///   把"调用方漏接了这一发"读成"用户一条都没勾"，表现是配对成功、L2 动作全 403、
+///   而两端日志互相都说自己没错 —— 那正是 T134 之前几个月的现实，别再把它写回代码里。
+/// ⚠ **今天仍然只有"不带参数的词表项"判得过**（如实登记，2026-10-10）：`decideCapability`
+///   比的是**整串**（向量 `c-action-item-not-granted` 明写"items 里没有通配"），而设备发出去
+///   的 item 对契约 `l2.requiresArgumentFrom` 那六项与 `l3` 两枚 toggle 长成 `<名>/<参数>`。
+///   勾了名字、动了参数 ⇒ 仍回 `item:<整串>`。粒度（动作级 / 参数级）是要拍的**一条产品与安全
+///   取舍**，归 roadmap **T134 片3 之前**，不在这一处偷偷改判据。
+function approvePeer(contract, devices, addressCode, peerCode, level, items, now) {
   const record = devices[keyOf(contract, addressCode)];
   if (!record) throw new Error('设备未登记（授权不能挂在没有记录的设备上）');
   const peerKey = keyOf(contract, peerCode);
@@ -198,6 +232,7 @@ function approvePeer(contract, devices, addressCode, peerCode, level, now) {
     throw new Error('对方地址码不合法（授权不能写给一个不像地址码的东西）');
   }
   assertLevel(contract, level);
+  const grantedItems = assertItemNames(contract, items);
   const field = relationshipField(contract);
   if (!record[field] || typeof record[field] !== 'object' || Array.isArray(record[field])) {
     record[field] = {};
@@ -207,7 +242,7 @@ function approvePeer(contract, devices, addressCode, peerCode, level, now) {
     : null;
   record[field][peerKey] = {
     maxLevel: level,
-    items: [],
+    items: grantedItems,
     revision: (Number(prev && prev.revision) || 0) + 1,
     grantedAt: now,
   };

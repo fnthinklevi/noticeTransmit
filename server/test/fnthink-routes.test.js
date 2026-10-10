@@ -128,8 +128,8 @@ beforeAll(() => {
   // ⚠ #131 第三片起，登记**不再等于可以互投**：收单判的是被投那台的 grantsBy。
   // 这几条用例讲的是收单/取货/回执，所以先把关系摆好（关系本身那条闸另有一组用例）。
   const devices = devicestore.loadDevices();
-  devicestore.approvePeer(contract, devices, TARGET, SENDER, 'L1', T0);
-  devicestore.approvePeer(contract, devices, SENDER, TARGET, 'L1', T0);
+  devicestore.approvePeer(contract, devices, TARGET, SENDER, 'L1', [], T0);
+  devicestore.approvePeer(contract, devices, SENDER, TARGET, 'L1', [], T0);
 });
 
 describe('POST /api/fnthink/message', () => {
@@ -357,7 +357,7 @@ describe('POST /api/fnthink/ack', () => {
     // 先造一条"发给 OTHER"的消息，再用 TARGET 去 ack 它
     // 这条测的是 ack 的归属，不是配对闸 ⇒ 把关系摆好（OTHER 允许 SENDER 投它）。
     const devices = devicestore.loadDevices();
-    devicestore.approvePeer(contract, devices, OTHER, SENDER, 'L1', Date.now());
+    devicestore.approvePeer(contract, devices, OTHER, SENDER, 'L1', [], Date.now());
     const fields = {
       version: '1',
       type: 'notice',
@@ -867,6 +867,21 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
     return { sender: from, signature: signed.signature, fields: signed.map };
   }
 
+  /// L2 动作那一发：`item` 在请求体顶层，而它**必须出现在已签字节里**（verify 的 unsigned-item
+  /// 那一条），所以把它写进 body 文本里再签 —— 与设备端 `_wireItem` 走的是同一形状。
+  function actionBody(fromKp, from, to, item) {
+    const fields = {
+      version: '1',
+      type: 'action',
+      target: to,
+      ts: String(Math.floor(Date.now() / 1000)),
+      nonce: 'act-' + crypto.randomBytes(6).toString('hex'),
+      body: '执行 ' + item,
+    };
+    const signed = sign(fromKp, fields);
+    return { sender: from, signature: signed.signature, fields: signed.map, item };
+  }
+
   /// 挂口令 + 配对，返回 requestId（每条用例自己走一遍，别共用一条已消耗的关系）。
   async function pairUp(armCode, askerKp, askerCode, level) {
     await request(app)
@@ -1011,6 +1026,75 @@ describe('POST /api/fnthink/pair-confirm 与"没配对就投不进去"', () => {
       );
     expect(res.status).toBe(statusCode(contract, 'forbidden'));
     expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+  });
+
+  // ── T134 片2：勾选表从答复一路写到授权表，并被收单那一步真的读到 ──────────
+  // 上面那几条证的是"关系能不能建"；这两条证的是建起来之后**里面真的有东西可比**。
+  // 在片2 之前 `approvePeer` 恒写 `items: []`，于是 L2/L3 那一段永远停在 `item:<x>`，
+  // 而两端日志都能自证清白 —— 那是"配对成功却什么都发不动"最难查的一种静默。
+  const APPROVE_WORD = contract.clientEvents.pairConfirm.approveDecision;
+
+  test('勾了 alert:ring ⇒ 那一条 L2 动作现在真收得进来；没勾的那条照旧 403', async () => {
+    const requestId = await pairUp('NPQRSTVWX23456789012', bobKey, BOB, 'L2');
+    const confirmed = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          requestId,
+          decision: APPROVE_WORD,
+          level: 'L2',
+          items: ['alert:ring'],
+        }),
+      )
+      .expect(200);
+    expect(confirmed.body.grantedLevel).toBe('L2');
+    expect(devicestore.loadDevices()[ALICE].grantsBy[BOB].items).toEqual(['alert:ring']);
+
+    const ringing = await request(app)
+      .post('/api/fnthink/message')
+      .send(actionBody(bobKey, BOB, ALICE, 'alert:ring'));
+    expect(ringing.status).toBe(statusCode(contract, 'queued'));
+
+    // 对照：同一份关系、同一个档位，只是那一项没勾过 —— 不能因为"表里现在有清单"就全放开。
+    const notPicked = await request(app)
+      .post('/api/fnthink/message')
+      .send(actionBody(bobKey, BOB, ALICE, 'listener:start'));
+    expect(notPicked.status).toBe(statusCode(contract, 'forbidden'));
+    expect(notPicked.body).toEqual({ receipt: 'rejected_capability' });
+  });
+
+  test('词表外的勾选在 HTTP 面上回 400，且那条请求没被顺手关掉（A 改一下还能再答一次）', async () => {
+    const requestId = await pairUp('PQRSTVWX234567890123', bobKey, BOB, 'L1');
+    const before = JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy);
+    const rejected = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          requestId,
+          decision: APPROVE_WORD,
+          level: 'L1',
+          items: ['wipe_everything'],
+        }),
+      );
+    expect(rejected.status).toBe(
+      statusCode(contract, contract.clientEvents.pairConfirm.unknownItemStatus),
+    );
+    // 对外仍只有那一个通用回执：reason 不进响应体（契约 failureMessageShape = single-generic）。
+    expect(rejected.body).toEqual({ receipt: 'rejected_capability' });
+    expect(JSON.stringify(devicestore.loadDevices()[ALICE].grantsBy)).toBe(before);
+
+    const retry = await request(app)
+      .post('/api/fnthink/pair-confirm')
+      .send(
+        evBody('pairConfirm', aliceKey, ALICE, BOB, {
+          requestId,
+          decision: APPROVE_WORD,
+          level: 'L1',
+          items: [],
+        }),
+      )
+      .expect(200);
+    expect(retry.body.status).toBe(APPROVE_WORD);
   });
 
   test('授权写入只有 approvePeer 一条咽喉：路由与 pairstore 都不自己碰 grantsBy', () => {

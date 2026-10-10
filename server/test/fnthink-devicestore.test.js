@@ -72,7 +72,7 @@ describe('fnthink 服务端存储（T27）', () => {
   test('登记改不了任何授权：re-register 带 level 也不写，已有关系逐字不动', () => {
     const devices = {};
     store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
-    store.approvePeer(contract, devices, ADDR, PEER, 'L2', NOW);
+    store.approvePeer(contract, devices, ADDR, PEER, 'L2', [], NOW);
     const before = JSON.stringify(devices[ADDR].grantsBy);
     // 老客户端还会带 level 上来 —— 现在它不再有任何作用：既不改关系，也不新增关系。
     const again = store.registerDevice(
@@ -149,22 +149,24 @@ describe('fnthink 服务端存储（T27）', () => {
   test('档位只认契约那一列 —— 现在这条守在授权写入处（approvePeer），登记已经碰不到授权', () => {
     const devices = {};
     store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
-    expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L9', NOW)).toThrow(/不在契约/);
+    expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L9', [], NOW)).toThrow(
+      /不在契约/,
+    );
     expect(devices[ADDR].grantsBy).toEqual({});
   });
 
   // ── 授权写入的唯一咽喉（#131 第三片）──
   describe('approvePeer / peerGrant', () => {
-    test('确认一次就写下关系：档位照输入、revision 递增、逐条勾选清零', () => {
+    test('确认一次就写下关系：档位照输入、revision 递增、勾选整份覆盖', () => {
       const devices = {};
       store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
-      const first = store.approvePeer(contract, devices, ADDR, PEER, 'L2', NOW);
-      expect(first).toEqual({ maxLevel: 'L2', items: [], revision: 1, grantedAt: NOW });
-      // 手工把 items 填上（模拟 A 在本机勾过几条 L2 动作），再确认一次：
+      const first = store.approvePeer(contract, devices, ADDR, PEER, 'L2', ['alert:ring'], NOW);
+      expect(first).toEqual({ maxLevel: 'L2', items: ['alert:ring'], revision: 1, grantedAt: NOW });
+      // 再确认一次（重新扫一次码），而这一次一条都没勾：
       // ⚠ 重新配对**不继承**旧的逐条勾选 —— L2/L3 那些"每次都要看一眼"的条目，
       //   不该因为重新扫一次码就自动回来（契约 itemRequiredFromLevel 的方向）。
-      devices[ADDR].grantsBy[PEER].items = ['app:a/b'];
-      const second = store.approvePeer(contract, devices, ADDR, PEER, 'L1', NOW + 1000);
+      devices[ADDR].grantsBy[PEER].items = ['notification']; // 盘上先有的一份，不是下一次的答案
+      const second = store.approvePeer(contract, devices, ADDR, PEER, 'L1', [], NOW + 1000);
       expect(second.revision).toBe(2);
       expect(second.items).toEqual([]);
       expect(second.maxLevel).toBe('L1');
@@ -172,11 +174,54 @@ describe('fnthink 服务端存储（T27）', () => {
       expect(store.loadDevices()[ADDR].grantsBy[PEER].revision).toBe(2);
     });
 
+    test('勾选项真写进表里，且去重排序（T134 片2：grant.items 从此有值可判）', () => {
+      const devices = {};
+      store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+      const grant = store.approvePeer(
+        contract,
+        devices,
+        ADDR,
+        PEER,
+        'L2',
+        ['notification', 'alert:ring', 'notification', ' alert:ring '],
+        NOW,
+      );
+      expect(grant.items).toEqual(['alert:ring', 'notification']);
+      // 落盘再读回来还是同一份：内存里对了、盘上飘了，表现是"重启一次勾选换了一套"。
+      expect(store.loadDevices()[ADDR].grantsBy[PEER].items).toEqual([
+        'alert:ring',
+        'notification',
+      ]);
+    });
+
+    test('授权写入那道咽喉不信任上游：词表外、非数组、空项都抛，且一个字节都不写', () => {
+      const devices = {};
+      store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
+      expect(() =>
+        store.approvePeer(contract, devices, ADDR, PEER, 'L2', ['wipe_everything'], NOW),
+      ).toThrow(/不在契约词表/);
+      expect(() =>
+        store.approvePeer(contract, devices, ADDR, PEER, 'L2', 'alert:ring', NOW),
+      ).toThrow(/必须是数组/);
+      // 缺这一枚键**不**当成"用户一条都没勾"：那正是 T134 之前几个月的现实，
+      // 而它的表现是"配对成功、L2 全 403、两端日志都说自己没错"。
+      expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L2', undefined, NOW)).toThrow(
+        /必须是数组/,
+      );
+      expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L2', [''], NOW)).toThrow(
+        /空项/,
+      );
+      expect(devices[ADDR].grantsBy).toEqual({});
+      expect(store.loadDevices()[ADDR].grantsBy).toEqual({});
+    });
+
     test('授权不能挂在没有记录的设备上，也不能写给一个不像地址码的东西', () => {
       const devices = {};
-      expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L1', NOW)).toThrow(/未登记/);
+      expect(() => store.approvePeer(contract, devices, ADDR, PEER, 'L1', [], NOW)).toThrow(
+        /未登记/,
+      );
       store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
-      expect(() => store.approvePeer(contract, devices, ADDR, '短', 'L1', NOW)).toThrow(
+      expect(() => store.approvePeer(contract, devices, ADDR, '短', 'L1', [], NOW)).toThrow(
         /对方地址码/,
       );
     });
@@ -185,7 +230,7 @@ describe('fnthink 服务端存储（T27）', () => {
       const devices = {};
       store.registerDevice(contract, devices, { addressCode: ADDR, publicKey: PUB }, NOW);
       expect(store.peerGrant(contract, devices[ADDR], PEER)).toBeNull();
-      store.approvePeer(contract, devices, ADDR, PEER, 'L2', NOW);
+      store.approvePeer(contract, devices, ADDR, PEER, 'L2', [], NOW);
       expect(store.peerGrant(contract, devices[ADDR], PEER).maxLevel).toBe('L2');
       // 列名从契约读：换了名字就读不到（而不是读到别的东西）
       const renamed = JSON.parse(JSON.stringify(contract));

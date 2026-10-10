@@ -18,7 +18,13 @@ process.env.ADMIN_TOKEN_HASH = bcrypt.hashSync('test-admin-token-for-caps', 10);
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'nt-fnthink-caps-'));
 
 const { loadContract, assertSupported, isReceipt } = require('../lib/fnthink/contract');
-const { decideCapability, endpointGrant, grantFromNode } = require('../lib/fnthink/capabilities');
+const {
+  confirmItemVocabulary,
+  decideCapability,
+  endpointGrant,
+  grantFromNode,
+  normalizeConfirmItems,
+} = require('../lib/fnthink/capabilities');
 
 const contract = assertSupported(loadContract());
 const vectors = JSON.parse(
@@ -144,5 +150,55 @@ describe('能力清单向量（Node 侧，T30-A）', () => {
       }).allowed,
     ).toBe(false);
     expect(smuggled.maxLevel).toBe('L3'); // 它自己没被采纳，只是躺在参数里
+  });
+});
+
+// ── T134 片2：配对同意那一屏的勾选表 —— 取值域与归一化（裁决函数本身不动，见上面的向量组）──
+describe('confirmItemVocabulary / normalizeConfirmItems（T134 片2）', () => {
+  test('取值域从契约那两张词表现取：名单与键控表两种形状都要认出来', () => {
+    const vocabulary = confirmItemVocabulary(contract);
+    // 期望值不从"被量的那个函数"算出来（那样两边一起错就永远绿）：这里直接读契约的两处。
+    expect(vocabulary).toContain('alert:ring'); // capabilities.l2.actions 是名单
+    expect(vocabulary).toContain('notification'); // capabilities.l3.settings 是键控表：键名才是 item
+    expect(vocabulary).toHaveLength(
+      contract.capabilities.l2.actions.length +
+        Object.keys(contract.capabilities.l3.settings).length,
+      // 只认名单的那份写法会把 l3 整张表读成空 ⇒ 少六项，而"少的那六项"在界面上就是没勾。
+    );
+    // 排好序且无重复：表里那一份是一个集合，两个写法会让比对时输时赢。
+    expect(vocabulary).toEqual(vocabulary.slice().sort());
+    expect(new Set(vocabulary).size).toBe(vocabulary.length);
+  });
+
+  test('itemsVocabularyFrom 指空 / 指错 ⇒ 抛，不读成"没有任何一项能勾"', () => {
+    const empty = JSON.parse(JSON.stringify(contract));
+    empty.clientEvents.pairConfirm.itemsVocabularyFrom = [];
+    expect(() => confirmItemVocabulary(empty)).toThrow(/必须是非空名单/);
+    const wrong = JSON.parse(JSON.stringify(contract));
+    wrong.clientEvents.pairConfirm.itemsVocabularyFrom = ['capabilities.nope'];
+    expect(() => confirmItemVocabulary(wrong)).toThrow(/既不是非空名单也不是非空键控表/);
+    const mapWrong = JSON.parse(JSON.stringify(contract));
+    mapWrong.clientEvents.pairConfirm.itemsVocabularyFrom = ['capabilities.l3.settings.mode'];
+    expect(() => confirmItemVocabulary(mapWrong)).toThrow(/既不是非空名单也不是非空键控表/);
+  });
+
+  test('归一化：去重、排序、词表外点名到哪一项', () => {
+    expect(normalizeConfirmItems(contract, ['notification', 'alert:ring', 'notification'])).toEqual(
+      { items: ['alert:ring', 'notification'] },
+    );
+    expect(normalizeConfirmItems(contract, [])).toEqual({ items: [] });
+    expect(normalizeConfirmItems(contract, [' alert:ring '])).toEqual({ items: ['alert:ring'] });
+    expect(normalizeConfirmItems(contract, ['wipe_everything'])).toEqual({
+      reason: 'unknown-item:wipe_everything',
+    });
+  });
+
+  test('形状那三种各有各的理由，不许合成一句"清单不对"', () => {
+    expect(normalizeConfirmItems(contract, 'alert:ring')).toEqual({ reason: 'items-not-array' });
+    expect(normalizeConfirmItems(contract, null)).toEqual({ reason: 'items-not-array' });
+    expect(normalizeConfirmItems(contract, ['alert:ring', 7])).toEqual({
+      reason: 'item-not-string',
+    });
+    expect(normalizeConfirmItems(contract, ['  '])).toEqual({ reason: 'item-empty' });
   });
 });

@@ -28,7 +28,7 @@ const {
   checkFresh,
   intakeGrantFor,
 } = require('./verify');
-const { levelRank } = require('./capabilities');
+const { levelRank, normalizeConfirmItems } = require('./capabilities');
 const {
   alphabetFromContract,
   credentialDigest,
@@ -470,6 +470,39 @@ function authorizePairConfirm(contract, state, input) {
     return fail(`level-too-high:${level}>${ceiling}`);
   }
 
+  // ── 逐条勾选（T134 片2）：这一枚清单是授权表里 `items` 唯一的来源，所以它的形状与词表
+  //    都在**写表之前**判，且状态码是 400 而不是 403（契约 `unknownItemStatus`）。
+  //    ⚠ 为什么不塌进 403：403 在这个协议里同时是"口令错 / 没这台设备 / 签名不对"那几句的
+  //    对外形状，把"你勾了一项不存在的动作"也压成 403，设备端就只能对用户说"配对失败"，
+  //    而那是一条能自己修的错误（清单是它自己拼的）。
+  const picked = normalizeConfirmItems(contract, read.payload.items);
+  if (picked.reason) {
+    return deniedWith(
+      contract,
+      state,
+      input,
+      statusCode(contract, spec.unknownItemStatus),
+      picked.reason,
+    );
+  }
+  // 契约 `itemsMustBeEmptyOnDeny`：拒绝时带清单 = 整发拒（设备侧签出去之前也抛一次，两端同判）。
+  // ⚠ 认"哪个词算同意"用的是 `approveDecision`，它一旦被删，这一支只会**多拒**不会放行
+  //   （所有 decision 都不等于 undefined ⇒ 带清单的一律 400）；真正拿它写表的那一发在
+  //   pairstore.decideRequest，那里缺了它是抛，不是猜。
+  if (
+    spec.itemsMustBeEmptyOnDeny === true &&
+    decision !== spec.approveDecision &&
+    picked.items.length
+  ) {
+    return deniedWith(
+      contract,
+      state,
+      input,
+      statusCode(contract, spec.unknownItemStatus),
+      'items-on-deny',
+    );
+  }
+
   const fresh = checkFresh(contract, state, input, id.sender);
   if (fresh.outcome) return fresh.outcome;
   return {
@@ -481,6 +514,8 @@ function authorizePairConfirm(contract, state, input) {
     requestId,
     decision,
     level,
+    // 已经过词表与形状两道闸、去重排好序的那份：pairstore 把它原样交给 authorizePeer 唯一的写入者。
+    items: picked.items,
   };
 }
 

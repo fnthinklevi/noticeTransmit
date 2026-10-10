@@ -7,6 +7,8 @@
 
 'use strict';
 
+const { resolvePath } = require('./contract');
+
 /// 级别序：**直接取契约 `capabilities.levels` 里的位置**（validate 保证它按权限升序）。
 /// 不写 `case 'L1': return 1` 那种表：那是在服务端存第二份档位表，契约加一档时
 /// 它不报错，只会让比较结果静默错位。不在词表里 ⇒ -1（任何真实档位都比它大 ⇒ 判不过）。
@@ -96,11 +98,81 @@ function endpointGrant(contract) {
   };
 }
 
+/// 配对同意那一屏能勾的**取值域**（T134 片2）：从契约 `pairConfirm.itemsVocabularyFrom`
+/// 指过去的那几张表现取，服务端不存第二份清单。
+///
+/// 两种形状都认，而且必须两种都认：`l2.actions` 是名单（值就是 item），`l3.settings`
+/// 是键控表（**键名**才是 item，值里装的是怎么执行）。只读名单的那份写法会把 `l3.settings`
+/// 读成"一张空表"，于是所有 L3 勾选一律算词表外 —— 而界面上那看起来就像"用户没勾"。
+///
+/// 抛而不回落成空表：`itemsVocabularyFrom` 写错路径时，空表意味着"任何勾选都不合法"，
+/// 那与"这个词表还没定义"是两件事，前者会被读成用户在乱勾。
+function confirmItemVocabulary(contract) {
+  const spec = (contract.clientEvents || {}).pairConfirm || {};
+  const paths = spec.itemsVocabularyFrom;
+  if (!Array.isArray(paths) || paths.length === 0) {
+    throw new Error(
+      'pairConfirm.itemsVocabularyFrom 必须是非空名单：有 items 这一枚键却没有取值域，' +
+        '服务端只剩"收下并忽略"这一种写法',
+    );
+  }
+  const out = [];
+  for (const path of paths) {
+    const node = resolvePath(contract, path);
+    const entries = Array.isArray(node)
+      ? node
+      : node && typeof node === 'object'
+        ? Object.keys(node)
+        : null;
+    if (!entries || entries.length === 0) {
+      throw new Error(
+        `pairConfirm.itemsVocabularyFrom 指向的 ${JSON.stringify(path)} 既不是非空名单也不是非空键控表`,
+      );
+    }
+    for (const entry of entries) {
+      const value = String(entry).trim();
+      if (value !== '' && out.indexOf(value) < 0) out.push(value);
+    }
+  }
+  return out.sort();
+}
+
+/// 把答复载荷里那一枚 `items` 读成"可以写进授权表的清单"（T134 片2）。
+///
+/// 四种拒的理由各不相同，**不许合并**（与 parseL2Item / parseL3Item 同一条纪律）：
+///   items-not-array     形状就不是清单（老客户端不会走到这里：契约 optionalFields 缺省填 []）
+///   item-not-string     混进了数字/对象 —— 写进表里下一次读它的是 `includes`，比对的是字符串
+///   item-empty          空项：空串在授权表里与"没有那一项"同形，留着只会让人以为勾上了
+///   unknown-item:<x>    词表外 —— 词表外的勾无从执行，收下就等于把"我给了权限"写成一句空话
+/// 返回 `{reason}` 或 `{items}`，不自己造拒绝对象（状态码由调用处按契约那枚旋钮挑）。
+///
+/// ⚠ **比的是整串，没有通配**（向量 `c-action-item-not-granted` 那条 note 说的就是这件事）：
+///   词表里那 18 项中，带参数的那几项（契约 `l2.requiresArgumentFrom` 六项 + `l3` 两枚 toggle）
+///   在线上的 item 长成 `<名>/<参数>`，因此勾了名字也判不过。粒度那条不在这里拍，
+///   登记在 roadmap T134 片3 前面。
+function normalizeConfirmItems(contract, raw) {
+  if (!Array.isArray(raw)) return { reason: 'items-not-array' };
+  const vocabulary = confirmItemVocabulary(contract);
+  const out = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'string') return { reason: 'item-not-string' };
+    const value = entry.trim();
+    if (value === '') return { reason: 'item-empty' };
+    if (vocabulary.indexOf(value) < 0) return { reason: `unknown-item:${value}` };
+    // 重复项**静默去重**而不是拒：一次重试、一份把同一项列了两遍的清单，落进表里都该是同一件事；
+    // 拒掉它的表现是"用户点了同意而界面只回一句与口令错同形的话"。
+    if (out.indexOf(value) < 0) out.push(value);
+  }
+  return { items: out.sort() };
+}
+
 module.exports = {
+  confirmItemVocabulary,
   decideCapability,
   endpointGrant,
   grantFromNode,
   // 档位比较开给配对（#131）：级别顺序的出处只能有一个（capabilities.levels 的位置）。
   // 各写一份 rank 表，改档位顺序时只会红一边 —— T30-A 就是为了删掉 pairing.dart 里那份私有表。
   levelRank,
+  normalizeConfirmItems,
 };

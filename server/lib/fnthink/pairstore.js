@@ -352,7 +352,18 @@ function decideRequest(contract, requests, devices, input, now) {
   }
   let grant = null;
   if (input.decision === confirm.approveDecision) {
-    grant = approvePeer(contract, devices, input.target, input.requester, input.level, now);
+    // `input.items` 是 events 那一侧过完词表与形状两道闸的那一份（T134 片2）。
+    // 这里不重判、也不"缺省成空清单"：缺这一枚键说明调用方漏接了，静默补 [] 就等于
+    // 把"用户勾了而表里没有"写成一条看不见的缺陷 —— approvePeer 会因为它不是数组而抛。
+    grant = approvePeer(
+      contract,
+      devices,
+      input.target,
+      input.requester,
+      input.level,
+      input.items,
+      now,
+    );
   }
   record.status = input.decision;
   // 与到期扫描那一支同一个列名（原先这里写 `decidedAt`、那里写 `statusChangedAt`，说的是
