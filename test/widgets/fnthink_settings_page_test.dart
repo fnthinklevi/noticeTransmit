@@ -881,6 +881,11 @@ void main() {
         find.byKey(const ValueKey('fnthink-pairing-local-only')),
         findsNothing,
       );
+      // T126 片2：同一句结论要**当场也弹一次**（维护者 2026-10-10 第 1 条）。
+      // `findsNWidgets(2)` 钉的是"弹层与小字逐字相同"—— 各写一句就是两个结论。
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(l10n.fnthinkOutcomeDone), findsOneWidget);
+      expect(find.text(l10n.fnthinkPairingAcked), findsNWidgets(2));
       expect(h.armAsked(), hasLength(1));
       expect(
         h.armAsked().single.url.path,
@@ -892,10 +897,15 @@ void main() {
     testWidgets('服务器没确认 ⇒ 说"只有这台记下了"，且**不清空那串仍然有效的码**', (tester) async {
       stubChannels();
       final h = harness(armBody: '{"serverTime":1800000000000}');
-      await pump(tester, h.page);
+      final l10n = await pump(tester, h.page);
       await revealTo(tester, find.byKey(const ValueKey('fnthink-arm-pairing')));
       await tester.tap(find.byKey(const ValueKey('fnthink-arm-pairing')));
       await tester.pumpAndSettle();
+      // T126 片2：没上到服务器 ⇒ 弹的是"这一步没做成"（正文那句由单一作者给，含原因原话，
+      // 测试不钉它的字面 —— 钉字面就等于把内核的 reason 抄进用例）。
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(l10n.fnthinkOutcomeFailed), findsOneWidget);
+      expect(find.text(l10n.fnthinkOutcomeDone), findsNothing);
       final code = disk[FnthinkCredentialStore.pairingCodeKey]!;
       expect(
         find.text(code),

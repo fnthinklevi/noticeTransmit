@@ -12,12 +12,14 @@ import '../services/fnthink_contract_loader.dart';
 import '../services/fnthink_credential_store.dart';
 import '../services/fnthink_endpoint_probe.dart';
 import '../services/fnthink_identity_service.dart';
+import '../services/fnthink_pairing_ack.dart';
 import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_settings.dart';
 import '../services/fnthink_relay_consent.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/fnthink_outcome.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/ios_input_dialog.dart';
@@ -291,6 +293,19 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
       _pairingAcked = result.ok;
       _pairingPublishNote = result.ok ? null : (result.reason ?? 'no-answer');
     });
+    // T126 片2：这一发是"当场要看得见"最典型的一处 —— 口令没上到服务器时，对端扫码只会
+    // 拿到"口令不存在"，而屏幕上写着"已挂出 5 分钟"。格子里那三态留着（事后还要在），
+    // 这里补一次弹层，句子与格子**同一个作者**（`fnthinkPairingAckText`），不另拼一句。
+    if (!mounted) return;
+    await showFnthinkOutcome(
+      context,
+      ok: result.ok,
+      detail: fnthinkPairingAckText(
+        AppLocalizations.of(context),
+        acked: _pairingAcked,
+        note: _pairingPublishNote,
+      ),
+    );
   }
 
   Future<void> _clearPairingCode() async {
@@ -662,20 +677,17 @@ class _FnthinkSettingsPageState extends State<FnthinkSettingsPage> {
           ),
         // 「已挂出」那一句说的是本机的倒计时；这一句才回答"对端能不能拿它来配"。
         // 三态分开写：没问过服务器与问过但没成，是两种完全不同的用户动作（等一等 vs 重来一次）。
-        if (pairing != null && _pairingAcked == true)
+        // T126 片2：哪一态说哪句话、那一格挂哪个 key，两个映射都在 `fnthink_pairing_ack.dart`
+        // 那一处 —— 页面不再自己写三遍 `if`，而当场弹的那一层（`_publishPairingCode` 末尾）
+        // 与这一格读的是同一个函数，不会出现"弹层说一套、格子说另一套"。
+        if (pairing != null)
           FnthinkNote(
-            keyName: 'fnthink-pairing-acked',
-            text: l10n.fnthinkPairingAcked,
-          ),
-        if (pairing != null && _pairingAcked == false)
-          FnthinkNote(
-            keyName: 'fnthink-pairing-local-only',
-            text: l10n.fnthinkPairingLocalOnly(_pairingPublishNote ?? ''),
-          ),
-        if (pairing != null && _pairingAcked == null)
-          FnthinkNote(
-            keyName: 'fnthink-pairing-unknown',
-            text: l10n.fnthinkPairingAckUnknown,
+            keyName: 'fnthink-pairing-${fnthinkPairingAckKey(_pairingAcked)}',
+            text: fnthinkPairingAckText(
+              l10n,
+              acked: _pairingAcked,
+              note: _pairingPublishNote,
+            ),
           ),
         if (pairing != null)
           Align(

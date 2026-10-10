@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notice_transmit/services/fnthink_pairing_ack.dart';
 import 'package:notice_transmit/widgets/app_root.dart';
 import 'package:notice_transmit/widgets/fnthink_outcome.dart';
 
@@ -90,5 +91,38 @@ void main() {
     final src = _code(_read('lib/widgets/fnthink_outcome.dart'));
     expect(src, contains('IosDialogActions.showInfo('));
     expect(src, isNot(contains('CupertinoAlertDialog(')));
+  });
+
+  // ── T126 片2：挂口令那一发的三态，措辞与 key 都只许有一个作者 ──────────────
+  test('三态的 key 与句子同源：acked 反了或漏一档就红', () {
+    expect(fnthinkPairingAckKey(true), 'acked');
+    expect(fnthinkPairingAckKey(false), 'local-only');
+    expect(fnthinkPairingAckKey(null), 'unknown');
+    expect(
+      {
+        fnthinkPairingAckKey(true),
+        fnthinkPairingAckKey(false),
+        fnthinkPairingAckKey(null),
+      }.length,
+      3,
+      reason: '"没问过"与"问过而没成"合并成一档，就会让第三种人做多余的那一步',
+    );
+  });
+
+  test('页面不再自己写那三句：三个词条只出现在单一作者文件里', () {
+    final page = _code(_read('lib/pages/fnthink_settings_page.dart'));
+    for (final word in [
+      'fnthinkPairingAcked',
+      'fnthinkPairingLocalOnly',
+      'fnthinkPairingAckUnknown',
+    ]) {
+      expect(
+        page,
+        isNot(contains(word)),
+        reason: '$word 被页面直接引用 ⇒ 弹层与小字各说一句的漂移回来了',
+      );
+    }
+    expect(page, contains('fnthinkPairingAckText('));
+    expect(page, contains('fnthinkPairingAckKey('));
   });
 }
