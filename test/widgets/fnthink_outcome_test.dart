@@ -89,6 +89,26 @@ void main() {
     expect(page, contains('detail: fnthinkPairSubmitText('));
   });
 
+  test('「发一条」那一页两处结论都弹，正文与小字同一句（片3）', () {
+    final src = _code(_read('lib/pages/fnthink_send_page.dart'));
+    expect(
+      RegExp('showFnthinkOutcome\\(').allMatches(src).length,
+      2,
+      reason:
+          '消息那一档与指令那一档各一处：少一处就是"点了发送以后屏幕上什么都没有"，'
+          '多一处就是有人在页面里为一个结论弹两遍',
+    );
+    // ⚠ 弹层不许自带第二份措辞：那一页的正文作者本来就是 fnthinkSendResultText /
+    // remoteSendStartedNote+remoteSendFailed，弹的那一句必须是**同一个变量**。
+    expect(src, contains('final note = fnthinkSendResultText(l10n, result);'));
+    expect(src, contains('detail: note'));
+    expect(
+      RegExp('detail: l10n\\.').allMatches(src).length,
+      0,
+      reason: '弹层里现拼一句 ⇒ 小字与弹层会说出不一样两个字，而没人能判哪句是原话',
+    );
+  });
+
   test('弹层外壳只有一个作者：helper 自己搭 CupertinoAlertDialog 就红', () {
     final src = _code(_read('lib/widgets/fnthink_outcome.dart'));
     expect(src, contains('IosDialogActions.showInfo('));

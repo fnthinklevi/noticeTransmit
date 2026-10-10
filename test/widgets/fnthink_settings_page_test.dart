@@ -2944,8 +2944,15 @@ void main() {
       expect('${fields['body']}', contains('到家了'));
       expect(
         find.text(l10n.fnthinkSendSent('m_send_1')),
+        findsNWidgets(2),
+        reason:
+            '"已交给服务端排队"与"已送达"是两句话 —— 后者只有那台的回执说得。'
+            '两处是 T126 片3 的那一发弹层与小字，读的是同一个作者（不是两句）',
+      );
+      expect(
+        find.byKey(const ValueKey('fnthink-send-note')),
         findsOneWidget,
-        reason: '"已交给服务端排队"与"已送达"是两句话 —— 后者只有那台的回执说得',
+        reason: '小字那一面还得在：弹层关掉之后，这一页要仍然说得出"此刻什么状态"',
       );
     });
 
@@ -3025,7 +3032,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('fnthink-send-submit')));
       await tester.pumpAndSettle();
-      expect(find.text(l10n.fnthinkSendRejectedCapability), findsOneWidget);
+      // T126 片3：同一句现在**弹一次**，所以屏幕上有两处 —— 断言按面分开：
+      // 小字仍在（那一页的状态），弹层说的是**同一句**（不多造一份措辞）。
+      expect(find.text(l10n.fnthinkSendRejectedCapability), findsNWidgets(2));
       expect(find.byKey(const ValueKey('fnthink-send-note')), findsOneWidget);
     });
 
@@ -3056,10 +3065,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.textContaining(l10n.fnthinkSendEvicted(2)),
-        findsOneWidget,
+        findsNWidgets(2),
         reason:
             '服务端那边每条已写了 dropped 回执，但要等下一次 poll 才看得见；'
-            '点发送的人当场就该知道自己上一条被挤掉了',
+            '点发送的人当场就该知道自己上一条被挤掉了 —— 弹层与小字读同一句（T126 片3）',
       );
     });
 

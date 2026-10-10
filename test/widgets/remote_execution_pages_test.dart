@@ -282,7 +282,10 @@ void main() {
       await tester.pumpAndSettle();
       // 二次确认那一层：先过掉它
       await _confirmIfPresent(tester);
-      expect(find.textContaining('已发出'), findsOneWidget);
+      expect(find.byKey(const ValueKey('remote-send-note')), findsOneWidget);
+      // T126 片3：同一句还**当场弹一次** ⇒ 屏幕上两处，且必须是**逐字相同**的那一句
+      // （弹层里再拼一遍就会在两处说不一样，而没人能判哪句是原话）。
+      expect(find.textContaining('已发出'), findsNWidgets(2));
     });
 
     testWidgets('被拒 ⇒ 贴那句"没发出去"，不是"已发出"', (tester) async {

@@ -13,6 +13,7 @@ import '../services/fnthink_receive_coordinator.dart';
 import '../services/fnthink_remote_action_labels.dart';
 import '../theme/app_colors.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/fnthink_outcome.dart';
 import '../widgets/help_note_button.dart';
 import '../widgets/ios_dialog_actions.dart';
 import '../widgets/primary_action_button.dart';
@@ -404,11 +405,17 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
             body: _body.text,
           );
     if (!mounted) return;
+    final note = fnthinkSendResultText(l10n, result);
     setState(() {
       _busy = false;
       _sent = result.status == FnthinkSendStatus.accepted;
-      _note = fnthinkSendResultText(l10n, result);
+      _note = note;
     });
+    // T126 片3：结论同时**当场弹一次**。小字留着（它是"这一页现在什么状态"），
+    // 但"发出去没有"是一个需要立刻知道答案的问题 —— 12px 灰字常驻，
+    // 用户视线回到输入框时并不会去扫它（这正是 T126 那一条报的现象）。
+    // ⚠ 正文只有这一个作者：弹层与小字读同一句，两处不许各拼一遍。
+    await showFnthinkOutcome(context, ok: _sent, detail: note);
   }
 
   /// 远程指令那一档：载荷编成 [RemoteCommandEnvelope] 之后走**同一发**。
@@ -466,12 +473,14 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
       text: wire,
     );
     if (!mounted) return;
+    final sent = result.status == FnthinkSendStatus.accepted;
+    final note = sent
+        ? l10n.remoteSendStartedNote
+        : l10n.remoteSendFailed(result.reason ?? result.status.name);
     setState(() {
       _busy = false;
-      _sent = result.status == FnthinkSendStatus.accepted;
-      _note = _sent
-          ? l10n.remoteSendStartedNote
-          : l10n.remoteSendFailed(result.reason ?? result.status.name);
+      _sent = sent;
+      _note = note;
       if (_sent) {
         // 发成之后**立刻清掉凭据输入框**：这一页不该留着别人的密钥等人回头再看。
         // （想再发一条就重新填 —— 这是有意的代价，不是顺手加的。）
@@ -479,6 +488,10 @@ class _FnthinkSendPageState extends State<FnthinkSendPage> {
         _totp.clear();
       }
     });
+    // T126 片3：指令那一档同样当场弹一次，正文与小字同一个作者（`note`）。
+    // 这一档比消息那一档更需要它：`remoteSendStartedNote` 说的是"已交出去"，
+    // 而对面到底肯不肯做是后面两段回执的事 —— 弹层里不许提前说成"做完了"。
+    await showFnthinkOutcome(context, ok: sent, detail: note);
   }
 
   @override
