@@ -120,6 +120,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noChannels => 'No channels configured';
 
   @override
+  String historyChipsMore(int n) {
+    return '$n more channels';
+  }
+
+  @override
+  String get historyChipsCollapse => 'Collapse';
+
+  @override
   String get statusOk => 'Normal';
 
   @override

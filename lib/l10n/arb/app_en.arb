@@ -41,6 +41,15 @@
   "stopped": "Stopped",
   "currentChannels": "Push Channels",
   "noChannels": "No channels configured",
+  "historyChipsMore": "{n} more channels",
+  "historyChipsCollapse": "Collapse",
+  "@historyChipsMore": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "statusOk": "Normal",
   "statusError": "Abnormal",
   "statusUnknown": "Unknown",

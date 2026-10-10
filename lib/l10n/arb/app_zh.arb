@@ -41,6 +41,15 @@
   "stopped": "已停止",
   "currentChannels": "当前推送通道",
   "noChannels": "未配置推送通道",
+  "historyChipsMore": "还有 {n} 个通道",
+  "historyChipsCollapse": "收起",
+  "@historyChipsMore": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "statusOk": "状态正常",
   "statusError": "状态异常",
   "statusUnknown": "状态未知",

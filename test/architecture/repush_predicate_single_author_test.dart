@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notice_transmit/database/database_helper.dart';
 
@@ -18,17 +16,7 @@ void main() {
   final root = projectRoot();
 
   /// lib/ 下全部 Dart 源文件（剥注释后的代码），key 为相对 `lib/` 的路径。
-  final libCode = <String, String>{};
-  final libDir = Directory('$root/lib');
-  final prefix = libDir.absolute.path;
-  for (final f in libDir.listSync(recursive: true).whereType<File>()) {
-    if (!f.path.endsWith('.dart')) continue;
-    final rel = f.absolute.path
-        .substring(prefix.length)
-        .replaceAll('\\', '/')
-        .replaceFirst('/', '');
-    libCode[rel] = stripComments(librarySource(root, 'lib/$rel'));
-  }
+  final libCode = libCodeByRel(root);
 
   group('「可以再发一次」只有一个作者', () {
     test('旧的三个判据名不许长回来（全 lib/ 扫描）', () {

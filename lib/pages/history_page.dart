@@ -27,6 +27,7 @@ import '../widgets/ios_progress_dialog.dart';
 import '../widgets/app_text_selection_menu.dart';
 import '../widgets/ios_input_dialog.dart';
 import '../services/repush_eligibility.dart';
+import '../services/history_channel_chips.dart';
 import 'fnthink_send_page.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -245,6 +246,12 @@ class _HistoryPageState extends State<HistoryPage> {
   // ── F2 批量补推 ──
   bool _batchMode = false;
   final Set<String> _batchSelected = {};
+
+  /// T133 片2：哪些记录的通道 chip 被展开了。
+  ///
+  /// 这是**界面状态**而不是事实，所以它住在页面里而不是那个排法文件里 ——
+  /// 后者只回答"该露哪几枚"，不该知道"这一行此刻被谁点开过"。
+  final Set<String> _expandedChipRows = {};
 
   /// 当前展示的记录（搜索模式取 DB 结果，否则取内存过滤结果）
   List<NotificationRecord> get _displayedRecords =>
@@ -681,6 +688,87 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  /// 那一串通道 chip（T133 片2）：**排法与折法走唯一作者** `history_channel_chips.dart`，
+  /// 页面这里只交出"这一行此刻展开没有"那一份界面状态。
+  ///
+  /// 折叠那枚 chip 是 `GestureDetector`（不是 TextButton）：它跟别的 chip 一样大、
+  /// 一样是状态标记而不是动作，走 TextButton 会长进那本裸按钮台账。
+  Widget _buildChannelChipWrap(
+    NotificationRecord record,
+    List<String> rows,
+    AppLocalizations l10n,
+  ) {
+    final ordered = orderChannelsByAttention(rows, record.deliveryStatus);
+    final expanded = _expandedChipRows.contains(record.id);
+    final shown = visibleChannelChips(ordered, expanded: expanded);
+    // 有没有可折的，按**全集**判：展开态 `shown == ordered`，此时 folded 计数是 0，
+    // 但那一枚「收起」还得留在原位 —— 用 shown 判就会长出"展开之后收不回去"。
+    final foldable = foldedChannelChipCount(ordered) > 0;
+    return Wrap(
+      spacing: 4,
+      runSpacing: 2,
+      children: [
+        for (final c in shown) _buildChannelChipFor(record, c, l10n),
+        if (foldable)
+          _buildChipFoldToggle(
+            record,
+            hiddenCount: ordered.length - shown.length,
+            expanded: expanded,
+            l10n: l10n,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildChannelChipFor(
+    NotificationRecord record,
+    String channel,
+    AppLocalizations l10n,
+  ) {
+    final statusInfo = record.deliveryStatus[channel];
+    return _buildChannelChip(
+      channel,
+      _getChannelColor(channel),
+      statusInfo is Map ? (statusInfo['status']?.toString() ?? '') : '',
+      statusInfo is Map ? (statusInfo['message']?.toString() ?? '') : '',
+      l10n,
+      viaBackup: statusInfo is Map && statusInfo['viaBackup'] == true,
+    );
+  }
+
+  Widget _buildChipFoldToggle(
+    NotificationRecord record, {
+    required int hiddenCount,
+    required bool expanded,
+    required AppLocalizations l10n,
+  }) {
+    return GestureDetector(
+      key: ValueKey('history-chip-fold-${record.id}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() {
+        if (!_expandedChipRows.remove(record.id)) {
+          _expandedChipRows.add(record.id);
+        }
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: AppColors.inputBg(context),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Text(
+          expanded
+              ? l10n.historyChipsCollapse
+              : l10n.historyChipsMore(hiddenCount),
+          style: TextStyle(
+            fontSize: 10,
+            color: AppColors.secondaryLabel(context),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// 渠道 chip + 送达状态小圆点与文字（成功/失败/发送中；无状态记录仅显示渠道名）
   /// 失败时在 chip 下方内联显示失败原因
   ///
@@ -743,6 +831,8 @@ class _HistoryPageState extends State<HistoryPage> {
     );
     // 推送失败/被拦截：原因内联显示在 chip 下方（长按 chip 仍可查看完整信息）。
     // 拦截原因由原生生成，如"黑名单（命中: xxx）"/"应用过滤"
+    // ⚠ 两行、可折行：这一句是**状态原话**（不是成段说明文字），截成一行的话
+    //   "HTTP 502 …"与"SMTP connect timeout"就长得一样，等于没写。
     if ((status == 'failed' || status == 'intercepted') && message.isNotEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -752,8 +842,8 @@ class _HistoryPageState extends State<HistoryPage> {
           const SizedBox(height: 1),
           Text(
             message,
-            style: TextStyle(fontSize: 9, color: _deliveryStatusColor(status)),
-            maxLines: 1,
+            style: TextStyle(fontSize: 10, color: _deliveryStatusColor(status)),
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -2319,8 +2409,8 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     }
 
-    // 推送渠道标签 + 各通道送达状态（两者用同一串送达键 chan:<slug>；
-    // 重启后 channels 为空时回退用 deliveryStatus 键）
+    // 推送渠道标签 + 各通道送达状态（T133 片2：排法与折法走唯一作者，
+    // 页面只交出"这一行此刻展开没有"那一份界面状态）
     final rows = record.channels.isNotEmpty
         ? record.channels
         : record.deliveryStatus.keys.toList();
@@ -2329,30 +2419,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final canRepush = recordNeedsRepush(record.deliveryStatus);
     if (rows.isNotEmpty) {
       columnChildren.add(const SizedBox(height: 4));
-      columnChildren.add(
-        Wrap(
-          spacing: 4,
-          runSpacing: 2,
-          children: rows.map((c) {
-            final chipColor = _getChannelColor(c);
-            final statusInfo = record.deliveryStatus[c];
-            final status = statusInfo is Map
-                ? (statusInfo['status']?.toString() ?? '')
-                : '';
-            final message = statusInfo is Map
-                ? (statusInfo['message']?.toString() ?? '')
-                : '';
-            return _buildChannelChip(
-              c,
-              chipColor,
-              status,
-              message,
-              l10n,
-              viaBackup: statusInfo is Map && statusInfo['viaBackup'] == true,
-            );
-          }).toList(),
-        ),
-      );
+      columnChildren.add(_buildChannelChipWrap(record, rows, l10n));
       // 还能再发一次的那几条：给单条出口（T133 片1 之前只在"暂停"时出现 ⇒
       // 一条真失败的记录只能去开批量模式才能重推）
       if (canRepush && widget.onPushNow != null) {

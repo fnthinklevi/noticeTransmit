@@ -308,6 +308,18 @@ abstract class AppLocalizations {
   /// **'未配置推送通道'**
   String get noChannels;
 
+  /// No description provided for @historyChipsMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'还有 {n} 个通道'**
+  String historyChipsMore(int n);
+
+  /// No description provided for @historyChipsCollapse.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get historyChipsCollapse;
+
   /// No description provided for @statusOk.
   ///
   /// In zh, this message translates to:

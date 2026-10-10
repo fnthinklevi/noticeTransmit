@@ -106,6 +106,26 @@ String stripShellComments(String source) {
   return out.join('\n');
 }
 
+/// 读 **整个 `lib/`** 的 Dart 源码，逐文件剥注释 + part 感知，key 为相对 `lib/` 的正斜杠路径。
+///
+/// 为什么收在这里：「这件事只有一个作者」类守卫反复需要同一把尺（全库扫、剥注释、
+/// 带上 part）。各测试文件各抄一份的话，**抄漏的那一份就是下一个瞎守卫** ——
+/// 与 T65 那次"守卫只读主文件"是同一类故障。
+Map<String, String> libCodeByRel(String root) {
+  final out = <String, String>{};
+  final libDir = Directory('$root/lib');
+  final prefix = libDir.absolute.path;
+  for (final f in libDir.listSync(recursive: true).whereType<File>()) {
+    if (!f.path.endsWith('.dart')) continue;
+    final rel = f.absolute.path
+        .substring(prefix.length)
+        .replaceAll('\\', '/')
+        .replaceFirst('/', '');
+    out[rel] = stripComments(librarySource(root, 'lib/$rel'));
+  }
+  return out;
+}
+
 /// 从 [source] 中 [signature] 处起，按花括号配对取出整块（含函数体）。
 /// 用于「顺序 / 包含关系」类断言——全文件 indexOf 会命中前面的同名片段。
 String blockAfter(String source, String signature) {

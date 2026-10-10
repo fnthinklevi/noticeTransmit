@@ -118,6 +118,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noChannels => '未配置推送通道';
 
   @override
+  String historyChipsMore(int n) {
+    return '还有 $n 个通道';
+  }
+
+  @override
+  String get historyChipsCollapse => '收起';
+
+  @override
   String get statusOk => '状态正常';
 
   @override
