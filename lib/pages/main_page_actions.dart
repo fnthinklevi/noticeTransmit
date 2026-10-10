@@ -140,7 +140,6 @@ extension _MainPageActions on _MainPageState {
         onClear: () async {
           await _notificationService.clearRecords();
           await _refreshTotalCount();
-          await _notificationService.syncDailyCountToNative();
           if (mounted) setState(() {});
         },
         onExport: () async {
@@ -175,14 +174,12 @@ extension _MainPageActions on _MainPageState {
         onClearToday: () async {
           final count = await _notificationService.clearToday();
           await _refreshTotalCount();
-          await _notificationService.syncDailyCountToNative();
           if (mounted) setState(() {});
           return count;
         },
         onClearLastN: (int n) async {
           final count = await _notificationService.clearLastN(n);
           await _refreshTotalCount();
-          await _notificationService.syncDailyCountToNative();
           if (mounted) setState(() {});
           return count;
         },

@@ -69,29 +69,6 @@ class NotificationMonitorService : NotificationListenerService() {
         // 前台通知显示"监听已断开"警告，提醒用户重新授权通知使用权）
         @Volatile var listenerConnected: Boolean = true
         @Volatile var monitoringEnabled: Boolean = true
-        @Volatile var pushCount: Int = 0
-        // 当日日期（yyyy-MM-dd），跨日重置 pushCount；供 MainActivity 同步 DB 今日计数基数
-        @Volatile var todayDate: String = ""
-
-        /** 当前日期字符串（yyyy-MM-dd） */
-        fun todayDateString(): String {
-            val now = java.util.Date()
-            val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-            return fmt.format(now)
-        }
-
-        fun applyTodayDate(date: String) {
-            todayDate = date
-        }
-
-        /** 跨日重置计数器（E2：@Synchronized 消除极小概率竞态窗口） */
-        @Synchronized
-        fun resetDailyIfNeeded(now: String) {
-            if (now != todayDate) {
-                todayDate = now
-                pushCount = 0
-            }
-        }
     }
 
     private lateinit var notificationProcessor: NotificationProcessor
@@ -114,19 +91,11 @@ class NotificationMonitorService : NotificationListenerService() {
         }
     )
 
-    // / 检查是否已跨日，是则重置计数器（委托给 @Synchronized 封装，消除竞态）
-    private fun checkDailyReset() {
-        val now = todayDateString()
-        resetDailyIfNeeded(now)
-        Log.i(TAG, "Daily push count check: $now count=$pushCount")
-    }
-
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "Service created")
 
         monitoringEnabled = readMonitoringEnabled()
-        checkDailyReset()
 
         // 初始化国际化（从 SharedPreferences 读取 locale 注入 I18n）
         I18n.init(this)
@@ -677,8 +646,6 @@ class NotificationMonitorService : NotificationListenerService() {
                             }
                             RuleEngine.Decision.Push -> {
                                 dispatchToChannels(info)
-                                checkDailyReset()
-                                pushCount++
                                 updateForegroundNotification()
                                 DiagLog.w(TAG, "Notification sent: ${info.appName}")
                             }
@@ -881,8 +848,6 @@ class NotificationMonitorService : NotificationListenerService() {
                         val due = delayedPushManager.drainDue()
                         for (info in due) {
                             dispatchToChannels(info, alsoBroadcastRecord = false)
-                            checkDailyReset()
-                            pushCount++
                             updateForegroundNotification()
                             Log.d(TAG, "Delayed notification sent: ${info.appName}")
                         }
@@ -928,8 +893,6 @@ class NotificationMonitorService : NotificationListenerService() {
         if (group.items.size == 1) {
             try {
                 val single = group.items[0]
-                checkDailyReset()
-                pushCount++
                 dispatchToChannels(single, alsoBroadcastRecord = false)
                 updateForegroundNotification()
                 DiagLog.w(TAG, "聚合组仅 1 条，按单条推送: ${group.key}")
@@ -940,9 +903,6 @@ class NotificationMonitorService : NotificationListenerService() {
         }
         try {
             val merged = group.buildMergedInfo()
-            checkDailyReset()
-            // 计数语义（风险标注 4）：按聚合组 +1，而非成员逐条 +N
-            pushCount++
             dispatchToChannels(merged, alsoBroadcastRecord = false) { result, viaBackup ->
                 mergePushManager.markMembersDelivered(group, result, viaBackup)
                 if (result.status == WebhookResponseParser.DeliveryStatus.SUCCESS) {
@@ -1209,9 +1169,9 @@ class NotificationMonitorService : NotificationListenerService() {
         val contentText = if (!listenerConnected) {
             I18n.serviceListenerDisconnected()
         } else if (pushActive) {
-            I18n.serviceListening(pushCount)
+            I18n.serviceListening(DailyPushCounter.todayCount(this))
         } else {
-            I18n.servicePushPaused(pushCount)
+            I18n.servicePushPaused(DailyPushCounter.todayCount(this))
         }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -1347,8 +1307,6 @@ class NotificationMonitorService : NotificationListenerService() {
                     return@launch
                 }
                 dispatchToChannels(info, alsoBroadcastRecord = false, force = true)
-                checkDailyReset()
-                pushCount++
                 updateForegroundNotification()
                 Log.d(TAG, "Manual push now: ${info.appName}")
             } catch (e: Exception) {
@@ -1376,6 +1334,22 @@ class NotificationMonitorService : NotificationListenerService() {
         onWebhooksComplete: ((WebhookResponseParser.ParseResult, Boolean) -> Unit)? = null,
     ) {
         val routed = routeChannels()
+        // 「当日已推送」这一句的**唯一**累加点（T131）。原先它长在五个调用点上，每个都是
+        // `dispatchToChannels(info); pushCount++` —— 于是"暂停闸把这一发拦住了"与"这一发
+        // 推出去了"在计数上长得一模一样，栏里的数字只能一直涨。
+        // ⚠ 判据放在**扇出之前**、按轮记一次：暂停闸住在每个通道里（NetworkClient / 幻念 /
+        //   邮件各一处 `!force && !isPushActive()`），等回执再判就要把四族的结果汇总成第三个
+        //   口径；而"这一发到底推没推"只由开关与目标数决定，与哪个通道回了什么无关。
+        //   聚合组走同一发扇出 ⇒ 按组记一次，不随成员数放大。
+        if (DailyPushCounter.countsAsPush(
+                PushToggleManager.isPushActive(),
+                force,
+                routed.webhooks.size + routed.apps.size +
+                    routed.emails.size + routed.fnthinks.size,
+            )
+        ) {
+            DailyPushCounter.record(this)
+        }
         // 降级标记必须**逐结果**传给三个发送器，不能只在服务里记一笔：
         // 一次扇出的结果会经广播/持久化队列异步落到不同记录（如聚合成员），
         // 事后已经没有「哪一轮」的上下文可对。

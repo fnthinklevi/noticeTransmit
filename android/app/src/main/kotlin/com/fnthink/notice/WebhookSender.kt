@@ -198,10 +198,9 @@ class WebhookSender(private val context: Context) {
             // 同步写入离线缓存：即使 MainActivity 被销毁，Flutter 重启后也能从缓存拉取
             HistoryCache.append(context, json)
 
-            // 当日推送计数（桌面小部件 4×2 规格数据源，跨天自动重置）
-            WidgetDailyCounter.increment(context)
-            // 推送数量变化后刷新小部件（仅在已添加小部件时广播，无小部件时零开销）
-            PushToggleWidgetProvider.updateAllWidgetsIfExists(context)
+            // ⚠ 这里**不再**累加当日计数（T131）：写历史与推出去是两件事 —— 被规则拦下的、
+            //   "仅记录不推送"的都走这一发。桌面上那句「当日已推送」的唯一累加点在
+            //   [DailyPushCounter.record]，由扇出那一次决定。
 
             val intent = Intent(MainActivity.ACTION_NOTIFICATION_RECEIVED).apply {
                 setPackage(context.packageName)

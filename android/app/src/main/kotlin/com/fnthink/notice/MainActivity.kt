@@ -1189,9 +1189,9 @@ class MainActivity : FlutterActivity() {
 
     internal fun clearNotificationRecords() {
         prefs.edit().remove("flutter.notification_records").apply()
-        // 同步重置状态栏当日计数（与 DB 清空保持一致）
-        NotificationMonitorService.pushCount = 0
-        NotificationMonitorService.applyTodayDate(NotificationMonitorService.todayDateString())
+        // ⚠ 这里**不**重置当日计数（T131）：那一句话说的是"今天推出去几发"，
+        //   与历史页上还留着几行是两件事。把删记录当成"今天没推过"来抹平，
+        //   就是让一个作者替另一个口径撒谎。
     }
 
     internal fun getBatteryStatus(): Map<String, Any?> {

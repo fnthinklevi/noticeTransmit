@@ -113,10 +113,13 @@ void main() {
     // 不并进 READ_PHONE_STATE 那次，见 MainActivity 那枚请求码上的说明）。
     // 123 → 124（T124 片C-4）：`searchFnthinkContacts` —— 按关键词搜通讯录那一发
     // （权限两枚走 permission_handler，不进这一本账）。
-    test('原生方法总数 == 124（防止分支被静默删除/新增未登记）', () {
+    // 124 → 123（T131）：**删掉** `syncDailyPushCount` —— 它把 DB 的「今日记录数」灌成原生
+    // 那句「当日已推送」的基数（同一天还取 maxOf），是那个数字在暂停态下仍然上涨的第三个作者。
+    // 计数改由原生扇出那一次自己作数（`DailyPushCounter`），Flutter 没有可替它作数的东西了。
+    test('原生方法总数 == 123（防止分支被静默删除/新增未登记）', () {
       expect(
         native.length,
-        124,
+        123,
         reason:
             '原生 ChannelHandler 方法数发生变化。\n'
             '当前分布：${_distribution(native).entries.map((e) => '${e.key}=${e.value}').join(', ')}\n'
@@ -134,7 +137,8 @@ void main() {
         // 首页第三态那两发挂在这一域（读推送开关 + 恢复推送）。15 → 17。
         'DeviceChannelHandler': 17,
         'FileChannelHandler': 12,
-        'StatsChannelHandler': 9,
+        // 9 → 8（T131）：`syncDailyPushCount` 已删（见上面总数那段的理由）。
+        'StatsChannelHandler': 8,
         // T124 片B-2 起 9（`showFnthinkAlert`）；片B-3 起 10（`searchFnthinkSms`）；
         // 片B-4 起 11（`launchFnthinkTarget`）；片C-1 起 12（`searchFnthinkCallLog`）；
         // 片C-2 起 13（`getFnthinkLocation`）；片C-3 起 14（`snapFnthinkPhoto`）；

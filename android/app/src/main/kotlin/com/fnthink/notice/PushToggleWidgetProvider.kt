@@ -183,9 +183,9 @@ open class PushToggleWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_hint, hintText(verdict))
             views.setTextColor(R.id.widget_hint, weak)
 
-            // 宽布局：右侧当日已推送通知数量
+            // 宽布局：右侧当日已推送通知数量（与常驻通知同一作者，T131）
             if (useWide) {
-                val todayCount = WidgetDailyCounter.getTodayCount(context)
+                val todayCount = DailyPushCounter.todayCount(context)
                 views.setTextViewText(R.id.widget_daily_count, todayCount.toString())
                 views.setTextColor(R.id.widget_daily_count, strong)
                 views.setTextViewText(R.id.widget_daily_label, I18n.widgetDailyPushed())

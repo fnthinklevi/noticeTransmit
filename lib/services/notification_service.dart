@@ -571,22 +571,6 @@ class NotificationService {
     }
   }
 
-  /// 状态栏计数统一：把 DB 今日数同步为原生当日计数基数
-  Future<void> syncDailyCountToNative() async {
-    try {
-      final count = await getTodayCount();
-      final now = DateTime.now();
-      final date =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      await _channel.invokeMethod('syncDailyPushCount', {
-        'count': count,
-        'date': date,
-      });
-    } catch (e) {
-      debugPrint('同步今日计数到原生失败: $e');
-    }
-  }
-
   Future<void> clearRecords() async {
     try {
       await _channel.invokeMethod('clearNotificationRecords');

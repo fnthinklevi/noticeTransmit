@@ -3,7 +3,6 @@ package com.fnthink.notice.channels
 import com.fnthink.notice.DeliveryResultStore
 import com.fnthink.notice.HistoryCache
 import com.fnthink.notice.MainActivity
-import com.fnthink.notice.NotificationMonitorService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
@@ -24,21 +23,9 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
                 activity.clearNotificationRecords()
                 result.success(true)
             }
-            "syncDailyPushCount" -> {
-                // 统一状态栏与 DB 统计：Flutter 启动/恢复时把当日记录数同步为原生计数基数
-                val count = call.argument<Int>("count") ?: 0
-                val date = call.argument<String>("date") ?: ""
-                val today = NotificationMonitorService.todayDateString()
-                if (date == today) {
-                    // 同一天：取较大值（避免覆盖服务运行期间已累加的计数）
-                    NotificationMonitorService.pushCount =
-                        maxOf(NotificationMonitorService.pushCount, count)
-                } else {
-                    NotificationMonitorService.pushCount = count
-                    NotificationMonitorService.applyTodayDate(date)
-                }
-                result.success(true)
-            }
+            // ⚠ 「syncDailyPushCount」这一发已删（T131）：它把 DB 的**今日记录数**灌成原生
+            //   的**当日已推送**基数（同一天还取 maxOf），是那个数字在暂停态下仍然上涨的
+            //   第三个作者。现在「当日已推送」的唯一作者在原生扇出那一次，Flutter 无话可同步。
             "drainOfflineCache" -> {
                 // Flutter 启动时拉取离线期间缓存的通知（避免软件被杀后历史丢失）
                 // drainAll 会解析最多 500 条 JSON 并读写 prefs —— 留在平台线程会卡首帧

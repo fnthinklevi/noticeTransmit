@@ -260,9 +260,10 @@ class _MainPageState extends State<MainPage> with WidgetsBindingObserver {
       _batteryService.startRefreshTimer();
       GetIt.instance<TemperatureService>().loadSettings();
 
-      // 首页/更多页/状态栏统计统一：刷新首页总计数 + 同步原生今日计数基数
+      // 首页计数卡刷新。⚠ 这里**不再**向原生同步"今日计数基数"（T131）：那一发把 DB 的
+      // 今日记录数灌成常驻通知里那句「当日已推送」，于是暂停转发时那个数照涨 —— 记录与推送
+      // 是两个口径，原生扇出那一次才是后者的唯一作者。
       await _refreshTotalCount();
-      await _notificationService.syncDailyCountToNative();
       // 收件未读数与推送总数同一批取：两个都是"首页那两张计数卡"的数字，分两批读就会出现
       // 一格是新的、一格是旧的。
       await _refreshFnthinkInboxUnread();
