@@ -55,9 +55,15 @@ void main() {
             ..sort();
       expect(
         readers,
-        ['pages/history_page.dart', 'services/repush_eligibility.dart'],
+        [
+          'pages/history_page.dart',
+          // 片4：service 是第二个读者 —— 它要按判据算出"这一发只给哪几族"再递给原生。
+          'services/notification_service.dart',
+          'services/repush_eligibility.dart',
+        ],
         reason:
-            '重推判据的读者集合变了。它今天只有历史页一处（批量池 / 勾选框 / 单条「现在推送」都取自同一个作者）。\n'
+            '重推判据的读者集合变了。它今天是历史页（批量池 / 勾选框 / 单条出口）'
+            '加 service（补推范围）两处。\n'
             '若确实要新增读者，把它登记进本清单；若是绕过作者自己拼状态，改回调用判据。',
       );
     });
@@ -70,6 +76,32 @@ void main() {
         reason: '页面里又出现了「这一通道是 paused」的自拼判定 —— 那是作者的那一句。',
       );
       expect(page.contains('recordNeedsRepush('), isTrue);
+    });
+
+    test('补推只有一个出口：页面走 repushRecord，整表重建留在 service 内部', () {
+      // 片4 之后 `pushRecordNow` 有两种范围（null = 全部启用通道 / 非 null = 那几族）。
+      // 页面上那一枚「现在推送」要的永远是后者；谁绕过 `repushRecord` 直接调前者，
+      // 界面上就回到"点一次把成功的通道也重发一遍"—— 而这条**不会崩，只会多发消息**。
+      final callers =
+          libCode.entries
+              .where((e) => e.value.contains('pushRecordNow('))
+              .map((e) => e.key)
+              .toList()
+            ..sort();
+      expect(
+        callers,
+        ['services/notification_service.dart'],
+        reason:
+            '「不限定范围」那一发只有 service 内部两个读者（pushSynthesizedRecord 与 repushRecord）。\n'
+            '页面要补推请走 repushRecord —— 它带着范围。',
+      );
+      final main = libCode['pages/main_page.dart']!;
+      expect(main, contains('repushRecord('));
+      expect(
+        main,
+        isNot(contains('pushRecordNow(')),
+        reason: '历史页的装配点又直接调不限定那一发了',
+      );
     });
   });
 

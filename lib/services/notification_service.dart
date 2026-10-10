@@ -10,6 +10,7 @@ import '../models/delivery_status.dart';
 import '../models/notification_record.dart';
 import 'platform_channel.dart';
 import 'active_channels.dart';
+import 'repush_eligibility.dart';
 
 class NotificationService {
   static const _channel = AppChannels.notification;
@@ -504,24 +505,36 @@ class NotificationService {
     return stored;
   }
 
-  /// 手动"现在推送"：把该记录状态重置为发送中，并通知原生立即补推当前所有启用通道。
+  /// 手动"现在推送"：把该记录状态重置为发送中，并通知原生立即补推。
   /// 用于历史记录中"用户暂停推送"状态下未实际发送的消息。
-  Future<void> pushRecordNow(NotificationRecord record) async {
+  ///
+  /// ⚠ [onlyDeliveryKeys] 决定**这一发的范围**（T133 片4），三档各有各的读者：
+  /// - `null` = 全部启用通道整表重建（`_buildInitialDeliveries`）。给"刚落库就要发出去"
+  ///   那一条用（[pushSynthesizedRecord]）：它欠的是全部通道各一发，没有"哪一族失败"可言。
+  /// - 非空 = 只把列出来的那几位置为待发，**其余通道的送达状态原样保留**，原生同范围扇出。
+  ///   给历史记录的「重推」用（[repushRecord]）：一条只有钉钉失败、邮件成功的通知，点一下
+  ///   不该把邮件再发一遍 —— 收件端多出的是重复消息，不是补发。
+  /// - 空集合 = **什么都不做并直接返回**。空集不能当"不限定"：那样"这一条没有可再发的通道"
+  ///   会变成"把全部通道重发一遍"，正是本片要修的行为（原生侧 [RepushScope] 同口径）。
+  ///
+  /// 为什么窄口径不整表重建：`_buildInitialDeliveries` 会把**所有**启用通道抹成 pending，
+  /// 而原生这一轮并不发给不在范围里的那些 —— 已经送达的那几族就被抹成"发送中"且永远停在
+  /// 那里（没有回执会来覆盖它）。窄口径必须只改要重发的那几格。
+  Future<void> pushRecordNow(
+    NotificationRecord record, {
+    List<String>? onlyDeliveryKeys,
+  }) async {
+    if (onlyDeliveryKeys != null && onlyDeliveryKeys.isEmpty) return;
     final idx = _records.indexWhere((r) => r.id == record.id);
     // F2 修复：记录不在内存列表（典型场景：全量历史搜索打开的旧记录、
     // 或内存已裁剪）时，此前会 `return` 静默不补推。现改为不依赖内存列表：
     // 直接将送达状态重置为 pending 落库 + 调原生补推。
-    var target = record;
-    if (idx >= 0) {
-      target = _records[idx].copyWith(
-        deliveryStatus: _buildInitialDeliveries(_getActiveChannels()),
-      );
-      _records[idx] = target;
-    } else {
-      target = record.copyWith(
-        deliveryStatus: _buildInitialDeliveries(_getActiveChannels()),
-      );
-    }
+    final source = idx >= 0 ? _records[idx] : record;
+    final updated = onlyDeliveryKeys == null
+        ? _buildInitialDeliveries(_getActiveChannels())
+        : _mergePendingOnly(source.deliveryStatus, onlyDeliveryKeys);
+    final target = source.copyWith(deliveryStatus: updated);
+    if (idx >= 0) _records[idx] = target;
     try {
       await DatabaseHelper().updateNotificationDelivery(
         target.id,
@@ -531,10 +544,51 @@ class NotificationService {
       debugPrint('更新送达状态到 DB 失败: $e');
     }
     try {
-      await _channel.invokeMethod('pushRecordNow', {'record': target.toMap()});
+      await _channel.invokeMethod('pushRecordNow', {
+        'record': target.toMap(),
+        // 跨语言传的是 **slug**（`chan:dingtalk` → `dingtalk`），不是送达键本身：
+        // 原生侧的族标识就是那一段（`ChannelSpec.slug`），键前缀是 Dart 的存储形状，
+        // 把它递过去等于让原生去拆别人的前缀。
+        if (onlyDeliveryKeys != null)
+          'onlySlugs': onlyDeliveryKeys.map(channelKey).toList(),
+      });
     } catch (e) {
       debugPrint('调用原生 pushRecordNow 失败: $e');
     }
+  }
+
+  /// 重推「这一条里可再发的那几族」（T133 片4）。
+  ///
+  /// 判据来自唯一作者 [repushableChannels]（`repush_eligibility.dart`）：只认 `failed`/`paused`
+  /// 那一档 —— 被拦截的（那是用户自己定的过滤规则）、已成功的、还在途的，都不在这一发里。
+  ///
+  /// ⚠ 再与**当前启用通道**取交集：判据看的是这条记录历史上的那一格，而原生只会给现在配置着的
+  ///   通道回执。把"已经删掉的钉钉"放进范围，表现就是那一格被抹成 pending 后永远停在那里
+  ///   （没有人会回执它）—— 那比留着"失败"更误导人。交集为空时 [pushRecordNow] 什么都不做。
+  Future<void> repushRecord(NotificationRecord record) async {
+    final wanted = repushableChannels(record.deliveryStatus);
+    if (wanted.isEmpty) return;
+    final active = _getActiveChannels();
+    await pushRecordNow(
+      record,
+      onlyDeliveryKeys: wanted.where(active.contains).toList(),
+    );
+  }
+
+  /// 窄口径合并：只把 [keys] 那几位置为待发，其余条目原样保留。
+  ///
+  /// 这几位上一轮的 `viaBackup` 标记会被**清掉**：那是"上一轮走了备用"的陈述，
+  /// 而这一轮正要重发它们（见 [applyDelivery] 头注释里"只有整表重建才清标记"那一句 ——
+  /// 窄口径重建的正是这几位，所以同等适用）。不在范围里的通道保留原标记，不受影响。
+  static Map<String, dynamic> _mergePendingOnly(
+    Map<String, dynamic> existing,
+    List<String> keys,
+  ) {
+    final updated = Map<String, dynamic>.from(existing);
+    for (final key in keys) {
+      updated[key] = _entry('pending', '', null, false);
+    }
+    return updated;
   }
 
   /// 统一统计：总数（DB），三处统计共用同一数据源

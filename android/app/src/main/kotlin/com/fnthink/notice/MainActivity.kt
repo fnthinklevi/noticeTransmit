@@ -1593,12 +1593,23 @@ class MainActivity : FlutterActivity() {
     /**
      * 历史记录"现在推送"：把单条记录以 JSON 转发给前台服务手动补推。
      * 服务侧 pushRecordNow 会忽略推送暂停开关，按当前配置立即推送 webhook + 邮件。
+     *
+     * @param onlySlugs 补推范围（送达键里那一段 slug，见 [RepushScope]）。
+     *   **null = 不限定**（新落的那一条，欠全部启用通道各一发）；
+     *   ⚠ 空列表要原样传下去 = 谁都不发，不许在这里折成 null —— 折成"不限定"就变回
+     *   "这一条没有可再发的通道，却把全部通道重发一遍"（片4 修的就是这一句）。
      */
-    internal fun pushRecordNow(record: Map<String, Any?>) {
+    internal fun pushRecordNow(record: Map<String, Any?>, onlySlugs: List<String>? = null) {
         try {
             val intent = Intent(this, NotificationMonitorService::class.java).apply {
                 action = NotificationMonitorService.ACTION_PUSH_RECORD_NOW
                 putExtra(NotificationMonitorService.EXTRA_RECORD_DATA, JSONObject(record).toString())
+                onlySlugs?.let {
+                    putStringArrayListExtra(
+                        NotificationMonitorService.EXTRA_REPUSH_SLUGS,
+                        ArrayList(it),
+                    )
+                }
             }
             startService(intent)
         } catch (e: Exception) {

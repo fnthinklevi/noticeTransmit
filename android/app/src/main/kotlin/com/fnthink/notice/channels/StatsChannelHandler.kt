@@ -55,7 +55,9 @@ internal class StatsChannelHandler(activity: MainActivity) : ChannelHandler(acti
             "pushRecordNow" -> {
                 // 历史记录"现在推送"：把记录转发给服务手动补推（忽略推送暂停开关）
                 val record = call.argument<Map<String, Any?>>("record") ?: emptyMap()
-                activity.pushRecordNow(record)
+                // 补推范围（T133 片4）。缺键 = null = 不限定；空列表原样传下去 = 谁都不发。
+                val onlySlugs = call.argument<List<String>>("onlySlugs")
+                activity.pushRecordNow(record, onlySlugs)
                 result.success(true)
             }
             "getInstalledApps" -> {

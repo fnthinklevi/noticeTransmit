@@ -61,6 +61,9 @@ class NotificationMonitorService : NotificationListenerService() {
         // 历史记录"现在推送"：由 MainActivity.pushRecordNow 转发，手动补推单条记录
         const val ACTION_PUSH_RECORD_NOW = "com.fnthink.notice.PUSH_RECORD_NOW"
         const val EXTRA_RECORD_DATA = "record_data"
+        // 补推范围（T133 片4）：**没带这个 extra** = 不限定（全部启用通道），
+        // 带**空列表** = 谁都不发。两种形状不许合并，判据见 [RepushScope]。
+        const val EXTRA_REPUSH_SLUGS = "repush_slugs"
 
         @Volatile var webhookUrls: List<String> = emptyList()
         @Volatile var deviceName: String = ""
@@ -475,10 +478,10 @@ class NotificationMonitorService : NotificationListenerService() {
                     updateForegroundNotification()
                 }
                 ACTION_PUSH_RECORD_NOW -> {
-                    // 历史记录"现在推送"：手动补推单条记录（忽略暂停开关）
+                    // 历史记录"现在推送"：手动补推单条记录（忽略暂停开关），范围由 Dart 给定
                     val data = intent.getStringExtra(EXTRA_RECORD_DATA)
                     if (!data.isNullOrEmpty()) {
-                        pushRecordNow(data)
+                        pushRecordNow(data, intent.getStringArrayListExtra(EXTRA_REPUSH_SLUGS))
                     }
                 }
             }
@@ -1296,8 +1299,11 @@ class NotificationMonitorService : NotificationListenerService() {
     /**
      * 历史记录"现在推送"：把单条记录按当前配置立即补推（webhook + 邮件）。
      * 绕过推送暂停开关（用户明确点击了"现在推送"）。
+     *
+     * @param onlySlugs 补推范围，见 [RepushScope]（null = 不限定，空列表 = 谁都不发）。
+     *   范围只传给扇出口，**不在这之前判** —— "这一条到底有几族可再发"是 Dart 那一份判据的活。
      */
-    private fun pushRecordNow(data: String) {
+    private fun pushRecordNow(data: String, onlySlugs: List<String>? = null) {
         serviceScope.launch {
             try {
                 val record = org.json.JSONObject(data)
@@ -1306,7 +1312,12 @@ class NotificationMonitorService : NotificationListenerService() {
                     Log.w(TAG, "Push record now skipped: empty title/content")
                     return@launch
                 }
-                dispatchToChannels(info, alsoBroadcastRecord = false, force = true)
+                dispatchToChannels(
+                    info,
+                    alsoBroadcastRecord = false,
+                    force = true,
+                    onlySlugs = onlySlugs,
+                )
                 updateForegroundNotification()
                 Log.d(TAG, "Manual push now: ${info.appName}")
             } catch (e: Exception) {
@@ -1323,6 +1334,11 @@ class NotificationMonitorService : NotificationListenerService() {
      * @param alsoBroadcastRecord 是否把这条通知写进历史记录。通知到达的主链路要写；
      *   延迟补推 / 聚合 flush / 手动「现在推送」的记录在到达时已经写过，再播一次就多一条历史。
      * @param force 忽略「推送暂停」开关（只给手动补推用）。
+     * @param onlySlugs 手动补推的**族范围**（T133 片4，判据见 [RepushScope]）：null = 全部启用
+     *   通道（"刚落库就要发出去"那一条欠的就是全部），非 null = 只发列出来的那几族，
+     *   其余通道**这一轮不参与**。⚠ 范围不改变主备裁决的输入 —— 谁被选中仍由
+     *   [ChannelRouting] 按全部候选算，范围只在扇出口收窄，否则会写出
+     *   「按族筛它 ⇒ 主通道被筛没了就判成降级」这种第二套路由。
      * @param onWebhooksComplete webhook 全部通道结束后的汇总回调，第二个参数是**本轮是否
      *   降级走了备用通道**（聚合推送要用真实结果逐成员回写，见 [MergePushManager] 头注释 3，
      *   备用标记同理 —— 成员记录也得知道自己是通过备用通道补发的）。
@@ -1331,9 +1347,10 @@ class NotificationMonitorService : NotificationListenerService() {
         info: NotificationInfo,
         alsoBroadcastRecord: Boolean = true,
         force: Boolean = false,
+        onlySlugs: List<String>? = null,
         onWebhooksComplete: ((WebhookResponseParser.ParseResult, Boolean) -> Unit)? = null,
     ) {
-        val routed = routeChannels()
+        val routed = routeChannels(onlySlugs)
         // 「当日已推送」这一句的**唯一**累加点（T131）。原先它长在五个调用点上，每个都是
         // `dispatchToChannels(info); pushCount++` —— 于是"暂停闸把这一发拦住了"与"这一发
         // 推出去了"在计数上长得一模一样，栏里的数字只能一直涨。
@@ -1403,8 +1420,12 @@ class NotificationMonitorService : NotificationListenerService() {
      *
      * 每次现读配置与健康记录（不在进程内缓存）：角色、健康度、锁存都会变，
      * 缓存就得再定一条「谁负责让它失效」的契约，代价大于每次解析几个通道。
+     *
+     * @param onlySlugs 扇出范围（T133 片4）。**先路由、后收窄**：裁决的输入始终是全部候选，
+     *   范围只决定"这一发发给谁"。四族都要过 [RepushScope]，漏一族的表现就是
+     *   「重推一条只有邮件失败的记录，却把钉钉又发一遍」—— 与本片要修的那条同一个形状。
      */
-    private fun routeChannels(): RoutedChannels {
+    private fun routeChannels(onlySlugs: List<String>? = null): RoutedChannels {
         val webhooks = configManager.getWebhookChannelConfigs()
         val apps = configManager.getAppChannelConfigs()
         val emails = EmailManager.getEnabledConfigs(this)
@@ -1439,11 +1460,18 @@ class NotificationMonitorService : NotificationListenerService() {
         if (decision.engagedBackup && !engaged) BackupModeStore.engage(this)
 
         val want = decision.keys.toHashSet()
+        // 扇出范围（片4）：四族各自过一遍。slug 的取法与**送达回传用的那一段**同源 ——
+        // webhook 取 [ChannelSpec.slug]（回传是 `type.name`，Dart 侧 lowercase 归一后即这一串），
+        // 自建应用取 `cfg.type`（本就是 `wecom_app` 这一形态），邮件/幻念各只有一种 slug
+        // （回传侧写的就是 "EMAIL" / "fnthink"，见 dispatchEmail 与 dispatchFnthinkHook）。
+        fun inScope(slug: String) = RepushScope.accepts(onlySlugs, slug)
         return RoutedChannels(
-            webhooks.filter { ("webhook:" + it.id) in want },
-            apps.filter { ("app:" + it.id) in want },
-            emails.filter { ("email:" + it.id) in want },
-            fnthinks.filter { ("fnthink:" + it.id) in want },
+            webhooks.filter {
+                ("webhook:" + it.id) in want && inScope(ChannelRegistry.spec(it.type).slug)
+            },
+            apps.filter { ("app:" + it.id) in want && inScope(it.type.lowercase()) },
+            emails.filter { ("email:" + it.id) in want && inScope("email") },
+            fnthinks.filter { ("fnthink:" + it.id) in want && inScope("fnthink") },
             // T132：标记取 `viaBackup`（本轮不是"只推可用主"），不再取锁存位 `engagedBackup` ——
             // 后者只答"要不要从此以备用为准"，兜底那一档推了全部候选却不该锁存。
             viaBackup = decision.viaBackup,

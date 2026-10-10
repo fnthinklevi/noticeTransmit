@@ -183,9 +183,10 @@ extension _MainPageActions on _MainPageState {
           if (mounted) setState(() {});
           return count;
         },
-        // 历史记录"现在推送"：暂停期间未发送的消息手动补推
+        // 历史记录「现在推送 / 重推」：只补发这一条里可再发的那几族（片4），
+        // 已经成功的那些不重发 —— 收件端多出的是重复消息，不是补发。
         onPushNow: (record) async {
-          await _notificationService.pushRecordNow(record);
+          await _notificationService.repushRecord(record);
           if (mounted) setState(() {});
         },
       ),
