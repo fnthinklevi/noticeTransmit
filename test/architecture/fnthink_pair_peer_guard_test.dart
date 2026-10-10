@@ -84,10 +84,18 @@ void main() {
       1,
       reason: '第二个调用点意味着有人绕过了前置那五句原话（没同意 / 签不出来 / 没登记…）',
     );
+    // T126 之后这一句有**两个表面**（格子里的小字 + 当场弹层），但**作者仍只有一个**：
+    // 第二处必须是把同一个函数的返回值交出去，不许就地另拼 —— 所以这里既数次数、
+    // 也钉那一处的写法（只放宽"几个表面"，不放宽"谁措辞"）。
     expect(
       RegExp(r'fnthinkPairSubmitText\(').allMatches(src).length,
-      1,
+      2,
       reason: '页面自己 switch 一遍 status ⇒ 同一个状态在两个页面说两句话',
+    );
+    expect(
+      src,
+      contains('detail: fnthinkPairSubmitText('),
+      reason: '弹层那一份的正文必须来自同一个作者，另拼一句就是第二个词表',
     );
     final submit = sliceFn(raw, 'Future<void> _pairWithPeer({');
     expect(

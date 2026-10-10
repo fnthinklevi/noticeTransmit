@@ -3314,6 +3314,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fnthinkPairingAckUnknown => '这台没有问过服务器收没收到 —— 重新挂一枚才能确认';
 
   @override
+  String get fnthinkOutcomeDone => '这一步做完了';
+
+  @override
+  String get fnthinkOutcomeFailed => '这一步没做成';
+
+  @override
   String get fnthinkPairRequests => '等你答复的配对请求';
 
   @override

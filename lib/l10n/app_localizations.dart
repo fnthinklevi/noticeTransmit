@@ -6218,6 +6218,18 @@ abstract class AppLocalizations {
   /// **'这台没有问过服务器收没收到 —— 重新挂一枚才能确认'**
   String get fnthinkPairingAckUnknown;
 
+  /// No description provided for @fnthinkOutcomeDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一步做完了'**
+  String get fnthinkOutcomeDone;
+
+  /// No description provided for @fnthinkOutcomeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'这一步没做成'**
+  String get fnthinkOutcomeFailed;
+
   /// No description provided for @fnthinkPairRequests.
   ///
   /// In zh, this message translates to:

@@ -1599,6 +1599,8 @@
     }
   },
   "fnthinkPairingAckUnknown": "This device never asked the server — re-arm the code to confirm",
+  "fnthinkOutcomeDone": "This step went through",
+  "fnthinkOutcomeFailed": "This step didn't go through",
   "fnthinkPairRequests": "Pairing requests waiting for you",
   "fnthinkPairRequestLine": "{peer} asks to pair with you, requesting {level} · {at}",
   "@fnthinkPairRequestLine": {
@@ -2210,7 +2212,8 @@
   "fnthinkSentAt": "Sent",
   "fnthinkPeerAckedAt": "Received by peer",
   "fnthinkReceivedAt": "Received",
-  "fnthinkRecipient": "Recipient",
+  "fnthinkRecipient": "Recipient"
+,
   "l3SettingsSectionTitle": "System settings a peer can request",
   "l3SettingsSectionDesc": "Each item here needs a confirmation you make on this device. Items you have not granted stay listed - greyed out, with the reason.",
   "l3StateMissing": "Not granted on this device yet",
@@ -2220,7 +2223,8 @@
   "l3ItemMonitoring": "Notification forwarding listener",
   "l3ItemCollectInbox": "Fnthink inbox switch",
   "l3NoteAutostart": "Android exposes per-vendor entry points only - there is no unified reading",
-  "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page",
+  "l3NoteLivesInFnthinkPage": "This switch lives on the Fnthink Push page"
+,
   "updateBlockIntegrityFailed": "Update package verification failed. Installation blocked.",
   "updateBlockChecksumMismatch": "Update package integrity check failed (checksum mismatch). Installation blocked.",
   "updateBlockUnverifiable": "Cannot verify the update package. Installation blocked.",

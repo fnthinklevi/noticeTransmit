@@ -3258,6 +3258,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(submit);
       await tester.pumpAndSettle();
+      // T126：发起那一发现在会弹一次当场结论。关掉它，下面那些"格子里那行小字"的断言
+      // 才仍然只有一枚（弹层那一份由 `fnthink_outcome_test.dart` 钉）。
+      await dismissOutcome(tester);
     }
 
     /// 结论那一行现在的文字（没画出来就是 null）。
@@ -3926,9 +3929,29 @@ Future<void> _tapPair(
   await tester.pumpAndSettle();
   await tester.tap(button);
   await tester.pumpAndSettle();
-  if (!approve) return;
+  if (!approve) {
+    // T126：拒绝那一发也会弹结论。测试把它关掉，后面那些 `find.text(结论)` 才仍然
+    // 只指着格子里那枚小字（弹层里那一份由 `fnthink_outcome_test.dart` 钉）。
+    await dismissOutcome(tester);
+    return;
+  }
   await tester.tap(find.text(l10n.confirm));
   await tester.pumpAndSettle();
+  await dismissOutcome(tester);
+}
+
+/// 关掉 T126 那枚"当场结论"弹层（它不在的时候什么都不做）。
+/// 按**弹层里那枚动作**点，不按文案点 —— 这样它不依赖 l10n，也不与确认框的「确认」撞词。
+Future<void> dismissOutcome(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  final action = find.descendant(
+    of: find.byType(CupertinoAlertDialog),
+    matching: find.byType(CupertinoDialogAction),
+  );
+  if (action.evaluate().isNotEmpty) {
+    await tester.tap(action.first);
+    await tester.pumpAndSettle();
+  }
 }
 
 /// 签出去那一发的**载荷**（`fields.body` 是 json 字符串，套两层）。

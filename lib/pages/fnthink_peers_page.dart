@@ -16,6 +16,7 @@ import '../services/fnthink_receive_coordinator.dart';
 import '../theme/app_colors.dart';
 import '../widgets/channel_health_badge.dart';
 import '../widgets/fnthink_card.dart';
+import '../widgets/fnthink_outcome.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/fnthink_pair_dialog.dart';
 import 'fnthink_consent_gate.dart';
@@ -677,6 +678,16 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
     }
     if (!mounted) return;
     setState(() {});
+    // T126：答完那一下要**当场**看得见。下面那格的小字是"事后翻回来还在"的地方，两处同一句
+    // 原话（都走 [_pairAnswerText]），这里不另拼措辞 —— 另拼就是第二个词表。
+    final entry = _pairAnswer;
+    if (entry != null) {
+      await showFnthinkOutcome(
+        context,
+        ok: entry.answer.ok,
+        detail: _pairAnswerText(l10n, entry),
+      );
+    }
   }
 
   /// 最近一次答复的结论。⚠ 档位那一格用的是**服务端回的** `grantedLevel`，不是用户点的那一档：
@@ -845,6 +856,13 @@ class _FnthinkPeersPageState extends State<FnthinkPeersPage> {
       _busy = false;
       _pairSubmit = result;
     });
+    // T126：发起那一发的结论同样要当场看得见。⚠ 这句**不重读名单**（下面那条理由留着），
+    // 但弹层要说清"这一发做成了、接下来等对面点"，否则"发过去了"会被读成"已经配上了"。
+    await showFnthinkOutcome(
+      context,
+      ok: result.ok,
+      detail: fnthinkPairSubmitText(AppLocalizations.of(context), result),
+    );
     // 提交成不成都不重读名单：这一发**不会**让本机名单多出任何东西（要等对方点同意，
     // 而那一下由后台那一轮带回来）。在这里 `_loadPeers()` 的话，界面就会把"还没人同意"
     // 显示成刚刷新过的样子，像是这一发已经结了。

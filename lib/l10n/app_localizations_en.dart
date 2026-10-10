@@ -3471,6 +3471,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'This device never asked the server — re-arm the code to confirm';
 
   @override
+  String get fnthinkOutcomeDone => 'This step went through';
+
+  @override
+  String get fnthinkOutcomeFailed => 'This step didn\'t go through';
+
+  @override
   String get fnthinkPairRequests => 'Pairing requests waiting for you';
 
   @override

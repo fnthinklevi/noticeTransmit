@@ -1620,6 +1620,8 @@
     }
   },
   "fnthinkPairingAckUnknown": "这台没有问过服务器收没收到 —— 重新挂一枚才能确认",
+  "fnthinkOutcomeDone": "这一步做完了",
+  "fnthinkOutcomeFailed": "这一步没做成",
   "fnthinkPairRequests": "等你答复的配对请求",
   "fnthinkPairRequestLine": "{peer} 请求配对你，要的是 {level} · {at}",
   "@fnthinkPairRequestLine": {
@@ -2231,7 +2233,8 @@
   "fnthinkSentAt": "发送时间",
   "fnthinkPeerAckedAt": "对端接收时间",
   "fnthinkReceivedAt": "接收时间",
-  "fnthinkRecipient": "收件人",
+  "fnthinkRecipient": "收件人"
+,
   "l3SettingsSectionTitle": "对端可以请求的系统设置",
   "l3SettingsSectionDesc": "这一档的每一项都要你在设备上点一下确认。没给的项不会藏起来，只会置灰并说清楚差在哪一格。",
   "l3StateMissing": "还没给这台设备授权",
@@ -2241,7 +2244,8 @@
   "l3ItemMonitoring": "通知转发监听",
   "l3ItemCollectInbox": "幻念收件开关",
   "l3NoteAutostart": "系统只有各厂商的入口，不提供统一读数",
-  "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页",
+  "l3NoteLivesInFnthinkPage": "这一格的开关在「幻念推送」页"
+,
   "updateBlockIntegrityFailed": "更新包校验未通过，已阻止安装",
   "updateBlockChecksumMismatch": "更新包完整性校验未通过（校验和不匹配），已阻止安装",
   "updateBlockUnverifiable": "无法完成安全性校验，已阻止安装",
